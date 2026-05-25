@@ -173,8 +173,7 @@ export function StoreOrderHeroSummary({
     if (p != null && Number.isFinite(p))
       return t("store_about_minutes", { minutes: Math.round(p) });
     const prepLabel = commerceExtras.estPrepLabel?.trim();
-    if (prepLabel)
-      return prepLabel.startsWith("약") ? prepLabel : t("store_about_time", { time: prepLabel });
+    if (prepLabel) return t("store_about_time", { time: prepLabel });
     return "—";
   }, [commerceExtras.prepMinutes, commerceExtras.estPrepLabel, t]);
 

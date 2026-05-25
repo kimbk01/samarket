@@ -245,7 +245,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     pickupAvailable: s.pickupAvailable,
     reservationAvailable: !!s.reservationAvailable,
     minOrderLabel: s.minOrderLabel ?? null,
-    estPrepLabel: s.estPrepLabel ?? "20~40분",
+    estPrepLabel: s.estPrepLabel ?? "",
     etaLabel: s.etaLabel,
     deliveryFeeLabel: s.deliveryFeeLabel ?? null,
     deliveryFeeStrikePhp: s.deliveryFeeStrikePhp ?? null,
@@ -556,7 +556,7 @@ function StoreDeliveryRowCardInner({
                     />
                   </svg>
                   <span className="text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70">
-                    더보기
+                    {t("store_show_more")}
                   </span>
                 </div>
               </button>

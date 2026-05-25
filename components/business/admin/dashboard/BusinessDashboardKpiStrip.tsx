@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type DashboardKpi = {
   newOrders: number;
@@ -25,60 +27,61 @@ export function BusinessDashboardKpiStrip({
   productsHubHref: string;
   orderAlertsBadge?: number;
 }) {
+  const { t } = useI18n();
   const withOrderTab = (tab: string) =>
     tab === "all" ? ordersBaseHref : `${ordersBaseHref}&tab=${encodeURIComponent(tab)}`;
 
   const cells: Array<{
     key: string;
-    label: string;
+    labelKey: MessageKey;
     value: string;
-    sub: string;
+    subKey: MessageKey;
     href: string;
     emphasize?: boolean;
   }> = [
     {
       key: "new",
-      label: "신규 주문",
+      labelKey: "business_phase7_175",
       value: String(kpi.newOrders),
-      sub: "접수 대기",
+      subKey: "business_phase7_596",
       href: withOrderTab("new"),
       emphasize: orderAlertsBadge > 0,
     },
     {
       key: "progress",
-      label: "진행 중",
+      labelKey: "store_in_progress",
       value: String(kpi.inProgress),
-      sub: "배달·조리",
+      subKey: "business_phase7_597",
       href: withOrderTab("progress"),
     },
     {
       key: "refund",
-      label: "환불 요청",
+      labelKey: "store_biz_refund_badge",
       value: String(kpi.refundRequested),
-      sub: "처리 필요",
+      subKey: "business_phase7_598",
       href: withOrderTab("progress"),
       emphasize: kpi.refundRequested > 0,
     },
     {
       key: "inquiry",
-      label: "미응답 문의",
+      labelKey: "business_phase7_599",
       value: String(kpi.openInquiries),
-      sub: "답변 필요",
+      subKey: "business_phase7_600",
       href: inquiriesHref,
       emphasize: kpi.openInquiries > 0,
     },
     {
       key: "sales",
-      label: "오늘 매출",
+      labelKey: "business_phase7_214",
       value: formatMoneyPhp(Math.round(kpi.todaySalesPhp)),
-      sub: "완료 기준",
+      subKey: "business_phase7_601",
       href: withOrderTab("done"),
     },
     {
       key: "soldout",
-      label: "품절",
+      labelKey: "business_phase7_317",
       value: String(kpi.soldOutProducts),
-      sub: "상품",
+      subKey: "business_phase7_602",
       href: productsHubHref,
       emphasize: kpi.soldOutProducts > 0,
     },
@@ -96,11 +99,11 @@ export function BusinessDashboardKpiStrip({
               c.emphasize ? "ring-2 ring-inset ring-signature/35 hover:bg-signature/[0.06]" : "hover:bg-sam-app"
             }`}
           >
-            <span className="sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta">{c.label}</span>
+            <span className="sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta">{t(c.labelKey)}</span>
             <span className="mt-1 tabular-nums text-xl font-bold leading-none tracking-tight text-sam-fg sm:text-2xl">
               {c.value}
             </span>
-            <span className="mt-0.5 sam-text-xxs text-sam-muted">{c.sub}</span>
+            <span className="mt-0.5 sam-text-xxs text-sam-muted">{t(c.subKey)}</span>
           </Link>
         ))}
       </div>

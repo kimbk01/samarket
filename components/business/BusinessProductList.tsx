@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { BusinessProduct } from "@/lib/types/business";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface BusinessProductListProps {
   products: BusinessProduct[];
@@ -14,13 +15,16 @@ interface BusinessProductListProps {
 export function BusinessProductList({
   products,
   shopSlug: _shopSlug,
-  emptyMessage = "등록된 상품이 없습니다.",
+  emptyMessage,
   productHref,
 }: BusinessProductListProps) {
+  const { t } = useI18n();
+  const resolvedEmptyMessage = emptyMessage ?? t("business_phase7_058");
+
   if (products.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-        {emptyMessage}
+        {resolvedEmptyMessage}
       </div>
     );
   }
@@ -44,7 +48,7 @@ export function BusinessProductList({
               />
             ) : (
               <div className="flex h-full items-center justify-center sam-text-helper text-sam-meta">
-                이미지 없음
+                {t("admin_banners_no_image")}
               </div>
             )}
           </div>
@@ -52,7 +56,7 @@ export function BusinessProductList({
             <div className="mb-0.5 flex flex-wrap gap-1">
               {p.isFeatured ? (
                 <span className="rounded bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-semibold text-amber-900">
-                  대표
+                  {t("business_phase7_398")}
                 </span>
               ) : null}
               {p.menuGroupName ? (

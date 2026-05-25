@@ -68,7 +68,7 @@ export function BusinessAdminVisibleToggle({
         checked={shownVisible}
         disabled={disabled}
         onCheckedChange={applyVisible}
-        ariaLabel={shownVisible ? "노출 끄기: 매장 목록·탭에서 숨김" : "노출 켜기: 매장 목록·탭에 표시"}
+        ariaLabel={shownVisible ? t("business_phase7_585") : t("business_phase7_586")}
       />
     </div>
   );

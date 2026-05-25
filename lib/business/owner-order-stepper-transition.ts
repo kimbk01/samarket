@@ -1,10 +1,18 @@
-import { allowedOrderTransitions, isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import {
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
-  labelForOwnerTransition,
-} from "@/lib/stores/store-order-process-criteria";
+  buyerOrderTimelineDeliveryStepLabels,
+  buyerOrderTimelinePickupStepLabels,
+} from "@/lib/stores/buyer-order-status-labels";
+import {
+  ownerOrderStepConfirmMessageI18n,
+  ownerStepLabelForNextI18n,
+} from "@/lib/stores/owner-order-ui-labels";
+import { labelForOwnerTransition } from "@/lib/stores/store-order-process-criteria";
 import type { BuyerDetailStepState } from "@/lib/stores/store-order-process-criteria";
+import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
 
 /** 상세 보기 시 신규 주문 자동 접수 — `OwnerOrderAcceptSheet` 프리셋과 동일 기본값 */
 export const OWNER_AUTO_ACCEPT_PREP_MINUTES = 30;
@@ -26,13 +34,14 @@ export type OwnerNextOrderAction = {
 
 export function resolveOwnerNextOrderAction(
   current: string,
-  fulfillment: string
+  fulfillment: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): OwnerNextOrderAction | null {
   const next = ownerOrderForwardTransition(current, fulfillment);
   if (!next) return null;
   return {
     status: next,
-    label: labelForOwnerTransition(current, next, fulfillment),
+    label: labelForOwnerTransition(current, next, fulfillment, lang),
   };
 }
 
@@ -135,10 +144,13 @@ export function ownerOrderCardStepColumnLabel(
   stepIndex: number,
   orderStatus: string,
   fulfillmentType: string,
-  actionableIndex: number | null
+  actionableIndex: number | null,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): string {
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
-  const steps = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
+  const steps = deliveryLike
+    ? buyerOrderTimelineDeliveryStepLabels(lang)
+    : buyerOrderTimelinePickupStepLabels(lang);
   const base = steps[stepIndex] ?? "";
   if (actionableIndex !== stepIndex) return base;
 
@@ -147,20 +159,16 @@ export function ownerOrderCardStepColumnLabel(
 
   if (orderStatus === "pending" && stepIndex === 1) return steps[1] ?? base;
 
-  switch (next) {
-    case "preparing":
-      return "준비(조리) 시작";
-    case "ready_for_pickup":
-      return deliveryLike ? "준비 완료" : (steps[2] ?? "픽업대기");
-    case "delivering":
-      return "배달 시작";
-    case "arrived":
-      return "배송지 도착";
-    case "completed":
-      return deliveryLike ? "배달완료" : "픽업완료";
-    default:
-      return base;
-  }
+  const nextKeys: Partial<Record<string, MessageKey>> = {
+    preparing: "store_owner_step_start_preparing",
+    ready_for_pickup: deliveryLike ? "store_owner_step_ready_complete" : "store_owner_step_pickup_waiting",
+    delivering: "store_owner_step_delivery_start",
+    arrived: "store_owner_step_arrived_short",
+    completed: deliveryLike ? "store_owner_step_delivery_done" : "store_owner_step_pickup_done",
+  };
+  const key = nextKeys[next];
+  if (typeof key === "string") return translate(lang, key);
+  return base;
 }
 
 export type OwnerStepperClickAction =
@@ -170,48 +178,25 @@ export type OwnerStepperClickAction =
 export function ownerOrderStepConfirmMessage(
   buyerLabel: string,
   nextStatus: string,
-  fulfillment: string
+  fulfillment: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): string {
-  const who = buyerLabel.trim() || "주문자";
-  const deliveryLike = isDeliveryFulfillment(fulfillment);
-  switch (nextStatus) {
-    case "accepted":
-      return `${who}님의 주문을 접수합니다.`;
-    case "preparing":
-      return `${who}님의 주문을 준비(조리) 처리합니다.`;
-    case "ready_for_pickup":
-      return deliveryLike
-        ? `${who}님의 주문 준비를 완료하고 배달을 준비합니다.`
-        : `${who}님의 주문 준비를 완료하고 픽업 대기로 전환합니다.`;
-    case "delivering":
-      return `${who}님의 주문 배달을 시작합니다.`;
-    case "arrived":
-      return `${who}님의 주문이 배송지에 도착했습니다.`;
-    case "completed":
-      return deliveryLike
-        ? `${who}님의 주문을 배달 완료 처리합니다.`
-        : `${who}님의 주문을 픽업 완료 처리합니다.`;
-    default:
-      return `${who}님의 주문 상태를 변경합니다.`;
-  }
+  return ownerOrderStepConfirmMessageI18n(lang, buyerLabel, nextStatus, fulfillment);
 }
 
-function stepLabelForNext(nextStatus: string, fulfillment: string): string {
+function stepLabelForNext(nextStatus: string, fulfillment: string, lang: AppLanguageCode): string {
   const deliveryLike = isDeliveryFulfillment(fulfillment);
-  const steps = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
-  if (nextStatus === "accepted" || nextStatus === "preparing") return steps[1] ?? "준비(조리)중";
-  if (nextStatus === "ready_for_pickup") return deliveryLike ? "준비 완료" : (steps[2] ?? "픽업대기");
-  if (nextStatus === "delivering") return "배달 시작";
-  if (nextStatus === "arrived") return "배송지 도착";
-  if (nextStatus === "completed") return steps[3] ?? "배달완료";
-  return nextStatus;
+  const deliverySteps = buyerOrderTimelineDeliveryStepLabels(lang);
+  const pickupSteps = buyerOrderTimelinePickupStepLabels(lang);
+  return ownerStepLabelForNextI18n(lang, nextStatus, fulfillment, deliverySteps, pickupSteps);
 }
 
 export function resolveOwnerStepperClickAction(
   orderStatus: string,
   fulfillmentType: string,
   clickedStepIndex: number,
-  buyerLabel: string
+  buyerLabel: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): OwnerStepperClickAction | null {
   const terminal = new Set(["cancelled", "refunded", "refund_requested", "completed"]);
   if (terminal.has(orderStatus)) return null;
@@ -229,7 +214,7 @@ export function resolveOwnerStepperClickAction(
   return {
     kind: "confirm",
     nextStatus: next,
-    message: ownerOrderStepConfirmMessage(buyerLabel, next, fulfillmentType),
-    stepLabel: stepLabelForNext(next, fulfillmentType),
+    message: ownerOrderStepConfirmMessage(buyerLabel, next, fulfillmentType, lang),
+    stepLabel: stepLabelForNext(next, fulfillmentType, lang),
   };
 }

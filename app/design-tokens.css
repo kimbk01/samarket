@@ -381,20 +381,36 @@
 }
 
 /**
- * 매장 사장님(owner) 전용 — `/my/business/*` 에서 `data-biz="1"` 로 스코프.
- * 구매자 화면 `--sam-*` 는 변경하지 않고, 사장님앱 CTA/탭 강조만 `--biz-*` 로 분리.
+ * 매장 사장님(owner) 전용 — `/stores/owner/*`·`/my/business/*` 에서 `data-biz="1"` 로 스코프.
+ * 구매자 화면 `--sam-*` 는 변경하지 않고, 사장님앱 CTA/탭/헤더만 `--biz-*` (스타벅스 톤) 로 분리.
  */
 [data-biz="1"] {
-  --biz-primary: #1c8db8;
-  --biz-primary-hover: #178099;
-  --biz-primary-active: #146b8a;
-  --biz-primary-soft: color-mix(in srgb, #1c8db8 14%, #ffffff);
-  --biz-app-bg: #f6f7f9;
-  --biz-card-bg: #ffffff;
-  --biz-card-border: #e7eaef;
+  --biz-green: #0b421a;
+  --biz-cream: #fffcfc;
+  --biz-tan: #eac784;
+  --biz-brown: #362415;
+  --biz-brown-muted: #604c4c;
+
+  --biz-primary: var(--biz-green);
+  --biz-primary-hover: #106828;
+  --biz-primary-active: #082f14;
+  --biz-primary-soft: color-mix(in srgb, var(--biz-green) 8%, var(--biz-cream));
+  --biz-tan-soft: color-mix(in srgb, var(--biz-tan) 35%, var(--biz-cream));
+  --biz-header-bg: color-mix(in srgb, var(--biz-tan) 45%, var(--biz-cream));
+  --biz-app-bg: color-mix(in srgb, var(--biz-tan) 10%, var(--biz-cream));
+  --biz-card-bg: var(--biz-cream);
+  --biz-card-border: color-mix(in srgb, var(--biz-brown-muted) 22%, var(--biz-cream));
   --biz-card-shadow: none;
-  --biz-text: #1f2937;
-  --biz-text-muted: #667085;
+  --biz-text: var(--biz-brown);
+  --biz-text-muted: var(--biz-brown-muted);
+
+  --sam-primary: var(--biz-primary);
+  --sam-primary-hover: var(--biz-primary-hover);
+  --sam-primary-active: var(--biz-primary-active);
+  --sam-primary-soft: var(--biz-tan-soft);
+  --sam-primary-soft-2: color-mix(in srgb, var(--biz-tan) 50%, var(--biz-cream));
+  --sam-primary-border: color-mix(in srgb, var(--biz-green) 28%, var(--biz-cream));
+  --signature: var(--biz-primary);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -487,13 +503,23 @@
   }
 
   [data-biz="1"] {
-    --biz-app-bg: #12161d;
-    --biz-card-bg: #1a2029;
-    --biz-card-border: #2d3747;
+    --biz-app-bg: #1a1614;
+    --biz-card-bg: #241f1c;
+    --biz-card-border: #3d3530;
     --biz-card-shadow: none;
-    --biz-text: #eef2f7;
-    --biz-text-muted: #93a0b5;
-    --biz-primary-soft: color-mix(in srgb, #1c8db8 22%, var(--biz-card-bg));
+    --biz-text: #fffcfc;
+    --biz-text-muted: #c4b4b0;
+    --biz-primary: #1a7a3a;
+    --biz-primary-hover: #208844;
+    --biz-primary-active: #146830;
+    --biz-primary-soft: color-mix(in srgb, var(--biz-green, #0b421a) 22%, var(--biz-card-bg));
+    --biz-tan-soft: color-mix(in srgb, var(--biz-tan, #eac784) 18%, var(--biz-card-bg));
+    --biz-header-bg: color-mix(in srgb, var(--biz-tan, #eac784) 22%, var(--biz-card-bg));
+    --sam-primary: var(--biz-primary);
+    --sam-primary-hover: var(--biz-primary-hover);
+    --sam-primary-active: var(--biz-primary-active);
+    --sam-primary-soft: var(--biz-tan-soft);
+    --signature: var(--biz-primary);
   }
 }
 
@@ -501,10 +527,10 @@
 @keyframes owner-new-order-pulse {
   0%,
   100% {
-    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 0 rgba(28, 141, 184, 0.28);
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 0 rgba(11, 66, 26, 0.28);
   }
   50% {
-    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 10px rgba(28, 141, 184, 0);
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 10px rgba(11, 66, 26, 0);
   }
 }
 

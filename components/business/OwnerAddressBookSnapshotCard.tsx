@@ -6,6 +6,7 @@ import {
   stripCountryFromAddressDisplayLine,
 } from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type OwnerAddressBookSnapshotMode = "representative" | "store_linked";
 
@@ -34,6 +35,7 @@ export function OwnerAddressBookSnapshotCard({
   /** 주소 목록 API 실패 시 — `addressReady` 가 true 일 때만 표시 */
   listError?: string | null;
 }) {
+  const { t } = useI18n();
   const line =
     addressDefault?.id != null
       ? stripCountryFromAddressDisplayLine(
@@ -47,12 +49,10 @@ export function OwnerAddressBookSnapshotCard({
     : `rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 ${className}`.trim();
 
   const title =
-    snapshotMode === "store_linked" ? "매장 주소 (내정보 · 주소록)" : "주소 (내정보 · 주소록)";
+    snapshotMode === "store_linked" ? t("business_phase7_668") : t("business_phase7_669");
 
   const emptyHint =
-    snapshotMode === "store_linked"
-      ? "이 매장에 연결된 주소록 항목이 없습니다. 주소록에서 유형을 「매장」으로 고르고 이 매장을 연결한 뒤, 지도에서 위치를 저장해 주세요."
-      : "대표 주소가 없습니다. 주소록에서 대표 주소를 먼저 설정해 주세요.";
+    snapshotMode === "store_linked" ? t("business_phase7_670") : t("business_phase7_671");
 
   return (
     <div className={shell}>
@@ -64,7 +64,7 @@ export function OwnerAddressBookSnapshotCard({
             : addressDefault?.id
               ? line
               : emptyHint
-          : "불러오는 중…"}
+          : t("common_loading")}
       </p>
       <div className="mt-2 flex flex-wrap gap-2">
         <Link
@@ -72,7 +72,7 @@ export function OwnerAddressBookSnapshotCard({
           prefetch={false}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
         >
-          주소록 열기
+          {t("business_phase7_672")}
         </Link>
       </div>
     </div>

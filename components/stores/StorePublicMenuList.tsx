@@ -72,26 +72,27 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
     <div className="flex flex-wrap gap-1">
       {p.is_owner_recommended ? (
         <span className="delivery-badge delivery-badge--owner">
-          ?�장??추천
+          {t("store_badge_owner_recommended")}
         </span>
       ) : null}
       {p.is_representative ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#FFF4E5] px-1.5 text-[10px] font-bold text-[#B45309] ring-1 ring-amber-200/80">
-          ?�?�메??        </span>
+          {t("store_badge_menu_representative")}
+        </span>
       ) : null}
-      {typeLabel && typeLabel !== "?�품" ? (
+      {typeLabel && typeLabel !== t("store_item_type_product") ? (
         <span className="delivery-badge delivery-badge--primary">
           {typeLabel}
         </span>
       ) : null}
       {p.has_options ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] border border-neutral-200 bg-white px-1.5 text-[10px] font-bold text-neutral-600">
-          ?�션
+          {t("store_menu_options_badge")}
         </span>
       ) : null}
       {soldOut ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-red-50 px-1.5 text-[10px] font-bold text-red-700">
-          ?�절
+          {t("store_sold_out")}
         </span>
       ) : null}
     </div>

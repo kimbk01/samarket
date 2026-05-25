@@ -115,6 +115,7 @@ import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-conf
 import {
   STORE_ADDRESS_STREET_LABEL,
 } from "@/lib/stores/store-address-form-ui";
+import { resolveStoreCheckoutClientError } from "@/lib/stores/resolve-store-checkout-client-error";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -161,10 +162,7 @@ type StoreHead = {
   address_line1?: string | null;
   address_line2?: string | null;
   can_order_store?: boolean;
-  owner_block_message?: string | null;
 };
-
-const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
 
 type ProfileContactSnap = {
   userAddressId?: string | null;
@@ -1138,7 +1136,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [commerceStore, hoursTick]);
 
   const ownerOrderBlocked = store?.can_order_store === false;
-  const ownerOrderBlockedMessage = store?.owner_block_message ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
+  const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const checkoutBlocked =
     ownerOrderBlocked || (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
@@ -1219,7 +1217,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   async function submitOrder() {
     if (!store || lines.length === 0) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setErr("네트워크에 연결된 뒤 다시 주문해 주세요.");
+      setErr(t("store_network_order_retry"));
       return;
     }
     if (busy || orderSubmitFlightRef.current) return;
@@ -1240,21 +1238,19 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       return;
     }
     if (fulfillment === "pickup" && !offerPickup) {
-      setErr("이 매장·장바구니 조합에서는 포장 픽업을 선택할 수 없습니다.");
+      setErr(t("store_err_pickup_combo"));
       return;
     }
     if (fulfillment === "local_delivery" && !offerDelivery) {
-      setErr("이 매장에서는 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요.");
+      setErr(t("store_err_delivery_not_offered"));
       return;
     }
     if (fulfillment === "shipping" && !offerShip) {
-      setErr("장바구니 품목 중 배달(배송)이 불가한 상품이 있습니다.");
+      setErr(t("store_err_shipping_items_in_cart"));
       return;
     }
     if (region && !city) {
-      setErr(
-        "주소: 지역만 고른 배달주소는 주문할 수 없습니다. 해당 항목을 삭제한 뒤 배송지 추가에서 동네까지 선택해 주세요."
-      );
+      setErr(t("store_err_region_only_address"));
       return;
     }
     if (needsAddressAndPhone && !isCompletePhMobile(buyerPhone)) {
@@ -1262,20 +1258,18 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       return;
     }
     if (needsAddressAndPhone && !resolvedCheckoutGeo) {
-      setErr(
-        "배달: 마이페이지 주소를 확인하거나 배송지 추가 후, 라디오로 배달 주소를 선택해 주세요."
-      );
+      setErr(t("store_err_select_delivery_address"));
       return;
     }
     if (fulfillment === "local_delivery" && !deliveryUserAddressIdForSubmit) {
-      setErr("배달: 저장된 주소를 선택해 주세요. 주소 관리를 통해 검색 주소를 저장한 뒤 주문할 수 있습니다.");
+      setErr(t("store_err_saved_address_required"));
       return;
     }
     if (needsAddressAndPhone && !deliveryAddressReady) {
       setErr(
         resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
-          ? "배달 지역(지역/도시)을 선택해 주세요. 주소 관리에서 Google 주소를 저장할 때 동네·도시가 맞는지 확인해 주세요."
-          : `배달: 선택한 배달주소에 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 마이페이지에서 주소를 저장해 주세요.`
+          ? t("store_err_delivery_region_city_google_hint")
+          : t("store_err_delivery_address_incomplete", { streetLabel: STORE_ADDRESS_STREET_LABEL })
       );
       return;
     }
@@ -1292,13 +1286,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const phoneDisp = isCompletePhMobile(phoneDigits)
       ? formatPhMobileDisplayPlus63(phoneDigits)
       : phoneDigits.length > 0
-        ? `${formatPhMobileDisplayPlus63(phoneDigits)} (입력 미완성)`
-        : "(미입력)";
+        ? t("store_checkout_phone_partial", { phone: formatPhMobileDisplayPlus63(phoneDigits) })
+        : t("store_checkout_not_entered");
     const addrDisp =
       formatStoreOrderDeliveryAddressMultiline({
         summary: summaryForSubmit,
         detail: addressDetail.trim(),
-      }) || "(미입력)";
+      }) || t("store_checkout_not_entered");
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
     const grandForConfirm =
@@ -1316,7 +1310,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   async function submitOrderConfirmed() {
     if (!store || lines.length === 0) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setErr("네트워크에 연결된 뒤 다시 주문해 주세요.");
+      setErr(t("store_network_order_retry"));
       return;
     }
     if (busy || orderSubmitFlightRef.current) return;
@@ -1399,33 +1393,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
-        const apiMessage =
-          typeof orderJson.message === "string" && orderJson.message.trim() ?
-            orderJson.message.trim()
-          : null;
         setErr(
-          apiMessage ??
-            (code === "insufficient_stock"
-              ? "재고가 부족합니다. 장바구니를 수정한 뒤 다시 시도해 주세요."
-              : code === "cannot_order_own_store"
-                ? "본인 매장은 주문할 수 없습니다."
-                : code === "store_closed"
-                  ? "지금은 준비 중이라 주문할 수 없습니다."
-                  : code === "below_min_order"
-                    ? "최소 주문 금액에 맞지 않습니다. 장바구니 금액을 늘린 뒤 다시 시도해 주세요."
-                    : code === "delivery_address_required"
-                      ? "배달·배송 주소를 입력해 주세요."
-                      : code === "client_unit_php_required" || code === "price_changed"
-                        ? "메뉴 가격이 변경되어 장바구니를 다시 확인해 주세요."
-                        : code === "delivery_region_city_required"
-                          ? "배달 지역(지역/도시)을 선택해 주세요. 주소 관리에서 Google 주소를 저장할 때 동네·도시가 맞는지 확인해 주세요."
-                          : code === "store_pickup_disabled"
-                          ? "이 매장은 포장 픽업 주문을 받지 않습니다. 수령 방식을 바꿔 주세요."
-                          : code === "store_delivery_disabled"
-                            ? "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요."
-                            : code === "payment_method_required" || code === "payment_method_invalid"
-                              ? "결제 방법을 확인해 주세요. 매장에서 허용한 수단만 선택할 수 있습니다."
-                              : `주문에 실패했습니다. (${code})`)
+          resolveStoreCheckoutClientError(t, code, {
+            apiMessage: typeof orderJson.message === "string" ? orderJson.message : null,
+          })
         );
         return;
       }
@@ -1457,7 +1428,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         );
       }
       if (!oid) {
-        setErr("주문은 접수됐지만 상세 화면으로 이동할 수 없습니다. 주문 내역에서 확인해 주세요.");
+        setErr(t("store_err_order_redirect_failed"));
         return;
       }
 
@@ -1518,7 +1489,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
               <p className="font-medium text-amber-950">
-                다른 매장(
+                {t("store_cart_other_store_carts_prefix")}
                 {otherBuckets.map((b, i) => (
                   <span key={b.storeId}>
                     {i > 0 ? ", " : null}
@@ -1530,26 +1501,30 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     </Link>
                   </span>
                 ))}
-                ) 장바구니가 있습니다. 해당 매장 장바구니를 비우거나 주문한 뒤 이 매장을 이용해 주세요.
+                {t("store_cart_other_store_carts_suffix")}
               </p>
               <ul className="mt-3 space-y-2">
                 {otherBuckets.map((b) => (
                   <li key={b.storeId} className="flex flex-wrap items-center gap-2">
                     <span className="sam-text-helper text-amber-900/90">
-                      {b.storeName} · 상품 {b.itemCount}종 · {formatMoneyPhp(b.subtotalPhp)}
+                      {t("store_cart_items_line", {
+                        name: b.storeName,
+                        count: b.itemCount,
+                        amount: formatMoneyPhp(b.subtotalPhp),
+                      })}
                     </span>
                     <button
                       type="button"
                       onClick={() => cart.clearStoreCart(b.storeId)}
                       className="sam-text-helper font-semibold text-red-700 underline"
                     >
-                      이 매장 비우기
+                      {t("store_cart_clear_this_store")}
                     </button>
                     <Link
                       href={`/stores/${encodeURIComponent(b.storeSlug)}/cart`}
                       className="sam-text-helper font-semibold text-signature underline"
                     >
-                      장바구니 열기
+                      {t("store_cart_open_cart")}
                     </Link>
                   </li>
                 ))}
@@ -1562,7 +1537,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 href="/stores"
                 className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
               >
-                가게 둘러보기
+                {t("store_browse_stores")}
               </Link>
             ) : null}
             {store?.slug || storeSlug ? (
@@ -1570,7 +1545,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
                 className="sam-text-body text-sam-muted underline"
               >
-                {store?.store_name ?? storeSlug} 메뉴 보기
+                {t("store_view_menu_link", { storeName: store?.store_name ?? storeSlug })}
               </Link>
             ) : null}
           </div>
@@ -1606,8 +1581,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const checkoutPromoLine =
     discountAmountPhp > 0
       ? discountPercentOverall > 0
-        ? `${discountPercentOverall}% 할인 ${formatMoneyPhp(discountAmountPhp)} 적용`
-        : `할인 ${formatMoneyPhp(discountAmountPhp)} 적용`
+        ? t("store_discount_applied", { pct: discountPercentOverall })
+        : `${t("store_discount_amount")} ${formatMoneyPhp(discountAmountPhp)}`
       : null;
 
   const checkoutMinOrderFooterLine =
@@ -1678,7 +1653,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
       {otherBuckets.length > 0 ? (
         <div className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3 text-[13px] text-[#888]`}>
-          다른 매장 장바구니도 있습니다. 해당 매장 페이지에서 장바구니를 열 수 있어요.
+          {t("store_cart_other_buckets_hint")}
         </div>
       ) : null}
 
@@ -1739,12 +1714,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {lines.length > 0 && fulfillmentOptions.length === 0 ? (
               canPickup || canDelivery || canShip ? (
                 <p className="mt-2 sam-text-helper leading-snug text-amber-800">
-                  이 매장의 「서비스 형태」에서 포장 픽업과 배달이 모두 꺼져 있거나, 담긴 상품과 맞지 않아 수령
-                  방식을 고를 수 없습니다. 매장 설정을 확인하거나 항목을 조정한 뒤 다시 시도해 주세요.
+                  {t("store_fulfillment_mode_unavailable")}
                 </p>
               ) : (
                 <p className="mt-2 sam-text-helper leading-snug text-amber-800">
-                  담긴 상품은 포장 픽업·배달 모두 불가로 표시되어 있습니다. 항목을 삭제한 뒤 다시 담아 주세요.
+                  {t("store_fulfillment_all_items_blocked")}
                 </p>
               )
             ) : null}
@@ -1789,7 +1763,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           <div className="rounded-ui-rect border border-sky-100 bg-sky-50/90 px-3 py-2.5">
             <p className="sam-text-helper font-semibold text-sky-950">{t("store_pickup_location")}</p>
             <p className="mt-1 sam-text-xxs leading-snug text-sky-900/85">
-              이 주소에서 수령합니다. 배달을 고르면 아래에 입력하는 주소가 배달지로 전달됩니다.
+              {t("store_pickup_address_at_store_hint")}
             </p>
             <ul className="mt-2 list-none space-y-0.5 sam-text-body-secondary leading-relaxed text-sky-950">
               {storePickupLines.map((line, i) => (
@@ -1801,14 +1775,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 href={`/stores/${encodeURIComponent(store.slug)}/info`}
                 className="mt-2 inline-block sam-text-helper font-medium text-signature underline"
               >
-                매장 정보
+                {t("store_label_store_info")}
               </Link>
             : null}
           </div>
         ) : fulfillment === "pickup" && offerPickup ? (
           <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-3 py-2 sam-text-helper text-amber-950">
-            매장 주소가 비어 있어 픽업 장소를 표시할 수 없습니다. 사장님 메뉴에서 매장 기본 정보를
-            등록해 주세요.
+            {t("store_pickup_address_missing")}
           </p>
         ) : null}
 
@@ -1840,11 +1813,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   aria-label={t("store_order_contact_aria")}
                 />
                 <p className="sam-text-xxs leading-snug text-sam-muted">
-                  프로필에 저장된 번호가 없으면 여기에 입력하거나{" "}
+                  {t("store_checkout_phone_profile_hint_prefix")}{" "}
                   <Link href="/mypage/account" className="font-medium text-signature underline">
-                    계정 정보
+                    {t("store_checkout_phone_profile_hint_account_link")}
                   </Link>
-                  에서 등록해 주세요.
+                  {t("store_checkout_phone_profile_hint_suffix")}
                 </p>
               </div>
             ) : (
@@ -1859,7 +1832,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
             >
             <p className="sam-text-body font-medium text-sam-muted">
-              배송지 <span className="text-red-600">*</span>
+              {t("store_label_delivery_address")} <span className="text-red-600">*</span>
             </p>
             <ul className={BAEMIN_CART_ADDRESS_LIST_CLASS}>
               {!checkoutContactReady ? (
@@ -1870,18 +1843,18 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               {checkoutContactReady && !profileSnap && savedAddresses.length === 0 ? (
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
                   <p className="sam-text-helper leading-snug text-amber-950">
-                    로그인하면 마이페이지에 저장한 배달 주소를 여기서 선택할 수 있습니다.
+                    {t("store_cart_login_for_saved_address")}
                   </p>
                 </li>
               ) : null}
               {checkoutContactReady && legacyLsNoticeCount > 0 ? (
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sky-50/80`}>
                   <p className="sam-text-helper leading-snug text-sky-950">
-                    예전 장바구니에만 있던 배송지 {legacyLsNoticeCount}건은 저장되지 않습니다.{" "}
+                    {t("store_cart_legacy_address_notice", { count: legacyLsNoticeCount })}{" "}
                     <Link href="/mypage/addresses" className="font-semibold text-signature underline">
-                      주소 관리
+                      {t("store_address_manage_link")}
                     </Link>
-                    에서 Google 검색 주소를 저장한 뒤 다시 선택해 주세요.
+                    {t("store_cart_legacy_address_suffix")}
                   </p>
                 </li>
               ) : null}
@@ -1907,8 +1880,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       }}
                       aria-label={
                         profileLinkedAddressRow
-                          ? `${getUserAddressDesignationPlainText(profileLinkedAddressRow)}, 배달 주소 선택`
-                          : "마이페이지 배달 주소 선택"
+                          ? t("store_cart_saved_address_aria", {
+                              label: getUserAddressDesignationPlainText(profileLinkedAddressRow),
+                              index: 1,
+                            })
+                          : t("store_cart_profile_default_delivery")
                       }
                     />
                     <div className="min-w-0 flex-1">
@@ -1921,11 +1897,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                             : null
                         }
                         profileFallback={profileAddressFallbackParts}
-                        emptyFallback="마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요."
+                        emptyFallback={t("store_cart_no_saved_delivery_address")}
                       />
                       {!profileDeliveryReady && profileAddressBodyText ? (
                         <p className="mt-1.5 sam-text-xxs leading-snug text-amber-800">
-                          주문 전 지역·주소 한 줄이 3자 이상인지 확인해 주세요.
+                          {t("store_cart_address_check_before_order")}
                         </p>
                       ) : null}
                     </div>
@@ -1954,7 +1930,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                             selectDeliveryAddressId(selectionId);
                             applyCheckoutBuyerPhone({ selectedAddressPhone: a.phoneNumber ?? null });
                           }}
-                          aria-label={`${getUserAddressDesignationPlainText(a)}, 저장 주소 ${idx + 1} 선택`}
+                          aria-label={t("store_cart_saved_address_aria", {
+                            label: getUserAddressDesignationPlainText(a),
+                            index: idx + 1,
+                          })}
                         />
                         <div className="min-w-0 flex-1">
                           <StoreCartCheckoutAddressRowBodyLazy
@@ -1977,23 +1956,23 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 href="/mypage/addresses"
                 className="inline-flex items-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-3 py-2 sam-text-body-secondary font-bold text-[color:var(--delivery-primary)] shadow-sm"
               >
-                주소 관리에서 저장
+                {t("store_cart_save_from_address_manage")}
               </Link>
             </div>
             {!deliveryAddressReady && checkoutContactReady && (profileSnap || savedAddresses.length > 0) ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 {resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
-                  ? "배달 지역(지역/도시)을 확인할 수 없습니다. 주소 관리에서 주소를 다시 저장하거나 동네·도시를 맞춰 주세요."
-                  : `선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다.`}
+                  ? t("store_err_delivery_region_unverified")
+                  : t("store_cart_verify_delivery_address", { streetLabel: STORE_ADDRESS_STREET_LABEL })}
               </p>
             ) : null}
             {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
-                마이페이지 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나{" "}
+                {t("store_cart_address_too_short")}{" "}
                 <Link href="/mypage/addresses" className="font-semibold underline">
-                  주소 관리
+                  {t("store_cart_profile_address_manage")}
                 </Link>
-                에서 저장 주소를 추가해 주세요.
+                {t("store_cart_address_add_suffix")}
               </p>
             ) : null}
             {fulfillment === "local_delivery" && deliveryAddressReady ? (
@@ -2041,20 +2020,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             maxLength={500}
           />
           <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
-            입력하시면 매장 사장님 주문 관리 화면에 &apos;고객 요청 사항&apos;으로 표시됩니다.
+            {t("store_checkout_request_owner_hint")}
           </p>
         </div>
 
         {fulfillment === "local_delivery" && commerce.deliveryCourierLabel?.trim() ? (
           <p className="sam-text-xxs leading-snug text-sam-muted">
-            배달 업체(안내): {commerce.deliveryCourierLabel.trim()}
+            {t("store_delivery_courier_line", { label: commerce.deliveryCourierLabel.trim() })}
           </p>
         ) : null}
         {checkoutBlocked && frontCommerce ? (
           <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
             {frontCommerce.inBreak
-              ? `준비중 · Break time: ${frontCommerce.breakRangeLabel}. 쉬는 시간에는 주문할 수 없습니다.`
-              : "지금은 준비 중이라 주문할 수 없습니다."}
+              ? t("store_menu_blocked_break", { range: frontCommerce.breakRangeLabel })
+              : t("store_err_preparing")}
           </p>
         ) : null}
         {err ? (

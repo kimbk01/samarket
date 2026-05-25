@@ -406,7 +406,7 @@ export function BusinessAdminShell({
   const sectionDefs = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const sections = useMemo(() => resolveBusinessAdminSidebar(sectionDefs, t), [sectionDefs, t]);
   const pageTitle = getBusinessAdminPageTitle(pathname);
-  const shopName = selectedRow?.store_name?.trim() || "매장";
+  const shopName = selectedRow?.store_name?.trim() || t("business_phase7_579");
   const publicStoreHref =
     selectedRow &&
     String(selectedRow.approval_status) === "approved" &&
@@ -430,7 +430,9 @@ export function BusinessAdminShell({
         href={ownerNotificationsHref}
         className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
         aria-label={
-          ownerHeaderBellCount > 0 ? `알림 · 확인할 일 ${ownerHeaderBellCount}건` : "알림"
+          ownerHeaderBellCount > 0
+            ? t("business_phase7_581", { v1: String(ownerHeaderBellCount) })
+            : t("business_phase7_580")
         }
       >
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -856,7 +858,7 @@ export function BusinessAdminShell({
                 backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
                 backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
                 backPreferHistory
-                backAriaLabel="이전 화면으로"
+                backAriaLabel={t("business_phase7_351")}
                 shopName={shopName}
                 pageTitle={isHub ? null : pageTitle}
                 rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
@@ -873,7 +875,7 @@ export function BusinessAdminShell({
                 !isOwnerMobileAdminShell
                   ? `pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] ${OWNER_DESKTOP_SHELL_MIN_TW}:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]`
                   : ""
-              } ${isOwnerMobileAdminShell ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${
+              } bg-[var(--biz-app-bg)] ${
                 isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren
               }${isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""}`}
             >

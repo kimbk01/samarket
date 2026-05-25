@@ -12,6 +12,7 @@ import {
 } from "./owner-dashboard-ui";
 
 type UrgentCell = {
+  id: string;
   title: string;
   count: number;
   sub?: string;
@@ -39,40 +40,50 @@ export function OwnerUrgentOrdersCard({
   const unconfirmed = Math.max(snapshot.pending_over_3m_count, 0);
   const cells: UrgentCell[] = [
     {
-      title: "신규 주문",
+      id: "new",
+      title: t("store_owner_dash_new_orders"),
       count: snapshot.pending_accept_count,
       sub:
         unconfirmed > 0
-          ? `${unconfirmed}건이 3분 이상 대기중`
+          ? t("store_owner_dash_wait_over_3m", { count: unconfirmed })
           : snapshot.pending_accept_count > 0
-            ? "접수 대기 중"
+            ? t("store_owner_dash_waiting_accept")
             : undefined,
       danger: unconfirmed > 0 || snapshot.pending_accept_count > 0,
       href: ordersHref,
     },
     {
-      title: "조리 지연",
+      id: "cooking",
+      title: t("store_owner_dash_cooking_delay"),
       count: snapshot.cooking_delay_count,
-      sub: snapshot.cooking_delay_count > 0 ? "예상시간 초과" : "정상",
+      sub:
+        snapshot.cooking_delay_count > 0
+          ? t("store_owner_dash_over_eta")
+          : t("store_owner_dash_status_normal"),
       danger: snapshot.cooking_delay_count > 0,
       href: buildStoreOrdersHref({ storeId, tab: "preparing" }),
     },
     {
-      title: "배달 지연",
+      id: "delivery",
+      title: t("store_owner_dash_delivery_delay"),
       count: snapshot.delivery_delay_count,
       sub:
         snapshot.rider_unassigned_count > 0
-          ? "라이더 미배정"
+          ? t("store_owner_dash_rider_unassigned")
           : snapshot.delivery_delay_count > 0
-            ? "배달 지연 발생"
-            : "정상",
+            ? t("store_owner_dash_delivery_delayed_occurred")
+            : t("store_owner_dash_status_normal"),
       danger: snapshot.delivery_delay_count > 0 || snapshot.rider_unassigned_count > 0,
       href: buildStoreOrdersHref({ storeId, tab: "shipping" }),
     },
     {
-      title: "미확인 주문",
+      id: "unconfirmed",
+      title: t("store_owner_dash_unconfirmed_orders"),
       count: unconfirmed,
-      sub: unconfirmed > 0 ? "3분 이상 미확인" : "확인 완료",
+      sub:
+        unconfirmed > 0
+          ? t("store_owner_dash_unconfirmed_over_3m")
+          : t("store_owner_dash_confirm_done"),
       danger: unconfirmed > 0,
       href: ordersHref,
     },
@@ -92,7 +103,7 @@ export function OwnerUrgentOrdersCard({
         <div className="flex items-center gap-1.5">
           <Siren className="h-4 w-4 text-[#DC2626]" aria-hidden />
           <h2 id="owner-urgent-title" className={ownerDashTypography.sectionTitle}>
-            긴급 처리
+            {t("store_owner_dash_urgent_title")}
           </h2>
         </div>
         <button
@@ -113,14 +124,14 @@ export function OwnerUrgentOrdersCard({
         <div className="grid grid-cols-2 gap-2">
           {cells.map((c) => (
             <Link
-              key={c.title}
+              key={c.id}
               href={c.href}
               prefetch={false}
-              className="min-h-[76px] rounded-[4px] border border-[#E5E7EB] bg-[#FAFAFA] p-2.5 transition active:bg-gray-100"
+              className="min-h-[76px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2.5 transition active:bg-[var(--biz-primary-soft)]"
             >
               <p className={ownerDashTypography.cellTitle}>{c.title}</p>
               <p className={`mt-1 ${c.danger ? ownerDashTypography.metricUrgent : ownerDashTypography.metric}`}>
-                {c.count}건
+                {t("store_owner_dash_count_orders", { count: c.count })}
               </p>
               {c.sub ? (
                 <p
@@ -145,7 +156,7 @@ export function OwnerUrgentOrdersCard({
         } ${pulseNew && hasUrgent ? "animate-pulse" : ""}`}
         aria-disabled={!hasUrgent}
       >
-        주문 확인하기
+        {t("store_owner_dash_review_orders_btn")}
       </Link>
     </section>
   );

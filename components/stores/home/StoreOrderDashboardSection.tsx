@@ -139,7 +139,7 @@ export function StoreOrderDashboardSection({
           >
             <span className="sam-text-xxs font-medium text-sam-muted">{t("store_recent")}</span>
             <span className="mt-1 line-clamp-2 sam-text-helper font-bold leading-tight text-sam-fg">
-              {recentOrder.store_name || "매장"}
+              {recentOrder.store_name || t("store_fallback_name")}
             </span>
             <span className="mt-auto pt-2 sam-text-xxs font-semibold text-signature">{t("store_detail_link")}</span>
           </Link>

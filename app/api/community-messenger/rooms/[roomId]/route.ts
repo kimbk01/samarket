@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import type {
   CommunityMessengerMarkReadDiag,
@@ -20,6 +21,30 @@ const communityMessengerMarkReadInflight = new Map<
     markWallMs: number;
   }>
 >();
+
+const MARK_READ_INFLIGHT_RESULT_TTL_MS = (() => {
+  const n = Number(process.env.SAMARKET_MARK_READ_INFLIGHT_RESULT_TTL_MS);
+  if (Number.isFinite(n) && n >= 300 && n <= 500) return Math.floor(n);
+  return 400;
+})();
+
+const communityMessengerMarkReadRecentResult = new Map<
+  string,
+  {
+    expiresAt: number;
+    bundle: {
+      result: CommunityMessengerMarkReadResult;
+      diag: CommunityMessengerMarkReadDiag;
+      markWallMs: number;
+    };
+  }
+>();
+
+type MarkReadInflightBundle = {
+  result: CommunityMessengerMarkReadResult;
+  diag: CommunityMessengerMarkReadDiag;
+  markWallMs: number;
+};
 
 function communityMessengerMarkReadInflightKey(
   userId: string,
@@ -97,9 +122,11 @@ export async function PATCH(
 ) {
   const tPatchRouteStart = devPerfNow();
   const tAuth0 = devPerfNow();
-  const auth = await requireAuthenticatedUserId();
+  const authGate = await ensureApiRouteAuthGate();
   const patch_room_auth_ms = devPerfNow() - tAuth0;
-  if (!auth.ok) return auth.response;
+  if (!authGate.ok) return authGate.response;
+  const auth = { ok: true as const, userId: authGate.userId };
+  const patch_room_auth_cache_hit = authGate.auth_cache_hit;
 
   const tRl0 = devPerfNow();
   const rateLimit = await enforceRateLimit({
@@ -188,32 +215,46 @@ export async function PATCH(
   if (body.action === "mark_read") {
     try {
       const inflightKey = communityMessengerMarkReadInflightKey(auth.userId, roomId, body);
-      const patch_room_inflight_dedupe_hit = communityMessengerMarkReadInflight.has(inflightKey) ? 1 : 0;
-      let flight = communityMessengerMarkReadInflight.get(inflightKey);
-      if (!flight) {
-        flight = (async () => {
-          const diag: CommunityMessengerMarkReadDiag = {
-            permission_query_ms,
-            ...permissionBreakdown,
-            membership_cache_hit,
-            optimistic_ack_possible: 1,
-          };
-          const tMark0 = devPerfNow();
-          const result = await svc.markCommunityMessengerRoomAsRead({
-            userId: auth.userId,
-            roomId,
-            lastReadMessageId: typeof body.lastReadMessageId === "string" ? body.lastReadMessageId : undefined,
-            flushOpen: body.flushOpen === true,
-            diag,
+      let patch_room_inflight_dedupe_hit = 0;
+      let bundle: MarkReadInflightBundle;
+
+      const recent = communityMessengerMarkReadRecentResult.get(inflightKey);
+      if (recent && recent.expiresAt > Date.now()) {
+        patch_room_inflight_dedupe_hit = 1;
+        bundle = recent.bundle;
+      } else {
+        let flight = communityMessengerMarkReadInflight.get(inflightKey);
+        if (flight) {
+          patch_room_inflight_dedupe_hit = 1;
+        } else {
+          flight = (async () => {
+            const diag: CommunityMessengerMarkReadDiag = {
+              permission_query_ms,
+              ...permissionBreakdown,
+              membership_cache_hit,
+              optimistic_ack_possible: 1,
+            };
+            const tMark0 = devPerfNow();
+            const result = await svc.markCommunityMessengerRoomAsRead({
+              userId: auth.userId,
+              roomId,
+              lastReadMessageId: typeof body.lastReadMessageId === "string" ? body.lastReadMessageId : undefined,
+              flushOpen: body.flushOpen === true,
+              diag,
+            });
+            const markWallMs = devPerfNow() - tMark0;
+            return { result, diag, markWallMs };
+          })().finally(() => {
+            communityMessengerMarkReadInflight.delete(inflightKey);
           });
-          const markWallMs = devPerfNow() - tMark0;
-          return { result, diag, markWallMs };
-        })().finally(() => {
-          communityMessengerMarkReadInflight.delete(inflightKey);
+          communityMessengerMarkReadInflight.set(inflightKey, flight);
+        }
+        bundle = await flight!;
+        communityMessengerMarkReadRecentResult.set(inflightKey, {
+          expiresAt: Date.now() + MARK_READ_INFLIGHT_RESULT_TTL_MS,
+          bundle,
         });
-        communityMessengerMarkReadInflight.set(inflightKey, flight);
       }
-      const bundle = await flight;
       const { result, diag, markWallMs } = bundle;
 
       const tBeforeResponse = devPerfNow();
@@ -321,6 +362,7 @@ export async function PATCH(
           total_route_ms: Math.round(patch_room_total_ms),
           patch_room_total_ms: Math.round(patch_room_total_ms),
           patch_room_auth_ms: Math.round(patch_room_auth_ms),
+          patch_room_auth_cache_hit: patch_room_auth_cache_hit,
           patch_room_rate_limit_ms: Math.round(patch_room_rate_limit_ms),
           patch_room_body_parse_ms: Math.round(patch_room_body_parse_ms),
           patch_room_permission_ms: Math.round(patch_room_permission_ms),
@@ -391,6 +433,10 @@ export async function PATCH(
           patch_room_regression_blocked: result.regressionBlocked ? 1 : 0,
           patch_room_top_bottleneck: topKey,
           patch_room_inflight_dedupe_hit: patch_room_inflight_dedupe_hit,
+          inflight_dedupe_hit: patch_room_inflight_dedupe_hit,
+          duplicate_fast_path: diag.duplicate_fast_path ?? 0,
+          fetch_existing_skipped: diag.fetch_existing_skipped ?? 0,
+          snapshot_source: diag.snapshot_source ?? "",
           permission_source: permissionBreakdown.permission_source,
           permission_cache_reason: permissionBreakdown.permission_cache_reason,
           dedupe_hit: patch_room_inflight_dedupe_hit || broadcastDuplicateDetected ? 1 : 0,

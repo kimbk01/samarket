@@ -22,30 +22,43 @@ export function OwnerCustomerCareCard({
   const inquiriesHref = OwnerRoutes.inquiries(storeId);
   const cells = [
     {
-      label: "미응답 채팅",
+      id: "chat",
+      label: t("store_owner_dash_unanswered_chat"),
       count: orderChatUnread,
-      sub: orderChatUnread > 0 ? "답변이 필요합니다" : "10분 내 신규 없음",
+      sub: orderChatUnread > 0 ? t("store_owner_dash_reply_needed") : t("store_owner_dash_no_new_10m"),
       danger: orderChatUnread > 0,
       href: inquiriesHref,
     },
     {
-      label: "리뷰 응답",
+      id: "reviews",
+      label: t("store_owner_dash_review_reply"),
       count: snapshot.reviews_need_reply_count,
-      sub: snapshot.reviews_need_reply_count > 0 ? "응답 필요" : "완료",
+      sub:
+        snapshot.reviews_need_reply_count > 0
+          ? t("store_owner_dash_response_needed")
+          : t("store_owner_dash_done"),
       danger: snapshot.reviews_need_reply_count > 0,
       href: OwnerRoutes.reviews(storeId),
     },
     {
-      label: "환불 요청",
+      id: "refund",
+      label: t("store_owner_dash_refund_requests"),
       count: snapshot.refund_requested_count,
-      sub: snapshot.refund_requested_count > 0 ? "확인 필요" : "없음",
+      sub:
+        snapshot.refund_requested_count > 0
+          ? t("store_owner_dash_action_needed")
+          : t("store_owner_dash_none"),
       danger: snapshot.refund_requested_count > 0,
       href: buildStoreOrdersHref({ storeId, tab: "refund" }),
     },
     {
-      label: "클레임",
+      id: "claims",
+      label: t("store_owner_dash_claims"),
       count: snapshot.active_dispute_count,
-      sub: snapshot.active_dispute_count > 0 ? "처리 필요" : "신규 없음",
+      sub:
+        snapshot.active_dispute_count > 0
+          ? t("store_owner_dash_action_needed")
+          : t("store_owner_dash_no_new_claims"),
       danger: snapshot.active_dispute_count > 0,
       href: buildStoreOrdersHref({ storeId, tab: "progress" }),
     },
@@ -57,16 +70,16 @@ export function OwnerCustomerCareCard({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cells.map((c) => (
           <Link
-            key={c.label}
+            key={c.id}
             href={c.href}
             prefetch={false}
-            className="min-h-[72px] rounded-[4px] border border-[#E5E7EB] bg-[#FAFAFA] p-2 active:bg-gray-100"
+            className="min-h-[72px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2 active:bg-[var(--biz-primary-soft)]"
           >
             <p className={ownerDashTypography.cellTitle}>{c.label}</p>
             <p
               className={`mt-1 ${ownerDashTypography.metric} ${c.danger ? "text-[#DC2626]" : ""}`}
             >
-              {c.count}건
+              {t("store_owner_dash_count_orders", { count: c.count })}
             </p>
             <p
               className={`mt-0.5 ${ownerDashTypography.helper} ${c.danger ? "font-medium text-[#DC2626]" : ""}`}
@@ -80,10 +93,10 @@ export function OwnerCustomerCareCard({
         <Link
           href={inquiriesHref}
           prefetch={false}
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[4px] border border-[#1C8DB8] bg-[#1C8DB8]/10 text-[13px] font-semibold text-[#1C8DB8]"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] text-[13px] font-semibold text-[var(--biz-primary)]"
         >
           <MessageCircle className="h-4 w-4" aria-hidden />
-          채팅 바로가기
+          {t("store_owner_dash_chat_shortcut")}
         </Link>
       ) : null}
     </section>

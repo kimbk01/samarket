@@ -22,7 +22,7 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
       <div className="rounded-ui-rect bg-sam-surface p-8 text-center">
         <p className="sam-text-body text-sam-muted">{t("business_phase7_146")}</p>
         <Link href="/" className="mt-3 inline-block sam-text-body text-signature">
-          홈으로
+          {t("app_error_go_home_short")}
         </Link>
       </div>
     );
@@ -39,7 +39,7 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-center space-y-2">
         {!operatorOk && (
           <p className="sam-text-helper text-sam-muted">
-            상점 운영자 계정(ownerUserId)이 로그인 UUID와 연결되면 운영 기능을 더 넓힐 수 있어요.
+            {t("business_phase7_630")}
           </p>
         )}
         {!isOwner && operatorOk ? (
@@ -49,17 +49,17 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
           type="button"
           className="rounded-full border border-signature bg-sam-surface px-4 py-2 sam-text-body font-medium text-signature"
         >
-          팔로우 (예정)
+          {t("business_phase7_631")}
         </button>
       </div>
       <div>
         <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">
-          상품 ({profile.productCount})
+          {t("business_phase7_632", { v1: String(profile.productCount) })}
         </h2>
         <BusinessProductList
           products={products}
           shopSlug={profile.slug}
-          emptyMessage="등록된 상품이 없습니다."
+          emptyMessage={t("business_phase7_058")}
         />
       </div>
     </div>

@@ -72,7 +72,7 @@ export function BusinessAdminOpenToggle({
         checked={shownOpen}
         disabled={disabled}
         onCheckedChange={applyOpen}
-        ariaLabel={shownOpen ? "영업 끄기: 주문 접수 중지" : "영업 켜기: 주문 접수 시작"}
+        ariaLabel={shownOpen ? t("business_phase7_583") : t("business_phase7_584")}
       />
     </div>
   );

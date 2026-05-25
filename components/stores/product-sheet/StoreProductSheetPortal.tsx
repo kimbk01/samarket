@@ -46,7 +46,7 @@ export function StoreProductSheetPortal() {
         if (!sid) return;
         showStoreDetailToast(
           sid,
-          editCartLine ? "옵션을 변경했어요" : "카트에 담았어요"
+          editCartLine ? t("store_cart_option_updated_toast") : t("store_cart_added_short_toast")
         );
       }}
     />,

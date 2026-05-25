@@ -25,24 +25,29 @@ import {
 } from "@/lib/dibay/delivery-store-menus-prewarm";
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 
-function statusBadge(status: BrowseStoreListItem["status"]) {
+import type { MessageKey } from "@/lib/i18n/messages";
+
+function statusBadge(
+  status: BrowseStoreListItem["status"],
+  t: (key: MessageKey, params?: Record<string, string | number>) => string
+) {
   if (status === "open") {
     return (
       <span className="shrink-0 rounded-ui-rect bg-[#E7F7EC] px-2 py-0.5 sam-text-helper font-semibold text-[#31A24C] dark:bg-[#1F3528] dark:text-[#5CD67C]">
-        영업중
+        {t("store_open_now")}
       </span>
     );
   }
   if (status === "preparing") {
     return (
       <span className="shrink-0 rounded-ui-rect bg-[#FFF8E7] px-2 py-0.5 sam-text-helper font-semibold text-[#B78100] dark:bg-[#3D3420] dark:text-[#F5C842]">
-        준비중
+        {t("store_preparing")}
       </span>
     );
   }
   return (
     <span className="shrink-0 rounded-ui-rect bg-[#E4E6EB] px-2 py-0.5 sam-text-helper font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]">
-      휴무
+      {t("store_closed_now")}
     </span>
   );
 }
@@ -96,7 +101,7 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     profileImageUrl: store.profileImageUrl,
     heroBannerImageUrl: store.heroBannerImageUrl ?? null,
     isFeatured: store.isFeatured,
-    estPrepLabel: store.estPrepLabel ?? "20~40분",
+    estPrepLabel: store.estPrepLabel ?? "",
     etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel ?? null,
     deliveryFeeStrikePhp: store.deliveryFeeStrikePhp ?? null,
@@ -112,7 +117,7 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     slug: store.slug,
     nameKo: store.nameKo,
     tagline: store.tagline,
-    primaryNameKo: store.primaryNameKo ?? "매장",
+    primaryNameKo: store.primaryNameKo ?? "",
     subNameKo: "",
     regionLabel: store.regionLabel,
     status: store.status,
@@ -147,11 +152,12 @@ export function StoreVerticalDiscoveryCard({
   const { t } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(store.slug);
+  const freeDeliveryLabel = t("store_free_delivery_applied");
   const flags = [
-    store.deliveryAvailable ? "배달가능" : null,
-    store.pickupAvailable ? "픽업가능" : null,
-    store.visitAvailable ? "방문" : null,
-  ].filter(Boolean);
+    store.deliveryAvailable ? t("store_delivery_available") : null,
+    store.pickupAvailable ? t("store_pickup_available") : null,
+    store.visitAvailable ? t("store_visit_available") : null,
+  ].filter(Boolean) as string[];
 
   const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
   const prefetchStoreDetail = (
@@ -164,10 +170,11 @@ export function StoreVerticalDiscoveryCard({
     const href = `/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(productId)}`;
     void router.prefetch(href);
   };
+  const primaryName = store.primaryNameKo?.trim() || t("store_fallback_name");
   const categoryLine =
     store.subNameKo?.trim() ?
-      `${store.primaryNameKo} · ${store.subNameKo}`
-    : store.primaryNameKo;
+      `${primaryName} · ${store.subNameKo}`
+    : primaryName;
 
   const distLabel =
     store.distanceKm != null && Number.isFinite(store.distanceKm) ?
@@ -230,7 +237,7 @@ export function StoreVerticalDiscoveryCard({
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             {store.isFeatured ?
               <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 sam-text-xxs font-semibold text-[#1877F2] shadow-sm dark:bg-[#242526]/95 dark:text-[#4599FF]">
-                추천
+                {t("store_badge_recommended")}
               </span>
             : null}
             {adHint ?
@@ -250,7 +257,7 @@ export function StoreVerticalDiscoveryCard({
               <p className={`truncate ${FB.name}`}>{store.nameKo}</p>
               <p className={`mt-0.5 ${FB.metaSm}`}>{categoryLine}</p>
             </div>
-            {statusBadge(store.status)}
+            {statusBadge(store.status, t)}
           </div>
 
           {store.tagline?.trim() ?
@@ -266,10 +273,10 @@ export function StoreVerticalDiscoveryCard({
             {store.etaLabel?.trim() ?
               <span>{store.etaLabel}</span>
             : <span>{t("store_est_prep", { label: store.estPrepLabel })}</span>}
-            {store.deliveryFeeLabel === "배달비 무료 적용 중" ?
+            {store.deliveryFeeLabel === freeDeliveryLabel ?
               <span className="inline-flex flex-wrap items-center gap-1">
                 <span className="text-[13px] font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
-                  {store.deliveryFeeLabel}
+                  {freeDeliveryLabel}
                 </span>
                 {store.deliveryFeeStrikePhp != null && store.deliveryFeeStrikePhp > 0 ?
                   <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">

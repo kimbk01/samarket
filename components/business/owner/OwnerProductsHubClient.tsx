@@ -333,7 +333,7 @@ export function OwnerProductsHubClient({
             onClick={() => setTab("all")}
             className={ownerHubCategoryPillClass(tab === "all")}
           >
-            전체
+            {t("store_owner_tab_all")}
           </button>
           {sections.map((s) => (
             <button

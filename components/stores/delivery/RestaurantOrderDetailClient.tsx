@@ -27,21 +27,21 @@ export function RestaurantOrderDetailClient({
           className="text-sm text-signature"
           aria-label={t("store_back_to_store_aria")}
         >
-          ← 매장
+          {t("store_back_to_store_short")}
         </HistoryBackTextLink>
       </div>
       <p className="text-sm text-sam-muted">{t("store_order_not_found")}</p>
       <p className="mt-2 text-sm text-sam-muted">
-        실매장에서 주문하셨다면 내 배달 주문에서 확인해 주세요.
+        {t("store_order_check_my_delivery_hint")}
       </p>
       <Link
         href="/my/store-orders"
         className="mt-4 inline-block text-sm font-medium text-signature underline"
       >
-        내 배달 주문
+        {t("store_my_delivery_orders")}
       </Link>
       <Link href="/stores" className="mt-4 block text-sm text-signature">
-        매장 홈
+        {t("store_stores_home")}
       </Link>
     </div>
   );

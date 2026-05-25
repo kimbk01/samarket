@@ -4,17 +4,20 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 
-function statusBadge(isOpen: boolean) {
+function statusBadge(
+  isOpen: boolean,
+  t: ReturnType<typeof useI18n>["t"]
+) {
   if (isOpen) {
     return (
       <span className="rounded bg-emerald-50 px-2 py-0.5 sam-text-xxs font-semibold text-emerald-800">
-        영업중
+        {t("store_open_now")}
       </span>
     );
   }
   return (
     <span className="rounded bg-amber-50 px-2 py-0.5 sam-text-xxs font-semibold text-amber-800">
-      준비중
+      {t("store_preparing")}
     </span>
   );
 }
@@ -50,37 +53,38 @@ export function StoreCommerceSummaryCard({
   estPrepLabel,
   intro,
   phone,
-  disclaimer = "금액·시간은 매장 운영에 따라 달라질 수 있어요. 주문 전 매장에 확인해 주세요.",
+  disclaimer,
 }: StoreCommerceSummaryCardProps) {
   const { t } = useI18n();
+  const resolvedDisclaimer = disclaimer ?? t("store_commerce_summary_disclaimer");
   const minOrderDd =
-    minOrderPhp != null && minOrderPhp > 0 ? formatMoneyPhp(minOrderPhp) : "주문 시 확인";
+    minOrderPhp != null && minOrderPhp > 0 ? formatMoneyPhp(minOrderPhp) : t("store_confirm_at_order");
   const deliveryDd =
-    deliveryFeePhp != null && deliveryFeePhp >= 0 ? formatMoneyPhp(deliveryFeePhp) : "문의";
+    deliveryFeePhp != null && deliveryFeePhp >= 0 ? formatMoneyPhp(deliveryFeePhp) : t("store_inquiry_title");
 
   return (
     <div className="mx-4 mt-3 space-y-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-base font-bold text-sam-fg">{storeName}</h2>
-        {statusBadge(isOpen)}
+        {statusBadge(isOpen, t)}
       </div>
       <div className="flex flex-wrap gap-2 sam-text-xxs">
         {deliveryAvailable ? (
           <span className="rounded border border-orange-200 bg-orange-50 px-2 py-0.5 font-medium text-orange-900">
-            배달 가능
+            {t("store_delivery_available")}
           </span>
         ) : (
           <span className="rounded border border-sam-border bg-sam-app px-2 py-0.5 text-sam-muted">
-            배달 불가
+            {t("store_delivery_no_short")}
           </span>
         )}
         {pickupAvailable ? (
           <span className="rounded border border-sky-200 bg-sky-50 px-2 py-0.5 font-medium text-sky-900">
-            포장 가능
+            {t("store_pickup_available")}
           </span>
         ) : (
           <span className="rounded border border-sam-border bg-sam-app px-2 py-0.5 text-sam-muted">
-            포장 불가
+            {t("store_pickup_no_short")}
           </span>
         )}
       </div>
@@ -114,7 +118,7 @@ export function StoreCommerceSummaryCard({
       {intro ? (
         <p className="whitespace-pre-wrap sam-text-body-secondary leading-relaxed text-sam-fg">{intro}</p>
       ) : null}
-      <p className="sam-text-xxs leading-relaxed text-sam-muted">{disclaimer}</p>
+      <p className="sam-text-xxs leading-relaxed text-sam-muted">{resolvedDisclaimer}</p>
     </div>
   );
 }

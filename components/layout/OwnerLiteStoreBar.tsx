@@ -9,7 +9,7 @@ import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarS
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import {
-  formatStoreApprovalStatusKo,
+  formatStoreApprovalStatusI18n,
   isStorePubliclyListed,
 } from "@/lib/stores/store-approval-label-ko";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
@@ -26,10 +26,10 @@ export function OwnerLiteStoreBar() {
   const storeId = encodeURIComponent(ownerStore.id);
   const { primary, secondary } = resolveOwnerLiteStoreShortcuts(ownerStore, breakdown);
   const primaryHref = primary.href;
-  const primaryLabel = primary.label;
+  const primaryLabel = t(primary.labelKey);
   const primaryBadge = primary.badge;
   const secondaryHref = secondary.href;
-  const secondaryLabel = secondary.label;
+  const secondaryLabel = t(secondary.labelKey);
   const secondaryBadge = secondary.badge;
 
   return (
@@ -43,7 +43,7 @@ export function OwnerLiteStoreBar() {
             {ownerStore.store_name || t("nav_store_name_fallback")}
           </p>
           <p className="truncate sam-text-xxs text-sam-fg">
-            {formatStoreApprovalStatusKo(ownerStore.approval_status)}
+            {formatStoreApprovalStatusI18n(ownerStore.approval_status, t)}
             {!isStorePubliclyListed(ownerStore) ? t("nav_store_hidden_hint") : ""}
           </p>
         </div>

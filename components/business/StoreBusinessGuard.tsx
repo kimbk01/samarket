@@ -118,7 +118,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
           <p className="sam-text-body text-sam-fg">{t("common_login_required")}</p>
           <Link href="/mypage" className="mt-4 inline-block sam-text-body font-medium text-signature">
-            내 정보로
+            {t("business_phase7_618")}
           </Link>
         </div>
       </div>
@@ -131,7 +131,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
           <p className="sam-text-body text-sam-fg">{t("business_phase7_069")}</p>
           <Link href="/mypage" className="mt-4 inline-block sam-text-body font-medium text-signature">
-            내 정보로
+            {t("business_phase7_618")}
           </Link>
         </div>
       </div>
@@ -148,11 +148,11 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
             onClick={() => retry()}
             className="mt-4 sam-text-body font-medium text-signature"
           >
-            다시 시도
+            {t("business_phase7_466")}
           </button>
           <div className="mt-4">
             <Link href="/mypage" className="sam-text-body text-sam-muted underline">
-              내 정보로
+              {t("business_phase7_618")}
             </Link>
           </div>
         </div>

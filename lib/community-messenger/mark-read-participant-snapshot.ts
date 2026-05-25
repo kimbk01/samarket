@@ -12,6 +12,9 @@ export type MarkReadParticipantSnapshotDiag = {
   snapshot_request_local_hit?: number;
   snapshot_singleflight_hit?: number;
   snapshot_lookup_cache_hit?: 0 | 1;
+  mark_read_fetch_existing_eliminated?: 0 | 1;
+  fetch_existing_skipped?: 0 | 1;
+  snapshot_source?: string;
 };
 
 export const MARK_READ_PARTICIPANT_SNAPSHOT_TTL_MS = (() => {
@@ -95,6 +98,10 @@ function rememberSnapshotKeys(keys: Iterable<string>, snap: MarkReadParticipantS
   }
 }
 
+function markReadParticipantLatestKey(userId: string, roomId: string): string {
+  return `${markReadParticipantBaseKey(userId, roomId)}\x02k:__latest__`;
+}
+
 /** RPC/legacy 성공·중복 스킵 후 스냅샷을 여러 키에 기록해 다음 요청 적중률을 올린다. */
 export function storeMarkReadParticipantSnapshotsFromRow(
   userId: string,
@@ -107,10 +114,20 @@ export function storeMarkReadParticipantSnapshotsFromRow(
   const keys = new Set<string>();
   keys.add(markReadSnapshotStorageKey(userId, roomId, opts.requestedLastReadMessageId, opts.flushOpen));
   keys.add(markReadSnapshotStorageKey(userId, roomId, "", opts.flushOpen));
+  keys.add(markReadParticipantLatestKey(userId, roomId));
   if (snap.lastReadMessageId) {
     keys.add(markReadSnapshotStorageKey(userId, roomId, snap.lastReadMessageId, false));
   }
   rememberSnapshotKeys(keys, snap);
+}
+
+function probeLatestParticipantSnapshot(
+  userId: string,
+  roomId: string
+): MarkReadParticipantSnapshot | null {
+  const ent = markReadParticipantSnapshotByKey.get(markReadParticipantLatestKey(userId, roomId));
+  if (!ent || ent.expiresAt <= Date.now()) return null;
+  return ent.snap;
 }
 
 /**
@@ -135,10 +152,14 @@ export function probeMarkReadParticipantSnapshotCacheOnly(
       if (!snapshotTtlHit(ent.snap, normReq)) continue;
     } else if (flushOpen) {
       if (ent.snap.unreadCount !== 0) continue;
-    } else {
-      continue;
     }
     return ent.snap;
+  }
+
+  /** 커서 불일치·regression 판정 — room latest(unread 0) 로 compare-only fast-path */
+  const latest = probeLatestParticipantSnapshot(userId, roomId);
+  if (latest && latest.unreadCount === 0 && normReq) {
+    return latest;
   }
   return null;
 }
@@ -180,6 +201,9 @@ export async function loadMarkReadParticipantRowWithSnapshotCache(
       diag.snapshot_cache_hit = 1;
       diag.snapshot_request_local_hit = 1;
       diag.snapshot_lookup_cache_hit = 1;
+      diag.mark_read_fetch_existing_eliminated = 1;
+      diag.fetch_existing_skipped = 1;
+      diag.snapshot_source = "memory_snapshot";
     }
     return markReadSnapshotToParticipantRow(ent.snap);
   }
@@ -218,4 +242,10 @@ export async function loadMarkReadParticipantRowWithSnapshotCache(
   } finally {
     markReadParticipantSnapshotInflight.delete(primaryKey);
   }
+}
+
+/** vitest — participant snapshot Map 초기화 */
+export function resetMarkReadParticipantSnapshotCachesForTests(): void {
+  markReadParticipantSnapshotByKey.clear();
+  markReadParticipantSnapshotInflight.clear();
 }

@@ -32,7 +32,6 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
-import { OWN_STORE_ORDER_BLOCK_MESSAGE } from "@/lib/stores/store-orderability-policy";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
@@ -52,7 +51,6 @@ type PublicStore = {
   is_open?: boolean | null;
   business_hours_json?: unknown;
   can_order_store?: boolean;
-  owner_block_message?: string | null;
   rating_avg?: number | null;
   review_count?: number | null;
 };
@@ -334,7 +332,7 @@ export function StoreProductPublic({
 
   const orderBlocked = commerce.inBreak || !commerce.isOpenForCommerce;
   const ownerOrderBlocked = store.can_order_store === false;
-  const ownerOrderBlockedMessage = store.owner_block_message ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
+  const ownerOrderBlockedMessage = t("store_err_own_store_block");
 
   const minQ = Math.max(1, Number(product.min_order_qty) || 1);
   const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);

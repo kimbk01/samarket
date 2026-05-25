@@ -6,7 +6,6 @@ export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | 
 
 const SORTS: {
   id: StoreBrowseSortId;
-  label: string;
   labelKey:
     | "nav_store_sort_default"
     | "nav_store_sort_distance"
@@ -14,11 +13,11 @@ const SORTS: {
     | "nav_store_sort_reviews"
     | "nav_store_sort_fast";
 }[] = [
-  { id: "default", label: "기본순", labelKey: "nav_store_sort_default" },
-  { id: "distance", label: "가까운순", labelKey: "nav_store_sort_distance" },
-  { id: "rating", label: "평점순", labelKey: "nav_store_sort_rating" },
-  { id: "reviews", label: "리뷰많은순", labelKey: "nav_store_sort_reviews" },
-  { id: "fast", label: "배달빠른순", labelKey: "nav_store_sort_fast" },
+  { id: "default", labelKey: "nav_store_sort_default" },
+  { id: "distance", labelKey: "nav_store_sort_distance" },
+  { id: "rating", labelKey: "nav_store_sort_rating" },
+  { id: "reviews", labelKey: "nav_store_sort_reviews" },
+  { id: "fast", labelKey: "nav_store_sort_fast" },
 ];
 
 const CHIP_BASE =

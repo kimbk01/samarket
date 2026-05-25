@@ -114,7 +114,7 @@ export function StoreMenuBoardPreamble({
                       </div>
                       {soldOut ? (
                         <span className="mt-1 inline-flex rounded-[3px] bg-red-50 px-1.5 text-[10px] font-bold text-red-700">
-                          품절
+                          {t("store_sold_out")}
                         </span>
                       ) : null}
                     </div>

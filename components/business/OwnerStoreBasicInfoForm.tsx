@@ -64,6 +64,10 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminLeavePromptModal } from "@/components/business/owner/OwnerStoreAdminLeavePromptModal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  formatOwnerStoreImageUploadError,
+  formatOwnerStorePatchError,
+} from "@/lib/business/owner-store-patch-error-i18n";
 
 function resolveRegionCityIds(regionRaw: string, cityRaw: string): { rid: string; cid: string } {
   const rn = regionRaw.trim();
@@ -207,26 +211,6 @@ function rowToBasicValues(row: StoreRow): BasicValues {
   };
 }
 
-function patchErrorToUserMessage(code: string): string | null {
-  const m: Record<string, string> = {
-    no_fields: "변경할 내용이 없습니다. 잠시 후 다시 시도해 주세요.",
-    store_not_editable: "현재 상태에서는 매장 정보를 수정할 수 없습니다.",
-    store_load_failed: "매장 정보를 불러오지 못해 저장할 수 없습니다. 새로고침 후 다시 시도해 주세요.",
-    invalid_ph_phone: "전화번호를 09 xx xxx xxxx 형식(11자리)으로 입력해 주세요.",
-    supabase_unconfigured: "서버 저장소 설정을 확인해 주세요.",
-    unauthorized: "로그인이 필요합니다.",
-    forbidden: "이 매장을 수정할 권한이 없습니다.",
-    store_not_found: "매장을 찾을 수 없습니다.",
-    update_no_row: "저장이 반영되지 않았습니다. 새로고침 후 다시 시도해 주세요.",
-    invalid_store_category_id: "업종(1차 분류) 값이 올바르지 않습니다. 새로고침 후 다시 선택해 주세요.",
-    invalid_store_topic_id: "2차 업종 (세부) 값이 올바르지 않습니다. 다시 선택해 주세요.",
-    store_topic_not_found: "선택한 2차 업종 (세부)을 찾을 수 없습니다. 목록을 새로고침한 뒤 다시 선택해 주세요.",
-    store_topic_category_mismatch: "2차 업종 (세부)이 선택한 1차 업종과 맞지 않습니다. 다시 맞춰 주세요.",
-    store_name_too_short: "매장 이름은 2자 이상 입력해 주세요.",
-  };
-  return m[code] ?? null;
-}
-
 export type OwnerStoreBasicInfoFormProps = {
   storeId: string;
   row: StoreRow;
@@ -238,7 +222,7 @@ export function OwnerStoreBasicInfoForm({
   row,
   onSaved,
 }: OwnerStoreBasicInfoFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const hideAppBottomNav =
@@ -380,13 +364,11 @@ export function OwnerStoreBasicInfoForm({
 
   const saveConfirmDescription = useMemo(() => {
     const base = identityEditable
-      ? "기본 정보(로고·매장명·소개·연락처·위치·상세 주소·업종 등)를 저장합니다."
-      : "로고·소개·연락처·위치·상세 주소만 저장합니다. 매장 이름·1차·2차 업종은 DB에 고정되어 있으며, 관리자가 허용한 경우에만 수정할 수 있습니다.";
-    const addressNotice = storeAddressWillChange
-      ? " 매장 주소/좌표 변경은 상단 매장 주소 표시와 주문자 거리·시간 계산 기준에 반영됩니다."
-      : "";
-    return `${base}${addressNotice} 계속할까요?`;
-  }, [identityEditable, storeAddressWillChange]);
+      ? t("business_phase7_527")
+      : t("business_phase7_528");
+    const addressNotice = storeAddressWillChange ? t("business_phase7_529") : "";
+    return `${base}${addressNotice} ${t("business_phase7_530")}`.trim();
+  }, [identityEditable, storeAddressWillChange, t]);
 
   useEffect(() => {
     setOwnerBasicInfoDirty(isDirty);
@@ -527,7 +509,7 @@ export function OwnerStoreBasicInfoForm({
         if (cancelled || seq !== addressLoadSeqRef.current) return;
         if (!listResult.ok) {
           setAddressBookListError(
-            describeMeAddressesListFailure(listResult, "주소 목록을 불러오지 못했어요."),
+            describeMeAddressesListFailure(listResult, t("business_phase7_514")),
           );
           setStoreLinkedUserAddress(null);
         } else {
@@ -538,7 +520,7 @@ export function OwnerStoreBasicInfoForm({
       } catch {
         if (!cancelled && seq === addressLoadSeqRef.current) {
           setStoreLinkedUserAddress(null);
-          setAddressBookListError("주소 목록을 불러오지 못했어요.");
+          setAddressBookListError(t("business_phase7_514"));
         }
       } finally {
         if (!cancelled && seq === addressLoadSeqRef.current) setAddressReady(true);
@@ -590,20 +572,12 @@ export function OwnerStoreBasicInfoForm({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok || !j.url) {
-        const msg =
-          typeof j?.message === "string" && j.message.trim()
-            ? j.message
-            : j?.error === "storage_bucket_missing"
-              ? "Storage 버킷 store-product-images가 없습니다. Supabase SQL(매장 이미지 버킷)을 실행하거나 마이그레이션을 적용해 주세요."
-              : typeof j?.error === "string"
-                ? j.error
-                : "이미지 업로드에 실패했습니다.";
-        setError(msg);
+        setError(formatOwnerStoreImageUploadError(j, language));
         return;
       }
       setValues((v) => ({ ...v, profileImageUrl: j.url as string }));
     } catch {
-      setError("이미지 업로드 중 오류가 발생했습니다.");
+      setError(t("business_phase7_521"));
     } finally {
       setUploading(false);
     }
@@ -661,14 +635,14 @@ export function OwnerStoreBasicInfoForm({
     const phoneDigits = parsePhMobileInput(values.phone);
     const phoneDb = phoneDigits ? normalizePhMobileDb(phoneDigits) : null;
     if (phoneDigits && !phoneDb) {
-      setError("전화번호를 09 xx xxx xxxx 형식(11자리)으로 입력해 주세요.");
+      setError(t("business_phase7_499"));
       return false;
     }
     const gcashDb = normalizePhMobileDb(values.email);
     if (identityEditable) {
       const name = values.shopName.trim();
       if (name.length < 2) {
-        setError("매장 이름은 2자 이상 입력해 주세요.");
+        setError(t("business_phase7_508"));
         return false;
       }
       if (
@@ -677,7 +651,7 @@ export function OwnerStoreBasicInfoForm({
         topicsForCategory.length > 0 &&
         !storeTopicId.trim()
       ) {
-        setError("2차 업종 (세부)를 선택해 주세요.");
+        setError(t("business_phase7_513"));
         return false;
       }
     }
@@ -713,14 +687,14 @@ export function OwnerStoreBasicInfoForm({
       let resolvedLng: number | null = null;
       if (ml || mn) {
         if (!ml || !mn) {
-          setError("지도 좌표는 위도·경도를 함께 입력하거나 둘 다 비워 두세요.");
+          setError(t("business_phase7_515"));
           setSubmitting(false);
           return false;
         }
         const la = parseFiniteLatitude(ml);
         const ln = parseFiniteLongitude(mn);
         if (la == null || ln == null) {
-          setError("위도(-90~90)·경도(-180~180) 숫자 형식을 확인해 주세요.");
+          setError(t("business_phase7_516"));
           setSubmitting(false);
           return false;
         }
@@ -759,22 +733,23 @@ export function OwnerStoreBasicInfoForm({
       });
       const j = await res.json().catch(() => ({}));
       if (res.status === 401) {
-        setError("로그인이 필요합니다.");
+        setError(t("common_login_required"));
         return false;
       }
       if (!j?.ok || !j?.store) {
         const code = typeof j?.error === "string" ? j.error : "";
         setError(
           code === "invalid_ph_phone"
-            ? "전화번호를 09 xx xxx xxxx 형식(11자리)으로 입력해 주세요."
-            : patchErrorToUserMessage(code) ?? (code ? code : "저장에 실패했습니다.")
+            ? t("business_phase7_499")
+            : formatOwnerStorePatchError(code, language) ??
+                (code ? code : t("business_phase7_517"))
         );
         return false;
       }
       onSaved();
       return true;
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError(t("business_phase7_518"));
       return false;
     } finally {
       setSubmitting(false);
@@ -855,8 +830,8 @@ export function OwnerStoreBasicInfoForm({
                 className="absolute bottom-0 right-0 z-10 flex min-h-[44px] min-w-[44px] translate-x-1 translate-y-1 items-center justify-center border-0 bg-transparent p-0 shadow-none outline-none ring-0 hover:opacity-90 active:opacity-75 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1"
                 aria-label={
                   values.profileImageUrl.trim()
-                    ? "대표 이미지 등록됨, 파일 선택하여 교체"
-                    : "대표 이미지 미등록, 파일 선택"
+                    ? t("business_phase7_531")
+                    : t("business_phase7_532")
                 }
               >
                 <span
@@ -866,7 +841,9 @@ export function OwnerStoreBasicInfoForm({
                   📷
                 </span>
                 <span className="sr-only">
-                  {values.profileImageUrl.trim() ? "(등록)" : "(미등록)"}
+                  {values.profileImageUrl.trim()
+                    ? t("business_phase7_533")
+                    : t("business_phase7_534")}
                 </span>
               </button>
             </div>
@@ -878,7 +855,7 @@ export function OwnerStoreBasicInfoForm({
           <p className="mb-1 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_081")}</p>
           <div className="mb-2 rounded-ui-rect border border-signature/25 bg-signature/5 px-2.5 py-2">
             <p className="sam-text-xxs font-normal leading-snug text-signature">
-              매장명 변경 시 dibaY 운영팀 문의 바랍니다.
+              {t("business_phase7_535")}
             </p>
           </div>
           {identityEditable ? (
@@ -920,10 +897,10 @@ export function OwnerStoreBasicInfoForm({
             />
             <label htmlFor={`basic-menu-sold-out-bottom-${storeId}`} className="min-w-0 leading-snug">
               <span className="sam-text-body-secondary font-medium text-sam-fg">
-                품절 메뉴를 카테고리 맨 아래로 모으기
+                {t("business_phase7_536")}
               </span>
               <span className="mt-0.5 block sam-text-xxs text-sam-muted">
-                끄면 품절 포함 기존 순서를 유지합니다. 매장 창 화면에서도 같은 값으로 저장됩니다.
+                {t("business_phase7_537")}
               </span>
             </label>
           </div>
@@ -1006,11 +983,7 @@ export function OwnerStoreBasicInfoForm({
             {!storeMapCoordsOk ? (
               <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2.5 sam-text-helper text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
                 <p className="font-semibold">{t("business_phase7_259")}</p>
-                <p className="mt-1 leading-relaxed">
-                  배달 예상 시간·경로 거리는 매장의 지도 좌표(<code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">stores.lat</code> /{" "}
-                  <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">lng</code>)가 있어야 계산됩니다. 주소록에서 이 매장에 연결된 「매장」유형 주소를 저장하면 그 좌표로
-                  동기화되고, 없으면 아래 WGS84 위도·경도를 직접 입력한 뒤 저장하세요.
-                </p>
+                <p className="mt-1 leading-relaxed">{t("business_phase7_540")}</p>
                 <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
                   <div className="min-w-0">
                     <label className="mb-1 block font-medium text-amber-900 dark:text-amber-50">{t("business_phase7_229")}</label>
@@ -1132,11 +1105,7 @@ export function OwnerStoreBasicInfoForm({
             <div className="mt-2 space-y-2">
               <p className="sam-text-helper leading-relaxed text-amber-900">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
-                  <>
-                    Supabase 연결이 없어 DB 분류를 불러오지 못했습니다.{" "}
-                    <code className="rounded bg-amber-100 px-1">.env</code>를 확인한 뒤 개발 서버를 다시 시작해
-                    주세요.
-                  </>
+                  <>{t("business_phase7_541")}</>
                 ) : (
                   <>{t("business_phase7_335")}<code className="rounded bg-amber-100 px-1">business_type</code>{t("business_phase7_001")}</>
                 )}
@@ -1173,15 +1142,9 @@ export function OwnerStoreBasicInfoForm({
             <div className="mt-2 space-y-2">
               <p className="sam-text-helper leading-relaxed text-amber-900">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
-                  <>
-                    Supabase 연결이 없어 DB 분류를 불러오지 못했습니다.{" "}
-                    <code className="rounded bg-amber-100 px-1">.env</code>의 Supabase URL·키를 확인해 주세요.
-                  </>
+                  <>{t("business_phase7_542")}</>
                 ) : taxonomyMeta?.store_topics_table === "missing" ? (
-                  <>
-                    <code className="rounded bg-amber-100 px-1">store_topics</code> 테이블이 없습니다. 마이그레이션을
-                    적용해 주세요.
-                  </>
+                  <>{t("business_phase7_543")}</>
                 ) : (
                   <>{t("business_phase7_334")}</>
                 )}
@@ -1222,7 +1185,7 @@ export function OwnerStoreBasicInfoForm({
                   disabled={submitting || uploading || leaveSaving || saveConfirmOpen}
                   className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
                 >
-                  취소
+                  {t("common_cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1230,7 +1193,7 @@ export function OwnerStoreBasicInfoForm({
                   disabled={submitting || uploading || leaveSaving || saveConfirmOpen}
                   className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
                 >
-                  {submitting ? "저장 중…" : "저장"}
+                  {submitting ? t("business_phase7_384") : t("common_save")}
                 </button>
               </div>
             </div>
@@ -1243,9 +1206,9 @@ export function OwnerStoreBasicInfoForm({
         titleId="owner-basic-info-save-confirm-title"
         title={t("business_phase7_039")}
         description={saveConfirmDescription}
-        cancelLabel="취소"
-        confirmLabel="저장"
-        confirmBusyLabel="저장 중…"
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("common_save")}
+        confirmBusyLabel={t("business_phase7_384")}
         busy={submitting}
         disableActions={submitting || uploading || leaveSaving}
         confirmTone="primary"

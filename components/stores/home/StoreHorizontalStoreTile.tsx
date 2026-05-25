@@ -16,6 +16,7 @@ export function StoreHorizontalStoreTile({
   /** 썸네일 없을 때(데모 등) */
   coverEmoji?: string;
 }) {
+  const { t } = useI18n();
   const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
   const distLabel =
     store.distanceKm != null && Number.isFinite(store.distanceKm) ?
@@ -53,7 +54,7 @@ export function StoreHorizontalStoreTile({
           </div>
           {store.isFeatured ?
             <span className="absolute left-2 top-2 rounded-ui-rect bg-black/55 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-200">
-              추천
+              {t("store_badge_recommended")}
             </span>
           : null}
         </div>

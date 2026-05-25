@@ -18,30 +18,45 @@ export function OwnerInventoryIssueCard({
   const productsBase = OwnerRoutes.products(storeId);
   const cells = [
     {
-      label: "품절",
+      id: "sold_out",
+      label: t("store_owner_dash_sold_out"),
       count: snapshot.sold_out_product_count,
-      sub: snapshot.sold_out_product_count > 0 ? "재고 확인 필요" : "정상",
+      sub:
+        snapshot.sold_out_product_count > 0
+          ? t("store_owner_dash_check_stock")
+          : t("store_owner_dash_status_normal"),
       danger: snapshot.sold_out_product_count > 0,
       href: `${productsBase}${productsBase.includes("?") ? "&" : "?"}status=sold_out`,
     },
     {
-      label: "숨김",
+      id: "hidden",
+      label: t("store_owner_dash_hidden"),
       count: snapshot.hidden_product_count,
-      sub: snapshot.hidden_product_count > 0 ? "판매 상태 점검" : "정상",
+      sub:
+        snapshot.hidden_product_count > 0
+          ? t("store_owner_dash_check_sales_status")
+          : t("store_owner_dash_status_normal"),
       danger: snapshot.hidden_product_count > 0,
       href: `${productsBase}${productsBase.includes("?") ? "&" : "?"}status=hidden`,
     },
     {
-      label: "판매중지",
+      id: "suspended",
+      label: t("store_owner_dash_sale_suspended"),
       count: snapshot.sale_suspended_product_count,
-      sub: snapshot.sale_suspended_product_count > 0 ? "초안·미게시" : "정상",
+      sub:
+        snapshot.sale_suspended_product_count > 0
+          ? t("store_owner_dash_draft_unpublished")
+          : t("store_owner_dash_status_normal"),
       danger: snapshot.sale_suspended_product_count > 0,
       href: productsBase,
     },
     {
-      label: "옵션 오류",
+      id: "options",
+      label: t("store_owner_dash_option_errors"),
       count: snapshot.option_error_health_available ? snapshot.option_error_product_count : null,
-      sub: snapshot.option_error_health_available ? "수정 필요" : "점검 예정",
+      sub: snapshot.option_error_health_available
+        ? t("store_owner_dash_fix_needed")
+        : t("store_owner_dash_check_scheduled"),
       danger: snapshot.option_error_health_available && snapshot.option_error_product_count > 0,
       href: OwnerRoutes.menu(storeId),
     },
@@ -53,16 +68,16 @@ export function OwnerInventoryIssueCard({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cells.map((c) => (
           <Link
-            key={c.label}
+            key={c.id}
             href={c.href}
             prefetch={false}
-            className="min-h-[72px] rounded-[4px] border border-[#E5E7EB] bg-[#FAFAFA] p-2 active:bg-gray-100"
+            className="min-h-[72px] rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)] p-2 active:bg-[var(--biz-primary-soft)]"
           >
             <p className={ownerDashTypography.cellTitle}>{c.label}</p>
             <p
               className={`mt-1 ${ownerDashTypography.metric} ${c.danger ? "text-[#DC2626]" : ""}`}
             >
-              {c.count == null ? "—" : `${c.count}개`}
+              {c.count == null ? "—" : t("store_owner_dash_count_items", { count: c.count })}
             </p>
             <p
               className={`mt-0.5 ${ownerDashTypography.helper} ${c.danger ? "font-medium text-[#DC2626]" : ""}`}

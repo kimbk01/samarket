@@ -89,12 +89,12 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
           const minS = effectiveMinSelect(g);
           const rangeHint =
             g.inputType === "quantity"
-              ? `(0~${maxS}개)`
+              ? t("store_modifier_count_upto", { max: String(maxS) })
               : minS === maxS
-                ? `(${minS}개)`
+                ? t("store_modifier_count_min", { min: String(minS) })
                 : minS > 0
-                  ? `(${minS}~${maxS}개)`
-                  : `(최대 ${maxS}개)`;
+                  ? t("store_modifier_count_range", { min: String(minS), max: String(maxS) })
+                  : t("store_modifier_count_max", { max: String(maxS) });
 
           const single = g.inputType === "radio" || g.inputType === "select" || maxS <= 1;
 
@@ -264,12 +264,12 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
         const minS = effectiveMinSelect(g);
         const rangeHint =
           g.inputType === "quantity"
-            ? `(0~${maxS}개)`
+            ? t("store_modifier_count_upto", { max: String(maxS) })
             : minS === maxS
-              ? `(${minS}개 선택)`
+              ? t("store_modifier_count_min_select", { min: String(minS) })
               : minS > 0
-                ? `(${minS}~${maxS}개)`
-                : `(선택, 최대 ${maxS}개)`;
+                ? t("store_modifier_count_range_select", { min: String(minS), max: String(maxS) })
+                : t("store_modifier_count_max_select", { max: String(maxS) });
 
         const isOpen = openKeys[g.key] ?? (required || sorted.length <= 4);
         const single = g.inputType === "radio" || g.inputType === "select" || maxS <= 1;
@@ -279,11 +279,11 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
             <span className="sam-text-body font-semibold text-sam-fg">{g.label}</span>
             {required ? (
               <span className="rounded-full bg-rose-100 px-2 py-0.5 sam-text-xxs font-bold text-rose-800">
-                필수
+                {t("store_modifier_required")}
               </span>
             ) : (
               <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
-                선택
+                {t("store_modifier_optional_chip")}
               </span>
             )}
             <span className="sam-text-helper text-sam-muted">{rangeHint}</span>

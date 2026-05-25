@@ -369,10 +369,10 @@
     outline: none !important;
   }
 
-  /** 매장 어드민 카드 섹션 — 헤더 배경 통일 (#DBEDF5) */
+  /** 매장 어드민 카드 섹션 — 헤더 배경 통일 (스타벅스 tan soft) */
   .owner-store-admin-dash-section__header {
-    background-color: #dbedf5;
-    border-bottom: 1px solid var(--sam-border-soft);
+    background-color: var(--biz-header-bg, color-mix(in srgb, #eac784 45%, #fffcfc));
+    border-bottom: 1px solid var(--biz-card-border, var(--sam-border-soft));
   }
 
   /** 매장 사장님(`data-biz`) — 카드·섹션 box-shadow 플랫(테두리만) */

@@ -465,7 +465,7 @@ export function OwnerMenuCategoriesClient({
                 onClick={() => void saveEditor()}
                 className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-transparent bg-signature px-4 py-3 sam-text-body-lg font-semibold !text-white shadow-sm transition-[transform,opacity,background-color] duration-150 hover:bg-signature/90 active:scale-[0.99] active:bg-signature/95 disabled:opacity-45"
               >
-                {saving ? "처리 중…" : "확인"}
+                {saving ? t("common_processing") : t("common_confirm")}
               </button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
@@ -7,7 +8,7 @@ type SalesPermission = {
   sales_status?: string | null;
 } | null | undefined;
 
-export type OwnerLiteStoreShortcut = { href: string; label: string; badge: number };
+export type OwnerLiteStoreShortcut = { href: string; labelKey: MessageKey; badge: number };
 
 export function computeOwnerCanSell(sales: SalesPermission): boolean {
   return !!sales && sales.allowed_to_sell === true && sales.sales_status === "approved";
@@ -53,16 +54,16 @@ export function resolveOwnerLiteStoreShortcuts(
           : canSell
             ? safeStoreDeepLink ?? orderHref
             : profileHref;
-  const primaryLabel =
+  const primaryLabelKey =
     b.inquiryAttention > 0
-      ? "문의 확인"
+      ? "store_lite_inquiry_check"
       : canSell && b.orderAttention > 0
-        ? "주문 관리"
+        ? "store_lite_order_manage"
         : b.storeOrderChatUnread > 0
-          ? "배달채팅"
+          ? "store_lite_delivery_chat"
           : canSell
-            ? "주문 관리"
-            : "매장 설정";
+            ? "store_lite_order_manage"
+            : "store_lite_store_settings";
   const primaryBadge =
     b.inquiryAttention > 0
       ? b.inquiryAttention
@@ -76,13 +77,19 @@ export function resolveOwnerLiteStoreShortcuts(
 
   const secondaryHref =
     b.inquiryAttention > 0 ? (canSell ? orderHref : basicInfoHref) : canSell ? inquiryHref : basicInfoHref;
-  const secondaryLabel =
-    b.inquiryAttention > 0 ? (canSell ? "주문 관리" : "기본 정보") : canSell ? "받은 문의" : "기본 정보";
+  const secondaryLabelKey =
+    b.inquiryAttention > 0
+      ? canSell
+        ? "store_lite_order_manage"
+        : "store_hub_ops_basic_info"
+      : canSell
+        ? "store_lite_received_inquiries"
+        : "store_hub_ops_basic_info";
   const secondaryBadge =
     b.inquiryAttention > 0 ? (canSell ? b.orderAttention : 0) : canSell ? b.inquiryAttention : 0;
 
   return {
-    primary: { href: primaryHref, label: primaryLabel, badge: primaryBadge },
-    secondary: { href: secondaryHref, label: secondaryLabel, badge: secondaryBadge },
+    primary: { href: primaryHref, labelKey: primaryLabelKey, badge: primaryBadge },
+    secondary: { href: secondaryHref, labelKey: secondaryLabelKey, badge: secondaryBadge },
   };
 }

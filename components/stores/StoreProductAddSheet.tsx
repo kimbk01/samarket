@@ -467,8 +467,8 @@ export function StoreProductAddSheet({
         commerceBlocked && commerceBlockedHint?.trim()
           ? commerceBlockedHint.trim()
           : sheetCommerce?.inBreak
-            ? `준비중 · Break time: ${sheetCommerce.breakRangeLabel}. 쉬는 시간에는 담을 수 없습니다.`
-            : "지금은 준비 중이라 담을 수 없습니다."
+            ? t("store_menu_blocked_break", { range: sheetCommerce.breakRangeLabel })
+            : t("store_err_preparing")
       );
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "blocked_by_commerce",
@@ -476,14 +476,14 @@ export function StoreProductAddSheet({
       return;
     }
     if (soldOut) {
-      setSheetErr("품절인 상품은 담을 수 없습니다.");
+      setSheetErr(t("store_err_sold_out_cannot_add"));
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "blocked_by_sold_out",
       });
       return;
     }
     if (!optionValidation.ok) {
-      setSheetErr("옵션 선택을 확인해 주세요.");
+      setSheetErr(t("store_err_required_options"));
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "blocked_by_validation",
         validation_calc_ms: Math.max(0, Math.round(validationCostMsRef.current)),
@@ -559,7 +559,7 @@ export function StoreProductAddSheet({
       return;
     }
     if (!addResult.ok) {
-      setSheetErr("장바구니에 담을 수 없습니다.");
+      setSheetErr(t("store_err_cart_add_failed"));
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "failed",
       });
@@ -599,7 +599,7 @@ export function StoreProductAddSheet({
   const showLineTotalInCard =
     qty > 1 || hasOptionDelta || (showListStrike && product !== null);
 
-  const headerTitle = product?.title ?? (showFullLoadingBody ? "불러오는 중…" : "메뉴 담기");
+  const headerTitle = product?.title ?? (showFullLoadingBody ? t("common_loading") : t("store_product_sheet_title"));
 
   const ctaDisabled =
     soldOut ||
@@ -611,10 +611,10 @@ export function StoreProductAddSheet({
     optionHydrationFailed;
 
   const ctaLabel = awaitingOptionHydration
-    ? "옵션을 불러오는 중…"
+    ? t("store_options_loading")
     : optionHydrationFailed
-      ? "옵션을 불러올 수 없음"
-      : `${formatMoneyPhp(lineTotal)} 담기`;
+      ? t("store_options_load_failed")
+      : t("store_add_to_cart_with_amount", { amount: formatMoneyPhp(lineTotal) });
 
   return (
     <StoreProductSheetShell onBackdropClose={onClose}>
@@ -624,14 +624,14 @@ export function StoreProductAddSheet({
         {showNotFound ? (
           <div className="px-4 py-10 text-center">
             <p className="text-sm text-sam-muted">
-              {slugBlocked ? "이 매장의 메뉴가 아닙니다." : "상품을 불러올 수 없습니다."}
+              {slugBlocked ? t("store_wrong_store_product") : t("store_product_load_failed_short")}
             </p>
             <button
               type="button"
               onClick={onClose}
               className={`mt-4 text-sm font-medium text-[color:var(--delivery-primary)] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
             >
-              닫기
+              {t("common_close")}
             </button>
           </div>
         ) : showFullLoadingBody ? (
@@ -643,13 +643,13 @@ export function StoreProductAddSheet({
                 {commerceBlocked && commerceBlockedHint?.trim()
                   ? commerceBlockedHint.trim()
                   : sheetCommerce?.inBreak
-                    ? `준비중 · Break time: ${sheetCommerce.breakRangeLabel}. 쉬는 시간에는 담을 수 없습니다.`
-                    : "지금은 준비 중이라 담을 수 없습니다."}
+                    ? t("store_menu_blocked_break", { range: sheetCommerce.breakRangeLabel })
+                    : t("store_err_preparing")}
               </p>
             ) : null}
             {soldOut ? (
               <p className="mx-3 mt-3 rounded-ui-rect bg-sam-border-soft/60 px-3 py-2 text-sm font-medium text-sam-fg">
-                품절
+                {t("store_sold_out")}
               </p>
             ) : null}
 
@@ -672,7 +672,7 @@ export function StoreProductAddSheet({
                 style={{ color: STORE_ORDER_BRAND.accentSoftText }}
                 onClick={onClose}
               >
-                메뉴 리뷰 {reviewCountDisp.toLocaleString("ko-KR")}개 ›
+                {t("store_menu_review_link", { count: reviewCountDisp.toLocaleString("en-PH") })}
               </Link>
             </div>
 
@@ -687,7 +687,7 @@ export function StoreProductAddSheet({
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
-                    이미지 없음
+                    {t("store_none")}
                   </div>
                 )}
               </div>
@@ -695,7 +695,7 @@ export function StoreProductAddSheet({
                 <div className="flex items-start justify-between gap-2">
                   <h3 className="sam-text-body font-semibold leading-snug text-sam-fg">{product.title}</h3>
                   <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
-                    찜 {favCount.toLocaleString("en-PH")}
+                    {t("store_favorites_label")} {favCount.toLocaleString("en-PH")}
                   </span>
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
@@ -710,10 +710,10 @@ export function StoreProductAddSheet({
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                    ★ {ratingLabel ?? "—"} · 리뷰 {reviewCountDisp.toLocaleString("en-PH")}
+                    ★ {ratingLabel ?? "—"} · {t("store_reviews_with_count", { count: reviewCountDisp.toLocaleString("en-PH") })}
                   </span>
                   <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                    주문 {orderCountDisp.toLocaleString("en-PH")}+
+                    {t("store_order_count_badge", { count: `${orderCountDisp.toLocaleString("en-PH")}+` })}
                   </span>
                 </div>
               </div>
@@ -722,7 +722,7 @@ export function StoreProductAddSheet({
             {reviewSnippets.length > 0 ? (
               <details className="hidden mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
                 <summary className="cursor-pointer px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg">
-                  리뷰 미리보기 ({reviewSnippets.length})
+                  {`${t("store_reviews_title")} ${reviewSnippets.length}`}
                 </summary>
                 <div className="grid grid-cols-1 gap-2 border-t border-sam-border-soft px-3 pb-3 pt-2 sm:grid-cols-2">
                   {reviewSnippets.map((r) => (
@@ -758,14 +758,14 @@ export function StoreProductAddSheet({
             ) : optionHydrationFailed ? (
               <div className="border-t-[8px] border-[#EDEDED] px-4 py-6 text-center">
                 <p className="text-[13px] font-medium text-neutral-700">
-                  옵션 정보를 불러오지 못했습니다.
+                  {t("store_product_option_load_failed")}
                 </p>
                 <button
                   type="button"
                   onClick={() => detail.retry()}
                   className={`mt-3 text-[14px] font-bold text-[color:var(--delivery-primary)] ${STORE_ORDER_TOUCH_BTN}`}
                 >
-                  다시 시도
+                  {t("common_retry")}
                 </button>
               </div>
             ) : optionGroups.length > 0 ? (
@@ -889,7 +889,7 @@ export function StoreProductAddSheet({
                 style={{ color: STORE_ORDER_BRAND.accent }}
                 onClick={onClose}
               >
-                전체 화면에서 보기
+                {t("common_view_store")}
               </Link>
             </p>
 
@@ -898,7 +898,7 @@ export function StoreProductAddSheet({
             ) : null}
             {!commerceCart ? (
               <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
-                장바구니를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
+                {t("store_err_cart_add_failed")}
               </p>
             ) : null}
           </div>

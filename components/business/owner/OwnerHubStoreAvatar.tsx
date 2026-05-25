@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 /**
  * 매장 운영 허브·사이드바 상단 — `stores.profile_image_url` 과 동일 소스.
  * 외부 URL은 `next/image` 도메인 설정 없이 `<img>` 로 표시(배달 검색 등과 동일).
@@ -14,8 +16,9 @@ export function OwnerHubStoreAvatar({
   /** 기본: 44px 원 + 이니셜 또는 이미지 */
   className?: string;
 }) {
+  const { t } = useI18n();
   const url = profileImageUrl?.trim() ?? "";
-  const initial = shopName.trim().slice(0, 1) || "샵";
+  const initial = shopName.trim().slice(0, 1) || t("store_owner_hub_avatar_fallback");
 
   if (url) {
     return (

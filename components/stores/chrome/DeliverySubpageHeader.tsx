@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS,
   DELIVERY_CONSUMER_HEADER_ROW_CLASS,
@@ -13,7 +14,7 @@ import { DeliveryConsumerHeaderRow } from "@/components/stores/chrome/DeliveryCo
 export function DeliverySubpageHeader({
   title,
   onBack,
-  backLabel = "뒤로가기",
+  backLabel,
   trailing,
 }: {
   title: string;
@@ -22,6 +23,8 @@ export function DeliverySubpageHeader({
   /** 우측 액션(없으면 균형용 투명 슬롯) */
   trailing?: ReactNode;
 }) {
+  const { t } = useI18n();
+  const resolvedBackLabel = backLabel ?? t("nav_back");
   return (
     <header
       className={`delivery-ui ${APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS} ${DELIVERY_SUBPAGE_HEADER_SHELL_CLASS}`}
@@ -34,7 +37,7 @@ export function DeliverySubpageHeader({
               <button
                 type="button"
                 onClick={onBack}
-                aria-label={backLabel}
+                aria-label={resolvedBackLabel}
                 className={DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS}
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

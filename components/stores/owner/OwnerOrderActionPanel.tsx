@@ -44,7 +44,7 @@ export function OwnerOrderActionPanel({
     const r = await patchOwnerOrderStatusRemote(storeId, order.id, order_status);
     setBusy((prev) => (prev === null ? prev : null));
     if (r.ok) {
-      setToast(`${label} 반영됨`);
+      setToast(t("store_owner_action_applied", { label }));
       await onAfterAction?.();
     } else {
       setToast(r.error);
@@ -58,7 +58,7 @@ export function OwnerOrderActionPanel({
     return (
       <div className="space-y-2">
         <p className="rounded-ui-rect bg-amber-50 px-3 py-2 text-center text-xs text-amber-950 ring-1 ring-amber-200">
-          구매자가 환불을 요청했습니다. 비즈니스 콘솔 또는 관리자 처리 흐름을 이용해 주세요.
+          {t("store_owner_refund_requested_notice")}
         </p>
       </div>
     );
@@ -67,7 +67,7 @@ export function OwnerOrderActionPanel({
   if (s === "refunded") {
     return (
       <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-center text-xs text-sam-muted ring-1 ring-sam-border">
-        환불 처리된 주문입니다.
+        {t("store_owner_refunded_notice")}
       </p>
     );
   }
@@ -95,7 +95,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 거절
+            {t("store_owner_action_reject_order")}
           </button>
         ) : null}
 

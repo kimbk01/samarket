@@ -52,7 +52,7 @@ export function StoreDetailCommerceMetrics({
     deliveryAvailable && deliveryFeePhp != null && deliveryFeePhp >= 0
       ? formatMoneyPhp(deliveryFeePhp)
       : deliveryAvailable
-        ? "문의"
+        ? t("store_inquiry_title")
         : "—";
   const weekdaysRaw = deliveryMeta.weekdaysLine?.trim() || "";
   const deliveryHoursRaw = deliveryMeta.deliveryHoursLine?.trim() || "";
@@ -63,24 +63,24 @@ export function StoreDetailCommerceMetrics({
     deliveryAvailable &&
     deliveryMeta.freeDeliveryOverPhp != null &&
     deliveryMeta.freeDeliveryOverPhp > 0
-      ? `${formatMoneyPhp(deliveryMeta.freeDeliveryOverPhp)}↑ 무료배달`
+      ? t("store_free_delivery_over", { amount: formatMoneyPhp(deliveryMeta.freeDeliveryOverPhp) })
       : null;
   const courier = deliveryAvailable && deliveryCourierLabel?.trim() ? deliveryCourierLabel.trim() : null;
 
   /** 최소주문 · 배달비 · 결제 · 영업시간 — 한 행, 좁은 화면에서 가로 스크롤 */
   const metricsRow = (
     <div className="flex w-full min-w-[320px] items-stretch">
-      <CommerceMetricCell label="최소주문" value={minDd} />
+      <CommerceMetricCell label={t("store_min_order_short")} value={minDd} />
       <CommerceMetricVSeparator />
-      <CommerceMetricCell label="배달비(안내)" value={feeDd} />
+      <CommerceMetricCell label={t("store_delivery_fee_inquire_line")} value={feeDd} />
       <CommerceMetricVSeparator />
       <CommerceMetricCell
-        label="결제"
+        label={t("store_payment_methods_label")}
         value={<span className="line-clamp-2 break-words">{pay}</span>}
       />
       <CommerceMetricVSeparator />
       <CommerceMetricCell
-        label="영업시간"
+        label={t("store_hours_weekday")}
         value={
           <span className="line-clamp-2 break-words tabular-nums text-sam-fg">{hoursBusiness}</span>
         }
@@ -140,14 +140,14 @@ export function StoreDetailCommerceStrip({
         />
       </div>
       <p className="mt-3 sam-text-helper leading-snug text-sam-muted">
-        상세 주소·전단지는{" "}
+        {t("store_detail_info_address_hint_before")}{" "}
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}/info`}
           className="font-semibold text-signature underline decoration-signature/30 underline-offset-2"
         >
-          가게정보
+          {t("store_detail_info_tab_short")}
         </Link>
-        에서 확인할 수 있어요.
+        {t("store_detail_info_address_hint_after")}
       </p>
     </div>
   );
@@ -167,13 +167,13 @@ export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
       <div className="-mt-1 flex gap-2">
         {href ? (
           <a href={href} className={btn}>
-            전화 문의
+            {t("store_phone_inquiry")}
           </a>
         ) : (
           <span className={disabled}>{t("store_phone_inquiry")}</span>
         )}
         <Link href="/chat" className={btn}>
-          채팅 문의
+          {t("store_chat_inquiry_menu")}
         </Link>
       </div>
     </div>
@@ -193,7 +193,7 @@ export function StoreDetailPromoBanner({
   const line =
     customText.trim() ||
     (freeOverPhp != null && freeOverPhp > 0
-      ? `${formatMoneyPhp(freeOverPhp)} 이상 주문 시 배달비 무료(안내)`
+      ? t("store_free_delivery_threshold_line", { amount: formatMoneyPhp(freeOverPhp) })
       : "");
   if (!line) return null;
   const boxClass =

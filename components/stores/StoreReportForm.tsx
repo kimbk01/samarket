@@ -5,13 +5,22 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
-const REASON_OPTIONS: { value: string; label: string }[] = [
-  { value: "spam", label: "스팸·도배" },
-  { value: "fraud", label: "사기·허위" },
-  { value: "illegal", label: "불법·유해" },
-  { value: "harassment", label: "괴롭힘·혐오" },
-  { value: "misleading", label: "과장·오해 소지" },
-  { value: "other", label: "기타" },
+const REASON_OPTIONS: {
+  value: string;
+  labelKey:
+    | "store_report_reason_spam"
+    | "store_report_reason_fraud"
+    | "store_report_reason_illegal"
+    | "store_report_reason_harassment"
+    | "store_report_reason_misleading"
+    | "store_report_reason_other";
+}[] = [
+  { value: "spam", labelKey: "store_report_reason_spam" },
+  { value: "fraud", labelKey: "store_report_reason_fraud" },
+  { value: "illegal", labelKey: "store_report_reason_illegal" },
+  { value: "harassment", labelKey: "store_report_reason_harassment" },
+  { value: "misleading", labelKey: "store_report_reason_misleading" },
+  { value: "other", labelKey: "store_report_reason_other" },
 ];
 
 export function StoreReportForm({
@@ -35,7 +44,7 @@ export function StoreReportForm({
     e.preventDefault();
     setErr((prev) => (prev === null ? prev : null));
     if (!message.trim()) {
-      setErr("내용을 입력해 주세요.");
+      setErr(t("store_report_err_empty"));
       return;
     }
     setBusy((prev) => (prev ? prev : true));
@@ -57,20 +66,20 @@ export function StoreReportForm({
       );
       const json = await res.json();
       if (res.status === 401) {
-        setErr("로그인이 필요합니다.");
+        setErr(t("common_login_required"));
         return;
       }
       if (json?.error === "report_recent_duplicate") {
-        setErr("같은 대상으로 최근에 신고하셨습니다. 잠시 후 다시 시도해 주세요.");
+        setErr(t("store_report_err_duplicate"));
         return;
       }
       if (!json?.ok) {
-        setErr(json?.error ?? "신고 접수에 실패했습니다.");
+        setErr(json?.error ?? t("store_report_err_failed"));
         return;
       }
       setOk((prev) => (prev ? prev : true));
     } catch {
-      setErr("네트워크 오류");
+      setErr(t("common_network_error"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -86,7 +95,7 @@ export function StoreReportForm({
           className="mt-4 sam-text-body-secondary font-medium text-sam-success underline"
           onClick={() => router.push(`/stores/${encodeURIComponent(storeSlug)}`)}
         >
-          매장으로 돌아가기
+          {t("common_back_to_store")}
         </button>
       </div>
     );
@@ -96,8 +105,8 @@ export function StoreReportForm({
     <form onSubmit={onSubmit} className="space-y-4">
       <p className="sam-text-helper">
         {mode === "store"
-          ? "이 매장에 대한 신고입니다."
-          : "선택한 상품에 대한 신고입니다."}
+          ? t("store_report_target_store")
+          : t("store_report_target_product")}
       </p>
       <label className="sam-form-field block">
         <span className="sam-form-label">{t("store_report_reason")}</span>
@@ -108,7 +117,7 @@ export function StoreReportForm({
         >
           {REASON_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.labelKey)}
             </option>
           ))}
         </select>
@@ -129,7 +138,7 @@ export function StoreReportForm({
         disabled={busy}
         className="sam-btn-primary w-full disabled:opacity-50"
       >
-        {busy ? "전송 중…" : "신고 접수"}
+        {busy ? t("store_report_submitting") : t("store_report_submit_btn")}
       </button>
     </form>
   );

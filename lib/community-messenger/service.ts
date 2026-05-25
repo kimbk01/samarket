@@ -10346,6 +10346,10 @@ export type CommunityMessengerMarkReadDiag = {
   mark_read_fetch_existing_eliminated?: 0 | 1;
   mark_read_db_round_trips?: number;
   mark_read_cold_open_path?: 0 | 1;
+  /** PATCH 4 — snapshot fast-path duplicate ack */
+  duplicate_fast_path?: 0 | 1;
+  fetch_existing_skipped?: 0 | 1;
+  snapshot_source?: string;
 };
 
 export type CommunityMessengerMarkReadResult = {
@@ -10373,39 +10377,10 @@ async function compareMessengerReadCursorOrder(
   storedMessageId: string,
   requestedMessageId: string
 ): Promise<"regression" | "advance" | "same" | "unknown"> {
-  if (normalizeMessengerReadCursorKey(storedMessageId) === normalizeMessengerReadCursorKey(requestedMessageId))
-    return "same";
-  const { data: rows } = await sb
-    .from("community_messenger_messages")
-    .select("id, created_at")
-    .eq("room_id", roomId)
-    .in("id", [storedMessageId, requestedMessageId]);
-  const list = (rows ?? []) as Array<{ id?: unknown; created_at?: unknown }>;
-  const byId = new Map<string, string>();
-  for (const r of list) {
-    const id = normalizeMessengerReadCursorKey(trimText(r.id));
-    if (!id) continue;
-    const raw = r.created_at;
-    const iso =
-      typeof raw === "string" && raw.trim()
-        ? raw.trim()
-        : raw instanceof Date && !Number.isNaN(raw.getTime())
-          ? raw.toISOString()
-          : "";
-    if (iso) byId.set(id, iso);
-  }
-  const ts = (id: string) => {
-    const raw = byId.get(normalizeMessengerReadCursorKey(id));
-    if (!raw) return null;
-    const n = Date.parse(raw);
-    return Number.isFinite(n) ? n : null;
-  };
-  const a = ts(requestedMessageId);
-  const b = ts(storedMessageId);
-  if (a == null || b == null) return "unknown";
-  if (a < b) return "regression";
-  if (a > b) return "advance";
-  return "same";
+  const { compareMessengerReadCursorOrderCached } = await import(
+    "@/lib/community-messenger/mark-read-duplicate-fast-path"
+  );
+  return compareMessengerReadCursorOrderCached(sb, roomId, storedMessageId, requestedMessageId);
 }
 
 export async function markCommunityMessengerRoomAsRead(input: {
@@ -10445,6 +10420,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
       diag.mark_read_db_update_ms = 0;
       diag.mark_read_duplicate_skip_eval_ms = 0;
       diag.snapshot_lookup_cache_hit = 1;
+      diag.duplicate_fast_path = 1;
+      diag.fetch_existing_skipped = 1;
+      diag.snapshot_source = "open_tail_coalesce";
+      diag.mark_read_fetch_existing_eliminated = 1;
     }
     if (openCoalesceProbe.snapshot) {
       return {
@@ -10470,6 +10449,21 @@ export async function markCommunityMessengerRoomAsRead(input: {
 
   const sb = getSupabaseOrNull();
   if (sb) {
+    const { probeMarkReadEarlyDuplicateFastPath } = await import(
+      "@/lib/community-messenger/mark-read-duplicate-fast-path"
+    );
+    const earlyDuplicate = probeMarkReadEarlyDuplicateFastPath({
+      userId: input.userId,
+      roomId,
+      requestedLastReadMessageId,
+      flushOpen,
+      membershipCacheHit: diag?.membership_cache_hit,
+      diag,
+    });
+    if (earlyDuplicate) {
+      return earlyDuplicate;
+    }
+
     const rpcMode: "open" | "cursor" = flushOpen || !requestedLastReadMessageId ? "open" : "cursor";
     const rpcThrough = rpcMode === "cursor" ? requestedLastReadMessageId : null;
 
@@ -10500,6 +10494,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
           diag.mark_read_combined_rpc_used = 0;
           diag.mark_read_cold_open_path = 0;
           diag.mark_read_rpc_mode = "open";
+          diag.duplicate_fast_path = 1;
+          diag.fetch_existing_skipped = 1;
+          diag.snapshot_source = "memory_snapshot";
+          diag.mark_read_fetch_existing_eliminated = 1;
         }
         cmRtReadSyncLog("mark_read_duplicate_same_cursor_skip", {
           roomId,
@@ -10728,6 +10726,11 @@ export async function markCommunityMessengerRoomAsRead(input: {
       diag.existing_read_fetch_ms = Math.round(performance.now() - tExist0);
       diag.mark_read_fetch_existing_ms = diag.existing_read_fetch_ms;
       diag.mark_read_existing_snapshot_lookup_ms = Math.round(performance.now() - tExist0);
+      if (diag.mark_read_existing_snapshot_cache_hit === 1) {
+        diag.mark_read_fetch_existing_eliminated = 1;
+        diag.fetch_existing_skipped = 1;
+        if (!diag.snapshot_source) diag.snapshot_source = "memory_snapshot";
+      }
       diag.mark_read_rpc_mode = rpcMode;
       if (diag.mark_read_db_round_trips == null) {
         diag.mark_read_db_round_trips = 2;
@@ -10769,6 +10772,12 @@ export async function markCommunityMessengerRoomAsRead(input: {
         diag.mark_read_registry_sync_ms = 0;
         diag.mark_read_trade_sync_ms = 0;
         diag.mark_read_cache_invalidate_ms = 0;
+        diag.duplicate_fast_path = 1;
+        diag.fetch_existing_skipped = diag.mark_read_existing_snapshot_cache_hit === 1 ? 1 : 0;
+        if (diag.mark_read_existing_snapshot_cache_hit === 1) {
+          diag.mark_read_fetch_existing_eliminated = 1;
+          diag.snapshot_source = diag.snapshot_source ?? "memory_snapshot";
+        }
       }
       storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, partRowRaw);
       if (flushOpen && !normReq) {
@@ -10797,6 +10806,31 @@ export async function markCommunityMessengerRoomAsRead(input: {
       if (diag) {
         diag.message_order_compare_ms = Math.round(cmpMs);
         diag.mark_read_compare_ms = Math.round(cmpMs);
+      }
+      if (ord === "same") {
+        cmRtReadSyncLog("mark_read_duplicate_same_cursor_skip", {
+          roomId,
+          viewerUserId: input.userId,
+          lastReadMessageId: requestedLastReadMessageId,
+          unreadCount: existingUnread,
+        });
+        if (diag) {
+          diag.mark_read_db_update_ms = 0;
+          diag.mark_read_registry_sync_ms = 0;
+          diag.mark_read_trade_sync_ms = 0;
+          diag.mark_read_cache_invalidate_ms = 0;
+          diag.duplicate_fast_path = 1;
+        }
+        storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, partRowRaw);
+        return {
+          ok: true,
+          lastReadAt: existingLastReadAt,
+          lastReadMessageId: existingLastReadId,
+          duplicateAckSkipped: true,
+          broadcastSkipped: true,
+          sameLastReadDetected: true,
+          lastReadAdvanced: false,
+        };
       }
       if (ord === "regression") {
         cmRtReadSyncLog("mark_read_regression_blocked_skip", {

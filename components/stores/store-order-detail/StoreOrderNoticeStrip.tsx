@@ -45,7 +45,11 @@ export function StoreOrderNoticeStrip({
   /** 실데이터 연동 전까지 false 유지(mock 금지) */
   showCouponBadge?: boolean;
 }) {
-  const fallback = storeName?.trim() ? `${storeName.trim()} 입니다.` : "매장 공지를 확인해 보세요";
+  const { t } = useI18n();
+  const trimmedStoreName = storeName?.trim() || t("store_fallback_name");
+  const fallback = storeName?.trim()
+    ? t("store_notice_store_suffix", { store: trimmedStoreName })
+    : t("store_notice_check_fallback");
   const line = text.trim() || fallback;
 
   return (
@@ -61,7 +65,7 @@ export function StoreOrderNoticeStrip({
         <div className="flex shrink-0 items-center gap-1.5">
           {showCouponBadge ? (
             <span className="delivery-badge delivery-badge--primary">
-              쿠폰
+              {t("store_badge_coupon")}
             </span>
           ) : null}
           <NoticeChevron className="shrink-0 text-neutral-300" />

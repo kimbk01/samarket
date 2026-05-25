@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  getStoreBusinessBlockedTitleBody,
+  getStoreBusinessBlockedCopy,
   showStoreBusinessApplyLink,
   showStoreBusinessProfilePreviewLink,
 } from "@/components/business/store-business-blocked-copy";
@@ -24,9 +24,10 @@ export function StoreBusinessBlockedModal({
   onClose,
   state,
   firstStoreId,
-  primaryCloseLabel = "내 정보로",
+  primaryCloseLabel,
 }: Props) {
   const { t } = useI18n();
+  const resolvedCloseLabel = primaryCloseLabel ?? t("business_phase7_618");
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
     const prev = document.body.style.overflow;
@@ -47,9 +48,11 @@ export function StoreBusinessBlockedModal({
 
   if (!open) return null;
 
-  const { title, body } = getStoreBusinessBlockedTitleBody(state);
+  const copy = getStoreBusinessBlockedCopy(state);
   const showProfile = showStoreBusinessProfilePreviewLink(state, firstStoreId);
   const showApply = showStoreBusinessApplyLink(state);
+  const title = t(copy.titleKey);
+  const body = "bodyText" in copy ? copy.bodyText : t(copy.bodyKey);
 
   return (
     <div
@@ -78,7 +81,7 @@ export function StoreBusinessBlockedModal({
             onClick={onClose}
             className="rounded-ui-rect bg-sam-ink py-3 text-center sam-text-body font-medium text-white active:opacity-90"
           >
-            {primaryCloseLabel}
+            {resolvedCloseLabel}
           </button>
           {showProfile && firstStoreId ? (
             <Link
@@ -86,7 +89,7 @@ export function StoreBusinessBlockedModal({
               onClick={onClose}
               className="rounded-ui-rect border border-signature/40 bg-signature/5 py-3 text-center sam-text-body font-medium text-signature active:opacity-90"
             >
-              매장 설정 (공개 페이지 미리보기용)
+              {t("business_phase7_619")}
             </Link>
           ) : null}
           {showApply ? (
@@ -95,7 +98,7 @@ export function StoreBusinessBlockedModal({
               onClick={onClose}
               className="rounded-ui-rect border border-sam-border py-3 text-center sam-text-body font-medium text-sam-fg active:bg-sam-app"
             >
-              매장 등록 신청
+              {t("store_biz_apply_store")}
             </Link>
           ) : null}
         </div>

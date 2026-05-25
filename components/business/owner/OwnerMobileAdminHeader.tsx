@@ -109,7 +109,7 @@ export function OwnerMobileAdminHeader({
               backHref={exitHref}
               preferHistoryBack
               interceptBack={backIntercept}
-              className={`${HEADER_ICON_BTN_CLASS} text-[#1C8DB8] hover:bg-[#E8F1FF] active:bg-[#DBEDF5]`}
+              className={`${HEADER_ICON_BTN_CLASS} text-[var(--biz-primary)] hover:bg-[var(--biz-tan-soft)] active:bg-[var(--biz-header-bg)]`}
               iconClassName="h-5 w-5 shrink-0"
               ariaLabel={t("store_owner_aria_exit_delivery_home")}
             />

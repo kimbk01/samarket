@@ -51,7 +51,7 @@ export function OwnerDashboardHeader({
   const open = storeOps.is_open;
   const prep =
     storeOps.prep_minutes != null && storeOps.prep_minutes > 0
-      ? `예상조리 ${storeOps.prep_minutes}분`
+      ? t("store_owner_ops_prep_minutes", { minutes: storeOps.prep_minutes })
       : null;
 
   const onStoreChange = (nextId: string) => {
@@ -100,11 +100,11 @@ export function OwnerDashboardHeader({
                 open ? "bg-[#52C41A] text-white" : "bg-[#8C8C8C] text-white"
               }`}
             >
-              {open ? "영업중" : "일시중지"}
+              {open ? t("store_owner_ops_open") : t("store_owner_ops_paused")}
             </span>
           </div>
           <p className="truncate text-[11px] leading-tight text-[#8C8C8C]">
-            {[storeOps.hours_label, prep].filter(Boolean).join(" · ") || "영업 시간을 설정해 주세요"}
+            {[storeOps.hours_label, prep].filter(Boolean).join(" · ") || t("store_owner_ops_set_hours")}
           </p>
         </div>
 
@@ -112,7 +112,7 @@ export function OwnerDashboardHeader({
           <Link
             href={notificationsHref}
             className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label={`알림 ${urgentAlertCount}건`}
+            aria-label={t("store_owner_aria_notifications", { count: urgentAlertCount })}
           >
             <Bell className="h-5 w-5" aria-hidden />
             {urgentAlertCount > 0 ? (

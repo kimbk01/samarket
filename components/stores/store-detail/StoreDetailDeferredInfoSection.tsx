@@ -108,12 +108,12 @@ export function StoreDetailDeferredInfoSection({
           onClick={() => void load()}
           className="mt-2 text-[13px] font-semibold text-[color:var(--delivery-primary)]"
         >
-          다시 시도
+          {t("common_retry")}
         </button>
         {showFullLink ? (
           <div className="mt-2">
             <Link href={reviewsHref} className="text-[12px] text-neutral-500 underline underline-offset-2">
-              리뷰 전체 보기
+              {t("store_reviews_view_all_aria")}
             </Link>
           </div>
         ) : null}
@@ -131,7 +131,7 @@ export function StoreDetailDeferredInfoSection({
           href={reviewsHref}
           className="text-[13px] font-semibold text-[color:var(--delivery-primary)] underline underline-offset-2"
         >
-          리뷰 보기
+          {t("store_reviews_title")}
         </Link>
       </div>
       </>
@@ -154,7 +154,7 @@ export function StoreDetailDeferredInfoSection({
         {payload.avg != null && Number.isFinite(payload.avg) ? (
           <span className="font-bold text-amber-600">{payload.avg.toFixed(1)}</span>
         ) : null}
-        <span className="text-neutral-500">({payload.count}건)</span>
+        <span className="text-neutral-500">{t("store_reviews_count", { count: payload.count })}</span>
       </div>
       {payload.recent.length > 0 ? (
         <ul className="mt-3 space-y-2 border-t border-neutral-100 pt-3">
@@ -170,7 +170,7 @@ export function StoreDetailDeferredInfoSection({
                   {Number.isFinite(rt) ? starsLabel(rt) : ""}
                 </span>
                 {label ? <span className="font-semibold text-neutral-600">{label} · </span> : null}
-                {body || "내용 없음"}
+                {body || t("store_content_empty")}
               </li>
             );
           })}
@@ -178,7 +178,7 @@ export function StoreDetailDeferredInfoSection({
       ) : null}
       <div className="mt-3 border-t border-neutral-100 pt-3 text-center">
         <Link href={`${storeRootPath}/info`} className="text-[12px] text-neutral-500 underline underline-offset-2">
-          매장 상세·사업자 정보
+          {t("store_info_title")}
         </Link>
       </div>
     </div>

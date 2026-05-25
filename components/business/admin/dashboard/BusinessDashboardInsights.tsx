@@ -36,7 +36,7 @@ export function BusinessDashboardInsights({
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
           <p className="sam-text-helper font-medium text-sam-muted">{t("business_phase7_294")}</p>
           <p className="mt-1 text-xl font-bold text-sam-fg">
-            {cancelCount}건 · {cancelRatePercent}%
+            {t("business_phase7_603", { v1: String(cancelCount), v2: String(cancelRatePercent) })}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
@@ -52,9 +52,7 @@ export function BusinessDashboardInsights({
           <p className="mt-1 text-lg font-bold text-sam-fg">{fmt(settlementHeldPhp)}</p>
         </div>
       </div>
-      <p className="sam-text-xxs text-sam-meta">
-        매출은 최근 주문 목록(최대 100건) 기준 추정치입니다. 정산은 실제 정산 API 반영값입니다.
-      </p>
+      <p className="sam-text-xxs text-sam-meta">{t("business_phase7_604")}</p>
     </section>
   );
 }

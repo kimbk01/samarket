@@ -32,7 +32,7 @@ export function StoreDetailBackLink({
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const animatedBack = useStoreDetailAnimatedBack();
-  const label = variant === "close" ? "닫기" : "뒤로가기";
+  const label = variant === "close" ? t("common_close") : t("nav_back");
 
   const onBackPress = () => {
     const fallbackPath = (fallbackHref || "").split("?")[0] ?? "";

@@ -3,17 +3,16 @@
 import type { CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Check, ChefHat, ClipboardList, Package, Truck } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type OwnerFlowStepVariant = "waiting" | "cooking" | "delivering" | "done";
 
-const STEP_STYLE: Record<
-  OwnerFlowStepVariant,
-  { bg: string; Icon: LucideIcon; ariaLabel: string }
-> = {
-  waiting: { bg: "#2D7FF9", Icon: ClipboardList, ariaLabel: "접수대기" },
-  cooking: { bg: "#FA8C16", Icon: ChefHat, ariaLabel: "준비(조리)중" },
-  delivering: { bg: "#1890FF", Icon: Truck, ariaLabel: "배달중" },
-  done: { bg: "#BFBFBF", Icon: Check, ariaLabel: "완료" },
+const STEP_STYLE: Record<OwnerFlowStepVariant, { bg: string; Icon: LucideIcon; ariaKey: MessageKey }> = {
+  waiting: { bg: "#0B421A", Icon: ClipboardList, ariaKey: "store_owner_flow_aria_waiting" },
+  cooking: { bg: "#FA8C16", Icon: ChefHat, ariaKey: "store_owner_flow_aria_cooking" },
+  delivering: { bg: "#1890FF", Icon: Truck, ariaKey: "store_owner_flow_aria_delivering" },
+  done: { bg: "#BFBFBF", Icon: Check, ariaKey: "store_owner_flow_aria_done" },
 };
 
 /** 대시보드 「주문 진행 현황」 원형 직경 (기준 52px 대비 −20%) */
@@ -26,14 +25,15 @@ export function OwnerFlowStepCircle({
   variant: OwnerFlowStepVariant;
   size?: number;
 }) {
-  const { bg, Icon, ariaLabel } = STEP_STYLE[variant];
+  const { t } = useI18n();
+  const { bg, Icon, ariaKey } = STEP_STYLE[variant];
   const iconPx = Math.round(size * 0.46);
   return (
     <span
       className="flex shrink-0 items-center justify-center rounded-full text-white shadow-sm"
       style={{ width: size, height: size, backgroundColor: bg }}
       role="img"
-      aria-label={ariaLabel}
+      aria-label={t(ariaKey)}
     >
       <Icon size={iconPx} strokeWidth={2} aria-hidden />
     </span>
@@ -91,7 +91,7 @@ export function ownerFlowIconForStepIndex(
 ): { Icon: LucideIcon; bg: string } {
   if (deliveryLike) {
     const list = [
-      { Icon: ClipboardList, bg: "#2D7FF9" },
+      { Icon: ClipboardList, bg: "#0B421A" },
       { Icon: ChefHat, bg: "#FA8C16" },
       { Icon: Truck, bg: "#1890FF" },
       { Icon: Check, bg: "#BFBFBF" },
@@ -99,7 +99,7 @@ export function ownerFlowIconForStepIndex(
     return list[index] ?? list[0]!;
   }
   const list = [
-    { Icon: ClipboardList, bg: "#2D7FF9" },
+    { Icon: ClipboardList, bg: "#0B421A" },
     { Icon: ChefHat, bg: "#FA8C16" },
     { Icon: Package, bg: "#1890FF" },
     { Icon: Check, bg: "#BFBFBF" },

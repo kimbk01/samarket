@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { headers } from "next/headers";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreProductPublic } from "@/components/stores/StoreProductPublic";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 
 export async function generateMetadata({
@@ -12,12 +15,25 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { productId } = await params;
   const id = typeof productId === "string" ? productId.trim() : "";
-  if (!id) return { title: "상품" };
-
   const h = await headers();
+  const cookieStore = await cookies();
+  const lang = resolveServerInitialLanguage({
+    cookieValue: cookieStore.get("sam_lang")?.value ?? cookieStore.get("app_lang")?.value,
+    acceptLanguage: h.get("accept-language"),
+  });
+  const fallbackProductTitle = safeTranslate(lang, "store_meta_product_title", {
+    fallbackKo: "상품",
+    fallbackEn: "Product",
+  });
+  const fallbackStoreName = safeTranslate(lang, "store_fallback_name", {
+    fallbackKo: "매장",
+    fallbackEn: "Store",
+  });
+  if (!id) return { title: fallbackProductTitle };
+
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = (h.get("x-forwarded-proto") ?? "http").split(",")[0]?.trim() || "http";
-  if (!host) return { title: "상품" };
+  if (!host) return { title: fallbackProductTitle };
 
   const base = `${proto}://${host}`;
   try {
@@ -25,7 +41,7 @@ export async function generateMetadata({
       cache: "no-store",
       headers: { Accept: "application/json" },
     });
-    if (!res.ok) return { title: "상품" };
+    if (!res.ok) return { title: fallbackProductTitle };
     const json = (await res.json()) as {
       ok?: boolean;
       product?: {
@@ -36,11 +52,18 @@ export async function generateMetadata({
       };
       store?: { store_name?: string; slug?: string };
     };
-    if (!json?.ok || !json.product || !json.store) return { title: "상품" };
+    if (!json?.ok || !json.product || !json.store) return { title: fallbackProductTitle };
 
-    const title = `${String(json.product.title ?? "상품")} · ${String(json.store.store_name ?? "매장")}`;
+    const title = `${String(json.product.title ?? fallbackProductTitle)} · ${String(json.store.store_name ?? fallbackStoreName)}`;
     const sum = typeof json.product.summary === "string" ? json.product.summary.trim() : "";
-    const description = (sum || `${json.store.store_name ?? "매장"}의 상품입니다.`).slice(0, 160);
+    const description = (
+      sum ||
+      safeTranslate(lang, "store_meta_product_desc", {
+        vars: { store: String(json.store.store_name ?? fallbackStoreName) },
+        fallbackKo: `${String(json.store.store_name ?? fallbackStoreName)}의 상품입니다.`,
+        fallbackEn: `Product from ${String(json.store.store_name ?? fallbackStoreName)}.`,
+      })
+    ).slice(0, 160);
     const thumbPrimary =
       typeof json.product.thumbnail_url === "string" && json.product.thumbnail_url.trim()
         ? json.product.thumbnail_url.trim()
@@ -60,7 +83,7 @@ export async function generateMetadata({
       alternates: { canonical: `${base}${path}` },
     };
   } catch {
-    return { title: "상품" };
+    return { title: fallbackProductTitle };
   }
 }
 

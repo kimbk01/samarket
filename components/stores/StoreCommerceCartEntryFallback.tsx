@@ -20,15 +20,15 @@ export function StoreCommerceCartEntryFallback({
 
   const title =
     hint === "network"
-      ? "매장 정보를 불러오지 못했습니다."
-      : "이 주소의 매장을 찾을 수 없습니다.";
+      ? t("store_cart_entry_title_network")
+      : t("store_cart_entry_title_not_found");
 
   const sub =
     hint === "network"
-      ? "네트워크 연결을 확인한 뒤 다시 시도해 주세요."
+      ? t("store_cart_entry_sub_network")
       : hint === "api"
-        ? "서버 응답에 문제가 있었습니다. 잠시 후 다시 시도해 주세요."
-        : "삭제·비공개되었거나 주소가 바뀌었을 수 있습니다.";
+        ? t("store_cart_entry_sub_api")
+        : t("store_cart_entry_sub_gone");
 
   return (
     <div className="min-h-[50vh] bg-sam-app px-4 py-10">
@@ -41,7 +41,7 @@ export function StoreCommerceCartEntryFallback({
             onClick={onRetry}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-sm font-medium text-sam-fg"
           >
-            다시 시도
+            {t("common_retry")}
           </button>
         </div>
       ) : null}
@@ -52,13 +52,13 @@ export function StoreCommerceCartEntryFallback({
             {buckets.map((b) => (
               <li key={b.storeId} className="flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  {b.storeName} · {b.itemCount}종 · {formatMoneyPhp(b.subtotalPhp)}
+                  {b.storeName} {t("store_cart_items_kind", { count: b.itemCount })} · {formatMoneyPhp(b.subtotalPhp)}
                 </span>
                 <Link
                   href={`/stores/${encodeURIComponent(b.storeSlug)}/cart`}
                   className="shrink-0 font-semibold text-signature underline"
                 >
-                  장바구니
+                  {t("store_cart_open_cart")}
                 </Link>
               </li>
             ))}
@@ -67,7 +67,7 @@ export function StoreCommerceCartEntryFallback({
       ) : null}
       <div className="mt-8 text-center">
         <Link href="/stores" className="text-sm font-medium text-signature">
-          매장 목록
+          {t("store_back_to_store_list")}
         </Link>
       </div>
     </div>

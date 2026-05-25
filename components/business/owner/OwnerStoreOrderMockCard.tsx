@@ -6,8 +6,17 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
-import { formatOwnerOrderElapsedKo } from "@/components/business/owner/owner-order-elapsed";
-import { ownerOrderStatusLabelKo, ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
+import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
+import { ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
+import { formatOwnerOrderPatchErr } from "@/lib/business/owner-order-patch-errors";
+import {
+  ownerOpsFlowStepLabelsI18n,
+  ownerOpsStatusLabelI18n,
+  ownerReviewStatusLabelI18n,
+  ownerRiderStatusLabelI18n,
+} from "@/lib/stores/owner-order-ui-labels";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-order-status";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
@@ -17,16 +26,22 @@ import {
 import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
-import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 
-const FULFILL_LABEL: Record<string, string> = {
-  pickup: "포장",
-  local_delivery: "배달",
-  shipping: "배달",
-};
+const FULFILL_LABEL_KEYS = {
+  pickup: "store_owner_fulfillment_pickup_short",
+  local_delivery: "store_owner_fulfillment_delivery_short",
+  shipping: "store_owner_fulfillment_delivery_short",
+} as const;
+
+const QUICK_REPLY_KEYS = [
+  "store_owner_quick_reply_late",
+  "store_owner_quick_reply_door",
+  "store_owner_quick_reply_ingredients",
+  "store_owner_quick_reply_call",
+] as const;
 
 export function OwnerStoreOrderMockCard({
   storeId,
@@ -47,15 +62,15 @@ export function OwnerStoreOrderMockCard({
   onToggleExpanded: () => void;
   onOpenChat: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const tone = ownerOrderStatusTone(order.order_status);
   const deliveryLike = isDeliveryFulfillment(order.fulfillment_type);
-  const statusLabel = ownerOpsStatusLabel(order.order_status, order.fulfillment_type);
-  const elapsed = formatOwnerOrderElapsedKo(order.created_at);
+  const statusLabel = ownerOpsStatusLabelI18n(language, order.order_status, order.fulfillment_type);
+  const elapsed = formatOwnerOrderElapsed(order.created_at, language);
   const buyerLabel =
     typeof order.buyer_public_label === "string" && order.buyer_public_label.trim()
       ? order.buyer_public_label.trim()
-      : BUYER_PUBLIC_LABEL_FALLBACK;
+      : t("store_buyer_public_label_fallback");
   const phoneRaw = typeof order.buyer_phone === "string" ? order.buyer_phone.trim() : "";
   const phoneDigits = phoneRaw ? parsePhMobileInput(phoneRaw) : "";
   const phoneDisplay =
@@ -65,8 +80,8 @@ export function OwnerStoreOrderMockCard({
     summary: order.delivery_address_summary,
     detail: order.delivery_address_detail,
   });
-  const menuSummary = summarizeMenu(order.items);
-  const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
+  const menuSummary = summarizeMenu(order.items, t);
+  const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type, language);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -82,7 +97,7 @@ export function OwnerStoreOrderMockCard({
           ...(estimatedPrepMinutes != null ? { estimated_prep_minutes: estimatedPrepMinutes } : {}),
         });
         if (!res.ok) {
-          setErr(formatOwnerOpsPatchErr(res.error ?? "update_failed"));
+          setErr(formatOwnerOrderPatchErr(res.error ?? "update_failed", language));
           return false;
         }
         dispatchOwnerHubBadgeRefresh({
@@ -94,13 +109,13 @@ export function OwnerStoreOrderMockCard({
         await onUpdated();
         return true;
       } catch {
-        setErr("네트워크 오류로 처리하지 못했습니다.");
+        setErr(t("store_owner_network_patch_failed"));
         return false;
       } finally {
         setBusy(null);
       }
     },
-    [onOrderStatusPatched, onUpdated, order.id, storeId]
+    [language, onOrderStatusPatched, onUpdated, order.id, storeId, t]
   );
 
   const onPrimaryAction = useCallback(() => {
@@ -136,15 +151,15 @@ export function OwnerStoreOrderMockCard({
   );
 
   const flow = useMemo(
-    () => buildOwnerOpsFlow(order.order_status, order.fulfillment_type),
-    [order.fulfillment_type, order.order_status]
+    () => buildOwnerOpsFlow(order.order_status, order.fulfillment_type, language),
+    [language, order.fulfillment_type, order.order_status]
   );
 
   return (
     <li
       id={`owner-order-${order.id}`}
-      className={`scroll-mt-48 overflow-hidden rounded-[4px] border border-[#DDE5E0] bg-white shadow-sm ${
-        isHighlight ? "ring-2 ring-[#1C8DB8] ring-offset-2" : ""
+      className={`scroll-mt-48 overflow-hidden rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] shadow-sm ${
+        isHighlight ? "ring-2 ring-[var(--biz-primary)] ring-offset-2" : ""
       }`}
     >
       <div className="p-3">
@@ -162,20 +177,20 @@ export function OwnerStoreOrderMockCard({
                 >
                   {statusLabel}
                 </span>
-                <span className="inline-flex rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-semibold leading-[1.35] text-[#123B4A]">
-                  {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
+                <span className="inline-flex rounded-[4px] bg-[var(--biz-primary-soft)] px-1.5 py-0.5 text-[11px] font-semibold leading-[1.35] text-[var(--biz-text)]">
+                  {t(FULFILL_LABEL_KEYS[order.fulfillment_type as keyof typeof FULFILL_LABEL_KEYS] ?? "store_owner_fulfillment_delivery_short")}
                 </span>
                 {elapsed ? (
                   <span className="text-[12px] font-medium leading-[1.35] text-[#6B7280]">{elapsed}</span>
                 ) : null}
               </div>
               <p className="mt-2 text-[12px] font-semibold leading-[1.35] text-[#4B5B53]">{order.order_no}</p>
-              <p className="mt-1 truncate text-[15px] font-bold leading-[1.35] text-[#123B4A]">
+              <p className="mt-1 truncate text-[15px] font-bold leading-[1.35] text-[var(--biz-text)]">
                 {buyerLabel}
               </p>
             </div>
             <ChevronDown
-              className={`mt-1 h-5 w-5 shrink-0 text-[#1C8DB8] transition-transform duration-200 ${
+              className={`mt-1 h-5 w-5 shrink-0 text-[var(--biz-primary)] transition-transform duration-200 ${
                 isExpanded ? "rotate-180" : ""
               }`}
               aria-hidden
@@ -195,11 +210,11 @@ export function OwnerStoreOrderMockCard({
               <p className="mt-1 line-clamp-1 text-[12px] leading-[1.35] text-[#6B7280]">{menuSummary}</p>
             </div>
             <div className="text-right">
-              <p className="text-[18px] font-bold leading-[1.2] tabular-nums text-[#123B4A]">
+              <p className="text-[18px] font-bold leading-[1.2] tabular-nums text-[var(--biz-text)]">
                 {formatMoneyPhp(order.payment_amount)}
               </p>
               <p className="mt-1 text-[11px] leading-[1.35] text-[#6B7280]">
-                {new Date(order.created_at).toLocaleString("ko-KR", {
+                {new Date(order.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
                   hour: "numeric",
                   minute: "2-digit",
                   hour12: true,
@@ -215,17 +230,17 @@ export function OwnerStoreOrderMockCard({
           <button
             type="button"
             onClick={onToggleExpanded}
-            className="flex min-h-10 flex-1 items-center justify-center rounded-[4px] border border-[#DDE5E0] bg-white px-3 text-[13px] font-bold leading-[1.35] text-[#123B4A]"
+            className="flex min-h-10 flex-1 items-center justify-center rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]"
           >
-            {isExpanded ? "접기" : "주문 펼치기"}
+            {isExpanded ? t("store_owner_card_collapse") : t("store_owner_card_expand")}
           </button>
           <button
             type="button"
             onClick={onOpenChat}
-            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[4px] border border-[#1C8DB8] bg-[#EAF6FB] px-3 text-[13px] font-bold leading-[1.35] text-[#1C8DB8]"
+            className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-primary)]"
           >
             <MessageSquare className="h-4 w-4" aria-hidden />
-            채팅
+            {t("store_owner_card_chat")}
           </button>
         </div>
 
@@ -244,22 +259,22 @@ export function OwnerStoreOrderMockCard({
                 onClick={onReject}
                 className="flex min-h-11 flex-1 items-center justify-center rounded-[4px] border border-[#D14545] bg-white px-3 text-[14px] font-bold leading-[1.35] text-[#B42318] disabled:opacity-50"
               >
-                주문 거절
+                {t("store_owner_action_reject_order")}
               </button>
             ) : null}
             <button
               type="button"
               disabled={busy !== null}
               onClick={onPrimaryAction}
-              className="flex min-h-11 flex-[1.25] items-center justify-center rounded-[4px] bg-[#1C8DB8] px-3 text-[14px] font-bold leading-[1.35] text-white shadow-sm active:bg-[#166F93] disabled:opacity-50"
+              className="flex min-h-11 flex-[1.25] items-center justify-center rounded-[4px] bg-[var(--biz-primary)] px-3 text-[14px] font-bold leading-[1.35] text-white shadow-sm active:bg-[var(--biz-primary-active)] disabled:opacity-50"
             >
-              {busy === nextAction.status ? "처리 중…" : nextAction.label}
+              {busy === nextAction.status ? t("common_processing") : nextAction.label}
             </button>
           </div>
         ) : null}
 
         {isExpanded ? (
-          <div className="mt-3 space-y-3 border-t-2 border-[#1C8DB8] bg-[#F6FAFC] px-3 pb-3 pt-3">
+          <div className="mt-3 space-y-3 border-t-2 border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] px-3 pb-3 pt-3">
             <OwnerOpsSection title={t("store_owner_order_menu_section")}>
               <div className="space-y-2">
                 {order.items.length > 0 ? (
@@ -267,7 +282,7 @@ export function OwnerStoreOrderMockCard({
                     <div key={it.id} className="rounded-[4px] bg-[#f6f6f6] px-2.5 py-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[13px] font-bold leading-[1.35] text-[#123B4A]">
+                          <p className="text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
                             {it.product_title_snapshot} x {it.qty}
                           </p>
                           {orderLineOptionsSummary(it.options_snapshot_json) ? (
@@ -276,7 +291,7 @@ export function OwnerStoreOrderMockCard({
                             </p>
                           ) : null}
                         </div>
-                        <p className="shrink-0 text-[13px] font-bold leading-[1.35] text-[#123B4A]">
+                        <p className="shrink-0 text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
                           {formatMoneyPhp(it.subtotal || it.price_snapshot * it.qty)}
                         </p>
                       </div>
@@ -289,22 +304,28 @@ export function OwnerStoreOrderMockCard({
             </OwnerOpsSection>
 
             <OwnerOpsSection title={t("store_request_note")}>
-              <p className="text-[13px] leading-[1.45] text-[#123B4A]">
-                {order.buyer_note?.trim() || "요청사항 없음"}
+              <p className="text-[13px] leading-[1.45] text-[var(--biz-text)]">
+                {order.buyer_note?.trim() || t("store_owner_no_request_note")}
               </p>
             </OwnerOpsSection>
 
-            <OwnerOpsSection title={deliveryLike ? "배달 정보" : "픽업 정보"}>
-              <div className="space-y-1.5 text-[13px] leading-[1.45] text-[#123B4A]">
-                <p>{deliveryLike ? address || "주소 정보 없음" : "고객 픽업 주문입니다."}</p>
+            <OwnerOpsSection title={deliveryLike ? t("store_owner_delivery_info_section") : t("store_owner_pickup_info_section")}>
+              <div className="space-y-1.5 text-[13px] leading-[1.45] text-[var(--biz-text)]">
+                <p>{deliveryLike ? address || t("store_owner_no_address") : t("store_owner_pickup_order_hint")}</p>
                 <p className="text-[#6B7280]">
-                  예상 준비시간 {order.estimated_prep_minutes ? `약 ${order.estimated_prep_minutes}분` : "미정"}
-                  {order.checkout_eta_minutes ? ` · 예상 도착 ${order.checkout_eta_minutes}분` : ""}
+                  {t("store_owner_est_prep_line", {
+                    prep: order.estimated_prep_minutes
+                      ? t("store_owner_prep_about_minutes", { minutes: String(order.estimated_prep_minutes) })
+                      : t("store_owner_est_prep_unknown"),
+                  })}
+                  {order.checkout_eta_minutes
+                    ? t("store_owner_est_arrival_suffix", { minutes: String(order.checkout_eta_minutes) })
+                    : ""}
                 </p>
                 {order.delivery?.delivery_status ? (
-                  <p className="text-[#1C8DB8]">
+                  <p className="text-[var(--biz-primary)]">
                     {t("store_owner_rider_status_line", {
-                      status: deliveryStatusLabel(order.delivery.delivery_status),
+                      status: deliveryStatusLabel(order.delivery.delivery_status, language),
                     })}
                   </p>
                 ) : null}
@@ -313,37 +334,37 @@ export function OwnerStoreOrderMockCard({
 
             <OwnerOpsSection title={t("store_owner_payment_review_section")}>
               <div className="grid grid-cols-2 gap-2 text-[12px] leading-[1.35]">
-                <InfoPill label="결제" value={formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)} />
-                <InfoPill label="금액" value={formatMoneyPhp(order.payment_amount)} />
-                <InfoPill label="리뷰" value={reviewStatusLabel(order.review_status)} />
-                <InfoPill label="영수증" value={order.order_no} />
+                <InfoPill label={t("store_owner_payment_method_label")} value={formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)} />
+                <InfoPill label={t("store_owner_payment_amount_label")} value={formatMoneyPhp(order.payment_amount)} />
+                <InfoPill label={t("store_owner_label_review_short")} value={reviewStatusLabel(order.review_status, language)} />
+                <InfoPill label={t("store_owner_label_receipt")} value={order.order_no} />
               </div>
             </OwnerOpsSection>
 
             <OwnerOpsSection title={t("store_owner_order_progress_chat_title")}>
-              <div className="rounded-[4px] border border-[#DDE5E0] bg-[#F6FAFC] p-2.5">
+              <div className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-bold leading-[1.35] text-[#123B4A]">
+                    <p className="text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
                       {t("store_owner_ops_order_chat_label")}
                     </p>
                     <p className="mt-0.5 text-[12px] leading-[1.35] text-[#6B7280]">
-                      상태 변경은 시스템 메시지로 자동 기록됩니다.
+                      {t("store_owner_status_auto_log")}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={onOpenChat}
-                    className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[4px] bg-[#1C8DB8] px-3 text-[12px] font-bold text-white"
+                    className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[4px] bg-[var(--biz-primary)] px-3 text-[12px] font-bold text-white"
                   >
                     <MessageSquare className="h-4 w-4" aria-hidden />
-                    열기
+                    {t("store_owner_open_btn")}
                   </button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {["조금 늦어집니다", "문앞 배달 예정", "재료 확인중", "전화 부탁드립니다"].map((quick) => (
-                    <span key={quick} className="rounded-[4px] bg-white px-2 py-1 text-[11px] font-semibold text-[#1C8DB8] ring-1 ring-[#DDE5E0]">
-                      {quick}
+                  {QUICK_REPLY_KEYS.map((key) => (
+                    <span key={key} className="rounded-[4px] bg-[var(--biz-card-bg)] px-2 py-1 text-[11px] font-semibold text-[var(--biz-primary)] ring-1 ring-[var(--biz-card-border)]">
+                      {t(key)}
                     </span>
                   ))}
                 </div>
@@ -353,10 +374,10 @@ export function OwnerStoreOrderMockCard({
             {phoneTel ? (
               <a
                 href={phoneTel}
-                className="flex min-h-11 items-center justify-center gap-2 rounded-[4px] border border-[#1C8DB8] bg-white text-[14px] font-bold text-[#1C8DB8]"
+                className="flex min-h-11 items-center justify-center gap-2 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-card-bg)] text-[14px] font-bold text-[var(--biz-primary)]"
               >
                 <Phone className="h-4 w-4" aria-hidden />
-                주문자 전화
+                {t("store_owner_call_buyer")}
               </a>
             ) : null}
           </div>
@@ -384,49 +405,42 @@ export function OwnerStoreOrderMockCard({
   );
 }
 
-function summarizeMenu(items: OwnerStoreOrderListRow["items"]): string {
-  if (!items.length) return "메뉴 정보 없음";
+function summarizeMenu(
+  items: OwnerStoreOrderListRow["items"],
+  t: (key: MessageKey, vars?: Record<string, string>) => string
+): string {
+  if (!items.length) return t("store_owner_menu_summary_none");
   const [first] = items;
   const extra = items.length - 1;
-  if (!first) return "메뉴 정보 없음";
-  return `${first.product_title_snapshot} × ${first.qty}${extra > 0 ? ` 외 ${extra}개` : ""}`;
-}
-
-function ownerOpsStatusLabel(status: string, fulfillment: string): string {
-  const deliveryLike = isDeliveryFulfillment(fulfillment);
-  if (status === "ready_for_pickup") return deliveryLike ? "배달준비완료" : "픽업준비완료";
-  if (status === "completed") return deliveryLike ? "배달완료" : "수령완료";
-  return ownerOrderStatusLabelKo(status);
-}
-
-function formatOwnerOpsPatchErr(code: string): string {
-  switch (code) {
-    case "prep_minutes_required":
-      return "예상 준비 시간(1-180분)을 선택해 주세요.";
-    case "invalid_transition":
-      return "현재 단계에서는 이 처리를 할 수 없습니다.";
-    case "order_admin_locked":
-      return "플랫폼에서 잠근 주문입니다. 운영센터 확인이 필요합니다.";
-    default:
-      return code;
-  }
+  if (!first) return t("store_owner_menu_summary_none");
+  return t("store_owner_menu_summary_line", {
+    title: first.product_title_snapshot,
+    qty: String(first.qty),
+    extra: extra > 0 ? t("store_owner_menu_summary_extra", { count: String(extra) }) : "",
+  });
 }
 
 type FlowStep = { label: string; state: "done" | "current" | "upcoming" };
 
-function buildOwnerOpsFlow(status: string, fulfillment: string): FlowStep[] {
+function buildOwnerOpsFlow(status: string, fulfillment: string, lang: AppLanguageCode): FlowStep[] {
   const deliveryLike = isDeliveryFulfillment(fulfillment);
   const keys = deliveryLike
     ? ["pending", "accepted", "preparing", "ready_for_pickup", "delivering", "arrived", "completed"]
     : ["pending", "accepted", "preparing", "ready_for_pickup", "completed"];
-  const labels = deliveryLike
-    ? ["신규주문", "주문접수", "조리중", "배달준비", "배달중", "주소근처", "완료"]
-    : ["신규주문", "주문접수", "조리중", "픽업준비", "수령완료"];
+  const labels = ownerOpsFlowStepLabelsI18n(lang, deliveryLike);
   const current = keys.includes(status) ? keys.indexOf(status) : -1;
   return keys.map((key, i) => ({
     label: labels[i] ?? key,
     state: current < 0 ? "upcoming" : i < current ? "done" : i === current ? "current" : "upcoming",
   }));
+}
+
+function deliveryStatusLabel(status: string, lang: AppLanguageCode): string {
+  return ownerRiderStatusLabelI18n(lang, status);
+}
+
+function reviewStatusLabel(status: OwnerStoreOrderListRow["review_status"], lang: AppLanguageCode): string {
+  return ownerReviewStatusLabelI18n(lang, status ?? "");
 }
 
 function OwnerOpsProgressFlow({ steps }: { steps: FlowStep[] }) {
@@ -437,15 +451,15 @@ function OwnerOpsProgressFlow({ steps }: { steps: FlowStep[] }) {
           <div
             className={`h-1.5 rounded-full ${
               step.state === "done"
-                ? "bg-[#123B4A]"
+                ? "bg-[var(--biz-text)]"
                 : step.state === "current"
-                  ? "bg-[#1C8DB8]"
-                  : "bg-[#DDE5E0]"
+                  ? "bg-[var(--biz-primary)]"
+                  : "bg-[var(--biz-card-border)]"
             }`}
           />
           <p
             className={`mt-1 truncate text-center text-[10px] font-semibold leading-[1.25] ${
-              step.state === "upcoming" ? "text-[#9CA3AF]" : "text-[#123B4A]"
+              step.state === "upcoming" ? "text-[#9CA3AF]" : "text-[var(--biz-text)]"
             }`}
           >
             {step.label}
@@ -458,8 +472,8 @@ function OwnerOpsProgressFlow({ steps }: { steps: FlowStep[] }) {
 
 function OwnerOpsSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-[4px] border border-[#DDE5E0] bg-white p-3">
-      <h3 className="mb-2 border-l-4 border-[#1C8DB8] pl-2 text-[12px] font-bold leading-[1.35] text-[#1C8DB8]">{title}</h3>
+    <section className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-3">
+      <h3 className="mb-2 border-l-4 border-[var(--biz-primary)] pl-2 text-[12px] font-bold leading-[1.35] text-[var(--biz-primary)]">{title}</h3>
       {children}
     </section>
   );
@@ -469,39 +483,7 @@ function InfoPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-[4px] bg-[#f6f6f6] p-2">
       <p className="text-[11px] font-semibold text-[#6B7280]">{label}</p>
-      <p className="mt-0.5 truncate text-[12px] font-bold text-[#123B4A]">{value}</p>
+      <p className="mt-0.5 truncate text-[12px] font-bold text-[var(--biz-text)]">{value}</p>
     </div>
   );
-}
-
-function deliveryStatusLabel(status: string): string {
-  switch (status) {
-    case "waiting_rider":
-      return "라이더 대기";
-    case "rider_assigned":
-      return "라이더 배정";
-    case "pickup_in_progress":
-      return "픽업 진행";
-    case "delivering":
-      return "배달중";
-    case "delivered":
-      return "배달 완료";
-    case "delivery_failed":
-      return "배달 문제";
-    default:
-      return status;
-  }
-}
-
-function reviewStatusLabel(status: OwnerStoreOrderListRow["review_status"]): string {
-  switch (status) {
-    case "pending":
-      return "리뷰 대기";
-    case "completed":
-      return "리뷰 완료";
-    case "unavailable":
-      return "확인 불가";
-    default:
-      return "해당 없음";
-  }
 }

@@ -110,7 +110,7 @@ export function OwnerStoreOrderChatSlidePanel({
     const sid = storeId.trim();
     const oid = orderId.trim();
     if (!sid || !oid) {
-      setRoomErr("주문 정보가 없습니다.");
+      setRoomErr(t("store_owner_chat_order_context_missing"));
       return;
     }
 
@@ -145,15 +145,15 @@ export function OwnerStoreOrderChatSlidePanel({
         if (!result.ok) {
           setRoomErr(
             result.error === "ensure_failed" || result.error === "bootstrap_failed" ?
-              "채팅 내용을 불러오지 못했습니다."
-            : "채팅방을 열 수 없습니다."
+              t("store_owner_chat_load_failed")
+            : t("store_owner_chat_room_open_failed")
           );
           return;
         }
         setRoomId(result.roomId);
         setInitialServerSnapshot(result.snapshot);
       } catch {
-        if (!cancelled) setRoomErr("네트워크 오류로 채팅을 열 수 없습니다.");
+        if (!cancelled) setRoomErr(t("store_owner_chat_network_failed"));
       }
     })();
 
@@ -161,7 +161,7 @@ export function OwnerStoreOrderChatSlidePanel({
       cancelled = true;
     };
     /** DO NOT: order row room-id 필드를 effect deps에 넣음 — 목록 row 보강 시 채팅 state·RoomClient 가 리셋되어 빈 타임라인이 재발한다. */
-  }, [orderId, storeId, storeName]);
+  }, [orderId, storeId, storeName, t]);
 
   const panelOpen = phase === "open";
   const backdropVisible = phase === "open";
@@ -221,7 +221,7 @@ export function OwnerStoreOrderChatSlidePanel({
                   onClick={requestClose}
                   className="mt-3 text-[14px] font-semibold text-[color:var(--delivery-primary)]"
                 >
-                  주문 관리로 돌아가기
+                  {t("store_owner_back_to_orders")}
                 </button>
               </div>
             : awaitingRoomId ?

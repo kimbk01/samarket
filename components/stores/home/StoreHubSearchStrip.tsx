@@ -15,7 +15,7 @@ export function StoreHubSearchStrip({
   return (
     <div className="pb-2">
       <label htmlFor="stores-hub-global-search" className="sr-only">
-        매장 검색
+        {t("store_search_placeholder")}
       </label>
       <div
         className={`flex items-center gap-2 px-4 ${FB.searchWell}`}

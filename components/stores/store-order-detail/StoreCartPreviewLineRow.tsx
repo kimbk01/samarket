@@ -59,7 +59,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
             className="ml-auto text-[12px] font-semibold text-red-600 underline underline-offset-2"
             onClick={onRemove}
           >
-            삭제
+            {t("common_delete")}
           </button>
         </div>
       </div>

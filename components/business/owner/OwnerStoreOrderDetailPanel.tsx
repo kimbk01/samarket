@@ -123,7 +123,7 @@ export function OwnerStoreOrderDetailPanel({
           <section className="mt-3 rounded-lg border border-[#E8E8E8] bg-white p-3.5">
             <div className="flex items-start justify-between gap-2">
               <h2 className="text-[14px] font-bold text-[#262626]">{t("store_owner_delivery_address_section")}</h2>
-              <MapPin className="h-5 w-5 shrink-0 text-[#2D7FF9]" aria-hidden />
+              <MapPin className="h-5 w-5 shrink-0 text-[var(--biz-primary)]" aria-hidden />
             </div>
             <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-[#595959]">{address}</p>
           </section>

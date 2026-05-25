@@ -50,7 +50,7 @@ export function StoreCardFavoriteIcon({
         setBusy((prev) => (prev ? false : prev));
       }
     },
-    [busy, on, decoded]
+    [busy, on, decoded, t]
   );
 
   return (
@@ -59,7 +59,7 @@ export function StoreCardFavoriteIcon({
       onClick={toggle}
       disabled={busy}
       className={`flex h-9 w-9 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur-sm transition hover:bg-black/45 disabled:opacity-60 ${className}`}
-      aria-label={on ? "찜 해제" : "찜하기"}
+      aria-label={on ? t("store_favorite_remove_aria") : t("store_favorite_add_aria")}
     >
       <svg
         viewBox="0 0 24 24"

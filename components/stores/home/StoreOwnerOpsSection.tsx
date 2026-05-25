@@ -7,16 +7,17 @@ import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-en
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { buildMyBusinessNavGroups } from "@/lib/business/my-business-nav";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { formatStoreApprovalStatusKo } from "@/lib/stores/store-approval-label-ko";
+import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
-const PREFERRED_SHORTCUTS = [
-  "주문 관리",
-  "받은 문의",
-  "정산 내역",
-  "매장 설정",
-  "공개 매장 페이지",
-  "상품 관리 , 등록",
+const PREFERRED_SHORTCUT_PATTERNS: readonly RegExp[] = [
+  /\/stores\/owner\/orders(?:\?|$)/,
+  /\/stores\/owner\/inquiries(?:\?|$)/,
+  /\/stores\/owner\/settlements(?:\?|$)/,
+  /\/stores\/owner\/profile(?:\?|$)/,
+  /^\/stores\/[^/]+$/,
+  /\/stores\/owner\/products(?:\?|$)/,
 ] as const;
 
 const RAIL =
@@ -41,7 +42,7 @@ export function StoreOwnerOpsSection({
 }) {
   const { t } = useI18n();
   const { goBusinessHubOrModal, hubBlockedModal, openBlockedModalIfNeeded } =
-    useStoreBusinessHubEntryModal("확인");
+    useStoreBusinessHubEntryModal(t("common_confirm"));
   const shortcuts = useMemo((): OpsShortcut[] => {
     const groups = buildMyBusinessNavGroups({
       storeId: ownerStore.id,
@@ -55,19 +56,17 @@ export function StoreOwnerOpsSection({
       orderAlertsBadge: ownerOrderAttention,
     });
     const items = groups.flatMap((g) => g.items).filter((item) => item.href && !item.disabled);
-    const preferred = PREFERRED_SHORTCUTS.map((label) => items.find((item) => item.label === label)).filter(
-      (item): item is NonNullable<(typeof items)[number]> => !!item
-    ) as OpsShortcut[];
+    const preferred = PREFERRED_SHORTCUT_PATTERNS.map((pattern) =>
+      items.find((item) => pattern.test(item.href ?? ""))
+    ).filter((item): item is NonNullable<(typeof items)[number]> => !!item) as OpsShortcut[];
     if (preferred.length > 0) return preferred;
-    const sid = encodeURIComponent(ownerStore.id);
-    const q = `storeId=${sid}`;
     return [
-      { label: "운영 센터", href: `/stores/owner?${q}` },
-      { label: "기본 정보", href: `/stores/owner/basic-info?${q}` },
-      { label: "매장 설정", href: `/stores/owner/profile?${q}` },
-      { label: "심사 상태", href: `/stores/owner/ops-status?${q}` },
+      { label: t("store_hub_ops_center"), href: OwnerRoutes.hub(ownerStore.id) },
+      { label: t("store_hub_ops_basic_info"), href: OwnerRoutes.basicInfo(ownerStore.id) },
+      { label: t("store_hub_ops_review_status"), href: OwnerRoutes.opsStatus(ownerStore.id) },
+      { label: t("biz_nav_store_settings"), href: OwnerRoutes.profile(ownerStore.id) },
     ];
-  }, [ownerStore, ownerOrderAttention]);
+  }, [ownerStore, ownerOrderAttention, t]);
 
   return (
     <section
@@ -93,10 +92,10 @@ export function StoreOwnerOpsSection({
           </div>
           {String(ownerStore.approval_status) !== "approved" || !ownerStore.is_visible ?
             <p className="truncate sam-text-xxs font-medium text-amber-900/90">
-              심사·노출:{" "}
+              {t("store_hub_ops_review_exposure")}{" "}
               {String(ownerStore.approval_status) === "approved" && !ownerStore.is_visible ?
-                "승인됨 · 고객 목록 비노출"
-              : `${formatStoreApprovalStatusKo(ownerStore.approval_status)} · 운영 센터에서 확인`}
+                t("store_hub_ops_approved_hidden")
+              : `${formatStoreApprovalStatusI18n(ownerStore.approval_status, t)} · ${t("store_hub_ops_check_in_center")}`}
             </p>
           : null}
         </div>
@@ -134,18 +133,18 @@ export function StoreOwnerOpsSection({
         <button
           type="button"
           onClick={() =>
-            goBusinessHubOrModal(`/stores/owner?storeId=${encodeURIComponent(ownerStore.id)}`)
+            goBusinessHubOrModal(OwnerRoutes.hub(ownerStore.id))
           }
           className="shrink-0 rounded-full border border-violet-200 bg-violet-600/10 px-4 py-2 sam-text-xxs font-bold text-violet-950"
         >
-          전체 메뉴
+          {t("store_hub_ops_all_menu")}
         </button>
         {ownerStore.slug ?
           <Link
             href={`/stores/${encodeURIComponent(ownerStore.slug)}`}
             className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-4 py-2 sam-text-xxs font-semibold text-sam-fg"
           >
-            내 매장
+            {t("store_hub_ops_my_store")}
           </Link>
         : null}
       </div>

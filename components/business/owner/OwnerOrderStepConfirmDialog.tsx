@@ -53,7 +53,7 @@ export function OwnerOrderStepConfirmDialog({
             type="button"
             disabled={busy}
             onClick={onConfirm}
-            className="flex min-h-11 flex-1 touch-manipulation select-none items-center justify-center rounded-md bg-[#2D7FF9] text-[14px] font-semibold text-white transition hover:bg-[#1a6fe8] active:scale-[0.98] active:bg-[#155ed0] disabled:opacity-50"
+            className="flex min-h-11 flex-1 touch-manipulation select-none items-center justify-center rounded-md bg-[var(--biz-primary)] text-[14px] font-semibold text-white transition hover:bg-[var(--biz-primary-hover)] active:scale-[0.98] active:bg-[var(--biz-primary-active)] disabled:opacity-50"
           >
             {busy ? t("common_processing") : t("common_confirm")}
           </button>

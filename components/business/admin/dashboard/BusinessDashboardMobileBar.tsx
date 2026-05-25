@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function BusinessDashboardMobileBar({
   storeOrdersHref,
@@ -13,6 +14,7 @@ export function BusinessDashboardMobileBar({
   orderBadge: number;
   inquiryOpenCount: number;
 }) {
+  const { t } = useI18n();
   const show = orderBadge > 0 || inquiryOpenCount > 0;
   if (!show) return null;
 
@@ -23,7 +25,7 @@ export function BusinessDashboardMobileBar({
           href={storeOrdersHref}
           className="relative flex flex-1 items-center justify-center rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white"
         >
-          주문 보기
+          {t("store_owner_notif_view_order")}
           {orderBadge > 0 ? (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
               {orderBadge > 99 ? "99+" : orderBadge}
@@ -34,7 +36,7 @@ export function BusinessDashboardMobileBar({
           href={inquiriesHref}
           className="relative flex flex-1 items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg"
         >
-          문의
+          {t("business_phase7_605")}
           {inquiryOpenCount > 0 ? (
             <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-500 px-1 sam-text-xxs font-bold text-white">
               {inquiryOpenCount > 99 ? "99+" : inquiryOpenCount}

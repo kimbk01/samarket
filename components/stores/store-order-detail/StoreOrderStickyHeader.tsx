@@ -148,7 +148,7 @@ export function StoreOrderStickyHeader({
                 className={actionBtnClass("relative")}
                 aria-label={
                   cartLineKindCount > 0
-                    ? `${t("store_cart_preview_aria")}, ${cartLineKindCount}종`
+                    ? t("store_cart_aria_with_kinds", { count: cartLineKindCount })
                     : t("store_cart_preview_aria")
                 }
               >

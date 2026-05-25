@@ -235,14 +235,14 @@ export function StoreNearbyFeedSection({
               {t("store_browse_by_industry_find")}
             </Link>
             <Link href="/stores/owner/apply" className={FB.primaryBtn}>
-              등록하기
+              {t("store_register_store")}
             </Link>
           </div>
         </div>
       : <>
           {sections.premium.length > 0 ?
             <SectionBlock
-              eyebrow="큐레이션"
+              eyebrow={t("store_curation_eyebrow")}
               title={t("store_spot_recommended_title")}
               subtitle={t("store_spot_recommended_subtitle")}
             >
@@ -253,7 +253,10 @@ export function StoreNearbyFeedSection({
               >
                 {sections.premium.map((s) => (
                   <div key={s.id} className="w-[min(88vw,300px)] shrink-0">
-                    <StoreVerticalDiscoveryCard store={homeFeedItemToVerticalModel(s)} adHint="추천" />
+                    <StoreVerticalDiscoveryCard
+                      store={homeFeedItemToVerticalModel(s)}
+                      adHint={t("store_badge_recommended")}
+                    />
                   </div>
                 ))}
               </HorizontalDragScroll>
@@ -272,16 +275,16 @@ export function StoreNearbyFeedSection({
 
           {tailList.length > 0 ?
             <SectionBlock
-              eyebrow="동네"
+              eyebrow={t("store_neighborhood")}
               title={t("store_neighborhood_more_title")}
               subtitle={t("store_neighborhood_more_subtitle")}
               action={
                 <div className="flex flex-wrap items-center justify-end gap-x-2">
                   <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>
-                    음식
+                    {t("store_browse_primary_restaurant")}
                   </Link>
                   <Link href={storesBrowsePrimaryPath("mart")} className={`sam-text-body ${FB.link}`}>
-                    마트
+                    {t("store_browse_primary_mart")}
                   </Link>
                 </div>
               }

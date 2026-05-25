@@ -150,7 +150,6 @@ export const commonMessages = {
     language_settings_subtitle: "앱 전역 설정",
     language_korean: "한국어",
     language_english: "English",
-    language_chinese_simplified: "简体中文",
     phone_rule: "휴대전화는 09로 시작하는 11자리만 입력할 수 있습니다. 형식: 09## ### #### (+63으로 붙여넣기 가능).",
     store_order_match_ack: "주문 내용이 일치합니다.",
     neighborhood_question: "질문",
@@ -313,7 +312,6 @@ export const commonMessages = {
     language_settings_subtitle: "App-wide settings",
     language_korean: "Korean",
     language_english: "English",
-    language_chinese_simplified: "Simplified Chinese",
     phone_rule:
       "Phone numbers must be 11 digits starting with 09. Format: 09## ### #### (you can also paste +63).",
     store_order_match_ack: "The order details match.",

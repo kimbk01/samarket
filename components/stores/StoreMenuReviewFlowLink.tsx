@@ -27,7 +27,7 @@ export function StoreMenuReviewFlowLink({
   reviewCount: number;
   ratingAvg: number | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const n = Number.isFinite(reviewCount) ? Math.floor(reviewCount) : 0;
   const [reviews, setReviews] = useState<ReviewCard[]>([]);
 
@@ -73,7 +73,10 @@ export function StoreMenuReviewFlowLink({
           <span className="tabular-nums">{label}</span>
         </p>
         <Link href={href} className="text-[11px] font-bold text-neutral-500">
-          리뷰 {n.toLocaleString("ko-KR")}개 ›
+          {t("store_reviews_with_count", {
+            count: n.toLocaleString(language === "ko" ? "ko-KR" : "en-US"),
+          })}{" "}
+          ›
         </Link>
       </div>
       {reviews.length > 0 ? (

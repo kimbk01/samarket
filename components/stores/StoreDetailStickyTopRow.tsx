@@ -91,6 +91,7 @@ export function StoreDetailStickyTopRow({
 
   const ratingLabel =
     ratingAvg != null && Number.isFinite(Number(ratingAvg)) ? Number(ratingAvg).toFixed(1) : "—";
+  const reviewCountLabel = reviewCount.toLocaleString("en-PH");
   const initialGlyph = storeName.trim().slice(0, 1) || "?";
   const infoHref = `/stores/${encodeURIComponent(storeSlug)}/info`;
 
@@ -107,7 +108,7 @@ export function StoreDetailStickyTopRow({
     } catch {
       /* 사용자 취소 등 */
     }
-  }, [storeName]);
+  }, [storeName, t]);
 
   const segBase =
     "min-w-0 flex-1 rounded-sam-sm border border-transparent px-2 py-2 sam-text-xxs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40";
@@ -133,7 +134,7 @@ export function StoreDetailStickyTopRow({
           <span className="mx-1 text-sam-meta" aria-hidden>
             ·
           </span>
-          리뷰 {reviewCount.toLocaleString("en-PH")}
+          {t("store_reviews_with_count", { count: reviewCountLabel })}
         </p>
       </div>
       <div className="flex shrink-0 items-center gap-0.5">
@@ -142,8 +143,8 @@ export function StoreDetailStickyTopRow({
           className={`${iconBtnClass} relative`}
           aria-label={
             cartLineKindCount > 0
-              ? `장바구니, 담긴 종류 ${cartLineKindCount}개`
-              : "장바구니"
+              ? t("store_cart_aria_with_kinds", { count: cartLineKindCount.toLocaleString("en-PH") })
+              : t("store_cart_aria")
           }
         >
           <StoreCommerceCartStrokeIcon className="h-[18px] w-[18px]" />
@@ -158,7 +159,7 @@ export function StoreDetailStickyTopRow({
         <button
           type="button"
           className={iconBtnClass}
-          aria-label={viewerFavorited ? "찜 해제" : "찜하기"}
+          aria-label={viewerFavorited ? t("store_favorite_remove_aria") : t("store_favorite_add_aria")}
           disabled={favoriteBusy}
           onClick={() => void onFavoriteClick()}
         >
@@ -217,11 +218,11 @@ export function StoreDetailStickyTopRow({
                 className="block px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
                 role="menuitem"
               >
-                전화
+                {t("store_phone_menu_call")}
               </a>
             ) : (
               <span className="block px-3 py-2.5 sam-text-body-secondary text-sam-meta" role="menuitem">
-                전화 없음
+                {t("store_phone_menu_none")}
               </span>
             )}
             <Link
@@ -229,14 +230,14 @@ export function StoreDetailStickyTopRow({
               className="block px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
               role="menuitem"
             >
-              채팅 문의
+              {t("store_chat_inquiry_menu")}
             </Link>
             <Link
               href={infoHref}
               className="block px-3 py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
               role="menuitem"
             >
-              가게 정보
+              {t("store_store_info_menu")}
             </Link>
           </div>
         </details>
@@ -250,14 +251,14 @@ export function StoreDetailStickyTopRow({
               orderChrome.isOpenForOrder ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"
             }`}
           >
-            {orderChrome.isOpenForOrder ? "주문 가능" : "준비 중"}
+            {orderChrome.isOpenForOrder ? t("store_order_accepting") : t("store_preparing_short")}
           </span>
           <span
             className={`shrink-0 rounded-full px-2 py-0.5 sam-text-xxs font-bold ${
               orderChrome.deliveryAvailable ? "bg-sky-50 text-sky-900" : "bg-sam-surface-muted text-sam-muted"
             }`}
           >
-            {orderChrome.deliveryAvailable ? "배달 가능" : "배달 불가"}
+            {orderChrome.deliveryAvailable ? t("store_delivery_yes_short") : t("store_delivery_no_short")}
           </span>
           <div
             className="ml-auto flex min-w-0 max-w-[11rem] flex-1 rounded-full border border-sam-border bg-sam-surface-muted p-0.5"
@@ -270,7 +271,7 @@ export function StoreDetailStickyTopRow({
               onClick={() => orderChrome.onFulfillmentChange("pickup")}
               className={`${segBase} ${orderChrome.fulfillmentMode === "pickup" ? segOn : segOff}`}
             >
-              포장
+              {t("store_fulfillment_pickup_short")}
             </button>
             <button
               type="button"
@@ -278,7 +279,7 @@ export function StoreDetailStickyTopRow({
               onClick={() => orderChrome.onFulfillmentChange("local_delivery")}
               className={`${segBase} ${orderChrome.fulfillmentMode === "local_delivery" ? segOn : segOff}`}
             >
-              배달
+              {t("store_fulfillment_delivery_short")}
             </button>
           </div>
         </div>

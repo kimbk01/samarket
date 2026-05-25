@@ -176,8 +176,6 @@ type StoreDetail = {
   updated_at?: string;
 };
 
-const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
-
 export function StoreDetailPublic({
   slug,
   initialApiResponse,
@@ -1275,7 +1273,7 @@ export function StoreDetailPublic({
     (p: StoreDetailProductCard): boolean => {
       if (!commerceCartActions || !store || p.has_options) return false;
       if (storeOrderability.canOrderStore === false) {
-        showStoreDetailToast(store.id, storeOrderability.ownerBlockMessage ?? OWN_STORE_ORDER_BLOCK_MESSAGE);
+        showStoreDetailToast(store.id, t("store_err_own_store_block"));
         return true;
       }
       if (commerce ? !commerce.isOpenForCommerce : false) return false;
@@ -1351,10 +1349,10 @@ export function StoreDetailPublic({
       requestAnimationFrame(() => {
         requestAnimationFrame(() => dibayPerfOnCartbarUpdated(store.id));
       });
-      showStoreDetailToast(store.id, `${p.title} 담았어요`);
+      showStoreDetailToast(store.id, t("store_added_to_cart_toast", { title: p.title }));
       return true;
     },
-    [commerceCartActions, store, commerce, storeOrderability]
+    [commerceCartActions, store, commerce, storeOrderability, t]
   );
 
   const onMenuSearchFocus = useCallback(() => {
@@ -1425,7 +1423,7 @@ export function StoreDetailPublic({
     const title =
       decodedSlug
         .replace(/-/g, " ")
-        .trim() || "매장";
+        .trim() || t("store_fallback_name");
     void (async () => {
       try {
         if (navigator.share) {
@@ -1438,7 +1436,7 @@ export function StoreDetailPublic({
         /* noop */
       }
     })();
-  }, [decodedSlug]);
+  }, [decodedSlug, t]);
 
   const noopCartPreviewClick = useCallback(() => {}, []);
 
@@ -1518,11 +1516,11 @@ export function StoreDetailPublic({
       <div className="px-4 py-12">
         <p className="text-center text-sm text-neutral-500">
           {dbOff
-            ? "Supabase가 연결되지 않았거나 매장 테이블이 없습니다. SQL 마이그레이션을 적용해 주세요."
-            : "매장을 찾을 수 없습니다."}
+            ? t("store_db_not_configured")
+            : t("store_not_found_short")}
         </p>
         <Link href="/stores" className="mt-4 block text-center text-sm font-medium text-[#1C8DB8]">
-          매장 목록으로
+          {t("store_back_to_store_list")}
         </Link>
       </div>
     );
@@ -1537,8 +1535,7 @@ export function StoreDetailPublic({
   const pickupAvailable = detailStore.pickup_available !== false;
 
   const ownerOrderBlocked = storeOrderability.canOrderStore === false;
-  const ownerOrderBlockedMessage =
-    storeOrderability.ownerBlockMessage ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
+  const ownerOrderBlockedMessage = t("store_err_own_store_block");
   const menuSelectBlocked = ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
   const menuSelectHint =
     ownerOrderBlocked
@@ -1698,7 +1695,7 @@ export function StoreDetailPublic({
           href={`/stores/${encodeURIComponent(detailStore.slug)}/report`}
           className="text-[12px] font-normal text-neutral-400 underline underline-offset-2"
         >
-          매장 신고
+          {t("store_report_store")}
         </Link>
       </div>
 

@@ -28,13 +28,13 @@ describe("ownerOrderCardStepperModel (delivery)", () => {
 
   it("delivering column 3 label is 배달완료", () => {
     expect(
-      ownerOrderCardStepColumnLabel(3, "delivering", "local_delivery", 3)
+      ownerOrderCardStepColumnLabel(3, "delivering", "local_delivery", 3, "ko")
     ).toBe("배달완료");
   });
 
   it("ready_for_pickup column 2 label is 배달 시작", () => {
     expect(
-      ownerOrderCardStepColumnLabel(2, "ready_for_pickup", "local_delivery", 2)
+      ownerOrderCardStepColumnLabel(2, "ready_for_pickup", "local_delivery", 2, "ko")
     ).toBe("배달 시작");
   });
 });

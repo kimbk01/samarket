@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 
 /**
  * 매장 운영 대시보드 서브폼(기본 정보·매장 설정 등) 공통 카드형 섹션.
- * 헤더 배경: #DBEDF5 통일.
+ * 헤더 배경: `--biz-header-bg` (tan soft) 통일.
  */
 export function OwnerStoreAdminDashSection({
   title,

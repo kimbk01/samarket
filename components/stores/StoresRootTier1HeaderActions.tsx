@@ -37,7 +37,7 @@ export function StoresRootTier1HeaderActions() {
   const { t } = useI18n();
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
-  const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
+  const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
 
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
     COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART

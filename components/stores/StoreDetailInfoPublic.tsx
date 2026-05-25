@@ -20,10 +20,6 @@ import {
   formatStoreAddressStreetDisplay,
   resolveStoreRegionCityLabels,
 } from "@/lib/stores/store-location-label";
-import {
-  STORE_ADDRESS_DETAIL_LABEL,
-  STORE_ADDRESS_STREET_LABEL,
-} from "@/lib/stores/store-address-form-ui";
 import { openGoogleMapsDrivingDirectionsFromUserTo } from "@/lib/stores/google-maps-store-links";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
@@ -189,22 +185,22 @@ export function StoreDetailInfoPublic({
     [store?.business_hours_json]
   );
 
-  const satHours = strFromRecord(bhRecord, [
-    "sat_hours",
-    "saturday_hours",
-    "sat",
-    "토",
-    "토요일",
-  ]);
-  const sunHours = strFromRecord(bhRecord, [
-    "sun_hours",
-    "sunday_hours",
-    "sun",
-    "일",
-    "일요일",
-  ]);
-  const holidayLine =
-    strFromRecord(bhRecord, ["holidays", "holiday", "closed_days", "휴무"]) ?? "—";
+  const bhSatFieldKeys = useMemo(
+    () => ["sat_hours", "saturday_hours", "sat", "토요일", "Saturday"] as const,
+    []
+  );
+  const bhSunFieldKeys = useMemo(
+    () => ["sun_hours", "sunday_hours", "sun", "일요일", "Sunday"] as const,
+    []
+  );
+  const bhHolidayFieldKeys = useMemo(
+    () => ["holidays", "holiday", "closed_days", "휴무"] as const,
+    []
+  );
+
+  const satHours = strFromRecord(bhRecord, [...bhSatFieldKeys]);
+  const sunHours = strFromRecord(bhRecord, [...bhSunFieldKeys]);
+  const holidayLine = strFromRecord(bhRecord, [...bhHolidayFieldKeys]) ?? "—";
 
   const deliveryAvailable = store?.delivery_available === true;
   const pickupAvailable = store?.pickup_available !== false;
@@ -293,9 +289,9 @@ export function StoreDetailInfoPublic({
           <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
         </div>
         <div className="px-4 py-12 text-center text-sm text-sam-muted">
-          매장을 찾을 수 없습니다.
+          {t("store_not_found_short")}
           <Link href="/stores" className="mt-4 block text-signature">
-            매장 목록
+            {t("store_browse_stores")}
           </Link>
         </div>
       </div>
@@ -335,7 +331,7 @@ export function StoreDetailInfoPublic({
             href={ownerManagementHref}
             className="sam-text-body-secondary font-semibold text-signature underline decoration-signature/30 underline-offset-2"
           >
-            내 상점 관리
+            {t("store_manage_my_shop")}
           </Link>
         </p>
       ) : null}
@@ -343,7 +339,7 @@ export function StoreDetailInfoPublic({
       {mapEmbedSrc ? (
         <div className="w-full overflow-hidden bg-sam-surface-muted">
           <iframe
-            title={`${store.store_name} 위치`}
+            title={t("store_location_map_title", { store: store.store_name })}
             src={mapEmbedSrc}
             className="h-[200px] w-full border-0"
             loading="lazy"
@@ -396,7 +392,7 @@ export function StoreDetailInfoPublic({
                     href={telHref}
                     className="inline-flex shrink-0 rounded-full bg-orange-50 px-3 py-1.5 sam-text-helper font-bold text-orange-600 active:bg-orange-100/90"
                   >
-                    전화
+                    {t("store_phone_menu_call")}
                   </a>
                 ) : null}
               </dd>
@@ -408,7 +404,7 @@ export function StoreDetailInfoPublic({
               <div className="space-y-1.5">
                 <div className="flex gap-2">
                   <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
-                    {STORE_ADDRESS_DETAIL_LABEL}
+                    {t("store_public_address_detail_label")}
                   </span>
                   <span className="min-w-0">
                     {addressDetailOnly ? addressDetailOnly : "—"}
@@ -416,7 +412,7 @@ export function StoreDetailInfoPublic({
                 </div>
                 <div className="flex gap-2">
                   <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
-                    {STORE_ADDRESS_STREET_LABEL}
+                    {t("store_public_address_street_label")}
                   </span>
                   <span className="min-w-0">
                     {addressStreetDisplay ? addressStreetDisplay : "—"}
@@ -439,7 +435,7 @@ export function StoreDetailInfoPublic({
                       onClick={copyAddress}
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted"
                     >
-                      주소 복사
+                      {t("store_copy_address_btn")}
                     </button>
                   ) : null}
                   {canOpenDirections ? (
@@ -448,7 +444,7 @@ export function StoreDetailInfoPublic({
                       onClick={openDirections}
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted"
                     >
-                      길찾기
+                      {t("store_directions_btn")}
                     </button>
                   ) : null}
                 </div>
@@ -458,8 +454,8 @@ export function StoreDetailInfoPublic({
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
             <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_delivery_pickup")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body text-sam-fg">
-              {deliveryAvailable ? "배달 가능" : "배달 불가"} ·{" "}
-              {pickupAvailable ? "포장·픽업 가능" : "픽업 불가"}
+              {deliveryAvailable ? t("store_delivery_yes_short") : t("store_delivery_no_short")} ·{" "}
+              {pickupAvailable ? t("store_pickup_yes_short") : t("store_pickup_no_short")}
             </dd>
           </div>
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
@@ -551,7 +547,7 @@ export function StoreDetailInfoPublic({
               {(store.review_count ?? 0).toLocaleString("en-PH")}
               {store.rating_avg != null ? (
                 <span className="ml-2 sam-text-body-secondary font-normal text-sam-muted">
-                  평균 ★ {Number(store.rating_avg).toFixed(2)}
+                  {t("store_avg_rating_label", { rating: Number(store.rating_avg).toFixed(2) })}
                 </span>
               ) : null}
             </dd>

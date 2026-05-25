@@ -11,26 +11,26 @@ import {
   OWNER_COMPACT_SHELL_SCROLL_CLASS,
 } from "@/lib/business/owner-compact-shell-layout";
 
-/** Store owner mobile operations dashboard — Dibay delivery console tokens */
+/** Store owner mobile operations dashboard — Starbucks-inspired owner tokens */
 
-export const OWNER_MOBILE_BLUE = "#1C8DB8";
-export const OWNER_MOBILE_BLUE_SOFT = "#EAF6FB";
-export const OWNER_OPS_GREEN = "#1C8DB8";
-export const OWNER_OPS_DEEP_GREEN = "#123B4A";
-export const OWNER_OPS_APP_BG = "#f6f6f6";
-export const OWNER_OPS_SURFACE = "#ffffff";
-export const OWNER_OPS_BORDER = "#DDE5E0";
+export const OWNER_MOBILE_BLUE = "#0B421A";
+export const OWNER_MOBILE_BLUE_SOFT = "color-mix(in srgb, #0B421A 8%, #FFFCFC)";
+export const OWNER_OPS_GREEN = "#0B421A";
+export const OWNER_OPS_DEEP_GREEN = "#362415";
+export const OWNER_OPS_APP_BG = "color-mix(in srgb, #EAC784 10%, #FFFCFC)";
+export const OWNER_OPS_SURFACE = "#FFFCFC";
+export const OWNER_OPS_BORDER = "color-mix(in srgb, #604C4C 22%, #FFFCFC)";
 
 /** 오너 하단 탭 기본 활성 — 주문·대시보드 등 운영 메뉴 */
 export const OWNER_MOBILE_BOTTOM_NAV_ACCENT = OWNER_MOBILE_BLUE;
-export const OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW = "rgba(28, 141, 184, 0.24)";
+export const OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW = "rgba(11, 66, 26, 0.24)";
 
 /** 모바일 헤더 「나가기」— 소비자 배달·매장 탐색 허브 */
 export const OWNER_MOBILE_EXIT_HREF = "/stores";
 export const OWNER_MOBILE_RED = "#FF4D4F";
 export const OWNER_MOBILE_ORANGE = "#FA8C16";
 export const OWNER_MOBILE_GREEN = OWNER_OPS_GREEN;
-export const OWNER_MOBILE_GRAY = "#8C8C8C";
+export const OWNER_MOBILE_GRAY = "#604C4C";
 export const OWNER_MOBILE_PAGE_BG = OWNER_OPS_APP_BG;
 export const OWNER_MOBILE_CARD_BORDER = OWNER_OPS_BORDER;
 
@@ -51,7 +51,7 @@ export const OWNER_MOBILE_PAGE_HEADER_Z_CLASS = "z-[56]";
 export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS = "z-[80]";
 
 /** `OwnerStoreOrderDetailPanel` 루트 — viewport 전체, safe-area 상단 */
-export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS = `fixed inset-0 flex min-h-0 flex-col bg-[#f6f6f6] ${OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`;
+export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS = `fixed inset-0 flex min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`;
 
 /** 상세 하단 액션 푸터 — 홈 인디케이터 여백 */
 export const OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS =
@@ -139,14 +139,14 @@ export function ownerOrderStatusTone(status: string): {
     case "delivering":
     case "arrived":
       return {
-        badgeBg: "bg-[#1C8DB8]",
+        badgeBg: "bg-[var(--biz-primary)]",
         badgeText: "text-white",
         stepActive: OWNER_OPS_GREEN,
       };
     case "completed":
       return {
         badgeBg: "bg-[#E5E5E5]",
-        badgeText: "text-[#123B4A]",
+        badgeText: "text-[var(--biz-text)]",
         stepActive: OWNER_MOBILE_GRAY,
       };
     case "refund_requested":

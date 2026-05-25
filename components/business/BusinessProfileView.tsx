@@ -1,7 +1,7 @@
 "use client";
 
 import type { BusinessProfile } from "@/lib/types/business";
-import { BUSINESS_STATUS_LABELS } from "@/lib/business/business-utils";
+import { BUSINESS_PROFILE_STATUS_KEYS } from "@/lib/business/business-owner-ui-labels";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface BusinessProfileViewProps {
@@ -44,7 +44,7 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
             {isOwner && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 <span className="inline-block rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper text-sam-muted">
-                  {BUSINESS_STATUS_LABELS[profile.status]}
+                  {t(BUSINESS_PROFILE_STATUS_KEYS[profile.status])}
                 </span>
                 {profile.approvalStatusRaw === "approved" && (
                   <span
@@ -52,14 +52,14 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
                       profile.isVisible ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-900"
                     }`}
                   >
-                    {profile.isVisible ? "공개 노출" : "비공개"}
+                    {profile.isVisible ? t("business_phase7_024") : t("business_phase7_132")}
                   </span>
                 )}
               </div>
             )}
             {isOwner && (profile.storeCategoryName || profile.storeTopicName) && (
               <p className="mt-1.5 sam-text-helper text-sam-muted">
-                노출 분류:{" "}
+                {t("business_phase7_633")}{" "}
                 {[profile.storeCategoryName, profile.storeTopicName].filter(Boolean).join(" · ")}
               </p>
             )}
@@ -75,7 +75,10 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
           <span>{t("business_phase7_312", { v1: profile.followerCount })}</span>
           {profile.reviewCount > 0 && (
             <span>
-              후기 {profile.reviewCount} · ★ {profile.averageRating.toFixed(1)}
+              {t("business_phase7_634", {
+                v1: String(profile.reviewCount),
+                v2: profile.averageRating.toFixed(1),
+              })}
             </span>
           )}
         </div>
@@ -93,8 +96,10 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <h2 className="sam-text-body font-medium text-sam-fg">{t("business_phase7_333")}</h2>
           <p className="mt-1 sam-text-body-secondary text-sam-muted">
-            후기 {profile.reviewCount}개 · 평균 ★ {profile.averageRating.toFixed(1)}
-            (상세 후기 목록 연결 예정)
+            {t("business_phase7_635", {
+              v1: String(profile.reviewCount),
+              v2: profile.averageRating.toFixed(1),
+            })}
           </p>
         </div>
       )}

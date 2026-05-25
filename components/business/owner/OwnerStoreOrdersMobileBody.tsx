@@ -179,7 +179,7 @@ export function OwnerStoreOrdersMobileBody({
                   href={onTabHref(tabDef.id)}
                   scroll={false}
                   className={`relative flex min-h-10 flex-1 flex-col items-center justify-center rounded-[4px] px-1 py-1.5 text-[12px] font-bold leading-[1.35] ${
-                    active ? "bg-[#1C8DB8] text-white" : "text-[#123B4A]"
+                    active ? "bg-[var(--biz-primary)] text-white" : "text-[var(--biz-text)]"
                   }`}
                 >
                   <span>
@@ -207,13 +207,13 @@ export function OwnerStoreOrdersMobileBody({
             <KpiCard
               label={t("store_owner_mobile_kpi_delivering")}
               value={summaryCounts.delivering}
-              tone="text-[#1C8DB8]"
+              tone="text-[var(--biz-primary)]"
               href={onTabHref("shipping")}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_done_today")}
               value={summaryCounts.doneToday}
-              tone="text-[#123B4A]"
+              tone="text-[var(--biz-text)]"
               href={onTabHref("done")}
             />
           </div>
@@ -224,7 +224,7 @@ export function OwnerStoreOrdersMobileBody({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t("store_owner_mobile_search_placeholder")}
-              className="mt-2 w-full rounded-[4px] border border-[#DDE5E0] bg-white px-3 py-2.5 text-[14px] leading-[1.35] outline-none placeholder:text-[#9CA3AF] focus:border-[#1C8DB8]"
+              className="mt-2 w-full rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px] leading-[1.35] outline-none placeholder:text-[var(--biz-text-muted)] focus:border-[var(--biz-primary)]"
             />
           ) : null}
 
@@ -233,7 +233,7 @@ export function OwnerStoreOrdersMobileBody({
             <button
               type="button"
               onClick={() => setSortNewestFirst((v) => !v)}
-              className="rounded-[4px] border border-[#DDE5E0] bg-white px-2.5 py-1 text-[12px] font-bold leading-[1.35] text-[#123B4A]"
+              className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-1 text-[12px] font-bold leading-[1.35] text-[var(--biz-text)]"
             >
               {sortNewestFirst ? t("store_owner_mobile_sort_newest") : t("store_owner_mobile_sort_oldest")}
             </button>
@@ -246,7 +246,7 @@ export function OwnerStoreOrdersMobileBody({
         <div className="space-y-2.5 py-3">
           {displayOrders.length === 0 ? (
             <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
-              <p className="font-bold text-[#123B4A]">{t("store_owner_mobile_empty_title")}</p>
+              <p className="font-bold text-[var(--biz-text)]">{t("store_owner_mobile_empty_title")}</p>
               <p className="mt-1">{t("store_owner_mobile_empty_hint")}</p>
             </div>
           ) : (

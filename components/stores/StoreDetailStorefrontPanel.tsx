@@ -62,9 +62,11 @@ export function StoreDetailStorefrontPanel({
 
   const minLine = useMemo(() => {
     const m = commerceExtras.minOrderPhp;
-    if (m != null && m > 0) return `최소 ${formatMoneyPhp(m)}`;
-    return "최소 없음";
-  }, [commerceExtras.minOrderPhp]);
+    if (m != null && m > 0) {
+      return t("store_min_order_amount_colon", { amount: formatMoneyPhp(m) });
+    }
+    return t("store_min_order_none");
+  }, [commerceExtras.minOrderPhp, t]);
   const feeLine = useMemo(
     () => formatStoreStorefrontDeliveryFeeLine(commerceExtras, { deliveryAvailable }, language),
     [commerceExtras, deliveryAvailable, language]
@@ -85,13 +87,16 @@ export function StoreDetailStorefrontPanel({
     );
   }, [commerceExtras, deliveryAvailable, feeLine]);
 
-  const prepLine = useMemo(() => `준비 ${commerceExtras.estPrepLabel}`, [commerceExtras.estPrepLabel]);
+  const prepLine = useMemo(
+    () => `${t("store_prep_row_prefix")}${commerceExtras.estPrepLabel}`,
+    [commerceExtras.estPrepLabel, t]
+  );
 
   const payShort = useMemo(() => {
     const p = deliveryMeta.paymentMethodsLine?.trim();
     if (p) return p.length > 28 ? `${p.slice(0, 26)}…` : p;
-    return "결제 매장 확인";
-  }, [deliveryMeta.paymentMethodsLine]);
+    return t("store_payment_check_at_store");
+  }, [deliveryMeta.paymentMethodsLine, t]);
 
   const weekdaysDisp = useMemo(() => {
     const raw = deliveryMeta.weekdaysLine?.trim();
@@ -106,7 +111,7 @@ export function StoreDetailStorefrontPanel({
     return compactStoreHoursRangeForDisplay(dh);
   }, [deliveryMeta.deliveryHoursLine, deliveryMeta.weekdaysLine]);
 
-  const payFull = deliveryMeta.paymentMethodsLine?.trim() || "매장에 문의해 주세요.";
+  const payFull = deliveryMeta.paymentMethodsLine?.trim() || t("store_payment_contact_store");
 
   return (
     <section
@@ -119,7 +124,7 @@ export function StoreDetailStorefrontPanel({
             href={ownerManagementHref}
             className="sam-text-xxs font-semibold text-signature underline decoration-signature/30 underline-offset-2"
           >
-            내 상점 관리
+            {t("store_manage_my_shop")}
           </Link>
         </p>
       ) : null}
@@ -159,9 +164,9 @@ export function StoreDetailStorefrontPanel({
       <details className="group mt-2 rounded-ui-rect border border-sam-border bg-sam-app/90">
         <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg [&::-webkit-details-marker]:hidden">
           <span className="min-w-0">
-            매장 안내
+            {t("store_store_guide_heading")}
             <span className="ml-1.5 sam-text-xxs font-normal text-sam-muted group-open:hidden">
-              · 영업·결제·공지
+              {t("store_store_guide_collapsed_hint")}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-2">
@@ -171,7 +176,7 @@ export function StoreDetailStorefrontPanel({
               onClick={(e) => e.stopPropagation()}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              가게 정보
+              {t("store_store_info_menu")}
             </Link>
             <span className="sam-text-xxs font-normal text-sam-meta group-open:hidden">▼</span>
             <span className="hidden sam-text-xxs font-normal text-sam-meta group-open:inline">▲</span>
@@ -179,22 +184,22 @@ export function StoreDetailStorefrontPanel({
         </summary>
         <div className="border-t border-sam-border bg-sam-surface px-3 pb-3 pt-1">
           <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
-            {t("store_commerce_notice_html")}
-            또는 상단 ⋯ 메뉴에서 열 수 있어요.
+            {t("store_commerce_notice_prefix")}
+            <strong className="text-sam-muted">{t("store_store_info_menu")}</strong>
+            {t("store_commerce_notice_suffix")}
           </p>
 
-          <DetailRow label="영업 시간">{weekdaysDisp}</DetailRow>
+          <DetailRow label={t("store_hours_weekday")}>{weekdaysDisp}</DetailRow>
           {deliveryAvailable && deliveryHoursDisp ? (
-            <DetailRow label="배달 운영 시간">{deliveryHoursDisp}</DetailRow>
+            <DetailRow label={t("store_delivery_hours_label")}>{deliveryHoursDisp}</DetailRow>
           ) : null}
-          <DetailRow label="결제 수단">
+          <DetailRow label={t("store_payment_methods_label")}>
             <span className="whitespace-pre-wrap break-words">{payFull}</span>
           </DetailRow>
-          <DetailRow label="조리·준비 안내">{commerceExtras.estPrepLabel}</DetailRow>
+          <DetailRow label={t("store_prep_time_store_basis")}>{commerceExtras.estPrepLabel}</DetailRow>
           {deliveryAvailable ? (
-            <DetailRow label="배달 소요(추정)">
-              고객 배달 주소 좌표가 있으면 앱에서 매장까지 오토바이 경로 기준으로 배달 구간을 자동 추정해,
-              조리 시간과 합산한 예상 시간을 목록·장바구니에 표시합니다.
+            <DetailRow label={t("store_delivery_eta_label")}>
+              {t("store_delivery_eta_detail")}
             </DetailRow>
           ) : null}
 

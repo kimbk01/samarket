@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-/** 승인 매장 운영 — 노출·영업 토글 공통 (ON 시 트랙 `#1C8DB8`) */
-const TRACK_ON = "#1C8DB8";
-const TRACK_ON_BORDER = "#157aa0";
+/** 승인 매장 운영 — 노출·영업 토글 공통 (ON 시 트랙 `--biz-primary`) */
+const TRACK_ON = "var(--biz-primary, #0B421A)";
+const TRACK_ON_BORDER = "var(--biz-primary-active, #082F14)";
 const THUMB_PX = 28;
 const PAD_PX = 4;
 const TAP_SLIP_PX = 10;
@@ -179,7 +179,7 @@ export function StoreOpsOnOffSwitch({
       onPointerCancel={finishPointer}
       className={[
         "relative h-9 w-[4.875rem] shrink-0 touch-none rounded-full border select-none",
-        "focus-visible:outline focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[#1C8DB8]",
+        "focus-visible:outline focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--biz-primary)]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         dragging ? "" : "transition-[background-color,border-color,box-shadow]",
         trackShowsOn && !dragging ? "shadow-sm" : "",

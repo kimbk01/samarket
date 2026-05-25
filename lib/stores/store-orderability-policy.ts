@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 
-export const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
+export const OWN_STORE_ORDER_BLOCK_MESSAGE_KEY = "store_err_own_store_block";
 
 export type StoreOrderability = {
   viewer_is_owner: boolean;
@@ -63,6 +63,6 @@ export async function resolveStoreOrderability(
     viewer_is_owner: true,
     viewer_is_admin: viewerIsAdmin,
     can_order_store: !blocked,
-    owner_block_message: blocked ? OWN_STORE_ORDER_BLOCK_MESSAGE : null,
+    owner_block_message: null,
   };
 }

@@ -133,7 +133,7 @@ export function StoreOwnerBannerCarousel({
               <button
                 key={b.id}
                 type="button"
-                aria-label={`배너 ${i + 1}`}
+                aria-label={t("store_banner_slide_aria", { index: String(i + 1) })}
                 onClick={() => scrollTo(i)}
                 className={`h-2 w-2 rounded-full transition ${
                   i === idx ? "bg-white shadow-sm" : "bg-white/45"
@@ -191,7 +191,7 @@ export function StoreOwnerBannerCarousel({
             <button
               key={b.id}
               type="button"
-              aria-label={`배너 ${i + 1}`}
+              aria-label={t("store_banner_slide_aria", { index: String(i + 1) })}
               onClick={() => scrollTo(i)}
               className={`h-2 w-2 rounded-full transition ${
                 i === idx ? "bg-[#1C8DB8]" : "bg-neutral-300"

@@ -43,9 +43,10 @@ interface BusinessProfileEditFormProps {
 export function BusinessProfileEditForm({
   profile,
   onSubmit,
-  submitLabel = "저장",
+  submitLabel,
 }: BusinessProfileEditFormProps) {
   const { t } = useI18n();
+  const resolvedSubmitLabel = submitLabel ?? t("common_save");
   const [values, setValues] = useState<BusinessProfileEditFormValues>({
     shopName: profile.shopName,
     description: profile.description,
@@ -75,7 +76,7 @@ export function BusinessProfileEditForm({
     <form onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          상점 이름 *
+          {t("business_phase7_142")}
         </label>
         <input
           type="text"
@@ -89,7 +90,7 @@ export function BusinessProfileEditForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          상점 소개
+          {t("business_phase7_141")}
         </label>
         <textarea
           value={values.description}
@@ -102,7 +103,7 @@ export function BusinessProfileEditForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          연락처
+          {t("business_phase7_194")}
         </label>
         <input
           type="tel"
@@ -116,7 +117,7 @@ export function BusinessProfileEditForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          카카오톡 ID (placeholder)
+          {t("business_phase7_297")}
         </label>
         <input
           type="text"
@@ -160,7 +161,7 @@ export function BusinessProfileEditForm({
       />
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          카테고리
+          {t("business_phase7_299")}
         </label>
         <select
           value={values.category}
@@ -179,7 +180,7 @@ export function BusinessProfileEditForm({
         type="submit"
         className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white"
       >
-        {submitLabel}
+        {resolvedSubmitLabel}
       </button>
     </form>
   );

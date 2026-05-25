@@ -217,7 +217,7 @@ export function OwnerStoreOrdersView() {
       }
       storeListCtxRef.current = {
         storeSlug: String(store.slug ?? "").trim(),
-        storeName: String(store.store_name ?? "내 매장"),
+        storeName: String(store.store_name ?? t("nav_store_name_fallback")),
       };
 
       let rawOj: unknown;
@@ -249,13 +249,13 @@ export function OwnerStoreOrdersView() {
       setState({
         kind: "ok",
         storeId: store.id,
-        storeName: String(store.store_name ?? "내 매장"),
+        storeName: String(store.store_name ?? t("nav_store_name_fallback")),
         orders: parseOwnerStoreOrdersListFromApiJson(oj),
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
     }
-  }, [urlStoreId]);
+  }, [urlStoreId, t]);
 
   useEffect(() => {
     r2d1OwnerOrdersTraceInstallCollector();
@@ -731,7 +731,7 @@ export function OwnerStoreOrdersView() {
         <p className="text-sm text-[#595959]">{t("store_owner_orders_login_hint")}</p>
         <Link
           href={loginHref}
-          className="mt-3 inline-flex rounded-md bg-[#2D7FF9] px-4 py-2 font-semibold text-white"
+          className="mt-3 inline-flex rounded-md bg-[var(--biz-primary)] px-4 py-2 font-semibold text-white"
         >
           {t("store_owner_chats_login_cta")}
         </Link>
@@ -745,7 +745,7 @@ export function OwnerStoreOrdersView() {
     body = (
       <div className="mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
         <p className="text-sm text-[#595959]">{t("business_phase7_057")}</p>
-        <Link href="/stores/owner/apply" className="mt-2 inline-block text-[#2D7FF9] font-medium">
+        <Link href="/stores/owner/apply" className="mt-2 inline-block text-[var(--biz-primary)] font-medium">
           {t("business_phase7_465")}
         </Link>
       </div>
@@ -757,9 +757,9 @@ export function OwnerStoreOrdersView() {
         <button
           type="button"
           onClick={() => void load()}
-          className="mt-2 text-sm font-medium text-[#2D7FF9] underline"
+          className="mt-2 text-sm font-medium text-[var(--biz-primary)] underline"
         >
-          다시 시도
+          {t("store_biz_retry")}
         </button>
       </div>
     );
@@ -788,5 +788,5 @@ export function OwnerStoreOrdersView() {
     );
   }
 
-  return <div className="min-h-[40vh] bg-[#F3F4F6]">{body}</div>;
+  return <div className="min-h-[40vh] bg-[var(--biz-app-bg)]">{body}</div>;
 }

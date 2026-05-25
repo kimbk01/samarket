@@ -66,6 +66,11 @@ import {
 import { formatHHmm12hLabel } from "@/lib/utils/tumbler-time";
 import { formatPriceInput } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  formatOwnerStoreImageUploadError,
+  formatOwnerStorePatchError,
+  ownerStoreTimezoneLabel,
+} from "@/lib/business/owner-store-patch-error-i18n";
 const GALLERY_MAX = 16;
 
 function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string): string {
@@ -98,7 +103,7 @@ function readPublicCommerceFields(raw: unknown) {
       : extras.deliveryFeeMode === "self_free_promo"
         ? "self_free_promo"
         : "self";
-  /** 모드와 무관: JSON에 남아 있으면 폼에 채워 두어 방식 전환 시에도 이전 입력이 보이게 한다 */
+  /** ??? ??: JSON? ?? ??? ?? ?? ?? ?? ?? ??? ?? ??? ??? ?? */
   const freeRaw = intStrFromJson(o, "free_delivery_over_php", "freeDeliveryOverPhp");
   return {
     hoursNote,
@@ -137,47 +142,47 @@ export type OwnerStoreProfileFormValues = {
   isOpen: boolean;
   profileImageUrl: string;
   deliveryAvailable: boolean;
-  /** 공개 메뉴판에서 품절을 섹션 하단으로 모음 */
+  /** ?? ????? ??? ?? ???? ?? */
   menuSoldOutBottom: boolean;
   pickupAvailable: boolean;
   hoursNote: string;
-  /** 매장 창 영업시간 — business_hours_json.auto_business_hours */
+  /** ?? ? ???? ? business_hours_json.auto_business_hours */
   autoBusinessHoursEnabled: boolean;
   autoHoursTz: string;
   autoHoursOpen: string;
   autoHoursClose: string;
-  /** 공개 상세·가게정보 배달/결제 JSON 확장 */
+  /** ?? ??????? ??/?? JSON ?? */
   payMethodGcash: boolean;
   payMethodCashMeet: boolean;
   payMethodBank: boolean;
   payMethodOtherEnabled: boolean;
   payMethodOtherText: string;
-  /** 매장 창 공지 — 위에서 아래 순 */
+  /** ?? ? ?? ? ??? ?? ? */
   publicNotices: string[];
   freeDeliveryOverPhp: string;
   deliveryNotice: string;
-  /** 조리·준비 예상 시간(분) — `business_hours_json.prep_time_minutes` */
+  /** ????? ?? ??(?) ? `business_hours_json.prep_time_minutes` */
   prepTimeMinutes: string;
-  /** 쉬는 시간 — 체크 시에만 시간 UI·저장 */
+  /** ?? ?? ? ?? ??? ?? UI??? */
   breakHoursEnabled: boolean;
   breakHoursStart: string;
   breakHoursEnd: string;
   avgChatResponse: string;
   minOrderPhp: string;
-  /** 자체배달(앱 청구) vs 배달업체(착불·앱 미청구) — 상호 배타 */
+  /** ????(? ??) vs ????(???? ???) ? ?? ?? */
   deliveryFeeMode: StoreDeliveryFeeMode;
   deliveryFeePhp: string;
-  /** self_free_promo: 목록 취소선용 원래 배달비(필수) */
+  /** self_free_promo: ?? ???? ?? ???(??) */
   deliveryFeeStrikeReferencePhp: string;
   deliveryCourierLabel: string;
-  /** 전역 매장 수기 모드일 때 목록·ETA 배달 구간 문구 — `delivery_ride_display_manual` */
+  /** ?? ?? ?? ??? ? ???ETA ?? ?? ?? ? `delivery_ride_display_manual` */
   deliveryRideDisplayManual: string;
   latStr: string;
   lngStr: string;
   galleryUrls: string[];
 };
 
-/** 사장님이 배달·결제·안내 필드를 한 번이라도 넣었으면 편집 패널을 자동으로 연다 */
+/** ???? ???????? ??? ? ???? ???? ?? ??? ???? ?? */
 function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boolean {
   if (
     v.payMethodGcash ||
@@ -249,7 +254,7 @@ function serializeProfileSnapshot(v: OwnerStoreProfileFormValues): string {
   return JSON.stringify(v);
 }
 
-/** 매장 관리 저장분 = 매장 창 표시와 동일 JSON (`public_notices` 등). */
+/** ?? ?? ??? = ?? ? ??? ?? JSON (`public_notices` ?). */
 function buildBusinessHoursJson(
   row: StoreRow,
   values: OwnerStoreProfileFormValues
@@ -334,7 +339,7 @@ function buildBusinessHoursJson(
     if (Number.isFinite(n) && n > 0) {
       const c = clampStorePrepMinutes(n);
       prev.prep_time_minutes = c;
-      prev.est_prep_label = `${c}분`;
+      prev.est_prep_label = `${c}?`;
     }
   }
   const drm = values.deliveryRideDisplayManual.trim().slice(0, 80);
@@ -344,7 +349,7 @@ function buildBusinessHoursJson(
     const be = normalizeHHMM(values.breakHoursEnd.trim());
     if (bs && be && bs !== be) {
       prev.break_hours = { start: bs, end: be };
-      prev.break_time = `${bs}–${be}`;
+      prev.break_time = `${bs}?${be}`;
     }
   }
   const ch = values.avgChatResponse.trim();
@@ -390,30 +395,8 @@ interface OwnerStoreProfileFormProps {
   storeSlug: string;
   row: StoreRow;
   onSaved: () => void;
-  /** 폼에서 배달·픽업 토글 시 하단 요약(저장 전)과 맞추기 */
+  /** ??? ????? ?? ? ?? ??(?? ?)? ??? */
   onServiceDraftChange?: (d: { deliveryAvailable: boolean; pickupAvailable: boolean }) => void;
-}
-
-function patchErrorToUserMessage(code: string): string | null {
-  const m: Record<string, string> = {
-    no_fields: "변경할 내용이 없습니다. 잠시 후 다시 시도해 주세요.",
-    store_not_editable: "현재 상태에서는 매장 정보를 수정할 수 없습니다.",
-    store_load_failed: "매장 정보를 불러오지 못해 저장할 수 없습니다. 새로고침 후 다시 시도해 주세요.",
-    invalid_store_category_id: "업종(1차 분류) 값이 올바르지 않습니다. 새로고침 후 다시 선택해 주세요.",
-    invalid_store_topic_id: "세부 주제 값이 올바르지 않습니다. 다시 선택해 주세요.",
-    store_topic_not_found: "선택한 세부 주제를 찾을 수 없습니다. 목록을 새로고침한 뒤 다시 선택해 주세요.",
-    store_topic_category_mismatch: "세부 주제가 선택한 업종과 맞지 않습니다. 업종·주제를 다시 맞춰 주세요.",
-    invalid_business_hours_json: "영업·배달 안내(JSON) 형식이 올바르지 않습니다.",
-    invalid_gallery_images_json: "갤러리 이미지 목록 형식이 올바르지 않습니다.",
-    invalid_lat: "위도(-90~90) 형식을 확인해 주세요.",
-    invalid_lng: "경도(-180~180) 형식을 확인해 주세요.",
-    supabase_unconfigured: "서버 저장소 설정을 확인해 주세요.",
-    unauthorized: "로그인이 필요합니다.",
-    forbidden: "이 매장을 수정할 권한이 없습니다.",
-    store_not_found: "매장을 찾을 수 없습니다.",
-    update_no_row: "저장이 반영되지 않았습니다. 새로고침 후 다시 시도해 주세요.",
-  };
-  return m[code] ?? null;
 }
 
 export function OwnerStoreProfileForm({
@@ -423,7 +406,7 @@ export function OwnerStoreProfileForm({
   onSaved,
   onServiceDraftChange,
 }: OwnerStoreProfileFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const hideAppBottomNav =
@@ -521,15 +504,7 @@ export function OwnerStoreProfileForm({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok || !j.url) {
-        const msg =
-          typeof j?.message === "string" && j.message.trim()
-            ? j.message
-            : j?.error === "storage_bucket_missing"
-              ? "Storage 버킷 store-product-images가 없습니다. Supabase SQL(매장 이미지 버킷)을 실행하거나 마이그레이션을 적용해 주세요."
-              : typeof j?.error === "string"
-                ? j.error
-                : "이미지 업로드에 실패했습니다.";
-        setError(msg);
+        setError(formatOwnerStoreImageUploadError(j, language));
         return;
       }
       setValues((v) => {
@@ -538,7 +513,7 @@ export function OwnerStoreProfileForm({
         return { ...v, galleryUrls: next };
       });
     } catch {
-      setError("이미지 업로드 중 오류가 발생했습니다.");
+      setError(t("business_phase7_521"));
     } finally {
       setUploading(null);
     }
@@ -558,14 +533,14 @@ export function OwnerStoreProfileForm({
       const business_hours_json = buildBusinessHoursJson(row, values);
       const gallery_images_json = values.galleryUrls.map((u) => u.trim()).filter(Boolean);
       if (gallery_images_json.length > GALLERY_MAX) {
-        setError(`갤러리 이미지는 최대 ${GALLERY_MAX}장까지입니다.`);
+        setError(t("business_phase7_526", { v1: GALLERY_MAX }));
         return false;
       }
       if (values.autoBusinessHoursEnabled) {
         const o = normalizeHHMM(values.autoHoursOpen.trim());
         const c = normalizeHHMM(values.autoHoursClose.trim());
         if (!o || !c || o === c) {
-          setError("자동 영업/마감을 켠 경우 시작·종료를 HH:mm(예: 09:00, 22:00)로 입력해 주세요.");
+          setError(t("business_phase7_522"));
           return false;
         }
       }
@@ -573,19 +548,19 @@ export function OwnerStoreProfileForm({
         const bs = normalizeHHMM(values.breakHoursStart.trim());
         const be = normalizeHHMM(values.breakHoursEnd.trim());
         if (!bs || !be || bs === be) {
-          setError("쉬는 시간: 시작·종료를 모두 선택해 주세요.");
+          setError(t("business_phase7_523"));
           return false;
         }
       }
       if (values.deliveryFeeMode === "courier" && !values.deliveryCourierLabel.trim()) {
-        setError("배달 업체(착불)를 선택한 경우 업체명·수단을 입력해 주세요.");
+        setError(t("business_phase7_524"));
         return false;
       }
       if (values.deliveryFeeMode === "self_free_promo") {
         const sr = values.deliveryFeeStrikeReferencePhp.replace(/\D/g, "").trim();
         const x = sr ? Math.round(Number(sr)) : NaN;
         if (!Number.isFinite(x) || x <= 0) {
-          setError("배달비 무료 적용 중: 취소선에 표시할 원래 배달비를 1₱ 이상 입력해 주세요.");
+          setError(t("business_phase7_525"));
           return false;
         }
       }
@@ -596,7 +571,7 @@ export function OwnerStoreProfileForm({
           credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            /** 매장명·업종은 승인 시 고정. 로고·소개·연락처·주소 등은 기본 정보 화면에서만 PATCH */
+            /** ??????? ?? ? ??. ???????????? ?? ?? ?? ????? PATCH */
             is_open: values.isOpen,
             delivery_available: values.deliveryAvailable,
             menu_sold_out_bottom: values.menuSoldOutBottom,
@@ -607,16 +582,16 @@ export function OwnerStoreProfileForm({
         });
         const j = await res.json().catch(() => ({}));
         if (res.status === 401) {
-          setError("로그인이 필요합니다.");
+          setError(t("common_login_required"));
           return false;
         }
         if (!j?.ok || !j?.store) {
           const code = typeof j?.error === "string" ? j.error : "";
-          const mapped = patchErrorToUserMessage(code);
+          const mapped = formatOwnerStorePatchError(code, language);
           setError(
             j?.ok && !j?.store
-              ? "저장 응답이 올바르지 않습니다. 목록을 새로고침해 변경 여부를 확인해 주세요."
-              : mapped ?? (code ? code : "저장에 실패했습니다.")
+              ? t("business_phase7_520")
+              : mapped ?? (code ? code : t("business_phase7_517"))
           );
           return false;
         }
@@ -624,14 +599,14 @@ export function OwnerStoreProfileForm({
         onSaved();
         return true;
       } catch {
-        setError("네트워크 오류가 발생했습니다.");
+        setError(t("business_phase7_518"));
         return false;
       } finally {
         setSubmitting(false);
       }
     } catch (err) {
       console.error("[OwnerStoreProfileForm] runSave", err);
-      setError("저장 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+      setError(t("business_phase7_519"));
       setSubmitting(false);
       return false;
     }
@@ -656,7 +631,7 @@ export function OwnerStoreProfileForm({
     }
   };
 
-  /** 모달 «취소»: 편집 폐기 후 뒤로/사이드바가 요청한 경로로 이동 */
+  /** ?? ????: ?? ?? ? ??/????? ??? ??? ?? */
   const confirmLeaveDiscard = useCallback(() => {
     if (!leavePrompt) return;
     const href = leavePrompt.href;
@@ -676,23 +651,32 @@ export function OwnerStoreProfileForm({
 
   const timePickerTitle =
     timePickerTarget === "close"
-      ? "영업 종료"
+      ? t("business_phase7_550")
       : timePickerTarget === "open"
-        ? "영업 시작"
+        ? t("business_phase7_551")
         : timePickerTarget === "breakOpen"
-          ? "쉬는 시간 시작"
+          ? t("business_phase7_552")
           : timePickerTarget === "breakClose"
-            ? "쉬는 시간 종료"
-            : "시간 설정";
+            ? t("business_phase7_553")
+            : t("business_phase7_554");
 
   const breakStartLabel = (() => {
     const n = normalizeHHMM(values.breakHoursStart.trim());
-    return n ? formatHHmm12hLabel(n) : "없음";
+    return n ? formatHHmm12hLabel(n) : t("common_none");
   })();
   const breakEndLabel = (() => {
     const n = normalizeHHMM(values.breakHoursEnd.trim());
-    return n ? formatHHmm12hLabel(n) : "없음";
+    return n ? formatHHmm12hLabel(n) : t("common_none");
   })();
+
+  const timezoneOptions = useMemo(
+    () =>
+      STORE_AUTO_TIMEZONE_OPTIONS.map((o) => ({
+        value: o.value,
+        label: ownerStoreTimezoneLabel(language, o.value),
+      })),
+    [language],
+  );
 
   return (
     <>
@@ -711,14 +695,14 @@ export function OwnerStoreProfileForm({
       >
       <OwnerStoreAdminDashSection title={t("business_phase7_313")}>
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 px-3 py-2.5 sam-text-xxs leading-snug text-sam-fg">
-          로고·매장명·연락처·주소 등은{" "}
+{t("business_phase7_544")}
           <Link
             href={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
             className="font-semibold text-sam-primary underline underline-offset-2"
           >
-            기본 정보
+            {t("business_phase7_038")}
           </Link>
-          에서 수정합니다.
+          {t("business_phase7_545")}
         </div>
       </OwnerStoreAdminDashSection>
 
@@ -749,8 +733,10 @@ export function OwnerStoreProfileForm({
 
       <OwnerStoreAdminDashSection title={t("business_phase7_176")}>
         <p className="sam-text-helper text-sam-muted">
-          알림음은 관리자 <span className="font-medium text-sam-fg">{t("business_phase7_072")}</span>에서 지정합니다. 미설정 시 짧은
-          비프음이 재생됩니다.
+{t("business_phase7_546")}
+          <span className="font-medium text-sam-fg">{t("business_phase7_072")}</span>
+          {t("business_phase7_547")}
+          {t("business_phase7_548")}
         </p>
       </OwnerStoreAdminDashSection>
 
@@ -782,7 +768,7 @@ export function OwnerStoreProfileForm({
               onChange={(e) => setValues((v) => ({ ...v, autoHoursTz: e.target.value }))}
               className={OWNER_STORE_PROFILE_SELECT_CLASS}
             >
-              {STORE_AUTO_TIMEZONE_OPTIONS.map((o) => (
+              {timezoneOptions.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>
@@ -792,7 +778,7 @@ export function OwnerStoreProfileForm({
 
           <div>
             <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
-              영업 시간 (시작·종료)
+              {t("business_phase7_549")}
             </p>
             <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
               <div className="min-w-0">
@@ -903,10 +889,10 @@ export function OwnerStoreProfileForm({
           />
           <label htmlFor={`menu-sold-out-bottom-${storeId}`} className="min-w-0 leading-snug">
             <span className="sam-text-body-secondary font-medium text-sam-fg">
-              메뉴판에서 품절 메뉴를 카테고리 맨 아래로 모으기
+              {t("business_phase7_539")}
             </span>
             <span className="mt-0.5 block sam-text-xxs text-sam-muted">
-              끄면 품절 포함 기존 순서를 유지합니다.
+              {t("business_phase7_538")}
             </span>
           </label>
         </div>
@@ -995,7 +981,7 @@ export function OwnerStoreProfileForm({
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
               <span className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_109")}</span>
               <p className="mb-2 sam-text-xxs text-sam-muted">
-                자체배달은 앱 결제에 배달비가 포함됩니다. 배달 업체는 고객 착불입니다.
+                {t("business_phase7_566")}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2">
                 <label className="flex cursor-pointer items-center gap-2">
@@ -1048,7 +1034,7 @@ export function OwnerStoreProfileForm({
             {values.deliveryFeeMode === "self" ? (
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
                 <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                  배달비 (₱, 앱 결제 합계에 포함)
+                  {t("business_phase7_567")}
                 </label>
                 <input
                   type="text"
@@ -1065,7 +1051,7 @@ export function OwnerStoreProfileForm({
             {values.deliveryFeeMode === "self_free_promo" ? (
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
                 <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                  원래 배달비 (₱, 목록·상세 취소선)
+                  {t("business_phase7_568")}
                 </label>
                 <input
                   type="text"
@@ -1085,7 +1071,7 @@ export function OwnerStoreProfileForm({
             {values.deliveryFeeMode === "courier" ? (
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
                 <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                  배달 업체·수단 (고객 착불 안내)
+                  {t("business_phase7_569")}
                 </label>
                 <input
                   type="text"
@@ -1101,7 +1087,7 @@ export function OwnerStoreProfileForm({
             {values.deliveryFeeMode === "self" ? (
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
                 <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                  무료배달 기준 (₱, 숫자)
+                  {t("business_phase7_570")}
                 </label>
                 <input
                   type="text"
@@ -1120,17 +1106,17 @@ export function OwnerStoreProfileForm({
             ) : null}
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
               <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                간단 공지 (레거시 · 선택)
+                {t("business_phase7_555")}
               </label>
               <p className="mb-2 sam-text-xxs text-sam-muted">
-                위치별 공지는{" "}
+                {t("business_phase7_556")}
                 <Link
                   href={`/stores/owner/notices?storeId=${encodeURIComponent(storeId)}`}
                   className="font-semibold text-sam-primary underline underline-offset-2"
                 >
-                  공지 관리
+                  {t("business_phase7_030")}
                 </Link>
-                에서 등록합니다.
+                {t("business_phase7_557")}
               </p>
               {values.publicNotices.length === 0 ? (
                 <p className="mb-2 sam-text-helper text-sam-meta">{t("business_phase7_056")}</p>
@@ -1148,7 +1134,7 @@ export function OwnerStoreProfileForm({
                           })
                         }
                         rows={2}
-                        placeholder={`공지 내용 ${i + 1}`}
+                        placeholder={t("business_phase7_558", { v1: i + 1 })}
                         className={`min-w-0 flex-1 ${OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}`}
                       />
                       <button
@@ -1161,7 +1147,7 @@ export function OwnerStoreProfileForm({
                         }
                         className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-2 sam-text-helper font-medium text-sam-fg active:bg-sam-app"
                       >
-                        삭제
+                        {t("common_delete")}
                       </button>
                     </li>
                   ))}
@@ -1172,7 +1158,7 @@ export function OwnerStoreProfileForm({
                 onClick={() => setValues((v) => ({ ...v, publicNotices: [...v.publicNotices, ""] }))}
                 className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg active:bg-sam-app"
               >
-                공지 추가
+                {t("business_phase7_559")}
               </button>
             </div>
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
@@ -1200,16 +1186,18 @@ export function OwnerStoreProfileForm({
               <p className="mt-1.5 sam-text-helper text-sam-meta">
                 {globalRideTimeSource === "google" ? (
                   <>
-                    배달 구간(오토바이) 소요는 고객 위치 기준으로 <strong className="text-sam-fg">{t("business_phase7_035")}</strong>로
-                    자동 추정됩니다.
+                    {t("business_phase7_561")}
+                    <strong className="text-sam-fg">{t("business_phase7_035")}</strong>
+                    {t("business_phase7_562")}
                   </>
                 ) : globalRideTimeSource === "store" ? (
                   <>
-                    운영 정책상 배달 구간은 아래 <strong className="text-sam-fg">{t("business_phase7_166")}</strong> 문구로
-                    표시됩니다. (고객 앱에서 구글 Routes 호출 없음)
+                    {t("business_phase7_563")}
+                    <strong className="text-sam-fg">{t("business_phase7_166")}</strong>
+                    {t("business_phase7_564")}
                   </>
                 ) : (
-                  "배달 시간 표시 방식을 불러오는 중…"
+                  t("business_phase7_560")
                 )}
               </p>
             </div>
@@ -1227,8 +1215,7 @@ export function OwnerStoreProfileForm({
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
                 <p className="mt-1.5 sam-text-helper text-sam-meta">
-                  목록·상세·배달 예상에 &quot;조리 … · 배달 …&quot; 형태로 붙습니다. 비우면 배달 칸은 대시(—)로
-                  둡니다.
+                  {t("business_phase7_565")}
                 </p>
               </div>
             ) : null}
@@ -1248,7 +1235,7 @@ export function OwnerStoreProfileForm({
 
       <OwnerStoreAdminDashSection title={t("business_phase7_007")}>
         <p className="sam-text-helper text-sam-muted">
-          가게정보「전단지·소개」에 표시됩니다. 최대 {GALLERY_MAX}장, 파일 업로드만 가능합니다.
+          {t("business_phase7_571", { v1: GALLERY_MAX })}
         </p>
         <div className="flex flex-wrap gap-2">
           <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-50">
@@ -1263,16 +1250,16 @@ export function OwnerStoreProfileForm({
                 if (f) void uploadGalleryImage(f);
               }}
             />
-            {uploading === "gallery" ? "업로드 중…" : "파일에서 추가"}
+            {uploading === "gallery" ? t("business_phase7_188") : t("business_phase7_572")}
           </label>
           <span className="flex min-w-0 items-center sam-text-helper text-sam-meta">
-            {values.galleryUrls.filter((u) => u.trim()).length}/{GALLERY_MAX}장
+            {t("business_phase7_573", { v1: values.galleryUrls.filter((u) => u.trim()).length, v2: GALLERY_MAX })}
           </span>
         </div>
         <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {values.galleryUrls.filter((u) => u.trim()).length === 0 ? (
-            <li className="col-span-full sam-text-body-secondary text-sam-meta">
-              등록된 이미지가 없습니다. 위에서 파일을 선택해 추가하세요.
+            <li className="col-span-full min-w-0 break-words sam-text-body-secondary leading-snug text-sam-meta">
+              {t("business_phase7_574")}
             </li>
           ) : (
             values.galleryUrls.map((url, i) => {
@@ -1299,7 +1286,7 @@ export function OwnerStoreProfileForm({
                     }
                     className="absolute right-1 top-1 rounded-ui-rect bg-black/55 px-2 py-1 sam-text-xxs font-semibold text-white backdrop-blur-sm"
                   >
-                    삭제
+                    {t("common_delete")}
                   </button>
                 </li>
               );
@@ -1338,7 +1325,7 @@ export function OwnerStoreProfileForm({
                   disabled={submitting || !!uploading || leaveSaving}
                   className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
                 >
-                  취소
+                  {t("common_cancel")}
                 </button>
                 <button
                   type="submit"
@@ -1346,7 +1333,7 @@ export function OwnerStoreProfileForm({
                   disabled={submitting || !!uploading || leaveSaving}
                   className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
                 >
-                  {submitting ? "저장 중…" : "저장"}
+                  {submitting ? t("business_phase7_384") : t("common_save")}
                 </button>
               </div>
             </div>

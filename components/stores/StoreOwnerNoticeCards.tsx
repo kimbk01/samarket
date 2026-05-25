@@ -46,7 +46,9 @@ export function StoreOwnerNoticeCards({
                 <span className="block text-[14px] font-bold text-neutral-900">{n.title}</span>
                 <span className="mt-0.5 block text-[13px] text-neutral-600">{previewOneLine(n.body)}</span>
               </span>
-              <span className="shrink-0 text-[12px] font-semibold text-neutral-400">{open ? "닫기" : "더보기"}</span>
+              <span className="shrink-0 text-[12px] font-semibold text-neutral-400">
+                {open ? t("common_close") : t("store_show_more")}
+              </span>
             </button>
             {open ? (
               <div className="mt-2 border-t border-neutral-100 pt-2">
@@ -68,7 +70,7 @@ export function StoreOwnerNoticeCards({
                   href={`${infoHrefBase}#store-notice-${encodeURIComponent(n.id)}`}
                   className="mt-2 inline-block text-[12px] font-semibold text-[#1C8DB8] underline-offset-2 hover:underline"
                 >
-                  가게 정보에서 보기
+                  {t("store_info_title")}
                 </a>
               </div>
             ) : null}

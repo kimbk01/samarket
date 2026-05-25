@@ -13,16 +13,17 @@ import {
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
 import { OWNER_COMPACT_SHELL_MAX_TW } from "@/lib/business/owner-compact-shell-viewport";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 const STEPS: Array<{
   key: OwnerFlowStepVariant;
-  label: string;
+  labelKey: MessageKey;
   tab: "new" | "progress" | "shipping" | "done";
 }> = [
-  { key: "waiting", label: "주문접수", tab: "new" },
-  { key: "cooking", label: "준비(조리)중", tab: "progress" },
-  { key: "delivering", label: "배달중", tab: "shipping" },
-  { key: "done", label: "배달완료", tab: "done" },
+  { key: "waiting", labelKey: "store_owner_dash_flow_waiting", tab: "new" },
+  { key: "cooking", labelKey: "store_owner_dash_flow_cooking", tab: "progress" },
+  { key: "delivering", labelKey: "store_owner_dash_flow_delivering", tab: "shipping" },
+  { key: "done", labelKey: "store_owner_dash_flow_done", tab: "done" },
 ];
 
 export function OwnerOrderFlowCard({
@@ -75,14 +76,14 @@ export function OwnerOrderFlowCard({
                   <OwnerFlowStepCircle variant={step.key} />
                 </div>
                 <span className="mt-1.5 text-[11px] font-medium leading-tight text-[#8C8C8C]">
-                  {step.label}
+                  {t(step.labelKey)}
                 </span>
                 <span className="mt-0.5 text-[16px] font-bold leading-tight tabular-nums text-[#262626]">
                   {count}
                 </span>
                 {delay > 0 ? (
                   <span className="mt-0.5 text-[10px] font-semibold leading-tight text-[#FF4D4F]">
-                    지연 {delay}건
+                    {t("store_owner_dash_delay_count", { count: delay })}
                   </span>
                 ) : (
                   <span className="mt-0.5 block h-[14px]" aria-hidden />
@@ -103,4 +104,3 @@ export function OwnerOrderFlowCard({
     </section>
   );
 }
-

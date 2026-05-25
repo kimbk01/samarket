@@ -1,10 +1,11 @@
 "use client";
 
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
-} from "@/lib/stores/store-order-process-criteria";
+  buyerOrderTimelineDeliveryStepLabels,
+  buyerOrderTimelinePickupStepLabels,
+} from "@/lib/stores/buyer-order-status-labels";
 import {
   ownerOrderCardStepColumnLabel,
   ownerOrderCardStepperModel,
@@ -19,15 +20,11 @@ const OWNER_ORDER_STEP_ICON_CENTER_Y = "0.875rem";
 
 /** Next process column only - tap press feedback */
 const STEP_NEXT_PRESSABLE_CLASS =
-  "relative z-[1] flex w-full min-w-0 flex-col items-center gap-1.5 rounded-md border-0 bg-transparent p-1 touch-manipulation select-none outline-none [-webkit-tap-highlight-color:transparent] transition-[transform,background-color,opacity] duration-150 ease-out hover:bg-[#F8FAFF] active:scale-[0.96] active:bg-[#E0EDFF] active:opacity-90 focus-visible:ring-2 focus-visible:ring-[#2D7FF9]/40 disabled:pointer-events-none disabled:opacity-60 sm:gap-2";
+  "relative z-[1] flex w-full min-w-0 flex-col items-center gap-1.5 rounded-md border-0 bg-transparent p-1 touch-manipulation select-none outline-none [-webkit-tap-highlight-color:transparent] transition-[transform,background-color,opacity] duration-150 ease-out hover:bg-[var(--biz-tan-soft)] active:scale-[0.96] active:bg-[var(--biz-primary-soft)] active:opacity-90 focus-visible:ring-2 focus-visible:ring-[var(--biz-primary)]/40 disabled:pointer-events-none disabled:opacity-60 sm:gap-2";
 
 /** Done / waiting columns - no press */
 const STEP_STATIC_CLASS =
   "relative z-[1] flex w-full flex-col items-center gap-1.5 p-1 pointer-events-none cursor-default select-none sm:gap-2";
-
-function stepsFor(deliveryLike: boolean): readonly string[] {
-  return deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
-}
 
 export function OwnerOrderCardProgressSteps({
   orderStatus,
@@ -42,17 +39,20 @@ export function OwnerOrderCardProgressSteps({
   stepBusy?: boolean;
   onStepClick?: (stepIndex: number) => void;
 }) {
+  const { t, language } = useI18n();
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
-  const steps = stepsFor(deliveryLike);
+  const steps = deliveryLike
+    ? buyerOrderTimelineDeliveryStepLabels(language)
+    : buyerOrderTimelinePickupStepLabels(language);
   const terminal = new Set(["cancelled", "refunded", "refund_requested"]);
   if (terminal.has(orderStatus)) {
     return (
       <p className="mt-2 text-center text-[12px] text-[#8C8C8C]">
         {orderStatus === "refund_requested"
-          ? "?? ?? ?? ?"
+          ? t("store_owner_timeline_refund_pending")
           : orderStatus === "refunded"
-            ? "?? ??"
-            : "??? ??"}
+            ? t("store_owner_timeline_refund_done")
+            : t("store_owner_timeline_cancelled")}
       </p>
     );
   }
@@ -64,7 +64,7 @@ export function OwnerOrderCardProgressSteps({
   return (
     <ol
       className="owner-order-card-stepper mt-3 grid list-none grid-cols-4 gap-x-1 gap-y-0 overflow-visible px-0.5 pb-1 sm:gap-x-1.5 md:gap-x-2"
-      aria-label="?? ?? ??"
+      aria-label={t("store_owner_stepper_aria")}
     >
       {steps.map((defaultLabel, i) => {
         const state = visual[i] ?? "upcoming";
@@ -75,7 +75,8 @@ export function OwnerOrderCardProgressSteps({
           i,
           orderStatus,
           fulfillmentType,
-          actionableClickable
+          actionableClickable,
+          language
         );
         const { Icon, bg } = ownerFlowIconForStepIndex(i, deliveryLike);
         const segmentDone = allDone || (i > 0 && visual[i - 1] === "done");
@@ -93,7 +94,7 @@ export function OwnerOrderCardProgressSteps({
                   top: OWNER_ORDER_STEP_ICON_CENTER_Y,
                   left: "-50%",
                   width: "100%",
-                  backgroundColor: segmentDone ? "#2D7FF9" : "#E8E8E8",
+                  backgroundColor: segmentDone ? "var(--biz-primary)" : "#E8E8E8",
                 }}
                 aria-hidden
               />
@@ -105,7 +106,7 @@ export function OwnerOrderCardProgressSteps({
                 disabled={stepBusy}
                 onClick={() => onStepClick(i)}
                 className={STEP_NEXT_PRESSABLE_CLASS}
-                aria-label={`${displayLabel} ??? ??`}
+                aria-label={t("store_owner_step_tap_aria", { label: displayLabel })}
               >
                 <OwnerFlowStepIconMini Icon={Icon} bg={bg} active={active} done={false} />
                 <span

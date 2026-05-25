@@ -34,7 +34,7 @@ export type StoreAddressLocationSectionProps = {
  * PhilPost ZIP 조회는 기본 비활성(레거시); 필요 시 `showZipLookup`으로 켭니다.
  */
 export function StoreAddressLocationSection({
-  sectionTitle = "위치",
+  sectionTitle,
   sectionHint,
   regionId,
   cityId,
@@ -47,14 +47,16 @@ export function StoreAddressLocationSection({
   showZipLookup = false,
   philippinesZipSeed,
   onPhilippinesZipCommitted,
-  locationLabel = "지역 · 동네",
+  locationLabel,
   showRequired = false,
 }: StoreAddressLocationSectionProps) {
   const { t } = useI18n();
+  const resolvedSectionTitle = sectionTitle ?? t("store_location_section_default");
+  const resolvedLocationLabel = locationLabel ?? t("store_location_region_barangay");
   return (
     <>
       <div>
-        <p className={OWNER_STORE_FORM_LEAD_CLASS}>{sectionTitle}</p>
+        <p className={OWNER_STORE_FORM_LEAD_CLASS}>{resolvedSectionTitle}</p>
         <p className={OWNER_STORE_FORM_HINT_CLASS}>{sectionHint}</p>
         <LocationSelector
           embedded
@@ -62,7 +64,7 @@ export function StoreAddressLocationSection({
           city={cityId}
           onRegionChange={onRegionChange}
           onCityChange={onCityChange}
-          label={locationLabel}
+          label={resolvedLocationLabel}
           showRequired={showRequired}
           showZipLookup={showZipLookup}
           philippinesZipSeed={philippinesZipSeed}

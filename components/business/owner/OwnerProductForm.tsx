@@ -914,8 +914,8 @@ export function OwnerProductForm({
               id="owner-product-options"
               className={
                 detailNav === "options"
-                  ? "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(28,141,184,0.14),0_10px_28px_rgba(28,141,184,0.2)] ring-2 ring-[var(--biz-primary)]/45 ring-offset-2 ring-offset-[var(--biz-app-bg)]"
-                  : "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(28,141,184,0.08),0_8px_24px_rgba(15,23,42,0.08)]"
+                  ? "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(11,66,26,0.14),0_10px_28px_rgba(11,66,26,0.2)] ring-2 ring-[var(--biz-primary)]/45 ring-offset-2 ring-offset-[var(--biz-app-bg)]"
+                  : "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(11,66,26,0.08),0_8px_24px_rgba(15,23,42,0.08)]"
               }
             >
               <OwnerStoreAdminDashSection

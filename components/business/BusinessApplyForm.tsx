@@ -96,12 +96,13 @@ interface BusinessApplyFormProps {
 
 export function BusinessApplyForm({
   onSubmit,
-  submitLabel = "신청하기",
+  submitLabel,
   disabled = false,
   profileSeed = null,
   computedStoreSlug = "",
 }: BusinessApplyFormProps) {
   const { t } = useI18n();
+  const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
     null
@@ -371,10 +372,7 @@ export function BusinessApplyForm({
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
-        <p className={OWNER_STORE_FORM_HINT_CLASS}>
-          어드민 «매장 설정»·<span className="font-medium text-sam-muted">/stores</span> 와 같은 1·2차
-          업종입니다. 1차 선택 후 세부(예: 한식·중식)를 고르세요.
-        </p>
+        <p className={OWNER_STORE_FORM_HINT_CLASS}>{t("business_phase7_673")}</p>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
             <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_005")}</label>
@@ -441,7 +439,7 @@ export function BusinessApplyForm({
           disabled={disabled || !computedStoreSlug.trim() || !addressDefault?.id}
           className="min-h-[44px] w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-50"
         >
-          {submitLabel}
+          {resolvedSubmitLabel}
         </button>
       </OwnerStoreAdminDashSection>
     </form>

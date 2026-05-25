@@ -82,9 +82,9 @@ export function BusinessAdminSidebar({
               const common =
                 "flex items-center justify-between gap-2 rounded-ui-rect px-2.5 py-2.5 sam-text-body font-medium transition-colors";
               const activeCls = active
-                ? "bg-[#dbedf5] font-semibold text-sam-fg ring-1 ring-inset ring-sam-border-soft"
-                : "text-sam-fg hover:bg-sam-surface-muted";
-              const iconCls = active ? "text-signature" : "text-sam-muted";
+                ? "bg-[var(--biz-header-bg)] font-semibold text-[var(--biz-text)] ring-1 ring-inset ring-[var(--biz-card-border)]"
+                : "text-[var(--biz-text)] hover:bg-[var(--biz-tan-soft)]";
+              const iconCls = active ? "text-[var(--biz-primary)]" : "text-[var(--biz-text-muted)]";
               const inner = (
                 <>
                   <span className="flex min-w-0 flex-1 items-start gap-2.5">
@@ -105,7 +105,7 @@ export function BusinessAdminSidebar({
                       </span>
                     ) : null}
                     <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-sam-muted">
-                      상세
+                      {t("business_phase7_582")}
                       <ChevronRight className="h-3 w-3" aria-hidden />
                     </span>
                   </span>

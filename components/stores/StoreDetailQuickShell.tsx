@@ -23,7 +23,7 @@ function Shimmer({ className }: { className: string }) {
   );
 }
 
-function slugToPlaceholderTitle(slug: string): string {
+function slugToPlaceholderTitle(slug: string, fallbackName: string): string {
   let s = slug.trim();
   try {
     s = decodeURIComponent(s);
@@ -31,7 +31,7 @@ function slugToPlaceholderTitle(slug: string): string {
     /* already decoded */
   }
   const t = s.replace(/-/g, " ").trim();
-  return t.length > 0 ? t : "매장";
+  return t.length > 0 ? t : fallbackName;
 }
 
 /**
@@ -56,8 +56,12 @@ export function StoreDetailQuickShell({
   onShareClick: () => void;
   onCartPreviewClick: () => void;
 }) {
+  const { t } = useI18n();
   const decoded = useMemo(() => decodeSlugSegment(slug), [slug]);
-  const title = useMemo(() => slugToPlaceholderTitle(decoded || slug), [decoded, slug]);
+  const title = useMemo(
+    () => slugToPlaceholderTitle(decoded || slug, t("store_fallback_name")),
+    [decoded, slug, t]
+  );
   const pass0LoggedRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
@@ -133,7 +137,7 @@ export function StoreDetailQuickShell({
           href="/stores"
           className="text-[12px] font-normal text-neutral-400 underline underline-offset-2"
         >
-          매장 목록으로
+          {t("store_back_to_store_list")}
         </Link>
       </div>
     </div>

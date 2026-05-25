@@ -113,7 +113,7 @@ export function StoreDetailInfoCard({
               isOpen ? "bg-emerald-100 text-emerald-900" : "bg-sam-border-soft text-sam-fg"
             }`}
           >
-            {isOpen ? "영업 중" : "준비 중"}
+            {isOpen ? t("store_open_now") : t("store_preparing_short")}
           </span>
           {commerce?.breakConfigured ? (
             <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-signature/5 px-2.5 py-1 sam-text-helper font-medium text-sam-fg">
@@ -121,17 +121,17 @@ export function StoreDetailInfoCard({
             </span>
           ) : null}
           <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper font-medium text-sam-fg">
-            {deliveryAvailable ? "배달 가능" : "배달 불가"}
+            {deliveryAvailable ? t("store_delivery_yes_short") : t("store_delivery_no_short")}
           </span>
           <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper font-medium text-sam-fg">
-            {pickupAvailable ? "포장·픽업 가능" : "픽업 불가"}
+            {pickupAvailable ? t("store_pickup_yes_short") : t("store_pickup_no_short")}
           </span>
         </div>
       </div>
 
       {commerce?.inBreak ? (
         <p className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950">
-          쉬는 시간에는 메뉴 담기가 제한될 수 있어요.
+          {t("store_commerce_summary_disclaimer")}
         </p>
       ) : null}
 
@@ -140,7 +140,7 @@ export function StoreDetailInfoCard({
           href={ownerManagementHref}
           className="mt-3 block text-center sam-text-body-secondary font-semibold text-signature underline decoration-signature/30 underline-offset-2"
         >
-          내 상점 관리
+          {t("store_manage_my_shop")}
         </Link>
       ) : null}
 
@@ -149,10 +149,10 @@ export function StoreDetailInfoCard({
         className="mt-4 flex w-full items-center justify-between gap-3 rounded-ui-rect border border-sam-border bg-sam-ink px-4 py-3 text-left sam-text-body font-semibold text-white shadow-sm active:bg-sam-surface-dark"
       >
         <span>
-          가게정보
+          {t("store_store_info_menu")}
           {flyerGalleryCount > 0 ? (
             <span className="mt-0.5 block sam-text-helper font-normal text-white/75">
-              주소 · 영업 · 소개 사진 {flyerGalleryCount}장
+              {`${t("store_location")} · ${t("store_hours_weekday")} · ${t("store_flyer_intro_title")} ${flyerGalleryCount.toLocaleString("en-PH")}`}
             </span>
           ) : (
             <span className="mt-0.5 block sam-text-helper font-normal text-white/75">{t("store_info_card_sub")}</span>

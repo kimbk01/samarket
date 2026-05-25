@@ -55,10 +55,10 @@ export function StoreProductOptionPicker({ groups, value, onChange, disabled }: 
         const single = g.maxSelect <= 1;
         const rangeHint =
           g.minSelect === g.maxSelect
-            ? `(${g.minSelect}개 선택)`
+            ? t("store_modifier_count_min_select", { min: g.minSelect })
             : g.minSelect > 0
-              ? `(${g.minSelect}~${g.maxSelect}개)`
-              : `(선택, 최대 ${g.maxSelect}개)`;
+              ? t("store_modifier_count_range_select", { min: g.minSelect, max: g.maxSelect })
+              : t("store_modifier_count_max_select", { max: g.maxSelect });
 
         return (
           <div key={g.key}>

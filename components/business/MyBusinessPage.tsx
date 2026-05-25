@@ -7,7 +7,7 @@ import {
   getBusinessProfileByOwnerUserId,
   CURRENT_USER_ID,
 } from "@/lib/business/mock-business-profiles";
-import { BUSINESS_STATUS_LABELS } from "@/lib/business/business-utils";
+import { BUSINESS_PROFILE_STATUS_KEYS } from "@/lib/business/business-owner-ui-labels";
 import { BusinessProfileView } from "./BusinessProfileView";
 import {
   BusinessOperationalChecklistPending,
@@ -244,7 +244,7 @@ export function MyBusinessPage({
           href="/login"
           className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-sam-surface px-4 py-2 sam-text-body font-medium text-amber-900"
         >
-          로그인하고 매장 시작하기
+          {t("business_phase7_606")}
         </Link>
       </div>
     );
@@ -284,10 +284,10 @@ export function MyBusinessPage({
         <div className="rounded-ui-rect bg-[#111827] px-5 py-5 text-white shadow-sam-elevated md:px-6 md:py-6">
           <p className="sam-text-helper font-medium text-white/70">{t("business_phase7_108")}</p>
           <h2 className="mt-1 sam-text-page-title font-bold leading-tight md:sam-text-hero">
-            주문·문의·메뉴를 한곳에서 운영해 보세요.
+            {t("business_phase7_607")}
           </h2>
           <p className="mt-2 sam-text-body-secondary text-white/75">
-            매장을 등록하면 심사 후 운영 센터에서 바로 관리할 수 있어요.
+            {t("business_phase7_608")}
           </p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -295,13 +295,13 @@ export function MyBusinessPage({
             href="/stores/owner/apply"
             className="rounded-ui-rect border border-signature/30 bg-signature/5 px-4 py-4 sam-text-body font-semibold text-sam-fg shadow-sm"
           >
-            매장 신청하기
+            {t("mypage_hub_store_apply")}
           </Link>
           <Link
             href="/mypage/store-orders"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 sam-text-body font-semibold text-sam-fg shadow-sm"
           >
-            내 주문 보기
+            {t("mypage_hub_my_orders")}
           </Link>
         </div>
       </div>
@@ -326,7 +326,7 @@ export function MyBusinessPage({
             href={`/stores/owner/profile?${managementQuery}`}
             className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-medium text-white"
           >
-            매장 프로필 보완하기
+            {t("business_phase7_609")}
           </Link>
         </div>
         <button
@@ -334,7 +334,7 @@ export function MyBusinessPage({
           onClick={() => void loadRemote()}
           className="sam-text-body text-signature underline"
         >
-          새로고침
+          {t("store_owner_refresh")}
         </button>
       </div>
     );
@@ -348,13 +348,13 @@ export function MyBusinessPage({
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
           <p className="sam-text-body text-sam-muted">{t("business_phase7_181")}</p>
           <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 sam-text-body-secondary text-amber-800">
-            {BUSINESS_STATUS_LABELS.pending}
+            {t(BUSINESS_PROFILE_STATUS_KEYS.pending)}
           </span>
           <Link
             href={`/stores/owner/profile?${managementQuery}`}
             className="mt-3 inline-block rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg"
           >
-            매장 프로필·이미지 입력
+            {t("business_phase7_610")}
           </Link>
         </div>
       </div>
@@ -370,7 +370,7 @@ export function MyBusinessPage({
           <p className="sam-text-body-secondary text-sam-fg">{t("business_phase7_136", { v1: profile.adminMemo })}</p>
         ) : null}
         <span className="inline-block rounded bg-red-50 px-2 py-1 sam-text-body-secondary text-red-700">
-          {BUSINESS_STATUS_LABELS.rejected}
+          {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
         </span>
       </div>
     );
@@ -382,7 +382,7 @@ export function MyBusinessPage({
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_227")}</p>
         <span className="inline-block rounded bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
-          {BUSINESS_STATUS_LABELS.paused}
+          {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
         </span>
       </div>
     );
@@ -421,7 +421,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_182")}</p>
         <span className="inline-block rounded bg-amber-100 px-2 py-1 sam-text-body-secondary text-amber-800">
-          {BUSINESS_STATUS_LABELS.pending}
+          {t(BUSINESS_PROFILE_STATUS_KEYS.pending)}
         </span>
       </div>
     );
@@ -432,7 +432,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
         <span className="inline-block rounded bg-red-50 px-2 py-1 sam-text-body-secondary text-red-700">
-          {BUSINESS_STATUS_LABELS.rejected}
+          {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
         </span>
       </div>
     );
@@ -443,7 +443,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
         <p className="sam-text-body text-sam-muted">{t("business_phase7_238")}</p>
         <span className="inline-block rounded bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
-          {BUSINESS_STATUS_LABELS.paused}
+          {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
         </span>
       </div>
     );
@@ -457,7 +457,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
           href="/stores/owner/edit"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
         >
-          상점 정보 수정
+          {t("biz_title_edit")}
         </Link>
       </div>
       <div>
@@ -465,7 +465,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
         <BusinessProductList
           products={products}
           shopSlug={profile.slug}
-          emptyMessage="등록된 상품이 없습니다. 상품을 등록하면 여기에 표시됩니다."
+          emptyMessage={t("business_phase7_611")}
         />
       </div>
     </div>

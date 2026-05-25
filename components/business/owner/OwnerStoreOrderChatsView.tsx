@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -26,7 +27,7 @@ type ViewState =
   | { kind: "error"; message: string }
   | { kind: "ok"; storeName: string; chats: ChatRow[] };
 
-function formatListTime(iso: string): string {
+function formatListTime(iso: string, language: AppLanguageCode): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   const now = new Date();
@@ -35,13 +36,13 @@ function formatListTime(iso: string): string {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   if (sameDay) {
-    return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(language === "ko" ? "ko-KR" : "en-US", { hour: "2-digit", minute: "2-digit" });
   }
-  return d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
+  return d.toLocaleDateString(language === "ko" ? "ko-KR" : "en-US", { month: "numeric", day: "numeric" });
 }
 
 export function OwnerStoreOrderChatsView() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const searchParams = useSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
   const [state, setState] = useState<ViewState>({ kind: "loading" });
@@ -66,22 +67,22 @@ export function OwnerStoreOrderChatsView() {
         chats?: ChatRow[];
       };
       if (res.status === 401) {
-        setState({ kind: "error", message: "로그인이 필요합니다." });
+        setState({ kind: "error", message: t("common_login_required") });
         return;
       }
       if (!json.ok || !Array.isArray(json.chats)) {
-        setState({ kind: "error", message: json.error ?? "목록을 불러오지 못했습니다." });
+        setState({ kind: "error", message: json.error ?? t("store_owner_err_load_list") });
         return;
       }
       setState({
         kind: "ok",
-        storeName: json.store?.store_name?.trim() || "매장",
+        storeName: json.store?.store_name?.trim() || t("store_owner_store_fallback"),
         chats: json.chats,
       });
     } catch {
-      setState({ kind: "error", message: "네트워크 오류" });
+      setState({ kind: "error", message: t("store_owner_err_network") });
     }
-  }, [storeId]);
+  }, [storeId, t]);
 
   useEffect(() => {
     void load();
@@ -90,7 +91,7 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "loading") {
     return (
       <div
-        className={`flex h-full min-h-0 flex-col bg-[#F3F4F6] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`flex h-full min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
         <div className="space-y-2 p-2 animate-pulse">
           <div className="h-16 rounded-[4px] bg-white" />
@@ -104,9 +105,9 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "need_store") {
     return (
       <div
-        className={`flex h-full flex-col items-center justify-center bg-[#F3F4F6] text-sm text-[#8C8C8C] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`flex h-full flex-col items-center justify-center bg-[var(--biz-app-bg)] text-sm text-[#8C8C8C] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
-        매장을 선택한 뒤 다시 시도해 주세요.
+        {t("store_owner_chats_need_store")}
       </div>
     );
   }
@@ -114,21 +115,21 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "error") {
     return (
       <div
-        className={`flex h-full flex-col items-center justify-center gap-3 bg-[#F3F4F6] text-sm text-red-600 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`flex h-full flex-col items-center justify-center gap-3 bg-[var(--biz-app-bg)] text-sm text-red-600 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
         {state.message}
-        <button type="button" className="text-[#2D7FF9] underline" onClick={() => void load()}>
-          다시 시도
+        <button type="button" className="text-[var(--biz-primary)] underline" onClick={() => void load()}>
+          {t("store_owner_chats_retry")}
         </button>
       </div>
     );
   }
 
   return (
-    <div className={`flex h-full min-h-0 flex-col bg-[#F3F4F6] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
+    <div className={`flex h-full min-h-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
       <div className="shrink-0 border-b border-[#E5E7EB] bg-white py-2">
         <p className="text-[13px] text-[#8C8C8C]">
-          {state.storeName} · 이 매장 주문에 연결된 채팅만 표시합니다.
+          {t("store_owner_chats_list_hint", { storeName: state.storeName })}
         </p>
       </div>
       <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-2">
@@ -144,7 +145,7 @@ export function OwnerStoreOrderChatsView() {
                 href={c.messenger_href}
                 className="mb-2 flex gap-3 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-3 active:bg-[#F5F5F5]"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E8F1FF] text-[#2D7FF9]">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--biz-tan-soft)] text-[var(--biz-primary)]">
                   <MessageCircle className="h-5 w-5" aria-hidden />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -153,7 +154,7 @@ export function OwnerStoreOrderChatsView() {
                       {c.buyer_public_label}
                     </p>
                     <span className="shrink-0 text-[11px] text-[#8C8C8C]">
-                      {formatListTime(c.last_message_at)}
+                      {formatListTime(c.last_message_at, language)}
                     </span>
                   </div>
                   <p className="mt-0.5 truncate text-[12px] text-[#8C8C8C]">
