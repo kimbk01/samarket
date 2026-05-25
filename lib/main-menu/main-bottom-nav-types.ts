@@ -20,6 +20,10 @@ export type MainBottomNavStoredItem = {
   labelFontFamilyClass?: string;
   /** 활성 탭 셀 배경·테두리 */
   activeShellClass?: string;
+  /** 탭 클릭 시 새 창으로 열기 */
+  openInNewTab?: boolean;
+  /** Lucide 아이콘명 (PascalCase) */
+  lucideIcon?: string;
 };
 
 export type MainBottomNavStoredPayload = {

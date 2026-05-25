@@ -9,8 +9,8 @@ export const BOTTOM_NAV_ICON_LABEL_KEYS: Record<BottomNavIconKey, MessageKey> = 
   chat: "admin_menu_icon_chat",
   my: "admin_menu_icon_my",
   orders: "admin_menu_icon_orders",
-  cart: "admin_menu_icon_orders",
-  favorites: "admin_menu_icon_orders",
+  cart: "admin_menu_icon_cart",
+  favorites: "admin_menu_icon_favorites",
 };
 
 export const BOTTOM_NAV_SAVE_ERROR_KEYS: Record<string, MessageKey> = {
@@ -18,7 +18,22 @@ export const BOTTOM_NAV_SAVE_ERROR_KEYS: Record<string, MessageKey> = {
   min_one_visible: "admin_menu_bottom_err_min_visible",
   invalid_href: "admin_menu_bottom_err_invalid_href",
   invalid_label: "admin_menu_bottom_err_invalid_label",
+  invalid_lucide_icon: "admin_menu_bottom_err_invalid_lucide_icon",
+  invalid_json: "admin_menu_bottom_err_save",
+  table_missing: "admin_menu_bottom_err_table_missing",
+  forbidden: "admin_menu_bottom_err_forbidden",
+  supabase_unconfigured: "admin_menu_bottom_err_supabase",
 };
+
+export function resolveAdminBottomNavApiError(
+  t: (key: MessageKey) => string,
+  err: string | undefined,
+  fallbackKey: MessageKey
+): string {
+  if (!err) return t(fallbackKey);
+  const hint = BOTTOM_NAV_SAVE_ERROR_KEYS[err];
+  return hint ? t(hint) : err;
+}
 
 /** MAIN_BOTTOM_NAV_FONT_FAMILY_PRESETS — keyed by preset value */
 export const BOTTOM_NAV_FONT_PRESET_KEYS: Record<string, MessageKey> = {

@@ -202,4 +202,45 @@ describe("validateMainBottomNavPayload", () => {
     }));
     expect(validateMainBottomNavPayload({ items }).ok).toBe(false);
   });
+
+  it("lucideIcon 저장·표시 items 에 반영", () => {
+    const body = {
+      items: [
+        {
+          id: "community",
+          visible: true,
+          label: "커뮤니티",
+          href: "/philife",
+          icon: "community",
+          lucideIcon: "List",
+        },
+        { id: "home", visible: true, label: "거래", href: "/market", icon: "trade" },
+        { id: "stores", visible: true, label: "배달", href: "/stores", icon: "stores" },
+        { id: "chat", visible: true, label: "채팅", href: "/community-messenger", icon: "chat" },
+        { id: "my", visible: true, label: "내정보", href: "/mypage", icon: "my" },
+      ],
+    };
+    const v = validateMainBottomNavPayload(body);
+    expect(v.ok).toBe(true);
+    if (v.ok) {
+      const items = resolveMainBottomNavDisplayItems(v.payload);
+      expect(items.find((i) => i.id === "community")?.lucideIcon).toBe("List");
+    }
+  });
+
+  it("허용되지 않은 lucideIcon 은 거부", () => {
+    const body = {
+      items: [
+        {
+          id: "home",
+          visible: true,
+          label: "거래",
+          href: "/market",
+          icon: "trade",
+          lucideIcon: "NotARealIcon",
+        },
+      ],
+    };
+    expect(validateMainBottomNavPayload(body).ok).toBe(false);
+  });
 });

@@ -48,6 +48,7 @@ import {
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { commitMainBottomNavRoute, mainBottomNavRouteUsesReplace } from "@/lib/main-menu/main-bottom-nav-route-commit";
+import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
@@ -93,6 +94,7 @@ import {
   markBottomNavRouteIntentForBackgroundWarm,
   remainingBottomNavBackgroundPrefetchQuietMs,
 } from "@/lib/navigation/mark-bottom-nav-route-intent";
+import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
 import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
@@ -180,6 +182,20 @@ function runBottomNavTabClick(
   });
 }
 
+function runBottomNavTabClickOrOpenNew(
+  e: BottomNavActivateEvent,
+  tab: BottomNavItemConfig,
+  href: string,
+  opts: Omit<Parameters<typeof runBottomNavTabClick>[1], "href" | "tabId">
+): void {
+  if (tab.openInNewTab) {
+    e.preventDefault();
+    openBottomNavHref(href, true);
+    return;
+  }
+  runBottomNavTabClick(e, { ...opts, href, tabId: tab.id });
+}
+
 const BottomNavTabStandard = memo(function BottomNavTabStandard({
   tab,
   itemClassName = "",
@@ -216,7 +232,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     pendingActiveTabId != null
       ? tab.id === pendingActiveTabId
       : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
-  const Icon = TAB_ICONS[tab.icon];
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   const effectiveHref = useMemo(() => {
@@ -251,7 +266,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     <>
       <div className="app-bottom-nav-icon-slot">
         <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
-          <Icon className={iconSize} />
+          <MainBottomNavTabIcon tab={tab} className={iconSize} />
           <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </div>
@@ -351,11 +366,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        runBottomNavTabClick(e, {
+        runBottomNavTabClickOrOpenNew(e, tab, effectiveHref, {
           pathname,
           navSearch,
-          href: effectiveHref,
-          tabId: tab.id,
           isActive,
           beginMenuNavigation,
           onNavigationIntent,
@@ -829,11 +842,9 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
       aria-current={isActive ? "page" : undefined}
       onPointerDown={(e) => triggerLightTapFeedback(e)}
       onClick={(e) => {
-        runBottomNavTabClick(e, {
+        runBottomNavTabClickOrOpenNew(e, tab, effectiveHref, {
           pathname,
           navSearch,
-          href: effectiveHref,
-          tabId: tab.id,
           isActive,
           beginMenuNavigation,
           onNavigationIntent,
@@ -1004,11 +1015,9 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        runBottomNavTabClick(e, {
+        runBottomNavTabClickOrOpenNew(e, tab, tab.href, {
           pathname,
           navSearch,
-          href: tab.href,
-          tabId: tab.id,
           isActive,
           beginMenuNavigation,
           onNavigationIntent,

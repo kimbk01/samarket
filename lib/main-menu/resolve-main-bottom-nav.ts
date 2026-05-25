@@ -8,6 +8,7 @@ import {
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
 import type { MainBottomNavAdminRow, MainBottomNavStoredItem, MainBottomNavStoredPayload } from "@/lib/main-menu/main-bottom-nav-types";
+import { isLucideBottomNavIconName } from "@/lib/main-menu/lucide-bottom-nav-icon-registry";
 
 const BUILTIN_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
 
@@ -112,6 +113,8 @@ function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): Main
     labelSizeClass: optTwClass(raw.labelSizeClass, base.labelSizeClass),
     labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, base.labelFontFamilyClass),
     activeShellClass: optTwClass(raw.activeShellClass, base.activeShellClass),
+    openInNewTab: raw.openInNewTab === true,
+    lucideIcon: isLucideBottomNavIconName(raw.lucideIcon) ? raw.lucideIcon : undefined,
     visible: raw.visible !== false,
   };
 }
@@ -136,6 +139,8 @@ function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | n
     labelSizeClass: optTwClass(raw.labelSizeClass, undefined),
     labelFontFamilyClass: optTwClass(raw.labelFontFamilyClass, undefined),
     activeShellClass: optTwClass(raw.activeShellClass, undefined),
+    openInNewTab: raw.openInNewTab === true,
+    lucideIcon: isLucideBottomNavIconName(raw.lucideIcon) ? raw.lucideIcon : undefined,
     visible: raw.visible !== false,
   };
 }
@@ -219,6 +224,8 @@ export function mainBottomNavAdminRowToStoredItem(merged: MainBottomNavAdminRow)
     labelSizeClass: merged.labelSizeClass,
     labelFontFamilyClass: merged.labelFontFamilyClass,
     activeShellClass: merged.activeShellClass,
+    ...(merged.openInNewTab ? { openInNewTab: true } : {}),
+    ...(merged.lucideIcon ? { lucideIcon: merged.lucideIcon } : {}),
   };
 }
 
@@ -249,6 +256,11 @@ export function validateMainBottomNavPayload(body: unknown): { ok: true; payload
     if (typeof label !== "string" || label.trim().length === 0) return { ok: false, error: "invalid_label" };
 
     if ((raw as MainBottomNavStoredItem).visible !== false) visibleCount += 1;
+
+    const lucideIcon = (raw as MainBottomNavStoredItem).lucideIcon;
+    if (lucideIcon != null && lucideIcon !== "" && !isLucideBottomNavIconName(lucideIcon)) {
+      return { ok: false, error: "invalid_lucide_icon" };
+    }
   }
 
   if (visibleCount < 1) return { ok: false, error: "min_one_visible" };

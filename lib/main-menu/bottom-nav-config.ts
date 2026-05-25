@@ -60,6 +60,10 @@ export type BottomNavItemConfig = {
   labelFontFamilyClass?: string;
   /** 활성 탭 플로팅 원 배지 — 배경·그림자·링만 (기본은 `BottomNav` 기본 오브) */
   activeShellClass?: string;
+  /** true 이면 탭 탭 시 새 창(탭)으로 연다 — 기본은 같은 창 SPA 이동 */
+  openInNewTab?: boolean;
+  /** Lucide(https://lucide.dev) 아이콘명 — 있으면 `icon` 대신 사용 */
+  lucideIcon?: string;
 };
 
 const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
@@ -78,6 +82,8 @@ const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
   "labelSizeClass",
   "labelFontFamilyClass",
   "activeShellClass",
+  "openInNewTab",
+  "lucideIcon",
 ];
 
 /** 서버/캐시 재조회 후에도 탭 구성이 동일하면 `setState` 를 생략해 프리페치·레이아웃 effect 재실행을 막는다. */
