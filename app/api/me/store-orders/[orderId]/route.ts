@@ -17,9 +17,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
-import { buildBuyerStoreOrderDetailLegacy } from "@/lib/stores/fetch-store-order-detail-legacy";
 import {
-  logLegacyStoreOrderDetailHotpath,
   tryLoadBuyerStoreOrderDetailFromSnapshot,
 } from "@/lib/stores/store-order-detail-snapshot";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
@@ -119,55 +117,10 @@ export async function GET(
     return NextResponse.json({ ok: false, error: snap.error }, { status: snap.status });
   }
 
-  const legacy = await buildBuyerStoreOrderDetailLegacy(
-    sb as import("@supabase/supabase-js").SupabaseClient<any>,
-    buyerId,
-    oid
+  return NextResponse.json(
+    { ok: false, error: "snapshot_unavailable" },
+    { status: 503 }
   );
-  if (!legacy.ok) {
-    return NextResponse.json({ ok: false, error: legacy.error }, { status: legacy.status });
-  }
-
-  const linkedRoomId =
-    typeof legacy.result.body.order.community_messenger_room_id === "string"
-      ? legacy.result.body.order.community_messenger_room_id.trim()
-      : "";
-  const room_id_exists: 0 | 1 = linkedRoomId ? 1 : 0;
-
-  logLegacyStoreOrderDetailHotpath({
-    orderId: oid,
-    totalMs: perfNowMs() - wall0,
-    dbMs: legacy.result.dbMs,
-    orderFetchMs: legacy.result.orderFetchMs,
-    itemsFetchMs: legacy.result.itemsFetchMs,
-    reviewMetaMs: legacy.result.reviewMetaMs,
-    deliveryMs: legacy.result.deliveryMs,
-  });
-  // eslint-disable-next-line no-console -- SOD1 fallback probe
-  console.warn("[store-order-detail-snapshot-fallback]", { order_id: oid });
-
-  logStoreOrderDetailPerf({
-    route: "buyer_get",
-    auth_ms,
-    order_fetch_ms: legacy.result.orderFetchMs,
-    items_fetch_ms: legacy.result.itemsFetchMs,
-    review_meta_ms: legacy.result.reviewMetaMs,
-    delivery_snapshot_ms: legacy.result.deliveryMs,
-    ensure_room_ms: 0,
-    append_summary_ms: 0,
-    participant_upsert_ms: 0,
-    room_update_ms: 0,
-    unread_sync_ms: 0,
-    total_ms: Math.round(perfNowMs() - wall0),
-    payload_kb: jsonPayloadKb(legacy.result.body),
-    room_id_exists,
-    ensure_skipped: 1,
-    summary_skipped: 1,
-    snapshot_via: "legacy_parallel",
-    db_round_trips: 5,
-  });
-
-  return NextResponse.json(legacy.result.body);
 }
 
 type PatchBody = { cancel?: boolean; request_refund?: boolean; refund_reason?: string };

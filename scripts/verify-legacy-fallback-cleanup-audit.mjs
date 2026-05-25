@@ -55,7 +55,6 @@ const legacyModules = [
   "lib/chats/build-owner-hub-badge-payload.ts",
   "lib/community-messenger/service.ts",
   "lib/chats/fetch-chat-rooms-list-legacy.ts",
-  "lib/stores/fetch-store-order-detail-legacy.ts",
   "lib/stores/fetch-stores-browse-legacy.ts",
   "lib/community-messenger/fetch-cm-bootstrap-legacy.ts",
   "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
@@ -86,6 +85,11 @@ const hardDeletedModules = [
     module: "app/api/me/store-orders/route.ts",
     track: "SOL1",
     needle: "tryLoadBuyerStoreOrdersListFromSnapshot",
+  },
+  {
+    module: "app/api/me/store-orders/[orderId]/route.ts",
+    track: "SOD1",
+    needle: "tryLoadBuyerStoreOrderDetailFromSnapshot",
   },
 ];
 
@@ -132,6 +136,12 @@ for (const { module: mod, track, needle } of hardDeletedModules) {
   }
   if (text.includes("buildBuyerStoreOrdersListLegacy")) {
     fails.push(`${mod} (${track}) still imports legacy buyer orders list builder`);
+  }
+  if (text.includes("store-order-detail-snapshot-fallback")) {
+    fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
+  if (text.includes("buildBuyerStoreOrderDetailLegacy")) {
+    fails.push(`${mod} (${track}) still imports legacy store order detail builder`);
   }
 }
 
