@@ -47,6 +47,10 @@ export const DELIVERY_SUBPAGE_HEADER_TITLE_CLASS = DELIVERY_CONSUMER_HEADER_TITL
 export const DELIVERY_SUBPAGE_HEADER_BACK_BTN_CLASS = DeliveryTheme.subpageHeader.backBtn;
 export const DELIVERY_SUBPAGE_HEADER_ACTION_BTN_CLASS = DeliveryTheme.subpageHeader.actionBtn;
 
+/** `.delivery-ui` scoped — 36px 히트 · 0px gap (소비자 배달 `/stores` 전역) */
+export const DELIVERY_CONSUMER_HEADER_ACTION_SIZE_PX = 36 as const;
+export const DELIVERY_CONSUMER_HEADER_ACTION_GAP_PX = 0 as const;
+
 /** @deprecated — `DELIVERY_CONSUMER_HEADER_TITLE_CLASS` 와 동일 */
 export const DELIVERY_TIER1_SEGMENT_TITLE_CLASS = DELIVERY_CONSUMER_HEADER_TITLE_CLASS;
 

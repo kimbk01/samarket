@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
@@ -13,6 +13,12 @@ import {
 import { StoresHomeBuyerHeaderActions } from "@/components/stores/home/hub/StoresHomeBuyerHeaderActions";
 import { StoresHomeSearchModal } from "@/components/stores/home/hub/StoresHomeSearchModal";
 import { StoresHomeAddressSheet } from "@/components/stores/home/hub/StoresHomeAddressSheet";
+import {
+  getStoresHomePullRefreshServerSnapshot,
+  getStoresHomePullRefreshSnapshot,
+  STORES_HOME_PULL_REFRESH_THRESHOLD_PX,
+  subscribeStoresHomePullRefresh,
+} from "@/lib/stores/stores-home-pull-refresh-store";
 
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
@@ -41,17 +47,17 @@ function MapPinIcon({ className }: { className?: string }) {
       <path
         d="M12 21s-6.5-5.7-6.5-11A6.5 6.5 0 1118.5 10c0 5.3-6.5 11-6.5 11z"
         stroke="currentColor"
-        strokeWidth="1.8"
+        strokeWidth="2.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="2.5" />
     </svg>
   );
 }
 
 /**
- * CONTRACT — `/stores` 배민형 고정 헤더.
+ * CONTRACT — `/stores` 배민형 고정 헤더 + 당김 새로고침 힌트.
  * DO NOT: `store_address_manage_link` 를 버튼 라벨로 — `resolveDeliveryHomeHeaderButtonLabel` 만.
  */
 export function StoresHomeHeaderChrome() {
@@ -60,12 +66,24 @@ export function StoresHomeHeaderChrome() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
   const headerLine = resolveDeliveryHomeHeaderButtonLabel(address);
+  const pull = useSyncExternalStore(
+    subscribeStoresHomePullRefresh,
+    getStoresHomePullRefreshSnapshot,
+    getStoresHomePullRefreshServerSnapshot
+  );
+  const showPullHint = pull.pullPx > 2 || pull.refreshing;
+  const pullReady = pull.pullPx >= STORES_HOME_PULL_REFRESH_THRESHOLD_PX;
+  /** PTR — 녹색 헤더 영역만 확장. 본문은 flex 로 헤더 아래에 붙음(translate 금지). */
+  const pullHintHeight =
+    pull.refreshing ? "var(--delivery-home-ptr-hint-min-h, 2.75rem)"
+    : showPullHint ? `${Math.max(pull.pullPx, 0)}px`
+    : "0px";
 
   return (
     <>
-      <header className="delivery-ui w-full shrink-0 bg-[color:var(--delivery-home-header-bg)] text-white">
+      <header className="delivery-ui relative z-[3] w-full shrink-0 bg-[color:var(--delivery-home-header-bg)] text-white">
         <div className={`${DELIVERY_TIER1_HEADER_INNER_CLASS} px-[var(--delivery-page-x)] pb-2 pt-2`}>
-          <div className="flex min-h-[var(--delivery-header-action)] items-center justify-between gap-2">
+          <div className="flex min-h-[var(--delivery-header-action)] items-center justify-between gap-1.5">
             <button
               type="button"
               className="flex min-w-0 flex-1 items-center gap-1 text-left"
@@ -74,8 +92,8 @@ export function StoresHomeHeaderChrome() {
               aria-expanded={addressOpen}
               onClick={() => setAddressOpen(true)}
             >
-              <MapPinIcon className="h-4 w-4 shrink-0 opacity-95" />
-              <span className="truncate text-[16px] font-bold leading-tight">{headerLine}</span>
+              <MapPinIcon className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)] shrink-0 text-[#fffcfc]" />
+              <span className="truncate text-[15px] font-semibold leading-tight">{headerLine}</span>
               <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-90" />
             </button>
             <div className={STORES_HOME_HEADER_ACTIONS_CLUSTER}>
@@ -92,6 +110,22 @@ export function StoresHomeHeaderChrome() {
               <StoresHomeBuyerHeaderActions />
               <PhilifeHeaderNotificationInbox tone="onPrimary" />
             </div>
+          </div>
+          <div
+            className="overflow-hidden text-center transition-[height,opacity] duration-150 ease-out"
+            style={{
+              height: pullHintHeight,
+              opacity: showPullHint ? 1 : 0,
+            }}
+            aria-live="polite"
+          >
+            <p className="flex h-full min-h-0 flex-col items-center justify-center px-2 text-[13px] font-medium leading-snug text-white/92">
+              {pull.refreshing ?
+                t("store_home_pull_refreshing")
+              : pullReady ?
+                t("store_home_pull_release")
+              : t("store_home_pull_hint")}
+            </p>
           </div>
         </div>
       </header>

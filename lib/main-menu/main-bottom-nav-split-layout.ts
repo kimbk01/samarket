@@ -3,7 +3,6 @@ import {
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
 import {
-  mainBottomNavMessengerTabHref,
   messengerEntryOriginToSecondaryRail,
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
   parseMessengerEntryOrigin,
@@ -11,104 +10,26 @@ import {
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import {
-  composeDeliveryBottomNavDisplayTabs,
   isDeliveryBottomNavRail,
   isDeliveryConsumerBottomNavSurface,
   isDeliveryOrderHistoryBottomNavPath,
   normalizeDeliveryBottomNavPath,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import {
-  composePhilifeBottomNavDisplayTabs,
   isPhilifeBottomNavRail,
 } from "@/lib/main-menu/philife-bottom-nav-layout";
 import {
-  composeTradeBottomNavDisplayTabs,
   isTradeBottomNavRail,
 } from "@/lib/main-menu/trade-bottom-nav-layout";
-import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import {
   mypageBottomNavOriginToSecondaryRail,
   readStoredMypageBottomNavOrigin,
 } from "@/lib/main-menu/mypage-bottom-nav-origin";
-import type { MessageKey } from "@/lib/i18n/messages";
 
-/** 하단 좌측 고정 3탭 — 커뮤니티 · 거래 · 배달 */
+/** 하단 좌측 고정 3탭 — 커뮤니티 · 거래 · 배달 (레거시 6탭 분할용) */
 export const MAIN_BOTTOM_NAV_PRIMARY_TAB_IDS = ["community", "home", "stores"] as const;
 
 export type MainBottomNavSecondaryRailKind = "stores" | "trade" | "philife";
-
-function messengerTabForRail(kind: MainBottomNavSecondaryRailKind): BottomNavItemConfig {
-  const origin = kind === "stores" ? "delivery" : kind === "trade" ? "trade" : "community";
-  return {
-    id: "chat",
-    href: mainBottomNavMessengerTabHref(origin),
-    label: "Messenger",
-    labelKey: "nav_bottom_messenger",
-    icon: "chat",
-    activeShellClass: "bg-sam-primary-soft",
-    iconActiveClass: "text-sam-primary",
-    labelActiveClass: "font-semibold tracking-normal text-sam-fg",
-  };
-}
-
-const MY_TAB_BASE: BottomNavItemConfig = {
-  id: "my",
-  href: "/mypage",
-  label: "My Page",
-  labelKey: "nav_bottom_my",
-  icon: "my",
-};
-
-function pickPrimaryTabs(source: readonly BottomNavItemConfig[]): BottomNavItemConfig[] {
-  const defaults = BOTTOM_NAV_ITEMS.filter((t) =>
-    (MAIN_BOTTOM_NAV_PRIMARY_TAB_IDS as readonly string[]).includes(t.id)
-  );
-  const fromSource = MAIN_BOTTOM_NAV_PRIMARY_TAB_IDS.map((id) => source.find((t) => t.id === id)).filter(
-    (t): t is BottomNavItemConfig => t != null
-  );
-  return fromSource.length === MAIN_BOTTOM_NAV_PRIMARY_TAB_IDS.length ? fromSource : defaults;
-}
-
-function secondaryTabsForRail(kind: MainBottomNavSecondaryRailKind): BottomNavItemConfig[] {
-  switch (kind) {
-    case "stores":
-      return [
-        {
-          id: "delivery-orders",
-          href: resolveDeliveryOrderHistoryHref(null),
-          label: "Order history",
-          labelKey: "nav_bottom_order_history" as MessageKey,
-          icon: "orders",
-        },
-        messengerTabForRail("stores"),
-        { ...MY_TAB_BASE },
-      ];
-    case "trade":
-      return [
-        {
-          id: "trade-history",
-          href: "/mypage/trade",
-          label: "Trade history",
-          labelKey: "nav_trade_history" as MessageKey,
-          icon: "orders",
-        },
-        messengerTabForRail("trade"),
-        { ...MY_TAB_BASE },
-      ];
-    case "philife":
-      return [
-        {
-          id: "philife-my-posts",
-          href: "/mypage/community-posts",
-          label: "My posts",
-          labelKey: "nav_bottom_my_posts" as MessageKey,
-          icon: "community",
-        },
-        messengerTabForRail("philife"),
-        { ...MY_TAB_BASE },
-      ];
-  }
-}
 
 /** 현재 셸에 맞는 우측 3탭 레일 */
 export function resolveMainBottomNavSecondaryRailKind(
@@ -165,24 +86,16 @@ export function resolveMainBottomNavSecondaryRailKind(
   return "trade";
 }
 
-/** 하단 표시 탭 — 배달·커뮤니티: 5탭, 거래: 6탭, 그 외 6탭 분할(레거시) */
+/**
+ * 하단 표시 탭 — admin `/admin/menus/main-bottom-nav` 노출 순서·라벨·href 와 동일.
+ * `MainBottomNavTabsProvider` 가 resolve 한 `sourceTabs`(visible 만)를 그대로 쓴다.
+ */
 export function composeMainBottomNavDisplayTabs(
-  pathname: string | null,
+  _pathname: string | null,
   sourceTabs: readonly BottomNavItemConfig[],
-  searchParams?: { get: (key: string) => string | null } | null,
-  ownerStoreId?: string | null
+  _searchParams?: { get: (key: string) => string | null } | null,
+  _ownerStoreId?: string | null
 ): BottomNavItemConfig[] {
-  const rail = resolveMainBottomNavSecondaryRailKind(pathname, searchParams);
-  if (isDeliveryBottomNavRail(rail)) {
-    return composeDeliveryBottomNavDisplayTabs(ownerStoreId);
-  }
-  if (isPhilifeBottomNavRail(rail)) {
-    return composePhilifeBottomNavDisplayTabs();
-  }
-  if (isTradeBottomNavRail(rail)) {
-    return composeTradeBottomNavDisplayTabs();
-  }
-  const primary = pickPrimaryTabs(sourceTabs);
-  const secondary = secondaryTabsForRail(rail);
-  return [...primary, ...secondary];
+  const base = sourceTabs.length > 0 ? sourceTabs : BOTTOM_NAV_ITEMS;
+  return base.map((row) => ({ ...row }));
 }

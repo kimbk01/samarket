@@ -31,29 +31,29 @@ describe("isBottomNavTabActive", () => {
 });
 
 describe("resolveActiveMainBottomNavTabIndex", () => {
-  it("커뮤니티 5탭 — 도메인별 활성 인덱스", () => {
-    const philifeTabs = composeMainBottomNavDisplayTabs("/philife", BOTTOM_NAV_ITEMS);
-    expect(resolveActiveMainBottomNavTabIndex("/philife", philifeTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/philife/x", philifeTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/community-messenger", philifeTabs)).toBe(3);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage", philifeTabs)).toBe(4);
-    expect(resolveActiveMainBottomNavTabIndex("/market", philifeTabs)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/stores", philifeTabs)).toBe(1);
+  it("admin main-bottom-nav 탭 — 도메인별 활성 인덱스", () => {
+    const adminTabs = composeMainBottomNavDisplayTabs("/philife", BOTTOM_NAV_ITEMS);
+    expect(resolveActiveMainBottomNavTabIndex("/philife", adminTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/philife/x", adminTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger", adminTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage", adminTabs)).toBe(4);
+    expect(resolveActiveMainBottomNavTabIndex("/market", adminTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/stores", adminTabs)).toBe(2);
 
     const tradeTabs = composeMainBottomNavDisplayTabs("/market", BOTTOM_NAV_ITEMS);
-    expect(resolveActiveMainBottomNavTabIndex("/market", tradeTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/market/jobs", tradeTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage/trade", tradeTabs)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage/trade/favorites", tradeTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/market", tradeTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/market/jobs", tradeTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/philife", tradeTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/stores", tradeTabs)).toBe(2);
     expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(3);
     expect(resolveActiveMainBottomNavTabIndex("/mypage", tradeTabs)).toBe(4);
 
     const deliveryTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
     expect(resolveActiveMainBottomNavTabIndex("/stores", deliveryTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/stores/cart", deliveryTabs)).toBe(1);
-    expect(resolveActiveMainBottomNavTabIndex("/orders", deliveryTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/stores/cart", deliveryTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/orders", deliveryTabs)).toBe(-1);
 
-    expect(resolveActiveMainBottomNavTabIndex("/admin", philifeTabs)).toBe(-1);
+    expect(resolveActiveMainBottomNavTabIndex("/admin", adminTabs)).toBe(-1);
   });
 });
 
@@ -85,15 +85,14 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     );
   });
 
-  it("매장주 idle prefetch 주문내역 href는 OwnerRoutes.orders", () => {
+  it("배달 표면 idle 후보 — 활성 배달(/stores) 제외", () => {
     const storesTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
     const hrefs = pickMainBottomNavPrefetchHrefs("/stores", storesTabs, {
       ownerStoreId: "store-uuid-1",
     });
-    expect(hrefs.some((h) => h.startsWith("/stores/owner/orders") && h.includes("storeId=store-uuid-1"))).toBe(
-      true
-    );
+    expect(hrefs).not.toContain("/stores");
     expect(hrefs).not.toContain("/orders");
+    expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
   });
 
   it("메신저 셸에서는 교차 탭 idle 프리페치 생략(미사용 preload·네트워크 경쟁 완화)", () => {

@@ -1,14 +1,14 @@
-/** 헤더·스티키바 장바구니 수량 — 스타벅스 primary (`#006241`), 레거시 `sam-primary`(#1C8DB8) 금지 */
+/** 헤더·스티키바 장바구니 수량 — 빨간 뱃지 · 흰 글씨 (배달 전역 동일) */
 export const STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME =
-  "pointer-events-none flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--delivery-primary)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[color:var(--delivery-header-bar-bg,#ffffff)]";
+  "pointer-events-none flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--delivery-danger)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[color:var(--delivery-header-bar-bg,#ffffff)]";
 
 /** 히어로 글래스 버튼 위 카트 수량 */
 export const STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME =
-  "pointer-events-none absolute -right-1 -top-1 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--delivery-primary)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white";
+  "pointer-events-none absolute -right-1 -top-1 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--delivery-danger)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white";
 
 /** primary CTA(녹색 버튼) 위 장바구니 수량 뱃지 */
 export const STORE_COMMERCE_CART_COUNT_BADGE_ON_PRIMARY_CLASSNAME =
-  "pointer-events-none absolute -right-2 -top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold leading-none text-[color:var(--delivery-primary)] ring-2 ring-[color:var(--delivery-primary)]";
+  "pointer-events-none absolute -right-2 -top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[color:var(--delivery-danger)] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[color:var(--delivery-primary)]";
 
 /** 매장 상단·하단 장바구니 링크 공통 아이콘 (stroke, currentColor) */
 export function StoreCommerceCartStrokeIcon({ className }: { className?: string }) {

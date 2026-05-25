@@ -26,12 +26,29 @@ export const STORES_HOME_CARD =
 export const STORES_HOME_RAIL_SCROLL =
   "flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]";
 
-/** 2차 업종 — 한 행 5개, 간격 `--delivery-home-subcategory-gap` */
-export const STORES_HOME_SUB_CATEGORY_GRID =
-  "grid grid-cols-5 gap-[var(--delivery-home-subcategory-gap)]";
+/** 2차 업종 — 한 행 가로 스와이프(화면에 5개 노출, 나머지 스크롤) */
+export const STORES_HOME_SUB_CATEGORY_RAIL =
+  "flex w-full gap-[var(--delivery-home-subcategory-gap)] overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+
+/** @deprecated — `STORES_HOME_SUB_CATEGORY_RAIL` */
+export const STORES_HOME_SUB_CATEGORY_GRID = STORES_HOME_SUB_CATEGORY_RAIL;
+
+/** 2차 업종 — 스크롤 본문 최상단(헤더 바로 아래, 여백·translate 없음) */
+export const STORES_HOME_SUB_CATEGORY_SECTION_BODY =
+  "bg-[color:var(--delivery-bg-card)] px-[var(--delivery-page-x)] pb-2 pt-0 border-b border-[color:var(--delivery-border-section)] w-full shrink-0";
+
+/** 2차 슬라이드 전환 래퍼 */
+export const STORES_HOME_SUB_CATEGORY_SLIDE_STAGE =
+  "relative w-full overflow-hidden";
+
+export const STORES_HOME_SUB_CATEGORY_SLIDE_LAYER =
+  "w-full shrink-0";
+
+/** 1차 업종 stickyBelow — 헤더 바로 아래 고정 */
+export const STORES_HOME_CATEGORY_STICKY_STACK = "relative z-0 w-full shrink-0";
 
 export const STORES_HOME_SUB_CATEGORY_LINK =
-  "group flex w-full min-w-0 flex-col items-center gap-1 py-0.5 text-center transition will-change-transform active:scale-[0.97]";
+  "group flex w-[calc((100%-4*var(--delivery-home-subcategory-gap))/5)] min-w-[calc((100%-4*var(--delivery-home-subcategory-gap))/5)] shrink-0 flex-col items-center gap-1 py-0.5 text-center transition-opacity touch-manipulation select-none [-webkit-tap-highlight-color:transparent] active:opacity-80";
 
 /** 홈 2차 업종 — 원형, 셀 너비에 맞춤(최대 `--delivery-home-subcategory-icon`) */
 export const STORES_HOME_SUB_CATEGORY_IMAGE_FRAME =
@@ -44,15 +61,47 @@ export const STORES_HOME_CATEGORY_LABEL =
 export const STORES_HOME_SUB_CATEGORY_LABEL =
   "block w-full min-w-0 px-0.5 text-center text-[length:var(--delivery-home-category-label-fs)] font-bold leading-[1.25] line-clamp-2 text-[color:var(--delivery-text-sub)] dark:text-[#B8C0CA]";
 
-/** 1차 업종 — 2차와 구분되는 하단 섹션(탭 세로 중앙) */
-export const STORES_HOME_PRIMARY_CATEGORY_SECTION =
-  "flex items-center border-t border-[color:var(--delivery-border-section)] bg-[#eac784] pt-[6px] pb-0 -mx-[var(--delivery-page-x)] px-[var(--delivery-page-x)]";
+/** 1차 업종 — 탭 하단·세로 스크롤 우선 */
+export const STORES_HOME_PRIMARY_CATEGORY_SECTION_STICKY =
+  "relative z-[2] flex items-center border-t border-[color:var(--delivery-border-section)] bg-[#eac784] px-[var(--delivery-page-x)] pt-1.5 pb-1";
+
+/** 1차 업종 — 스크롤 본문(2차 바로 아래, 2차 보일 때만) */
+export const STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY = "w-full shrink-0";
+
+/** 2차 숨김 후 헤더 stickyBelow 고정 1차 */
+export const STORES_HOME_PRIMARY_CATEGORY_SECTION_HEADER_STICKY =
+  "relative z-[2] w-full shrink-0 shadow-[0_2px_6px_rgba(0,0,0,0.08)]";
+
+/** @deprecated — scroll-body `STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY` + header stickyBelow */
+export const STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_STICKY =
+  STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY;
 
 export const STORES_HOME_PRIMARY_CATEGORY_SCROLL =
-  "flex w-full snap-x snap-mandatory items-center gap-3 overflow-x-auto overscroll-x-contain pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+  "flex w-full items-center gap-2.5 overflow-x-auto overscroll-x-contain pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+
+/** 1차 업종 — 선택 전: 가로 스크롤 잠금(세로 페이지 스크롤만) */
+export const STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED =
+  "flex w-full items-center gap-2.5 overflow-x-hidden overscroll-x-none pb-0";
 
 export const STORES_HOME_PRIMARY_CATEGORY_TAB_BUTTON =
-  "relative flex min-w-[52px] max-w-[68px] w-[60px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 px-0.5 pt-0 pb-0.5 text-center";
+  "relative flex min-w-[48px] max-w-[62px] w-[56px] shrink-0 flex-col items-center justify-end gap-0.5 px-0.5 pt-0 pb-0 text-center transition-colors touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
 
+/** 1차 업종 — compact 아이콘 슬롯(선택 시 scale 만 변경) */
+export const STORES_HOME_PRIMARY_CATEGORY_ICON_SLOT =
+  "flex h-[calc(var(--delivery-home-category-icon-compact)*1.1)] w-full items-center justify-center";
+
+export const STORES_HOME_PRIMARY_CATEGORY_ICON_INNER =
+  "h-[var(--delivery-home-category-icon-compact)] w-[var(--delivery-home-category-icon-compact)] shrink-0 overflow-hidden rounded-full transition-transform duration-150 ease-out";
+
+export const STORES_HOME_PRIMARY_CATEGORY_LABEL_SELECTED =
+  "block w-full min-w-0 px-0.5 text-center text-[11px] font-extrabold leading-[1.25] line-clamp-2 text-[#111111]";
+
+export const STORES_HOME_PRIMARY_CATEGORY_LABEL_IDLE =
+  "block w-full min-w-0 px-0.5 text-center text-[11px] font-semibold leading-[1.25] line-clamp-2 text-[#2a2a2a]/85";
+
+/** 1차 업종 — 선택 탭 하단 라인(기본 대비 굵기·너비 +10%) */
 export const STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR =
-  "pointer-events-none absolute bottom-0 left-1/2 h-0.5 w-8 -translate-x-1/2 rounded-full";
+  "block h-[3.3px] w-[calc(2.75rem*1.1)] shrink-0 rounded-full bg-[color:var(--delivery-primary)]";
+
+export const STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR_IDLE =
+  "block h-[3.3px] w-[calc(2.75rem*1.1)] shrink-0 rounded-full bg-transparent";

@@ -104,6 +104,10 @@ export function isMainBottomNavDisplayTabActive(
       return isTradeFavoritesBottomNavPath(pathname);
     case "trade-home-hub":
       return isTradeHomeHubBottomNavActive(pathname);
+    case "trade-community":
+      return isBottomNavTabActive(pathname, tab.href);
+    case "trade-delivery":
+      return isBottomNavTabActive(pathname, tab.href);
     case "trade-my":
       return isTradeMyBottomNavActive(pathname);
     case "philife-trade":

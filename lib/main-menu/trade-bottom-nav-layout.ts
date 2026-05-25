@@ -9,11 +9,11 @@ import { isMarketTradeFeedHubPath } from "@/lib/layout/conditional-app-shell-fla
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
 
-/** 거래 셸 하단 5탭 — 내역 · 찜 · 거래홈(다이얼) · 거래채팅 · 내정보 (배달 5탭과 동일 그리드) */
+/** 거래 셸 하단 5탭 — 홈 · 커뮤니티 · 배달 · 디바톡 · 내정보 */
 export const TRADE_BOTTOM_NAV_TAB_IDS = [
-  "trade-history",
-  "trade-favorites",
   "trade-home-hub",
+  "trade-community",
+  "trade-delivery",
   "trade-order-chat",
   "trade-my",
 ] as const;
@@ -38,7 +38,7 @@ export function isTradeConsumerBottomNavSurface(pathname: string | null | undefi
   return isMarketTradeFeedHubPath(pathname ?? null);
 }
 
-/** 거래 홈(`/market` 계열) — 하단 가운데 「홈」 탭 활성 */
+/** 거래 홈(`/market` 계열) — 하단 「홈」 탭 활성 */
 export function isTradeHomeHubBottomNavActive(pathname: string | null): boolean {
   return isTradeConsumerBottomNavSurface(pathname);
 }
@@ -59,36 +59,43 @@ export function isTradeFavoritesBottomNavPath(pathname: string | null | undefine
 }
 
 export function composeTradeBottomNavDisplayTabs(): BottomNavItemConfig[] {
+  const trade = BOTTOM_NAV_ITEMS.find((t) => t.id === "home");
+  const community = BOTTOM_NAV_ITEMS.find((t) => t.id === "community");
+  const delivery = BOTTOM_NAV_ITEMS.find((t) => t.id === "stores");
+  const messenger = BOTTOM_NAV_ITEMS.find((t) => t.id === "chat");
   const my = BOTTOM_NAV_ITEMS.find((t) => t.id === "my");
 
   return [
     {
-      id: "trade-history",
-      href: "/mypage/trade",
-      label: "Trade history",
-      labelKey: "nav_trade_history" as MessageKey,
-      icon: "orders",
-    },
-    {
-      id: "trade-favorites",
-      href: MYPAGE_TRADE_FAVORITES_HREF,
-      label: "Favorites",
-      labelKey: "nav_favorites_list" as MessageKey,
-      icon: "favorites",
-    },
-    {
       id: "trade-home-hub",
-      href: TRADE_HOME_HUB_HREF,
+      href: trade?.href ?? TRADE_HOME_HUB_HREF,
       label: "Home",
       labelKey: "nav_bottom_home" as MessageKey,
-      icon: "home",
+      icon: "trade",
+    },
+    {
+      id: "trade-community",
+      href: community?.href ?? "/philife",
+      label: community?.label ?? "Community",
+      labelKey: community?.labelKey ?? ("nav_bottom_community" as MessageKey),
+      icon: "community",
+    },
+    {
+      id: "trade-delivery",
+      href: delivery?.href ?? "/stores",
+      label: delivery?.label ?? "Delivery",
+      labelKey: delivery?.labelKey ?? ("nav_bottom_delivery" as MessageKey),
+      icon: "stores",
     },
     {
       id: "trade-order-chat",
       href: mainBottomNavMessengerTabHref("trade"),
-      label: "Trade chat",
-      labelKey: "nav_trade_chat" as MessageKey,
+      label: "DibaTalk",
+      labelKey: "nav_bottom_dibatalk" as MessageKey,
       icon: "chat",
+      ...(messenger?.activeShellClass ? { activeShellClass: messenger.activeShellClass } : {}),
+      ...(messenger?.iconActiveClass ? { iconActiveClass: messenger.iconActiveClass } : {}),
+      ...(messenger?.labelActiveClass ? { labelActiveClass: messenger.labelActiveClass } : {}),
     },
     {
       id: "trade-my",

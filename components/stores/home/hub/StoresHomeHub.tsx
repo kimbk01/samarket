@@ -18,6 +18,9 @@ import {
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { STORES_HOME_RAIL_SCROLL, STORES_HOME_STACK } from "@/lib/stores/stores-home-ui";
 import { StoresHomeQuickCategories } from "@/components/stores/home/hub/StoresHomeQuickCategories";
+import { StoresHomeSubCategoryPanel } from "@/components/stores/home/hub/StoresHomeSubCategoryPanel";
+import { StoresHomePrimaryCategoryPanel } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
+import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/StoresHomePullRefreshRegister";
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
 import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
 import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
@@ -145,8 +148,16 @@ export function StoresHomeHub({
   );
 
   return (
-    <div className={`delivery-ui ${STORES_HOME_STACK} px-[var(--delivery-page-x)] pb-4 pt-3`}>
+    <div className="stores-home-hub delivery-ui flex flex-col pb-4">
       <StoresHomeQuickCategories />
+      <StoresHomePullRefreshRegister
+        onRefresh={async () => {
+          await loadFeed({ silent: false });
+        }}
+      />
+      <StoresHomeSubCategoryPanel />
+      <StoresHomePrimaryCategoryPanel />
+      <div className={`${STORES_HOME_STACK} px-[var(--delivery-page-x)] pt-1`}>
       {loading ?
         <StoresHomeSkeleton />
       : <>
@@ -228,6 +239,7 @@ export function StoresHomeHub({
           />
         </>
       }
+      </div>
     </div>
   );
 }

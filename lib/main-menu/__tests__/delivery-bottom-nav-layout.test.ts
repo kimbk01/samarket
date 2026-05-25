@@ -52,30 +52,20 @@ describe("delivery tab path helpers", () => {
 });
 
 describe("composeMainBottomNavDisplayTabs (delivery rail)", () => {
-  it("/stores — 6탭이 아닌 배달 5탭", () => {
+  it("/stores — admin main-bottom-nav 과 동일 5탭", () => {
     const tabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS, null);
-    expect(tabs).toHaveLength(5);
-    expect(tabs.some((t) => t.id === "community")).toBe(false);
-    expect(tabs.some((t) => t.id === "delivery-home-hub")).toBe(true);
+    expect(tabs.map((t) => t.id)).toEqual(BOTTOM_NAV_ITEMS.map((t) => t.id));
   });
 
-  it("/orders·/stores/cart — 배달 5탭", () => {
+  it("/orders·/stores/cart — 경로와 무관하게 admin 탭", () => {
     for (const path of ["/orders", "/orders?tab=store", "/stores/cart", "/mypage/store-orders"]) {
       const tabs = composeMainBottomNavDisplayTabs(path, BOTTOM_NAV_ITEMS, null);
-      expect(tabs).toHaveLength(5);
-      expect(tabs.map((t) => t.id)).toEqual([
-        "delivery-orders",
-        "delivery-cart",
-        "delivery-home-hub",
-        "delivery-order-chat",
-        "delivery-my",
-      ]);
+      expect(tabs.map((t) => t.id)).toEqual(BOTTOM_NAV_ITEMS.map((t) => t.id));
     }
   });
 
-  it("/market — 기존 6탭 분할 아닌 거래 5탭", () => {
+  it("/market — 경로와 무관하게 admin 탭", () => {
     const tabs = composeMainBottomNavDisplayTabs("/market", BOTTOM_NAV_ITEMS, null);
-    expect(tabs).toHaveLength(5);
-    expect(tabs[0]?.id).toBe("trade-history");
+    expect(tabs.map((t) => t.id)).toEqual(BOTTOM_NAV_ITEMS.map((t) => t.id));
   });
 });

@@ -193,6 +193,27 @@ function rtLoopDiagLog(args: {
   }
 }
 
+function isOpsReconnectStressMonitorEnabled(): boolean {
+  if (typeof window === "undefined") return false;
+  const g = globalThis as typeof globalThis & { __SAMARKET_OPS1_MONITOR__?: boolean };
+  if (g.__SAMARKET_OPS1_MONITOR__ === true) return true;
+  return process.env.NEXT_PUBLIC_SAMARKET_OPS1_MONITOR === "1";
+}
+
+function maybeRecordReconnectStressEvent(
+  roomId: string,
+  event: "reconnect" | "duplicate_subscribe"
+): void {
+  if (!isOpsReconnectStressMonitorEnabled()) return;
+  void import("@/lib/ops/reconnect-stress-analysis")
+    .then(({ recordReconnectStressEvent }) => {
+      recordReconnectStressEvent(roomId, event);
+    })
+    .catch(() => {
+      /* dev HMR stale chunk — hot reload 직후 구 chunk URL 404 는 무시 */
+    });
+}
+
 function isFailureStatus(status: string): status is Exclude<SubscribeStatus, "SUBSCRIBED"> {
   return status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED";
 }
@@ -551,14 +572,10 @@ export function subscribeWithRetry(args: {
         if (status === "SUBSCRIBED") {
           void syncSupabaseRealtimeAuthFromSession(args.sb);
           if (attempt > 0) {
-            void import("@/lib/ops/reconnect-stress-analysis").then(({ recordReconnectStressEvent }) => {
-              recordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "reconnect");
-            });
+            maybeRecordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "reconnect");
           }
           if (activeNow > 1) {
-            void import("@/lib/ops/reconnect-stress-analysis").then(({ recordReconnectStressEvent }) => {
-              recordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "duplicate_subscribe");
-            });
+            maybeRecordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "duplicate_subscribe");
           }
           const attemptNoAtOutcome = attempt;
           const phase = attempt > 0 ? "retry" : "initial";

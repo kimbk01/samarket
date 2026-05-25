@@ -7,11 +7,11 @@ import { normalizeDeliveryBottomNavPath } from "@/lib/main-menu/delivery-bottom-
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
 
-/** 커뮤니티(필라이프) 셸 하단 5탭 — 거래 · 배달 · 커뮤니티홈 · 메신저 · 내정보 */
+/** 커뮤니티(필라이프) 셸 하단 5탭 — 홈 · 거래 · 배달 · 디바톡 · 내정보 */
 export const PHILIFE_BOTTOM_NAV_TAB_IDS = [
+  "philife-home-hub",
   "philife-trade",
   "philife-delivery",
-  "philife-home-hub",
   "philife-messenger",
   "philife-my",
 ] as const;
@@ -38,7 +38,7 @@ export function isPhilifeConsumerBottomNavSurface(pathname: string | null | unde
   return false;
 }
 
-/** 커뮤니티 홈(`/philife`·`/community`) — 하단 가운데 「홈」 탭 활성 */
+/** 커뮤니티 홈(`/philife`·`/community`) — 하단 「홈」 탭 활성 */
 export function isPhilifeHomeHubBottomNavActive(pathname: string | null): boolean {
   return isPhilifeConsumerBottomNavSurface(pathname);
 }
@@ -71,20 +71,20 @@ export function composePhilifeBottomNavDisplayTabs(): BottomNavItemConfig[] {
   const my = BOTTOM_NAV_ITEMS.find((t) => t.id === "my");
 
   return [
-    tradeTabFromConfig(),
-    deliveryTabFromConfig(),
     {
       id: "philife-home-hub",
       href: community?.href ?? "/philife",
-      label: community?.label ?? "Community",
-      labelKey: community?.labelKey ?? ("nav_bottom_community" as MessageKey),
+      label: "Home",
+      labelKey: "nav_bottom_home" as MessageKey,
       icon: "community",
     },
+    tradeTabFromConfig(),
+    deliveryTabFromConfig(),
     {
       id: "philife-messenger",
       href: mainBottomNavMessengerTabHref("community"),
-      label: messenger?.label ?? "Messenger",
-      labelKey: messenger?.labelKey ?? ("nav_bottom_messenger" as MessageKey),
+      label: "DibaTalk",
+      labelKey: "nav_bottom_dibatalk" as MessageKey,
       icon: "chat",
       ...(messenger?.activeShellClass ? { activeShellClass: messenger.activeShellClass } : {}),
       ...(messenger?.iconActiveClass ? { iconActiveClass: messenger.iconActiveClass } : {}),

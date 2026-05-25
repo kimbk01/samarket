@@ -90,8 +90,9 @@
   --delivery-radius-pill: 999px;
 
   --delivery-header-h: 48px;
+  /** 1단 헤더 아이콘 히트 — `.delivery-ui` 에서 36px 로 덮음 */
   --delivery-header-action: 40px;
-  /** 우측 아이콘 그룹 간격 — tier1·browse·매장 고정 헤더 공통 */
+  /** 1단 헤더 아이콘 간 flex gap — `.delivery-ui` 에서 0px 로 덮음 */
   --delivery-header-action-gap: 4px;
   /** 제목 앵커: 헤더 행 좌측에서 20% (← 유무와 무관) */
   --delivery-header-title-anchor-from-left: 20%;
@@ -142,11 +143,26 @@
   --delivery-home-header-bg: var(--delivery-primary);
   --delivery-home-search-bg: #ffffff;
   --delivery-home-search-h: 36px;
+  /** PTR 힌트 — 배민형 상하 여백 */
+  --delivery-home-ptr-hint-min-h: 2.75rem;
 
   --delivery-home-category-icon: 45px;
+  /** 1차 업종 compact — 기본 대비 20% 축소 */
+  --delivery-home-category-icon-compact: calc(var(--delivery-home-category-icon) * 0.8);
   --delivery-home-category-label-fs: 11px;
   --delivery-home-subcategory-icon: 64px;
   --delivery-home-subcategory-gap: 4px;
+  /** 2차 업종 reveal — 1행·2행(5열 그리드) */
+  --delivery-home-subcategory-row-h: calc(var(--delivery-home-subcategory-icon) + 1.75rem);
+  --delivery-home-subcategory-reveal-pad-y: calc(0.625rem + 0.5rem);
+  --delivery-home-subcategory-reveal-h-1: calc(
+    var(--delivery-home-subcategory-reveal-pad-y) + var(--delivery-home-subcategory-row-h)
+  );
+  --delivery-home-subcategory-reveal-h-2: calc(
+    var(--delivery-home-subcategory-reveal-pad-y) + var(--delivery-home-subcategory-row-h) +
+      var(--delivery-home-subcategory-gap) + var(--delivery-home-subcategory-row-h)
+  );
+  --delivery-home-subcategory-reveal-h: var(--delivery-home-subcategory-reveal-h-1);
 
   --store-commerce-action-cart-checkout-min-h: 4.5rem;
   --store-commerce-action-cart-checkout-plane-pt: 0.5rem;
@@ -159,4 +175,7 @@
   --sam-primary-soft: var(--delivery-bridge-primary-soft);
   --sm-color-primary: var(--delivery-bridge-primary);
   --signature: var(--delivery-bridge-primary);
+  /** 소비자 배달 전 페이지 — 1단 헤더 우측·뒤로 아이콘 (36px · gap 0) */
+  --delivery-header-action: 36px;
+  --delivery-header-action-gap: 0px;
 }

@@ -526,6 +526,10 @@
     width: var(--delivery-header-action);
   }
 
+  .sam-tier1-header-icon-cluster > .inline-flex {
+    width: var(--delivery-header-action);
+  }
+
   /** 서브페이지(장바구니 등) — 48px 바, 17px 중앙 제목 */
   .delivery-subpage-header {
     position: relative;
@@ -1245,4 +1249,42 @@
 
 .delivery-page.delivery-ui :where([class*="shadow-["]):not([class*="shadow-none"]) {
   box-shadow: none !important;
+}
+
+/** `/stores` 2차 업종 — 1차 탭 전환 슬라이드(440ms) */
+@keyframes stores-home-sub-slide-in {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes stores-home-sub-slide-out {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
+.delivery-ui .stores-home-sub-slide-in {
+  animation: stores-home-sub-slide-in 360ms ease-out both;
+}
+
+.delivery-ui .stores-home-sub-slide-out {
+  animation: stores-home-sub-slide-out 360ms ease-out both;
+}
+
+/** `/stores` 홈 — iOS PTR·터치 잔상: coarse 에서 scale active 비활성 */
+@media (pointer: coarse) {
+  .stores-home-hub :where(a, button)[class*="active:scale"] {
+    transform: none !important;
+  }
+}
+
+html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
+  overscroll-behavior-y: none;
 }

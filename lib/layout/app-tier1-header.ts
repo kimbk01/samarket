@@ -2,7 +2,7 @@
  * 앱 1단 헤더(뒤로·제목·우측 액션) — 거래·커뮤니티·메신저·내정보·매장·어드민 등 공통.
  * 햄버거(줄 3) 좌측 탐색 1단(`/philife`, 거래 홈·마켓)은 별도 레이아웃 — 변경 금지.
  *
- * 수치: `app/delivery-tokens.css` `--delivery-header-*` (48px / 40px 히트 / 22px 글리프 / 4px gap / 제목 좌 20%)
+ * 수치: `app/delivery-tokens.css` `--delivery-header-*` (48px / 40px 히트·4px gap 기본, `.delivery-ui` 36px·0px)
  */
 
 /** 48px 한 줄 래퍼 (max-width·패딩) */

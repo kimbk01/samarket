@@ -12,9 +12,10 @@ import { telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import type { StoreFulfillmentPref } from "@/lib/stores/store-fulfillment-pref";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS } from "@/lib/design/delivery-chrome";
 
 const iconBtnClass =
-  "sam-header-action flex h-10 w-10 shrink-0 items-center justify-center text-sam-fg disabled:pointer-events-none disabled:opacity-40";
+  `${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} disabled:pointer-events-none disabled:opacity-40`;
 
 export type StoreStickyOrderChrome = {
   isOpenForOrder: boolean;
@@ -117,7 +118,7 @@ export function StoreDetailStickyTopRow({
 
   return (
     <div className="flex w-full min-w-0 max-w-full flex-col gap-1 py-0.5">
-    <div className="flex w-full min-w-0 max-w-full min-h-[40px] items-center gap-1.5">
+    <div className="flex w-full min-w-0 max-w-full min-h-[length:var(--delivery-header-action)] items-center gap-1.5">
       <StoreDetailBackLink fallbackHref={fallbackHref} />
       <SamarketThumbnail
         src={profileImageUrl}
@@ -138,7 +139,7 @@ export function StoreDetailStickyTopRow({
           {t("store_reviews_with_count", { count: reviewCountLabel })}
         </p>
       </div>
-      <div className="flex shrink-0 items-center gap-0.5">
+      <div className="flex shrink-0 items-center gap-[length:var(--delivery-header-action-gap)]">
         <Link
           href={`/stores/${encodeURIComponent(storeSlug)}/cart`}
           className={`${iconBtnClass} relative`}
@@ -148,7 +149,7 @@ export function StoreDetailStickyTopRow({
               : t("store_cart_aria")
           }
         >
-          <StoreCommerceCartStrokeIcon className="h-[18px] w-[18px]" />
+          <StoreCommerceCartStrokeIcon className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)]" />
           {cartLineKindCount > 0 ? (
             <span
               className={`absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}
@@ -165,14 +166,12 @@ export function StoreDetailStickyTopRow({
           onClick={() => void onFavoriteClick()}
         >
           <svg
-            width="17"
-            height="17"
             viewBox="0 0 24 24"
             fill={viewerFavorited ? "currentColor" : "none"}
             stroke="currentColor"
             strokeWidth="2"
-            className={viewerFavorited ? "text-sam-danger" : undefined}
             aria-hidden
+            className={`h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)]${viewerFavorited ? " text-sam-danger" : ""}`}
           >
             <path
               strokeLinecap="round"
@@ -188,14 +187,14 @@ export function StoreDetailStickyTopRow({
             aria-label={t("store_menu_search_aria")}
             onClick={() => orderChrome.onMenuSearchFocus()}
           >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <svg className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <circle cx="11" cy="11" r="7" />
               <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
             </svg>
           </button>
         ) : null}
         <button type="button" className={iconBtnClass} aria-label={t("common_share")} onClick={() => void onShare()}>
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <svg className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="18" cy="5" r="3" />
             <circle cx="6" cy="12" r="3" />
             <circle cx="18" cy="19" r="3" />

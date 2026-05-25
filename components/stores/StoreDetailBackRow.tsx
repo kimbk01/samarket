@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
 import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
+import { DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS } from "@/lib/design/delivery-chrome";
 import { useStoreDetailAnimatedBack } from "@/lib/dibay/store-detail-animated-back-context";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { runStoreDetailDirectBack } from "@/lib/navigation/store-detail-animated-back";
@@ -57,7 +58,7 @@ export function StoreDetailBackLink({
       onClick={onBackPress}
       className={
         className ??
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80"
+        `${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80`
       }
       aria-label={label}
     >

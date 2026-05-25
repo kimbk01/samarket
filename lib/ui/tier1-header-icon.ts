@@ -3,8 +3,8 @@
  * 셸 클래스: `Sam.headerAction` (`sam-header-action`, 둥근 사각 히트 + 호버 시 서피스만).
  * 글리프·배지·압궉 문자열만 여기서 공유.
  *
- * 수치 단일 소스: `app/delivery-tokens.css` `--delivery-header-action`(40px) ·
- * `--delivery-header-icon-glyph`(22px) · `--delivery-header-action-gap`(4px).
+ * 수치 단일 소스: `app/delivery-tokens.css` `--delivery-header-action`(40px, `.delivery-ui` 36px) ·
+ * `--delivery-header-icon-glyph`(22px) · `--delivery-header-action-gap`(4px, `.delivery-ui` 0px).
  * CSS: `app/delivery-components.css` `.sam-tier1-header-icon-cluster`
  *
  * @see `PhilifeHeaderMessengerButton`, `PhilifeHeaderNotificationInbox`

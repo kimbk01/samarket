@@ -67,17 +67,14 @@ import {
 } from "@/lib/main-menu/main-bottom-nav-split-layout";
 import {
   DELIVERY_BOTTOM_NAV_LABEL_CLASS,
-  isDeliveryBottomNavRail,
   isDeliveryBottomNavTabId,
   isDeliveryConsumerBottomNavSurface,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import {
-  isPhilifeBottomNavRail,
   isPhilifeBottomNavTabId,
   PHILIFE_BOTTOM_NAV_LABEL_CLASS,
 } from "@/lib/main-menu/philife-bottom-nav-layout";
 import {
-  isTradeBottomNavRail,
   isTradeBottomNavTabId,
   TRADE_BOTTOM_NAV_LABEL_CLASS,
 } from "@/lib/main-menu/trade-bottom-nav-layout";
@@ -87,13 +84,11 @@ import {
   runTradeHomeHubShortTap,
 } from "@/lib/trade/trade-home-hub-navigation";
 import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
-import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
 import {
   DELIVERY_HOME_HUB_LONG_PRESS_MS,
   runDeliveryHomeHubLongPress,
   runDeliveryHomeHubShortTap,
 } from "@/lib/delivery/delivery-home-hub-navigation";
-import { prewarmConsumerDeliveryDomainDial } from "@/lib/delivery/prewarm-delivery-domain-dial";
 import {
   markBottomNavRouteIntentForBackgroundWarm,
   remainingBottomNavBackgroundPrefetchQuietMs,
@@ -576,124 +571,6 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
         </span>
       </div>
       <span className={DELIVERY_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
-        {tabLabel}
-      </span>
-    </button>
-  );
-});
-
-/** 커뮤니티 5탭 가운데 홈 — `/philife` 즉시 이동(동일 경로면 스크롤) */
-const BottomNavTabPhilifeHomeHub = memo(function BottomNavTabPhilifeHomeHub({
-  tab,
-  itemClassName = "",
-  pathname,
-  navSearch,
-  pendingActiveTabId,
-  onNavigationIntent,
-  beginMenuNavigation,
-  guardBeforeNavigate,
-}: {
-  tab: BottomNavItemConfig;
-  itemClassName?: string;
-  pathname: string | null;
-  navSearch: string;
-  pendingActiveTabId: string | null;
-  onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (href: string) => void;
-  guardBeforeNavigate: (nextHref?: string) => boolean;
-}) {
-  const { safeT } = useI18n();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const secondaryRail = useMemo(
-    () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
-    [pathname, searchParams]
-  );
-  const isActive =
-    pendingActiveTabId != null
-      ? tab.id === pendingActiveTabId
-      : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
-  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
-  const Icon = TAB_ICONS[tab.icon];
-  const className = [
-    "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
-    BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    itemClassName,
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const commitHubNav = useCallback(
-    (e: BottomNavActivateEvent) => {
-      runBottomNavTabClick(e, {
-        pathname,
-        navSearch,
-        href: tab.href,
-        tabId: tab.id,
-        isActive,
-        beginMenuNavigation,
-        onNavigationIntent,
-        guardBeforeNavigate,
-        router,
-      });
-    },
-    [
-      beginMenuNavigation,
-      guardBeforeNavigate,
-      isActive,
-      navSearch,
-      onNavigationIntent,
-      pathname,
-      router,
-      tab.href,
-      tab.id,
-    ]
-  );
-
-  return (
-    <button
-      type="button"
-      className={className}
-      data-active={isActive ? "true" : "false"}
-      aria-label={tabLabel}
-      aria-current={isActive ? "page" : undefined}
-      onPointerDown={(e) => {
-        if (e.button !== 0) return;
-        triggerLightTapFeedback(e);
-        if (!isActive) {
-          markBottomNavRouteIntentForBackgroundWarm();
-          try {
-            void router.prefetch(tab.href);
-          } catch {
-            /* noop */
-          }
-          try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
-          } catch {
-            /* noop */
-          }
-        }
-      }}
-      onClick={commitHubNav}
-      onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault();
-        commitHubNav(e);
-      }}
-    >
-      <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
-        <span
-          className={[
-            "app-bottom-nav-delivery-home-orbit",
-            isActive ? "app-bottom-nav-delivery-home-orbit--active" : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-        >
-          <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
-        </span>
-      </div>
-      <span className={PHILIFE_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
         {tabLabel}
       </span>
     </button>
@@ -1221,24 +1098,11 @@ export function BottomNav({
    */
   const tabs = useMainBottomNavTabs();
   const ownerStoreRow = useOwnerLitePreferredStoreRow();
-  const secondaryRail = useMemo(
-    () => resolveMainBottomNavSecondaryRailKind(pathname ?? null, searchParams),
-    [pathname, searchParams]
-  );
-  const isDeliveryNavMode = isDeliveryBottomNavRail(secondaryRail);
-  const isTradeNavMode = isTradeBottomNavRail(secondaryRail);
-  const isGridBottomNavMode =
-    isDeliveryBottomNavRail(secondaryRail) ||
-    isPhilifeBottomNavRail(secondaryRail) ||
-    isTradeBottomNavRail(secondaryRail);
   const displayTabs = useMemo(
     () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams, ownerStoreRow?.id),
     [pathname, tabs, searchParams, ownerStoreRow?.id]
   );
-  const [deliveryDomainSwitcherOpen, setDeliveryDomainSwitcherOpen] = useState(false);
-  useEffect(() => {
-    setDeliveryDomainSwitcherOpen(false);
-  }, [pathname]);
+  const isGridBottomNavMode = displayTabs.length > 0;
   useLayoutEffect(() => {
     bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerStoreRow?.id };
   }, [searchParams, ownerStoreRow?.id]);
@@ -1465,39 +1329,15 @@ export function BottomNav({
     (pathname?.startsWith("/mypage/business") ?? false) ||
     (pathname?.startsWith("/my/business") ?? false);
 
-  const scrollHideSuppressed =
-    deliveryDomainSwitcherOpen &&
-    extraOuterClassName.includes(BOTTOM_NAV_SCROLL_HIDDEN_CLASS);
-  const effectiveOuterExtra = scrollHideSuppressed
-    ? extraOuterClassName.replace(BOTTOM_NAV_SCROLL_HIDDEN_CLASS, "app-bottom-nav-shell--scroll-visible").trim()
-    : extraOuterClassName;
+  const effectiveOuterExtra = extraOuterClassName;
 
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
     bodyPortal || effectiveOuterExtra.length > 0 ? BOTTOM_NAV_OUTER_MOTION : "",
     effectiveOuterExtra,
-    isDeliveryNavMode && deliveryDomainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
-    isTradeNavMode && deliveryDomainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
-
-  const closeDomainSwitcher = useCallback(() => {
-    setDeliveryDomainSwitcherOpen(false);
-  }, []);
-
-  const prewarmDialOnOpen = useCallback(
-    (dialContext: "delivery" | "trade" = "delivery") => {
-    try {
-      prewarmConsumerDeliveryDomainDial(ownerStoreRow?.id, {
-        primaryRegion: primaryRegionRef.current ?? primaryRegion,
-        prefetch: (href) => routerRef.current.prefetch(href),
-        dialContext,
-      });
-    } catch {
-      /* noop */
-    }
-  }, [ownerStoreRow?.id, primaryRegion]);
 
   const renderBottomNavTab = useCallback(
     (tab: BottomNavItemConfig, tabIndex: number) => {
@@ -1526,80 +1366,8 @@ export function BottomNav({
         openPhoneVerificationRequiredDialog({ next: targetHref });
         return false;
       };
-      if (tab.id === "philife-home-hub") {
-        return (
-          <BottomNavTabPhilifeHomeHub
-            key={tab.id}
-            tab={tab}
-            itemClassName={groupEdgeClass}
-            pathname={pathname}
-            navSearch={navSearch}
-            pendingActiveTabId={pendingActiveTabId}
-            onNavigationIntent={markBottomNavIntent}
-            beginMenuNavigation={beginBottomNavNavigation}
-            guardBeforeNavigate={guardNav}
-          />
-        );
-      }
-      if (tab.id === "trade-home-hub") {
-        return (
-          <BottomNavTabTradeHomeHub
-            key={tab.id}
-            tab={tab}
-            itemClassName={groupEdgeClass}
-            pathname={pathname}
-            switcherOpen={deliveryDomainSwitcherOpen}
-            onToggleSwitcher={() => {
-              setDeliveryDomainSwitcherOpen((open) => {
-                const next = !open;
-                if (next) {
-                  if (typeof document !== "undefined") {
-                    const active = document.activeElement;
-                    if (active instanceof HTMLElement) active.blur();
-                  }
-                  prewarmDialOnOpen("trade");
-                }
-                return next;
-              });
-            }}
-            onNavigationIntent={markBottomNavIntent}
-            beginMenuNavigation={beginBottomNavNavigation}
-            guardBeforeNavigate={guardNav}
-          />
-        );
-      }
-      const closeSwitcherOnNav =
-        (isDeliveryNavMode || isTradeNavMode) && deliveryDomainSwitcherOpen
-          ? closeDomainSwitcher
-          : undefined;
+      const closeSwitcherOnNav = undefined;
 
-      if (tab.id === "delivery-home-hub") {
-        return (
-          <BottomNavTabDeliveryHomeHub
-            key={tab.id}
-            tab={tab}
-            itemClassName={groupEdgeClass}
-            pathname={pathname}
-            switcherOpen={deliveryDomainSwitcherOpen}
-            onToggleSwitcher={() => {
-              setDeliveryDomainSwitcherOpen((open) => {
-                const next = !open;
-                if (next) {
-                  if (typeof document !== "undefined") {
-                    const active = document.activeElement;
-                    if (active instanceof HTMLElement) active.blur();
-                  }
-                  prewarmDialOnOpen("delivery");
-                }
-                return next;
-              });
-            }}
-            onNavigationIntent={markBottomNavIntent}
-            beginMenuNavigation={beginBottomNavNavigation}
-            guardBeforeNavigate={guardNav}
-          />
-        );
-      }
       if (tab.id === "delivery-cart") {
         return (
           <BottomNavTabDeliveryCart
@@ -1656,12 +1424,7 @@ export function BottomNav({
       markBottomNavIntent,
       beginBottomNavNavigation,
       guardBeforeNavigate,
-      isDeliveryNavMode,
-      isTradeNavMode,
       isGridBottomNavMode,
-      deliveryDomainSwitcherOpen,
-      closeDomainSwitcher,
-      prewarmDialOnOpen,
     ]
   );
 
@@ -1678,7 +1441,14 @@ export function BottomNav({
       aria-label={t("nav_bottom_bar_aria")}
     >
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
-        <div className={navGridClass}>
+        <div
+          className={navGridClass}
+          style={
+            isGridBottomNavMode
+              ? { gridTemplateColumns: `repeat(${displayTabs.length}, minmax(0, 1fr))` }
+              : undefined
+          }
+        >
           {displayTabs.map((tab, index) => renderBottomNavTab(tab, index))}
         </div>
       </div>
@@ -1687,31 +1457,10 @@ export function BottomNav({
 
   if (hideBottomNavShell) return null;
 
-  const switcherOverlay =
-    isDeliveryNavMode || isTradeNavMode ? (
-      <DeliveryDomainSwitcherOverlay
-        open={deliveryDomainSwitcherOpen}
-        onClose={closeDomainSwitcher}
-        dialContext={isTradeNavMode ? "trade" : "delivery"}
-        beginMenuNavigation={beginBottomNavNavigation}
-        onNavigationIntent={markBottomNavIntent}
-      />
-    ) : null;
-
   if (bodyPortal && portalToBody && typeof document !== "undefined") {
-    return (
-      <>
-        {createPortal(nav, document.body)}
-        {switcherOverlay ? createPortal(switcherOverlay, document.body) : null}
-      </>
-    );
+    return createPortal(nav, document.body);
   }
 
-  return (
-    <>
-      {nav}
-      {switcherOverlay}
-    </>
-  );
+  return nav;
 }
 

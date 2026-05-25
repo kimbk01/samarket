@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
+import { forwardRef, useEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 
 type Props = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   children: ReactNode;
+  /** 탭·버튼 위에서도 가로 드래그 허용(클릭은 미세 이동만 통과) */
+  allowDragFromInteractive?: boolean;
 };
 
 /** 링크·버튼 등: 드래그 스크롤과 포인터 캡처로 클릭이 죽는 것 방지 */
@@ -17,8 +19,11 @@ function isInteractivePointerTarget(target: EventTarget | null): boolean {
  * - 링크 위에서 포인터 캡처를 걸지 않음
  * - 이전 드래그의 moved 플래그가 링크 클릭을 막지 않음
  */
-export function HorizontalDragScroll({ children, className = "", style, ...rest }: Props) {
-  const ref = useRef<HTMLDivElement>(null);
+export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function HorizontalDragScroll(
+  { children, className = "", style, allowDragFromInteractive = false, ...rest },
+  forwardedRef
+) {
+  const ref = useRef<HTMLDivElement | null>(null);
   const drag = useRef({
     active: false,
     pointerId: 0,
@@ -34,7 +39,7 @@ export function HorizontalDragScroll({ children, className = "", style, ...rest 
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType === "touch") return;
       if (e.button !== 0) return;
-      if (isInteractivePointerTarget(e.target)) {
+      if (!allowDragFromInteractive && isInteractivePointerTarget(e.target)) {
         drag.current.active = false;
         drag.current.moved = false;
         return;
@@ -75,6 +80,12 @@ export function HorizontalDragScroll({ children, className = "", style, ...rest 
     const onClickCapture = (e: MouseEvent) => {
       if (!drag.current.moved) return;
       if (isInteractivePointerTarget(e.target)) {
+        if (!allowDragFromInteractive) {
+          drag.current.moved = false;
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
         drag.current.moved = false;
         return;
       }
@@ -96,7 +107,7 @@ export function HorizontalDragScroll({ children, className = "", style, ...rest 
       el.removeEventListener("pointercancel", end);
       el.removeEventListener("click", onClickCapture, true);
     };
-  }, []);
+  }, [allowDragFromInteractive]);
 
   const mergedStyle: CSSProperties = {
     WebkitOverflowScrolling: "touch",
@@ -105,7 +116,11 @@ export function HorizontalDragScroll({ children, className = "", style, ...rest 
 
   return (
     <div
-      ref={ref}
+      ref={(node) => {
+        ref.current = node;
+        if (typeof forwardedRef === "function") forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      }}
       style={mergedStyle}
       className={`cursor-grab overscroll-x-contain active:cursor-grabbing select-none [-webkit-overflow-scrolling:touch] [&_a]:select-none ${className}`}
       {...rest}
@@ -113,4 +128,4 @@ export function HorizontalDragScroll({ children, className = "", style, ...rest 
       {children}
     </div>
   );
-}
+});

@@ -8,16 +8,18 @@ import { composeMainBottomNavDisplayTabs } from "@/lib/main-menu/main-bottom-nav
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
 
 describe("composePhilifeBottomNavDisplayTabs", () => {
-  it("5탭 순서 — 거래·배달·커뮤니티홈·메신저·내정보", () => {
+  it("5탭 순서 — 홈·거래·배달·디바톡·내정보", () => {
     const tabs = composePhilifeBottomNavDisplayTabs();
     expect(tabs.map((t) => t.id)).toEqual([
+      "philife-home-hub",
       "philife-trade",
       "philife-delivery",
-      "philife-home-hub",
       "philife-messenger",
       "philife-my",
     ]);
     expect(tabs.find((t) => t.id === "philife-home-hub")?.href).toBe("/philife");
+    expect(tabs.find((t) => t.id === "philife-home-hub")?.labelKey).toBe("nav_bottom_home");
+    expect(tabs.find((t) => t.id === "philife-messenger")?.labelKey).toBe("nav_bottom_dibatalk");
     expect(tabs.find((t) => t.id === "philife-trade")?.href).toBe("/market");
     expect(tabs.find((t) => t.id === "philife-delivery")?.href).toBe("/stores");
   });
@@ -41,24 +43,15 @@ describe("isPhilifeHomeHubBottomNavActive", () => {
 });
 
 describe("composeMainBottomNavDisplayTabs (philife rail)", () => {
-  it("/philife — 커뮤니티 5탭", () => {
+  it("/philife — admin main-bottom-nav 과 동일 5탭", () => {
     const tabs = composeMainBottomNavDisplayTabs("/philife", BOTTOM_NAV_ITEMS, null);
-    expect(tabs).toHaveLength(5);
-    expect(tabs.some((t) => t.id === "community")).toBe(false);
-    expect(tabs.some((t) => t.id === "philife-home-hub")).toBe(true);
+    expect(tabs.map((t) => t.id)).toEqual(BOTTOM_NAV_ITEMS.map((t) => t.id));
   });
 
-  it("/community-messenger?from=community — philife 5탭", () => {
+  it("/community-messenger?from=community — 경로와 무관하게 admin 탭", () => {
     const tabs = composeMainBottomNavDisplayTabs("/community-messenger", BOTTOM_NAV_ITEMS, {
       get: (k) => (k === "from" ? "community" : k === "section" ? "chats" : null),
     });
-    expect(tabs).toHaveLength(5);
-    expect(tabs.map((t) => t.id)).toEqual([
-      "philife-trade",
-      "philife-delivery",
-      "philife-home-hub",
-      "philife-messenger",
-      "philife-my",
-    ]);
+    expect(tabs.map((t) => t.id)).toEqual(BOTTOM_NAV_ITEMS.map((t) => t.id));
   });
 });
