@@ -29,6 +29,8 @@ export type LegacyFallbackRouteSpec = {
   reconnect_related: 0 | 1;
   /** Structural PASS recorded — fallback branch still present until LFC1 delete gate. */
   structural_pass: 1;
+  /** LFC1-A hard delete completed — legacy branch removed from code. */
+  hard_deleted?: 1;
 };
 
 /** Snapshot-first PASS tracks — legacy branch audit registry (LFC1 step 1). */
@@ -80,6 +82,7 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     verify_e2e_script: "verify:store-menus-snapshot-e2e",
     reconnect_related: 0,
     structural_pass: 1,
+    hard_deleted: 1,
   },
   {
     track: "ODN1",

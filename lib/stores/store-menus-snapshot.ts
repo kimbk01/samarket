@@ -1,5 +1,5 @@
 /**
- * Store menus snapshot — read path (counter row → unified RPC → legacy fallback).
+ * Store menus snapshot — read path (counter row → unified RPC).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StoreMenusCatalogBody } from "@/lib/stores/store-menus-catalog-assemble";
@@ -173,7 +173,7 @@ export type StoreMenusSnapshotCatalogResult = {
   breakdown: StoreMenusSnapshotBreakdown;
 };
 
-/** Snapshot-first menus catalog — null = unified RPC unavailable, caller may legacy fallback. */
+/** Snapshot-only menus catalog — null = RPC miss or store not in snapshot payload. */
 export async function tryLoadStoreMenusCatalogFromSnapshot(
   sbAny: SupabaseClient<any>,
   storeSlug: string,

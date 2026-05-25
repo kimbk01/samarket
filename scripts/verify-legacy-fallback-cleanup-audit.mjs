@@ -54,7 +54,6 @@ for (const t of tracks) {
 const legacyModules = [
   "lib/chats/build-owner-hub-badge-payload.ts",
   "lib/community-messenger/service.ts",
-  "lib/stores/fetch-store-menus-catalog.ts",
   "app/api/me/notifications/route.ts",
   "lib/stores/fetch-owner-store-order-counts.ts",
   "lib/stores/fetch-owner-store-orders-list-legacy.ts",
@@ -66,6 +65,14 @@ const legacyModules = [
   "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
 ];
 
+const hardDeletedModules = [
+  {
+    module: "lib/stores/fetch-store-menus-catalog.ts",
+    track: "SM1",
+    needle: "tryLoadStoreMenusCatalogFromSnapshot",
+  },
+];
+
 for (const mod of legacyModules) {
   mustExist(mod);
   const text = fs.readFileSync(path.join(root, mod), "utf8");
@@ -74,6 +81,18 @@ for (const mod of legacyModules) {
     text.includes("gateLegacyFallback") ||
     text.includes("LegacyFallbackBlockedError");
   if (!hasAudit) fails.push(`${mod} missing legacy fallback audit/gate`);
+}
+
+for (const { module: mod, track, needle } of hardDeletedModules) {
+  mustExist(mod);
+  mustInclude(mod, needle);
+  const text = fs.readFileSync(path.join(root, mod), "utf8");
+  if (text.includes("auditLegacyFallbackUsage")) {
+    fails.push(`${mod} (${track}) still has auditLegacyFallbackUsage after hard delete`);
+  }
+  if (text.includes("store-menus-snapshot-fallback")) {
+    fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
 }
 
 const auditRows = [];
