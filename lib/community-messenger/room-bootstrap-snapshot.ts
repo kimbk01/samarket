@@ -23,6 +23,10 @@ import {
   logBootstrapHotpathAnalysis,
   logRoomBootstrapSnapshotRpcDesignOnce,
 } from "@/lib/community-messenger/room-bootstrap-hotpath-analysis";
+import {
+  measureJsonUtf8Bytes,
+  setLastBootstrapColdFillServerPartial,
+} from "@/lib/community-messenger/bootstrap-cold-fill-deep-breakdown";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -202,8 +206,16 @@ export async function tryLoadRoomBootstrapCriticalWaveAFromSnapshot(
       via: SnapshotReadVia,
       stale?: boolean
     ): RoomBootstrapSnapshotWaveAResult | null => {
+      const des0 = devPerfNow();
       const waveA = parseRoomBootstrapSnapshotPayload(uid, payload);
+      const snapshot_deserialize_ms = Math.round(devPerfNow() - des0);
       if (!waveA) return null;
+      setLastBootstrapColdFillServerPartial({
+        rpc_ms: Math.round(readMs),
+        rpc_payload_bytes: measureJsonUtf8Bytes(payload),
+        snapshot_deserialize_ms,
+        snapshot_via: via,
+      });
       const breakdown = buildBreakdown({
         roomId: rid,
         totalMs: devPerfNow() - build0,
@@ -249,7 +261,16 @@ export async function tryLoadRoomBootstrapCriticalWaveAFromSnapshot(
     const { payload, rpcMs } = await fetchSnapshotViaRpc(sbAny, uid, rid, tier, messageLimit);
     if (!payload?.room) return null;
 
+    const upsert0 = devPerfNow();
     await upsertSnapshotCounter(sbAny, uid, rid, tier, messageLimit, payload);
+    const counter_upsert_ms = Math.round(devPerfNow() - upsert0);
+    setLastBootstrapColdFillServerPartial({
+      rpc_ms: Math.round(rpcMs),
+      rpc_payload_bytes: measureJsonUtf8Bytes(payload),
+      snapshot_deserialize_ms: 0,
+      snapshot_via: "unified_rpc",
+      counter_upsert_ms,
+    });
     return finish(payload, rpcMs || devPerfNow() - read0, "unified_rpc");
   });
 }

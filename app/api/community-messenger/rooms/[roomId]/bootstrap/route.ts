@@ -29,6 +29,7 @@ import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cach
 import { samarketMessengerTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 import { logPerfMeasurementContext } from "@/lib/http/perf-measurement-context";
 import { roomBootstrapSnapshotSignoffHeaders } from "@/lib/http/snapshot-route-signoff-headers";
+import { logRoomBootstrapRouteColdFillDeepBreakdown } from "@/lib/community-messenger/bootstrap-cold-fill-deep-breakdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  const handlerT0 = performance.now();
+  const authT0 = performance.now();
   const auth = await requireAuthenticatedUserId();
+  const auth_ms = Math.round(performance.now() - authT0);
   if (!auth.ok) return auth.response;
 
   const rateLimit = await enforceRateLimit({
@@ -55,7 +59,9 @@ export async function GET(
 
   const { roomId: rawRoomId } = await params;
   const rawRouteRoomId = String(rawRoomId ?? "").trim();
+  const canonT0 = performance.now();
   const canon = await messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId);
+  const canonical_ms = Math.round(performance.now() - canonT0);
   if (!canon.ok) {
     return canon.response;
   }
@@ -96,7 +102,9 @@ export async function GET(
       diagnostics,
     };
     const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:silent_delta:minimal:silent_delta:0`;
+    const cacheLookup0 = performance.now();
     const cached = getCachedRoomBootstrap(cacheKey);
+    const cache_lookup_ms = Math.round(performance.now() - cacheLookup0);
     cacheHit = Boolean(cached);
     const tSnap0 = performance.now();
     snapshot = cached
@@ -165,6 +173,7 @@ export async function GET(
     }
 
     const requestId = getOrCreateRequestId(req);
+    const payloadBuild0 = performance.now();
     const body = {
       ok: true,
       requestId,
@@ -175,6 +184,21 @@ export async function GET(
       unread: { count: snapshot.room.unreadCount },
       ...snapshot,
     };
+    const payload_build_ms = Math.round(performance.now() - payloadBuild0);
+    logRoomBootstrapRouteColdFillDeepBreakdown({
+      handlerT0,
+      auth_ms,
+      canonical_ms,
+      cache_lookup_ms,
+      snap_ms: snapMs,
+      payload_build_ms,
+      cache_hit: cacheHit,
+      snapshotTier: "silent_delta",
+      cmReqSrcRaw,
+      roomId: roomKey,
+      diagnostics,
+      body: body as Record<string, unknown>,
+    });
     const responseSizeBytes = new TextEncoder().encode(JSON.stringify(body)).length;
     const headers = new Headers({
       ...messengerApiEdgeCacheHeaders(),
@@ -237,7 +261,9 @@ export async function GET(
     req.nextUrl.searchParams.get("roomBootstrapBypass") === "1" &&
     process.env.NODE_ENV === "development";
   const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${cacheKeyMode}:${hydrateFullMemberList ? "full" : "minimal"}:${snapshotTier}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
+  const cacheLookup0 = performance.now();
   const cached = roomBootstrapBypass ? null : getCachedRoomBootstrap(cacheKey);
+  const cache_lookup_ms = Math.round(performance.now() - cacheLookup0);
   cacheHit = Boolean(cached);
   const tSnap0 = performance.now();
   snapshot = cached
@@ -305,6 +331,7 @@ export async function GET(
     return jsonErrorWithRequest(req, "not_found", 404);
   }
   const requestId = getOrCreateRequestId(req);
+  const payloadBuild0 = performance.now();
   const body = {
     ok: true,
     requestId,
@@ -315,6 +342,21 @@ export async function GET(
     unread: { count: snapshot.room.unreadCount },
     ...snapshot,
   };
+  const payload_build_ms = Math.round(performance.now() - payloadBuild0);
+  logRoomBootstrapRouteColdFillDeepBreakdown({
+    handlerT0,
+    auth_ms,
+    canonical_ms,
+    cache_lookup_ms,
+    snap_ms: snapMs,
+    payload_build_ms,
+    cache_hit: cacheHit,
+    snapshotTier,
+    cmReqSrcRaw,
+    roomId: roomKey,
+    diagnostics,
+    body: body as Record<string, unknown>,
+  });
   const responseSizeBytes = new TextEncoder().encode(JSON.stringify(body)).length;
   const d = diagnostics;
   const headers = new Headers({

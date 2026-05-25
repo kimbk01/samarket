@@ -76,6 +76,8 @@ import {
   warnCmPerfRegressionReentryForegroundFetch,
   warnCmPerfRegressionRoomClientLegacy,
 } from "@/lib/community-messenger/room/cm-messenger-perf-regression-guard";
+import { logBootstrapColdFillDeepBreakdownClient } from "@/lib/community-messenger/bootstrap-cold-fill-deep-breakdown";
+import type { BootstrapSnapshotTier } from "@/lib/community-messenger/bootstrap-cold-fill-deep-breakdown";
 
 const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
@@ -154,8 +156,31 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
 type BootstrapFlightResult = {
   roomRes: Response;
   snap: CommunityMessengerRoomSnapshot | null;
-  clientTimings: { clientInnerSumMs: number };
+  clientTimings: {
+    clientInnerSumMs: number;
+    client_fetch_ms: number;
+    client_json_parse_ms: number;
+    snapshot_parse_ms: number;
+  };
 };
+
+function resolveBootstrapSnapshotTier(args: {
+  bootstrapTierHdr: string;
+  bootstrapQueryWithSrc: string;
+  silent: boolean;
+}): BootstrapSnapshotTier {
+  if (args.bootstrapTierHdr === "silent_delta" || args.bootstrapQueryWithSrc.includes("silent_delta")) {
+    return "silent_delta";
+  }
+  if (
+    args.bootstrapQueryWithSrc.includes("hydration=critical") ||
+    args.bootstrapQueryWithSrc.includes("mode=instant")
+  ) {
+    return "critical";
+  }
+  if (args.bootstrapQueryWithSrc.includes("snapshotTier=fast")) return "fast";
+  return args.silent ? "silent_delta" : "full";
+}
 
 export function createMessengerRoomBootstrapRefresh(
   deps: MessengerRoomBootstrapRefreshDeps
@@ -192,7 +217,7 @@ export function createMessengerRoomBootstrapRefresh(
   function applyBootstrapFlightResult(args: {
     roomRes: Response;
     snap: CommunityMessengerRoomSnapshot | null;
-    clientTimings: { clientInnerSumMs: number };
+    clientTimings: BootstrapFlightResult["clientTimings"];
     silent: boolean;
     shouldBlock: boolean;
     bootstrapQueryWithSrc: string;
@@ -200,8 +225,18 @@ export function createMessengerRoomBootstrapRefresh(
     bootstrapTierHdr: string;
     tBoot: number;
   }): void {
-    const { roomRes, snap, clientTimings, silent, shouldBlock, bootstrapQueryWithSrc, reqSrc, bootstrapTierHdr, tBoot } =
-      args;
+    const {
+      roomRes,
+      snap,
+      clientTimings,
+      silent,
+      shouldBlock,
+      bootstrapQueryWithSrc,
+      reqSrc,
+      bootstrapTierHdr,
+      tBoot,
+    } = args;
+    const tApply0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     if (roomRes.ok && snap) {
       if (silent && bootstrapTierHdr === "silent_delta") {
         setSnapshot((prev) => {
@@ -235,6 +270,34 @@ export function createMessengerRoomBootstrapRefresh(
       const elapsed =
         typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
       messengerMonitorRoomLoad(roomId, elapsed, { silent, cmReqSrc: reqSrc });
+      const client_apply_ms =
+        typeof performance !== "undefined"
+          ? Math.round(performance.now() - tApply0)
+          : Math.round(Date.now() - tApply0);
+      const serverRouteTotal = Number(roomRes.headers.get("x-samarket-route-total-ms") ?? "");
+      const serverSnapshotMs = Number(roomRes.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "");
+      const sizeBytes = Number(roomRes.headers.get("x-samarket-response-size-bytes") ?? "");
+      const cacheHitHdr = roomRes.headers.get("x-samarket-bootstrap-cache-hit") === "1" ? 1 : 0;
+      const snapshotTier = resolveBootstrapSnapshotTier({
+        bootstrapTierHdr,
+        bootstrapQueryWithSrc,
+        silent,
+      });
+      logBootstrapColdFillDeepBreakdownClient({
+        route_total_ms: Number.isFinite(serverRouteTotal) ? Math.round(serverRouteTotal) : undefined,
+        rpc_ms: Number.isFinite(serverSnapshotMs) ? Math.round(serverSnapshotMs) : undefined,
+        response_bytes: Number.isFinite(sizeBytes) ? Math.round(sizeBytes) : undefined,
+        client_fetch_ms: clientTimings.client_fetch_ms,
+        client_json_parse_ms: clientTimings.client_json_parse_ms,
+        client_apply_ms,
+        snapshotTier,
+        cmReqSrcRaw: reqSrc,
+        roomId,
+        cache_hit: cacheHitHdr,
+        snapshot_via: roomRes.headers.get("x-samarket-room-bootstrap-snapshot-via"),
+        silent_delta_fallback:
+          silent && reqSrc === "room_silent" && bootstrapTierHdr !== "silent_delta" ? 1 : 0,
+      });
     } else if (!silent) {
       setSnapshot(null);
     }
@@ -519,7 +582,12 @@ export function createMessengerRoomBootstrapRefresh(
           applyBootstrapFlightResult({
             roomRes: new Response(null, { status: 200 }),
             snap: stale.snap,
-            clientTimings: { clientInnerSumMs: 0 },
+            clientTimings: {
+              clientInnerSumMs: 0,
+              client_fetch_ms: 0,
+              client_json_parse_ms: 0,
+              snapshot_parse_ms: 0,
+            },
             silent,
             shouldBlock,
             bootstrapQueryWithSrc,
@@ -725,7 +793,16 @@ export function createMessengerRoomBootstrapRefresh(
                     tier === "ok" ? "ok <50KB" : tier === "review" ? "review ≥50KB" : "problem ≥100KB",
                 });
               }
-              return { roomRes: res, snap, clientTimings: { clientInnerSumMs } };
+              return {
+                roomRes: res,
+                snap,
+                clientTimings: {
+                  clientInnerSumMs,
+                  client_fetch_ms: Math.round(clientWireMs),
+                  client_json_parse_ms: jsonParseMsNum,
+                  snapshot_parse_ms: snapshotParseMsNum,
+                },
+              };
             });
             resolveFlight(result);
           } catch (err) {
