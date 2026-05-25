@@ -18,15 +18,7 @@ import {
   peekOwnerStoreOrdersListServerCache,
   setOwnerStoreOrdersListServerCache,
 } from "@/lib/stores/owner-store-orders-list-server-cache";
-import { buildOwnerStoreOrdersListLegacy } from "@/lib/stores/fetch-owner-store-orders-list-legacy";
 import { tryLoadOwnerStoreOrdersListFromSnapshot } from "@/lib/stores/owner-store-orders-list-snapshot";
-import {
-  logOwnerOrdersListHotpathAnalysis,
-} from "@/lib/stores/owner-store-orders-list-snapshot-hotpath-analysis";
-import {
-  evaluateOwnerOrdersListRegressionGuards,
-  type OwnerStoreOrdersListSnapshotBreakdown,
-} from "@/lib/stores/owner-store-orders-list-snapshot-regression-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -71,50 +63,6 @@ function pickupLinesFromStoreRow(storeAddr: Record<string, unknown> | null | und
     address_line1: storeAddr.address_line1 as string | null | undefined,
     address_line2: storeAddr.address_line2 as string | null | undefined,
   });
-}
-
-function logLegacyHotpath(input: {
-  storeId: string;
-  totalMs: number;
-  dbMs: number;
-  listMs: number;
-  transformMs: number;
-  ownershipMs: number;
-}): void {
-  const breakdown: OwnerStoreOrdersListSnapshotBreakdown = {
-    route: ROUTE,
-    store_id: input.storeId,
-    total_ms: input.totalMs,
-    db_ms: input.dbMs,
-    round_trips: 3,
-    transport_ms: input.dbMs,
-    payload_build_ms: input.transformMs,
-    orders_fetch_ms: input.listMs,
-    customer_profile_join_ms: input.transformMs,
-    order_items_summary_ms: input.transformMs,
-    delivery_status_merge_ms: 0,
-    payment_status_merge_ms: 0,
-    chat_unread_merge_ms: 0,
-    status_filter_ms: 0,
-    sort_compute_ms: 0,
-    ownership_check_ms: input.ownershipMs,
-    cache_hit: 0,
-    wave_count: 2,
-    query_wave_2_ms: input.transformMs,
-    sequential_await_detected: 1,
-    aggregate_compute_detected: 1,
-    repeated_join_detected: 1,
-    fallback_used: 1,
-    rpc_removed: 0,
-    snapshot_via: "legacy_multi_wave",
-    worst_stage: "legacy_multi_wave",
-    worst_stage_ms: input.dbMs,
-  };
-  logOwnerOrdersListHotpathAnalysis(breakdown, {
-    storeId: input.storeId,
-    ownershipCheckMs: input.ownershipMs,
-  });
-  evaluateOwnerOrdersListRegressionGuards(breakdown);
 }
 
 /** 매장 오너: 해당 매장 주문 목록 + 라인 (?meta_only=1 이면 목록 없이 meta만) */
@@ -281,34 +229,18 @@ export async function GET(
     list_snapshot_hit = 1;
     snapshotVia = snap.snapshotVia;
   } else {
-    const legacy = await buildOwnerStoreOrdersListLegacy(sb as never, id);
-    db_ms = Math.round(perfNowMs() - db0);
-    if (!legacy.ok) {
-      logOwnerDashboardPerf({
-        route: ROUTE,
-        store_id: id,
-        total_ms: Math.round(perfNowMs() - wall0),
-        auth_ms,
-        ownership_ms,
-        db_ms,
-      });
-      return NextResponse.json({ ok: false, error: legacy.error }, { status: 500 });
-    }
-    orders = legacy.result.orders;
-    list_ms = legacy.result.listMs;
-    transform_ms = legacy.result.transformMs;
-    normalize_ms = legacy.result.normalizeMs;
-    attach_ms = legacy.result.attachMs;
-    buyer_label_cache_hit = legacy.result.buyerLabelCacheHit ? 1 : 0;
-    db_round_trips = legacy.result.dbRoundTrips;
-    logLegacyHotpath({
-      storeId: id,
-      totalMs: Math.round(perfNowMs() - wall0),
-      dbMs: db_ms,
-      listMs: list_ms,
-      transformMs: transform_ms,
-      ownershipMs: ownership_ms,
+    logOwnerDashboardPerf({
+      route: ROUTE,
+      store_id: id,
+      total_ms: Math.round(perfNowMs() - wall0),
+      auth_ms,
+      ownership_ms,
+      db_ms,
     });
+    return NextResponse.json(
+      { ok: false, error: "snapshot_unavailable" },
+      { status: 503 }
+    );
   }
 
   const store_pickup_address_lines = snap
