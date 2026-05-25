@@ -53,6 +53,11 @@ import {
 } from "@/lib/performance/prod-same-region-perf";
 import { buildSnapshotSignoffHeaders } from "@/lib/http/snapshot-signoff-response-headers";
 import { hubBadgeSignoffObs } from "@/lib/chats/hub-badge-signoff-observability";
+import {
+  logHubBadgeDeepBreakdown,
+  mergeRouteHubBadgeDeepBreakdown,
+  peekLastHubBadgeDeepBreakdown,
+} from "@/lib/chats/hub-badge-deep-breakdown";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -337,6 +342,34 @@ export async function GET(request: Request) {
       })
     );
   }
+
+  const serialize0 = devPerfNow();
+  const serializedBody = JSON.stringify(payload);
+  const json_serialize_ms = Math.round(devPerfNow() - serialize0);
+  const response_bytes = Buffer.byteLength(serializedBody, "utf8");
+  const transport_ms = Math.max(
+    0,
+    Math.round(
+      totalRouteMs -
+        authMs -
+        Math.round(storesClientMs) -
+        Math.round(badgeAggregateMs) -
+        json_serialize_ms -
+        cache_lookup_ms
+    )
+  );
+  logHubBadgeDeepBreakdown(
+    mergeRouteHubBadgeDeepBreakdown(peekLastHubBadgeDeepBreakdown(), {
+      path: ttlCacheHit ? "route_ttl_hit" : peekLastHubBadgeDeepBreakdown()?.path ?? "unknown",
+      cache_lookup_ms,
+      cache_store_ms: ttlCacheHit ? 0 : cache_set_ms,
+      json_serialize_ms,
+      transport_ms,
+      response_bytes,
+      total_ms: totalRouteMs,
+      memory_snapshot_hit: ttlCacheHit ? 1 : peekLastHubBadgeDeepBreakdown()?.memory_snapshot_hit ?? 0,
+    })
+  );
 
   return NextResponse.json(payload, {
     headers: {

@@ -24,6 +24,13 @@ import {
   type HubBadgeCacheAnalysis,
 } from "@/lib/chats/hub-badge-breakdown";
 import { evaluateHubBadgeRegressionGuards } from "@/lib/chats/hub-badge-regression-guard";
+import {
+  logHubBadgeDeepBreakdown,
+  measureJsonUtf8Bytes,
+  scheduleHubBadgeCounterExplainIfEnabled,
+  type HubBadgeDeepBreakdown,
+  type HubBadgeDeepBreakdownPath,
+} from "@/lib/chats/hub-badge-deep-breakdown";
 import { scheduleOwnerHubBadgeSnapshotRefresh } from "@/lib/chats/hub-badge-snapshot-refresh";
 import { writeOwnerHubStoreLookupMemory } from "@/lib/chats/owner-hub-store-lookup-cache";
 import type {
@@ -150,41 +157,80 @@ function rowFromDb(data: Record<string, unknown>): OwnerHubBadgeSnapshotRow | nu
   };
 }
 
+type SnapshotCounterReadTiming = {
+  db_fetch_ms: number;
+  snapshot_deserialize_ms: number;
+  query_row_bytes: number;
+};
+
 export async function readOwnerHubBadgeSnapshotCounter(
   sbAny: SupabaseClient<any>,
   userId: string
 ): Promise<
-  | { hit: false; reason: "missing" | "stale" | "no_column" | "error" }
-  | { hit: true; row: OwnerHubBadgeSnapshotRow; ageMs: number; stale: boolean }
+  | { hit: false; reason: "missing" | "stale" | "no_column" | "error"; timing: SnapshotCounterReadTiming }
+  | {
+      hit: true;
+      row: OwnerHubBadgeSnapshotRow;
+      ageMs: number;
+      stale: boolean;
+      raw: Record<string, unknown> | null;
+      timing: SnapshotCounterReadTiming;
+    }
 > {
   const uid = userId.trim();
+  const db0 = devPerfNow();
   const { data, error } = await sbAny
     .from(HUB_BADGE_UNREAD_COUNTERS_TABLE)
     .select(counterSelectFields())
     .eq("user_id", uid)
     .maybeSingle();
+  const db_fetch_ms = Math.round(devPerfNow() - db0);
+
+  const query_row_bytes = measureJsonUtf8Bytes(data);
+  let snapshot_deserialize_ms = 0;
 
   if (error) {
     const msg = error.message ?? "";
+    const timing: SnapshotCounterReadTiming = {
+      db_fetch_ms,
+      snapshot_deserialize_ms: 0,
+      query_row_bytes,
+    };
     if (
       msg.includes("has_hub_store") ||
       msg.includes("hub_store_id") ||
       msg.includes("store_order_chat_unread") ||
       error.code === "42703"
     ) {
-      return { hit: false, reason: "no_column" };
+      return { hit: false, reason: "no_column", timing };
     }
     if (msg.includes("does not exist") || error.code === "42P01") {
-      return { hit: false, reason: "missing" };
+      return { hit: false, reason: "missing", timing };
     }
-    return { hit: false, reason: "error" };
+    return { hit: false, reason: "error", timing };
   }
+
+  const des0 = devPerfNow();
   const row = data ? rowFromDb(data as unknown as Record<string, unknown>) : null;
-  if (!row) return { hit: false, reason: "missing" };
+  snapshot_deserialize_ms = Math.round(devPerfNow() - des0);
+  const timing: SnapshotCounterReadTiming = {
+    db_fetch_ms,
+    snapshot_deserialize_ms,
+    query_row_bytes,
+  };
+
+  if (!row) return { hit: false, reason: "missing", timing };
 
   const ageMs = Math.max(0, Date.now() - new Date(row.updated_at).getTime());
   const stale = ageMs > hubBadgeUnreadCounterTtlMs();
-  return { hit: true, row, ageMs, stale };
+  return {
+    hit: true,
+    row,
+    ageMs,
+    stale,
+    raw: data ? (data as unknown as Record<string, unknown>) : null,
+    timing,
+  };
 }
 
 export async function upsertOwnerHubBadgeSnapshotCounter(
@@ -326,6 +372,55 @@ function payloadFromSnapshot(snapshot: OwnerHubBadgeSnapshotRow): OwnerHubBadgeA
   };
 }
 
+function participantUnreadTotal(snapshot: OwnerHubBadgeSnapshotRow): number {
+  return (
+    snapshot.store_order_participant_unread +
+    snapshot.item_trade_participant_unread +
+    snapshot.community_participant_unread +
+    snapshot.product_chat_unread_deduped
+  );
+}
+
+function buildAndLogSnapshotDeepBreakdown(input: {
+  path: HubBadgeDeepBreakdownPath;
+  snapshot: OwnerHubBadgeSnapshotRow;
+  timing: SnapshotCounterReadTiming;
+  participant_merge_ms: number;
+  payload_build_ms: number;
+  aggregate_compute_ms: number;
+  memory_snapshot_hit: 0 | 1;
+  stale?: boolean;
+  aggregate_inside_rpc?: 0 | 1;
+  userId?: string;
+}): HubBadgeDeepBreakdown {
+  const snapshot_json_bytes = measureJsonUtf8Bytes(input.snapshot);
+  const deep: HubBadgeDeepBreakdown = {
+    path: input.path,
+    db_fetch_ms: input.timing.db_fetch_ms,
+    snapshot_deserialize_ms: input.timing.snapshot_deserialize_ms,
+    aggregate_compute_ms: Math.round(input.aggregate_compute_ms),
+    participant_merge_ms: Math.round(input.participant_merge_ms),
+    payload_build_ms: Math.round(input.payload_build_ms),
+    json_serialize_ms: 0,
+    transport_ms: 0,
+    cache_lookup_ms: 0,
+    cache_store_ms: 0,
+    memory_snapshot_hit: input.memory_snapshot_hit,
+    query_row_bytes: input.timing.query_row_bytes,
+    response_bytes: 0,
+    snapshot_json_bytes,
+    cm_unread_room_count: input.snapshot.community_messenger_unread_room_count,
+    participant_unread_total: participantUnreadTotal(input.snapshot),
+    ...(input.aggregate_inside_rpc ? { aggregate_inside_rpc: input.aggregate_inside_rpc } : {}),
+    ...(input.stale ? { stale: 1 as const } : {}),
+  };
+  logHubBadgeDeepBreakdown(deep);
+  if (input.userId && input.path.startsWith("counter_row")) {
+    scheduleHubBadgeCounterExplainIfEnabled(input.userId);
+  }
+  return deep;
+}
+
 function buildSnapshotBreakdown(input: {
   userId: string;
   totalMs: number;
@@ -423,13 +518,16 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
     };
 
     if (!opts?.forceRpc) {
-      const read0 = devPerfNow();
       const counter = await readOwnerHubBadgeSnapshotCounter(sbAny, uid);
-      const readMs = devPerfNow() - read0;
+      const readMs = counter.timing.db_fetch_ms;
 
       if (counter.hit && !counter.stale) {
+        const merge0 = devPerfNow();
         syncProcessMemoryLayersFromSnapshot(uid, counter.row);
+        const participant_merge_ms = devPerfNow() - merge0;
+        const payload0 = devPerfNow();
         const payload = payloadFromSnapshot(counter.row);
+        const payload_build_ms = devPerfNow() - payload0;
         const breakdown = buildSnapshotBreakdown({
           userId: uid,
           totalMs: devPerfNow() - build0,
@@ -437,7 +535,18 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
           via: "counter_row",
           snapshot: counter.row,
         });
+        breakdown.payload_build_ms = Math.round(payload_build_ms);
         logHubBadgeBreakdown(breakdown);
+        buildAndLogSnapshotDeepBreakdown({
+          path: "counter_row",
+          snapshot: counter.row,
+          timing: counter.timing,
+          participant_merge_ms,
+          payload_build_ms,
+          aggregate_compute_ms: 0,
+          memory_snapshot_hit: 1,
+          userId: uid,
+        });
         logHubBadgeCacheAnalysis({
           hub_store_memory_hit: 1,
           unread_snapshot_hit: 1,
@@ -456,8 +565,12 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
 
       if (counter.hit && counter.stale) {
         scheduleOwnerHubBadgeSnapshotRefresh(uid);
+        const merge0 = devPerfNow();
         syncProcessMemoryLayersFromSnapshot(uid, counter.row);
+        const participant_merge_ms = devPerfNow() - merge0;
+        const payload0 = devPerfNow();
         const payload = payloadFromSnapshot(counter.row);
+        const payload_build_ms = devPerfNow() - payload0;
         const breakdown = buildSnapshotBreakdown({
           userId: uid,
           totalMs: devPerfNow() - build0,
@@ -466,21 +579,44 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
           snapshot: counter.row,
           stale: true,
         });
+        breakdown.payload_build_ms = Math.round(payload_build_ms);
         logHubBadgeBreakdown(breakdown);
+        buildAndLogSnapshotDeepBreakdown({
+          path: "counter_row_stale_swr",
+          snapshot: counter.row,
+          timing: counter.timing,
+          participant_merge_ms,
+          payload_build_ms,
+          aggregate_compute_ms: 0,
+          memory_snapshot_hit: 1,
+          stale: true,
+          userId: uid,
+        });
         return { payload, meta: { ...meta, existsQueryUsed: 0 }, breakdown };
       }
     }
 
+    const rpc0 = devPerfNow();
     const { snapshot, rpcMs } = await fetchOwnerHubBadgeSnapshotViaRpc(sbAny, uid);
+    const rpcWallMs = Math.round(devPerfNow() - rpc0);
     if (!snapshot) return null;
 
     void upsertOwnerHubBadgeSnapshotCounter(sbAny, uid, snapshot);
+    const merge0 = devPerfNow();
     syncProcessMemoryLayersFromSnapshot(uid, snapshot);
+    const participant_merge_ms = devPerfNow() - merge0;
     const fullRow: OwnerHubBadgeSnapshotRow = {
       ...snapshot,
       updated_at: new Date().toISOString(),
     };
+    const payload0 = devPerfNow();
     const payload = payloadFromSnapshot(fullRow);
+    const payload_build_ms = devPerfNow() - payload0;
+    const rpcTiming: SnapshotCounterReadTiming = {
+      db_fetch_ms: Math.round(rpcMs || rpcWallMs),
+      snapshot_deserialize_ms: 0,
+      query_row_bytes: measureJsonUtf8Bytes(snapshot),
+    };
     const breakdown = buildSnapshotBreakdown({
       userId: uid,
       totalMs: devPerfNow() - build0,
@@ -489,7 +625,19 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       snapshot: fullRow,
       rpcMs,
     });
+    breakdown.payload_build_ms = Math.round(payload_build_ms);
     logHubBadgeBreakdown(breakdown);
+    buildAndLogSnapshotDeepBreakdown({
+      path: "unified_rpc",
+      snapshot: fullRow,
+      timing: rpcTiming,
+      participant_merge_ms,
+      payload_build_ms,
+      aggregate_compute_ms: Math.round(rpcMs || rpcWallMs),
+      memory_snapshot_hit: 0,
+      aggregate_inside_rpc: 1,
+      userId: uid,
+    });
     logHubBadgeCacheAnalysis({
       hub_store_memory_hit: 1,
       unread_snapshot_hit: 1,

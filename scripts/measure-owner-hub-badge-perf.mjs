@@ -365,6 +365,28 @@ async function main() {
     );
   }
 
+  const deepRows = parseLogBlock(logAfter, "hub-badge-deep-breakdown").slice(-5);
+  if (deepRows.length) {
+    console.log("\n=== [hub-badge-deep-breakdown] latest (up to 5) ===\n");
+    console.table(
+      deepRows.map((d) => ({
+        path: d.path,
+        total_ms: d.total_ms,
+        db_fetch_ms: d.db_fetch_ms,
+        deserialize_ms: d.snapshot_deserialize_ms,
+        aggregate_ms: d.aggregate_compute_ms,
+        payload_ms: d.payload_build_ms,
+        serialize_ms: d.json_serialize_ms,
+        transport_ms: d.transport_ms,
+        row_bytes: d.query_row_bytes,
+        response_bytes: d.response_bytes,
+        cm_rooms: d.cm_unread_room_count,
+      }))
+    );
+  } else {
+    console.warn("\n[warn] [hub-badge-deep-breakdown] 미검출 — dev 재시작 후 hub badge 1회 호출");
+  }
+
   const run2 = table[1];
   const run3 = table[2];
   const run2ok =
