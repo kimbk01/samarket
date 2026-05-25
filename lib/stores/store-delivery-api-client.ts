@@ -3,6 +3,13 @@
  * 컴포넌트에 `fetch("/api/stores/...")` 를 흩뿌리지 않고 한곳에서 유지한다.
  */
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  beginMenusColdFillClientSession,
+  markMenusColdFillClientCacheHit,
+  markMenusColdFillFetchHeaders,
+  markMenusColdFillJsonParsed,
+  markMenusColdFillResponseDownload,
+} from "@/lib/stores/menus-cold-fill-deep-breakdown";
 
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
 const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
@@ -222,20 +229,38 @@ export async function fetchStoreSummaryDeduped(slug: string): Promise<StoreApiJs
 }
 
 /** GET /api/stores/:slug/menus — 메뉴 목록 (options_json 제외) */
-export async function fetchStoreMenusDeduped(slug: string): Promise<StoreApiJsonResponse> {
+export async function fetchStoreMenusDeduped(
+  slug: string,
+  opts?: { fetchPath?: string }
+): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);
+  const fetchPath = opts?.fetchPath ?? "fetchStoreMenusDeduped";
   if (!s) return { status: 400, json: { ok: false } };
   const cached = storeMenusPublicCache.get(s);
   if (cached && cached.expiresAt > Date.now()) {
+    beginMenusColdFillClientSession(s, fetchPath);
+    markMenusColdFillClientCacheHit(s, fetchPath);
     return { status: cached.value.status, json: cached.value.json };
   }
   return runSingleFlight(`stores:api:menus:${s}`, async () => {
     const inFlightCached = storeMenusPublicCache.get(s);
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      beginMenusColdFillClientSession(s, fetchPath);
+      markMenusColdFillClientCacheHit(s, fetchPath);
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
+    beginMenusColdFillClientSession(s, fetchPath);
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/menus`, { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
+    markMenusColdFillFetchHeaders(s);
+    const text = await res.text();
+    markMenusColdFillResponseDownload(s, text.length);
+    let json: unknown = {};
+    try {
+      json = text ? JSON.parse(text) : {};
+    } catch {
+      json = {};
+    }
+    markMenusColdFillJsonParsed(s);
     const value = { status: res.status, json };
     if (res.ok) {
       storeMenusPublicCache.set(s, { expiresAt: Date.now() + STORE_MENUS_PUBLIC_CACHE_TTL_MS, value });

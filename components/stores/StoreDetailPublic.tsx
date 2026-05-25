@@ -132,6 +132,13 @@ import {
   deliveryMenuVisibleMarkNormalizeComplete,
   deliveryMenuVisibleBeginNavSession,
 } from "@/lib/dibay/delivery-menu-visible-trace";
+import {
+  markMenusColdFillApplyEnd,
+  markMenusColdFillApplyStart,
+  markMenusColdFillFirstVisible,
+  markMenusColdFillHydrationCommit,
+  markMenusColdFillSuspenseRelease,
+} from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import { normalizeStoreMenusForClient } from "@/lib/dibay/store-menus-client-normalize";
 import {
   buildStoreDetailClientInitialState,
@@ -304,6 +311,7 @@ export function StoreDetailPublic({
     detailPhase2MountT0Ref.current = performance.now();
     phase2FirstProductsLoggedRef.current = false;
     phase2MenuSectionsLoggedRef.current = false;
+    markMenusColdFillHydrationCommit(decodedSlug, detailPhase2MountT0Ref.current);
     dibayDeliveryDetailPhase2Log("component_mount", {
       slug: decodedSlug,
       hydration_blocked: false,
@@ -422,6 +430,7 @@ export function StoreDetailPublic({
       if (menuMarkedStoreIdRef.current === slugKey) return;
       menuMarkedStoreIdRef.current = slugKey;
       deliveryMenuVisibleMarkFirstVisible(slugKey, source);
+      markMenusColdFillFirstVisible(slugKey);
       const sid = storeRef.current?.id;
       const storeId = sid && !isStoreDetailListSeedId(sid) ? sid : slugKey;
       dibayPerfOnStoreMenuVisible({ slug: slugKey, storeId });
@@ -591,6 +600,7 @@ export function StoreDetailPublic({
 
   const applyMenusPayloadCore = useCallback(
     (menuParsed: StoreMenusPayload) => {
+      markMenusColdFillApplyStart(decodedSlug);
       const gen = (menuNormalizeGenerationRef.current += 1);
       const result = normalizeStoreMenusForClient(menuParsed, decodedSlug);
 
@@ -639,6 +649,7 @@ export function StoreDetailPublic({
         setProducts((prev) => (isSameProductCards(prev, full.products) ? prev : full.products));
       });
 
+      markMenusColdFillApplyEnd(decodedSlug);
       return result.viewport.products;
     },
     [decodedSlug]
@@ -687,6 +698,7 @@ export function StoreDetailPublic({
       deliveryMenuVisibleMarkMenuDataReady(startedSlugDecode);
       applyMenusPayloadCore(menuParsed);
       setMenusLoading(false);
+      markMenusColdFillSuspenseRelease(startedSlugDecode);
       return true;
     },
     [applyMenusPayloadCore]
@@ -750,7 +762,7 @@ export function StoreDetailPublic({
       step: "menus_fetch_scheduled_before_loading_flags",
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
-    const menusPromise = fetchStoreMenusDeduped(slug);
+    const menusPromise = fetchStoreMenusDeduped(slug, { fetchPath: "loadSplitDetail" });
 
     const instantPeek = peekStoreDetailInstantHydrate(startedSlugDecode);
     const hasInstantPaint =
@@ -932,7 +944,7 @@ export function StoreDetailPublic({
       step: "menus_fetch_scheduled_first",
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
-    const menusPromise = fetchStoreMenusDeduped(slug);
+    const menusPromise = fetchStoreMenusDeduped(slug, { fetchPath: "loadSplitDetail" });
     const banPromise = fetchStoreBannersDeduped(slug);
     const notPromise = fetchStoreNoticesDeduped(slug);
 

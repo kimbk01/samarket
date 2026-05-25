@@ -20,6 +20,11 @@ import {
   type StoreMenusSnapshotBreakdown,
 } from "@/lib/stores/store-menus-regression-guard";
 import {
+  countMenusCatalogStats,
+  setLastMenusColdFillServerPartial,
+  type MenusColdFillSnapshotVia,
+} from "@/lib/stores/menus-cold-fill-deep-breakdown";
+import {
   logMenusHotpathAnalysis,
   logStoreMenusSnapshotRpcDesignOnce,
 } from "@/lib/stores/store-menus-hotpath-analysis";
@@ -193,12 +198,34 @@ export async function tryLoadStoreMenusCatalogFromSnapshot(
       payload: StoreMenusSnapshotPayloadJson,
       readMs: number,
       via: SnapshotReadVia,
-      stale?: boolean
+      stale?: boolean,
+      timing?: {
+        counterLookupMs: number;
+        counterUpsertMs?: number;
+        rpcMs?: number;
+      }
     ): StoreMenusSnapshotCatalogResult | null => {
       const sort0 = devPerfNow();
       const body = parseStoreMenusSnapshotPayload(payload);
       const sortMs = devPerfNow() - sort0;
       if (!body) return null;
+      const counts = countMenusCatalogStats(body);
+      const snapshotVia: MenusColdFillSnapshotVia =
+        via === "counter_row" ? "counter_row" : "unified_rpc";
+      setLastMenusColdFillServerPartial({
+        rpc_ms: Math.round(timing?.rpcMs ?? (via === "unified_rpc" ? readMs : 0)),
+        cache_lookup_ms: Math.round(timing?.counterLookupMs ?? 0),
+        payload_build_ms: Math.round(sortMs),
+        menu_count: counts.menu_count,
+        option_count: counts.option_count,
+        image_url_count: counts.image_url_count,
+        snapshot_via: snapshotVia,
+        worst_stage: via === "counter_row" ? "store_menus_snapshot_row" : "store_menus_unified_rpc",
+        cache_hit: via === "counter_row" ? 1 : 0,
+        ...(timing?.counterUpsertMs != null
+          ? { counter_upsert_ms: Math.round(timing.counterUpsertMs) }
+          : {}),
+      });
       const breakdown = buildBreakdown({
         slug,
         totalMs: devPerfNow() - build0,
@@ -224,23 +251,33 @@ export async function tryLoadStoreMenusCatalogFromSnapshot(
 
     const read0 = devPerfNow();
     const counter = await readSnapshotCounter(sbAny, slug, viewerUserId, menuVersion);
-    const readMs = devPerfNow() - read0;
+    const counterLookupMs = devPerfNow() - read0;
 
     if (counter.hit && !counter.stale) {
-      const done = finish(counter.row.payload_json, readMs, "counter_row");
+      const done = finish(counter.row.payload_json, counterLookupMs, "counter_row", false, {
+        counterLookupMs,
+      });
       if (done) return done;
     }
     if (counter.hit && counter.stale) {
       scheduleStoreMenusSnapshotRefresh(slug, viewerUserId);
-      const done = finish(counter.row.payload_json, readMs, "counter_row", true);
+      const done = finish(counter.row.payload_json, counterLookupMs, "counter_row", true, {
+        counterLookupMs,
+      });
       if (done) return done;
     }
 
     const { payload, rpcMs } = await fetchSnapshotViaRpc(sbAny, slug, viewerUserId, menuVersion);
     if (!payload?.store) return null;
 
+    const upsert0 = devPerfNow();
     await upsertSnapshotCounter(sbAny, slug, viewerUserId, menuVersion, payload);
-    return finish(payload, rpcMs || devPerfNow() - read0, "unified_rpc");
+    const counterUpsertMs = devPerfNow() - upsert0;
+    return finish(payload, rpcMs || devPerfNow() - read0, "unified_rpc", false, {
+      counterLookupMs,
+      counterUpsertMs,
+      rpcMs,
+    });
   });
 }
 

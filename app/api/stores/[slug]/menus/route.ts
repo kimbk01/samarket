@@ -6,6 +6,7 @@ import {
   logDeliveryMenusApiBreakdown,
 } from "@/lib/stores/delivery-menus-api-breakdown";
 import { fetchStoreMenusCatalog, type StoreMenusCatalogBody } from "@/lib/stores/fetch-store-menus-catalog";
+import { logMenusColdFillDeepBreakdownRoute } from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import { storePublicApiPerfHeaders } from "@/lib/stores/store-public-api-perf-headers";
 import {
   readStoreMenusPublicServerCache,
@@ -64,7 +65,9 @@ export async function GET(
     });
 
   if (!effectiveCacheBypass) {
+    const cacheLookup0 = performance.now();
     const cached = readStoreMenusPublicServerCache(decoded);
+    const cacheLookupMs = Math.round(performance.now() - cacheLookup0);
     if (cached) {
       const bodyText = JSON.stringify(cached.body);
       logDeliveryMenusApiBreakdown(
@@ -78,6 +81,17 @@ export async function GET(
           cacheHit: true,
         })
       );
+      logMenusColdFillDeepBreakdownRoute({
+        handlerT0: startedAt,
+        auth_ms: 0,
+        cache_lookup_ms: cacheLookupMs,
+        payload_build_ms: 0,
+        cache_hit: true,
+        slug: decoded,
+        body: cached.body as StoreMenusCatalogBody,
+        snapshotVia: "route_memory_hit",
+        worst_stage: "route_memory_hit",
+      });
       return NextResponse.json(cached.body, {
         status: responseStatusForMenusBody(cached.body as StoreMenusCatalogBody),
         headers: {
@@ -103,8 +117,21 @@ export async function GET(
 
     const payload = await runStoreMenusPublicServerSingleFlight(decoded, async () => {
       if (!effectiveCacheBypass) {
+        const cacheLookup0 = performance.now();
         const memHit = readStoreMenusPublicServerCache(decoded);
+        const cacheLookupMs = Math.round(performance.now() - cacheLookup0);
         if (memHit) {
+          logMenusColdFillDeepBreakdownRoute({
+            handlerT0: startedAt,
+            auth_ms: 0,
+            cache_lookup_ms: cacheLookupMs,
+            payload_build_ms: 0,
+            cache_hit: true,
+            slug: decoded,
+            body: memHit.body as StoreMenusCatalogBody,
+            snapshotVia: "route_memory_hit",
+            worst_stage: "route_memory_hit",
+          });
           return { body: memHit.body, status: responseStatusForMenusBody(memHit.body as StoreMenusCatalogBody) };
         }
       }
@@ -124,18 +151,30 @@ export async function GET(
         writeStoreMenusPublicServerCache(decoded, result.body, result.snapshotVia);
       }
       result.marks.payloadDone = performance.now();
+      const payloadBuildMs = Math.round(performance.now() - payloadStart);
       const bodyText = JSON.stringify(result.body);
       logDeliveryMenusApiBreakdown(
         buildDeliveryMenusApiBreakdown({
           slug: decoded,
           startedAt,
           marks: result.marks,
-          payloadBuildMs: performance.now() - payloadStart,
+          payloadBuildMs,
           responseSizeBytes: new TextEncoder().encode(bodyText).length,
           queryCount: result.queryCount,
           cacheHit: false,
         })
       );
+      logMenusColdFillDeepBreakdownRoute({
+        handlerT0: startedAt,
+        auth_ms: Math.round((result.marks.authDone ?? startedAt) - startedAt),
+        cache_lookup_ms: 0,
+        payload_build_ms: payloadBuildMs,
+        cache_hit: false,
+        slug: decoded,
+        body: result.body,
+        snapshotVia: result.snapshotVia ?? "unknown",
+        worst_stage: result.snapshotVia === "counter_row" ? "store_menus_snapshot_row" : "store_menus_unified_rpc",
+      });
 
       return { body: result.body, status: 200 };
     });

@@ -6,6 +6,7 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { scrollStoreMenuProductIntoView } from "@/lib/dibay/store-menu-product-focus";
 import { findMenuSectionIndexForProduct } from "@/lib/stores/group-store-products-by-menu";
 import { deliveryMenuVisibleMarkFirstSectionReady } from "@/lib/dibay/delivery-menu-visible-trace";
+import { markMenusColdFillFirstInteractable } from "@/lib/stores/menus-cold-fill-deep-breakdown";
 import type { StoreMenuBoardListHandle } from "@/components/stores/detail/StoreMenuBoardList";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { CategoryStickyTabs } from "@/components/stores/detail/CategoryStickyTabs";
@@ -86,6 +87,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   });
   const firstSectionReadyRef = useRef(false);
   const firstVisibleRef = useRef(false);
+  const firstInteractableRef = useRef(false);
   const focusHandledRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -152,6 +154,19 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   ]);
 
   useMenuSubtreeCartStabilityGuard(commerceCartStoreId);
+
+  useLayoutEffect(() => {
+    if (
+      firstInteractableRef.current ||
+      menusLoading ||
+      !canInteract ||
+      menuSectionsFiltered.length === 0
+    ) {
+      return;
+    }
+    firstInteractableRef.current = true;
+    markMenusColdFillFirstInteractable(storeSlug);
+  }, [menusLoading, canInteract, menuSectionsFiltered.length, storeSlug]);
 
   useLayoutEffect(() => {
     const sheetProductId = useStoreProductSheetUIStore.getState().productId;
