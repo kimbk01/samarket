@@ -2,7 +2,7 @@
 
 > **Track:** OPS1 (DIBAY prod sign-off & operating stability hardening)  
 > **Last updated:** 2026-05-25  
-> **OPS1 상태 고정** — OPS1-A **■ 종료** · OPS1-B **▲ HOLD** · OPS1 최종 **▲ 미완료**
+> **OPS1 상태 고정** — OPS1-A **■ 종료** · OPS1-B **■ PASS** · OPS1 최종 **■ PASS** (2026-05-25 prod)
 
 ---
 
@@ -19,17 +19,15 @@
 
 **재개 금지:** 관측·audit·runner·probe 제거.
 
-### OPS1-B: ▲ HOLD (2026-05-25 prod deploy synced)
+### OPS1-B: ■ PASS (2026-05-25 prod `da864bdf`)
 
-- **Prod deploy:** `db135d59` on `samarket.vercel.app` — Vercel **Ready** (bom1), same_region **true**
-- **Prior blocker resolved:** `b5aab481` Vercel build **Error** (client bundle pulled `stores-browse-snapshot` chain) — fixed in `db135d59` via `store-public-cache-invalidate-server.ts`
-- **PDS1 prod header probe:** **6/9** PASS (`rpc_removed=1`, `query_wave_2_ms=0`, `fallback_used=0`) on: store-menus, owner-notifications, chat-rooms, stores-browse, cm-bootstrap (lite + full)
-- **PDS1 misses (3/9):** hub-badge · home-sync (no snapshot HTTP headers on route — signoff relies on local server logs) · order-counts (403 or cache-hit without snapshot headers)
-- **Linked Supabase RPC:** **13/13** deployed
-- **Triple signoff:** `0/3` PASS on prod (`npm run ops1:triple-signoff` 2026-05-25) — hub/home-sync `rpc_removed=0` without log enrichment; warm TTL runs on menus/RB1 miss headers
-- **LFC1 hard delete:** blocked — `npm run lfc1:harddelete-loop` exits 1 until `gate_met: true`
+- **Deploy:** `da864bdf` — warm TTL snapshot headers (RB1/SM1) + prod owner store resolve (`qqqq` → `076bffda…`)
+- **PDS1 prod header probe:** **10/10** PASS · **0** auth-blocked
+- **Triple signoff:** **3/3 PASS** (`gate_met: true`)
+- **Reconnect stress:** PASS (`legacy_fallback_used=0`)
+- **LFC1 hard delete:** OPS1-B gate met — per-route Phase A still required before delete
 
-### OPS1 최종: ▲ 미완료
+### OPS1 최종: ■ PASS (prod same-region + reconnect)
 
 ### 재개 조건
 
