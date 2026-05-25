@@ -1,6 +1,6 @@
 # Legacy Fallback Cleanup Report (LFC1)
 
-| **Last updated:** 2026-05-25 (prod deploy `db135d59` — OPS1-B still HOLD) |
+| **Last updated:** 2026-05-25 (OPS1-B **3/3 PASS** — LFC1 delete gate open, hard delete not run) |
 > **Phase:** Step 1–2 complete (global audit + soft-disable gate). Hard delete **blocked** on OPS1-B.
 
 ## Summary
@@ -20,7 +20,7 @@
 |--------|-----------------|----------------------|-------------------|---------|
 | `127.0.0.1:3000` (local_linked) | **false** | false | 8/20 | DSA1 legacy cold · RB1 warm TTL header miss · hub badge rpc_removed header |
 | `dibay.vercel.app` | **false** | false | 0/17 | 404 / not prod target |
-| `samarket.vercel.app` (`db135d59`) | **false** | false | 5–6/20 | hub-badge + home-sync: no prod snapshot headers · DSA1/RB1/SM1 warm runs header miss · triple signoff **0/3** |
+| `samarket.vercel.app` (`da864bdf`) | **true** | gate_met | **20/20** | **OPS1-B 3/3 PASS** · reconnect stress PASS · PDS1 **10/10** headers |
 
 **Hard delete:** **0 routes** — `lfc1:harddelete-loop` correctly **BLOCKED** (`ops1b_signoff_insufficient`).
 
@@ -33,12 +33,14 @@
 
 ### Required before Phase A hard delete
 
-1. ~~Deploy app + Supabase migrations to prod (all snapshot RPCs)~~ **Done** — app `db135d59`, RPC **13/13**
-2. Wire prod observability headers on hub-badge + home-sync (or extend signoff to read response metadata without local logs)
-3. DSA1: emit snapshot headers on cache-hit path; resolve prod ownership probe 403 for PDS1
-4. `SAMARKET_BASE_URL=https://samarket.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run ops1:triple-signoff` → **3/3 PASS**
+1. ~~Deploy app + Supabase migrations to prod (all snapshot RPCs)~~ **Done**
+2. ~~Wire prod observability headers (hub/home-sync/DSA1/RB1/SM1 warm TTL)~~ **Done** (`633977b8` + `da864bdf`)
+3. ~~`npm run ops1:triple-signoff` prod 3/3 PASS~~ **Done** (2026-05-25)
+4. ~~Reconnect stress PASS~~ **Done**
 5. `SAMARKET_LFC1_SNAPSHOT_ONLY=1` on staging/preview → verify RPC/E2E per route
 6. Per-route manual delete (Phase A: SM1 → SB1) with `[fallback-cleanup-verification]`
+
+**Prod signoff store (linked DB):** `qqqq@manual.local` owner store `076bffda-3048-4bfb-80ae-985a69105f4a` (slug `맛업는식당-8db1803b`) — resolved via `scripts/lib/ops1-prod-store-resolve.mjs`.
 
 ## Route cleanup status
 

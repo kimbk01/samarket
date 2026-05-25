@@ -1,25 +1,25 @@
 {
-  "updated_at": "2026-05-25",
+  "updated_at": "2026-05-25T05:45:18.886Z",
   "base_url": "https://samarket.vercel.app",
-  "deployment_commit_on_prod": "714efbf7955e5e65b75eaab9a525232813dcdcfc",
-  "local_git_dirty": true,
-  "untracked_snapshot_files": 123,
-  "modified_api_routes": 19,
-  "rpc_linked_supabase": "13/13 PASS (after manual migration apply 20260525180000–26240000)",
-  "prod_snapshot_headers": "0/9 FAIL (old Vercel build — no snapshot route code)",
-  "ops1_triple_signoff": "0/3 — not run (blocked on Vercel deploy)",
-  "reconnect_stress": "not run",
-  "lfc1_hard_delete_gate": false,
-  "blockers": [
-    "git: snapshot-first code not committed/pushed to origin/main",
-    "vercel: prod serves commit 714efbf7 without snapshot headers",
-    "order-counts prod probe: 403 for test user (ownership — use OPS1_STORE_ID owner account)"
+  "runs_requested": 3,
+  "pass_count": 3,
+  "results": [
+    {
+      "run": 1,
+      "pass": true,
+      "exit_code": 0
+    },
+    {
+      "run": 2,
+      "pass": true,
+      "exit_code": 0
+    },
+    {
+      "run": 3,
+      "pass": true,
+      "exit_code": 0
+    }
   ],
-  "next_steps": [
-    "git add + commit + push all snapshot work",
-    "Vercel prod redeploy from new commit",
-    "npm run verify:pds1-prod-deploy-sync (expect prod_header_pass > 0)",
-    "SAMARKET_BASE_URL=https://samarket.vercel.app npm run ops1:triple-signoff",
-    "PLAYWRIGHT_BASE_URL=... npm run ops1:reconnect-stress"
-  ]
+  "prod_same_region_required": true,
+  "gate_met": true
 }

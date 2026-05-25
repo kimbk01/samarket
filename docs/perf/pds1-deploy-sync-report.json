@@ -1,10 +1,10 @@
 {
-  "at": "2026-05-25T04:52:42.835Z",
+  "at": "2026-05-25T05:45:36.803Z",
   "git": {
-    "head": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
-    "origin": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
-    "untracked_snapshot_files": 123,
-    "modified_api_routes": 19,
+    "head": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
+    "origin": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
+    "untracked_snapshot_files": 0,
+    "modified_api_routes": 0,
     "dirty": true
   },
   "migrationFiles": [
@@ -78,79 +78,79 @@
     {
       "rpc": "get_owner_hub_badge_snapshot",
       "deployed": 1,
-      "ms": 282,
+      "ms": 310,
       "error": null
     },
     {
       "rpc": "get_community_messenger_home_sync_snapshot",
       "deployed": 1,
-      "ms": 131,
+      "ms": 151,
       "error": null
     },
     {
       "rpc": "get_community_messenger_room_bootstrap_snapshot",
       "deployed": 1,
-      "ms": 135,
+      "ms": 138,
       "error": null
     },
     {
       "rpc": "get_store_menus_snapshot",
       "deployed": 1,
-      "ms": 258,
+      "ms": 232,
       "error": null
     },
     {
       "rpc": "get_owner_dashboard_notifications_snapshot",
       "deployed": 1,
-      "ms": 128,
+      "ms": 138,
       "error": null
     },
     {
       "rpc": "get_delivery_summary_snapshot",
       "deployed": 1,
-      "ms": 129,
+      "ms": 137,
       "error": null
     },
     {
       "rpc": "get_owner_store_orders_list_snapshot",
       "deployed": 1,
-      "ms": 140,
+      "ms": 153,
       "error": null
     },
     {
       "rpc": "get_cm_bootstrap_critical_snapshot",
       "deployed": 1,
-      "ms": 140,
+      "ms": 143,
       "error": null
     },
     {
       "rpc": "get_chat_rooms_snapshot",
       "deployed": 1,
-      "ms": 138,
+      "ms": 153,
       "error": null
     },
     {
       "rpc": "get_store_order_detail_snapshot",
       "deployed": 1,
-      "ms": 132,
+      "ms": 152,
       "error": null
     },
     {
       "rpc": "get_buyer_store_orders_list_snapshot",
       "deployed": 1,
-      "ms": 205,
+      "ms": 137,
       "error": null
     },
     {
       "rpc": "get_stores_browse_snapshot",
       "deployed": 1,
-      "ms": 133,
+      "ms": 137,
       "error": null
     },
     {
       "rpc": "get_cm_bootstrap_full_snapshot",
       "deployed": 1,
-      "ms": 144,
+      "ms": 168,
       "error": null
     }
   ],
@@ -158,102 +158,123 @@
     {
       "route": "/api/me/store-owner-hub-badge",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "snapshot_row",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/community-messenger/home-sync",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
+      "snapshotPath": true,
+      "via": "route_memory_ttl",
       "query_wave_2_ms": 0,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
+    },
+    {
+      "route": "/api/community-messenger/rooms/[roomId]/bootstrap",
+      "status": 200,
+      "snapshotPath": true,
+      "via": "snapshot_row",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/stores/[slug]/menus",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "snapshot_row",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/me/notifications",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "counter_row",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/me/stores/[storeId]/order-counts",
-      "status": 403,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "status": 200,
+      "snapshotPath": true,
+      "via": "unified_rpc",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/chat/rooms",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "counter_row",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/stores/browse",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "counter_row",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/community-messenger/bootstrap?lite=1",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "unified_rpc",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     },
     {
       "route": "/api/community-messenger/bootstrap",
       "status": 200,
-      "snapshotPath": false,
-      "via": "",
-      "query_wave_2_ms": null,
-      "rpc_removed": 0,
-      "pass": 0,
-      "fallback_used": 1
+      "snapshotPath": true,
+      "via": "unified_rpc",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 1,
+      "pass": 1,
+      "auth_blocked": 0,
+      "fallback_used": 0
     }
   ],
   "summary": {
     "base_url": "https://samarket.vercel.app",
-    "git_head": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
-    "git_origin_main": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
+    "git_head": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
+    "git_origin_main": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
     "code_committed_and_pushed": 0,
     "code_sync_blocker": "uncommitted_snapshot_code_and_routes",
     "rpc_deployed": "13/13",
-    "prod_header_pass": "0/9",
+    "prod_header_pass": "10/10",
+    "prod_header_auth_blocked": 0,
     "ops1b_gate_met": 0,
     "lfc1_hard_delete_allowed": 0,
     "next_steps": [
