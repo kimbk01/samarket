@@ -687,17 +687,23 @@ export async function GET(request: NextRequest) {
     }
 
     if (!data) {
+      if (lite && !bootstrapDiag) {
+        return NextResponse.json(
+          { ok: false, error: "snapshot_unavailable" },
+          { status: 503, headers: { "content-type": "application/json; charset=utf-8" } }
+        );
+      }
       const existingInflight = bootstrapDiag ? null : communityMessengerBootstrapInflight.get(inflightKey);
       if (existingInflight) {
         data = await existingInflight;
       } else {
         const loadPromise = lite
-          ? import("@/lib/community-messenger/fetch-cm-bootstrap-legacy").then(({ buildCmBootstrapLiteLegacy }) =>
-              buildCmBootstrapLiteLegacy(auth.userId, {
-                diagnostics,
-                bypassLiteRoomsCache: fresh,
-              })
-            )
+          ? getCommunityMessengerBootstrap(auth.userId, {
+              skipDiscoverable: true,
+              deferCallLog: true,
+              diagnostics,
+              bypassLiteRoomsCache: fresh,
+            })
           : import("@/lib/community-messenger/fetch-full-bootstrap-legacy").then(({ buildFullBootstrapLegacy }) =>
               buildFullBootstrapLegacy(auth.userId, {
                 diagnostics,

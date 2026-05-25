@@ -185,7 +185,7 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     track: "CMB1",
     route: "/api/community-messenger/bootstrap?lite=1",
     fallback_branch: "legacy_bootstrap_monolith",
-    legacy_module: "lib/community-messenger/fetch-cm-bootstrap-legacy.ts",
+    legacy_module: "app/api/community-messenger/bootstrap/route.ts",
     legacy_builder: "buildCmBootstrapLiteLegacy",
     rpc_name: "get_cm_bootstrap_critical_snapshot",
     snapshot_table: "community_messenger_bootstrap_snapshots",
@@ -193,6 +193,7 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     verify_e2e_script: "verify:cm-bootstrap-snapshot-e2e",
     reconnect_related: 1,
     structural_pass: 1,
+    hard_deleted: 1,
   },
   {
     track: "FBT1",

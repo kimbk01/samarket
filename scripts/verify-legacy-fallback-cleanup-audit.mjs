@@ -54,7 +54,6 @@ for (const t of tracks) {
 const legacyModules = [
   "lib/chats/build-owner-hub-badge-payload.ts",
   "lib/community-messenger/service.ts",
-  "lib/community-messenger/fetch-cm-bootstrap-legacy.ts",
   "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
 ];
 
@@ -103,6 +102,11 @@ const hardDeletedModules = [
     module: "app/api/chat/rooms/route.ts",
     track: "CR1",
     needle: "tryLoadChatRoomsFromSnapshot",
+  },
+  {
+    module: "app/api/community-messenger/bootstrap/route.ts",
+    track: "CMB1",
+    needle: "tryLoadCmBootstrapLiteFromSnapshot",
   },
 ];
 
@@ -173,6 +177,12 @@ for (const { module: mod, track, needle } of hardDeletedModules) {
   }
   if (text.includes("buildChatRoomsListLegacy")) {
     fails.push(`${mod} (${track}) still imports legacy chat rooms list builder`);
+  }
+  if (text.includes("cm-bootstrap-snapshot-fallback")) {
+    fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
+  if (text.includes("buildCmBootstrapLiteLegacy")) {
+    fails.push(`${mod} (${track}) still imports legacy CM bootstrap lite builder`);
   }
 }
 
