@@ -40,7 +40,7 @@ function shouldPlaySoundForNotificationInsert(payload: unknown): boolean {
  * 앱당 채널 1개(`notifications-rt:${userId}`) — 복수 구독 시 Realtime·워커 부하만 증가.
  */
 export function useSupabaseNotificationsRealtime(
-  onChange: () => void,
+  onChange: (ctx: { eventType: string }) => void,
   options?: SupabaseNotificationsRealtimeOptions
 ) {
   const onChangeRef = useRef(onChange);
@@ -87,6 +87,7 @@ export function useSupabaseNotificationsRealtime(
           (payload) => {
             markRealtimeSignal();
             const ev = payload as { eventType?: string; new?: Record<string, unknown> };
+            const eventType = typeof ev.eventType === "string" ? ev.eventType : "UNKNOWN";
             if (ev.new && typeof ev.new === "object") {
               upsertIncomingFriendRequestPopupFromNotificationInsertRow(ev.new as Record<string, unknown>);
             }
@@ -96,11 +97,11 @@ export function useSupabaseNotificationsRealtime(
               if (onInsertSound) {
                 const r = onInsertSound(row);
                 if (r === false) {
-                  onChangeRef.current();
+                  onChangeRef.current({ eventType });
                   return;
                 }
                 if (r === true) {
-                  onChangeRef.current();
+                  onChangeRef.current({ eventType });
                   return;
                 }
               }
@@ -135,7 +136,7 @@ export function useSupabaseNotificationsRealtime(
                 }
               }
             }
-            onChangeRef.current();
+            onChangeRef.current({ eventType });
           }
           ),
       });

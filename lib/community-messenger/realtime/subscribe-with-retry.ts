@@ -29,6 +29,7 @@ import {
   markCmRtSubscribeWithRetryModuleEval,
   registerCmRtLoopActiveCountLookup,
 } from "@/lib/community-messenger/realtime/cm-rt-loop-diagnosis";
+import { logRtReconnectTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import {
   emitCmRtWindowSummaryNow,
   recordCmRtWindowHomePhysicalCreate,
@@ -442,6 +443,12 @@ export function subscribeWithRetry(args: {
       reason: "remove+recreate_channel",
       expectedInternalClosed,
     });
+    logRtReconnectTrace({
+      roomId: args.logStreamRoomId ?? null,
+      channelName: args.name,
+      reconnectReason: "remove+recreate_channel",
+      attempt,
+    });
     try {
       void args.sb.removeChannel(channel);
     } catch {
@@ -472,6 +479,12 @@ export function subscribeWithRetry(args: {
       attempt,
       waitMs: wait,
       expectedInternalClosed,
+    });
+    logRtReconnectTrace({
+      roomId: args.logStreamRoomId ?? null,
+      channelName: args.name,
+      reconnectReason: `schedule_retry:${status}`,
+      attempt,
     });
     args.onAfterSubscribeFailure?.(status, attempt);
     timer = setTimeout(() => resubscribe(), wait);

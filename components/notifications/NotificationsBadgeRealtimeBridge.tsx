@@ -1,10 +1,16 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
+import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
+
+/** Realtime UPDATE burst — unread 배지 CustomEvent trailing 1회 */
+const NOTIFICATIONS_RT_BADGE_COALESCE_MS = 1_200;
+/** owner hub — INSERT(신규 알림)만, 5s 갭과 정렬 */
+const NOTIFICATIONS_RT_HUB_DEDUPE_MS = 5_000;
 
 /**
  * `notifications` 테이블 Realtime 을 앱당 1회만 구독하고, 배지 스토어가 듣는
@@ -12,19 +18,33 @@ import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
  * INSERT 시 인앱 알림음은 동일 채널에서 처리(별도 Realtime 구독 없음).
  */
 export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?: boolean }) {
-  const bump = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
-    }
+  const coalescedBadgeBumpRef = useRef<ReturnType<typeof createTrailingCoalescedCallback> | null>(null);
+
+  useEffect(() => {
+    coalescedBadgeBumpRef.current = createTrailingCoalescedCallback(() => {
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+      }
+    }, NOTIFICATIONS_RT_BADGE_COALESCE_MS);
+    return () => {
+      coalescedBadgeBumpRef.current?.cancel();
+      coalescedBadgeBumpRef.current = null;
+    };
+  }, []);
+
+  const bump = useCallback(({ eventType }: { eventType: string }) => {
+    coalescedBadgeBumpRef.current?.schedule();
     /**
-     * 거래 채팅/주문/문의 알림 INSERT가 들어와도 owner hub 배지 스토어가
-     * 알림 이벤트를 직접 듣지 않으면 폴링 전까지 탭 숫자가 늦어질 수 있다.
-     * 알림 브리지에서 허브 리프레시 이벤트를 함께 보낸다.
+     * 거래/주문/문의 **신규** 알림 INSERT만 owner hub 배지 갱신.
+     * UPDATE burst(읽음 일괄)는 unread 스토어 coalesce 로 충분 — hub cmFresh 연쇄 방지.
      */
-    dispatchOwnerHubBadgeRefresh({
-      source: "notifications-realtime",
-      key: "notifications-updated",
-    });
+    if (eventType === "INSERT") {
+      dispatchOwnerHubBadgeRefresh({
+        source: "notifications-realtime",
+        key: "notifications-insert",
+        dedupeMs: NOTIFICATIONS_RT_HUB_DEDUPE_MS,
+      });
+    }
   }, []);
 
   const onInsertSound = useCallback((row: Record<string, unknown>) => routeNotificationInsertSound(row), []);

@@ -16,6 +16,7 @@ import {
   resolveBottomNavStoresTabBadgeForOwnerStore,
 } from "@/lib/stores/owner-store-badge-display-policy";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { bumpRerenderTrace } from "@/lib/dibay/network-fetch-storm-trace";
 
 export type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 
@@ -81,6 +82,7 @@ export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
     const lb = lastBumpRef.current;
     if (lb && lb.icon === icon && lb.n === raw) return;
     bumpMessengerRenderPerf("messenger_badge_compute");
+    bumpRerenderTrace("useOwnerHubBadgeTabUnreadCount", [icon, String(raw)]);
     lastBumpRef.current = { icon, n: raw };
   }, [icon, raw]);
   return raw;

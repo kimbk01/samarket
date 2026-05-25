@@ -9,6 +9,11 @@ import {
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
+import { logFetchTrace, logPollingTrace } from "@/lib/dibay/network-fetch-storm-trace";
+import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
+
+/** Realtime UPDATE burst(읽음 일괄 등) — trailing 1회만 unread fetch */
+const NOTIFICATION_EVENT_FETCH_COALESCE_MS = 1_200;
 
 function createNotificationUnreadBadgeStore(fetchUrl: string) {
   let snap: number | null = null;
@@ -25,7 +30,11 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   let unauthorizedPaused = false;
   let lastFetchStartedAt = 0;
 
-  const onNotifUpdated = () => void doFetch(false);
+  const coalescedEventFetch = createTrailingCoalescedCallback(
+    () => void doFetch(false),
+    NOTIFICATION_EVENT_FETCH_COALESCE_MS
+  );
+  const onNotifUpdated = () => coalescedEventFetch.schedule();
 
   const onVisibility = () => {
     if (typeof document === "undefined") return;
@@ -83,6 +92,11 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
         dedupe_hit: false,
         interval_id: pollInterval,
       });
+      logFetchTrace({
+        api: fetchUrl,
+        component: "notification-unread-badge-store",
+        reason: force ? "fetch_force" : "fetch",
+      });
       try {
         const res = await fetch(fetchUrl, { credentials: "include" });
         if (res.status === 401) {
@@ -114,13 +128,28 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     if (isDevSafeMode()) return;
     if (pollInterval != null) return;
     if (unauthorizedPaused) return;
+    const createdAt = Date.now();
     pollInterval = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void doFetch();
     }, NOTIFICATION_SYNC_POLL_MS);
+    logPollingTrace({
+      api: fetchUrl,
+      intervalMs: NOTIFICATION_SYNC_POLL_MS,
+      createdAt,
+      cleanup: false,
+      caller: "notification-unread-badge-store",
+    });
   }
 
   function disarmPoll() {
     if (pollInterval != null) {
+      logPollingTrace({
+        api: fetchUrl,
+        intervalMs: NOTIFICATION_SYNC_POLL_MS,
+        createdAt: Date.now(),
+        cleanup: true,
+        caller: "notification-unread-badge-store",
+      });
       clearInterval(pollInterval);
       pollInterval = null;
     }
@@ -139,6 +168,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   function disarmListeners() {
     if (!listenersArmed) return;
     listenersArmed = false;
+    coalescedEventFetch.cancel();
     window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
     document.removeEventListener("visibilitychange", onVisibility);
     disarmPoll();

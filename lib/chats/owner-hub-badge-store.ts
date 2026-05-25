@@ -66,6 +66,7 @@ import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
+import { logFetchTrace, logPollingTrace } from "@/lib/dibay/network-fetch-storm-trace";
 
 import { logHubRefreshGuard, logMarkReadRefreshChain, logParticipantUnreadHubRefresh } from "@/lib/chats/hub-refresh-guard";
 
@@ -742,6 +743,11 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
         reason: force ? "fetch_force" : "fetch",
         interval_id: pollInterval,
       });
+      logFetchTrace({
+        api: hubUrl,
+        component: opts?.callerComponent ?? "owner_hub_badge_store",
+        reason: force ? "fetch_force" : "fetch",
+      });
 
       const res = await fetch(hubUrl, {
 
@@ -1391,7 +1397,7 @@ function scheduleEventDrivenOwnerHubRefresh() {
 
     eventForceRefreshTimer = null;
 
-    scheduleDeferredHubBadgeFetch("hub_badge_refresh_event", true, {
+    scheduleDeferredHubBadgeFetch("hub_badge_refresh_event", false, {
 
       callerComponent: "KASAMA_OWNER_HUB_BADGE_REFRESH",
 
@@ -1435,6 +1441,7 @@ function onVisibility() {
 
     if (hubStarted && pollInterval == null) {
 
+      const createdAt = Date.now();
       pollInterval = setInterval(() => {
 
         if (typeof document !== "undefined" && document.visibilityState === "visible") {
@@ -1448,11 +1455,25 @@ function onVisibility() {
         }
 
       }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
+      logPollingTrace({
+        api: "/api/me/store-owner-hub-badge",
+        intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
+        createdAt,
+        cleanup: false,
+        caller: "owner_hub_badge_visibility",
+      });
 
     }
 
   } else if (pollInterval) {
 
+    logPollingTrace({
+      api: "/api/me/store-owner-hub-badge",
+      intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
+      createdAt: Date.now(),
+      cleanup: true,
+      caller: "owner_hub_badge_visibility",
+    });
     clearInterval(pollInterval);
 
     pollInterval = null;
@@ -1515,6 +1536,13 @@ function stopHub() {
 
   if (pollInterval != null) {
 
+    logPollingTrace({
+      api: "/api/me/store-owner-hub-badge",
+      intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
+      createdAt: Date.now(),
+      cleanup: true,
+      caller: "owner_hub_badge_stop_hub",
+    });
     clearInterval(pollInterval);
 
     pollInterval = null;
@@ -1613,19 +1641,29 @@ function startHub() {
 
   if (typeof document === "undefined" || document.visibilityState === "visible") {
 
-    pollInterval = setInterval(() => {
+    if (pollInterval == null) {
+      const createdAt = Date.now();
+      pollInterval = setInterval(() => {
 
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        if (typeof document !== "undefined" && document.visibilityState === "visible") {
 
-        scheduleDeferredHubBadgeFetch("poll_interval", false, {
+          scheduleDeferredHubBadgeFetch("poll_interval", false, {
 
-          callerComponent: "owner_hub_badge_poll",
+            callerComponent: "owner_hub_badge_poll",
 
-        });
+          });
 
-      }
+        }
 
-    }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
+      }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
+      logPollingTrace({
+        api: "/api/me/store-owner-hub-badge",
+        intervalMs: OWNER_HUB_BADGE_POLL_INTERVAL_MS,
+        createdAt,
+        cleanup: false,
+        caller: "owner_hub_badge_start_hub",
+      });
+    }
 
   }
 
