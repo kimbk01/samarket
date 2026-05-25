@@ -2163,7 +2163,7 @@ export function CommunityMessengerHome({
           messengerMonitorUnreadListSync(roomId, Math.round(performance.now() - t0), "mark_read");
         }
         /** 허브 종·하단 탭은 동일 스냅샷 — 서버 집계와 즉시 재맞춤(낙관 이후 교차 해제·레거시 chatUnread 동기화) */
-        queueMicrotask(() => requestMessengerHubBadgeResync("room_open_mark_read"));
+        queueMicrotask(() => requestMessengerHubBadgeResync("room_open_mark_read", { roomId }));
       } catch (err) {
         cmReadBadgeLog("mark_read_patch_fail", {
           roomId,

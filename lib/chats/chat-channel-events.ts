@@ -69,6 +69,7 @@ export function dispatchTradeChatUnreadUpdated(args?: {
 export function dispatchOwnerHubBadgeRefresh(args?: {
   source?: string;
   key?: string;
+  roomId?: string;
   dedupeMs?: number;
 }): void {
   dispatchDedupedWindowEvent(
@@ -76,6 +77,7 @@ export function dispatchOwnerHubBadgeRefresh(args?: {
     {
       source: args?.source,
       key: args?.key,
+      roomId: args?.roomId,
       at: Date.now(),
     },
     args?.dedupeMs ?? EVENT_DISPATCH_DEFAULT_DEDUPE_MS

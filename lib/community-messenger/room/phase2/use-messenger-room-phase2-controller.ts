@@ -77,9 +77,9 @@ import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
-function dispatchTradeLinkedNavBadgesAfterMessengerMutation(tradeDock: boolean) {
+function dispatchTradeLinkedNavBadgesAfterMessengerMutation(tradeDock: boolean, roomId: string) {
   if (!tradeDock || typeof window === "undefined") return;
-  requestMessengerHubBadgeResync("room_phase2_mark_read");
+  requestMessengerHubBadgeResync("room_phase2_mark_read", { roomId });
   dispatchTradeChatUnreadUpdated({
     source: "community-messenger-room-phase2",
     key: "trade-linked-nav-badges",
@@ -396,7 +396,7 @@ export function useMessengerRoomPhase2Controller() {
         clientMessageId,
       });
       forgetRoomBootstrapClientFlightsAfterMutation();
-      dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock);
+      dispatchTradeLinkedNavBadgesAfterMessengerMutation(showMessengerTradeProcessDock, streamRoomId);
     },
     [
       forgetRoomBootstrapClientFlightsAfterMutation,

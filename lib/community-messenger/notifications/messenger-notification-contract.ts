@@ -48,6 +48,7 @@ import {
   dispatchOwnerHubBadgeRefresh,
   KASAMA_OWNER_HUB_BADGE_REFRESH,
 } from "@/lib/chats/chat-channel-events";
+import { logMarkReadRefreshChain } from "@/lib/chats/hub-refresh-guard";
 import { samarketMessengerHomeDebugEvent } from "@/lib/runtime/samarket-runtime-debug";
 
 /** `playCoalescedChatNotificationSound` 와 동일 값 — 한 곳에서만 정의 */
@@ -76,11 +77,25 @@ export type MessengerHubBadgeResyncDetail = {
   at: number;
 };
 
+export type MessengerHubBadgeResyncOptions = {
+  roomId?: string;
+  messageId?: string;
+};
+
+const MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS = 4_000;
+
+function isMarkReadHubResyncReason(reason: MessengerHubBadgeResyncReason): boolean {
+  return reason === "room_open_mark_read" || reason === "room_phase2_mark_read";
+}
+
 /**
  * 메신저 관련 변경 후 하단 탭 `communityMessengerUnread` 만 서버와 다시 맞춘다.
  * (이벤트 1종 — 기존 분산 `CustomEvent(KASAMA_OWNER_HUB_BADGE_REFRESH)` 호출을 이 함수로 통일)
  */
-export function requestMessengerHubBadgeResync(reason: MessengerHubBadgeResyncReason): void {
+export function requestMessengerHubBadgeResync(
+  reason: MessengerHubBadgeResyncReason,
+  opts?: MessengerHubBadgeResyncOptions
+): void {
   if (typeof window === "undefined") return;
   samarketMessengerHomeDebugEvent("messenger_home_badge_resync", { reason });
   const detail: MessengerHubBadgeResyncDetail = {
@@ -88,10 +103,23 @@ export function requestMessengerHubBadgeResync(reason: MessengerHubBadgeResyncRe
     reason,
     at: Date.now(),
   };
+  const roomId = opts?.roomId?.trim() || undefined;
+  if (isMarkReadHubResyncReason(reason)) {
+    logMarkReadRefreshChain({
+      roomId: roomId ?? null,
+      messageId: opts?.messageId?.trim() || null,
+      triggered_hub_refresh: true,
+      refresh_skipped: false,
+      same_snapshot: false,
+      collapsed: false,
+      reason,
+    });
+  }
   dispatchOwnerHubBadgeRefresh({
     source: detail.source,
     key: reason,
-    /** 250ms 기본 디듀프는 연속 unread 이벤트를 삼켜 하단 탭 배지가 늦게 맞는 원인 — 메신저는 즉시 전달 */
-    dedupeMs: 0,
+    roomId,
+    /** mark_read 는 room 단위 4s — participant 등은 즉시 전달 */
+    dedupeMs: isMarkReadHubResyncReason(reason) ? MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS : 0,
   });
 }

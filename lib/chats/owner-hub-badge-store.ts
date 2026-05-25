@@ -67,6 +67,8 @@ import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
 
+import { logHubRefreshGuard, logMarkReadRefreshChain } from "@/lib/chats/hub-refresh-guard";
+
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
 
@@ -143,6 +145,16 @@ const MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS = 5_000;
 
 const MESSENGER_PARTICIPANT_FORCE_STALE_MS = 30_000;
 
+/** mark_read 직후 hub badge — 동일 burst·room collapse 창 */
+
+const MESSENGER_MARK_READ_HUB_COLLAPSE_MS = 4_000;
+
+const MESSENGER_MARK_READ_HUB_COALESCE_DELAY_MS = 48;
+
+/** 직전 hub fetch 가 신선하면 cmFresh bypass·aggregate 재계산 생략(서버는 mark_read 시 invalidate) */
+
+const MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS = 5_000;
+
 
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
@@ -178,6 +190,12 @@ let eventForceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 let messengerHubBadgeCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
 let lastMessengerParticipantForceRefreshAt = 0;
+
+let markReadHubCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
+
+let pendingMarkReadHubDetail: { source?: string; key?: string; roomId?: string; at?: number } | null = null;
+
+let lastMarkReadHubNetworkAt = 0;
 
 /** App Boot background 전까지 HTTP fetch 금지 — BottomNav 구독만 허용 */
 
@@ -424,6 +442,10 @@ export type FetchOwnerHubBadgeNowOptions = {
 
   callerComponent?: string;
 
+  /** mark_read ack 직후 plain 허용·완료 시각 기록 */
+
+  markReadAck?: boolean;
+
   routeTransitionSource?: string;
 
 };
@@ -541,6 +563,16 @@ export function cancelPendingOwnerHubBadgeFetch(reason = "route_transition"): vo
     eventForceRefreshTimer = null;
 
   }
+
+  if (markReadHubCoalesceTimer != null) {
+
+    clearTimeout(markReadHubCoalesceTimer);
+
+    markReadHubCoalesceTimer = null;
+
+  }
+
+  pendingMarkReadHubDetail = null;
 
   samarketRuntimeDebugLog("owner-hub-badge", "cancel pending fetch", { reason });
 
@@ -733,11 +765,49 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
       }
 
+      const parsed = parseOwnerHubBadgeJson(data);
+
+      if (sameOwnerHubBadge(snapshot, parsed)) {
+
+        logHubRefreshGuard({
+
+          source: opts?.callerComponent ?? "owner_hub_badge_store",
+
+          reason: force ? "fetch_force_same_snapshot" : "fetch_same_snapshot",
+
+          snapshot_same_skip: true,
+
+        });
+
+        if (opts?.markReadAck) {
+
+          logMarkReadRefreshChain({
+
+            roomId: null,
+
+            messageId: null,
+
+            triggered_hub_refresh: true,
+
+            refresh_skipped: false,
+
+            same_snapshot: true,
+
+            collapsed: false,
+
+          });
+
+        }
+
+      }
+
       applyFromNetwork(data);
 
       broadcastOwnerHubBadgeSnapshot(data);
 
       lastFetchCompletedAt = Date.now();
+
+      if (opts?.markReadAck) lastMarkReadHubNetworkAt = lastFetchCompletedAt;
 
       if (!force) lastPlainFetchCompletedAt = lastFetchCompletedAt;
 
@@ -835,7 +905,221 @@ function onTradeUnreadUpdated() {
 
 
 
-type OwnerHubBadgeRefreshDetail = { source?: string; key?: string; at?: number };
+type OwnerHubBadgeRefreshDetail = { source?: string; key?: string; roomId?: string; at?: number };
+
+
+
+function markReadHubCollapseKey(detail: OwnerHubBadgeRefreshDetail): string {
+
+  const room = detail.roomId?.trim();
+
+  if (room) return `room:${room}`;
+
+  return detail.key?.trim() || "mark_read";
+
+}
+
+
+
+function executeMarkReadHubBadgeFetch(detail: OwnerHubBadgeRefreshDetail): void {
+
+  const now = Date.now();
+
+  const roomId = detail.roomId?.trim() || null;
+
+  const reason = detail.key ?? "mark_read";
+
+  if (now - lastMarkReadHubNetworkAt < MESSENGER_MARK_READ_HUB_COLLAPSE_MS) {
+
+    logHubRefreshGuard({
+
+      source: "messenger_mark_read",
+
+      reason,
+
+      dedupe_hit: true,
+
+    });
+
+    logMarkReadRefreshChain({
+
+      roomId,
+
+      messageId: null,
+
+      triggered_hub_refresh: false,
+
+      refresh_skipped: true,
+
+      same_snapshot: true,
+
+      collapsed: false,
+
+      reason: "recent_mark_read_network",
+
+    });
+
+    return;
+
+  }
+
+  lastMessengerParticipantForceRefreshAt = now;
+
+  const recentHubFetch = now - lastFetchCompletedAt < MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS;
+
+  const useForceFresh = !recentHubFetch;
+
+  if (recentHubFetch) {
+
+    logHubRefreshGuard({
+
+      source: "messenger_mark_read",
+
+      reason,
+
+      cmFresh_bypass_blocked: true,
+
+    });
+
+  }
+
+  scheduleDeferredHubBadgeFetch("messenger_mark_read", useForceFresh, {
+
+    skipDevCmFreshDedupe: useForceFresh,
+
+    serverHubBadgeBypass: useForceFresh,
+
+    allowImmediateUserAction: true,
+
+    callerComponent: "messenger_mark_read",
+
+    markReadAck: true,
+
+  });
+
+}
+
+
+
+function scheduleMarkReadHubBadgeRefresh(detail: OwnerHubBadgeRefreshDetail): void {
+
+  const roomId = detail.roomId?.trim() || null;
+
+  const reason = detail.key ?? "mark_read";
+
+  const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+
+  if (inFlight) {
+
+    logHubRefreshGuard({
+
+      source: "messenger_mark_read",
+
+      reason,
+
+      inflight_join: true,
+
+    });
+
+    logMarkReadRefreshChain({
+
+      roomId,
+
+      messageId: null,
+
+      triggered_hub_refresh: false,
+
+      refresh_skipped: true,
+
+      same_snapshot: false,
+
+      collapsed: true,
+
+      reason: "inflight_join",
+
+    });
+
+    return;
+
+  }
+
+  const collapseKey = markReadHubCollapseKey(detail);
+
+  if (markReadHubCoalesceTimer != null) {
+
+    const pendingKey = pendingMarkReadHubDetail
+
+      ? markReadHubCollapseKey(pendingMarkReadHubDetail)
+
+      : collapseKey;
+
+    if (pendingKey === collapseKey) {
+
+      logHubRefreshGuard({
+
+        source: "messenger_mark_read",
+
+        reason,
+
+        refresh_collapsed: true,
+
+        dedupe_hit: true,
+
+      });
+
+      logMarkReadRefreshChain({
+
+        roomId,
+
+        messageId: null,
+
+        triggered_hub_refresh: false,
+
+        refresh_skipped: true,
+
+        same_snapshot: false,
+
+        collapsed: true,
+
+        reason: "same_room_burst",
+
+      });
+
+      return;
+
+    }
+
+    pendingMarkReadHubDetail = detail;
+
+    logHubRefreshGuard({
+
+      source: "messenger_mark_read",
+
+      reason,
+
+      refresh_collapsed: true,
+
+    });
+
+    return;
+
+  }
+
+  pendingMarkReadHubDetail = detail;
+
+  markReadHubCoalesceTimer = setTimeout(() => {
+
+    markReadHubCoalesceTimer = null;
+
+    const pending = pendingMarkReadHubDetail;
+
+    pendingMarkReadHubDetail = null;
+
+    if (pending) executeMarkReadHubBadgeFetch(pending);
+
+  }, MESSENGER_MARK_READ_HUB_COALESCE_DELAY_MS);
+
+}
 
 
 
@@ -927,19 +1211,7 @@ function onOwnerHubRefresh(ev?: Event) {
 
     if (immediateFresh) {
 
-      lastMessengerParticipantForceRefreshAt = Date.now();
-
-      scheduleDeferredHubBadgeFetch("messenger_mark_read", true, {
-
-        skipDevCmFreshDedupe: true,
-
-        serverHubBadgeBypass: true,
-
-        allowImmediateUserAction: true,
-
-        callerComponent: "messenger_mark_read",
-
-      });
+      scheduleMarkReadHubBadgeRefresh(detail);
 
       return;
 

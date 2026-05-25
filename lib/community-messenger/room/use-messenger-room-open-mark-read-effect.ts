@@ -416,9 +416,9 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
 
     const reconcileUnreadFromServer = () => {
       if (typeof queueMicrotask === "function") {
-        queueMicrotask(() => requestMessengerHubBadgeResync("room_phase2_mark_read"));
+        queueMicrotask(() => requestMessengerHubBadgeResync("room_phase2_mark_read", { roomId: id }));
       } else {
-        requestMessengerHubBadgeResync("room_phase2_mark_read");
+        requestMessengerHubBadgeResync("room_phase2_mark_read", { roomId: id });
       }
     };
 
