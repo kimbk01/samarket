@@ -115,7 +115,17 @@ export function StoresHomeHub({
   const recFood = useMemo(() => flattenStoresHomeFoodEntries(sections.premium, 8), [sections.premium]);
 
   const hydrationStores = useMemo(() => stores.map((s) => ({ id: s.id, slug: s.slug })), [stores]);
-  const eagerStoreIds = useMemo(() => stores.map((s) => s.id).filter(Boolean), [stores]);
+  /** fold 위 가로·그리드 레일만 eager — 전체 피드 batch storm 방지 */
+  const eagerStoreIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const entry of fastFood.slice(0, 8)) {
+      if (entry.storeId) ids.add(entry.storeId);
+    }
+    for (const entry of recFood.slice(0, 4)) {
+      if (entry.storeId) ids.add(entry.storeId);
+    }
+    return [...ids];
+  }, [fastFood, recFood]);
   const { hydratedByStoreId, getPhase, registerListItem } = useBrowseFeaturedItemsHydration(
     hydrationStores,
     { enabled: stores.length > 0, eagerStoreIds }

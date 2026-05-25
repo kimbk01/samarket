@@ -9,6 +9,7 @@ import {
   traceDeliveryImagePipelineLoad,
   type DeliveryImageRenderer,
 } from "@/lib/dibay/delivery-image-pipeline";
+import { logDeliveryImageTrace } from "@/lib/dibay/delivery-waterfall-trace";
 
 type DeliveryMediaImageProps = {
   src: string | null | undefined;
@@ -60,7 +61,16 @@ export function DeliveryMediaImage({
       priority,
       renderer,
     });
-  }, [normalized, priority, surface]);
+    logDeliveryImageTrace({
+      src: normalized,
+      priority,
+      loading: priority ? "eager" : "lazy",
+      sizes: sizes ?? null,
+      renderedWidth: width ?? null,
+      renderedHeight: height ?? null,
+      surface,
+    });
+  }, [normalized, priority, surface, sizes, width, height]);
 
   if (!normalized) {
     if (fill) {

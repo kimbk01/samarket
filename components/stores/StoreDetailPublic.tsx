@@ -936,6 +936,14 @@ export function StoreDetailPublic({
 
   const loadSplitDetailSilent = useCallback(async () => {
     const startedSlugDecode = decodeSlugSegment(slug);
+    if (peekStoreSummaryPublicCache(slug) && peekStoreMenusPublicCache(slug)) {
+      dibayDeliveryDetailPhase2Log("waterfall_silent_skipped", {
+        slug: startedSlugDecode,
+        reason: "summary_menus_client_cache_fresh",
+        ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
+      });
+      return;
+    }
     const mountT0 = detailPhase2MountT0Ref.current;
     deliveryMenuVisibleBeginNavSession(startedSlugDecode);
     deliveryMenuVisibleMarkFetchStart(startedSlugDecode);

@@ -10,6 +10,8 @@ import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetail
 import type { StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
 import type { StoreDetailDirectionsTarget } from "@/lib/stores/google-maps-store-links";
+import { fetchDeliveryRideTimeSourceDeduped } from "@/lib/app/delivery-ride-time-source-client";
+import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
 import { fetchMeCheckoutContactDeduped } from "@/lib/me/fetch-me-checkout-contact-deduped";
 import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 import { StoreHeader } from "@/components/stores/detail/StoreHeader";
@@ -107,16 +109,18 @@ export function StoreDetailSummarySection({
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
-        if (cancelled) return;
-        setRideSource(j.source === "google" ? "google" : "store");
-      } catch {
+    logDeliveryFetchTrace({
+      api: "/api/app/delivery-ride-time-source",
+      component: "StoreDetailSummarySection",
+      reason: "hero_ride_source_mount",
+    });
+    void fetchDeliveryRideTimeSourceDeduped()
+      .then((source) => {
+        if (!cancelled) setRideSource(source);
+      })
+      .catch(() => {
         if (!cancelled) setRideSource("store");
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };

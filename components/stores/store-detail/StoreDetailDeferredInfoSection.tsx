@@ -13,6 +13,7 @@ import {
   dibayDeliveryDetailPhase2Log,
   dibayDeliveryDetailPhase2SinceMountOrNav,
 } from "@/lib/dibay/delivery-detail-phase2-trace";
+import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
 
 function starsLabel(rating: number): string {
   const n = Math.min(5, Math.max(0, Math.round(rating)));
@@ -45,6 +46,11 @@ export function StoreDetailDeferredInfoSection({
     dibayDeliveryDetailPhase2Log("reviews_summary_fetch_start", {
       slug: storeSlug.trim(),
       ...dibayDeliveryDetailPhase2SinceMountOrNav(null),
+    });
+    logDeliveryFetchTrace({
+      api: `/api/stores/${storeSlug.trim()}/reviews-summary`,
+      component: "StoreDetailDeferredInfoSection",
+      reason: "deferred_mount",
     });
     setPhase("loading");
     try {

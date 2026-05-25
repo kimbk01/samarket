@@ -1,4 +1,5 @@
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
 
 export type DeliveryRideTimeSource = "google" | "store";
 
@@ -17,6 +18,11 @@ export function fetchDeliveryRideTimeSourceDeduped(): Promise<DeliveryRideTimeSo
       return memoryCache.source;
     }
     try {
+      logDeliveryFetchTrace({
+        api: "/api/app/delivery-ride-time-source",
+        component: "delivery-ride-time-source-client",
+        reason: "fetchDeliveryRideTimeSourceDeduped_network",
+      });
       const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
       const source: DeliveryRideTimeSource = j.source === "google" ? "google" : "store";

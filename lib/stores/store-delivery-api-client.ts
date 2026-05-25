@@ -10,6 +10,7 @@ import {
   markMenusColdFillJsonParsed,
   markMenusColdFillResponseDownload,
 } from "@/lib/stores/menus-cold-fill-deep-breakdown";
+import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
 
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
 const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
@@ -217,6 +218,11 @@ export async function fetchStoreSummaryDeduped(slug: string): Promise<StoreApiJs
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/summary`, { cache: "no-store" });
+    logDeliveryFetchTrace({
+      api: `/api/stores/${s}/summary`,
+      component: "store-delivery-api-client",
+      reason: "fetchStoreSummaryDeduped_network",
+    });
     const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     if (res.ok) {
@@ -251,6 +257,11 @@ export async function fetchStoreMenusDeduped(
     }
     beginMenusColdFillClientSession(s, fetchPath);
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/menus`, { cache: "no-store" });
+    logDeliveryFetchTrace({
+      api: `/api/stores/${s}/menus`,
+      component: "store-delivery-api-client",
+      reason: "fetchStoreMenusDeduped_network",
+    });
     markMenusColdFillFetchHeaders(s);
     const text = await res.text();
     markMenusColdFillResponseDownload(s, text.length);
@@ -285,6 +296,11 @@ export async function fetchStoreReviewsSummaryDeduped(slug: string): Promise<Sto
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews-summary`, { cache: "no-store" });
+    logDeliveryFetchTrace({
+      api: `/api/stores/${s}/reviews-summary`,
+      component: "store-delivery-api-client",
+      reason: "fetchStoreReviewsSummaryDeduped_network",
+    });
     const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     if (res.ok) {

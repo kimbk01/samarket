@@ -1,6 +1,7 @@
 "use client";
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { logDeliveryFetchTrace } from "@/lib/dibay/delivery-waterfall-trace";
 import {
   BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP,
   mapFeaturedDtoToCardItems,
@@ -48,6 +49,11 @@ async function fetchBrowseFeaturedItemsChunk(
   if (stillMiss.length === 0) return map;
 
   const qs = new URLSearchParams({ storeIds: stillMiss.join(",") });
+  logDeliveryFetchTrace({
+    api: `/api/stores/browse-featured-items?storeIds=${stillMiss.length}`,
+    component: "fetch-browse-featured-items-client",
+    reason: "featured_batch_chunk",
+  });
   const res = await fetch(`/api/stores/browse-featured-items?${qs.toString()}`, {
     credentials: "include",
     cache: "no-store",

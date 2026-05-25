@@ -86,7 +86,6 @@ function StoreDetailTransitionShellPanel({ seed }: { seed: StoreDetailListSeed }
             fill
             className="object-cover"
             sizes="100vw"
-            priority
           />
         ) : null}
       </div>
