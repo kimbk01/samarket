@@ -5,6 +5,7 @@
  * |--------|-----------|
  * | Nav perf (`[nav-perf]`) | `localStorage.setItem("samarket:debug:navPerf","1")` 후 새로고침, 또는 빌드 시 `NEXT_PUBLIC_SAMARKET_NAV_PERF_CONSOLE=1` |
  * | Philife 피드 perf-diag (`[community-feed:perf-diag]`) | `localStorage.setItem("samarket:debug:philifeFeedPerf","1")` 후 새로고침, 또는 `NEXT_PUBLIC_SAMARKET_PHILIFE_FEED_PERF_DIAG=1` |
+ * | Startup deferred (`[startup-deferred-trace]`, `[startup-api-deferred]`) | `localStorage.setItem("samarket:debug:startupDeferred","1")` 후 새로고침, 또는 `NEXT_PUBLIC_SAMARKET_STARTUP_DEFERRED_TRACE=1` |
  *
  * 런타임 phase (`[samarket-runtime-debug:phase]`)는 `sessionStorage samarket:debug:runtime=1` 과 동일 모듈(`samarket-runtime-debug`)에서 제어.
  */
@@ -28,4 +29,11 @@ export function isSamarketNavPerfConsoleEnabled(): boolean {
 export function isSamarketPhilifeFeedPerfDiagEnabled(): boolean {
   if (process.env.NEXT_PUBLIC_SAMARKET_PHILIFE_FEED_PERF_DIAG === "1") return true;
   return readLocalStorageFlag("samarket:debug:philifeFeedPerf");
+}
+
+/** `[startup-deferred-trace]` / `[startup-api-deferred]` — deferred job schedule dedupe audit. */
+export function isSamarketStartupDeferredTraceEnabled(): boolean {
+  if (process.env.NODE_ENV === "development") return true;
+  if (process.env.NEXT_PUBLIC_SAMARKET_STARTUP_DEFERRED_TRACE === "1") return true;
+  return readLocalStorageFlag("samarket:debug:startupDeferred");
 }

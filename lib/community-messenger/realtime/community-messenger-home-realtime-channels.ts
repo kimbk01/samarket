@@ -17,6 +17,10 @@ import {
 } from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 import {
+  logRtChannelLifecycle,
+  logRtRebindTrace,
+} from "@/lib/community-messenger/realtime/cm-rt-rebind-trace";
+import {
   cmRtHs4DiagnosisLog,
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
@@ -52,6 +56,15 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   const roomIds = args.roomIdsFingerprint.length
     ? [...new Set(args.roomIdsFingerprint.split("\0").map((id) => normalizeCmRealtimeSubscribeRoomId(id)).filter(Boolean))].sort()
     : [];
+  logRtRebindTrace({
+    reason: "channel_rebind_start",
+    roomCount: roomIds.length,
+  });
+  logRtChannelLifecycle({
+    action: "rebind_start",
+    channel: args.channelBindRole,
+    subscribers: roomIds.length,
+  });
   const bindOrdinal = messengerRealtimeBumpHomeChannelPhysicalBindCount();
   messengerRealtimeRecordSubscribedMessageRoomIds(roomIds);
   cmRtHs4DiagnosisLog("home_channels_bind_batch_start", {

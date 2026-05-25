@@ -58,6 +58,19 @@ import { MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS } from "@/lib/c
 import { logCmRtLifecycleFix } from "@/lib/community-messenger/realtime/cm-rt-lifecycle-fix-log";
 import { logCmRtGrace } from "@/lib/community-messenger/realtime/cm-rt-grace-log";
 import { useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import {
+  diffRoomIdFingerprints,
+  roomFingerprintsEqual,
+  roomIdsFromFingerprint,
+} from "@/lib/community-messenger/realtime/cm-rt-room-id-diff";
+import {
+  logRtChannelLifecycle,
+  logRtRebindTrace,
+  logRtRoomDiff,
+} from "@/lib/community-messenger/realtime/cm-rt-rebind-trace";
+
+/** rooms-in fingerprint 변경 rebind — visible pillar 스크롤 burst 완화 */
+const HOME_ROOMS_FINGERPRINT_REBIND_COALESCE_MS = 120;
 
 function messengerHomeRealtimeRoomIdsContentKey(ids: string[] | undefined): string {
   return [...new Set((ids ?? []).map((id) => normalizeCmRealtimeSubscribeRoomId(String(id))).filter(Boolean))].sort().join("\0");
@@ -97,6 +110,9 @@ type HomeRealtimeEntry = {
   participantUnreadBatchQueue: CommunityMessengerHomeRealtimeParticipantUnreadHint[];
   participantUnreadBatchRafId: number | null;
   stop: () => void;
+  /** `home_rooms_in` — stable map key + fingerprint diff rebind */
+  updateRoomsFingerprint?: (fingerprint: string, visibleTradeRoomCount?: number) => void;
+  peekRoomsFingerprint?: () => string;
 };
 
 const homeRealtimeMetaEntries = new Map<string, HomeRealtimeEntry>();
@@ -157,6 +173,20 @@ function scheduleMessengerHomeDeferredPhysicalStop(args: {
     had_existing_subscription: physNow > 0,
     same_fingerprint: null,
   });
+}
+
+function purgeLegacyPerFingerprintHomeRoomsEntries(userId: string): void {
+  const prefix = `${userId}:rooms:`;
+  const stableKey = `${userId}:rooms`;
+  for (const mapKey of [...homeRealtimeRoomsEntries.keys()]) {
+    if (!mapKey.startsWith(prefix) || mapKey === stableKey) continue;
+    clearMessengerHomeDeferredPhysicalStop("rooms", mapKey);
+    homeRealtimeRoomsEntries.get(mapKey)?.stop();
+  }
+}
+
+function homeRoomsStorageKey(userId: string): string {
+  return `${userId}:rooms`;
 }
 
 function pushMessengerHomeRealtimeMapProbe(): void {
@@ -377,27 +407,30 @@ function createHomeRealtimeEntry(args: {
   let authBridgeCleanup: (() => void) | null = null;
   let homeBound = false;
   let releaseReadAckBroadcast: (() => void) | null = null;
+  const isRoomsInEntry = args.channelBindRole === "home_rooms_in";
+  let pendingFingerprint = args.roomIdsFingerprint;
+  let pendingVisibleTradeRoomCount = args.visibleTradeRoomCount ?? 0;
+  let rebindCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  const bindHomeChannels = () => {
-    if (cancelled || homeBound) return;
-    homeBound = true;
-    cmRtHs4DiagnosisLog("home_realtime_auth_bridge_ready_bind", {
-      channelBindRole: args.channelBindRole,
-      entryStorageKey: args.key,
-      ...cmRtHs4FingerprintDigest(args.roomIdsFingerprint),
-      includeMeta: args.includeMeta !== false,
-      visibleTradeRoomCount: args.visibleTradeRoomCount ?? null,
-      physicalBindCountBeforeBind: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+  const attachChannelsForFingerprint = (fingerprint: string, reason: string) => {
+    if (cancelled) return;
+    logRtRebindTrace({
+      reason,
+      roomCount: roomIdsFromFingerprint(fingerprint).length,
     });
-    releaseReadAckBroadcast = acquireCommunityMessengerReadAckBroadcast(args.userId);
+    logRtChannelLifecycle({
+      action: reason,
+      channel: args.channelBindRole,
+      subscribers: entry.listeners.size,
+    });
     const { channels: next, cancelSchedulers: cancel } = bindCommunityMessengerHomeRealtimeChannels({
       sb,
       userId: args.userId,
       isCancelled: () => cancelled,
-      roomIdsFingerprint: args.roomIdsFingerprint,
+      roomIdsFingerprint: fingerprint,
       channelBindRole: args.channelBindRole,
       includeMeta: args.includeMeta,
-      visibleTradeRoomCount: args.visibleTradeRoomCount,
+      visibleTradeRoomCount: pendingVisibleTradeRoomCount,
       messageInsertHintRef: {
         current: (hint) => {
           notifyMessengerHomeRealtimeMessageInsert({ viewerUserId: args.userId, hint });
@@ -407,10 +440,63 @@ function createHomeRealtimeEntry(args: {
       participantUnreadDeltaRef: { current: (hint) => enqueueHomeParticipantUnreadForEntry(entry, hint) },
       onRefreshRef: { current: () => emitHomeRefresh(entry) },
     });
+    cancelSchedulers?.();
+    cancelSchedulers = null;
+    const prevLen = channels.length;
+    for (const item of channels) item.stop();
+    channels.length = 0;
+    if (prevLen > 0) recordMessengerHomeSupabaseHomeChannelGaugeDelta(-prevLen);
     cancelSchedulers = cancel;
     for (const item of next) channels.push(item);
-    recordMessengerHomeSupabaseHomeChannelGaugeDelta(next.length);
+    if (next.length > 0) recordMessengerHomeSupabaseHomeChannelGaugeDelta(next.length);
+    pendingFingerprint = fingerprint;
   };
+
+  const bindHomeChannels = () => {
+    if (cancelled || homeBound) return;
+    homeBound = true;
+    cmRtHs4DiagnosisLog("home_realtime_auth_bridge_ready_bind", {
+      channelBindRole: args.channelBindRole,
+      entryStorageKey: args.key,
+      ...cmRtHs4FingerprintDigest(pendingFingerprint),
+      includeMeta: args.includeMeta !== false,
+      visibleTradeRoomCount: pendingVisibleTradeRoomCount,
+      physicalBindCountBeforeBind: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+    });
+    if (!isRoomsInEntry) {
+      releaseReadAckBroadcast = acquireCommunityMessengerReadAckBroadcast(args.userId);
+    }
+    attachChannelsForFingerprint(
+      pendingFingerprint,
+      isRoomsInEntry ? "rooms_initial_bind" : "meta_initial_bind"
+    );
+  };
+
+  if (isRoomsInEntry) {
+    entry.updateRoomsFingerprint = (fingerprint: string, visibleTradeRoomCount?: number) => {
+      if (typeof visibleTradeRoomCount === "number") {
+        pendingVisibleTradeRoomCount = visibleTradeRoomCount;
+      }
+      if (roomFingerprintsEqual(fingerprint, pendingFingerprint)) return;
+      const diff = diffRoomIdFingerprints(pendingFingerprint, fingerprint);
+      logRtRoomDiff(diff);
+      if (diff.added.length === 0 && diff.removed.length === 0) {
+        pendingFingerprint = diff.next.join("\0");
+        return;
+      }
+      if (rebindCoalesceTimer != null) clearTimeout(rebindCoalesceTimer);
+      rebindCoalesceTimer = setTimeout(() => {
+        rebindCoalesceTimer = null;
+        if (cancelled) return;
+        if (!homeBound) {
+          pendingFingerprint = fingerprint;
+          return;
+        }
+        attachChannelsForFingerprint(fingerprint, "rooms_fingerprint_diff_rebind");
+      }, HOME_ROOMS_FINGERPRINT_REBIND_COALESCE_MS);
+    };
+    entry.peekRoomsFingerprint = () => pendingFingerprint;
+  }
 
   authBridgeCleanup = createRealtimeAuthBridge({
     sb,
@@ -421,6 +507,10 @@ function createHomeRealtimeEntry(args: {
   entry.stop = () => {
     clearMessengerHomeDeferredPhysicalStopForAnyKey(args.key);
     cancelled = true;
+    if (rebindCoalesceTimer != null) {
+      clearTimeout(rebindCoalesceTimer);
+      rebindCoalesceTimer = null;
+    }
     if (entry.insertBatchRafId != null) {
       cancelAnimationFrame(entry.insertBatchRafId);
       entry.insertBatchRafId = null;
@@ -605,12 +695,14 @@ export function useCommunityMessengerHomeRealtime(args: {
       });
     }
 
+    purgeLegacyPerFingerprintHomeRoomsEntries(args.userId);
+
     const bindFp = roomsBindFingerprint;
-    const roomsKey = bindFp !== null ? `${args.userId}:rooms:${bindFp}` : null;
+    const roomsStorageKey = homeRoomsStorageKey(args.userId);
 
     let hadDeferredRooms = false;
-    if (roomsKey) {
-      hadDeferredRooms = clearMessengerHomeDeferredPhysicalStop("rooms", roomsKey);
+    if (bindFp !== null) {
+      hadDeferredRooms = clearMessengerHomeDeferredPhysicalStop("rooms", roomsStorageKey);
       if (hadDeferredRooms) {
         logCmRtGrace({
           action: "cancel_stop",
@@ -620,7 +712,7 @@ export function useCommunityMessengerHomeRealtime(args: {
           same_fingerprint:
             bindFp !== null &&
             prevRoomsBindFingerprintForLifecycleLogRef.current !== null &&
-            prevRoomsBindFingerprintForLifecycleLogRef.current === bindFp,
+            roomFingerprintsEqual(prevRoomsBindFingerprintForLifecycleLogRef.current, bindFp),
         });
       }
     }
@@ -628,7 +720,7 @@ export function useCommunityMessengerHomeRealtime(args: {
     const sameRoomsFingerprint =
       bindFp !== null &&
       prevRoomsBindFingerprintForLifecycleLogRef.current !== null &&
-      prevRoomsBindFingerprintForLifecycleLogRef.current === bindFp;
+      roomFingerprintsEqual(prevRoomsBindFingerprintForLifecycleLogRef.current, bindFp);
     if (bindFp !== null) {
       prevRoomsBindFingerprintForLifecycleLogRef.current = bindFp;
     }
@@ -648,28 +740,30 @@ export function useCommunityMessengerHomeRealtime(args: {
 
     let roomsEntry: HomeRealtimeEntry | null = null;
     let roomsCreated = false;
-    if (bindFp !== null && roomsKey) {
-      roomsEntry = homeRealtimeRoomsEntries.get(roomsKey) ?? null;
+    if (bindFp !== null) {
+      roomsEntry = homeRealtimeRoomsEntries.get(roomsStorageKey) ?? null;
       roomsCreated = !roomsEntry;
       if (!roomsEntry) {
         roomsEntry = createHomeRealtimeEntry({
-          key: roomsKey,
+          key: roomsStorageKey,
           userId: args.userId,
           roomIdsFingerprint: bindFp,
           visibleTradeRoomCount: visibleTradeRoomCountForBind,
           includeMeta: false,
           channelBindRole: "home_rooms_in",
         });
-        homeRealtimeRoomsEntries.set(roomsKey, roomsEntry);
+        homeRealtimeRoomsEntries.set(roomsStorageKey, roomsEntry);
+      } else if (roomsEntry.updateRoomsFingerprint) {
+        roomsEntry.updateRoomsFingerprint(bindFp, visibleTradeRoomCountForBind);
       }
     }
 
     const roomsHadPeersBefore = roomsEntry != null && roomsEntry.listeners.size > 0;
     const metaHadPeers = metaEntry.listeners.size > 0;
     samarketMessengerHomeDebugEvent("messenger_home_subscribe_create", {
-      key: roomsKey ?? `${args.userId}:rooms:(deferred)`,
+      key: bindFp !== null ? roomsStorageKey : `${args.userId}:rooms:(deferred)`,
       metaKey,
-      roomsKey: roomsKey ?? `${args.userId}:rooms:(deferred)`,
+      roomsKey: bindFp !== null ? roomsStorageKey : `${args.userId}:rooms:(deferred)`,
       rooms_bind_deferred: bindFp === null,
     });
     metaEntry.listeners.add(listenerRef);
@@ -704,12 +798,12 @@ export function useCommunityMessengerHomeRealtime(args: {
       }
     }
 
-    if (roomsKey && roomsEntry) {
+    if (bindFp !== null && roomsEntry) {
       if (roomsCreated) {
         logCmRtLifecycleFix({
           action: "create",
           channelName: `community-messenger-home:rooms-in:${args.userId}`,
-          reason: "first_rooms_entry_for_fingerprint",
+          reason: "first_rooms_entry_stable_key",
           same_fingerprint: sameRoomsFingerprint,
           had_existing_subscription: physAfter > 0,
           active_count: physAfter,
@@ -741,9 +835,9 @@ export function useCommunityMessengerHomeRealtime(args: {
     pushMessengerHomeRealtimeMapProbe();
     return () => {
       samarketMessengerHomeDebugEvent("messenger_home_subscribe_cleanup", {
-        key: roomsKey ?? `${args.userId}:rooms:(deferred)`,
+        key: bindFp !== null ? roomsStorageKey : `${args.userId}:rooms:(deferred)`,
         metaKey,
-        roomsKey: roomsKey ?? `${args.userId}:rooms:(deferred)`,
+        roomsKey: bindFp !== null ? roomsStorageKey : `${args.userId}:rooms:(deferred)`,
       });
       const currentMeta = homeRealtimeMetaEntries.get(metaKey);
       if (currentMeta) {
@@ -759,14 +853,14 @@ export function useCommunityMessengerHomeRealtime(args: {
         }
       }
 
-      if (roomsKey) {
-        const currentRooms = homeRealtimeRoomsEntries.get(roomsKey);
+      if (bindFp !== null) {
+        const currentRooms = homeRealtimeRoomsEntries.get(roomsStorageKey);
         if (currentRooms) {
           currentRooms.listeners.delete(listenerRef);
           if (currentRooms.listeners.size === 0) {
             scheduleMessengerHomeDeferredPhysicalStop({
               kind: "rooms",
-              mapKey: roomsKey,
+              mapKey: roomsStorageKey,
               channelName: `community-messenger-home:rooms-in:${args.userId}`,
               graceMs,
               reason: "last_home_realtime_listener_removed",

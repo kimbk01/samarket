@@ -32,6 +32,7 @@ import {
 import { createRefreshScheduler } from "@/lib/community-messenger/realtime/community-messenger-realtime-schedulers";
 import { recordMessengerGlobalBundleSupabaseChannelGaugeDelta } from "@/lib/runtime/samarket-runtime-debug";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
+import { logRtRebindTrace } from "@/lib/community-messenger/realtime/cm-rt-rebind-trace";
 
 /** Supabase postgres_changes `in` 필터 값 한도 — Realtime 채널 수와 WAL 부하 균형 */
 const GLOBAL_MESSENGER_ROOM_POSTGRES_IN_FILTER_MAX = 50;
@@ -175,6 +176,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   let roomBound = false;
   let postgresBindGeneration = 0;
   let notifyDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  let lastBoundRoomIdsKey = "";
   let firstSubscribeResync: ReturnType<typeof createRefreshScheduler> | null = null;
 
   const clearNotifyDebounce = () => {
@@ -395,12 +397,19 @@ export function createGlobalMessengerRoomBundleEntry(args: {
 
   const bindFilteredPostgresSubscriptions = () => {
     const gen = ++postgresBindGeneration;
+    const roomIds = [...entry.listenersByRoom.keys()].filter(Boolean).sort();
+    const roomIdsKey = roomIds.join("\0");
+    if (roomIdsKey === lastBoundRoomIdsKey && channels.length > 0) {
+      logRtRebindTrace({ reason: "room_bundle_skip_unchanged", roomCount: roomIds.length });
+      return;
+    }
+    lastBoundRoomIdsKey = roomIdsKey;
+    logRtRebindTrace({ reason: "room_bundle_rebind", roomCount: roomIds.length });
     const prevLen = channels.length;
     for (const ch of channels) ch.stop();
     channels.length = 0;
 
     try {
-      const roomIds = [...entry.listenersByRoom.keys()].filter(Boolean).sort();
       if (roomIds.length === 0) {
         entry.channelSubscribed = true;
         return;
@@ -509,6 +518,7 @@ export function createGlobalMessengerRoomBundleEntry(args: {
   entry.stop = () => {
     cancelled = true;
     postgresBindGeneration += 1;
+    lastBoundRoomIdsKey = "";
     clearNotifyDebounce();
     authBridgeCleanup?.();
     authBridgeCleanup = null;
