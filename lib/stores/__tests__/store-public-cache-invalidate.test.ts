@@ -7,7 +7,7 @@ import {
   readStoreSummaryPublicServerCache,
   writeStoreSummaryPublicServerCache,
 } from "@/lib/stores/store-summary-public-server-cache";
-import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
+import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
 
 describe("invalidateStorePublicCachesForSlug", () => {
   it("서버·클라 summary 캐시를 slug 기준으로 제거", () => {
@@ -17,7 +17,7 @@ describe("invalidateStorePublicCachesForSlug", () => {
     primeStoreSummaryCache("aa11", { status: 200, json: { ok: true, store: { id: "1" } } });
     expect(peekStoreSummaryPublicCache("aa11")).not.toBeNull();
 
-    invalidateStorePublicCachesForSlug("aa11");
+    invalidateStorePublicCachesForSlugOnServer("aa11");
 
     expect(readStoreSummaryPublicServerCache("aa11")).toBeNull();
     expect(peekStoreSummaryPublicCache("aa11")).toBeNull();

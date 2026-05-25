@@ -3,7 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
-import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
+import { invalidateStorePublicCachesForSlugOnServer } from "@/lib/stores/store-public-cache-invalidate-server";
 import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
@@ -417,7 +417,7 @@ export async function PATCH(
 
   const slugRaw = (updated as unknown as { slug?: string }).slug;
   const publicSlug = typeof slugRaw === "string" ? slugRaw.trim() : "";
-  if (publicSlug) invalidateStorePublicCachesForSlug(publicSlug);
+  if (publicSlug) invalidateStorePublicCachesForSlugOnServer(publicSlug);
 
   if ("lat" in patch || "lng" in patch) {
     const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
