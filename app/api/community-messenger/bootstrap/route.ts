@@ -452,10 +452,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (!criticalPayload) {
-      const { buildCriticalBootstrapLegacy } = await import(
-        "@/lib/community-messenger/fetch-full-bootstrap-legacy"
+      return NextResponse.json(
+        { ok: false, error: "snapshot_unavailable" },
+        { status: 503, headers: { "content-type": "application/json; charset=utf-8" } }
       );
-      criticalPayload = await buildCriticalBootstrapLegacy(auth.userId);
     }
 
     const critical = criticalPayload;
@@ -687,38 +687,25 @@ export async function GET(request: NextRequest) {
     }
 
     if (!data) {
-      if (lite && !bootstrapDiag) {
+      if (!bootstrapDiag) {
         return NextResponse.json(
           { ok: false, error: "snapshot_unavailable" },
           { status: 503, headers: { "content-type": "application/json; charset=utf-8" } }
         );
       }
-      const existingInflight = bootstrapDiag ? null : communityMessengerBootstrapInflight.get(inflightKey);
-      if (existingInflight) {
-        data = await existingInflight;
-      } else {
-        const loadPromise = lite
-          ? getCommunityMessengerBootstrap(auth.userId, {
-              skipDiscoverable: true,
-              deferCallLog: true,
-              diagnostics,
-              bypassLiteRoomsCache: fresh,
-            })
-          : import("@/lib/community-messenger/fetch-full-bootstrap-legacy").then(({ buildFullBootstrapLegacy }) =>
-              buildFullBootstrapLegacy(auth.userId, {
-                diagnostics,
-                bypassLiteRoomsCache: fresh,
-              })
-            );
-        if (!bootstrapDiag) {
-          communityMessengerBootstrapInflight.set(inflightKey, loadPromise);
-        }
-        try {
-          data = await loadPromise;
-        } finally {
-          communityMessengerBootstrapInflight.delete(inflightKey);
-        }
-      }
+      data = await (lite
+        ? getCommunityMessengerBootstrap(auth.userId, {
+            skipDiscoverable: true,
+            deferCallLog: true,
+            diagnostics,
+            bypassLiteRoomsCache: fresh,
+          })
+        : getCommunityMessengerBootstrap(auth.userId, {
+            skipDiscoverable: false,
+            deferCallLog: false,
+            diagnostics,
+            bypassLiteRoomsCache: fresh,
+          }));
     }
     fullPayloadAwaitMs = Math.round(performance.now() - tFullPayload);
     const afterFetch = Date.now();

@@ -199,7 +199,7 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     track: "FBT1",
     route: "/api/community-messenger/bootstrap",
     fallback_branch: "legacy_full_bootstrap_monolith",
-    legacy_module: "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
+    legacy_module: "app/api/community-messenger/bootstrap/route.ts",
     legacy_builder: "buildFullBootstrapLegacy",
     rpc_name: "get_cm_bootstrap_full_snapshot",
     snapshot_table: "community_messenger_bootstrap_snapshots",
@@ -207,12 +207,13 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     verify_e2e_script: "verify:full-bootstrap-snapshot-e2e",
     reconnect_related: 1,
     structural_pass: 1,
+    hard_deleted: 1,
   },
   {
     track: "FBT1",
     route: "/api/community-messenger/bootstrap?tier=critical",
     fallback_branch: "legacy_critical_tier_monolith",
-    legacy_module: "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
+    legacy_module: "app/api/community-messenger/bootstrap/route.ts",
     legacy_builder: "buildCriticalBootstrapLegacy",
     rpc_name: "get_cm_bootstrap_full_snapshot",
     snapshot_table: "community_messenger_bootstrap_snapshots",
@@ -220,6 +221,7 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     verify_e2e_script: "verify:full-bootstrap-snapshot-e2e",
     reconnect_related: 1,
     structural_pass: 1,
+    hard_deleted: 1,
   },
 ] as const;
 
