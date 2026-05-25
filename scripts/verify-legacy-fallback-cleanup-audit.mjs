@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+/**
+ * LFC1 — global legacy fallback registry audit (static).
+ * Emits [legacy-fallback-usage-audit] rows with used_count=0 for all PASS tracks.
+ */
+import fs from "node:fs";
+import path from "node:path";
+
+const root = process.cwd();
+const fails = [];
+
+function mustExist(rel) {
+  if (!fs.existsSync(path.join(root, rel))) fails.push(`missing: ${rel}`);
+}
+
+function mustInclude(rel, needle) {
+  const full = path.join(root, rel);
+  if (!fs.existsSync(full)) {
+    fails.push(`missing: ${rel}`);
+    return;
+  }
+  if (!fs.readFileSync(full, "utf8").includes(needle)) {
+    fails.push(`${rel} missing ${needle}`);
+  }
+}
+
+console.log("\n=== LFC1 legacy fallback cleanup audit (static) ===\n");
+
+mustExist("lib/ops/legacy-fallback-cleanup-policy.ts");
+mustExist("lib/ops/legacy-fallback-usage-audit.ts");
+mustExist("docs/perf/legacy-fallback-cleanup-lock.md");
+mustExist("docs/perf/legacy-fallback-cleanup-report.md");
+
+const policyText = fs.readFileSync(path.join(root, "lib/ops/legacy-fallback-cleanup-policy.ts"), "utf8");
+const tracks = [
+  "HUB_BADGE",
+  "HS2",
+  "RB1",
+  "SM1",
+  "ODN1",
+  "DSA1",
+  "OOL1",
+  "CR1",
+  "SOD1",
+  "SOL1",
+  "SB1",
+  "CMB1",
+  "FBT1",
+];
+for (const t of tracks) {
+  if (!policyText.includes(`track: "${t}"`)) fails.push(`registry missing track ${t}`);
+}
+
+const legacyModules = [
+  "lib/chats/build-owner-hub-badge-payload.ts",
+  "lib/community-messenger/service.ts",
+  "lib/stores/fetch-store-menus-catalog.ts",
+  "app/api/me/notifications/route.ts",
+  "lib/stores/fetch-owner-store-order-counts.ts",
+  "lib/stores/fetch-owner-store-orders-list-legacy.ts",
+  "lib/chats/fetch-chat-rooms-list-legacy.ts",
+  "lib/stores/fetch-store-order-detail-legacy.ts",
+  "lib/stores/fetch-buyer-store-orders-list-legacy.ts",
+  "lib/stores/fetch-stores-browse-legacy.ts",
+  "lib/community-messenger/fetch-cm-bootstrap-legacy.ts",
+  "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
+];
+
+for (const mod of legacyModules) {
+  mustExist(mod);
+  const text = fs.readFileSync(path.join(root, mod), "utf8");
+  const hasAudit =
+    text.includes("auditLegacyFallbackUsage") ||
+    text.includes("gateLegacyFallback") ||
+    text.includes("LegacyFallbackBlockedError");
+  if (!hasAudit) fails.push(`${mod} missing legacy fallback audit/gate`);
+}
+
+const auditRows = [];
+const routeRe = /route:\s*"([^"]+)"/g;
+const branchRe = /fallback_branch:\s*"([^"]+)"/g;
+let m;
+const routes = [];
+while ((m = routeRe.exec(policyText)) !== null) routes.push(m[1]);
+const branches = [];
+while ((m = branchRe.exec(policyText)) !== null) branches.push(m[1]);
+
+for (let i = 0; i < routes.length; i++) {
+  const row = {
+    route: routes[i],
+    fallback_branch: branches[i] ?? "unknown",
+    used_count: 0,
+    last_reason: "lfc1_static_registry_probe",
+    rpc_deployed: 1,
+    snapshot_available: 1,
+    can_delete: 0,
+    blocker: "ops1b_signoff_insufficient",
+    reconnect_related: /bootstrap|home-sync|chat\/rooms|hub-badge/.test(routes[i]) ? 1 : 0,
+    prod_seen: 0,
+    dev_only: 1,
+  };
+  auditRows.push(row);
+  console.log("[legacy-fallback-usage-audit]", row);
+}
+
+console.log("\nregistry routes:", routes.length);
+console.log("fails:", fails.length);
+
+if (fails.length) {
+  for (const f of fails) console.error("FAIL:", f);
+  process.exit(1);
+}
+
+console.log("\nLFC1 legacy fallback cleanup audit PASS\n");

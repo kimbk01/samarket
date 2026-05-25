@@ -1,3 +1,8 @@
+import {
+  clearHomeSyncSnapshotInvalidation,
+  peekHomeSyncSnapshotInvalidated,
+} from "@/lib/community-messenger/home-sync-snapshot-cache";
+
 /** home-sync critical `fetchMyRoomsPayload` 스냅샷 — service 내부 `MessengerRoomsPayload` 와 동형 */
 export type HomeSyncCriticalRoomsPayload = {
   roomRows: unknown[];
@@ -21,6 +26,11 @@ export function peekHomeSyncCriticalRoomsCache(
   userId: string,
   cap: number
 ): HomeSyncCriticalRoomsPayload | undefined {
+  if (peekHomeSyncSnapshotInvalidated(userId)) {
+    clearHomeSyncSnapshotInvalidation(userId);
+    cache.delete(cacheKey(userId, cap));
+    return undefined;
+  }
   const k = cacheKey(userId, cap);
   const row = cache.get(k);
   if (!row || row.expiresAt <= Date.now()) {

@@ -68,7 +68,14 @@ export async function GET(
     isOwnerDashboardMeasureInvalidateEnabled() &&
     _req.headers.get("x-samarket-owner-dashboard-measure") === "1"
   ) {
-    invalidateStoreOrderCountsCache(id);
+    invalidateStoreOrderCountsCache(id, userId);
+  }
+
+  const deliverySummaryBypass =
+    new URL(_req.url).searchParams.get("deliverySummaryBypass") === "1" &&
+    process.env.NODE_ENV === "development";
+  if (deliverySummaryBypass) {
+    invalidateStoreOrderCountsCache(id, userId);
   }
 
   const ownershipCachedBefore = peekOwnerStoreOwnershipCacheHit(userId, id);
@@ -81,7 +88,7 @@ export async function GET(
   coldBreakdown.ownership_ms = ownershipCachedBefore ? 0 : 0;
   coldBreakdown.cache_lookup_ms = Math.round(perfNowMs() - cacheLookup0);
 
-  let orderCountsVia: "rpc_snapshot" | "rpc" | "legacy" = "legacy";
+  let orderCountsVia: "delivery_summary_snapshot" | "rpc_snapshot" | "rpc" | "legacy" = "legacy";
   let fallbackUsed: 0 | 1 = 1;
   let orderCountRpcMs = 0;
 
@@ -163,7 +170,11 @@ export async function GET(
       fallback_used: cache_hit ? undefined : fallbackUsed,
       order_counts_via: cache_hit ? undefined : orderCountsVia,
       first_paint_blocking: _req.headers.get("x-samarket-first-paint-blocking") !== "0",
-      db_round_trips: cache_hit ? 0 : orderCountsVia === "rpc_snapshot" ? 1 : 2,
+      db_round_trips: cache_hit
+        ? 0
+        : orderCountsVia === "delivery_summary_snapshot" || orderCountsVia === "rpc_snapshot"
+          ? 1
+          : 2,
       ...(cache_hit
         ? {}
         : {
@@ -195,11 +206,26 @@ export async function GET(
   );
 
   return NextResponse.json(body, {
-    headers: buildPerfMeasureResponseHeaders({
-      actual_handler_ms: total_ms,
-      cache_hit,
-      transport_ms: coldBreakdown.rpc_transport_estimated_ms,
-      db_execution_ms: coldBreakdown.rpc_estimated_db_ms,
-    }),
+    headers: {
+      ...buildPerfMeasureResponseHeaders({
+        actual_handler_ms: total_ms,
+        cache_hit,
+        transport_ms: coldBreakdown.rpc_transport_estimated_ms,
+        db_execution_ms: coldBreakdown.rpc_estimated_db_ms,
+      }),
+      ...(orderCountsVia !== "legacy"
+        ? {
+            "x-samarket-delivery-summary-snapshot-path": "1",
+            "x-samarket-delivery-summary-snapshot-via":
+              orderCountsVia === "delivery_summary_snapshot"
+                ? "unified_rpc"
+                : orderCountsVia === "rpc_snapshot"
+                  ? "dashboard_rpc_snapshot"
+                  : "legacy_rpc",
+            "x-samarket-delivery-summary-query-wave-2-ms": "0",
+            "x-samarket-delivery-summary-rpc-removed": "1",
+          }
+        : {}),
+    },
   });
 }

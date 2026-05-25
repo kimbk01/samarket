@@ -1,17 +1,21 @@
 /**
- * findOwnerHubStore — hub badge wave1 계측 전용 (쿼리 조건·shape 고정, 로직 변경 없음).
- * PostgREST `!inner` embed 는 단일 SQL·단일 RTT — permission join 은 query_ms 와 분리 측정 불가.
+ * findOwnerHubStore — hub badge wave1 계측 전용.
+ * PostgREST embed inner join 제거 — stores 단독 + store_sales_permissions merge (2 RTT).
  */
 
-export const FIND_OWNER_HUB_STORE_SELECT =
-  "id,slug,store_sales_permissions!inner(allowed_to_sell,sales_status)";
+export const FIND_OWNER_HUB_STORE_SELECT = "id,slug";
+
+export const FIND_OWNER_HUB_STORE_PERMISSIONS_SELECT = "allowed_to_sell,sales_status";
 
 export const FIND_OWNER_HUB_STORE_FILTERS =
-  "owner_user_id=:userId; approval_status=approved; is_visible=true; store_sales_permissions.allowed_to_sell=true; store_sales_permissions.sales_status=approved; order=created_at.desc; limit=1";
+  "stores: owner_user_id=:userId; approval_status=approved; is_visible=true; order=created_at.desc; limit=1";
+
+export const FIND_OWNER_HUB_STORE_PERMISSIONS_FILTERS =
+  "store_sales_permissions: store_id=:storeId";
 
 /** EXPLAIN·인덱스 후보 메모 — 런타임 변경 없음 */
 export const FIND_OWNER_HUB_STORE_INDEX_HINT =
-  "stores: owner_user_id + (approval_status,is_visible) filter; store_sales_permissions: store_id FK + (allowed_to_sell,sales_status) for embed inner join";
+  "stores: owner_user_id + (approval_status,is_visible) filter; store_sales_permissions: store_id PK/FK lookup";
 
 export type FindOwnerHubStoreVia = "memory" | "postgrest" | "skipped_no_sb" | "error" | "empty";
 
@@ -45,8 +49,10 @@ export function logFindHubStorePerf(timing: FindOwnerHubStoreTiming, userIdShort
     user_id_short: userIdShort,
     ...timing,
     select: FIND_OWNER_HUB_STORE_SELECT,
+    permissions_select: FIND_OWNER_HUB_STORE_PERMISSIONS_SELECT,
     filters: FIND_OWNER_HUB_STORE_FILTERS,
+    permissions_filters: FIND_OWNER_HUB_STORE_PERMISSIONS_FILTERS,
     index_hint: FIND_OWNER_HUB_STORE_INDEX_HINT,
-    join_mode: "postgrest_embed_inner_single_rtt",
+    join_mode: "stores_then_permissions_two_rtt",
   });
 }

@@ -14,6 +14,7 @@ import {
   communityMessengerUnreadMemoryTtlMs,
   invalidateCommunityMessengerUnreadTotalCache,
   readCmUnreadRoomCountMemory,
+  scheduleCmUnreadSnapshotRevalidate,
   writeCmUnreadRoomCountMemory,
 } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
@@ -181,6 +182,16 @@ async function sumCommunityMessengerParticipantUnreadInner(
 
   if (mem.hit) {
     const totalMs = devPerfNow() - mountMs;
+    if (mem.stale) {
+      scheduleCmUnreadSnapshotRevalidate(uid, async () => {
+        const agg = await readCmUnreadRoomCountAggregate(sbAny, uid);
+        if (agg.hit) return agg.unreadRoomCount;
+        const rpcProbe = await sumCommunityMessengerParticipantUnreadViaRpc(sbAny, uid);
+        if (rpcProbe.result != null) return rpcProbe.result;
+        const legacy = await sumCommunityMessengerParticipantUnreadLegacy(sbAny, uid);
+        return legacy.result;
+      });
+    }
     if (timingOut) {
       applyCmUnreadMemoryHitTiming(timingOut, totalMs, mem.unreadRoomCount, mem.ageMs);
     }
@@ -198,7 +209,7 @@ async function sumCommunityMessengerParticipantUnreadInner(
         cm_unread_memory_age_ms: Math.round(mem.ageMs),
         ttl_ms: communityMessengerUnreadMemoryTtlMs(),
         unread_room_count: mem.unreadRoomCount,
-        stale_snapshot_within_ttl: true,
+        stale_snapshot_within_ttl: Boolean(mem.stale),
       });
     }
     logCmUnreadDeepFromPath({

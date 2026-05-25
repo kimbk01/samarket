@@ -1,0 +1,265 @@
+{
+  "at": "2026-05-25T04:52:42.835Z",
+  "git": {
+    "head": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
+    "origin": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
+    "untracked_snapshot_files": 123,
+    "modified_api_routes": 19,
+    "dirty": true
+  },
+  "migrationFiles": [
+    {
+      "prefix": "20260525180000",
+      "file": "20260525180000_owner_hub_badge_snapshot_rpc.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260525190000",
+      "file": "20260525190000_community_messenger_home_sync_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260525200000",
+      "file": "20260525200000_community_messenger_room_bootstrap_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260525210000",
+      "file": "20260525210000_store_menus_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260525220000",
+      "file": "20260525220000_owner_dashboard_notifications_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260525230000",
+      "file": "20260525230000_delivery_summary_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526000000",
+      "file": "20260526000000_owner_store_orders_list_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526100000",
+      "file": "20260526100000_cm_bootstrap_critical_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526200000",
+      "file": "20260526200000_chat_rooms_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526210000",
+      "file": "20260526210000_store_order_detail_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526220000",
+      "file": "20260526220000_buyer_store_orders_list_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526230000",
+      "file": "20260526230000_stores_browse_snapshot.sql",
+      "on_disk": 1
+    },
+    {
+      "prefix": "20260526240000",
+      "file": "20260526240000_cm_bootstrap_full_snapshot.sql",
+      "on_disk": 1
+    }
+  ],
+  "rpcRows": [
+    {
+      "rpc": "get_owner_hub_badge_snapshot",
+      "deployed": 1,
+      "ms": 282,
+      "error": null
+    },
+    {
+      "rpc": "get_community_messenger_home_sync_snapshot",
+      "deployed": 1,
+      "ms": 131,
+      "error": null
+    },
+    {
+      "rpc": "get_community_messenger_room_bootstrap_snapshot",
+      "deployed": 1,
+      "ms": 135,
+      "error": null
+    },
+    {
+      "rpc": "get_store_menus_snapshot",
+      "deployed": 1,
+      "ms": 258,
+      "error": null
+    },
+    {
+      "rpc": "get_owner_dashboard_notifications_snapshot",
+      "deployed": 1,
+      "ms": 128,
+      "error": null
+    },
+    {
+      "rpc": "get_delivery_summary_snapshot",
+      "deployed": 1,
+      "ms": 129,
+      "error": null
+    },
+    {
+      "rpc": "get_owner_store_orders_list_snapshot",
+      "deployed": 1,
+      "ms": 140,
+      "error": null
+    },
+    {
+      "rpc": "get_cm_bootstrap_critical_snapshot",
+      "deployed": 1,
+      "ms": 140,
+      "error": null
+    },
+    {
+      "rpc": "get_chat_rooms_snapshot",
+      "deployed": 1,
+      "ms": 138,
+      "error": null
+    },
+    {
+      "rpc": "get_store_order_detail_snapshot",
+      "deployed": 1,
+      "ms": 132,
+      "error": null
+    },
+    {
+      "rpc": "get_buyer_store_orders_list_snapshot",
+      "deployed": 1,
+      "ms": 205,
+      "error": null
+    },
+    {
+      "rpc": "get_stores_browse_snapshot",
+      "deployed": 1,
+      "ms": 133,
+      "error": null
+    },
+    {
+      "rpc": "get_cm_bootstrap_full_snapshot",
+      "deployed": 1,
+      "ms": 144,
+      "error": null
+    }
+  ],
+  "headerRows": [
+    {
+      "route": "/api/me/store-owner-hub-badge",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/community-messenger/home-sync",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": 0,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/stores/[slug]/menus",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/me/notifications",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/me/stores/[storeId]/order-counts",
+      "status": 403,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/chat/rooms",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/stores/browse",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/community-messenger/bootstrap?lite=1",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    },
+    {
+      "route": "/api/community-messenger/bootstrap",
+      "status": 200,
+      "snapshotPath": false,
+      "via": "",
+      "query_wave_2_ms": null,
+      "rpc_removed": 0,
+      "pass": 0,
+      "fallback_used": 1
+    }
+  ],
+  "summary": {
+    "base_url": "https://samarket.vercel.app",
+    "git_head": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
+    "git_origin_main": "714efbf7955e5e65b75eaab9a525232813dcdcfc 작업",
+    "code_committed_and_pushed": 0,
+    "code_sync_blocker": "uncommitted_snapshot_code_and_routes",
+    "rpc_deployed": "13/13",
+    "prod_header_pass": "0/9",
+    "ops1b_gate_met": 0,
+    "lfc1_hard_delete_allowed": 0,
+    "next_steps": [
+      "git add/commit/push snapshot work",
+      "Vercel redeploy prod",
+      "npm run ops1:triple-signoff"
+    ]
+  }
+}

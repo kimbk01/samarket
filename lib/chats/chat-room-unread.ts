@@ -1,4 +1,6 @@
+import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalidateChatRoomsSnapshotForUsers } from "@/lib/chats/chat-rooms-snapshot-cache";
 
 type RecipientRow = {
   user_id: string;
@@ -64,5 +66,6 @@ export async function bumpUnreadForChatRoomRecipients(
       }
     })
   );
+  invalidateChatRoomsSnapshotForUsers([senderUserId, ...recipientUserIds]);
   return { recipientUserIds };
 }

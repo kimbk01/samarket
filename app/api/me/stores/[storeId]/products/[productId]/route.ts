@@ -18,6 +18,7 @@ import {
   OWNER_RECOMMENDED_MENU_MAX,
 } from "@/lib/stores/owner-recommended-menu-limit";
 import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
+import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -464,6 +465,7 @@ export async function PATCH(
   }
 
   invalidateOwnerProductsListCache(sid);
+  invalidateStoreMenusSnapshotCacheByStoreId(sid);
 
   return NextResponse.json({ ok: true });
 }

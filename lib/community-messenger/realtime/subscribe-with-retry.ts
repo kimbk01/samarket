@@ -537,6 +537,16 @@ export function subscribeWithRetry(args: {
         });
         if (status === "SUBSCRIBED") {
           void syncSupabaseRealtimeAuthFromSession(args.sb);
+          if (attempt > 0) {
+            void import("@/lib/ops/reconnect-stress-analysis").then(({ recordReconnectStressEvent }) => {
+              recordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "reconnect");
+            });
+          }
+          if (activeNow > 1) {
+            void import("@/lib/ops/reconnect-stress-analysis").then(({ recordReconnectStressEvent }) => {
+              recordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "duplicate_subscribe");
+            });
+          }
           const attemptNoAtOutcome = attempt;
           const phase = attempt > 0 ? "retry" : "initial";
           attempt = 0;

@@ -1,6 +1,8 @@
 import { forgetSingleFlight } from "@/lib/http/run-single-flight";
 import { purgeStoreSlugPublicClientCaches } from "@/lib/stores/store-delivery-api-client";
 import { invalidateStoreSummaryPublicServerCache } from "@/lib/stores/store-summary-public-server-cache";
+import { invalidateStoreMenusSnapshotCache } from "@/lib/stores/store-menus-snapshot-cache";
+import { invalidateStoresBrowseSnapshot } from "@/lib/stores/stores-browse-snapshot-cache";
 
 /** `window` 이벤트 — 매장 상세·장바구니가 구독해 즉시 refetch */
 export const STORE_PUBLIC_CACHE_INVALIDATE_EVENT = "samarket:store-public-cache-invalidate";
@@ -14,6 +16,8 @@ export function invalidateStorePublicCachesForSlug(slug: string): void {
   if (!s) return;
   const k = s.toLowerCase();
   invalidateStoreSummaryPublicServerCache(k);
+  invalidateStoreMenusSnapshotCache(s);
+  invalidateStoresBrowseSnapshot(undefined, "store_public_slug");
   forgetSingleFlight(`store-summary-api:slug:${k}`);
   purgeStoreSlugPublicClientCaches(s);
   if (typeof window !== "undefined") {

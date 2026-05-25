@@ -28,6 +28,7 @@ import {
   sumCommunityMessengerParticipantUnread,
 } from "@/lib/community-messenger/community-messenger-unread-total";
 import { invalidateHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import { invalidateHubStoreOrderRoomIdsMemory } from "@/lib/community-messenger/hub-store-order-roomids-memory-cache";
 import {
   countOwnerStoreOrderMessengerUnreadForHubStore,
 } from "@/lib/community-messenger/store-order-chat-service";
@@ -36,9 +37,11 @@ import { peekLastUnreadPartsComputeMeta } from "@/lib/chat/user-chat-unread-part
 import {
   hubBadgeBreakdownForUser,
   logHubBadgeBreakdown,
+  logHubBadgeCacheAnalysis,
   pickWorstStage,
   storeIdShort,
   type HubBadgeBreakdown,
+  type HubBadgeCacheAnalysis,
 } from "@/lib/chats/hub-badge-breakdown";
 import {
   emptyFindOwnerHubStoreTiming,
@@ -49,7 +52,9 @@ import {
   invalidateOwnerHubStoreLookupCache,
   ownerHubStoreLookupMemoryTtlMs,
   readOwnerHubStoreLookupMemory,
+  scheduleOwnerHubStoreLookupRevalidate,
   writeOwnerHubStoreLookupMemory,
+  type HubStoreLiteCached,
 } from "@/lib/chats/owner-hub-store-lookup-cache";
 import {
   CM_UNREAD_HUB_FILTERS,
@@ -62,6 +67,8 @@ import {
   STORE_ORDER_UNREAD_HUB_PARTS_FILTERS,
   STORE_ORDER_UNREAD_HUB_PARTS_SELECT,
 } from "@/lib/chats/hub-badge-wave2-perf";
+import { evaluateHubBadgeRegressionGuards } from "@/lib/chats/hub-badge-regression-guard";
+import { tryBuildOwnerHubBadgeFromSnapshot } from "@/lib/chats/owner-hub-badge-snapshot";
 
 export type OwnerHubBadgeBuildMeta = {
   queryType: "owner_hub_badge_light";
@@ -85,21 +92,62 @@ export type OwnerHubBadgeApiPayload = {
   storeDeepLink: string | null;
 };
 
-type HubStoreLiteRow = { id: string; slug?: string | null };
+type HubStoreLiteRow = HubStoreLiteCached;
 
-/** 점주 매장 1건 존재 여부 — 허브 카운트·주문 채팅 unread 생략 판단용 */
-async function ownerHasAnyStore(
-  storesSb: SupabaseClient<any> | null,
-  userId: string
-): Promise<boolean> {
-  if (!storesSb) return false;
+async function fetchOwnerHubStoreFromDb(
+  storesSb: SupabaseClient<any>,
+  userId: string,
+  timingOut?: FindOwnerHubStoreTiming
+): Promise<{ hubStore: HubStoreLiteRow | null; rows: number; error?: string }> {
+  const storeQuery0 = devPerfNow();
   const { data, error } = await storesSb
     .from("stores")
-    .select("id")
+    .select("id,slug")
     .eq("owner_user_id", userId)
+    .eq("approval_status", "approved")
+    .eq("is_visible", true)
+    .order("created_at", { ascending: false })
     .limit(1);
-  if (error || !Array.isArray(data) || data.length === 0) return false;
-  return typeof (data[0] as { id?: unknown }).id === "string" && !!(data[0] as { id: string }).id.trim();
+  const storeQueryMs = devPerfNow() - storeQuery0;
+  if (error) return { hubStore: null, rows: 0, error: error.message };
+  const rows = Array.isArray(data) ? data.length : 0;
+  if (rows <= 0) return { hubStore: null, rows: 0 };
+  const row = data![0] as { id?: unknown; slug?: unknown };
+  if (typeof row.id !== "string" || !row.id.trim()) return { hubStore: null, rows: 0 };
+
+  const permQuery0 = devPerfNow();
+  const { data: permRow, error: permErr } = await storesSb
+    .from("store_sales_permissions")
+    .select("allowed_to_sell,sales_status")
+    .eq("store_id", row.id.trim())
+    .maybeSingle();
+  const permQueryMs = devPerfNow() - permQuery0;
+  if (timingOut) {
+    timingOut.find_hub_store_query_ms = Math.round(storeQueryMs);
+    timingOut.find_hub_store_permission_join_ms = Math.round(permQueryMs);
+  }
+  if (permErr) return { hubStore: null, rows: 0, error: permErr.message };
+  const allowed = Boolean((permRow as { allowed_to_sell?: unknown } | null)?.allowed_to_sell);
+  const salesStatus = trimText((permRow as { sales_status?: unknown } | null)?.sales_status);
+  if (!allowed || salesStatus !== "approved") return { hubStore: null, rows: 0 };
+
+  return {
+    hubStore: {
+      id: row.id.trim(),
+      slug: typeof row.slug === "string" ? row.slug : null,
+      allowed_to_sell: true,
+      sales_status: salesStatus,
+    },
+    rows: 1,
+  };
+}
+
+function trimText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function hasOwnerStoreFromHub(hubStore: HubStoreLiteRow | null | undefined): hubStore is HubStoreLiteRow {
+  return hubStore != null && typeof hubStore.id === "string" && !!hubStore.id.trim();
 }
 
 export type OwnerHubBadgeUnreadPartial = {
@@ -142,32 +190,13 @@ export async function buildOwnerHubBadgeUnreadSegment(
   };
 }
 
+
 async function findOwnerHubStoreViaPostgrest(
   storesSb: SupabaseClient<any>,
-  userId: string
+  userId: string,
+  timingOut?: FindOwnerHubStoreTiming
 ): Promise<{ hubStore: HubStoreLiteRow | null; rows: number; error?: string }> {
-  const { data, error } = await storesSb
-    .from("stores")
-    .select("id,slug,store_sales_permissions!inner(allowed_to_sell,sales_status)")
-    .eq("owner_user_id", userId)
-    .eq("approval_status", "approved")
-    .eq("is_visible", true)
-    .eq("store_sales_permissions.allowed_to_sell", true)
-    .eq("store_sales_permissions.sales_status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(1);
-  if (error) return { hubStore: null, rows: 0, error: error.message };
-  const rows = Array.isArray(data) ? data.length : 0;
-  if (rows <= 0) return { hubStore: null, rows: 0 };
-  const row = data![0] as { id?: unknown; slug?: unknown };
-  if (typeof row.id !== "string" || !row.id.trim()) return { hubStore: null, rows: 0 };
-  return {
-    hubStore: {
-      id: row.id.trim(),
-      slug: typeof row.slug === "string" ? row.slug : null,
-    },
-    rows: 1,
-  };
+  return fetchOwnerHubStoreFromDb(storesSb, userId, timingOut);
 }
 
 /** empty/postgrest 동시 요청 — 동일 userId 단일 RTT (empty TTL 120s write 공유) */
@@ -188,6 +217,12 @@ async function findOwnerHubStore(
   const mem = readOwnerHubStoreLookupMemory(uid);
   if (mem.hit) {
     const totalMs = devPerfNow() - total0;
+    if (mem.stale && !findOwnerHubStoreInflight.has(uid)) {
+      scheduleOwnerHubStoreLookupRevalidate(uid, async () => {
+        const { hubStore } = await fetchOwnerHubStoreFromDb(storesSb, uid);
+        return hubStore;
+      });
+    }
     if (timingOut) {
       timingOut.find_hub_store_ms = Math.round(totalMs);
       timingOut.find_hub_store_query_ms = 0;
@@ -203,7 +238,7 @@ async function findOwnerHubStore(
           user_id_short: uid.slice(0, 8),
           find_hub_store_cache_age_ms: Math.round(mem.ageMs),
           ttl_ms: ownerHubStoreLookupMemoryTtlMs(),
-          stale_snapshot_within_ttl: true,
+          stale_snapshot_within_ttl: Boolean(mem.stale),
         });
       }
     }
@@ -228,8 +263,11 @@ async function findOwnerHubStore(
 
   const flight = (async (): Promise<HubStoreLiteRow | null> => {
     const query0 = devPerfNow();
-    const { hubStore, rows, error } = await findOwnerHubStoreViaPostgrest(storesSb, uid);
+    const { hubStore, rows, error } = await findOwnerHubStoreViaPostgrest(storesSb, uid, timingOut);
     const queryMs = devPerfNow() - query0;
+    if (!timingOut?.find_hub_store_query_ms) {
+      if (timingOut) timingOut.find_hub_store_query_ms = Math.round(queryMs);
+    }
     writeOwnerHubStoreLookupMemory(uid, hubStore);
     const totalMs = devPerfNow() - total0;
     if (timingOut) {
@@ -491,10 +529,42 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   }
   if (opts?.storeOrderUnreadFresh) {
     invalidateHubStoreOrderUnreadMemory(userId);
+    invalidateHubStoreOrderRoomIdsMemory();
   }
   if (opts?.storeAttentionFresh) {
     invalidateHubStoreAttentionMemory();
   }
+
+  const forceRpc =
+    opts?.findHubStoreFresh ||
+    opts?.unreadPartsFresh ||
+    opts?.cmUnreadFresh ||
+    opts?.storeOrderUnreadFresh ||
+    opts?.storeAttentionFresh;
+
+  const snapshotBuilt = await tryBuildOwnerHubBadgeFromSnapshot(sbAny, userId, {
+    forceRpc: Boolean(forceRpc),
+  });
+  if (snapshotBuilt) {
+    return snapshotBuilt;
+  }
+
+  {
+    const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
+    auditLegacyFallbackUsage({
+      route: "/api/me/store-owner-hub-badge",
+      fallback_branch: "legacy_aggregate",
+      reason: "unified_rpc_unavailable",
+    });
+  }
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console -- unified RPC unavailable → legacy aggregate fallback
+    console.warn("[hub-badge-snapshot-fallback]", {
+      user_id_short: userId.slice(0, 8),
+      reason: "unified_rpc_unavailable",
+    });
+  }
+
   const build0 = devPerfNow();
   const meta: OwnerHubBadgeBuildMeta = {
     queryType: "owner_hub_badge_light",
@@ -510,10 +580,11 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const storeOrderUnreadTiming = emptyStoreOrderUnreadTiming();
   let cmUnreadFallback = false;
   let storeOrderUnreadFallback = false;
+  let orderRoomIdsHit = 0;
 
   /**
-   * wave1: find_hub_store 선행 → no_hub 이면 unread_parts·store_order 경로 RPC 생략(cm_unread만).
-   * cm_unread 는 community_messenger_participants — unread_parts(philife/trade chat_rooms)와 소스 분리(이중 집계 없음).
+   * wave1+2 병렬: find_hub → unread_parts·store_order·store_attention prefetch chain,
+   * cm_unread 는 find_hub 와 동시 시작 (community_messenger_participants — unread_parts 와 소스 분리).
    */
   const cmUnreadPromise = (async () => {
     try {
@@ -525,89 +596,84 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     }
   })();
 
-  let hubStore: HubStoreLiteRow | null = null;
-  try {
-    /** find_hub 선행(병렬 cm_unread 와 RTT 겹침) — no_hub 판정 후 unread_parts 만 생략 */
-    hubStore = await findOwnerHubStore(storesSb, userId, findHubStoreTiming);
-  } catch {
+  const findHubPromise = findOwnerHubStore(storesSb, userId, findHubStoreTiming).catch(() => {
     findHubStoreError = true;
     findHubStoreTiming.find_hub_store_via = "error";
-    hubStore = null;
-  }
+    return null;
+  });
+
+  const unreadPartsPromise = findHubPromise.then((hubStore) =>
+    hubStore ? getCachedUserChatUnreadParts(sbAny, userId) : Promise.resolve(zeroUnreadPartsForNoHubStore())
+  );
+
+  const storeAttentionPrefetchStartedAt = devPerfNow();
+  const storeAttentionCountsPromise = findHubPromise.then((hubStore) =>
+    hubStore && storesSb ? getOwnerHubStoreAttentionCounts(storesSb, hubStore.id) : Promise.resolve(null)
+  );
+
+  const storeOrderPromise = findHubPromise.then(async (hubStore) => {
+    if (!hasOwnerStoreFromHub(hubStore) || !storesSb || !hubStore) {
+      storeOrderUnreadTiming.store_order_unread_via = "skipped_no_hub";
+      return 0;
+    }
+    try {
+      return await countOwnerStoreOrderMessengerUnreadForHubStore(
+        storesSb as SupabaseClient<any>,
+        userId,
+        hubStore.id,
+        storeOrderUnreadTiming,
+        {
+          onRoomIdsCacheHit: () => {
+            orderRoomIdsHit = 1;
+          },
+        }
+      );
+    } catch {
+      storeOrderUnreadFallback = true;
+      storeOrderUnreadTiming.store_order_unread_via = "error";
+      return 0;
+    }
+  });
+
+  const [hubStore, communityMessengerUnread, unreadParts, storeOrderChatUnread] = await Promise.all([
+    findHubPromise,
+    cmUnreadPromise,
+    unreadPartsPromise,
+    storeOrderPromise,
+  ]);
 
   const hasOwnerStoreEarly = hubStore != null;
   const noHubFastPath = !hasOwnerStoreEarly;
 
-  let unreadParts: Awaited<ReturnType<typeof getCachedUserChatUnreadParts>>;
-  let communityMessengerUnread: number;
-  if (hasOwnerStoreEarly) {
-    [unreadParts, communityMessengerUnread] = await Promise.all([
-      getCachedUserChatUnreadParts(sbAny, userId),
-      cmUnreadPromise,
-    ]);
-  } else {
-    unreadParts = zeroUnreadPartsForNoHubStore();
-    communityMessengerUnread = await cmUnreadPromise;
-    if (process.env.NODE_ENV === "development") {
-      // eslint-disable-next-line no-console -- no-hub fast path verify
-      console.info("[hub-badge-no-hub-fast-path]", {
-        user_id_short: userId.slice(0, 8),
-        find_hub_store_rows: findHubStoreTiming.find_hub_store_rows ?? 0,
-        unread_parts_skipped: 1,
-      });
-    }
+  if (noHubFastPath && process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console -- no-hub fast path verify
+    console.info("[hub-badge-no-hub-fast-path]", {
+      user_id_short: userId.slice(0, 8),
+      find_hub_store_rows: findHubStoreTiming.find_hub_store_rows ?? 0,
+      unread_parts_skipped: 1,
+    });
   }
+
   const queryWave1Ms = devPerfNow() - wave1Start;
   const unreadPartsMeta = peekLastUnreadPartsComputeMeta();
   const unreadPartsMs = Math.round(unreadPartsMeta?.total_ms ?? 0);
   const unreadPartsVia = unreadPartsMeta?.via;
   const findHubStoreMs = findHubStoreTiming.find_hub_store_ms;
-  const cmUnreadMsEarly = cmUnreadTiming.cm_unread_ms;
-  const wave1ParallelSlackMs = Math.max(
-    0,
-    Math.round(queryWave1Ms - Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMsEarly))
-  );
-  const hasOwnerStore = hasOwnerStoreEarly;
-
-  const storeAttentionPrefetchStartedAt =
-    hasOwnerStore && storesSb && hubStore ? devPerfNow() : undefined;
-  const storeAttentionCountsPromise =
-    storeAttentionPrefetchStartedAt != null && hubStore
-      ? getOwnerHubStoreAttentionCounts(storesSb!, hubStore.id)
-      : null;
-
-  const wave2Start = devPerfNow();
-  const storeOrderChatUnread =
-    hasOwnerStore && storesSb && hubStore
-      ? await (async () => {
-          try {
-            return await countOwnerStoreOrderMessengerUnreadForHubStore(
-              storesSb as SupabaseClient<any>,
-              userId,
-              hubStore.id,
-              storeOrderUnreadTiming
-            );
-          } catch {
-            storeOrderUnreadFallback = true;
-            storeOrderUnreadTiming.store_order_unread_via = "error";
-            return 0;
-          }
-        })()
-      : await (async () => {
-          storeOrderUnreadTiming.store_order_unread_via = "skipped_no_hub";
-          return 0;
-        })();
-  const queryWave2Ms = devPerfNow() - wave2Start;
   const cmUnreadMs = cmUnreadTiming.cm_unread_ms;
   const storeOrderUnreadMs = storeOrderUnreadTiming.store_order_unread_ms;
-  const wave2ParallelSlackMs = Math.max(
+  const wave1ParallelSlackMs = Math.max(
     0,
-    Math.round(queryWave2Ms - Math.max(cmUnreadMs, storeOrderUnreadMs))
+    Math.round(
+      queryWave1Ms - Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMs, storeOrderUnreadMs)
+    )
   );
+  const hasOwnerStore = hasOwnerStoreEarly;
+  const queryWave2Ms = 0;
+  const wave2ParallelSlackMs = 0;
   const wave2Worst =
-    cmUnreadMs >= storeOrderUnreadMs ?
-      { stage: "cm_unread" as const, ms: cmUnreadMs }
-    : { stage: "store_order_unread" as const, ms: storeOrderUnreadMs };
+    cmUnreadMs >= storeOrderUnreadMs
+      ? { stage: "cm_unread" as const, ms: cmUnreadMs }
+      : { stage: "store_order_unread" as const, ms: storeOrderUnreadMs };
 
   const unread: OwnerHubBadgeUnreadPartial = {
     chatUnread: sumTradeChatUnread(unreadParts),
@@ -641,13 +707,15 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const payloadBuildMs = devPerfNow() - merge0;
   const payloadBuildTotalMs = devPerfNow() - build0;
 
-  const wave1WorstMs = Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMsEarly);
+  const wave1WorstMs = Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMs, storeOrderUnreadMs);
   const wave1Worst =
     wave1WorstMs === unreadPartsMs
       ? { stage: "unread_parts" as const, ms: unreadPartsMs }
       : wave1WorstMs === findHubStoreMs
         ? { stage: "find_hub_store" as const, ms: findHubStoreMs }
-        : { stage: "cm_unread" as const, ms: cmUnreadMsEarly };
+        : wave1WorstMs === storeOrderUnreadMs
+          ? { stage: "store_order_unread" as const, ms: storeOrderUnreadMs }
+          : { stage: "cm_unread" as const, ms: cmUnreadMs };
 
   const { worst_stage, worst_stage_ms } = pickWorstStage([
     { stage: "unread_parts", ms: unreadPartsMs },
@@ -759,7 +827,40 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     ...(findHubStoreError ? { find_hub_store_error: 1 as const } : {}),
     ...hubBadgeBreakdownForUser(userId),
   };
+
+  const hubStoreMemoryHit = findHubStoreTiming.find_hub_store_cache_hit === 1 ? 1 : 0;
+  const unreadSnapshotHit = cmUnreadTiming.cm_unread_memory_hit === 1 ? 1 : 0;
+  const rpcRemoved =
+    cmUnreadTiming.cm_unread_via === "memory" || cmUnreadTiming.cm_unread_via === "aggregate" ? 1 : 0;
+  let transportSavedMs = 0;
+  if (hubStoreMemoryHit) {
+    transportSavedMs += findHubStoreTiming.find_hub_store_query_ms ?? 0;
+  }
+  if (unreadSnapshotHit) {
+    transportSavedMs += cmUnreadTiming.cm_unread_rpc_ms ?? cmUnreadTiming.cm_unread_query_ms ?? 0;
+  }
+  if (orderRoomIdsHit) {
+    transportSavedMs += storeOrderUnreadTiming.store_order_unread_orders_ms ?? 0;
+  }
+  const cacheAnalysis: HubBadgeCacheAnalysis = {
+    hub_store_memory_hit: hubStoreMemoryHit as 0 | 1,
+    unread_snapshot_hit: unreadSnapshotHit as 0 | 1,
+    order_roomids_hit: orderRoomIdsHit as 0 | 1,
+    transport_saved_ms: Math.round(transportSavedMs),
+    rpc_removed: rpcRemoved as 0 | 1,
+    wave_parallelized: 1 as const,
+  };
+  Object.assign(breakdown, cacheAnalysis);
   logHubBadgeBreakdown(breakdown);
+  logHubBadgeCacheAnalysis(cacheAnalysis);
+
+  evaluateHubBadgeRegressionGuards({
+    breakdown,
+    dbRoundTrips: 3,
+    snapshotVia: "legacy_aggregate",
+    duplicateAggregate: false,
+    snapshotMissReason: "unified_rpc_unavailable",
+  });
 
   logHubBadgeWave2Perf({
     query_wave_2_ms: Math.round(queryWave2Ms),

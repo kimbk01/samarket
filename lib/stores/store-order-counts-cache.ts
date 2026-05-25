@@ -4,6 +4,8 @@
  */
 
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
+import { invalidateDeliverySummarySnapshotCache } from "@/lib/stores/delivery-summary-snapshot-cache";
+import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/stores/owner-store-orders-list-snapshot-refresh";
 
 export type StoreOrderCountsPayload = {
   ok: true;
@@ -20,9 +22,11 @@ function cacheKey(storeId: string): string {
 }
 
 /** 주문·환불 상태 변경 직후 API에서 호출하면 다음 폴링 전에 정확한 배지를 줄 수 있음 */
-export function invalidateStoreOrderCountsCache(storeId: string): void {
+export function invalidateStoreOrderCountsCache(storeId: string, ownerUserId?: string | null): void {
   const k = cacheKey(storeId);
   if (k) cache.delete(k);
+  invalidateDeliverySummarySnapshotCache(storeId, ownerUserId ?? null);
+  scheduleOwnerStoreOrdersListSnapshotRefresh(storeId, ownerUserId ?? null);
 }
 
 export function peekStoreOrderCountsInflight(storeId: string): boolean {

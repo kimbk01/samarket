@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { validateActiveSession } from "@/lib/auth/server-guards";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +93,10 @@ export async function POST(
     console.error("[POST store inquiry]", insErr);
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
+
+  const ownerUid =
+    typeof store.owner_user_id === "string" ? store.owner_user_id.trim() : "";
+  if (ownerUid) invalidateOwnerHubBadgeCache(ownerUid);
 
   return NextResponse.json({ ok: true, id: row?.id });
 }

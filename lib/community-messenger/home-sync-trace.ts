@@ -401,6 +401,10 @@ export type HomeSyncDeepStepsBundleSteps = {
   bundleReplayFromProcessCache?: boolean;
   /** 캐시 히트로 `listCommunityMessengerMyChatsAndGroups` 미실행 — 관측 전용 */
   bundleListRebuildSkipReason?: string;
+  /** snapshot-first critical path — 1 RTT counter/RPC */
+  homeSyncSnapshotPath?: number;
+  homeSyncSnapshotVia?: "counter_row" | "unified_rpc";
+  queryWave2Ms?: number;
   /** rate limit 직후 ~ bundle await 시작 */
   routePreBundleMs?: number;
   /** `requireAuthenticatedUserId` 벽시계(라우트 상단) */

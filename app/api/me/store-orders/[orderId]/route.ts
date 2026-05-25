@@ -13,16 +13,17 @@ import {
   createStoreOrderEvent,
 } from "@/lib/stores/store-order-events";
 import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
-import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
+import { buildBuyerStoreOrderDetailLegacy } from "@/lib/stores/fetch-store-order-detail-legacy";
 import {
-  loadBuyerStoreOrderReviewForOrder,
-  mapBuyerStoreOrderReviewRow,
-} from "@/lib/stores/buyer-store-order-review-meta";
-import { fetchBuyerStoreOrderDetailSnapshot } from "@/lib/stores/fetch-store-order-detail-snapshot-rpc";
+  logLegacyStoreOrderDetailHotpath,
+  tryLoadBuyerStoreOrderDetailFromSnapshot,
+} from "@/lib/stores/store-order-detail-snapshot";
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
 import {
   jsonPayloadKb,
   logStoreOrderDetailPerf,
@@ -32,72 +33,19 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function loadDeliverySnapshot(
-  sb: import("@supabase/supabase-js").SupabaseClient<any>,
-  orderId: string
-): Promise<
-  | {
-      ok: true;
-      delivery: Record<string, unknown> | null;
-    }
-  | { ok: false; error: string }
-> {
-  const { data, error } = await sb
-    .from("store_order_deliveries")
-    .select(
-      "order_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, rider_accepted_at, customer_arrived_at, rider_decline_reason, delivered_confirmed_at, delivered_receiver_name, updated_at"
-    )
-    .eq("order_id", orderId)
-    .maybeSingle();
-
-  if (error) {
-    if (/store_order_deliveries/i.test(String(error.message)) && /does not exist/i.test(String(error.message))) {
-      return { ok: true, delivery: null };
-    }
-    console.error("[GET store-order delivery]", error);
-    return { ok: false, error: error.message };
-  }
-
-  return { ok: true, delivery: (data as Record<string, unknown>) ?? null };
-}
-
-/** 구매자 노출: 증빙 이미지 URL 제외·수령자 이름 마스킹 */
-function sanitizeBuyerDeliveryPublic(raw: Record<string, unknown> | null): Record<string, unknown> | null {
-  if (!raw) return null;
-  const name =
-    typeof raw.delivered_receiver_name === "string" ? raw.delivered_receiver_name.trim() : "";
-  const hint =
-    name.length === 0 ? null : name.length <= 2 ? `${name.slice(0, 1)}*` : `${name.slice(0, 1)}**`;
-  const { delivered_receiver_name: _drop, ...rest } = raw;
+function snapshotResponseHeaders(snapshotVia?: string): Record<string, string> {
+  if (!snapshotVia) return {};
   return {
-    ...rest,
-    delivered_receiver_hint: hint,
+    "x-samarket-store-order-detail-snapshot-path": "1",
+    "x-samarket-store-order-detail-snapshot-via": snapshotVia,
+    "x-samarket-store-order-detail-query-wave-2-ms": "0",
+    "x-samarket-store-order-detail-rpc-removed": "1",
   };
-}
-
-async function isBuyerHiddenStoreOrder(
-  sb: import("@supabase/supabase-js").SupabaseClient<any>,
-  buyerUserId: string,
-  orderId: string
-): Promise<boolean> {
-  const { data, error } = await sb
-    .from("store_order_buyer_hides")
-    .select("order_id")
-    .eq("buyer_user_id", buyerUserId)
-    .eq("order_id", orderId)
-    .maybeSingle();
-  if (error) {
-    if (error.message?.includes("store_order_buyer_hides") && error.message.includes("does not exist")) {
-      return false;
-    }
-    throw error;
-  }
-  return !!data;
 }
 
 /** 구매자: 주문 단건 + 라인 — read-only (ensure/summary → POST ensure-chat·주문 생성·채팅 진입) */
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   context: { params: Promise<{ orderId: string }> }
 ) {
   const wall0 = perfNowMs();
@@ -117,61 +65,34 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
+  const storeOrderDetailBypass =
+    req.nextUrl.searchParams.get("storeOrderDetailBypass") === "1" &&
+    process.env.NODE_ENV === "development";
+
   const tAuth0 = perfNowMs();
-  const [session, snapshotGate] = await Promise.all([
+  const [session, snap] = await Promise.all([
     validateActiveSession(buyerId),
-    fetchBuyerStoreOrderDetailSnapshot(sb as import("@supabase/supabase-js").SupabaseClient<any>, buyerId, oid),
+    tryLoadBuyerStoreOrderDetailFromSnapshot(
+      sb as import("@supabase/supabase-js").SupabaseClient<any>,
+      buyerId,
+      oid,
+      { bypassCounter: fresh || storeOrderDetailBypass }
+    ),
   ]);
   const auth_ms = Math.round(perfNowMs() - tAuth0);
   if (!session.ok) return session.response;
 
-  if (snapshotGate) {
-    if (!snapshotGate.ok) {
-      return NextResponse.json({ ok: false, error: snapshotGate.error }, { status: snapshotGate.status });
-    }
-    const order = snapshotGate.order;
-    const store = snapshotGate.store;
+  if (snap && "body" in snap) {
     const linkedRoomId =
-      typeof order.community_messenger_room_id === "string" ? order.community_messenger_room_id.trim() : "";
+      typeof snap.body.order.community_messenger_room_id === "string"
+        ? snap.body.order.community_messenger_room_id.trim()
+        : "";
     const room_id_exists: 0 | 1 = linkedRoomId ? 1 : 0;
-    const store_pickup_address_lines = formatStorePickupAddressLines({
-      region: store.region as string | null | undefined,
-      city: store.city as string | null | undefined,
-      district: store.district as string | null | undefined,
-      address_line1: store.address_line1 as string | null | undefined,
-      address_line2: store.address_line2 as string | null | undefined,
-    });
-    const buyerReview = mapBuyerStoreOrderReviewRow(snapshotGate.review);
-    const completed = order.order_status === "completed";
-    const reviewsUnavailable = false;
-    const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
-    const order_chat_ready = room_id_exists === 1;
-    const body = {
-      ok: true as const,
-      order: {
-        ...order,
-        store_name: (store.store_name as string) ?? "",
-        store_slug: (store.slug as string) ?? "",
-        owner_user_id: (store.owner_user_id as string) ?? "",
-        store_pickup_address_lines,
-      },
-      items: snapshotGate.items,
-      delivery: snapshotGate.delivery ? sanitizeBuyerDeliveryPublic(snapshotGate.delivery) : null,
-      review: buyerReview,
-      review_status: completed
-        ? buyerReview
-          ? "completed"
-          : reviewsUnavailable
-            ? "unavailable"
-            : "pending"
-        : "not_applicable",
-      can_submit_review: canSubmitReview,
-      order_chat_ready,
-    };
     logStoreOrderDetailPerf({
       route: "buyer_get",
       auth_ms,
-      order_fetch_ms: snapshotGate.rpc_wall_ms,
+      order_fetch_ms: snap.rpcWallMs,
       items_fetch_ms: 0,
       review_meta_ms: 0,
       delivery_snapshot_ms: 0,
@@ -181,147 +102,64 @@ export async function GET(
       room_update_ms: 0,
       unread_sync_ms: 0,
       total_ms: Math.round(perfNowMs() - wall0),
-      payload_kb: jsonPayloadKb(body),
+      payload_kb: jsonPayloadKb(snap.body),
       room_id_exists,
       ensure_skipped: 1,
       summary_skipped: 1,
       snapshot_via: "rpc_snapshot",
       db_round_trips: 1,
-      rpc_wall_ms: snapshotGate.rpc_wall_ms,
+      rpc_wall_ms: snap.rpcWallMs,
     });
-    return NextResponse.json(body);
+    return NextResponse.json(snap.body, {
+      headers: snapshotResponseHeaders(snap.snapshotVia),
+    });
   }
 
-  const tOrder0 = perfNowMs();
-  const { data: order, error: oErr } = await sb
-    .from("store_orders")
-    .select(
-      "id, order_no, store_id, buyer_user_id, total_amount, discount_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, delivery_user_address_id, delivery_place_id, delivery_formatted_address, delivery_detail_address, delivery_note, delivery_latitude, delivery_longitude, created_at, updated_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, admin_locked, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention, checkout_prep_minutes, checkout_ride_minutes, checkout_eta_minutes, checkout_eta_computed_at, checkout_route_distance_meters, checkout_straight_distance_meters"
-    )
-    .eq("id", oid)
-    .eq("buyer_user_id", buyerId)
-    .maybeSingle();
-  const order_fetch_ms = Math.round(perfNowMs() - tOrder0);
-
-  if (oErr || !order) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  if (snap && "ok" in snap && snap.ok === false) {
+    return NextResponse.json({ ok: false, error: snap.error }, { status: snap.status });
   }
 
-  try {
-    const hidden = await isBuyerHiddenStoreOrder(sb, buyerId, oid);
-    if (hidden) {
-      return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    }
-  } catch (hideErr) {
-    console.error("[GET store-order hidden check]", hideErr);
-    return NextResponse.json({ ok: false, error: "hidden_check_failed" }, { status: 500 });
+  const legacy = await buildBuyerStoreOrderDetailLegacy(
+    sb as import("@supabase/supabase-js").SupabaseClient<any>,
+    buyerId,
+    oid
+  );
+  if (!legacy.ok) {
+    return NextResponse.json({ ok: false, error: legacy.error }, { status: legacy.status });
   }
 
-  const storeId = order.store_id as string;
-  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
   const linkedRoomId =
-    typeof order.community_messenger_room_id === "string"
-      ? order.community_messenger_room_id.trim()
+    typeof legacy.result.body.order.community_messenger_room_id === "string"
+      ? legacy.result.body.order.community_messenger_room_id.trim()
       : "";
   const room_id_exists: 0 | 1 = linkedRoomId ? 1 : 0;
 
-  const tItems0 = perfNowMs();
-  const itemsPromise = sb
-    .from("store_order_items")
-    .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
-    .eq("order_id", oid)
-    .order("id")
-    .then((r) => ({ r, ms: Math.round(perfNowMs() - tItems0) }));
-
-  const tStore0 = perfNowMs();
-  const storePromise = sb
-    .from("stores")
-    .select("store_name, slug, owner_user_id, region, city, district, address_line1, address_line2")
-    .eq("id", storeId)
-    .maybeSingle()
-    .then((r) => ({ r, ms: Math.round(perfNowMs() - tStore0) }));
-
-  const tReview0 = perfNowMs();
-  const reviewPromise = loadBuyerStoreOrderReviewForOrder(sbAny, oid).then((r) => ({
-    r,
-    ms: Math.round(perfNowMs() - tReview0),
-  }));
-
-  const tDelivery0 = perfNowMs();
-  const deliveryPromise = loadDeliverySnapshot(sbAny, oid).then((r) => ({
-    r,
-    ms: Math.round(perfNowMs() - tDelivery0),
-  }));
-
-  const [{ r: itemsRes, ms: items_fetch_ms }, { r: storeRes }, { r: reviewMeta, ms: review_meta_ms }, { r: deliverySnap, ms: delivery_snapshot_ms }] =
-    await Promise.all([itemsPromise, storePromise, reviewPromise, deliveryPromise]);
-
-  const { data: items, error: iErr } = itemsRes;
-  if (iErr) {
-    console.error("[GET store-order items]", iErr);
-    return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
-  }
-
-  const { data: store } = storeRes;
-
-  const store_pickup_address_lines =
-    store ?
-      formatStorePickupAddressLines({
-        region: store.region as string | null | undefined,
-        city: store.city as string | null | undefined,
-        district: store.district as string | null | undefined,
-        address_line1: store.address_line1 as string | null | undefined,
-        address_line2: store.address_line2 as string | null | undefined,
-      })
-    : [];
-
-  const { review: buyerReview, revErr } = reviewMeta;
-
-  const completed = order.order_status === "completed";
-  const reviewsUnavailable = !!(
-    revErr?.message?.includes("store_reviews") && revErr.message.includes("does not exist")
-  );
-  const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
-
-  const order_chat_ready = room_id_exists === 1;
-
-  const body = {
-    ok: true as const,
-    order: {
-      ...order,
-      store_name: (store?.store_name as string) ?? "",
-      store_slug: (store?.slug as string) ?? "",
-      owner_user_id: (store?.owner_user_id as string) ?? "",
-      store_pickup_address_lines,
-    },
-    items: items ?? [],
-    delivery: deliverySnap.ok ? sanitizeBuyerDeliveryPublic(deliverySnap.delivery) : null,
-    review: buyerReview,
-    review_status: completed
-      ? buyerReview
-        ? "completed"
-        : reviewsUnavailable
-          ? "unavailable"
-          : "pending"
-      : "not_applicable",
-    can_submit_review: canSubmitReview,
-    order_chat_ready,
-  };
+  logLegacyStoreOrderDetailHotpath({
+    orderId: oid,
+    totalMs: perfNowMs() - wall0,
+    dbMs: legacy.result.dbMs,
+    orderFetchMs: legacy.result.orderFetchMs,
+    itemsFetchMs: legacy.result.itemsFetchMs,
+    reviewMetaMs: legacy.result.reviewMetaMs,
+    deliveryMs: legacy.result.deliveryMs,
+  });
+  // eslint-disable-next-line no-console -- SOD1 fallback probe
+  console.warn("[store-order-detail-snapshot-fallback]", { order_id: oid });
 
   logStoreOrderDetailPerf({
     route: "buyer_get",
     auth_ms,
-    order_fetch_ms,
-    items_fetch_ms,
-    review_meta_ms,
-    delivery_snapshot_ms,
+    order_fetch_ms: legacy.result.orderFetchMs,
+    items_fetch_ms: legacy.result.itemsFetchMs,
+    review_meta_ms: legacy.result.reviewMetaMs,
+    delivery_snapshot_ms: legacy.result.deliveryMs,
     ensure_room_ms: 0,
     append_summary_ms: 0,
     participant_upsert_ms: 0,
     room_update_ms: 0,
     unread_sync_ms: 0,
     total_ms: Math.round(perfNowMs() - wall0),
-    payload_kb: jsonPayloadKb(body),
+    payload_kb: jsonPayloadKb(legacy.result.body),
     room_id_exists,
     ensure_skipped: 1,
     summary_skipped: 1,
@@ -329,7 +167,7 @@ export async function GET(
     db_round_trips: 5,
   });
 
-  return NextResponse.json(body);
+  return NextResponse.json(legacy.result.body);
 }
 
 type PatchBody = { cancel?: boolean; request_refund?: boolean; refund_reason?: string };
@@ -391,6 +229,8 @@ export async function PATCH(
 
   if (body.request_refund) {
     if (order.order_status === "refund_requested") {
+      invalidateStoreOrderDetailSnapshot(oid, buyerId, "refund_requested");
+      invalidateBuyerStoreOrdersListSnapshot(buyerId, "refund_requested");
       return NextResponse.json({ ok: true, order_status: "refund_requested" });
     }
     if (order.order_status === "refunded") {
@@ -486,6 +326,8 @@ export async function PATCH(
       /* ignore */
     }
 
+    invalidateStoreOrderDetailSnapshot(oid, buyerId, "refund_requested");
+    invalidateBuyerStoreOrdersListSnapshot(buyerId, "refund_requested");
     return NextResponse.json({ ok: true, order_status: "refund_requested" });
   }
 
@@ -596,9 +438,11 @@ export async function PATCH(
     /* ignore */
   }
 
-  invalidateStoreOrderCountsCache(order.store_id as string);
+  invalidateStoreOrderCountsCache(order.store_id as string, cancelOwnerId ?? undefined);
   if (cancelOwnerId) invalidateOwnerHubBadgeCache(cancelOwnerId);
 
+  invalidateStoreOrderDetailSnapshot(oid, buyerId, "cancelled");
+  invalidateBuyerStoreOrdersListSnapshot(buyerId, "cancelled");
   return NextResponse.json({ ok: true, order_status: "cancelled", payment_status: "cancelled" });
 }
 
@@ -665,5 +509,7 @@ export async function DELETE(
     user_agent: rm.userAgent,
   });
 
+  invalidateStoreOrderDetailSnapshot(oid, buyerId, "buyer_hide");
+  invalidateBuyerStoreOrdersListSnapshot(buyerId, "buyer_hide");
   return NextResponse.json({ ok: true, hidden: true });
 }

@@ -12,6 +12,10 @@ import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-cha
 import { countNotificationUnreadSegmentedServer } from "@/lib/notifications/fetch-segmented-unread-count-server";
 import { fetchOwnerStoreCommerceNotificationsRpc } from "@/lib/notifications/fetch-owner-store-commerce-notifications-rpc";
 import {
+  tryLoadOwnerStoreCommerceUnreadFromSnapshot,
+  tryLoadOwnerStoreNotificationsFromSnapshot,
+} from "@/lib/notifications/owner-dashboard-notifications-snapshot";
+import {
   buildOwnerDashboardPerfV2,
   logOwnerDashboardPerfV2,
 } from "@/lib/stores/owner-dashboard-perf-v2";
@@ -87,6 +91,12 @@ export async function GET(req: NextRequest) {
     invalidateNotificationUnreadCountCache(userId);
   }
 
+  const ownerNotificationsBypass =
+    searchParams.get("ownerNotificationsBypass") === "1" && process.env.NODE_ENV === "development";
+  if (ownerNotificationsBypass) {
+    invalidateNotificationUnreadCountCache(userId);
+  }
+
   if (searchParams.get("unread_count_only") === "1") {
     const db0 = perfNowMs();
     const excludeOwner = searchParams.get("exclude_owner_store_commerce") === "1";
@@ -106,6 +116,69 @@ export async function GET(req: NextRequest) {
           : "all";
 
     try {
+      if (ownerOnly) {
+        const snapUnread = await tryLoadOwnerStoreCommerceUnreadFromSnapshot(sbx, userId);
+        if (snapUnread) {
+          const db_ms = snapUnread.breakdown.db_ms;
+          const total_ms = Math.round(perfNowMs() - wall0);
+          const body = { ok: true as const, unread_count: snapUnread.unreadCount };
+          logOwnerDashboardPerf({
+            route: "/api/me/notifications",
+            total_ms,
+            auth_ms,
+            db_ms,
+            count_ms: db_ms,
+            cache_hit: snapUnread.breakdown.cache_hit,
+            owner_store_commerce_unread_only: 1,
+            result_count: snapUnread.unreadCount,
+            payload_bytes: jsonPayloadBytes(body),
+          });
+          logOwnerDashboardPerfV2(
+            buildOwnerDashboardPerfV2({
+              route: "/api/me/notifications",
+              total_ms,
+              auth_ms,
+              notification_count_ms: db_ms,
+              cache_hit: snapUnread.breakdown.cache_hit,
+              singleflight_hit: 0,
+              first_paint_blocking: req.headers.get("x-samarket-first-paint-blocking") !== "0",
+              db_round_trips: 1,
+              notifications_via: "owner_notifications_snapshot",
+              stages: [{ stage: "notification_count", ms: db_ms }],
+            })
+          );
+          return NextResponse.json(body, {
+            headers: {
+              ...buildPerfMeasureResponseHeaders({
+                actual_handler_ms: total_ms,
+                cache_hit: snapUnread.breakdown.cache_hit,
+              }),
+              "x-samarket-owner-notifications-snapshot-path": "1",
+              "x-samarket-owner-notifications-snapshot-via":
+                snapUnread.breakdown.snapshot_via ?? "unified_rpc",
+              "x-samarket-owner-notifications-query-wave-2-ms": "0",
+              "x-samarket-owner-notifications-rpc-removed": "1",
+            },
+          });
+        }
+        {
+          const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
+          auditLegacyFallbackUsage({
+            route: "/api/me/notifications",
+            fallback_branch: "segmented_unread_count",
+            reason: "unified_rpc_unavailable",
+            blocker: "owner_store_commerce_unread_only",
+          });
+        }
+        if (process.env.NODE_ENV === "development") {
+          // eslint-disable-next-line no-console -- snapshot deploy probe
+          console.warn("[owner-notifications-snapshot-fallback]", {
+            reason: "unified_rpc_unavailable",
+            mode: "owner_store_commerce_unread_only",
+          });
+        }
+      }
+
       const { value: unreadCount, cache_hit: notifCacheHit, singleflight_hit: notifSingleflightHit } =
         await getCachedNotificationUnreadCount(userId, mode, async () =>
           countNotificationUnreadSegmentedServer(sbx, userId, mode)
@@ -175,6 +248,58 @@ export async function GET(req: NextRequest) {
 
   if (ownerStoreId) {
     const listRpc0 = perfNowMs();
+    const snapList = await tryLoadOwnerStoreNotificationsFromSnapshot(sbx, userId, ownerStoreId, 200);
+    if (snapList) {
+      const listRpcMs = Math.round(perfNowMs() - listRpc0);
+      const notifications = snapList.notifications;
+      const body = { ok: true as const, notifications };
+      logOwnerDashboardPerf({
+        route: "/api/me/notifications",
+        store_id: ownerStoreId,
+        total_ms: Math.round(perfNowMs() - wall0),
+        auth_ms,
+        db_ms: listRpcMs,
+        list_ms: listRpcMs,
+        result_count: notifications.length,
+        payload_bytes: jsonPayloadBytes(body),
+      });
+      logOwnerDashboardPerfV2(
+        buildOwnerDashboardPerfV2({
+          route: "/api/me/notifications",
+          total_ms: Math.round(perfNowMs() - wall0),
+          auth_ms,
+          notification_count_ms: listRpcMs,
+          cache_hit: snapList.breakdown.cache_hit,
+          db_round_trips: 1,
+          notifications_via: "owner_notifications_snapshot",
+          stages: [{ stage: "owner_store_list", ms: listRpcMs }],
+        })
+      );
+      return NextResponse.json(body, {
+        headers: {
+          "x-samarket-owner-notifications-snapshot-path": "1",
+          "x-samarket-owner-notifications-snapshot-via": snapList.breakdown.snapshot_via ?? "unified_rpc",
+          "x-samarket-owner-notifications-query-wave-2-ms": "0",
+          "x-samarket-owner-notifications-rpc-removed": "1",
+        },
+      });
+    }
+    {
+      const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
+      auditLegacyFallbackUsage({
+        route: "/api/me/notifications",
+        fallback_branch: "owner_store_commerce_list_rpc",
+        reason: "unified_rpc_unavailable",
+        blocker: ownerStoreId,
+      });
+    }
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console -- snapshot deploy probe
+      console.warn("[owner-notifications-snapshot-fallback]", {
+        reason: "unified_rpc_unavailable",
+        owner_store_id: ownerStoreId,
+      });
+    }
     const listRpc = await fetchOwnerStoreCommerceNotificationsRpc(sbx, userId, ownerStoreId, 200);
     const listRpcMs = Math.round(perfNowMs() - listRpc0);
     if (listRpc?.ok) {
@@ -432,6 +557,18 @@ export async function PATCH(req: NextRequest) {
       .filter((r) => isOwnerStoreCommerceNotificationRow(r))
       .map((r) => r.id as string)
       .filter(Boolean);
+    const storeIds = [
+      ...new Set(
+        (data ?? [])
+          .filter((r) => isOwnerStoreCommerceNotificationRow(r))
+          .map((r) => {
+            const meta = r.meta;
+            if (!meta || typeof meta !== "object") return "";
+            return String((meta as Record<string, unknown>).store_id ?? "").trim();
+          })
+          .filter(Boolean)
+      ),
+    ];
     if (ids.length === 0) {
       return NextResponse.json({ ok: true, updated: 0 });
     }
@@ -444,6 +581,9 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
     }
     invalidateNotificationUnreadCountCache(userId);
+    for (const storeId of storeIds) {
+      invalidateNotificationUnreadCountCache(userId, storeId);
+    }
     return NextResponse.json({ ok: true, updated: ids.length });
   }
 

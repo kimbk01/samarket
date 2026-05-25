@@ -46,6 +46,10 @@ export async function GET(
   }
 
   const cacheBypass = resolveRouteMemoryCacheBypass(new URL(req.url).searchParams);
+  const storeMenusBypass =
+    new URL(req.url).searchParams.get("storeMenusBypass") === "1" &&
+    process.env.NODE_ENV === "development";
+  const effectiveCacheBypass = cacheBypass.bypass || storeMenusBypass;
   const perfHeaders = (opts: {
     cache_hit: 0 | 1;
     db_execution_ms: number;
@@ -53,12 +57,12 @@ export async function GET(
   }) =>
     storePublicApiPerfHeaders({
       startedAt,
-      bypass: cacheBypass.bypass,
-      bypass_reason: cacheBypass.reason,
+      bypass: effectiveCacheBypass,
+      bypass_reason: storeMenusBypass ? cacheBypass.reason ?? "fresh" : cacheBypass.reason,
       ...opts,
     });
 
-  if (!cacheBypass.bypass) {
+  if (!effectiveCacheBypass) {
     const cached = readStoreMenusPublicServerCache(decoded);
     if (cached) {
       const bodyText = JSON.stringify(cached);
@@ -88,9 +92,10 @@ export async function GET(
   try {
     let coldDbMs = 0;
     let coldQueryCount = 0;
+    let menusSnapshotVia: "counter_row" | "unified_rpc" | undefined;
 
     const payload = await runStoreMenusPublicServerSingleFlight(decoded, async () => {
-      if (!cacheBypass.bypass) {
+      if (!effectiveCacheBypass) {
         const memHit = readStoreMenusPublicServerCache(decoded);
         if (memHit) {
           return { body: memHit, status: responseStatusForMenusBody(memHit as StoreMenusCatalogBody) };
@@ -105,8 +110,10 @@ export async function GET(
         return { body: result.body, status: result.status };
       }
 
+      if (result.snapshotVia) menusSnapshotVia = result.snapshotVia;
+
       const payloadStart = performance.now();
-      if (!cacheBypass.bypass) {
+      if (!effectiveCacheBypass) {
         writeStoreMenusPublicServerCache(decoded, result.body);
       }
       result.marks.payloadDone = performance.now();
@@ -126,13 +133,25 @@ export async function GET(
       return { body: result.body, status: 200 };
     });
 
+    const snapshotHeaders: Record<string, string> = menusSnapshotVia
+      ? {
+          "x-samarket-store-menus-snapshot-path": "1",
+          "x-samarket-store-menus-snapshot-via": menusSnapshotVia,
+          "x-samarket-store-menus-query-wave-2-ms": "0",
+          "x-samarket-store-menus-rpc-removed": "1",
+        }
+      : {};
+
     return NextResponse.json(payload.body, {
       status: payload.status,
-      headers: perfHeaders({
-        cache_hit: 0,
-        db_execution_ms: coldDbMs,
-        query_count: coldQueryCount,
-      }),
+      headers: {
+        ...perfHeaders({
+          cache_hit: 0,
+          db_execution_ms: coldDbMs,
+          query_count: coldQueryCount,
+        }),
+        ...snapshotHeaders,
+      },
     });
   } catch (e) {
     console.error("[api/stores/slug/menus]", e);

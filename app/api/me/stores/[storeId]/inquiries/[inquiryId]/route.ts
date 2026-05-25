@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { invalidateOwnerStoreInquiriesListCache } from "@/lib/stores/owner-store-inquiries-list-cache";
+import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,6 +71,7 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
     }
     invalidateOwnerStoreInquiriesListCache(sid);
+    invalidateOwnerHubBadgeCache(userId);
     return NextResponse.json({ ok: true, status: "closed" });
   }
 
@@ -94,5 +96,6 @@ export async function PATCH(
   }
 
   invalidateOwnerStoreInquiriesListCache(sid);
+  invalidateOwnerHubBadgeCache(userId);
   return NextResponse.json({ ok: true, status: "answered" });
 }

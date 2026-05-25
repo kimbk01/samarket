@@ -15,7 +15,7 @@ export type DashboardSnapshotGate =
   | { ok: true; snapshot: OwnerStoreOpsSnapshot }
   | { ok: false; status: number; error: string };
 
-function mapDashboardSnapshotPayload(data: unknown): DashboardSnapshotGate | null {
+export function mapDashboardSnapshotPayload(data: unknown): DashboardSnapshotGate | null {
   if (!data || typeof data !== "object") return null;
   const d = data as Record<string, unknown>;
   if (d.ok === false) {

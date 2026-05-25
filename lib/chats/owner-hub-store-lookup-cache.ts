@@ -1,24 +1,35 @@
 /**
- * Owner hub badge — findOwnerHubStore process-memory TTL (read-through).
- * PostgREST embed query remains fallback; store admin 변경 직후 TTL(기본 45s) 내 스냅샷 지연 가능.
+ * Owner hub badge — findOwnerHubStore process-memory TTL (read-through + stale-while-revalidate).
+ * PostgREST 2-step lookup remains fallback; store admin 변경 직후 TTL(기본 30s) 내 스냅샷 지연 가능.
+ * key: owner-hub-store:${userId}
  */
 
 export type HubStoreLiteCached = {
   id: string;
   slug?: string | null;
+  allowed_to_sell?: boolean;
+  sales_status?: string | null;
 };
 
 type MemoryEntry = {
   hubStore: HubStoreLiteCached | null;
   cachedAt: number;
-  expiresAt: number;
+  freshUntil: number;
+  staleUntil: number;
 };
 
-const DEFAULT_TTL_MS = 45_000;
-/** 허브 매장 없음(empty) — 동일 heavy join 반복 방지 */
+const DEFAULT_TTL_MS = 30_000;
+/** 허브 매장 없음(empty) — 동일 lookup 반복 방지 */
 const DEFAULT_EMPTY_TTL_MS = 120_000;
+const STALE_MULTIPLIER = 2;
 
 const memoryByUser = new Map<string, MemoryEntry>();
+
+const revalidateInflight = new Map<string, Promise<void>>();
+
+export function ownerHubStoreLookupMemoryCacheKey(userId: string): string {
+  return `owner-hub-store:${userId.trim()}`;
+}
 
 export function ownerHubStoreLookupMemoryTtlMs(): number {
   const raw = process.env.HUB_BADGE_OWNER_HUB_STORE_MEMORY_TTL_MS?.trim();
@@ -35,7 +46,7 @@ export function invalidateOwnerHubStoreLookupCache(userId: string): void {
 
 function pruneExpired(now: number) {
   for (const [key, row] of memoryByUser) {
-    if (row.expiresAt <= now) memoryByUser.delete(key);
+    if (row.staleUntil <= now) memoryByUser.delete(key);
   }
   while (memoryByUser.size > 500) {
     const first = memoryByUser.keys().next().value;
@@ -46,7 +57,7 @@ function pruneExpired(now: number) {
 
 export type OwnerHubStoreLookupMemoryRead =
   | { hit: false; reason: "miss" | "expired" }
-  | { hit: true; hubStore: HubStoreLiteCached | null; ageMs: number };
+  | { hit: true; hubStore: HubStoreLiteCached | null; ageMs: number; stale?: boolean };
 
 export function readOwnerHubStoreLookupMemory(userId: string): OwnerHubStoreLookupMemoryRead {
   const k = userId.trim();
@@ -55,15 +66,37 @@ export function readOwnerHubStoreLookupMemory(userId: string): OwnerHubStoreLook
   pruneExpired(now);
   const row = memoryByUser.get(k);
   if (!row) return { hit: false, reason: "miss" };
-  if (row.expiresAt <= now) {
+  if (row.staleUntil <= now) {
     memoryByUser.delete(k);
     return { hit: false, reason: "expired" };
   }
+  const stale = now >= row.freshUntil;
   return {
     hit: true,
     hubStore: row.hubStore,
     ageMs: Math.max(0, now - row.cachedAt),
+    ...(stale ? { stale: true } : {}),
   };
+}
+
+/** stale-while-revalidate — 응답은 즉시, 백그라운드 refresh */
+export function scheduleOwnerHubStoreLookupRevalidate(
+  userId: string,
+  fetcher: () => Promise<HubStoreLiteCached | null>
+): void {
+  const k = userId.trim();
+  if (!k || revalidateInflight.has(k)) return;
+  const flight = (async () => {
+    try {
+      const hubStore = await fetcher();
+      writeOwnerHubStoreLookupMemory(k, hubStore);
+    } catch {
+      /* keep stale snapshot */
+    }
+  })().finally(() => {
+    if (revalidateInflight.get(k) === flight) revalidateInflight.delete(k);
+  });
+  revalidateInflight.set(k, flight);
 }
 
 export function ownerHubStoreLookupEmptyTtlMs(): number {
@@ -80,11 +113,13 @@ export function writeOwnerHubStoreLookupMemory(
   const k = userId.trim();
   if (!k) return;
   const now = Date.now();
-  const ttl = hubStore ? ownerHubStoreLookupMemoryTtlMs() : ownerHubStoreLookupEmptyTtlMs();
+  const freshTtl = hubStore ? ownerHubStoreLookupMemoryTtlMs() : ownerHubStoreLookupEmptyTtlMs();
+  const staleTtl = Math.min(freshTtl * STALE_MULTIPLIER, 300_000);
   memoryByUser.set(k, {
     hubStore,
     cachedAt: now,
-    expiresAt: now + ttl,
+    freshUntil: now + freshTtl,
+    staleUntil: now + staleTtl,
   });
   pruneExpired(now);
 }

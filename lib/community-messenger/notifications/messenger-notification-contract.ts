@@ -67,7 +67,8 @@ export type MessengerHubBadgeResyncReason =
   | "home_list_merge_summary"
   | "direct_room_created"
   | "trade_chat_entry_room_ready"
-  | "sender_echo_room_missing";
+  | "sender_echo_room_missing"
+  | "mark_all_read_cross_tab";
 
 export type MessengerHubBadgeResyncDetail = {
   source: "community_messenger";

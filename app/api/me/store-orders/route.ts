@@ -23,17 +23,21 @@ import {
   type OrderCheckoutPaymentId,
 } from "@/lib/stores/payment-methods-config";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-order-status";
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import {
   ensureStoreOrderMessengerRoom,
-  getBuyerStoreOrderMessengerUnreadMap,
 } from "@/lib/community-messenger/store-order-chat-service";
-import { loadBuyerStoreOrderReviewsByOrderIds } from "@/lib/stores/buyer-store-order-review-meta";
 import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-orders-hub-summary";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { buildBuyerStoreOrdersListLegacy } from "@/lib/stores/fetch-buyer-store-orders-list-legacy";
+import {
+  logLegacyBuyerStoreOrdersListHotpath,
+  tryLoadBuyerStoreOrdersListFromSnapshot,
+} from "@/lib/stores/buyer-store-orders-list-snapshot";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
@@ -46,6 +50,16 @@ import { translate } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function buyerOrdersListSnapshotHeaders(snapshotVia?: string): Record<string, string> {
+  if (!snapshotVia) return {};
+  return {
+    "x-samarket-buyer-orders-list-snapshot-path": "1",
+    "x-samarket-buyer-orders-list-snapshot-via": snapshotVia,
+    "x-samarket-buyer-orders-list-query-wave-2-ms": "0",
+    "x-samarket-buyer-orders-list-rpc-removed": "1",
+  };
+}
 
 function isStoreOrderStatusCheckViolation(message: string | undefined): boolean {
   if (!message) return false;
@@ -160,136 +174,45 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const { data: orders, error } = await sb
-    .from("store_orders")
-    .select(
-      "id, order_no, store_id, total_amount, payment_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, delivery_user_address_id, delivery_place_id, delivery_formatted_address, delivery_detail_address, delivery_note, delivery_latitude, delivery_longitude, created_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention, checkout_prep_minutes, checkout_ride_minutes, checkout_eta_minutes, checkout_eta_computed_at, checkout_route_distance_meters, checkout_straight_distance_meters"
-    )
-    .eq("buyer_user_id", buyerId)
-    .order("created_at", { ascending: false })
-    .limit(rowLimit);
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
+  const buyerOrdersListBypass =
+    req.nextUrl.searchParams.get("buyerOrdersListBypass") === "1" &&
+    process.env.NODE_ENV === "development";
 
-  if (error) {
-    console.error("[GET store-orders]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const wall0 = performance.now();
+  const snap = await tryLoadBuyerStoreOrdersListFromSnapshot(
+    sb as SupabaseClient<any>,
+    buyerId,
+    { limit: rowLimit, bypassCounter: fresh || buyerOrdersListBypass }
+  );
+
+  if (snap && "body" in snap) {
+    return NextResponse.json(snap.body, {
+      headers: buyerOrdersListSnapshotHeaders(snap.snapshotVia),
+    });
   }
 
-  const rawList = orders ?? [];
-  if (!rawList.length) {
-    return NextResponse.json({ ok: true, orders: [] });
+  if (snap && "ok" in snap && snap.ok === false) {
+    return NextResponse.json({ ok: false, error: snap.error }, { status: snap.status });
   }
 
-  const rawOrderIds = rawList.map((o) => String(o.id ?? "").trim()).filter(Boolean);
-  if (!rawOrderIds.length) {
-    return NextResponse.json({ ok: true, orders: [] });
+  const legacy = await buildBuyerStoreOrdersListLegacy(
+    sb as SupabaseClient<any>,
+    buyerId,
+    rowLimit
+  );
+  if (!legacy.ok) {
+    return NextResponse.json({ ok: false, error: legacy.error }, { status: legacy.status });
   }
 
-  /** 숨김·라인아이템·리뷰는 서로 독립 — 한 번에 병렬 조회해 왕복 지연을 줄임 */
-  const [hiddenRes, itemsRes, revBundle] = await Promise.all([
-    sb.from("store_order_buyer_hides").select("order_id").eq("buyer_user_id", buyerId).in("order_id", rawOrderIds),
-    sb
-      .from("store_order_items")
-      .select(
-        "id, order_id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json"
-      )
-      .in("order_id", rawOrderIds),
-    loadBuyerStoreOrderReviewsByOrderIds(sb as SupabaseClient<any>, rawOrderIds),
-  ]);
-
-  let list = rawList;
-  const { data: hiddenRows, error: hiddenErr } = hiddenRes;
-  if (hiddenErr) {
-    if (
-      !(
-        hiddenErr.message?.includes("store_order_buyer_hides") &&
-        hiddenErr.message?.includes("does not exist")
-      )
-    ) {
-      console.error("[GET store-orders hidden]", hiddenErr);
-      return NextResponse.json({ ok: false, error: hiddenErr.message }, { status: 500 });
-    }
-  } else {
-    const hidden = new Set(
-      (hiddenRows ?? [])
-        .map((r) => String((r as { order_id?: string }).order_id ?? "").trim())
-        .filter(Boolean)
-    );
-    if (hidden.size > 0) {
-      list = rawList.filter((o) => !hidden.has(String(o.id ?? "").trim()));
-    }
-  }
-
-  const { data: itemRows, error: iErr } = itemsRes;
-  if (iErr) {
-    console.error("[GET store-orders items]", iErr);
-    return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
-  }
-
-  const itemsByOrder: Record<string, unknown[]> = {};
-  for (const row of itemRows ?? []) {
-    const oid = row.order_id as string;
-    if (!itemsByOrder[oid]) itemsByOrder[oid] = [];
-    itemsByOrder[oid].push(row);
-  }
-
-  const { byOrderId: reviewsByOrderId, reviewsUnavailable } = revBundle;
-
-  const storeIds = [...new Set(list.map((o) => o.store_id as string))];
-  const orderIdsForChat = list.map((o) => String(o.id ?? "").trim()).filter(Boolean);
-
-  const [storesRes, unreadMap] = await Promise.all([
-    storeIds.length
-      ? sb.from("stores").select("id, store_name, profile_image_url, slug").in("id", storeIds)
-      : Promise.resolve({ data: [] as const, error: null as null }),
-    getBuyerStoreOrderMessengerUnreadMap(sb as SupabaseClient<any>, buyerId, orderIdsForChat),
-  ]);
-
-  const names: Record<string, string> = {};
-  const profileImages: Record<string, string | null> = {};
-  const slugs: Record<string, string> = {};
-  const { data: stores } = storesRes;
-  for (const s of stores ?? []) {
-    const sid = s.id as string;
-    names[sid] = (s.store_name as string) ?? "";
-    const u = s.profile_image_url;
-    profileImages[sid] = typeof u === "string" && u.trim() ? u.trim() : null;
-    const slugRaw = (s as { slug?: string | null }).slug;
-    slugs[sid] = typeof slugRaw === "string" && slugRaw.trim() ? slugRaw.trim() : "";
-  }
-
-  return NextResponse.json({
-    ok: true,
-    orders: list.map((o) => {
-      const id = o.id as string;
-      const norm = normalizeStoreOrderStatusForBuyer(o.order_status);
-      const status = norm || String(o.order_status ?? "").trim() || "pending";
-      const buyerReview = reviewsByOrderId.get(id) ?? null;
-      const completed = status === "completed";
-      /** 상세 GET /api/me/store-orders/[id] 의 can_submit_review 와 동일 조건 */
-      const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
-      const sid = o.store_id as string;
-      return {
-        ...o,
-        order_status: status,
-        store_name: names[sid] ?? "",
-        store_slug: slugs[sid] ?? "",
-        store_profile_image_url: profileImages[sid] ?? null,
-        items: itemsByOrder[id] ?? [],
-        has_review: !!buyerReview,
-        review: buyerReview,
-        can_submit_review: canSubmitReview,
-        review_status:
-          completed
-            ? buyerReview
-              ? "completed"
-              : reviewsUnavailable
-                ? "unavailable"
-                : "pending"
-            : "not_applicable",
-        order_chat_unread_count: unreadMap[id] ?? 0,
-      };
-    }),
+  logLegacyBuyerStoreOrdersListHotpath({
+    totalMs: performance.now() - wall0,
+    dbMs: legacy.result.dbMs,
+    ordersFetchMs: legacy.result.ordersFetchMs,
+    wave2Ms: legacy.result.wave2Ms,
   });
+
+  return NextResponse.json(legacy.result.body);
 }
 
 type PostBody = {
@@ -736,9 +659,11 @@ export async function POST(req: NextRequest) {
     void sb.from("test_users").update(profilePatch as never).eq("id", buyerId);
   }
 
-  invalidateStoreOrderCountsCache(storeId);
   const ownerUid = String((store as { owner_user_id?: string }).owner_user_id ?? "").trim();
+  invalidateStoreOrderCountsCache(storeId, ownerUid || undefined);
   if (ownerUid) invalidateOwnerHubBadgeCache(ownerUid);
+  invalidateStoreOrderDetailSnapshot(orderId, buyerId, "order_created");
+  invalidateBuyerStoreOrdersListSnapshot(buyerId, "order_created");
 
   return NextResponse.json({
     ok: true,

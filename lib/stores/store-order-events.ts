@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { writeThroughStoreOrderEventsReadCache } from "@/lib/stores/store-order-events-read-cache";
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
 
 export type StoreOrderActorRole = "buyer" | "owner" | "rider" | "admin" | "system";
 
@@ -219,6 +221,14 @@ export async function createStoreOrderEvent(
 
   if (!error && data?.id) {
     writeThroughStoreOrderEventsReadCache(orderId, data as StoreOrderEventRow);
+    const buyerUid =
+      input.actorRole === "buyer" && input.actorUserId?.trim()
+        ? input.actorUserId.trim()
+        : typeof input.metadata?.buyer_user_id === "string"
+          ? input.metadata.buyer_user_id.trim()
+          : undefined;
+    invalidateStoreOrderDetailSnapshot(orderId, buyerUid, String(input.eventType));
+    invalidateBuyerStoreOrdersListSnapshotForOrder(orderId, buyerUid, String(input.eventType));
     return { ok: true, row: data as StoreOrderEventRow, inserted: true };
   }
 

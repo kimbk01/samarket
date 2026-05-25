@@ -3,6 +3,7 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 
 /** `messenger-realtime-store.normalizeRoomId` 와 동일 — 스토어 모듈 의존 없이 목록 병합만 유지 */
@@ -87,12 +88,23 @@ export function mergeBootstrapRoomSummaryIntoLists(
   }
   const other = (data[otherKey] ?? []).filter((r) => !sameMessengerListRoomId(r.id, summary.id));
   const target = (data[targetKey] ?? []).filter((r) => !sameMessengerListRoomId(r.id, summary.id));
+  const prevRow =
+    (data[targetKey] ?? []).find((r) => sameMessengerListRoomId(r.id, summary.id)) ??
+    (data[otherKey] ?? []).find((r) => sameMessengerListRoomId(r.id, summary.id));
+  const summaryMerged = prevRow
+    ? mergeRoomSummaryWithConsistency(prevRow, summary, {
+        surface: "room_list",
+        roomId: summary.id,
+        source: "merge_room_summary",
+        eventType: "merge_room_summary",
+      })
+    : summary;
   let mergedTarget: CommunityMessengerRoomSummary[];
   if (isBucketSortedDescByLastMessageAt(target)) {
-    mergedTarget = mergeSummaryIntoDescSortedBucket(target, summary);
+    mergedTarget = mergeSummaryIntoDescSortedBucket(target, summaryMerged);
   } else {
     bumpMessengerRenderPerf("messenger_room_list_sort");
-    mergedTarget = [...target, summary].sort((a, b) => compareLastMessageAtDesc(a, b));
+    mergedTarget = [...target, summaryMerged].sort((a, b) => compareLastMessageAtDesc(a, b));
   }
   return {
     ...data,

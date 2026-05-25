@@ -28,7 +28,7 @@ export type AdminOrderOpsAudit = {
 };
 
 function invalidateCaches(sb: SupabaseClient, storeId: string, ownerUserId: string | null): void {
-  invalidateStoreOrderCountsCache(storeId.trim());
+  invalidateStoreOrderCountsCache(storeId.trim(), ownerUserId);
   if (ownerUserId) invalidateOwnerHubBadgeCache(ownerUserId);
 }
 

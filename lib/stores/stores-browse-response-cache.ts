@@ -56,4 +56,16 @@ export function setStoresBrowseCache(cacheKey: string, body: unknown): void {
   }
 }
 
+/** Event-driven purge — optional primary prefix match on cache key segment 0. */
+export function invalidateStoresBrowseMemoryCache(primarySlug?: string): void {
+  const prefix = primarySlug?.trim().toLowerCase();
+  if (!prefix) {
+    cache.clear();
+    return;
+  }
+  for (const k of cache.keys()) {
+    if (k.split("\0")[0] === prefix) cache.delete(k);
+  }
+}
+
 export const STORES_BROWSE_RESPONSE_CACHE_TTL_MS = TTL_MS;

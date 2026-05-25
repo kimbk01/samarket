@@ -364,7 +364,7 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: applied.error }, { status: st });
   }
 
-  invalidateStoreOrderCountsCache(sid);
+  invalidateStoreOrderCountsCache(sid, userId);
   invalidateOwnerHubBadgeCache(userId);
   invalidateOwnerStoreOrdersListCache(sid, userId, {
     route: "PATCH /api/me/stores/[storeId]/orders/[orderId]",

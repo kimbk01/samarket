@@ -66,6 +66,13 @@ export type HubBadgeBreakdown = {
   store_attention_memory_age_ms?: number;
   store_attention_rpc_ms?: number;
   store_attention_legacy_ms?: number;
+  /** hub-badge-cache-analysis */
+  hub_store_memory_hit?: 0 | 1;
+  unread_snapshot_hit?: 0 | 1;
+  order_roomids_hit?: 0 | 1;
+  transport_saved_ms?: number;
+  rpc_removed?: 0 | 1;
+  wave_parallelized?: 0 | 1;
 };
 
 let lastHubBadgeBreakdown: HubBadgeBreakdown | null = null;
@@ -82,6 +89,20 @@ export function logHubBadgeBreakdown(b: HubBadgeBreakdown): void {
   setLastHubBadgeBreakdown(b);
   // eslint-disable-next-line no-console -- hub badge cold breakdown
   console.info("[hub-badge-breakdown]", b);
+}
+
+export type HubBadgeCacheAnalysis = {
+  hub_store_memory_hit: 0 | 1;
+  unread_snapshot_hit: 0 | 1;
+  order_roomids_hit: 0 | 1;
+  transport_saved_ms: number;
+  rpc_removed: 0 | 1;
+  wave_parallelized: 0 | 1;
+};
+
+export function logHubBadgeCacheAnalysis(a: HubBadgeCacheAnalysis): void {
+  // eslint-disable-next-line no-console -- hub badge cache hit analysis
+  console.info("[hub-badge-cache-analysis]", a);
 }
 
 export function storeIdShort(storeId: string | null | undefined): string {

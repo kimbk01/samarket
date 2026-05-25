@@ -163,6 +163,15 @@ import {
 import { assertMessengerTradeDirectRoomAllowsCallKind } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
+import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
+import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
+import { tryBuildHomeSyncCriticalFromSnapshot } from "@/lib/community-messenger/home-sync-snapshot";
+import { tryLoadRoomBootstrapCriticalWaveAFromSnapshot } from "@/lib/community-messenger/room-bootstrap-snapshot";
+import {
+  invalidateRoomBootstrapSnapshotCache,
+  invalidateRoomBootstrapSnapshotCacheForViewer,
+} from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import {
   notifyCommunityMessengerFriendRequestAccepted,
@@ -973,9 +982,20 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
   };
 }
 
-function invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId: string, recipientUserIds: string[]): void {
+function invalidateOwnerHubBadgeForCommunityMessengerPeers(
+  senderUserId: string,
+  recipientUserIds: string[],
+  roomId?: string
+): void {
   for (const id of dedupeIds([senderUserId, ...recipientUserIds])) {
     invalidateOwnerHubBadgeCache(id);
+    invalidateHomeSyncSnapshotCache(id);
+    invalidateCmBootstrapSnapshotCache(id);
+    invalidateFullBootstrapSnapshotCache(id, "peer_hub_invalidate");
+  }
+  const rid = trimText(roomId ?? "");
+  if (rid) {
+    invalidateRoomBootstrapSnapshotCache(rid, dedupeIds([senderUserId, ...recipientUserIds]));
   }
 }
 
@@ -1636,7 +1656,7 @@ async function hydrateProfilesLabelsOnly(
   return members;
 }
 
-function buildProfilesFromKnownRelations(params: {
+export function buildProfilesFromKnownRelations(params: {
   viewerId: string;
   targetIds: string[];
   profileMap: Map<string, ProfileRow>;
@@ -1718,7 +1738,7 @@ async function listCommunityMessengerFriendRequestRows(userId: string): Promise<
   return rows;
 }
 
-function buildCommunityMessengerFriendRequestsFromProfileMap(
+export function buildCommunityMessengerFriendRequestsFromProfileMap(
   userId: string,
   rows: RequestRow[],
   profileMap: Map<string, ProfileRow>
@@ -1782,7 +1802,7 @@ async function fetchCommunityFriendRequestsAcceptedRowsForViewer(
   return rows;
 }
 
-function acceptedPeerIdsFromCommunityFriendRows(userId: string, rows: CommunityFriendRequestAcceptedRow[]): string[] {
+export function acceptedPeerIdsFromCommunityFriendRows(userId: string, rows: CommunityFriendRequestAcceptedRow[]): string[] {
   const result = new Set<string>();
   for (const row of rows) {
     const requesterId = trimText(row.requester_id);
@@ -1793,7 +1813,7 @@ function acceptedPeerIdsFromCommunityFriendRows(userId: string, rows: CommunityF
   return [...result];
 }
 
-function friendshipAcceptedAtByPeerFromRows(
+export function friendshipAcceptedAtByPeerFromRows(
   userId: string,
   rows: CommunityFriendRequestAcceptedRow[]
 ): Map<string, string> {
@@ -2050,7 +2070,7 @@ export function participantRowUserId(p: ParticipantRow | DevParticipant): string
   return trimText("user_id" in p ? p.user_id : p.userId) || "";
 }
 
-function dedupeParticipantUserIds(rows: Array<ParticipantRow | DevParticipant>): string[] {
+export function dedupeParticipantUserIds(rows: Array<ParticipantRow | DevParticipant>): string[] {
   return dedupeIds(rows.map((p) => participantRowUserId(p)).filter((id): id is string => Boolean(id)));
 }
 
@@ -3702,6 +3722,35 @@ export async function listCommunityMessengerMyChatsAndGroups(
   const skipHeavyEnrich = options?.homeSyncSkipHeavyEnrich === true;
   const isDev = process.env.NODE_ENV === "development";
 
+  if (isCritical) {
+    const sbSnap = getSupabaseOrNull();
+    if (sbSnap) {
+      const snap = await tryBuildHomeSyncCriticalFromSnapshot(
+        sbSnap as never,
+        userId,
+        options?.trace
+      );
+      if (snap) {
+        if (messengerPerfStepsEnabled()) {
+          logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
+        }
+        return { chats: snap.chats, groups: snap.groups };
+      }
+      {
+        const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
+        auditLegacyFallbackUsage({
+          route: "/api/community-messenger/home-sync",
+          fallback_branch: "legacy_multi_wave",
+          reason: "unified_rpc_unavailable",
+        });
+      }
+      if (isDev) {
+        // eslint-disable-next-line no-console -- snapshot deploy probe
+        console.warn("[home-sync-snapshot-fallback]", { reason: "unified_rpc_unavailable" });
+      }
+    }
+  }
+
   const explicitCap = options?.roomListCap;
   let effectiveRoomLimit: number | undefined;
   if (typeof explicitCap === "number" && explicitCap > 0) {
@@ -4444,7 +4493,7 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
   return ((data ?? []) as Array<unknown>).length === 0;
 }
 
-async function fetchBootstrapLiteSocialGraphSnapshot(
+export async function fetchBootstrapLiteSocialGraphSnapshot(
   userId: string
 ): Promise<BootstrapLiteSocialDeferredSnapshot> {
   const [
@@ -10688,6 +10737,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
           }
           const tBadge0 = performance.now();
           invalidateOwnerHubBadgeCache(input.userId);
+          invalidateHomeSyncSnapshotCache(input.userId);
+          invalidateCmBootstrapSnapshotCache(input.userId);
+          invalidateFullBootstrapSnapshotCache(input.userId, "message_send");
+          invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
           if (diag) diag.mark_read_cache_invalidate_ms = Math.round(performance.now() - tBadge0);
           storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, {
             id: participantId,
@@ -10907,6 +10960,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
       }
       const tBadge0 = performance.now();
       invalidateOwnerHubBadgeCache(input.userId);
+      invalidateHomeSyncSnapshotCache(input.userId);
+      invalidateCmBootstrapSnapshotCache(input.userId);
+      invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
+      invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
       if (diag) diag.mark_read_cache_invalidate_ms = Math.round(performance.now() - tBadge0);
       storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, {
         id: trimText(String((partRow as { id?: unknown } | null)?.id ?? "")),
@@ -11011,6 +11068,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
         }
         const tBadgeL0 = performance.now();
         invalidateOwnerHubBadgeCache(input.userId);
+        invalidateHomeSyncSnapshotCache(input.userId);
+        invalidateCmBootstrapSnapshotCache(input.userId);
+        invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
+        invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
         if (diag) diag.mark_read_cache_invalidate_ms = Math.round(performance.now() - tBadgeL0);
         storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, {
           id: trimText(String((participant as { id?: unknown }).id ?? "")),
@@ -11042,6 +11103,10 @@ export async function markCommunityMessengerRoomAsRead(input: {
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id))[0];
   participant.lastReadMessageId = latest?.id ?? null;
   invalidateOwnerHubBadgeCache(input.userId);
+  invalidateHomeSyncSnapshotCache(input.userId);
+  invalidateCmBootstrapSnapshotCache(input.userId);
+  invalidateFullBootstrapSnapshotCache(input.userId, "mark_read");
+  invalidateRoomBootstrapSnapshotCacheForViewer(roomId, input.userId);
   return {
     ok: true,
     lastReadAt: participant.lastReadAt,
@@ -12885,7 +12950,52 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   let snapshotBootstrapInitialMessageLimit: number | undefined;
   /** defer seed + Supabase: participants embed 에서 수집한 프로필 — `hydrateProfilesLabelsOnlyWithMap` 의 추가 `fetchProfilesByIds` 를 줄인다. */
   let embeddedProfilesFromParticipantRows = new Map<string, ProfileRow>();
-  if (sb) {
+  let snapshotWaveAFromRpc = false;
+  const messagesQueryLimitForSnapshot = isCriticalTier
+    ? messageLimit
+    : deferSecondaryRequested
+      ? Math.min(messageLimit, COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT)
+      : Math.min(messageLimit, 20);
+  if (sb && isCriticalTier) {
+    const snapWaveA = await tryLoadRoomBootstrapCriticalWaveAFromSnapshot(
+      sb as never,
+      userId,
+      id,
+      messagesQueryLimitForSnapshot,
+      diagnostics
+    );
+    if (snapWaveA) {
+      snapshotWaveAFromRpc = true;
+      room = snapWaveA.waveA.room as RoomRow;
+      participants = snapWaveA.waveA.participants as Array<ParticipantRow | DevParticipant>;
+      messages = snapWaveA.waveA.messages as Array<MessageRow | DevMessage>;
+      embeddedProfilesFromParticipantRows = snapWaveA.waveA.embeddedProfiles as Map<string, ProfileRow>;
+      roomTotalMemberCount = snapWaveA.waveA.roomTotalMemberCount;
+      membersTruncated = snapWaveA.waveA.membersTruncated;
+      snapshotBootstrapInitialMessageLimit = snapWaveA.waveA.snapshotBootstrapInitialMessageLimit;
+      snapshotHasMoreOlderMessages = snapWaveA.waveA.snapshotHasMoreOlderMessages;
+      messagesFetchMs = 0;
+      if (diagnostics) {
+        diagnostics.snapshotQueryAParallelEndMs = snapWaveA.breakdown.db_ms;
+      }
+    } else {
+      const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
+      auditLegacyFallbackUsage({
+        route: "/api/community-messenger/rooms/[roomId]/bootstrap",
+        fallback_branch: "legacy_wave_a_multi_query",
+        reason: "unified_rpc_unavailable",
+        blocker: id,
+      });
+      if (process.env.NODE_ENV === "development") {
+        // eslint-disable-next-line no-console -- snapshot deploy probe
+        console.warn("[room-bootstrap-snapshot-fallback]", {
+          room_id: id,
+          reason: "unified_rpc_unavailable",
+        });
+      }
+    }
+  }
+  if (sb && !snapshotWaveAFromRpc) {
     const participantSelectCols =
       "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
     /**
@@ -14416,7 +14526,7 @@ async function trySendCommunityMessengerTextAtomic(
       recipientUserIds,
       hasMention: /@\S/.test(content),
     }).catch(() => {});
-    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
+    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
   }
   return { ok: true, message };
 }
@@ -14610,7 +14720,7 @@ export async function sendCommunityMessengerMessage(input: {
         recipientUserIds,
         hasMention,
       }).catch(() => {});
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       const insRow = insertedMessage as MessageRow;
       const profIns = await hydrateProfiles(input.userId, [input.userId], { includeSelf: true });
       const profileByIdIns = new Map(profIns.map((m) => [m.id, m]));
@@ -14905,7 +15015,7 @@ export async function sendCommunityMessengerImageMessage(input: {
         preview: lastPreview,
         recipientUserIds: imageRecipientUserIds,
       }).catch(() => {});
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, imageRecipientUserIds);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, imageRecipientUserIds, roomId);
       const mid = String((insertedMessage as { id?: unknown }).id ?? "");
       return {
         ok: true,
@@ -15072,7 +15182,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
         preview: cmLastPreviewSticker(),
         recipientUserIds,
       }).catch(() => {});
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       return {
         ok: true,
         message: {
@@ -15224,7 +15334,7 @@ export async function sendCommunityMessengerFileMessage(input: {
         preview: cmLastPreviewFile(fileName),
         recipientUserIds: fileRecipientUserIds,
       }).catch(() => {});
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, fileRecipientUserIds);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, fileRecipientUserIds, roomId);
       return {
         ok: true,
         message: {
@@ -15882,7 +15992,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
         preview: cmLastPreviewVoice(),
         recipientUserIds: voiceRecipientUserIds,
       }).catch(() => {});
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, voiceRecipientUserIds);
+      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, voiceRecipientUserIds, roomId);
       return {
         ok: true,
         message: {
@@ -17333,4 +17443,86 @@ export async function createCommunityMessengerCallSignal(input: {
   };
   dev.callSignals.push(row);
   return { ok: true, signal: mapSignal(row) };
+}
+
+/** FBT1 snapshot — trade enrich with preloaded mega bundle (no additional RPC). */
+export async function enrichTradeContextForBootstrapSnapshot(
+  userId: string,
+  summaries: CommunityMessengerRoomSummary[],
+  preloadedMega: unknown,
+  diagnostics?: CommunityMessengerBootstrapDiagnostics
+): Promise<void> {
+  const megaPromise: Promise<HomeSyncMegaDirectKeysBundleFetchResult> = Promise.resolve({
+    data: (preloadedMega ?? null) as Record<string, unknown> | null,
+    error: null,
+    leaderRpcWallMs: 0,
+    lookupWallMs: 0,
+    megaMapSyncMs: 0,
+    megaInflightOrRpcWaitMs: 0,
+    cacheReason: "rpc_cold",
+    singleflightJoinCount: 0,
+    cacheKey: "fbt1-snapshot",
+  });
+  await enrichTradeRoomContextMetaForBootstrap(userId, summaries, diagnostics, undefined, {
+    homeSyncMegaBundleForDirectKeys: true,
+    megaBundlePrefetchPromise: megaPromise,
+    tradeCategoryFetchMode: "full",
+  });
+}
+
+/** FBT1 snapshot — call log entries from RPC-payload rows (no session-map DB fetch). */
+export function buildBootstrapCallsFromPreloadedSnapshot(
+  userId: string,
+  callLogRows: Array<CallRow | DevCall>,
+  sessionParticipantRows: unknown[],
+  profileById: Map<string, CommunityMessengerProfileLite>,
+  roomMetaMap: Map<string, CommunityMessengerRoomSummary>
+): CommunityMessengerCallLog[] {
+  const sessionMap = new Map<string, CallSessionMetaRow | DevCallSession>();
+  const participantsBySession = new Map<string, CommunityMessengerCallParticipant[]>();
+  for (const raw of sessionParticipantRows) {
+    if (!raw || typeof raw !== "object") continue;
+    const row = raw as Record<string, unknown>;
+    const sessionId = trimText(row.session_id);
+    const participantUserId = trimText(row.user_id);
+    if (!sessionId || !participantUserId) continue;
+    if (!sessionMap.has(sessionId)) {
+      sessionMap.set(sessionId, {
+        id: sessionId,
+        room_id: trimText(row.room_id) || "",
+        session_mode: "direct",
+      });
+    }
+    const list = participantsBySession.get(sessionId) ?? [];
+    const profile = profileById.get(participantUserId);
+    list.push({
+      userId: participantUserId,
+      label: profile?.label ?? profileLabel(null, participantUserId),
+      status: (trimText(row.participation_status) as CommunityMessengerCallParticipantStatus) || "invited",
+      joinedAt: trimText(row.joined_at) || null,
+      leftAt: trimText(row.left_at) || null,
+      isMe: participantUserId === userId,
+    });
+    participantsBySession.set(sessionId, list);
+  }
+  for (const row of callLogRows) {
+    const sessionId = callLogSessionId(row);
+    if (!sessionId || sessionMap.has(sessionId)) continue;
+    const roomId = callLogRoomId(row);
+    const roomMeta = roomId ? roomMetaMap.get(roomId) : undefined;
+    sessionMap.set(sessionId, {
+      id: sessionId,
+      room_id: roomId ?? "",
+      session_mode:
+        roomMeta?.roomType && roomMeta.roomType !== "direct" ? "group" : "direct",
+    });
+  }
+  return buildCallLogEntriesFromRows(
+    userId,
+    callLogRows,
+    profileById,
+    roomMetaMap,
+    sessionMap,
+    participantsBySession
+  );
 }

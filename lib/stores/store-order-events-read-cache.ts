@@ -170,6 +170,9 @@ export function writeThroughStoreOrderEventsReadCache(
   return { updated };
 }
 
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshotForOrder } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+
 export function invalidateStoreOrderEventsReadCache(orderId?: string, reason?: string): void {
   const oid = orderId?.trim() ?? "";
   if (!oid) {
@@ -189,6 +192,8 @@ export function invalidateStoreOrderEventsReadCache(orderId?: string, reason?: s
   }
   if (removed > 0) {
     noteStoreOrderEventsCacheOp(oid, reason ?? "invalidate");
+    invalidateStoreOrderDetailSnapshot(oid, undefined, reason ?? "timeline_invalidate");
+    invalidateBuyerStoreOrdersListSnapshotForOrder(oid, undefined, reason ?? "timeline_invalidate");
   }
   if (process.env.NODE_ENV === "development" && removed > 0) {
     console.log("[store-order-events-read-cache] invalidate", { orderId: oid, removed, reason: reason ?? "insert" });

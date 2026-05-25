@@ -16,7 +16,13 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { onCommunityMessengerBusEvent, type MessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
+import { resolveMessengerUnreadMerge } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import { cmReadBadgeLog, setLocalReadGuard } from "@/lib/community-messenger/read/local-read-guard";
+import {
+  broadcastMessengerReconnectPreserveCrossTab,
+  wireMessengerConsistencyCrossTabHandlers,
+} from "@/lib/community-messenger/consistency/messenger-consistency-cross-tab";
+import { recordReconnectStressEvent } from "@/lib/ops/reconnect-stress-analysis";
 import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
 import {
   applyIncomingMessageEvent,
@@ -113,6 +119,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
 
   const scheduleHomeRealtimeRefresh = useCallback(() => {
     cmHomeRealtimeRefreshScheduleOrdinal += 1;
+    broadcastMessengerReconnectPreserveCrossTab(String(userId ?? "").trim());
     cmRtStableSubLog("home_realtime_refresh_schedule", {
       scheduleOrdinal: cmHomeRealtimeRefreshScheduleOrdinal,
       atMs: Date.now(),
@@ -122,6 +129,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
     const minGapMs = HOME_REALTIME_SILENT_REFRESH_MIN_GAP_MS;
     const runSilentHomeSync = () => {
       homeRealtimeRefreshLastAtRef.current = Date.now();
+      recordReconnectStressEvent("home", "silent_refresh");
       void refresh(true);
     };
     if (elapsed >= minGapMs) {
@@ -133,7 +141,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       homeRealtimeRefreshTimerRef.current = null;
       scheduleWhenBrowserIdle(runSilentHomeSync, 520);
     }, minGapMs - elapsed);
-  }, [refresh]);
+  }, [refresh, userId]);
 
   const scheduleHomeMissingRoomSummaryMerge = useCallback(
     (roomId: string) => {
@@ -267,10 +275,21 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             {
               kind: "room_update",
               roomId: rid,
-              updater: (room) => ({
-                ...room,
-                unreadCount: Math.max(0, Math.floor(Number(hint.unreadCount) || 0)),
-              }),
+              updater: (room) => {
+                const merged = resolveMessengerUnreadMerge({
+                  surface: "realtime",
+                  roomId: rid,
+                  incomingUnread: hint.unreadCount,
+                  incomingLastMessageAt: String(room.lastMessageAt ?? ""),
+                  source: "participant_unread_delta",
+                  eventType: "participant_unread_delta",
+                  prevUnread: room.unreadCount,
+                  userIdShort: me.slice(0, 8) || undefined,
+                  duplicateEventKey: `${rid}:${hint.unreadCount}:${hint.lastReadMessageId ?? ""}:${hint.lastReadAt ?? ""}`,
+                  reconnectState: "realtime",
+                });
+                return { ...room, unreadCount: merged.unreadCount };
+              },
             },
             "realtime"
           );
@@ -483,6 +502,28 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       }
     });
   }, [homeRealtimeGateOpen, scheduleHomeMissingRoomSummaryMerge, scheduleListPatch, userId]);
+
+  useEffect(() => {
+    const me = userId?.trim();
+    if (!me || !homeRealtimeGateOpen) return;
+    return wireMessengerConsistencyCrossTabHandlers({
+      viewerUserId: me,
+      onMarkAllRead: () => {
+        scheduleListPatch((prev) => {
+          const zeroAll = (rooms: CommunityMessengerRoomSummary[]) =>
+            rooms.map((room) => ({ ...room, unreadCount: 0 }));
+          const next = {
+            ...prev,
+            chats: zeroAll(prev.chats ?? []),
+            groups: zeroAll(prev.groups ?? []),
+          };
+          primeBootstrapCache(next);
+          return next;
+        });
+        requestMessengerHubBadgeResync("mark_all_read_cross_tab");
+      },
+    });
+  }, [homeRealtimeGateOpen, scheduleListPatch, userId]);
 
   useCommunityMessengerHomeRealtime({
     userId: userId ?? null,

@@ -38,6 +38,9 @@ export type CommunityMessengerRoomSnapshotDiagnostics = {
   participantsProfilesFetchMs?: number;
   /** `community_messenger_participants` (캡/전원) + 뷰어가 캡 밖이면 `myParticipant` 단건(선택) */
   participantsSqlFetchMs?: number;
+  /** snapshot-first critical wave A — 1 RTT counter/RPC */
+  roomBootstrapSnapshotPath?: number;
+  roomBootstrapSnapshotVia?: "counter_row" | "unified_rpc";
   /** `fetchRoomProfilesByRoomIds` 단독 (프로필 번들 `Promise.all` 내) */
   fetchRoomProfilesByRoomIdsMs?: number;
   /** `hydrateProfilesLabelsOnlyWithMap` 단독 */

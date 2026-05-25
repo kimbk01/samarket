@@ -7,34 +7,115 @@ import {
   getCachedStoreIfOwner,
   peekOwnerStoreOwnershipCacheHit,
 } from "@/lib/stores/owner-store-ownership-cache";
-import {
-  BUYER_PUBLIC_LABEL_FALLBACK,
-  mapBuyerUserIdsToPublicLabels,
-} from "@/lib/stores/buyer-public-label";
 import { fetchOwnerStoreOrderCounts } from "@/lib/stores/fetch-owner-store-order-counts";
 import {
   getCachedStoreOrderCounts,
   type StoreOrderCountsPayload,
 } from "@/lib/stores/store-order-counts-cache";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
-import { mapBuyerUserIdsToPublicLabelsCached } from "@/lib/stores/buyer-public-label-cache";
 import { logOwnerOrdersListPerf } from "@/lib/stores/owner-orders-list-perf";
 import {
   peekOwnerStoreOrdersListServerCache,
   setOwnerStoreOrdersListServerCache,
 } from "@/lib/stores/owner-store-orders-list-server-cache";
+import { buildOwnerStoreOrdersListLegacy } from "@/lib/stores/fetch-owner-store-orders-list-legacy";
+import { tryLoadOwnerStoreOrdersListFromSnapshot } from "@/lib/stores/owner-store-orders-list-snapshot";
+import {
+  logOwnerOrdersListHotpathAnalysis,
+} from "@/lib/stores/owner-store-orders-list-snapshot-hotpath-analysis";
+import {
+  evaluateOwnerOrdersListRegressionGuards,
+  type OwnerStoreOrdersListSnapshotBreakdown,
+} from "@/lib/stores/owner-store-orders-list-snapshot-regression-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const ROUTE = "/api/me/stores/[storeId]/orders";
-const ORDERS_LIST_LIMIT = 60;
 
-const ORDERS_LIST_SELECT =
-  "id, order_no, buyer_user_id, total_amount, payment_amount, delivery_fee_amount, delivery_courier_label, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, delivery_user_address_id, delivery_place_id, delivery_formatted_address, delivery_detail_address, delivery_note, delivery_latitude, delivery_longitude, created_at, updated_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, admin_locked, admin_flagged, dispute_status, admin_note, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention, checkout_prep_minutes, checkout_ride_minutes, checkout_eta_minutes, checkout_eta_computed_at, checkout_route_distance_meters, checkout_straight_distance_meters";
+function snapshotResponseHeaders(snapshotVia?: string): Record<string, string> {
+  if (!snapshotVia) return {};
+  return {
+    "x-samarket-owner-orders-list-snapshot-path": "1",
+    "x-samarket-owner-orders-list-snapshot-via": snapshotVia,
+    "x-samarket-owner-orders-list-query-wave-2-ms": "0",
+    "x-samarket-owner-orders-list-rpc-removed": "1",
+  };
+}
 
-const ORDER_ITEMS_LIST_SELECT =
-  "id, order_id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json";
+function pickupLinesFromSnapshot(
+  addr: {
+    region?: string | null;
+    city?: string | null;
+    district?: string | null;
+    address_line1?: string | null;
+    address_line2?: string | null;
+  } | null | undefined
+): string[] {
+  if (!addr) return [];
+  return formatStorePickupAddressLines({
+    region: addr.region,
+    city: addr.city,
+    district: addr.district,
+    address_line1: addr.address_line1,
+    address_line2: addr.address_line2,
+  });
+}
+
+function pickupLinesFromStoreRow(storeAddr: Record<string, unknown> | null | undefined): string[] {
+  if (!storeAddr) return [];
+  return formatStorePickupAddressLines({
+    region: storeAddr.region as string | null | undefined,
+    city: storeAddr.city as string | null | undefined,
+    district: storeAddr.district as string | null | undefined,
+    address_line1: storeAddr.address_line1 as string | null | undefined,
+    address_line2: storeAddr.address_line2 as string | null | undefined,
+  });
+}
+
+function logLegacyHotpath(input: {
+  storeId: string;
+  totalMs: number;
+  dbMs: number;
+  listMs: number;
+  transformMs: number;
+  ownershipMs: number;
+}): void {
+  const breakdown: OwnerStoreOrdersListSnapshotBreakdown = {
+    route: ROUTE,
+    store_id: input.storeId,
+    total_ms: input.totalMs,
+    db_ms: input.dbMs,
+    round_trips: 3,
+    transport_ms: input.dbMs,
+    payload_build_ms: input.transformMs,
+    orders_fetch_ms: input.listMs,
+    customer_profile_join_ms: input.transformMs,
+    order_items_summary_ms: input.transformMs,
+    delivery_status_merge_ms: 0,
+    payment_status_merge_ms: 0,
+    chat_unread_merge_ms: 0,
+    status_filter_ms: 0,
+    sort_compute_ms: 0,
+    ownership_check_ms: input.ownershipMs,
+    cache_hit: 0,
+    wave_count: 2,
+    query_wave_2_ms: input.transformMs,
+    sequential_await_detected: 1,
+    aggregate_compute_detected: 1,
+    repeated_join_detected: 1,
+    fallback_used: 1,
+    rpc_removed: 0,
+    snapshot_via: "legacy_multi_wave",
+    worst_stage: "legacy_multi_wave",
+    worst_stage_ms: input.dbMs,
+  };
+  logOwnerOrdersListHotpathAnalysis(breakdown, {
+    storeId: input.storeId,
+    ownershipCheckMs: input.ownershipMs,
+  });
+  evaluateOwnerOrdersListRegressionGuards(breakdown);
+}
 
 /** 매장 오너: 해당 매장 주문 목록 + 라인 (?meta_only=1 이면 목록 없이 meta만) */
 export async function GET(
@@ -68,6 +149,10 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
+  const url = new URL(req.url);
+  const ownerOrdersListBypass =
+    url.searchParams.get("ownerOrdersListBypass") === "1" && process.env.NODE_ENV === "development";
+
   const ownershipCachedBefore = peekOwnerStoreOwnershipCacheHit(userId, id);
 
   const own0 = perfNowMs();
@@ -85,9 +170,9 @@ export async function GET(
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  const metaOnly = new URL(req.url).searchParams.get("meta_only") === "1";
+  const metaOnly = url.searchParams.get("meta_only") === "1";
 
-  if (!metaOnly) {
+  if (!metaOnly && !ownerOrdersListBypass) {
     const listCached = peekOwnerStoreOrdersListServerCache(id, userId);
     if (listCached) {
       const body = { ok: true as const, meta: listCached.meta, orders: listCached.orders };
@@ -120,7 +205,9 @@ export async function GET(
         buyer_label_cache_hit: 1,
         total_ms,
       });
-      return NextResponse.json(body);
+      return NextResponse.json(body, {
+        headers: snapshotResponseHeaders("route_memory_ttl"),
+      });
     }
   }
 
@@ -137,44 +224,19 @@ export async function GET(
     .eq("id", id)
     .maybeSingle();
 
-  const ordersPromise = metaOnly
-    ? Promise.resolve({ data: null as null, error: null as null })
-    : sb
-        .from("store_orders")
-        .select(ORDERS_LIST_SELECT)
-        .eq("store_id", id)
-        .order("created_at", { ascending: false })
-        .limit(ORDERS_LIST_LIMIT);
-
-  const [countsPayload, storeAddrRes, ordersRes] = await Promise.all([
-    countPromise,
-    storeAddrPromise,
-    ordersPromise,
-  ]);
-
-  db_ms = Math.round(perfNowMs() - db0);
-  count_ms = db_ms;
-
-  const storeAddr = storeAddrRes.data;
-  const store_pickup_address_lines = storeAddr
-    ? formatStorePickupAddressLines({
-        region: storeAddr.region as string | null | undefined,
-        city: storeAddr.city as string | null | undefined,
-        district: storeAddr.district as string | null | undefined,
-        address_line1: storeAddr.address_line1 as string | null | undefined,
-        address_line2: storeAddr.address_line2 as string | null | undefined,
-      })
-    : [];
-
-  const meta = {
-    owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
-    refund_requested_count: countsPayload.refund_requested_count,
-    pending_accept_count: countsPayload.pending_accept_count,
-    pending_delivery_count: countsPayload.pending_delivery_count,
-    store_pickup_address_lines,
-  };
-
   if (metaOnly) {
+    const [countsPayload, storeAddrRes] = await Promise.all([countPromise, storeAddrPromise]);
+    db_ms = Math.round(perfNowMs() - db0);
+    count_ms = db_ms;
+
+    const meta = {
+      owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
+      refund_requested_count: countsPayload.refund_requested_count,
+      pending_accept_count: countsPayload.pending_accept_count,
+      pending_delivery_count: countsPayload.pending_delivery_count,
+      store_pickup_address_lines: pickupLinesFromStoreRow(storeAddrRes.data as Record<string, unknown> | null),
+    };
+
     const body = { ok: true as const, meta };
     const total_ms = Math.round(perfNowMs() - wall0);
     logOwnerDashboardPerf({
@@ -193,101 +255,73 @@ export async function GET(
     return NextResponse.json(body);
   }
 
-  if (ordersRes.error) {
-    console.error("[GET store orders]", ordersRes.error);
-    logOwnerDashboardPerf({
-      route: ROUTE,
-      store_id: id,
-      total_ms: Math.round(perfNowMs() - wall0),
-      auth_ms,
-      ownership_ms,
-      db_ms,
-    });
-    return NextResponse.json({ ok: false, error: ordersRes.error.message }, { status: 500 });
-  }
+  const snapPromise = tryLoadOwnerStoreOrdersListFromSnapshot(sb as never, id, userId);
 
-  const list = ordersRes.data ?? [];
-  list_ms = db_ms;
+  let orders: import("@/lib/business/owner-store-order-list-row-bridge").OwnerStoreOrderListRow[] = [];
+  let snapshotVia: string | undefined;
+  let normalize_ms = 0;
+  let attach_ms = 0;
+  let buyer_label_cache_hit = 0;
+  let db_round_trips = 0;
+  let list_snapshot_hit: 0 | 1 = 0;
 
-  const transform0 = perfNowMs();
-  const buyerIds = list.map((o) => String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim());
-  const orderIds = list.map((o) => o.id as string);
-
-  const label0 = perfNowMs();
-  const buyerLabelPromise = mapBuyerUserIdsToPublicLabelsCached(sb, buyerIds);
-  const [buyerLabelRes, itemsRes, revRes] = await Promise.all([
-    buyerLabelPromise,
-    orderIds.length > 0
-      ? sb
-          .from("store_order_items")
-          .select(ORDER_ITEMS_LIST_SELECT)
-          .in("order_id", orderIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null as null }),
-    orderIds.length > 0
-      ? sb.from("store_reviews").select("id, order_id").in("order_id", orderIds)
-      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null as null }),
+  const [snap, countsPayload, storeAddrRes] = await Promise.all([
+    snapPromise,
+    countPromise,
+    storeAddrPromise,
   ]);
 
-  const { labels: buyerPublicById, cache_hit: buyer_label_cache_hit } = buyerLabelRes;
-  const normalize_ms = Math.round(perfNowMs() - label0);
+  db_ms = Math.round(perfNowMs() - db0);
+  count_ms = db_ms;
 
-  if (itemsRes.error) {
-    console.error("[GET store order items]", itemsRes.error);
-    logOwnerDashboardPerf({
-      route: ROUTE,
-      store_id: id,
-      total_ms: Math.round(perfNowMs() - wall0),
-      auth_ms,
-      ownership_ms,
-      db_ms,
-      list_ms,
-    });
-    return NextResponse.json({ ok: false, error: itemsRes.error.message }, { status: 500 });
-  }
-
-  const itemsByOrder: Record<string, unknown[]> = {};
-  for (const row of itemsRes.data ?? []) {
-    const oid = row.order_id as string;
-    if (!itemsByOrder[oid]) itemsByOrder[oid] = [];
-    itemsByOrder[oid].push(row);
-  }
-
-  const reviewedOrderIds = new Set<string>();
-  let reviewsUnavailable = false;
-  if (revRes.error) {
-    if (revRes.error.message?.includes("store_reviews") && revRes.error.message.includes("does not exist")) {
-      reviewsUnavailable = true;
-    } else {
-      console.error("[GET owner store orders reviews]", revRes.error);
-    }
+  if (snap) {
+    orders = snap.orders;
+    list_ms = snap.breakdown.orders_fetch_ms;
+    db_round_trips = snap.breakdown.round_trips;
+    list_snapshot_hit = 1;
+    snapshotVia = snap.snapshotVia;
   } else {
-    for (const row of revRes.data ?? []) {
-      const oid = String((row as { order_id?: unknown }).order_id ?? "").trim();
-      if (oid) reviewedOrderIds.add(oid);
+    const legacy = await buildOwnerStoreOrdersListLegacy(sb as never, id);
+    db_ms = Math.round(perfNowMs() - db0);
+    if (!legacy.ok) {
+      logOwnerDashboardPerf({
+        route: ROUTE,
+        store_id: id,
+        total_ms: Math.round(perfNowMs() - wall0),
+        auth_ms,
+        ownership_ms,
+        db_ms,
+      });
+      return NextResponse.json({ ok: false, error: legacy.error }, { status: 500 });
     }
+    orders = legacy.result.orders;
+    list_ms = legacy.result.listMs;
+    transform_ms = legacy.result.transformMs;
+    normalize_ms = legacy.result.normalizeMs;
+    attach_ms = legacy.result.attachMs;
+    buyer_label_cache_hit = legacy.result.buyerLabelCacheHit ? 1 : 0;
+    db_round_trips = legacy.result.dbRoundTrips;
+    logLegacyHotpath({
+      storeId: id,
+      totalMs: Math.round(perfNowMs() - wall0),
+      dbMs: db_ms,
+      listMs: list_ms,
+      transformMs: transform_ms,
+      ownershipMs: ownership_ms,
+    });
   }
 
-  const attach0 = perfNowMs();
-  const orders = list.map((o) => {
-    const bid = String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
-    return {
-      ...o,
-      buyer_public_label: bid
-        ? (buyerPublicById[bid] ?? BUYER_PUBLIC_LABEL_FALLBACK)
-        : BUYER_PUBLIC_LABEL_FALLBACK,
-      items: itemsByOrder[o.id as string] ?? [],
-      review_status:
-        o.order_status !== "completed"
-          ? "not_applicable"
-          : reviewedOrderIds.has(o.id as string)
-            ? "completed"
-            : reviewsUnavailable
-              ? "unavailable"
-              : "pending",
-    };
-  });
-  const attach_ms = Math.round(perfNowMs() - attach0);
-  transform_ms = Math.round(perfNowMs() - transform0);
+  const store_pickup_address_lines = snap
+    ? pickupLinesFromSnapshot(snap.storePickupAddress)
+    : pickupLinesFromStoreRow(storeAddrRes.data as Record<string, unknown> | null);
+
+  const meta = {
+    owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
+    refund_requested_count: snap?.statusCounts.refund_requested_count ?? countsPayload.refund_requested_count,
+    pending_accept_count: snap?.statusCounts.pending_accept_count ?? countsPayload.pending_accept_count,
+    pending_delivery_count: snap?.statusCounts.pending_delivery_count ?? countsPayload.pending_delivery_count,
+    store_pickup_address_lines,
+  };
 
   const body = { ok: true as const, meta, orders };
   const total_ms = Math.round(perfNowMs() - wall0);
@@ -310,10 +344,10 @@ export async function GET(
     normalize_ms,
     attach_ms,
     serialization_ms: 0,
-    list_snapshot_hit: 0,
+    list_snapshot_hit,
     list_snapshot_singleflight_hit: 0,
     detail_fields_removed: 0,
-    db_round_trips: 3,
+    db_round_trips,
     buyer_label_cache_hit: buyer_label_cache_hit ? 1 : 0,
     total_ms,
   });
@@ -333,5 +367,5 @@ export async function GET(
     payload_bytes: jsonPayloadBytes(body),
   });
 
-  return NextResponse.json(body);
+  return NextResponse.json(body, { headers: snapshotResponseHeaders(snapshotVia) });
 }

@@ -6,6 +6,11 @@ import {
   readHubStoreOrderUnreadMemory,
   writeHubStoreOrderUnreadMemory,
 } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import {
+  hubStoreOrderRoomIdsMemoryTtlMs,
+  readHubStoreOrderRoomIdsMemory,
+  writeHubStoreOrderRoomIdsMemory,
+} from "@/lib/community-messenger/hub-store-order-roomids-memory-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 export { invalidateHubStoreOrderUnreadMemory };
@@ -780,11 +785,16 @@ function applyStoreOrderUnreadMemoryHitTiming(
 }
 
 /** 허브 매장 1건 기준 주문 채팅 미읽음 합 — 전체 매장·전체 주문 스캔 금지 */
+export type CountOwnerStoreOrderMessengerUnreadOpts = {
+  onRoomIdsCacheHit?: () => void;
+};
+
 export async function countOwnerStoreOrderMessengerUnreadForHubStore(
   sb: SupabaseClient<any>,
   ownerUserId: string,
   hubStoreId: string,
-  timingOut?: HubBadgeStoreOrderUnreadTiming
+  timingOut?: HubBadgeStoreOrderUnreadTiming,
+  opts?: CountOwnerStoreOrderMessengerUnreadOpts
 ): Promise<number> {
   const uid = ownerUserId.trim();
   const sid = hubStoreId.trim();
@@ -815,16 +825,40 @@ export async function countOwnerStoreOrderMessengerUnreadForHubStore(
   }
 
   const orders0 = devPerfNow();
-  const { data: orders, error: ordersErr } = await sb
-    .from("store_orders")
-    .select("community_messenger_room_id")
-    .eq("store_id", sid)
-    .not("community_messenger_room_id", "is", null)
-    .limit(80);
-  const ordersMs = devPerfNow() - orders0;
-  const roomIds = ((orders ?? []) as Array<{ community_messenger_room_id?: unknown }>)
-    .map((row) => trimText(row.community_messenger_room_id))
-    .filter(Boolean);
+  let roomIds: string[] = [];
+  let ordersMs = 0;
+  let ordersErr: { message?: string } | null = null;
+
+  const roomIdsMem = readHubStoreOrderRoomIdsMemory(sid);
+  if (roomIdsMem.hit) {
+    roomIds = roomIdsMem.roomIds;
+    ordersMs = 0;
+    opts?.onRoomIdsCacheHit?.();
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console -- TTL 내 store_orders RTT 생략
+      console.info("[store-order-roomids-memory-hit]", {
+        hub_store_id_short: sid.slice(0, 8),
+        room_ids_count: roomIds.length,
+        ttl_ms: hubStoreOrderRoomIdsMemoryTtlMs(),
+        store_order_roomids_age_ms: Math.round(roomIdsMem.ageMs),
+      });
+    }
+  } else {
+    const { data: orders, error } = await sb
+      .from("store_orders")
+      .select("community_messenger_room_id")
+      .eq("store_id", sid)
+      .not("community_messenger_room_id", "is", null)
+      .limit(80);
+    ordersMs = devPerfNow() - orders0;
+    ordersErr = error;
+    roomIds = ((orders ?? []) as Array<{ community_messenger_room_id?: unknown }>)
+      .map((row) => trimText(row.community_messenger_room_id))
+      .filter(Boolean);
+    if (!ordersErr) {
+      writeHubStoreOrderRoomIdsMemory(sid, roomIds);
+    }
+  }
   if (!roomIds.length) {
     const totalMs = devPerfNow() - total0;
     const result = 0;

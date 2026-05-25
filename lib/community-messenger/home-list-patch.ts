@@ -14,6 +14,7 @@ import {
   patchBootstrapRoomListForSenderLocalEcho,
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import { messengerTraceConsoleDebug } from "@/lib/community-messenger/messenger-trace-console";
 import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -125,6 +126,28 @@ function countListRooms(data: CommunityMessengerBootstrap | null): number {
 function logHomeListOwner(stats: HomeListPatchStats): void {
   if (!homeListOwnerTraceEnabled()) return;
   messengerTraceConsoleDebug("[cm-list-owner]", stats);
+}
+
+function mergeRoomListsWithVersionGuard(
+  prevList: CommunityMessengerRoomSummary[],
+  nextList: CommunityMessengerRoomSummary[]
+): { list: CommunityMessengerRoomSummary[]; unreadGuardApplied: number } {
+  if (!nextList.length) return { list: prevList, unreadGuardApplied: 0 };
+  const prevById = new Map(prevList.map((r) => [r.id, r]));
+  let unreadGuardApplied = 0;
+  const out = nextList.map((inc) => {
+    const old = prevById.get(inc.id);
+    if (!old || old.unreadCount === inc.unreadCount) return inc;
+    const merged = mergeRoomSummaryWithConsistency(old, inc, {
+      surface: "home_sync",
+      roomId: inc.id,
+      source: "home_sync_replace",
+      eventType: "replace",
+    });
+    if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
+    return merged;
+  });
+  return { list: out, unreadGuardApplied };
 }
 
 function mergeCriticalRoomPatchesIntoLists(
@@ -272,9 +295,10 @@ function applyHomeSyncPatch(
       chats = merged.list;
       unreadGuardApplied += merged.unreadGuardApplied;
     } else {
-      const merged = mergeRoomListsPreserveRefs(base.chats ?? [], patch.chats);
+      const versioned = mergeRoomListsWithVersionGuard(base.chats ?? [], patch.chats);
+      const merged = mergeRoomListsPreserveRefs(base.chats ?? [], versioned.list);
       chats = merged.list;
-      unreadGuardApplied += 0;
+      unreadGuardApplied += versioned.unreadGuardApplied;
     }
   }
   let groups = base.groups;
@@ -284,8 +308,10 @@ function applyHomeSyncPatch(
       groups = merged.list;
       unreadGuardApplied += merged.unreadGuardApplied;
     } else {
-      const merged = mergeRoomListsPreserveRefs(base.groups ?? [], patch.groups);
+      const versioned = mergeRoomListsWithVersionGuard(base.groups ?? [], patch.groups);
+      const merged = mergeRoomListsPreserveRefs(base.groups ?? [], versioned.list);
       groups = merged.list;
+      unreadGuardApplied += versioned.unreadGuardApplied;
     }
   }
   const requests =

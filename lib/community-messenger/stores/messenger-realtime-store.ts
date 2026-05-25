@@ -1,5 +1,6 @@
 "use client";
 
+import { broadcastMessengerActiveRoomCrossTab } from "@/lib/community-messenger/consistency/messenger-consistency-cross-tab";
 import { create } from "zustand";
 import type {
   CommunityMessengerBootstrap,
@@ -255,6 +256,8 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
   setActiveRoomId: (roomId) => {
     const next = normalizeRoomId(roomId) || null;
     set({ activeRoomId: next });
+    const viewer = get().viewerUserId?.trim();
+    if (viewer) broadcastMessengerActiveRoomCrossTab(viewer, next);
     cmRtStoreScopeLog({
       eventType: "setActiveRoomId",
       wroteRuntimeState: true,

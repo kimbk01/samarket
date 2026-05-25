@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { invalidateChatRoomsSnapshotCache } from "@/lib/chats/chat-rooms-snapshot-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
 export const runtime = "nodejs";
@@ -139,6 +140,7 @@ export async function POST(
   }
 
   invalidateUserChatUnreadCache(userId);
+  invalidateChatRoomsSnapshotCache(userId);
   invalidateOwnerHubBadgeCache(userId);
   return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { tryLoadDeliverySummarySnapshot } from "@/lib/stores/delivery-summary-snapshot";
 import { fetchOwnerStoreOrderCountsDashboardSnapshot } from "@/lib/stores/fetch-owner-store-order-counts-dashboard-snapshot-rpc";
 import { fetchOwnerStoreOrderCountsViaRpc } from "@/lib/stores/fetch-owner-store-order-counts-rpc";
 import type { OrderCountsColdBreakdown } from "@/lib/stores/order-counts-cold-breakdown";
@@ -132,7 +133,11 @@ import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-co
 
 export type OwnerStoreOrderCounts = OwnerStoreOpsSnapshot;
 
-export type OwnerStoreOrderCountsVia = "rpc_snapshot" | "rpc" | "legacy";
+export type OwnerStoreOrderCountsVia =
+  | "delivery_summary_snapshot"
+  | "rpc_snapshot"
+  | "rpc"
+  | "legacy";
 
 export type FetchOwnerStoreOrderCountsWithMetaResult =
   | { snapshot: OwnerStoreOrderCounts; via: OwnerStoreOrderCountsVia }
@@ -146,6 +151,15 @@ export async function fetchOwnerStoreOrderCountsWithMeta(
   breakdown?: OrderCountsColdBreakdown
 ): Promise<FetchOwnerStoreOrderCountsWithMetaResult> {
   const wall0 = Date.now();
+  const deliverySnap = await tryLoadDeliverySummarySnapshot(sb, storeId, userId, breakdown);
+  if (deliverySnap) {
+    if ("gate" in deliverySnap) return { gate: deliverySnap.gate };
+    if (breakdown) {
+      breakdown.order_counts_cold_parallel_wall_ms = Math.round(Date.now() - wall0);
+    }
+    return { snapshot: deliverySnap.snapshot, via: "delivery_summary_snapshot" };
+  }
+
   const dashboard = await fetchOwnerStoreOrderCountsDashboardSnapshot(sb, storeId, userId, breakdown);
   if (breakdown) {
     breakdown.order_counts_cold_parallel_wall_ms = Math.round(Date.now() - wall0);
@@ -158,6 +172,14 @@ export async function fetchOwnerStoreOrderCountsWithMeta(
   const rpc = await fetchOwnerStoreOrderCountsViaRpc(sb, storeId, breakdown);
   if (rpc) return { snapshot: rpc.snapshot, via: "rpc" };
 
+  {
+    const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
+    auditLegacyFallbackUsage({
+      route: "/api/me/stores/[storeId]/order-counts",
+      fallback_branch: "legacy_25_count",
+      reason: "dashboard_and_rpc_unavailable",
+    });
+  }
   if (process.env.NODE_ENV === "development") {
     // eslint-disable-next-line no-console -- legacy fallback observability
     console.warn("[owner-store-ops-counts-legacy-fallback]", { store_id: storeId.trim() });

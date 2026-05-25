@@ -11,6 +11,7 @@ import {
   invalidateOwnerStoreOrdersListServerCache,
 } from "@/lib/stores/owner-store-orders-list-server-cache";
 import { logOwnerOrdersListCacheInvalidate } from "@/lib/stores/owner-orders-list-cache-invalidate-log";
+import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/stores/owner-store-orders-list-snapshot-refresh";
 
 export type OwnerStoreOrdersListCacheMeta = {
   pending_accept_count: number;
@@ -96,6 +97,7 @@ export function invalidateOwnerStoreOrdersListCache(
   const hadClientCache = cached?.storeId === sid;
   if (hadClientCache) cached = null;
   const removed = invalidateOwnerStoreOrdersListServerCache(sid, ownerUserId);
+  scheduleOwnerStoreOrdersListSnapshotRefresh(sid, ownerUserId ?? null);
   if (logOpts) {
     logOwnerOrdersListCacheInvalidate({
       route: logOpts.route ?? "unknown",

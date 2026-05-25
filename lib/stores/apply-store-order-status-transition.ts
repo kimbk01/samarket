@@ -3,6 +3,8 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
 import { createStoreOrderStatusEvent } from "@/lib/stores/store-order-events";
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
@@ -233,6 +235,16 @@ export async function applyStoreOrderStatusTransition(
   } catch {
     /* ignore */
   }
+
+  invalidateStoreOrderDetailSnapshot(
+    oid,
+    String(order.buyer_user_id ?? "").trim() || undefined,
+    `status_${nextStatus}`
+  );
+  invalidateBuyerStoreOrdersListSnapshot(
+    String(order.buyer_user_id ?? "").trim() || undefined,
+    `status_${nextStatus}`
+  );
 
   return { ok: true, order_status: nextStatus, previous: current };
 }

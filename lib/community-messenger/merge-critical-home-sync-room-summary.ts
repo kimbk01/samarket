@@ -1,7 +1,6 @@
 import {
-  cmReadBadgeLog,
-  resolveUnreadWithLocalReadGuard,
-} from "@/lib/community-messenger/read/local-read-guard";
+  mergeRoomSummaryWithConsistency,
+} from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
@@ -68,25 +67,10 @@ export function mergeMessengerRoomSummaryForHomeSyncCriticalPatch(
   if (!prev) return incoming;
   const mergedMeta = mergeTradeRoomContextMetaPreferLocalDetail(prev.contextMeta, incoming.contextMeta);
   const merged = { ...incoming, contextMeta: mergedMeta ?? incoming.contextMeta ?? null };
-  const unreadResolved = resolveUnreadWithLocalReadGuard({
+  return mergeRoomSummaryWithConsistency(prev, merged, {
+    surface: "home_sync",
     roomId: incoming.id,
-    incomingUnread: merged.unreadCount,
-    incomingLastMessageAt: String(merged.lastMessageAt ?? ""),
+    source: "home_sync_critical_patch",
+    eventType: "critical_patch",
   });
-  if (unreadResolved.suppressed) {
-    cmReadBadgeLog("stale_unread_ignored_home_sync", {
-      roomId: incoming.id,
-      incomingUnread: merged.unreadCount,
-      incomingLastMessageAt: String(merged.lastMessageAt ?? ""),
-    });
-    return { ...merged, unreadCount: unreadResolved.unreadCount };
-  }
-  if (unreadResolved.allowedNewMessage && merged.unreadCount > 0) {
-    cmReadBadgeLog("unread_allowed_new_message", {
-      roomId: incoming.id,
-      source: "home_sync_critical_patch",
-      incomingUnread: merged.unreadCount,
-    });
-  }
-  return { ...merged, unreadCount: unreadResolved.unreadCount };
 }

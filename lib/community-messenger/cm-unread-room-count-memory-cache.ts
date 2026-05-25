@@ -1,17 +1,21 @@
 /**
- * Hub badge cm_unread — `get_community_messenger_unread_room_count` process memory TTL.
+ * Hub badge cm_unread — aggregate snapshot process memory TTL (route cache 별도).
+ * key: cm-unread-snapshot:${userId}
  */
 
-const DEFAULT_TTL_MS = 5_000;
+const DEFAULT_TTL_MS = 10_000;
+const STALE_MULTIPLIER = 2;
 
 type MemoryEntry = {
   unreadRoomCount: number;
   cachedAt: number;
-  expiresAt: number;
+  freshUntil: number;
+  staleUntil: number;
 };
 
 type CmUnreadMemoryCacheGlobal = {
   __samarketCmUnreadRoomCountMemoryCache?: Map<string, MemoryEntry>;
+  __samarketCmUnreadRevalidateInflight?: Map<string, Promise<void>>;
 };
 
 function memoryByUser(): Map<string, MemoryEntry> {
@@ -20,6 +24,18 @@ function memoryByUser(): Map<string, MemoryEntry> {
     g.__samarketCmUnreadRoomCountMemoryCache = new Map();
   }
   return g.__samarketCmUnreadRoomCountMemoryCache;
+}
+
+function revalidateInflight(): Map<string, Promise<void>> {
+  const g = globalThis as CmUnreadMemoryCacheGlobal;
+  if (!g.__samarketCmUnreadRevalidateInflight) {
+    g.__samarketCmUnreadRevalidateInflight = new Map();
+  }
+  return g.__samarketCmUnreadRevalidateInflight;
+}
+
+export function cmUnreadSnapshotMemoryCacheKey(userId: string): string {
+  return `cm-unread-snapshot:${userId.trim()}`;
 }
 
 export function communityMessengerUnreadMemoryTtlMs(): number {
@@ -38,7 +54,7 @@ export function invalidateCommunityMessengerUnreadTotalCache(userId: string): vo
 function pruneExpired(now: number) {
   const mem = memoryByUser();
   for (const [key, row] of mem) {
-    if (row.expiresAt <= now) mem.delete(key);
+    if (row.staleUntil <= now) mem.delete(key);
   }
   while (mem.size > 500) {
     const first = mem.keys().next().value;
@@ -49,7 +65,7 @@ function pruneExpired(now: number) {
 
 export type CmUnreadRoomCountMemoryRead =
   | { hit: false; reason: "miss" | "expired" }
-  | { hit: true; unreadRoomCount: number; ageMs: number };
+  | { hit: true; unreadRoomCount: number; ageMs: number; stale?: boolean };
 
 export function readCmUnreadRoomCountMemory(userId: string): CmUnreadRoomCountMemoryRead {
   const k = userId.trim();
@@ -58,26 +74,52 @@ export function readCmUnreadRoomCountMemory(userId: string): CmUnreadRoomCountMe
   pruneExpired(now);
   const row = memoryByUser().get(k);
   if (!row) return { hit: false, reason: "miss" };
-  if (row.expiresAt <= now) {
+  if (row.staleUntil <= now) {
     memoryByUser().delete(k);
     return { hit: false, reason: "expired" };
   }
+  const stale = now >= row.freshUntil;
   return {
     hit: true,
     unreadRoomCount: row.unreadRoomCount,
     ageMs: Math.max(0, now - row.cachedAt),
+    ...(stale ? { stale: true } : {}),
   };
+}
+
+/** stale-while-revalidate — 응답 즉시, 백그라운드 refresh */
+export function scheduleCmUnreadSnapshotRevalidate(
+  userId: string,
+  fetcher: () => Promise<number>
+): void {
+  const k = userId.trim();
+  if (!k) return;
+  const inflight = revalidateInflight();
+  if (inflight.has(k)) return;
+  const flight = (async () => {
+    try {
+      const unreadRoomCount = await fetcher();
+      writeCmUnreadRoomCountMemory(k, unreadRoomCount);
+    } catch {
+      /* keep stale snapshot */
+    }
+  })().finally(() => {
+    if (inflight.get(k) === flight) inflight.delete(k);
+  });
+  inflight.set(k, flight);
 }
 
 export function writeCmUnreadRoomCountMemory(userId: string, unreadRoomCount: number): void {
   const k = userId.trim();
   if (!k) return;
   const now = Date.now();
-  const ttl = communityMessengerUnreadMemoryTtlMs();
+  const freshTtl = communityMessengerUnreadMemoryTtlMs();
+  const staleTtl = Math.min(freshTtl * STALE_MULTIPLIER, 60_000);
   memoryByUser().set(k, {
     unreadRoomCount: Math.max(0, Math.floor(unreadRoomCount) || 0),
     cachedAt: now,
-    expiresAt: now + ttl,
+    freshUntil: now + freshTtl,
+    staleUntil: now + staleTtl,
   });
   pruneExpired(now);
 }

@@ -351,6 +351,16 @@ const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
 /** `userId:lite|full` 키가 늘어나도 프로세스 메모리가 비한정으로 커지지 않게 상한(만료 + FIFO) */
 const COMMUNITY_MESSENGER_BOOTSTRAP_CACHE_MAX_ENTRIES = 500;
 
+function snapshotResponseHeaders(snapshotVia?: string): Record<string, string> {
+  if (!snapshotVia) return {};
+  return {
+    "x-samarket-cm-bootstrap-snapshot-path": "1",
+    "x-samarket-cm-bootstrap-snapshot-via": snapshotVia,
+    "x-samarket-cm-bootstrap-query-wave-2-ms": "0",
+    "x-samarket-cm-bootstrap-rpc-removed": "1",
+  };
+}
+
 type CommunityMessengerBootstrapCacheEntry = {
   payload: CommunityMessengerBootstrap;
   expiresAt: number;
@@ -402,7 +412,53 @@ export async function GET(request: NextRequest) {
   }
 
   if (request.nextUrl.searchParams.get("tier") === "critical") {
-    const critical = await getCommunityMessengerBootstrapCritical(auth.userId);
+    const cmBootstrapBypass =
+      request.nextUrl.searchParams.get("cmBootstrapBypass") === "1" &&
+      process.env.NODE_ENV === "development";
+    let criticalPayload: Awaited<
+      ReturnType<typeof getCommunityMessengerBootstrapCritical>
+    > | null = null;
+    let snapshotVia: string | undefined;
+
+    const { tryCreateSupabaseServiceClient } = await import("@/lib/supabase/try-supabase-server");
+    const { tryLoadCriticalBootstrapFromSnapshot } = await import(
+      "@/lib/community-messenger/full-bootstrap-snapshot"
+    );
+    const sbSnap = tryCreateSupabaseServiceClient();
+    if (sbSnap) {
+      const snap = await tryLoadCriticalBootstrapFromSnapshot(sbSnap as never, auth.userId, {
+        bypassCounter: cmBootstrapBypass,
+      });
+      if (snap) {
+        snapshotVia = snap.snapshotVia;
+        criticalPayload = {
+          payload: snap.payload,
+          criticalPayloadMs: snap.breakdown.db_ms,
+          dbRoundTrips: snap.breakdown.round_trips,
+          roomCount: snap.payload.chats.length + snap.payload.groups.length,
+          tierDiagnostics: {
+            roomsQueryMs: snap.breakdown.room_fetch_ms,
+            participantsQueryMs: 0,
+            roomsPayloadDbRoundTrips: snap.breakdown.round_trips,
+            profilesMs: snap.breakdown.profile_join_ms,
+            unreadMs: snap.breakdown.unread_compute_ms,
+            criticalCpuMergeMs: snap.breakdown.room_summary_compute_ms,
+            criticalSkippedRoomProfiles: true,
+            criticalReusedPayloadByRoomId: true,
+            dbRoundTrips: snap.breakdown.round_trips,
+          },
+        };
+      }
+    }
+
+    if (!criticalPayload) {
+      const { buildCriticalBootstrapLegacy } = await import(
+        "@/lib/community-messenger/fetch-full-bootstrap-legacy"
+      );
+      criticalPayload = await buildCriticalBootstrapLegacy(auth.userId);
+    }
+
+    const critical = criticalPayload;
     const routeTotalMsCritical = Math.round(performance.now() - t0);
     recordMessengerApiTiming(
       "GET /api/community-messenger/bootstrap?tier=critical",
@@ -453,6 +509,7 @@ export async function GET(request: NextRequest) {
         "x-samarket-critical-route-ms": String(routeTotalMsCritical),
         "x-samarket-critical-serialization-ms": String(serializationMsCritical),
         "x-samarket-critical-room-count": String(critical.roomCount),
+        ...snapshotResponseHeaders(snapshotVia),
       },
     });
   }
@@ -558,26 +615,103 @@ export async function GET(request: NextRequest) {
   };
   const cacheHit = Boolean(data) && !fresh;
   let fullPayloadAwaitMs = 0;
+  let snapshotVia: string | undefined;
   if (!data || fresh) {
     const tFullPayload = performance.now();
-    const existingInflight = bootstrapDiag ? null : communityMessengerBootstrapInflight.get(inflightKey);
-    if (existingInflight) {
-      data = await existingInflight;
-    } else {
-      const loadPromise = getCommunityMessengerBootstrap(auth.userId, {
-        skipDiscoverable: lite,
-        deferCallLog: lite,
-        diagnostics,
-        detailedTimingBreakdown: bootstrapDiag,
-        bypassLiteRoomsCache: fresh,
-      });
-      if (!bootstrapDiag) {
-        communityMessengerBootstrapInflight.set(inflightKey, loadPromise);
+    const cmBootstrapBypass =
+      request.nextUrl.searchParams.get("cmBootstrapBypass") === "1" &&
+      process.env.NODE_ENV === "development";
+
+    if (lite && !bootstrapDiag) {
+      const { tryCreateSupabaseServiceClient } = await import("@/lib/supabase/try-supabase-server");
+      const { tryLoadCmBootstrapLiteFromSnapshot } = await import(
+        "@/lib/community-messenger/cm-bootstrap-snapshot"
+      );
+      const sbSnap = tryCreateSupabaseServiceClient();
+      if (sbSnap) {
+        const snap = await tryLoadCmBootstrapLiteFromSnapshot(sbSnap as never, auth.userId, {
+          bypassCounter: fresh || cmBootstrapBypass,
+        });
+        if (snap) {
+          data = snap.payload;
+          snapshotVia = snap.snapshotVia;
+          diagnostics.roomCount = snap.payload.chats.length + snap.payload.groups.length;
+          diagnostics.participantCount = snap.payload.chats.reduce(
+            (n, room) => n + (room.memberCount ?? 0),
+            0
+          );
+          diagnostics.bootstrapLiteRoomsFetchPath = "bundle_rpc";
+          diagnostics.roomsPayloadDbRoundTrips = snap.breakdown.round_trips;
+          diagnostics.roomsQueryMs = snap.breakdown.room_list_fetch_ms;
+          diagnostics.profilesMs = snap.breakdown.profile_join_ms;
+          diagnostics.unreadMs = snap.breakdown.unread_compute_ms;
+          diagnostics.transformMs = snap.breakdown.payload_build_ms;
+          diagnostics.tradeContextMs = 0;
+          diagnostics.bootstrapLiteTradeEnrichFastPath = true;
+          diagnostics.bootstrapLiteTradeHeavyPipelineSkipped = true;
+          diagnostics.unreadAggregation =
+            "community_messenger_participants.unread_count + trade legacy unread batch max merge";
+        }
       }
-      try {
-        data = await loadPromise;
-      } finally {
-        communityMessengerBootstrapInflight.delete(inflightKey);
+    } else if (!lite && !bootstrapDiag) {
+      const { tryCreateSupabaseServiceClient } = await import("@/lib/supabase/try-supabase-server");
+      const { tryLoadFullBootstrapFromSnapshot } = await import(
+        "@/lib/community-messenger/full-bootstrap-snapshot"
+      );
+      const sbFull = tryCreateSupabaseServiceClient();
+      if (sbFull) {
+        const snap = await tryLoadFullBootstrapFromSnapshot(sbFull as never, auth.userId, {
+          bypassCounter: fresh || cmBootstrapBypass,
+        });
+        if (snap) {
+          data = snap.payload;
+          snapshotVia = snap.snapshotVia;
+          diagnostics.roomCount = snap.payload.chats.length + snap.payload.groups.length;
+          diagnostics.participantCount = snap.payload.chats.reduce(
+            (n, room) => n + (room.memberCount ?? 0),
+            0
+          );
+          diagnostics.bootstrapLiteRoomsFetchPath = "full_bundle_rpc";
+          diagnostics.roomsPayloadDbRoundTrips = snap.breakdown.round_trips;
+          diagnostics.roomsQueryMs = snap.breakdown.room_fetch_ms;
+          diagnostics.profilesMs = snap.breakdown.profile_join_ms;
+          diagnostics.unreadMs = snap.breakdown.unread_compute_ms;
+          diagnostics.transformMs = snap.breakdown.payload_build_ms;
+          diagnostics.tradeContextMs = snap.breakdown.trade_context_merge_ms;
+          diagnostics.callsLogIncluded = true;
+          diagnostics.discoverableIncluded = true;
+          diagnostics.unreadAggregation =
+            "community_messenger_participants.unread_count + trade legacy unread batch max merge";
+        }
+      }
+    }
+
+    if (!data) {
+      const existingInflight = bootstrapDiag ? null : communityMessengerBootstrapInflight.get(inflightKey);
+      if (existingInflight) {
+        data = await existingInflight;
+      } else {
+        const loadPromise = lite
+          ? import("@/lib/community-messenger/fetch-cm-bootstrap-legacy").then(({ buildCmBootstrapLiteLegacy }) =>
+              buildCmBootstrapLiteLegacy(auth.userId, {
+                diagnostics,
+                bypassLiteRoomsCache: fresh,
+              })
+            )
+          : import("@/lib/community-messenger/fetch-full-bootstrap-legacy").then(({ buildFullBootstrapLegacy }) =>
+              buildFullBootstrapLegacy(auth.userId, {
+                diagnostics,
+                bypassLiteRoomsCache: fresh,
+              })
+            );
+        if (!bootstrapDiag) {
+          communityMessengerBootstrapInflight.set(inflightKey, loadPromise);
+        }
+        try {
+          data = await loadPromise;
+        } finally {
+          communityMessengerBootstrapInflight.delete(inflightKey);
+        }
       }
     }
     fullPayloadAwaitMs = Math.round(performance.now() - tFullPayload);
@@ -753,7 +887,10 @@ export async function GET(request: NextRequest) {
   const tJson = performance.now();
   const response = new NextResponse(serializedMain, {
     status: 200,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      ...snapshotResponseHeaders(snapshotVia),
+    },
   });
   const responseJsonMs = Math.round(performance.now() - tJson);
   breakdown.responseJsonMs = responseJsonMs;

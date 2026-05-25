@@ -31,6 +31,7 @@ import {
   parseOwnerProductsListLimit,
   peekOwnerProductsListCacheHit,
 } from "@/lib/stores/owner-products-list-snapshot";
+import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 import {
   jsonPayloadKb,
   logOwnerProductsPerf,
@@ -422,6 +423,7 @@ export async function POST(
   }
 
   invalidateOwnerProductsListCache(sid);
+  invalidateStoreMenusSnapshotCacheByStoreId(sid);
 
   return NextResponse.json({ ok: true, product: created });
 }

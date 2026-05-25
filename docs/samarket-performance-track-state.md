@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-21 (DEV-STAB-1 — dev:measure + measurement runbook) |
+| Last updated | 2026-05-25 (PDS1 measured — OPS1-B blocked on Vercel deploy) |
 | Owner | (선택) |
 
 ---
@@ -51,10 +51,75 @@
 | **R2-M10** 메신저 방 **list tap → route page mount** | tap→push ~4ms·prefetch_hit·client-first 완료. `push→route_change` 150~200ms 는 App Router flight/segment 축 — **ROI 급감**으로 **2026-05-17 사용자 지시로 트랙 닫음**(HOLD 수치 유지). |
 | **R2-M11** 메신저 방 **cold navigation / Suspense release** (M11·B·C·D 포함) | **2026-05-17 종료** — **판정: 카카오톡 근접 / App Router RSC reveal framework ceiling**. 앱 구조( room 0ms · layout 2~4ms · provider/phase1/composer OK )는 근접. **cold** `route_change→suspense` **~300ms** · **warm reenter ~29ms**. push 전 room RSC flight 완료 **0%** — prefetch 로 cold ceiling 미해소. **재개 금지**(메신저). 추가 개선은 client shell/overlay/별도 선로딩 등 **제품 구조 변경** 필요(현 범위 금지 조건과 충돌). |
 | **R2-D1** 배달 **owner orders** realtime row-patch | **2026-05-17 LOCK** — `store_orders` / `store_order_deliveries` row-patch PASS · RT reason full reload **0** · `delivery_reload=0` · **배민형 owner orders realtime 운영 구조**. poll/pageshow/manual = fallback only. **재개 금지**(list reload·ownership 역행). 분석·실측: [r2-d1-owner-orders-analysis.md](./r2-d1-owner-orders-analysis.md). |
+| **HS2** `/api/community-messenger/home-sync` **critical snapshot-first** | **2026-05-25 Structural PASS** — `get_community_messenger_home_sync_snapshot` deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · route TTL warm **82–112ms**. **재개 금지**(legacy multi-wave·request-time aggregate). ▲ 수동 UI 8시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit — **counter hit 278–486ms = linked RTT**(구조 회귀 아님); prod same-region **>100ms** 시 재오픈. |
+| **RB1** `/api/community-messenger/rooms/[roomId]/bootstrap` **critical snapshot-first** | **2026-05-25 Structural PASS** — `get_community_messenger_room_bootstrap_snapshot` deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · counter hit **200ms** · route TTL warm **35–51ms**. **재개 금지**(legacy wave A multi-query·PostgREST embed·request-time aggregate). ▲ 수동 UI 12시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. |
+| **SM1** `/api/stores/[slug]/menus` **snapshot-first** | **2026-05-25 Structural PASS** — `get_store_menus_snapshot` deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · warm route **141–143ms**. **재개 금지**(legacy multi-wave products+popular+meta·PostgREST embed·request-time aggregate). ▲ 수동 UI 14시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. |
+| **ODN1** `/api/me/notifications` **owner dashboard notifications snapshot-first** | **2026-05-25 Structural PASS** — `get_owner_dashboard_notifications_snapshot` deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · unread cold **575ms** · list cold **488ms**(linked RTT). **재개 금지**(segmented unread RPC·220-row client filter·request-time aggregate). ▲ 수동 UI 12시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. |
+| **DSA1** `/api/me/stores/[storeId]/order-counts` **delivery summary snapshot-first** | **2026-05-25 Structural PASS** — `get_delivery_summary_snapshot` deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · cold **3503ms**(dev compile) · warm **254ms**. **재개 금지**(dashboard RPC every miss·25-count legacy·request-time aggregate). ▲ 수동 UI 14시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. |
+| **MRC1** **messenger realtime consistency** | **2026-05-25 Structural PASS** — versioned unread merge · cross-tab consistency channel · reconnect truth preserve · `[messenger-consistency-analysis]` · regression alert · `verify:messenger-consistency-structural` PASS. **재개 금지**(unordered unread merge·stale snapshot resurrection·reconnect legacy fallback). ▲ 수동 UI 12시나리오 E2E. |
+| **OPS1-A** DIBAY **operating stability instrumentation** | **■ 종료 (2026-05-25)** — 관측 인프라 · audit · runner · probe · structural verify · 문서화 완료. **재개 금지**(관측·audit·sign-off runner·probe 제거). |
+| **NHR1** **next hot route discovery & prioritization** | **2026-05-25 PASS** — 474 routes scanned · hotness score · structural risk A/B/C · `[next-hot-route-analysis]` · fallback global audit · snapshot candidates · **next priority: `/api/me/stores/[storeId]/orders` (OOL1)** · report: [next-hot-route-priority-report.md](./perf/next-hot-route-priority-report.md). **재개 금지**(우선순위 산식·PASS 트랙 재분석 반복). ▲ prod wall_ms 실측은 OPS1-B 후 갱신. |
+| **OOL1** `/api/me/stores/[storeId]/orders` **owner orders list snapshot-first** | **2026-05-25 Structural PASS** — `get_owner_store_orders_list_snapshot` deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · cold **3052ms**(dev compile) · warm **195ms** · `verify:owner-orders-list-snapshot-rpc` · `verify:owner-orders-list-snapshot-e2e` PASS. **재개 금지**(legacy 2-wave aggregate·PostgREST embed·request-time buyer/item/review join). ▲ 수동 UI 12시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. lock: [owner-orders-list-regression-lock.md](./perf/owner-orders-list-regression-lock.md). |
+| **CMB1** `/api/community-messenger/bootstrap` **bootstrap monolith breakdown snapshot-first** | **2026-05-25 Structural PASS** — `get_cm_bootstrap_critical_snapshot` deployed · lite snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · cold **2860ms**(dev compile) · warm **314ms** · `verify:cm-bootstrap-snapshot-rpc` · `verify:cm-bootstrap-snapshot-e2e` PASS. **재개 금지**(legacy bootstrap monolith multi-wave·request-time room aggregate). ▲ 수동 UI 15시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit · ▲ full bootstrap tier snapshot. lock: [cm-bootstrap-regression-lock.md](./perf/cm-bootstrap-regression-lock.md). |
+| **CR1** `/api/chat/rooms` **trade chat rooms snapshot-first** | **2026-05-25 Structural PASS** — `get_chat_rooms_snapshot` deployed · snapshot path **active** · `verify:chat-rooms-snapshot-rpc` · `verify:chat-rooms-snapshot-e2e` **PASS** · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · steady cold unified RPC **~525ms**(run2–3, compile 제외) · route TTL warm **~22ms** · rooms **trade 14 / order 0 / all 14** · linked RPC steady **~155ms**. **주의:** run1 **2145ms** = dev compile noise(제외) · counter PK hit은 route TTL(5s)이 먼저 HIT → 별도 probe 필요 · prod same-region counter hit = **OPS1-B** 재측정. **재개 금지**(legacy 7-wave rooms monolith·repeated participant/profile/trade join·request-time unread recompute). ▲ 수동 UI 15시나리오 · ▲ legacy fallback 제거. lock: [chat-rooms-regression-lock.md](./perf/chat-rooms-regression-lock.md). measure: `node scripts/measure-chat-rooms-snapshot-perf.mjs`. |
+| **SOD1** `/api/me/store-orders/[orderId]` **buyer store order detail snapshot-first** | **2026-05-25 Structural PASS** — `get_store_order_detail_snapshot` deployed · `store_order_detail_snapshots` counter table · snapshot path **active** · `verify:store-order-detail-snapshot-rpc` · `verify:store-order-detail-snapshot-e2e` **PASS** · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · cold **4035ms**(dev compile) · warm **463ms** · event invalidation wired (`createStoreOrderEvent` · status transition · buyer PATCH/DELETE · order create). **재개 금지**(legacy 5-RTT parallel detail·repeated order/item/profile join·request-time payment/rider/refund merge). ▲ 수동 UI 15시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. lock: [store-order-detail-regression-lock.md](./perf/store-order-detail-regression-lock.md). |
+| **SOL1** `/api/me/store-orders` **buyer store orders list snapshot-first** | **2026-05-25 Structural PASS** — `get_buyer_store_orders_list_snapshot` deployed · `buyer_store_orders_list_snapshots` counter table · snapshot path **active** · `verify:buyer-orders-list-snapshot-rpc` · `verify:buyer-orders-list-snapshot-e2e` **PASS** · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · cold **3475ms**(dev compile) · warm **433ms** · orders **11** · event invalidation wired (order create · status transition · buyer PATCH/DELETE · timeline). **재개 금지**(legacy 2-wave orders+stores+unread aggregate·repeated store/item/review join·request-time list recompute). ▲ 수동 UI 15시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. lock: [buyer-orders-list-regression-lock.md](./perf/buyer-orders-list-regression-lock.md). |
+| **SB1** `/api/stores/browse` **stores browse snapshot-first** | **2026-05-25 Structural PASS** — `get_stores_browse_snapshot` deployed · `stores_browse_snapshots` counter table · snapshot path **active** · `verify:stores-browse-snapshot-rpc` · `verify:stores-browse-snapshot-e2e` **PASS** · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · cold **3439ms**(dev compile) · warm **264ms** · stores **4** · event invalidation wired (store public slug · menu/product/banner by store id). **재개 금지**(legacy taxonomy+stores+products/banners multi-wave·repeated category/review join·request-time browse aggregate). ▲ 수동 UI 15시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. lock: [stores-browse-regression-lock.md](./perf/stores-browse-regression-lock.md). |
+| **FBT1** `/api/community-messenger/bootstrap` **full bootstrap tier snapshot-first** | **2026-05-25 Structural PASS** — `get_cm_bootstrap_full_snapshot` deployed · scopes `full_monolith` + `critical_tier` · full + `?tier=critical` snapshot path **active** · `verify:full-bootstrap-snapshot-rpc` · `verify:full-bootstrap-snapshot-e2e` **PASS** · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · full cold **2527ms**(dev compile) · critical **285ms** · event invalidation wired (message/read/mark-all-read + hub peer). **재개 금지**(legacy full bootstrap monolith multi-wave·critical live fetch·request-time social/discoverable/calls/trade aggregate). CMB1 lite scope **재개 금지** 유지. ▲ 수동 UI 20시나리오 · ▲ legacy fallback 제거 · ▲ prod same-region counter hit. lock: [full-bootstrap-regression-lock.md](./perf/full-bootstrap-regression-lock.md). |
+
+---
+
+## OPS1 상태 고정 (2026-05-25)
+
+| Phase | 상태 | 내용 |
+|-------|------|------|
+| **OPS1-A** | **■ 종료** | 관측 인프라 · audit · runner · probe · structural verify · 문서화 완료 |
+| **OPS1-B** | **▲ HOLD** | prod/preview same-region URL 필요 · 실제 운영 측정 전까지 PASS 아님 |
+| **OPS1 최종** | **▲ 미완료** | Phase B prod 실측·3회 sign-off·reconnect/burst/long-session PASS 전 |
+
+**재개 명령:**
+
+```bash
+SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run ops1:prod-signoff
+```
+
+**필수 env:** `OPS1_STORE_ID` · `OPS1_STORE_SLUG` · `OPS1_ROOM_ID`
+
+**최종 PASS 조건:** prod **3회** sign-off · `fallback_used=0` · counter hit **<100ms** · route TTL warm **<50ms** · reconnect stress PASS · burst PASS · long-session PASS
+
+상세: [prod-signoff-report.md](./perf/prod-signoff-report.md)
 
 ---
 
 ## 진행 중 트랙
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **OPS1-B** DIBAY prod same-region sign-off & operating stability **실측** |
+| **트랙 상태** | **▲ HOLD** — prod/preview same-region URL 필요 · 실제 운영 측정 전까지 **OPS1 최종 PASS 아님** |
+| 재개 명령 | `SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run ops1:prod-signoff` |
+| 필수 env | `OPS1_STORE_ID` · `OPS1_STORE_SLUG` · `OPS1_ROOM_ID` |
+| 최종 PASS | prod **3회** sign-off · `fallback_used=0` · counter hit **<100ms** · route TTL warm **<50ms** · reconnect stress PASS · burst PASS · long-session PASS |
+| 추가 | `PLAYWRIGHT_BASE_URL=https://dibaY.vercel.app PLAYWRIGHT_NO_WEBSERVER=1 npm run ops1:reconnect-stress` |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **PDS1** Prod Deploy Sync for OPS1-B |
+| **트랙 상태** | **▲ BLOCKED** — linked Supabase RPC **13/13** · prod headers **0/9** · git **dirty (123 untracked)** |
+| 이번 조치 | `verify:pds1-prod-deploy-sync` · manual migration apply 8 files · prod header probe samarket.vercel.app |
+| 측정 | RPC linked **PASS** · prod app code **NOT synced** (commit `714efbf7`) |
+| PASS 게이트 | commit+push → Vercel redeploy → `ops1:triple-signoff` 3/3 → reconnect stress |
+| lock | [pds1-deploy-sync-report.json](./perf/pds1-deploy-sync-report.json) |
+
+| 트랙 이름 | **OPS1-B + LFC1-HARDDELETE** |
+| **트랙 상태** | **▲ BLOCKED** — OPS1-B prod deploy + 3× sign-off required before hard delete |
+| 이번 조치 | OPS1 signoff executed (local + prod URLs) · DSA1 signoff header fix · triple-signoff runner · `lfc1:harddelete-loop` (gate enforced) |
+| 측정 | local structural partial · prod `rpc_removed=0` (undeployed) · hard delete **0 routes** |
+| PASS 게이트 | prod deploy → `ops1:triple-signoff` 3/3 → Phase A soft-disable → per-route delete |
+
+---
+
+## 진행 중 트랙 (legacy — OPS1-A 이전)
 
 | 항목 | 내용 |
 |------|------|
@@ -92,6 +157,76 @@
 | 이번 조치 | `[cm-unread-deep-breakdown]` · sync aggregate upsert → **deferred** · cm_unread single-flight · `measure:cm-unread-cold` |
 | 측정 | `npm run dev:measure` + `npm run measure:cm-unread-cold` (qqqq) — cm_unread **~462ms** (B 대비 ~686↓) · hub handler **~763–813ms** · warm handler **~18ms** |
 | 완료 기준 | warm ≤30 ✓ · 병목 `postgrest_transport`+`counter_row_read` ✓ · cm_unread cold 400ms ✗ → **linked RTT·2-hop** (SQL/semantics 변경 없음) |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **F** DIBAY hub badge snapshot architecture |
+| **트랙 상태** | **완료 — 구조적 PASS** (2026-05-25) |
+| 이번 원인 1개 | warm TTL 의존·cold multi-RPC wave(~843ms)·embed inner join·sequential await |
+| 이번 조치 | `get_owner_hub_badge_snapshot` 1 RTT·snapshot-first read·event refresh·regression guard·`docs/perf/hub-badge-regression-lock.md` |
+| 측정 | `verify:hub-badge-snapshot-rpc` · `measure:owner-hub-badge-perf` — snapshot row 131–252ms · warm 25–31ms · legacy fallback 0 |
+| 완료 기준 | snapshot path ✓ · `query_wave_2_ms=0` ✓ · regression alert ✗ · ▲ owner 12 시나리오 · ▲ prod same-region counter hit |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **HS2** DIBAY home-sync critical snapshot architecture |
+| **트랙 상태** | **완료 — Structural PASS** (2026-05-25) |
+| Route | `GET /api/community-messenger/home-sync?tier=critical` |
+| 완료 근거 | RPC deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · route TTL warm **82–112ms** · response shape / unread semantics / UI 변경 없음 |
+| 이번 조치 | `get_community_messenger_home_sync_snapshot` 1 RTT · counter row · event refresh · regression lock · `verify:home-sync-snapshot-e2e` |
+| 측정 | `verify:home-sync-snapshot-rpc` · `verify:home-sync-snapshot-e2e` — unified RPC cold **142ms** · counter hit **278–486ms**(linked RTT) · warm route **82–112ms** |
+| 후속 ▲ | 수동 UI 8시나리오 · legacy fallback 코드 제거 · prod same-region counter hit 재측정 |
+| 주의 | counter hit **278–486ms** = **linked Supabase RTT** (구조 회귀 아님). prod same-region에서도 **>100ms** 이면 HS2 transport 재오픈. |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **RB1** DIBAY room bootstrap critical snapshot architecture |
+| **트랙 상태** | **완료 — Structural PASS** (2026-05-25) |
+| Route | `GET /api/community-messenger/rooms/[roomId]/bootstrap?mode=instant` |
+| 완료 근거 | RPC deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · counter hit **200ms** · warm route **35–51ms** · response shape / unread semantics / UI 변경 없음 |
+| 이번 조치 | `get_community_messenger_room_bootstrap_snapshot` 1 RTT · counter row · event refresh (message/read/mark-all-read) · regression lock · `verify:room-bootstrap-snapshot-e2e` |
+| 측정 | `verify:room-bootstrap-snapshot-rpc` · `verify:room-bootstrap-snapshot-e2e` — cold fetch **5583ms**(first compile) · counter hit **200ms** · warm route **35–51ms** |
+| 후속 ▲ | 수동 UI 12시나리오 · legacy fallback 코드 제거 · prod same-region counter hit 재측정 |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **SM1** DIBAY store menus snapshot architecture |
+| **트랙 상태** | **완료 — Structural PASS** (2026-05-25) |
+| Route | `GET /api/stores/[slug]/menus` |
+| 완료 근거 | RPC deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · warm **141–143ms** · response shape / sort semantics / UI unchanged |
+| 이번 조치 | `get_store_menus_snapshot` 1 RTT · counter row · event refresh (product/section/store) · regression lock · `verify:store-menus-snapshot-e2e` |
+| 측정 | `verify:store-menus-snapshot-rpc` · `verify:store-menus-snapshot-e2e` — cold **3234ms**(dev compile) · warm **141–143ms** |
+| 후속 ▲ | 수동 UI 14시나리오 · legacy fallback 제거 · prod same-region counter hit |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **ODN1** DIBAY owner dashboard notifications snapshot architecture |
+| **트랙 상태** | **완료 — Structural PASS** (2026-05-25) |
+| Route | `GET /api/me/notifications?unread_count_only=1&owner_store_commerce_unread_only=1` · `GET ?owner_store_id={storeId}` |
+| 완료 근거 | RPC deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · response shape / unread semantics / UI unchanged |
+| 이번 조치 | `get_owner_dashboard_notifications_snapshot` 1 RTT · counter row · event refresh (append/read/mark-all) · regression lock · `verify:owner-dashboard-notifications-snapshot-e2e` |
+| 측정 | `verify:owner-dashboard-notifications-snapshot-rpc` · `verify:owner-dashboard-notifications-snapshot-e2e` — unread cold **575ms** · list cold **488ms** · warm unread **267ms** |
+| 후속 ▲ | 수동 UI 12시나리오 · legacy fallback 제거 · prod same-region counter hit |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **DSA1** DIBAY delivery summary snapshot architecture |
+| **트랙 상태** | **완료 — Structural PASS** (2026-05-25) |
+| Route | `GET /api/me/stores/[storeId]/order-counts` |
+| 완료 근거 | RPC deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · `OwnerStoreOpsSnapshot` response shape / UI unchanged |
+| 이번 조치 | `get_delivery_summary_snapshot` 1 RTT · counter row · event refresh (order/refund/rider mutations) · regression lock · `verify:delivery-summary-snapshot-e2e` |
+| 측정 | `verify:delivery-summary-snapshot-rpc` · `verify:delivery-summary-snapshot-e2e` — cold **3503ms**(dev compile) · warm **254ms** |
+| 후속 ▲ | 수동 UI 14시나리오 · legacy fallback 제거 · prod same-region counter hit |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **MRC1** Messenger realtime consistency hardening |
+| **트랙 상태** | **완료 — Structural PASS** (2026-05-25) |
+| Scope | unread/badge/room list · cross-tab · reconnect · snapshot+realtime desync |
+| 완료 근거 | versioned merge on all hot paths · consistency bus · reconnect preserve · analysis+regression guards · lock doc · structural verify PASS |
+| 이번 조치 | `lib/community-messenger/consistency/*` · `docs/perf/messenger-realtime-consistency-lock.md` |
+| 측정 | `verify:messenger-consistency-structural` · `tsc --noEmit` PASS |
+| 후속 ▲ | 수동 UI 12시나리오 (multi-tab read, mark-all-read, reconnect, TTL stale) |
 
 | 항목 | 내용 |
 |------|------|
@@ -509,6 +644,27 @@
 - 수정 후: 동일 endpoint render **10.3s**
 
 **판정(임시):** 코드 완료. 동일 조건 3회 측정/전후 비교는 다음 라운드에서 더 엄밀히(런1 cold 분리, warm 2회 고정) 수행.
+
+## 이번 라운드 (메신저: 라운드 HS2 — home-sync critical snapshot-first)
+
+**DIBAY PERFORMANCE TRACK — HS2 `/api/community-messenger/home-sync`**
+
+| | |
+|--|--|
+| **상태** | **■ Structural PASS** (2026-05-25) |
+| **완료 근거** | RPC deployed · snapshot path active · fallback **0** · `query_wave_2_ms=0` · `rpc_removed=1` · regression alert 없음 · route TTL warm **82–112ms** · response shape / unread semantics / UI 변경 없음 |
+| **후속 ▲** | 수동 UI 8시나리오 · legacy fallback 코드 제거 · prod same-region counter hit 재측정 |
+| **주의** | counter hit **278–486ms** = linked Supabase RTT. prod same-region **>100ms** 시 transport 재오픈. |
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `tier=critical` cold path **요청 시 3–4 PostgREST RTT** aggregate 재계산 |
+| 측정 명령 | `npm run verify:home-sync-snapshot-rpc` · `npm run verify:home-sync-snapshot-e2e` · `[route-hotpath-analysis]` |
+| 수정 파일 | `20260525190000_community_messenger_home_sync_snapshot.sql` · `home-sync-snapshot*.ts` · `docs/perf/home-sync-regression-lock.md` |
+
+**판정:** **종료(재개 금지 — legacy multi-wave)**. ▲ 후속은 prod sign-off·transport 측정 전용.
+
+---
 
 ## 이번 라운드 (스토어: 라운드 SB1 — browse 서브 탭 전환 즉시 반응/복귀)
 

@@ -1,4 +1,4 @@
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { runSingleFlight, forgetSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 45_000;
 
@@ -30,6 +30,12 @@ export function runStoreMenusPublicServerSingleFlight<T>(
   factory: () => Promise<T>
 ): Promise<T> {
   return runSingleFlight(`store-menus-api:slug:${cacheKey(slug)}`, factory);
+}
+
+export function invalidateStoreMenusPublicServerCacheForSlug(slug: string): void {
+  const k = cacheKey(slug);
+  cache.delete(k);
+  forgetSingleFlight(`store-menus-api:slug:${k}`);
 }
 
 /** 테스트 */

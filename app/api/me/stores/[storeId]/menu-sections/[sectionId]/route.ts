@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { invalidateStoreMenusSnapshotCacheByStoreId } from "@/lib/stores/store-menus-snapshot-invalidate-by-store-id";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -110,6 +111,7 @@ export async function PATCH(
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
 
+  invalidateStoreMenusSnapshotCacheByStoreId(sid);
   return NextResponse.json({ ok: true, section: updated });
 }
 
@@ -156,5 +158,6 @@ export async function DELETE(
     return NextResponse.json({ ok: false, error: delErr.message }, { status: 500 });
   }
 
+  invalidateStoreMenusSnapshotCacheByStoreId(sid);
   return NextResponse.json({ ok: true });
 }

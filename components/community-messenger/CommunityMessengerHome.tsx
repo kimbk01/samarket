@@ -62,6 +62,7 @@ import type {
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
 import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
 import { attachMessengerHydrationSchedulerSurface } from "@/lib/community-messenger/background-hydration-scheduler";
+import { initLongSessionStabilityMonitor } from "@/lib/ops/long-session-stability";
 import {
   markMessengerShellVisible,
   resetMessengerAppShellFastPathClock,
@@ -271,6 +272,9 @@ export function CommunityMessengerHome({
   useEffect(() => {
     attachMessengerHydrationSchedulerSurface(true);
     return () => attachMessengerHydrationSchedulerSurface(false);
+  }, []);
+  useEffect(() => {
+    initLongSessionStabilityMonitor();
   }, []);
   /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
   /** home-sync critical 은 trade meta 를 defer — 목록·거래 탭 모두 silent `trade-chat-list-meta` 보강 */

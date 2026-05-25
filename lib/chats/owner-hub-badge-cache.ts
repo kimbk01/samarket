@@ -4,10 +4,13 @@
  * 미읽음 관련 변경 시 invalidateOwnerHubBadgeCache 를 함께 호출한다.
  */
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { invalidateChatRoomsSnapshotCache } from "@/lib/chats/chat-rooms-snapshot-cache";
 import { invalidateCommunityMessengerUnreadTotalCache } from "@/lib/community-messenger/community-messenger-unread-total";
 import { invalidateHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import { invalidateHubStoreOrderRoomIdsMemory } from "@/lib/community-messenger/hub-store-order-roomids-memory-cache";
 import { invalidateHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
 import { invalidateOwnerHubStoreLookupCache } from "@/lib/chats/owner-hub-store-lookup-cache";
+import { scheduleOwnerHubBadgeSnapshotRefresh } from "@/lib/chats/hub-badge-snapshot-refresh";
 import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -63,10 +66,13 @@ export function invalidateOwnerHubBadgeCache(userId: string): void {
   hubBadgeCache.delete(k);
   /** `getCachedUserChatUnreadParts` memory TTL(5s) 이 남아 `chatUnread` 만 오래된 값으로 남는 경우 방지(메신저 수신 직후 배지 정합) */
   invalidateUserChatUnreadCache(k);
+  invalidateChatRoomsSnapshotCache(k);
   invalidateOwnerHubStoreLookupCache(k);
   invalidateCommunityMessengerUnreadTotalCache(k);
   invalidateHubStoreOrderUnreadMemory(k);
+  invalidateHubStoreOrderRoomIdsMemory();
   invalidateHubStoreAttentionMemory();
+  scheduleOwnerHubBadgeSnapshotRefresh(k);
 }
 
 function pruneExpiredHubBadgeCache(now: number) {

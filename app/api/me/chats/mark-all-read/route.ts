@@ -10,6 +10,10 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
+import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
+import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
+import { invalidateAllRoomBootstrapSnapshotsForUser } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { markAllCommunityMessengerParticipantsReadForUser } from "@/lib/community-messenger/bulk-mark-all-read";
 
@@ -166,8 +170,24 @@ export async function POST() {
     );
   }
 
+  const { data: cmRoomRows } = await sbAny
+    .from("community_messenger_participants")
+    .select("room_id")
+    .eq("user_id", userId);
+  const cmRoomIds = [
+    ...new Set(
+      (cmRoomRows ?? [])
+        .map((r: { room_id: string }) => String(r.room_id ?? "").trim())
+        .filter(Boolean)
+    ),
+  ];
+
   invalidateUserChatUnreadCache(userId);
   invalidateOwnerHubBadgeCache(userId);
+  invalidateHomeSyncSnapshotCache(userId);
+  invalidateCmBootstrapSnapshotCache(userId);
+  invalidateFullBootstrapSnapshotCache(userId, "mark_all_read");
+  invalidateAllRoomBootstrapSnapshotsForUser(userId, cmRoomIds);
 
   return NextResponse.json({
     ok: true,

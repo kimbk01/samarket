@@ -232,8 +232,11 @@ export async function GET(
   };
 
   const cacheKeyMode = isInstant ? "instant" : mode || "default";
+  const roomBootstrapBypass =
+    req.nextUrl.searchParams.get("roomBootstrapBypass") === "1" &&
+    process.env.NODE_ENV === "development";
   const cacheKey = `cm_room_bootstrap:${auth.userId}:${roomKey}:${cacheKeyMode}:${hydrateFullMemberList ? "full" : "minimal"}:${snapshotTier}:${opts.initialMessageLimit ?? COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT}`;
-  const cached = getCachedRoomBootstrap(cacheKey);
+  const cached = roomBootstrapBypass ? null : getCachedRoomBootstrap(cacheKey);
   cacheHit = Boolean(cached);
   const tSnap0 = performance.now();
   snapshot = cached
@@ -336,6 +339,14 @@ export async function GET(
     "x-samarket-messages-pipeline-prep-ms": String(d.messagesPipelinePrepMs ?? 0),
     "x-samarket-messages-map-cpu-ms": String(d.messagesMapCpuMs ?? 0),
     "x-samarket-normalize-merge-ms": String(d.normalizeMergeMs ?? 0),
+    ...(d.roomBootstrapSnapshotPath === 1
+      ? {
+          "x-samarket-room-bootstrap-snapshot-path": "1",
+          "x-samarket-room-bootstrap-snapshot-via": d.roomBootstrapSnapshotVia ?? "unified_rpc",
+          "x-samarket-room-bootstrap-query-wave-2-ms": "0",
+          "x-samarket-room-bootstrap-rpc-removed": "1",
+        }
+      : {}),
   });
   return NextResponse.json(body, { headers });
 }
