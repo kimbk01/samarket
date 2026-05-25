@@ -37,6 +37,7 @@ import {
 } from "@/lib/community-messenger/messenger-entry-origin";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
+import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import type {
   MessengerNotificationSettings,
   FriendSheetState,
@@ -98,6 +99,14 @@ export function useCommunityMessengerHomeShellEffects({
   mainSection,
   pillar = null,
 }: Args): void {
+  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있음 → primitive deps 만 사용 */
+  const queryString = searchParams.toString();
+  const activeTab = searchParams.get("tab")?.trim() ?? "";
+  const activeSection = searchParams.get("section")?.trim() ?? "";
+  const activeFilter = searchParams.get("filter")?.trim() ?? "";
+  const activeKind = searchParams.get("kind")?.trim() ?? "";
+  const fromParam = searchParams.get("from")?.trim() ?? "";
+
   useEffect(() => {
     if (!roomActionSheetOpen) return;
     const handleViewportChange = () => {
@@ -150,37 +159,49 @@ export function useCommunityMessengerHomeShellEffects({
 
   useEffect(() => {
     if (fromPhilifeHeaderStack) return;
-    const tab = searchParams.get("tab");
-    if (tab === "settings") {
+    if (activeTab === "settings") {
       openSettingsSheet();
-      router.replace("/community-messenger?section=chats", { scroll: false });
+      guardedRouterReplace(router, "/community-messenger?section=chats", {
+        source: "messenger-home-shell",
+        reason: "legacy_tab_settings",
+        scroll: false,
+      });
       return;
     }
-    if (tab === "friends") {
-      setMainSection("friends");
-      router.replace("/community-messenger?section=friends", { scroll: false });
+    if (activeTab === "friends") {
+      setMainSection((prev) => (prev === "friends" ? prev : "friends"));
+      guardedRouterReplace(router, "/community-messenger?section=friends", {
+        source: "messenger-home-shell",
+        reason: "legacy_tab_friends",
+        scroll: false,
+      });
       return;
     }
-    const section = searchParams.get("section");
-    const filter = searchParams.get("filter");
-    const kind = searchParams.get("kind");
-    setMainSection(resolveMessengerSection(section ?? undefined, tab ?? undefined));
-    const { inbox, kind: nextKind } = resolveMessengerChatFilters(filter ?? undefined, kind ?? undefined, tab ?? undefined);
-    setChatInboxFilter(inbox);
-    setChatKindFilter(nextKind);
+    const resolvedSection = resolveMessengerSection(activeSection || undefined, activeTab || undefined);
+    const { inbox, kind: nextKind } = resolveMessengerChatFilters(
+      activeFilter || undefined,
+      activeKind || undefined,
+      activeTab || undefined
+    );
+    setMainSection((prev) => (prev === resolvedSection ? prev : resolvedSection));
+    setChatInboxFilter((prev) => (prev === inbox ? prev : inbox));
+    setChatKindFilter((prev) => (prev === nextKind ? prev : nextKind));
   }, [
-    searchParams,
-    router,
+    activeFilter,
+    activeKind,
+    activeSection,
+    activeTab,
+    fromPhilifeHeaderStack,
     openSettingsSheet,
+    router,
     setChatInboxFilter,
     setChatKindFilter,
     setMainSection,
-    fromPhilifeHeaderStack,
   ]);
 
   const entryOrigin: MessengerEntryOrigin = useMemo(
-    () => parseMessengerEntryOrigin(searchParams.get("from")),
-    [searchParams]
+    () => parseMessengerEntryOrigin(fromParam || null),
+    [fromParam]
   );
 
   /**
@@ -200,7 +221,11 @@ export function useCommunityMessengerHomeShellEffects({
     if (next.get("from")) return;
     next.set("from", inferred);
     const nextUrl = `${window.location.pathname}?${next.toString()}`;
-    void router.replace(nextUrl, { scroll: false });
+    guardedRouterReplace(router, nextUrl, {
+      source: "messenger-home-shell",
+      reason: "infer_entry_origin",
+      scroll: false,
+    });
     /** referrer 는 한 번만 사용 — 무한 replace 방지(ESLint 의존성: 마운트 시 한 번) */
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -208,7 +233,7 @@ export function useCommunityMessengerHomeShellEffects({
   useLayoutEffect(() => {
     if (fromPhilifeHeaderStack) return;
     if (!setMainTier1Extras) return;
-    const fromUrl = parseMessengerEntryOrigin(searchParams.get("from"));
+    const fromUrl = parseMessengerEntryOrigin(fromParam || null);
     if (fromUrl) persistMessengerEntryOrigin(fromUrl);
     const resolvedOrigin: MessengerEntryOrigin = fromUrl ?? readStoredMessengerEntryOrigin();
 
@@ -241,7 +266,7 @@ export function useCommunityMessengerHomeShellEffects({
       },
     });
     return () => setMainTier1Extras(null);
-  }, [headerActionsNode, mainSection, setMainTier1Extras, fromPhilifeHeaderStack, pillar, searchParams]);
+  }, [headerActionsNode, mainSection, setMainTier1Extras, fromPhilifeHeaderStack, pillar, fromParam]);
 
   useEffect(() => {
     let cancelled = false;

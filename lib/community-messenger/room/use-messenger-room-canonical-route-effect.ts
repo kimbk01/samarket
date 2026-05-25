@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { cmRtLogCanonicalRedirect } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
+import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 
 function routeRoomIdEqualsCanonical(route: string, canon: string): boolean {
@@ -32,19 +33,40 @@ export function useMessengerRoomCanonicalRouteReplaceEffect({
   searchParams: ReadonlyURLSearchParams;
   snapshot: CommunityMessengerRoomSnapshot | null;
 }): void {
+  const search = searchParams.toString();
+  const lastReplaceTargetRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!snapshot?.room?.id) return;
     const canon = String(snapshot.room.id).trim();
     const route = String(roomId ?? "").trim();
     if (!canon || !route || routeRoomIdEqualsCanonical(route, canon)) return;
+    const qs = search.length > 0 ? `?${search}` : "";
+    const target = `/community-messenger/rooms/${encodeURIComponent(canon)}${qs}`;
+    if (typeof window !== "undefined") {
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current === target) return;
+    }
+    if (lastReplaceTargetRef.current === target) {
+      logNetworkLoopGuardBlocked({
+        endpoint: target,
+        caller: "useMessengerRoomCanonicalRouteReplaceEffect",
+        reason: "duplicate_canonical_replace",
+        dedupe_hit: true,
+      });
+      return;
+    }
+    lastReplaceTargetRef.current = target;
     cmRtLogCanonicalRedirect({
       fromRouteRoomId: route,
       toCanonicalRoomId: canon,
       viewerUserId: snapshot.viewerUserId,
     });
-    const qs = searchParams?.toString();
-    void router.replace(
-      `/community-messenger/rooms/${encodeURIComponent(canon)}${qs && qs.length > 0 ? `?${qs}` : ""}`
-    );
-  }, [roomId, router, searchParams, snapshot]);
+    logNetworkLoopGuard({
+      endpoint: target,
+      caller: "useMessengerRoomCanonicalRouteReplaceEffect",
+      reason: "canonical_route_replace",
+    });
+    void router.replace(target);
+  }, [roomId, router, search, snapshot]);
 }

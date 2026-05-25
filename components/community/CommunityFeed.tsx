@@ -309,6 +309,8 @@ export function CommunityFeed({
   const pathname = usePathname();
   const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const searchParams = useSearchParams();
+  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
+  const searchQueryString = searchParams.toString();
   const viewerSig = usePhilifeFeedViewerSig();
   const categoryParam = searchParams.get("category")?.trim() ?? "";
   const sortParam = searchParams.get("sort")?.trim() ?? "";
@@ -399,13 +401,18 @@ export function CommunityFeed({
   /** 레거시 `?category=recommended` → `?sort=recommended` */
   useLayoutEffect(() => {
     if (!isPhilifeRecommendSortCategory(categoryParamNorm)) return;
-    const sp = new URLSearchParams(searchParams.toString());
+    const sp = new URLSearchParams(searchQueryString);
     if (!sp.has("category")) return;
     sp.delete("category");
     if (!sp.get("sort")?.trim()) sp.set("sort", "recommended");
     const next = sp.toString();
-    void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [pathname, router, searchParams, categoryParamNorm]);
+    const target = next ? `${pathname}?${next}` : pathname;
+    if (typeof window !== "undefined") {
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current === target) return;
+    }
+    void router.replace(target, { scroll: false });
+  }, [pathname, router, searchQueryString, categoryParamNorm]);
 
   const isAllTabView = !category.trim() || isPhilifeRecommendSortCategory(category);
   const latestSortHref = (() => {
@@ -436,11 +443,16 @@ export function CommunityFeed({
     const cp = categoryParam.trim();
     if (!cp || isPhilifeRecommendSortCategory(cp)) return;
     if (!sortParam) return;
-    const sp = new URLSearchParams(searchParams.toString());
+    const sp = new URLSearchParams(searchQueryString);
     sp.delete("sort");
     const next = sp.toString();
-    void router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [categoryParam, sortParam, pathname, router, searchParams]);
+    const target = next ? `${pathname}?${next}` : pathname;
+    if (typeof window !== "undefined") {
+      const current = `${window.location.pathname}${window.location.search}`;
+      if (current === target) return;
+    }
+    void router.replace(target, { scroll: false });
+  }, [categoryParam, sortParam, pathname, router, searchQueryString]);
 
   useEffect(() => {
     if (!isAllTabView) setRecommendMenuOpen((prev) => (prev ? false : prev));

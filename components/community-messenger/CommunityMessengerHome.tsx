@@ -77,6 +77,7 @@ import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/ho
 import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
@@ -246,6 +247,8 @@ export function CommunityMessengerHome({
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
+  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
+  const searchQueryString = searchParams.toString();
   const { requestClose: closePhilifeHeaderMessenger } = usePhilifeHeaderMessengerStack();
   const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
   const openParam = searchParams.get("open")?.trim() ?? "";
@@ -1618,7 +1621,11 @@ export function CommunityMessengerHome({
     const seq = ++messengerMeetingDeeplinkSeq.current;
     const ac = new AbortController();
     const strip = () => {
-      void router.replace("/community-messenger?section=open_chat", { scroll: false });
+      guardedRouterReplace(router, "/community-messenger?section=open_chat", {
+        source: "community-messenger-home",
+        reason: "meeting_deeplink_strip",
+        scroll: false,
+      });
     };
     void (async () => {
       try {
@@ -1633,11 +1640,21 @@ export function CommunityMessengerHome({
           } catch {
             /* */
           }
-          void router.replace(`/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`);
+          guardedRouterReplace(
+            router,
+            `/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`,
+            {
+              source: "community-messenger-home",
+              reason: "meeting_deeplink_room",
+            }
+          );
           return;
         }
         if (resolved.kind === "post") {
-          void router.replace(philifeAppPaths.post(resolved.postId));
+          guardedRouterReplace(router, philifeAppPaths.post(resolved.postId), {
+            source: "community-messenger-home",
+            reason: "meeting_deeplink_post",
+          });
           return;
         }
         strip();
@@ -1656,14 +1673,19 @@ export function CommunityMessengerHome({
     if (openParam !== "public-group-find") return;
     setMainSection("open_chat");
     openHomeOverlay("public-group-find");
-    const next = new URLSearchParams(searchParams.toString());
+    const next = new URLSearchParams(searchQueryString);
     next.delete("open");
     if (next.get("section") !== "open_chat") {
       next.set("section", "open_chat");
     }
     const qs = next.toString();
-    void router.replace(qs ? `/community-messenger?${qs}` : "/community-messenger?section=open_chat", { scroll: false });
-  }, [openParam, openHomeOverlay, router, searchParams, setMainSection]);
+    const target = qs ? `/community-messenger?${qs}` : "/community-messenger?section=open_chat";
+    guardedRouterReplace(router, target, {
+      source: "community-messenger-home",
+      reason: "open_public_group_find",
+      scroll: false,
+    });
+  }, [openParam, openHomeOverlay, router, searchQueryString, setMainSection]);
 
   const {
     favoriteFriendIds,

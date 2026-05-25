@@ -26,15 +26,40 @@ import {
   dibayMyInfoPerfMaybeLogTotal,
   dibayMyInfoPerfNavClick,
 } from "@/lib/runtime/dibay-myinfo-perf";
+import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
+
+function resolveLegacyMyPageRedirectTarget(args: {
+  tab: string;
+  nav: string | null;
+  rawSection: string | null;
+}): string | null {
+  const { tab, nav, rawSection } = args;
+  if (nav === "1") return "/mypage";
+  if (!tab) return null;
+  if (tab === "account" && (!rawSection || rawSection === "home")) return "/mypage";
+  if (!rawSection || rawSection === "home") {
+    return `/mypage/section/${encodeURIComponent(tab)}`;
+  }
+  const normalizedTab = normalizeMyPageTab(tab);
+  const item = mapLegacyMyPageItemSlug(normalizedTab, rawSection);
+  return `/mypage/section/${encodeURIComponent(normalizedTab)}/${encodeURIComponent(item)}`;
+}
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "";
-  const recoveryTriggeredRef = useRef(false);
-  const ensureRetriedRef = useRef(false);
+  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
+  const searchQueryString = searchParams.toString();
+  const legacyTabParam = searchParams.get("tab")?.trim() ?? "";
+  const legacySectionParam = searchParams.get("section");
+  const legacyNavParam = searchParams.get(MYPAGE_MOBILE_NAV_QUERY);
+  const authErrorParam = searchParams.get("auth_error");
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
+  const recoveryTriggeredRef = useRef(false);
+  const ensureRetriedRef = useRef(false);
+  const lastLoginRedirectRef = useRef<string | null>(null);
 
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
 
@@ -82,7 +107,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       return;
     }
     recoveryTriggeredRef.current = true;
-    const hasAuthError = Boolean(searchParams.get("auth_error"));
+    const hasAuthError = Boolean(authErrorParam);
     const reason = data
       ? "프로필을 불러오지 못했습니다. 다시 로그인해 주세요."
       : "세션을 확인하지 못했습니다. 다시 로그인해 주세요.";
@@ -90,40 +115,58 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       window.alert(reason);
     }
     const errorCode = hasAuthError
-      ? String(searchParams.get("auth_error") ?? "session_recovery_required")
+      ? String(authErrorParam ?? "session_recovery_required")
       : data
         ? "profile_load_failed"
         : "session_recovery_required";
-    router.replace(`/login?auth_error=${encodeURIComponent(errorCode)}`);
-  }, [loading, data, load, router, searchParams]);
+    const target = `/login?auth_error=${encodeURIComponent(errorCode)}`;
+    if (lastLoginRedirectRef.current === target) {
+      logNetworkLoopGuardReplace({
+        source: "my-content",
+        targetUrl: target,
+        reason: "login_recovery_duplicate",
+      });
+      return;
+    }
+    if (
+      guardedRouterReplace(router, target, {
+        source: "my-content",
+        reason: "session_recovery_redirect",
+      })
+    ) {
+      lastLoginRedirectRef.current = target;
+    }
+  }, [loading, data, load, router, authErrorParam]);
 
   useEffect(() => {
     if (!infoHubOpen) return;
-    router.replace(MYPAGE_MAIN_HREF);
+    guardedRouterReplace(router, MYPAGE_MAIN_HREF, {
+      source: "my-content",
+      reason: "info_hub_sheet_close",
+    });
   }, [infoHubOpen, router]);
 
   /** 레거시 `?tab=&section=` → 계층형 경로 */
   useEffect(() => {
-    const tab = searchParams.get("tab");
-    const nav = searchParams.get(MYPAGE_MOBILE_NAV_QUERY);
-    if (nav === "1") {
-      router.replace("/mypage");
+    const target = resolveLegacyMyPageRedirectTarget({
+      tab: legacyTabParam,
+      nav: legacyNavParam,
+      rawSection: legacySectionParam,
+    });
+    if (!target) return;
+    if (pathname === target && !searchQueryString) {
+      logNetworkLoopGuardReplace({
+        source: "my-content",
+        targetUrl: target,
+        reason: "legacy_redirect_skip",
+      });
       return;
     }
-    if (!tab) return;
-    const rawSection = searchParams.get("section");
-    if (tab === "account" && (!rawSection || rawSection === "home")) {
-      router.replace("/mypage");
-      return;
-    }
-    if (!rawSection || rawSection === "home") {
-      router.replace(`/mypage/section/${encodeURIComponent(tab)}`);
-      return;
-    }
-    const normalizedTab = normalizeMyPageTab(tab);
-    const item = mapLegacyMyPageItemSlug(normalizedTab, rawSection);
-    router.replace(`/mypage/section/${encodeURIComponent(normalizedTab)}/${encodeURIComponent(item)}`);
-  }, [router, searchParams]);
+    guardedRouterReplace(router, target, {
+      source: "my-content",
+      reason: "legacy_tab_redirect",
+    });
+  }, [router, legacyTabParam, legacyNavParam, legacySectionParam, pathname, searchQueryString]);
 
   const loadBanner = useCallback(() => {
     void load();

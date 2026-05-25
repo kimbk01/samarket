@@ -65,6 +65,8 @@ import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
+import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
+
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
 
@@ -582,6 +584,8 @@ function scheduleDeferredHubBadgeFetch(
 
 function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBadgeNowOptions): Promise<boolean> {
 
+  const hubEndpoint = hubBadgeLeaderFetchUrl(force, opts?.serverHubBadgeBypass);
+  const guardCaller = opts?.callerComponent ?? "owner_hub_badge_store";
   const now = Date.now();
 
   if (!force) {
@@ -596,11 +600,27 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
       lastFetchCompletedAt = now;
 
+      logNetworkLoopGuardBlocked({
+        endpoint: hubEndpoint,
+        caller: guardCaller,
+        reason: "client_response_ttl",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
+
       return Promise.resolve(true);
 
     }
 
     if (now - lastPlainFetchCompletedAt < MIN_REPEAT_PLAIN_FETCH_GAP_MS) {
+
+      logNetworkLoopGuardBlocked({
+        endpoint: hubEndpoint,
+        caller: guardCaller,
+        reason: "min_repeat_plain_gap",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
 
       return Promise.resolve(false);
 
@@ -614,9 +634,25 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
     if (inFlight) {
 
+      logNetworkLoopGuardBlocked({
+        endpoint: hubEndpoint,
+        caller: guardCaller,
+        reason: "single_flight_join",
+        dedupe_hit: true,
+        interval_id: pollInterval,
+      });
+
       return inFlight.then(() => false);
 
     }
+
+    logNetworkLoopGuardBlocked({
+      endpoint: hubEndpoint,
+      caller: guardCaller,
+      reason: "min_fetch_gap",
+      ttl_hit: true,
+      interval_id: pollInterval,
+    });
 
     return Promise.resolve(false);
 
@@ -626,7 +662,16 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
     const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
 
-    if (inFlight) return inFlight.then(() => false);
+    if (inFlight) {
+      logNetworkLoopGuardBlocked({
+        endpoint: hubEndpoint,
+        caller: guardCaller,
+        reason: "single_flight_join_force",
+        dedupe_hit: true,
+        interval_id: pollInterval,
+      });
+      return inFlight.then(() => false);
+    }
 
     /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
 
@@ -652,6 +697,13 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
       const hubUrl = hubBadgeLeaderFetchUrl(force, opts?.serverHubBadgeBypass);
 
       recordBootVerifyFetch(hubUrl, "owner_hub_badge_store");
+
+      logNetworkLoopGuard({
+        endpoint: hubUrl,
+        caller: opts?.callerComponent ?? "owner_hub_badge_store",
+        reason: force ? "fetch_force" : "fetch",
+        interval_id: pollInterval,
+      });
 
       const res = await fetch(hubUrl, {
 

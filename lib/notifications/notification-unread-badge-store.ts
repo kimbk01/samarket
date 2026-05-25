@@ -6,8 +6,9 @@ import {
   KASAMA_NOTIFICATIONS_UPDATED,
   NOTIFICATION_SYNC_POLL_MS,
 } from "@/lib/notifications/notification-events";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
 
 function createNotificationUnreadBadgeStore(fetchUrl: string) {
   let snap: number | null = null;
@@ -19,10 +20,12 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   /** Strict Mode 등으로 구독이 잠깐 0이 되었다가 바로 복구될 때 이중 초기 fetch·이벤트 해제 방지 */
   let pendingStopTimer: ReturnType<typeof setTimeout> | null = null;
   let pollInterval: ReturnType<typeof setInterval> | null = null;
+  /** Strict Mode remount 시 pendingStopTimer 취소만 되고 removeEventListener 가 실행되지 않아 리스너·interval 이 중복 쌓이는 것 방지 */
+  let listenersArmed = false;
   let unauthorizedPaused = false;
   let lastFetchStartedAt = 0;
 
-  const onNotifUpdated = () => void doFetch(true);
+  const onNotifUpdated = () => void doFetch(false);
 
   const onVisibility = () => {
     if (typeof document === "undefined") return;
@@ -51,10 +54,35 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     }
     const now = Date.now();
     if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
+      logNetworkLoopGuardBlocked({
+        endpoint: fetchUrl,
+        caller: "notification-unread-badge-store",
+        reason: "min_fetch_gap",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
       return Promise.resolve();
+    }
+    const inFlight = getSingleFlightPromise<void>(flightKey);
+    if (inFlight) {
+      logNetworkLoopGuardBlocked({
+        endpoint: fetchUrl,
+        caller: "notification-unread-badge-store",
+        reason: "single_flight_join",
+        dedupe_hit: true,
+        interval_id: pollInterval,
+      });
+      return inFlight;
     }
     lastFetchStartedAt = now;
     return runSingleFlight(flightKey, async () => {
+      logNetworkLoopGuard({
+        endpoint: fetchUrl,
+        caller: "notification-unread-badge-store",
+        reason: force ? "fetch_force" : "fetch",
+        dedupe_hit: false,
+        interval_id: pollInterval,
+      });
       try {
         const res = await fetch(fetchUrl, { credentials: "include" });
         if (res.status === 401) {
@@ -98,6 +126,24 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     }
   }
 
+  function armListeners() {
+    if (listenersArmed) return;
+    listenersArmed = true;
+    window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
+    document.addEventListener("visibilitychange", onVisibility);
+    if (typeof document !== "undefined" && document.visibilityState === "visible") {
+      armPoll();
+    }
+  }
+
+  function disarmListeners() {
+    if (!listenersArmed) return;
+    listenersArmed = false;
+    window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
+    document.removeEventListener("visibilitychange", onVisibility);
+    disarmPoll();
+  }
+
   function start() {
     if (pendingStopTimer != null) {
       clearTimeout(pendingStopTimer);
@@ -106,11 +152,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     subscriberCount += 1;
     if (subscriberCount > 1) return;
     void doFetch(snap == null);
-    window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
-    document.addEventListener("visibilitychange", onVisibility);
-    if (typeof document !== "undefined" && document.visibilityState === "visible") {
-      armPoll();
-    }
+    armListeners();
   }
 
   function stop() {
@@ -120,9 +162,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     pendingStopTimer = setTimeout(() => {
       pendingStopTimer = null;
       if (subscriberCount > 0) return;
-      window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
-      document.removeEventListener("visibilitychange", onVisibility);
-      disarmPoll();
+      disarmListeners();
     }, 0);
   }
 
