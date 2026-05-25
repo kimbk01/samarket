@@ -67,6 +67,12 @@ import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
 import { logFetchTrace, logPollingTrace } from "@/lib/dibay/network-fetch-storm-trace";
+import {
+  logHubBadgeLoopTrace,
+  logHubBadgeRenderTrace,
+  logHubBadgeScheduleTrace,
+  logShellFetchTrace,
+} from "@/lib/dibay/shell-fetch-trace";
 
 import { logHubRefreshGuard, logMarkReadRefreshChain, logParticipantUnreadHubRefresh } from "@/lib/chats/hub-refresh-guard";
 
@@ -170,9 +176,13 @@ const listeners = new Set<() => void>();
 
 let pollInterval: ReturnType<typeof setInterval> | null = null;
 
-/** React Strict Mode: 리스너가 잠깐 비었다가 곧바로 다시 붙을 때 허브 중복 기동·해제 완화 */
+/** React Strict Mode·탭 전환: 리스너가 잠깐 0이 될 때 stopHub/startHub·listener 중복 등록 완화 */
+
+const HUB_STOP_DEBOUNCE_MS = 120;
 
 let hubStopTimer: ReturnType<typeof setTimeout> | null = null;
+
+let globalEventsAttachCount = 0;
 
 let initialHydrateIdleId: number | null = null;
 
@@ -230,6 +240,8 @@ function shouldDeferHubBadgeOnStoreOwnerAdmin(): boolean {
 
 
 function emit() {
+
+  logHubBadgeRenderTrace([`listeners:${listeners.size}`]);
 
   for (const l of listeners) l();
 
@@ -381,9 +393,29 @@ function ensureOwnerHubLeaderAndSync() {
 
       const now = Date.now();
 
-      if (!force && now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
+      const leaderSyncGapMs = force ? MIN_FORCE_FETCH_GAP_MS : MIN_EVENT_REFRESH_GAP_MS;
+
+      if (now - lastEventRefreshAt < leaderSyncGapMs) {
+
+        logHubBadgeLoopTrace({ reason: "leader_tab_sync_gap_skip" });
+
+        logHubBadgeScheduleTrace({
+
+          source: "leader_tab_sync",
+
+          skipped: true,
+
+          ttlHit: true,
+
+        });
+
+        return;
+
+      }
 
       lastEventRefreshAt = now;
+
+      logHubBadgeLoopTrace({ reason: force ? "leader_tab_sync_force" : "leader_tab_sync_plain" });
 
       scheduleDeferredHubBadgeFetch("leader_tab_sync", force, {
 
@@ -597,7 +629,45 @@ function scheduleDeferredHubBadgeFetch(
 
 ): void {
 
-  if (!canIssueHubBadgeNetworkFetch(force, opts)) return;
+  if (!canIssueHubBadgeNetworkFetch(force, opts)) {
+
+    logHubBadgeScheduleTrace({ source, skipped: true });
+
+    return;
+
+  }
+
+  if (!force && peekClientHubBadgeResponseCache() != null) {
+
+    const cachedPayload = peekClientHubBadgeResponseCache();
+
+    if (cachedPayload != null) {
+
+      applyFromNetwork(cachedPayload);
+
+      broadcastOwnerHubBadgeSnapshot(cachedPayload);
+
+      logHubBadgeScheduleTrace({ source, skipped: true, ttlHit: true });
+
+      logShellFetchTrace({
+
+        api: "/api/me/store-owner-hub-badge",
+
+        component: opts?.callerComponent ?? source,
+
+        reason: "scheduleDeferredHubBadgeFetch_client_ttl_skip",
+
+      });
+
+      return;
+
+    }
+
+  }
+
+  logHubBadgeScheduleTrace({ source, skipped: false });
+
+  logHubBadgeLoopTrace({ reason: `schedule:${source}${force ? ":force" : ""}` });
 
   const gen = ++hubBadgeScheduleGeneration;
 
@@ -712,7 +782,23 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
       return inFlight.then(() => false);
     }
 
-    /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
+    /** 읽음 직후(`allowImmediateUserAction`)만 gap 우회 — 그 외 force 연속 호출은 HTTP 지연(~580ms) 루프를 만든다 */
+
+    if (!opts?.allowImmediateUserAction) {
+
+      logNetworkLoopGuardBlocked({
+        endpoint: hubEndpoint,
+        caller: guardCaller,
+        reason: "min_force_fetch_gap",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
+
+      logHubBadgeScheduleTrace({ source: guardCaller, skipped: true, ttlHit: true });
+
+      return Promise.resolve(false);
+
+    }
 
   }
 
@@ -748,6 +834,12 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
         component: opts?.callerComponent ?? "owner_hub_badge_store",
         reason: force ? "fetch_force" : "fetch",
       });
+      logShellFetchTrace({
+        api: "/api/me/store-owner-hub-badge",
+        component: opts?.callerComponent ?? "owner_hub_badge_store",
+        reason: force ? "fetch_force" : "fetch",
+      });
+      logHubBadgeLoopTrace({ reason: force ? "network_fetch_force" : "network_fetch_plain" });
 
       const res = await fetch(hubUrl, {
 
@@ -1431,6 +1523,8 @@ function onVisibility() {
 
     if (Date.now() - lastFetchStartedAt >= MIN_VISIBILITY_FETCH_GAP_MS) {
 
+      logHubBadgeLoopTrace({ reason: "visibility_visible" });
+
       scheduleDeferredHubBadgeFetch("visibility_visible", false, {
 
         callerComponent: "document_visibility",
@@ -1488,9 +1582,19 @@ function onVisibility() {
 
 function attachGlobalEventsOnce() {
 
-  if (globalEventsAttached) return;
+  if (globalEventsAttached) {
+
+    logHubBadgeLoopTrace({ reason: "attach_global_events_skip_duplicate" });
+
+    return;
+
+  }
 
   globalEventsAttached = true;
+
+  globalEventsAttachCount += 1;
+
+  logHubBadgeLoopTrace({ reason: `attach_global_events:${globalEventsAttachCount}` });
 
   ensureOwnerHubLeaderAndSync();
 
@@ -1510,6 +1614,8 @@ function detachGlobalEvents() {
 
   globalEventsAttached = false;
 
+  logHubBadgeLoopTrace({ reason: "detach_global_events" });
+
   window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onTradeUnreadUpdated);
 
   window.removeEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
@@ -1523,6 +1629,8 @@ function detachGlobalEvents() {
 function stopHub() {
 
   hubStarted = false;
+
+  logHubBadgeLoopTrace({ reason: "stop_hub" });
 
   cancelPendingOwnerHubBadgeFetch("stop_hub");
 
@@ -1564,8 +1672,6 @@ function stopHub() {
     messengerHubBadgeCoalesceTimer = null;
 
   }
-
-  lastMessengerParticipantForceRefreshAt = 0;
 
   detachGlobalEvents();
 
@@ -1618,6 +1724,8 @@ function startHub() {
   if (shouldDeferHubBadgeOnStoreOwnerAdmin()) return;
 
   hubStarted = true;
+
+  logHubBadgeLoopTrace({ reason: "start_hub" });
 
   attachGlobalEventsOnce();
 
@@ -1703,7 +1811,7 @@ export function subscribeOwnerHubBadge(listener: () => void) {
 
       stopHub();
 
-    }, 0);
+    }, HUB_STOP_DEBOUNCE_MS);
 
   };
 

@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode, Ref } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { buildStoreProductThumbnailFetchUrl } from "@/lib/media/store-product-image-transform";
 
 export const SAMARKET_THUMBNAIL_FALLBACK_SRC =
   "/images/common/store-product-fallback.svg";
@@ -16,6 +17,8 @@ export type SamarketThumbnailProps = {
   roundedClassName?: string;
   loading?: "lazy" | "eager";
   priority?: boolean;
+  /** store-product-images Supabase transform (display px). */
+  fetchDisplayPx?: number;
   fallbackSrc?: string;
   fallbackNode?: ReactNode;
   imageRef?: Ref<HTMLImageElement>;
@@ -37,13 +40,19 @@ export function SamarketThumbnail({
   roundedClassName = "rounded-[12px]",
   loading = "lazy",
   priority = false,
+  fetchDisplayPx,
   fallbackSrc = SAMARKET_THUMBNAIL_FALLBACK_SRC,
   fallbackNode,
   imageRef,
   onImageLoad,
   onImageError,
 }: SamarketThumbnailProps) {
-  const normalizedSrc = src?.trim() || fallbackSrc;
+  const resolvedSrc = useMemo(() => {
+    const raw = src?.trim() || "";
+    if (!raw || !fetchDisplayPx) return raw || fallbackSrc;
+    return buildStoreProductThumbnailFetchUrl(raw, fetchDisplayPx) ?? raw;
+  }, [fetchDisplayPx, fallbackSrc, src]);
+  const normalizedSrc = resolvedSrc || fallbackSrc;
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
   const [loaded, setLoaded] = useState(false);
   const [fallbackFailed, setFallbackFailed] = useState(false);

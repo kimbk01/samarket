@@ -122,6 +122,7 @@ export function StoreDetailStickyTopRow({
       <SamarketThumbnail
         src={profileImageUrl}
         size={40}
+        fetchDisplayPx={40}
         roundedClassName="rounded-sam-md"
         className="border border-sam-border bg-sam-surface-muted"
         fallbackSrc=""

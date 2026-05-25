@@ -34,6 +34,7 @@ function StoresHomeFoodCardInner({
             src={imageUrl}
             alt={entry.name}
             fill
+            fetchPreset="hubFood"
             className="absolute inset-0"
             imageClassName="h-full w-full object-cover"
             roundedClassName="rounded-none"

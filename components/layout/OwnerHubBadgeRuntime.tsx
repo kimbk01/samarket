@@ -6,6 +6,7 @@ import {
   cancelPendingOwnerHubBadgeFetch,
   refreshOwnerHubBadgeIfHubPath,
 } from "@/lib/chats/owner-hub-badge-store";
+import { logHubBadgeLoopTrace } from "@/lib/dibay/shell-fetch-trace";
 
 /**
  * owner hub 경로 기반 refresh 트리거는 전역 1개로만 유지한다.
@@ -15,6 +16,7 @@ export function OwnerHubBadgeRuntime() {
   const pathname = usePathname();
 
   useEffect(() => {
+    logHubBadgeLoopTrace({ reason: "pathname_effect" });
     refreshOwnerHubBadgeIfHubPath(pathname ?? null);
     return () => cancelPendingOwnerHubBadgeFetch("pathname_effect_cleanup");
   }, [pathname]);

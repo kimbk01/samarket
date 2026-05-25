@@ -41,7 +41,7 @@ export function StoreHorizontalStoreTile({
       >
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-sam-primary-soft ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
-            <SamarketThumbnail src={store.profileImageUrl} fill roundedClassName="rounded-ui-rect" className="bg-sam-primary-soft" />
+            <SamarketThumbnail src={store.profileImageUrl} fill fetchDisplayPx={148} roundedClassName="rounded-ui-rect" className="bg-sam-primary-soft" />
           : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-sam-border-soft to-sam-surface-muted text-2xl text-white/90">
               {coverEmoji ?
                 <span aria-hidden>{coverEmoji}</span>

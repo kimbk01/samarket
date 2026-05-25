@@ -281,7 +281,6 @@ export function StoreOrderHeroSummary({
                   alt=""
                   fill
                   className="object-cover"
-                  sizes="100vw"
                   priority
                   surface="detail-hero"
                 />

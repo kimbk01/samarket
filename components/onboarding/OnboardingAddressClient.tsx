@@ -8,6 +8,7 @@ import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchMandatoryAddressGateDeduped } from "@/lib/addresses/mandatory-address-gate-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
@@ -35,9 +36,9 @@ export function OnboardingAddressClient() {
   const checkGateAndMaybeNavigate = useCallback(async () => {
     if (completedRef.current) return;
     try {
-      const res = await fetch("/api/me/mandatory-address-gate", {
-        credentials: "include",
-        cache: "no-store",
+      const res = await fetchMandatoryAddressGateDeduped({
+        component: "OnboardingAddressClient",
+        reason: "checkGateAndMaybeNavigate",
       });
       if (!res.ok) return;
       const json = (await res.json()) as {

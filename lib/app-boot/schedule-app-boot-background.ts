@@ -3,7 +3,10 @@
 import { isStoreOwnerHubPathname } from "@/lib/business/owner-hub-path";
 import { enableOwnerHubBadgeBackgroundHydration } from "@/lib/chats/owner-hub-badge-store";
 import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
-import { fetchMeProfileFullBackground } from "@/lib/profile/fetch-me-profile-deduped";
+import {
+  fetchMeProfileFullBackground,
+  isMeProfileCacheFresh,
+} from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 
@@ -61,6 +64,7 @@ export function scheduleAppBootBackgroundHydration(): void {
         "profile-full",
         () => {
           if (armId !== backgroundArmId) return;
+          if (isMeProfileCacheFresh()) return;
           void fetchMeProfileFullBackground("app_boot_background")
             .then(({ status, json }) => {
               const data = json as { ok?: boolean; profile?: ProfileRow } | null;

@@ -4,19 +4,17 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import { runNowOrScheduleOnStoreOwnerAdmin, OWNER_HUB_SECONDARY_AFTER_MS } from "@/lib/business/owner-hub-secondary-fetch-queue";
+import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import {
-  OWNER_HUB_SECONDARY_AFTER_MS,
-  runNowOrScheduleOnStoreOwnerAdmin,
-} from "@/lib/business/owner-hub-secondary-fetch-queue";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+  fetchMandatoryAddressGateDeduped,
+  invalidateMandatoryAddressGateClientCache,
+} from "@/lib/addresses/mandatory-address-gate-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** 주소 목록이 바뀐 뒤 게이트 재검사 — `AddressManagementClient.load` 등에서 발행 */
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
-
-const GATE_FETCH_FLIGHT = "mandatory-address-gate:GET:/api/me/mandatory-address-gate";
 
 function isGateExcludedPath(path: string): boolean {
   if (path === "/address/select" || path.startsWith("/address/select/")) return true;
@@ -99,17 +97,23 @@ export function MandatoryAddressGate() {
       return;
     }
     try {
-      const res = await runSingleFlight(GATE_FETCH_FLIGHT, () =>
-        fetch("/api/me/mandatory-address-gate", {
-          credentials: "include",
-          cache: "no-store",
-        })
-      );
+      const res = await fetchMandatoryAddressGateDeduped({
+        component: "MandatoryAddressGate",
+        reason: "runGateFetchNow",
+      });
       await applyGateJson(res);
     } catch {
       setBlocked(false);
     }
   }, [applyGateJson]);
+
+  const runGateFetchNowRef = useRef(runGateFetchNow);
+  runGateFetchNowRef.current = runGateFetchNow;
+  const gateRestoreCoalesceRef = useRef(
+    createTrailingCoalescedCallback(() => {
+      void runGateFetchNowRef.current();
+    }, 450)
+  );
 
   const runGateFetch = useCallback(() => {
     runNowOrScheduleOnStoreOwnerAdmin(
@@ -139,12 +143,31 @@ export function MandatoryAddressGate() {
   }, [pathname, runGateFetch]);
 
   useEffect(() => {
-    const onUpdated = () => void runGateFetch();
+    const onUpdated = () => {
+      invalidateMandatoryAddressGateClientCache();
+      void runGateFetch();
+    };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
   }, [runGateFetch]);
 
-  useRefetchOnPageShowRestore(() => void runGateFetch(), { visibilityDebounceMs: 400 });
+  useEffect(() => {
+    const coalesce = gateRestoreCoalesceRef.current;
+    const onPageShow = (e: Event) => {
+      const pe = e as PageTransitionEvent;
+      if (pe.persisted) coalesce.schedule();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") coalesce.schedule();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pageshow", onPageShow);
+      document.removeEventListener("visibilitychange", onVisibility);
+      coalesce.cancel();
+    };
+  }, []);
 
   useEffect(() => {
     const sb = getSupabaseClient();

@@ -10,6 +10,8 @@
 import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/user-address-service";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import { isMeProfileCacheFresh, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 
 export type BrowseListUserOriginCoords = { lat: number; lng: number };
 
@@ -55,8 +57,22 @@ export async function tryCoordsFromAddressDefaults(): Promise<BrowseListUserOrig
 
 export async function tryCoordsFromMeProfile(): Promise<BrowseListUserOriginCoords | null> {
   try {
+    const boot = peekAppBootProfile();
+    if (boot) {
+      const fromBoot = parseLatLng(
+        (boot as { latitude?: unknown }).latitude,
+        (boot as { longitude?: unknown }).longitude
+      );
+      if (fromBoot) return fromBoot;
+    }
+    if (isMeProfileCacheFresh()) {
+      const cached = peekMeProfileCached();
+      const profile = (cached?.json as { profile?: { latitude?: unknown; longitude?: unknown } | null })
+        ?.profile;
+      if (profile) return parseLatLng(profile.latitude, profile.longitude);
+    }
     const { fetchMeProfileDeduped } = await import("@/lib/profile/fetch-me-profile-deduped");
-    const { status, json } = await fetchMeProfileDeduped();
+    const { status, json } = await fetchMeProfileDeduped("browse_list_user_origin");
     if (status !== 200) return null;
     const profile = (json as { profile?: { latitude?: unknown; longitude?: unknown } | null }).profile;
     if (!profile) return null;
@@ -72,8 +88,9 @@ export async function tryCoordsFromMeProfile(): Promise<BrowseListUserOriginCoor
  * (HTTPS 에서 GPS 를 먼저 쓰면 기기 위치 편차로 km/분이 갈라질 수 있음)
  */
 export async function resolveBrowseListUserOriginCoords(): Promise<BrowseListUserOriginCoords | null> {
-  const [a, p] = await Promise.all([tryCoordsFromAddressDefaults(), tryCoordsFromMeProfile()]);
+  const a = await tryCoordsFromAddressDefaults();
   if (a) return a;
+  const p = await tryCoordsFromMeProfile();
   if (p) return p;
   const g = await tryBrowserGeolocation();
   if (g) return g;

@@ -19,7 +19,7 @@ import {
 import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
-import { fetchMeProfileDeduped, ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchMeProfileDeduped, ME_PROFILE_CACHE_INVALIDATED_EVENT, isMeProfileCacheFresh, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import {
   getAppBootSnapshot,
@@ -100,6 +100,15 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
       if (boot) {
         applyProfileSlice(boot as unknown as Record<string, unknown>);
         return;
+      }
+      if (isMeProfileCacheFresh()) {
+        const cached = peekMeProfileCached();
+        const profile = (cached?.json as { ok?: boolean; profile?: Record<string, unknown> | null } | undefined)
+          ?.profile;
+        if (profile) {
+          applyProfileSlice(profile);
+          return;
+        }
       }
       /** 매장 운영 — boot lite 만 사용, `profile?mode=full` 왕복 금지 */
       if (isStoreOwnerAdminPathname()) {

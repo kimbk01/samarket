@@ -86,6 +86,8 @@ export type MessengerHubBadgeResyncOptions = {
 
 const MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS = 4_000;
 const PARTICIPANT_UNREAD_DECREASE_HUB_RESYNC_DEDUPE_MS = 4_000;
+/** browse `hub_sync_only` — participant increase CustomEvent 연속 → force fetch 루프 완화 */
+const PARTICIPANT_UNREAD_INCREASE_HUB_RESYNC_DEDUPE_MS = 2_500;
 
 function isMarkReadHubResyncReason(reason: MessengerHubBadgeResyncReason): boolean {
   return reason === "room_open_mark_read" || reason === "room_phase2_mark_read";
@@ -128,6 +130,12 @@ export function requestMessengerHubBadgeResync(
     roomId
   ) {
     dedupeMs = PARTICIPANT_UNREAD_DECREASE_HUB_RESYNC_DEDUPE_MS;
+  } else if (
+    reason === "participant_unread_changed" &&
+    participantUnreadDirection === "increase" &&
+    roomId
+  ) {
+    dedupeMs = PARTICIPANT_UNREAD_INCREASE_HUB_RESYNC_DEDUPE_MS;
   }
   dispatchOwnerHubBadgeRefresh({
     source: detail.source,

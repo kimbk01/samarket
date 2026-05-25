@@ -1,5 +1,6 @@
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 
 /** 주소 행·프로필 공통 — 유효 위경도만 */
 export function parseLatLngRow(row: unknown): { lat: number; lng: number } | null {
@@ -34,9 +35,9 @@ export function pickTradeMeetSpotCenterFromAddressDefaults(
 /** 프로필 지도 핀(위치 선택) — 주소록 좌표가 없을 때 보조 */
 export async function fetchProfileLatLngForMeetSpotMap(): Promise<{ lat: number; lng: number } | null> {
   try {
-    const res = await fetch("/api/me/profile", { credentials: "include", cache: "no-store" });
-    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; profile?: unknown };
-    if (!j.ok || j.profile == null) return null;
+    const { status, json } = await fetchMeProfileDeduped("meet_spot_map_fallback");
+    const j = json as { ok?: boolean; profile?: unknown };
+    if (status !== 200 || !j.ok || j.profile == null) return null;
     return parseLatLngRow(j.profile);
   } catch {
     return null;

@@ -520,6 +520,7 @@ function StoreDeliveryRowCardInner({
                     <StoreProductThumbnail
                       src={(item.imageUrl as string) || ""}
                       fill
+                      fetchPreset="rowFeatured"
                       roundedClassName="rounded-[10px]"
                       className="h-full w-full"
                     />

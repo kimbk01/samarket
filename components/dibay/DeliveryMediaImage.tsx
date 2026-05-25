@@ -4,11 +4,16 @@ import Image from "next/image";
 import { useCallback, useLayoutEffect, useRef } from "react";
 import {
   canUseNextImageOptimizer,
+  isPreOptimizedDeliveryImageSrc,
   markDeliveryImageLcpCandidate,
   normalizeDeliveryImageSrc,
   traceDeliveryImagePipelineLoad,
   type DeliveryImageRenderer,
 } from "@/lib/dibay/delivery-image-pipeline";
+import {
+  resolveDeliveryMediaFetchSrc,
+  resolveDeliveryMediaSurfacePreset,
+} from "@/lib/dibay/delivery-image-surface-presets";
 import { logDeliveryImageTrace } from "@/lib/dibay/delivery-waterfall-trace";
 
 type DeliveryMediaImageProps = {
@@ -41,36 +46,44 @@ export function DeliveryMediaImage({
   surface = "delivery-media",
   placeholderClassName = "bg-neutral-100",
 }: DeliveryMediaImageProps) {
-  const normalized = normalizeDeliveryImageSrc(src);
+  const surfacePreset = resolveDeliveryMediaSurfacePreset(surface);
+  const resolvedSizes = sizes ?? surfacePreset.sizes;
+  const baseSrc = normalizeDeliveryImageSrc(src);
+  const normalized = baseSrc ? resolveDeliveryMediaFetchSrc(baseSrc, surface) ?? baseSrc : null;
+  const effectivePriority = priority && surface === "detail-hero";
+  const preOptimized = isPreOptimizedDeliveryImageSrc(normalized);
   const loggedRef = useRef(false);
 
   useLayoutEffect(() => {
-    if (!priority) return;
+    if (!effectivePriority) return;
     markDeliveryImageLcpCandidate(surface);
-  }, [priority, surface]);
+  }, [effectivePriority, surface]);
 
   const onLoad = useCallback(() => {
     if (loggedRef.current) return;
     loggedRef.current = true;
-    const renderer: DeliveryImageRenderer = canUseNextImageOptimizer(normalized ?? "")
-      ? "next-image"
-      : "img";
+    const renderer: DeliveryImageRenderer =
+      effectivePriority && preOptimized
+        ? "img"
+        : canUseNextImageOptimizer(normalized ?? "")
+          ? "next-image"
+          : "img";
     traceDeliveryImagePipelineLoad({
       surface,
       src: normalized,
-      priority,
+      priority: effectivePriority,
       renderer,
     });
     logDeliveryImageTrace({
       src: normalized,
-      priority,
-      loading: priority ? "eager" : "lazy",
-      sizes: sizes ?? null,
+      priority: effectivePriority,
+      loading: effectivePriority ? "eager" : "lazy",
+      sizes: resolvedSizes ?? null,
       renderedWidth: width ?? null,
       renderedHeight: height ?? null,
       surface,
     });
-  }, [normalized, priority, surface, sizes, width, height]);
+  }, [normalized, effectivePriority, surface, resolvedSizes, width, height]);
 
   if (!normalized) {
     if (fill) {
@@ -85,6 +98,22 @@ export function DeliveryMediaImage({
     );
   }
 
+  /** LCP hero — CDN transform URL 직접 fetch (`_next/image` 이중 hop 제거). */
+  if (effectivePriority && preOptimized && fill) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={normalized}
+        alt={alt}
+        className={`absolute inset-0 h-full w-full ${className}`}
+        loading="eager"
+        decoding="async"
+        fetchPriority="high"
+        onLoad={onLoad}
+      />
+    );
+  }
+
   if (canUseNextImageOptimizer(normalized)) {
     return (
       <Image
@@ -93,10 +122,11 @@ export function DeliveryMediaImage({
         fill={fill}
         width={fill ? undefined : width}
         height={fill ? undefined : height}
-        sizes={sizes}
+        sizes={resolvedSizes}
         className={className}
-        priority={priority}
-        loading={priority ? undefined : "lazy"}
+        priority={effectivePriority}
+        loading={effectivePriority ? undefined : "lazy"}
+        unoptimized={preOptimized}
         onLoad={onLoad}
       />
     );
@@ -109,9 +139,9 @@ export function DeliveryMediaImage({
         src={normalized}
         alt={alt}
         className={`absolute inset-0 h-full w-full ${className}`}
-        loading={priority ? "eager" : "lazy"}
+        loading={effectivePriority ? "eager" : "lazy"}
         decoding="async"
-        fetchPriority={priority ? "high" : "auto"}
+        fetchPriority={effectivePriority ? "high" : "auto"}
         onLoad={onLoad}
       />
     );
@@ -125,9 +155,9 @@ export function DeliveryMediaImage({
       width={width}
       height={height}
       className={className}
-      loading={priority ? "eager" : "lazy"}
+      loading={effectivePriority ? "eager" : "lazy"}
       decoding="async"
-      fetchPriority={priority ? "high" : "auto"}
+      fetchPriority={effectivePriority ? "high" : "auto"}
       onLoad={onLoad}
     />
   );

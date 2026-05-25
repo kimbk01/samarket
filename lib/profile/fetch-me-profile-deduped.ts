@@ -3,6 +3,7 @@
  */
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
+import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 
 export type MeProfileGetResult = {
   status: number;
@@ -41,9 +42,10 @@ export function isMeProfileCacheFresh(): boolean {
   return !!cachedFull && cachedFull.expiresAt > Date.now();
 }
 
-/** App boot minimal 응답은 full profile 캐시로 승격하지 않는다. */
+/** App boot minimal 응답 — full GET 합류 전 3s 브릿지(Region·consent·compliance 중복 full 방지). */
 export function primeMeProfileDedupedFromBoot(result: MeProfileGetResult): void {
-  void result;
+  if (result.status !== 200 && result.status !== 401 && result.status !== 403) return;
+  cachedFull = { value: result, expiresAt: Date.now() + 3_000 };
 }
 
 function profileFetchHeaders(clientCallSource: string | undefined, extra: Record<string, string> = {}): HeadersInit {
@@ -65,6 +67,11 @@ export function fetchMeProfileFullBackground(clientCallSource?: string): Promise
   }
   return runSingleFlight(FLIGHT_KEY_FULL, () => {
     recordBootVerifyFetch("/api/me/profile?mode=full", clientCallSource ?? "profile_full");
+    logShellFetchTrace({
+      api: "/api/me/profile",
+      component: clientCallSource ?? "fetch-me-profile-deduped",
+      reason: "fetchMeProfileFullBackground_network",
+    });
     return fetch("/api/me/profile?mode=full", {
       credentials: "include",
       cache: "no-store",

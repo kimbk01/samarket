@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   mergeAppBootProfileFull,
@@ -15,6 +15,9 @@ import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
+
+/** 부트·세션당 consent 서버 재확인 1회 — pathname 변경마다 GET /api/me/profile 방지 */
+let storeConsentResolvedThisSession = false;
 
 function shouldSkip(pathname: string): boolean {
   return (
@@ -34,6 +37,7 @@ export function AuthComplianceRedirect() {
   const pathname = usePathname() ?? "";
   const router = useRouter();
   const routerRef = useRef(router);
+  const pathnameRef = useRef(pathname);
   const checkInFlightRef = useRef<Promise<void> | null>(null);
   const lastRedirectRef = useRef<string | null>(null);
 
@@ -42,39 +46,51 @@ export function AuthComplianceRedirect() {
   }, [router]);
 
   useEffect(() => {
-    if (shouldSkip(pathname) || typeof window === "undefined") return;
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
-    let cancelled = false;
+  const checkConsent = useCallback(() => {
+    if (typeof window === "undefined") return;
+    if (shouldSkip(pathnameRef.current)) return;
+    if (storeConsentResolvedThisSession) return;
+    if (checkInFlightRef.current) return;
 
-    const profileHasStoreConsent = (
-      p: {
-        terms_accepted_at?: string | null;
-        terms_version?: string | null;
-        privacy_accepted_at?: string | null;
-        privacy_version?: string | null;
-      } | null | undefined
-    ): boolean => Boolean(p?.terms_accepted_at != null && hasStoreTermsConsent(p));
-
-    const verifyConsentFromServer = (): Promise<boolean> => {
-      return (async () => {
-        try {
-          const { status, json } = await fetchMeProfileDeduped("auth_compliance_consent_check");
-          const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
-          if (status === 200 && raw?.ok && raw.profile?.id) {
-            mergeAppBootProfileFull(raw.profile);
-            return hasStoreTermsConsent(raw.profile);
-          }
-        } catch {
-          /* ignore */
+    checkInFlightRef.current = (async () => {
+      const boot = peekAppBootProfile();
+      if (!boot?.id) return;
+      if (hasStoreTermsConsent(boot)) {
+        storeConsentResolvedThisSession = true;
+        return;
+      }
+      const cached = getCurrentUser();
+      if (cached && hasStoreTermsConsent(cached)) {
+        if (boot.id === cached.id) {
+          mergeAppBootProfileFull({
+            ...boot,
+            terms_accepted_at: cached.terms_accepted_at ?? boot.terms_accepted_at,
+            terms_version: cached.terms_version ?? boot.terms_version,
+            privacy_accepted_at: cached.privacy_accepted_at ?? boot.privacy_accepted_at,
+            privacy_version: cached.privacy_version ?? boot.privacy_version,
+          });
         }
-        return false;
-      })();
-    };
+        storeConsentResolvedThisSession = true;
+        return;
+      }
+      try {
+        const { status, json } = await fetchMeProfileDeduped("auth_compliance_consent_check");
+        const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
+        if (status === 200 && raw?.ok && raw.profile?.id && hasStoreTermsConsent(raw.profile)) {
+          mergeAppBootProfileFull(raw.profile);
+          storeConsentResolvedThisSession = true;
+          return;
+        }
+      } catch {
+        /* ignore */
+      }
 
-    const redirectToConsent = () => {
       const next = window.location.pathname + window.location.search;
       const target = `/auth/consent?next=${encodeURIComponent(next)}`;
-      if (pathname.startsWith("/auth/consent")) {
+      if (pathnameRef.current.startsWith("/auth/consent")) {
         logNetworkLoopGuardReplace({
           source: "auth-compliance-redirect",
           targetUrl: target,
@@ -98,55 +114,31 @@ export function AuthComplianceRedirect() {
       ) {
         lastRedirectRef.current = target;
       }
-    };
+    })().finally(() => {
+      checkInFlightRef.current = null;
+    });
+  }, []);
 
-    const checkConsent = () => {
-      if (checkInFlightRef.current) return;
-      checkInFlightRef.current = (async () => {
-        const boot = peekAppBootProfile();
-        if (!boot?.id) return;
-        if (profileHasStoreConsent(boot)) return;
-        const cached = getCurrentUser();
-        if (cached && profileHasStoreConsent(cached)) {
-          if (boot.id === cached.id) {
-            mergeAppBootProfileFull({
-              ...boot,
-              terms_accepted_at: cached.terms_accepted_at ?? boot.terms_accepted_at,
-              terms_version: cached.terms_version ?? boot.terms_version,
-              privacy_accepted_at: cached.privacy_accepted_at ?? boot.privacy_accepted_at,
-              privacy_version: cached.privacy_version ?? boot.privacy_version,
-            });
-          }
-          return;
-        }
-        if (await verifyConsentFromServer()) return;
-        if (cancelled) return;
-        redirectToConsent();
-      })().finally(() => {
-        checkInFlightRef.current = null;
-      });
-    };
+  useEffect(() => {
+    if (typeof window === "undefined") return;
 
-    const onBoot = () => {
-      if (!cancelled) checkConsent();
-    };
-
+    const onBoot = () => checkConsent();
     window.addEventListener(APP_BOOT_READY_EVENT, onBoot);
-
     const unsubBoot = subscribeAppBoot(() => {
-      if (getAppBootSnapshot().status === "ready") onBoot();
+      if (getAppBootSnapshot().status === "ready") checkConsent();
     });
-
-    void ensureAppBoot().then(() => {
-      if (!cancelled) checkConsent();
-    });
+    void ensureAppBoot().then(() => checkConsent());
 
     return () => {
-      cancelled = true;
       window.removeEventListener(APP_BOOT_READY_EVENT, onBoot);
       unsubBoot();
     };
-  }, [pathname]);
+  }, [checkConsent]);
+
+  useEffect(() => {
+    if (shouldSkip(pathname)) return;
+    checkConsent();
+  }, [pathname, checkConsent]);
 
   return null;
 }

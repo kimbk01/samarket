@@ -223,7 +223,7 @@ export function StoreVerticalDiscoveryCard({
       >
         <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
           {store.profileImageUrl ?
-            <SamarketThumbnail src={store.profileImageUrl} fill roundedClassName="rounded-none" className="bg-sam-surface-muted dark:bg-[#3A3B3C]" />
+            <SamarketThumbnail src={store.profileImageUrl} fill fetchDisplayPx={180} roundedClassName="rounded-none" className="bg-sam-surface-muted dark:bg-[#3A3B3C]" />
           : <div className="flex h-full w-full items-center justify-center bg-[#1877F2]/90 text-white dark:bg-[#2374E1]/90">
               <svg className="h-14 w-14 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                 <path
