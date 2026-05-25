@@ -50,6 +50,21 @@ Messenger bus (`samarket:community-messenger`) still handles `cm.room.read`, mes
 - Silent home-sync only (no legacy bootstrap, no full reload)
 - Stale payload: `shouldDiscardReconnectPayload(incomingVersionMs)`
 
+## LFC1-C fallback removal (2026-05-25)
+
+Messenger core snapshot routes no longer have runtime legacy fallback:
+
+| Route | Hard delete | Reconnect stress |
+|-------|-------------|------------------|
+| HS2 home-sync critical | yes | PASS · `legacy_fallback_used=0` |
+| CR1 chat rooms | yes | PASS |
+| CMB1 bootstrap lite | yes | PASS |
+| FBT1 full + critical bootstrap | yes | PASS |
+
+**Unchanged by LFC1-C:** MRC1 merge rules · cross-tab bus · reconnect truth preserve · version monotonic compare · RB1 · HUB BADGE legacy branches.
+
+Snapshot miss on hard-deleted routes → **503** `{ ok: false, error: "snapshot_unavailable" }` (success path shape unchanged).
+
 ## Forbidden patterns
 
 - Object.assign unordered unread merge on list rows
