@@ -33,7 +33,7 @@ Store public menus (`GET /api/stores/[slug]/menus`) performance and architecture
 
 | Layer | Key | TTL | Ownership |
 |-------|-----|-----|-----------|
-| Route JSON | slug lowercase | 45s | `store-menus-public-server-cache.ts` |
+| Route JSON | slug lowercase | soft **15s** · hard **60s** (SWR) | `store-menus-public-server-cache.ts` |
 | DB snapshot | `(store_slug, viewer_user_id, menu_version)` | 5s fresh + event refresh | `store-menus-snapshot.ts` |
 | Popular stats legacy | storeId | 60s | legacy fallback only |
 | Client menus | slug | 15s | `store-delivery-api-client.ts` |
