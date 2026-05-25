@@ -12,6 +12,7 @@ import {
   runStoreMenusPublicServerSingleFlight,
   writeStoreMenusPublicServerCache,
 } from "@/lib/stores/store-menus-public-server-cache";
+import { storeMenusSnapshotSignoffHeaders } from "@/lib/http/snapshot-route-signoff-headers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,7 +66,7 @@ export async function GET(
   if (!effectiveCacheBypass) {
     const cached = readStoreMenusPublicServerCache(decoded);
     if (cached) {
-      const bodyText = JSON.stringify(cached);
+      const bodyText = JSON.stringify(cached.body);
       logDeliveryMenusApiBreakdown(
         buildDeliveryMenusApiBreakdown({
           slug: decoded,
@@ -77,9 +78,15 @@ export async function GET(
           cacheHit: true,
         })
       );
-      return NextResponse.json(cached, {
-        status: responseStatusForMenusBody(cached as StoreMenusCatalogBody),
-        headers: perfHeaders({ cache_hit: 1, db_execution_ms: 0, query_count: 0 }),
+      return NextResponse.json(cached.body, {
+        status: responseStatusForMenusBody(cached.body as StoreMenusCatalogBody),
+        headers: {
+          ...perfHeaders({ cache_hit: 1, db_execution_ms: 0, query_count: 0 }),
+          ...storeMenusSnapshotSignoffHeaders({
+            snapshotVia: cached.snapshotVia,
+            cacheHit: true,
+          }),
+        },
       });
     }
   }
@@ -98,7 +105,7 @@ export async function GET(
       if (!effectiveCacheBypass) {
         const memHit = readStoreMenusPublicServerCache(decoded);
         if (memHit) {
-          return { body: memHit, status: responseStatusForMenusBody(memHit as StoreMenusCatalogBody) };
+          return { body: memHit.body, status: responseStatusForMenusBody(memHit.body as StoreMenusCatalogBody) };
         }
       }
 
@@ -114,7 +121,7 @@ export async function GET(
 
       const payloadStart = performance.now();
       if (!effectiveCacheBypass) {
-        writeStoreMenusPublicServerCache(decoded, result.body);
+        writeStoreMenusPublicServerCache(decoded, result.body, result.snapshotVia);
       }
       result.marks.payloadDone = performance.now();
       const bodyText = JSON.stringify(result.body);
@@ -133,15 +140,6 @@ export async function GET(
       return { body: result.body, status: 200 };
     });
 
-    const snapshotHeaders: Record<string, string> = menusSnapshotVia
-      ? {
-          "x-samarket-store-menus-snapshot-path": "1",
-          "x-samarket-store-menus-snapshot-via": menusSnapshotVia,
-          "x-samarket-store-menus-query-wave-2-ms": "0",
-          "x-samarket-store-menus-rpc-removed": "1",
-        }
-      : {};
-
     return NextResponse.json(payload.body, {
       status: payload.status,
       headers: {
@@ -150,7 +148,7 @@ export async function GET(
           db_execution_ms: coldDbMs,
           query_count: coldQueryCount,
         }),
-        ...snapshotHeaders,
+        ...storeMenusSnapshotSignoffHeaders({ snapshotVia: menusSnapshotVia, cacheHit: false }),
       },
     });
   } catch (e) {

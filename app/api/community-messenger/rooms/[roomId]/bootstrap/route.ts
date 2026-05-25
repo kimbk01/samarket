@@ -28,6 +28,7 @@ import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 import { samarketMessengerTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 import { logPerfMeasurementContext } from "@/lib/http/perf-measurement-context";
+import { roomBootstrapSnapshotSignoffHeaders } from "@/lib/http/snapshot-route-signoff-headers";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -339,14 +340,11 @@ export async function GET(
     "x-samarket-messages-pipeline-prep-ms": String(d.messagesPipelinePrepMs ?? 0),
     "x-samarket-messages-map-cpu-ms": String(d.messagesMapCpuMs ?? 0),
     "x-samarket-normalize-merge-ms": String(d.normalizeMergeMs ?? 0),
-    ...(d.roomBootstrapSnapshotPath === 1
-      ? {
-          "x-samarket-room-bootstrap-snapshot-path": "1",
-          "x-samarket-room-bootstrap-snapshot-via": d.roomBootstrapSnapshotVia ?? "unified_rpc",
-          "x-samarket-room-bootstrap-query-wave-2-ms": "0",
-          "x-samarket-room-bootstrap-rpc-removed": "1",
-        }
-      : {}),
+    ...(roomBootstrapSnapshotSignoffHeaders({
+      cacheHit,
+      snapshotPath: d.roomBootstrapSnapshotPath === 1,
+      snapshotVia: d.roomBootstrapSnapshotVia,
+    })),
   });
   return NextResponse.json(body, { headers });
 }

@@ -14,11 +14,16 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { detectEnvironmentMode } from "./owner-dashboard-api-perf-gate.mjs";
+import {
+  OPS1_SIGNOFF_LOGIN_IDS,
+  resolveOps1StoreId,
+  resolveOps1StoreSlug,
+} from "./lib/ops1-prod-store-resolve.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = (process.env.SAMARKET_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const PASSWORD = process.env.SAMARKET_TEST_PASSWORD || process.env.E2E_TEST_PASSWORD || "1234";
-const LOGIN_IDS = [process.env.E2E_TEST_USERNAME, "aaaa", "qqqq"].filter(Boolean);
+const LOGIN_IDS = OPS1_SIGNOFF_LOGIN_IDS.length ? OPS1_SIGNOFF_LOGIN_IDS : ["qqqq", "aaaa"];
 const TERMINALS_DIR =
   process.env.OPS1_TERMINALS_DIR ||
   path.join(process.env.USERPROFILE ?? "", ".cursor", "projects", "c-samarket", "terminals");
@@ -180,46 +185,11 @@ async function timedFetch(url, cookie, headers = {}) {
 }
 
 async function resolveStoreId(cookie) {
-  const res = await fetch(`${baseUrl}/api/me/stores`, {
-    headers: { cookie: `${cookie.name}=${cookie.value}` },
-    cache: "no-store",
-  });
-  const json = await res.json().catch(() => null);
-  const rows = json?.stores ?? json?.data ?? [];
-  const first = Array.isArray(rows) ? rows[0] : null;
-  const fromMe = first?.id ? String(first.id) : null;
-  if (fromMe) return fromMe;
-  const env = process.env.OWNER_DASHBOARD_STORE_ID ?? process.env.OPS1_STORE_ID;
-  if (env) return String(env);
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const sk = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (url && sk && cookie.userId) {
-    const sb = createClient(url, sk, { auth: { persistSession: false } });
-    const { data } = await sb.from("stores").select("id").eq("owner_user_id", cookie.userId).limit(1).maybeSingle();
-    if (data?.id) return String(data.id);
-  }
-  return null;
+  return resolveOps1StoreId(cookie, baseUrl);
 }
 
 async function resolveStoreSlug(cookie, storeId) {
-  const res = await fetch(`${baseUrl}/api/me/stores`, {
-    headers: { cookie: `${cookie.name}=${cookie.value}` },
-    cache: "no-store",
-  });
-  const json = await res.json().catch(() => null);
-  const rows = json?.stores ?? json?.data ?? [];
-  const match = Array.isArray(rows)
-    ? rows.find((s) => String(s?.id) === String(storeId))
-    : null;
-  if (match?.slug) return String(match.slug);
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const sk = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (url && sk && storeId) {
-    const sb = createClient(url, sk, { auth: { persistSession: false } });
-    const { data } = await sb.from("stores").select("slug").eq("id", storeId).maybeSingle();
-    if (data?.slug) return String(data.slug);
-  }
-  return process.env.OPS1_STORE_SLUG ?? null;
+  return resolveOps1StoreSlug(cookie, storeId, baseUrl);
 }
 
 async function resolveRoomId(cookie) {
@@ -268,6 +238,12 @@ function emitSignoff(row) {
   });
 }
 
+function cacheStateFromRun(run) {
+  if (run.includes("route_ttl")) return "route_ttl";
+  if (run.includes("counter")) return "counter_hit";
+  return "cold";
+}
+
 function fromHeaderRoute(res, prefix, run, clientWall, actualHandler) {
   const authBlocked = hStr(res, `x-samarket-${prefix}-auth-blocked`) === "1" ? 1 : 0;
   const snapshotPath = hStr(res, `x-samarket-${prefix}-snapshot-path`) === "1";
@@ -275,8 +251,10 @@ function fromHeaderRoute(res, prefix, run, clientWall, actualHandler) {
   const queryWave2 = hNum(res, `x-samarket-${prefix}-query-wave-2-ms`) ?? (snapshotPath ? 0 : null);
   const rpcRemoved = hStr(res, `x-samarket-${prefix}-rpc-removed`) === "1" ? 1 : snapshotPath ? 1 : 0;
   const headerFallback = hStr(res, `x-samarket-${prefix}-fallback-used`) === "1" ? 1 : 0;
+  const cacheState = cacheStateFromRun(run);
   return {
     run,
+    cache_state: cacheState,
     total_ms: actualHandler ?? clientWall,
     server_ms: actualHandler ?? clientWall,
     db_ms: hNum(res, "x-samarket-db-execution-ms") ?? 0,
@@ -601,6 +579,16 @@ async function main() {
           : 0;
     row.prod_same_region_pass = evaluatePass(row, environment_mode) ? 1 : 0;
     emitSignoff(row);
+    console.log("[ops1-signoff-analysis]", {
+      route: row.route,
+      cache_state: row.cache_state ?? cacheStateFromRun(row.run),
+      snapshot_path: row.snapshot_path ?? 0,
+      snapshot_via: row.snapshot_via ?? "",
+      rpc_removed: row.rpc_removed ?? 0,
+      query_wave_2_ms: row.query_wave_2_ms ?? 0,
+      fallback_used: row.fallback_used ?? 0,
+      structural_pass: row.structural_pass ?? 0,
+    });
   }
 
   // Legacy fallback zero-usage probes (RPC/table — not runtime fallback)

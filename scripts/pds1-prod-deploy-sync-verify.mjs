@@ -10,6 +10,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import {
+  OPS1_SIGNOFF_LOGIN_IDS,
+  resolveOps1StoreId,
+  resolveOps1StoreSlug,
+} from "./lib/ops1-prod-store-resolve.mjs";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const baseUrl = (process.env.SAMARKET_BASE_URL || "https://samarket.vercel.app").replace(/\/$/, "");
@@ -80,7 +85,7 @@ async function loginCookie() {
   if (!url || !anon) throw new Error("Supabase env missing");
   const sb = createClient(url, anon, { auth: { persistSession: false } });
   const ref = url.match(/https:\/\/([^.]+)\./)?.[1];
-  const loginIds = [process.env.E2E_TEST_USERNAME, "aa11", "aaaa", "qqqq"].filter(Boolean);
+  const loginIds = OPS1_SIGNOFF_LOGIN_IDS.length ? OPS1_SIGNOFF_LOGIN_IDS : ["qqqq", "aaaa"];
   for (const loginId of loginIds) {
     let email = loginId.includes("@") ? loginId.toLowerCase() : `${loginId.toLowerCase()}@manual.local`;
     if (serviceKey && loginId === "aa11") {
@@ -104,26 +109,11 @@ async function loginCookie() {
 }
 
 async function resolveStoreId(cookie) {
-  const env = process.env.OPS1_STORE_ID ?? process.env.OWNER_DASHBOARD_STORE_ID;
-  if (env) return env;
-  const res = await fetch(`${baseUrl}/api/me/stores`, {
-    headers: { cookie: `${cookie.name}=${cookie.value}` },
-    cache: "no-store",
-  });
-  const json = await res.json().catch(() => null);
-  const rows = json?.stores ?? [];
-  return Array.isArray(rows) && rows[0]?.id ? String(rows[0].id) : null;
+  return resolveOps1StoreId(cookie, baseUrl);
 }
 
 async function resolveStoreSlug(cookie, storeId) {
-  if (process.env.OPS1_STORE_SLUG) return process.env.OPS1_STORE_SLUG;
-  const res = await fetch(`${baseUrl}/api/me/stores`, {
-    headers: { cookie: `${cookie.name}=${cookie.value}` },
-    cache: "no-store",
-  });
-  const json = await res.json().catch(() => null);
-  const match = (json?.stores ?? []).find((s) => String(s?.id) === String(storeId));
-  return match?.slug ? String(match.slug) : "aa11";
+  return resolveOps1StoreSlug(cookie, storeId, baseUrl);
 }
 
 async function resolveRoomId(cookie) {

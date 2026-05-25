@@ -4,25 +4,39 @@ const TTL_MS = 45_000;
 
 type CachedMenusBody = Record<string, unknown>;
 
-const cache = new Map<string, { expiresAt: number; body: CachedMenusBody }>();
+type MenusCacheSnapshotVia = "counter_row" | "unified_rpc";
+
+type CacheRow = {
+  expiresAt: number;
+  body: CachedMenusBody;
+  snapshotVia?: MenusCacheSnapshotVia;
+};
+
+const cache = new Map<string, CacheRow>();
 
 function cacheKey(slug: string): string {
   return slug.trim().toLowerCase();
 }
 
-export function readStoreMenusPublicServerCache(slug: string): CachedMenusBody | null {
+export function readStoreMenusPublicServerCache(
+  slug: string
+): { body: CachedMenusBody; snapshotVia?: MenusCacheSnapshotVia } | null {
   const k = cacheKey(slug);
   const row = cache.get(k);
   if (!row || row.expiresAt <= Date.now()) {
     if (row) cache.delete(k);
     return null;
   }
-  return row.body;
+  return { body: row.body, snapshotVia: row.snapshotVia };
 }
 
-export function writeStoreMenusPublicServerCache(slug: string, body: CachedMenusBody): void {
+export function writeStoreMenusPublicServerCache(
+  slug: string,
+  body: CachedMenusBody,
+  snapshotVia?: MenusCacheSnapshotVia
+): void {
   const k = cacheKey(slug);
-  cache.set(k, { expiresAt: Date.now() + TTL_MS, body });
+  cache.set(k, { expiresAt: Date.now() + TTL_MS, body, snapshotVia });
 }
 
 export function runStoreMenusPublicServerSingleFlight<T>(
