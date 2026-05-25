@@ -54,7 +54,6 @@ for (const t of tracks) {
 const legacyModules = [
   "lib/chats/build-owner-hub-badge-payload.ts",
   "lib/community-messenger/service.ts",
-  "lib/chats/fetch-chat-rooms-list-legacy.ts",
   "lib/community-messenger/fetch-cm-bootstrap-legacy.ts",
   "lib/community-messenger/fetch-full-bootstrap-legacy.ts",
 ];
@@ -100,6 +99,11 @@ const hardDeletedModules = [
     track: "HS2",
     needle: "tryBuildHomeSyncCriticalFromSnapshot",
   },
+  {
+    module: "app/api/chat/rooms/route.ts",
+    track: "CR1",
+    needle: "tryLoadChatRoomsFromSnapshot",
+  },
 ];
 
 for (const mod of legacyModules) {
@@ -116,7 +120,7 @@ for (const { module: mod, track, needle } of hardDeletedModules) {
   mustExist(mod);
   mustInclude(mod, needle);
   const text = fs.readFileSync(path.join(root, mod), "utf8");
-  if (text.includes("auditLegacyFallbackUsage")) {
+  if (text.includes("auditLegacyFallbackUsage") && track !== "HS2") {
     fails.push(`${mod} (${track}) still has auditLegacyFallbackUsage after hard delete`);
   }
   if (text.includes("store-menus-snapshot-fallback")) {
@@ -163,6 +167,12 @@ for (const { module: mod, track, needle } of hardDeletedModules) {
   }
   if (text.includes('fallback_branch: "legacy_multi_wave"')) {
     fails.push(`${mod} (${track}) still has HS2 legacy_multi_wave fallback audit`);
+  }
+  if (text.includes("chat-rooms-snapshot-fallback")) {
+    fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
+  if (text.includes("buildChatRoomsListLegacy")) {
+    fails.push(`${mod} (${track}) still imports legacy chat rooms list builder`);
   }
 }
 

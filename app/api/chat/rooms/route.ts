@@ -5,11 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { EffectiveListSegment } from "@/lib/chats/chat-rooms-list-core";
-import { buildChatRoomsListLegacy } from "@/lib/chats/fetch-chat-rooms-list-legacy";
-import {
-  logLegacyChatRoomsHotpath,
-  tryLoadChatRoomsFromSnapshot,
-} from "@/lib/chats/chat-rooms-snapshot";
+import { tryLoadChatRoomsFromSnapshot } from "@/lib/chats/chat-rooms-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,7 +32,6 @@ function snapshotResponseHeaders(snapshotVia?: string): Record<string, string> {
 }
 
 export async function GET(req: NextRequest) {
-  const startedAt = Date.now();
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
   const userId = auth.userId;
@@ -83,18 +78,10 @@ export async function GET(req: NextRequest) {
   }
 
   if (!rooms) {
-    const legacy0 = performance.now();
-    const legacy = await buildChatRoomsListLegacy(sbAny, userId, segment);
-    if (!legacy.ok) {
-      return NextResponse.json({ error: legacy.error }, { status: 500 });
-    }
-    rooms = legacy.result.rooms;
-    logLegacyChatRoomsHotpath({
-      totalMs: Date.now() - startedAt,
-      dbMs: legacy.result.dbMs,
-      queryWave2Ms: legacy.result.queryWave2Ms,
-      waveCount: legacy.result.waveCount,
-    });
+    return NextResponse.json(
+      { ok: false, rooms: [], error: "snapshot_unavailable" },
+      { status: 503, headers: { "Cache-Control": "no-store" } }
+    );
   }
 
   const payload = { rooms };
