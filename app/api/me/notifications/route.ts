@@ -10,7 +10,6 @@ import {
 } from "@/lib/notifications/notification-unread-count-cache";
 import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
 import { countNotificationUnreadSegmentedServer } from "@/lib/notifications/fetch-segmented-unread-count-server";
-import { fetchOwnerStoreCommerceNotificationsRpc } from "@/lib/notifications/fetch-owner-store-commerce-notifications-rpc";
 import {
   tryLoadOwnerStoreCommerceUnreadFromSnapshot,
   tryLoadOwnerStoreNotificationsFromSnapshot,
@@ -161,22 +160,10 @@ export async function GET(req: NextRequest) {
             },
           });
         }
-        {
-          const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
-          auditLegacyFallbackUsage({
-            route: "/api/me/notifications",
-            fallback_branch: "segmented_unread_count",
-            reason: "unified_rpc_unavailable",
-            blocker: "owner_store_commerce_unread_only",
-          });
-        }
-        if (process.env.NODE_ENV === "development") {
-          // eslint-disable-next-line no-console -- snapshot deploy probe
-          console.warn("[owner-notifications-snapshot-fallback]", {
-            reason: "unified_rpc_unavailable",
-            mode: "owner_store_commerce_unread_only",
-          });
-        }
+        return NextResponse.json(
+          { ok: false, error: "snapshot_unavailable" },
+          { status: 503 }
+        );
       }
 
       const { value: unreadCount, cache_hit: notifCacheHit, singleflight_hit: notifSingleflightHit } =
@@ -284,51 +271,10 @@ export async function GET(req: NextRequest) {
         },
       });
     }
-    {
-      const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
-      auditLegacyFallbackUsage({
-        route: "/api/me/notifications",
-        fallback_branch: "owner_store_commerce_list_rpc",
-        reason: "unified_rpc_unavailable",
-        blocker: ownerStoreId,
-      });
-    }
-    if (process.env.NODE_ENV === "development") {
-      // eslint-disable-next-line no-console -- snapshot deploy probe
-      console.warn("[owner-notifications-snapshot-fallback]", {
-        reason: "unified_rpc_unavailable",
-        owner_store_id: ownerStoreId,
-      });
-    }
-    const listRpc = await fetchOwnerStoreCommerceNotificationsRpc(sbx, userId, ownerStoreId, 200);
-    const listRpcMs = Math.round(perfNowMs() - listRpc0);
-    if (listRpc?.ok) {
-      const notifications = listRpc.notifications;
-      const body = { ok: true as const, notifications };
-      logOwnerDashboardPerf({
-        route: "/api/me/notifications",
-        store_id: ownerStoreId,
-        total_ms: Math.round(perfNowMs() - wall0),
-        auth_ms,
-        db_ms: listRpcMs,
-        list_ms: listRpcMs,
-        result_count: notifications.length,
-        payload_bytes: jsonPayloadBytes(body),
-      });
-      logOwnerDashboardPerfV2(
-        buildOwnerDashboardPerfV2({
-          route: "/api/me/notifications",
-          total_ms: Math.round(perfNowMs() - wall0),
-          auth_ms,
-          notification_count_ms: listRpcMs,
-          cache_hit: 0,
-          db_round_trips: 1,
-          notifications_via: "rpc_owner_store_list",
-          stages: [{ stage: "owner_store_list", ms: listRpcMs }],
-        })
-      );
-      return NextResponse.json(body);
-    }
+    return NextResponse.json(
+      { ok: false, error: "snapshot_unavailable" },
+      { status: 503 }
+    );
   }
 
   const rawLimitParam = searchParams.get("limit");

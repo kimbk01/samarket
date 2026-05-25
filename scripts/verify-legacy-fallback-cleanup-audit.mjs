@@ -54,7 +54,6 @@ for (const t of tracks) {
 const legacyModules = [
   "lib/chats/build-owner-hub-badge-payload.ts",
   "lib/community-messenger/service.ts",
-  "app/api/me/notifications/route.ts",
   "lib/stores/fetch-owner-store-order-counts.ts",
   "lib/stores/fetch-owner-store-orders-list-legacy.ts",
   "lib/chats/fetch-chat-rooms-list-legacy.ts",
@@ -70,6 +69,11 @@ const hardDeletedModules = [
     module: "lib/stores/fetch-store-menus-catalog.ts",
     track: "SM1",
     needle: "tryLoadStoreMenusCatalogFromSnapshot",
+  },
+  {
+    module: "app/api/me/notifications/route.ts",
+    track: "ODN1",
+    needle: "tryLoadOwnerStoreNotificationsFromSnapshot",
   },
 ];
 
@@ -92,6 +96,12 @@ for (const { module: mod, track, needle } of hardDeletedModules) {
   }
   if (text.includes("store-menus-snapshot-fallback")) {
     fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
+  if (text.includes("owner-notifications-snapshot-fallback")) {
+    fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
+  if (text.includes("fetchOwnerStoreCommerceNotificationsRpc")) {
+    fails.push(`${mod} (${track}) still imports owner store commerce list RPC fallback`);
   }
 }
 

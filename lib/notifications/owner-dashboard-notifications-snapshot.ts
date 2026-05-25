@@ -1,5 +1,5 @@
 /**
- * Owner dashboard notifications snapshot — read path (counter row → unified RPC → legacy fallback).
+ * Owner dashboard notifications snapshot — read path (counter row → unified RPC).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
