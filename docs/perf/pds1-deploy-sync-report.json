@@ -1,11 +1,11 @@
 {
-  "at": "2026-05-25T05:45:36.803Z",
+  "at": "2026-05-25T06:27:37.724Z",
   "git": {
-    "head": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
-    "origin": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
+    "head": "7aa121b6e6f1eea9b8df09f8c52f3bf3453d4be5 docs: record LFC1-C messenger core hard delete completion",
+    "origin": "7aa121b6e6f1eea9b8df09f8c52f3bf3453d4be5 docs: record LFC1-C messenger core hard delete completion",
     "untracked_snapshot_files": 0,
     "modified_api_routes": 0,
-    "dirty": true
+    "dirty": false
   },
   "migrationFiles": [
     {
@@ -78,67 +78,67 @@
     {
       "rpc": "get_owner_hub_badge_snapshot",
       "deployed": 1,
-      "ms": 310,
+      "ms": 275,
       "error": null
     },
     {
       "rpc": "get_community_messenger_home_sync_snapshot",
       "deployed": 1,
-      "ms": 151,
+      "ms": 143,
       "error": null
     },
     {
       "rpc": "get_community_messenger_room_bootstrap_snapshot",
       "deployed": 1,
-      "ms": 138,
+      "ms": 145,
       "error": null
     },
     {
       "rpc": "get_store_menus_snapshot",
       "deployed": 1,
-      "ms": 232,
+      "ms": 185,
       "error": null
     },
     {
       "rpc": "get_owner_dashboard_notifications_snapshot",
       "deployed": 1,
-      "ms": 138,
+      "ms": 132,
       "error": null
     },
     {
       "rpc": "get_delivery_summary_snapshot",
       "deployed": 1,
-      "ms": 137,
+      "ms": 134,
       "error": null
     },
     {
       "rpc": "get_owner_store_orders_list_snapshot",
       "deployed": 1,
-      "ms": 153,
+      "ms": 137,
       "error": null
     },
     {
       "rpc": "get_cm_bootstrap_critical_snapshot",
       "deployed": 1,
-      "ms": 143,
+      "ms": 142,
       "error": null
     },
     {
       "rpc": "get_chat_rooms_snapshot",
       "deployed": 1,
-      "ms": 153,
+      "ms": 145,
       "error": null
     },
     {
       "rpc": "get_store_order_detail_snapshot",
       "deployed": 1,
-      "ms": 152,
+      "ms": 139,
       "error": null
     },
     {
       "rpc": "get_buyer_store_orders_list_snapshot",
       "deployed": 1,
-      "ms": 137,
+      "ms": 116,
       "error": null
     },
     {
@@ -150,7 +150,7 @@
     {
       "rpc": "get_cm_bootstrap_full_snapshot",
       "deployed": 1,
-      "ms": 168,
+      "ms": 152,
       "error": null
     }
   ],
@@ -170,7 +170,7 @@
       "route": "/api/community-messenger/home-sync",
       "status": 200,
       "snapshotPath": true,
-      "via": "route_memory_ttl",
+      "via": "snapshot_row",
       "query_wave_2_ms": 0,
       "rpc_removed": 1,
       "pass": 1,
@@ -247,7 +247,7 @@
       "route": "/api/community-messenger/bootstrap?lite=1",
       "status": 200,
       "snapshotPath": true,
-      "via": "unified_rpc",
+      "via": "counter_row",
       "query_wave_2_ms": 0,
       "rpc_removed": 1,
       "pass": 1,
@@ -258,7 +258,7 @@
       "route": "/api/community-messenger/bootstrap",
       "status": 200,
       "snapshotPath": true,
-      "via": "unified_rpc",
+      "via": "counter_row",
       "query_wave_2_ms": 0,
       "rpc_removed": 1,
       "pass": 1,
@@ -268,18 +268,16 @@
   ],
   "summary": {
     "base_url": "https://samarket.vercel.app",
-    "git_head": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
-    "git_origin_main": "da864bdf90f6dabdeb86fdd75ab2833adc0bc5cb fix: preserve snapshot headers on warm cache paths",
-    "code_committed_and_pushed": 0,
-    "code_sync_blocker": "uncommitted_snapshot_code_and_routes",
+    "git_head": "7aa121b6e6f1eea9b8df09f8c52f3bf3453d4be5 docs: record LFC1-C messenger core hard delete completion",
+    "git_origin_main": "7aa121b6e6f1eea9b8df09f8c52f3bf3453d4be5 docs: record LFC1-C messenger core hard delete completion",
+    "code_committed_and_pushed": 1,
+    "code_sync_blocker": null,
     "rpc_deployed": "13/13",
     "prod_header_pass": "10/10",
     "prod_header_auth_blocked": 0,
     "ops1b_gate_met": 0,
     "lfc1_hard_delete_allowed": 0,
     "next_steps": [
-      "git add/commit/push snapshot work",
-      "Vercel redeploy prod",
       "npm run ops1:triple-signoff"
     ]
   }

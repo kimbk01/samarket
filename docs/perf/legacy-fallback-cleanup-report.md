@@ -1,7 +1,7 @@
 # Legacy Fallback Cleanup Report (LFC1)
 
-| **Last updated:** 2026-05-25 (LFC1-C messenger core **4/4 hard delete PASS**) |
-> **Phase:** LFC1-A + LFC1-B + **LFC1-C messenger core complete** (11/11 hard-deleted snapshot routes). Phase D (RB1 · HUB BADGE) unchanged.
+| **Last updated:** 2026-05-25 (STAB1 prod observation — automated **PASS** · manual long-session **▲**) |
+> **Phase:** LFC1-A/B/C complete · **STAB1** post-cleanup stabilization in progress. **No further hard delete** until STAB1 manual gates pass. Phase D (RB1 · HUB BADGE) blocked.
 
 ## Summary
 
@@ -9,10 +9,34 @@
 |--------|-------|
 | PASS tracks in registry | 14 fallback branches (13 tracks + FBT1 critical tier) |
 | Snapshot path active | All structural PASS tracks |
-| Runtime fallback (e2e) | **0** (dev, post-LFC1-C verify) |
+| Runtime fallback (e2e) | **0** (dev + **prod** post-LFC1-C/STAB1) |
 | Hard delete completed | **11 routes** (LFC1-A: 3 · LFC1-B: 4 · **LFC1-C: 4**) |
+| Remaining legacy branches | **2** (RB1 · HUB BADGE — Phase D, STAB1 blocked) |
 | OPS1-B gate | **PASS** |
 | Soft-disable | Available via `SAMARKET_LFC1_SNAPSHOT_ONLY=1` |
+
+## STAB1 prod observation (2026-05-25)
+
+**Deploy:** `7aa121b6` on `https://samarket.vercel.app` (14 commits pushed · git HEAD = origin/main)
+
+| Check | Result |
+|-------|--------|
+| PDS1 deploy sync | **PASS** — 13/13 RPC deployed · 10/10 prod snapshot headers · `fallback_used=0` |
+| Prod reconnect stress | **PASS** — `legacy_fallback_used=0` · `duplicate_subscribe=0` · `stale_event_discarded=0` · `silent_refresh=0` |
+| Prod messenger E2E | **PASS** — HS2 · CR1 · CMB1 · FBT1 (`PLAYWRIGHT_BASE_URL=https://samarket.vercel.app`) |
+| Regression alerts (automated) | **0** |
+| `query_wave_2_ms` | **0** (prod headers) |
+| `rpc_removed` | **1** (prod headers) |
+
+**Manual gates (STAB1 full PASS — operator):**
+
+| Gate | Status |
+|------|--------|
+| Long-session 30–60min | **▲ pending** — unread · ordering · TTL · offline/online |
+| Multi-tab consistency | **▲ pending** — mark-all-read cross-tab |
+| Real-world feel stable | **▲ pending** — flicker · badge · reconnect 폭주 없음 |
+
+**LFC1-D (RB1 · HUB BADGE) blocked** until STAB1 manual gates PASS + prod stable runtime confirmed.
 
 ## LFC1-C hard delete verification (2026-05-25)
 

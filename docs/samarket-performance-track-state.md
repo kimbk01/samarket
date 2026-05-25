@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-25 (LFC1-C messenger core hard delete **4/4 PASS**) |
+| Last updated | 2026-05-25 (STAB1 prod observation — automated **PASS** · manual **▲**) |
 | Owner | (선택) |
 
 ---
@@ -114,8 +114,16 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | lock | [legacy-fallback-cleanup-report.md](./perf/legacy-fallback-cleanup-report.md) · [messenger-realtime-consistency-lock.md](./perf/messenger-realtime-consistency-lock.md) |
 
 | 트랙 이름 | **LFC1-D** Phase D (RB1 · HUB BADGE) |
-| **트랙 상태** | **▲ 대기** — LFC1-C PASS 후 별도 라운드 |
-| PASS 게이트 | per-route soft-disable verify → hard delete → RPC/E2E/tsc · reconnect stress |
+| **트랙 상태** | **▲ 대기** — STAB1 manual gates PASS 전 hard delete **금지** |
+| PASS 게이트 | STAB1 long-session · multi-tab · prod stable · real feel → per-route hard delete |
+
+| 트랙 이름 | **STAB1** Post cleanup stabilization |
+| **트랙 상태** | **▲ 진행** — automated prod observation **PASS** · manual observation **▲** |
+| 이번 조치 | push `7aa121b6` → PDS1 deploy verify → prod reconnect stress → prod messenger E2E ×4 |
+| 측정 (automated) | `fallback_used=0` · `query_wave_2_ms=0` · `rpc_removed=1` · reconnect PASS · regression alert 0 |
+| 측정 (manual ▲) | long-session 30–60min · multi-tab · mark-all-read · offline/online · real feel |
+| lock | [prod-signoff-report.md](./perf/prod-signoff-report.md) · [legacy-fallback-cleanup-report.md](./perf/legacy-fallback-cleanup-report.md) |
+| **구조 변경** | **금지** — hard delete · reconnect core · merge logic · cross-tab bus |
 
 | 트랙 이름 | **PDS1** Prod Deploy Sync for OPS1-B |
 | **트랙 상태** | **■ 종료** — prod headers 10/10 · OPS1-B gate_met |

@@ -1,8 +1,47 @@
 # OPS1 — Prod Sign-Off & Operating Stability Report
 
 > **Track:** OPS1 (DIBAY prod sign-off & operating stability hardening)  
-> **Last updated:** 2026-05-25  
-> **OPS1 상태 고정** — OPS1-A **■ 종료** · OPS1-B **■ PASS** · OPS1 최종 **■ PASS** (2026-05-25 prod)
+> **Last updated:** 2026-05-25 (STAB1 post-LFC1-C prod observation)  
+> **OPS1 상태 고정** — OPS1-A **■ 종료** · OPS1-B **■ PASS** · OPS1 최종 **■ PASS** (2026-05-25 prod)  
+> **STAB1** — LFC1-A/B/C pushed to prod `7aa121b6`; automated prod observation **PASS**; manual long-session/multi-tab **▲ pending**
+
+---
+
+## STAB1 — Post cleanup stabilization (2026-05-25)
+
+**Goal:** No further hard delete or structural change — validate prod runtime after LFC1-C.
+
+| Step | Status | Evidence |
+|------|--------|----------|
+| Push 14 commits | **PASS** | `origin/main` = `7aa121b6` |
+| Vercel prod deploy | **PASS** | PDS1: `code_committed_and_pushed=1` · `rpc_deployed=13/13` · `prod_header_pass=10/10` |
+| Prod reconnect stress | **PASS** | `legacy_fallback_used=0` · `pass=1` · `regression_alert_count=0` |
+| Prod messenger E2E | **PASS** | HS2 · CR1 · CMB1 · FBT1 on `https://samarket.vercel.app` |
+| Long-session 30–60min | **▲ pending** | Operator manual — see §4 |
+| Multi-tab / mark-all-read | **▲ pending** | Operator manual — see §3 |
+| Real-world feel | **▲ pending** | Operator sign-off |
+
+**Prod deploy hash:** `7aa121b6e6f1eea9b8df09f8c52f3bf3453d4be5`
+
+**Prod snapshot header probe (2026-05-25):** all measurable routes `snapshot-path=1` · `query_wave_2_ms=0` · `rpc_removed=1` · `fallback_used=0`. Detail: [pds1-deploy-sync-report.json](./pds1-deploy-sync-report.json)
+
+**Prod reconnect stress (2026-05-25):**
+
+```
+[reconnect-stress-analysis] { room_id: 'home', reconnect_count: 1, duplicate_subscribe_count: 0, stale_event_discarded: 0, silent_refresh_count: 0, legacy_fallback_used: 0, pass: 1 }
+```
+
+**Commands used:**
+
+```powershell
+git push origin main
+$env:SAMARKET_BASE_URL="https://samarket.vercel.app"; node scripts/pds1-prod-deploy-sync-verify.mjs
+$env:PLAYWRIGHT_BASE_URL="https://samarket.vercel.app"; $env:PLAYWRIGHT_NO_WEBSERVER="1"; npm run ops1:reconnect-stress
+$env:PLAYWRIGHT_BASE_URL="https://samarket.vercel.app"; $env:PLAYWRIGHT_NO_WEBSERVER="1"; npm run verify:home-sync-snapshot-e2e
+# + verify:chat-rooms-snapshot-e2e · verify:cm-bootstrap-snapshot-e2e · verify:full-bootstrap-snapshot-e2e
+```
+
+**LFC1-D gate:** RB1 · HUB BADGE hard delete **금지** until STAB1 manual PASS (long-session · multi-tab · prod stable · real feel).
 
 ---
 
@@ -160,13 +199,13 @@ PLAYWRIGHT_NO_WEBSERVER=1 node scripts/ops1-reconnect-stress-playwright.mjs
 - Silent refresh **≤ 1** per reconnect cycle
 - No legacy fallback
 
-| Field | Result |
-|-------|--------|
-| reconnect_count | pending |
-| duplicate_subscribe_count | pending |
-| silent_refresh_count | pending |
-| legacy_fallback_used | pending |
-| pass | pending |
+| Field | Result (prod 2026-05-25 STAB1) |
+|-------|--------------------------------|
+| reconnect_count | 1 |
+| duplicate_subscribe_count | 0 |
+| silent_refresh_count | 0 |
+| legacy_fallback_used | **0** |
+| pass | **1** |
 
 ---
 
