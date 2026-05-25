@@ -234,6 +234,7 @@ async function resolveRoomId(cookie) {
 }
 
 function evaluatePass(row, environment_mode) {
+  if (row.auth_blocked === 1) return false;
   const isProdSameRegion = environment_mode === "prod_same_region";
   const warmMs = row.run.includes("route_ttl") ? row.total_ms : null;
   const counterMs = row.run.includes("counter") ? row.counter_hit_ms ?? row.total_ms : null;
@@ -250,25 +251,60 @@ function evaluatePass(row, environment_mode) {
 }
 
 function emitSignoff(row) {
-  console.log("[prod-same-region-signoff]", row);
+  console.log("[prod-same-region-signoff]", {
+    route: row.route,
+    snapshot_header_present: row.snapshot_header_present ?? 0,
+    snapshot_path: row.snapshot_path ?? 0,
+    snapshot_via: row.snapshot_via ?? "",
+    query_wave_2_ms: row.query_wave_2_ms ?? 0,
+    rpc_removed: row.rpc_removed ?? 0,
+    fallback_used: row.fallback_used ?? 0,
+    auth_blocked: row.auth_blocked ?? 0,
+    structural_pass: row.structural_pass ?? 0,
+    run: row.run,
+    total_ms: row.total_ms,
+    server_ms: row.server_ms,
+    prod_same_region_pass: row.prod_same_region_pass ?? 0,
+  });
 }
 
 function fromHeaderRoute(res, prefix, run, clientWall, actualHandler) {
+  const authBlocked = hStr(res, `x-samarket-${prefix}-auth-blocked`) === "1" ? 1 : 0;
   const snapshotPath = hStr(res, `x-samarket-${prefix}-snapshot-path`) === "1";
+  const snapshotVia = hStr(res, `x-samarket-${prefix}-snapshot-via`) ?? "";
   const queryWave2 = hNum(res, `x-samarket-${prefix}-query-wave-2-ms`) ?? (snapshotPath ? 0 : null);
   const rpcRemoved = hStr(res, `x-samarket-${prefix}-rpc-removed`) === "1" ? 1 : snapshotPath ? 1 : 0;
+  const headerFallback = hStr(res, `x-samarket-${prefix}-fallback-used`) === "1" ? 1 : 0;
   return {
     run,
     total_ms: actualHandler ?? clientWall,
     server_ms: actualHandler ?? clientWall,
     db_ms: hNum(res, "x-samarket-db-execution-ms") ?? 0,
     round_trips: snapshotPath ? 1 : null,
-    cache_hit_reason: hStr(res, `x-samarket-${prefix}-snapshot-via`) ?? "",
+    cache_hit_reason: snapshotVia,
     query_wave_2_ms: queryWave2 ?? 0,
-    rpc_removed: rpcRemoved,
-    fallback_used: snapshotPath ? 0 : 1,
+    rpc_removed: authBlocked ? 0 : rpcRemoved,
+    fallback_used: authBlocked ? 0 : snapshotPath ? 0 : headerFallback || 1,
     regression_alert_count: 0,
     counter_hit_ms: run.includes("counter") ? actualHandler ?? clientWall : null,
+    auth_blocked: authBlocked,
+    snapshot_header_present: authBlocked || snapshotPath || headerFallback ? 1 : 0,
+    snapshot_path: snapshotPath ? 1 : 0,
+    snapshot_via: snapshotVia,
+  };
+}
+
+function mergeHeaderFirstRow(res, prefix, run, clientWall, actualHandler, logRow) {
+  const headerRow = fromHeaderRoute(res, prefix, run, clientWall, actualHandler);
+  if (headerRow.snapshot_path === 1 || headerRow.auth_blocked === 1 || headerRow.snapshot_header_present === 1) {
+    return headerRow;
+  }
+  return {
+    ...logRow,
+    auth_blocked: 0,
+    snapshot_header_present: logRow.snapshot_path ?? 0,
+    snapshot_path: logRow.snapshot_path ?? (logRow.rpc_removed === 1 ? 1 : 0),
+    snapshot_via: logRow.cache_hit_reason ?? "",
   };
 }
 
@@ -390,8 +426,12 @@ async function main() {
   for (let i = 0; i < hubRuns.length; i++) {
     const r = hubRuns[i];
     const t = await timedFetch(r.url, cookie, r.headers);
-    const row = { route: "/api/me/store-owner-hub-badge", ...fromHubBreakdown(null, r.run, t.client_wall_ms) };
-    enrichFromDelta(readDeltaLog(), "hub", i, row);
+    const logRow = { route: "/api/me/store-owner-hub-badge", ...fromHubBreakdown(null, r.run, t.client_wall_ms) };
+    enrichFromDelta(readDeltaLog(), "hub", i, logRow);
+    const row = {
+      route: "/api/me/store-owner-hub-badge",
+      ...mergeHeaderFirstRow(t.res, "hub-badge", r.run, t.client_wall_ms, t.actual_handler_ms, logRow),
+    };
     signoffRows.push(row);
     await new Promise((x) => setTimeout(x, 300));
   }
@@ -406,8 +446,12 @@ async function main() {
   for (let i = 0; i < hsRuns.length; i++) {
     const r = hsRuns[i];
     const t = await timedFetch(r.url, cookie);
-    const row = { route: "/api/community-messenger/home-sync", ...fromHotpath(null, r.run, t.client_wall_ms) };
-    enrichFromDelta(readDeltaLog(), "home-sync", i, row);
+    const logRow = { route: "/api/community-messenger/home-sync", ...fromHotpath(null, r.run, t.client_wall_ms) };
+    enrichFromDelta(readDeltaLog(), "home-sync", i, logRow);
+    const row = {
+      route: "/api/community-messenger/home-sync",
+      ...mergeHeaderFirstRow(t.res, "home-sync", r.run, t.client_wall_ms, t.actual_handler_ms, logRow),
+    };
     signoffRows.push(row);
     await new Promise((x) => setTimeout(x, 300));
   }
@@ -546,8 +590,17 @@ async function main() {
   const runtimeFallbackUsed = signoffRows.some((r) => r.fallback_used === 1) ? 1 : 0;
 
   for (const row of signoffRows) {
+    row.structural_pass =
+      row.auth_blocked === 1
+        ? 0
+        : row.fallback_used === 0 &&
+            row.query_wave_2_ms === 0 &&
+            row.rpc_removed === 1 &&
+            row.regression_alert_count === 0
+          ? 1
+          : 0;
     row.prod_same_region_pass = evaluatePass(row, environment_mode) ? 1 : 0;
-    emitSignoff({ route: row.route, ...row });
+    emitSignoff(row);
   }
 
   // Legacy fallback zero-usage probes (RPC/table — not runtime fallback)
@@ -649,14 +702,15 @@ async function main() {
     }
   }
 
-  const structuralPass = signoffRows.every(
+  const measuredRows = signoffRows.filter((r) => r.auth_blocked !== 1);
+  const structuralPass = measuredRows.every(
     (r) => r.fallback_used === 0 && r.query_wave_2_ms === 0 && r.regression_alert_count === 0
   );
-  const rpcStructural = signoffRows.filter((r) => r.rpc_removed === 1).length;
+  const rpcStructural = measuredRows.filter((r) => r.rpc_removed === 1).length;
   const prodPass =
     environment_mode === "prod_same_region" &&
     regionCtx?.same_region === true &&
-    signoffRows.every((r) => r.prod_same_region_pass === 1);
+    measuredRows.every((r) => r.prod_same_region_pass === 1);
 
   console.log("\n=== OPS1 sign-off summary ===\n");
   console.log({

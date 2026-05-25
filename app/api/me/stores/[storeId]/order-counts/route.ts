@@ -29,6 +29,11 @@ import {
   logOrderCountsColdBreakdown,
 } from "@/lib/stores/order-counts-cold-breakdown";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
+import { buildSnapshotSignoffHeaders } from "@/lib/http/snapshot-signoff-response-headers";
+import {
+  deliverySummarySignoffObs,
+  type DeliverySummaryOrderCountsVia,
+} from "@/lib/stores/delivery-summary-signoff-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -88,7 +93,7 @@ export async function GET(
   coldBreakdown.ownership_ms = ownershipCachedBefore ? 0 : 0;
   coldBreakdown.cache_lookup_ms = Math.round(perfNowMs() - cacheLookup0);
 
-  let orderCountsVia: "delivery_summary_snapshot" | "rpc_snapshot" | "rpc" | "legacy" = "legacy";
+  let orderCountsVia: DeliverySummaryOrderCountsVia = "legacy";
   let fallbackUsed: 0 | 1 = 1;
   let orderCountRpcMs = 0;
 
@@ -98,11 +103,28 @@ export async function GET(
     countsResult = await getCachedStoreOrderCounts(id, async () => {
       throw new Error("order_counts_cache_invariant");
     });
+    orderCountsVia = countsResult.via ?? "legacy";
     count_ms = Math.round(perfNowMs() - cache0);
   } else {
     const fetched = await fetchOwnerStoreOrderCountsWithMeta(sb, id, userId, coldBreakdown);
     if ("gate" in fetched) {
-      return NextResponse.json({ ok: false, error: fetched.gate.error }, { status: fetched.gate.status });
+      const gateStatus = fetched.gate.status;
+      if (gateStatus === 403 || gateStatus === 401) {
+        return NextResponse.json(
+          { ok: false, error: fetched.gate.error },
+          {
+            status: gateStatus,
+            headers: buildSnapshotSignoffHeaders("delivery-summary", {
+              snapshotPath: false,
+              queryWave2Ms: 0,
+              rpcRemoved: 0,
+              fallbackUsed: 0,
+              authBlocked: 1,
+            }),
+          }
+        );
+      }
+      return NextResponse.json({ ok: false, error: fetched.gate.error }, { status: gateStatus });
     }
     orderCountsVia = fetched.via;
     fallbackUsed = fetched.via === "legacy" ? 1 : 0;
@@ -112,7 +134,7 @@ export async function GET(
     coldBreakdown.payload_build_ms = Math.round(perfNowMs() - payloadBuild0);
 
     const cacheSet0 = perfNowMs();
-    primeStoreOrderCountsCache(id, snapshotPayload);
+    primeStoreOrderCountsCache(id, snapshotPayload, fetched.via);
     coldBreakdown.cache_set_ms = Math.round(perfNowMs() - cacheSet0);
     coldBreakdown.cache_store_ms = coldBreakdown.cache_set_ms;
 
@@ -213,19 +235,10 @@ export async function GET(
         transport_ms: coldBreakdown.rpc_transport_estimated_ms,
         db_execution_ms: coldBreakdown.rpc_estimated_db_ms,
       }),
-      ...(orderCountsVia !== "legacy"
-        ? {
-            "x-samarket-delivery-summary-snapshot-path": "1",
-            "x-samarket-delivery-summary-snapshot-via":
-              orderCountsVia === "delivery_summary_snapshot"
-                ? "unified_rpc"
-                : orderCountsVia === "rpc_snapshot"
-                  ? "dashboard_rpc_snapshot"
-                  : "legacy_rpc",
-            "x-samarket-delivery-summary-query-wave-2-ms": "0",
-            "x-samarket-delivery-summary-rpc-removed": "1",
-          }
-        : {}),
+      ...buildSnapshotSignoffHeaders(
+        "delivery-summary",
+        deliverySummarySignoffObs(orderCountsVia, cache_hit === 1)
+      ),
     },
   });
 }

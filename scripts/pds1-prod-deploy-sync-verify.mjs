@@ -137,12 +137,31 @@ async function resolveRoomId(cookie) {
 }
 
 function headerProbe(res, prefix) {
+  const authBlocked = res.headers.get(`x-samarket-${prefix}-auth-blocked`) === "1";
+  if (authBlocked) {
+    return {
+      snapshotPath: false,
+      via: "",
+      query_wave_2_ms: null,
+      rpc_removed: 0,
+      pass: 0,
+      auth_blocked: 1,
+    };
+  }
   const snapshotPath = res.headers.get(`x-samarket-${prefix}-snapshot-path`) === "1";
   const wave2 = Number(res.headers.get(`x-samarket-${prefix}-query-wave-2-ms`) ?? (snapshotPath ? 0 : NaN));
   const rpcRemoved = res.headers.get(`x-samarket-${prefix}-rpc-removed`) === "1";
   const via = res.headers.get(`x-samarket-${prefix}-snapshot-via`) ?? "";
-  const pass = snapshotPath && rpcRemoved && wave2 === 0;
-  return { snapshotPath, via, query_wave_2_ms: Number.isFinite(wave2) ? wave2 : null, rpc_removed: rpcRemoved ? 1 : 0, pass: pass ? 1 : 0 };
+  const fallbackUsed = res.headers.get(`x-samarket-${prefix}-fallback-used`) === "1";
+  const pass = snapshotPath && rpcRemoved && wave2 === 0 && !fallbackUsed;
+  return {
+    snapshotPath,
+    via,
+    query_wave_2_ms: Number.isFinite(wave2) ? wave2 : null,
+    rpc_removed: rpcRemoved ? 1 : 0,
+    pass: pass ? 1 : 0,
+    auth_blocked: 0,
+  };
 }
 
 async function probeRpc(sb, name) {
@@ -244,10 +263,7 @@ async function main() {
 
   const routes = [
     { route: "/api/me/store-owner-hub-badge", url: `${baseUrl}/api/me/store-owner-hub-badge`, prefix: "hub-badge", auth: true },
-    { route: "/api/community-messenger/home-sync", url: `${baseUrl}/api/community-messenger/home-sync?tier=critical`, prefix: null, auth: true, custom: (res) => {
-      const hp = res.headers.get("x-samarket-home-sync-snapshot-path") === "1" || res.headers.get("x-samarket-route-hotpath") != null;
-      return { snapshotPath: hp, via: "", query_wave_2_ms: 0, rpc_removed: hp ? 1 : 0, pass: hp ? 1 : 0 };
-    }},
+    { route: "/api/community-messenger/home-sync", url: `${baseUrl}/api/community-messenger/home-sync?tier=critical`, prefix: "home-sync", auth: true },
     ...(roomId ? [{ route: "/api/community-messenger/rooms/[roomId]/bootstrap", url: `${baseUrl}/api/community-messenger/rooms/${roomId}/bootstrap?mode=instant`, prefix: "room-bootstrap", auth: true }] : []),
     ...(storeSlug ? [{ route: "/api/stores/[slug]/menus", url: `${baseUrl}/api/stores/${storeSlug}/menus`, prefix: "store-menus", auth: true }] : []),
     ...(storeId ? [{ route: "/api/me/notifications", url: `${baseUrl}/api/me/notifications?owner_store_commerce_unread_only=1&owner_store_id=${storeId}`, prefix: "owner-notifications", auth: true }] : []),
@@ -263,24 +279,31 @@ async function main() {
     const headers = r.auth ? { cookie: `${cookie.name}=${cookie.value}` } : {};
     const res = await fetch(r.url, { headers, cache: "no-store" });
     await res.text().catch(() => "");
-    const probe = r.custom ? r.custom(res) : headerProbe(res, r.prefix);
-    const row = { route: r.route, status: res.status, ...probe, fallback_used: probe.pass ? 0 : 1 };
+    const probe = headerProbe(res, r.prefix);
+    const row = {
+      route: r.route,
+      status: res.status,
+      ...probe,
+      fallback_used: probe.auth_blocked ? 0 : probe.pass ? 0 : 1,
+    };
     headerRows.push(row);
     console.log("[pds1-prod-snapshot-header-probe]", row);
   }
 
   const rpcDeployed = rpcRows.filter((r) => r.deployed === 1).length;
-  const headerPass = headerRows.filter((r) => r.pass === 1).length;
-  const codeSynced = git.untracked_snapshot_files === 0 && git.modified_api_routes === 0;
+  const measurableRows = headerRows.filter((r) => r.auth_blocked !== 1);
+  const headerPass = measurableRows.filter((r) => r.pass === 1).length;
+  const codeSynced = git.untracked_snapshot_files === 0 && git.modified_api_routes === 0 && !git.dirty;
 
   const summary = {
     base_url: baseUrl,
     git_head: git.head,
     git_origin_main: git.origin,
-    code_committed_and_pushed: codeSynced ? 0 : 0,
+    code_committed_and_pushed: codeSynced ? 1 : 0,
     code_sync_blocker: codeSynced ? null : "uncommitted_snapshot_code_and_routes",
     rpc_deployed: `${rpcDeployed}/${SNAPSHOT_RPCS.length}`,
-    prod_header_pass: `${headerPass}/${headerRows.length}`,
+    prod_header_pass: `${headerPass}/${measurableRows.length}`,
+    prod_header_auth_blocked: headerRows.filter((r) => r.auth_blocked === 1).length,
     ops1b_gate_met: 0,
     lfc1_hard_delete_allowed: 0,
     next_steps: codeSynced
@@ -297,7 +320,11 @@ async function main() {
   );
   console.log(`Wrote ${outPath}\n`);
 
-  const pass = codeSynced && rpcDeployed === SNAPSHOT_RPCS.length && headerPass === headerRows.length;
+  const pass =
+    codeSynced &&
+    rpcDeployed === SNAPSHOT_RPCS.length &&
+    headerPass === measurableRows.length &&
+    measurableRows.length > 0;
   process.exit(pass ? 0 : 1);
 }
 

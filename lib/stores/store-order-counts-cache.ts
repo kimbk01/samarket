@@ -4,6 +4,7 @@
  */
 
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
+import type { DeliverySummaryOrderCountsVia } from "@/lib/stores/delivery-summary-signoff-observability";
 import { invalidateDeliverySummarySnapshotCache } from "@/lib/stores/delivery-summary-snapshot-cache";
 import { scheduleOwnerStoreOrdersListSnapshotRefresh } from "@/lib/stores/owner-store-orders-list-snapshot-refresh";
 
@@ -14,7 +15,10 @@ export type StoreOrderCountsPayload = {
 /** 허브·주문 탭 폴링 겹침 흡수 — 3~5초 권장 */
 const ORDER_COUNTS_TTL_MS = 5_000;
 
-const cache = new Map<string, { expiresAt: number; value: StoreOrderCountsPayload }>();
+const cache = new Map<
+  string,
+  { expiresAt: number; value: StoreOrderCountsPayload; via: DeliverySummaryOrderCountsVia }
+>();
 const flights = new Map<string, Promise<StoreOrderCountsPayload>>();
 
 function cacheKey(storeId: string): string {
@@ -46,12 +50,16 @@ export function peekStoreOrderCountsCacheHit(storeId: string): boolean {
  * Cold miss 직후 — 이미 계산된 payload 를 TTL 캐시에 동기 반영(추가 RPC·single-flight 대기 없음).
  * warm 경로는 `getCachedStoreOrderCounts` peek hit 만 사용.
  */
-export function primeStoreOrderCountsCache(storeId: string, value: StoreOrderCountsPayload): void {
+export function primeStoreOrderCountsCache(
+  storeId: string,
+  value: StoreOrderCountsPayload,
+  via: DeliverySummaryOrderCountsVia = "legacy"
+): void {
   const key = cacheKey(storeId);
   if (!key) return;
   const now = Date.now();
   pruneExpired(now);
-  cache.set(key, { value, expiresAt: now + ORDER_COUNTS_TTL_MS });
+  cache.set(key, { value, via, expiresAt: now + ORDER_COUNTS_TTL_MS });
   flights.delete(key);
 }
 
@@ -69,6 +77,7 @@ function pruneExpired(now: number) {
 export type CachedStoreOrderCountsResult = {
   payload: StoreOrderCountsPayload;
   cache_hit: boolean;
+  via?: DeliverySummaryOrderCountsVia;
 };
 
 export async function getCachedStoreOrderCounts(
@@ -83,7 +92,7 @@ export async function getCachedStoreOrderCounts(
   const now = Date.now();
   const hit = cache.get(key);
   if (hit && hit.expiresAt > now) {
-    return { payload: hit.value, cache_hit: true };
+    return { payload: hit.value, cache_hit: true, via: hit.via };
   }
 
   const existing = flights.get(key);
@@ -96,7 +105,7 @@ export async function getCachedStoreOrderCounts(
 
   const flight = factory()
     .then((value) => {
-      cache.set(key, { value, expiresAt: Date.now() + ORDER_COUNTS_TTL_MS });
+      cache.set(key, { value, via: "legacy", expiresAt: Date.now() + ORDER_COUNTS_TTL_MS });
       return value;
     })
     .finally(() => {

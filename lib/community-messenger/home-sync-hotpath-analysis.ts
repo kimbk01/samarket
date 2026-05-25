@@ -2,6 +2,10 @@
  * Structured hot-path analysis for home-sync — structural bottleneck diagnosis.
  */
 import type { HomeSyncSnapshotBreakdown } from "@/lib/community-messenger/home-sync-regression-guard";
+import {
+  homeSyncObsFromBreakdown,
+  setLastHomeSyncRouteObservability,
+} from "@/lib/community-messenger/home-sync-route-observability";
 
 export type RouteHotpathAnalysis = {
   route: string;
@@ -50,6 +54,7 @@ export function logRouteHotpathAnalysis(
   };
   // eslint-disable-next-line no-console -- required perf analysis output
   console.log("[route-hotpath-analysis]", analysis);
+  setLastHomeSyncRouteObservability(homeSyncObsFromBreakdown(breakdown));
 }
 
 export type SnapshotRpcDesign = {

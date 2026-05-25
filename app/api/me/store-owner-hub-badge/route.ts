@@ -51,6 +51,8 @@ import {
   isOwnerDashboardMeasureInvalidateEnabled,
   logProdRegionContextOnce,
 } from "@/lib/performance/prod-same-region-perf";
+import { buildSnapshotSignoffHeaders } from "@/lib/http/snapshot-signoff-response-headers";
+import { hubBadgeSignoffObs } from "@/lib/chats/hub-badge-signoff-observability";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -337,9 +339,12 @@ export async function GET(request: Request) {
   }
 
   return NextResponse.json(payload, {
-    headers: buildPerfMeasureResponseHeaders({
-      actual_handler_ms: totalRouteMs,
-      cache_hit: ttlCacheHit ? 1 : 0,
-    }),
+    headers: {
+      ...buildPerfMeasureResponseHeaders({
+        actual_handler_ms: totalRouteMs,
+        cache_hit: ttlCacheHit ? 1 : 0,
+      }),
+      ...buildSnapshotSignoffHeaders("hub-badge", hubBadgeSignoffObs(hubBreakdown, ttlCacheHit)),
+    },
   });
 }

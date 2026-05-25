@@ -33,6 +33,12 @@ import {
   messengerVerboseTraceConsoleEnabled,
 } from "@/lib/community-messenger/messenger-trace-console";
 import { logPerfMeasurementContext } from "@/lib/http/perf-measurement-context";
+import { buildSnapshotSignoffHeaders } from "@/lib/http/snapshot-signoff-response-headers";
+import {
+  homeSyncRouteMemoryTtlObs,
+  peekLastHomeSyncRouteObservability,
+} from "@/lib/community-messenger/home-sync-route-observability";
+import type { SnapshotSignoffObs } from "@/lib/http/snapshot-signoff-response-headers";
 import {
   homeSyncDeepTraceLogEnabled,
   logHomeSyncDeepTrace,
@@ -923,7 +929,27 @@ export async function GET(req: NextRequest) {
     "x-samarket-home-sync-trade-meta-deferred": tradeMetaDeferred ? "1" : "0",
     "x-samarket-home-sync-cache-hit": shortTtlHit ? "1" : "0",
   };
+  const homeSyncSignoffObs: SnapshotSignoffObs =
+    shortTtlHit && tier === "critical"
+      ? homeSyncRouteMemoryTtlObs()
+      : tier === "critical"
+        ? (peekLastHomeSyncRouteObservability() ?? {
+            snapshotPath: false,
+            queryWave2Ms: 0,
+            rpcRemoved: 0,
+            fallbackUsed: 1,
+          })
+        : {
+            snapshotPath: false,
+            queryWave2Ms: 0,
+            rpcRemoved: 0,
+            fallbackUsed: 0,
+          };
   return jsonOkWithRequest(req, bundle, {
-    headers: { ...messengerApiEdgeCacheHeaders(), ...perfHeaders },
+    headers: {
+      ...messengerApiEdgeCacheHeaders(),
+      ...perfHeaders,
+      ...buildSnapshotSignoffHeaders("home-sync", homeSyncSignoffObs),
+    },
   });
 }

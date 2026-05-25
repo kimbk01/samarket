@@ -3737,6 +3737,10 @@ export async function listCommunityMessengerMyChatsAndGroups(
         return { chats: snap.chats, groups: snap.groups };
       }
       {
+        const { setLastHomeSyncRouteObservability, homeSyncLegacyFallbackObs } = await import(
+          "@/lib/community-messenger/home-sync-route-observability"
+        );
+        setLastHomeSyncRouteObservability(homeSyncLegacyFallbackObs());
         const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
         auditLegacyFallbackUsage({
           route: "/api/community-messenger/home-sync",
