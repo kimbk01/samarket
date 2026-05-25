@@ -42,8 +42,8 @@ mustInclude("lib/ops/legacy-fallback-cleanup-regression-guard.ts", "[legacy-clea
 mustInclude("lib/ops/fallback-cleanup-verification.ts", "[fallback-cleanup-verification]");
 
 mustInclude("lib/community-messenger/fetch-full-bootstrap-legacy.ts", "gateLegacyFallback");
-mustInclude("lib/stores/fetch-stores-browse-legacy.ts", "gateLegacyFallback");
-mustInclude("lib/stores/fetch-buyer-store-orders-list-legacy.ts", "gateLegacyFallback");
+mustInclude("app/api/stores/browse/route.ts", "tryLoadStoresBrowseFromSnapshot");
+mustInclude("app/api/me/store-orders/route.ts", "tryLoadBuyerStoreOrdersListFromSnapshot");
 
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 for (const script of ["verify:legacy-fallback-cleanup-audit", "verify:legacy-fallback-cleanup-structural"]) {

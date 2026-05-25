@@ -9,7 +9,30 @@ import {
   type StoresBrowseDbBundle,
   type StoresBrowseResponseBody,
 } from "@/lib/stores/stores-browse-build";
-import type { StoresBrowseLegacyEarlyBody } from "@/lib/stores/fetch-stores-browse-legacy";
+
+export type StoresBrowseEarlyBody =
+  | {
+      ok: true;
+      stores: [];
+      meta: {
+        source: "supabase";
+        primary: string;
+        sub: string;
+        all_topics: boolean;
+        reason: "unknown_primary_slug";
+      };
+    }
+  | {
+      ok: true;
+      stores: [];
+      meta: {
+        source: "supabase";
+        primary: string;
+        sub: string;
+        all_topics: false;
+        reason: "unknown_topic_slug";
+      };
+    };
 
 export type StoresBrowseSnapshotPayloadJson = {
   ok?: boolean;
@@ -77,7 +100,7 @@ export function earlyBrowseBodyFromRpcPayload(
   primary: string,
   sub: string,
   wantsAllSubs: boolean
-): StoresBrowseLegacyEarlyBody | null {
+): StoresBrowseEarlyBody | null {
   if (payload.unknown_primary) {
     return {
       ok: true,

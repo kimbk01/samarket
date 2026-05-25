@@ -177,6 +177,7 @@ export const LEGACY_FALLBACK_ROUTE_REGISTRY: readonly LegacyFallbackRouteSpec[] 
     verify_e2e_script: "verify:stores-browse-snapshot-e2e",
     reconnect_related: 0,
     structural_pass: 1,
+    hard_deleted: 1,
   },
   {
     track: "CMB1",

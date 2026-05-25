@@ -21,13 +21,10 @@ import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import {
   BROWSE_STORE_LIMIT,
-  BROWSE_STORE_ROW_SELECTED_COLUMNS,
   logBrowseRoutePerf,
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
-import { buildStoresBrowseLegacy } from "@/lib/stores/fetch-stores-browse-legacy";
 import {
-  logLegacyStoresBrowseHotpath,
   tryLoadStoresBrowseFromSnapshot,
 } from "@/lib/stores/stores-browse-snapshot";
 
@@ -221,94 +218,13 @@ export async function GET(req: Request) {
       });
     }
 
-    const legacy0 = devPerfNow();
-    const legacy = await buildStoresBrowseLegacy(supabase, ctx);
-    const legacyMs = devPerfNow() - legacy0;
-
-    if (!legacy.ok) {
-      return NextResponse.json(
-        { ok: false, stores: [], error: legacy.error },
-        { status: 500, headers: { "Cache-Control": "no-store" } }
-      );
-    }
-
-    if (legacy.early) {
-      logBrowseRoutePerf({
-        tRoute0,
-        cacheKey: browseCacheKey,
-        cacheHit: 0,
-        authMs: 0,
-        taxonomyCacheHit: legacy.taxonomyCacheHit,
-        dbBaseMs: legacy.dbBaseMs,
-        dbRelatedMs: 0,
-        transformMs: 0,
-        resultCount: 0,
-      });
-      logLegacyStoresBrowseHotpath({
-        totalMs: legacyMs,
-        dbMs: legacy.dbBaseMs,
-        storesFetchMs: legacy.dbBaseMs,
-        wave2Ms: 0,
-      });
-      return NextResponse.json(legacy.body, {
-        headers: browseJsonHeaders({
-          tRoute0,
-          cache_hit: 0,
-          db_execution_ms: Math.round(legacy.dbBaseMs),
-          query_count: 1,
-          bypass: effectiveCacheBypass,
-          bypass_reason: cacheBypass.reason,
-          query_wave_2_ms: 0,
-          rpc_removed: 0,
-        }),
-      });
-    }
-
-    if (!effectiveCacheBypass) {
-      setStoresBrowseCache(browseCacheKey, legacy.body);
-    }
-
-    logLegacyStoresBrowseHotpath({
-      totalMs: legacyMs,
-      dbMs: legacy.dbBaseMs + legacy.dbRelatedMs,
-      storesFetchMs: legacy.baseQueryMs + legacy.categoryQueryMs,
-      wave2Ms: legacy.productPreviewQueryMs,
-      orderingMs: legacy.distanceSortMs,
-    });
-
-    logBrowseRoutePerf({
-      tRoute0,
-      cacheKey: browseCacheKey,
-      cacheHit: 0,
-      authMs: 0,
-      taxonomyCacheHit: legacy.taxonomyCacheHit,
-      dbBaseMs: legacy.dbBaseMs,
-      dbRelatedMs: legacy.dbRelatedMs,
-      transformMs: legacy.transformMs,
-      resultCount: legacy.resultCount,
-      v2: {
-        base_query_ms: legacy.baseQueryMs,
-        category_query_ms: legacy.categoryQueryMs,
-        product_preview_query_ms: legacy.productPreviewQueryMs,
-        review_summary_query_ms: 0,
-        distance_sort_ms: legacy.distanceSortMs,
-        query_count: legacy.queryCount,
-        selected_columns: legacy.selectedColumns ?? BROWSE_STORE_ROW_SELECTED_COLUMNS,
-      },
-    });
-
-    return NextResponse.json(legacy.body, {
-      headers: browseJsonHeaders({
-        tRoute0,
-        cache_hit: 0,
-        db_execution_ms: Math.round(legacy.dbBaseMs + legacy.dbRelatedMs),
-        query_count: legacy.queryCount,
-        bypass: effectiveCacheBypass,
-        bypass_reason: cacheBypass.reason,
-        query_wave_2_ms: Math.round(legacy.productPreviewQueryMs),
-        rpc_removed: 0,
-      }),
-    });
+    return NextResponse.json(
+      { ok: false, stores: [], error: "snapshot_unavailable" },
+      {
+        status: 503,
+        headers: { "Cache-Control": "no-store" },
+      }
+    );
   } catch (e) {
     console.error("[api/stores/browse]", e);
     return NextResponse.json(
