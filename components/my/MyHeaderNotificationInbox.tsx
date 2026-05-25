@@ -21,6 +21,7 @@ import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notificati
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
+import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 
 type Row = {
   id: string;
@@ -309,11 +310,11 @@ export function MyHeaderNotificationInbox() {
   }, [pendingDelete, t]);
 
   return (
-    <div ref={wrapperRef} className="relative flex w-10 shrink-0 items-center justify-end">
+    <div ref={wrapperRef} className="relative shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="sam-header-action relative h-10 w-10 text-sam-fg"
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}

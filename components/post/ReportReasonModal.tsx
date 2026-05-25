@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { POST_REPORT_REASONS } from "@/lib/reports/report-utils";
 import { createReport } from "@/lib/reports/createReport";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { DetailHeader } from "@/components/layout/sector-header";
 
 interface ReportReasonModalProps {
   postId: string;
@@ -56,11 +56,13 @@ export function ReportReasonModal({
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-sam-surface">
-      <header className="flex shrink-0 items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
-        <AppBackButton onBack={onClose} ariaLabel="닫기" />
-        <span className="sam-text-body-lg font-medium text-sam-fg">{t("common_report")}</span>
-        <span className="w-11 shrink-0" />
-      </header>
+      <DetailHeader
+        flat
+        title={t("common_report")}
+        onBack={onClose}
+        backVariant="close"
+        backAriaLabel={t("common_close")}
+      />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <h2 className="sam-text-page-title font-bold text-sam-fg">

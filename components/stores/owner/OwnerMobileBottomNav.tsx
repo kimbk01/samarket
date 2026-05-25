@@ -272,10 +272,13 @@ export function OwnerMobileBottomNav({
       );
     });
 
+  const ownerNavTabCount =
+    OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT.length + 1 + OWNER_MOBILE_BOTTOM_NAV_SIDE_RIGHT.length;
+
   const nav = (
     <nav className={outerClass} data-biz="1" aria-label={t("store_ops_menu_aria")}>
-      <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
-        <div className="app-bottom-nav-grid">
+      <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
+        <div className={BOTTOM_NAV_SHELL.containerClassName} data-tab-count={ownerNavTabCount}>
           {renderSide(OWNER_MOBILE_BOTTOM_NAV_SIDE_LEFT)}
           <OwnerMobileBottomNavHomeHub
             homeHref={homeHref}

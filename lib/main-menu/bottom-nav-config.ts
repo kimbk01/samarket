@@ -98,19 +98,17 @@ export function areBottomNavItemConfigsEqual(
 }
 
 /**
- * 바 전체 — 바깥 래퍼(고정·safe-area) + 흰색 floating card plane.
+ * 바 전체 — 바깥 래퍼(고정·safe-area) + 내부 flex container.
  *
- * 단일 소스: `app/app-shell.css` 의 `--app-bottom-nav-height: 3.5rem`.
- * `heightClass` 의 `h-[3.5rem]` 과 반드시 같은 값을 유지한다 — 바뀔 때 두 곳을 같이 수정.
- * outer 의 `pb-[env(safe-area-inset-bottom,0px)]` 는 홈 인디케이터(iOS) 회피용. 제거 금지.
+ * 단일 소스: `app/app-shell.css` 의 `--app-bottom-nav-height: 60px`.
+ * shell CSS 가 `height: calc(60px + safe-area)` 를 담당 — `heightClass` 는 container(60px) 용.
  */
 export const BOTTOM_NAV_SHELL = {
-  /** 기기 좌우 끝까지 — 하단 safe-area 는 외곽에서만 책임, active floating icon 때문에 overflow visible */
   outerClassName: "app-bottom-nav-shell",
-  /** 첨부 이미지형 흰색 floating card plane */
   innerBarClassName: "app-bottom-nav-plane",
-  /** 탭 한 줄 높이 — `--app-bottom-nav-height` (3.5rem) 와 동기 */
-  heightClass: "h-[3.5rem]",
+  containerClassName: "app-bottom-nav-container",
+  /** 탭 한 줄 높이 — `--app-bottom-nav-height` (60px) 와 동기 */
+  heightClass: "h-[60px]",
 } as const;
 
 /** 필라이프·거래·매장 오너 하단 탭 `translate-y` 전환 — `ConditionalAppShell`·`OwnerMobileBottomNav` 공통 */
@@ -129,7 +127,7 @@ export function resolveBottomNavScrollHideOuterClass(hidden: boolean): string {
 }
 
 /** 하단 탭바 기준색 — `app-bottom-nav.css` `--app-bottom-nav-surface` 와 동기 */
-export const BOTTOM_NAV_DARK_BAR_HEX = "#f6f6f6";
+export const BOTTOM_NAV_DARK_BAR_HEX = "#fffcfc";
 /** `OWNER_HUB_BADGE_DOT_CLASS` 와 조합 */
 export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
 
@@ -138,27 +136,27 @@ export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
  * 탭 셸(`BOTTOM_NAV_SHELL`)과 반드시 같은 식을 쓴다.
  */
 export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
-  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
+  "bottom-[calc(60px+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 메인 하단 탭 바로 위에 고정 띠를 둘 때 사용 (`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS` 와 동일).
  */
 export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS;
 
-/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(탭 본체 + 홈 원 돌출 + 1rem + safe-area) */
+/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(76px + 홈 원 돌출 + safe-area) */
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
-  "pb-[calc(5rem+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(76px+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
 
 /** 거래 플로팅 다이얼(`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
-  "pb-[calc(5.5rem+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(82px+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 고정 하단 탭(`BOTTOM_NAV_SHELL.heightClass`) 위까지 쓰는 전체 화면 높이.
  * 채팅방 등 `pb-0` 본문 + `100dvh` 직접 쓰면 탭에 가려지므로 이 값으로 줄인다.
  */
 export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
-  "h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))]";
+  "h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-60px-env(safe-area-inset-bottom,0px))]";
 
 /**
  * 하단 탭이 없는 전체 화면(채팅 상세·통화 등)용 뷰포트 높이.
@@ -178,17 +176,16 @@ export {
  */
 export const BOTTOM_NAV_THEME = {
   iconSizeClass: "app-bottom-nav-icon-svg",
-  iconActiveClass: "text-[#1C8DB8]",
-  iconInactiveClass: "text-[#b8bec8]",
-  labelActiveClass: "font-semibold tracking-[-0.01em] text-[#1C8DB8]",
-  labelInactiveClass: "font-medium tracking-[-0.01em] text-[#b8bec8]",
-  labelSizeClass: "text-[11px] leading-none",
+  iconActiveClass: "",
+  iconInactiveClass: "",
+  labelActiveClass: "",
+  labelInactiveClass: "",
+  labelSizeClass: "",
 } as const;
 
 /** 플로팅 + 버튼이 탭바 위에 오도록 여백 (BottomNav 높이와 맞출 것) */
 export const BOTTOM_NAV_FAB_LAYOUT = {
-  /** 탭 본체 + safe + 여유 — 플로팅 원과 겹침 완화 */
-  bottomOffsetClass: "bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]",
+  bottomOffsetClass: "bottom-[calc(76px+env(safe-area-inset-bottom,0px))]",
   /** 퀵메뉴는 좌측(본문 컬럼 기준) */
   leftOffsetClass: "left-4",
   /** 우측 플로팅 퀵 레일에서 글쓰기 퀵메뉴 열 때 */
@@ -200,7 +197,7 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
  * `WriteLauncher` 를 같은 위치에 맞출 때 사용.
  */
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
-  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+10px)]";
+  "bottom-[calc(60px+env(safe-area-inset-bottom,0px)+10px)]";
 
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
@@ -210,27 +207,62 @@ export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =
 export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
   "pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-sam-md border border-sam-primary bg-sam-primary text-white shadow-sam-elevated transition active:scale-95 [&_svg]:h-7 [&_svg]:w-7";
 
+/** 내장 탭 id → 하단 네비 전용 짧은 dot i18n key (home id 는 거래 탭) */
+export const BUILTIN_BOTTOM_NAV_LABEL_KEYS: Partial<Record<BottomNavBuiltinTabId, MessageKey>> = {
+  community: "nav.community",
+  home: "nav.trade",
+  stores: "nav.delivery",
+  chat: "nav.chat",
+  my: "nav.my",
+};
+
+/** dot i18n — 허브·도메인 5탭 등에서 재사용 */
+export const NAV_DOT_LABEL_KEYS = {
+  home: "nav.home",
+  trade: "nav.trade",
+  delivery: "nav.delivery",
+  community: "nav.community",
+  chat: "nav.chat",
+  my: "nav.my",
+} as const satisfies Record<string, MessageKey>;
+
+export function resolveBuiltinBottomNavLabelKey(tabId: string): MessageKey | undefined {
+  if (!isBuiltinBottomNavTabId(tabId)) return undefined;
+  return BUILTIN_BOTTOM_NAV_LABEL_KEYS[tabId];
+}
+
+/** 배달·거래·필라이프 홈 허브 원형 탭 — overhang 셸 modifier 용 */
+export const BOTTOM_NAV_DELIVERY_HUB_TAB_IDS = [
+  "delivery-home-hub",
+  "trade-home-hub",
+  "philife-home-hub",
+] as const;
+
+export function bottomNavUsesDeliveryHubShell(tabs: readonly BottomNavItemConfig[]): boolean {
+  return tabs.some((t) =>
+    (BOTTOM_NAV_DELIVERY_HUB_TAB_IDS as readonly string[]).includes(t.id)
+  );
+}
+
+function isBuiltinBottomNavTabId(id: string): id is BottomNavBuiltinTabId {
+  return (BOTTOM_NAV_BUILTIN_IDS as readonly string[]).includes(id);
+}
+
 /**
  * 표시 순서 = 배열 순서. 항목을 빼거나 바꾸면 탭 구성이 바뀝니다.
- * (`as const` 튜플은 선택 스타일 필드가 타입에 안 잡혀 BottomNavItemConfig[] 로 둡니다.)
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
-  { id: "community", href: "/philife", label: "Community", labelKey: "nav_bottom_community", icon: "community" },
-  { id: "home", href: "/market", label: "Trade", labelKey: "nav_bottom_trade", icon: "trade" },
-  { id: "stores", href: "/stores", label: "Delivery", labelKey: "nav_bottom_delivery", icon: "stores" },
+  { id: "community", href: "/philife", label: "Community", labelKey: "nav.community", icon: "community" },
+  { id: "home", href: "/market", label: "Trade", labelKey: "nav.trade", icon: "trade" },
+  { id: "stores", href: "/stores", label: "Food", labelKey: "nav.delivery", icon: "stores" },
   {
     id: "chat",
     href: "/community-messenger?section=chats",
-    label: "Messenger",
-    labelKey: "nav_bottom_messenger",
+    label: "Chat",
+    labelKey: "nav.chat",
     icon: "chat",
-    activeShellClass: "bg-sam-primary-soft",
-    iconActiveClass: "text-sam-primary",
-    labelActiveClass: "font-semibold tracking-normal text-sam-fg",
   },
-  { id: "my", href: "/mypage", label: "My Page", labelKey: "nav_bottom_my", icon: "my" },
-  // 예: 탭별 색·폰트만 바꿀 때
-  // { id: "home", href: "/market", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },
+  { id: "my", href: "/mypage", label: "My", labelKey: "nav.my", icon: "my" },
 ];
 
 /** `BOTTOM_NAV_ITEMS` 순 — 스와이프/인접 이동용 (해당 `id` 기준) */
@@ -246,16 +278,13 @@ export function getBottomNavAdjacentHref(tabId: BottomNavTabId, direction: "next
 export const BOTTOM_NAV_TRADE_TAB_LABEL: string =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "Trade";
 
-export const BOTTOM_NAV_TRADE_TAB_LABEL_KEY: MessageKey =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.labelKey ?? "nav_bottom_trade";
+export const BOTTOM_NAV_TRADE_TAB_LABEL_KEY: MessageKey = "nav_bottom_trade";
 
 /** 커뮤니티 탭 라벨 — 1단 `Tier1ExplorationTitleRow` 등과 동기화 */
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL: string =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.label ?? "Community";
 
-export const BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY: MessageKey =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.labelKey ?? "nav_bottom_community";
+export const BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY: MessageKey = "nav_bottom_community";
 
 /** 배달 탭(`/stores`) 1단 — 하단 탭 라벨과 동기화 */
-export const BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY: MessageKey =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "stores")?.labelKey ?? "nav_bottom_delivery";
+export const BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY: MessageKey = "nav_bottom_delivery";

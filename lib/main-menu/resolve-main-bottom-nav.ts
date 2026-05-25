@@ -2,6 +2,7 @@ import {
   BOTTOM_NAV_BUILTIN_IDS,
   BOTTOM_NAV_ICON_KEYS,
   BOTTOM_NAV_ITEMS,
+  resolveBuiltinBottomNavLabelKey,
   type BottomNavBuiltinTabId,
   type BottomNavIconKey,
   type BottomNavItemConfig,
@@ -99,6 +100,7 @@ function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): Main
     id: base.id,
     href,
     label,
+    labelKey: resolveBuiltinBottomNavLabelKey(base.id) ?? base.labelKey,
     icon,
     iconSizeClass: optTwClass(raw.iconSizeClass, base.iconSizeClass),
     labelInactiveExtraClass: optTwClass(raw.labelInactiveExtraClass, base.labelInactiveExtraClass),
@@ -194,7 +196,10 @@ export function resolveMainBottomNavAdminRows(valueJson: unknown): MainBottomNav
 export function resolveMainBottomNavDisplayItems(valueJson: unknown): BottomNavItemConfig[] {
   return resolveMainBottomNavAdminRows(valueJson)
     .filter((r) => r.visible)
-    .map(({ visible: _v, ...rest }) => rest);
+    .map(({ visible: _v, ...rest }) => ({
+      ...rest,
+      labelKey: resolveBuiltinBottomNavLabelKey(rest.id) ?? rest.labelKey,
+    }));
 }
 
 export function mainBottomNavAdminRowToStoredItem(merged: MainBottomNavAdminRow): MainBottomNavStoredItem {

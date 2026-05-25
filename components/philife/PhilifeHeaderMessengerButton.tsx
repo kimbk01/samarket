@@ -19,7 +19,7 @@ import {
   inferMessengerEntryOriginFromPath,
   mainBottomNavMessengerTabHref,
 } from "@/lib/community-messenger/messenger-entry-origin";
-import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
+import { SAM_TIER1_HEADER_ACTION_BTN_CLASS, SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
 
 /**
  * 필라이프·거래 홈·마켓 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
@@ -60,7 +60,7 @@ export function PhilifeHeaderMessengerButton() {
         <button
           type="button"
           onClick={openMessengerStack}
-          className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+          className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`}
           aria-label={label}
         >
           <BottomNavMessengerChatIcon className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} />
@@ -78,7 +78,7 @@ export function PhilifeHeaderMessengerButton() {
     <div className="inline-flex shrink-0 items-center">
       <Link
         href={href}
-        className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`}
         aria-label={label}
         prefetch
         onClick={(e) => {

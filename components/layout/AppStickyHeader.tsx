@@ -50,8 +50,8 @@ export function AppStickyHeader() {
        */
       className={`relative z-20 w-full min-w-0 max-w-full shrink-0 overflow-x-clip pt-[env(safe-area-inset-top,0px)] ${
         deliveryChrome
-          ? "delivery-ui bg-[color:var(--delivery-header-bar-bg)]"
-          : "bg-sam-surface/95 backdrop-blur-[10px]"
+          ? "delivery-ui bg-[color:var(--sector-header-bg,var(--delivery-header-bar-bg))]"
+          : "bg-[color:var(--sector-header-bg)] backdrop-blur-[10px] border-b border-[color:var(--sector-header-border)]"
       }`}
     >
       {categorySticky ? (

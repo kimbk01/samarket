@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { parseSlug } from "@/lib/validate-params";
 import { ShopHomePage } from "@/components/business/ShopHomePage";
 
@@ -24,13 +24,7 @@ export default function ShopSlugRoute() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 flex items-center border-b border-sam-border-soft bg-sam-surface px-4 py-3">
-        <AppBackButton backHref="/" />
-        <h1 className="flex-1 text-center sam-text-body-lg font-semibold text-sam-fg">
-          {t("ui_finish_shop_title")}
-        </h1>
-        <span className="w-11 shrink-0" />
-      </header>
+      <DetailHeader title={t("ui_finish_shop_title")} backHref="/" preferHistoryBack={false} />
       <div className="px-4 py-4">
         <ShopHomePage slug={slug} />
       </div>

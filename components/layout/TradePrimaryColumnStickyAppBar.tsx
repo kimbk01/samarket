@@ -1,17 +1,12 @@
 "use client";
 
 import type { ComponentProps, ReactNode } from "react";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import {
-  APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
-import {
-  APP_TIER1_HEADER_ICON_BTN_CLASS,
-  APP_TIER1_HEADER_ROW_WRAP_CLASS,
-} from "@/lib/layout/app-tier1-header";
+import type { AppBackButton } from "@/components/navigation/AppBackButton";
 
 export type TradePrimaryColumnStickyAppBarProps = {
   title: ReactNode;
@@ -58,24 +53,21 @@ export function TradePrimaryColumnStickyAppBar({
   hideBackButton = false,
   shellVariant = "default",
 }: TradePrimaryColumnStickyAppBarProps) {
-  const tier1BackClass = `${APP_TIER1_HEADER_ICON_BTN_CLASS} !h-[length:var(--delivery-header-action)] !min-h-0 !w-[length:var(--delivery-header-action)] !min-w-0`;
-
   const shell = (
     <TradePrimaryAppBarShell embedded={embedded} variant={shellVariant}>
       {!hidePrimaryRow ? (
-        <div className={APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}>
-          <div className={APP_TIER1_HEADER_ROW_WRAP_CLASS}>
-            <AppTier1HeaderRow
-              title={<span className="truncate sam-text-page-title">{title}</span>}
-              leading={
-                hideBackButton ? undefined : (
-                  <AppBackButton {...backButtonProps} className={tier1BackClass} />
-                )
-              }
-              trailing={actions}
-            />
-          </div>
-        </div>
+        <DetailHeader
+          embedded
+          title={title}
+          showBack={!hideBackButton}
+          backHref={backButtonProps.backHref}
+          onBack={backButtonProps.onBack}
+          preferHistoryBack={backButtonProps.preferHistoryBack}
+          interceptBack={backButtonProps.interceptBack}
+          backAriaLabelKey={backButtonProps.ariaLabelKey}
+          backAriaLabel={backButtonProps.ariaLabel}
+          rightSlot={actions}
+        />
       ) : null}
       {shellFooter}
     </TradePrimaryAppBarShell>

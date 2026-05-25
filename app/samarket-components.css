@@ -1113,6 +1113,26 @@
     @apply bg-sam-surface-muted text-sam-primary;
   }
 
+  /** 1단 헤더 우측 아이콘 클러스터 — 36×36 통일 · 간격 0 (배민·당근형) */
+  .sam-tier1-header-icon-cluster {
+    gap: var(--sector-header-icon-cluster-gap, 0px);
+  }
+
+  .sam-tier1-header-icon-cluster :is(
+    .sam-header-action,
+    .sam-tier1-header__icon-btn,
+    .sector-header-action
+  ) {
+    width: var(--sector-header-action-size);
+    height: var(--sector-header-action-size);
+    min-width: var(--sector-header-action-size);
+    min-height: var(--sector-header-action-size);
+  }
+
+  .sector-header-bar__right {
+    gap: var(--sector-header-icon-cluster-gap, 0px);
+  }
+
   /* -------------------------------------------------------------------------- */
   /* SM aliases (user-requested naming) */
   /* -------------------------------------------------------------------------- */

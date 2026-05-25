@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useRegion } from "@/contexts/RegionContext";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
@@ -134,10 +134,12 @@ export function CommunityWriteFormClient({
 
   return (
     <div className="min-h-screen bg-sam-app pb-10">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-sam-border bg-sam-surface px-4 py-2">
-        <AppBackButton backHref={philifeAppPaths.home} ariaLabel={t("common_close")} />
-        <h1 className="sam-app-header-title">{t("tier1_community_write")}</h1>
-      </header>
+      <DetailHeader
+        title={t("tier1_community_write")}
+        backHref={philifeAppPaths.home}
+        preferHistoryBack={false}
+        backAriaLabel={t("common_close")}
+      />
 
       <form onSubmit={onSubmit} className="mx-auto max-w-lg space-y-3 px-4 py-4">
         <div className="sam-form-field">

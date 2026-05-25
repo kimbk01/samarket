@@ -5,8 +5,7 @@ import { useCallback, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppModal } from "@/components/app-shell/AppModal";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { AppCloseIcon } from "@/components/navigation/AppBackButton";
-import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
+import { DetailHeader, SectorHeaderBackButton } from "@/components/layout/sector-header";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 
 /**
@@ -51,14 +50,11 @@ export function WriteScreenTier1Sync({
         titleText: title,
         subtitle: subtitle?.trim() ? subtitle.trim() : undefined,
         leftSlot: (
-          <button
-            type="button"
-            onClick={onRequestClose ?? openConfirm}
-            aria-label={t("common_close")}
-            className="sam-header-action flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-sam-fg"
-          >
-            <AppCloseIcon />
-          </button>
+          <SectorHeaderBackButton
+            onBack={onRequestClose ?? openConfirm}
+            variant="close"
+            ariaLabelKey="common_close"
+          />
         ),
         showHubQuickActions: true,
       },
@@ -69,31 +65,14 @@ export function WriteScreenTier1Sync({
   const subtitleText = subtitle?.trim() ?? "";
 
   const embeddedHeader = (
-    <header className="sticky top-0 z-30 w-full shrink-0 overflow-x-hidden border-b border-sam-border bg-sam-surface/95 backdrop-blur-[10px]">
-      <div className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-        <div className="flex w-auto min-w-[44px] max-w-[min(200px,50vw)] shrink-0 items-center justify-start">
-          <button
-            type="button"
-            onClick={onRequestClose ?? openConfirm}
-            aria-label={t("common_close")}
-            className="sam-header-action flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-sam-fg"
-          >
-            <AppCloseIcon />
-          </button>
-        </div>
-        <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-          <h1 className="flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-sam-fg">
-            <span className="truncate sam-text-section-title font-semibold">{title}</span>
-            {subtitleText ? (
-              <p className="truncate sam-text-xxs leading-tight text-sam-muted">{subtitleText}</p>
-            ) : null}
-          </h1>
-        </div>
-        <div className="flex min-w-[44px] shrink-0 items-center justify-end">
-          <MyHubHeaderActions />
-        </div>
-      </div>
-    </header>
+    <DetailHeader
+      title={title}
+      subtitle={subtitleText || undefined}
+      backVariant="close"
+      onBack={onRequestClose ?? openConfirm}
+      backAriaLabelKey="common_close"
+      rightSlot={<MyHubHeaderActions />}
+    />
   );
 
   return (

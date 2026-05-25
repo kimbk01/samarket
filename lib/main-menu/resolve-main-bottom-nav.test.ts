@@ -8,9 +8,14 @@ describe("resolveMainBottomNavDisplayItems", () => {
   it("빈 값이면 기본 5탭 노출", () => {
     const items = resolveMainBottomNavDisplayItems(null);
     expect(items.map((i) => i.id)).toEqual(["community", "home", "stores", "chat", "my"]);
-    expect(items.find((i) => i.id === "home")).toMatchObject({ label: "거래", icon: "trade" });
+    expect(items.find((i) => i.id === "home")).toMatchObject({
+      label: "Trade",
+      labelKey: "nav.trade",
+      icon: "trade",
+    });
     expect(items.find((i) => i.id === "chat")).toMatchObject({
       href: "/community-messenger?section=chats",
+      labelKey: "nav.chat",
     });
   });
 
@@ -105,7 +110,8 @@ describe("resolveMainBottomNavDisplayItems", () => {
     expect(items.map((i) => i.id)).toEqual(["community", "home", "stores", "chat", "my"]);
     expect(items.find((i) => i.id === "my")).toMatchObject({
       href: "/mypage",
-      label: "내정보",
+      label: "My",
+      labelKey: "nav.my",
       icon: "my",
     });
   });

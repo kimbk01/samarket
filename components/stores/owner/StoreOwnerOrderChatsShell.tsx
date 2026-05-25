@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { OwnerSubpageDetailHeader } from "@/components/stores/owner/OwnerSubpageDetailHeader";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -104,15 +104,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
 
   return (
     <div className="min-h-screen bg-sam-app pb-10">
-      <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
-        <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <AppBackButton backHref={ordersHref} />
-          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">
-            {t("store_owner_chats_title")}
-          </h1>
-          <span className="w-10" />
-        </div>
-      </header>
+      <OwnerSubpageDetailHeader title={t("store_owner_chats_title")} backHref={ordersHref} />
       <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
         <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm ring-1 ring-sam-border-soft">
           <p>{t("business_phase7_267")}</p>

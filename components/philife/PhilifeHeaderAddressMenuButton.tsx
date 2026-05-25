@@ -21,7 +21,10 @@ import {
   neighborhoodLocationLabelFromRegion,
   neighborhoodLocationMetaFromRegion,
 } from "@/lib/neighborhood/location-key";
-import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
+import {
+  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+} from "@/lib/ui/tier1-header-icon";
 
 export function PhilifeHeaderAddressMenuButton({
   panelPlacement = "anchor",
@@ -245,7 +248,7 @@ export function PhilifeHeaderAddressMenuButton({
       <button
         ref={buttonRef}
         type="button"
-        className="sam-header-action h-10 w-10 text-sam-primary transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-primary/10 active:opacity-85"
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} text-sam-primary active:bg-sam-primary/10`}
         aria-label={t("philife_addr_open_menu_aria")}
         aria-expanded={open}
         onClick={toggleMenu}

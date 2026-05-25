@@ -97,7 +97,7 @@ export function composeDeliveryBottomNavDisplayTabs(ownerStoreId?: string | null
       id: "delivery-home-hub",
       href: "/stores",
       label: "Delivery home",
-      labelKey: "nav_bottom_home" as MessageKey,
+      labelKey: "nav.home" as MessageKey,
       icon: "home",
     },
     {
@@ -110,8 +110,8 @@ export function composeDeliveryBottomNavDisplayTabs(ownerStoreId?: string | null
     {
       id: "delivery-my",
       href: "/mypage",
-      label: "My Page",
-      labelKey: "nav_bottom_my",
+      label: "My",
+      labelKey: "nav.my",
       icon: "my",
     },
   ];

@@ -49,7 +49,7 @@ function tradeTabFromConfig(): BottomNavItemConfig {
     id: "philife-trade",
     href: base?.href ?? "/market",
     label: base?.label ?? "Trade",
-    labelKey: base?.labelKey ?? ("nav_bottom_trade" as MessageKey),
+    labelKey: base?.labelKey ?? ("nav.trade" as MessageKey),
     icon: "trade",
   };
 }
@@ -60,14 +60,13 @@ function deliveryTabFromConfig(): BottomNavItemConfig {
     id: "philife-delivery",
     href: base?.href ?? "/stores",
     label: base?.label ?? "Delivery",
-    labelKey: base?.labelKey ?? ("nav_bottom_delivery" as MessageKey),
+    labelKey: base?.labelKey ?? ("nav.delivery" as MessageKey),
     icon: "stores",
   };
 }
 
 export function composePhilifeBottomNavDisplayTabs(): BottomNavItemConfig[] {
   const community = BOTTOM_NAV_ITEMS.find((t) => t.id === "community");
-  const messenger = BOTTOM_NAV_ITEMS.find((t) => t.id === "chat");
   const my = BOTTOM_NAV_ITEMS.find((t) => t.id === "my");
 
   return [
@@ -75,7 +74,7 @@ export function composePhilifeBottomNavDisplayTabs(): BottomNavItemConfig[] {
       id: "philife-home-hub",
       href: community?.href ?? "/philife",
       label: "Home",
-      labelKey: "nav_bottom_home" as MessageKey,
+      labelKey: "nav.home" as MessageKey,
       icon: "community",
     },
     tradeTabFromConfig(),
@@ -83,18 +82,15 @@ export function composePhilifeBottomNavDisplayTabs(): BottomNavItemConfig[] {
     {
       id: "philife-messenger",
       href: mainBottomNavMessengerTabHref("community"),
-      label: "DibaTalk",
-      labelKey: "nav_bottom_dibatalk" as MessageKey,
+      label: "Chat",
+      labelKey: "nav.chat" as MessageKey,
       icon: "chat",
-      ...(messenger?.activeShellClass ? { activeShellClass: messenger.activeShellClass } : {}),
-      ...(messenger?.iconActiveClass ? { iconActiveClass: messenger.iconActiveClass } : {}),
-      ...(messenger?.labelActiveClass ? { labelActiveClass: messenger.labelActiveClass } : {}),
     },
     {
       id: "philife-my",
       href: my?.href ?? "/mypage",
-      label: my?.label ?? "My Page",
-      labelKey: my?.labelKey ?? ("nav_bottom_my" as MessageKey),
+      label: my?.label ?? "My",
+      labelKey: my?.labelKey ?? ("nav.my" as MessageKey),
       icon: "my",
     },
   ];

@@ -171,7 +171,7 @@
   --sam-card-padding: var(--sam-space-4);
   --sam-item-gap: var(--sam-space-3);
   --sam-header-action-min: 40px;
-  --sam-header-row-height: 56px;
+  --sam-header-row-height: 52px;
   --sam-segment-tab-height: 44px;
 
   --sam-bp-mobile-max: 767px;

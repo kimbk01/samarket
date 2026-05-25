@@ -12,6 +12,7 @@ import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHist
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { prefetchTradeHubHistorySnapshots } from "@/lib/mypage/trade-history-client";
 import { COMMUNITY_FONT_CLASS, PHILIFE_FB_CARD_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -48,21 +49,14 @@ export function TradeHistoryStackPanel() {
 
   return (
     <div className={PANEL_ROOT_CLASS}>
-      <header className="shrink-0 border-b border-sam-border bg-sam-surface pt-[max(0.5rem,env(safe-area-inset-top,0px))]">
-        <div className={`${APP_MAIN_HEADER_INNER_CLASS} flex items-center gap-2 pb-2`}>
-          <button
-            type="button"
-            onClick={() => requestClose()}
-            className="sam-header-action inline-flex h-10 min-w-[2.5rem] shrink-0 items-center justify-center rounded-sam-sm text-sam-fg"
-            aria-label={t("tier1_back")}
-          >
-            <ChevronBackIcon />
-          </button>
-          <h1 className="min-w-0 flex-1 truncate text-center text-[16px] font-bold leading-tight text-sam-fg">
-            {t("nav_trade_history")}
-          </h1>
-          <span className="w-10 shrink-0" aria-hidden />
-        </div>
+      <header className="shrink-0 border-b border-sam-border bg-sam-surface">
+        <DetailHeader
+          embedded
+          flat
+          title={t("nav_trade_history")}
+          onBack={() => requestClose()}
+          backAriaLabelKey="tier1_back"
+        />
         <div className="min-w-0 w-full max-w-full overflow-x-hidden border-t border-sam-border/60 bg-sam-surface">
           <div className={APP_MAIN_HEADER_INNER_CLASS}>
             <div
@@ -123,13 +117,5 @@ export function TradeHistoryStackPanel() {
         ) : null}
       </div>
     </div>
-  );
-}
-
-function ChevronBackIcon() {
-  return (
-    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 18l-6-6 6-6" />
-    </svg>
   );
 }

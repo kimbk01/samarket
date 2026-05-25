@@ -22,6 +22,7 @@ import {
   BOTTOM_NAV_SCROLL_HIDDEN_CLASS,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
+  bottomNavUsesDeliveryHubShell,
   type BottomNavIconKey,
   type BottomNavItemConfig,
 } from "@/lib/main-menu/bottom-nav-config";
@@ -31,7 +32,6 @@ import {
 } from "@/lib/chats/use-owner-hub-badge-total";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import {
-  useOwnerLiteHasPreferredStore,
   useOwnerLitePreferredStoreRow,
 } from "@/lib/stores/use-owner-lite-store";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
@@ -204,7 +204,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
-  const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const ownerStore = useOwnerLitePreferredStoreRow();
@@ -237,7 +236,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     tab.id === "my" || tab.id === "delivery-my" || tab.id === "philife-my" || tab.id === "trade-my"
       ? "app-bottom-nav-item--my-menu"
       : "",
-    hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -246,7 +244,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     tabBadgeCount > 0
       ? t("nav_attention_needed", { label: tabLabel, count: tabBadgeCount })
       : tab.id === "my"
-        ? t("nav_bottom_my")
+        ? t("nav.my")
         : undefined;
 
   const inner = (
@@ -1102,7 +1100,10 @@ export function BottomNav({
     () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams, ownerStoreRow?.id),
     [pathname, tabs, searchParams, ownerStoreRow?.id]
   );
-  const isGridBottomNavMode = displayTabs.length > 0;
+  const usesDeliveryHubShell = useMemo(
+    () => bottomNavUsesDeliveryHubShell(displayTabs),
+    [displayTabs]
+  );
   useLayoutEffect(() => {
     bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerStoreRow?.id };
   }, [searchParams, ownerStoreRow?.id]);
@@ -1340,14 +1341,8 @@ export function BottomNav({
     .join(" ");
 
   const renderBottomNavTab = useCallback(
-    (tab: BottomNavItemConfig, tabIndex: number) => {
-      const groupEdgeClass = isGridBottomNavMode
-        ? ""
-        : tabIndex === 2
-          ? "app-bottom-nav-item--group-gap-after"
-          : tabIndex === 3
-            ? "app-bottom-nav-item--group-gap-before"
-            : "";
+    (tab: BottomNavItemConfig, _tabIndex: number) => {
+      const groupEdgeClass = "";
       const guardNav = () => {
         const targetHref =
           tab.id === "chat" ||
@@ -1384,7 +1379,7 @@ export function BottomNav({
           />
         );
       }
-      if (tab.icon === "stores" && !isGridBottomNavMode) {
+      if (tab.icon === "stores" && !usesDeliveryHubShell) {
         return (
           <BottomNavTabStores
             key={tab.id}
@@ -1424,30 +1419,24 @@ export function BottomNav({
       markBottomNavIntent,
       beginBottomNavNavigation,
       guardBeforeNavigate,
-      isGridBottomNavMode,
+      usesDeliveryHubShell,
     ]
   );
-
-  const navGridClass = isGridBottomNavMode ? "app-bottom-nav-grid" : "app-bottom-nav-split";
 
   const nav = (
     <nav
       className={[
         outerClass,
-        isGridBottomNavMode ? "app-bottom-nav-shell--delivery" : "",
+        usesDeliveryHubShell ? "app-bottom-nav-shell--delivery" : "",
       ]
         .filter(Boolean)
         .join(" ")}
       aria-label={t("nav_bottom_bar_aria")}
     >
-      <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
+      <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
         <div
-          className={navGridClass}
-          style={
-            isGridBottomNavMode
-              ? { gridTemplateColumns: `repeat(${displayTabs.length}, minmax(0, 1fr))` }
-              : undefined
-          }
+          className={BOTTOM_NAV_SHELL.containerClassName}
+          data-tab-count={displayTabs.length}
         >
           {displayTabs.map((tab, index) => renderBottomNavTab(tab, index))}
         </div>

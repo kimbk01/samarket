@@ -39,7 +39,7 @@ export const OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS =
   "owner-mobile-bottom-nav app-bottom-nav-shell--delivery";
 
 /** Fixed owner bottom nav — `BOTTOM_NAV_SHELL.heightClass` 와 동기 */
-export const OWNER_MOBILE_BOTTOM_NAV_HEIGHT_CLASS = "h-[3.5rem]";
+export const OWNER_MOBILE_BOTTOM_NAV_HEIGHT_CLASS = "h-[60px]";
 
 /** 하단 탭 + safe-area — `owner-compact-shell.css` `--owner-shell-main-pb` (body `data-owner-compact-shell`) */
 export const OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS = OWNER_COMPACT_SHELL_MAIN_PB_CLASS;

@@ -81,7 +81,10 @@ export function StoresHomeHeaderChrome() {
 
   return (
     <>
-      <header className="delivery-ui relative z-[3] w-full shrink-0 bg-[color:var(--delivery-home-header-bg)] text-white">
+      <header
+        data-stores-home-header
+        className="delivery-ui relative z-[3] w-full shrink-0 bg-[color:var(--delivery-home-header-bg)] text-white"
+      >
         <div className={`${DELIVERY_TIER1_HEADER_INNER_CLASS} px-[var(--delivery-page-x)] pb-2 pt-2`}>
           <div className="flex min-h-[var(--delivery-header-action)] items-center justify-between gap-1.5">
             <button

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { OwnerSubpageDetailHeader } from "@/components/stores/owner/OwnerSubpageDetailHeader";
 import { OwnerNotificationList } from "@/components/stores/owner/OwnerNotificationList";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
@@ -38,15 +38,10 @@ async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-sam-app pb-10">
-      <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
-        <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <AppBackButton backHref={ownerHubHref} preferHistoryBack={false} />
-          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">
-            {translate(lang, "store_owner_notifications_title")}
-          </h1>
-          <span className="w-11 shrink-0" />
-        </div>
-      </header>
+      <OwnerSubpageDetailHeader
+        title={translate(lang, "store_owner_notifications_title")}
+        backHref={ownerHubHref}
+      />
       <div className="mx-auto max-w-3xl space-y-4 px-3 pt-4">
         <OwnerNotificationList slug={safe} storeId={storeId} />
         <Link href={ordersHubHref} className="text-sm text-signature underline">

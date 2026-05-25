@@ -10,7 +10,10 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHistoryStackContext";
 import { prefetchTradeHubHistorySnapshots } from "@/lib/mypage/trade-history-client";
-import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
+import {
+  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+} from "@/lib/ui/tier1-header-icon";
 
 /**
  * 거래 1단 헤더 `+` — 글쓰기(시트)·거래 채팅·거래 내역 드롭다운.
@@ -92,7 +95,7 @@ export function TradeHeaderComposeButton() {
           ref={triggerRef}
           type="button"
           onClick={() => setMenuOpen((prev) => !prev)}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface text-sam-fg transition active:scale-[0.98] active:opacity-90"
+          className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} rounded-ui-rect bg-sam-surface active:scale-[0.98] active:opacity-90`}
           aria-label={t("nav_write_aria")}
           aria-expanded={menuOpen}
           aria-haspopup="menu"

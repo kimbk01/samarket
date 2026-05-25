@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import { SECTOR_HEADER_BACK_CLASS } from "@/lib/ui/sector-header-classes";
 
 export function AppBackIcon({ className }: { className?: string }) {
   return (
@@ -15,7 +16,7 @@ export function AppBackIcon({ className }: { className?: string }) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={2}
+      strokeWidth={2.2}
       aria-hidden
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="M19 12H5M12 19l-7-7 7-7" />
@@ -65,9 +66,7 @@ type AppBackButtonProps = {
   ariaLabel?: string;
 };
 
-const structuralClass =
-  "sam-header-action flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center";
-const defaultToneClass = "text-sam-fg";
+const defaultToneClass = "";
 
 export function AppBackButton({
   backHref,
@@ -81,7 +80,7 @@ export function AppBackButton({
 }: AppBackButtonProps) {
   const { t, tt } = useI18n();
   const router = useRouter();
-  const mergedClass = `${structuralClass} ${className ?? defaultToneClass}`.trim();
+  const mergedClass = `${SECTOR_HEADER_BACK_CLASS} ${className ?? defaultToneClass}`.trim();
   const resolvedAriaLabel = ariaLabelKey
     ? t(ariaLabelKey)
     : ariaLabel

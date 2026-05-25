@@ -7,7 +7,7 @@
 
 /** 48px 한 줄 래퍼 (max-width·패딩) */
 export const APP_TIER1_HEADER_ROW_WRAP_CLASS = [
-  "mx-auto flex h-[length:var(--delivery-header-h)] min-h-[length:var(--delivery-header-h)] w-full max-w-[42rem] items-center",
+  "mx-auto flex h-[length:var(--sector-header-h)] min-h-[length:var(--sector-header-h)] w-full max-w-[768px] items-center",
   "px-[length:var(--delivery-page-x)]",
   "[&>.sam-tier1-header__row]:h-full",
 ].join(" ");
@@ -23,7 +23,7 @@ export const APP_TIER1_HEADER_ICON_BTN_CLASS = "sam-tier1-header__icon-btn";
 
 /** SAM 서피스 1단 바 */
 export const APP_TIER1_HEADER_BAR_CLASS =
-  "w-full min-w-0 max-w-full shrink-0 border-b border-sam-border bg-sam-surface/95 backdrop-blur-[10px]";
+  "w-full min-w-0 max-w-full shrink-0 sector-header-shell sector-header-shell--embedded";
 
 /** 배달 소비자 — 기존 import 호환 */
 export {

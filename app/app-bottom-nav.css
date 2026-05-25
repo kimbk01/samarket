@@ -1,6 +1,13 @@
-/** 하단 탭 본체 — 본문(흰색)과 구분 */
+/** dibaY 하단 탭 — 단일 시각 토큰 (Main Green / Soft Background) */
 :root {
-  --app-bottom-nav-surface: #f6f6f6;
+  --app-bottom-nav-surface: #fffcfc;
+  --app-bottom-nav-main-green: #0b421a;
+  --app-bottom-nav-text-muted: rgba(96, 76, 76, 0.82);
+  --app-bottom-nav-icon-muted: rgba(96, 76, 76, 0.78);
+  --app-bottom-nav-active-bg: rgba(234, 199, 132, 0.18);
+  --app-bottom-nav-hover-bg: rgba(234, 199, 132, 0.1);
+  --app-bottom-nav-border: rgba(54, 36, 21, 0.1);
+  --app-bottom-nav-shadow: 0 -4px 14px rgba(54, 36, 21, 0.06);
 }
 
 .app-bottom-nav-shell {
@@ -12,8 +19,14 @@
   display: flex;
   justify-content: center;
   width: 100%;
+  height: calc(60px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--app-bottom-nav-surface);
+  border-top: 1px solid var(--app-bottom-nav-border);
+  box-shadow: var(--app-bottom-nav-shadow);
   pointer-events: none;
   overflow: visible;
+  box-sizing: border-box;
 }
 
 /**
@@ -21,9 +34,10 @@
  */
 .app-bottom-nav-shell--delivery {
   padding-top: var(--delivery-home-overhang, 0px);
+  height: calc(60px + var(--delivery-home-overhang, 0px) + env(safe-area-inset-bottom, 0px));
 }
 
-/** 스크롤 숨김 — 홈 원·safe-area·여유까지 완전 이탈 (`translate-y-full` 대체) */
+/** 스크롤 숨김 — 홈 원·safe-area·여유까지 완전 이탈 */
 .app-bottom-nav-shell--scroll-hidden {
   pointer-events: none;
   transform: translate3d(
@@ -37,113 +51,71 @@
   transform: translate3d(0, 0, 0);
 }
 
-/** 활성 아이콘이 plane 위로 튀어나오는 영역에 옅은 컬러 wash */
-.app-bottom-nav-shell::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: 60px;
-  background: linear-gradient(
-    to top,
-    rgba(28, 141, 184, 0.06) 0%,
-    rgba(28, 141, 184, 0) 100%
-  );
-  pointer-events: none;
-}
-
-/** 상단 직각 — 좌우 풀너비 */
+/** 레거시 plane — shell 이 surface 를 담당, plane 은 full-width flex 래퍼만 */
 .app-bottom-nav-plane {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
-  border-radius: 0;
-  background: var(--app-bottom-nav-surface);
-  color: var(--sam-fg, #111827);
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  border-bottom: 0;
-  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.1);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  height: 100%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   isolation: isolate;
   pointer-events: auto;
   overflow: visible;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  padding: 0;
 }
 
-.app-bottom-nav-grid {
+.app-bottom-nav-container {
   position: relative;
   z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 100%;
-  height: var(--app-bottom-nav-height);
-  flex: 0 0 auto;
-  align-items: stretch;
-}
-
-/** 메인 6탭 — 동일 1/6 너비, 3·4번 사이만 얇은 구분선 */
-.app-bottom-nav-split {
-  position: relative;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  width: 100%;
-  height: var(--app-bottom-nav-height);
-  flex: 0 0 auto;
-  align-items: stretch;
-}
-
-.app-bottom-nav-item--group-gap-after::after,
-.app-bottom-nav-item--group-gap-before::before {
-  content: "";
-  position: absolute;
-  top: 22%;
-  bottom: 22%;
-  width: 1px;
-  background: rgba(15, 23, 42, 0.1);
-  pointer-events: none;
-}
-
-.app-bottom-nav-item--group-gap-after::after {
-  right: 0;
-}
-
-.app-bottom-nav-item--group-gap-before::before {
-  left: 0;
-}
-
-/** 내정보(⋯) — 라벨 없이 아이콘만, 터치 영역은 6분할과 동일 */
-.app-bottom-nav-item--my-menu .app-bottom-nav-icon-slot {
-  height: 32px;
+  max-width: 768px;
+  height: 60px;
+  margin: 0 auto;
+  padding: 6px 6px 5px;
+  box-sizing: border-box;
 }
 
 .app-bottom-nav-item {
   position: relative;
   display: flex;
+  flex: 1 1 0;
   min-width: 0;
-  height: 100%;
+  max-width: 96px;
+  height: 48px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 3px;
-  padding: 6px 2px 6px;
+  padding: 0;
   margin: 0;
   border: 0;
+  border-radius: 4px;
   background: transparent;
   font: inherit;
-  color: inherit;
+  color: var(--app-bottom-nav-text-muted);
   text-decoration: none;
   touch-action: manipulation;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   overflow: visible;
-  transition: transform 140ms ease;
+  transition:
+    background-color 140ms ease,
+    color 140ms ease,
+    transform 140ms ease;
   cursor: pointer;
   box-sizing: border-box;
-  width: 100%;
+}
+
+@media (hover: hover) {
+  .app-bottom-nav-item[data-active="false"]:hover {
+    background: var(--app-bottom-nav-hover-bg);
+  }
 }
 
 .app-bottom-nav-item:active {
@@ -151,22 +123,22 @@
 }
 
 .app-bottom-nav-item:focus-visible {
-  outline: 2px solid rgba(28, 141, 184, 0.35);
+  outline: 2px solid rgba(11, 66, 26, 0.35);
   outline-offset: 2px;
-  border-radius: 12px;
 }
 
-/**
- * 아이콘 슬롯: 비활성 아이콘 크기로만 잡고, 하단 정렬 → 활성 시 위쪽으로만 확대.
- * 라벨까지의 간격(`gap`)은 비활성·활성 동일.
- */
+.app-bottom-nav-item[data-active="true"] {
+  color: var(--app-bottom-nav-main-green);
+  background: var(--app-bottom-nav-active-bg);
+}
+
 .app-bottom-nav-icon-slot {
   position: relative;
   display: flex;
   width: 100%;
-  height: 28px;
+  height: 22px;
   flex-shrink: 0;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   overflow: visible;
 }
@@ -176,29 +148,47 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  color: #b8bec8;
+  color: var(--app-bottom-nav-icon-muted);
   background: transparent;
   border-radius: 0;
-  transform-origin: 50% 100%;
-  transition:
-    color 180ms ease,
-    background-color 180ms ease,
-    width 200ms ease,
-    height 200ms ease;
+  transition: color 140ms ease;
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
+  color: var(--app-bottom-nav-main-green);
 }
 
 .app-bottom-nav-icon-svg {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
+  width: 23px;
+  height: 23px;
+}
+
+.app-bottom-nav-icon-svg path,
+.app-bottom-nav-icon-svg circle,
+.app-bottom-nav-icon-svg line,
+.app-bottom-nav-icon-svg polyline,
+.app-bottom-nav-icon-svg rect {
+  stroke-width: 2;
+}
+
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg path,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg circle,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg line,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg polyline,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg rect {
+  stroke-width: 2.4;
 }
 
 /**
- * 허브 배지 — 우상단 모서리에 걸침(아이콘과 가깝게 겹침). 대부분 바깥, 약 15% 면적만 아이콘 위로 겹침.
- * inline-icon transform 과 함께 이동.
- * Tailwind `absolute -right-1 -top-1`(`OWNER_HUB_BADGE_DOT_CLASS`) 덮어씀.
+ * 허브 배지 — 우상단 모서리에 걸침.
  */
 .app-bottom-nav-inline-icon > .bottom-nav-hub-badge {
   position: absolute !important;
@@ -209,108 +199,113 @@
   transform: translate(18%, -18%) !important;
 }
 
-.app-bottom-nav-label {
+.app-bottom-nav-label,
+.app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-label--trade-tab,
+.app-bottom-nav-label--philife-tab {
   display: block;
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
-  color: #b8bec8;
+  color: var(--app-bottom-nav-text-muted);
   font-size: 11px;
   font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.01em;
+  line-height: 13px;
+  letter-spacing: -0.2px;
   white-space: nowrap;
-  transition: color 180ms ease;
+  transition: color 140ms ease;
 }
 
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label {
-  color: #1c8db8;
+.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label,
+.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-container[data-tab-count="6"] .app-bottom-nav-label--philife-tab,
+.app-bottom-nav-container[data-tab-count="7"] .app-bottom-nav-label,
+.app-bottom-nav-container[data-tab-count="7"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-container[data-tab-count="8"] .app-bottom-nav-label,
+.app-bottom-nav-container[data-tab-count="8"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-container[data-tab-count="9"] .app-bottom-nav-label,
+.app-bottom-nav-container[data-tab-count="9"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-container[data-tab-count="10"] .app-bottom-nav-label,
+.app-bottom-nav-container[data-tab-count="10"] .app-bottom-nav-label--delivery-tab {
+  font-size: 10.5px;
 }
 
-/**
- * 활성 아이콘 — 하단 기준 확대·시계 반대 방향 회전·떨림 후 안착(라벨 gap 불변)
- */
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  background: #1c8db8;
-  color: #ffffff;
-  box-shadow: 0 6px 14px rgba(28, 141, 184, 0.24);
-  transform: rotate(-6deg);
-  animation: app-bottom-nav-twist 680ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  will-change: transform;
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-item[data-active="true"] .app-bottom-nav-label--philife-tab {
+  color: var(--app-bottom-nav-main-green);
+  font-weight: 700;
 }
 
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
-  position: relative;
-  z-index: 2;
-  width: 22px;
-  height: 22px;
-}
+@media (min-width: 768px) {
+  .app-bottom-nav-container {
+    max-width: 768px;
+  }
 
-/**
- * 클릭 ripple — 아이콘 박스 밖·우하단으로 띄운 원점에서 퍼짐(떨어진 곳에서 선택되는 느낌).
- * 배경(#1c8db8) 위에 보이도록 글리프(z-index:2) 아래에 둔다.
- */
-.app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon::after {
-  content: "";
-  position: absolute;
-  right: -14px;
-  bottom: -16px;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.42);
-  transform: scale(0.25);
-  transform-origin: 50% 50%;
-  opacity: 0.95;
-  pointer-events: none;
-  animation: app-bottom-nav-ripple 820ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  z-index: 1;
-}
+  .app-bottom-nav-item {
+    max-width: 104px;
+  }
 
-@keyframes app-bottom-nav-twist {
-  0% {
-    transform: rotate(38deg) scale(0.52);
-    opacity: 0.45;
+  .app-bottom-nav-icon-slot {
+    height: 24px;
   }
-  22% {
-    transform: rotate(12deg) scale(0.88);
-    opacity: 1;
+
+  .app-bottom-nav-inline-icon {
+    width: 24px;
+    height: 24px;
   }
-  46% {
-    transform: rotate(-22deg) scale(1.08);
+
+  .app-bottom-nav-icon-svg {
+    width: 24px;
+    height: 24px;
   }
-  58% {
-    transform: rotate(-2deg) scale(1);
+
+  .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
+    width: 24px;
+    height: 24px;
   }
-  70% {
-    transform: rotate(-12deg) scale(1);
-  }
-  80% {
-    transform: rotate(-3deg) scale(1);
-  }
-  90% {
-    transform: rotate(-9deg) scale(1);
-  }
-  100% {
-    transform: rotate(-6deg) scale(1);
+
+  .app-bottom-nav-label,
+  .app-bottom-nav-label--delivery-tab,
+  .app-bottom-nav-label--trade-tab,
+  .app-bottom-nav-label--philife-tab {
+    font-size: 11.5px;
   }
 }
 
-@keyframes app-bottom-nav-ripple {
-  0% {
-    transform: scale(0.25);
-    opacity: 0.95;
+@media (max-width: 374px) {
+  .app-bottom-nav-item {
+    max-width: none;
+    gap: 2px;
   }
-  55% {
-    opacity: 0.45;
+
+  .app-bottom-nav-icon-slot {
+    height: 21px;
   }
-  100% {
-    transform: scale(6.5);
-    opacity: 0;
+
+  .app-bottom-nav-inline-icon {
+    width: 21px;
+    height: 21px;
+  }
+
+  .app-bottom-nav-icon-svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .app-bottom-nav-item[data-active="true"] .app-bottom-nav-icon-svg {
+    width: 21px;
+    height: 21px;
+  }
+
+  .app-bottom-nav-label,
+  .app-bottom-nav-label--delivery-tab,
+  .app-bottom-nav-label--trade-tab,
+  .app-bottom-nav-label--philife-tab {
+    font-size: 10px;
   }
 }
 
@@ -328,48 +323,41 @@
   --delivery-home-overhang: var(--delivery-home-above-nav);
   --delivery-tab-label-size: 11px;
   --delivery-tab-label-weight: 500;
-  --delivery-tab-label-line-height: 11px;
-  --delivery-tab-label-tracking: -0.01em;
+  --delivery-tab-label-line-height: 13px;
+  --delivery-tab-label-tracking: -0.2px;
   --delivery-tab-label-bottom-inset: 6px;
-  /** 홈 라벨만 — 다른 4탭 baseline 육안 정렬 */
   --delivery-tab-label-hub-bottom-offset: 1pt;
-  --delivery-tab-icon-slot-height: 28px;
-  --delivery-tab-label-inactive: #999999;
-  --delivery-tab-label-active: var(--delivery-primary, #006241);
-  --delivery-tab-label-hub-active: var(--delivery-primary, #006241);
+  --delivery-tab-icon-slot-height: 22px;
+  --delivery-tab-label-inactive: var(--app-bottom-nav-text-muted);
+  --delivery-tab-label-active: var(--app-bottom-nav-main-green);
+  --delivery-tab-label-hub-active: var(--app-bottom-nav-main-green);
 }
 
-/**
- * 배달 5탭 — 라벨은 탭 셀 하단에 절대 고정(홈은 아이콘 슬롯이 flex 밖이라 baseline 어긋남 방지).
- * 아이콘 슬롯 높이는 좌·우 4탭만 28px 공통(홈 원은 별도 절대 배치).
- */
-.app-bottom-nav-shell--delivery .app-bottom-nav-item {
+.app-bottom-nav-shell--delivery .app-bottom-nav-item:not(.app-bottom-nav-item--delivery-hub) {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
   justify-content: flex-start;
   gap: 0;
   padding: 6px 2px var(--delivery-tab-label-bottom-inset);
   padding-bottom: calc(
     var(--delivery-tab-label-bottom-inset) + var(--delivery-tab-label-line-height)
   );
-  box-sizing: border-box;
+  overflow: visible;
 }
 
 .app-bottom-nav-shell--delivery .app-bottom-nav-icon-slot:not(.app-bottom-nav-icon-slot--delivery-home) {
   flex: 0 0 var(--delivery-tab-icon-slot-height);
   height: var(--delivery-tab-icon-slot-height);
-  align-items: flex-end;
+  align-items: center;
 }
 
-/** 내정보(⋯) — 글로벌 32px 슬롯을 배달 4탭과 동일 28px 로 */
 .app-bottom-nav-shell--delivery .app-bottom-nav-item--my-menu .app-bottom-nav-icon-slot {
   height: var(--delivery-tab-icon-slot-height);
   flex: 0 0 var(--delivery-tab-icon-slot-height);
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-label--delivery-tab {
+.app-bottom-nav-shell--delivery .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-shell--delivery .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-shell--delivery .app-bottom-nav-label--philife-tab {
   position: absolute;
   left: 0;
   right: 0;
@@ -381,33 +369,29 @@
   font-size: var(--delivery-tab-label-size);
   font-weight: var(--delivery-tab-label-weight);
   line-height: var(--delivery-tab-label-line-height);
-  letter-spacing: var(--delivery-tab-label-tracking);
+  letter-spacing: -0.2px;
   text-align: center;
-  font-style: normal;
-  font-synthesis: none;
-  -webkit-font-smoothing: antialiased;
-  color: var(--delivery-tab-label-inactive);
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-item[data-active="true"]:not(.app-bottom-nav-item--delivery-hub)
-  .app-bottom-nav-label--delivery-tab {
-  color: var(--delivery-tab-label-active);
+.app-bottom-nav-item--delivery-hub[data-active="true"],
+.app-bottom-nav-item--delivery-hub[data-switcher-open="true"] {
+  background: transparent;
+  color: var(--app-bottom-nav-text-muted);
 }
 
 .app-bottom-nav-item--delivery-hub {
   position: relative;
   overflow: visible;
   z-index: 3;
+  max-width: none;
 }
 
-/** 다이얼 열림·탭 후 — 푸른 focus-visible 링 제거(홈 허브만) */
 .app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub:focus,
 .app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub:focus-visible {
   outline: none;
 }
 
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-icon-slot--delivery-home {
-  /** 탭 셀 top = 탭바 상단선 — `top` 음수로 위 40% / 아래 60% 겹침을 고정 */
   position: absolute;
   left: 0;
   right: 0;
@@ -452,84 +436,32 @@
 
 .app-bottom-nav-item--delivery-hub[data-switcher-open="true"] .app-bottom-nav-delivery-home-orbit,
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-delivery-home-orbit--active {
-  background: #c73e3e;
   background: var(--delivery-dark, #1e3932);
   color: #fff;
   box-shadow: 0 6px 18px rgba(30, 57, 50, 0.24);
   transform: translateX(-50%) scale(1.06);
 }
 
-.app-bottom-nav-item--delivery-hub[data-active="true"] .app-bottom-nav-inline-icon,
-.app-bottom-nav-item--delivery-hub[data-active="true"] .app-bottom-nav-inline-icon::after {
-  animation: none;
-}
-
 .app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub .app-bottom-nav-label--delivery-tab {
   bottom: calc(var(--delivery-tab-label-bottom-inset) + var(--delivery-tab-label-hub-bottom-offset));
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
-.app-bottom-nav-shell--delivery
-  .app-bottom-nav-item--delivery-hub[data-switcher-open="true"]
-  .app-bottom-nav-label--delivery-tab {
-  color: var(--delivery-tab-label-hub-active);
+.app-bottom-nav-shell--delivery .app-bottom-nav-plane,
+.app-bottom-nav-shell--delivery .app-bottom-nav-container {
+  overflow: visible;
 }
 
-/**
- * 배달 하단 탭 — 상단 회색선 제거(단일 불투명 면, 그라데이션·블러·그림자 금지).
- * 원인: (1) `.app-bottom-nav-plane` border/box-shadow/backdrop-filter
- *       (2) `.app-bottom-nav-shell::before` linear-gradient
- *       (3) 다이얼 딤 하단 경계 — `delivery-domain-switcher.css` 레이어 분리 + 다이얼 시 z-index 1255
- */
-.app-bottom-nav-shell--delivery::before {
-  display: none;
-  content: none;
-  background: none;
-}
-
-.app-bottom-nav-shell--delivery .app-bottom-nav-plane {
-  border: 0;
-  border-top: 1px solid var(--delivery-border, #e5e5e5);
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  background-color: rgba(255, 255, 255, 0.96);
-  isolation: isolate;
-}
-
-/** 본문 스크롤 영역과 탭바 사이 시각 경계(탭 상단선과 맞춤) */
-.app-bottom-nav-shell--delivery::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: var(--delivery-home-overhang, 0px);
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(15, 23, 42, 0.08) 12%,
-    rgba(15, 23, 42, 0.14) 50%,
-    rgba(15, 23, 42, 0.08) 88%,
-    transparent 100%
-  );
-  pointer-events: none;
-  z-index: 4;
-}
-
-/** 다이얼 열림 — 불투명 탭바가 딤(1250) 위, 펼침 칩(1260) 아래 */
 .app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open {
   z-index: 1255;
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-plane,
-.app-bottom-nav-shell--delivery .app-bottom-nav-grid {
+.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open .app-bottom-nav-plane,
+.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open .app-bottom-nav-container {
   overflow: visible;
 }
 
-.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open .app-bottom-nav-plane,
-.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open .app-bottom-nav-grid {
-  overflow: visible;
+.owner-mobile-bottom-nav.app-bottom-nav-shell--delivery {
+  /* owner shell reuses delivery overhang rules */
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -539,24 +471,7 @@
     transition: none;
   }
 
-  .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
-    animation: none;
-    transform: rotate(0deg) scale(1);
-    will-change: auto;
+  .app-bottom-nav-item:active {
+    transform: none;
   }
-
-  .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon::after {
-    animation: none;
-    opacity: 0;
-  }
-}
-
-/**
- * 매장 오너 모바일 하단 탭 — 배달 `app-bottom-nav-shell--delivery` 재사용.
- * 레거시 6탭·파란 accent 규칙은 제거(홈 다이얼·5탭 그리드는 TS 쪽 단일 소스).
- */
-.owner-mobile-bottom-nav.app-bottom-nav-shell--delivery::before {
-  display: none;
-  content: none;
-  background: none;
 }

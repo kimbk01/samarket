@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
@@ -14,19 +15,6 @@ import {
 } from "@/lib/stores/store-commerce-bottom-action-bar";
 
 type ItemRow = { id: string; product_id: string; product_title_snapshot: string; qty?: number };
-
-function CloseIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M18 6L6 18M6 6l12 12"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
 
 function CameraIcon() {
   return (
@@ -219,19 +207,13 @@ export function StoreOrderReviewForm({
     }
     return (
       <div className="min-h-screen bg-sam-surface">
-        <header className="sticky top-0 z-10 flex h-12 items-center border-b border-sam-border-soft bg-sam-surface px-2">
-          <Link
-            href={detailHref}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-            aria-label={t("mypage_comp_close")}
-          >
-            <CloseIcon />
-          </Link>
-          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-semibold text-sam-fg">
-            {loading ? "…" : headerTitle}
-          </h1>
-          <span className="w-11 shrink-0" />
-        </header>
+        <DetailHeader
+          title={loading ? "…" : headerTitle}
+          backHref={detailHref}
+          preferHistoryBack={false}
+          backVariant="close"
+          backAriaLabel={t("mypage_comp_close")}
+        />
         <div className="mx-auto max-w-lg px-4 pt-4">{body}</div>
       </div>
     );

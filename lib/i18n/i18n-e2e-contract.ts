@@ -8,11 +8,11 @@ export const I18N_E2E_LANGUAGE_SETTINGS_PATH = "/mypage?tab=settings&section=reg
 export const I18N_E2E_LOGOUT_PATH = "/mypage/logout" as const;
 
 export const I18N_E2E_NAV_KEYS = [
-  "nav_bottom_trade",
-  "nav_bottom_community",
-  "nav_bottom_delivery",
-  "nav_bottom_messenger",
-  "nav_bottom_my",
+  "nav.trade",
+  "nav.community",
+  "nav.delivery",
+  "nav.chat",
+  "nav.my",
 ] as const satisfies readonly MessageKey[];
 
 export type I18nE2eNavKey = (typeof I18N_E2E_NAV_KEYS)[number];

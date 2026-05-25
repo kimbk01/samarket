@@ -3,7 +3,6 @@
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 import {
   getMobileTopTier1RuleSet,
   isTradeFloatingMenuSurface,
@@ -18,36 +17,29 @@ import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathnam
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
-import { samTier1HeaderIconCluster, samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
+import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
 } from "@/lib/main-menu/bottom-nav-config";
-import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
-import { AppTier1HeaderTitleCluster } from "@/components/layout/AppTier1HeaderTitleCluster";
+import { SectionHeader, DetailHeader } from "@/components/layout/sector-header";
 import { StoresHomeHeaderChrome } from "@/components/stores/home/hub/StoresHomeHeaderChrome";
 import {
   DELIVERY_CONSUMER_HEADER_BAR_CLASS,
-  DELIVERY_TIER1_HEADER_INNER_CLASS,
   isDeliveryConsumerPath,
 } from "@/lib/design/delivery-chrome";
-import {
-  APP_TIER1_HEADER_BAR_CLASS,
-  APP_TIER1_HEADER_ICON_BTN_CLASS,
-  APP_TIER1_HEADER_ROW_WRAP_CLASS,
-} from "@/lib/layout/app-tier1-header";
+import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import type { ReactNode } from "react";
 
 function UnifiedTier1Shell({ children }: { children: ReactNode }) {
   return (
-    <header className="w-full min-w-0 max-w-full shrink-0 overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px]">
+    <header className="w-full min-w-0 max-w-full shrink-0 overflow-x-hidden sector-header-shell sector-header-shell--embedded">
       {children}
     </header>
   );
@@ -87,51 +79,32 @@ export function RegionBar({
     const segmentTitle = isPhilifeFeed
       ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY)
       : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
-    const tier1TitleOnly = (
-      <h1 className="flex h-full min-h-0 min-w-0 w-full flex-row items-center gap-2 overflow-hidden text-sam-fg">
-        <span className="shrink-0 sam-text-page-title leading-none">{segmentTitle}</span>
-      </h1>
-    );
     return (
       <UnifiedTier1Shell>
-        <div
-          className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-0 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
-        >
-          {isPhilifeFeed ? (
-            <>
-              <div className="flex h-full w-10 shrink-0 items-center justify-start">
-                <MyHubHeaderInfoHubTrigger />
-              </div>
-              <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left ml-[length:1pt]">
-                {tier1TitleOnly}
-              </div>
-              <div className={samTier1HeaderRightColumn}>
-                <div className={samTier1HeaderIconCluster}>
+        <SectionHeader
+          embedded
+          titleAlign="left"
+          leftSlot={<MyHubHeaderInfoHubTrigger />}
+          title={segmentTitle}
+          rightSlot={
+            <div className={samTier1HeaderIconCluster}>
+              {isPhilifeFeed ? (
+                <>
                   <PhilifeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />
                   <PhilifeHeaderAddressMenuButton />
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="flex h-full w-10 shrink-0 items-center justify-start">
-                <MyHubHeaderInfoHubTrigger />
-              </div>
-              <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left ml-[length:1pt]">
-                {tier1TitleOnly}
-              </div>
-              <div className={samTier1HeaderRightColumn}>
-                <div className={samTier1HeaderIconCluster}>
+                </>
+              ) : (
+                <>
                   <TradeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+                </>
+              )}
+            </div>
+          }
+        />
       </UnifiedTier1Shell>
     );
   }
@@ -186,35 +159,10 @@ export function RegionBar({
     centerFromExtras != null && typeof centerFromExtras !== "string" ? (
       centerFromExtras
     ) : stringTitle ? (
-      <span className="truncate sam-text-page-title">{stringTitle}</span>
+      stringTitle
     ) : (
-      <span className="truncate sam-text-page-title">dibaY</span>
+      "dibaY"
     );
-
-  const tier1BackClass = `${APP_TIER1_HEADER_ICON_BTN_CLASS} !h-[length:var(--delivery-header-action)] !min-h-0 !w-[length:var(--delivery-header-action)] !min-w-0`;
-
-  const leading =
-    o?.leftSlot != null ? (
-      o.leftSlot
-    ) : hideBack ? undefined : (
-      <AppBackButton
-        preferHistoryBack={preferHistoryBack}
-        backHref={backHref}
-        ariaLabel={ariaLabel}
-        className={tier1BackClass}
-      />
-    );
-
-  const titleCore =
-    centerFromExtras != null && typeof centerFromExtras !== "string" ? (
-      centerFromExtras
-    ) : (
-      <span className="truncate sam-text-page-title">{stringTitle ?? "dibaY"}</span>
-    );
-
-  const titleNode = (
-    <AppTier1HeaderTitleCluster title={titleCore} subtitle={subtitle} subtitleHref={subtitleHref} />
-  );
 
   const trailing =
     o?.rightSlot != null ? o.rightSlot : showHub ? <MyHubHeaderActions /> : null;
@@ -223,17 +171,20 @@ export function RegionBar({
     ? `delivery-ui ${DELIVERY_CONSUMER_HEADER_BAR_CLASS}`
     : APP_TIER1_HEADER_BAR_CLASS;
 
-  const innerClass = isDeliveryConsumerPath(pathNoQuery)
-    ? DELIVERY_TIER1_HEADER_INNER_CLASS
-    : APP_MAIN_HEADER_INNER_CLASS;
-
   return (
     <header className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${barClass}`}>
-      <div className={innerClass}>
-        <div className={APP_TIER1_HEADER_ROW_WRAP_CLASS}>
-          <AppTier1HeaderRow title={titleNode} leading={leading} trailing={trailing} />
-        </div>
-      </div>
+      <DetailHeader
+        embedded
+        title={centerNode}
+        subtitle={subtitle}
+        subtitleHref={subtitleHref}
+        showBack={!hideBack}
+        leftSlot={o?.leftSlot ?? undefined}
+        backHref={backHref}
+        preferHistoryBack={preferHistoryBack}
+        backAriaLabel={ariaLabel}
+        rightSlot={trailing}
+      />
     </header>
   );
 }

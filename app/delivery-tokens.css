@@ -89,11 +89,11 @@
   --delivery-radius-modal: 4px;
   --delivery-radius-pill: 999px;
 
-  --delivery-header-h: 48px;
-  /** 1단 헤더 아이콘 히트 — `.delivery-ui` 에서 36px 로 덮음 */
-  --delivery-header-action: 40px;
-  /** 1단 헤더 아이콘 간 flex gap — `.delivery-ui` 에서 0px 로 덮음 */
-  --delivery-header-action-gap: 4px;
+  --delivery-header-h: 52px;
+  /** 1단 헤더 아이콘 히트 — sector-header 와 동기 */
+  --delivery-header-action: 36px;
+  /** 1단 헤더 아이콘 간 flex gap — 배민·당근형 밀착 */
+  --delivery-header-action-gap: 0px;
   /** 제목 앵커: 헤더 행 좌측에서 20% (← 유무와 무관) */
   --delivery-header-title-anchor-from-left: 20%;
   /** 아이콘 버튼 내부 글리프 크기 */

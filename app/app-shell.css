@@ -39,10 +39,10 @@ html.sam-main-shell-viewport-lock body {
   /**
    * 셸 높이 토큰.
    * 헤더 한 줄 높이는 `app/design-tokens.css` 의 `--sam-header-row-height` 와 동기.
-   * BottomNav 본체 높이는 `BOTTOM_NAV_SHELL.heightClass` (`h-[3.5rem]`) 와 동기.
+   * BottomNav 본체 높이는 `BOTTOM_NAV_SHELL.heightClass` (`h-[60px]`) 와 동기.
    */
-  --app-header-height: var(--sam-header-row-height, 56px);
-  --app-bottom-nav-height: 3.5rem;
+  --app-header-height: var(--sam-header-row-height, 52px);
+  --app-bottom-nav-height: 60px;
 }
 
 @layer components {
@@ -80,9 +80,9 @@ html.sam-main-shell-viewport-lock body {
   }
 
   /**
-   * 메인 하단 탭이 있는 본문 — **탭 본체(`--app-bottom-nav-height` = 3.5rem) + safe-bottom** 만.
+   * 메인 하단 탭이 있는 본문 — **탭 본체(`--app-bottom-nav-height` = 60px) + safe-bottom** 만.
    * 실서비스 `<main>` 은 `MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS`
-   * (`pb-[calc(5rem+env(...))]` = 탭 + **추가 1.5rem** 여백 + safe) 를 쓰므로
+   * (`pb-[calc(76px+env(...))]` = 탭 + **16px** 여백 + safe) 를 쓰므로
    * 두 클래스를 **동시에** 붙이면 하단 패딩이 이중으로 쌓인다 — 택일만.
    */
   .app-main-with-bottom-nav {

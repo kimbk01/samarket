@@ -62,7 +62,6 @@ export function composeTradeBottomNavDisplayTabs(): BottomNavItemConfig[] {
   const trade = BOTTOM_NAV_ITEMS.find((t) => t.id === "home");
   const community = BOTTOM_NAV_ITEMS.find((t) => t.id === "community");
   const delivery = BOTTOM_NAV_ITEMS.find((t) => t.id === "stores");
-  const messenger = BOTTOM_NAV_ITEMS.find((t) => t.id === "chat");
   const my = BOTTOM_NAV_ITEMS.find((t) => t.id === "my");
 
   return [
@@ -70,38 +69,35 @@ export function composeTradeBottomNavDisplayTabs(): BottomNavItemConfig[] {
       id: "trade-home-hub",
       href: trade?.href ?? TRADE_HOME_HUB_HREF,
       label: "Home",
-      labelKey: "nav_bottom_home" as MessageKey,
+      labelKey: "nav.home" as MessageKey,
       icon: "trade",
     },
     {
       id: "trade-community",
       href: community?.href ?? "/philife",
       label: community?.label ?? "Community",
-      labelKey: community?.labelKey ?? ("nav_bottom_community" as MessageKey),
+      labelKey: community?.labelKey ?? ("nav.community" as MessageKey),
       icon: "community",
     },
     {
       id: "trade-delivery",
       href: delivery?.href ?? "/stores",
-      label: delivery?.label ?? "Delivery",
-      labelKey: delivery?.labelKey ?? ("nav_bottom_delivery" as MessageKey),
+      label: delivery?.label ?? "Food",
+      labelKey: delivery?.labelKey ?? ("nav.delivery" as MessageKey),
       icon: "stores",
     },
     {
       id: "trade-order-chat",
       href: mainBottomNavMessengerTabHref("trade"),
-      label: "DibaTalk",
-      labelKey: "nav_bottom_dibatalk" as MessageKey,
+      label: "Chat",
+      labelKey: "nav.chat" as MessageKey,
       icon: "chat",
-      ...(messenger?.activeShellClass ? { activeShellClass: messenger.activeShellClass } : {}),
-      ...(messenger?.iconActiveClass ? { iconActiveClass: messenger.iconActiveClass } : {}),
-      ...(messenger?.labelActiveClass ? { labelActiveClass: messenger.labelActiveClass } : {}),
     },
     {
       id: "trade-my",
       href: my?.href ?? "/mypage",
-      label: my?.label ?? "My Page",
-      labelKey: my?.labelKey ?? ("nav_bottom_my" as MessageKey),
+      label: my?.label ?? "My",
+      labelKey: my?.labelKey ?? ("nav.my" as MessageKey),
       icon: "my",
     },
   ];

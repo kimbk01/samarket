@@ -21,8 +21,7 @@ body[data-owner-compact-shell] {
   --owner-shell-content-max: 42rem;
   --owner-shell-main-pt: calc(var(--owner-shell-safe-top) + var(--owner-shell-toolbar-h));
   --owner-shell-main-pb: calc(
-    var(--app-bottom-nav-height, 3.5rem) + var(--delivery-home-overhang, 0px) +
-      var(--owner-shell-safe-bottom) + 0.25rem
+    76px + var(--delivery-home-overhang, 0px) + var(--owner-shell-safe-bottom)
   );
 }
 
@@ -103,7 +102,7 @@ body[data-owner-compact-shell] {
 }
 
 .owner-compact-shell__main-pb {
-  padding-bottom: var(--owner-shell-main-pb, calc(3.5rem + env(safe-area-inset-bottom, 0px)));
+  padding-bottom: var(--owner-shell-main-pb, calc(76px + env(safe-area-inset-bottom, 0px)));
 }
 
 /**

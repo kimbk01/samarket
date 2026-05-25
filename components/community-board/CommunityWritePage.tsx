@@ -3,7 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { getWriteForm } from "@/lib/community-board/form-registry";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { submitCommunityPost } from "@/lib/community-board/submit-community-post";
 import type { Board, PostCreatePayload } from "@/lib/community-board/types";
@@ -47,12 +47,12 @@ export function CommunityWritePage({
 
   return (
     <div className="min-h-screen bg-sam-app">
-      <div className="bg-sam-surface border-b border-sam-border sticky top-0 z-10">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
-          <AppBackButton backHref={cancelHref} ariaLabel={t("common_cancel")} />
-          <h1 className="text-lg font-semibold text-sam-fg">{t("common_write")}</h1>
-        </div>
-      </div>
+      <DetailHeader
+        title={t("common_write")}
+        backHref={cancelHref}
+        preferHistoryBack={false}
+        backAriaLabel={t("common_cancel")}
+      />
 
       <div className="max-w-3xl mx-auto px-4 py-4">
         <div className="bg-sam-surface rounded-ui-rect border border-sam-border p-4">

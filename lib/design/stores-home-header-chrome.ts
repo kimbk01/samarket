@@ -7,7 +7,7 @@ import {
 
 /** `/stores` 홈 녹색 헤더 — tier1 아이콘 버튼 + delivery 토큰 크기 */
 export const STORES_HOME_HEADER_ICON_BTN_CLASS =
-  `${APP_TIER1_HEADER_ICON_BTN_CLASS} relative text-white hover:bg-white/10 active:bg-white/15`;
+  `${APP_TIER1_HEADER_ICON_BTN_CLASS} relative !text-white hover:bg-white/10 active:bg-white/15`;
 
 /** 카트·알림 수량 뱃지 — 녹색 헤더 (빨간 배경 · 흰 글씨) */
 export const STORES_HOME_HEADER_COUNT_BADGE_CLASS =

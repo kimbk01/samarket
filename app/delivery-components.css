@@ -483,8 +483,8 @@
   }
 
   /**
-   * 커뮤니티·거래·내정보 1단 우측 — 배달 `.delivery-consumer-header__actions` 와 동일
-   * 히트(40px) · 글리프(22px) · 간격(4px). 레이아웃·기능은 각 도메인 컴포넌트 유지.
+   * 커뮤니티·거래·내정보 1단 우측 — 배달 `gap: var(--delivery-header-action-gap)` 와 동일
+   * 히트(36px) · 글리프(22px) · 간격(0px). 레이아웃·기능은 각 도메인 컴포넌트 유지.
    */
   .sam-tier1-header-icon-cluster {
     display: inline-flex;
@@ -1287,4 +1287,23 @@
 
 html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
   overscroll-behavior-y: none;
+}
+
+/** `/stores` 홈 녹색 헤더 — sector-header 기본 아이콘색(#604c4c) 덮어쓰기 */
+.delivery-ui[data-stores-home-header] :is(
+  .sam-tier1-header__icon-btn,
+  .sam-tier1-header-icon-cluster .sam-header-action,
+  .sam-tier1-header-icon-cluster a,
+  .sam-tier1-header-icon-cluster button
+) {
+  color: #ffffff;
+}
+
+.delivery-ui[data-stores-home-header] :is(
+  .sam-tier1-header__icon-btn,
+  .sam-tier1-header-icon-cluster .sam-header-action,
+  .sam-tier1-header-icon-cluster a,
+  .sam-tier1-header-icon-cluster button
+):is(:hover, :active) {
+  background: rgba(255, 252, 252, 0.14);
 }

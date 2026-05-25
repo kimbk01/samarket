@@ -34,6 +34,7 @@ import {
 import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 import { Tier1HeaderBellGlyph, Tier1HeaderBellMutedGlyph } from "@/lib/ui/tier1-header-glyphs";
 import {
   STORES_HOME_HEADER_ICON_BTN_CLASS,
@@ -417,7 +418,7 @@ export function PhilifeHeaderNotificationInbox({
         className={
           tone === "onPrimary"
             ? STORES_HOME_HEADER_ICON_BTN_CLASS
-            : "sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+            : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`
         }
         aria-haspopup="dialog"
         aria-expanded={open}

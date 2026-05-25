@@ -15,11 +15,11 @@ import { primeNotificationSoundAudio } from "@/lib/notifications/play-notificati
 
 import {
   samTier1HeaderIconCluster,
+  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
-  SAM_TIER1_HEADER_ICON_HIT_CLASS,
 } from "@/lib/ui/tier1-header-icon";
 
-const HUB_TRAILING_ROW_CLASS = `${samTier1HeaderIconCluster} w-[88px]`;
+const HUB_TRAILING_ROW_CLASS = samTier1HeaderIconCluster;
 
 function HamburgerMenuIcon() {
   return (
@@ -42,7 +42,7 @@ function HubHeaderSettingsHamburgerFallback() {
   return (
     <Link
       href={buildMypageInfoHubHref()}
-      className={`sam-header-action flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} items-center justify-center text-sam-fg`}
+      className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} flex items-center justify-center`}
       aria-label={t("hub_settings_aria")}
     >
       <HamburgerMenuIcon />
@@ -61,7 +61,7 @@ export function MyHubHeaderInfoHubTrigger() {
     <button
       type="button"
       onClick={openInfoHub}
-      className={`sam-header-action flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} items-center justify-center text-sam-fg`}
+      className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} flex items-center justify-center`}
       aria-label={t("hub_settings_aria")}
     >
       <HamburgerMenuIcon />
@@ -74,7 +74,7 @@ export function MyHubHeaderInfoHubTrigger() {
  */
 export function MyHubHeaderInAppSound() {
   return (
-    <div className="flex w-10 shrink-0 items-center justify-end">
+    <div className="flex shrink-0 items-center justify-end">
       <Suspense fallback={<MyHubHeaderInAppSoundFallback />}>
         <MyHubHeaderInAppSoundInner />
       </Suspense>
@@ -84,7 +84,7 @@ export function MyHubHeaderInAppSound() {
 
 function MyHubHeaderInAppSoundFallback() {
   return (
-    <span className="sam-header-action h-10 w-10 text-sam-fg opacity-70" aria-hidden>
+    <span className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} opacity-70`} aria-hidden>
       <BellIcon />
     </span>
   );
@@ -155,7 +155,7 @@ function MyHubHeaderInAppSoundInner() {
   return (
     <button
       type="button"
-      className={`sam-header-action relative h-10 w-10 text-sam-fg disabled:opacity-60 ${!soundOn && loaded ? "opacity-70" : ""}`}
+      className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative disabled:opacity-60 ${!soundOn && loaded ? "opacity-70" : ""}`}
       onClick={() => void onToggleSound()}
       aria-pressed={soundOn}
       disabled={busy}
@@ -184,7 +184,7 @@ export function MyHubHeaderActions() {
 function MyHubHeaderActionsFallback() {
   return (
     <div className={HUB_TRAILING_ROW_CLASS}>
-      <span className="sam-header-action h-10 w-10 text-sam-fg opacity-70" aria-hidden>
+      <span className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} opacity-70`} aria-hidden>
         <BellIcon />
       </span>
       <HubHeaderSettingsHamburgerFallback />

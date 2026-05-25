@@ -1,11 +1,12 @@
 "use client";
 
-import { ArrowLeft, Phone, Video } from "lucide-react";
+import { Phone, Video } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DetailHeader } from "@/components/layout/sector-header";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerCallLogDisplayType,
@@ -101,23 +102,18 @@ export function CommunityMessengerCallLogsClient() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-sam-app">
-      <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-sam-border bg-sam-app/95 px-3 py-3 backdrop-blur-sm pt-[max(12px,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg active:bg-sam-surface-muted"
-          aria-label={t("nav_back")}
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <h1 className="min-w-0 flex-1 truncate sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_call_logs_title")}</h1>
-        <Link
-          href="/community-messenger?section=chats"
-          className="sam-text-body-secondary shrink-0 text-signature active:opacity-80"
-        >
-          {t("nav_conversation")}
-        </Link>
-      </header>
+      <DetailHeader
+        title={t("cm_ui_call_logs_title")}
+        onBack={() => router.back()}
+        rightSlot={
+          <Link
+            href="/community-messenger?section=chats"
+            className="sam-text-body-secondary shrink-0 px-1 text-signature active:opacity-80"
+          >
+            {t("nav_conversation")}
+          </Link>
+        }
+      />
 
       <main className="flex-1 px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
         {loading ? (

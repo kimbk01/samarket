@@ -107,3 +107,10 @@ export const APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS = APP_MAIN_HEADER_INNER
  */
 export const TRADE_HUB_LIST_ITEM_CARD_CLASS =
   "relative overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-none";
+
+/** standalone fixed 섹터 헤더 아래 본문 offset — `app/sector-header.css` `--sector-header-h` 와 동기 */
+export const APP_SECTOR_HEADER_OFFSET_TOP_CLASS =
+  "pt-[calc(var(--sector-header-h,52px)+env(safe-area-inset-top,0px))]";
+
+/** 섹터 헤더 직후 본문 최소 상단 여백 */
+export const APP_SECTOR_HEADER_CONTENT_TOP_PAD_CLASS = "pt-2";

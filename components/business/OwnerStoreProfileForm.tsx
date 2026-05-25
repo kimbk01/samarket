@@ -689,7 +689,7 @@ export function OwnerStoreProfileForm({
         }}
         className={`max-w-full min-w-0 space-y-3 sm:space-y-4 ${
           isDirty
-            ? "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+            ? "pb-[calc(60px+env(safe-area-inset-bottom,0px))]"
             : "pb-0"
         }`}
       >

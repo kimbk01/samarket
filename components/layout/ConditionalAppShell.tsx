@@ -202,7 +202,9 @@ export function ConditionalAppShell({
         <Suspense
           fallback={
             <div className={BOTTOM_NAV_SHELL.outerClassName} aria-hidden>
-              <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`} />
+              <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
+                <div className={`${BOTTOM_NAV_SHELL.containerClassName} ${BOTTOM_NAV_SHELL.heightClass}`} />
+              </div>
             </div>
           }
         >

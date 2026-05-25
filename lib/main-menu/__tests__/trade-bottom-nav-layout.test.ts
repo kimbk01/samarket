@@ -21,7 +21,7 @@ describe("composeTradeBottomNavDisplayTabs", () => {
     expect(tabs.find((t) => t.id === "trade-home-hub")?.href).toBe("/market");
     expect(tabs.find((t) => t.id === "trade-community")?.href).toBe("/philife");
     expect(tabs.find((t) => t.id === "trade-delivery")?.href).toBe("/stores");
-    expect(tabs.find((t) => t.id === "trade-order-chat")?.labelKey).toBe("nav_bottom_dibatalk");
+    expect(tabs.find((t) => t.id === "trade-order-chat")?.labelKey).toBe("nav.chat");
     expect(tabs.find((t) => t.id === "trade-order-chat")?.href).toContain("/community-messenger/trade-chats");
   });
 });

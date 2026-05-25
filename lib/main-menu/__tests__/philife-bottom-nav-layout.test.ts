@@ -18,8 +18,8 @@ describe("composePhilifeBottomNavDisplayTabs", () => {
       "philife-my",
     ]);
     expect(tabs.find((t) => t.id === "philife-home-hub")?.href).toBe("/philife");
-    expect(tabs.find((t) => t.id === "philife-home-hub")?.labelKey).toBe("nav_bottom_home");
-    expect(tabs.find((t) => t.id === "philife-messenger")?.labelKey).toBe("nav_bottom_dibatalk");
+    expect(tabs.find((t) => t.id === "philife-home-hub")?.labelKey).toBe("nav.home");
+    expect(tabs.find((t) => t.id === "philife-messenger")?.labelKey).toBe("nav.chat");
     expect(tabs.find((t) => t.id === "philife-trade")?.href).toBe("/market");
     expect(tabs.find((t) => t.id === "philife-delivery")?.href).toBe("/stores");
   });

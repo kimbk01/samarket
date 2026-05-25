@@ -8,7 +8,10 @@ import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
-import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
+import {
+  SAM_TIER1_HEADER_ACTION_BTN_CLASS,
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+} from "@/lib/ui/tier1-header-icon";
 
 /**
  * `/philife` 1단 헤더 — 페이스북형 **둥근 사각형 +** 글쓰기(기존 하단 FAB 대체).
@@ -26,7 +29,7 @@ function PhilifeHeaderComposeButtonFallback() {
   return (
     <Link
       href={philifeAppPaths.write}
-      className="sam-header-action h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+      className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
       aria-label={t("tier1_community_write")}
     >
       <PlusInSquareIcon />
@@ -49,7 +52,7 @@ function PhilifeHeaderComposeButtonInner() {
     return (
       <Link
         href={href}
-        className="sam-header-action h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+        className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
         aria-label={aria}
         onClick={(e) => {
           if (!guardBeforeNavigate()) e.preventDefault();
@@ -67,7 +70,7 @@ function PhilifeHeaderComposeButtonInner() {
         if (!guardBeforeNavigate()) return;
         openWriteSheet(category);
       }}
-      className="sam-header-action h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+      className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
       aria-label={aria}
     >
       <PlusInSquareIcon />
