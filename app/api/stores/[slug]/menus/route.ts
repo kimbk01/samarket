@@ -84,7 +84,7 @@ export async function GET(
       logMenusColdFillDeepBreakdownRoute({
         handlerT0: startedAt,
         auth_ms: 0,
-        cache_lookup_ms: cacheLookupMs,
+        memory_cache_lookup_ms: cacheLookupMs,
         payload_build_ms: 0,
         cache_hit: true,
         slug: decoded,
@@ -116,15 +116,16 @@ export async function GET(
     let menusSnapshotVia: "counter_row" | "unified_rpc" | undefined;
 
     const payload = await runStoreMenusPublicServerSingleFlight(decoded, async () => {
+      let memoryCacheLookupMs = 0;
       if (!effectiveCacheBypass) {
         const cacheLookup0 = performance.now();
         const memHit = readStoreMenusPublicServerCache(decoded);
-        const cacheLookupMs = Math.round(performance.now() - cacheLookup0);
+        memoryCacheLookupMs = Math.round(performance.now() - cacheLookup0);
         if (memHit) {
           logMenusColdFillDeepBreakdownRoute({
             handlerT0: startedAt,
             auth_ms: 0,
-            cache_lookup_ms: cacheLookupMs,
+            memory_cache_lookup_ms: memoryCacheLookupMs,
             payload_build_ms: 0,
             cache_hit: true,
             slug: decoded,
@@ -167,7 +168,7 @@ export async function GET(
       logMenusColdFillDeepBreakdownRoute({
         handlerT0: startedAt,
         auth_ms: Math.round((result.marks.authDone ?? startedAt) - startedAt),
-        cache_lookup_ms: 0,
+        memory_cache_lookup_ms: memoryCacheLookupMs,
         payload_build_ms: payloadBuildMs,
         cache_hit: false,
         slug: decoded,

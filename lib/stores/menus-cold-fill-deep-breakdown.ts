@@ -9,9 +9,16 @@ export type MenusColdFillSnapshotVia = "counter_row" | "unified_rpc" | "route_me
 export type MenusColdFillDeepBreakdown = {
   route_total_ms: number;
   auth_ms: number;
+  /** @deprecated use memory_cache_lookup_ms + snapshot_row_lookup_ms */
   cache_lookup_ms: number;
+  memory_cache_lookup_ms: number;
+  snapshot_row_lookup_ms: number;
+  unified_rpc_ms: number;
   rpc_ms: number;
   counter_upsert_ms?: number;
+  counter_upsert_blocking_ms: number;
+  counter_upsert_deferred?: boolean;
+  response_unblocked_by_counter?: boolean;
   payload_build_ms: number;
   json_serialize_ms: number;
   response_bytes: number;
@@ -40,7 +47,10 @@ export type MenusColdFillDeepBreakdown = {
 export type MenusColdFillServerPartial = Pick<
   MenusColdFillDeepBreakdown,
   | "rpc_ms"
+  | "unified_rpc_ms"
   | "cache_lookup_ms"
+  | "memory_cache_lookup_ms"
+  | "snapshot_row_lookup_ms"
   | "payload_build_ms"
   | "menu_count"
   | "option_count"
@@ -48,7 +58,16 @@ export type MenusColdFillServerPartial = Pick<
   | "snapshot_via"
   | "worst_stage"
   | "cache_hit"
-> & { counter_upsert_ms?: number };
+  | "counter_upsert_blocking_ms"
+  | "counter_upsert_deferred"
+  | "response_unblocked_by_counter"
+>;
+
+export type MenusColdFillDeferredCounterUpsertLog = {
+  slug: string;
+  counter_upsert_deferred_ms: number;
+  counter_upsert_deferred: true;
+};
 
 type MenusColdFillClientSession = {
   slug: string;
@@ -187,6 +206,35 @@ export function menusColdFillClientTraceEnabled(): boolean {
 export function logMenusColdFillDeepBreakdown(entry: MenusColdFillDeepBreakdown): void {
   // eslint-disable-next-line no-console -- menus cold fill deep breakdown
   console.info("[menus-cold-fill-deep-breakdown]", entry);
+}
+
+/** unified RPC cold path — counter row upsert 완료 후 별도 로그 (응답 경로 비블로킹). */
+export function logMenusColdFillDeferredCounterUpsert(
+  entry: MenusColdFillDeferredCounterUpsertLog
+): void {
+  // eslint-disable-next-line no-console -- menus cold fill deferred counter upsert
+  console.info("[menus-cold-fill-deep-breakdown]", entry);
+}
+
+function mergeMenusColdFillLookupFields(input: {
+  memory_cache_lookup_ms?: number;
+  snapshot_row_lookup_ms?: number;
+  serverPartial?: MenusColdFillServerPartial | null;
+}): Pick<
+  MenusColdFillDeepBreakdown,
+  "memory_cache_lookup_ms" | "snapshot_row_lookup_ms" | "cache_lookup_ms"
+> {
+  const memory_cache_lookup_ms = Math.round(
+    input.memory_cache_lookup_ms ?? input.serverPartial?.memory_cache_lookup_ms ?? 0
+  );
+  const snapshot_row_lookup_ms = Math.round(
+    input.snapshot_row_lookup_ms ?? input.serverPartial?.snapshot_row_lookup_ms ?? 0
+  );
+  return {
+    memory_cache_lookup_ms,
+    snapshot_row_lookup_ms,
+    cache_lookup_ms: memory_cache_lookup_ms + snapshot_row_lookup_ms,
+  };
 }
 
 function getOrCreateSession(slug: string, fetchPath: string): MenusColdFillClientSession {
@@ -422,7 +470,12 @@ export function logMenusColdFillDeepBreakdownClient(
   logMenusColdFillDeepBreakdown({
     route_total_ms: input.route_total_ms ?? 0,
     auth_ms: input.auth_ms ?? 0,
-    cache_lookup_ms: input.cache_lookup_ms ?? serverPartial?.cache_lookup_ms ?? 0,
+    ...mergeMenusColdFillLookupFields({
+      memory_cache_lookup_ms: input.memory_cache_lookup_ms,
+      snapshot_row_lookup_ms: input.snapshot_row_lookup_ms,
+      serverPartial,
+    }),
+    unified_rpc_ms: input.unified_rpc_ms ?? serverPartial?.unified_rpc_ms ?? serverPartial?.rpc_ms ?? 0,
     rpc_ms: input.rpc_ms ?? serverPartial?.rpc_ms ?? 0,
     payload_build_ms: input.payload_build_ms ?? serverPartial?.payload_build_ms ?? 0,
     json_serialize_ms: input.json_serialize_ms ?? 0,
@@ -435,6 +488,12 @@ export function logMenusColdFillDeepBreakdownClient(
     snapshot_via: input.snapshot_via ?? serverPartial?.snapshot_via ?? "unknown",
     slug,
     worst_stage: input.worst_stage ?? serverPartial?.worst_stage ?? null,
+    counter_upsert_blocking_ms:
+      input.counter_upsert_blocking_ms ?? serverPartial?.counter_upsert_blocking_ms ?? 0,
+    counter_upsert_deferred:
+      input.counter_upsert_deferred ?? serverPartial?.counter_upsert_deferred,
+    response_unblocked_by_counter:
+      input.response_unblocked_by_counter ?? serverPartial?.response_unblocked_by_counter,
     fetch_wall_ms: input.fetch_wall_ms ?? null,
     response_download_ms: input.response_download_ms ?? null,
     json_parse_ms: input.json_parse_ms ?? null,
@@ -447,18 +506,16 @@ export function logMenusColdFillDeepBreakdownClient(
     suspense_release_ms: input.suspense_release_ms ?? null,
     client_cache_hit: input.client_cache_hit,
     fetch_path: input.fetch_path,
-    ...(serverPartial?.counter_upsert_ms != null
-      ? { counter_upsert_ms: serverPartial.counter_upsert_ms }
-      : input.counter_upsert_ms != null
-        ? { counter_upsert_ms: input.counter_upsert_ms }
-        : {}),
   });
 }
 
 export function logMenusColdFillDeepBreakdownRoute(input: {
   handlerT0: number;
   auth_ms: number;
-  cache_lookup_ms: number;
+  memory_cache_lookup_ms?: number;
+  snapshot_row_lookup_ms?: number;
+  /** @deprecated route-level legacy — prefer memory_cache_lookup_ms */
+  cache_lookup_ms?: number;
   payload_build_ms: number;
   cache_hit: boolean;
   slug: string;
@@ -469,31 +526,40 @@ export function logMenusColdFillDeepBreakdownRoute(input: {
   const useServerPartial =
     !input.cache_hit && input.snapshotVia !== "route_memory_hit";
   const serverPartial = useServerPartial ? peekLastMenusColdFillServerPartial() : null;
+  const lookup = mergeMenusColdFillLookupFields({
+    memory_cache_lookup_ms:
+      input.memory_cache_lookup_ms ?? input.cache_lookup_ms ?? 0,
+    snapshot_row_lookup_ms: input.snapshot_row_lookup_ms,
+    serverPartial,
+  });
   const counts = countMenusCatalogStats(input.body as StoreMenusCatalogBody);
   const serialize0 = perfNow();
   JSON.stringify(input.body);
   const json_serialize_ms = Math.round(perfNow() - serialize0);
   const response_bytes = measureJsonUtf8Bytes(input.body);
   const route_total_ms = Math.round(perfNow() - input.handlerT0);
-  const rpc_ms = serverPartial?.rpc_ms ?? 0;
+  const unified_rpc_ms = serverPartial?.unified_rpc_ms ?? serverPartial?.rpc_ms ?? 0;
+  const rpc_ms = serverPartial?.rpc_ms ?? unified_rpc_ms;
   const payload_build_ms = Math.round(
     input.payload_build_ms + (serverPartial?.payload_build_ms ?? 0)
   );
+  const counter_upsert_blocking_ms = serverPartial?.counter_upsert_blocking_ms ?? 0;
   const transport_slack_ms = Math.max(
     0,
     route_total_ms -
       input.auth_ms -
-      input.cache_lookup_ms -
-      (serverPartial?.cache_lookup_ms ?? 0) -
-      rpc_ms -
+      lookup.memory_cache_lookup_ms -
+      lookup.snapshot_row_lookup_ms -
+      unified_rpc_ms -
       payload_build_ms -
       json_serialize_ms -
-      (serverPartial?.counter_upsert_ms ?? 0)
+      counter_upsert_blocking_ms
   );
   logMenusColdFillDeepBreakdown({
     route_total_ms,
     auth_ms: input.auth_ms,
-    cache_lookup_ms: input.cache_lookup_ms + (serverPartial?.cache_lookup_ms ?? 0),
+    ...lookup,
+    unified_rpc_ms,
     rpc_ms,
     payload_build_ms,
     json_serialize_ms,
@@ -506,6 +572,9 @@ export function logMenusColdFillDeepBreakdownRoute(input: {
     snapshot_via: input.snapshotVia ?? serverPartial?.snapshot_via ?? "unknown",
     slug: normalizeSlug(input.slug),
     worst_stage: serverPartial?.worst_stage ?? input.worst_stage ?? null,
+    counter_upsert_blocking_ms,
+    counter_upsert_deferred: serverPartial?.counter_upsert_deferred,
+    response_unblocked_by_counter: serverPartial?.response_unblocked_by_counter,
     fetch_wall_ms: null,
     response_download_ms: null,
     json_parse_ms: null,
@@ -516,9 +585,6 @@ export function logMenusColdFillDeepBreakdownRoute(input: {
     image_decode_ms: null,
     hydration_commit_ms: null,
     suspense_release_ms: null,
-    ...(serverPartial?.counter_upsert_ms != null
-      ? { counter_upsert_ms: serverPartial.counter_upsert_ms }
-      : {}),
   });
 }
 
