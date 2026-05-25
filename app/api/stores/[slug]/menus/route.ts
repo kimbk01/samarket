@@ -251,7 +251,9 @@ export async function GET(
 
       const payloadStart = performance.now();
       if (!effectiveCacheBypass) {
-        writeStoreMenusPublicServerCache(decoded, result.body, result.snapshotVia);
+        writeStoreMenusPublicServerCache(decoded, result.body, result.snapshotVia, {
+          schedulePreRefreshTimer: createStoreMenusSwrRefreshFetcher(decoded),
+        });
       }
       result.marks.payloadDone = performance.now();
       const payloadBuildMs = Math.round(performance.now() - payloadStart);

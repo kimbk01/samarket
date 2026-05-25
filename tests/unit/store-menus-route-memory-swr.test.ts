@@ -3,6 +3,7 @@ import {
   readStoreMenusPublicServerCache,
   resetStoreMenusPublicServerCacheForTests,
   scheduleStoreMenusRouteMemoryRevalidate,
+  storeMenusPreRefreshLeadMs,
   storeMenusRouteMemoryHardTtlMs,
   storeMenusRouteMemorySoftTtlMs,
   writeStoreMenusPublicServerCache,
@@ -60,5 +61,45 @@ describe("store-menus-public-server-cache SWR", () => {
       expect(read.hit).toBe(true);
       if (read.hit) expect(read.body).toEqual(refreshed);
     });
+  });
+
+  it("proactive pre-refresh timer avoids hard stale without user revisit", async () => {
+    vi.useFakeTimers();
+    const hardTtl = storeMenusRouteMemoryHardTtlMs();
+    const leadMs = storeMenusPreRefreshLeadMs();
+    let refreshCalls = 0;
+    const fetcher = async () => {
+      refreshCalls += 1;
+      return { body: BODY, snapshotVia: "counter_row" as const };
+    };
+
+    writeStoreMenusPublicServerCache("cafe-a", BODY, "counter_row", {
+      schedulePreRefreshTimer: fetcher,
+    });
+
+    vi.advanceTimersByTime(hardTtl - leadMs + 1);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(refreshCalls).toBeGreaterThanOrEqual(1);
+
+    vi.advanceTimersByTime(leadMs + 5_000);
+    const read = readStoreMenusPublicServerCache("cafe-a");
+    expect(read.hit).toBe(true);
+    if (!read.hit) expect(read.reason).toBe("hard_stale");
+  });
+
+  it("dedupes inflight pre-refresh", async () => {
+    let refreshCalls = 0;
+    const fetcher = async () => {
+      refreshCalls += 1;
+      await new Promise((r) => setTimeout(r, 50));
+      return { body: BODY, snapshotVia: "counter_row" as const };
+    };
+    writeStoreMenusPublicServerCache("cafe-a", BODY);
+    scheduleStoreMenusRouteMemoryRevalidate("cafe-a", fetcher);
+    scheduleStoreMenusRouteMemoryRevalidate("cafe-a", fetcher);
+    await new Promise((r) => setTimeout(r, 120));
+    expect(refreshCalls).toBe(1);
   });
 });
