@@ -190,7 +190,15 @@ export type HomeSyncSnapshotBuildResult = {
   snapshotPath: 1;
 };
 
-/** Snapshot-first critical build — null = unified RPC unavailable, caller may legacy fallback. */
+export class HomeSyncSnapshotUnavailableError extends Error {
+  readonly code = "snapshot_unavailable" as const;
+  constructor(readonly reason: string) {
+    super(`home-sync snapshot unavailable: ${reason}`);
+    this.name = "HomeSyncSnapshotUnavailableError";
+  }
+}
+
+/** Snapshot-first critical build — null = unified RPC unavailable; caller returns 503. */
 export async function tryBuildHomeSyncCriticalFromSnapshot(
   sbAny: SupabaseClient<any>,
   userId: string,

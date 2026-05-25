@@ -166,7 +166,10 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm-bootstrap-snapshot-cache";
 import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
-import { tryBuildHomeSyncCriticalFromSnapshot } from "@/lib/community-messenger/home-sync-snapshot";
+import {
+  HomeSyncSnapshotUnavailableError,
+  tryBuildHomeSyncCriticalFromSnapshot,
+} from "@/lib/community-messenger/home-sync-snapshot";
 import { tryLoadRoomBootstrapCriticalWaveAFromSnapshot } from "@/lib/community-messenger/room-bootstrap-snapshot";
 import {
   invalidateRoomBootstrapSnapshotCache,
@@ -3724,35 +3727,17 @@ export async function listCommunityMessengerMyChatsAndGroups(
 
   if (isCritical) {
     const sbSnap = getSupabaseOrNull();
-    if (sbSnap) {
-      const snap = await tryBuildHomeSyncCriticalFromSnapshot(
-        sbSnap as never,
-        userId,
-        options?.trace
-      );
-      if (snap) {
-        if (messengerPerfStepsEnabled()) {
-          logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
-        }
-        return { chats: snap.chats, groups: snap.groups };
-      }
-      {
-        const { setLastHomeSyncRouteObservability, homeSyncLegacyFallbackObs } = await import(
-          "@/lib/community-messenger/home-sync-route-observability"
-        );
-        setLastHomeSyncRouteObservability(homeSyncLegacyFallbackObs());
-        const { auditLegacyFallbackUsage } = await import("@/lib/ops/legacy-fallback-usage-audit");
-        auditLegacyFallbackUsage({
-          route: "/api/community-messenger/home-sync",
-          fallback_branch: "legacy_multi_wave",
-          reason: "unified_rpc_unavailable",
-        });
-      }
-      if (isDev) {
-        // eslint-disable-next-line no-console -- snapshot deploy probe
-        console.warn("[home-sync-snapshot-fallback]", { reason: "unified_rpc_unavailable" });
-      }
+    if (!sbSnap) {
+      throw new HomeSyncSnapshotUnavailableError("supabase_unavailable");
     }
+    const snap = await tryBuildHomeSyncCriticalFromSnapshot(sbSnap as never, userId, options?.trace);
+    if (snap) {
+      if (messengerPerfStepsEnabled()) {
+        logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
+      }
+      return { chats: snap.chats, groups: snap.groups };
+    }
+    throw new HomeSyncSnapshotUnavailableError("unified_rpc_unavailable");
   }
 
   const explicitCap = options?.roomListCap;

@@ -95,6 +95,11 @@ const hardDeletedModules = [
     track: "SB1",
     needle: "tryLoadStoresBrowseFromSnapshot",
   },
+  {
+    module: "lib/community-messenger/service.ts",
+    track: "HS2",
+    needle: "tryBuildHomeSyncCriticalFromSnapshot",
+  },
 ];
 
 for (const mod of legacyModules) {
@@ -152,6 +157,12 @@ for (const { module: mod, track, needle } of hardDeletedModules) {
   }
   if (text.includes("buildStoresBrowseLegacy")) {
     fails.push(`${mod} (${track}) still imports legacy stores browse builder`);
+  }
+  if (text.includes("home-sync-snapshot-fallback")) {
+    fails.push(`${mod} (${track}) still has legacy fallback log tag`);
+  }
+  if (text.includes('fallback_branch: "legacy_multi_wave"')) {
+    fails.push(`${mod} (${track}) still has HS2 legacy_multi_wave fallback audit`);
   }
 }
 

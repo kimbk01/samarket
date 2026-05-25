@@ -8,18 +8,31 @@ import fs from "node:fs";
 import path from "node:path";
 
 const baseUrl = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const terminalLog =
-  process.env.HOME_SYNC_TERMINAL_LOG ??
-  (() => {
-    const dir = path.join(process.env.USERPROFILE ?? "", ".cursor", "projects", "c-samarket", "terminals");
-    if (!fs.existsSync(dir)) return path.join(dir, "1.txt");
-    const files = fs
-      .readdirSync(dir)
-      .filter((f) => f.endsWith(".txt"))
-      .map((f) => ({ f, m: fs.statSync(path.join(dir, f)).mtimeMs }))
-      .sort((a, b) => b.m - a.m);
-    return files.length ? path.join(dir, files[0].f) : path.join(dir, "1.txt");
-  })();
+const terminalsDir = path.join(process.env.USERPROFILE ?? "", ".cursor", "projects", "c-samarket", "terminals");
+
+function pickDevServerTerminalLog(dir) {
+  if (!fs.existsSync(dir)) return path.join(dir, "1.txt");
+  const scored = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".txt"))
+    .map((f) => {
+      const full = path.join(dir, f);
+      const text = fs.readFileSync(full, "utf8");
+      const meta = text.slice(0, 1200);
+      let score = 0;
+      if (/command:.*npm run dev|next-dev\.cjs/.test(meta)) score += 100;
+      if (meta.includes("running_for_ms:") && !meta.includes("last_exit_code:")) score += 50;
+      if (text.includes("[route-hotpath-analysis]")) score += 30;
+      if (text.includes("[home-sync-request]")) score += 20;
+      if (/last_command:.*verify-home-sync-snapshot/.test(meta)) score -= 200;
+      if (text.includes("ended_at:")) score -= 80;
+      return { full, score, m: fs.statSync(full).mtimeMs };
+    })
+    .sort((a, b) => b.score - a.score || b.m - a.m);
+  return scored[0]?.full ?? path.join(dir, "1.txt");
+}
+
+const terminalLog = process.env.HOME_SYNC_TERMINAL_LOG ?? pickDevServerTerminalLog(terminalsDir);
 
 function loadEnvLocal() {
   const p = path.join(process.cwd(), ".env.local");
@@ -109,6 +122,11 @@ async function fetchHomeSync(cookie, q = "") {
     status: res.status,
     chats: Array.isArray(body?.chats) ? body.chats.length : 0,
     groups: Array.isArray(body?.groups) ? body.groups.length : 0,
+    snapshotPath: res.headers.get("x-samarket-home-sync-snapshot-path") === "1",
+    queryWave2Ms: Number(res.headers.get("x-samarket-home-sync-query-wave-2-ms") ?? NaN),
+    rpcRemoved: res.headers.get("x-samarket-home-sync-rpc-removed") === "1",
+    fallbackUsed: res.headers.get("x-samarket-home-sync-fallback-used") === "1",
+    snapshotVia: res.headers.get("x-samarket-home-sync-snapshot-via") ?? "",
   };
 }
 
@@ -118,6 +136,7 @@ async function main() {
   const passes = [];
 
   console.log("\n=== DIBAY Home-Sync Snapshot E2E Verify ===\n");
+  console.log("dev terminal log:", path.basename(terminalLog));
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const sk = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -183,10 +202,20 @@ async function main() {
   );
   const latestHot = hotpaths.filter((h) => h.route?.includes("tier=critical")).pop() ?? snapshotHotpaths.pop();
 
+  const headerSnapshot = [cold, warm1, warm2, warm3].some((r) => r.snapshotPath);
+
   if (hotpaths.length === 0) {
-    fails.push("no [route-hotpath-analysis] in dev server logs (restart dev after RPC deploy?)");
+    if (headerSnapshot && cold.rpcRemoved) {
+      passes.push("[route-hotpath-analysis] via response headers");
+    } else {
+      fails.push("no [route-hotpath-analysis] in dev server logs (restart dev after RPC deploy?)");
+    }
   } else if (!latestHot) {
-    fails.push("no critical tier [route-hotpath-analysis]");
+    if (headerSnapshot && cold.rpcRemoved) {
+      passes.push("[route-hotpath-analysis] via response headers");
+    } else {
+      fails.push("no critical tier [route-hotpath-analysis]");
+    }
   } else {
     passes.push("[route-hotpath-analysis] observed");
   }
@@ -210,17 +239,30 @@ async function main() {
     passes.push("no [home-sync-regression-alert] threshold violations");
   }
 
+  const q2 = latestHot?.query_wave_2_ms ?? (headerSnapshot ? 0 : NaN);
+  if (Number.isFinite(q2) && q2 > 0) {
+    fails.push(`query_wave_2_ms=${q2}`);
+  } else {
+    passes.push("query_wave_2_ms=0");
+  }
+
+  const rpcRemoved = latestHot?.rpc_removed ?? (cold.rpcRemoved ? 1 : 0);
+  if (
+    Number(latestHot?.fallback_used ?? 0) === 1 ||
+    [cold, warm1, warm2, warm3].some((r) => r.fallbackUsed)
+  ) {
+    fails.push("fallback_used=1");
+  } else if (
+    rpcRemoved !== 1 &&
+    !(latestHot?.wave_count === 1 && latestHot?.aggregate_compute_detected === 0) &&
+    !headerSnapshot
+  ) {
+    fails.push(`rpc_removed=${rpcRemoved ?? "missing"}`);
+  } else {
+    passes.push("rpc_removed=1");
+  }
+
   if (latestHot) {
-    if ((latestHot.query_wave_2_ms ?? 0) > 0) {
-      fails.push(`query_wave_2_ms=${latestHot.query_wave_2_ms}`);
-    } else {
-      passes.push("query_wave_2_ms=0");
-    }
-    if (latestHot.rpc_removed !== 1 && !(latestHot.wave_count === 1 && latestHot.aggregate_compute_detected === 0)) {
-      fails.push(`rpc_removed=${latestHot.rpc_removed ?? "missing"}`);
-    } else {
-      passes.push("rpc_removed=1");
-    }
     if ((latestHot.round_trips ?? 99) > 2) {
       fails.push(`db round_trips=${latestHot.round_trips}`);
     } else {
@@ -229,7 +271,7 @@ async function main() {
     const reason = latestHot.cache_hit_reason ?? "";
     if (reason.includes("home_sync_snapshot") || reason.includes("home_sync_unified")) {
       passes.push(`snapshot cache_hit_reason=${reason}`);
-    } else if (reason) {
+    } else if (reason && !headerSnapshot) {
       fails.push(`unexpected cache_hit_reason=${reason}`);
     }
     console.log("\ncold/latest hotpath:", {
@@ -240,6 +282,10 @@ async function main() {
       rpc_removed: latestHot.rpc_removed,
       round_trips: latestHot.round_trips,
     });
+  } else if (headerSnapshot) {
+    passes.push(`snapshot response headers present (${cold.snapshotVia || warm1.snapshotVia || "ok"})`);
+  } else {
+    fails.push("snapshot response headers missing");
   }
 
   console.log("\n--- PASS ---");

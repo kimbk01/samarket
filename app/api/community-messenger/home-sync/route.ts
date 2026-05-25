@@ -1,4 +1,5 @@
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { HomeSyncSnapshotUnavailableError } from "@/lib/community-messenger/home-sync-snapshot";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
 import type { CommunityMessengerHomeSyncBundlePayload } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
@@ -292,6 +293,26 @@ export async function GET(req: NextRequest) {
         mergeHomeSyncDeepStepsAfterSingleflightJoin(trace, leaderTrace, routeBundleAwaitMs);
       }
     } catch (e) {
+      if (e instanceof HomeSyncSnapshotUnavailableError) {
+        if (trace) {
+          console.warn("[home-sync-skip]", {
+            status: 503,
+            reason: "snapshot_unavailable",
+            detail: e.reason,
+            token: trace.token,
+          });
+        }
+        return NextResponse.json(
+          { ok: false, error: "snapshot_unavailable" },
+          {
+            status: 503,
+            headers: {
+              ...messengerApiEdgeCacheHeaders(),
+              "x-samarket-home-sync-fallback-used": "0",
+            },
+          }
+        );
+      }
       if (trace) {
         console.warn("[home-sync-skip]", { status: 500, reason: "bundle_error", token: trace.token });
       }
