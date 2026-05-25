@@ -41,7 +41,7 @@ mustExist("docs/perf/prod-signoff-report.md");
 mustInclude("lib/chats/build-owner-hub-badge-payload.ts", "auditLegacyFallbackUsage");
 mustInclude("lib/community-messenger/service.ts", "auditLegacyFallbackUsage");
 mustInclude("lib/stores/fetch-store-menus-catalog.ts", "tryLoadStoreMenusCatalogFromSnapshot");
-mustInclude("lib/stores/fetch-owner-store-order-counts.ts", "auditLegacyFallbackUsage");
+mustInclude("lib/stores/fetch-owner-store-order-counts.ts", "tryLoadDeliverySummarySnapshot");
 mustInclude("app/api/me/notifications/route.ts", "tryLoadOwnerStoreNotificationsFromSnapshot");
 mustInclude("lib/community-messenger/consistency/messenger-consistency-cross-tab.ts", "recordReconnectStressEvent");
 mustInclude("lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list.ts", "recordReconnectStressEvent");

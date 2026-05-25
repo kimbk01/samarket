@@ -61,7 +61,7 @@ function perfV2ForLog(input: OwnerDashboardPerfV2Log): OwnerDashboardPerfV2Log {
 function collectOrderCountsStructuralFails(input: OwnerDashboardPerfV2Log): string[] {
   const fails: string[] = [];
   if (input.fallback_used === 1) fails.push("legacy_fallback_used");
-  if (input.order_counts_via != null && input.order_counts_via !== "rpc_snapshot") {
+  if (input.order_counts_via != null && input.order_counts_via !== "delivery_summary_snapshot") {
     fails.push(`order_counts_via=${input.order_counts_via}`);
   }
   if (typeof input.db_round_trips === "number" && input.db_round_trips > 1) {

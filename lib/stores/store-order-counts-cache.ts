@@ -53,7 +53,7 @@ export function peekStoreOrderCountsCacheHit(storeId: string): boolean {
 export function primeStoreOrderCountsCache(
   storeId: string,
   value: StoreOrderCountsPayload,
-  via: DeliverySummaryOrderCountsVia = "legacy"
+  via: DeliverySummaryOrderCountsVia = "delivery_summary_snapshot"
 ): void {
   const key = cacheKey(storeId);
   if (!key) return;
@@ -105,7 +105,7 @@ export async function getCachedStoreOrderCounts(
 
   const flight = factory()
     .then((value) => {
-      cache.set(key, { value, via: "legacy", expiresAt: Date.now() + ORDER_COUNTS_TTL_MS });
+      cache.set(key, { value, via: "delivery_summary_snapshot", expiresAt: Date.now() + ORDER_COUNTS_TTL_MS });
       return value;
     })
     .finally(() => {

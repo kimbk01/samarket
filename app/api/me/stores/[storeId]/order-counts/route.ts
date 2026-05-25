@@ -93,8 +93,8 @@ export async function GET(
   coldBreakdown.ownership_ms = ownershipCachedBefore ? 0 : 0;
   coldBreakdown.cache_lookup_ms = Math.round(perfNowMs() - cacheLookup0);
 
-  let orderCountsVia: DeliverySummaryOrderCountsVia = "legacy";
-  let fallbackUsed: 0 | 1 = 1;
+  let orderCountsVia: DeliverySummaryOrderCountsVia = "delivery_summary_snapshot";
+  let fallbackUsed: 0 | 1 = 0;
   let orderCountRpcMs = 0;
 
   let countsResult: Awaited<ReturnType<typeof getCachedStoreOrderCounts>>;
@@ -103,7 +103,7 @@ export async function GET(
     countsResult = await getCachedStoreOrderCounts(id, async () => {
       throw new Error("order_counts_cache_invariant");
     });
-    orderCountsVia = countsResult.via ?? "legacy";
+    orderCountsVia = countsResult.via ?? "delivery_summary_snapshot";
     count_ms = Math.round(perfNowMs() - cache0);
   } else {
     const fetched = await fetchOwnerStoreOrderCountsWithMeta(sb, id, userId, coldBreakdown);
@@ -127,7 +127,7 @@ export async function GET(
       return NextResponse.json({ ok: false, error: fetched.gate.error }, { status: gateStatus });
     }
     orderCountsVia = fetched.via;
-    fallbackUsed = fetched.via === "legacy" ? 1 : 0;
+    fallbackUsed = fetched.via === "delivery_summary_snapshot" ? 0 : 1;
     orderCountRpcMs = coldBreakdown.rpc_wall_ms;
     const payloadBuild0 = perfNowMs();
     const snapshotPayload: StoreOrderCountsPayload = { ok: true as const, ...fetched.snapshot };
@@ -141,7 +141,7 @@ export async function GET(
     countsResult = { payload: snapshotPayload, cache_hit: false };
     count_ms = orderCountRpcMs + coldBreakdown.cache_set_ms + coldBreakdown.payload_build_ms;
 
-    if (fetched.via === "rpc_snapshot") {
+    if (fetched.via === "delivery_summary_snapshot") {
       queueMicrotask(() => {
         seedOwnerStoreOwnershipCache(userId, id, {
           ok: true,
@@ -194,7 +194,7 @@ export async function GET(
       first_paint_blocking: _req.headers.get("x-samarket-first-paint-blocking") !== "0",
       db_round_trips: cache_hit
         ? 0
-        : orderCountsVia === "delivery_summary_snapshot" || orderCountsVia === "rpc_snapshot"
+        : orderCountsVia === "delivery_summary_snapshot"
           ? 1
           : 2,
       ...(cache_hit

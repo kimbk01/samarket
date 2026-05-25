@@ -120,7 +120,7 @@ export function evaluateOrderCountsStructural(perfV2, coldBreakdowns, rpcServerS
 
   for (const r of cold) {
     if (r.fallback_used === 1) fails.push("legacy_fallback_used");
-    if (r.order_counts_via != null && r.order_counts_via !== "rpc_snapshot") {
+    if (r.order_counts_via != null && r.order_counts_via !== "delivery_summary_snapshot") {
       fails.push(`order_counts_via=${r.order_counts_via}`);
     }
     if (typeof r.db_round_trips === "number" && r.db_round_trips > 1) {
@@ -131,7 +131,7 @@ export function evaluateOrderCountsStructural(perfV2, coldBreakdowns, rpcServerS
   for (const b of coldBreakdowns) {
     if ((b.ownership_check_ms ?? 0) > 0) fails.push(`ownership_check_ms=${b.ownership_check_ms}`);
     if ((b.store_ops_meta_ms ?? 0) > 0) fails.push(`store_ops_meta_ms=${b.store_ops_meta_ms}`);
-    if (b.order_counts_via && b.order_counts_via !== "rpc_snapshot") {
+    if (b.order_counts_via && b.order_counts_via !== "delivery_summary_snapshot") {
       fails.push(`breakdown_via=${b.order_counts_via}`);
     }
   }
@@ -265,7 +265,7 @@ export function deriveRttLimited(structuralPass, latencyPass, mode, orderCountsC
   const recommended_action = rtt_limited
     ? "measure on deployed same-region environment (set OWNER_DASHBOARD_PERF_ENV=prod_same_region); do not tune SQL for linked RTT"
     : !structuralPass
-      ? "fix structural regression (rpc_snapshot, 1 RTT, fallback 0) before latency tuning"
+      ? "fix structural regression (delivery_summary_snapshot, 1 RTT, fallback 0) before latency tuning"
       : !latencyPass && mode === "prod_same_region"
         ? "investigate prod cold/warm latency (same-region runtime + DB)"
         : null;
