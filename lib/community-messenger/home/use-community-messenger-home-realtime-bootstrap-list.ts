@@ -266,7 +266,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           if (!existing) {
             queueMicrotask(() => {
               if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
-              requestMessengerHubBadgeResync("participant_unread_changed");
+              requestMessengerHubBadgeResync("participant_unread_changed", {
+                roomId: rid,
+                participantUnreadDirection: "increase",
+              });
             });
             continue;
           }
@@ -301,7 +304,11 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             if (existing && communityMessengerRoomIsTrade(existing)) {
               scheduleHomeMissingRoomSummaryMerge(existing.id);
             }
-            requestMessengerHubBadgeResync("participant_unread_changed");
+            requestMessengerHubBadgeResync("participant_unread_changed", {
+              roomId: rid,
+              participantUnreadDirection:
+                hint.unreadCount <= (existing?.unreadCount ?? 0) ? "decrease" : "increase",
+            });
           });
         }
         if (!changed) return prev;

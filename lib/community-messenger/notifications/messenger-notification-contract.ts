@@ -80,9 +80,12 @@ export type MessengerHubBadgeResyncDetail = {
 export type MessengerHubBadgeResyncOptions = {
   roomId?: string;
   messageId?: string;
+  /** participant_unread_changed — 읽음 ack(감소) vs 새 메시지(증가) */
+  participantUnreadDirection?: "decrease" | "increase";
 };
 
 const MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS = 4_000;
+const PARTICIPANT_UNREAD_DECREASE_HUB_RESYNC_DEDUPE_MS = 4_000;
 
 function isMarkReadHubResyncReason(reason: MessengerHubBadgeResyncReason): boolean {
   return reason === "room_open_mark_read" || reason === "room_phase2_mark_read";
@@ -104,6 +107,7 @@ export function requestMessengerHubBadgeResync(
     at: Date.now(),
   };
   const roomId = opts?.roomId?.trim() || undefined;
+  const participantUnreadDirection = opts?.participantUnreadDirection;
   if (isMarkReadHubResyncReason(reason)) {
     logMarkReadRefreshChain({
       roomId: roomId ?? null,
@@ -115,11 +119,21 @@ export function requestMessengerHubBadgeResync(
       reason,
     });
   }
+  let dedupeMs = 0;
+  if (isMarkReadHubResyncReason(reason)) {
+    dedupeMs = MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS;
+  } else if (
+    reason === "participant_unread_changed" &&
+    participantUnreadDirection === "decrease" &&
+    roomId
+  ) {
+    dedupeMs = PARTICIPANT_UNREAD_DECREASE_HUB_RESYNC_DEDUPE_MS;
+  }
   dispatchOwnerHubBadgeRefresh({
     source: detail.source,
     key: reason,
     roomId,
-    /** mark_read 는 room 단위 4s — participant 등은 즉시 전달 */
-    dedupeMs: isMarkReadHubResyncReason(reason) ? MARK_READ_HUB_RESYNC_EVENT_DEDUPE_MS : 0,
+    participantUnreadDirection,
+    dedupeMs,
   });
 }

@@ -67,7 +67,7 @@ import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
 
-import { logHubRefreshGuard, logMarkReadRefreshChain } from "@/lib/chats/hub-refresh-guard";
+import { logHubRefreshGuard, logMarkReadRefreshChain, logParticipantUnreadHubRefresh } from "@/lib/chats/hub-refresh-guard";
 
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
@@ -155,6 +155,10 @@ const MESSENGER_MARK_READ_HUB_COALESCE_DELAY_MS = 48;
 
 const MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS = 5_000;
 
+/** participant unread 감소(읽음 ack) — room 단위 hub refresh collapse */
+
+const PARTICIPANT_UNREAD_ROOM_DEDUPE_MS = 4_000;
+
 
 
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
@@ -196,6 +200,8 @@ let markReadHubCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
 let pendingMarkReadHubDetail: { source?: string; key?: string; roomId?: string; at?: number } | null = null;
 
 let lastMarkReadHubNetworkAt = 0;
+
+let lastParticipantDecreaseHubRefreshByRoom = new Map<string, number>();
 
 /** App Boot background 전까지 HTTP fetch 금지 — BottomNav 구독만 허용 */
 
@@ -905,7 +911,13 @@ function onTradeUnreadUpdated() {
 
 
 
-type OwnerHubBadgeRefreshDetail = { source?: string; key?: string; roomId?: string; at?: number };
+type OwnerHubBadgeRefreshDetail = {
+  source?: string;
+  key?: string;
+  roomId?: string;
+  participantUnreadDirection?: "decrease" | "increase";
+  at?: number;
+};
 
 
 
@@ -1123,7 +1135,7 @@ function scheduleMarkReadHubBadgeRefresh(detail: OwnerHubBadgeRefreshDetail): vo
 
 
 
-function scheduleMessengerParticipantHubBadgeRefresh() {
+function scheduleMessengerParticipantHubBadgeRefresh(detail?: OwnerHubBadgeRefreshDetail) {
 
   /**
 
@@ -1133,13 +1145,133 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
 
    * 첫 이벤트는 즉시 반영하고, 이후 5초 창에서는 trailing 1회만 허용한다.
 
+   * unread 감소(읽음 ack)는 mark_read 직후 hub fetch 와 겹치면 skip — 증가(새 메시지)는 즉시성 유지.
+
    */
+
+  const roomId = detail?.roomId?.trim() || null;
+
+  const direction = detail?.participantUnreadDirection;
+
+  const reason = detail?.key ?? "participant_unread_changed";
 
   const now = Date.now();
 
-  const shouldForceFresh = now - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
+  const logParticipantSkip = (extra: {
+    reason: string;
+    dedupe_hit?: boolean;
+    same_room_skip?: boolean;
+    recent_mark_read_gap_skip?: boolean;
+    inflight_join?: boolean;
+  }) => {
+
+    logParticipantUnreadHubRefresh({
+
+      event_room_id: roomId,
+
+      event_user_id: null,
+
+      source: "community_messenger_participant",
+
+      reason: extra.reason,
+
+      dedupe_hit: extra.dedupe_hit ?? false,
+
+      same_room_skip: extra.same_room_skip ?? false,
+
+      recent_mark_read_gap_skip: extra.recent_mark_read_gap_skip ?? false,
+
+      cmFresh_bypass_allowed: false,
+
+      cmFresh_bypass_blocked: false,
+
+      hub_fetch_triggered: false,
+
+      hub_fetch_skipped: true,
+
+      inflight_join: extra.inflight_join ?? false,
+
+    });
+
+  };
+
+  const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+
+  if (inFlight) {
+
+    logParticipantSkip({ reason: "inflight_join", inflight_join: true });
+
+    return;
+
+  }
+
+  if (direction === "decrease") {
+
+    if (now - lastMarkReadHubNetworkAt < MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS) {
+
+      logParticipantSkip({ reason: "recent_mark_read_network", recent_mark_read_gap_skip: true });
+
+      return;
+
+    }
+
+    if (roomId) {
+
+      const prev = lastParticipantDecreaseHubRefreshByRoom.get(roomId) ?? 0;
+
+      if (now - prev < PARTICIPANT_UNREAD_ROOM_DEDUPE_MS) {
+
+        logParticipantSkip({ reason: "same_room_decrease_burst", same_room_skip: true, dedupe_hit: true });
+
+        return;
+
+      }
+
+      lastParticipantDecreaseHubRefreshByRoom.set(roomId, now);
+
+    }
+
+  }
+
+  const recentHubFetch = now - lastFetchCompletedAt < MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS;
+
+  const staleEnough = now - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
+
+  const shouldForceFresh = staleEnough && !recentHubFetch;
 
   const elapsed = now - lastMessengerParticipantForceRefreshAt;
+
+  const logParticipantTrigger = (forceFresh: boolean) => {
+
+    logParticipantUnreadHubRefresh({
+
+      event_room_id: roomId,
+
+      event_user_id: null,
+
+      source: "community_messenger_participant",
+
+      reason,
+
+      dedupe_hit: false,
+
+      same_room_skip: false,
+
+      recent_mark_read_gap_skip: false,
+
+      cmFresh_bypass_allowed: forceFresh,
+
+      cmFresh_bypass_blocked: recentHubFetch,
+
+      hub_fetch_triggered: true,
+
+      hub_fetch_skipped: false,
+
+      inflight_join: false,
+
+    });
+
+  };
 
   if (elapsed >= MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS) {
 
@@ -1152,6 +1284,8 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
       messengerHubBadgeCoalesceTimer = null;
 
     }
+
+    logParticipantTrigger(shouldForceFresh);
 
     scheduleDeferredHubBadgeFetch("community_messenger_event", shouldForceFresh, {
 
@@ -1171,9 +1305,17 @@ function scheduleMessengerParticipantHubBadgeRefresh() {
 
     lastMessengerParticipantForceRefreshAt = Date.now();
 
+    const trailingRecentHubFetch =
+
+      Date.now() - lastFetchCompletedAt < MESSENGER_MARK_READ_HUB_BYPASS_BLOCK_MS;
+
     const trailingShouldForceFresh =
 
-      Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
+      Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS &&
+
+      !trailingRecentHubFetch;
+
+    logParticipantTrigger(trailingShouldForceFresh);
 
     scheduleDeferredHubBadgeFetch("community_messenger_event_trailing", trailingShouldForceFresh, {
 
@@ -1217,7 +1359,7 @@ function onOwnerHubRefresh(ev?: Event) {
 
     }
 
-    scheduleMessengerParticipantHubBadgeRefresh();
+    scheduleMessengerParticipantHubBadgeRefresh(detail);
 
     return;
 

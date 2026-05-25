@@ -186,7 +186,10 @@ export function useMessageNotificationBridge(
             at: Date.now(),
           });
           if (nextUnread <= prevUnread) {
-            requestMessengerHubBadgeResync("participant_unread_changed");
+            requestMessengerHubBadgeResync("participant_unread_changed", {
+              roomId: nextRoomId,
+              participantUnreadDirection: "decrease",
+            });
             return;
           }
 
@@ -205,7 +208,10 @@ export function useMessageNotificationBridge(
           void prefetchCommunityMessengerRoomSnapshot(nextRoomId, { force: true });
 
           if (playbackRef.current === "hub_sync_only") {
-            requestMessengerHubBadgeResync("participant_unread_changed");
+            requestMessengerHubBadgeResync("participant_unread_changed", {
+              roomId: nextRoomId,
+              participantUnreadDirection: "increase",
+            });
             return;
           }
 
@@ -215,7 +221,10 @@ export function useMessageNotificationBridge(
               typeof document !== "undefined" && document.visibilityState === "visible";
             const focusOk = typeof document === "undefined" || document.hasFocus();
             if (sameRoomPath && visOk && focusOk) {
-              requestMessengerHubBadgeResync("participant_unread_changed");
+              requestMessengerHubBadgeResync("participant_unread_changed", {
+                roomId: nextRoomId,
+                participantUnreadDirection: "increase",
+              });
               return;
             }
             if (!shouldSuppressMessengerInAppSoundOnTradeExplorationSurface(pathnameRef.current)) {
@@ -238,7 +247,10 @@ export function useMessageNotificationBridge(
               callStatus: useCallStore.getState().callStatus,
               onNavigateToRoom: navigateToCommunityRoom,
             });
-            requestMessengerHubBadgeResync("participant_unread_changed");
+            requestMessengerHubBadgeResync("participant_unread_changed", {
+              roomId: nextRoomId,
+              participantUnreadDirection: "increase",
+            });
             return;
           }
 
@@ -295,7 +307,10 @@ export function useMessageNotificationBridge(
             callStatus: useCallStore.getState().callStatus,
             onNavigateToRoom: navigateToCommunityRoom,
           });
-          requestMessengerHubBadgeResync("participant_unread_changed");
+          requestMessengerHubBadgeResync("participant_unread_changed", {
+            roomId: nextRoomId,
+            participantUnreadDirection: "increase",
+          });
         }
       );
       },

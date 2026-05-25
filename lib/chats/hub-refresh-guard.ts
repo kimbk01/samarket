@@ -25,6 +25,53 @@ type MarkReadRefreshChainEntry = {
   reason?: string;
 };
 
+type ParticipantUnreadHubRefreshEntry = {
+  event_room_id: string | null;
+  event_user_id: string | null;
+  source: string;
+  reason: string;
+  dedupe_hit?: boolean;
+  same_room_skip?: boolean;
+  recent_mark_read_gap_skip?: boolean;
+  cmFresh_bypass_allowed?: boolean;
+  cmFresh_bypass_blocked?: boolean;
+  hub_fetch_triggered?: boolean;
+  hub_fetch_skipped?: boolean;
+  inflight_join?: boolean;
+  request_count_10s?: number;
+};
+
+const recentParticipantHubRefresh = new Map<string, number[]>();
+
+function recordParticipantHubRefreshRequest(source: string, now = Date.now()): number {
+  const key = source.trim() || "community_messenger_participant";
+  const prev = recentParticipantHubRefresh.get(key) ?? [];
+  const next = pruneWindow(now, prev);
+  next.push(now);
+  recentParticipantHubRefresh.set(key, next);
+  return next.length;
+}
+
+export function logParticipantUnreadHubRefresh(entry: ParticipantUnreadHubRefreshEntry): void {
+  if (process.env.NODE_ENV !== "development") return;
+  const source = entry.source.trim() || "community_messenger_participant";
+  console.debug("[participant-unread-hub-refresh]", {
+    event_room_id: entry.event_room_id,
+    event_user_id: entry.event_user_id,
+    source,
+    reason: entry.reason,
+    dedupe_hit: entry.dedupe_hit ?? false,
+    same_room_skip: entry.same_room_skip ?? false,
+    recent_mark_read_gap_skip: entry.recent_mark_read_gap_skip ?? false,
+    cmFresh_bypass_allowed: entry.cmFresh_bypass_allowed ?? false,
+    cmFresh_bypass_blocked: entry.cmFresh_bypass_blocked ?? false,
+    hub_fetch_triggered: entry.hub_fetch_triggered ?? false,
+    hub_fetch_skipped: entry.hub_fetch_skipped ?? false,
+    inflight_join: entry.inflight_join ?? false,
+    request_count_10s: entry.request_count_10s ?? recordParticipantHubRefreshRequest(source),
+  });
+}
+
 const recentBySource = new Map<string, number[]>();
 
 function pruneWindow(now: number, bucket: number[]): number[] {

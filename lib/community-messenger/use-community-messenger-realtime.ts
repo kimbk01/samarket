@@ -336,7 +336,10 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
   if (now - last >= HOME_REALTIME_ROOM_BUMP_MIN_GAP_MS) {
     homeRealtimeRoomBumpLastAt.set(roomNorm, now);
     postCommunityMessengerBusEvent({ type: "cm.room.bump", roomId: roomRaw, at: now });
-    requestMessengerHubBadgeResync("participant_unread_changed");
+    requestMessengerHubBadgeResync("participant_unread_changed", {
+      roomId: roomRaw,
+      participantUnreadDirection: "increase",
+    });
   }
 
   const dedupeKey = `home-msg-insert:${roomNorm}:${messageId || Date.now()}`;

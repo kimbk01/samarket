@@ -21,6 +21,7 @@ type ChatChannelDispatchDetail = {
   key?: string;
   /** 동일 postId·다른 방에서 중복 갱신을 줄이기 위한 힌트(옵션) */
   roomId?: string;
+  participantUnreadDirection?: "decrease" | "increase";
   at: number;
 };
 
@@ -70,6 +71,7 @@ export function dispatchOwnerHubBadgeRefresh(args?: {
   source?: string;
   key?: string;
   roomId?: string;
+  participantUnreadDirection?: "decrease" | "increase";
   dedupeMs?: number;
 }): void {
   dispatchDedupedWindowEvent(
@@ -78,6 +80,7 @@ export function dispatchOwnerHubBadgeRefresh(args?: {
       source: args?.source,
       key: args?.key,
       roomId: args?.roomId,
+      participantUnreadDirection: args?.participantUnreadDirection,
       at: Date.now(),
     },
     args?.dedupeMs ?? EVENT_DISPATCH_DEFAULT_DEDUPE_MS

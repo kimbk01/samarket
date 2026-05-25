@@ -120,7 +120,10 @@ export function syncMessengerHomeAfterOutboundSend(args: {
     senderUserId: args.senderUserId,
     ...(preview ? { listPreview: preview } : {}),
   });
-  requestMessengerHubBadgeResync("participant_unread_changed");
+  requestMessengerHubBadgeResync("participant_unread_changed", {
+    roomId: args.roomId,
+    participantUnreadDirection: "increase",
+  });
 }
 
 export function postCommunityMessengerBusEvent(ev: MessengerBusEvent): void {
