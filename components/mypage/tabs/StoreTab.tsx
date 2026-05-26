@@ -104,30 +104,6 @@ export function StoreTab({
     );
   }
 
-  if (section === "manage") {
-    return (
-      <TabShell
-        title={safeT("mypage_comp_nav_sec_store_manage_label")}
-        description={t("mypage_comp_nav_sec_store_manage_desc")}
-      >
-        <MyPageQuickActions
-          items={[
-            {
-              label: hasOwnerStore ? t("mypage_comp_store_owner_hub") : t("mypage_comp_store_owner_cta_apply"),
-              href: hasOwnerStore ? businessHref : "/stores/owner/apply",
-              caption: hasOwnerStore ? t("mypage_comp_nav_sec_store_manage_desc") : t("mypage_comp_store_owner_intro"),
-            },
-            {
-              label: hasOwnerStore ? t("mypage_comp_store_owner_new_orders") : t("mypage_comp_nav_sec_store_member_label"),
-              href: hasOwnerStore ? businessOrdersHref : "/stores/owner/apply",
-              caption: hasOwnerStore ? t("mypage_comp_nav_sec_store_orders_desc") : t("mypage_comp_nav_sec_store_member_desc"),
-            },
-          ]}
-        />
-      </TabShell>
-    );
-  }
-
   if (section === "rider") {
     return (
       <TabShell

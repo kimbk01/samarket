@@ -15,6 +15,11 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  buildMypageAddressEditHref,
+  buildMypageAddressesHref,
+  parseSafeInternalReturnTo,
+} from "@/lib/addresses/mypage-addresses-return-to";
 
 function AddressEditorPageInner() {
   const { t } = useI18n();
@@ -22,6 +27,8 @@ function AddressEditorPageInner() {
   const sp = useSearchParams();
   const idFromUrl = (sp.get("id") ?? "").trim();
   const mapBootstrapUrl = sp.get("map") === "1";
+  const returnTo = parseSafeInternalReturnTo(sp.get("returnTo"));
+  const addressesListHref = buildMypageAddressesHref(returnTo);
 
   const [list, setList] = useState<UserAddressDTO[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -74,9 +81,10 @@ function AddressEditorPageInner() {
             replaceId = "";
           }
         }
-        const nextPath = replaceId
-          ? `/mypage/addresses/edit?id=${encodeURIComponent(replaceId)}`
-          : "/mypage/addresses/edit";
+        const nextPath = buildMypageAddressEditHref({
+          returnTo,
+          id: replaceId || undefined,
+        });
         router.replace(nextPath);
       } else if (!mapBootstrapUrl) {
         if (idFromUrl) {
@@ -91,7 +99,7 @@ function AddressEditorPageInner() {
 
       setBootstrapping(false);
     })();
-  }, [idFromUrl, mapBootstrapUrl, router]);
+  }, [idFromUrl, mapBootstrapUrl, returnTo, router, t]);
 
   async function reloadList() {
     const result = await fetchMeAddressesListSingleFlight();
@@ -113,7 +121,7 @@ function AddressEditorPageInner() {
         <button
           type="button"
           className="mx-auto mt-4 rounded-lg border border-sam-border px-4 py-2 sam-text-body font-semibold text-sam-fg"
-          onClick={() => router.push("/mypage/addresses")}
+          onClick={() => router.push(addressesListHref)}
         >
           {t("addr_ui_back_to_list")}
         </button>
@@ -129,14 +137,15 @@ function AddressEditorPageInner() {
       initial={editTarget}
       mapBootstrap={mapBootstrap}
       allAddresses={list}
-      onClose={() => router.push("/mypage/addresses")}
+      returnTo={returnTo}
+      onClose={() => router.push(addressesListHref)}
       onSaved={() => {
         invalidateAddressDefaultsSnapshotCache();
         void reloadList();
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
         }
-        router.push("/mypage/addresses");
+        router.push(addressesListHref);
       }}
     />
   );

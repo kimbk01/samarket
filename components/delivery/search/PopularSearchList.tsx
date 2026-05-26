@@ -4,12 +4,15 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 export function PopularSearchList({
   keywords,
   onPick,
+  limit = 5,
 }: {
   keywords: string[];
   onPick: (keyword: string) => void;
+  limit?: number;
 }) {
   const { t } = useI18n();
-  if (!keywords || keywords.length === 0) {
+  const visibleKeywords = keywords.slice(0, Math.max(0, limit));
+  if (!visibleKeywords || visibleKeywords.length === 0) {
     return (
       <section>
         <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_popular_heading")}</h2>
@@ -22,7 +25,7 @@ export function PopularSearchList({
     <section>
       <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_popular_heading")}</h2>
       <ol className="mt-2 space-y-1.5">
-        {keywords.slice(0, 10).map((k, idx) => (
+        {visibleKeywords.map((k, idx) => (
           <li key={`${k}:${idx}`}>
             <button
               type="button"

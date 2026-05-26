@@ -104,7 +104,6 @@ export const MYPAGE_MOBILE_NAV: MyPageMobileSectionDef[] = [
       navItem("store", "order-chat"),
       navItem("store", "payment"),
       navItem("store", "address"),
-      navItem("store", "manage"),
       navItem("store", "rider"),
     ],
   },

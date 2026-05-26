@@ -5,7 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
+import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
+import { STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import {
   MAIN_BOTTOM_NAV_FAB_DOCK_MS,
@@ -20,26 +22,41 @@ import {
   isMainBottomNavFabHrefActive,
   resolveMainBottomNavFabForPath,
 } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
+import { COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART } from "@/lib/stores/store-commerce-cart-nav";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import {
   FAB_SECTOR_TOUCH_CLASS,
   useFabSectorPressFeedback,
 } from "@/lib/layout/use-fab-sector-press-feedback";
 import {
-  FAB_PANEL_INSET_REM,
   FAB_SURFACE_ALPHA,
+  fabPanelBodyInlineStyle,
   fabSectorRootStyle,
 } from "@/lib/layout/main-bottom-nav-fab-sector-config";
 
 /**
- * UI 3상태
- * - panel: 메뉴 + 하단 흰 X
- * - panel-exit: 패널 우측 슬라이드 + ‹ 동시 진입 (X 없음)
- * - edge: ‹ 탭만
+ * CONTRACT — 배달 하단 FAB (`docs/main-bottom-nav-fab-sector-contract.md`)
+ * DO NOT: __edge/__stack 분리 · CSS panel/shell padding-top · toggle 높이 이중 규칙
+ * MUST: 단일 __shell morph · fabPanelBodyInlineStyle() · X→expandLocked+refresh
  */
 export { FAB_SURFACE_ALPHA } from "@/lib/layout/main-bottom-nav-fab-sector-config";
 
-type FabUiMode = "panel" | "panel-exit" | "edge";
+type FabPhase = "open" | "closing" | "closed" | "opening";
+
+const FAB_PANEL_CART_COUNT_BADGE_CLASS = `absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME} ring-white`;
+const FAB_TOGGLE_CART_COUNT_BADGE_CLASS = `main-bottom-nav-fab-sector__toggle-cart-badge ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`;
+
+function formatFabCartCountBadge(count: number): string {
+  return count > 99 ? "99+" : String(count);
+}
+
+function isFabCartItem(item: { id: string; icon: string }): boolean {
+  return item.icon === "cart" || item.id === "fab_delivery_cart";
+}
+
+function isFabShellExpanded(phase: FabPhase, panelEnterReady: boolean): boolean {
+  return phase === "open" || (phase === "opening" && panelEnterReady);
+}
 
 export function MainBottomNavFabSector() {
   const { t } = useI18n();
@@ -50,65 +67,110 @@ export function MainBottomNavFabSector() {
     () => resolveMainBottomNavFabForPath(pathname, tabs),
     [pathname, tabs]
   );
+  const { cartCount } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
   const enabled = fabConfig != null && fabConfig.items.length > 0;
-  const { collapsed, collapse, expand } = useMainBottomNavFabSectorScroll(enabled);
+  const [expandLocked, setExpandLocked] = useState(false);
+  const { collapsed, collapse, expand } = useMainBottomNavFabSectorScroll(enabled, expandLocked);
   const { isPressed, bindPress, clearPress } = useFabSectorPressFeedback();
 
-  const [mode, setMode] = useState<FabUiMode>("panel");
-  const [panelEnter, setPanelEnter] = useState(false);
-  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [phase, setPhase] = useState<FabPhase>("open");
+  const [panelEnterReady, setPanelEnterReady] = useState(false);
+  const phaseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelEnterRafRef = useRef<number | null>(null);
 
-  const clearExitTimer = useCallback(() => {
-    if (exitTimerRef.current) {
-      clearTimeout(exitTimerRef.current);
-      exitTimerRef.current = null;
+  const clearPhaseTimer = useCallback(() => {
+    if (phaseTimerRef.current) {
+      clearTimeout(phaseTimerRef.current);
+      phaseTimerRef.current = null;
     }
   }, []);
 
-  const startExit = useCallback(() => {
+  const clearPanelEnterRaf = useCallback(() => {
+    if (panelEnterRafRef.current != null) {
+      window.cancelAnimationFrame(panelEnterRafRef.current);
+      panelEnterRafRef.current = null;
+    }
+  }, []);
+
+  const startClosing = useCallback(() => {
     clearPress();
-    clearExitTimer();
-    setMode("panel-exit");
-    exitTimerRef.current = setTimeout(() => {
-      exitTimerRef.current = null;
-      setMode("edge");
+    clearPhaseTimer();
+    clearPanelEnterRaf();
+    setPanelEnterReady(false);
+    setPhase("closing");
+    phaseTimerRef.current = setTimeout(() => {
+      phaseTimerRef.current = null;
+      setPhase("closed");
     }, MAIN_BOTTOM_NAV_FAB_DOCK_MS);
-  }, [clearExitTimer, clearPress]);
+  }, [clearPhaseTimer, clearPanelEnterRaf, clearPress]);
+
+  const startOpening = useCallback(() => {
+    clearPress();
+    clearPhaseTimer();
+    clearPanelEnterRaf();
+    setPanelEnterReady(false);
+    setPhase("opening");
+    panelEnterRafRef.current = window.requestAnimationFrame(() => {
+      panelEnterRafRef.current = window.requestAnimationFrame(() => {
+        panelEnterRafRef.current = null;
+        setPanelEnterReady(true);
+      });
+    });
+    phaseTimerRef.current = setTimeout(() => {
+      phaseTimerRef.current = null;
+      setPanelEnterReady(false);
+      setPhase("open");
+    }, MAIN_BOTTOM_NAV_FAB_DOCK_MS);
+  }, [clearPhaseTimer, clearPanelEnterRaf, clearPress]);
 
   useEffect(() => {
     if (!enabled) {
-      clearExitTimer();
+      clearPhaseTimer();
+      clearPanelEnterRaf();
       clearPress();
+      setPanelEnterReady(false);
+      setExpandLocked(false);
+      setPhase("open");
       return;
     }
-    if (collapsed && mode === "panel") {
-      startExit();
+    if (collapsed && phase === "open") {
+      startClosing();
     }
-    if (!collapsed && mode === "edge") {
-      setMode("panel");
+    if (!collapsed && phase === "closed" && !expandLocked) {
+      startOpening();
     }
-  }, [collapsed, enabled, mode, startExit, clearExitTimer, clearPress]);
+  }, [
+    collapsed,
+    enabled,
+    expandLocked,
+    phase,
+    startClosing,
+    startOpening,
+    clearPhaseTimer,
+    clearPanelEnterRaf,
+    clearPress,
+  ]);
 
-  useEffect(() => () => clearExitTimer(), [clearExitTimer]);
+  useEffect(
+    () => () => {
+      clearPhaseTimer();
+      clearPanelEnterRaf();
+    },
+    [clearPhaseTimer, clearPanelEnterRaf]
+  );
 
-  useEffect(() => {
-    if (!panelEnter || mode !== "panel") return;
-    const timer = setTimeout(() => setPanelEnter(false), MAIN_BOTTOM_NAV_FAB_DOCK_MS);
-    return () => clearTimeout(timer);
-  }, [panelEnter, mode]);
-
-  const onClose = useCallback(() => {
-    if (mode !== "panel") return;
-    collapse();
-  }, [mode, collapse]);
-
-  const onEdgeOpen = useCallback(() => {
-    clearPress();
-    clearExitTimer();
-    expand();
-    setPanelEnter(true);
-    setMode("panel");
-  }, [clearExitTimer, expand, clearPress]);
+  const onToggle = useCallback(() => {
+    if (phase === "open") {
+      setExpandLocked(true);
+      collapse();
+      router.refresh();
+      return;
+    }
+    if (phase === "closed") {
+      setExpandLocked(false);
+      expand();
+    }
+  }, [phase, collapse, expand, router]);
 
   const prefetchFabHref = useCallback(
     (href: string) => {
@@ -128,144 +190,147 @@ export function MainBottomNavFabSector() {
 
   if (!enabled || !fabConfig) return null;
 
-  const showPanel = mode === "panel" || mode === "panel-exit";
-  const showClose = mode === "panel";
-  const showEdge = mode === "edge" || mode === "panel-exit";
+  const shellExpanded = isFabShellExpanded(phase, panelEnterReady);
+  const toggleInteractive = phase === "open" || phase === "closed";
+  const showToggleCartBadge = cartCount > 0 && !shellExpanded;
 
-  const panelClass = [
-    "main-bottom-nav-fab-sector__panel",
-    mode === "panel-exit" ? "main-bottom-nav-fab-sector__panel--exit" : "",
-    panelEnter && mode === "panel" ? "main-bottom-nav-fab-sector__panel--enter" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
-  const edgeClass = [
-    "main-bottom-nav-fab-sector__edge",
+  const toggleClass = [
+    "main-bottom-nav-fab-sector__toggle",
     FAB_SECTOR_TOUCH_CLASS,
-    MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
-    mode === "panel-exit" ? "main-bottom-nav-fab-sector__edge--dock-in" : "",
-    isPressed("edge") ? "main-bottom-nav-fab-sector__edge--pressed" : "",
+    isPressed("toggle") ? "main-bottom-nav-fab-sector__toggle--pressed" : "",
   ]
     .filter(Boolean)
     .join(" ");
+
+  const toggleAriaLabel =
+    phase === "open"
+      ? t("store_delivery_fab_close_aria")
+      : cartCount > 0
+        ? t("nav_cart_aria")
+        : t("store_delivery_fab_open_aria");
 
   return (
     <BodyPortal>
       <div
         data-testid="main-bottom-nav-fab-sector"
-        data-fab-mode={mode}
+        data-fab-phase={phase}
+        data-fab-shell-expanded={shellExpanded ? "true" : "false"}
+        data-panel-enter-ready={panelEnterReady ? "true" : "false"}
         data-fab-surface-alpha={FAB_SURFACE_ALPHA}
         className={`main-bottom-nav-fab-sector pointer-events-none fixed inset-x-0 ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS}`}
         style={fabRootStyle}
       >
-        {showEdge ? (
-          <button
-            type="button"
-            className={edgeClass}
-            onClick={onEdgeOpen}
-            disabled={mode === "panel-exit"}
-            aria-label={t("store_delivery_fab_open_aria")}
-            {...bindPress("edge")}
-          >
-            <ChevronLeftIcon />
-          </button>
-        ) : null}
-
-        {showPanel ? (
-          <div
-            className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-none mx-auto flex w-full min-w-0 flex-col items-end`}
-          >
+        <div
+          className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-none mx-auto flex w-full min-w-0 justify-end`}
+        >
+          <div className="main-bottom-nav-fab-sector__dock">
             <div
-              className={panelClass}
-              aria-label={t("store_delivery_float_menu_aria")}
-              style={{ paddingTop: `${FAB_PANEL_INSET_REM}rem` }}
+              className="main-bottom-nav-fab-sector__shell"
+              aria-label={shellExpanded ? t("store_delivery_float_menu_aria") : undefined}
             >
-              <ul className="main-bottom-nav-fab-sector__list">
-                {fabConfig.items.map((item) => {
-                  const active = isMainBottomNavFabHrefActive(pathname, item.href);
-                  const iconTab = { icon: item.icon, lucideIcon: item.lucideIcon };
-                  const rowClass = [
-                    "main-bottom-nav-fab-sector__row",
-                    FAB_SECTOR_TOUCH_CLASS,
-                    active ? "main-bottom-nav-fab-sector__row--active" : "",
-                    isPressed(item.id) ? "main-bottom-nav-fab-sector__row--pressed" : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-
-                  const content = (
-                    <>
-                      <span className="main-bottom-nav-fab-sector__icon-box">
-                        <MainBottomNavTabIcon tab={iconTab} className="main-bottom-nav-fab-sector__glyph" />
-                      </span>
-                      <span className="main-bottom-nav-fab-sector__caption">{item.label}</span>
-                    </>
-                  );
-
-                  const pressHandlers = bindPress(item.id);
-
-                  if (item.openInNewTab) {
-                    return (
-                      <li key={item.id}>
-                        <button
-                          type="button"
-                          className={rowClass}
-                          {...pressHandlers}
-                          onClick={() => {
-                            onClose();
-                            openBottomNavHref(item.href, true);
-                          }}
-                        >
-                          {content}
-                        </button>
-                      </li>
-                    );
-                  }
-
-                  return (
-                    <li key={item.id}>
-                      <Link
-                        href={item.href}
-                        prefetch={false}
-                        className={rowClass}
-                        aria-current={active ? "page" : undefined}
-                        {...pressHandlers}
-                        onPointerDown={(e) => {
-                          pressHandlers.onPointerDown(e);
-                          if (!active) prefetchFabHref(item.href);
-                        }}
-                        onClick={onClose}
-                      >
-                        {content}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-
-              {showClose ? (
-                <div className="main-bottom-nav-fab-sector__footer">
-                  <button
-                    type="button"
-                    className={[
-                      "main-bottom-nav-fab-sector__close",
+              <div
+                className="main-bottom-nav-fab-sector__panel-body"
+                style={fabPanelBodyInlineStyle()}
+              >
+                <ul className="main-bottom-nav-fab-sector__list">
+                  {fabConfig.items.map((item) => {
+                    const active = isMainBottomNavFabHrefActive(pathname, item.href);
+                    const cartItem = isFabCartItem(item);
+                    const showCartBadge = cartItem && cartCount > 0;
+                    const iconTab = { icon: item.icon, lucideIcon: item.lucideIcon };
+                    const rowClass = [
+                      "main-bottom-nav-fab-sector__row",
                       FAB_SECTOR_TOUCH_CLASS,
-                      isPressed("close") ? "main-bottom-nav-fab-sector__close--pressed" : "",
+                      active ? "main-bottom-nav-fab-sector__row--active" : "",
+                      isPressed(item.id) ? "main-bottom-nav-fab-sector__row--pressed" : "",
                     ]
                       .filter(Boolean)
-                      .join(" ")}
-                    {...bindPress("close")}
-                    onClick={onClose}
-                    aria-label={t("store_delivery_fab_close_aria")}
-                  >
-                    <CloseIcon />
-                  </button>
-                </div>
-              ) : null}
+                      .join(" ");
+
+                    const content = (
+                      <>
+                        <span className="main-bottom-nav-fab-sector__icon-box relative">
+                          <MainBottomNavTabIcon tab={iconTab} className="main-bottom-nav-fab-sector__glyph" />
+                          {showCartBadge ? (
+                            <span className={FAB_PANEL_CART_COUNT_BADGE_CLASS} aria-hidden>
+                              {formatFabCartCountBadge(cartCount)}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="main-bottom-nav-fab-sector__caption">{item.label}</span>
+                      </>
+                    );
+
+                    const pressHandlers = bindPress(item.id);
+
+                    const closePanel = () => {
+                      if (phase === "open") collapse();
+                    };
+
+                    if (item.openInNewTab) {
+                      return (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            className={rowClass}
+                            {...pressHandlers}
+                            onClick={() => {
+                              closePanel();
+                              openBottomNavHref(item.href, true);
+                            }}
+                          >
+                            {content}
+                          </button>
+                        </li>
+                      );
+                    }
+
+                    return (
+                      <li key={item.id}>
+                        <Link
+                          href={item.href}
+                          prefetch={false}
+                          className={rowClass}
+                          aria-current={active ? "page" : undefined}
+                          aria-label={showCartBadge ? t("nav_cart_aria") : undefined}
+                          {...pressHandlers}
+                          onPointerDown={(e) => {
+                            pressHandlers.onPointerDown(e);
+                            if (!active) prefetchFabHref(item.href);
+                          }}
+                          onClick={closePanel}
+                        >
+                          {content}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                className={toggleClass}
+                onClick={onToggle}
+                disabled={!toggleInteractive}
+                aria-label={toggleAriaLabel}
+                {...bindPress("toggle")}
+              >
+                <span className="main-bottom-nav-fab-sector__toggle-icon main-bottom-nav-fab-sector__toggle-icon--open">
+                  <CloseIcon />
+                </span>
+                <span className="main-bottom-nav-fab-sector__toggle-icon main-bottom-nav-fab-sector__toggle-icon--closed">
+                  <ChevronLeftIcon />
+                </span>
+              </button>
             </div>
+            {showToggleCartBadge ? (
+              <span className={FAB_TOGGLE_CART_COUNT_BADGE_CLASS} aria-hidden>
+                {formatFabCartCountBadge(cartCount)}
+              </span>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </div>
     </BodyPortal>
   );

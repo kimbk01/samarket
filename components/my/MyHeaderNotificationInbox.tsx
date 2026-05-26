@@ -18,6 +18,10 @@ import {
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
+import {
+  computeTier1HeaderInboxDisplayUnread,
+  syncTier1HeaderInboxUnreadFromRows,
+} from "@/lib/notifications/tier1-header-inbox-sync";
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
@@ -95,6 +99,7 @@ export function MyHeaderNotificationInbox() {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [listSynced, setListSynced] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [markBusy, setMarkBusy] = useState(false);
   const [deleteBusyKey, setDeleteBusyKey] = useState<string | null>(null);
@@ -114,12 +119,17 @@ export function MyHeaderNotificationInbox() {
     myGeneralNotificationUnreadStore.getSnapshot,
     myGeneralNotificationUnreadStore.getServerSnapshot
   );
-  const totalUnread = useMemo(() => {
-    const su = storeUnread ?? 0;
-    if (!open) return su;
-    if (loading) return Math.max(su, rowUnread);
-    return rowUnread;
-  }, [open, loading, rowUnread, storeUnread]);
+  const totalUnread = useMemo(
+    () =>
+      computeTier1HeaderInboxDisplayUnread({
+        storeUnread,
+        rowUnread,
+        listSynced,
+        open,
+        loading,
+      }),
+    [listSynced, loading, open, rowUnread, storeUnread]
+  );
 
   const loadSound = useCallback(async () => {
     try {
@@ -143,12 +153,18 @@ export function MyHeaderNotificationInbox() {
       const j = raw as { ok?: boolean; notifications?: Row[] };
       if (status === 401) {
         setRows((prev) => (prev.length === 0 ? prev : []));
+        setListSynced(false);
         return;
       }
-      const nextRows = (j?.ok ? (j.notifications ?? []) : []) as Row[];
+      if (!j?.ok) {
+        return;
+      }
+      const nextRows = (j.notifications ?? []) as Row[];
       setRows((prev) => (isSameNotificationRows(prev, nextRows) ? prev : nextRows));
+      setListSynced(true);
+      syncTier1HeaderInboxUnreadFromRows(nextRows);
     } catch {
-      setRows((prev) => (prev.length === 0 ? prev : []));
+      /* 목록 실패 시 기존 store 배지 유지 */
     } finally {
       if (!silent) setLoading(false);
     }
@@ -162,8 +178,17 @@ export function MyHeaderNotificationInbox() {
   }, [loadSound]);
 
   useEffect(() => {
-    if (!open) return;
-    void loadInbox(true);
+    const cancel = scheduleStartupApiDeferred("my-tier1-inbox-prefetch", () => {
+      void loadInbox(false, { silent: true });
+    }, { delayMs: 180 });
+    return cancel;
+  }, [loadInbox]);
+
+  useEffect(() => {
+    if (open) {
+      void loadInbox(true);
+      void myGeneralNotificationUnreadStore.refresh(true);
+    }
   }, [open, loadInbox]);
 
   useEffect(() => {
@@ -173,8 +198,8 @@ export function MyHeaderNotificationInbox() {
       void loadSound();
     };
     const onInbox = () => {
-      if (!open) return;
       void loadInbox(true, { silent: true });
+      void myGeneralNotificationUnreadStore.refresh(true);
     };
     window.addEventListener("kasama:user-notification-settings-changed", onCustom);
     window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onInbox);
@@ -182,7 +207,7 @@ export function MyHeaderNotificationInbox() {
       window.removeEventListener("kasama:user-notification-settings-changed", onCustom);
       window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onInbox);
     };
-  }, [loadInbox, loadSound, open]);
+  }, [loadInbox, loadSound]);
 
   useEffect(() => {
     if (!open) return;
@@ -214,7 +239,11 @@ export function MyHeaderNotificationInbox() {
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
     if (res.ok && j?.ok) {
-      setRows((prev) => prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x)));
+      setRows((prev) => {
+        const next = prev.map((x) => (ids.includes(x.id) ? { ...x, is_read: true } : x));
+        syncTier1HeaderInboxUnreadFromRows(next);
+        return next;
+      });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }
@@ -290,7 +319,11 @@ export function MyHeaderNotificationInbox() {
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && j?.ok) {
-        setRows((prev) => prev.filter((r) => !item.ids.includes(r.id)));
+        setRows((prev) => {
+          const next = prev.filter((r) => !item.ids.includes(r.id));
+          syncTier1HeaderInboxUnreadFromRows(next);
+          return next;
+        });
         invalidateMeNotificationsListDedupedCache();
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));

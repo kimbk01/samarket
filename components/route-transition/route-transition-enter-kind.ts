@@ -20,6 +20,16 @@ function isMypageStoreSectionPath(path: string | null | undefined): boolean {
   return p === "/mypage/section/store" || p.startsWith("/mypage/section/store/");
 }
 
+function isMypagePath(path: string | null | undefined): boolean {
+  const p = normalizePathKey(path);
+  return p === "/mypage" || p.startsWith("/mypage/") || p === "/my" || p.startsWith("/my/");
+}
+
+function isStoreOwnerApplyPath(path: string | null | undefined): boolean {
+  const p = normalizePathKey(path);
+  return p === "/stores/owner/apply" || p.startsWith("/stores/owner/apply/");
+}
+
 function syncLastForwardAxisAfterKind(
   kind: RouteTransitionEnterKind,
   ref: MutableRefObject<"ltr" | "rtl" | null>
@@ -32,8 +42,12 @@ function syncLastForwardAxisAfterKind(
     ref.current = "rtl";
     return;
   }
-  if (kind === "ltr-back" || kind === "rtl-back") {
+  if (kind === "ltr-back" || kind === "rtl-back" || kind === "store-apply-back") {
     ref.current = null;
+    return;
+  }
+  if (kind === "store-apply-forward") {
+    ref.current = "rtl";
   }
 }
 
@@ -88,6 +102,10 @@ export function computeRouteTransitionEnterKind(
     const stackKind = computeStoresOwnerStackTransitionKind(prevPath, nextPath, opts);
     syncLastForwardAxisAfterKind(stackKind, opts.lastForwardAxisRef);
     return kind;
+  } else if (isStoreOwnerApplyPath(nextPath) && isMypagePath(prevPath)) {
+    kind = "store-apply-forward";
+  } else if (isStoreOwnerApplyPath(prevPath) && isMypagePath(nextPath)) {
+    kind = "store-apply-back";
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
     kind = "ltr-back";

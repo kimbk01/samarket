@@ -71,7 +71,7 @@ export function MyPageItemScreen(
   }
 
   if (section === "store") {
-    const storeIds = new Set(["orders", "order-chat", "payment", "address", "manage", "rider"]);
+    const storeIds = new Set(["orders", "order-chat", "payment", "address", "rider"]);
     const storeSection = storeIds.has(item) ? item : "orders";
     return (
       <StoreTab

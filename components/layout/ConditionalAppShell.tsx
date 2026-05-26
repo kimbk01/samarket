@@ -149,9 +149,10 @@ export function ConditionalAppShell({
     root.classList.add(cls);
     return () => root.classList.remove(cls);
   }, [heroMenuSurface]);
-  const mainShellInnerRootClass = mainScrollInMainColumn
-    ? buildMainShellInnerRootClass({ heroMenuSurface })
-    : `${f.appShellRootClass} min-h-dvh bg-sam-app`;
+  const mainShellInnerRootClass =
+    mainScrollInMainColumn || f.isStoreOwnerAdminRoute
+      ? buildMainShellInnerRootClass({ heroMenuSurface })
+      : `${f.appShellRootClass} min-h-dvh bg-sam-app`;
   const hubScrollColumn = resolvesMainHubScrollColumn({
     regionBarInLayout,
     mainScrollInMainColumn,
@@ -167,7 +168,9 @@ export function ConditionalAppShell({
   const mainColumnInner = (
     <div
       className={`${APP_MAIN_COLUMN_CLASS} ${
-        f.isMainColumnViewportLocked ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
+        f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+          ? " flex min-h-0 min-w-0 flex-1 flex-col"
+          : ""
       }`}
     >
       <MainShellTabContentTransition

@@ -619,7 +619,7 @@ export function BusinessAdminShell({
         <StoresOwnerStackHeader
           variant="hub"
           hideTitle
-          backHref="/mypage/section/store/manage"
+          backHref="/mypage"
           shopName={shopName}
           hubSubtitle={t("business_phase7_079")}
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
@@ -855,7 +855,7 @@ export function BusinessAdminShell({
               <StoresOwnerStackHeader
                 variant={isHub ? "hub" : "admin"}
                 hideTitle={isHub}
-                backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
+                backHref={isHub ? "/mypage" : adminHeaderBackHref}
                 backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
                 backPreferHistory
                 backAriaLabel={t("business_phase7_351")}

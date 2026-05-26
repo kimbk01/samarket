@@ -1300,3 +1300,55 @@ html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
 ):is(:hover, :active) {
   background: color-mix(in srgb, var(--dibay-cream) 14%, transparent);
 }
+
+/** `/stores` 홈 검색 — 돋보기 우상단 기준, 좌하로 펼침 */
+.stores-home-search-popup {
+  --stores-home-search-popup-ms: 240ms;
+  will-change: transform, opacity;
+}
+
+.stores-home-search-popup--closed {
+  opacity: 0;
+  transform: scale(0.9) translate(12px, -12px);
+  pointer-events: none;
+}
+
+.stores-home-search-popup--open {
+  opacity: 1;
+  transform: scale(1) translate(0, 0);
+  transition:
+    transform var(--stores-home-search-popup-ms) cubic-bezier(0.32, 0.72, 0, 1),
+    opacity calc(var(--stores-home-search-popup-ms) * 0.75) ease-out;
+}
+
+.stores-home-search-popup__backdrop {
+  --stores-home-search-popup-ms: 240ms;
+  transition: opacity var(--stores-home-search-popup-ms) ease-out;
+}
+
+.stores-home-search-popup__backdrop--closed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stores-home-search-popup__backdrop--open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stores-home-search-popup,
+  .stores-home-search-popup__backdrop {
+    transition: none !important;
+  }
+
+  .stores-home-search-popup--closed {
+    transform: none;
+    opacity: 0;
+  }
+
+  .stores-home-search-popup--open {
+    transform: none;
+    opacity: 1;
+  }
+}

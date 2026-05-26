@@ -1,0 +1,35 @@
+---
+description: 배달 하단 FAB 섹터 — shell morph·상단 inset·스크롤/X 잠금 계약(회귀 금지)
+globs:
+  - "**/MainBottomNavFabSector.tsx"
+  - "**/main-bottom-nav-fab-sector-config.ts"
+  - "**/use-main-bottom-nav-fab-sector-behavior.ts"
+  - "**/samarket-components.css"
+alwaysApply: false
+---
+
+# 배달 FAB 섹터 — 고정 계약
+
+전문: `docs/main-bottom-nav-fab-sector-contract.md`  
+검증: `npm run verify:main-bottom-nav-fab-sector-contract`
+
+## DO NOT (회귀)
+
+- `__edge`·`__stack`·panel/toggle **분리 DOM·분리 배경** 재도입
+- `__panel-body`·`__shell`에 CSS **`padding-top`** ( `@layer components` + max-height morph 시 inset 소실 )
+- `__toggle` 높이를 펼침/접힘에서 **다르게** (`--fab-icon-box` vs `--fab-edge-h` 이중 규칙)
+- X 닫기 후 **스크롤만으로** 다시 펼침 (`expandLocked` 우회)
+- inset을 TSX 밖으로만 옮기기 (인라인 `fabPanelBodyInlineStyle()` 제거)
+
+## MUST
+
+- **단일 `__shell`**: 회색 메뉴+X ↔ 검은 ‹ morph, `data-fab-shell-expanded`
+- **상단 inset**: `fabPanelBodyInlineStyle()` → `(shellW - iconBox) / 2` rem, 좌우 gutter와 동일
+- **토글 높이**: 항상 `--fab-edge-h`
+- **X**: `router.refresh()` + `expandLocked`; **`‹`만** 잠금 해제
+- **idle 자동 펼침**: `BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS + 2000`
+
+## 수정 후
+
+1. `npm run verify:main-bottom-nav-fab-sector-contract`
+2. 계약 바꿨으면 `docs/main-bottom-nav-fab-sector-contract.md` §7 한 줄 append

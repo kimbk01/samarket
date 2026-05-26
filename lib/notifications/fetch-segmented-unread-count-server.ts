@@ -153,7 +153,9 @@ export async function countConsumerUnreadNoChatServer(
       .eq("user_id", userId)
       .eq("is_read", false)
       .neq("notification_type", "commerce")
-      .neq("notification_type", "chat"),
+      .neq("notification_type", "chat")
+      .neq("push_kind", "chat")
+      .not("meta->>kind", "in", chatMetaIn),
     sb
       .from("notifications")
       .select("id", { count: "exact", head: true })
@@ -189,7 +191,9 @@ export async function countBottomNavUnreadServer(
       .eq("user_id", userId)
       .eq("is_read", false)
       .neq("notification_type", "commerce")
-      .neq("notification_type", "chat"),
+      .neq("notification_type", "chat")
+      .neq("push_kind", "chat")
+      .not("meta->>kind", "in", chatMetaIn),
     sb
       .from("notifications")
       .select("id", { count: "exact", head: true })

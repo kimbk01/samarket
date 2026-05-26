@@ -57,7 +57,11 @@ export function OwnerAddressBookSnapshotCard({
   return (
     <div className={shell}>
       <p className="sam-text-body-secondary font-bold text-sam-fg">{title}</p>
-      <p className="mt-1 sam-text-helper font-normal text-sam-muted">
+      <p
+        className={`mt-1 sam-text-body font-normal ${
+          addressReady && addressDefault?.id && !listError ? "text-sam-fg" : "text-sam-muted"
+        }`}
+      >
         {addressReady
           ? listError
             ? <span className="text-sam-danger">{listError}</span>
@@ -70,7 +74,7 @@ export function OwnerAddressBookSnapshotCard({
         <Link
           href={`/mypage/addresses?returnTo=${encodeURIComponent(returnToPath)}`}
           prefetch={false}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
+          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
         >
           {t("business_phase7_672")}
         </Link>

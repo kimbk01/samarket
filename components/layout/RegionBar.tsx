@@ -35,6 +35,7 @@ import {
   isDeliveryConsumerPath,
 } from "@/lib/design/delivery-chrome";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
+import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import type { ReactNode } from "react";
 
 function UnifiedTier1Shell({ children }: { children: ReactNode }) {
@@ -64,6 +65,15 @@ export function RegionBar({
   const extrasOpt = useMainTier1ExtrasOptional();
   const extras = extrasOpt?.extras ?? null;
   if (!ruleSet.showRegionBar) {
+    return null;
+  }
+
+  /** 매장 입점·운영 복귀(`returnTo`) — `StoresGreenFixedHeaderChrome` 로컬 헤더와 중복 방지 */
+  const returnToRaw = searchParams?.get("returnTo") ?? "";
+  if (
+    (pathNoQuery === "/mypage/addresses" || pathNoQuery.startsWith("/mypage/addresses/")) &&
+    isStoreOwnerAdminReturnTo(returnToRaw)
+  ) {
     return null;
   }
 

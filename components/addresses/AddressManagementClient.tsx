@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -25,6 +26,16 @@ import {
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
+import {
+  buildMypageAddressEditHref,
+  buildMypageAddressesHref,
+  parseSafeInternalReturnTo,
+} from "@/lib/addresses/mypage-addresses-return-to";
+import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
+import {
+  STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS,
+  STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS,
+} from "@/lib/design/stores-home-header-chrome";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useI18n();
@@ -55,16 +66,14 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     !!loadErr &&
     /(user_addresses|relation|schema cache|table_missing|마이그레이션)/i.test(loadErr);
 
-  const returnTo = useMemo(() => {
-    const raw = sp?.get("returnTo") ?? "";
-    const t = raw.trim();
-    if (!t) return "";
-    // allow only internal navigation
-    if (!t.startsWith("/")) return "";
-    if (t.startsWith("//")) return "";
-    return t;
-  }, [sp]);
+  const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
   const selectingForReturn = Boolean(returnTo);
+  const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
+
+  useEffect(() => {
+    if (!storesGreenHeader) return;
+    return pushStoreOwnerMainBottomNavSuppressed();
+  }, [storesGreenHeader]);
   const linkedStoreIdsInList = useMemo(
     () =>
       Array.from(
@@ -207,7 +216,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   function openCreate() {
     if (!embedded) {
-      router.push("/mypage/addresses/edit");
+      router.push(buildMypageAddressEditHref({ returnTo }));
       return;
     }
     setMapBootstrap(null);
@@ -218,7 +227,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   function openEdit(row: UserAddressDTO) {
     if (!embedded) {
-      router.push(`/mypage/addresses/edit?id=${encodeURIComponent(row.id)}`);
+      router.push(buildMypageAddressEditHref({ returnTo, id: row.id }));
       return;
     }
     setMapBootstrap(null);
@@ -289,10 +298,20 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   return (
     <div
       className={
-        embedded ? "" : "flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app"
+        embedded
+          ? ""
+          : storesGreenHeader
+            ? "delivery-ui flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-[color:var(--delivery-bg-main)]"
+            : "flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app"
       }
     >
-      {!embedded ? (
+      {!embedded && storesGreenHeader ? (
+        <StoresGreenFixedHeaderChrome
+          title={t("address_manage_title")}
+          backAriaLabel={t("business_phase7_675")}
+          preferHistoryBack
+        />
+      ) : !embedded ? (
         <MySubpageHeader
           title={t("address_manage_title")}
           backHref={returnTo || "/mypage"}
@@ -366,7 +385,13 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           </div>
         </div>
       ) : (
-        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+        <div
+          className={
+            storesGreenHeader
+              ? `mx-auto w-full min-w-0 max-w-[42rem] flex-1 min-h-0 px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
+              : APP_MAIN_TAB_SCROLL_BODY_CLASS
+          }
+        >
           <div className="flex min-w-0 flex-col gap-4 py-4">
             {loadErr ? (
               <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">

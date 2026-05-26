@@ -281,7 +281,7 @@ export function MyPageHomeDashboard({
 
           <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
             <MyInfoMenuItem
-              href="/mypage/section/store/manage"
+              href="/stores/owner/apply"
               title={safeT("mypage_comp_menu_store_register_title")}
               description={t("mypage_comp_menu_store_register_desc")}
               icon={icon(<Store className="h-[22px] w-[22px]" strokeWidth={2} />)}

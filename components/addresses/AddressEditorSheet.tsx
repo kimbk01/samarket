@@ -15,13 +15,18 @@ import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
 import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
+import {
+  STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS,
+  STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS,
+} from "@/lib/design/stores-home-header-chrome";
+import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
+import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
+import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
+import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
 import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import {
-  ADDRESS_PRESET_NICKNAME_HOME,
-  ADDRESS_PRESET_NICKNAME_OFFICE,
-} from "@/components/addresses/address-labels";
 import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
 import {
   decodeLocationOnlyAddressNicknameId,
@@ -59,6 +64,8 @@ export function AddressEditorSheet(props: {
   allAddresses?: UserAddressDTO[];
   /** 전체 페이지 편집(목록과 분리) — 기본은 모달 */
   layout?: "modal" | "page";
+  /** 목록과 동일 — 매장 입점·운영 복귀 시 녹색 헤더·returnTo 유지 */
+  returnTo?: string;
 }) {
   const {
     open,
@@ -69,6 +76,7 @@ export function AddressEditorSheet(props: {
     onSaved,
     allAddresses = [],
     layout = "modal",
+    returnTo = "",
   } = props;
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -117,6 +125,14 @@ export function AddressEditorSheet(props: {
     includeStoreLinkNotice: boolean;
   } | null>(null);
   const [detailAttempted, setDetailAttempted] = useState(false);
+
+  const storeOwnerAddressGreenChrome =
+    open && layout === "page" && isStoreOwnerAdminReturnTo(returnTo);
+
+  useEffect(() => {
+    if (!storeOwnerAddressGreenChrome) return;
+    return pushStoreOwnerMainBottomNavSuppressed();
+  }, [storeOwnerAddressGreenChrome]);
 
   /**
    * 예측 선택 후 `setSearch`로 검색창이 긴 확정 주소로 바뀌면, 같은 문자열로 자동완성 effect가
@@ -462,9 +478,9 @@ export function AddressEditorSheet(props: {
 
     const resolvedNickname =
       labelPreset === "home"
-        ? ADDRESS_PRESET_NICKNAME_HOME
+        ? resolveAddressPresetNickname("home", t)
         : labelPreset === "office"
-          ? ADDRESS_PRESET_NICKNAME_OFFICE
+          ? resolveAddressPresetNickname("office", t)
           : labelPreset === "shop"
             ? encodeShopAddressNickname(selectedStoreId)
             : nickname.trim() ||
@@ -608,6 +624,8 @@ export function AddressEditorSheet(props: {
   if (!open) return null;
 
   const pageTitle = mode === "edit" ? t("addr_ui_edit_title") : t("addr_ui_add_title");
+  const storesGreenHeader = layout === "page" && isStoreOwnerAdminReturnTo(returnTo);
+  const pageBackHref = buildMypageAddressesHref(returnTo);
   const saveLabel = layout === "page" ? t("addr_ui_save_address") : t("common_save");
   const detailViol = detailAttempted && latitude != null && longitude != null && !unitFloorRoom.trim();
   const geoReady = latitude != null && longitude != null && !!formattedAddress.trim();
@@ -1012,9 +1030,29 @@ export function AddressEditorSheet(props: {
   if (layout === "page") {
     return (
       <>
-        <div className="flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app">
-          <MySubpageHeader title={pageTitle} backHref="/mypage/addresses" hideCtaStrip />
-          <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} min-h-0 flex-1 overflow-y-auto`}>
+        <div
+          className={
+            storesGreenHeader
+              ? "delivery-ui flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-[color:var(--delivery-bg-main)]"
+              : "flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app"
+          }
+        >
+          {storesGreenHeader ? (
+            <StoresGreenFixedHeaderChrome
+              title={pageTitle}
+              backAriaLabel={t("business_phase7_675")}
+              preferHistoryBack
+            />
+          ) : (
+            <MySubpageHeader title={pageTitle} backHref={pageBackHref} hideCtaStrip />
+          )}
+          <div
+            className={
+              storesGreenHeader
+                ? `mx-auto w-full min-w-0 max-w-[42rem] flex-1 min-h-0 overflow-y-auto px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
+                : `${APP_MAIN_TAB_SCROLL_BODY_CLASS} min-h-0 flex-1 overflow-y-auto`
+            }
+          >
             {editorScrollBody}
             {editorFooter}
           </div>

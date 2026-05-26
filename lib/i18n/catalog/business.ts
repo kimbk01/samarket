@@ -692,6 +692,30 @@ export const businessMessages = {
     business_phase7_672: "주소록 열기",
     business_phase7_673:
       "어드민 «매장 설정»·/stores 와 같은 1·2차 업종입니다. 1차 선택 후 세부(예: 한식·중식)를 고르세요.",
+    business_phase7_674: "매장 입점 신청",
+    business_phase7_675: "이전으로",
+    business_phase7_676: "신청 상태 확인 중…",
+    business_phase7_677: "신청이 진행 중인 동안에는 추가 신청을 할 수 없습니다.",
+    business_phase7_678: "제출 중…",
+    business_phase7_679: "신청하기",
+    business_phase7_680: "프로필 닉네임을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    business_phase7_681:
+      "로그인이 필요합니다. 로그인 페이지에서 이메일(또는 수동 가입 아이디)과 비밀번호로 로그인한 뒤 다시 시도해 주세요.",
+    business_phase7_682:
+      "매장 DB(Supabase)가 연결되어 있지 않아 신청을 저장할 수 없습니다. 환경 변수를 확인하거나 관리자에게 문의해 주세요.",
+    business_phase7_683: "서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    business_phase7_684: "이미 심사 중이거나 승인된 매장이 있습니다. 내 상점에서 확인해 주세요.",
+    business_phase7_685:
+      "이 전화번호는 이미 다른 매장 신청·운영에 사용 중입니다. 다른 번호를 입력하거나 기존 매장 담당자에게 문의해 주세요.",
+    business_phase7_686:
+      "이 매장 ID는 시스템 예약어라 사용할 수 없습니다. 회원 ID를 변경하거나 관리자에게 문의해 주세요.",
+    business_phase7_687: "요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    business_phase7_688: "1차·2차 업종을 모두 선택해 주세요.",
+    business_phase7_689: "신청자 닉네임을 1~20자로 입력해 주세요.",
+    business_phase7_690: "매장 ID(영문/숫자/하이픈, 3~40자)를 입력해 주세요.",
+    business_phase7_691:
+      "현재 계정이 auth.users에 없어 매장을 등록할 수 없습니다. Supabase 로그인 계정을 사용해 주세요.",
+    business_phase7_692: "신청에 실패했습니다.",
   },
   en: {
     business_phase7_001: ")만 저장됩니다.",
@@ -1394,5 +1418,29 @@ export const businessMessages = {
     business_phase7_672: "Open address book",
     business_phase7_673:
       "Same primary/secondary categories as admin Store settings and /stores. Pick primary, then detail (e.g. Korean, Chinese).",
+    business_phase7_674: "Store onboarding application",
+    business_phase7_675: "Go back",
+    business_phase7_676: "Checking application status…",
+    business_phase7_677: "You cannot submit another application while one is already in progress.",
+    business_phase7_678: "Submitting…",
+    business_phase7_679: "Apply",
+    business_phase7_680: "Could not load your profile nickname. Please try again in a moment.",
+    business_phase7_681:
+      "Sign-in required. Log in with your email (or manual sign-up ID) and password, then try again.",
+    business_phase7_682:
+      "The store database (Supabase) is not connected, so your application cannot be saved. Check environment variables or contact an administrator.",
+    business_phase7_683: "The service is temporarily unavailable. Please try again later.",
+    business_phase7_684: "You already have a store under review or approved. Check My store.",
+    business_phase7_685:
+      "This phone number is already used for another store application or operation. Use a different number or contact the existing store owner.",
+    business_phase7_686:
+      "This store ID is reserved by the system. Change your member ID or contact an administrator.",
+    business_phase7_687: "Could not process the request. Please try again later.",
+    business_phase7_688: "Select both primary and secondary categories.",
+    business_phase7_689: "Enter an applicant nickname between 1 and 20 characters.",
+    business_phase7_690: "Enter a store ID (letters, numbers, hyphens; 3–40 characters).",
+    business_phase7_691:
+      "Your account is not in auth.users, so the store cannot be registered. Use a Supabase sign-in account.",
+    business_phase7_692: "Application failed.",
   },
 } as const;

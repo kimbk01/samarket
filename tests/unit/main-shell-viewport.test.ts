@@ -76,3 +76,18 @@ describe("stores hub scroll contract", () => {
     expect(f.isChatRoomDetail).toBe(false);
   });
 });
+
+describe("stores owner apply scroll contract", () => {
+  it("/stores/owner/apply locks main scroll and hides global tier1", () => {
+    const f = resolveConditionalAppShellFlags("/stores/owner/apply", true);
+    expect(f.isStoreOwnerAdminRoute).toBe(true);
+    expect(
+      resolvesMainScrollInMainColumn({
+        isChatRoomDetail: f.isChatRoomDetail,
+        isStoreOwnerAdminRoute: f.isStoreOwnerAdminRoute,
+        isMainColumnViewportLocked: f.isMainColumnViewportLocked,
+      })
+    ).toBe(false);
+    expect(f.hideRegionBar).toBe(true);
+  });
+});

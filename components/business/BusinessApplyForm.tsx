@@ -1,24 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { useRouter } from "next/navigation";
+import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
 } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { REGIONS } from "@/lib/products/form-options";
+import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import {
   OWNER_STORE_FORM_GRID_2_CLASS,
-  OWNER_STORE_FORM_HINT_CLASS,
   OWNER_STORE_PROFILE_CONTROL_CLASS,
-  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
   OWNER_STORE_PROFILE_SELECT_CLASS,
   OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS,
   OWNER_STORE_STACK_Y_CLASS,
 } from "@/lib/business/owner-store-stack";
+import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
+import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
+import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
@@ -58,6 +61,23 @@ export interface BusinessApplyFormValues {
   /** 2차 업종 슬러그 — DB `store_topics.slug` (해당 1차 하위) */
   categorySubSlug: string;
 }
+
+/** 입점 신청 — 매장 어드민(기본 정보)과 동일한 14px 라벨 톤 */
+const APPLY_FIELD_LABEL_CLASS = "mb-1 block sam-text-body font-semibold text-sam-fg";
+
+/** 프로필·매장 ID 등 표시 전용 — 입력 박스 없음, 입력 글자(+2px)보다 2pt 크고 굵게 */
+const APPLY_DISPLAY_VALUE_CLASS =
+  "block min-w-0 pt-0.5 text-[length:calc(var(--sm-font-input)+2px)] font-bold leading-snug text-sam-fg";
+
+const APPLY_DISPLAY_VALUE_MONO_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} font-mono`;
+
+/** 전화번호 — 편집 가능하나 테두리·배경 없는 텍스트형 */
+const APPLY_PHONE_VALUE_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} w-full border-0 bg-transparent p-0 shadow-none outline-none ring-0 placeholder:font-normal placeholder:text-[length:var(--sm-font-input)] placeholder:text-sam-meta focus:border-0 focus:outline-none focus:ring-0`;
+
+/** 1·2차 업종 select — 우측 ▼ (native appearance-none 보조) */
+const APPLY_SELECT_WRAP_CLASS = "relative min-w-0";
+const APPLY_SELECT_CHEVRON_CLASS =
+  "pointer-events-none absolute inset-y-0 right-[18px] flex items-center sam-text-body-secondary text-sam-muted";
 
 const DEFAULT_VALUES: Omit<
   BusinessApplyFormValues,
@@ -102,6 +122,7 @@ export function BusinessApplyForm({
   computedStoreSlug = "",
 }: BusinessApplyFormProps) {
   const { t } = useI18n();
+  const router = useRouter();
   const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
@@ -282,36 +303,32 @@ export function BusinessApplyForm({
     onSubmit(values);
   };
 
+  const submitDisabled =
+    disabled || !computedStoreSlug.trim() || !addressDefault?.id;
+
   return (
-    <form id="business-apply-form" onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
+    <>
+      <form
+        id="business-apply-form"
+        onSubmit={handleSubmit}
+        className={`${OWNER_STORE_STACK_Y_CLASS} pb-[calc(60px+env(safe-area-inset-bottom,0px))] [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
+      >
       <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_087")}</label>
-            <input
-              type="text"
-              value={ownerHandle || ""}
-              readOnly
-              aria-readonly="true"
-              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} bg-sam-app font-mono`}
-            />
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_087")}</label>
+            <p className={APPLY_DISPLAY_VALUE_MONO_CLASS}>{ownerHandle || "—"}</p>
           </div>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_180")}</label>
-            <input
-              type="text"
-              value={values.applicantNickname}
-              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} bg-sam-app`}
-              readOnly
-              aria-readonly="true"
-            />
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_180")}</label>
+            <p className={APPLY_DISPLAY_VALUE_CLASS}>{values.applicantNickname.trim() || "—"}</p>
           </div>
         </div>
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection title={t("business_phase7_144")}>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_142")}</label>
+          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_142")}</label>
           <input
             type="text"
             value={values.shopName}
@@ -322,7 +339,7 @@ export function BusinessApplyForm({
           />
         </div>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_141")}</label>
+          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_141")}</label>
           <textarea
             value={values.description}
             onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
@@ -335,23 +352,23 @@ export function BusinessApplyForm({
 
       <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
+          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
           <input
             type="tel"
             inputMode="numeric"
             autoComplete="tel"
-            maxLength={17}
-            value={formatPhMobileDisplay(values.phone)}
+            maxLength={18}
+            value={formatPhMobileDisplayPlus63(values.phone)}
             onChange={(e) =>
               setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))
             }
             required
-            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-            placeholder={PH_MOBILE_PLACEHOLDER}
+            className={APPLY_PHONE_VALUE_CLASS}
+            placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
           />
         </div>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
+          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
           <input
             type="text"
             value={values.kakaoId}
@@ -372,76 +389,107 @@ export function BusinessApplyForm({
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
-        <p className={OWNER_STORE_FORM_HINT_CLASS}>{t("business_phase7_673")}</p>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_005")}</label>
-            <select
-              value={values.categoryPrimarySlug}
-              onChange={(e) => {
-                const slug = e.target.value;
-                const subs =
-                  taxonomy && taxonomy.categories.length > 0
-                    ? (() => {
-                        const cat = taxonomy.categories.find((c) => c.slug === slug);
-                        if (!cat) return [];
-                        return taxonomy.topics
-                          .filter((t) => t.store_category_id === cat.id)
-                          .map((t) => ({ slug: t.slug }));
-                      })()
-                    : listBrowseSubIndustries(slug);
-                setValues((v) => ({
-                  ...v,
-                  categoryPrimarySlug: slug,
-                  categorySubSlug: subs[0]?.slug ?? "",
-                }));
-              }}
-              required
-              className={OWNER_STORE_PROFILE_SELECT_CLASS}
-            >
-              {primaries.length === 0 ? (
-                <option value="">{t("business_phase7_093")}</option>
-              ) : (
-                primaries.map((p) => (
-                  <option key={p.id} value={p.slug}>
-                    {p.symbol} {p.nameKo}
-                  </option>
-                ))
-              )}
-            </select>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_005")}</label>
+            <div className={APPLY_SELECT_WRAP_CLASS}>
+              <select
+                value={values.categoryPrimarySlug}
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  const subs =
+                    taxonomy && taxonomy.categories.length > 0
+                      ? (() => {
+                          const cat = taxonomy.categories.find((c) => c.slug === slug);
+                          if (!cat) return [];
+                          return taxonomy.topics
+                            .filter((t) => t.store_category_id === cat.id)
+                            .map((t) => ({ slug: t.slug }));
+                        })()
+                      : listBrowseSubIndustries(slug);
+                  setValues((v) => ({
+                    ...v,
+                    categoryPrimarySlug: slug,
+                    categorySubSlug: subs[0]?.slug ?? "",
+                  }));
+                }}
+                required
+                className={OWNER_STORE_PROFILE_SELECT_CLASS}
+              >
+                {primaries.length === 0 ? (
+                  <option value="">{t("business_phase7_093")}</option>
+                ) : (
+                  primaries.map((p) => (
+                    <option key={p.id} value={p.slug}>
+                      {p.nameKo}
+                    </option>
+                  ))
+                )}
+              </select>
+              <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
+                ▼
+              </span>
+            </div>
           </div>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_006")}</label>
-            <select
-              value={values.categorySubSlug}
-              onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
-              required
-              disabled={subOptions.length === 0}
-              className={OWNER_STORE_PROFILE_SELECT_CLASS}
-            >
-              {subOptions.length === 0 ? (
-                <option value="">{t("business_phase7_089")}</option>
-              ) : (
-                subOptions.map((s) => (
-                  <option key={s.id} value={s.slug}>
-                    {s.nameKo}
-                  </option>
-                ))
-              )}
-            </select>
+            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_006")}</label>
+            <div className={APPLY_SELECT_WRAP_CLASS}>
+              <select
+                value={values.categorySubSlug}
+                onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
+                required
+                disabled={subOptions.length === 0}
+                className={OWNER_STORE_PROFILE_SELECT_CLASS}
+              >
+                {subOptions.length === 0 ? (
+                  <option value="">{t("business_phase7_089")}</option>
+                ) : (
+                  subOptions.map((s) => (
+                    <option key={s.id} value={s.slug}>
+                      {s.nameKo}
+                    </option>
+                  ))
+                )}
+              </select>
+              <span className={APPLY_SELECT_CHEVRON_CLASS} aria-hidden>
+                ▼
+              </span>
+            </div>
           </div>
         </div>
       </OwnerStoreAdminDashSection>
+      </form>
 
-      <OwnerStoreAdminDashSection title={t("business_phase7_177")}>
-        <button
-          type="submit"
-          disabled={disabled || !computedStoreSlug.trim() || !addressDefault?.id}
-          className="min-h-[44px] w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-50"
+      <BodyPortal>
+        <footer
+          role="contentinfo"
+          aria-label={t("business_phase7_177")}
+          className="pointer-events-none fixed inset-x-0 bottom-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 pb-[env(safe-area-inset-bottom,0px)]"
         >
-          {resolvedSubmitLabel}
-        </button>
-      </OwnerStoreAdminDashSection>
-    </form>
+          <div
+            className={`pointer-events-auto mx-auto w-full max-w-[42rem] px-2 ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2`}
+          >
+            <div className="flex min-w-0 divide-x divide-sam-border">
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => router.push("/stores/owner")}
+                className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
+              >
+                {t("common_cancel")}
+              </button>
+              <button
+                type="submit"
+                form="business-apply-form"
+                disabled={submitDisabled}
+                className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
+              >
+                {resolvedSubmitLabel}
+              </button>
+            </div>
+          </div>
+        </footer>
+      </BodyPortal>
+    </>
   );
 }

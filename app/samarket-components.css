@@ -1191,6 +1191,57 @@
     gap: var(--sector-header-icon-cluster-gap, 0px);
   }
 
+  /** 1단 종 알림 팝업 — 벨 우상단 기준 좌하 펼침 (검색 팝업과 동일 계열) */
+  .tier1-notification-inbox-popup {
+    --tier1-notification-inbox-ms: 240ms;
+    will-change: transform, opacity;
+  }
+
+  .tier1-notification-inbox-popup--closed {
+    opacity: 0;
+    transform: scale(0.9) translate(12px, -12px);
+    pointer-events: none;
+  }
+
+  .tier1-notification-inbox-popup--open {
+    opacity: 1;
+    transform: scale(1) translate(0, 0);
+    transition:
+      transform var(--tier1-notification-inbox-ms) cubic-bezier(0.32, 0.72, 0, 1),
+      opacity calc(var(--tier1-notification-inbox-ms) * 0.75) ease-out;
+  }
+
+  .tier1-notification-inbox-backdrop {
+    --tier1-notification-inbox-ms: 240ms;
+    transition: opacity var(--tier1-notification-inbox-ms) ease-out;
+  }
+
+  .tier1-notification-inbox-backdrop--closed {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .tier1-notification-inbox-backdrop--open {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tier1-notification-inbox-backdrop,
+    .tier1-notification-inbox-popup {
+      transition: none !important;
+    }
+
+    .tier1-notification-inbox-popup--closed {
+      transform: none;
+      opacity: 0;
+    }
+
+    .tier1-notification-inbox-popup--open {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
   /* -------------------------------------------------------------------------- */
   /* SM aliases (user-requested naming) */
   /* -------------------------------------------------------------------------- */
@@ -1457,7 +1508,7 @@
 
   /**
    * 배달 FAB 섹터 — panel(X) · panel-exit · edge(‹) 상호 배타
-   * --fab-surface-alpha: 0.5 = 50% 투명 (MainBottomNavFabSector FAB_SURFACE_ALPHA)
+   * --fab-surface-alpha: 0.6 = 60% 불투명 (MainBottomNavFabSector FAB_SURFACE_ALPHA)
    */
   .main-bottom-nav-fab-sector {
     --fab-shell-w: 4.05rem;
@@ -1466,37 +1517,75 @@
     --fab-icon-inner-gap-scale: 0.81;
     --fab-icon-glyph: calc(var(--fab-icon-box) - (var(--fab-icon-box) - 1.28rem) * var(--fab-icon-inner-gap-scale));
     --fab-gutter: calc((var(--fab-shell-w) - var(--fab-icon-box)) / 2);
-    --fab-surface-alpha: 0.5;
+    --fab-surface-alpha: 0.6;
     --fab-surface-bg: rgb(24 34 49 / var(--fab-surface-alpha));
+    --fab-edge-bg: #000000;
+    --fab-edge-fg: #ffffff;
+    --fab-edge-w: 1.3rem;
+    --fab-edge-h: 3.25rem;
     --fab-fg: var(--dibay-card);
     --fab-dock-ms: 360ms;
+    --fab-dock-ease: cubic-bezier(0.32, 0.72, 0, 1);
   }
 
-  .main-bottom-nav-fab-sector__panel {
-    @apply pointer-events-auto box-border overflow-hidden rounded-ui-rect;
+  .main-bottom-nav-fab-sector__dock {
+    @apply flex shrink-0 flex-col items-end;
+    position: relative;
+    overflow: visible;
+  }
+
+  /** 단일 셸 — 펼침·접힘 morph (메뉴·‹·배경 한 몸, 우하단 고정) */
+  .main-bottom-nav-fab-sector__shell {
+    @apply pointer-events-auto box-border flex shrink-0 flex-col overflow-hidden;
+    transition:
+      width var(--fab-dock-ms) var(--fab-dock-ease),
+      max-height var(--fab-dock-ms) var(--fab-dock-ease),
+      background-color var(--fab-dock-ms) ease,
+      border-radius var(--fab-dock-ms) ease,
+      box-shadow var(--fab-dock-ms) ease;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__shell {
     width: var(--fab-shell-w);
-    /* padding-top은 TSX 인라인 — @layer에서 0으로 덮이는 것 방지 */
+    max-height: calc(min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset));
     background-color: var(--fab-surface-bg) !important;
+    border-radius: var(--sam-radius-sm);
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
-    transition: transform var(--fab-dock-ms) cubic-bezier(0.32, 0.72, 0, 1);
+    justify-content: flex-start;
   }
 
-  .main-bottom-nav-fab-sector__panel--exit {
-    transform: translateX(calc(100% + 12px));
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="false"] .main-bottom-nav-fab-sector__shell {
+    width: var(--fab-edge-w);
+    max-height: var(--fab-edge-h);
+    background-color: var(--fab-edge-bg) !important;
+    border-radius: var(--sam-radius-sm) 0 0 var(--sam-radius-sm);
+    box-shadow: -2px 0 10px rgb(0 0 0 / 0.22);
+    justify-content: flex-end;
+    overflow: visible;
+  }
+
+  .main-bottom-nav-fab-sector__panel-body {
+    @apply pointer-events-auto box-border min-h-0 w-full shrink overflow-hidden;
+    /* §2 계약: padding-top = fabPanelBodyInlineStyle() only — CSS padding-top 금지 */
+    transition:
+      max-height var(--fab-dock-ms) var(--fab-dock-ease),
+      opacity calc(var(--fab-dock-ms) * 0.45) ease;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__panel-body {
+    max-height: min(62vh, 19.2rem);
+    opacity: 1;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="false"] .main-bottom-nav-fab-sector__panel-body {
+    max-height: 0;
+    opacity: 0;
     pointer-events: none;
   }
 
-  .main-bottom-nav-fab-sector__panel--enter {
-    animation: main-bottom-nav-fab-panel-enter var(--fab-dock-ms) cubic-bezier(0.32, 0.72, 0, 1);
-  }
-
-  @keyframes main-bottom-nav-fab-panel-enter {
-    from {
-      transform: translateX(calc(100% + 12px));
-    }
-    to {
-      transform: translateX(0);
-    }
+  .main-bottom-nav-fab-sector[data-fab-phase="closing"] .main-bottom-nav-fab-sector__panel-body,
+  .main-bottom-nav-fab-sector[data-fab-phase="opening"][data-panel-enter-ready="false"] .main-bottom-nav-fab-sector__panel-body {
+    pointer-events: none;
   }
 
   .main-bottom-nav-fab-sector__list {
@@ -1505,7 +1594,7 @@
     max-height: min(62vh, 19.2rem);
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0 0 0.35rem;
+    padding: 0;
     scrollbar-width: thin;
   }
 
@@ -1564,49 +1653,69 @@
       opacity 120ms ease;
   }
 
-  .main-bottom-nav-fab-sector__footer {
-    @apply flex w-full items-center justify-center border-t border-white/10;
-    height: var(--fab-icon-box);
-  }
-
-  .main-bottom-nav-fab-sector__close {
-    @apply flex h-full w-full cursor-pointer items-center justify-center border-0 bg-transparent p-0;
-    touch-action: manipulation;
-    transition: transform 120ms ease, opacity 120ms ease;
-  }
-
-  .main-bottom-nav-fab-sector__close--pressed {
-    transform: scale(0.88);
-    opacity: 0.85;
-  }
-
-  .main-bottom-nav-fab-sector__close:focus-visible {
-    outline: 2px solid rgb(255 255 255 / 0.45);
-    outline-offset: -2px;
-  }
-
-  .main-bottom-nav-fab-sector__edge {
-    @apply pointer-events-auto fixed right-0 z-[1] flex cursor-pointer items-center justify-center border-0 p-0;
-    width: 1.3rem;
-    height: 2.5rem;
+  /** 하단 토글 — ‹ 탭·X 공통 높이(접·펼 morph 중 상하 크기 고정) */
+  .main-bottom-nav-fab-sector__toggle {
+    @apply pointer-events-auto relative z-[2] flex w-full shrink-0 cursor-pointer items-center justify-center overflow-visible border-0 bg-transparent p-0;
     appearance: none;
     -webkit-appearance: none;
-    color: var(--dibay-card);
-    background-color: var(--fab-surface-bg) !important;
-    border-radius: var(--sam-radius-sm) 0 0 var(--sam-radius-sm);
-    box-shadow: -2px 0 10px rgb(0 0 0 / 0.15);
+    color: var(--fab-edge-fg);
     touch-action: manipulation;
-    transition: transform 120ms ease, box-shadow 120ms ease;
+    height: var(--fab-edge-h);
   }
 
-  .main-bottom-nav-fab-sector__edge--pressed {
+  .main-bottom-nav-fab-sector__toggle-icon {
+    @apply absolute inset-0 flex items-center justify-center;
+    transition: opacity calc(var(--fab-dock-ms) * 0.35) ease;
+  }
+
+  .main-bottom-nav-fab-sector__toggle-icon--open {
+    opacity: 0;
+  }
+
+  .main-bottom-nav-fab-sector__toggle-icon--closed {
+    opacity: 1;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__toggle-icon--open {
+    opacity: 1;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__toggle-icon--closed {
+    opacity: 0;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-phase="closing"] .main-bottom-nav-fab-sector__toggle,
+  .main-bottom-nav-fab-sector[data-fab-phase="opening"] .main-bottom-nav-fab-sector__toggle {
+    pointer-events: none;
+  }
+
+  .main-bottom-nav-fab-sector[data-fab-phase="closed"] .main-bottom-nav-fab-sector__toggle,
+  .main-bottom-nav-fab-sector[data-fab-phase="open"] .main-bottom-nav-fab-sector__toggle {
+    pointer-events: auto;
+  }
+
+  .main-bottom-nav-fab-sector__toggle--pressed {
     transform: scale(0.92);
-    box-shadow: -1px 0 6px rgb(0 0 0 / 0.2);
   }
 
-  .main-bottom-nav-fab-sector__edge:focus-visible {
+  .main-bottom-nav-fab-sector__toggle:focus-visible {
     outline: 2px solid rgb(255 255 255 / 0.45);
     outline-offset: -1px;
+  }
+
+  /** ‹ 탭 장바구니 뱃지 — dock 기준 좌상단 3/4 겹침 (1/4만 바깥) */
+  .main-bottom-nav-fab-sector__toggle-cart-badge {
+    @apply pointer-events-none absolute z-[10] ring-2 ring-white;
+    left: 0;
+    top: 0;
+    transform: translate(-25%, -25%);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .main-bottom-nav-fab-sector[data-fab-shell-expanded="false"]:not([data-fab-phase="closing"]):not([data-fab-phase="opening"])
+      .main-bottom-nav-fab-sector__toggle:not(.main-bottom-nav-fab-sector__toggle--pressed):hover {
+      filter: brightness(1.08);
+    }
   }
 
   .main-bottom-nav-fab-sector__row:focus-visible .main-bottom-nav-fab-sector__icon-box {
@@ -1614,42 +1723,29 @@
     outline-offset: 2px;
   }
 
-  @media (hover: hover) and (pointer: fine) {
-    .main-bottom-nav-fab-sector__edge:not(.main-bottom-nav-fab-sector__edge--pressed):hover {
-      box-shadow: -3px 0 12px rgb(0 0 0 / 0.22);
-    }
-  }
-
-  /* 패널 우측 슬라이드와 동시(360ms) — ‹ 뷰포트 우측에서 진입 */
-  .main-bottom-nav-fab-sector__edge--dock-in {
-    pointer-events: none;
-    animation: main-bottom-nav-fab-edge-dock-in var(--fab-dock-ms) cubic-bezier(0.32, 0.72, 0, 1) forwards;
-  }
-
-  @keyframes main-bottom-nav-fab-edge-dock-in {
-    from {
-      transform: translateX(100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .main-bottom-nav-fab-sector__row,
     .main-bottom-nav-fab-sector__icon-box,
     .main-bottom-nav-fab-sector__caption,
-    .main-bottom-nav-fab-sector__close,
-    .main-bottom-nav-fab-sector__edge,
-    .main-bottom-nav-fab-sector__panel {
+    .main-bottom-nav-fab-sector__toggle,
+    .main-bottom-nav-fab-sector__toggle-icon,
+    .main-bottom-nav-fab-sector__panel-body,
+    .main-bottom-nav-fab-sector__shell {
       transition: none !important;
       animation: none !important;
     }
 
     .main-bottom-nav-fab-sector__row--pressed .main-bottom-nav-fab-sector__icon-box,
-    .main-bottom-nav-fab-sector__edge--pressed,
-    .main-bottom-nav-fab-sector__close--pressed {
+    .main-bottom-nav-fab-sector__toggle--pressed {
       transform: none;
+    }
+
+    .main-bottom-nav-fab-sector[data-fab-shell-expanded="false"] .main-bottom-nav-fab-sector__panel-body {
+      opacity: 0;
+    }
+
+    .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__panel-body {
+      opacity: 1;
     }
   }
 }

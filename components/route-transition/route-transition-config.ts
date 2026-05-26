@@ -22,7 +22,11 @@ export type RouteTransitionEnterKind =
   | "ltr-forward"
   | "rtl-forward"
   | "ltr-back"
-  | "rtl-back";
+  | "rtl-back"
+  /** 내정보 → `/stores/owner/apply` — 370ms 우→좌 */
+  | "store-apply-forward"
+  /** `/stores/owner/apply` → 내정보 — 370ms 좌→우 */
+  | "store-apply-back";
 
 export function normalizePathForRouteTransition(pathname: string | null): string {
   return (pathname ?? "").split("?")[0]?.trim() ?? "";
@@ -80,6 +84,8 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "main-shell-route-enter-ltr-back",
   "main-shell-route-enter-rtl-back",
   "main-shell-route-enter-subtle",
+  "store-owner-apply-route-enter-rtl-forward",
+  "store-owner-apply-route-enter-ltr-back",
 ] as const;
 
 export type RouteTransitionEnterClass = (typeof ROUTE_TRANSITION_ENTER_CLASSES)[number];
@@ -98,6 +104,10 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "main-shell-route-enter-ltr-back";
     case "rtl-back":
       return "main-shell-route-enter-rtl-back";
+    case "store-apply-forward":
+      return "store-owner-apply-route-enter-rtl-forward";
+    case "store-apply-back":
+      return "store-owner-apply-route-enter-ltr-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;
@@ -120,6 +130,9 @@ export function ownerStackRouteTransitionClassForKind(
     case "ltr-back":
     case "rtl-back":
       return "owner-stack-route-enter-ltr-back";
+    case "store-apply-forward":
+    case "store-apply-back":
+      return null;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

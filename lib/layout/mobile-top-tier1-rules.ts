@@ -80,11 +80,9 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
    */
   const isMyBusinessOwnerHubSurface =
     pathNoQuery === "/stores/owner" ||
-    (startsWithPath(pathNoQuery, "/stores/owner") &&
-      !pathNoQuery.startsWith("/stores/owner/apply")) ||
+    startsWithPath(pathNoQuery, "/stores/owner") ||
     pathNoQuery === "/my/business" ||
-    (startsWithPath(pathNoQuery, "/my/business") &&
-      !pathNoQuery.startsWith("/my/business/apply"));
+    startsWithPath(pathNoQuery, "/my/business");
 
   const isPhilifeMeetings = startsWithPath(pathNoQuery, "/philife/meetings");
   const isPhilifeMyPage = pathNoQuery === "/philife/my";

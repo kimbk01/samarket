@@ -63,7 +63,6 @@ export const MYPAGE_NAV: MyPageTabNav[] = [
       { id: "payment", labelKey: "mypage_comp_nav_sec_store_payment_label", descriptionKey: "mypage_comp_nav_sec_store_payment_desc" },
       { id: "address", labelKey: "mypage_comp_nav_sec_store_address_label", descriptionKey: "mypage_comp_nav_sec_store_address_desc" },
       { id: "member", labelKey: "mypage_comp_nav_sec_store_member_label", descriptionKey: "mypage_comp_nav_sec_store_member_desc" },
-      { id: "manage", labelKey: "mypage_comp_nav_sec_store_manage_label", descriptionKey: "mypage_comp_nav_sec_store_manage_desc" },
       { id: "rider", labelKey: "mypage_comp_nav_sec_store_rider_label", descriptionKey: "mypage_comp_nav_sec_store_rider_desc" },
     ],
   },

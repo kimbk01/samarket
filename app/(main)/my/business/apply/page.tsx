@@ -11,25 +11,21 @@ import {
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
-import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
+import {
+  StoresOwnerApplyHeaderChrome,
+  STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS,
+} from "@/components/stores/home/hub/StoresOwnerApplyHeaderChrome";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS } from "@/lib/design/stores-home-header-chrome";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import {
   getBrowsePrimaryBySlug,
   getBrowseSubIndustry,
 } from "@/lib/stores/browse-mock/queries";
 import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
+import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
 
 const HAS_ANY_STORE = true;
-
-const STATUS_KO: Record<string, string> = {
-  pending: "신청대기",
-  under_review: "검토중",
-  revision_requested: "보완요청",
-  approved: "승인",
-  rejected: "반려",
-  suspended: "정지",
-};
 
 export default function BusinessApplyRoute() {
   const { t } = useI18n();
@@ -101,12 +97,12 @@ export default function BusinessApplyRoute() {
     setSubmitError(null);
     const nick = (profileSeed?.applicantNickname ?? values.applicantNickname).trim();
     if (!nick || nick.length > 20) {
-      setSubmitError("프로필 닉네임을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      setSubmitError(t("business_phase7_680"));
       return;
     }
     const phoneRes = normalizeOptionalPhMobileDb(values.phone);
     if (!phoneRes.ok) {
-      setSubmitError(phoneRes.error);
+      setSubmitError(t("phone_rule"));
       return;
     }
     const primaryMeta = getBrowsePrimaryBySlug(values.categoryPrimarySlug);
@@ -141,95 +137,78 @@ export default function BusinessApplyRoute() {
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 401) {
-        setSubmitError(
-          "로그인이 필요합니다. 로그인 페이지에서 이메일(또는 수동 가입 아이디)과 비밀번호로 로그인한 뒤 다시 시도해 주세요."
-        );
+        setSubmitError(t("business_phase7_681"));
         return;
       }
       if (res.status === 503) {
         if (json?.error === "supabase_unconfigured") {
-          setSubmitError(
-            "매장 DB(Supabase)가 연결되어 있지 않아 신청을 저장할 수 없습니다. 환경 변수를 확인하거나 관리자에게 문의해 주세요."
-          );
+          setSubmitError(t("business_phase7_682"));
         } else {
-          setSubmitError("서비스를 일시적으로 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+          setSubmitError(t("business_phase7_683"));
         }
         return;
       }
       if (res.status === 409) {
         if (json?.error === "already_has_active_application") {
-          setSubmitError("이미 심사 중이거나 승인된 매장이 있습니다. 내 상점에서 확인해 주세요.");
+          setSubmitError(t("business_phase7_684"));
         } else if (json?.error === "store_phone_already_registered") {
-          setSubmitError(
-            "이 전화번호는 이미 다른 매장 신청·운영에 사용 중입니다. 다른 번호를 입력하거나 기존 매장 담당자에게 문의해 주세요."
-          );
+          setSubmitError(t("business_phase7_685"));
         } else if (json?.error === "store_slug_reserved") {
-          setSubmitError(
-            "이 매장 ID는 시스템 예약어라 사용할 수 없습니다. 회원 ID를 변경하거나 관리자에게 문의해 주세요."
-          );
+          setSubmitError(t("business_phase7_686"));
         } else {
-          setSubmitError("요청을 처리할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+          setSubmitError(t("business_phase7_687"));
         }
         return;
       }
       if (!json?.ok) {
         if (json?.error === "category_slugs_required") {
-          setSubmitError("1차·2차 업종을 모두 선택해 주세요.");
+          setSubmitError(t("business_phase7_688"));
         } else if (json?.error === "applicant_nickname_required") {
-          setSubmitError("신청자 닉네임을 1~20자로 입력해 주세요.");
+          setSubmitError(t("business_phase7_689"));
         } else if (json?.error === "store_slug_required") {
-          setSubmitError("매장 ID(영문/숫자/하이픈, 3~40자)를 입력해 주세요.");
+          setSubmitError(t("business_phase7_690"));
         } else if (json?.error === "owner_not_in_auth_users") {
-          setSubmitError(
-            "현재 계정이 auth.users에 없어 매장을 등록할 수 없습니다. Supabase 로그인 계정을 사용해 주세요."
-          );
+          setSubmitError(t("business_phase7_691"));
         } else {
-          setSubmitError(typeof json?.error === "string" ? json.error : "신청에 실패했습니다.");
+          setSubmitError(typeof json?.error === "string" ? json.error : t("business_phase7_692"));
         }
         return;
       }
       refreshOwnerLiteStore();
       router.push("/stores/owner");
     } catch {
-      setSubmitError("네트워크 오류가 발생했습니다.");
+      setSubmitError(t("common_network_error"));
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-w-0 max-w-[100vw] overflow-x-hidden">
-      <StoresOwnerStackHeader
-        variant="admin"
-        backHref="/stores/owner"
-        backAriaLabel="이전 화면으로"
-        pageTitle="배달 입점 신청"
-        shopName="매장 운영 센터"
-        rightSlot={<span className="inline-flex h-10 min-w-[2.5rem] shrink-0" aria-hidden />}
-      />
+    <div className="delivery-ui min-w-0 max-w-[100vw] overflow-x-hidden bg-[color:var(--delivery-bg-main)]">
+      <StoresOwnerApplyHeaderChrome />
       <div
-        className={`mx-auto max-w-4xl px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] pb-4 sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${OWNER_STORE_STACK_Y_CLASS}`}
+        className={`mx-auto max-w-[42rem] px-[var(--delivery-page-x)] pb-0 ${STORES_OWNER_APPLY_HEADER_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS} ${OWNER_STORE_STACK_Y_CLASS}`}
       >
         {existingLoading ? (
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">
-            신청 상태 확인 중…
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sam-text-body text-sam-muted shadow-sm sm:p-4">
+            {t("business_phase7_676")}
           </div>
         ) : existingStore ? (
-          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 shadow-sm">
+          <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 shadow-sm sm:p-4">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-white">
-                {STATUS_KO[String(existingStore.approval_status ?? "").trim()] ?? String(existingStore.approval_status ?? "")}
+                {formatStoreApprovalStatusI18n(existingStore.approval_status, t)}
               </span>
-              <span className="sam-text-body-secondary font-semibold text-amber-950">{t("owner_apply_pending")}</span>
+              <span className="sam-text-body font-semibold text-amber-950">{t("owner_apply_pending")}</span>
             </div>
-            <p className="mt-2 sam-text-body-secondary text-sam-fg">
-              {String(existingStore.store_name ?? "").trim() || "매장"}
+            <p className="mt-2 sam-text-body text-sam-fg">
+              {String(existingStore.store_name ?? "").trim() || t("store_fallback_name")}
             </p>
           </div>
         ) : null}
 
         {submitError ? (
-          <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800 shadow-sm">
+          <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 sam-text-body text-red-800 shadow-sm sm:p-4">
             {submitError}
           </div>
         ) : null}
@@ -238,12 +217,12 @@ export default function BusinessApplyRoute() {
             profileSeed={profileSeed}
             computedStoreSlug={computedStoreSlug}
             onSubmit={(v) => void handleSubmit(v)}
-            submitLabel={submitting ? "제출 중…" : "신청하기"}
+            submitLabel={submitting ? t("business_phase7_678") : t("business_phase7_679")}
             disabled={submitting}
           />
         ) : (
-          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">
-            신청이 진행 중인 동안에는 추가 신청을 할 수 없습니다.
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 sam-text-body text-sam-muted shadow-sm sm:p-4">
+            {t("business_phase7_677")}
           </div>
         )}
       </div>

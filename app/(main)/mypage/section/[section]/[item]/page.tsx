@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { findMypageMobileItem } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { loadMypageServer } from "@/lib/my/load-mypage-server";
@@ -23,6 +23,9 @@ async function MypageSectionItemPageBody({
   params: Promise<{ section: string; item: string }>;
 }) {
   const { section: s, item: i } = await params;
+  if (s === "store" && i === "manage") {
+    redirect("/stores/owner/apply");
+  }
   const meta = findMypageMobileItem(s, i);
   if (!meta) notFound();
 

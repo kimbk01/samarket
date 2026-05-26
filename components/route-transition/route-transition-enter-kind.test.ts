@@ -117,6 +117,26 @@ describe("computeRouteTransitionEnterKind", () => {
     });
     expect(k).toBe("subtle");
   });
+
+  it("mypage to store owner apply uses 370ms store-apply-forward (rtl)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/mypage", "/stores/owner/apply", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("store-apply-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
+  });
+
+  it("store owner apply back to mypage uses store-apply-back (ltr)", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores/owner/apply", "/mypage", {
+      popstateBack: true,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("store-apply-back");
+    expect(lastForwardAxisRef.current).toBe(null);
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {

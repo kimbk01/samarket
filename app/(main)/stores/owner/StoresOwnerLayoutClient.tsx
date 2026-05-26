@@ -7,6 +7,7 @@ import { OwnerDashboardWaterfallMount } from "@/components/business/owner/OwnerD
 import { StoreBusinessGuard } from "@/components/business/StoreBusinessGuard";
 import { BusinessAdminShell } from "@/components/business/admin/BusinessAdminShell";
 import { OwnerHubRuntimeProvider } from "@/components/business/owner/OwnerHubRuntimeProvider";
+import { StoresOwnerApplyShell } from "@/components/business/owner/StoresOwnerApplyShell";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 /**
@@ -31,11 +32,7 @@ export function StoresOwnerLayoutClient({
   }, [isHub, pathname]);
 
   if (isApply) {
-    return (
-      <div className="min-h-screen bg-[var(--biz-app-bg)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
-        {children}
-      </div>
-    );
+    return <StoresOwnerApplyShell>{children}</StoresOwnerApplyShell>;
   }
 
   if (isHub) {

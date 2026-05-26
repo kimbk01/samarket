@@ -205,10 +205,20 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     };
   }
 
+  function reconcile(next: number) {
+    setSnap(Math.max(0, Math.floor(Number(next) || 0)));
+  }
+
+  function refresh(force = false) {
+    return doFetch(force);
+  }
+
   return {
     subscribe,
     getSnapshot: () => snap,
     getServerSnapshot: () => null as number | null,
+    reconcile,
+    refresh,
   };
 }
 
