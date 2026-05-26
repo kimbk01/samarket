@@ -206,9 +206,9 @@ test.describe("trade c2c perf baseline capture", () => {
       if (typeof used === "number" && Number.isFinite(used)) {
         const mb = used / (1024 * 1024);
         const key = "__samarketAppWidePhaseLastMs" as const;
-        const bag = (g as Record<string, Record<string, number>>)[key] ?? {};
+        const bag = (g as unknown as Record<string, Record<string, number>>)[key] ?? {};
         bag.trade_memory_heap_used_mb = Math.round(mb * 10) / 10;
-        (g as Record<string, Record<string, number>>)[key] = bag;
+        (g as unknown as Record<string, Record<string, number>>)[key] = bag;
       }
     });
 

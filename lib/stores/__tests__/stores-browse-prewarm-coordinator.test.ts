@@ -16,9 +16,14 @@ describe("buildStoresBrowseClientQueryString", () => {
       primary: "restaurant",
       sub: "all",
       primaryRegion: {
+        id: "ur-1",
+        userId: "user-1",
         regionId: "ncr",
         cityId: "manila",
         barangay: "Ermita",
+        label: "Ermita",
+        isPrimary: true,
+        createdAt: "2026-01-01T00:00:00.000Z",
       },
     });
     expect(qs).toContain("primary=restaurant");
@@ -30,7 +35,7 @@ describe("buildStoresBrowseClientQueryString", () => {
 
 describe("scheduleStoresBrowseListPrewarm", () => {
   beforeEach(() => {
-    vi.stubGlobal("window", { requestIdleCallback: undefined } as Window & typeof globalThis);
+    vi.stubGlobal("window", { requestIdleCallback: undefined } as unknown as Window & typeof globalThis);
     resetStoresBrowsePrewarmCoordinatorForTests();
     vi.clearAllMocks();
   });
