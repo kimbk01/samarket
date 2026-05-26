@@ -1,142 +1,70 @@
-import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+import {
+  BASELINE_REL,
+  envInt,
+  evaluateBundleBudgetLock,
+  formatKb,
+  loadBaseline,
+  measureBundleMetrics,
+} from "./lib/bundle-budget-metrics.mjs";
 
-const root = path.join(import.meta.dirname, "..");
-const dist = path.join(root, ".next");
-const chunksDir = path.join(dist, "static", "chunks");
-
-function envInt(name, fallback) {
-  const raw = process.env[name];
-  if (raw === undefined || raw === null || String(raw).trim() === "") return fallback;
-  const n = Number(String(raw).trim());
-  return Number.isFinite(n) ? Math.floor(n) : fallback;
-}
-
-/** Prod `next build` 합산 baseline ~15814 KB (2026-05, stores 홈 perf·prewarm 분리 반영) */
-const TOTAL_JS_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_TOTAL_JS_KB", 16000);
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TOP_N = envInt("SAMARKET_BUNDLE_BUDGET_TOP_N", 20);
-// Defaults are intentionally permissive and based on current build output.
-// Tighten these in CI via env once routes are stabilized.
-const MESSENGER_HOME_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_HOME_JS_KB", 3200);
-const MESSENGER_ROOM_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_ROOM_JS_KB", 2900);
-const MESSENGER_CALL_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_CALL_JS_KB", 4500);
 
-function walkFiles(dir) {
-  const out = [];
-  const stack = [dir];
-  while (stack.length) {
-    const current = stack.pop();
-    if (!current) break;
-    let entries;
-    try {
-      entries = fs.readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const e of entries) {
-      const p = path.join(current, e.name);
-      if (e.isDirectory()) stack.push(p);
-      else out.push(p);
-    }
+let measured;
+try {
+  measured = measureBundleMetrics(root);
+} catch (e) {
+  if (e && typeof e === "object" && e.code === "ENOENT_BUILD") {
+    console.error(String(e.message));
+    console.error(`[bundle-budget] Run \`npm run build\` first.`);
+    process.exit(1);
   }
-  return out;
+  throw e;
 }
 
-function formatKb(bytes) {
-  return `${Math.round(bytes / 1024)} KB`;
-}
-
-if (!fs.existsSync(chunksDir)) {
-  console.error(`[bundle-budget] .next chunks not found: ${chunksDir}`);
-  console.error(`[bundle-budget] Run \`npm run build\` first.`);
-  process.exit(1);
-}
-
-const files = walkFiles(chunksDir).filter((p) => p.endsWith(".js"));
-
-const entries = [];
-let total = 0;
-for (const p of files) {
-  let stat;
-  try {
-    stat = fs.statSync(p);
-  } catch {
-    continue;
+let baselineFile;
+try {
+  baselineFile = loadBaseline(root);
+} catch (e) {
+  if (e && typeof e === "object" && e.code === "ENOENT_BASELINE") {
+    console.error(String(e.message));
+    console.error(`[bundle-budget] Commit ${BASELINE_REL} or run \`npm run check:bundle:update-baseline\` after build.`);
+    process.exit(1);
   }
-  const size = stat.size || 0;
-  total += size;
-  entries.push({ path: path.relative(root, p).replace(/\\/g, "/"), size });
+  throw e;
 }
 
-entries.sort((a, b) => b.size - a.size);
+const { failures } = evaluateBundleBudgetLock(baselineFile, measured);
 
-console.log(`[bundle-budget] total client js: ${formatKb(total)} (budget ${TOTAL_JS_BUDGET_KB} KB)`);
+console.log(`[bundle-budget] lock baseline ${baselineFile.recordedAt} (${baselineFile.recordedFrom ?? "n/a"})`);
+console.log(`[bundle-budget] total client js: ${formatKb(measured.totalBytes)}`);
 console.log(`[bundle-budget] largest chunks:`);
-for (const e of entries.slice(0, TOP_N)) {
+for (const e of measured.entries.slice(0, TOP_N)) {
   console.log(`- ${formatKb(e.size)}  ${e.path}`);
 }
 
-if (Math.round(total / 1024) > TOTAL_JS_BUDGET_KB) {
-  console.error(`[bundle-budget] FAIL: total js exceeds budget`);
+const m = baselineFile.metrics;
+const s = baselineFile.growth_slack_kb ?? {};
+console.log(
+  `[bundle-budget] messenger home: ${formatKb(measured.messenger.home.bytes)} (baseline ${m.messenger_home_js_kb}+${s.messenger_home_js ?? 200} KB, refs ${measured.messenger.home.refsCount})`
+);
+console.log(
+  `[bundle-budget] messenger room: ${formatKb(measured.messenger.room.bytes)} (baseline ${m.messenger_room_js_kb}+${s.messenger_room_js ?? 200} KB, refs ${measured.messenger.room.refsCount})`
+);
+console.log(
+  `[bundle-budget] messenger call: ${formatKb(measured.messenger.call.bytes)} (baseline ${m.messenger_call_js_kb}+${s.messenger_call_js ?? 300} KB, refs ${measured.messenger.call.refsCount})`
+);
+
+if (failures.length) {
+  console.error(`[bundle-budget] FAIL: ${failures.length} metric(s) exceed baseline + growth slack`);
+  for (const f of failures) {
+    console.error(`  - ${f.message}`);
+  }
+  console.error(`[bundle-budget] If the increase is intentional: npm run build && npm run check:bundle:update-baseline`);
+  console.error(`[bundle-budget] Then commit ${BASELINE_REL} with a short note in the PR.`);
   process.exit(2);
 }
 
-function sumByPrefix(prefix) {
-  let bytes = 0;
-  for (const e of entries) {
-    if (e.path.startsWith(prefix)) bytes += e.size;
-  }
-  return bytes;
-}
-
-function extractChunkRefsFromClientManifest(absPath) {
-  try {
-    const raw = fs.readFileSync(absPath, "utf8");
-    const out = new Set();
-    const re = new RegExp('static/chunks/[^"\'\\s]+\\.js', "g");
-    let m;
-    while ((m = re.exec(raw))) {
-      out.add(m[0].replace(/\\\\/g, "/"));
-    }
-    return [...out];
-  } catch {
-    return [];
-  }
-}
-
-function sumChunksFromClientManifest(manifestAbsPath) {
-  const refs = extractChunkRefsFromClientManifest(manifestAbsPath);
-  let bytes = 0;
-  for (const ref of refs) {
-    const p = `.next/${ref}`;
-    const hit = entries.find((e) => e.path === p);
-    if (hit) bytes += hit.size;
-  }
-  return { bytes, refsCount: refs.length };
-}
-
-const manifestHome = path.join(dist, "server", "app", "(main)", "community-messenger", "page_client-reference-manifest.js");
-const manifestRoom = path.join(dist, "server", "app", "(main)", "community-messenger", "rooms", "[roomId]", "page_client-reference-manifest.js");
-const manifestCall = path.join(dist, "server", "app", "(main)", "community-messenger", "calls", "[sessionId]", "page_client-reference-manifest.js");
-
-const home = sumChunksFromClientManifest(manifestHome);
-const room = sumChunksFromClientManifest(manifestRoom);
-const call = sumChunksFromClientManifest(manifestCall);
-
-console.log(`[bundle-budget] messenger home js: ${formatKb(home.bytes)} (budget ${MESSENGER_HOME_BUDGET_KB} KB, refs ${home.refsCount})`);
-console.log(`[bundle-budget] messenger room js: ${formatKb(room.bytes)} (budget ${MESSENGER_ROOM_BUDGET_KB} KB, refs ${room.refsCount})`);
-console.log(`[bundle-budget] messenger call js: ${formatKb(call.bytes)} (budget ${MESSENGER_CALL_BUDGET_KB} KB, refs ${call.refsCount})`);
-
-if (Math.round(home.bytes / 1024) > MESSENGER_HOME_BUDGET_KB) {
-  console.error(`[bundle-budget] FAIL: messenger home js exceeds budget`);
-  process.exit(3);
-}
-if (Math.round(room.bytes / 1024) > MESSENGER_ROOM_BUDGET_KB) {
-  console.error(`[bundle-budget] FAIL: messenger room js exceeds budget`);
-  process.exit(4);
-}
-if (Math.round(call.bytes / 1024) > MESSENGER_CALL_BUDGET_KB) {
-  console.error(`[bundle-budget] FAIL: messenger call js exceeds budget`);
-  process.exit(5);
-}
-
+console.log(`[bundle-budget] PASS: within committed baseline + growth slack`);

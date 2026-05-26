@@ -1,0 +1,21 @@
+{
+  "recordedAt": "2026-05-27",
+  "recordedFrom": "next build on main after stores-home perf phases",
+  "metrics": {
+    "total_client_js_kb": 15814,
+    "messenger_home_js_kb": 2909,
+    "messenger_room_js_kb": 2562,
+    "messenger_call_js_kb": 4139
+  },
+  "growth_slack_kb": {
+    "total_client_js": 500,
+    "messenger_home_js": 200,
+    "messenger_room_js": 200,
+    "messenger_call_js": 300
+  },
+  "top_chunks": [
+    { "path": ".next/static/chunks/004b483d3806d4f6.js", "kb": 1468 },
+    { "path": ".next/static/chunks/e38b0eba4d11d1ed.js", "kb": 1390 },
+    { "path": ".next/static/chunks/1a6f339fb1ee4c9f.js", "kb": 292 }
+  ]
+}

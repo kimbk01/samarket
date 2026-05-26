@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubVitestMinimalWindow } from "@/lib/test-utils/vitest-minimal-window";
 import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import {
@@ -115,12 +116,13 @@ describe("messenger home verification counters (실행 횟수)", () => {
   });
 
   it("warm: 캐시가 이미 있으면 네트워크를 다시 호출하지 않는다", async () => {
-    vi.stubGlobal("window", {
+    stubVitestMinimalWindow({
       setTimeout: globalThis.setTimeout.bind(globalThis) as typeof window.setTimeout,
-      document: { visibilityState: "visible" as const },
-      navigator: {},
-      requestIdleCallback: (cb: () => void) => globalThis.setTimeout(cb, 0),
-    } as unknown as Window & typeof globalThis);
+      document: { visibilityState: "visible" as const } as Document,
+      navigator: {} as Navigator,
+      requestIdleCallback: ((cb: IdleRequestCallback) =>
+        Number(globalThis.setTimeout(() => cb({ didTimeout: false, timeRemaining: () => 0 } as IdleDeadline), 0))) as unknown as Window["requestIdleCallback"],
+    });
     primeBootstrapCache({
       me: null,
       tabs: { friends: 0, chats: 0, groups: 0, calls: 0 },

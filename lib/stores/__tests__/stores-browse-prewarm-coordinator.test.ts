@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { stubVitestMinimalWindow } from "@/lib/test-utils/vitest-minimal-window";
 import { buildStoresBrowseClientQueryString } from "@/lib/stores/build-stores-browse-client-query";
 import {
   resetStoresBrowsePrewarmCoordinatorForTests,
@@ -35,7 +36,7 @@ describe("buildStoresBrowseClientQueryString", () => {
 
 describe("scheduleStoresBrowseListPrewarm", () => {
   beforeEach(() => {
-    vi.stubGlobal("window", { requestIdleCallback: undefined } as unknown as Window & typeof globalThis);
+    stubVitestMinimalWindow();
     resetStoresBrowsePrewarmCoordinatorForTests();
     vi.clearAllMocks();
   });

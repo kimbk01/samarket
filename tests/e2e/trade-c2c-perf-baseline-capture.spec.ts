@@ -201,14 +201,14 @@ test.describe("trade c2c perf baseline capture", () => {
     await page.evaluate(() => {
       const g = globalThis as typeof globalThis & {
         performance?: Performance & { memory?: { usedJSHeapSize?: number } };
+        __samarketAppWidePhaseLastMs?: Record<string, number>;
       };
       const used = g.performance?.memory?.usedJSHeapSize;
       if (typeof used === "number" && Number.isFinite(used)) {
         const mb = used / (1024 * 1024);
-        const key = "__samarketAppWidePhaseLastMs" as const;
-        const bag = (g as unknown as Record<string, Record<string, number>>)[key] ?? {};
+        const bag = { ...(g.__samarketAppWidePhaseLastMs ?? {}) };
         bag.trade_memory_heap_used_mb = Math.round(mb * 10) / 10;
-        (g as unknown as Record<string, Record<string, number>>)[key] = bag;
+        g.__samarketAppWidePhaseLastMs = bag;
       }
     });
 
