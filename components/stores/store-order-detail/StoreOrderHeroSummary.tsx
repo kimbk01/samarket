@@ -152,7 +152,7 @@ export function StoreOrderHeroSummary({
       const strike = commerceExtras.deliveryFeeStrikeReferencePhp;
       return (
         <span className="inline-flex flex-wrap items-center gap-1.5">
-          <span className="font-bold text-[#2563EB]">{t("store_free_delivery_applied")}</span>
+          <span className="font-bold text-sam-primary">{t("store_free_delivery_applied")}</span>
           {strike != null && strike > 0 ? (
             <span className="font-bold text-neutral-400 line-through">{formatMoneyPhp(strike)}</span>
           ) : null}
@@ -227,8 +227,8 @@ export function StoreOrderHeroSummary({
 
   const segBase =
     "min-w-0 flex-1 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors duration-[180ms] disabled:cursor-not-allowed disabled:opacity-40";
-  const segOn = "bg-white text-neutral-900 shadow-[0_1px_4px_rgba(0,0,0,0.08)]";
-  const segOff = "text-neutral-500 active:bg-black/[0.04]";
+  const segOn = "bg-sam-surface text-sam-fg shadow-none";
+  const segOff = "text-sam-muted active:bg-sam-surface-muted";
 
   return (
     <div className="relative z-0">
@@ -248,7 +248,7 @@ export function StoreOrderHeroSummary({
           id="store-hero-media"
           className={
             heroBannerSlot
-              ? "relative w-full overflow-hidden bg-[#15181b]"
+              ? "relative w-full overflow-hidden bg-sam-ink"
               : "relative w-full overflow-hidden bg-[color:var(--delivery-primary)]"
           }
         >
@@ -284,19 +284,19 @@ export function StoreOrderHeroSummary({
                   priority
                   surface="detail-hero"
                 />
-                <div className="absolute inset-0 bg-black/[0.14]" aria-hidden />
+                <div className="absolute inset-0 bg-[color:var(--dibay-dim)] opacity-30" aria-hidden />
               </div>
             ) : null}
           </div>
         </div>
       </div>
 
-      <div className="relative z-[1] bg-white px-4 pb-2.5 pt-2.5">
+      <div className="relative z-[1] bg-sam-surface px-4 pb-2.5 pt-2.5">
         {ownerManagementHref ? (
           <p className="mb-2">
             <Link
               href={ownerManagementHref}
-              className="inline-flex rounded-[4px] bg-[#5E4BFF] px-2 py-1 text-[10px] font-bold text-white"
+              className="inline-flex rounded-[4px] bg-sam-primary px-2 py-1 text-[10px] font-bold text-sam-on-primary"
             >
               {t("store_manage_my_shop")}
             </Link>
@@ -314,7 +314,7 @@ export function StoreOrderHeroSummary({
             aria-label={viewerFavorited ? t("store_favorite_remove_aria") : t("store_favorite_add_aria")}
             disabled={favoriteBusy}
             onClick={() => void onFavoriteClick()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-900 transition-transform duration-[120ms] active:scale-[0.96]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-sam-surface text-sam-fg transition-transform duration-[120ms] active:scale-[0.96]"
           >
             <svg
               width="18"
@@ -368,9 +368,9 @@ export function StoreOrderHeroSummary({
       </div>
 
       {collapseTopFulfillmentCard ? null : (
-        <section className="bg-white px-4 pb-2.5" data-store-fulfillment-card>
-          <div className="rounded-[12px] border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-            <div className="flex w-full items-center gap-1 rounded-t-[12px] bg-[#F3F4F6] p-0.5">
+        <section className="bg-sam-surface px-4 pb-2.5" data-store-fulfillment-card>
+          <div className="rounded-[12px] border border-sam-border bg-sam-surface shadow-none">
+            <div className="flex w-full items-center gap-1 rounded-t-[12px] bg-sam-surface-muted p-0.5">
               <button
                 type="button"
                 disabled={!deliveryAvailable}
@@ -438,7 +438,7 @@ export function StoreOrderHeroSummary({
               </p>
             ) : null}
             {deliveryMeta.deliveryNotice.trim() ? (
-              <p className="rounded-b-[12px] bg-[#EEF8FC] px-3.5 py-2 text-center text-[12px] font-bold text-neutral-800">
+              <p className="rounded-b-[12px] bg-sam-warning-soft px-3.5 py-2 text-center text-[12px] font-bold text-sam-fg">
                 {deliveryMeta.deliveryNotice.trim()}
               </p>
             ) : null}

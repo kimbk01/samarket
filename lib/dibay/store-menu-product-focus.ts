@@ -18,7 +18,7 @@ export function parseStoreMenuProductDomId(elementId: string): string | null {
   return productId.length > 0 ? productId : null;
 }
 
-const FOCUS_RING_CLASSES = ["ring-2", "ring-[#1C8DB8]", "ring-offset-2", "ring-offset-white"] as const;
+const FOCUS_RING_CLASSES = ["ring-2", "ring-sam-primary", "ring-offset-2", "ring-offset-sam-surface"] as const;
 
 /** sticky 탭 하단 기준으로 메뉴 행을 보이게 스크롤. 성공 시 true */
 export function scrollStoreMenuProductIntoView(

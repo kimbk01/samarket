@@ -4,6 +4,9 @@
  * - 1단·업종 탭: 스크롤 **밖** `shrink-0` (구조적으로 상단 고정)
  * - 본문: `<main>` 단일 `overflow-y-auto` (`flex-1 basis-0 min-h-0`)
  * - `position: sticky`·문서(body) 스크롤·`min-h-[100dvh]` on flex child 금지
+ * - `PhilifeMessengerFromHeaderStack` · `TradeHistoryFromHeaderStack` 래퍼는
+ *   `flex min-h-0 flex-1 flex-col` 필수 — `flex-1`만 있으면 `app-shell` 높이가 콘텐츠만큼 늘어
+ *   body(`overflow:hidden`)에서 세로 스크롤이 막힌다.
  *
  * CSS: `app/app-shell.css` — `.main-hub-scroll-*`
  */

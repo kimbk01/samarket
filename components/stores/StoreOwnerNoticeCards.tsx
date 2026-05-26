@@ -68,7 +68,7 @@ export function StoreOwnerNoticeCards({
                 <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-neutral-800">{n.body}</p>
                 <a
                   href={`${infoHrefBase}#store-notice-${encodeURIComponent(n.id)}`}
-                  className="mt-2 inline-block text-[12px] font-semibold text-[#1C8DB8] underline-offset-2 hover:underline"
+                  className="mt-2 inline-block text-[12px] font-semibold text-sam-primary underline-offset-2 hover:underline"
                 >
                   {t("store_info_title")}
                 </a>

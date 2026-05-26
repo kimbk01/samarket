@@ -325,7 +325,7 @@ export function ProfileEditForm() {
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 rounded-[12px] bg-[color:#1C8DB8] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
+            className="flex-1 rounded-[12px] bg-sam-primary py-3 text-[15px] font-semibold text-sam-on-primary disabled:opacity-60"
           >
             {saving ? t("profile_edit_saving") : t("common_save")}
           </button>

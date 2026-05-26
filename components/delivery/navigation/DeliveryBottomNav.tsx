@@ -14,7 +14,7 @@ import { DeliveryBottomNavIcon, DeliveryBottomNavItem as Item } from "./Delivery
 import { resolveBottomNavScrollHideOuterClass } from "@/lib/main-menu/bottom-nav-config";
 import { useDeliveryBottomNavVisibility } from "./useDeliveryBottomNavVisibility";
 
-const BRAND_TEAL = "#1C8DB8";
+const BRAND_GREEN = "#0B421A";
 
 function resolveEffectiveHref(item: DeliveryBottomNavItem, ownerStore: { id: string; slug: string } | null): string {
   /**
@@ -102,7 +102,7 @@ export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBott
           "rounded-none",
           "border-x-0 border-t border-white/20 border-b-0",
         ].join(" ")}
-        style={{ backgroundColor: BRAND_TEAL }}
+        style={{ backgroundColor: BRAND_GREEN }}
       >
         {hasCenterSlot ? (
           <div className="flex h-full w-full min-w-0 items-stretch">
@@ -124,7 +124,7 @@ export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBott
                 scroll={false}
                 className={[
                   "relative -top-2 flex h-9 w-9 items-center justify-center rounded-full bg-white",
-                  "text-[color:#1C8DB8]",
+                  "text-[color:var(--dibay-green)]",
                   "shadow-[0_4px_14px_rgba(0,0,0,0.22)] ring-[3px] ring-white/95",
                   "transition-transform duration-150 ease-out active:scale-[0.96]",
                   "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80",

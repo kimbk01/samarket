@@ -2,7 +2,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export { formatMoneyPhp };
 
-export const OWNER_DASH_BRAND = "#0B421A";
+export const OWNER_DASH_BRAND = "var(--dibay-green)";
 export const OWNER_DASH_DANGER = "#FF4D4F";
 
 export const OWNER_DASH_PAGE_CLASS = "bg-[var(--biz-app-bg)]";
@@ -32,7 +32,7 @@ export function ownerDashCardClass(extra?: string): string {
 
 export function ownerDashUrgentCardClass(extra?: string): string {
   return cn(
-    "rounded-[4px] border border-[#FECACA] bg-[var(--biz-card-bg)] p-3 shadow-none ring-1 ring-[#FEE2E2]",
+    "rounded-[4px] border border-sam-danger/20 bg-[var(--biz-card-bg)] p-3 shadow-none ring-1 ring-sam-danger/12",
     extra
   );
 }
@@ -51,7 +51,7 @@ export function formatDeltaPercent(
 
 export function deltaToneClass(delta: number | null): string {
   if (delta == null) return "text-[var(--biz-text-muted)]";
-  if (delta > 0) return "text-emerald-700";
+  if (delta > 0) return "text-sam-success";
   if (delta < 0) return "text-[#DC2626]";
   return "text-[var(--biz-text-muted)]";
 }

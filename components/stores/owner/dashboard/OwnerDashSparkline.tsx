@@ -13,7 +13,7 @@ export function OwnerDashSparkline({ className = "" }: { className?: string }) {
     >
       <path
         d="M0 14 L8 10 L16 12 L24 6 L32 8 L40 4 L48 7"
-        stroke="var(--biz-primary, #0B421A)"
+        stroke="var(--biz-primary, var(--dibay-green))"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"

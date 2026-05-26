@@ -59,18 +59,18 @@ export function StoreBaeminCartLineRow({
   return (
     <article
       className={`px-4 transition-colors duration-200 ${
-        newLineFlash ? "bg-[#E8F4FA]" : "bg-white"
+        newLineFlash ? "bg-[color:var(--delivery-primary-soft)]" : "bg-[color:var(--delivery-bg-card)]"
       } ${BAEMIN_CART_TYPE.rowPy}`}
     >
       <div className="flex gap-3">
         <div className="min-w-0 flex-1">
-          <p className={`${BAEMIN_CART_TYPE.itemTitle} text-[#111111]`}>{line.title}</p>
+          <p className={`${BAEMIN_CART_TYPE.itemTitle} text-[color:var(--delivery-text-main)]`}>{line.title}</p>
           <p className={`mt-1 ${BAEMIN_CART_TYPE.priceMeta}`}>
             {"\uac00\uaca9"} :{" "}
             {showListStrike ? (
               <>
-                <span className="text-[#999] line-through">{formatMoneyPhp(listU)}</span>{" "}
-                <span className="font-semibold text-[#111]">{formatMoneyPhp(unitPhp)}</span>
+                <span className="text-[color:var(--delivery-text-muted)] line-through">{formatMoneyPhp(listU)}</span>{" "}
+                <span className="font-semibold text-[color:var(--delivery-text-main)]">{formatMoneyPhp(unitPhp)}</span>
               </>
             ) : (
               formatMoneyPhp(unitPhp)
@@ -78,11 +78,11 @@ export function StoreBaeminCartLineRow({
           </p>
           <p className={`mt-1 whitespace-pre-wrap ${BAEMIN_CART_TYPE.bodyMuted}`}>{optionsText}</p>
           {line.lineNote?.trim() ? (
-            <p className="mt-1 text-[13px] leading-relaxed text-[#B45309]">
+            <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--dibay-gold)]">
               {"\uc694\uccad"}: {line.lineNote.trim()}
             </p>
           ) : null}
-          <p className={`mt-2 ${BAEMIN_CART_TYPE.itemTotal} text-[#111111]`}>
+          <p className={`mt-2 ${BAEMIN_CART_TYPE.itemTotal} text-[color:var(--delivery-text-main)]`}>
             {formatMoneyPhp(lineTotal)}
           </p>
         </div>
@@ -99,18 +99,18 @@ export function StoreBaeminCartLineRow({
           type="button"
           disabled={busy}
           onClick={onChangeOptions}
-          className={`inline-flex items-center justify-center border border-[#E0E0E0] bg-white text-[#333333] active:bg-[#F7F7F7] disabled:opacity-40 ${BAEMIN_CART_TYPE.btnOption}`}
+          className={`inline-flex items-center justify-center disabled:opacity-40 ${BAEMIN_CART_TYPE.btnOption}`}
         >
           {"\uc635\uc158 \ubcc0\uacbd"}
         </button>
         <div
-          className={`flex items-stretch overflow-hidden rounded-[8px] border border-[#E0E0E0] bg-white ${BAEMIN_CART_TYPE.btnQty}`}
+          className={`flex items-stretch overflow-hidden rounded-[8px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] ${BAEMIN_CART_TYPE.btnQty}`}
         >
           <button
             type="button"
             disabled={busy}
             onClick={showTrash ? onRemove : onDecrease}
-            className="flex w-9 items-center justify-center text-[#555555] active:bg-[#F7F7F7] disabled:opacity-30"
+            className="flex w-9 items-center justify-center text-[color:var(--delivery-text-sub)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30"
             aria-label={showTrash ? deleteLabel : "\uc218\ub7c9 \uc904\uc774\uae30"}
           >
             {showTrash ? (
@@ -124,8 +124,8 @@ export function StoreBaeminCartLineRow({
             )}
           </button>
           <span
-            className={`flex min-w-[2rem] items-center justify-center border-x border-[#E0E0E0] text-[15px] font-bold tabular-nums text-[#111111] transition-[background-color,transform] duration-200 ${
-              qtyBump ? "scale-110 bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]" : "scale-100 bg-white"
+            className={`flex min-w-[2rem] items-center justify-center border-x border-[color:var(--delivery-border)] text-[15px] font-bold tabular-nums text-[color:var(--delivery-text-main)] transition-[background-color,transform] duration-200 ${
+              qtyBump ? "scale-110 bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]" : "scale-100 bg-[color:var(--delivery-bg-card)]"
             }`}
           >
             {line.qty}
@@ -134,7 +134,7 @@ export function StoreBaeminCartLineRow({
             type="button"
             disabled={busy || line.qty >= line.maxOrderQty}
             onClick={onIncrease}
-            className="flex w-9 items-center justify-center text-[18px] font-medium text-[#111111] active:bg-[#F7F7F7] disabled:opacity-30"
+            className="flex w-9 items-center justify-center text-[18px] font-medium text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30"
             aria-label={"\uc218\ub7c9 \ub298\ub9ac\uae30"}
           >
             +

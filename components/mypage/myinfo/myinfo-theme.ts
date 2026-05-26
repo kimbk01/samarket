@@ -1,4 +1,4 @@
-export const DIBAY_BRAND = "#1C8DB8";
+export const DIBAY_BRAND = "var(--dibay-green)";
 
 export const MYINFO_TYPO = {
   pageTitle: "text-[18px] font-bold leading-tight",

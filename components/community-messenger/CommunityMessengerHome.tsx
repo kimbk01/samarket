@@ -3095,7 +3095,7 @@ export function CommunityMessengerHome({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-[#111827]">{t("nav_messenger_open_group")}</p>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">{t("nav_messenger_open_group")}</p>
                     <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_create_owner_config_group")}</h2>
                   </div>
                   <button

@@ -89,9 +89,9 @@ export function MobileConfirmBottomSheet({
       aria-modal
       aria-label={resolvedAriaLabel}
     >
-      <div className="absolute inset-0 bg-black/50" aria-hidden />
+      <div className="absolute inset-0 bg-[color:var(--dibay-dim)]" aria-hidden />
       <div
-        className={`relative z-10 w-full max-w-sm rounded-2xl bg-sam-surface px-6 pb-6 pt-7 shadow-xl ring-1 ring-black/[0.06] transition-[opacity,transform] duration-200 ease-out ${
+        className={`relative z-10 w-full max-w-sm rounded-[length:var(--ui-radius-rect)] border border-sam-border bg-sam-surface px-6 pb-6 pt-7 shadow-sam-elevated transition-[opacity,transform] duration-200 ease-out ${
           entered ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"
         }`}
       >
@@ -103,7 +103,7 @@ export function MobileConfirmBottomSheet({
         <div className="mt-6 flex flex-col gap-3">
           <button
             type="button"
-            className={`${Sam.btn.outlinePrimaryCombo} ${Sam.btn.block} min-h-[48px]`}
+            className={`${Sam.btn.cancelCombo} ${Sam.btn.block} min-h-[48px]`}
             onClick={onCancel}
           >
             {cancelLabel}
@@ -123,13 +123,13 @@ export function MobileConfirmBottomSheet({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/50 transition-opacity duration-200"
+        className="absolute inset-0 bg-[color:var(--dibay-dim)] transition-opacity duration-200"
         style={{ opacity: entered ? 1 : 0 }}
         onClick={onCancel}
         aria-label={t("ui_sheet_close_aria")}
       />
       <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-[0_-8px_32px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
+        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] border border-sam-border border-b-0 bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-sam-elevated transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
       >
@@ -143,7 +143,7 @@ export function MobileConfirmBottomSheet({
         <div className="mt-6 flex flex-col gap-3">
           <button
             type="button"
-            className={`${Sam.btn.outlinePrimaryCombo} ${Sam.btn.block} min-h-[48px]`}
+            className={`${Sam.btn.cancelCombo} ${Sam.btn.block} min-h-[48px]`}
             onClick={onCancel}
           >
             {cancelLabel}
@@ -234,7 +234,7 @@ export function MobileDualActionBottomSheet({
     <div className="mt-6 flex flex-col gap-3">
       <button
         type="button"
-        className={`${Sam.btn.outlinePrimaryCombo} ${Sam.btn.block} min-h-[48px]`}
+        className={`${Sam.btn.cancelCombo} ${Sam.btn.block} min-h-[48px]`}
         onClick={() => {
           onSecondary();
         }}
@@ -254,9 +254,9 @@ export function MobileDualActionBottomSheet({
       aria-modal
       aria-label={resolvedAriaLabel}
     >
-      <div className="absolute inset-0 bg-black/50" aria-hidden />
+      <div className="absolute inset-0 bg-[color:var(--dibay-dim)]" aria-hidden />
       <div
-        className={`relative z-10 w-full max-w-sm rounded-2xl bg-sam-surface px-6 pb-6 pt-7 shadow-xl ring-1 ring-black/[0.06] transition-[opacity,transform] duration-200 ease-out ${
+        className={`relative z-10 w-full max-w-sm rounded-[length:var(--ui-radius-rect)] border border-sam-border bg-sam-surface px-6 pb-6 pt-7 shadow-sam-elevated transition-[opacity,transform] duration-200 ease-out ${
           entered ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"
         }`}
       >
@@ -276,13 +276,13 @@ export function MobileDualActionBottomSheet({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/50 transition-opacity duration-200"
+        className="absolute inset-0 bg-[color:var(--dibay-dim)] transition-opacity duration-200"
         style={{ opacity: entered ? 1 : 0 }}
         onClick={onClose}
         aria-label={t("ui_sheet_close_aria")}
       />
       <div
-        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-[0_-8px_32px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
+        className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] border border-sam-border border-b-0 bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-sam-elevated transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
           entered ? "translate-y-0" : "translate-y-full"
         }`}
       >

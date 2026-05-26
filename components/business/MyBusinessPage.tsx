@@ -281,12 +281,12 @@ export function MyBusinessPage({
     }
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <div className="rounded-ui-rect bg-[#111827] px-5 py-5 text-white shadow-sam-elevated md:px-6 md:py-6">
-          <p className="sam-text-helper font-medium text-white/70">{t("business_phase7_108")}</p>
+        <div className="rounded-ui-rect bg-[color:var(--dibay-green)] px-5 py-5 text-sam-on-primary shadow-sam-elevated md:px-6 md:py-6">
+          <p className="sam-text-helper font-medium text-sam-on-primary/70">{t("business_phase7_108")}</p>
           <h2 className="mt-1 sam-text-page-title font-bold leading-tight md:sam-text-hero">
             {t("business_phase7_607")}
           </h2>
-          <p className="mt-2 sam-text-body-secondary text-white/75">
+          <p className="mt-2 sam-text-body-secondary text-sam-on-primary/75">
             {t("business_phase7_608")}
           </p>
         </div>

@@ -44,12 +44,11 @@ export function AdminSidebarItem({
 
   const padding = depth === 0 ? "pl-3" : depth === 1 ? "pl-5" : "pl-7";
   const baseLinkClass = `block rounded-ui-rect py-2 pr-3 sam-text-body whitespace-nowrap ${padding}`;
-  /** `text-signature`는 OS 다크에서 밝은 파랑+연한 배경 대비가 무너짐 — 본문색+프라이머리 틴트로 통일 */
-  const activeClass =
-    "bg-sam-primary/14 font-semibold text-sam-fg shadow-sm ring-1 ring-inset ring-sam-primary/20";
+  /** Admin sidebar는 dark green surface 안에서 gold active / white inactive를 고정한다. */
+  const activeClass = "admin-sidebar__item-active font-semibold";
   const inactiveClass = pending
-    ? "font-medium text-sam-meta hover:bg-sam-app hover:text-sam-muted"
-    : "font-medium text-sam-fg hover:bg-sam-surface-muted hover:text-sam-fg";
+    ? "admin-sidebar__item-inactive font-medium opacity-70"
+    : "admin-sidebar__item-inactive font-medium";
 
   const leafIsActive =
     pathsScope && pathsScope.length > 0 && item.path
@@ -60,16 +59,16 @@ export function AdminSidebarItem({
 
   const groupLabelClass = `flex-1 sam-text-body whitespace-nowrap min-w-0 text-left ${
     isActive || childActive
-      ? "font-bold text-sam-fg"
+      ? "admin-sidebar__group-active font-bold"
       : pending
-        ? "font-medium text-sam-meta"
-        : "font-medium text-sam-fg"
+        ? "admin-sidebar__group-inactive font-medium opacity-70"
+        : "admin-sidebar__group-inactive font-medium"
   }`;
 
   const groupRowClass =
     isActive || childActive
-      ? "bg-sam-primary/12 shadow-sm ring-1 ring-inset ring-sam-primary/18"
-      : "hover:bg-sam-surface-muted";
+      ? "admin-sidebar__group-active"
+      : "admin-sidebar__group-inactive";
 
   const toggleOpen = () => setOpen((o) => !o);
 
@@ -100,7 +99,7 @@ export function AdminSidebarItem({
           <button
             type="button"
             onClick={toggleOpen}
-            className="shrink-0 rounded p-1 sam-text-body font-semibold text-sam-muted hover:bg-sam-border-soft"
+            className="admin-sidebar__toggle shrink-0 rounded p-1 sam-text-body font-semibold"
             aria-expanded={open}
             aria-label={open ? t("common_close_submenu") : t("common_open_submenu")}
           >
@@ -108,7 +107,7 @@ export function AdminSidebarItem({
           </button>
         </div>
         {open && (
-          <div className="mt-0.5 ml-3 border-l border-sam-border pl-1">
+          <div className="mt-0.5 ml-3 border-l border-white/15 pl-1">
             {item.children!.map((child) => (
               <AdminSidebarItem
                 key={child.key}

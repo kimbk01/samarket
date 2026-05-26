@@ -7,15 +7,15 @@
   --sector-header-col-gap: 6px;
   /** 우측 아이콘 클러스터 — 배민·당근형 밀착(0px) */
   --sector-header-icon-cluster-gap: 0px;
-  --sector-header-bg: rgba(255, 252, 252, 0.96);
-  --sector-header-border: rgba(54, 36, 21, 0.08);
-  --sector-header-shadow: 0 2px 10px rgba(54, 36, 21, 0.04);
-  --sector-header-title-color: #362415;
-  --sector-header-subtitle-color: rgba(96, 76, 76, 0.78);
-  --sector-header-icon-color: #604c4c;
-  --sector-header-icon-active-color: #0b421a;
-  --sector-header-back-color: #362415;
-  --sector-header-accent-hover: rgba(234, 199, 132, 0.14);
+  --sector-header-bg: color-mix(in srgb, var(--dibay-cream) 96%, transparent);
+  --sector-header-border: color-mix(in srgb, var(--dibay-brown) 8%, transparent);
+  --sector-header-shadow: 0 2px 10px color-mix(in srgb, var(--dibay-brown) 4%, transparent);
+  --sector-header-title-color: var(--dibay-brown);
+  --sector-header-subtitle-color: color-mix(in srgb, var(--dibay-muted) 78%, transparent);
+  --sector-header-icon-color: var(--dibay-muted);
+  --sector-header-icon-active-color: var(--dibay-green);
+  --sector-header-back-color: var(--dibay-brown);
+  --sector-header-accent-hover: color-mix(in srgb, var(--dibay-gold) 14%, transparent);
   --sector-header-back-size: 40px;
   --sector-header-back-icon: 24px;
   --sector-header-action-size: 36px;
@@ -27,7 +27,7 @@
   --sector-header-subtitle-size: 11px;
   --sector-header-subtitle-title-size: 15px;
   --sector-header-search-h: 36px;
-  --sector-header-search-bg: rgba(234, 199, 132, 0.16);
+  --sector-header-search-bg: color-mix(in srgb, var(--dibay-gold) 16%, transparent);
   --sector-header-left-slot: 40px;
   --sector-header-right-min: 40px;
 }
@@ -279,7 +279,7 @@
 }
 
 .sector-header-search-input::placeholder {
-  color: rgba(96, 76, 76, 0.7);
+  color: color-mix(in srgb, var(--dibay-muted) 70%, transparent);
 }
 
 /** legacy tier1 class bridge — grid center title */

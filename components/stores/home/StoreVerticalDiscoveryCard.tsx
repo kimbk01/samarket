@@ -33,20 +33,20 @@ function statusBadge(
 ) {
   if (status === "open") {
     return (
-      <span className="shrink-0 rounded-ui-rect bg-[#E7F7EC] px-2 py-0.5 sam-text-helper font-semibold text-[#31A24C] dark:bg-[#1F3528] dark:text-[#5CD67C]">
+      <span className="shrink-0 rounded-ui-rect bg-sam-success-soft px-2 py-0.5 sam-text-helper font-semibold text-sam-success">
         {t("store_open_now")}
       </span>
     );
   }
   if (status === "preparing") {
     return (
-      <span className="shrink-0 rounded-ui-rect bg-[#FFF8E7] px-2 py-0.5 sam-text-helper font-semibold text-[#B78100] dark:bg-[#3D3420] dark:text-[#F5C842]">
+      <span className="shrink-0 rounded-ui-rect bg-sam-warning-soft px-2 py-0.5 sam-text-helper font-semibold text-sam-warning">
         {t("store_preparing")}
       </span>
     );
   }
   return (
-    <span className="shrink-0 rounded-ui-rect bg-[#E4E6EB] px-2 py-0.5 sam-text-helper font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]">
+    <span className="shrink-0 rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-semibold text-sam-muted">
       {t("store_closed_now")}
     </span>
   );
@@ -187,7 +187,7 @@ export function StoreVerticalDiscoveryCard({
         ref={viewportRef}
         href={storeHref}
         prefetch
-        className="block active:bg-[#F2F3F5] dark:active:bg-[#2F3031]"
+        className={`block ${FB.cardPress}`}
         onPointerEnter={() => prefetchStoreDetail("pointer_enter")}
         onFocus={() => prefetchStoreDetail("focus")}
         onPointerDown={() => {
@@ -221,10 +221,10 @@ export function StoreVerticalDiscoveryCard({
           });
         }}
       >
-        <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
+        <div className={`relative aspect-[5/3] w-full overflow-hidden ${FB.thumbMuted}`}>
           {store.profileImageUrl ?
-            <SamarketThumbnail src={store.profileImageUrl} fill fetchDisplayPx={180} roundedClassName="rounded-none" className="bg-sam-surface-muted dark:bg-[#3A3B3C]" />
-          : <div className="flex h-full w-full items-center justify-center bg-[#1877F2]/90 text-white dark:bg-[#2374E1]/90">
+            <SamarketThumbnail src={store.profileImageUrl} fill fetchDisplayPx={180} roundedClassName="rounded-none" className={FB.thumbMuted} />
+          : <div className={FB.placeholderHero}>
               <svg className="h-14 w-14 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                 <path
                   strokeLinecap="round"
@@ -236,12 +236,12 @@ export function StoreVerticalDiscoveryCard({
           }
           <div className="absolute left-2 top-2 flex flex-wrap gap-1">
             {store.isFeatured ?
-              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 sam-text-xxs font-semibold text-[#1877F2] shadow-sm dark:bg-[#242526]/95 dark:text-[#4599FF]">
+              <span className={FB.badgeFeatured}>
                 {t("store_badge_recommended")}
               </span>
             : null}
             {adHint ?
-              <span className="rounded-ui-rect bg-sam-surface/95 px-2 py-0.5 sam-text-xxs font-semibold text-[#050505] shadow-sm dark:bg-[#242526]/95 dark:text-[#E4E6EB]">
+              <span className={FB.badgeNeutral}>
                 {adHint}
               </span>
             : null}
@@ -265,21 +265,21 @@ export function StoreVerticalDiscoveryCard({
           : null}
 
           <div className={`flex flex-wrap gap-x-2 gap-y-1 ${FB.metaSm}`}>
-            <span className="font-semibold text-[#050505] dark:text-[#E4E6EB]">★ {store.rating.toFixed(1)}</span>
+            <span className={FB.ratingValue}>★ {store.rating.toFixed(1)}</span>
             <span>{t("store_reviews_count", { count: store.reviewCount.toLocaleString("en-PH") })}</span>
             {distLabel ?
-              <span className="font-semibold text-[#1877F2] dark:text-[#4599FF]">{distLabel}</span>
+              <span className={FB.distance}>{distLabel}</span>
             : null}
             {store.etaLabel?.trim() ?
               <span>{store.etaLabel}</span>
             : <span>{t("store_est_prep", { label: store.estPrepLabel })}</span>}
             {store.deliveryFeeLabel === freeDeliveryLabel ?
               <span className="inline-flex flex-wrap items-center gap-1">
-                <span className="text-[13px] font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
+                <span className={`text-[13px] ${FB.freeDelivery}`}>
                   {freeDeliveryLabel}
                 </span>
                 {store.deliveryFeeStrikePhp != null && store.deliveryFeeStrikePhp > 0 ?
-                  <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">
+                  <span className={FB.strike}>
                     {formatMoneyPhp(store.deliveryFeeStrikePhp)}
                   </span>
                 : null}
@@ -298,7 +298,7 @@ export function StoreVerticalDiscoveryCard({
               {flags.map((f) => (
                 <span
                   key={f}
-                  className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-[#65676B] dark:bg-[#3A3B3C] dark:text-[#B0B3B8]"
+                  className={FB.chip}
                 >
                   {f}
                 </span>
@@ -308,10 +308,10 @@ export function StoreVerticalDiscoveryCard({
 
           {store.paymentMethodsLine?.trim() ?
             <p
-              className="line-clamp-2 sam-text-xxs font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
+              className={FB.metaPayment}
               title={store.paymentMethodsLine}
             >
-              <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">{t("store_label_payment")}</span> · {store.paymentMethodsLine}
+              <span className={FB.metaPaymentLabel}>{t("store_label_payment")}</span> · {store.paymentMethodsLine}
             </p>
           : null}
         </div>
@@ -326,14 +326,14 @@ export function StoreVerticalDiscoveryCard({
                 return (
               <Link
                 href={productHref}
-                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary active:bg-sam-surface-muted dark:active:bg-[#3A3B3C]`}
+                className={`flex justify-between gap-2 rounded-ui-rect py-1.5 sam-text-body-secondary ${FB.rowActive}`}
                 onPointerEnter={() => prefetchProductDetail(it.productId)}
                 onFocus={() => prefetchProductDetail(it.productId)}
                 onTouchStart={() => prefetchProductDetail(it.productId)}
                 onClick={(e) => e.stopPropagation()}
               >
                 <span className={`truncate ${FB.link}`}>{it.name}</span>
-                <span className="shrink-0 font-semibold text-[#050505] dark:text-[#E4E6EB]">
+                <span className={FB.priceStrong}>
                   {formatMoneyPhp(it.price)}
                 </span>
               </Link>

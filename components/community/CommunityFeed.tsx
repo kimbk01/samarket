@@ -1403,16 +1403,16 @@ export function CommunityFeed({
             {showNeighborOnlyStrip ? (
               <div className={PHILIFE_FEED_FILTER_STRIP_CLASS}>
                 <div className={`min-w-0 space-y-1 ${APP_MAIN_HEADER_INNER_CLASS}`}>
-                  <label className="flex cursor-pointer items-center gap-2 px-0 text-[14px] text-[#1F2430]">
+                  <label className="flex cursor-pointer items-center gap-2 px-0 text-[14px] text-sam-fg">
                     <input
                       type="checkbox"
                       checked={neighborOnly}
                       onChange={(e) => setNeighborOnly(e.target.checked)}
-                      className="h-4 w-4 rounded-[4px] border-[#E5E7EB] text-[#7360F2] focus:ring-[#7360F2]/30"
+                      className="h-4 w-4 rounded-[4px] border-sam-border text-sam-primary focus:ring-sam-primary/30"
                     />
                     {t("community_feed_neighbor_filter")}
                   </label>
-                  <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("community_feed_neighbor_strip_hint")}</p>
+                  <p className="text-[13px] leading-[1.45] text-sam-muted">{t("community_feed_neighbor_strip_hint")}</p>
                 </div>
               </div>
             ) : null}
@@ -1442,7 +1442,7 @@ export function CommunityFeed({
                 type="button"
                 role="option"
                 aria-selected={effectiveRecSort === "latest"}
-                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1F2430] transition hover:bg-[#F7F8FA]"
+                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-sam-fg transition hover:bg-sam-app"
                 onClick={() => applyRecommendSort("latest")}
               >
                 {t("community_sort_latest")}
@@ -1453,7 +1453,7 @@ export function CommunityFeed({
                 type="button"
                 role="option"
                 aria-selected={effectiveRecSort === "recommended"}
-                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1F2430] transition hover:bg-[#F7F8FA]"
+                className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-sam-fg transition hover:bg-sam-app"
                 onClick={() => applyRecommendSort("recommended")}
               >
                 {t("community_sort_recommended")}
@@ -1467,7 +1467,7 @@ export function CommunityFeed({
         <div ref={setFeedSwipeable} className="will-change-transform touch-pan-y min-w-0">
         {loading && postsForList.length > 0 ? (
           <div
-            className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-[#7360F2]/60"
+            className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px] animate-pulse bg-sam-primary/60"
             aria-hidden
           />
         ) : null}
@@ -1490,13 +1490,13 @@ export function CommunityFeed({
         {loading && postsForList.length === 0 && !err ? (
           <CommunityFeedSkeleton />
         ) : !err && postsForList.length === 0 ? (
-          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-[#6B7280]`}>
+          <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               {category === "meetup" ? (
                 <Link
                   href={philifeComposeHref}
-                  className="font-semibold text-[#7360F2]"
+                  className="font-semibold text-sam-primary"
                   onClick={(e) => {
                     if (!guardBeforeNavigate()) e.preventDefault();
                   }}
@@ -1507,7 +1507,7 @@ export function CommunityFeed({
                 <button
                   type="button"
                   onClick={() => openPhilifeWriteSheet(category)}
-                  className="font-semibold text-[#7360F2] underline decoration-[#7360F2]/40 underline-offset-2"
+                  className="font-semibold text-sam-primary underline decoration-sam-primary/40 underline-offset-2"
                 >
                   {t("community_first_post_cta")}
                 </button>
@@ -1525,10 +1525,10 @@ export function CommunityFeed({
             </ul>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
             {loadingMore ? (
-              <p className="py-4 text-center text-[13px] text-[#65676B]">{t("community_feed_loading_more")}</p>
+              <p className="py-4 text-center text-[13px] text-sam-muted">{t("community_feed_loading_more")}</p>
             ) : null}
             {!hasMore && postsForList.length > 0 ? (
-              <p className="pb-8 pt-2 text-center text-[13px] text-[#8A8D91]">{t("community_feed_all_loaded")}</p>
+              <p className="pb-8 pt-2 text-center text-[13px] text-sam-meta">{t("community_feed_all_loaded")}</p>
             ) : null}
           </>
         )}

@@ -32,7 +32,7 @@ export function MyInfoStatGrid({
             <p className={`${MYINFO_TYPO.metaText} text-sam-muted`}>{it.label}</p>
             <p
               className={`${MYINFO_TYPO.number} mt-1 ${
-                it.accent ? "text-[color:#1C8DB8]" : "text-sam-fg"
+                it.accent ? "text-sam-primary" : "text-sam-fg"
               }`}
             >
               {it.value}

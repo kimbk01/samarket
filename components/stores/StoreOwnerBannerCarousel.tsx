@@ -194,7 +194,7 @@ export function StoreOwnerBannerCarousel({
               aria-label={t("store_banner_slide_aria", { index: String(i + 1) })}
               onClick={() => scrollTo(i)}
               className={`h-2 w-2 rounded-full transition ${
-                i === idx ? "bg-[#1C8DB8]" : "bg-neutral-300"
+                i === idx ? "bg-sam-primary" : "bg-sam-border"
               }`}
             />
           ))}

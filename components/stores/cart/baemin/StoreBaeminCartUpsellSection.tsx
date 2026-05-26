@@ -38,7 +38,7 @@ export function StoreBaeminCartUpsellSection({
 
   return (
     <section className={`${BAEMIN_CART_TYPE.cardGap} ${BAEMIN_CART_TYPE.pagePadX}`}>
-      <h2 className={`mb-2 px-0.5 ${BAEMIN_CART_TYPE.sectionTitle} text-[#111111]`}>
+      <h2 className={`mb-2 px-0.5 ${BAEMIN_CART_TYPE.sectionTitle} text-[color:var(--delivery-text-main)]`}>
         {"\ud568\uaed8 \uba39\uc73c\uba74 \uc88b\uc544\uc694"}
       </h2>
       <div className={BAEMIN_CART_CARD_INSET_CLASS}>
@@ -62,8 +62,8 @@ export function StoreBaeminCartUpsellSection({
                       className={BAEMIN_CART_TYPE.thumbUpsell}
                     />
                     <div className="min-w-0 flex-1">
-                      <p className={`truncate ${BAEMIN_CART_TYPE.itemTitle} text-[#111111]`}>{p.title}</p>
-                      <p className={`mt-0.5 ${BAEMIN_CART_TYPE.upsellPrice} text-[#111111]`}>
+                      <p className={`truncate ${BAEMIN_CART_TYPE.itemTitle} text-[color:var(--delivery-text-main)]`}>{p.title}</p>
+                      <p className={`mt-0.5 ${BAEMIN_CART_TYPE.upsellPrice} text-[color:var(--delivery-text-main)]`}>
                         {formatMoneyPhp(unit)}
                         {hasOptions ? "~" : ""}
                       </p>
@@ -72,7 +72,7 @@ export function StoreBaeminCartUpsellSection({
                   <button
                     type="button"
                     onClick={() => onPickProduct(p.id)}
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#E0E0E0] bg-white text-[20px] font-medium leading-none text-[#111111] active:bg-[#F7F7F7]"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] text-[20px] font-medium leading-none text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]"
                     aria-label={`${p.title} ${"\ub2f4\uae30"}`}
                   >
                     +

@@ -17,7 +17,7 @@ export function ProfileEditHeader({
       <button
         type="submit"
         form={formId}
-        className="inline-flex min-h-9 items-center justify-center rounded-[10px] bg-[color:#1C8DB8] px-3 text-[13px] font-semibold text-white"
+        className="inline-flex min-h-9 items-center justify-center rounded-[10px] bg-sam-primary px-3 text-[13px] font-semibold text-sam-on-primary"
       >
         {t("common_save")}
       </button>

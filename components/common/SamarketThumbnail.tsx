@@ -67,11 +67,11 @@ export function SamarketThumbnail({
 
   return (
     <div
-      className={`relative shrink-0 overflow-hidden bg-[#F3F4F6] ${roundedClassName} ${className}`}
+      className={`relative shrink-0 overflow-hidden bg-sam-surface-muted ${roundedClassName} ${className}`}
       style={fill ? { width: "100%", height: "100%" } : { width: size, height: size }}
     >
       {!loaded && !showFallbackNode ? (
-        <div className="absolute inset-0 animate-pulse bg-[#F3F4F6]" aria-hidden />
+        <div className="absolute inset-0 animate-pulse bg-sam-surface-muted" aria-hidden />
       ) : null}
       {showFallbackNode ? (
         <div className="absolute inset-0 flex items-center justify-center">{fallbackNode}</div>

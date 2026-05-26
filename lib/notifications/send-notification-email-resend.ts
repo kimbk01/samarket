@@ -6,7 +6,7 @@ import { translate } from "@/lib/i18n/messages";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 const FETCH_MS = 12_000;
-const BRAND_PRIMARY_HEX = "#1C8DB8";
+const BRAND_PRIMARY_HEX = "#0B421A";
 
 function truncate(s: string, max: number): string {
   const t = s.trim();

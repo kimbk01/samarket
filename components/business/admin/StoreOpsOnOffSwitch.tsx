@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 /** 승인 매장 운영 — 노출·영업 토글 공통 (ON 시 트랙 `--biz-primary`) */
-const TRACK_ON = "var(--biz-primary, #0B421A)";
-const TRACK_ON_BORDER = "var(--biz-primary-active, #082F14)";
+const TRACK_ON = "var(--biz-primary, var(--dibay-green))";
+const TRACK_ON_BORDER = "var(--biz-primary-active, var(--sm-color-primary-active))";
 const THUMB_PX = 28;
 const PAD_PX = 4;
 const TAP_SLIP_PX = 10;

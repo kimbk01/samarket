@@ -79,7 +79,7 @@ export function StoreDetailStorefrontPanel({
     const strike = commerceExtras.deliveryFeeStrikeReferencePhp;
     return (
       <span className="inline-flex flex-wrap items-center gap-1">
-        <span className="font-semibold text-[#2563EB]">{t("store_free_delivery_applied")}</span>
+        <span className="font-semibold text-sam-primary">{t("store_free_delivery_applied")}</span>
         {strike != null && strike > 0 ? (
           <span className="text-sam-meta line-through">{formatMoneyPhp(strike)}</span>
         ) : null}

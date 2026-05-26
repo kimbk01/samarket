@@ -95,23 +95,20 @@
     justify-content: center;
     border-radius: var(--delivery-radius);
     border: none;
-    background-color: #2386b1;
     background-color: var(--delivery-primary);
     padding-inline: 16px;
     font-size: var(--delivery-fs-button);
     font-weight: 700;
     line-height: 1.2;
-    color: #ffffff;
+    color: var(--dibay-cream);
     transition: background-color 150ms ease, transform 150ms ease;
   }
 
   .delivery-btn-primary:hover:not(:disabled) {
-    background-color: #1f769c;
     background-color: var(--delivery-primary-hover);
   }
 
   .delivery-btn-primary:active:not(:disabled) {
-    background-color: #1a6a8f;
     background-color: var(--delivery-primary-active);
     transform: scale(0.98);
   }
@@ -119,7 +116,7 @@
   .delivery-btn-primary:disabled {
     cursor: not-allowed;
     background-color: var(--delivery-btn-disabled);
-    color: #ffffff;
+    color: var(--dibay-cream);
     opacity: 1;
   }
 
@@ -164,15 +161,15 @@
     appearance: none;
     -webkit-appearance: none;
     border: none;
-    background-color: #2386b1;
-    color: #ffffff;
+    background-color: var(--delivery-primary);
+    color: var(--dibay-cream);
     font-weight: 700;
     cursor: pointer;
   }
 
   [data-store-cart-checkout-action] button[type="button"]:disabled {
     cursor: not-allowed;
-    background-color: #b8b8b8;
+    background-color: var(--delivery-btn-disabled);
   }
 
   .delivery-btn-outline {
@@ -183,7 +180,7 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--delivery-radius);
-    border: 1px solid #dadde1;
+    border: 1px solid var(--delivery-border);
     background: var(--delivery-bg-card);
     padding-inline: 16px;
     font-size: 14px;
@@ -218,16 +215,16 @@
     font-size: 14px;
     font-weight: 700;
     line-height: 1.2;
-    color: #ffffff;
+    color: var(--dibay-cream);
     transition: background-color 150ms ease;
   }
 
   .delivery-btn-danger:hover:not(:disabled) {
-    background-color: #b91c1c;
+    background-color: color-mix(in srgb, var(--delivery-danger) 82%, #000000);
   }
 
   .delivery-btn-danger:active:not(:disabled) {
-    background-color: #991b1b;
+    background-color: color-mix(in srgb, var(--delivery-danger) 68%, #000000);
   }
 
   .delivery-btn-danger:disabled {
@@ -246,7 +243,6 @@
     font-size: 14px;
     font-weight: 500;
     line-height: 1.3;
-    color: #555555;
     color: var(--delivery-text-sub);
     background: transparent;
     border: none;
@@ -276,7 +272,7 @@
   }
 
   .delivery-btn-secondary:hover:not(:disabled) {
-    background: #e8eaed;
+    background: var(--delivery-bg-muted);
   }
 
   .delivery-btn-secondary:disabled {
@@ -289,7 +285,7 @@
     width: 100%;
     min-height: var(--delivery-input-h);
     border-radius: var(--delivery-radius);
-    border: 1px solid #dddddd;
+    border: 1px solid var(--delivery-border);
     background: var(--delivery-bg-card);
     padding-inline: 12px;
     font-size: var(--delivery-fs-body);
@@ -297,7 +293,7 @@
   }
 
   .delivery-input::placeholder {
-    color: #aaaaaa;
+    color: var(--delivery-text-muted);
     font-size: 13px;
   }
 
@@ -659,7 +655,7 @@
     font-size: var(--delivery-fs-button);
     font-weight: 700;
     line-height: 1;
-    color: #ffffff;
+    color: var(--dibay-cream);
     background: var(--delivery-primary);
     transition: background-color 150ms ease, transform 150ms ease;
   }
@@ -695,7 +691,7 @@
   .delivery-fulfillment-chip--active {
     border-color: var(--delivery-primary);
     background: var(--delivery-primary);
-    color: #ffffff;
+    color: var(--dibay-cream);
   }
 
   .delivery-section-heading {
@@ -789,7 +785,7 @@
     margin-bottom: 8px;
     border: none;
     border-radius: var(--delivery-radius-modal);
-    background-color: #ffffff;
+    background-color: var(--delivery-bg-card);
     padding: 24px 16px 16px;
     box-shadow: var(--delivery-shadow-modal);
     isolation: isolate;
@@ -924,7 +920,6 @@
     max-height: min(90vh, 560px);
     overflow: hidden;
     border-radius: var(--delivery-radius-sheet) var(--delivery-radius-sheet) 0 0;
-    background-color: #ffffff;
     background-color: var(--delivery-bg-card);
     box-shadow: var(--delivery-shadow-sheet);
   }
@@ -980,7 +975,7 @@
     justify-content: center;
     border-radius: var(--delivery-radius-pill);
     border: 1px solid var(--delivery-border);
-    background: #ffffff;
+    background: var(--delivery-bg-card);
     color: var(--delivery-primary);
     font-size: 24px;
     font-weight: 500;
@@ -1000,8 +995,8 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--delivery-radius-pill);
-    border: 1px solid #dddddd;
-    background: #ffffff;
+    border: 1px solid var(--delivery-border);
+    background: var(--delivery-bg-card);
     padding-inline: 16px;
     font-size: 12px;
     font-weight: 700;
@@ -1011,9 +1006,9 @@
   }
 
   .delivery-category-chip--active {
-    border-color: #111111;
-    background: #111111;
-    color: #ffffff;
+    border-color: var(--delivery-primary);
+    background: var(--delivery-primary);
+    color: var(--dibay-cream);
   }
 
   .delivery-category-search {
@@ -1024,8 +1019,8 @@
     align-items: center;
     justify-content: center;
     border-radius: var(--delivery-radius-pill);
-    border: 1px solid #dddddd;
-    background: #ffffff;
+    border: 1px solid var(--delivery-border);
+    background: var(--delivery-bg-card);
     color: var(--delivery-text-main);
   }
 
@@ -1067,22 +1062,22 @@
  * Modal chrome — unlayered so preflight / inherit cannot wash out UI.
  */
 [data-delivery-modal-root] .delivery-modal-backdrop {
-  background-color: rgba(0, 0, 0, 0.45) !important;
+  background-color: var(--delivery-backdrop) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 [data-delivery-modal-root] .delivery-modal-panel {
   border-radius: var(--delivery-radius-modal) !important;
-  background-color: #ffffff !important;
+  background-color: var(--delivery-bg-card) !important;
   box-shadow: var(--delivery-shadow-modal) !important;
 }
 
 [data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary {
   min-height: 52px;
   border-radius: 4px;
-  background-color: #2386b1 !important;
-  color: #ffffff !important;
+  background-color: var(--delivery-primary) !important;
+  color: var(--dibay-cream) !important;
   font-size: 15px;
   font-weight: 700;
   box-shadow: none;
@@ -1097,7 +1092,7 @@
   min-height: var(--delivery-btn-h-md);
   border-radius: var(--delivery-radius);
   background-color: var(--delivery-danger) !important;
-  color: #ffffff !important;
+  color: var(--dibay-cream) !important;
   font-size: 14px;
   font-weight: 700;
   box-shadow: none;
@@ -1109,7 +1104,7 @@
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: #555555 !important;
+  color: var(--delivery-text-sub) !important;
   font-size: 14px;
   font-weight: 500;
 }
@@ -1173,7 +1168,6 @@
   padding: 28px 20px 20px;
   border: none;
   border-radius: 8px;
-  background-color: #ffffff !important;
   background-color: var(--delivery-bg-card) !important;
   box-shadow: var(--delivery-shadow-modal) !important;
   pointer-events: auto;
@@ -1228,9 +1222,8 @@
 
 [data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-primary {
   border: none !important;
-  background-color: #2386b1 !important;
   background-color: var(--delivery-primary) !important;
-  color: #ffffff !important;
+  color: var(--dibay-cream) !important;
   font-weight: 700;
   box-shadow: none;
 }
@@ -1296,7 +1289,7 @@ html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
   .sam-tier1-header-icon-cluster a,
   .sam-tier1-header-icon-cluster button
 ) {
-  color: #ffffff;
+  color: var(--dibay-cream);
 }
 
 .delivery-ui[data-stores-home-header] :is(
@@ -1305,5 +1298,5 @@ html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
   .sam-tier1-header-icon-cluster a,
   .sam-tier1-header-icon-cluster button
 ):is(:hover, :active) {
-  background: rgba(255, 252, 252, 0.14);
+  background: color-mix(in srgb, var(--dibay-cream) 14%, transparent);
 }

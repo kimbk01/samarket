@@ -44,6 +44,7 @@ export const Sam = {
     secondaryCombo: "sam-btn sam-btn--secondary",
     ghostCombo: "sam-btn sam-btn--ghost",
     dangerCombo: "sam-btn sam-btn--danger",
+    cancelCombo: "sam-btn sam-btn--cancel",
     outlineCombo: "sam-btn sam-btn--outline",
     /** 흰 배경 + 프라이머리 테두리·텍스트 — 듀얼 확인 팝업 상단 버튼 등 */
     outlinePrimaryCombo: "sam-btn sam-btn--outline-primary",

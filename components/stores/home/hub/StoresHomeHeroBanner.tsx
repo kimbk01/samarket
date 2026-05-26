@@ -13,7 +13,7 @@ const SLIDES = [
     eyebrowKey: "store_promo_eyebrow" as const,
     titleKey: "store_promo_title" as const,
     subtitleKey: "store_promo_subtitle" as const,
-    bg: "linear-gradient(135deg, #006241 0%, #1e3932 100%)",
+    bg: "linear-gradient(135deg, var(--dibay-green) 0%, var(--dibay-brown) 100%)",
   },
   {
     id: "browse-mart",
@@ -21,7 +21,7 @@ const SLIDES = [
     eyebrowKey: "store_feed_eyebrow" as const,
     titleKey: "store_more_food_link" as const,
     subtitleKey: "store_order_now_subtitle" as const,
-    bg: "linear-gradient(135deg, #00754a 0%, #006241 100%)",
+    bg: "linear-gradient(135deg, color-mix(in srgb, var(--dibay-green) 88%, var(--dibay-card)) 0%, var(--dibay-green) 100%)",
   },
 ] as const;
 

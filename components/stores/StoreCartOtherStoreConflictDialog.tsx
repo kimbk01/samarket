@@ -136,7 +136,7 @@ function CartConflictSection({
         ) : null}
 
         {!isCurrent && pendingAdd ? (
-          <div className="flex items-center justify-between border-t border-neutral-200 bg-[#E6F4F9]/50 px-2.5 py-2">
+          <div className="flex items-center justify-between border-t border-sam-border bg-sam-primary-soft px-2.5 py-2">
             <span className="text-[12px] font-semibold text-[color:var(--delivery-primary)]">
               {t("store_cart_list_total")}
             </span>

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     is_center: typeof b.is_center === "boolean" ? b.is_center : false,
     /** 배달 하단의 「내매장」은 앱에서 소유 매장 유무로만 제어 — 어드민에서 분기하지 않음 */
     requires_store_id: false,
-    color: typeof b.color === "string" && b.color ? b.color : "#1C8DB8",
+    color: typeof b.color === "string" && b.color ? b.color : "#0B421A",
   };
 
   if (!patch.label || !patch.icon_key || !patch.href) {

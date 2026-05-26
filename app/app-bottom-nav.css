@@ -1,13 +1,13 @@
 /** dibaY 하단 탭 — 단일 시각 토큰 (Main Green / Soft Background) */
 :root {
-  --app-bottom-nav-surface: #fffcfc;
-  --app-bottom-nav-main-green: #0b421a;
-  --app-bottom-nav-text-muted: rgba(96, 76, 76, 0.82);
-  --app-bottom-nav-icon-muted: rgba(96, 76, 76, 0.78);
-  --app-bottom-nav-active-bg: rgba(234, 199, 132, 0.18);
-  --app-bottom-nav-hover-bg: rgba(234, 199, 132, 0.1);
-  --app-bottom-nav-border: rgba(54, 36, 21, 0.1);
-  --app-bottom-nav-shadow: 0 -4px 14px rgba(54, 36, 21, 0.06);
+  --app-bottom-nav-surface: var(--dibay-cream);
+  --app-bottom-nav-main-green: var(--dibay-green);
+  --app-bottom-nav-text-muted: color-mix(in srgb, var(--dibay-muted) 82%, transparent);
+  --app-bottom-nav-icon-muted: color-mix(in srgb, var(--dibay-muted) 78%, transparent);
+  --app-bottom-nav-active-bg: color-mix(in srgb, var(--dibay-gold) 18%, transparent);
+  --app-bottom-nav-hover-bg: color-mix(in srgb, var(--dibay-gold) 10%, transparent);
+  --app-bottom-nav-border: color-mix(in srgb, var(--dibay-brown) 10%, transparent);
+  --app-bottom-nav-shadow: 0 -4px 14px color-mix(in srgb, var(--dibay-brown) 6%, transparent);
 }
 
 .app-bottom-nav-shell {
@@ -123,7 +123,7 @@
 }
 
 .app-bottom-nav-item:focus-visible {
-  outline: 2px solid rgba(11, 66, 26, 0.35);
+  outline: 2px solid color-mix(in srgb, var(--dibay-green) 35%, transparent);
   outline-offset: 2px;
 }
 

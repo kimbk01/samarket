@@ -16,7 +16,7 @@ export const BAEMIN_CART_PAGE_X = "px-4";
 export const BAEMIN_CART_STACK_CLASS = "space-y-2";
 
 export const BAEMIN_CART_CARD_CLASS =
-  "overflow-hidden rounded-[4px] border border-[var(--delivery-border-section)] bg-white";
+  "overflow-hidden rounded-[4px] border border-[var(--delivery-border-section)] bg-[color:var(--delivery-bg-card)]";
 
 export const BAEMIN_CART_SECTION_CARD_CLASS = BAEMIN_CART_CARD_CLASS;
 export const BAEMIN_CART_SECTION_TITLE_CLASS = DeliveryTheme.sectionCard.title;
@@ -64,7 +64,7 @@ export const BAEMIN_CART_TYPE = {
   itemTotal: "text-[18px] font-extrabold leading-[var(--delivery-lh-price)] tabular-nums",
   upsellPrice: "text-[14px] tabular-nums",
   btnOption:
-    "inline-flex h-8 min-h-[var(--delivery-touch-min)] items-center justify-center rounded-[4px] border border-[#E0E0E0] bg-white px-3 text-[13px] font-semibold text-[#333]",
+    "inline-flex h-8 min-h-[var(--delivery-touch-min)] items-center justify-center rounded-[4px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] px-3 text-[13px] font-semibold text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]",
   btnQty: "h-8",
   thumb: "h-[72px] w-[72px] rounded-[8px]",
   thumbUpsell: "h-14 w-14 rounded-[8px]",

@@ -5,50 +5,50 @@
  */
 
 :root {
-  --delivery-bg: #f6f6f6;
-  --delivery-latte: #f2f0eb;
-  --delivery-mocha: #4a3728;
+  --delivery-bg: var(--dibay-cream);
+  --delivery-latte: color-mix(in srgb, var(--dibay-gold) 16%, var(--dibay-cream));
+  --delivery-mocha: var(--dibay-muted);
   --delivery-bg-main: var(--delivery-bg);
-  --delivery-bg-card: #ffffff;
+  --delivery-bg-card: var(--dibay-card);
   --delivery-chat-bg: var(--delivery-latte);
   --delivery-chat-header-bg: var(--delivery-bg-card);
   --delivery-chat-chrome-bg: var(--delivery-bg);
   --delivery-chat-chrome-surface: var(--delivery-bg-card);
   --delivery-chat-chrome-border: var(--delivery-border);
-  --delivery-card: #ffffff;
-  --delivery-bg-soft: #eef1ef;
-  --delivery-bg-muted: #e8ecea;
-  --delivery-bg-thumb: #f0f2f1;
-  --delivery-info-card-bg: #ffffff;
-  --delivery-header-bar-bg: #ffffff;
+  --delivery-card: var(--dibay-card);
+  --delivery-bg-soft: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
+  --delivery-bg-muted: color-mix(in srgb, var(--dibay-muted) 10%, var(--dibay-cream));
+  --delivery-bg-thumb: color-mix(in srgb, var(--dibay-gold) 10%, var(--dibay-card));
+  --delivery-info-card-bg: var(--dibay-card);
+  --delivery-header-bar-bg: var(--dibay-cream);
   --delivery-header-bar-border: var(--delivery-border);
 
-  --delivery-primary: #006241;
-  --delivery-primary-hover: #005235;
-  --delivery-primary-active: #00452d;
-  --delivery-primary-soft: #d4e9e2;
-  --delivery-primary-border: color-mix(in srgb, var(--delivery-primary) 22%, #ffffff);
-  --delivery-dark: #1e3932;
+  --delivery-primary: var(--dibay-green);
+  --delivery-primary-hover: var(--sm-color-primary-strong);
+  --delivery-primary-active: var(--sm-color-primary-active);
+  --delivery-primary-soft: var(--sm-color-primary-soft);
+  --delivery-primary-border: var(--sam-primary-border);
+  --delivery-dark: var(--dibay-brown);
 
   --delivery-bridge-primary: var(--delivery-primary);
   --delivery-bridge-primary-hover: var(--delivery-primary-hover);
   --delivery-bridge-primary-soft: var(--delivery-primary-soft);
 
-  --delivery-text-main: #111111;
-  --delivery-text-sub: #666666;
-  --delivery-text-muted: #888888;
-  --delivery-text-disabled: #b8b8b8;
+  --delivery-text-main: var(--dibay-brown);
+  --delivery-text-sub: var(--dibay-muted);
+  --delivery-text-muted: color-mix(in srgb, var(--dibay-muted) 72%, var(--dibay-card));
+  --delivery-text-disabled: color-mix(in srgb, var(--dibay-muted) 40%, var(--dibay-card));
 
-  --delivery-border: #e5e5e5;
-  --delivery-border-light: #e5e5e5;
-  --delivery-border-section: #e5e5e5;
-  --delivery-border-soft: #e5e5e5;
+  --delivery-border: var(--dibay-border);
+  --delivery-border-light: var(--dibay-border);
+  --delivery-border-section: var(--dibay-border);
+  --delivery-border-soft: color-mix(in srgb, var(--dibay-brown) 8%, var(--dibay-card));
 
-  --delivery-success: #1f9d55;
+  --delivery-success: var(--dibay-green);
   --delivery-danger: #e74c3c;
-  --delivery-warning: #ff6b00;
+  --delivery-warning: var(--sam-warning);
 
-  --delivery-badge-green: #00754a;
+  --delivery-badge-green: var(--dibay-green);
 
   --delivery-fs-page-title: 22px;
   --delivery-fs-header-title: 17px;
@@ -103,7 +103,7 @@
   --delivery-btn-h-md: 48px;
   --delivery-btn-h-sticky: 48px;
   --delivery-cart-checkout-btn-h: 48px;
-  --delivery-btn-disabled: #c9d5db;
+  --delivery-btn-disabled: color-mix(in srgb, var(--dibay-muted) 38%, var(--dibay-card));
   --delivery-input-h: 48px;
   --delivery-touch-min: 44px;
 
@@ -116,24 +116,24 @@
   --delivery-shadow-order-confirm: 0 8px 24px rgba(0, 0, 0, 0.14);
   --delivery-shadow-sheet: 0 -4px 16px rgba(17, 24, 39, 0.1);
   /** 모달·시트 뒤 — blur 금지(흰 화면 뭉개짐). 배민식 반투명 딤만 */
-  --delivery-backdrop: rgba(0, 0, 0, 0.45);
+  --delivery-backdrop: var(--dibay-dim);
 
   --delivery-badge-h: 20px;
   --delivery-badge-px: 6px;
   --delivery-badge-primary-bg: var(--delivery-primary-soft);
   --delivery-badge-primary-fg: var(--delivery-primary);
-  --delivery-badge-popular-bg: #fff1f0;
-  --delivery-badge-popular-fg: #d64545;
-  --delivery-badge-owner-bg: #faf3e6;
-  --delivery-badge-owner-fg: #9a6b1f;
+  --delivery-badge-popular-bg: var(--sam-danger-soft);
+  --delivery-badge-popular-fg: var(--sam-danger);
+  --delivery-badge-owner-bg: var(--sam-warning-soft);
+  --delivery-badge-owner-fg: var(--sam-warning);
   --delivery-badge-rep-bg: var(--delivery-primary-soft);
   --delivery-badge-rep-fg: var(--delivery-dark);
   --delivery-badge-discount-bg: #e8f5ee;
   --delivery-badge-discount-fg: var(--delivery-primary);
-  --delivery-badge-free-bg: #eef7ff;
-  --delivery-badge-free-fg: #0066cc;
-  --delivery-badge-soldout-bg: #e5e5e5;
-  --delivery-badge-soldout-fg: #666666;
+  --delivery-badge-free-bg: var(--sam-warning-soft);
+  --delivery-badge-free-fg: var(--sam-warning);
+  --delivery-badge-soldout-bg: color-mix(in srgb, var(--dibay-muted) 12%, var(--dibay-card));
+  --delivery-badge-soldout-fg: var(--dibay-muted);
 
   --delivery-menu-card-py: 16px;
   --delivery-menu-card-px: 16px;
@@ -141,7 +141,7 @@
   --delivery-menu-plus-size: 44px;
   --delivery-sticky-tab-h: 36px;
   --delivery-home-header-bg: var(--delivery-primary);
-  --delivery-home-search-bg: #ffffff;
+  --delivery-home-search-bg: var(--dibay-card);
   --delivery-home-search-h: 36px;
   /** PTR 힌트 — 배민형 상하 여백 */
   --delivery-home-ptr-hint-min-h: 2.75rem;

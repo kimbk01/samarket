@@ -484,7 +484,7 @@ export function StoreDetailInfoPublic({
               <dd className="sam-text-body font-semibold text-sam-fg">
                 {commerceExtras.deliveryFeeMode === "self_free_promo" ? (
                   <span className="inline-flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">{t("store_free_delivery_applied")}</span>
+                    <span className="font-semibold text-[color:var(--delivery-primary)]">{t("store_free_delivery_applied")}</span>
                     {commerceExtras.deliveryFeeStrikeReferencePhp != null &&
                     commerceExtras.deliveryFeeStrikeReferencePhp > 0 ? (
                       <span className="font-medium text-sam-meta line-through">

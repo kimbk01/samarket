@@ -94,7 +94,7 @@
   min-height: var(--delivery-btn-h);
   border-radius: var(--delivery-radius);
   background-color: var(--delivery-primary) !important;
-  color: #ffffff !important;
+  color: var(--dibay-cream) !important;
   font-size: var(--delivery-fs-button);
   font-weight: 700;
   box-shadow: none;

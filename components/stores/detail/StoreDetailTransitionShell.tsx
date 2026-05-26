@@ -65,19 +65,19 @@ function StoreDetailTransitionShellPanel({ seed }: { seed: StoreDetailListSeed }
 
   return (
     <div
-      className="fixed inset-0 z-[45] flex min-h-[100dvh] flex-col bg-white dark:bg-[#18191A]"
+      className="fixed inset-0 z-[45] flex min-h-[100dvh] flex-col bg-[color:var(--delivery-bg-card)]"
       style={panelStyle}
       onTransitionEnd={onTransitionEnd}
       role="presentation"
       aria-hidden
     >
-      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[#ECEFF3] px-3 dark:border-[#2F3133]">
-        <span className="h-8 w-8 shrink-0 rounded-ui-rect bg-[#F3F4F6] dark:bg-[#2A2C2E]" />
-        <h1 className="min-w-0 flex-1 truncate text-[17px] font-bold text-[#111] dark:text-[#F5F5F5]">
+      <header className="flex h-12 shrink-0 items-center gap-2 border-b border-[color:var(--delivery-border)] px-3">
+        <span className="h-8 w-8 shrink-0 rounded-ui-rect bg-[color:var(--delivery-bg-thumb)]" />
+        <h1 className="min-w-0 flex-1 truncate text-[17px] font-bold text-[color:var(--delivery-text-main)]">
           {seed.store_name}
         </h1>
       </header>
-      <div className={`${STORE_DETAIL_HERO_SHELL_CLASS} relative shrink-0 bg-[#F3F4F6] dark:bg-[#2A2C2E]`}>
+      <div className={`${STORE_DETAIL_HERO_SHELL_CLASS} relative shrink-0 bg-[color:var(--delivery-bg-thumb)]`}>
         {seed.hero_image_url ? (
           <DeliveryMediaImage
             src={seed.hero_image_url}
@@ -90,13 +90,13 @@ function StoreDetailTransitionShellPanel({ seed }: { seed: StoreDetailListSeed }
         ) : null}
       </div>
       <div className="space-y-2 px-4 py-3">
-        <p className="text-[15px] font-semibold text-[#111] dark:text-[#F5F5F5]">{seed.store_name}</p>
-        <p className="text-[13px] text-[#65676B] dark:text-[#B0B3B8]">
+        <p className="text-[15px] font-semibold text-[color:var(--delivery-text-main)]">{seed.store_name}</p>
+        <p className="text-[13px] text-[color:var(--delivery-text-sub)]">
           <span aria-hidden="true">{"\u2605 "}</span>
           {rating}
         </p>
         {seed.tagline ? (
-          <p className="line-clamp-2 text-[13px] text-[#65676B] dark:text-[#B0B3B8]">{seed.tagline}</p>
+          <p className="line-clamp-2 text-[13px] text-[color:var(--delivery-text-sub)]">{seed.tagline}</p>
         ) : null}
       </div>
     </div>

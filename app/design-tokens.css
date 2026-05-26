@@ -6,25 +6,35 @@
  */
 
 :root {
+  /* ----- dibaY palette (single source for color only) ----- */
+  --dibay-green: #0B421A;
+  --dibay-cream: #FFFCFC;
+  --dibay-gold: #EAC784;
+  --dibay-brown: #362415;
+  --dibay-muted: #604C4C;
+  --dibay-card: #FFFFFF;
+  --dibay-border: rgba(54, 36, 21, 0.14);
+  --dibay-dim: rgba(54, 36, 21, 0.45);
+
   /* ----- User requested SM color tokens ----- */
-  --sm-color-primary: #1C8DB8;
-  --sm-color-primary-strong: #197DA3;
-  --sm-color-primary-soft: #E6F4F9;
-  --sm-color-primary-active: #166F92;
-  --sm-color-primary-disabled: #A7CDD9;
-  --store-order-ops-primary: #1C8DB8;
-  --store-order-ops-primary-strong: #166F92;
-  --store-order-ops-primary-soft: #EAF6FB;
-  --store-order-ops-text: #123B4A;
-  --store-order-ops-bg: #F6F6F6;
-  --store-order-ops-border: #DDE5E0;
-  /* 앱 캔버스 — 전역 흰색(카드·리스트 뮤트는 app-subtle-* ) */
-  --sm-color-bg-page: #ffffff;
-  --sm-color-bg-card: #ffffff;
-  --sm-color-text-main: #1f2937;
-  --sm-color-text-sub: #667085;
-  --sm-color-text-muted: #8a94a6;
-  --sm-color-border: #d8dee8;
+  --sm-color-primary: var(--dibay-green);
+  --sm-color-primary-strong: color-mix(in srgb, var(--dibay-green) 88%, #000000);
+  --sm-color-primary-soft: color-mix(in srgb, var(--dibay-green) 9%, var(--dibay-cream));
+  --sm-color-primary-active: color-mix(in srgb, var(--dibay-green) 78%, #000000);
+  --sm-color-primary-disabled: color-mix(in srgb, var(--dibay-muted) 38%, var(--dibay-card));
+  --store-order-ops-primary: var(--dibay-green);
+  --store-order-ops-primary-strong: var(--sm-color-primary-active);
+  --store-order-ops-primary-soft: color-mix(in srgb, var(--dibay-green) 8%, var(--dibay-cream));
+  --store-order-ops-text: var(--dibay-brown);
+  --store-order-ops-bg: var(--dibay-cream);
+  --store-order-ops-border: var(--dibay-border);
+  /* 앱 캔버스 — 전역 크림(카드·리스트 뮤트는 app-subtle-* ) */
+  --sm-color-bg-page: var(--dibay-cream);
+  --sm-color-bg-card: var(--dibay-card);
+  --sm-color-text-main: var(--dibay-brown);
+  --sm-color-text-sub: var(--dibay-muted);
+  --sm-color-text-muted: color-mix(in srgb, var(--dibay-muted) 78%, var(--dibay-card));
+  --sm-color-border: var(--dibay-border);
   --sm-color-danger: #d45252;
   --sm-color-success: #21885d;
 
@@ -59,16 +69,16 @@
   --sam-primary-hover: var(--sm-color-primary-strong);
   --sam-primary-active: var(--sm-color-primary-active);
   --sam-primary-soft: var(--sm-color-primary-soft);
-  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, #ffffff);
-  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, #ffffff);
+  --sam-primary-soft-2: color-mix(in srgb, var(--sm-color-primary-soft) 74%, var(--dibay-card));
+  --sam-primary-border: color-mix(in srgb, var(--sm-color-primary) 22%, var(--dibay-card));
   --sam-primary-disabled: var(--sm-color-primary-disabled);
 
   /* ----- App 별칭 (스펙 문서와 1:1; --sam-* 와 동기) ----- */
   --app-bg: var(--sm-color-bg-page);
   --app-surface: var(--sm-color-bg-card);
   /* 페이지가 흰색이므로 뮤트톤은 border 기준(회색 캔버스 단색 금지) */
-  --app-subtle-bg: color-mix(in srgb, var(--app-border) 4.5%, #ffffff);
-  --app-subtle-bg-2: color-mix(in srgb, var(--app-border) 8.5%, #ffffff);
+  --app-subtle-bg: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
+  --app-subtle-bg-2: color-mix(in srgb, var(--dibay-gold) 18%, var(--dibay-cream));
   --app-border: var(--sm-color-border);
   --app-border-strong: color-mix(in srgb, var(--sm-color-border) 84%, #bcc7d6);
   --app-text: var(--sm-color-text-main);
@@ -107,16 +117,16 @@
   --sam-bg-app: var(--app-bg);
   --sam-bg-surface: var(--app-surface);
   --sam-bg-surface-muted: var(--app-subtle-bg);
-  --sam-bg-chat: var(--app-subtle-bg-2);
-  --sam-bg-soft-purple: #f0f5ff;
-  --sam-bg-surface-dark: #182231;
-  --sam-bg-ink: #111827;
+  --sam-bg-chat: var(--dibay-cream);
+  --sam-bg-soft-purple: color-mix(in srgb, var(--dibay-gold) 22%, var(--dibay-cream));
+  --sam-bg-surface-dark: var(--dibay-brown);
+  --sam-bg-ink: var(--dibay-brown);
 
   /* ----- Text ----- */
   --sam-text-primary: var(--app-text);
   --sam-text-secondary: var(--app-text-2);
   --sam-text-muted: var(--app-text-3);
-  --sam-text-on-primary: #ffffff;
+  --sam-text-on-primary: var(--dibay-cream);
 
   /* ----- Border / Divider ----- */
   --sam-border-default: var(--app-border);
@@ -124,18 +134,18 @@
 
   /* ----- State ----- */
   --sam-success: var(--sm-color-success);
-  --sam-success-soft: #ebf8f1;
-  --sam-warning: #b97a17;
-  --sam-warning-soft: #fff5df;
+  --sam-success-soft: color-mix(in srgb, var(--sam-success) 10%, var(--dibay-cream));
+  --sam-warning: color-mix(in srgb, var(--dibay-brown) 54%, var(--dibay-gold));
+  --sam-warning-soft: color-mix(in srgb, var(--dibay-gold) 38%, var(--dibay-cream));
   --sam-danger: var(--sm-color-danger);
   --sam-danger-soft: #fdf0f0;
   --sam-info: var(--sam-primary);
   --sam-info-soft: var(--sam-primary-soft);
 
   /* ----- Icon ----- */
-  --sam-icon-default: #536174;
+  --sam-icon-default: var(--dibay-muted);
   --sam-icon-soft: var(--app-text-3);
-  --sam-icon-on-primary: #ffffff;
+  --sam-icon-on-primary: var(--dibay-cream);
 
   /* ----- Radius (8~16만 사용; pill 만 full) ----- */
   --sam-radius-xs: 4px;
@@ -288,24 +298,24 @@
 
 [data-cm-room] {
   /* dibaY 브랜드 Primary */
-  --cm-room-primary: #1C8DB8;
-  --cm-room-primary-hover: #197DA3;
-  --cm-room-primary-active: #166F92;
-  --cm-room-primary-soft: #E6F4F9;
-  --cm-room-primary-disabled: #A7CDD9;
+  --cm-room-primary: var(--sam-primary);
+  --cm-room-primary-hover: var(--sam-primary-hover);
+  --cm-room-primary-active: var(--sam-primary-active);
+  --cm-room-primary-soft: var(--sam-primary-soft);
+  --cm-room-primary-disabled: var(--sam-primary-disabled);
   --cm-room-page-bg: var(--messenger-bg);
   /* Messenger 대화 영역: 채팅 배경과 수신 말풍선 대비 고정 */
-  --messenger-chat-bg: #f0f2f5;
+  --messenger-chat-bg: var(--dibay-cream);
   --cm-room-chat-bg: var(--messenger-chat-bg);
   --cm-room-bg: var(--cm-room-chat-bg);
   --cm-room-text: var(--messenger-text);
   --cm-room-text-muted: var(--messenger-text-secondary);
   --cm-room-divider: var(--messenger-divider);
   --cm-room-header-bg: var(--messenger-surface);
-  --cm-room-bubble-incoming: #e4e6eb;
-  --cm-room-bubble-incoming-fg: #050505;
-  --cm-room-bubble-outgoing: #1C8DB8;
-  --cm-room-bubble-outgoing-fg: #ffffff;
+  --cm-room-bubble-incoming: var(--dibay-card);
+  --cm-room-bubble-incoming-fg: var(--dibay-brown);
+  --cm-room-bubble-outgoing: var(--dibay-green);
+  --cm-room-bubble-outgoing-fg: var(--dibay-cream);
   --cm-room-radius-bubble: 18px;
   --cm-room-radius-input: var(--sam-radius-sm);
 }
@@ -326,7 +336,7 @@
   --cm-room-primary-hover: var(--delivery-primary-hover);
   --cm-room-primary-active: var(--delivery-primary-active);
   --cm-room-primary-soft: var(--delivery-primary-soft);
-  --cm-room-primary-disabled: color-mix(in srgb, var(--delivery-primary) 35%, #ffffff);
+  --cm-room-primary-disabled: color-mix(in srgb, var(--delivery-primary) 35%, var(--dibay-card));
   --cm-room-page-bg: var(--delivery-chat-bg);
   --cm-room-header-bg: var(--delivery-chat-header-bg);
   --cm-room-delivery-chrome-bg: var(--delivery-chat-chrome-bg);
@@ -336,7 +346,7 @@
   --cm-room-text-muted: var(--delivery-mocha);
   --cm-room-divider: var(--delivery-chat-chrome-border);
   --cm-room-bubble-outgoing: var(--delivery-primary);
-  --cm-room-bubble-outgoing-fg: #ffffff;
+  --cm-room-bubble-outgoing-fg: var(--dibay-cream);
 }
 
 /**
@@ -344,15 +354,15 @@
  * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).
  */
 [data-admin] {
-  --app-bg: #e4eaf3;
-  --app-surface: #ffffff;
-  --app-subtle-bg: #d2dce9;
-  --app-subtle-bg-2: #c6d0df;
-  --app-border: #9aa9bc;
-  --app-border-strong: #7a8ba0;
-  --app-text: #0b1220;
-  --app-text-2: #1e2a3d;
-  --app-text-3: #4a5a70;
+  --app-bg: var(--dibay-cream);
+  --app-surface: var(--dibay-card);
+  --app-subtle-bg: color-mix(in srgb, var(--dibay-gold) 12%, var(--dibay-cream));
+  --app-subtle-bg-2: color-mix(in srgb, var(--dibay-gold) 18%, var(--dibay-cream));
+  --app-border: var(--dibay-border);
+  --app-border-strong: color-mix(in srgb, var(--dibay-brown) 26%, var(--dibay-card));
+  --app-text: var(--dibay-brown);
+  --app-text-2: var(--dibay-muted);
+  --app-text-3: color-mix(in srgb, var(--dibay-muted) 78%, var(--dibay-card));
 
   --sam-text-primary: var(--app-text);
   --sam-text-secondary: var(--app-text-2);
@@ -361,6 +371,7 @@
   --sam-bg-surface: var(--app-surface);
   --sam-bg-surface-muted: var(--app-subtle-bg);
   --sam-bg-chat: var(--app-subtle-bg-2);
+  --sam-bg-ink: var(--dibay-green);
   --sam-border-default: var(--app-border);
   --sam-border-soft: color-mix(in srgb, var(--app-border) 52%, var(--app-surface));
 
@@ -385,15 +396,15 @@
  * 구매자 화면 `--sam-*` 는 변경하지 않고, 사장님앱 CTA/탭/헤더만 `--biz-*` (스타벅스 톤) 로 분리.
  */
 [data-biz="1"] {
-  --biz-green: #0b421a;
-  --biz-cream: #fffcfc;
-  --biz-tan: #eac784;
-  --biz-brown: #362415;
-  --biz-brown-muted: #604c4c;
+  --biz-green: var(--dibay-green);
+  --biz-cream: var(--dibay-cream);
+  --biz-tan: var(--dibay-gold);
+  --biz-brown: var(--dibay-brown);
+  --biz-brown-muted: var(--dibay-muted);
 
   --biz-primary: var(--biz-green);
-  --biz-primary-hover: #106828;
-  --biz-primary-active: #082f14;
+  --biz-primary-hover: var(--sm-color-primary-strong);
+  --biz-primary-active: var(--sm-color-primary-active);
   --biz-primary-soft: color-mix(in srgb, var(--biz-green) 8%, var(--biz-cream));
   --biz-tan-soft: color-mix(in srgb, var(--biz-tan) 35%, var(--biz-cream));
   --biz-header-bg: color-mix(in srgb, var(--biz-tan) 45%, var(--biz-cream));
@@ -429,13 +440,13 @@
     --sam-bg-surface-dark: #1e2633;
     --sam-bg-ink: #0c0d10;
 
-    --sam-primary: #1C8DB8;
-    --sam-primary-hover: #197DA3;
-    --sam-primary-active: #166F92;
+    --sam-primary: #4FBA6E;
+    --sam-primary-hover: #5FC77C;
+    --sam-primary-active: #3A9D58;
     --sam-primary-soft: color-mix(in srgb, var(--sam-primary) 22%, var(--sam-bg-surface));
     --sam-primary-soft-2: color-mix(in srgb, var(--sam-primary) 28%, var(--sam-bg-surface));
     --sam-primary-border: color-mix(in srgb, var(--sam-primary) 42%, #5f6f8e);
-    --sam-primary-disabled: #A7CDD9;
+    --sam-primary-disabled: color-mix(in srgb, var(--sam-primary) 35%, var(--sam-bg-surface));
 
     --sam-success: #49c28a;
     --sam-success-soft: color-mix(in srgb, var(--sam-success) 18%, var(--sam-bg-surface));
@@ -507,14 +518,14 @@
     --biz-card-bg: #241f1c;
     --biz-card-border: #3d3530;
     --biz-card-shadow: none;
-    --biz-text: #fffcfc;
+    --biz-text: var(--dibay-cream);
     --biz-text-muted: #c4b4b0;
     --biz-primary: #1a7a3a;
     --biz-primary-hover: #208844;
     --biz-primary-active: #146830;
-    --biz-primary-soft: color-mix(in srgb, var(--biz-green, #0b421a) 22%, var(--biz-card-bg));
-    --biz-tan-soft: color-mix(in srgb, var(--biz-tan, #eac784) 18%, var(--biz-card-bg));
-    --biz-header-bg: color-mix(in srgb, var(--biz-tan, #eac784) 22%, var(--biz-card-bg));
+    --biz-primary-soft: color-mix(in srgb, var(--biz-green, var(--dibay-green)) 22%, var(--biz-card-bg));
+    --biz-tan-soft: color-mix(in srgb, var(--biz-tan, var(--dibay-gold)) 18%, var(--biz-card-bg));
+    --biz-header-bg: color-mix(in srgb, var(--biz-tan, var(--dibay-gold)) 22%, var(--biz-card-bg));
     --sam-primary: var(--biz-primary);
     --sam-primary-hover: var(--biz-primary-hover);
     --sam-primary-active: var(--biz-primary-active);

@@ -11,6 +11,8 @@ import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
 import { StoreBrowseFeaturedMenuSkeleton } from "@/components/stores/browse/StoreBrowseFeaturedMenuSkeleton";
+import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { STORES_HOME_MENU_TILE, STORES_HOME_MENU_TILE_MORE } from "@/lib/stores/stores-home-ui";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 import { BROWSE_FEATURED_ITEMS_PER_STORE_MAX } from "@/lib/stores/browse-featured-items-types";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -389,7 +391,7 @@ function StoreDeliveryRowCardInner({
     : [];
   /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
   const serviceBadgeClass =
-    "bg-[#F3F4F6] text-[#4B5563] dark:bg-[#2A2C2E] dark:text-[#B8C0CA]";
+    "bg-sam-surface-muted text-sam-muted";
   const badgeLabels: { label: string; className: string }[] = [];
   if (data.deliveryAvailable) {
     badgeLabels.push({ label: t("store_badge_delivery"), className: serviceBadgeClass });
@@ -398,10 +400,10 @@ function StoreDeliveryRowCardInner({
     badgeLabels.push({ label: t("store_pickup_available"), className: serviceBadgeClass });
   }
   if (hasFreeDelivery) {
-    badgeLabels.push({ label: t("store_free_delivery_short"), className: "bg-[#DDF8EE] text-[#0C7B63]" });
+    badgeLabels.push({ label: t("store_free_delivery_short"), className: "bg-sam-success-soft text-sam-success" });
   }
   if (hasDiscountHint) {
-    badgeLabels.push({ label: t("store_badge_instant_discount"), className: "bg-[#EFE7FF] text-[#6D28D9]" });
+    badgeLabels.push({ label: t("store_badge_instant_discount"), className: "bg-sam-warning-soft text-sam-warning" });
   }
   if (data.reservationAvailable) {
     badgeLabels.push({ label: t("store_badge_reservation"), className: serviceBadgeClass });
@@ -500,7 +502,7 @@ function StoreDeliveryRowCardInner({
                       : t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })
                     }
                     className={[
-                      "relative shrink-0 snap-start overflow-hidden rounded-[10px] bg-[#F3F4F6] text-left dark:bg-[#2B2D30]",
+                      `relative shrink-0 snap-start overflow-hidden text-left ${STORES_HOME_MENU_TILE}`,
                       isProfile ? "w-full h-[116px]" : "w-[calc((100%-8px)/3)] h-[116px]",
                       "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
                     ].join(" ")}
@@ -540,9 +542,8 @@ function StoreDeliveryRowCardInner({
                 type="button"
                 aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
                 className={[
-                  "flex shrink-0 snap-start items-center justify-center rounded-[10px] bg-[#F7F7F7] text-[#111]",
+                  `flex shrink-0 snap-start items-center justify-center ${STORES_HOME_MENU_TILE_MORE}`,
                   "w-[calc((100%-8px)/3)] h-[116px]",
-                  "transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:active:bg-[#34373A]",
                 ].join(" ")}
                 onClick={() => navigateToStore("see_more")}
               >
@@ -556,7 +557,7 @@ function StoreDeliveryRowCardInner({
                       strokeLinejoin="round"
                     />
                   </svg>
-                  <span className="text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70">
+                  <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>
                     {t("store_show_more")}
                   </span>
                 </div>
@@ -567,7 +568,7 @@ function StoreDeliveryRowCardInner({
             <button
               type="button"
               aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
-              className="flex h-[116px] w-full items-center justify-center overflow-hidden rounded-[10px] bg-[#F7F7F7] text-[#111] transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:active:bg-[#34373A]"
+              className={`flex h-[116px] w-full items-center justify-center overflow-hidden ${STORES_HOME_MENU_TILE_MORE}`}
               onClick={() => navigateToStore("see_more")}
             >
               <div className="flex flex-col items-center gap-1">
@@ -580,7 +581,7 @@ function StoreDeliveryRowCardInner({
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70">{t("store_show_more")}</span>
+                <span className={`text-[13px] font-semibold leading-none opacity-70 ${FB.ratingValue}`}>{t("store_show_more")}</span>
               </div>
             </button>
           )}
@@ -603,33 +604,33 @@ function StoreDeliveryRowCardInner({
             <div className="min-w-0 flex-1">
               <h3 className="delivery-store-row__title line-clamp-1 tracking-[-0.01em]">
                 {data.nameKo}
-                <span className="ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold text-[#111] dark:text-[#F3F4F6]">
-                  <span className="text-[12.5px] text-[#F4B400]" aria-hidden>★</span>
+                <span className={`ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold ${FB.ratingValue}`}>
+                  <span className={`text-[12.5px] ${FB.ratingStar}`} aria-hidden>★</span>
                   {data.rating.toFixed(1)}
-                  <span className="text-[13px] font-medium text-[#6B7280]">({reviewLabel(data.reviewCount)})</span>
+                  <span className={FB.ratingCount}>({reviewLabel(data.reviewCount)})</span>
                 </span>
               </h3>
-              <p className="mt-1 line-clamp-1 text-[13px] font-medium leading-snug text-[#374151] dark:text-[#C7CDD4]">
+              <p className={`mt-1 line-clamp-1 text-[13px] font-medium leading-snug text-[color:var(--delivery-text-sub)]`}>
                 {!data.deliveryAvailable ?
                   t("store_delivery_no_short")
                 : deliveryFeeUi === t("store_free_delivery_applied") ?
                   <span className="inline-flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
+                    <span className={`text-[13px] ${FB.freeDelivery}`}>
                       {deliveryFeeUi}
                     </span>
                     {deliveryFeeStrikePhp != null && deliveryFeeStrikePhp > 0 ?
-                      <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">
+                      <span className={FB.strike}>
                         {formatMoneyPhp(deliveryFeeStrikePhp)}
                       </span>
                     : null}
                   </span>
                 : deliveryFeeUi ?
-                  <span className="font-semibold text-[#111] dark:text-[#F3F4F6]">{deliveryFeeUi}</span>
+                  <span className={`font-semibold ${FB.ratingValue}`}>{deliveryFeeUi}</span>
                 : t("store_delivery_fee_per_store")}
               </p>
-              <div className="mt-1 flex min-w-0 items-center gap-1 overflow-hidden text-[12.5px] leading-snug text-[#666] dark:text-[#9AA3AD]">
+              <div className={`mt-1 flex min-w-0 items-center gap-1 overflow-hidden ${FB.metaRow}`}>
                 {timeLabel ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 font-medium text-[#4B5563] dark:text-[#B8C0CA]">
+                  <span className={`inline-flex shrink-0 items-center gap-1 ${FB.metaStrong}`}>
                     <svg className="h-3.5 w-3.5 opacity-75" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path
                         d="M12 8v5l3 2"
@@ -649,10 +650,10 @@ function StoreDeliveryRowCardInner({
                     <span className="truncate">{timeLabel}</span>
                   </span>
                 ) : null}
-                {timeLabel && (showBrowseStraightPin || showPinHaversine) ? <span className="shrink-0 text-[#9CA3AF]">·</span> : null}
+                {timeLabel && (showBrowseStraightPin || showPinHaversine) ? <span className={FB.metaDot}>·</span> : null}
                 {showBrowseStraightPin ? (
                   <span
-                    className="inline-flex shrink-0 items-center gap-0.5 font-medium text-[#4B5563] dark:text-[#B8C0CA]"
+                    className={`inline-flex shrink-0 items-center gap-0.5 ${FB.metaStrong}`}
                     title={t("store_straight_distance_title")}
                   >
                     <BrowseListStraightDistancePinIcon className="shrink-0" />
@@ -683,12 +684,12 @@ function StoreDeliveryRowCardInner({
                   </span>
                 ) : null}
                 {(timeLabel || showBrowseStraightPin || showPinHaversine) && minOrderShort ? (
-                  <span className="shrink-0 text-[#9CA3AF]">·</span>
+                  <span className={FB.metaDot}>·</span>
                 ) : null}
                 {minOrderShort ? (
                   <span className="min-w-0 truncate font-normal">
                     {t("store_min_order_short")}{" "}
-                    <span className="font-medium text-[#4B5563] dark:text-[#B8C0CA]">{minOrderShort}</span>
+                    <span className={FB.metaStrong}>{minOrderShort}</span>
                   </span>
                 ) : null}
               </div>
@@ -704,10 +705,10 @@ function StoreDeliveryRowCardInner({
               </div>
               {paymentMethodsUi ?
                 <p
-                  className="mt-1 line-clamp-2 text-[12px] font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
+                  className={`mt-1 ${FB.metaPayment}`}
                   title={paymentMethodsUi}
                 >
-                  <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">{t("store_label_payment")}</span> ·{" "}
+                  <span className={FB.metaPaymentLabel}>{t("store_label_payment")}</span> ·{" "}
                   {paymentMethodsUi}
                 </p>
               : null}

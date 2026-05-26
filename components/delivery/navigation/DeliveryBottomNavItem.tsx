@@ -18,7 +18,7 @@ export function DeliveryBottomNavItem({
   item: DeliveryBottomNavItem;
   effectiveHref: string;
   isCenter: boolean;
-  /** `on-brand`: #1C8DB8 배경 위 밝은 아이콘·캡션 (배달 틸 바) */
+  /** `on-brand`: Dibay green 배경 위 밝은 아이콘·캡션 */
   variant?: "default" | "on-brand";
 }) {
   const pathname = usePathname();
@@ -30,13 +30,13 @@ export function DeliveryBottomNavItem({
     return p === t || p.startsWith(`${t}/`);
   }, [pathname, effectiveHref]);
 
-  const activeColor = item.color || "#1C8DB8";
+  const activeColor = item.color || "var(--dibay-green)";
 
   if (isCenter) return null;
 
   const onBrand = variant === "on-brand";
-  const inactiveFg = onBrand ? "rgba(255,255,255,0.82)" : "#666";
-  const activeFg = onBrand ? "#ffffff" : activeColor;
+  const inactiveFg = onBrand ? "color-mix(in srgb, var(--dibay-cream) 82%, transparent)" : "var(--dibay-muted)";
+  const activeFg = onBrand ? "var(--dibay-cream)" : activeColor;
 
   return (
     <Link
@@ -47,14 +47,14 @@ export function DeliveryBottomNavItem({
         "rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
         onBrand
           ? "focus-visible:outline-white/70"
-          : "focus-visible:outline-[color:rgba(28,141,184,0.35)]",
+          : "focus-visible:outline-sam-primary/35",
         ITEM_TOUCH_CLASS,
         onBrand
           ? isActive
             ? "bg-white/18"
             : "active:bg-white/12"
           : isActive
-            ? "bg-[rgba(28,141,184,0.10)]"
+            ? "bg-sam-primary/10"
             : "active:bg-black/5",
       ]
         .filter(Boolean)

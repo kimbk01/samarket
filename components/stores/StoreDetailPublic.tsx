@@ -1539,7 +1539,7 @@ export function StoreDetailPublic({
             ? t("store_db_not_configured")
             : t("store_not_found_short")}
         </p>
-        <Link href="/stores" className="mt-4 block text-center text-sm font-medium text-[#1C8DB8]">
+        <Link href="/stores" className="mt-4 block text-center text-sm font-medium text-sam-primary">
           {t("store_back_to_store_list")}
         </Link>
       </div>

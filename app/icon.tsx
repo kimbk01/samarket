@@ -14,11 +14,11 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#1C8DB8",
-          color: "#ffffff",
+          background: "#0B421A",
+          color: "#FFFCFC",
           fontSize: 150,
           fontWeight: 700,
-          fontFamily: "system-ui, sans-serif",
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif',
         }}
       >
         d

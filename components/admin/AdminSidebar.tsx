@@ -29,10 +29,10 @@ export function AdminSidebar() {
   const menu = useMemo(() => filterMenuByRole(adminMenu, role), [role]);
 
   return (
-    <aside className="sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r border-sam-border bg-sam-surface">
+    <aside className="admin-sidebar sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r">
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 items-center border-b border-sam-border-soft px-3 py-3">
-          <Link href="/admin" className="sam-text-section-title text-sam-fg">
+        <div className="admin-sidebar__header flex shrink-0 items-center border-b px-3 py-3">
+          <Link href="/admin" className="admin-sidebar__brand sam-text-section-title">
             {t("admin_brand")}
           </Link>
         </div>

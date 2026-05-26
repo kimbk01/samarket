@@ -28,7 +28,7 @@ export const DELIVERY_BOTTOM_NAV_OWNER_STORE_ITEM: DeliveryBottomNavItem = {
   is_active: true,
   is_center: false,
   requires_store_id: true,
-  color: "#1C8DB8",
+  color: "#0B421A",
 };
 
 type DeliveryBottomNavServerSource = "db" | "default";
@@ -49,7 +49,7 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
       is_active: true,
       is_center: false,
       requires_store_id: false,
-      color: "#1C8DB8",
+      color: "#0B421A",
     },
     {
       id: "default_cart",
@@ -60,7 +60,7 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
       is_active: true,
       is_center: false,
       requires_store_id: false,
-      color: "#1C8DB8",
+      color: "#0B421A",
     },
     {
       id: "default_home",
@@ -71,7 +71,7 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
       is_active: true,
       is_center: true,
       requires_store_id: false,
-      color: "#1C8DB8",
+      color: "#0B421A",
     },
     {
       id: "default_user",
@@ -82,7 +82,7 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
       is_active: true,
       is_center: false,
       requires_store_id: false,
-      color: "#1C8DB8",
+      color: "#0B421A",
     },
   ];
 }

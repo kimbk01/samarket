@@ -45,11 +45,11 @@ export function MyInfoProfileCard({
           />
           {showCheckBadge ? (
             <span
-              className="absolute bottom-0 right-0 h-6 w-6 rounded-full border-2 border-white bg-[color:#1C8DB8]"
+              className="absolute bottom-0 right-0 h-6 w-6 rounded-full border-2 border-sam-surface bg-sam-primary"
               aria-hidden
             >
               <span className="flex h-full w-full items-center justify-center">
-                <Check className="h-4 w-4 text-white" strokeWidth={3} />
+                <Check className="h-4 w-4 text-sam-on-primary" strokeWidth={3} />
               </span>
             </span>
           ) : null}

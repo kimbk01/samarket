@@ -14,10 +14,10 @@
   );
   --delivery-dial-anim-ms: 440ms;
   --delivery-dial-ease: cubic-bezier(0.25, 0.9, 0.35, 1);
-  --delivery-dial-disk-bg: var(--sam-bg-surface, #ffffff);
+  --delivery-dial-disk-bg: var(--sam-bg-surface, var(--dibay-card));
   --delivery-dial-disk-border: var(--sam-border, #e2e5ea);
-  --delivery-dial-icon: var(--sam-primary, #1c8db8);
-  --delivery-dial-label-bg: var(--sam-bg-surface, #ffffff);
+  --delivery-dial-icon: var(--sam-primary, var(--dibay-green));
+  --delivery-dial-label-bg: var(--sam-bg-surface, var(--dibay-card));
   --delivery-dial-label-border: var(--sam-border, #e2e5ea);
   --delivery-dial-label-fg: var(--sam-fg, #1a1d21);
   --delivery-dial-shadow: var(--sam-shadow-card, 0 4px 14px rgba(15, 23, 42, 0.12));
@@ -25,13 +25,13 @@
   /** 다이얼 도메인 칩 — 커뮤니티·거래·배달 구분 */
   --dial-domain-community: #6366f1;
   --dial-domain-community-soft: #eef2ff;
-  --dial-domain-community-border: color-mix(in srgb, var(--dial-domain-community) 26%, #ffffff);
-  --dial-domain-trade: var(--sam-primary, #1c8db8);
-  --dial-domain-trade-soft: var(--sam-primary-soft, #e6f4f9);
-  --dial-domain-trade-border: var(--sam-primary-border, color-mix(in srgb, var(--dial-domain-trade) 22%, #ffffff));
-  --dial-domain-delivery: var(--delivery-primary, #006241);
+  --dial-domain-community-border: color-mix(in srgb, var(--dial-domain-community) 26%, var(--dibay-card));
+  --dial-domain-trade: var(--sam-primary, var(--dibay-green));
+  --dial-domain-trade-soft: var(--sam-primary-soft, color-mix(in srgb, var(--dibay-green) 9%, var(--dibay-cream)));
+  --dial-domain-trade-border: var(--sam-primary-border, color-mix(in srgb, var(--dial-domain-trade) 22%, var(--dibay-card)));
+  --dial-domain-delivery: var(--delivery-primary, var(--dibay-green));
   --dial-domain-delivery-soft: var(--delivery-primary-soft, #d4e9e2);
-  --dial-domain-delivery-border: var(--delivery-primary-border, color-mix(in srgb, var(--dial-domain-delivery) 22%, #ffffff));
+  --dial-domain-delivery-border: var(--delivery-primary-border, color-mix(in srgb, var(--dial-domain-delivery) 22%, var(--dibay-card)));
 }
 
 /** 딤만 — 전 화면 단색(그라데이션·backdrop-blur 없음). 탭바는 z-index 1255 로 위에 덮음 */
@@ -48,7 +48,7 @@
   border: 0;
   padding: 0;
   margin: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--dibay-dim);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   transition: opacity var(--delivery-dial-anim-ms) var(--delivery-dial-ease);
@@ -225,7 +225,7 @@
 .delivery-domain-switcher-hit--community .delivery-domain-switcher-chip-label {
   color: var(--dial-domain-community);
   border-color: var(--dial-domain-community-border);
-  background: #fff;
+  background: var(--dibay-card);
 }
 
 /** 거래 — 시그니처 블루 */
@@ -256,35 +256,35 @@
 
 /** 현재 레일 강조 — 거래 레일: 거래 칩 · 배달 레일: 배달 칩 */
 .delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--home .delivery-domain-switcher-chip-disk {
-  border-color: #fff;
+  border-color: var(--dibay-card);
   background: var(--dial-domain-trade);
-  color: #fff;
+  color: var(--dibay-card);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--dial-domain-trade) 38%, transparent);
 }
 
 .delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--home .delivery-domain-switcher-chip-label {
   color: var(--dial-domain-trade);
-  border-color: color-mix(in srgb, var(--dial-domain-trade) 28%, #ffffff);
-  background: #fff;
+  border-color: color-mix(in srgb, var(--dial-domain-trade) 28%, var(--dibay-card));
+  background: var(--dibay-card);
   font-weight: 600;
 }
 
 .delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-disk {
-  border-color: #fff;
+  border-color: var(--dibay-card);
   background: var(--dial-domain-delivery);
-  color: #fff;
+  color: var(--dibay-card);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--dial-domain-delivery) 38%, transparent);
 }
 
 .delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-label {
   color: var(--dial-domain-delivery);
-  border-color: color-mix(in srgb, var(--dial-domain-delivery) 28%, #ffffff);
-  background: #fff;
+  border-color: color-mix(in srgb, var(--dial-domain-delivery) 28%, var(--dibay-card));
+  background: var(--dibay-card);
   font-weight: 600;
 }
 
 .delivery-domain-switcher-hit--delivery-ops-center .delivery-domain-switcher-chip-disk {
-  color: var(--sam-primary, #1c8db8);
+  color: var(--sam-primary, var(--dibay-green));
   border-color: var(--sam-primary-border);
   background: var(--sam-primary-soft, #e8f4f9);
 }

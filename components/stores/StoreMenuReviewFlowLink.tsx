@@ -4,7 +4,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import { fetchStoreReviewsPublicDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type ReviewCard = {
@@ -66,13 +65,13 @@ export function StoreMenuReviewFlowLink({
   const href = `/stores/${encodeURIComponent(storeSlug)}/reviews`;
 
   return (
-    <section className="border-b border-neutral-100 bg-white py-2" aria-label={t("store_reviews_title")}>
+    <section className="border-b border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] py-2" aria-label={t("store_reviews_title")}>
       <div className="mb-1.5 flex items-center justify-between px-4">
-        <p className="text-[12px] font-extrabold text-neutral-900">
-          <span className="text-[#FFC400]">★★★★★</span>{" "}
+        <p className="text-[12px] font-extrabold text-[color:var(--delivery-text-main)]">
+          <span className="text-[color:var(--dibay-gold)]">★★★★★</span>{" "}
           <span className="tabular-nums">{label}</span>
         </p>
-        <Link href={href} className="text-[11px] font-bold text-neutral-500">
+        <Link href={href} className="text-[11px] font-bold text-[color:var(--delivery-text-muted)]">
           {t("store_reviews_with_count", {
             count: n.toLocaleString(language === "ko" ? "ko-KR" : "en-US"),
           })}{" "}
@@ -87,16 +86,16 @@ export function StoreMenuReviewFlowLink({
               <Link
                 key={r.id}
                 href={href}
-                className="flex h-[68px] w-[220px] shrink-0 gap-1.5 rounded-[8px] bg-[#F5F6F8] p-1.5 active:bg-neutral-100"
+                className="flex h-[68px] w-[220px] shrink-0 gap-1.5 rounded-[8px] bg-[color:var(--delivery-bg-soft)] p-1.5 active:bg-[color:var(--delivery-bg-muted)]"
               >
                 {src ? (
-                  <SamarketThumbnail src={src} size={56} roundedClassName="rounded-[7px]" className="bg-[#F3F4F6]" />
+                  <SamarketThumbnail src={src} size={56} roundedClassName="rounded-[7px]" className="bg-[color:var(--delivery-bg-thumb)]" />
                 ) : null}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-bold leading-none" style={{ color: STORE_ORDER_BRAND.star }}>
+                  <p className="text-[10px] font-bold leading-none text-[color:var(--dibay-gold)]">
                     {"★".repeat(Math.max(1, Math.min(5, Math.floor(Number(r.rating) || 5))))}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-[11.5px] font-bold leading-snug text-neutral-900">
+                  <p className="mt-1 line-clamp-2 text-[11.5px] font-bold leading-snug text-[color:var(--delivery-text-main)]">
                     {r.content}
                   </p>
                 </div>

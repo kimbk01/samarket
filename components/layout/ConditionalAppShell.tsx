@@ -186,7 +186,7 @@ export function ConditionalAppShell({
     /** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */
     <div
       className={`app-shell w-full min-w-0 ${
-        hubScrollColumn ? MAIN_HUB_SCROLL_SHELL_ROOT_CLASS : mainShellInnerRootClass
+        hubScrollColumn ? `min-h-0 flex-1 ${MAIN_HUB_SCROLL_SHELL_ROOT_CLASS}` : mainShellInnerRootClass
       } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
     >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}

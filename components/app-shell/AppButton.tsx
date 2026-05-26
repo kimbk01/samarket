@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
-type AppButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "outline";
+type AppButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "outline" | "cancel";
 
 export type AppButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode;
@@ -28,7 +28,9 @@ export function AppButton({
           ? Sam.btn.ghostCombo
           : variant === "danger"
             ? Sam.btn.dangerCombo
-            : Sam.btn.outlineCombo;
+            : variant === "cancel"
+              ? Sam.btn.cancelCombo
+              : Sam.btn.outlineCombo;
   const extra = [block ? Sam.btn.block : "", sm ? Sam.btn.sm : "", className ?? ""].filter(Boolean).join(" ");
   return (
     <button type={type} className={`${combo} ${extra}`.trim()} {...rest}>

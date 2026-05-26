@@ -9,10 +9,10 @@ import type { MessageKey } from "@/lib/i18n/messages";
 export type OwnerFlowStepVariant = "waiting" | "cooking" | "delivering" | "done";
 
 const STEP_STYLE: Record<OwnerFlowStepVariant, { bg: string; Icon: LucideIcon; ariaKey: MessageKey }> = {
-  waiting: { bg: "#0B421A", Icon: ClipboardList, ariaKey: "store_owner_flow_aria_waiting" },
-  cooking: { bg: "#FA8C16", Icon: ChefHat, ariaKey: "store_owner_flow_aria_cooking" },
-  delivering: { bg: "#1890FF", Icon: Truck, ariaKey: "store_owner_flow_aria_delivering" },
-  done: { bg: "#BFBFBF", Icon: Check, ariaKey: "store_owner_flow_aria_done" },
+  waiting: { bg: "var(--dibay-gold)", Icon: ClipboardList, ariaKey: "store_owner_flow_aria_waiting" },
+  cooking: { bg: "var(--dibay-green)", Icon: ChefHat, ariaKey: "store_owner_flow_aria_cooking" },
+  delivering: { bg: "var(--dibay-green)", Icon: Truck, ariaKey: "store_owner_flow_aria_delivering" },
+  done: { bg: "var(--dibay-muted)", Icon: Check, ariaKey: "store_owner_flow_aria_done" },
 };
 
 /** 대시보드 「주문 진행 현황」 원형 직경 (기준 52px 대비 −20%) */
@@ -30,7 +30,7 @@ export function OwnerFlowStepCircle({
   const iconPx = Math.round(size * 0.46);
   return (
     <span
-      className="flex shrink-0 items-center justify-center rounded-full text-white shadow-sm"
+      className="flex shrink-0 items-center justify-center rounded-full text-sam-on-primary shadow-sm"
       style={{ width: size, height: size, backgroundColor: bg }}
       role="img"
       aria-label={t(ariaKey)}
@@ -43,7 +43,7 @@ export function OwnerFlowStepCircle({
 export function OwnerFlowStepArrow({ className }: { className?: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 select-none items-center justify-center text-[14px] text-[#D9D9D9] ${className ?? ""}`}
+      className={`inline-flex shrink-0 select-none items-center justify-center text-[14px] text-sam-meta ${className ?? ""}`}
       aria-hidden
     >
       →
@@ -63,8 +63,8 @@ export function OwnerFlowStepIconMini({
   active: boolean;
   done: boolean;
 }) {
-  const circleBg = active || done ? bg : "#E8E8E8";
-  const iconColor = active || done ? "#FFFFFF" : "#BFBFBF";
+  const circleBg = active || done ? bg : "color-mix(in srgb, var(--dibay-muted) 12%, var(--dibay-card))";
+  const iconColor = active || done ? "var(--dibay-cream)" : "var(--dibay-muted)";
   return (
     <span
       className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
@@ -91,18 +91,18 @@ export function ownerFlowIconForStepIndex(
 ): { Icon: LucideIcon; bg: string } {
   if (deliveryLike) {
     const list = [
-      { Icon: ClipboardList, bg: "#0B421A" },
-      { Icon: ChefHat, bg: "#FA8C16" },
-      { Icon: Truck, bg: "#1890FF" },
-      { Icon: Check, bg: "#BFBFBF" },
+      { Icon: ClipboardList, bg: "var(--dibay-gold)" },
+      { Icon: ChefHat, bg: "var(--dibay-green)" },
+      { Icon: Truck, bg: "var(--dibay-green)" },
+      { Icon: Check, bg: "var(--dibay-muted)" },
     ];
     return list[index] ?? list[0]!;
   }
   const list = [
-    { Icon: ClipboardList, bg: "#0B421A" },
-    { Icon: ChefHat, bg: "#FA8C16" },
-    { Icon: Package, bg: "#1890FF" },
-    { Icon: Check, bg: "#BFBFBF" },
+    { Icon: ClipboardList, bg: "var(--dibay-gold)" },
+    { Icon: ChefHat, bg: "var(--dibay-green)" },
+    { Icon: Package, bg: "var(--dibay-green)" },
+    { Icon: Check, bg: "var(--dibay-muted)" },
   ];
   return list[index] ?? list[0]!;
 }

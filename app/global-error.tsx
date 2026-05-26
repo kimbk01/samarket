@@ -22,8 +22,8 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
         style={{
           margin: 0,
           fontFamily:
-            "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-          background: "#f9fafb",
+            "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif",
+          background: "#FFFCFC",
           display: "flex",
           minHeight: "100vh",
           alignItems: "center",
@@ -37,7 +37,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             style={{
               fontSize: "12px",
               fontWeight: 600,
-              color: "#111827",
+              color: "#362415",
               margin: 0,
             }}
           >
@@ -47,7 +47,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
             style={{
               marginTop: "8px",
               fontSize: "13px",
-              color: "#6b7280",
+              color: "#604C4C",
             }}
           >
             잠시 후 다시 시도해 주세요.
@@ -59,8 +59,8 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
               marginTop: "32px",
               padding: "10px 24px",
               borderRadius: "8px",
-              background: "#f97316",
-              color: "#fff",
+              background: "#0B421A",
+              color: "#FFFCFC",
               fontSize: "14px",
               fontWeight: 500,
               border: "none",

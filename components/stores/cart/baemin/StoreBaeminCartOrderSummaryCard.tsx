@@ -52,12 +52,12 @@ export function StoreBaeminCartOrderSummaryCard(props: {
               <>
                 {t("store_discount_amount")}
                 {discountPercentOverall > 0 ? (
-                  <span className="ml-1 text-[12px] font-normal text-[#AAA]">({discountPercentOverall}%)</span>
+                  <span className="ml-1 text-[12px] font-normal text-[color:var(--delivery-text-muted)]">({discountPercentOverall}%)</span>
                 ) : null}
               </>
             }
             value={`- ${formatMoneyPhp(discountAmountPhp)}`}
-            valueClassName="text-[#E74C3C]"
+            valueClassName="text-[color:var(--delivery-danger)]"
           />
         ) : null}
         <Row
@@ -66,20 +66,20 @@ export function StoreBaeminCartOrderSummaryCard(props: {
           valueAlign="right"
         />
       </dl>
-      <div className="mx-4 border-t border-dashed border-[#E8E8E8] pt-3 pb-4">
+      <div className="mx-4 border-t border-dashed border-[color:var(--delivery-border)] pt-3 pb-4">
         <div className="flex items-end justify-between gap-3">
-          <span className="text-[15px] font-bold text-[#111]">{t("store_payment_due")}</span>
-          <span className="text-[20px] font-extrabold leading-none tabular-nums text-[#E74C3C]">
+          <span className="text-[15px] font-bold text-[color:var(--delivery-text-main)]">{t("store_payment_due")}</span>
+          <span className="text-[20px] font-extrabold leading-none tabular-nums text-[color:var(--delivery-danger)]">
             {formatMoneyPhp(displayGrand)}
           </span>
         </div>
         {showMinOrder ? (
-          <p className="mt-2 text-[12px] text-[#999]">
+          <p className="mt-2 text-[12px] text-[color:var(--delivery-text-muted)]">
             {t("store_min_order_amount_colon", { amount: formatMoneyPhp(minOrderPhp) })}
           </p>
         ) : null}
         {showMinOrder && meetsMin ? (
-          <p className="mt-1 text-[12px] font-semibold text-[#16A34A]">{t("store_min_order_met")}</p>
+          <p className="mt-1 text-[12px] font-semibold text-[color:var(--delivery-success)]">{t("store_min_order_met")}</p>
         ) : null}
         {showMinOrder && !meetsMin ? (
           <p className={`mt-1 ${BAEMIN_CART_FOOTER_MIN_SHORT_CLASS}`}>
@@ -122,7 +122,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
 function Row({
   label,
   value,
-  valueClassName = "text-[#111]",
+  valueClassName = "text-[color:var(--delivery-text-main)]",
   valueAlign,
 }: {
   label: ReactNode;
@@ -132,7 +132,7 @@ function Row({
 }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="text-[#888]">{label}</dt>
+      <dt className="text-[color:var(--delivery-text-sub)]">{label}</dt>
       <dd
         className={`shrink-0 font-semibold tabular-nums ${valueClassName} ${valueAlign === "right" ? "text-right" : ""}`}
       >

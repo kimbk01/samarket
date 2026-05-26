@@ -13,13 +13,13 @@ import {
 
 /** Store owner mobile operations dashboard — Starbucks-inspired owner tokens */
 
-export const OWNER_MOBILE_BLUE = "#0B421A";
-export const OWNER_MOBILE_BLUE_SOFT = "color-mix(in srgb, #0B421A 8%, #FFFCFC)";
-export const OWNER_OPS_GREEN = "#0B421A";
-export const OWNER_OPS_DEEP_GREEN = "#362415";
-export const OWNER_OPS_APP_BG = "color-mix(in srgb, #EAC784 10%, #FFFCFC)";
-export const OWNER_OPS_SURFACE = "#FFFCFC";
-export const OWNER_OPS_BORDER = "color-mix(in srgb, #604C4C 22%, #FFFCFC)";
+export const OWNER_MOBILE_BLUE = "var(--dibay-green)";
+export const OWNER_MOBILE_BLUE_SOFT = "color-mix(in srgb, var(--dibay-green) 8%, var(--dibay-cream))";
+export const OWNER_OPS_GREEN = "var(--dibay-green)";
+export const OWNER_OPS_DEEP_GREEN = "var(--dibay-brown)";
+export const OWNER_OPS_APP_BG = "color-mix(in srgb, var(--dibay-gold) 10%, var(--dibay-cream))";
+export const OWNER_OPS_SURFACE = "var(--dibay-cream)";
+export const OWNER_OPS_BORDER = "color-mix(in srgb, var(--dibay-muted) 22%, var(--dibay-cream))";
 
 /** 오너 하단 탭 기본 활성 — 주문·대시보드 등 운영 메뉴 */
 export const OWNER_MOBILE_BOTTOM_NAV_ACCENT = OWNER_MOBILE_BLUE;
@@ -30,7 +30,7 @@ export const OWNER_MOBILE_EXIT_HREF = "/stores";
 export const OWNER_MOBILE_RED = "#FF4D4F";
 export const OWNER_MOBILE_ORANGE = "#FA8C16";
 export const OWNER_MOBILE_GREEN = OWNER_OPS_GREEN;
-export const OWNER_MOBILE_GRAY = "#604C4C";
+export const OWNER_MOBILE_GRAY = "var(--dibay-muted)";
 export const OWNER_MOBILE_PAGE_BG = OWNER_OPS_APP_BG;
 export const OWNER_MOBILE_CARD_BORDER = OWNER_OPS_BORDER;
 

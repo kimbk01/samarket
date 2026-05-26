@@ -79,7 +79,7 @@ export function AdminDeliveryBottomNavPage() {
     sort_order: 0,
     is_active: true,
     is_center: false,
-    color: "#1C8DB8",
+    color: "#0B421A",
   });
 
   const tableHeaders = useMemo(
@@ -161,7 +161,7 @@ export function AdminDeliveryBottomNavPage() {
     const label = String(editDraft.label ?? "").trim();
     const icon_key = String(editDraft.icon_key ?? "").trim();
     const href = String(editDraft.href ?? "").trim();
-    const color = String(editDraft.color ?? "").trim() || "#1C8DB8";
+    const color = String(editDraft.color ?? "").trim() || "#0B421A";
     if (!label || !icon_key || !href) {
       setError(t("admin_del_err_required_fields"));
       return;
@@ -237,7 +237,7 @@ export function AdminDeliveryBottomNavPage() {
               <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_color")}</span>
               <input
                 className="sam-input"
-                value={draft.color ?? "#1C8DB8"}
+                value={draft.color ?? "#0B421A"}
                 onChange={(e) => setDraft((p) => ({ ...p, color: e.target.value }))}
                 placeholder={t("admin_del_ph_color")}
               />
@@ -386,7 +386,7 @@ export function AdminDeliveryBottomNavPage() {
                               />
                               <input
                                 type="color"
-                                value={String(editDraft?.color ?? "#1C8DB8")}
+                                value={String(editDraft?.color ?? "#0B421A")}
                                 onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), color: e.target.value }))}
                                 className="h-9 w-10 rounded border border-sam-border bg-sam-surface"
                                 aria-label={t("admin_del_pick_color_aria")}
