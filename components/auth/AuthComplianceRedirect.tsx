@@ -39,7 +39,7 @@ export function AuthComplianceRedirect() {
   const routerRef = useRef(router);
   const pathnameRef = useRef(pathname);
   const checkInFlightRef = useRef<Promise<void> | null>(null);
-  const lastRedirectRef = useRef<string | null>(null);
+  const redirectInFlightTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     routerRef.current = router;
@@ -98,7 +98,7 @@ export function AuthComplianceRedirect() {
         });
         return;
       }
-      if (lastRedirectRef.current === target) {
+      if (redirectInFlightTargetRef.current === target) {
         logNetworkLoopGuardReplace({
           source: "auth-compliance-redirect",
           targetUrl: target,
@@ -112,7 +112,7 @@ export function AuthComplianceRedirect() {
           reason: "missing_store_consent",
         })
       ) {
-        lastRedirectRef.current = target;
+        redirectInFlightTargetRef.current = target;
       }
     })().finally(() => {
       checkInFlightRef.current = null;

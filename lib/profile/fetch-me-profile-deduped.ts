@@ -14,6 +14,8 @@ const TTL_MS = 4_000;
 const FLIGHT_KEY_FULL = "me:profile:get:full" as const;
 
 let cachedFull: { expiresAt: number; value: MeProfileGetResult } | null = null;
+/** boot minimal 직후 full GET 중복 스케줄만 막음 — cachedFull 에 minimal 을 넣지 않음(consent 계약). */
+let cachedBootBridge: { expiresAt: number } | null = null;
 
 /**
  * dedupe 캐시 무효화 시 한 번만 브로드캐스트 — `RegionProvider` 등이 동일 GET 으로
@@ -24,6 +26,7 @@ export const ME_PROFILE_CACHE_INVALIDATED_EVENT = "kasama-me-profile-cache-inval
 /** 프로필 저장·아바타 등 반영 직후 다음 GET이 서버 값을 보게 함 */
 export function invalidateMeProfileDedupedCache(): void {
   cachedFull = null;
+  cachedBootBridge = null;
   forgetSingleFlight(FLIGHT_KEY_FULL);
   if (typeof window !== "undefined") {
     try {
@@ -39,13 +42,17 @@ export function peekMeProfileCached(): MeProfileGetResult | null {
 }
 
 export function isMeProfileCacheFresh(): boolean {
-  return !!cachedFull && cachedFull.expiresAt > Date.now();
+  const now = Date.now();
+  return (
+    (!!cachedFull && cachedFull.expiresAt > now) ||
+    (!!cachedBootBridge && cachedBootBridge.expiresAt > now)
+  );
 }
 
 /** App boot minimal 응답 — full GET 합류 전 3s 브릿지(Region·consent·compliance 중복 full 방지). */
 export function primeMeProfileDedupedFromBoot(result: MeProfileGetResult): void {
   if (result.status !== 200 && result.status !== 401 && result.status !== 403) return;
-  cachedFull = { value: result, expiresAt: Date.now() + 3_000 };
+  cachedBootBridge = { expiresAt: Date.now() + 3_000 };
 }
 
 function profileFetchHeaders(clientCallSource: string | undefined, extra: Record<string, string> = {}): HeadersInit {
