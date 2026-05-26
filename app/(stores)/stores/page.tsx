@@ -25,11 +25,14 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /**
  * 동기 page — initial shell 이 첫 HTML flush 에 포함되도록 await 제거.
- * 라벨은 seed 기본(ko) SSR, client i18n 이 hydrate 후 보강.
+ * Route: `app/(stores)/stores/page.tsx` (Phase 9 — `(main)` trade-menu layout await 회피).
  */
 export default function StoresPage() {
   return (
-    <div className={`delivery-ui ${DeliveryTheme.page} min-h-0`}>
+    <div
+      className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
+      data-stores-layout-profile="stores-hub"
+    >
       <StoresHomeInitialShellServer language="ko" />
       <StoresHomeInitialShellClient>
         <StoresHub />

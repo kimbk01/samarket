@@ -121,6 +121,44 @@ export async function measureMainLayoutServerLoads(opts?: {
   return { initialMainBottomNavItems: navPayload.items, initialTradeTabCategories, timing };
 }
 
+/**
+ * `(stores)` 허브 전용 — bottom nav만 프라임하고 TRADE 칩 DB(`getHomeTradeChipCategoriesForServer`)는 생략.
+ * `/stores` UI는 trade 탭을 쓰지 않으므로 `(main)` 과 동일한 menu await 병목을 제거한다.
+ */
+export async function measureStoresHubLayoutServerLoads(): Promise<{
+  initialMainBottomNavItems: MainBottomNavServerPayload["items"];
+  timing: R2M11CLayoutServerPayload;
+}> {
+  const layoutT0 = performance.now();
+  let bottomNavMs = 0;
+  const bottomNavStartMs = elapsedSince(layoutT0);
+  const s = performance.now();
+  const navPayload = await loadMainBottomNavItemsServerCached();
+  bottomNavMs = Math.max(0, Math.round(performance.now() - s));
+  const bottomNavDoneMs = elapsedSince(layoutT0);
+  const childrenRenderBeforeMs = elapsedSince(layoutT0);
+
+  const timing: R2M11CLayoutServerPayload = {
+    layout_entry_ms: 0,
+    headers_cookies_ms: 0,
+    headers_cookies_invoked: false,
+    auth_profile_await_ms: 0,
+    auth_profile_invoked: false,
+    bottom_nav_load_start_ms: bottomNavStartMs,
+    bottom_nav_load_done_ms: bottomNavDoneMs,
+    bottom_nav_load_ms: bottomNavMs,
+    menu_load_start_ms: 0,
+    menu_load_done_ms: 0,
+    menu_load_ms: 0,
+    children_render_before_ms: childrenRenderBeforeMs,
+    main_layout_server_done_ms: childrenRenderBeforeMs,
+    main_layout_total_ms: childrenRenderBeforeMs,
+    parallel_bottleneck_ms: bottomNavMs,
+  };
+
+  return { initialMainBottomNavItems: navPayload.items, timing };
+}
+
 export function measureRoomSegmentServerWall(): R2M11CRoomSegmentServerPayload {
   const serverT0 = performance.now();
   const wallMs = Math.max(0, Math.round(performance.now() - serverT0));

@@ -131,6 +131,28 @@ function MainShellPushLayer({ children }: { children: ReactNode }) {
   );
 }
 
+function MainAppConditionalShell({
+  children,
+  initialMainBottomNavItems,
+}: {
+  children: ReactNode;
+  initialMainBottomNavItems: BottomNavItemConfig[] | null;
+}) {
+  return (
+    <MainShellPushLayer>
+      <div className={MAIN_SHELL_VIEWPORT_LOCK_CLASS}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          <MainAppHeaderStackWrap>
+            <ConditionalAppShell regionBarInLayout={true} initialMainBottomNavItems={initialMainBottomNavItems}>
+              {children}
+            </ConditionalAppShell>
+          </MainAppHeaderStackWrap>
+        </div>
+      </div>
+    </MainShellPushLayer>
+  );
+}
+
 /**
  * Provider JSX 전용 — `MainAppProviders` 와 분리해 트리·순서를 한 파일에서 보존하고,
  * 이후 경로별 지연 로드·스플릿 시 경계를 잡기 쉽게 한다.
@@ -142,11 +164,15 @@ export function MainAppProviderTree({
   children,
   initialMainBottomNavItems = null,
   initialTradeTabCategories = null,
+  layoutProfile = "full",
 }: {
   children: ReactNode;
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
   initialTradeTabCategories?: CategoryWithSettings[] | null;
+  /** `storesHub` — `/stores` 허브: trade 탭 프라임·presence·글쓰기/채팅 오버레이 청크 생략 */
+  layoutProfile?: "full" | "storesHub";
 }) {
+  const storesHubLite = layoutProfile === "storesHub";
   useLayoutEffect(() => {
     const root = document.documentElement;
     root.classList.add(MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS);
@@ -158,7 +184,9 @@ export function MainAppProviderTree({
       <MypageInfoHubPanelProvider>
         <LatestMenuNavigationProvider>
          <MainBottomNavTabsProvider initialTabs={initialMainBottomNavItems ?? null}>
-          <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
+          {!storesHubLite ? (
+            <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
+          ) : null}
           <AppWideRuntimePerfHooks />
           <SessionLostRedirect />
           <AuthComplianceRedirect />
@@ -170,7 +198,7 @@ export function MainAppProviderTree({
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <IncomingCallOverlayChunkBoundary>
-                <GlobalIncomingFriendRequestHost enabled />
+                {!storesHubLite ? <GlobalIncomingFriendRequestHost enabled /> : null}
               </IncomingCallOverlayChunkBoundary>
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>
@@ -180,25 +208,22 @@ export function MainAppProviderTree({
                         <PhilifeHeaderMessengerStackProvider>
                           <TradeHeaderTradeHistoryStackProvider>
                             <MainTier1ChromeProvider>
-                              <TradePresenceActivityProvider>
-                                <MainShellPushLayer>
-                                  <div className={MAIN_SHELL_VIEWPORT_LOCK_CLASS}>
-                                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                                    <MainAppHeaderStackWrap>
-                                      <ConditionalAppShell
-                                        regionBarInLayout={true}
-                                        initialMainBottomNavItems={initialMainBottomNavItems}
-                                      >
-                                        {children}
-                                      </ConditionalAppShell>
-                                    </MainAppHeaderStackWrap>
-                                    </div>
-                                  </div>
-                                </MainShellPushLayer>
-                                <TradeChatEntryCreatingOverlayLazy />
-                                <PhilifeWriteBottomSheetLazy />
-                                <TradeWriteBottomSheetLazy />
-                              </TradePresenceActivityProvider>
+                              {storesHubLite ? (
+                                <MainAppConditionalShell initialMainBottomNavItems={initialMainBottomNavItems ?? null}>
+                                  {children}
+                                </MainAppConditionalShell>
+                              ) : (
+                                <TradePresenceActivityProvider>
+                                  <MainAppConditionalShell
+                                    initialMainBottomNavItems={initialMainBottomNavItems ?? null}
+                                  >
+                                    {children}
+                                  </MainAppConditionalShell>
+                                  <TradeChatEntryCreatingOverlayLazy />
+                                  <PhilifeWriteBottomSheetLazy />
+                                  <TradeWriteBottomSheetLazy />
+                                </TradePresenceActivityProvider>
+                              )}
                             </MainTier1ChromeProvider>
                           </TradeHeaderTradeHistoryStackProvider>
                         </PhilifeHeaderMessengerStackProvider>

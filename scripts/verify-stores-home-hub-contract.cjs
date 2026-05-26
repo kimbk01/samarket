@@ -460,7 +460,21 @@ assertIncludes(
 
 assertIncludes(hub, "<StoresHomeQuickCategories />", "hub must always mount categories");
 
-const storesPage = read("app/(main)/stores/page.tsx");
+function readStoresHubPage() {
+  const candidates = ["app/(stores)/stores/page.tsx", "app/(main)/stores/page.tsx"];
+  for (const rel of candidates) {
+    const abs = path.join(root, rel);
+    if (fs.existsSync(abs)) return fs.readFileSync(abs, "utf8");
+  }
+  fail("stores hub page missing — expected app/(stores)/stores/page.tsx");
+  return "";
+}
+const storesPage = readStoresHubPage();
+assertIncludes(
+  storesPage,
+  'data-stores-layout-profile="stores-hub"',
+  "stores hub page must use (stores) route group marker"
+);
 
 assertNotIncludes(
   storesPage,
