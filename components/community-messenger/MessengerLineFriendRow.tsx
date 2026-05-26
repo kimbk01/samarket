@@ -6,7 +6,7 @@ import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/ty
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 
 const ACTION_W = 72;
 const LEFT_ACTION_TOTAL = ACTION_W * 2;
@@ -67,7 +67,6 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   }, [dragX]);
 
   const avatarSrc = friend.avatarUrl?.trim() ? friend.avatarUrl.trim() : null;
-  const initial = friend.label.trim().slice(0, 1) || "?";
   const bioLine = friend.bio?.trim() ?? "";
   const swipeItemId = messengerFriendSwipeItemId(friend.id);
   const rightSwipeItemId = `${swipeItemId}:right`;
@@ -329,13 +328,11 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             trailingLayout="center"
             avatar={
               <div className="relative h-12 w-12">
-                <SamarketThumbnail
-                  src={avatarSrc}
+                <SamarketUserAvatarThumb
+                  avatarUrl={avatarSrc}
                   size={48}
                   roundedClassName="rounded-full"
                   className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]"
-                  fallbackSrc=""
-                  fallbackNode={<span className="sam-text-body font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
                 />
                 <CommunityMessengerPresenceDot state={peerPresence?.state} />
               </div>

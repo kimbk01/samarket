@@ -3,13 +3,17 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
+import { buildAddressListDetailLine } from "@/lib/addresses/user-address-format";
 import {
-  buildAddressListDetailLine,
-  buildAddressManagementListPrimaryLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
-import { formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
+  formatUserAddressListPlainLine,
+  isPhUserAddressRow,
+} from "@/lib/addresses/format-user-address-list-line";
+import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
+import {
+  addressListRowSurfaceClass,
+  resolveAddressListRowSurface,
+} from "@/lib/ui/address-list-starbucks-styles";
 
 export function AddressRowCard(props: {
   row: UserAddressDTO;
@@ -25,7 +29,7 @@ export function AddressRowCard(props: {
   const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName, approvedStoresById } = props;
   const { t } = useI18n();
   const rowBusy = globalBusy === row.id;
-  const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  const isPh = isPhUserAddressRow(row);
   const linkedStoreId = row.linkedStoreId?.trim() ?? "";
   const samarketStoreDisplayName =
     row.labelType === "shop" && linkedStoreId
@@ -35,13 +39,8 @@ export function AddressRowCard(props: {
     suppressGateBuildingIfMatchesSamarketStore: samarketStoreDisplayName || null,
   };
 
-  const sub = isPh
-    ? formatPhAddressCardOneLinePlain(row, phOpts)
-    : stripCountryFromAddressDisplayLine(
-        buildAddressManagementListPrimaryLine(row),
-        row.countryName,
-      );
-  const detailLine = isPh ? null : buildAddressListDetailLine(row, sub);
+  const sub = formatUserAddressListPlainLine(row, phOpts);
+  const detailLine = isPhUserAddressRow(row) ? null : buildAddressListDetailLine(row, sub);
 
   const designationPlain = getUserAddressDesignationPlainText(row, {
     linkedSamarketStoreDisplayName: samarketStoreDisplayName || null,
@@ -63,11 +62,22 @@ export function AddressRowCard(props: {
       row={row}
       approvedStoresById={approvedStoresById}
       showTapRepresentative={Boolean(onSetAsRepresentative)}
+      badgeStyle="starbucks"
     />
   );
 
+  const rowSurface = resolveAddressListRowSurface(row);
+  const rowSurfaceClass = addressListRowSurfaceClass(rowSurface);
+  const liClass = [
+    "flex items-start gap-2 px-2 py-3 sm:gap-3 sm:px-3",
+    rowSurfaceClass,
+    containerClassName ?? "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <li className={`flex items-start gap-2 px-1 py-3.5 sm:gap-3 sm:px-2 ${containerClassName ?? ""}`}>
+    <li className={liClass}>
       {onSetAsRepresentative ?
         <button
           type="button"

@@ -14,6 +14,7 @@ import {
   PHILIFE_FB_CARD_CLASS,
   PHILIFE_FEED_INSET_X_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
+import { MYPAGE_HOME_PAGE_BG_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 import {
   MYPAGE_INFO_HUB_SHEET_PARAM,
   MYPAGE_INFO_HUB_SHEET_VALUE,
@@ -27,6 +28,7 @@ import {
   dibayMyInfoPerfNavClick,
 } from "@/lib/runtime/dibay-myinfo-perf";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -46,6 +48,7 @@ function resolveLegacyMyPageRedirectTarget(args: {
 }
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
+  const { t, language } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname() ?? "";
@@ -109,8 +112,8 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     recoveryTriggeredRef.current = true;
     const hasAuthError = Boolean(authErrorParam);
     const reason = data
-      ? "프로필을 불러오지 못했습니다. 다시 로그인해 주세요."
-      : "세션을 확인하지 못했습니다. 다시 로그인해 주세요.";
+      ? t("mypage_comp_profile_load_failed_short")
+      : t("auth_err_session_sync_failed");
     if (typeof window !== "undefined") {
       window.alert(reason);
     }
@@ -136,7 +139,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     ) {
       lastLoginRedirectRef.current = target;
     }
-  }, [loading, data, load, router, authErrorParam]);
+  }, [loading, data, load, router, authErrorParam, language]);
 
   useEffect(() => {
     if (!infoHubOpen) return;
@@ -179,6 +182,8 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     }
     if (data?.profile) {
       dibayMyInfoPerfMark("rsc_done_ms", { hasProfile: true });
+      dibayMyInfoPerfMark("first_content_visible_ms", { surface: "mypage_root" });
+      dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
       return;
     }
     if (data) {
@@ -188,11 +193,11 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (loading) {
     return (
-      <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            내정보를 불러오는 중이에요.
+            {t("mypage_comp_loading_hub")}
           </div>
         </div>
       </div>
@@ -201,11 +206,11 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   if (!data) {
     return (
-      <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
           <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            로그인이 필요합니다.
+            {t("mypage_comp_login_required")}
           </div>
         </div>
       </div>
@@ -215,25 +220,17 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const { profile, banner, bannerHidden, mannerScore } = data;
   const showBanner = banner && !bannerHidden;
 
-  useEffect(() => {
-    if (profile) {
-      dibayMyInfoPerfMark("first_content_visible_ms", { surface: "mypage_root" });
-      dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
-    }
-  }, [profile]);
-
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MyPageHeader centerTitle="내정보" centerSubtitle={null} backFallbackHref="/philife" />
-      <div
-        className={`${APP_MAIN_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col`}
-      >
+    <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <MyPageHeader backFallbackHref="/philife" />
+      <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         {profile ? (
           <MyPageHomeDashboard
             profile={profile}
             mannerScore={mannerScore}
             overviewCounts={overviewCounts}
             homeDashboardCounts={data.homeDashboardCounts ?? null}
+            addressDefaultsSnapshot={data.addressDefaultsSnapshot ?? null}
             showBanner={Boolean(showBanner)}
             bannerSlot={
               showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null
@@ -242,7 +239,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
         ) : (
           <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1`}>
             <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-              프로필을 불러오지 못했어요. 다시 로그인해 주세요.
+              {t("mypage_comp_profile_load_failed_short")}
             </div>
           </div>
         )}

@@ -12,7 +12,7 @@ export async function POST(
 ) {
   const userId = await getRouteUserId();
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "login_required" }, { status: 401 });
   }
   const { id } = await context.params;
   const aid = id?.trim();

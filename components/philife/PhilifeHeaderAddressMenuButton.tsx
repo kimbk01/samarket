@@ -7,13 +7,13 @@ import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressD
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
-import { buildAddressManagementListPrimaryLine } from "@/lib/addresses/user-address-format";
 import {
   describeMeAddressesListFailure,
   fetchMeAddressesListSingleFlight,
   readCachedMeAddressList,
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
+import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
@@ -25,6 +25,8 @@ import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
 } from "@/lib/ui/tier1-header-icon";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 
 export function PhilifeHeaderAddressMenuButton({
   panelPlacement = "anchor",
@@ -143,7 +145,7 @@ export function PhilifeHeaderAddressMenuButton({
       .then((result) => {
         if (ignore) return;
         if (!result.ok) {
-          setListError(describeMeAddressesListFailure(result, t("philife_addr_list_load_failed")));
+          setListError(describeMeAddressesListFailure(result, t, "philife_addr_list_load_failed"));
           return;
         }
         const rows = result.rows;
@@ -200,9 +202,7 @@ export function PhilifeHeaderAddressMenuButton({
     const row = list.find((a) => a.id === id);
     if (!row || row.isDefaultMaster || busyId) return;
     if (isLinkedSamarketStoreAddressRow(row)) {
-      setListError(
-        "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.",
-      );
+      setListError(t("addr_ui_store_not_master"));
       return;
     }
     setBusyId(id);
@@ -220,7 +220,7 @@ export function PhilifeHeaderAddressMenuButton({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; address?: UserAddressDTO };
       if (!res.ok || !j.ok) {
-        setListError(typeof j.error === "string" ? j.error : t("philife_addr_change_failed"));
+        setListError(translateUserAddressApiError(j.error, t, "philife_addr_change_failed"));
         return;
       }
       const updated = list.map((item) => ({
@@ -253,14 +253,7 @@ export function PhilifeHeaderAddressMenuButton({
         aria-expanded={open}
         onClick={toggleMenu}
       >
-        <svg className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 21s6-5.1 6-10a6 6 0 10-12 0c0 4.9 6 10 6 10z"
-          />
-          <circle cx="12" cy="11" r="2" />
-        </svg>
+        <AddressKindHeadPin kind="master" className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} />
       </button>
       {renderOpen && mounted && typeof document !== "undefined"
         ? createPortal(
@@ -350,7 +343,6 @@ export function PhilifeHeaderAddressMenuButton({
                     ) : null}
                     {list.map((row) => {
                       const isActive = row.isDefaultMaster;
-                      const mainLine = buildAddressManagementListPrimaryLine(row);
                       const busy = busyId === row.id;
                       return (
                         <button
@@ -380,7 +372,16 @@ export function PhilifeHeaderAddressMenuButton({
                                 </span>
                               ) : null}
                             </span>
-                            <span className="mt-0.5 block truncate text-[13px] leading-5 text-neutral-700">{mainLine}</span>
+                            <span className="mt-0.5 flex gap-1.5 line-clamp-2 text-[13px] leading-5 text-neutral-700">
+                              <AddressKindHeadPin kind={row.isDefaultMaster ? "master" : "general"} className="mt-0.5 shrink-0" />
+                              <span className="min-w-0 flex-1">
+                                <AddressUserRowLineText
+                                  row={row}
+                                  detailClassName="font-bold text-neutral-800"
+                                  bodyClassName="text-neutral-700"
+                                />
+                              </span>
+                            </span>
                           </span>
                           {busy ? <span className="text-[11px] text-neutral-500">{t("philife_addr_changing")}</span> : null}
                         </button>

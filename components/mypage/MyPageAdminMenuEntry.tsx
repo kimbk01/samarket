@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
+import { MyInfoMenuLinkRow } from "@/components/mypage/myinfo/MyInfoMenuAction";
+import { MYPAGE_HOME_CARD_CLASS } from "@/lib/ui/mypage-home-starbucks-styles";
 
 /**
  * `isRouteAdmin()` 과 동일 — `/api/admin/access-check` (AdminGuard 와 공유).
@@ -14,7 +16,9 @@ export function MyPageAdminMenuEntry({
   asListItem = false,
   /** @deprecated `asListItem` 사용 */
   wrapInStandaloneCard = false,
-}: { asListItem?: boolean; wrapInStandaloneCard?: boolean } = {}) {
+  /** 내정보 홈 스타벅스 카드 행 */
+  starbucks = false,
+}: { asListItem?: boolean; wrapInStandaloneCard?: boolean; starbucks?: boolean } = {}) {
   const { t } = useI18n();
   const [show, setShow] = useState(false);
   const [ready, setReady] = useState(false);
@@ -38,6 +42,16 @@ export function MyPageAdminMenuEntry({
   }, []);
 
   if (!ready || !show) return null;
+
+  if (starbucks) {
+    const card = (
+      <section className={MYPAGE_HOME_CARD_CLASS}>
+        <MyInfoMenuLinkRow first href="/admin" title={t("mypage_comp_admin_entry_title")} />
+      </section>
+    );
+    if (asListItem) return <li className="list-none">{card}</li>;
+    return card;
+  }
 
   const row = (
     <MyPageMobileMenuRow

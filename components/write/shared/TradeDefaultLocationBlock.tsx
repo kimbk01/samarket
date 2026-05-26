@@ -4,10 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  buildTradePublicLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
+import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
@@ -100,10 +97,7 @@ export function TradeDefaultLocationBlock({
         setReady(true);
         return;
       }
-      const line = stripCountryFromAddressDisplayLine(
-        buildTradePublicLine(addr),
-        addr.countryName
-      ).trim();
+      const line = formatUserAddressListPlainLine(addr).trim();
       setDisplayLine(line || null);
       const inferred = inferAppLocationIdsFromUserAddress(addr);
       if (inferred && !suppressAddressBookSyncRef.current) {

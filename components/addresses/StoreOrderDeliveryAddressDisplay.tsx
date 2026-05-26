@@ -4,19 +4,18 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatStoreOrderDeliveryAddressParts } from "@/lib/addresses/store-order-delivery-address-display";
 import { ADDR_BODY } from "@/lib/ui/address-flow-viber";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { AddressPhCardLineText } from "@/components/addresses/AddressPhCardLineText";
 
 const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} text-[12px] leading-snug text-sam-muted`;
 
 /**
- * 저장된 주문 배달지(`delivery_address_summary` + `detail`) — 주소 관리 PH 카드·장바구니와 동일 표기.
+ * 저장된 주문 배달지 — 주소 관리 PH 카드·장바구니와 동일 표기.
  */
 export function StoreOrderDeliveryAddressDisplay(props: {
   summary?: string | null;
   detail?: string | null;
-  /** 픽업 등 주소 없을 때 */
   emptyFallback?: string;
   className?: string;
-  /** 비PH 레거시 상세에 「상세주소」 라벨 */
   showDetailLabel?: boolean;
 }) {
   const { t } = useI18n();
@@ -41,11 +40,7 @@ export function StoreOrderDeliveryAddressDisplay(props: {
         <AddressKindHeadPin kind="general" className="pt-0.5" />
         <div className="min-w-0 flex-1">
           {phCardLine ? (
-            <>
-              <strong className="font-bold text-sam-fg">{gatePrefix}</strong>
-              <span className="text-sam-fg">, </span>
-              <span className="text-sam-fg">{streetBody}</span>
-            </>
+            <AddressPhCardLineText presentation={{ gatePrefix, streetBody }} />
           ) : streetBody ? (
             <span className="text-sam-fg">{streetBody}</span>
           ) : gatePrefix ? (

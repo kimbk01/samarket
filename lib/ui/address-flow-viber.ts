@@ -35,6 +35,10 @@ export const ADDR_SEARCH_WRAP =
 export const ADDR_SEARCH_INPUT =
   "min-w-0 flex-1 border-0 bg-transparent py-1.5 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta";
 
+/** 검색 자동완성 드롭다운 — 페이지 크림 배경·흰 검색창과 구분 */
+export const ADDR_SEARCH_DROPDOWN =
+  "mt-1.5 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface-muted shadow-sm";
+
 export const ADDR_SECTION_LABEL =
   "mb-2 sam-text-helper font-semibold uppercase tracking-wide text-signature/80";
 

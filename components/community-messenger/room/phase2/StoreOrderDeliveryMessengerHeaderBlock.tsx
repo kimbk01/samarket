@@ -1,6 +1,7 @@
 "use client";
 
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { mannerBatteryAccentClass } from "@/lib/trust/manner-battery";
@@ -27,22 +28,32 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
   if (model.mode === "none" || !model.showAvatar) return null;
 
   const initial = model.title.trim().slice(0, 1).toUpperCase() || "?";
+  const isUserAvatar = model.avatarRounded === "circle";
   const showBattery =
     model.mode === "owner_buyer_peer" && model.buyerTrustPercent != null && model.buyerTrustTier != null;
 
   return (
     <>
       <div className="relative h-9 w-9 shrink-0 self-center">
-        <SamarketThumbnail
-          src={model.avatarUrl}
-          size={36}
-          roundedClassName={model.avatarRounded === "store_rect" ? "rounded-ui-rect" : "rounded-full"}
-          className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
-          fallbackSrc=""
-          fallbackNode={
-            <div className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">{initial}</div>
-          }
-        />
+        {isUserAvatar ? (
+          <SamarketUserAvatarThumb
+            avatarUrl={model.avatarUrl}
+            size={36}
+            roundedClassName="rounded-full"
+            className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+          />
+        ) : (
+          <SamarketThumbnail
+            src={model.avatarUrl}
+            size={36}
+            roundedClassName="rounded-ui-rect"
+            className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+            fallbackSrc=""
+            fallbackNode={
+              <div className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">{initial}</div>
+            }
+          />
+        )}
         {showPresence && presenceState ? (
           <CommunityMessengerPresenceDot state={presenceState} />
         ) : null}

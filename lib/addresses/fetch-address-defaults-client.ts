@@ -2,21 +2,12 @@
 
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import type { LifeDefaultLocationSummary } from "@/lib/addresses/life-default-location-summary";
+import {
+  ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
+  type AddressDefaultsSnapshot,
+} from "@/lib/addresses/address-defaults-snapshot";
 
 const ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT = "me:address-defaults:snapshot";
-const ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS = 20_000;
-
-export type AddressDefaultsSnapshot = {
-  ok: boolean;
-  status: number;
-  defaults: {
-    master?: unknown;
-    life?: unknown;
-    trade?: unknown;
-    delivery?: unknown;
-  } | null;
-  neighborhoodFromLife: LifeDefaultLocationSummary | null;
-};
 
 let cachedSnapshot:
   | {
@@ -37,6 +28,14 @@ function cloneSnapshot(value: AddressDefaultsSnapshot): AddressDefaultsSnapshot 
 export function invalidateAddressDefaultsSnapshotCache(): void {
   cachedSnapshot = null;
   forgetSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT);
+}
+
+/** RSC·프로필 편집 직후 — 클라 TTL 캐시에 서버 스냅샷 주입(첫 페인트 깜빡임 방지). */
+export function seedAddressDefaultsSnapshotCache(snapshot: AddressDefaultsSnapshot): void {
+  cachedSnapshot = {
+    value: cloneSnapshot(snapshot),
+    expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
+  };
 }
 
 /** TTL 안 스냅샷 — 동기 읽기(탭 전환 시 주소 알약 깜빡임 방지). */
@@ -106,3 +105,5 @@ export async function fetchAddressDefaultsSnapshot(
     return null;
   }
 }
+
+export type { AddressDefaultsSnapshot };

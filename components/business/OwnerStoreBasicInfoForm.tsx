@@ -509,7 +509,7 @@ export function OwnerStoreBasicInfoForm({
         if (cancelled || seq !== addressLoadSeqRef.current) return;
         if (!listResult.ok) {
           setAddressBookListError(
-            describeMeAddressesListFailure(listResult, t("business_phase7_514")),
+            describeMeAddressesListFailure(listResult, t, "business_phase7_514"),
           );
           setStoreLinkedUserAddress(null);
         } else {

@@ -5,11 +5,7 @@
  */
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
-import {
-  buildAddressManagementListPrimaryLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
+import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 
 function isDisplayNullish(s: string | null | undefined): boolean {
   const t = s?.trim();
@@ -77,14 +73,11 @@ export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | 
 
   const isPh = (a.countryCode ?? "PH").trim().toUpperCase() === "PH";
   if (isPh) {
-    const ph = formatPhAddressCardOneLinePlain(a).trim();
+    const ph = formatUserAddressListPlainLine(a).trim();
     if (ph && ph !== "주소 미입력") return ph;
   }
 
-  const mgmt = stripCountryFromAddressDisplayLine(
-    buildAddressManagementListPrimaryLine(a),
-    a.countryName,
-  ).trim();
+  const mgmt = formatUserAddressListPlainLine(a).trim();
   if (mgmt && mgmt !== "주소 미입력") return mgmt;
 
   return null;

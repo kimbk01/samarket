@@ -3,53 +3,47 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ChevronRight } from "lucide-react";
-import { MYINFO_SURFACE, MYINFO_TYPO } from "./myinfo-theme";
+import {
+  MYPAGE_HOME_CHEVRON_CLASS,
+  MYPAGE_HOME_DANGER_TEXT_CLASS,
+  MYPAGE_HOME_ICON_WRAP_CLASS,
+  MYPAGE_HOME_MENU_TITLE_CLASS,
+  MYPAGE_HOME_META_TEXT_CLASS,
+  MYPAGE_HOME_ROW_CLASS,
+  MYPAGE_HOME_ROW_DIVIDER_CLASS,
+} from "@/lib/ui/mypage-home-starbucks-styles";
 
 export function MyInfoMenuItem({
   title,
-  description,
   href,
   icon,
   accessory,
   tone = "default",
+  first = false,
 }: {
   title: string;
+  /** @deprecated 설명 미표시 — 호환용 */
   description?: string;
   href: string;
   icon?: ReactNode;
   accessory?: ReactNode;
   tone?: "default" | "danger";
+  /** 섹션 카드 첫 행 — 상단 구분선 생략 */
+  first?: boolean;
 }) {
-  const titleClass =
-    tone === "danger" ? "text-sam-danger" : "text-sam-fg";
+  const titleClass = tone === "danger" ? MYPAGE_HOME_DANGER_TEXT_CLASS : MYPAGE_HOME_MENU_TITLE_CLASS;
 
   return (
     <Link
       href={href}
-      className={`flex ${MYINFO_SURFACE.row} w-full min-w-0 items-center gap-3 px-4 py-3 transition-colors hover:bg-sam-app active:bg-sam-app`}
+      className={`${MYPAGE_HOME_ROW_CLASS} ${first ? "" : MYPAGE_HOME_ROW_DIVIDER_CLASS}`}
     >
-      {icon ? (
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-sam-app text-sam-fg">
-          {icon}
-        </span>
-      ) : null}
-      <span className="min-w-0 flex-1">
-        <span className={`block truncate ${MYINFO_TYPO.menuTitle} ${titleClass}`}>
-          {title}
-        </span>
-        {description?.trim() ? (
-          <span className={`mt-0.5 block truncate ${MYINFO_TYPO.subText}`}>
-            {description.trim()}
-          </span>
-        ) : null}
-      </span>
+      {icon ? <span className={MYPAGE_HOME_ICON_WRAP_CLASS}>{icon}</span> : null}
+      <span className={`min-w-0 flex-1 ${titleClass}`}>{title}</span>
       {accessory ? (
-        <span className="shrink-0 sam-text-body-secondary text-sam-muted">
-          {accessory}
-        </span>
+        <span className={`shrink-0 tabular-nums ${MYPAGE_HOME_META_TEXT_CLASS}`}>{accessory}</span>
       ) : null}
-      <ChevronRight className="h-[18px] w-[18px] shrink-0 text-sam-meta" strokeWidth={2} />
+      <ChevronRight className={MYPAGE_HOME_CHEVRON_CLASS} strokeWidth={2} />
     </Link>
   );
 }
-

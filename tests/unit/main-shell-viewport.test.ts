@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import {
   APP_SHELL_FILL_VIEWPORT_CLASS,
   MAIN_COLUMN_SCROLL_CLASS,
@@ -89,5 +90,26 @@ describe("stores owner apply scroll contract", () => {
       })
     ).toBe(false);
     expect(f.hideRegionBar).toBe(true);
+  });
+});
+
+describe("mypage address tier1 titles", () => {
+  it("/mypage/addresses uses address_manage_title not dibaY fallback", () => {
+    const f = resolveMainTier1Subpage("/mypage/addresses");
+    expect(f?.titleText).toBe("address_manage_title");
+    expect(f?.subtitle).toBeUndefined();
+  });
+
+  it("/mypage/addresses/edit uses addr_ui_add_title default", () => {
+    const f = resolveMainTier1Subpage("/mypage/addresses/edit");
+    expect(f?.titleText).toBe("addr_ui_add_title");
+  });
+});
+
+describe("mypage address edit shell", () => {
+  it("/mypage/addresses/edit hides main bottom nav", () => {
+    const f = resolveConditionalAppShellFlags("/mypage/addresses/edit", true);
+    expect(f.isMypageAddressEditPage).toBe(true);
+    expect(f.showBottomNav).toBe(false);
   });
 });

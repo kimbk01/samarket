@@ -1,6 +1,11 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  MYPAGE_HOME_CARD_CLASS,
+  MYPAGE_HOME_GHOST_BTN_CLASS,
+  MYPAGE_HOME_OUTLINE_BTN_CLASS,
+} from "@/lib/ui/mypage-home-starbucks-styles";
 
 type LogoutConfirmModalProps = {
   open: boolean;
@@ -25,26 +30,26 @@ export function LogoutConfirmModal({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/45 px-4"
+      className="fixed inset-0 z-[1400] flex items-center justify-center bg-black/45 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="logout-confirm-title"
       aria-describedby="logout-confirm-desc"
     >
-      <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
-        <p id="logout-confirm-title" className="sam-text-body font-semibold text-sam-fg">
+      <div className={`w-full max-w-sm p-5 ${MYPAGE_HOME_CARD_CLASS}`}>
+        <p id="logout-confirm-title" className="text-[17px] font-bold leading-tight text-[#1E3932]">
           {t("auth_logout_confirm_title")}
         </p>
-        <p id="logout-confirm-desc" className="mt-2 sam-text-body-secondary text-sam-muted">
+        <p id="logout-confirm-desc" className="mt-2 text-[14px] leading-snug text-[#6F4E37]">
           {t("auth_logout_confirm_body")}
         </p>
-        {error ? <p className="mt-3 sam-text-body-secondary text-red-600">{error}</p> : null}
-        <div className="mt-4 flex gap-3">
+        {error ? <p className="mt-3 text-[13px] text-[#C0392B]">{error}</p> : null}
+        <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={onCancel}
             disabled={submitting}
-            className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
+            className={`${MYPAGE_HOME_OUTLINE_BTN_CLASS} disabled:opacity-50`}
           >
             {t("common_cancel")}
           </button>
@@ -52,7 +57,7 @@ export function LogoutConfirmModal({
             type="button"
             onClick={() => void onConfirm()}
             disabled={submitting}
-            className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
+            className={`${MYPAGE_HOME_GHOST_BTN_CLASS} font-semibold text-[#C0392B] hover:text-[#C0392B] disabled:opacity-50`}
           >
             {submitting ? t("auth_logout_submitting") : t("auth_logout_submit")}
           </button>

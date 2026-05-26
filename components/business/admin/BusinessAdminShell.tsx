@@ -26,11 +26,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { readCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
-import {
-  buildAddressManagementListPrimaryLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
+import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
@@ -77,7 +73,8 @@ import {
   OWNER_COMPACT_SHELL_MAX_TW,
   OWNER_DESKTOP_SHELL_MIN_TW,
 } from "@/lib/business/owner-compact-shell-viewport";
-import { ChevronRight, MapPin } from "lucide-react";
+import { ChevronRight } from "lucide-react";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
 } from "@/lib/stores/owner-mobile-ui-tokens";
@@ -766,7 +763,7 @@ export function BusinessAdminShell({
           className="flex h-full min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-1 sam-text-xxs font-medium leading-tight text-sam-muted"
           title={sidebarAddressLabel}
         >
-          <MapPin className="h-4 w-4 shrink-0 text-signature" strokeWidth={2} aria-hidden />
+          <AddressKindHeadPin kind="master" className="h-4 w-4 shrink-0 [&_svg]:h-4 [&_svg]:w-[0.85rem]" />
           <span className="min-w-0 flex-1 break-words line-clamp-2">{sidebarAddressLabel}</span>
         </div>
       ) : (
@@ -943,14 +940,7 @@ function formatOwnerSidebarFullAddress(row: StoreRow): string {
 }
 
 function formatOwnerSidebarAddressBookRow(row: UserAddressDTO): string {
-  const countryCode = (row.countryCode ?? "PH").trim().toUpperCase();
-  if (countryCode === "PH") {
-    return formatPhAddressCardOneLinePlain(row);
-  }
-  return stripCountryFromAddressDisplayLine(
-    buildAddressManagementListPrimaryLine(row),
-    row.countryName,
-  );
+  return formatUserAddressListPlainLine(row);
 }
 
 function formatOwnerSidebarAddress(store: StoreRow, linkedAddress: UserAddressDTO | null): string {

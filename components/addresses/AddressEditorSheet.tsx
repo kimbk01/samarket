@@ -10,7 +10,7 @@ import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetc
 import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
 import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
-import { formatPhDeliveryStreetSummary, formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
+import { formatPhDeliveryStreetSummary } from "@/lib/addresses/ph-address-display";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
 import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
@@ -22,19 +22,23 @@ import {
 } from "@/lib/design/stores-home-header-chrome";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
-import { buildMypageAddressesHref } from "@/lib/addresses/mypage-addresses-return-to";
+import { buildMypageAddressesHref, parseStoreIdFromReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
 import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
 import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
+import { AddressDesignationDupConfirmModal } from "@/components/addresses/AddressDesignationDupConfirmModal";
+import { AddressEditorLocationSearch } from "@/components/addresses/AddressEditorLocationSearch";
 import {
   decodeLocationOnlyAddressNicknameId,
   encodeLocationOnlyAddressNickname,
   isLocationOnlyAddressNickname,
 } from "@/lib/addresses/location-only-address-nickname";
+import { AddressDesignationField, type AddressDesignationPreset } from "@/components/addresses/AddressDesignationField";
+import { AutoGrowTextarea } from "@/components/write/shared/AutoGrowTextarea";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 
 type Mode = "create" | "edit";
 
@@ -59,7 +63,7 @@ export function AddressEditorSheet(props: {
     addressDetail?: string | null;
   } | null;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
   /** 중복 지정 주소 검사용(현재 사용자 주소 목록) */
   allAddresses?: UserAddressDTO[];
   /** 전체 페이지 편집(목록과 분리) — 기본은 모달 */
@@ -140,8 +144,78 @@ export function AddressEditorSheet(props: {
    * 일치할 때는 자동완성을 건너뛴다 — 사용자가 검색어를 바꾸면 다시 조회된다.
    */
   const selectionAnchorSearchRef = useRef<string | null>(null);
+  /** `applyStoreRow`로 채운 좌표·주소 — shop 구분을 벗어날 때 비우거나 편집 초기값으로 되돌린다. */
+  const storeGeoAppliedRef = useRef(false);
+
+  const clearLocationFormFields = useCallback(() => {
+    setLatitude(null);
+    setLongitude(null);
+    setPlaceId("");
+    setFormattedAddress("");
+    setRoadAddress("");
+    setFullAddress("");
+    setStreetAddress("");
+    setUnitFloorRoom("");
+    setRegion("");
+    setCity("");
+    setBarangay("");
+    setCityMunicipality("");
+    setProvince("");
+    setBuildingName("");
+    setNeighborhoodName("");
+    setSearch("");
+    setPredictions([]);
+    selectionAnchorSearchRef.current = null;
+    setFineTuneOpen(false);
+  }, []);
+
+  const restoreInitialLocationFields = useCallback(() => {
+    if (mode !== "edit" || !initial) return;
+    setRegion(initial.appRegionId ?? "");
+    setCity(initial.appCityId ?? "");
+    setBarangay(initial.barangay ?? "");
+    setCityMunicipality(initial.cityMunicipality ?? "");
+    setProvince(initial.province ?? "");
+    setLandmark(initial.landmark ?? "");
+    setBuildingName(initial.buildingName ?? "");
+    setNeighborhoodName(initial.neighborhoodName ?? "");
+    if (initial.labelType === "shop") {
+      setStreetAddress((initial.streetAddress ?? "").trim());
+    } else {
+      const b = (initial.buildingName ?? "").trim();
+      const s = (initial.streetAddress ?? "").trim();
+      setStreetAddress(b && s ? `${b} ${s}`.trim() : b || s);
+    }
+    if (mapBootstrap) {
+      setLatitude(mapBootstrap.latitude);
+      setLongitude(mapBootstrap.longitude);
+      setFullAddress(mapBootstrap.fullAddress.trim());
+      setFormattedAddress(mapBootstrap.fullAddress.trim());
+      setRoadAddress(mapBootstrap.fullAddress.trim());
+      setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
+      setPlaceId("");
+    } else {
+      setLatitude(initial.latitude ?? null);
+      setLongitude(initial.longitude ?? null);
+      setPlaceId(initial.placeId ?? "");
+      setFormattedAddress(initial.formattedAddress ?? initial.fullAddress ?? "");
+      setRoadAddress(initial.roadAddress ?? initial.streetAddress ?? "");
+      setFullAddress(initial.fullAddress ?? initial.formattedAddress ?? "");
+      setUnitFloorRoom(initial.detailAddress ?? initial.unitFloorRoom ?? "");
+    }
+    const anchor = (initial.roadAddress ?? initial.formattedAddress ?? initial.fullAddress ?? "").trim();
+    setSearch(anchor);
+    if ((initial.placeId ?? "").trim() && anchor.length >= 2) {
+      selectionAnchorSearchRef.current = anchor;
+    } else {
+      selectionAnchorSearchRef.current = null;
+    }
+    setPredictions([]);
+    setFineTuneOpen(false);
+  }, [initial, mapBootstrap, mode]);
 
   const applyStoreRow = useCallback((row: StoreRow) => {
+    storeGeoAppliedRef.current = true;
     const la = row.lat != null ? Number(row.lat) : NaN;
     const ln = row.lng != null ? Number(row.lng) : NaN;
     setLatitude(Number.isFinite(la) ? la : null);
@@ -169,7 +243,41 @@ export function AddressEditorSheet(props: {
     } else {
       setErr(null);
     }
-  }, []);
+  }, [t]);
+
+  const handleSearchFocus = useCallback(() => {
+    if (!search.trim()) return;
+    storeGeoAppliedRef.current = false;
+    selectionAnchorSearchRef.current = null;
+    setSearch("");
+    setPredictions([]);
+    setSearching(false);
+    setErr(null);
+    setUnitFloorRoom("");
+    setLatitude(null);
+    setLongitude(null);
+    setPlaceId("");
+    setFormattedAddress("");
+    setFullAddress("");
+  }, [search]);
+
+  const returnToStoreId = useMemo(() => parseStoreIdFromReturnTo(returnTo), [returnTo]);
+  const storeCreateBootstrapRef = useRef(false);
+
+  useEffect(() => {
+    if (!open) {
+      storeCreateBootstrapRef.current = false;
+      return;
+    }
+    if (storeCreateBootstrapRef.current || mode !== "create" || labelPreset) return;
+    if (!returnToStoreId || meStores.length === 0) return;
+    const row = meStores.find((store) => store.id.trim() === returnToStoreId);
+    if (!row) return;
+    storeCreateBootstrapRef.current = true;
+    setLabelPreset("shop");
+    setSelectedStoreId(returnToStoreId);
+    applyStoreRow(row);
+  }, [open, mode, labelPreset, returnToStoreId, meStores, applyStoreRow]);
 
   useEffect(() => {
     if (!open) return;
@@ -178,6 +286,7 @@ export function AddressEditorSheet(props: {
     setDetailAttempted(false);
     setShopListErr(null);
     selectionAnchorSearchRef.current = null;
+    storeGeoAppliedRef.current = false;
     if (mode === "edit" && initial) {
       setLabelPreset(deriveLabelPresetFromDto(initial));
       setSelectedStoreId(initial.linkedStoreId?.trim() ?? "");
@@ -237,6 +346,7 @@ export function AddressEditorSheet(props: {
       setDefDel(false);
       setFineTuneOpen(false);
     } else if (mode === "create") {
+      storeCreateBootstrapRef.current = false;
       setLabelPreset(null);
       setSelectedStoreId("");
       setNickname("");
@@ -353,7 +463,7 @@ export function AddressEditorSheet(props: {
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, t]);
 
   const applyFineTuneResult = useCallback((r: ReverseGeocodePhResult) => {
     if (!r.placeId) return;
@@ -403,6 +513,7 @@ export function AddressEditorSheet(props: {
       }
       const ph = parsePhFromGooglePlaceResult(detail);
       const label = (row.description || formatted).trim();
+      storeGeoAppliedRef.current = false;
       selectionAnchorSearchRef.current = label.length >= 2 ? label : null;
       setPlaceId(row.placeId);
       setFormattedAddress(formatted);
@@ -559,6 +670,7 @@ export function AddressEditorSheet(props: {
         isDefaultLife: defLife,
         isDefaultTrade: defTrade,
         isDefaultDelivery: defDel,
+        promoteAsLastSavedPrimary: true,
       };
       const url = mode === "create" ? "/api/me/addresses" : `/api/me/addresses/${initial?.id}`;
       const res = await fetch(url, {
@@ -569,10 +681,10 @@ export function AddressEditorSheet(props: {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(typeof j.error === "string" ? j.error : t("addr_ui_save_failed"));
+        setErr(translateUserAddressApiError(j.error, t, "addr_ui_save_failed"));
         return;
       }
-      onSaved();
+      await Promise.resolve(onSaved());
       onClose();
     } finally {
       setBusy(false);
@@ -601,7 +713,7 @@ export function AddressEditorSheet(props: {
         });
         const j = (await d.json()) as { ok?: boolean; error?: string };
         if (!d.ok || !j.ok) {
-          setErr(typeof j.error === "string" ? j.error : t("addr_ui_unset_designation_failed"));
+          setErr(translateUserAddressApiError(j.error, t, "addr_ui_unset_designation_failed"));
           setBusy(false);
           return;
         }
@@ -616,10 +728,6 @@ export function AddressEditorSheet(props: {
   const fieldLabelClass = "mb-1.5 block text-[12px] font-semibold leading-4 text-sam-muted";
   const fieldInputClass =
     "w-full rounded-lg border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body text-sam-fg outline-none transition-shadow placeholder:text-sam-muted focus-visible:border-sam-primary focus-visible:ring-2 focus-visible:ring-sam-primary/20";
-  const chipBase =
-    "shrink-0 whitespace-nowrap rounded-xl border px-3 py-2.5 sam-text-body font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/30";
-  const chipOff = "border-sam-border bg-sam-app text-sam-fg hover:border-sam-primary/40";
-  const chipOn = "border-sam-primary bg-sam-primary text-white";
 
   if (!open) return null;
 
@@ -629,6 +737,7 @@ export function AddressEditorSheet(props: {
   const saveLabel = layout === "page" ? t("addr_ui_save_address") : t("common_save");
   const detailViol = detailAttempted && latitude != null && longitude != null && !unitFloorRoom.trim();
   const geoReady = latitude != null && longitude != null && !!formattedAddress.trim();
+  const showDetailSection = geoReady;
   const saveDisabled =
     busy ||
     !labelPreset ||
@@ -637,10 +746,72 @@ export function AddressEditorSheet(props: {
       !nickname.trim() &&
       !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))) ||
     !geoReady;
-  const hasApprovedStoreAddressSource = meStores.length > 0;
   const selectedStoreDisplayName = (
     meStores.find((store) => store.id.trim() === selectedStoreId.trim())?.store_name ?? ""
   ).trim();
+  const storeOptions = useMemo(
+    () =>
+      meStores.map((store) => ({
+        id: store.id,
+        label: (store.slug || store.store_name || store.id).trim(),
+      })),
+    [meStores],
+  );
+  const approvedStoresById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const store of meStores) {
+      const id = store.id.trim();
+      const name = (store.store_name ?? "").trim();
+      if (id && name) map.set(id, name);
+    }
+    return map;
+  }, [meStores]);
+  const showStoreDesignationOption = meStores.length > 0 || labelPreset === "shop" || Boolean(returnToStoreId);
+  const handleDesignationChange = useCallback(
+    (next: AddressDesignationPreset) => {
+      const prev = labelPreset;
+      setLabelPreset(next);
+      setErr(null);
+
+      if (next === "shop") {
+        if (returnToStoreId && meStores.some((store) => store.id.trim() === returnToStoreId)) {
+          const row = meStores.find((store) => store.id.trim() === returnToStoreId);
+          setSelectedStoreId(returnToStoreId);
+          if (row) applyStoreRow(row);
+        }
+        return;
+      }
+
+      setSelectedStoreId("");
+
+      if (prev === "shop" || storeGeoAppliedRef.current) {
+        storeGeoAppliedRef.current = false;
+        if (mode === "edit" && initial && initial.labelType !== "shop") {
+          restoreInitialLocationFields();
+        } else {
+          clearLocationFormFields();
+        }
+      }
+    },
+    [
+      applyStoreRow,
+      clearLocationFormFields,
+      initial,
+      labelPreset,
+      meStores,
+      mode,
+      restoreInitialLocationFields,
+      returnToStoreId,
+    ],
+  );
+
+  const designationRadioValue: AddressDesignationPreset | null =
+    labelPreset === "home" ||
+    labelPreset === "office" ||
+    labelPreset === "custom" ||
+    labelPreset === "shop"
+      ? labelPreset
+      : null;
 
   const scrollShellClass =
     layout === "page"
@@ -650,263 +821,109 @@ export function AddressEditorSheet(props: {
   const editorScrollBody = (
     <div className={scrollShellClass}>
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <OwnerStoreAdminDashSection title={t("addr_ui_designation_section")}>
-          <div>
-            <p className="mb-3 sam-text-xxs leading-snug text-sam-muted sm:mb-3.5">
-              {t("addr_ui_designation_hint")}
-            </p>
-            <div className="-mx-1 flex min-w-0 flex-nowrap gap-2 overflow-x-auto px-1 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <button
-                type="button"
-                onClick={() => {
-                  setLabelPreset("home");
-                  setSelectedStoreId("");
-                  setErr(null);
-                }}
-                className={`${chipBase} ${labelPreset === "home" ? chipOn : chipOff}`}
-              >
-                {t("addr_ui_preset_home")}
-              </button>
-              {hasApprovedStoreAddressSource ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLabelPreset("shop");
-                    setErr(null);
-                  }}
-                  className={`${chipBase} ${labelPreset === "shop" ? chipOn : chipOff}`}
-                >
-                  {t("addr_ui_preset_shop")}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => {
-                  setLabelPreset("office");
-                  setSelectedStoreId("");
-                  setErr(null);
-                }}
-                className={`${chipBase} ${labelPreset === "office" ? chipOn : chipOff}`}
-              >
-                {t("addr_ui_preset_office")}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLabelPreset("custom");
-                  setSelectedStoreId("");
-                  setErr(null);
-                }}
-                className={`${chipBase} ${labelPreset === "custom" ? chipOn : chipOff}`}
-              >
-                {t("addr_ui_preset_custom")}
-              </button>
-            </div>
-            {!labelPreset ? (
-              <p className="mt-2 sam-text-helper font-medium text-sam-danger">{t("addr_ui_pick_type_err")}</p>
-            ) : null}
-            {!meStoresLoading && !hasApprovedStoreAddressSource ? (
-              <p className="mt-2 sam-text-helper font-medium text-sam-muted">
-                {t("addr_ui_store_permission")}
-              </p>
-            ) : null}
-          </div>
+        <OwnerStoreAdminDashSection
+          title={t("addr_ui_designation_section")}
+          subtitle={t("addr_ui_designation_section_hint")}
+        >
+          <AddressDesignationField
+            hideSectionHeader
+            name={`addr-editor-designation-${layout}`}
+            value={designationRadioValue}
+            onChange={handleDesignationChange}
+            customName={nickname}
+            onCustomNameChange={(next) => {
+              setNickname(next);
+              setErr(null);
+            }}
+            showTypeError={!labelPreset}
+            showStoreOption={showStoreDesignationOption}
+            selectedStoreId={selectedStoreId}
+            storeOptions={storeOptions}
+            storesLoading={meStoresLoading}
+            storesError={shopListErr}
+            onStoreChange={(storeId) => {
+              setSelectedStoreId(storeId);
+              setErr(null);
+              const row = meStores.find((store) => store.id === storeId);
+              if (row) applyStoreRow(row);
+            }}
+          />
+        </OwnerStoreAdminDashSection>
 
-          {labelPreset === "shop" ? (
-            <div className="space-y-2">
-              <span className={fieldLabelClass}>{t("addr_ui_linked_store")}</span>
-              {meStoresLoading ? (
-                <p className="sam-text-helper text-sam-muted">{t("addr_ui_shop_list_loading")}</p>
-              ) : null}
-              <p className="sam-text-helper leading-relaxed text-sam-muted">
-                {t("addr_ui_store_link_hint")}
-              </p>
-              {shopListErr ? <p className="sam-text-helper text-sam-danger">{shopListErr}</p> : null}
-              {!meStoresLoading && !shopListErr && meStores.length === 0 ? (
-                <p className="sam-text-body-secondary leading-relaxed text-sam-danger">
-                  {t("addr_ui_store_permission")}
-                </p>
-              ) : !meStoresLoading && meStores.length > 0 ? (
-                <select
-                  value={selectedStoreId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setSelectedStoreId(id);
-                    setErr(null);
-                    const row = meStores.find((s) => s.id === id);
-                    if (row) applyStoreRow(row);
-                  }}
-                  className={fieldInputClass}
-                  aria-label={t("addr_ui_pick_store_aria")}
-                >
-                  <option value="">{t("addr_ui_pick_store")}</option>
-                  {meStores.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {(s.slug || s.store_name || s.id).trim()}
-                    </option>
-                  ))}
-                </select>
-              ) : null}
-            </div>
-          ) : null}
+        <AddressEditorLocationSearch
+          search={search}
+          searching={searching}
+          predictions={predictions}
+          resolvingPlaceId={resolvingPlaceId}
+          onSearchChange={(value) => {
+            setSearch(value);
+            setErr(null);
+          }}
+          onSearchFocus={handleSearchFocus}
+          onSelectPrediction={(p) => void selectPrediction(p)}
+        />
 
-          {labelPreset === "custom" ? (
+        {showDetailSection ? (
+          <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
             <div>
-              <label htmlFor="addr-editor-nick-custom" className={fieldLabelClass}>
-                {t("addr_ui_custom_name_label")}
+              <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
+              <div className="mt-1.5 flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
+                <div className="relative shrink-0">
+                  <AddressSummaryMapPreview lat={latitude!} lng={longitude!} sizePx={72} />
+                  <button
+                    type="button"
+                    className="absolute inset-0 rounded-ui-rect bg-transparent transition-colors hover:bg-black/[0.06] active:bg-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/35"
+                    aria-label={t("addr_ui_open_fine_tune")}
+                    onClick={() => setFineTuneOpen(true)}
+                  />
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  {buildingName.trim() ? (
+                    <p className="sam-text-body font-semibold leading-snug text-sam-fg">{buildingName.trim()}</p>
+                  ) : null}
+                  <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
+                    {streetPreview ||
+                      stripCountryFromAddressDisplayLine(
+                        (formattedAddress || fullAddress).trim(),
+                        "Philippines",
+                      ) ||
+                      `${latitude!.toFixed(5)}, ${longitude!.toFixed(5)}`}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
+                {t("addr_ui_detail_required_label")}
               </label>
               <input
-                id="addr-editor-nick-custom"
-                value={nickname}
-                onChange={(e) => {
-                  setNickname(e.target.value);
-                  setErr(null);
-                }}
-                placeholder={t("addr_ui_custom_name_ph")}
+                id="addr-editor-detail"
+                value={unitFloorRoom}
+                onChange={(e) => setUnitFloorRoom(e.target.value)}
+                placeholder={t("addr_ui_detail_ph")}
+                autoComplete="address-line2"
+                aria-invalid={detailViol}
+                className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
+              />
+              {detailViol ? (
+                <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
+              ) : null}
+            </div>
+            <div>
+              <label htmlFor="addr-editor-note" className={fieldLabelClass}>
+                {t("addr_ui_delivery_note")}
+              </label>
+              <AutoGrowTextarea
+                id="addr-editor-note"
+                value={deliveryNote}
+                onChange={(e) => setDeliveryNote(e.target.value)}
+                placeholder={t("addr_ui_delivery_ph")}
                 autoComplete="off"
                 className={fieldInputClass}
               />
             </div>
-          ) : null}
-        </OwnerStoreAdminDashSection>
-
-        <OwnerStoreAdminDashSection title={t("addr_ui_search_section")}>
-          <div>
-            <label htmlFor="addr-editor-search" className={fieldLabelClass}>
-              {t("addr_ui_search_label")}
-            </label>
-            <input
-              id="addr-editor-search"
-              value={search}
-              onFocus={() => {
-                if (!search.trim()) return;
-                selectionAnchorSearchRef.current = null;
-                setSearch("");
-                setPredictions([]);
-                setSearching(false);
-                setErr(null);
-                setUnitFloorRoom("");
-              }}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setErr(null);
-              }}
-              placeholder="Building, mall, street, barangay (English OK)"
-              autoComplete="street-address"
-              enterKeyHint="search"
-              className={fieldInputClass}
-            />
-            {searching ? (
-              <p className="mt-2 sam-text-helper text-sam-muted">{t("addr_ui_searching")}</p>
-            ) : predictions.length > 0 ? (
-              <ul className="mt-2 overflow-hidden rounded-lg border border-sam-border bg-sam-surface">
-                {predictions.map((p) => (
-                  <li key={p.placeId} className="border-b border-sam-border last:border-b-0">
-                    <button
-                      type="button"
-                      onClick={() => void selectPrediction(p)}
-                      disabled={resolvingPlaceId === p.placeId}
-                      className="block min-h-[44px] w-full px-3 py-2.5 text-left hover:bg-sam-app disabled:opacity-60"
-                    >
-                      <span className="block sam-text-body font-semibold text-sam-fg">{p.mainText}</span>
-                      <span className="mt-0.5 block sam-text-helper text-sam-muted">
-                        {p.secondaryText || p.description}
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        </OwnerStoreAdminDashSection>
-
-        <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
-          {latitude != null && longitude != null ? (
-            <>
-              <div>
-                <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
-                <p className="mb-2 sam-text-xxs leading-snug text-sam-muted">
-                  {t("addr_ui_map_tap_hint")}
-                </p>
-                <div className="flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
-                  <div className="relative shrink-0">
-                    <AddressSummaryMapPreview lat={latitude} lng={longitude} sizePx={72} />
-                    <button
-                      type="button"
-                      className="absolute inset-0 rounded-ui-rect bg-transparent transition-colors hover:bg-black/[0.06] active:bg-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/35"
-                      aria-label={t("addr_ui_open_fine_tune")}
-                      onClick={() => setFineTuneOpen(true)}
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1">
-                    {buildingName.trim() ? (
-                      <p className="sam-text-body font-semibold leading-snug text-sam-fg">{buildingName.trim()}</p>
-                    ) : null}
-                    <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
-                      {streetPreview ||
-                        stripCountryFromAddressDisplayLine(
-                          (formattedAddress || fullAddress).trim(),
-                          "Philippines",
-                        ) ||
-                        `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
-                  {t("addr_ui_detail_required_label")}
-                </label>
-                <input
-                  id="addr-editor-detail"
-                  value={unitFloorRoom}
-                  onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder={t("addr_ui_detail_ph")}
-                  autoComplete="address-line2"
-                  aria-invalid={detailViol}
-                  className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
-                />
-                {detailViol ? (
-                  <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
-                ) : null}
-              </div>
-              <div>
-                <label htmlFor="addr-editor-note" className={fieldLabelClass}>
-                  {t("addr_ui_delivery_note")}
-                </label>
-                <textarea
-                  id="addr-editor-note"
-                  value={deliveryNote}
-                  onChange={(e) => setDeliveryNote(e.target.value)}
-                  placeholder={t("addr_ui_delivery_ph")}
-                  rows={2}
-                  autoComplete="off"
-                  className={`${fieldInputClass} min-h-[4.5rem] resize-y`}
-                />
-              </div>
-            </>
-          ) : (
-            <>
-              <div>
-                <label htmlFor="addr-editor-detail-empty" className={fieldLabelClass}>
-                  {t("addr_ui_detail_after_search")}
-                </label>
-                <input
-                  id="addr-editor-detail-empty"
-                  value={unitFloorRoom}
-                  onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder={t("addr_ui_detail_after_search_ph")}
-                  autoComplete="off"
-                  disabled
-                  className={fieldInputClass}
-                />
-              </div>
-              <p className="rounded-lg border border-dashed border-sam-border bg-sam-app/60 px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
-                {t("addr_ui_search_first_hint")}
-              </p>
-            </>
-          )}
-        </OwnerStoreAdminDashSection>
+          </OwnerStoreAdminDashSection>
+        ) : null}
       </div>
     </div>
   );
@@ -931,15 +948,23 @@ export function AddressEditorSheet(props: {
     </div>
   );
 
-  const preflightConflictRow = preflightSave?.conflict ?? null;
-  const preflightConflictSamarketName =
-    preflightConflictRow?.labelType === "shop"
-      ? (meStores.find((store) => store.id.trim() === (preflightConflictRow.linkedStoreId ?? "").trim())?.store_name ?? "")
-          .trim() || null
-      : null;
+  const preflightHasConflict = Boolean(preflightSave?.conflict);
+  const preflightStoreOnly =
+    preflightSave != null && !preflightHasConflict && preflightSave.includeStoreLinkNotice;
 
-  const preflightSaveModal =
-    preflightSave && open ? (
+  const designationDupModal = (
+    <AddressDesignationDupConfirmModal
+      open={Boolean(open && preflightHasConflict)}
+      busy={busy}
+      conflictRow={preflightSave?.conflict ?? null}
+      approvedStoresById={approvedStoresById}
+      onCancel={() => !busy && setPreflightSave(null)}
+      onConfirm={() => void confirmPreflightSave()}
+    />
+  );
+
+  const preflightStoreSaveModal =
+    preflightStoreOnly && open ? (
       <div
         className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4"
         role="presentation"
@@ -957,43 +982,16 @@ export function AddressEditorSheet(props: {
           <h3 id="addr-preflight-title" className="text-[17px] font-bold leading-6">
             {t("addr_ui_save_confirm_title")}
           </h3>
-          {preflightSave.includeStoreLinkNotice ? (
-            <div className="mt-2 space-y-1 sam-text-body-secondary leading-relaxed text-sam-fg">
+          <div className="mt-2 space-y-1 sam-text-body-secondary leading-relaxed text-sam-fg">
+            <p>{t("addr_ui_store_save_hint")}</p>
+            {selectedStoreDisplayName ? (
               <p>
-                {t("addr_ui_store_save_hint")}
-                
+                <span className="font-semibold text-sam-fg">{t("addr_ui_store_profile_name")}</span>{" "}
+                <span translate="no">{selectedStoreDisplayName}</span>
+                <span className="text-sam-muted">{t("addr_ui_store_name_mismatch")}</span>
               </p>
-              {selectedStoreDisplayName ? (
-                <p>
-                  <span className="font-semibold text-sam-fg">{t("addr_ui_store_profile_name")}</span>{" "}
-                  <span translate="no">{selectedStoreDisplayName}</span>
-                  <span className="text-sam-muted">{t("addr_ui_store_name_mismatch")}</span>
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          {preflightSave.conflict ? (
-            <>
-              <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">
-                {t("addr_ui_conflict_hint")}
-              </p>
-              <div className="mt-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
-                <div className="flex min-h-[1.25em] items-center sam-text-body font-semibold text-sam-fg">
-                  <UserAddressDesignationTitle
-                    row={preflightSave.conflict}
-                    linkedSamarketStoreDisplayName={preflightConflictSamarketName}
-                  />
-                </div>
-                <p className="mt-1 line-clamp-3 sam-text-helper text-sam-muted" translate="no">
-                  {(preflightSave.conflict.countryCode ?? "PH").trim().toUpperCase() === "PH"
-                    ? formatPhAddressCardOneLinePlain(preflightSave.conflict, {
-                        suppressGateBuildingIfMatchesSamarketStore: preflightConflictSamarketName,
-                      })
-                    : preflightSave.conflict.formattedAddress ?? preflightSave.conflict.fullAddress ?? "—"}
-                </p>
-              </div>
-            </>
-          ) : null}
+            ) : null}
+          </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
@@ -1009,7 +1007,7 @@ export function AddressEditorSheet(props: {
               onClick={() => void confirmPreflightSave()}
               className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white sm:w-auto sm:px-4"
             >
-              {busy ? t("common_processing") : preflightSave.conflict ? t("addr_ui_unset_then_save") : t("common_save")}
+              {busy ? t("common_processing") : t("common_save")}
             </button>
           </div>
         </div>
@@ -1044,7 +1042,11 @@ export function AddressEditorSheet(props: {
               preferHistoryBack
             />
           ) : (
-            <MySubpageHeader title={pageTitle} backHref={pageBackHref} hideCtaStrip />
+            <MySubpageHeader
+              titleKey={mode === "edit" ? "addr_ui_edit_title" : "addr_ui_add_title"}
+              backHref={pageBackHref}
+              hideCtaStrip
+            />
           )}
           <div
             className={
@@ -1058,7 +1060,8 @@ export function AddressEditorSheet(props: {
           </div>
         </div>
         {fineTuneLayer}
-        {preflightSaveModal}
+        {designationDupModal}
+        {preflightStoreSaveModal}
       </>
     );
   }
@@ -1104,7 +1107,8 @@ export function AddressEditorSheet(props: {
         </div>
       </div>
       {fineTuneLayer}
-      {preflightSaveModal}
+      {designationDupModal}
+      {preflightStoreSaveModal}
     </>
   );
 }

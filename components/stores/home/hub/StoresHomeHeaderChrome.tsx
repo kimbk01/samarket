@@ -14,6 +14,7 @@ import {
 } from "@/lib/design/stores-home-header-chrome";
 import { StoresHomeSearchModal } from "@/components/stores/home/hub/StoresHomeSearchModal";
 import { StoresHomeAddressSheet } from "@/components/stores/home/hub/StoresHomeAddressSheet";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   getStoresHomePullRefreshServerSnapshot,
   getStoresHomePullRefreshSnapshot,
@@ -38,21 +39,6 @@ function SearchIcon() {
         strokeWidth={2}
         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
       />
-    </svg>
-  );
-}
-
-function MapPinIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 21s-6.5-5.7-6.5-11A6.5 6.5 0 1118.5 10c0 5.3-6.5 11-6.5 11z"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="2.5" />
     </svg>
   );
 }
@@ -100,7 +86,10 @@ export function StoresHomeHeaderChrome() {
               onClick={() => setAddressOpen(true)}
             >
               <span className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                <MapPinIcon className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)] shrink-0 text-[#fffcfc]" />
+                <AddressKindHeadPin
+                  kind="master"
+                  className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)] shrink-0 [&_svg]:h-full [&_svg]:w-full"
+                />
                 <span className="min-w-0 flex-1 truncate text-[15px] font-medium leading-tight">{headerLine}</span>
               </span>
               <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-90" />

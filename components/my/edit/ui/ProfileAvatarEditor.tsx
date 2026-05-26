@@ -9,6 +9,5 @@ export function ProfileAvatarEditor({
   avatarUrl: string | null;
   onChangeUrl: (url: string | null) => void;
 }) {
-  return <ProfileImageField avatarUrl={avatarUrl} onChangeUrl={onChangeUrl} />;
+  return <ProfileImageField avatarUrl={avatarUrl} onChangeUrl={onChangeUrl} variant="hero" />;
 }
-

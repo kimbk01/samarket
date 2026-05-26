@@ -66,8 +66,7 @@ async function userHasNonStoreLinkedAddress(sb: SupabaseClient<any>, userId: str
   return false;
 }
 
-const ERR_STORE_CANNOT_BE_MASTER =
-  "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.";
+const ERR_STORE_CANNOT_BE_MASTER = "store_cannot_be_master";
 
 async function assertStoreAddressNotForcedAsMasterWhenGeneralExists(
   sb: SupabaseClient<any>,
@@ -314,13 +313,13 @@ async function assertAddressNicknameUnique(
   const display = rawNickname.trim();
   const key = normalizeAddressNicknameKey(display);
   if (!key) {
-    throw new Error("주소 이름을 입력 하세요");
+    throw new Error("nickname_required");
   }
   const locOnlyForRow = decodeLocationOnlyAddressNicknameId(display);
   if (locOnlyForRow != null) {
     const selfId = excludeAddressId?.trim() ?? "";
     if (!selfId || locOnlyForRow !== selfId) {
-      throw new Error("예약된 주소 이름 형식입니다. 다른 이름을 입력해 주세요.");
+      throw new Error("nickname_reserved_format");
     }
   }
   const { data, error } = await sb
@@ -334,7 +333,7 @@ async function assertAddressNicknameUnique(
     if (excludeAddressId && rid === excludeAddressId) continue;
     const nk = normalizeAddressNicknameKey(String((row as { nickname?: unknown }).nickname ?? ""));
     if (nk === key) {
-      throw new Error("이미 같은 이름의 주소가 있어요.");
+      throw new Error("nickname_duplicate");
     }
   }
   return display;
@@ -352,6 +351,18 @@ async function clearDefaultColumn(
     .eq("is_active", true)
     .eq(col, true);
   if (error) throw new Error(error.message);
+}
+
+async function promoteLastSavedAddressAsPrimaryIfAllowed(
+  sb: SupabaseClient<any>,
+  userId: string,
+  addressId: string,
+  dto: { labelType: UserAddressDTO["labelType"]; linkedStoreId?: string | null },
+): Promise<void> {
+  if (isLinkedSamarketStoreAddressRow(dto)) {
+    if (await userHasNonStoreLinkedAddress(sb, userId)) return;
+  }
+  await setUserAddressAsDefault(sb, userId, addressId);
 }
 
 async function applyDefaultFlagsOnCreate(
@@ -489,7 +500,7 @@ export async function setUserAddressAsDefault(
     .eq("is_active", true)
     .maybeSingle();
   if (e0) throw new Error(e0.message);
-  if (!exists) throw new Error("주소를 찾을 수 없습니다.");
+  if (!exists) throw new Error("address_not_found");
   const targetPick = rowToUserAddressDTO(exists as Record<string, unknown>);
 
   const next = {
@@ -539,8 +550,9 @@ export async function createUserAddress(
   p: UserAddressWritePayload
 ): Promise<UserAddressDTO> {
   if (!p.useForLife && !p.useForTrade && !p.useForDelivery) {
-    throw new Error("생활·거래·배달 중 최소 한 가지 용도를 선택해 주세요.");
+    throw new Error("use_case_required");
   }
+  const promoteAsLastSavedPrimary = p.promoteAsLastSavedPrimary !== false;
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, p);
   const invalid = validatePlacesAddressPayload(resolved);
   if (invalid) {
@@ -554,6 +566,9 @@ export async function createUserAddress(
   const dto = rowToUserAddressDTO(data as Record<string, unknown>);
   await applyDefaultFlagsOnCreate(sb, userId, dto.id, pWithNick);
   await ensureSomeoneDefaultIfFirst(sb, userId, dto.id, pWithNick);
+  if (promoteAsLastSavedPrimary) {
+    await promoteLastSavedAddressAsPrimaryIfAllowed(sb, userId, dto.id, resolved);
+  }
   await syncProfileRegionFromLifeDefault(sb, userId);
   const { data: again } = await sb.from("user_addresses").select(SEL).eq("id", dto.id).single();
   return rowToUserAddressDTO((again ?? data) as Record<string, unknown>);
@@ -570,6 +585,7 @@ export async function updateUserAddress(
   const dto = rowToUserAddressDTO(ex as Record<string, unknown>);
   const base = userAddressDtoToWritePayload(dto);
   const mergedFull: UserAddressWritePayload = { ...base, ...p };
+  const promoteAsLastSavedPrimary = p.promoteAsLastSavedPrimary === true;
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, mergedFull, id);
 
   if (p.isDefaultMaster === true) {
@@ -653,6 +669,9 @@ export async function updateUserAddress(
       .eq("user_id", userId);
     if (eD) throw new Error(eD.message);
   }
+  if (promoteAsLastSavedPrimary) {
+    await promoteLastSavedAddressAsPrimaryIfAllowed(sb, userId, id, resolved);
+  }
   await syncProfileRegionFromLifeDefault(sb, userId);
   const { data, error: e2 } = await sb.from("user_addresses").select(SEL).eq("id", id).single();
   if (e2 || !data) throw new Error(e2?.message ?? "not found");
@@ -672,7 +691,7 @@ export async function deleteUserAddress(
     .eq("is_active", true)
     .maybeSingle();
   if (e0) throw new Error(e0.message);
-  if (!cur) throw new Error("주소를 찾을 수 없습니다.");
+  if (!cur) throw new Error("address_not_found");
 
   const { count, error: cErr } = await sb
     .from("user_addresses")
@@ -681,7 +700,7 @@ export async function deleteUserAddress(
     .eq("is_active", true);
   if (cErr) throw new Error(cErr.message);
   if ((count ?? 0) <= 1) {
-    throw new Error("마지막 주소는 삭제할 수 없습니다. 새 주소를 추가한 뒤 삭제해 주세요.");
+    throw new Error("last_address_cannot_delete");
   }
 
   const { error } = await sb.from("user_addresses").update({ is_active: false }).eq("id", id).eq("user_id", userId);

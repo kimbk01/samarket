@@ -1,7 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { MYINFO_SURFACE, MYINFO_TYPO } from "./myinfo-theme";
+import {
+  MYPAGE_HOME_CARD_CLASS,
+  MYPAGE_HOME_SECTION_HEADER_CLASS,
+  MYPAGE_HOME_SECTION_LABEL_CLASS,
+} from "@/lib/ui/mypage-home-starbucks-styles";
 
 export function MyInfoMenuSection({
   title,
@@ -11,12 +15,11 @@ export function MyInfoMenuSection({
   children: ReactNode;
 }) {
   return (
-    <section className="space-y-2">
-      <h2 className={`${MYINFO_TYPO.sectionTitle} text-sam-fg`}>{title}</h2>
-      <div className={`${MYINFO_SURFACE.card} overflow-hidden`}>
-        <div className="divide-y divide-sam-border-soft">{children}</div>
+    <section className={`${MYPAGE_HOME_CARD_CLASS} w-full self-start`}>
+      <div className={MYPAGE_HOME_SECTION_HEADER_CLASS}>
+        <h2 className={MYPAGE_HOME_SECTION_LABEL_CLASS}>{title}</h2>
       </div>
+      <div className="min-h-0">{children}</div>
     </section>
   );
 }
-

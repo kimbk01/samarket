@@ -2,17 +2,18 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
+import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
 import {
-  buildAddressManagementListPrimaryLine,
-  buildExplorationRegionSubtitleLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
-import { formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
+  formatAddressBookCardPresentation,
+  type AddressBookCardPresentation,
+} from "@/lib/addresses/address-book-card-presentation";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   fetchAddressDefaultsSnapshot,
   peekFreshAddressDefaultsSnapshot,
+  seedAddressDefaultsSnapshotCache,
   type AddressDefaultsSnapshot,
 } from "@/lib/addresses/fetch-address-defaults-client";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
@@ -46,13 +47,71 @@ function fullAddressLineStateFromSnapshot(snapshot: AddressDefaultsSnapshot | nu
   }
   const m = coerceMaster(snapshot.defaults.master);
   if (!m?.id) return { status: "ready", line: null };
-  const isPh = (m.countryCode ?? "PH").trim().toUpperCase() === "PH";
-  const s = (
-    isPh
-      ? formatPhAddressCardOneLinePlain(m)
-      : stripCountryFromAddressDisplayLine(buildAddressManagementListPrimaryLine(m), m.countryName)
-  ).trim();
+  const s = formatUserAddressListPlainLine(m).trim();
   return { status: "ready", line: s && s !== "주소 미입력" ? s : null };
+}
+
+function presentationFromSnapshot(snapshot: AddressDefaultsSnapshot | null): AddressBookCardPresentation | null {
+  if (!snapshot?.ok || !snapshot.defaults) return null;
+  const m = coerceMaster(snapshot.defaults.master);
+  if (!m?.id) return null;
+  return formatAddressBookCardPresentation(m);
+}
+
+export type RepresentativeAddressPresentationState =
+  | { status: "loading" }
+  | { status: "ready"; presentation: AddressBookCardPresentation | null };
+
+/** 대표(master) 주소 — PH 카드 규칙(상세·gate 먼저) */
+export function useRepresentativeAddressPresentation(opts?: {
+  /** RSC·세션 캐시 — 첫 페인트에「확인 중」없이 표시 */
+  initialSnapshot?: AddressDefaultsSnapshot | null;
+}): RepresentativeAddressPresentationState {
+  const pathname = usePathname();
+  const [state, setState] = useState<RepresentativeAddressPresentationState>(() => {
+    const snap = opts?.initialSnapshot ?? peekFreshAddressDefaultsSnapshot();
+    if (!snap) return { status: "loading" };
+    return { status: "ready", presentation: presentationFromSnapshot(snap) };
+  });
+
+  useEffect(() => {
+    if (!opts?.initialSnapshot) return;
+    seedAddressDefaultsSnapshotCache(opts.initialSnapshot);
+  }, [opts?.initialSnapshot]);
+
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setState({ status: "loading" });
+    try {
+      const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
+      if (snapshot == null) {
+        if (!silent) setState({ status: "ready", presentation: null });
+        return;
+      }
+      setState({ status: "ready", presentation: presentationFromSnapshot(snapshot) });
+    } catch {
+      if (!silent) setState({ status: "ready", presentation: null });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (opts?.initialSnapshot && peekFreshAddressDefaultsSnapshot()) return;
+    void load({ silent: true });
+  }, [pathname, load, opts?.initialSnapshot]);
+
+  useEffect(() => {
+    const onPop = () => void load({ silent: true });
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [load]);
+
+  useEffect(() => {
+    const onAddressesUpdated = () => void load({ silent: true, force: true });
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [load]);
+
+  return state;
 }
 
 /**

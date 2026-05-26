@@ -1,10 +1,14 @@
 "use client";
 
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Props = {
   backFallbackHref?: string;
+  /** 레거시 문자열 제목 — `centerTitleKey` 가 있으면 무시 */
   centerTitle?: string | null;
+  /** i18n dot key (기본: 내정보) */
+  centerTitleKey?: MessageKey;
   centerSubtitle?: string | null;
 };
 
@@ -15,11 +19,14 @@ type Props = {
 export function MyPageHeader({
   backFallbackHref = "/philife",
   centerTitle,
+  centerTitleKey = "mypage_comp_myinfo_header_title_default",
   centerSubtitle,
 }: Props) {
+  const trimmedTitle = centerTitle?.trim();
   return (
     <MySubpageHeader
-      title={centerTitle?.trim() ? centerTitle.trim() : "내정보"}
+      titleKey={trimmedTitle ? undefined : centerTitleKey}
+      title={trimmedTitle || undefined}
       subtitle={centerSubtitle?.trim() ? centerSubtitle.trim() : undefined}
       backHref={backFallbackHref}
       preferHistoryBack

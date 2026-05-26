@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RepresentativeAddressLineState } from "@/hooks/use-representative-address-line";
+import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 
 const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
 
@@ -24,14 +25,7 @@ export function UnifiedTier1AddressPillHeading({ rep }: { rep: RepresentativeAdd
       className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-sam-primary-soft px-3 py-1.5 text-[length:calc(13px-2pt)] font-semibold text-sam-primary"
       aria-label={t("layout_address_manage_aria", { line: ariaLine })}
     >
-      <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 21s-6-5.2-6-10a6 6 0 1112 0c0 4.8-6 10-6 10z"
-        />
-        <circle cx="12" cy="11" r="2.2" />
-      </svg>
+      <AddressKindHeadPin kind="master" className="h-4 w-4 shrink-0 [&_svg]:h-4 [&_svg]:w-[0.85rem]" />
       <span className="min-w-0 truncate">{line}</span>
     </Link>
   );

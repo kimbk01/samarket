@@ -1,4 +1,5 @@
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
+import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 
 const COMMUNITY_POST_DETAIL_RE = /^\/community\/post\/[^/]+$/;
 const PHILIFE_POST_DETAIL_RE = /^\/philife\/post\/[^/]+$/;
@@ -95,6 +96,7 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
 
   /** 전역 1단과 로컬 `TradePrimaryColumnStickyAppBar` 등이 겹치지 않게 끄는 구간 */
   const suppressMainTier1 =
+    isProfileEditPath(pathNoQuery) ||
     isTradeMeetSpotPick ||
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||

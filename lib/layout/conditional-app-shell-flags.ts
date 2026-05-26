@@ -6,6 +6,7 @@ import {
   getMobileTopTier1RuleSet,
   isTradeFloatingMenuSurface,
 } from "@/lib/layout/mobile-top-tier1-rules";
+import { isMypageAddressEditPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
@@ -54,6 +55,7 @@ export type ConditionalAppShellResolvedFlags = {
   isCommunityMessengerCallPage: boolean;
   suppressIncomingCallOverlay: boolean;
   isAddressMapSelect: boolean;
+  isMypageAddressEditPage: boolean;
   isViewportLockedChatDetail: boolean;
   isAnyChatRoomDetail: boolean;
   appShellRootClass: string;
@@ -130,6 +132,7 @@ export function resolveConditionalAppShellFlags(
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
   const suppressIncomingCallOverlay = resolveSuppressIncomingCallOverlay(pathname);
   const isAddressMapSelect = pathname === "/address/select";
+  const isMypageAddressEditPage = isMypageAddressEditPath(pathname);
   /** 배달 탭에서 쓰는 내정보(매장/주문) 섹션 — 자체 메뉴를 가지므로 메인 하단 탭은 숨김 */
   const isDeliveryMyInfoStoreSection =
     pathname === "/mypage/section/store" || (pathname?.startsWith("/mypage/section/store/") ?? false);
@@ -217,6 +220,7 @@ export function resolveConditionalAppShellFlags(
     /** `/products/new`, `/products/.../edit` — 폼 하단 고정 저장·취소와 z-index 충돌 방지(글쓰기와 동일) */
     !isPersonalProductComposerPage &&
     !isTradeMeetSpotPickRoute &&
+    !isMypageAddressEditPage &&
     !suppressBottomNavForStoreOwnerAdminSubroutes;
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
   const showOwnerLiteStoreBar =
@@ -287,6 +291,7 @@ export function resolveConditionalAppShellFlags(
     isCommunityMessengerCallPage,
     suppressIncomingCallOverlay,
     isAddressMapSelect,
+    isMypageAddressEditPage,
     isViewportLockedChatDetail,
     isAnyChatRoomDetail,
     appShellRootClass,

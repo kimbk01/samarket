@@ -68,6 +68,7 @@ import {
 } from "@/lib/community-messenger/delivery-chat-list/view-model";
 import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
@@ -674,7 +675,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       </div>
     ) : (
       <div className="relative">
-        <AvatarCircle src={room.avatarUrl} label={room.title} sizeClassName="h-12 w-12" textClassName="sam-text-body" />
+        <AvatarCircle
+          src={room.avatarUrl}
+          label={room.title}
+          roomType={room.roomType}
+          sizeClassName="h-12 w-12"
+          textClassName="sam-text-body"
+        />
         {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
       </div>
     );
@@ -994,7 +1001,14 @@ function CommerceThumb({
 }) {
   const [failed, setFailed] = useState(false);
   if (failed) {
-    return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="sam-text-body" />;
+    return (
+      <SamarketUserAvatarThumb
+        avatarUrl={fallbackAvatarUrl}
+        size={48}
+        roundedClassName="rounded-full"
+        className="border border-[color:var(--messenger-divider)] bg-ui-hover h-12 w-12"
+      />
+    );
   }
   return (
     <SamarketThumbnail
@@ -1003,7 +1017,14 @@ function CommerceThumb({
       roundedClassName="rounded-[8px]"
       className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       fallbackSrc=""
-      fallbackNode={<AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="sam-text-body" />}
+      fallbackNode={
+        <SamarketUserAvatarThumb
+          avatarUrl={fallbackAvatarUrl}
+          size={48}
+          roundedClassName="rounded-full"
+          className="border border-[color:var(--messenger-divider)] bg-ui-hover h-12 w-12"
+        />
+      }
       onImageError={() => setFailed(true)}
     />
   );
@@ -1012,14 +1033,27 @@ function CommerceThumb({
 function AvatarCircle({
   src,
   label,
+  roomType,
   sizeClassName,
   textClassName,
 }: {
   src?: string | null;
   label: string;
+  roomType?: string;
   sizeClassName: string;
   textClassName: string;
 }) {
+  if (roomType === "direct") {
+    return (
+      <SamarketUserAvatarThumb
+        avatarUrl={src}
+        size={48}
+        roundedClassName="rounded-full"
+        className={`bg-ui-hover ${sizeClassName}`}
+      />
+    );
+  }
+
   const safeSrc = typeof src === "string" && src.trim().length > 0 ? src.trim() : "";
   const [imageFailed, setImageFailed] = useState(false);
   const initial = label.trim().slice(0, 1).toUpperCase() || "?";

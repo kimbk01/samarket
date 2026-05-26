@@ -11,13 +11,18 @@ const AddressFineTuneMapLazy = dynamic(
     import("@/components/addresses/AddressFineTuneMapClient").then((m) => m.AddressFineTuneMapClient),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex h-[200px] items-center justify-center rounded-lg border border-sam-border bg-sam-surface-muted sam-text-body-secondary text-sam-muted">
-        …
-      </div>
-    ),
+    loading: () => <AddressFineTuneMapLoadingPlaceholder />,
   },
 );
+
+function AddressFineTuneMapLoadingPlaceholder() {
+  const { t } = useI18n();
+  return (
+    <div className="flex h-[200px] items-center justify-center rounded-lg border border-sam-border bg-sam-surface-muted sam-text-body-secondary text-sam-muted">
+      {t("addr_ui_fine_tune_map_loading")}
+    </div>
+  );
+}
 
 type Props = {
   open: boolean;

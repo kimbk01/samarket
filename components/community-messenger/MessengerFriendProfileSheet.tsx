@@ -7,7 +7,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isMessengerFriendRequestBusy } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 
 type Props = {
   profile: CommunityMessengerProfileLite;
@@ -70,7 +70,6 @@ export function MessengerFriendProfileSheet({
   const bFriendAdd = isMessengerFriendRequestBusy(busyId, pid);
 
   const avatarSrc = profile.avatarUrl ?? undefined;
-  const initial = profile.label.trim().slice(0, 1) || "?";
   const statusLine = profile.subtitle?.trim() ?? "";
   const atUsername = statusLine.startsWith("@") ? statusLine : "";
 
@@ -86,16 +85,7 @@ export function MessengerFriendProfileSheet({
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div className="max-h-[82vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <div className="flex flex-col items-center border-b border-ui-border pb-3 text-center">
-          <SamarketThumbnail
-            src={avatarSrc}
-            size={64}
-            roundedClassName="rounded-full"
-            className="bg-ui-hover"
-            fallbackSrc=""
-            fallbackNode={
-              <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-ui-muted">{initial}</div>
-            }
-          />
+          <SamarketUserAvatar avatarUrl={avatarSrc} sizePx={64} badge="verified" alt="" />
           <h2 id="messenger-friend-sheet-title" className="mt-2 sam-text-body-lg font-semibold text-ui-fg">
             {profile.label}
           </h2>

@@ -4,13 +4,14 @@ import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finit
 /**
  * `POST/PATCH /api/me/addresses` — `validatePlacesAddressPayload` 반환 코드(본문 `error` 문자열).
  * 필리핀형 Places 저장: `place_id` + 좌표 + `formatted_address`(또는 full) + 상세(`detail_address`/`unit_floor_room`) 필수.
+ * 사용자 문구는 `addresses-ui` · `translateUserAddressApiError` 에서 i18n.
  */
 export const USER_ADDRESS_PLACES_VALIDATION_CODES = {
-  place_id_required: "Google Place id 가 없습니다. 검색 결과에서 장소를 선택해 주세요.",
-  formatted_address_required: "포맷 주소가 비었습니다. 장소를 다시 선택해 주세요.",
-  coordinates_required: "위도·경도가 필요합니다.",
-  coordinates_invalid: "위도·경도 범위가 올바르지 않습니다.",
-  detail_address_required: "상세주소(동·호·블록·랜드마크 등)가 필요합니다.",
+  place_id_required: "place_id_required",
+  formatted_address_required: "formatted_address_required",
+  coordinates_required: "coordinates_required",
+  coordinates_invalid: "coordinates_invalid",
+  detail_address_required: "detail_address_required",
 } as const;
 
 export type UserAddressPlacesValidationCode = keyof typeof USER_ADDRESS_PLACES_VALIDATION_CODES;
@@ -93,6 +94,7 @@ export function parseUserAddressWritePayload(body: unknown, opts?: { partial?: b
   bool("isDefaultLife", "isDefaultLife", "is_default_life");
   bool("isDefaultTrade", "isDefaultTrade", "is_default_trade");
   bool("isDefaultDelivery", "isDefaultDelivery", "is_default_delivery", "isDefault");
+  bool("promoteAsLastSavedPrimary", "promoteAsLastSavedPrimary", "promote_as_last_saved_primary");
 
   if (typeof o.sortOrder === "number") out.sortOrder = o.sortOrder;
   if (!opts?.partial) {

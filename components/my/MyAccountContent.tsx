@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -8,7 +8,6 @@ import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
-import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
@@ -64,15 +63,7 @@ export function MyAccountContent() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-sam-surface-muted">
-          <Image
-            src={withDefaultAvatar(profile.avatar_url)}
-            alt=""
-            fill
-            className="object-cover"
-            sizes="64px"
-          />
-        </div>
+        <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={64} badge="verified" alt="" />
         <div className="min-w-0 flex-1">
           <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>
           {atUsername ? (

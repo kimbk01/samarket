@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
+import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 
 function Line({ label, text, unsetLabel }: { label: string; text: string | null; unsetLabel: string }) {
   return (
@@ -13,18 +13,18 @@ function Line({ label, text, unsetLabel }: { label: string; text: string | null;
   );
 }
 
+function formatDefaultRowLine(row: UserAddressDefaultsDTO["life"]): string | null {
+  if (!row?.id) return null;
+  const line = formatUserAddressListPlainLine(row).trim();
+  return line && line !== "—" && line !== "주소 미입력" ? line : null;
+}
+
 export function AddressDefaultsSummary({ defaults }: { defaults: UserAddressDefaultsDTO | null }) {
   const { t } = useI18n();
   if (!defaults) return null;
-  const life = defaults.life
-    ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.life), defaults.life.countryName)
-    : null;
-  const trade = defaults.trade
-    ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.trade), defaults.trade.countryName)
-    : null;
-  const del = defaults.delivery
-    ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.delivery), defaults.delivery.countryName)
-    : null;
+  const life = defaults.life ? formatDefaultRowLine(defaults.life) : null;
+  const trade = defaults.trade ? formatDefaultRowLine(defaults.trade) : null;
+  const del = defaults.delivery ? formatDefaultRowLine(defaults.delivery) : null;
   return (
     <section className="grid gap-2 sm:grid-cols-3">
       <Line label={t("addr_ui_default_life")} text={life} unsetLabel={t("addr_ui_unset")} />

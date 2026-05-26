@@ -46,6 +46,7 @@ export const mypageComponentsMessages = {
     // MyInfoProfileCard
     mypage_comp_profile_image_aria: "프로필 이미지",
     mypage_comp_address_manage_aria: "주소 관리로 이동",
+    mypage_comp_address_change_aria: "대표 주소 변경",
     mypage_comp_profile_edit: "프로필 수정",
 
     // MyInfoStatGrid
@@ -125,6 +126,12 @@ export const mypageComponentsMessages = {
     mypage_comp_store_attention_count: "처리 {count}건",
     mypage_comp_store_attention_summary: "새 주문·문의 확인",
     mypage_comp_login_required: "로그인이 필요합니다.",
+    mypage_comp_loading_hub: "내정보를 불러오는 중이에요.",
+    mypage_comp_profile_load_failed_short: "프로필을 불러오지 못했어요. 다시 로그인해 주세요.",
+    mypage_comp_language_segment_ko: "한글",
+    mypage_comp_language_segment_en: "English",
+    mypage_comp_language_segment_ko_aria: "한국어로 전환",
+    mypage_comp_language_segment_en_aria: "영어로 전환",
     mypage_comp_loading_ellipsis: "불러오는 중…",
 
     // MyPageItemScreen
@@ -757,6 +764,7 @@ export const mypageComponentsMessages = {
 
     mypage_comp_profile_image_aria: "Profile photo",
     mypage_comp_address_manage_aria: "Go to address management",
+    mypage_comp_address_change_aria: "Change primary address",
     mypage_comp_profile_edit: "Edit profile",
 
     mypage_comp_stat_grid_title_default: "Summary",
@@ -831,6 +839,12 @@ export const mypageComponentsMessages = {
     mypage_comp_store_attention_count: "{count} to handle",
     mypage_comp_store_attention_summary: "Check new orders & inquiries",
     mypage_comp_login_required: "Please sign in.",
+    mypage_comp_loading_hub: "Loading your profile…",
+    mypage_comp_profile_load_failed_short: "Couldn't load your profile. Please sign in again.",
+    mypage_comp_language_segment_ko: "Korean",
+    mypage_comp_language_segment_en: "English",
+    mypage_comp_language_segment_ko_aria: "Switch to Korean",
+    mypage_comp_language_segment_en_aria: "Switch to English",
     mypage_comp_loading_ellipsis: "Loading…",
 
     mypage_comp_friends_empty: "No pinned users yet.",

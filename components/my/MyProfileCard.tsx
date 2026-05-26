@@ -1,7 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { SamarketUserAvatar } from "@/components/profile/SamarketUserAvatar";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import {
@@ -11,7 +11,6 @@ import {
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
-import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 export type AddressDefaultsFlags = {
@@ -78,12 +77,8 @@ export function MyProfileCard({
       {/* 1행: 아바타 · 닉네임 · 회원 · 프로필 편집 */}
       <div className="flex items-start gap-3 sm:gap-4">
         <div className="rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] p-[2px]">
-          <Link
-            href={editHref}
-            className="relative block h-[72px] w-[72px] overflow-hidden rounded-full bg-sam-primary-soft sm:h-[76px] sm:w-[76px]"
-            aria-label={tt("프로필 이미지 편집")}
-          >
-            <Image src={withDefaultAvatar(profile.avatar_url)} alt="" fill className="object-cover" sizes="76px" />
+          <Link href={editHref} className="block shrink-0" aria-label={tt("프로필 이미지 편집")}>
+            <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={76} badge="verified" alt="" />
           </Link>
         </div>
         <div className="min-w-0 flex-1">

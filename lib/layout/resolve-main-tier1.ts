@@ -109,6 +109,20 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "tier1_address_setup", showHubQuickActions: false });
   }
 
+  if (p === "/mypage/addresses") {
+    return backMypage({
+      titleText: "address_manage_title",
+      showHubQuickActions: true,
+    });
+  }
+
+  if (p === "/mypage/addresses/edit") {
+    return backMypage({
+      titleText: "addr_ui_add_title",
+      showHubQuickActions: true,
+    });
+  }
+
   if (p === "/community-messenger") {
     return backHome({
       titleText: "tier1_messenger",

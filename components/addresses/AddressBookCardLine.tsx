@@ -1,8 +1,9 @@
 "use client";
 
 import type { AddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
+import { AddressPhCardLineText } from "@/components/addresses/AddressPhCardLineText";
 
-/** `/mypage/addresses` · 매장 신청 · 어드민 심사 — 동일 한 줄 (세부 굵게 + 가로) */
+/** `/mypage/addresses` · 매장 신청 · 어드민 심사 — 동일 PH 카드 본문 (세부 굵게 + 가로) */
 export function AddressBookCardLine({
   presentation,
   detailClassName = "font-bold text-sam-fg",
@@ -14,20 +15,12 @@ export function AddressBookCardLine({
   bodyClassName?: string;
   emptyClassName?: string;
 }) {
-  if (!presentation || (!presentation.gatePrefix && !presentation.streetBody)) {
-    return <span className={emptyClassName}>—</span>;
-  }
   return (
-    <span className="leading-snug">
-      {presentation.gatePrefix ? (
-        <>
-          <strong className={detailClassName}>{presentation.gatePrefix}</strong>
-          {presentation.streetBody ? ", " : null}
-        </>
-      ) : null}
-      {presentation.streetBody ? (
-        <span className={bodyClassName}>{presentation.streetBody}</span>
-      ) : null}
-    </span>
+    <AddressPhCardLineText
+      presentation={presentation}
+      detailClassName={detailClassName}
+      bodyClassName={bodyClassName}
+      emptyClassName={emptyClassName}
+    />
   );
 }

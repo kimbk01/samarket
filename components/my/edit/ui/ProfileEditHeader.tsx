@@ -1,38 +1,39 @@
 "use client";
 
-import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { BodyPortal } from "@/components/layout/BodyPortal";
+import { SectorHeaderBar } from "@/components/layout/sector-header/SectorHeaderBar";
+import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
+import { SectorHeaderTitle } from "@/components/layout/sector-header/SectorHeaderTitle";
+import {
+  SECTOR_HEADER_SHELL_CLASS,
+  SECTOR_HEADER_SHELL_EMBEDDED_CLASS,
+} from "@/lib/ui/sector-header-classes";
 
-export function ProfileEditHeader({
-  backHref,
-  formId,
-}: {
-  backHref: string;
-  formId: string;
-}) {
+/** 고정 1단 헤더 — 표준 섹터 52px·상하 중앙, 저장은 하단 바 */
+export function ProfileEditHeader({ backHref }: { backHref: string }) {
   const { t } = useI18n();
-  const rightSlot = useMemo(
-    () => (
-      <button
-        type="submit"
-        form={formId}
-        className="inline-flex min-h-9 items-center justify-center rounded-[10px] bg-sam-primary px-3 text-[13px] font-semibold text-sam-on-primary"
-      >
-        {t("common_save")}
-      </button>
-    ),
-    [formId, t]
-  );
 
   return (
-    <MySubpageHeader
-      title={t("profile_edit_title")}
-      subtitle={t("profile_edit_subtitle")}
-      backHref={backHref}
-      hideCtaStrip
-      rightSlot={rightSlot}
-      showHubQuickActions={false}
-    />
+    <BodyPortal>
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[55] pt-[env(safe-area-inset-top,0px)]">
+        <header
+          data-profile-edit-header
+          className={`pointer-events-auto ${SECTOR_HEADER_SHELL_CLASS} ${SECTOR_HEADER_SHELL_EMBEDDED_CLASS}`}
+        >
+          <SectorHeaderBar
+            left={
+              <SectorHeaderBackButton
+                backHref={backHref}
+                preferHistoryBack
+                ariaLabel={t("nav_back")}
+              />
+            }
+            center={<SectorHeaderTitle>{t("profile_edit_title")}</SectorHeaderTitle>}
+            right={<span className="block w-10 shrink-0" aria-hidden />}
+          />
+        </header>
+      </div>
+    </BodyPortal>
   );
 }

@@ -12,6 +12,7 @@ import { DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS } from "./my-page-defaults";
 import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
 import { loadMypageHubExtrasServer } from "@/lib/my/load-mypage-hub-extras-server";
 import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-dashboard-counts-server";
+import { loadAddressDefaultsSnapshotServer } from "@/lib/addresses/load-address-defaults-snapshot-server";
 
 const MYPAGE_CMS_PACK_TIMEOUT_MS = 180;
 
@@ -138,12 +139,13 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
 export const loadMypageServerShell = cache(async (): Promise<MyPageData | null> => {
   const row = await loadMypageCoreCached();
   if (!row) return null;
-  const { viewerIdForHub: _v, ...core } = row;
-  void _v;
+  const { viewerIdForHub, ...core } = row;
+  const addressDefaultsSnapshot = await loadAddressDefaultsSnapshotServer(viewerIdForHub);
   return {
     ...core,
     hubServerExtras: null,
     homeDashboardCounts: null,
+    addressDefaultsSnapshot,
   };
 });
 
@@ -157,14 +159,16 @@ export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {
   if (!row) return null;
   const { viewerIdForHub, ...core } = row;
 
-  const [hubServerExtras, homeDashboardCounts] = await Promise.all([
+  const [hubServerExtras, homeDashboardCounts, addressDefaultsSnapshot] = await Promise.all([
     loadMypageHubExtrasServer(viewerIdForHub, row.hasOwnerStore),
     loadMypageHomeDashboardCountsServer(viewerIdForHub),
+    loadAddressDefaultsSnapshotServer(viewerIdForHub),
   ]);
 
   return {
     ...core,
     hubServerExtras,
     homeDashboardCounts,
+    addressDefaultsSnapshot,
   };
 });

@@ -22,7 +22,7 @@ import {
   syncUserSettings,
 } from "@/lib/settings/user-settings-store";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { fetchAddressDefaultsSnapshot, seedAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 
 const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
 const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
@@ -135,6 +135,25 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     initialLoadRequestedRef.current = true;
     void load();
   }, [load, initialMyPageData]);
+
+  useLayoutEffect(() => {
+    const snap = initialMyPageData?.addressDefaultsSnapshot;
+    if (!snap?.ok || !snap.defaults) return;
+    seedAddressDefaultsSnapshotCache(snap);
+    setAddressDefaults({
+      master: snap.defaults.master != null,
+      life: snap.defaults.life != null,
+      trade: snap.defaults.trade != null,
+      delivery: snap.defaults.delivery != null,
+    });
+    const n = snap.neighborhoodFromLife;
+    setNeighborhoodFromLife(
+      n && typeof n === "object" && typeof n.complete === "boolean" && typeof n.label === "string"
+        ? n
+        : null,
+    );
+    skipInitialAddressFetchRef.current = true;
+  }, [initialMyPageData?.addressDefaultsSnapshot]);
 
   useLayoutEffect(() => {
     const x = initialMyPageData?.hubServerExtras;

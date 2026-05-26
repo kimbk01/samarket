@@ -32,7 +32,7 @@ import {
   TimelineViberInnerVoice,
   type TimelineViberBubbleMessage,
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
 
@@ -435,13 +435,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           {!item.isMine ? (
             <div className="relative z-[1] w-[34px] shrink-0 pt-[2px]">
               {showPeerAvatar ? (
-                <SamarketThumbnail
-                  src={peerAvatar?.avatarUrl}
+                <SamarketUserAvatarThumb
+                  avatarUrl={peerAvatar?.avatarUrl}
                   size={30}
                   roundedClassName="rounded-full"
                   className="border border-sam-fg/10 bg-[#dbeafe] shadow-sm"
-                  fallbackSrc=""
-                  fallbackNode={<span className="whitespace-nowrap text-center text-[13px] font-semibold leading-none text-[#1f2937]">{peerAvatar?.initials?.slice(0, 1) ?? "?"}</span>}
                 />
               ) : (
                 <div className="h-[30px] w-[34px]" aria-hidden />

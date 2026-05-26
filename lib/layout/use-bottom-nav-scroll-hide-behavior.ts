@@ -26,13 +26,14 @@ function readScrollTopFromScrollTarget(target: EventTarget | null): number {
 }
 
 /**
- * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`) : 아래로 스크롤 시 하단 탭을 접기.
+ * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`)·내정보 홈 : 아래로 스크롤 시 하단 탭을 접기.
  */
 export function resolveBottomNavScrollHideEnabled(
   pathNoQuery: string,
   headerMessengerFromPhilife: boolean
 ): boolean {
   if (pathNoQuery === "/philife") return !headerMessengerFromPhilife;
+  if (pathNoQuery === "/mypage") return true;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;
   if (pathNoQuery === "/stores" || pathNoQuery.startsWith("/stores/")) return true;
   return false;

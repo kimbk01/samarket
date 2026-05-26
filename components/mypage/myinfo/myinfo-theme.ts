@@ -1,20 +1,36 @@
-export const DIBAY_BRAND = "var(--dibay-green)";
-
-export const MYINFO_TYPO = {
-  pageTitle: "text-[18px] font-bold leading-tight",
-  profileName: "text-[17px] font-bold leading-tight",
-  sectionTitle: "text-[14px] font-bold leading-tight",
-  menuTitle: "text-[15px] font-semibold leading-tight",
-  subText: "text-[13px] font-normal leading-snug text-sam-muted",
-  metaText: "text-[12px] font-normal leading-snug text-sam-meta",
-  number: "text-[16px] font-bold leading-tight tabular-nums",
-} as const;
-
-export const MYINFO_SURFACE = {
-  page: "bg-sam-app",
-  container: "w-full max-w-[720px] mx-auto px-4",
-  card: "rounded-[4px] border border-sam-border bg-sam-surface",
-  cardPad: "p-4",
-  row: "min-h-[56px]",
-} as const;
-
+import {
+  MYPAGE_HOME_BODY_TEXT_CLASS,
+  MYPAGE_HOME_CARD_CLASS,
+  MYPAGE_HOME_CARD_PAD_CLASS,
+  MYPAGE_HOME_HANDLE_CLASS,
+  MYPAGE_HOME_MENU_TITLE_CLASS,
+  MYPAGE_HOME_META_TEXT_CLASS,
+  MYPAGE_HOME_PAGE_BG_CLASS,
+  MYPAGE_HOME_PROFILE_CARD_CLASS,
+  MYPAGE_HOME_PROFILE_NAME_CLASS,
+  MYPAGE_HOME_SECTION_LABEL_CLASS,
+  MYPAGE_HOME_STAT_VALUE_ACCENT_CLASS,
+  MYPAGE_HOME_STAT_VALUE_CLASS,
+} from "@/lib/ui/mypage-home-starbucks-styles";
+
+export const MYINFO_TYPO = {
+  pageTitle: MYPAGE_HOME_PROFILE_NAME_CLASS,
+  profileName: MYPAGE_HOME_PROFILE_NAME_CLASS,
+  sectionTitle: MYPAGE_HOME_SECTION_LABEL_CLASS,
+  menuTitle: MYPAGE_HOME_MENU_TITLE_CLASS,
+  subText: MYPAGE_HOME_BODY_TEXT_CLASS,
+  metaText: MYPAGE_HOME_META_TEXT_CLASS,
+  handle: MYPAGE_HOME_HANDLE_CLASS,
+  number: MYPAGE_HOME_STAT_VALUE_CLASS,
+  numberAccent: MYPAGE_HOME_STAT_VALUE_ACCENT_CLASS,
+} as const;
+
+export const MYINFO_SURFACE = {
+  page: MYPAGE_HOME_PAGE_BG_CLASS,
+  container: "mx-auto w-full min-w-0 max-w-[768px] px-4",
+  card: MYPAGE_HOME_CARD_CLASS,
+  profileCard: MYPAGE_HOME_PROFILE_CARD_CLASS,
+  cardPad: MYPAGE_HOME_CARD_PAD_CLASS,
+  row: "min-h-[52px]",
+} as const;
+

@@ -179,6 +179,15 @@ export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
   "bottom-[calc(60px+env(safe-area-inset-bottom,0px))]";
 
 /**
+ * 메인 하단 탭(z-index 1200) 위 바텀시트 — 주소 선택 등 하단이 탭에 가리지 않게.
+ */
+export const MAIN_BOTTOM_NAV_SHEET_Z_CLASS = "z-[1300]";
+export const MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS =
+  "bottom-[calc(var(--app-bottom-nav-height,60px)+env(safe-area-inset-bottom,0px))]";
+export const MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS =
+  "max-h-[min(calc(78dvh-var(--app-bottom-nav-height,60px)-env(safe-area-inset-bottom,0px)),520px)]";
+
+/**
  * 메인 하단 탭 바로 위에 고정 띠를 둘 때 사용 (`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS` 와 동일).
  */
 export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS;

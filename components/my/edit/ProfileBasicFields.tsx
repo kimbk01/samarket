@@ -1,8 +1,13 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import {
+  PROFILE_EDIT_INPUT_CLASS,
+  PROFILE_EDIT_TEXTAREA_CLASS,
+} from "@/lib/ui/profile-edit-starbucks-styles";
+import { ProfileEditFieldRow } from "@/components/my/edit/ui/ProfileEditFormShell";
 
 export interface ProfileBasicFieldsProps {
   displayName: string;
@@ -14,6 +19,8 @@ export interface ProfileBasicFieldsProps {
   onPhoneChange: (v: string) => void;
   onPreferredCountryChange: (v: string) => void;
   errors?: { displayName?: string; phone?: string };
+  /** true — 닉네임은 히어로 영역에만 표시 */
+  hideDisplayName?: boolean;
 }
 
 export function ProfileBasicFields({
@@ -26,11 +33,9 @@ export function ProfileBasicFields({
   onPhoneChange,
   onPreferredCountryChange,
   errors = {},
+  hideDisplayName = false,
 }: ProfileBasicFieldsProps) {
   const { t } = useI18n();
-  const inputClass = "sam-input mt-1";
-  const textareaClass = "sam-textarea mt-1 min-h-[96px]";
-  const selectClass = "sam-select mt-1";
 
   const countryOptions = [
     { value: "PH", label: t("settings_country_ph") },
@@ -39,48 +44,52 @@ export function ProfileBasicFields({
   ];
 
   return (
-    <div className="space-y-3">
-      <div>
-        <label className="text-[13px] font-semibold text-sam-fg">{t("profile_edit_nickname_label")}</label>
-        <input
-          type="text"
-          value={displayName}
-          onChange={(e) => onDisplayNameChange(e.target.value)}
-          placeholder={t("profile_edit_nickname_placeholder")}
-          className={inputClass}
-        />
-        {errors.displayName ? <p className="mt-0.5 sam-text-xxs text-red-600">{errors.displayName}</p> : null}
-      </div>
-      <div>
-        <label className="text-[13px] font-semibold text-sam-fg">{t("profile_edit_status_label")}</label>
+    <div>
+      {!hideDisplayName ? (
+        <ProfileEditFieldRow label={t("profile_edit_nickname_label")} first>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => onDisplayNameChange(e.target.value)}
+            placeholder={t("profile_edit_nickname_placeholder")}
+            className={PROFILE_EDIT_INPUT_CLASS}
+            autoComplete="nickname"
+          />
+          {errors.displayName ? (
+            <p className="mt-1 text-[12px] text-red-600">{errors.displayName}</p>
+          ) : null}
+        </ProfileEditFieldRow>
+      ) : null}
+
+      <ProfileEditFieldRow label={t("profile_edit_status_label")} first={hideDisplayName}>
         <textarea
           value={bio}
           onChange={(e) => onBioChange(e.target.value)}
           placeholder={t("profile_edit_status_placeholder")}
           rows={2}
-          className={textareaClass}
+          className={PROFILE_EDIT_TEXTAREA_CLASS}
         />
-      </div>
-      <div>
-        <label className="text-[13px] font-semibold text-sam-fg">{t("profile_edit_contact_label")}</label>
+      </ProfileEditFieldRow>
+
+      <ProfileEditFieldRow label={t("profile_edit_contact_label")}>
         <input
           type="tel"
-          inputMode="numeric"
+          inputMode="tel"
           autoComplete="tel"
-          maxLength={17}
-          value={formatPhMobileDisplay(phone)}
+          maxLength={18}
+          value={formatPhMobileDisplayPlus63(phone)}
           onChange={(e) => onPhoneChange(parsePhMobileInput(e.target.value))}
-          placeholder={PH_MOBILE_PLACEHOLDER}
-          className={inputClass}
+          placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
+          className={PROFILE_EDIT_INPUT_CLASS}
         />
-        {errors.phone ? <p className="mt-0.5 sam-text-xxs text-red-600">{errors.phone}</p> : null}
-      </div>
-      <div>
-        <label className="text-[13px] font-semibold text-sam-fg">{t("profile_edit_country_label")}</label>
+        {errors.phone ? <p className="mt-1 text-[12px] text-red-600">{errors.phone}</p> : null}
+      </ProfileEditFieldRow>
+
+      <ProfileEditFieldRow label={t("profile_edit_country_label")}>
         <select
           value={preferredCountry}
           onChange={(e) => onPreferredCountryChange(e.target.value)}
-          className={selectClass}
+          className={PROFILE_EDIT_INPUT_CLASS}
         >
           {countryOptions.map((o) => (
             <option key={o.value} value={o.value}>
@@ -88,7 +97,7 @@ export function ProfileBasicFields({
             </option>
           ))}
         </select>
-      </div>
+      </ProfileEditFieldRow>
     </div>
   );
 }

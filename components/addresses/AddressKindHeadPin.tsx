@@ -2,20 +2,20 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-/** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장(연결) 시각 구분 */
+/** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장 동일 빨간 teardrop (주소 관리·마이페이지·시트 통일) */
 export function AddressKindHeadPin(props: {
   kind: "master" | "store" | "general";
   className?: string;
+  "aria-label"?: string;
 }) {
   const { t } = useI18n();
-  const { kind, className = "" } = props;
+  const { kind, className = "", "aria-label": ariaLabelOverride } = props;
   const aria =
-    kind === "master" ? t("addr_ui_kind_master") : kind === "store" ? t("addr_ui_kind_store") : t("addr_ui_kind_general");
-  const tone =
-    kind === "master" ? "text-rose-600" : kind === "store" ? "text-slate-600" : "text-slate-400";
+    ariaLabelOverride ??
+    (kind === "master" ? t("addr_ui_kind_master") : kind === "store" ? t("addr_ui_kind_store") : t("addr_ui_kind_general"));
   return (
     <span
-      className={`inline-flex shrink-0 select-none ${tone} ${className}`.trim()}
+      className={`inline-flex shrink-0 select-none text-[#E53935] ${className}`.trim()}
       role="img"
       aria-label={aria}
     >

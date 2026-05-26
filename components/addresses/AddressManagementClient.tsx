@@ -20,10 +20,18 @@ import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
 import {
   describeMeAddressesListFailure,
   fetchMeAddressesListSingleFlight,
+  shouldShowMeAddressesListMigrationHint,
+  invalidateMeAddressesListClientCache,
+  isMeAddressListCacheFresh,
   readCachedMeAddressList,
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
-import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
+import {
+  broadcastUserAddressesChanged,
+  commitUserAddressListAfterMutation,
+  shouldSkipAddressListReloadFromEvent,
+} from "@/lib/addresses/user-addresses-sync";
+import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
 import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import {
@@ -47,6 +55,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   listRef.current = list;
   const [listBootstrapping, setListBootstrapping] = useState(() => (readCachedMeAddressList()?.length ?? 0) === 0);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [loadErrMigrationHint, setLoadErrMigrationHint] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
@@ -62,10 +71,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     fullAddress: string;
     addressDetail?: string | null;
   } | null>(null);
-  const shouldShowMigrationHint =
-    !!loadErr &&
-    /(user_addresses|relation|schema cache|table_missing|마이그레이션)/i.test(loadErr);
-
   const returnTo = useMemo(() => parseSafeInternalReturnTo(sp?.get("returnTo")), [sp]);
   const selectingForReturn = Boolean(returnTo);
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
@@ -154,20 +159,18 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     applyMapPickAsCreate();
   }, [pathname, list, embedded, router]);
 
-  const notifyAddressesUpdated = useCallback(() => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
-    }
-  }, []);
-
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     setLoadErr(null);
+    setLoadErrMigrationHint(false);
+    if (opts?.force) invalidateMeAddressesListClientCache();
+    else if (isMeAddressListCacheFresh() && listRef.current.length > 0) return;
     const showWait = listRef.current.length === 0;
     if (showWait) setListBootstrapping(true);
     try {
       const result = await fetchMeAddressesListSingleFlight();
       if (!result.ok) {
-        setLoadErr(describeMeAddressesListFailure(result, t("address_load_failed")));
+        setLoadErr(describeMeAddressesListFailure(result, t));
+        setLoadErrMigrationHint(shouldShowMeAddressesListMigrationHint(result));
         return;
       }
       const rows = result.rows;
@@ -180,6 +183,15 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const onUpdated = () => {
+      if (shouldSkipAddressListReloadFromEvent()) return;
+      void load({ force: true });
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
   }, [load]);
 
   useEffect(() => {
@@ -204,11 +216,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       const res = await fetch(`/api/me/addresses/${id}`, { method: "DELETE", credentials: "include" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(typeof j.error === "string" ? j.error : t("address_delete_failed"));
+        alert(translateUserAddressApiError(j.error, t, "address_delete_failed"));
         return;
       }
-      await load();
-      notifyAddressesUpdated();
+      const rows = await commitUserAddressListAfterMutation();
+      setList(rows);
     } finally {
       setBusyId(null);
     }
@@ -258,11 +270,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(typeof j.error === "string" ? j.error : t("addr_ui_set_default_failed"));
+        alert(translateUserAddressApiError(j.error, t, "addr_ui_set_default_failed"));
         return;
       }
-      await load();
-      notifyAddressesUpdated();
+      const rows = await commitUserAddressListAfterMutation();
+      setList(rows);
     } finally {
       setBusyId(null);
     }
@@ -281,10 +293,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         /** 매장 설정 복귀 — 매장 주소 연결만 확인, 대표 주소 PATCH 금지(서버 400 방지) */
         if (!isStoreOwnerAdminReturnTo(returnTo)) {
           await setAsRepresentative(id);
+        } else {
+          broadcastUserAddressesChanged();
         }
+      } else {
+        broadcastUserAddressesChanged();
       }
-      invalidateAddressDefaultsSnapshotCache();
-      notifyAddressesUpdated();
       if (returnTo) {
         router.push(returnTo);
         return;
@@ -313,7 +327,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         />
       ) : !embedded ? (
         <MySubpageHeader
-          title={t("address_manage_title")}
+          titleKey="address_manage_title"
           backHref={returnTo || "/mypage"}
           hideCtaStrip
         />
@@ -322,10 +336,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         <div className="mx-auto max-w-none space-y-4 px-0 py-0 pb-0">
           {loadErr ? (
             <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-              {loadErr === "user_addresses_table_missing"
-                ? t("addr_ui_table_missing")
-                : loadErr}
-              {shouldShowMigrationHint ? (
+              {loadErr}
+              {loadErrMigrationHint ? (
                 <p className="mt-2 sam-text-helper text-amber-900/90">
                   {t("addr_ui_migration_hint")}
                 </p>
@@ -343,7 +355,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                 {t("address_empty")}
               </p>
             ) : (
-              <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
+              <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
                 {list.map((row) => (
                   <AddressRowCard
                     key={row.id}
@@ -395,10 +407,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <div className="flex min-w-0 flex-col gap-4 py-4">
             {loadErr ? (
               <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-                {loadErr === "user_addresses_table_missing"
-                  ? t("addr_ui_table_missing")
-                  : loadErr}
-                {shouldShowMigrationHint ? (
+                {loadErr}
+                {loadErrMigrationHint ? (
                   <p className="mt-2 sam-text-helper text-amber-900/90">
                     {t("addr_ui_migration_hint")}
                   </p>
@@ -416,7 +426,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                   {t("address_empty")}
                 </p>
               ) : (
-                <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
+                <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
                   {list.map((row) => (
                     <AddressRowCard
                       key={row.id}
@@ -471,9 +481,9 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             setEditorOpen(false);
             setMapBootstrap(null);
           }}
-          onSaved={() => {
-            invalidateAddressDefaultsSnapshotCache();
-            void load().then(() => notifyAddressesUpdated());
+          onSaved={async () => {
+            const rows = await commitUserAddressListAfterMutation();
+            setList(rows);
           }}
         />
       ) : null}

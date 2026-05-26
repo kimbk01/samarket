@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -13,7 +13,6 @@ type Props = {
  * 친구 탭 상단 — 닉네임 / @아이디 / 나의 상태(bio) · 편집은 마이페이지 프로필 수정과 동일 데이터
  */
 export function MessengerFriendsMyProfileStrip({ me }: Props) {
-  const initial = (me?.label ?? "나").trim().slice(0, 1) || "?";
   const handleLine = me?.subtitle?.trim() || "";
   const fallbackId =
     me?.id && !handleLine ? `ID · ${me.id.slice(0, 8)}…` : "";
@@ -22,13 +21,11 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
 
   return (
     <div className="flex items-center gap-2.5 border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-1 py-2">
-      <SamarketThumbnail
-        src={me?.avatarUrl}
+      <SamarketUserAvatarThumb
+        avatarUrl={me?.avatarUrl}
         size={36}
         roundedClassName="rounded-full"
         className="bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
-        fallbackSrc=""
-        fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
       />
       <div className="min-w-0 flex-1">
         <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>

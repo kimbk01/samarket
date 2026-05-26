@@ -21,7 +21,7 @@ import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/r
 import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 import { translate } from "@/lib/i18n/messages";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
@@ -176,17 +176,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           <>
             <div className="relative h-9 w-9 shrink-0 self-center">
               <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-                <SamarketThumbnail
-                  src={vm.snapshot.room.avatarUrl}
+                <SamarketUserAvatarThumb
+                  avatarUrl={vm.snapshot.room.avatarUrl}
                   fill
                   roundedClassName="rounded-full"
                   className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
-                  fallbackSrc=""
-                  fallbackNode={
-                    <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
-                      {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
-                    </div>
-                  }
                 />
               </div>
               {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (

@@ -1,20 +1,28 @@
 "use client";
 
 /**
- * CONTRACT — 내정보 주소관리·배달 홈 주소 시트 공통 본문.
- * DO NOT: 시트 전용 뱃지(pill)·browse mock 주소 한 줄 — 여기만 수정해 양쪽 동기화.
+ * CONTRACT — 내정보 주소관리·배달 홈 주소 시트·마이페이지 시트 공통 본문.
+ * PH 표기: `formatPhAddressCardOneLine` (상세 gate 먼저) — `lib/addresses/format-user-address-list-line.ts`
+ * 핀: `AddressKindHeadPin` 빨간 teardrop 통일.
+ * DO NOT: 시트·화면마다 별도 한 줄 포맷·lucide MapPin — 여기만 수정.
  */
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
+import { buildAddressListDetailLine } from "@/lib/addresses/user-address-format";
 import {
-  buildAddressListDetailLine,
-  buildAddressManagementListPrimaryLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
-import { formatPhAddressCardOneLine, formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
+  formatUserAddressListPlainLine,
+  isPhUserAddressRow,
+} from "@/lib/addresses/format-user-address-list-line";
 import { ADDR_BODY, ADDR_LIST_BADGE_BASE } from "@/lib/ui/address-flow-viber";
+import {
+  addressDesignationBadgeClass,
+  addressMasterBadgeClass,
+  addressStoreLinkedBadgeClass,
+  addressTapRepresentativeBadgeClass,
+} from "@/lib/ui/address-list-starbucks-styles";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 
 const ADDR_LIST_ADDRESS_TEXT = `${ADDR_BODY} text-[12px] leading-snug text-sam-muted`;
 
@@ -25,20 +33,19 @@ export function AddressListRowBody({
   showTapRepresentative = false,
   addressMainClassName,
   preferFullAddressLine = false,
+  badgeStyle = "legacy",
 }: {
   row: UserAddressDTO;
   approvedStoresById?: ReadonlyMap<string, string>;
-  /** 배달 홈 주소 시트 — `isDefaultDelivery` 뱃지 */
   showDefaultDeliveryBadge?: boolean;
-  /** 내정보 — 대표 주소 탭 힌트 뱃지 */
   showTapRepresentative?: boolean;
-  /** 배달 시트 등 — 본문 주소 색 오버라이드 */
   addressMainClassName?: string;
-  /** 배달 홈 주소 시트 — 카드 한 줄 대신 주소관리 전체 한 줄 */
+  /** 비PH — 상세 줄을 본문에 합쳐 한 줄로 */
   preferFullAddressLine?: boolean;
+  badgeStyle?: "legacy" | "starbucks";
 }) {
   const { t } = useI18n();
-  const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  const isPh = isPhUserAddressRow(row);
   const linkedStoreId = row.linkedStoreId?.trim() ?? "";
   const samarketStoreDisplayName =
     row.labelType === "shop" && linkedStoreId ?
@@ -51,17 +58,10 @@ export function AddressListRowBody({
   const phOpts = {
     suppressGateBuildingIfMatchesSamarketStore: samarketStoreDisplayName || null,
   };
-  const phOne = isPh ? formatPhAddressCardOneLine(row, phOpts) : null;
 
-  const sub = isPh
-    ? formatPhAddressCardOneLinePlain(row, phOpts)
-    : stripCountryFromAddressDisplayLine(
-        buildAddressManagementListPrimaryLine(row),
-        row.countryName,
-      );
+  const sub = formatUserAddressListPlainLine(row, phOpts);
   const detailLine =
-    preferFullAddressLine ? null : isPh ? null : buildAddressListDetailLine(row, sub);
-  const fullAddressLine = preferFullAddressLine ? buildAddressManagementListPrimaryLine(row) : null;
+    preferFullAddressLine || isPh ? null : buildAddressListDetailLine(row, sub);
 
   const designationPlain = getUserAddressDesignationPlainText(row, {
     linkedSamarketStoreDisplayName: samarketStoreDisplayName || null,
@@ -73,6 +73,11 @@ export function AddressListRowBody({
 
   const headKind = isShopLinked ? "store" : row.isDefaultMaster ? "master" : "general";
   const mainTextClass = addressMainClassName ?? "text-sam-fg";
+  const useStarbucksBadges = badgeStyle === "starbucks";
+
+  const designationBadgeClass = useStarbucksBadges
+    ? addressDesignationBadgeClass(row.labelType)
+    : `${ADDR_LIST_BADGE_BASE} border-sam-border bg-white text-sam-fg`;
 
   return (
     <>
@@ -88,15 +93,16 @@ export function AddressListRowBody({
       : null}
 
       <div className="flex min-h-[26px] flex-wrap items-center gap-1.5">
-        <span
-          className={`${ADDR_LIST_BADGE_BASE} border-sam-border bg-white text-sam-fg`}
-          translate="no"
-        >
+        <span className={designationBadgeClass} translate="no">
           {designationPlain}
         </span>
         {showDefaultDeliveryBadge && row.isDefaultDelivery ?
           <span
-            className={`${ADDR_LIST_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`}
+            className={
+              useStarbucksBadges
+                ? `${ADDR_LIST_BADGE_BASE} border-[#00704A]/30 bg-[#D4E9E2] text-[#00704A]`
+                : `${ADDR_LIST_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`
+            }
             translate="no"
           >
             {t("addr_ui_default_delivery")}
@@ -104,23 +110,35 @@ export function AddressListRowBody({
         : null}
         {row.isDefaultMaster ?
           <span
-            className={`${ADDR_LIST_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`}
+            className={
+              useStarbucksBadges
+                ? addressMasterBadgeClass()
+                : `${ADDR_LIST_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`
+            }
             translate="no"
           >
-            Default Address
+            {t("addr_ui_badge_default_address")}
           </span>
         : null}
         {isStoreAddress ?
           <span
-            className={`${ADDR_LIST_BADGE_BASE} border-slate-400/55 bg-slate-200/90 text-slate-900`}
+            className={
+              useStarbucksBadges
+                ? addressStoreLinkedBadgeClass()
+                : `${ADDR_LIST_BADGE_BASE} border-slate-400/55 bg-slate-200/90 text-slate-900`
+            }
             translate="no"
           >
-            Store Address
+            {t("addr_ui_badge_store_address")}
           </span>
         : null}
         {showTapRepresentative && !row.isDefaultMaster && !isStoreAddress ?
           <span
-            className={`${ADDR_LIST_BADGE_BASE} border-dashed border-sam-border/90 bg-sam-app font-semibold text-sam-muted`}
+            className={
+              useStarbucksBadges
+                ? addressTapRepresentativeBadgeClass()
+                : `${ADDR_LIST_BADGE_BASE} border-dashed border-sam-border/90 bg-sam-app font-semibold text-sam-muted`
+            }
             translate="no"
           >
             {t("addr_ui_tap_representative")}
@@ -131,24 +149,12 @@ export function AddressListRowBody({
       <div className={`mt-1.5 flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
         <AddressKindHeadPin kind={headKind} className="pt-0.5" />
         <div className={`min-w-0 flex-1 break-words ${mainTextClass}`}>
-          {preferFullAddressLine ?
-            fullAddressLine || "—"
-          : isPh && phOne ?
-            <>
-              {phOne.gatePrefix ?
-                <strong className="font-bold text-sam-fg">{phOne.gatePrefix}</strong>
-              : null}
-              {phOne.gatePrefix && phOne.streetBody ?
-                <span className={mainTextClass}>, </span>
-              : null}
-              {phOne.streetBody ?
-                <span className={mainTextClass}>{phOne.streetBody}</span>
-              : null}
-              {!phOne.gatePrefix && !phOne.streetBody ?
-                "—"
-              : null}
-            </>
-          : sub || "—"}
+          <AddressUserRowLineText
+            row={row}
+            opts={phOpts}
+            mainTextClassName={mainTextClass}
+            detailClassName="font-bold text-sam-fg"
+          />
         </div>
       </div>
 

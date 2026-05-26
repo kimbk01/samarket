@@ -19,7 +19,7 @@ export async function PATCH(
 ) {
   const userId = await getRouteUserId();
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "login_required" }, { status: 401 });
   }
   const { id } = await context.params;
   if (!id?.trim()) {
@@ -68,7 +68,7 @@ export async function DELETE(
 ) {
   const userId = await getRouteUserId();
   if (!userId) {
-    return NextResponse.json({ ok: false, error: "로그인이 필요합니다." }, { status: 401 });
+    return NextResponse.json({ ok: false, error: "login_required" }, { status: 401 });
   }
   const { id } = await context.params;
   if (!id?.trim()) {
@@ -83,7 +83,7 @@ export async function DELETE(
     return NextResponse.json({ ok: true });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "delete_failed";
-    const status = msg.includes("마지막") ? 400 : 400;
+    const status = msg === "last_address_cannot_delete" ? 400 : 400;
     return NextResponse.json({ ok: false, error: msg }, { status });
   }
 }

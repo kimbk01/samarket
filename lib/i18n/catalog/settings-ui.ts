@@ -158,6 +158,10 @@ export const settingsUiMessages = {
     profile_edit_map_no_primary_desc:
       "「주소 관리」에서 한 곳을 대표로 지정하거나, 새로 등록해 주세요.",
     profile_edit_address_rep_badge: "대표",
+    profile_edit_username_label: "아이디",
+    profile_edit_address_row_aria: "대표 주소, 탭하면 주소 관리로 이동",
+    profile_edit_address_empty_aria: "등록된 주소 없음, 탭하면 주소 추가",
+    profile_edit_address_manage_aria: "주소 관리로 이동",
     profile_edit_err_nickname_required: "닉네임을 입력해 주세요.",
     profile_edit_err_nickname_max: "닉네임은 20자 이내로 입력해 주세요.",
     profile_edit_warn_address_required:
@@ -393,6 +397,10 @@ export const settingsUiMessages = {
     profile_edit_map_no_primary_desc:
       "Set a default address in Address management, or add a new one.",
     profile_edit_address_rep_badge: "Default",
+    profile_edit_username_label: "Username",
+    profile_edit_address_row_aria: "Default address, tap to open address management",
+    profile_edit_address_empty_aria: "No saved address, tap to add one",
+    profile_edit_address_manage_aria: "Go to address management",
     profile_edit_err_nickname_required: "Enter a nickname.",
     profile_edit_err_nickname_max: "Nickname must be 20 characters or fewer.",
     profile_edit_warn_address_required:

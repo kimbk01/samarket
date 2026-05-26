@@ -3,14 +3,15 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
+import { buildAddressListDetailLine } from "@/lib/addresses/user-address-format";
 import {
-  buildAddressListDetailLine,
-  buildAddressManagementListPrimaryLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
-import { formatPhAddressCardOneLine } from "@/lib/addresses/ph-address-display";
+  formatUserAddressListPlainLine,
+  isPhUserAddressRow,
+  resolveUserAddressCardPresentation,
+} from "@/lib/addresses/format-user-address-list-line";
 import { ADDR_BODY } from "@/lib/ui/address-flow-viber";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
+import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 
 const ADDR_BADGE_BASE =
   "inline-flex shrink-0 items-center rounded-[4px] border px-2 py-0.5 text-[10px] font-bold leading-snug";
@@ -94,6 +95,7 @@ export function StoreCartCheckoutAddressRowBody(props: {
   } | null;
   emptyFallback?: string;
 }) {
+  const { t } = useI18n();
   const { row, linkedSamarketStoreDisplayName, profileFallback, emptyFallback } = props;
 
   if (row) {
@@ -102,31 +104,26 @@ export function StoreCartCheckoutAddressRowBody(props: {
     });
     const linkedStoreId = row.linkedStoreId?.trim() ?? "";
     const isStoreAddress = row.labelType === "shop" && Boolean(linkedStoreId);
-    const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
+    const isPh = isPhUserAddressRow(row);
     const isShopLinked = row.labelType === "shop" && Boolean(linkedStoreId);
 
     const phOpts = {
       suppressGateBuildingIfMatchesSamarketStore: linkedSamarketStoreDisplayName?.trim() || null,
     };
-    const phOne = isPh ? formatPhAddressCardOneLine(row, phOpts) : null;
 
-    const sub = isPh
-      ? null
-      : stripCountryFromAddressDisplayLine(
-          buildAddressManagementListPrimaryLine(row),
-          row.countryName,
-        );
-    const detailLine = isPh ? null : buildAddressListDetailLine(row, sub ?? "");
+    const sub = isPh ? "" : formatUserAddressListPlainLine(row, phOpts);
+    const detailLine = isPh ? null : buildAddressListDetailLine(row, sub);
+
+    const headKind = isShopLinked ? "store" : row.isDefaultMaster ? "master" : "general";
+
+    const presentation = resolveUserAddressCardPresentation(row, phOpts);
+    const hasPhStreet = isPh && Boolean(presentation?.gatePrefix || presentation?.streetBody);
+    const hasNonPhBody = Boolean(sub && sub !== "—");
+    const hasBody = hasPhStreet || hasNonPhBody || detailLine;
 
     const recipientName = row.recipientName?.trim() ?? "";
     const phoneRaw = row.phoneNumber?.trim() ?? "";
     const showRecipientRow = Boolean(recipientName || phoneRaw);
-
-    const headKind = isShopLinked ? "store" : row.isDefaultMaster ? "master" : "general";
-
-    const hasPhStreet = Boolean(phOne?.gatePrefix || phOne?.streetBody);
-    const hasNonPhBody = Boolean(sub && sub !== "—");
-    const hasBody = hasPhStreet || hasNonPhBody || detailLine;
 
     if (!hasBody) {
       return emptyFallback ? (
@@ -157,7 +154,7 @@ export function StoreCartCheckoutAddressRowBody(props: {
               className={`${ADDR_BADGE_BASE} border-rose-400/70 bg-rose-50 text-rose-800`}
               translate="no"
             >
-              Default Address
+              {t("addr_ui_badge_default_address")}
             </span>
           ) : null}
           {isStoreAddress ? (
@@ -165,7 +162,7 @@ export function StoreCartCheckoutAddressRowBody(props: {
               className={`${ADDR_BADGE_BASE} border-slate-400/55 bg-slate-200/90 text-slate-900`}
               translate="no"
             >
-              Store Address
+              {t("addr_ui_badge_store_address")}
             </span>
           ) : null}
         </div>
@@ -173,18 +170,7 @@ export function StoreCartCheckoutAddressRowBody(props: {
         <div className={`mt-1.5 flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
           <AddressKindHeadPin kind={headKind} className="pt-0.5" />
           <div className="min-w-0 flex-1">
-            {isPh && phOne ? (
-              <>
-                {phOne.gatePrefix ? (
-                  <strong className="font-bold text-sam-fg">{phOne.gatePrefix}</strong>
-                ) : null}
-                {phOne.gatePrefix && phOne.streetBody ? <span className="text-sam-fg">, </span> : null}
-                {phOne.streetBody ? <span className="text-sam-fg">{phOne.streetBody}</span> : null}
-                {!phOne.gatePrefix && !phOne.streetBody ? "—" : null}
-              </>
-            ) : (
-              sub || "—"
-            )}
+            <AddressUserRowLineText row={row} opts={phOpts} />
           </div>
         </div>
 
