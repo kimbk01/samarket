@@ -21,7 +21,9 @@ import { ChatInputBar } from "./ChatInputBar";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { BlockActionSheet } from "@/components/reports/BlockActionSheet";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
-import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import {
   StoreOrderBuyerChatTop,
   type StoreOrderBuyerItemPayload,
@@ -2087,11 +2089,13 @@ export function ChatDetailView({
                   ariaLabel="이전 화면"
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <SamarketUserAvatarThumb
-                    avatarUrl={partnerDisplayAvatar}
+                  <SamarketThumbnail
+                    src={resolveUserAvatarImageSrc(partnerDisplayAvatar)}
                     size={40}
                     roundedClassName="rounded-full"
                     className="bg-sam-surface/90 ring-1 ring-black/5"
+                    fallbackSrc=""
+                    fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
                   />
                   <div className="min-w-0 flex-1">
                     {showTradePeerRoleInline ? (

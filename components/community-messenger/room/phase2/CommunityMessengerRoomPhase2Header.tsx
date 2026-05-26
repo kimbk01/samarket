@@ -21,7 +21,9 @@ import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/r
 import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { translate } from "@/lib/i18n/messages";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
@@ -176,11 +178,13 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           <>
             <div className="relative h-9 w-9 shrink-0 self-center">
               <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-                <SamarketUserAvatarThumb
-                  avatarUrl={vm.snapshot.room.avatarUrl}
+                <SamarketThumbnail
+                  src={resolveUserAvatarImageSrc(vm.snapshot.room.avatarUrl)}
                   fill
                   roundedClassName="rounded-full"
                   className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+                  fallbackSrc=""
+                  fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
                 />
               </div>
               {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (

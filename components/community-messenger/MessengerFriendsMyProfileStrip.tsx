@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -21,11 +23,13 @@ export function MessengerFriendsMyProfileStrip({ me }: Props) {
 
   return (
     <div className="flex items-center gap-2.5 border-b border-[color:var(--messenger-divider)] bg-[color:var(--messenger-bg)] px-1 py-2">
-      <SamarketUserAvatarThumb
-        avatarUrl={me?.avatarUrl}
+      <SamarketThumbnail
+        src={resolveUserAvatarImageSrc(me?.avatarUrl)}
         size={36}
         roundedClassName="rounded-full"
         className="bg-[color:var(--messenger-primary-soft)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
+        fallbackSrc=""
+        fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
       />
       <div className="min-w-0 flex-1">
         <p className="truncate sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>

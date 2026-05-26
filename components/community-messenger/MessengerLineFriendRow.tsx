@@ -6,7 +6,9 @@ import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/ty
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
-import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 
 const ACTION_W = 72;
 const LEFT_ACTION_TOTAL = ACTION_W * 2;
@@ -328,11 +330,13 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             trailingLayout="center"
             avatar={
               <div className="relative h-12 w-12">
-                <SamarketUserAvatarThumb
-                  avatarUrl={avatarSrc}
+                <SamarketThumbnail
+                  src={resolveUserAvatarImageSrc(avatarSrc)}
                   size={48}
                   roundedClassName="rounded-full"
                   className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]"
+                  fallbackSrc=""
+                  fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
                 />
                 <CommunityMessengerPresenceDot state={peerPresence?.state} />
               </div>
