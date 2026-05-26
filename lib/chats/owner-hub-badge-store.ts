@@ -212,7 +212,7 @@ let pendingMarkReadHubDetail: { source?: string; key?: string; roomId?: string; 
 
 let lastMarkReadHubNetworkAt = 0;
 
-let lastParticipantDecreaseHubRefreshByRoom = new Map<string, number>();
+const lastParticipantDecreaseHubRefreshByRoom = new Map<string, number>();
 
 /** App Boot background 전까지 HTTP fetch 금지 — BottomNav 구독만 허용 */
 

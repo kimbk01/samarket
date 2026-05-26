@@ -259,7 +259,7 @@ export async function PATCH(
 
       const tBeforeResponse = devPerfNow();
       const response_before_broadcast = 1;
-      let broadcastDuplicateDetected = 0;
+      const broadcastDuplicateDetected = 0;
 
       if (result.ok && !result.broadcastSkipped) {
         const broadcastPayload = {

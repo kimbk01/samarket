@@ -179,8 +179,7 @@ export function useMessengerRoomLoadOlderMessagesFetch({
       }
     };
     inFlightBeforeIdRef.current = beforeId;
-    let inFlightPromise: Promise<void>;
-    inFlightPromise = run().finally(() => {
+    const inFlightPromise = run().finally(() => {
       if (inFlightPromiseRef.current === inFlightPromise) {
         inFlightPromiseRef.current = null;
         inFlightBeforeIdRef.current = null;

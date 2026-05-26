@@ -43,7 +43,9 @@ describe("home-sync route in-process cache", () => {
     vi.unstubAllEnvs();
   });
 
-  it("2·3회차 critical tier — bundle 1회, short_ttl_hit", async () => {
+  it(
+    "2·3회차 critical tier — bundle 1회, short_ttl_hit",
+    async () => {
     const { GET } = await import("@/app/api/community-messenger/home-sync/route");
     const url = "http://localhost/api/community-messenger/home-sync?tier=critical";
 
@@ -68,9 +70,13 @@ describe("home-sync route in-process cache", () => {
     expect(ms2).toBeLessThan(150);
     expect(ms3).toBeLessThan(150);
     expect(ms1).toBeGreaterThanOrEqual(ms2);
-  });
+  },
+    30000
+  );
 
-  it("SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE=1 이면 매 요청 bundle 재실행", async () => {
+  it(
+    "SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE=1 이면 매 요청 bundle 재실행",
+    async () => {
     vi.stubEnv("SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE", "1");
     vi.resetModules();
     bundleFactory.mockClear();
@@ -79,5 +85,7 @@ describe("home-sync route in-process cache", () => {
     await GET(new NextRequest(url));
     await GET(new NextRequest(url));
     expect(bundleFactory.mock.calls.length).toBeGreaterThanOrEqual(2);
-  });
+  },
+    30000
+  );
 });

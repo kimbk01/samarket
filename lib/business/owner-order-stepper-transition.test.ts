@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { translate } from "@/lib/i18n/messages";
 import {
   ownerOrderForwardTransition,
   ownerOrderCardStepColumnLabel,
@@ -26,16 +27,16 @@ describe("ownerOrderCardStepperModel (delivery)", () => {
     expect(m.actionableIndex).toBe(3);
   });
 
-  it("delivering column 3 label is 배달완료", () => {
+  it("delivering column 3 label is 배달 완료", () => {
     expect(
       ownerOrderCardStepColumnLabel(3, "delivering", "local_delivery", 3, "ko")
-    ).toBe("배달완료");
+    ).toBe(translate("ko", "store_owner_step_delivery_done"));
   });
 
-  it("ready_for_pickup column 2 label is 배달 시작", () => {
+  it("ready_for_pickup column 2 label is 배달 출발", () => {
     expect(
       ownerOrderCardStepColumnLabel(2, "ready_for_pickup", "local_delivery", 2, "ko")
-    ).toBe("배달 시작");
+    ).toBe(translate("ko", "store_owner_step_delivery_start"));
   });
 });
 

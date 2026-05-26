@@ -1,10 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/i18n/runtime-app-language", () => ({
+  getRuntimeAppLanguage: () => "ko" as const,
+}));
+
 import { messengerChatListEmptyMessage } from "@/lib/community-messenger/messenger-ia";
+import { translate } from "@/lib/i18n/messages";
+
+const ko = "ko" as const;
 
 describe("messengerChatListEmptyMessage", () => {
   it("uses generic copy for non-trade/delivery kinds", () => {
-    expect(messengerChatListEmptyMessage("all")).toBe("조건에 맞는 대화가 없습니다.");
-    expect(messengerChatListEmptyMessage("direct")).toBe("조건에 맞는 대화가 없습니다.");
+    expect(messengerChatListEmptyMessage("all")).toBe(translate(ko, "cm_ia_empty_default"));
+    expect(messengerChatListEmptyMessage("direct")).toBe(translate(ko, "cm_ia_empty_default"));
   });
 
   it("mentions store order and product trade bridges for trade", () => {

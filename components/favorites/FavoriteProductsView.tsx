@@ -2,6 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getFavoritedPosts, type FavoritedPost } from "@/lib/favorites/getFavoritedPosts";
@@ -114,9 +115,9 @@ export function FavoriteProductsView({
           {t("ui_fav_empty_hint")}
         </p>
         {!embedded ? (
-          <a href="/philife" className="mt-4 text-[14px] font-medium text-signature">
+          <Link href="/philife" className="mt-4 text-[14px] font-medium text-signature">
             {t("ui_fav_go_home")}
-          </a>
+          </Link>
         ) : null}
       </div>
     );

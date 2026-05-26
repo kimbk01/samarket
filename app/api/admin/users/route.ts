@@ -300,7 +300,7 @@ export async function GET(_req: NextRequest) {
       .select(profileSelect)
       .order("created_at", { ascending: false });
 
-  let { data: rows, error } = await fetchProfiles();
+  const { data: rows, error } = await fetchProfiles();
 
   /**
    * 관리자 목록 GET은 "조회 전용"으로 유지한다.
@@ -309,7 +309,7 @@ export async function GET(_req: NextRequest) {
    */
   const serviceSb = supabase as AuthAdminClient;
   let authOnlyEntries: AuthListUser[] = [];
-  let authUsers: AuthListUser[] = [];
+  const authUsers: AuthListUser[] = [];
   if (!error) {
     const existingIds = new Set<string>(
       ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter((id) => typeof id === "string" && id.length > 0)

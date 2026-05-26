@@ -35,7 +35,7 @@ describe("cm-room-r2-m10-route-transition", () => {
     mockSessionStorage();
     sessionStorage.setItem("samarket:debug:runtime", "1");
     resetR2M10RouteTransitionForTests();
-    let t = 1000;
+    const t = 1000;
     vi.stubGlobal("performance", {
       now: () => t,
     });

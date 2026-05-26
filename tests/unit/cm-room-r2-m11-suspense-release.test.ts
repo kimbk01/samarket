@@ -32,7 +32,7 @@ describe("cm-room-r2-m11-suspense-release", () => {
     mockSessionStorage();
     sessionStorage.setItem("samarket:debug:runtime", "1");
     resetR2M11SuspenseReleaseForTests();
-    let t = 1000;
+    const t = 1000;
     vi.stubGlobal("performance", { now: () => t });
   });
 

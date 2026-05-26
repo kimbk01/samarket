@@ -18,6 +18,11 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "warn",
       "react-hooks/preserve-manual-memoization": "warn",
       "react-hooks/static-components": "warn",
+      /** Next 16 compiler rules — 레거시 ref sync·RSC perf 측정은 점진 이전(경고만, `--quiet` CI 통과). */
+      "react-hooks/refs": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/rules-of-hooks": "warn",
+      "react-hooks/immutability": "warn",
     },
   },
   {

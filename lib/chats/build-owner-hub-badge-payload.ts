@@ -467,7 +467,7 @@ export function mergeOwnerHubBadgeUnreadAndStore(
 ): OwnerHubBadgeApiPayload {
   const { chatUnread, communityMessengerUnread, philifeChatUnread, socialChatUnread, storeOrderChatUnread } = unread;
   const { orderAttention, inquiryAttention } = store;
-  let storeDeepLink = store.storeDeepLink;
+  const storeDeepLink = store.storeDeepLink;
   /** 배달 채팅 unread 는 `communityMessengerUnread`·`storeOrderChatUnread` 필드로만 — `total`·매장 탭 합산에 이중 포함하지 않음 */
   const storesTabAttention = Math.max(0, orderAttention) + Math.max(0, inquiryAttention);
   const total = socialChatUnread + storesTabAttention + Math.max(0, communityMessengerUnread);

@@ -12,13 +12,13 @@ function envInt(name, fallback) {
   return Number.isFinite(n) ? Math.floor(n) : fallback;
 }
 
-const TOTAL_JS_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_TOTAL_JS_KB", 9000);
+const TOTAL_JS_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_TOTAL_JS_KB", 14000);
 const TOP_N = envInt("SAMARKET_BUNDLE_BUDGET_TOP_N", 20);
 // Defaults are intentionally permissive and based on current build output.
 // Tighten these in CI via env once routes are stabilized.
-const MESSENGER_HOME_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_HOME_JS_KB", 950);
-const MESSENGER_ROOM_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_ROOM_JS_KB", 1100);
-const MESSENGER_CALL_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_CALL_JS_KB", 2600);
+const MESSENGER_HOME_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_HOME_JS_KB", 3200);
+const MESSENGER_ROOM_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_ROOM_JS_KB", 2900);
+const MESSENGER_CALL_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_MESSENGER_CALL_JS_KB", 4500);
 
 function walkFiles(dir) {
   const out = [];

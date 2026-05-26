@@ -129,7 +129,7 @@ export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFr
     Number.isFinite(feeRaw) && feeRaw >= 0 ? Math.round(feeRaw) : null;
   const courierNonEmpty = courierRaw.length > 0 ? courierRaw : null;
 
-  let explicit = readExplicitDeliveryFeeMode(o);
+  const explicit = readExplicitDeliveryFeeMode(o);
   let deliveryFeeMode: StoreDeliveryFeeMode | null = explicit;
 
   if (deliveryFeeMode == null) {

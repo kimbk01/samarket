@@ -174,7 +174,7 @@ async function sumCommunityMessengerParticipantUnreadInner(
   const aggregatePerf = emptyCmUnreadAggregatePerf();
   let cacheLookupMs = 0;
   let cacheSetMs = 0;
-  let aggregationMs = 0;
+  const aggregationMs = 0;
 
   const memLookup0 = devPerfNow();
   const mem = readCmUnreadRoomCountMemory(uid);

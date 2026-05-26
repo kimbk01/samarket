@@ -106,7 +106,7 @@ export async function appendUserNotification(
     delete fallbackDedupe.dedupe_key;
     delete fallbackDedupe.store_order_event_id;
     const retryDedupe = await sb.from("notifications").insert(fallbackDedupe);
-    let err2 = retryDedupe.error;
+    const err2 = retryDedupe.error;
     const code2 = (err2 as { code?: string } | null)?.code;
     if (err2 && code2 === "23505") return true;
     if (!err2) {

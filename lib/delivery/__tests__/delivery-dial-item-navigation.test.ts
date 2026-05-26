@@ -27,67 +27,69 @@ function dialArgs(overrides: Partial<Parameters<typeof runDeliveryDialItemNaviga
 }
 
 describe("runDeliveryDialItemNavigation", () => {
-  it("stores — 주문채팅 목록에서 배달 홈으로 push", () => {
-    const push = vi.fn();
+  it("stores — 주문채팅 목록에서 배달 홈으로 replace", () => {
+    const replace = vi.fn();
     const onClose = vi.fn();
 
-    const ok = runDeliveryDialItemNavigation(dialArgs({ push, onClose }));
+    const ok = runDeliveryDialItemNavigation(dialArgs({ replace, onClose }));
 
     expect(ok).toBe(true);
     expect(onClose).toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/stores");
+    expect(replace).toHaveBeenCalledWith("/stores");
   });
 
   it("navigate 후 onClose", () => {
     const order: string[] = [];
-    const push = vi.fn(() => order.push("push"));
+    const replace = vi.fn(() => order.push("replace"));
     const onClose = vi.fn(() => order.push("close"));
 
-    runDeliveryDialItemNavigation(dialArgs({ push, onClose }));
+    runDeliveryDialItemNavigation(dialArgs({ replace, onClose }));
 
-    expect(order).toEqual(["push", "close"]);
+    expect(order).toEqual(["replace", "close"]);
   });
 
   it("stores — tab.href 오염과 무관하게 /stores", () => {
-    const push = vi.fn();
+    const replace = vi.fn();
     const polluted: BottomNavItemConfig = {
       ...storesTab,
       href: "/community-messenger/delivery-chats?from=delivery",
     };
 
-    runDeliveryDialItemNavigation(dialArgs({ tab: polluted, push }));
+    runDeliveryDialItemNavigation(dialArgs({ tab: polluted, replace }));
 
-    expect(push).toHaveBeenCalledWith("/stores");
+    expect(replace).toHaveBeenCalledWith("/stores");
   });
 
-  it("stores — 이미 /stores 이면 push 없음·onClose", () => {
-    const push = vi.fn();
+  it("stores — 이미 /stores 이면 replace 없음·onClose", () => {
+    const replace = vi.fn();
     const onClose = vi.fn();
 
-    runDeliveryDialItemNavigation(dialArgs({ pathname: "/stores", currentSearch: "", push, onClose }));
+    runDeliveryDialItemNavigation(dialArgs({ pathname: "/stores", currentSearch: "", replace, onClose }));
 
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalled();
   });
 
   it("guard 실패 시 blocked", () => {
-    const push = vi.fn();
+    const replace = vi.fn();
     const onClose = vi.fn();
     const ok = runDeliveryDialItemNavigation(
       dialArgs({
         pathname: "/orders",
-        push,
+        replace,
         onClose,
         guardBeforeNavigate: () => false,
       })
     );
     expect(ok).toBe(false);
     expect(onClose).not.toHaveBeenCalled();
-    expect(push).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
-  it("chat — 배달 레일 주문채팅 href", () => {
+  it("chat — 동일 배달 레일이면 scroll_only", () => {
+    const replace = vi.fn();
     const push = vi.fn();
+    const onClose = vi.fn();
     const tab: BottomNavItemConfig = {
       id: "chat",
       href: "/community-messenger?section=chats",
@@ -95,8 +97,10 @@ describe("runDeliveryDialItemNavigation", () => {
       icon: "chat",
     };
 
-    runDeliveryDialItemNavigation(dialArgs({ tab, push }));
+    runDeliveryDialItemNavigation(dialArgs({ tab, replace, push, onClose }));
 
-    expect(push).toHaveBeenCalledWith("/community-messenger/delivery-chats?from=delivery");
+    expect(replace).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 });

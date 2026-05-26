@@ -268,9 +268,10 @@ describe("computeStoreCartAddOrMerge", () => {
       mergeQtyMode: "set",
     });
     const bucket = Object.values(second.nextSnapshot!.carts)[0]!;
-    expect(bucket.lines[0]?.qty).toBe(2);
-    expect(bucket.lines[0]?.unitPricePhp).toBe(baseLine.unitPricePhp);
-    expect(bucket.lines[0]?.unitPricePhp! * bucket.lines[0]!.qty).toBe(
+    const line = bucket.lines[0];
+    expect(line?.qty).toBe(2);
+    expect(line?.unitPricePhp).toBe(baseLine.unitPricePhp);
+    expect((line!.unitPricePhp ?? 0) * (line!.qty ?? 0)).toBe(
       baseLine.unitPricePhp * 2
     );
   });

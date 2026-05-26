@@ -61,7 +61,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     logs.flatMap((r: Record<string, unknown>) => [r.actor_admin_id, r.previous_assignee, r.next_assignee])
   );
 
-  let labelById = new Map<string, string>();
+  const labelById = new Map<string, string>();
   if (ids.length > 0) {
     const { data: profs } = await sbAny.from("profiles").select("id, nickname, username").in("id", ids);
     for (const p of (profs ?? []) as { id?: string; nickname?: string | null; username?: string | null }[]) {

@@ -378,7 +378,7 @@ export function applyHomeListPatch(
   let unchangedRoomCount = 0;
   let listReferenceStable = false;
   let bootstrapReferenceStable = false;
-  let patchBuildMs = 0;
+  const patchBuildMs = 0;
 
   if (!prev) {
     if (patch.kind === "bootstrap_full_seed") {

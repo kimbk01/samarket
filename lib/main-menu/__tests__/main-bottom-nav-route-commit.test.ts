@@ -28,9 +28,9 @@ describe("shouldMainBottomNavRouteScrollOnly", () => {
 });
 
 describe("commitMainBottomNavRoute", () => {
-  it("push 후 onCloseOverlay", () => {
+  it("replace 후 onCloseOverlay", () => {
     const order: string[] = [];
-    const push = vi.fn(() => order.push("push"));
+    const replace = vi.fn(() => order.push("replace"));
     const onCloseOverlay = vi.fn(() => order.push("close"));
 
     const result = commitMainBottomNavRoute({
@@ -41,14 +41,14 @@ describe("commitMainBottomNavRoute", () => {
       beginMenuNavigation: vi.fn(),
       onNavigationIntent: vi.fn(),
       guardBeforeNavigate: () => true,
-      push,
-      replace: vi.fn(),
+      push: vi.fn(),
+      replace,
       onCloseOverlay,
       skipPerfMark: true,
     });
 
     expect(result).toBe("navigated");
-    expect(order).toEqual(["push", "close"]);
+    expect(order).toEqual(["replace", "close"]);
   });
 
   it("guard 실패 — blocked", () => {

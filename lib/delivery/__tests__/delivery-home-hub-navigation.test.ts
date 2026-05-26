@@ -64,8 +64,8 @@ describe("runDeliveryHomeHubShortTap", () => {
 });
 
 describe("runDeliveryHomeHubLongPress", () => {
-  it("배달 홈이 아니면 /stores 로 push", () => {
-    const push = vi.fn();
+  it("배달 홈이 아니면 /stores 로 replace", () => {
+    const replace = vi.fn();
 
     runDeliveryHomeHubLongPress({
       pathname: "/community-messenger/delivery-chats",
@@ -75,11 +75,11 @@ describe("runDeliveryHomeHubLongPress", () => {
       guardBeforeNavigate: () => true,
       beginMenuNavigation: vi.fn(),
       onNavigationIntent: vi.fn(),
-      push,
-      replace: vi.fn(),
+      push: vi.fn(),
+      replace,
     });
 
-    expect(push).toHaveBeenCalledWith("/stores");
+    expect(replace).toHaveBeenCalledWith("/stores");
   });
 
   it("/stores 에서는 push 없이 스크롤만", () => {
@@ -102,7 +102,7 @@ describe("runDeliveryHomeHubLongPress", () => {
 
   it("다이얼 열림 상태에서 롱프레스 — 닫고 /stores 이동", () => {
     const onCloseSwitcher = vi.fn();
-    const push = vi.fn();
+    const replace = vi.fn();
 
     runDeliveryHomeHubLongPress({
       pathname: "/orders",
@@ -112,11 +112,11 @@ describe("runDeliveryHomeHubLongPress", () => {
       guardBeforeNavigate: () => true,
       beginMenuNavigation: vi.fn(),
       onNavigationIntent: vi.fn(),
-      push,
-      replace: vi.fn(),
+      push: vi.fn(),
+      replace,
     });
 
     expect(onCloseSwitcher).toHaveBeenCalled();
-    expect(push).toHaveBeenCalledWith("/stores");
+    expect(replace).toHaveBeenCalledWith("/stores");
   });
 });

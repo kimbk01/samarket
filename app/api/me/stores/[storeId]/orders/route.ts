@@ -76,7 +76,7 @@ export async function GET(
   let db_ms = 0;
   let count_ms = 0;
   let list_ms = 0;
-  let transform_ms = 0;
+  const transform_ms = 0;
 
   const auth0 = perfNowMs();
   const userId = await getRouteUserId();
@@ -207,9 +207,9 @@ export async function GET(
 
   let orders: import("@/lib/business/owner-store-order-list-row-bridge").OwnerStoreOrderListRow[] = [];
   let snapshotVia: string | undefined;
-  let normalize_ms = 0;
-  let attach_ms = 0;
-  let buyer_label_cache_hit = 0;
+  const normalize_ms = 0;
+  const attach_ms = 0;
+  const buyer_label_cache_hit = 0;
   let db_round_trips = 0;
   let list_snapshot_hit: 0 | 1 = 0;
 

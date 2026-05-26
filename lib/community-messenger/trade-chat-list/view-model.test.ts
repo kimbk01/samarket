@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { translate } from "@/lib/i18n/messages";
+import { DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL } from "@/lib/community-messenger/trade-chat-list/category-menu-label";
 import { buildTradeChatListRowModel } from "@/lib/community-messenger/trade-chat-list/view-model";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
@@ -47,7 +49,7 @@ describe("buildTradeChatListRowModel", () => {
     expect(m.productPriceText).toBe("₱1");
   });
 
-  it("uses categoryMenuLabel for chip even when productCategoryLabel is set", () => {
+  it("prefers productCategoryLabel for chip when both labels are set", () => {
     const m = buildTradeChatListRowModel(
       room({
         contextMeta: {
@@ -59,7 +61,7 @@ describe("buildTradeChatListRowModel", () => {
         },
       })
     );
-    expect(m.categoryChipLabel).toBe("중고거래");
+    expect(m.categoryChipLabel).toBe("생활가전");
   });
 
   it("builds listingOwnerLine from sellerDisplayName", () => {
@@ -94,6 +96,6 @@ describe("buildTradeChatListRowModel", () => {
 
   it("defaults categoryChipLabel when absent", () => {
     const m = buildTradeChatListRowModel(room({ summary: JSON.stringify({ v: 1, kind: "trade", headline: "X" }) }));
-    expect(m.categoryChipLabel).toBe("중고거래");
+    expect(m.categoryChipLabel).toBe(DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL);
   });
 });

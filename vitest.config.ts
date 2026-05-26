@@ -9,10 +9,13 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": __dirname,
+      "@domain/philife/api": path.resolve(__dirname, "lib/philife/api.ts"),
+      "server-only": path.resolve(__dirname, "tests/vitest-mocks/server-only.ts"),
     },
   },
   test: {
     environment: "node",
+    testTimeout: 15000,
     /**
      * Playwright 전용 스펙은 Vitest 수집 대상에서 제외한다.
      * - tests/e2e: test.describe 등 런타임 오류

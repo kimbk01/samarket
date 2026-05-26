@@ -473,7 +473,7 @@ export async function listCommunityPostComments(
     }
     if (!data) return [];
 
-    let rows = (data as Record<string, unknown>[]).filter(
+    const rows = (data as Record<string, unknown>[]).filter(
       (r) => isCommunityCommentPubliclyVisible(r as never) && r.is_deleted !== true
     );
     if (rows.length === 0) return [];

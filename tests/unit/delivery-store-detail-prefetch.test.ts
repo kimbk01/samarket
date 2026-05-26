@@ -92,7 +92,7 @@ describe("delivery-store-detail-prefetch", () => {
     const href = "/stores/aa11";
 
     deliveryStoreDetailPrefetch(router, "aa11", "viewport");
-    let inflight = deliveryStoreDetailPrefetchCheckBeforeTap(href);
+    const inflight = deliveryStoreDetailPrefetchCheckBeforeTap(href);
     expect(inflight.was_prefetch_inflight).toBe(true);
     expect(inflight.was_prefetch_ready).toBe(false);
 
