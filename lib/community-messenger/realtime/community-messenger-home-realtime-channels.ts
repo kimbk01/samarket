@@ -24,7 +24,6 @@ import {
   cmRtHs4DiagnosisLog,
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
-
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
 

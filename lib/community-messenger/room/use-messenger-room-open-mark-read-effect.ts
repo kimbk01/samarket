@@ -26,6 +26,7 @@ import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-u
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { noteTradeChatRoomReadEffectReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 import type {
@@ -290,6 +291,7 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
     if (readMarkEffectStartRecordedRoomRef.current !== id) {
       readMarkEffectStartRecordedRoomRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "read_mark_effect_start_ms");
+      noteTradeChatRoomReadEffectReadyForShellBreakdown();
     }
     if (readMarkEffectEndRecordedRoomRef.current !== id) {
       readMarkEffectEndRecordedRoomRef.current = null;

@@ -74,6 +74,10 @@ async function ChatRoomPageBody({
       if (toMessenger) {
         redirect(toMessenger);
       }
+      /** 거래 방은 CM 연동만 허용 — 미연동 레거시 `/chats` UI 진입 차단 */
+      if (boot.room.chatDomain === "trade") {
+        redirect(TRADE_CHAT_SURFACE.messengerListHref);
+      }
     }
   }
 

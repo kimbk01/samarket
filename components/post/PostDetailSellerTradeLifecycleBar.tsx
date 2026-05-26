@@ -21,7 +21,8 @@ import {
   postTradeLifecycleRequest,
 } from "@/lib/trade/seller-trade-flow-client";
 import { isOfflineMockPostId } from "@/lib/posts/offline-mock-post-id";
-import { SELLER_LISTING_LABEL, type SellerListingState } from "@/lib/products/seller-listing-state";
+import { sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
+import type { SellerListingState } from "@/lib/products/seller-listing-state";
 
 const BTN =
   "rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-helper font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50";
@@ -71,7 +72,7 @@ export function PostDetailSellerTradeLifecycleBar({
         setBusy(false);
       }
     },
-    [onRefresh]
+    [onRefresh, t]
   );
 
   const onHideListing = () =>
@@ -79,7 +80,7 @@ export function PostDetailSellerTradeLifecycleBar({
       if (!window.confirm(t("ui_post_hide_confirm"))) return false;
       const data = await postOwnerStatusHidden(postId);
       if (!data.ok) {
-        window.alert(data.error ?? "숨김 처리에 실패했습니다.");
+        window.alert(data.error ?? t("trade_detail_hide_failed"));
         return false;
       }
       return true;
@@ -90,7 +91,7 @@ export function PostDetailSellerTradeLifecycleBar({
       if (!window.confirm(t("ui_post_delete_confirm_list"))) return false;
       const data = await postOwnerDeleteRequest(postId);
       if (!data.ok) {
-        window.alert(data.error ?? "삭제에 실패했습니다.");
+        window.alert(data.error ?? t("trade_detail_delete_failed"));
         return false;
       }
       window.location.href = "/my/products";
@@ -99,11 +100,11 @@ export function PostDetailSellerTradeLifecycleBar({
 
   const transitionListing = (next: SellerListingState, reservedBuyerId?: string) =>
     wrap(async () => {
-      const label = SELLER_LISTING_LABEL[next];
+      const label = sellerListingLabel(t, next);
       if (!window.confirm(t("mypage_comp_product_listing_change_confirm", { label }))) return false;
       const data = await postSellerListingStateRequest(postId, next, reservedBuyerId);
       if (!data.ok) {
-        window.alert(data.error ?? "저장에 실패했습니다.");
+        window.alert(data.error ?? t("trade_detail_save_failed"));
         return false;
       }
       if (data.warning) window.alert(data.warning);
@@ -128,11 +129,11 @@ export function PostDetailSellerTradeLifecycleBar({
         return false;
       }
       if (candidates.length === 1) {
-        const label = SELLER_LISTING_LABEL.reserved;
+        const label = sellerListingLabel(t, "reserved");
         if (!window.confirm(t("mypage_comp_product_listing_change_confirm", { label }))) return false;
         const saved = await postSellerListingStateRequest(postId, "reserved", candidates[0].buyerId);
         if (!saved.ok) {
-          window.alert(saved.error ?? "저장에 실패했습니다.");
+          window.alert(saved.error ?? t("trade_detail_save_failed"));
           return false;
         }
         if (saved.warning) window.alert(saved.warning);
@@ -145,9 +146,7 @@ export function PostDetailSellerTradeLifecycleBar({
   const startCompleteFlow = () =>
     wrap(async () => {
       if (
-        !window.confirm(
-          "거래완료하면 선택한 구매자에게 확인·후기 안내가 전달되고, 글이 판매완료로 표시됩니다. 진행할까요?"
-        )
+        !window.confirm(t("trade_detail_complete_confirm"))
       ) {
         return false;
       }
@@ -173,7 +172,7 @@ export function PostDetailSellerTradeLifecycleBar({
         }
         const done = await postSellerCompleteRequest(row.chatId);
         if (!done.ok) {
-          window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
+          window.alert(done.error ?? t("trade_detail_complete_failed"));
           return false;
         }
         return true;
@@ -187,7 +186,7 @@ export function PostDetailSellerTradeLifecycleBar({
       if (candidates.length === 1) {
         const done = await postSellerCompleteRequest(candidates[0].chatId);
         if (!done.ok) {
-          window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
+          window.alert(done.error ?? t("trade_detail_complete_failed"));
           return false;
         }
         return true;
@@ -205,14 +204,14 @@ export function PostDetailSellerTradeLifecycleBar({
       if (mode === "reserve") {
         const saved = await postSellerListingStateRequest(postId, "reserved", c.buyerId);
         if (!saved.ok) {
-          window.alert(saved.error ?? "저장에 실패했습니다.");
+          window.alert(saved.error ?? t("trade_detail_save_failed"));
           return;
         }
         if (saved.warning) window.alert(saved.warning);
       } else {
         const done = await postSellerCompleteRequest(c.chatId);
         if (!done.ok) {
-          window.alert(done.error ?? "거래완료 처리에 실패했습니다.");
+          window.alert(done.error ?? t("trade_detail_complete_failed"));
           return;
         }
       }
@@ -239,12 +238,12 @@ export function PostDetailSellerTradeLifecycleBar({
           <>
             {canEdit ? (
               <Link href={`/products/${encodeURIComponent(postId)}/edit`} className={BTN_PRIMARY}>
-                수정
+                {t("mypage_comp_product_edit")}
               </Link>
             ) : null}
             {canDelete ? (
               <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void onDeletePost()}>
-                삭제
+                {t("trade_070")}
               </button>
             ) : null}
             <button
@@ -253,16 +252,20 @@ export function PostDetailSellerTradeLifecycleBar({
               disabled={busy}
               onClick={() => void transitionListing("negotiating")}
             >
-              협의중
+              {sellerListingLabel(t, "negotiating")}
             </button>
             <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void startReserveFlow()}>
-              예약
+              {t("trade_detail_btn_reserve")}
             </button>
           </>
         )}
         <TradeBuyerPickerModal
           open={!!buyerPicker}
-          title={buyerPicker?.mode === "reserve" ? "예약할 구매자 선택" : "거래완료할 구매자 선택"}
+          title={
+            buyerPicker?.mode === "reserve"
+              ? t("trade_detail_buyer_pick_reserve_title")
+              : t("trade_detail_buyer_pick_complete_title")
+          }
           subtitle={t("ui_post_buyer_picker_subtitle")}
           candidates={buyerPicker?.candidates ?? []}
           onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
@@ -278,7 +281,7 @@ export function PostDetailSellerTradeLifecycleBar({
         {row(
           <>
             <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void startReserveFlow()}>
-              거래중(예약)
+              {t("trade_detail_btn_negotiating_reserve")}
             </button>
             <button
               type="button"
@@ -286,10 +289,10 @@ export function PostDetailSellerTradeLifecycleBar({
               disabled={busy}
               onClick={() => void transitionListing("inquiry")}
             >
-              판매중 복귀
+              {t("mypage_comp_sales_to_inquiry")}
             </button>
             <button type="button" className={BTN} disabled={busy} onClick={() => void onHideListing()}>
-              숨김
+              {t("mypage_comp_product_status_hidden")}
             </button>
           </>
         )}
@@ -311,7 +314,7 @@ export function PostDetailSellerTradeLifecycleBar({
         {row(
           <>
             <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void startCompleteFlow()}>
-              거래완료
+              {t("trade_detail_btn_complete")}
             </button>
             <button
               type="button"
@@ -322,14 +325,14 @@ export function PostDetailSellerTradeLifecycleBar({
                   if (!window.confirm(t("ui_post_cancel_trade_confirm"))) return false;
                   const data = await postTradeLifecycleRequest(postId, "cancel_trade");
                   if (!data.ok) {
-                    window.alert(data.error ?? "처리에 실패했습니다.");
+                    window.alert(data.error ?? t("trade_detail_action_failed"));
                     return false;
                   }
                   return true;
                 })
               }
             >
-              거래취소
+              {t("trade_detail_btn_cancel_trade")}
             </button>
           </>
         )}
@@ -348,7 +351,7 @@ export function PostDetailSellerTradeLifecycleBar({
   if (lifecycle === "completed") {
     return row(
       <button type="button" className={BTN} disabled={busy} onClick={() => void onHideListing()}>
-        숨김
+        {t("mypage_comp_product_status_hidden")}
       </button>
     );
   }
@@ -358,7 +361,7 @@ export function PostDetailSellerTradeLifecycleBar({
       <>
         {canEdit ? (
           <Link href={`/products/${encodeURIComponent(postId)}/edit`} className={BTN}>
-            일부 수정
+            {t("trade_detail_btn_partial_edit")}
           </Link>
         ) : null}
         <button
@@ -370,14 +373,14 @@ export function PostDetailSellerTradeLifecycleBar({
               if (!window.confirm(t("ui_post_relist_confirm"))) return false;
               const data = await postTradeLifecycleRequest(postId, "resume_active");
               if (!data.ok) {
-                window.alert(data.error ?? "처리에 실패했습니다.");
+                window.alert(data.error ?? t("trade_detail_action_failed"));
                 return false;
               }
               return true;
             })
           }
         >
-          판매중 복귀
+          {t("mypage_comp_product_relist_active")}
         </button>
       </>
     );

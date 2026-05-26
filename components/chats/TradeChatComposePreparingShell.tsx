@@ -19,9 +19,9 @@ export function TradeChatComposePreparingShell({
   errorBanner?: { message: string; onRetry: () => void } | null;
 }) {
   const { t } = useI18n();
-  const title = preview?.productTitle?.trim() || "상품";
-  const price = preview?.priceText?.trim() || "가격 문의";
-  const seller = preview?.sellerName?.trim() || "판매자";
+  const title = preview?.productTitle?.trim() || t("chats_compose_fallback_product");
+  const price = preview?.priceText?.trim() || t("chats_compose_fallback_price");
+  const seller = preview?.sellerName?.trim() || t("chats_compose_fallback_seller");
   const thumb = preview?.productThumbnail?.trim() ?? "";
 
   return (

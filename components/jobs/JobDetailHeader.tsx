@@ -21,21 +21,26 @@ function jobListingTypeLabel(
   return jobListingKindLabel(t, "hire");
 }
 
-function jobStatusLabel(post: PostWithMeta, direction: JobDetailDirection): { label: string; className: string } {
+function jobStatusLabel(
+  t: ReturnType<typeof useI18n>["t"],
+  post: PostWithMeta,
+  direction: JobDetailDirection
+): { label: string; className: string } {
   const st = String(post.status ?? "").toLowerCase();
+  const closedClass = "border border-[#e4e6eb] bg-[#f1f3f5] text-[#555555]";
   if (st === "sold") {
     return direction === "seeking"
-      ? { label: "완료", className: "border border-[#e4e6eb] bg-[#f1f3f5] text-[#555555]" }
-      : { label: "마감", className: "border border-[#e4e6eb] bg-[#f1f3f5] text-[#555555]" };
+      ? { label: t("ui_jobs_status_done"), className: closedClass }
+      : { label: t("ui_jobs_status_closed"), className: closedClass };
   }
   if (st === "hidden" || st === "blinded" || st === "deleted") {
     return direction === "seeking"
-      ? { label: "완료", className: "border border-[#e4e6eb] bg-[#f1f3f5] text-[#555555]" }
-      : { label: "마감", className: "border border-[#e4e6eb] bg-[#f1f3f5] text-[#555555]" };
+      ? { label: t("ui_jobs_status_done"), className: closedClass }
+      : { label: t("ui_jobs_status_closed"), className: closedClass };
   }
   return direction === "seeking"
-    ? { label: "구직중", className: "border-0 bg-emerald-600 text-white" }
-    : { label: "모집중", className: "border-0 bg-signature text-white" };
+    ? { label: t("ui_jobs_status_seeking_active"), className: "border-0 bg-emerald-600 text-white" }
+    : { label: t("ui_jobs_status_hiring_active"), className: "border-0 bg-signature text-white" };
 }
 
 function jobPayHeroLine(
@@ -50,15 +55,20 @@ function jobPayHeroLine(
   const sameDayPay = meta.same_day_pay === true;
   const hirePayNegotiable = meta.hire_pay_negotiable === true || payType === "negotiate";
 
-  const prefix = direction === "seeking" ? "희망급여" : "급여";
+  const prefix =
+    direction === "seeking" ? t("ui_jobs_pay_prefix_seeking") : t("ui_jobs_pay_prefix_hiring");
 
   if (payAmount != null && !Number.isNaN(payAmount)) {
     const base = `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`;
-    const tail = sameDayPay ? " · 당일 지급" : "";
+    const tail = sameDayPay ? t("ui_jobs_pay_same_day_tail") : "";
     return `${prefix} ${base}${tail}`;
   }
-  if (direction === "seeking" && payType === "negotiate") return `${prefix} 협의`;
-  if (direction === "hiring" && hirePayNegotiable) return `${prefix} 협의`;
+  if (direction === "seeking" && payType === "negotiate") {
+    return `${prefix} ${t("jobs_pay_negotiate")}`;
+  }
+  if (direction === "hiring" && hirePayNegotiable) {
+    return `${prefix} ${t("jobs_pay_negotiate")}`;
+  }
   return null;
 }
 
@@ -79,7 +89,7 @@ export function JobDetailHeader({
   const { t } = useI18n();
   const typeLabel = jobListingTypeLabel(t, meta);
   const payLine = jobPayHeroLine(t, meta, post.price ?? null, currency, direction);
-  const status = jobStatusLabel(post, direction);
+  const status = jobStatusLabel(t, post, direction);
 
   return (
     <section className="px-0 pt-0">

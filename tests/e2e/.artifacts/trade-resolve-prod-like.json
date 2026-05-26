@@ -1,0 +1,9 @@
+{
+  "env": "prod-like (next build + next start)",
+  "capturedAt": "2026-05-26T21:54:00.000Z",
+  "productId": "7bd6f90a-a8f7-4c24-8185-153962de06dc",
+  "runs": 7,
+  "samples_ms": [902, 908, 918, 924, 941, 1005, 1158],
+  "p50_ms": 924,
+  "p95_ms": 1158
+}

@@ -202,6 +202,15 @@ import {
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { resolveCommunityMessengerRoomIdFromChatRow } from "@/lib/community-messenger/realtime/resolve-community-messenger-room-id-from-chat-row";
+import { capVisibleRoomIdsForTradeRealtime } from "@/lib/trade/trade-realtime-subscribe-policy";
+import {
+  getTradeVisibleRoomSubscribeIds,
+  mergeHomeAndTradeVisibleRealtimeRoomIds,
+  pruneTradeVisibleRoomRegistry,
+  setTradeVisibleRoomRealtimePinnedIds,
+  setTradeVisibleRoomRealtimeReportingEnabled,
+  subscribeTradeVisibleRoomRealtimeSubscribeSet,
+} from "@/lib/trade/trade-visible-room-realtime-registry";
 import { useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 type CommunityMessengerHomeOverlayKind =
@@ -1728,42 +1737,90 @@ export function CommunityMessengerHome({
   const visiblePillarChatRoomIdsFingerprintRef = useRef<string>("");
   const [visiblePillarChatRoomIds, setVisiblePillarChatRoomIds] = useState<string[]>([]);
 
-  /** C: 거래·배달 채팅 탭 visible 행만 — 목록 fingerprint 가 같으면 setState 생략(재구독 방지) */
-  useEffect(() => {
-    const pillarHasVisibleRows = pillar === "trade" || pillar === "delivery";
-    if (!pillarHasVisibleRows || mainSection !== "chats") {
-      if (visiblePillarChatRoomIdsFingerprintRef.current !== "") {
-        visiblePillarChatRoomIdsFingerprintRef.current = "";
-        setVisiblePillarChatRoomIds([]);
-      }
-      return;
-    }
+  const primaryListVisibleRoomIds = useMemo(() => {
     const ids = primaryListItems
       .map((row) => {
         const raw = resolveCommunityMessengerRoomIdFromChatRow(row);
         return raw ? normalizeCmRealtimeSubscribeRoomId(raw) : "";
       })
       .filter(Boolean);
-    const sortedUnique = [...new Set(ids)].sort();
-    const fp = sortedUnique.join("\0");
-    if (fp === visiblePillarChatRoomIdsFingerprintRef.current) {
+    return [...new Set(ids)].sort();
+  }, [primaryListItems]);
+
+  const applyVisiblePillarChatRoomIds = useCallback(
+    (ids: string[], reason: string) => {
+      const fp = [...ids].sort().join("\0");
+      if (fp === visiblePillarChatRoomIdsFingerprintRef.current) return;
+      cmRtHs4DiagnosisLog("pillar_visible_room_fp_changed", {
+        pillar,
+        mainSection,
+        reason,
+        ...cmRtHs4FingerprintDigest(fp),
+        prevFp: cmRtHs4FingerprintDigest(visiblePillarChatRoomIdsFingerprintRef.current),
+        rowCount: primaryListItems.length,
+      });
+      visiblePillarChatRoomIdsFingerprintRef.current = fp;
+      setVisiblePillarChatRoomIds(ids);
+    },
+    [mainSection, pillar, primaryListItems.length]
+  );
+
+  /** C: 거래=viewport IO+debounce / 배달=기존 전체 목록 — fingerprint 동일 시 setState 생략 */
+  useEffect(() => {
+    const pillarHasVisibleRows = pillar === "trade" || pillar === "delivery";
+    if (!pillarHasVisibleRows || mainSection !== "chats") {
+      setTradeVisibleRoomRealtimeReportingEnabled(false);
+      if (visiblePillarChatRoomIdsFingerprintRef.current !== "") {
+        visiblePillarChatRoomIdsFingerprintRef.current = "";
+        setVisiblePillarChatRoomIds([]);
+      }
       return;
     }
-    cmRtHs4DiagnosisLog("pillar_visible_room_fp_changed", {
-      pillar,
-      mainSection,
-      reason: "set_visible_pillar_chat_room_ids",
-      ...cmRtHs4FingerprintDigest(fp),
-      prevFp: cmRtHs4FingerprintDigest(visiblePillarChatRoomIdsFingerprintRef.current),
-      rowCount: primaryListItems.length,
-    });
-    visiblePillarChatRoomIdsFingerprintRef.current = fp;
-    setVisiblePillarChatRoomIds(sortedUnique);
-  }, [pillar, mainSection, primaryListItems]);
+
+    if (pillar === "delivery") {
+      setTradeVisibleRoomRealtimeReportingEnabled(false);
+      applyVisiblePillarChatRoomIds(primaryListVisibleRoomIds, "delivery_list_all_rows");
+      return;
+    }
+
+    const ioSupported = typeof IntersectionObserver !== "undefined";
+    setTradeVisibleRoomRealtimeReportingEnabled(ioSupported);
+    setTradeVisibleRoomRealtimePinnedIds(
+      routeOpenMessengerRoomIdNorm ? [routeOpenMessengerRoomIdNorm] : []
+    );
+
+    const syncFromRegistry = () => {
+      const ids = ioSupported
+        ? getTradeVisibleRoomSubscribeIds()
+        : capVisibleRoomIdsForTradeRealtime(primaryListVisibleRoomIds);
+      applyVisiblePillarChatRoomIds(ids, ioSupported ? "trade_viewport_registry" : "trade_list_io_fallback");
+    };
+
+    pruneTradeVisibleRoomRegistry(primaryListVisibleRoomIds);
+    syncFromRegistry();
+    if (!ioSupported) {
+      return () => setTradeVisibleRoomRealtimeReportingEnabled(false);
+    }
+
+    const unsubRegistry = subscribeTradeVisibleRoomRealtimeSubscribeSet(syncFromRegistry);
+    return () => {
+      unsubRegistry();
+      setTradeVisibleRoomRealtimeReportingEnabled(false);
+    };
+  }, [
+    applyVisiblePillarChatRoomIds,
+    mainSection,
+    pillar,
+    primaryListVisibleRoomIds,
+    routeOpenMessengerRoomIdNorm,
+  ]);
 
   const messengerRealtimeSubscribeMergedRoomIds = useMemo(
-    () => [...new Set([...homeRouteRealtimeRoomIds, ...visiblePillarChatRoomIds])].sort(),
-    [homeRouteRealtimeRoomIds, visiblePillarChatRoomIds]
+    () =>
+      pillar === "trade"
+        ? mergeHomeAndTradeVisibleRealtimeRoomIds(homeRouteRealtimeRoomIds, visiblePillarChatRoomIds)
+        : [...new Set([...homeRouteRealtimeRoomIds, ...visiblePillarChatRoomIds])].sort(),
+    [homeRouteRealtimeRoomIds, pillar, visiblePillarChatRoomIds]
   );
 
   /**

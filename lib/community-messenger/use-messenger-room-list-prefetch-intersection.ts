@@ -2,6 +2,10 @@
 
 import { useCallback, useRef } from "react";
 import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
+import {
+  isTradeVisibleRoomRealtimeReportingEnabled,
+  reportTradeRoomListIntersection,
+} from "@/lib/trade/trade-visible-room-realtime-registry";
 
 /**
  * 목록 행이 뷰포트에 대략 30~50% 이상 들어올 때만 `enqueueRoomPrefetch` — TTL·큐 중복은 큐 내부에서 처리.
@@ -32,7 +36,11 @@ export function useMessengerRoomListPrefetchRefCallback(
       const io = new IntersectionObserver(
         (entries) => {
           for (const e of entries) {
-            if (!e.isIntersecting) continue;
+            const intersecting = e.isIntersecting;
+            if (isTradeVisibleRoomRealtimeReportingEnabled()) {
+              reportTradeRoomListIntersection(roomIdRef.current, intersecting);
+            }
+            if (!intersecting) continue;
             if (typeof document !== "undefined" && document.visibilityState !== "visible") continue;
             enqueueRoomPrefetch(roomIdRef.current, priorityRef.current);
           }

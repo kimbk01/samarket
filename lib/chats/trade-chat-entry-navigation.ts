@@ -73,6 +73,8 @@ export function openCreateTradeChat(
   }
   startTradeChatEntryMark({ mode: "create", productId });
   const composeHref = tradeHubChatComposeHref({ productId });
+  /** compose 라우트 로드와 병렬로 resolve 선행 — UI·응답 shape 불변 */
+  prepareTradeChatRoom(productId);
   void router.prefetch(composeHref);
   void router.prefetch(TRADE_CHAT_SURFACE.messengerListHref);
   router.replace(composeHref, { scroll: false });

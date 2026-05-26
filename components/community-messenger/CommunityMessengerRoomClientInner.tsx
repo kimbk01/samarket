@@ -22,6 +22,7 @@ import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messe
 import { MessengerRoomPhase1TimelineHeavyHost } from "@/components/community-messenger/room/MessengerRoomPhase1TimelineHeavyHost";
 import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { noteR2M9Stage } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
+import { noteTradeChatRoomInnerChunkEval } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import {
   noteR2M11FirstClientBoundary,
   noteR2M11Phase1Visible,

@@ -11,6 +11,8 @@ import { noteR2M11RouteChangeStart } from "@/lib/community-messenger/room/cm-roo
 import { noteR2M11BRouteChangeStart } from "@/lib/community-messenger/room/cm-room-r2-m11b-breakdown";
 import { noteR2M11DRoomRouteChange } from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
 import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
+import { noteTradeChatEntryJourneyMilestone } from "@/lib/trade/trade-chat-entry-journey-perf";
+import { readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
 function isMessengerRoomPath(pathname: string): boolean {
   return pathname.startsWith("/community-messenger/rooms/");
@@ -51,6 +53,9 @@ export function MessengerRoomRouteEntryMountProbe({ stage }: { stage: "layout" |
       return;
     }
     recordRouteEntryElapsedMetricOnce("messenger_room_entry", "page_mount_end_ms");
+    if (readTradeChatEntryMark()) {
+      noteTradeChatEntryJourneyMilestone("room_page_mounted");
+    }
   }, [match, stage]);
 
   return null;

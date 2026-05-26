@@ -68,23 +68,25 @@ export function JobSeekingDetailCards({
     payAmount != null && !Number.isNaN(payAmount)
       ? `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`
       : payType === "negotiate"
-        ? "협의"
+        ? t("jobs_pay_negotiate")
         : "";
 
   const seekRows: { label: string; value: string }[] = [];
-  seekRows.push({ label: "글 유형", value: jobListingKindLabel(t, "work") });
-  if (workCategory) seekRows.push({ label: "희망 업종", value: workCategory });
-  if (workTerm) seekRows.push({ label: "희망 근무형태", value: jobWorkTermLabel(t, workTerm) });
+  seekRows.push({ label: t("ui_jobs_row_listing_kind"), value: jobListingKindLabel(t, "work") });
+  if (workCategory) seekRows.push({ label: t("ui_jobs_row_hope_industry"), value: workCategory });
+  if (workTerm) seekRows.push({ label: t("ui_jobs_row_hope_work_term"), value: jobWorkTermLabel(t, workTerm) });
 
-  if (timeLine) seekRows.push({ label: "가능 시간", value: timeLine });
-  if (payLabel) seekRows.push({ label: "희망 급여", value: payLabel });
+  if (timeLine) seekRows.push({ label: t("ui_jobs_row_available_time"), value: timeLine });
+  if (payLabel) seekRows.push({ label: t("ui_jobs_row_hope_pay"), value: payLabel });
   if (experienceLevel) {
     seekRows.push({
-      label: "경력",
-      value: EXPERIENCE_LEVEL_LABELS[experienceLevel] ?? experienceLevel,
+      label: t("ui_jobs_row_experience"),
+      value: EXPERIENCE_LEVEL_LABELS[experienceLevel]
+        ? t(EXPERIENCE_LEVEL_LABELS[experienceLevel])
+        : experienceLevel,
     });
   }
-  if (hopeWorkRegion) seekRows.push({ label: "희망 근무지역", value: hopeWorkRegion });
+  if (hopeWorkRegion) seekRows.push({ label: t("ui_jobs_row_hope_region"), value: hopeWorkRegion });
 
   const visaRaw = String(meta.seeker_visa ?? "").trim();
   const visaOpt = JOB_SEEKER_VISA_OPTIONS.find((o) => o.value === visaRaw);
@@ -94,12 +96,12 @@ export function JobSeekingDetailCards({
   const startLine = seekerStartLabel(t, meta);
 
   const extraRows: { label: string; value: string }[] = [];
-  if (langLine) extraRows.push({ label: "가능 언어", value: langLine });
-  if (visaLabel) extraRows.push({ label: "비자 상태", value: visaLabel });
-  if (startLine) extraRows.push({ label: "즉시 근무 가능 여부", value: startLine });
+  if (langLine) extraRows.push({ label: t("ui_jobs_row_languages_available"), value: langLine });
+  if (visaLabel) extraRows.push({ label: t("ui_jobs_row_visa_status"), value: visaLabel });
+  if (startLine) extraRows.push({ label: t("ui_jobs_row_start_availability"), value: startLine });
 
   if (geoLine && meetLine && meetLine !== geoLine) {
-    extraRows.push({ label: "이동 가능 지역", value: meetLine });
+    extraRows.push({ label: t("ui_jobs_row_mobility_region"), value: meetLine });
   }
 
   const content = (post.content ?? "").trim();

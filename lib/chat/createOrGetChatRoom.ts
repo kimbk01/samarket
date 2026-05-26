@@ -6,6 +6,15 @@ import {
   bypassesPhilippinePhoneVerificationGate,
 } from "@/lib/auth/member-access";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
+import { scheduleTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import {
+  recordTradeChatDuplicateRoomGuardMs,
+  recordTradeChatRouteCompileMs,
+  recordTradeC2CMetricMs,
+} from "@/lib/trade/trade-c2c-perf-metrics";
+import { noteTradeChatEntryJourneyMilestone } from "@/lib/trade/trade-chat-entry-journey-perf";
 import type { ChatRoomSource } from "@/lib/types/chat";
 
 const CHAT_ROOM_CACHE_TTL_MS = 60_000;
@@ -59,11 +68,17 @@ export function prepareTradeChatRoom(productId: string): void {
  * - 상품이 바뀌면 다른 방(친구 관계와 무관)
  * - POST /api/trade/chat/entry/resolve 단일 계약 → 서버가 item/start + 레거시 product_chats 폴백 처리
  */
+function tClient(key: Parameters<typeof safeTranslate>[1], fallbacks?: { fallbackKo?: string; fallbackEn?: string }): string {
+  return safeTranslate(getRuntimeAppLanguage(), key, fallbacks);
+}
+
 export async function createOrGetChatRoom(
   productId: string
 ): Promise<CreateOrGetChatRoomResult> {
   const user = getCurrentUser();
-  if (!user?.id) return { ok: false, error: "로그인이 필요합니다." };
+  if (!user?.id) {
+    return { ok: false, error: tClient("common_login_required") };
+  }
   if (user.phone_verified === false) {
     if (
       !bypassesPhilippinePhoneVerificationGate({
@@ -73,7 +88,13 @@ export async function createOrGetChatRoom(
         email: user.email,
       })
     ) {
-      return { ok: false, error: PHONE_VERIFICATION_REQUIRED_MESSAGE };
+      return {
+        ok: false,
+        error: tClient("auth_phone_gate_requirement", {
+          fallbackKo: PHONE_VERIFICATION_REQUIRED_MESSAGE,
+          fallbackEn: PHONE_VERIFICATION_REQUIRED_MESSAGE,
+        }),
+      };
     }
   }
 
@@ -84,8 +105,15 @@ export async function createOrGetChatRoom(
     }
   }
   const cached = itemRoomCache.get(key);
-  if (cached && cached.expiresAt > Date.now()) {
+    if (cached && cached.expiresAt > Date.now()) {
+    const guardT0 = performance.now();
     warmChatRoomEntryById(cached.roomId, cached.source);
+    scheduleTradeHubRoomRoutePrefetch({
+      roomId: cached.roomId,
+      messengerRoomId: cached.messengerRoomId,
+      roomSource: cached.source,
+    });
+    recordTradeChatDuplicateRoomGuardMs(performance.now() - guardT0);
     return {
       ok: true,
       roomId: cached.roomId,
@@ -95,7 +123,10 @@ export async function createOrGetChatRoom(
   }
 
   const running = inflightByUserProduct.get(key);
-  if (running) return running;
+  if (running) {
+    recordTradeChatDuplicateRoomGuardMs(0);
+    return running;
+  }
 
   const p = executeTradeChatStart(productId, key).finally(() => {
     inflightByUserProduct.delete(key);
@@ -109,6 +140,8 @@ async function executeTradeChatStart(
   cacheKey: string
 ): Promise<CreateOrGetChatRoomResult> {
   try {
+    noteTradeChatEntryJourneyMilestone("resolve_fetch_start");
+    const tResolve0 = performance.now();
     const res = await fetch("/api/trade/chat/entry/resolve", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -116,6 +149,14 @@ async function executeTradeChatStart(
         productId,
       }),
     });
+    const resolveMs = Math.round(performance.now() - tResolve0);
+    noteTradeChatEntryJourneyMilestone("resolve_fetch_done");
+    recordTradeC2CMetricMs("trade_chat_resolve_fetch_ms", resolveMs);
+    const compileHdr = res.headers.get("x-samarket-dev-compile-ms") ?? res.headers.get("x-samarket-compile-ms");
+    const compileMs = compileHdr != null ? Number(compileHdr) : NaN;
+    if (Number.isFinite(compileMs) && compileMs >= 0) {
+      recordTradeChatRouteCompileMs(compileMs);
+    }
     const data = (await res.json().catch(() => ({}))) as {
       ok?: boolean;
       roomId?: string;
@@ -137,6 +178,11 @@ async function executeTradeChatStart(
         expiresAt: Date.now() + CHAT_ROOM_CACHE_TTL_MS,
       });
       warmChatRoomEntryById(chatRoomId, source);
+      scheduleTradeHubRoomRoutePrefetch({
+        roomId: chatRoomId,
+        messengerRoomId: messengerId,
+        roomSource: source,
+      });
       return {
         ok: true,
         roomId: chatRoomId,
@@ -144,8 +190,10 @@ async function executeTradeChatStart(
         ...(messengerId ? { messengerRoomId: messengerId } : {}),
       };
     }
-    return { ok: false, error: data.error || "채팅방 생성에 실패했습니다." };
+    const fallback = tClient("chats_compose_create_failed");
+    return { ok: false, error: data.error?.trim() || fallback };
   } catch (e) {
-    return { ok: false, error: (e as Error)?.message ?? "채팅방 생성에 실패했습니다." };
+    const msg = (e as Error)?.message?.trim();
+    return { ok: false, error: msg || tClient("chats_compose_create_failed") };
   }
 }

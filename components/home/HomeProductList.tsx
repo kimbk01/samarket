@@ -29,6 +29,10 @@ import {
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
+import {
+  recordTradeListTotalMs,
+  sampleTradeMemoryHeapUsedMb,
+} from "@/lib/trade/trade-c2c-perf-metrics";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
   cancelScheduledWhenBrowserIdle,
@@ -143,7 +147,10 @@ export function HomeProductList({
           if (typeof requestAnimationFrame !== "function") return;
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              recordAppWidePhaseLastMs("trade_list_to_paint_ms", Math.round(performance.now() - paintT0));
+              const totalMs = Math.round(performance.now() - paintT0);
+              recordAppWidePhaseLastMs("trade_list_to_paint_ms", totalMs);
+              recordTradeListTotalMs(totalMs);
+              sampleTradeMemoryHeapUsedMb();
             });
           });
         });

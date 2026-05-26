@@ -8,6 +8,10 @@ import {
   computeTradePresenceLiveState,
   type TradePresenceLiveState,
 } from "@/lib/chats/trade-presence-policy";
+import {
+  bumpTradeRealtimeSubscribe,
+  bumpTradeRealtimeUnsubscribe,
+} from "@/lib/trade/trade-c2c-perf-metrics";
 
 const PEER_PING_TTL_MS = 45_000;
 const PRESENCE_EVENT = "presence:ping";
@@ -139,6 +143,7 @@ export function useTradeChatRoomPresence(args: {
     });
     markRealtimeSignal = sub.markSignal;
     subscription = sub;
+    bumpTradeRealtimeSubscribe();
     publishTimer = window.setInterval(publish, PUBLISH_INTERVAL_MS);
     tickTimer = window.setInterval(() => recompute(), 2000);
 
@@ -150,6 +155,7 @@ export function useTradeChatRoomPresence(args: {
       setChannelLive(false);
       setPeerLiveState("offline");
       subscription?.stop();
+      bumpTradeRealtimeUnsubscribe();
     };
   }, [
     args.bootstrapReady,

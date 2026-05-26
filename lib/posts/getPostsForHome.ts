@@ -4,6 +4,7 @@ import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
 import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { recordAppWidePhaseLastMs, samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
+import { recordTradeListPayloadBytes } from "@/lib/trade/trade-c2c-perf-metrics";
 import type { PostWithMeta } from "./schema";
 
 export type HomePostSort = "latest" | "popular";
@@ -287,6 +288,11 @@ export async function getPostsForHome(
       };
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_fetch_json_ms", Math.round(performance.now() - tJson0));
+        try {
+          recordTradeListPayloadBytes(new TextEncoder().encode(JSON.stringify(data)).length);
+        } catch {
+          /* ignore estimate errors */
+        }
       }
       const tBuild0 = dbg ? performance.now() : 0;
       const result = {
@@ -359,6 +365,11 @@ export async function getPostsForHome(
       };
       if (dbg) {
         recordAppWidePhaseLastMs("trade_home_posts_fetch_json_ms", Math.round(performance.now() - tJson0));
+        try {
+          recordTradeListPayloadBytes(new TextEncoder().encode(JSON.stringify(data)).length);
+        } catch {
+          /* ignore estimate errors */
+        }
       }
       const tBuild0 = dbg ? performance.now() : 0;
       const result = {

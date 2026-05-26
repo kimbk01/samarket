@@ -71,7 +71,7 @@ export function JobHiringDetailCards({
     payAmount != null && !Number.isNaN(payAmount)
       ? `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`
       : hirePayNegotiable
-        ? "협의"
+        ? t("jobs_pay_negotiate")
         : "";
 
   const dateRange =
@@ -94,7 +94,9 @@ export function JobHiringDetailCards({
 
   const workTimeParts: string[] = [];
   if (timeRange) {
-    workTimeParts.push(timeRange + (hireTimeNegotiable || workNegotiable ? " (협의 가능)" : ""));
+    workTimeParts.push(
+      timeRange + (hireTimeNegotiable || workNegotiable ? t("ui_jobs_time_negotiable_suffix") : "")
+    );
   }
   if (hireSlotsLabel) workTimeParts.push(hireSlotsLabel);
   if (!hireSlotsLabel && availableTime) workTimeParts.push(availableTime);
@@ -103,32 +105,39 @@ export function JobHiringDetailCards({
   const locLine = [workAddress, geoLine].filter(Boolean).join(" · ");
 
   const recruitRows: { label: string; value: string }[] = [];
-  recruitRows.push({ label: "글 유형", value: jobListingKindLabel(t, "hire") });
-  if (workCategory) recruitRows.push({ label: "업종", value: workCategory });
-  if (workTerm) recruitRows.push({ label: "근무 형태", value: jobWorkTermLabel(t, workTerm) });
-  if (showDates) recruitRows.push({ label: "근무 날짜", value: dateRange ?? "" });
-  if (hireDaysLabel) recruitRows.push({ label: "근무 요일", value: hireDaysLabel });
-  if (workTimeCombined) recruitRows.push({ label: "근무 시간", value: workTimeCombined });
-  if (payAmountLabel) recruitRows.push({ label: "급여", value: payAmountLabel });
-  if (headcount) recruitRows.push({ label: "모집 인원", value: headcount });
+  recruitRows.push({ label: t("ui_jobs_row_listing_kind"), value: jobListingKindLabel(t, "hire") });
+  if (workCategory) recruitRows.push({ label: t("ui_jobs_row_industry"), value: workCategory });
+  if (workTerm) recruitRows.push({ label: t("ui_jobs_row_work_term"), value: jobWorkTermLabel(t, workTerm) });
+  if (showDates) recruitRows.push({ label: t("ui_jobs_row_work_dates"), value: dateRange ?? "" });
+  if (hireDaysLabel) recruitRows.push({ label: t("ui_jobs_row_work_days"), value: hireDaysLabel });
+  if (workTimeCombined) recruitRows.push({ label: t("ui_jobs_row_work_hours"), value: workTimeCombined });
+  if (payAmountLabel) recruitRows.push({ label: t("ui_jobs_row_pay"), value: payAmountLabel });
+  if (headcount) recruitRows.push({ label: t("ui_jobs_row_headcount"), value: headcount });
   if (experienceRequired) {
     recruitRows.push({
-      label: "경력",
+      label: t("ui_jobs_row_experience"),
       value: EXPERIENCE_LEVEL_LABELS[experienceRequired]
         ? t(EXPERIENCE_LEVEL_LABELS[experienceRequired])
         : experienceRequired,
     });
   }
-  if (locLine) recruitRows.push({ label: "근무 위치", value: locLine });
+  if (locLine) recruitRows.push({ label: t("ui_jobs_row_location"), value: locLine });
 
   const condRows: { label: string; value: string }[] = [];
-  if (meta.hire_meal === true) condRows.push({ label: "식사 제공", value: "제공" });
-  if (meta.hire_housing === true) condRows.push({ label: "숙소 제공", value: "제공" });
+  if (meta.hire_meal === true) {
+    condRows.push({ label: t("ui_jobs_row_meal"), value: t("ui_jobs_value_provided") });
+  }
+  if (meta.hire_housing === true) {
+    condRows.push({ label: t("ui_jobs_row_housing"), value: t("ui_jobs_value_provided") });
+  }
   const visaNote = String(meta.hire_visa_note ?? "").trim();
-  if (visaNote) condRows.push({ label: "비자 안내", value: visaNote });
+  if (visaNote) condRows.push({ label: t("ui_jobs_row_visa_note"), value: visaNote });
   const langs = formatHireLanguagesPipe(t, meta);
-  if (langs) condRows.push({ label: "필요 언어", value: langs });
-  condRows.push({ label: "당일 지급 여부", value: sameDayPay ? "예" : "아니오" });
+  if (langs) condRows.push({ label: t("ui_jobs_row_languages_required"), value: langs });
+  condRows.push({
+    label: t("ui_jobs_row_same_day_pay"),
+    value: sameDayPay ? t("ui_jobs_value_yes") : t("ui_jobs_value_no"),
+  });
 
   const content = (post.content ?? "").trim();
 

@@ -6,6 +6,7 @@ import { after } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { ensureMessengerRoomIdForItemTrade } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
+import { persistProductChatMessengerRoomId } from "@/lib/trade/persist-trade-messenger-room-link";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
@@ -30,6 +31,12 @@ function trimMessengerCol(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const t = raw.trim();
   return t || "";
+}
+
+function trimMid(raw: unknown): string | undefined {
+  if (typeof raw !== "string") return undefined;
+  const t = raw.trim();
+  return t || undefined;
 }
 
 /** 메신저·`product_chats` 연결은 요청 경로에서 동기 처리 — 여기서는 감사 로그만 비동기 */
@@ -67,13 +74,30 @@ async function buildJsonForExistingItemTradeRoom(
 ): Promise<ItemTradeChatStartCoreResult> {
   const { existingRoomId, buyerId, itemId, sellerId, postRow, perf } = args;
 
-  perf?.mark("room_existing_participants_load");
-  const { data: participants } = await sbAny
-    .from("chat_room_participants")
-    .select("id, hidden, left_at, unread_count, reopen_count")
-    .eq("room_id", existingRoomId);
-
   const now = new Date().toISOString();
+  perf?.mark("room_existing_parallel_load");
+  const [participantsRes, linkQuickRes, pcRowRes] = await Promise.all([
+    sbAny
+      .from("chat_room_participants")
+      .select("id, hidden, left_at, unread_count, reopen_count")
+      .eq("room_id", existingRoomId),
+    sbAny
+      .from("chat_rooms")
+      .update({ reopened_at: now, updated_at: now })
+      .eq("id", existingRoomId)
+      .select("community_messenger_room_id")
+      .maybeSingle(),
+    sbAny
+      .from("product_chats")
+      .select("id, community_messenger_room_id")
+      .eq("post_id", itemId)
+      .eq("seller_id", sellerId)
+      .eq("buyer_id", buyerId)
+      .maybeSingle(),
+  ]);
+  perf?.noteDbRoundTrip(3);
+
+  const participants = participantsRes.data;
   const hiddenOrLeftParticipants = (participants ?? []).filter((p) => {
     const part = p as { hidden?: boolean; left_at?: string | null };
     return part.hidden || Boolean(part.left_at);
@@ -94,28 +118,53 @@ async function buildJsonForExistingItemTradeRoom(
           .eq("id", part.id)
       )
     );
+    perf?.noteDbRoundTrip(hiddenOrLeftParticipants.length);
     perf?.mark("room_existing_participants_reopen_updates_done");
+  } else {
+    perf?.mark("room_existing_participants_load");
   }
-  perf?.mark("room_existing_chat_rooms_link_select");
-  const { data: linkQuick } = await sbAny
-    .from("chat_rooms")
-    .update({ reopened_at: now, updated_at: now })
-    .eq("id", existingRoomId)
-    .select("community_messenger_room_id")
-    .maybeSingle();
-  const quickMessengerId = trimMessengerCol(
-    (linkQuick as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id
-  );
 
-  perf?.mark("messenger_room_ensure_sync");
-  const messengerRoomIdResolved = await ensureMessengerRoomIdForItemTrade(
-    sbAny,
-    buyerId,
-    itemId,
-    sellerId,
-    existingRoomId
-  ).catch(() => undefined);
-  const messengerOut = trimMessengerCol(messengerRoomIdResolved) || quickMessengerId;
+  const quickMessengerId = trimMessengerCol(
+    (linkQuickRes.data as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id
+  );
+  perf?.mark("room_existing_chat_rooms_link_select");
+
+  const pcRow = pcRowRes.data as { id?: string; community_messenger_room_id?: unknown } | null;
+  const pcId = trimMid(pcRow?.id);
+  const onPc = trimMid(pcRow?.community_messenger_room_id);
+
+  let messengerOut = quickMessengerId;
+
+  if (quickMessengerId && pcId && onPc === quickMessengerId) {
+    perf?.mark("messenger_room_existing_fast_path_aligned");
+  } else if (quickMessengerId && pcId && !onPc) {
+    perf?.mark("messenger_existing_fast_path_pc_backfill");
+    await persistProductChatMessengerRoomId(sbAny, pcId, quickMessengerId);
+    perf?.noteDbRoundTrip(1);
+  } else if (quickMessengerId && !pcId) {
+    perf?.mark("messenger_room_existing_fast_path_pc_ensure");
+    const messengerRoomIdResolved = await ensureMessengerRoomIdForItemTrade(
+      sbAny,
+      buyerId,
+      itemId,
+      sellerId,
+      existingRoomId,
+      { knownMessengerRoomId: quickMessengerId, perf }
+    ).catch(() => undefined);
+    messengerOut = trimMessengerCol(messengerRoomIdResolved) || quickMessengerId;
+  } else {
+    perf?.mark("messenger_room_ensure_sync");
+    const messengerRoomIdResolved = await ensureMessengerRoomIdForItemTrade(
+      sbAny,
+      buyerId,
+      itemId,
+      sellerId,
+      existingRoomId,
+      { knownMessengerRoomId: quickMessengerId || undefined, perf }
+    ).catch(() => undefined);
+    messengerOut = trimMessengerCol(messengerRoomIdResolved) || quickMessengerId;
+  }
+
   perf?.mark("messenger_room_schedule_after");
   schedulePostItemTradeRoomEventLog(sbAny, buyerId, itemId, existingRoomId, "room_reopened");
 
@@ -299,7 +348,8 @@ export async function runItemTradeChatStartCore(args: {
     buyerId,
     itemId,
     sellerId,
-    roomId
+    roomId,
+    { perf }
   ).catch(() => undefined);
   perf?.mark("messenger_schedule_after_new_room");
   schedulePostItemTradeRoomEventLog(sbAny, buyerId, itemId, roomId, "room_created");

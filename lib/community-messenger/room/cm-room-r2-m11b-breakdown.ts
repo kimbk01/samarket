@@ -4,6 +4,8 @@
  * R2-M11B — route_change → suspense_release 구간 분해(계측 전용).
  * 켜기: sessionStorage `samarket:debug:runtime=1`
  */
+import { readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+import { noteTradeChatEntryJourneyMilestone } from "@/lib/trade/trade-chat-entry-journey-perf";
 import { samarketRuntimeDebugEnabled, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 
 export type R2M11BPhase =
@@ -222,6 +224,9 @@ export function noteR2M11BFlightResponseStart(roomId: string, at?: number): void
 }
 
 export function noteR2M11BFlightResponseDone(roomId: string, at?: number): void {
+  if (readTradeChatEntryMark()) {
+    noteTradeChatEntryJourneyMilestone("room_rsc_flight_done");
+  }
   if (!samarketRuntimeDebugEnabled()) return;
   const id = roomId.trim();
   if (!id) return;

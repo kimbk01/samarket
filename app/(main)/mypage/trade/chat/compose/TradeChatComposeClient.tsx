@@ -20,10 +20,19 @@ import {
 import { patchTradeChatEntryMark, readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
+import { prefetchTradeHubRoomRouteBeforeNavigate, tryConsumeScheduledTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
+import { prefetchTradeChatRoomClientChunks } from "@/lib/trade/prefetch-trade-chat-room-client-chunks";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { readTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  recordTradeChatOpenTotalMs,
+} from "@/lib/trade/trade-c2c-perf-metrics";
+import {
+  noteTradeChatEntryJourneyMilestone,
+} from "@/lib/trade/trade-chat-entry-journey-perf";
 
 const LIST_HREF = TRADE_CHAT_SURFACE.messengerListHref;
 
@@ -33,6 +42,7 @@ export function TradeChatComposeClient({
   productId: string;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
   /** 방 ID 확정 후 짧게 "이동 중" 표시 — 라우트 전환 전까지 */
   const [goingRoomId, setGoingRoomId] = useState<string | null>(null);
@@ -48,13 +58,16 @@ export function TradeChatComposeClient({
   }, [productId]);
 
   useLayoutEffect(() => {
+    prefetchTradeChatRoomClientChunks();
+    noteTradeChatEntryJourneyMilestone("compose_route_mounted");
+    tryConsumeScheduledTradeHubRoomRoutePrefetch(router);
     const mark = readTradeChatEntryMark();
     const origin = mark?.startedAt ?? Date.now();
     logClientPerf("trade_chat.metrics", {
       trade_chat_compose_shell_visible_ms: Date.now() - origin,
       productId,
     });
-  }, [productId]);
+  }, [productId, router]);
 
   useEffect(() => {
     if (shellLoggedRef.current) return;
@@ -82,8 +95,9 @@ export function TradeChatComposeClient({
         resolveLoggedRef.current = true;
         const mark0 = readTradeChatEntryMark();
         const origin0 = mark0?.startedAt ?? Date.now();
+        const resolveMs = Date.now() - origin0;
         logClientPerf("trade_chat.metrics", {
-          trade_chat_resolve_done_ms: Date.now() - origin0,
+          trade_chat_resolve_done_ms: resolveMs,
           productId,
         });
       }
@@ -91,35 +105,29 @@ export function TradeChatComposeClient({
       if (result.ok && result.roomId) {
         if (replaceStartedRef.current === result.roomId) return;
         replaceStartedRef.current = result.roomId;
-        if (!replaceLoggedRef.current) {
-          replaceLoggedRef.current = true;
-          const mark1 = readTradeChatEntryMark();
-          const origin1 = mark1?.startedAt ?? Date.now();
-          logClientPerf("trade_chat.metrics", {
-            trade_chat_replace_start_ms: Date.now() - origin1,
-            productId,
-          });
-        }
         setGoingRoomId(result.roomId);
+        prefetchTradeChatRoomClientChunks();
         warmChatRoomEntryById(result.roomId, result.roomSource);
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
         if (result.messengerRoomId?.trim()) {
           void prefetchCommunityMessengerRoomSnapshot(result.messengerRoomId.trim());
         }
         const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);
-        void router.prefetch(dest);
+        await prefetchTradeHubRoomRouteBeforeNavigate(router, dest, navRoomId);
         const mark = patchTradeChatEntryMark({
           roomId: result.roomId,
           sourceHint: result.roomSource,
           roomResolvedAt: Date.now(),
         });
         if (mark?.roomResolvedAt) {
+          const openMs = Math.max(0, mark.roomResolvedAt - mark.startedAt);
           logClientPerf("chat-entry.room-resolved", {
             mode: mark.mode,
             productId: mark.productId,
             roomId: result.roomId,
-            elapsedMs: Math.max(0, mark.roomResolvedAt - mark.startedAt),
+            elapsedMs: openMs,
           });
+          recordTradeChatOpenTotalMs(openMs);
         }
         emitTradeChatRoomResolved({
           productId,
@@ -129,11 +137,21 @@ export function TradeChatComposeClient({
         });
         const cmForList = result.messengerRoomId?.trim();
         if (cmForList) void requestMessengerHomeListMergeFromHomeSummary(cmForList, "trade_chat_entry_room_ready");
+        if (!replaceLoggedRef.current) {
+          replaceLoggedRef.current = true;
+          noteTradeChatEntryJourneyMilestone("router_replace_called");
+          const mark1 = readTradeChatEntryMark();
+          const origin1 = mark1?.startedAt ?? Date.now();
+          logClientPerf("trade_chat.metrics", {
+            trade_chat_replace_start_ms: Date.now() - origin1,
+            productId,
+          });
+        }
         router.replace(dest, { scroll: false });
         return;
       }
       const next = tradeHubChatComposeHref({ productId });
-      const errMsg = !result.ok ? result.error : "채팅방을 열 수 없습니다.";
+      const errMsg = !result.ok ? result.error : t("chats_compose_open_failed");
       if (redirectForBlockedAction(router, errMsg, next)) return;
       setError(errMsg);
     })();
@@ -154,8 +172,8 @@ export function TradeChatComposeClient({
     return (
       <TradeChatLoadingShell
         variant="creating"
-        label="채팅으로 이동 중..."
-        description="대화방을 열고 있어요."
+        label={t("chats_redirecting_to_room")}
+        description={t("chats_loading_opening_messages")}
       />
     );
   }

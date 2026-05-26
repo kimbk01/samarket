@@ -6,6 +6,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { noteR2M11Phase1SeedReady } from "@/lib/community-messenger/room/cm-room-r2-m11-suspense-release";
 import { noteR2M11BPhase1SeedReady } from "@/lib/community-messenger/room/cm-room-r2-m11b-breakdown";
+import { noteTradeChatRoomSnapshotReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
+import {
+  beginTradePhase1Breakdown,
+  endTradePhase1BreakdownSection,
+  finalizeTradePhase1Breakdown,
+  isTradePhase1EntryLightPass,
+  noteTradePhase1InitialMessageCount,
+  noteTradePhase1LargeArrayCount,
+  noteTradePhase1MemoWorkMs,
+} from "@/lib/trade/trade-chat-room-phase1-breakdown-perf";
 import {
   type ChangeEvent,
   useCallback,
@@ -192,6 +202,8 @@ export function useMessengerRoomClientPhase1({
 }: MessengerRoomClientPhase1Props) {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "useMessengerRoomClientPhase1_init_ms");
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "phase1_start_ms");
+  const phase1PerfTrack = beginTradePhase1Breakdown();
+  const phase1EntryLightPass = isTradePhase1EntryLightPass();
   const fromPropViewer = typeof initialViewerUserId === "string" ? initialViewerUserId.trim() : "";
   const fromServerViewer = initialServerSnapshot?.viewerUserId?.trim() ?? "";
   const initialViewerId = fromPropViewer || fromServerViewer;
@@ -266,8 +278,15 @@ export function useMessengerRoomClientPhase1({
     const resolved = prepared ?? buildClientShellPlaceholderSnapshot(roomId, viewerIdForPlaceholder);
     initialSnapshotResolved = resolved;
     recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_prepare_ms");
+    if (phase1PerfTrack) {
+      noteTradePhase1InitialMessageCount(resolved.messages?.length ?? 0);
+      noteTradePhase1LargeArrayCount(
+        Math.max(resolved.messages?.length ?? 0, resolved.members?.length ?? 0)
+      );
+    }
     return resolved;
   });
+  if (phase1PerfTrack) endTradePhase1BreakdownSection("bootstrap_normalize");
   /** DB `community_messenger_messages.room_id` — URL id(거래·레거시)와 다를 수 있어 Realtime 필터는 이 값을 쓴다. */
   const streamRoomId = useMemo(() => {
     const c =
@@ -276,12 +295,14 @@ export function useMessengerRoomClientPhase1({
     const r = String(roomId ?? "").trim();
     return (c || r).trim();
   }, [snapshot?.room?.id, initialServerSnapshot?.room?.id, roomId]);
+  if (phase1PerfTrack) endTradePhase1BreakdownSection("unread_state_init");
 
   useLayoutEffect(() => {
     const rid = String(roomId ?? "").trim();
     if (!rid || !snapshot) return;
     noteR2M11Phase1SeedReady(rid);
     noteR2M11BPhase1SeedReady(rid);
+    noteTradeChatRoomSnapshotReadyForShellBreakdown();
   }, [roomId, snapshot?.room.id]);
 
   /** dynamic import·슬라이드·BootstrapGate — props 시드가 placeholder 보다 풍부하면 즉시 승격(빈 타임라인 포함) */
@@ -333,6 +354,7 @@ export function useMessengerRoomClientPhase1({
   if (!phase1SnapshotCommitRecordedRef.current && snapshot?.room?.id) {
     phase1SnapshotCommitRecordedRef.current = true;
     recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_commit_ms");
+    if (phase1PerfTrack) endTradePhase1BreakdownSection("store_hydration");
   }
 
   useEffect(() => {
@@ -576,35 +598,63 @@ export function useMessengerRoomClientPhase1({
     };
   }, []);
 
-  const refreshBootstrap = useMemo(
-    () =>
-      createMessengerRoomBootstrapRefresh({
-        roomId,
-        viewerBootstrapDedupRef,
-        setSnapshot,
-        setLoading,
-        setRoomReadyForRealtime,
-        loadedRef,
-        deferredMemberBootstrapRef,
-        silentRoomRefreshBusyRef,
-        silentRoomRefreshAgainRef,
-        silentBootstrapThrottleCoalesceTimerRef,
-        swrDeferredBootstrapTimerRef,
-      }),
-    [
-      roomId,
-      viewerBootstrapDedupRef,
-      setSnapshot,
-      setLoading,
-      setRoomReadyForRealtime,
-      loadedRef,
-      deferredMemberBootstrapRef,
-      silentRoomRefreshBusyRef,
-      silentRoomRefreshAgainRef,
-      silentBootstrapThrottleCoalesceTimerRef,
-      swrDeferredBootstrapTimerRef,
-    ]
+  const refreshBootstrapDepsRef = useRef({
+    roomId,
+    viewerBootstrapDedupRef,
+    setSnapshot,
+    setLoading,
+    setRoomReadyForRealtime,
+    loadedRef,
+    deferredMemberBootstrapRef,
+    silentRoomRefreshBusyRef,
+    silentRoomRefreshAgainRef,
+    silentBootstrapThrottleCoalesceTimerRef,
+    swrDeferredBootstrapTimerRef,
+  });
+  refreshBootstrapDepsRef.current = {
+    roomId,
+    viewerBootstrapDedupRef,
+    setSnapshot,
+    setLoading,
+    setRoomReadyForRealtime,
+    loadedRef,
+    deferredMemberBootstrapRef,
+    silentRoomRefreshBusyRef,
+    silentRoomRefreshAgainRef,
+    silentBootstrapThrottleCoalesceTimerRef,
+    swrDeferredBootstrapTimerRef,
+  };
+
+  const refreshBootstrapImplRef = useRef<ReturnType<typeof createMessengerRoomBootstrapRefresh> | null>(
+    null
   );
+
+  const ensureRefreshBootstrapImpl = useCallback(() => {
+    if (refreshBootstrapImplRef.current) return refreshBootstrapImplRef.current;
+    const d = refreshBootstrapDepsRef.current;
+    refreshBootstrapImplRef.current = createMessengerRoomBootstrapRefresh({
+      roomId: d.roomId,
+      viewerBootstrapDedupRef: d.viewerBootstrapDedupRef,
+      setSnapshot: d.setSnapshot,
+      setLoading: d.setLoading,
+      setRoomReadyForRealtime: d.setRoomReadyForRealtime,
+      loadedRef: d.loadedRef,
+      deferredMemberBootstrapRef: d.deferredMemberBootstrapRef,
+      silentRoomRefreshBusyRef: d.silentRoomRefreshBusyRef,
+      silentRoomRefreshAgainRef: d.silentRoomRefreshAgainRef,
+      silentBootstrapThrottleCoalesceTimerRef: d.silentBootstrapThrottleCoalesceTimerRef,
+      swrDeferredBootstrapTimerRef: d.swrDeferredBootstrapTimerRef,
+    });
+    return refreshBootstrapImplRef.current;
+  }, []);
+
+  /** trade shell-critical 첫 render — factory 생성을 첫 refresh 호출(대개 useEffect)까지 미룸 */
+  const refreshBootstrap = useMemo((): ReturnType<typeof createMessengerRoomBootstrapRefresh> => {
+    if (phase1EntryLightPass) {
+      return (silent, opts) => ensureRefreshBootstrapImpl()(silent, opts);
+    }
+    return ensureRefreshBootstrapImpl();
+  }, [ensureRefreshBootstrapImpl, phase1EntryLightPass, roomId]);
 
   const entrySilentBurstUntilRef = useRef(0);
   const entrySilentRefreshDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1079,6 +1129,8 @@ export function useMessengerRoomClientPhase1({
     },
   });
 
+  if (phase1PerfTrack) endTradePhase1BreakdownSection("realtime_prepare");
+
   useMessengerRoomBumpBroadcastSubscription({
     roomId,
     streamRoomId,
@@ -1151,6 +1203,8 @@ export function useMessengerRoomClientPhase1({
     readGateVersion,
     peerTailMarkReadHintRef,
   });
+
+  if (phase1PerfTrack) endTradePhase1BreakdownSection("read_state_init");
 
   useEffect(() => {
     if (!snapshot) {
@@ -1230,10 +1284,16 @@ export function useMessengerRoomClientPhase1({
   });
 
   const roomMembersDisplay = useMemo(() => {
-    if (!snapshot) return [];
+    const tMemo0 = typeof performance !== "undefined" ? performance.now() : 0;
+    if (!snapshot) {
+      if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+      return [];
+    }
     const baseIds = new Set(snapshot.members.map((m) => m.id));
     const extra = pagedRoomMembers.filter((m) => !baseIds.has(m.id));
-    return [...snapshot.members, ...extra];
+    const merged = [...snapshot.members, ...extra];
+    if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+    return merged;
   }, [snapshot, pagedRoomMembers]);
 
   useEffect(() => {
@@ -1298,21 +1358,24 @@ export function useMessengerRoomClientPhase1({
   }, [activeSheet, loadMoreRoomMembers, membersListNextOffset, snapshot?.membersDeferred]);
 
   const inviteCandidates = useMemo(() => {
+    if (phase1EntryLightPass) return [];
     const memberIds = new Set(roomMembersDisplay.map((member) => member.id));
     return friends.filter((friend) => !memberIds.has(friend.id));
-  }, [friends, roomMembersDisplay]);
+  }, [friends, roomMembersDisplay, phase1EntryLightPass]);
   const filteredInviteCandidates = useMemo(() => {
+    if (phase1EntryLightPass) return [];
     const keyword = inviteSearchQuery.trim().toLowerCase();
     if (!keyword) return inviteCandidates;
     return inviteCandidates.filter((friend) => {
       const haystack = [friend.label, friend.subtitle ?? ""].join(" ").toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [inviteCandidates, inviteSearchQuery]);
+  }, [inviteCandidates, inviteSearchQuery, phase1EntryLightPass]);
   const selectedInviteCandidates = useMemo(() => {
+    if (phase1EntryLightPass) return [];
     const inviteMap = new Map(inviteCandidates.map((friend) => [friend.id, friend]));
     return inviteIds.map((id) => inviteMap.get(id)).filter((friend): friend is CommunityMessengerProfileLite => Boolean(friend));
-  }, [inviteCandidates, inviteIds]);
+  }, [inviteCandidates, inviteIds, phase1EntryLightPass]);
 
   const dismissRoomSheet = useCallback(() => {
     setActiveSheet(null);
@@ -1325,15 +1388,18 @@ export function useMessengerRoomClientPhase1({
   const messageSearchResults = timelineHeavyBundle?.messageSearchResults ?? [];
   const mediaGalleryMessages = timelineHeavyBundle?.mediaGalleryMessages ?? [];
   const linkThreadMessages = timelineHeavyBundle?.linkThreadMessages ?? [];
-  const displayRoomMessagesBootstrap = useMemo(
-    () =>
-      collapseDuplicateStoreOrderSummaryMessages(
-        roomMessages.filter(
-          (m) => !(m.messageType === "call_stub" && hiddenCallStubIds.has(m.id))
-        )
-      ),
-    [hiddenCallStubIds, roomMessages]
-  );
+  const displayRoomMessagesBootstrap = useMemo(() => {
+    const tMemo0 = typeof performance !== "undefined" ? performance.now() : 0;
+    const filtered = roomMessages.filter(
+      (m) => !(m.messageType === "call_stub" && hiddenCallStubIds.has(m.id))
+    );
+    const result = phase1EntryLightPass
+      ? filtered
+      : collapseDuplicateStoreOrderSummaryMessages(filtered);
+    if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+    return result;
+  }, [hiddenCallStubIds, roomMessages, phase1EntryLightPass, phase1PerfTrack]);
+  if (phase1PerfTrack) endTradePhase1BreakdownSection("messages_normalize");
   const displayRoomMessages =
     timelineHeavyBundle?.displayRoomMessages ?? displayRoomMessagesBootstrap;
   const fileMessages = timelineHeavyBundle?.fileMessages ?? [];
@@ -1397,20 +1463,33 @@ export function useMessengerRoomClientPhase1({
   }, [roomId]);
   const groupAdminCount = useMemo(
     () =>
-      roomMembersDisplay.filter(
-        (member) =>
-          member.memberRole === "admin" &&
-          (!snapshot?.room.ownerUserId || !messengerUserIdsEqual(member.id, snapshot.room.ownerUserId))
-      ).length,
-    [snapshot?.room.ownerUserId, roomMembersDisplay]
+      phase1EntryLightPass
+        ? 0
+        : roomMembersDisplay.filter(
+            (member) =>
+              member.memberRole === "admin" &&
+              (!snapshot?.room.ownerUserId || !messengerUserIdsEqual(member.id, snapshot.room.ownerUserId))
+          ).length,
+    [snapshot?.room.ownerUserId, roomMembersDisplay, phase1EntryLightPass]
   );
   const aliasProfileCount = useMemo(
-    () => roomMembersDisplay.filter((member) => member.identityMode === "alias").length,
-    [roomMembersDisplay]
+    () =>
+      phase1EntryLightPass
+        ? 0
+        : roomMembersDisplay.filter((member) => member.identityMode === "alias").length,
+    [roomMembersDisplay, phase1EntryLightPass]
   );
   const sortedMembers = useMemo(() => {
-    if (!snapshot) return [];
-    return [...roomMembersDisplay].sort((left, right) => {
+    const tMemo0 = typeof performance !== "undefined" ? performance.now() : 0;
+    if (!snapshot) {
+      if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+      return [];
+    }
+    if (phase1EntryLightPass) {
+      if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+      return roomMembersDisplay;
+    }
+    const sorted = [...roomMembersDisplay].sort((left, right) => {
       const rank = (member: CommunityMessengerProfileLite) => {
         const isMemberOwner = Boolean(snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, snapshot.room.ownerUserId));
         if (isMemberOwner) return 0;
@@ -1422,7 +1501,10 @@ export function useMessengerRoomClientPhase1({
       if (rankDiff !== 0) return rankDiff;
       return left.label.localeCompare(right.label, "ko");
     });
-  }, [snapshot, roomMembersDisplay]);
+    if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+    return sorted;
+  }, [snapshot, roomMembersDisplay, phase1EntryLightPass, phase1PerfTrack]);
+  if (phase1PerfTrack) endTradePhase1BreakdownSection("participants_normalize");
   const scrollToRoomMessage = useCallback(
     (messageId: string) => {
       dismissRoomSheet();
@@ -1499,6 +1581,10 @@ export function useMessengerRoomClientPhase1({
     setFriends(res.ok && json.ok ? json.friends ?? [] : []);
     setFriendsLoaded(true);
   }, [friendsLoaded]);
+  if (phase1PerfTrack) {
+    endTradePhase1BreakdownSection("memo_compute");
+    finalizeTradePhase1Breakdown();
+  }
   return {
   timelineHeavyLive,
   timelineVirtualizerGeneration,

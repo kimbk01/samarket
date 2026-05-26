@@ -46,7 +46,18 @@ import {
   TRADE_POST_DETAIL_BOTTOM_SHELL,
 } from "@/components/product/detail/product-detail-bottom-constants";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
-import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
+import { getCarTradeLabel } from "@/lib/posts/car-trade-label";
+import {
+  isReDealTypeRent,
+  isReDealTypeSale,
+  tradeDetailChatBlockBanner,
+  tradeDetailFavoritesLine,
+  tradeDetailReRentSummary,
+  tradeDetailReSalePriceLine,
+  tradeDetailReSaleSummary,
+  tradeDetailChatBlockTitle,
+  tradeDetailViewsLine,
+} from "@/lib/trade/post-detail-i18n";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -93,6 +104,7 @@ import {
   recordRouteEntryRouteTotalMs,
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { recordTradeDetailTotalMs } from "@/lib/trade/trade-c2c-perf-metrics";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { formatAtUsername } from "@/lib/users/user-label";
@@ -381,15 +393,15 @@ function RealEstateMetaBlock({
   if (!detailHeroDedup && meta.deal_type != null && String(meta.deal_type).trim())
     rows.push({ label: t("ui_meta_deal_type"), value: String(meta.deal_type).trim() });
 
-  if (!detailHeroDedup && dealType === "판매" && salePrice != null)
+  if (!detailHeroDedup && isReDealTypeSale(dealType) && salePrice != null)
     rows.push({ label: t("ui_meta_price"), value: formatPrice(salePrice, currency) });
-  if (!detailHeroDedup && dealType === "임대") {
+  if (!detailHeroDedup && isReDealTypeRent(dealType)) {
     if (meta.deposit != null && String(meta.deposit).trim())
       rows.push({ label: t("ui_meta_deposit"), value: formatPrice(parseMetaAmount(meta.deposit), currency) });
     if (meta.monthly != null && String(meta.monthly).trim())
       rows.push({ label: t("ui_meta_monthly"), value: formatPrice(parseMetaAmount(meta.monthly), currency) });
   }
-  if (dealType === "임대") {
+  if (isReDealTypeRent(dealType)) {
     if (meta.management_fee != null && String(meta.management_fee).trim())
       rows.push({
         label: t("ui_meta_management_fee"),
@@ -497,7 +509,9 @@ function PostDetailSellerProfileRow({
   author: PostDetailSellerAuthor | null;
   regionLine: React.ReactNode;
 }) {
-  const displayName = author?.display_name?.trim() || author?.nickname?.trim() || "판매자";
+  const { t } = useI18n();
+  const displayName =
+    author?.display_name?.trim() || author?.nickname?.trim() || t("trade_detail_seller_fallback");
   const atUsername = formatAtUsername(author?.username ?? null);
   const label = displayName;
   const initial = label.charAt(0).toUpperCase() || "?";
@@ -611,7 +625,7 @@ function TradePostDetailActionBar({
             type="button"
             onClick={onFavorite}
             className={TRADE_POST_DETAIL_BOTTOM_FAVORITE_BTN}
-            aria-label={isFavorite ? "관심 해제" : "관심"}
+            aria-label={isFavorite ? t("ui_fav_interest_remove_aria") : t("ui_fav_interest_add_aria")}
           >
             <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
             <span className="text-[12px] font-semibold text-[#65676B]">{t("ui_fav_interest")}</span>
@@ -619,8 +633,8 @@ function TradePostDetailActionBar({
           {reFooterSummary ? (
             <div className={TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY}>
               <p className="truncate text-[14px] font-semibold text-[#050505]">
-                {reFooterSummary.dealType === "판매"
-                  ? `판매가 ${reFooterSummary.priceLine}`
+                {isReDealTypeSale(reFooterSummary.dealType)
+                  ? tradeDetailReSalePriceLine(t, reFooterSummary.priceLine)
                   : reFooterSummary.priceLine}
               </p>
               <p className="text-[11px] font-medium text-[#65676B]">{t("ui_post_estimated_broker_fee")}</p>
@@ -633,7 +647,7 @@ function TradePostDetailActionBar({
               ) : null}
               {buyerPriceOfferFlowActive && showBuyerOfferPendingDisabled ? (
                 <button type="button" disabled className={`${TRADE_POST_DETAIL_BOTTOM_MUTED_CTA} flex-1`}>
-                  제안 대기중
+                  {t("ui_offer_status_pending")}
                 </button>
               ) : null}
               {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && bottomBarHasOfferBtn ? (
@@ -660,24 +674,23 @@ function TradePostDetailActionBar({
                   }
                   className={`${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} flex-1`}
                   title={
-                    jobApplyDone && chatBlockedByCompleted
-                      ? "거래완료 상품입니다"
-                      : jobApplyDone && chatBlockedByReservedState
-                        ? "예약중 입니다."
-                        : jobApplyDone && chatBlockedByOtherReservation
-                          ? "다른 구매자와 예약이 진행 중입니다"
-                          : jobApplyDone && !uiTradeChatEnabled
-                            ? "채팅이 비활성화되어 있습니다"
-                            : undefined
+                    jobApplyDone
+                      ? tradeDetailChatBlockTitle(t, {
+                          completed: chatBlockedByCompleted,
+                          reserved: chatBlockedByReservedState,
+                          otherReservation: chatBlockedByOtherReservation,
+                          chatDisabled: !uiTradeChatEnabled,
+                        })
+                      : undefined
                   }
                 >
                   {jobApplyBusy
                     ? t("community_meeting_join_processing")
                     : jobApplyDone
                       ? chatCtaBusy
-                        ? "이동 중…"
+                        ? t("trade_detail_navigating")
                         : tradeChatCtaLabel
-                      : "지원·문의하기"}
+                      : t("trade_detail_contact_inquire")}
                 </button>
               ) : null}
               {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobApplyBtn && !jobHireMergedApplyChatBtn ? (
@@ -687,7 +700,11 @@ function TradePostDetailActionBar({
                   disabled={jobApplyBusy || jobApplyDone}
                   className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
                 >
-                  {jobApplyDone ? "지원 완료" : jobApplyBusy ? t("community_meeting_join_processing") : "지원하기"}
+                  {jobApplyDone
+                    ? t("trade_detail_job_apply_done")
+                    : jobApplyBusy
+                      ? t("community_meeting_join_processing")
+                      : t("trade_detail_job_apply")}
                 </button>
               ) : null}
               {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobSeekContactBtn ? (
@@ -705,7 +722,7 @@ function TradePostDetailActionBar({
                   }
                   className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
                 >
-                  연락하기
+                  {t("trade_detail_contact_cta")}
                 </button>
               ) : null}
               {!buyerOfferListHydrating &&
@@ -729,19 +746,14 @@ function TradePostDetailActionBar({
                       ? `${TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA} flex-1`
                       : TRADE_POST_DETAIL_BOTTOM_PRIMARY_CTA
                   }
-                  title={
-                    chatBlockedByCompleted
-                      ? "거래완료 상품입니다"
-                      : chatBlockedByReservedState
-                        ? "예약중 입니다."
-                        : chatBlockedByOtherReservation
-                          ? "다른 구매자와 예약이 진행 중입니다"
-                          : !uiTradeChatEnabled
-                            ? "채팅이 비활성화되어 있습니다"
-                            : undefined
-                  }
+                  title={tradeDetailChatBlockTitle(t, {
+                    completed: chatBlockedByCompleted,
+                    reserved: chatBlockedByReservedState,
+                    otherReservation: chatBlockedByOtherReservation,
+                    chatDisabled: !uiTradeChatEnabled,
+                  })}
                 >
-                  {chatCtaBusy ? "이동 중…" : tradeChatCtaLabel}
+                  {chatCtaBusy ? t("trade_detail_navigating") : tradeChatCtaLabel}
                 </button>
               ) : null}
             </div>
@@ -1056,7 +1068,7 @@ export function PostDetailView({
   }, [post.category_id]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const tradeDetailHeaderTitle = category?.name?.trim() || "거래";
+  const tradeDetailHeaderTitle = category?.name?.trim() || t("trade_detail_header_fallback");
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -1067,13 +1079,13 @@ export function PostDetailView({
         titleText: tradeDetailHeaderTitle,
         /** 항상 해당 카테고리 목록(`/market/{id}`)으로 — 히스토리 백 미사용 */
         preferHistoryBack: false,
-        ariaLabel: "목록으로",
+        ariaLabel: t("trade_detail_back_to_list"),
         showHubQuickActions: false,
         leftSlot: (
           <AppBackButton
             preferHistoryBack={false}
             backHref={backHref}
-            ariaLabel="목록으로"
+            ariaLabel={t("trade_detail_back_to_list")}
             className="text-[#111]"
             iconClassName="h-[22px] w-[22px]"
           />
@@ -1118,10 +1130,14 @@ export function PostDetailView({
     backHref,
     isOwnPost,
     showSellerMoreMenu,
+    t,
   ]);
 
   useLayoutEffect(() => {
     recordRouteEntryRouteTotalMs("product_detail", initialRouteTotalMs);
+    if (typeof initialRouteTotalMs === "number" && Number.isFinite(initialRouteTotalMs)) {
+      recordTradeDetailTotalMs(initialRouteTotalMs);
+    }
     if (typeof window !== "undefined") {
       recordRouteEntryFetchNetworkFromResources("product_detail", [
         window.location.pathname,
@@ -1293,12 +1309,12 @@ export function PostDetailView({
         setReportReason((prev) => (prev === "" ? prev : ""));
         setReportError((prev) => (prev === "" ? prev : ""));
       } else {
-        setReportError(res.error ?? "신고 접수에 실패했습니다.");
+        setReportError(res.error ?? t("ui_report_failed"));
       }
     } finally {
       setReportSubmitting((prev) => (prev ? false : prev));
     }
-  }, [post.id, reportReason, router]);
+  }, [post.id, reportReason, router, t]);
 
   const chatBlockedByOtherReservation = useMemo(() => {
     if (post.type === "community") return false;
@@ -1328,11 +1344,11 @@ export function PostDetailView({
       return;
     }
     if (chatBlockedByCompleted) {
-      setChatError("거래완료 상품입니다.");
+      setChatError(t("trade_detail_chat_blocked_completed"));
       return;
     }
     if (chatBlockedByReservedState) {
-      setChatError("예약중 입니다.");
+      setChatError(t("trade_detail_chat_blocked_reserved"));
       return;
     }
     if (existingTradeRoomId) {
@@ -1345,22 +1361,22 @@ export function PostDetailView({
       return;
     }
     if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) {
-      setChatError("내 상품에는 채팅할 수 없습니다.");
+      setChatError(t("trade_detail_chat_error_own_product"));
       return;
     }
     if (chatBlockedByOtherReservation) {
-      setChatError("다른 분과 예약이 진행 중인 상품입니다. 예약자가 아니면 새 채팅을 열 수 없어요.");
+      setChatError(t("trade_detail_chat_error_reserved_buyer"));
       return;
     }
     const thumbs = resolveTradePostDetailImageUrls(post);
     const productThumbnail = thumbs[0] ?? "";
-    const productTitle = (post.title ?? "상품").trim();
+    const productTitle = (post.title ?? t("trade_detail_product_fallback")).trim();
     const priceText = post.is_free_share
-      ? "무료나눔"
+      ? t("trade_detail_free_share")
       : post.price != null
         ? formatPrice(post.price, defaultCurrency)
-        : "가격 문의";
-    const sellerName = author?.nickname?.trim() || "판매자";
+        : t("trade_detail_price_inquiry");
+    const sellerName = author?.nickname?.trim() || t("trade_detail_seller_fallback");
     const sellerNameDisplay = author?.display_name?.trim() || sellerName;
     openCreateTradeChat(router, {
       productId: post.id,
@@ -1383,6 +1399,7 @@ export function PostDetailView({
     chatBlockedByOtherReservation,
     chatBlockedByCompleted,
     chatBlockedByReservedState,
+    t,
   ]);
 
   const runCancelOwnSale = useCallback(async () => {
@@ -1396,7 +1413,7 @@ export function PostDetailView({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        window.alert(data.error ?? "처리하지 못했습니다.");
+        window.alert(data.error ?? t("trade_detail_owner_action_failed"));
         return;
       }
       setSellerMoreOpen(false);
@@ -1407,7 +1424,7 @@ export function PostDetailView({
     } finally {
       setSellerSheetBusy(false);
     }
-  }, [post.id, router]);
+  }, [post.id, router, t]);
 
   const handleOwnerEdit = useCallback(() => {
     setSellerMoreOpen(false);
@@ -1425,7 +1442,7 @@ export function PostDetailView({
       );
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        window.alert(data.error ?? "삭제하지 못했습니다.");
+        window.alert(data.error ?? t("trade_detail_delete_failed"));
         return;
       }
       setSellerMoreOpen(false);
@@ -1436,7 +1453,7 @@ export function PostDetailView({
     } finally {
       setSellerSheetBusy(false);
     }
-  }, [post.id, router, backHref]);
+  }, [post.id, router, backHref, t]);
 
   const isSold = post.status === "sold";
   const showPrice =
@@ -1690,11 +1707,11 @@ export function PostDetailView({
   const isJobSeekForChatCta =
     isJobTradePost && (listingKindJob === "work" || jobTypeForChatCta === "seek");
   const chatCtaLabel = isJobSeekForChatCta
-    ? "채팅하기"
+    ? t("trade_detail_chat_cta")
     : isJobTradePost
-      ? "문의하기"
-      : "채팅하기";
-  const tradeChatCtaLabel = existingTradeRoomId ? "채팅 이어가기" : chatCtaLabel;
+      ? t("trade_detail_inquire_cta")
+      : t("trade_detail_chat_cta");
+  const tradeChatCtaLabel = existingTradeRoomId ? t("trade_detail_chat_continue") : chatCtaLabel;
 
   const jobDetailDirection = resolveJobDetailDirection(detailMetaJob);
   const showJobApplyBtn =
@@ -1751,11 +1768,11 @@ export function PostDetailView({
         void handleChat();
         return;
       }
-      setChatError(typeof data.error === "string" ? data.error : "지원에 실패했습니다.");
+      setChatError(typeof data.error === "string" ? data.error : t("trade_detail_job_apply_failed"));
     } finally {
       setJobApplyBusy(false);
     }
-  }, [resolvedViewerId, jobApplyBusy, jobApplyDone, post.id, handleChat]);
+  }, [resolvedViewerId, jobApplyBusy, jobApplyDone, post.id, handleChat, t]);
 
   const listingLocationLine = useMemo(() => {
     const re =
@@ -1805,16 +1822,24 @@ export function PostDetailView({
   const reSizeNum = reSizeSq != null ? parseFloat(String(reSizeSq).replace(/,/g, "")) : NaN;
   const rePyeong = !Number.isNaN(reSizeNum) ? sqToPyeong(reSizeNum) : "";
   const rePriceSummary =
-    reDealType === "판매" && post.price != null
-      ? `매매 ${formatPrice(post.price, defaultCurrency)}`
-      : reDealType === "임대"
-        ? `보증금 ${formatPrice(parseMetaAmount(reMeta.deposit), defaultCurrency)} | 월세 ${formatPrice(parseMetaAmount(reMeta.monthly), defaultCurrency)}`
+    isReDealTypeSale(reDealType) && post.price != null
+      ? tradeDetailReSaleSummary(t, formatPrice(post.price, defaultCurrency))
+      : isReDealTypeRent(reDealType)
+        ? tradeDetailReRentSummary(
+            t,
+            formatPrice(parseMetaAmount(reMeta.deposit), defaultCurrency),
+            formatPrice(parseMetaAmount(reMeta.monthly), defaultCurrency)
+          )
         : "";
   const reFooterPrice =
-    reDealType === "판매" && post.price != null
+    isReDealTypeSale(reDealType) && post.price != null
       ? formatPrice(post.price, defaultCurrency)
-      : reDealType === "임대"
-        ? `보증금 ${formatPrice(parseMetaAmount(reMeta.deposit), defaultCurrency)} | 월세 ${formatPrice(parseMetaAmount(reMeta.monthly), defaultCurrency)}`
+      : isReDealTypeRent(reDealType)
+        ? tradeDetailReRentSummary(
+            t,
+            formatPrice(parseMetaAmount(reMeta.deposit), defaultCurrency),
+            formatPrice(parseMetaAmount(reMeta.monthly), defaultCurrency)
+          )
         : "";
 
   const postDetailSharedOverlays = (
@@ -1900,7 +1925,7 @@ export function PostDetailView({
                 onClick={() => setReportOpen(false)}
                 className="flex-1 rounded-ui-rect border border-sam-border py-2 sam-text-body text-sam-fg"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -1908,7 +1933,7 @@ export function PostDetailView({
                 disabled={!reportReason.trim() || reportSubmitting}
                 className="flex-1 rounded-ui-rect bg-red-600 py-2 sam-text-body font-medium text-white disabled:opacity-50"
               >
-                신고
+                {t("trade_detail_report_submit")}
               </button>
             </div>
           </div>
@@ -1929,8 +1954,8 @@ export function PostDetailView({
       .join(" · ");
     const reDetailFooterMetaParts = [
       formatTimeAgo(post.created_at),
-      post.view_count != null && `조회 ${post.view_count}`,
-      `관심 ${favoriteCount}`,
+      post.view_count != null && tradeDetailViewsLine(t, post.view_count),
+      tradeDetailFavoritesLine(t, favoriteCount),
     ].filter(Boolean) as string[];
     return (
       <div ref={rootRef} className={`w-full min-w-0 bg-sam-app ${showSellerTradeControls ? "pb-28" : "pb-24"}`}>
@@ -1942,7 +1967,7 @@ export function PostDetailView({
               <div
                 className={`flex min-h-[160px] w-full items-center justify-center overflow-hidden bg-[#f0f2f5] ${TRADE_FB_DETAIL_PLACEHOLDER_TEXT}`}
               >
-                이미지
+                {t("trade_detail_image_placeholder")}
               </div>
             )}
           </section>
@@ -1959,7 +1984,7 @@ export function PostDetailView({
               <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
               {post.is_price_offer === true ? (
                 <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
-                  가격 제안 가능
+                  {t("trade_detail_price_offer_badge")}
                 </span>
               ) : null}
             </div>
@@ -2074,8 +2099,8 @@ export function PostDetailView({
 
   const detailFooterMetaParts = [
     formatTimeAgo(post.created_at),
-    post.view_count != null && `조회 ${post.view_count}`,
-    `관심 ${favoriteCount}`,
+    post.view_count != null && tradeDetailViewsLine(t, post.view_count),
+    tradeDetailFavoritesLine(t, favoriteCount),
   ].filter(Boolean) as string[];
 
   const detailImageUrls = resolveTradePostDetailImageUrls(post);
@@ -2157,10 +2182,14 @@ export function PostDetailView({
                 const isRealEstate = category?.icon_key === "real-estate";
                 const meta = post.meta as Record<string, unknown> | undefined;
                 const dealType = meta?.deal_type as string | undefined;
-                if (isRealEstate && dealType === "임대") return null;
+                if (isRealEstate && isReDealTypeRent(dealType)) return null;
                 return (
                   <p className={TRADE_FB_DETAIL_PRICE}>
-                    {post.is_free_share ? "무료나눔" : post.price != null ? formatPrice(post.price, defaultCurrency) : ""}
+                    {post.is_free_share
+                      ? t("trade_detail_free_share")
+                      : post.price != null
+                        ? formatPrice(post.price, defaultCurrency)
+                        : ""}
                   </p>
                 );
               })() : null}
@@ -2168,12 +2197,12 @@ export function PostDetailView({
                 <TradeListingStatusBadge post={post} size="detail" className={TRADE_DETAIL_STATUS_BADGE_CLASS} />
                 {post.is_price_offer === true ? (
                   <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
-                    가격 제안 가능
+                    {t("trade_detail_price_offer_badge")}
                   </span>
                 ) : null}
                 {category?.icon_key === "used-car" &&
                   (() => {
-                    const lab = getCarTradeLabelKo(post.meta as Record<string, unknown> | undefined);
+                    const lab = getCarTradeLabel(t, post.meta as Record<string, unknown> | undefined);
                     if (!lab) return null;
                     return (
                       <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
@@ -2183,12 +2212,12 @@ export function PostDetailView({
                   })()}
                 {post.is_free_share && (
                   <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
-                    나눔
+                    {t("trade_050")}
                   </span>
                 )}
                 {(post.meta as Record<string, unknown> | undefined)?.direct_deal === true && (
                   <span className="inline-flex h-6 items-center rounded-[4px] bg-[#f1f3f5] px-2 text-[12px] font-medium leading-none text-[#555555]">
-                    직거래
+                    {t("trade_108")}
                   </span>
                 )}
               </div>

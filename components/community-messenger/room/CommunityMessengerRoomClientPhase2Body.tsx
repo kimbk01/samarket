@@ -67,6 +67,7 @@ import {
 } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { notifyCmTradeDockLayoutChange } from "@/lib/community-messenger/room/cm-trade-dock-layout";
 import { measureCmPassRenderCommit } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
+import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import {
   scheduleCmRoomPass1ToPass2,
   scheduleCmRoomPass2IdleExpand,
@@ -137,7 +138,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     if (logPass1) {
       useCmRoomOpeningOverlayStore.getState().noteHydrationComplete(rid);
       useCmRoomOpeningOverlayStore.getState().beginHandoff(rid);
-      finalizeCmRoomEntryShellVisibleMs(rid, false);
+      finalizeCmRoomEntryShellVisibleMs(rid, false, "phase2_main_shell");
       measureCmPassRenderCommit(1, phase2RenderPassStartRef.current);
       const renderMs = Math.round(performance.now() - phase2RenderPassStartRef.current);
       logCmRenderRoomEntry({
@@ -413,6 +414,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     if (firstMessageRenderRecordedRef.current) return;
     if (room.displayRoomMessages.length <= 0 || initialRenderedCount <= 0) return;
     firstMessageRenderRecordedRef.current = true;
+    noteTradeChatRoomFirstMessageReadyForShellBreakdown(room.displayRoomMessages.length);
     recordRouteEntryElapsedMetric("messenger_room_entry", "first_message_render_ms");
     recordRouteEntryMetric("messenger_room_entry", "initial_rendered_message_count", initialRenderedCount);
     recordRouteEntryFirstContentRender("messenger_room_entry");

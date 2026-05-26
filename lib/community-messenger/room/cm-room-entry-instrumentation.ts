@@ -10,6 +10,14 @@ import {
   warnCmPerfRegressionComposerVisibleMs,
   warnCmPerfRegressionShellVisibleMs,
 } from "@/lib/community-messenger/room/cm-messenger-perf-regression-guard";
+import { readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
+import { isTradeC2CPerfEnabled } from "@/lib/trade/trade-c2c-perf-metrics";
+import {
+  finalizeTradeChatRoomShellReadyWaitReason,
+  noteTradeChatRoomShellMounted,
+  type TradeChatRoomShellMountSource,
+} from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
+import { flushTradeChatEntryJourneyMetrics } from "@/lib/trade/trade-chat-entry-journey-perf";
 
 /**
  * Room entry perf — unread/read ack/realtime 의미 변경 없이 **측정·로그만** 담당.
@@ -130,12 +138,24 @@ export function recordCmRoomEntryMilestone(key: MilestoneKey): void {
 }
 
 /** PASS0 overlay·in-route shell — finalize 후 bootstrap 이 overwrite 못 함 */
-export function finalizeCmRoomEntryShellVisibleMs(roomId: string, coldBootstrap = true): number | null {
+export function finalizeCmRoomEntryShellVisibleMs(
+  roomId: string,
+  coldBootstrap = true,
+  shellMountSource: TradeChatRoomShellMountSource = coldBootstrap ? "pre_route_overlay" : "phase2_main_shell"
+): number | null {
   const id = String(roomId ?? "").trim();
   if (!id) return null;
   const ms = resolveMilestoneMs();
   if (ms != null) warnCmPerfRegressionShellVisibleMs(id, ms);
-  if (!cmRoomEntryTraceEnabled()) return null;
+
+  const tradeShellReady = isTradeC2CPerfEnabled() && Boolean(readTradeChatEntryMark());
+  if (tradeShellReady) {
+    noteTradeChatRoomShellMounted(shellMountSource);
+    finalizeTradeChatRoomShellReadyWaitReason();
+    flushTradeChatEntryJourneyMetrics("room_shell_ready");
+  }
+
+  if (!cmRoomEntryTraceEnabled()) return ms;
   traceRoomId = id;
   if (ms == null) return null;
   if (!writeMilestone("room_shell_visible_ms", ms, true)) {

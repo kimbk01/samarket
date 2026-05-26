@@ -54,6 +54,7 @@ import {
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { noteTradeChatRoomRealtimeReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS } from "@/lib/community-messenger/messenger-latency-config";
 import { logCmRtLifecycleFix } from "@/lib/community-messenger/realtime/cm-rt-lifecycle-fix-log";
 import { logCmRtGrace } from "@/lib/community-messenger/realtime/cm-rt-grace-log";
@@ -920,6 +921,7 @@ export function useCommunityMessengerRoomRealtime(args: {
     }
     set.add(listenerRef);
     recordCmRoomEntryMilestone("realtime_ready_ms");
+    noteTradeChatRoomRealtimeReadyForShellBreakdown();
     bundle.notifyRoomListenersChanged?.();
     let idleOnFirstRoomListener = -1;
     if (bundle.channelSubscribed && set.size === 1) {

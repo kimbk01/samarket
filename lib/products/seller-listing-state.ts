@@ -9,6 +9,8 @@ import {
   APP_FEED_LIST_ROW1_TEXT_DETAIL,
   APP_FEED_LIST_ROW1_TEXT_LIST,
 } from "@/lib/ui/app-feed-list-row1";
+import { publicListingBadgeI18n } from "@/lib/mypage/seller-listing-i18n";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export type SellerListingState = "inquiry" | "negotiating" | "reserved" | "completed";
 
@@ -57,10 +59,13 @@ export function publicListingBadge(
  * 리스트 카드 1단 거래 상태 배지 — `APP_FEED_LIST_ROW1_*`와 동일 레이아웃(전 스킨 공통).
  * 판매중: 보라 채움·흰 글자 / 문의중·예약중: 윤곽 등
  */
+type ListingBadgeTranslate = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
 export function listTradeStatusBadge(
   sellerListingStateRaw: unknown,
   postStatus: string | undefined,
-  size: "list" | "detail" = "list"
+  size: "list" | "detail" = "list",
+  t?: ListingBadgeTranslate
 ): { label: string; className: string } | null {
   const st = (postStatus ?? "active").toLowerCase();
   if (st === "sold") return null;
@@ -68,7 +73,7 @@ export function listTradeStatusBadge(
   const ls = normalizeSellerListingState(sellerListingStateRaw, postStatus);
   if (ls === "completed") return null;
 
-  const { label } = publicListingBadge(ls, postStatus);
+  const { label } = t ? publicListingBadgeI18n(t, ls, postStatus) : publicListingBadge(ls, postStatus);
 
   const textSz = size === "detail" ? APP_FEED_LIST_ROW1_TEXT_DETAIL : APP_FEED_LIST_ROW1_TEXT_LIST;
   const row1BadgeBase = `${APP_FEED_LIST_ROW1_LAYOUT} ${textSz}`.trim();

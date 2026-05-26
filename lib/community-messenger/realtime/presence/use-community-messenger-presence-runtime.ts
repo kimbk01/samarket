@@ -8,6 +8,7 @@ import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { noteTradeChatRoomPresenceReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import {
   cmDebugTailUserId,
   pushCmBrowserDebugEvent,
@@ -385,6 +386,7 @@ export function useCommunityMessengerPresenceRuntime(userId: string | null | und
     if (presenceEffectStartRecordedRef.current !== id) {
       presenceEffectStartRecordedRef.current = id;
       recordRouteEntryElapsedMetric("messenger_room_entry", "presence_effect_start_ms");
+      noteTradeChatRoomPresenceReadyForShellBreakdown();
     }
     runtimeRefCount += 1;
     ensurePresenceRuntime(id);

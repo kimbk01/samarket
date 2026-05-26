@@ -15,6 +15,7 @@ import {
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { recordRoomEntryStage } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import { noteTradeChatRoomHeaderReadyForShellBreakdown, noteTradeChatRoomShellRenderBlockingMs } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 
 let pass1HeaderMs = 0;
@@ -37,6 +38,7 @@ export function resetCmRoomPassInstrumentationForTests(): void {
 export function noteCmPassRenderLongtaskOverlap(pass: 0 | 1 | 2, durationMs: number): void {
   if (durationMs < 50) return;
   passRenderLongtaskMs[pass] += durationMs;
+  noteTradeChatRoomShellRenderBlockingMs(durationMs);
 }
 
 export function logCmPassRender(payload: {
@@ -67,7 +69,7 @@ export function emitCmRoomPass0ShellLog(roomId: string): void {
   markCmRoomTimingMetricRecorded("pass0_shell");
   const shellVisibleMs = msSinceSessionTap(session.sessionId) ?? 0;
   recordRoomEntryStage("shell");
-  finalizeCmRoomEntryShellVisibleMs(id, false);
+  finalizeCmRoomEntryShellVisibleMs(id, false, "pass0_shell");
   finalizeCmRoomEntryComposerFrameVisibleMs(id, false);
   cmMessengerPerfVerboseLog("[cm-room-pass0-shell]", {
     roomId: id,
@@ -83,6 +85,7 @@ export function noteCmRoomPass1HeaderMs(): void {
   if (!roomId || pass1HeaderMs > 0) return;
   if (!hasCmRoomEntryTimingSession(roomId)) return;
   pass1HeaderMs = msSinceSessionTap() ?? 0;
+  noteTradeChatRoomHeaderReadyForShellBreakdown();
   recordRoomEntryStage("header_seed");
   tryEmitCmRoomPass1HeaderComposerLog();
 }

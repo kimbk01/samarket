@@ -39,6 +39,11 @@ export const chatsMessages = {
     chats_overlay_entering_subtitle: "해당 상품 대화 화면을 여는 중입니다.",
     chats_overlay_resolving_subtitle: "방을 만들고 연결하는 동안 잠시만 기다려 주세요.",
     chats_store_order_cancel_confirm: "주문을 취소할까요?",
+    chats_compose_open_failed: "채팅방을 열 수 없습니다.",
+    chats_compose_create_failed: "채팅방 생성에 실패했습니다.",
+    chats_compose_fallback_product: "상품",
+    chats_compose_fallback_price: "가격 문의",
+    chats_compose_fallback_seller: "판매자",
   },
   en: {
     chats_change_item_status_confirm: 'Change item status to "{label}"?',
@@ -80,5 +85,10 @@ export const chatsMessages = {
     chats_overlay_entering_subtitle: "Opening the conversation for this item.",
     chats_overlay_resolving_subtitle: "Please wait while we create and connect the room.",
     chats_store_order_cancel_confirm: "Cancel this order?",
+    chats_compose_open_failed: "Could not open the chat room.",
+    chats_compose_create_failed: "Could not create the chat room.",
+    chats_compose_fallback_product: "Item",
+    chats_compose_fallback_price: "Price on request",
+    chats_compose_fallback_seller: "Seller",
   },
 } as const;

@@ -84,13 +84,13 @@ export function OfferModal({
         offer?: PriceOfferListItem;
       };
       if (!res.ok || !json?.ok || !json.offer) {
-        setError(typeof json?.error === "string" ? json.error : "가격 제안을 보내지 못했습니다.");
+        setError(typeof json?.error === "string" ? json.error : t("ui_offer_send_failed"));
         return;
       }
       onSubmitted?.(json.offer);
       onClose();
     } catch {
-      setError("네트워크 오류가 발생했습니다.");
+      setError(t("ui_offer_network_error"));
     } finally {
       setBusy(false);
     }
@@ -122,7 +122,7 @@ export function OfferModal({
         {/* 헤더 */}
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-sam-border px-4 pb-3 pt-1 sm:pt-3">
           <h2 id={titleId} className="min-w-0 flex-1 text-[17px] font-bold leading-snug text-sam-fg">
-            가격 제안하기
+            {t("ui_offer_submit_label")}
           </h2>
           <button
             type="button"
@@ -140,21 +140,24 @@ export function OfferModal({
           <div className="shrink-0 border-b border-sam-border bg-sam-surface-muted/80 px-4 py-3">
             <p className="truncate text-[15px] font-semibold text-sam-fg">{titleTrim}</p>
             <p className="mt-0.5 text-[13px] text-sam-muted">
-              판매가 <span className="font-semibold text-sam-fg">{formatPrice(originalPrice, currency)}</span>
+              {t("ui_offer_sale_label")}{" "}
+              <span className="font-semibold text-sam-fg">{formatPrice(originalPrice, currency)}</span>
               {" · "}
-              최소 제안 {formatPrice(minAllowed, currency)}
+              {t("ui_offer_min_offer_label")} {formatPrice(minAllowed, currency)}
             </p>
           </div>
         ) : (
           <p className="shrink-0 border-b border-sam-border px-4 py-3 text-[13px] leading-relaxed text-sam-muted">
-            판매가 {formatPrice(originalPrice, currency)} · 최소 제안가 {formatPrice(minAllowed, currency)} (판매가의 50%
-            이상)
+            {t("ui_offer_context_line_long", {
+              sale: formatPrice(originalPrice, currency),
+              min: formatPrice(minAllowed, currency),
+            })}
           </p>
         )}
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
           <p className="mb-4 text-[12px] leading-relaxed text-sam-muted">
-            같은 상품에는 대기 중인 제안 1건만 있을 수 있으며, 24시간 동안 최대 3회까지 보낼 수 있어요.
+            {t("ui_offer_limit_rules")}
           </p>
 
           <div className="space-y-4">
@@ -200,7 +203,7 @@ export function OfferModal({
             onClick={() => void submit()}
             className="w-full rounded-[10px] bg-sam-primary py-3.5 text-[15px] font-semibold text-white shadow-sm transition-colors hover:bg-sam-primary-hover disabled:opacity-50"
           >
-            {busy ? "보내는 중…" : "제안 보내기"}
+            {busy ? t("ui_offer_submitting") : t("ui_offer_send_action")}
           </button>
           <button
             type="button"
@@ -208,7 +211,7 @@ export function OfferModal({
             onClick={onClose}
             className="mt-2 w-full py-2 text-center text-[15px] font-semibold text-sam-muted hover:text-sam-fg disabled:opacity-50"
           >
-            취소
+            {t("common_cancel")}
           </button>
         </footer>
       </div>

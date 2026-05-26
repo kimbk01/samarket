@@ -2,6 +2,8 @@
 
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
+import { recordTradeChatOpenTotalMs } from "@/lib/trade/trade-c2c-perf-metrics";
+import { resetTradeChatEntryJourney } from "@/lib/trade/trade-chat-entry-journey-perf";
 
 const TRADE_CHAT_ENTRY_KEY = "samarket.trade-chat-entry";
 
@@ -64,6 +66,7 @@ export function startTradeChatEntryMark(input: {
   };
   try {
     window.sessionStorage.setItem(TRADE_CHAT_ENTRY_KEY, JSON.stringify(mark));
+    resetTradeChatEntryJourney();
   } catch {
     /* ignore storage errors */
   }
@@ -74,6 +77,9 @@ export function startTradeChatEntryMark(input: {
     sourceHint: mark.sourceHint,
     startedAt: mark.startedAt,
   });
+  if (mark.mode === "existing" && mark.roomId) {
+    recordTradeChatOpenTotalMs(0);
+  }
 }
 
 export function patchTradeChatEntryMark(

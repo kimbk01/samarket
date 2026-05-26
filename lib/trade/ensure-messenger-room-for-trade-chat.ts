@@ -5,6 +5,7 @@ import {
   persistProductChatMessengerRoomIdIfNull,
   syncChatRoomMessengerLink,
 } from "@/lib/trade/persist-trade-messenger-room-link";
+import type { TradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
 import type { ProductChatRow } from "@/lib/trade/resolve-product-chat";
 
 function trimMid(raw: unknown): string | undefined {
@@ -12,6 +13,12 @@ function trimMid(raw: unknown): string | undefined {
   const t = raw.trim();
   return t || undefined;
 }
+
+export type EnsureMessengerRoomIdForItemTradeOpts = {
+  /** `chat_rooms` 에서 이미 읽은 CM id — 중복 select 생략 */
+  knownMessengerRoomId?: string;
+  perf?: TradeEntryPerfTrace | null;
+};
 
 /**
  * 거래 채팅(item_trade / product_chats)에 대응하는 메신저 1:1 방 UUID.
@@ -23,31 +30,44 @@ export async function ensureMessengerRoomIdForItemTrade(
   buyerId: string,
   itemId: string,
   sellerId: string,
-  chatRoomId?: string | null
+  chatRoomId?: string | null,
+  opts?: EnsureMessengerRoomIdForItemTradeOpts
 ): Promise<string | undefined> {
+  const perf = opts?.perf ?? null;
   try {
     const crId = chatRoomId?.trim() ?? "";
+    const knownMid = trimMid(opts?.knownMessengerRoomId);
     let pc: ProductChatRow | null = null;
     if (crId) {
-      const [pcRow, crRes] = await Promise.all([
-        ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId),
-        sb
+      perf?.mark("messenger_pc_lookup");
+      const pcPromise = ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId);
+      let onCr = knownMid;
+      if (!onCr) {
+        const crRes = await sb
           .from("chat_rooms")
           .select("community_messenger_room_id")
           .eq("id", crId)
           .eq("room_type", "item_trade")
-          .maybeSingle(),
-      ]);
-      pc = pcRow as ProductChatRow | null;
+          .maybeSingle();
+        perf?.noteDbRoundTrip(1);
+        onCr = trimMid((crRes.data as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id);
+      }
+      pc = (await pcPromise) as ProductChatRow | null;
+      perf?.noteDbRoundTrip(1);
       if (!pc?.id) return undefined;
-      const onCr = trimMid((crRes.data as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id);
       if (onCr) {
+        const storedPc = trimMid((pc as ProductChatRow).community_messenger_room_id);
+        if (storedPc === onCr) {
+          return onCr;
+        }
         /** `chat_rooms` 만 연결된 레거시 — `product_chats` 쪽 FK 가 비면 목록 enrich 가 실패한다 */
         await persistProductChatMessengerRoomIdIfNull(sb, pc.id, onCr);
+        perf?.noteDbRoundTrip(2);
         return onCr;
       }
     } else {
       pc = (await ensureProductChatRowForItemTrade(sb, itemId, sellerId, buyerId)) as ProductChatRow | null;
+      perf?.noteDbRoundTrip(1);
       if (!pc?.id) return undefined;
     }
 
@@ -60,9 +80,11 @@ export async function ensureMessengerRoomIdForItemTrade(
       return storedPc;
     }
 
+    perf?.mark("messenger_room_ensure_sync");
     const out = await ensureCommunityMessengerDirectRoomFromProductChat(buyerId, pc.id, {
       itemTradeChatRoomId: crId || null,
       prefetchedProductChat: pc,
+      deferSummaryHydration: true,
     });
     if (!out.ok || !out.roomId) return undefined;
 
@@ -74,9 +96,11 @@ export async function ensureMessengerRoomIdForItemTrade(
      * - 운영 데이터 보호: 이미 값이 있으면 덮어쓰지 않는다(불일치 케이스는 별도 보정 대상).
      */
     await persistProductChatMessengerRoomIdIfNull(sb, pc.id, out.roomId);
+    perf?.noteDbRoundTrip(2);
 
     if (crId) {
       await syncChatRoomMessengerLink(sb, crId, out.roomId);
+      perf?.noteDbRoundTrip(1);
     }
     return out.roomId;
   } catch {

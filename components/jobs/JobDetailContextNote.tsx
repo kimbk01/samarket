@@ -7,9 +7,7 @@ import { TRADE_FB_DETAIL_META_HELP } from "@/lib/ui/trade-write-fb-ui";
 export function JobDetailContextNote({ direction }: { direction: JobDetailDirection }) {
   const { t } = useI18n();
   const extra =
-    direction === "hiring"
-      ? "채팅으로 지원자와 연락할 수 있어요."
-      : "채팅으로 구직자에게 연락할 수 있어요.";
+    direction === "hiring" ? t("ui_jobs_contact_hiring") : t("ui_jobs_contact_seeking");
 
   return (
     <div className={`space-y-1 ${TRADE_FB_DETAIL_META_HELP}`}>

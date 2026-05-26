@@ -48,7 +48,7 @@ export function emitCmPreRouteShellOverlayVisibleLog(): void {
   if (!session) return;
   markCmRoomTimingMetricRecorded("pre_route_shell");
   recordRoomEntryStage("shell");
-  finalizeCmRoomEntryShellVisibleMs(roomId, true);
+  finalizeCmRoomEntryShellVisibleMs(roomId, true, "pre_route_overlay");
   finalizeCmRoomEntryComposerFrameVisibleMs(roomId, true);
   cmMessengerPerfVerboseLog("[cm-pre-route-shell]", payload);
 }

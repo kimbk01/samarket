@@ -1,5 +1,6 @@
 import type { CommunityMessengerRoomSnapshotDiagnostics } from "@/lib/chat-domain/ports/community-messenger-read";
 import { randomUUID } from "crypto";
+import { after } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import { registerCommunityMessengerServiceCacheFootprintGetter } from "@/lib/community-messenger/dev/cm-service-cache-footprint-registry";
@@ -9199,6 +9200,11 @@ export type EnsureCommunityMessengerDirectRoomFromProductChatTradeLink = {
   itemTradeChatRoomId?: string | null;
   /** 호출부가 이미 `product_chats` 행을 확보한 경우 `resolveProductChat` DB 왕복 생략 */
   prefetchedProductChat?: ProductChatRow | null;
+  /**
+   * 거래 entry/resolve 핫패스 — `rooms.summary` 거래 메타 보강은 응답 후 `after()` (PC·CR FK 는 동기 유지).
+   * 메신저 UI에서 방을 직접 만드는 경로는 기본(동기) hydrate.
+   */
+  deferSummaryHydration?: boolean;
 };
 
 export async function ensureCommunityMessengerDirectRoomFromProductChat(
@@ -9236,8 +9242,14 @@ export async function ensureCommunityMessengerDirectRoomFromProductChat(
     ...(ledgerCrId ? { itemTradeChatRoomId: ledgerCrId } : {}),
   });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
-  /** `rooms.summary` 거래 메타 — 목록 썸네일·방 카드 productChatId 일치. 실패 시 목록만 비므로 완료까지 대기 */
-  await hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId, pc).catch(() => {});
+  /** `rooms.summary` 거래 메타 — 목록·방 카드. entry resolve 는 defer(응답 RTT 제외), 그 외는 동기 */
+  const runSummaryHydrate = () =>
+    hydrateTradeMessengerRoomSummaryFromProductChat(userId, productChatId, out.roomId!, pc).catch(() => {});
+  if (tradeLink?.deferSummaryHydration) {
+    after(runSummaryHydrate);
+  } else {
+    await runSummaryHydrate();
+  }
   const sbPersist = getSupabaseOrNull();
   /** item_trade 행이 있으면 `chat_rooms` FK만 고정 — 없으면 레거시로 PC 에 메신저 id 기록 */
   if (sbPersist && ledgerCrId) {

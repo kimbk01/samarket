@@ -24,6 +24,20 @@ function messageOrderCacheKey(roomId: string, messageId: string): string {
 
 const markReadMessageOrderByKey = new Map<string, string>();
 
+/** 장시간 세션에서 order 캐시 무한 성장 방지 — trade·CM read fast-path 공용 */
+const MARK_READ_MESSAGE_ORDER_CACHE_MAX = 4_000;
+
+function pruneMarkReadMessageOrderCache(): void {
+  if (markReadMessageOrderByKey.size <= MARK_READ_MESSAGE_ORDER_CACHE_MAX) return;
+  const drop = markReadMessageOrderByKey.size - MARK_READ_MESSAGE_ORDER_CACHE_MAX;
+  let i = 0;
+  for (const k of markReadMessageOrderByKey.keys()) {
+    markReadMessageOrderByKey.delete(k);
+    i += 1;
+    if (i >= drop) break;
+  }
+}
+
 /** compare/RPC 후 message created_at 캐시 — 동일 room 반복 compare DB 생략 */
 export function rememberMarkReadMessageOrderFromRows(
   roomId: string,
@@ -41,7 +55,10 @@ export function rememberMarkReadMessageOrderFromRows(
         : raw instanceof Date && !Number.isNaN(raw.getTime())
           ? raw.toISOString()
           : "";
-    if (iso) markReadMessageOrderByKey.set(messageOrderCacheKey(rid, id), iso);
+    if (iso) {
+      markReadMessageOrderByKey.set(messageOrderCacheKey(rid, id), iso);
+      pruneMarkReadMessageOrderCache();
+    }
   }
 }
 
