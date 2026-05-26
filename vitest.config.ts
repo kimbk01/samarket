@@ -21,6 +21,12 @@ export default defineConfig({
      * - tests/e2e: test.describe 등 런타임 오류
      * - scripts 아래 .spec.cjs: Playwright test.setTimeout 등이 Vitest와 호환되지 않음
      */
-    exclude: [...defaultExclude, "**/tests/e2e/**", "**/scripts/**/*.spec.cjs"],
+    exclude: [
+      ...defaultExclude,
+      "**/tests/e2e/**",
+      "**/scripts/**/*.spec.cjs",
+      /** Node `node:test` only — run via `node --test scripts/__tests__/…` (see verify-ci-stability.mjs) */
+      "**/scripts/__tests__/**",
+    ],
   },
 });
