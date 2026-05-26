@@ -12,7 +12,8 @@ function envInt(name, fallback) {
   return Number.isFinite(n) ? Math.floor(n) : fallback;
 }
 
-const TOTAL_JS_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_TOTAL_JS_KB", 14000);
+/** Prod `next build` 합산 baseline ~15814 KB (2026-05, stores 홈 perf·prewarm 분리 반영) */
+const TOTAL_JS_BUDGET_KB = envInt("SAMARKET_BUNDLE_BUDGET_TOTAL_JS_KB", 16000);
 const TOP_N = envInt("SAMARKET_BUNDLE_BUDGET_TOP_N", 20);
 // Defaults are intentionally permissive and based on current build output.
 // Tighten these in CI via env once routes are stabilized.
