@@ -19,6 +19,7 @@ import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
 import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import type { PurchaseHistoryRow } from "./PurchaseHistoryCard";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -135,9 +136,7 @@ export function PurchaseDetailView({
       <section className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <div className="flex gap-3">
           <div className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {row.thumbnail ? (
-              <img src={row.thumbnail} alt="" className="h-full w-full object-cover" />
-            ) : null}
+            <SamarketThumbnail src={row.thumbnail} fill roundedClassName="rounded-ui-rect" className="bg-sam-surface-muted" />
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="sam-text-body-lg font-semibold text-sam-fg">{row.title || t("mypage_comp_image_placeholder")}</h2>

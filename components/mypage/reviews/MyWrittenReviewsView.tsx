@@ -19,6 +19,7 @@ import { WRITTEN_REVIEW_UPDATED_EVENT } from "@/lib/mypage/written-review-events
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export interface MyWrittenReviewItem {
   id: string;
@@ -72,11 +73,18 @@ export function WrittenReviewCard({ it, currency }: { it: MyWrittenReviewItem; c
       <div className="flex gap-2 p-3">
         <Link href={detailHref} className="flex min-w-0 flex-1 gap-3">
           <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {it.thumbnail ? (
-              <img src={it.thumbnail} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">{t("mypage_comp_image_placeholder")}</div>
-            )}
+            <SamarketThumbnail
+              src={it.thumbnail}
+              fill
+              roundedClassName="rounded-ui-rect"
+              className="bg-sam-surface-muted"
+              fallbackSrc=""
+              fallbackNode={
+                <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">
+                  {t("mypage_comp_image_placeholder")}
+                </div>
+              }
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{it.title || t("mypage_comp_image_placeholder")}</p>

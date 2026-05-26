@@ -21,6 +21,7 @@ import {
   MessengerTradeProductDockRow,
 } from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export type RoomType = "direct" | "trade";
 
@@ -211,14 +212,18 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           <div
             className={`relative h-12 w-12 shrink-0 overflow-hidden ${profileAvatarRounded} bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]`}
           >
-            {profileAvatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profileAvatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
-                {profileNickname.trim().slice(0, 1) || "?"}
-              </div>
-            )}
+            <SamarketThumbnail
+              src={profileAvatarUrl}
+              size={48}
+              roundedClassName={profileAvatarRounded}
+              className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+              fallbackSrc=""
+              fallbackNode={
+                <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
+                  {profileNickname.trim().slice(0, 1) || "?"}
+                </div>
+              }
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{profileNickname}</p>

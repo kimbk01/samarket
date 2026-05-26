@@ -27,6 +27,7 @@ import { useStoreProductSheetDetail } from "@/lib/stores/product-sheet/use-store
 import { StoreProductSheetShell } from "@/components/stores/product-sheet/StoreProductSheetShell";
 import { StoreProductSheetHeader } from "@/components/stores/product-sheet/StoreProductSheetHeader";
 import { StoreProductSheetAddToCartBar } from "@/components/stores/product-sheet/StoreProductSheetAddToCartBar";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import {
   StoreProductSheetBodySkeleton,
   StoreProductSheetOptionsSkeleton,
@@ -654,12 +655,12 @@ export function StoreProductAddSheet({
             ) : null}
 
             <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
-              {sheetPrimaryImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={sheetPrimaryImage} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full bg-neutral-100" />
-              )}
+              <StoreProductThumbnail
+                src={sheetPrimaryImage}
+                fill
+                roundedClassName="rounded-none"
+                className="bg-neutral-100"
+              />
             </div>
 
             <div className="bg-white px-4 pb-3 pt-3">
@@ -678,18 +679,12 @@ export function StoreProductAddSheet({
 
             <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
               <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                {sheetPrimaryImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={sheetPrimaryImage}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
-                    {t("store_none")}
-                  </div>
-                )}
+                <StoreProductThumbnail
+                  src={sheetPrimaryImage}
+                  fill
+                  roundedClassName="rounded-ui-rect"
+                  className="bg-sam-surface-muted"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">

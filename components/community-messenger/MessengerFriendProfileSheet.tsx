@@ -7,6 +7,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isMessengerFriendRequestBusy } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 type Props = {
   profile: CommunityMessengerProfileLite;
@@ -85,14 +86,16 @@ export function MessengerFriendProfileSheet({
       <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div className="max-h-[82vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <div className="flex flex-col items-center border-b border-ui-border pb-3 text-center">
-          <div className="h-16 w-16 overflow-hidden rounded-full bg-ui-hover">
-            {avatarSrc ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-            ) : (
+          <SamarketThumbnail
+            src={avatarSrc}
+            size={64}
+            roundedClassName="rounded-full"
+            className="bg-ui-hover"
+            fallbackSrc=""
+            fallbackNode={
               <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-ui-muted">{initial}</div>
-            )}
-          </div>
+            }
+          />
           <h2 id="messenger-friend-sheet-title" className="mt-2 sam-text-body-lg font-semibold text-ui-fg">
             {profile.label}
           </h2>

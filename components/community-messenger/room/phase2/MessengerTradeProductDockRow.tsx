@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { PostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { formatPrice } from "@/lib/utils/format";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export type MessengerTradeProductDockRowProps = {
   thumbnailUrl: string | null | undefined;
@@ -32,12 +33,18 @@ export function MessengerTradeProductDockRow({
         className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)] transition active:opacity-90"
         aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
       >
-        {thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">{t("cm_ui_product")}</div>
-        )}
+        <SamarketThumbnail
+          src={thumbnailUrl}
+          fill
+          roundedClassName="rounded-md"
+          className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+          fallbackSrc=""
+          fallbackNode={
+            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">
+              {t("cm_ui_product")}
+            </div>
+          }
+        />
       </Link>
       <Link
         href={detailHref}

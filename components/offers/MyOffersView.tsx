@@ -10,6 +10,7 @@ import { getAppSettings } from "@/lib/app-settings";
 import { openCreateTradeChat } from "@/lib/chats/trade-chat-entry-navigation";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { PriceOfferListItem, PriceOfferStatus } from "@/lib/offers/types";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 const OFFER_STATUS_KO: Record<PriceOfferStatus, string> = {
   pending: "판매자 응답 대기",
@@ -119,16 +120,18 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
           <article key={offer.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <div className="flex flex-wrap items-start gap-3">
               <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                {offer.productThumbnailUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- 저장소·CDN 혼재 썸네일
-                  <img
-                    src={offer.productThumbnailUrl}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-muted">{t("ui_product_gallery_fallback")}</div>
-                )}
+              <SamarketThumbnail
+                src={offer.productThumbnailUrl}
+                fill
+                roundedClassName="rounded-ui-rect"
+                className="bg-sam-surface-muted"
+                fallbackSrc=""
+                fallbackNode={
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-muted">
+                    {t("ui_product_gallery_fallback")}
+                  </div>
+                }
+              />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
