@@ -9,6 +9,7 @@ import {
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 
 /** 통화 전용 라우트에서 수신 오버레이 억제 — `CallIncomingChrome` 등 경량 판별용 */
@@ -67,6 +68,8 @@ export type ConditionalAppShellResolvedFlags = {
   showHomeTradeHubFloatingBar: boolean;
   /** `/market/trade-meet-spot` — 전역 하단 탭·플로팅 FAB 숨김 */
   isTradeMeetSpotPickRoute: boolean;
+  /** 배달 FAB 섹터(`/stores`·`/stores/cart`·주문내역) — 하단 탭 보조 메뉴 */
+  showMainBottomNavFabSector: boolean;
   isChatsHubSurface: boolean;
   hideBarAndFloat: boolean;
   hideRegionBar: boolean;
@@ -166,6 +169,12 @@ export function resolveConditionalAppShellFlags(
   const isOrdersHub = pathname === "/orders" || (pathname?.startsWith("/orders/") ?? false);
   /** 거래 희망 장소 풀페이지 — 하단 탭·거래 허브 FAB 가 지도·확인 버튼을 가리지 않게 숨김 */
   const isTradeMeetSpotPickRoute = pathname === "/market/trade-meet-spot";
+  const showMainBottomNavFabSector =
+    isMainBottomNavFabDeliverySurface(normalizedStorePath) &&
+    !isStoreOwnerAdminRoute &&
+    !isStoreCommerceCartCheckoutPage &&
+    !isChatRoomDetail &&
+    !isTradeMeetSpotPickRoute;
   const isTradeFloatingSurface = isTradeFloatingMenuSurface(pathname);
   const showHomeTradeHubFloatingBar = isTradeFloatingSurface && !isMarketTradeFeedHubPath(pathname);
   const isChatsHubSurface = pathname === "/mypage/trade/chat";
@@ -290,6 +299,7 @@ export function resolveConditionalAppShellFlags(
     isTradeFloatingSurface,
     showHomeTradeHubFloatingBar,
     isTradeMeetSpotPickRoute,
+    showMainBottomNavFabSector,
     isChatsHubSurface,
     hideBarAndFloat,
     hideRegionBar,

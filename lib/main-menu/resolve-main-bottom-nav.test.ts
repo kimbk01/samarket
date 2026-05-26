@@ -243,4 +243,37 @@ describe("validateMainBottomNavPayload", () => {
     };
     expect(validateMainBottomNavPayload(body).ok).toBe(false);
   });
+
+  it("fab 설정 저장·표시 items 에 반영", () => {
+    const body = {
+      items: [
+        {
+          id: "stores",
+          visible: true,
+          label: "배달",
+          href: "/stores",
+          icon: "stores",
+          fab: {
+            enabled: true,
+            items: [
+              {
+                id: "fab_delivery_orders",
+                visible: true,
+                label: "주문내역",
+                href: "/orders",
+                icon: "orders",
+              },
+            ],
+          },
+        },
+      ],
+    };
+    const v = validateMainBottomNavPayload(body);
+    expect(v.ok).toBe(true);
+    if (v.ok) {
+      const items = resolveMainBottomNavDisplayItems(v.payload);
+      expect(items[0]?.fab?.enabled).toBe(true);
+      expect(items[0]?.fab?.items[0]?.href).toBe("/orders");
+    }
+  });
 });

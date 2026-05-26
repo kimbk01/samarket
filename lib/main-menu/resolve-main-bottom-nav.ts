@@ -9,6 +9,13 @@ import {
 } from "@/lib/main-menu/bottom-nav-config";
 import type { MainBottomNavAdminRow, MainBottomNavStoredItem, MainBottomNavStoredPayload } from "@/lib/main-menu/main-bottom-nav-types";
 import { isLucideBottomNavIconName } from "@/lib/main-menu/lucide-bottom-nav-icon-registry";
+import {
+  FAB_ITEM_ID_RE,
+  MAIN_BOTTOM_NAV_FAB_MAX_ITEMS,
+  type MainBottomNavFabStoredConfig,
+  type MainBottomNavFabStoredItem,
+} from "@/lib/main-menu/main-bottom-nav-fab-types";
+import { getDefaultDeliveryFabConfig } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 
 const BUILTIN_SET = new Set<string>(BOTTOM_NAV_BUILTIN_IDS);
 
@@ -88,6 +95,50 @@ function isValidTabId(id: string): boolean {
   return isBuiltinBottomNavTabId(id) || isCustomBottomNavTabId(id);
 }
 
+function mergeFabItem(raw: unknown): MainBottomNavFabStoredItem | null {
+  if (raw == null || typeof raw !== "object") return null;
+  const r = raw as MainBottomNavFabStoredItem;
+  const id = typeof r.id === "string" ? r.id.trim() : "";
+  if (!FAB_ITEM_ID_RE.test(id)) return null;
+  const href = isSafeMainBottomNavHref(r.href) ? r.href.trim() : null;
+  if (!href) return null;
+  const icon = isIconKey(r.icon) ? r.icon : "home";
+  const label = trimLabel(r.label, "메뉴");
+  return {
+    id,
+    visible: r.visible !== false,
+    label,
+    href,
+    icon,
+    ...(r.openInNewTab ? { openInNewTab: true } : {}),
+    ...(isLucideBottomNavIconName(r.lucideIcon) ? { lucideIcon: r.lucideIcon } : {}),
+  };
+}
+
+function mergeFabConfig(raw: unknown): MainBottomNavFabStoredConfig | undefined {
+  if (raw == null || typeof raw !== "object") return undefined;
+  const r = raw as MainBottomNavFabStoredConfig;
+  if (r.enabled !== true) return undefined;
+  if (!Array.isArray(r.items) || r.items.length === 0) return undefined;
+  const items: MainBottomNavFabStoredItem[] = [];
+  for (const item of r.items) {
+    const merged = mergeFabItem(item);
+    if (merged) items.push(merged);
+  }
+  if (items.length === 0) return undefined;
+  return { enabled: true, items: items.slice(0, MAIN_BOTTOM_NAV_FAB_MAX_ITEMS) };
+}
+
+function resolveRowFab(tabId: string, raw: MainBottomNavStoredItem): MainBottomNavFabStoredConfig | undefined {
+  if (raw.fab != null && typeof raw.fab === "object") {
+    if (raw.fab.enabled !== true) return { enabled: false, items: [] };
+    const merged = mergeFabConfig(raw.fab);
+    return merged ?? { enabled: false, items: [] };
+  }
+  if (tabId === "stores") return getDefaultDeliveryFabConfig();
+  return undefined;
+}
+
 function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): MainBottomNavAdminRow {
   const hrefRaw = isSafeMainBottomNavHref(raw.href) ? raw.href.trim() : base.href;
   const href = normalizeBuiltinMessengerTabHref(base.id, hrefRaw);
@@ -116,6 +167,7 @@ function mergeRow(base: BottomNavItemConfig, raw: MainBottomNavStoredItem): Main
     openInNewTab: raw.openInNewTab === true,
     lucideIcon: isLucideBottomNavIconName(raw.lucideIcon) ? raw.lucideIcon : undefined,
     visible: raw.visible !== false,
+    fab: resolveRowFab(base.id, raw),
   };
 }
 
@@ -142,10 +194,9 @@ function mergeCustomRow(raw: MainBottomNavStoredItem): MainBottomNavAdminRow | n
     openInNewTab: raw.openInNewTab === true,
     lucideIcon: isLucideBottomNavIconName(raw.lucideIcon) ? raw.lucideIcon : undefined,
     visible: raw.visible !== false,
+    fab: resolveRowFab(id, raw),
   };
 }
-
-/** 관리자·공통: DB JSON → 전체 행(숨김 포함, 순서 유지) */
 export function resolveMainBottomNavAdminRows(valueJson: unknown): MainBottomNavAdminRow[] {
   const fallback = getDefaultMainBottomNavAdminRows();
   if (valueJson == null || typeof valueJson !== "object") {
@@ -201,9 +252,10 @@ export function resolveMainBottomNavAdminRows(valueJson: unknown): MainBottomNav
 export function resolveMainBottomNavDisplayItems(valueJson: unknown): BottomNavItemConfig[] {
   return resolveMainBottomNavAdminRows(valueJson)
     .filter((r) => r.visible)
-    .map(({ visible: _v, ...rest }) => ({
+    .map(({ visible: _v, fab, ...rest }) => ({
       ...rest,
       labelKey: resolveBuiltinBottomNavLabelKey(rest.id) ?? rest.labelKey,
+      ...(fab?.enabled ? { fab } : fab != null ? { fab: { enabled: false as const, items: [] } } : {}),
     }));
 }
 
@@ -226,7 +278,31 @@ export function mainBottomNavAdminRowToStoredItem(merged: MainBottomNavAdminRow)
     activeShellClass: merged.activeShellClass,
     ...(merged.openInNewTab ? { openInNewTab: true } : {}),
     ...(merged.lucideIcon ? { lucideIcon: merged.lucideIcon } : {}),
+    ...(merged.fab?.enabled ? { fab: merged.fab } : merged.fab != null ? { fab: { enabled: false, items: [] } } : {}),
   };
+}
+
+function validateFabPayload(fab: unknown): { ok: true; fab: MainBottomNavFabStoredConfig } | { ok: false; error: string } {
+  if (fab == null || typeof fab !== "object") return { ok: false, error: "invalid_fab" };
+  const r = fab as MainBottomNavFabStoredConfig;
+  if (r.enabled !== true) return { ok: false, error: "invalid_fab" };
+  if (!Array.isArray(r.items)) return { ok: false, error: "invalid_fab_items" };
+  if (r.items.length < 1 || r.items.length > MAIN_BOTTOM_NAV_FAB_MAX_ITEMS) {
+    return { ok: false, error: "fab_items_count" };
+  }
+  const seen = new Set<string>();
+  let visibleCount = 0;
+  const normalized: MainBottomNavFabStoredItem[] = [];
+  for (const raw of r.items) {
+    const merged = mergeFabItem(raw);
+    if (!merged) return { ok: false, error: "invalid_fab_item" };
+    if (seen.has(merged.id)) return { ok: false, error: "duplicate_fab_id" };
+    seen.add(merged.id);
+    if (merged.visible) visibleCount += 1;
+    normalized.push(merged);
+  }
+  if (visibleCount < 1) return { ok: false, error: "fab_min_one_visible" };
+  return { ok: true, fab: { enabled: true, items: normalized } };
 }
 
 /** 저장 전 검증 — 1~10개, id 고유, 내장·custom_* 만, 최소 1개 노출 */
@@ -261,6 +337,12 @@ export function validateMainBottomNavPayload(body: unknown): { ok: true; payload
     if (lucideIcon != null && lucideIcon !== "" && !isLucideBottomNavIconName(lucideIcon)) {
       return { ok: false, error: "invalid_lucide_icon" };
     }
+
+    const fabRaw = (raw as MainBottomNavStoredItem).fab;
+    if (fabRaw != null && (fabRaw as MainBottomNavFabStoredConfig).enabled === true) {
+      const fabValidated = validateFabPayload(fabRaw);
+      if (!fabValidated.ok) return { ok: false, error: fabValidated.error };
+    }
   }
 
   if (visibleCount < 1) return { ok: false, error: "min_one_visible" };
@@ -282,5 +364,9 @@ export function validateMainBottomNavPayload(body: unknown): { ok: true; payload
 }
 
 export function getDefaultMainBottomNavAdminRows(): MainBottomNavAdminRow[] {
-  return cloneDefaults().map((row) => ({ ...row, visible: true }));
+  return cloneDefaults().map((row) => ({
+    ...row,
+    visible: true,
+    ...(row.id === "stores" ? { fab: getDefaultDeliveryFabConfig() } : {}),
+  }));
 }

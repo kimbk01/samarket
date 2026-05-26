@@ -33,6 +33,7 @@ export const BOTTOM_NAV_ICON_KEYS = [
 export type BottomNavIconKey = (typeof BOTTOM_NAV_ICON_KEYS)[number];
 
 import type { MessageKey } from "@/lib/i18n/messages";
+import type { MainBottomNavFabStoredConfig } from "@/lib/main-menu/main-bottom-nav-fab-types";
 
 export type BottomNavItemConfig = {
   id: BottomNavTabId;
@@ -64,6 +65,8 @@ export type BottomNavItemConfig = {
   openInNewTab?: boolean;
   /** Lucide(https://lucide.dev) 아이콘명 — 있으면 `icon` 대신 사용 */
   lucideIcon?: string;
+  /** 하단 탭 보조 FAB 설정 */
+  fab?: MainBottomNavFabStoredConfig;
 };
 
 const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
@@ -84,7 +87,34 @@ const BOTTOM_NAV_ITEM_CMP_KEYS: (keyof BottomNavItemConfig)[] = [
   "activeShellClass",
   "openInNewTab",
   "lucideIcon",
+  "fab",
 ];
+
+function fabConfigsEqual(
+  a: MainBottomNavFabStoredConfig | undefined,
+  b: MainBottomNavFabStoredConfig | undefined
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return !a && !b;
+  if (a.enabled !== b.enabled) return false;
+  if (a.items.length !== b.items.length) return false;
+  for (let i = 0; i < a.items.length; i++) {
+    const x = a.items[i];
+    const y = b.items[i];
+    if (
+      x.id !== y.id ||
+      x.visible !== y.visible ||
+      x.label !== y.label ||
+      x.href !== y.href ||
+      x.icon !== y.icon ||
+      x.openInNewTab !== y.openInNewTab ||
+      x.lucideIcon !== y.lucideIcon
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
 
 /** 서버/캐시 재조회 후에도 탭 구성이 동일하면 `setState` 를 생략해 프리페치·레이아웃 effect 재실행을 막는다. */
 export function areBottomNavItemConfigsEqual(
@@ -97,6 +127,10 @@ export function areBottomNavItemConfigsEqual(
     const x = a[i];
     const y = b[i];
     for (const k of BOTTOM_NAV_ITEM_CMP_KEYS) {
+      if (k === "fab") {
+        if (!fabConfigsEqual(x.fab, y.fab)) return false;
+        continue;
+      }
       if (x[k] !== y[k]) return false;
     }
   }
@@ -189,9 +223,16 @@ export const BOTTOM_NAV_THEME = {
   labelSizeClass: "",
 } as const;
 
+/** FAB 섹터 — 하단 탭(z~1200) 위·모달(z110+) 아래 */
+export const MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS = "z-[1255]";
+
+/** FAB — 하단 탭(60px+safe) 바로 위 + 10px */
+export const MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS =
+  "bottom-[calc(60px+env(safe-area-inset-bottom,0px)+10px)]";
+
 /** 플로팅 + 버튼이 탭바 위에 오도록 여백 (BottomNav 높이와 맞출 것) */
 export const BOTTOM_NAV_FAB_LAYOUT = {
-  bottomOffsetClass: "bottom-[calc(76px+env(safe-area-inset-bottom,0px))]",
+  bottomOffsetClass: MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
   /** 퀵메뉴는 좌측(본문 컬럼 기준) */
   leftOffsetClass: "left-4",
   /** 우측 플로팅 퀵 레일에서 글쓰기 퀵메뉴 열 때 */

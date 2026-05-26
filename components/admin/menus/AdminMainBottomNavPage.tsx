@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, Fragment } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -10,6 +10,7 @@ import {
   MainBottomNavIconPickerModal,
   MainBottomNavIconPickerTrigger,
 } from "@/components/admin/menus/MainBottomNavIconPickerModal";
+import { MainBottomNavFabInlineSection } from "@/components/admin/menus/MainBottomNavFabInlineSection";
 import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
 import type { MainBottomNavAdminRow } from "@/lib/main-menu/main-bottom-nav-types";
 import {
@@ -20,8 +21,10 @@ import {
   isMainBottomNavRowsOrderEqual,
   mainBottomNavRowToApiItem,
   restoreMainBottomNavRowsFromBaseline,
+  patchMainBottomNavRowFab,
   revertMainBottomNavRowFieldsFromBaseline,
 } from "@/lib/main-menu/main-bottom-nav-admin-edit";
+import type { MainBottomNavFabStoredConfig } from "@/lib/main-menu/main-bottom-nav-fab-types";
 import {
   generateCustomBottomNavTabId,
   isBuiltinBottomNavTabId,
@@ -62,6 +65,7 @@ export function AdminMainBottomNavPage() {
   const [savingRowId, setSavingRowId] = useState<string | null>(null);
   const [savingAll, setSavingAll] = useState(false);
   const [iconPickerRowId, setIconPickerRowId] = useState<string | null>(null);
+  const [expandedFabRowIds, setExpandedFabRowIds] = useState<Set<string>>(() => new Set(["stores"]));
   const [message, setMessage] = useState<{ type: "ok" | "err"; text: string } | null>(null);
 
   const baselineById = useMemo(() => {
@@ -120,6 +124,7 @@ export function AdminMainBottomNavPage() {
     setLoading(true);
     setMessage(null);
     setIconPickerRowId(null);
+    setExpandedFabRowIds(new Set(["stores"]));
     try {
       const { res, data } = await fetchMainBottomNavList();
       if (!res.ok || !data?.ok || !Array.isArray(data.items)) {
@@ -190,6 +195,14 @@ export function AdminMainBottomNavPage() {
       return prev.filter((_, j) => j !== index);
     });
     if (removedId && iconPickerRowId === removedId) setIconPickerRowId(null);
+    if (removedId) {
+      setExpandedFabRowIds((prev) => {
+        if (!prev.has(removedId)) return prev;
+        const next = new Set(prev);
+        next.delete(removedId);
+        return next;
+      });
+    }
   };
 
   const cancelRow = (index: number) => {
@@ -225,6 +238,7 @@ export function AdminMainBottomNavPage() {
     if (!baselineRows || !hasUnsavedChanges) return;
     setRows(cloneMainBottomNavAdminRows(baselineRows));
     setIconPickerRowId(null);
+    setExpandedFabRowIds(new Set(["stores"]));
     setMessage({ type: "ok", text: t("admin_menu_bottom_cancel_all_ok") });
   };
 
@@ -262,12 +276,14 @@ export function AdminMainBottomNavPage() {
             );
             setMessage({ type: "ok", text: okMessage });
             setIconPickerRowId(null);
+    setExpandedFabRowIds(new Set(["stores"]));
             return true;
           }
           setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
           return false;
         }
         setIconPickerRowId(null);
+    setExpandedFabRowIds(new Set(["stores"]));
         return true;
       } catch {
         setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
@@ -313,12 +329,14 @@ export function AdminMainBottomNavPage() {
           applyLoadedRows(data.items, Boolean(data.from_db), typeof data.updated_at === "string" ? data.updated_at : null);
           setMessage({ type: "ok", text: resetOk });
           setIconPickerRowId(null);
+    setExpandedFabRowIds(new Set(["stores"]));
           return;
         }
         setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
         return;
       }
       setIconPickerRowId(null);
+    setExpandedFabRowIds(new Set(["stores"]));
     } catch {
       setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
     } finally {
@@ -333,6 +351,22 @@ export function AdminMainBottomNavPage() {
 
   const saving = savingAll || savingRowId != null;
   const iconPickerRow = iconPickerRowId && rows ? rows.find((row) => row.id === iconPickerRowId) ?? null : null;
+
+  const toggleFabSection = (rowId: string) => {
+    setExpandedFabRowIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) next.delete(rowId);
+      else next.add(rowId);
+      return next;
+    });
+  };
+
+  const patchRowFab = (rowId: string, fab: MainBottomNavFabStoredConfig | undefined) => {
+    setRows((prev) => {
+      if (!prev) return prev;
+      return prev.map((row) => (row.id === rowId ? patchMainBottomNavRowFab(row, fab) : row));
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -457,9 +491,10 @@ export function AdminMainBottomNavPage() {
                 const rowSaving = savingRowId === row.id;
                 const isNewRow = isMainBottomNavNewUnsavedRow(row.id, baselineRows);
                 const canCancelRow = fieldsDirty || isNewRow;
+                const fabExpanded = expandedFabRowIds.has(row.id);
                 return (
+                  <Fragment key={row.id}>
                   <tr
-                    key={row.id}
                     className={`border-b border-sam-border-soft align-middle hover:bg-sam-app/50 ${
                       rowDirty ? "bg-amber-50/40" : ""
                     }`}
@@ -551,6 +586,19 @@ export function AdminMainBottomNavPage() {
                       <div className="flex flex-wrap items-center justify-end gap-1">
                         <button
                           type="button"
+                          disabled={saving}
+                          onClick={() => toggleFabSection(row.id)}
+                          className={`rounded border px-2 py-0.5 sam-text-xxs ${
+                            row.fab?.enabled
+                              ? "border-violet-300 bg-violet-50 text-violet-900 hover:bg-violet-100"
+                              : "border-sam-border bg-sam-surface text-sam-muted hover:bg-sam-app"
+                          }`}
+                          title={t("admin_menu_bottom_fab_title")}
+                        >
+                          {fabExpanded ? "▾" : "▸"} {t("admin_menu_bottom_fab_manage")}
+                        </button>
+                        <button
+                          type="button"
                           disabled={saving || !rowDirty}
                           onClick={() => void saveRow(row.id)}
                           className="rounded border border-signature bg-signature/5 px-2 py-0.5 sam-text-xxs font-medium text-signature hover:bg-signature/10 disabled:opacity-30"
@@ -588,6 +636,18 @@ export function AdminMainBottomNavPage() {
                       </div>
                     </td>
                   </tr>
+                  {fabExpanded ? (
+                    <tr className="border-b border-sam-border-soft bg-sam-app/30">
+                      <td colSpan={7} className="px-3 py-2">
+                        <MainBottomNavFabInlineSection
+                          row={row}
+                          disabled={saving}
+                          onChange={(fab) => patchRowFab(row.id, fab)}
+                        />
+                      </td>
+                    </tr>
+                  ) : null}
+                  </Fragment>
                 );
               })}
             </tbody>

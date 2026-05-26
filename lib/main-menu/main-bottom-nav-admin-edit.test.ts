@@ -7,7 +7,9 @@ import {
   isMainBottomNavRowsOrderEqual,
   restoreMainBottomNavRowsFromBaseline,
   revertMainBottomNavRowFieldsFromBaseline,
+  patchMainBottomNavRowFab,
 } from "@/lib/main-menu/main-bottom-nav-admin-edit";
+import { getDefaultDeliveryFabConfig } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 
 function row(id: string, label: string, overrides: Partial<MainBottomNavAdminRow> = {}): MainBottomNavAdminRow {
   return {
@@ -65,5 +67,20 @@ describe("main-bottom-nav-admin-edit", () => {
     const b = [row("b", "B"), row("a", "A")];
     expect(isMainBottomNavRowsOrderEqual(a, a)).toBe(true);
     expect(isMainBottomNavRowsOrderEqual(a, b)).toBe(false);
+  });
+
+  it("patchMainBottomNavRowFab — enabled FAB 부착", () => {
+    const base = row("stores", "배달");
+    const fab = getDefaultDeliveryFabConfig();
+    const next = patchMainBottomNavRowFab(base, fab);
+    expect(next.fab?.enabled).toBe(true);
+    expect(next.fab?.items.length).toBe(4);
+  });
+
+  it("patchMainBottomNavRowFab — 비활성 시 enabled false 저장", () => {
+    const base = row("stores", "배달", { fab: getDefaultDeliveryFabConfig() });
+    const next = patchMainBottomNavRowFab(base, undefined);
+    expect(next.fab?.enabled).toBe(false);
+    expect(next.fab?.items.length).toBe(0);
   });
 });

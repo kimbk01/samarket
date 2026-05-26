@@ -34,12 +34,16 @@ import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationCon
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
+import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
+import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
 
 const GlobalIncomingFriendRequestHost = dynamic(
   () =>
-    import("@/components/community-messenger/GlobalIncomingFriendRequestHost").then(
-      (mod) => mod.GlobalIncomingFriendRequestHost
+    importWithChunkRetry(() =>
+      import("@/components/community-messenger/GlobalIncomingFriendRequestHost").then(
+        (mod) => mod.GlobalIncomingFriendRequestHost
+      )
     ),
   { ssr: false }
 );
@@ -160,7 +164,9 @@ export function MainAppProviderTree({
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
-              <GlobalIncomingFriendRequestHost enabled />
+              <IncomingCallOverlayChunkBoundary>
+                <GlobalIncomingFriendRequestHost enabled />
+              </IncomingCallOverlayChunkBoundary>
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>
                   <StoreCommerceCartRuntimeBoundary>

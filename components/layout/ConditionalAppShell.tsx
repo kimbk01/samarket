@@ -67,6 +67,10 @@ const FloatingAddButtonLazy = dynamic(
   () => import("@/components/layout/FloatingAddButton").then((m) => m.FloatingAddButton),
   { ssr: false }
 );
+const MainBottomNavFabSectorLazy = dynamic(
+  () => import("@/components/layout/MainBottomNavFabSector").then((m) => m.MainBottomNavFabSector),
+  { ssr: false }
+);
 
 export function ConditionalAppShell({
   children,
@@ -220,6 +224,7 @@ export function ConditionalAppShell({
         </Suspense>
       ) : null}
       {showBottomNavEffective && f.showHomeTradeHubFloatingBar ? <HomeTradeHubFloatingBarLazy /> : null}
+      {f.showMainBottomNavFabSector ? <MainBottomNavFabSectorLazy /> : null}
       {f.showFloat && <FloatingAddButtonLazy />}
     </div>
   );

@@ -1,4 +1,5 @@
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
+import type { MainBottomNavFabStoredConfig, MainBottomNavFabStoredItem } from "@/lib/main-menu/main-bottom-nav-fab-types";
 import type { MainBottomNavAdminRow } from "@/lib/main-menu/main-bottom-nav-types";
 
 export type MainBottomNavIconDraft = {
@@ -13,14 +14,24 @@ export type MainBottomNavIconApplyPatch = {
 };
 
 export function cloneMainBottomNavAdminRow(row: MainBottomNavAdminRow): MainBottomNavAdminRow {
-  return { ...row };
+  return {
+    ...row,
+    ...(row.fab
+      ? {
+          fab: {
+            enabled: row.fab.enabled,
+            items: row.fab.items.map((item) => ({ ...item })),
+          },
+        }
+      : {}),
+  };
 }
 
 export function cloneMainBottomNavAdminRows(rows: MainBottomNavAdminRow[]): MainBottomNavAdminRow[] {
   return rows.map(cloneMainBottomNavAdminRow);
 }
 
-/** 관리자 편집 비교용 — 노출·라벨·경로·아이콘·새 창만 */
+/** 관리자 편집 비교용 — 노출·라벨·경로·아이콘·새 창·FAB */
 export function mainBottomNavRowEditPayload(row: MainBottomNavAdminRow, defaultLabel: string) {
   return {
     visible: row.visible,
@@ -29,6 +40,7 @@ export function mainBottomNavRowEditPayload(row: MainBottomNavAdminRow, defaultL
     icon: row.icon,
     lucideIcon: row.lucideIcon ?? null,
     openInNewTab: row.openInNewTab === true,
+    fab: row.fab ?? null,
   };
 }
 
@@ -109,7 +121,52 @@ export function mainBottomNavRowToApiItem(row: MainBottomNavAdminRow, defaultLab
     labelActiveClass: row.labelActiveClass,
     labelSizeClass: row.labelSizeClass,
     labelFontFamilyClass: row.labelFontFamilyClass,
+    ...(row.fab?.enabled ? { fab: row.fab } : row.fab != null ? { fab: { enabled: false, items: [] } } : {}),
   };
+}
+
+export function patchMainBottomNavRowFab(
+  row: MainBottomNavAdminRow,
+  fab: MainBottomNavFabStoredConfig | undefined
+): MainBottomNavAdminRow {
+  const next = cloneMainBottomNavAdminRow(row);
+  if (!fab?.enabled) {
+    next.fab = { enabled: false, items: [] };
+    return next;
+  }
+  next.fab = {
+    enabled: true,
+    items: fab.items.map((item) => ({ ...item })),
+  };
+  return next;
+}
+
+export function patchMainBottomNavFabItem(
+  row: MainBottomNavAdminRow,
+  itemId: string,
+  patch: Partial<MainBottomNavFabStoredItem>
+): MainBottomNavAdminRow {
+  if (!row.fab?.enabled) return row;
+  const next = cloneMainBottomNavAdminRow(row);
+  next.fab = {
+    enabled: true,
+    items: row.fab.items.map((item) => (item.id === itemId ? { ...item, ...patch } : item)),
+  };
+  return next;
+}
+
+export function applyMainBottomNavFabIconPatch(
+  item: MainBottomNavFabStoredItem,
+  patch: MainBottomNavIconApplyPatch
+): MainBottomNavFabStoredItem {
+  const next = { ...item };
+  if (patch.icon !== undefined) next.icon = patch.icon;
+  if (patch.lucideIcon === null) {
+    delete next.lucideIcon;
+  } else if (patch.lucideIcon !== undefined) {
+    next.lucideIcon = patch.lucideIcon;
+  }
+  return next;
 }
 
 /** 현재 순서 유지 — 한 행의 필드만 baseline 으로 되돌림 */

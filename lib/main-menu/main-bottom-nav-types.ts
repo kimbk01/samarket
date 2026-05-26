@@ -1,4 +1,5 @@
 import type { BottomNavIconKey, BottomNavItemConfig, BottomNavTabId } from "@/lib/main-menu/bottom-nav-config";
+import type { MainBottomNavFabStoredConfig } from "@/lib/main-menu/main-bottom-nav-fab-types";
 
 /** DB·API 페이로드 한 행 (노출 여부 포함) */
 export type MainBottomNavStoredItem = {
@@ -24,6 +25,8 @@ export type MainBottomNavStoredItem = {
   openInNewTab?: boolean;
   /** Lucide 아이콘명 (PascalCase) */
   lucideIcon?: string;
+  /** 하단 탭 보조 FAB (5~6탭 한도를 넘는 서브메뉴) */
+  fab?: MainBottomNavFabStoredConfig;
 };
 
 export type MainBottomNavStoredPayload = {
