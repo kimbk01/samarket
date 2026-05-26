@@ -8,6 +8,8 @@ export interface BrowsePrimaryIndustry {
   id: string;
   slug: string;
   nameKo: string;
+  /** en UI fallback when DB/mock has no name_en */
+  nameEn?: string | null;
   sortOrder: number;
   /** 카드용 짧은 표시 (이모지 또는 아이콘 키) */
   symbol: string;
@@ -18,6 +20,8 @@ export interface BrowseSubIndustry {
   id: string;
   slug: string;
   nameKo: string;
+  /** en UI fallback when DB/mock has no name_en */
+  nameEn?: string | null;
   primarySlug: string;
   sortOrder: number;
   /** DB store_topics.image_url (어드민 업로드) */

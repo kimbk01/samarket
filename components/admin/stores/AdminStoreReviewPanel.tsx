@@ -1,105 +1,45 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
-import { STORE_LOCATION_SECTION_HINT_APPLY } from "@/lib/stores/store-address-form-ui";
 import {
   ADMIN_STORE_APPROVAL_LABEL_KEYS,
   type AdminStoreReviewRow,
-  formatAdminStoreAddressOneLine,
+  buildAdminStoreDateRows,
+  type TaxonomyRelation,
 } from "@/components/admin/stores/admin-store-review-model";
-import { AdminStoreVisibleToggle } from "@/components/admin/stores/AdminStoreVisibleToggle";
 import {
-  parseFiniteLatitude,
-  parseFiniteLongitude,
-} from "@/lib/geo/parse-finite-geographic-coord";
+  ReviewAddressValue,
+  ReviewBlock,
+  ReviewRow,
+  sbBtnDanger,
+  sbBtnDangerSoft,
+  sbBtnPrimary,
+  sbBtnSecondary,
+  sbBtnWarn,
+} from "@/components/admin/stores/admin-store-review-ui";
+import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
+import {
+  resolveStoreTaxonomyPrimaryDisplayName,
+  resolveStoreTaxonomyTopicDisplayName,
+} from "@/lib/stores/resolve-store-taxonomy-display-name";
 
-function embedRelationName(
-  v: { name?: string } | { name?: string }[] | null | undefined
-): string {
-  if (v == null) return "";
-  if (Array.isArray(v)) return (v[0]?.name ?? "").trim();
-  return (v.name ?? "").trim();
+function embedRelation(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): TaxonomyRelation | null {
+  if (v == null) return null;
+  if (Array.isArray(v)) return v[0] ?? null;
+  return v;
+}
+
+function embedRelationName(v: TaxonomyRelation | TaxonomyRelation[] | null | undefined): string {
+  const rel = embedRelation(v);
+  return String(rel?.name ?? "").trim();
 }
 
 function dash(v: string | null | undefined): string {
   const t = (v ?? "").trim();
   return t || "—";
-}
-
-function normalizeAddress1ForStore(streetRaw: string, city: string, region: string): string {
-  let s = streetRaw.trim();
-  if (!s) return s;
-  const c = city.trim();
-  const r = region.trim();
-  // Remove trailing ", City" / ", Region" / " City" / " Region" patterns.
-  // This keeps "주소1" focused on the street/number line.
-  const removeTail = (token: string) => {
-    if (!token) return;
-    const re = new RegExp(String.raw`(?:,\s*|\s+)${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\s*$`, "i");
-    while (re.test(s)) s = s.replace(re, "").trim();
-  };
-  removeTail(c);
-  removeTail(r);
-  return s.replace(/^[,\s]+|[,\s]+$/g, "").trim();
-}
-
-function normalizeDetailForStore(street: string, detail: string, city: string, region: string): string {
-  const s = street.trim();
-  let d = detail.trim();
-  if (!d) return d;
-
-  // If detail accidentally contains street/full line, remove it.
-  if (s) {
-    const idx = d.toLowerCase().indexOf(s.toLowerCase());
-    if (idx >= 0) {
-      d = `${d.slice(0, idx)} ${d.slice(idx + s.length)}`.replace(/\s+/g, " ").trim();
-    }
-  }
-
-  // Remove any embedded city/region tokens from detail.
-  const tokens = [city, region]
-    .map((x) => x.trim())
-    .filter(Boolean)
-    .filter((x, i, a) => a.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
-  for (const t of tokens) {
-    const esc = t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    d = d.replace(new RegExp(String.raw`(?:,\s*|\s+)${esc}(?=,|\s|$)`, "ig"), " ");
-    d = d.replace(new RegExp(String.raw`^${esc}(?=,|\s|$)`, "ig"), " ");
-  }
-
-  d = d.replace(/\s+/g, " ").replace(/^[,\s]+|[,\s]+$/g, "").trim();
-  return d;
-}
-
-function ReviewSection({
-  title,
-  hint,
-  children,
-}: {
-  title: string;
-  hint?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section className="rounded-ui-rect border border-sam-border-soft bg-sam-app/60 p-3">
-      <h3 className="sam-text-body-secondary font-bold text-sam-fg">{title}</h3>
-      {hint ? <p className="mt-1 sam-text-xxs leading-relaxed text-sam-muted">{hint}</p> : null}
-      <div className="mt-2 space-y-2.5">{children}</div>
-    </section>
-  );
-}
-
-function Field({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div>
-      <p className="sam-text-xxs font-medium text-sam-muted">{label}</p>
-      <div className="mt-0.5 sam-text-body-secondary text-sam-fg">{value}</div>
-    </div>
-  );
 }
 
 export type AdminStoreReviewPanelProps = {
@@ -123,417 +63,242 @@ export function AdminStoreReviewPanel({
   identityActionBusy,
 }: AdminStoreReviewPanelProps) {
   const { t, language } = useI18n();
-  const locale = catalogDateLocale(language);
+  const [adminStoreName, setAdminStoreName] = useState(store?.store_name ?? "");
+  const [actionNote, setActionNote] = useState("");
+  const [visibleBusy, setVisibleBusy] = useState(false);
 
-  if (!store) {
-    return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6">
-        <p className="sam-text-body text-sam-muted">{t("admin_stores_review_select_store")}</p>
-      </div>
-    );
-  }
-
-  const [adminStoreName, setAdminStoreName] = useState(store.store_name ?? "");
   useEffect(() => {
-    setAdminStoreName(store.store_name ?? "");
-  }, [store.id, store.store_name]);
+    setAdminStoreName(store?.store_name ?? "");
+    setActionNote("");
+  }, [store?.id, store?.store_name]);
+
+  if (!store) return null;
 
   const statusKey = ADMIN_STORE_APPROVAL_LABEL_KEYS[store.approval_status];
   const statusLabel = statusKey ? t(statusKey) : store.approval_status;
-  const { intro: storeIntro, kakao: storeKakao } = splitStoreDescriptionAndKakao(
-    store.description,
-    store.kakao_id
-  );
-  // address display is centralized in formatAdminStoreAddressOneLine
+  const { intro: storeIntro } = splitStoreDescriptionAndKakao(store.description, store.kakao_id);
+  const dateRows = buildAdminStoreDateRows(store);
 
   const gcashNoDigits = parsePhMobileInput(store.email ?? "");
   const gcashNoDisplay =
     gcashNoDigits.length === 11 ? formatPhMobileDisplay(gcashNoDigits) : dash(store.email);
 
-  const catDb = embedRelationName(store.store_categories);
-  const topicDb = embedRelationName(store.store_topics);
+  const catRel = embedRelation(store.store_categories);
+  const topicRel = embedRelation(store.store_topics);
+  const catDb = catRel?.slug
+    ? resolveStoreTaxonomyPrimaryDisplayName(language, catRel.slug, String(catRel.name ?? ""), catRel.name_en)
+    : embedRelationName(store.store_categories);
+  const topicDb = topicRel?.slug
+    ? resolveStoreTaxonomyTopicDisplayName(language, topicRel.slug, String(topicRel.name ?? ""), topicRel.name_en)
+    : embedRelationName(store.store_topics);
 
-  const imgs = [{ label: t("admin_stores_image_profile"), url: store.profile_image_url }].filter(
-    (x) => x.url?.trim()
-  );
+  const profileUrl = store.profile_image_url?.trim();
+  const busy = Boolean(actionBusy || identityActionBusy || visibleBusy);
+  const reason = actionNote.trim();
 
-  const busy = Boolean(actionBusy || identityActionBusy);
+  const runActionWithOptionalNote = (action: string) => {
+    void onRunAction?.(action, reason ? { reason } : undefined);
+  };
 
-  const actionBtnBase =
-    "inline-flex min-h-[2.5rem] items-center justify-center rounded-ui-rect px-3 py-2 sam-text-helper font-semibold transition disabled:pointer-events-none disabled:opacity-45";
-  const actionPrimary = `${actionBtnBase} bg-signature text-white hover:bg-signature/90 active:bg-signature/95`;
-  const actionSecondary = `${actionBtnBase} border border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-app active:bg-sam-surface-muted`;
-  const actionWarn = `${actionBtnBase} border border-amber-200 bg-amber-50 text-amber-950 hover:bg-amber-100/80 active:bg-amber-100`;
-  const actionDanger = `${actionBtnBase} border border-red-300 bg-red-600 text-white hover:bg-red-700 active:bg-red-800`;
-  const actionDangerSoft = `${actionBtnBase} border border-red-200 bg-sam-surface text-red-800 hover:bg-red-50 active:bg-red-100/80`;
-  const actionSales = `${actionBtnBase} border border-sam-primary-border bg-sam-primary text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled`;
-  const actionSalesOutline = `${actionBtnBase} border border-sam-primary-border bg-sam-primary-soft text-sam-primary hover:bg-sam-primary-soft-2`;
-
-  const promptReason = (titleKey: Parameters<typeof t>[0]) => window.prompt(t(titleKey), "")?.trim() ?? "";
+  const visibilityValue =
+    store.approval_status === "approved" && onRunAction ? (
+      <div className="flex items-center gap-2">
+        <StoreOpsOnOffSwitch
+          checked={store.is_visible}
+          disabled={busy}
+          onCheckedChange={async (next) => {
+            setVisibleBusy(true);
+            try {
+              const result = await Promise.resolve(onRunAction("set_store_visible", { enabled: next }));
+              return result !== false;
+            } finally {
+              setVisibleBusy(false);
+            }
+          }}
+          ariaLabel={
+            store.is_visible ? t("admin_stores_visible_toggle_aria_off") : t("admin_stores_visible_toggle_aria_on")
+          }
+        />
+        <span className="text-[13px] text-[#6B6B6B]">
+          {store.is_visible ? t("admin_stores_visible_y") : t("admin_stores_visible_n")}
+        </span>
+      </div>
+    ) : store.is_visible ? (
+      t("admin_stores_visible_y")
+    ) : (
+      t("admin_stores_visible_n")
+    );
 
   return (
-    <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
-      <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
-        <div className="min-w-0">
-          <p className="sam-text-helper font-semibold text-sam-muted">{t("admin_stores_review_manage")}</p>
-          <h2 className="truncate sam-text-body-lg font-semibold text-sam-fg">
-            {dash(store.store_name)}
-          </h2>
-        </div>
-        {onClose ? (
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-ui-rect px-3 py-1.5 sam-text-body-secondary font-medium text-sam-muted hover:bg-sam-surface-muted"
-          >
-            {t("common_close")}
-          </button>
-        ) : null}
-      </div>
+    <div>
+      <ReviewBlock title="상태">
+        <ReviewRow label="심사상태" value={statusLabel} />
+        <ReviewRow label="노출상태" value={visibilityValue} />
+        {dateRows.map((row) => (
+          <ReviewRow key={row.label} label={row.label} value={row.value} />
+        ))}
+      </ReviewBlock>
 
-      <div className="space-y-4 p-4">
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-white">
-              {statusLabel}
-            </span>
-            {store.approval_status === "approved" && onRunAction ? (
-              <AdminStoreVisibleToggle
-                isVisible={store.is_visible}
-                disabled={busy}
-                onSetVisible={async (next) => {
-                  const result = await Promise.resolve(
-                    onRunAction("set_store_visible", { enabled: next })
-                  );
-                  return result !== false;
-                }}
-              />
-            ) : store.is_visible ? (
-              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 sam-text-xxs font-bold text-emerald-800">
-                {t("admin_stores_visible_y")}
-              </span>
-            ) : (
-              <span className="rounded-full bg-sam-app px-2.5 py-0.5 sam-text-xxs font-bold text-sam-muted">
-                {t("admin_stores_visible_n")}
-              </span>
-            )}
-          </div>
-          <p className="mt-2 font-mono sam-text-xxs text-sam-muted">/stores/{store.slug}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <a
-              href={`/stores/${encodeURIComponent(store.slug)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
-            >
-              {t("admin_stores_public_page")}
-            </a>
-          </div>
-          <p className="mt-2 sam-text-helper text-sam-muted">
-            {t("admin_stores_applied_at", {
-              date: new Date(store.created_at).toLocaleString(locale),
-            })}
-            {store.approved_at ? (
-              <>
-                {" "}
-                ·{" "}
-                {t("admin_stores_approved_at", {
-                  date: new Date(store.approved_at).toLocaleString(locale),
-                })}
-              </>
-            ) : null}
-          </p>
-
-          {onRunAction ? (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {store.approval_status === "suspended" ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  className={actionPrimary}
-                  onClick={() => onRunAction("resume_store")}
-                >
-                  {t("admin_stores_action_resume_store")}
-                </button>
-              ) : store.approval_status !== "approved" ? (
-                <>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionPrimary}
-                    onClick={() => onRunAction("approve_store")}
-                  >
-                    {t("admin_stores_action_approve_store")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionWarn}
-                    onClick={() => {
-                      const note = promptReason("admin_stores_prompt_revision_memo");
-                      if (!note) return;
-                      onRunAction("request_revision", { reason: note });
-                    }}
-                  >
-                    {t("admin_stores_action_request_revision")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionDanger}
-                    onClick={() => {
-                      const reason = promptReason("admin_stores_prompt_reject_reason");
-                      if (!reason) return;
-                      onRunAction("reject_store", { reason });
-                    }}
-                  >
-                    {t("admin_stores_action_reject_store")}
-                  </button>
-                    {onClose ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className={actionSecondary}
-                        onClick={() => onClose?.()}
-                      >
-                        {t("common_close")}
-                      </button>
-                    ) : null}
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionSales}
-                    onClick={() => onRunAction("approve_sales")}
-                  >
-                    {t("admin_stores_action_approve_sales")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionSalesOutline}
-                    onClick={() => {
-                      const reason = promptReason("admin_stores_prompt_sales_reject_reason");
-                      if (!reason) return;
-                      onRunAction("reject_sales", { reason });
-                    }}
-                  >
-                    {t("admin_stores_action_reject_sales")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionDangerSoft}
-                    onClick={() => {
-                      const reason = promptReason("admin_stores_prompt_suspend_store_reason");
-                      if (!reason) return;
-                      onRunAction("suspend_store", { reason });
-                    }}
-                  >
-                    {t("admin_stores_action_suspend_store")}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    className={actionWarn}
-                    onClick={() => {
-                      const reason = promptReason("admin_stores_prompt_suspend_sales_reason");
-                      if (!reason) return;
-                      onRunAction("suspend_sales", { reason });
-                    }}
-                  >
-                    {t("admin_stores_action_suspend_sales")}
-                  </button>
-                </>
-              )}
-            </div>
-          ) : null}
-        </div>
-
-        <ReviewSection title={t("admin_stores_section_admin_only")}>
-          <div className="grid grid-cols-1 gap-2">
-            <Field
-              label={t("admin_stores_field_store_name_admin")}
+      {onRunAction ? (
+        <ReviewBlock title="운영">
+          <div className="py-2">
+            <ReviewRow
+              label="매장명"
               value={
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <input
                     value={adminStoreName}
                     onChange={(e) => setAdminStoreName(e.target.value)}
-                    className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
+                    className="min-w-[12rem] flex-1 rounded-sm border border-[#D4C5B9] bg-white px-2.5 py-1.5 text-[#1E3932] outline-none focus:border-[#00704A]"
                     placeholder={t("admin_stores_field_store_name_ph")}
-                    disabled={busy || !onRunAction}
+                    disabled={busy}
                   />
                   <button
                     type="button"
-                    disabled={busy || !onRunAction || adminStoreName.trim().length < 2}
-                    onClick={() => onRunAction?.("set_store_name", { store_name: adminStoreName.trim() })}
-                    className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
+                    disabled={busy || adminStoreName.trim().length < 2}
+                    onClick={() => onRunAction("set_store_name", { store_name: adminStoreName.trim() })}
+                    className={sbBtnPrimary}
                   >
                     {t("admin_stores_save_store_name")}
                   </button>
                 </div>
               }
             />
-            <Field
-              label={t("admin_stores_field_owner_slug")}
-              value={<span className="font-mono sam-text-xxs text-sam-muted">/stores/{store.slug}</span>}
-            />
+            {onSetOwnerIdentityEditable ? (
+              <ReviewRow
+                label="매장명 수정"
+                value={
+                  <button
+                    type="button"
+                    disabled={identityActionBusy}
+                    onClick={() => onSetOwnerIdentityEditable(!store.owner_can_edit_store_identity)}
+                    className={`rounded-sm border px-2.5 py-0.5 text-[13px] font-medium disabled:opacity-50 ${
+                      store.owner_can_edit_store_identity
+                        ? "border-[#A5D6A7] bg-[#E8F5E9] text-[#1B5E20]"
+                        : "border-[#D4C5B9] bg-[#F2F0EB] text-[#6B6B6B]"
+                    }`}
+                  >
+                    {identityActionBusy
+                      ? t("common_processing")
+                      : store.owner_can_edit_store_identity
+                        ? "허용 ON"
+                        : "허용 OFF"}
+                  </button>
+                }
+              />
+            ) : null}
           </div>
-        </ReviewSection>
 
-        <ReviewSection title={t("admin_stores_section_applicant")}>
-          <Field
-            label={t("admin_stores_field_nickname")}
-            value={<span className="font-medium">{dash(store.applicant_nickname)}</span>}
-          />
-          <Field
-            label={t("admin_stores_field_owner_user_id")}
-            value={<span className="break-all font-mono sam-text-xxs">{store.owner_user_id}</span>}
-          />
-        </ReviewSection>
-
-        <ReviewSection title={t("admin_stores_section_contact")}>
-          <Field label={t("admin_stores_field_phone")} value={<span className="font-medium">{dash(store.phone)}</span>} />
-          <Field label={t("admin_stores_field_kakao")} value={<span className="font-medium">{dash(storeKakao)}</span>} />
-          <Field label={t("admin_stores_field_email_gcash")} value={<span className="font-medium">{gcashNoDisplay}</span>} />
-          <Field label="GCash name" value={<span className="font-medium">{dash(store.website_url)}</span>} />
-        </ReviewSection>
-
-        <ReviewSection title={t("admin_stores_section_address")} hint={STORE_LOCATION_SECTION_HINT_APPLY}>
-          <Field
-            label={t("admin_stores_field_region")}
-            value={(() => {
-              const reg = (store.region ?? "").trim();
-              const city = (store.city ?? "").trim();
-              if (!reg && !city) return "—";
-              return [reg, city].filter(Boolean).join(" · ");
-            })()}
-          />
-          <Field
-            label={t("admin_stores_field_address1")}
-            value={(() => {
-              const city = (store.city ?? "").trim();
-              const region = (store.region ?? "").trim();
-              const street = normalizeAddress1ForStore(String(store.address_line1 ?? ""), city, region);
-              return dash(street);
-            })()}
-          />
-          <Field
-            label={t("admin_stores_field_address_detail")}
-            value={(() => {
-              const city = (store.city ?? "").trim();
-              const region = (store.region ?? "").trim();
-              const street = normalizeAddress1ForStore(String(store.address_line1 ?? ""), city, region);
-              const detail = normalizeDetailForStore(street, String(store.address_line2 ?? ""), city, region);
-              return dash(detail);
-            })()}
-          />
-          <Field
-            label={t("admin_stores_field_full_address")}
-            value={
-              <span className="font-medium text-sam-fg">
-                {formatAdminStoreAddressOneLine(store)}
-              </span>
-            }
-          />
-          <Field
-            label={t("admin_stores_field_map_coords")}
-            value={(() => {
-              const la = parseFiniteLatitude(store.lat);
-              const ln = parseFiniteLongitude(store.lng);
-              if (la != null && ln != null) {
-                return (
-                  <span className="font-mono sam-text-xxs text-sam-fg">
-                    {la}, {ln}
-                  </span>
-                );
+          <div className="border-t border-[#E8E2D8]/80 py-3">
+            <ReviewRow
+              label={t("admin_stores_action_note_label")}
+              value={
+                <textarea
+                  value={actionNote}
+                  onChange={(e) => setActionNote(e.target.value)}
+                  rows={2}
+                  className="w-full rounded-sm border border-[#D4C5B9] bg-white px-2.5 py-1.5 text-[#1E3932] outline-none focus:border-[#00704A]"
+                  placeholder={t("admin_stores_action_note_placeholder")}
+                  disabled={busy}
+                />
               }
-              return (
-                <span className="font-medium text-amber-800 dark:text-amber-200">
-                  {t("admin_stores_coords_missing")}
-                </span>
-              );
-            })()}
-          />
-        </ReviewSection>
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {store.approval_status === "suspended" ? (
+                <button type="button" disabled={busy} className={sbBtnPrimary} onClick={() => runActionWithOptionalNote("resume_store")}>
+                  {t("admin_stores_action_resume_store")}
+                </button>
+              ) : store.approval_status !== "approved" ? (
+                <>
+                  <button type="button" disabled={busy} className={sbBtnSecondary} onClick={() => runActionWithOptionalNote("start_review")}>
+                    {t("admin_stores_action_start_review")}
+                  </button>
+                  <button type="button" disabled={busy} className={sbBtnPrimary} onClick={() => runActionWithOptionalNote("approve_store")}>
+                    {t("admin_stores_action_approve_store")}
+                  </button>
+                  <button type="button" disabled={busy} className={sbBtnWarn} onClick={() => runActionWithOptionalNote("request_revision")}>
+                    {t("admin_stores_action_request_revision")}
+                  </button>
+                  <button type="button" disabled={busy} className={sbBtnDanger} onClick={() => runActionWithOptionalNote("reject_store")}>
+                    {t("admin_stores_action_reject_store")}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button type="button" disabled={busy} className={sbBtnPrimary} onClick={() => runActionWithOptionalNote("approve_sales")}>
+                    {t("admin_stores_action_approve_sales")}
+                  </button>
+                  <button type="button" disabled={busy} className={sbBtnSecondary} onClick={() => runActionWithOptionalNote("reject_sales")}>
+                    {t("admin_stores_action_reject_sales")}
+                  </button>
+                  <button type="button" disabled={busy} className={sbBtnDangerSoft} onClick={() => runActionWithOptionalNote("suspend_store")}>
+                    {t("admin_stores_action_suspend_store")}
+                  </button>
+                  <button type="button" disabled={busy} className={sbBtnWarn} onClick={() => runActionWithOptionalNote("suspend_sales")}>
+                    {t("admin_stores_action_suspend_sales")}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </ReviewBlock>
+      ) : null}
 
-        <ReviewSection title={t("admin_stores_section_business")}>
-          <Field label={t("admin_stores_field_category_primary")} value={<span className="font-medium">{catDb || "—"}</span>} />
-          <Field label={t("admin_stores_field_category_secondary")} value={<span className="font-medium">{topicDb || "—"}</span>} />
-          <Field label="business_type" value={dash(store.business_type)} />
-          <Field
-            label={t("admin_stores_field_identity_edit_allowed")}
-            value={
-              store.owner_can_edit_store_identity
-                ? t("admin_stores_identity_edit_yes")
-                : t("admin_stores_identity_edit_no")
-            }
-          />
-        </ReviewSection>
-
+      <ReviewBlock title="신청 정보">
+        <ReviewRow label={t("admin_stores_field_email_gcash")} value={gcashNoDisplay} />
+        <ReviewRow label="GCash name" value={dash(store.website_url)} />
+        <ReviewRow label={t("admin_stores_field_category_primary")} value={catDb || "—"} />
+        <ReviewRow label={t("admin_stores_field_category_secondary")} value={topicDb || "—"} />
+        <ReviewRow label="매장 주소" value={<ReviewAddressValue store={store} />} />
         {storeIntro?.trim() ? (
-          <ReviewSection title={t("admin_stores_section_intro")}>
-            <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-relaxed text-sam-fg">
-              {storeIntro.trim()}
-            </pre>
-          </ReviewSection>
+          <ReviewRow
+            label={t("admin_stores_section_intro")}
+            value={<span className="whitespace-pre-wrap">{storeIntro.trim()}</span>}
+          />
         ) : null}
-
+        {store.application_request_note?.trim() ? (
+          <ReviewRow
+            label={t("admin_stores_section_request_note")}
+            value={<span className="whitespace-pre-wrap">{store.application_request_note.trim()}</span>}
+          />
+        ) : null}
         {store.revision_note?.trim() ? (
-          <ReviewSection title={t("admin_stores_section_revision")}>
-            <p className="whitespace-pre-wrap sam-text-body-secondary text-amber-950">{store.revision_note.trim()}</p>
-          </ReviewSection>
+          <ReviewRow
+            label={t("admin_stores_section_revision")}
+            value={<span className="whitespace-pre-wrap text-[#F57F17]">{store.revision_note.trim()}</span>}
+          />
         ) : null}
         {store.rejected_reason?.trim() ? (
-          <ReviewSection title={t("admin_stores_section_reject_reason")}>
-            <p className="whitespace-pre-wrap sam-text-body-secondary text-red-900">{store.rejected_reason.trim()}</p>
-          </ReviewSection>
+          <ReviewRow
+            label={t("admin_stores_section_reject_reason")}
+            value={<span className="whitespace-pre-wrap text-[#B71C1C]">{store.rejected_reason.trim()}</span>}
+          />
         ) : null}
         {store.suspended_reason?.trim() ? (
-          <ReviewSection title={t("admin_stores_section_suspend_reason")}>
-            <p className="whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{store.suspended_reason.trim()}</p>
-          </ReviewSection>
+          <ReviewRow
+            label={t("admin_stores_section_suspend_reason")}
+            value={<span className="whitespace-pre-wrap">{store.suspended_reason.trim()}</span>}
+          />
         ) : null}
+        {profileUrl ? (
+          <ReviewRow
+            label={t("admin_stores_image_profile")}
+            value={
+              <a href={profileUrl} target="_blank" rel="noopener noreferrer" className="block max-w-xs overflow-hidden rounded-sm border border-[#D4C5B9]">
+                <img src={profileUrl} alt="" className="max-h-40 w-full object-cover" />
+              </a>
+            }
+          />
+        ) : null}
+      </ReviewBlock>
 
-        {imgs.length > 0 ? (
-          <ReviewSection title={t("admin_stores_section_images")}>
-            {imgs.map(({ label, url }) => (
-              <div key={label}>
-                <p className="mb-1 sam-text-xxs text-sam-muted">{label}</p>
-                <a
-                  href={url!}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block overflow-hidden rounded-ui-rect border border-sam-border"
-                >
-                  <img src={url!} alt="" className="max-h-48 w-full object-cover" />
-                </a>
-              </div>
-            ))}
-          </ReviewSection>
-        ) : null}
-
-        {onSetOwnerIdentityEditable ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-            <p className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_stores_owner_identity_edit")}</p>
-            <button
-              type="button"
-              disabled={identityActionBusy}
-              onClick={() => onSetOwnerIdentityEditable(!store.owner_can_edit_store_identity)}
-              className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app disabled:opacity-50"
-            >
-              {identityActionBusy
-                ? t("common_processing")
-                : store.owner_can_edit_store_identity
-                  ? t("admin_stores_identity_revoke")
-                  : t("admin_stores_identity_grant")}
-            </button>
-          </div>
-        ) : null}
-      </div>
+      {onClose ? (
+        <div className="flex justify-end border-t border-[#D4C5B9] px-4 py-2">
+          <button type="button" onClick={onClose} className={sbBtnSecondary}>
+            {t("common_close")}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
-

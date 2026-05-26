@@ -2,9 +2,18 @@ import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import {
+  loadOwnerMasterAddressBookMap,
+} from "@/lib/admin/load-owner-address-book-for-stores";
+import {
+  parseStoredAddressBookPresentation,
+  type AddressBookCardPresentation,
+} from "@/lib/addresses/address-book-card-presentation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+let adminStoresSelectAttemptStart = 0;
 
 /** 관리자: 매장 목록 + 판매권한 요약 */
 export async function GET(req: Request) {
@@ -21,27 +30,62 @@ export async function GET(req: Request) {
   const qRaw = searchParams.get("q")?.trim() ?? "";
   const qText = qRaw.replace(/^@+/, "").trim();
 
-  let q = sb
-    .from("stores")
-    .select(
-      [
-        /* applicant_nickname 컬럼은 마이그레이션 전 DB에 없을 수 있어 select 제외 → profiles.nickname 으로 보강 */
-        "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
-        "store_category_id, store_topic_id, owner_can_edit_store_identity",
-        "description, kakao_id, phone, email, website_url, region, city, district",
-        "address_line1, address_line2, lat, lng, profile_image_url",
-        "created_at, approved_at, rejected_reason, revision_note, suspended_reason",
-        "store_categories ( name ), store_topics ( name )",
-      ].join(", ")
-    )
-    .order("created_at", { ascending: false })
-    .limit(300);
+  const selectAttempts = [
+    [
+      "id, store_name, slug, owner_user_id, applicant_nickname, approval_status, is_visible, business_type",
+      "store_category_id, store_topic_id, owner_can_edit_store_identity",
+      "description, application_request_note, application_address_book, kakao_id, phone, email, website_url, region, city, district",
+      "address_line1, address_line2, lat, lng, profile_image_url",
+      "created_at, updated_at, approved_at, rejected_reason, revision_note, suspended_reason",
+      "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
+    ].join(", "),
+    [
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
+      "store_category_id, store_topic_id, owner_can_edit_store_identity",
+      "description, application_request_note, application_address_book, kakao_id, phone, email, website_url, region, city, district",
+      "address_line1, address_line2, lat, lng, profile_image_url",
+      "created_at, updated_at, approved_at, rejected_reason, revision_note, suspended_reason",
+      "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
+    ].join(", "),
+    [
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
+      "store_category_id, store_topic_id, owner_can_edit_store_identity",
+      "description, kakao_id, phone, email, website_url, region, city, district",
+      "address_line1, address_line2, lat, lng, profile_image_url",
+      "created_at, updated_at, approved_at, rejected_reason, revision_note, suspended_reason",
+      "store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )",
+    ].join(", "),
+    [
+      "id, store_name, slug, owner_user_id, approval_status, is_visible, business_type",
+      "store_category_id, store_topic_id, owner_can_edit_store_identity",
+      "description, kakao_id, phone, email, website_url, region, city, district",
+      "address_line1, address_line2, lat, lng, profile_image_url",
+      "created_at, updated_at, approved_at, rejected_reason, revision_note, suspended_reason",
+      "store_categories ( name ), store_topics ( name )",
+    ].join(", "),
+  ] as const;
 
-  if (status && status !== "all") {
-    q = q.eq("approval_status", status);
+  let stores: unknown[] | null = null;
+  let error: { message: string } | null = null;
+  const selectOrder = [
+    ...selectAttempts.slice(adminStoresSelectAttemptStart),
+    ...selectAttempts.slice(0, adminStoresSelectAttemptStart),
+  ];
+  for (const sel of selectOrder) {
+    const result = await sb
+      .from("stores")
+      .select(sel)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (!result.error) {
+      stores = Array.isArray(result.data) ? (result.data as unknown[]) : [];
+      error = null;
+      const idx = selectAttempts.indexOf(sel);
+      if (idx >= 0) adminStoresSelectAttemptStart = idx;
+      break;
+    }
+    error = result.error;
   }
-
-  const { data: stores, error } = await q;
   if (error) {
     console.error("[admin/stores GET]", error);
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -55,7 +99,7 @@ export async function GET(req: Request) {
   const ids = list.map((s) => s.id);
   const ownerIds = [...new Set(list.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean))];
 
-  const [profsRes, nickRowsRes, permsRes] = await Promise.all([
+  const [profsRes, permsRes] = await Promise.all([
     ownerIds.length > 0
       ? sb.from("profiles").select("id, display_name, nickname, username").in("id", ownerIds)
       : Promise.resolve({
@@ -64,9 +108,6 @@ export async function GET(req: Request) {
             | null,
           error: null,
         }),
-    ids.length > 0
-      ? sb.from("stores").select("id, applicant_nickname").in("id", ids)
-      : Promise.resolve({ data: null as { id?: string; applicant_nickname?: string | null }[] | null, error: null }),
     ids.length > 0
       ? sb
           .from("store_sales_permissions")
@@ -89,25 +130,16 @@ export async function GET(req: Request) {
     }
   }
 
-  const nickFromStoreCol = new Map<string, string>();
-  if (!nickRowsRes.error && nickRowsRes.data) {
-    for (const r of nickRowsRes.data) {
-      const sid = String((r as { id?: string }).id ?? "");
-      const an = String((r as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
-      if (sid && an) nickFromStoreCol.set(sid, an);
-    }
-  }
-
   const listWithApplicant = list.map((s) => {
     const oid = String(s.owner_user_id ?? "").trim();
     const fromProfile = oid ? nickByOwner.get(oid) : undefined;
     const ownerUsername = oid ? usernameByOwner.get(oid) : undefined;
-    const fromCol = nickFromStoreCol.get(s.id);
+    const fromCol = String((s as { applicant_nickname?: unknown }).applicant_nickname ?? "").trim();
     const ownerHandle = ownerUsername ? `@${ownerUsername}` : null;
     return {
       ...s,
       store_name: String((s as any).store_name ?? "").trim(),
-      applicant_nickname: fromCol ?? fromProfile ?? null,
+      applicant_nickname: fromCol || fromProfile || null,
       owner_username: ownerUsername ?? null,
       owner_handle: ownerHandle,
     };
@@ -121,15 +153,26 @@ export async function GET(req: Request) {
         const slug = String((s as any).slug ?? "").trim().toLowerCase();
         const phone = String((s as any).phone ?? "").trim().toLowerCase();
         const kakao = String((s as any).kakao_id ?? "").trim().toLowerCase();
+        const applicant = String((s as any).applicant_nickname ?? "").trim().toLowerCase();
+        const requestNote = String((s as any).application_request_note ?? "").trim().toLowerCase();
         return (
           storeName.includes(qLower) ||
           slug.includes(qLower) ||
           phone.includes(qLower) ||
           kakao.includes(qLower) ||
+          applicant.includes(qLower) ||
+          requestNote.includes(qLower) ||
           handle.includes(qLower)
         );
       })
     : listWithApplicant;
+
+  const statusFilteredList =
+    status && status !== "all"
+      ? filteredListWithApplicant.filter(
+          (s) => String((s as { approval_status?: unknown }).approval_status ?? "") === status
+        )
+      : filteredListWithApplicant;
 
   const statusCounts: Record<string, number> = {
     all: filteredListWithApplicant.length,
@@ -153,12 +196,43 @@ export async function GET(req: Request) {
     permByStore[sid] = p as Record<string, unknown>;
   }
 
+  const ownersNeedingBookFallback = [
+    ...new Set(
+      statusFilteredList
+        .filter(
+          (s) =>
+            !parseStoredAddressBookPresentation(
+              (s as { application_address_book?: unknown }).application_address_book
+            )
+        )
+        .map((s) => String((s as { owner_user_id?: unknown }).owner_user_id ?? "").trim())
+        .filter(Boolean)
+    ),
+  ];
+  let ownerBookFallback = new Map<string, AddressBookCardPresentation>();
+  if (ownersNeedingBookFallback.length > 0) {
+    try {
+      ownerBookFallback = await loadOwnerMasterAddressBookMap(sb, ownersNeedingBookFallback);
+    } catch (err) {
+      console.error("[admin/stores GET] owner address book fallback", err);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
-    stores: filteredListWithApplicant.map((s) => ({
-      ...s,
-      sales_permission: permByStore[s.id] ?? null,
-    })),
+    stores: statusFilteredList.map((s) => {
+      const storedBook = parseStoredAddressBookPresentation(
+        (s as { application_address_book?: unknown }).application_address_book
+      );
+      const ownerId = String((s as { owner_user_id?: unknown }).owner_user_id ?? "").trim();
+      const application_address_book =
+        storedBook ?? (ownerId ? ownerBookFallback.get(ownerId) ?? null : null);
+      return {
+        ...s,
+        application_address_book,
+        sales_permission: permByStore[s.id] ?? null,
+      };
+    }),
     counts: statusCounts,
   });
 }

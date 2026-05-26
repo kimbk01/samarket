@@ -1,5 +1,8 @@
 import type { MessageKey } from "@/lib/i18n/messages";
-import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
+import {
+  parseStoredAddressBookPresentation,
+  type AddressBookCardPresentation,
+} from "@/lib/addresses/address-book-card-presentation";
 
 export type AdminStoreReviewRow = {
   id: string;
@@ -7,15 +10,20 @@ export type AdminStoreReviewRow = {
   slug: string;
   owner_user_id: string;
   applicant_nickname?: string | null;
+  owner_username?: string | null;
+  owner_handle?: string | null;
   approval_status: string;
   is_visible: boolean;
   business_type: string | null;
   store_category_id?: string | null;
   store_topic_id?: string | null;
   owner_can_edit_store_identity?: boolean;
-  store_categories?: { name?: string } | { name?: string }[] | null;
-  store_topics?: { name?: string } | { name?: string }[] | null;
+  store_categories?: TaxonomyRelation | TaxonomyRelation[] | null;
+  store_topics?: TaxonomyRelation | TaxonomyRelation[] | null;
   description: string | null;
+  application_request_note?: string | null;
+  /** 신청 시점 주소록 카드 — `{ gatePrefix, streetBody }` */
+  application_address_book?: AddressBookCardPresentation | null;
   kakao_id: string | null;
   phone: string | null;
   email: string | null;
@@ -29,10 +37,17 @@ export type AdminStoreReviewRow = {
   lng: number | null;
   profile_image_url: string | null;
   created_at: string;
+  updated_at?: string | null;
   approved_at: string | null;
   rejected_reason: string | null;
   revision_note: string | null;
   suspended_reason: string | null;
+};
+
+export type TaxonomyRelation = {
+  name?: string | null;
+  name_en?: string | null;
+  slug?: string | null;
 };
 
 export const ADMIN_STORE_APPROVAL_LABEL_KEYS: Record<string, MessageKey> = {
@@ -57,14 +72,43 @@ export const ADMIN_STORE_STATUS_FILTER: { value: string; labelKey: MessageKey }[
 /** @deprecated use ADMIN_STORE_APPROVAL_LABEL_KEYS with useI18n */
 export const ADMIN_STORE_APPROVAL_LABEL: Record<string, string> = {};
 
-/** 신청 폼 기준: 주소 한 줄이 district·address_line1에 동기 저장 */
-export function formatAdminStoreAddressOneLine(r: AdminStoreReviewRow): string {
-  const lines = formatStorePickupAddressLines({
-    region: r.region,
-    city: r.city,
-    district: r.district,
-    address_line1: r.address_line1,
-    address_line2: r.address_line2,
-  });
-  return lines.join(" · ").trim() || "—";
+export function formatAdminEnglishDate(v: string | null | undefined): string {
+  if (!v) return "—";
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(d);
+}
+
+/** `/mypage/addresses` 카드와 동일 — 신청 스냅샷 우선 */
+export function formatAdminStoreAddressPresentation(
+  r: AdminStoreReviewRow
+): AddressBookCardPresentation | null {
+  const fromRow = parseStoredAddressBookPresentation(r.application_address_book);
+  if (fromRow) return fromRow;
+  return null;
+}
+
+export type AdminStoreDateRow = { label: string; value: string };
+
+/** 신청·승인·최종변경 등 처리 일시 — 행 단위 목록 */
+export function buildAdminStoreDateRows(r: AdminStoreReviewRow): AdminStoreDateRow[] {
+  const rows: AdminStoreDateRow[] = [
+    { label: "신청일", value: formatAdminEnglishDate(r.created_at) },
+  ];
+  if (r.approved_at) {
+    rows.push({ label: "승인일", value: formatAdminEnglishDate(r.approved_at) });
+  }
+  const updated = (r.updated_at ?? "").trim();
+  const created = (r.created_at ?? "").trim();
+  if (updated && updated !== created) {
+    rows.push({ label: "최종변경", value: formatAdminEnglishDate(updated) });
+  }
+  return rows;
 }

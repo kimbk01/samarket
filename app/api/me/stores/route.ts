@@ -7,6 +7,8 @@ import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { RESERVED_STORE_SLUGS } from "@/lib/business/owner-routes";
+import { formatAddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
+import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +52,8 @@ type ApplyBody = {
   storeSlug?: string;
   shopName?: string;
   description?: string;
+  /** 관리자 검토용 요청 사항 */
+  requestNote?: string;
   phone?: string;
   kakaoId?: string;
   region?: string;
@@ -135,6 +139,11 @@ export async function POST(req: NextRequest) {
   }
 
   const description = String(body.description ?? "").trim() || null;
+  const requestNoteRaw = String(body.requestNote ?? "").trim();
+  if (requestNoteRaw.length > 1000) {
+    return NextResponse.json({ ok: false, error: "request_note_too_long" }, { status: 400 });
+  }
+  const applicationRequestNote = requestNoteRaw || null;
   const kakaoId = String(body.kakaoId ?? "").trim() || null;
 
   const primarySlug = String(body.categoryPrimarySlug ?? "").trim().toLowerCase();
@@ -221,12 +230,26 @@ export async function POST(req: NextRequest) {
   const street = normAddr.address1;
   const detail = normAddr.address2;
 
+  let applicationAddressBook: ReturnType<typeof formatAddressBookCardPresentation> = null;
+  try {
+    const addressDefaults = await getUserAddressDefaults(supabase, userId);
+    applicationAddressBook = formatAddressBookCardPresentation(addressDefaults.master);
+  } catch (err) {
+    console.error("[POST /api/me/stores] master address load", err);
+    return NextResponse.json({ ok: false, error: "master_address_load_failed" }, { status: 503 });
+  }
+  if (!applicationAddressBook) {
+    return NextResponse.json({ ok: false, error: "master_address_required" }, { status: 400 });
+  }
+
   /** business_hours_json 은 DB 기본 `{}` — 승인 후 매장 설정에서 영업·공지 등과 동일 스키마로 채움 */
   let insertPayload: Record<string, unknown> = {
     owner_user_id: userId,
     applicant_nickname: applicantNickname,
     store_name: shopName,
     business_type,
+    application_request_note: applicationRequestNote,
+    application_address_book: applicationAddressBook,
     store_category_id,
     store_topic_id,
     description,
@@ -248,9 +271,9 @@ export async function POST(req: NextRequest) {
   let inserted: Record<string, unknown> | null = null;
   let insErr: { code?: string; message: string } | null = null;
 
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     const slug = storeSlug;
-    let result = await supabase
+    const result = await supabase
       .from("stores")
       .insert({ ...insertPayload, slug })
       .select(postInsertSelect)
@@ -263,11 +286,30 @@ export async function POST(req: NextRequest) {
     ) {
       const { applicant_nickname: _drop, ...rest } = insertPayload;
       insertPayload = rest;
-      result = await supabase
-        .from("stores")
-        .insert({ ...insertPayload, slug })
-        .select(postInsertSelect)
-        .maybeSingle();
+      continue;
+    }
+
+    if (
+      result.error &&
+      /application_request_note|schema cache|column/i.test(result.error.message ?? "") &&
+      "application_request_note" in insertPayload
+    ) {
+      const { application_request_note: _drop, ...rest } = insertPayload;
+      insertPayload = rest;
+      continue;
+    }
+
+    if (
+      result.error &&
+      /application_address_book|schema cache|column/i.test(result.error.message ?? "") &&
+      "application_address_book" in insertPayload
+    ) {
+      console.warn(
+        "[POST /api/me/stores] application_address_book column missing — insert without address snapshot"
+      );
+      const { application_address_book: _drop, ...rest } = insertPayload;
+      insertPayload = rest;
+      continue;
     }
 
     insErr = result.error;

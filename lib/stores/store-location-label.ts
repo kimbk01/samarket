@@ -176,6 +176,15 @@ function locationKeySet(parts: {
   );
 }
 
+export type StoreAddressDisplayParts = {
+  /** 유닛·층·호 (앞, 굵게) */
+  detail: string;
+  /** 구글 가로·건물·번지 */
+  streetBody: string;
+  /** 카탈로그 지역 · 동네 */
+  locationLine: string | null;
+};
+
 function buildStoreAddressDisplay(parts: {
   region?: string | null;
   city?: string | null;
@@ -237,6 +246,21 @@ export function formatStoreAddressDetailOnly(address_line2?: string | null): str
   return [...fragments].reverse().find((x) => isShortDetailLike(x, new Set())) ?? "";
 }
 
+/** DB `address_line2` — 동·호·랜드마크 등 신청·주소록과 동일한 세부 표시 */
+export function formatStoreAddressDetailForDisplay(address_line2?: string | null): string {
+  const raw = typeof address_line2 === "string" ? address_line2.trim() : "";
+  if (!raw) return "";
+  const short = formatStoreAddressDetailOnly(address_line2);
+  const full = raw
+    .replace(/\r\n?/g, ", ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (full && short && full.length > short.length && full.toLowerCase().includes(short.toLowerCase())) {
+    return full;
+  }
+  return short || full;
+}
+
 function locationCatalogLineRedundantWithDetail(loc: string, detailJoined: string): boolean {
   const nd = normAddrDedupKey(detailJoined);
   if (!nd) return false;
@@ -245,6 +269,21 @@ function locationCatalogLineRedundantWithDetail(loc: string, detailJoined: strin
     .map((x) => normAddrDedupKey(x))
     .filter(Boolean)
     .every((p) => nd.includes(p));
+}
+
+/** 필리핀 표시 — 주소록·매장 신청과 동일: `세부, 가로` (지역·동네는 `locationLine` 분리). */
+export function resolveStoreAddressDisplayParts(parts: {
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+}): StoreAddressDisplayParts {
+  return {
+    detail: formatStoreAddressDetailForDisplay(parts.address_line2),
+    streetBody: formatStoreAddressStreetDisplay(parts),
+    locationLine: formatStoreLocationLine(parts),
+  };
 }
 
 /** 픽업·매장 안내용 — 상세이 있으면 앞에, 없으면 가로/지역만 한 줄. */

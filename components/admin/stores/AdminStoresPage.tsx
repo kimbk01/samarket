@@ -1,24 +1,25 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   ADMIN_STORE_APPROVAL_LABEL_KEYS,
   ADMIN_STORE_STATUS_FILTER,
   type AdminStoreReviewRow,
 } from "@/components/admin/stores/admin-store-review-model";
+import {
+  AdminStoreReviewTheme,
+  ReviewRow,
+  sbBtnPrimary,
+  sbBtnSecondary,
+  sbStatusBadgeClass,
+} from "@/components/admin/stores/admin-store-review-ui";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-
-const AdminStoreReviewSheetLazy = dynamic(
-  () =>
-    import("@/components/admin/stores/AdminStoreReviewSheet").then((m) => m.AdminStoreReviewSheet),
-  { ssr: false }
-);
+import { AdminStoreReviewPanel } from "@/components/admin/stores/AdminStoreReviewPanel";
+import { formatPhMobileDisplayPlus63, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 
 type SalesPerm = {
   allowed_to_sell?: boolean;
@@ -32,15 +33,24 @@ type AdminStoreRow = AdminStoreReviewRow & { sales_permission: SalesPerm };
 
 type AdminStoreCounts = Partial<Record<(typeof ADMIN_STORE_STATUS_FILTER)[number]["value"], number>>;
 
-function previewText(text: string | null | undefined, max = 56): string {
+function previewText(text: string | null | undefined, max = 72): string {
   const t = (text ?? "").replace(/\s+/g, " ").trim();
   if (!t) return "—";
   return t.length > max ? `${t.slice(0, max)}…` : t;
 }
 
+function countValue(counts: AdminStoreCounts, key: string): number {
+  const n = Number(counts[key as keyof AdminStoreCounts]);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function displayAdminPhone(raw: string | null | undefined): string {
+  const formatted = formatPhMobileDisplayPlus63(raw ?? "");
+  return formatted || (raw ?? "").trim() || "—";
+}
+
 export function AdminStoresPage() {
-  const { t, language } = useI18n();
-  const locale = catalogDateLocale(language);
+  const { t } = useI18n();
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
   const [counts, setCounts] = useState<AdminStoreCounts>({});
@@ -95,7 +105,7 @@ export function AdminStoresPage() {
         if (prev && nextRows.some((r) => r.id === prev.id)) {
           return nextRows.find((r) => r.id === prev.id) ?? prev;
         }
-        return prev;
+        return null;
       });
     } catch {
       setError("network_error");
@@ -115,14 +125,16 @@ export function AdminStoresPage() {
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    const scheduleRefresh = () => {
+    const scheduleRefresh = (payload?: { eventType?: string }) => {
       setRealtimeBadge(true);
-      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-      setToast(true);
-      toastTimeoutRef.current = window.setTimeout(() => {
-        toastTimeoutRef.current = null;
-        setToast(false);
-      }, 3500);
+      if (payload?.eventType === "INSERT") {
+        if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
+        setToast(true);
+        toastTimeoutRef.current = window.setTimeout(() => {
+          toastTimeoutRef.current = null;
+          setToast(false);
+        }, 3500);
+      }
 
       if (rtRefreshTimeoutRef.current) window.clearTimeout(rtRefreshTimeoutRef.current);
       rtRefreshTimeoutRef.current = window.setTimeout(() => {
@@ -133,7 +145,7 @@ export function AdminStoresPage() {
 
     const channel = sb
       .channel("admin-stores-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "stores" }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "stores" }, scheduleRefresh)
       .subscribe();
 
     return () => {
@@ -168,232 +180,208 @@ export function AdminStoresPage() {
     }
   };
 
-  const statusBadgeClass = (status: string) => {
-    switch (status) {
-      case "approved":
-        return "bg-emerald-50 text-emerald-800 border-emerald-200";
-      case "rejected":
-        return "bg-red-50 text-red-800 border-red-200";
-      case "suspended":
-        return "bg-orange-50 text-orange-950 border-orange-200";
-      case "revision_requested":
-        return "bg-amber-50 text-amber-950 border-amber-200";
-      case "under_review":
-        return "bg-sky-50 text-sky-900 border-sky-200";
-      case "pending":
-      default:
-        return "bg-sam-app text-sam-muted border-sam-border";
-    }
-  };
-
   const approvalLabel = (status: string) => {
     const key = ADMIN_STORE_APPROVAL_LABEL_KEYS[status];
     return key ? t(key) : status;
   };
 
   return (
-    <div className="space-y-4">
-      {sheetStore ? (
-        <AdminStoreReviewSheetLazy
-          store={sheetStore}
-          onClose={() => setSheetStore(null)}
-          onRunAction={(action, payload) => {
-            const id = sheetStore.id;
-            return runAction(id, {
-              action,
-              ...(payload?.reason ? { reason: payload.reason } : {}),
-              ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
-              ...(payload?.store_name ? { store_name: payload.store_name } : {}),
-            });
-          }}
-          actionBusy={busyId === sheetStore.id}
-          onSetOwnerIdentityEditable={(enabled) => {
-            const id = sheetStore.id;
-            void runAction(id, { action: "set_owner_identity_editable", enabled });
-          }}
-          identityActionBusy={busyId === sheetStore.id}
-        />
-      ) : null}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <AdminPageHeader titleKey="admin_page_store_review_queue" />
-          {toast ? (
-            <div className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 sam-text-body-secondary text-sky-900">
-              {t("admin_stores_toast_new_application")}
-            </div>
+    <AdminStoreReviewTheme>
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-3 border-b border-[#D4C5B9] pb-4">
+          <div className="min-w-0 flex-1">
+            <AdminPageHeader titleKey="admin_page_store_review_queue" />
+            {toast ? (
+              <div className="mt-2 rounded-sm border border-[#A5D6A7] bg-[#E8F5E9] px-3 py-2 text-[13px] font-medium text-[#1B5E20]">
+                {t("admin_stores_toast_new_application")}
+              </div>
+            ) : null}
+          </div>
+          {realtimeBadge ? (
+            <button
+              type="button"
+              onClick={() => {
+                setRealtimeBadge(false);
+                void load();
+              }}
+              className="shrink-0 rounded-sm bg-[#00704A] px-3 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-white"
+              title={t("admin_stores_realtime_refresh_title")}
+            >
+              NEW
+            </button>
           ) : null}
         </div>
-        {realtimeBadge ? (
-          <button
-            type="button"
-            onClick={() => {
-              setRealtimeBadge(false);
-              void load();
-            }}
-            className="shrink-0 rounded-full border border-sky-200 bg-sky-50 px-3 py-2 sam-text-xxs font-bold text-sky-900 animate-pulse"
-            title={t("admin_stores_realtime_refresh_title")}
-          >
-            NEW
-          </button>
+
+        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
+          {ADMIN_STORE_STATUS_FILTER.map((f) => {
+            const label = t(f.labelKey);
+            const n = countValue(counts, f.value);
+            const active = filter === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setFilter(f.value)}
+                className={`min-w-[7.5rem] shrink-0 rounded-sm border px-3 py-2 text-left transition ${
+                  active
+                    ? "border-[#00704A] bg-[#00704A] text-white"
+                    : "border-[#D4C5B9] bg-white text-[#1E3932] hover:bg-[#F2F0EB]"
+                }`}
+              >
+                <span className="block text-[12px] font-medium leading-4 opacity-90">{label}</span>
+                <span className="mt-0.5 block text-[20px] font-semibold leading-none tabular-nums">{n}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {errorText ? (
+          <div className="rounded-sm border border-[#EF9A9A] bg-[#FFEBEE] px-3 py-2 text-[13px] font-medium text-[#B71C1C]">
+            {errorText}
+          </div>
         ) : null}
-      </div>
 
-      <div className="flex flex-wrap gap-2">
-        {ADMIN_STORE_STATUS_FILTER.map((f) => {
-          const label = t(f.labelKey);
-          return (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setFilter(f.value)}
-              className={`rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-                filter === f.value
-                  ? "bg-sam-ink text-white"
-                  : "border border-sam-border bg-sam-surface text-sam-fg"
-              }`}
-            >
-              <span className="inline-flex items-center gap-2">
-                <span>{label}</span>
-                <span
-                  className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-2 py-0.5 sam-text-xxs font-bold ${
-                    filter === f.value ? "bg-white/15 text-white" : "bg-sam-app text-sam-muted"
-                  }`}
-                  aria-label={t("admin_stores_filter_count_aria", { label })}
-                >
-                  {Number.isFinite(Number(counts[f.value])) ? Number(counts[f.value]) : 0}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {errorText ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
-          {errorText}
-        </div>
-      ) : null}
-
-      {loading ? (
-        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
-      ) : rows.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          {t("admin_stores_empty_list")}
-        </div>
-      ) : (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface">
-          <div className="border-b border-sam-border-soft p-3">
-            <label className="sam-text-xxs font-bold uppercase tracking-wide text-sam-muted">
+        <div className="overflow-hidden rounded-sm border border-[#D4C5B9] bg-white">
+          <div className="border-b border-[#D4C5B9] bg-[#F2F0EB] px-4 py-3">
+            <label className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#1E3932]">
               {t("common_search")}
             </label>
             <input
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
               placeholder={t("admin_stores_search_placeholder")}
-              className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg"
+              className="mt-2 w-full rounded-sm border border-[#D4C5B9] bg-white px-3 py-2 text-[#1E3932] outline-none focus:border-[#00704A]"
             />
-            <p className="mt-2 sam-text-xxs text-sam-muted">
-              {t("admin_stores_result_count", { count: rows.length })}
+            <p className="mt-2 text-[13px] text-[#6B6B6B]">
+              {loading ? t("common_loading") : t("admin_stores_result_count", { count: rows.length })}
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-[1120px] w-full border-collapse text-left sam-text-body-secondary">
-              <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
-                <tr>
-                  <th className="min-w-[220px] px-3 py-2 font-medium">{t("admin_stores_th_store")}</th>
-                  <th className="min-w-[120px] px-3 py-2 font-medium">{t("admin_stores_th_status")}</th>
-                  <th className="min-w-[80px] px-3 py-2 font-medium">{t("admin_stores_th_visible")}</th>
-                  <th className="min-w-[160px] px-3 py-2 font-medium">{t("admin_stores_th_owner_id")}</th>
-                  <th className="min-w-[160px] px-3 py-2 font-medium">{t("admin_stores_th_contact")}</th>
-                  <th className="min-w-[180px] px-3 py-2 font-medium">{t("admin_stores_th_intro")}</th>
-                  <th className="min-w-[140px] px-3 py-2 font-medium">{t("admin_stores_th_region")}</th>
-                  <th className="min-w-[160px] px-3 py-2 font-medium">{t("admin_stores_th_applied_at")}</th>
-                </tr>
-              </thead>
-              <tbody>
+
+          <div className="min-h-[50vh]">
+            {loading ? (
+              <p className="p-6 text-[14px] text-[#6B6B6B]">{t("common_loading")}</p>
+            ) : rows.length === 0 ? (
+              <div className="py-16 text-center text-[14px] text-[#6B6B6B]">{t("admin_stores_empty_list")}</div>
+            ) : (
+              <div>
                 {rows.map((r) => {
-                  const { intro: introForList, kakao: kakaoForList } = splitStoreDescriptionAndKakao(
-                    r.description,
-                    r.kakao_id
-                  );
+                  const { kakao: kakaoForList } = splitStoreDescriptionAndKakao(r.description, r.kakao_id);
                   const ownerHandle = String((r as { owner_handle?: string }).owner_handle ?? "").trim() || r.slug;
-                  const phoneLine = (r.phone ?? "").trim();
+                  const phoneLine = displayAdminPhone(r.phone);
+                  const phoneHref = telHrefFromLoosePhPhone(r.phone);
                   const kakaoLine = (kakaoForList ?? "").trim();
-                  const contactLine = [phoneLine, kakaoLine].filter(Boolean).join(" · ") || "—";
-                  const regionLine = (() => {
-                    const reg = String(r.region ?? "").trim();
-                    const city = String(r.city ?? "").trim();
-                    return [reg, city].filter(Boolean).join(" · ") || "—";
-                  })();
+                  const requestPreview = previewText(
+                    (r as { application_request_note?: string | null }).application_request_note
+                  );
+                  const active = sheetStore?.id === r.id;
+                  const publicHref = `/stores/${encodeURIComponent(r.slug)}`;
+                  const storeName = (r.store_name ?? "").trim() || t("admin_stores_no_store_name");
+
                   return (
-                    <tr
+                    <div
                       key={r.id}
-                      className="border-b border-sam-border-soft hover:bg-sam-app cursor-pointer"
-                      onClick={() => setSheetStore(r)}
+                      className={
+                        active
+                          ? "mx-3 my-4 overflow-hidden rounded-sm border-2 border-[#00704A] bg-white shadow-[0_2px_10px_rgba(30,57,50,0.1)]"
+                          : "border-b border-[#D4C5B9] bg-white last:border-b-0"
+                      }
                     >
-                      <td className="px-3 py-2 align-top">
-                        <div className="font-medium text-sam-fg">
-                          {(r.store_name ?? "").trim() || t("admin_stores_no_store_name")}
+                      <div className={`px-4 py-3 ${active ? "border-b border-[#D4C5B9] bg-[#FAFAF8]" : ""}`}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h2 className="text-[15px] font-bold leading-5 text-[#1E3932]">{storeName}</h2>
+                              <span
+                                className={`rounded-sm border px-2 py-0.5 text-[12px] font-medium ${sbStatusBadgeClass(
+                                  r.approval_status
+                                )}`}
+                              >
+                                {approvalLabel(r.approval_status)}
+                              </span>
+                            </div>
+
+                            <div className="max-w-4xl space-y-0">
+                              <ReviewRow
+                                label="신청ID"
+                                value={`@${ownerHandle.replace(/^@/, "")}`}
+                              />
+                              <ReviewRow
+                                label="매장URL"
+                                value={
+                                  <a
+                                    href={publicHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[#00704A] underline-offset-2 hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    stores/{r.slug}
+                                  </a>
+                                }
+                              />
+                              <ReviewRow
+                                label="전화"
+                                value={
+                                  phoneHref ? (
+                                    <a href={phoneHref} className="underline-offset-2 hover:underline">
+                                      {phoneLine}
+                                    </a>
+                                  ) : (
+                                    phoneLine
+                                  )
+                                }
+                              />
+                              {kakaoLine ? <ReviewRow label="카카오" value={kakaoLine} /> : null}
+                              <ReviewRow label="요청사항" value={requestPreview} valueClassName="text-[#6B6B6B]" />
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => setSheetStore((prev) => (prev?.id === r.id ? null : r))}
+                            className={active ? sbBtnSecondary : sbBtnPrimary}
+                            aria-expanded={active}
+                          >
+                            {active ? t("admin_stores_close_review") : t("admin_stores_open_review")}
+                          </button>
                         </div>
-                        <div className="mt-1 font-mono sam-text-xxs text-sam-muted">{r.slug}</div>
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 sam-text-xxs font-bold ${statusBadgeClass(
-                            r.approval_status
-                          )}`}
-                          title={r.approval_status}
-                        >
-                          {approvalLabel(r.approval_status)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 align-top" onClick={(e) => e.stopPropagation()}>
-                        {r.approval_status === "approved" ? (
-                          <select
-                            value={r.is_visible ? "y" : "n"}
-                            disabled={busyId === r.id}
-                            aria-label={t("admin_stores_th_visible")}
-                            className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-xxs font-bold text-sam-fg disabled:opacity-50"
-                            onChange={(e) => {
-                              const next = e.target.value === "y";
-                              if (next === r.is_visible) return;
-                              void runAction(r.id, { action: "set_store_visible", enabled: next });
-                            }}
-                          >
-                            <option value="y">{t("admin_stores_visible_y")}</option>
-                            <option value="n">{t("admin_stores_visible_n")}</option>
-                          </select>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center rounded-full border px-2 py-0.5 sam-text-xxs font-bold ${
-                              r.is_visible
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                                : "border-sam-border bg-sam-app text-sam-muted"
-                            }`}
-                          >
-                            {r.is_visible ? "Y" : "N"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 align-top font-mono sam-text-xxs text-sam-fg break-all">
-                        {ownerHandle}
-                      </td>
-                      <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">{contactLine}</td>
-                      <td className="px-3 py-2 align-top sam-text-helper text-sam-muted">
-                        {previewText(introForList, 84)}
-                      </td>
-                      <td className="px-3 py-2 align-top sam-text-helper text-sam-muted">{regionLine}</td>
-                      <td className="px-3 py-2 align-top sam-text-helper text-sam-muted">
-                        {new Date(r.created_at).toLocaleString(locale)}
-                      </td>
-                    </tr>
+                      </div>
+
+                      {active ? (
+                        <>
+                          <div className="flex items-center border-b border-[#00704A]/25 bg-[#E8F2ED] px-4 py-2">
+                            <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-[#00704A]">
+                              심사 상세
+                            </span>
+                          </div>
+                          <div className="bg-[#F2F0EB]">
+                            <AdminStoreReviewPanel
+                              store={r}
+                              onRunAction={(action, payload) =>
+                                runAction(r.id, {
+                                  action,
+                                  ...(payload?.reason ? { reason: payload.reason } : {}),
+                                  ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
+                                  ...(payload?.store_name ? { store_name: payload.store_name } : {}),
+                                })
+                              }
+                              actionBusy={busyId === r.id}
+                              onSetOwnerIdentityEditable={(enabled) => {
+                                void runAction(r.id, { action: "set_owner_identity_editable", enabled });
+                              }}
+                              identityActionBusy={busyId === r.id}
+                            />
+                          </div>
+                        </>
+                      ) : null}
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
         </div>
-      )}
-    </div>
+      </div>
+    </AdminStoreReviewTheme>
   );
 }

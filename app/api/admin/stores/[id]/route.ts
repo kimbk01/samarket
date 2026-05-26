@@ -17,7 +17,7 @@ type PatchBody = {
 
 /**
  * 관리자 매장·판매권한 조치
- * action: approve_store | reject_store | request_revision | suspend_store | resume_store
+ * action: start_review | approve_store | reject_store | request_revision | suspend_store | resume_store
  *         | set_owner_identity_editable (body.enabled: boolean)
  *         | set_store_visible (body.enabled: boolean — 승인 매장만)
  *         | approve_sales | reject_sales | suspend_sales
@@ -63,13 +63,19 @@ export async function PATCH(
 
   if (
     action === "approve_store" ||
+    action === "start_review" ||
+    action === "mark_under_review" ||
     action === "reject_store" ||
     action === "request_revision" ||
     action === "suspend_store" ||
     action === "resume_store"
   ) {
     let patch: Record<string, unknown> = {};
-    if (action === "approve_store") {
+    if (action === "start_review" || action === "mark_under_review") {
+      patch = {
+        approval_status: "under_review",
+      };
+    } else if (action === "approve_store") {
       patch = {
         approval_status: "approved",
         // 승인 직후 기본은 "비노출"로 시작 (상품/프로필 준비 후 오너가 켜도록)
@@ -187,8 +193,7 @@ export async function PATCH(
 
     const { error: pErr } = await sb
       .from("store_sales_permissions")
-      .update(permPatch)
-      .eq("store_id", id);
+      .upsert({ store_id: id, ...permPatch }, { onConflict: "store_id" });
 
     if (pErr) {
       console.error("[admin/stores PATCH sales]", pErr);

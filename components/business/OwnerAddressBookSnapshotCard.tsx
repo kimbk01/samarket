@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import {
-  buildTradePublicLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
+  formatAddressBookCardPresentation,
+} from "@/lib/addresses/address-book-card-presentation";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AddressBookCardLine } from "@/components/addresses/AddressBookCardLine";
 
 export type OwnerAddressBookSnapshotMode = "representative" | "store_linked";
 
@@ -36,13 +36,8 @@ export function OwnerAddressBookSnapshotCard({
   listError?: string | null;
 }) {
   const { t } = useI18n();
-  const line =
-    addressDefault?.id != null
-      ? stripCountryFromAddressDisplayLine(
-          buildTradePublicLine(addressDefault),
-          addressDefault.countryName,
-        ) || "—"
-      : null;
+  const presentation =
+    addressDefault?.id != null ? formatAddressBookCardPresentation(addressDefault) : null;
 
   const shell = bare
     ? `px-0 py-0 ${className}`.trim()
@@ -66,7 +61,7 @@ export function OwnerAddressBookSnapshotCard({
           ? listError
             ? <span className="text-sam-danger">{listError}</span>
             : addressDefault?.id
-              ? line
+              ? <AddressBookCardLine presentation={presentation} />
               : emptyHint
           : t("common_loading")}
       </p>

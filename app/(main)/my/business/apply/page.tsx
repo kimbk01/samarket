@@ -124,6 +124,7 @@ export default function BusinessApplyRoute() {
           storeSlug: computedStoreSlug,
           shopName: values.shopName,
           description: values.description,
+          requestNote: values.requestNote,
           phone: phoneRes.value,
           kakaoId: values.kakaoId,
           region: values.region,
@@ -167,6 +168,8 @@ export default function BusinessApplyRoute() {
           setSubmitError(t("business_phase7_689"));
         } else if (json?.error === "store_slug_required") {
           setSubmitError(t("business_phase7_690"));
+        } else if (json?.error === "request_note_too_long") {
+          setSubmitError(t("business_phase7_696"));
         } else if (json?.error === "owner_not_in_auth_users") {
           setSubmitError(t("business_phase7_691"));
         } else {

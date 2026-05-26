@@ -30,6 +30,7 @@ import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/de
 import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveStoreTaxonomyPrimaryDisplayName, resolveStoreTaxonomyTopicDisplayName } from "@/lib/stores/resolve-store-taxonomy-display-name";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
 export type BusinessApplyProfileSeed = {
@@ -50,6 +51,8 @@ export interface BusinessApplyFormValues {
   applicantNickname: string;
   shopName: string;
   description: string;
+  /** 관리자 검토용 요청 사항 */
+  requestNote: string;
   phone: string;
   kakaoId: string;
   region: string;
@@ -75,9 +78,14 @@ const APPLY_DISPLAY_VALUE_MONO_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} font-mono`;
 const APPLY_PHONE_VALUE_CLASS = `${APPLY_DISPLAY_VALUE_CLASS} w-full border-0 bg-transparent p-0 shadow-none outline-none ring-0 placeholder:font-normal placeholder:text-[length:var(--sm-font-input)] placeholder:text-sam-meta focus:border-0 focus:outline-none focus:ring-0`;
 
 /** 1·2차 업종 select — 우측 ▼ (native appearance-none 보조) */
-const APPLY_SELECT_WRAP_CLASS = "relative min-w-0";
+const APPLY_SELECT_WRAP_CLASS = "relative min-w-0 w-full";
 const APPLY_SELECT_CHEVRON_CLASS =
   "pointer-events-none absolute inset-y-0 right-[18px] flex items-center sam-text-body-secondary text-sam-muted";
+/** en 라벨 2줄 시에도 select 상단·높이를 맞춤 */
+const APPLY_CATEGORY_GRID_CLASS = `${OWNER_STORE_FORM_GRID_2_CLASS} items-start`;
+const APPLY_CATEGORY_COL_CLASS = "flex min-w-0 flex-col";
+const APPLY_CATEGORY_LABEL_CLASS = `${APPLY_FIELD_LABEL_CLASS} mb-1 min-h-[2.75rem] leading-snug`;
+const APPLY_CATEGORY_SELECT_CLASS = `${OWNER_STORE_PROFILE_SELECT_CLASS} block w-full min-h-[var(--sam-input-min-height)]`;
 
 const DEFAULT_VALUES: Omit<
   BusinessApplyFormValues,
@@ -86,6 +94,7 @@ const DEFAULT_VALUES: Omit<
   applicantNickname: "",
   shopName: "",
   description: "",
+  requestNote: "",
   phone: "",
   kakaoId: "",
   region: "",
@@ -121,7 +130,7 @@ export function BusinessApplyForm({
   profileSeed = null,
   computedStoreSlug = "",
 }: BusinessApplyFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
   const industryVersion = useBrowseIndustryDatasetVersion();
@@ -154,16 +163,20 @@ export function BusinessApplyForm({
   }, []);
 
   const primaries = useMemo(() => {
-    // DB taxonomy가 비어있으면 기존 목록으로 폴백
-    if (!taxonomy || taxonomy.categories.length === 0) return listBrowsePrimaryIndustries();
-    // DB는 symbol/nameKo가 없으므로 select 표시용으로 최소 변환
-    return taxonomy.categories.map((c) => ({
-      id: c.id,
-      slug: c.slug,
-      nameKo: c.name,
-      sortOrder: c.sort_order,
-      symbol: "🏷️",
-    }));
+    const fallback = listBrowsePrimaryIndustries();
+    const bySlug = new Map(fallback.map((p) => [p.slug, p]));
+    if (!taxonomy || taxonomy.categories.length === 0) return fallback;
+    return taxonomy.categories.map((c) => {
+      const fb = bySlug.get(c.slug);
+      return {
+        id: c.id,
+        slug: c.slug,
+        nameKo: c.name,
+        nameEn: c.name_en ?? fb?.nameEn ?? null,
+        sortOrder: c.sort_order,
+        symbol: fb?.symbol ?? "🏷️",
+      };
+    });
   }, [taxonomy, industryVersion]);
   const [values, setValues] = useState<BusinessApplyFormValues>(() => ({
     ...DEFAULT_VALUES,
@@ -259,19 +272,24 @@ export function BusinessApplyForm({
 
   const subOptions = useMemo(
     () => {
-      // DB taxonomy가 없으면 기존 목록으로 폴백
-      if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(values.categoryPrimarySlug);
+      const fallbackSubs = listBrowseSubIndustries(values.categoryPrimarySlug);
+      const fallbackBySlug = new Map(fallbackSubs.map((s) => [s.slug, s]));
+      if (!taxonomy || taxonomy.categories.length === 0) return fallbackSubs;
       const cat = taxonomy.categories.find((c) => c.slug === values.categoryPrimarySlug);
       if (!cat) return [];
       return taxonomy.topics
         .filter((t) => t.store_category_id === cat.id)
-        .map((t) => ({
-          id: t.id,
-          slug: t.slug,
-          nameKo: t.name,
-          primarySlug: values.categoryPrimarySlug,
-          sortOrder: t.sort_order,
-        }));
+        .map((t) => {
+          const fb = fallbackBySlug.get(t.slug);
+          return {
+            id: t.id,
+            slug: t.slug,
+            nameKo: t.name,
+            nameEn: t.name_en ?? fb?.nameEn ?? null,
+            primarySlug: values.categoryPrimarySlug,
+            sortOrder: t.sort_order,
+          };
+        });
     },
     [values.categoryPrimarySlug, taxonomy, industryVersion]
   );
@@ -350,6 +368,22 @@ export function BusinessApplyForm({
         </div>
       </OwnerStoreAdminDashSection>
 
+      <OwnerStoreAdminDashSection title={t("business_phase7_693")}>
+        <div>
+          <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_694")}</label>
+          <textarea
+            value={values.requestNote}
+            onChange={(e) => setValues((v) => ({ ...v, requestNote: e.target.value.slice(0, 1000) }))}
+            rows={4}
+            className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
+            placeholder={t("business_phase7_695")}
+          />
+          <p className="mt-1.5 sam-text-helper text-sam-muted">
+            {values.requestNote.trim().length}/1000
+          </p>
+        </div>
+      </OwnerStoreAdminDashSection>
+
       <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
         <div>
           <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
@@ -389,9 +423,9 @@ export function BusinessApplyForm({
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
-        <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
-          <div className="min-w-0">
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_005")}</label>
+        <div className={APPLY_CATEGORY_GRID_CLASS}>
+          <div className={APPLY_CATEGORY_COL_CLASS}>
+            <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_005")}</label>
             <div className={APPLY_SELECT_WRAP_CLASS}>
               <select
                 value={values.categoryPrimarySlug}
@@ -414,14 +448,14 @@ export function BusinessApplyForm({
                   }));
                 }}
                 required
-                className={OWNER_STORE_PROFILE_SELECT_CLASS}
+                className={APPLY_CATEGORY_SELECT_CLASS}
               >
                 {primaries.length === 0 ? (
                   <option value="">{t("business_phase7_093")}</option>
                 ) : (
                   primaries.map((p) => (
                     <option key={p.id} value={p.slug}>
-                      {p.nameKo}
+                      {resolveStoreTaxonomyPrimaryDisplayName(language, p.slug, p.nameKo, p.nameEn)}
                     </option>
                   ))
                 )}
@@ -431,22 +465,22 @@ export function BusinessApplyForm({
               </span>
             </div>
           </div>
-          <div className="min-w-0">
-            <label className={APPLY_FIELD_LABEL_CLASS}>{t("business_phase7_006")}</label>
+          <div className={APPLY_CATEGORY_COL_CLASS}>
+            <label className={APPLY_CATEGORY_LABEL_CLASS}>{t("business_phase7_006")}</label>
             <div className={APPLY_SELECT_WRAP_CLASS}>
               <select
                 value={values.categorySubSlug}
                 onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
                 required
                 disabled={subOptions.length === 0}
-                className={OWNER_STORE_PROFILE_SELECT_CLASS}
+                className={APPLY_CATEGORY_SELECT_CLASS}
               >
                 {subOptions.length === 0 ? (
                   <option value="">{t("business_phase7_089")}</option>
                 ) : (
                   subOptions.map((s) => (
                     <option key={s.id} value={s.slug}>
-                      {s.nameKo}
+                      {resolveStoreTaxonomyTopicDisplayName(language, s.slug, s.nameKo, s.nameEn)}
                     </option>
                   ))
                 )}
