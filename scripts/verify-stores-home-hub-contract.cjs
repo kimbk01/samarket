@@ -272,35 +272,57 @@ assertIncludes(
 
 );
 
+const categorySeedClient = read("components/stores/home/hub/StoresHomeCategorySeedPanel.client.tsx");
+
 assertIncludes(
 
   hub,
 
-  "StoresHomeSubCategoryPanel",
+  "StoresHomeCategorySeedPanelClient",
 
-  "hub must mount 2nd category in scroll body"
+  "hub must mount client category hydration bridge"
 
 );
 
 assertIncludes(
 
-  hub,
+  categorySeedClient,
+
+  "StoresHomeSubCategoryPanel",
+
+  "category client bridge must mount 2nd category panel"
+
+);
+
+assertIncludes(
+
+  categorySeedClient,
 
   "StoresHomePrimaryCategoryPanel",
 
-  "hub must mount 1st category sticky panel after 2nd category"
+  "category client bridge must mount 1st category panel after 2nd"
 
 );
 
-const hubCategoryMount = hub.slice(hub.indexOf("StoresHomeSubCategoryPanel"), hub.indexOf("StoresHomePrimaryCategoryPanel"));
+const categoryBridgeBody = categorySeedClient.slice(categorySeedClient.indexOf("return ("));
 
 assertIncludes(
 
-  hubCategoryMount,
+  categoryBridgeBody,
 
-  "StoresHomeSubCategoryPanel",
+  "<StoresHomeSubCategoryPanel />",
 
-  "hub category order must be 2nd before 1st"
+  "category bridge render order must mount 2nd category first"
+
+);
+
+assertIncludes(
+
+  categoryBridgeBody,
+
+  "<StoresHomePrimaryCategoryPanel />",
+
+  "category bridge render order must mount 1st category after 2nd"
 
 );
 
@@ -396,6 +418,16 @@ assertIncludes(
 
 assertIncludes(
 
+  read("lib/stores/stores-home-category-chrome-store.ts"),
+
+  "getStoresHomeTaxonomySeedState",
+
+  "category chrome server snapshot must use taxonomy seed"
+
+);
+
+assertIncludes(
+
   quickCategories,
 
   "readStoresHomeTaxonomyFromClientCache",
@@ -404,9 +436,85 @@ assertIncludes(
 
 );
 
+assertIncludes(
+
+  quickCategories,
+
+  "getStoresHomeTaxonomySeedState",
+
+  "home categories must paint taxonomy seed before API refresh"
+
+);
+
+assertIncludes(
+
+  quickCategories,
+
+  "resolveStoresHomeTaxonomyFromApi",
+
+  "home categories must merge API into seed fallback"
+
+);
+
 
 
 assertIncludes(hub, "<StoresHomeQuickCategories />", "hub must always mount categories");
+
+const storesPage = read("app/(main)/stores/page.tsx");
+
+assertNotIncludes(
+  storesPage,
+  "export default async function StoresPage",
+  "stores page must be sync so initial shell flushes in first HTML"
+);
+
+assertIncludes(
+  storesPage,
+  "StoresHomeInitialShellServer",
+  "stores page must SSR initial shell before client hub"
+);
+
+assertIncludes(
+  storesPage,
+  "StoresHomeInitialShellClient",
+  "stores page must wrap client hub with initial shell bridge"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/StoresHomeInitialShell.server.tsx"),
+  "data-stores-perf=\"shell\"",
+  "SSR initial shell must expose shell perf marker"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/StoresHomeInitialShell.server.tsx"),
+  "StoresHomeCategorySeedPanelServer",
+  "SSR initial shell must include category seed panel"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/stores-home-hero-banner-view.tsx"),
+  "data-stores-perf=\"hero\"",
+  "SSR hero view must expose hero perf marker"
+);
+
+assertIncludes(
+  read("components/stores/home/hub/StoresHomeInitialShell.server.tsx"),
+  "StoresHomeHeroBannerView",
+  "SSR initial shell must render hero view"
+);
+
+assertIncludes(
+  hub,
+  "StoresHomeCategorySeedPanelClient",
+  "hub must hydrate category panels after SSR shell removal"
+);
+
+assertNotIncludes(
+  hub,
+  "categorySlot",
+  "hub must not accept SSR category slot after initial shell extraction"
+);
 
 const hubLoadingBlock = hub.slice(hub.indexOf("loading ?"), hub.indexOf("loading ?") + 400);
 

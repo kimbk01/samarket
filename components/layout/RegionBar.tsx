@@ -17,18 +17,9 @@ import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathnam
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
-import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
-import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
-import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
-import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
-import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
-import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
-import {
-  BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
-  BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
-} from "@/lib/main-menu/bottom-nav-config";
-import { SectionHeader, DetailHeader } from "@/components/layout/sector-header";
+import dynamic from "next/dynamic";
+import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
+import { DetailHeader } from "@/components/layout/sector-header";
 import { StoresHomeHeaderChrome } from "@/components/stores/home/hub/StoresHomeHeaderChrome";
 import {
   DELIVERY_CONSUMER_HEADER_BAR_CLASS,
@@ -38,13 +29,11 @@ import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import type { ReactNode } from "react";
 
-function UnifiedTier1Shell({ children }: { children: ReactNode }) {
-  return (
-    <header className="w-full min-w-0 max-w-full shrink-0 overflow-x-hidden sector-header-shell sector-header-shell--embedded">
-      {children}
-    </header>
-  );
-}
+const RegionBarExplorationTier1Lazy = dynamic(
+  () =>
+    import("@/components/layout/RegionBarExplorationTier1").then((m) => m.RegionBarExplorationTier1),
+  { ssr: false }
+);
 
 /** Main tier-1 chrome: 커뮤니티(`/philife`)·거래 탐색·배달 루트(`/stores`)는 `Tier1ExplorationTitleRow`(지역 한 줄·`/mypage/addresses`). */
 export function RegionBar({
@@ -85,38 +74,7 @@ export function RegionBar({
     pathNoQuery === "/philife";
 
   if (isUnifiedExplorationTier1) {
-    const isPhilifeFeed = pathNoQuery === "/philife";
-    const segmentTitle = isPhilifeFeed
-      ? t(BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY)
-      : t(BOTTOM_NAV_TRADE_TAB_LABEL_KEY);
-    return (
-      <UnifiedTier1Shell>
-        <SectionHeader
-          embedded
-          titleAlign="left"
-          leftSlot={<MyHubHeaderInfoHubTrigger />}
-          title={segmentTitle}
-          rightSlot={
-            <div className={samTier1HeaderIconCluster}>
-              {isPhilifeFeed ? (
-                <>
-                  <PhilifeHeaderComposeButton />
-                  <PhilifeHeaderNotificationInbox />
-                  <PhilifeHeaderMessengerButton />
-                  <PhilifeHeaderAddressMenuButton />
-                </>
-              ) : (
-                <>
-                  <TradeHeaderComposeButton />
-                  <PhilifeHeaderNotificationInbox />
-                  <PhilifeHeaderMessengerButton />
-                </>
-              )}
-            </div>
-          }
-        />
-      </UnifiedTier1Shell>
-    );
+    return <RegionBarExplorationTier1Lazy pathNoQuery={pathNoQuery} />;
   }
 
   if (pathNoQuery === "/stores") {

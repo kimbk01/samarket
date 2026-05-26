@@ -1,8 +1,16 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
-import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+
+const CommunityMessengerHomeShellSkeleton = dynamic(
+  () =>
+    import("@/components/community-messenger/CommunityMessengerRouteSkeletons").then(
+      (m) => m.CommunityMessengerHomeShellSkeleton
+    ),
+  { ssr: false }
+);
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";

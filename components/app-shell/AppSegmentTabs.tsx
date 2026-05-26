@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
+import { useLayoutEffect, useRef } from "react";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { isConstrainedNetwork } from "@/lib/ui/network-policy";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { useRegion } from "@/contexts/RegionContext";
 
@@ -28,7 +27,6 @@ export type AppSegmentTabsProps = {
  * 2단 세그먼트 탭 — `sam-tabs` / `sam-tab` 단일 규칙(밑줄 활성).
  */
 export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTabsProps) {
-  const router = useRouter();
   const pathname = usePathname() ?? "";
   const { primaryRegion } = useRegion();
   const primaryRegionRef = useRef(primaryRegion);
@@ -38,40 +36,18 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
   const norm = pathname.split("?")[0] ?? "";
   const prefetchAtRef = useRef<Record<string, number>>({});
 
-  const prefetchHref = (href: string, active: boolean) => {
+  const prewarmHref = (href: string, active: boolean) => {
     if (active) return;
     const now = Date.now();
     const last = prefetchAtRef.current[href] ?? 0;
     if (now - last < 8_000) return;
     prefetchAtRef.current[href] = now;
-    void router.prefetch(href);
-  };
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const warmTargets = tabs
-      .filter((t) => (t.href.split("?")[0] ?? "") !== norm)
-      .map((t) => t.href)
-      .slice(0, 3);
-    if (warmTargets.length === 0) return;
-    const warmKey = `samarket:segment-tabs:boot-warm:v1:${warmTargets.join("|")}`;
     try {
-      if (window.sessionStorage.getItem(warmKey) === "1") return;
-      window.sessionStorage.setItem(warmKey, "1");
+      prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
     } catch {
-      /* storage unavailable: continue without session dedupe */
+      /* noop */
     }
-    for (const href of warmTargets) {
-      try {
-        void router.prefetch(href);
-        prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
-      } catch {
-        /* noop */
-      }
-    }
-  }, [tabs, norm, router]);
+  };
 
   return (
     <div className={`${scroll ? Sam.tabs.barScroll : Sam.tabs.bar} ${className ?? ""}`.trim()} role="tablist">
@@ -88,16 +64,17 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
           <Link
             key={t.key}
             href={t.href}
+            prefetch={false}
             role="tab"
             aria-selected={active}
             onPointerEnter={() => {
-              prefetchHref(t.href, active);
+              prewarmHref(t.href, active);
             }}
             onFocus={() => {
-              prefetchHref(t.href, active);
+              prewarmHref(t.href, active);
             }}
             onTouchStart={() => {
-              prefetchHref(t.href, active);
+              prewarmHref(t.href, active);
             }}
             className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
           >

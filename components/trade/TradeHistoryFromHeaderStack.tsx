@@ -6,7 +6,12 @@ import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHistoryStackContext";
 import { isTradeHistoryFromHeaderStackSurface } from "@/lib/layout/trade-history-from-header-stack-surface";
-import { TradeHistoryStackPanel } from "@/components/trade/TradeHistoryStackPanel";
+import dynamic from "next/dynamic";
+
+const TradeHistoryStackPanel = dynamic(
+  () => import("@/components/trade/TradeHistoryStackPanel").then((m) => m.TradeHistoryStackPanel),
+  { ssr: false }
+);
 
 const PANEL_MS = 480;
 const PANEL_EASE = "cubic-bezier(0.25,0.1,0.2,1)";

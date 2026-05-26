@@ -3,8 +3,16 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { StoreDetailTransitionShellPortal } from "@/components/stores/detail/StoreDetailTransitionShell";
+import dynamic from "next/dynamic";
 import { hideStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
+
+const StoreDetailTransitionShellPortal = dynamic(
+  () =>
+    import("@/components/stores/detail/StoreDetailTransitionShell").then(
+      (m) => m.StoreDetailTransitionShellPortal
+    ),
+  { ssr: false }
+);
 import {
   getCurrentDeliveryListScrollRouteKey,
   isDeliveryListScrollRoute,
@@ -41,10 +49,13 @@ export function StoresDeliveryLayoutShell({
     }
   }, [pathname]);
 
+  const pathBase = pathname.split("?")[0] ?? "";
+  const isStoresHubRoot = pathBase === "/stores" || pathBase === "/stores/";
+
   return (
     <div className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0">
       {children}
-      <StoreDetailTransitionShellPortal />
+      {isStoresHubRoot ? null : <StoreDetailTransitionShellPortal />}
     </div>
   );
 }

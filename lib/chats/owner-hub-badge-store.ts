@@ -77,6 +77,7 @@ import {
 import { logHubRefreshGuard, logMarkReadRefreshChain, logParticipantUnreadHubRefresh } from "@/lib/chats/hub-refresh-guard";
 
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
+import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 
 
 
@@ -116,15 +117,19 @@ let hubPathRefreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 /** 클라 장주기 폴링 간격 — 서버 TTL·5초 중복 방지와 별도 */
 
-const MIN_FETCH_GAP_MS = 22_000;
+const MIN_FETCH_GAP_MS = 25_000;
 
-/** 5초 이내 plain 재호출 금지 — 서버 `OWNER_HUB_BADGE_TTL_MS`·클라 응답 캐시와 동일 */
+/** plain 재호출 최소 간격 — 서버 TTL·클라 응답 캐시와 맞춤 */
 
-const MIN_REPEAT_PLAIN_FETCH_GAP_MS = 5_000;
+const MIN_REPEAT_PLAIN_FETCH_GAP_MS = 20_000;
 
-/** 서버 `OWNER_HUB_BADGE_TTL_MS` 와 동일 — 첫 페인트 이후 idle 조회 시 cache_hit 유도 */
+/** 첫 페인트 이후 idle 조회 시 cache_hit 유도 */
 
-const CLIENT_HUB_BADGE_RESPONSE_TTL_MS = 12_000;
+const CLIENT_HUB_BADGE_RESPONSE_TTL_MS = 25_000;
+
+/** visibility 복귀 burst — trailing 1회 */
+
+const HUB_BADGE_VISIBILITY_FETCH_COALESCE_MS = 900;
 
 
 
@@ -1501,6 +1506,15 @@ function scheduleEventDrivenOwnerHubRefresh() {
 
 
 
+const coalescedHubVisibilityFetch = createTrailingCoalescedCallback(() => {
+  if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+  if (Date.now() - lastFetchStartedAt < MIN_VISIBILITY_FETCH_GAP_MS) return;
+  logHubBadgeLoopTrace({ reason: "visibility_visible" });
+  scheduleDeferredHubBadgeFetch("visibility_visible", false, {
+    callerComponent: "document_visibility",
+  });
+}, HUB_BADGE_VISIBILITY_FETCH_COALESCE_MS);
+
 function onVisibility() {
 
   if (typeof document === "undefined") return;
@@ -1521,17 +1535,7 @@ function onVisibility() {
 
   if (document.visibilityState === "visible") {
 
-    if (Date.now() - lastFetchStartedAt >= MIN_VISIBILITY_FETCH_GAP_MS) {
-
-      logHubBadgeLoopTrace({ reason: "visibility_visible" });
-
-      scheduleDeferredHubBadgeFetch("visibility_visible", false, {
-
-        callerComponent: "document_visibility",
-
-      });
-
-    }
+    coalescedHubVisibilityFetch.schedule();
 
     if (hubStarted && pollInterval == null) {
 
@@ -1559,7 +1563,9 @@ function onVisibility() {
 
     }
 
-  } else if (pollInterval) {
+  } else {
+    coalescedHubVisibilityFetch.cancel();
+    if (pollInterval) {
 
     logPollingTrace({
       api: "/api/me/store-owner-hub-badge",
@@ -1574,6 +1580,7 @@ function onVisibility() {
 
     cancelPendingOwnerHubBadgeFetch("visibility_hidden");
 
+    }
   }
 
 }

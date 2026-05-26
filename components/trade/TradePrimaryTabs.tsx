@@ -18,11 +18,6 @@ import {
   TRADE_PRIMARY_TAB_PILL_SHELL,
 } from "@/lib/trade/ui/trade-primary-tabs-classes";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import {
-  cancelScheduledWhenBrowserIdle,
-  isConstrainedNetwork,
-  scheduleWhenBrowserIdle,
-} from "@/lib/ui/network-policy";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
@@ -190,20 +185,6 @@ function TradePrimaryTabsInner({
     onTap: onTradeAllSortChipTap,
     onLongPress: onTradeAllSortChipLongPress,
   });
-
-  useEffect(() => {
-    if (loading || tabs.length < 2) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    const idleId = scheduleWhenBrowserIdle(() => {
-      /** 인접·다음 몇 개만 — 탭 수가 늘수록 `router.prefetch` 다발이 메인·네트워크를 잠식(시간 누적 체감) */
-      const targets = tabs.filter((t) => t.href && !t.isActive).slice(0, 8);
-      for (const tab of targets) {
-        void router.prefetch(tab.href);
-      }
-    }, 450);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [loading, tabs, router]);
 
   useLayoutEffect(() => {
     const activeTab = displayTabs.find((t) => t.isDisplayActive);

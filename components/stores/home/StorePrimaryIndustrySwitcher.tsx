@@ -90,7 +90,7 @@ export function StorePrimaryIndustrySwitcher({
           {t("store_primary_industry_aria")}
         </p>
         {!showHomeChip ?
-          <Link href="/stores" className={`shrink-0 sam-text-helper ${FB.link}`}>
+          <Link href="/stores" prefetch={false} className={`shrink-0 sam-text-helper ${FB.link}`}>
             {t("store_stores_home")}
           </Link>
         : null}
@@ -101,7 +101,7 @@ export function StorePrimaryIndustrySwitcher({
         aria-label={t("store_primary_industry_aria")}
       >
         {showHomeChip ?
-          <Link href="/stores" className={pillClass(onStoresHome && activeSlug == null)}>
+          <Link href="/stores" prefetch={false} className={pillClass(onStoresHome && activeSlug == null)}>
             {t("common_homepage")}
           </Link>
         : null}
@@ -112,6 +112,7 @@ export function StorePrimaryIndustrySwitcher({
             <Link
               key={p.id}
               href={storesBrowsePrimaryPath(p.slug)}
+              prefetch={false}
               scroll={false}
               className={`${pillClass(on)} max-w-[9.5rem]`}
             >

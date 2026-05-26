@@ -20,11 +20,9 @@ import { RegionProvider } from "@/contexts/RegionContext";
 import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
-import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
-import { PhilifeMessengerFromHeaderStack } from "@/components/philife/PhilifeMessengerFromHeaderStack";
+import { MainAppHeaderStackWrap } from "@/components/layout/MainAppHeaderStackWrap";
 import { PhilifeHeaderMessengerStackProvider } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { TradeHeaderTradeHistoryStackProvider } from "@/contexts/TradeHeaderTradeHistoryStackContext";
-import { TradeHistoryFromHeaderStack } from "@/components/trade/TradeHistoryFromHeaderStack";
 import { PhilifeWriteSheetProvider } from "@/contexts/PhilifeWriteSheetContext";
 import { TradeWriteSheetProvider } from "@/contexts/TradeWriteSheetContext";
 import { TradeTabCategoriesServerPrime } from "@/components/layout/TradeTabCategoriesServerPrime";
@@ -59,6 +57,13 @@ const PhilifeWriteBottomSheetLazy = dynamic(
 const TradeWriteBottomSheetLazy = dynamic(
   () =>
     import("@/components/trade/TradeWriteBottomSheet").then((mod) => mod.TradeWriteBottomSheet),
+  { ssr: false }
+);
+const TradeChatEntryCreatingOverlayLazy = dynamic(
+  () =>
+    import("@/components/chats/TradeChatEntryCreatingOverlay").then(
+      (mod) => mod.TradeChatEntryCreatingOverlay
+    ),
   { ssr: false }
 );
 
@@ -179,20 +184,18 @@ export function MainAppProviderTree({
                                 <MainShellPushLayer>
                                   <div className={MAIN_SHELL_VIEWPORT_LOCK_CLASS}>
                                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                                    <PhilifeMessengerFromHeaderStack>
-                                      <TradeHistoryFromHeaderStack>
-                                        <ConditionalAppShell
-                                          regionBarInLayout={true}
-                                          initialMainBottomNavItems={initialMainBottomNavItems}
-                                        >
-                                          {children}
-                                        </ConditionalAppShell>
-                                      </TradeHistoryFromHeaderStack>
-                                    </PhilifeMessengerFromHeaderStack>
+                                    <MainAppHeaderStackWrap>
+                                      <ConditionalAppShell
+                                        regionBarInLayout={true}
+                                        initialMainBottomNavItems={initialMainBottomNavItems}
+                                      >
+                                        {children}
+                                      </ConditionalAppShell>
+                                    </MainAppHeaderStackWrap>
                                     </div>
                                   </div>
                                 </MainShellPushLayer>
-                                <TradeChatEntryCreatingOverlay />
+                                <TradeChatEntryCreatingOverlayLazy />
                                 <PhilifeWriteBottomSheetLazy />
                                 <TradeWriteBottomSheetLazy />
                               </TradePresenceActivityProvider>

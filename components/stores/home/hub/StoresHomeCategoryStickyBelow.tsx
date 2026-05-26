@@ -13,6 +13,7 @@ import {
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
+import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
 import {
   STORES_HOME_CATEGORY_STICKY_STACK,
   STORES_HOME_PRIMARY_CATEGORY_ICON_INNER,
@@ -28,16 +29,7 @@ import {
   STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR_IDLE,
 } from "@/lib/stores/stores-home-ui";
 
-const PRIMARY_CATEGORY_ICONS: Record<string, string> = {
-  restaurant: "/icons/category/category_0_1.png",
-  mart: "/icons/category/category_0_2.png",
-  hardware: "/icons/category/category_0_3.png",
-  pet: "/icons/category/category_0_4.png",
-  cafe: "/icons/category/category_0_5.png",
-  beauty: "/icons/category/category_0_6.png",
-  academy: "/icons/category/category_0_7.png",
-  life: "/icons/category/category_0_8.png",
-};
+import { STORES_HOME_PRIMARY_CATEGORY_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
 
 function StoresHomePrimaryCategoryRail({
   primaries,
@@ -64,10 +56,10 @@ function StoresHomePrimaryCategoryRail({
     return () => registerStoresHomePrimaryScrollEl(null);
   }, [hasPrimarySelection]);
 
-  const tabs = primaries.map((p) => {
+  const tabs = primaries.map((p, index) => {
     const on = p.slug === activeSlug;
     const uploaded = storeTaxonomyUploadedImageUrl(p.image_url);
-    const icon = resolveStoreTaxonomyImageSrc(uploaded, PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
+    const icon = resolveStoreTaxonomyImageSrc(uploaded, STORES_HOME_PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
     const label = resolveStorePrimaryIndustryLabel(
       language,
       p.slug,
@@ -91,7 +83,7 @@ function StoresHomePrimaryCategoryRail({
               isUploaded={!!uploaded}
               dimmed={!on}
               imgSize="fill"
-              loading="eager"
+              loading={index < STORES_HOME_TAXONOMY_EAGER_ICON_COUNT ? "eager" : "lazy"}
               frameClassName={`${STORES_HOME_PRIMARY_CATEGORY_ICON_INNER} ${
                 on && !compactSticky ? "scale-110" : "scale-100"
               }`}

@@ -107,13 +107,8 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
   }
 
-  const prefetchWhenInactive = args.prefetchWhenInactive !== false;
-  if (prefetchWhenInactive) {
-    try {
-      args.prefetch?.(args.href);
-    } catch {
-      /* noop */
-    }
+  const prewarmWhenInactive = args.prefetchWhenInactive !== false;
+  if (prewarmWhenInactive) {
     try {
       if (args.onPrewarm) args.onPrewarm();
       else prewarmBottomNavTapTargetClientCache(args.href);

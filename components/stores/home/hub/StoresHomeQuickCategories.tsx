@@ -5,14 +5,17 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, use
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
-import { fetchStoresTaxonomyDeduped, prewarmStoresBrowseListClient } from "@/lib/stores/store-delivery-api-client";
+import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
+import { useRegionOptional } from "@/contexts/RegionContext";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
 import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import {
-  parseStoresHomeTaxonomyJson,
   readStoresHomeTaxonomyFromClientCache,
+  resolveStoresHomeTaxonomyFromApi,
   type StoresHomeTaxonomyState,
 } from "@/lib/stores/stores-home-taxonomy-client";
+import { getStoresHomeTaxonomySeedState } from "@/lib/stores/stores-home-taxonomy-seed";
 import {
   getStoresHomeCategoryChromeSnapshot,
   getStoresHomeCategoryChromeServerSnapshot,
@@ -63,6 +66,7 @@ function resolveSubsForPrimary(
 export function StoresHomeQuickCategories() {
   const { t, language } = useI18n();
   const router = useRouter();
+  const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const pathname = usePathname() ?? "";
   const isStoresHubRoot = isStoresHomePath(pathname);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -71,8 +75,10 @@ export function StoresHomeQuickCategories() {
     () => getStoresHomeCategoryChromeSnapshot().subCategoryInView,
     () => getStoresHomeCategoryChromeServerSnapshot().subCategoryInView
   );
-  const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(null);
-  const [taxonomyReady, setTaxonomyReady] = useState(false);
+  const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(() =>
+    getStoresHomeTaxonomySeedState()
+  );
+  const [taxonomyReady, setTaxonomyReady] = useState(true);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [activeSlug, setActiveSlug] = useState(RESTAURANT_SLUG);
   const cacheAppliedRef = useRef(false);
@@ -81,32 +87,39 @@ export function StoresHomeQuickCategories() {
   useStoresHomeTouchRelease(isStoresHubRoot);
 
   useLayoutEffect(() => {
-    const cached = readStoresHomeTaxonomyFromClientCache();
+    const cached = readStoresHomeTaxonomyFromClientCache(language);
     if (!cached) return;
     cacheAppliedRef.current = true;
     setTaxonomy(cached);
     setTaxonomyReady(true);
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
-        if (cancelled) return;
-        const parsed = parseStoresHomeTaxonomyJson(jRaw) ?? readStoresHomeTaxonomyFromClientCache();
-        if (parsed) setTaxonomy(parsed);
-        else if (!cacheAppliedRef.current) setTaxonomy(null);
-      } catch {
-        if (!cancelled && !cacheAppliedRef.current) setTaxonomy(null);
-      } finally {
-        if (!cancelled) setTaxonomyReady(true);
-      }
-    })();
+    const timerId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
+          if (cancelled) return;
+          const cached = readStoresHomeTaxonomyFromClientCache(language);
+          const next = resolveStoresHomeTaxonomyFromApi(
+            jRaw,
+            cached ?? getStoresHomeTaxonomySeedState()
+          );
+          setTaxonomy(next);
+          cacheAppliedRef.current = true;
+        } catch {
+          if (!cancelled && !cacheAppliedRef.current) {
+            setTaxonomy(getStoresHomeTaxonomySeedState());
+          }
+        }
+      })();
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(timerId);
     };
-  }, []);
+  }, [language]);
 
   const primaries = useMemo(() => {
     if (!taxonomy) return [];
@@ -133,22 +146,26 @@ export function StoresHomeQuickCategories() {
 
   const prewarmBrowseForSlug = useCallback(
     (subSlug?: string | null) => {
-      const q = new URLSearchParams();
-      q.set("primary", activeSlug.trim().toLowerCase());
-      q.set("sub", (subSlug ?? "all").trim().toLowerCase() || "all");
-      prewarmStoresBrowseListClient(q.toString(), { language });
+      scheduleStoresBrowseListPrewarm({
+        language,
+        primary: activeSlug,
+        sub: subSlug,
+        primaryRegion,
+      });
     },
-    [activeSlug, language]
+    [activeSlug, language, primaryRegion]
   );
 
   const prewarmBrowsePrimary = useCallback(
     (primarySlug: string) => {
-      const q = new URLSearchParams();
-      q.set("primary", primarySlug.trim().toLowerCase());
-      q.set("sub", "all");
-      prewarmStoresBrowseListClient(q.toString(), { language });
+      scheduleStoresBrowseListPrewarm({
+        language,
+        primary: primarySlug,
+        sub: "all",
+        primaryRegion,
+      });
     },
-    [language]
+    [language, primaryRegion]
   );
 
   const handleSelectPrimary = useCallback(

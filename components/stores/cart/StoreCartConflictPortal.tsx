@@ -1,10 +1,18 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import dynamic from "next/dynamic";
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
+
+const StoreCartOtherStoreConflictDialog = dynamic(
+  () =>
+    import("@/components/stores/StoreCartOtherStoreConflictDialog").then(
+      (m) => m.StoreCartOtherStoreConflictDialog
+    ),
+  { ssr: false }
+);
 import { useStoreCommerceCartActionsOptional } from "@/contexts/StoreCommerceCartContext";
 import {
   dibayPerfRecordAddToCartClick,

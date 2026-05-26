@@ -1,9 +1,14 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import dynamic from "next/dynamic";
 import { useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { StoreProductAddSheet } from "@/components/stores/StoreProductAddSheet";
+
+const StoreProductAddSheet = dynamic(
+  () => import("@/components/stores/StoreProductAddSheet").then((m) => m.StoreProductAddSheet),
+  { ssr: false }
+);
 import { useStoreProductSheetUIStore } from "@/lib/stores/store-product-sheet-ui-store";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 

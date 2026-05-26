@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import {
   resolveMessagingGlobalChromeFromPath,
   type MessagingGlobalChromePolicy,
 } from "@/lib/layout/messaging-global-chrome-policy";
+import { STORES_HOME_IDLE_DEFER_MS } from "@/lib/stores/stores-home-perf-marks";
 
 const NotificationSoundPrime = dynamic(
   () => import("@/components/notifications/NotificationSoundPrime").then((mod) => mod.NotificationSoundPrime),
@@ -48,6 +49,23 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     policyCacheRef.current = { stableKey: resolved.stableKey, policy: resolved.policy };
   }
   const p = policyCacheRef.current.policy;
+  const pathBase = (pathname ?? "").split("?")[0] ?? "";
+  const isStoresHubRoot = pathBase === "/stores" || pathBase === "/stores/";
+  const [storesHubDeferredChrome, setStoresHubDeferredChrome] = useState(!isStoresHubRoot);
+
+  useEffect(() => {
+    if (!isStoresHubRoot) {
+      setStoresHubDeferredChrome(true);
+      return;
+    }
+    setStoresHubDeferredChrome(false);
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(() => setStoresHubDeferredChrome(true), { timeout: STORES_HOME_IDLE_DEFER_MS });
+      return () => cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(() => setStoresHubDeferredChrome(true), 0);
+    return () => window.clearTimeout(t);
+  }, [isStoresHubRoot]);
 
   if (
     !p.mountNotificationSoundPrime &&
@@ -58,12 +76,18 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
     return null;
   }
 
+  const mountDeferredChrome = !isStoresHubRoot || storesHubDeferredChrome;
+
   return (
     <>
-      {p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
+      {mountDeferredChrome && p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {p.mountNotificationsBadgeRealtimeBridge ? <NotificationsBadgeRealtimeBridge enabled /> : null}
-      {p.mountGlobalOrderChatUnreadSound ? <GlobalOrderChatUnreadSound enabled /> : null}
-      {p.mountMessengerInAppBannerHost ? <MessengerInAppMessageBannerHost /> : null}
+      {mountDeferredChrome && p.mountGlobalOrderChatUnreadSound ?
+        <GlobalOrderChatUnreadSound enabled />
+      : null}
+      {mountDeferredChrome && p.mountMessengerInAppBannerHost ?
+        <MessengerInAppMessageBannerHost />
+      : null}
     </>
   );
 }

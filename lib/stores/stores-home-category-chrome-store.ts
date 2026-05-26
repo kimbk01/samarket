@@ -1,4 +1,37 @@
+import { getStoresHomeTaxonomySeedState } from "@/lib/stores/stores-home-taxonomy-seed";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+
+const RESTAURANT_SLUG = "restaurant";
+
+function sortPrimariesRestaurantFirst<T extends { slug: string; sort_order?: number }>(rows: T[]): T[] {
+  const sorted = [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  const ri = sorted.findIndex((p) => p.slug === RESTAURANT_SLUG);
+  if (ri > 0) {
+    const [r] = sorted.splice(ri, 1);
+    sorted.unshift(r);
+  }
+  return sorted;
+}
+
+function buildStoresHomeCategoryChromeSeedSnapshot(): StoresHomeCategoryChromeSnapshot {
+  const taxonomy = getStoresHomeTaxonomySeedState();
+  const primaries = sortPrimariesRestaurantFirst(taxonomy.categories);
+  const restaurant = primaries.find((p) => p.slug === RESTAURANT_SLUG) ?? primaries[0];
+  const catId = String(restaurant?.id ?? "").trim();
+  const subs = taxonomy.topics
+    .filter((topic) => topic.store_category_id === catId)
+    .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+  return {
+    taxonomyReady: true,
+    subCategoryInView: true,
+    primaries,
+    activeSlug: restaurant?.slug ?? RESTAURANT_SLUG,
+    pickedSlug: null,
+    subs,
+    language: "ko",
+    primaryAriaLabel: "",
+  };
+}
 
 export type StoresHomeCategoryChromeSnapshot = {
   taxonomyReady: boolean;
@@ -18,18 +51,9 @@ export type StoresHomeCategoryChromeHandlers = {
   onPrewarmSub: (subSlug?: string | null) => void;
 };
 
-const EMPTY_SNAPSHOT: StoresHomeCategoryChromeSnapshot = {
-  taxonomyReady: false,
-  subCategoryInView: true,
-  primaries: [],
-  activeSlug: "restaurant",
-  pickedSlug: null,
-  subs: [],
-  language: "ko",
-  primaryAriaLabel: "",
-};
+const SEED_CHROME_SNAPSHOT = buildStoresHomeCategoryChromeSeedSnapshot();
 
-let snapshot: StoresHomeCategoryChromeSnapshot = EMPTY_SNAPSHOT;
+let snapshot: StoresHomeCategoryChromeSnapshot = SEED_CHROME_SNAPSHOT;
 let handlers: StoresHomeCategoryChromeHandlers = {
   onSelectPrimary: () => {},
   onPrewarmPrimary: () => {},
@@ -74,7 +98,7 @@ export function getStoresHomeCategoryChromeSnapshot(): StoresHomeCategoryChromeS
 }
 
 export function getStoresHomeCategoryChromeServerSnapshot(): StoresHomeCategoryChromeSnapshot {
-  return EMPTY_SNAPSHOT;
+  return SEED_CHROME_SNAPSHOT;
 }
 
 export function patchStoresHomeCategoryChrome(
@@ -105,6 +129,6 @@ export function resetStoresHomePrimaryScrollToStart(): void {
 
 /** `/stores` 이탈 시 chrome 상태 초기화 — stickyBelow 참조는 유지 */
 export function resetStoresHomeCategoryChromeSnapshot(): void {
-  snapshot = { ...EMPTY_SNAPSHOT, language: snapshot.language };
+  snapshot = { ...SEED_CHROME_SNAPSHOT, language: snapshot.language };
   notify();
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { CategoryListSubheader } from "@/components/category/CategoryListSubheader";
@@ -7,7 +8,11 @@ import {
   useCategoryListStickyConfig,
   useTradeSecondaryTabs,
 } from "@/contexts/CategoryListHeaderContext";
-import { TradePrimaryTabs } from "@/components/trade/TradePrimaryTabs";
+
+const TradePrimaryTabs = dynamic(
+  () => import("@/components/trade/TradePrimaryTabs").then((m) => m.TradePrimaryTabs),
+  { ssr: false }
+);
 import { getMobileTopTier1RuleSet } from "@/lib/layout/mobile-top-tier1-rules";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";

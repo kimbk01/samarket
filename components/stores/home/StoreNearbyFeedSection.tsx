@@ -198,7 +198,7 @@ export function StoreNearbyFeedSection({
           </h2>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 pb-0.5">
-          <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>
+          <Link href={storesBrowsePrimaryPath("restaurant")} prefetch={false} className={`sam-text-body ${FB.link}`}>
             {t("store_more_food_link")}
           </Link>
           <span className="sam-text-body-secondary text-[#CED0D4] dark:text-[#5F6062]" aria-hidden>
@@ -280,10 +280,10 @@ export function StoreNearbyFeedSection({
               subtitle={t("store_neighborhood_more_subtitle")}
               action={
                 <div className="flex flex-wrap items-center justify-end gap-x-2">
-                  <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>
+                  <Link href={storesBrowsePrimaryPath("restaurant")} prefetch={false} className={`sam-text-body ${FB.link}`}>
                     {t("store_browse_primary_restaurant")}
                   </Link>
-                  <Link href={storesBrowsePrimaryPath("mart")} className={`sam-text-body ${FB.link}`}>
+                  <Link href={storesBrowsePrimaryPath("mart")} prefetch={false} className={`sam-text-body ${FB.link}`}>
                     {t("store_browse_primary_mart")}
                   </Link>
                 </div>

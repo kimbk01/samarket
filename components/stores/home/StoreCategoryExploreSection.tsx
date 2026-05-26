@@ -14,7 +14,9 @@ import {
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { storesBrowsePath, storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
-import { fetchStoresTaxonomyDeduped, prewarmStoresBrowseListClient } from "@/lib/stores/store-delivery-api-client";
+import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
+import { useRegionOptional } from "@/contexts/RegionContext";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 import {
@@ -73,6 +75,7 @@ export function StoreCategoryExploreSection({
   headerTrailing?: ReactNode;
 }) {
   const { t, safeT, language } = useI18n();
+  const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const pathname = usePathname() ?? "";
   const isStoresHubRoot = pathname === "/stores" || pathname === "/stores/";
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -128,13 +131,14 @@ export function StoreCategoryExploreSection({
 
   const prewarmBrowseForSlug = useCallback(
     (subSlug?: string | null) => {
-      const q = new URLSearchParams();
-      q.set("primary", activeSlug.trim().toLowerCase());
-      const sub = (subSlug ?? "all").trim().toLowerCase();
-      q.set("sub", sub || "all");
-      prewarmStoresBrowseListClient(q.toString(), { language });
+      scheduleStoresBrowseListPrewarm({
+        language,
+        primary: activeSlug,
+        sub: subSlug,
+        primaryRegion,
+      });
     },
-    [activeSlug, language]
+    [activeSlug, language, primaryRegion]
   );
 
   const subs = useMemo(() => {
@@ -273,6 +277,7 @@ export function StoreCategoryExploreSection({
           </p>
           <Link
             href={storesBrowsePrimaryPath(activeSlug)}
+            prefetch={false}
             className={`shrink-0 sam-text-body-secondary font-semibold ${FB.link}`}
             onPointerDown={() => prewarmBrowseForSlug(null)}
           >
@@ -297,6 +302,7 @@ export function StoreCategoryExploreSection({
                 <Link
                   key={cat.subSlug ?? "all"}
                   href={href}
+                  prefetch={false}
                   className={STORE_BROWSE_SUB_CARD}
                   onPointerDown={() => prewarmBrowseForSlug(cat.subSlug ?? null)}
                 >
@@ -310,6 +316,7 @@ export function StoreCategoryExploreSection({
           <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
             <Link
               href={storesBrowsePrimaryPath(activeSlug)}
+              prefetch={false}
               className={STORE_BROWSE_SUB_CARD}
               onPointerDown={() => prewarmBrowseForSlug(null)}
             >
@@ -339,6 +346,7 @@ export function StoreCategoryExploreSection({
                 <Link
                   key={s.id}
                   href={storesBrowsePath(activeSlug, s.slug)}
+                  prefetch={false}
                   className={STORE_BROWSE_SUB_CARD}
                   onPointerDown={() => prewarmBrowseForSlug(s.slug)}
                 >

@@ -14,13 +14,18 @@ import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-ca
 
 /** Realtime UPDATE burst(읽음 일괄 등) — trailing 1회만 unread fetch */
 const NOTIFICATION_EVENT_FETCH_COALESCE_MS = 1_200;
+/** 성공 응답 재사용 — 동일 URL 중복 GET 방지 */
+const NOTIFICATION_UNREAD_CLIENT_TTL_MS = 20_000;
+/** visibility 복귀 burst — trailing 1회 */
+const NOTIFICATION_VISIBILITY_FETCH_COALESCE_MS = 900;
 
 function createNotificationUnreadBadgeStore(fetchUrl: string) {
   let snap: number | null = null;
   const listeners = new Set<() => void>();
 
   const flightKey = `notif-unread:${fetchUrl}`;
-  const MIN_FETCH_GAP_MS = 8_000;
+  const MIN_FETCH_GAP_MS = NOTIFICATION_UNREAD_CLIENT_TTL_MS;
+  let lastFetchCompletedAt = 0;
   let subscriberCount = 0;
   /** Strict Mode 등으로 구독이 잠깐 0이 되었다가 바로 복구될 때 이중 초기 fetch·이벤트 해제 방지 */
   let pendingStopTimer: ReturnType<typeof setTimeout> | null = null;
@@ -34,15 +39,19 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     () => void doFetch(false),
     NOTIFICATION_EVENT_FETCH_COALESCE_MS
   );
+  const coalescedVisibilityFetch = createTrailingCoalescedCallback(
+    () => void doFetch(false),
+    NOTIFICATION_VISIBILITY_FETCH_COALESCE_MS
+  );
   const onNotifUpdated = () => coalescedEventFetch.schedule();
 
   const onVisibility = () => {
     if (typeof document === "undefined") return;
     if (document.visibilityState === "visible") {
-      /** `force: true` 는 8s 갭을 무시해 visibility 복귀·깜빡임이 잦을 때 /notifications 왕복이 누적됨. 폴링(87)·이벤트(24)와 동일한 갭을 적용 */
-      void doFetch(false);
+      coalescedVisibilityFetch.schedule();
       armPoll();
     } else {
+      coalescedVisibilityFetch.cancel();
       disarmPoll();
     }
   };
@@ -62,6 +71,21 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
       return Promise.resolve();
     }
     const now = Date.now();
+    if (
+      !force &&
+      snap != null &&
+      lastFetchCompletedAt > 0 &&
+      now - lastFetchCompletedAt < NOTIFICATION_UNREAD_CLIENT_TTL_MS
+    ) {
+      logNetworkLoopGuardBlocked({
+        endpoint: fetchUrl,
+        caller: "notification-unread-badge-store",
+        reason: "client_response_ttl",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
+      return Promise.resolve();
+    }
     if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
       logNetworkLoopGuardBlocked({
         endpoint: fetchUrl,
@@ -118,6 +142,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
         } else {
           setSnap(0);
         }
+        lastFetchCompletedAt = Date.now();
       } catch {
         setSnap(null);
       }
@@ -169,6 +194,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     if (!listenersArmed) return;
     listenersArmed = false;
     coalescedEventFetch.cancel();
+    coalescedVisibilityFetch.cancel();
     window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
     document.removeEventListener("visibilitychange", onVisibility);
     disarmPoll();

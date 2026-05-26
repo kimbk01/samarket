@@ -166,9 +166,8 @@ export function StoreVerticalDiscoveryCard({
   ) => {
     deliveryStoreDetailPrefetch(router, store.slug, source, opts);
   };
-  const prefetchProductDetail = (productId: string) => {
-    const href = `/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(productId)}`;
-    void router.prefetch(href);
+  const prefetchProductDetail = (_productId: string) => {
+    /* RSC storm 방지 — 상품 상세는 탭 시 `deliveryStoreDetailPrefetch`·Link 마운트로만 */
   };
   const primaryName = store.primaryNameKo?.trim() || t("store_fallback_name");
   const categoryLine =
@@ -186,7 +185,7 @@ export function StoreVerticalDiscoveryCard({
       <Link
         ref={viewportRef}
         href={storeHref}
-        prefetch
+        prefetch={false}
         className={`block ${FB.cardPress}`}
         onPointerEnter={() => prefetchStoreDetail("pointer_enter")}
         onFocus={() => prefetchStoreDetail("focus")}
@@ -223,7 +222,14 @@ export function StoreVerticalDiscoveryCard({
       >
         <div className={`relative aspect-[5/3] w-full overflow-hidden ${FB.thumbMuted}`}>
           {store.profileImageUrl ?
-            <SamarketThumbnail src={store.profileImageUrl} fill fetchDisplayPx={180} roundedClassName="rounded-none" className={FB.thumbMuted} />
+            <SamarketThumbnail
+              src={store.profileImageUrl}
+              fill
+              fetchDisplayPx={180}
+              roundedClassName="rounded-none"
+              className={FB.thumbMuted}
+              loading="lazy"
+            />
           : <div className={FB.placeholderHero}>
               <svg className="h-14 w-14 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                 <path

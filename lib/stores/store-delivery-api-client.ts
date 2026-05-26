@@ -31,9 +31,21 @@ const storeBannersPublicCache = new Map<string, { expiresAt: number; value: Stor
 const STORE_NOTICES_PUBLIC_CACHE_TTL_MS = 12_000;
 const storeNoticesPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 /** 공개 taxonomy(마스터) — 어드민 `/api/admin/...` 와 별도. 재진입·다중 컴포넌트 마운트 왕복 억제 */
-const STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS = 120_000;
-const STORE_TAXONOMY_PUBLIC_CACHE_KEY = "_taxonomy";
+const STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
 const storeTaxonomyPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+
+function normalizeStoresTaxonomyLanguage(language?: string): string {
+  const lang = (language ?? "ko").trim().toLowerCase();
+  return lang || "ko";
+}
+
+function storesTaxonomyPublicCacheKey(language?: string): string {
+  return `taxonomy:${normalizeStoresTaxonomyLanguage(language)}`;
+}
+
+function storesTaxonomySingleFlightKey(language?: string): string {
+  return `stores:api:taxonomy:${normalizeStoresTaxonomyLanguage(language)}`;
+}
 
 function trimSlug(slug: string): string {
   return slug.trim();
@@ -387,31 +399,41 @@ export async function fetchStoreReviewsPublicDeduped(storeSlug: string): Promise
   });
 }
 
-export function isStoresTaxonomyClientCacheFresh(): boolean {
-  const hit = storeTaxonomyPublicCache.get(STORE_TAXONOMY_PUBLIC_CACHE_KEY);
+export function isStoresTaxonomyClientCacheFresh(language?: string): boolean {
+  const hit = storeTaxonomyPublicCache.get(storesTaxonomyPublicCacheKey(language));
   return !!hit && hit.expiresAt > Date.now();
 }
 
-/** 동기 peek — 홈 카테고리 마운트 시 mock·정적 아이콘 FOUC 방지 */
-export function peekStoresTaxonomyClientCache(): StoreApiJsonResponse | null {
-  const hit = storeTaxonomyPublicCache.get(STORE_TAXONOMY_PUBLIC_CACHE_KEY);
+/** 동기 peek — 홈 카테고리 마운트 시 TTL API 스냅샷 (seed와 별도) */
+export function peekStoresTaxonomyClientCache(language?: string): StoreApiJsonResponse | null {
+  const hit = storeTaxonomyPublicCache.get(storesTaxonomyPublicCacheKey(language));
   if (!hit || hit.expiresAt <= Date.now()) return null;
   return { status: hit.value.status, json: hit.value.json };
 }
 
 /** 어드민이 공개 taxonomy 를 바꾼 직후 등 — 다음 `fetchStoresTaxonomyDeduped` 가 네트워크를 탄다 */
 export function clearStoresTaxonomyClientCache(): void {
-  storeTaxonomyPublicCache.delete(STORE_TAXONOMY_PUBLIC_CACHE_KEY);
+  for (const key of [...storeTaxonomyPublicCache.keys()]) {
+    if (key.startsWith("taxonomy:")) storeTaxonomyPublicCache.delete(key);
+  }
 }
 
-/** GET /api/stores/taxonomy — TTL + `runSingleFlight`(다른 스토어 공개 GET 과 동일 패턴) */
-export async function fetchStoresTaxonomyDeduped(): Promise<StoreApiJsonResponse> {
-  const k = STORE_TAXONOMY_PUBLIC_CACHE_KEY;
+export type FetchStoresTaxonomyDedupedOptions = {
+  /** TTL·single-flight 파티션 (기본 `ko`) */
+  language?: string;
+};
+
+/** GET /api/stores/taxonomy — 5분 TTL + locale single-flight */
+export async function fetchStoresTaxonomyDeduped(
+  opts: FetchStoresTaxonomyDedupedOptions = {}
+): Promise<StoreApiJsonResponse> {
+  const k = storesTaxonomyPublicCacheKey(opts.language);
+  const flightKey = storesTaxonomySingleFlightKey(opts.language);
   const cached = storeTaxonomyPublicCache.get(k);
   if (cached && cached.expiresAt > Date.now()) {
     return { status: cached.value.status, json: cached.value.json };
   }
-  return runSingleFlight("stores:api:taxonomy", async () => {
+  return runSingleFlight(flightKey, async () => {
     const inflightCached = storeTaxonomyPublicCache.get(k);
     if (inflightCached && inflightCached.expiresAt > Date.now()) {
       return { status: inflightCached.value.status, json: inflightCached.value.json };
@@ -428,11 +450,13 @@ export async function fetchStoresTaxonomyDeduped(): Promise<StoreApiJsonResponse
   });
 }
 
-const STORES_BROWSE_CLIENT_CACHE_TTL_MS = 45_000;
+const STORES_BROWSE_CLIENT_CACHE_TTL_MS = 30_000;
+const STORES_BROWSE_MIN_REFETCH_GAP_MS = 10_000;
 const storesBrowseClientCache = new Map<
   string,
   { expiresAt: number; value: StoreApiJsonResponse }
 >();
+const storesBrowseLastNetworkAt = new Map<string, number>();
 
 function browseQueryBypassesCache(qs: string): boolean {
   try {
@@ -476,16 +500,8 @@ export function peekStoresBrowseClientCache(
   return parseStoresBrowseClientCacheJson(hit.value.json);
 }
 
-/** `/stores` 업종 그리드·browse 진입 pointerdown — 첫 목록 GET 단일비행 합류 */
-export function prewarmStoresBrowseListClient(
-  queryString: string,
-  opts?: { language?: import("@/lib/i18n/config").AppLanguageCode }
-): void {
-  if (typeof window === "undefined") return;
-  void fetchStoresBrowseDeduped(queryString, opts).catch(() => {
-    /* prewarm 실패는 마운트 fetch 가 이어감 */
-  });
-}
+/** `/stores` 업종 그리드·browse 진입 — `stores-browse-prewarm-coordinator` 경유 */
+export { prewarmStoresBrowseListClient } from "@/lib/stores/stores-browse-prewarm-coordinator";
 
 /** GET /api/stores/browse?… */
 export async function fetchStoresBrowseDeduped(
@@ -496,16 +512,26 @@ export async function fetchStoresBrowseDeduped(
   const lang = opts?.language ?? "en";
   const flightKey = `stores:api:browse:${lang}:${qs}`;
   const bypass = browseQueryBypassesCache(qs);
+  const now = Date.now();
   if (!bypass) {
     const hit = storesBrowseClientCache.get(flightKey);
-    if (hit && hit.expiresAt > Date.now()) {
+    if (hit && hit.expiresAt > now) {
+      return hit.value;
+    }
+    const lastNet = storesBrowseLastNetworkAt.get(flightKey) ?? 0;
+    if (now - lastNet < STORES_BROWSE_MIN_REFETCH_GAP_MS && hit) {
       return hit.value;
     }
   }
   return runSingleFlight(flightKey, async () => {
     if (!bypass) {
       const again = storesBrowseClientCache.get(flightKey);
-      if (again && again.expiresAt > Date.now()) {
+      const againNow = Date.now();
+      if (again && again.expiresAt > againNow) {
+        return again.value;
+      }
+      const lastNet = storesBrowseLastNetworkAt.get(flightKey) ?? 0;
+      if (againNow - lastNet < STORES_BROWSE_MIN_REFETCH_GAP_MS && again) {
         return again.value;
       }
     }
@@ -517,9 +543,11 @@ export async function fetchStoresBrowseDeduped(
     const json = await res.json().catch(() => ({}));
     const value: StoreApiJsonResponse = { status: res.status, json };
     if (!bypass && (res.ok || res.status === 401 || res.status === 403)) {
+      const storedAt = Date.now();
+      storesBrowseLastNetworkAt.set(flightKey, storedAt);
       storesBrowseClientCache.set(flightKey, {
         value,
-        expiresAt: Date.now() + STORES_BROWSE_CLIENT_CACHE_TTL_MS,
+        expiresAt: storedAt + STORES_BROWSE_CLIENT_CACHE_TTL_MS,
       });
     }
     return value;

@@ -29,6 +29,7 @@ function PhilifeHeaderComposeButtonFallback() {
   return (
     <Link
       href={philifeAppPaths.write}
+      prefetch={false}
       className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
       aria-label={t("tier1_community_write")}
     >
@@ -52,6 +53,7 @@ function PhilifeHeaderComposeButtonInner() {
     return (
       <Link
         href={href}
+        prefetch={false}
         className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
         aria-label={aria}
         onClick={(e) => {

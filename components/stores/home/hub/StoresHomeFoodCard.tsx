@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { memo } from "react";
+import { memo, useLayoutEffect } from "react";
+import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
@@ -15,15 +16,25 @@ function StoresHomeFoodCardInner({
   entry,
   imageUrl,
   loadingImage,
+  priorityImage = false,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
+  /** 첫 화면 대표 카드 — LCP·네트워크 우선 */
+  priorityImage?: boolean;
 }) {
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
+
+  useLayoutEffect(() => {
+    if (priorityImage) markStoresHomePerf("store-card");
+  }, [priorityImage]);
+
   return (
     <Link
       href={href}
+      prefetch={false}
+      data-stores-perf={priorityImage ? "store-card" : undefined}
       className={`flex w-[7.5rem] shrink-0 flex-col overflow-hidden ${STORES_HOME_CARD}`}
     >
       <div className="relative aspect-square w-full bg-[color:var(--delivery-bg-thumb)]">
@@ -38,7 +49,8 @@ function StoresHomeFoodCardInner({
             className="absolute inset-0"
             imageClassName="h-full w-full object-cover"
             roundedClassName="rounded-none"
-            loading="lazy"
+            loading={priorityImage ? "eager" : "lazy"}
+            priority={priorityImage}
           />
         : (
           <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--delivery-text-muted)]">

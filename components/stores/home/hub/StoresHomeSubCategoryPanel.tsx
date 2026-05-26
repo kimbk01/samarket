@@ -11,6 +11,8 @@ import {
 } from "@/lib/i18n/store-browse-label-i18n";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
+import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
+import { STORES_HOME_RESTAURANT_SUB_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
 import {
   getStoresHomeCategoryChromeHandlers,
   getStoresHomeCategoryChromeServerSnapshot,
@@ -20,13 +22,14 @@ import {
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
+import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
 import { STORES_HOME_SUB_CATEGORY_SLIDE_MS } from "@/lib/stores/stores-home-sub-category-slide";
 import type { StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import {
-  STORES_HOME_SUB_CATEGORY_RAIL,
   STORES_HOME_SUB_CATEGORY_IMAGE_FRAME,
   STORES_HOME_SUB_CATEGORY_LABEL,
   STORES_HOME_SUB_CATEGORY_LINK,
+  STORES_HOME_SUB_CATEGORY_RAIL,
   STORES_HOME_SUB_CATEGORY_SECTION_BODY,
   STORES_HOME_SUB_CATEGORY_SLIDE_LAYER,
   STORES_HOME_SUB_CATEGORY_SLIDE_STAGE,
@@ -34,23 +37,9 @@ import {
 
 const RESTAURANT_SLUG = "restaurant";
 
-const RESTAURANT_SUB_ICON: Record<string, string> = {
-  korean: "/icons/food/icon_0_1.png",
-  chinese: "/icons/food/icon_1_0.png",
-  japanese: "/icons/food/icon_1_1.png",
-  western: "/icons/food/icon_0_3.png",
-  pizza: "/icons/food/icon_1_2.png",
-  snack: "/icons/food/icon_1_3.png",
-  chicken: "/icons/food/icon_0_2.png",
-  lunchbox: "/icons/food/icon_2_0.png",
-  local: "/icons/food/icon_2_1.png",
-  dessert: "/icons/food/icon_2_2.png",
-  late_night: "/icons/food/icon_2_3.png",
-};
-
 function resolveSubCategoryFallbackIcon(primarySlug: string, subSlug: string, indexInGrid: number): string | null {
   if (primarySlug === RESTAURANT_SLUG) {
-    return RESTAURANT_SUB_ICON[subSlug.trim().toLowerCase()] ?? null;
+    return STORES_HOME_RESTAURANT_SUB_ICONS[subSlug.trim().toLowerCase()] ?? null;
   }
   return storeSecondaryBrowseIconPath(primarySlug, indexInGrid);
 }
@@ -70,7 +59,7 @@ function StoresHomeSubCategoryRail({
     <div className={STORES_HOME_SUB_CATEGORY_RAIL}>
       {subs.map((s, idx) => {
         const subSlug = String(s.slug ?? "").trim().toLowerCase();
-        const uploaded = storeTaxonomyUploadedImageUrl((s as StoreTaxonomyTopic).image_url);
+        const uploaded = storeTaxonomyUploadedImageUrl(s.image_url);
         const fallback = resolveSubCategoryFallbackIcon(primarySlug, subSlug, idx);
         const src = resolveStoreTaxonomyImageSrc(uploaded, fallback);
         if (!src) return null;
@@ -91,6 +80,7 @@ function StoresHomeSubCategoryRail({
           <Link
             key={s.id}
             href={storesBrowsePath(primarySlug, s.slug)}
+            prefetch={false}
             onPointerDown={() => onPrewarmSub(s.slug)}
             className={STORES_HOME_SUB_CATEGORY_LINK}
             aria-label={label}
@@ -102,6 +92,7 @@ function StoresHomeSubCategoryRail({
                 isUploaded={!!uploaded}
                 imgSize="fill"
                 frameClassName="h-full w-full"
+                loading={idx < STORES_HOME_TAXONOMY_EAGER_ICON_COUNT ? "eager" : "lazy"}
               />
             </span>
             <span className={STORES_HOME_SUB_CATEGORY_LABEL}>{label}</span>
@@ -181,6 +172,12 @@ export function StoresHomeSubCategoryPanel() {
     return () => window.clearTimeout(id);
   }, [snap.activeSlug, snap.subs]);
 
+  useLayoutEffect(() => {
+    if (snap.taxonomyReady && snap.subs.length > 0) {
+      markStoresHomePerf("category");
+    }
+  }, [snap.subs.length, snap.taxonomyReady]);
+
   if (!snap.taxonomyReady) {
     return <StoresHomeCategoriesSkeleton />;
   }
@@ -192,6 +189,7 @@ export function StoresHomeSubCategoryPanel() {
       ref={sectionRef}
       className={STORES_HOME_SUB_CATEGORY_SECTION_BODY}
       aria-label="store sub categories"
+      data-stores-perf="category"
     >
       <div className={STORES_HOME_SUB_CATEGORY_SLIDE_STAGE}>
         {transition ?

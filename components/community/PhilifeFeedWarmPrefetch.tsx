@@ -1,21 +1,16 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
 import { warmPhilifeNeighborhoodFeedByUrl } from "@/lib/philife/warm-philife-neighborhood-feed";
 import { warmPhilifeNeighborhoodTopicOptions } from "@/lib/philife/fetch-neighborhood-topic-options-client";
 import { isConstrainedNetwork, scheduleWhenBrowserIdle, cancelScheduledWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { usePhilifeFeedViewerSig } from "@/hooks/use-philife-feed-viewer-sig";
-import {
-  shouldRunBottomNavProgrammaticPrefetch,
-  shouldRunPhilifeBackgroundFeedWarm,
-} from "@/lib/runtime/next-js-dev-client";
+import { shouldRunPhilifeBackgroundFeedWarm } from "@/lib/runtime/next-js-dev-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 
 const PHILIFE_WARM_PREFETCH_TTL_MS = 3 * 60_000;
-/** `warmPhilifeNeighborhoodFeedByUrl` 과 동일 간격 — RSC `/philife` 선로딩 과다 방지 */
-const PHILIFE_ROUTE_PREFETCH_MIN_MS = 90_000;
 /** 거래 셸 체류 중 탭 전환과 경합 줄이기 — 너무 짧으면 장시간 머문 뒤 메인 스레드·네트워크가 밀림 */
 const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 900;
 const PHILIFE_WARM_OUTER_DELAY_DEFAULT_MS = 520;
@@ -24,7 +19,6 @@ const PHILIFE_WARM_IDLE_TIMEOUT_MS = 650;
 /** 하단 탭 전환 직후에는 목적지 RSC·hydration·클라 fetch 를 먼저 끝낸다. */
 const PHILIFE_WARM_BOTTOM_NAV_QUIET_MS = 2_500;
 const warmedFeedAtByKey = new Map<string, number>();
-let lastPhilifeHrefPrefetchAt = 0;
 
 function remainingBottomNavQuietMs(): number {
   if (typeof window === "undefined" || typeof performance === "undefined") return 0;
@@ -38,7 +32,6 @@ function remainingBottomNavQuietMs(): number {
  * /philife 가 아닐 때만 워밍 — 피드 화면 자체의 요청과 중복 최소화
  */
 export function PhilifeFeedWarmPrefetch() {
-  const router = useRouter();
   const pathname = usePathname();
   const pathnameRef = useRef(pathname);
   useLayoutEffect(() => {
@@ -94,17 +87,6 @@ export function PhilifeFeedWarmPrefetch() {
           noStore: viewerSig !== "_anon",
         });
         warmPhilifeNeighborhoodTopicOptions();
-        if (
-          shouldRunBottomNavProgrammaticPrefetch() &&
-          now - lastPhilifeHrefPrefetchAt >= PHILIFE_ROUTE_PREFETCH_MIN_MS
-        ) {
-          lastPhilifeHrefPrefetchAt = now;
-          try {
-            void router.prefetch("/philife");
-          } catch {
-            /* noop */
-          }
-        }
       }, PHILIFE_WARM_IDLE_TIMEOUT_MS);
     };
 
@@ -118,7 +100,7 @@ export function PhilifeFeedWarmPrefetch() {
       window.clearTimeout(warmTimer);
       cancelScheduledWhenBrowserIdle(refreshIdleId);
     };
-  }, [viewerSig, warmShellDomain, router]);
+  }, [viewerSig, warmShellDomain]);
 
   return null;
 }

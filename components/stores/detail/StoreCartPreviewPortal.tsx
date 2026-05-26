@@ -1,9 +1,17 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import dynamic from "next/dynamic";
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { StoreCartPreviewSheet } from "@/components/stores/store-order-detail/StoreCartPreviewSheet";
+
+const StoreCartPreviewSheet = dynamic(
+  () =>
+    import("@/components/stores/store-order-detail/StoreCartPreviewSheet").then(
+      (m) => m.StoreCartPreviewSheet
+    ),
+  { ssr: false }
+);
 import {
   closeStoreCartPreview,
   getStoreCartPreviewOpenMark,

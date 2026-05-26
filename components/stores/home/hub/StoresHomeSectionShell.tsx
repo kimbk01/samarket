@@ -20,7 +20,7 @@ export function StoresHomeSectionShell({
       <div className="flex items-center justify-between gap-2">
         <h2 className={STORES_HOME_SECTION_TITLE}>{title}</h2>
         {actionHref && actionLabel ?
-          <Link href={actionHref} className={STORES_HOME_LINK}>
+          <Link href={actionHref} prefetch={false} className={STORES_HOME_LINK}>
             {actionLabel}
           </Link>
         : null}

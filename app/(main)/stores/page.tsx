@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";import { Suspense } from "react";
+import { cookies, headers } from "next/headers";
+import { StoresHomeInitialShellClient } from "@/components/stores/home/hub/StoresHomeInitialShell.client";
+import { StoresHomeInitialShellServer } from "@/components/stores/home/hub/StoresHomeInitialShell.server";
 import { StoresHub } from "@/components/stores/StoresHub";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
@@ -21,12 +23,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+/**
+ * 동기 page — initial shell 이 첫 HTML flush 에 포함되도록 await 제거.
+ * 라벨은 seed 기본(ko) SSR, client i18n 이 hydrate 후 보강.
+ */
 export default function StoresPage() {
   return (
     <div className={`delivery-ui ${DeliveryTheme.page} min-h-0`}>
-      <Suspense fallback={null}>
+      <StoresHomeInitialShellServer language="ko" />
+      <StoresHomeInitialShellClient>
         <StoresHub />
-      </Suspense>
+      </StoresHomeInitialShellClient>
     </div>
   );
 }

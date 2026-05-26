@@ -1,8 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
+import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import {
@@ -12,8 +13,14 @@ import {
   STORES_HOME_HEADER_INNER_CLASS,
   STORES_HOME_HEADER_SHELL_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
-import { StoresHomeSearchModal } from "@/components/stores/home/hub/StoresHomeSearchModal";
-import { StoresHomeAddressSheet } from "@/components/stores/home/hub/StoresHomeAddressSheet";
+const StoresHomeSearchModal = dynamic(
+  () => import("@/components/stores/home/hub/StoresHomeSearchModal").then((m) => m.StoresHomeSearchModal),
+  { ssr: false }
+);
+const StoresHomeAddressSheet = dynamic(
+  () => import("@/components/stores/home/hub/StoresHomeAddressSheet").then((m) => m.StoresHomeAddressSheet),
+  { ssr: false }
+);
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   getStoresHomePullRefreshServerSnapshot,
@@ -106,7 +113,7 @@ export function StoresHomeHeaderChrome() {
               >
                 <SearchIcon />
               </button>
-              <PhilifeHeaderNotificationInbox tone="onPrimary" />
+              <StoresHomeHeaderNotificationInboxLazy tone="onPrimary" />
             </div>
           </div>
           <div
@@ -127,12 +134,16 @@ export function StoresHomeHeaderChrome() {
           </div>
         </div>
       </header>
-      <StoresHomeSearchModal
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        anchorRef={searchTriggerRef}
-      />
-      <StoresHomeAddressSheet open={addressOpen} onClose={() => setAddressOpen(false)} />
+      {searchOpen ?
+        <StoresHomeSearchModal
+          open={searchOpen}
+          onClose={() => setSearchOpen(false)}
+          anchorRef={searchTriggerRef}
+        />
+      : null}
+      {addressOpen ?
+        <StoresHomeAddressSheet open={addressOpen} onClose={() => setAddressOpen(false)} />
+      : null}
     </>
   );
 }

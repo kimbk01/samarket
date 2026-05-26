@@ -35,33 +35,13 @@ import {
   useOwnerLitePreferredStoreRow,
 } from "@/lib/stores/use-owner-lite-store";
 import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
-import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
-import {
-  BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS,
-  BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS,
-  BOTTOM_NAV_PREFETCH_SPREAD_MS,
-} from "@/lib/performance/chrome-navigation-policy";
-import {
-  shouldEnableNextLinkPrefetchOnMainNav,
-  shouldRunBottomNavProgrammaticPrefetch,
-} from "@/lib/runtime/next-js-dev-client";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { commitMainBottomNavRoute, mainBottomNavRouteUsesReplace } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { openBottomNavHref } from "@/lib/main-menu/bottom-nav-link-open";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
-import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
-import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
-import {
-  mainBottomNavPrefetchTriggerKey,
-  type MainBottomNavPrefetchDomain,
-} from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
-import {
-  isBottomNavTabActive,
-  isMainBottomNavMessengerShellPathname,
-  pickMainBottomNavPrefetchHrefs,
-  resolveBottomNavTabProgrammaticPrefetchHref,
-} from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
+import { isBottomNavTabActive } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import {
   composeMainBottomNavDisplayTabs,
   resolveMainBottomNavSecondaryRailKind,
@@ -90,10 +70,7 @@ import {
   runDeliveryHomeHubLongPress,
   runDeliveryHomeHubShortTap,
 } from "@/lib/delivery/delivery-home-hub-navigation";
-import {
-  markBottomNavRouteIntentForBackgroundWarm,
-  remainingBottomNavBackgroundPrefetchQuietMs,
-} from "@/lib/navigation/mark-bottom-nav-route-intent";
+import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
 import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
@@ -112,12 +89,6 @@ import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext"
 import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { useRegion, useRegionOptional } from "@/contexts/RegionContext";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
-
-/** 매장 운영 허브 — cross-tab RSC·taxonomy·philife prewarm 금지 (`pickMainBottomNavPrefetchHrefs` 와 동일) */
-function shouldSkipBottomNavBackgroundPrefetch(pathname: string | null): boolean {
-  const domain: MainBottomNavPrefetchDomain = mainBottomNavPrefetchTriggerKey(pathname);
-  return domain === "store_owner" || isMainBottomNavMessengerShellPathname(pathname);
-}
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -165,12 +136,8 @@ function runBottomNavTabClick(
     guardBeforeNavigate: opts.guardBeforeNavigate,
     push: (href) => opts.router.push(href),
     replace: (href) => opts.router.replace(href),
-    prefetch: (href) => {
-      try {
-        void opts.router.prefetch(href);
-      } catch {
-        /* noop */
-      }
+    prefetch: () => {
+      /* RSC prefetch 금지 — 클라 prewarm 만 `onPrewarm` 경로 */
     },
     onPrewarm: opts.onPrewarm,
     onCloseDomainSwitcher: opts.onCloseDomainSwitcher,
@@ -292,7 +259,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   return (
     <Link
       href={effectiveHref}
-      prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
+      prefetch={false}
       replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
@@ -301,11 +268,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       aria-current={isActive ? "page" : undefined}
       onPointerEnter={() => {
         if (!isActive) {
-          try {
-            void router.prefetch(effectiveHref);
-          } catch {
-            /* noop */
-          }
           try {
             prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
@@ -316,11 +278,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       onFocus={() => {
         if (!isActive) {
           try {
-            void router.prefetch(effectiveHref);
-          } catch {
-            /* noop */
-          }
-          try {
             prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
             /* noop */
@@ -329,11 +286,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       }}
       onTouchStart={() => {
         if (!isActive) {
-          try {
-            void router.prefetch(effectiveHref);
-          } catch {
-            /* noop */
-          }
           try {
             prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
@@ -346,12 +298,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
         if (!isActive) {
           markBottomNavRouteIntentForBackgroundWarm();
-          try {
-            void router.prefetch(effectiveHref);
-          } catch {
-            /* noop */
-          }
-          /** RSC 프리페치와 별도로 클라 데이터 캐시도 함께 데워 첫 진입 즉시 렌더 */
           try {
             prewarmBottomNavTapTargetClientCache(effectiveHref);
           } catch {
@@ -833,7 +779,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   return (
     <Link
       href={effectiveHref}
-      prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
+      prefetch={false}
       replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
@@ -943,7 +889,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   return (
     <Link
       href={tab.href}
-      prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
+      prefetch={false}
       replace={mainBottomNavRouteUsesReplace(pathname ?? null, tab.href)}
       scroll={false}
       className={className}
@@ -952,11 +898,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       aria-current={isActive ? "page" : undefined}
       onPointerEnter={() => {
         if (!isActive) {
-          try {
-            void router.prefetch(tab.href);
-          } catch {
-            /* noop */
-          }
           try {
             prewarmStoresTabClientCache();
           } catch {
@@ -967,11 +908,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       onFocus={() => {
         if (!isActive) {
           try {
-            void router.prefetch(tab.href);
-          } catch {
-            /* noop */
-          }
-          try {
             prewarmStoresTabClientCache();
           } catch {
             /* noop */
@@ -980,11 +916,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       }}
       onTouchStart={() => {
         if (!isActive) {
-          try {
-            void router.prefetch(tab.href);
-          } catch {
-            /* noop */
-          }
           try {
             prewarmStoresTabClientCache();
           } catch {
@@ -996,11 +927,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         triggerLightTapFeedback(e);
         if (!isActive) {
           markBottomNavRouteIntentForBackgroundWarm();
-          try {
-            void router.prefetch(tab.href);
-          } catch {
-            /* noop */
-          }
           try {
             prewarmStoresTabClientCache();
           } catch {
@@ -1035,8 +961,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
 const TAB_ICONS = MAIN_BOTTOM_NAV_TAB_ICONS;
 
-const BOTTOM_NAV_BOOT_WARM_SESSION_KEY = "samarket:bottom-nav:boot-warm:v1";
-
 export function BottomNav({
   initialTabs = null,
   bodyPortal = false,
@@ -1056,11 +980,6 @@ export function BottomNav({
     bumpMessengerRenderPerf("messenger_bottom_nav_render");
   }
   const pathname = usePathname();
-  /** idle 프리페치 콜백 시점의 최신 경로 — effect deps 는 도메인 키만 쓰므로 클로저 pathname 고착 방지 */
-  const pathnameForPrefetchRef = useRef<string | null>(pathname ?? null);
-  useLayoutEffect(() => {
-    pathnameForPrefetchRef.current = pathname ?? null;
-  }, [pathname]);
 
   /** `/mypage` 레일 — 직전 배달·거래·커뮤니티 셸을 sessionStorage 로 복원 */
   useEffect(() => {
@@ -1077,15 +996,7 @@ export function BottomNav({
       writeStoredMypageBottomNavOrigin("community");
     }
   }, [pathname]);
-  const bottomNavPrefetchDomain = useMemo(
-    () => mainBottomNavPrefetchTriggerKey(pathname ?? null),
-    [pathname]
-  );
   const { primaryRegion } = useRegion();
-  const primaryRegionRef = useRef(primaryRegion);
-  useLayoutEffect(() => {
-    primaryRegionRef.current = primaryRegion;
-  }, [primaryRegion]);
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
   const bottomNavPickCtxRef = useRef<{ searchParams: typeof searchParams; ownerStoreId?: string | null }>({
@@ -1094,11 +1005,6 @@ export function BottomNav({
   });
   const router = useRouter();
   const { beginMenuNavigation } = useLatestMenuNavigation();
-  /** `useRouter()` 는 AppRouterContext 갱신 시마다 항상 동일 식별자가 아닐 수 있음 — prefetch effect deps 는 도메인 키만. */
-  const routerRef = useRef(router);
-  useLayoutEffect(() => {
-    routerRef.current = router;
-  }, [router]);
   /**
    * 탭 단일 소스: `MainBottomNavTabsProvider`. admin 변경·storage 동기화·관리자 이탈 강제 재조회는
    * 해당 Provider 가 담당하므로 여기서는 읽기만. (`initialTabs` prop 은 SSR hydrate 호환을 위해 시그니처 유지.)
@@ -1169,161 +1075,6 @@ export function BottomNav({
       clearPendingActiveReset();
     };
   }, [clearPendingActiveReset]);
-
-  /**
-   * 주요 탭 RSC idle 선로딩 — **비활성 탭 최대 4개(`pickMainBottomNavPrefetchHrefs`)**, 순차 `router.prefetch`.
-   *
-   * **회귀 방지(중복·누락)**:
-   * - effect deps 는 `mainBottomNavPrefetchTriggerKey` 만 — 같은 셸 도메인 안 세부 경로 변경으로 배치가 다시 돌지 않게 한다.
-   * - `pick` 에는 `pathnameForPrefetchRef.current` 로 **idle 실행 시점** 최신 pathname 을 넘긴다.
-   * - `pickMainBottomNavPrefetchHrefs` 내부 `seen` + 상한으로 href 중복·초과 방지.
-   *
-   * 경로가 바뀌면 **연쇄 setTimeout 전부 취소**한다. `NEXT_PUBLIC_DISABLE_MAIN_NAV_PROGRAMMATIC_PREFETCH=1` 로 끔.
-   */
-  useEffect(() => {
-    if (!shouldRunBottomNavProgrammaticPrefetch()) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    let cancelled = false;
-    let idleId = -1;
-    const chainTimers: number[] = [];
-
-    const debounceId = window.setTimeout(() => {
-      if (cancelled) return;
-      idleId = scheduleWhenBrowserIdle(() => {
-        if (cancelled) return;
-        const hrefs = pickMainBottomNavPrefetchHrefs(
-          pathnameForPrefetchRef.current,
-          tabsRef.current,
-          bottomNavPickCtxRef.current
-        );
-        if (hrefs.length === 0) return;
-
-        const scheduleNext = (nextIdx: number) => {
-          if (nextIdx >= hrefs.length) return;
-          const quietMs = remainingBottomNavBackgroundPrefetchQuietMs();
-          chainTimers.push(
-            window.setTimeout(() => runPrefetchAt(nextIdx), Math.max(BOTTOM_NAV_PREFETCH_SPREAD_MS, quietMs))
-          );
-        };
-
-        const runPrefetchAt = (idx: number) => {
-          if (cancelled || idx >= hrefs.length) return;
-          const quietMs = remainingBottomNavBackgroundPrefetchQuietMs();
-          if (quietMs > 0) {
-            chainTimers.push(
-              window.setTimeout(() => runPrefetchAt(idx), quietMs + BOTTOM_NAV_PREFETCH_SPREAD_MS)
-            );
-            return;
-          }
-          const href = hrefs[idx];
-          try {
-            samarketRuntimeDebugLog("bottom-nav-prefetch", "router.prefetch", {
-              href,
-              pathname: pathnameForPrefetchRef.current,
-              prefetchDomain: bottomNavPrefetchDomain,
-              index: idx,
-              total: hrefs.length,
-            });
-            routerRef.current.prefetch(href);
-            const pathOnly = (href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
-            if (pathOnly === "/community-messenger") {
-              scheduleWarmMessengerListBootstrapClient();
-            }
-            /** idle 프리페치 사이클에서도 클라 데이터 캐시를 함께 데워 RSC·DATA 캐시 분리 미스 방지 */
-            try {
-              prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
-            } catch {
-              /* noop */
-            }
-          } catch {
-            /* no-op */
-          }
-          scheduleNext(idx + 1);
-        };
-        runPrefetchAt(0);
-      }, BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS);
-    }, BOTTOM_NAV_PREFETCH_PATH_DEBOUNCE_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(debounceId);
-      cancelScheduledWhenBrowserIdle(idleId);
-      for (const tid of chainTimers) {
-        window.clearTimeout(tid);
-      }
-      chainTimers.length = 0;
-    };
-  }, [bottomNavPrefetchDomain]);
-
-  /**
-   * 첫 탭 진입 콜드 스타트 완화:
-   * - 앱 세션당 1회, 하단 탭 `prefetch` + 클라 데이터 prewarm
-   * - **동시에 5탭을 한 프레임에서 몰아치면** 메인 스레드·`/api/trade/feed` 등이 겹쳐 탭 반응·거래 목록이 버벅인다.
-   *   아래 idle 프리페치 effect 와 같이 `idle 지연` + `BOTTOM_NAV_PREFETCH_SPREAD_MS` 간격으로 순차 실행한다.
-   */
-  useEffect(() => {
-    if (!shouldRunBottomNavProgrammaticPrefetch()) return;
-    if (isConstrainedNetwork()) return;
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-    if (typeof window === "undefined") return;
-    try {
-      if (window.sessionStorage.getItem(BOTTOM_NAV_BOOT_WARM_SESSION_KEY) === "1") return;
-      window.sessionStorage.setItem(BOTTOM_NAV_BOOT_WARM_SESSION_KEY, "1");
-    } catch {
-      /* ignore storage failures */
-    }
-    const at = pathnameForPrefetchRef.current;
-    if (shouldSkipBottomNavBackgroundPrefetch(at)) return;
-    const hrefs = tabsRef.current
-      .map((tab) => resolveBottomNavTabProgrammaticPrefetchHref(tab, at, bottomNavPickCtxRef.current))
-      .filter((href, idx, arr) => arr.indexOf(href) === idx)
-      .slice(0, 5);
-    if (hrefs.length === 0) return;
-
-    let cancelled = false;
-    const chainTimers: number[] = [];
-    const idleId = scheduleWhenBrowserIdle(() => {
-      if (cancelled) return;
-      hrefs.forEach((href, idx) => {
-        chainTimers.push(
-          window.setTimeout(() => {
-            if (cancelled) return;
-            const quietMs = remainingBottomNavBackgroundPrefetchQuietMs();
-            if (quietMs > 0) {
-              chainTimers.push(
-                window.setTimeout(() => {
-                  if (cancelled) return;
-                  try {
-                    routerRef.current.prefetch(href);
-                    prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
-                  } catch {
-                    /* noop */
-                  }
-                }, quietMs + BOTTOM_NAV_PREFETCH_SPREAD_MS)
-              );
-              return;
-            }
-            try {
-              routerRef.current.prefetch(href);
-              prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
-            } catch {
-              /* noop */
-            }
-          }, idx * BOTTOM_NAV_PREFETCH_SPREAD_MS)
-        );
-      });
-    }, BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS);
-
-    return () => {
-      cancelled = true;
-      cancelScheduledWhenBrowserIdle(idleId);
-      for (const tid of chainTimers) {
-        window.clearTimeout(tid);
-      }
-      chainTimers.length = 0;
-    };
-  }, []);
 
   const [portalToBody, setPortalToBody] = useState(false);
   useLayoutEffect(() => {

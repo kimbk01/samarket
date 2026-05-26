@@ -80,7 +80,7 @@ export function PhilifeHeaderMessengerButton() {
         href={href}
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`}
         aria-label={label}
-        prefetch
+        prefetch={false}
         onClick={(e) => {
           if (!guardBeforeNavigate()) {
             e.preventDefault();

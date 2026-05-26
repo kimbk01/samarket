@@ -37,10 +37,8 @@ import {
   subscribeStoreOwnerMainBottomNavSuppressed,
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
-import { CommunityMessengerRoomOpeningOverlayHost } from "@/components/community-messenger/room/CommunityMessengerRoomOpeningOverlayHost";
 import { AppStickyHeader } from "./AppStickyHeader";
 import { RegionBar } from "./RegionBar";
-import { BottomNav } from "./BottomNav";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -69,6 +67,14 @@ const FloatingAddButtonLazy = dynamic(
 );
 const MainBottomNavFabSectorLazy = dynamic(
   () => import("@/components/layout/MainBottomNavFabSector").then((m) => m.MainBottomNavFabSector),
+  { ssr: false }
+);
+const BottomNavLazy = dynamic(() => import("./BottomNav").then((m) => m.BottomNav), { ssr: false });
+const CommunityMessengerRoomOpeningOverlayHostLazy = dynamic(
+  () =>
+    import("@/components/community-messenger/room/CommunityMessengerRoomOpeningOverlayHost").then(
+      (m) => m.CommunityMessengerRoomOpeningOverlayHost
+    ),
   { ssr: false }
 );
 
@@ -194,7 +200,7 @@ export function ConditionalAppShell({
     >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
-      <CommunityMessengerRoomOpeningOverlayHost />
+      <CommunityMessengerRoomOpeningOverlayHostLazy />
       <WebConnectivityBanner />
       {f.showRegionBar ? <RegionBar /> : null}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
@@ -215,7 +221,7 @@ export function ConditionalAppShell({
             </div>
           }
         >
-          <BottomNav
+          <BottomNavLazy
             initialTabs={initialMainBottomNavItems}
             bodyPortal={isMessengerStackSurface}
             extraOuterClassName={

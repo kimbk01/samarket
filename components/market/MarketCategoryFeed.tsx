@@ -260,7 +260,6 @@ export function MarketCategoryFeed({
     };
 
     for (const href of targets) {
-      void router.prefetch(href);
       prewarmTradeSurfaceHref(href);
     }
 
