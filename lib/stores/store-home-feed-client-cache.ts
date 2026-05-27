@@ -3,7 +3,7 @@
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 
-const STORE_HOME_FEED_TTL_MS = 30_000;
+const STORE_HOME_FEED_TTL_MS = 10 * 60 * 1000;
 
 export type StoreHomeFeedCacheEntry = {
   stores: StoreHomeFeedItem[];
@@ -27,10 +27,7 @@ export function peekStoreHomeFeedClientCache(pathAndQuery: string): StoreHomeFee
   const key = normalizeSuffix(pathAndQuery);
   const hit = storeHomeFeedCache.get(key);
   if (!hit) return null;
-  if (hit.expiresAt <= Date.now()) {
-    storeHomeFeedCache.delete(key);
-    return null;
-  }
+  if (hit.expiresAt <= Date.now()) return null;
   return hit;
 }
 

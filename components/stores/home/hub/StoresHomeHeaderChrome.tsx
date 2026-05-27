@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRef, useState, useSyncExternalStore } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useRegion } from "@/contexts/RegionContext";
 import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
@@ -28,6 +29,11 @@ import {
   STORES_HOME_PULL_REFRESH_THRESHOLD_PX,
   subscribeStoresHomePullRefresh,
 } from "@/lib/stores/stores-home-pull-refresh-store";
+import {
+  formatNeighborhoodRegionSubtitle,
+  neighborhoodLocationLabelFromRegion,
+  neighborhoodLocationMetaFromRegion,
+} from "@/lib/neighborhood/location-key";
 
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
@@ -55,12 +61,24 @@ function SearchIcon() {
  * DO NOT: `store_address_manage_link` 를 버튼 라벨로 — `resolveDeliveryHomeHeaderButtonLabel` 만.
  */
 export function StoresHomeHeaderChrome() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const { currentRegion } = useRegion();
   const address = useDeliveryHomeHeaderAddress();
   const [searchOpen, setSearchOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
-  const headerLine = resolveDeliveryHomeHeaderButtonLabel(address);
+  const regionFallbackLine = useMemo(() => {
+    const meta = neighborhoodLocationMetaFromRegion(currentRegion);
+    const label = neighborhoodLocationLabelFromRegion(currentRegion);
+    return formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
+  }, [currentRegion]);
+  const headerLine = useMemo(() => {
+    const fromAddress = address.displayLine?.trim();
+    if (fromAddress) return fromAddress;
+    const fromRegion = regionFallbackLine.trim();
+    if (fromRegion) return fromRegion;
+    return resolveDeliveryHomeHeaderButtonLabel(address, language);
+  }, [address, language, regionFallbackLine]);
   const pull = useSyncExternalStore(
     subscribeStoresHomePullRefresh,
     getStoresHomePullRefreshSnapshot,

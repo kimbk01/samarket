@@ -21,7 +21,7 @@ export function resolveDeliveryHomeHeaderButtonLabel(
   if (view.status === "loading") {
     key = "philife_addr_loading_line";
   } else if (view.hasLinkedAddress) {
-    key = "philife_addr_loading_line";
+    key = "philife_addr_not_set";
   } else {
     key = "addr_ui_add_first";
   }

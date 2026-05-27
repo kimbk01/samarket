@@ -5,15 +5,18 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, startTransitio
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
-  readStoreHomeFeedClientCache,
-  primeStoreHomeFeedClientCache,
-} from "@/lib/stores/store-home-feed-client-cache";
+  applyStoresHomeFeedNetworkResult,
+  readStoresHomeFeedInitialSnapshot,
+  resolveStoresHomeFeedCacheForLoad,
+} from "@/lib/stores/stores-home-feed-load-policy";
+import { writeStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import {
   flattenStoresHomeFoodEntries,
   pickStoresHomeOpenNow,
 } from "@/lib/stores/stores-home-feed-sections";
+import { pickStoresHomePrimaryRowList } from "@/lib/stores/stores-home-feed-display-contract";
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
@@ -24,6 +27,7 @@ import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/Stor
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
 import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
 import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
+import { StoresHomePrimaryStoreRowListSection } from "@/components/stores/home/hub/StoresHomePrimaryStoreRowListSection";
 import { StoresHomeSkeleton } from "@/components/stores/home/hub/StoresHomeSkeleton";
 import { StoresHomeBuyerMyZone } from "@/components/stores/home/hub/StoresHomeBuyerMyZone";
 import { StoresHomeDeferredViewport } from "@/components/stores/home/hub/StoresHomeDeferredViewport";
@@ -38,10 +42,7 @@ import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import {
   STORES_HOME_BELOW_FOLD_ROOT_MARGIN,
   STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
-  STORES_HOME_FIRST_RAIL_FEATURED_EAGER,
 } from "@/lib/stores/stores-home-lcp-policy";
-import { useStoresHomeFeedRailLcpGate } from "@/lib/stores/use-stores-home-first-lcp";
-import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -55,23 +56,40 @@ export function StoresHomeHub({
 }) {
   const { t } = useI18n();
 
-  const [stores, setStores] = useState<StoreHomeFeedItem[]>(() => {
-    if (typeof window === "undefined") return [];
-    return readStoreHomeFeedClientCache("").entry?.stores ?? [];
-  });
-  const [loading, setLoading] = useState(() => {
-    if (typeof window === "undefined") return true;
-    return !readStoreHomeFeedClientCache("").entry;
-  });
-  const [meta, setMeta] = useState<{ source?: string } | null>(() => {
-    if (typeof window === "undefined") return null;
-    return readStoreHomeFeedClientCache("").entry?.meta ?? null;
-  });
+  /** SSR·hydration 동일 초기값 — `window`/`liveStore` 는 layout effect 에서만 주입 */
+  const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [meta, setMeta] = useState<{ source?: string } | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const metaRef = useRef(meta);
+  const storesRef = useRef(stores);
   const scrollReadyMarkedRef = useRef(false);
-  const feedRailLcpReady = useStoresHomeFeedRailLcpGate();
-  const deferStoresHomeCompetition = useStoresHomeOverlayDeferUntilInput();
+  const feedSnapshotSeededRef = useRef(false);
+
+  useLayoutEffect(() => {
+    metaRef.current = meta;
+  }, [meta]);
+
+  useLayoutEffect(() => {
+    storesRef.current = stores;
+  }, [stores]);
+
+  useLayoutEffect(() => {
+    feedSnapshotSeededRef.current = false;
+  }, [querySuffix]);
+
+  useLayoutEffect(() => {
+    if (feedSnapshotSeededRef.current) return;
+    feedSnapshotSeededRef.current = true;
+    const snap = readStoresHomeFeedInitialSnapshot(querySuffix);
+    if (snap.stores.length === 0) return;
+    setStores(snap.stores);
+    setMeta(snap.meta);
+    setLoading(false);
+    storesRef.current = snap.stores;
+    metaRef.current = snap.meta;
+  }, [querySuffix]);
 
   useLayoutEffect(() => {
     markStoresHomePerf("shell");
@@ -99,12 +117,11 @@ export function StoresHomeHub({
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
-      const cachedSnapshot = readStoreHomeFeedClientCache(querySuffix);
-      const cached = cachedSnapshot.entry;
-      const fallbackSnapshot = !cached && querySuffix ? readStoreHomeFeedClientCache("") : null;
-      const cachedEntry = cached ?? fallbackSnapshot?.entry ?? null;
-      const hasFreshCache = cached ? cachedSnapshot.isFresh : (fallbackSnapshot?.isFresh ?? false);
-      if (cachedEntry) {
+      const cachedSnapshot = resolveStoresHomeFeedCacheForLoad(querySuffix);
+      const cachedEntry = cachedSnapshot.entry;
+      const hasFreshCache = cachedSnapshot.isFresh;
+      if (cachedEntry && cachedEntry.stores.length > 0) {
+        writeStoresHomeFeedLiveStore(querySuffix, cachedEntry.stores, cachedEntry.meta);
         startTransition(() => {
           setStores(cachedEntry.stores);
           setMeta(cachedEntry.meta);
@@ -112,24 +129,39 @@ export function StoresHomeHub({
         });
         if (!silent && hasFreshCache) return;
       }
-      if (!silent && !cachedEntry) setLoading(true);
+      const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
+      if (!silent && !hasDisplayableStores) setLoading(true);
       try {
-        const { json } = await fetchStoresHomeFeedDeduped(querySuffix, { signal: controller.signal });
+        const { status, json } = await fetchStoresHomeFeedDeduped(querySuffix, { signal: controller.signal });
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;
-        if (json && typeof json === "object" && (json as { ok?: boolean }).ok && Array.isArray((json as { stores?: unknown }).stores)) {
-          const j = json as { stores: StoreHomeFeedItem[]; meta?: { source?: string } };
-          primeStoreHomeFeedClientCache(querySuffix, { stores: j.stores, meta: j.meta ?? null });
-          startTransition(() => {
-            setStores(j.stores);
-            setMeta(j.meta ?? null);
+        startTransition(() => {
+          setStores((prevStores) => {
+            const applied = applyStoresHomeFeedNetworkResult({
+              querySuffix,
+              status,
+              json,
+              previousStores: prevStores,
+              previousMeta: metaRef.current,
+            });
+            setMeta(applied.meta);
+            metaRef.current = applied.meta;
+            if (applied.stores.length > 0) {
+              writeStoresHomeFeedLiveStore(querySuffix, applied.stores, applied.meta);
+            }
+            return applied.stores;
           });
-        } else if (!silent) {
-          startTransition(() => setStores([]));
-        }
+        });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;
-        if (!silent) startTransition(() => setStores([]));
+        const cached = resolveStoresHomeFeedCacheForLoad(querySuffix);
+        if (cached.entryStores.length > 0) {
+          writeStoresHomeFeedLiveStore(querySuffix, cached.entryStores, cached.entry?.meta ?? null);
+          startTransition(() => {
+            setStores(cached.entryStores);
+            setMeta(cached.entry?.meta ?? null);
+          });
+        }
       } finally {
         if (abortRef.current === controller) abortRef.current = null;
         if (!silent && requestId === requestIdRef.current) {
@@ -148,28 +180,30 @@ export function StoresHomeHub({
   useRefetchOnPageShowRestore(() => void loadFeed({ silent: true }));
 
   const openNowStores = useMemo(() => pickStoresHomeOpenNow(stores), [stores]);
+  const primaryRowStores = useMemo(() => pickStoresHomePrimaryRowList(stores), [stores]);
   const fastFood = useMemo(() => flattenStoresHomeFoodEntries(openNowStores, 16), [openNowStores]);
 
   const hydrationStores = useMemo(() => stores.map((s) => ({ id: s.id, slug: s.slug })), [stores]);
 
   const eagerStoreIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const entry of fastFood.slice(0, STORES_HOME_FIRST_RAIL_FEATURED_EAGER)) {
-      if (entry.storeId) ids.add(entry.storeId);
-    }
+    for (const s of primaryRowStores) ids.add(s.id);
+    for (const entry of fastFood) ids.add(entry.storeId);
     return [...ids];
-  }, [fastFood]);
+  }, [fastFood, primaryRowStores]);
 
   const { hydratedByStoreId, getPhase, registerListItem } = useBrowseFeaturedItemsHydration(
     hydrationStores,
     {
-      enabled: stores.length > 0 && !deferStoresHomeCompetition,
+      enabled: stores.length > 0,
       eagerStoreIds,
       viewportRootMargin: STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
     }
   );
 
   const hasActiveOrder = buyerState.kind === "ready" && buyerState.activeOrders > 0;
+  /** SWR — 목록이 있으면 재검증 중에도 스켈레톤으로 덮지 않음(탭 재진입 리셋 방지) */
+  const showBlockingFeedSkeleton = loading && stores.length === 0;
 
   const emptyFallback = (
     <div className={`border border-dashed px-4 py-8 text-center ${FB.cardFlat} ${FB.hairline}`}>
@@ -188,13 +222,12 @@ export function StoresHomeHub({
         stores={stores}
         loading={loading}
         meta={meta}
-        emptyFallback={emptyFallback}
         hydratedByStoreId={hydratedByStoreId}
         getPhase={getPhase}
         registerListItem={registerListItem}
       />
     ),
-    [emptyFallback, getPhase, hydratedByStoreId, loading, meta, registerListItem, stores]
+    [getPhase, hydratedByStoreId, loading, meta, registerListItem, stores]
   );
 
   return (
@@ -214,10 +247,10 @@ export function StoresHomeHub({
 
         <StoresHomeHeroBanner />
 
-        {loading ?
+        {showBlockingFeedSkeleton ?
           <StoresHomeSkeleton />
         : <>
-            {feedRailLcpReady && fastFood.length > 0 ?
+            {fastFood.length > 0 ?
               <StoresHomeSectionShell
                 title={t("store_order_now_title")}
                 actionHref={STORES_HOME_SECTION_BROWSE.orderNow()}
@@ -238,6 +271,17 @@ export function StoresHomeHub({
                   })}
                 </div>
               </StoresHomeSectionShell>
+            : null}
+
+            {primaryRowStores.length > 0 ?
+              <StoresHomePrimaryStoreRowListSection
+                stores={primaryRowStores}
+                hydratedByStoreId={hydratedByStoreId}
+                getPhase={getPhase}
+                registerListItem={registerListItem}
+              />
+            : stores.length === 0 ?
+              emptyFallback
             : null}
 
             <StoresHomeDeferredViewport

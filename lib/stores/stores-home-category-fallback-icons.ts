@@ -1,4 +1,6 @@
-/** `/stores` 홈·browse — taxonomy 업로드 없을 때 정적 아이콘 경로 */
+/** `/stores` 홈·browse — taxonomy 업로드 없을 때 정적 아이콘 경로.
+ *  CONTRACT: `/stores` hub(`StoresHomeSubCategoryPanel`·`StoresHomeCategoryStickyBelow`) import 금지 — verify script.
+ */
 export const STORES_HOME_PRIMARY_CATEGORY_ICONS: Record<string, string> = {
   restaurant: "/icons/category/category_0_1.png",
   mart: "/icons/category/category_0_2.png",

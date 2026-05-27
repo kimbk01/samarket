@@ -204,10 +204,14 @@ export function logDevMemoryGrowthDiagnosis(phase: string): void {
     dev_measure_mode: process.env.SAMARKET_DEV_MEASURE_MODE === "1",
     ...(prune ?? {}),
     diagnosis_hint: guard.cache_not_primary_reason
-      ? `${guard.cache_not_primary_reason} — judge API from [perf-real-api-cost].actual_handler_ms not wall_ms`
+      ? `${guard.cache_not_primary_reason} — judge API from [perf-real-api-cost].actual_handler_ms not wall_ms${
+          guard.memory_guard_level === "warn" ? " — restart npm run dev to drop HMR heap" : ""
+        }`
       : heapDeltaMb > 80 && elapsedMs > 0 && elapsedMs < 120_000
         ? "heap grew >80MiB between samples — check cache_rows + Next dev compile"
-        : "within dev watch band or post-prune",
+        : guard.memory_guard_level === "warn"
+          ? "HMR heap elevated — restart npm run dev if compile feels slow or chunks 404"
+          : "within dev watch band or post-prune",
     api_judgment_field: "actual_handler_ms",
     targets_heapUsed_mb: 1.2,
     targets_rss_mb: 2,

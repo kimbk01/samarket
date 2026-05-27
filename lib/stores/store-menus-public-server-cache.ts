@@ -162,6 +162,14 @@ export function runStoreMenusPublicServerSingleFlight<T>(
   return runSingleFlight(`store-menus-api:slug:${cacheKey(slug)}`, factory);
 }
 
+function preRefreshTimerJitterMs(slug: string): number {
+  let h = 0;
+  for (let i = 0; i < slug.length; i += 1) {
+    h = (Math.imul(31, h) + slug.charCodeAt(i)) >>> 0;
+  }
+  return h % 8_000;
+}
+
 /** hard stale 직전 proactive background refresh — 사용자 reopen 전 snapshot 갱신 */
 export function scheduleStoreMenusHardStalePreRefreshTimer(
   slug: string,
@@ -173,7 +181,7 @@ export function scheduleStoreMenusHardStalePreRefreshTimer(
   if (!row) return;
 
   const leadMs = storeMenusPreRefreshLeadMs();
-  const delay = Math.max(1, remainingHardMs(row) - leadMs);
+  const delay = Math.max(1, remainingHardMs(row) - leadMs + preRefreshTimerJitterMs(k));
   const timer = setTimeout(() => {
     preRefreshTimers.delete(k);
     const live = peekCacheRow(k);

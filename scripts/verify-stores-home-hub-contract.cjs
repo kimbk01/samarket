@@ -416,13 +416,25 @@ assertIncludes(
 
 );
 
+const categoryChrome = read("lib/stores/stores-home-category-chrome-store.ts");
+
 assertIncludes(
 
-  read("lib/stores/stores-home-category-chrome-store.ts"),
+  categoryChrome,
+
+  "STORES_HOME_CATEGORY_CHROME_EMPTY_SNAPSHOT",
+
+  "category chrome server snapshot must start empty (no seed paint)"
+
+);
+
+assertNotIncludes(
+
+  categoryChrome,
 
   "getStoresHomeTaxonomySeedState",
 
-  "category chrome server snapshot must use taxonomy seed"
+  "category chrome must not import taxonomy seed"
 
 );
 
@@ -436,13 +448,13 @@ assertIncludes(
 
 );
 
-assertIncludes(
+assertNotIncludes(
 
   quickCategories,
 
   "getStoresHomeTaxonomySeedState",
 
-  "home categories must paint taxonomy seed before API refresh"
+  "home categories must not paint static taxonomy seed"
 
 );
 
@@ -452,7 +464,17 @@ assertIncludes(
 
   "resolveStoresHomeTaxonomyFromApi",
 
-  "home categories must merge API into seed fallback"
+  "home categories must load taxonomy from admin API"
+
+);
+
+assertIncludes(
+
+  read("lib/stores/stores-home-taxonomy-client.ts"),
+
+  "STORES_HOME_TAXONOMY_EMPTY",
+
+  "home taxonomy client must default to empty not seed"
 
 );
 
@@ -479,49 +501,43 @@ assertIncludes(
 assertNotIncludes(
   storesPage,
   "export default async function StoresPage",
-  "stores page must be sync so initial shell flushes in first HTML"
+  "stores page must be sync"
 );
 
 assertIncludes(
+  storesPage,
+  "<StoresHub />",
+  "stores page must render single client hub"
+);
+
+assertNotIncludes(
   storesPage,
   "StoresHomeInitialShellServer",
-  "stores page must SSR initial shell before client hub"
+  "stores page must not SSR legacy initial shell (old 1·2차 category rails)"
 );
 
-assertIncludes(
+assertNotIncludes(
   storesPage,
   "StoresHomeInitialShellClient",
-  "stores page must wrap client hub with initial shell bridge"
+  "stores page must not use dual SSR/client shell bridge"
 );
 
-assertIncludes(
-  read("components/stores/home/hub/StoresHomeInitialShell.server.tsx"),
-  "data-stores-perf=\"shell\"",
-  "SSR initial shell must expose shell perf marker"
-);
-
-assertIncludes(
-  read("components/stores/home/hub/StoresHomeInitialShell.server.tsx"),
+assertNotIncludes(
+  storesPage,
   "StoresHomeCategorySeedPanelServer",
-  "SSR initial shell must include category seed panel"
-);
-
-assertIncludes(
-  read("components/stores/home/hub/stores-home-hero-banner-view.tsx"),
-  "data-stores-perf=\"hero\"",
-  "SSR hero view must expose hero perf marker"
-);
-
-assertIncludes(
-  read("components/stores/home/hub/StoresHomeInitialShell.server.tsx"),
-  "StoresHomeHeroBannerView",
-  "SSR initial shell must render hero view"
+  "stores page must not SSR category seed panel"
 );
 
 assertIncludes(
   hub,
   "StoresHomeCategorySeedPanelClient",
-  "hub must hydrate category panels after SSR shell removal"
+  "hub must mount interactive category panels"
+);
+
+assertNotIncludes(
+  categorySeedClient,
+  "getElementById",
+  "category client must not remove SSR seed DOM (no SSR seed)"
 );
 
 assertNotIncludes(
@@ -530,7 +546,10 @@ assertNotIncludes(
   "hub must not accept SSR category slot after initial shell extraction"
 );
 
-const hubLoadingBlock = hub.slice(hub.indexOf("loading ?"), hub.indexOf("loading ?") + 400);
+const hubLoadingBlock = hub.slice(
+  hub.indexOf("showBlockingFeedSkeleton"),
+  hub.indexOf("showBlockingFeedSkeleton") + 400
+);
 
 assertNotIncludes(
 
@@ -588,7 +607,175 @@ assertIncludes(
 
 assertIncludes(deliveryAddr, "DO NOT", "delivery header module must document Google-only guard");
 
+const feedDisplayContract = read("lib/stores/stores-home-feed-display-contract.ts");
+assertIncludes(
+  feedDisplayContract,
+  "pickStoresHomePrimaryRowList",
+  "feed display contract must define primary row list picker"
+);
+assertIncludes(
+  feedDisplayContract,
+  "detectStoresHomeEmptyRowListRegression",
+  "feed display contract must expose empty-row regression detector"
+);
+assertIncludes(
+  feedDisplayContract,
+  'DO NOT: `open` exclude',
+  "feed display contract must document open exclude + primary row pairing"
+);
 
+assertIncludes(
+  hub,
+  "StoresHomePrimaryStoreRowListSection",
+  "hub must mount primary store row list section"
+);
+const hubFeedBlock = hub.slice(
+  hub.indexOf("StoresHomeHeroBanner"),
+  hub.indexOf("StoresHomeDeferredViewport")
+);
+assertIncludes(
+  hubFeedBlock,
+  "StoresHomePrimaryStoreRowListSection",
+  "primary store row list must render before deferred viewport (not scroll-gated)"
+);
+assertNotIncludes(
+  hubFeedBlock,
+  "StoresHomeDeferredViewport",
+  "primary row block slice must not include deferred viewport"
+);
+
+const belowFold = read("components/stores/home/hub/StoresHomeHubBelowFold.tsx");
+assertIncludes(
+  belowFold,
+  "STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS",
+  "below-fold must use shared exclude keys constant"
+);
+assertIncludes(
+  belowFold,
+  "primaryRowStoreCount",
+  "below-fold feed list must pass primary row count for emptyFallback guard"
+);
+
+const loadPolicy = read("lib/stores/stores-home-feed-load-policy.ts");
+assertIncludes(
+  loadPolicy,
+  "applyStoresHomeFeedNetworkResult",
+  "home feed load policy must preserve stores on network failure"
+);
+assertIncludes(
+  loadPolicy,
+  "DO NOT: catch",
+  "load policy must document no clear-on-error"
+);
+
+const rowCard = read("components/stores/home/StoreDeliveryRowCard.tsx");
+assertNotIncludes(
+  rowCard,
+  "kind: \"profile\"",
+  "store row card must not use profile image as menu tile fallback"
+);
+assertIncludes(
+  read("app/api/stores/home-feed/route.ts"),
+  "thumbnail_url",
+  "home-feed must include menu thumbnail in existing product query"
+);
+
+const foodCard = read("components/stores/home/hub/StoresHomeFoodCard.tsx");
+
+assertNotIncludes(
+  read("components/stores/home/hub/StoresHomeSubCategoryPanel.tsx"),
+  "STORES_HOME_RESTAURANT_SUB_ICONS",
+  "sub category panel must not use legacy food fallback PNGs"
+);
+
+assertNotIncludes(
+  read("components/stores/home/hub/StoresHomeCategoryStickyBelow.tsx"),
+  "STORES_HOME_PRIMARY_CATEGORY_ICONS",
+  "primary category panel must not use legacy category fallback PNGs"
+);
+assertIncludes(
+  foodCard,
+  "entry.imageUrl",
+  "food rail must prefer home-feed thumbnail before hydration batch"
+);
+assertNotIncludes(
+  foodCard,
+  "useStoresHomeOverlayDeferUntilInput",
+  "food rail must not defer thumbnails until user input"
+);
+
+const feedSections = read("lib/stores/stores-home-feed-sections.ts");
+assertIncludes(
+  feedSections,
+  "imageUrl: item.imageUrl",
+  "food entries must carry home-feed menu thumbnail"
+);
+
+assertIncludes(
+  hub,
+  "for (const entry of fastFood)",
+  "hub must eager-hydrate food rail store ids"
+);
+
+function assertFileAbsent(rel, context) {
+  if (fs.existsSync(path.join(root, rel))) fail(`${context}: file still exists "${rel}"`);
+}
+
+[
+  "components/stores/home/hub/StoresHomeInitialShell.server.tsx",
+  "components/stores/home/hub/StoresHomeInitialShell.client.tsx",
+  "components/stores/home/hub/StoresHomeCategorySeedPanel.server.tsx",
+  "components/stores/home/hub/stores-home-primary-category-rail-view.tsx",
+  "components/stores/home/hub/stores-home-sub-category-rail-view.tsx",
+  "components/stores/home/hub/stores-home-hero-banner-view.tsx",
+  "components/stores/home/hub/stores-home-feed-skeleton-view.tsx",
+  "lib/stores/stores-home-category-seed-panel-model.ts",
+].forEach((rel) => assertFileAbsent(rel, "legacy stores home shell"));
+
+assertNotIncludes(hub, "typeof window", "hub feed state must not use typeof window (hydration)");
+
+assertIncludes(
+  read("lib/stores/stores-home-taxonomy-display-contract.ts"),
+  "GET `/api/stores/taxonomy`",
+  "taxonomy display contract must document admin API authority"
+);
+
+assertIncludes(
+  quickCategories,
+  "fetchStoresTaxonomyDeduped",
+  "home categories must fetch admin taxonomy API"
+);
+
+const storesHub = read("components/stores/StoresHub.tsx");
+assertIncludes(
+  storesHub,
+  "prewarmStoresHomeRoute",
+  "stores hub must prewarm taxonomy+feed on direct /stores entry"
+);
+assertIncludes(
+  storesHub,
+  "useLayoutEffect",
+  "stores hub route prewarm must run in layout effect before paint"
+);
+assertIncludes(
+  read("lib/stores/stores-home-route-prewarm.ts"),
+  "prewarmStoreHomeFeedClientCache",
+  "route prewarm must include home-feed client cache"
+);
+
+const taxonomyFetchIdx = quickCategories.indexOf("await fetchStoresTaxonomyDeduped");
+const beforeTaxonomyFetch = quickCategories.slice(Math.max(0, taxonomyFetchIdx - 220), taxonomyFetchIdx);
+assertIncludes(
+  beforeTaxonomyFetch,
+  "useLayoutEffect",
+  "taxonomy network must start in layout effect (not delayed useEffect)"
+);
+
+assertIncludes(
+  loadPolicy,
+  "readStoresHomeFeedLiveStore",
+  "load policy must read session live store before TTL cache"
+);
 
 if (process.exitCode !== 1) {
 

@@ -31,7 +31,7 @@ export type StoreHomeFeedItem = {
   straightDistanceKm?: number | null;
   /** @deprecated home-feed 응답에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
-  featuredItems: { productId: string; name: string; price: number }[];
+  featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];
   profileImageUrl: string | null;
   isFeatured: boolean;
   commerce: BrowseStoreCommerceSnapshot;

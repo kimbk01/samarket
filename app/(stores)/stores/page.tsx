@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
-import { StoresHomeInitialShellClient } from "@/components/stores/home/hub/StoresHomeInitialShell.client";
-import { StoresHomeInitialShellServer } from "@/components/stores/home/hub/StoresHomeInitialShell.server";
-import { StoresHomeLcpObserver } from "@/components/stores/home/hub/StoresHomeLcpObserver.client";
 import { StoresHub } from "@/components/stores/StoresHub";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
@@ -25,8 +22,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /**
- * 동기 page — initial shell 이 첫 HTML flush 에 포함되도록 await 제거.
- * Route: `app/(stores)/stores/page.tsx` (Phase 9 — `(main)` trade-menu layout await 회피).
+ * CONTRACT — `/stores` 단일 client hub (`StoresHub` → `StoresHomeHub`).
+ * DO NOT: legacy SSR initial shell / category seed — 구(1·2차 rail) 화면 재노출·hydration 불일치.
  */
 export default function StoresPage() {
   return (
@@ -34,11 +31,7 @@ export default function StoresPage() {
       className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
       data-stores-layout-profile="stores-hub"
     >
-      <StoresHomeInitialShellServer language="ko" />
-      <StoresHomeLcpObserver />
-      <StoresHomeInitialShellClient>
-        <StoresHub />
-      </StoresHomeInitialShellClient>
+      <StoresHub />
     </div>
   );
 }

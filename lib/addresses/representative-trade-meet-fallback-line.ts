@@ -1,15 +1,13 @@
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { parseLatLngRow } from "@/lib/map/initial-trade-meet-spot-center";
 
+/** API·캐시 JSON — camelCase DTO 또는 DB snake row */
 function coerceAddressRow(raw: unknown): UserAddressDTO | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  if ("appRegionId" in o || "fullAddress" in o) return o as UserAddressDTO;
-  return rowToUserAddressDTO(o);
+  return coerceUserAddressDTO(raw);
 }
 
 /**
@@ -46,6 +44,9 @@ export async function fetchRepresentativeTradeMeetFallbackLine(): Promise<string
   const snap = await fetchAddressDefaultsSnapshot();
   if (!snap?.ok || !snap.defaults) return null;
   const addr = pickUserAddressRowAlignedWithMeetSpotPin(snap.defaults);
-  if (!addr?.id) return null;
-  return buildTradeMeetFallbackLineFromAddressDTO(addr);
+  if (addr?.id) {
+    const line = buildTradeMeetFallbackLineFromAddressDTO(addr);
+    if (line) return line;
+  }
+  return snap.neighborhoodFromLife?.label?.trim() || null;
 }

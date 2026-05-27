@@ -40,6 +40,14 @@ function assertNotIncludes(source, needle, context) {
 }
 
 const browseRoute = read("app/api/stores/browse/route.ts");
+const homeFeedRoute = read("app/api/stores/home-feed/route.ts");
+assertIncludes(homeFeedRoute, "featuredByStore", "home-feed must inline featured menu preview");
+assertIncludes(homeFeedRoute, "thumbnail_url", "home-feed must select product thumbnails in same query wave");
+assertIncludes(
+  homeFeedRoute,
+  "resolveBrowseFeaturedMenuImageUrl",
+  "home-feed must normalize featured thumbnail URLs"
+);
 assertIncludes(browseRoute, "featuredByStore", "browse route must inline featured menu preview");
 assertIncludes(browseRoute, "thumbnail_url", "browse route must select product thumbnails");
 assertIncludes(

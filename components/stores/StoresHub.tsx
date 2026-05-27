@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -18,6 +18,7 @@ import {
   fetchMeStoreOrdersHubSummaryDeduped,
   readMeStoreOrdersHubSummaryCache,
 } from "@/lib/stores/store-delivery-api-client";
+import { prewarmStoresHomeRoute } from "@/lib/stores/stores-home-route-prewarm";
 
 type StoreHubSummaryResponse = {
   ok?: boolean;
@@ -81,6 +82,12 @@ export function StoresHub() {
     const s = q.toString();
     return s ? `?${s}` : "";
   }, [primaryRegion]);
+
+  useLayoutEffect(() => {
+    prewarmStoresHomeRoute({
+      storeHomeFeedSuffixes: querySuffix ? [querySuffix] : [],
+    });
+  }, [querySuffix]);
 
   const loadBuyerHub = useCallback(async () => {
     const requestId = ++buyerHubRequestIdRef.current;

@@ -6,25 +6,19 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
-import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
+import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { prefetchMeAddressListIntoCache } from "@/lib/addresses/address-list-client-cache";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
+import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 
 const ADDRESSES_HREF = "/mypage/addresses";
 
-function coerceAddressRow(raw: unknown): UserAddressDTO | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  if ("appRegionId" in o || "fullAddress" in o) return o as UserAddressDTO;
-  return rowToUserAddressDTO(o);
-}
-
 function pickAddressForTradeWrite(defaults: { master?: unknown; trade?: unknown } | undefined): UserAddressDTO | null {
-  const master = coerceAddressRow(defaults?.master ?? null);
-  const trade = coerceAddressRow(defaults?.trade ?? null);
+  const master = coerceUserAddressDTO(defaults?.master ?? null);
+  const trade = coerceUserAddressDTO(defaults?.trade ?? null);
   if (master?.id) return master;
   if (trade?.id) return trade;
   return null;
@@ -75,6 +69,7 @@ export function TradeDefaultLocationBlock({
   const pathname = usePathname();
   const router = useRouter();
   const [displayLine, setDisplayLine] = useState<string | null>(null);
+  const displayLineRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
   const syncRef = useRef(onSyncRegionCity);
   syncRef.current = onSyncRegionCity;
@@ -87,28 +82,39 @@ export function TradeDefaultLocationBlock({
     try {
       const snapshot = await fetchAddressDefaultsSnapshot({ force: opts?.force === true });
       if (!snapshot?.ok || !snapshot.defaults) {
+        displayLineRef.current = null;
         setDisplayLine(null);
         setReady(true);
         return;
       }
       const addr = pickAddressForTradeWrite(snapshot.defaults);
       if (!addr?.id) {
-        setDisplayLine(null);
+        const lifeLabel = snapshot.neighborhoodFromLife?.label?.trim() || null;
+        displayLineRef.current = lifeLabel;
+        setDisplayLine(lifeLabel);
         setReady(true);
         return;
       }
       const line = formatUserAddressListPlainLine(addr).trim();
-      setDisplayLine(line || null);
+      const nextLine = line && line !== "주소 미입력" && line !== "—" ? line : null;
+      displayLineRef.current = nextLine;
+      setDisplayLine(nextLine);
       const inferred = inferAppLocationIdsFromUserAddress(addr);
       if (inferred && !suppressAddressBookSyncRef.current) {
         syncRef.current(inferred.regionId, inferred.cityId);
       }
     } catch {
+      displayLineRef.current = null;
       setDisplayLine(null);
     } finally {
       setReady(true);
     }
   }, []);
+
+  useAddressDefaultsBootRetry(
+    () => void load({ force: true }),
+    () => !displayLineRef.current?.trim()
+  );
 
   useEffect(() => {
     if (pathnameEffectFirstRef.current) {

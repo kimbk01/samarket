@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { memo, useLayoutEffect } from "react";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
-import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
@@ -18,19 +17,14 @@ function StoresHomeFoodCardInner({
   imageUrl,
   loadingImage,
   markStoreCardPerf = false,
-  deferProductImage,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
   /** perf 마커만 — LCP 경쟁 없음(항상 lazy) */
   markStoreCardPerf?: boolean;
-  /** Phase 9-C — cold idle LCP: hero 고정 전 product `<img>` 억제 */
-  deferProductImage?: boolean;
 }) {
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
-  const deferImagesByPolicy = useStoresHomeOverlayDeferUntilInput();
-  const deferImages = deferProductImage ?? deferImagesByPolicy;
 
   useLayoutEffect(() => {
     if (markStoreCardPerf) markStoresHomePerf("store-card");
@@ -44,7 +38,7 @@ function StoresHomeFoodCardInner({
       className={`flex w-[7.5rem] shrink-0 flex-col overflow-hidden ${STORES_HOME_CARD}`}
     >
       <div className="relative aspect-square w-full bg-[color:var(--delivery-bg-thumb)]">
-        {loadingImage || deferImages ?
+        {loadingImage ?
           <div className="absolute inset-0 animate-pulse bg-[color:var(--delivery-bg-muted)]" aria-hidden />
         : imageUrl ?
           <StoreProductThumbnail
@@ -81,6 +75,7 @@ export function resolveFoodCardImage(
   entry: StoresHomeFoodEntry,
   hydrated: BrowseFeaturedCardItem[] | undefined
 ): { imageUrl: string | null; loading: boolean } {
+  if (entry.imageUrl) return { imageUrl: entry.imageUrl, loading: false };
   if (hydrated === undefined) return { imageUrl: null, loading: true };
   const hit = hydrated.find((x) => x.productId === entry.productId);
   if (hit?.imageUrl) return { imageUrl: hit.imageUrl, loading: false };

@@ -23,6 +23,7 @@ import {
 } from "@/lib/settings/user-settings-store";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot, seedAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
+import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 
 const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
 const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
@@ -87,6 +88,8 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   const skipInitialAddressFetchRef = useRef(Boolean(hub0));
   const skipInitialCountsFetchRef = useRef(Boolean(hub0));
   const initialLoadRequestedRef = useRef(false);
+  const addressDefaultsRef = useRef(addressDefaults);
+  const neighborhoodFromLifeRef = useRef(neighborhoodFromLife);
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = opts?.silent === true;
@@ -128,6 +131,23 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       setNeighborhoodFromLife(null);
     }
   }, []);
+
+  useEffect(() => {
+    addressDefaultsRef.current = addressDefaults;
+  }, [addressDefaults]);
+
+  useEffect(() => {
+    neighborhoodFromLifeRef.current = neighborhoodFromLife;
+  }, [neighborhoodFromLife]);
+
+  useAddressDefaultsBootRetry(
+    () => void loadAddressDefaults({ force: true }),
+    () => {
+      const uid = getCurrentUser()?.id?.trim();
+      if (!uid) return false;
+      return addressDefaultsRef.current == null && neighborhoodFromLifeRef.current == null;
+    }
+  );
 
   useEffect(() => {
     if (initialMyPageData !== undefined) return;

@@ -29,8 +29,6 @@ import {
   STORES_HOME_PRIMARY_CATEGORY_TAB_INDICATOR_IDLE,
 } from "@/lib/stores/stores-home-ui";
 
-import { STORES_HOME_PRIMARY_CATEGORY_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
-
 function StoresHomePrimaryCategoryRail({
   primaries,
   activeSlug,
@@ -59,7 +57,7 @@ function StoresHomePrimaryCategoryRail({
   const tabs = primaries.map((p, index) => {
     const on = p.slug === activeSlug;
     const uploaded = storeTaxonomyUploadedImageUrl(p.image_url);
-    const icon = resolveStoreTaxonomyImageSrc(uploaded, STORES_HOME_PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
+    const icon = uploaded ? resolveStoreTaxonomyImageSrc(uploaded, null) : null;
     const label = resolveStorePrimaryIndustryLabel(
       language,
       p.slug,

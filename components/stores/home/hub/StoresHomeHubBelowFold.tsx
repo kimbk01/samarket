@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition, useEffect, useMemo, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import {
@@ -20,18 +20,20 @@ import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeS
 import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
 import { StoresHomeFeedList } from "@/components/stores/home/hub/StoresHomeFeedList";
 import { StoresHomeStoreDiscoveryRail } from "@/components/stores/home/hub/StoresHomeStoreDiscoveryRail";
-
-const FEED_EXCLUDE_KEYS = ["premium", "open", "discount", "top"] as const;
+import {
+  pickStoresHomePrimaryRowList,
+  STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS,
+} from "@/lib/stores/stores-home-feed-display-contract";
 
 /**
  * 첫 레일 아래 섹션 — 뷰포트 진입 후에만 마운트·피드 분할(split) 실행.
+ * `open` 매장 row 는 `StoresHomePrimaryStoreRowListSection`(hero 직후) — 여기서 exclude.
  * DO NOT: 부모에서 below-fold JSX 를 매 렌더 동기 생성( long task ).
  */
 export function StoresHomeHubBelowFold({
   stores,
   loading,
   meta,
-  emptyFallback,
   hydratedByStoreId,
   getPhase,
   registerListItem,
@@ -39,13 +41,13 @@ export function StoresHomeHubBelowFold({
   stores: StoreHomeFeedItem[];
   loading: boolean;
   meta: { source?: string } | null;
-  emptyFallback: ReactNode;
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
   getPhase: (storeId: string) => BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
 }) {
   const { t } = useI18n();
   const [sections, setSections] = useState<StoresHomeFeedSections | null>(null);
+  const primaryRowStoreCount = pickStoresHomePrimaryRowList(stores).length;
 
   useEffect(() => {
     if (stores.length === 0) {
@@ -119,8 +121,9 @@ export function StoresHomeHubBelowFold({
       <StoresHomeFeedList
         sections={sections}
         loading={loading}
-        emptyFallback={emptyFallback}
-        excludeSectionKeys={FEED_EXCLUDE_KEYS}
+        excludeSectionKeys={STORES_HOME_BELOW_FOLD_FEED_EXCLUDE_KEYS}
+        primaryRowStoreCount={primaryRowStoreCount}
+        totalStoreCount={stores.length}
         hydratedByStoreId={hydratedByStoreId}
         getPhase={getPhase}
         registerListItem={registerListItem}

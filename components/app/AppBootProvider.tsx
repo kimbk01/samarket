@@ -12,7 +12,7 @@ import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-jou
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
-import { clearChunkReloadSessionFlag } from "@/lib/next/import-with-chunk-retry";
+import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -29,13 +29,31 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     clearChunkReloadSessionFlag();
+
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      const reason = event.reason;
+      if (isWebpackChunkLoadError(reason)) {
+        event.preventDefault();
+        scheduleChunkReloadOnce();
+        return;
+      }
+      if (reason instanceof TypeError && /NetworkError|Failed to fetch/i.test(reason.message)) {
+        // dev HMR·서버 재시작 직후 in-flight fetch — 치명 오류 아님
+        event.preventDefault();
+      }
+    };
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => markBootVerifyFirstPaint());
       });
     }
     void ensureAppBoot();
-    return () => cancelAppBootBackgroundHydration();
+    return () => {
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+      cancelAppBootBackgroundHydration();
+    };
   }, []);
 
   return <AppBootContext.Provider value={boot}>{children}</AppBootContext.Provider>;

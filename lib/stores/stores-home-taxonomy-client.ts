@@ -1,14 +1,18 @@
 /**
  * CONTRACT — `/stores` 홈 taxonomy 클라이언트 파싱.
- * DO NOT: browse mock(`listBrowsePrimaryIndustries`)으로 홈 첫 페인트 — seed·TTL 캐시·API.
+ * DO NOT: browse mock·정적 seed 로 홈 첫 페인트 — admin API·TTL 캐시만.
  */
-import { getStoresHomeTaxonomySeedState } from "@/lib/stores/stores-home-taxonomy-seed";
 import { peekStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 
 export type StoresHomeTaxonomyState = {
   categories: StoreTaxonomyCategory[];
   topics: StoreTaxonomyTopic[];
+};
+
+export const STORES_HOME_TAXONOMY_EMPTY: StoresHomeTaxonomyState = {
+  categories: [],
+  topics: [],
 };
 
 export function parseStoresHomeTaxonomyJson(json: unknown): StoresHomeTaxonomyState | null {
@@ -21,13 +25,10 @@ export function parseStoresHomeTaxonomyJson(json: unknown): StoresHomeTaxonomySt
   };
 }
 
-/**
- * API 성공 시 authoritative 데이터, 실패·빈 응답 시 seed(또는 전달 fallback) 유지.
- * slug·sort_order 기준으로 레이아웃 치수는 seed와 동일하게 유지한다.
- */
+/** API 성공 시 authoritative. 실패·빈 응답은 fallback(기본 empty) — seed/fallback PNG 금지 */
 export function resolveStoresHomeTaxonomyFromApi(
   json: unknown,
-  fallback: StoresHomeTaxonomyState = getStoresHomeTaxonomySeedState()
+  fallback: StoresHomeTaxonomyState = STORES_HOME_TAXONOMY_EMPTY
 ): StoresHomeTaxonomyState {
   const parsed = parseStoresHomeTaxonomyJson(json);
   if (!parsed) return fallback;

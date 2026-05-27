@@ -23,6 +23,7 @@ import {
   resolveEffectiveStoreRouteAddress,
 } from "@/lib/stores/store-list-delivery-origin";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
+import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +55,7 @@ type ProductMini = {
   store_id: string;
   title: string;
   price: number;
+  thumbnail_url: string | null;
   is_featured: boolean | null;
   sort_order: number | null;
 };
@@ -241,12 +243,15 @@ export async function GET(req: Request) {
     }
 
     const ids = rows.map((r) => r.id);
-    const featuredByStore = new Map<string, { productId: string; name: string; price: number }[]>();
+    const featuredByStore = new Map<
+      string,
+      { productId: string; name: string; price: number; imageUrl: string | null }[]
+    >();
 
     if (ids.length > 0) {
       const { data: prods, error: pErr } = await supabase
         .from("store_products")
-        .select("id, store_id, title, price, is_featured, sort_order")
+        .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
         .in("store_id", ids)
         .eq("product_status", "active");
 
@@ -272,6 +277,7 @@ export async function GET(req: Request) {
               productId: String(x.id),
               name: x.title,
               price: Number(x.price),
+              imageUrl: resolveBrowseFeaturedMenuImageUrl(x.thumbnail_url),
             }))
           );
         }

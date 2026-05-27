@@ -82,4 +82,14 @@ describe("flattenStoresHomeFoodEntries", () => {
     ]);
     expect(entries[0]?.name).toBe("A");
   });
+
+  it("passes home-feed menu thumbnail into food rail entry", () => {
+    const entries = flattenStoresHomeFoodEntries([
+      item({
+        id: "a",
+        featuredItems: [{ productId: "p1", name: "A", price: 100, imageUrl: "https://cdn/menu.jpg" }],
+      }),
+    ]);
+    expect(entries[0]?.imageUrl).toBe("https://cdn/menu.jpg");
+  });
 });

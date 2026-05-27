@@ -2,55 +2,14 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
-import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import {
-  resolveDeliveryHomeHeaderDisplayLine,
-  pickDeliveryHomeHeaderAddress,
-  type DeliveryHomeHeaderAddressState,
-} from "@/lib/addresses/delivery-home-header-address";
+import { resolveDeliveryHomeHeaderStateFromSnapshot } from "@/lib/addresses/address-defaults-snapshot-resolvers";
+import type { DeliveryHomeHeaderAddressState } from "@/lib/addresses/delivery-home-header-address";
 import {
   fetchAddressDefaultsSnapshot,
   peekFreshAddressDefaultsSnapshot,
-  type AddressDefaultsSnapshot,
 } from "@/lib/addresses/fetch-address-defaults-client";
+import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-
-function coerceAddress(raw: unknown): UserAddressDTO | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  if ("appRegionId" in o || "fullAddress" in o) {
-    return o as UserAddressDTO;
-  }
-  return rowToUserAddressDTO(o);
-}
-
-function stateFromSnapshot(snapshot: AddressDefaultsSnapshot | null): DeliveryHomeHeaderAddressState {
-  if (!snapshot?.ok || !snapshot.defaults) {
-    return { status: "ready", line: null, hasLinkedAddress: false };
-  }
-
-  const delivery = coerceAddress(snapshot.defaults.delivery);
-  const master = coerceAddress(snapshot.defaults.master);
-
-  const picked =
-    pickDeliveryHomeHeaderAddress({
-      delivery,
-      master,
-      life: coerceAddress(snapshot.defaults.life),
-      trade: coerceAddress(snapshot.defaults.trade),
-    }) ?? null;
-
-  if (!picked?.id) {
-    return { status: "ready", line: null, hasLinkedAddress: false };
-  }
-
-  return {
-    status: "ready",
-    line: resolveDeliveryHomeHeaderDisplayLine(picked),
-    hasLinkedAddress: true,
-  };
-}
 
 export type DeliveryHomeHeaderAddressView = DeliveryHomeHeaderAddressState & {
   /** 마지막으로 확인된 주소 — silent refetch 중에도 깜빡임 방지 */
@@ -69,7 +28,7 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
   const [state, setState] = useState<DeliveryHomeHeaderAddressState>(() => {
     const snap = peekFreshAddressDefaultsSnapshot();
     if (snap) {
-      const next = stateFromSnapshot(snap);
+      const next = resolveDeliveryHomeHeaderStateFromSnapshot(snap);
       if (next.status === "ready" && next.line?.trim()) {
         lastLineRef.current = next.line.trim();
       }
@@ -104,7 +63,7 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
           }
           return;
         }
-        commitState(stateFromSnapshot(snapshot));
+        commitState(resolveDeliveryHomeHeaderStateFromSnapshot(snapshot));
       } catch {
         if (!silent || !hasResolvedOnceRef.current) {
           commitState({ status: "ready", line: null, hasLinkedAddress: false });
@@ -129,6 +88,11 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
+
+  useAddressDefaultsBootRetry(
+    () => void load({ silent: true, force: true }),
+    () => !lastLineRef.current?.trim()
+  );
 
   const displayLine =
     state.status === "ready" && state.line?.trim() ? state.line.trim() : lastLineRef.current;

@@ -1,6 +1,6 @@
 /**
- * `/stores` 홈 taxonomy 정적 seed — API 응답과 동일 shape·기본 slug/순서.
- * DO NOT: browse-mock import — 홈 계약과 분리된 마스터 기본값만.
+ * `/stores` 홈 taxonomy 정적 seed — **테스트·문서용**. 런타임 `/stores` UI 에 사용 금지.
+ * admin `/admin/stores/application-settings?menu=stores` → GET `/api/stores/taxonomy` 만 authoritative.
  */
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import type { StoresHomeTaxonomyState } from "@/lib/stores/stores-home-taxonomy-client";

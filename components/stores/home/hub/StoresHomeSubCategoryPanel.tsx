@@ -12,7 +12,6 @@ import {
 import { getMainAppScrollRootCached } from "@/lib/layout/main-app-scroll-root";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
-import { STORES_HOME_RESTAURANT_SUB_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
 import {
   getStoresHomeCategoryChromeHandlers,
   getStoresHomeCategoryChromeServerSnapshot,
@@ -21,7 +20,6 @@ import {
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/lib/stores/store-taxonomy-image-src";
-import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
 import { STORES_HOME_SUB_CATEGORY_SLIDE_MS } from "@/lib/stores/stores-home-sub-category-slide";
 import type { StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
@@ -36,13 +34,6 @@ import {
 } from "@/lib/stores/stores-home-ui";
 
 const RESTAURANT_SLUG = "restaurant";
-
-function resolveSubCategoryFallbackIcon(primarySlug: string, subSlug: string, indexInGrid: number): string | null {
-  if (primarySlug === RESTAURANT_SLUG) {
-    return STORES_HOME_RESTAURANT_SUB_ICONS[subSlug.trim().toLowerCase()] ?? null;
-  }
-  return storeSecondaryBrowseIconPath(primarySlug, indexInGrid);
-}
 
 function StoresHomeSubCategoryRail({
   primarySlug,
@@ -60,9 +51,7 @@ function StoresHomeSubCategoryRail({
       {subs.map((s, idx) => {
         const subSlug = String(s.slug ?? "").trim().toLowerCase();
         const uploaded = storeTaxonomyUploadedImageUrl(s.image_url);
-        const fallback = resolveSubCategoryFallbackIcon(primarySlug, subSlug, idx);
-        const src = resolveStoreTaxonomyImageSrc(uploaded, fallback);
-        if (!src) return null;
+        const src = uploaded ? resolveStoreTaxonomyImageSrc(uploaded, null) : null;
         const label =
           primarySlug === RESTAURANT_SLUG ?
             resolveStoreFoodSubtopicLabel(
@@ -86,14 +75,20 @@ function StoresHomeSubCategoryRail({
             aria-label={label}
           >
             <span className={STORES_HOME_SUB_CATEGORY_IMAGE_FRAME}>
-              <StoreTaxonomyThumb
-                src={src}
-                alt=""
-                isUploaded={!!uploaded}
-                imgSize="fill"
-                frameClassName="h-full w-full"
-                loading={idx < STORES_HOME_TAXONOMY_EAGER_ICON_COUNT ? "eager" : "lazy"}
-              />
+              {src ?
+                <StoreTaxonomyThumb
+                  src={src}
+                  alt=""
+                  isUploaded
+                  imgSize="fill"
+                  frameClassName="h-full w-full"
+                  loading={idx < STORES_HOME_TAXONOMY_EAGER_ICON_COUNT ? "eager" : "lazy"}
+                />
+              : (
+                <span className="flex h-full w-full items-center justify-center bg-[color:var(--delivery-bg-muted)] text-[10px] font-semibold text-[color:var(--delivery-text-muted)]">
+                  {label.slice(0, 2)}
+                </span>
+              )}
             </span>
             <span className={STORES_HOME_SUB_CATEGORY_LABEL}>{label}</span>
           </Link>

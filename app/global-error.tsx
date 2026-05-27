@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -14,6 +15,9 @@ interface GlobalErrorProps {
 export default function GlobalError({ error, reset }: GlobalErrorProps) {
   useEffect(() => {
     console.error("[GlobalError]", error);
+    if (isWebpackChunkLoadError(error)) {
+      scheduleChunkReloadOnce();
+    }
   }, [error]);
 
   return (

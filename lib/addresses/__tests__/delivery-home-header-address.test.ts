@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDeliveryHomeHeaderAddressLine,
+  normalizeDeliveryHomeHeaderDisplayLine,
   pickDeliveryHomeHeaderAddress,
   resolveDeliveryHomeHeaderDisplayLine,
 } from "@/lib/addresses/delivery-home-header-address";
@@ -109,6 +110,12 @@ describe("buildDeliveryHomeHeaderAddressLine", () => {
   });
 });
 
+describe("normalizeDeliveryHomeHeaderDisplayLine", () => {
+  it("treats card placeholder em dash as empty", () => {
+    expect(normalizeDeliveryHomeHeaderDisplayLine("—")).toBeNull();
+    expect(normalizeDeliveryHomeHeaderDisplayLine("Malate 12B")).toBe("Malate 12B");
+  });
+});
 describe("resolveDeliveryHomeHeaderDisplayLine", () => {
   it("falls back to detailAddress when neighborhood detail is empty", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
@@ -127,5 +134,12 @@ describe("pickDeliveryHomeHeaderAddress", () => {
     const delivery = addr({ id: "d1", neighborhoodName: "A", buildingName: "1" });
     const master = addr({ id: "m1", neighborhoodName: "B", buildingName: "2" });
     expect(pickDeliveryHomeHeaderAddress({ delivery, master, life: null, trade: null })?.id).toBe("d1");
+  });
+
+  it("falls back to trade then life when delivery and master are missing", () => {
+    const trade = addr({ id: "t1", neighborhoodName: "Trade", buildingName: "1" });
+    const life = addr({ id: "l1", neighborhoodName: "Life", buildingName: "2" });
+    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade, life })?.id).toBe("t1");
+    expect(pickDeliveryHomeHeaderAddress({ delivery: null, master: null, trade: null, life })?.id).toBe("l1");
   });
 });

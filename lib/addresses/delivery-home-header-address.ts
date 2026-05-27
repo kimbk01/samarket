@@ -83,14 +83,35 @@ export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | 
   return null;
 }
 
-/** 배달 기본 → master 순 (주소 관리 defaults API 와 동일) */
+function pickDefaultAddressRow(
+  row: UserAddressDTO | null | undefined
+): UserAddressDTO | null {
+  return row?.id ? row : null;
+}
+
+/** 배달 기본 → master → trade → life (`pickAddressRowForDeliveryRouting` 과 동일 우선순위) */
 export function pickDeliveryHomeHeaderAddress(
   defaults: UserAddressDefaultsDTO | null | undefined
 ): UserAddressDTO | null {
   if (!defaults) return null;
-  const delivery = defaults.delivery?.id ? defaults.delivery : null;
-  const master = defaults.master?.id ? defaults.master : null;
-  return delivery ?? master;
+  return (
+    pickDefaultAddressRow(defaults.delivery) ??
+    pickDefaultAddressRow(defaults.master) ??
+    pickDefaultAddressRow(defaults.trade) ??
+    pickDefaultAddressRow(defaults.life)
+  );
+}
+
+function isHeaderDisplayPlaceholderLine(line: string | null | undefined): boolean {
+  const t = line?.trim();
+  if (!t) return true;
+  return t === "—" || t === "-" || t === "주소 미입력";
+}
+
+/** 헤더·훅 — 카드 placeholder(`—`) 는 미표시로 간주 */
+export function normalizeDeliveryHomeHeaderDisplayLine(line: string | null | undefined): string | null {
+  if (isHeaderDisplayPlaceholderLine(line)) return null;
+  return line!.trim();
 }
 
 export type DeliveryHomeHeaderAddressState =

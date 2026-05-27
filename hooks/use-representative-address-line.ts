@@ -1,66 +1,37 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
-import { buildExplorationRegionSubtitleLine } from "@/lib/addresses/user-address-format";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  formatAddressBookCardPresentation,
-  type AddressBookCardPresentation,
-} from "@/lib/addresses/address-book-card-presentation";
-import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
-import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+  resolveAddressBookPresentationFromSnapshot,
+  resolveExplorationAddressLineFromSnapshot,
+  resolveRepresentativeFullAddressLineFromSnapshot,
+} from "@/lib/addresses/address-defaults-snapshot-resolvers";
+import type { AddressBookCardPresentation } from "@/lib/addresses/address-book-card-presentation";
 import {
   fetchAddressDefaultsSnapshot,
   peekFreshAddressDefaultsSnapshot,
   seedAddressDefaultsSnapshotCache,
   type AddressDefaultsSnapshot,
 } from "@/lib/addresses/fetch-address-defaults-client";
+import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 export type RepresentativeAddressLineState =
   | { status: "loading" }
   | { status: "ready"; line: string | null };
 
-function coerceMaster(raw: unknown): UserAddressDTO | null {
-  if (!raw || typeof raw !== "object") return null;
-  const o = raw as Record<string, unknown>;
-  if ("appRegionId" in o || "fullAddress" in o) {
-    return o as UserAddressDTO;
-  }
-  return rowToUserAddressDTO(o);
-}
-
-function addressLineStateFromSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineState {
-  if (!snapshot?.ok || !snapshot.defaults) {
-    return { status: "ready", line: null };
-  }
-  const m = coerceMaster(snapshot.defaults.master);
-  if (!m?.id) return { status: "ready", line: null };
-  const s = (buildExplorationRegionSubtitleLine(m) ?? "").trim();
-  return { status: "ready", line: s || null };
-}
-
-function fullAddressLineStateFromSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineState {
-  if (!snapshot?.ok || !snapshot.defaults) {
-    return { status: "ready", line: null };
-  }
-  const m = coerceMaster(snapshot.defaults.master);
-  if (!m?.id) return { status: "ready", line: null };
-  const s = formatUserAddressListPlainLine(m).trim();
-  return { status: "ready", line: s && s !== "주소 미입력" ? s : null };
-}
-
-function presentationFromSnapshot(snapshot: AddressDefaultsSnapshot | null): AddressBookCardPresentation | null {
-  if (!snapshot?.ok || !snapshot.defaults) return null;
-  const m = coerceMaster(snapshot.defaults.master);
-  if (!m?.id) return null;
-  return formatAddressBookCardPresentation(m);
-}
-
 export type RepresentativeAddressPresentationState =
   | { status: "loading" }
   | { status: "ready"; presentation: AddressBookCardPresentation | null };
+
+function lineStateFromExplorationSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineState {
+  return { status: "ready", line: resolveExplorationAddressLineFromSnapshot(snapshot) };
+}
+
+function lineStateFromFullSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineState {
+  return { status: "ready", line: resolveRepresentativeFullAddressLineFromSnapshot(snapshot) };
+}
 
 /** 대표(master) 주소 — PH 카드 규칙(상세·gate 먼저) */
 export function useRepresentativeAddressPresentation(opts?: {
@@ -68,10 +39,13 @@ export function useRepresentativeAddressPresentation(opts?: {
   initialSnapshot?: AddressDefaultsSnapshot | null;
 }): RepresentativeAddressPresentationState {
   const pathname = usePathname();
+  const hasPresentationRef = useRef(false);
   const [state, setState] = useState<RepresentativeAddressPresentationState>(() => {
     const snap = opts?.initialSnapshot ?? peekFreshAddressDefaultsSnapshot();
     if (!snap) return { status: "loading" };
-    return { status: "ready", presentation: presentationFromSnapshot(snap) };
+    const presentation = resolveAddressBookPresentationFromSnapshot(snap);
+    if (presentation) hasPresentationRef.current = true;
+    return { status: "ready", presentation };
   });
 
   useEffect(() => {
@@ -88,7 +62,9 @@ export function useRepresentativeAddressPresentation(opts?: {
         if (!silent) setState({ status: "ready", presentation: null });
         return;
       }
-      setState({ status: "ready", presentation: presentationFromSnapshot(snapshot) });
+      const presentation = resolveAddressBookPresentationFromSnapshot(snapshot);
+      if (presentation) hasPresentationRef.current = true;
+      setState({ status: "ready", presentation });
     } catch {
       if (!silent) setState({ status: "ready", presentation: null });
     }
@@ -111,6 +87,11 @@ export function useRepresentativeAddressPresentation(opts?: {
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
+  useAddressDefaultsBootRetry(
+    () => void load({ silent: true, force: true }),
+    () => !hasPresentationRef.current
+  );
+
   return state;
 }
 
@@ -120,10 +101,13 @@ export function useRepresentativeAddressPresentation(opts?: {
  */
 export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
+  const lastLineRef = useRef<string | null>(null);
   const [state, setState] = useState<RepresentativeAddressLineState>(() => {
     const snap = peekFreshAddressDefaultsSnapshot();
     if (!snap) return { status: "loading" };
-    return addressLineStateFromSnapshot(snap);
+    const next = lineStateFromExplorationSnapshot(snap);
+    if (next.line?.trim()) lastLineRef.current = next.line.trim();
+    return next;
   });
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -135,7 +119,9 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
         if (!silent) setState({ status: "ready", line: null });
         return;
       }
-      setState(addressLineStateFromSnapshot(snapshot));
+      const next = lineStateFromExplorationSnapshot(snapshot);
+      if (next.line?.trim()) lastLineRef.current = next.line.trim();
+      setState(next);
     } catch {
       if (!silent) setState({ status: "ready", line: null });
     }
@@ -158,6 +144,11 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
 
+  useAddressDefaultsBootRetry(
+    () => void load({ silent: true, force: true }),
+    () => !lastLineRef.current?.trim()
+  );
+
   return state;
 }
 
@@ -167,10 +158,13 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
  */
 export function useRepresentativeFullAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
+  const lastLineRef = useRef<string | null>(null);
   const [state, setState] = useState<RepresentativeAddressLineState>(() => {
     const snap = peekFreshAddressDefaultsSnapshot();
     if (!snap) return { status: "loading" };
-    return fullAddressLineStateFromSnapshot(snap);
+    const next = lineStateFromFullSnapshot(snap);
+    if (next.line?.trim()) lastLineRef.current = next.line.trim();
+    return next;
   });
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
@@ -182,7 +176,9 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
         if (!silent) setState({ status: "ready", line: null });
         return;
       }
-      setState(fullAddressLineStateFromSnapshot(snapshot));
+      const next = lineStateFromFullSnapshot(snapshot);
+      if (next.line?.trim()) lastLineRef.current = next.line.trim();
+      setState(next);
     } catch {
       if (!silent) setState({ status: "ready", line: null });
     }
@@ -203,6 +199,11 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [load]);
+
+  useAddressDefaultsBootRetry(
+    () => void load({ silent: true, force: true }),
+    () => !lastLineRef.current?.trim()
+  );
 
   return state;
 }

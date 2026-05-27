@@ -20,6 +20,14 @@ describe("resolveDeliveryHomeHeaderButtonLabel", () => {
     expect(label).toContain("주소");
   });
 
+  it("uses not-set copy when linked but line still empty", () => {
+    const label = resolveDeliveryHomeHeaderButtonLabel(
+      { status: "ready", line: null, hasLinkedAddress: true, displayLine: null },
+      "ko"
+    );
+    expect(label).toContain("미설정");
+  });
+
   it("uses loading copy while fetching", () => {
     const label = resolveDeliveryHomeHeaderButtonLabel(
       { status: "loading", displayLine: null },

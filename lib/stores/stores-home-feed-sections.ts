@@ -16,6 +16,8 @@ export type StoresHomeFoodEntry = {
   productId: string;
   name: string;
   price: number;
+  /** home-feed featuredItems[].imageUrl — 레일 즉시 썸네일 */
+  imageUrl: string | null;
   etaLabel: string | null;
   rating: number;
 };
@@ -42,7 +44,10 @@ export function pickStoresHomeOpenNow(stores: StoreHomeFeedItem[], max = 40): St
   return pullUnique(stores, seen, (s) => s.status === "open" && s.deliveryAvailable, max);
 }
 
-/** 홈 피드 단일 분할 — browse `splitFeedSections` 확장 */
+/** 홈 피드 단일 분할 — browse `splitFeedSections` 확장.
+ * `openNow` 는 대부분의 영업 매장을 흡수 → hero 직후 primary row(`pickStoresHomePrimaryRowList`) 필수.
+ * below-fold exclude 만 두면 빈 화면 — `stores-home-feed-display-contract.ts` 참고.
+ */
 export function splitStoresHomeFeed(stores: StoreHomeFeedItem[]): StoresHomeFeedSections {
   const seen = new Set<string>();
   const openNow = pullUnique(stores, seen, (s) => s.status === "open" && s.deliveryAvailable);
@@ -79,6 +84,7 @@ export function flattenStoresHomeFoodEntries(
       productId: item.productId,
       name: item.name,
       price: item.price,
+      imageUrl: item.imageUrl?.trim() || null,
       etaLabel: s.etaLabel ?? null,
       rating: s.rating,
     });

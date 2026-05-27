@@ -94,10 +94,12 @@ export async function fetchAddressDefaultsSnapshot(
           json?.defaults && typeof json.defaults === "object" ? { ...json.defaults } : null,
         neighborhoodFromLife,
       };
-      cachedSnapshot = {
-        value,
-        expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
-      };
+      if (value.ok && value.status === 200) {
+        cachedSnapshot = {
+          value,
+          expiresAt: Date.now() + ADDRESS_DEFAULTS_SNAPSHOT_TTL_MS,
+        };
+      }
       return value;
     });
     return cloneSnapshot(snapshot);

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
@@ -13,9 +13,9 @@ import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-brows
 import {
   readStoresHomeTaxonomyFromClientCache,
   resolveStoresHomeTaxonomyFromApi,
+  STORES_HOME_TAXONOMY_EMPTY,
   type StoresHomeTaxonomyState,
 } from "@/lib/stores/stores-home-taxonomy-client";
-import { getStoresHomeTaxonomySeedState } from "@/lib/stores/stores-home-taxonomy-seed";
 import {
   getStoresHomeCategoryChromeSnapshot,
   getStoresHomeCategoryChromeServerSnapshot,
@@ -75,10 +75,8 @@ export function StoresHomeQuickCategories() {
     () => getStoresHomeCategoryChromeSnapshot().subCategoryInView,
     () => getStoresHomeCategoryChromeServerSnapshot().subCategoryInView
   );
-  const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(() =>
-    getStoresHomeTaxonomySeedState()
-  );
-  const [taxonomyReady, setTaxonomyReady] = useState(true);
+  const [taxonomy, setTaxonomy] = useState<StoresHomeTaxonomyState | null>(null);
+  const [taxonomyReady, setTaxonomyReady] = useState(false);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
   const [activeSlug, setActiveSlug] = useState(RESTAURANT_SLUG);
   const cacheAppliedRef = useRef(false);
@@ -88,36 +86,30 @@ export function StoresHomeQuickCategories() {
 
   useLayoutEffect(() => {
     const cached = readStoresHomeTaxonomyFromClientCache(language);
-    if (!cached) return;
+    if (!cached || cached.categories.length === 0) return;
     cacheAppliedRef.current = true;
     setTaxonomy(cached);
     setTaxonomyReady(true);
   }, [language]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     let cancelled = false;
-    const timerId = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
-          if (cancelled) return;
-          const cached = readStoresHomeTaxonomyFromClientCache(language);
-          const next = resolveStoresHomeTaxonomyFromApi(
-            jRaw,
-            cached ?? getStoresHomeTaxonomySeedState()
-          );
-          setTaxonomy(next);
-          cacheAppliedRef.current = true;
-        } catch {
-          if (!cancelled && !cacheAppliedRef.current) {
-            setTaxonomy(getStoresHomeTaxonomySeedState());
-          }
-        }
-      })();
-    }, 0);
+    void (async () => {
+      try {
+        const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
+        if (cancelled) return;
+        const cached = readStoresHomeTaxonomyFromClientCache(language);
+        const next = resolveStoresHomeTaxonomyFromApi(jRaw, cached ?? STORES_HOME_TAXONOMY_EMPTY);
+        if (next.categories.length === 0) return;
+        setTaxonomy(next);
+        setTaxonomyReady(true);
+        cacheAppliedRef.current = true;
+      } catch {
+        /* seed/fallback 금지 — 캐시 없으면 skeleton 유지 */
+      }
+    })();
     return () => {
       cancelled = true;
-      window.clearTimeout(timerId);
     };
   }, [language]);
 
