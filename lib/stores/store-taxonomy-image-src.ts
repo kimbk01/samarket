@@ -4,14 +4,12 @@ import { storeTaxonomyThumbImgClass } from "@/lib/stores/store-taxonomy-thumbnai
 export function storeTaxonomyUploadedImageUrl(raw: unknown): string {  return typeof raw === "string" && raw.trim() ? raw.trim() : "";
 }
 
-/** 업로드 URL 우선, 없으면 정적 아이콘 폴백 */
+/** 업로드 URL only — 정적 `/public/icons` 폴백 금지 */
 export function resolveStoreTaxonomyImageSrc(
   uploaded: string,
-  fallback: string | null | undefined
+  _fallback?: string | null | undefined
 ): string | null {
-  if (uploaded) return uploaded;
-  const fb = typeof fallback === "string" ? fallback.trim() : "";
-  return fb || null;
+  return uploaded || null;
 }
 
 /** @deprecated `StoreTaxonomyThumb` / `storeTaxonomyThumbImgClass` 사용 */

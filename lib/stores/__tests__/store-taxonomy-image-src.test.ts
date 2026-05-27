@@ -12,8 +12,8 @@ describe("store-taxonomy-image-src", () => {
     ).toBe("https://cdn.example/a.png");
   });
 
-  it("업로드 없으면 폴백", () => {
-    expect(resolveStoreTaxonomyImageSrc("", "/icons/mart/mart_0_1.png")).toBe("/icons/mart/mart_0_1.png");
+  it("업로드 없으면 null (정적 폴백 금지)", () => {
+    expect(resolveStoreTaxonomyImageSrc("", "/icons/mart/mart_0_1.png")).toBeNull();
   });
 
   it("빈 raw 는 미설정", () => {

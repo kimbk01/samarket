@@ -18,7 +18,6 @@ import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-clie
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
-import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 import {
   resolveStoreFoodSubtopicLabel,
   resolveStorePrimaryIndustryLabel,
@@ -28,7 +27,6 @@ import {
   resolveStoreTaxonomyImageSrc,
   storeTaxonomyUploadedImageUrl,
 } from "@/lib/stores/store-taxonomy-image-src";
-import { STORES_HOME_PRIMARY_CATEGORY_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import {
   STORE_BROWSE_PRIMARY_TABLIST,
@@ -38,21 +36,6 @@ import {
   STORE_BROWSE_SUB_CARD,
   STORE_BROWSE_SUB_CARD_LABEL,
 } from "@/components/stores/store-browse-category-ui";
-
-const FOOD_CATEGORIES: readonly { icon: string; subSlug?: string }[] = [
-  { icon: "/icons/food/icon_0_0.png" },
-  { icon: "/icons/food/icon_0_1.png", subSlug: "korean" },
-  { icon: "/icons/food/icon_0_2.png", subSlug: "chicken" },
-  { icon: "/icons/food/icon_0_3.png", subSlug: "western" },
-  { icon: "/icons/food/icon_1_0.png", subSlug: "chinese" },
-  { icon: "/icons/food/icon_1_1.png", subSlug: "japanese" },
-  { icon: "/icons/food/icon_1_2.png", subSlug: "pizza" },
-  { icon: "/icons/food/icon_1_3.png", subSlug: "snack" },
-  { icon: "/icons/food/icon_2_0.png", subSlug: "lunchbox" },
-  { icon: "/icons/food/icon_2_1.png", subSlug: "local" },
-  { icon: "/icons/food/icon_2_2.png", subSlug: "dessert" },
-  { icon: "/icons/food/icon_2_3.png", subSlug: "late_night" },
-] as const;
 
 /**
  * 매장 홈 — 배달 플랫폼형: 대분류 탭(한 줄) + 선택 업종의 세부만 그리드로 노출.
@@ -145,18 +128,7 @@ export function StoreCategoryExploreSection({
   const activeCategoryImageUrl = storeTaxonomyUploadedImageUrl(
     (activePrimary as StoreTaxonomyCategory | undefined)?.image_url
   );
-  const topicImageBySlug = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const s of subs) {
-      const u = storeTaxonomyUploadedImageUrl((s as StoreTaxonomyTopic).image_url);
-      if (u) m.set(String(s.slug ?? "").trim().toLowerCase(), u);
-    }
-    return m;
-  }, [subs]);
-  const secondaryBrowseAllIconSrc = resolveStoreTaxonomyImageSrc(
-    activeCategoryImageUrl,
-    !isRestaurant ? storeSecondaryBrowseIconPath(activeSlug, 0) : isRestaurant ? "/icons/food/icon_0_0.png" : null
-  );
+  const secondaryBrowseAllIconSrc = resolveStoreTaxonomyImageSrc(activeCategoryImageUrl, null);
 
   const primaryIndustryTablist = useMemo(
     () => (
@@ -168,8 +140,7 @@ export function StoreCategoryExploreSection({
         {primaries.map((p) => {
           const on = p.slug === activeSlug;
           const uploaded = storeTaxonomyUploadedImageUrl((p as StoreTaxonomyCategory).image_url);
-          const icon =
-            resolveStoreTaxonomyImageSrc(uploaded, STORES_HOME_PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
+          const icon = resolveStoreTaxonomyImageSrc(uploaded, null) ?? "";
           const iconIsUploaded = !!uploaded;
           return (
             <button
@@ -276,35 +247,7 @@ export function StoreCategoryExploreSection({
           </Link>
         </div>
 
-        {isRestaurant ? (
-          <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
-            {FOOD_CATEGORIES.filter((cat) => {
-              if (!cat.subSlug) return true;
-              return subs.some((s) => s.slug === cat.subSlug);
-            }).map((cat) => {
-              const label = resolveStoreFoodSubtopicLabel(language, cat.subSlug, "");
-              const href =
-                !cat.subSlug ? storesBrowsePrimaryPath(activeSlug) : storesBrowsePath(activeSlug, cat.subSlug);
-              const topicUploaded =
-                cat.subSlug ? topicImageBySlug.get(cat.subSlug.trim().toLowerCase()) ?? "" : activeCategoryImageUrl;
-              const src = resolveStoreTaxonomyImageSrc(topicUploaded, cat.icon) ?? cat.icon;
-              const srcIsUploaded = !!topicUploaded;
-              return (
-                <Link
-                  key={cat.subSlug ?? "all"}
-                  href={href}
-                  prefetch={false}
-                  className={STORE_BROWSE_SUB_CARD}
-                  onPointerDown={() => prewarmBrowseForSlug(cat.subSlug ?? null)}
-                >
-                  <StoreTaxonomyThumb src={src} alt={label} isUploaded={srcIsUploaded} />
-                  <span className={STORE_BROWSE_SUB_CARD_LABEL}>{label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
+        <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
             <Link
               href={storesBrowsePrimaryPath(activeSlug)}
               prefetch={false}
@@ -324,15 +267,22 @@ export function StoreCategoryExploreSection({
                 {safeT("store_browse_food_all")}
               </span>
             </Link>
-            {subs.map((s, idx) => {
+            {subs.map((s) => {
               const uploaded = storeTaxonomyUploadedImageUrl((s as StoreTaxonomyTopic).image_url);
-              const src = resolveStoreTaxonomyImageSrc(uploaded, storeSecondaryBrowseIconPath(activeSlug, idx + 1));
-              const label = resolveStoreTopicLabel(
-                language,
-                s.slug,
-                String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
-                (s as { name_en?: string | null }).name_en,
-              );
+              const src = resolveStoreTaxonomyImageSrc(uploaded, null);
+              const label =
+                isRestaurant ?
+                  resolveStoreFoodSubtopicLabel(
+                    language,
+                    s.slug,
+                    String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
+                  )
+                : resolveStoreTopicLabel(
+                    language,
+                    s.slug,
+                    String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
+                    (s as { name_en?: string | null }).name_en,
+                  );
               return (
                 <Link
                   key={s.id}
@@ -346,8 +296,7 @@ export function StoreCategoryExploreSection({
                 </Link>
               );
             })}
-          </div>
-        )}
+        </div>
       </div>
     </section>
   );

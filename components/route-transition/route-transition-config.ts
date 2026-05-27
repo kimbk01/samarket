@@ -78,6 +78,40 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
   return null;
 }
 
+/** 메인 5탭 슬라이드 — 하단 탭 전환과 동일 440ms */
+export const MAIN_SHELL_ROUTE_TRANSITION_MS = 440;
+
+export const MAIN_SHELL_ROUTE_TRANSITION_EASING = "cubic-bezier(0.25, 0.9, 0.35, 1)";
+
+export type MainShellRoutePushAxis = "ltr" | "rtl";
+
+/**
+ * push 트랙 축 — enter 종류와 1:1.
+ * - ltr: 우측 탭 선택 → 새 화면이 왼쪽에서 밀고 들어옴(좌→우)
+ * - rtl: 좌측 탭 선택 → 새 화면이 오른쪽에서 밀고 들어옴(우→좌)
+ */
+export function routeTransitionPushAxisForKind(
+  kind: RouteTransitionEnterKind
+): MainShellRoutePushAxis | null {
+  switch (kind) {
+    case "ltr-forward":
+    case "ltr-back":
+    case "store-apply-back":
+      return "ltr";
+    case "rtl-forward":
+    case "rtl-back":
+    case "store-apply-forward":
+      return "rtl";
+    case "none":
+    case "subtle":
+      return null;
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
 export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "main-shell-route-enter-ltr-forward",
   "main-shell-route-enter-rtl-forward",
@@ -86,6 +120,11 @@ export const ROUTE_TRANSITION_ENTER_CLASSES = [
   "main-shell-route-enter-subtle",
   "store-owner-apply-route-enter-rtl-forward",
   "store-owner-apply-route-enter-ltr-back",
+] as const;
+
+export const ROUTE_TRANSITION_EXIT_CLASSES = [
+  "main-shell-route-exit-ltr",
+  "main-shell-route-exit-rtl",
 ] as const;
 
 export type RouteTransitionEnterClass = (typeof ROUTE_TRANSITION_ENTER_CLASSES)[number];
@@ -108,6 +147,27 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "store-owner-apply-route-enter-rtl-forward";
     case "store-apply-back":
       return "store-owner-apply-route-enter-ltr-back";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+/** 이전 화면 퇴장 — enter 와 짝을 이뤄 밀고 나가는(push) 체감 */
+export function routeTransitionExitClassForKind(kind: RouteTransitionEnterKind): string | null {
+  switch (kind) {
+    case "ltr-forward":
+    case "ltr-back":
+    case "store-apply-back":
+      return "main-shell-route-exit-ltr";
+    case "rtl-forward":
+    case "rtl-back":
+    case "store-apply-forward":
+      return "main-shell-route-exit-rtl";
+    case "none":
+    case "subtle":
+      return null;
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

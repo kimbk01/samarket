@@ -23,7 +23,9 @@ import { resolveStoreTaxonomyImageSrc, storeTaxonomyUploadedImageUrl } from "@/l
 import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-taxonomy-seed";
 import { STORES_HOME_SUB_CATEGORY_SLIDE_MS } from "@/lib/stores/stores-home-sub-category-slide";
 import type { StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import {
+  STORES_HOME_SUB_CATEGORY_ICON_WRAP,
   STORES_HOME_SUB_CATEGORY_IMAGE_FRAME,
   STORES_HOME_SUB_CATEGORY_LABEL,
   STORES_HOME_SUB_CATEGORY_LINK,
@@ -45,6 +47,13 @@ function StoresHomeSubCategoryRail({
   language: "ko" | "en";
 }) {
   const { onPrewarmSub } = getStoresHomeCategoryChromeHandlers();
+  const [pressedSlug, setPressedSlug] = useState<string | null>(null);
+  const clearPressed = (el?: EventTarget | null) => {
+    if (el instanceof HTMLElement) {
+      el.classList.remove("stores-home-sub-category-link--pressed");
+    }
+    setPressedSlug(null);
+  };
 
   return (
     <div className={STORES_HOME_SUB_CATEGORY_RAIL}>
@@ -65,16 +74,28 @@ function StoresHomeSubCategoryRail({
               String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
               (s as { name_en?: string | null }).name_en
             );
+        const pressed = pressedSlug === s.slug;
         return (
           <Link
             key={s.id}
             href={storesBrowsePath(primarySlug, s.slug)}
             prefetch={false}
-            onPointerDown={() => onPrewarmSub(s.slug)}
-            className={STORES_HOME_SUB_CATEGORY_LINK}
+            className={`${STORES_HOME_SUB_CATEGORY_LINK} ${pressed ? "stores-home-sub-category-link--pressed" : ""}`}
             aria-label={label}
+            onPointerDown={(e) => {
+              e.currentTarget.classList.add("stores-home-sub-category-link--pressed");
+              setPressedSlug(s.slug);
+              window.setTimeout(() => {
+                triggerLightTapFeedback(e);
+                onPrewarmSub(s.slug);
+              }, 0);
+            }}
+            onPointerUp={(e) => clearPressed(e.currentTarget)}
+            onPointerCancel={(e) => clearPressed(e.currentTarget)}
+            onPointerLeave={(e) => clearPressed(e.currentTarget)}
+            onClick={(e) => clearPressed(e.currentTarget)}
           >
-            <span className={STORES_HOME_SUB_CATEGORY_IMAGE_FRAME}>
+            <span className={`${STORES_HOME_SUB_CATEGORY_ICON_WRAP} ${STORES_HOME_SUB_CATEGORY_IMAGE_FRAME}`}>
               {src ?
                 <StoreTaxonomyThumb
                   src={src}

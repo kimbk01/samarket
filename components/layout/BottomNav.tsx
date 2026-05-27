@@ -72,13 +72,10 @@ import {
 } from "@/lib/delivery/delivery-home-hub-navigation";
 import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { MainBottomNavTabIcon } from "@/components/main-menu/MainBottomNavTabIcon";
-import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
+import { MAIN_BOTTOM_NAV_TAB_ICONS, MainBottomNavHomeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
-import {
-  bottomNavMessengerHrefWithOrigin,
-} from "@/lib/community-messenger/messenger-entry-origin";
-import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
+import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -86,9 +83,26 @@ import {
 } from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import type {
+  BeginMenuNavigationOptions,
+  MenuNavigationSource,
+} from "@/contexts/LatestMenuNavigationContext";
 import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { useRegion, useRegionOptional } from "@/contexts/RegionContext";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
+import {
+  resolveMainBottomNavHubDomain,
+} from "@/lib/main-menu/main-bottom-nav-domain";
+import {
+  resolveMainBottomNavTabEmphasisKind,
+  resolveMainBottomNavTabTapHref,
+  type MainBottomNavTabEmphasisKind,
+} from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
+import { resolveBottomNavTransitionConfirmCopy } from "@/lib/navigation/main-bottom-nav-transition-copy";
+import {
+  MainBottomNavDomainTransitionDialog,
+  useMainBottomNavDomainTransition,
+} from "@/lib/navigation/main-bottom-nav-domain-transition-dialog";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -104,27 +118,26 @@ const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { cou
 
 type BottomNavActivateEvent = Pick<MouseEvent<HTMLAnchorElement>, "preventDefault">;
 
-/**
- * 하단 탭 활성화 단일 경로.
- * Enter 는 브라우저 기본 anchor click, Space 는 click 합성으로만 들어온다.
- */
-function runBottomNavTabClick(
-  e: BottomNavActivateEvent,
-  opts: {
-    pathname: string | null;
-    navSearch: string;
-    href: string;
-    tabId: string;
-    isActive: boolean;
-    beginMenuNavigation: (href: string) => void;
-    onNavigationIntent: (tabId: string) => void;
-    guardBeforeNavigate: (nextHref?: string) => boolean;
-    router: Pick<ReturnType<typeof useRouter>, "prefetch" | "push" | "replace">;
-    onPrewarm?: () => void;
-    onCloseDomainSwitcher?: () => void;
-  }
-): void {
-  e.preventDefault();
+export type BottomNavTabCommitOpts = {
+  pathname: string | null;
+  navSearch: string;
+  href: string;
+  tabId: string;
+  isActive: boolean;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
+  onNavigationIntent: (tabId: string) => void;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
+  router: Pick<ReturnType<typeof useRouter>, "prefetch" | "push" | "replace">;
+  onPrewarm?: () => void;
+  onCloseDomainSwitcher?: () => void;
+};
+
+/** 하단 탭 이동 — `commitMainBottomNavRoute` 단일 경로 */
+export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
   commitMainBottomNavRoute({
     pathname: opts.pathname,
     currentSearch: opts.navSearch,
@@ -141,11 +154,7 @@ function runBottomNavTabClick(
     },
     onPrewarm: opts.onPrewarm,
     onCloseDomainSwitcher: opts.onCloseDomainSwitcher,
-    persistMessengerOriginFromHref:
-      opts.tabId === "chat" ||
-      opts.tabId === "delivery-order-chat" ||
-      opts.tabId === "philife-messenger" ||
-      opts.tabId === "trade-order-chat",
+    persistMessengerOriginFromHref: isMainBottomNavUnifiedInboxTabId(opts.tabId),
   });
 }
 
@@ -153,14 +162,69 @@ function runBottomNavTabClickOrOpenNew(
   e: BottomNavActivateEvent,
   tab: BottomNavItemConfig,
   href: string,
-  opts: Omit<Parameters<typeof runBottomNavTabClick>[1], "href" | "tabId">
+  opts: Omit<BottomNavTabCommitOpts, "href" | "tabId">,
+  commitTabRouteWithConfirm: (tabId: string, commitOpts: BottomNavTabCommitOpts) => void
 ): void {
   if (tab.openInNewTab) {
     e.preventDefault();
     openBottomNavHref(href, true);
     return;
   }
-  runBottomNavTabClick(e, { ...opts, href, tabId: tab.id });
+  e.preventDefault();
+  commitTabRouteWithConfirm(tab.id, { ...opts, href, tabId: tab.id });
+}
+
+function bottomNavOrbitEmphasisItemClass(emphasisKind: MainBottomNavTabEmphasisKind): string {
+  if (emphasisKind === "domain-hub") return "app-bottom-nav-item--domain-hub";
+  if (emphasisKind === "messenger-hub") return "app-bottom-nav-item--messenger-hub";
+  return "";
+}
+
+function BottomNavTabIconContent({
+  tab,
+  isActive,
+  emphasisKind,
+  iconSize,
+  badgeCount,
+}: {
+  tab: BottomNavItemConfig;
+  isActive: boolean;
+  emphasisKind: MainBottomNavTabEmphasisKind;
+  iconSize: string;
+  badgeCount: number;
+}) {
+  if (emphasisKind === "domain-hub" || emphasisKind === "messenger-hub") {
+    return (
+      <>
+        <div className="app-bottom-nav-icon-slot" aria-hidden="true">
+          <span className="block h-[22px] w-[22px] shrink-0" />
+        </div>
+        <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--domain-hub-orbit">
+          <span
+            className={[
+              "app-bottom-nav-domain-hub-orbit",
+              isActive ? "app-bottom-nav-domain-hub-orbit--active" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <span className="app-bottom-nav-domain-hub-orbit-icon-wrap" aria-hidden>
+              <MainBottomNavHomeIcon className="app-bottom-nav-domain-hub-icon" />
+            </span>
+            <BottomNavHubBadgeDot count={badgeCount} />
+          </span>
+        </div>
+      </>
+    );
+  }
+  return (
+    <div className="app-bottom-nav-icon-slot">
+      <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
+        <MainBottomNavTabIcon tab={tab} className={iconSize} />
+        <BottomNavHubBadgeDot count={badgeCount} />
+      </span>
+    </div>
+  );
 }
 
 const BottomNavTabStandard = memo(function BottomNavTabStandard({
@@ -173,6 +237,8 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   beginMenuNavigation,
   guardBeforeNavigate,
   onCloseDomainSwitcher,
+  emphasisKind = null,
+  commitTabRouteWithConfirm,
 }: {
   tab: BottomNavItemConfig;
   itemClassName?: string;
@@ -181,9 +247,15 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   /** 탭 이동 직후 — pathname 갱신 전에도 **한 탭만** 활성으로 보이게 함(이전 경로 탭이 남는 체감 제거) */
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (href: string) => void;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
   onCloseDomainSwitcher?: () => void;
+  emphasisKind?: MainBottomNavTabEmphasisKind;
+  commitTabRouteWithConfirm: (tabId: string, commitOpts: BottomNavTabCommitOpts) => void;
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
@@ -201,18 +273,20 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
-  const effectiveHref = useMemo(() => {
-    if (tab.id === "delivery-orders") {
-      return resolveDeliveryOrderHistoryHref(ownerStore?.id);
-    }
-    if (tab.id === "chat" || tab.id === "philife-messenger" || tab.id === "trade-order-chat") {
-      return bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams);
-    }
-    return tab.href;
-  }, [tab.id, tab.href, pathname, searchParams, ownerStore?.id]);
+  const effectiveHref = useMemo(
+    () =>
+      resolveMainBottomNavTabTapHref(tab.id, tab.href, {
+        emphasisKind,
+        pathname,
+        searchParams,
+        ownerStoreId: ownerStore?.id,
+      }),
+    [tab.id, tab.href, pathname, searchParams, ownerStore?.id, emphasisKind]
+  );
 
   const className = [
     "app-bottom-nav-item group",
+    bottomNavOrbitEmphasisItemClass(emphasisKind),
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     itemClassName,
     tab.id === "my" || tab.id === "delivery-my" || tab.id === "philife-my" || tab.id === "trade-my"
@@ -231,12 +305,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const inner = (
     <>
-      <div className="app-bottom-nav-icon-slot">
-        <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
-          <MainBottomNavTabIcon tab={tab} className={iconSize} />
-          <BottomNavHubBadgeDot count={tabBadgeCount} />
-        </span>
-      </div>
+      <BottomNavTabIconContent
+        tab={tab}
+        isActive={isActive}
+        emphasisKind={emphasisKind}
+        iconSize={iconSize}
+        badgeCount={tabBadgeCount}
+      />
       <span
         className={
           isDeliveryBottomNavTabId(tab.id) ||
@@ -312,16 +387,23 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        runBottomNavTabClickOrOpenNew(e, tab, effectiveHref, {
-          pathname,
-          navSearch,
-          isActive,
-          beginMenuNavigation,
-          onNavigationIntent,
-          guardBeforeNavigate,
-          router,
-          onCloseDomainSwitcher,
-        });
+        if (!guardBeforeNavigate(effectiveHref)) return;
+        runBottomNavTabClickOrOpenNew(
+          e,
+          tab,
+          effectiveHref,
+          {
+            pathname,
+            navSearch,
+            isActive,
+            beginMenuNavigation,
+            onNavigationIntent,
+            guardBeforeNavigate,
+            router,
+            onCloseDomainSwitcher,
+          },
+          commitTabRouteWithConfirm
+        );
       }}
     >
       {inner}
@@ -345,7 +427,11 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
   onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (href: string) => void;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { safeT } = useI18n();
@@ -550,7 +636,11 @@ const BottomNavTabTradeHomeHub = memo(function BottomNavTabTradeHomeHub({
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
   onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (href: string) => void;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { safeT } = useI18n();
@@ -748,6 +838,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   beginMenuNavigation,
   guardBeforeNavigate,
   onCloseDomainSwitcher,
+  commitTabRouteWithConfirm,
 }: {
   tab: BottomNavItemConfig;
   itemClassName?: string;
@@ -755,9 +846,14 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
   navSearch: string;
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (href: string) => void;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
   onCloseDomainSwitcher?: () => void;
+  commitTabRouteWithConfirm: (tabId: string, commitOpts: BottomNavTabCommitOpts) => void;
 }) {
   const { tt, safeT } = useI18n();
   const router = useRouter();
@@ -788,16 +884,23 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
       aria-current={isActive ? "page" : undefined}
       onPointerDown={(e) => triggerLightTapFeedback(e)}
       onClick={(e) => {
-        runBottomNavTabClickOrOpenNew(e, tab, effectiveHref, {
-          pathname,
-          navSearch,
-          isActive,
-          beginMenuNavigation,
-          onNavigationIntent,
-          guardBeforeNavigate,
-          router,
-          onCloseDomainSwitcher,
-        });
+        if (!guardBeforeNavigate(effectiveHref)) return;
+        runBottomNavTabClickOrOpenNew(
+          e,
+          tab,
+          effectiveHref,
+          {
+            pathname,
+            navSearch,
+            isActive,
+            beginMenuNavigation,
+            onNavigationIntent,
+            guardBeforeNavigate,
+            router,
+            onCloseDomainSwitcher,
+          },
+          commitTabRouteWithConfirm
+        );
       }}
     >
       <div className="app-bottom-nav-icon-slot">
@@ -822,6 +925,8 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   beginMenuNavigation,
   guardBeforeNavigate,
   onCloseDomainSwitcher,
+  emphasisKind = null,
+  commitTabRouteWithConfirm,
 }: {
   tab: BottomNavItemConfig;
   itemClassName?: string;
@@ -829,9 +934,15 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   navSearch: string;
   pendingActiveTabId: string | null;
   onNavigationIntent: (tabId: string) => void;
-  beginMenuNavigation: (href: string) => void;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
   onCloseDomainSwitcher?: () => void;
+  emphasisKind?: MainBottomNavTabEmphasisKind;
+  commitTabRouteWithConfirm: (tabId: string, commitOpts: BottomNavTabCommitOpts) => void;
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
@@ -844,13 +955,20 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
     pendingActiveTabId != null
       ? tab.id === pendingActiveTabId
       : isMainBottomNavDisplayTabActive(pathname, tab);
-  const Icon = TAB_ICONS.stores;
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
+  const storesTabHref = useMemo(
+    () =>
+      resolveMainBottomNavTabTapHref(tab.id, tab.href, {
+        emphasisKind,
+        pathname,
+      }),
+    [emphasisKind, tab.href, tab.id, pathname]
+  );
   const storesTabOwnerLite = !!ownerStore;
   const prewarmStoresTabClientCache = useCallback(() => {
-    prewarmBottomNavTapHrefResolvingStoresRegion(tab.href, primaryRegion);
-  }, [primaryRegion, tab.href]);
+    prewarmBottomNavTapHrefResolvingStoresRegion(storesTabHref, primaryRegion);
+  }, [primaryRegion, storesTabHref]);
 
   const inactiveSurface =
     isActive || !storesTabOwnerLite
@@ -858,6 +976,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       : "bg-transparent";
   const className = [
     "app-bottom-nav-item group",
+    bottomNavOrbitEmphasisItemClass(emphasisKind),
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     itemClassName,
     inactiveSurface,
@@ -874,13 +993,17 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const inner = (
     <>
-      <div className="app-bottom-nav-icon-slot">
-        <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
-          <Icon className={iconSize} />
-          <BottomNavHubBadgeDot count={tabBadgeCount} />
-        </span>
-      </div>
-      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
+      <BottomNavTabIconContent
+        tab={tab}
+        isActive={isActive}
+        emphasisKind={emphasisKind}
+        iconSize={iconSize}
+        badgeCount={tabBadgeCount}
+      />
+      <span
+        className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`}
+        suppressHydrationWarning
+      >
         {tabLabel}
       </span>
     </>
@@ -888,9 +1011,9 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   return (
     <Link
-      href={tab.href}
+      href={storesTabHref}
       prefetch={false}
-      replace={mainBottomNavRouteUsesReplace(pathname ?? null, tab.href)}
+      replace={mainBottomNavRouteUsesReplace(pathname ?? null, storesTabHref)}
       scroll={false}
       className={className}
       data-active={isActive ? "true" : "false"}
@@ -941,17 +1064,24 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        runBottomNavTabClickOrOpenNew(e, tab, tab.href, {
-          pathname,
-          navSearch,
-          isActive,
-          beginMenuNavigation,
-          onNavigationIntent,
-          guardBeforeNavigate,
-          router,
-          onPrewarm: prewarmStoresTabClientCache,
-          onCloseDomainSwitcher,
-        });
+        if (!guardBeforeNavigate(storesTabHref)) return;
+        runBottomNavTabClickOrOpenNew(
+          e,
+          tab,
+          storesTabHref,
+          {
+            pathname,
+            navSearch,
+            isActive,
+            beginMenuNavigation,
+            onNavigationIntent,
+            guardBeforeNavigate,
+            router,
+            onPrewarm: prewarmStoresTabClientCache,
+            onCloseDomainSwitcher,
+          },
+          commitTabRouteWithConfirm
+        );
       }}
     >
       {inner}
@@ -1055,8 +1185,8 @@ export function BottomNav({
   );
   /** 탭 클릭 인텐트 — 본문 슬라이드는 `route-transition-config` pathname 단일 소스 (`mainShellTabSlide` 미사용) */
   const beginBottomNavNavigation = useCallback(
-    (href: string) => {
-      beginMenuNavigation(href, "bottom-nav");
+    (href: string, source?: MenuNavigationSource, options?: BeginMenuNavigationOptions) => {
+      beginMenuNavigation(href, source ?? "bottom-nav", options);
     },
     [beginMenuNavigation]
   );
@@ -1083,6 +1213,22 @@ export function BottomNav({
 
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const { t } = useI18n();
+  const hubDomain = useMemo(() => resolveMainBottomNavHubDomain(pathname ?? null), [pathname]);
+  const {
+    pendingTransition,
+    requestTransition,
+    confirmTransition,
+    cancelTransition,
+  } = useMainBottomNavDomainTransition(pathname ?? null);
+
+  const commitTabRouteWithConfirm = useCallback(
+    (tabId: string, commitOpts: BottomNavTabCommitOpts) => {
+      requestTransition(resolveBottomNavTransitionConfirmCopy(pathname ?? null, tabId), () => {
+        commitBottomNavTabRoute(commitOpts);
+      });
+    },
+    [pathname, requestTransition]
+  );
 
   const hideBottomNavShell =
     (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
@@ -1103,16 +1249,19 @@ export function BottomNav({
   const renderBottomNavTab = useCallback(
     (tab: BottomNavItemConfig, _tabIndex: number) => {
       const groupEdgeClass = "";
+      const pendingChatNav =
+        pendingActiveTabId != null && isMainBottomNavUnifiedInboxTabId(pendingActiveTabId);
+      const emphasisKind = resolveMainBottomNavTabEmphasisKind(tab.id, pathname, {
+        hubDomain,
+        pendingChatNav: pendingChatNav && tab.id === pendingActiveTabId,
+      });
       const guardNav = () => {
-        const targetHref =
-          tab.id === "chat" ||
-          tab.id === "delivery-order-chat" ||
-          tab.id === "philife-messenger" ||
-          tab.id === "trade-order-chat"
-            ? bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams)
-            : tab.id === "delivery-orders"
-              ? resolveDeliveryOrderHistoryHref(ownerStoreRow?.id)
-              : tab.href;
+        const targetHref = resolveMainBottomNavTabTapHref(tab.id, tab.href, {
+          emphasisKind,
+          pathname,
+          searchParams,
+          ownerStoreId: ownerStoreRow?.id,
+        });
         if (!guardBeforeNavigate(targetHref)) return false;
         if (!targetHref.includes("/community-messenger")) return true;
         const user = getCurrentUser();
@@ -1136,6 +1285,7 @@ export function BottomNav({
             beginMenuNavigation={beginBottomNavNavigation}
             guardBeforeNavigate={guardNav}
             onCloseDomainSwitcher={closeSwitcherOnNav}
+            commitTabRouteWithConfirm={commitTabRouteWithConfirm}
           />
         );
       }
@@ -1152,6 +1302,8 @@ export function BottomNav({
             beginMenuNavigation={beginBottomNavNavigation}
             guardBeforeNavigate={guardNav}
             onCloseDomainSwitcher={closeSwitcherOnNav}
+            emphasisKind={emphasisKind}
+            commitTabRouteWithConfirm={commitTabRouteWithConfirm}
           />
         );
       }
@@ -1167,6 +1319,8 @@ export function BottomNav({
           beginMenuNavigation={beginBottomNavNavigation}
           guardBeforeNavigate={guardNav}
           onCloseDomainSwitcher={closeSwitcherOnNav}
+          emphasisKind={emphasisKind}
+          commitTabRouteWithConfirm={commitTabRouteWithConfirm}
         />
       );
     },
@@ -1180,28 +1334,37 @@ export function BottomNav({
       beginBottomNavNavigation,
       guardBeforeNavigate,
       usesDeliveryHubShell,
+      hubDomain,
+      commitTabRouteWithConfirm,
     ]
   );
 
   const nav = (
-    <nav
-      className={[
-        outerClass,
-        usesDeliveryHubShell ? "app-bottom-nav-shell--delivery" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
-      aria-label={t("nav_bottom_bar_aria")}
-    >
-      <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
-        <div
-          className={BOTTOM_NAV_SHELL.containerClassName}
-          data-tab-count={displayTabs.length}
-        >
-          {displayTabs.map((tab, index) => renderBottomNavTab(tab, index))}
+    <>
+      <nav
+        className={[
+          outerClass,
+          usesDeliveryHubShell ? "app-bottom-nav-shell--delivery" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+        aria-label={t("nav_bottom_bar_aria")}
+      >
+        <div className={BOTTOM_NAV_SHELL.innerBarClassName}>
+          <div
+            className={BOTTOM_NAV_SHELL.containerClassName}
+            data-tab-count={displayTabs.length}
+          >
+            {displayTabs.map((tab, index) => renderBottomNavTab(tab, index))}
+          </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+      <MainBottomNavDomainTransitionDialog
+        pending={pendingTransition}
+        onCancel={cancelTransition}
+        onConfirm={confirmTransition}
+      />
+    </>
   );
 
   if (hideBottomNavShell) return null;

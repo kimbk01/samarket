@@ -10,7 +10,12 @@
  *
  * 3. **배달 홈 롱프레스** → 해당 도메인 실홈 `/stores` (`runDeliveryHomeHubLongPress`)
  *
- * DO NOT: 홈 짧은 탭으로 `/stores` push · 다이얼 칩 Link+preventDefault · 탭 Link 기본 navigation만 의존.
+ * 4. **Orbit 강조 탭** (domain-hub / messenger-hub)
+ *    - 집 아이콘 orbit — `resolveMainBottomNavTabTapHref` 단일 href
+ *    - 짧은 탭 → 허브 홈 또는 `/community-messenger?section=chats`
+ *    - 이동 커밋 → `commitMainBottomNavRoute` (`onNavigationIntent` 동기)
+ *
+ * DO NOT: 홈 짧은 탭으로 `/stores` push · 다이얼 칩 Link+preventDefault · tab.href orbit 분기 복제.
  * verify: `npm run verify:delivery-dial-navigation-contract`
  */
 export const MAIN_BOTTOM_NAV_INTERACTION_CONTRACT_VERSION = 1 as const;

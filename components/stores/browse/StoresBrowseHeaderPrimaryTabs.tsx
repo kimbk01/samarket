@@ -1,14 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { storesBrowseAllPath } from "@/components/stores/browse/stores-browse-paths";
-import { setBrowseSubChipOptimisticSub } from "@/lib/stores/browse-sub-chip-navigation";
+import { useRegionOptional } from "@/contexts/RegionContext";
+import {
+  getBrowsePrimaryTabOptimisticSlugServerSnapshot,
+  getBrowsePrimaryTabOptimisticSlugSnapshot,
+  resolveBrowsePrimaryTabActiveSlug,
+  setBrowsePrimaryTabOptimisticSlug,
+  subscribeBrowsePrimaryTabOptimisticSlug,
+} from "@/lib/stores/browse-primary-tab-navigation";
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import {
+  onBrowsePrimaryTaxonomyCommit,
+  onBrowsePrimaryTaxonomyPointerDown,
+} from "@/lib/stores/stores-browse-taxonomy-interaction";
 
 function MenuExpandIcon({ open }: { open: boolean }) {
   return (
@@ -38,11 +49,27 @@ export function StoresBrowseHeaderPrimaryTabs({
 }) {
   const { t, language } = useI18n();
   const pathname = usePathname();
+  const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
 
-  const activeSlug = useMemo(() => {
+  const pathnamePrimarySlug = useMemo(() => {
     const m = pathname?.match(/^\/stores\/browse\/([^/?]+)/);
     return m?.[1]?.trim().toLowerCase() ?? null;
   }, [pathname]);
+
+  const optimisticPrimary = useSyncExternalStore(
+    subscribeBrowsePrimaryTabOptimisticSlug,
+    getBrowsePrimaryTabOptimisticSlugSnapshot,
+    getBrowsePrimaryTabOptimisticSlugServerSnapshot,
+  );
+
+  const activeSlug = resolveBrowsePrimaryTabActiveSlug(pathnamePrimarySlug, optimisticPrimary);
+
+  useEffect(() => {
+    if (!optimisticPrimary || !pathnamePrimarySlug) return;
+    if (pathnamePrimarySlug === optimisticPrimary) {
+      setBrowsePrimaryTabOptimisticSlug(null);
+    }
+  }, [optimisticPrimary, pathnamePrimarySlug]);
 
   return (
     <div className="stores-browse-header-primary-tabs">
@@ -58,6 +85,7 @@ export function StoresBrowseHeaderPrimaryTabs({
           {primaries.map((p) => {
             const slug = p.slug.toLowerCase();
             const on = activeSlug === slug;
+            const pending = optimisticPrimary === slug && pathnamePrimarySlug !== slug;
             return (
               <Link
                 key={p.id}
@@ -66,11 +94,21 @@ export function StoresBrowseHeaderPrimaryTabs({
                 scroll={false}
                 role="tab"
                 aria-selected={on}
-                className={`stores-browse-header-primary-tab ${on ? "stores-browse-header-primary-tab--active" : ""}`}
-                onClick={() => {
-                setBrowseSubChipOptimisticSub(null);
-                onMenuOpenChange(false);
-              }}
+                className={`stores-browse-header-primary-tab ${on ? "stores-browse-header-primary-tab--active" : ""} ${pending ? "stores-browse-header-primary-tab--pending" : ""}`}
+                onPointerDown={(e) => {
+                  onBrowsePrimaryTaxonomyPointerDown({
+                    ev: e,
+                    primarySlug: slug,
+                    language,
+                    primaryRegion,
+                  });
+                }}
+                onClick={(e) => {
+                  e.currentTarget.classList.add("stores-browse-header-primary-tab--active");
+                  e.currentTarget.classList.add("stores-browse-header-primary-tab--pending");
+                  onBrowsePrimaryTaxonomyCommit(slug);
+                  onMenuOpenChange(false);
+                }}
               >
                 <span className="stores-browse-header-primary-tab__label">
                   {resolveStorePrimaryIndustryLabel(

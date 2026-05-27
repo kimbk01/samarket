@@ -48,7 +48,10 @@ export const STORES_HOME_SUB_CATEGORY_SLIDE_LAYER =
 export const STORES_HOME_CATEGORY_STICKY_STACK = "relative z-0 w-full shrink-0";
 
 export const STORES_HOME_SUB_CATEGORY_LINK =
-  "group flex w-[calc((100%-4*var(--delivery-home-subcategory-gap))/5)] min-w-[calc((100%-4*var(--delivery-home-subcategory-gap))/5)] shrink-0 flex-col items-center gap-1 py-0.5 text-center transition-opacity touch-manipulation select-none [-webkit-tap-highlight-color:transparent] active:opacity-80";
+  "stores-home-sub-category-link group flex w-[calc((100%-4*var(--delivery-home-subcategory-gap))/5)] min-w-[calc((100%-4*var(--delivery-home-subcategory-gap))/5)] shrink-0 flex-col items-center gap-1 py-0.5 text-center touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
+
+/** 홈 2차 — 원형 아이콘 눌림 대상 */
+export const STORES_HOME_SUB_CATEGORY_ICON_WRAP = "stores-home-sub-category-icon-wrap";
 
 /** 홈 2차 업종 — 원형, 셀 너비에 맞춤(최대 `--delivery-home-subcategory-icon`) */
 export const STORES_HOME_SUB_CATEGORY_IMAGE_FRAME =
@@ -84,11 +87,11 @@ export const STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED =
   "flex w-full items-center gap-2.5 overflow-x-hidden overscroll-x-none pb-0";
 
 export const STORES_HOME_PRIMARY_CATEGORY_TAB_BUTTON =
-  "relative flex min-w-[48px] max-w-[62px] w-[56px] shrink-0 flex-col items-center justify-end gap-0.5 px-0.5 pt-0 pb-0 text-center transition-colors touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
+  "stores-home-primary-category-tab relative flex min-w-[48px] max-w-[62px] w-[56px] shrink-0 flex-col items-center justify-end gap-0.5 px-0.5 pt-0 pb-0 text-center transition-colors touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
 
 /** 1차 업종 — compact 아이콘 슬롯(선택 시 scale 만 변경) */
 export const STORES_HOME_PRIMARY_CATEGORY_ICON_SLOT =
-  "flex h-[calc(var(--delivery-home-category-icon-compact)*1.1)] w-full items-center justify-center";
+  "stores-home-primary-category-icon-wrap flex h-[calc(var(--delivery-home-category-icon-compact)*1.1)] w-full items-center justify-center";
 
 export const STORES_HOME_PRIMARY_CATEGORY_ICON_INNER =
   "h-[var(--delivery-home-category-icon-compact)] w-[var(--delivery-home-category-icon-compact)] shrink-0 overflow-hidden rounded-full transition-transform duration-150 ease-out";

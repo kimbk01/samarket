@@ -467,15 +467,15 @@ a,
 }
 
 /**
- * 메인 셸 canonical 라우트 전환 — 5탭 어느 진입에서도 보이도록 명확한 translate + 미세 fade.
- * - forward: 새 페이지가 화면 밖에서 들어오며 덮음.
+ * 메인 셸 canonical 라우트 전환 — 5탭 어느 진입에서도 보이도록 translate + 미세 fade.
+ * - forward: 새 페이지가 옆에서 들어오며 이전 화면을 밀어냄(push).
  * - back(popstate): 동일 키프레임 재사용(역방향 axis).
  * - subtle: 같은 pillar 안 sub navigation — 짧은 페이드만.
  */
 @keyframes main-shell-route-enter-ltr-kf {
   from {
     transform: translate3d(-100%, 0, 0);
-    opacity: 0.94;
+    opacity: 0.98;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -486,11 +486,33 @@ a,
 @keyframes main-shell-route-enter-rtl-kf {
   from {
     transform: translate3d(100%, 0, 0);
-    opacity: 0.94;
+    opacity: 0.98;
   }
   to {
     transform: translate3d(0, 0, 0);
     opacity: 1;
+  }
+}
+
+@keyframes main-shell-route-exit-ltr-kf {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+    opacity: 0.98;
+  }
+}
+
+@keyframes main-shell-route-exit-rtl-kf {
+  from {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+  to {
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0.98;
   }
 }
 
@@ -504,37 +526,156 @@ a,
 }
 
 /**
- * Duration 단일 정책: forward/back 슬라이드 **220ms**, subtle 만 150ms.
- * 사용자 의도: "메뉴 순서가 변경시 동일 속도로 좌측/우측 슬라이드 적용".
+ * Duration 단일 정책: forward/back 슬라이드 **440ms**(하단 탭 전환과 동일), subtle 만 150ms.
+ * 우측 메뉴 → 좌→우 push / 좌측 메뉴 → 우→좌 push.
  */
 .main-shell-route-enter-ltr-forward {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-route-enter-ltr-kf 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: main-shell-route-enter-ltr-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
 }
 
 .main-shell-route-enter-rtl-forward {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-route-enter-rtl-kf 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: main-shell-route-enter-rtl-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
 }
 
 .main-shell-route-enter-ltr-back {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-route-enter-ltr-kf 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: main-shell-route-enter-ltr-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
 }
 
 .main-shell-route-enter-rtl-back {
   backface-visibility: hidden;
   will-change: transform;
-  animation: main-shell-route-enter-rtl-kf 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: main-shell-route-enter-rtl-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+.main-shell-route-exit-ltr {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-exit-ltr-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
+}
+
+.main-shell-route-exit-rtl {
+  backface-visibility: hidden;
+  will-change: transform;
+  animation: main-shell-route-exit-rtl-kf 440ms cubic-bezier(0.25, 0.9, 0.35, 1) both;
 }
 
 .main-shell-route-enter-subtle {
   backface-visibility: hidden;
   will-change: opacity;
   animation: main-shell-route-enter-subtle-kf 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/**
+ * 메인 5탭 push — 이전·다음 패널이 한 트랙에서 동시에 translate (440ms).
+ * ltr: [enter | exit] — 우측 탭 선택, 좌→우 밀기
+ * rtl: [exit | enter] — 좌측 탭 선택, 우→좌 밀기
+ */
+.main-shell-push-host {
+  flex: 1 1 0%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.main-shell-push-viewport {
+  position: relative;
+  flex: 1 1 0%;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.main-shell-push-track {
+  display: flex;
+  width: 200%;
+  height: 100%;
+  min-height: 100%;
+  backface-visibility: hidden;
+  will-change: transform;
+}
+
+.main-shell-push-panel {
+  display: flex;
+  width: 50%;
+  flex: 0 0 50%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.main-shell-push-track[data-axis="rtl"] {
+  transform: translate3d(0, 0, 0);
+}
+
+.main-shell-push-track[data-axis="rtl"].main-shell-push-track--animate {
+  transform: translate3d(-50%, 0, 0);
+  transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
+.main-shell-push-track[data-axis="ltr"] {
+  transform: translate3d(-50%, 0, 0);
+}
+
+.main-shell-push-track[data-axis="ltr"].main-shell-push-track--animate {
+  transform: translate3d(0, 0, 0);
+  transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .main-shell-push-track--animate {
+    transition: none !important;
+  }
+
+  [data-main-shell-push-surface].main-shell-push-surface-enter-ltr,
+  [data-main-shell-push-surface].main-shell-push-surface-enter-rtl,
+  [data-main-shell-push-surface].main-shell-push-surface-exit-ltr,
+  [data-main-shell-push-surface].main-shell-push-surface-exit-rtl {
+    transition: none !important;
+  }
+}
+
+/**
+ * `(stores)` ↔ `(main)` remount 경계 — 단일 surface exit/enter (440ms).
+ */
+[data-main-shell-push-surface].main-shell-push-surface {
+  backface-visibility: hidden;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+}
+
+[data-main-shell-push-surface].main-shell-push-surface-from-ltr {
+  transform: translate3d(100%, 0, 0);
+  transition: none;
+}
+
+[data-main-shell-push-surface].main-shell-push-surface-from-rtl {
+  transform: translate3d(-100%, 0, 0);
+  transition: none;
+}
+
+[data-main-shell-push-surface].main-shell-push-surface-enter-ltr,
+[data-main-shell-push-surface].main-shell-push-surface-enter-rtl {
+  transform: translate3d(0, 0, 0);
+  transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
+[data-main-shell-push-surface].main-shell-push-surface-exit-ltr {
+  transform: translate3d(-100%, 0, 0);
+  transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
+[data-main-shell-push-surface].main-shell-push-surface-exit-rtl {
+  transform: translate3d(100%, 0, 0);
+  transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
 }
 
 /** 매장 오너 스택(`/stores/owner` → 하위) — 270ms, 우→좌 진입 / 좌→우 복귀 */
@@ -574,6 +715,8 @@ a,
   .main-shell-route-enter-rtl-forward,
   .main-shell-route-enter-ltr-back,
   .main-shell-route-enter-rtl-back,
+  .main-shell-route-exit-ltr,
+  .main-shell-route-exit-rtl,
   .main-shell-route-enter-subtle,
   .owner-stack-route-enter-rtl-forward,
   .owner-stack-route-enter-ltr-back,

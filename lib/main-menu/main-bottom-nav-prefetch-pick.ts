@@ -1,8 +1,7 @@
 import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
-import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
-import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
+import { resolveMainBottomNavTabTapHref } from "@/lib/main-menu/main-bottom-nav-tab-emphasis";
 import {
   resolveMainBottomNavPickTabActiveOptions,
   type MainBottomNavPickContext,
@@ -26,13 +25,11 @@ export function resolveBottomNavTabProgrammaticPrefetchHref(
   pathname: string | null,
   ctx?: MainBottomNavPickContext
 ): string {
-  if (tab.id === "delivery-orders") {
-    return resolveDeliveryOrderHistoryHref(ctx?.ownerStoreId);
-  }
-  if (tab.id === "delivery-order-chat" || tab.id === "philife-messenger" || tab.id === "trade-order-chat" || tab.id === "chat") {
-    return bottomNavMessengerHrefWithOrigin(tab.href, pathname, ctx?.searchParams);
-  }
-  return tab.href;
+  return resolveMainBottomNavTabTapHref(tab.id, tab.href, {
+    pathname,
+    searchParams: ctx?.searchParams,
+    ownerStoreId: ctx?.ownerStoreId,
+  });
 }
 
 /**

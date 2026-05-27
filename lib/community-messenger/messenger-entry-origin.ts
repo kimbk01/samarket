@@ -140,19 +140,48 @@ export function messengerEntryOriginToSecondaryRail(
   return "philife";
 }
 
-/** 하단 탭 메신저 링크 — 현재 표면 출처로 목록 URL·`?from=` 결정 */
+/** 하단 탭 `chat` 슬롯 id — 도메인별 trade/delivery 목록이 아닌 전체 인박스로 통일 */
+export function isMainBottomNavUnifiedInboxTabId(tabId: string): boolean {
+  return (
+    tabId === "chat" ||
+    tabId === "delivery-order-chat" ||
+    tabId === "philife-messenger" ||
+    tabId === "trade-order-chat"
+  );
+}
+
+/** 하단 탭 메신저 `?from=` — 1단 뒤로가기용(목록 레일과 분리) */
+export function resolveMainBottomNavInboxEntryOrigin(
+  pathname: string | null | undefined,
+  searchParams?: { get: (key: string) => string | null } | null
+): NonNullable<MessengerEntryOrigin> {
+  const fromQuery = parseMessengerEntryOrigin(searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY));
+  return (
+    fromQuery ??
+    inferMessengerEntryOriginFromPath(pathname) ??
+    (typeof window !== "undefined" ? readStoredMessengerEntryOrigin() : null) ??
+    "community"
+  );
+}
+
+/**
+ * 하단 탭 메신저 — **항상** 전체 인박스(`/community-messenger?section=chats`).
+ * 도메인별 `/delivery-chats`·`/trade-chats` 는 FAB 등 보조 진입만 사용한다.
+ */
+export function mainBottomNavGlobalInboxTabHref(
+  pathname: string | null | undefined,
+  searchParams?: { get: (key: string) => string | null } | null
+): string {
+  return messengerInboxHrefWithOrigin(resolveMainBottomNavInboxEntryOrigin(pathname, searchParams));
+}
+
+/** @deprecated 하단 탭은 `mainBottomNavGlobalInboxTabHref` — FAB·다이얼은 `mainBottomNavMessengerTabHref` */
 export function bottomNavMessengerHrefWithOrigin(
   _baseHref: string,
   pathname: string | null | undefined,
   searchParams?: { get: (key: string) => string | null } | null
 ): string {
-  const fromQuery = parseMessengerEntryOrigin(searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY));
-  const origin =
-    fromQuery ??
-    inferMessengerEntryOriginFromPath(pathname) ??
-    (typeof window !== "undefined" ? readStoredMessengerEntryOrigin() : null) ??
-    "community";
-  return mainBottomNavMessengerTabHref(origin);
+  return mainBottomNavGlobalInboxTabHref(pathname, searchParams);
 }
 
 /**

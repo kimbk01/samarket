@@ -28,12 +28,15 @@ export type MenuNavigationSource =
 
 export type MenuPendingShellKind = "feed" | "messenger" | null;
 
-/** 레거시 타입 — 본문 슬라이드 방향은 `route-transition-config`(pathname canonical 인덱스) 단일 소스 */
+import type { MainShellRoutePushAxis } from "@/components/route-transition/route-transition-config";
+
+/** @deprecated `mainShellPushAxis` 우선 */
 export type MainShellTabSlide = "ltr" | "rtl";
 
 export interface BeginMenuNavigationOptions {
-  /** 선택 필드(레거시) — 현재 메인 본문 전환은 사용하지 않음 */
   mainShellTabSlide?: MainShellTabSlide;
+  /** 하단 탭 push 슬라이드 축 — `commitMainBottomNavRoute` 가 설정 */
+  mainShellPushAxis?: MainShellRoutePushAxis | null;
 }
 
 export interface MenuNavigationIntent {
@@ -43,8 +46,10 @@ export interface MenuNavigationIntent {
   search: string;
   source: MenuNavigationSource;
   startedAt: number;
-  /** 레거시 — 디버그·향후 용도; 슬라이드 적용에는 미사용 */
+  /** 레거시 — 디버그·향후 용도 */
   mainShellTabSlide?: MainShellTabSlide;
+  /** 하단 탭 440ms push 축 */
+  mainShellPushAxis?: MainShellRoutePushAxis | null;
 }
 
 interface LatestMenuNavigationContextValue {
@@ -172,6 +177,7 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
         source,
         startedAt: Date.now(),
         ...(options?.mainShellTabSlide ? { mainShellTabSlide: options.mainShellTabSlide } : {}),
+        ...(options?.mainShellPushAxis ? { mainShellPushAxis: options.mainShellPushAxis } : {}),
       };
       latestNavigationIdRef.current = nextIntent.id;
       setLatestNavigationId(nextIntent.id);

@@ -466,10 +466,193 @@
   /* owner shell reuses delivery overhang rules */
 }
 
+/**
+ * 글로벌 5탭 — 허브·메신저 orbit (Starbucks green, delivery-tokens 단일 소스).
+ * 셸 높이 유지, 원형만 위로 돌출. 라벨과 orbit 사이 `--app-bottom-nav-orbit-label-gap`.
+ */
+:root {
+  --app-bottom-nav-orbit-size: 2.625rem;
+  --app-bottom-nav-orbit-rise: calc(var(--app-bottom-nav-orbit-size) * 0.36);
+  --app-bottom-nav-orbit-label-gap: 0.5rem;
+  --app-bottom-nav-orbit-bg: var(--delivery-primary, #006241);
+  --app-bottom-nav-orbit-bg-active: var(--delivery-dark, #1e3932);
+  --app-bottom-nav-orbit-bg-pressed: color-mix(in srgb, var(--delivery-dark, #1e3932) 90%, #000);
+  --app-bottom-nav-orbit-shadow: 0 4px 12px rgba(0, 98, 65, 0.22);
+  --app-bottom-nav-orbit-shadow-active: 0 6px 16px rgba(30, 57, 50, 0.3);
+  --app-bottom-nav-orbit-shadow-pressed: 0 2px 6px rgba(0, 98, 65, 0.18);
+  --app-bottom-nav-orbit-press-scale: 0.94;
+  /* legacy aliases */
+  --app-bottom-nav-domain-hub-orbit-size: var(--app-bottom-nav-orbit-size);
+  --app-bottom-nav-domain-hub-rise: var(--app-bottom-nav-orbit-rise);
+}
+
+.app-bottom-nav-item--domain-hub,
+.app-bottom-nav-item--messenger-hub {
+  position: relative;
+  overflow: visible;
+  z-index: 3;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 6px 2px var(--delivery-tab-label-bottom-inset, 6px);
+  padding-bottom: calc(
+    var(--delivery-tab-label-bottom-inset, 6px) + var(--delivery-tab-label-line-height, 13px)
+  );
+}
+
+.app-bottom-nav-item--domain-hub:active,
+.app-bottom-nav-item--messenger-hub:active {
+  transform: none;
+}
+
+.app-bottom-nav-item--domain-hub[data-active="true"],
+.app-bottom-nav-item--messenger-hub[data-active="true"] {
+  background: transparent;
+  color: var(--app-bottom-nav-text-muted);
+}
+
+.app-bottom-nav-item--domain-hub .app-bottom-nav-label,
+.app-bottom-nav-item--domain-hub .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-item--domain-hub .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-item--domain-hub .app-bottom-nav-label--philife-tab,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-label,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-label--philife-tab {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--delivery-tab-label-bottom-inset, 6px);
+  z-index: 4;
+  margin: 0;
+  padding: 0;
+  height: var(--delivery-tab-label-line-height, 13px);
+  font-size: var(--delivery-tab-label-size, 11px);
+  font-weight: 600;
+  line-height: var(--delivery-tab-label-line-height, 13px);
+  letter-spacing: -0.2px;
+  text-align: center;
+  color: var(--app-bottom-nav-text-muted);
+}
+
+.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label,
+.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-label--philife-tab,
+.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label,
+.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--trade-tab,
+.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-label--philife-tab {
+  color: var(--app-bottom-nav-main-green);
+  font-weight: 700;
+}
+
+.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot:not(.app-bottom-nav-icon-slot--domain-hub-orbit),
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot:not(.app-bottom-nav-icon-slot--domain-hub-orbit) {
+  flex: 0 0
+    calc(
+      var(--app-bottom-nav-orbit-size) - var(--app-bottom-nav-orbit-rise) +
+        var(--app-bottom-nav-orbit-label-gap)
+    );
+  height: calc(
+    var(--app-bottom-nav-orbit-size) - var(--app-bottom-nav-orbit-rise) +
+      var(--app-bottom-nav-orbit-label-gap)
+  );
+  align-items: flex-end;
+}
+
+.app-bottom-nav-item--domain-hub .app-bottom-nav-icon-slot--domain-hub-orbit,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-icon-slot--domain-hub-orbit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--app-bottom-nav-orbit-rise));
+  z-index: 2;
+  width: 100%;
+  height: var(--app-bottom-nav-orbit-size);
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.app-bottom-nav-item--domain-hub .app-bottom-nav-domain-hub-orbit,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-domain-hub-orbit {
+  position: relative;
+  left: auto;
+  top: auto;
+  display: flex;
+  height: var(--app-bottom-nav-orbit-size);
+  width: var(--app-bottom-nav-orbit-size);
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: none;
+  background: var(--app-bottom-nav-orbit-bg);
+  color: #fff;
+  box-shadow: var(--app-bottom-nav-orbit-shadow);
+  transform: none;
+  pointer-events: auto;
+  transition:
+    transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1),
+    box-shadow 160ms ease,
+    background-color 160ms ease;
+}
+
+.app-bottom-nav-domain-hub-orbit-icon-wrap {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  pointer-events: none;
+}
+
+.app-bottom-nav-domain-hub-icon {
+  display: block;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+/** 선택(현재 탭) — orbit 배경·그림자 확실히 구분 */
+.app-bottom-nav-item--domain-hub[data-active="true"] .app-bottom-nav-domain-hub-orbit,
+.app-bottom-nav-item--messenger-hub[data-active="true"] .app-bottom-nav-domain-hub-orbit,
+.app-bottom-nav-domain-hub-orbit--active {
+  background: var(--app-bottom-nav-orbit-bg-active);
+  color: #fff;
+  box-shadow: var(--app-bottom-nav-orbit-shadow-active);
+  transform: none;
+}
+
+/** 눌림 — Link :active 에서 orbit 전체 스케일(아이콘은 flex 중앙 유지) */
+.app-bottom-nav-item--domain-hub:active .app-bottom-nav-domain-hub-orbit,
+.app-bottom-nav-item--messenger-hub:active .app-bottom-nav-domain-hub-orbit {
+  transform: scale(var(--app-bottom-nav-orbit-press-scale));
+  background: var(--app-bottom-nav-orbit-bg-pressed);
+  box-shadow: var(--app-bottom-nav-orbit-shadow-pressed);
+}
+
+.app-bottom-nav-item--domain-hub .app-bottom-nav-domain-hub-orbit > .bottom-nav-hub-badge,
+.app-bottom-nav-item--messenger-hub .app-bottom-nav-domain-hub-orbit > .bottom-nav-hub-badge {
+  position: absolute !important;
+  top: -2px !important;
+  right: -2px !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: translate(18%, -18%) !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-bottom-nav-item,
   .app-bottom-nav-inline-icon,
-  .app-bottom-nav-label {
+  .app-bottom-nav-label,
+  .app-bottom-nav-domain-hub-orbit,
+  .app-bottom-nav-domain-hub-icon {
     transition: none;
   }
 

@@ -6,6 +6,16 @@ import {
 } from "@/lib/main-menu/main-bottom-nav-route-commit";
 
 describe("shouldMainBottomNavRouteScrollOnly", () => {
+  it("메신저 delivery-chats → 인박스 홈 — scroll_only 아님(이동)", () => {
+    expect(
+      shouldMainBottomNavRouteScrollOnly(
+        "/community-messenger/delivery-chats",
+        "from=delivery",
+        "/community-messenger?section=chats&from=delivery"
+      )
+    ).toBe(false);
+  });
+
   it("동일 path·query — 스크롤만", () => {
     expect(
       shouldMainBottomNavRouteScrollOnly(
@@ -28,6 +38,40 @@ describe("shouldMainBottomNavRouteScrollOnly", () => {
 });
 
 describe("commitMainBottomNavRoute", () => {
+  it("onNavigationIntent — blocked·scroll_only 제외, navigated 시 동기 호출", () => {
+    const onNavigationIntent = vi.fn();
+    commitMainBottomNavRoute({
+      pathname: "/stores",
+      currentSearch: "",
+      href: "/philife",
+      tabId: "community",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent,
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace: vi.fn(),
+      skipPerfMark: true,
+    });
+    expect(onNavigationIntent).toHaveBeenCalledWith("community");
+  });
+
+  it("blocked — onNavigationIntent 미호출", () => {
+    const onNavigationIntent = vi.fn();
+    commitMainBottomNavRoute({
+      pathname: "/stores",
+      currentSearch: "",
+      href: "/philife",
+      tabId: "community",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent,
+      guardBeforeNavigate: () => false,
+      push: vi.fn(),
+      replace: vi.fn(),
+      skipPerfMark: true,
+    });
+    expect(onNavigationIntent).not.toHaveBeenCalled();
+  });
+
   it("replace 후 onCloseOverlay", () => {
     const order: string[] = [];
     const replace = vi.fn(() => order.push("replace"));

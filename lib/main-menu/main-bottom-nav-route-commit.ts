@@ -1,3 +1,14 @@
+import type {
+  BeginMenuNavigationOptions,
+  MenuNavigationSource,
+} from "@/contexts/LatestMenuNavigationContext";
+import { computeMainBottomNavPushAxis } from "@/lib/navigation/compute-main-bottom-nav-push-axis";
+import {
+  isCrossMainShellRouteGroup,
+  armMainShellPushEnterSession,
+  pathFromHref,
+  runMainShellPushExitBeforeNavigate,
+} from "@/lib/navigation/main-shell-push-session";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import {
   parseMessengerEntryOrigin,
@@ -18,21 +29,18 @@ export function mainBottomNavRouteUsesReplace(pathname: string | null, targetHre
   return true;
 }
 
-/**
- * 하단·다이얼 공통 — 이미 **동일 경로+쿼리**면 스크롤만.
- * `/mypage/section/...` 처럼 탭 루트 접두만 겹치면 false(탭 루트로 이동).
- */
+/** 하단·다이얼 공통 — 이미 **동일 경로+쿼리**면 스크롤만. 하위 경로→허브 루트는 이동. */
 export function shouldMainBottomNavRouteScrollOnly(
   pathname: string | null,
   currentSearchNoQuestion: string,
   targetHref: string
 ): boolean {
-  if (!isBottomNavTabActive(pathname, targetHref)) return false;
-  const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
+  const p = normalizeMainBottomNavRoutePath(pathname);
   const raw = targetHref.trim();
   const qIdx = raw.indexOf("?");
-  const targetPath = (qIdx >= 0 ? raw.slice(0, qIdx) : raw).trim();
+  const targetPath = normalizeMainBottomNavRoutePath(qIdx >= 0 ? raw.slice(0, qIdx) : raw);
   if (p !== targetPath) return false;
+  if (!isBottomNavTabActive(pathname, targetHref)) return false;
   if (qIdx < 0) return true;
   const targetParams = new URLSearchParams(raw.slice(qIdx + 1));
   if ([...targetParams.keys()].length === 0) return true;
@@ -43,6 +51,10 @@ export function shouldMainBottomNavRouteScrollOnly(
   return true;
 }
 
+function normalizeMainBottomNavRoutePath(path: string | null | undefined): string {
+  return (path ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
+}
+
 export type MainBottomNavRouteCommitArgs = {
   pathname: string | null;
   currentSearch: string;
@@ -50,7 +62,11 @@ export type MainBottomNavRouteCommitArgs = {
   tabId: string;
   /** false면 prefetch·prewarm 생략(이미 활성 탭에서 쿼리만 바뀔 때 등) */
   prefetchWhenInactive?: boolean;
-  beginMenuNavigation: (href: string) => void;
+  beginMenuNavigation: (
+    href: string,
+    source?: MenuNavigationSource,
+    options?: BeginMenuNavigationOptions
+  ) => void;
   onNavigationIntent: (tabId: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
   push: (href: string) => void;
@@ -67,9 +83,19 @@ export type MainBottomNavRouteCommitArgs = {
 
 export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "navigated";
 
+/** 연속 탭 — 이전 async 커밋이 replace/push 하지 않도록 세대 카운터 */
+let mainBottomNavRouteCommitGeneration = 0;
+
+function prefersReducedMotionClient(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
  * DO NOT: Link 기본 navigation·overlay 직접 push·tab.href 직접 push — 모두 여기 또는 resolver 경유.
+ * DO NOT: `onNavigationIntent` 를 async(await exit) 뒤로 미루기 — orbit·pending active 즉시 반영.
+ * `(stores)`↔`(main)`: exit(440ms) → session enter; same-group: `mainShellPushAxis` + dual-panel.
  */
 export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): MainBottomNavRouteCommitResult {
   args.onCloseDomainSwitcher?.();
@@ -84,14 +110,51 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     return "blocked";
   }
 
+  args.onNavigationIntent(args.tabId);
+  void commitMainBottomNavRouteNavigateAsync(args);
+  return "navigated";
+}
+
+async function commitMainBottomNavRouteNavigateAsync(args: MainBottomNavRouteCommitArgs): Promise<void> {
+  const generation = ++mainBottomNavRouteCommitGeneration;
   const navClickT0 = performance.now();
   if (!args.skipPerfMark) {
     markBottomNavRouteIntentForBackgroundWarm();
     navPerfMarkBottomNavClickStart(navClickT0);
   }
 
-  args.beginMenuNavigation(args.href);
-  args.onNavigationIntent(args.tabId);
+  const pushAxis = computeMainBottomNavPushAxis(args.pathname, args.href);
+  const toPath = pathFromHref(args.href);
+  const fromPath = (args.pathname ?? "").split("?")[0]?.trim() ?? "";
+
+  const prewarmWhenInactive = args.prefetchWhenInactive !== false;
+  if (prewarmWhenInactive) {
+    try {
+      if (args.onPrewarm) args.onPrewarm();
+      else prewarmBottomNavTapTargetClientCache(args.href);
+    } catch {
+      /* noop */
+    }
+  }
+
+  if (
+    pushAxis &&
+    typeof window !== "undefined" &&
+    isCrossMainShellRouteGroup(fromPath, toPath) &&
+    !prefersReducedMotionClient()
+  ) {
+    await runMainShellPushExitBeforeNavigate(pushAxis, fromPath, toPath);
+  } else if (pushAxis && isCrossMainShellRouteGroup(fromPath, toPath)) {
+    armMainShellPushEnterSession(pushAxis, fromPath, toPath);
+  }
+
+  if (generation !== mainBottomNavRouteCommitGeneration) {
+    return;
+  }
+
+  args.beginMenuNavigation(args.href, "bottom-nav", {
+    mainShellPushAxis: pushAxis,
+  });
 
   if (args.persistMessengerOriginFromHref) {
     try {
@@ -107,14 +170,8 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
   }
 
-  const prewarmWhenInactive = args.prefetchWhenInactive !== false;
-  if (prewarmWhenInactive) {
-    try {
-      if (args.onPrewarm) args.onPrewarm();
-      else prewarmBottomNavTapTargetClientCache(args.href);
-    } catch {
-      /* noop */
-    }
+  if (generation !== mainBottomNavRouteCommitGeneration) {
+    return;
   }
 
   if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {
@@ -124,5 +181,4 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
   }
 
   args.onCloseOverlay?.();
-  return "navigated";
 }

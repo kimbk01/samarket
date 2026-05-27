@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { resolveCanonicalNavIndex } from "@/components/route-transition/route-transition-config";
+import {
+  resolveCanonicalNavIndex,
+  routeTransitionPushAxisForKind,
+} from "@/components/route-transition/route-transition-config";
 import {
   computeRouteTransitionEnterKind,
   computeStoresOwnerStackTransitionKind,
 } from "@/components/route-transition/route-transition-enter-kind";
 import { buildCanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+
+describe("routeTransitionPushAxisForKind", () => {
+  it("우측 탭(forward↑) → ltr push", () => {
+    expect(routeTransitionPushAxisForKind("ltr-forward")).toBe("ltr");
+  });
+
+  it("좌측 탭(forward↓) → rtl push", () => {
+    expect(routeTransitionPushAxisForKind("rtl-forward")).toBe("rtl");
+  });
+
+  it("subtle·none → push 없음", () => {
+    expect(routeTransitionPushAxisForKind("subtle")).toBeNull();
+    expect(routeTransitionPushAxisForKind("none")).toBeNull();
+  });
+});
 
 describe("resolveCanonicalNavIndex", () => {
   it("does not treat community-messenger as /community (philife)", () => {

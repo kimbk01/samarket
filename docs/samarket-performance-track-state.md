@@ -699,6 +699,41 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 
 ---
 
+## 이번 라운드 (스토어: 라운드 SB2 — browse/home 업종 선택 즉시 눌림·이동)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/stores` 홈과 `/stores/browse/[primary]` 헤더의 1차·2차 업종 선택에서 **UI 확정 반응과 라우팅/prewarm 계약이 컴포넌트별로 흩어져** 있었다. 2차 browse 칩은 `Link` 기본 이동과 `router.push`가 함께 걸릴 수 있었고, 1차 선택은 pathname 변경 전 헤더 제목·메뉴 활성 표시가 늦게 따라올 수 있었다. |
+| 측정 명령 | PowerShell `curl.exe -L -o NUL -s -w` 3회 — `http://192.168.100.7:3000/api/stores/browse?primary=restaurant&sub=chinese` (`time_starttransfer`, `time_total`) + `npm run verify:parity-gates` |
+| 완료 기준 | (1) 1차 탭·메뉴는 pointerdown prewarm + optimistic active/title 반영 (2) 2차 칩은 단일 `router.push`만 수행 (3) 홈·browse 칩 모두 눌림 scale/haptic 유지 (4) parity gate 통과 |
+| 수정 파일 | `components/stores/browse/*`, `components/stores/home/hub/*`, `lib/stores/browse-primary-tab-navigation.ts`, `lib/stores/stores-browse-taxonomy-interaction.ts`, `lib/stores/stores-browse-sub-chip-ui.ts`, `app/delivery-components.css`, `scripts/verify-store-delivery-featured-thumbnails-contract.cjs` |
+| 이번 조치 | 1차 optimistic store를 추가해 탭·메뉴·헤더 제목이 pathname 전환 전 즉시 바뀌게 했다. 2차 browse 칩은 `preventDefault` 후 단일 `router.push`로 정리하고 pointerdown에서 prewarm·햅틱을 실행한다. 홈 1차·2차도 동일 scale 눌림을 적용했다. Snapshot-first browse 구조에 맞춰 featured thumbnail 계약 검증도 현재 구조(`tryLoadStoresBrowseFromSnapshot` + snapshot SQL `thumbnail_url` + assembler `featuredByStore`) 기준으로 갱신했다. |
+| 보완 계측 후 추가 조치 | `scripts/measure-store-taxonomy-tap-response.mjs` 로 탭→pressed/active/title 을 계측했다. 최초 계측에서 browse 2차 pointerdown→pressed 가 **64–147ms**까지 튀어, 원인을 `pointerdown` 태스크 안의 prewarm/haptic 동시 실행으로 확정했다. pressed class 를 먼저 붙이고 prewarm/haptic 은 다음 태스크로 넘겨 눌림 표시를 **1–2ms**대로 낮췄다. 1차 title 도 browse 경로에서는 optimistic primary 제목을 extras 보다 우선하게 수정했다. |
+
+### 라운드 SB2 — 3회 스모크 (s)
+
+| 구분 | Run1 | Run2 | Run3 | warm 평균(Run2–3) |
+|------|------|------|------|------------------|
+| `/api/stores/browse?primary=restaurant&sub=chinese` `starttransfer` | 1.400307 | 0.011837 | 0.010355 | **0.011096** |
+| `time_total` | 1.401182 | 0.012004 | 0.010590 | **0.011297** |
+
+**비교:** 이번 라운드는 UI interaction 계약 보완이 주목적이라 수정 전 동일 UI ms 기준선은 없다. 다만 동일 browse API warm 2회가 **약 11ms**로 메모리 응답을 유지했고, dev 로그도 cache hit·actual handler **1ms**를 기록했다.  
+**판정:** **코드 마감 / 구조 보완 완료** — `tsc`, 관련 vitest, `verify:parity-gates` 통과. 브라우저 실기기 탭→하이라이트 ms 3회 계측 전까지 배달·서비스형 체크시트 `[x]` 는 유지하지 않는다.
+
+### 라운드 SB2b — 탭 반응 계측·보완 (ms)
+
+| 구분 | 수정 전 Run1 | 수정 전 Run2 | 수정 전 Run3 | 수정 후 Run1 | 수정 후 Run2 | 수정 후 Run3 |
+|------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|
+| browse 2차 `pointerdown → pressed` | 89.5 | 35.4 | 71.2 | **1.7** | **1.3** | **1.5** |
+| browse 2차 `click → active` | 41.4 | 30.2 | *(계측 오염)* | **7.0** | **1.7** | **4.1** |
+| browse 1차 `click → active` | 41.0 | 56.1 | 45.4 | **6.2** | **3.3** | **2.5** |
+| browse 1차 `click → title` | 361.1 | 81.4 | 388.0 | **29.5** | **15.9** | **15.3** |
+| `/stores` 홈 2차 `pointerdown → pressed` | 113.0 | 106.7 | 200.6 | **1.9** *(1회 확인)* | — | — |
+
+**SB2b 판정:** **성공(선택 즉시 반응 축)** — UI 눌림/active/title 이 모두 한 프레임 안쪽 또는 30ms 이하로 정리됐다. 홈 2차는 dev 로그인/주소 게이트 오염 때문에 1회만 확인했지만 같은 코드 경로에서 **1.9ms**였다.
+
+---
+
 ## 이번 라운드 (비즈: 라운드 BZ1 — `/mypage/business` 진입 블로킹 쿼리 제거)
 
 | 항목 | 내용 |

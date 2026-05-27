@@ -3,6 +3,7 @@ import {
   bottomNavMessengerHrefWithOrigin,
   buildMessengerRoomListBackHref,
   inferMessengerEntryOriginFromPath,
+  mainBottomNavGlobalInboxTabHref,
   mainBottomNavMessengerTabHref,
   messengerEntryOriginBackHref,
   messengerEntryOriginToSecondaryRail,
@@ -45,10 +46,20 @@ describe("messengerEntryOriginToSecondaryRail", () => {
 });
 
 describe("bottomNavMessengerHrefWithOrigin", () => {
-  it("배달 표면에서 delivery-chats", () => {
+  it("배달 표면에서도 전체 인박스(section=chats)", () => {
     const href = bottomNavMessengerHrefWithOrigin("", "/stores", null);
-    expect(href).toContain("delivery-chats");
+    expect(href).toContain("section=chats");
+    expect(href).not.toContain("delivery-chats");
     expect(href).toContain("from=delivery");
+  });
+});
+
+describe("mainBottomNavGlobalInboxTabHref", () => {
+  it("하단 탭 chat — 도메인과 무관하게 전체 인박스", () => {
+    const href = mainBottomNavGlobalInboxTabHref("/stores", null);
+    expect(href).toContain("/community-messenger");
+    expect(href).toContain("section=chats");
+    expect(href).not.toContain("delivery-chats");
   });
 });
 

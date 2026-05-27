@@ -5,7 +5,7 @@
  *
  * DO NOT on `/stores` home hub:
  * - `getStoresHomeTaxonomySeedState()` 로 첫 페인트
- * - `STORES_HOME_*_SUB_ICONS` / `STORES_HOME_PRIMARY_CATEGORY_ICONS` fallback PNG
+ * - `/public/icons/*` 정적 taxonomy fallback PNG
  * - `StoresHomeInitialShellServer` · SSR category seed · rail-view 교체
  * - server snapshot `taxonomyReady: true` without API/cache
  *

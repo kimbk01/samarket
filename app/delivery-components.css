@@ -1078,6 +1078,7 @@
     letter-spacing: var(--delivery-browse-primary-tab-tracking);
     text-overflow: ellipsis;
     white-space: nowrap;
+    transition: transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1);
   }
 
   .stores-browse-header-primary-tab--active {
@@ -1096,6 +1097,47 @@
     height: 2px;
     background: var(--delivery-text-main);
     content: "";
+  }
+
+  .stores-browse-header-primary-tab:active,
+  .stores-browse-header-primary-tab--pending {
+    background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
+  }
+
+  .stores-browse-header-primary-tab:active .stores-browse-header-primary-tab__label {
+    transform: scale(0.96);
+  }
+
+  /** browse 헤더 4단 — 2차 칩 눌림·선택 */
+  .stores-browse-sub-chip-link .stores-browse-sub-chip-icon-wrap {
+    transition: transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1);
+  }
+
+  .stores-browse-sub-chip-link:active .stores-browse-sub-chip-icon-wrap,
+  .stores-browse-sub-chip-link.stores-browse-sub-chip-link--pressed .stores-browse-sub-chip-icon-wrap {
+    transform: scale(0.92);
+  }
+
+  .stores-browse-sub-chip-link--active .stores-browse-sub-chip-icon-wrap {
+    box-shadow: 0 0 0 2px var(--delivery-primary);
+  }
+
+  /** `/stores` 홈 2차 칩 — browse 와 동일 scale 눌림 */
+  .stores-home-sub-category-link .stores-home-sub-category-icon-wrap {
+    transition: transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1);
+  }
+
+  .stores-home-sub-category-link:active .stores-home-sub-category-icon-wrap,
+  .stores-home-sub-category-link.stores-home-sub-category-link--pressed .stores-home-sub-category-icon-wrap {
+    transform: scale(0.92);
+  }
+
+  .stores-home-primary-category-tab:active .stores-home-primary-category-icon-wrap {
+    transform: scale(0.94);
+  }
+
+  .stores-home-primary-category-tab .stores-home-primary-category-icon-wrap {
+    transition: transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1);
   }
 
   .stores-browse-header-primary-tab-menu-btn {

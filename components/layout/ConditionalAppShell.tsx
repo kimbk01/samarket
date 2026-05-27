@@ -30,7 +30,7 @@ import {
   MAIN_HUB_SCROLL_SHELL_ROOT_CLASS,
   resolvesMainHubScrollColumn,
 } from "@/lib/layout/main-hub-scroll-column";
-import { MainHubScrollColumn } from "./MainHubScrollColumn";
+import { MainHubScrollColumn, MainHubScrollBody } from "./MainHubScrollColumn";
 import { invalidateMainAppScrollRootCache } from "@/lib/layout/main-app-scroll-root";
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 import {
@@ -172,7 +172,7 @@ export function ConditionalAppShell({
       : mainScrollInMainColumn
         ? MAIN_COLUMN_SCROLL_CLASS
         : "overflow-x-hidden";
-  const mainColumnInner = (
+  const mainInnerColumn = (
     <div
       className={`${APP_MAIN_COLUMN_CLASS} ${
         f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
@@ -180,17 +180,31 @@ export function ConditionalAppShell({
           : ""
       }`}
     >
-      <MainShellTabContentTransition
-        initialNavItems={initialMainBottomNavItems}
-        contentStretchClass={
-          f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-            ? "flex h-full min-h-0 min-w-0 flex-1 flex-col"
-            : "min-w-0"
-        }
-      >
-        {children}
-      </MainShellTabContentTransition>
+      {children}
     </div>
+  );
+
+  const mainBodyTransition = (
+    <MainShellTabContentTransition
+      initialNavItems={initialMainBottomNavItems}
+      contentStretchClass="main-shell-push-host flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    >
+      {hubScrollColumn ? (
+        <MainHubScrollBody className={mainSurfaceClass}>{mainInnerColumn}</MainHubScrollBody>
+      ) : (
+        <div
+          className={`min-h-0 min-w-0 flex-1 flex-col ${
+            f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+              ? "flex min-h-0 overflow-x-hidden overflow-y-hidden"
+              : mainScrollInMainColumn
+                ? MAIN_COLUMN_SCROLL_CLASS
+                : "flex overflow-x-hidden"
+          }`}
+        >
+          {mainInnerColumn}
+        </div>
+      )}
+    </MainShellTabContentTransition>
   );
   return (
     <BottomNavScrollChromeProvider hidden={Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll)}>
@@ -207,11 +221,11 @@ export function ConditionalAppShell({
       {f.showRegionBar ? <RegionBar /> : null}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       {hubScrollColumn ? (
-        <MainHubScrollColumn header={<AppStickyHeader />} mainClassName={mainSurfaceClass}>
-          {mainColumnInner}
-        </MainHubScrollColumn>
+        <MainHubScrollColumn header={<AppStickyHeader />} body={mainBodyTransition} />
       ) : (
-        <main className={`${mainSurfaceClass} ${mainBodyLockedClass}`}>{mainColumnInner}</main>
+        <main className={`${mainSurfaceClass} ${mainBodyLockedClass} flex min-h-0 flex-1 flex-col`}>
+          {mainBodyTransition}
+        </main>
       )}
       {showBottomNavEffective ? (
         <Suspense

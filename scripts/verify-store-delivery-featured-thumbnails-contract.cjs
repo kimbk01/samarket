@@ -40,6 +40,9 @@ function assertNotIncludes(source, needle, context) {
 }
 
 const browseRoute = read("app/api/stores/browse/route.ts");
+const browseBuild = read("lib/stores/stores-browse-build.ts");
+const browseSnapshot = read("lib/stores/stores-browse-snapshot.ts");
+const browseSnapshotSql = read("supabase/migrations/20260526230000_stores_browse_snapshot.sql");
 const homeFeedRoute = read("app/api/stores/home-feed/route.ts");
 assertIncludes(homeFeedRoute, "featuredByStore", "home-feed must inline featured menu preview");
 assertIncludes(homeFeedRoute, "thumbnail_url", "home-feed must select product thumbnails in same query wave");
@@ -48,10 +51,20 @@ assertIncludes(
   "resolveBrowseFeaturedMenuImageUrl",
   "home-feed must normalize featured thumbnail URLs"
 );
-assertIncludes(browseRoute, "featuredByStore", "browse route must inline featured menu preview");
-assertIncludes(browseRoute, "thumbnail_url", "browse route must select product thumbnails");
 assertIncludes(
   browseRoute,
+  "tryLoadStoresBrowseFromSnapshot",
+  "browse route must use snapshot-first payload that includes featured menu preview"
+);
+assertIncludes(
+  browseSnapshot,
+  "assembleStoresBrowseResponse",
+  "browse snapshot path must assemble the same row-card payload as legacy browse build"
+);
+assertIncludes(browseBuild, "featuredByStore", "browse assembler must inline featured menu preview");
+assertIncludes(browseSnapshotSql, "thumbnail_url", "browse snapshot RPC must select product thumbnails");
+assertIncludes(
+  browseBuild,
   "resolveBrowseFeaturedMenuImageUrl",
   "browse route must normalize featured thumbnail URLs"
 );

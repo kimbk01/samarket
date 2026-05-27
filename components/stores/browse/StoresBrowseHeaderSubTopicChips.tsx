@@ -12,17 +12,28 @@ import {
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { storesBrowseNavSubSlug, storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
+import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { resolveStoreTopicLabel } from "@/lib/i18n/store-browse-label-i18n";
+import type { UserRegion } from "@/lib/regions/types";
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-mock/queries";
 import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
+import { useRegionOptional } from "@/contexts/RegionContext";
 import {
   getBrowseSubChipOptimisticSubServerSnapshot,
   getBrowseSubChipOptimisticSubSnapshot,
-  setBrowseSubChipOptimisticSub,
   subscribeBrowseSubChipOptimisticSub,
 } from "@/lib/stores/browse-sub-chip-navigation";
+import {
+  onBrowseSubTaxonomyCommit,
+  onBrowseSubTaxonomyPointerDown,
+} from "@/lib/stores/stores-browse-taxonomy-interaction";
+import {
+  STORES_BROWSE_SUB_CHIP_ICON_WRAP,
+  STORES_BROWSE_SUB_CHIP_IMAGE_FRAME,
+  STORES_BROWSE_SUB_CHIP_LABEL,
+  STORES_BROWSE_SUB_CHIP_LINK,
+} from "@/lib/stores/stores-browse-sub-chip-ui";
 import {
   resolveBrowseMatchedSubSlug,
   resolveBrowseSubChipActiveSlug,
@@ -30,7 +41,6 @@ import {
 import { useBrowseSubAllCanonicalUrl } from "@/lib/stores/use-browse-sub-all-canonical-url";
 import { useBrowseSubIndustries } from "@/lib/stores/use-browse-sub-industries";
 import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
-import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 import {
   resolveStoreTaxonomyImageSrc,
   storeTaxonomyUploadedImageUrl,
@@ -39,27 +49,10 @@ import { STORES_HOME_TAXONOMY_EAGER_ICON_COUNT } from "@/lib/stores/stores-home-
 import { STORES_HOME_SUB_CATEGORY_SLIDE_MS } from "@/lib/stores/stores-home-sub-category-slide";
 import { STORES_HOME_HEADER_BROWSE_SUB_CHIPS_ROW_CLASS } from "@/lib/design/stores-home-header-chrome";
 import {
-  STORES_HOME_SUB_CATEGORY_IMAGE_FRAME,
-  STORES_HOME_SUB_CATEGORY_LABEL,
-  STORES_HOME_SUB_CATEGORY_LINK,
   STORES_HOME_SUB_CATEGORY_RAIL,
   STORES_HOME_SUB_CATEGORY_SLIDE_LAYER,
   STORES_HOME_SUB_CATEGORY_SLIDE_STAGE,
 } from "@/lib/stores/stores-home-ui";
-
-const RESTAURANT_SUB_ICON: Record<string, string> = {
-  korean: "/icons/food/icon_0_1.png",
-  chinese: "/icons/food/icon_1_0.png",
-  japanese: "/icons/food/icon_1_1.png",
-  western: "/icons/food/icon_1_2.png",
-  pizza: "/icons/food/icon_1_2.png",
-  snack: "/icons/food/icon_1_3.png",
-  chicken: "/icons/food/icon_0_2.png",
-  lunchbox: "/icons/food/icon_2_0.png",
-  local: "/icons/food/icon_2_1.png",
-  dessert: "/icons/food/icon_2_2.png",
-  late_night: "/icons/food/icon_2_3.png",
-};
 
 function BrowseSubCategoryRail({
   primarySlug,
@@ -67,6 +60,7 @@ function BrowseSubCategoryRail({
   language,
   activeSub,
   ariaLabel,
+  primaryRegion,
   onSubNavigate,
 }: {
   primarySlug: string;
@@ -74,9 +68,17 @@ function BrowseSubCategoryRail({
   language: "ko" | "en";
   activeSub: string | null;
   ariaLabel: string;
+  primaryRegion: UserRegion | null;
   onSubNavigate: (slug: string, href: string) => void;
 }) {
-  const isRestaurant = primarySlug.trim().toLowerCase() === "restaurant";
+  const [pressedSlug, setPressedSlug] = useState<string | null>(null);
+
+  const clearPressed = (el?: EventTarget | null) => {
+    if (el instanceof HTMLElement) {
+      el.classList.remove("stores-browse-sub-chip-link--pressed");
+    }
+    setPressedSlug(null);
+  };
 
   return (
     <HorizontalDragScroll
@@ -93,12 +95,9 @@ function BrowseSubCategoryRail({
           s.name_en,
         );
         const uploaded = storeTaxonomyUploadedImageUrl(s.imageUrl);
-        const slugKey = String(s.slug ?? "").trim().toLowerCase();
-        const iconSrc = resolveStoreTaxonomyImageSrc(
-          uploaded,
-          isRestaurant ? (RESTAURANT_SUB_ICON[slugKey] ?? null) : storeSecondaryBrowseIconPath(primarySlug, idx + 1),
-        );
+        const iconSrc = resolveStoreTaxonomyImageSrc(uploaded, null);
         const href = storesBrowsePath(primarySlug, s.slug);
+        const pressed = pressedSlug === s.slug;
         return (
           <Link
             key={s.id}
@@ -106,13 +105,33 @@ function BrowseSubCategoryRail({
             prefetch={false}
             scroll={false}
             aria-current={on ? "page" : undefined}
-            className={`${STORES_HOME_SUB_CATEGORY_LINK} ${on ? "opacity-100" : "opacity-90"}`}
-            onClick={() => {
-              if (on) return;
+            className={`${STORES_BROWSE_SUB_CHIP_LINK} ${on ? "stores-browse-sub-chip-link--active" : ""} ${pressed ? "stores-browse-sub-chip-link--pressed" : ""}`}
+            onPointerDown={(e) => {
+              e.currentTarget.classList.add("stores-browse-sub-chip-link--pressed");
+              setPressedSlug(s.slug);
+              onBrowseSubTaxonomyPointerDown({
+                ev: e,
+                primarySlug,
+                subSlug: s.slug,
+                language,
+                primaryRegion,
+              });
+            }}
+            onPointerUp={(e) => clearPressed(e.currentTarget)}
+            onPointerCancel={(e) => clearPressed(e.currentTarget)}
+            onPointerLeave={(e) => clearPressed(e.currentTarget)}
+            onClick={(e) => {
+              clearPressed(e.currentTarget);
+              if (on) {
+                e.preventDefault();
+                return;
+              }
+              e.preventDefault();
+              e.currentTarget.classList.add("stores-browse-sub-chip-link--active");
               onSubNavigate(s.slug, href);
             }}
           >
-            <span className={STORES_HOME_SUB_CATEGORY_IMAGE_FRAME}>
+            <span className={`${STORES_BROWSE_SUB_CHIP_ICON_WRAP} ${STORES_BROWSE_SUB_CHIP_IMAGE_FRAME}`}>
               {iconSrc ?
                 <StoreTaxonomyThumb
                   src={iconSrc}
@@ -129,7 +148,7 @@ function BrowseSubCategoryRail({
               )}
             </span>
             <span
-              className={`${STORES_HOME_SUB_CATEGORY_LABEL} ${on ? "font-bold text-[color:var(--delivery-text-main)]" : ""}`}
+              className={`${STORES_BROWSE_SUB_CHIP_LABEL} ${on ? "font-bold text-[color:var(--delivery-text-main)]" : ""}`}
             >
               {label}
             </span>
@@ -148,6 +167,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const taxonomy = useBrowseTaxonomySnapshot();
   const subs = useBrowseSubIndustries(primarySlug);
 
@@ -204,7 +224,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
   }, [primarySlug, subs]);
 
   const onSubNavigate = (slug: string, href: string) => {
-    setBrowseSubChipOptimisticSub(storesBrowseNavSubSlug(slug));
+    onBrowseSubTaxonomyCommit(slug);
     startTransition(() => router.push(href, { scroll: false }));
   };
 
@@ -227,6 +247,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
                 language={language}
                 activeSub={routePrimary === slideTransition.fromSlug.toLowerCase() ? activeSub : null}
                 ariaLabel={subAria}
+                primaryRegion={primaryRegion}
                 onSubNavigate={onSubNavigate}
               />
             </div>
@@ -237,6 +258,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
                 language={language}
                 activeSub={routePrimary === slideTransition.toSlug.toLowerCase() ? activeSub : null}
                 ariaLabel={subAria}
+                primaryRegion={primaryRegion}
                 onSubNavigate={onSubNavigate}
               />
             </div>
@@ -248,6 +270,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
               language={language}
               activeSub={activeSub}
               ariaLabel={subAria}
+              primaryRegion={primaryRegion}
               onSubNavigate={onSubNavigate}
             />
           </div>

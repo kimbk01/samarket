@@ -1,5 +1,4 @@
 import type { BrowsePrimaryIndustry } from "@/lib/stores/browse-mock/types";
-import { STORES_HOME_PRIMARY_CATEGORY_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
 import {
   resolveStoreTaxonomyImageSrc,
   storeTaxonomyUploadedImageUrl,
@@ -38,15 +37,13 @@ export function orderBrowsePrimaryIndustries(
   );
 }
 
-/** `/stores` 홈·`StoreCategoryExploreSection` 과 동일 — taxonomy 업로드 → 정적 PNG */
+/** taxonomy image_url only — 정적 /public/icons 폴백 금지 */
 export function resolveBrowsePrimaryIndustryIcon(p: {
   slug: string;
   imageUrl?: string | null;
 }): { src: string; isUploaded: boolean } | null {
-  const slug = p.slug.toLowerCase();
   const uploaded = storeTaxonomyUploadedImageUrl(p.imageUrl);
-  const src =
-    resolveStoreTaxonomyImageSrc(uploaded, STORES_HOME_PRIMARY_CATEGORY_ICONS[slug] ?? null) ?? "";
+  const src = resolveStoreTaxonomyImageSrc(uploaded, null) ?? "";
   if (!src) return null;
   return { src, isUploaded: !!uploaded };
 }

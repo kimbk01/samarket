@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { StoresBrowseHeaderScrollCollapse } from "@/components/stores/browse/StoresBrowseHeaderScrollCollapse";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,6 +18,12 @@ import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-h
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import {
+  getBrowsePrimaryTabOptimisticSlugServerSnapshot,
+  getBrowsePrimaryTabOptimisticSlugSnapshot,
+  resolveBrowsePrimaryTabActiveSlug,
+  subscribeBrowsePrimaryTabOptimisticSlug,
+} from "@/lib/stores/browse-primary-tab-navigation";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
   STORES_HOME_HEADER_ACTIONS_CLUSTER,
@@ -90,6 +96,13 @@ export function StoresBrowseHeaderChrome() {
     () => pathname?.match(/^\/stores\/browse\/([^/?]+)/)?.[1]?.trim().toLowerCase() ?? "",
     [pathname]
   );
+  const optimisticPrimary = useSyncExternalStore(
+    subscribeBrowsePrimaryTabOptimisticSlug,
+    getBrowsePrimaryTabOptimisticSlugSnapshot,
+    getBrowsePrimaryTabOptimisticSlugServerSnapshot,
+  );
+  const menuActivePrimarySlug =
+    resolveBrowsePrimaryTabActiveSlug(browsePrimarySlug || null, optimisticPrimary) ?? browsePrimarySlug;
   const extras = useMainTier1ExtrasOptional()?.extras;
   const industryVersion = useBrowseIndustryDatasetVersion();
   const address = useDeliveryHomeHeaderAddress();
@@ -105,14 +118,25 @@ export function StoresBrowseHeaderChrome() {
   );
 
   const title = useMemo(() => {
+    const primarySlug = menuActivePrimarySlug?.trim().toLowerCase();
+    if (primarySlug) {
+      const primaryFromSnapshot = primaries.find((p) => p.slug.toLowerCase() === primarySlug);
+      if (primaryFromSnapshot) {
+        return resolveStorePrimaryIndustryLabel(
+          language,
+          primaryFromSnapshot.slug,
+          primaryFromSnapshot.nameKo,
+          primaryFromSnapshot.name_en ?? primaryFromSnapshot.nameEn,
+        );
+      }
+      const primary = getBrowsePrimaryBySlug(primarySlug);
+      if (primary) return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
+      return primarySlug;
+    }
     const fromExtras = extras?.tier1?.titleText?.trim();
     if (fromExtras) return fromExtras;
-    const primarySlug = pathname?.match(/^\/stores\/browse\/([^/]+)/)?.[1]?.trim().toLowerCase();
-    if (!primarySlug) return safeT("navigation_delivery");
-    const primary = getBrowsePrimaryBySlug(primarySlug);
-    if (!primary) return primarySlug;
-    return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
-  }, [extras?.tier1?.titleText, pathname, language, safeT, industryVersion]);
+    return safeT("navigation_delivery");
+  }, [extras?.tier1?.titleText, menuActivePrimarySlug, primaries, language, safeT, industryVersion]);
 
   return (
     <>
@@ -180,7 +204,7 @@ export function StoresBrowseHeaderChrome() {
                     open={primaryMenuOpen}
                     onClose={() => setPrimaryMenuOpen(false)}
                     primaries={primaries}
-                    activeSlug={browsePrimarySlug}
+                    activeSlug={menuActivePrimarySlug || null}
                   />
                 </div>
               </>

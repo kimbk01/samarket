@@ -3,6 +3,7 @@
 import { memo, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { StoresHomePrimaryCategoriesSkeleton } from "@/components/stores/home/hub/StoresHomeCategoriesSkeleton";
+import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import {
   getStoresHomeCategoryChromeHandlers,
@@ -71,7 +72,12 @@ function StoresHomePrimaryCategoryRail({
         role="tab"
         aria-selected={on}
         onClick={() => onSelectPrimary(p.slug)}
-        onPointerDown={() => onPrewarmPrimary(p.slug)}
+        onPointerDown={(e) => {
+          window.setTimeout(() => {
+            triggerLightTapFeedback(e);
+            onPrewarmPrimary(p.slug);
+          }, 0);
+        }}
         className={STORES_HOME_PRIMARY_CATEGORY_TAB_BUTTON}
       >
         {icon ?

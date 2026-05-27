@@ -45,7 +45,9 @@ describe("resolveActiveMainBottomNavTabIndex", () => {
     expect(resolveActiveMainBottomNavTabIndex("/market/jobs", tradeTabs)).toBe(1);
     expect(resolveActiveMainBottomNavTabIndex("/philife", tradeTabs)).toBe(0);
     expect(resolveActiveMainBottomNavTabIndex("/stores", tradeTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(3);
+    /** 하단 chat 슬롯 — trade-chats 는 FAB·레거시 href, 탭 활성 아님(전체 인박스만) */
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(-1);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger?section=chats", tradeTabs)).toBe(3);
     expect(resolveActiveMainBottomNavTabIndex("/mypage", tradeTabs)).toBe(4);
 
     const deliveryTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
@@ -77,12 +79,11 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
   });
 
-  it("거래 표면 idle 후보에 거래 메신저 목록 href·from=trade 포함", () => {
+  it("거래 표면 idle 후보 — chat 슬롯은 전체 인박스(section=chats)·from=trade", () => {
     const tradeTabs = composeMainBottomNavDisplayTabs("/market/list", BOTTOM_NAV_ITEMS);
     const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", tradeTabs);
-    expect(hrefs.some((h) => h.includes("/community-messenger/trade-chats") && h.includes("from=trade"))).toBe(
-      true
-    );
+    expect(hrefs.some((h) => h.includes("section=chats") && h.includes("from=trade"))).toBe(true);
+    expect(hrefs.some((h) => h.includes("/community-messenger/trade-chats"))).toBe(false);
   });
 
   it("배달 표면 idle 후보 — 활성 배달(/stores) 제외", () => {
