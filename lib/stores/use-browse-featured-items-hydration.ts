@@ -6,11 +6,10 @@
  * 계약: `merge-store-delivery-row-featured-hydration.ts` · `verify:store-delivery-featured-thumbnails-contract`
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, startTransition } from "react";
+import { scheduleBrowseFeaturedItemsBatch } from "@/lib/stores/browse-featured-items-batch-coordinator";
 import { logBrowseCardHydration } from "@/lib/stores/browse-featured-items-perf-log";
-import { BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP } from "@/lib/stores/browse-featured-items-types";
 import {
-  fetchBrowseFeaturedItemsBatch,
   peekBrowseFeaturedItemsClient,
 } from "@/lib/stores/fetch-browse-featured-items-client";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
@@ -19,13 +18,18 @@ export type BrowseFeaturedMenuHydrationPhase = "idle" | "loading" | "done";
 
 type StoreRef = { id: string; slug: string };
 
-const VIEWPORT_ROOT_MARGIN = "200px 0px";
+const DEFAULT_VIEWPORT_ROOT_MARGIN = "200px 0px";
 const VIEWPORT_THRESHOLD = 0.01;
 const FLUSH_DEBOUNCE_MS = 48;
 
 export function useBrowseFeaturedItemsHydration(
   stores: StoreRef[],
-  opts?: { enabled?: boolean; /** 뷰포트 밖(가로 레일) 카드 — 즉시 featured batch */ eagerStoreIds?: readonly string[] }
+  opts?: {
+    enabled?: boolean;
+    /** 뷰포트 밖(가로 레일) 카드 — 즉시 featured batch */
+    eagerStoreIds?: readonly string[];
+    viewportRootMargin?: string;
+  }
 ): {
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
   hydrationEpoch: number;
@@ -33,6 +37,7 @@ export function useBrowseFeaturedItemsHydration(
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
 } {
   const enabled = opts?.enabled !== false;
+  const viewportRootMargin = opts?.viewportRootMargin ?? DEFAULT_VIEWPORT_ROOT_MARGIN;
   const storesKey = stores.map((s) => s.id).join(",");
   const hydratedRef = useRef(new Map<string, BrowseFeaturedCardItem[]>());
   const phaseRef = useRef(new Map<string, BrowseFeaturedMenuHydrationPhase>());
@@ -48,14 +53,12 @@ export function useBrowseFeaturedItemsHydration(
     () => new Map()
   );
 
-  const syncHydratedSnapshot = useCallback(() => {
-    setHydratedByStoreId(new Map(hydratedRef.current));
-  }, []);
-
   const bumpEpoch = useCallback(() => {
-    syncHydratedSnapshot();
-    setHydrationEpoch((n) => n + 1);
-  }, [syncHydratedSnapshot]);
+    startTransition(() => {
+      setHydratedByStoreId(new Map(hydratedRef.current));
+      setHydrationEpoch((n) => n + 1);
+    });
+  }, []);
 
   const applyHydrated = useCallback(
     (map: Map<string, BrowseFeaturedCardItem[]>, gen: number) => {
@@ -95,25 +98,18 @@ export function useBrowseFeaturedItemsHydration(
     if (want.length === 0) return;
 
     bumpEpoch();
-    const chunks: string[][] = [];
-    for (let i = 0; i < want.length; i += BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP) {
-      chunks.push(want.slice(i, i + BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP));
-    }
     const gen = batchGenRef.current;
     void (async () => {
-      let cacheHits = 0;
       try {
-        for (const chunk of chunks) {
-          if (gen !== batchGenRef.current) return;
-          const { byStoreId, cacheHits: hits } = await fetchBrowseFeaturedItemsBatch(chunk);
-          cacheHits += hits;
-          applyHydrated(byStoreId, gen);
-        }
+        if (gen !== batchGenRef.current) return;
+        const byStoreId = await scheduleBrowseFeaturedItemsBatch(want);
+        if (gen !== batchGenRef.current) return;
+        applyHydrated(byStoreId, gen);
         logBrowseCardHydration({
           visible_cards: visibleRef.current.size,
           hydrated_cards: want.length,
           skipped_cards: Math.max(0, visibleRef.current.size - want.length),
-          cache_hits: cacheHits + clientHits,
+          cache_hits: clientHits,
         });
       } catch {
         if (gen !== batchGenRef.current) return;
@@ -211,11 +207,10 @@ export function useBrowseFeaturedItemsHydration(
           }
         }
         if (touched) {
-          bumpEpoch();
           scheduleFlush();
         }
       },
-      { root: null, rootMargin: VIEWPORT_ROOT_MARGIN, threshold: VIEWPORT_THRESHOLD }
+      { root: null, rootMargin: viewportRootMargin, threshold: VIEWPORT_THRESHOLD }
     );
     observerRef.current = obs;
     for (const [id, el] of elementsRef.current) {
@@ -227,7 +222,7 @@ export function useBrowseFeaturedItemsHydration(
       if (observerRef.current === obs) observerRef.current = null;
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
     };
-  }, [bumpEpoch, enabled, scheduleFlush, storesKey]);
+  }, [bumpEpoch, enabled, scheduleFlush, storesKey, viewportRootMargin]);
 
   const registerListItem = useCallback((storeId: string, node: HTMLElement | null) => {
     const obs = observerRef.current;

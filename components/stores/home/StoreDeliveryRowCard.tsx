@@ -525,6 +525,7 @@ function StoreDeliveryRowCardInner({
                       fetchPreset="rowFeatured"
                       roundedClassName="rounded-[10px]"
                       className="h-full w-full"
+                      loading="lazy"
                     />
                     {!isProfile && price ?
                       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">

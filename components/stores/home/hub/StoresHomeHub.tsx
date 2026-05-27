@@ -12,7 +12,7 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import {
   flattenStoresHomeFoodEntries,
-  splitStoresHomeFeed,
+  pickStoresHomeOpenNow,
 } from "@/lib/stores/stores-home-feed-sections";
 import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
@@ -24,11 +24,10 @@ import { StoresHomePullRefreshRegister } from "@/components/stores/home/hub/Stor
 import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHeroBanner";
 import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
 import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
-import { StoresHomeFeedList } from "@/components/stores/home/hub/StoresHomeFeedList";
 import { StoresHomeSkeleton } from "@/components/stores/home/hub/StoresHomeSkeleton";
 import { StoresHomeBuyerMyZone } from "@/components/stores/home/hub/StoresHomeBuyerMyZone";
-import { StoresHomeStoreDiscoveryRail } from "@/components/stores/home/hub/StoresHomeStoreDiscoveryRail";
 import { StoresHomeDeferredViewport } from "@/components/stores/home/hub/StoresHomeDeferredViewport";
+import { StoresHomeHubBelowFold } from "@/components/stores/home/hub/StoresHomeHubBelowFold";
 import { StoresHomePerfBoot } from "@/components/stores/home/hub/StoresHomePerfBoot";
 import type {
   RecentOrderPreview,
@@ -36,10 +35,13 @@ import type {
 } from "@/components/stores/home/StoreOrderDashboardSection";
 import { STORES_HOME_SECTION_BROWSE } from "@/lib/stores/stores-home-section-browse-hrefs";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
-
-const FEED_EXCLUDE_KEYS = ["premium", "open", "discount", "top"] as const;
-const FIRST_RAIL_CARD_PRIORITY_COUNT = 2;
-const FIRST_RAIL_FEATURED_EAGER = 2;
+import {
+  STORES_HOME_BELOW_FOLD_ROOT_MARGIN,
+  STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
+  STORES_HOME_FIRST_RAIL_FEATURED_EAGER,
+} from "@/lib/stores/stores-home-lcp-policy";
+import { useStoresHomeFeedRailLcpGate } from "@/lib/stores/use-stores-home-first-lcp";
+import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** CONTRACT: `StoresHomeQuickCategories` 는 피드 로딩과 분리·항상 마운트 — `verify:stores-home-hub-contract`. */
 export function StoresHomeHub({
@@ -68,6 +70,8 @@ export function StoresHomeHub({
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
   const scrollReadyMarkedRef = useRef(false);
+  const feedRailLcpReady = useStoresHomeFeedRailLcpGate();
+  const deferStoresHomeCompetition = useStoresHomeOverlayDeferUntilInput();
 
   useLayoutEffect(() => {
     markStoresHomePerf("shell");
@@ -143,22 +147,26 @@ export function StoresHomeHub({
 
   useRefetchOnPageShowRestore(() => void loadFeed({ silent: true }));
 
-  const sections = useMemo(() => splitStoresHomeFeed(stores), [stores]);
-  const fastFood = useMemo(() => flattenStoresHomeFoodEntries(sections.openNow, 16), [sections.openNow]);
-  const recFood = useMemo(() => flattenStoresHomeFoodEntries(sections.premium, 8), [sections.premium]);
+  const openNowStores = useMemo(() => pickStoresHomeOpenNow(stores), [stores]);
+  const fastFood = useMemo(() => flattenStoresHomeFoodEntries(openNowStores, 16), [openNowStores]);
 
   const hydrationStores = useMemo(() => stores.map((s) => ({ id: s.id, slug: s.slug })), [stores]);
-  /** 첫 레일 2매장만 featured batch — hydration long task·API 완화 */
+
   const eagerStoreIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const entry of fastFood.slice(0, FIRST_RAIL_FEATURED_EAGER)) {
+    for (const entry of fastFood.slice(0, STORES_HOME_FIRST_RAIL_FEATURED_EAGER)) {
       if (entry.storeId) ids.add(entry.storeId);
     }
     return [...ids];
   }, [fastFood]);
+
   const { hydratedByStoreId, getPhase, registerListItem } = useBrowseFeaturedItemsHydration(
     hydrationStores,
-    { enabled: stores.length > 0, eagerStoreIds }
+    {
+      enabled: stores.length > 0 && !deferStoresHomeCompetition,
+      eagerStoreIds,
+      viewportRootMargin: STORES_HOME_FEATURED_VIEWPORT_ROOT_MARGIN,
+    }
   );
 
   const hasActiveOrder = buyerState.kind === "ready" && buyerState.activeOrders > 0;
@@ -174,57 +182,19 @@ export function StoresHomeHub({
     </div>
   );
 
-  const belowFold = (
-    <>
-      <StoresHomeStoreDiscoveryRail
-        title={t("store_badge_menu_discount")}
-        stores={sections.discounted}
-        adHint={t("store_badge_instant_discount")}
-        actionHref={STORES_HOME_SECTION_BROWSE.discount()}
-        actionLabel={t("store_browse_view_all")}
-      />
-
-      <StoresHomeStoreDiscoveryRail
-        title={t("store_spot_recommended_subtitle")}
-        stores={sections.topRated}
-        actionHref={STORES_HOME_SECTION_BROWSE.topRated()}
-        actionLabel={t("store_browse_view_all")}
-      />
-
-      {recFood.length > 0 ?
-        <StoresHomeSectionShell title={t("store_spot_recommended_title")}>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {recFood.slice(0, 4).map((entry) => {
-              const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
-              return (
-                <StoresHomeFoodCard
-                  key={`rec-${entry.storeId}-${entry.productId}`}
-                  entry={entry}
-                  imageUrl={img.imageUrl}
-                  loadingImage={img.loading}
-                />
-              );
-            })}
-          </div>
-        </StoresHomeSectionShell>
-      : null}
-
-      {meta?.source === "supabase_unconfigured" ?
-        <p className="rounded-[var(--delivery-radius)] border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          {t("store_supabase_unconfigured_hint")}
-        </p>
-      : null}
-
-      <StoresHomeFeedList
-        sections={sections}
+  const renderBelowFold = useCallback(
+    () => (
+      <StoresHomeHubBelowFold
+        stores={stores}
         loading={loading}
+        meta={meta}
         emptyFallback={emptyFallback}
-        excludeSectionKeys={FEED_EXCLUDE_KEYS}
         hydratedByStoreId={hydratedByStoreId}
         getPhase={getPhase}
         registerListItem={registerListItem}
       />
-    </>
+    ),
+    [emptyFallback, getPhase, hydratedByStoreId, loading, meta, registerListItem, stores]
   );
 
   return (
@@ -247,7 +217,7 @@ export function StoresHomeHub({
         {loading ?
           <StoresHomeSkeleton />
         : <>
-            {fastFood.length > 0 ?
+            {feedRailLcpReady && fastFood.length > 0 ?
               <StoresHomeSectionShell
                 title={t("store_order_now_title")}
                 actionHref={STORES_HOME_SECTION_BROWSE.orderNow()}
@@ -262,7 +232,7 @@ export function StoresHomeHub({
                         entry={entry}
                         imageUrl={img.imageUrl}
                         loadingImage={img.loading}
-                        priorityImage={idx < FIRST_RAIL_CARD_PRIORITY_COUNT}
+                        markStoreCardPerf={idx === 0}
                       />
                     );
                   })}
@@ -270,7 +240,10 @@ export function StoresHomeHub({
               </StoresHomeSectionShell>
             : null}
 
-            <StoresHomeDeferredViewport>{belowFold}</StoresHomeDeferredViewport>
+            <StoresHomeDeferredViewport
+              rootMargin={STORES_HOME_BELOW_FOLD_ROOT_MARGIN}
+              renderContent={renderBelowFold}
+            />
           </>
         }
       </div>

@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   description: `${APP_PRODUCT_DISPLAY_NAME} marketplace`,
   applicationName: APP_PRODUCT_DISPLAY_NAME,
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }],
+    icon: "/favicon.ico",
   },
   appleWebApp: {
     capable: true,

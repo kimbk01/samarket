@@ -64,5 +64,5 @@ export function StoresHomeHeaderNotificationInboxLazy({
   }, []);
 
   if (!mountInbox) return <NotificationBellPlaceholder tone={tone} />;
-  return <PhilifeHeaderNotificationInbox tone={tone} />;
+  return <PhilifeHeaderNotificationInbox tone={tone} deferInboxListPrefetch />;
 }

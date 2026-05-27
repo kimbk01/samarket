@@ -9,6 +9,7 @@ import {
   writeDiBaYNotificationPromptState,
 } from "@/lib/notifications/dibay-notification-prompt-storage";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
+import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 function isAuthExcludedPath(path: string): boolean {
   return (
@@ -26,12 +27,14 @@ function isAuthExcludedPath(path: string): boolean {
  */
 export function DiBaYNotificationOnboardingGate() {
   const pathname = usePathname() ?? "";
+  const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const shownRef = useRef(false);
 
   const tryOpen = useCallback(() => {
     if (typeof window === "undefined") return;
+    if (deferStoresHomeLcp) return;
     if (isAuthExcludedPath(pathname)) return;
     if (!getSupabaseProfileCache()?.id) return;
     if (!shouldOfferDiBaYNotificationPrePrompt()) return;
@@ -56,7 +59,7 @@ export function DiBaYNotificationOnboardingGate() {
     } else {
       window.setTimeout(run, 480);
     }
-  }, [pathname]);
+  }, [deferStoresHomeLcp, pathname]);
 
   useEffect(() => {
     const t = window.setTimeout(() => tryOpen(), 200);

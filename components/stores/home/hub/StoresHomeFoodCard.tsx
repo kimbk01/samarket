@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { memo, useLayoutEffect } from "react";
 import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
+import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import type { StoresHomeFoodEntry } from "@/lib/stores/stores-home-feed-sections";
 import { STORES_HOME_BODY, STORES_HOME_CARD, STORES_HOME_META } from "@/lib/stores/stores-home-ui";
@@ -16,29 +17,34 @@ function StoresHomeFoodCardInner({
   entry,
   imageUrl,
   loadingImage,
-  priorityImage = false,
+  markStoreCardPerf = false,
+  deferProductImage,
 }: {
   entry: StoresHomeFoodEntry;
   imageUrl: string | null;
   loadingImage: boolean;
-  /** 첫 화면 대표 카드 — LCP·네트워크 우선 */
-  priorityImage?: boolean;
+  /** perf 마커만 — LCP 경쟁 없음(항상 lazy) */
+  markStoreCardPerf?: boolean;
+  /** Phase 9-C — cold idle LCP: hero 고정 전 product `<img>` 억제 */
+  deferProductImage?: boolean;
 }) {
   const href = `/stores/${encodeURIComponent(entry.storeSlug)}/p/${encodeURIComponent(entry.productId)}`;
+  const deferImagesByPolicy = useStoresHomeOverlayDeferUntilInput();
+  const deferImages = deferProductImage ?? deferImagesByPolicy;
 
   useLayoutEffect(() => {
-    if (priorityImage) markStoresHomePerf("store-card");
-  }, [priorityImage]);
+    if (markStoreCardPerf) markStoresHomePerf("store-card");
+  }, [markStoreCardPerf]);
 
   return (
     <Link
       href={href}
       prefetch={false}
-      data-stores-perf={priorityImage ? "store-card" : undefined}
+      data-stores-perf={markStoreCardPerf ? "store-card" : undefined}
       className={`flex w-[7.5rem] shrink-0 flex-col overflow-hidden ${STORES_HOME_CARD}`}
     >
       <div className="relative aspect-square w-full bg-[color:var(--delivery-bg-thumb)]">
-        {loadingImage && !imageUrl ?
+        {loadingImage || deferImages ?
           <div className="absolute inset-0 animate-pulse bg-[color:var(--delivery-bg-muted)]" aria-hidden />
         : imageUrl ?
           <StoreProductThumbnail
@@ -49,8 +55,8 @@ function StoresHomeFoodCardInner({
             className="absolute inset-0"
             imageClassName="h-full w-full object-cover"
             roundedClassName="rounded-none"
-            loading={priorityImage ? "eager" : "lazy"}
-            priority={priorityImage}
+            loading="lazy"
+            priority={false}
           />
         : (
           <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--delivery-text-muted)]">

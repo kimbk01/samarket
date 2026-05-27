@@ -5,6 +5,7 @@ import { markStoresHomePerf } from "@/lib/stores/stores-home-perf-marks";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { STORES_HOME_HERO_SLIDES } from "@/lib/stores/stores-home-hero-slides";
+import { STORES_HOME_LCP_HERO_ATTR } from "@/lib/stores/stores-home-lcp-policy";
 import { STORES_HOME_CARD } from "@/lib/stores/stores-home-ui";
 
 /** 140~180px 캐러셀 — 정적 슬라이드 */
@@ -36,9 +37,12 @@ export function StoresHomeHeroBanner() {
         prefetch={false}
         className={`block min-h-[140px] max-h-[180px] p-4 text-white ${STORES_HOME_CARD} border-0`}
         style={{ background: slide.bg }}
+        {...{ [STORES_HOME_LCP_HERO_ATTR]: "hero" }}
       >
         <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">{t(slide.eyebrowKey)}</p>
-        <p className="mt-1 text-[17px] font-bold leading-snug">{t(slide.titleKey)}</p>
+        <p className="mt-1 text-[17px] font-bold leading-snug">
+          {t(slide.titleKey)}
+        </p>
         <p className="mt-1 text-[13px] leading-snug opacity-90">{t(slide.subtitleKey)}</p>
       </Link>
       <div className="absolute bottom-2 right-3 flex gap-1" aria-hidden>

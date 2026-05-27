@@ -12,6 +12,7 @@ import {
 } from "@/lib/addresses/mandatory-address-gate-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** 주소 목록이 바뀐 뒤 게이트 재검사 — `AddressManagementClient.load` 등에서 발행 */
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
@@ -59,6 +60,7 @@ export function MandatoryAddressGate() {
   const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const deferOverlayForStoresLcp = useStoresHomeOverlayDeferUntilInput();
   const pathRef = useRef(pathname);
   const prevPathForGateRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
@@ -186,7 +188,7 @@ export function MandatoryAddressGate() {
     return () => subscription.unsubscribe();
   }, [runGateFetch]);
 
-  if (!blocked) return null;
+  if (!blocked || deferOverlayForStoresLcp) return null;
 
   return (
     <div

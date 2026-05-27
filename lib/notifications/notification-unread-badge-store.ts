@@ -18,6 +18,8 @@ const NOTIFICATION_EVENT_FETCH_COALESCE_MS = 1_200;
 const NOTIFICATION_UNREAD_CLIENT_TTL_MS = 20_000;
 /** visibility 복귀 burst — trailing 1회 */
 const NOTIFICATION_VISIBILITY_FETCH_COALESCE_MS = 900;
+/** cold boot — visibility/pageshow/KASAMA force refresh 겹침 억제 */
+export const NOTIFICATION_BOOT_SUPPRESS_MS = 3_000;
 
 function createNotificationUnreadBadgeStore(fetchUrl: string) {
   let snap: number | null = null;
@@ -26,6 +28,9 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   const flightKey = `notif-unread:${fetchUrl}`;
   const MIN_FETCH_GAP_MS = NOTIFICATION_UNREAD_CLIENT_TTL_MS;
   let lastFetchCompletedAt = 0;
+  let lastFetchStartedAt = 0;
+  let storeBootAt = 0;
+  let bootInitialFetchScheduled = false;
   let subscriberCount = 0;
   /** Strict Mode 등으로 구독이 잠깐 0이 되었다가 바로 복구될 때 이중 초기 fetch·이벤트 해제 방지 */
   let pendingStopTimer: ReturnType<typeof setTimeout> | null = null;
@@ -33,14 +38,16 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   /** Strict Mode remount 시 pendingStopTimer 취소만 되고 removeEventListener 가 실행되지 않아 리스너·interval 이 중복 쌓이는 것 방지 */
   let listenersArmed = false;
   let unauthorizedPaused = false;
-  let lastFetchStartedAt = 0;
 
   const coalescedEventFetch = createTrailingCoalescedCallback(
     () => void doFetch(false),
     NOTIFICATION_EVENT_FETCH_COALESCE_MS
   );
   const coalescedVisibilityFetch = createTrailingCoalescedCallback(
-    () => void doFetch(false),
+    () => {
+      if (storeBootAt > 0 && Date.now() - storeBootAt < NOTIFICATION_BOOT_SUPPRESS_MS) return;
+      void doFetch(false);
+    },
     NOTIFICATION_VISIBILITY_FETCH_COALESCE_MS
   );
   const onNotifUpdated = () => coalescedEventFetch.schedule();
@@ -54,6 +61,12 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
       coalescedVisibilityFetch.cancel();
       disarmPoll();
     }
+  };
+
+  const onPageShow = (e: Event) => {
+    const pe = e as PageTransitionEvent;
+    if (!pe.persisted) return;
+    coalescedVisibilityFetch.schedule();
   };
 
   function emit() {
@@ -71,6 +84,22 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
       return Promise.resolve();
     }
     const now = Date.now();
+    if (
+      force &&
+      storeBootAt > 0 &&
+      now - storeBootAt < NOTIFICATION_BOOT_SUPPRESS_MS &&
+      snap != null &&
+      lastFetchCompletedAt > 0
+    ) {
+      logNetworkLoopGuardBlocked({
+        endpoint: fetchUrl,
+        caller: "notification-unread-badge-store",
+        reason: "boot_force_suppressed",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
+      return Promise.resolve();
+    }
     if (
       !force &&
       snap != null &&
@@ -185,6 +214,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     listenersArmed = true;
     window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onPageShow);
     if (typeof document !== "undefined" && document.visibilityState === "visible") {
       armPoll();
     }
@@ -197,7 +227,18 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     coalescedVisibilityFetch.cancel();
     window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onNotifUpdated);
     document.removeEventListener("visibilitychange", onVisibility);
+    window.removeEventListener("pageshow", onPageShow);
     disarmPoll();
+  }
+
+  function scheduleBootFetch(): void {
+    if (bootInitialFetchScheduled) {
+      if (snap == null) void doFetch(false);
+      return;
+    }
+    bootInitialFetchScheduled = true;
+    storeBootAt = Date.now();
+    void doFetch(false);
   }
 
   function start() {
@@ -207,7 +248,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     }
     subscriberCount += 1;
     if (subscriberCount > 1) return;
-    void doFetch(snap == null);
+    scheduleBootFetch();
     armListeners();
   }
 

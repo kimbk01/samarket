@@ -1,6 +1,7 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { STORES_HOME_HERO_SLIDES } from "@/lib/stores/stores-home-hero-slides";
+import { STORES_HOME_LCP_HERO_ATTR } from "@/lib/stores/stores-home-lcp-policy";
 import { STORES_HOME_CARD } from "@/lib/stores/stores-home-ui";
 
 /** 히어로 캐러셀 — SSR 첫 슬라이드·정적 dots (인터랙션 없음) */
@@ -17,6 +18,7 @@ export function StoresHomeHeroBannerView({ language }: { language: AppLanguageCo
         href={slide.href}
         className={`block min-h-[140px] max-h-[180px] p-4 text-white ${STORES_HOME_CARD} border-0`}
         style={{ background: slide.bg }}
+        {...{ [STORES_HOME_LCP_HERO_ATTR]: "hero" }}
       >
         <p className="text-[11px] font-semibold uppercase tracking-wide opacity-90">
           {safeTranslate(language, slide.eyebrowKey, { fallbackKo: "", fallbackEn: "" })}

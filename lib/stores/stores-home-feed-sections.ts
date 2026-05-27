@@ -36,6 +36,12 @@ function pullUnique(
   return out;
 }
 
+/** above-the-fold 「지금 주문」 레일 — 전체 `splitStoresHomeFeed` 없이 open 매장만 */
+export function pickStoresHomeOpenNow(stores: StoreHomeFeedItem[], max = 40): StoreHomeFeedItem[] {
+  const seen = new Set<string>();
+  return pullUnique(stores, seen, (s) => s.status === "open" && s.deliveryAvailable, max);
+}
+
 /** 홈 피드 단일 분할 — browse `splitFeedSections` 확장 */
 export function splitStoresHomeFeed(stores: StoreHomeFeedItem[]): StoresHomeFeedSections {
   const seen = new Set<string>();

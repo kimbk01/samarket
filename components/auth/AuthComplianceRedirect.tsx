@@ -15,6 +15,8 @@ import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
+import { isStoresHomeLcpPath } from "@/lib/stores/stores-home-lcp-policy";
+import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** 부트·세션당 consent 서버 재확인 1회 — pathname 변경마다 GET /api/me/profile 방지 */
 let storeConsentResolvedThisSession = false;
@@ -35,6 +37,7 @@ function shouldSkip(pathname: string): boolean {
 
 export function AuthComplianceRedirect() {
   const pathname = usePathname() ?? "";
+  const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const router = useRouter();
   const routerRef = useRef(router);
   const pathnameRef = useRef(pathname);
@@ -51,6 +54,7 @@ export function AuthComplianceRedirect() {
 
   const checkConsent = useCallback(() => {
     if (typeof window === "undefined") return;
+    if (deferStoresHomeLcp) return;
     if (shouldSkip(pathnameRef.current)) return;
     if (storeConsentResolvedThisSession) return;
     if (checkInFlightRef.current) return;
@@ -117,7 +121,13 @@ export function AuthComplianceRedirect() {
     })().finally(() => {
       checkInFlightRef.current = null;
     });
-  }, []);
+  }, [deferStoresHomeLcp]);
+
+  useEffect(() => {
+    if (deferStoresHomeLcp) return;
+    if (!isStoresHomeLcpPath(pathname)) return;
+    checkConsent();
+  }, [deferStoresHomeLcp, pathname, checkConsent]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

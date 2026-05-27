@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, startTransition } from "react";
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -93,8 +93,10 @@ export function StoresHub() {
       });
       if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
       const next = resolveBuyerHubFromJson(ordersStatus, ordersJsonRaw);
-      setRecentOrder(next.recentOrder);
-      setBuyerOrderSummary(next.buyerState);
+      startTransition(() => {
+        setRecentOrder(next.recentOrder);
+        setBuyerOrderSummary(next.buyerState);
+      });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
       if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;

@@ -6,7 +6,7 @@
  */
 import { fetchMainBottomNavDeduped } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
+import { warmTradeChatRoomsClient } from "@/lib/chats/warm-trade-chat-rooms-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchTradeHistoryCounts } from "@/lib/mypage/trade-history-client";
 import {
@@ -36,7 +36,7 @@ export function warmMainShellData(): () => void {
         await Promise.all([
           fetchTradeHistoryCounts(uid),
           /** 거래 탭·FAB에서 「거래 채팅」 선택 시 첫 페인트 전에 목록이 이미 캐시·single-flight 되도록 */
-          fetchChatRoomsBySegment("trade").catch(() => {}),
+          warmTradeChatRoomsClient(),
         ]);
       } catch {
         /* ignore */

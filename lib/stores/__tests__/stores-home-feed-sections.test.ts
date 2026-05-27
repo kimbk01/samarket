@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   flattenStoresHomeFoodEntries,
+  pickStoresHomeOpenNow,
   splitStoresHomeFeed,
 } from "@/lib/stores/stores-home-feed-sections";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -46,6 +47,18 @@ function item(partial: Partial<StoreHomeFeedItem> & { id: string }): StoreHomeFe
     },
   };
 }
+
+describe("pickStoresHomeOpenNow", () => {
+  it("returns open delivery stores without full split", () => {
+    const stores = [
+      item({ id: "a", status: "open", deliveryAvailable: true }),
+      item({ id: "b", status: "closed", deliveryAvailable: true }),
+      item({ id: "c", status: "open", deliveryAvailable: false }),
+    ];
+    const open = pickStoresHomeOpenNow(stores);
+    expect(open.map((s) => s.id)).toEqual(["a"]);
+  });
+});
 
 describe("splitStoresHomeFeed", () => {
   it("partitions without duplicate ids", () => {

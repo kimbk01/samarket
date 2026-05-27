@@ -84,8 +84,8 @@ const SEED_TOPICS: SeedTopic[] = [
   { slug: "repair", name: "수리", name_en: "Repair", primarySlug: "life", sort_order: 20 },
 ];
 
-/** above-the-fold taxonomy 아이콘 eager 상한 */
-export const STORES_HOME_TAXONOMY_EAGER_ICON_COUNT = 8;
+/** above-the-fold taxonomy 아이콘 eager — 첫 1장만(LCP 경쟁 완화), 나머지 lazy */
+export const STORES_HOME_TAXONOMY_EAGER_ICON_COUNT = 1;
 
 function buildSeedCategories(): StoreTaxonomyCategory[] {
   return SEED_PRIMARIES.map((row) => ({

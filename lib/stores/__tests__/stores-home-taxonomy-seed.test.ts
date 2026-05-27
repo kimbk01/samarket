@@ -29,7 +29,7 @@ describe("stores-home-taxonomy-seed", () => {
   });
 
   it("exposes eager icon cap of 8", () => {
-    expect(STORES_HOME_TAXONOMY_EAGER_ICON_COUNT).toBe(8);
+    expect(STORES_HOME_TAXONOMY_EAGER_ICON_COUNT).toBe(1);
   });
 });
 

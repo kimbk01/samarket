@@ -5,7 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HomeTradeHistorySheetContent } from "@/components/home/HomeTradeHistorySheetContent";
-import { fetchChatRoomsBySegment } from "@/lib/chats/fetch-chat-rooms-by-segment";
+import { warmTradeChatRoomsClient } from "@/lib/chats/warm-trade-chat-rooms-client";
 import {
   fetchTradeHistoryPurchasesBySession,
   fetchTradeHistorySalesBySession,
@@ -156,7 +156,7 @@ export function HomeTradeHubFloatingBar() {
   /** 다이얼이 열리면 거래내역·거래채팅에 쓰는 데이터를 미리 받아 두어 탭 선택 시 체감 대기 단축 (세션 쿠키만 있으면 됨) */
   useEffect(() => {
     if (!menuOpen) return;
-    void fetchChatRoomsBySegment("trade");
+    warmTradeChatRoomsClient(pathname);
     void fetchTradeHistoryPurchasesBySession().catch(() => {});
     void fetchTradeHistorySalesBySession().catch(() => {});
   }, [menuOpen]);

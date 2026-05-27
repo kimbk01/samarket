@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { StoresHomeInitialShellClient } from "@/components/stores/home/hub/StoresHomeInitialShell.client";
 import { StoresHomeInitialShellServer } from "@/components/stores/home/hub/StoresHomeInitialShell.server";
+import { StoresHomeLcpObserver } from "@/components/stores/home/hub/StoresHomeLcpObserver.client";
 import { StoresHub } from "@/components/stores/StoresHub";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
@@ -34,6 +35,7 @@ export default function StoresPage() {
       data-stores-layout-profile="stores-hub"
     >
       <StoresHomeInitialShellServer language="ko" />
+      <StoresHomeLcpObserver />
       <StoresHomeInitialShellClient>
         <StoresHub />
       </StoresHomeInitialShellClient>

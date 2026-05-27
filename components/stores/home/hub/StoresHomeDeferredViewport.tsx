@@ -6,19 +6,22 @@ const DEFAULT_ROOT_MARGIN = "120px 0px 0px";
 
 /**
  * 첫 카드 레일 아래 섹션 — 뷰포트 진입 전 마운트·hydration 지연.
- * UI 구조 동일, placeholder 높이만 최소 유지.
+ * `renderContent` 는 visible 이후에만 호출 — children prop 평가 long task 방지.
  */
 export function StoresHomeDeferredViewport({
-  children,
+  renderContent,
+  onBecomeVisible,
   minHeightClass = "min-h-[8rem]",
   rootMargin = DEFAULT_ROOT_MARGIN,
 }: {
-  children: ReactNode;
+  renderContent: () => ReactNode;
+  onBecomeVisible?: () => void;
   minHeightClass?: string;
   rootMargin?: string;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const becameVisibleRef = useRef(false);
 
   useEffect(() => {
     const node = hostRef.current;
@@ -40,9 +43,15 @@ export function StoresHomeDeferredViewport({
     return () => obs.disconnect();
   }, [rootMargin, visible]);
 
+  useEffect(() => {
+    if (!visible || becameVisibleRef.current) return;
+    becameVisibleRef.current = true;
+    onBecomeVisible?.();
+  }, [onBecomeVisible, visible]);
+
   return (
     <div ref={hostRef} className={visible ? undefined : minHeightClass}>
-      {visible ? children : null}
+      {visible ? renderContent() : null}
     </div>
   );
 }

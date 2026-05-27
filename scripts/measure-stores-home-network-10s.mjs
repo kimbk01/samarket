@@ -170,8 +170,10 @@ async function main() {
     const marks = window.__storesHomePerf ?? {};
     const longTasks = window.__storesPerfLongTasks ?? [];
     const lcpEntries = performance.getEntriesByType("largest-contentful-paint");
-    const lcpFromEntries = lcpEntries.length ? lcpEntries[lcpEntries.length - 1].startTime : null;
+    const lastLcp = lcpEntries.length ? lcpEntries[lcpEntries.length - 1] : null;
+    const lcpFromEntries = lastLcp ? lastLcp.startTime : null;
     const lcpMs = window.__storesPerfLcpMs ?? lcpFromEntries;
+    const lcpEl = window.__storesHomeLcpElement ?? null;
     let maxLong = 0;
     for (const t of longTasks) {
       if (t.duration > maxLong) maxLong = t.duration;
@@ -179,6 +181,7 @@ async function main() {
     return {
       marks,
       lcp_ms: lcpMs != null ? Math.round(lcpMs) : null,
+      lcp_element: lcpEl,
       long_task_count: longTasks.length,
       max_long_task_ms: Math.round(maxLong),
     };
@@ -223,6 +226,7 @@ async function main() {
       first_store_card_visible_ms: firstStoreCardMs ?? markMs("store-card"),
       scroll_ready_ms: scrollReadyMs ?? markMs("scroll-ready"),
       lcp_ms: perfClient.lcp_ms,
+      lcp_element: perfClient.lcp_element,
       long_task_count: perfClient.long_task_count,
       max_long_task_ms: perfClient.max_long_task_ms,
     },

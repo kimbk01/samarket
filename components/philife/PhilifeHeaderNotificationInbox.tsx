@@ -170,11 +170,17 @@ export function PhilifeHeaderNotificationInbox({
 
   tone = "default",
 
+  deferInboxListPrefetch = false,
+
 }: {
 
   /** 녹색 배달 홈 헤더 — 흰 아이콘·delivery 뱃지 */
 
   tone?: "default" | "onPrimary";
+
+  /** `/stores` cold — 목록 prefetch 는 패널 open 시. badge store TTL 재사용 */
+
+  deferInboxListPrefetch?: boolean;
 
 }) {
 
@@ -468,6 +474,8 @@ export function PhilifeHeaderNotificationInbox({
 
   useEffect(() => {
 
+    if (deferInboxListPrefetch) return;
+
     const cancel = scheduleStartupApiDeferred("philife-tier1-inbox-prefetch", () => {
 
       void loadInbox(false, { silent: true });
@@ -476,7 +484,7 @@ export function PhilifeHeaderNotificationInbox({
 
     return cancel;
 
-  }, [loadInbox]);
+  }, [deferInboxListPrefetch, loadInbox]);
 
 
 
@@ -495,8 +503,6 @@ export function PhilifeHeaderNotificationInbox({
     const onInbox = () => {
 
       void loadInbox(true, { silent: true });
-
-      void myGeneralNotificationUnreadStore.refresh(true);
 
     };
 
@@ -589,8 +595,6 @@ export function PhilifeHeaderNotificationInbox({
     if (!open) return;
 
     void loadInbox(true, { silent: listSynced });
-
-    void myGeneralNotificationUnreadStore.refresh(true);
 
   }, [open, listSynced, loadInbox]);
 
