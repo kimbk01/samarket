@@ -26,6 +26,8 @@ import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   getStoresHomePullRefreshServerSnapshot,
   getStoresHomePullRefreshSnapshot,
+  resolveStoresHomePullHintHeightPx,
+  STORES_HOME_PULL_REFRESH_COLLAPSE_MS,
   STORES_HOME_PULL_REFRESH_THRESHOLD_PX,
   subscribeStoresHomePullRefresh,
 } from "@/lib/stores/stores-home-pull-refresh-store";
@@ -53,6 +55,15 @@ function SearchIcon() {
         d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
       />
     </svg>
+  );
+}
+
+function StoresHomePtrSpinner() {
+  return (
+    <span
+      className="inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-white/25 border-t-white/95"
+      aria-hidden
+    />
   );
 }
 
@@ -86,11 +97,11 @@ export function StoresHomeHeaderChrome() {
   );
   const showPullHint = pull.pullPx > 2 || pull.refreshing;
   const pullReady = pull.pullPx >= STORES_HOME_PULL_REFRESH_THRESHOLD_PX;
-  /** PTR — 녹색 헤더 영역만 확장. 본문은 flex 로 헤더 아래에 붙음(translate 금지). */
-  const pullHintHeight =
-    pull.refreshing ? "var(--delivery-home-ptr-hint-min-h, 2.75rem)"
-    : showPullHint ? `${Math.max(pull.pullPx, 0)}px`
-    : "0px";
+  const hintHeightPx = resolveStoresHomePullHintHeightPx(pull);
+  /** PTR — 녹색 헤더만 확장. 놓은 뒤 높이 유지 → 스피너 → ease-out 복귀 */
+  const pullHintHeight = hintHeightPx > 0 ? `${hintHeightPx}px` : "0px";
+  const hintTransitionMs =
+    pull.refreshing ? 180 : hintHeightPx === 0 ? STORES_HOME_PULL_REFRESH_COLLAPSE_MS : 120;
 
   return (
     <>
@@ -135,20 +146,29 @@ export function StoresHomeHeaderChrome() {
             </div>
           </div>
           <div
-            className="overflow-hidden text-center transition-[height,opacity] duration-150 ease-out"
+            className="overflow-hidden text-center ease-[cubic-bezier(0.33,1,0.68,1)]"
             style={{
               height: pullHintHeight,
               opacity: showPullHint ? 1 : 0,
+              transitionProperty: "height, opacity",
+              transitionDuration: `${hintTransitionMs}ms`,
+              transitionTimingFunction: pull.refreshing ? "ease-out" : "cubic-bezier(0.33, 1, 0.68, 1)",
             }}
             aria-live="polite"
           >
-            <p className="flex h-full min-h-0 flex-col items-center justify-center px-2 text-[13px] font-medium leading-snug text-white/92">
+            <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 px-2 py-1">
               {pull.refreshing ?
-                t("store_home_pull_refreshing")
-              : pullReady ?
-                t("store_home_pull_release")
-              : t("store_home_pull_hint")}
-            </p>
+                <>
+                  <StoresHomePtrSpinner />
+                  <p className="text-[13px] font-medium leading-snug text-white/92">
+                    {t("store_home_pull_refreshing")}
+                  </p>
+                </>
+              : <p className="text-[13px] font-medium leading-snug text-white/92">
+                  {pullReady ? t("store_home_pull_release") : t("store_home_pull_hint")}
+                </p>
+              }
+            </div>
           </div>
         </div>
       </header>

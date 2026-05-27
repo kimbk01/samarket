@@ -8,6 +8,7 @@ import {
 } from "@/lib/layout/main-app-scroll-root";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 import {
+  computeStoresHomePullPxFromTouchDy,
   getStoresHomePullRefreshSnapshot,
   patchStoresHomePullRefresh,
   runStoresHomePullRefresh,
@@ -103,9 +104,9 @@ export function useStoresHomePullRefresh(enabled: boolean): void {
         /* noop */
       }
 
-      const next = Math.min(88, dy * 0.5);
+      const next = computeStoresHomePullPxFromTouchDy(dy);
       pullRef.current = next;
-      if (next > 12) suppressClickRef.current = true;
+      if (next > STORES_HOME_PULL_REFRESH_THRESHOLD_PX * 0.25) suppressClickRef.current = true;
       patchStoresHomePullRefresh({ pullPx: next });
     };
 
@@ -126,9 +127,10 @@ export function useStoresHomePullRefresh(enabled: boolean): void {
       pullingRef.current = false;
 
       if (pulled >= STORES_HOME_PULL_REFRESH_THRESHOLD_PX) {
+        trackingRef.current = false;
+        pullingRef.current = false;
         pullRef.current = 0;
-        patchStoresHomePullRefresh({ pullPx: 0 });
-        void runStoresHomePullRefresh();
+        void runStoresHomePullRefresh(pulled);
         return;
       }
       resetPull();

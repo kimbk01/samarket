@@ -54,6 +54,11 @@ export function primeStoreHomeFeedClientCache(
   });
 }
 
+/** PTR·강제 새로고침 — TTL 스킵 후 네트워크 재검증 */
+export function invalidateStoreHomeFeedClientCache(pathAndQuery = ""): void {
+  storeHomeFeedCache.delete(normalizeSuffix(pathAndQuery));
+}
+
 /** 하단 탭 prewarm: stores 홈 기본 피드(쿼리 없는 기본 suffix) */
 export async function prewarmStoreHomeFeedClientCache(pathAndQuery = ""): Promise<void> {
   if (typeof window === "undefined") return;

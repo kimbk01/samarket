@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
+import { fetchStoresHomeFeedDeduped, forgetStoresHomeFeedFetchSingleFlight } from "@/lib/stores/store-delivery-api-client";
 import {
   applyStoresHomeFeedNetworkResult,
   readStoresHomeFeedInitialSnapshot,
   resolveStoresHomeFeedCacheForLoad,
 } from "@/lib/stores/stores-home-feed-load-policy";
+import { invalidateStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
 import { writeStoresHomeFeedLiveStore } from "@/lib/stores/stores-home-feed-live-store";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -54,7 +55,7 @@ export function StoresHomeHub({
   buyerState: StoreOrderDashboardBuyerState;
   recentOrder: RecentOrderPreview | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   /** SSR·hydration 동일 초기값 — `window`/`liveStore` 는 layout effect 에서만 주입 */
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
@@ -111,16 +112,23 @@ export function StoresHomeHub({
   }, [loading, stores.length]);
 
   const loadFeed = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = !!opts?.silent;
+      const force = opts?.force === true;
       const requestId = ++requestIdRef.current;
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
+      if (force) {
+        invalidateStoreHomeFeedClientCache(querySuffix);
+        if (querySuffix) invalidateStoreHomeFeedClientCache("");
+        forgetStoresHomeFeedFetchSingleFlight(querySuffix, language);
+        if (querySuffix) forgetStoresHomeFeedFetchSingleFlight("", language);
+      }
       const cachedSnapshot = resolveStoresHomeFeedCacheForLoad(querySuffix);
       const cachedEntry = cachedSnapshot.entry;
       const hasFreshCache = cachedSnapshot.isFresh;
-      if (cachedEntry && cachedEntry.stores.length > 0) {
+      if (!force && cachedEntry && cachedEntry.stores.length > 0) {
         writeStoresHomeFeedLiveStore(querySuffix, cachedEntry.stores, cachedEntry.meta);
         startTransition(() => {
           setStores(cachedEntry.stores);
@@ -132,7 +140,10 @@ export function StoresHomeHub({
       const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
       if (!silent && !hasDisplayableStores) setLoading(true);
       try {
-        const { status, json } = await fetchStoresHomeFeedDeduped(querySuffix, { signal: controller.signal });
+        const { status, json } = await fetchStoresHomeFeedDeduped(querySuffix, {
+          signal: controller.signal,
+          language,
+        });
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;
         startTransition(() => {
           setStores((prevStores) => {
@@ -169,7 +180,7 @@ export function StoresHomeHub({
         }
       }
     },
-    [querySuffix]
+    [language, querySuffix]
   );
 
   useLayoutEffect(() => {
@@ -236,7 +247,7 @@ export function StoresHomeHub({
       <StoresHomeQuickCategories />
       <StoresHomePullRefreshRegister
         onRefresh={async () => {
-          await loadFeed({ silent: false });
+          await loadFeed({ silent: true, force: true });
         }}
       />
       <StoresHomeCategorySeedPanelClient />

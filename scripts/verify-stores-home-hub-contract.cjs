@@ -224,6 +224,76 @@ assertIncludes(
 
 assertIncludes(
 
+  read("lib/stores/use-stores-home-pull-refresh.ts"),
+
+  "computeStoresHomePullPxFromTouchDy",
+
+  "pull refresh must use shared rubber-band pull curve"
+
+);
+
+assertIncludes(
+
+  read("lib/stores/stores-home-pull-refresh-store.ts"),
+
+  "STORES_HOME_PULL_REFRESH_THRESHOLD_PX = 58",
+
+  "pull refresh threshold must stay at +20% over legacy 48px"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeHub.tsx"),
+
+  "force: true",
+
+  "pull refresh must force network home-feed reload"
+
+);
+
+assertIncludes(
+
+  read("lib/stores/stores-home-pull-refresh-store.ts"),
+
+  "addStoresHomePullRefreshHandler",
+
+  "pull refresh must support multiple domain handlers"
+
+);
+
+assertIncludes(
+
+  read("components/stores/home/hub/StoresHomeHeaderChrome.tsx"),
+
+  "StoresHomePtrSpinner",
+
+  "pull refresh must show buffering spinner while refreshing"
+
+);
+
+assertIncludes(
+
+  read("lib/stores/stores-home-pull-refresh-store.ts"),
+
+  "resolveStoresHomePullRefreshSlotPx",
+
+  "pull refresh must settle release height before spinner"
+
+);
+
+assertIncludes(
+
+  quickCategories,
+
+  "addStoresHomePullRefreshHandler",
+
+  "pull refresh must reload taxonomy on release"
+
+);
+
+assertIncludes(
+
   quickCategories,
 
   "useStoresHomeTouchRelease",

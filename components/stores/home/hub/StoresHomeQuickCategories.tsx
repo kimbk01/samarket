@@ -5,7 +5,7 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExterna
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
-import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import { fetchStoresTaxonomyDeduped, clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { useStoresHomePullRefresh } from "@/lib/stores/use-stores-home-pull-refresh";
 import { useStoresHomeTouchRelease } from "@/lib/stores/use-stores-home-touch-release";
+import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 
 const RESTAURANT_SLUG = "restaurant";
 
@@ -83,6 +84,19 @@ export function StoresHomeQuickCategories() {
 
   useStoresHomePullRefresh(isStoresHubRoot);
   useStoresHomeTouchRelease(isStoresHubRoot);
+
+  useLayoutEffect(() => {
+    if (!isStoresHubRoot) return;
+    return addStoresHomePullRefreshHandler(async () => {
+      clearStoresTaxonomyClientCache();
+      const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
+      const next = resolveStoresHomeTaxonomyFromApi(jRaw, STORES_HOME_TAXONOMY_EMPTY);
+      if (next.categories.length === 0) return;
+      setTaxonomy(next);
+      setTaxonomyReady(true);
+      cacheAppliedRef.current = true;
+    });
+  }, [isStoresHubRoot, language]);
 
   useLayoutEffect(() => {
     const cached = readStoresHomeTaxonomyFromClientCache(language);

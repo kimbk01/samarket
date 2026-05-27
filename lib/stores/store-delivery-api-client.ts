@@ -574,6 +574,15 @@ export async function fetchStoresHomeFeedDeduped(
   return withAbortSignal(flight, opts.signal);
 }
 
+/** PTR·강제 reload — 진행 중 single-flight 끊고 새 home-feed 요청 */
+export function forgetStoresHomeFeedFetchSingleFlight(
+  pathAndQuery: string,
+  language: import("@/lib/i18n/config").AppLanguageCode = "en"
+): void {
+  const suffix = pathAndQuery.startsWith("?") ? pathAndQuery : pathAndQuery ? `?${pathAndQuery}` : "";
+  forgetSingleFlight(`stores:api:home-feed:${language}:${suffix}`);
+}
+
 /** POST/DELETE /api/stores/:slug/favorite — 변이(단일 비행 불필요), 호출부 일원화용 */
 export async function fetchStoreFavoriteMutation(
   slug: string,
