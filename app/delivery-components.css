@@ -8,6 +8,17 @@
     color: var(--delivery-text-main);
   }
 
+  /** 배달 목록 스크롤 본문 — 드래그·당김 후 텍스트 선택 하이라이트 방지 */
+  .delivery-ui [data-main-hub-scroll-body] {
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .delivery-ui [data-main-hub-scroll-body] :where(input, textarea, select, [contenteditable="true"]) {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
   .delivery-page-inner {
     margin-inline: auto;
     width: 100%;
@@ -1032,6 +1043,8 @@
     overflow-y: hidden;
     overscroll-behavior-x: contain;
     touch-action: pan-x;
+    user-select: none;
+    -webkit-user-select: none;
     -ms-overflow-style: none;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
@@ -1064,6 +1077,8 @@
     text-align: center;
     text-decoration: none;
     touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -1152,6 +1167,8 @@
     background: var(--dibay-cream);
     color: var(--delivery-text-main);
     touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 

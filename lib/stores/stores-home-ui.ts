@@ -24,11 +24,11 @@ export const STORES_HOME_CARD =
   "rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)]";
 
 export const STORES_HOME_RAIL_SCROLL =
-  "flex gap-3 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]";
+  "flex gap-3 overflow-x-auto pb-1 select-none [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [-webkit-overflow-scrolling:touch]";
 
 /** 2차 업종 — 한 행 가로 스와이프(화면에 5개 노출, 나머지 스크롤) */
 export const STORES_HOME_SUB_CATEGORY_RAIL =
-  "flex w-full gap-[var(--delivery-home-subcategory-gap)] overflow-x-auto overscroll-x-contain pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+  "flex w-full gap-[var(--delivery-home-subcategory-gap)] overflow-x-auto overscroll-x-contain select-none pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
 
 /** @deprecated — `STORES_HOME_SUB_CATEGORY_RAIL` */
 export const STORES_HOME_SUB_CATEGORY_GRID = STORES_HOME_SUB_CATEGORY_RAIL;
@@ -80,7 +80,7 @@ export const STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_STICKY =
   STORES_HOME_PRIMARY_CATEGORY_SECTION_SCROLL_BODY;
 
 export const STORES_HOME_PRIMARY_CATEGORY_SCROLL =
-  "flex w-full items-center gap-2.5 overflow-x-auto overscroll-x-contain pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
+  "flex w-full items-center gap-2.5 overflow-x-auto overscroll-x-contain select-none pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
 
 /** 1차 업종 — 선택 전: 가로 스크롤 잠금(세로 페이지 스크롤만) */
 export const STORES_HOME_PRIMARY_CATEGORY_SCROLL_LOCKED =

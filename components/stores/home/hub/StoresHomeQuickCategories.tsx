@@ -24,7 +24,6 @@ import {
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { useStoresHomePullRefresh } from "@/lib/stores/use-stores-home-pull-refresh";
-import { useStoresHomeTouchRelease } from "@/lib/stores/use-stores-home-touch-release";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 
 const RESTAURANT_SLUG = "restaurant";
@@ -83,7 +82,6 @@ export function StoresHomeQuickCategories() {
   const cacheAppliedRef = useRef(false);
 
   useStoresHomePullRefresh(isStoresHubRoot);
-  useStoresHomeTouchRelease(isStoresHubRoot);
 
   useLayoutEffect(() => {
     if (!isStoresHubRoot) return;

@@ -38,6 +38,32 @@ describe("shouldMainBottomNavRouteScrollOnly", () => {
 });
 
 describe("commitMainBottomNavRoute", () => {
+  it("beginMenuNavigation — navigated 시 replace 보다 intent 먼저", async () => {
+    const order: string[] = [];
+    const beginMenuNavigation = vi.fn(() => {
+      order.push("intent");
+    });
+    const replace = vi.fn(() => {
+      order.push("replace");
+    });
+
+    commitMainBottomNavRoute({
+      pathname: "/stores",
+      currentSearch: "",
+      href: "/philife",
+      tabId: "community",
+      beginMenuNavigation,
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace,
+      skipPerfMark: true,
+    });
+
+    await Promise.resolve();
+    expect(order).toEqual(["intent", "replace"]);
+  });
+
   it("onNavigationIntent — blocked·scroll_only 제외, navigated 시 동기 호출", () => {
     const onNavigationIntent = vi.fn();
     commitMainBottomNavRoute({

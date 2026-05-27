@@ -1597,3 +1597,27 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 ## 다음 후보 1개 (헌장 [8] 순서)
 
 **다음 라운드(라운드 T) 후보 1개:** `GET /api/community-messenger/rooms/[roomId]/bootstrap`의 `room_silent` 경로(로그 **2.4~2.8s**)에서 **minimal 부트스트랩 쿼리 왕복(rooms/participants/profile hydrate) 1축**을 분리·축소하는 구조 개선 1건.
+
+---
+
+## 이번 라운드 (최신: 라운드 BN6 — 하단 탭 확인 후 즉시 push 전환 보장)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 하단 탭 이동 확인 모달에서 `확인`을 누른 뒤, cross-group 경로가 과거 exit 대기/intent 전달 순서에 묶이면 “이전 화면이 먼저 보인 뒤 다음 화면이 늦게 밀려오는” 체감이 발생할 수 있었다. |
+| 측정/검증 명령 | `node scripts/verify-delivery-dial-navigation-contract.cjs`, `npx vitest run lib/main-menu/__tests__/main-bottom-nav-route-commit.test.ts`, `npx tsc --noEmit` |
+| 완료 기준 | (1) 확인 직후 `beginMenuNavigation`이 동기로 기록되고 (2) push 축이 pathname 커밋 시점에 유실되지 않으며 (3) exit 대기 없이 즉시 navigate 경로가 유지되어야 한다. |
+| 수정 파일 | `lib/main-menu/main-bottom-nav-route-commit.ts`, `lib/navigation/main-bottom-nav-domain-transition-dialog.tsx`, `components/route-transition/AppRouteTransition.tsx`, `lib/navigation/main-shell-push-axis-intent-ref.ts` |
+| 이번 조치 | `beginMenuNavigation`을 commit 시점으로 앞당기고, cross-group은 session enter만 arm한 뒤 즉시 `replace/push` 하도록 고정했다. push 축 intent는 `targetPath`+TTL(4s) 조건으로 소비해 레이스/오염을 차단했다. confirm 모달은 ref 기반으로 `proceed()`를 state updater 밖에서 실행해 순서를 안정화했다. |
+| 검증 결과 | delivery dial contract PASS, route commit 테스트 10/10 PASS, TypeScript PASS. |
+
+### 라운드 BN6 — 3회 측정 (실측)
+
+| 구간 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| 확인 클릭→커밋(`confirm_to_commit_ms`) | 88 | 173 | 125 | ≤200ms |
+| 확인 클릭→경로 변경(`confirm_to_path_change_ms`) | 22371 | 9425 | 5701 | ≤1200ms |
+| nav-perf 이벤트 수집(`__NAV_PERF_EVENTS`) | 0 | 0 | 0 | 1 이상 |
+
+**비고(측정 환경):** `scripts/measure-bottom-nav-confirm-immediacy.mjs`(Playwright headless)로 `/stores`→`/philife` 확인 모달 3회. 동일 런에서 `confirm_events_count`는 1회씩 정상 기록되며 dialog 잔류는 0(`confirm_dialog_still_visible=false`).  
+**판정:** **보류** — 확인→커밋은 88~173ms로 즉시 반응 기준을 충족했지만, 경로 변경 벽시계(`confirm_to_path_change_ms`)가 5.7~22.3s로 과도하고 `__NAV_PERF_EVENTS`가 0건이라 route settled/first shell 지표를 수집하지 못했다. 다음 라운드는 dev 서버 재시작+브라우저 headed 실측으로 `routeSettledMs`·`firstShellVisibleMs` 3회를 채워 판정 확정.

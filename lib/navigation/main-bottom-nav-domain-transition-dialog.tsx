@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BottomNavTransitionConfirmCopy } from "@/lib/navigation/main-bottom-nav-transition-copy";
 
@@ -92,18 +92,18 @@ export function MainBottomNavDomainTransitionDialog({
 /** 하단 탭 이동 확인 — pending·request/confirm/cancel (메신저·허브 교차) */
 export function useMainBottomNavDomainTransition(_pathname: string | null | undefined) {
   const [pending, setPending] = useState<PendingTransition | null>(null);
+  const pendingRef = useRef<PendingTransition | null>(null);
 
   const cancelTransition = useCallback(() => {
+    pendingRef.current = null;
     setPending(null);
   }, []);
 
   const confirmTransition = useCallback(() => {
-    setPending((current) => {
-      if (current) {
-        current.proceed();
-      }
-      return null;
-    });
+    const current = pendingRef.current;
+    pendingRef.current = null;
+    setPending(null);
+    current?.proceed();
   }, []);
 
   const requestTransition = useCallback(
@@ -113,7 +113,9 @@ export function useMainBottomNavDomainTransition(_pathname: string | null | unde
         return;
       }
       /** 확인 전에는 router 이동·push 슬라이드 시작 금지 */
-      setPending({ copy, proceed });
+      const next = { copy, proceed };
+      pendingRef.current = next;
+      setPending(next);
     },
     []
   );

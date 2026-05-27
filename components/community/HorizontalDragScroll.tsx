@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useEffect, useRef, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
+import { clearStuckTextSelection } from "@/lib/ui/clear-stuck-text-selection";
 
 const DRAG_SCROLL_THRESHOLD_PX = 6;
 
@@ -108,7 +109,10 @@ export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function H
       } catch {
         /* ignore */
       }
-      if (didDrag) drag.current.suppressNextClick = true;
+      if (didDrag) {
+        drag.current.suppressNextClick = true;
+        clearStuckTextSelection();
+      }
     };
 
     const onLostPointerCapture = (e: PointerEvent) => {
@@ -168,7 +172,7 @@ export const HorizontalDragScroll = forwardRef<HTMLDivElement, Props>(function H
         else if (forwardedRef) forwardedRef.current = node;
       }}
       style={mergedStyle}
-      className={`touch-pan-x overscroll-x-contain [-webkit-overflow-scrolling:touch] ${className}`}
+      className={`touch-pan-x overscroll-x-contain select-none [-webkit-overflow-scrolling:touch] ${className}`}
       {...rest}
     >
       {children}

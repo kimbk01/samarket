@@ -19,6 +19,7 @@ import {
   isStoreConsumerDetailPath,
   noteDeliveryListScrollBackFromStoreDetail,
 } from "@/lib/dibay/delivery-list-scroll-restore";
+import { useStoresHomeTouchRelease } from "@/lib/stores/use-stores-home-touch-release";
 
 /**
  * `/stores` 레이아웃 — 목록↔상세 전환 시 popstate 전에 pending 을 세팅해
@@ -51,6 +52,9 @@ export function StoresDeliveryLayoutShell({
 
   const pathBase = pathname.split("?")[0] ?? "";
   const isStoresHubRoot = pathBase === "/stores" || pathBase === "/stores/";
+  const isDeliveryListRoute = isDeliveryListScrollRoute(pathname || "/stores");
+
+  useStoresHomeTouchRelease(isDeliveryListRoute);
 
   return (
     <div className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0">

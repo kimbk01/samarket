@@ -103,6 +103,7 @@ import {
   MainBottomNavDomainTransitionDialog,
   useMainBottomNavDomainTransition,
 } from "@/lib/navigation/main-bottom-nav-domain-transition-dialog";
+import { isSamarketNavPerfConsoleEnabled } from "@/lib/debug/samarket-client-console-flags";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -124,6 +125,8 @@ export type BottomNavTabCommitOpts = {
   href: string;
   tabId: string;
   isActive: boolean;
+  /** 확인 모달 노출 시점에 prewarm을 선행했다면 true */
+  prewarmedBeforeCommit?: boolean;
   beginMenuNavigation: (
     href: string,
     source?: MenuNavigationSource,
@@ -153,6 +156,7 @@ export function commitBottomNavTabRoute(opts: BottomNavTabCommitOpts): void {
       /* RSC prefetch 금지 — 클라 prewarm 만 `onPrewarm` 경로 */
     },
     onPrewarm: opts.onPrewarm,
+    skipPostCommitPrewarm: opts.prewarmedBeforeCommit === true,
     onCloseDomainSwitcher: opts.onCloseDomainSwitcher,
     persistMessengerOriginFromHref: isMainBottomNavUnifiedInboxTabId(opts.tabId),
   });
@@ -1207,6 +1211,7 @@ export function BottomNav({
   }, [clearPendingActiveReset]);
 
   const [portalToBody, setPortalToBody] = useState(false);
+  const confirmIntentStartRef = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (bodyPortal) setPortalToBody(true);
   }, [bodyPortal]);
@@ -1223,12 +1228,56 @@ export function BottomNav({
 
   const commitTabRouteWithConfirm = useCallback(
     (tabId: string, commitOpts: BottomNavTabCommitOpts) => {
-      requestTransition(resolveBottomNavTransitionConfirmCopy(pathname ?? null, tabId), () => {
-        commitBottomNavTabRoute(commitOpts);
+      const copy = resolveBottomNavTransitionConfirmCopy(pathname ?? null, tabId);
+      if (copy != null) {
+        /**
+         * 확인 모달 노출 시점부터 목적지 prewarm을 선행해,
+         * 확인 클릭 직후 route commit 체감 지연을 줄인다.
+         * (탭 이동은 여전히 confirmTransition 이후에만 수행)
+         */
+        try {
+          if (commitOpts.onPrewarm) {
+            commitOpts.onPrewarm();
+          } else {
+            prewarmBottomNavTapTargetClientCache(commitOpts.href);
+          }
+        } catch {
+          /* noop */
+        }
+      }
+      if (copy != null) {
+        confirmIntentStartRef.current = performance.now();
+      } else {
+        confirmIntentStartRef.current = null;
+      }
+      requestTransition(copy, () => {
+        commitBottomNavTabRoute({
+          ...commitOpts,
+          prewarmedBeforeCommit: copy != null || commitOpts.prewarmedBeforeCommit === true,
+        });
       });
     },
     [pathname, requestTransition]
   );
+
+  const confirmTransitionWithPerf = useCallback(() => {
+    const t0 = confirmIntentStartRef.current;
+    confirmIntentStartRef.current = null;
+    if (t0 != null && isSamarketNavPerfConsoleEnabled()) {
+      const ms = Math.round(performance.now() - t0);
+      if (typeof window !== "undefined") {
+        const w = window as Window & {
+          __SAMARKET_CONFIRM_NAV_EVENTS?: Array<{ at: number; confirm_to_commit_ms: number }>;
+        };
+        if (!Array.isArray(w.__SAMARKET_CONFIRM_NAV_EVENTS)) {
+          w.__SAMARKET_CONFIRM_NAV_EVENTS = [];
+        }
+        w.__SAMARKET_CONFIRM_NAV_EVENTS.push({ at: Date.now(), confirm_to_commit_ms: ms });
+      }
+      console.debug("[nav-perf]", { phase: "confirm_to_commit", ms });
+    }
+    confirmTransition();
+  }, [confirmTransition]);
 
   const hideBottomNavShell =
     (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
@@ -1362,7 +1411,7 @@ export function BottomNav({
       <MainBottomNavDomainTransitionDialog
         pending={pendingTransition}
         onCancel={cancelTransition}
-        onConfirm={confirmTransition}
+        onConfirm={confirmTransitionWithPerf}
       />
     </>
   );

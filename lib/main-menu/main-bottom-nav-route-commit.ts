@@ -7,8 +7,8 @@ import {
   isCrossMainShellRouteGroup,
   armMainShellPushEnterSession,
   pathFromHref,
-  runMainShellPushExitBeforeNavigate,
 } from "@/lib/navigation/main-shell-push-session";
+import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import {
   parseMessengerEntryOrigin,
@@ -75,6 +75,8 @@ export type MainBottomNavRouteCommitArgs = {
   onPrewarm?: () => void;
   onCloseDomainSwitcher?: () => void;
   onCloseOverlay?: () => void;
+  /** 확인 모달 단계에서 이미 prewarm을 수행한 경우 post-commit prewarm 생략 */
+  skipPostCommitPrewarm?: boolean;
   /** chat·delivery-order-chat·다이얼 chat 등 */
   persistMessengerOriginFromHref?: boolean;
   /** perf 마커 — 다이얼은 overlay에서 click start 후 호출 가능 */
@@ -86,16 +88,11 @@ export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "naviga
 /** 연속 탭 — 이전 async 커밋이 replace/push 하지 않도록 세대 카운터 */
 let mainBottomNavRouteCommitGeneration = 0;
 
-function prefersReducedMotionClient(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
  * DO NOT: Link 기본 navigation·overlay 직접 push·tab.href 직접 push — 모두 여기 또는 resolver 경유.
- * DO NOT: `onNavigationIntent` 를 async(await exit) 뒤로 미루기 — orbit·pending active 즉시 반영.
- * `(stores)`↔`(main)`: exit(440ms) → session enter; same-group: `mainShellPushAxis` + dual-panel.
+ * DO NOT: `onNavigationIntent`·`beginMenuNavigation` 을 async(await) 뒤로 미루기 — push·orbit 즉시.
+ * `(stores)`↔`(main)`: 즉시 navigate + session enter push; same-group: dual-panel + `mainShellPushAxis`.
  */
 export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): MainBottomNavRouteCommitResult {
   args.onCloseDomainSwitcher?.();
@@ -110,51 +107,30 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
     return "blocked";
   }
 
-  args.onNavigationIntent(args.tabId);
-  void commitMainBottomNavRouteNavigateAsync(args);
-  return "navigated";
-}
-
-async function commitMainBottomNavRouteNavigateAsync(args: MainBottomNavRouteCommitArgs): Promise<void> {
-  const generation = ++mainBottomNavRouteCommitGeneration;
-  const navClickT0 = performance.now();
-  if (!args.skipPerfMark) {
-    markBottomNavRouteIntentForBackgroundWarm();
-    navPerfMarkBottomNavClickStart(navClickT0);
-  }
-
   const pushAxis = computeMainBottomNavPushAxis(args.pathname, args.href);
-  const toPath = pathFromHref(args.href);
-  const fromPath = (args.pathname ?? "").split("?")[0]?.trim() ?? "";
-
-  const prewarmWhenInactive = args.prefetchWhenInactive !== false;
-  if (prewarmWhenInactive) {
-    try {
-      if (args.onPrewarm) args.onPrewarm();
-      else prewarmBottomNavTapTargetClientCache(args.href);
-    } catch {
-      /* noop */
-    }
-  }
-
-  if (
-    pushAxis &&
-    typeof window !== "undefined" &&
-    isCrossMainShellRouteGroup(fromPath, toPath) &&
-    !prefersReducedMotionClient()
-  ) {
-    await runMainShellPushExitBeforeNavigate(pushAxis, fromPath, toPath);
-  } else if (pushAxis && isCrossMainShellRouteGroup(fromPath, toPath)) {
-    armMainShellPushEnterSession(pushAxis, fromPath, toPath);
-  }
-
-  if (generation !== mainBottomNavRouteCommitGeneration) {
-    return;
-  }
-
+  const targetPath = pathFromHref(args.href);
+  setMainShellPushAxisIntent(pushAxis, targetPath);
+  args.onNavigationIntent(args.tabId);
   args.beginMenuNavigation(args.href, "bottom-nav", {
     mainShellPushAxis: pushAxis,
   });
+
+  void commitMainBottomNavRouteNavigateAsync(args, pushAxis);
+  return "navigated";
+}
+
+async function commitMainBottomNavRouteNavigateAsync(
+  args: MainBottomNavRouteCommitArgs,
+  pushAxis: ReturnType<typeof computeMainBottomNavPushAxis>
+): Promise<void> {
+  const generation = ++mainBottomNavRouteCommitGeneration;
+
+  const toPath = pathFromHref(args.href);
+  const fromPath = (args.pathname ?? "").split("?")[0]?.trim() ?? "";
+
+  if (pushAxis && isCrossMainShellRouteGroup(fromPath, toPath)) {
+    armMainShellPushEnterSession(pushAxis, fromPath, toPath);
+  }
 
   if (args.persistMessengerOriginFromHref) {
     try {
@@ -166,12 +142,14 @@ async function commitMainBottomNavRouteNavigateAsync(args: MainBottomNavRouteCom
     }
   }
 
-  if (!args.skipPerfMark) {
-    navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
-  }
-
   if (generation !== mainBottomNavRouteCommitGeneration) {
     return;
+  }
+
+  const navClickT0 = performance.now();
+  if (!args.skipPerfMark) {
+    markBottomNavRouteIntentForBackgroundWarm();
+    navPerfMarkBottomNavClickStart(navClickT0);
   }
 
   if (mainBottomNavRouteUsesReplace(args.pathname, args.href)) {
@@ -181,4 +159,25 @@ async function commitMainBottomNavRouteNavigateAsync(args: MainBottomNavRouteCom
   }
 
   args.onCloseOverlay?.();
+
+  const prewarmWhenInactive = args.prefetchWhenInactive !== false && args.skipPostCommitPrewarm !== true;
+  if (prewarmWhenInactive) {
+    const runPrewarm = () => {
+      try {
+        if (args.onPrewarm) args.onPrewarm();
+        else prewarmBottomNavTapTargetClientCache(args.href);
+      } catch {
+        /* noop */
+      }
+    };
+    if (typeof window === "undefined") {
+      runPrewarm();
+    } else {
+      window.setTimeout(runPrewarm, 0);
+    }
+  }
+
+  if (!args.skipPerfMark) {
+    navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
+  }
 }

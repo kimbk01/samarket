@@ -17,6 +17,7 @@ import {
   mainShellPushEnterClassForAxis,
   mainShellPushFromClassForAxis,
 } from "@/lib/navigation/main-shell-push-session";
+import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 
 type Props = {
   children: ReactNode;
@@ -113,7 +114,8 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
 
     if (prev != null && prev.pathname !== pathKey) {
       const kind: RouteTransitionEnterKind = kindRef.current;
-      const axisFromIntent = pendingMenuIntent?.mainShellPushAxis ?? null;
+      const axisFromIntent =
+        pendingMenuIntent?.mainShellPushAxis ?? consumeMainShellPushAxisIntent(pathKey) ?? null;
       if (axisFromIntent) {
         lastPushAxisRef.current = axisFromIntent;
       }

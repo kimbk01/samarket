@@ -462,7 +462,7 @@ function StoreDeliveryRowCardInner({
   return (
     <li
       ref={setListItemRef}
-      className="list-none border-b border-[var(--delivery-border-light)] bg-[var(--delivery-bg-card)] px-4 py-[14px]"
+      className="list-none select-none border-b border-[var(--delivery-border-light)] bg-[var(--delivery-bg-card)] px-4 py-[14px]"
       onPointerEnter={onRowPointerWarm}
       onFocus={onRowPointerWarm}
     >
@@ -473,7 +473,7 @@ function StoreDeliveryRowCardInner({
           ) : featuredMenuTiles.length > 0 ? (
             <div
               className={[
-                "flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain",
+                "flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain select-none",
                 "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               ].join(" ")}
               style={{ WebkitOverflowScrolling: "touch" }}

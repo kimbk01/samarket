@@ -5,10 +5,28 @@ import {
   getMainAppScrollRootCached,
   invalidateMainAppScrollRootCache,
 } from "@/lib/layout/main-app-scroll-root";
+import { clearStuckTextSelection } from "@/lib/ui/clear-stuck-text-selection";
+
+function blurInteractiveFocus(): void {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement) || active === document.body) return;
+  if (
+    active instanceof HTMLInputElement ||
+    active instanceof HTMLTextAreaElement ||
+    active instanceof HTMLSelectElement
+  ) {
+    return;
+  }
+  if (active instanceof HTMLButtonElement || active instanceof HTMLAnchorElement) {
+    active.blur();
+  }
+}
 
 /**
- * iOS Safari — `:active`·포커스가 touchend 후에도 남아 스크롤이 “눌린 채”처럼 느껴지는 현상 완화.
- * 입력 필드는 blur 하지 않음.
+ * 배달 목록(`/stores` · `/stores/browse/*`) — iOS `:active`/포커스 잔상 완화.
+ *
+ * PERF: 텍스트 선택 방지는 `.delivery-ui [data-main-hub-scroll-body]` 등 CSS `user-select`
+ * 가 1차. JS는 touchend 1회(rAF)만 — scroll root `pointermove` capture 금지(체감 지연 원인).
  */
 export function useStoresHomeTouchRelease(enabled: boolean): void {
   useEffect(() => {
@@ -19,18 +37,8 @@ export function useStoresHomeTouchRelease(enabled: boolean): void {
 
     const release = () => {
       requestAnimationFrame(() => {
-        const active = document.activeElement;
-        if (!(active instanceof HTMLElement) || active === document.body) return;
-        if (
-          active instanceof HTMLInputElement ||
-          active instanceof HTMLTextAreaElement ||
-          active instanceof HTMLSelectElement
-        ) {
-          return;
-        }
-        if (active instanceof HTMLButtonElement || active instanceof HTMLAnchorElement) {
-          active.blur();
-        }
+        blurInteractiveFocus();
+        clearStuckTextSelection();
       });
     };
 
