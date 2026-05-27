@@ -18,7 +18,7 @@ export function subscribeAppShellScroll(
 
   const passive = options?.passive ?? true;
   const attached = new Set<EventTarget>();
-  let retryId: ReturnType<typeof setTimeout> | null = null;
+  let retryId: number | null = null;
 
   const bindTargets = (refreshRoot: boolean) => {
     if (refreshRoot) {
