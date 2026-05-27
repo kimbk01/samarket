@@ -22,5 +22,8 @@ describe("main-bottom-nav-fab-sector-config", () => {
     expect(style["--fab-surface-alpha"]).toBe(String(FAB_SURFACE_ALPHA));
     expect(style["--fab-shell-w"]).toBe(`${FAB_SHELL_W_REM}rem`);
     expect(style["--fab-panel-inset"]).toBe(`${FAB_PANEL_INSET_REM}rem`);
+    expect(style["--fab-palette-green"]).toBe("#0B421A");
+    expect(style["--fab-edge-bg"]).toBe("#0B421A");
+    expect(style["--fab-close-disc-bg"]).toBe("#D62B1F");
   });
 });

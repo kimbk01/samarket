@@ -1,5 +1,6 @@
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { isStoresDeliveryHubChromePath } from "@/lib/design/delivery-chrome";
 import {
   isDeliveryCartBottomNavPath,
   isDeliveryOrderHistoryBottomNavPath,
@@ -13,10 +14,10 @@ import {
   type MainBottomNavFabStoredItem,
 } from "@/lib/main-menu/main-bottom-nav-fab-types";
 
-/** 1차 FAB 노출 — 배달 홈·장바구니·주문내역 */
+/** 1차 FAB 노출 — 배달 허브(browse·search)·장바구니·주문내역 */
 export function isMainBottomNavFabDeliverySurface(pathname: string | null | undefined): boolean {
   const p = normalizeDeliveryBottomNavPath(pathname);
-  if (p === "/stores") return true;
+  if (isStoresDeliveryHubChromePath(p)) return true;
   if (isDeliveryCartBottomNavPath(p)) return true;
   if (isDeliveryOrderHistoryBottomNavPath(p)) return true;
   return false;

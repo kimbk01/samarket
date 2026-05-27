@@ -12,40 +12,22 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   startTransition,
   type ReactNode,
 } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import {
-  STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
-  StoreCommerceCartStrokeIcon,
-} from "@/components/stores/StoreCommerceCartStrokeIcon";
-import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
-import {
-  getBrowsePrimaryBySlug,
-  listBrowsePrimaryIndustries,
-  listBrowseSubIndustries,
-} from "@/lib/stores/browse-mock/queries";
-import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
+import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
-import {
-  STORES_BROWSE_SUB_ALL,
-  storesBrowseNavSubSlug,
-  storesBrowsePath,
-  storesBrowsePrimaryPath,
-} from "./stores-browse-paths";
-import {
-  STORE_CATEGORY_PILL_SCROLL,
-} from "@/components/stores/store-category-pill-styles";
+import { STORES_BROWSE_SUB_ALL, storesBrowseNavSubSlug, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
   StoreDeliveryRowCard,
   browseItemToRowCard,
@@ -53,44 +35,25 @@ import {
   type StoreRowCardData,
 } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
+import { fetchStoresBrowseDeduped, peekStoresBrowseClientCache } from "@/lib/stores/store-delivery-api-client";
 import {
-  fetchStoresBrowseDeduped,
-  fetchStoresTaxonomyDeduped,
-  peekStoresBrowseClientCache,
-} from "@/lib/stores/store-delivery-api-client";
-import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
-import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
-import {
-  resolveStoreTaxonomyImageSrc,
-  storeTaxonomyUploadedImageUrl,
-} from "@/lib/stores/store-taxonomy-image-src";
-import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
+  resolveBrowseListQuerySub,
+  resolveBrowseMatchedSubSlug,
+} from "@/lib/stores/browse-header-sub-selection";
+import { useBrowseSubIndustries } from "@/lib/stores/use-browse-sub-industries";
+import { useBrowseSubAllCanonicalUrl } from "@/lib/stores/use-browse-sub-all-canonical-url";
+import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
 import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user-origin-coords";
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import {
-  resolveStorePrimaryIndustryLabel,
-  resolveStoreTopicLabel,
-} from "@/lib/i18n/store-browse-label-i18n";
+import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
 import {
-  STORE_BROWSE_SUB_CHIP_BUTTON,
-  STORE_BROWSE_SUB_CHIP_LABEL,
-} from "@/components/stores/store-browse-category-ui";
-
-const RESTAURANT_SUB_ICON: Record<string, string> = {
-  korean: "/icons/food/icon_0_1.png",
-  chinese: "/icons/food/icon_1_0.png",
-  japanese: "/icons/food/icon_1_1.png",
-  western: "/icons/food/icon_1_2.png",
-  pizza: "/icons/food/icon_1_2.png",
-  snack: "/icons/food/icon_1_3.png",
-  chicken: "/icons/food/icon_0_2.png",
-  lunchbox: "/icons/food/icon_2_0.png",
-  local: "/icons/food/icon_2_1.png",
-  dessert: "/icons/food/icon_2_2.png",
-  late_night: "/icons/food/icon_2_3.png",
-};
+  getBrowseSubChipOptimisticSubServerSnapshot,
+  getBrowseSubChipOptimisticSubSnapshot,
+  setBrowseSubChipOptimisticSub,
+  subscribeBrowseSubChipOptimisticSub,
+} from "@/lib/stores/browse-sub-chip-navigation";
 
 function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): number {
   const bySlug = a.slug.localeCompare(b.slug);
@@ -147,41 +110,6 @@ function browseCityLabel(regionId: string, cityId: string): string {
   return (city?.name ?? "").trim();
 }
 
-function StoresBrowseCartAction() {
-  const { t } = useI18n();
-  const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref();
-
-  return (
-    <>
-      <Link
-        href="/search"
-        className="sam-tier1-header__icon-btn text-[color:var(--delivery-text-main)] hover:bg-[color:var(--delivery-bg-soft)]"
-        aria-label={t("common_search")}
-      >
-        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-      </Link>
-      <Link
-        href={cartHref}
-        className="sam-tier1-header__icon-btn relative text-[color:var(--delivery-text-main)] hover:bg-[color:var(--delivery-bg-soft)]"
-        aria-label={cartLineKindCount > 0 ? t("common_cart") : t("store_browse_primary_fallback")}
-      >
-        <StoreCommerceCartStrokeIcon />
-        {cartLineKindCount > 0 ? (
-          <span className={`absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
-            {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
-          </span>
-        ) : null}
-      </Link>
-    </>
-  );
-}
-
 type BrowseFeedMetaSource = "supabase" | "supabase_unconfigured" | null;
 
 export function StoresBrowsePrimaryView({
@@ -207,9 +135,7 @@ export function StoresBrowsePrimaryView({
   const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
-  const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
-    null
-  );
+  const taxonomy = useBrowseTaxonomySnapshot();
   /** undefined = 아직 첫 응답 전 */
   const [remoteRows, setRemoteRows] = useState<BrowseStoreListItem[] | undefined>(undefined);
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
@@ -244,30 +170,6 @@ export function StoresBrowsePrimaryView({
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { json: jRaw } = await fetchStoresTaxonomyDeduped();
-        const j = jRaw as { ok?: boolean; categories?: unknown; topics?: unknown };
-        if (cancelled) return;
-        if (j?.ok && Array.isArray(j.categories) && Array.isArray(j.topics)) {
-          setTaxonomy({
-            categories: j.categories as StoreTaxonomyCategory[],
-            topics: j.topics as StoreTaxonomyTopic[],
-          });
-        } else {
-          setTaxonomy(null);
-        }
-      } catch {
-        if (!cancelled) setTaxonomy(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const primary = useMemo(() => {
     if (!taxonomy || taxonomy.categories.length === 0) return getBrowsePrimaryBySlug(primarySlug);
     const pk = primarySlug.trim().toLowerCase();
@@ -283,34 +185,15 @@ export function StoresBrowsePrimaryView({
     };
   }, [primarySlug, taxonomy, industryVersion]);
 
-  const subs = useMemo((): BrowseSubIndustry[] => {
-    if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(primarySlug);
-    const pk = primarySlug.trim().toLowerCase();
-    const c = taxonomy.categories.find((x) => String(x.slug ?? "").trim().toLowerCase() === pk);
-    if (!c) return [];
-    const sorted = taxonomy.topics
-      .filter((t) => t.store_category_id === c.id)
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    const seenSlug = new Set<string>();
-    const out: BrowseSubIndustry[] = [];
-    for (const t of sorted) {
-      const sk = String(t.slug ?? "").trim().toLowerCase();
-      if (!sk || seenSlug.has(sk)) continue;
-      seenSlug.add(sk);
-      out.push({
-        id: t.id,
-        slug: t.slug,
-        nameKo: t.name,
-        primarySlug,
-        sortOrder: t.sort_order,
-        imageUrl: storeTaxonomyUploadedImageUrl(t.image_url) || null,
-        name_en: t.name_en ?? null,
-      });
-    }
-    return out;
-  }, [primarySlug, taxonomy, industryVersion]);
+  const subs = useBrowseSubIndustries(primarySlug);
 
-  const [optimisticSub, setOptimisticSub] = useState<string | null>(null);
+  useBrowseSubAllCanonicalUrl(primarySlug, subs);
+
+  const optimisticSub = useSyncExternalStore(
+    subscribeBrowseSubChipOptimisticSub,
+    getBrowseSubChipOptimisticSubSnapshot,
+    getBrowseSubChipOptimisticSubServerSnapshot
+  );
   const lastTapPerfRef = useRef<{ sub: string; t0: number } | null>(null);
   const lastNavPerfRef = useRef<{ sub: string; t0: number; kind: "tap" | "pop" } | null>(null);
 
@@ -323,13 +206,11 @@ export function StoresBrowsePrimaryView({
     [searchParams, initialSubSlug]
   );
 
-  /** taxonomy 에 없는·비정상 sub 쿼리는 목록은 전체로 맞추고 칩도 「전체」와 일치시킴 */
-  const matchedTopicSlug = useMemo(() => {
-    const p = trimmedBrowseSubParam;
-    if (!p || p === STORES_BROWSE_SUB_ALL) return null;
-    const hit = subs.find((s) => s.slug.toLowerCase() === p);
-    return hit ? hit.slug : null;
-  }, [trimmedBrowseSubParam, subs]);
+  /** `sub=all`·없음 → 목록 API `all` (2차 「전체」 칩 없음) */
+  const matchedTopicSlug = useMemo(
+    () => resolveBrowseMatchedSubSlug(trimmedBrowseSubParam, subs),
+    [trimmedBrowseSubParam, subs],
+  );
 
   useEffect(() => {
     setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
@@ -337,12 +218,10 @@ export function StoresBrowsePrimaryView({
 
   useEffect(() => {
     // URL/searchParams가 확정되면 optimistic 상태를 해제
-    setOptimisticSub(null);
+    setBrowseSubChipOptimisticSub(null);
   }, [matchedTopicSlug, primarySlug]);
 
-  const activeSub = optimisticSub ?? (matchedTopicSlug ?? STORES_BROWSE_SUB_ALL);
-
-  const allSubChipActive = activeSub === STORES_BROWSE_SUB_ALL;
+  const activeSub = resolveBrowseListQuerySub(optimisticSub, matchedTopicSlug);
 
   useEffect(() => {
     // 탭 클릭 직후 "선택 표시"까지의 지연(대략 1~2 frame) 계측
@@ -617,128 +496,6 @@ export function StoresBrowsePrimaryView({
   const browseStickyBelow: ReactNode = useMemo(
     () => (
       <div className="border-b border-sam-border bg-[var(--sub-bg)]">
-        <div className="bg-sam-surface dark:bg-[#242526]">
-          <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-1.5 pt-1`}>
-            <HorizontalDragScroll
-              className={`${STORE_CATEGORY_PILL_SCROLL} gap-0.5`}
-              style={{ WebkitOverflowScrolling: "touch" }}
-              aria-label={t("store_sub_industry_aria")}
-            >
-              {(() => {
-              const isRestaurant = primarySlug.trim().toLowerCase() === "restaurant";
-              const categoryImageUrl = (() => {
-                if (!taxonomy?.categories.length) return "";
-                const pk = primarySlug.trim().toLowerCase();
-                const c = taxonomy.categories.find(
-                  (x) => String(x.slug ?? "").trim().toLowerCase() === pk
-                );
-                return storeTaxonomyUploadedImageUrl(c?.image_url);
-              })();
-              const allIconSrc = resolveStoreTaxonomyImageSrc(
-                categoryImageUrl,
-                isRestaurant ? "/icons/food/icon_0_0.png" : storeSecondaryBrowseIconPath(primarySlug, 0)
-              );
-
-              const baseItemClass = `${STORE_BROWSE_SUB_CHIP_BUTTON}`;
-              const activeClass = "text-sam-fg dark:text-[#E4E6EB]";
-              const idleClass =
-                "text-sam-muted active:bg-sam-surface-muted dark:text-[#B0B3B8] dark:active:bg-[#4E4F50]";
-
-              const Item = ({
-                href,
-                navSubSlug,
-                on,
-                label,
-                iconSrc,
-                iconIsUploaded,
-              }: {
-                href: string;
-                /** optimistic·perf·activeSub 와 동일한 sub 식별자 */
-                navSubSlug: string;
-                on: boolean;
-                label: string;
-                iconSrc: string | null;
-                iconIsUploaded: boolean;
-              }) => (
-                <button
-                  type="button"
-                  aria-current={on ? "page" : undefined}
-                  onClick={() => {
-                    if (on) return;
-                    const sub = storesBrowseNavSubSlug(navSubSlug);
-                    const t0 = performance.now();
-                    lastTapPerfRef.current = { sub, t0 };
-                    lastNavPerfRef.current = { sub, t0, kind: "tap" };
-                    setOptimisticSub(sub);
-                    startTransition(() => {
-                      // 뒤로가기 복귀 경로를 유지하기 위해 replace 대신 push
-                      router.push(href, { scroll: false });
-                    });
-                  }}
-                  className={`${baseItemClass} ${on ? activeClass : idleClass}`}
-                >
-                  {iconSrc ? (
-                    <StoreTaxonomyThumb src={iconSrc} isUploaded={iconIsUploaded} dimmed={!on} />
-                  ) : (
-                    <span
-                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface-muted"
-                      aria-hidden
-                    />
-                  )}
-                  <span className={STORE_BROWSE_SUB_CHIP_LABEL}>{label}</span>
-                  <span
-                    className="mt-1 h-1 w-10 rounded-full"
-                    style={{ backgroundColor: on ? "var(--delivery-primary)" : "transparent" }}
-                    aria-hidden
-                  />
-                </button>
-              );
-
-              return (
-                <>
-                  <Item
-                    href={storesBrowsePrimaryPath(primarySlug)}
-                    navSubSlug={STORES_BROWSE_SUB_ALL}
-                    on={allSubChipActive}
-                    label={safeT("store_browse_food_all")}
-                    iconSrc={allIconSrc}
-                    iconIsUploaded={!!categoryImageUrl}
-                  />
-                  {subs.map((s, idx) => {
-                    const on = activeSub !== STORES_BROWSE_SUB_ALL && activeSub === s.slug;
-                    const label = resolveStoreTopicLabel(
-                      language,
-                      s.slug,
-                      String(s.nameKo ?? "").trim(),
-                      s.name_en,
-                    );
-                    const uploaded = storeTaxonomyUploadedImageUrl(s.imageUrl);
-                    const slugKey = String(s.slug ?? "").trim().toLowerCase();
-                    const iconSrc = resolveStoreTaxonomyImageSrc(
-                      uploaded,
-                      isRestaurant ?
-                        (RESTAURANT_SUB_ICON[slugKey] ?? null)
-                      : storeSecondaryBrowseIconPath(primarySlug, idx + 1)
-                    );
-                    return (
-                      <Item
-                        key={s.id}
-                        href={storesBrowsePath(primarySlug, s.slug)}
-                        navSubSlug={s.slug}
-                        on={on}
-                        label={label}
-                        iconSrc={iconSrc}
-                        iconIsUploaded={!!uploaded}
-                      />
-                    );
-                  })}
-                </>
-              );
-            })()}
-            </HorizontalDragScroll>
-          </div>
-          <div className="h-px bg-sam-border dark:bg-[#3E4042]" aria-hidden />
-        </div>
         <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-2 pt-2`}>
           {browseSubtitle ?
             <p className="pb-1.5 sam-text-xxs leading-snug text-sam-muted dark:text-sam-meta" role="status">
@@ -749,45 +506,27 @@ export function StoresBrowsePrimaryView({
         </div>
       </div>
     ),
-    [browseSubtitle, subs, primarySlug, listSort, hasGeo, allSubChipActive, matchedTopicSlug, language, t, safeT, router]
+    [browseSubtitle, listSort, hasGeo, t]
   );
+
+  const browseHeaderTitle = useMemo(() => {
+    if (!primary) return "";
+    return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
+  }, [primary, language, industryVersion]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
     if (!primary || subs.length === 0) {
-      setMainTier1Extras({
-        tier1: {
-          titleText: t("store_primary_industry_aria"),
-          backHref: "/stores",
-          preferHistoryBack: false,
-          ariaLabel: t("nav_back"),
-          showHubQuickActions: false,
-          rightSlot: <StoresBrowseCartAction />,
-        },
-      });
+      setMainTier1Extras(null);
       return () => setMainTier1Extras(null);
     }
 
     setMainTier1Extras({
-      tier1: {
-        titleText: resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo),
-        backHref: "/stores",
-        preferHistoryBack: false,
-        ariaLabel: t("nav_back"),
-        showHubQuickActions: false,
-        rightSlot: <StoresBrowseCartAction />,
-      },
+      tier1: { titleText: browseHeaderTitle },
       stickyBelow: browseStickyBelow,
     });
     return () => setMainTier1Extras(null);
-  }, [
-    setMainTier1Extras,
-    primary,
-    subs,
-    browseStickyBelow,
-    primarySlug,
-    industryVersion,
-  ]);
+  }, [setMainTier1Extras, primary, subs, browseStickyBelow, browseHeaderTitle]);
 
   if (!primary || subs.length === 0) {
     return (

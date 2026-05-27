@@ -13,7 +13,8 @@ describe("resolve-main-bottom-nav-fab", () => {
     expect(isMainBottomNavFabDeliverySurface("/stores/cart")).toBe(true);
     expect(isMainBottomNavFabDeliverySurface("/orders")).toBe(true);
     expect(isMainBottomNavFabDeliverySurface("/mypage/store-orders")).toBe(true);
-    expect(isMainBottomNavFabDeliverySurface("/stores/search")).toBe(false);
+    expect(isMainBottomNavFabDeliverySurface("/stores/search")).toBe(true);
+    expect(isMainBottomNavFabDeliverySurface("/stores/browse/restaurant")).toBe(true);
     expect(isMainBottomNavFabDeliverySurface("/stores/foo/cart")).toBe(false);
   });
 

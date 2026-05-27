@@ -27,7 +27,7 @@ alwaysApply: false
 - **상단 inset**: `fabPanelBodyInlineStyle()` → `(shellW - iconBox) / 2` rem, 좌우 gutter와 동일
 - **토글 높이**: 항상 `--fab-edge-h`
 - **X**: `router.refresh()` + `expandLocked`; **`‹`만** 잠금 해제
-- **idle 자동 펼침**: `BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS + 2000`
+- **스크롤 접힘**: `resolveFabScrollChromeAction` — 위·아래 접힘 (하단 탭 `resolveBottomNavScrollChromeAction` 과 분리)
 
 ## 수정 후
 

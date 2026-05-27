@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { resolveBottomNavScrollChromeAction } from "@/lib/layout/main-bottom-nav-fab-scroll-signal";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
@@ -68,11 +69,10 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
     const onScroll = (event: Event) => {
       const y = readScrollTopFromScrollTarget(event.target);
       const last = lastYRef.current;
-      if (y < 8) {
-        setHidden(false);
-      } else if (y > last + 3) {
+      const action = resolveBottomNavScrollChromeAction(last, y);
+      if (action === "hide") {
         setHidden(true);
-      } else if (y < last) {
+      } else if (action === "reveal") {
         setHidden(false);
       }
       lastYRef.current = y;

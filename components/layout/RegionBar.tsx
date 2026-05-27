@@ -20,10 +20,13 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import dynamic from "next/dynamic";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
+import { StoresBrowseHeaderChrome } from "@/components/stores/browse/StoresBrowseHeaderChrome";
 import { StoresHomeHeaderChrome } from "@/components/stores/home/hub/StoresHomeHeaderChrome";
 import {
   DELIVERY_CONSUMER_HEADER_BAR_CLASS,
   isDeliveryConsumerPath,
+  isStoresBrowseHeaderPath,
+  isStoresDeliveryHubChromePath,
 } from "@/lib/design/delivery-chrome";
 import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
@@ -78,6 +81,12 @@ export function RegionBar({
   }
 
   if (pathNoQuery === "/stores") {
+    return <StoresHomeHeaderChrome />;
+  }
+  if (isStoresBrowseHeaderPath(pathNoQuery)) {
+    return <StoresBrowseHeaderChrome />;
+  }
+  if (pathNoQuery === "/stores/search" || pathNoQuery.startsWith("/stores/search/")) {
     return <StoresHomeHeaderChrome />;
   }
 

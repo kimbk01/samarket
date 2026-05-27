@@ -55,6 +55,8 @@ export const storeCommerceUiMessages = {
 
     store_primary_industry_aria: "대분류 업종",
 
+    store_browse_primary_menu_all: "메뉴 전체보기",
+
     store_subtopic_suffix: " · 세부 주제",
 
     store_collect_view: "모아보기",
@@ -1575,6 +1577,8 @@ export const storeCommerceUiMessages = {
     store_favorite_login_required: "Sign in to save favorites.",
 
     store_primary_industry_aria: "Main category",
+
+    store_browse_primary_menu_all: "All categories",
 
     store_subtopic_suffix: " · Subtopics",
 

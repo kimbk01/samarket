@@ -1,3 +1,5 @@
+import { deliveryFabChristmasPaletteCssVars } from "@/lib/ui/delivery-fab-christmas-starbucks-palette";
+
 /** 배달 FAB 섹터 — 레이아웃·투명도 단일 정의 (CSS `--fab-*` 와 동기) */
 export const FAB_SURFACE_ALPHA = 0.6;
 
@@ -18,7 +20,9 @@ export function fabPanelBodyInlineStyle(): { paddingTop: string } {
   return { paddingTop: `${FAB_PANEL_INSET_REM}rem` };
 }
 
-export function fabSectorRootStyle(dockMs = FAB_DOCK_MS): Record<string, string> {  return {
+export function fabSectorRootStyle(dockMs = FAB_DOCK_MS): Record<string, string> {
+  return {
+    ...deliveryFabChristmasPaletteCssVars(FAB_SURFACE_ALPHA),
     "--fab-dock-ms": `${dockMs}ms`,
     "--fab-surface-alpha": String(FAB_SURFACE_ALPHA),
     "--fab-shell-w": `${FAB_SHELL_W_REM}rem`,

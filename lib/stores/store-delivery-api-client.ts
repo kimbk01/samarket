@@ -416,6 +416,9 @@ export function clearStoresTaxonomyClientCache(): void {
   for (const key of [...storeTaxonomyPublicCache.keys()]) {
     if (key.startsWith("taxonomy:")) storeTaxonomyPublicCache.delete(key);
   }
+  queueMicrotask(() => {
+    void import("@/lib/stores/browse-taxonomy-snapshot").then((m) => m.invalidateBrowseTaxonomySnapshot());
+  });
 }
 
 export type FetchStoresTaxonomyDedupedOptions = {

@@ -12,6 +12,11 @@ export function storesBrowsePath(primarySlug: string, subSlug: string): string {
   return `/stores/browse/${encodeURIComponent(primarySlug)}?${q.toString()}`;
 }
 
+/** 2차 「전체」 — `?sub=all` 고정 (진입·새로고침 canonical) */
+export function storesBrowseAllPath(primarySlug: string): string {
+  return storesBrowsePath(primarySlug.trim().toLowerCase(), STORES_BROWSE_SUB_ALL);
+}
+
 /** browse URL — `sort` 쿼리는 StoresBrowsePrimaryView 초기 정렬 */
 export function storesBrowsePathWithSort(
   primarySlug: string,

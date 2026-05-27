@@ -89,12 +89,14 @@ min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset)
 
 ## 5. 스크롤·토글 동작
 
-**스크롤** (`useMainBottomNavFabSectorScroll`)
+**스크롤** (`useMainBottomNavFabSectorScroll` · `useBottomNavScrollHide`)
 
-- **상·하** 스크롤 이동(3px 초과) → 접힘 (`collapsed`)
-- 맨 위(`y < 8`) → 펼침
-- idle → 자동 펼침
-- idle 자동 펼침: **하단 탭(1.8s) + 2s = 3.8s** (`MAIN_BOTTOM_NAV_FAB_REVEAL_AFTER_SCROLL_IDLE_MS`)
+| 동작 | 하단 탭 | FAB |
+|------|---------|-----|
+| 아래로 3px+ | 숨김 | 접힘 |
+| 위로 3px+ | **즉시 표시** | **접힘** |
+| 맨 위 (`y < 8`) | 즉시 표시 | 즉시 펼침 |
+| 멈춤 후 1.8s | 숨김 상태면 표시 | 접힘 상태면 펼침 |
 
 **X 버튼**
 
@@ -117,7 +119,7 @@ min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset)
 
 1. `npm run verify:main-bottom-nav-fab-sector-contract`
 2. `npx tsc --noEmit`
-3. `/stores`에서 확인: 상단 inset, ‹ 높이 고정, X 잠금, 스크롤 3.8s
+3. `/stores`에서 확인: 상단 inset, ‹ 높이 고정, X 잠금, 스크롤 멈춤 후 1.8s·하단 탭과 동시 펼침
 4. 계약 변경 시 **본 문서 + `.cursor/rules/main-bottom-nav-fab-sector-contract.mdc`** 함께 갱신
 
 ---
@@ -128,3 +130,9 @@ min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset)
 |------|------|
 | 2026-05-26 | 스크롤 상·하 이동 시 접힘 (하향만 → 양방향) |
 | 2026-05-26 | 단일 shell morph, inset 인라인 고정, X expandLock, idle +2s, 계약·verify 추가 |
+| 2026-05-27 | Christmas Starbucks 팔레트 단일 TS 고정·셸/아이콘 재적용, 스크롤 idle 0(rAF 즉시 펼침) |
+| 2026-05-27 | 스크롤 접힘 회귀 수정: settled Y 검사 후 펼침, `subscribeAppShellScroll` hub 루트 재바인딩 |
+| 2026-05-27 | 스크롤 규칙·idle 1.8s — `useBottomNavScrollHide` 와 단일 상수·방향 분기 공유 |
+| 2026-05-27 | FAB scroll 깜빡임 — Context로 하단 탭 hidden 공유, 이중 subscribe·settled 검사 제거 |
+| 2026-05-27 | FAB·하단 탭 스크롤 분리 — FAB는 위·아래 스크롤 접힘, 하단 탭은 아래만 숨김 |
+| 2026-05-27 | `/stores/browse/*`·`/stores/search` — `isStoresDeliveryHubChromePath` 헤더·FAB 동일 계약 |

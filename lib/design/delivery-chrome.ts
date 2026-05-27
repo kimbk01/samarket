@@ -63,3 +63,21 @@ export function isDeliveryConsumerPath(pathname: string | null | undefined): boo
   return p === "/stores" || p.startsWith("/stores/");
 }
 
+/** `/stores/browse/*` — browse 전용 헤더(뒤로·제목·지도) */
+export function isStoresBrowseHeaderPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  return p === "/stores/browse" || p.startsWith("/stores/browse/");
+}
+
+/**
+ * 배달 허브 1단 — `/stores`·browse·search + FAB·스크롤 크롬 동일.
+ * (매장 slug·cart/checkout·owner 제외)
+ */
+export function isStoresDeliveryHubChromePath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  if (p === "/stores") return true;
+  if (p === "/stores/search" || p.startsWith("/stores/search/")) return true;
+  if (isStoresBrowseHeaderPath(p)) return true;
+  return false;
+}
+

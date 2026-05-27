@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import { BottomNavScrollChromeProvider } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import {
   resolveBottomNavScrollHideEnabled,
   useBottomNavScrollHide,
@@ -192,7 +193,8 @@ export function ConditionalAppShell({
     </div>
   );
   return (
-    /** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */
+    <BottomNavScrollChromeProvider hidden={Boolean(bottomNavScrollHideEnabled && bottomNavHiddenByScroll)}>
+    {/** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */}
     <div
       className={`app-shell w-full min-w-0 ${
         hubScrollColumn ? `min-h-0 flex-1 ${MAIN_HUB_SCROLL_SHELL_ROOT_CLASS}` : mainShellInnerRootClass
@@ -236,5 +238,6 @@ export function ConditionalAppShell({
       {f.showMainBottomNavFabSector ? <MainBottomNavFabSectorLazy /> : null}
       {f.showFloat && <FloatingAddButtonLazy />}
     </div>
+    </BottomNavScrollChromeProvider>
   );
 }

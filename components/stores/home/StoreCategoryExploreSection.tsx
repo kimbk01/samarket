@@ -28,6 +28,7 @@ import {
   resolveStoreTaxonomyImageSrc,
   storeTaxonomyUploadedImageUrl,
 } from "@/lib/stores/store-taxonomy-image-src";
+import { STORES_HOME_PRIMARY_CATEGORY_ICONS } from "@/lib/stores/stores-home-category-fallback-icons";
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import {
   STORE_BROWSE_PRIMARY_TABLIST,
@@ -52,17 +53,6 @@ const FOOD_CATEGORIES: readonly { icon: string; subSlug?: string }[] = [
   { icon: "/icons/food/icon_2_2.png", subSlug: "dessert" },
   { icon: "/icons/food/icon_2_3.png", subSlug: "late_night" },
 ] as const;
-
-const PRIMARY_CATEGORY_ICONS: Record<string, string> = {
-  restaurant: "/icons/category/category_0_1.png",
-  mart: "/icons/category/category_0_2.png",
-  hardware: "/icons/category/category_0_3.png",
-  pet: "/icons/category/category_0_4.png",
-  cafe: "/icons/category/category_0_5.png",
-  beauty: "/icons/category/category_0_6.png",
-  academy: "/icons/category/category_0_7.png",
-  life: "/icons/category/category_0_8.png",
-};
 
 /**
  * 매장 홈 — 배달 플랫폼형: 대분류 탭(한 줄) + 선택 업종의 세부만 그리드로 노출.
@@ -178,7 +168,8 @@ export function StoreCategoryExploreSection({
         {primaries.map((p) => {
           const on = p.slug === activeSlug;
           const uploaded = storeTaxonomyUploadedImageUrl((p as StoreTaxonomyCategory).image_url);
-          const icon = resolveStoreTaxonomyImageSrc(uploaded, PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
+          const icon =
+            resolveStoreTaxonomyImageSrc(uploaded, STORES_HOME_PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
           const iconIsUploaded = !!uploaded;
           return (
             <button

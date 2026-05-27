@@ -42,7 +42,7 @@ export type StoresGreenFixedHeaderChromeProps = {
 };
 
 /**
- * `/stores` 녹색 1단 헤더 — BodyPortal 고정, 60px+safe-area 계약(`stores-home-header-chrome.ts`).
+ * `/stores` 녹색 1단 헤더 — BodyPortal 고정, 52px+safe-area 계약(`stores-home-header-chrome.ts`).
  */
 export function StoresGreenFixedHeaderChrome({
   title,

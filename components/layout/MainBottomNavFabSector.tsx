@@ -33,6 +33,7 @@ import {
   fabPanelBodyInlineStyle,
   fabSectorRootStyle,
 } from "@/lib/layout/main-bottom-nav-fab-sector-config";
+import { deliveryFabIconBoxStyle } from "@/lib/ui/delivery-fab-christmas-starbucks-palette";
 
 /**
  * CONTRACT — 배달 하단 FAB (`docs/main-bottom-nav-fab-sector-contract.md`)
@@ -249,7 +250,10 @@ export function MainBottomNavFabSector() {
 
                     const content = (
                       <>
-                        <span className="main-bottom-nav-fab-sector__icon-box relative">
+                        <span
+                          className="main-bottom-nav-fab-sector__icon-box relative"
+                          style={deliveryFabIconBoxStyle(item.id)}
+                        >
                           <MainBottomNavTabIcon tab={iconTab} className="main-bottom-nav-fab-sector__glyph" />
                           {showCartBadge ? (
                             <span className={FAB_PANEL_CART_COUNT_BADGE_CLASS} aria-hidden>
@@ -273,6 +277,7 @@ export function MainBottomNavFabSector() {
                           <button
                             type="button"
                             className={rowClass}
+                            data-fab-item-id={item.id}
                             {...pressHandlers}
                             onClick={() => {
                               closePanel();
@@ -291,6 +296,7 @@ export function MainBottomNavFabSector() {
                           href={item.href}
                           prefetch={false}
                           className={rowClass}
+                          data-fab-item-id={item.id}
                           aria-current={active ? "page" : undefined}
                           aria-label={showCartBadge ? t("nav_cart_aria") : undefined}
                           {...pressHandlers}

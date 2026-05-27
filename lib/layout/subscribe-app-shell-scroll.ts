@@ -2,6 +2,7 @@
 
 import {
   getStoreDetailAppScrollRoot,
+  invalidateStoreDetailScrollRootCache,
   isDocumentScrollRoot,
 } from "@/lib/ui/store-detail-scroll-root";
 
@@ -16,23 +17,42 @@ export function subscribeAppShellScroll(
   if (typeof window === "undefined") return () => {};
 
   const passive = options?.passive ?? true;
-  const targets: (HTMLElement | Window)[] = [];
-  try {
-    const root = getStoreDetailAppScrollRoot();
-    if (!isDocumentScrollRoot(root)) {
-      targets.push(root);
-    }
-  } catch {
-    /* ignore */
-  }
-  targets.push(window);
+  const attached = new Set<EventTarget>();
+  let retryId: ReturnType<typeof setTimeout> | null = null;
 
-  for (const t of targets) {
-    t.addEventListener("scroll", onScroll, { passive });
-  }
+  const bindTargets = (refreshRoot: boolean) => {
+    if (refreshRoot) {
+      invalidateStoreDetailScrollRootCache();
+    }
+    const next: (HTMLElement | Window)[] = [];
+    try {
+      const root = getStoreDetailAppScrollRoot();
+      if (!isDocumentScrollRoot(root)) {
+        next.push(root);
+      }
+    } catch {
+      /* ignore */
+    }
+    next.push(window);
+
+    for (const t of next) {
+      if (attached.has(t)) continue;
+      t.addEventListener("scroll", onScroll, { passive });
+      attached.add(t);
+    }
+  };
+
+  bindTargets(false);
+  retryId = window.setTimeout(() => bindTargets(true), 0);
+
   return () => {
-    for (const t of targets) {
+    if (retryId != null) {
+      window.clearTimeout(retryId);
+      retryId = null;
+    }
+    for (const t of attached) {
       t.removeEventListener("scroll", onScroll);
     }
+    attached.clear();
   };
 }

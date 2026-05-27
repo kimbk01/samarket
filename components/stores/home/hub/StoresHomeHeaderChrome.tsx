@@ -9,6 +9,12 @@ import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-h
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
   STORES_HOME_HEADER_ACTIONS_CLUSTER,
+  STORES_HOME_HEADER_ADDRESS_BUTTON_CLASS,
+  STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS,
+  STORES_HOME_HEADER_ADDRESS_LABEL_CLUSTER_CLASS,
+  STORES_HOME_HEADER_ADDRESS_LINE_CLASS,
+  STORES_HOME_HEADER_ADDRESS_PIN_CLASS,
+  STORES_HOME_HEADER_HOME_ADDRESS_ROW_GRID_CLASS,
   STORES_HOME_HEADER_ICON_BTN_CLASS,
   STORES_HOME_HEADER_INNER_CLASS,
   STORES_HOME_HEADER_SHELL_CLASS,
@@ -96,26 +102,23 @@ export function StoresHomeHeaderChrome() {
       >
         <div className={STORES_HOME_HEADER_INNER_CLASS}>
           <div
-            className={`${STORES_HOME_HEADER_ACTION_ROW_CLASS} grid-cols-[minmax(0,50%)_1fr]`}
+            className={`${STORES_HOME_HEADER_ACTION_ROW_CLASS} ${STORES_HOME_HEADER_HOME_ADDRESS_ROW_GRID_CLASS}`}
           >
             <button
               type="button"
-              className="flex min-w-0 w-full items-center gap-1 text-left"
+              className={STORES_HOME_HEADER_ADDRESS_BUTTON_CLASS}
               aria-label={t("layout_neighborhood_address_aria", { line: headerLine })}
               aria-haspopup="dialog"
               aria-expanded={addressOpen}
               onClick={() => setAddressOpen(true)}
             >
-              <span className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                <AddressKindHeadPin
-                  kind="master"
-                  className="h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)] shrink-0 [&_svg]:h-full [&_svg]:w-full"
-                />
-                <span className="min-w-0 flex-1 truncate text-[15px] font-medium leading-tight">{headerLine}</span>
+              <span className={STORES_HOME_HEADER_ADDRESS_LABEL_CLUSTER_CLASS}>
+                <AddressKindHeadPin kind="master" className={STORES_HOME_HEADER_ADDRESS_PIN_CLASS} />
+                <span className={STORES_HOME_HEADER_ADDRESS_LINE_CLASS}>{headerLine}</span>
               </span>
-              <ChevronDownIcon className="h-4 w-4 shrink-0 opacity-90" />
+              <ChevronDownIcon className={STORES_HOME_HEADER_ADDRESS_CHEVRON_CLASS} />
             </button>
-            <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} justify-self-end`}>
+            <div className={`${STORES_HOME_HEADER_ACTIONS_CLUSTER} h-full justify-self-end self-stretch`}>
               <button
                 ref={searchTriggerRef}
                 type="button"

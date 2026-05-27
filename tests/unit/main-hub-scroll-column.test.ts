@@ -8,6 +8,23 @@ import {
 import { resolvesMainScrollInMainColumn } from "@/lib/layout/main-shell-viewport";
 
 describe("main-hub-scroll-column", () => {
+  it("enables hub column on /stores/browse with regionBarInLayout", () => {
+    const f = resolveConditionalAppShellFlags("/stores/browse/restaurant", true);
+    const mainScroll = resolvesMainScrollInMainColumn({
+      isChatRoomDetail: f.isChatRoomDetail,
+      isStoreOwnerAdminRoute: f.isStoreOwnerAdminRoute,
+      isMainColumnViewportLocked: f.isMainColumnViewportLocked,
+    });
+    expect(mainScroll).toBe(true);
+    expect(
+      resolvesMainHubScrollColumn({
+        regionBarInLayout: true,
+        mainScrollInMainColumn: mainScroll,
+        isChatRoomDetail: f.isChatRoomDetail,
+      })
+    ).toBe(true);
+  });
+
   it("enables hub column on /stores with regionBarInLayout", () => {
     const f = resolveConditionalAppShellFlags("/stores", true);
     const mainScroll = resolvesMainScrollInMainColumn({

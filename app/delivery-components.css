@@ -1011,6 +1011,117 @@
     color: var(--dibay-cream);
   }
 
+  /** browse 헤더 3단 — 1차 업종 균등 텍스트 탭바 (토큰 비율) */
+  .stores-browse-header-primary-tabs {
+    --browse-primary-tab-menu-w: var(--delivery-browse-primary-tab-menu-w);
+    --browse-primary-tab-count: var(--delivery-browse-primary-tab-count);
+    display: flex;
+    width: 100%;
+    height: var(--delivery-browse-primary-tab-h);
+    align-items: stretch;
+    border-bottom: 1px solid var(--delivery-border);
+    background: var(--dibay-cream);
+  }
+
+  .stores-browse-header-primary-tabs__scroll {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 0;
+    align-items: stretch;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    [-ms-overflow-style: none];
+    [scrollbar-width: none];
+    [-webkit-overflow-scrolling: touch];
+  }
+
+  .stores-browse-header-primary-tabs__scroll::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stores-browse-header-primary-tabs__track {
+    display: flex;
+    width: 100%;
+    min-width: max(
+      100%,
+      calc(var(--browse-primary-tab-count) * var(--delivery-browse-primary-tab-min-w))
+    );
+    align-items: stretch;
+  }
+
+  .stores-browse-header-primary-tab {
+    position: relative;
+    display: flex;
+    height: var(--delivery-browse-primary-tab-h);
+    box-sizing: border-box;
+    flex: 1 1 0;
+    min-width: var(--delivery-browse-primary-tab-min-w);
+    align-items: center;
+    justify-content: center;
+    padding-inline: 4px;
+    color: var(--delivery-text-sub);
+    font-family: inherit;
+    text-align: center;
+    text-decoration: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .stores-browse-header-primary-tab__label {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    font-size: var(--delivery-browse-primary-tab-fs);
+    font-weight: var(--delivery-browse-primary-tab-weight-idle);
+    line-height: var(--delivery-browse-primary-tab-lh);
+    letter-spacing: var(--delivery-browse-primary-tab-tracking);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .stores-browse-header-primary-tab--active {
+    color: var(--delivery-text-main);
+  }
+
+  .stores-browse-header-primary-tab--active .stores-browse-header-primary-tab__label {
+    font-weight: var(--delivery-browse-primary-tab-weight-active);
+  }
+
+  .stores-browse-header-primary-tab--active::after {
+    position: absolute;
+    right: 6px;
+    bottom: 0;
+    left: 6px;
+    height: 2px;
+    background: var(--delivery-text-main);
+    content: "";
+  }
+
+  .stores-browse-header-primary-tab-menu-btn {
+    display: inline-flex;
+    width: var(--browse-primary-tab-menu-w);
+    height: var(--delivery-browse-primary-tab-h);
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-left: 1px solid var(--delivery-border);
+    background: var(--dibay-cream);
+    color: var(--delivery-text-main);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .stores-browse-header-primary-tab-menu-btn:active {
+    background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
+  }
+
+  .stores-browse-header-subtopic-tabs {
+    min-height: 44px;
+    width: 100%;
+  }
+
   .delivery-category-search {
     display: inline-flex;
     width: var(--delivery-sticky-tab-h);
@@ -1271,6 +1382,33 @@
   animation: stores-home-sub-slide-out 360ms ease-out both;
 }
 
+/** browse 4단 2차 — 1차 업종 전환 좌→우 진입 360ms */
+@keyframes stores-browse-sub-slide-in {
+  from {
+    transform: translate3d(-100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes stores-browse-sub-slide-out {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.delivery-ui .stores-browse-sub-slide-in {
+  animation: stores-browse-sub-slide-in 360ms ease-out both;
+}
+
+.delivery-ui .stores-browse-sub-slide-out {
+  animation: stores-browse-sub-slide-out 360ms ease-out both;
+}
+
 /** `/stores` 홈 — iOS PTR·터치 잔상: coarse 에서 scale active 비활성 */
 @media (pointer: coarse) {
   .stores-home-hub :where(a, button)[class*="active:scale"] {
@@ -1282,8 +1420,16 @@ html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
   overscroll-behavior-y: none;
 }
 
-/** `/stores` 홈 녹색 헤더 — sector-header 기본 아이콘색(#604c4c) 덮어쓰기 */
+/** `/stores`·browse 녹색 헤더 — sector-header 기본 아이콘색(#604c4c) 덮어쓰기 */
 .delivery-ui[data-stores-home-header] :is(
+  .sector-header-back,
+  .sam-tier1-header__icon-btn,
+  .sam-tier1-header-icon-cluster .sam-header-action,
+  .sam-tier1-header-icon-cluster a,
+  .sam-tier1-header-icon-cluster button
+),
+.delivery-ui[data-stores-browse-header] :is(
+  .sector-header-back,
   .sam-tier1-header__icon-btn,
   .sam-tier1-header-icon-cluster .sam-header-action,
   .sam-tier1-header-icon-cluster a,
@@ -1293,6 +1439,12 @@ html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
 }
 
 .delivery-ui[data-stores-home-header] :is(
+  .sam-tier1-header__icon-btn,
+  .sam-tier1-header-icon-cluster .sam-header-action,
+  .sam-tier1-header-icon-cluster a,
+  .sam-tier1-header-icon-cluster button
+):is(:hover, :active),
+.delivery-ui[data-stores-browse-header] :is(
   .sam-tier1-header__icon-btn,
   .sam-tier1-header-icon-cluster .sam-header-action,
   .sam-tier1-header-icon-cluster a,

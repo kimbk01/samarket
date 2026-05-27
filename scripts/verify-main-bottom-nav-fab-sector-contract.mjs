@@ -89,7 +89,19 @@ assertIncludes(tsx, "setExpandLocked(true)", "MainBottomNavFabSector X close");
 assertIncludes(tsx, "router.refresh()", "MainBottomNavFabSector X refresh");
 assertIncludes(tsx, "setExpandLocked(false)", "MainBottomNavFabSector chevron unlock");
 assertIncludes(behavior, "expandLocked", "use-main-bottom-nav-fab-sector-behavior");
-assertIncludes(behavior, "BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS + 2000", "FAB idle +2s");
+assertIncludes(behavior, "resolveFabScrollChromeAction", "FAB scroll rules separate from bottom nav");
+assertIncludes(behavior, "subscribeAppShellScroll", "FAB scroll subscription");
+assertNotIncludes(behavior, "useBottomNavScrollChromeHidden", "FAB must not mirror bottom nav hidden");
+assertIncludes(
+  read("components/layout/ConditionalAppShell.tsx"),
+  "BottomNavScrollChromeProvider",
+  "shell provides scroll chrome context"
+);
+assertIncludes(
+  read("lib/layout/main-bottom-nav-fab-sector-config.ts"),
+  "deliveryFabChristmasPaletteCssVars",
+  "Christmas Starbucks palette lock"
+);
 
 // --- 문서·규칙 존재 ---
 assertIncludes(read("docs/main-bottom-nav-fab-sector-contract.md"), "fabPanelBodyInlineStyle", "contract doc");

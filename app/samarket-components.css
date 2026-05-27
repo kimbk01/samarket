@@ -1504,12 +1504,18 @@
     --fab-icon-glyph: calc(var(--fab-icon-box) - (var(--fab-icon-box) - 1.28rem) * var(--fab-icon-inner-gap-scale));
     --fab-gutter: calc((var(--fab-shell-w) - var(--fab-icon-box)) / 2);
     --fab-surface-alpha: 0.6;
-    --fab-surface-bg: rgb(24 34 49 / var(--fab-surface-alpha));
-    --fab-edge-bg: #000000;
+    /* Christmas Starbucks — hex는 delivery-fab-christmas-starbucks-palette.ts → fabSectorRootStyle() */
+    --fab-surface-bg: rgb(11 66 26 / var(--fab-surface-alpha));
+    --fab-edge-bg: var(--fab-palette-green, #0b421a);
     --fab-edge-fg: #ffffff;
     --fab-edge-w: 1.3rem;
     --fab-edge-h: 3.25rem;
     --fab-fg: var(--dibay-card);
+    --fab-palette-green: #0b421a;
+    --fab-palette-cream: #fffcfc;
+    --fab-palette-gold: #eac784;
+    --fab-palette-brown: #362415;
+    --fab-palette-mauve: #604c4c;
     --fab-dock-ms: 360ms;
     --fab-dock-ease: cubic-bezier(0.32, 0.72, 0, 1);
   }
@@ -1593,17 +1599,22 @@
   }
 
   .main-bottom-nav-fab-sector__row--active .main-bottom-nav-fab-sector__icon-box {
-    @apply ring-2 ring-signature ring-offset-2;
+    @apply ring-2 ring-offset-2;
+    --tw-ring-color: var(--fab-palette-cream);
     --tw-ring-offset-color: #182231;
   }
 
   .main-bottom-nav-fab-sector__icon-box {
-    @apply flex shrink-0 items-center justify-center rounded-ui-rect bg-white text-signature shadow-sm;
+    @apply flex shrink-0 items-center justify-center rounded-ui-rect shadow-sm;
     width: var(--fab-icon-box);
     height: var(--fab-icon-box);
+    background-color: var(--fab-palette-cream);
+    color: var(--fab-palette-green);
     transition:
       transform 120ms ease,
-      box-shadow 120ms ease;
+      box-shadow 120ms ease,
+      background-color 120ms ease,
+      color 120ms ease;
   }
 
   .main-bottom-nav-fab-sector__row--pressed .main-bottom-nav-fab-sector__icon-box {
@@ -1664,6 +1675,27 @@
 
   .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__toggle-icon--open {
     opacity: 1;
+  }
+
+  /** X 닫기 — 빨간 원형 배경 (펼침 시만 노출) */
+  .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"]
+    .main-bottom-nav-fab-sector__toggle-icon--open::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 0;
+    width: var(--fab-icon-box);
+    height: var(--fab-icon-box);
+    border-radius: 50%;
+    background-color: var(--fab-close-disc-bg, #d62b1f);
+    transform: translate(-50%, -50%);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.22);
+  }
+
+  .main-bottom-nav-fab-sector__toggle-icon--open svg {
+    position: relative;
+    z-index: 1;
   }
 
   .main-bottom-nav-fab-sector[data-fab-shell-expanded="true"] .main-bottom-nav-fab-sector__toggle-icon--closed {
