@@ -25,11 +25,13 @@ export type RepresentativeAddressPresentationState =
   | { status: "loading" }
   | { status: "ready"; presentation: AddressBookCardPresentation | null };
 
-function lineStateFromExplorationSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineState {
+type RepresentativeAddressLineReady = Extract<RepresentativeAddressLineState, { status: "ready" }>;
+
+function lineStateFromExplorationSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineReady {
   return { status: "ready", line: resolveExplorationAddressLineFromSnapshot(snapshot) };
 }
 
-function lineStateFromFullSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineState {
+function lineStateFromFullSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineReady {
   return { status: "ready", line: resolveRepresentativeFullAddressLineFromSnapshot(snapshot) };
 }
 
