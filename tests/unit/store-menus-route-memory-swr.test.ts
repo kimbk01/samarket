@@ -67,6 +67,8 @@ describe("store-menus-public-server-cache SWR", () => {
     vi.useFakeTimers();
     const hardTtl = storeMenusRouteMemoryHardTtlMs();
     const leadMs = storeMenusPreRefreshLeadMs();
+    /** `preRefreshTimerJitterMs` — slug hash % 8_000 (see store-menus-public-server-cache) */
+    const preRefreshJitterMaxMs = 8_000;
     let refreshCalls = 0;
     const fetcher = async () => {
       refreshCalls += 1;
@@ -77,9 +79,7 @@ describe("store-menus-public-server-cache SWR", () => {
       schedulePreRefreshTimer: fetcher,
     });
 
-    vi.advanceTimersByTime(hardTtl - leadMs + 1);
-    await Promise.resolve();
-    await Promise.resolve();
+    await vi.advanceTimersByTimeAsync(hardTtl - leadMs + preRefreshJitterMaxMs + 1);
 
     expect(refreshCalls).toBeGreaterThanOrEqual(1);
 
