@@ -1,6 +1,8 @@
 "use client";
 
+import { usePathname, useSearchParams } from "next/navigation";
 import { DeliveryStyleAddressPickerSheet } from "@/components/addresses/DeliveryStyleAddressPickerSheet";
+import { resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
 
 /**
  * CONTRACT — `/stores` 주소 바텀시트.
@@ -14,5 +16,17 @@ export function StoresHomeAddressSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  return <DeliveryStyleAddressPickerSheet open={open} onClose={onClose} purpose="delivery" />;
+  const pathname = usePathname() ?? "/stores";
+  const searchParams = useSearchParams();
+  const search = searchParams?.toString() ? `?${searchParams.toString()}` : "";
+  const managementReturnTo = resolveAddressFlowEntryPath(pathname, search) || "/stores";
+
+  return (
+    <DeliveryStyleAddressPickerSheet
+      open={open}
+      onClose={onClose}
+      purpose="delivery"
+      managementReturnTo={managementReturnTo}
+    />
+  );
 }

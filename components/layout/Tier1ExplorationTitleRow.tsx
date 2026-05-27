@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import {
   neighborhoodLocationLabelFromRegion,
   neighborhoodLocationMetaFromRegion,
@@ -11,8 +13,6 @@ import {
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 
 /** 필라이프·거래 홈 상단 동네 줄 — 주소 관리(대표 주소)로 이동 */
-const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
-
 type Tier1ExplorationTitleRowProps = {
   /** 탐색 피드 화면 명 — 예: 필라이프, 홈 */
   segmentTitle: string;
@@ -29,6 +29,12 @@ export function Tier1ExplorationTitleRow({
   align = "center",
 }: Tier1ExplorationTitleRowProps) {
   const { t } = useI18n();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const addressManagementHref = buildMypageAddressesHrefFromPath(
+    pathname,
+    searchParams?.toString() ? `?${searchParams.toString()}` : ""
+  );
   const { currentRegion } = useRegion();
   const rep = useRepresentativeAddressLine();
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
@@ -48,7 +54,7 @@ export function Tier1ExplorationTitleRow({
         ·
       </span>
       <Link
-        href={ADDRESS_MANAGEMENT_HREF}
+        href={addressManagementHref}
         className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
         aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
       >

@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useRegion } from "@/contexts/RegionContext";
 import { StoresHomeHeaderNotificationInboxLazy } from "@/components/stores/home/hub/StoresHomeHeaderNotificationInboxLazy";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
@@ -31,11 +30,6 @@ import {
   STORES_HOME_PULL_REFRESH_THRESHOLD_PX,
   subscribeStoresHomePullRefresh,
 } from "@/lib/stores/stores-home-pull-refresh-store";
-import {
-  formatNeighborhoodRegionSubtitle,
-  neighborhoodLocationLabelFromRegion,
-  neighborhoodLocationMetaFromRegion,
-} from "@/lib/neighborhood/location-key";
 
 function ChevronDownIcon({ className }: { className?: string }) {
   return (
@@ -73,23 +67,14 @@ function StoresHomePtrSpinner() {
  */
 export function StoresHomeHeaderChrome() {
   const { t, language } = useI18n();
-  const { currentRegion } = useRegion();
   const address = useDeliveryHomeHeaderAddress();
   const [searchOpen, setSearchOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
   const searchTriggerRef = useRef<HTMLButtonElement>(null);
-  const regionFallbackLine = useMemo(() => {
-    const meta = neighborhoodLocationMetaFromRegion(currentRegion);
-    const label = neighborhoodLocationLabelFromRegion(currentRegion);
-    return formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
-  }, [currentRegion]);
-  const headerLine = useMemo(() => {
-    const fromAddress = address.displayLine?.trim();
-    if (fromAddress) return fromAddress;
-    const fromRegion = regionFallbackLine.trim();
-    if (fromRegion) return fromRegion;
-    return resolveDeliveryHomeHeaderButtonLabel(address, language);
-  }, [address, language, regionFallbackLine]);
+  const headerLine = useMemo(
+    () => resolveDeliveryHomeHeaderButtonLabel(address, language),
+    [address, language],
+  );
   const pull = useSyncExternalStore(
     subscribeStoresHomePullRefresh,
     getStoresHomePullRefreshSnapshot,

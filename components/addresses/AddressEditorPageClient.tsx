@@ -22,7 +22,12 @@ import {
   buildMypageAddressesHref,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
+import {
+  MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
+  MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
+  MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
+} from "@/lib/addresses/mypage-address-manage-layout";
 
 function AddressEditorPageChrome(props: {
   titleKey: MessageKey;
@@ -31,9 +36,18 @@ function AddressEditorPageChrome(props: {
 }) {
   const { titleKey, backHref, children } = props;
   return (
-    <div className="flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app">
-      <MySubpageHeader titleKey={titleKey} backHref={backHref} hideCtaStrip />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} min-h-0 flex-1`}>{children}</div>
+    <div className={MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS}>
+      <MySubpageHeader
+        inlineChrome
+        registerMainTier1={false}
+        titleKey={titleKey}
+        backHref={backHref}
+        hideCtaStrip
+        showHubQuickActions
+      />
+      <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS}>
+        <div className={MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS}>{children}</div>
+      </div>
     </div>
   );
 }
@@ -143,7 +157,7 @@ function AddressEditorPageInner() {
           <button
             type="button"
             className="mx-auto mt-4 rounded-lg border border-sam-border px-4 py-2 sam-text-body font-semibold text-sam-fg"
-            onClick={() => router.push(addressesListHref)}
+            onClick={() => router.replace(addressesListHref)}
           >
             {t("addr_ui_back_to_list")}
           </button>
@@ -161,10 +175,14 @@ function AddressEditorPageInner() {
       mapBootstrap={mapBootstrap}
       allAddresses={list}
       returnTo={returnTo}
-      onClose={() => router.push(addressesListHref)}
+      onClose={() => router.replace(addressesListHref)}
       onSaved={async () => {
-        await commitUserAddressListAfterMutation();
-        router.push(addressesListHref);
+        try {
+          await commitUserAddressListAfterMutation();
+        } finally {
+          if (returnTo) writeAddressFlowExitHref(returnTo);
+          router.replace(addressesListHref);
+        }
       }}
     />
   );

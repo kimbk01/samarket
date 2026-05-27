@@ -117,12 +117,33 @@ describe("normalizeDeliveryHomeHeaderDisplayLine", () => {
   });
 });
 describe("resolveDeliveryHomeHeaderDisplayLine", () => {
-  it("falls back to detailAddress when neighborhood detail is empty", () => {
+  it("uses PH card line matching address sheet (not barangay-prefixed baemin)", () => {
+    const row = addr({
+      id: "office1",
+      labelType: "office",
+      barangay: "Diliman",
+      cityMunicipality: "Quezon City",
+      detailAddress: "wwwww",
+      unitFloorRoom: "3/F Room",
+      buildingName: "UP EEEI Smart Systems Laboratory",
+      streetAddress: "310 P. Velasquez Street",
+      formattedAddress:
+        "UP EEEI Smart Systems Laboratory, 3/F Room, 310 P. Velasquez Street, Diliman, Quezon City, Metro Manila, Philippines",
+      fullAddress:
+        "UP EEEI Smart Systems Laboratory, 3/F Room, 310 P. Velasquez Street, Diliman, Quezon City, Metro Manila, Philippines",
+    });
+    const line = resolveDeliveryHomeHeaderDisplayLine(row);
+    expect(line).not.toMatch(/^Diliman wwwww/);
+    expect(line).toContain("wwwww");
+    expect(line).toContain("UP EEEI Smart Systems Laboratory");
+    expect(line).toContain("310 P. Velasquez Street");
+  });
+
+  it("falls back to detailAddress when PH card and baemin are empty", () => {
     const line = resolveDeliveryHomeHeaderDisplayLine(
       addr({
         id: "a5",
         detailAddress: "1003 - COD",
-        formattedAddress: "Google only line, Manila, Philippines",
       })
     );
     expect(line).toBe("1003 - COD");

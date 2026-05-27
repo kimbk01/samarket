@@ -106,10 +106,19 @@ describe("mypage address tier1 titles", () => {
   });
 });
 
-describe("mypage address edit shell", () => {
-  it("/mypage/addresses/edit hides main bottom nav", () => {
+describe("mypage address shell", () => {
+  it("/mypage/addresses hides main bottom nav and locks main viewport", () => {
+    const f = resolveConditionalAppShellFlags("/mypage/addresses", true);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.isMainColumnViewportLocked).toBe(true);
+    expect(f.mainBottomClass).toBe("pb-0");
+  });
+
+  it("/mypage/addresses/edit hides main bottom nav and locks main viewport", () => {
     const f = resolveConditionalAppShellFlags("/mypage/addresses/edit", true);
     expect(f.isMypageAddressEditPage).toBe(true);
     expect(f.showBottomNav).toBe(false);
+    expect(f.isMainColumnViewportLocked).toBe(true);
+    expect(f.mainBottomClass).toBe("pb-0");
   });
 });

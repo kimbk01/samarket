@@ -4,6 +4,17 @@ export function isMypageAddressEditPath(pathname: string | null | undefined): bo
   return p === "/mypage/addresses/edit";
 }
 
+/** `/mypage/addresses` — 주소 관리 목록(하단 탭 숨김) */
+export function isMypageAddressListPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  return p === "/mypage/addresses";
+}
+
+/** 주소 관리 플로우 전체 — 목록·추가/수정 */
+export function isMypageAddressFlowPath(pathname: string | null | undefined): boolean {
+  return isMypageAddressListPath(pathname) || isMypageAddressEditPath(pathname);
+}
+
 export function parseStoreIdFromReturnTo(raw: string | null | undefined): string {
   const rt = parseSafeInternalReturnTo(raw);
   if (!rt) return "";
@@ -24,6 +35,30 @@ export function buildMypageAddressesHref(returnTo?: string | null): string {
   const rt = parseSafeInternalReturnTo(returnTo);
   if (!rt) return "/mypage/addresses";
   return `/mypage/addresses?returnTo=${encodeURIComponent(rt)}`;
+}
+
+/** 주소 관리 진입 직전 화면을 `returnTo`로 넘겨 확인·뒤로가기가 동일하게 동작하게 한다. */
+export function resolveAddressFlowEntryPath(
+  pathname: string | null | undefined,
+  search = ""
+): string {
+  let base = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  let resolvedSearch = search;
+  if (!base && typeof window !== "undefined") {
+    base = window.location.pathname.split("?")[0]?.trim().replace(/\/+$/, "") || "";
+    if (!resolvedSearch) resolvedSearch = window.location.search;
+  }
+  if (base === "/mypage/addresses" || base.startsWith("/mypage/addresses/")) {
+    return "";
+  }
+  return parseSafeInternalReturnTo(`${base}${resolvedSearch}`);
+}
+
+export function buildMypageAddressesHrefFromPath(
+  pathname: string | null | undefined,
+  search = ""
+): string {
+  return buildMypageAddressesHref(resolveAddressFlowEntryPath(pathname, search));
 }
 
 export function buildMypageAddressEditHref(opts: {

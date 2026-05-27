@@ -1,10 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { STORES_HOME_HEADER_ICON_BTN_CLASS } from "@/lib/design/stores-home-header-chrome";
-import { STORES_HOME_IDLE_DEFER_MS } from "@/lib/stores/stores-home-perf-marks";
+import {
+  STORES_HOME_HEADER_ICON_BTN_CLASS,
+  STORES_HOME_HEADER_NOTIF_BADGE_CLASS,
+} from "@/lib/design/stores-home-header-chrome";
 import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
 import { useSyncExternalStore } from "react";
 
@@ -13,10 +15,10 @@ const PhilifeHeaderNotificationInbox = dynamic(
     import("@/components/philife/PhilifeHeaderNotificationInbox").then(
       (m) => m.PhilifeHeaderNotificationInbox
     ),
-  { ssr: false }
+  { ssr: false, loading: () => <NotificationBellPlaceholder /> }
 );
 
-function NotificationBellPlaceholder({ tone: _tone }: { tone: "onPrimary" | "default" }) {
+function NotificationBellPlaceholder() {
   const { t } = useI18n();
   const unread = useSyncExternalStore(
     myGeneralNotificationUnreadStore.subscribe,
@@ -24,6 +26,7 @@ function NotificationBellPlaceholder({ tone: _tone }: { tone: "onPrimary" | "def
     myGeneralNotificationUnreadStore.getServerSnapshot
   );
   const showDot = (unread ?? 0) > 0;
+  const badgeLabel = (unread ?? 0) > 99 ? "99+" : String(unread ?? 0);
   return (
     <button
       type="button"
@@ -40,29 +43,23 @@ function NotificationBellPlaceholder({ tone: _tone }: { tone: "onPrimary" | "def
         />
       </svg>
       {showDot ?
-        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[color:var(--dibay-accent)]" aria-hidden />
+        <span className={STORES_HOME_HEADER_NOTIF_BADGE_CLASS} aria-hidden>
+          {badgeLabel}
+        </span>
       : null}
     </button>
   );
 }
 
-/** 알림 뱃지·기능 유지 — inbox 패널 그래프는 idle 후 별도 청크 */
+/** 알림 — inbox 청크는 dynamic 유지, 뱃지·Realtime·목록 prefetch 는 즉시 */
 export function StoresHomeHeaderNotificationInboxLazy({
   tone = "onPrimary",
 }: {
   tone?: "onPrimary" | "default";
 }) {
-  const [mountInbox, setMountInbox] = useState(false);
-
   useEffect(() => {
-    if (typeof requestIdleCallback === "function") {
-      const id = requestIdleCallback(() => setMountInbox(true), { timeout: STORES_HOME_IDLE_DEFER_MS });
-      return () => cancelIdleCallback(id);
-    }
-    const t = window.setTimeout(() => setMountInbox(true), 0);
-    return () => window.clearTimeout(t);
+    void myGeneralNotificationUnreadStore.refresh(true);
   }, []);
 
-  if (!mountInbox) return <NotificationBellPlaceholder tone={tone} />;
-  return <PhilifeHeaderNotificationInbox tone={tone} deferInboxListPrefetch />;
+  return <PhilifeHeaderNotificationInbox tone={tone} />;
 }

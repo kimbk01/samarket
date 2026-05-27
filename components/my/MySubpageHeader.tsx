@@ -9,6 +9,7 @@ import { getManagedSectionCtas } from "@/lib/my/managed-my-section-ctas";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { DetailHeader } from "@/components/layout/sector-header";
+import { APP_TIER1_HEADER_BAR_CLASS } from "@/lib/layout/app-tier1-header";
 import { SECTOR_HEADER_SHELL_CLASS } from "@/lib/ui/sector-header-classes";
 
 export type MySubpageHeaderProps = {
@@ -43,6 +44,11 @@ export type MySubpageHeaderProps = {
    * false면 `RegionBar` 등이 이미 1단을 그리므로, 여기서는 stickyBelow·ctaLinks만 MainTier1Extras에 넣음.
    */
   registerMainTier1?: boolean;
+  /**
+   * true — 뷰포트 잠금 플로우(cart·주소 관리)처럼 전역 1단이 없을 때 페이지 상단 shrink-0 헤더.
+   * `registerMainTier1` 은 보통 false 로 함께 쓴다.
+   */
+  inlineChrome?: boolean;
 };
 
 export function MySubpageHeader({
@@ -61,6 +67,7 @@ export function MySubpageHeader({
   hideCtaStrip = false,
   showHubQuickActions = false,
   registerMainTier1 = true,
+  inlineChrome = false,
   leftSlot,
 }: MySubpageHeaderProps) {
   const { t, tt } = useI18n();
@@ -79,7 +86,7 @@ export function MySubpageHeader({
   }, [hideCtaStrip, ctaLinks, section, ownerStoreIdForCtas]);
 
   useLayoutEffect(() => {
-    if (!setMainTier1Extras) return;
+    if (inlineChrome || !setMainTier1Extras) return;
     if (registerMainTier1) {
       setMainTier1Extras({
         tier1: {
@@ -118,25 +125,39 @@ export function MySubpageHeader({
     leftSlot,
     stripLinks,
     stickyBelow,
+    inlineChrome,
   ]);
 
-  if (!tier1Provider) {
+  if (inlineChrome || !tier1Provider) {
     const trailing = rightSlot != null ? rightSlot : showHubQuickActions ? <MyHubHeaderActions /> : null;
+    const detailHeader = (
+      <DetailHeader
+        embedded
+        title={translatedTitle}
+        subtitle={translatedSubtitle}
+        subtitleHref={subtitleHref}
+        backHref={backHref}
+        preferHistoryBack={preferHistoryBack}
+        backAriaLabel={resolvedAriaLabel}
+        leftSlot={leftSlot}
+        showBack={leftSlot == null}
+        rightSlot={trailing}
+      />
+    );
+
+    if (inlineChrome) {
+      return (
+        <header
+          className={`z-30 w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${APP_TIER1_HEADER_BAR_CLASS}`}
+        >
+          {detailHeader}
+        </header>
+      );
+    }
 
     return (
       <div className={`sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden ${SECTOR_HEADER_SHELL_CLASS}`}>
-        <DetailHeader
-          embedded
-          title={translatedTitle}
-          subtitle={translatedSubtitle}
-          subtitleHref={subtitleHref}
-          backHref={backHref}
-          preferHistoryBack={preferHistoryBack}
-          backAriaLabel={resolvedAriaLabel}
-          leftSlot={leftSlot}
-          showBack={leftSlot == null}
-          rightSlot={trailing}
-        />
+        {detailHeader}
       </div>
     );
   }

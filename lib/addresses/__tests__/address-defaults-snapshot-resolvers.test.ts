@@ -98,7 +98,7 @@ describe("address-defaults-snapshot-resolvers", () => {
     );
     expect(state).toEqual({
       status: "ready",
-      line: expect.stringContaining("Malate"),
+      line: "12B",
       hasLinkedAddress: true,
     });
   });

@@ -15,8 +15,13 @@ import {
   consumeMapAddressPickContext,
   peekMapAddressPick,
 } from "@/lib/map/map-address-pick-storage";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
-import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
+import { ADDR_ADD_CTA, ADDR_BOTTOM_INNER, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
+import {
+  MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS,
+  MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
+  MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
+  MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
+} from "@/lib/addresses/mypage-address-manage-layout";
 import {
   describeMeAddressesListFailure,
   fetchMeAddressesListSingleFlight,
@@ -36,9 +41,14 @@ import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samar
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 import {
   buildMypageAddressEditHref,
-  buildMypageAddressesHref,
   parseSafeInternalReturnTo,
 } from "@/lib/addresses/mypage-addresses-return-to";
+import {
+  resolveAddressManagementExitHref,
+  clearAddressFlowExitHref,
+  writeAddressFlowExitHref,
+} from "@/lib/addresses/mypage-address-flow-exit";
+import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { StoresGreenFixedHeaderChrome } from "@/components/stores/home/hub/StoresGreenFixedHeaderChrome";
 import {
   STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS,
@@ -76,6 +86,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const storesGreenHeader = !embedded && isStoreOwnerAdminReturnTo(returnTo);
 
   useEffect(() => {
+    if (embedded || !returnTo) return;
+    writeAddressFlowExitHref(returnTo);
+  }, [embedded, returnTo]);
+
+  useEffect(() => {
     if (!storesGreenHeader) return;
     return pushStoreOwnerMainBottomNavSuppressed();
   }, [storesGreenHeader]);
@@ -106,7 +121,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     if (!embedded) {
       if (!pathname.startsWith("/mypage/addresses")) return;
       if (peekMapAddressPick()) {
-        router.replace("/mypage/addresses/edit?map=1");
+        router.replace(buildMypageAddressEditHref({ returnTo, map: true }));
       }
       return;
     }
@@ -228,7 +243,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   function openCreate() {
     if (!embedded) {
-      router.push(buildMypageAddressEditHref({ returnTo }));
+      router.replace(buildMypageAddressEditHref({ returnTo }));
       return;
     }
     setMapBootstrap(null);
@@ -239,7 +254,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   function openEdit(row: UserAddressDTO) {
     if (!embedded) {
-      router.push(buildMypageAddressEditHref({ returnTo, id: row.id }));
+      router.replace(buildMypageAddressEditHref({ returnTo, id: row.id }));
       return;
     }
     setMapBootstrap(null);
@@ -299,15 +314,116 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       } else {
         broadcastUserAddressesChanged();
       }
-      if (returnTo) {
-        router.push(returnTo);
+      const exitHref = resolveAddressManagementExitHref(returnTo);
+      clearAddressFlowExitHref();
+      if (exitHref) {
+        router.replace(exitHref);
         return;
       }
-      router.back();
+      runHistoryBackWithFallback(router, "/mypage");
     } finally {
       setConfirming(false);
     }
   }
+
+  const addressListBody = (
+    <>
+      {loadErr ? (
+        <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
+          {loadErr}
+          {loadErrMigrationHint ? (
+            <p className="mt-2 sam-text-helper text-amber-900/90">{t("addr_ui_migration_hint")}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div>
+        {list.length === 0 && !loadErr && listBootstrapping ? (
+          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
+            {t("common_loading")}
+          </p>
+        ) : list.length === 0 && !loadErr ? (
+          <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
+            {t("address_empty")}
+          </p>
+        ) : (
+          <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
+            {list.map((row) => (
+              <AddressRowCard
+                key={row.id}
+                row={row}
+                busyId={busyId}
+                approvedStoresById={approvedStoresById}
+                onSetAsRepresentative={
+                  selectingForReturn
+                    ? () => setPickedId(row.id)
+                    : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
+                      ? undefined
+                      : () => void setAsRepresentative(row.id)
+                }
+                onEdit={() => openEdit(row)}
+                onDelete={() => void removeRow(row.id)}
+                containerClassName={
+                  selectingForReturn && pickedId === row.id
+                    ? "rounded-ui-rect bg-signature/10 ring-2 ring-signature/35"
+                    : ""
+                }
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </>
+  );
+
+  const managementActionBar = (
+    <div
+      className={
+        storesGreenHeader && !embedded
+          ? "delivery-ui z-30 w-full min-w-0 shrink-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] safe-area-pb"
+          : MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS
+      }
+    >
+      <div className={ADDR_BOTTOM_INNER}>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => void handleConfirm()}
+            disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
+            className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
+          >
+            {confirming ? t("common_processing") : t("common_confirm")}
+          </button>
+          <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
+            {t("address_add")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const pageBodyColumn = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className={
+          storesGreenHeader
+            ? `mx-auto w-full min-w-0 max-w-[42rem] ${MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS} px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
+            : MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS
+        }
+      >
+        <div
+          className={
+            storesGreenHeader
+              ? "flex min-w-0 flex-col gap-4 py-4"
+              : MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS
+          }
+        >
+          {addressListBody}
+        </div>
+      </div>
+      {managementActionBar}
+    </div>
+  );
 
   return (
     <div
@@ -315,8 +431,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         embedded
           ? ""
           : storesGreenHeader
-            ? "delivery-ui flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-[color:var(--delivery-bg-main)]"
-            : "flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app"
+            ? "delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[color:var(--delivery-bg-main)]"
+            : MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS
       }
     >
       {!embedded && storesGreenHeader ? (
@@ -327,147 +443,23 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         />
       ) : !embedded ? (
         <MySubpageHeader
+          inlineChrome
+          registerMainTier1={false}
           titleKey="address_manage_title"
           backHref={returnTo || "/mypage"}
           hideCtaStrip
+          showHubQuickActions
         />
       ) : null}
       {embedded ? (
-        <div className="mx-auto max-w-none space-y-4 px-0 py-0 pb-0">
-          {loadErr ? (
-            <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-              {loadErr}
-              {loadErrMigrationHint ? (
-                <p className="mt-2 sam-text-helper text-amber-900/90">
-                  {t("addr_ui_migration_hint")}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-
-          <div>
-            {list.length === 0 && !loadErr && listBootstrapping ? (
-              <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                {t("common_loading")}
-              </p>
-            ) : list.length === 0 && !loadErr ? (
-              <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                {t("address_empty")}
-              </p>
-            ) : (
-              <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
-                {list.map((row) => (
-                  <AddressRowCard
-                    key={row.id}
-                    row={row}
-                    busyId={busyId}
-                    approvedStoresById={approvedStoresById}
-                    onSetAsRepresentative={
-                      selectingForReturn
-                        ? () => setPickedId(row.id)
-                        : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
-                          ? undefined
-                          : () => void setAsRepresentative(row.id)
-                    }
-                    onEdit={() => openEdit(row)}
-                    onDelete={() => void removeRow(row.id)}
-                    containerClassName={
-                      selectingForReturn && pickedId === row.id
-                        ? "rounded-ui-rect bg-signature/10 ring-2 ring-signature/35"
-                        : ""
-                    }
-                  />
-                ))}
-              </ul>
-            )}
+        <div className="mx-auto flex max-w-none flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-0 py-0 pb-2">
+            {addressListBody}
           </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={handleConfirm}
-              disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
-              className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
-            >
-              {confirming ? t("common_processing") : t("common_confirm")}
-            </button>
-            <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-              {t("address_add")}
-            </button>
-          </div>
+          {managementActionBar}
         </div>
       ) : (
-        <div
-          className={
-            storesGreenHeader
-              ? `mx-auto w-full min-w-0 max-w-[42rem] flex-1 min-h-0 px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
-              : APP_MAIN_TAB_SCROLL_BODY_CLASS
-          }
-        >
-          <div className="flex min-w-0 flex-col gap-4 py-4">
-            {loadErr ? (
-              <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
-                {loadErr}
-                {loadErrMigrationHint ? (
-                  <p className="mt-2 sam-text-helper text-amber-900/90">
-                    {t("addr_ui_migration_hint")}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div>
-              {list.length === 0 && !loadErr && listBootstrapping ? (
-                <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                  {t("common_loading")}
-                </p>
-              ) : list.length === 0 && !loadErr ? (
-                <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                  {t("address_empty")}
-                </p>
-              ) : (
-                <ul className={`space-y-2 p-2 ${ADDR_LIST_CARD}`}>
-                  {list.map((row) => (
-                    <AddressRowCard
-                      key={row.id}
-                      row={row}
-                      busyId={busyId}
-                      approvedStoresById={approvedStoresById}
-                      onSetAsRepresentative={
-                        selectingForReturn
-                          ? () => setPickedId(row.id)
-                          : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
-                            ? undefined
-                            : () => void setAsRepresentative(row.id)
-                      }
-                      onEdit={() => openEdit(row)}
-                      onDelete={() => void removeRow(row.id)}
-                      containerClassName={
-                        selectingForReturn && pickedId === row.id
-                          ? "rounded-ui-rect bg-signature/10 ring-2 ring-signature/35"
-                          : ""
-                      }
-                    />
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
-                className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
-              >
-                {confirming ? t("common_processing") : t("common_confirm")}
-              </button>
-              <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-                {t("address_add")}
-              </button>
-            </div>
-          </div>
-        </div>
+        pageBodyColumn
       )}
 
       {embedded ? (

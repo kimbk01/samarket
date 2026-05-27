@@ -59,11 +59,18 @@ export function buildDeliveryHomeHeaderAddressLine(a: UserAddressDTO | null | un
 }
 
 /**
- * 배달 홈 헤더·주소 시트 — 표시용 한 줄.
- * Baemin형 동·상세 우선, 없으면 detailAddress → PH 카드 → 주소관리 본문 순.
+ * 배달 홈 헤더·주소 시트 — 표시용 한 줄 (동일 규칙).
+ * PH: `formatPhAddressCardOneLinePlain` (`AddressListRowBody`·주소 시트) 우선.
+ * 카드가 비어 있으면 Baemin형 동·상세 → detailAddress → plain fallback.
  */
 export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | undefined): string | null {
   if (!a?.id) return null;
+
+  const isPh = (a.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  if (isPh) {
+    const phCard = normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressListPlainLine(a));
+    if (phCard) return phCard;
+  }
 
   const primary = buildDeliveryHomeHeaderAddressLine(a);
   if (primary?.trim()) return primary.trim();
@@ -71,14 +78,8 @@ export function resolveDeliveryHomeHeaderDisplayLine(a: UserAddressDTO | null | 
   const detail = a.detailAddress?.trim();
   if (detail && !isDisplayNullish(detail)) return detail;
 
-  const isPh = (a.countryCode ?? "PH").trim().toUpperCase() === "PH";
-  if (isPh) {
-    const ph = formatUserAddressListPlainLine(a).trim();
-    if (ph && ph !== "주소 미입력") return ph;
-  }
-
-  const mgmt = formatUserAddressListPlainLine(a).trim();
-  if (mgmt && mgmt !== "주소 미입력") return mgmt;
+  const plain = normalizeDeliveryHomeHeaderDisplayLine(formatUserAddressListPlainLine(a));
+  if (plain) return plain;
 
   return null;
 }

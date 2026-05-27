@@ -31,6 +31,11 @@ import {
   dispatchTier1HeaderOverlayClose,
   dispatchTier1HeaderOverlayOpen,
 } from "@/lib/layout/tier1-header-overlay-events";
+import {
+  TIER1_HEADER_OVERLAY_BACKDROP_CLASS,
+  TIER1_HEADER_OVERLAY_SHELL_CLASS,
+  tier1HeaderOverlayBackdropStateClass,
+} from "@/lib/ui/tier1-header-overlay-backdrop";
 
 const FALLBACK_RECOMMENDED_KEYS = [
   "store_search_chip_chicken",
@@ -157,23 +162,15 @@ export function StoresHomeSearchModal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
-    const onPointerDown = (e: PointerEvent) => {
-      const target = e.target as Node;
-      const inPanel = panelRef.current?.contains(target) ?? false;
-      const onTrigger = anchorRef.current?.contains(target) ?? false;
-      if (!inPanel && !onTrigger) onClose();
-    };
     document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("resize", updateLayout);
     window.addEventListener("scroll", updateLayout, true);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("resize", updateLayout);
       window.removeEventListener("scroll", updateLayout, true);
     };
-  }, [visible, onClose, updateLayout, anchorRef]);
+  }, [visible, onClose, updateLayout]);
 
   const listScrollRouteKey = buildDeliveryListScrollRouteKey(
     "/stores/search",
@@ -215,14 +212,11 @@ export function StoresHomeSearchModal({
   };
 
   return createPortal(
-    <>
-      <div
-        className={[
-          "stores-home-search-popup__backdrop fixed inset-0 z-[1260] touch-none bg-black/25",
-          entered ? "stores-home-search-popup__backdrop--open" : "stores-home-search-popup__backdrop--closed",
-        ].join(" ")}
-        role="presentation"
-        aria-hidden
+    <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation">
+      <button
+        type="button"
+        className={[TIER1_HEADER_OVERLAY_BACKDROP_CLASS, tier1HeaderOverlayBackdropStateClass(entered)].join(" ")}
+        aria-label={t("common_close")}
         onClick={onClose}
       />
       <div
@@ -232,11 +226,10 @@ export function StoresHomeSearchModal({
         aria-modal="true"
         aria-label={t("store_search_placeholder")}
         className={[
-          "stores-home-search-popup delivery-ui fixed z-[1270] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-[0_14px_36px_rgba(0,0,0,0.16)]",
+          "stores-home-search-popup delivery-ui fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] shadow-[0_14px_36px_rgba(0,0,0,0.16)]",
           entered ? "stores-home-search-popup--open" : "stores-home-search-popup--closed",
         ].join(" ")}
         style={panelStyle}
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="shrink-0 border-b border-[color:var(--delivery-border)] px-3 py-2.5">
           <form
@@ -302,7 +295,7 @@ export function StoresHomeSearchModal({
           }
         </div>
       </div>
-    </>,
+    </div>,
     document.body
   );
 }

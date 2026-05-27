@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressListRowBody } from "@/components/addresses/AddressListRowBody";
@@ -15,6 +16,12 @@ import {
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
 import { translateUserAddressApiError } from "@/lib/addresses/user-address-api-error-i18n";
+import {
+  buildMypageAddressesHref,
+  parseSafeInternalReturnTo,
+  resolveAddressFlowEntryPath,
+} from "@/lib/addresses/mypage-addresses-return-to";
+import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
@@ -36,14 +43,31 @@ export function DeliveryStyleAddressPickerSheet({
   titleKey = purpose === "delivery" ? "philife_addr_change" : "philife_addr_change",
   /** 메인 BottomNav(1200) 위에 붙임 — 하단 목록·버튼이 탭에 가리지 않게 */
   anchorAboveMainBottomNav = true,
+  /** 주소 관리 링크·확인 복귀용 — `/stores` 헤더 시트 등 진입 화면을 명시 */
+  managementReturnTo = null,
 }: {
   open: boolean;
   onClose: () => void;
   purpose: DeliveryStyleAddressPickerPurpose;
   titleKey?: MessageKey;
   anchorAboveMainBottomNav?: boolean;
+  managementReturnTo?: string | null;
 }) {
   const { t } = useI18n();
+  const pathname = usePathname() ?? "";
+  const manageReturnTarget = useMemo(() => {
+    const explicit = parseSafeInternalReturnTo(managementReturnTo);
+    if (explicit) return explicit;
+    return resolveAddressFlowEntryPath(
+      pathname,
+      typeof window !== "undefined" ? window.location.search : ""
+    );
+  }, [managementReturnTo, pathname]);
+  const manageAddressesHref = buildMypageAddressesHref(manageReturnTarget);
+  const openAddressManagement = useCallback(() => {
+    if (manageReturnTarget) writeAddressFlowExitHref(manageReturnTarget);
+    onClose();
+  }, [manageReturnTarget, onClose]);
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
   const [list, setList] = useState<UserAddressDTO[]>(() => readCachedMeAddressList() ?? []);
@@ -204,8 +228,8 @@ export function DeliveryStyleAddressPickerSheet({
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--delivery-border)] px-[var(--delivery-page-x)] py-3">
           <h2 className="text-[17px] font-bold text-[color:var(--delivery-text-main)]">{t(titleKey)}</h2>
           <Link
-            href="/mypage/addresses"
-            onClick={onClose}
+            href={manageAddressesHref}
+            onClick={openAddressManagement}
             className="text-[13px] font-semibold text-[color:var(--delivery-primary)]"
           >
             {t("store_address_manage_link")}

@@ -10,6 +10,8 @@ import {
   fetchMandatoryAddressGateDeduped,
   invalidateMandatoryAddressGateClientCache,
 } from "@/lib/addresses/mandatory-address-gate-client";
+import { buildMypageAddressesHrefFromPath, parseSafeInternalReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
+import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
@@ -213,7 +215,14 @@ export function MandatoryAddressGate() {
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
-            onClick={() => router.push("/mypage/addresses")}
+            onClick={() => {
+              const search = typeof window !== "undefined" ? window.location.search : "";
+              const href = buildMypageAddressesHrefFromPath(pathname, search);
+              writeAddressFlowExitHref(
+                parseSafeInternalReturnTo(`${pathname.split("?")[0]}${search}`)
+              );
+              router.push(href);
+            }}
             className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white"
           >
             {t("addr_ui_gate_add_address")}

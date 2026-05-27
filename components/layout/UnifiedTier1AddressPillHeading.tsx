@@ -1,17 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RepresentativeAddressLineState } from "@/hooks/use-representative-address-line";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
-
-const ADDRESS_MANAGEMENT_HREF = "/mypage/addresses";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 
 /**
  * 거래/필라이프(`/philife`) 1단 공통 — 대표 주소 한 줄을 **알약 링크**로 표시.
  */
 export function UnifiedTier1AddressPillHeading({ rep }: { rep: RepresentativeAddressLineState }) {
   const { t } = useI18n();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const addressManagementHref = buildMypageAddressesHrefFromPath(
+    pathname,
+    searchParams?.toString() ? `?${searchParams.toString()}` : ""
+  );
   if (rep.status === "loading") {
     return (
       <span className="sam-text-body-secondary truncate text-sam-muted">{t("layout_region_loading")}</span>
@@ -21,7 +27,7 @@ export function UnifiedTier1AddressPillHeading({ rep }: { rep: RepresentativeAdd
   const ariaLine = rep.line?.trim() || t("layout_region_fallback_short");
   return (
     <Link
-      href={ADDRESS_MANAGEMENT_HREF}
+      href={addressManagementHref}
       className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-sam-primary-soft px-3 py-1.5 text-[length:calc(13px-2pt)] font-semibold text-sam-primary"
       aria-label={t("layout_address_manage_aria", { line: ariaLine })}
     >

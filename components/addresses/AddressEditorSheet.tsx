@@ -25,7 +25,13 @@ import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owne
 import { buildMypageAddressesHref, parseStoreIdFromReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
 import { resolveAddressPresetNickname } from "@/components/addresses/address-labels";
 import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS,
+  MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS,
+  MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS,
+  MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS,
+} from "@/lib/addresses/mypage-address-manage-layout";
+import { ADDR_BOTTOM_INNER } from "@/lib/ui/address-flow-viber";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { AddressDesignationDupConfirmModal } from "@/components/addresses/AddressDesignationDupConfirmModal";
 import { AddressEditorLocationSearch } from "@/components/addresses/AddressEditorLocationSearch";
@@ -685,7 +691,7 @@ export function AddressEditorSheet(props: {
         return;
       }
       await Promise.resolve(onSaved());
-      onClose();
+      if (layout !== "page") onClose();
     } finally {
       setBusy(false);
     }
@@ -930,9 +936,11 @@ export function AddressEditorSheet(props: {
 
   const editorFooter = (
     <div
-      className={`shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-3 ${
-        layout === "page" ? "w-full min-w-0" : "px-3 sm:px-4"
-      }`}
+      className={
+        layout === "page"
+          ? "w-full min-w-0 space-y-2"
+          : "shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-3 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-3 sm:px-4"
+      }
     >
       {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
       <div className="flex flex-col gap-2">
@@ -1026,15 +1034,22 @@ export function AddressEditorSheet(props: {
     ) : null;
 
   if (layout === "page") {
+    const pageScrollClass = storesGreenHeader
+      ? `mx-auto w-full min-w-0 max-w-[42rem] ${MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS} px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
+      : MYPAGE_ADDRESS_MANAGE_SCROLL_CLASS;
+    const pageScrollInnerClass = storesGreenHeader
+      ? "flex min-w-0 flex-col"
+      : MYPAGE_ADDRESS_MANAGE_SCROLL_INNER_CLASS;
+    const pageRootClass = storesGreenHeader
+      ? "delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden bg-[color:var(--delivery-bg-main)]"
+      : MYPAGE_ADDRESS_MANAGE_PAGE_ROOT_CLASS;
+    const pageFooterWrapClass = storesGreenHeader
+      ? "delivery-ui z-30 w-full min-w-0 shrink-0 border-t border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] safe-area-pb"
+      : MYPAGE_ADDRESS_MANAGE_FOOTER_WRAP_CLASS;
+
     return (
       <>
-        <div
-          className={
-            storesGreenHeader
-              ? "delivery-ui flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-[color:var(--delivery-bg-main)]"
-              : "flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app"
-          }
-        >
+        <div className={pageRootClass}>
           {storesGreenHeader ? (
             <StoresGreenFixedHeaderChrome
               title={pageTitle}
@@ -1043,20 +1058,21 @@ export function AddressEditorSheet(props: {
             />
           ) : (
             <MySubpageHeader
+              inlineChrome
+              registerMainTier1={false}
               titleKey={mode === "edit" ? "addr_ui_edit_title" : "addr_ui_add_title"}
               backHref={pageBackHref}
               hideCtaStrip
+              showHubQuickActions
             />
           )}
-          <div
-            className={
-              storesGreenHeader
-                ? `mx-auto w-full min-w-0 max-w-[42rem] flex-1 min-h-0 overflow-y-auto px-[var(--delivery-page-x)] ${STORES_HOME_HEADER_FIXED_BODY_OFFSET_CLASS} ${STORES_OWNER_APPLY_HEADER_FIRST_SECTION_GAP_CLASS}`
-                : `${APP_MAIN_TAB_SCROLL_BODY_CLASS} min-h-0 flex-1 overflow-y-auto`
-            }
-          >
-            {editorScrollBody}
-            {editorFooter}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className={pageScrollClass}>
+              <div className={pageScrollInnerClass}>{editorScrollBody}</div>
+            </div>
+            <div className={pageFooterWrapClass}>
+              <div className={ADDR_BOTTOM_INNER}>{editorFooter}</div>
+            </div>
           </div>
         </div>
         {fineTuneLayer}

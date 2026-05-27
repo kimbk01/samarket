@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
 import { logoutDiBaYAppSession } from "@/lib/auth/logout";
@@ -21,6 +22,7 @@ import { useRepresentativeAddressPresentation } from "@/hooks/use-representative
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { MyInfoProfileCard } from "@/components/mypage/myinfo/MyInfoProfileCard";
 import { DeliveryStyleAddressPickerSheet } from "@/components/addresses/DeliveryStyleAddressPickerSheet";
+import { buildMypageAddressesHrefFromPath, resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
 import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
@@ -71,6 +73,12 @@ export function MyPageHomeDashboard({
   addressDefaultsSnapshot?: AddressDefaultsSnapshot | null;
 }) {
   const { t, safeT } = useI18n();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  const addressesMenuHref = buildMypageAddressesHrefFromPath(
+    pathname,
+    searchParams?.toString() ? `?${searchParams.toString()}` : ""
+  );
   const formatCount = (n: number | null | undefined): string => {
     if (n == null || Number.isNaN(n)) return t("mypage_comp_placeholder_dash");
     if (n > 99) return t("mypage_comp_stat_overflow_99plus");
@@ -300,7 +308,7 @@ export function MyPageHomeDashboard({
           <MyInfoMenuSection title={safeT("mypage_comp_section_account_menu")}>
             <MyInfoMenuItem
               first
-              href="/mypage/addresses"
+              href={addressesMenuHref}
               title={safeT("mypage_comp_menu_account_address_title")}
               icon={
                 <AddressKindHeadPin kind="general" className={`${ICON} [&_svg]:h-[18px] [&_svg]:w-[15px]`} />
@@ -366,6 +374,10 @@ export function MyPageHomeDashboard({
         open={addressSheetOpen}
         onClose={() => setAddressSheetOpen(false)}
         purpose="master"
+        managementReturnTo={resolveAddressFlowEntryPath(
+          pathname,
+          searchParams?.toString() ? `?${searchParams.toString()}` : ""
+        )}
       />
 
       <LogoutConfirmModal

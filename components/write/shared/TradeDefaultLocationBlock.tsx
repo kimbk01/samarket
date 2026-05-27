@@ -2,19 +2,18 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { buildMypageAddressesHrefFromPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { prefetchMeAddressListIntoCache } from "@/lib/addresses/address-list-client-cache";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
-
-const ADDRESSES_HREF = "/mypage/addresses";
 
 function pickAddressForTradeWrite(defaults: { master?: unknown; trade?: unknown } | undefined): UserAddressDTO | null {
   const master = coerceUserAddressDTO(defaults?.master ?? null);
@@ -66,8 +65,13 @@ export function TradeDefaultLocationBlock({
   denseLayout = false,
   suppressAddressBookRegionSync = false,
 }: TradeDefaultLocationBlockProps) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
   const router = useRouter();
+  const addressesHref = buildMypageAddressesHrefFromPath(
+    pathname,
+    searchParams?.toString() ? `?${searchParams.toString()}` : ""
+  );
   const [displayLine, setDisplayLine] = useState<string | null>(null);
   const displayLineRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -176,8 +180,8 @@ export function TradeDefaultLocationBlock({
         return;
       }
     }
-    router.push(ADDRESSES_HREF);
-  }, [onBeforeNavigateToAddresses, router]);
+    router.push(addressesHref);
+  }, [addressesHref, onBeforeNavigateToAddresses, router]);
 
   const currentAddressText = !ready
     ? snapshotLabel ?? "…"
@@ -270,7 +274,7 @@ export function TradeDefaultLocationBlock({
           </button>
         ) : (
           <Link
-            href={ADDRESSES_HREF}
+            href={addressesHref}
             className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
             주소 관리로 변경

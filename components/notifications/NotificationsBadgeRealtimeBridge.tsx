@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
+import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
@@ -33,7 +34,14 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
   }, []);
 
   const bump = useCallback(({ eventType }: { eventType: string }) => {
-    coalescedBadgeBumpRef.current?.schedule();
+    if (eventType === "INSERT") {
+      void myGeneralNotificationUnreadStore.refresh(true);
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
+      }
+    } else {
+      coalescedBadgeBumpRef.current?.schedule();
+    }
     /**
      * 거래/주문/문의 **신규** 알림 INSERT만 owner hub 배지 갱신.
      * UPDATE burst(읽음 일괄)는 unread 스토어 coalesce 로 충분 — hub cmFresh 연쇄 방지.

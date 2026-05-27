@@ -115,7 +115,7 @@
   --delivery-shadow-modal: 0 4px 20px rgba(0, 0, 0, 0.12);
   --delivery-shadow-order-confirm: 0 8px 24px rgba(0, 0, 0, 0.14);
   --delivery-shadow-sheet: 0 -4px 16px rgba(17, 24, 39, 0.1);
-  /** 모달·시트 뒤 — blur 금지(흰 화면 뭉개짐). 배민식 반투명 딤만 */
+/** 모달·시트 뒤 — blur 금지(흰 화면 뭉개짐). 배민식 반투명 딤만 — 1단 헤더 검색·알림: `.sam-tier1-header-overlay-backdrop` */
   --delivery-backdrop: var(--dibay-dim);
 
   --delivery-badge-h: 20px;

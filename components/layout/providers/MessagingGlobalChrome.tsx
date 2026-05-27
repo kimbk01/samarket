@@ -80,7 +80,7 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
 
   return (
     <>
-      {mountDeferredChrome && p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
+      {p.mountNotificationSoundPrime ? <NotificationSoundPrime /> : null}
       {p.mountNotificationsBadgeRealtimeBridge ? <NotificationsBadgeRealtimeBridge enabled /> : null}
       {mountDeferredChrome && p.mountGlobalOrderChatUnreadSound ?
         <GlobalOrderChatUnreadSound enabled />

@@ -1211,22 +1211,8 @@
       opacity calc(var(--tier1-notification-inbox-ms) * 0.75) ease-out;
   }
 
-  .tier1-notification-inbox-backdrop {
-    --tier1-notification-inbox-ms: 240ms;
-    transition: opacity var(--tier1-notification-inbox-ms) ease-out;
-  }
-
-  .tier1-notification-inbox-backdrop--closed {
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .tier1-notification-inbox-backdrop--open {
-    opacity: 1;
-  }
-
   @media (prefers-reduced-motion: reduce) {
-    .tier1-notification-inbox-backdrop,
+    .sam-tier1-header-overlay-backdrop,
     .tier1-notification-inbox-popup {
       transition: none !important;
     }

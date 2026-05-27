@@ -82,6 +82,54 @@ assertNotIncludes(
 
 
 
+const searchModal = read("components/stores/home/hub/StoresHomeSearchModal.tsx");
+
+const philifeInbox = read("components/philife/PhilifeHeaderNotificationInbox.tsx");
+
+const tier1OverlayBackdrop = read("lib/ui/tier1-header-overlay-backdrop.ts");
+
+assertIncludes(
+
+  tier1OverlayBackdrop,
+
+  "sam-tier1-header-overlay-backdrop",
+
+  "tier1 header overlay backdrop must define single CSS class"
+
+);
+
+assertIncludes(
+
+  searchModal,
+
+  "TIER1_HEADER_OVERLAY_BACKDROP_CLASS",
+
+  "stores search popup must use unified tier1 overlay backdrop"
+
+);
+
+assertIncludes(
+
+  philifeInbox,
+
+  "TIER1_HEADER_OVERLAY_BACKDROP_CLASS",
+
+  "tier1 notification inbox must use unified tier1 overlay backdrop"
+
+);
+
+assertNotIncludes(
+
+  searchModal,
+
+  "stores-home-search-popup__backdrop",
+
+  "stores search must not use legacy per-feature backdrop class"
+
+);
+
+
+
 const headerLabel = read("lib/addresses/delivery-home-header-label.ts");
 
 assertNotIncludes(

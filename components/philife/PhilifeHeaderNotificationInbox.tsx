@@ -98,6 +98,11 @@ import {
 
 } from "@/lib/ui/tier1-notification-inbox-motion";
 
+import {
+  TIER1_HEADER_OVERLAY_BACKDROP_CLASS,
+  TIER1_HEADER_OVERLAY_SHELL_CLASS,
+  tier1HeaderOverlayBackdropStateClass,
+} from "@/lib/ui/tier1-header-overlay-backdrop";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
 
 import { Tier1HeaderBellGlyph, Tier1HeaderBellMutedGlyph } from "@/lib/ui/tier1-header-glyphs";
@@ -464,7 +469,7 @@ export function PhilifeHeaderNotificationInbox({
 
       void loadSound();
 
-    }, { delayMs: 120 });
+    }, { delayMs: 0 });
 
     return cancel;
 
@@ -554,21 +559,7 @@ export function PhilifeHeaderNotificationInbox({
 
     };
 
-    const onPointerDown = (e: PointerEvent) => {
-
-      const target = e.target as Node;
-
-      const inPanel = panelRef.current?.contains(target) ?? false;
-
-      const onTrigger = triggerRef.current?.contains(target) ?? false;
-
-      if (!inPanel && !onTrigger) closePanel();
-
-    };
-
     document.addEventListener("keydown", onKey);
-
-    document.addEventListener("pointerdown", onPointerDown);
 
     window.addEventListener("resize", updateLayout);
 
@@ -577,8 +568,6 @@ export function PhilifeHeaderNotificationInbox({
     return () => {
 
       document.removeEventListener("keydown", onKey);
-
-      document.removeEventListener("pointerdown", onPointerDown);
 
       window.removeEventListener("resize", updateLayout);
 
@@ -840,11 +829,7 @@ export function PhilifeHeaderNotificationInbox({
 
     : "tier1-notification-inbox-popup--closed";
 
-  const backdropMotionClass = entered
-
-    ? "tier1-notification-inbox-backdrop--open"
-
-    : "tier1-notification-inbox-backdrop--closed";
+  const backdropMotionClass = tier1HeaderOverlayBackdropStateClass(entered);
 
 
 
@@ -873,15 +858,15 @@ export function PhilifeHeaderNotificationInbox({
 
       : createPortal(
 
-          <>
+          <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation">
 
-            <div
+            <button
 
-              className={`tier1-notification-inbox-backdrop fixed inset-0 z-[119] touch-none bg-black/25 ${backdropMotionClass}`}
+              type="button"
 
-              role="presentation"
+              className={`${TIER1_HEADER_OVERLAY_BACKDROP_CLASS} ${backdropMotionClass}`}
 
-              aria-hidden
+              aria-label={t("common_close")}
 
               onClick={closePanel}
 
@@ -895,15 +880,13 @@ export function PhilifeHeaderNotificationInbox({
 
               style={panelStyle}
 
-              className={`tier1-notification-inbox-popup fixed z-[120] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border/90 bg-sam-surface shadow-[0_14px_36px_rgba(0,0,0,0.16)] ${popupMotionClass}`}
+              className={`tier1-notification-inbox-popup fixed z-[1] flex min-h-0 flex-col overflow-hidden rounded-ui-rect border border-sam-border/90 bg-sam-surface shadow-[0_14px_36px_rgba(0,0,0,0.16)] ${popupMotionClass}`}
 
               role="dialog"
 
               aria-modal="true"
 
               aria-labelledby="philife-inbox-title"
-
-              onClick={(e) => e.stopPropagation()}
 
             >
 
@@ -1061,7 +1044,7 @@ export function PhilifeHeaderNotificationInbox({
 
             </div>
 
-          </>,
+          </div>,
 
           document.body
 
@@ -1079,7 +1062,13 @@ export function PhilifeHeaderNotificationInbox({
 
         type="button"
 
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+
+          primeNotificationSoundAudio();
+
+          setOpen((v) => !v);
+
+        }}
 
         className={
 
