@@ -1,5 +1,7 @@
 "use client";
 
+import { preflightStoresDeliveryPtrRefresh } from "@/lib/stores/stores-delivery-ptr-coordinator";
+
 export type StoresHomePullRefreshSnapshot = {
   pullPx: number;
   refreshing: boolean;
@@ -86,6 +88,7 @@ export function addStoresHomePullRefreshHandler(fn: () => void | Promise<void>):
 
 export async function runStoresHomePullRefresh(releasePullPx = 0): Promise<void> {
   if (refreshHandlers.size === 0 || snapshot.refreshing) return;
+  preflightStoresDeliveryPtrRefresh();
   const slotPx = resolveStoresHomePullRefreshSlotPx(releasePullPx);
   patchStoresHomePullRefresh({ refreshing: true, pullPx: slotPx });
   const startedAt = performance.now();

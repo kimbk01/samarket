@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import {
+  ADDRESS_MAP_GOOGLE_PIN_ELEMENT,
+  ADDRESS_MAP_PIN_TEXT_CLASS,
+} from "@/lib/addresses/address-map-pin-chrome";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 
 export const MAP_PICKER_DEFAULT_CENTER = { lat: 14.5995, lng: 120.9842 };
@@ -146,11 +150,7 @@ export function MapPicker({
       if (cancelled || !mapRef.current || mapRef.current !== map) return;
       const { AdvancedMarkerElement, PinElement } = lib;
       detachMarker();
-      const pin = new PinElement({
-        background: "#EA4335",
-        borderColor: "#C62828",
-        glyphColor: "#FFFFFF",
-      });
+      const pin = new PinElement({ ...ADDRESS_MAP_GOOGLE_PIN_ELEMENT });
       const adv = new AdvancedMarkerElement({
         map,
         position: pos,
@@ -278,7 +278,7 @@ export function MapPicker({
             <span className="mb-0.5 rounded-full bg-ui-fg px-2.5 py-1 sam-text-helper font-medium text-white shadow-md">
               여기로 선택
             </span>
-            <svg width="40" height="48" viewBox="0 0 40 48" className="text-signature drop-shadow-md" aria-hidden>
+            <svg width="40" height="48" viewBox="0 0 40 48" className={`${ADDRESS_MAP_PIN_TEXT_CLASS} drop-shadow-md`} aria-hidden>
               <path
                 d="M20 0C12.3 0 6 6.1 6 13.6c0 10.2 14 22.9 14 22.9s14-12.7 14-22.9C34 6.1 27.7 0 20 0z"
                 fill="currentColor"

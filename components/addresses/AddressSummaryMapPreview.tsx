@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { addressMapPinMarkerIcon } from "@/lib/addresses/address-map-pin-chrome";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 
 /** WGS84 → OSM slippy map 타일 (키 없이 미리보기용) */
@@ -61,6 +62,7 @@ export function AddressSummaryMapPreview({ lat, lng, sizePx = 72, className = ""
         markerRef.current = new google.maps.Marker({
           position: center,
           map,
+          icon: addressMapPinMarkerIcon(google.maps, { w: 22, h: 29 }),
         });
       } catch {
         if (!cancelled) setMode("osm");

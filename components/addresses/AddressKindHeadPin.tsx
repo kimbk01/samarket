@@ -1,8 +1,9 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { ADDRESS_MAP_PIN_TEXT_CLASS } from "@/lib/addresses/address-map-pin-chrome";
 
-/** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장 동일 빨간 teardrop (주소 관리·마이페이지·시트 통일) */
+/** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장 동일 gold teardrop (주소 관리·마이페이지·시트 통일) */
 export function AddressKindHeadPin(props: {
   kind: "master" | "store" | "general";
   className?: string;
@@ -15,7 +16,7 @@ export function AddressKindHeadPin(props: {
     (kind === "master" ? t("addr_ui_kind_master") : kind === "store" ? t("addr_ui_kind_store") : t("addr_ui_kind_general"));
   return (
     <span
-      className={`inline-flex shrink-0 select-none text-[#E53935] ${className}`.trim()}
+      className={`inline-flex shrink-0 select-none ${ADDRESS_MAP_PIN_TEXT_CLASS} ${className}`.trim()}
       role="img"
       aria-label={aria}
     >

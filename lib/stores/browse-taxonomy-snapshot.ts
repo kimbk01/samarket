@@ -22,6 +22,7 @@ type SnapshotState =
 
 let state: SnapshotState = { status: "idle" };
 const listeners = new Set<() => void>();
+let reloadGeneration = 0;
 
 function bump(): void {
   listeners.forEach((l) => l());
@@ -73,5 +74,28 @@ export function getBrowseTaxonomySnapshotServerSnapshot(): BrowseTaxonomyLoaded 
 /** taxonomy TTL 캐시 무효화·테스트 — 다음 구독자가 재로드 */
 export function invalidateBrowseTaxonomySnapshot(): void {
   state = { status: "idle" };
+  bump();
+}
+
+/** browse PTR — taxonomy 네트워크 재검증 후 스냅샷 갱신(헤더 1·2·3단) */
+export async function reloadBrowseTaxonomySnapshot(
+  language?: import("@/lib/i18n/config").AppLanguageCode
+): Promise<void> {
+  const gen = ++reloadGeneration;
+  const { purgeStoresTaxonomyNetworkCache, fetchStoresTaxonomyDeduped } = await import(
+    "@/lib/stores/store-delivery-api-client"
+  );
+  purgeStoresTaxonomyNetworkCache(language);
+  state = { status: "loading" };
+  bump();
+  try {
+    const { json } = await fetchStoresTaxonomyDeduped({ language });
+    if (gen !== reloadGeneration) return;
+    const data = parseBrowseTaxonomyPayload(json);
+    state = data ? { status: "ready", data } : { status: "error" };
+  } catch {
+    if (gen !== reloadGeneration) return;
+    state = { status: "error" };
+  }
   bump();
 }

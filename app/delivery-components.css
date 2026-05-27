@@ -1029,10 +1029,12 @@
     flex: 1 1 0;
     align-items: stretch;
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-x: contain;
-    [-ms-overflow-style: none];
-    [scrollbar-width: none];
-    [-webkit-overflow-scrolling: touch];
+    touch-action: pan-x;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
   }
 
   .stores-browse-header-primary-tabs__scroll::-webkit-scrollbar {
@@ -1040,12 +1042,10 @@
   }
 
   .stores-browse-header-primary-tabs__track {
-    display: flex;
-    width: 100%;
-    min-width: max(
-      100%,
-      calc(var(--browse-primary-tab-count) * var(--delivery-browse-primary-tab-min-w))
-    );
+    display: inline-flex;
+    width: max-content;
+    min-width: 100%;
+    flex-wrap: nowrap;
     align-items: stretch;
   }
 
@@ -1054,11 +1054,11 @@
     display: flex;
     height: var(--delivery-browse-primary-tab-h);
     box-sizing: border-box;
-    flex: 1 1 0;
+    flex: 0 0 auto;
     min-width: var(--delivery-browse-primary-tab-min-w);
     align-items: center;
     justify-content: center;
-    padding-inline: 4px;
+    padding-inline: 10px;
     color: var(--delivery-text-sub);
     font-family: inherit;
     text-align: center;
@@ -1417,6 +1417,10 @@
 }
 
 html:has(.stores-home-hub) .main-hub-scroll-body[data-stores-home-ptr-root] {
+  overscroll-behavior-y: none;
+}
+
+html:has([data-stores-browse-ptr-hint]) .main-hub-scroll-body[data-stores-browse-ptr-root] {
   overscroll-behavior-y: none;
 }
 

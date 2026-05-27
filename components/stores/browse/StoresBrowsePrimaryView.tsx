@@ -26,6 +26,8 @@ import { REGIONS } from "@/lib/products/form-options";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBrowsePullRefreshHint";
+import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { STORES_BROWSE_SUB_ALL, storesBrowseNavSubSlug, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
@@ -35,7 +37,15 @@ import {
   type StoreRowCardData,
 } from "@/components/stores/home/StoreDeliveryRowCard";
 import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
-import { fetchStoresBrowseDeduped, peekStoresBrowseClientCache } from "@/lib/stores/store-delivery-api-client";
+import { invalidateStoresBrowseMemoryCache } from "@/lib/stores/stores-browse-response-cache";
+import { useStoresBrowsePullRefresh } from "@/lib/stores/use-stores-browse-pull-refresh";
+import {
+  fetchStoresBrowseDeduped,
+  forgetStoresBrowseFetchSingleFlight,
+  invalidateStoresBrowseClientCache,
+  peekStoresBrowseClientCache,
+} from "@/lib/stores/store-delivery-api-client";
+import { reloadBrowseTaxonomySnapshot } from "@/lib/stores/browse-taxonomy-snapshot";
 import {
   resolveBrowseListQuerySub,
   resolveBrowseMatchedSubSlug,
@@ -337,16 +347,33 @@ export function StoresBrowsePrimaryView({
   const remoteCacheRef = useRef<
     Map<string, { rows: BrowseStoreListItem[]; source: BrowseFeedMetaSource }>
   >(new Map());
+  const loadRemoteRequestIdRef = useRef(0);
+  const browseListContextKeyRef = useRef(browseListContextKey);
+  useEffect(() => {
+    browseListContextKeyRef.current = browseListContextKey;
+  }, [browseListContextKey]);
 
   const loadRemote = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = !!opts?.silent;
+      const force = !!opts?.force;
+      const requestId = ++loadRemoteRequestIdRef.current;
+      const contextKeyAtStart = browseListContextKey;
       if (!silent) {
         setRemoteLoading((prev) => (prev ? prev : true));
         setFeedSource((prev) => (prev === null ? prev : null));
       }
       try {
-        const { json } = await fetchStoresBrowseDeduped(browseQuerySuffix, { language });
+        const qs = force
+          ? `${browseQuerySuffix}${browseQuerySuffix.includes("?") ? "&" : "?"}fresh=1`
+          : browseQuerySuffix;
+        const { json } = await fetchStoresBrowseDeduped(qs, { language });
+        if (
+          requestId !== loadRemoteRequestIdRef.current ||
+          contextKeyAtStart !== browseListContextKeyRef.current
+        ) {
+          return;
+        }
         const j = json as {
           ok?: boolean;
           stores?: unknown;
@@ -369,13 +396,25 @@ export function StoresBrowsePrimaryView({
           if (!silent) browseHadListForContextRef.current = false;
         }
       } catch {
+        if (
+          requestId !== loadRemoteRequestIdRef.current ||
+          contextKeyAtStart !== browseListContextKeyRef.current
+        ) {
+          return;
+        }
         if (!silent) {
           setRemoteRows([]);
           setFeedSource((prev) => (prev === null ? prev : null));
           browseHadListForContextRef.current = false;
         }
       } finally {
-        if (!silent) setRemoteLoading((prev) => (prev ? false : prev));
+        if (
+          !silent &&
+          requestId === loadRemoteRequestIdRef.current &&
+          contextKeyAtStart === browseListContextKeyRef.current
+        ) {
+          setRemoteLoading((prev) => (prev ? false : prev));
+        }
       }
     },
     [browseQuerySuffix, browseListContextKey, language]
@@ -471,21 +510,6 @@ export function StoresBrowsePrimaryView({
 
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
 
-  const browseSubtitle = useMemo(() => {
-    if (!primary || subs.length === 0) return "";
-    if (!listLoaded && remoteLoading) return "";
-    if (feedSource === "supabase_unconfigured") {
-      return t("store_browse_list_preparing");
-    }
-    if (useRemoteList) {
-      return t("store_browse_list_live");
-    }
-    if (feedSource === "supabase") {
-      return t("store_browse_list_empty");
-    }
-    return t("store_browse_list_fetch_failed");
-  }, [primary, subs.length, listLoaded, remoteLoading, feedSource, useRemoteList, t]);
-
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
   const otherPrimaries = useMemo(
@@ -493,20 +517,41 @@ export function StoresBrowsePrimaryView({
     [primarySlug, industryVersion]
   );
 
+  const browseListReady = !!primary && subs.length > 0;
+  useStoresBrowsePullRefresh(browseListReady);
+
+  const onBrowsePullRefresh = useCallback(async () => {
+    invalidateStoresBrowseMemoryCache(primarySlug);
+    invalidateStoresBrowseClientCache(browseQuerySuffix, language);
+    invalidateStoresBrowseClientCache(browseQuerySuffixWithoutGeo, language);
+    forgetStoresBrowseFetchSingleFlight(browseQuerySuffix, language);
+    forgetStoresBrowseFetchSingleFlight(browseQuerySuffixWithoutGeo, language);
+    remoteCacheRef.current.delete(browseListContextKey);
+    await Promise.all([
+      reloadBrowseTaxonomySnapshot(language),
+      loadRemote({ silent: false, force: true }),
+    ]);
+  }, [
+    browseListContextKey,
+    browseQuerySuffix,
+    browseQuerySuffixWithoutGeo,
+    language,
+    loadRemote,
+    primarySlug,
+  ]);
+
   const browseStickyBelow: ReactNode = useMemo(
     () => (
-      <div className="border-b border-sam-border bg-[var(--sub-bg)]">
-        <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-2 pt-2`}>
-          {browseSubtitle ?
-            <p className="pb-1.5 sam-text-xxs leading-snug text-sam-muted dark:text-sam-meta" role="status">
-              {browseSubtitle}
-            </p>
-          : null}
-          <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
+      <>
+        <StoresBrowsePullRefreshHint />
+        <div className="border-b border-sam-border bg-[#eac784]">
+          <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-2 pt-2`}>
+            <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
+          </div>
         </div>
-      </div>
+      </>
     ),
-    [browseSubtitle, listSort, hasGeo, t]
+    [listSort, hasGeo]
   );
 
   const browseHeaderTitle = useMemo(() => {
@@ -543,6 +588,9 @@ export function StoresBrowsePrimaryView({
 
   return (
     <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
+      {browseListReady ?
+        <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
+      : null}
       <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
         {remoteLoading && !listLoaded ?
           <StoreDeliveryListLoading />

@@ -142,6 +142,12 @@ export function readMeStoreOrdersHubSummaryCache(): { value: StoreApiJsonRespons
   };
 }
 
+/** PTR·강제 reload — buyer hub 카드 캐시·single-flight 무효화 */
+export function invalidateMeStoreOrdersHubSummaryCache(): void {
+  storeHubSummaryCache.delete("hub_summary=1");
+  forgetSingleFlight("me:store-orders:hub-summary:get");
+}
+
 function primeStoreHubSummaryCache(cacheKey: string, value: StoreApiJsonResponse): void {
   if (value.status !== 200) {
     storeHubSummaryCache.delete(cacheKey);
@@ -411,11 +417,39 @@ export function peekStoresTaxonomyClientCache(language?: string): StoreApiJsonRe
   return { status: hit.value.status, json: hit.value.json };
 }
 
-/** 어드민이 공개 taxonomy 를 바꾼 직후 등 — 다음 `fetchStoresTaxonomyDeduped` 가 네트워크를 탄다 */
-export function clearStoresTaxonomyClientCache(): void {
+/** PTR·강제 reload — 진행 중 taxonomy single-flight 끊기 */
+export function forgetStoresTaxonomyFetchSingleFlight(
+  language?: import("@/lib/i18n/config").AppLanguageCode
+): void {
+  forgetSingleFlight(storesTaxonomySingleFlightKey(language));
+}
+
+/** taxonomy Map·single-flight 만 비움 — 스냅샷 무효화는 `clearStoresTaxonomyClientCache` */
+export function purgeStoresTaxonomyNetworkCache(
+  language?: import("@/lib/i18n/config").AppLanguageCode
+): void {
+  const langsToForget = new Set<string>();
   for (const key of [...storeTaxonomyPublicCache.keys()]) {
-    if (key.startsWith("taxonomy:")) storeTaxonomyPublicCache.delete(key);
+    if (!key.startsWith("taxonomy:")) continue;
+    storeTaxonomyPublicCache.delete(key);
+    langsToForget.add(key.slice("taxonomy:".length));
   }
+  if (language != null) {
+    langsToForget.add(normalizeStoresTaxonomyLanguage(language));
+  }
+  for (const lang of langsToForget) {
+    forgetStoresTaxonomyFetchSingleFlight(lang as import("@/lib/i18n/config").AppLanguageCode);
+  }
+  if (langsToForget.size === 0) {
+    forgetStoresTaxonomyFetchSingleFlight(language);
+  }
+}
+
+/** 어드민이 공개 taxonomy 를 바꾼 직후 등 — 다음 `fetchStoresTaxonomyDeduped` 가 네트워크를 탄다 */
+export function clearStoresTaxonomyClientCache(
+  language?: import("@/lib/i18n/config").AppLanguageCode
+): void {
+  purgeStoresTaxonomyNetworkCache(language);
   queueMicrotask(() => {
     void import("@/lib/stores/browse-taxonomy-snapshot").then((m) => m.invalidateBrowseTaxonomySnapshot());
   });
@@ -490,6 +524,14 @@ function parseStoresBrowseClientCacheJson(json: unknown): StoresBrowseClientCach
   };
 }
 
+function storesBrowseFlightKey(
+  language: import("@/lib/i18n/config").AppLanguageCode,
+  queryString: string
+): string {
+  const qs = queryString.trim().replace(/^\?/, "");
+  return `stores:api:browse:${language}:${qs}`;
+}
+
 /** browse 마운트 직전 동기 적용 — prewarm·재진입 단일비행 캐시 */
 export function peekStoresBrowseClientCache(
   queryString: string,
@@ -497,7 +539,7 @@ export function peekStoresBrowseClientCache(
 ): StoresBrowseClientCacheSnapshot | null {
   const qs = queryString.trim().replace(/^\?/, "");
   const lang = opts?.language ?? "en";
-  const flightKey = `stores:api:browse:${lang}:${qs}`;
+  const flightKey = storesBrowseFlightKey(lang, qs);
   const hit = storesBrowseClientCache.get(flightKey);
   if (!hit || hit.expiresAt <= Date.now()) return null;
   return parseStoresBrowseClientCacheJson(hit.value.json);
@@ -506,6 +548,49 @@ export function peekStoresBrowseClientCache(
 /** `/stores` 업종 그리드·browse 진입 — `stores-browse-prewarm-coordinator` 경유 */
 export { prewarmStoresBrowseListClient } from "@/lib/stores/stores-browse-prewarm-coordinator";
 
+/** browse 클라이언트 TTL·min-refetch gap — PTR 직전 삭제 */
+export function invalidateStoresBrowseClientCache(
+  queryString: string,
+  language: import("@/lib/i18n/config").AppLanguageCode = "en"
+): void {
+  const qs = queryString.trim().replace(/^\?/, "");
+  const flightKey = storesBrowseFlightKey(language, qs);
+  storesBrowseClientCache.delete(flightKey);
+  storesBrowseLastNetworkAt.delete(flightKey);
+  try {
+    const sp = new URLSearchParams(qs);
+    if (sp.get("fresh") !== "1") {
+      sp.set("fresh", "1");
+      const freshKey = storesBrowseFlightKey(language, sp.toString());
+      storesBrowseClientCache.delete(freshKey);
+      storesBrowseLastNetworkAt.delete(freshKey);
+    }
+  } catch {
+    /* noop */
+  }
+}
+
+/** PTR·강제 reload — 진행 중 browse single-flight 끊기(기본·fresh=1 키) */
+export function forgetStoresBrowseFetchSingleFlight(
+  queryString: string,
+  language: import("@/lib/i18n/config").AppLanguageCode = "en"
+): void {
+  const qs = queryString.trim().replace(/^\?/, "");
+  forgetSingleFlight(storesBrowseFlightKey(language, qs));
+  try {
+    const sp = new URLSearchParams(qs);
+    sp.delete("fresh");
+    sp.delete("bypassCache");
+    const base = sp.toString();
+    if (base) forgetSingleFlight(storesBrowseFlightKey(language, base));
+    const freshSp = new URLSearchParams(base);
+    freshSp.set("fresh", "1");
+    forgetSingleFlight(storesBrowseFlightKey(language, freshSp.toString()));
+  } catch {
+    /* noop */
+  }
+}
+
 /** GET /api/stores/browse?… */
 export async function fetchStoresBrowseDeduped(
   queryString: string,
@@ -513,7 +598,7 @@ export async function fetchStoresBrowseDeduped(
 ): Promise<StoreApiJsonResponse> {
   const qs = queryString.trim().replace(/^\?/, "");
   const lang = opts?.language ?? "en";
-  const flightKey = `stores:api:browse:${lang}:${qs}`;
+  const flightKey = storesBrowseFlightKey(lang, qs);
   const bypass = browseQueryBypassesCache(qs);
   const now = Date.now();
   if (!bypass) {

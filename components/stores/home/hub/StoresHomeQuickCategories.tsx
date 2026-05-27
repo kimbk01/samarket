@@ -88,7 +88,7 @@ export function StoresHomeQuickCategories() {
   useLayoutEffect(() => {
     if (!isStoresHubRoot) return;
     return addStoresHomePullRefreshHandler(async () => {
-      clearStoresTaxonomyClientCache();
+      clearStoresTaxonomyClientCache(language);
       const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
       const next = resolveStoresHomeTaxonomyFromApi(jRaw, STORES_HOME_TAXONOMY_EMPTY);
       if (next.categories.length === 0) return;

@@ -43,7 +43,7 @@ export const STORES_HOME_HEADER_ACTION_ROW_CLASS =
 /** `/stores` 홈 1단 — 주소 열 최대 50% (`StoresHomeHeaderChrome`) */
 export const STORES_HOME_HEADER_HOME_ADDRESS_ROW_GRID_CLASS = "grid-cols-[minmax(0,50%)_1fr]";
 
-/** `/stores`·browse 공통 — 빨간 핀 + 주소 말줄임 + ▼ */
+/** `/stores`·browse 공통 — gold 핀 + 주소 말줄임 + ▼ */
 export const STORES_HOME_HEADER_ADDRESS_BUTTON_CLASS =
   "flex h-full min-w-0 w-full items-center gap-1 self-stretch text-left text-white";
 

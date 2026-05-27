@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useMemo, useRef, useState } from "react";
+import { StoresBrowseHeaderScrollCollapse } from "@/components/stores/browse/StoresBrowseHeaderScrollCollapse";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
@@ -76,6 +77,8 @@ function SearchIcon() {
  * 3단(①): 1차 업종 텍스트 탭 + ▼
  * ▼ 패널: 2단(주소) 하단선·z-20 (4단 2차 칩 위)
  * 4단(②): 2차 업종 (`/stores` 홈 크기 · 1차 전환 360ms 슬라이드 · 목록 기본 `?sub=all`)
+ * 5단: 정렬 칩 — `StoresBrowsePrimaryView` `stickyBelow`
+ * 목록 스크롤 다운 시 **4단만** `StoresBrowseHeaderScrollCollapse` 로 접음(1·2·3·5단 유지).
  *
  * CONTRACT — taxonomy: `useBrowsePrimaryIndustries`·`useBrowseSubIndustries` 가
  * `browse-taxonomy-snapshot` 단일 로드 공유. DO NOT: 헤더·목록 각각 `fetchStoresTaxonomyDeduped`.
@@ -189,9 +192,11 @@ export function StoresBrowseHeaderChrome() {
                 onMenuOpenChange={setPrimaryMenuOpen}
               />
             </div>
-            <Suspense fallback={null}>
-              <StoresBrowseHeaderSubTopicChips primarySlug={browsePrimarySlug} />
-            </Suspense>
+            <StoresBrowseHeaderScrollCollapse>
+              <Suspense fallback={null}>
+                <StoresBrowseHeaderSubTopicChips primarySlug={browsePrimarySlug} />
+              </Suspense>
+            </StoresBrowseHeaderScrollCollapse>
           </div>
         </div>
       : null}

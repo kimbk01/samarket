@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { addressMapPinMarkerIcon } from "@/lib/addresses/address-map-pin-chrome";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 
 /**
@@ -41,6 +42,7 @@ export function AddressFineTuneMapClient(props: {
         position: { lat: latitude, lng: longitude },
         map,
         draggable: true,
+        icon: addressMapPinMarkerIcon(google.maps),
       });
       markerRef.current = marker;
       mapRef.current = map;

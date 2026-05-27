@@ -8,7 +8,6 @@ import { HorizontalDragScroll } from "@/components/community/HorizontalDragScrol
 import { storesBrowseAllPath } from "@/components/stores/browse/stores-browse-paths";
 import { setBrowseSubChipOptimisticSub } from "@/lib/stores/browse-sub-chip-navigation";
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
-import { BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER } from "@/lib/stores/browse-primary-industry-display";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 
 function MenuExpandIcon({ open }: { open: boolean }) {
@@ -46,10 +45,7 @@ export function StoresBrowseHeaderPrimaryTabs({
   }, [pathname]);
 
   return (
-    <div
-      className="stores-browse-header-primary-tabs"
-      style={{ ["--browse-primary-tab-count" as string]: BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER.length }}
-    >
+    <div className="stores-browse-header-primary-tabs">
       <HorizontalDragScroll
         className="stores-browse-header-primary-tabs__scroll"
         style={{ WebkitOverflowScrolling: "touch" }}

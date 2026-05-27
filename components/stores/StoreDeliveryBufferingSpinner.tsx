@@ -19,7 +19,7 @@ export function StoreDeliveryBufferingSpinner({ className = "" }: { className?: 
     >
       {Array.from({ length: DOTS }, (_, i) => {
         const deg = (i * 360) / DOTS;
-        const delayMs = (-(i * 1150) / DOTS).toFixed(0);
+        const delayMs = ((i * 1150) / DOTS).toFixed(0);
         const style: DotStyle = {
           "--deg": `${deg}deg`,
           "--delay": `${delayMs}ms`,

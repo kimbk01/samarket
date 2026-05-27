@@ -247,7 +247,7 @@ export function StoresHomeHub({
       <StoresHomeQuickCategories />
       <StoresHomePullRefreshRegister
         onRefresh={async () => {
-          await loadFeed({ silent: true, force: true });
+          await loadFeed({ silent: false, force: true });
         }}
       />
       <StoresHomeCategorySeedPanelClient />

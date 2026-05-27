@@ -16,6 +16,7 @@ import type {
 import { StoresHomeHub } from "@/components/stores/home/hub/StoresHomeHub";
 import {
   fetchMeStoreOrdersHubSummaryDeduped,
+  invalidateMeStoreOrdersHubSummaryCache,
   readMeStoreOrdersHubSummaryCache,
 } from "@/lib/stores/store-delivery-api-client";
 import { prewarmStoresHomeRoute } from "@/lib/stores/stores-home-route-prewarm";
@@ -119,6 +120,7 @@ export function StoresHub() {
 
   useLayoutEffect(() => {
     return addStoresHomePullRefreshHandler(async () => {
+      invalidateMeStoreOrdersHubSummaryCache();
       await loadBuyerHub();
     });
   }, [loadBuyerHub]);
