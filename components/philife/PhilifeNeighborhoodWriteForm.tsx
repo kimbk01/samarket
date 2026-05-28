@@ -30,43 +30,48 @@ import {
   neighborhoodLocationMetaFromRegion,
   neighborhoodLocationLabelFromRegion,
 } from "@/lib/neighborhood/location-key";
+import { COMMUNITY_BUTTON_SECONDARY_CLASS, COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import {
-  COMMUNITY_BUTTON_PRIMARY_CLASS,
-  COMMUNITY_BUTTON_SECONDARY_CLASS,
-  PHILIFE_FB_CARD_CLASS,
-  PHILIFE_FB_INPUT_CLASS,
-  PHILIFE_FB_TEXTAREA_CLASS,
-  PHILIFE_PAGE_ROOT_CLASS,
-  COMMUNITY_FONT_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+  APP_MAIN_COLUMN_CLASS,
+  APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS,
+} from "@/lib/ui/app-content-layout";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { PhilifeWriteActionFooter, PHILIFE_WRITE_FORM_ID } from "@/components/philife/PhilifeWriteActionFooter";
+import {
+  PHILIFE_WRITE_FB_BLOCK_TITLE,
+  PHILIFE_WRITE_FB_CONTROL,
+  PHILIFE_WRITE_FB_FIELD_LABEL,
+  PHILIFE_WRITE_FB_SECTION,
+  PHILIFE_WRITE_FORM_ROOT_CLASS,
+  PHILIFE_WRITE_SCROLL_BODY_CLASS,
+} from "@/lib/ui/philife-write-fb-ui";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  philifeWriteAdProductPointCost,
+  philifeWriteAdProductTitle,
+} from "@/lib/ads/philife-write-ad-product-i18n";
+import { philifeWriteTopicOptionLabel } from "@/lib/philife/philife-write-topic-label";
+import type { PhilifeNeighborhoodWriteTopicOption } from "@/lib/neighborhood/philife-neighborhood-topics";
 
-/** 모임 생성 섹션 제목 타이포 통일 */
-const MEETUP_SECTION_LABEL_BASE = "px-0 text-[13px] font-normal leading-[1.45] text-sam-muted";
-/** 세로 스택 블록용(왼쪽 열 정렬) */
-const MEETUP_SECTION_LABEL_CLASS = `${MEETUP_SECTION_LABEL_BASE} block w-full max-w-full`;
-const WRITE_HELPER_TEXT_CLASS = "mt-2 text-[13px] font-normal leading-[1.45] text-sam-muted";
-const WRITE_INFO_PANEL_CLASS =
-  "rounded-sam-md border border-sam-border bg-sam-surface-muted px-4 py-3 text-[13px] font-normal leading-[1.45] text-sam-muted";
-const WRITE_WARNING_PANEL_CLASS = "rounded-sam-md border border-sam-warning/25 bg-sam-warning-soft/70 p-3";
-const WRITE_WARNING_LINK_CLASS =
-  "font-medium text-sam-fg underline decoration-sam-warning/50 underline-offset-2";
-const WRITE_SELECT_CLASS =
-  "sam-select bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20viewBox%3D%220%200%2024%2024%22%20stroke%3D%22%23667085%22%3E%3Cpath%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22M19%209l-7%207-7-7%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.75rem_center] [background-size:1rem] bg-no-repeat";
-const WRITE_CHOICE_CARD_BASE = "rounded-sam-md border px-3 py-3 text-left transition-colors";
-const WRITE_CHOICE_CARD_ACTIVE =
-  "border-sam-primary-border bg-sam-primary-soft shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--sam-primary)_18%,transparent)]";
-const WRITE_CHOICE_CARD_IDLE = "border-sam-border bg-sam-surface hover:bg-sam-surface-muted";
-const WRITE_THUMB_FRAME_CLASS =
-  "relative overflow-hidden rounded-sam-md bg-sam-surface-muted ring-1 ring-sam-border";
-const WRITE_THUMB_REMOVE_CLASS =
-  "absolute right-2 top-2 inline-flex items-center justify-center rounded-sam-sm bg-sam-ink/70 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-[1px]";
+const PHILIFE_WRITE_HELPER_CLASS = "mt-1 text-[12px] leading-snug text-[#65676B]";
+const PHILIFE_WRITE_WARNING_PANEL_CLASS =
+  "border-b border-[#e4e6eb] bg-[#fff8e6] px-3 py-3 sm:px-4";
+const PHILIFE_WRITE_WARNING_LINK_CLASS =
+  "font-medium text-[#050505] underline decoration-[#65676B]/50 underline-offset-2";
+const PHILIFE_WRITE_CHOICE_CARD_BASE =
+  "rounded-md border border-[#ccd0d5] px-3 py-3 text-left transition-colors";
+const PHILIFE_WRITE_CHOICE_CARD_ACTIVE = "border-sam-primary-border bg-sam-primary-soft";
+const PHILIFE_WRITE_CHOICE_CARD_IDLE = "bg-white hover:bg-[#f0f2f5]";
+const PHILIFE_WRITE_THUMB_FRAME_CLASS =
+  "relative overflow-hidden rounded-md bg-[#f0f2f5] ring-1 ring-[#e4e6eb]";
+const PHILIFE_WRITE_THUMB_REMOVE_CLASS =
+  "absolute right-1.5 top-1.5 z-[1] inline-flex min-h-7 items-center justify-center rounded-sm bg-[#050505]/75 px-2 text-[11px] font-medium text-white";
+const MEETUP_INLINE_LABEL_CLASS = PHILIFE_WRITE_FB_FIELD_LABEL + " shrink-0 whitespace-nowrap";
 
 function buildMeetupPostContent(
   parts: { intro: string; ageFee: string },
@@ -103,7 +108,6 @@ interface PhilifeNeighborhoodWriteFormProps {
   onSheetBlockingDraftChange?: (hasDraft: boolean) => void;
 }
 
-type WriteTopicOption = { slug: string; name: string };
 
 /** 모임 오픈그룹: 공개(자유/비번) · 숨김(자유/비번) */
 type PhilifeMeetAccessMode = "free_public" | "password_public" | "free_hidden" | "password_hidden";
@@ -117,7 +121,8 @@ export function PhilifeNeighborhoodWriteForm({
   onSheetClose,
   onSheetBlockingDraftChange,
 }: PhilifeNeighborhoodWriteFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const pointsLocale = language === "en" ? "en-US" : "ko-KR";
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
   const { currentRegion } = useRegion();
@@ -148,7 +153,7 @@ export function PhilifeNeighborhoodWriteForm({
     [t]
   );
   const fileRef = useRef<HTMLInputElement>(null);
-  const [writeTopicOptions, setWriteTopicOptions] = useState<WriteTopicOption[]>([]);
+  const [writeTopicOptions, setWriteTopicOptions] = useState<PhilifeNeighborhoodWriteTopicOption[]>([]);
   /** `writeTopicOptions.length === 0` 이 로딩 중인지·진짜 비어 있는지 구분 */
   const [writeTopicOptionsLoad, setWriteTopicOptionsLoad] = useState<"loading" | "ready">("loading");
   /** `ok: false` 또는 catch 시 서버/네트워크 힌트(설정·데이터 0이 아닐 수 있음) */
@@ -812,20 +817,35 @@ export function PhilifeNeighborhoodWriteForm({
     }
   }, [onSheetClose, sheetHasDraft, t]);
 
+  const handlePageCancel = useCallback(() => {
+    if (sheetHasDraft()) {
+      if (!window.confirm(t("philife_write_discard_confirm"))) return;
+    }
+    router.push(philifeAppPaths.home);
+  }, [router, sheetHasDraft, t]);
+
+  const handleWriteCancel = suppressWriteScreenTier1 && onSheetClose ? handleSheetCancel : handlePageCancel;
+
+  const submitDisabled =
+    category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0);
+
   const tier1Title =
     category === "meetup"
       ? title.trim() || t("philife_write_meetup_create_title")
       : t("tier1_community_write");
 
-  const rootClass = suppressWriteScreenTier1
-    ? [
-        "flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden",
-        COMMUNITY_FONT_CLASS,
-        "bg-sam-app text-sam-fg",
-        "pt-2",
-        APP_MAIN_GUTTER_X_CLASS,
-      ].join(" ")
-    : `${PHILIFE_PAGE_ROOT_CLASS} pt-2 ${APP_MAIN_GUTTER_X_CLASS}`;
+  const rootClass = [
+    "flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden bg-white",
+    COMMUNITY_FONT_CLASS,
+    "text-[#050505]",
+    suppressWriteScreenTier1 ? "" : "min-h-screen",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const scrollWrapClass = suppressWriteScreenTier1
+    ? PHILIFE_WRITE_SCROLL_BODY_CLASS
+    : `${PHILIFE_WRITE_SCROLL_BODY_CLASS} ${APP_MAIN_COLUMN_CLASS}`;
 
   return (
     <div className={rootClass}>
@@ -834,45 +854,44 @@ export function PhilifeNeighborhoodWriteForm({
       )}
 
       {category === "meetup" ? (
-        <div className="mb-3">
+        <div className={`${PHILIFE_WRITE_FB_SECTION} bg-[#f0f2f5]`}>
           <Link
             href={philifeAppPaths.write}
-            className={`inline-flex items-center px-4 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
+            className={`inline-flex items-center px-3 py-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
           >
             {t("philife_write_back_to_post")}
           </Link>
         </div>
       ) : null}
 
-      <form
-        onSubmit={onSubmit}
-        className={`space-y-4 sam-card-pad ${PHILIFE_FB_CARD_CLASS}`}
-      >
+      <div className={scrollWrapClass}>
+        <div className={suppressWriteScreenTier1 ? APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS : "w-full"}>
+        <form id={PHILIFE_WRITE_FORM_ID} onSubmit={onSubmit} className={PHILIFE_WRITE_FORM_ROOT_CLASS}>
         {category === "meetup" ? (
             <>
-              <div>
-                <label className={MEETUP_SECTION_LABEL_CLASS}>{t("philife_write_meetup_name_label")}</label>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_meetup_name_label")}</h4>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                  className={PHILIFE_WRITE_FB_CONTROL}
                   placeholder={t("philife_write_meetup_name_placeholder")}
                   autoComplete="off"
                 />
-              </div>
+              </section>
 
-              <div>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
                 <textarea
                   value={meetIntro}
                   onChange={(e) => setMeetIntro(e.target.value)}
                   rows={4}
-                  className={`mt-2 !min-h-[7rem] ${PHILIFE_FB_TEXTAREA_CLASS}`}
+                  className={`${PHILIFE_WRITE_FB_CONTROL} !min-h-[7rem]`}
                   placeholder={t("philife_write_meetup_intro_placeholder")}
                 />
-              </div>
+              </section>
 
-              <div>
-                <label className={MEETUP_SECTION_LABEL_CLASS}>{t("philife_write_cover_image_label")}</label>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_cover_image_label")}</h4>
                 <input
                   ref={fileRef}
                   type="file"
@@ -885,7 +904,7 @@ export function PhilifeNeighborhoodWriteForm({
                   type="button"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
-                  className={`mt-2 px-4 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
+                  className="mt-1 rounded-md border border-[#ccd0d5] bg-white px-4 py-2 sam-text-body text-[#050505]"
                 >
                   {uploading
                     ? t("common_uploading")
@@ -894,34 +913,40 @@ export function PhilifeNeighborhoodWriteForm({
                       : t("philife_write_cover_add")}
                 </button>
                 {imageUrls[0] ? (
-                  <div className={`mt-2 h-36 ${WRITE_THUMB_FRAME_CLASS}`}>
-                    <img src={imageUrls[0]} alt="" className="h-full w-full object-cover" />
+                  <div className={`relative mt-2 h-36 ${PHILIFE_WRITE_THUMB_FRAME_CLASS}`}>
+                    <SamarketThumbnail
+                      src={imageUrls[0]}
+                      alt=""
+                      fill
+                      roundedClassName="rounded-ui-rect"
+                      className="h-full w-full"
+                    />
                     <button
                       type="button"
-                      className={WRITE_THUMB_REMOVE_CLASS}
+                      className={PHILIFE_WRITE_THUMB_REMOVE_CLASS}
                       onClick={() => setImageUrls([])}
                     >
                       {t("common_delete")}
                     </button>
                   </div>
                 ) : (
-                <p className={WRITE_HELPER_TEXT_CLASS}>{t("philife_write_cover_helper")}</p>
+                  <p className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_cover_helper")}</p>
                 )}
-              </div>
+              </section>
 
-              <div>
-                <label className={MEETUP_SECTION_LABEL_CLASS}>{t("philife_write_region_label")}</label>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_region_label")}</h4>
                 <input
                   value={meetRegionText}
                   onChange={(e) => setMeetRegionText(e.target.value)}
-                  className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                  className={PHILIFE_WRITE_FB_CONTROL}
                   placeholder={t("philife_write_region_placeholder")}
                 />
-              </div>
+              </section>
 
-              <div>
-                <label className={MEETUP_SECTION_LABEL_CLASS}>{t("philife_write_chat_type_label")}</label>
-                <p className={WRITE_HELPER_TEXT_CLASS}>{t("philife_write_chat_type_hint")}</p>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_chat_type_label")}</h4>
+                <p className={PHILIFE_WRITE_HELPER_CLASS}>{t("philife_write_chat_type_hint")}</p>
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {meetAccessOptions.map((opt) => {
                     const on = meetAccessMode === opt.id;
@@ -933,7 +958,7 @@ export function PhilifeNeighborhoodWriteForm({
                           setMeetAccessMode(opt.id);
                           if (opt.id === "free_public" || opt.id === "free_hidden") setMeetPassword("");
                         }}
-                        className={`${WRITE_CHOICE_CARD_BASE} ${on ? WRITE_CHOICE_CARD_ACTIVE : WRITE_CHOICE_CARD_IDLE}`}
+                        className={`${PHILIFE_WRITE_CHOICE_CARD_BASE} ${on ? PHILIFE_WRITE_CHOICE_CARD_ACTIVE : PHILIFE_WRITE_CHOICE_CARD_IDLE}`}
                       >
                         <p className="text-[14px] font-semibold text-sam-fg">{opt.title}</p>
                         <p className="mt-1 text-[13px] font-normal leading-[1.45] text-sam-muted">{opt.desc}</p>
@@ -943,7 +968,7 @@ export function PhilifeNeighborhoodWriteForm({
                 </div>
                 {meetAccessMode === "password_public" || meetAccessMode === "password_hidden" ? (
                   <div className="mt-3">
-                    <label className={MEETUP_SECTION_LABEL_CLASS} htmlFor="meet-room-password">
+                    <label className={PHILIFE_WRITE_FB_FIELD_LABEL} htmlFor="meet-room-password">
                       {t("philife_write_room_password_label")}
                     </label>
                     <input
@@ -952,15 +977,16 @@ export function PhilifeNeighborhoodWriteForm({
                       value={meetPassword}
                       onChange={(e) => setMeetPassword(e.target.value)}
                       autoComplete="new-password"
-                      className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                      className={PHILIFE_WRITE_FB_CONTROL}
                       placeholder={t("philife_write_password_placeholder")}
                     />
                   </div>
                 ) : null}
-              </div>
+              </section>
 
+              <section className={PHILIFE_WRITE_FB_SECTION}>
               <div className="flex w-full min-w-0 flex-nowrap items-center gap-x-2 overflow-x-auto sm:gap-x-3">
-                <label className={`${MEETUP_SECTION_LABEL_BASE} shrink-0 whitespace-nowrap`} htmlFor="meet-max-members">
+                <label className={`${MEETUP_INLINE_LABEL_CLASS} shrink-0 whitespace-nowrap`} htmlFor="meet-max-members">
                   {t("philife_write_max_members_label")}
                 </label>
                 <input
@@ -972,7 +998,7 @@ export function PhilifeNeighborhoodWriteForm({
                   onChange={(e) => setMaxMembers(Number(e.target.value))}
                   className="sam-input h-11 w-[4.25rem] shrink-0 px-2 py-2 text-center text-[14px] font-semibold tabular-nums"
                 />
-                <label className={`${MEETUP_SECTION_LABEL_BASE} shrink-0 whitespace-nowrap`} htmlFor="meet-age-fee">
+                <label className={`${MEETUP_INLINE_LABEL_CLASS} shrink-0 whitespace-nowrap`} htmlFor="meet-age-fee">
                   {t("philife_write_age_fee_label")}{" "}
                   <span className="font-normal text-sam-meta">{t("philife_write_optional_paren")}</span>
                 </label>
@@ -981,38 +1007,41 @@ export function PhilifeNeighborhoodWriteForm({
                   type="text"
                   value={ageFeeNote}
                   onChange={(e) => setAgeFeeNote(e.target.value)}
-                  className={`min-w-[7rem] flex-1 ${PHILIFE_FB_INPUT_CLASS}`}
+                  className={`min-w-[7rem] flex-1 ${PHILIFE_WRITE_FB_CONTROL}`}
                   placeholder={t("philife_write_age_fee_placeholder")}
                   autoComplete="off"
                 />
               </div>
+              </section>
 
-              <div className={WRITE_INFO_PANEL_CLASS}>{t("philife_write_meetup_info_panel")}</div>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+              <p className="text-[13px] leading-[1.45] text-[#65676B]">{t("philife_write_meetup_info_panel")}</p>
+              </section>
             </>
           ) : (
             <>
-              <div>
-                <label className="text-[13px] font-normal text-sam-muted">{t("philife_write_category_label")}</label>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_category_label")}</h4>
                 {writeTopicOptionsLoad === "loading" ? (
                   <p className="mt-2 text-[14px] font-normal text-sam-muted">{t("philife_write_topics_loading")}</p>
                 ) : writeTopicOptions.length === 0 ? (
-                  <div className={`mt-2 ${WRITE_WARNING_PANEL_CLASS} text-[14px] text-sam-fg`}>
+                  <div className={`mt-2 ${PHILIFE_WRITE_WARNING_PANEL_CLASS} text-[14px] text-sam-fg`}>
                     <p>
                       {t("philife_write_no_topics_before")}
                       <strong>{t("philife_write_general_topics")}</strong>
                       {t("philife_write_no_topics_after_link1")}
-                      <Link href={philifeAdminPaths.topics} className={WRITE_WARNING_LINK_CLASS}>
+                      <Link href={philifeAdminPaths.topics} className={PHILIFE_WRITE_WARNING_LINK_CLASS}>
                         {t("philife_write_feed_topics_admin")}
                       </Link>
                       {t("philife_write_no_topics_mid")}
-                      <Link href={philifeAdminPaths.sections} className={WRITE_WARNING_LINK_CLASS}>
+                      <Link href={philifeAdminPaths.sections} className={PHILIFE_WRITE_WARNING_LINK_CLASS}>
                         {t("philife_write_feed_sections_admin")}
                       </Link>
                       {t("philife_write_no_topics_end")}
                     </p>
                     {writeTopicOptionsFetchErr ? (
                       <p className="mt-2 font-mono text-xs text-sam-danger">
-                        API: {writeTopicOptionsFetchErr}
+                        {t("philife_write_err_api_prefix")} {writeTopicOptionsFetchErr}
                         <span className="ml-1 text-sam-muted">{t("philife_write_api_env_hint")}</span>
                       </p>
                     ) : null}
@@ -1022,40 +1051,41 @@ export function PhilifeNeighborhoodWriteForm({
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className={`mt-2 ${WRITE_SELECT_CLASS}`}
+                      className={PHILIFE_WRITE_FB_CONTROL}
                       aria-label={t("philife_write_topic_select_aria")}
                     >
                       {writeTopicOptions.map((o) => (
                         <option key={o.slug} value={o.slug} title={o.slug}>
-                          {o.name} ({o.slug})
+                          {philifeWriteTopicOptionLabel(t, o, language)}
                         </option>
                       ))}
                     </select>
                   </>
                 )}
-              </div>
-              <div>
-                <label className="text-[13px] font-normal text-sam-muted">{t("philife_write_title_label")}</label>
+              </section>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_title_label")}</h4>
                 <input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className={`mt-2 w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                  className={PHILIFE_WRITE_FB_CONTROL}
                   placeholder={t("philife_write_title_placeholder")}
                 />
-              </div>
-              <div>
-                <label className="text-[13px] font-normal text-sam-muted">{t("philife_write_content_label")}</label>
+              </section>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_content_label")}</h4>
                 <textarea
                   ref={contentTextareaRef}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
                   onPaste={(e) => void onContentPaste(e)}
                   rows={8}
-                  className={`mt-2 ${PHILIFE_FB_TEXTAREA_CLASS}`}
+                  className={`${PHILIFE_WRITE_FB_CONTROL} min-h-[10rem]`}
                   placeholder={t("philife_write_content_placeholder")}
                 />
-              </div>
-              <div>
+              </section>
+              <section className={PHILIFE_WRITE_FB_SECTION}>
+                <h4 className={PHILIFE_WRITE_FB_BLOCK_TITLE}>{t("philife_write_add_photos")}</h4>
                 <input
                   ref={fileRef}
                   type="file"
@@ -1068,19 +1098,26 @@ export function PhilifeNeighborhoodWriteForm({
                   type="button"
                   disabled={uploading}
                   onClick={() => fileRef.current?.click()}
-                  className={`px-4 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
+                  className="rounded-md border border-[#ccd0d5] bg-white px-4 py-2 sam-text-body text-[#050505]"
                 >
                   {uploading ? t("common_uploading") : t("philife_write_add_photos")}
                 </button>
                 {imageUrls.length > 0 ? (
                   <ul className="mt-[4pt] flex flex-wrap gap-[4pt]">
                     {imageUrls.map((url, i) => (
-                      <li key={url} className={`h-16 w-16 ${WRITE_THUMB_FRAME_CLASS}`}>
-                        <img src={url} alt="" className="h-full w-full object-cover" />
+                      <li key={url} className={`relative h-16 w-16 ${PHILIFE_WRITE_THUMB_FRAME_CLASS}`}>
+                        <SamarketThumbnail
+                          src={url}
+                          alt=""
+                          size={64}
+                          roundedClassName="rounded-ui-rect"
+                          className="h-16 w-16"
+                        />
                         <button
                           type="button"
-                          className="absolute right-1 top-1 inline-flex h-5 w-5 items-center justify-center rounded-sam-sm bg-sam-ink/70 text-[11px] font-medium text-white backdrop-blur-[1px]"
+                          className="absolute right-1 top-1 z-[1] inline-flex h-5 w-5 items-center justify-center rounded-sam-sm bg-[#1E3932]/80 text-[11px] font-medium text-white"
                           onClick={() => setImageUrls((prev) => prev.filter((_, idx) => idx !== i))}
+                          aria-label={t("common_delete")}
                         >
                           ×
                         </button>
@@ -1088,12 +1125,12 @@ export function PhilifeNeighborhoodWriteForm({
                     ))}
                   </ul>
                 ) : null}
-              </div>
+              </section>
             </>
           )}
 
           {category !== "meetup" && writeTopicOptions.length > 0 ? (
-            <div className={WRITE_WARNING_PANEL_CLASS}>
+            <section className={PHILIFE_WRITE_FB_SECTION} aria-label={t("philife_write_ad_section_aria")}>
               <label className="flex cursor-pointer items-start gap-3">
                 <input
                   type="checkbox"
@@ -1116,9 +1153,11 @@ export function PhilifeNeighborhoodWriteForm({
               </label>
               {promoteAdEnabled ? (
                 <div className="mt-3 space-y-3 border-t border-sam-warning/20 pt-3">
-                  <div className="flex items-center justify-between rounded-sam-md border border-sam-border bg-sam-surface px-3 py-2 text-[14px]">
-                    <span className="text-sam-primary">{t("philife_write_my_points")}</span>
-                    <span className="font-bold text-sam-fg">{pointBalance.toLocaleString()}P</span>
+                  <div className="flex items-center justify-between rounded-md border border-[#ccd0d5] bg-[#f0f2f5] px-3 py-2 text-[14px]">
+                    <span className="font-medium text-[#050505]">{t("philife_write_my_points")}</span>
+                    <span className="font-bold text-[#050505]">
+                      {philifeWriteAdProductPointCost(t, pointBalance, pointsLocale)}
+                    </span>
                   </div>
                   {adProductsLoading ? (
                     <p className="py-2 text-center text-[15px] text-sam-muted">{t("philife_write_ad_products_loading")}</p>
@@ -1142,16 +1181,25 @@ export function PhilifeNeighborhoodWriteForm({
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="text-[14px] font-semibold text-sam-fg">{p.name}</p>
-                                <p className="mt-0.5 text-[12px] text-sam-muted">
-                                  {postAdTypeLabel(t, p.adType)} · {t("philife_write_ad_duration_days", { days: p.durationDays })}
+                                <p className="text-[14px] font-semibold text-[#050505]">
+                                  {philifeWriteAdProductTitle(t, p)}
+                                </p>
+                                <p className="mt-0.5 text-[12px] text-[#65676B]">
+                                  {t("philife_write_ad_type_duration_line", {
+                                    type: postAdTypeLabel(t, p.adType),
+                                    days: t("philife_write_ad_duration_days", { days: p.durationDays }),
+                                  })}
                                 </p>
                               </div>
                               <div className="shrink-0 text-right">
-                                <p className="text-[14px] font-bold text-sam-fg">{p.pointCost.toLocaleString()}P</p>
+                                <p className="text-[14px] font-bold text-[#050505]">
+                                  {philifeWriteAdProductPointCost(t, p.pointCost, pointsLocale)}
+                                </p>
                                 {lacking > 0 ? (
                                   <p className="text-[12px] text-sam-danger">
-                                    {t("philife_write_ad_points_short", { points: lacking.toLocaleString() })}
+                                    {t("philife_write_ad_points_short", {
+                                      points: lacking.toLocaleString(pointsLocale),
+                                    })}
                                   </p>
                                 ) : (
                                   <p className="text-[12px] text-sam-success">{t("philife_write_ad_available")}</p>
@@ -1184,7 +1232,9 @@ export function PhilifeNeighborhoodWriteForm({
                       </div>
                       {adPaymentMethod === "points" && adShortfall > 0 ? (
                         <p className="text-[13px] text-sam-danger">
-                          {t("philife_write_points_short_full", { amount: adShortfall.toLocaleString() })}
+                          {t("philife_write_points_short_full", {
+                            amount: adShortfall.toLocaleString(pointsLocale),
+                          })}
                         </p>
                       ) : null}
                       {adPaymentMethod === "bank_transfer" ? (
@@ -1194,14 +1244,14 @@ export function PhilifeNeighborhoodWriteForm({
                             value={adDepositorName}
                             onChange={(e) => setAdDepositorName(e.target.value)}
                             placeholder={t("philife_write_depositor_placeholder")}
-                            className={`w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                            className={PHILIFE_WRITE_FB_CONTROL}
                           />
                           <input
                             type="text"
                             value={adMemo}
                             onChange={(e) => setAdMemo(e.target.value)}
                             placeholder={t("philife_write_memo_placeholder")}
-                            className={`w-full min-h-[2.75rem] ${PHILIFE_FB_INPUT_CLASS}`}
+                            className={PHILIFE_WRITE_FB_CONTROL}
                           />
                         </div>
                       ) : null}
@@ -1209,54 +1259,20 @@ export function PhilifeNeighborhoodWriteForm({
                   ) : null}
                 </div>
               ) : null}
-            </div>
+            </section>
           ) : null}
 
-          <div ref={submitErrorAnchorRef} className="min-h-0 scroll-mt-24">
-            {err ? (
-              <p
-                className="rounded-sam-md border border-sam-danger/20 bg-sam-danger-soft px-3 py-2 text-[14px] text-sam-danger"
-                role="alert"
-              >
-                {err}
-              </p>
-            ) : null}
-          </div>
-          {suppressWriteScreenTier1 && onSheetClose ? (
-            <div className="flex w-full min-w-0 flex-row flex-nowrap items-stretch gap-2 sm:gap-3">
-              <button
-                type="button"
-                onClick={handleSheetCancel}
-                disabled={busy}
-                className={`relative z-10 min-h-[2.75rem] min-w-0 flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
-              >
-                {t("philife_write_sheet_cancel")}
-              </button>
-              <button
-                type="submit"
-                disabled={
-                  busy ||
-                  (category !== "meetup" &&
-                    (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
-                }
-                className={`relative z-10 min-h-[2.75rem] min-w-0 flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
-              >
-                {busy ? t("philife_write_submitting") : t("philife_write_submit")}
-              </button>
-            </div>
-          ) : (
-            <button
-              type="submit"
-              disabled={
-                busy ||
-                (category !== "meetup" && (writeTopicOptionsLoad !== "ready" || writeTopicOptions.length === 0))
-              }
-              className={`relative z-10 w-full ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
-            >
-              {busy ? t("philife_write_submitting") : t("philife_write_submit")}
-            </button>
-          )}
-      </form>
+          <div ref={submitErrorAnchorRef} className="min-h-0 scroll-mt-24" />
+        </form>
+        </div>
+      </div>
+
+      <PhilifeWriteActionFooter
+        busy={busy}
+        submitDisabled={submitDisabled}
+        error={err}
+        onCancel={() => void handleWriteCancel()}
+      />
     </div>
   );
 }

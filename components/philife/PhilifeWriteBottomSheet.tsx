@@ -127,14 +127,14 @@ export function PhilifeWriteBottomSheet() {
     >
       <div
         ref={panelRef}
-        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-sam-app text-sam-fg transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
+        className={`pointer-events-auto flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-t border-[#e4e6eb] bg-white text-[#050505] transition-transform duration-500 ease-[cubic-bezier(0.25,0.1,0.2,1)] ${
           panelOpen ? "translate-y-0 shadow-[0_-1px_0_0_rgba(15,23,42,0.06)]" : "translate-y-full shadow-none"
         }`}
       >
-        <div className="shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5">
-          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{sheetTitle}</h2>
+        <div className="shrink-0 border-b border-[#e4e6eb] bg-white px-3 py-2.5">
+          <h2 className="text-center text-[16px] font-bold leading-tight text-[#050505]">{sheetTitle}</h2>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <PhilifeNeighborhoodWriteForm
             key={openEpoch}
             initialCategory={initialCategory}

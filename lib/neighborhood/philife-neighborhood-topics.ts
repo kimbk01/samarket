@@ -38,6 +38,7 @@ export type PhilifeNeighborhoodFeedChip = {
 export type PhilifeNeighborhoodWriteTopicOption = {
   slug: string;
   name: string;
+  name_en?: string | null;
 };
 
 /** 프로세스 내 짧은 TTL — 피드·주제 API가 매 요청마다 동일 주제를 중복 조회하지 않도록 */
@@ -362,6 +363,7 @@ export function buildPhilifeWriteTopicOptionsFromTopics(
     .map((t) => ({
       slug: t.slug.trim(),
       name: t.name?.trim() || t.slug.trim(),
+      name_en: t.name_en ?? null,
     }));
 }
 

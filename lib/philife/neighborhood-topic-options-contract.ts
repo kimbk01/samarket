@@ -11,7 +11,7 @@ export type PhilifeNeighborhoodTopicOptionsJson = {
     is_feed_sort?: boolean;
     sort_slot?: "recommend" | "popular" | null;
   }[];
-  writeTopics?: { slug: string; name: string }[];
+  writeTopics?: { slug: string; name: string; name_en?: string | null }[];
   /** false면 상단「전체」칩 생략(기본 true / 생략 시 true) */
   showAllFeedTab?: boolean;
   /** false면「관심이웃 글만 보기」필터 띠 전체 비노출(기본 true) */
