@@ -39,16 +39,26 @@ export function MainShellTabContentTransition({
   const blockMainShellWithPendingOverlay =
     isPendingMenuBlockingContent && pendingMenuIntent?.source !== "bottom-nav";
 
-  const pendingShell = useMemo(() => {
-    if (!blockMainShellWithPendingOverlay) return null;
+  const pendingRouteShell = useMemo(() => {
+    if (!isPendingMenuBlockingContent) return null;
     if (pendingMenuShellKind === "messenger") {
       return <CommunityMessengerHomeShellSkeleton />;
     }
     return <MainFeedRouteLoading rows={5} />;
-  }, [blockMainShellWithPendingOverlay, pendingMenuShellKind]);
+  }, [isPendingMenuBlockingContent, pendingMenuShellKind]);
+
+  const pendingShell = blockMainShellWithPendingOverlay ? pendingRouteShell : null;
+  const pendingPushNode =
+    isPendingMenuBlockingContent && pendingMenuIntent?.source === "bottom-nav"
+      ? pendingRouteShell
+      : null;
 
   return (
-    <AppRouteTransition contentStretchClass={contentStretchClass} overlay={pendingShell}>
+    <AppRouteTransition
+      contentStretchClass={contentStretchClass}
+      overlay={pendingShell}
+      pendingPushNode={pendingPushNode}
+    >
       {children}
     </AppRouteTransition>
   );

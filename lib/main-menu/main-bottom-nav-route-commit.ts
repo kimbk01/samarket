@@ -7,6 +7,7 @@ import {
   isCrossMainShellRouteGroup,
   armMainShellPushEnterSession,
   pathFromHref,
+  startMainShellPushExitImmediate,
 } from "@/lib/navigation/main-shell-push-session";
 import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
@@ -88,11 +89,27 @@ export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "naviga
 /** 연속 탭 — 이전 async 커밋이 replace/push 하지 않도록 세대 카운터 */
 let mainBottomNavRouteCommitGeneration = 0;
 
+function waitForMainShellPushPaint(axis: ReturnType<typeof computeMainBottomNavPushAxis>): Promise<void> | null {
+  if (!axis || typeof window === "undefined") return null;
+  if (typeof window.requestAnimationFrame !== "function") return null;
+  const pushHost =
+    typeof document !== "undefined" ?
+      document.querySelector(".main-shell-push-host, [data-main-shell-push-surface]")
+    : null;
+  if (!pushHost || pushHost.nodeType !== 1) return null;
+  return new Promise((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
  * DO NOT: Link 기본 navigation·overlay 직접 push·tab.href 직접 push — 모두 여기 또는 resolver 경유.
  * DO NOT: `onNavigationIntent`·`beginMenuNavigation` 을 async(await) 뒤로 미루기 — push·orbit 즉시.
- * `(stores)`↔`(main)`: 즉시 navigate + session enter push; same-group: dual-panel + `mainShellPushAxis`.
+ * `(stores)`↔`(main)`: 확인 직후 exit 440ms(동기) + session enter + 즉시 navigate.
+ * same-group: `pendingMenuIntent` dual-panel + `mainShellPushAxis`.
  */
 export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): MainBottomNavRouteCommitResult {
   args.onCloseDomainSwitcher?.();
@@ -109,7 +126,14 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
 
   const pushAxis = computeMainBottomNavPushAxis(args.pathname, args.href);
   const targetPath = pathFromHref(args.href);
+  const fromPath = normalizeMainBottomNavRoutePath(args.pathname);
   setMainShellPushAxisIntent(pushAxis, targetPath);
+
+  if (pushAxis && isCrossMainShellRouteGroup(fromPath, targetPath)) {
+    armMainShellPushEnterSession(pushAxis, fromPath, targetPath);
+    startMainShellPushExitImmediate(pushAxis);
+  }
+
   args.onNavigationIntent(args.tabId);
   args.beginMenuNavigation(args.href, "bottom-nav", {
     mainShellPushAxis: pushAxis,
@@ -125,11 +149,9 @@ async function commitMainBottomNavRouteNavigateAsync(
 ): Promise<void> {
   const generation = ++mainBottomNavRouteCommitGeneration;
 
-  const toPath = pathFromHref(args.href);
-  const fromPath = (args.pathname ?? "").split("?")[0]?.trim() ?? "";
-
-  if (pushAxis && isCrossMainShellRouteGroup(fromPath, toPath)) {
-    armMainShellPushEnterSession(pushAxis, fromPath, toPath);
+  const pushPaintWait = waitForMainShellPushPaint(pushAxis);
+  if (pushPaintWait) {
+    await pushPaintWait;
   }
 
   if (args.persistMessengerOriginFromHref) {

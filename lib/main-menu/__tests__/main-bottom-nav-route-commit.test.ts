@@ -5,6 +5,20 @@ import {
   shouldMainBottomNavRouteScrollOnly,
 } from "@/lib/main-menu/main-bottom-nav-route-commit";
 
+vi.mock("@/lib/navigation/main-shell-push-session", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/navigation/main-shell-push-session")>();
+  return {
+    ...actual,
+    startMainShellPushExitImmediate: vi.fn(),
+    armMainShellPushEnterSession: vi.fn(),
+  };
+});
+
+import {
+  armMainShellPushEnterSession,
+  startMainShellPushExitImmediate,
+} from "@/lib/navigation/main-shell-push-session";
+
 describe("shouldMainBottomNavRouteScrollOnly", () => {
   it("메신저 delivery-chats → 인박스 홈 — scroll_only 아님(이동)", () => {
     expect(
@@ -155,6 +169,27 @@ describe("commitMainBottomNavRoute", () => {
       skipPerfMark: true,
     });
     expect(push).toHaveBeenCalledWith("/stores");
+  });
+
+  it("cross-group — 확인 직후 exit·enter session 동기 arm", () => {
+    vi.mocked(startMainShellPushExitImmediate).mockClear();
+    vi.mocked(armMainShellPushEnterSession).mockClear();
+
+    commitMainBottomNavRoute({
+      pathname: "/stores",
+      currentSearch: "",
+      href: "/philife",
+      tabId: "community",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace: vi.fn(),
+      skipPerfMark: true,
+    });
+
+    expect(armMainShellPushEnterSession).toHaveBeenCalledWith("rtl", "/stores", "/philife");
+    expect(startMainShellPushExitImmediate).toHaveBeenCalledWith("rtl");
   });
 });
 

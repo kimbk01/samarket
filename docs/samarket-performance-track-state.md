@@ -1606,18 +1606,20 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 |------|------|
 | 원인 1개 | 하단 탭 이동 확인 모달에서 `확인`을 누른 뒤, cross-group 경로가 과거 exit 대기/intent 전달 순서에 묶이면 “이전 화면이 먼저 보인 뒤 다음 화면이 늦게 밀려오는” 체감이 발생할 수 있었다. |
 | 측정/검증 명령 | `node scripts/verify-delivery-dial-navigation-contract.cjs`, `npx vitest run lib/main-menu/__tests__/main-bottom-nav-route-commit.test.ts`, `npx tsc --noEmit` |
-| 완료 기준 | (1) 확인 직후 `beginMenuNavigation`이 동기로 기록되고 (2) push 축이 pathname 커밋 시점에 유실되지 않으며 (3) exit 대기 없이 즉시 navigate 경로가 유지되어야 한다. |
-| 수정 파일 | `lib/main-menu/main-bottom-nav-route-commit.ts`, `lib/navigation/main-bottom-nav-domain-transition-dialog.tsx`, `components/route-transition/AppRouteTransition.tsx`, `lib/navigation/main-shell-push-axis-intent-ref.ts` |
-| 이번 조치 | `beginMenuNavigation`을 commit 시점으로 앞당기고, cross-group은 session enter만 arm한 뒤 즉시 `replace/push` 하도록 고정했다. push 축 intent는 `targetPath`+TTL(4s) 조건으로 소비해 레이스/오염을 차단했다. confirm 모달은 ref 기반으로 `proceed()`를 state updater 밖에서 실행해 순서를 안정화했다. |
-| 검증 결과 | delivery dial contract PASS, route commit 테스트 10/10 PASS, TypeScript PASS. |
+| 완료 기준 | (1) 확인 직후 `beginMenuNavigation`이 동기로 기록되고 (2) push 축이 pathname 커밋 시점에 유실되지 않으며 (3) RSC/pathname 지연 중에도 목적지 경량 패널이 440ms로 들어와 이전 화면 snapback 이 없어야 한다. |
+| 수정 파일 | `lib/main-menu/main-bottom-nav-route-commit.ts`, `lib/navigation/main-bottom-nav-domain-transition-dialog.tsx`, `components/route-transition/AppRouteTransition.tsx`, `components/layout/MainShellTabContentTransition.tsx`, `components/layout/BottomNav.tsx`, `lib/navigation/main-shell-push-axis-intent-ref.ts` |
+| 이번 조치 | `beginMenuNavigation`을 commit 시점으로 앞당기고, confirm dialog는 `flushSync`로 먼저 제거한 뒤 진행한다. `AppRouteTransition`은 하단 탭 intent 직후 dual-panel push를 시작하고, RSC/pathname이 늦으면 `pendingPushNode`(경량 목적지 셸)를 들어오는 패널로 유지한다. router commit은 실제 push host가 있는 브라우저에서만 2 RAF 뒤 수행해 첫 paint를 보장하고, 12s safety release 로 영구 고정을 막는다. push 축은 canonical 탭 순서(ltr=우측 탭·rtl=좌측 탭) 단일 소스. |
+| 검증 결과 | delivery dial contract PASS, route commit 테스트 11/11 PASS, push session 테스트 4/4 PASS, push axis 테스트 3/3 PASS, TypeScript PASS. |
 
 ### 라운드 BN6 — 3회 측정 (실측)
 
 | 구간 | Run1 | Run2 | Run3 | 목표 |
 |------|------|------|------|------|
 | 확인 클릭→커밋(`confirm_to_commit_ms`) | 88 | 173 | 125 | ≤200ms |
-| 확인 클릭→경로 변경(`confirm_to_path_change_ms`) | 22371 | 9425 | 5701 | ≤1200ms |
+| 확인 클릭→push exit/enter 시작(`confirm_to_push_exit_ms`) | 125 | 104 | 110 | ≤120ms |
+| 확인 클릭→경로 변경(`confirm_to_path_change_ms`) | 14732 | 18626 | 9160 | ≤1200ms |
 | nav-perf 이벤트 수집(`__NAV_PERF_EVENTS`) | 0 | 0 | 0 | 1 이상 |
 
 **비고(측정 환경):** `scripts/measure-bottom-nav-confirm-immediacy.mjs`(Playwright headless)로 `/stores`→`/philife` 확인 모달 3회. 동일 런에서 `confirm_events_count`는 1회씩 정상 기록되며 dialog 잔류는 0(`confirm_dialog_still_visible=false`).  
-**판정:** **보류** — 확인→커밋은 88~173ms로 즉시 반응 기준을 충족했지만, 경로 변경 벽시계(`confirm_to_path_change_ms`)가 5.7~22.3s로 과도하고 `__NAV_PERF_EVENTS`가 0건이라 route settled/first shell 지표를 수집하지 못했다. 다음 라운드는 dev 서버 재시작+브라우저 headed 실측으로 `routeSettledMs`·`firstShellVisibleMs` 3회를 채워 판정 확정.
+**추가 점검(2026-05-28):** 단일 실측에서 `/api/test-login` 제거(410)와 `.env.local` 미로드를 수정했고, 측정 selector를 `data-bottom-nav-tab-id`로 고정했다. 이후 측정 환경은 `/stores` address gate 상태에서 하단 탭이 mount 되지 않아 3회 실측 전제가 깨짐. 코드 검증은 `vitest` 18/18, `tsc --noEmit`, delivery dial contract PASS.
+**판정:** **코드 완료 · 측정 보류** — 하단 탭이 mount 되는 정상 셸에서는 확인 직후 dual-panel/pending 목적지 셸 경로로 440ms push가 시작되도록 구조 고정. 현재 자동 실측은 address gate 로 하단 탭이 없어 보류이며, 체크시트 `[x]` 는 열지 않는다.

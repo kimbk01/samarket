@@ -95,6 +95,49 @@ export function mainShellPushFromClassForAxis(axis: MainShellRoutePushAxis): str
   return axis === "ltr" ? "main-shell-push-surface-from-ltr" : "main-shell-push-surface-from-rtl";
 }
 
+const PUSH_SURFACE_TRANSITION_CLASSES = [
+  "main-shell-push-surface-enter-ltr",
+  "main-shell-push-surface-enter-rtl",
+  "main-shell-push-surface-exit-ltr",
+  "main-shell-push-surface-exit-rtl",
+  "main-shell-push-surface-from-ltr",
+  "main-shell-push-surface-from-rtl",
+] as const;
+
+let lastImmediateExitAt = 0;
+
+/**
+ * `(stores)`↔`(main)` remount 직전 — 현재 surface 에 440ms exit 를 **즉시** 시작(비차단).
+ * 확인 모달 직후 router/RSC 대기 없이 push 체감을 보장한다.
+ */
+export function startMainShellPushExitImmediate(axis: MainShellRoutePushAxis): void {
+  if (typeof document === "undefined") return;
+  const now = Date.now();
+  if (now - lastImmediateExitAt < 80) return;
+  lastImmediateExitAt = now;
+
+  const surface = document.querySelector<HTMLElement>("[data-main-shell-push-surface]");
+  if (!surface) return;
+
+  const exitClass = mainShellPushExitClassForAxis(axis);
+  for (const c of PUSH_SURFACE_TRANSITION_CLASSES) {
+    surface.classList.remove(c);
+  }
+  void surface.offsetWidth;
+  surface.classList.add(exitClass);
+
+  const cleanup = () => {
+    surface.classList.remove(exitClass);
+  };
+  const onEnd = (e: TransitionEvent) => {
+    if (e.target !== surface || e.propertyName !== "transform") return;
+    surface.removeEventListener("transitionend", onEnd);
+    cleanup();
+  };
+  surface.addEventListener("transitionend", onEnd);
+  window.setTimeout(cleanup, MAIN_SHELL_ROUTE_TRANSITION_MS + 48);
+}
+
 export async function runMainShellPushExitBeforeNavigate(
   axis: MainShellRoutePushAxis,
   fromPath: string,
@@ -108,12 +151,9 @@ export async function runMainShellPushExitBeforeNavigate(
   }
 
   const exitClass = mainShellPushExitClassForAxis(axis);
-  surface.classList.remove(
-    "main-shell-push-surface-enter-ltr",
-    "main-shell-push-surface-enter-rtl",
-    "main-shell-push-surface-exit-ltr",
-    "main-shell-push-surface-exit-rtl"
-  );
+  for (const c of PUSH_SURFACE_TRANSITION_CLASSES) {
+    surface.classList.remove(c);
+  }
   void surface.offsetWidth;
   surface.classList.add(exitClass);
 

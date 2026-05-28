@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import {
@@ -22,14 +22,19 @@ import { consumeMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push
 type Props = {
   children: ReactNode;
   overlay?: ReactNode;
+  /** 하단 탭 확인 직후 RSC 완료 전에도 들어오는 패널로 사용할 경량 셸 */
+  pendingPushNode?: ReactNode;
   /** `ConditionalAppShell` — push 호스트 flex 연장 */
   contentStretchClass?: string;
 };
 
 type PushSession = {
   exiting: ReactNode;
+  entering: ReactNode;
   axis: MainShellRoutePushAxis;
   animate: boolean;
+  startedAt: number;
+  targetPath?: string;
 };
 
 const PUSH_SURFACE_CLASSES = [
@@ -40,6 +45,8 @@ const PUSH_SURFACE_CLASSES = [
   "main-shell-push-surface-exit-ltr",
   "main-shell-push-surface-exit-rtl",
 ] as const;
+
+const MAX_PENDING_PUSH_HOLD_MS = 12_000;
 
 function stripTransitionClasses(el: HTMLDivElement | null, classes: readonly string[]) {
   if (!el) return;
@@ -53,12 +60,37 @@ function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+function normalizePathKeyForPush(pathname: string | null | undefined): string {
+  return (pathname ?? "").split("?")[0]?.trim() ?? "";
+}
+
+function beginPushTrackAnimation(setPushSession: Dispatch<SetStateAction<PushSession | null>>) {
+  return requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      setPushSession((current) => (current ? { ...current, animate: true } : null));
+    });
+  });
+}
+
+function pushTargetReached(pathname: string | null | undefined, targetPath: string | undefined): boolean {
+  if (!targetPath) return true;
+  const current = normalizePathKeyForPush(pathname).replace(/\/+$/, "") || "/";
+  const target = normalizePathKeyForPush(targetPath).replace(/\/+$/, "") || "/";
+  return current === target || current.startsWith(`${target}/`);
+}
+
 /**
  * CONTRACT — 메인 5탭 push surface.
- * same-group: dual-panel + `pendingMenuIntent.mainShellPushAxis`
- * cross-group: `main-shell-push-session` enter (Provider remount)
+ * same/cross-group: `beginMenuNavigation` 직후 dual-panel(440ms)을 시작하고,
+ * RSC/pathname 이 늦어도 목적지 경량 셸을 들어오는 패널로 유지한다.
+ * cross-group 은 remount fallback 으로 session enter 440ms 도 함께 둔다.
  */
-export function AppRouteTransition({ children, overlay, contentStretchClass = "min-w-0" }: Props) {
+export function AppRouteTransition({
+  children,
+  overlay,
+  pendingPushNode = null,
+  contentStretchClass = "min-w-0",
+}: Props) {
   const pathname = usePathname();
   const kindRef = useRouteTransitionKindRef(pathname);
   const { pendingMenuIntent } = useLatestMenuNavigation();
@@ -66,6 +98,7 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
   const pushSurfaceRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef<{ pathname: string; node: ReactNode } | null>(null);
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
+  const pushSessionActiveRef = useRef(false);
   const [pushSession, setPushSession] = useState<PushSession | null>(null);
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
   refBag.current.subtleEnterRef = subtleEnterRef;
@@ -108,6 +141,48 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
   }, [pathname]);
 
   useLayoutEffect(() => {
+    pushSessionActiveRef.current = pushSession != null;
+  }, [pushSession]);
+
+  /**
+   * 하단 탭 커밋 — pathname/RSC 대기 없이 dual-panel push 를 즉시 시작.
+   * 목적지 RSC 가 늦으면 `pendingPushNode` 를 들어오는 패널로 유지해 이전 화면 snapback 을 막는다.
+   */
+  useLayoutEffect(() => {
+    const intent = pendingMenuIntent;
+    const axis = intent?.mainShellPushAxis;
+    if (!intent || intent.source !== "bottom-nav" || !axis || prefersReducedMotion()) return;
+
+    const currentPath = normalizePathKeyForPush(pathname);
+    const targetPath = intent.pathname;
+    if (!targetPath || currentPath === targetPath) return;
+    if (pushSessionActiveRef.current) return;
+
+    const prev = renderedRef.current;
+    if (!prev?.node) return;
+
+    lastPushAxisRef.current = axis;
+    pushSessionActiveRef.current = true;
+    setPushSession({
+      exiting: prev.node,
+      entering: pendingPushNode ?? children,
+      axis,
+      animate: false,
+      startedAt: performance.now(),
+      targetPath,
+    });
+    const raf = beginPushTrackAnimation(setPushSession);
+    return () => cancelAnimationFrame(raf);
+  }, [
+    children,
+    pendingMenuIntent?.id,
+    pendingMenuIntent?.mainShellPushAxis,
+    pendingMenuIntent?.pathname,
+    pendingPushNode,
+    pathname,
+  ]);
+
+  useLayoutEffect(() => {
     const pathKey = pathname ?? "";
     const prev = renderedRef.current;
     const el = subtleEnterRef.current;
@@ -124,14 +199,35 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
       const enterClass = routeTransitionClassForKind(kind);
 
       if (pushAxis && !prefersReducedMotion()) {
-        setPushSession({ exiting: prev.node, axis: pushAxis, animate: false });
+        if (pushSessionActiveRef.current) {
+          renderedRef.current = { pathname: pathKey, node: children };
+          setPushSession((current) =>
+            current
+              ? {
+                  ...current,
+                  entering: children,
+                  targetPath: undefined,
+                }
+              : current
+          );
+          if (el?.dataset) {
+            el.dataset.routeTransitionKind = kind;
+            el.dataset.routePushAxis = pushAxis;
+          }
+          return;
+        }
+
+        setPushSession({
+          exiting: prev.node,
+          entering: children,
+          axis: pushAxis,
+          animate: false,
+          startedAt: performance.now(),
+        });
+        pushSessionActiveRef.current = true;
         renderedRef.current = { pathname: pathKey, node: children };
 
-        const raf = requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            setPushSession((current) => (current ? { ...current, animate: true } : null));
-          });
-        });
+        const raf = beginPushTrackAnimation(setPushSession);
 
         if (el?.dataset) {
           el.dataset.routeTransitionKind = kind;
@@ -142,6 +238,7 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
       }
 
       lastPushAxisRef.current = null;
+      pushSessionActiveRef.current = false;
       setPushSession(null);
       stripTransitionClasses(el, ROUTE_TRANSITION_ENTER_CLASSES);
       try {
@@ -174,13 +271,40 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
   useLayoutEffect(() => {
     if (!pushSession?.animate) return;
     const timer = window.setTimeout(() => {
+      if (!pushTargetReached(pathname, pushSession.targetPath)) return;
+      pushSessionActiveRef.current = false;
       setPushSession(null);
       lastPushAxisRef.current = null;
     }, MAIN_SHELL_ROUTE_TRANSITION_MS + 64);
     return () => window.clearTimeout(timer);
-  }, [pushSession?.animate]);
+  }, [pathname, pushSession?.animate, pushSession?.targetPath]);
+
+  useLayoutEffect(() => {
+    if (!pushSession?.targetPath) return;
+    if (!pushTargetReached(pathname, pushSession.targetPath)) return;
+    const elapsed = performance.now() - pushSession.startedAt;
+    const remaining = Math.max(40, MAIN_SHELL_ROUTE_TRANSITION_MS + 64 - elapsed);
+    const timer = window.setTimeout(() => {
+      pushSessionActiveRef.current = false;
+      setPushSession(null);
+      lastPushAxisRef.current = null;
+    }, remaining);
+    return () => window.clearTimeout(timer);
+  }, [pathname, pushSession?.startedAt, pushSession?.targetPath]);
+
+  useLayoutEffect(() => {
+    if (!pushSession?.targetPath) return;
+    const timer = window.setTimeout(() => {
+      pushSessionActiveRef.current = false;
+      setPushSession(null);
+      lastPushAxisRef.current = null;
+    }, MAX_PENDING_PUSH_HOLD_MS);
+    return () => window.clearTimeout(timer);
+  }, [pushSession?.startedAt, pushSession?.targetPath]);
 
   const finishPushSession = () => {
+    if (!pushTargetReached(pathname, pushSession?.targetPath)) return;
+    pushSessionActiveRef.current = false;
     setPushSession(null);
     lastPushAxisRef.current = null;
   };
@@ -196,13 +320,13 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
   const pushPanels =
     pushSession?.axis === "ltr" ? (
       <>
-        <div className="main-shell-push-panel">{children}</div>
+        <div className="main-shell-push-panel">{pushSession.entering}</div>
         <div className="main-shell-push-panel">{pushSession.exiting}</div>
       </>
     ) : pushSession?.axis === "rtl" ? (
       <>
         <div className="main-shell-push-panel">{pushSession.exiting}</div>
-        <div className="main-shell-push-panel">{children}</div>
+        <div className="main-shell-push-panel">{pushSession.entering}</div>
       </>
     ) : null;
 
