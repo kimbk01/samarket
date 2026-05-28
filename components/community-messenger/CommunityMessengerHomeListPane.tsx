@@ -22,7 +22,6 @@ import {
 import { useLayoutEffect, useRef, type ReactElement } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
-import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type {
@@ -292,7 +291,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
           </div>
         ) : null}
 
-        {props.loading && !canRenderList ? <CommunityMessengerHomeShellSkeleton compact /> : null}
+        {props.loading && !canRenderList ? <CommunityMessengerHomePendingBlank /> : null}
 
       </div>
 
@@ -341,4 +340,14 @@ export function CommunityMessengerHomeListPane(props: Props) {
   );
   frozenTreeRef.current = tree;
   return tree;
+}
+
+function CommunityMessengerHomePendingBlank() {
+  return (
+    <div
+      className="min-h-[min(42vh,360px)]"
+      aria-busy="true"
+      data-community-messenger-home-pending-blank="true"
+    />
+  );
 }

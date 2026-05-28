@@ -1,11 +1,16 @@
 "use client";
 
-import { useMemo } from "react";
+import { Suspense, useMemo } from "react";
 
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import { TradeMarketTabPushEnterPanel } from "@/components/market/TradeMarketTabPushEnterPanel";
+import { PhilifeFeedClientEntry } from "@/components/community/PhilifeFeedClientEntry";
+import { CommunityMessengerHome } from "@/components/community-messenger/CommunityMessengerHome";
+import { StoresHub } from "@/components/stores/StoresHub";
+import { MyContent } from "@/app/(main)/my/MyContent";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 type Props = {
   children: React.ReactNode;
@@ -18,6 +23,69 @@ type Props = {
 function isMarketMenuIntentPath(pathname: string | null | undefined): boolean {
   const p = (pathname ?? "").trim();
   return p === "/market" || p.startsWith("/market/");
+}
+
+function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
+  const { pathname, search } = useMemo(() => {
+    try {
+      const u = new URL(href, "https://samarket.local");
+      return {
+        pathname: u.pathname.replace(/\/+$/, "") || "/",
+        search: u.search.startsWith("?") ? u.search.slice(1) : u.search,
+      };
+    } catch {
+      return { pathname: "", search: "" };
+    }
+  }, [href]);
+
+  if (isMarketMenuIntentPath(pathname)) {
+    return <TradeMarketTabPushEnterPanel href={href} />;
+  }
+
+  if (pathname === "/philife") {
+    return (
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app">
+        <Suspense fallback={null}>
+          <PhilifeFeedClientEntry />
+        </Suspense>
+      </div>
+    );
+  }
+
+  if (pathname === "/stores") {
+    return (
+      <div
+        className={`delivery-ui ${DeliveryTheme.page} min-h-0`}
+        data-stores-layout-profile="stores-hub"
+      >
+        <StoresHub />
+      </div>
+    );
+  }
+
+  if (pathname === "/community-messenger") {
+    const params = new URLSearchParams(search);
+    return (
+      <Suspense fallback={null}>
+        <CommunityMessengerHome
+          initialTab={params.get("tab") ?? undefined}
+          initialSection={params.get("section") ?? undefined}
+          initialFilter={params.get("filter") ?? undefined}
+          initialKind={params.get("kind") ?? undefined}
+        />
+      </Suspense>
+    );
+  }
+
+  if (pathname === "/mypage" || pathname === "/my") {
+    return (
+      <Suspense fallback={null}>
+        <MyContent />
+      </Suspense>
+    );
+  }
+
+  return <div className="min-h-screen bg-sam-app" aria-hidden />;
 }
 
 export function MainShellTabContentTransition({
@@ -33,8 +101,8 @@ export function MainShellTabContentTransition({
   const pendingShell = null;
   const pendingPushNode = useMemo(() => {
     if (!isPendingMenuBlockingContent || !pendingMenuIntent) return null;
-    if (pendingMenuIntent.source === "trade-primary" || isMarketMenuIntentPath(pendingMenuIntent.pathname)) {
-      return <TradeMarketTabPushEnterPanel href={pendingMenuIntent.href} />;
+    if (pendingMenuIntent.source === "trade-primary" || pendingMenuIntent.source === "bottom-nav") {
+      return <MainBottomNavPendingEnterPanel href={pendingMenuIntent.href} />;
     }
     return null;
   }, [isPendingMenuBlockingContent, pendingMenuIntent]);

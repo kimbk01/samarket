@@ -38,8 +38,13 @@ if (mainShell.includes("CommunityMessengerHomeShellSkeleton")) {
 if (!mainShell.includes('"trade-primary"')) {
   fail('MainShellTabContentTransition must exempt trade-primary from blocking overlay');
 }
-if (!mainShell.includes("isMarketMenuIntentPath") || !mainShell.includes("pendingMenuIntent.pathname")) {
+if (!mainShell.includes("isMarketMenuIntentPath") || !mainShell.includes("pendingMenuIntent.href")) {
   fail("bottom-nav navigation to /market must use TradeMarketTabPushEnterPanel, not MainFeedRouteLoading");
+}
+for (const token of ["PhilifeFeedClientEntry", "StoresHub", "CommunityMessengerHome", "MyContent"]) {
+  if (!mainShell.includes(token)) {
+    fail(`MainShellTabContentTransition must provide a non-skeleton pending enter panel for ${token}`);
+  }
 }
 
 const tradeTabs = read("components/trade/TradePrimaryTabs.tsx");
@@ -63,6 +68,7 @@ const mainTabLoadingFiles = [
   "app/(main)/philife/loading.tsx",
   "app/(main)/market/loading.tsx",
   "app/(main)/stores/loading.tsx",
+  "app/(stores)/stores/loading.tsx",
   "app/(main)/community-messenger/loading.tsx",
   "app/(main)/mypage/loading.tsx",
   "app/(main)/my/loading.tsx",
@@ -88,6 +94,21 @@ if (homeProductList.includes("<LoadingState") || homeProductList.includes("funct
 }
 if (/function\s+NonSkeletonLoadingState[\s\S]*animate-pulse/.test(homeProductList)) {
   fail("HomeProductList non-skeleton loading state must not contain animate-pulse placeholders");
+}
+
+const communityFeed = read("components/community/CommunityFeed.tsx");
+if (communityFeed.includes("<CommunityFeedSkeleton")) {
+  fail("CommunityFeed root loading must not render card skeleton during main bottom-nav transitions");
+}
+
+const storesHub = read("components/stores/home/hub/StoresHomeHub.tsx");
+if (storesHub.includes("<StoresHomeSkeleton")) {
+  fail("StoresHomeHub root loading must not render delivery skeleton during main bottom-nav transitions");
+}
+
+const messengerListPane = read("components/community-messenger/CommunityMessengerHomeListPane.tsx");
+if (messengerListPane.includes("CommunityMessengerHomeShellSkeleton")) {
+  fail("CommunityMessengerHomeListPane must not render messenger skeleton during main bottom-nav transitions");
 }
 
 if (failed) {

@@ -1623,3 +1623,24 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 **비고(측정 환경):** `scripts/measure-bottom-nav-confirm-immediacy.mjs`(Playwright headless)로 `/stores`→`/philife` 확인 모달 3회. 동일 런에서 `confirm_events_count`는 1회씩 정상 기록되며 dialog 잔류는 0(`confirm_dialog_still_visible=false`).  
 **추가 점검(2026-05-28):** 단일 실측에서 `/api/test-login` 제거(410)와 `.env.local` 미로드를 수정했고, 측정 selector를 `data-bottom-nav-tab-id`로 고정했다. 이후 측정 환경은 `/stores` address gate 상태에서 하단 탭이 mount 되지 않아 3회 실측 전제가 깨짐. 코드 검증은 `vitest` 18/18, `tsc --noEmit`, delivery dial contract PASS.
 **판정:** **코드 완료 · 측정 보류** — 하단 탭이 mount 되는 정상 셸에서는 확인 직후 dual-panel/pending 목적지 셸 경로로 440ms push가 시작되도록 구조 고정. 현재 자동 실측은 address gate 로 하단 탭이 없어 보류이며, 체크시트 `[x]` 는 열지 않는다.
+
+---
+
+## 이번 라운드 (하단 탭: 라운드 BN7 — 5탭 pending enter panel + skeleton-free root fallback)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/market` 외 하단 탭은 `pendingPushNode` 가 없어 440ms push 시작 시 들어오는 패널이 현재 화면/route fallback 으로 잡혔다. 커뮤니티·거래·배달·메신저 이동 완료 직후 실제 route children/client loading 으로 교체되면서 카드 스켈레톤·빈 점멸·늦은 표시가 다시 보일 수 있었다. |
+| 측정/검증 명령 | `npm run verify:trade-primary-tab-transition`, `npm run verify:stores-home-hub-contract`, `npx tsc --noEmit` |
+| 완료 기준 | 하단 5탭 모두 pending enter panel 이 목적지 클라 허브를 즉시 마운트하고, 루트 `loading`/Suspense/client loading 이 `MainFeedRouteLoading`·`CommunityFeedSkeleton`·`CommunityMessengerHomeShellSkeleton`·`StoresHomeSkeleton` 을 렌더하지 않는다. |
+| 수정 파일 | `MainShellTabContentTransition.tsx`, `CommunityFeed.tsx`, `StoresHomeHub.tsx`, `CommunityMessengerHomeListPane.tsx`, `community-messenger/page.tsx`, `mypage/page.tsx`, `(stores)/stores/loading.tsx`, `verify-trade-primary-tab-transition-contract.cjs`, `trade-perf-hot-path-changelog.md` |
+| 이번 조치 | `/philife`, `/stores`, `/community-messenger`, `/mypage` 도 `/market` 처럼 pending enter panel 을 제공한다. 커뮤니티·배달·메신저 루트의 첫 loading 은 카드 스켈레톤 대신 빈 안정면으로 유지하고, 내정보 루트는 RSC await fallback 대신 클라 허브가 sessionStorage seed 후 백그라운드 fetch 한다. |
+| 검증 결과 | `verify:trade-primary-tab-transition` PASS, `verify:stores-home-hub-contract` PASS, `npx tsc --noEmit` PASS. |
+
+### 라운드 BN7 — 3회 측정
+
+| 구간 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| 하단 5탭 실제 브라우저 탭 전환 | — | — | — | 스켈레톤 미노출 + 440ms push 유지 |
+
+**판정:** **코드 완료 · 체감 측정 보류** — 구조상 루트 5탭 skeleton fallback 재등장 경로를 차단했다. 실제 기기/브라우저 3회 영상·콘솔 확인 전까지 체크시트 `[x]` 는 열지 않는다.

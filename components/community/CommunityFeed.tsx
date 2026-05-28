@@ -35,7 +35,6 @@ import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { CommunityFeedSkeleton } from "@/components/community/CommunityFeedSkeleton";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
@@ -1488,7 +1487,7 @@ export function CommunityFeed({
           </div>
         ) : null}
         {loading && postsForList.length === 0 && !err ? (
-          <CommunityFeedSkeleton />
+          <CommunityFeedPendingBlank />
         ) : !err && postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-sam-muted`}>
             {t("community_feed_empty")}
@@ -1535,5 +1534,15 @@ export function CommunityFeed({
         </div>
       </div>
     </div>
+  );
+}
+
+function CommunityFeedPendingBlank() {
+  return (
+    <div
+      className="min-h-[min(42vh,360px)] bg-sam-app"
+      aria-busy="true"
+      data-community-feed-pending-blank="true"
+    />
   );
 }

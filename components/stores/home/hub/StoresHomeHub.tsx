@@ -29,7 +29,6 @@ import { StoresHomeHeroBanner } from "@/components/stores/home/hub/StoresHomeHer
 import { StoresHomeSectionShell } from "@/components/stores/home/hub/StoresHomeSectionShell";
 import { StoresHomeFoodCard, resolveFoodCardImage } from "@/components/stores/home/hub/StoresHomeFoodCard";
 import { StoresHomePrimaryStoreRowListSection } from "@/components/stores/home/hub/StoresHomePrimaryStoreRowListSection";
-import { StoresHomeSkeleton } from "@/components/stores/home/hub/StoresHomeSkeleton";
 import { StoresHomeBuyerMyZone } from "@/components/stores/home/hub/StoresHomeBuyerMyZone";
 import { StoresHomeDeferredViewport } from "@/components/stores/home/hub/StoresHomeDeferredViewport";
 import { StoresHomeHubBelowFold } from "@/components/stores/home/hub/StoresHomeHubBelowFold";
@@ -213,7 +212,7 @@ export function StoresHomeHub({
   );
 
   const hasActiveOrder = buyerState.kind === "ready" && buyerState.activeOrders > 0;
-  /** SWR — 목록이 있으면 재검증 중에도 스켈레톤으로 덮지 않음(탭 재진입 리셋 방지) */
+  /** SWR — 루트 탭에서는 첫 fetch 중에도 카드 스켈레톤으로 덮지 않음(탭 push 후 깜빡임 방지). */
   const showBlockingFeedSkeleton = loading && stores.length === 0;
 
   const emptyFallback = (
@@ -259,7 +258,7 @@ export function StoresHomeHub({
         <StoresHomeHeroBanner />
 
         {showBlockingFeedSkeleton ?
-          <StoresHomeSkeleton />
+          <StoresHomeFeedPendingBlank />
         : <>
             {fastFood.length > 0 ?
               <StoresHomeSectionShell
@@ -303,5 +302,15 @@ export function StoresHomeHub({
         }
       </div>
     </div>
+  );
+}
+
+function StoresHomeFeedPendingBlank() {
+  return (
+    <div
+      className="min-h-[min(34vh,320px)]"
+      aria-busy="true"
+      data-stores-home-feed-pending-blank="true"
+    />
   );
 }
