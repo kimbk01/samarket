@@ -37,6 +37,11 @@ export interface BeginMenuNavigationOptions {
   mainShellTabSlide?: MainShellTabSlide;
   /** 하단 탭 push 슬라이드 축 — `commitMainBottomNavRoute` 가 설정 */
   mainShellPushAxis?: MainShellRoutePushAxis | null;
+  /**
+   * `(stores)`↔`(main)` remount — dual-panel 은 구 트리에서 끊기므로
+   * `AppRouteTransition` 은 session enter 만, exit·dual-panel 은 생략한다.
+   */
+  mainShellCrossGroupPush?: boolean;
 }
 
 export interface MenuNavigationIntent {
@@ -50,6 +55,8 @@ export interface MenuNavigationIntent {
   mainShellTabSlide?: MainShellTabSlide;
   /** 하단 탭 440ms push 축 */
   mainShellPushAxis?: MainShellRoutePushAxis | null;
+  /** `(stores)`↔`(main)` — dual-panel 미사용 */
+  mainShellCrossGroupPush?: boolean;
 }
 
 interface LatestMenuNavigationContextValue {
@@ -178,6 +185,7 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
         startedAt: Date.now(),
         ...(options?.mainShellTabSlide ? { mainShellTabSlide: options.mainShellTabSlide } : {}),
         ...(options?.mainShellPushAxis ? { mainShellPushAxis: options.mainShellPushAxis } : {}),
+        ...(options?.mainShellCrossGroupPush ? { mainShellCrossGroupPush: true } : {}),
       };
       latestNavigationIdRef.current = nextIntent.id;
       setLatestNavigationId(nextIntent.id);

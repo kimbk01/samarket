@@ -40,6 +40,7 @@ type PushSession = {
 type PushHandoff = {
   node: ReactNode;
   startedAt: number;
+  targetPath?: string;
 };
 
 const PUSH_SURFACE_CLASSES = [
@@ -92,7 +93,7 @@ function pushTargetReached(pathname: string | null | undefined, targetPath: stri
  * CONTRACT — 메인 5탭 push surface.
  * same/cross-group: `beginMenuNavigation` 직후 dual-panel(440ms)을 시작하고,
  * RSC/pathname 이 늦어도 목적지 경량 셸을 들어오는 패널로 유지한다.
- * cross-group 은 remount fallback 으로 session enter 440ms 도 함께 둔다.
+ * cross-group 은 remount 후 session enter 440ms 만 — dual-panel·즉시 exit 금지(이중 밀림).
  */
 export function AppRouteTransition({
   children,
@@ -161,7 +162,13 @@ export function AppRouteTransition({
   useLayoutEffect(() => {
     const intent = pendingMenuIntent;
     const axis = intent?.mainShellPushAxis;
-    if (!intent || !MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES.has(intent.source) || !axis || prefersReducedMotion())
+    if (
+      !intent ||
+      intent.mainShellCrossGroupPush ||
+      !MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES.has(intent.source) ||
+      !axis ||
+      prefersReducedMotion()
+    )
       return;
 
     const currentPath = normalizePathKeyForPush(pathname);
@@ -188,6 +195,7 @@ export function AppRouteTransition({
   }, [
     children,
     pendingMenuIntent?.id,
+    pendingMenuIntent?.mainShellCrossGroupPush,
     pendingMenuIntent?.mainShellPushAxis,
     pendingMenuIntent?.pathname,
     pendingPushNode,
@@ -210,7 +218,7 @@ export function AppRouteTransition({
         axisFromIntent ?? lastPushAxisRef.current ?? routeTransitionPushAxisForKind(kind);
       const enterClass = routeTransitionClassForKind(kind);
 
-      if (pushAxis && !prefersReducedMotion()) {
+      if (pushAxis && !prefersReducedMotion() && !pendingMenuIntent?.mainShellCrossGroupPush) {
         if (pushSessionActiveRef.current) {
           renderedRef.current = { pathname: pathKey, node: children };
           /**
@@ -275,14 +283,25 @@ export function AppRouteTransition({
     renderedRef.current = { pathname: pathKey, node: children };
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- kindRef: pathname 과 같은 커밋에서 useRouteTransitionKindRef 가 갱신
-  }, [pathname, children, pendingMenuIntent?.mainShellPushAxis, pendingMenuIntent?.id, pendingPushNode]);
+  }, [
+    pathname,
+    children,
+    pendingMenuIntent?.mainShellCrossGroupPush,
+    pendingMenuIntent?.mainShellPushAxis,
+    pendingMenuIntent?.id,
+    pendingPushNode,
+  ]);
 
   useLayoutEffect(() => {
     if (!pushSession?.animate) return;
     const timer = window.setTimeout(() => {
       if (!pushTargetReached(pathname, pushSession.targetPath)) return;
       if (pushSession.entering) {
-        setPushHandoff({ node: pushSession.entering, startedAt: performance.now() });
+        setPushHandoff({
+          node: pushSession.entering,
+          startedAt: performance.now(),
+          targetPath: pushSession.targetPath,
+        });
       }
       pushSessionActiveRef.current = false;
       setPushSession(null);
@@ -298,7 +317,11 @@ export function AppRouteTransition({
     const remaining = Math.max(40, MAIN_SHELL_ROUTE_TRANSITION_MS + 64 - elapsed);
     const timer = window.setTimeout(() => {
       if (pushSession.entering) {
-        setPushHandoff({ node: pushSession.entering, startedAt: performance.now() });
+        setPushHandoff({
+          node: pushSession.entering,
+          startedAt: performance.now(),
+          targetPath: pushSession.targetPath,
+        });
       }
       pushSessionActiveRef.current = false;
       setPushSession(null);
@@ -320,21 +343,65 @@ export function AppRouteTransition({
   const finishPushSession = () => {
     if (!pushTargetReached(pathname, pushSession?.targetPath)) return;
     if (pushSession?.entering) {
-      setPushHandoff({ node: pushSession.entering, startedAt: performance.now() });
+      setPushHandoff({
+        node: pushSession.entering,
+        startedAt: performance.now(),
+        targetPath: pushSession.targetPath,
+      });
     }
     pushSessionActiveRef.current = false;
     setPushSession(null);
     lastPushAxisRef.current = null;
   };
 
+  function isMessengerHandoffTarget(targetPath: string | undefined): boolean {
+    const key = normalizePathKeyForPush(targetPath).replace(/\/+$/, "") || "/";
+    return key === "/community-messenger" || key.startsWith("/community-messenger/");
+  }
+
   useLayoutEffect(() => {
     if (!pushHandoff) return;
-    const timer = window.setTimeout(() => {
-      setPushHandoff((current) =>
-        current?.startedAt === pushHandoff.startedAt ? null : current
-      );
-    }, PUSH_HANDOFF_OVERLAY_MS);
-    return () => window.clearTimeout(timer);
+
+    const startedAt = pushHandoff.startedAt;
+    const clearHandoff = () => {
+      setPushHandoff((current) => (current?.startedAt === startedAt ? null : current));
+    };
+
+    if (!isMessengerHandoffTarget(pushHandoff.targetPath)) {
+      const timer = window.setTimeout(clearHandoff, PUSH_HANDOFF_OVERLAY_MS);
+      return () => window.clearTimeout(timer);
+    }
+
+    let cancelled = false;
+    const maxHoldMs = 2_400;
+    let pollTimer: number | null = null;
+
+    const schedulePoll = () => {
+      if (cancelled) return;
+      const elapsed = performance.now() - startedAt;
+      if (elapsed >= maxHoldMs) {
+        clearHandoff();
+        return;
+      }
+      void import("@/lib/community-messenger/bootstrap-cache").then(({ peekBootstrapCache }) => {
+        if (cancelled) return;
+        if (peekBootstrapCache() && elapsed >= PUSH_HANDOFF_OVERLAY_MS) {
+          clearHandoff();
+          return;
+        }
+        pollTimer = window.setTimeout(schedulePoll, 48);
+      });
+    };
+
+    const minTimer = window.setTimeout(schedulePoll, PUSH_HANDOFF_OVERLAY_MS);
+    const maxTimer = window.setTimeout(clearHandoff, maxHoldMs);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(minTimer);
+      window.clearTimeout(maxTimer);
+      if (pollTimer != null) window.clearTimeout(pollTimer);
+    };
   }, [pushHandoff]);
 
   const hostClass = [contentStretchClass, "relative isolate"].filter(Boolean).join(" ");

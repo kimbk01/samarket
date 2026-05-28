@@ -15,7 +15,8 @@ const MAX_AGE_MS = 4000;
 
 /**
  * CONTRACT — `(stores)`↔`(main)` remount 시 push 연속성.
- * DO NOT: cross-group 에서 `AppRouteTransition` dual-panel 만으로 처리(Provider remount).
+ * DO NOT: cross-group 에서 `AppRouteTransition` dual-panel 또는 `startMainShellPushExitImmediate` 병행
+ *   (구 트리 unmount 로 exit 가 끊기고 session enter 와 이중 밀림).
  * enter: 즉시 navigate → mount `consumeMainShellPushEnterSession` (exit 대기로 router 지연 금지).
  */
 

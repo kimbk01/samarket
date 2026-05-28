@@ -9,15 +9,11 @@ vi.mock("@/lib/navigation/main-shell-push-session", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/navigation/main-shell-push-session")>();
   return {
     ...actual,
-    startMainShellPushExitImmediate: vi.fn(),
     armMainShellPushEnterSession: vi.fn(),
   };
 });
 
-import {
-  armMainShellPushEnterSession,
-  startMainShellPushExitImmediate,
-} from "@/lib/navigation/main-shell-push-session";
+import { armMainShellPushEnterSession } from "@/lib/navigation/main-shell-push-session";
 
 describe("shouldMainBottomNavRouteScrollOnly", () => {
   it("메신저 delivery-chats → 인박스 홈 — scroll_only 아님(이동)", () => {
@@ -171,16 +167,16 @@ describe("commitMainBottomNavRoute", () => {
     expect(push).toHaveBeenCalledWith("/stores");
   });
 
-  it("cross-group — 확인 직후 exit·enter session 동기 arm", () => {
-    vi.mocked(startMainShellPushExitImmediate).mockClear();
+  it("cross-group — session enter arm + crossGroup intent, exit·dual-panel 생략", () => {
     vi.mocked(armMainShellPushEnterSession).mockClear();
+    const beginMenuNavigation = vi.fn();
 
     commitMainBottomNavRoute({
       pathname: "/stores",
       currentSearch: "",
-      href: "/philife",
-      tabId: "community",
-      beginMenuNavigation: vi.fn(),
+      href: "/community-messenger?section=chats",
+      tabId: "chat",
+      beginMenuNavigation,
       onNavigationIntent: vi.fn(),
       guardBeforeNavigate: () => true,
       push: vi.fn(),
@@ -188,8 +184,16 @@ describe("commitMainBottomNavRoute", () => {
       skipPerfMark: true,
     });
 
-    expect(armMainShellPushEnterSession).toHaveBeenCalledWith("ltr", "/stores", "/philife");
-    expect(startMainShellPushExitImmediate).toHaveBeenCalledWith("ltr");
+    expect(armMainShellPushEnterSession).toHaveBeenCalledWith(
+      "rtl",
+      "/stores",
+      "/community-messenger"
+    );
+    expect(beginMenuNavigation).toHaveBeenCalledWith(
+      "/community-messenger?section=chats",
+      "bottom-nav",
+      expect.objectContaining({ mainShellCrossGroupPush: true, mainShellPushAxis: "rtl" })
+    );
   });
 });
 
