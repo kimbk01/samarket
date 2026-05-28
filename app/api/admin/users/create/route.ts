@@ -291,8 +291,8 @@ export async function POST(req: NextRequest) {
 
   if (shouldSeedAddress) {
     try {
-      let regionMeta = REGIONS.find((r) => r.id === regionId);
-      let cityMeta = regionMeta?.cities.find((c) => c.id === cityId);
+      const regionMeta = REGIONS.find((r) => r.id === regionId);
+      const cityMeta = regionMeta?.cities.find((c) => c.id === cityId);
       const provinceLabel = addressFromBody?.province || regionMeta?.name || null;
       const cityLabel = addressFromBody?.cityMunicipality || cityMeta?.name || null;
 
