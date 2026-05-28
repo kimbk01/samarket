@@ -48,6 +48,9 @@ const PUSH_SURFACE_CLASSES = [
 
 const MAX_PENDING_PUSH_HOLD_MS = 12_000;
 
+/** `beginMenuNavigation` 직후 dual-panel(440ms) — RSC 전 경량 셸을 들어오는 패널로 유지 */
+const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set(["bottom-nav", "trade-primary"]);
+
 function stripTransitionClasses(el: HTMLDivElement | null, classes: readonly string[]) {
   if (!el) return;
   for (const c of classes) {
@@ -151,7 +154,8 @@ export function AppRouteTransition({
   useLayoutEffect(() => {
     const intent = pendingMenuIntent;
     const axis = intent?.mainShellPushAxis;
-    if (!intent || intent.source !== "bottom-nav" || !axis || prefersReducedMotion()) return;
+    if (!intent || !MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES.has(intent.source) || !axis || prefersReducedMotion())
+      return;
 
     const currentPath = normalizePathKeyForPush(pathname);
     const targetPath = intent.pathname;

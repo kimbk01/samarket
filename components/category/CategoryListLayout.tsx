@@ -1,7 +1,7 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { CategoryType } from "@/lib/categories/types";
 import type { CategoryWithSettings } from "@/lib/categories/types";
@@ -18,7 +18,9 @@ import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHead
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
+import { peekTradeMarketClientShell } from "@/lib/market/peek-trade-market-client-shell";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
+import { parseTradeFeedSortQuery } from "@/lib/posts/parse-trade-feed-sort-query";
 
 function tradeSeedMatchesMarketSlug(seed: TradeCategoryServerSeed, slugOrId: string): boolean {
   const n = normalizeMarketSlugParam(slugOrId);
@@ -72,12 +74,22 @@ export function CategoryListLayout({
    */
   const tradeMarketSearchSyncKey = expectedType === "trade" ? searchParams.toString() : "";
   const isTradeSeeded = expectedType === "trade" && tradeServerSeed != null;
+  const tradeClientShellPeek = useMemo(() => {
+    if (expectedType !== "trade" || isTradeSeeded) return null;
+    const topic = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
+    const fsRaw = searchParams.get("fs")?.trim().toLowerCase() ?? "";
+    const sort = parseTradeFeedSortQuery(fsRaw || null);
+    return peekTradeMarketClientShell(slugOrId, { topic, sort });
+  }, [expectedType, isTradeSeeded, slugOrId, tradeMarketSearchSyncKey, searchParams]);
 
   const [category, setCategory] = useState<CategoryWithSettings | null>(() =>
-    isTradeSeeded ? tradeServerSeed!.category : null
+    isTradeSeeded ? tradeServerSeed!.category : (tradeClientShellPeek?.category ?? null)
   );
   const [tradeBootstrapChildren, setTradeBootstrapChildren] = useState<CategoryWithSettings[] | undefined>(
-    () => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapChildren : undefined)
+    () =>
+      isTradeSeeded
+        ? tradeServerSeed!.tradeBootstrapChildren
+        : tradeClientShellPeek?.tradeBootstrapChildren
   );
   const [tradeBootstrapFeed, setTradeBootstrapFeed] = useState<
     | {
@@ -88,13 +100,22 @@ export function CategoryListLayout({
       }
     | null
     | undefined
-  >(() => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapFeed ?? null : undefined));
+  >(() =>
+      isTradeSeeded
+        ? (tradeServerSeed!.tradeBootstrapFeed ?? null)
+        : (tradeClientShellPeek?.tradeBootstrapFeed ?? undefined)
+    );
   const [tradeBootstrapChildrenForFilter, setTradeBootstrapChildrenForFilter] = useState<
     { id: string; slug: string | null }[] | undefined
-  >(() => (isTradeSeeded ? tradeServerSeed!.tradeBootstrapChildrenForFilter : undefined));
-  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">(() =>
-    isTradeSeeded ? "found" : "loading"
+  >(() =>
+    isTradeSeeded
+      ? tradeServerSeed!.tradeBootstrapChildrenForFilter
+      : tradeClientShellPeek?.tradeBootstrapChildrenForFilter
   );
+  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "redirect">(() => {
+    if (isTradeSeeded || tradeClientShellPeek) return "found";
+    return "loading";
+  });
   /** `load` 콜백 deps 에 category 를 넣지 않기 위해 — 일자리 `queryKey` 정규화 시 이중 fetch 방지 */
   const categoryRef = useRef<CategoryWithSettings | null>(null);
   categoryRef.current = category;
@@ -159,12 +180,28 @@ export function CategoryListLayout({
 
     const softShellKeepTradeChrome = softTradeResync || softTradeQueryOnly;
 
+    const sortForPeek = parseTradeFeedSortQuery(fsPad || null);
+    const instantClientShell =
+      expectedType === "trade" && !softShellKeepTradeChrome
+        ? peekTradeMarketClientShell(slugOrId, { topic, sort: sortForPeek })
+        : null;
+    const keepTradeChrome = softShellKeepTradeChrome || instantClientShell != null;
+
     bootstrapFetchAbortRef.current?.abort();
     const ac = new AbortController();
     bootstrapFetchAbortRef.current = ac;
     const signal = ac.signal;
 
-    if (!softShellKeepTradeChrome) {
+    if (instantClientShell) {
+      tradeResolvedSlugNormRef.current = slugNorm;
+      setCategory(instantClientShell.category);
+      setTradeBootstrapChildren(instantClientShell.tradeBootstrapChildren);
+      setTradeBootstrapChildrenForFilter(instantClientShell.tradeBootstrapChildrenForFilter);
+      setTradeBootstrapFeed(instantClientShell.tradeBootstrapFeed ?? null);
+      setStatus("found");
+    }
+
+    if (!keepTradeChrome) {
       if (expectedType === "trade") {
         tradeResolvedSlugNormRef.current = null;
       }

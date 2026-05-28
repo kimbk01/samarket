@@ -68,11 +68,21 @@ function getHydrationSafeBoot(
   return null;
 }
 
+function readClientHomeListBoot(
+  options: GetPostsForHomeOptions
+): GetPostsForHomeResult | null {
+  if (typeof window === "undefined") return null;
+  return peekCachedPostsForHome(options) ?? peekRecentHomePostsFallback();
+}
+
 export function HomeProductList({
   initialHomeTradeFeed,
+  /** push 들어오는 패널 — 첫 페인트 전 캐시 병합(스켈레톤 1프레임 방지) */
+  clientInstantBoot = false,
 }: {
   /** 서버(RSC)에서 채운 첫 페이지 — 마운트 시 클라이언트 재요청 생략 */
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
+  clientInstantBoot?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -84,12 +94,15 @@ export function HomeProductList({
   );
   const { tt } = useI18n();
   const hydrationSeed = getHydrationSafeBoot(tradeState, initialHomeTradeFeed);
+  const clientBoot =
+    clientInstantBoot && tradeState === "latest" ? readClientHomeListBoot(homePostListOptions) : null;
+  const initialBoot = clientBoot ?? hydrationSeed;
   const [listState, setListState] = useState<ListState>(() =>
-    hydrationSeed ? (hydrationSeed.posts.length === 0 ? "empty" : "idle") : "loading"
+    initialBoot ? (initialBoot.posts.length === 0 ? "empty" : "idle") : "loading"
   );
-  const [posts, setPosts] = useState<PostWithMeta[]>(() => hydrationSeed?.posts ?? []);
+  const [posts, setPosts] = useState<PostWithMeta[]>(() => initialBoot?.posts ?? []);
   const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>(
-    () => hydrationSeed?.favoriteMap ?? {}
+    () => initialBoot?.favoriteMap ?? {}
   );
   const [hiddenPostIds, setHiddenPostIds] = useState<Set<string>>(new Set());
   const [notInterestedPostIds, setNotInterestedPostIds] = useState<Set<string>>(new Set());

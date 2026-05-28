@@ -68,6 +68,7 @@
     "verify:deploy-imports": "node scripts/verify-deploy-imports.mjs",
     "verify:app-boot-consent-contract": "node scripts/verify-app-boot-consent-contract.cjs",
     "verify:trade-hot-path-contract": "node scripts/verify-trade-hot-path-contract.cjs",
+    "verify:trade-primary-tab-transition": "node scripts/verify-trade-primary-tab-transition-contract.cjs",
     "verify:owner-store-orders-list-contract": "node scripts/verify-owner-store-orders-list-contract.mjs",
     "verify:store-order-messenger-room-entry": "node scripts/verify-store-order-messenger-room-entry-contract.cjs",
     "verify:owner-products-perf": "node scripts/verify-owner-products-perf.mjs",

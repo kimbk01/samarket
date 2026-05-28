@@ -21,6 +21,8 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
+import { commitTradePrimaryTabRoute } from "@/lib/trade/tabs/commit-trade-primary-tab-route";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 
@@ -68,10 +70,11 @@ function TradePrimaryTabsInner({
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
-  const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
+  const { beginMenuNavigation, pendingMenuIntent, isPendingMenuBlockingContent } =
+    useLatestMenuNavigation();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  const { loading, error, tabs } = useTradeTabs(pathname);
+  const { loading, error, tabs, activeIndex: pathnameActiveIndex } = useTradeTabs(pathname);
   const [allSortOpen, setAllSortOpen] = useState(false);
   const [allSortMenuPos, setAllSortMenuPos] = useState<{ top: number; left: number } | null>(null);
   const allSortButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -106,7 +109,12 @@ function TradePrimaryTabsInner({
       else sp.set("tradeState", next);
       const qs = sp.toString();
       const nextHref = qs ? `/market?${qs}` : "/market";
-      if (next !== tradeState && !guardBeforeNavigate(nextHref)) return;
+      if (next === tradeState) {
+        setAllSortOpen(false);
+        return;
+      }
+      if (!guardBeforeNavigate(nextHref)) return;
+      /** 정렬 칩 — 동일「전체」탭·쿼리만 변경. 440ms push 축 없음 */
       beginMenuNavigation(nextHref, "trade-primary");
       void router.replace(nextHref, { scroll: false });
       setAllSortOpen(false);
@@ -302,12 +310,33 @@ function TradePrimaryTabsInner({
               className={`${TRADE_PRIMARY_TAB_PILL_SHELL} ${
                 tab.isDisplayActive ? TRADE_PRIMARY_TAB_LABEL_ACTIVE : TRADE_PRIMARY_TAB_LABEL_IDLE
               }`}
+              onPointerEnter={() => prewarmBottomNavMarketTab(tab.href)}
+              onPointerDown={() => prewarmBottomNavMarketTab(tab.href)}
               onClick={(e) => {
-                if (!tab.isActive && !guardBeforeNavigate(tab.href)) {
-                  e.preventDefault();
-                  return;
+                e.preventDefault();
+                if (tab.isDisplayActive) {
+                  if (
+                    !isPendingMenuBlockingContent ||
+                    menuHrefMatchesIntent(tab.href, pendingMenuIntent)
+                  ) {
+                    return;
+                  }
                 }
-                beginMenuNavigation(tab.href, "trade-primary");
+                if (!guardBeforeNavigate(tab.href)) return;
+                prewarmBottomNavMarketTab(tab.href);
+                const toIdx = displayTabs.findIndex((t) => t.key === tab.key);
+                if (toIdx < 0) return;
+                const fromIdx =
+                  activeDisplayIndex >= 0 ? activeDisplayIndex : pathnameActiveIndex;
+                commitTradePrimaryTabRoute({
+                  href: tab.href,
+                  fromTabIndex: fromIdx,
+                  toTabIndex: toIdx,
+                  beginMenuNavigation,
+                  guardBeforeNavigate,
+                  router,
+                  skipPrewarm: true,
+                });
               }}
             >
               {tab.isDisplayActive ? (

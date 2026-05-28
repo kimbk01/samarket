@@ -12,6 +12,7 @@ const CommunityMessengerHomeShellSkeleton = dynamic(
   { ssr: false }
 );
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
+import { TradeMarketTabPushEnterPanel } from "@/components/market/TradeMarketTabPushEnterPanel";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -22,6 +23,14 @@ type Props = {
   /** `ConditionalAppShell` 채팅 상세 등에서 본문 컬럼과 동일한 flex 연장 */
   contentStretchClass?: string;
 };
+
+/** RSC 대기 중에도 클라 캐시·부트스트랩으로 즉시 그릴 수 있는 메뉴 — 전면 스켈레톤 금지 */
+const MENU_SOURCES_WITHOUT_BLOCKING_SHELL = new Set([
+  "bottom-nav",
+  "trade-primary",
+  "trade-topic",
+  "category-chip",
+]);
 
 export function MainShellTabContentTransition({
   children,
@@ -37,7 +46,9 @@ export function MainShellTabContentTransition({
    * “탭이 안 먹는다” 체감이 크다. 슬라이드만 두고 본문은 바로 그린다.
    */
   const blockMainShellWithPendingOverlay =
-    isPendingMenuBlockingContent && pendingMenuIntent?.source !== "bottom-nav";
+    isPendingMenuBlockingContent &&
+    (pendingMenuIntent?.source == null ||
+      !MENU_SOURCES_WITHOUT_BLOCKING_SHELL.has(pendingMenuIntent.source));
 
   const pendingRouteShell = useMemo(() => {
     if (!isPendingMenuBlockingContent) return null;
@@ -48,10 +59,19 @@ export function MainShellTabContentTransition({
   }, [isPendingMenuBlockingContent, pendingMenuShellKind]);
 
   const pendingShell = blockMainShellWithPendingOverlay ? pendingRouteShell : null;
-  const pendingPushNode =
-    isPendingMenuBlockingContent && pendingMenuIntent?.source === "bottom-nav"
-      ? pendingRouteShell
-      : null;
+  const pendingPushNode = useMemo(() => {
+    if (!isPendingMenuBlockingContent || !pendingMenuIntent) return null;
+    if (
+      pendingMenuIntent.source === "trade-primary" &&
+      pendingMenuIntent.mainShellPushAxis
+    ) {
+      return <TradeMarketTabPushEnterPanel href={pendingMenuIntent.href} />;
+    }
+    if (pendingMenuIntent.source === "bottom-nav") {
+      return pendingRouteShell;
+    }
+    return null;
+  }, [isPendingMenuBlockingContent, pendingMenuIntent, pendingRouteShell]);
 
   return (
     <AppRouteTransition

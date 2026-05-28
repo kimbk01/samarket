@@ -36,6 +36,9 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
+import { commitTradeSwipeTabRoute } from "@/lib/trade/tabs/commit-trade-swipe-tab-route";
+import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
 
@@ -84,6 +87,8 @@ export function MarketCategoryFeed({
   /** 선두 3칩 프리워밍은 카테고리 id 단위로만 1회(Strict Mode 이중 마운트·불리언 플래그 누락 방지) */
   const headTopicPrewarmedCategoryIdRef = useRef<string | null>(null);
   const { tabs, activeIndex } = useTradeTabs(pathname);
+  const { beginMenuNavigation } = useLatestMenuNavigation();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
 
   useEffect(() => {
     topicPrefetchAtRef.current = {};
@@ -187,14 +192,26 @@ export function MarketCategoryFeed({
   );
 
   const swipeToNext = useCallback(() => {
-    const href = resolveTradeSwipeTarget(tabs, activeIndex, "next");
-    if (href) void router.push(href, { scroll: false });
-  }, [tabs, activeIndex, router]);
+    commitTradeSwipeTabRoute({
+      tabs,
+      activeIndex,
+      direction: "next",
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      router,
+    });
+  }, [tabs, activeIndex, router, beginMenuNavigation, guardBeforeNavigate]);
 
   const swipeToPrev = useCallback(() => {
-    const href = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-    if (href) void router.push(href, { scroll: false });
-  }, [tabs, activeIndex, router]);
+    commitTradeSwipeTabRoute({
+      tabs,
+      activeIndex,
+      direction: "prev",
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      router,
+    });
+  }, [tabs, activeIndex, router, beginMenuNavigation, guardBeforeNavigate]);
 
   const { setSwipeableEl: setMarketFeedSwipeable } = useMobileHorizontalSwipePanel({
     enabled: feedSwipeOn,

@@ -10,6 +10,9 @@ import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
+import { commitTradeSwipeTabRoute } from "@/lib/trade/tabs/commit-trade-swipe-tab-route";
+import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useMobileHorizontalSwipePanel } from "@/lib/ui/use-mobile-horizontal-swipe-panel";
 import {
   getPostsByTradeCategoryIds,
@@ -97,6 +100,8 @@ export function MarketContent({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { beginMenuNavigation } = useLatestMenuNavigation();
+  const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const tradeState = searchParams.get("tradeState") ?? "";
   const { tabs, activeIndex } = useTradeTabs(pathname);
 
@@ -122,14 +127,26 @@ export function MarketContent({
   }, [tabs, activeIndex]);
 
   const swipeToNext = useCallback(() => {
-    const h = resolveTradeSwipeTarget(tabs, activeIndex, "next");
-    if (h) void router.push(h, { scroll: false });
-  }, [tabs, activeIndex, router]);
+    commitTradeSwipeTabRoute({
+      tabs,
+      activeIndex,
+      direction: "next",
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      router,
+    });
+  }, [tabs, activeIndex, router, beginMenuNavigation, guardBeforeNavigate]);
 
   const swipeToPrev = useCallback(() => {
-    const h = resolveTradeSwipeTarget(tabs, activeIndex, "prev");
-    if (h) void router.push(h, { scroll: false });
-  }, [tabs, activeIndex, router]);
+    commitTradeSwipeTabRoute({
+      tabs,
+      activeIndex,
+      direction: "prev",
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      router,
+    });
+  }, [tabs, activeIndex, router, beginMenuNavigation, guardBeforeNavigate]);
 
   const { setSwipeableEl: setMarketFeedSwipeable } = useMobileHorizontalSwipePanel({
     enabled: feedSwipeOn,

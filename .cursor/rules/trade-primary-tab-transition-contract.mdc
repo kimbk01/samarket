@@ -1,0 +1,87 @@
+---
+description: 거래 1차 탭 — intent 즉시 활성 + 440ms push + 스켈레톤 전면 금지
+globs:
+  - components/trade/TradePrimaryTabs.tsx
+  - components/layout/MainShellTabContentTransition.tsx
+  - components/route-transition/AppRouteTransition.tsx
+  - components/market/TradeMarketTabPushEnterPanel.tsx
+  - lib/trade/tabs/commit-trade-primary-tab-route.ts
+  - lib/trade/tabs/commit-trade-swipe-tab-route.ts
+  - app/(main)/market/loading.tsx
+  - app/(main)/market/MarketContent.tsx
+  - components/market/MarketCategoryFeed.tsx
+---
+
+# 거래 1차 탭 전환 계약
+
+## 제품 기준 (수동·회귀 시 순서)
+
+| # | 기준 | 통과 조건 |
+|---|------|-----------|
+| 1 | 탭 즉시 활성 | 클릭 직후 `pendingMenuIntent.source === "trade-primary"` → **의도 탭만** `isDisplayActive` |
+| 2 | 전면 스켈레톤 금지 | `trade-primary` pending 중 `MainFeedRouteLoading`·`CommunityFeedSkeleton` **overlay 없음** |
+| 3 | 440ms push | `mainShellPushAxis`(탭 **배열 인덱스**) + dual-panel (`MAIN_SHELL_ROUTE_TRANSITION_MS`) |
+| 4 | 들어오는 패널 | RSC 전 `TradeMarketTabPushEnterPanel` — `peek*` / `clientInstantBoot` |
+| 5 | 세그먼트 loading | `app/(main)/market/loading.tsx` → `null` |
+
+## 더블체크 매트릭스 (오류·누락·중복·병목)
+
+### 오류 (Errors)
+
+| 항목 | 금지·필수 | 점검 |
+|------|-----------|------|
+| push 축 | canonical `resolveCanonicalNavIndex` 로 `/market`↔`/market/[slug]` 결정 금지 | `computeTradePrimaryPushAxis(fromTabIndex, toTabIndex)` |
+| dual-panel | `AppRouteTransition` 이 `trade-primary` 제외 | `MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES` |
+| Link 레이스 | `preventDefault` 없이 `beginMenuNavigation` 만 | `commitTradePrimaryTabRoute` + 2×rAF `push` |
+| fromIndex -1 | `activeDisplayIndex` 미정 시 push 미시작 | `pathnameActiveIndex` fallback |
+| 동일 탭 재클릭 | pending 중 동일 intent 재커밋 | `isDisplayActive` + `menuHrefMatchesIntent` early return |
+
+### 누락 (Omissions)
+
+| 항목 | 필수 경로 |
+|------|-----------|
+| 탭 클릭 | `TradePrimaryTabs` → `commitTradePrimaryTabRoute` |
+| 피드 스와이프(탭 내부) | `MarketContent` / `MarketCategoryFeed` → `commitTradeSwipeTabRoute` |
+| 스와이프(하단 nav 경계) | `commitTradeSwipeTabRoute` → `router.push` (trade-primary 아님) |
+| 정렬 칩 | `setTradeState` — 쿼리만·push 축 없음 (`replace`) |
+
+### 중복 (Duplicates)
+
+| 항목 | 허용·완화 | 금지 |
+|------|-----------|------|
+| push 패널 + RSC | 440ms 동안 `TradeMarketTabPushEnterPanel` + 이후 `children` 교체 | 의도된 1회 교체 |
+| `market-bootstrap` | peek 히트 시 `CategoryListLayout` `status: found` | peek 미스 + 패널·RSC **이중 전면 loading** |
+| prewarm | `pointerdown` + commit `skipPrewarm` | 동일 href **동시 2회 prewarm** (skip으로 완화) |
+| 연속 탭 | `tradePrimaryTabRouteCommitGeneration` | 이전 async `push` 가 뒤늦게 실행 |
+
+### 병목 (Bottlenecks)
+
+| 항목 | 구조 | 미해결(별도 트랙) |
+|------|------|------------------|
+| RSC `[slug]` | `Suspense` + `MarketCategoryRouteFallback`(클라 셸) | cold RSC >440ms 시 슬라이드 후에도 대기 |
+| 첫 방문 탭 | peek null → `loading` | prewarm·방문 후 캐시 전제 |
+| `key={slugOrId}` | 탭마다 `CategoryListLayout` remount | peek 없으면 bootstrap 1회 |
+
+## 단일 커밋 API
+
+- 탭 클릭: `commitTradePrimaryTabRoute`
+- 스와이프(탭 배열 내): `commitTradeSwipeTabRoute` → 위 함수 위임
+- 하단 탭: `commitMainBottomNavRoute` (별도)
+
+## DO NOT
+
+- `TradePrimaryTabs` Link 에 `beginMenuNavigation` 만 (카테고리 탭).
+- `AppRouteTransition` dual-panel 을 `bottom-nav` 만.
+- `MainShellTabContentTransition` 에서 `trade-primary` 를 `pendingRouteShell`(스켈레톤) 로 `pendingPushNode` 에 넣기.
+
+## 자동 검증
+
+```bash
+npm run verify:trade-primary-tab-transition
+npx tsc --noEmit
+npx vitest run lib/trade/tabs/__tests__/compute-trade-primary-push-axis.test.ts
+```
+
+## 수동 (캐시 워밍 후)
+
+최신 → 거래 → 차량 1회 방문 → 재전환: 탭 즉시·본문 440ms·전면 스켈레톤 없음.
