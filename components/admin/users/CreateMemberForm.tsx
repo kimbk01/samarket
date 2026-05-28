@@ -3,16 +3,25 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { LocationSelector } from "@/components/write/shared/LocationSelector";
-import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
-import { STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER } from "@/lib/stores/store-address-form-ui";
-import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { getLocationLabelIfValid } from "@/lib/products/form-options";
+import { AdminManualMemberAddressBlock } from "@/components/admin/users/AdminManualMemberAddressBlock";
+import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
-  formatPhMobileDisplay,
+  adminCreateMemberAddressHasSelection,
+  buildAdminCreateMemberContactAddressLine,
+  emptyAdminCreateMemberAddress,
+  inferTradeLocationFromAdminAddress,
+  type AdminCreateMemberAddressInput,
+} from "@/lib/admin-users/admin-create-member-address";
+import {
+  mapAdminCreateMemberApiField,
+  validateAdminCreateMemberForm,
+  type AdminCreateMemberFieldErrors,
+  type AdminCreateMemberFormField,
+} from "@/lib/admin-users/admin-create-member-fields";
+import {
+  formatPhMobileDisplayPlus63,
   normalizePhMobileDb,
   parsePhMobileInput,
-  PH_LOCAL_MOBILE_RULE_MESSAGE_KO,
 } from "@/lib/utils/ph-mobile";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -24,6 +33,25 @@ const ACCOUNT_TYPE_OPTIONS: {
   { value: "operations_member", labelKey: "admin_users_account_ops_member" },
   { value: "admin", labelKey: "admin_users_account_admin" },
 ];
+
+function fieldClass(hasError: boolean): string {
+  return [
+    "w-full rounded border px-3 py-2 sam-text-body",
+    hasError
+      ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25"
+      : "border-sam-border focus-visible:border-signature focus-visible:ring-signature/20",
+    "focus-visible:outline-none focus-visible:ring-2",
+  ].join(" ");
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1.5 sam-text-helper font-medium text-sam-danger" role="alert">
+      {message}
+    </p>
+  );
+}
 
 interface CreateMemberFormProps {
   onClose: () => void;
@@ -38,16 +66,39 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [contactPhoneDigits, setContactPhoneDigits] = useState("");
-  const [region, setRegion] = useState("");
-  const [city, setCity] = useState("");
-  const [addressStreetLine, setAddressStreetLine] = useState("");
-  const [addressDetail, setAddressDetail] = useState("");
-  const [accountType, setAccountType] = useState<"development_member" | "operations_member" | "admin">("development_member");
-  const [error, setError] = useState<string | null>(null);
-  const [locationError, setLocationError] = useState<string | undefined>();
+  const [address, setAddress] = useState<AdminCreateMemberAddressInput>(emptyAdminCreateMemberAddress());
+  const [accountType, setAccountType] = useState<"development_member" | "operations_member" | "admin">(
+    "development_member"
+  );
+  const [fieldErrors, setFieldErrors] = useState<AdminCreateMemberFieldErrors>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [addressAttempted, setAddressAttempted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createdLoginId, setCreatedLoginId] = useState<string | null>(null);
   const [createdLoginEmail, setCreatedLoginEmail] = useState<string | null>(null);
+
+  const clearField = (field: AdminCreateMemberFormField) => {
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+    if (field === "form") setFormError(null);
+  };
+
+  const touchField = (field: AdminCreateMemberFormField) => {
+    if (field === "addressSearch" || field === "addressDetail") setAddressAttempted(true);
+    clearField(field);
+  };
+
+  const resolvedFieldMessages = useMemo(() => {
+    const out: Partial<Record<AdminCreateMemberFormField, string>> = {};
+    for (const [k, v] of Object.entries(fieldErrors) as [AdminCreateMemberFormField, MessageKey][]) {
+      if (v) out[k] = t(v);
+    }
+    return out;
+  }, [fieldErrors, t]);
 
   const resolvedAuthEmailPreview = useMemo(() => {
     const custom = email.trim().toLowerCase();
@@ -58,52 +109,44 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setLocationError(undefined);
+    setFormError(null);
+    setAddressAttempted(true);
+
+    const validation = validateAdminCreateMemberForm(
+      {
+        username,
+        password,
+        nickname,
+        name,
+        email,
+        contactPhoneDigits,
+        accountType,
+        address,
+      },
+      { addressAttempted: true, phoneRuleKey: "phone_rule" }
+    );
+
+    if (Object.keys(validation).length > 0) {
+      setFieldErrors(validation);
+      return;
+    }
+    setFieldErrors({});
 
     const id = username.trim().toLowerCase();
-    if (!id || id.length < 2 || id.length > 64) {
-      setError(t("admin_users_err_username_length"));
-      return;
-    }
-    if (!password || password.length < 4) {
-      setError(t("admin_users_err_password_min"));
-      return;
-    }
-    if (!nickname.trim() || nickname.trim().length > 20) {
-      setError(t("admin_users_err_nickname_length"));
-      return;
-    }
-    if (!name.trim() || name.trim().length > 50) {
-      setError(t("admin_users_err_name_length"));
-      return;
-    }
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      setError(t("admin_users_err_email_invalid"));
-      return;
-    }
-
-    if (region && !city) {
-      setLocationError(t("admin_users_err_location_city"));
-      return;
-    }
-
     let contactPhoneOut: string | undefined;
     if (contactPhoneDigits.trim()) {
       const n = normalizePhMobileDb(contactPhoneDigits);
-      if (!n) {
-        setError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO);
-        return;
-      }
-      contactPhoneOut = n;
+      if (n) contactPhoneOut = n;
     }
 
-    const locationLabel = getLocationLabelIfValid(region, city);
-    const lines: string[] = [];
-    if (locationLabel) lines.push(locationLabel);
-    const sub = [addressStreetLine.trim(), addressDetail.trim()].filter(Boolean).join(" · ");
-    if (sub) lines.push(sub);
-    const contactAddressOut = lines.length > 0 ? lines.join("\n") : undefined;
+    const inferred = adminCreateMemberAddressHasSelection(address)
+      ? inferTradeLocationFromAdminAddress(address)
+      : null;
+    const regionId = inferred?.regionId ?? "";
+    const cityId = inferred?.cityId ?? "";
+    const contactAddressOut = adminCreateMemberAddressHasSelection(address)
+      ? buildAdminCreateMemberContactAddressLine(address, regionId, cityId)
+      : undefined;
 
     setSubmitting(true);
     try {
@@ -120,23 +163,60 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
           accountType,
           contactPhone: contactPhoneOut,
           contactAddress: contactAddressOut,
-          regionCode: region.trim() || undefined,
-          cityCode: city.trim() || undefined,
-          addressStreetLine: addressStreetLine.trim() || undefined,
-          addressDetail: addressDetail.trim() || undefined,
+          regionCode: regionId || undefined,
+          cityCode: cityId || undefined,
+          addressStreetLine: address.streetAddress.trim() || undefined,
+          addressDetail: address.unitFloorRoom.trim() || undefined,
+          addressPayload: adminCreateMemberAddressHasSelection(address)
+            ? {
+                placeId: address.placeId.trim(),
+                latitude: address.latitude,
+                longitude: address.longitude,
+                formattedAddress: address.formattedAddress.trim(),
+                roadAddress: address.roadAddress.trim(),
+                fullAddress: address.fullAddress.trim(),
+                streetAddress: address.streetAddress.trim(),
+                unitFloorRoom: address.unitFloorRoom.trim(),
+                buildingName: address.buildingName.trim(),
+                barangay: address.barangay.trim(),
+                cityMunicipality: address.cityMunicipality.trim(),
+                province: address.province.trim(),
+                neighborhoodName: address.neighborhoodName.trim(),
+                deliveryNote: address.deliveryNote.trim(),
+                appRegionId: regionId || undefined,
+                appCityId: cityId || undefined,
+                seedNickname: t("admin_users_addr_seed_nickname"),
+              }
+            : undefined,
         }),
       });
-      const data = await res.json();
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        errorKey?: MessageKey;
+        field?: string;
+        user?: { email?: string };
+      };
       if (!res.ok) {
+        const mapped = mapAdminCreateMemberApiField(data.field);
+        if (mapped) {
+          setFieldErrors({
+            [mapped]: data.errorKey ?? mapServerFieldToKey(mapped, res.status, data.error),
+          });
+          return;
+        }
         if (res.status === 401) {
-          setError(t("admin_users_err_login_retry"));
+          setFormError(t("admin_users_err_login_retry"));
+          setFieldErrors({ form: "admin_users_err_login_retry" });
           return;
         }
         if (res.status === 403) {
-          setError(t("admin_users_err_admin_only_create"));
+          setFormError(t("admin_users_err_admin_only_create"));
+          setFieldErrors({ form: "admin_users_err_admin_only_create" });
           return;
         }
-        setError(data.error || t("admin_users_err_create_failed"));
+        setFormError(data.error || t("admin_users_err_create_failed"));
+        setFieldErrors({ form: "admin_users_err_create_failed" });
         return;
       }
       if (data.ok) {
@@ -148,10 +228,19 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             : email.trim();
         setCreatedLoginEmail(em);
       } else {
-        setError(data.error || t("admin_users_err_create_failed"));
+        const mapped = mapAdminCreateMemberApiField(data.field);
+        if (mapped) {
+          setFieldErrors({
+            [mapped]: mapServerFieldToKey(mapped, res.status, data.error),
+          });
+        } else {
+          setFormError(data.error || t("admin_users_err_create_failed"));
+          setFieldErrors({ form: "admin_users_err_create_failed" });
+        }
       }
     } catch {
-      setError(t("admin_users_err_request"));
+      setFormError(t("admin_users_err_request"));
+      setFieldErrors({ form: "admin_users_err_request" });
     } finally {
       setSubmitting(false);
     }
@@ -187,63 +276,98 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 p-5">
+          <form onSubmit={handleSubmit} className="space-y-4 p-5" noValidate>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_username")}</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_username")}
+              </label>
               <input
                 type="text"
                 value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  touchField("username");
+                }}
                 maxLength={64}
                 autoComplete="username"
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+                aria-invalid={Boolean(resolvedFieldMessages.username)}
+                className={fieldClass(Boolean(resolvedFieldMessages.username))}
                 placeholder={t("admin_users_ph_username")}
               />
+              <FieldError message={resolvedFieldMessages.username} />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_password")}</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_password")}
+              </label>
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  touchField("password");
+                }}
                 minLength={4}
                 maxLength={128}
                 autoComplete="new-password"
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+                aria-invalid={Boolean(resolvedFieldMessages.password)}
+                className={fieldClass(Boolean(resolvedFieldMessages.password))}
                 placeholder={t("admin_users_ph_password_min")}
               />
+              <FieldError message={resolvedFieldMessages.password} />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_nickname")}</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_nickname")}
+              </label>
               <input
                 type="text"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  touchField("nickname");
+                }}
                 maxLength={20}
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+                aria-invalid={Boolean(resolvedFieldMessages.nickname)}
+                className={fieldClass(Boolean(resolvedFieldMessages.nickname))}
                 placeholder={t("admin_users_ph_nickname")}
               />
+              <FieldError message={resolvedFieldMessages.nickname} />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_name")}</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_name")}
+              </label>
               <input
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  touchField("name");
+                }}
                 maxLength={50}
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+                aria-invalid={Boolean(resolvedFieldMessages.name)}
+                className={fieldClass(Boolean(resolvedFieldMessages.name))}
                 placeholder={t("admin_users_ph_name")}
               />
+              <FieldError message={resolvedFieldMessages.name} />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_email")}</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_email")}
+              </label>
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder="reviewer@samarket.app"
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  touchField("email");
+                }}
+                aria-invalid={Boolean(resolvedFieldMessages.email)}
+                className={fieldClass(Boolean(resolvedFieldMessages.email))}
+                placeholder={t("admin_users_ph_email")}
               />
+              <FieldError message={resolvedFieldMessages.email} />
             </div>
             <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/60 px-3 py-2">
               <p className="sam-text-xxs text-sam-muted">{t("admin_users_label_auth_email")}</p>
@@ -262,52 +386,40 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
               </label>
               <input
                 type="tel"
-                inputMode="numeric"
+                inputMode="tel"
                 autoComplete="tel"
-                value={formatPhMobileDisplay(contactPhoneDigits)}
-                onChange={(e) => setContactPhoneDigits(parsePhMobileInput(e.target.value))}
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder={PH_LOCAL_09_PLACEHOLDER}
-              />
-            </div>
-            <div className="rounded-ui-rect border border-sam-border bg-sam-app/80 p-3">
-              <LocationSelector
-                embedded
-                showRequired={false}
-                region={region}
-                city={city}
-                onRegionChange={(id) => {
-                  setRegion(id);
-                  setCity("");
-                  setLocationError(undefined);
+                value={formatPhMobileDisplayPlus63(contactPhoneDigits)}
+                onChange={(e) => {
+                  setContactPhoneDigits(parsePhMobileInput(e.target.value));
+                  touchField("contactPhone");
                 }}
-                onCityChange={(id) => {
-                  setCity(id);
-                  setLocationError(undefined);
-                }}
-                error={locationError}
-                label={t("admin_users_label_trade_region")}
-                showZipLookup={false}
+                aria-invalid={Boolean(resolvedFieldMessages.contactPhone)}
+                className={fieldClass(Boolean(resolvedFieldMessages.contactPhone))}
+                placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
               />
-              <p className="mt-2 sam-text-helper leading-relaxed text-sam-muted">
-                {STORE_LOCATION_SECTION_HINT_ADMIN_CREATE_MEMBER}
-              </p>
-              <div className="mt-2">
-                <StoreAddressStreetDetailGrid
-                  addressStreetLine={addressStreetLine}
-                  addressDetail={addressDetail}
-                  onAddressStreetLineChange={setAddressStreetLine}
-                  onAddressDetailChange={setAddressDetail}
-                  inputClassName="w-full rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
-                />
-              </div>
+              <FieldError message={resolvedFieldMessages.contactPhone} />
             </div>
+
+            <AdminManualMemberAddressBlock
+              value={address}
+              onChange={setAddress}
+              fieldErrors={fieldErrors}
+              attempted={addressAttempted}
+              onFieldTouch={touchField}
+            />
+
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_account_type")}</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                {t("admin_users_label_account_type")}
+              </label>
               <select
                 value={accountType}
-                onChange={(e) => setAccountType(e.target.value as "development_member" | "operations_member" | "admin")}
-                className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
+                onChange={(e) => {
+                  setAccountType(e.target.value as "development_member" | "operations_member" | "admin");
+                  touchField("accountType");
+                }}
+                aria-invalid={Boolean(resolvedFieldMessages.accountType)}
+                className={fieldClass(Boolean(resolvedFieldMessages.accountType))}
               >
                 {ACCOUNT_TYPE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
@@ -315,12 +427,17 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
                   </option>
                 ))}
               </select>
+              <FieldError message={resolvedFieldMessages.accountType} />
             </div>
             <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/70 px-3 py-2 sam-text-body-secondary text-sam-fg">
               {t("admin_users_manual_account_hint")}
             </div>
 
-            {error && <p className="sam-text-body-secondary text-red-600">{error}</p>}
+            {formError || resolvedFieldMessages.form ? (
+              <p className="sam-text-body-secondary text-red-600" role="alert">
+                {formError ?? resolvedFieldMessages.form}
+              </p>
+            ) : null}
             <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
               <button
                 type="button"
@@ -342,4 +459,31 @@ export function CreateMemberForm({ onClose, onSuccess }: CreateMemberFormProps) 
       </div>
     </div>
   );
+}
+
+function mapServerFieldToKey(
+  field: AdminCreateMemberFormField,
+  status: number,
+  error?: string
+): MessageKey {
+  if (field === "nickname" && status === 409) return "admin_users_err_nickname_taken";
+  if (field === "contactPhone") return "phone_rule";
+  if (field === "addressSearch") return "addr_ui_pick_search_result";
+  if (field === "addressDetail") return "addr_ui_detail_required_err";
+  switch (field) {
+    case "username":
+      return "admin_users_err_username_length";
+    case "password":
+      return "admin_users_err_password_min";
+    case "nickname":
+      return "admin_users_err_nickname_length";
+    case "name":
+      return "admin_users_err_name_length";
+    case "email":
+      return "admin_users_err_email_invalid";
+    case "accountType":
+      return "admin_users_err_account_type_invalid";
+    default:
+      return "admin_users_err_create_failed";
+  }
 }

@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import {
+  adminCreateMemberAddressHasSelection,
+  buildUserAddressSeedPayload,
+  profileGeoFromAdminAddress,
+  type AdminCreateMemberAddressInput,
+} from "@/lib/admin-users/admin-create-member-address";
 import { createUserAddress } from "@/lib/addresses/user-address-service";
-import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import {
   STORE_PRIVACY_VERSION,
   STORE_TERMS_VERSION,
@@ -15,19 +20,71 @@ import {
 import { REGIONS } from "@/lib/products/form-options";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function mapProfileCreateError(message: string): string {
+type CreateMemberApiField =
+  | "username"
+  | "password"
+  | "nickname"
+  | "name"
+  | "email"
+  | "contactPhone"
+  | "address"
+  | "addressDetail"
+  | "accountType";
+
+function jsonFieldError(
+  field: CreateMemberApiField,
+  errorKey: string,
+  status: number,
+  legacyMessage?: string
+) {
+  return NextResponse.json(
+    {
+      ok: false,
+      field,
+      errorKey,
+      error: legacyMessage ?? errorKey,
+    },
+    { status }
+  );
+}
+
+function mapProfileCreateError(message: string): { field: CreateMemberApiField; errorKey: string } | null {
   const lower = message.toLowerCase();
   if (
     lower.includes("profiles_nickname_lower_unique_idx") ||
     lower.includes("duplicate key") ||
     (lower.includes("unique") && lower.includes("nickname"))
   ) {
-    return "이미 사용 중인 닉네임입니다";
+    return { field: "nickname", errorKey: "admin_users_err_nickname_taken" };
   }
-  return message;
+  return null;
+}
+
+function parseAddressPayload(raw: unknown): AdminCreateMemberAddressInput | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  const lat = o.latitude != null ? Number(o.latitude) : null;
+  const lng = o.longitude != null ? Number(o.longitude) : null;
+  return {
+    placeId: String(o.placeId ?? "").trim(),
+    latitude: lat != null && Number.isFinite(lat) ? lat : null,
+    longitude: lng != null && Number.isFinite(lng) ? lng : null,
+    formattedAddress: String(o.formattedAddress ?? "").trim(),
+    roadAddress: String(o.roadAddress ?? "").trim(),
+    fullAddress: String(o.fullAddress ?? "").trim(),
+    streetAddress: String(o.streetAddress ?? "").trim(),
+    unitFloorRoom: String(o.unitFloorRoom ?? "").trim(),
+    buildingName: String(o.buildingName ?? "").trim(),
+    barangay: String(o.barangay ?? "").trim(),
+    cityMunicipality: String(o.cityMunicipality ?? "").trim(),
+    province: String(o.province ?? "").trim(),
+    neighborhoodName: String(o.neighborhoodName ?? "").trim(),
+    deliveryNote: String(o.deliveryNote ?? "").trim(),
+  };
 }
 
 /**
@@ -52,17 +109,16 @@ export async function POST(req: NextRequest) {
     accountType?: string;
     contactPhone?: string;
     contactAddress?: string;
-    /** LocationSelector regionId */
     regionCode?: string;
-    /** LocationSelector cityId */
     cityCode?: string;
     addressStreetLine?: string;
     addressDetail?: string;
+    addressPayload?: Record<string, unknown> & { seedNickname?: string };
   };
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ ok: false, error: "잘못된 요청" }, { status: 400 });
+    return jsonFieldError("email", "admin_users_err_bad_request", 400);
   }
 
   const username = String(body.username ?? "").trim().toLowerCase();
@@ -75,46 +131,75 @@ export async function POST(req: NextRequest) {
   const memberType = isAdminAccount ? "admin" : "normal";
   const contactPhoneRaw = String(body.contactPhone ?? "").trim();
   const contactAddressRaw = String(body.contactAddress ?? "").trim();
-  const regionId = String(body.regionCode ?? "").trim();
-  const cityId = String(body.cityCode ?? "").trim();
+  const regionIdLegacy = String(body.regionCode ?? "").trim();
+  const cityIdLegacy = String(body.cityCode ?? "").trim();
   const streetIn = String(body.addressStreetLine ?? "").trim().slice(0, 500);
   const detailIn = String(body.addressDetail ?? "").trim().slice(0, 500);
+  const addressFromBody = parseAddressPayload(body.addressPayload);
+  const seedNickname = String(body.addressPayload?.seedNickname ?? "home").trim() || "home";
 
   const phNorm = normalizeOptionalPhMobileDb(contactPhoneRaw);
   if (!phNorm.ok) {
-    return NextResponse.json({ ok: false, error: phNorm.error }, { status: 400 });
+    return jsonFieldError("contactPhone", "phone_rule", 400);
   }
   if (contactAddressRaw.length > 2000) {
-    return NextResponse.json({ ok: false, error: "주소는 2000자 이하로 입력하세요." }, { status: 400 });
+    return jsonFieldError("address", "admin_users_err_address_too_long", 400);
+  }
+
+  if (!username || username.length < 2 || username.length > 64) {
+    return jsonFieldError("username", "admin_users_err_username_length", 400);
+  }
+  if (!password || password.length < 4) {
+    return jsonFieldError("password", "admin_users_err_password_min", 400);
+  }
+  if (!nickname || nickname.length > 20) {
+    return jsonFieldError("nickname", "admin_users_err_nickname_length", 400);
+  }
+  if (!name || name.length > 50) {
+    return jsonFieldError("name", "admin_users_err_name_length", 400);
+  }
+  if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
+    return jsonFieldError("email", "admin_users_err_email_invalid", 400);
+  }
+  if (!["development_member", "operations_member", "admin"].includes(accountTypeRaw)) {
+    return jsonFieldError("accountType", "admin_users_err_account_type_invalid", 400);
+  }
+
+  if (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) {
+    if (!addressFromBody.unitFloorRoom.trim()) {
+      return jsonFieldError("addressDetail", "addr_ui_detail_required_err", 400);
+    }
+  } else if (addressFromBody && addressFromBody.placeId.trim()) {
+    return jsonFieldError("address", "addr_ui_pick_search_result", 400);
   }
 
   const contactPhone = phNorm.value;
   const phoneFields = profilePhoneStorageFieldsFromDb09(contactPhone);
-  const region_code = encodeProfileAppLocationStorage(regionId, cityId);
-  const region_name = buildProfileRegionNameForStorage(regionId, cityId);
-  const address_street_line = streetIn || null;
-  const address_detail = detailIn || null;
   const email = emailRaw;
   const nowIso = new Date().toISOString();
 
-  if (!username || username.length < 2 || username.length > 64) {
-    return NextResponse.json({ ok: false, error: "아이디는 2~64자로 입력하세요." }, { status: 400 });
+  let regionId = regionIdLegacy;
+  let cityId = cityIdLegacy;
+  let profileGeo: ReturnType<typeof profileGeoFromAdminAddress> | null = null;
+
+  if (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) {
+    profileGeo = profileGeoFromAdminAddress(addressFromBody);
+    const inferred = profileGeo.region_code?.includes("|")
+      ? profileGeo.region_code.split("|", 2)
+      : null;
+    if (inferred?.[0]) regionId = inferred[0];
+    if (inferred?.[1]) cityId = inferred[1];
   }
-  if (!password || password.length < 4) {
-    return NextResponse.json({ ok: false, error: "비밀번호는 4자 이상 입력하세요." }, { status: 400 });
-  }
-  if (!nickname || nickname.length > 20) {
-    return NextResponse.json({ ok: false, error: "닉네임은 1~20자로 입력하세요." }, { status: 400 });
-  }
-  if (!name || name.length > 50) {
-    return NextResponse.json({ ok: false, error: "이름은 1~50자로 입력하세요." }, { status: 400 });
-  }
-  if (!emailRaw || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailRaw)) {
-    return NextResponse.json({ ok: false, error: "이메일 형식이 올바르지 않습니다." }, { status: 400 });
-  }
-  if (!["development_member", "operations_member", "admin"].includes(accountTypeRaw)) {
-    return NextResponse.json({ ok: false, error: "권한 유형이 올바르지 않습니다." }, { status: 400 });
-  }
+
+  const region_code =
+    profileGeo?.region_code ?? encodeProfileAppLocationStorage(regionId, cityId);
+  const region_name =
+    profileGeo?.region_name ?? buildProfileRegionNameForStorage(regionId, cityId);
+  const address_street_line = profileGeo?.address_street_line ?? (streetIn || null);
+  const address_detail = profileGeo?.address_detail ?? (detailIn || null);
+  const latitude = profileGeo?.latitude ?? null;
+  const longitude = profileGeo?.longitude ?? null;
+  const full_address = profileGeo?.full_address ?? null;
 
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
     auth: { persistSession: false },
@@ -125,7 +210,7 @@ export async function POST(req: NextRequest) {
     .ilike("nickname", nickname)
     .limit(1);
   if (Array.isArray(nicknameRows) && nicknameRows.length > 0) {
-    return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
+    return jsonFieldError("nickname", "admin_users_err_nickname_taken", 409);
   }
   const { data: created, error: authError } = await supabase.auth.admin.createUser({
     email,
@@ -145,7 +230,7 @@ export async function POST(req: NextRequest) {
   const id = created.user?.id;
   if (authError || !id) {
     return NextResponse.json(
-      { ok: false, error: authError?.message || "실제 회원 생성에 실패했습니다." },
+      { ok: false, error: authError?.message || "실제 회원 생성에 실패했습니다.", field: "form" },
       { status: 500 }
     );
   }
@@ -182,7 +267,9 @@ export async function POST(req: NextRequest) {
     region_name,
     address_street_line,
     address_detail,
-    /** 로그인 직후 사이트 동의 화면·클라 재분기 방지 — 운영이 생성한 계정은 현행 버전으로 기록 */
+    latitude,
+    longitude,
+    full_address,
     terms_accepted_at: nowIso,
     privacy_accepted_at: nowIso,
     terms_version: STORE_TERMS_VERSION,
@@ -191,47 +278,66 @@ export async function POST(req: NextRequest) {
   const { error: profileError } = await (supabase as any).from("profiles").upsert(profileRow);
   if (profileError) {
     await supabase.auth.admin.deleteUser(id);
-    return NextResponse.json({ ok: false, error: mapProfileCreateError(profileError.message) }, { status: 500 });
+    const mapped = mapProfileCreateError(profileError.message);
+    if (mapped) {
+      return jsonFieldError(mapped.field, mapped.errorKey, 500, profileError.message);
+    }
+    return NextResponse.json({ ok: false, error: profileError.message, field: "form" }, { status: 500 });
   }
 
-  if (regionId && cityId) {
-    try {
-      const regionMeta = REGIONS.find((r) => r.id === regionId);
-      const cityMeta = regionMeta?.cities.find((c) => c.id === cityId);
-      const provinceLabel = regionMeta?.name ?? null;
-      const cityLabel = cityMeta?.name ?? null;
-      const streetParts = [streetIn, detailIn].filter(Boolean).join(", ").trim();
-      const contactLine = contactAddressRaw.trim();
-      const localityLine =
-        provinceLabel && cityLabel ? `${provinceLabel} ${cityLabel}`.trim() : (region_name ?? "").trim();
-      const fullAddress =
-        [contactLine, streetParts, localityLine].filter((s) => s.length > 0).join(" · ").trim() ||
-        localityLine ||
-        "Philippines";
+  const shouldSeedAddress =
+    (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) ||
+    (regionId && cityId);
 
-      const payload: UserAddressWritePayload = {
-        labelType: "home",
-        nickname: "대표",
-        recipientName: name || nickname,
-        phoneNumber: phoneFields.phone_number,
-        countryCode: "PH",
-        countryName: "Philippines",
-        province: provinceLabel,
-        cityMunicipality: cityLabel,
-        streetAddress: streetIn || null,
-        unitFloorRoom: detailIn || null,
-        fullAddress,
-        appRegionId: regionId,
-        appCityId: cityId,
-        useForLife: true,
-        useForTrade: true,
-        useForDelivery: true,
-        isDefaultMaster: true,
-        isDefaultLife: true,
-        isDefaultTrade: true,
-        isDefaultDelivery: true,
-      };
-      await createUserAddress(supabase as any, id, payload);
+  if (shouldSeedAddress) {
+    try {
+      let regionMeta = REGIONS.find((r) => r.id === regionId);
+      let cityMeta = regionMeta?.cities.find((c) => c.id === cityId);
+      const provinceLabel = addressFromBody?.province || regionMeta?.name || null;
+      const cityLabel = addressFromBody?.cityMunicipality || cityMeta?.name || null;
+
+      if (addressFromBody && adminCreateMemberAddressHasSelection(addressFromBody)) {
+        const payload = buildUserAddressSeedPayload(addressFromBody, {
+          recipientName: name || nickname,
+          phoneNumber: phoneFields.phone_number,
+          regionId,
+          cityId,
+        });
+        payload.nickname = seedNickname;
+        await createUserAddress(supabase as any, id, payload);
+      } else if (regionId && cityId) {
+        const streetParts = [streetIn, detailIn].filter(Boolean).join(", ").trim();
+        const contactLine = contactAddressRaw.trim();
+        const localityLine =
+          provinceLabel && cityLabel ? `${provinceLabel} ${cityLabel}`.trim() : (region_name ?? "").trim();
+        const fullAddress =
+          [contactLine, streetParts, localityLine].filter((s) => s.length > 0).join(" · ").trim() ||
+          localityLine ||
+          "Philippines";
+
+        await createUserAddress(supabase as any, id, {
+          labelType: "home",
+          nickname: seedNickname,
+          recipientName: name || nickname,
+          phoneNumber: phoneFields.phone_number,
+          countryCode: "PH",
+          countryName: "Philippines",
+          province: provinceLabel,
+          cityMunicipality: cityLabel,
+          streetAddress: streetIn || null,
+          unitFloorRoom: detailIn || null,
+          fullAddress,
+          appRegionId: regionId,
+          appCityId: cityId,
+          useForLife: true,
+          useForTrade: true,
+          useForDelivery: true,
+          isDefaultMaster: true,
+          isDefaultLife: true,
+          isDefaultTrade: true,
+          isDefaultDelivery: true,
+        });
+      }
     } catch (seedErr) {
       console.error("[admin/users/create] representative address seed failed", seedErr);
     }
