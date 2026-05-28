@@ -4,6 +4,7 @@ import {
   isDeliveryCartBottomNavPath,
   isDeliveryConsumerBottomNavSurface,
   isDeliveryOrderHistoryBottomNavPath,
+  isStoreOrderReviewPath,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { composeMainBottomNavDisplayTabs } from "@/lib/main-menu/main-bottom-nav-split-layout";
 import { BOTTOM_NAV_ITEMS } from "@/lib/main-menu/bottom-nav-config";
@@ -35,6 +36,20 @@ describe("isDeliveryConsumerBottomNavSurface", () => {
     expect(isDeliveryConsumerBottomNavSurface("/stores/foo")).toBe(false);
     expect(isDeliveryConsumerBottomNavSurface("/stores/foo/cart")).toBe(false);
     expect(isDeliveryConsumerBottomNavSurface("/stores/owner/orders")).toBe(false);
+  });
+});
+
+describe("isStoreOrderReviewPath", () => {
+  it("주문 허브·마이페이지 리뷰 경로", () => {
+    expect(isStoreOrderReviewPath("/orders/store/abc/review")).toBe(true);
+    expect(isStoreOrderReviewPath("/mypage/store-orders/abc/review")).toBe(true);
+    expect(isStoreOrderReviewPath("/my/store-orders/abc/review")).toBe(true);
+  });
+
+  it("주문 상세·목록은 제외", () => {
+    expect(isStoreOrderReviewPath("/orders/store/abc")).toBe(false);
+    expect(isStoreOrderReviewPath("/orders")).toBe(false);
+    expect(isStoreOrderReviewPath("/mypage/store-orders/abc")).toBe(false);
   });
 });
 

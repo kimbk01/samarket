@@ -76,8 +76,9 @@
   min-height: 4.75rem;
 }
 
-.store-commerce-action-shell[data-store-action-variant="review-submit"] .store-commerce-action-plane {
+.store-commerce-action-shell--inline[data-store-action-variant="review-submit"] .store-commerce-action-plane {
   min-height: 4.75rem;
+  border-radius: var(--delivery-radius) var(--delivery-radius) 0 0;
 }
 
 .store-commerce-action-row {

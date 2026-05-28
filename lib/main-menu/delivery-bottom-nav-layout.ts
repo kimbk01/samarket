@@ -31,6 +31,16 @@ export function normalizeDeliveryBottomNavPath(pathname: string | null | undefin
   return (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
 }
 
+/** 매장 주문 리뷰 작성 — 하단 탭·배달 FAB·허브 우측 액션 제외(폼 CTA 전용) */
+export function isStoreOrderReviewPath(pathname: string | null | undefined): boolean {
+  const p = normalizeDeliveryBottomNavPath(pathname);
+  return (
+    /^\/orders\/store\/[^/]+\/review$/.test(p) ||
+    /^\/mypage\/store-orders\/[^/]+\/review$/.test(p) ||
+    /^\/my\/store-orders\/[^/]+\/review$/.test(p)
+  );
+}
+
 /**
  * 통합 `BottomNav` 배달 5탭을 쓰는 소비자 화면.
  * - 주문내역 `/orders`·`/mypage/store-orders`

@@ -9,7 +9,7 @@ import {
 import { isMypageAddressEditPath, isMypageAddressFlowPath } from "@/lib/addresses/mypage-addresses-return-to";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
-import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { isDeliveryConsumerBottomNavSurface, isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 
@@ -128,9 +128,11 @@ export function resolveConditionalAppShellFlags(
   const isStoreCommerceCartCheckoutPage = isStoreCommerceCartCheckoutPath(normalizedStorePath);
   const isMypageAddressEditPage = isMypageAddressEditPath(pathname);
   const isMypageAddressFlowPage = isMypageAddressFlowPath(pathname);
-  /** cart/checkout·주소 관리 플로우 — `main` flex 잠금, 페이지 내부 스크롤 */
+  /** 매장 주문 리뷰 — 하단 5탭·배달 FAB 숨김(제출 CTA와 겹침 방지) */
+  const isStoreOrderReviewPage = isStoreOrderReviewPath(pathname);
+  /** cart/checkout·주소 관리·매장 주문 리뷰 — `main` flex 잠금, 페이지 내부 스크롤 */
   const isMainColumnViewportLocked =
-    isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage;
+    isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage;
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
@@ -180,7 +182,8 @@ export function resolveConditionalAppShellFlags(
     !isStoreOwnerAdminRoute &&
     !isStoreCommerceCartCheckoutPage &&
     !isChatRoomDetail &&
-    !isTradeMeetSpotPickRoute;
+    !isTradeMeetSpotPickRoute &&
+    !isStoreOrderReviewPage;
   const isTradeFloatingSurface = isTradeFloatingMenuSurface(pathname);
   const showHomeTradeHubFloatingBar = isTradeFloatingSurface && !isMarketTradeFeedHubPath(pathname);
   const isChatsHubSurface = pathname === "/mypage/trade/chat";
@@ -217,6 +220,7 @@ export function resolveConditionalAppShellFlags(
     !isWritePage &&
     !suppressBottomNavForChatDetail &&
     !isStoreCheckoutOrDetailFlow &&
+    !isStoreOrderReviewPage &&
     !isPostDetail &&
     !isProductDetail &&
     !isStoreProductDetail &&
@@ -269,7 +273,7 @@ export function resolveConditionalAppShellFlags(
       ? "pb-0"
       : isTradeMeetSpotPickRoute
         ? "pb-0"
-      : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage
+      : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
         ? "pb-0"
         : showBottomNav || isPostDetail
           ? showHomeTradeHubFloatingBar

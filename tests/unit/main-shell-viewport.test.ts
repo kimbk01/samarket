@@ -93,6 +93,28 @@ describe("stores owner apply scroll contract", () => {
   });
 });
 
+describe("orders hub store review tier1", () => {
+  it("/orders/store/:id/review uses review title and back to order detail", () => {
+    const orderId = "267ca6b7-bbc4-415c-83df-da3c37808613";
+    const f = resolveMainTier1Subpage(`/orders/store/${orderId}/review`);
+    expect(f?.titleText).toBe("tier1_review_write");
+    expect(f?.subtitle).toBe("tier1_review_write_subtitle");
+    expect(f?.backHref).toBe(`/orders/store/${orderId}`);
+    expect(f?.showHubQuickActions).toBe(false);
+  });
+});
+
+describe("orders hub store review shell", () => {
+  it("/orders/store/:id/review hides bottom nav, FAB, and bottom padding", () => {
+    const orderId = "267ca6b7-bbc4-415c-83df-da3c37808613";
+    const f = resolveConditionalAppShellFlags(`/orders/store/${orderId}/review`, false);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.showMainBottomNavFabSector).toBe(false);
+    expect(f.mainBottomClass).toBe("pb-0");
+    expect(f.isMainColumnViewportLocked).toBe(true);
+  });
+});
+
 describe("mypage address tier1 titles", () => {
   it("/mypage/addresses uses address_manage_title not dibaY fallback", () => {
     const f = resolveMainTier1Subpage("/mypage/addresses");

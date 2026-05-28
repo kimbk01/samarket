@@ -70,6 +70,21 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     };
   }
 
+  /** 주문 허브 내 배달 주문 리뷰 — 전역 1단만 사용(페이지 `DetailHeader` 중복 방지) */
+  const ordersHubStoreReviewMatch = /^\/orders\/store\/([^/]+)\/review$/.exec(p);
+  if (ordersHubStoreReviewMatch) {
+    const orderId = ordersHubStoreReviewMatch[1]!;
+    return {
+      ...DEFAULT,
+      backHref: `/orders/store/${encodeURIComponent(orderId)}`,
+      preferHistoryBack: true,
+      ariaLabel: "tier1_back",
+      titleText: "tier1_review_write",
+      subtitle: "tier1_review_write_subtitle",
+      showHubQuickActions: false,
+    };
+  }
+
   /** 주문 허브 내 배달 주문 상세 — 제목만 「주문 상세」로, 우측 허브(알림 등)는 유지 */
   if (/^\/orders\/store\/[^/]+$/.test(p)) {
     return {
@@ -265,7 +280,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   }
 
   if (/^\/my\/store-orders\/[^/]+\/review$/.test(p) || /^\/mypage\/store-orders\/[^/]+\/review$/.test(p)) {
-    return backMypage({ titleText: "tier1_review_write", subtitle: "tier1_review_write_subtitle", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_review_write", subtitle: "tier1_review_write_subtitle", showHubQuickActions: false });
   }
 
   if (p === "/my/points" || p === "/mypage/points") {

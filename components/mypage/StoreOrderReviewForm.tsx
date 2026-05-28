@@ -9,10 +9,15 @@ import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
-  storeCommerceActionContentPadClass,
   STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS,
 } from "@/lib/stores/store-commerce-bottom-action-bar";
+import {
+  STORE_ORDER_REVIEW_FOOTER_CHROME_CLASS,
+  STORE_ORDER_REVIEW_SCROLL_BODY_CLASS,
+  STORE_ORDER_REVIEW_SCROLL_INNER_CLASS,
+} from "@/lib/stores/store-order-review-page-layout";
 
 type ItemRow = { id: string; product_id: string; product_title_snapshot: string; qty?: number };
 
@@ -201,55 +206,29 @@ export function StoreOrderReviewForm({
 
   const headerTitle = storeName.trim() || t("mypage_comp_store_review_title_default");
 
-  const shell = (body: React.ReactNode) => {
-    if (layout === "inline") {
-      return <div className="sam-text-body text-sam-fg">{body}</div>;
-    }
-    return (
-      <div className="min-h-screen bg-sam-surface">
-        <DetailHeader
-          title={loading ? "…" : headerTitle}
-          backHref={detailHref}
-          preferHistoryBack={false}
-          backVariant="close"
-          backAriaLabel={t("mypage_comp_close")}
-        />
-        <div className="mx-auto max-w-lg px-4 pt-4">{body}</div>
-      </div>
-    );
-  };
-
-  if (loading) {
-    return shell(<p className="text-center text-sm text-sam-muted">{t("mypage_comp_loading_short")}</p>);
-  }
-  if (hasReview) {
-    return shell(
-      <div className="space-y-4 text-center text-sm text-sam-muted">
-        <p>{t("mypage_comp_store_review_already")}</p>
-        <Link href={detailHref} className="inline-block font-semibold text-signature underline">
-          {t("mypage_comp_store_review_to_detail")}
-        </Link>
-      </div>
-    );
-  }
-  if (!canSubmit) {
-    return shell(
-      <div className="space-y-4 text-center text-sm text-sam-muted">
-        <p>{t("mypage_comp_store_review_after_complete")}</p>
-        <Link href={detailHref} className="inline-block font-semibold text-signature underline">
-          {t("mypage_comp_store_review_to_detail")}
-        </Link>
-        <div>
-          <Link href={listHref} className="sam-text-body-secondary text-sam-muted underline">
-            {t("mypage_comp_store_review_to_list")}
-          </Link>
+  const reviewSubmitFooter = (
+    <div className={STORE_ORDER_REVIEW_FOOTER_CHROME_CLASS}>
+      <StoreCommerceBottomActionShell
+        variant="review-submit"
+        inline
+        portal={false}
+        dataAttribute="data-store-review-submit"
+      >
+        <div className={`${APP_MAIN_COLUMN_CLASS} w-full min-w-0 px-4 md:px-6`}>
+          <button
+            type="submit"
+            disabled={busy || content.trim().length < 5}
+            className={STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS}
+          >
+            {busy ? t("mypage_comp_store_review_submitting") : t("mypage_comp_store_review_submit")}
+          </button>
         </div>
-      </div>
-    );
-  }
+      </StoreCommerceBottomActionShell>
+    </div>
+  );
 
-  return shell(
-    <form onSubmit={(e) => void submit(e)} className="space-y-6">
+  const reviewFormFields = (
+    <>
       <div className="flex justify-center gap-2 py-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
@@ -383,23 +362,75 @@ export function StoreOrderReviewForm({
       </div>
 
       {err ? <p className="text-center text-sm text-red-600">{err}</p> : null}
+    </>
+  );
 
-      <div aria-hidden className={storeCommerceActionContentPadClass("review-submit")} />
-      <StoreCommerceBottomActionShell
-        variant="review-submit"
-        portal={false}
-        dataAttribute="data-store-review-submit"
-      >
-        <div className="px-4 py-2">
-          <button
-            type="submit"
-            disabled={busy || content.trim().length < 5}
-            className={STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS}
-          >
-            {busy ? t("mypage_comp_store_review_submitting") : t("mypage_comp_store_review_submit")}
-          </button>
-        </div>
-      </StoreCommerceBottomActionShell>
+  const inlineScrollShell = (body: React.ReactNode) => (
+    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+      <div className={STORE_ORDER_REVIEW_SCROLL_BODY_CLASS}>
+        <div className={STORE_ORDER_REVIEW_SCROLL_INNER_CLASS}>{body}</div>
+      </div>
+    </div>
+  );
+
+  const reviewFormShell = (body: React.ReactNode) => (
+    <form
+      onSubmit={(e) => void submit(e)}
+      className="delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
+    >
+      <div className={STORE_ORDER_REVIEW_SCROLL_BODY_CLASS}>
+        <div className={`${STORE_ORDER_REVIEW_SCROLL_INNER_CLASS} space-y-6`}>{body}</div>
+      </div>
+      {reviewSubmitFooter}
     </form>
   );
+
+  const shell = (body: React.ReactNode) => {
+    if (layout === "inline") {
+      return inlineScrollShell(body);
+    }
+    return (
+      <div className="flex min-h-screen min-w-0 flex-col bg-sam-surface">
+        <DetailHeader
+          title={loading ? "…" : headerTitle}
+          backHref={detailHref}
+          preferHistoryBack={false}
+          backVariant="close"
+          backAriaLabel={t("mypage_comp_close")}
+        />
+        <div className="mx-auto w-full max-w-lg min-h-0 flex-1 px-4 pt-4">{body}</div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return shell(<p className="text-center text-sm text-sam-muted">{t("mypage_comp_loading_short")}</p>);
+  }
+  if (hasReview) {
+    return shell(
+      <div className="space-y-4 text-center text-sm text-sam-muted">
+        <p>{t("mypage_comp_store_review_already")}</p>
+        <Link href={detailHref} className="inline-block font-semibold text-signature underline">
+          {t("mypage_comp_store_review_to_detail")}
+        </Link>
+      </div>
+    );
+  }
+  if (!canSubmit) {
+    return shell(
+      <div className="space-y-4 text-center text-sm text-sam-muted">
+        <p>{t("mypage_comp_store_review_after_complete")}</p>
+        <Link href={detailHref} className="inline-block font-semibold text-signature underline">
+          {t("mypage_comp_store_review_to_detail")}
+        </Link>
+        <div>
+          <Link href={listHref} className="sam-text-body-secondary text-sam-muted underline">
+            {t("mypage_comp_store_review_to_list")}
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return reviewFormShell(reviewFormFields);
 }
