@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-05-27",
-  "recordedFrom": "next build on main after stores-home perf phases",
+  "recordedAt": "2026-05-28",
+  "recordedFrom": "npm run check:bundle:update-baseline",
   "metrics": {
-    "total_client_js_kb": 15814,
-    "messenger_home_js_kb": 2909,
-    "messenger_room_js_kb": 2562,
-    "messenger_call_js_kb": 4139
+    "total_client_js_kb": 14264,
+    "messenger_home_js_kb": 3369,
+    "messenger_room_js_kb": 3385,
+    "messenger_call_js_kb": 4933
   },
   "growth_slack_kb": {
     "total_client_js": 500,
@@ -14,8 +14,53 @@
     "messenger_call_js": 300
   },
   "top_chunks": [
-    { "path": ".next/static/chunks/004b483d3806d4f6.js", "kb": 1468 },
-    { "path": ".next/static/chunks/e38b0eba4d11d1ed.js", "kb": 1390 },
-    { "path": ".next/static/chunks/1a6f339fb1ee4c9f.js", "kb": 292 }
+    {
+      "path": ".next/static/chunks/004b483d3806d4f6.js",
+      "kb": 1468
+    },
+    {
+      "path": ".next/static/chunks/0d6267db75bdffd8.js",
+      "kb": 1425
+    },
+    {
+      "path": ".next/static/chunks/970db603a3a4558c.js",
+      "kb": 305
+    },
+    {
+      "path": ".next/static/chunks/ee58dea5a23d8411.js",
+      "kb": 219
+    },
+    {
+      "path": ".next/static/chunks/73d2c6043745a99b.js",
+      "kb": 191
+    },
+    {
+      "path": ".next/static/chunks/2ff6984eaf6eda2b.js",
+      "kb": 190
+    },
+    {
+      "path": ".next/static/chunks/a58e5670196a1e68.js",
+      "kb": 175
+    },
+    {
+      "path": ".next/static/chunks/9f5ce8b8f91b3575.js",
+      "kb": 167
+    },
+    {
+      "path": ".next/static/chunks/d83f73a6dfd8ca51.js",
+      "kb": 160
+    },
+    {
+      "path": ".next/static/chunks/e84d7ad23a588d72.js",
+      "kb": 160
+    },
+    {
+      "path": ".next/static/chunks/2ef8c4353a20e7be.js",
+      "kb": 141
+    },
+    {
+      "path": ".next/static/chunks/7dfefe1858542e20.js",
+      "kb": 113
+    }
   ]
 }
