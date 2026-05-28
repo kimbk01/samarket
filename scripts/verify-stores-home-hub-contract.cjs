@@ -340,13 +340,15 @@ assertIncludes(
 
 );
 
+const deliveryLayoutShell = read("components/delivery/navigation/StoresDeliveryLayoutShell.tsx");
+
 assertIncludes(
 
-  quickCategories,
+  deliveryLayoutShell,
 
   "useStoresHomeTouchRelease",
 
-  "home categories must release stuck iOS touch focus after tap"
+  "delivery list layout must release stuck iOS touch focus after tap"
 
 );
 
