@@ -1,16 +1,7 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useMemo } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
-const CommunityMessengerHomeShellSkeleton = dynamic(
-  () =>
-    import("@/components/community-messenger/CommunityMessengerRouteSkeletons").then(
-      (m) => m.CommunityMessengerHomeShellSkeleton
-    ),
-  { ssr: false }
-);
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import { TradeMarketTabPushEnterPanel } from "@/components/market/TradeMarketTabPushEnterPanel";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
@@ -24,13 +15,10 @@ type Props = {
   contentStretchClass?: string;
 };
 
-/** RSC 대기 중에도 클라 캐시·부트스트랩으로 즉시 그릴 수 있는 메뉴 — 전면 스켈레톤 금지 */
-const MENU_SOURCES_WITHOUT_BLOCKING_SHELL = new Set([
-  "bottom-nav",
-  "trade-primary",
-  "trade-topic",
-  "category-chip",
-]);
+function isMarketMenuIntentPath(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").trim();
+  return p === "/market" || p.startsWith("/market/");
+}
 
 export function MainShellTabContentTransition({
   children,
@@ -39,36 +27,17 @@ export function MainShellTabContentTransition({
 }: Props) {
   void _initialNavItems;
 
-  const { isPendingMenuBlockingContent, pendingMenuShellKind, pendingMenuIntent } = useLatestMenuNavigation();
+  const { isPendingMenuBlockingContent, pendingMenuIntent } = useLatestMenuNavigation();
 
-  /**
-   * 하단 탭은 `beginMenuNavigation` 직후 RSC 완료 전까지 스켈레톤을 전면에 올리면
-   * “탭이 안 먹는다” 체감이 크다. 슬라이드만 두고 본문은 바로 그린다.
-   */
-  const blockMainShellWithPendingOverlay =
-    isPendingMenuBlockingContent &&
-    (pendingMenuIntent?.source == null ||
-      !MENU_SOURCES_WITHOUT_BLOCKING_SHELL.has(pendingMenuIntent.source));
-
-  const pendingRouteShell = useMemo(() => {
-    if (!isPendingMenuBlockingContent) return null;
-    if (pendingMenuShellKind === "messenger") {
-      return <CommunityMessengerHomeShellSkeleton />;
-    }
-    return <MainFeedRouteLoading rows={5} />;
-  }, [isPendingMenuBlockingContent, pendingMenuShellKind]);
-
-  const pendingShell = blockMainShellWithPendingOverlay ? pendingRouteShell : null;
+  /** 메인 메뉴 이동 전체: RSC 대기 중 전면/push 스켈레톤 금지. */
+  const pendingShell = null;
   const pendingPushNode = useMemo(() => {
     if (!isPendingMenuBlockingContent || !pendingMenuIntent) return null;
-    if (pendingMenuIntent.source === "trade-primary") {
+    if (pendingMenuIntent.source === "trade-primary" || isMarketMenuIntentPath(pendingMenuIntent.pathname)) {
       return <TradeMarketTabPushEnterPanel href={pendingMenuIntent.href} />;
     }
-    if (pendingMenuIntent.source === "bottom-nav") {
-      return pendingRouteShell;
-    }
     return null;
-  }, [isPendingMenuBlockingContent, pendingMenuIntent, pendingRouteShell]);
+  }, [isPendingMenuBlockingContent, pendingMenuIntent]);
 
   return (
     <AppRouteTransition

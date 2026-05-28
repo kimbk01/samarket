@@ -1,6 +1,4 @@
-import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
-
-/** `/my` 설정 허브 등 */
+/** `/my` root tab alias: main bottom-nav transitions must not show skeleton shell. */
 export default function MySegmentLoading() {
-  return <MainFormRouteLoading />;
+  return null;
 }

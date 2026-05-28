@@ -1,6 +1,4 @@
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-
-/** `/philife` 커뮤니티 피드 전환 */
+/** `/philife` root tab: main bottom-nav transitions must not show feed skeleton. */
 export default function PhilifeSegmentLoading() {
-  return <MainFeedRouteLoading rows={5} />;
+  return null;
 }

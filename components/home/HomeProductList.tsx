@@ -407,7 +407,7 @@ export function HomeProductList({
   if (showLoading) {
     return (
       <div className={rootClass}>
-        <LoadingState />
+        <NonSkeletonLoadingState />
       </div>
     );
   }
@@ -471,23 +471,14 @@ export function HomeProductList({
   );
 }
 
-function LoadingState() {
+function NonSkeletonLoadingState() {
   const { t } = useI18n();
   return (
-    <ul className={TRADE_FEED_LIST_WRAP_CLASS} aria-busy="true" aria-label={t("trade_013")}>
-      {[0, 1, 2, 3].map((k) => (
-        <li key={k} className="rounded-ui-rect border border-sam-border/70 bg-ui-surface p-3 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="h-[72px] w-[72px] shrink-0 animate-pulse rounded-[4px] bg-sam-border-soft sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="h-4 w-3/4 animate-pulse rounded bg-sam-border-soft" />
-              <div className="h-3 w-1/2 animate-pulse rounded bg-sam-border-soft/80" />
-              <div className="h-3 w-1/3 animate-pulse rounded bg-sam-border-soft/70" />
-            </div>
-          </div>
-        </li>
-      ))}
-    </ul>
+    <div
+      className="min-h-[min(42vh,360px)] bg-sam-app"
+      aria-busy="true"
+      aria-label={t("trade_013")}
+    />
   );
 }
 
