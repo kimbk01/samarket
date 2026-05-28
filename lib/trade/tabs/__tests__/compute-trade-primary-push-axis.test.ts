@@ -8,11 +8,11 @@ describe("computeTradePrimaryPushAxis", () => {
     expect(computeTradePrimaryPushAxis(1, -1)).toBeNull();
   });
 
-  it("ltr when moving to a higher tab index", () => {
-    expect(computeTradePrimaryPushAxis(0, 3)).toBe("ltr");
+  it("rtl when moving to a higher tab index (우측 탭, 우→좌)", () => {
+    expect(computeTradePrimaryPushAxis(0, 3)).toBe("rtl");
   });
 
-  it("rtl when moving to a lower tab index", () => {
-    expect(computeTradePrimaryPushAxis(4, 1)).toBe("rtl");
+  it("ltr when moving to a lower tab index (좌측 탭, 좌→우)", () => {
+    expect(computeTradePrimaryPushAxis(4, 1)).toBe("ltr");
   });
 });
