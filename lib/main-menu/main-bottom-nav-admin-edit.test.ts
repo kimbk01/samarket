@@ -74,7 +74,7 @@ describe("main-bottom-nav-admin-edit", () => {
     const fab = getDefaultDeliveryFabConfig();
     const next = patchMainBottomNavRowFab(base, fab);
     expect(next.fab?.enabled).toBe(true);
-    expect(next.fab?.items.length).toBe(4);
+    expect(next.fab?.items.length).toBe(5);
   });
 
   it("patchMainBottomNavRowFab — 비활성 시 enabled false 저장", () => {

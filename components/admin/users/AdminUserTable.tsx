@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { memo, useCallback } from "react";
+import { forwardRef, memo, useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser } from "@/lib/types/admin-user";
 import { AdminModerationStatusBadge } from "@/components/admin/AdminModerationStatusBadge";
@@ -31,6 +31,8 @@ interface AdminUserTableProps {
   onSortChange: (key: AdminUserSortKey) => void;
   /** false(기본): UUID 열 숨김 */
   showMemberUuid?: boolean;
+  /** 가로 스크롤 동기화·측정용 (하단 고정 스크롤바) */
+  onHorizontalScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
 const PROVIDER_BADGE_CLASS: Record<string, string> = {
@@ -287,7 +289,7 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs tabular-nums text-[#475467]">
         {formatDateTime(u.lastSignInAt ?? u.lastActiveAt, dateLocale, emptyCell)}
       </td>
-      <td className="whitespace-nowrap px-3 py-3 align-top">
+      <td className="whitespace-nowrap px-3 py-3 pr-5 align-top">
         <button
           type="button"
           className="rounded-full border border-sam-primary-border bg-sam-primary-soft px-3 py-1 text-xs font-bold text-sam-primary shadow-sm transition hover:bg-sam-primary-soft-2"
@@ -302,17 +304,25 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
 
 AdminUserTableRow.displayName = "AdminUserTableRow";
 
-export function AdminUserTable({
-  users,
-  onEditMember,
-  sortKey,
-  sortOrder,
-  onSortChange,
-  showMemberUuid = false,
-}: AdminUserTableProps) {
+export const AdminUserTable = forwardRef<HTMLDivElement, AdminUserTableProps>(function AdminUserTable(
+  {
+    users,
+    onEditMember,
+    sortKey,
+    sortOrder,
+    onSortChange,
+    showMemberUuid = false,
+    onHorizontalScroll,
+  },
+  ref
+) {
   const { t } = useI18n();
   return (
-    <div className="max-w-full overflow-x-auto rounded-xl border border-[#d0d7e2] bg-white shadow-sm">
+    <div
+      ref={ref}
+      onScroll={onHorizontalScroll}
+      className="w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible rounded-xl border border-[#d0d7e2] bg-white shadow-sm [-webkit-overflow-scrolling:touch] [scroll-padding-inline-end:1.25rem]"
+    >
       <table className="min-w-[1630px] border-collapse font-sans text-[13px] leading-normal">
         <thead>
           <tr className="border-b border-[#d0d7e2] bg-[#f6f8fb]">
@@ -331,7 +341,7 @@ export function AdminUserTable({
             <SortHeader label={t("admin_users_col_reports")} sortId="reports" align="right" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
             <SortHeader label={t("admin_users_col_joined")} sortId="joined" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
             <SortHeader label={t("admin_users_col_last_login")} sortId="lastSignIn" sortKey={sortKey} sortOrder={sortOrder} onSortChange={onSortChange} />
-            <th className="whitespace-nowrap px-3 py-3 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_actions")}</th>
+            <th className="whitespace-nowrap px-3 py-3 pr-5 text-left text-xs font-bold tracking-[0.01em] text-[#475467]">{t("admin_users_col_actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -342,4 +352,4 @@ export function AdminUserTable({
       </table>
     </div>
   );
-}
+});

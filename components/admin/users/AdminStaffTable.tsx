@@ -1,5 +1,6 @@
 "use client";
 
+import { forwardRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminStaff } from "@/lib/types/admin-staff";
 import { getPermissionLabel } from "@/lib/admin-users/admin-permissions";
@@ -21,14 +22,23 @@ interface AdminStaffTableProps {
   /** 최고관리자일 때만 수정 버튼 노출 */
   isMaster?: boolean;
   onEdit?: (staffId: string) => void;
+  /** 가로 스크롤 동기화·측정용 (하단 고정 스크롤바) */
+  onHorizontalScroll?: React.UIEventHandler<HTMLDivElement>;
 }
 
-export function AdminStaffTable({ staffList, isMaster, onEdit }: AdminStaffTableProps) {
+export const AdminStaffTable = forwardRef<HTMLDivElement, AdminStaffTableProps>(function AdminStaffTable(
+  { staffList, isMaster, onEdit, onHorizontalScroll },
+  ref
+) {
   const { t, language } = useI18n();
   const dateLocale = dateLocaleTag(language);
 
   return (
-    <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
+    <div
+      ref={ref}
+      onScroll={onHorizontalScroll}
+      className="w-full min-w-0 max-w-full overflow-x-auto overflow-y-visible rounded-ui-rect border border-sam-border bg-sam-surface [-webkit-overflow-scrolling:touch] [scroll-padding-inline-end:1.25rem]"
+    >
       <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
@@ -79,4 +89,4 @@ export function AdminStaffTable({ staffList, isMaster, onEdit }: AdminStaffTable
       </table>
     </div>
   );
-}
+});

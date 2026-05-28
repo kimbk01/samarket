@@ -10,6 +10,7 @@ import {
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { computeOwnerCanSell } from "@/lib/stores/owner-lite-store-shortcuts";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { pickApprovedOwnerStoreForFab } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -160,4 +161,11 @@ export function getOwnerLiteStoreServerSnapshot(): OwnerLiteStoreState {
 export function refreshOwnerLiteStore(): void {
   invalidateMeStoresListDedupedCache();
   void runSingleFlight("owner-lite:hydrate", () => loadFromNetwork({ withLoadingSpinner: true }));
+}
+
+/** FAB·헤더 등 — 승인 매장이 아직 없을 때만 무음 선로드 */
+export function prefetchOwnerLiteStoreQuiet(): void {
+  if (pickApprovedOwnerStoreForFab(snapshot.ownerStores)) return;
+  invalidateMeStoresListDedupedCache();
+  void runSingleFlight("owner-lite:hydrate", () => loadFromNetwork({ withLoadingSpinner: false }));
 }

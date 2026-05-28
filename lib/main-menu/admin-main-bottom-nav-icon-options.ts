@@ -11,4 +11,5 @@ export const ADMIN_MAIN_BOTTOM_NAV_ICON_OPTIONS: BottomNavIconKey[] = [
   "cart",
   "favorites",
   "orders",
+  "owner_hub",
 ];

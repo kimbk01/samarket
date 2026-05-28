@@ -29,6 +29,8 @@ export const BOTTOM_NAV_ICON_KEYS = [
   "cart",
   /** 거래 하단 탭 찜 */
   "favorites",
+  /** 승인 매장주 운영센터(매장 어드민) */
+  "owner_hub",
 ] as const;
 export type BottomNavIconKey = (typeof BOTTOM_NAV_ICON_KEYS)[number];
 

@@ -11,6 +11,7 @@ export const BOTTOM_NAV_ICON_LABEL_KEYS: Record<BottomNavIconKey, MessageKey> = 
   orders: "admin_menu_icon_orders",
   cart: "admin_menu_icon_cart",
   favorites: "admin_menu_icon_favorites",
+  owner_hub: "admin_menu_icon_owner_hub",
 };
 
 export const BOTTOM_NAV_SAVE_ERROR_KEYS: Record<string, MessageKey> = {

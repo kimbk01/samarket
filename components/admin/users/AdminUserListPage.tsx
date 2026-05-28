@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useCallback, useEffect } from "react";
+import { useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { AdminTableBottomHorizontalScroll } from "@/components/admin/AdminTableBottomHorizontalScroll";
+import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -118,6 +120,11 @@ export function AdminUserListPage() {
   const [membersError, setMembersError] = useState<string | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const bottomScrollRef = useRef<HTMLDivElement>(null);
+  const [tableScrollWidth, setTableScrollWidth] = useState(0);
+  const [tableClientWidth, setTableClientWidth] = useState(0);
+  const [sidebarExpanded, setSidebarExpanded] = useState(true);
 
   // 클라이언트 캐시(`getCurrentUser()`)는 첫 렌더에서 비어 있고, `SupabaseAuthSync` 가 한 프레임 뒤에 채운다.
   // 동기 1회 읽기 + `TEST_AUTH_CHANGED_EVENT` 구독으로 하이드레이션 후 다시 그리게 한다.
@@ -208,6 +215,86 @@ export function AdminUserListPage() {
   const staffList = useMemo(() => getAdminStaffList(), [staffKey]);
   const isMaster = getAdminRole() === "master";
 
+  const showMembersTable =
+    tab === "members" && !membersError && !membersLoading && filtered.length > 0;
+  const showStaffTable = tab === "staff" && staffList.length > 0;
+  const showTableScrollChrome = showMembersTable || showStaffTable;
+
+  const onTableHorizontalScroll = useCallback(() => {
+    const tableEl = tableScrollRef.current;
+    const bottomEl = bottomScrollRef.current;
+    if (!tableEl || !bottomEl) return;
+    if (bottomEl.scrollLeft !== tableEl.scrollLeft) bottomEl.scrollLeft = tableEl.scrollLeft;
+  }, []);
+
+  const onBottomHorizontalScroll = useCallback(() => {
+    const tableEl = tableScrollRef.current;
+    const bottomEl = bottomScrollRef.current;
+    if (!tableEl || !bottomEl) return;
+    if (tableEl.scrollLeft !== bottomEl.scrollLeft) tableEl.scrollLeft = bottomEl.scrollLeft;
+  }, []);
+
+  useEffect(() => {
+    const syncSidebar = () => setSidebarExpanded(readSidebarExpanded());
+    syncSidebar();
+    window.addEventListener("storage", syncSidebar);
+    window.addEventListener("focus", syncSidebar);
+    return () => {
+      window.removeEventListener("storage", syncSidebar);
+      window.removeEventListener("focus", syncSidebar);
+    };
+  }, []);
+
+  const measureTableScroll = useCallback(() => {
+    const el = tableScrollRef.current;
+    if (!el || !showTableScrollChrome) {
+      setTableScrollWidth(0);
+      setTableClientWidth(0);
+      return;
+    }
+    setTableScrollWidth(el.scrollWidth);
+    setTableClientWidth(el.clientWidth);
+  }, [showTableScrollChrome]);
+
+  useLayoutEffect(() => {
+    if (!showTableScrollChrome) {
+      setTableScrollWidth(0);
+      setTableClientWidth(0);
+      return;
+    }
+    measureTableScroll();
+    const el = tableScrollRef.current;
+    if (!el) return;
+
+    const ro = new ResizeObserver(() => measureTableScroll());
+    ro.observe(el);
+    window.addEventListener("resize", measureTableScroll);
+
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measureTableScroll);
+    };
+  }, [
+    measureTableScroll,
+    showTableScrollChrome,
+    tab,
+    filtered.length,
+    staffList.length,
+    showMemberUuid,
+    membersLoading,
+    membersError,
+  ]);
+
+  const showBottomFixedScroll = showTableScrollChrome && tableScrollWidth > tableClientWidth + 2;
+
+  useLayoutEffect(() => {
+    if (!showBottomFixedScroll) return;
+    measureTableScroll();
+    const tableEl = tableScrollRef.current;
+    const bottomEl = bottomScrollRef.current;
+    if (tableEl && bottomEl) bottomEl.scrollLeft = tableEl.scrollLeft;
+  }, [showBottomFixedScroll, measureTableScroll, tableScrollWidth]);
+
   const refreshStaff = useCallback(() => setStaffKey((k) => k + 1), []);
   const refreshMembers = useCallback(() => setMembersKey((k) => k + 1), []);
 
@@ -273,7 +360,7 @@ export function AdminUserListPage() {
   }, [adminUserId, refreshMembers, t]);
 
   return (
-    <div className="space-y-4 bg-[#f0f2f5] text-[#050505]">
+    <div className={`min-w-0 w-full space-y-4 bg-[#f0f2f5] text-[#050505]${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
       <AdminPageHeader titleKey="admin_page_user_management" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex rounded-full border border-[#dadde1] bg-white p-1 shadow-sm">
@@ -424,12 +511,14 @@ export function AdminUserListPage() {
             </div>
           ) : (
             <AdminUserTable
+              ref={tableScrollRef}
               users={filtered}
               showMemberUuid={showMemberUuid}
               sortKey={filters.sortKey}
               sortOrder={filters.sortOrder}
               onSortChange={handleSortChange}
               onEditMember={handleEditMember}
+              onHorizontalScroll={onTableHorizontalScroll}
             />
           )}
         </>
@@ -444,13 +533,24 @@ export function AdminUserListPage() {
             </div>
           ) : (
             <AdminStaffTable
+              ref={tableScrollRef}
               staffList={staffList}
               isMaster={isMaster}
               onEdit={setEditingStaffId}
+              onHorizontalScroll={onTableHorizontalScroll}
             />
           )}
         </>
       )}
+
+      <AdminTableBottomHorizontalScroll
+        show={showBottomFixedScroll}
+        tableScrollWidth={tableScrollWidth}
+        bottomScrollRef={bottomScrollRef}
+        onScroll={onBottomHorizontalScroll}
+        ariaLabel={t("admin_users_table_horizontal_scroll")}
+        insetForAdminSidebar={sidebarExpanded}
+      />
 
       {showCreateMember && adminUserId && (
         <CreateMemberForm

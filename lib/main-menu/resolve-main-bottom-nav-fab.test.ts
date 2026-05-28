@@ -24,13 +24,13 @@ describe("resolve-main-bottom-nav-fab", () => {
     );
     const resolved = resolveMainBottomNavFabForPath("/stores/cart", tabs);
     expect(resolved?.parentTabId).toBe("stores");
-    expect(resolved?.items.length).toBe(4);
+    expect(resolved?.items.length).toBe(5);
   });
 
   it("resolveMainBottomNavFabForPath — stores 탭 코드 기본 FAB", () => {
     const resolved = resolveMainBottomNavFabForPath("/stores", BOTTOM_NAV_ITEMS);
     expect(resolved?.parentTabId).toBe("stores");
-    expect(resolved?.items.length).toBe(4);
+    expect(resolved?.items.length).toBe(5);
   });
 
   it("resolveMainBottomNavFabForPath — FAB 명시 비활성 시 null", () => {
@@ -44,5 +44,11 @@ describe("resolve-main-bottom-nav-fab", () => {
     expect(isMainBottomNavFabHrefActive("/orders", "/orders")).toBe(true);
     expect(isMainBottomNavFabHrefActive("/stores/cart", "/stores/cart")).toBe(true);
     expect(isMainBottomNavFabHrefActive("/stores", "/stores/cart")).toBe(false);
+  });
+
+  it("isMainBottomNavFabHrefActive — 매장 어드민", () => {
+    expect(isMainBottomNavFabHrefActive("/stores/owner", "/stores/owner")).toBe(true);
+    expect(isMainBottomNavFabHrefActive("/stores/owner/orders", "/stores/owner")).toBe(true);
+    expect(isMainBottomNavFabHrefActive("/stores/browse/restaurant", "/stores/owner")).toBe(false);
   });
 });

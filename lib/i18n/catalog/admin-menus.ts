@@ -131,6 +131,9 @@ export const adminMenusMessages = {
     admin_menu_bottom_fab_enabled: "FAB 사용",
     admin_menu_bottom_fab_add_item: "항목 추가",
     admin_menu_bottom_fab_apply_defaults: "배달 기본값 채우기",
+    admin_menu_bottom_fab_add_store_admin: "스토어 FAB 추가",
+    admin_menu_bottom_fab_store_admin_hint:
+      "승인된 매장 소유 계정에만 표시됩니다. 경로는 `/stores/owner` 로 자동 연결됩니다.",
     admin_menu_bottom_fab_max_items: "FAB 항목은 최대 {max}개입니다.",
     admin_menu_bottom_fab_empty: "FAB 항목이 없습니다. 추가하거나 기본값을 채워 주세요.",
     admin_menu_bottom_fab_empty_inline: "+ FAB 항목 추가로 하단 탭 보조 메뉴를 단계별로 만드세요.",
@@ -187,6 +190,7 @@ export const adminMenusMessages = {
     admin_menu_icon_orders: "orders (레거시)",
     admin_menu_icon_cart: "cart (장바구니)",
     admin_menu_icon_favorites: "favorites (찜)",
+    admin_menu_icon_owner_hub: "스토어",
     admin_menu_preset_font_default: "기본(시스템)",
     admin_menu_preset_font_sans: "고딕(sans)",
     admin_menu_preset_font_serif: "명조(serif)",
@@ -405,6 +409,10 @@ export const adminMenusMessages = {
     admin_menu_icon_orders: "orders (legacy)",
     admin_menu_icon_cart: "cart",
     admin_menu_icon_favorites: "favorites",
+    admin_menu_icon_owner_hub: "Store",
+    admin_menu_bottom_fab_add_store_admin: "Add store FAB",
+    admin_menu_bottom_fab_store_admin_hint:
+      "Shown only to approved store owners. Links to `/stores/owner` automatically.",
     admin_menu_preset_font_default: "Default (system)",
     admin_menu_preset_font_sans: "Sans",
     admin_menu_preset_font_serif: "Serif",

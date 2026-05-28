@@ -34,6 +34,17 @@ import {
   fabSectorRootStyle,
 } from "@/lib/layout/main-bottom-nav-fab-sector-config";
 import { deliveryFabIconBoxStyle } from "@/lib/ui/delivery-fab-christmas-starbucks-palette";
+import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
+import { useApprovedOwnerStoreForFab } from "@/lib/stores/use-approved-owner-store-for-fab";
+import {
+  ensureStoreAdminFabItemForApprovedOwner,
+  isMainBottomNavFabStoreAdminItem,
+} from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
+import { localizeMainBottomNavFabDisplayItems } from "@/lib/main-menu/main-bottom-nav-fab-i18n";
+import { prefetchOwnerLiteStoreQuiet } from "@/lib/stores/owner-lite-external-store";
+import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
+import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
+import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 
 /**
  * CONTRACT — 배달 하단 FAB (`docs/main-bottom-nav-fab-sector-contract.md`)
@@ -64,10 +75,30 @@ export function MainBottomNavFabSector() {
   const pathname = usePathname();
   const router = useRouter();
   const tabs = useMainBottomNavTabs();
-  const fabConfig = useMemo(
+  const fabConfigResolved = useMemo(
     () => resolveMainBottomNavFabForPath(pathname, tabs),
     [pathname, tabs]
   );
+  const approvedOwnerStore = useApprovedOwnerStoreForFab();
+  const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
+  const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
+  const fabConfig = useMemo(() => {
+    if (!fabConfigResolved) return null;
+    const items = localizeMainBottomNavFabDisplayItems(
+      ensureStoreAdminFabItemForApprovedOwner(fabConfigResolved.items, approvedOwnerStore),
+      t
+    );
+    if (items.length === 0) return null;
+    return { ...fabConfigResolved, items };
+  }, [fabConfigResolved, approvedOwnerStore, t]);
+
+  useEffect(() => {
+    if (!fabConfigResolved) return;
+    prefetchOwnerLiteStoreQuiet();
+  }, [fabConfigResolved, approvedOwnerStore?.id]);
+  const ownerOpsAttention = approvedOwnerStore
+    ? resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown)
+    : 0;
   const { cartCount } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
   const enabled = fabConfig != null && fabConfig.items.length > 0;
   const [expandLocked, setExpandLocked] = useState(false);
@@ -212,6 +243,7 @@ export function MainBottomNavFabSector() {
 
   return (
     <BodyPortal>
+      {hubBlockedModal}
       <div
         data-testid="main-bottom-nav-fab-sector"
         data-fab-phase={phase}
@@ -237,7 +269,10 @@ export function MainBottomNavFabSector() {
                   {fabConfig.items.map((item) => {
                     const active = isMainBottomNavFabHrefActive(pathname, item.href);
                     const cartItem = isFabCartItem(item);
+                    const storeAdminItem = isMainBottomNavFabStoreAdminItem(item);
                     const showCartBadge = cartItem && cartCount > 0;
+                    const showOpsBadge = storeAdminItem && ownerOpsAttention > 0;
+                    const hubIntercept = storeAdminItem && shouldInterceptBusinessHubHref(item.href);
                     const iconTab = { icon: item.icon, lucideIcon: item.lucideIcon };
                     const rowClass = [
                       "main-bottom-nav-fab-sector__row",
@@ -258,6 +293,11 @@ export function MainBottomNavFabSector() {
                           {showCartBadge ? (
                             <span className={FAB_PANEL_CART_COUNT_BADGE_CLASS} aria-hidden>
                               {formatFabCartCountBadge(cartCount)}
+                            </span>
+                          ) : null}
+                          {showOpsBadge ? (
+                            <span className={FAB_PANEL_CART_COUNT_BADGE_CLASS} aria-hidden>
+                              {formatFabCartCountBadge(ownerOpsAttention)}
                             </span>
                           ) : null}
                         </span>
@@ -281,6 +321,7 @@ export function MainBottomNavFabSector() {
                             {...pressHandlers}
                             onClick={() => {
                               closePanel();
+                              if (hubIntercept && openBlockedModalIfNeeded()) return;
                               openBottomNavHref(item.href, true);
                             }}
                           >
@@ -298,13 +339,25 @@ export function MainBottomNavFabSector() {
                           className={rowClass}
                           data-fab-item-id={item.id}
                           aria-current={active ? "page" : undefined}
-                          aria-label={showCartBadge ? t("nav_cart_aria") : undefined}
+                          aria-label={
+                            showCartBadge
+                              ? t("nav_cart_aria")
+                              : storeAdminItem
+                                ? t("store_delivery_fab_store")
+                                : undefined
+                          }
                           {...pressHandlers}
                           onPointerDown={(e) => {
                             pressHandlers.onPointerDown(e);
                             if (!active) prefetchFabHref(item.href);
                           }}
-                          onClick={closePanel}
+                          onClick={(e) => {
+                            if (hubIntercept && openBlockedModalIfNeeded()) {
+                              e.preventDefault();
+                              return;
+                            }
+                            closePanel();
+                          }}
                         >
                           {content}
                         </Link>

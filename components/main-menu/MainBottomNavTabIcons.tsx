@@ -148,4 +148,5 @@ export const MAIN_BOTTOM_NAV_TAB_ICONS: Record<
   my: MainBottomNavMyIcon,
   cart: MainBottomNavCartIcon,
   favorites: MainBottomNavFavoritesIcon,
+  owner_hub: StoreOpsCenterStrokeIcon,
 };

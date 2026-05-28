@@ -16,10 +16,12 @@ import {
   type MainBottomNavFabStoredConfig,
   type MainBottomNavFabStoredItem,
 } from "@/lib/main-menu/main-bottom-nav-fab-types";
+import { createDefaultMainBottomNavFabItem } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
+import { buildLocalizedDefaultDeliveryFabConfig } from "@/lib/main-menu/main-bottom-nav-fab-i18n";
 import {
-  createDefaultMainBottomNavFabItem,
-  getDefaultDeliveryFabConfig,
-} from "@/lib/main-menu/resolve-main-bottom-nav-fab";
+  createMainBottomNavFabStoreAdminItem,
+  isMainBottomNavFabStoreAdminItem,
+} from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
 
 interface MainBottomNavFabInlineSectionProps {
   row: MainBottomNavAdminRow;
@@ -63,7 +65,13 @@ export function MainBottomNavFabInlineSection({
   };
 
   const applyDeliveryDefaults = () => {
-    onChange(getDefaultDeliveryFabConfig());
+    onChange(buildLocalizedDefaultDeliveryFabConfig(t));
+  };
+
+  const addStoreAdminItem = () => {
+    if (items.some((item) => isMainBottomNavFabStoreAdminItem(item))) return;
+    const next = [createMainBottomNavFabStoreAdminItem(t("store_delivery_fab_store")), ...items];
+    setItems(next, true);
   };
 
   const patchItem = (index: number, patch: Partial<MainBottomNavFabStoredItem>) => {
@@ -104,14 +112,26 @@ export function MainBottomNavFabInlineSection({
         </div>
         <div className="flex flex-wrap gap-1.5">
           {row.id === "stores" ? (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={applyDeliveryDefaults}
-              className="rounded border border-violet-300 bg-white px-2 py-0.5 sam-text-xxs text-violet-900 hover:bg-violet-50"
-            >
-              {t("admin_menu_bottom_fab_apply_defaults")}
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={applyDeliveryDefaults}
+                className="rounded border border-violet-300 bg-white px-2 py-0.5 sam-text-xxs text-violet-900 hover:bg-violet-50"
+              >
+                {t("admin_menu_bottom_fab_apply_defaults")}
+              </button>
+              <button
+                type="button"
+                disabled={
+                  disabled || items.some((item) => isMainBottomNavFabStoreAdminItem(item))
+                }
+                onClick={addStoreAdminItem}
+                className="rounded border border-emerald-400 bg-emerald-50 px-2 py-0.5 sam-text-xxs text-emerald-900 hover:bg-emerald-100 disabled:opacity-40"
+              >
+                {t("admin_menu_bottom_fab_add_store_admin")}
+              </button>
+            </>
           ) : null}
           <button
             type="button"
@@ -134,6 +154,11 @@ export function MainBottomNavFabInlineSection({
         </div>
       </div>
 
+      {row.id === "stores" ? (
+        <p className="mb-2 sam-text-xxs leading-relaxed text-violet-900/80">
+          {t("admin_menu_bottom_fab_store_admin_hint")}
+        </p>
+      ) : null}
       {!enabled || items.length === 0 ? (
         <p className="sam-text-helper text-sam-muted">{t("admin_menu_bottom_fab_empty_inline")}</p>
       ) : (

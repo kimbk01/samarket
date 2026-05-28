@@ -13,6 +13,8 @@ import {
   type MainBottomNavFabStoredConfig,
   type MainBottomNavFabStoredItem,
 } from "@/lib/main-menu/main-bottom-nav-fab-types";
+import { createMainBottomNavFabStoreAdminItem } from "@/lib/main-menu/main-bottom-nav-fab-store-admin";
+import { OWNER_ROUTES_BASE } from "@/lib/business/owner-routes";
 
 /** 1차 FAB 노출 — 배달 허브(browse·search)·장바구니·주문내역 */
 export function isMainBottomNavFabDeliverySurface(pathname: string | null | undefined): boolean {
@@ -23,32 +25,34 @@ export function isMainBottomNavFabDeliverySurface(pathname: string | null | unde
   return false;
 }
 
+/** 코드·테스트용 구조 — 사용자 표시 라벨은 `localizeMainBottomNavFabDisplayItems` */
 export const DEFAULT_DELIVERY_FAB_ITEMS: readonly MainBottomNavFabStoredItem[] = [
+  { ...createMainBottomNavFabStoreAdminItem(), label: "Store" },
   {
     id: "fab_delivery_orders",
     visible: true,
-    label: "주문내역",
+    label: "Orders",
     href: "/orders",
     icon: "orders",
   },
   {
     id: "fab_delivery_cart",
     visible: true,
-    label: "장바구니",
+    label: "Cart",
     href: "/stores/cart",
     icon: "cart",
   },
   {
     id: "fab_delivery_order_chat",
     visible: true,
-    label: "주문채팅",
+    label: "Order chat",
     href: mainBottomNavMessengerTabHref("delivery"),
     icon: "chat",
   },
   {
     id: "fab_delivery_home",
     visible: true,
-    label: "배달 홈",
+    label: "Delivery home",
     href: "/stores",
     icon: "home",
   },
@@ -113,6 +117,9 @@ export function isMainBottomNavFabHrefActive(
   if (target === "/orders") return isDeliveryOrderHistoryBottomNavPath(p);
   if (target === "/stores/cart") return isDeliveryCartBottomNavPath(p);
   if (target === "/stores") return p === "/stores";
+  if (target === OWNER_ROUTES_BASE || target.startsWith(`${OWNER_ROUTES_BASE}/`)) {
+    return p === OWNER_ROUTES_BASE || p.startsWith(`${OWNER_ROUTES_BASE}/`);
+  }
   if (p === target || p.startsWith(`${target}/`)) return true;
   const qIdx = href.indexOf("?");
   if (qIdx >= 0) {
