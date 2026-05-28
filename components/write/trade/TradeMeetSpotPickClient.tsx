@@ -477,8 +477,8 @@ export function TradeMeetSpotPickClient() {
   }, [geocodedLine, addressTouched]);
 
   useEffect(() => {
-    void loadGoogleMaps().catch(() => setMapsError("지도를 불러올 수 없습니다."));
-  }, []);
+    void loadGoogleMaps().catch(() => setMapsError(t("trade_write_meet_spot_maps_load_fail")));
+  }, [t]);
 
   useEffect(() => {
     setDomReady(true);
@@ -533,12 +533,12 @@ export function TradeMeetSpotPickClient() {
           if (cancelled) return;
           setAddressPredictions(rows);
           if (!rows.length && q.length >= 3) {
-            setManualAddressForwardHint("비슷한 장소를 찾지 못했습니다. 다른 표현으로 검색해 보세요.");
+            setManualAddressForwardHint(t("trade_write_meet_spot_no_similar"));
           }
         } catch {
           if (!cancelled) {
             setAddressPredictions([]);
-            setManualAddressForwardHint("주소 검색 중 오류가 났습니다.");
+            setManualAddressForwardHint(t("trade_write_meet_spot_search_error"));
           }
         } finally {
           if (!cancelled) setAddressPredictionsBusy(false);
@@ -550,7 +550,7 @@ export function TradeMeetSpotPickClient() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [manualSearchQuery, closing, mapsError]);
+  }, [manualSearchQuery, closing, mapsError, t]);
 
   const applyPlacePrediction = useCallback(async (row: PlacePredictionRow) => {
     userInteractionRef.current = true;
@@ -568,7 +568,7 @@ export function TradeMeetSpotPickClient() {
       } else {
         const geo = await geocodeDisplayLineToLatLng(row.description);
         if (!geo) {
-          setManualAddressForwardHint("선택한 장소 좌표를 불러오지 못했습니다.");
+          setManualAddressForwardHint(t("trade_write_meet_spot_coord_load_fail"));
           return;
         }
         setMarker({ lat: geo.lat, lng: geo.lng });
@@ -577,11 +577,11 @@ export function TradeMeetSpotPickClient() {
       setManualSearchQuery(row.description);
       setAddressTouched(false);
     } catch {
-      setManualAddressForwardHint("장소 정보를 불러오지 못했습니다.");
+      setManualAddressForwardHint(t("trade_write_meet_spot_place_load_fail"));
     } finally {
       setPredictionPickBusy(false);
     }
-  }, []);
+  }, [t]);
 
   const restoreRepresentativePin = useCallback(() => {
     if (!representativeCenter) return;
@@ -595,8 +595,12 @@ export function TradeMeetSpotPickClient() {
   }, [representativeCenter]);
 
   const fallbackCoordLine = useMemo(
-    () => `선택한 좌표 (${marker.lat.toFixed(5)}, ${marker.lng.toFixed(5)})`,
-    [marker.lat, marker.lng]
+    () =>
+      t("trade_write_meet_spot_coord_selected", {
+        lat: marker.lat.toFixed(5),
+        lng: marker.lng.toFixed(5),
+      }),
+    [marker.lat, marker.lng, t]
   );
 
   const navigateBack = useCallback(
@@ -721,7 +725,7 @@ export function TradeMeetSpotPickClient() {
                       onClick={restoreRepresentativePin}
                       className="sam-text-helper shrink-0 rounded-sam-sm px-1 py-0.5 font-medium text-sam-primary underline-offset-2 hover:underline disabled:pointer-events-none disabled:opacity-40"
                     >
-                      대표 주소로 복귀
+                      {t("trade_write_meet_spot_rep_address_reset")}
                     </button>
                   ) : null}
                 </div>
@@ -776,11 +780,11 @@ export function TradeMeetSpotPickClient() {
                 </div>
                 {addressPredictionsBusy ? (
                   <p className="mt-1.5 text-[12px] text-sam-muted" aria-live="polite">
-                    비슷한 장소를 찾는 중…
+                    {t("trade_write_meet_spot_searching")}
                   </p>
                 ) : predictionPickBusy ? (
                   <p className="mt-1.5 text-[12px] text-sam-muted" aria-live="polite">
-                    선택한 장소로 핀을 옮기는 중…
+                    {t("trade_write_meet_spot_moving_pin")}
                   </p>
                 ) : manualAddressForwardHint ? (
                   <p className="mt-1.5 text-[12px] text-sam-warning" role="status">
@@ -804,12 +808,16 @@ export function TradeMeetSpotPickClient() {
                   }}
                   rows={3}
                   maxLength={240}
-                  placeholder={geocodeBusy ? "주소 불러오는 중…" : "글에 보일 만남 장소 안내 (짧게 다듬기)"}
+                  placeholder={
+                    geocodeBusy
+                      ? t("trade_write_meet_spot_geocode_busy")
+                      : t("trade_write_meet_spot_display_placeholder")
+                  }
                   className={`${Sam.input.textarea} resize-none rounded-ui-rect min-h-[96px] bg-sam-app shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-sam-border`}
                 />
               </label>
               <p className="mt-2 text-[12px] leading-snug text-sam-muted">
-                「취소」는 주소를 저장하지 않고 거래 글쓰기로 돌아갑니다.
+                {t("trade_write_meet_spot_cancel_hint")}
               </p>
             </div>
           </div>
@@ -830,7 +838,7 @@ export function TradeMeetSpotPickClient() {
                       onClick={handleCancel}
                       className="flex-1 rounded-ui-rect border border-sam-border py-3.5 sam-text-body font-medium text-sam-fg active:bg-sam-surface-muted disabled:opacity-60"
                     >
-                      취소
+                      {t("common_cancel")}
                     </button>
                     <button
                       type="button"
@@ -838,7 +846,7 @@ export function TradeMeetSpotPickClient() {
                       onClick={handleConfirm}
                       className="flex-[1.4] rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white shadow-sm disabled:opacity-40"
                     >
-                      이 주소로 확인 · 글쓰기로
+                      {t("trade_write_meet_spot_confirm_write")}
                     </button>
                   </div>
                 </div>,
@@ -852,13 +860,13 @@ export function TradeMeetSpotPickClient() {
       open={cancelChangeConfirmOpen}
       onCancel={() => setCancelChangeConfirmOpen(false)}
       title={t("trade_019")}
-      description="지도에서 바꾼 위치는 저장되지 않고 글쓰기로 돌아갑니다."
-      cancelLabel="계속 수정"
-      confirmLabel="변경 취소 후 나가기"
+      description={t("trade_write_meet_spot_exit_alt_body")}
+      cancelLabel={t("trade_write_meet_spot_exit_alt_stay")}
+      confirmLabel={t("trade_write_meet_spot_exit_alt_leave")}
       confirmTone="primary"
       onConfirm={handleConfirmDiscardMeetSpotChange}
       zIndexClass="z-[145]"
-      ariaLabel="거래 희망 장소 변경 취소 확인"
+      ariaLabel={t("trade_write_meet_spot_exit_alt_aria")}
       interactionMode="blocking"
     />
     </>

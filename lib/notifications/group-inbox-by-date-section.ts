@@ -1,6 +1,6 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
-import { translate } from "@/lib/i18n/messages";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 
 function startOfLocalDay(d: Date): number {
@@ -58,8 +58,8 @@ export function groupInboxItemsByDateSection(
   return keys.map((key) => {
     const list = buckets.get(key) ?? [];
     let sectionLabel: string;
-    if (key === "today") sectionLabel = translate(language, "notif_section_today");
-    else if (key === "yesterday") sectionLabel = translate(language, "notif_section_yesterday");
+    if (key === "today") sectionLabel = notifySafeT(language, "notif_section_today");
+    else if (key === "yesterday") sectionLabel = notifySafeT(language, "notif_section_yesterday");
     else {
       const ms = Number(key.slice(2));
       sectionLabel = new Date(ms).toLocaleDateString(locale, {

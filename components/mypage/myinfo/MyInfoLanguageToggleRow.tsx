@@ -32,7 +32,8 @@ export function MyInfoLanguageToggleRow({
   icon?: ReactNode;
   first?: boolean;
 }) {
-  const { language, setLanguage, t } = useI18n();
+  const { language, languagePreference, setLanguage, t } = useI18n();
+  const activeLanguage = languagePreference ?? language;
   const groupLabel = t("mypage_comp_menu_account_language_title");
 
   return (
@@ -45,7 +46,7 @@ export function MyInfoLanguageToggleRow({
       <span className={`min-w-0 flex-1 ${MYPAGE_HOME_MENU_TITLE_CLASS}`}>{groupLabel}</span>
       <div className={MYPAGE_HOME_SEGMENT_WRAP_CLASS} role="radiogroup" aria-label={groupLabel}>
         {LANGUAGE_OPTIONS.map((option) => {
-          const active = language === option.code;
+          const active = activeLanguage === option.code;
           return (
             <button
               key={option.code}

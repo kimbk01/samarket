@@ -22,6 +22,9 @@ export const tradeUsedCarMessages = {
     used_car_mileage_about_100k: "약 10만 km",
     used_car_mileage_about_150k: "약 15만 km",
     used_car_mileage_over_200k: "20만 km 이상",
+    used_car_body_type_label: "차량 유형",
+    used_car_year_max_label: "년식 (이하)",
+    used_car_budget_max_label: "예산 (이하)",
   },
   en: {
     used_car_select_placeholder: "Select",
@@ -45,5 +48,8 @@ export const tradeUsedCarMessages = {
     used_car_mileage_about_100k: "About 100,000 km",
     used_car_mileage_about_150k: "About 150,000 km",
     used_car_mileage_over_200k: "200,000 km or more",
+    used_car_body_type_label: "Vehicle type",
+    used_car_year_max_label: "Model year (max)",
+    used_car_budget_max_label: "Budget (max)",
   },
 };

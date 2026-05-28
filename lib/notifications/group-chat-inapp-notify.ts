@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
-import { translate } from "@/lib/i18n/messages";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 function groupChatHref(roomId: string): string {
@@ -72,9 +72,9 @@ export async function notifyGroupChatMessageRecipients(
     if (skip) continue;
 
     const language = await loadNotificationUserLanguage(sb, uid);
-    const title = translate(language, "notify_group_chat_message_title");
+    const title = notifySafeT(language, "notify_group_chat_message_title");
     const body = (
-      args.preview || translate(language, "notify_group_chat_new_message_preview")
+      args.preview || notifySafeT(language, "notify_group_chat_new_message_preview")
     ).slice(0, 200);
 
     await appendUserNotification(sb, {

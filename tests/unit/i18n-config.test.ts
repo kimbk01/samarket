@@ -10,6 +10,7 @@ import {
 } from "@/lib/i18n/config";
 import {
   detectAcceptLanguageAppLanguage,
+  readClientExplicitAppLanguage,
   resolveGuestAppLanguageCode,
 } from "@/lib/i18n/language-preference";
 
@@ -79,5 +80,15 @@ describe("getBrowserLanguage", () => {
   it("is exported and returns ko or en", () => {
     const lang = getBrowserLanguage();
     expect(lang === "ko" || lang === "en").toBe(true);
+  });
+});
+
+describe("readClientExplicitAppLanguage", () => {
+  it("prefers cached settings over empty remote", () => {
+    expect(
+      readClientExplicitAppLanguage({
+        cachedPreferredLanguage: "en",
+      })
+    ).toBe("en");
   });
 });

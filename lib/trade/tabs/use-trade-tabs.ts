@@ -89,7 +89,8 @@ export function useTradeTabs(pathname: string) {
           language,
           category.name,
           category.name_en,
-          category.slug
+          category.slug,
+          category.icon_key
         ),
         href: getCategoryHref(category),
         isActive: isTradeMarketRouteActive(pathname, category),

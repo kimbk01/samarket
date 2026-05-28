@@ -14,6 +14,7 @@ import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-in
 import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
+import { resolveNotifInboxErrorMessageKey } from "@/lib/notifications/resolve-notif-inbox-error-message";
 
 type Row = {
   id: string;
@@ -375,7 +376,14 @@ export function MyNotificationsView() {
           </button>
         </div>
       ) : null}
-      {error ? <p className="text-sm text-red-600">({error})</p> : null}
+      {error ? (
+        <p className="text-sm text-red-600">
+          {(() => {
+            const key = resolveNotifInboxErrorMessageKey(error);
+            return key ? t(key) : t("common_content_unavailable");
+          })()}
+        </p>
+      ) : null}
       <NotificationInboxByDateSections
         items={grouped}
         onItemWarm={onItemWarm}

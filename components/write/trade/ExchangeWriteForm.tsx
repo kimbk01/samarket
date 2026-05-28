@@ -86,6 +86,7 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
@@ -122,8 +123,11 @@ function formatRatesCriteria(date: Date): string {
   return `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")} ${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
-function buildExchangeTitle(direction: string): string {
-  return direction === "sell" ? "페소 팝니다" : "페소 삽니다";
+function buildExchangeTitle(
+  direction: string,
+  translate: (key: "exchange_write_dir_sell_php" | "exchange_write_dir_buy_php") => string
+): string {
+  return direction === "sell" ? translate("exchange_write_dir_sell_php") : translate("exchange_write_dir_buy_php");
 }
 
 export function ExchangeWriteForm({
@@ -136,7 +140,7 @@ export function ExchangeWriteForm({
   ownerEditSnapshot,
   tradePolicy = null,
 }: ExchangeWriteFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -512,7 +516,10 @@ export function ExchangeWriteForm({
       const uploaded = await uploadPostImages(files, user.id);
       if (uploaded.length !== files.length) {
         window.alert(
-          `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+          t("trade_write_err_upload_partial", {
+            total: String(files.length),
+            uploaded: String(uploaded.length),
+          })
         );
         return false;
       }
@@ -598,29 +605,27 @@ export function ExchangeWriteForm({
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (rateValue <= 0 || Number.isNaN(rateValue)) {
-      next.rate = "기준 환율 또는 기준+가산을 입력해 주세요.";
+      next.rate = t("exchange_write_err_rate");
     }
     if (!amount.trim() || Number.isNaN(Number(amount.replace(/,/g, ""))) || Number(amount.replace(/,/g, "")) <= 0) {
-      next.amount = "금액을 입력해 주세요.";
+      next.amount = t("exchange_write_err_amount");
     }
     if (direction === "sell") {
       if (buyerPrep.length === 0) {
-        next.prep = "구매자 준비물을 한 가지 이상 선택해 주세요.";
+        next.prep = t("exchange_write_err_buyer_prep");
       }
     } else if (sellerPrep.length === 0 || buyerPrep.length === 0) {
-      next.prep =
-        "페소 삽니다: 판매자 준비물·구매자 준비물을 각각 한 가지 이상 선택해 주세요.";
+      next.prep = t("exchange_write_err_both_prep");
     }
     if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
-      next.location =
-        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
+      next.location = t("trade_write_err_region_read");
     }
     if (!tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
         representativeTradeMeetFallbackLine?.trim() ||
         getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
       if (!fallbackLine) {
-        next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
+        next.meetSpot = t("trade_write_err_meet_spot");
       }
     }
     setErrors(next);
@@ -636,6 +641,7 @@ export function ExchangeWriteForm({
     effectiveTradeCityId,
     tradeMeetSpot,
     representativeTradeMeetFallbackLine,
+    t,
   ]);
 
   const handleSubmit = useCallback(
@@ -660,8 +666,8 @@ export function ExchangeWriteForm({
           .filter((u): u is string => typeof u === "string" && u.length > 0 && !u.startsWith("blob:"));
         const mergedImageUrls = [...existingUrls, ...uploaded];
 
-        const title = buildExchangeTitle(direction);
-        const content = memo.trim() || "환전 거래합니다. 매너와 속도가 중요해요.";
+        const title = buildExchangeTitle(direction, t);
+        const content = memo.trim() || t("exchange_write_default_memo");
         let meta: Record<string, unknown> = {
           exchange_direction: direction,
           from_currency: "PHP",
@@ -774,6 +780,11 @@ export function ExchangeWriteForm({
     [liveRates]
   );
 
+  const categoryLabel = useMemo(
+    () => resolveWriteCategoryUILabel(language, category),
+    [language, category]
+  );
+
   const tradeLocationEl = (
     <div id={TRADE_MEET_SPOT_SCROLL_ANCHOR_ID} className={coreLocked ? "pointer-events-none opacity-60" : ""}>
       <TradeDefaultLocationBlock
@@ -789,7 +800,7 @@ export function ExchangeWriteForm({
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
         onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
-        meetSpotHeading="위치"
+        meetSpotHeading={t("trade_write_location")}
         denseLayout
       />
     </div>
@@ -807,20 +818,24 @@ export function ExchangeWriteForm({
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
         title={t("trade_099")}
-        description="이전에 입력한 내용을 불러올까요?"
-        secondaryLabel="새로 작성"
+        description={t("trade_write_draft_resume_body")}
+        secondaryLabel={t("trade_write_draft_resume_new")}
         onSecondary={handleDiscardExchangePersistedDraft}
-        primaryLabel="이어쓰기"
+        primaryLabel={t("trade_write_draft_resume_continue")}
         onPrimary={handleResumeExchangePersistedDraft}
         primaryTone="primary"
         zIndexClass="z-[72]"
-        ariaLabel="환전 임시 저장 글 복구"
+        ariaLabel={t("exchange_write_draft_aria")}
         interactionMode="blocking"
       />
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}
-          title={editPostId ? `${category.name} · 수정` : `${category.name} · 글쓰기`}
+          title={
+            editPostId
+              ? `${categoryLabel} · ${t("exchange_write_header_edit")}`
+              : `${categoryLabel} · ${t("exchange_write_header_post")}`
+          }
           backHref={backHref}
           onRequestClose={onCancel}
         />
@@ -835,7 +850,7 @@ export function ExchangeWriteForm({
         <div className={TRADE_WRITE_FB_INPUT_REGION_BAR}>
           <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>{t("trade_010")}</p>
           <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-[#65676B]">
-            사진·환율·금액·만남 장소 등 아래 내용만 글에 저장됩니다.
+            {t("exchange_write_intro_hint")}
           </p>
         </div>
 
@@ -844,7 +859,7 @@ export function ExchangeWriteForm({
             value={images}
             onChange={setImages}
             maxCount={maxImages}
-            label="사진"
+            label={t("trade_write_photos")}
             disabled={coreLocked}
             compact={false}
             variant="karrot"
@@ -872,7 +887,7 @@ export function ExchangeWriteForm({
                   direction === opt.value ? "border-sam-border bg-sam-surface-dark text-white" : "border-sam-border bg-sam-surface text-sam-fg"
                 }`}
               >
-                {opt.value === "sell" ? "페소 팝니다" : "페소 삽니다"}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
@@ -884,7 +899,7 @@ export function ExchangeWriteForm({
           <div className="mt-1 overflow-hidden rounded-ui-rect border border-slate-800 bg-white shadow-sm">
             <div className={EXCHANGE_WRITE_REFERENCE_BAR_CLASS}>
               <span className="shrink-0 text-[12px] font-semibold leading-none tracking-tight">
-                참고 시세
+                {t("exchange_write_reference_rate")}
               </span>
               <span className="min-w-0 text-right font-mono text-[12px] font-medium leading-snug tabular-nums text-slate-100">
                 {ratesLoading ? (
@@ -953,8 +968,10 @@ export function ExchangeWriteForm({
                 </p>
                 {ratePlusValue !== 0 && baseRateValue > 0 && !Number.isNaN(baseRateValue) ? (
                   <p className="mt-1.5 text-center text-[11px] font-normal tabular-nums leading-snug text-[#65676B]">
-                    기준 {baseRateValue.toFixed(2)} + {ratePlusValue >= 0 ? "+" : ""}
-                    {ratePlusValue}
+                    {t("exchange_write_rate_base_plus", {
+                      base: baseRateValue.toFixed(2),
+                      plus: `${ratePlusValue >= 0 ? "+" : ""}${ratePlusValue}`,
+                    })}
                   </p>
                 ) : null}
               </div>
@@ -968,7 +985,7 @@ export function ExchangeWriteForm({
                   className={`mb-1.5 block ${EXCHANGE_WRITE_FIELD_TITLE_CLASS} leading-tight`}
                   htmlFor="exchange-write-amount-php"
                 >
-                  금액 (페소)
+                  {t("exchange_write_amount_php")}
                 </label>
                 <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
                   <span className="shrink-0 text-[15px] font-medium text-sam-muted">{CURRENCY_SYMBOLS.PHP}</span>
@@ -996,7 +1013,7 @@ export function ExchangeWriteForm({
             <>
               <p className="mb-2 sam-text-body font-medium text-sam-fg">{t("trade_125")}</p>
               <p className="mb-2 sam-text-helper leading-relaxed text-sam-muted">
-                페소를 파는 분이 갖춰야 할 항목을 선택해 주세요.
+                {t("exchange_write_seller_prep_hint")}
               </p>
               <div className="mb-4 flex flex-wrap gap-2">
                 {PREP_OPTIONS.map((opt) => {
@@ -1013,7 +1030,7 @@ export function ExchangeWriteForm({
                         onChange={() => togglePrep(setSellerPrep, opt.value)}
                         className="rounded border-sam-border"
                       />
-                      <span className={`sam-text-body-secondary ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{opt.label}</span>
+                      <span className={`sam-text-body-secondary ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{t(opt.labelKey)}</span>
                     </label>
                   );
                 })}
@@ -1023,8 +1040,8 @@ export function ExchangeWriteForm({
           <p className="mb-2 sam-text-body font-medium text-sam-fg">{t("trade_032")}</p>
           <p className="mb-2 sam-text-helper leading-relaxed text-sam-muted">
             {direction === "sell"
-              ? "페소를 사는 분이 준비할 항목을 선택해 주세요."
-              : "내가(페소 구매자) 준비할 항목을 선택해 주세요."}
+              ? t("exchange_write_buyer_prep_sell")
+              : t("exchange_write_buyer_prep_buy")}
           </p>
           <div className="flex flex-wrap gap-2">
             {PREP_OPTIONS.map((opt) => {
@@ -1041,7 +1058,7 @@ export function ExchangeWriteForm({
                     onChange={() => togglePrep(setBuyerPrep, opt.value)}
                     className="rounded border-sam-border"
                   />
-                  <span className={`sam-text-body-secondary ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{opt.label}</span>
+                  <span className={`sam-text-body-secondary ${disabled ? "text-sam-meta" : "text-sam-fg"}`}>{t(opt.labelKey)}</span>
                 </label>
               );
             })}
@@ -1054,7 +1071,7 @@ export function ExchangeWriteForm({
 
         <section className={TRADE_WRITE_FB_SECTION}>
           <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-            내용 <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
+            {t("trade_write_content")} <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
           </h4>
           <AutoGrowTextarea
             value={memo}
@@ -1070,7 +1087,7 @@ export function ExchangeWriteForm({
                 className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
                 onClick={() => setFrequentPhrasesOpen(true)}
               >
-                자주 쓰는 문구
+                {t("trade_write_frequent_phrases")}
               </button>
               <TradeFrequentPhrasesSheet
                 open={frequentPhrasesOpen}
@@ -1098,9 +1115,9 @@ export function ExchangeWriteForm({
         {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
 
         <SubmitButton
-          label={editPostId ? "수정 완료" : "작성 완료"}
+          label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
           submitting={submitting}
-          submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
+          submittingLabel={editPostId ? t("trade_write_submitting_edit") : t("trade_write_submitting")}
           onCancel={onCancel}
         />
       </form>

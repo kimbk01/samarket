@@ -25,10 +25,14 @@ alwaysApply: false
 
 ## 단계 게이트
 
+**개발 중** (`samarket-i18n-output-regulation.mdc` · `samarket-dev-inspection-regulation.mdc`):
+
 ```bash
-npm run check:i18n
+npm run check:i18n-staged
 node scripts/check-hardcoded-korean.mjs <이번 단계 경로만>
 ```
+
+**`git add` 직전** — `npm run verify:i18n-key-exposure` (lint·tsc와 함께, build 제외).
 
 ## 작업 절차
 

@@ -58,7 +58,7 @@ export function LocationSelector({
   onRegionChange,
   onCityChange,
   error,
-  label = "거래 지역",
+  label,
   embedded = false,
   className = "",
   showRequired = true,
@@ -67,6 +67,7 @@ export function LocationSelector({
   onPhilippinesZipCommitted,
 }: LocationSelectorProps) {
   const { t } = useI18n();
+  const resolvedLabel = label ?? t("trade_write_trade_region");
   const selectedRegion = REGIONS.find((r) => r.id === region);
   const cities = selectedRegion?.cities ?? [];
   const [zipDraft, setZipDraft] = useState("");
@@ -144,11 +145,11 @@ export function LocationSelector({
     if (isPhilippinesZipInputComplete(zipDraft)) {
       const hit = lookupLocationByPhilippinesZip(zipDraft);
       if (!hit) {
-        setZipMessage("매칭되는 지역이 없습니다.");
+        setZipMessage(t("trade_write_location_zip_no_match"));
         return;
       }
       if (!isValidRegionCity(hit.regionId, hit.cityId)) {
-        setZipMessage("목록에 없는 조합입니다.");
+        setZipMessage(t("trade_write_location_zip_invalid_combo"));
         return;
       }
       onRegionChange(hit.regionId);
@@ -164,7 +165,7 @@ export function LocationSelector({
     }
 
     if (!city || zipCodesForLocation.length === 0) {
-      setZipMessage("4자리 ZIP을 입력하거나 지역·동네를 선택해 주세요.");
+      setZipMessage(t("trade_write_location_zip_or_select"));
       return;
     }
     const fin = finalizePhilippinesZipCode(zipDraft);
@@ -182,12 +183,13 @@ export function LocationSelector({
     onPhilippinesZipCommitted,
     setZipDraft,
     setZipMessage,
+    t,
   ]);
 
   const inner = (
     <>
       <p className="mb-2 sam-text-body font-medium text-sam-fg">
-        {label}
+        {resolvedLabel}
         {showRequired ? (
           <>
             {" "}
@@ -205,9 +207,9 @@ export function LocationSelector({
             }}
             className={OWNER_STORE_SELECT_CLASS}
             aria-invalid={!!error}
-            aria-label="Select region"
+            aria-label={t("trade_write_location_select_region")}
           >
-            <option value="">Select region</option>
+            <option value="">{t("trade_write_location_select_region")}</option>
             {REGIONS.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}
@@ -222,9 +224,9 @@ export function LocationSelector({
             className={OWNER_STORE_SELECT_CLASS}
             disabled={!region}
             aria-invalid={!!error}
-            aria-label="Select area"
+            aria-label={t("trade_write_location_select_area")}
           >
-            <option value="">Select area</option>
+            <option value="">{t("trade_write_location_select_area")}</option>
             {cities.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -237,8 +239,7 @@ export function LocationSelector({
         <div className="mt-3">
           <p className={OWNER_STORE_FORM_LEAD_CLASS}>{t("ui_write_zip_philpost_label")}</p>
           <p className="mb-2 sam-text-helper leading-snug text-sam-muted">
-            숫자 4자리를 입력하면 지역·동네가 자동으로 맞춰집니다. 3자리만 입력한 뒤에는 「적용」으로
-            앞에 0을 붙여 확정할 수 있습니다.
+            {t("trade_write_location_zip_hint")}
           </p>
           <div className="grid min-w-0 grid-cols-[1fr_auto] items-stretch gap-2">
             <input
@@ -255,7 +256,7 @@ export function LocationSelector({
                 if (!code) return;
                 const hit = lookupLocationByPhilippinesZip(code);
                 if (!hit || !isValidRegionCity(hit.regionId, hit.cityId)) {
-                  setZipMessage("매칭되는 지역이 없습니다.");
+                  setZipMessage(t("trade_write_location_zip_no_match"));
                 } else {
                   setZipMessage(null);
                 }
@@ -271,7 +272,7 @@ export function LocationSelector({
               aria-label={t("ui_write_zip_philpost_aria")}
             />
             <button type="button" onClick={applyZipOrNeighborhood} className={OWNER_STORE_AUX_BUTTON_INLINE_COMPACT_CLASS}>
-              적용
+              {t("trade_write_location_zip_apply")}
             </button>
           </div>
           {zipMessage ? (

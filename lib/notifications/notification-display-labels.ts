@@ -1,5 +1,6 @@
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
-import { translate } from "@/lib/i18n/messages";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 
 /** 인앱 알림 목록 UI용 짧은 라벨 */
 export function notificationTypeLabel(
@@ -8,19 +9,19 @@ export function notificationTypeLabel(
 ): string {
   switch (notificationType) {
     case "commerce":
-      return translate(language, "notify_type_commerce");
+      return notifySafeT(language, "notify_type_commerce");
     case "chat":
-      return translate(language, "notify_type_chat");
+      return notifySafeT(language, "notify_type_chat");
     case "status":
-      return translate(language, "notify_type_status");
+      return notifySafeT(language, "notify_type_status");
     case "review":
-      return translate(language, "notify_type_review");
+      return notifySafeT(language, "notify_type_review");
     case "report":
-      return translate(language, "notify_type_report");
+      return notifySafeT(language, "notify_type_report");
     case "system":
-      return translate(language, "notify_type_system");
+      return notifySafeT(language, "notify_type_system");
     default:
-      return notificationType || translate(language, "notify_type_default");
+      return notifySafeT(language, "notify_type_default");
   }
 }
 
@@ -30,7 +31,7 @@ export function commerceMetaKindLabel(
   language: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): string | null {
   if (typeof kind !== "string" || !kind) return null;
-  const m: Record<string, Parameters<typeof translate>[1]> = {
+  const m: Record<string, MessageKey> = {
     store_order_created: "notify_kind_store_order_created",
     store_order_accept_reminder_30s: "notify_kind_store_order_created",
     store_order_accept_reminder_60s: "notify_kind_store_order_created",
@@ -43,5 +44,5 @@ export function commerceMetaKindLabel(
     store_order_auto_completed: "notify_kind_store_order_auto_completed",
   };
   const key = m[kind];
-  return key ? translate(language, key) : null;
+  return key ? notifySafeT(language, key) : null;
 }

@@ -932,7 +932,7 @@ export function PhilifeHeaderNotificationInbox({
 
                 {showListLoading ? (
 
-                  <p className="px-2 py-2 sam-text-helper text-sam-muted">…</p>
+                  <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
 
                 ) : (
 
@@ -988,7 +988,7 @@ export function PhilifeHeaderNotificationInbox({
 
                   >
 
-                    {soundOn ? "ON" : "OFF"}
+                    {soundOn ? t("notif_toggle_on") : t("notif_toggle_off")}
 
                   </button>
 

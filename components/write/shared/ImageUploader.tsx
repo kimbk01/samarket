@@ -29,12 +29,13 @@ export function ImageUploader({
   value,
   onChange,
   maxCount = 10,
-  label = "사진",
+  label,
   disabled = false,
   compact = false,
   variant = "default",
 }: ImageUploaderProps) {
   const { t } = useI18n();
+  const resolvedLabel = label ?? t("trade_write_photos");
   const inputRef = useRef<HTMLInputElement>(null);
   const isKarrot = variant === "karrot";
   const [editorIndex, setEditorIndex] = useState<number | null>(null);
@@ -88,7 +89,7 @@ export function ImageUploader({
           className={`border-b border-sam-border-soft bg-sam-surface px-4 ${compact ? "py-2" : "py-3"} ${disabled ? "opacity-60" : ""}`}
         >
           <div className={compact ? "mb-1.5" : "mb-2"}>
-            <span className="text-[15px] font-bold text-sam-fg">{label}</span>
+            <span className="text-[15px] font-bold text-sam-fg">{resolvedLabel}</span>
           </div>
 
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -113,13 +114,13 @@ export function ImageUploader({
                   type="button"
                   disabled={disabled}
                   className="absolute inset-0 z-0"
-                  aria-label={`사진 ${index + 1} 편집`}
+                  aria-label={t("trade_write_image_edit_aria", { index: String(index + 1) })}
                   onClick={() => setEditorIndex(index)}
                 />
                 <img src={item.url} alt="" className="pointer-events-none h-full w-full object-cover" />
                 {index === 0 ? (
                   <span className="pointer-events-none absolute bottom-0 left-0 right-0 bg-black/55 py-0.5 text-center sam-text-xxs leading-tight text-white">
-                    대표 사진
+                    {t("trade_write_cover_photo")}
                   </span>
                 ) : null}
                 {!disabled ? (
@@ -173,7 +174,7 @@ export function ImageUploader({
       className={`border-b border-sam-border-soft bg-sam-surface px-4 ${compact ? "py-2" : "py-4"} ${disabled ? "opacity-60" : ""}`}
     >
       <p className={`sam-text-body font-medium text-sam-fg ${compact ? "mb-1.5 leading-tight" : "mb-3"}`}>
-        {label}
+        {resolvedLabel}
       </p>
       <div className={`flex gap-2 overflow-x-auto ${compact ? "pb-0" : "pb-1"}`}>
         {value.map((item, index) => (

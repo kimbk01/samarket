@@ -87,7 +87,7 @@ export function SearchFilterBar({
           <option value="">{safeT("common_all_category")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.slug}>
-              {resolveTradeCategoryUILabel(language, c.name, c.name_en, c.slug)}
+              {resolveTradeCategoryUILabel(language, c.name, c.name_en, c.slug, c.icon_key)}
             </option>
           ))}
         </select>

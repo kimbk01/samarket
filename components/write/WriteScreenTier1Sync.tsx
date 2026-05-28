@@ -90,7 +90,7 @@ export function WriteScreenTier1Sync({
                 {t("ui_write_continue_writing")}
               </button>
               <button type="button" onClick={handleConfirmLeave} className="sam-btn sam-btn--primary flex-1">
-                취소
+                {t("ui_write_cancel_confirm")}
               </button>
             </div>
           }

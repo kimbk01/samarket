@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import {
   readDiBaYNotificationPromptState,
@@ -26,6 +27,7 @@ function isAuthExcludedPath(path: string): boolean {
  * POST_NOTIFICATIONS(iOS/Android PWA)는 브라우저/OS가 처리 — 거부 시 재요청하지 않음.
  */
 export function DiBaYNotificationOnboardingGate() {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const [open, setOpen] = useState(false);
@@ -102,13 +104,13 @@ export function DiBaYNotificationOnboardingGate() {
     >
       <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
         <p id="dibay-notif-onboard-title" className="sam-text-body font-semibold text-sam-fg">
-          디바이 알림을 받을까요?
+          {t("dibay_notif_prompt_title")}
         </p>
         <p className="mt-2 sam-text-body-secondary text-sam-muted">
-          채팅, 거래, 주문, 공지 알림을 받을 수 있습니다.
+          {t("dibay_notif_prompt_body")}
         </p>
         <p className="mt-3 text-[11px] leading-snug text-sam-muted">
-          광고/이벤트 알림은 내정보에서 별도 설정할 수 있습니다.
+          {t("dibay_notif_prompt_marketing_hint")}
         </p>
         <div className="mt-5 flex gap-3">
           <button
@@ -117,7 +119,7 @@ export function DiBaYNotificationOnboardingGate() {
             onClick={onLater}
             className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg"
           >
-            나중에
+            {t("dibay_notif_later")}
           </button>
           <button
             type="button"
@@ -125,7 +127,7 @@ export function DiBaYNotificationOnboardingGate() {
             onClick={() => void onAccept()}
             className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white"
           >
-            {busy ? "처리 중…" : "알림 받기"}
+            {busy ? t("common_processing") : t("dibay_notif_accept")}
           </button>
         </div>
       </div>

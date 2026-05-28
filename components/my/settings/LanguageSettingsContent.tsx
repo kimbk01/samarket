@@ -4,10 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
-  getUserSettings,
+  peekUserSettingsSnapshot,
   subscribeUserSettings,
   syncUserSettings,
-  updateUserSettings,
 } from "@/lib/settings/user-settings-store";
 import { SUPPORTED_APP_LANGUAGES, type AppLanguageCode } from "@/lib/i18n/config";
 
@@ -23,7 +22,8 @@ function choiceLabel(
 
 /** 앱 UI 언어 — source of truth: user_settings + AppLanguageProvider (profiles 미사용) */
 export function LanguageSettingsContent() {
-  const { language, setLanguage, t } = useI18n();
+  const { language, languagePreference, setLanguage, t } = useI18n();
+  const activeLanguage = languagePreference ?? language;
   const userId = getCurrentUser()?.id ?? "me";
   const [current, setCurrent] = useState<AppLanguageCode>(language);
   const [busy, setBusy] = useState(false);
@@ -31,14 +31,14 @@ export function LanguageSettingsContent() {
   const [savedHint, setSavedHint] = useState(false);
 
   useEffect(() => {
-    setCurrent(language);
-  }, [language]);
+    setCurrent(activeLanguage);
+  }, [activeLanguage]);
 
   useEffect(() => {
     const applyCurrent = () => {
-      const explicit = getUserSettings(userId).preferred_language;
+      const explicit = peekUserSettingsSnapshot(userId).preferred_language;
       if (explicit === "ko" || explicit === "en") setCurrent(explicit);
-      else setCurrent(language);
+      else setCurrent(activeLanguage);
     };
     applyCurrent();
     void syncUserSettings(userId).then(() => applyCurrent());
@@ -46,7 +46,7 @@ export function LanguageSettingsContent() {
       if (changedUserId === userId) applyCurrent();
     });
     return unsubscribe;
-  }, [language, userId]);
+  }, [activeLanguage, userId]);
 
   const select = useCallback(
     async (choice: AppLanguageCode) => {
@@ -54,15 +54,12 @@ export function LanguageSettingsContent() {
       setBusy(true);
       setError("");
       setSavedHint(false);
-      const previous = current;
       setCurrent(choice);
       setLanguage(choice);
-
-      updateUserSettings(userId, { preferred_language: choice });
       setBusy(false);
       setSavedHint(true);
     },
-    [busy, current, setLanguage, userId]
+    [busy, current, setLanguage]
   );
 
   return (

@@ -12,7 +12,7 @@ import {
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
-  getUserSettings,
+  peekUserSettingsSnapshot,
   subscribeUserSettings,
   syncUserSettings,
   updateUserSettings,
@@ -29,10 +29,8 @@ import {
   clearLanguagePersistence,
   getStoredLanguagePreference,
   persistExplicitLanguage,
-  readExplicitLanguageCookie,
-  readExplicitLocalLanguage,
+  readClientExplicitAppLanguage,
   resolveAuthenticatedAppLanguageCode,
-  resolveGuestAppLanguageCode,
 } from "@/lib/i18n/language-preference";
 import { translateText, type MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate, type SafeTranslateOptions } from "@/lib/i18n/safe-translate";
@@ -52,31 +50,29 @@ type AppLanguageContextValue = {
 
 const AppLanguageContext = createContext<AppLanguageContextValue | null>(null);
 
+function readLoggedInExplicitLanguage(userId: string): AppLanguageCode | null {
+  return readClientExplicitAppLanguage({
+    cachedPreferredLanguage: peekUserSettingsSnapshot(userId).preferred_language,
+  });
+}
+
 function resolveClientAppLanguage(): AppLanguageCode {
   if (typeof window === "undefined") return getBrowserLanguage();
   const userId = getCurrentUser()?.id;
-  if (!userId) {
-    return resolveGuestAppLanguageCode({
-      localStorageValue: window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY),
-      cookieValue: readExplicitLanguageCookie(),
-      browserDetect: getBrowserLanguage,
-    });
-  }
-  return resolveAuthenticatedAppLanguageCode({
-    preferredLanguage: getUserSettings(userId).preferred_language,
-    localStorageValue: window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY),
-    cookieValue: readExplicitLanguageCookie(),
-    browserDetect: getBrowserLanguage,
-  });
+  const explicit = userId
+    ? readLoggedInExplicitLanguage(userId)
+    : readClientExplicitAppLanguage({});
+  if (explicit) return explicit;
+  return getBrowserLanguage();
 }
 
 function resolveClientStoredPreference(): StoredPreferredLanguage {
   if (typeof window === "undefined") return null;
   const userId = getCurrentUser()?.id;
   if (userId) {
-    return getStoredLanguagePreference(getUserSettings(userId).preferred_language);
+    return getStoredLanguagePreference(peekUserSettingsSnapshot(userId).preferred_language);
   }
-  return readExplicitLocalLanguage() ?? readExplicitLanguageCookie();
+  return readClientExplicitAppLanguage({});
 }
 
 function emitLanguageChanged(language: AppLanguageCode): void {
@@ -146,21 +142,28 @@ export function AppLanguageProvider({
       const userId = getCurrentUser()?.id;
       if (!userId) return;
 
+      const localExplicit = readLoggedInExplicitLanguage(userId);
+
       const remoteSettings = await syncUserSettings(userId).catch(() => null);
       if (cancelled) return;
 
-      const stored = getStoredLanguagePreference(remoteSettings?.preferred_language);
-      const explicit = parseExplicitAppLanguage(remoteSettings?.preferred_language);
+      const remoteExplicit = parseExplicitAppLanguage(remoteSettings?.preferred_language);
 
-      if (explicit) {
-        persistExplicitLanguage(explicit);
-        applyResolvedLanguage(explicit, explicit);
+      if (remoteExplicit) {
+        persistExplicitLanguage(remoteExplicit);
+        applyResolvedLanguage(remoteExplicit, remoteExplicit);
+        return;
+      }
+
+      if (localExplicit) {
+        persistExplicitLanguage(localExplicit);
+        applyResolvedLanguage(localExplicit, localExplicit);
         return;
       }
 
       clearLanguagePersistence();
       const resolved = resolveAuthenticatedAppLanguageCode({
-        preferredLanguage: stored,
+        preferredLanguage: null,
         browserDetect: getBrowserLanguage,
       });
       applyResolvedLanguage(null, resolved);
@@ -188,12 +191,23 @@ export function AppLanguageProvider({
     const unsubscribeSettings = subscribeUserSettings(({ userId, settings }) => {
       if (userId !== getCurrentUser()?.id) return;
       const stored = getStoredLanguagePreference(settings.preferred_language);
-      setLanguagePreferenceState(stored);
       const explicit = parseExplicitAppLanguage(settings.preferred_language);
       if (explicit) {
+        persistExplicitLanguage(explicit);
+        setLanguagePreferenceState(explicit);
         setLanguageState(explicit);
+        setRuntimeAppLanguage(explicit);
         return;
       }
+      const localExplicit = readLoggedInExplicitLanguage(userId);
+      if (localExplicit) {
+        persistExplicitLanguage(localExplicit);
+        setLanguagePreferenceState(localExplicit);
+        setLanguageState(localExplicit);
+        setRuntimeAppLanguage(localExplicit);
+        return;
+      }
+      setLanguagePreferenceState(stored);
       setLanguageState(getBrowserLanguage());
     });
 

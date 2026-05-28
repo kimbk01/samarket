@@ -1,0 +1,106 @@
+---
+description: 디바이 i18n 출력 규정 — key 미노출·번역 함수·fallback·신규 key·검사 시점
+alwaysApply: true
+---
+
+# 디바이 i18n 출력 규정
+
+**검사 시점**(개발 vs git add)은 `.cursor/rules/samarket-dev-inspection-regulation.mdc` 를 따른다.
+
+## 1. key 원문 화면 노출 금지 (FAIL 조건)
+
+다음과 같은 **i18n key 문자열**이 사용자 UI(화면·토스트·모달·뱃지·카드·빈화면·버튼)에 **그대로** 보이면 **실패**로 간주한다.
+
+- `store_delivery_ops_title_accepted`
+- `store_delivery_ops_body_preparing`
+- 기타 `snake_case` 메시지 key 패턴 (`*_title_*`, `*_body_*`, `*_label_*` 등)
+
+금지:
+- JSX에 key literal 직접 출력 `{ "store_delivery_ops_body_preparing" }`
+- DB/API에서 내려온 key 문자열을 번역 없이 렌더
+- catalog 값 = key 문자열
+
+## 2. UI 문자열은 번역 함수로만 출력
+
+| 계층 | 사용 |
+|------|------|
+| React UI | `useI18n()` → `t()` / `safeT()` |
+| safe wrapper | `safeTranslate()`, `safeTranslateText()` |
+| 서버·알림 payload | `notifySafeT()` |
+| 역검색·로그 | `translate()` — **UI 출력 경로에 직접 연결 금지** |
+
+프로젝트 표준 wrapper 외 임의 문자열 조합·key humanize(`key.replace("_", " ")`) **금지**.
+
+## 3. fallback 규정
+
+### 금지
+
+```ts
+t(key) || key
+translate(lang, key) ?? key
+safeT(key, key)
+humanizeMessageKeySlug(key)  // UI 최종 fallback 으로
+```
+
+key·slug·snake_case 토큰을 fallback 으로 쓰지 않는다.
+
+### 허용
+
+```ts
+t(key)  // Provider t → safeTranslate (내부 fallback)
+safeT(key, "준비 중입니다")  // ko/en 동일 문장 또는 safeT(key, { fallbackKo, fallbackEn })
+safeT(key, { fallbackKo: "준비 중입니다", fallbackEn: "Preparing" })
+// catalog: common_content_unavailable
+```
+
+fallback 우선순위: cross-lang 번역 → `fallbackKo`/`fallbackEn` → `common_content_unavailable` → (빈 문자열 금지, undefined/null UI 출력 금지)
+
+## 4. 신규 i18n key 추가
+
+1. **ko/en catalog 동시 추가** (`lib/i18n/catalog/*.ts`)
+2. **기본 fallback 문장** 지정 (`SafeTranslateOptions` 또는 도메인 `*_FALLBACKS`)
+3. 화면에서 **즉시 출력 확인** (key 노출·undefined 없음)
+4. key만 추가하고 번역 누락 **금지**
+5. 개발 중 빠른 확인: `npm run check:i18n-staged`
+
+## 5. 개발 중 검사 (범위만)
+
+- **수정한 화면/컴포넌트** diff 범위만 확인
+- 해당 UI에서 **key 문자열 직접 노출** 여부만 빠르게 점검
+- **전체 i18n 전수 검사 금지** (`check:i18n`, `verify:i18n-key-exposure`)
+
+## 6. `git add` 직전 — i18n 최종 검사 (전체 1회)
+
+`npm run verify:i18n-key-exposure` 가 아래를 포함한다:
+
+| 항목 | 확인 |
+|------|------|
+| key 누락 | catalog·번역 함수 참조 |
+| ko/en 누락 | 카탈로그 대칭 |
+| key 원문 노출 | JSX·catalog self-key·safeTranslate 계약 |
+| fallback 미설정 | humanize 최종 fallback 없음 |
+| undefined/null 출력 | 빈 UI·`t()` unsafe 결과 |
+
+lint·tsc와 함께 실행 — build 는 `git push` 직전.
+
+## 7. Cursor Agent 작업 규칙
+
+- i18n **key 문자열을 UI에 직접 출력하지 말 것**
+- fallback 으로 **key 반환 금지**
+- **사용자용 fallback 문장** 사용 (`common_content_unavailable`·도메인 fallback)
+- 신규 key → **ko/en 동시 생성**
+- 개발 중 **전체 i18n 구조 전수 검사하지 말 것**
+- DB/API key 값 → 렌더 단계에서 `safeTranslateText` / `notifySafeT` / 도메인 resolver
+
+## 구현 참조
+
+- `lib/i18n/safe-translate.ts` — `safeTranslate`, `defaultUnavailableFallback`
+- `components/i18n/AppLanguageProvider.tsx` — `t()`, `safeT()`
+- `lib/notifications/notify-safe-translate.ts` — `notifySafeT`, `resolveInboxNotificationDisplayText`
+- `lib/store-order-chat/store-order-ops-i18n.ts` — `STORE_ORDER_OPS_FALLBACKS`
+
+## 관련 규칙
+
+- `samarket-dev-inspection-regulation.mdc` — 3단계 게이트
+- `samarket-i18n-work-regulation.mdc` — 작업 흐름·명령
+- `samarket-pre-commit-verification.mdc` — verify:* 표

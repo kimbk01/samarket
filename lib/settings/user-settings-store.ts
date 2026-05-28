@@ -5,18 +5,19 @@
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { DEFAULT_USER_SETTINGS } from "@/lib/types/settings-db";
 import {
-  APP_LANGUAGE_CHANGED_EVENT,
-  getBrowserLanguage,
   normalizeLanguagePreferenceForStorage,
-  parseExplicitAppLanguage,
-  preferredLanguageFromDbColumn,
-  preferredLanguageToDbColumn,
+  type AppLanguageCode,
 } from "@/lib/i18n/config";
+import { mergeUserSettingsPreferredLanguage } from "@/lib/settings/reconcile-user-settings-language";
 
 const STORAGE_KEY = "kasama_user_settings";
 export const USER_SETTINGS_CHANGED_EVENT = "samarket:user-settings-changed";
 const cache = new Map<string, Partial<UserSettingsRow>>();
 const inflight = new Map<string, Promise<Partial<UserSettingsRow>>>();
+/** GET sync 시 서버 null + 로컬 explicit 업로드 — 동시·반복 PATCH 방지 */
+const languageUploadInflight = new Map<string, Promise<void>>();
+const languageUploadCooldownUntil = new Map<string, number>();
+const LANGUAGE_UPLOAD_COOLDOWN_MS = 30_000;
 
 function getStored(userId: string): Partial<UserSettingsRow> {
   if (typeof window === "undefined") return { ...DEFAULT_USER_SETTINGS };
@@ -36,15 +37,15 @@ function setStored(userId: string, partial: Partial<UserSettingsRow>): void {
 }
 
 function normalizeSettings(userId: string, partial?: Partial<UserSettingsRow> | null): Partial<UserSettingsRow> {
+  const prior = cache.get(userId) ?? getStored(userId);
   const next: Partial<UserSettingsRow> = {
     ...DEFAULT_USER_SETTINGS,
+    ...prior,
     ...partial,
     user_id: userId,
   };
   if (partial && "preferred_language" in partial) {
     next.preferred_language = normalizeLanguagePreferenceForStorage(partial.preferred_language);
-  } else if (!("preferred_language" in (partial ?? {}))) {
-    next.preferred_language = null;
   }
   return next;
 }
@@ -61,23 +62,67 @@ function emitChange(userId: string, settings: Partial<UserSettingsRow>) {
   );
 }
 
-function emitLanguageFromPreference(preference: string | null | undefined): void {
-  if (typeof window === "undefined") return;
-  const explicit = parseExplicitAppLanguage(preference);
-  const resolved = explicit ?? getBrowserLanguage();
-  window.dispatchEvent(
-    new CustomEvent(APP_LANGUAGE_CHANGED_EVENT, {
-      detail: resolved,
-    })
-  );
-}
-
 function applySettings(userId: string, partial?: Partial<UserSettingsRow> | null): Partial<UserSettingsRow> {
   const next = normalizeSettings(userId, partial);
   cache.set(userId, next);
   setStored(userId, next);
   emitChange(userId, next);
   return next;
+}
+
+function schedulePreferredLanguageUpload(userId: string, language: AppLanguageCode): void {
+  const cooldownUntil = languageUploadCooldownUntil.get(userId) ?? 0;
+  if (Date.now() < cooldownUntil) return;
+
+  const inflightKey = `${userId}:${language}`;
+  if (languageUploadInflight.has(inflightKey)) return;
+
+  const task = fetch("/api/me/settings", {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ preferred_language: language }),
+  })
+    .then(async (res) => {
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; settings?: Partial<UserSettingsRow> };
+      if (res.ok && json?.ok) {
+        languageUploadCooldownUntil.set(userId, Date.now() + LANGUAGE_UPLOAD_COOLDOWN_MS);
+        applyMergedRemoteSettings(userId, json.settings ?? { preferred_language: language }, {
+          allowUpload: false,
+        });
+        return;
+      }
+      if (!res.ok) {
+        languageUploadCooldownUntil.set(userId, Date.now() + LANGUAGE_UPLOAD_COOLDOWN_MS);
+      }
+    })
+    .catch(() => {
+      languageUploadCooldownUntil.set(userId, Date.now() + LANGUAGE_UPLOAD_COOLDOWN_MS);
+    })
+    .finally(() => {
+      languageUploadInflight.delete(inflightKey);
+    });
+
+  languageUploadInflight.set(inflightKey, task);
+}
+
+function applyMergedRemoteSettings(
+  userId: string,
+  remote: Partial<UserSettingsRow>,
+  options?: { allowUpload?: boolean }
+): Partial<UserSettingsRow> {
+  const local = cache.get(userId) ?? getStored(userId);
+  const { settings, shouldUploadToServer } = mergeUserSettingsPreferredLanguage(userId, remote, local);
+  const applied = applySettings(userId, settings);
+  if (options?.allowUpload !== false && shouldUploadToServer) {
+    schedulePreferredLanguageUpload(userId, shouldUploadToServer);
+  }
+  return applied;
+}
+
+/** `getUserSettings` sync 트리거 없이 설정 캐시만 읽기 (언어 병합·Provider용) */
+export function peekUserSettingsSnapshot(userId: string): Partial<UserSettingsRow> {
+  return cache.get(userId) ?? getStored(userId);
 }
 
 async function fetchRemoteSettings(userId: string): Promise<Partial<UserSettingsRow>> {
@@ -93,7 +138,7 @@ async function fetchRemoteSettings(userId: string): Promise<Partial<UserSettings
   if (!json?.ok) {
     throw new Error("settings_fetch_failed");
   }
-  return applySettings(userId, json.settings);
+  return applyMergedRemoteSettings(userId, json.settings ?? {});
 }
 
 /** 현재 사용자 설정 조회 (동기 스냅샷 + 백그라운드 동기화 시작) */
@@ -127,13 +172,10 @@ export async function syncUserSettings(
 
 /** 설정 일부 업데이트 (UI는 즉시 갱신하고 서버로 동기화) */
 export function updateUserSettings(userId: string, partial: Partial<UserSettingsRow>): void {
-  const next = applySettings(userId, {
+  applySettings(userId, {
     ...(cache.get(userId) ?? getStored(userId)),
     ...partial,
   });
-  if (typeof window !== "undefined" && "preferred_language" in partial) {
-    emitLanguageFromPreference(next.preferred_language);
-  }
   void fetch("/api/me/settings", {
     method: "PATCH",
     credentials: "include",
@@ -143,7 +185,7 @@ export function updateUserSettings(userId: string, partial: Partial<UserSettings
     .then(async (res) => {
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; settings?: Partial<UserSettingsRow> };
       if (res.ok && json?.ok) {
-        applySettings(userId, json.settings ?? next);
+        applyMergedRemoteSettings(userId, json.settings ?? partial, { allowUpload: false });
       }
     })
     .catch(() => {

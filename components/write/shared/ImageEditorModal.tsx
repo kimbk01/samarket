@@ -123,7 +123,7 @@ export function ImageEditorModal({
         workRef.current = canvas;
         setWorkVersion((v) => v + 1);
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "로드 실패");
+        if (!cancelled) setError(t("trade_write_image_editor_load_err"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -301,7 +301,7 @@ export function ImageEditorModal({
       onComplete(blobToFile(blob, usedAlpha ? "edited.png" : "edited.jpg"));
       onClose();
     } catch {
-      setError("저장에 실패했습니다.");
+      setError(t("trade_write_image_editor_save_err"));
     }
   };
 
@@ -359,7 +359,7 @@ export function ImageEditorModal({
           <X className="h-6 w-6" />
         </button>
         <span id="image-editor-title" className="sr-only">
-          사진 편집
+          {t("trade_write_image_editor_title")}
         </span>
         <button
           type="button"
@@ -367,7 +367,7 @@ export function ImageEditorModal({
           disabled={loading || !!error}
           className="sam-text-body font-semibold text-white hover:underline disabled:opacity-40"
         >
-          완료
+          {t("trade_write_image_editor_done")}
         </button>
       </header>
 
@@ -393,7 +393,7 @@ export function ImageEditorModal({
       {tool === "bg" ? (
         <div className="shrink-0 border-t border-white/10 px-4 py-2 text-white/90">
           <label className="flex items-center gap-3 sam-text-body-secondary">
-            유사 색 범위
+            {t("trade_write_image_editor_bg_tolerance")}
             <input
               type="range"
               min={12}
@@ -405,14 +405,14 @@ export function ImageEditorModal({
             <span className="w-8 tabular-nums">{bgTolerance}</span>
           </label>
           <p className="mt-1 sam-text-xxs text-white/50">
-            배경이 단색에 가까울 때 효과적입니다. 제품과 비슷한 색이면 일부가 함께 지워질 수 있어요.
+            {t("trade_write_image_editor_bg_hint")}
           </p>
         </div>
       ) : null}
 
       <footer className="shrink-0 border-t border-white/10 bg-neutral-950 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
         <div className="flex justify-around gap-1 px-2 pt-2">
-          {toolBtn("crop", <Crop className="stroke-[1.5]" />, "자르기")}
+          {toolBtn("crop", <Crop className="stroke-[1.5]" />, t("trade_write_image_editor_crop"))}
           <button
             type="button"
             onClick={handleRotate}
@@ -421,8 +421,8 @@ export function ImageEditorModal({
             <RotateCw className="h-6 w-6 stroke-[1.5]" />
             <span>{t("ui_write_image_rotate")}</span>
           </button>
-          {toolBtn("draw", <Pencil className="stroke-[1.5]" />, "그리기")}
-          {toolBtn("bg", <Sparkles className="stroke-[1.5]" />, "배경 지우기")}
+          {toolBtn("draw", <Pencil className="stroke-[1.5]" />, t("trade_write_image_editor_draw"))}
+          {toolBtn("bg", <Sparkles className="stroke-[1.5]" />, t("trade_write_image_editor_bg_remove"))}
         </div>
       </footer>
     </div>,

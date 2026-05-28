@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatUserAddressListPlainLine } from "@/lib/addresses/format-user-address-list-line";
 import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
 import { coerceUserAddressDTO } from "@/lib/addresses/coerce-user-address-dto";
@@ -60,11 +61,13 @@ export function TradeDefaultLocationBlock({
   meetSpotLine = null,
   meetSpotError,
   onBeforeMeetSpotPick,
-  meetSpotHeading = "거래 희망 장소",
+  meetSpotHeading,
   belowMeetSpotSlot,
   denseLayout = false,
   suppressAddressBookRegionSync = false,
 }: TradeDefaultLocationBlockProps) {
+  const { t } = useI18n();
+  const heading = meetSpotHeading?.trim() || t("trade_write_meet_spot_default");
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -100,7 +103,7 @@ export function TradeDefaultLocationBlock({
         return;
       }
       const line = formatUserAddressListPlainLine(addr).trim();
-      const nextLine = line && line !== "주소 미입력" && line !== "—" ? line : null;
+      const nextLine = line && line !== t("trade_write_address_empty") && line !== "—" ? line : null;
       displayLineRef.current = nextLine;
       setDisplayLine(nextLine);
       const inferred = inferAppLocationIdsFromUserAddress(addr);
@@ -185,7 +188,7 @@ export function TradeDefaultLocationBlock({
 
   const currentAddressText = !ready
     ? snapshotLabel ?? "…"
-    : displayLine?.trim() || snapshotLabel || "대표 주소가 없습니다. 주소 관리에서 대표 주소를 설정해 주세요.";
+    : displayLine?.trim() || snapshotLabel || t("trade_write_no_rep_address");
 
   return (
     <section
@@ -198,7 +201,7 @@ export function TradeDefaultLocationBlock({
       {!karrotMeetSpotUi ? (
         <>
           <p className="mb-2 sam-text-body font-medium text-sam-fg">
-            거래 지역 <span className="text-red-500">*</span>
+            {t("trade_write_trade_region")} <span className="text-red-500">*</span>
           </p>
           <p className="break-words sam-text-body leading-snug text-sam-fg">{currentAddressText}</p>
         </>
@@ -218,7 +221,7 @@ export function TradeDefaultLocationBlock({
                 : "sam-text-body font-semibold text-sam-fg"
             }
           >
-            {meetSpotHeading}
+            {heading}
           </p>
           {meetSpotLine?.trim() ? (
             <p
@@ -232,13 +235,13 @@ export function TradeDefaultLocationBlock({
             </p>
           ) : denseLayout ? null : (
             <p className="mt-1 min-h-[2.5rem] break-words text-[13px] leading-snug text-sam-muted">
-              지도에서 고르면 상호·주소가 반영됩니다. 미선택 시 저장·등록 시 대표 주소 기준 한 줄로 자동 저장됩니다.
+              {t("trade_write_meet_spot_map_hint")}
             </p>
           )}
           <button
             type="button"
             disabled={!onBeforeMeetSpotPick}
-            title={!onBeforeMeetSpotPick ? "지금은 위치를 바꿀 수 없습니다." : undefined}
+            title={!onBeforeMeetSpotPick ? t("trade_write_location_locked") : undefined}
             className={
               denseLayout
                 ? "mt-1.5 inline-flex w-full items-center justify-center rounded-ui-rect border border-[#ccd0d5] bg-white px-3 py-1.5 text-[13px] font-semibold text-[#050505] transition-colors hover:bg-[#f2f3f5] active:bg-[#e4e6eb] disabled:pointer-events-none disabled:opacity-50"
@@ -255,7 +258,7 @@ export function TradeDefaultLocationBlock({
               })();
             }}
           >
-            위치 선택
+            {t("trade_write_pick_location")}
           </button>
           {meetSpotError ? (
             <p className="mt-1.5 text-[12px] text-red-500">{meetSpotError}</p>
@@ -270,14 +273,14 @@ export function TradeDefaultLocationBlock({
             className="mt-3 inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app sm:w-auto"
             onClick={() => void handleNavigateToAddresses()}
           >
-            주소 관리로 변경
+            {t("trade_write_manage_addresses")}
           </button>
         ) : (
           <Link
             href={addressesHref}
             className="mt-3 inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
-            주소 관리로 변경
+            {t("trade_write_manage_addresses")}
           </Link>
         )
       ) : null}

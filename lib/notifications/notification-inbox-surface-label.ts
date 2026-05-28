@@ -1,6 +1,6 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
-import { translate } from "@/lib/i18n/messages";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { commerceMetaKindLabel } from "@/lib/notifications/notification-display-labels";
 
 function toPathname(u: string): string {
@@ -36,43 +36,43 @@ export function resolveInboxSurfaceBadge(
     : "";
 
   if (row.notification_type === "chat") {
-    if (domain === "trade_chat") return translate(language, "notif_surface_trade_chat");
+    if (domain === "trade_chat") return notifySafeT(language, "notif_surface_trade_chat");
     if (domain === "community_chat") {
-      if (kind === "group_chat") return translate(language, "notif_surface_group_chat");
-      return translate(language, "notif_surface_direct_chat");
+      if (kind === "group_chat") return notifySafeT(language, "notif_surface_group_chat");
+      return notifySafeT(language, "notif_surface_direct_chat");
     }
     const path = row.link_url ? toPathname(row.link_url) : "";
-    if (path.includes("/mypage/trade/chat/")) return translate(language, "notif_surface_trade_chat");
+    if (path.includes("/mypage/trade/chat/")) return notifySafeT(language, "notif_surface_trade_chat");
     if (path.includes("/community-messenger/rooms/")) {
-      if (kind === "group_chat") return translate(language, "notif_surface_group_chat");
-      return translate(language, "notif_surface_direct_chat");
+      if (kind === "group_chat") return notifySafeT(language, "notif_surface_group_chat");
+      return notifySafeT(language, "notif_surface_direct_chat");
     }
-    if (path.includes("/chats/")) return translate(language, "notif_surface_trade_chat");
-    if (path.includes("/group-chat/")) return translate(language, "notif_surface_group_chat");
-    return translate(language, "notif_surface_chat_fallback");
+    if (path.includes("/chats/")) return notifySafeT(language, "notif_surface_trade_chat");
+    if (path.includes("/group-chat/")) return notifySafeT(language, "notif_surface_group_chat");
+    return notifySafeT(language, "notif_surface_chat_fallback");
   }
 
   if (row.notification_type === "commerce") {
-    if (domain === "order") return translate(language, "notif_surface_order");
-    if (domain === "store") return translate(language, "notif_surface_store");
+    if (domain === "order") return notifySafeT(language, "notif_surface_order");
+    if (domain === "store") return notifySafeT(language, "notif_surface_store");
     const kl = commerceMetaKindLabel(kind, language);
-    return kl ?? translate(language, "notif_surface_commerce");
+    return kl ?? notifySafeT(language, "notif_surface_commerce");
   }
 
-  if (domain === "order") return translate(language, "notif_surface_order");
-  if (domain === "store") return translate(language, "notif_surface_store");
+  if (domain === "order") return notifySafeT(language, "notif_surface_order");
+  if (domain === "store") return notifySafeT(language, "notif_surface_store");
 
   switch (row.notification_type) {
     case "status":
-      return translate(language, "notif_surface_status");
+      return notifySafeT(language, "notif_surface_status");
     case "review":
-      return translate(language, "notif_surface_review");
+      return notifySafeT(language, "notif_surface_review");
     case "report":
-      return translate(language, "notif_surface_report");
+      return notifySafeT(language, "notif_surface_report");
     case "system":
-      return translate(language, "notif_surface_system");
+      return notifySafeT(language, "notif_surface_system");
     default:
-      return translate(language, "notif_surface_default");
+      return notifySafeT(language, "notif_surface_default");
   }
 }
 

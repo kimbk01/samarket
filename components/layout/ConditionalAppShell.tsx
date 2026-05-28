@@ -7,6 +7,7 @@ import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { BottomNavScrollChromeProvider } from "@/lib/layout/bottom-nav-scroll-chrome-context";
 import {
   resolveBottomNavScrollHideEnabled,
@@ -130,16 +131,25 @@ export function ConditionalAppShell({
   }, [storeOwnerFlyoutSuppressesBottomNav, f]);
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const { isOpen: philifeWriteSheetOpen } = usePhilifeWriteSheet();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
   const isMessengerStackSurface = isMessengerFromHeaderStackSurface(pathNoQuery);
   const isPhilifeFeedPath = pathNoQuery === "/philife";
+  const isTradeWriteSheetSurface =
+    Boolean(tradeWriteSheet?.isOpen) &&
+    (pathNoQuery === "/market" ||
+      pathNoQuery === "/philife" ||
+      (pathNoQuery.startsWith("/market/") &&
+        pathNoQuery !== "/market/trade-meet-spot" &&
+        !pathNoQuery.startsWith("/market/trade-meet-spot/")));
   const showBottomNavBase = f.showBottomNav;
-  /** `/philife` 글쓰기 시트 — 하단 탭 숨김(취소·등록 바만 하단 고정) */
-  const suppressBottomNavForPhilifeWriteSheet = isPhilifeFeedPath && philifeWriteSheetOpen;
+  /** `/philife`·거래 글쓰기 시트 — 하단 탭 숨김 */
+  const suppressBottomNavForWriteSheet =
+    (isPhilifeFeedPath && philifeWriteSheetOpen) || isTradeWriteSheetSurface;
   /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래(`/market*`) 동일 */
   const showBottomNavEffective =
     showBottomNavBase &&
-    !suppressBottomNavForPhilifeWriteSheet &&
+    !suppressBottomNavForWriteSheet &&
     !(isMessengerStackSurface && headerMessengerFromPhilife) &&
     !storeOwnerFlyoutSuppressesBottomNav;
   const bottomNavScrollHideEnabled =
@@ -254,7 +264,9 @@ export function ConditionalAppShell({
           />
         </Suspense>
       ) : null}
-      {showBottomNavEffective && f.showHomeTradeHubFloatingBar ? <HomeTradeHubFloatingBarLazy /> : null}
+      {showBottomNavEffective && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
+        <HomeTradeHubFloatingBarLazy />
+      ) : null}
       {f.showMainBottomNavFabSector ? <MainBottomNavFabSectorLazy /> : null}
       {f.showFloat && <FloatingAddButtonLazy />}
     </div>

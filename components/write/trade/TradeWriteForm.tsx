@@ -13,39 +13,28 @@ import {
 import { isUsedCarTradeWriteSkin, resolveTradeWriteSkinKey } from "@/lib/trade/resolve-trade-write-skin-key";
 import { UsedCarSellFields } from "./UsedCarSellFields";
 import { UsedCarBuyFields } from "./UsedCarBuyFields";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
-const REAL_ESTATE_TYPES = [
-  { value: "", label: "선택" },
-  { value: "상가", label: "상가" },
-  { value: "주택", label: "주택" },
-  { value: "콘도", label: "콘도" },
-  { value: "주차장", label: "주차장" },
-] as const;
-
-const REAL_ESTATE_DEAL_TYPES = [
-  { value: "임대", label: "임대" },
-  { value: "판매", label: "판매" },
-] as const;
-
-const MOVE_IN_OPTIONS = [
-  { value: "", label: "선택" },
-  { value: "협의 가능", label: "협의 가능" },
-  { value: "즉시입주", label: "즉시입주" },
-] as const;
+type TradeWriteTranslate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 /** 중고차(차량) 연식 — DB·표시 모두 4자리 연도 */
-function getUsedCarYearFieldError(raw: string, mode: "buy" | "sell"): string | null {
+function getUsedCarYearFieldError(
+  raw: string,
+  mode: "buy" | "sell",
+  t: TradeWriteTranslate
+): string | null {
   const digits = raw.replace(/\D/g, "").slice(0, 4);
   if (digits.length === 0) {
-    return mode === "buy" ? "년식 (이하)를 입력해 주세요." : "연식을 입력해 주세요.";
+    return mode === "buy" ? t("trade_write_err_year_buy") : t("trade_write_err_year_sell");
   }
   if (digits.length < 4) {
-    return "연식은 네 자리 연도로 입력해 주세요.";
+    return t("trade_write_err_year_digits");
   }
   const y = parseInt(digits, 10);
   const max = getUsedCarFormYearMax();
   if (y < USED_CAR_FORM_YEAR_MIN || y > max) {
-    return `연식은 ${USED_CAR_FORM_YEAR_MIN}년~${max}년 사이로 입력해 주세요.`;
+    return t("trade_write_err_year_range", { min: USED_CAR_FORM_YEAR_MIN, max });
   }
   return null;
 }
@@ -241,12 +230,41 @@ export function TradeWriteForm({
   ownerEditSnapshot,
   tradePolicy = null,
 }: TradeWriteFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const tradeWriteSheetEpoch = tradeWriteSheet?.openEpoch ?? 0;
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
+  const categoryLabel = useMemo(
+    () => resolveWriteCategoryUILabel(language, category),
+    [language, category]
+  );
+  const realEstateTypes = useMemo(
+    () => [
+      { value: "", label: t("trade_075") },
+      { value: "상가", label: t("trade_write_estate_commercial") },
+      { value: "주택", label: t("trade_write_estate_house") },
+      { value: "콘도", label: t("trade_write_estate_condo") },
+      { value: "주차장", label: t("trade_write_estate_parking") },
+    ],
+    [t]
+  );
+  const realEstateDealTypes = useMemo(
+    () => [
+      { value: "임대", label: t("trade_write_deal_rent") },
+      { value: "판매", label: t("trade_write_deal_sale") },
+    ],
+    [t]
+  );
+  const moveInOptions = useMemo(
+    () => [
+      { value: "", label: t("trade_075") },
+      { value: "협의 가능", label: t("trade_write_move_negotiable") },
+      { value: "즉시입주", label: t("trade_write_move_immediate") },
+    ],
+    [t]
+  );
   const appSettings = useMemo(() => getAppSettings(), []);
   const currencyUnit = getCurrencyUnitLabel(appSettings.defaultCurrency);
   const perMonthSuffix = `${currencyUnit}/month`;
@@ -647,7 +665,7 @@ export function TradeWriteForm({
     const uploaded = await uploadPostImages(files, user.id);
     if (uploaded.length !== files.length) {
       window.alert(
-        `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+        t("trade_write_err_upload_partial", { total: files.length, uploaded: uploaded.length })
       );
       throw new Error("partial-upload");
     }
@@ -1054,47 +1072,49 @@ export function TradeWriteForm({
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (skinKey !== "real-estate" && !isUsedCarSkin && !title.trim()) next.title = t("trade_102");
-    if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = "삽니다 또는 팝니다를 선택해 주세요.";
+    if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = t("trade_write_err_pick_buy_sell");
     if (isUsedCarSkin && usedCarTrade === "buy") {
-      if (!usedCarBodyTypeKey.trim()) next.usedCarBodyType = "차량 유형을 선택해 주세요.";
-      const yErr = getUsedCarYearFieldError(carYear, "buy");
+      if (!usedCarBodyTypeKey.trim()) next.usedCarBodyType = t("trade_write_err_body_type");
+      const yErr = getUsedCarYearFieldError(carYear, "buy", t);
       if (yErr) next.carYear = yErr;
     } else if (isUsedCarSkin && usedCarTrade === "sell") {
-      const yErr = getUsedCarYearFieldError(carYear, "sell");
+      const yErr = getUsedCarYearFieldError(carYear, "sell", t);
       if (yErr) next.carYear = yErr;
-      if (!carModel.trim()) next.carModel = "브랜드·모델을 선택하거나 차종을 입력해 주세요.";
+      if (!carModel.trim()) next.carModel = t("trade_write_err_brand_model");
       const mileageDigits = mileage.replace(/\D/g, "");
-      if (!mileageDigits) next.mileage = "주행거리를 선택하거나 입력해 주세요.";
+      if (!mileageDigits) next.mileage = t("trade_write_err_mileage");
     }
-    if (!description.trim()) next.description = "내용을 입력해 주세요.";
+    if (!description.trim()) next.description = t("trade_write_err_content");
     const isRealEstateSale = skinKey === "real-estate" && dealType === "판매";
     const effectiveFreeShare = isUsedCarSkin ? false : isFreeShare;
     if (hasPrice && !effectiveFreeShare && (skinKey !== "real-estate" || isRealEstateSale)) {
       const priceNum = price.trim() ? Number(price.replace(/,/g, "")) : NaN;
-      if (!price.trim() || isNaN(priceNum) || priceNum < 0) next.price = isRealEstateSale ? "판매가를 입력해 주세요." : "가격을 입력해 주세요.";
+      if (!price.trim() || isNaN(priceNum) || priceNum < 0) {
+        next.price = isRealEstateSale ? t("trade_write_err_sale_price") : t("trade_write_err_price");
+      }
     }
-    if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId))
-      next.location =
-        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
+    if (hasLocation && (!effectiveTradeRegionId || !effectiveTradeCityId)) {
+      next.location = t("trade_write_err_region_read");
+    }
     if (hasLocation && !tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
         representativeTradeMeetFallbackLine?.trim() ||
         getLocationLabelIfValid(effectiveTradeRegionId, effectiveTradeCityId)?.trim();
       if (!fallbackLine) {
-        next.meetSpot = "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
+        next.meetSpot = t("trade_write_err_meet_spot");
       }
     }
     if (skinKey === "real-estate") {
-      if (!buildingName.trim()) next.buildingName = "건물명을 입력해 주세요.";
-      if (!estateType.trim()) next.estateType = "타입을 선택해 주세요.";
+      if (!buildingName.trim()) next.buildingName = t("trade_write_err_building");
+      if (!estateType.trim()) next.estateType = t("trade_write_err_estate_type");
       if (dealType === "임대") {
-        if (!deposit.replace(/,/g, "").trim()) next.deposit = "보증금을 입력해 주세요.";
-        if (!monthly.replace(/,/g, "").trim()) next.monthly = "월세를 입력해 주세요.";
+        if (!deposit.replace(/,/g, "").trim()) next.deposit = t("trade_write_err_deposit");
+        if (!monthly.replace(/,/g, "").trim()) next.monthly = t("trade_write_err_monthly");
       }
-      if (!areaSqm.trim()) next.areaSqm = "크기(sq)를 입력해 주세요.";
-      if (!roomCount.trim()) next.roomCount = "방수를 입력해 주세요.";
-      if (!bathroomCount.trim()) next.bathroomCount = "욕실수를 입력해 주세요.";
-      if (!moveInDate.trim()) next.moveInDate = "입주 가능일을 선택해 주세요.";
+      if (!areaSqm.trim()) next.areaSqm = t("trade_write_err_area");
+      if (!roomCount.trim()) next.roomCount = t("trade_write_err_rooms");
+      if (!bathroomCount.trim()) next.bathroomCount = t("trade_write_err_bathrooms");
+      if (!moveInDate.trim()) next.moveInDate = t("trade_write_err_move_in");
     }
     setErrors(next);
     return Object.keys(next).length === 0;
@@ -1127,6 +1147,7 @@ export function TradeWriteForm({
     moveInDate,
     tradeMeetSpot,
     representativeTradeMeetFallbackLine,
+    t,
   ]);
 
   const handleSubmit = useCallback(
@@ -1178,7 +1199,7 @@ export function TradeWriteForm({
             return;
           }
           if (!preflightUserId) {
-            setErrors({ submit: "로그인이 필요합니다." });
+            setErrors({ submit: t("trade_write_err_login") });
             return;
           }
           createPreflight = { userId: preflightUserId, phoneGatePassed: true };
@@ -1186,7 +1207,10 @@ export function TradeWriteForm({
         }
         if (files.length > 0 && uploadedFileResults.length !== files.length) {
           setErrors({
-            submit: `이미지 ${files.length}장 중 ${uploadedFileResults.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`,
+            submit: t("trade_write_err_upload_partial", {
+              total: files.length,
+              uploaded: uploadedFileResults.length,
+            }),
           });
           return;
         }
@@ -1259,9 +1283,13 @@ export function TradeWriteForm({
         }
         const usedCarPostTitle =
           usedCarTrade === "buy"
-            ? `삽니다 · ${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey, t)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
+            ? t("trade_write_auto_title_buy", {
+                detail: `${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey, t)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`,
+              })
             : usedCarTrade === "sell"
-              ? `팝니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
+              ? carModel.trim()
+                ? t("trade_write_auto_title_sell", { detail: carModel.trim() })
+                : t("trade_write_auto_title_sell_only")
               : "";
         const locShort = getLocationLabel(submitRegion, submitCity).trim();
         const bn = buildingName.trim();
@@ -1469,12 +1497,21 @@ export function TradeWriteForm({
   const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
 
   const tradeWriteHeaderTitle = useMemo(() => {
-    if (editPostId) return `${category.name} · 수정`;
+    if (editPostId) return `${categoryLabel} · ${t("trade_write_header_edit_suffix")}`;
     if (effectiveTradeRegionId && effectiveTradeCityId && hasLocation) {
-      return `${getLocationLabel(effectiveTradeRegionId, effectiveTradeCityId)}에 올리기`;
+      return t("trade_write_header_post_in_region", {
+        region: getLocationLabel(effectiveTradeRegionId, effectiveTradeCityId),
+      });
     }
-    return `${category.name} · 글쓰기`;
-  }, [editPostId, category.name, effectiveTradeRegionId, effectiveTradeCityId, hasLocation]);
+    return `${categoryLabel} · ${t("trade_write_header_post_suffix")}`;
+  }, [
+    editPostId,
+    categoryLabel,
+    effectiveTradeRegionId,
+    effectiveTradeCityId,
+    hasLocation,
+    t,
+  ]);
 
   /** 지도 미선택 시 — 대표 주소 `buildTradePublicLine` 우선, 없으면 거래 지역 라벨 */
   const karrotMeetSpotDisplayLine = useMemo(() => {
@@ -1497,7 +1534,7 @@ export function TradeWriteForm({
   const realEstateBuildingFields = (
     <div className="mt-2 border-t border-[#e4e6eb] pt-2">
       <label className={TRADE_WRITE_FB_FIELD_HEAD}>
-        건물명 <span className="text-sam-danger">*</span>
+        {t("trade_write_building_name")} <span className="text-sam-danger">*</span>
       </label>
       <input
         type="text"
@@ -1530,7 +1567,7 @@ export function TradeWriteForm({
         onBeforeMeetSpotPick={
           hasLocation && !coreLocked ? () => void handleBeforeMeetSpotPick() : undefined
         }
-        meetSpotHeading="위치"
+        meetSpotHeading={t("trade_write_location")}
         belowMeetSpotSlot={skinKey === "real-estate" ? realEstateBuildingFields : undefined}
         denseLayout
         suppressAddressBookRegionSync={Boolean(tradeMeetSpot?.displayLine?.trim())}
@@ -1550,14 +1587,14 @@ export function TradeWriteForm({
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
         title={t("trade_099")}
-        description="이전에 입력한 내용을 불러올까요?"
-        secondaryLabel="새로 작성"
+        description={t("trade_write_draft_resume_body")}
+        secondaryLabel={t("trade_write_draft_resume_new")}
         onSecondary={handleDiscardPersistedDraft}
-        primaryLabel="이어쓰기"
+        primaryLabel={t("trade_write_draft_resume_continue")}
         onPrimary={handleResumePersistedDraft}
         primaryTone="primary"
         zIndexClass="z-[72]"
-        ariaLabel="임시 저장 글 복구"
+        ariaLabel={t("trade_write_draft_resume_aria")}
         interactionMode="blocking"
       />
       {!suppressTier1Chrome ? (
@@ -1580,7 +1617,7 @@ export function TradeWriteForm({
               value={images}
               onChange={setImages}
               maxCount={maxProductImages}
-              label="사진"
+              label={t("trade_write_photos")}
               disabled={coreLocked}
               compact={false}
               variant="karrot"
@@ -1603,7 +1640,7 @@ export function TradeWriteForm({
             <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_128")}</h4>
             <div>
               <label className={TRADE_WRITE_FB_FIELD_HEAD}>
-                건물명 <span className="text-sam-danger">*</span>
+                {t("trade_write_building_name")} <span className="text-sam-danger">*</span>
               </label>
               <input
                 type="text"
@@ -1624,7 +1661,7 @@ export function TradeWriteForm({
           <>
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
               <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>
-                구분 <span className="text-sam-danger">*</span>
+                {t("trade_write_kind")} <span className="text-sam-danger">*</span>
               </h4>
               <div className="flex flex-wrap gap-3 pt-0.5">
                 <label className="flex cursor-pointer items-center gap-2">
@@ -1657,7 +1694,7 @@ export function TradeWriteForm({
             {usedCarTrade === "buy" ? (
               <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
                 <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                  희망 모델·브랜드 <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
+                  {t("trade_write_wanted_model")} <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
                 </h4>
                 <input
                   type="text"
@@ -1674,7 +1711,7 @@ export function TradeWriteForm({
         ) : (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
             <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-              제목 <span className="text-sam-danger">*</span>
+              {t("trade_write_title")} <span className="text-sam-danger">*</span>
             </h4>
             <input
               type="text"
@@ -1691,7 +1728,7 @@ export function TradeWriteForm({
         )}
         <section className={TRADE_WRITE_FB_SECTION}>
           <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-            내용 <span className="text-sam-danger">*</span>
+            {t("trade_write_content")} <span className="text-sam-danger">*</span>
           </h4>
           <AutoGrowTextarea
             value={description}
@@ -1708,7 +1745,7 @@ export function TradeWriteForm({
                 className="mt-1.5 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg"
                 onClick={() => setFrequentPhrasesOpen(true)}
               >
-                자주 쓰는 문구
+                {t("trade_write_frequent_phrases")}
               </button>
               <TradeFrequentPhrasesSheet
                 open={frequentPhrasesOpen}
@@ -1749,7 +1786,7 @@ export function TradeWriteForm({
                           setIsDirectDeal(true);
                         }}
                       >
-                        판매하기
+                        {t("trade_write_sell_cta")}
                       </button>
                       <button
                         type="button"
@@ -1759,7 +1796,7 @@ export function TradeWriteForm({
                           setIsDirectDeal(false);
                         }}
                       >
-                        나눔하기
+                        {t("trade_write_share_cta")}
                       </button>
                     </div>
                   ) : (
@@ -1825,7 +1862,7 @@ export function TradeWriteForm({
                 <label
                   className={`${TRADE_WRITE_FB_FIELD_LABEL} ${!isUsedCarSkin && (hasFreeShare || hasDirectDeal) ? "mt-1" : ""}`}
                 >
-                  가격 <span className="text-sam-danger">*</span>
+                  {t("trade_write_price")} <span className="text-sam-danger">*</span>
                 </label>
                 <div
                   className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}
@@ -1867,7 +1904,7 @@ export function TradeWriteForm({
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      타입 <span className="text-sam-danger">*</span>
+                      {t("trade_write_estate_type_label")} <span className="text-sam-danger">*</span>
                     </label>
                     <select
                       value={estateType}
@@ -1875,7 +1912,7 @@ export function TradeWriteForm({
                       className={TRADE_WRITE_FB_CONTROL}
                       aria-invalid={!!errors.estateType}
                     >
-                      {REAL_ESTATE_TYPES.map((opt) => (
+                      {realEstateTypes.map((opt) => (
                         <option key={opt.value || "empty"} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
@@ -1885,14 +1922,14 @@ export function TradeWriteForm({
                   </div>
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      거래유형 <span className="text-sam-danger">*</span>
+                      {t("trade_write_deal_type_label")} <span className="text-sam-danger">*</span>
                     </label>
                     <select
                       value={dealType}
                       onChange={(e) => setDealType(e.target.value as "임대" | "판매")}
                       className={TRADE_WRITE_FB_CONTROL}
                     >
-                      {REAL_ESTATE_DEAL_TYPES.map((opt) => (
+                      {realEstateDealTypes.map((opt) => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
@@ -1924,7 +1961,7 @@ export function TradeWriteForm({
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div className="min-w-0">
                       <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                        보증금 <span className="text-sam-danger">*</span>
+                        {t("trade_write_deposit_label")} <span className="text-sam-danger">*</span>
                       </label>
                       <div className={TRADE_WRITE_FB_CONTROL_ROW}>
                         <input
@@ -1943,7 +1980,7 @@ export function TradeWriteForm({
                     </div>
                     <div className="min-w-0">
                       <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                        월세 <span className="text-sam-danger">*</span>
+                        {t("trade_write_monthly_rent_label")} <span className="text-sam-danger">*</span>
                       </label>
                       <div className={TRADE_WRITE_FB_CONTROL_ROW}>
                         <input
@@ -1965,7 +2002,7 @@ export function TradeWriteForm({
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      크기(sq) <span className="text-sam-danger">*</span>
+                      {t("trade_write_area_sq_label")} <span className="text-sam-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -1981,7 +2018,7 @@ export function TradeWriteForm({
                   </div>
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      방수 <span className="text-sam-danger">*</span>
+                      {t("trade_write_rooms_label")} <span className="text-sam-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -1998,7 +2035,7 @@ export function TradeWriteForm({
                   </div>
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      욕실수 <span className="text-sam-danger">*</span>
+                      {t("trade_write_bathrooms_label")} <span className="text-sam-danger">*</span>
                     </label>
                     <input
                       type="text"
@@ -2016,7 +2053,7 @@ export function TradeWriteForm({
                 </div>
                 <div>
                   <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                    입주 가능일 <span className="text-sam-danger">*</span>
+                    {t("trade_write_move_in_label")} <span className="text-sam-danger">*</span>
                   </label>
                   <select
                     value={moveInDate}
@@ -2024,7 +2061,7 @@ export function TradeWriteForm({
                     className={TRADE_WRITE_FB_CONTROL}
                     aria-invalid={!!errors.moveInDate}
                   >
-                    {MOVE_IN_OPTIONS.map((opt) => (
+                    {moveInOptions.map((opt) => (
                       <option key={opt.value || "empty"} value={opt.value}>
                         {opt.label}
                       </option>
@@ -2042,7 +2079,7 @@ export function TradeWriteForm({
                 <div className="space-y-2">
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      관리비 <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
+                      {t("trade_write_mgmt_fee")} <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
                     </label>
                     <div className={TRADE_WRITE_FB_CONTROL_ROW}>
                       <input
@@ -2063,7 +2100,7 @@ export function TradeWriteForm({
                       className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                     />
                     <span className="sam-text-body-secondary text-sam-fg">
-                      권리금 있음 <span className="font-normal text-sam-muted sam-text-body-secondary">{t("trade_001")}</span>
+                      {t("trade_write_premium")} <span className="font-normal text-sam-muted sam-text-body-secondary">{t("trade_001")}</span>
                     </span>
                   </label>
                 </div>
@@ -2231,9 +2268,9 @@ export function TradeWriteForm({
           <p className="px-4 py-2 sam-text-body-secondary text-sam-danger">{errors.submit}</p>
         )}
         <SubmitButton
-          label={editPostId ? "수정 완료" : "작성 완료"}
+          label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
           submitting={submitting}
-          submittingLabel={editPostId ? "저장 중…" : "등록 중…"}
+          submittingLabel={editPostId ? t("trade_write_submitting_edit") : t("trade_write_submitting")}
           onCancel={onCancel}
         />
       </form>

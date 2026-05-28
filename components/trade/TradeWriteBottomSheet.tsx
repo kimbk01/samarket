@@ -8,7 +8,6 @@ import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
 import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
-import { TRADE_WRITE_EXIT_SHEET_BODY, TRADE_WRITE_EXIT_SHEET_TITLE } from "@/lib/posts/trade-write-exit-cleanup";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SHEET_EXIT_MS = 520;
@@ -150,21 +149,21 @@ export function TradeWriteBottomSheet() {
       <MobileConfirmBottomSheet
         open={headerLeaveOpen}
         onCancel={handleHeaderLeaveCancel}
-        title={TRADE_WRITE_EXIT_SHEET_TITLE}
-        description={TRADE_WRITE_EXIT_SHEET_BODY}
-        cancelLabel="계속 작성"
-        confirmLabel="나가기"
+        title={t("ui_write_exit_title")}
+        description={t("ui_write_exit_body")}
+        cancelLabel={t("ui_write_exit_continue")}
+        confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
         onConfirm={handleHeaderLeaveConfirm}
         zIndexClass="z-[65]"
-        ariaLabel="거래 글쓰기 닫기 확인"
+        ariaLabel={t("ui_write_trade_exit_aria")}
         interactionMode="blocking"
       />
       <div
       className="pointer-events-none fixed inset-0 z-[50] flex flex-col"
       role="dialog"
       aria-modal
-      aria-label={t("trade_011")}
+      aria-label={t("ui_write_trade_sheet_title")}
     >
       <div
         ref={panelRef}
@@ -173,12 +172,12 @@ export function TradeWriteBottomSheet() {
         }`}
       >
         <div className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11">
-          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{t("trade_011")}</h2>
+          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{t("ui_write_trade_sheet_title")}</h2>
           <button
             type="button"
             onClick={onHeaderClose}
             className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-ui-rect text-sam-fg transition hover:bg-sam-surface-muted active:opacity-90"
-            aria-label={t("trade_054")}
+            aria-label={t("common_close")}
           >
             <span className="text-[22px] font-light leading-none" aria-hidden>
               ×

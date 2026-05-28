@@ -56,7 +56,7 @@ export function UsedCarBuyFields({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
           <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-            차량 유형 <span className="text-sam-danger">*</span>
+            {t("used_car_body_type_label")} <span className="text-sam-danger">*</span>
           </label>
           <select
             value={bodyTypeKey}
@@ -78,7 +78,7 @@ export function UsedCarBuyFields({
         </div>
         <div className="min-w-0">
           <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-            년식 (이하) <span className="text-sam-danger">*</span>
+            {t("used_car_year_max_label")} <span className="text-sam-danger">*</span>
           </label>
           <select
             value={carYear}
@@ -100,7 +100,7 @@ export function UsedCarBuyFields({
       </div>
       <div className="mt-2">
         <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-          예산 (이하) <span className="text-sam-danger">*</span>
+          {t("used_car_budget_max_label")} <span className="text-sam-danger">*</span>
         </label>
         <div
           className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20 ${disabled ? "opacity-60" : ""}`}

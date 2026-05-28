@@ -211,7 +211,7 @@ export function TradeFrequentPhrasesSheet({
 
         <div className="flex items-center justify-between border-b border-sam-border-soft px-3 pb-2 pt-0.5">
           <h2 id={titleId} className="text-[13px] font-bold leading-tight text-sam-fg">
-            자주 쓰는 문구
+            {t("trade_write_frequent_phrases_title")}
           </h2>
           <button
             type="button"
@@ -224,7 +224,7 @@ export function TradeFrequentPhrasesSheet({
             className="inline-flex items-center gap-0.5 rounded-ui-rect px-2 py-1 text-[11px] font-semibold text-signature"
           >
             <Plus className="h-3.5 w-3.5 text-current" aria-hidden />
-            추가
+            {t("trade_write_frequent_phrases_add")}
           </button>
         </div>
 
@@ -247,7 +247,7 @@ export function TradeFrequentPhrasesSheet({
                 }}
                 className="rounded-ui-rect px-2 py-1 text-[11px] text-sam-muted"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -255,7 +255,7 @@ export function TradeFrequentPhrasesSheet({
                 disabled={!draft.trim()}
                 className="rounded-ui-rect bg-signature px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
               >
-                저장
+                {t("trade_write_frequent_phrases_save")}
               </button>
             </div>
           </div>
@@ -264,7 +264,7 @@ export function TradeFrequentPhrasesSheet({
         <div className="max-h-[min(58vh,480px)] overflow-y-auto overscroll-y-contain pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           {phrases.length === 0 ? (
             <p className="px-4 py-10 text-center text-[11px] leading-relaxed text-sam-muted">
-              자주 쓰는 문구를 등록해보세요.
+              {t("trade_write_frequent_phrases_empty")}
             </p>
           ) : (
             <ul className="m-0 list-none p-0">
@@ -287,7 +287,7 @@ export function TradeFrequentPhrasesSheet({
                         onClick={cancelEdit}
                         className="rounded-ui-rect px-2 py-1 text-[11px] text-sam-muted"
                       >
-                        취소
+                        {t("common_cancel")}
                       </button>
                       <button
                         type="button"
@@ -295,7 +295,7 @@ export function TradeFrequentPhrasesSheet({
                         disabled={!editDraft.trim()}
                         className="rounded-ui-rect bg-signature px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-40"
                       >
-                        저장
+                        {t("trade_write_frequent_phrases_save")}
                       </button>
                     </div>
                   </li>
@@ -320,7 +320,7 @@ export function TradeFrequentPhrasesSheet({
                           startEdit(i);
                         }}
                       >
-                        수정
+                        {t("trade_write_frequent_phrases_edit")}
                       </button>
                       <button
                         type="button"
@@ -331,7 +331,7 @@ export function TradeFrequentPhrasesSheet({
                           removeAt(i);
                         }}
                       >
-                        삭제
+                        {t("trade_write_frequent_phrases_delete")}
                       </button>
                     </div>
                   </li>

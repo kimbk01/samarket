@@ -1,27 +1,47 @@
 ---
-description: 코드 수정 후 커밋·푸시 전 필수 lint/tsc/build/verify 검증 순서와 보고 형식
+description: git add / git push 단계별 lint·tsc·i18n·build·verify 검증
 alwaysApply: true
 ---
 
-# 커밋 전 필수 검증
+# 커밋·푸시 전 필수 검증
 
-**모든 코드 수정** 후 `git commit` / `git push` 전에 아래 순서를 **반드시** 실행한다. 사용자가 커밋을 요청해도 검증이 끝나기 전에는 커밋하지 않는다.
+**단계 구분**은 `.cursor/rules/samarket-dev-inspection-regulation.mdc` 를 따른다.
 
-## 실행 순서 (고정)
+- **개발 중**: 전체 검사 금지
+- **`git add` 직전**: lint · tsc · i18n verify · 관련 verify/test
+- **`git push` 직전**: build · CI contract/verify
+
+## `git add` 직전 실행 순서 (고정)
 
 1. `npm run lint`
 2. `npx tsc --noEmit`
-3. `npm run build`
-4. `package.json`의 `verify:*` 중 **이번 수정 범위와 관련된** 스크립트만 실행
+3. `npm run verify:i18n-key-exposure`
+4. `package.json`의 `verify:*` 중 **이번 수정 범위와 관련된** 스크립트만
+5. **관련 unit test** (`vitest run <경로>`)
 
-## 코드 품질 (커밋 전 즉시)
+사용자가 커밋을 요청해도 위 검증이 끝나기 전에는 커밋하지 않는다.
 
-- **lint 오류(error) 1개라도 있으면 커밋 금지** (`npm run lint` = `eslint . --quiet` — error만 실패)
-- unused import / unused variable → 즉시 제거
-- `let` 후 재할당 없으면 → `const`
-- raw `<img>` 금지 → 프로젝트 공통 **Thumbnail** 컴포넌트 사용 (`verify:thumbnail-contract` 참고)
-- React hook dependency 경고 → `eslint-disable` 임시 무시 금지, 원인 수정
+## `git push` 직전 추가 실행
+
+1. `npm run build`
+2. add 단계에서 실행하지 않은 **CI contract/verify** (diff 관련만 — snapshot E2E·parity 등)
+
+## i18n (`verify:i18n-key-exposure` — add 단계)
+
+- ko/en 카탈로그 대칭 · catalog 값=key · JSX key 원문 · `safeTranslate` 계약
+- `lib/i18n/__tests__/safe-translate.test.ts`, `lib/store-order-chat/__tests__/store-order-ops-i18n.test.ts`
+
+개발 중 i18n: `npm run check:i18n-staged` (새 key만).  
+출력·fallback: `samarket-i18n-output-regulation.mdc`. 흐름: `samarket-i18n-work-regulation.mdc`.
+
+## 코드 품질 (add 단계)
+
+- lint **error** 1개라도 커밋 금지
+- unused import/variable 제거 · `let`→`const`(재할당 없을 때)
+- raw `<img>` 금지 → **Thumbnail**
+- hook dependency `eslint-disable` 임시 무시 금지
 - **수정 범위 밖 대규모 리팩토링 금지**
+- i18n humanize·CI용 임시 하드코딩·eslint-disable 남발 금지
 
 ## verify:* 선택 (수정 경로 → 스크립트)
 
@@ -39,35 +59,22 @@ alwaysApply: true
 | 오너 주문·대시보드 | `verify:owner-store-orders-list-contract`, `verify:owner-orders-list-snapshot-*`, `verify:owner-dashboard-notifications-snapshot-*` |
 | 주문 채팅·메신저 방 진입 | `verify:store-order-messenger-room-entry` |
 | 썸네일·이미지 UI | `verify:thumbnail-contract`, `verify:store-delivery-featured-thumbnails-contract` |
-| i18n catalog·`lib/i18n`·마이페이지 컴포넌트 | `verify:i18n-phase3-my-components` (해당 컴포넌트 범위) |
+| i18n catalog·`lib/i18n`·알림·마이페이지 | `verify:i18n-key-exposure`(add 필수), 필요 시 `verify:i18n-phase3-my-components` |
 | `app-boot`·동의·초기 로드 | `verify:app-boot-consent-contract` |
-| `AGENTS.md`·parity·동급 게이트 일괄 | `verify:parity-gates` (시간 허용 시; 부분 수정이면 위 표에서 골라 실행) |
-| `.cursor/rules`·핫패스 계약 문서만 | 해당 `.mdc`에 명시된 verify (예: `samarket-perf-change-protocol.mdc`) |
+| `AGENTS.md`·parity·동급 게이트 일괄 | `verify:parity-gates` (push 직전·시간 허용 시) |
+| `.cursor/rules`·핫패스 계약 문서만 | 해당 `.mdc`에 명시된 verify |
 
-스냅샷 RPC/E2E(`verify:*-snapshot-*`)는 DB·RPC 계약을 바꿨을 때만 실행.
+스냅샷 RPC/E2E(`verify:*-snapshot-*`)는 DB·RPC 계약 변경 시 — **push 직전** 우선.
 
 ## 기존 vs 신규 오류
 
-- 검증 실패 시 **이번 diff로 유발한 신규 오류**와 **이미 있던 기존 오류**를 구분해 보고한다.
-- 신규 오류는 반드시 수정 후 재검증한다.
-- 기존 오류만 남은 경우: 사용자에게 명시하고, 이번 커밋 범위에서 수정 가능한 것만 고친다(대규모 정리는 별도 요청).
+- FAIL 시 **신규/기존** 구분 보고
+- 신규는 수정 후 **같은 검사만** 재실행
+- 기존만 남으면 사용자에게 명시
 
-## 최종 보고 (커밋·푸시 제안 전 필수)
+## 다른 규칙
 
-아래 표를 채워 사용자에게 제시한다. FAIL이 하나라도 있으면 커밋하지 않는다.
-
-| 단계 | 명령 | 결과 |
-|------|------|------|
-| 1 | `npm run lint` | PASS / FAIL |
-| 2 | `npx tsc --noEmit` | PASS / FAIL |
-| 3 | `npm run build` | PASS / FAIL |
-| 4a | `npm run verify:…` (관련만) | PASS / FAIL |
-| 4b | … | … |
-
-FAIL 시: 명령·파일·줄·신규/기존 구분을 한 줄 요약으로 적는다.
-
-## 다른 규칙과의 관계
-
-- `.cursor/rules/samarket-double-check-review.mdc` — 계약·관측·병목 **논리** 재점검
-- `.cursor/rules/samarket-perf-change-protocol.mdc` — 거래·메신저·FAB 핫패스 **추가** verify·changelog
-- 본 규칙 — **실행 가능한 명령** 게이트(커밋 차단)
+- `samarket-dev-inspection-regulation.mdc` — 개발/add/push 3단계·Cursor 지시
+- `samarket-i18n-work-regulation.mdc` — i18n 8항·구현 API
+- `samarket-double-check-review.mdc` — 계약 논리 재점검
+- `samarket-perf-change-protocol.mdc` — 핫패스 verify·changelog

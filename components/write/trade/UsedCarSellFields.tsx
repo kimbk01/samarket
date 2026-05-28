@@ -63,7 +63,7 @@ export function UsedCarSellFields({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
           <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-            브랜드 <span className="text-sam-danger">*</span>
+            {t("trade_write_brand")} <span className="text-sam-danger">*</span>
           </label>
           <select
             value={brandKey}
@@ -88,7 +88,7 @@ export function UsedCarSellFields({
         {brandKey && brandKey !== USED_CAR_BRAND_OTHER_KEY ? (
           <div className="min-w-0">
             <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-              모델 <span className="text-sam-danger">*</span>
+              {t("trade_write_model")} <span className="text-sam-danger">*</span>
             </label>
             <select
               value={modelKey}
@@ -112,7 +112,7 @@ export function UsedCarSellFields({
         ) : brandKey === USED_CAR_BRAND_OTHER_KEY ? (
           <div className="min-w-0 sm:col-span-1">
             <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-              차종 <span className="text-sam-danger">*</span>
+              {t("trade_write_body_type")} <span className="text-sam-danger">*</span>
             </label>
             <input
               type="text"
@@ -129,7 +129,7 @@ export function UsedCarSellFields({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="min-w-0">
           <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-            연식 <span className="text-sam-danger">*</span>
+            {t("trade_write_year")} <span className="text-sam-danger">*</span>
           </label>
           <select
             value={carYear.replace(/\D/g, "").length === 4 ? carYear.replace(/\D/g, "").slice(0, 4) : ""}
@@ -148,7 +148,7 @@ export function UsedCarSellFields({
 
         <div className="min-w-0">
           <label className={`${TRADE_WRITE_FB_FIELD_LABEL} min-h-[18px]`}>
-            주행거리 <span className="text-sam-danger">*</span>
+            {t("trade_write_mileage")} <span className="text-sam-danger">*</span>
           </label>
           <select
             value={mileagePresetKey}

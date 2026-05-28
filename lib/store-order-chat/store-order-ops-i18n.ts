@@ -1,7 +1,12 @@
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { looksLikeMessageKey } from "@/lib/i18n/safe-ui-label";
-import { safeTranslate, type SafeTranslateOptions } from "@/lib/i18n/safe-translate";
+import {
+  pickLanguageFallback,
+  safeTranslate,
+  type SafeTranslateOptions,
+} from "@/lib/i18n/safe-translate";
 import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
 import { systemChatLineForOrderStatus } from "@/lib/shared-order-chat/chat-message-builder";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
@@ -72,8 +77,12 @@ export function storeOrderOpsSafeT(
 function translateOpsKey(t: StoreOrderOpsI18nT, key: MessageKey, vars?: Record<string, string | number>): string {
   const out = t(key, vars).trim();
   if (!out || out === key || looksLikeMessageKey(out)) {
+    const lang = getRuntimeAppLanguage();
     const fb = STORE_ORDER_OPS_FALLBACKS[key];
-    return fb?.fallbackKo ?? "주문 안내";
+    return (
+      pickLanguageFallback(lang, fb) ??
+      storeOrderOpsSafeT(lang, "store_delivery_ops_body_generic")
+    );
   }
   return out;
 }

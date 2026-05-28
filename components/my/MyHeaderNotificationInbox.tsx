@@ -391,7 +391,7 @@ export function MyHeaderNotificationInbox() {
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-2">
             {loading ? (
-              <p className="px-2 py-2 sam-text-helper text-sam-muted">…</p>
+              <p className="px-2 py-2 sam-text-helper text-sam-muted">{t("common_loading")}</p>
             ) : (
               <NotificationInboxByDateSections
                 items={grouped}
@@ -419,7 +419,7 @@ export function MyHeaderNotificationInbox() {
                     : "border-sam-border text-sam-muted"
                 }`}
               >
-                {soundOn ? "ON" : "OFF"}
+                {soundOn ? t("notif_toggle_on") : t("notif_toggle_off")}
               </button>
             </div>
           </div>

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
-import { translate } from "@/lib/i18n/messages";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /** 구매자 매장 주문 알림의 바로가기 — 주문 내역 목록으로 통일 */
@@ -29,10 +29,10 @@ async function loadUserLanguage(
 
 function nt(
   language: AppLanguageCode,
-  key: Parameters<typeof translate>[1],
+  key: Parameters<typeof notifySafeT>[1],
   vars?: Record<string, string | number>
 ): string {
-  return translate(language, key, vars);
+  return notifySafeT(language, key, { vars });
 }
 
 /** 신규 주문 접수 시 매장 오너에게 인앱 알림 */
@@ -519,7 +519,9 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     opts.estimatedPrepMinutes != null &&
     Number.isFinite(Number(opts.estimatedPrepMinutes)) &&
     Number(opts.estimatedPrepMinutes) > 0
-      ? ` (예상 소요 약 ${Math.floor(Number(opts.estimatedPrepMinutes))}분)`
+      ? nt(language, "notify_commerce_eta_suffix", {
+          minutes: Math.floor(Number(opts.estimatedPrepMinutes)),
+        })
       : "";
 
   const evTrim = (opts.storeOrderEventId ?? "").trim();
@@ -544,6 +546,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       ...(opts.estimatedPrepMinutes != null
         ? { estimated_prep_minutes: Math.floor(Number(opts.estimatedPrepMinutes)) }
         : {}),
+      store_display_name: label,
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });

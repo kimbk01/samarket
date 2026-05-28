@@ -42,7 +42,7 @@ export function InboxGroupCardList({
   compact,
   emptyLabel,
 }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (items.length === 0) {
     return <p className="text-[12px] leading-snug text-sam-muted">{emptyLabel}</p>;
   }
@@ -120,7 +120,7 @@ export function InboxGroupCardList({
                   </button>
                 ) : null}
                 <span className="text-[10px] leading-tight text-sam-meta" suppressHydrationWarning>
-                  {new Date(item.created_at).toLocaleString("ko-KR", {
+                  {new Date(item.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US", {
                     month: "numeric",
                     day: "numeric",
                     hour: "2-digit",

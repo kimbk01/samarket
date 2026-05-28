@@ -1,6 +1,6 @@
 import type { AppLanguageCode } from "./config";
 import { translate, type MessageKey } from "./messages";
-import { humanizeMessageKeySlug, looksLikeMessageKey } from "./safe-ui-label";
+import { looksLikeMessageKey } from "./safe-ui-label";
 
 export type SafeTranslateOptions = {
   /** 한국어 모드 우선 fallback */
@@ -12,6 +12,21 @@ export type SafeTranslateOptions = {
 
 /** 치환되지 않은 `{name}` 플레이스홀더가 남아 있으면 UI에 노출하지 않음 */
 const UNREPLACED_PLACEHOLDER = /\{[a-zA-Z_][a-zA-Z0-9_]*\}/;
+
+const HARDCODED_UNAVAILABLE: Record<AppLanguageCode, string> = {
+  ko: "내용을 불러올 수 없습니다.",
+  en: "Unable to load this content.",
+};
+
+const missingSafeTranslationWarned = new Set<string>();
+
+function warnMissingTranslationKey(lang: AppLanguageCode, key: MessageKey): void {
+  if (process.env.NODE_ENV === "production") return;
+  const id = `${lang}:${key}`;
+  if (missingSafeTranslationWarned.has(id)) return;
+  missingSafeTranslationWarned.add(id);
+  console.warn("[i18n-missing-translation]", lang, key);
+}
 
 export function pickLanguageFallback(
   lang: AppLanguageCode,
@@ -32,9 +47,13 @@ export function isUnsafeTranslationResult(key: MessageKey, raw: string): boolean
   return false;
 }
 
-/** 마지막 수단 — key slug를 사람이 읽을 수 있는 영문 라벨로 (catalog 보강 전 임시 노출 방지) */
-export function humanizeMessageKeyForDisplay(key: MessageKey): string {
-  return humanizeMessageKeySlug(key);
+/** key 원문·slug 대신 사용자용 기본 문장 */
+export function defaultUnavailableFallback(lang: AppLanguageCode): string {
+  const fromCatalog = translate(lang, "common_content_unavailable").trim();
+  if (!isUnsafeTranslationResult("common_content_unavailable", fromCatalog)) {
+    return fromCatalog;
+  }
+  return HARDCODED_UNAVAILABLE[lang];
 }
 
 /**
@@ -57,7 +76,8 @@ export function safeTranslate(
   const picked = pickLanguageFallback(lang, opts);
   if (picked) return picked;
 
-  return humanizeMessageKeyForDisplay(key);
+  warnMissingTranslationKey(lang, key);
+  return defaultUnavailableFallback(lang);
 }
 
 export function safeTranslateText(
@@ -66,7 +86,7 @@ export function safeTranslateText(
   opts?: SafeTranslateOptions
 ): string {
   const s = text.trim();
-  if (!s) return pickLanguageFallback(lang, opts) ?? humanizeMessageKeySlug(s || "label");
+  if (!s) return pickLanguageFallback(lang, opts) ?? defaultUnavailableFallback(lang);
   if (looksLikeMessageKey(s)) {
     return safeTranslate(lang, s as MessageKey, opts);
   }

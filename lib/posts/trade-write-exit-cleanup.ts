@@ -30,10 +30,9 @@ export function discardTradeWriteStashedDraft(categoryId: string): void {
   );
 }
 
-/** 거래 글쓰기 이탈 확인 — 나가도 카테고리별 임시 초안은 유지됨 */
-export const TRADE_WRITE_EXIT_SHEET_TITLE = "글쓰기를 나갈까요?";
-export const TRADE_WRITE_EXIT_SHEET_BODY =
-  "임시 저장된 내용은 이 카테고리에 남습니다. 나중에 다시 열면 이어쓸 수 있어요.";
+/** 거래 글쓰기 이탈 확인 — UI는 `t(TRADE_WRITE_EXIT_SHEET_TITLE_KEY)` 등으로만 표시 */
+export const TRADE_WRITE_EXIT_SHEET_TITLE_KEY = "ui_write_exit_title" as const;
+export const TRADE_WRITE_EXIT_SHEET_BODY_KEY = "ui_write_exit_body" as const;
 
-/** 레거시·로그 한 줄용 */
-export const TRADE_WRITE_EXIT_CONFIRM_MESSAGE = `${TRADE_WRITE_EXIT_SHEET_TITLE}. ${TRADE_WRITE_EXIT_SHEET_BODY}`;
+/** 로그·관측 한 줄용 (번역 key 식별자) */
+export const TRADE_WRITE_EXIT_CONFIRM_MESSAGE = `${TRADE_WRITE_EXIT_SHEET_TITLE_KEY}. ${TRADE_WRITE_EXIT_SHEET_BODY_KEY}`;

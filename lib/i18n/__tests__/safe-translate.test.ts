@@ -20,10 +20,10 @@ describe("safeTranslate", () => {
     expect(safeTranslate("en", fake, { fallbackKo: "한국어", fallbackEn: "English" })).toBe("English");
   });
 
-  it("humanizes when no fallback", () => {
+  it("uses user-facing default when no fallback", () => {
     const fake = "zzz_nonexistent_key_for_safe_translate_test" as never;
-    const en = safeTranslate("en", fake);
-    expect(en).toBe("Nonexistent Key For Safe Translate Test");
-    expect(en).not.toMatch(/^zzz_/);
+    expect(safeTranslate("ko", fake)).toBe("내용을 불러올 수 없습니다.");
+    expect(safeTranslate("en", fake)).toBe("Unable to load this content.");
+    expect(safeTranslate("en", fake)).not.toMatch(/^zzz_/);
   });
 });

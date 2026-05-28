@@ -37,7 +37,13 @@ export function HomeCategoryChip({
   const router = useRouter();
   const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const href = getCategoryHref(category);
-  const label = resolveTradeCategoryUILabel(language, category.name, category.name_en, category.slug);
+  const label = resolveTradeCategoryUILabel(
+    language,
+    category.name,
+    category.name_en,
+    category.slug,
+    category.icon_key
+  );
   const pathNoQuery = pathname.split("?")[0] ?? "";
   const safeDec = (s: string) => {
     try {

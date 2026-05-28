@@ -1,7 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 
 const MESSENGER_FRIENDS_HREF = "/community-messenger?section=friends";
+
+function peerLabel(raw: string, language: Awaited<ReturnType<typeof loadNotificationUserLanguage>>): string {
+  const trimmed = raw.trim();
+  return trimmed || notifySafeT(language, "notify_peer_fallback");
+}
 
 /**
  * 친구 요청 수신 — `notifications` INSERT 로 전역 Realtime 배지·(설정 시) 톤.
@@ -21,12 +28,14 @@ export async function notifyCommunityMessengerFriendRequestReceived(
   if (!uid || !rid) return;
   const requesterId = String(args.requesterUserId ?? "").trim();
   const requesterLabel = String(args.requesterLabel ?? "").trim();
+  const language = await loadNotificationUserLanguage(sb, uid);
+  const name = peerLabel(requesterLabel, language);
 
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "system",
-    title: "새 친구 요청",
-    body: `${requesterLabel || "상대"}님이 친구 요청을 보냈습니다.`,
+    title: notifySafeT(language, "notify_friend_request_received_title"),
+    body: notifySafeT(language, "notify_friend_request_received_body", { vars: { name } }),
     link_url: MESSENGER_FRIENDS_HREF,
     domain: "community_chat",
     ref_id: rid,
@@ -56,12 +65,14 @@ export async function notifyCommunityMessengerFriendRequestAccepted(
   if (!uid || !rid) return;
   const addresseeUserId = String(args.addresseeUserId ?? "").trim();
   const addresseeLabel = String(args.addresseeLabel ?? "").trim();
+  const language = await loadNotificationUserLanguage(sb, uid);
+  const name = peerLabel(addresseeLabel, language);
 
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "system",
-    title: "친구 요청이 수락되었습니다",
-    body: `${addresseeLabel || "상대"}님이 요청을 수락했습니다.`,
+    title: notifySafeT(language, "notify_friend_request_accepted_title"),
+    body: notifySafeT(language, "notify_friend_request_accepted_body", { vars: { name } }),
     link_url: MESSENGER_FRIENDS_HREF,
     domain: "community_chat",
     ref_id: rid,
@@ -91,12 +102,14 @@ export async function notifyCommunityMessengerFriendRequestRejected(
   if (!uid || !rid) return;
   const addresseeUserId = String(args.addresseeUserId ?? "").trim();
   const addresseeLabel = String(args.addresseeLabel ?? "").trim();
+  const language = await loadNotificationUserLanguage(sb, uid);
+  const name = peerLabel(addresseeLabel, language);
 
   await appendUserNotification(sb, {
     user_id: uid,
     notification_type: "system",
-    title: "친구 요청이 거절되었습니다",
-    body: `${addresseeLabel || "상대"}님이 요청을 거절했습니다.`,
+    title: notifySafeT(language, "notify_friend_request_rejected_title"),
+    body: notifySafeT(language, "notify_friend_request_rejected_body", { vars: { name } }),
     link_url: MESSENGER_FRIENDS_HREF,
     domain: "community_chat",
     ref_id: rid,

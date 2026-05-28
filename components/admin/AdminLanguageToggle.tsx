@@ -4,42 +4,41 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { getUserSettings, subscribeUserSettings, syncUserSettings, updateUserSettings } from "@/lib/settings/user-settings-store";
+import { peekUserSettingsSnapshot, subscribeUserSettings, syncUserSettings } from "@/lib/settings/user-settings-store";
 
 export function AdminLanguageToggle() {
-  const { language, setLanguage, t } = useI18n();
+  const { language, languagePreference, setLanguage, t } = useI18n();
+  const activeLanguage = languagePreference ?? language;
   const userId = getCurrentUser()?.id ?? "me";
   const [current, setCurrent] = useState<AppLanguageCode>(language);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setCurrent(language);
-  }, [language]);
+    setCurrent(activeLanguage);
+  }, [activeLanguage]);
 
   useEffect(() => {
     const apply = () => {
-      const stored = getUserSettings(userId).preferred_language;
+      const stored = peekUserSettingsSnapshot(userId).preferred_language;
       if (stored === "ko" || stored === "en") setCurrent(stored);
-      else setCurrent(language);
+      else setCurrent(activeLanguage);
     };
     apply();
     void syncUserSettings(userId).then(() => apply());
     return subscribeUserSettings(({ userId: changedUserId }) => {
       if (changedUserId === userId) apply();
     });
-  }, [language, userId]);
+  }, [activeLanguage, userId]);
 
   const changeLanguage = useCallback(
     async (next: AppLanguageCode) => {
       if (busy || current === next) return;
       setBusy(true);
-      const previous = current;
       setCurrent(next);
       setLanguage(next);
-      updateUserSettings(userId, { preferred_language: next });
       setBusy(false);
     },
-    [busy, current, setLanguage, userId]
+    [busy, current, setLanguage]
   );
 
   return (

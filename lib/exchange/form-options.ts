@@ -2,9 +2,12 @@
  * 환전 글쓰기 폼 옵션 (페소↔한화만, 달러 제외)
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export const EXCHANGE_CURRENCIES = ["PHP", "KRW"] as const;
 export type ExchangeCurrency = (typeof EXCHANGE_CURRENCIES)[number];
 
+/** @deprecated UI는 `exchange_currency_*` catalog 키 사용 */
 export const CURRENCY_LABELS: Record<string, string> = {
   PHP: "필리핀 페소",
   KRW: "한국 원",
@@ -28,17 +31,18 @@ export const DEFAULT_RATES_PHP_BASE: Record<string, number> = {
 
 /** 팝니다 / 삽니다 */
 export const EXCHANGE_DIRECTION_OPTIONS = [
-  { value: "sell", label: "팝니다" },
-  { value: "buy", label: "삽니다" },
+  { value: "sell", labelKey: "exchange_write_dir_sell_php" as MessageKey },
+  { value: "buy", labelKey: "exchange_write_dir_buy_php" as MessageKey },
 ] as const;
 
 /** 판매자/구매자 준비물 옵션 (본인 확인 필요 제외) */
 export const PREP_OPTIONS = [
-  { value: "id", label: "신분증" },
-  { value: "bankbook", label: "본인 명의 통장" },
-  { value: "identity_not_required", label: "본인 확인 불필요" },
+  { value: "id", labelKey: "exchange_prep_id" as MessageKey },
+  { value: "bankbook", labelKey: "exchange_prep_bankbook" as MessageKey },
+  { value: "identity_not_required", labelKey: "exchange_prep_identity_not_required" as MessageKey },
 ] as const;
 
+/** @deprecated 목록·상세 표시용 — UI는 `exchange_prep_*` catalog 키 사용 */
 export const PREP_LABELS: Record<string, string> = {
   id: "신분증",
   bankbook: "본인 명의 통장",

@@ -64,8 +64,7 @@ export function ServiceWriteForm({
       if (!content.trim()) next.content = t("ui_write_service_desc_err");
     }
     if (hasLocation && !isRequest && (!region || !city)) {
-      next.location =
-        "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
+      next.location = t("trade_write_err_region_read");
     }
     setErrors(next);
     return Object.keys(next).length === 0;

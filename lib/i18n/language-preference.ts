@@ -135,6 +135,17 @@ export function resolveGuestAppLanguageCode(options: {
   return (options.browserDetect ?? getBrowserLanguage)();
 }
 
+/** 로그인 사용자 — cookie/localStorage/설정 캐시에서 명시 ko/en 읽기 (sync 트리거 없음) */
+export function readClientExplicitAppLanguage(options?: {
+  cachedPreferredLanguage?: unknown;
+}): AppLanguageCode | null {
+  return (
+    readExplicitLocalLanguage() ??
+    readExplicitLanguageCookie() ??
+    parseExplicitAppLanguage(options?.cachedPreferredLanguage)
+  );
+}
+
 /** 로그인: DB/설정 explicit ko/en → 없으면 기기·브라우저 (쿠키는 system일 때만 보조) */
 export function resolveAuthenticatedAppLanguageCode(options: {
   preferredLanguage?: unknown;

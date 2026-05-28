@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { RealtimePostgresChangesPayload } from "@supabase/supabase-js";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
@@ -63,6 +64,8 @@ export function useMessageNotificationBridge(
   enabled = true,
   playback: MessageNotificationBridgePlayback = "full"
 ): void {
+  const { t } = useI18n();
+  const tRef = useRef(t);
   const router = useRouter();
   const routerRef = useRef(router);
   const pathname = usePathname();
@@ -81,7 +84,8 @@ export function useMessageNotificationBridge(
     pathnameRef.current = pathname;
     playbackRef.current = playback;
     surfaceRef.current = surface;
-  }, [pathname, playback, router, surface]);
+    tRef.current = t;
+  }, [pathname, playback, router, surface, t]);
 
   const navigateToCommunityRoom = (roomId: string) => {
     const pathNow = pathnameRef.current ?? "";
@@ -235,8 +239,8 @@ export function useMessageNotificationBridge(
             }
             tryShowMessengerWebDesktopNotification({
               roomId: nextRoomId,
-              title: "메신저",
-              body: "새 메시지가 도착했습니다",
+              title: tRef.current("notify_messenger_banner_title"),
+              body: tRef.current("notify_messenger_new_message_arrived"),
               nextUnread,
               prevUnread,
               activeCommunityRoomId: activeCommunityRoomIdFromPathname(pathnameRef.current),
@@ -288,16 +292,16 @@ export function useMessageNotificationBridge(
           if (messengerRolloutShowsInAppMessageBanner() && dedupeKey && showAppLevelBanner) {
             useMessengerInAppMessageBannerStore.getState().pushOrMerge({
               roomId: nextRoomId,
-              title: "메신저",
-              preview: "새 메시지가 도착했습니다",
+              title: tRef.current("notify_messenger_banner_title"),
+              preview: tRef.current("notify_messenger_new_message_arrived"),
               dedupeKey,
             });
           }
           cmReceiveLatencyMark(key, { push_decision_ms: cmReceiveLatencyNow() });
           tryShowMessengerWebDesktopNotification({
             roomId: nextRoomId,
-            title: "메신저",
-            body: "새 메시지가 도착했습니다",
+            title: tRef.current("notify_messenger_banner_title"),
+            body: tRef.current("notify_messenger_new_message_arrived"),
             nextUnread,
             prevUnread,
             activeCommunityRoomId: activeRoom,

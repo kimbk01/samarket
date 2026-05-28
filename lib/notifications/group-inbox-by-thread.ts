@@ -6,6 +6,10 @@ import {
   resolveInboxSurfaceBadge,
 } from "@/lib/notifications/notification-inbox-surface-label";
 import {
+  resolveNotificationInboxBody,
+  resolveNotificationInboxTitle,
+} from "@/lib/notifications/resolve-commerce-notification-inbox-text";
+import {
   defaultInboxFallbackHref,
   resolveNotificationInboxHref,
 } from "@/lib/notifications/resolve-notification-inbox-href";
@@ -122,15 +126,26 @@ export function buildInboxGroupItems(
       language
     );
     const kindLabel = knd && knd !== surfaceBadge ? knd : null;
-    const displayTitle = buildInboxDisplayTitle(latest.title, fromLabel, latest.notification_type);
+    const safeTitle = resolveNotificationInboxTitle(language, {
+      notification_type: latest.notification_type,
+      title: latest.title,
+      body: latest.body,
+      meta: metaObj,
+    });
+    const displayTitle = buildInboxDisplayTitle(safeTitle, fromLabel, latest.notification_type);
+    const safeBody = resolveNotificationInboxBody(language, {
+      notification_type: latest.notification_type,
+      body: latest.body,
+      meta: metaObj,
+    });
     out.push({
       key: `${key}:${ids[0]}`,
       ids,
       isThread,
       notification_type: latest.notification_type,
-      title: latest.title,
+      title: safeTitle,
       displayTitle,
-      body: latest.body,
+      body: safeBody,
       href,
       created_at: latest.created_at,
       unreadCount,

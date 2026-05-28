@@ -15,6 +15,9 @@ import { jobsFormMessages } from "./catalog/jobs-form";
 import { priceOffersMessages } from "./catalog/price-offers";
 import { neighborhoodMeetingEventsMessages } from "./catalog/neighborhood-meeting-events";
 import { tradeUsedCarMessages } from "./catalog/trade-used-car";
+import { tradeWriteFormMessages } from "./catalog/trade-write-form";
+import { jobsWriteFormMessages } from "./catalog/jobs-write-form";
+import { exchangeWriteFormMessages } from "./catalog/exchange-write-form";
 import { cmHomeListMessages } from "./catalog/cm-home-list";
 import { personalizedFeedMessages } from "./catalog/personalized-feed";
 import { businessAdminNavMessages } from "./catalog/business-admin-nav";
@@ -69,6 +72,9 @@ export const MESSAGES = {
     ...priceOffersMessages.ko,
     ...neighborhoodMeetingEventsMessages.ko,
     ...tradeUsedCarMessages.ko,
+    ...tradeWriteFormMessages.ko,
+    ...jobsWriteFormMessages.ko,
+    ...exchangeWriteFormMessages.ko,
     ...cmHomeListMessages.ko,
     ...personalizedFeedMessages.ko,
     ...businessAdminNavMessages.ko,
@@ -122,6 +128,9 @@ export const MESSAGES = {
     ...priceOffersMessages.en,
     ...neighborhoodMeetingEventsMessages.en,
     ...tradeUsedCarMessages.en,
+    ...tradeWriteFormMessages.en,
+    ...jobsWriteFormMessages.en,
+    ...exchangeWriteFormMessages.en,
     ...cmHomeListMessages.en,
     ...personalizedFeedMessages.en,
     ...businessAdminNavMessages.en,

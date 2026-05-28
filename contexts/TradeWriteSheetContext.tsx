@@ -13,14 +13,11 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   TRADE_WRITE_SHEET_REOPEN_CATEGORY_SESSION_KEY,
   TRADE_WRITE_SHEET_REOPEN_SESSION_FLAG_KEY,
 } from "@/lib/navigation/trade-meet-spot-return-to";
-import {
-  TRADE_WRITE_EXIT_SHEET_BODY,
-  TRADE_WRITE_EXIT_SHEET_TITLE,
-} from "@/lib/posts/trade-write-exit-cleanup";
 
 type TradeWriteSheetContextValue = {
   isOpen: boolean;
@@ -56,6 +53,7 @@ function isTradeWriteSheetSurfacePath(p: string): boolean {
 }
 
 export function TradeWriteSheetProvider({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [isOpen, setIsOpen] = useState(false);
@@ -169,14 +167,14 @@ export function TradeWriteSheetProvider({ children }: { children: React.ReactNod
       <MobileConfirmBottomSheet
         open={externalLeaveOpen}
         onCancel={handleExternalLeaveCancel}
-        title={TRADE_WRITE_EXIT_SHEET_TITLE}
-        description={TRADE_WRITE_EXIT_SHEET_BODY}
-        cancelLabel="계속 작성"
-        confirmLabel="나가기"
+        title={t("ui_write_exit_title")}
+        description={t("ui_write_exit_body")}
+        cancelLabel={t("ui_write_exit_continue")}
+        confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
         onConfirm={handleExternalLeaveConfirm}
         zIndexClass="z-[70]"
-        ariaLabel="작성 중 이탈 확인"
+        ariaLabel={t("ui_write_external_leave_aria")}
         interactionMode="blocking"
       />
     </TradeWriteSheetContext.Provider>

@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryWriteHref } from "@/lib/categories/getCategoryHref";
 import { CategoryIcon } from "@/components/home/CategoryIcon";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
 interface WriteLauncherItemProps {
   category: CategoryWithSettings;
@@ -16,7 +18,9 @@ interface WriteLauncherItemProps {
  */
 export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemProps) {
   const router = useRouter();
+  const { language } = useI18n();
   const href = getCategoryWriteHref(category);
+  const label = resolveWriteCategoryUILabel(language, category);
 
   const handleClick = () => {
     onNavigate?.();
@@ -37,7 +41,7 @@ export function WriteLauncherItem({ category, onNavigate }: WriteLauncherItemPro
       >
         <CategoryIcon iconKey={category.icon_key} className="size-[22px] text-current" />
       </span>
-      <span className="min-w-0 flex-1 sam-text-body font-medium text-sam-fg">{category.name}</span>
+      <span className="min-w-0 flex-1 sam-text-body font-medium text-sam-fg">{label}</span>
     </button>
   );
 }

@@ -109,6 +109,7 @@ import {
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
@@ -161,11 +162,20 @@ function jobListingKindClass(selected: boolean): string {
 const JOB_LABEL_CHECK_ROW =
   "cursor-pointer touch-manipulation select-none [-webkit-tap-highlight-color:transparent] active:opacity-75";
 
-function formatPayReadable(num: number, currency: string): string {
+function formatPayReadable(
+  num: number,
+  currency: string,
+  translate: (key: "jobs_write_salary_man_only" | "jobs_write_salary_man_remainder", vars?: Record<string, string>) => string
+): string {
   if (currency === "KRW" && num >= 10000) {
     const m = Math.floor(num / 10000);
     const r = num % 10000;
-    return r > 0 ? `${m}만 ${formatPrice(r, "KRW")}` : `${m}만원`;
+    return r > 0
+      ? translate("jobs_write_salary_man_remainder", {
+          man: String(m),
+          amount: formatPrice(r, "KRW"),
+        })
+      : translate("jobs_write_salary_man_only", { man: String(m) });
   }
   return formatPrice(num, currency);
 }
@@ -192,7 +202,7 @@ export function JobsWriteForm({
   ownerEditSnapshot,
   tradePolicy = null,
 }: JobsWriteFormProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -357,7 +367,7 @@ export function JobsWriteForm({
 
   const backHref = editPostId ? `/post/${editPostId}` : getCategoryHref(category);
   const payNum = payAmount.replace(/,/g, "");
-  const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency) : "";
+  const payDisplay = payNum && !Number.isNaN(Number(payNum)) ? formatPayReadable(Number(payNum), currency, t) : "";
 
   useEffect(() => {
     let cancelled = false;
@@ -682,7 +692,10 @@ export function JobsWriteForm({
       const uploaded = await uploadPostImages(files, user.id);
       if (uploaded.length !== files.length) {
         window.alert(
-          `이미지 ${files.length}장 중 ${uploaded.length}장만 업로드되었습니다. 네트워크·저장소 설정을 확인한 뒤 다시 시도해 주세요.`
+          t("trade_write_err_upload_partial", {
+            total: String(files.length),
+            uploaded: String(uploaded.length),
+          })
         );
         return false;
       }
@@ -821,31 +834,35 @@ export function JobsWriteForm({
       });
     }
     if (listingKind === "work") {
-      if (!workCategory.trim()) next.workCategory = "희망 업종을 선택해 주세요.";
+      if (!workCategory.trim()) next.workCategory = t("jobs_write_err_seek_category");
       if (workCategory === WORK_CATEGORY_OTHER) {
         const o = workCategoryOther.trim();
         if (o.length < 2) {
-          next.workCategoryOther = "기타 업종을 2자 이상 입력해 주세요.";
+          next.workCategoryOther = t("jobs_write_err_category_other_min");
         } else if (o.length > WORK_CATEGORY_OTHER_MAX) {
-          next.workCategoryOther = `기타 업종은 최대 ${WORK_CATEGORY_OTHER_MAX}자예요.`;
+          next.workCategoryOther = t("jobs_write_err_category_other_max", {
+            max: String(WORK_CATEGORY_OTHER_MAX),
+          });
         }
       }
     } else {
-      if (!workCategory.trim()) next.workCategory = "업종을 선택해 주세요.";
+      if (!workCategory.trim()) next.workCategory = t("jobs_write_err_hire_category");
       if (workCategory === WORK_CATEGORY_OTHER) {
         const o = workCategoryOther.trim();
         if (o.length < 2) {
-          next.workCategoryOther = "기타 업종을 2자 이상 입력해 주세요.";
+          next.workCategoryOther = t("jobs_write_err_category_other_min");
         } else if (o.length > WORK_CATEGORY_OTHER_MAX) {
-          next.workCategoryOther = `기타 업종은 최대 ${WORK_CATEGORY_OTHER_MAX}자예요.`;
+          next.workCategoryOther = t("jobs_write_err_category_other_max", {
+            max: String(WORK_CATEGORY_OTHER_MAX),
+          });
         }
       }
     }
     if (!effectiveTradeRegionId || !effectiveTradeCityId) {
       next.region =
         listingKind === "work"
-          ? "희망 근무지역을 불러오지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요."
-          : "거래 지역을 읽지 못했습니다. 주소 관리에서 대표 주소를 저장한 뒤 다시 시도해 주세요.";
+          ? t("jobs_write_err_seek_region_read")
+          : t("trade_write_err_region_read");
     }
     if (!tradeMeetSpot?.displayLine?.trim()) {
       const fallbackLine =
@@ -854,16 +871,18 @@ export function JobsWriteForm({
       if (!fallbackLine) {
         next.meetSpot =
           listingKind === "work"
-            ? "희망 근무지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요."
-            : "거래 지역을 확인할 수 없습니다. 주소 관리에서 지역을 저장한 뒤 다시 시도해 주세요.";
+            ? t("jobs_write_err_seek_region_confirm")
+            : t("trade_write_err_meet_spot");
       }
     }
     if (!description.trim()) {
       next.description =
-        listingKind === "work" ? "자기소개를 입력해 주세요." : "내용을 입력해 주세요.";
+        listingKind === "work" ? t("jobs_write_err_intro") : t("jobs_write_err_content");
     }
     if (description.trim().length > JOB_DESCRIPTION_MAX) {
-      next.description = `설명은 최대 ${JOB_DESCRIPTION_MAX}자까지예요.`;
+      next.description = t("jobs_write_err_description_max", {
+        max: String(JOB_DESCRIPTION_MAX),
+      });
     }
     const amountNum = payAmount.replace(/,/g, "");
     const skipPayAmount =
@@ -872,30 +891,32 @@ export function JobsWriteForm({
     if (!skipPayAmount) {
       if (!amountNum || Number.isNaN(Number(amountNum)) || Number(amountNum) < 0) {
         next.payAmount =
-          listingKind === "work"
-            ? "희망 급여를 입력하거나 급여 유형에서 「협의」를 선택해 주세요."
-            : "급여 금액을 입력해 주세요.";
+          listingKind === "work" ? t("jobs_write_err_seek_pay") : t("jobs_write_err_pay_amount");
       } else if (payType === "hourly") {
         const n = Number(amountNum);
         if (currency === "KRW" && n < MIN_WAGE_2026) {
-          next.payAmount = `최저시급은 ${formatPrice(MIN_WAGE_2026, "KRW")} 이상이에요.`;
+          next.payAmount = t("jobs_write_err_min_wage_krw", {
+            amount: formatPrice(MIN_WAGE_2026, "KRW"),
+          });
         } else if (currency === "PHP" && n < MIN_WAGE_PHP_HOURLY) {
-          next.payAmount = `시급은 ${formatPrice(MIN_WAGE_PHP_HOURLY, "PHP")} 이상으로 입력해 주세요.`;
+          next.payAmount = t("jobs_write_err_min_wage_php", {
+            amount: formatPrice(MIN_WAGE_PHP_HOURLY, "PHP"),
+          });
         }
       }
     }
     if (!coreLocked && listingKind === "hire" && todayMin && (workTerm === "short" || workTerm === "one_day")) {
-      if (!workDate.trim()) next.workDate = "근무 시작일을 선택해 주세요.";
-      if (!workDateEnd.trim()) next.workDateEnd = "근무 종료일을 선택해 주세요.";
+      if (!workDate.trim()) next.workDate = t("jobs_write_err_work_date_start");
+      if (!workDateEnd.trim()) next.workDateEnd = t("jobs_write_err_work_date_end");
       if (workDate.trim() && workDate < todayMin) {
-        next.workDate = "근무 시작일은 오늘 이후만 선택할 수 있어요.";
+        next.workDate = t("jobs_write_err_work_date_future_start");
       }
       if (workDateEnd.trim() && workDateEnd < todayMin) {
-        next.workDateEnd = "근무 종료일은 오늘 이후만 선택할 수 있어요.";
+        next.workDateEnd = t("jobs_write_err_work_date_future_end");
       }
       const start = workDate.trim() || todayMin;
       if (workDateEnd.trim() && workDateEnd < start) {
-        next.workDateEnd = "종료일은 시작일과 같거나 이후여야 해요.";
+        next.workDateEnd = t("jobs_write_err_work_date_order");
       }
     }
     setErrors(next);
@@ -919,6 +940,7 @@ export function JobsWriteForm({
     coreLocked,
     tradeMeetSpot,
     representativeTradeMeetFallbackLine,
+    t,
   ]);
 
   const buildMeta = useCallback((): Record<string, unknown> => {
@@ -1218,7 +1240,13 @@ export function JobsWriteForm({
     ]
   );
 
-  const tierTitle = editPostId ? `${category.name} · 글 수정` : `${category.name} · 빠른 등록 · 글쓰기`;
+  const categoryLabel = useMemo(
+    () => resolveWriteCategoryUILabel(language, category),
+    [language, category]
+  );
+  const tierTitle = editPostId
+    ? `${categoryLabel} · ${t("jobs_write_header_edit")}`
+    : `${categoryLabel} · ${t("jobs_write_header_quick")}`;
   const policyHint = tradePolicy?.hint?.trim() ?? "";
 
   const tradeLocationEl = (
@@ -1236,7 +1264,7 @@ export function JobsWriteForm({
         meetSpotLine={karrotMeetSpotDisplayLine || null}
         meetSpotError={errors.meetSpot}
         onBeforeMeetSpotPick={!coreLocked ? () => void handleBeforeMeetSpotPick() : undefined}
-        meetSpotHeading={isSeeker ? "희망 근무지역" : "근무 위치"}
+        meetSpotHeading={isSeeker ? t("jobs_write_meet_seeker") : t("jobs_write_meet_hire")}
         denseLayout
       />
     </div>
@@ -1254,14 +1282,14 @@ export function JobsWriteForm({
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
         title={t("trade_099")}
-        description="이전에 입력한 내용을 불러올까요?"
-        secondaryLabel="새로 작성"
+        description={t("trade_write_draft_resume_body")}
+        secondaryLabel={t("trade_write_draft_resume_new")}
         onSecondary={handleDiscardJobsPersistedDraft}
-        primaryLabel="이어쓰기"
+        primaryLabel={t("trade_write_draft_resume_continue")}
         onPrimary={handleResumeJobsPersistedDraft}
         primaryTone="primary"
         zIndexClass="z-[72]"
-        ariaLabel="일자리 임시 저장 글 복구"
+        ariaLabel={t("jobs_write_draft_aria")}
         interactionMode="blocking"
       />
       {!suppressTier1Chrome ? (
@@ -1320,8 +1348,8 @@ export function JobsWriteForm({
             onChange={(e) => setTitle(e.target.value)}
             placeholder={
               listingKind === "hire"
-                ? "예: 카페 알바 구합니다 / 주방 직원 구해요"
-                : "예: 주방보조 일 찾습니다 / 파트타임 구합니다"
+                ? t("jobs_write_title_ph_hire")
+                : t("jobs_write_title_ph_work")
             }
             maxLength={JOB_TITLE_MAX}
             className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
@@ -1354,7 +1382,7 @@ export function JobsWriteForm({
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_083")}</p>
               <label htmlFor="jobs-work-category-select" className="sr-only">
-                업종 선택
+                {t("jobs_write_category_select_aria")}
               </label>
               <select
                 id="jobs-work-category-select"
@@ -1396,7 +1424,7 @@ export function JobsWriteForm({
                     }`}
                   />
                   <p className="mt-1 sam-text-helper text-sam-muted">
-                    {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX} · 상세·목록에 함께 표시돼요
+                    {workCategoryOther.length}/{WORK_CATEGORY_OTHER_MAX} · {t("jobs_write_category_other_hint")}
                   </p>
                 </div>
               )}
@@ -1711,7 +1739,7 @@ export function JobsWriteForm({
             >
               <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_136")}</p>
               <label htmlFor="jobs-seeker-industry-select" className="sr-only">
-                희망 업종 선택
+                {t("jobs_write_seek_category_select_aria")}
               </label>
               <select
                 id="jobs-seeker-industry-select"
@@ -1828,7 +1856,7 @@ export function JobsWriteForm({
           <>
             <section className={TRADE_WRITE_FB_SECTION}>
               <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                상세 설명 <span className="text-red-500">*</span>
+                {t("jobs_write_description_label")} <span className="text-red-500">*</span>
               </h4>
               <AutoGrowTextarea
                 value={description}
@@ -1847,7 +1875,7 @@ export function JobsWriteForm({
                     className="mt-1.5 touch-manipulation [-webkit-tap-highlight-color:transparent] rounded-ui-rect border border-sam-border bg-sam-surface-muted px-2 py-1 text-[11px] leading-snug text-sam-fg transition-[transform,opacity] duration-100 active:scale-[0.97] active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary focus-visible:ring-offset-2"
                     onClick={() => setFrequentPhrasesOpen(true)}
                   >
-                    자주 쓰는 문구
+                    {t("trade_write_frequent_phrases")}
                   </button>
                   <TradeFrequentPhrasesSheet
                     open={frequentPhrasesOpen}
@@ -1878,7 +1906,7 @@ export function JobsWriteForm({
                 value={images}
                 onChange={setImages}
                 maxCount={maxImagesHire}
-                label="매장 사진 또는 참고 이미지 (선택)"
+                label={t("jobs_write_store_photos_label")}
                 disabled={coreLocked}
                 compact={false}
                 variant="karrot"
@@ -1930,7 +1958,7 @@ export function JobsWriteForm({
 
             <section className={TRADE_WRITE_FB_SECTION}>
               <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                자기소개 <span className="text-red-500">*</span>
+                {t("jobs_write_intro_label")} <span className="text-red-500">*</span>
               </h4>
               <AutoGrowTextarea
                 value={description}
@@ -1950,7 +1978,7 @@ export function JobsWriteForm({
                 <div className="mt-2 border-t border-[#e4e6eb] pt-2">
                   <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
                   <p className="mb-1 text-[12px] text-[#8a8d91]">
-                    기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.
+                    {t("jobs_write_append_hint")}
                   </p>
                   <AutoGrowTextarea
                     value={descriptionAppend}
@@ -1969,7 +1997,7 @@ export function JobsWriteForm({
                 className="flex w-full touch-manipulation items-center justify-between gap-2 [-webkit-tap-highlight-color:transparent] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg transition-[transform,opacity,background-color] duration-100 active:scale-[0.99] active:bg-sam-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary focus-visible:ring-offset-2"
               >
                 <span>{t("trade_076")}</span>
-                <span className="sam-text-helper text-sam-muted">{seekOptionalOpen ? "접기" : "펼치기"}</span>
+                <span className="sam-text-helper text-sam-muted">{seekOptionalOpen ? t("trade_write_collapse") : t("trade_write_expand")}</span>
               </button>
               {seekOptionalOpen ? (
                 <div className="mt-3 space-y-4 border-t border-[#e4e6eb] pt-3">
@@ -2040,7 +2068,7 @@ export function JobsWriteForm({
                       value={images}
                       onChange={setImages}
                       maxCount={maxImagesSeeker}
-                      label="사진 첨부 (선택)"
+                      label={t("jobs_write_photos_optional_label")}
                       disabled={coreLocked}
                       compact={false}
                       variant="karrot"
@@ -2055,7 +2083,11 @@ export function JobsWriteForm({
         {errors.submit && <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>}
 
         <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-sam-surface px-4 py-3 safe-area-pb">
-          <SubmitButton label={editPostId ? "수정 완료" : "작성 완료"} submitting={submitting} onCancel={onCancel} />
+          <SubmitButton
+            label={editPostId ? t("trade_write_submit_edit") : t("trade_write_submit")}
+            submitting={submitting}
+            onCancel={onCancel}
+          />
         </div>
       </form>
     </div>

@@ -3,7 +3,7 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
-import { translate } from "@/lib/i18n/messages";
+import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 async function shouldSkipDueToCooldown(
@@ -61,9 +61,9 @@ export async function notifyTradeChatInAppForRecipients(
     if (skip) continue;
 
     const language = await loadNotificationUserLanguage(sb, uid);
-    const title = translate(language, "notify_chat_new_message_title");
+    const title = notifySafeT(language, "notify_chat_new_message_title");
     const body =
-      preview.slice(0, 200) || translate(language, "notify_chat_message_arrived_body");
+      preview.slice(0, 200) || notifySafeT(language, "notify_chat_message_arrived_body");
 
     await appendUserNotification(sb, {
       user_id: uid,

@@ -43,5 +43,5 @@ export function safeMessageT(
   key: MessageKey,
   fallbackLabel?: string
 ): string {
-  return resolveSafeMessageKey(lang, key, fallbackLabel ?? humanizeMessageKeySlug(key));
+  return resolveSafeMessageKey(lang, key, fallbackLabel);
 }

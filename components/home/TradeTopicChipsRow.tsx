@@ -69,7 +69,13 @@ export function TradeTopicChipsRow({
             className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
             <span className={I18N_COMPACT_CHIP_LABEL}>
-              {resolveTradeCategoryUILabel(language, t.name, t.name_en, t.slug?.trim() || t.id)}
+              {resolveTradeCategoryUILabel(
+                language,
+                t.name,
+                t.name_en,
+                t.slug?.trim() || t.id,
+                t.icon_key
+              )}
             </span>
           </Link>
         );

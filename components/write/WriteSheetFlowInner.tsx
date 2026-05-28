@@ -4,11 +4,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import {
-  discardTradeWriteStashedDraft,
-  TRADE_WRITE_EXIT_SHEET_BODY,
-  TRADE_WRITE_EXIT_SHEET_TITLE,
-} from "@/lib/posts/trade-write-exit-cleanup";
+import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
+import { resolveWriteCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
 import { getCategories } from "@/lib/categories/getCategories";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
@@ -57,7 +54,7 @@ export function WriteSheetFlowInner({
   onExposeTryClose,
   onTradeSheetBlockingDraftChange,
 }: WriteSheetFlowInnerProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const tradeWriteSheetCtx = useTradeWriteSheetOptional();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
@@ -71,6 +68,11 @@ export function WriteSheetFlowInner({
   const [formStatus, setFormStatus] = useState<
     "idle" | "redirecting" | "loading" | "found" | "not_found" | "no_write"
   >("idle");
+
+  const categoryUiLabel = useCallback(
+    (category: CategoryWithSettings) => resolveWriteCategoryUILabel(language, category),
+    [language]
+  );
 
   useEffect(() => {
     getCategories({ activeOnly: true }).then(setCategories);
@@ -154,11 +156,11 @@ export function WriteSheetFlowInner({
   useEffect(() => {
     if (!onTierSubtitleChange) return;
     if (categoryKey && formStatus === "found" && selectedCategory) {
-      onTierSubtitleChange(selectedCategory.name);
+      onTierSubtitleChange(categoryUiLabel(selectedCategory));
     } else {
       onTierSubtitleChange(undefined);
     }
-  }, [categoryKey, formStatus, onTierSubtitleChange, selectedCategory]);
+  }, [categoryKey, formStatus, onTierSubtitleChange, selectedCategory, categoryUiLabel]);
 
   const handleSelect = useCallback(
     (c: CategoryWithSettings) => {
@@ -377,8 +379,8 @@ export function WriteSheetFlowInner({
       <MobileConfirmBottomSheet
         open={leaveConfirmOpen}
         onCancel={handleLeaveCancel}
-        title={TRADE_WRITE_EXIT_SHEET_TITLE}
-        description={TRADE_WRITE_EXIT_SHEET_BODY}
+        title={t("ui_write_exit_title")}
+        description={t("ui_write_exit_body")}
         cancelLabel={t("ui_write_exit_continue")}
         confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
@@ -420,7 +422,7 @@ export function WriteSheetFlowInner({
           <option value="">{t("ui_write_select_category")}</option>
           {selectableCategories.map((category) => (
             <option key={category.id} value={category.id} disabled={!category.settings?.can_write}>
-              {category.name}
+              {categoryUiLabel(category)}
               {!category.settings?.can_write ? t("ui_write_category_disabled_suffix") : ""}
             </option>
           ))}
