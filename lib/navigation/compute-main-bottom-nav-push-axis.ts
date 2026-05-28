@@ -18,7 +18,7 @@ function pathFromHref(href: string): string {
 
 /**
  * 하단 탭 이동 push 축 — canonical 인덱스 단일 소스.
- * 우측 탭(ltr): 새 화면이 왼쪽에서 밀고 들어옴 / 좌측 탭(rtl): 오른쪽에서 밀고 들어옴.
+ * 우측 탭(rtl): 새 화면이 오른쪽에서 밀고 들어옴 / 좌측 탭(ltr): 왼쪽에서 밀고 들어옴.
  */
 export function computeMainBottomNavPushAxis(
   fromPathname: string | null | undefined,

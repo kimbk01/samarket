@@ -37,6 +37,11 @@ type PushSession = {
   targetPath?: string;
 };
 
+type PushHandoff = {
+  node: ReactNode;
+  startedAt: number;
+};
+
 const PUSH_SURFACE_CLASSES = [
   "main-shell-push-surface-from-ltr",
   "main-shell-push-surface-from-rtl",
@@ -47,6 +52,7 @@ const PUSH_SURFACE_CLASSES = [
 ] as const;
 
 const MAX_PENDING_PUSH_HOLD_MS = 12_000;
+const PUSH_HANDOFF_OVERLAY_MS = 1_200;
 
 /** `beginMenuNavigation` 직후 dual-panel(440ms) — RSC 전 경량 셸을 들어오는 패널로 유지 */
 const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set(["bottom-nav", "trade-primary"]);
@@ -103,6 +109,7 @@ export function AppRouteTransition({
   const lastPushAxisRef = useRef<MainShellRoutePushAxis | null>(null);
   const pushSessionActiveRef = useRef(false);
   const [pushSession, setPushSession] = useState<PushSession | null>(null);
+  const [pushHandoff, setPushHandoff] = useState<PushHandoff | null>(null);
   const refBag = useRef({ subtleEnterRef, pushSurfaceRef });
   refBag.current.subtleEnterRef = subtleEnterRef;
   refBag.current.pushSurfaceRef = pushSurfaceRef;
@@ -167,6 +174,7 @@ export function AppRouteTransition({
 
     lastPushAxisRef.current = axis;
     pushSessionActiveRef.current = true;
+    setPushHandoff(null);
     setPushSession({
       exiting: prev.node,
       entering: pendingPushNode ?? children,
@@ -217,6 +225,7 @@ export function AppRouteTransition({
           return;
         }
 
+        setPushHandoff(null);
         setPushSession({
           exiting: prev.node,
           entering: pendingPushNode ?? children,
@@ -272,6 +281,9 @@ export function AppRouteTransition({
     if (!pushSession?.animate) return;
     const timer = window.setTimeout(() => {
       if (!pushTargetReached(pathname, pushSession.targetPath)) return;
+      if (pushSession.entering) {
+        setPushHandoff({ node: pushSession.entering, startedAt: performance.now() });
+      }
       pushSessionActiveRef.current = false;
       setPushSession(null);
       lastPushAxisRef.current = null;
@@ -285,6 +297,9 @@ export function AppRouteTransition({
     const elapsed = performance.now() - pushSession.startedAt;
     const remaining = Math.max(40, MAIN_SHELL_ROUTE_TRANSITION_MS + 64 - elapsed);
     const timer = window.setTimeout(() => {
+      if (pushSession.entering) {
+        setPushHandoff({ node: pushSession.entering, startedAt: performance.now() });
+      }
       pushSessionActiveRef.current = false;
       setPushSession(null);
       lastPushAxisRef.current = null;
@@ -304,10 +319,23 @@ export function AppRouteTransition({
 
   const finishPushSession = () => {
     if (!pushTargetReached(pathname, pushSession?.targetPath)) return;
+    if (pushSession?.entering) {
+      setPushHandoff({ node: pushSession.entering, startedAt: performance.now() });
+    }
     pushSessionActiveRef.current = false;
     setPushSession(null);
     lastPushAxisRef.current = null;
   };
+
+  useLayoutEffect(() => {
+    if (!pushHandoff) return;
+    const timer = window.setTimeout(() => {
+      setPushHandoff((current) =>
+        current?.startedAt === pushHandoff.startedAt ? null : current
+      );
+    }, PUSH_HANDOFF_OVERLAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [pushHandoff]);
 
   const hostClass = [contentStretchClass, "relative isolate"].filter(Boolean).join(" ");
 
@@ -363,6 +391,14 @@ export function AppRouteTransition({
           {children}
         </div>
       )}
+      {!pushSession && pushHandoff ? (
+        <div
+          className="pointer-events-none absolute inset-0 z-[1] overflow-hidden bg-sam-app"
+          data-main-shell-push-handoff="true"
+        >
+          {pushHandoff.node}
+        </div>
+      ) : null}
       {overlay ? (
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden bg-sam-app">{overlay}</div>
       ) : null}

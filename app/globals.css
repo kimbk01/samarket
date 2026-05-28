@@ -527,7 +527,7 @@ a,
 
 /**
  * Duration 단일 정책: forward/back 슬라이드 **440ms**(하단 탭 전환과 동일), subtle 만 150ms.
- * 우측 메뉴 → 좌→우 push / 좌측 메뉴 → 우→좌 push.
+ * 좌측 메뉴 → 좌→우 push / 우측 메뉴 → 우→좌 push.
  */
 .main-shell-route-enter-ltr-forward {
   backface-visibility: hidden;
@@ -573,8 +573,8 @@ a,
 
 /**
  * 메인 5탭 push — 이전·다음 패널이 한 트랙에서 동시에 translate (440ms).
- * ltr: [enter | exit] — 우측 탭 선택, 좌→우 밀기
- * rtl: [exit | enter] — 좌측 탭 선택, 우→좌 밀기
+ * ltr: [enter | exit] — 좌측 탭 선택, 좌→우 밀기
+ * rtl: [exit | enter] — 우측 탭 선택, 우→좌 밀기
  */
 .main-shell-push-host {
   flex: 1 1 0%;
@@ -653,12 +653,12 @@ a,
 }
 
 [data-main-shell-push-surface].main-shell-push-surface-from-ltr {
-  transform: translate3d(100%, 0, 0);
+  transform: translate3d(-100%, 0, 0);
   transition: none;
 }
 
 [data-main-shell-push-surface].main-shell-push-surface-from-rtl {
-  transform: translate3d(-100%, 0, 0);
+  transform: translate3d(100%, 0, 0);
   transition: none;
 }
 
@@ -669,12 +669,12 @@ a,
 }
 
 [data-main-shell-push-surface].main-shell-push-surface-exit-ltr {
-  transform: translate3d(-100%, 0, 0);
+  transform: translate3d(100%, 0, 0);
   transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
 }
 
 [data-main-shell-push-surface].main-shell-push-surface-exit-rtl {
-  transform: translate3d(100%, 0, 0);
+  transform: translate3d(-100%, 0, 0);
   transition: transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1);
 }
 

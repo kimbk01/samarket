@@ -84,7 +84,7 @@ for (const rel of mainTabLoadingFiles) {
 }
 
 const computeAxis = read("lib/trade/tabs/compute-trade-primary-push-axis.ts");
-if (!computeAxis.includes("toTabIndex > fromTabIndex")) {
+if (!computeAxis.includes('toTabIndex > fromTabIndex ? "rtl" : "ltr"')) {
   fail("compute-trade-primary-push-axis must use tab index order, not canonical nav");
 }
 

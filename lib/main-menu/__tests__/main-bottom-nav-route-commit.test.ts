@@ -188,8 +188,8 @@ describe("commitMainBottomNavRoute", () => {
       skipPerfMark: true,
     });
 
-    expect(armMainShellPushEnterSession).toHaveBeenCalledWith("rtl", "/stores", "/philife");
-    expect(startMainShellPushExitImmediate).toHaveBeenCalledWith("rtl");
+    expect(armMainShellPushEnterSession).toHaveBeenCalledWith("ltr", "/stores", "/philife");
+    expect(startMainShellPushExitImmediate).toHaveBeenCalledWith("ltr");
   });
 });
 

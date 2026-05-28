@@ -1608,7 +1608,7 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | 측정/검증 명령 | `node scripts/verify-delivery-dial-navigation-contract.cjs`, `npx vitest run lib/main-menu/__tests__/main-bottom-nav-route-commit.test.ts`, `npx tsc --noEmit` |
 | 완료 기준 | (1) 확인 직후 `beginMenuNavigation`이 동기로 기록되고 (2) push 축이 pathname 커밋 시점에 유실되지 않으며 (3) RSC/pathname 지연 중에도 목적지 경량 패널이 440ms로 들어와 이전 화면 snapback 이 없어야 한다. |
 | 수정 파일 | `lib/main-menu/main-bottom-nav-route-commit.ts`, `lib/navigation/main-bottom-nav-domain-transition-dialog.tsx`, `components/route-transition/AppRouteTransition.tsx`, `components/layout/MainShellTabContentTransition.tsx`, `components/layout/BottomNav.tsx`, `lib/navigation/main-shell-push-axis-intent-ref.ts` |
-| 이번 조치 | `beginMenuNavigation`을 commit 시점으로 앞당기고, confirm dialog는 `flushSync`로 먼저 제거한 뒤 진행한다. `AppRouteTransition`은 하단 탭 intent 직후 dual-panel push를 시작하고, RSC/pathname이 늦으면 `pendingPushNode`(경량 목적지 셸)를 들어오는 패널로 유지한다. router commit은 실제 push host가 있는 브라우저에서만 2 RAF 뒤 수행해 첫 paint를 보장하고, 12s safety release 로 영구 고정을 막는다. push 축은 canonical 탭 순서(ltr=우측 탭·rtl=좌측 탭) 단일 소스. |
+| 이번 조치 | `beginMenuNavigation`을 commit 시점으로 앞당기고, confirm dialog는 `flushSync`로 먼저 제거한 뒤 진행한다. `AppRouteTransition`은 하단 탭 intent 직후 dual-panel push를 시작하고, RSC/pathname이 늦으면 `pendingPushNode`(경량 목적지 셸)를 들어오는 패널로 유지한다. router commit은 실제 push host가 있는 브라우저에서만 2 RAF 뒤 수행해 첫 paint를 보장하고, 12s safety release 로 영구 고정을 막는다. push 축은 canonical 탭 순서(ltr=좌측 탭·rtl=우측 탭) 단일 소스. |
 | 검증 결과 | delivery dial contract PASS, route commit 테스트 11/11 PASS, push session 테스트 4/4 PASS, push axis 테스트 3/3 PASS, TypeScript PASS. |
 
 ### 라운드 BN6 — 3회 측정 (실측)
@@ -1644,3 +1644,24 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | 하단 5탭 실제 브라우저 탭 전환 | — | — | — | 스켈레톤 미노출 + 440ms push 유지 |
 
 **판정:** **코드 완료 · 체감 측정 보류** — 구조상 루트 5탭 skeleton fallback 재등장 경로를 차단했다. 실제 기기/브라우저 3회 영상·콘솔 확인 전까지 체크시트 `[x]` 는 열지 않는다.
+
+---
+
+## 이번 라운드 (하단 탭: 라운드 BN8 — 방향 축 단일화 + handoff overlay)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `ltr/rtl` 축 의미가 dual-panel CSS 와 `(stores)` route group remount surface CSS 에서 반대로 쓰였다. 그래서 배달·메신저처럼 group 경계를 지나는 이동에서 한쪽으로 밀고 들어온 뒤 반대쪽 surface enter 가 다시 보이는 “이중 방향” 체감이 발생했다. |
+| 측정/검증 명령 | `npm run verify:trade-primary-tab-transition`, route transition vitest 4종, `npm run verify:parity-gates`, `npm run build` |
+| 완료 기준 | 현재 탭보다 왼쪽 탭 선택은 항상 좌→우, 오른쪽 탭 선택은 항상 우→좌. 첫 탭 커뮤니티에서 다른 탭은 우→좌, 마지막 내정보에서 다른 탭은 좌→우. push 종료 후 route child 교체 시 첫 접속 하얀 화면이 보이지 않도록 pending enter panel 을 짧게 유지. |
+| 수정 파일 | `route-transition-enter-kind.ts`, `route-transition-config.ts`, `AppRouteTransition.tsx`, `globals.css`, `compute-main-bottom-nav-push-axis.ts`, `compute-trade-primary-push-axis.ts`, route transition/unit tests, `verify-trade-primary-tab-transition-contract.cjs`, `trade-perf-hot-path-changelog.md` |
+| 이번 조치 | 축 산식을 뒤집어 `ltr=좌측 탭/좌→우`, `rtl=우측 탭/우→좌` 로 고정하고, cross-group surface from/exit transform 도 같은 의미로 맞췄다. push transition 종료 후 1.2초 handoff overlay 로 pending enter panel 을 유지해 route child 초기 blank 를 가린다. |
+| 검증 결과 | `verify:trade-primary-tab-transition` PASS, route transition 관련 vitest 37건 PASS, `npx tsc --noEmit` PASS, `verify:parity-gates` PASS, `npm run build` PASS. |
+
+### 라운드 BN8 — 3회 측정
+
+| 구간 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| 하단 5탭 실제 브라우저 방향/blank 확인 | — | — | — | 방향 단일 + 하얀 화면 미노출 |
+
+**판정:** **코드 완료 · 체감 측정 보류** — 축 불일치 원인은 코드·검증으로 제거했다. 실제 브라우저 3회 확인 전까지 체크시트 `[x]` 는 열지 않는다.

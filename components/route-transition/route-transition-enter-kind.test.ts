@@ -11,11 +11,11 @@ import { buildCanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-in
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 describe("routeTransitionPushAxisForKind", () => {
-  it("우측 탭(forward↑) → ltr push", () => {
+  it("좌측 탭 → ltr push (좌→우)", () => {
     expect(routeTransitionPushAxisForKind("ltr-forward")).toBe("ltr");
   });
 
-  it("좌측 탭(forward↓) → rtl push", () => {
+  it("우측 탭 → rtl push (우→좌)", () => {
     expect(routeTransitionPushAxisForKind("rtl-forward")).toBe("rtl");
   });
 
@@ -34,24 +34,24 @@ describe("resolveCanonicalNavIndex", () => {
 });
 
 describe("computeRouteTransitionEnterKind", () => {
-  it("forward increasing index uses ltr-forward", () => {
+  it("forward increasing index uses rtl-forward", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/philife", "/market", {
       popstateBack: false,
       lastForwardAxisRef,
     });
-    expect(k).toBe("ltr-forward");
-    expect(lastForwardAxisRef.current).toBe("ltr");
+    expect(k).toBe("rtl-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
   });
 
-  it("forward decreasing index uses rtl-forward", () => {
+  it("forward decreasing index uses ltr-forward", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/philife", {
       popstateBack: false,
       lastForwardAxisRef,
     });
-    expect(k).toBe("rtl-forward");
-    expect(lastForwardAxisRef.current).toBe("rtl");
+    expect(k).toBe("ltr-forward");
+    expect(lastForwardAxisRef.current).toBe("ltr");
   });
 
   it("same pillar uses subtle", () => {
@@ -63,13 +63,13 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("subtle");
   });
 
-  it("popstate after ltr-forward uses rtl-back", () => {
-    const lastForwardAxisRef = { current: "ltr" as "ltr" | "rtl" | null };
+  it("popstate after rtl-forward uses ltr-back", () => {
+    const lastForwardAxisRef = { current: "rtl" as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/market", "/philife", {
       popstateBack: true,
       lastForwardAxisRef,
     });
-    expect(k).toBe("rtl-back");
+    expect(k).toBe("ltr-back");
   });
 
   it("messenger chat room endpoint suppresses slide", () => {
@@ -160,8 +160,8 @@ describe("computeRouteTransitionEnterKind", () => {
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {
   /**
    * admin 이 `[stores, community, home, chat, my]` 순서로 저장한 경우의 슬라이드 방향.
-   * - /stores → /philife : ixPrev=0, ixNext=1 → ltr-forward (우측 메뉴 선택, 좌→우)
-   * - /philife → /stores : ixPrev=1, ixNext=0 → rtl-forward (좌측 메뉴 선택, 우→좌)
+   * - /stores → /philife : ixPrev=0, ixNext=1 → rtl-forward (우측 메뉴 선택, 우→좌)
+   * - /philife → /stores : ixPrev=1, ixNext=0 → ltr-forward (좌측 메뉴 선택, 좌→우)
    */
   const adminReorderedTabs: BottomNavItemConfig[] = [
     { id: "stores", href: "/stores", label: "배달", icon: "stores" },
@@ -172,19 +172,9 @@ describe("computeRouteTransitionEnterKind with dynamic resolver", () => {
   ];
   const resolveIndex = buildCanonicalNavIndexResolver(adminReorderedTabs);
 
-  it("respects admin order — stores→philife is forward to right (ltr-forward)", () => {
+  it("respects admin order — stores→philife is forward to right (rtl-forward)", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/stores", "/philife", {
-      popstateBack: false,
-      lastForwardAxisRef,
-      resolveIndex,
-    });
-    expect(k).toBe("ltr-forward");
-  });
-
-  it("respects admin order — philife→stores is forward to left (rtl-forward)", () => {
-    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind("/philife", "/stores", {
       popstateBack: false,
       lastForwardAxisRef,
       resolveIndex,
@@ -192,14 +182,24 @@ describe("computeRouteTransitionEnterKind with dynamic resolver", () => {
     expect(k).toBe("rtl-forward");
   });
 
-  it("dynamic resolver — sub-route (/post/abc) maps to home tab in admin order", () => {
+  it("respects admin order — philife→stores is forward to left (ltr-forward)", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
-    /** /stores(0) → /post/abc(home=2) → ixNext > ixPrev → ltr-forward */
-    const k = computeRouteTransitionEnterKind("/stores", "/post/abc", {
+    const k = computeRouteTransitionEnterKind("/philife", "/stores", {
       popstateBack: false,
       lastForwardAxisRef,
       resolveIndex,
     });
     expect(k).toBe("ltr-forward");
+  });
+
+  it("dynamic resolver — sub-route (/post/abc) maps to home tab in admin order", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    /** /stores(0) → /post/abc(home=2) → ixNext > ixPrev → rtl-forward */
+    const k = computeRouteTransitionEnterKind("/stores", "/post/abc", {
+      popstateBack: false,
+      lastForwardAxisRef,
+      resolveIndex,
+    });
+    expect(k).toBe("rtl-forward");
   });
 });

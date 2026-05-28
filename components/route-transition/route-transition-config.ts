@@ -87,8 +87,8 @@ export type MainShellRoutePushAxis = "ltr" | "rtl";
 
 /**
  * push 트랙 축 — enter 종류와 1:1.
- * - ltr: 우측 탭 선택 → 새 화면이 왼쪽에서 밀고 들어옴(좌→우)
- * - rtl: 좌측 탭 선택 → 새 화면이 오른쪽에서 밀고 들어옴(우→좌)
+ * - ltr: 왼쪽 탭 선택 → 새 화면이 왼쪽에서 밀고 들어옴(좌→우)
+ * - rtl: 오른쪽 탭 선택 → 새 화면이 오른쪽에서 밀고 들어옴(우→좌)
  */
 export function routeTransitionPushAxisForKind(
   kind: RouteTransitionEnterKind

@@ -9,5 +9,5 @@ export function computeTradePrimaryPushAxis(
   toTabIndex: number
 ): MainShellRoutePushAxis | null {
   if (fromTabIndex < 0 || toTabIndex < 0 || fromTabIndex === toTabIndex) return null;
-  return toTabIndex > fromTabIndex ? "ltr" : "rtl";
+  return toTabIndex > fromTabIndex ? "rtl" : "ltr";
 }
