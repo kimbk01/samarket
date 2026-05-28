@@ -12,10 +12,10 @@ import { usePathname } from "next/navigation";
 import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import {
-  OWNER_HUB_SECONDARY_AFTER_MS,
-  runNowOrScheduleOnStoreOwnerAdmin,
-} from "@/lib/business/owner-hub-secondary-fetch-queue";
-import { fetchMeNotificationSettingsSnapshot } from "@/lib/me/fetch-me-notification-settings-client";
+  fetchMeNotificationSettingsSnapshot,
+  peekMeNotificationSettingsSnapshotCached,
+} from "@/lib/me/fetch-me-notification-settings-client";
+import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
 import {
   shouldPlayGroupChatInAppSoundFromGate,
   shouldPlayInAppSoundFromGate,
@@ -113,11 +113,18 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
   }, []);
 
   useEffect(() => {
-    runNowOrScheduleOnStoreOwnerAdmin(
-      () => refreshUserNotificationSettings(),
-      OWNER_HUB_SECONDARY_AFTER_MS.notificationSettings,
-      "notification-settings"
+    const cached = peekMeNotificationSettingsSnapshotCached();
+    if (cached?.ok && cached.settings && typeof cached.settings === "object") {
+      setUserNotificationSettings({ ...DEFAULT_SETTINGS, ...cached.settings });
+      return;
+    }
+    const cancel = scheduleNotificationSettingsSnapshotDeferred(
+      () => {
+        void refreshUserNotificationSettings();
+      },
+      { source: "notification-surface" }
     );
+    return cancel;
   }, [refreshUserNotificationSettings]);
 
   useEffect(() => {

@@ -1,0 +1,323 @@
+﻿{
+  "capturedAt": "2026-05-28T00:39:03.525Z",
+  "origin": "http://127.0.0.1:3000",
+  "account": "aaaa (e2e default)",
+  "env": {
+    "NEXT_PUBLIC_MESSENGER_PERF_TRACE": "1 (build)",
+    "NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET": "1 (build)",
+    "SAMARKET_MESSENGER_TRACE_LOG": "1 (server start)",
+    "SAMARKET_LOG_HOME_SYNC_DEEP_TRACE": "1 (server start)",
+    "NODE_ENV": "production (npm run start)"
+  },
+  "runs": 3,
+  "averages": {
+    "cold_first_paint_ms": 1087,
+    "cold_room_list_visible_ms": 229,
+    "cold_critical_response_ms": 223,
+    "cold_cached_snapshot_hits": 0,
+    "room_empty_fill_ms": null,
+    "room_shell_visible_ms": null,
+    "composer_visible_ms": null,
+    "visibility_silent_refresh_delta": 0,
+    "visibility_home_sync_delta": 0
+  },
+  "observability": {
+    "bootstrap_v2_log_lines": 3,
+    "home_sync_deep_log_lines": 0,
+    "cm_longtask_lines": 0,
+    "cm_longtask_severe_lines": 0,
+    "list_owner_patch_lines": 62
+  },
+  "results": [
+    {
+      "scenario": "cold_home_chats",
+      "runIndex": 1,
+      "dom": {
+        "rows": 10,
+        "skel": false,
+        "state": "list-ready",
+        "empty": false
+      },
+      "firstPaintMs": 1356,
+      "blankFlash": false,
+      "shell_visible_ms": 0,
+      "room_list_visible_ms": 211,
+      "critical_response_ms": 204,
+      "used_cached_snapshot": false,
+      "refreshSilent": 4,
+      "homeSyncFetch": 2,
+      "logs": {
+        "bootstrapV2": [
+          {
+            "shell_visible_ms": 0,
+            "critical_request_start_ms": 0,
+            "critical_response_ms": 204,
+            "room_list_visible_ms": 211,
+            "deferred_start_ms": 1252,
+            "deferred_finish_ms": 1252,
+            "used_cached_snapshot": false,
+            "used_critical_payload": true
+          }
+        ],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 0, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}"
+        ]
+      }
+    },
+    {
+      "scenario": "delivery_inbox_unread",
+      "runIndex": 1,
+      "dom": {
+        "rows": 0,
+        "badges": 0
+      },
+      "refreshSilent": 5,
+      "homeSyncFetch": 2,
+      "logs": {
+        "bootstrapV2": [],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_apply_full, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}"
+        ]
+      }
+    },
+    {
+      "scenario": "delivery_room_unread",
+      "runIndex": 1,
+      "skipped": true,
+      "reason": "no_rows"
+    },
+    {
+      "scenario": "visibility_restore",
+      "runIndex": 1,
+      "refreshSilentDelta": 0,
+      "homeSyncDelta": 0,
+      "domRows": 7,
+      "logs": {
+        "bootstrapV2": [],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_apply_full, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 5}"
+        ]
+      }
+    },
+    {
+      "scenario": "cold_home_chats",
+      "runIndex": 2,
+      "dom": {
+        "rows": 10,
+        "skel": false,
+        "state": "list-ready",
+        "empty": false
+      },
+      "firstPaintMs": 959,
+      "blankFlash": false,
+      "shell_visible_ms": 0,
+      "room_list_visible_ms": 239,
+      "critical_response_ms": 234,
+      "used_cached_snapshot": false,
+      "refreshSilent": 4,
+      "homeSyncFetch": 2,
+      "logs": {
+        "bootstrapV2": [
+          {
+            "shell_visible_ms": 0,
+            "critical_request_start_ms": 0,
+            "critical_response_ms": 234,
+            "room_list_visible_ms": 239,
+            "deferred_start_ms": 1170,
+            "deferred_finish_ms": 1170,
+            "used_cached_snapshot": false,
+            "used_critical_payload": true
+          }
+        ],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 0, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}"
+        ]
+      }
+    },
+    {
+      "scenario": "delivery_inbox_unread",
+      "runIndex": 2,
+      "dom": {
+        "rows": 0,
+        "badges": 0
+      },
+      "refreshSilent": 5,
+      "homeSyncFetch": 2,
+      "logs": {
+        "bootstrapV2": [],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_apply_full, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}"
+        ]
+      }
+    },
+    {
+      "scenario": "delivery_room_unread",
+      "runIndex": 2,
+      "skipped": true,
+      "reason": "no_rows"
+    },
+    {
+      "scenario": "visibility_restore",
+      "runIndex": 2,
+      "refreshSilentDelta": 0,
+      "homeSyncDelta": 0,
+      "domRows": 7,
+      "logs": {
+        "bootstrapV2": [],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_apply_full, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 5}"
+        ]
+      }
+    },
+    {
+      "scenario": "cold_home_chats",
+      "runIndex": 3,
+      "dom": {
+        "rows": 10,
+        "skel": false,
+        "state": "list-ready",
+        "empty": false
+      },
+      "firstPaintMs": 946,
+      "blankFlash": false,
+      "shell_visible_ms": 0,
+      "room_list_visible_ms": 237,
+      "critical_response_ms": 231,
+      "used_cached_snapshot": false,
+      "refreshSilent": 4,
+      "homeSyncFetch": 2,
+      "logs": {
+        "bootstrapV2": [
+          {
+            "shell_visible_ms": 0,
+            "critical_request_start_ms": 0,
+            "critical_response_ms": 231,
+            "room_list_visible_ms": 237,
+            "deferred_start_ms": 1192,
+            "deferred_finish_ms": 1192,
+            "used_cached_snapshot": false,
+            "used_critical_payload": true
+          }
+        ],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 0, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}"
+        ]
+      }
+    },
+    {
+      "scenario": "delivery_inbox_unread",
+      "runIndex": 3,
+      "dom": {
+        "rows": 0,
+        "badges": 0
+      },
+      "refreshSilent": 5,
+      "homeSyncFetch": 2,
+      "logs": {
+        "bootstrapV2": [],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_apply_full, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}"
+        ]
+      }
+    },
+    {
+      "scenario": "delivery_room_unread",
+      "runIndex": 3,
+      "skipped": true,
+      "reason": "no_rows"
+    },
+    {
+      "scenario": "visibility_restore",
+      "runIndex": 3,
+      "refreshSilentDelta": 0,
+      "homeSyncDelta": 0,
+      "domRows": 7,
+      "logs": {
+        "bootstrapV2": [],
+        "homeSyncDeep": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "listOwner": [
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_apply_full, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: bootstrap, kind: bootstrap_full_seed, beforeCount: 24, afterCount: 24, incomingPatchRooms: 0}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 2}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 20}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: home-sync, kind: home_sync, beforeCount: 24, afterCount: 24, incomingPatchRooms: 24}",
+          "[cm-list-owner] {source: trade-meta, kind: trade_context_meta, beforeCount: 24, afterCount: 24, incomingPatchRooms: 5}"
+        ]
+      }
+    }
+  ]
+}

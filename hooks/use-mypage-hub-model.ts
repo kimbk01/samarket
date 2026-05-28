@@ -24,81 +24,137 @@ import {
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { fetchAddressDefaultsSnapshot, seedAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
+import { primeMeProfileDedupedFromKnownProfile } from "@/lib/profile/fetch-me-profile-deduped";
+import type { ProfileRow } from "@/lib/profile/types";
 
 const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
 const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
 
-function peekMypageSessionCache(): MyPageData | null {
+type MypageSessionHubCounts = {
+  overviewCounts: MyPageOverviewCounts;
+  ownerHubStoreId: string | null;
+  ownerStoreGateFirstId: string | null;
+};
+
+type MypageSessionEnvelope = {
+  data?: MyPageData;
+  viewerId?: string;
+  savedAt?: number;
+  hubCounts?: MypageSessionHubCounts;
+};
+
+function hasCompleteOverviewCounts(
+  counts: MyPageOverviewCounts,
+  hasOwnerStore: boolean,
+): boolean {
+  if (typeof counts.purchases !== "number" || typeof counts.sales !== "number") return false;
+  if (hasOwnerStore && counts.storeAttention === null) return false;
+  return true;
+}
+
+function peekMypageSessionEnvelope(): MypageSessionEnvelope | null {
   if (typeof window === "undefined") return null;
   try {
     const viewerId = getCurrentUser()?.id?.trim() ?? "";
     if (!viewerId) return null;
     const raw = sessionStorage.getItem(MYPAGE_SESSION_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { data?: MyPageData; viewerId?: string; savedAt?: number };
+    const parsed = JSON.parse(raw) as MypageSessionEnvelope;
     const ownerId = (parsed.viewerId ?? "").trim();
     if (!ownerId || ownerId !== viewerId) return null;
     const savedAt = Number(parsed.savedAt ?? 0);
     if (!Number.isFinite(savedAt) || Date.now() - savedAt > MYPAGE_SESSION_MAX_AGE_MS) return null;
     if (!parsed?.data?.profile) return null;
-    return parsed.data;
+    return parsed;
   } catch {
     return null;
   }
 }
 
-function writeMypageSessionCache(data: MyPageData): void {
+function peekMypageSessionCache(): MyPageData | null {
+  return peekMypageSessionEnvelope()?.data ?? null;
+}
+
+function peekMypageSessionHubCounts(): MypageSessionHubCounts | null {
+  const env = peekMypageSessionEnvelope();
+  if (!env?.hubCounts) return null;
+  const hasOwner = env.data?.hasOwnerStore === true;
+  if (!hasCompleteOverviewCounts(env.hubCounts.overviewCounts, hasOwner)) return null;
+  return env.hubCounts;
+}
+
+function writeMypageSessionCache(
+  data: MyPageData,
+  hubCounts?: MypageSessionHubCounts | null,
+): void {
   if (typeof window === "undefined" || !data?.profile) return;
   try {
     const viewerId = data.profile.id?.trim();
     if (!viewerId) return;
-    sessionStorage.setItem(
-      MYPAGE_SESSION_KEY,
-      JSON.stringify({
-        data,
-        viewerId,
-        savedAt: Date.now(),
-      }),
-    );
+    const payload: MypageSessionEnvelope = {
+      data,
+      viewerId,
+      savedAt: Date.now(),
+    };
+    if (hubCounts && hasCompleteOverviewCounts(hubCounts.overviewCounts, data.hasOwnerStore === true)) {
+      payload.hubCounts = hubCounts;
+    }
+    sessionStorage.setItem(MYPAGE_SESSION_KEY, JSON.stringify(payload));
   } catch { /* quota/private */ }
 }
 
+function primeProfileDedupeFromRow(profile: ProfileRow | null | undefined): void {
+  if (!profile?.id?.trim()) return;
+  primeMeProfileDedupedFromKnownProfile(profile);
+}
+
 export function useMypageHubModel(initialMyPageData: MyPageData | null | undefined) {
-  const sessionCached = initialMyPageData === undefined ? peekMypageSessionCache() : null;
+  const sessionEnvelope =
+    initialMyPageData === undefined ? peekMypageSessionEnvelope() : null;
+  const sessionCached = sessionEnvelope?.data ?? null;
+  const sessionHubCounts =
+    initialMyPageData === undefined ? peekMypageSessionHubCounts() : null;
   const boot = initialMyPageData !== undefined ? initialMyPageData : sessionCached;
   const hub0 = boot?.hubServerExtras;
   const [data, setData] = useState<MyPageData | null>(() => boot ?? null);
   const [loading, setLoading] = useState(() => boot == null);
-  const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>(() =>
-    hub0
-      ? { ...hub0.overviewCounts }
-      : { purchases: null, sales: null, storeAttention: null },
+  const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>(() => {
+    if (hub0) return { ...hub0.overviewCounts };
+    if (sessionHubCounts) return { ...sessionHubCounts.overviewCounts };
+    return { purchases: null, sales: null, storeAttention: null };
+  });
+  const [ownerHubStoreId, setOwnerHubStoreId] = useState<string | null>(
+    () => hub0?.ownerHubStoreId ?? sessionHubCounts?.ownerHubStoreId ?? null,
   );
-  const [ownerHubStoreId, setOwnerHubStoreId] = useState<string | null>(() => hub0?.ownerHubStoreId ?? null);
   const [ownerStoreGate, setOwnerStoreGate] = useState<OwnerStoreGateState | null>(
     () => hub0?.ownerStoreGate ?? null,
   );
   const [ownerStoreGateFirstId, setOwnerStoreGateFirstId] = useState<string | null>(
-    () => hub0?.ownerStoreGateFirstId ?? null,
+    () => hub0?.ownerStoreGateFirstId ?? sessionHubCounts?.ownerStoreGateFirstId ?? null,
   );
   const [addressDefaults, setAddressDefaults] = useState<AddressDefaultsFlags>(() => hub0?.addressDefaults ?? null);
   const [neighborhoodFromLife, setNeighborhoodFromLife] = useState<LifeDefaultLocationSummary | null>(
     () => hub0?.neighborhoodFromLife ?? null,
   );
   const skipInitialAddressFetchRef = useRef(Boolean(hub0));
-  const skipInitialCountsFetchRef = useRef(Boolean(hub0));
+  const skipInitialCountsFetchRef = useRef(Boolean(hub0 || sessionHubCounts));
+  const hubCountsSnapshotRef = useRef<MypageSessionHubCounts | null>(sessionHubCounts);
   const initialLoadRequestedRef = useRef(false);
   const addressDefaultsRef = useRef(addressDefaults);
   const neighborhoodFromLifeRef = useRef(neighborhoodFromLife);
   const load = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = opts?.silent === true;
+      const force = opts?.force === true;
       const shouldToggleLoading = !silent || data == null;
       if (shouldToggleLoading) setLoading(true);
       try {
+        if (!force && data?.profile) {
+          primeProfileDedupeFromRow(data.profile);
+        }
         const d = await getMyPageData();
         setData(d);
-        writeMypageSessionCache(d);
+        writeMypageSessionCache(d, hubCountsSnapshotRef.current);
       } finally {
         if (shouldToggleLoading) setLoading(false);
       }
@@ -149,12 +205,28 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
     }
   );
 
+  const sessionHubCountsRef = useRef(sessionHubCounts);
+  sessionHubCountsRef.current = sessionHubCounts;
+
+  useLayoutEffect(() => {
+    primeProfileDedupeFromRow(initialMyPageData?.profile ?? boot?.profile ?? null);
+    const hub = sessionHubCountsRef.current;
+    const profileId = (initialMyPageData?.profile ?? boot?.profile)?.id?.trim();
+    if (hub && profileId) {
+      primeTradeHistoryCountsCache(profileId, {
+        purchaseCount: hub.overviewCounts.purchases ?? 0,
+        salesCount: hub.overviewCounts.sales ?? 0,
+      });
+    }
+  }, [initialMyPageData?.profile?.id, boot?.profile?.id]);
+
   useEffect(() => {
     if (initialMyPageData !== undefined) return;
     if (initialLoadRequestedRef.current) return;
     initialLoadRequestedRef.current = true;
+    if (boot?.profile) return;
     void load();
-  }, [load, initialMyPageData]);
+  }, [load, initialMyPageData, boot?.profile]);
 
   useLayoutEffect(() => {
     const snap = initialMyPageData?.addressDefaultsSnapshot;
@@ -212,7 +284,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onProfileUpdated = () => {
-      void load({ silent: true });
+      void load({ silent: true, force: true });
       void loadAddressDefaultsRef.current({ force: true });
     };
     const onAddressesUpdated = () => {
@@ -229,14 +301,15 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) {
-        void load({ silent: true });
-        if (getCurrentUser()?.id?.trim()) void loadAddressDefaultsRef.current();
-      }
+      if (!e.persisted) return;
+      const uid = getCurrentUser()?.id?.trim();
+      if (!uid) return;
+      if (addressDefaultsRef.current != null && neighborhoodFromLifeRef.current != null) return;
+      void loadAddressDefaultsRef.current();
     };
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
-  }, [load]);
+  }, []);
 
   const viewerId = data?.profile?.id?.trim() ?? "";
   const hasOwnerStoreFlag = data?.hasOwnerStore ?? false;
@@ -270,6 +343,10 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       return;
     }
 
+    if (hubCountsSnapshotRef.current) {
+      return;
+    }
+
     let cancelled = false;
 
     const loadCounts = async () => {
@@ -282,6 +359,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
 
         let storeAttention: number | null = null;
         let hubStoreId: string | null = null;
+        let gateFirstId: string | null = null;
         if (hasOwnerStoreFlag && storesPacket) {
           const { status, json: rawStores } = storesPacket;
           const storesJson = rawStores as {
@@ -308,8 +386,9 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
                 rejected_reason: s.rejected_reason ?? null,
                 revision_note: s.revision_note ?? null,
               }));
+              gateFirstId = list[0]?.id?.trim() ?? null;
               setOwnerStoreGate(getOwnerStoreGateState(forGate));
-              setOwnerStoreGateFirstId(list[0]?.id?.trim() ?? null);
+              setOwnerStoreGateFirstId(gateFirstId);
             }
 
             const targetStore =
@@ -345,12 +424,22 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
         }
 
         if (!cancelled) {
-          setOwnerHubStoreId(hubStoreId);
-          setOverviewCounts({
+          const nextOverview: MyPageOverviewCounts = {
             purchases: purchaseCount,
             sales: salesCount,
             storeAttention,
-          });
+          };
+          setOwnerHubStoreId(hubStoreId);
+          setOverviewCounts(nextOverview);
+          if (hasCompleteOverviewCounts(nextOverview, hasOwnerStoreFlag)) {
+            const hubCounts: MypageSessionHubCounts = {
+              overviewCounts: nextOverview,
+              ownerHubStoreId: hubStoreId,
+              ownerStoreGateFirstId: gateFirstId,
+            };
+            hubCountsSnapshotRef.current = hubCounts;
+            if (data?.profile) writeMypageSessionCache(data, hubCounts);
+          }
         }
       } catch {
         if (!cancelled) {

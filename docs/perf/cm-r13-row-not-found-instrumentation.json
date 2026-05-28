@@ -1,0 +1,50 @@
+{
+  "capturedAt": "2026-05-28T11:25:52.667Z",
+  "round": "CM-R13-row-not-found-instrumentation",
+  "status": "measured_prod_like_3_runs_pass",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "sources": {
+    "r3_raw_capture": "C:/Users/im2pa/.cursor/projects/c-samarket/agent-tools/70cf1dab-2496-4a8d-a63c-96c7ee9dac6d.txt"
+  },
+  "r13_first_row_commit_path": {
+    "commit_event_count": 2,
+    "first_row_commit_span_ms_null_count": 0,
+    "rows_prepare_start_ms_null_count": 0,
+    "row_not_found_unknown_count": 0,
+    "first_row_blocker_distribution": {
+      "none_intersection_path": 2
+    },
+    "row_not_found_distribution": {},
+    "first_row_commit_span_source_distribution": {
+      "direct_row": 2
+    },
+    "rows_prepare_source_distribution": {
+      "finalize_fallback": 2
+    },
+    "first_row_visible_source_distribution": {
+      "intersection_observer": 2
+    },
+    "first_row_query_result_distribution": {
+      "skipped": 2
+    }
+  },
+  "regression_checks": {
+    "empty_flash_0_of_3": true,
+    "burst_28_plus_12": true,
+    "r2_visibility_silent_delta": 0,
+    "r2_visibility_home_sync_delta": 0,
+    "r2_delivery_unread_badges": 0
+  },
+  "verdict": "PASS",
+  "next_bottleneck": "layout_effect + dom_query not_found 경로 실측 샘플 확보(현재 3회 러닝에서는 미재현)"
+}

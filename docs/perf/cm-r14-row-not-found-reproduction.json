@@ -1,0 +1,161 @@
+{
+  "capturedAt": "2026-05-28T11:51:08.719Z",
+  "round": "CM-R14-row-not-found-reproduction",
+  "status": "measured_prod_like_partial_reproduction",
+  "origin": "http://127.0.0.1:3000",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs",
+    "validate_r14_scenarios": "node scripts/perf/cm-r14-row-not-found-reproduction.mjs"
+  },
+  "scenario_summary": {
+    "requested": 7,
+    "executed": 7,
+    "row_not_found_reproduced_scenarios": [
+      "cold_room_entry"
+    ],
+    "row_not_found_reproduced_count": 1,
+    "non_reproduced_or_unavailable": {
+      "quick_room_switch": null,
+      "burst_then_reentry": null,
+      "visibility_restore_then_room_entry": null,
+      "delivery_unread_room_entry": "no_delivery_rows",
+      "empty_room_entry": "no_matching_row",
+      "media_room_entry": "no_matching_row"
+    }
+  },
+  "distributions": {
+    "first_row_query_result": {
+      "not_found": 2,
+      "null": 3
+    },
+    "first_row_blocker_reason": {
+      "source=layout_effect query=not_found": 4,
+      "source=intersection_observer query=skipped": 1
+    },
+    "row_not_found_reason": {
+      "row_not_found_no_rows": 4
+    },
+    "first_row_commit_span_source": {
+      "null": 2,
+      "layout_effect_fallback": 2,
+      "direct_row": 1
+    }
+  },
+  "regression_checks": {
+    "r3_empty_flash_0_of_3": true,
+    "r3_burst_28_plus_12": true,
+    "r2_visibility_silent_delta": 0,
+    "r2_visibility_home_sync_delta": 0
+  },
+  "verdict": "PARTIAL",
+  "next_action_required": true,
+  "next_action": "delivery unread/empty/media 매칭 가능한 고정 테스트 room fixture를 seed해 시나리오 재현률을 높인다.",
+  "scenarios": [
+    {
+      "scenario": "cold_room_entry",
+      "reproduced": true,
+      "reason": null,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "events": [
+        {
+          "first_row_query_result": "not_found",
+          "first_row_blocker_reason": "source=layout_effect query=not_found",
+          "first_row_blocker": "row_not_found_no_rows",
+          "first_row_rows_count_at_query": 0,
+          "first_row_container_found": true,
+          "first_row_parent_hidden": false,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": "source=layout_effect query=not_found",
+          "first_row_blocker": "row_not_found_no_rows",
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": "layout_effect_fallback"
+        },
+        {
+          "first_row_query_result": "not_found",
+          "first_row_blocker_reason": "source=layout_effect query=not_found",
+          "first_row_blocker": "row_not_found_no_rows",
+          "first_row_rows_count_at_query": 0,
+          "first_row_container_found": true,
+          "first_row_parent_hidden": false,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": "source=layout_effect query=not_found",
+          "first_row_blocker": "row_not_found_no_rows",
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": "layout_effect_fallback"
+        }
+      ]
+    },
+    {
+      "scenario": "quick_room_switch",
+      "reproduced": false,
+      "reason": null,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/901e97e5-81d0-4e13-ae90-993f7aa962d7",
+      "events": [
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": "source=intersection_observer query=skipped",
+          "first_row_blocker": "none_intersection_path",
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": "direct_row"
+        }
+      ]
+    },
+    {
+      "scenario": "burst_then_reentry",
+      "reproduced": false,
+      "reason": null,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "events": []
+    },
+    {
+      "scenario": "visibility_restore_then_room_entry",
+      "reproduced": false,
+      "reason": null,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "events": []
+    },
+    {
+      "scenario": "delivery_unread_room_entry",
+      "reproduced": false,
+      "reason": "no_delivery_rows",
+      "events": []
+    },
+    {
+      "scenario": "empty_room_entry",
+      "reproduced": false,
+      "reason": "no_matching_row",
+      "events": []
+    },
+    {
+      "scenario": "media_room_entry",
+      "reproduced": false,
+      "reason": "no_matching_row",
+      "events": []
+    }
+  ]
+}

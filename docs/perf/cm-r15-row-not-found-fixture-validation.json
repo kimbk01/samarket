@@ -1,0 +1,331 @@
+{
+  "capturedAt": "2026-05-28T12:07:56.919Z",
+  "round": "CM-R15-row-not-found-fixture-validation",
+  "status": "measured_prod_like_partial",
+  "origin": "http://127.0.0.1:3000",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r15": "node scripts/perf/cm-r15-row-not-found-fixture-validate.mjs",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "fixtures": {
+    "empty_room": {
+      "roomId": "6c3aa5ff-9e2b-405d-97b8-7958bbf0b4bc",
+      "directKey": "perf_r15:empty_room",
+      "title": "[PERF-R15] empty room",
+      "mode": "empty",
+      "unread": 0
+    },
+    "cold_seeded_room": {
+      "roomId": "3f0755ae-9eac-4c38-8a8e-de4f9bc6e004",
+      "directKey": "perf_r15:cold_seeded_16",
+      "title": "[PERF-R15] cold seeded 16",
+      "mode": "cold16",
+      "unread": 0
+    },
+    "delivery_unread_room": {
+      "roomId": "9f86f394-6627-42e7-872b-248e0f95489d",
+      "directKey": "store_order:perf_r15_delivery_unread",
+      "title": "[PERF-R15] 배달 unread fixture",
+      "mode": "switch",
+      "unread": 3
+    },
+    "media_room": {
+      "roomId": "bc26ca83-fe51-4663-8b31-d12dbc74e04a",
+      "directKey": "perf_r15:media_room",
+      "title": "[PERF-R15] media fixture",
+      "mode": "media",
+      "unread": 0
+    },
+    "fast_switch_room_a": {
+      "roomId": "dd072d33-bc4f-4350-a9ae-cc41c688a404",
+      "directKey": "perf_r15:fast_switch_a",
+      "title": "[PERF-R15] switch room A",
+      "mode": "switch",
+      "unread": 0
+    },
+    "fast_switch_room_b": {
+      "roomId": "9f409823-84bf-4f6d-a6e3-91d2313e2603",
+      "directKey": "perf_r15:fast_switch_b",
+      "title": "[PERF-R15] switch room B",
+      "mode": "switch",
+      "unread": 0
+    }
+  },
+  "scenarios": [
+    {
+      "scenario": "cold_room_entry",
+      "ok": true,
+      "events": []
+    },
+    {
+      "scenario": "empty_room_entry",
+      "ok": true,
+      "events": []
+    },
+    {
+      "scenario": "delivery_unread_room_entry",
+      "ok": true,
+      "events": [
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "unknown",
+          "direct_layout_rows_source": "virtualized:unknown"
+        },
+        {
+          "first_row_query_result": "not_found",
+          "first_row_blocker_reason": "source=layout_effect query=not_found",
+          "first_row_blocker": "row_not_found_no_rows",
+          "row_not_found_no_rows": true,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": 0,
+          "first_row_container_found": true,
+          "first_row_parent_hidden": false,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": null,
+          "direct_layout_rows_source": null
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": "source=layout_effect query=not_found",
+          "first_row_blocker": "row_not_found_no_rows",
+          "row_not_found_no_rows": true,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": "layout_effect_fallback",
+          "render_source": null,
+          "direct_layout_rows_source": null
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "unknown",
+          "direct_layout_rows_source": "virtualized:unknown"
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "unknown",
+          "direct_layout_rows_source": "virtualized:unknown"
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "seed",
+          "direct_layout_rows_source": "direct:seed"
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "bootstrap",
+          "direct_layout_rows_source": "direct:bootstrap"
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "virtualizer_upgrade",
+          "direct_layout_rows_source": "virtualized:virtualizer_upgrade"
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "virtualizer_upgrade",
+          "direct_layout_rows_source": "virtualized:virtualizer_upgrade"
+        }
+      ]
+    },
+    {
+      "scenario": "media_room_entry",
+      "ok": true,
+      "events": [
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "virtualizer_upgrade",
+          "direct_layout_rows_source": "virtualized:virtualizer_upgrade"
+        },
+        {
+          "first_row_query_result": null,
+          "first_row_blocker_reason": null,
+          "first_row_blocker": null,
+          "row_not_found_no_rows": false,
+          "row_not_found_parent_hidden": false,
+          "row_not_found_query_too_early": false,
+          "row_not_found_selector_mismatch": false,
+          "row_not_found_unknown": false,
+          "first_row_rows_count_at_query": null,
+          "first_row_container_found": null,
+          "first_row_parent_hidden": null,
+          "first_row_query_selector": null,
+          "first_row_commit_span_source": null,
+          "render_source": "virtualizer_upgrade",
+          "direct_layout_rows_source": "virtualized:virtualizer_upgrade"
+        }
+      ]
+    },
+    {
+      "scenario": "fast_switch_a_b_a",
+      "ok": true,
+      "events": []
+    },
+    {
+      "scenario": "burst_then_reentry",
+      "ok": true,
+      "events": []
+    },
+    {
+      "scenario": "visibility_restore_then_entry",
+      "ok": true,
+      "events": []
+    }
+  ],
+  "distributions": {
+    "first_row_query_result": {
+      "null": 10,
+      "not_found": 1
+    },
+    "first_row_blocker_reason": {
+      "null": 9,
+      "source=layout_effect query=not_found": 2
+    },
+    "row_not_found": {
+      "row_not_found_no_rows": 2
+    },
+    "first_row_commit_span_source": {
+      "null": 10,
+      "layout_effect_fallback": 1
+    },
+    "direct_layout_rows_source": {
+      "virtualized:unknown": 3,
+      "null": 2,
+      "direct:seed": 1,
+      "direct:bootstrap": 1,
+      "virtualized:virtualizer_upgrade": 4
+    },
+    "render_source": {
+      "unknown": 3,
+      "null": 2,
+      "seed": 1,
+      "bootstrap": 1,
+      "virtualizer_upgrade": 4
+    }
+  },
+  "row_not_found_unknown_count": 0,
+  "regression_checks": {
+    "r2_visibility_silent_delta": 0,
+    "r2_visibility_home_sync_delta": 0,
+    "r3_timeline_empty_flash_rate": 0,
+    "r3_reentry_empty_flash_rate": 0,
+    "r3_burst_28_plus_12": true,
+    "r3_visibility_silent_delta": 1,
+    "r3_visibility_home_sync_delta": 2
+  },
+  "verdict": "PARTIAL",
+  "next_action": "fixture는 확보됐지만 parent_hidden/query_too_early/selector_mismatch는 fixture 기준 미재현; R3 visibility delta(1/2)도 관찰되어 후속 안정화가 필요"
+}

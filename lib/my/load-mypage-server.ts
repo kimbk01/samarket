@@ -133,25 +133,28 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
 });
 
 /**
- * `/mypage` **탭·모바일 섹션 진입**용 — 허브·홈 대시보드 숫자는 RSC에서 생략.
- * `useMypageHubModel` 이 주소·거래·매장 요약을 클라에서 채운다.
+ * `/mypage` **탭·모바일 섹션 진입**용 — 구매자 주문 건수는 RSC count, 허브 trade/owner 요약은 클라.
+ * `useMypageHubModel` 이 주소·거래·매장(판매자) 요약을 클라에서 채운다.
  */
 export const loadMypageServerShell = cache(async (): Promise<MyPageData | null> => {
   const row = await loadMypageCoreCached();
   if (!row) return null;
   const { viewerIdForHub, ...core } = row;
-  const addressDefaultsSnapshot = await loadAddressDefaultsSnapshotServer(viewerIdForHub);
+  const [addressDefaultsSnapshot, homeDashboardCounts] = await Promise.all([
+    loadAddressDefaultsSnapshotServer(viewerIdForHub),
+    loadMypageHomeDashboardCountsServer(viewerIdForHub),
+  ]);
   return {
     ...core,
     hubServerExtras: null,
-    homeDashboardCounts: null,
+    homeDashboardCounts,
     addressDefaultsSnapshot,
   };
 });
 
 /**
  * 허브·대시보드까지 포함한 전체 — 동일 요청 내 `loadMypageCoreCached` 는 한 번만 실행된다.
- * `(main)/mypage` 루트·섹션 진입은 `loadMypageServerShell` — 허브·홈 대시보드 숫자는 `useMypageHubModel`·`MyPageHomeDashboard` 가 클라에서 채움.
+ * `(main)/mypage` 루트·섹션 진입은 `loadMypageServerShell` — 구매자 주문 건수는 RSC, trade/owner 허브는 `useMypageHubModel` 이 클라에서 채움.
  * 전체(`loadMypageServer`)는 다른 서버 전용 경로가 필요할 때만 사용한다.
  */
 export const loadMypageServer = cache(async (): Promise<MyPageData | null> => {

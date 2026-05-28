@@ -35,6 +35,18 @@ describe("resolveUseDirectMessengerTimelineLayout", () => {
     ).toBe(false);
   });
 
+  it("uses seed message count when display list is still empty", () => {
+    expect(
+      resolveUseDirectMessengerTimelineLayout({
+        hydrationPass: 2,
+        displayMessageCount: 0,
+        seedMessageCount: 4,
+        hasStoreOrderDock: false,
+        virtualizerHasMeasuredRange: false,
+      })
+    ).toBe(true);
+  });
+
   it("does not direct-layout empty or pre-hydration timeline", () => {
     expect(
       resolveUseDirectMessengerTimelineLayout({

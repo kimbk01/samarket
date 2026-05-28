@@ -1,0 +1,122 @@
+{
+  "capturedAt": "2026-05-28T00:39:57.047Z",
+  "round": "CM-R4-prod-validation",
+  "env": {
+    "NEXT_PUBLIC_MESSENGER_PERF_TRACE": "1 (build)",
+    "NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET": "1 (build)",
+    "SAMARKET_MESSENGER_TRACE_LOG": "1 (server start)",
+    "SAMARKET_LOG_HOME_SYNC_DEEP_TRACE": "1 (server start)",
+    "NODE_ENV": "production (npm run start)"
+  },
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "runs": 3,
+  "table": {
+    "cold": [
+      {
+        "run": 1,
+        "fmv_probe": null,
+        "fmr": null,
+        "display_ready": null,
+        "shell": 17,
+        "composer": 557,
+        "rows": 0,
+        "flash": false
+      },
+      {
+        "run": 2,
+        "fmv_probe": 4,
+        "fmr": 911,
+        "display_ready": 911,
+        "shell": 12,
+        "composer": 584,
+        "rows": 16,
+        "flash": false
+      },
+      {
+        "run": 3,
+        "fmv_probe": 8,
+        "fmr": 884,
+        "display_ready": 884,
+        "shell": 12,
+        "composer": 547,
+        "rows": 16,
+        "flash": false
+      }
+    ],
+    "reentry": [
+      {
+        "run": 1,
+        "fmv_probe": 1126,
+        "flash": false
+      },
+      {
+        "run": 2,
+        "fmv_probe": 1042,
+        "flash": false
+      },
+      {
+        "run": 3,
+        "fmv_probe": 798,
+        "flash": false
+      }
+    ],
+    "burst": [
+      {
+        "run": 1,
+        "wall": 1252,
+        "rows": 41,
+        "hook": true
+      },
+      {
+        "run": 2,
+        "wall": 1272,
+        "rows": 41,
+        "hook": true
+      },
+      {
+        "run": 3,
+        "wall": 1254,
+        "rows": 41,
+        "hook": true
+      }
+    ]
+  },
+  "averages": {
+    "cold_fmv_probe_ms": 6,
+    "cold_first_message_render_ms": 897.5,
+    "cold_display_ready_ms": 897.5,
+    "cold_shell_ms": 13.7,
+    "cold_composer_ms": 562.7,
+    "reentry_fmv_probe_ms": 988.7,
+    "timeline_empty_flash_rate": 0
+  },
+  "r4_observability_v2": {
+    "cached_seed_hit_true": 0,
+    "bootstrap_cache_hit_true": 0,
+    "used_cached_snapshot_true": 0,
+    "v2_log_count": 39,
+    "note": "v2 emits at shell+composer finalize; bootstrap meta often after — under-counts R4 flags"
+  },
+  "r3_comparison": {
+    "r3_warm_reentry_fmv_avg_ms": 798,
+    "r3_cold_fmr_avg_ms": 863,
+    "r4_reentry_fmv_probe_avg_ms": 988.7,
+    "r4_cold_fmr_avg_ms": 897.5
+  },
+  "regression": {
+    "r2_cold_home_blank": true,
+    "r2_visibility_silent_delta": 0,
+    "r2_visibility_home_sync_delta": 0,
+    "r3_burst_ingest_lines": 6,
+    "r3_embedded_visibility_silent_delta": 3
+  },
+  "targets": {
+    "warm_reentry_fmv_le_150": false,
+    "cold_fmr_le_500": false,
+    "empty_flash_0": true
+  },
+  "verdict": "additional_fix_required"
+}

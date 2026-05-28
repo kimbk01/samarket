@@ -1,0 +1,605 @@
+﻿{
+  "capturedAt": "2026-05-28T00:32:01.404Z",
+  "origin": "http://127.0.0.1:3000",
+  "runs": 3,
+  "averages": {
+    "first_message_visible_ms": 6,
+    "timeline_empty_flash_rate": 0,
+    "room_shell_visible_ms": 13.7,
+    "composer_visible_ms": 562.7,
+    "first_message_render_ms": 897.5,
+    "bootstrap_response_ms": null,
+    "reentry_empty_flash_rate": 0,
+    "cm_longtask_lines": 0,
+    "cm_rt_ingest_burst_lines": 6
+  },
+  "r2_regression": {
+    "cold_home_blank_pass": true,
+    "cold_home_rows": 10,
+    "visibility_silent_delta": 3,
+    "visibility_home_sync_delta": 2,
+    "delivery_unread_badges": 0
+  },
+  "results": [
+    {
+      "scenario": "delivery_room_cold",
+      "runIndex": 1,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "first_message_visible_ms": null,
+      "timeline_empty_flash": false,
+      "final_message_rows": 0,
+      "room_shell_visible_ms": 17,
+      "composer_visible_ms": 557,
+      "first_message_render_ms": null,
+      "bootstrap_response_ms": null,
+      "display_ready_ms": null,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 17,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 20,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      },
+      "timeline_samples": 96
+    },
+    {
+      "scenario": "delivery_room_reentry",
+      "runIndex": 1,
+      "first_message_visible_ms": 1126,
+      "timeline_empty_flash": false,
+      "room_shell_visible_ms": null,
+      "composer_visible_ms": null,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 17,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 20,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "room_switch",
+      "runIndex": 1,
+      "switch_first_message_visible_ms": 1730,
+      "timeline_empty_flash": false,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 17,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 20,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 10,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 12,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "7aa962d7",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 8,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "realtime_burst_synthetic",
+      "runIndex": 1,
+      "roomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "burst_count": 40,
+      "used_perf_hook": true,
+      "burst_wall_ms": 1252,
+      "longtask_delta": 0,
+      "message_rows": 41,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 17,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 20,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 10,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 12,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "7aa962d7",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 8,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [
+          {
+            "batchLen": 28,
+            "durationMs": 15,
+            "pendingQueued": 0,
+            "streamRoomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b"
+          },
+          {
+            "batchLen": 12,
+            "durationMs": 0,
+            "pendingQueued": 0,
+            "streamRoomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b"
+          }
+        ],
+        "frameBudget": []
+      }
+    },
+    {
+      "cold_home_blank_pass": true,
+      "cold_home_rows": 10,
+      "visibility_silent_delta": 3,
+      "visibility_home_sync_delta": 2,
+      "delivery_unread_badges": 0
+    },
+    {
+      "scenario": "delivery_room_cold",
+      "runIndex": 2,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "first_message_visible_ms": 4,
+      "timeline_empty_flash": false,
+      "final_message_rows": 16,
+      "room_shell_visible_ms": 12,
+      "composer_visible_ms": 584,
+      "first_message_render_ms": 911,
+      "bootstrap_response_ms": null,
+      "display_ready_ms": 911,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      },
+      "timeline_samples": 1
+    },
+    {
+      "scenario": "delivery_room_reentry",
+      "runIndex": 2,
+      "first_message_visible_ms": 1042,
+      "timeline_empty_flash": false,
+      "room_shell_visible_ms": null,
+      "composer_visible_ms": null,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "room_switch",
+      "runIndex": 2,
+      "switch_first_message_visible_ms": 1630,
+      "timeline_empty_flash": false,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 8,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "7aa962d7",
+            "room_shell_visible_ms": 9,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 11,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "realtime_burst_synthetic",
+      "runIndex": 2,
+      "roomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "burst_count": 40,
+      "used_perf_hook": true,
+      "burst_wall_ms": 1272,
+      "longtask_delta": 0,
+      "message_rows": 41,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 8,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "7aa962d7",
+            "room_shell_visible_ms": 9,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 11,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [
+          {
+            "batchLen": 28,
+            "durationMs": 13,
+            "pendingQueued": 0,
+            "streamRoomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b"
+          },
+          {
+            "batchLen": 12,
+            "durationMs": 6,
+            "pendingQueued": 0,
+            "streamRoomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b"
+          }
+        ],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "delivery_room_cold",
+      "runIndex": 3,
+      "roomUrl": "http://127.0.0.1:3000/community-messenger/rooms/e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "first_message_visible_ms": 8,
+      "timeline_empty_flash": false,
+      "final_message_rows": 16,
+      "room_shell_visible_ms": 12,
+      "composer_visible_ms": 547,
+      "first_message_render_ms": 884,
+      "bootstrap_response_ms": null,
+      "display_ready_ms": 884,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      },
+      "timeline_samples": 1
+    },
+    {
+      "scenario": "delivery_room_reentry",
+      "runIndex": 3,
+      "first_message_visible_ms": 798,
+      "timeline_empty_flash": false,
+      "room_shell_visible_ms": null,
+      "composer_visible_ms": null,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "room_switch",
+      "runIndex": 3,
+      "switch_first_message_visible_ms": 1663,
+      "timeline_empty_flash": false,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 9,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "7aa962d7",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 9,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [],
+        "frameBudget": []
+      }
+    },
+    {
+      "scenario": "realtime_burst_synthetic",
+      "runIndex": 3,
+      "roomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b",
+      "burst_count": 40,
+      "used_perf_hook": true,
+      "burst_wall_ms": 1254,
+      "longtask_delta": 0,
+      "message_rows": 41,
+      "logs": {
+        "bootstrapV2": [],
+        "cmLongtask": [],
+        "cmLongtaskSevere": [],
+        "cmRoomEntryV2": [
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 12,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 15,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "10a1f54b",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 9,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          },
+          {
+            "room_id_suffix": "7aa962d7",
+            "room_shell_visible_ms": 7,
+            "message_list_visible_ms": null,
+            "composer_visible_ms": 9,
+            "realtime_ready_ms": null,
+            "deferred_history_ms": null,
+            "payload_kb": 0,
+            "used_prefetch": false,
+            "used_cached_snapshot": false,
+            "cached_seed_hit": false,
+            "bootstrap_cache_hit": false
+          }
+        ],
+        "cmRtIngestBurst": [
+          {
+            "batchLen": 28,
+            "durationMs": 14,
+            "pendingQueued": 0,
+            "streamRoomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b"
+          },
+          {
+            "batchLen": 12,
+            "durationMs": 6,
+            "pendingQueued": 0,
+            "streamRoomId": "e6c03412-eabf-4dd9-ba52-d33a10a1f54b"
+          }
+        ],
+        "frameBudget": []
+      }
+    }
+  ]
+}

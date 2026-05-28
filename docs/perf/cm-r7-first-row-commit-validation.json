@@ -1,0 +1,155 @@
+{
+  "capturedAt": "2026-05-28T02:34:46.721Z",
+  "round": "CM-R7-first-row-commit",
+  "status": "measured_prod_like_3_runs",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "NEXT_PUBLIC_MESSENGER_PERF_TRACE=1 NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET=1 npm run build",
+    "start": "SAMARKET_MESSENGER_TRACE_LOG=1 SAMARKET_LOG_HOME_SYNC_DEEP_TRACE=1 npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "sources": {
+    "r6_baseline": "docs/perf/cm-r6-fmr-display-ready-gate-validation.json",
+    "r7_r3_raw_capture": "C:/Users/im2pa/.cursor/projects/c-samarket/agent-tools/e12a2f9b-c27a-4a25-b705-c091a0819009.txt",
+    "r7_r2_capture": "docs/perf/cm-r7-r2-perceived-latest.json"
+  },
+  "r6_baseline": {
+    "cold_first_row_dom_visible_ms_sample": 682,
+    "timeline_heavy_ready_ms_avg": 697
+  },
+  "r7_targets": {
+    "cold_first_row_dom_visible_ms": {
+      "absolute_le_ms": 500,
+      "or_improve_vs_r6_pct": 30
+    },
+    "warm_first_row_dom_visible_ms": {
+      "absolute_le_ms": 150,
+      "or_improve_vs_r6_pct": 50
+    },
+    "require_direct_layout_used_true": true,
+    "require_dom_visible_before_heavy_ready": true
+  },
+  "r7_measured": {
+    "cold_delivery_room_runs": [
+      {
+        "runIndex": 1,
+        "room_open_ms": 549,
+        "phase1_seed_available_ms": null,
+        "timeline_mount_begin_ms": 925,
+        "timeline_rows_prepare_ms": null,
+        "first_row_commit_begin_ms": null,
+        "first_row_commit_end_ms": null,
+        "first_row_dom_visible_ms": null,
+        "direct_layout_used": null,
+        "seed_rows_rendered_count": null,
+        "render_source": null,
+        "timeline_heavy_ready_ms": 4982,
+        "virtualizer_ready_ms": 979,
+        "final_message_rows": 0
+      },
+      {
+        "runIndex": 2,
+        "room_open_ms": 420,
+        "phase1_seed_available_ms": null,
+        "timeline_mount_begin_ms": 596,
+        "timeline_rows_prepare_ms": null,
+        "first_row_commit_begin_ms": null,
+        "first_row_commit_end_ms": null,
+        "first_row_dom_visible_ms": null,
+        "direct_layout_used": null,
+        "seed_rows_rendered_count": null,
+        "render_source": null,
+        "timeline_heavy_ready_ms": 4678,
+        "virtualizer_ready_ms": 673,
+        "final_message_rows": 0
+      },
+      {
+        "runIndex": 3,
+        "room_open_ms": 481,
+        "phase1_seed_available_ms": 485,
+        "timeline_mount_begin_ms": 686,
+        "timeline_rows_prepare_ms": 687,
+        "first_row_commit_begin_ms": 684,
+        "first_row_commit_end_ms": 3232,
+        "first_row_dom_visible_ms": 3233,
+        "direct_layout_used": true,
+        "seed_rows_rendered_count": 16,
+        "render_source": "bootstrap",
+        "timeline_heavy_ready_ms": 3234,
+        "virtualizer_ready_ms": 3218,
+        "final_message_rows": 16
+      }
+    ],
+    "cold_first_row_dom_visible_valid_samples": 1,
+    "cold_first_row_dom_visible_ms_avg": 3233,
+    "cold_vs_r6_delta_ms": 2551,
+    "cold_vs_r6_change_pct": 374,
+    "warm_first_row_dom_visible_ms_avg": null,
+    "warm_measurement_note": "warm path did not emit first_row_dom_visible_ms in this capture",
+    "commit_path_breakdown_ms": {
+      "room_open_ms": 481,
+      "phase1_seed_available_ms": 485,
+      "timeline_mount_begin_ms": 686,
+      "timeline_rows_prepare_ms": 687,
+      "first_row_commit_begin_ms": 684,
+      "first_row_commit_end_ms": 3232,
+      "first_row_dom_visible_ms": 3233,
+      "first_row_commit_span_ms": 2548
+    },
+    "direct_layout_used": {
+      "snapshot_observed_count": 3,
+      "true_count": 3,
+      "false_count": 0,
+      "ratio_true": 1
+    },
+    "render_source_distribution": {
+      "bootstrap": 3
+    },
+    "dom_visible_vs_heavy_ready": {
+      "valid_compare_count": 1,
+      "dom_before_heavy_count": 1,
+      "dom_before_heavy_ratio": 1,
+      "delta_ms_samples": [
+        1
+      ]
+    },
+    "cm_room_r7_first_row_commit_log_marker_collected": false,
+    "collected_fields_check": {
+      "room_open_ms": true,
+      "phase1_seed_available_ms": true,
+      "timeline_mount_begin_ms": true,
+      "timeline_rows_prepare_ms": true,
+      "first_row_commit_begin_ms": true,
+      "first_row_commit_end_ms": true,
+      "first_row_dom_visible_ms": true,
+      "direct_layout_used": true,
+      "seed_rows_rendered_count": true,
+      "render_source": true,
+      "timeline_heavy_ready_ms": true,
+      "virtualizer_ready_ms": true
+    }
+  },
+  "regression_checklist": {
+    "empty_flash_0_over_3": true,
+    "burst_28_plus_12_maintained": true,
+    "r2_visibility_0_over_0": true,
+    "unread_order_mark_read_regression": "not_observed_in_automation",
+    "delivery_room_unread_note": "3/3 skipped with no_rows",
+    "r3_embedded_visibility_delta": {
+      "visibility_silent_delta": 3,
+      "visibility_home_sync_delta": 2
+    }
+  },
+  "verdict": "NEEDS_MORE_WORK",
+  "verdict_reasons": [
+    "cold first_row_dom_visible_ms regressed vs R6 baseline",
+    "cold 2 of 3 runs had final_message_rows=0 so first-row path did not complete",
+    "ordering DOM-before-heavy is met but absolute latency remains far above target"
+  ],
+  "next_bottleneck": "cold_seed_delivery_stability_before_first_row_commit"
+}

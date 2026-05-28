@@ -40,6 +40,8 @@ const finalizedMilestones = new Set<MilestoneKey>();
 let lastBootstrapPayloadKb = 0;
 let lastUsedPrefetch = false;
 let lastUsedCachedSnapshot = false;
+let lastCachedSeedHit = false;
+let lastBootstrapCacheHit = false;
 let v2EmittedForRoom: string | null = null;
 let traceRoomId: string | null = null;
 
@@ -123,6 +125,8 @@ export function resetCmRoomEntryTraceSession(roomId: string): void {
   lastBootstrapPayloadKb = 0;
   lastUsedPrefetch = false;
   lastUsedCachedSnapshot = false;
+  lastCachedSeedHit = false;
+  lastBootstrapCacheHit = false;
   if (!preservedFinalized.size) {
     v2EmittedForRoom = null;
   }
@@ -189,22 +193,34 @@ export function setCmRoomEntryBootstrapMeta(meta: {
   payload_kb: number;
   used_prefetch: boolean;
   used_cached_snapshot: boolean;
+  cached_seed_hit?: boolean;
+  bootstrap_cache_hit?: boolean;
 }): void {
   if (!cmRoomEntryTraceEnabled()) return;
   lastBootstrapPayloadKb = meta.payload_kb;
   lastUsedPrefetch = meta.used_prefetch;
   lastUsedCachedSnapshot = meta.used_cached_snapshot;
+  if (typeof meta.cached_seed_hit === "boolean") lastCachedSeedHit = meta.cached_seed_hit;
+  if (typeof meta.bootstrap_cache_hit === "boolean") {
+    lastBootstrapCacheHit = meta.bootstrap_cache_hit;
+  } else if (typeof meta.bootstrap_cache_hit === "number") {
+    lastBootstrapCacheHit = meta.bootstrap_cache_hit === 1;
+  }
 }
 
 export function getCmRoomEntryBootstrapMeta(): {
   payload_kb: number;
   used_prefetch: boolean;
   used_cached_snapshot: boolean;
+  cached_seed_hit: boolean;
+  bootstrap_cache_hit: boolean;
 } {
   return {
     payload_kb: lastBootstrapPayloadKb,
     used_prefetch: lastUsedPrefetch,
     used_cached_snapshot: lastUsedCachedSnapshot,
+    cached_seed_hit: lastCachedSeedHit,
+    bootstrap_cache_hit: lastBootstrapCacheHit,
   };
 }
 
@@ -248,6 +264,8 @@ export function tryEmitCmRoomEntryV2Log(roomId: string): void {
     payload_kb: lastBootstrapPayloadKb,
     used_prefetch: lastUsedPrefetch,
     used_cached_snapshot: lastUsedCachedSnapshot,
+    cached_seed_hit: lastCachedSeedHit,
+    bootstrap_cache_hit: lastBootstrapCacheHit,
   };
   // eslint-disable-next-line no-console -- gated room entry v2
   console.debug("[cm-room-entry-v2]", JSON.stringify(body));

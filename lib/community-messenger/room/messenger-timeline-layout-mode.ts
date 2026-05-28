@@ -16,12 +16,15 @@ export function messengerTimelineViewportHasMessageRows(
 export function resolveUseDirectMessengerTimelineLayout(opts: {
   hydrationPass: number;
   displayMessageCount: number;
+  /** `displayRoomMessages` 가 아직 비어도 `roomMessages` 시드가 있으면 direct paint */
+  seedMessageCount?: number;
   hasStoreOrderDock: boolean;
   virtualizerHasMeasuredRange: boolean;
 }): boolean {
+  const effectiveCount = Math.max(opts.displayMessageCount, opts.seedMessageCount ?? 0);
   return (
     opts.hydrationPass >= 2 &&
-    opts.displayMessageCount > 0 &&
+    effectiveCount > 0 &&
     (opts.hasStoreOrderDock || !opts.virtualizerHasMeasuredRange)
   );
 }

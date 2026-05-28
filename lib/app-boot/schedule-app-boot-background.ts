@@ -5,7 +5,7 @@ import { enableOwnerHubBadgeBackgroundHydration } from "@/lib/chats/owner-hub-ba
 import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
 import {
   fetchMeProfileFullBackground,
-  isMeProfileCacheFresh,
+  isMeProfileFullFetchSkippable,
 } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
@@ -64,7 +64,7 @@ export function scheduleAppBootBackgroundHydration(): void {
         "profile-full",
         () => {
           if (armId !== backgroundArmId) return;
-          if (isMeProfileCacheFresh()) return;
+          if (isMeProfileFullFetchSkippable()) return;
           void fetchMeProfileFullBackground("app_boot_background")
             .then(({ status, json }) => {
               const data = json as { ok?: boolean; profile?: ProfileRow } | null;

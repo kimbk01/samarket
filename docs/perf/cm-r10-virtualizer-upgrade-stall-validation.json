@@ -1,0 +1,75 @@
+{
+  "capturedAt": "2026-05-28T17:00:28.041Z",
+  "round": "CM-R10-virtualizer-upgrade-stall",
+  "status": "measured_prod_like_3_runs_partial",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "sources": {
+    "r8_baseline": "docs/perf/cm-r8-seed-rows-stability-validation.json",
+    "r9_note": "R9 instrumentation-only; no separate validation artifact",
+    "r10_r3_raw_capture": "C:/Users/im2pa/.cursor/projects/c-samarket/agent-tools/c44ea7fa-b223-4a89-adc8-1b8df11ab67d.txt"
+  },
+  "r8_r9_baseline": {
+    "commit_stall_ms_range": [2555, 2560],
+    "rows_replace_count_max": 2,
+    "did_mount_with_zero_rows": false,
+    "direct_layout_rows_source": ["direct:bootstrap", "virtualized:virtualizer_upgrade"]
+  },
+  "r10_implementation": {
+    "hold_direct_until_idle": true,
+    "metadata_phase_raf_count": 2,
+    "idle_timeout_ms": 48,
+    "upgrade_tail_rows": 12,
+    "upgrade_measure_cap": 12,
+    "scroll_anchor_deferred_during_upgrade": true
+  },
+  "r10_measured": {
+    "commit_stall_samples": [
+      {
+        "run": 3,
+        "first_row_commit_begin_ms": 694,
+        "first_row_commit_end_ms": 3243,
+        "stall_ms": 2549
+      }
+    ],
+    "commit_stall_avg_ms": 2549,
+    "commit_stall_vs_r8_pct_reduction": 0.2,
+    "virtualizer_upgrade_blocker_distribution": {
+      "unknown": 1
+    },
+    "virtualizer_upgrade_commit_span_ms": [
+      1
+    ],
+    "rows_replace_count_max": 2,
+    "measure_cap_skipped_count_samples": [
+      0
+    ],
+    "first_row_dom_visible_ms_avg": 3242,
+    "did_mount_with_zero_rows_false": true,
+    "direct_layout_used_true": true,
+    "r3_burst_observed": "28+12",
+    "r2_visibility_restore_delta": {
+      "silent_refresh": 0,
+      "home_sync": 0
+    }
+  },
+  "pass_criteria": {
+    "commit_stall_reduction_pct_min": 30,
+    "did_mount_with_zero_rows_false": true,
+    "direct_layout_used_true": true,
+    "rows_replace_count_reduced": true,
+    "r3_burst_28_12": true,
+    "r2_visibility_0_0": true
+  },
+  "verdict": "fail_commit_stall_reduction_not_met",
+  "next_bottleneck": "timeline_heavy_attach_to_upgrade_scheduled_gap_or_head_virtual_row_idle_expand"
+}

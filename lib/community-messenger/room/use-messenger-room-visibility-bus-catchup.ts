@@ -3,6 +3,12 @@
 import { useEffect } from "react";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
+import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+
+const VISIBILITY_CATCHUP_COOLDOWN_MS = 4_000;
+const BUS_CATCHUP_COOLDOWN_MS = 2_000;
+/** 탭 복귀 직후 full bootstrap refresh 금지 — idle 이후 catch-up 만 */
+const VISIBILITY_RESTORE_QUIET_MS = 900;
 
 /**
  * 통화 종료 후 탭 복귀 시 스냅샷 정합, 멀티탭에서 동일 방 메시지 시 증분 catch-up.
@@ -22,17 +28,23 @@ export function useMessengerRoomVisibilityBusCatchup({
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
     let lastBumpAt = 0;
+    let hiddenAt = 0;
     const bump = () => {
-      if (typeof document === "undefined" || document.visibilityState !== "visible") return;
+      if (typeof document === "undefined" || document.visibilityState !== "visible") {
+        hiddenAt = Date.now();
+        return;
+      }
       const now = Date.now();
-      if (now - lastBumpAt < 2000) return; // burst 1~2 + cooldown
+      if (hiddenAt > 0 && now - hiddenAt < VISIBILITY_RESTORE_QUIET_MS) return;
+      if (now - lastBumpAt < VISIBILITY_CATCHUP_COOLDOWN_MS) return;
       lastBumpAt = now;
-      void (async () => {
-        const merged = await catchUpNewerMessages();
-        if (!merged) {
+      scheduleWhenBrowserIdle(() => {
+        void (async () => {
+          const merged = await catchUpNewerMessages();
+          if (merged) return;
           void refresh(true, { triggerReason: "visibilitychange" });
-        }
-      })();
+        })();
+      }, 1200);
     };
     document.addEventListener("visibilitychange", bump);
     window.addEventListener("pageshow", bump);
@@ -54,14 +66,15 @@ export function useMessengerRoomVisibilityBusCatchup({
       const evr = ev.roomId.trim();
       if (evr !== route && evr !== stream) return;
       const now = Date.now();
-      if (now - lastAt < 1500) return;
+      if (now - lastAt < BUS_CATCHUP_COOLDOWN_MS) return;
       lastAt = now;
-      void (async () => {
-        const merged = await catchUpNewerMessages();
-        if (!merged) {
+      scheduleWhenBrowserIdle(() => {
+        void (async () => {
+          const merged = await catchUpNewerMessages();
+          if (merged) return;
           void refresh(true, { triggerReason: "realtime_bus" });
-        }
-      })();
+        })();
+      }, 640);
     });
   }, [catchUpNewerMessages, refresh, roomId, streamRoomId]);
 }

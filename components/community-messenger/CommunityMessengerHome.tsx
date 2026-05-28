@@ -188,6 +188,10 @@ import {
   setLocalReadGuard,
 } from "@/lib/community-messenger/read/local-read-guard";
 import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-ui-patch";
+import {
+  applyCmHomeOptimisticMarkRead,
+  rollbackCmHomeOptimisticMarkRead,
+} from "@/lib/community-messenger/read/cm-home-optimistic-mark-read";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { seedMessengerRealtimeViewerFromBootstrap } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
@@ -2165,12 +2169,35 @@ export function CommunityMessengerHome({
       setBusyId(actionKey);
       setActionError(null);
       const summary = findHomeListRoomRow(data, roomId);
+      const viewerUserId = data?.me?.id?.trim() ?? "";
+      if (!viewerUserId) {
+        setBusyId(null);
+        return;
+      }
+      const preUnread = Math.max(0, Math.floor(Number(summary?.unreadCount) || 0));
+      const tradeMeta = summary?.contextMeta?.kind === "trade" ? summary.contextMeta : null;
+      const tradePostId = tradeMeta?.postId?.trim() ?? null;
+      const tradeProductChatId = summary?.contextMeta?.productChatId?.trim() ?? null;
+
       setLocalReadGuard({
         roomId,
         referenceLastMessageAt: String(summary?.lastMessageAt ?? ""),
         source: "manual",
       });
-      const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+
+      const alignMs = applyCmHomeOptimisticMarkRead({
+        roomId,
+        viewerUserId,
+        beforeUnread: preUnread,
+        reason: "home_mark_read",
+        postId: tradePostId,
+        productChatId: tradeProductChatId,
+      });
+      updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: 0 }));
+      if (typeof performance !== "undefined") {
+        messengerMonitorUnreadListSync(roomId, alignMs, "mark_read");
+      }
+
       cmReadBadgeLog("mark_read_patch_start", { roomId, flushOpen: true, path: "home_mark_read" });
       try {
         const res = await fetch(communityMessengerRoomResourcePath(roomId), {
@@ -2190,36 +2217,30 @@ export function CommunityMessengerHome({
             apiError: json.error ?? null,
             responseBody: parsed.rawPreview,
           });
+          rollbackCmHomeOptimisticMarkRead({
+            roomId,
+            viewerUserId,
+            restoreUnread: preUnread,
+            reason: "patch_fail",
+            postId: tradePostId,
+          });
+          if (preUnread > 0) {
+            updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: preUnread }));
+          }
           setActionError(getMessengerActionErrorMessage(json.error ?? "room_read_failed"));
           return;
         }
         refreshLocalReadGuardServerAck(roomId);
         cmReadBadgeLog("mark_read_patch_done", { roomId, path: "home_mark_read" });
-        patchMessengerRoomReadSnapshotRuntime({
-          viewerUserId: data?.me?.id ?? null,
+        applyCmReadUiBadgeZero({
           roomId,
+          viewerUserId,
+          phase: "patch_done",
+          reason: "home_mark_read",
+          beforeUnread: preUnread,
+          postId: tradePostId,
+          productChatId: tradeProductChatId,
         });
-        postCommunityMessengerBusEvent({
-          type: "cm.room.read",
-          roomId,
-          viewerUserId: data?.me?.id ?? "",
-          at: Date.now(),
-          lastReadMessageId: null,
-        });
-        cmReadBadgeLog("read_bus_emit", { roomId, source: "home_mark_read" });
-        updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: 0 }));
-        if (data?.me?.id?.trim()) {
-          applyCmReadUiBadgeZero({
-            roomId,
-            viewerUserId: data.me.id.trim(),
-            phase: "patch_done",
-            reason: "home_mark_read",
-          });
-        }
-        if (typeof performance !== "undefined") {
-          messengerMonitorUnreadListSync(roomId, Math.round(performance.now() - t0), "mark_read");
-        }
-        /** 허브 종·하단 탭은 동일 스냅샷 — 서버 집계와 즉시 재맞춤(낙관 이후 교차 해제·레거시 chatUnread 동기화) */
         queueMicrotask(() => requestMessengerHubBadgeResync("room_open_mark_read", { roomId }));
       } catch (err) {
         cmReadBadgeLog("mark_read_patch_fail", {
@@ -2228,12 +2249,22 @@ export function CommunityMessengerHome({
           networkError: true,
           error: err instanceof Error ? err.message : String(err),
         });
+        rollbackCmHomeOptimisticMarkRead({
+          roomId,
+          viewerUserId,
+          restoreUnread: preUnread,
+          reason: "patch_network_fail",
+          postId: tradePostId,
+        });
+        if (preUnread > 0) {
+          updateRoomSummaryState(roomId, (room) => ({ ...room, unreadCount: preUnread }));
+        }
         setActionError(getMessengerActionErrorMessage("room_read_failed"));
       } finally {
         setBusyId(null);
       }
     },
-    [data?.me?.id, getMessengerActionErrorMessage, updateRoomSummaryState]
+    [data, getMessengerActionErrorMessage, updateRoomSummaryState]
   );
   const toggleRoomArchive = useCallback(
     async (roomId: string, archived: boolean) => {

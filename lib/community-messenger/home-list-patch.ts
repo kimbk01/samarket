@@ -396,8 +396,25 @@ export function applyHomeListPatch(
     } else {
       switch (patch.kind) {
         case "bootstrap_full_seed": {
-          next = patch.bootstrap;
-          appliedRooms = countListRooms(next);
+          const incoming = patch.bootstrap;
+          const prevHasList = countListRooms(base) > 0;
+          const incomingHasList = countListRooms(incoming) > 0;
+          if (prevHasList && incomingHasList) {
+            const seeded = applyHomeListPatch(
+              base,
+              { kind: "bootstrap_apply_full", next: incoming, mergeStaleOutgoingRequests: true },
+              source
+            );
+            next = seeded ?? base;
+            appliedRooms = countListRooms(next) - beforeCount;
+            if (appliedRooms < 0) appliedRooms = incomingHasList ? countListRooms(incoming) : 0;
+          } else if (!incomingHasList && prevHasList) {
+            next = base;
+            droppedStale = 1;
+          } else {
+            next = incoming;
+            appliedRooms = countListRooms(next);
+          }
           break;
         }
         case "bootstrap_apply_full": {

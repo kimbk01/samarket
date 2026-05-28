@@ -28,7 +28,14 @@ export type ScheduleStartupApiDeferredOptions = {
   ttlMs?: number;
 };
 
+export type ScheduleNotificationSettingsSnapshotDeferredOptions = {
+  delayMs?: number;
+  source?: string;
+  ttlMs?: number;
+};
+
 const DEFAULT_JOB_TTL_MS = 20_000;
+export const NOTIFICATION_SETTINGS_APP_JOB_ID = "notification-settings-app";
 
 let planLogged = false;
 
@@ -240,6 +247,21 @@ export function scheduleStartupApiDeferred(
     const idx = live.runs.indexOf(pendingRun);
     if (idx >= 0) live.runs.splice(idx, 1);
   };
+}
+
+/**
+ * notification-settings snapshot 전용 단일 스케줄러.
+ * Surface/Inbox/Hub/Philife 가 같은 jobId 로 합류해 중복 예약을 줄인다.
+ */
+export function scheduleNotificationSettingsSnapshotDeferred(
+  run: () => void,
+  opts?: ScheduleNotificationSettingsSnapshotDeferredOptions
+): () => void {
+  return scheduleStartupApiDeferred(NOTIFICATION_SETTINGS_APP_JOB_ID, run, {
+    delayMs: opts?.delayMs ?? 120,
+    source: opts?.source,
+    ttlMs: opts?.ttlMs,
+  });
 }
 
 export function resetStartupApiPlanLogForTests(): void {

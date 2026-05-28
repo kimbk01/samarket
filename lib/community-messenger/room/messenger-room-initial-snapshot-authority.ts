@@ -1,6 +1,28 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { peekHotRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { getMessengerRealtimeRoomMessages } from "@/lib/community-messenger/stores/messenger-realtime-store";
+
+function messageCount(snap: CommunityMessengerRoomSnapshot | null | undefined): number {
+  return snap?.messages?.length ?? 0;
+}
+
+/** 메시지 시드가 가장 풍부한 스냅샷 — 동일 개수면 `server` 우선 */
+function pickRichestRoomSnapshot(
+  server: CommunityMessengerRoomSnapshot | null,
+  ...others: Array<CommunityMessengerRoomSnapshot | null | undefined>
+): CommunityMessengerRoomSnapshot | null {
+  let best: CommunityMessengerRoomSnapshot | null = server;
+  let bestCount = messageCount(server);
+  for (const candidate of others) {
+    if (!candidate || candidate.clientShellPlaceholder) continue;
+    const n = messageCount(candidate);
+    if (n > bestCount) {
+      best = candidate;
+      bestCount = n;
+    }
+  }
+  return best;
+}
 
 export type PickAuthoritativeMessengerRoomSnapshotInput = {
   roomId: string;
@@ -30,22 +52,15 @@ export function pickAuthoritativeMessengerRoomSnapshot(
   } else {
     cached = peekRoomSnapshot(rid);
   }
+  const hot = viewer ? peekHotRoomSnapshot(rid, viewer) : peekHotRoomSnapshot(rid);
 
-  if (serverUsable && cached) {
-    const serverCount = serverUsable.messages?.length ?? 0;
-    const cachedCount = cached.messages?.length ?? 0;
-    if (serverCount >= cachedCount) return serverUsable;
-    if (cachedCount > serverCount) return cached;
-    return serverUsable;
-  }
-
-  if (serverUsable) return serverUsable;
-  if (cached) return cached;
+  const richest = pickRichestRoomSnapshot(serverUsable, cached, hot);
+  if (richest) return richest;
 
   if (viewer) {
     const live = getMessengerRealtimeRoomMessages(rid);
     if (live.length > 0) {
-      const seeded = peekRoomSnapshot(rid, viewer);
+      const seeded = peekRoomSnapshot(rid, viewer) ?? hot;
       if (seeded) return seeded;
     }
   }

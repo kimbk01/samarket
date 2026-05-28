@@ -17,6 +17,7 @@ import {
   shouldBlockCmRoomStrictEffectReRun,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 import { scheduleCmRoomPass1ToPass2, scheduleCmRoomPass2IdleExpand } from "@/lib/community-messenger/room/cm-room-pass-scheduler";
+import { hasCmRoomTimelineSeedFromPhase1 } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { bumpCmRoomPhase2DeferredEffect } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 import { noteR2M9Stage } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
 import { CommunityMessengerRoomPass1ComposerShell } from "@/components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell";
@@ -55,16 +56,27 @@ export function CommunityMessengerRoomClientPhase2() {
     setEntryPass(shouldSkipInRoutePass0ForPreRouteOverlay(roomId) ? 1 : 0);
   }, [roomId]);
 
+  const hasTimelineSeed = hasCmRoomTimelineSeedFromPhase1(phase1);
+
+  useLayoutEffect(() => {
+    if (!hasTimelineSeed) return;
+    void import("@/components/community-messenger/room/CommunityMessengerRoomClientPhase2Body");
+  }, [hasTimelineSeed, roomId]);
+
   useEffect(() => {
     if (entryPass < 1) {
       setPhase2BodyReady(false);
+      return;
+    }
+    if (hasTimelineSeed) {
+      setPhase2BodyReady(true);
       return;
     }
     bumpCmRoomPhase2DeferredEffect();
     return scheduleCmRoomPass2IdleExpand(() => {
       setPhase2BodyReady(true);
     }, 120);
-  }, [entryPass, roomId]);
+  }, [entryPass, hasTimelineSeed, roomId]);
 
   const advanceFromPass0 = useCallback(() => {
     if (roomId) markCmRoomSubtreeEntryPassAdvanced(roomId);

@@ -1,0 +1,76 @@
+{
+  "capturedAt": "2026-05-28T10:48:22.081Z",
+  "round": "CM-R12-first-row-blocker-normalization",
+  "status": "measured_prod_like_3_runs_partial",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "sources": {
+    "r11_baseline": "docs/perf/cm-r11-first-row-commit-path-validation.json",
+    "r12_r3_raw_capture": "C:/Users/im2pa/.cursor/projects/c-samarket/agent-tools/4c4a8c3c-aad4-45f0-abac-a327ac77b0f7.txt"
+  },
+  "r11_baseline": {
+    "first_row_commit_span_ms_samples": [
+      493,
+      497
+    ],
+    "first_row_commit_span_ms_avg": 495,
+    "first_row_blocker_distribution": {
+      "unknown": 2
+    }
+  },
+  "r12_measured": {
+    "first_row_visible_normalized_count": 3,
+    "first_row_visible_source_distribution": {
+      "intersection_observer": 1,
+      "layout_effect": 2
+    },
+    "first_row_blocker_distribution": {
+      "none_intersection_path": 1,
+      "row_not_found": 2,
+      "unknown": 0
+    },
+    "first_row_query_result_distribution": {
+      "skipped": 1,
+      "not_found": 2,
+      "found": 0
+    },
+    "first_row_query_attempted_distribution": {
+      "true": 0,
+      "false": 3
+    },
+    "first_row_commit_span_ms_samples": [],
+    "first_row_commit_span_ms_avg": null,
+    "commit_begin_to_end_ms_samples": [
+      69
+    ],
+    "first_row_dom_visible_ms_samples": [
+      820,
+      823
+    ],
+    "timeline_heavy_attach_scheduler": {
+      "scheduler_mode": "same_tick_raf",
+      "observed_count": 1
+    }
+  },
+  "regression_checks": {
+    "empty_flash_0_of_3": true,
+    "burst_28_plus_12": true,
+    "r2_visibility_silent_delta": 0,
+    "r2_visibility_home_sync_delta": 0,
+    "did_mount_with_zero_rows_false_observed": true,
+    "direct_layout_used_true_observed": true,
+    "rows_replace_count_max": 1,
+    "unread_order_mark_read_regression": false
+  },
+  "verdict": "PARTIAL",
+  "next_bottleneck": "layout_effect row_not_found 경로에서 rows_prepare/commit_span 수치 누락"
+}

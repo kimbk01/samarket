@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, startTransition } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { fetchStoresHomeFeedDeduped, forgetStoresHomeFeedFetchSingleFlight } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStoresHomeFeedDeduped,
+  forgetStoresHomeFeedFetchSingleFlight,
+  type StoreApiJsonResponse,
+} from "@/lib/stores/store-delivery-api-client";
+import { getSingleFlightPromise } from "@/lib/http/run-single-flight";
+import { storesHomeFeedSingleFlightKey } from "@/lib/stores/stores-home-network-guards";
 import {
   applyStoresHomeFeedNetworkResult,
   readStoresHomeFeedInitialSnapshot,
@@ -112,7 +118,7 @@ export function StoresHomeHub({
   }, [loading, stores.length]);
 
   const loadFeed = useCallback(
-    async (opts?: { silent?: boolean; force?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean; fromBfcacheRestore?: boolean }) => {
       const silent = !!opts?.silent;
       const force = opts?.force === true;
       const requestId = ++requestIdRef.current;
@@ -135,15 +141,19 @@ export function StoresHomeHub({
           setMeta(cachedEntry.meta);
           setLoading(false);
         });
-        if (!silent && hasFreshCache) return;
+        if (hasFreshCache && !opts?.fromBfcacheRestore) return;
       }
       const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
       if (!silent && !hasDisplayableStores) setLoading(true);
       try {
-        const { status, json } = await fetchStoresHomeFeedDeduped(querySuffix, {
-          signal: controller.signal,
-          language,
-        });
+        const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
+        const inflight = !force ? getSingleFlightPromise<StoreApiJsonResponse>(flightKey) : undefined;
+        const { status, json } = await (inflight ??
+          fetchStoresHomeFeedDeduped(querySuffix, {
+            signal: controller.signal,
+            language,
+            clientCallSource: "stores_home_mount",
+          }));
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;
         startTransition(() => {
           setStores((prevStores) => {
@@ -188,7 +198,9 @@ export function StoresHomeHub({
     return () => abortRef.current?.abort();
   }, [loadFeed]);
 
-  useRefetchOnPageShowRestore(() => void loadFeed({ silent: true }));
+  useRefetchOnPageShowRestore(() => void loadFeed({ silent: true, fromBfcacheRestore: true }), {
+    enableVisibilityRefetch: false,
+  });
 
   const openNowStores = useMemo(() => pickStoresHomeOpenNow(stores), [stores]);
   const primaryRowStores = useMemo(() => pickStoresHomePrimaryRowList(stores), [stores]);
