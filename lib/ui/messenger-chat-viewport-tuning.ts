@@ -19,6 +19,9 @@ export const MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX = 100;
 /** Composer footer: 키보드 overlap 추정이 없을 때 기본 하단 패딩(px) — 홈 인디케이터 등 */
 export const MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX = 10;
 
+/** 배달·주문 채팅 composer — 카톡/텔레그램급 홈 인디케이터 여유(잘림 방지) */
+export const MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX = 14;
+
 /**
  * iOS + vv 셸로 overlap 추정을 끈 상태에서, 키보드 크롬 UI가 켜졌을 때 추가 패딩(px).
  * vv·innerHeight 미세 어긋남 보정.

@@ -7,7 +7,7 @@ import {
   extractHttpUrls,
   looksLikeDirectImageUrl,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
-import { collapseDuplicateStoreOrderSummaryMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import { finalizeStoreOrderChatDisplayMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 
@@ -87,7 +87,7 @@ export function useMessengerRoomDerivedMessageLists(
     const fileMessageCount = fileMessages.length;
     const linkMessageCount = linkThreadMessages.length;
 
-    const collapsedDisplay = collapseDuplicateStoreOrderSummaryMessages(displayRoomMessages);
+    const collapsedDisplay = finalizeStoreOrderChatDisplayMessages(displayRoomMessages);
 
     return {
       messageSearchResults,

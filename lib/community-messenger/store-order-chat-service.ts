@@ -33,6 +33,7 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
+import { storeOrderMessengerStatusLineContent } from "@/lib/store-order-chat/store-order-ops-i18n";
 import { buildStoreOrderSummaryTimelineSteps } from "@/lib/store-order-chat/store-order-summary-timeline";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 
@@ -497,22 +498,8 @@ export async function ensureStoreOrderMessengerRoom(
 }
 
 function storeOrderMessengerOwnerStatusLine(next: SharedOrderStatus, flow: OrderChatFlow): string | null {
-  switch (next) {
-    case "preparing":
-      return "주문을 준비(조리) 중입니다.";
-    case "ready_for_pickup":
-      return flow === "delivery"
-        ? "음식 준비가 완료되었습니다. 곧 배달을 시작합니다."
-        : "음식 준비가 완료되었습니다. 픽업 대기 중입니다.";
-    case "delivering":
-      return "배달을 시작했습니다.";
-    case "arrived":
-      return SYSTEM_LINE_DELIVERY_ARRIVED;
-    case "completed":
-      return flow === "delivery" ? "배달이 완료되었습니다." : "주문이 완료되었습니다. 픽업해 주세요.";
-    default:
-      return systemChatLineForOrderStatus(next, flow);
-  }
+  if (next === "arrived") return SYSTEM_LINE_DELIVERY_ARRIVED;
+  return storeOrderMessengerStatusLineContent(next, flow);
 }
 
 function storeOrderSystemLineKind(status: SharedOrderStatus | null | undefined): "status" | "summary" | "warning" | "delivery" {
@@ -574,6 +561,7 @@ async function appendStoreOrderMessengerSystemMessage(
   const metadata = {
     domain: "store_order",
     lineKind: storeOrderSystemLineKind(input.relatedOrderStatus),
+    orderFlow: ensured.orderFlow,
     actorRole: input.actorUserId ? "store" : "system",
     storeOrderId: input.orderId,
     orderStatus: input.relatedOrderStatus ?? null,
@@ -674,10 +662,10 @@ export async function appendStoreOrderMessengerStatusTransition(
       .eq("id", orderId.trim())
       .maybeSingle();
     const mins = Math.floor(Number((orderRow as { estimated_prep_minutes?: unknown } | null)?.estimated_prep_minutes ?? 0));
-    let line = "주문을 접수 했습니다.";
-    if (Number.isFinite(mins) && mins > 0) {
-      line += ` 예상 준비 시간은 약 ${mins}분입니다.`;
-    }
+    const line =
+      storeOrderMessengerStatusLineContent("accepted", ensured.orderFlow, {
+        prepMinutes: Number.isFinite(mins) && mins > 0 ? mins : undefined,
+      }) ?? "";
     await appendStoreOrderMessengerSystemMessage(
       sb,
       {

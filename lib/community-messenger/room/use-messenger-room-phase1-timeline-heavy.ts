@@ -3,10 +3,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMemo, type MutableRefObject, type RefObject } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
-import {
-  MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX,
-  MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
-} from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { MESSENGER_TIMELINE_VIRTUAL_OVERSCAN } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { estimateMessengerTimelineRowPx } from "@/lib/store-order-chat/messenger-timeline-row-estimate";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
 import { useMessengerRoomStoreOrderDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-store-order-dock-scroll-anchor";
@@ -52,7 +50,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   const chatVirtualizer = useVirtualizer({
     count: displayRoomMessages.length,
     getScrollElement: () => messagesViewportRef.current,
-    estimateSize: () => MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX,
+    estimateSize: (index) => estimateMessengerTimelineRowPx(displayRoomMessages[index]),
     overscan: MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
     getItemKey: (index) => displayRoomMessages[index]?.id ?? `__cm_timeline_${index}`,
   });

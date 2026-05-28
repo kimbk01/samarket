@@ -46,6 +46,7 @@ export function StoreOrderDeliveryMessengerHeaderBlock({
           <SamarketThumbnail
             src={model.avatarUrl}
             size={36}
+            fetchDisplayPx={72}
             roundedClassName="rounded-ui-rect"
             className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
             fallbackSrc=""

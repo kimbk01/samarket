@@ -39,3 +39,18 @@ export function collapseDuplicateStoreOrderSummaryMessages(messages: RoomMsg[]):
   if (!dropIds.size) return messages;
   return messages.filter((m) => !dropIds.has(m.id));
 }
+
+/** 배달·주문 채팅 타임라인에 store_order system 메시지가 있는지(도크 없어도 direct 레이아웃 판별) */
+export function roomHasStoreOrderTimelineMessages(
+  messages: readonly Pick<CommunityMessengerMessage, "messageType" | "content" | "metadata">[]
+): boolean {
+  return messages.some((m) => {
+    if (m.metadata?.domain === "store_order") return true;
+    return m.messageType === "system" && isStoreOrderSummarySystemContent(m.content);
+  });
+}
+
+/** 주문 채팅 표시 목록 — 중복 요약 카드만 1개로 합침(상태 system 줄은 유지). */
+export function finalizeStoreOrderChatDisplayMessages(messages: RoomMsg[]): RoomMsg[] {
+  return collapseDuplicateStoreOrderSummaryMessages(messages);
+}

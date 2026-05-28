@@ -840,7 +840,8 @@
     box-shadow: none !important;
   }
 
-  [data-cm-room] footer[data-cm-line-composer-footer] textarea {
+  /** 배달 주문 채팅은 `delivery-chat-room.css` + `data-delivery-composer-pill` 전용 composer (카톡형 pill) */
+  [data-cm-room]:not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea {
     background-color: var(--dibay-card) !important;
     box-shadow: none !important;
     border: none !important;
@@ -853,12 +854,12 @@
     overflow-y: hidden !important;
   }
 
-  [data-cm-room] footer[data-cm-line-composer-footer] textarea:focus {
+  [data-cm-room]:not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea:focus {
     outline: none !important;
     box-shadow: 0 0 0 2px var(--cm-room-primary) !important;
   }
 
-  [data-cm-room] footer[data-cm-line-composer-footer] textarea::placeholder {
+  [data-cm-room]:not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea::placeholder {
     color: var(--dibay-muted);
   }
 
@@ -872,19 +873,19 @@
     background-color: color-mix(in srgb, var(--dibay-gold) 14%, transparent) !important;
   }
 
-  [data-cm-room] [data-cm-line-mic-btn] {
+  [data-cm-room]:not([data-delivery-viewer-role]) [data-cm-line-mic-btn] {
     width: 32px !important;
     height: 32px !important;
     color: var(--dibay-muted) !important;
     opacity: 1 !important;
   }
 
-  [data-cm-room] [data-cm-line-mic-btn]:disabled {
+  [data-cm-room]:not([data-delivery-viewer-role]) [data-cm-line-mic-btn]:disabled {
     color: color-mix(in srgb, var(--dibay-muted) 56%, var(--dibay-card)) !important;
     opacity: 0.42 !important;
   }
 
-  [data-cm-room] [data-cm-line-mic-btn]:not(:disabled):hover {
+  [data-cm-room]:not([data-delivery-viewer-role]) [data-cm-line-mic-btn]:not(:disabled):hover {
     background-color: color-mix(in srgb, var(--dibay-gold) 14%, transparent) !important;
   }
 

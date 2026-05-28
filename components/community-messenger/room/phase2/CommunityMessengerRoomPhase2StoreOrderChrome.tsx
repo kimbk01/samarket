@@ -231,6 +231,8 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     <>
       <DeliveryChromeStrip
         t={t}
+        onOpenDetail={openOrderDetailDrawer}
+        detailBtnLabel={isSeller ? t("store_messenger_chrome_order_btn") : t("store_messenger_chrome_history_btn")}
         orderNo={
           snapshot?.orderCard?.orderNo ??
           snapshot?.buyerOrder?.order_no ??
@@ -298,6 +300,8 @@ const MESSENGER_PICKUP_PROGRESS_STEP_KEYS = [
 
 function DeliveryChromeStrip({
   t,
+  onOpenDetail,
+  detailBtnLabel,
   orderNo,
   primaryLabel,
   statusLabel,
@@ -308,6 +312,8 @@ function DeliveryChromeStrip({
   addressLine,
 }: {
   t: StoreOrderI18nT;
+  onOpenDetail: () => void;
+  detailBtnLabel: string;
   orderNo: string;
   primaryLabel: string;
   statusLabel: string;
@@ -334,12 +340,12 @@ function DeliveryChromeStrip({
   return (
     <div
       data-store-order-delivery-chrome
-      className="delivery-ui shrink-0 border-t border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-chat-chrome-bg)] px-3 py-2.5"
+      className="delivery-ui shrink-0 border-t border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-chat-chrome-bg)] px-4 py-2"
       role="region"
       aria-label={t("store_order_info")}
     >
-      <div className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] p-2.5 shadow-[0_2px_8px_rgba(30,57,50,0.06)]">
-        <div className="mb-2 flex items-start justify-between gap-2">
+      <div>
+        <div className="mb-1.5 flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="truncate text-[11px] font-semibold leading-[1.35] text-[color:var(--delivery-text-muted)]">
               {orderNo}
@@ -353,15 +359,20 @@ function DeliveryChromeStrip({
               </p>
             ) : null}
           </div>
-          <div className="shrink-0 text-right">
-            <span className="delivery-ui inline-flex rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary)] px-2 py-0.5 text-[11px] font-bold leading-[1.35] text-white">
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className="delivery-ui text-[11px] font-semibold leading-[1.35] text-[color:var(--delivery-primary)]">
               {statusLabel || t("common_in_progress")}
             </span>
             {paymentLabel ? (
-              <p className="mt-1 text-[12px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">
-                {paymentLabel}
-              </p>
+              <p className="text-[12px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">{paymentLabel}</p>
             ) : null}
+            <button
+              type="button"
+              onClick={onOpenDetail}
+              className="shrink-0 rounded-ui-rect border border-[color:var(--delivery-primary-border)] bg-[color:var(--delivery-primary-soft)] px-2 py-0.5 text-[10px] font-semibold leading-[1.35] text-[color:var(--delivery-primary)]"
+            >
+              {detailBtnLabel}
+            </button>
           </div>
         </div>
         <DeliveryOrderProgressRail
@@ -400,7 +411,7 @@ function DeliveryOrderProgressRail({
       </div>
 
       <div
-        className="grid gap-1.5 text-center text-[11px]"
+        className="grid gap-1.5 text-center text-[10px]"
         style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
       >
         {steps.map((step, idx) => {

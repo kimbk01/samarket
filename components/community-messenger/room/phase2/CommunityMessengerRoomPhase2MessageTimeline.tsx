@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   communityMessengerRoomIsGloballyUsable,
+  type CommunityMessengerMessage,
   type CommunityMessengerMessageActionAnchorRect,
 } from "@/lib/community-messenger/types";
 import {
@@ -69,6 +70,8 @@ import {
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
 import { MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import { roomHasStoreOrderTimelineMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import { estimateMessengerTimelineRowPx } from "@/lib/store-order-chat/messenger-timeline-row-estimate";
 import {
   resolveUseDirectMessengerTimelineLayout,
   scheduleMessengerScrollToBottomAfterRowsPainted,
@@ -87,16 +90,19 @@ function selectTimelineVirtualRows<T extends { index: number }>(items: T[], hydr
 
 /** virtualizer scroll root 미부착 시 tail 행 — DO NOT: 주문·배달 방 단독 렌더 경로로 쓰지 말 것(resolveUseDirectMessengerTimelineLayout 우선). */
 function buildTimelineFallbackVirtualRows(
-  messageCount: number,
+  messages: ReadonlyArray<{ messageType: CommunityMessengerMessage["messageType"]; content: string; metadata?: CommunityMessengerMessage["metadata"] }>,
   hydrationPass: number
 ): Array<{ index: number; start: number }> {
+  const messageCount = messages.length;
   if (messageCount <= 0) return [];
   if (hydrationPass < 2) return [];
   const cap = hydrationPass >= 3 ? messageCount : Math.min(messageCount, CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS);
   const startIndex = Math.max(0, messageCount - cap);
   const rows: Array<{ index: number; start: number }> = [];
+  let offset = 0;
   for (let i = startIndex; i < messageCount; i += 1) {
-    rows.push({ index: i, start: (i - startIndex) * MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX });
+    rows.push({ index: i, start: offset });
+    offset += estimateMessengerTimelineRowPx(messages[i]);
   }
   return rows;
 }
@@ -122,8 +128,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const viewportIoRef = useRef<IntersectionObserver | null>(null);
   const hasTradeDock = Boolean(vm.showMessengerTradeProcessDock);
   const hasStoreOrderDock = Boolean(vm.showMessengerStoreOrderDock);
+  const hasStoreOrderTimeline = useMemo(
+    () => roomHasStoreOrderTimelineMessages(vm.displayRoomMessages),
+    [vm.displayRoomMessages]
+  );
   /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — 과한 하단 패딩 금지. */
-  const timelineTailPaddingClass = hasTradeDock ? "pb-1.5" : hasStoreOrderDock ? "pb-3" : "pb-[76px]";
+  const timelineTailPaddingClass = hasTradeDock ? "pb-1.5" : hasStoreOrderDock || hasStoreOrderTimeline ? "pb-5" : "pb-[76px]";
   const timelineRenderStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   timelineRenderStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const prevListSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
@@ -473,8 +483,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     hydrationPass,
     displayMessageCount: vm.displayRoomMessages.length,
     hasStoreOrderDock,
+    hasStoreOrderTimeline,
     virtualizerHasMeasuredRange,
   });
+
+  const timelineRowsStackClass =
+    useDirectTimelineLayout && (hasStoreOrderDock || hasStoreOrderTimeline) ? "flex flex-col gap-3" : "";
 
   /** 가상 행 map 직전: 동일 sender `members.find` 반복을 줄이기 위한 아바타 캐시. cluster 간격 ms 는 가시 행에서만 `item`/`prev`로 계산한다. */
   const cappedVirtualRows = useMemo(() => {
@@ -483,21 +497,18 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     const selected = selectTimelineVirtualRows(virtualItems, hydrationPass);
     if (selected.length > 0) return selected;
     if (vm.displayRoomMessages.length <= 0) return [];
-    return buildTimelineFallbackVirtualRows(vm.displayRoomMessages.length, hydrationPass);
-  }, [useDirectTimelineLayout, vm.chatVirtualizer, hydrationPass, vm.displayRoomMessages.length]);
+    return buildTimelineFallbackVirtualRows(vm.displayRoomMessages, hydrationPass);
+  }, [useDirectTimelineLayout, vm.chatVirtualizer, hydrationPass, vm.displayRoomMessages]);
 
   const timelineContentHeight = useMemo(() => {
     if (useDirectTimelineLayout) return 0;
     const total = vm.chatVirtualizer.getTotalSize();
     if (total > 0) return total;
     if (vm.displayRoomMessages.length <= 0) return 0;
-    return cappedVirtualRows.length * MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX;
-  }, [
-    cappedVirtualRows.length,
-    useDirectTimelineLayout,
-    vm.chatVirtualizer,
-    vm.displayRoomMessages.length,
-  ]);
+    const last = cappedVirtualRows[cappedVirtualRows.length - 1];
+    if (!last) return 0;
+    return last.start + estimateMessengerTimelineRowPx(vm.displayRoomMessages[last.index]);
+  }, [cappedVirtualRows, useDirectTimelineLayout, vm.chatVirtualizer, vm.displayRoomMessages]);
 
   const timelineRows = useDirectTimelineLayout
     ? vm.displayRoomMessages.map((_, index) => ({ index, start: 0 }))
@@ -784,7 +795,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           ) : null}
           {vm.displayRoomMessages.length ? (
             <div
-              className="relative w-full"
+              className={`relative w-full ${timelineRowsStackClass}`}
               style={
                 useDirectTimelineLayout || timelineContentHeight <= 0
                   ? undefined
@@ -942,6 +953,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     focusTimelineMessage={vm.focusTimelineMessage}
                     openCallStubOutgoingConfirm={vm.openCallStubOutgoingConfirm}
                     tt={vm.tt}
+                    t={vm.t}
                   />
                 );
               })}

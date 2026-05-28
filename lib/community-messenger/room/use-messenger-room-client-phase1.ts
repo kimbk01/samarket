@@ -79,7 +79,7 @@ import {
 import { clearCmRoomForegroundBootstrapLock } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { CM_ROOM_EMPTY_VIRTUALIZER_STUB } from "@/lib/community-messenger/room/cm-room-empty-virtualizer-stub";
-import { collapseDuplicateStoreOrderSummaryMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import { finalizeStoreOrderChatDisplayMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import type { MessengerRoomPhase1TimelineHeavyBundle } from "@/lib/community-messenger/room/use-messenger-room-phase1-timeline-heavy";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
@@ -1395,7 +1395,7 @@ export function useMessengerRoomClientPhase1({
     );
     const result = phase1EntryLightPass
       ? filtered
-      : collapseDuplicateStoreOrderSummaryMessages(filtered);
+      : finalizeStoreOrderChatDisplayMessages(filtered);
     if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
     return result;
   }, [hiddenCallStubIds, roomMessages, phase1EntryLightPass, phase1PerfTrack]);

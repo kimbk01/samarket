@@ -145,8 +145,53 @@ export function useStoreOrderDeliveryMessengerHeader(
     storeSlug: storeOrderSnap?.storeSlug,
   });
 
+  const [storeLogoFromSummary, setStoreLogoFromSummary] = useState<string | null>(null);
+
+  useEffect(() => {
+    setStoreLogoFromSummary(null);
+  }, [input.storeOrderId, mode]);
+
+  useEffect(() => {
+    if (mode !== "buyer_store") return;
+    const slug = storeOrderSnap?.storeSlug?.trim();
+    if (!slug) return;
+    if (storeOrderSnap?.storeProfileImageUrl?.trim() || input.thumbnailUrl?.trim()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/stores/${encodeURIComponent(slug)}/summary`, {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          store?: { profile_image_url?: string | null; profileImageUrl?: string | null };
+        };
+        const url =
+          (typeof json.store?.profile_image_url === "string" ? json.store.profile_image_url : null) ||
+          (typeof json.store?.profileImageUrl === "string" ? json.store.profileImageUrl : null);
+        if (!cancelled && json.ok && url?.trim()) setStoreLogoFromSummary(url.trim());
+      } catch {
+        if (!cancelled) setStoreLogoFromSummary(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    input.storeOrderId,
+    input.thumbnailUrl,
+    mode,
+    storeOrderSnap?.storeProfileImageUrl,
+    storeOrderSnap?.storeSlug,
+  ]);
+
   const storeAvatarUrl =
-    storeOrderSnap?.storeProfileImageUrl?.trim() || input.thumbnailUrl?.trim() || null;
+    storeOrderSnap?.storeProfileImageUrl?.trim() ||
+    input.thumbnailUrl?.trim() ||
+    storeLogoFromSummary?.trim() ||
+    input.roomAvatarUrl?.trim() ||
+    null;
 
   return useMemo((): StoreOrderDeliveryMessengerHeaderModel => {
     if (mode === "owner_buyer_peer") {
@@ -208,5 +253,6 @@ export function useStoreOrderDeliveryMessengerHeader(
     mode,
     storeAvatarUrl,
     storeDisplayName,
+    storeLogoFromSummary,
   ]);
 }

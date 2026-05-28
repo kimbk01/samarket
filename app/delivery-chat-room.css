@@ -1,0 +1,204 @@
+/**
+
+ * 배달·주문 채팅방(`data-cm-room.delivery-ui`) — Starbucks 그린(#00704A).
+
+ * 강한 초록은 전송·진행 rail 등 CTA 에만, composer 는 카톡형 회색 pill.
+
+ */
+
+[data-cm-room].delivery-ui {
+
+  --delivery-radius: 12px;
+
+  --delivery-primary: #00704a;
+
+  --delivery-primary-hover: #005738;
+
+  --delivery-primary-active: #004f33;
+
+  --delivery-primary-soft: #e8f5e9;
+
+  --delivery-primary-border: color-mix(in srgb, #00704a 34%, #ffffff);
+
+  --delivery-dark: #1e3932;
+
+  --delivery-mocha: #6b7280;
+
+  --delivery-chat-bg: #f7f6f3;
+
+  --delivery-chat-header-bg: #ffffff;
+
+  --delivery-chat-chrome-bg: #f7f6f3;
+
+  --delivery-chat-chrome-border: color-mix(in srgb, #00704a 18%, #d1d5db);
+
+  --delivery-bg-card: #ffffff;
+
+  --delivery-bg-soft: #f3faf6;
+
+  --delivery-border: color-mix(in srgb, #00704a 14%, #e5e7eb);
+
+  --delivery-chip-bg: rgba(255, 255, 255, 0.92);
+
+  --delivery-chip-border: color-mix(in srgb, #00704a 42%, #d7ded9);
+
+  --delivery-composer-surface: #ececec;
+
+  /* 카톡 1줄 입력 pill ~36dp — dibay `footer[data-cm-line-composer-footer] textarea` 38px 와 동급 */
+  --delivery-composer-row-min-h: 36px;
+
+  --delivery-icon-muted: #5e6f67;
+
+  --delivery-text-muted: #6b7280;
+
+  --cm-room-page-bg: var(--delivery-chat-bg);
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-store-order-delivery-chrome] {
+
+  background: var(--delivery-chat-chrome-bg);
+
+}
+
+
+
+[data-cm-room].delivery-ui footer[data-cm-composer],
+
+[data-cm-room].delivery-ui footer[data-cm-line-composer-footer] {
+
+  background-color: #ffffff !important;
+
+  border-top: 1px solid #e8e8e8 !important;
+
+  box-shadow: none !important;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-row] {
+
+  width: 100%;
+
+  max-width: 100%;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-pill] {
+
+  flex: 1 1 0% !important;
+
+  min-width: 0 !important;
+
+  border: none !important;
+
+  box-shadow: none !important;
+
+  background-color: var(--delivery-composer-surface) !important;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-pill]:focus-within {
+
+  border: none !important;
+
+  box-shadow: none !important;
+
+  outline: none !important;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea {
+
+  width: 100% !important;
+
+  max-width: none !important;
+
+  flex: 1 1 auto !important;
+
+  background-color: transparent !important;
+
+  border: none !important;
+
+  border-radius: 0 !important;
+
+  box-shadow: none !important;
+
+  height: auto !important;
+
+  min-height: 20px !important;
+
+  font-size: 16px !important;
+
+  line-height: 1.25 !important;
+
+  padding: 0 !important;
+
+  overflow-y: auto !important;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea:focus,
+
+[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea:focus-visible {
+
+  outline: none !important;
+
+  box-shadow: none !important;
+
+  border: none !important;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-mic-slot] {
+
+  width: 32px;
+
+  height: 32px;
+
+  flex-shrink: 0;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-mic-slot] [data-delivery-composer-mic] {
+
+  width: 100% !important;
+
+  height: 100% !important;
+
+  min-width: 0 !important;
+
+  min-height: 0 !important;
+
+}
+
+
+
+[data-cm-room].delivery-ui [data-delivery-composer-mic-slot] .sam-cm-voice-mic-ripple-wave {
+
+  width: 2rem;
+
+  height: 2rem;
+
+  margin-left: -1rem;
+
+  margin-top: -1rem;
+
+}
+
+

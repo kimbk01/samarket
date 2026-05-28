@@ -35,12 +35,33 @@ describe("resolveUseDirectMessengerTimelineLayout", () => {
     ).toBe(false);
   });
 
-  it("does not direct-layout empty or pre-hydration timeline", () => {
+  it("direct-layouts store order at hydration pass 1", () => {
     expect(
       resolveUseDirectMessengerTimelineLayout({
         hydrationPass: 1,
         displayMessageCount: 3,
         hasStoreOrderDock: true,
+        virtualizerHasMeasuredRange: true,
+      })
+    ).toBe(true);
+    expect(
+      resolveUseDirectMessengerTimelineLayout({
+        hydrationPass: 1,
+        displayMessageCount: 3,
+        hasStoreOrderDock: false,
+        hasStoreOrderTimeline: true,
+        virtualizerHasMeasuredRange: true,
+      })
+    ).toBe(true);
+  });
+
+  it("does not direct-layout empty or pre-hydration non-order timeline", () => {
+    expect(
+      resolveUseDirectMessengerTimelineLayout({
+        hydrationPass: 1,
+        displayMessageCount: 3,
+        hasStoreOrderDock: false,
+        hasStoreOrderTimeline: false,
         virtualizerHasMeasuredRange: false,
       })
     ).toBe(false);

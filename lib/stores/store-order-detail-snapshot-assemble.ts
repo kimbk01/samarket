@@ -108,6 +108,10 @@ export function buildBuyerStoreOrderDetailResponseBody(
   });
   const completed = order.order_status === "completed";
   const canSubmitReview = completed && !data.review && !data.reviewsUnavailable;
+  const storeProfileImageUrl =
+    typeof store.profile_image_url === "string" && store.profile_image_url.trim()
+      ? store.profile_image_url.trim()
+      : null;
   return {
     ok: true,
     order: {
@@ -115,6 +119,7 @@ export function buildBuyerStoreOrderDetailResponseBody(
       store_name: (store.store_name as string) ?? "",
       store_slug: (store.slug as string) ?? "",
       owner_user_id: (store.owner_user_id as string) ?? "",
+      store_profile_image_url: storeProfileImageUrl,
       store_pickup_address_lines,
     },
     items,

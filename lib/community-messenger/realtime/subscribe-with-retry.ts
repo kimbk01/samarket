@@ -34,6 +34,20 @@ import {
   emitCmRtWindowSummaryNow,
   recordCmRtWindowHomePhysicalCreate,
 } from "@/lib/community-messenger/realtime/cm-rt-window-metrics";
+import {
+  acquireCmRtChannelSubscription,
+  type SubscribeWithRetryArgs,
+  type SubscribeWithRetryHandle,
+} from "@/lib/community-messenger/realtime/cm-rt-channel-registry";
+import {
+  cmRtComputeRetryDelayMs,
+  cmRtLoopGuardRegisterWakeCallback,
+  cmRtRecordSubscribeFailure,
+  cmRtRecordSubscribeSuccess,
+  cmRtRegistryDevLog,
+  cmRtResetFailureState,
+  cmRtShouldDeferRetries,
+} from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
 
 type SubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CHANNEL_ERROR" | "CLOSED";
 
@@ -252,37 +266,11 @@ function hs4MonitorLabels(
   return o;
 }
 
-function nextBackoffMs(attempt: number): number {
-  // 첫 재시도를 ~0.35s대로 두어 WS 핸드셰이크 일시 실패 시 체감 지연을 줄인다(이후는 2배).
-  const base = Math.min(20_000, 350 * Math.pow(2, Math.max(0, attempt)));
-  const jitter = Math.floor(Math.random() * 220);
-  return base + jitter;
-}
-
-export function subscribeWithRetry(args: {
-  sb: SupabaseClient;
-  /** 채널 이름(고정). 같은 이름으로 재시도 시 remove+recreate */
-  name: string;
-  /** `[cm-rt] subscribe` 에만 넣는 원장 room id(옵션) */
-  logStreamRoomId?: string;
-  /** 모니터링 스코프(집계 키). */
-  scope: string;
-  /** on 등록을 포함한 채널 구성 함수 */
-  build: (ch: RealtimeChannel) => RealtimeChannel;
-  /** hook cleanup에서 true로 바꿔 중단 */
-  isCancelled: () => boolean;
-  /** 상태 변화를 UI/폴백 정책에 반영(선택) */
-  onStatus?: (status: string) => void;
-  /** 실패 시 refresh 스케줄 등(선택) */
-  onAfterSubscribeFailure?: (status: string, attempt: number) => void;
-  /** payload 무음 구독 감지 상한 */
-  silentAfterMs?: number;
-  /** HS4 진단 — 동작 없음, 로그·모니터링 라벨만 */
-  hs4Context?: CmRtHs4SubscribeContext;
-}): { channel: RealtimeChannel; stop: () => void; markSignal: () => void } {
+function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): SubscribeWithRetryHandle {
   let attempt = 0;
   let stopped = false;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let activeGeneration = 1;
   let expectedInternalClosed = 0;
   const internalDecayTimers = new Set<ReturnType<typeof setTimeout>>();
   let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
@@ -370,9 +358,11 @@ export function subscribeWithRetry(args: {
 
   const stop = () => {
     stopped = true;
+    activeGeneration += 1;
     clearTimer();
     clearInternalDecayTimers();
     expectedInternalClosed = 0;
+    cmRtResetFailureState(args.name);
     clearCommunityMessengerRealtimeScope(args.scope);
     markInternalChannelRecycle();
     /**
@@ -446,6 +436,7 @@ export function subscribeWithRetry(args: {
 
   const resubscribe = () => {
     if (stopped || args.isCancelled()) return;
+    const gen = activeGeneration;
     clearTimer();
     markInternalChannelRecycle();
     cmRtHs4DiagnosisLog("lifecycle_resubscribe", {
@@ -475,13 +466,16 @@ export function subscribeWithRetry(args: {
     } catch {
       /* ignore */
     }
+    if (gen !== activeGeneration || stopped || args.isCancelled()) return;
     channel = args.build(args.sb.channel(args.name));
     attachSubscribe();
   };
 
   const scheduleRetry = (status: string) => {
     if (stopped || args.isCancelled()) return;
-    const wait = nextBackoffMs(attempt);
+    const failureMeta = cmRtRecordSubscribeFailure(args.name, status);
+    const wait = cmRtComputeRetryDelayMs(args.name, attempt);
+    const gen = activeGeneration;
     attempt += 1;
     cmRtHs4DiagnosisLog("schedule_retry", {
       scope: args.scope,
@@ -508,7 +502,20 @@ export function subscribeWithRetry(args: {
       attempt,
     });
     args.onAfterSubscribeFailure?.(status, attempt);
-    timer = setTimeout(() => resubscribe(), wait);
+    timer = setTimeout(() => {
+      if (gen !== activeGeneration) {
+        cmRtRegistryDevLog("skip-stale-retry", {
+          key: args.name,
+          generation: gen,
+          activeGeneration,
+          status,
+          failureCount: failureMeta.consecutiveFailures,
+        });
+        return;
+      }
+      if (stopped || args.isCancelled()) return;
+      resubscribe();
+    }, wait);
   };
 
   const attachSubscribe = () => {
@@ -519,6 +526,7 @@ export function subscribeWithRetry(args: {
      */
     void (async () => {
       const attachCycleT0 = typeof performance !== "undefined" ? performance.now() : null;
+      const attachGen = activeGeneration;
       if (stopped || args.isCancelled()) return;
       rtLoopDiagLog({
         event: "attach_subscribe",
@@ -543,7 +551,7 @@ export function subscribeWithRetry(args: {
        */
       await waitForSupabaseRealtimeAuth(args.sb, 1_500);
       await syncSupabaseRealtimeAuthFromSession(args.sb);
-      if (stopped || args.isCancelled()) return;
+      if (stopped || args.isCancelled() || attachGen !== activeGeneration) return;
       channel = channel.subscribe((status) => {
         const elapsedAttachMs =
           attachCycleT0 != null && typeof performance !== "undefined"
@@ -570,6 +578,7 @@ export function subscribeWithRetry(args: {
           bindRole: args.hs4Context?.channelBindRole ?? null,
         });
         if (status === "SUBSCRIBED") {
+          cmRtRecordSubscribeSuccess(args.name);
           void syncSupabaseRealtimeAuthFromSession(args.sb);
           if (attempt > 0) {
             maybeRecordReconnectStressEvent(args.logStreamRoomId ?? args.scope, "reconnect");
@@ -639,7 +648,7 @@ export function subscribeWithRetry(args: {
               scope: args.scope,
               channelName: args.name,
               status,
-              reason: "duplicate_instance_peer_teardown",
+              reason: "duplicate_instance_peer_teardown_no_retry",
               attemptPhase: attempt > 0 ? "retry" : "initial",
               attemptNo: attempt,
               elapsedMs: elapsedAttachMs,
@@ -648,9 +657,6 @@ export function subscribeWithRetry(args: {
               activeCount: activeNow,
             });
             previousChannelStatusForHs4 = status;
-            if (!intentionalTeardown) {
-              scheduleRetry(status);
-            }
             return;
           }
           const attemptNoAtOutcome = attempt;
@@ -684,6 +690,14 @@ export function subscribeWithRetry(args: {
             expectedInternalClosed,
           });
           if (intentionalTeardown) return;
+          if (cmRtShouldDeferRetries()) {
+            const deferredGen = activeGeneration;
+            timer = setTimeout(() => {
+              if (deferredGen !== activeGeneration || stopped || args.isCancelled()) return;
+              scheduleRetry(status);
+            }, Math.max(2_000, cmRtComputeRetryDelayMs(args.name, attempt)));
+            return;
+          }
           scheduleRetry(status);
         }
       });
@@ -698,6 +712,17 @@ export function subscribeWithRetry(args: {
       markCommunityMessengerRealtimeScopeSignal(args.scope);
     },
   };
+}
+
+let wakeUnregister: (() => void) | null = null;
+
+export function subscribeWithRetry(args: SubscribeWithRetryArgs): SubscribeWithRetryHandle {
+  if (!wakeUnregister) {
+    wakeUnregister = cmRtLoopGuardRegisterWakeCallback(() => {
+      /* visibility/online — 쿨다운 만료 후 다음 attach 는 각 owner 의 onStatus 로 처리 */
+    });
+  }
+  return acquireCmRtChannelSubscription(args, createInternalSubscribeWithRetry);
 }
 
 registerCmRtLoopActiveCountLookup((name) => rtLoopDiagActiveCountByName.get(name) ?? 0);

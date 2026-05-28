@@ -15,6 +15,7 @@ import {
 } from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
+import { cmRtPresenceIsolatedError } from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
 
 type PresencePayload = {
   userId?: unknown;
@@ -243,12 +244,20 @@ function ensurePresenceRuntime(userId: string) {
       documentVisible: currentDocumentVisible(),
       lastActivityMs,
     });
-    await activeChannel.track({
-      userId,
-      state,
-      updatedAt: nowIso(),
-      lastActivityAt: new Date(lastActivityMs).toISOString(),
-    });
+    try {
+      await activeChannel.track({
+        userId,
+        state,
+        updatedAt: nowIso(),
+        lastActivityAt: new Date(lastActivityMs).toISOString(),
+      });
+    } catch (err) {
+      cmRtPresenceIsolatedError("track_failed", {
+        userIdTail: userId.length > 8 ? userId.slice(-8) : userId,
+        state,
+        message: err instanceof Error ? err.message : String(err),
+      });
+    }
     postPresenceHeartbeatHttp();
   };
 
@@ -293,7 +302,7 @@ function ensurePresenceRuntime(userId: string) {
     sb,
     name: "community-messenger:presence",
     scope: PRESENCE_RUNTIME_SCOPE,
-    isCancelled: () => false,
+    isCancelled: () => runtimeRefCount <= 0,
     silentAfterMs: 18_000,
     onStatus: (status) => {
       channelSubscribed = status === "SUBSCRIBED";
@@ -334,7 +343,11 @@ function ensurePresenceRuntime(userId: string) {
     store.getState().upsertPresence(userId, { state: "offline", lastSeenAt, updatedAt: lastSeenAt });
     persistLastSeenSessionEnd(lastSeenAt);
     if (channelSubscribed && activeChannel) {
-      void activeChannel.untrack();
+      void activeChannel.untrack().catch((err) => {
+        cmRtPresenceIsolatedError("untrack_failed", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
   };
 
@@ -359,7 +372,11 @@ function ensurePresenceRuntime(userId: string) {
     document.removeEventListener("keydown", onActivity);
     window.removeEventListener("scroll", onActivity);
     if (channelSubscribed && activeChannel) {
-      void activeChannel.untrack();
+      void activeChannel.untrack().catch((err) => {
+        cmRtPresenceIsolatedError("untrack_failed", {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
     }
     sub.stop();
     activeChannel = null;

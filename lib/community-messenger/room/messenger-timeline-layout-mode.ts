@@ -17,12 +17,16 @@ export function resolveUseDirectMessengerTimelineLayout(opts: {
   hydrationPass: number;
   displayMessageCount: number;
   hasStoreOrderDock: boolean;
+  /** 요약·store_order system 이 있으면 도크 없어도 direct(가상 겹침 방지) */
+  hasStoreOrderTimeline?: boolean;
   virtualizerHasMeasuredRange: boolean;
 }): boolean {
+  const storeOrderTimeline = Boolean(opts.hasStoreOrderDock || opts.hasStoreOrderTimeline);
+  const minHydrationPass = storeOrderTimeline ? 1 : 2;
   return (
-    opts.hydrationPass >= 2 &&
+    opts.hydrationPass >= minHydrationPass &&
     opts.displayMessageCount > 0 &&
-    (opts.hasStoreOrderDock || !opts.virtualizerHasMeasuredRange)
+    (storeOrderTimeline || !opts.virtualizerHasMeasuredRange)
   );
 }
 

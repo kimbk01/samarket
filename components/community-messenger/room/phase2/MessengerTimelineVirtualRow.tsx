@@ -37,6 +37,11 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
+import {
+  resolveStoreOrderOpsBodyText,
+  resolveStoreOrderOpsTitleText,
+} from "@/lib/store-order-chat/store-order-ops-i18n";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
   return {
@@ -92,6 +97,7 @@ export type MessengerTimelineVirtualRowProps = {
   focusTimelineMessage: (messageId: string) => void | Promise<void>;
   openCallStubOutgoingConfirm: (kind: "voice" | "video") => void;
   tt: MessengerRoomPhase2ViewModel["tt"];
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
 };
 
 function messengerTimelineVirtualRowPropsAreEqual(
@@ -131,7 +137,8 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.messageLongPressItemRef === b.messageLongPressItemRef &&
     a.focusTimelineMessage === b.focusTimelineMessage &&
     a.openCallStubOutgoingConfirm === b.openCallStubOutgoingConfirm &&
-    a.tt === b.tt
+    a.tt === b.tt &&
+    a.t === b.t
   );
 }
 
@@ -171,6 +178,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   focusTimelineMessage,
   openCallStubOutgoingConfirm,
   tt,
+  t,
 }: MessengerTimelineVirtualRowProps) {
   if (cmRenderAnalysisEnabled()) {
     bumpMessengerTimelineBubbleRender();
@@ -423,6 +431,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           content={item.content}
           lineKind={storeOrderLineKind}
           statusLabel={storeOrderStatusLabel}
+          metadata={metadata}
+          t={t}
         />
       ) : item.messageType === "system" ? (
         <div className="max-w-[min(100%,22rem)] px-2">
@@ -471,7 +481,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                     </span>
                   ) : null}
                   {mineUnreadBadgeVisible ? (
-                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{tt("cm_ui_unread")}</span>
+                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{t("cm_ui_unread")}</span>
                   ) : null}
                   {renderBubbleStack(viberBubble)}
                 </>
@@ -497,58 +507,40 @@ function StoreOrderOpsSystemRow({
   content,
   lineKind,
   statusLabel,
+  metadata,
+  t,
 }: {
   content: string;
   lineKind: string;
   statusLabel: string;
+  metadata: Record<string, unknown> | null;
+  t: MessengerTimelineVirtualRowProps["t"];
 }) {
-  const tone =
+  const body = resolveStoreOrderOpsBodyText({
+    orderStatus: statusLabel,
+    lineKind,
+    content,
+    metadata,
+    t,
+  });
+  const title = resolveStoreOrderOpsTitleText({
+    orderStatus: statusLabel,
+    lineKind,
+    t,
+  });
+  const titleClass =
     lineKind === "warning"
-      ? {
-          wrap: "border-amber-200 bg-amber-50 text-amber-950",
-          badge: "bg-amber-100 text-amber-800",
-          label: "주의",
-        }
+      ? "font-semibold text-amber-800"
       : lineKind === "delivery"
-        ? {
-            wrap: "delivery-ui border-[color:var(--delivery-primary-border)] bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-dark)]",
-            badge: "bg-[color:var(--delivery-primary)] text-white",
-            label: opsStatusLabel(statusLabel),
-          }
-        : {
-            wrap: "delivery-ui border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-bg-card)] text-[color:var(--delivery-dark)]",
-            badge: "bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]",
-            label: opsStatusLabel(statusLabel),
-          };
+        ? "font-semibold text-[color:var(--delivery-primary)]"
+        : "font-semibold text-[color:var(--delivery-dark)]";
   return (
-    <div className="flex w-full justify-center px-2">
-      <div className={`max-w-[min(100%,22rem)] rounded-[4px] border px-3 py-2 text-center shadow-sm ${tone.wrap}`}>
-        <span className={`inline-flex rounded-[4px] px-2 py-0.5 text-[11px] font-bold leading-[1.35] ${tone.badge}`}>
-          {tone.label}
-        </span>
-        <p className="mt-1 text-[12px] font-semibold leading-[1.45] [overflow-wrap:anywhere]">{content}</p>
-      </div>
+    <div className="delivery-ui flex w-full justify-center px-4 py-0.5">
+      <p className="max-w-[min(100%,20rem)] text-center text-[12px] leading-[1.5] text-[color:var(--delivery-text-muted)] [overflow-wrap:anywhere]">
+        <span className={titleClass}>{title}</span>
+        <span className="text-[color:var(--delivery-mocha)]"> · </span>
+        <span className="text-[color:var(--delivery-dark)]">{body}</span>
+      </p>
     </div>
   );
-}
-
-function opsStatusLabel(status: string): string {
-  switch (status) {
-    case "pending":
-      return "신규 주문";
-    case "accepted":
-      return "주문 접수";
-    case "preparing":
-      return "조리 시작";
-    case "ready_for_pickup":
-      return "조리 완료";
-    case "delivering":
-      return "배달 시작";
-    case "arrived":
-      return "주소 근처 도착";
-    case "completed":
-      return "완료";
-    default:
-      return "주문 진행";
-  }
 }
