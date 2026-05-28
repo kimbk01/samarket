@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
+import { MessengerHomeBottomSheetShell, SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import {
@@ -97,12 +97,12 @@ export function MessengerFriendAddSheet({
   }, [inviteUrl]);
 
   return (
-    <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div
-        data-messenger-shell
-        className="flex max-h-[78vh] w-full flex-col overflow-hidden rounded-t-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
-      >
+    <MessengerHomeBottomSheetShell
+      onClose={onClose}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={t("cm_ui_add_friend")}
+      panelClassName="rounded-t-ui-rect"
+    >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
             {t("cm_ui_add_friend")}
@@ -153,7 +153,7 @@ export function MessengerFriendAddSheet({
         </div>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-3 pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-4 pt-3">
           {friendAddTab === "contacts" ? (
             <div className="space-y-2">
               <p className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
@@ -325,8 +325,7 @@ export function MessengerFriendAddSheet({
         </div>
 
         </div>
-      </div>
-    </div>
+    </MessengerHomeBottomSheetShell>
   );
 }
 

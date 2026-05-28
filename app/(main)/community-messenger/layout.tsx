@@ -1,4 +1,5 @@
 import "@/app/messenger-view-transitions.css";
+import "@/app/messenger-home-bottom-sheet.css";
 import { CommunityMessengerMediaPreflight } from "@/components/community-messenger/CommunityMessengerMediaPreflight";
 import { CommunityMessengerRoomClientPrefetch } from "@/components/community-messenger/CommunityMessengerRoomClientPrefetch";
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";

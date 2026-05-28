@@ -2,7 +2,12 @@
 
 import type { RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
-import { MessengerSettingsBlock, SettingsActionRow, SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
+import {
+  MessengerHomeBottomSheetShell,
+  MessengerSettingsBlock,
+  SettingsActionRow,
+  SettingsToggleRow,
+} from "@/components/community-messenger/MessengerSheetUi";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
@@ -68,12 +73,12 @@ export function MessengerSettingsSheet({
 }: MessengerSettingsSheetProps) {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div
-        data-messenger-shell
-        className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
-      >
+    <MessengerHomeBottomSheetShell
+      onClose={onClose}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={t("common_settings")}
+      anchor="device-bottom"
+    >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
             {t("common_settings")}
@@ -87,7 +92,7 @@ export function MessengerSettingsSheet({
             {t("nav_close")}
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="space-y-4">
             <MessengerSettingsBlock title={t("common_notifications")}>
               <SettingsToggleRow
@@ -240,7 +245,7 @@ export function MessengerSettingsSheet({
               </div>
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title={t("nav_conversation")}>
+            <MessengerSettingsBlock title={t("cm_ui_settings_section_conversation")}>
               <SettingsToggleRow
                 title={t("cm_ui_check_info_before_join")}
                 description={t("cm_ui_check_meeting_info_before_join")}
@@ -283,7 +288,7 @@ export function MessengerSettingsSheet({
               </div>
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title={t("nav_messenger_open_group")}>
+            <MessengerSettingsBlock title={t("cm_ui_settings_section_open_group")}>
               <SettingsActionRow
                 title={t("cm_ui_find_meeting")}
                 description={t("cm_ui_open_joinable_meetings")}
@@ -300,7 +305,6 @@ export function MessengerSettingsSheet({
             />
           </div>
         </div>
-      </div>
-    </div>
+    </MessengerHomeBottomSheetShell>
   );
 }

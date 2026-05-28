@@ -1,12 +1,105 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import {
+  MAIN_BOTTOM_NAV_SHEET_Z_CLASS,
+  MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS,
+  MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS,
+  MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
+} from "@/lib/main-menu/bottom-nav-config";
+
+export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom";
+
+/**
+ * 메신저 홈(채팅·친구·모임) 오버레이 — `body` 포털·본문 스크롤.
+ * - `above-bottom-nav`: 하단 탭 상단에 맞춤(알림·친구 추가 등)
+ * - `device-bottom`: 기기 최하단에서 뷰포트 비율만큼 올라옴(설정 시트, 기본 70%)
+ */
+export function MessengerHomeBottomSheetShell({
+  onClose,
+  closeAriaLabel,
+  children,
+  panelClassName = "",
+  dialogAriaLabel,
+  anchor = "above-bottom-nav",
+  deviceHeightRatio = MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
+}: {
+  onClose: () => void;
+  closeAriaLabel: string;
+  children: ReactNode;
+  panelClassName?: string;
+  dialogAriaLabel?: string;
+  anchor?: MessengerHomeBottomSheetAnchor;
+  /** `anchor="device-bottom"` 일 때 패널 높이(뷰포트 비율, 0.7 = 70%) */
+  deviceHeightRatio?: number;
+}) {
+  const [mounted, setMounted] = useState(false);
+  const [entered, setEntered] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted || anchor !== "device-bottom") return;
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [mounted, anchor]);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  if (!mounted || typeof document === "undefined" || !document.body) return null;
+
+  const deviceBottom = anchor === "device-bottom";
+  const panelAnchorClass = deviceBottom
+    ? MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS
+    : MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS;
+  const panelMotionClass =
+    deviceBottom ?
+      entered ? "messenger-home-bottom-sheet-panel--entered" : "messenger-home-bottom-sheet-panel--entering"
+    : "";
+
+  return createPortal(
+    <div className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS} bg-black/30`} role="presentation">
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        aria-label={closeAriaLabel}
+        onClick={onClose}
+      />
+      <div
+        data-messenger-shell
+        role="dialog"
+        aria-modal="true"
+        aria-label={dialogAriaLabel}
+        style={
+          deviceBottom ?
+            ({
+              "--messenger-home-sheet-device-height": `${Math.min(1, Math.max(0.25, deviceHeightRatio)) * 100}dvh`,
+            } as CSSProperties)
+          : undefined
+        }
+        className={`absolute inset-x-0 flex w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)] ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
+      >
+        {children}
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 export function MessengerSettingsBlock({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
       <h3
-        className="mb-2 sam-text-xxs font-semibold uppercase tracking-wide"
+        className="mb-2 sam-text-xxs font-semibold tracking-wide"
         style={{ color: "var(--messenger-text-secondary)" }}
       >
         {title}

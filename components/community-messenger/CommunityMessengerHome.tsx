@@ -21,6 +21,7 @@ import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
+import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
   MessengerChatRoomActionSheet,
@@ -2999,14 +3000,12 @@ export function CommunityMessengerHome({
       ) : null}
 
       {publicGroupFindOpen && data ? (
-        <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-          <button
-            type="button"
-            className="min-h-0 flex-1 cursor-default"
-            aria-label={t("nav_close")}
-            onClick={() => closeHomeOverlay("public-group-find")}
-          />
-          <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]">
+        <MessengerHomeBottomSheetShell
+          onClose={() => closeHomeOverlay("public-group-find")}
+          closeAriaLabel={t("nav_close")}
+          dialogAriaLabel={t("cm_ui_find_meeting")}
+          panelClassName="rounded-t-[14px] border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]"
+        >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3.5">
               <p className="sam-text-section-title font-semibold text-sam-fg">{t("cm_ui_find_meeting")}</p>
               <button
@@ -3017,7 +3016,7 @@ export function CommunityMessengerHome({
                 {t("nav_close")}
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
               <input
                 value={openGroupSearch}
                 onChange={(e) => setOpenGroupSearch(e.target.value)}
@@ -3039,8 +3038,7 @@ export function CommunityMessengerHome({
                 )}
               </div>
             </div>
-          </div>
-        </div>
+        </MessengerHomeBottomSheetShell>
       ) : null}
 
       {groupCreateStep !== "closed" ? (

@@ -9,6 +9,7 @@ import type {
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
+import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
   formatConversationTimestamp,
@@ -401,15 +402,13 @@ export function MessengerNotificationCenterSheet({
           .replace(/important (\d+)/g, (_, n) => t("cm_ui_important_chat_count", { count: Number(n) }));
 
   return (
-    <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div
-        data-messenger-shell
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("cm_ui_notification_center")}
-        className="max-h-[min(78vh,calc(100dvh-2rem))] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
-      >
+    <MessengerHomeBottomSheetShell
+      onClose={onClose}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={t("cm_ui_notification_center")}
+    >
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-2">
         <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
           {t("common_notifications")}
         </p>
@@ -469,7 +468,8 @@ export function MessengerNotificationCenterSheet({
         >
           {t("nav_close")}
         </button>
+        </div>
       </div>
-    </div>
+    </MessengerHomeBottomSheetShell>
   );
 }

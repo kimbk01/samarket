@@ -189,6 +189,16 @@ export const MAIN_BOTTOM_NAV_SHEET_BOTTOM_CLASS =
 export const MAIN_BOTTOM_NAV_SHEET_MAX_H_CLASS =
   "max-h-[min(calc(78dvh-var(--app-bottom-nav-height,60px)-env(safe-area-inset-bottom,0px)),520px)]";
 
+/** 메신저 홈 오버레이 패널 — `app/messenger-home-bottom-sheet.css` (배달 overhang `:has` 반영) */
+export const MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS = "messenger-home-bottom-sheet-panel";
+
+/** 메신저 설정 시트 — 기기 뷰포트 높이 대비 비율(0.7 = 70%) */
+export const MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO = 0.7;
+
+/** `messenger-home-bottom-sheet.css` `.messenger-home-bottom-sheet-panel--device-bottom` */
+export const MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS =
+  "messenger-home-bottom-sheet-panel--device-bottom";
+
 /**
  * 메인 하단 탭 바로 위에 고정 띠를 둘 때 사용 (`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS` 와 동일).
  */

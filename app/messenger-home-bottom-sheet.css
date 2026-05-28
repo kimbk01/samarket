@@ -1,0 +1,51 @@
+/**
+ * 메신저 홈 설정·알림·친구 추가 등 — 하단 탭 셸(`.app-bottom-nav-shell`) 상단에 맞춤.
+ * `MAIN_BOTTOM_NAV_SHEET_*` Tailwind 와 동기: `bottom-nav-config.ts`, `app-bottom-nav.css`.
+ */
+.messenger-home-bottom-sheet-panel {
+  bottom: calc(var(--app-bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px));
+  max-height: min(
+    calc(100dvh - var(--app-bottom-nav-height, 60px) - env(safe-area-inset-bottom, 0px)),
+    calc(88dvh - var(--app-bottom-nav-height, 60px) - env(safe-area-inset-bottom, 0px))
+  );
+}
+
+html:has(.app-bottom-nav-shell--delivery) .messenger-home-bottom-sheet-panel {
+  bottom: calc(
+    var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
+      env(safe-area-inset-bottom, 0px)
+  );
+  max-height: min(
+    calc(
+      100dvh - var(--app-bottom-nav-height, 60px) - var(--delivery-home-overhang, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    ),
+    calc(
+      88dvh - var(--app-bottom-nav-height, 60px) - var(--delivery-home-overhang, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    )
+  );
+}
+
+html:not(:has(.app-bottom-nav-shell)) .messenger-home-bottom-sheet-panel {
+  bottom: env(safe-area-inset-bottom, 0px);
+  max-height: min(88dvh, 520px);
+}
+
+/**
+ * 메신저 설정 등 — 기기 맨 하단에서 뷰포트 비율(기본 70dvh)만큼 올라옴.
+ */
+.messenger-home-bottom-sheet-panel--device-bottom {
+  bottom: 0;
+  height: var(--messenger-home-sheet-device-height, 70dvh);
+  max-height: var(--messenger-home-sheet-device-height, 70dvh);
+}
+
+.messenger-home-bottom-sheet-panel--device-bottom.messenger-home-bottom-sheet-panel--entering {
+  transform: translate3d(0, 100%, 0);
+}
+
+.messenger-home-bottom-sheet-panel--device-bottom.messenger-home-bottom-sheet-panel--entered {
+  transform: translate3d(0, 0, 0);
+  transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+}
