@@ -4,6 +4,7 @@
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
+import type { ProfileRow } from "@/lib/profile/types";
 
 export type MeProfileGetResult = {
   status: number;
@@ -11,6 +12,8 @@ export type MeProfileGetResult = {
 };
 
 const TTL_MS = 4_000;
+/** RSC·session에서 seed 한 row — mypage 재방문·boot 직후 prewarm 완화 */
+const PRIMED_PROFILE_TTL_MS = 5 * 60 * 1000;
 const FLIGHT_KEY_FULL = "me:profile:get:full" as const;
 
 let cachedFull: { expiresAt: number; value: MeProfileGetResult } | null = null;
@@ -39,6 +42,29 @@ export function invalidateMeProfileDedupedCache(): void {
 
 export function peekMeProfileCached(): MeProfileGetResult | null {
   return cachedFull?.value ?? null;
+}
+
+/** RSC·session·boot merge 등 이미 확보한 full profile — mypage·prewarm 중복 GET 방지 */
+export function primeMeProfileDedupedFromKnownProfile(profile: ProfileRow): void {
+  const id = profile.id?.trim();
+  if (!id) return;
+  cachedFull = {
+    value: { status: 200, json: { ok: true, profile } },
+    expiresAt: Date.now() + PRIMED_PROFILE_TTL_MS,
+  };
+}
+
+function peekMeProfileFullFromCachedResult(): ProfileRow | null {
+  const cached = peekMeProfileCached();
+  if (!cached || cached.status !== 200) return null;
+  const json = cached.json as { ok?: boolean; profile?: ProfileRow | null } | null;
+  if (!json?.ok || json.profile == null) return null;
+  return json.profile;
+}
+
+/** TTL·primed full row 가 있으면 네트워크 full GET 불필요 */
+export function isMeProfileFullFetchSkippable(): boolean {
+  return isMeProfileCacheFresh() && peekMeProfileFullFromCachedResult() != null;
 }
 
 export function isMeProfileCacheFresh(): boolean {
@@ -71,6 +97,12 @@ export function fetchMeProfileFullBackground(clientCallSource?: string): Promise
   const now = Date.now();
   if (cachedFull && cachedFull.expiresAt > now) {
     return Promise.resolve(cachedFull.value);
+  }
+  const primedProfile = peekMeProfileFullFromCachedResult();
+  if (primedProfile) {
+    const primed: MeProfileGetResult = { status: 200, json: { ok: true, profile: primedProfile } };
+    cachedFull = { value: primed, expiresAt: now + TTL_MS };
+    return Promise.resolve(primed);
   }
   return runSingleFlight(FLIGHT_KEY_FULL, () => {
     recordBootVerifyFetch("/api/me/profile?mode=full", clientCallSource ?? "profile_full");

@@ -10,7 +10,7 @@ import {
   fetchMeNotificationSettingsSnapshot,
   invalidateMeNotificationSettingsGetFlight,
 } from "@/lib/me/fetch-me-notification-settings-client";
-import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
+import { scheduleNotificationSettingsSnapshotDeferred } from "@/lib/http/startup-api-scheduler";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 
 import {
@@ -111,9 +111,12 @@ function MyHubHeaderInAppSoundInner() {
   }, []);
 
   useEffect(() => {
-    const cancel = scheduleStartupApiDeferred("notification-settings-my-hub", () => {
-      void loadSound();
-    }, { delayMs: 120 });
+    const cancel = scheduleNotificationSettingsSnapshotDeferred(
+      () => {
+        void loadSound();
+      },
+      { source: "notification-settings-my-hub" }
+    );
     return cancel;
   }, [loadSound]);
 

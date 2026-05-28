@@ -48,10 +48,14 @@ import {
   beginLiteClientMergeGate,
   deferHomeSyncPatchDuringLiteMerge,
   endLiteClientMergeGate,
+  finishHomeBootstrapRefreshRound,
   isLiteClientMergeGateActive,
   markLiteMergeFollowUpsUnblocked,
+  noteHomeSyncPayloadFlushed,
   registerDeferredHomeSyncRunner,
   shouldDeferPostLiteFollowUp,
+  shouldSkipHomeSyncPayload,
+  tryEnterHomeBootstrapRefreshRound,
 } from "@/lib/community-messenger/home/lite-merge-gate";
 import {
   logCmBootstrapV2ClientFinalize,
@@ -176,7 +180,23 @@ function abortSignalAny(signals: AbortSignal[]): AbortSignal {
 }
 
 const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
+/** silent home-sync·visibility 직후 폭주 완화 — `refresh(true)` 최소 간격 */
+const HOME_SILENT_REFRESH_MIN_GAP_MS = 680;
 let lastStaleCacheResumeSilentRefreshAt = 0;
+
+function peekClientStaleBootstrap(): CommunityMessengerBootstrap | null {
+  if (typeof window === "undefined") return null;
+  const fullCached = peekMessengerBootstrapFull();
+  if (fullCached) return fullCached;
+  const critCached = peekMessengerBootstrapCritical();
+  if (!critCached) return null;
+  return communityMessengerBootstrapFromCriticalPayload(critCached);
+}
+
+function homeBootstrapHasListRooms(data: CommunityMessengerBootstrap | null | undefined): boolean {
+  if (!data) return false;
+  return (data.chats?.length ?? 0) + (data.groups?.length ?? 0) > 0;
+}
 
 export type UseCommunityMessengerHomeBootstrapArgs = {
   initialServerBootstrap: CommunityMessengerBootstrap | null | undefined;
@@ -232,18 +252,25 @@ export function useCommunityMessengerHomeBootstrap({
    * SSR 시 null·CSR 첫 렌더에 데이터가 생기며 `MessengerHomeMainSections` 트리가 달라져 하이드레이션 오류가 난다.
    * `listAwaitingCritical` 은 useLayoutEffect 에서 peek 적용 시 즉시 해제한다(APP-SHELL-FAST-PATH).
    */
-  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
+  const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => {
+    if (initialServerBootstrap) return initialServerBootstrap;
+    return peekClientStaleBootstrap();
+  });
   /** 목록 새로고침 오버레이만 — 첫 critical 대기는 `listAwaitingCritical` */
   const [loading, setLoading] = useState(false);
-  const [listAwaitingCritical, setListAwaitingCritical] = useState(
-    () => !initialServerBootstrap
-  );
+  const [listAwaitingCritical, setListAwaitingCritical] = useState(() => {
+    if (initialServerBootstrap) return false;
+    if (typeof window === "undefined") return true;
+    return peekClientStaleBootstrap() == null;
+  });
   /** critical 페이로드 수신 후 idle 에서 연다 — 구독 attach 를 셸 직후와 분리 */
   const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(
     () => Boolean(initialServerBootstrap?.me?.id)
   );
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   useLayoutEffect(() => {
     if (initialServerBootstrap) return;
@@ -352,6 +379,7 @@ export function useCommunityMessengerHomeBootstrap({
       },
       roomMode: "replace" | "critical_patch" = "replace"
     ) => {
+      if (shouldSkipHomeSyncPayload({ ...payload, roomMode })) return;
       setData((prev) => {
         const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
         try {
@@ -371,6 +399,7 @@ export function useCommunityMessengerHomeBootstrap({
           );
           if (!next || next === base) return prev;
           primeBootstrapCache(next);
+          noteHomeSyncPayloadFlushed({ ...payload, roomMode });
           return next;
         } finally {
           if (tUiAlign0 != null && typeof performance !== "undefined") {
@@ -419,15 +448,30 @@ export function useCommunityMessengerHomeBootstrap({
   const refresh = useCallback(async (silent = false) => {
     recordMessengerHomeRefreshInvocation(silent);
     if (silent && isDevSafeMode()) return;
+    if (!tryEnterHomeBootstrapRefreshRound(silent)) return;
+    let refreshRoundFinished = false;
+    const endRefreshRound = (onPendingSilent: () => void) => {
+      if (refreshRoundFinished) return;
+      refreshRoundFinished = true;
+      finishHomeBootstrapRefreshRound(onPendingSilent);
+    };
     if (silent) {
       const now = Date.now();
-      if (now < silentBackoffUntilRef.current) return;
-      if (now - lastSilentRefreshAtRef.current < 380) {
+      if (now < silentBackoffUntilRef.current) {
+        endRefreshRound(() => {
+          void refresh(true);
+        });
+        return;
+      }
+      if (now - lastSilentRefreshAtRef.current < HOME_SILENT_REFRESH_MIN_GAP_MS) {
         if (silentThrottleCoalesceTimerRef.current != null) clearTimeout(silentThrottleCoalesceTimerRef.current);
         silentThrottleCoalesceTimerRef.current = setTimeout(() => {
           silentThrottleCoalesceTimerRef.current = null;
           void refresh(true);
-        }, Math.max(1, 380 - (Date.now() - lastSilentRefreshAtRef.current)));
+        }, Math.max(1, HOME_SILENT_REFRESH_MIN_GAP_MS - (Date.now() - lastSilentRefreshAtRef.current)));
+        endRefreshRound(() => {
+          void refresh(true);
+        });
         return;
       }
       if (silentThrottleCoalesceTimerRef.current != null) {
@@ -437,10 +481,14 @@ export function useCommunityMessengerHomeBootstrap({
       lastSilentRefreshAtRef.current = now;
     }
     if (!tryEnterSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef)) {
+      endRefreshRound(() => {
+        void refresh(true);
+      });
       return;
     }
     if (!silent && bootstrapNonSilentInFlightRef.current) {
       samarketMessengerHomeDebugEvent("messenger_home_refresh_skip_non_silent_inflight");
+      endRefreshRound(() => {});
       return;
     }
     if (!silent) {
@@ -468,12 +516,19 @@ export function useCommunityMessengerHomeBootstrap({
       setData((prev) => applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"));
       setAuthRequired(false);
       setPageError(null);
+      setListAwaitingCritical(false);
     }
     if (!silent && stale) setLoading(true);
+    if (!silent && !stale && !homeBootstrapHasListRooms(dataRef.current)) {
+      setListAwaitingCritical(true);
+    }
     try {
       if (silent) {
         if (shouldDeferHomeSyncStart()) {
           finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {});
+          endRefreshRound(() => {
+            void refresh(true);
+          });
           return;
         }
         const tHomeSyncFetch0 = typeof performance !== "undefined" ? performance.now() : null;
@@ -492,13 +547,13 @@ export function useCommunityMessengerHomeBootstrap({
         }
         if (res.ok && json.ok) {
           refreshDataOk = true;
-          mergeHomeSyncIntoBootstrap(
-            {
-              chats: json.chats ?? [],
-              groups: json.groups ?? [],
-            },
-            "critical_patch"
-          );
+          const silentCriticalPayload = {
+            chats: json.chats ?? [],
+            groups: json.groups ?? [],
+          };
+          if (!shouldSkipHomeSyncPayload({ ...silentCriticalPayload, roomMode: "critical_patch" })) {
+            mergeHomeSyncIntoBootstrap(silentCriticalPayload, "critical_patch");
+          }
           silentFullSupplementTimerRef.current = window.setTimeout(() => {
             silentFullSupplementTimerRef.current = null;
             void (async () => {
@@ -510,12 +565,15 @@ export function useCommunityMessengerHomeBootstrap({
                 });
                 if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
                 if (resFull.ok && jsonFull.ok) {
-                  mergeHomeSyncIntoBootstrap({
+                  const silentFullPayload = {
                     chats: jsonFull.chats ?? [],
                     groups: jsonFull.groups ?? [],
                     requests: jsonFull.requests,
                     friends: jsonFull.friends,
-                  });
+                  };
+                  if (!shouldSkipHomeSyncPayload(silentFullPayload)) {
+                    mergeHomeSyncIntoBootstrap(silentFullPayload);
+                  }
                 }
               } catch {
                 /* ignore */
@@ -1048,6 +1106,9 @@ export function useCommunityMessengerHomeBootstrap({
         bootstrapNonSilentInFlightRef.current = false;
       }
       finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {
+        void refresh(true);
+      });
+      endRefreshRound(() => {
         void refresh(true);
       });
       loadedRef.current = true;

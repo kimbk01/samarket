@@ -4,6 +4,11 @@
  */
 import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  markStoresHomeHubSummaryNetwork,
+  resolveStoresHomePrewarmLanguage,
+  type StoresHomeClientCallSource,
+} from "@/lib/stores/stores-home-network-guards";
+import {
   beginMenusColdFillClientSession,
   markMenusColdFillClientCacheHit,
   markMenusColdFillFetchHeaders,
@@ -34,17 +39,19 @@ const storeNoticesPublicCache = new Map<string, { expiresAt: number; value: Stor
 const STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS = 5 * 60 * 1000;
 const storeTaxonomyPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 
-function normalizeStoresTaxonomyLanguage(language?: string): string {
-  const lang = (language ?? "ko").trim().toLowerCase();
-  return lang || "ko";
-}
-
 function storesTaxonomyPublicCacheKey(language?: string): string {
-  return `taxonomy:${normalizeStoresTaxonomyLanguage(language)}`;
+  return `taxonomy:${resolveStoresHomePrewarmLanguage(language)}`;
 }
 
 function storesTaxonomySingleFlightKey(language?: string): string {
-  return `stores:api:taxonomy:${normalizeStoresTaxonomyLanguage(language)}`;
+  return `stores:api:taxonomy:${resolveStoresHomePrewarmLanguage(language)}`;
+}
+
+function storesHomeClientCallSourceHeader(
+  source?: StoresHomeClientCallSource
+): HeadersInit | undefined {
+  if (!source) return undefined;
+  return { "x-samarket-client-call-source": source };
 }
 
 function trimSlug(slug: string): string {
@@ -435,7 +442,7 @@ export function purgeStoresTaxonomyNetworkCache(
     langsToForget.add(key.slice("taxonomy:".length));
   }
   if (language != null) {
-    langsToForget.add(normalizeStoresTaxonomyLanguage(language));
+    langsToForget.add(resolveStoresHomePrewarmLanguage(language));
   }
   for (const lang of langsToForget) {
     forgetStoresTaxonomyFetchSingleFlight(lang as import("@/lib/i18n/config").AppLanguageCode);
@@ -456,16 +463,18 @@ export function clearStoresTaxonomyClientCache(
 }
 
 export type FetchStoresTaxonomyDedupedOptions = {
-  /** TTL·single-flight 파티션 (기본 `ko`) */
+  /** TTL·single-flight 파티션 — 미지정 시 UI 런타임 언어 */
   language?: string;
+  clientCallSource?: StoresHomeClientCallSource;
 };
 
 /** GET /api/stores/taxonomy — 5분 TTL + locale single-flight */
 export async function fetchStoresTaxonomyDeduped(
   opts: FetchStoresTaxonomyDedupedOptions = {}
 ): Promise<StoreApiJsonResponse> {
-  const k = storesTaxonomyPublicCacheKey(opts.language);
-  const flightKey = storesTaxonomySingleFlightKey(opts.language);
+  const lang = resolveStoresHomePrewarmLanguage(opts.language);
+  const k = storesTaxonomyPublicCacheKey(lang);
+  const flightKey = storesTaxonomySingleFlightKey(lang);
   const cached = storeTaxonomyPublicCache.get(k);
   if (cached && cached.expiresAt > Date.now()) {
     return { status: cached.value.status, json: cached.value.json };
@@ -475,7 +484,14 @@ export async function fetchStoresTaxonomyDeduped(
     if (inflightCached && inflightCached.expiresAt > Date.now()) {
       return { status: inflightCached.value.status, json: inflightCached.value.json };
     }
-    const res = await fetch("/api/stores/taxonomy", { cache: "no-store" });
+    const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
+    const res = await fetch("/api/stores/taxonomy", {
+      cache: "no-store",
+      headers: {
+        ...storesApiAcceptLanguageHeader(lang),
+        ...storesHomeClientCallSourceHeader(opts.clientCallSource),
+      },
+    });
     const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     if (res.ok && res.status === 200) {
@@ -645,15 +661,22 @@ export async function fetchStoresBrowseDeduped(
 /** GET /api/stores/home-feed… (쿼리 포함 전체 path 뒷부분, 예: `?lat=…` 또는 빈 문자열) */
 export async function fetchStoresHomeFeedDeduped(
   pathAndQuery: string,
-  opts: { signal?: AbortSignal; language?: import("@/lib/i18n/config").AppLanguageCode } = {}
+  opts: {
+    signal?: AbortSignal;
+    language?: import("@/lib/i18n/config").AppLanguageCode | string;
+    clientCallSource?: StoresHomeClientCallSource;
+  } = {}
 ): Promise<StoreApiJsonResponse> {
   const suffix = pathAndQuery.startsWith("?") ? pathAndQuery : pathAndQuery ? `?${pathAndQuery}` : "";
-  const lang = opts.language ?? "en";
+  const lang = resolveStoresHomePrewarmLanguage(opts.language);
   const flight = runSingleFlight(`stores:api:home-feed:${lang}:${suffix}`, async () => {
     const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
     const res = await fetch(`/api/stores/home-feed${suffix}`, {
       cache: "no-store",
-      headers: storesApiAcceptLanguageHeader(lang),
+      headers: {
+        ...storesApiAcceptLanguageHeader(lang),
+        ...storesHomeClientCallSourceHeader(opts.clientCallSource),
+      },
       signal: opts.signal,
     });
     const json = await res.json().catch(() => ({}));
@@ -665,10 +688,10 @@ export async function fetchStoresHomeFeedDeduped(
 /** PTR·강제 reload — 진행 중 single-flight 끊고 새 home-feed 요청 */
 export function forgetStoresHomeFeedFetchSingleFlight(
   pathAndQuery: string,
-  language: import("@/lib/i18n/config").AppLanguageCode = "en"
+  language?: import("@/lib/i18n/config").AppLanguageCode | string
 ): void {
   const suffix = pathAndQuery.startsWith("?") ? pathAndQuery : pathAndQuery ? `?${pathAndQuery}` : "";
-  forgetSingleFlight(`stores:api:home-feed:${language}:${suffix}`);
+  forgetSingleFlight(`stores:api:home-feed:${resolveStoresHomePrewarmLanguage(language)}:${suffix}`);
 }
 
 /** POST/DELETE /api/stores/:slug/favorite — 변이(단일 비행 불필요), 호출부 일원화용 */
@@ -834,18 +857,19 @@ export async function fetchMeStoreOrdersListDeduped(queryWithQuestionOrEmpty: st
 
 /** GET /api/me/store-orders?hub_summary=1 — stores hub buyer card (lightweight) */
 export async function fetchMeStoreOrdersHubSummaryDeduped(
-  opts: { signal?: AbortSignal } = {}
+  opts: { signal?: AbortSignal; force?: boolean } = {}
 ): Promise<StoreApiJsonResponse> {
   const cacheKey = "hub_summary=1";
   const cached = peekStoreHubSummaryCache(cacheKey);
-  if (cached) {
+  if (cached && !opts.force) {
     return { status: cached.status, json: cached.json };
   }
   const flight = runSingleFlight("me:store-orders:hub-summary:get", async () => {
     const inFlightCached = peekStoreHubSummaryCache(cacheKey);
-    if (inFlightCached) {
+    if (inFlightCached && !opts.force) {
       return { status: inFlightCached.status, json: inFlightCached.json };
     }
+    markStoresHomeHubSummaryNetwork();
     const res = await fetch("/api/me/store-orders?hub_summary=1", {
       credentials: "include",
       cache: "no-store",

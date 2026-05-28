@@ -5,7 +5,11 @@ import {
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { logBootstrapColdFillDeepBreakdownClient } from "@/lib/community-messenger/bootstrap-cold-fill-deep-breakdown";
-import { primeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  isRoomSnapshotFresh,
+  peekRoomSnapshot,
+  primeRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -35,6 +39,15 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
 ): Promise<CommunityMessengerRoomSnapshot | null> {
   const rid = roomId.trim();
   if (!rid) return null;
+  if (!opts?.bustCache) {
+    const cached = peekRoomSnapshot(rid);
+    if (cached && isRoomSnapshotFresh(rid, cached.viewerUserId)) {
+      if (readTradeChatEntryMark()) {
+        recordCmRoomBootstrapCacheHit(1);
+      }
+      return cached;
+    }
+  }
   const query = communityMessengerRoomBlockingBootstrapQuery();
   const bust = opts?.bustCache ? `&_=${Date.now()}` : "";
   const url = `${communityMessengerRoomBootstrapPath(rid)}${query}${bust}`;

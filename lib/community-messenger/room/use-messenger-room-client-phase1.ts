@@ -105,6 +105,20 @@ import {
   ensureCmRoomEntryRouteT0,
   resetCmRoomEntryTraceSession,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+import { resetCmRoomR5TimelineMountInstrumentation } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
+import {
+  noteCmRoomR6HeavyHostMount,
+  noteCmRoomR6VirtualizerReady,
+  scheduleCmRoomTimelineHeavyReadyAfterDom,
+  resetCmRoomR6DisplayReadyInstrumentation,
+} from "@/lib/community-messenger/room/cm-room-r6-display-ready-instrumentation";
+import {
+  CM_ROOM_ENTRY_SEED_PAINT_ROW_CAP,
+  noteCmRoomR7Phase1SeedAvailable,
+  noteCmRoomR7RoomOpen,
+  resetCmRoomR7FirstRowCommitInstrumentation,
+} from "@/lib/community-messenger/room/cm-room-r7-first-row-commit-instrumentation";
 import { beginCmRoomEntryPriorityMode, endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
@@ -172,6 +186,25 @@ import {
 /** 입장 직후 여러 경로가 동시에 `refresh(true)` 를 열 때 silent bootstrap GET 을 한 번으로 합류 */
 const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 1000;
 const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = 1200;
+
+function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  const id = roomId.trim();
+  if (!id) return;
+  const t0 = entryTimingT0();
+  const tMs = t0 > 0 && typeof performance !== "undefined" ? Math.round(performance.now() - t0) : null;
+  const row = {
+    event,
+    room_id_suffix: id.length <= 8 ? id : id.slice(-8),
+    t_ms: tMs,
+    ...payload,
+  };
+  const bag = window.__cmPerfEvents ?? [];
+  bag.push(row);
+  window.__cmPerfEvents = bag;
+  // eslint-disable-next-line no-console -- R8 seed/bootstrap row path trace
+  console.log("[cm-room-r8-seed-path]", JSON.stringify(row));
+}
 
 function resolveMessengerRoomInitialSnapshot(
   roomId: string,
@@ -337,8 +370,26 @@ export function useMessengerRoomClientPhase1({
   }, [streamRoomId]);
 
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>(() => {
-    return (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
+    const base = (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
+    const rid = roomId.trim();
+    if (!rid) return base;
+    const live = getMessengerRealtimeRoomMessages(rid);
+    if (live.length <= base.length) return base;
+    return mergeRoomMessages(base, live);
   });
+
+  useLayoutEffect(() => {
+    const rid = roomId.trim();
+    if (!rid) return;
+    noteCmRoomR7RoomOpen(rid);
+    if (roomMessages.length > 0) {
+      noteCmRoomR7Phase1SeedAvailable(rid, roomMessages.length);
+    }
+    pushCmR8PerfEvent(rid, "phase1_rows_seed_count", {
+      phase1_seed_message_count: roomMessages.length,
+      bootstrap_message_count: snapshot?.messages?.length ?? 0,
+    });
+  }, [roomId, roomMessages.length]);
   const snapshotRef = useRef<CommunityMessengerRoomSnapshot | null>(null);
   const roomMessagesRef = useRef(roomMessages);
   const roomStateCommitCountRef = useRef(0);
@@ -351,6 +402,21 @@ export function useMessengerRoomClientPhase1({
   const roomLoadingRef = useRef(false);
   snapshotRef.current = snapshot;
   roomMessagesRef.current = roomMessages;
+
+  /** cached seed — bootstrap·hydration pass 대기 전 타임라인 state 동기(첫 paint FMV) */
+  useLayoutEffect(() => {
+    const snap = snapshot;
+    if (!snap || snap.clientShellPlaceholder) return;
+    const snapMsgs = snap.messages ?? [];
+    if (snapMsgs.length === 0 && !snap.room.lastMessage?.trim()) return;
+    setRoomMessages((prev) => {
+      if (snapMsgs.length === 0) return prev.length > 0 ? prev : prev;
+      if (prev.length === 0) return snapMsgs;
+      if (prev.length >= snapMsgs.length) return prev;
+      return mergeRoomMessages(prev, snapMsgs);
+    });
+  }, [snapshot, snapshot?.messages?.length, snapshot?.room.lastMessage]);
+
   if (!phase1SnapshotCommitRecordedRef.current && snapshot?.room?.id) {
     phase1SnapshotCommitRecordedRef.current = true;
     recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_snapshot_commit_ms");
@@ -463,7 +529,12 @@ export function useMessengerRoomClientPhase1({
   );
   const onTimelineHeavyReady = useCallback((bundle: MessengerRoomPhase1TimelineHeavyBundle) => {
     setTimelineHeavyBundle(bundle);
-  }, []);
+    const rid = roomId.trim();
+    if (rid) {
+      noteCmRoomR6VirtualizerReady(rid);
+      scheduleCmRoomTimelineHeavyReadyAfterDom(rid, "timeline_heavy_bundle");
+    }
+  }, [roomId]);
 
   const notifyTimelineViewportMounted = useCallback((mounted: boolean) => {
     setTimelineViewportMounted(mounted);
@@ -480,11 +551,69 @@ export function useMessengerRoomClientPhase1({
     setTimelineHeavyBundle(null);
   }, [roomId]);
 
-  /** scroll root(`messagesViewportRef`)가 Phase2 타임라인에 붙은 뒤에만 heavy virtualizer를 켠다. */
+  /** scroll root 부착 후 heavy virtualizer — 시드·pass3 전에는 entry direct paint 우선(R7). */
   useLayoutEffect(() => {
     if (!timelineViewportMounted) return;
-    setTimelineHeavyLive(true);
-  }, [timelineViewportMounted, timelineVirtualizerGeneration]);
+    const hasTimelineSeed =
+      roomMessages.length > 0 ||
+      (snapshot?.messages?.length ?? 0) > 0 ||
+      Boolean(snapshot?.room.lastMessage?.trim());
+    const rid = roomId.trim();
+    const entrySliceDefer =
+      hasTimelineSeed && roomMessages.length > CM_ROOM_ENTRY_SEED_PAINT_ROW_CAP;
+    let cancelled = false;
+    const attachHeavy = () => {
+      if (cancelled) return;
+      setTimelineHeavyLive(true);
+      if (rid) noteCmRoomR6HeavyHostMount(rid);
+    };
+    if (!hasTimelineSeed) {
+      attachHeavy();
+      return;
+    }
+    if (!entrySliceDefer) {
+      if (typeof requestIdleCallback === "function") {
+        const idleId = requestIdleCallback(attachHeavy, { timeout: 48 });
+        return () => {
+          cancelled = true;
+          cancelIdleCallback(idleId);
+        };
+      }
+      const rafId = requestAnimationFrame(() => {
+        requestAnimationFrame(attachHeavy);
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(rafId);
+      };
+    }
+    /**
+     * R11: timeline_rows_prepare→first_row_commit 구간에서 2.5s stall의 주원인이
+     * heavy host attach fallback timeout(2500ms)으로 확인되어, entry seed가 있으면
+     * direct seed row와 같은 tick(2x rAF)에서 heavy를 붙인다.
+     * DO NOT: API/bootstrap/unread/realtime 계약 변경.
+     */
+    pushCmR8PerfEvent(rid, "timeline_heavy_attach_scheduler", {
+      has_timeline_seed: hasTimelineSeed,
+      entry_slice_defer: entrySliceDefer,
+      scheduler_mode: "same_tick_raf",
+    });
+    const rafOuter = requestAnimationFrame(() => {
+      const rafInner = requestAnimationFrame(attachHeavy);
+      if (cancelled) cancelAnimationFrame(rafInner);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafOuter);
+    };
+  }, [
+    roomId,
+    roomMessages.length,
+    snapshot?.messages?.length,
+    snapshot?.room.lastMessage,
+    timelineViewportMounted,
+    timelineVirtualizerGeneration,
+  ]);
 
   useEffect(() => {
     const viewerId = snapshot?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
@@ -567,6 +696,9 @@ export function useMessengerRoomClientPhase1({
     consumeCommunityMessengerRoomNavTap(roomId);
     beginCmRoomEntryPriorityMode(roomId);
     resetCmRoomEntryTraceSession(roomId);
+    resetCmRoomR5TimelineMountInstrumentation(roomId);
+    resetCmRoomR6DisplayReadyInstrumentation(roomId);
+    resetCmRoomR7FirstRowCommitInstrumentation(roomId);
     cancelMessengerRoomEntryHydration("room_change");
     ensureCmRoomEntryRouteT0();
     attachMessengerRoomEntryHydrationSchedulerSurface(true);
@@ -602,6 +734,7 @@ export function useMessengerRoomClientPhase1({
     roomId,
     viewerBootstrapDedupRef,
     setSnapshot,
+    setRoomMessages,
     setLoading,
     setRoomReadyForRealtime,
     loadedRef,
@@ -615,6 +748,7 @@ export function useMessengerRoomClientPhase1({
     roomId,
     viewerBootstrapDedupRef,
     setSnapshot,
+    setRoomMessages,
     setLoading,
     setRoomReadyForRealtime,
     loadedRef,
@@ -636,6 +770,7 @@ export function useMessengerRoomClientPhase1({
       roomId: d.roomId,
       viewerBootstrapDedupRef: d.viewerBootstrapDedupRef,
       setSnapshot: d.setSnapshot,
+      setRoomMessages: d.setRoomMessages,
       setLoading: d.setLoading,
       setRoomReadyForRealtime: d.setRoomReadyForRealtime,
       loadedRef: d.loadedRef,
@@ -1208,7 +1343,7 @@ export function useMessengerRoomClientPhase1({
 
   useEffect(() => {
     if (!snapshot) {
-      setRoomMessages([]);
+      /** hydrate 중 snapshot 일시 null — 기존 timeline·cached seed 유지(빈 타임라인 flash 방지) */
       return;
     }
     if (roomMessagesRef.current === snapshot.messages && roomMessagesRef.current.length > 0) {
@@ -1227,6 +1362,9 @@ export function useMessengerRoomClientPhase1({
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
         recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
         next = snapshot.messages;
+      } else if ((snapshot.messages?.length ?? 0) === 0 && Boolean(snapshot.room.lastMessage?.trim())) {
+        /** hydrate wave 가 빈 messages[] 만 내려줄 때 기존 cached timeline 유지 */
+        return prev;
       } else {
         next = mergeRoomMessages(prev, snapshot.messages, {
           perfScope: "messenger_room_entry",
@@ -1402,6 +1540,15 @@ export function useMessengerRoomClientPhase1({
   if (phase1PerfTrack) endTradePhase1BreakdownSection("messages_normalize");
   const displayRoomMessages =
     timelineHeavyBundle?.displayRoomMessages ?? displayRoomMessagesBootstrap;
+  useEffect(() => {
+    const rid = roomId.trim();
+    if (!rid) return;
+    pushCmR8PerfEvent(rid, "phase1_rows_display_count", {
+      phase1_seed_message_count: roomMessages.length,
+      bootstrap_message_count: snapshot?.messages?.length ?? 0,
+      display_message_count: displayRoomMessages.length,
+    });
+  }, [displayRoomMessages.length, roomId, roomMessages.length, snapshot?.messages?.length]);
   const fileMessages = timelineHeavyBundle?.fileMessages ?? [];
   const managementEventMessages = timelineHeavyBundle?.managementEventMessages ?? [];
   const photoMessageCount = timelineHeavyBundle?.photoMessageCount ?? 0;
@@ -1591,6 +1738,7 @@ export function useMessengerRoomClientPhase1({
   notifyTimelineViewportMounted,
   onTimelineHeavyReady,
   timelineHeavyHostInput: {
+    roomId,
     roomMessages,
     hiddenCallStubIds,
     roomSearchQuery,

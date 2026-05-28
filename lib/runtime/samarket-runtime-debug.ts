@@ -12,7 +12,11 @@
 export function samarketRuntimeDebugEnabled(): boolean {
   if (typeof window === "undefined") return false;
   try {
-    return sessionStorage.getItem("samarket:debug:runtime") === "1";
+    if (sessionStorage.getItem("samarket:debug:runtime") === "1") return true;
+    return (
+      typeof process !== "undefined" &&
+      process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE === "1"
+    );
   } catch {
     return false;
   }
@@ -154,7 +158,10 @@ export function recordAppWidePhaseLastMs(phaseKey: string, ms: number): void {
    * 디버그 플래그와 무관하게 먼저 기록한다(146행 이전 return 으로 사라지는 문제 방지).
    * Node SSR 경로에서는 동일 키가 오염되지 않게 window 가 있을 때만 쓴다.
    */
-  if (phaseKey.startsWith("community_list_") && typeof window !== "undefined") {
+  if (
+    (phaseKey.startsWith("community_list_") || phaseKey.startsWith("messenger_room_entry_")) &&
+    typeof window !== "undefined"
+  ) {
     appWidePhaseLastMsStore()[phaseKey] = ms;
     /** Playwright `page.evaluate` 가 globalThis phase 맵과 어긋날 때 — 동일 `window` 객체에 E2E·수동용 복제 */
     const w = window as unknown as { __samarketCommunityListPhaseProbe?: Record<string, number> };

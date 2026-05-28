@@ -56,7 +56,13 @@ import {
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cmCallIncomingTraceMaybeRoomBootstrap } from "@/lib/community-messenger/cm-call-debug";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
-import { mergeCommunityMessengerForegroundBootstrapIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
+import {
+  mergeCommunityMessengerForegroundBootstrapIntoSnapshot,
+  roomBootstrapTimelineFingerprint,
+} from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
+import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
+import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import {
   isCmRoomEntryPriorityModeActive,
   logCmRoomBootstrapPatchOnly,
@@ -132,7 +138,28 @@ export type MessengerRoomBootstrapRefreshDeps = {
   silentBootstrapThrottleCoalesceTimerRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
   /** `consumeRoomSnapshot` 직후 full 보강 silent 타이머(100~300ms) — 언마운트·재진입 시 클리어 */
   swrDeferredBootstrapTimerRef: MutableRefObject<number | null>;
+  /** primed·reuse 시 타임라인 즉시 paint — bootstrap await 전 FMV */
+  setRoomMessages?: Dispatch<
+    SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>
+  >;
 };
+
+function applyPrimedTimelineSeed(
+  primed: CommunityMessengerRoomSnapshot,
+  setRoomMessages: MessengerRoomBootstrapRefreshDeps["setRoomMessages"]
+): boolean {
+  if (!setRoomMessages) return false;
+  const msgs = primed.messages ?? [];
+  if (msgs.length === 0) return false;
+  setRoomMessages((prev) => {
+    if (prev.length === 0) {
+      return msgs as Array<CommunityMessengerMessage & { pending?: boolean }>;
+    }
+    if (prev.length >= msgs.length) return prev;
+    return mergeRoomMessages(prev, msgs);
+  });
+  return true;
+}
 
 /** 메시지 전송 직후 in-flight 부트스트랩 Promise 가 옛 결과를 재사용하지 않도록 비운다. */
 export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string; viewerUserId: string }): void {
@@ -202,6 +229,7 @@ export function createMessengerRoomBootstrapRefresh(
     silentRoomRefreshAgainRef,
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
+    setRoomMessages,
   } = deps;
 
   /** 사일런트 GET 폭주(visibility/pageshow/realtime 버스트) 완화 */
@@ -250,6 +278,10 @@ export function createMessengerRoomBootstrapRefresh(
         setSnapshot((prev) => {
           if (prev && snap && !prev.clientShellPlaceholder) {
             const patched = mergeCommunityMessengerForegroundBootstrapIntoSnapshot(prev, snap);
+            if (roomBootstrapTimelineFingerprint(prev) === roomBootstrapTimelineFingerprint(patched)) {
+              noteCmRoomR5BootstrapFingerprintSkip(roomId);
+              return prev;
+            }
             logCmRoomBootstrapPatchOnly({
               roomId,
               patched_messages: (snap.messages?.length ?? 0) > 0,
@@ -386,6 +418,7 @@ export function createMessengerRoomBootstrapRefresh(
     try {
       if (primed) {
         setSnapshot(primed);
+        const cachedSeedHit = applyPrimedTimelineSeed(primed, setRoomMessages);
         setLoading(false);
         if (cmRoomEntryTraceEnabled()) {
           const prefetchHit = consumePrefetchHitForRoom(roomId);
@@ -395,6 +428,8 @@ export function createMessengerRoomBootstrapRefresh(
             payload_kb: kb,
             used_prefetch: prefetchHit,
             used_cached_snapshot: true,
+            cached_seed_hit: cachedSeedHit || (primed.messages?.length ?? 0) > 0,
+            bootstrap_cache_hit: cacheFresh5s,
           });
           noteCmColdEntryBootstrapCompleted(roomId, false);
         }
@@ -474,6 +509,7 @@ export function createMessengerRoomBootstrapRefresh(
         if (fg.action === "skip") {
           if (fg.reuseSnapshot) {
             setSnapshot(fg.reuseSnapshot);
+            applyPrimedTimelineSeed(fg.reuseSnapshot, setRoomMessages);
             setLoading(false);
             touchCmRoomForegroundLockFromSnapshot(roomId, fg.reuseSnapshot);
           }
@@ -855,10 +891,13 @@ export function createMessengerRoomBootstrapRefresh(
           const sizeB = Number(roomRes.headers.get("x-samarket-response-size-bytes") ?? "");
           const kb =
             Number.isFinite(sizeB) && sizeB > 0 ? Math.round((sizeB / 1024) * 10) / 10 : 0;
+          const cacheHitHdr = roomRes.headers.get("x-samarket-bootstrap-cache-hit") === "1";
           setCmRoomEntryBootstrapMeta({
             payload_kb: kb,
             used_prefetch: prefetchHit,
             used_cached_snapshot: false,
+            cached_seed_hit: (snap.messages?.length ?? 0) > 0,
+            bootstrap_cache_hit: cacheHitHdr,
           });
           noteCmColdEntryBootstrapCompleted(roomId, true);
           const srvSnap = Number(roomRes.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "");

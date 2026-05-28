@@ -74,11 +74,15 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
   );
 
   useEffect(() => {
+    if (peekFreshAddressDefaultsSnapshot()) return;
     void load({ silent: true });
   }, [pathname, load]);
 
   useEffect(() => {
-    const onPop = () => void load({ silent: true });
+    const onPop = () => {
+      if (peekFreshAddressDefaultsSnapshot()) return;
+      void load({ silent: true });
+    };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [load]);

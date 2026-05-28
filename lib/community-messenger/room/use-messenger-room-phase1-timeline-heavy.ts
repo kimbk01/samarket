@@ -26,6 +26,7 @@ export type MessengerRoomPhase1TimelineHeavyBundle = {
 };
 
 export function useMessengerRoomPhase1TimelineHeavy({
+  roomId,
   roomMessages,
   hiddenCallStubIds,
   roomSearchQuery,
@@ -35,6 +36,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   messageEndRef,
   stickToBottomRef,
 }: {
+  roomId: string;
   roomMessages: RoomMsg[];
   hiddenCallStubIds: Set<string>;
   roomSearchQuery: string;
@@ -57,6 +59,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
 
   useMessengerRoomTradeDockScrollAnchor({
     enabled: tradeDockScrollAnchorEnabled,
+    roomId,
     messagesViewportRef,
     messageEndRef,
     virtualizer: chatVirtualizer,
@@ -66,6 +69,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
 
   useMessengerRoomStoreOrderDockScrollAnchor({
     enabled: storeOrderDockScrollAnchorEnabled,
+    roomId,
     messagesViewportRef,
     messageEndRef,
     virtualizer: chatVirtualizer,

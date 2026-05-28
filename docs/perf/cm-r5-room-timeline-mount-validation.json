@@ -1,0 +1,137 @@
+{
+  "capturedAt": "2026-05-28T01:12:59.304Z",
+  "round": "CM-R5-prod-validation",
+  "env": {
+    "NEXT_PUBLIC_MESSENGER_PERF_TRACE": "1 (build)",
+    "NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET": "1 (build)",
+    "SAMARKET_MESSENGER_TRACE_LOG": "1 (server start)",
+    "SAMARKET_LOG_HOME_SYNC_DEEP_TRACE": "1 (server start)",
+    "NODE_ENV": "production (npm run start)"
+  },
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "scripts": {
+    "room_burst": "scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "r2_perceived": "scripts/perf/cm-r2-perceived-prod-validate.mjs",
+    "room_burst_artifact": "docs/perf/cm-r3-room-realtime-burst-validation.json",
+    "r2_artifact": "docs/perf/cm-r2-perceived-latency-prod-validation.json"
+  },
+  "r4_baseline": {
+    "source": "docs/perf/cm-r4-room-fmv-prod-validation.json",
+    "cold_first_message_render_ms": 897.5,
+    "cold_display_ready_ms": 897.5,
+    "warm_reentry_fmv_probe_ms": 988.7,
+    "cold_shell_ms": 13.7,
+    "cold_composer_ms": 562.7,
+    "empty_flash_rate": 0
+  },
+  "r5_measured": {
+    "cold_first_message_render_ms": 775.5,
+    "cold_display_ready_ms": 774,
+    "warm_reentry_first_message_visible_ms": 924.7,
+    "dom_first_message_visible_ms_cold": 3.5,
+    "cold_shell_ms": 14,
+    "cold_composer_ms": 676,
+    "empty_flash_rate": 0,
+    "cold_fmr_delta_vs_r4_pct": -13.6,
+    "warm_reentry_delta_vs_r4_pct": -6.5
+  },
+  "table": {
+    "cold": [
+      {
+        "run": 1,
+        "fmr": null,
+        "display_ready_ms": null,
+        "dom_fmv_probe_ms": null,
+        "shell": 13,
+        "composer": 980,
+        "rows": 0,
+        "flash": false
+      },
+      {
+        "run": 2,
+        "fmr": 728,
+        "display_ready_ms": 727,
+        "dom_fmv_probe_ms": 4,
+        "shell": 12,
+        "composer": 546,
+        "rows": 16,
+        "flash": false
+      },
+      {
+        "run": 3,
+        "fmr": 823,
+        "display_ready_ms": 821,
+        "dom_fmv_probe_ms": 3,
+        "shell": 17,
+        "composer": 502,
+        "rows": 16,
+        "flash": false
+      }
+    ],
+    "reentry": [
+      { "run": 1, "dom_fmv_probe_ms": 1108, "flash": false },
+      { "run": 2, "dom_fmv_probe_ms": 822, "flash": false },
+      { "run": 3, "dom_fmv_probe_ms": 844, "flash": false }
+    ],
+    "burst": [
+      { "run": 1, "chunks": [28, 12], "rows": 41, "wall_ms": 1276 },
+      { "run": 2, "chunks": [28, 12], "rows": 41, "wall_ms": 1245 },
+      { "run": 3, "chunks": [28, 12], "rows": 41, "wall_ms": 1248 }
+    ]
+  },
+  "mount_breakdown": {
+    "collection_status": "not_collected",
+    "reason": "Playwright page.on('console') does not receive console.debug; [cm-room-r5-mount-breakdown] lines were 0/3 runs in cmRoomR5Mount",
+    "samples": [],
+    "fields_requested": [
+      "phase2_body_mount_ms",
+      "timeline_component_mount_ms",
+      "timeline_first_row_dom_ms",
+      "virtualizer_ready_ms",
+      "heavy_live_mount_ms",
+      "hydration_pass_at_seed",
+      "fmr_source",
+      "display_ready_blocker"
+    ]
+  },
+  "fmr_source_distribution": {
+    "collection_status": "not_collected",
+    "note": "depends on cm-room-r5-mount-breakdown console.debug"
+  },
+  "display_ready_blocker_analysis": {
+    "collection_status": "inferred_from_metrics_only",
+    "fmr_vs_display_ready_delta_ms_run2": 1,
+    "fmr_vs_display_ready_delta_ms_run3": 2,
+    "phase2BodyDefer_in_logs": "not_observable",
+    "inference": "FMR still tracks display_ready (~1–2ms); DOM FMV probe ~3–4ms vs FMR ~728–823ms gap unchanged from R4 pattern"
+  },
+  "r4_observability_v2": {
+    "cached_seed_hit_true": 0,
+    "bootstrap_cache_hit_true": 0,
+    "used_cached_snapshot_true": 0,
+    "v2_log_count_note": "emit at shell+composer finalize; flags still 0/39 effective samples"
+  },
+  "regression": {
+    "empty_flash_0_of_3": true,
+    "burst_28_12": true,
+    "r2_dedicated_visibility_silent_delta": 0,
+    "r2_dedicated_visibility_home_sync_delta": 0,
+    "r3_embedded_visibility_silent_delta": 3,
+    "r3_embedded_visibility_home_sync_delta": 2,
+    "cold_home_blank": true
+  },
+  "pass_criteria": {
+    "warm_fmr_le_150_or_50pct": false,
+    "cold_fmr_le_500_or_30pct": false,
+    "empty_flash_0": true,
+    "display_ready_blocker_phase2BodyDefer_removed": "unverified",
+    "burst_28_12": true,
+    "r2_visibility_0_0_0": true,
+    "build_tsc": true
+  },
+  "verdict": "NEEDS_MORE_WORK",
+  "next_bottleneck": "heavy_bundle_virtualizer_ready_still_gates_FMR_after_phase2_body_early_mount"
+}

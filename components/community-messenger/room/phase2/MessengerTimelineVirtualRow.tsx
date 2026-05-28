@@ -43,6 +43,18 @@ import {
 } from "@/lib/store-order-chat/store-order-ops-i18n";
 import type { MessageKey } from "@/lib/i18n/messages";
 
+function bumpCmR9Counter(roomId: string, key: "avatarRenderCount" | "mediaDeferCount" | "linkPreviewDeferCount"): void {
+  if (typeof window === "undefined") return;
+  const id = roomId.trim();
+  if (!id) return;
+  const bag = (window as Window & { __cmR9UpgradeStateByRoom?: Record<string, Record<string, unknown>> })
+    .__cmR9UpgradeStateByRoom;
+  const st = bag?.[id];
+  if (!st || !st.active) return;
+  const current = Number(st[key] ?? 0);
+  st[key] = current + 1;
+}
+
 function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
   return {
     top: r.top,
@@ -60,6 +72,8 @@ export type MessengerTimelineVirtualRowProps = {
   virtualIndex: number;
   /** virtualizer 미부착·주문 슬라이드 등 — absolute/translate 없이 normal flow */
   directLayout?: boolean;
+  /** 진입 tail slice — link preview 등 무거운 부착은 첫 paint 이후 */
+  entryLightRow?: boolean;
   measureElement: (el: HTMLElement | null) => void;
   rowPaddingTopClass: string;
   showPeerName: boolean;
@@ -108,6 +122,8 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.item === b.item &&
     a.virtualStart === b.virtualStart &&
     a.virtualIndex === b.virtualIndex &&
+    a.directLayout === b.directLayout &&
+    a.entryLightRow === b.entryLightRow &&
     a.measureElement === b.measureElement &&
     a.rowPaddingTopClass === b.rowPaddingTopClass &&
     a.showPeerName === b.showPeerName &&
@@ -148,6 +164,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   virtualStart,
   virtualIndex,
   directLayout = false,
+  entryLightRow = false,
   measureElement,
   rowPaddingTopClass,
   showPeerName,
@@ -180,11 +197,24 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   tt,
   t,
 }: MessengerTimelineVirtualRowProps) {
+  if (entryLightRow && item.messageType === "text") {
+    bumpCmR9Counter(streamRoomId, "linkPreviewDeferCount");
+  }
+  if (entryLightRow && (item.messageType === "image" || item.messageType === "file")) {
+    bumpCmR9Counter(streamRoomId, "mediaDeferCount");
+  }
+  if (entryLightRow && showPeerAvatar && peerAvatar) {
+    bumpCmR9Counter(streamRoomId, "avatarRenderCount");
+  }
+  const renderPeerAvatar = showPeerAvatar && !entryLightRow;
   if (cmRenderAnalysisEnabled()) {
     bumpMessengerTimelineBubbleRender();
-    if (showPeerAvatar && peerAvatar) {
+    if (renderPeerAvatar && peerAvatar) {
       bumpMessengerTimelineAvatarRender();
     }
+  }
+  if (renderPeerAvatar && peerAvatar) {
+    bumpCmR9Counter(streamRoomId, "avatarRenderCount");
   }
 
   const bindMessageInteraction =
@@ -380,7 +410,11 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         callStatusLabel={callStatusLabel}
       />
     ) : (
-      <TimelineViberInnerTextDefault item={item} linkPreviewEnabled={linkPreviewEnabled} sendingLabel={sendingLabel} />
+      <TimelineViberInnerTextDefault
+        item={item}
+        linkPreviewEnabled={entryLightRow ? false : linkPreviewEnabled}
+        sendingLabel={sendingLabel}
+      />
     );
 
   const viberBubble = (
@@ -446,7 +480,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         >
           {!item.isMine ? (
             <div className="relative z-[1] w-[34px] shrink-0 pt-[2px]">
-              {showPeerAvatar ? (
+              {renderPeerAvatar ? (
                 <SamarketThumbnail
                   src={resolveUserAvatarImageSrc(peerAvatar?.avatarUrl)}
                   size={30}

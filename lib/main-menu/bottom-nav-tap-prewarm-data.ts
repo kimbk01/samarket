@@ -19,7 +19,10 @@ export function prewarmBottomNavTapTargetClientCache(
   if (!path) return;
 
   if (path === "/stores") {
-    prewarmBottomNavStoresTab(opts);
+    prewarmBottomNavStoresTab({
+      ...opts,
+      clientCallSource: "bottom_nav_prewarm",
+    });
     return;
   }
 

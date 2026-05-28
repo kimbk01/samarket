@@ -158,6 +158,51 @@ Exit code **0 = 구조 PASS** (RTT WARN 은 exit 0, 로그에 표시).
 2. `mark-read-performance-lock.baseline.json` · 이 문서 표 갱신.
 3. `prod_same_region` 측정 시 `SAMARKET_PERF_ENV` 명시 후 PR 에 숫자 첨부.
 
+## 홈 수동 읽음 optimistic mark-read (2026-05-28 라운드 마감)
+
+**상태:** 홈 수동 읽음 optimistic 적용 **완료**. 클라이언트는 방 입장과 동일 계약으로 PATCH 전 목록·배지 0을 먼저 반영한다 (`applyCmHomeOptimisticMarkRead` → `markRoomRead` in `CommunityMessengerHome.tsx`).
+
+### 검증 가능한 실제 표면 (TEST SURFACE)
+
+| 표면 | 개별 `roomId` + swipe/read 검증 | 비고 |
+|------|--------------------------------|------|
+| **`/community-messenger/delivery-chats`** (`?filter=unread` 권장) | **적합** | `[data-cm-unread-badge='true']` 행 · `읽음` 버튼 enabled |
+| **`/community-messenger?section=chats` (인박스 홈)** | **부적합** | 거래·배달 미읽음은 **묶음 행**(`data-messenger-pillar-row`)만 표시; 개별 방 UUID·스와이프 읽음 없음 |
+| **`/community-messenger/trade-chats`** | **부적합 (본 계정)** | API 미읽음 방(배달)과 목록 행 불일치; visible 행 `displayedUnreadCount === 0` → 읽음 disabled |
+
+인박스에서 `테스트1 (@aa11)` 제목 fuzzy 매칭은 **오탐** — 묶음 행 preview 와 겹칠 뿐 `roomId` 가 DOM에 없다.
+
+### 실측 (delivery-chats, `aaaa@manual.local`, production-like `build` + `start`)
+
+디버그: `NEXT_PUBLIC_CM_READ_BADGE_DEBUG=1`, `NEXT_PUBLIC_CM_READ_UI_DEBUG=1`.
+
+| 항목 | 결과 |
+|------|------|
+| API `bootstrap` / `home-sync` | 미읽음 5방 — `unreadCount > 0` (예: `8545493c-…` unread **5**); critical·full 페이로드에 동일 ID·count 포함 (**cap 누락 아님**) |
+| DOM selector | 행 `[data-messenger-chat-row='true']`, 배지 `[data-cm-unread-badge='true']`, 읽음 `button` (텍스트 `읽음`) |
+| `home_mark_read_optimistic_zero` | **발생** |
+| `mark_read_patch_start` 이전 badge 0 | **확인** (낙관 로그 → PATCH start 순서) |
+| PATCH RTT | **~693 ms** (`local_linked`) |
+| PATCH 후 해당 방 unread | **재상승 없음** (클릭 행 badge `5` → 0) |
+| 다른 미읽음 행 | **유지** (동일 목록에 badge 4건 잔존 — 단일 방 읽음 정상) |
+
+### 결론
+
+- 이전 E2E **FAIL** 은 **제품 코드 실패가 아님** — 테스트 표면(인박스/trade-chats)과 **IA(묶음 행 vs 개별 행)** 불일치.
+- 홈 수동 읽음 **perceived latency 개선** — delivery-chats 실측 기준 **PASS** (낙관 → PATCH, 해당 방만 0).
+
+### 라운드 최종 상태
+
+| Gate | Status |
+|------|--------|
+| CODE | **PASS** |
+| TSC | **PASS** |
+| BUILD | **PASS** |
+| BEHAVIOR | **PASS** |
+| TEST SURFACE | **FIXED** (`/community-messenger/delivery-chats`) |
+
 ## Changelog
 
 구조 변경 시 `docs/trade-perf-hot-path-changelog.md` 에 한 줄 append (mark_read·permission 분리 추적).
+
+- **2026-05-28:** 홈 수동 읽음 optimistic mark-read 라운드 마감 · 검증 표면 `delivery-chats` 고정 (위 절).

@@ -23,6 +23,7 @@ export function prewarmBottomNavTapHrefResolvingStoresRegion(
     const suffix = storeHomeFeedSuffixFromUserPrimaryRegion(primaryRegion);
     prewarmBottomNavTapTargetClientCache(href, {
       storeHomeFeedSuffixes: suffix ? [suffix] : [],
+      clientCallSource: "bottom_nav_prewarm",
     });
     return;
   }

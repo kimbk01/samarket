@@ -42,7 +42,10 @@ import {
 
 } from "@/lib/me/fetch-me-notification-settings-client";
 
-import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
+import {
+  scheduleNotificationSettingsSnapshotDeferred,
+  scheduleStartupApiDeferred,
+} from "@/lib/http/startup-api-scheduler";
 
 import {
 
@@ -464,15 +467,13 @@ export function PhilifeHeaderNotificationInbox({
 
 
   useEffect(() => {
-
-    const cancel = scheduleStartupApiDeferred("notification-settings-philife-inbox", () => {
-
-      void loadSound();
-
-    }, { delayMs: 0 });
-
+    const cancel = scheduleNotificationSettingsSnapshotDeferred(
+      () => {
+        void loadSound();
+      },
+      { source: "notification-settings-philife-inbox" }
+    );
     return cancel;
-
   }, [loadSound]);
 
 

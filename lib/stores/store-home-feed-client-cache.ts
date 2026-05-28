@@ -1,7 +1,10 @@
 "use client";
 
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { fetchStoresHomeFeedDeduped } from "@/lib/stores/store-delivery-api-client";
+import type { StoresHomeClientCallSource } from "@/lib/stores/stores-home-network-guards";
+import { resolveStoresHomePrewarmLanguage } from "@/lib/stores/stores-home-network-guards";
 
 const STORE_HOME_FEED_TTL_MS = 10 * 60 * 1000;
 
@@ -59,12 +62,24 @@ export function invalidateStoreHomeFeedClientCache(pathAndQuery = ""): void {
   storeHomeFeedCache.delete(normalizeSuffix(pathAndQuery));
 }
 
-/** 하단 탭 prewarm: stores 홈 기본 피드(쿼리 없는 기본 suffix) */
-export async function prewarmStoreHomeFeedClientCache(pathAndQuery = ""): Promise<void> {
+export type PrewarmStoreHomeFeedClientCacheOptions = {
+  language?: AppLanguageCode | string;
+  clientCallSource?: StoresHomeClientCallSource;
+};
+
+/** 하단 탭·홈 route prewarm — mount 와 동일 language single-flight 파티션 */
+export async function prewarmStoreHomeFeedClientCache(
+  pathAndQuery = "",
+  opts: PrewarmStoreHomeFeedClientCacheOptions = {}
+): Promise<void> {
   if (typeof window === "undefined") return;
   const key = normalizeSuffix(pathAndQuery);
   if (peekStoreHomeFeedClientCache(key)) return;
-  const { json } = await fetchStoresHomeFeedDeduped(key);
+  const language = resolveStoresHomePrewarmLanguage(opts.language);
+  const { json } = await fetchStoresHomeFeedDeduped(key, {
+    language,
+    clientCallSource: opts.clientCallSource ?? "stores_home_prewarm",
+  });
   if (!json || typeof json !== "object") return;
   const parsed = json as { ok?: boolean; stores?: StoreHomeFeedItem[]; meta?: { source?: string } };
   if (!parsed.ok || !Array.isArray(parsed.stores)) return;

@@ -68,6 +68,7 @@ import {
   shouldBlockCmRoomStrictEffectReRun,
   shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
+import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
 
 import { MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { roomHasStoreOrderTimelineMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -77,8 +78,383 @@ import {
   scheduleMessengerScrollToBottomAfterRowsPainted,
 } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
 import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
+import {
+  noteCmRoomR5TimelineComponentMount,
+  noteCmRoomR5TimelineFirstRowDom,
+} from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
+import { recordCmRoomDomFirstMessageVisible } from "@/lib/community-messenger/room/cm-room-r6-display-ready-instrumentation";
+import {
+  noteCmRoomR7FirstRowCommitBegin,
+  noteCmRoomR7FirstRowCommitEnd,
+  noteCmRoomR7TimelineMountBegin,
+  noteCmRoomR7TimelineRowsPrepare,
+  resolveCmRoomRenderSource,
+  sliceTimelineEntryPaintMessages,
+} from "@/lib/community-messenger/room/cm-room-r7-first-row-commit-instrumentation";
+import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
+/** R10 — direct tail 유지·upgrade 측정 상한(전체 measureElement 금지) */
+const CM_R10_UPGRADE_TAIL_ROWS = 12;
+const CM_R10_UPGRADE_MEASURE_CAP = 12;
+
+type CmR9UpgradeBlockerReason =
+  | "virtualizer_measure_batch"
+  | "scroll_anchor_restore"
+  | "row_component_render"
+  | "avatar_profile_cluster"
+  | "media_or_link_preview"
+  | "rows_identity_replace"
+  | "layout_effect_loop"
+  | "unknown";
+
+type CmR10UpgradeBlocker =
+  | "row_map_cost"
+  | "measurement_cost"
+  | "scroll_anchor_cost"
+  | "state_replace_cost"
+  | "heavy_row_component_cost"
+  | "layout_thrash"
+  | "unknown";
+
+type CmR10UpgradeStage = "idle" | "scheduled" | "metadata" | "virtualized" | "done";
+
+type CmR9UpgradeState = {
+  active: boolean;
+  upgradeStage: CmR10UpgradeStage;
+  virtualizerUpgradeScheduledMs: number | null;
+  virtualizerUpgradeBeginMs: number | null;
+  virtualizerUpgradeStartMs: number | null;
+  virtualizerUpgradeCommitStartMs: number | null;
+  virtualizerUpgradeCommitEndMs: number | null;
+  virtualizerMeasureBeginMs: number | null;
+  virtualizerMeasureEndMs: number | null;
+  virtualizerRowMapStartMs: number | null;
+  virtualizerRowMapEndMs: number | null;
+  scrollAnchorRestoreBeginMs: number | null;
+  scrollAnchorRestoreEndMs: number | null;
+  virtualizerScrollAnchorStartMs: number | null;
+  virtualizerScrollAnchorEndMs: number | null;
+  rowsBeforeUpgradeCount: number;
+  rowsAfterUpgradeCount: number;
+  virtualItemsCount: number;
+  rowMeasureCount: number;
+  measureCapSkippedCount: number;
+  avatarRenderCount: number;
+  mediaDeferCount: number;
+  linkPreviewDeferCount: number;
+  rowsIdentityReplaceCount: number;
+  layoutEffectCount: number;
+  upgradeBlockerReason: CmR9UpgradeBlockerReason;
+  virtualizerUpgradeBlocker: CmR10UpgradeBlocker;
+  scrollAnchorDeferred: boolean;
+  scrollAnchorAppliedOnce: boolean;
+};
+
+function createEmptyCmR9UpgradeState(): CmR9UpgradeState {
+  return {
+    active: false,
+    upgradeStage: "idle",
+    virtualizerUpgradeScheduledMs: null,
+    virtualizerUpgradeBeginMs: null,
+    virtualizerUpgradeStartMs: null,
+    virtualizerUpgradeCommitStartMs: null,
+    virtualizerUpgradeCommitEndMs: null,
+    virtualizerMeasureBeginMs: null,
+    virtualizerMeasureEndMs: null,
+    virtualizerRowMapStartMs: null,
+    virtualizerRowMapEndMs: null,
+    scrollAnchorRestoreBeginMs: null,
+    scrollAnchorRestoreEndMs: null,
+    virtualizerScrollAnchorStartMs: null,
+    virtualizerScrollAnchorEndMs: null,
+    rowsBeforeUpgradeCount: 0,
+    rowsAfterUpgradeCount: 0,
+    virtualItemsCount: 0,
+    rowMeasureCount: 0,
+    measureCapSkippedCount: 0,
+    avatarRenderCount: 0,
+    mediaDeferCount: 0,
+    linkPreviewDeferCount: 0,
+    rowsIdentityReplaceCount: 0,
+    layoutEffectCount: 0,
+    upgradeBlockerReason: "unknown",
+    virtualizerUpgradeBlocker: "unknown",
+    scrollAnchorDeferred: true,
+    scrollAnchorAppliedOnce: false,
+  };
+}
+
+function syncCmR10ScrollAnchorFields(st: CmR9UpgradeState): void {
+  if (st.scrollAnchorRestoreBeginMs != null && st.virtualizerScrollAnchorStartMs == null) {
+    st.virtualizerScrollAnchorStartMs = st.scrollAnchorRestoreBeginMs;
+  }
+  if (st.scrollAnchorRestoreEndMs != null && st.virtualizerScrollAnchorEndMs == null) {
+    st.virtualizerScrollAnchorEndMs = st.scrollAnchorRestoreEndMs;
+  }
+}
+
+function classifyCmR10UpgradeBlocker(st: CmR9UpgradeState): CmR10UpgradeBlocker {
+  syncCmR10ScrollAnchorFields(st);
+  const rowMapSpanMs =
+    st.virtualizerRowMapStartMs != null && st.virtualizerRowMapEndMs != null
+      ? Math.max(0, st.virtualizerRowMapEndMs - st.virtualizerRowMapStartMs)
+      : 0;
+  const measureSpanMs =
+    st.virtualizerMeasureBeginMs != null && st.virtualizerMeasureEndMs != null
+      ? Math.max(0, st.virtualizerMeasureEndMs - st.virtualizerMeasureBeginMs)
+      : 0;
+  const scrollSpanMs =
+    st.virtualizerScrollAnchorStartMs != null && st.virtualizerScrollAnchorEndMs != null
+      ? Math.max(0, st.virtualizerScrollAnchorEndMs - st.virtualizerScrollAnchorStartMs)
+      : 0;
+  if (rowMapSpanMs >= 80) return "row_map_cost";
+  if (measureSpanMs >= 120 || st.rowMeasureCount >= CM_R10_UPGRADE_MEASURE_CAP) return "measurement_cost";
+  if (scrollSpanMs >= 120) return "scroll_anchor_cost";
+  if (st.rowsIdentityReplaceCount > 1) return "state_replace_cost";
+  if (st.avatarRenderCount >= 8 || st.mediaDeferCount > 0 || st.linkPreviewDeferCount > 0) {
+    return "heavy_row_component_cost";
+  }
+  if (st.layoutEffectCount >= 10) return "layout_thrash";
+  if (st.rowMeasureCount > 0) return "measurement_cost";
+  return "unknown";
+}
+
+function scheduleCmR10IdleWork(cb: () => void): () => void {
+  if (typeof requestIdleCallback === "function") {
+    const id = requestIdleCallback(cb, { timeout: 48 });
+    return () => cancelIdleCallback(id);
+  }
+  const id = requestAnimationFrame(cb);
+  return () => cancelAnimationFrame(id);
+}
+
+function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  const id = roomId.trim();
+  if (!id) return;
+  const t0 = entryTimingT0();
+  const tMs = t0 > 0 && typeof performance !== "undefined" ? Math.round(performance.now() - t0) : null;
+  const row = {
+    event,
+    room_id_suffix: id.length <= 8 ? id : id.slice(-8),
+    t_ms: tMs,
+    ...payload,
+  };
+  const bag = window.__cmPerfEvents ?? [];
+  bag.push(row);
+  window.__cmPerfEvents = bag;
+  // eslint-disable-next-line no-console -- R8 timeline rows lifecycle trace
+  console.log("[cm-room-r8-timeline-rows]", JSON.stringify(row));
+}
+
+declare global {
+  interface Window {
+    __cmR9UpgradeStateByRoom?: Record<string, CmR9UpgradeState>;
+  }
+}
+
+function nowFromT0Ms(): number | null {
+  const t0 = entryTimingT0();
+  if (t0 <= 0 || typeof performance === "undefined") return null;
+  return Math.round(performance.now() - t0);
+}
+
+function getCmR9State(roomId: string): CmR9UpgradeState {
+  if (typeof window === "undefined") {
+    return createEmptyCmR9UpgradeState();
+  }
+  const id = roomId.trim();
+  const bag = (window.__cmR9UpgradeStateByRoom ??= {});
+  if (!bag[id]) {
+    bag[id] = createEmptyCmR9UpgradeState();
+  }
+  return bag[id]!;
+}
+
+export function isCmR10VirtualizerUpgradeActive(roomId: string): boolean {
+  if (typeof window === "undefined") return false;
+  const st = window.__cmR9UpgradeStateByRoom?.[roomId.trim()];
+  return Boolean(st?.active);
+}
+
+type CmR11FirstRowBlocker =
+  | "rows_prepare_cost"
+  | "row_map_cost"
+  | "first_row_component_cost"
+  | "ref_attach_delay"
+  | "layout_effect_delay"
+  | "dom_query_delay"
+  | "none_ref_path"
+  | "none_intersection_path"
+  | "row_not_found_no_rows"
+  | "row_not_found_parent_hidden"
+  | "row_not_found_query_too_early"
+  | "row_not_found_selector_mismatch"
+  | "row_not_found_unknown"
+  | "parent_hidden_gate"
+  | "scheduler_delay"
+  | "unknown";
+
+type CmR11FirstRowVisibleSource =
+  | "ref_callback"
+  | "intersection_observer"
+  | "layout_effect"
+  | "dom_query"
+  | "direct_probe";
+
+type CmR11FirstRowQueryResult = "found" | "not_found" | "skipped";
+type CmR16ForcedCase = "parent_hidden" | "query_too_early" | "selector_mismatch" | null;
+
+type CmR11FirstRowTrace = {
+  rowsPrepareStartMs: number | null;
+  rowsPrepareEndMs: number | null;
+  rowsPrepareSource: string | null;
+  rowMapStartMs: number | null;
+  rowMapEndMs: number | null;
+  firstRowRenderStartMs: number | null;
+  firstRowRenderEndMs: number | null;
+  firstRowRefAttachMs: number | null;
+  firstRowLayoutEffectMs: number | null;
+  firstRowDomQueryStartMs: number | null;
+  firstRowDomQueryEndMs: number | null;
+  firstRowCommitSpanSource: "direct_row" | "layout_effect_fallback" | "query_fallback" | "no_row_fallback" | null;
+  firstRowVisibleSource: CmR11FirstRowVisibleSource | null;
+  firstRowVisibleMs: number | null;
+  firstRowQueryAttempted: boolean;
+  firstRowQueryAttemptCount: number;
+  firstRowQuerySelector: string | null;
+  forcedCase: CmR16ForcedCase;
+  firstRowQueryResult: CmR11FirstRowQueryResult;
+  firstRowContainerFound: boolean;
+  firstRowParentHidden: boolean;
+  firstRowRowsCountAtQuery: number;
+  firstRowRowsCountAtLayoutEffect: number;
+  firstRowCommitSpanMs: number | null;
+  firstRowBlocker: CmR11FirstRowBlocker;
+  firstRowBlockerReason: string;
+  parentHiddenGate: boolean;
+};
+
+function createEmptyCmR11FirstRowTrace(): CmR11FirstRowTrace {
+  return {
+    rowsPrepareStartMs: null,
+    rowsPrepareEndMs: null,
+    rowsPrepareSource: null,
+    rowMapStartMs: null,
+    rowMapEndMs: null,
+    firstRowRenderStartMs: null,
+    firstRowRenderEndMs: null,
+    firstRowRefAttachMs: null,
+    firstRowLayoutEffectMs: null,
+    firstRowDomQueryStartMs: null,
+    firstRowDomQueryEndMs: null,
+    firstRowCommitSpanSource: null,
+    firstRowVisibleSource: null,
+    firstRowVisibleMs: null,
+    firstRowQueryAttempted: false,
+    firstRowQueryAttemptCount: 0,
+    firstRowQuerySelector: null,
+    forcedCase: null,
+    firstRowQueryResult: "skipped",
+    firstRowContainerFound: false,
+    firstRowParentHidden: false,
+    firstRowRowsCountAtQuery: 0,
+    firstRowRowsCountAtLayoutEffect: 0,
+    firstRowCommitSpanMs: null,
+    firstRowBlocker: "unknown",
+    firstRowBlockerReason: "unclassified",
+    parentHiddenGate: false,
+  };
+}
+
+function classifyCmR11FirstRowBlocker(trace: CmR11FirstRowTrace): CmR11FirstRowBlocker {
+  const rowsPrepareCost =
+    trace.rowsPrepareStartMs != null && trace.rowsPrepareEndMs != null
+      ? Math.max(0, trace.rowsPrepareEndMs - trace.rowsPrepareStartMs)
+      : 0;
+  const rowMapCost =
+    trace.rowMapStartMs != null && trace.rowMapEndMs != null
+      ? Math.max(0, trace.rowMapEndMs - trace.rowMapStartMs)
+      : 0;
+  const componentCost =
+    trace.firstRowRenderStartMs != null && trace.firstRowRenderEndMs != null
+      ? Math.max(0, trace.firstRowRenderEndMs - trace.firstRowRenderStartMs)
+      : 0;
+  const refAttachDelay =
+    trace.firstRowRenderEndMs != null && trace.firstRowRefAttachMs != null
+      ? Math.max(0, trace.firstRowRefAttachMs - trace.firstRowRenderEndMs)
+      : 0;
+  const layoutEffectDelay =
+    trace.firstRowRefAttachMs != null && trace.firstRowLayoutEffectMs != null
+      ? Math.max(0, trace.firstRowLayoutEffectMs - trace.firstRowRefAttachMs)
+      : 0;
+  const domQueryDelay =
+    trace.firstRowDomQueryStartMs != null && trace.firstRowDomQueryEndMs != null
+      ? Math.max(0, trace.firstRowDomQueryEndMs - trace.firstRowDomQueryStartMs)
+      : 0;
+  const schedulerDelay =
+    trace.rowsPrepareEndMs != null && trace.firstRowRenderStartMs != null
+      ? Math.max(0, trace.firstRowRenderStartMs - trace.rowsPrepareEndMs)
+      : 0;
+
+  if (trace.firstRowQueryResult === "not_found") {
+    if (trace.forcedCase === "parent_hidden") return "row_not_found_parent_hidden";
+    if (trace.forcedCase === "query_too_early") return "row_not_found_query_too_early";
+    if (trace.forcedCase === "selector_mismatch") return "row_not_found_selector_mismatch";
+    if (trace.firstRowRowsCountAtQuery <= 0 && trace.firstRowRowsCountAtLayoutEffect <= 0) {
+      return "row_not_found_no_rows";
+    }
+    if (trace.firstRowParentHidden) return "row_not_found_parent_hidden";
+    if (trace.firstRowQueryAttempted && trace.firstRowRowsCountAtLayoutEffect > 0 && trace.firstRowRowsCountAtQuery === 0) {
+      return "row_not_found_query_too_early";
+    }
+    if (
+      trace.firstRowQuerySelector != null &&
+      trace.firstRowQuerySelector !== "[data-cm-timeline-message-row]"
+    ) {
+      return "row_not_found_selector_mismatch";
+    }
+    return "row_not_found_unknown";
+  }
+  if (trace.parentHiddenGate || trace.firstRowParentHidden) return "parent_hidden_gate";
+  if (rowsPrepareCost >= 80) return "rows_prepare_cost";
+  if (rowMapCost >= 80) return "row_map_cost";
+  if (componentCost >= 80) return "first_row_component_cost";
+  if (refAttachDelay >= 80) return "ref_attach_delay";
+  if (layoutEffectDelay >= 80) return "layout_effect_delay";
+  if (domQueryDelay >= 80) return "dom_query_delay";
+  if (schedulerDelay >= 80) return "scheduler_delay";
+  if (
+    (trace.firstRowVisibleSource === "ref_callback" || trace.firstRowVisibleSource === "direct_probe") &&
+    trace.firstRowQueryResult === "skipped"
+  ) {
+    return "none_ref_path";
+  }
+  if (trace.firstRowVisibleSource === "intersection_observer") return "none_intersection_path";
+  return "unknown";
+}
+
+function resolveCmR16ForcedCase(): CmR16ForcedCase {
+  if (typeof window === "undefined") return null;
+  const fromStorage = (() => {
+    try {
+      return window.localStorage.getItem("cm.r16.forceRowNotFoundCase");
+    } catch {
+      return null;
+    }
+  })();
+  const fromQuery = (() => {
+    try {
+      return new URLSearchParams(window.location.search).get("cmR16ForceRowNotFoundCase");
+    } catch {
+      return null;
+    }
+  })();
+  const raw = (fromStorage ?? fromQuery ?? "").trim().toLowerCase();
+  if (raw === "parent_hidden" || raw === "query_too_early" || raw === "selector_mismatch") return raw;
+  return null;
+}
 
 function selectTimelineVirtualRows<T extends { index: number }>(items: T[], hydrationPass: number): T[] {
   if (items.length === 0 || hydrationPass < 2) return items;
@@ -126,6 +502,22 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const viewportPaintRecordedRef = useRef(false);
   const pass2FirstRowProbeAttachedRef = useRef(false);
   const viewportIoRef = useRef<IntersectionObserver | null>(null);
+  const firstNonZeroRowsRecordedRef = useRef(false);
+  const rowsReplaceCountRef = useRef(0);
+  const rowsPrevRef = useRef<{
+    rowsRef: unknown[] | null;
+    rowsLen: number;
+    source: string;
+    directLayout: boolean;
+  } | null>(null);
+  const stableFirstCommitRowsRef = useRef<Array<(typeof vm.displayRoomMessages)[number]> | null>(null);
+  const [firstCommitRowsLocked, setFirstCommitRowsLocked] = useState(true);
+  const firstRowTraceRef = useRef<CmR11FirstRowTrace>(createEmptyCmR11FirstRowTrace());
+  const firstRowTraceCommittedRef = useRef(false);
+  const holdDirectDomRef = useRef(true);
+  const [holdDirectDom, setHoldDirectDom] = useState(true);
+  const upgradeScheduleStartedRef = useRef(false);
+  const upgradeIdleCancelRef = useRef<(() => void) | null>(null);
   const hasTradeDock = Boolean(vm.showMessengerTradeProcessDock);
   const hasStoreOrderDock = Boolean(vm.showMessengerStoreOrderDock);
   const hasStoreOrderTimeline = useMemo(
@@ -151,12 +543,29 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     prevListSigRef.current = null;
     viewportPaintRecordedRef.current = false;
     pass2FirstRowProbeAttachedRef.current = false;
+    firstNonZeroRowsRecordedRef.current = false;
+    rowsReplaceCountRef.current = 0;
+    rowsPrevRef.current = null;
+    stableFirstCommitRowsRef.current = null;
+    setFirstCommitRowsLocked(true);
+    firstRowTraceRef.current = createEmptyCmR11FirstRowTrace();
+    firstRowTraceCommittedRef.current = false;
+    holdDirectDomRef.current = true;
+    setHoldDirectDom(true);
+    upgradeScheduleStartedRef.current = false;
+    upgradeIdleCancelRef.current?.();
+    upgradeIdleCancelRef.current = null;
+    if (typeof window !== "undefined" && window.__cmR9UpgradeStateByRoom) {
+      delete window.__cmR9UpgradeStateByRoom[vm.streamRoomId];
+    }
     viewportIoRef.current?.disconnect();
     viewportIoRef.current = null;
   }, [vm.streamRoomId]);
 
   useLayoutEffect(() => {
     if (hydrationPass < 2) return;
+    noteCmRoomR7TimelineMountBegin(vm.streamRoomId);
+    noteCmRoomR5TimelineComponentMount(vm.streamRoomId);
     if (
       !shouldSkipCmRoomSubtreeSurfaceAttach(vm.streamRoomId, "viewport") &&
       !shouldBlockCmRoomStrictEffectReRun(vm.streamRoomId, "viewport_attach")
@@ -167,6 +576,28 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       measureCmPassRenderCommit(2, timelineRenderStartRef.current);
     }
   }, [hydrationPass, vm.streamRoomId]);
+
+  const effectiveTimelineMessageCount = Math.max(
+    vm.displayRoomMessages.length,
+    vm.roomMessages.length
+  );
+
+  const recordDomFirstPaintIfNeeded = useCallback(
+    (gateReason: "direct_layout_dom_row" | "dom_intersection" | "fallback_visible_rows") => {
+      const seedRows = effectiveTimelineMessageCount;
+      if (seedRows <= 0) return;
+      const recorded = recordCmRoomDomFirstMessageVisible({
+        roomId: vm.streamRoomId,
+        seedRowsCount: seedRows,
+        fmrGateReason: gateReason,
+        directLayout: gateReason === "direct_layout_dom_row",
+      });
+      if (recorded) {
+        noteTradeChatRoomFirstMessageReadyForShellBreakdown(vm.displayRoomMessages.length || seedRows);
+      }
+    },
+    [effectiveTimelineMessageCount, vm.displayRoomMessages.length, vm.streamRoomId]
+  );
 
   const noteViewportVisible = useCallback(
     (payload: {
@@ -179,7 +610,18 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       viewportPaintRecordedRef.current = true;
       viewportIoRef.current?.disconnect();
       viewportIoRef.current = null;
-      const totalRows = vm.displayRoomMessages.length;
+      if (payload.first_row_rendered && !payload.empty_room) {
+        recordDomFirstPaintIfNeeded("fallback_visible_rows");
+        const st = getCmR9State(vm.streamRoomId);
+        if (!st.active && st.upgradeStage === "done") {
+          setFirstCommitRowsLocked(false);
+        }
+      }
+      finalizeFirstRowVisibilityTrace(
+        "layout_effect",
+        payload.first_row_rendered ? "skipped" : "not_found"
+      );
+      const totalRows = effectiveTimelineMessageCount;
       const capped =
         hydrationPass < 3 && totalRows > CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS
           ? CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS
@@ -193,8 +635,89 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         network_waited: false,
       });
     },
-    [hydrationPass, vm.displayRoomMessages.length, vm.streamRoomId]
+    [
+      effectiveTimelineMessageCount,
+      finalizeFirstRowVisibilityTrace,
+      hydrationPass,
+      recordDomFirstPaintIfNeeded,
+      vm.streamRoomId,
+    ]
   );
+
+  function finalizeFirstRowVisibilityTrace(
+    source: CmR11FirstRowVisibleSource,
+    queryResult?: CmR11FirstRowQueryResult
+  ): void {
+    if (firstRowTraceCommittedRef.current) return;
+    const trace = firstRowTraceRef.current;
+    trace.firstRowVisibleSource = source;
+    trace.firstRowVisibleMs = nowFromT0Ms();
+    if (queryResult) {
+      trace.firstRowQueryResult = queryResult;
+    } else if (!trace.firstRowQueryAttempted) {
+      trace.firstRowQueryResult = "skipped";
+    }
+    if (trace.rowsPrepareStartMs == null) {
+      trace.rowsPrepareStartMs = trace.rowMapStartMs ?? trace.firstRowLayoutEffectMs ?? nowFromT0Ms();
+      if (trace.rowsPrepareSource == null) trace.rowsPrepareSource = "finalize_fallback";
+    }
+    if (trace.rowsPrepareEndMs == null) {
+      trace.rowsPrepareEndMs =
+        trace.rowMapEndMs ??
+        trace.firstRowLayoutEffectMs ??
+        trace.firstRowDomQueryEndMs ??
+        trace.firstRowVisibleMs ??
+        trace.rowsPrepareStartMs;
+    }
+    const commitBeginMs = trace.rowsPrepareStartMs ?? trace.rowMapStartMs ?? trace.firstRowLayoutEffectMs ?? nowFromT0Ms();
+    const commitEndMs = trace.firstRowVisibleMs ?? trace.firstRowDomQueryEndMs ?? trace.firstRowLayoutEffectMs ?? commitBeginMs;
+    trace.firstRowCommitSpanMs =
+      commitBeginMs != null && commitEndMs != null ? Math.max(0, commitEndMs - commitBeginMs) : 0;
+    trace.firstRowCommitSpanSource =
+      source === "intersection_observer" || source === "ref_callback" || source === "direct_probe"
+        ? "direct_row"
+        : queryResult === "not_found" && trace.firstRowDomQueryEndMs != null
+          ? "query_fallback"
+          : source === "layout_effect"
+            ? "layout_effect_fallback"
+            : "no_row_fallback";
+    trace.firstRowBlocker = classifyCmR11FirstRowBlocker(trace);
+    trace.firstRowBlockerReason = `forced_case=${trace.forcedCase ?? "none"} source=${trace.firstRowVisibleSource ?? "unknown"} query=${trace.firstRowQueryResult}`;
+    firstRowTraceCommittedRef.current = true;
+    pushCmR8PerfEvent(vm.streamRoomId, "first_row_visible_normalized", {
+      forced_case: trace.forcedCase,
+      first_row_visible_source: trace.firstRowVisibleSource,
+      first_row_visible_ms: trace.firstRowVisibleMs,
+      first_row_query_attempted: trace.firstRowQueryAttempted,
+      first_row_query_attempt_count: trace.firstRowQueryAttemptCount,
+      first_row_query_selector: trace.firstRowQuerySelector,
+      first_row_query_result: trace.firstRowQueryResult,
+      first_row_container_found: trace.firstRowContainerFound,
+      first_row_parent_hidden: trace.firstRowParentHidden,
+      first_row_rows_count_at_query: trace.firstRowRowsCountAtQuery,
+      first_row_rows_count_at_layout_effect: trace.firstRowRowsCountAtLayoutEffect,
+      first_row_blocker: trace.firstRowBlocker,
+      first_row_blocker_reason: trace.firstRowBlockerReason,
+    });
+    pushCmR8PerfEvent(vm.streamRoomId, "first_row_commit_path", {
+      forced_case: trace.forcedCase,
+      rows_prepare_start_ms: trace.rowsPrepareStartMs,
+      rows_prepare_end_ms: trace.rowsPrepareEndMs,
+      rows_prepare_source: trace.rowsPrepareSource,
+      row_map_start_ms: trace.rowMapStartMs,
+      row_map_end_ms: trace.rowMapEndMs,
+      first_row_render_start_ms: trace.firstRowRenderStartMs,
+      first_row_render_end_ms: trace.firstRowRenderEndMs,
+      first_row_ref_attach_ms: trace.firstRowRefAttachMs,
+      first_row_layout_effect_ms: trace.firstRowLayoutEffectMs,
+      first_row_dom_query_start_ms: trace.firstRowDomQueryStartMs,
+      first_row_dom_query_end_ms: trace.firstRowDomQueryEndMs,
+      first_row_commit_span_ms: trace.firstRowCommitSpanMs,
+      first_row_commit_span_source: trace.firstRowCommitSpanSource,
+      first_row_blocker: trace.firstRowBlocker,
+      first_row_blocker_reason: trace.firstRowBlockerReason,
+    });
+  }
 
   const emptyTimelineRecoverTriedRef = useRef(false);
   const [imageLightbox, setImageLightbox] = useState<{
@@ -237,6 +760,26 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.displayRoomMessages.length,
     vm.loading,
     vm.roomMessages.length,
+    vm.snapshot.messages.length,
+    vm.snapshot.room.lastMessage,
+  ]);
+
+  const showTimelineHydrationSkeleton = useMemo(() => {
+    if (vm.displayRoomMessages.length > 0) return false;
+    if (vm.roomMessages.length > 0 && hydrationPass >= 2) return false;
+    if (vm.snapshot.clientShellPlaceholder) return true;
+    const hasCachedTimeline =
+      vm.roomMessages.length > 0 ||
+      vm.snapshot.messages.length > 0 ||
+      Boolean(vm.snapshot.room.lastMessage?.trim());
+    return hasCachedTimeline && (vm.loading || hydrationPass < 2 || shouldRecoverEmptyTimeline);
+  }, [
+    hydrationPass,
+    shouldRecoverEmptyTimeline,
+    vm.displayRoomMessages.length,
+    vm.loading,
+    vm.roomMessages.length,
+    vm.snapshot.clientShellPlaceholder,
     vm.snapshot.messages.length,
     vm.snapshot.room.lastMessage,
   ]);
@@ -476,29 +1019,153 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   }, [onScroll]);
 
   const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
-  const virtualizerHasMeasuredRange =
+  const virtualizerHasMeasuredRangeRaw =
     virtualItemsForLayout.length > 0 || vm.chatVirtualizer.getTotalSize() > 0;
+
+  /** R10 — virtualizer 측정 직후 DOM 스왑 금지: metadata·idle 후 1회만 direct 해제 */
+  const virtualizerHasMeasuredRangeForLayout =
+    hasStoreOrderDock || !holdDirectDom ? virtualizerHasMeasuredRangeRaw : false;
 
   const useDirectTimelineLayout = resolveUseDirectMessengerTimelineLayout({
     hydrationPass,
     displayMessageCount: vm.displayRoomMessages.length,
+    seedMessageCount: vm.roomMessages.length,
     hasStoreOrderDock,
     hasStoreOrderTimeline,
-    virtualizerHasMeasuredRange,
+    virtualizerHasMeasuredRange: virtualizerHasMeasuredRangeForLayout,
   });
 
   const timelineRowsStackClass =
     useDirectTimelineLayout && (hasStoreOrderDock || hasStoreOrderTimeline) ? "flex flex-col gap-3" : "";
 
+  const timelinePaintSource = useMemo(
+    () =>
+      vm.displayRoomMessages.length > 0
+        ? vm.displayRoomMessages
+        : vm.roomMessages.length > 0
+          ? vm.roomMessages
+          : vm.snapshot.messages,
+    [vm.displayRoomMessages, vm.roomMessages, vm.snapshot.messages]
+  );
+
+  const { paintMessages: timelinePaintMessages, entrySliceActive, seedRowsRenderedCount } = useMemo(
+    () => sliceTimelineEntryPaintMessages(timelinePaintSource, hydrationPass),
+    [hydrationPass, timelinePaintSource]
+  );
+
+  const finalTimelinePaintMessages = useMemo(() => {
+    if (!firstCommitRowsLocked) return timelinePaintMessages;
+    if (timelinePaintMessages.length > 0) {
+      if (!stableFirstCommitRowsRef.current) {
+        stableFirstCommitRowsRef.current = timelinePaintMessages;
+      }
+      return stableFirstCommitRowsRef.current;
+    }
+    return stableFirstCommitRowsRef.current ?? timelinePaintMessages;
+  }, [firstCommitRowsLocked, timelinePaintMessages]);
+
+  useEffect(() => {
+    if (hasStoreOrderDock) {
+      holdDirectDomRef.current = false;
+      setHoldDirectDom(false);
+      return;
+    }
+    if (!virtualizerHasMeasuredRangeRaw) return;
+    if (upgradeScheduleStartedRef.current) return;
+    if (finalTimelinePaintMessages.length <= 0 || hydrationPass < 2) return;
+    upgradeScheduleStartedRef.current = true;
+
+    const st = getCmR9State(vm.streamRoomId);
+    st.upgradeStage = "scheduled";
+    if (st.virtualizerUpgradeScheduledMs == null) {
+      st.virtualizerUpgradeScheduledMs = nowFromT0Ms();
+    }
+    pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_scheduled", {
+      virtualizer_upgrade_scheduled_ms: st.virtualizerUpgradeScheduledMs,
+      upgrade_stage: st.upgradeStage,
+      rows_before_upgrade_count: finalTimelinePaintMessages.length,
+    });
+
+    let cancelled = false;
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      if (cancelled) return;
+      raf2 = requestAnimationFrame(() => {
+        if (cancelled) return;
+        const meta = getCmR9State(vm.streamRoomId);
+        meta.upgradeStage = "metadata";
+        meta.virtualizerRowMapStartMs = nowFromT0Ms();
+        void vm.chatVirtualizer.getVirtualItems();
+        void vm.chatVirtualizer.getTotalSize();
+        meta.virtualizerRowMapEndMs = nowFromT0Ms();
+        pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_metadata", {
+          virtualizer_row_map_start_ms: meta.virtualizerRowMapStartMs,
+          virtualizer_row_map_end_ms: meta.virtualizerRowMapEndMs,
+          upgrade_stage: meta.upgradeStage,
+        });
+
+        upgradeIdleCancelRef.current?.();
+        upgradeIdleCancelRef.current = scheduleCmR10IdleWork(() => {
+          if (cancelled) return;
+          const commit = getCmR9State(vm.streamRoomId);
+          commit.upgradeStage = "virtualized";
+          commit.virtualizerUpgradeStartMs = nowFromT0Ms();
+          holdDirectDomRef.current = false;
+          setHoldDirectDom(false);
+        });
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf1);
+      if (raf2) cancelAnimationFrame(raf2);
+      upgradeIdleCancelRef.current?.();
+      upgradeIdleCancelRef.current = null;
+    };
+  }, [
+    finalTimelinePaintMessages.length,
+    hasStoreOrderDock,
+    hydrationPass,
+    virtualizerHasMeasuredRangeRaw,
+    vm.chatVirtualizer,
+    vm.streamRoomId,
+  ]);
+
+  const virtualizerUpgradeDeferHeavy =
+    !hasStoreOrderDock &&
+    (holdDirectDom || isCmR10VirtualizerUpgradeActive(vm.streamRoomId));
+
   /** 가상 행 map 직전: 동일 sender `members.find` 반복을 줄이기 위한 아바타 캐시. cluster 간격 ms 는 가시 행에서만 `item`/`prev`로 계산한다. */
   const cappedVirtualRows = useMemo(() => {
     if (useDirectTimelineLayout) return [];
+    const st = getCmR9State(vm.streamRoomId);
+    if (st.active && st.virtualizerRowMapStartMs == null) {
+      st.virtualizerRowMapStartMs = nowFromT0Ms();
+    }
     const virtualItems = vm.chatVirtualizer.getVirtualItems();
-    const selected = selectTimelineVirtualRows(virtualItems, hydrationPass);
+    let selected = selectTimelineVirtualRows(virtualItems, hydrationPass);
+    if (st.active && selected.length > CM_R10_UPGRADE_TAIL_ROWS) {
+      selected = selected.slice(-CM_R10_UPGRADE_TAIL_ROWS);
+    }
+    if (st.active && st.virtualizerRowMapEndMs == null) {
+      st.virtualizerRowMapEndMs = nowFromT0Ms();
+    }
     if (selected.length > 0) return selected;
-    if (vm.displayRoomMessages.length <= 0) return [];
-    return buildTimelineFallbackVirtualRows(vm.displayRoomMessages, hydrationPass);
-  }, [useDirectTimelineLayout, vm.chatVirtualizer, hydrationPass, vm.displayRoomMessages]);
+    if (finalTimelinePaintMessages.length <= 0) return [];
+    const fallback = buildTimelineFallbackVirtualRows(finalTimelinePaintMessages, hydrationPass);
+    if (st.active && fallback.length > CM_R10_UPGRADE_TAIL_ROWS) {
+      return fallback.slice(-CM_R10_UPGRADE_TAIL_ROWS);
+    }
+    return fallback;
+  }, [
+    finalTimelinePaintMessages,
+    hydrationPass,
+    holdDirectDom,
+    useDirectTimelineLayout,
+    vm.chatVirtualizer,
+    vm.streamRoomId,
+  ]);
 
   const timelineContentHeight = useMemo(() => {
     if (useDirectTimelineLayout) return 0;
@@ -510,9 +1177,227 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return last.start + estimateMessengerTimelineRowPx(vm.displayRoomMessages[last.index]);
   }, [cappedVirtualRows, useDirectTimelineLayout, vm.chatVirtualizer, vm.displayRoomMessages]);
 
-  const timelineRows = useDirectTimelineLayout
-    ? vm.displayRoomMessages.map((_, index) => ({ index, start: 0 }))
-    : cappedVirtualRows;
+  useLayoutEffect(() => {
+    if (hydrationPass < 2) return;
+    const trace = firstRowTraceRef.current;
+    if (trace.rowsPrepareStartMs == null) {
+      trace.rowsPrepareStartMs = nowFromT0Ms();
+      trace.rowsPrepareSource = "timeline_rows_prepare_effect";
+    }
+    if (finalTimelinePaintMessages.length > 0) {
+      noteCmRoomR7TimelineRowsPrepare(vm.streamRoomId, {
+        seedRowsRenderedCount,
+        directLayoutUsed: useDirectTimelineLayout,
+        renderSource: resolveCmRoomRenderSource({
+          displayMessageCount: vm.displayRoomMessages.length,
+          roomMessageCount: vm.roomMessages.length,
+          virtualizerHasMeasuredRange: virtualizerHasMeasuredRangeForLayout,
+        }),
+      });
+    }
+    trace.rowsPrepareEndMs = nowFromT0Ms();
+    pushCmR8PerfEvent(vm.streamRoomId, "first_row_rows_prepare", {
+      rows_prepare_start_ms: trace.rowsPrepareStartMs,
+      rows_prepare_end_ms: trace.rowsPrepareEndMs,
+      rows_prepare_source: trace.rowsPrepareSource,
+      rows_prepare_rows_count: finalTimelinePaintMessages.length,
+    });
+  }, [
+    hydrationPass,
+    finalTimelinePaintMessages.length,
+    seedRowsRenderedCount,
+    useDirectTimelineLayout,
+    virtualizerHasMeasuredRangeForLayout,
+    vm.displayRoomMessages.length,
+    vm.roomMessages.length,
+    vm.streamRoomId,
+  ]);
+
+  const timelineRows = useMemo(() => {
+    const trace = firstRowTraceRef.current;
+    if (trace.rowMapStartMs == null) {
+      trace.rowMapStartMs = nowFromT0Ms();
+    }
+    const rows = useDirectTimelineLayout
+      ? finalTimelinePaintMessages.map((_, index) => ({ index, start: 0 }))
+      : cappedVirtualRows;
+    trace.rowMapEndMs = nowFromT0Ms();
+    if (!firstRowTraceCommittedRef.current) {
+      pushCmR8PerfEvent(vm.streamRoomId, "first_row_row_map", {
+        row_map_start_ms: trace.rowMapStartMs,
+        row_map_end_ms: trace.rowMapEndMs,
+        row_count: rows.length,
+      });
+    }
+    return rows;
+  }, [cappedVirtualRows, finalTimelinePaintMessages, useDirectTimelineLayout, vm.streamRoomId]);
+
+  const prevUseDirectLayoutRef = useRef(useDirectTimelineLayout);
+  useLayoutEffect(() => {
+    const prevDirect = prevUseDirectLayoutRef.current;
+    prevUseDirectLayoutRef.current = useDirectTimelineLayout;
+    if (!prevDirect || useDirectTimelineLayout) return;
+    const st = getCmR9State(vm.streamRoomId);
+    const at = nowFromT0Ms();
+    st.active = true;
+    st.upgradeStage = "virtualized";
+    st.scrollAnchorDeferred = true;
+    st.virtualizerUpgradeBeginMs = at;
+    st.virtualizerUpgradeStartMs = at;
+    st.virtualizerUpgradeCommitStartMs = at;
+    st.rowsBeforeUpgradeCount = finalTimelinePaintMessages.length;
+    st.rowsAfterUpgradeCount = finalTimelinePaintMessages.length;
+    st.virtualItemsCount = vm.chatVirtualizer.getVirtualItems().length;
+    st.rowMeasureCount = 0;
+    st.avatarRenderCount = 0;
+    st.mediaDeferCount = 0;
+    st.linkPreviewDeferCount = 0;
+    st.rowsIdentityReplaceCount = rowsReplaceCountRef.current;
+    pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_begin", {
+      virtualizer_upgrade_begin_ms: st.virtualizerUpgradeBeginMs,
+      virtualizer_upgrade_start_ms: st.virtualizerUpgradeStartMs,
+      virtualizer_upgrade_commit_start_ms: st.virtualizerUpgradeCommitStartMs,
+      rows_before_upgrade_count: st.rowsBeforeUpgradeCount,
+      virtual_items_count: st.virtualItemsCount,
+      rows_replace_count: st.rowsIdentityReplaceCount,
+      upgrade_stage: st.upgradeStage,
+    });
+  }, [finalTimelinePaintMessages.length, useDirectTimelineLayout, vm.chatVirtualizer, vm.streamRoomId]);
+
+  useEffect(() => {
+    const renderSource = resolveCmRoomRenderSource({
+      displayMessageCount: vm.displayRoomMessages.length,
+      roomMessageCount: vm.roomMessages.length,
+      virtualizerHasMeasuredRange: virtualizerHasMeasuredRangeForLayout,
+    });
+    const finalCount = finalTimelinePaintMessages.length;
+    const didMountWithZeroRows =
+      hydrationPass >= 2 &&
+      finalCount === 0 &&
+      (vm.roomMessages.length > 0 || vm.snapshot.messages.length > 0);
+    const didCommitZeroRows = hydrationPass >= 2 && finalCount === 0;
+
+    if (!firstNonZeroRowsRecordedRef.current && finalCount > 0) {
+      firstNonZeroRowsRecordedRef.current = true;
+      const t0 = entryTimingT0();
+      const firstNonzeroRowsMs =
+        t0 > 0 && typeof performance !== "undefined" ? Math.round(performance.now() - t0) : null;
+      pushCmR8PerfEvent(vm.streamRoomId, "timeline_first_nonzero_rows", {
+        first_nonzero_rows_ms: firstNonzeroRowsMs,
+        final_message_rows_count: finalCount,
+      });
+    }
+
+    const prev = rowsPrevRef.current;
+    let rowsIdentityChanged = false;
+    let rowsReferenceChanged = false;
+    let rowsReplaceReason = "none";
+    if (prev) {
+      rowsIdentityChanged = prev.rowsRef !== finalTimelinePaintMessages;
+      rowsReferenceChanged = prev.rowsRef !== finalTimelinePaintMessages;
+      if (rowsReferenceChanged) {
+        rowsReplaceCountRef.current += 1;
+        if (prev.source !== renderSource) rowsReplaceReason = "render_source_changed";
+        else if (prev.directLayout !== useDirectTimelineLayout) rowsReplaceReason = "layout_mode_changed";
+        else if (prev.rowsLen !== finalCount) rowsReplaceReason = "rows_count_changed";
+        else rowsReplaceReason = "rows_reference_changed";
+      }
+    }
+    rowsPrevRef.current = {
+      rowsRef: finalTimelinePaintMessages,
+      rowsLen: finalCount,
+      source: renderSource,
+      directLayout: useDirectTimelineLayout,
+    };
+
+    pushCmR8PerfEvent(vm.streamRoomId, "timeline_rows_lifecycle", {
+      phase1_seed_message_count: vm.roomMessages.length,
+      bootstrap_message_count: vm.snapshot.messages.length,
+      display_message_count: vm.displayRoomMessages.length,
+      final_message_rows_count: finalCount,
+      did_mount_with_zero_rows: didMountWithZeroRows,
+      did_commit_zero_rows: didCommitZeroRows,
+      rows_replace_count: rowsReplaceCountRef.current,
+      rows_replace_reason: rowsReplaceReason,
+      direct_layout_rows_source: `${useDirectTimelineLayout ? "direct" : "virtualized"}:${renderSource}`,
+      rows_identity_changed: rowsIdentityChanged,
+      rows_reference_changed: rowsReferenceChanged,
+    });
+  }, [
+    finalTimelinePaintMessages,
+    hydrationPass,
+    useDirectTimelineLayout,
+    virtualizerHasMeasuredRangeForLayout,
+    vm.displayRoomMessages.length,
+    vm.roomMessages.length,
+    vm.snapshot.messages.length,
+    vm.streamRoomId,
+  ]);
+
+  useLayoutEffect(() => {
+    const st = getCmR9State(vm.streamRoomId);
+    if (!st.active || st.virtualizerUpgradeCommitEndMs != null) return;
+    if (useDirectTimelineLayout) return;
+    if (viewportPaintRecordedRef.current) {
+      const endMs = nowFromT0Ms();
+      st.virtualizerUpgradeCommitEndMs = endMs;
+      st.rowsAfterUpgradeCount = finalTimelinePaintMessages.length;
+      st.virtualItemsCount = vm.chatVirtualizer.getVirtualItems().length;
+      const commitSpanMs =
+        st.virtualizerUpgradeCommitStartMs != null && endMs != null
+          ? Math.max(0, endMs - st.virtualizerUpgradeCommitStartMs)
+          : null;
+      const measureSpanMs =
+        st.virtualizerMeasureBeginMs != null && st.virtualizerMeasureEndMs != null
+          ? Math.max(0, st.virtualizerMeasureEndMs - st.virtualizerMeasureBeginMs)
+          : 0;
+      const scrollSpanMs =
+        st.scrollAnchorRestoreBeginMs != null && st.scrollAnchorRestoreEndMs != null
+          ? Math.max(0, st.scrollAnchorRestoreEndMs - st.scrollAnchorRestoreBeginMs)
+          : 0;
+      let reason: CmR9UpgradeBlockerReason = "unknown";
+      const r10Blocker = classifyCmR10UpgradeBlocker(st);
+      if (measureSpanMs >= 120 || st.rowMeasureCount >= CM_R10_UPGRADE_MEASURE_CAP) {
+        reason = "virtualizer_measure_batch";
+      } else if (scrollSpanMs >= 120) reason = "scroll_anchor_restore";
+      else if (st.avatarRenderCount >= 8) reason = "avatar_profile_cluster";
+      else if (st.mediaDeferCount > 0 || st.linkPreviewDeferCount > 0) reason = "media_or_link_preview";
+      else if (st.rowsIdentityReplaceCount > 1) reason = "rows_identity_replace";
+      else if (st.layoutEffectCount >= 10) reason = "layout_effect_loop";
+      else if (st.rowMeasureCount > 0) reason = "row_component_render";
+      st.upgradeBlockerReason = reason;
+      st.virtualizerUpgradeBlocker = r10Blocker;
+      st.upgradeStage = "done";
+      st.scrollAnchorDeferred = false;
+      pushCmR8PerfEvent(vm.streamRoomId, "virtualizer_upgrade_commit_done", {
+        virtualizer_upgrade_start_ms: st.virtualizerUpgradeStartMs,
+        virtualizer_upgrade_commit_start_ms: st.virtualizerUpgradeCommitStartMs,
+        virtualizer_upgrade_commit_end_ms: st.virtualizerUpgradeCommitEndMs,
+        virtualizer_measure_start_ms: st.virtualizerMeasureBeginMs,
+        virtualizer_measure_end_ms: st.virtualizerMeasureEndMs,
+        virtualizer_row_map_start_ms: st.virtualizerRowMapStartMs,
+        virtualizer_row_map_end_ms: st.virtualizerRowMapEndMs,
+        virtualizer_scroll_anchor_start_ms: st.virtualizerScrollAnchorStartMs,
+        virtualizer_scroll_anchor_end_ms: st.virtualizerScrollAnchorEndMs,
+        scroll_anchor_restore_begin_ms: st.scrollAnchorRestoreBeginMs,
+        scroll_anchor_restore_end_ms: st.scrollAnchorRestoreEndMs,
+        rows_before_upgrade_count: st.rowsBeforeUpgradeCount,
+        rows_after_upgrade_count: st.rowsAfterUpgradeCount,
+        virtual_items_count: st.virtualItemsCount,
+        row_measure_count: st.rowMeasureCount,
+        measure_cap_skipped_count: st.measureCapSkippedCount,
+        avatar_render_count: st.avatarRenderCount,
+        media_defer_count: st.mediaDeferCount,
+        link_preview_defer_count: st.linkPreviewDeferCount,
+        commit_span_ms: commitSpanMs,
+        upgrade_blocker_reason: st.upgradeBlockerReason,
+        virtualizer_upgrade_blocker: st.virtualizerUpgradeBlocker,
+        upgrade_stage: st.upgradeStage,
+      });
+      st.active = false;
+      setFirstCommitRowsLocked(false);
+    }
+  }, [finalTimelinePaintMessages.length, useDirectTimelineLayout, vm.chatVirtualizer, vm.streamRoomId]);
 
   const lastDisplayMessageId =
     vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id ?? "";
@@ -547,19 +1432,46 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   const attachPass2FirstRowProbe = useCallback(
     (rowEl: HTMLElement | null) => {
-      if (!rowEl || hydrationPass < 2 || viewportPaintRecordedRef.current) return;
+      if (!rowEl || hydrationPass < 2) return;
+      const trace = firstRowTraceRef.current;
+      const activeForcedCase = trace.forcedCase ?? resolveCmR16ForcedCase();
+      trace.forcedCase = activeForcedCase;
+      if (activeForcedCase != null) {
+        /**
+         * R16 harness: forced_case는 DOM query 경로에서 row_not_found 분기를 검증해야 하므로
+         * ref/intersection 단축 경로를 비활성화한다.
+         */
+        return;
+      }
+      if (trace.firstRowRefAttachMs == null) {
+        trace.firstRowRefAttachMs = nowFromT0Ms();
+        pushCmR8PerfEvent(vm.streamRoomId, "first_row_ref_attach", {
+          first_row_ref_attach_ms: trace.firstRowRefAttachMs,
+        });
+      }
+      noteCmRoomR7FirstRowCommitBegin(vm.streamRoomId);
+      if (viewportPaintRecordedRef.current) {
+        noteCmRoomR7FirstRowCommitEnd(vm.streamRoomId);
+        return;
+      }
       if (pass2FirstRowProbeAttachedRef.current) return;
       pass2FirstRowProbeAttachedRef.current = true;
       const root = vm.messagesViewportRef.current;
       if (!root) return;
 
-      const emitFromRow = () => {
+      const emitFromRow = (source: CmR11FirstRowVisibleSource) => {
         if (viewportPaintRecordedRef.current) return;
+        noteCmRoomR5TimelineFirstRowDom(vm.streamRoomId);
         const rootRect = root.getBoundingClientRect();
         const rowRect = rowEl.getBoundingClientRect();
         const intersects =
           rowRect.height > 0 && rowRect.bottom > rootRect.top && rowRect.top < rootRect.bottom;
         if (!intersects) return;
+        noteCmRoomR7FirstRowCommitEnd(vm.streamRoomId);
+        finalizeFirstRowVisibilityTrace(source, "skipped");
+        recordDomFirstPaintIfNeeded(
+          useDirectTimelineLayout ? "direct_layout_dom_row" : "dom_intersection"
+        );
         const visibleCount = selectTimelineVirtualRows(
           vm.chatVirtualizer.getVirtualItems(),
           hydrationPass
@@ -572,7 +1484,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       };
 
       if (typeof IntersectionObserver === "undefined") {
-        emitFromRow();
+        emitFromRow(useDirectTimelineLayout ? "direct_probe" : "ref_callback");
         return;
       }
       viewportIoRef.current?.disconnect();
@@ -580,7 +1492,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         (entries) => {
           for (const entry of entries) {
             if (!entry.isIntersecting) continue;
-            emitFromRow();
+            emitFromRow("intersection_observer");
             obs.disconnect();
             if (viewportIoRef.current === obs) viewportIoRef.current = null;
             break;
@@ -591,16 +1503,44 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       viewportIoRef.current = obs;
       obs.observe(rowEl);
     },
-    [hydrationPass, noteViewportVisible, vm.chatVirtualizer, vm.messagesViewportRef]
+    [
+      hydrationPass,
+      noteViewportVisible,
+      recordDomFirstPaintIfNeeded,
+      finalizeFirstRowVisibilityTrace,
+      useDirectTimelineLayout,
+      vm.chatVirtualizer,
+      vm.messagesViewportRef,
+      vm.streamRoomId,
+    ]
   );
 
   useLayoutEffect(() => {
+    const trace = firstRowTraceRef.current;
+    trace.forcedCase = resolveCmR16ForcedCase();
+    if (trace.firstRowLayoutEffectMs == null) {
+      trace.firstRowLayoutEffectMs = nowFromT0Ms();
+      pushCmR8PerfEvent(vm.streamRoomId, "first_row_layout_effect", {
+        first_row_layout_effect_ms: trace.firstRowLayoutEffectMs,
+        forced_case: trace.forcedCase,
+      });
+    }
+    trace.firstRowRowsCountAtLayoutEffect = effectiveTimelineMessageCount;
     if (hydrationPass < 2 || viewportPaintRecordedRef.current) return;
     if (!hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
     const root = vm.messagesViewportRef.current;
-    if (!root) return;
+    trace.firstRowContainerFound = Boolean(root);
+    if (!root) {
+      finalizeFirstRowVisibilityTrace("layout_effect", "not_found");
+      return;
+    }
+    trace.parentHiddenGate = root.offsetParent === null;
+    trace.firstRowParentHidden = trace.parentHiddenGate;
+    if (trace.forcedCase === "parent_hidden") {
+      trace.firstRowParentHidden = true;
+    }
 
-    if (vm.displayRoomMessages.length === 0) {
+    if (effectiveTimelineMessageCount === 0) {
       noteViewportVisible({ visible_rows: 0, empty_room: true, first_row_rendered: false });
       return;
     }
@@ -612,11 +1552,46 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       if (viewportPaintRecordedRef.current || !hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
       const count = cappedVirtualRows.length;
       if (count <= 0) return;
-      const firstRow = root.querySelector("[data-cm-timeline-message-row]");
-      if (firstRow instanceof HTMLElement) {
+      trace.firstRowQueryAttempted = true;
+      trace.firstRowQueryAttemptCount += 1;
+      const defaultSelector = "[data-cm-timeline-message-row]";
+      const selector =
+        trace.forcedCase === "selector_mismatch"
+          ? "[data-cm-timeline-message-row-r16-mismatch]"
+          : defaultSelector;
+      trace.firstRowQuerySelector = selector;
+      trace.firstRowRowsCountAtQuery = trace.forcedCase === "query_too_early" ? 0 : count;
+      trace.firstRowDomQueryStartMs = nowFromT0Ms();
+      const firstRow = root.querySelector(selector);
+      trace.firstRowDomQueryEndMs = nowFromT0Ms();
+      trace.firstRowQueryResult =
+        trace.forcedCase === "parent_hidden" || trace.forcedCase === "query_too_early"
+          ? "not_found"
+          : firstRow instanceof HTMLElement
+            ? "found"
+            : "not_found";
+      pushCmR8PerfEvent(vm.streamRoomId, "first_row_dom_query", {
+        forced_case: trace.forcedCase,
+        first_row_dom_query_start_ms: trace.firstRowDomQueryStartMs,
+        first_row_dom_query_end_ms: trace.firstRowDomQueryEndMs,
+        first_row_query_attempted: trace.firstRowQueryAttempted,
+        first_row_query_attempt_count: trace.firstRowQueryAttemptCount,
+        first_row_query_selector: trace.firstRowQuerySelector,
+        first_row_query_result: trace.firstRowQueryResult,
+        first_row_container_found: trace.firstRowContainerFound,
+        first_row_parent_hidden: trace.firstRowParentHidden,
+        first_row_rows_count_at_query: trace.firstRowRowsCountAtQuery,
+        first_row_rows_count_at_layout_effect: trace.firstRowRowsCountAtLayoutEffect,
+      });
+      if (
+        firstRow instanceof HTMLElement &&
+        trace.forcedCase !== "parent_hidden" &&
+        trace.forcedCase !== "query_too_early"
+      ) {
         attachPass2FirstRowProbe(firstRow);
         return;
       }
+      finalizeFirstRowVisibilityTrace("dom_query", "not_found");
       noteViewportVisible({
         visible_rows: count,
         empty_room: false,
@@ -637,14 +1612,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     cappedVirtualRows.length,
     hydrationPass,
     noteViewportVisible,
-    vm.displayRoomMessages.length,
+    effectiveTimelineMessageCount,
+    finalizeFirstRowVisibilityTrace,
     vm.messagesViewportRef,
     vm.streamRoomId,
   ]);
 
   useEffect(() => {
     if (hydrationPass < 2 || viewportPaintRecordedRef.current) return;
-    if (vm.displayRoomMessages.length === 0) return;
+    if (effectiveTimelineMessageCount === 0) return;
     if (!hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
     let timeout = 0;
     timeout = window.setTimeout(() => {
@@ -704,18 +1680,57 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     };
   }, []);
 
+  const shouldMeasureVirtualRowDuringUpgrade = useCallback(
+    (virtualIndex: number) => {
+      const st = getCmR9State(vm.streamRoomId);
+      if (!st.active) return true;
+      const total = finalTimelinePaintMessages.length;
+      if (total <= 0) return true;
+      const tailStart = Math.max(0, total - CM_R10_UPGRADE_TAIL_ROWS);
+      return virtualIndex >= tailStart && st.rowMeasureCount < CM_R10_UPGRADE_MEASURE_CAP;
+    },
+    [finalTimelinePaintMessages.length, vm.streamRoomId]
+  );
+
   const measureWithScrollTrace = useCallback(
-    (el: HTMLElement | null) => {
+    (el: HTMLElement | null, virtualIndex?: number) => {
+      const st = getCmR9State(vm.streamRoomId);
+      if (
+        st.active &&
+        virtualIndex != null &&
+        !shouldMeasureVirtualRowDuringUpgrade(virtualIndex)
+      ) {
+        st.measureCapSkippedCount += 1;
+        return;
+      }
+      if (st.active) {
+        st.rowMeasureCount += 1;
+        if (st.virtualizerMeasureBeginMs == null) {
+          st.virtualizerMeasureBeginMs = nowFromT0Ms();
+        }
+      }
       if (!cmScrollAnalysisEnabled()) {
         vm.chatVirtualizer.measureElement(el);
+        if (st.active) {
+          st.virtualizerMeasureEndMs = nowFromT0Ms();
+        }
         return;
       }
       const t0 = performance.now();
       vm.chatVirtualizer.measureElement(el);
       recordCmScrollVirtualizerMeasure(performance.now() - t0);
       scheduleVirtualizerScrollTraceDrain();
+      if (st.active) {
+        st.virtualizerMeasureEndMs = nowFromT0Ms();
+      }
     },
-    [vm.chatVirtualizer, scheduleVirtualizerScrollTraceDrain]
+    [
+      finalTimelinePaintMessages.length,
+      shouldMeasureVirtualRowDuringUpgrade,
+      vm.chatVirtualizer,
+      scheduleVirtualizerScrollTraceDrain,
+      vm.streamRoomId,
+    ]
   );
 
   return (
@@ -793,7 +1808,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               )}
             </div>
           ) : null}
-          {vm.displayRoomMessages.length ? (
+          {finalTimelinePaintMessages.length ? (
             <div
               className={`relative w-full ${timelineRowsStackClass}`}
               style={
@@ -804,10 +1819,16 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             >
               {timelineRows.map((virtualRow, cappedMapIndex) => {
                 const index = virtualRow.index;
-                const item = vm.displayRoomMessages[index];
+                const isFirstMappedRow = cappedMapIndex === 0;
+                const trace = firstRowTraceRef.current;
+                if (isFirstMappedRow && trace.firstRowRenderStartMs == null) {
+                  trace.firstRowRenderStartMs = nowFromT0Ms();
+                }
+                const item = finalTimelinePaintMessages[index];
                 if (!item) return null;
-                const prev = index > 0 ? vm.displayRoomMessages[index - 1] : null;
-                const next = index < vm.displayRoomMessages.length - 1 ? vm.displayRoomMessages[index + 1] : null;
+                const prev = index > 0 ? finalTimelinePaintMessages[index - 1] : null;
+                const next =
+                  index < finalTimelinePaintMessages.length - 1 ? finalTimelinePaintMessages[index + 1] : null;
                 const gapMs =
                   prev && prev.messageType !== "system" && item.messageType !== "system"
                     ? Math.max(0, new Date(item.createdAt).getTime() - new Date(prev.createdAt).getTime())
@@ -894,6 +1915,13 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     vm.call.busy === "call-start" ||
                     vm.call.busy === "device-prepare" ||
                     vm.call.busy === "call-accept");
+                if (isFirstMappedRow && trace.firstRowRenderEndMs == null) {
+                  trace.firstRowRenderEndMs = nowFromT0Ms();
+                  pushCmR8PerfEvent(vm.streamRoomId, "first_row_render", {
+                    first_row_render_start_ms: trace.firstRowRenderStartMs,
+                    first_row_render_end_ms: trace.firstRowRenderEndMs,
+                  });
+                }
 
                 return (
                   <MessengerTimelineVirtualRow
@@ -902,6 +1930,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     virtualStart={virtualRow.start}
                     virtualIndex={virtualRow.index}
                     directLayout={useDirectTimelineLayout}
+                    entryLightRow={entrySliceActive || virtualizerUpgradeDeferHeavy}
                     measureElement={
                       useDirectTimelineLayout
                         ? cappedMapIndex === 0
@@ -909,10 +1938,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                           : () => undefined
                         : cappedMapIndex === 0
                           ? (el) => {
-                              measureWithScrollTrace(el);
+                              measureWithScrollTrace(el, index);
                               attachPass2FirstRowProbe(el);
                             }
-                          : measureWithScrollTrace
+                          : (el) => measureWithScrollTrace(el, index)
                     }
                     rowPaddingTopClass={rowPaddingTopClass}
                     showPeerName={showPeerName}
@@ -926,8 +1955,16 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     timelineHighlightMessageId={vm.timelineHighlightMessageId}
                     messageActionItemId={vm.messageActionItem?.item.id ?? null}
                     callStubSheetItemId={vm.callStubSheet?.item.id ?? null}
-                    linkPreviewEnabled={vm.roomPreferences.linkPreviewEnabled}
-                    mediaAutoSaveEnabled={vm.roomPreferences.mediaAutoSaveEnabled}
+                    linkPreviewEnabled={
+                      entrySliceActive || virtualizerUpgradeDeferHeavy
+                        ? false
+                        : vm.roomPreferences.linkPreviewEnabled
+                    }
+                    mediaAutoSaveEnabled={
+                      entrySliceActive || virtualizerUpgradeDeferHeavy
+                        ? false
+                        : vm.roomPreferences.mediaAutoSaveEnabled
+                    }
                     sendingLabel={vm.t("common_sending")}
                     voiceCallLabel={vm.t("nav_voice_call_label")}
                     videoCallLabel={vm.t("nav_video_call_label")}
@@ -958,7 +1995,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 );
               })}
             </div>
-          ) : vm.snapshot.clientShellPlaceholder ? (
+          ) : showTimelineHydrationSkeleton || vm.snapshot.clientShellPlaceholder ? (
             <div
               className="flex min-h-[40vh] flex-col items-center justify-center py-16"
               aria-busy="true"

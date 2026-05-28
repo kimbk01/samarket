@@ -46,6 +46,14 @@ export function applyCmReadUiBadgeZero(args: {
     reason: args.reason,
     phase: args.phase,
   };
-  cmReadUiLog(args.phase === "optimistic" ? "room_enter_badge_zero_apply" : "mark_read_done_badge_zero_apply", base);
+  const optimisticEvent =
+    args.phase === "optimistic"
+      ? args.reason.includes("home_mark_read")
+        ? "home_mark_read_badge_zero_apply"
+        : "room_enter_badge_zero_apply"
+      : args.reason.includes("home_mark_read")
+        ? "home_mark_read_patch_done_badge_zero_apply"
+        : "mark_read_done_badge_zero_apply";
+  cmReadUiLog(optimisticEvent, base);
   cmReadUiLog("trade_list_badge_zero_apply", base);
 }

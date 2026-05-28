@@ -11,6 +11,7 @@ import { bumpCmRoomPhase2DeferredEffect } from "@/lib/community-messenger/room/c
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 
 type Props = {
+  roomId: string;
   roomMessages: RoomMsg[];
   hiddenCallStubIds: Set<string>;
   roomSearchQuery: string;

@@ -5,7 +5,11 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExterna
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { STORES_HOME_PRIMARY_CATEGORY_STICKY_BELOW } from "@/components/stores/home/hub/StoresHomeCategoryStickyBelow";
-import { fetchStoresTaxonomyDeduped, clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStoresTaxonomyDeduped,
+  clearStoresTaxonomyClientCache,
+  isStoresTaxonomyClientCacheFresh,
+} from "@/lib/stores/store-delivery-api-client";
 import { scheduleStoresBrowseListPrewarm } from "@/lib/stores/stores-browse-prewarm-coordinator";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
@@ -87,7 +91,10 @@ export function StoresHomeQuickCategories() {
     if (!isStoresHubRoot) return;
     return addStoresHomePullRefreshHandler(async () => {
       clearStoresTaxonomyClientCache(language);
-      const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
+      const { json: jRaw } = await fetchStoresTaxonomyDeduped({
+        language,
+        clientCallSource: "stores_home_mount",
+      });
       const next = resolveStoresHomeTaxonomyFromApi(jRaw, STORES_HOME_TAXONOMY_EMPTY);
       if (next.categories.length === 0) return;
       setTaxonomy(next);
@@ -105,10 +112,22 @@ export function StoresHomeQuickCategories() {
   }, [language]);
 
   useLayoutEffect(() => {
+    if (isStoresTaxonomyClientCacheFresh(language)) {
+      const warmed = readStoresHomeTaxonomyFromClientCache(language);
+      if (warmed && warmed.categories.length > 0) {
+        cacheAppliedRef.current = true;
+        setTaxonomy(warmed);
+        setTaxonomyReady(true);
+        return;
+      }
+    }
     let cancelled = false;
     void (async () => {
       try {
-        const { json: jRaw } = await fetchStoresTaxonomyDeduped({ language });
+        const { json: jRaw } = await fetchStoresTaxonomyDeduped({
+          language,
+          clientCallSource: "stores_home_mount",
+        });
         if (cancelled) return;
         const cached = readStoresHomeTaxonomyFromClientCache(language);
         const next = resolveStoresHomeTaxonomyFromApi(jRaw, cached ?? STORES_HOME_TAXONOMY_EMPTY);

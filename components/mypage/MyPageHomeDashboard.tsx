@@ -95,17 +95,19 @@ export function MyPageHomeDashboard({
     initialSnapshot: addressDefaultsSnapshot,
   });
   const countsFetchScheduledRef = useRef(false);
+  const hasRscStoreOrderCount =
+    typeof homeDashboardCounts?.storeOrderCount === "number";
 
   const viewerId = profile.id?.trim() ?? "";
 
-  /** RSC counts when present; otherwise capped list endpoints as fallback. */
+  /** RSC buyer order count when present; otherwise capped list endpoints as fallback. */
   useEffect(() => {
     if (!viewerId) {
       setOrderCount(null);
       return;
     }
-    if (homeDashboardCounts != null) {
-      setOrderCount(homeDashboardCounts.storeOrderCount);
+    if (hasRscStoreOrderCount) {
+      setOrderCount(homeDashboardCounts!.storeOrderCount);
       return;
     }
     if (countsFetchScheduledRef.current) return;
@@ -159,7 +161,7 @@ export function MyPageHomeDashboard({
       if (idleId != null && cancelIdle) cancelIdle(idleId);
       if (timeoutHandle) clearTimeout(timeoutHandle);
     };
-  }, [viewerId, homeDashboardCounts]);
+  }, [viewerId, homeDashboardCounts, hasRscStoreOrderCount]);
 
   useEffect(() => {
     dibayMyInfoPerfMark("profile_card_visible_ms", { surface: "mypage_root" });

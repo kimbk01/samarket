@@ -45,6 +45,25 @@ import {
   cmPolishAnalysisEnabled,
   markCmPolishPeerRealtimeFlush,
 } from "@/lib/community-messenger/monitoring/cm-polish-analysis";
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+
+function dedupeRealtimeMessageBatch(
+  events: CommunityMessengerRoomRealtimeMessageEvent[]
+): CommunityMessengerRoomRealtimeMessageEvent[] {
+  if (events.length <= 1) return events;
+  const byId = new Map<string, CommunityMessengerRoomRealtimeMessageEvent>();
+  const noId: CommunityMessengerRoomRealtimeMessageEvent[] = [];
+  for (const event of events) {
+    const id = String(event.message.id ?? "").trim();
+    if (!id) {
+      noId.push(event);
+      continue;
+    }
+    byId.set(id, event);
+  }
+  if (byId.size === 0) return events;
+  return [...byId.values(), ...noId];
+}
 
 export type MessengerRoomRealtimeMessageIngestArgs = {
   /** 라우트·액션 시트 등에 쓰는 URL 방 id (거래/레거시 id 일 수 있음) */
@@ -72,6 +91,8 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
     oldRecord: Record<string, unknown> | null;
   }) => void;
 };
+
+const CM_RT_MESSAGE_INGEST_CHUNK_SIZE = 28;
 
 export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtimeMessageIngestArgs): void {
   const {
@@ -105,9 +126,8 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     };
   }, []);
 
-  const flushRealtimeMessageBatch = useCallback(() => {
-    realtimeBatchFlushRafRef.current = null;
-    const batch = realtimeMessageBatchRef.current.splice(0);
+  const applyRealtimeMessageBatch = useCallback((rawBatch: CommunityMessengerRoomRealtimeMessageEvent[]) => {
+    const batch = dedupeRealtimeMessageBatch(rawBatch);
     if (batch.length === 0) return;
     const snap = snapshotRef.current;
     if (!snap) {
@@ -231,6 +251,18 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
         messageIds: batch.map((e) => e.message.id),
       });
     }
+    if (messengerVerboseTraceConsoleEnabled() && batch.length >= 8) {
+      // eslint-disable-next-line no-console -- gated perf diagnostics
+      console.info(
+        "[cm-rt-ingest-burst]",
+        JSON.stringify({
+          batchLen: batch.length,
+          durationMs: Math.round(performance.now() - flushT0),
+          pendingQueued: pendingRealtimeRef.current.length,
+          streamRoomId: streamRoomId.trim(),
+        })
+      );
+    }
   }, [
     routeRoomId,
     peerTailMarkReadHintRef,
@@ -241,9 +273,32 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     streamRoomId,
   ]);
 
+  const flushRealtimeMessageBatch = useCallback(() => {
+    realtimeBatchFlushRafRef.current = null;
+    const batch = realtimeMessageBatchRef.current.splice(0, CM_RT_MESSAGE_INGEST_CHUNK_SIZE);
+    if (batch.length === 0) return;
+    if (realtimeMessageBatchRef.current.length > 0) {
+      realtimeBatchFlushRafRef.current = window.requestAnimationFrame(() => {
+        flushRealtimeMessageBatch();
+      });
+    }
+    applyRealtimeMessageBatch(batch);
+  }, [applyRealtimeMessageBatch]);
+
   const handleRealtimeMessageEvent = useCallback(
     (event: CommunityMessengerRoomRealtimeMessageEvent) => {
-      realtimeMessageBatchRef.current.push(event);
+      const tail = realtimeMessageBatchRef.current[realtimeMessageBatchRef.current.length - 1];
+      const eventId = String(event.message.id ?? "").trim();
+      if (
+        tail &&
+        eventId &&
+        String(tail.message.id ?? "").trim() === eventId &&
+        tail.eventType === event.eventType
+      ) {
+        realtimeMessageBatchRef.current[realtimeMessageBatchRef.current.length - 1] = event;
+      } else {
+        realtimeMessageBatchRef.current.push(event);
+      }
       if (realtimeBatchFlushRafRef.current !== null) return;
       realtimeBatchFlushRafRef.current = window.requestAnimationFrame(() => {
         flushRealtimeMessageBatch();
@@ -257,19 +312,53 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     const queued = pendingRealtimeRef.current;
     if (queued.length === 0) return;
     pendingRealtimeRef.current = [];
-    setRoomMessages((prev) => {
-      let cur = prev;
-      const incomingToMerge: CommunityMessengerMessage[] = [];
-      for (const event of queued) {
-        if (event.eventType === "DELETE") {
-          cur = cur.filter((item) => item.id !== event.message.id);
-        } else {
-          incomingToMerge.push(mapRealtimeRoomMessage(snapshot, roomMembersDisplayRef.current, event.message));
-        }
+    const deduped = dedupeRealtimeMessageBatch(queued);
+    let offset = 0;
+    const runChunk = () => {
+      const slice = deduped.slice(offset, offset + CM_RT_MESSAGE_INGEST_CHUNK_SIZE);
+      offset += slice.length;
+      if (slice.length === 0) return;
+      applyRealtimeMessageBatch(slice);
+      if (offset < deduped.length) {
+        window.requestAnimationFrame(runChunk);
       }
-      return incomingToMerge.length > 0 ? mergeRoomMessages(cur, incomingToMerge) : cur;
-    });
-  }, [snapshot, roomMembersDisplayRef, setRoomMessages]);
+    };
+    runChunk();
+  }, [snapshot, applyRealtimeMessageBatch]);
+
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE !== "1") return;
+    if (typeof window === "undefined") return;
+    const w = window as Window & {
+      __cmPerfSimulateRealtimeBurst?: (count: number) => { batchQueued: number; pendingQueued: number };
+    };
+    w.__cmPerfSimulateRealtimeBurst = (count) => {
+      const rid = streamRoomId.trim();
+      const peer = "00000000-0000-0000-0000-000000000099";
+      const stamp = Date.now();
+      for (let i = 0; i < count; i += 1) {
+        handleRealtimeMessageEvent({
+          eventType: "INSERT",
+          message: {
+            id: `cm-perf-burst-${stamp}-${i}`,
+            roomId: rid,
+            senderId: peer,
+            messageType: "text",
+            content: `burst-${i}`,
+            metadata: {},
+            createdAt: new Date().toISOString(),
+          },
+        });
+      }
+      return {
+        batchQueued: realtimeMessageBatchRef.current.length,
+        pendingQueued: pendingRealtimeRef.current.length,
+      };
+    };
+    return () => {
+      delete w.__cmPerfSimulateRealtimeBurst;
+    };
+  }, [handleRealtimeMessageEvent, streamRoomId]);
 
   const snapshotPresent = snapshot != null;
   useEffect(() => {

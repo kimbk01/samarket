@@ -35,10 +35,15 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-realtime";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
 import { messengerIncomingMessageAlreadyTracked } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import {
+  noteHomeVisibilityHidden,
+  noteHomeVisibilityRestored,
+  shouldBlockSilentHomeSyncForVisibilityRestore,
+} from "@/lib/community-messenger/home/lite-merge-gate";
 
 const HOME_SUMMARY_MIN_FETCH_GAP_MS = 1_500;
 /** Realtime meta → home-sync silent refresh 최소 간격(부트스트랩 debounce 와 정렬) */
-const HOME_REALTIME_SILENT_REFRESH_MIN_GAP_MS = 1_200;
+const HOME_REALTIME_SILENT_REFRESH_MIN_GAP_MS = 2_400;
 let cmHomeRealtimeRefreshScheduleOrdinal = 0;
 
 /**
@@ -103,9 +108,41 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   const homeSummaryLastFetchAtRef = useRef<Map<string, number>>(new Map());
   const homeRealtimeRefreshLastAtRef = useRef(0);
   const homeRealtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  const silentRefreshRef = useRef((silent?: boolean) => {
+    if (silent && shouldBlockSilentHomeSyncForVisibilityRestore()) {
+      return Promise.resolve();
+    }
+    return refreshRef.current(silent);
+  });
+  silentRefreshRef.current = (silent?: boolean) => {
+    if (silent && shouldBlockSilentHomeSyncForVisibilityRestore()) {
+      return Promise.resolve();
+    }
+    return refreshRef.current(silent);
+  };
 
   useEffect(() => {
+    if (typeof document === "undefined") return;
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        noteHomeVisibilityHidden();
+        return;
+      }
+      noteHomeVisibilityRestored();
+    };
+    const onPageShow = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        noteHomeVisibilityRestored();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pageshow", onPageShow);
     return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("pageshow", onPageShow);
       for (const t of homeMissingRoomSummaryTimersRef.current.values()) {
         clearTimeout(t);
       }
@@ -118,19 +155,25 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   }, []);
 
   const scheduleHomeRealtimeRefresh = useCallback(() => {
+    if (shouldBlockSilentHomeSyncForVisibilityRestore()) {
+      return;
+    }
+    const now = Date.now();
     cmHomeRealtimeRefreshScheduleOrdinal += 1;
     broadcastMessengerReconnectPreserveCrossTab(String(userId ?? "").trim());
     cmRtStableSubLog("home_realtime_refresh_schedule", {
       scheduleOrdinal: cmHomeRealtimeRefreshScheduleOrdinal,
       atMs: Date.now(),
     });
-    const now = Date.now();
     const elapsed = now - homeRealtimeRefreshLastAtRef.current;
     const minGapMs = HOME_REALTIME_SILENT_REFRESH_MIN_GAP_MS;
     const runSilentHomeSync = () => {
+      if (shouldBlockSilentHomeSyncForVisibilityRestore()) {
+        return;
+      }
       homeRealtimeRefreshLastAtRef.current = Date.now();
       recordReconnectStressEvent("home", "silent_refresh");
-      void refresh(true);
+      void silentRefreshRef.current(true);
     };
     if (elapsed >= minGapMs) {
       scheduleWhenBrowserIdle(runSilentHomeSync, 520);
@@ -141,7 +184,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       homeRealtimeRefreshTimerRef.current = null;
       scheduleWhenBrowserIdle(runSilentHomeSync, 520);
     }, minGapMs - elapsed);
-  }, [refresh, userId]);
+  }, [userId]);
 
   const scheduleHomeMissingRoomSummaryMerge = useCallback(
     (roomId: string) => {

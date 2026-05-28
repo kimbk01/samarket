@@ -1,0 +1,35 @@
+{
+  "capturedAt": "2026-05-28T01:54:24.743Z",
+  "round": "CM-R6-fmr-display-ready-gate",
+  "status": "partial_first_prod_pass",
+  "build": { "tsc": "PASS", "npm_build": "PASS" },
+  "r5_baseline": {
+    "cold_first_message_render_ms": 775.5,
+    "cold_display_ready_ms": 774,
+    "dom_fmv_probe_ms": 3.5
+  },
+  "r6_measured_first_pass": {
+    "cold_timeline_heavy_ready_ms_avg": 697,
+    "cold_display_ready_ms_avg": 697,
+    "cold_fmr_ms": null,
+    "cold_dom_first_message_visible_ms": null,
+    "r6_display_gate_log_samples": 1,
+    "sample_dom_fmr_ms": 682,
+    "sample_heavy_ready_ms": 516,
+    "sample_fmr_gate_reason": "dom_intersection",
+    "sample_display_ready_gate_reason": "timeline_heavy_bundle",
+    "sample_was_dom_before_display_ready": false,
+    "empty_flash_rate": 0,
+    "burst_28_12": true
+  },
+  "post_patch_note": "scheduleCmRoomTimelineHeavyReadyAfterDom records display_ready only after DOM FMR",
+  "pass_criteria": {
+    "dom_first_message_visible_le_50_warm": "pending_remeasure",
+    "fmr_decoupled_from_heavy": "partial_logs",
+    "r6_logs_collected": true,
+    "empty_flash_0": true,
+    "burst_28_12": true
+  },
+  "verdict": "PARTIAL",
+  "next_bottleneck": "timelinePaintMessages_commit_before_heavy_bundle_attach"
+}

@@ -38,6 +38,13 @@ function mergeMembers(
   return Array.from(byId.values());
 }
 
+/** 동일 타임라인·unread 이면 setState no-op — FMV 직후 merge 비용·flash 방지 */
+export function roomBootstrapTimelineFingerprint(snap: CommunityMessengerRoomSnapshot): string {
+  const msgs = snap.messages ?? [];
+  const tailId = msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? "") : "";
+  return `${msgs.length}|${tailId}|${snap.room.unreadCount ?? 0}|${(snap.room.lastMessage ?? "").slice(0, 48)}`;
+}
+
 /**
  * 첫 진입 seed 스냅샷 위에 foreground bootstrap 을 single-pass 로 합친다.
  * 전체 교체·remount 유발 setState(snap) 대신 필드 단위 patch.

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, sta
 import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
@@ -16,11 +17,11 @@ import type {
 import { StoresHomeHub } from "@/components/stores/home/hub/StoresHomeHub";
 import {
   fetchMeStoreOrdersHubSummaryDeduped,
-  invalidateMeStoreOrdersHubSummaryCache,
   readMeStoreOrdersHubSummaryCache,
 } from "@/lib/stores/store-delivery-api-client";
 import { prewarmStoresHomeRoute } from "@/lib/stores/stores-home-route-prewarm";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
+import { shouldSkipStoresHomeHubSummaryFetch } from "@/lib/stores/stores-home-network-guards";
 
 type StoreHubSummaryResponse = {
   ok?: boolean;
@@ -56,6 +57,7 @@ function resolveBuyerHubFromJson(
 }
 
 export function StoresHub() {
+  const { language } = useI18n();
   const pathname = usePathname();
   const listScrollRouteKey = useMemo(
     () => buildDeliveryListScrollRouteKey(pathname ?? "/stores", ""),
@@ -88,10 +90,22 @@ export function StoresHub() {
   useLayoutEffect(() => {
     prewarmStoresHomeRoute({
       storeHomeFeedSuffixes: querySuffix ? [querySuffix] : [],
+      language,
     });
-  }, [querySuffix]);
+  }, [language, querySuffix]);
 
-  const loadBuyerHub = useCallback(async () => {
+  const loadBuyerHub = useCallback(async (opts?: { force?: boolean; fromBfcacheRestore?: boolean }) => {
+    if (shouldSkipStoresHomeHubSummaryFetch(opts)) {
+      const snap = readMeStoreOrdersHubSummaryCache();
+      if (snap.value) {
+        const next = resolveBuyerHubFromJson(snap.value.status, snap.value.json);
+        startTransition(() => {
+          setRecentOrder(next.recentOrder);
+          setBuyerOrderSummary(next.buyerState);
+        });
+      }
+      return;
+    }
     const requestId = ++buyerHubRequestIdRef.current;
     buyerHubAbortRef.current?.abort();
     const controller = new AbortController();
@@ -99,6 +113,7 @@ export function StoresHub() {
     try {
       const { status: ordersStatus, json: ordersJsonRaw } = await fetchMeStoreOrdersHubSummaryDeduped({
         signal: controller.signal,
+        force: opts?.force,
       });
       if (controller.signal.aborted || requestId !== buyerHubRequestIdRef.current) return;
       const next = resolveBuyerHubFromJson(ordersStatus, ordersJsonRaw);
@@ -120,12 +135,12 @@ export function StoresHub() {
 
   useLayoutEffect(() => {
     return addStoresHomePullRefreshHandler(async () => {
-      invalidateMeStoreOrdersHubSummaryCache();
-      await loadBuyerHub();
+      await loadBuyerHub({ force: true });
     });
   }, [loadBuyerHub]);
 
   useEffect(() => {
+    if (readMeStoreOrdersHubSummaryCache().isFresh) return;
     void loadBuyerHub();
   }, [loadBuyerHub]);
 
@@ -135,7 +150,9 @@ export function StoresHub() {
     return () => window.removeEventListener(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH, onRefresh);
   }, [loadBuyerHub]);
 
-  useRefetchOnPageShowRestore(() => void loadBuyerHub());
+  useRefetchOnPageShowRestore(() => void loadBuyerHub({ fromBfcacheRestore: true }), {
+    enableVisibilityRefetch: false,
+  });
 
   useEffect(() => {
     return () => {

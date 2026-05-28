@@ -1,0 +1,87 @@
+{
+  "capturedAt": "2026-05-28T18:10:40.400Z",
+  "round": "CM-R11-first-row-commit-path",
+  "status": "measured_prod_like_3_runs_partial",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "sources": {
+    "r10_baseline": "docs/perf/cm-r10-virtualizer-upgrade-stall-validation.json",
+    "r11_r3_raw_capture": "C:/Users/im2pa/.cursor/projects/c-samarket/agent-tools/1b00ea19-2c18-451c-990d-efc2bd1265ab.txt"
+  },
+  "r10_baseline": {
+    "commit_begin_to_end_ms": 2549,
+    "virtualizer_upgrade_commit_span_ms": 1,
+    "virtualizer_upgrade_blocker": "unknown"
+  },
+  "r11_measured": {
+    "first_row_commit_span_ms_samples": [
+      493,
+      497
+    ],
+    "first_row_commit_span_ms_avg": 495,
+    "first_row_commit_span_vs_r10_commit_pct_reduction": 80.6,
+    "first_row_blocker_distribution": {
+      "unknown": 2
+    },
+    "timeline_heavy_attach_scheduler": {
+      "entry_slice_defer": true,
+      "scheduler_mode": "same_tick_raf",
+      "observed_runs": 2
+    },
+    "first_row_path_breakdown_samples": [
+      {
+        "run": 2,
+        "rows_prepare_start_ms": 995,
+        "rows_prepare_end_ms": 995,
+        "row_map_start_ms": 977,
+        "row_map_end_ms": 991,
+        "first_row_render_start_ms": 945,
+        "first_row_render_end_ms": 945,
+        "first_row_ref_attach_ms": 981,
+        "first_row_layout_effect_ms": 982,
+        "first_row_dom_query_start_ms": null,
+        "first_row_dom_query_end_ms": null,
+        "first_row_commit_span_ms": 493,
+        "first_row_blocker": "unknown"
+      },
+      {
+        "run": 3,
+        "rows_prepare_start_ms": 1039,
+        "rows_prepare_end_ms": 1039,
+        "row_map_start_ms": 1018,
+        "row_map_end_ms": 1034,
+        "first_row_render_start_ms": 986,
+        "first_row_render_end_ms": 986,
+        "first_row_ref_attach_ms": 1022,
+        "first_row_layout_effect_ms": 1023,
+        "first_row_dom_query_start_ms": null,
+        "first_row_dom_query_end_ms": null,
+        "first_row_commit_span_ms": 497,
+        "first_row_blocker": "unknown"
+      }
+    ],
+    "commit_begin_to_end_ms_samples": [],
+    "first_row_dom_visible_ms_samples": [],
+    "rows_replace_count_max": 1,
+    "did_mount_with_zero_rows_false": true,
+    "direct_layout_used_true": true
+  },
+  "regression_checks": {
+    "empty_flash_0_of_3": true,
+    "burst_28_plus_12": true,
+    "r2_visibility_silent_delta": 0,
+    "r2_visibility_home_sync_delta": 0,
+    "unread_order_mark_read_regression": false
+  },
+  "verdict": "PARTIAL",
+  "next_bottleneck": "first_row_dom_query 계측 경로 통합으로 first_row_blocker unknown 제거"
+}

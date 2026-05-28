@@ -34,7 +34,6 @@ import {
   recordRouteEntryElapsedMetric,
   recordRouteEntryElapsedMetricOnce,
   recordRouteEntryMetric,
-  recordRouteEntryFirstContentRender,
   recordRouteEntryFullRender,
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
@@ -67,7 +66,6 @@ import {
 } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { notifyCmTradeDockLayoutChange } from "@/lib/community-messenger/room/cm-trade-dock-layout";
 import { measureCmPassRenderCommit } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
-import { noteTradeChatRoomFirstMessageReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import {
   scheduleCmRoomPass1ToPass2,
   scheduleCmRoomPass2IdleExpand,
@@ -89,6 +87,40 @@ import {
   shouldSkipCmRoomHydrationPassSchedule,
   shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
+import {
+  noteCmRoomR5HydrationPassAtSeed,
+  noteCmRoomR5Phase2BodyMount,
+} from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
+import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+
+function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
+  if (typeof window === "undefined") return;
+  const id = roomId.trim();
+  if (!id) return;
+  const t0 = entryTimingT0();
+  const tMs = t0 > 0 && typeof performance !== "undefined" ? Math.round(performance.now() - t0) : null;
+  const row = {
+    event,
+    room_id_suffix: id.length <= 8 ? id : id.slice(-8),
+    t_ms: tMs,
+    ...payload,
+  };
+  const bag = window.__cmPerfEvents ?? [];
+  bag.push(row);
+  window.__cmPerfEvents = bag;
+  // eslint-disable-next-line no-console -- R8 phase2 body rows trace
+  console.log("[cm-room-r8-phase2-body]", JSON.stringify(row));
+}
+
+function patchCmR9LayoutEffectCount(roomId: string, count: number): void {
+  if (typeof window === "undefined") return;
+  const id = roomId.trim();
+  if (!id) return;
+  const bag = (window as Window & { __cmR9UpgradeStateByRoom?: Record<string, Record<string, unknown>> })
+    .__cmR9UpgradeStateByRoom;
+  if (!bag || !bag[id]) return;
+  bag[id].layoutEffectCount = count;
+}
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -120,7 +152,11 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() => {
     const persisted = getCmRoomSubtreeHydrationPass(roomIdStable);
     if (persisted >= 3) return persisted as CmRoomPhase2HydrationPass;
-    if ((room.snapshot.messages?.length ?? 0) > 0) return 3;
+    const hasTimelineSeed =
+      (room.snapshot.messages?.length ?? 0) > 0 ||
+      (room.roomMessages?.length ?? 0) > 0 ||
+      Boolean(room.snapshot.room.lastMessage?.trim());
+    if (hasTimelineSeed) return 2;
     if (persisted >= 2) return persisted as CmRoomPhase2HydrationPass;
     return persisted as CmRoomPhase2HydrationPass;
   });
@@ -154,10 +190,25 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       setHydrationPass(persisted as CmRoomPhase2HydrationPass);
       return;
     }
-    if ((room.snapshot.messages?.length ?? 0) > 0) {
-      setHydrationPass(3);
-      setCmRoomSubtreeHydrationPass(rid, 3);
-      return;
+    const hasTimelineSeed =
+      (room.snapshot.messages?.length ?? 0) > 0 ||
+      (room.roomMessages?.length ?? 0) > 0 ||
+      Boolean(room.snapshot.room.lastMessage?.trim());
+    if (hasTimelineSeed) {
+      noteCmRoomR5HydrationPassAtSeed(
+        rid,
+        hydrationPass,
+        Math.max(room.roomMessages.length, room.snapshot.messages?.length ?? 0)
+      );
+      if (hydrationPass < 2) {
+        setHydrationPass(2);
+        setCmRoomSubtreeHydrationPass(rid, 2);
+      }
+      if (shouldSkipCmRoomHydrationPassSchedule(rid, 3)) return;
+      return scheduleCmRoomPass2IdleExpand(() => {
+        setHydrationPass(3);
+        setCmRoomSubtreeHydrationPass(rid, 3);
+      }, 120);
     }
     if (persisted >= 2) {
       setHydrationPass(persisted as CmRoomPhase2HydrationPass);
@@ -168,7 +219,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       setHydrationPass(2);
       setCmRoomSubtreeHydrationPass(rid, 2);
     });
-  }, [hydrationPass, roomIdStable, room.snapshot.messages.length]);
+  }, [hydrationPass, room.roomMessages.length, roomIdStable, room.snapshot.messages.length, room.snapshot.room.lastMessage]);
 
   useEffect(() => {
     if (hydrationPass < 2) return;
@@ -196,7 +247,6 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const messagesStateCommitRecordedRef = useRef(false);
   const participantsStateCommitRecordedRef = useRef(false);
   const profilesStateCommitRecordedRef = useRef(false);
-  const firstMessageRenderRecordedRef = useRef(false);
   const displayRoomMessagesReadyRecordedRef = useRef(false);
   const fullMessageListRenderRecordedRef = useRef(false);
   const renderCountRef = useRef(0);
@@ -366,11 +416,13 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       "phase2_use_layout_effect_count",
       layoutEffectRunCountRef.current
     );
+    patchCmR9LayoutEffectCount(String(room.snapshot.room.id ?? "").trim(), layoutEffectRunCountRef.current);
     if (!phase2EnterRecordedRef.current) {
       phase2EnterRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "phase2_enter_ms");
+      noteCmRoomR5Phase2BodyMount(String(room.snapshot.room.id ?? "").trim());
     }
-  }, []);
+  }, [room.snapshot.room.id]);
 
   useLayoutEffect(() => {
     layoutEffectRunCountRef.current += 1;
@@ -379,6 +431,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       "phase2_use_layout_effect_count",
       layoutEffectRunCountRef.current
     );
+    patchCmR9LayoutEffectCount(String(room.snapshot.room.id ?? "").trim(), layoutEffectRunCountRef.current);
     if (!roomStateCommitRecordedRef.current && room.snapshot?.room.id) {
       roomStateCommitRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "json_parse_complete_ms");
@@ -388,9 +441,8 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       messagesStateCommitRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "messages_state_commit_ms");
     }
-    if (!displayRoomMessagesReadyRecordedRef.current && room.displayRoomMessages.length > 0) {
+    if (!displayRoomMessagesReadyRecordedRef.current && room.roomMessages.length > 0) {
       displayRoomMessagesReadyRecordedRef.current = true;
-      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "display_room_messages_ready_ms");
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "message_list_ready_ms");
     }
     if (!participantsStateCommitRecordedRef.current && room.snapshot.members.length > 0) {
@@ -403,24 +455,40 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     }
   }, [room.displayRoomMessages.length, room.roomMembersDisplay.length, room.roomMessages.length, room.snapshot]);
 
-  useLayoutEffect(() => {
-    layoutEffectRunCountRef.current += 1;
-    recordRouteEntryMetric(
-      "messenger_room_entry",
-      "phase2_use_layout_effect_count",
-      layoutEffectRunCountRef.current
-    );
-    const initialRenderedCount = room.chatVirtualizer.getVirtualItems().length;
-    if (firstMessageRenderRecordedRef.current) return;
-    if (room.displayRoomMessages.length <= 0 || initialRenderedCount <= 0) return;
-    firstMessageRenderRecordedRef.current = true;
-    noteTradeChatRoomFirstMessageReadyForShellBreakdown(room.displayRoomMessages.length);
-    recordRouteEntryElapsedMetric("messenger_room_entry", "first_message_render_ms");
-    recordRouteEntryMetric("messenger_room_entry", "initial_rendered_message_count", initialRenderedCount);
-    recordRouteEntryFirstContentRender("messenger_room_entry");
-    recordCmRoomEntryMilestone("message_list_visible_ms");
-    scheduleRouteEntryToPaint("messenger_room_entry");
-  }, [room.chatVirtualizer, room.displayRoomMessages.length]);
+  const virtualizerUpgradeScheduledLoggedRef = useRef(false);
+  useEffect(() => {
+    virtualizerUpgradeScheduledLoggedRef.current = false;
+  }, [room.snapshot.room.id]);
+  useEffect(() => {
+    if (!room.timelineHeavyLive) return;
+    const roomId = String(room.snapshot.room.id ?? "").trim();
+    if (!roomId) return;
+    if (virtualizerUpgradeScheduledLoggedRef.current) return;
+    virtualizerUpgradeScheduledLoggedRef.current = true;
+    const scheduledMs =
+      (() => {
+        const t0 = entryTimingT0();
+        return t0 > 0 && typeof performance !== "undefined" ? Math.round(performance.now() - t0) : null;
+      })();
+    const priorScheduledMs = (
+      window as Window & {
+        __cmR9UpgradeStateByRoom?: Record<string, { virtualizerUpgradeScheduledMs?: number | null }>;
+      }
+    ).__cmR9UpgradeStateByRoom?.[roomId]?.virtualizerUpgradeScheduledMs;
+    pushCmR8PerfEvent(roomId, "virtualizer_upgrade_scheduled", {
+      virtualizer_upgrade_scheduled_ms: priorScheduledMs ?? scheduledMs,
+      rows_before_upgrade_count: room.displayRoomMessages.length,
+      upgrade_source: "phase2_body_heavy_live",
+    });
+  }, [room.displayRoomMessages.length, room.snapshot.room.id, room.timelineHeavyLive]);
+
+  useEffect(() => {
+    pushCmR8PerfEvent(room.snapshot.room.id, "phase2_body_rows_count", {
+      bootstrap_message_count: room.snapshot.messages.length,
+      phase1_seed_message_count: room.roomMessages.length,
+      display_message_count: room.displayRoomMessages.length,
+    });
+  }, [room.displayRoomMessages.length, room.roomMessages.length, room.snapshot.messages.length, room.snapshot.room.id]);
 
   useLayoutEffect(() => {
     layoutEffectRunCountRef.current += 1;

@@ -71,6 +71,17 @@ function cloneSnapshot(value: MeNotificationSettingsSnapshot): MeNotificationSet
   };
 }
 
+/** 네트워크 없이 snapshot 캐시를 확인한다 (sessionStorage → memory). */
+export function peekMeNotificationSettingsSnapshotCached(): MeNotificationSettingsSnapshot | null {
+  const sessionHit = readNotificationSettingsSessionCache();
+  if (sessionHit) return cloneSnapshot(sessionHit);
+  const now = Date.now();
+  if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
+    return cloneSnapshot(cachedSnapshot.value);
+  }
+  return null;
+}
+
 export function fetchMeNotificationSettingsGet(): Promise<Response> {
   return runSingleFlight(ME_NOTIFICATION_SETTINGS_GET_FLIGHT, () =>
     fetch("/api/me/notification-settings", { credentials: "include" })
@@ -91,13 +102,9 @@ export async function fetchMeNotificationSettingsSnapshot(
       }
     }
   }
-  const sessionHit = !opts?.force ? readNotificationSettingsSessionCache() : null;
-  if (sessionHit) {
-    return cloneSnapshot(sessionHit);
-  }
-  const now = Date.now();
-  if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
-    return cloneSnapshot(cachedSnapshot.value);
+  if (!opts?.force) {
+    const cached = peekMeNotificationSettingsSnapshotCached();
+    if (cached) return cached;
   }
   try {
     const snapshot = await runSingleFlight(ME_NOTIFICATION_SETTINGS_SNAPSHOT_FLIGHT, async () => {

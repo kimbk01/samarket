@@ -1,0 +1,101 @@
+{
+  "capturedAt": "2026-05-28T03:08:00.000Z",
+  "round": "CM-R8-seed-rows-stability",
+  "status": "measured_prod_like_3_runs",
+  "build": {
+    "tsc": "PASS",
+    "npm_build": "PASS"
+  },
+  "measurement_commands": {
+    "typescript": "npx tsc --noEmit",
+    "build": "$env:NEXT_PUBLIC_MESSENGER_PERF_TRACE='1'; $env:NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET='1'; npm run build",
+    "start": "$env:SAMARKET_MESSENGER_TRACE_LOG='1'; $env:SAMARKET_LOG_HOME_SYNC_DEEP_TRACE='1'; npm run start",
+    "validate_r3": "node scripts/perf/cm-r3-room-realtime-burst-validate.mjs",
+    "validate_r2": "node scripts/perf/cm-r2-perceived-prod-validate.mjs"
+  },
+  "sources": {
+    "r7_baseline": "docs/perf/cm-r7-first-row-commit-validation.json",
+    "r8_r3_raw_capture": "C:/Users/im2pa/.cursor/projects/c-samarket/terminals/960020.txt"
+  },
+  "r7_baseline": {
+    "first_row_commit_span_ms": 2548,
+    "final_message_rows_cold_issue": true
+  },
+  "r8_measured": {
+    "cold_first_message_visible_ms_avg": 3348,
+    "rows_path_counts_sample": {
+      "phase1_seed_message_count": 16,
+      "bootstrap_message_count": 16,
+      "display_message_count": 16,
+      "final_message_rows_count": 16
+    },
+    "first_nonzero_rows_ms_samples": [
+      954,
+      673
+    ],
+    "zero_rows_gate": {
+      "did_mount_with_zero_rows_true_count": 0,
+      "did_mount_with_zero_rows_false_observed": true,
+      "did_commit_zero_rows_true_count": 0
+    },
+    "rows_replace": {
+      "rows_replace_count_samples": [
+        0,
+        1,
+        2
+      ],
+      "rows_replace_count_max": 2,
+      "rows_replace_reason_observed": [
+        "rows_count_changed",
+        "render_source_changed"
+      ]
+    },
+    "direct_layout_rows_source_observed": [
+      "direct:bootstrap",
+      "virtualized:virtualizer_upgrade"
+    ],
+    "render_source_distribution": {
+      "bootstrap": 3
+    },
+    "commit_stall_samples": [
+      {
+        "first_row_commit_begin_ms": 934,
+        "first_row_commit_end_ms": 3489,
+        "stall_ms": 2555
+      },
+      {
+        "first_row_commit_begin_ms": 652,
+        "first_row_commit_end_ms": 3212,
+        "stall_ms": 2560
+      }
+    ],
+    "commit_stall_vs_r7": {
+      "r7_baseline_ms": 2548,
+      "r8_min_ms": 2555,
+      "r8_max_ms": 2560,
+      "improved": false
+    }
+  },
+  "pass_criteria": {
+    "did_mount_with_zero_rows_false": true,
+    "first_commit_with_nonzero_rows": true,
+    "rows_replace_count_decrease": false,
+    "cold_first_row_dom_visible_target": false,
+    "commit_stall_reduced": false,
+    "direct_layout_used_true": true,
+    "render_source_seed_ratio_increase": "inconclusive",
+    "empty_flash_0_over_3": true,
+    "burst_28_plus_12_maintained": true,
+    "r2_visibility_0_over_0": true,
+    "unread_order_mark_read_regression": false,
+    "build_pass": true,
+    "tsc_pass": true
+  },
+  "verdict": "PARTIAL_PASS_NEEDS_MORE_WORK",
+  "verdict_reasons": [
+    "zero-rows first mount path is removed in observed runs",
+    "seed/bootstrap/display/final rows path instrumentation is now emitted to console + __cmPerfEvents",
+    "commit stall (first_row_commit_begin -> end) remains around 2.55s and needs dedicated next round"
+  ],
+  "next_bottleneck": "virtualizer_upgrade_attach_commit_span_after_direct_bootstrap"
+}
