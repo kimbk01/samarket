@@ -58,7 +58,9 @@ globs:
 
 | 항목 | 구조 | 미해결(별도 트랙) |
 |------|------|------------------|
-| RSC `[slug]` | `Suspense` + `MarketCategoryRouteFallback`(클라 셸) | cold RSC >440ms 시 슬라이드 후에도 대기 |
+| **슬라이드 중 entering 교체** | pathname 도착 시 `entering: children` 금지 — Suspense·`MainFeedRouteLoading` 이 440ms 안에 끼지 않음 | `AppRouteTransition` push 활성 시 `renderedRef` 만 갱신 |
+| `/market` Suspense | `page.tsx` 가 `await` Suspense fallback 으로 스켈레톤 유발 → **제거**, `clientFeedInstantBoot` | cold RSC >440ms 는 슬라이드 **후** surface 전환 시만 |
+| RSC `[slug]` | `MarketCategoryRouteFallback` → `MarketCategoryPageClient`(slug 비면 빈 배경) | peek 미스 시 bootstrap 1회 |
 | 첫 방문 탭 | peek null → `loading` | prewarm·방문 후 캐시 전제 |
 | `key={slugOrId}` | 탭마다 `CategoryListLayout` remount | peek 없으면 bootstrap 1회 |
 

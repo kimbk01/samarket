@@ -95,7 +95,11 @@ export function HomeProductList({
   const { tt } = useI18n();
   const hydrationSeed = getHydrationSafeBoot(tradeState, initialHomeTradeFeed);
   const clientBoot =
-    clientInstantBoot && tradeState === "latest" ? readClientHomeListBoot(homePostListOptions) : null;
+    typeof window !== "undefined" &&
+    tradeState === "latest" &&
+    (clientInstantBoot || !hydrationSeed)
+      ? readClientHomeListBoot(homePostListOptions)
+      : null;
   const initialBoot = clientBoot ?? hydrationSeed;
   const [listState, setListState] = useState<ListState>(() =>
     initialBoot ? (initialBoot.posts.length === 0 ? "empty" : "idle") : "loading"

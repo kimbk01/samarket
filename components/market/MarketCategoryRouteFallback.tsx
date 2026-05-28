@@ -2,7 +2,6 @@
 
 import { usePathname } from "next/navigation";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MarketCategoryPageClient } from "@/components/market/MarketCategoryPageClient";
 
 /**
@@ -20,7 +19,7 @@ export function MarketCategoryRouteFallback() {
   }
   slugOrId = normalizeMarketSlugParam(slugOrId);
   if (!slugOrId.trim()) {
-    return <MainFeedRouteLoading rows={5} />;
+    return <div className="min-h-screen bg-sam-app" aria-hidden />;
   }
 
   return <MarketCategoryPageClient tradeServerSeed={null} slugOrId={slugOrId} />;

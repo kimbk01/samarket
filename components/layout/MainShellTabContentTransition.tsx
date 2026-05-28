@@ -61,10 +61,7 @@ export function MainShellTabContentTransition({
   const pendingShell = blockMainShellWithPendingOverlay ? pendingRouteShell : null;
   const pendingPushNode = useMemo(() => {
     if (!isPendingMenuBlockingContent || !pendingMenuIntent) return null;
-    if (
-      pendingMenuIntent.source === "trade-primary" &&
-      pendingMenuIntent.mainShellPushAxis
-    ) {
+    if (pendingMenuIntent.source === "trade-primary") {
       return <TradeMarketTabPushEnterPanel href={pendingMenuIntent.href} />;
     }
     if (pendingMenuIntent.source === "bottom-nav") {

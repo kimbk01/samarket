@@ -205,15 +205,11 @@ export function AppRouteTransition({
       if (pushAxis && !prefersReducedMotion()) {
         if (pushSessionActiveRef.current) {
           renderedRef.current = { pathname: pathKey, node: children };
-          setPushSession((current) =>
-            current
-              ? {
-                  ...current,
-                  entering: children,
-                  targetPath: undefined,
-                }
-              : current
-          );
+          /**
+           * pathname/RSC 가 먼저 도착해도 들어오는 패널을 `children`(Suspense·스켈레톤)으로
+           * 바꾸지 않는다 — 440ms 슬라이드 안에 CommunityFeedSkeleton 이 끼는 회귀 방지.
+           * 최종 본문은 push 종료 후 단일 surface `children` 로 전환.
+           */
           if (el?.dataset) {
             el.dataset.routeTransitionKind = kind;
             el.dataset.routePushAxis = pushAxis;
@@ -223,7 +219,7 @@ export function AppRouteTransition({
 
         setPushSession({
           exiting: prev.node,
-          entering: children,
+          entering: pendingPushNode ?? children,
           axis: pushAxis,
           animate: false,
           startedAt: performance.now(),
@@ -270,7 +266,7 @@ export function AppRouteTransition({
     renderedRef.current = { pathname: pathKey, node: children };
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- kindRef: pathname 과 같은 커밋에서 useRouteTransitionKindRef 가 갱신
-  }, [pathname, children, pendingMenuIntent?.mainShellPushAxis, pendingMenuIntent?.id]);
+  }, [pathname, children, pendingMenuIntent?.mainShellPushAxis, pendingMenuIntent?.id, pendingPushNode]);
 
   useLayoutEffect(() => {
     if (!pushSession?.animate) return;

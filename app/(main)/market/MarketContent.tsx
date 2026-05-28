@@ -77,25 +77,40 @@ const HomeFeedViewExperimental = dynamic(
 
 function MarketTradeFeedBody({
   initialHomeTradeFeed,
+  clientFeedInstantBoot = false,
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
+  /** 탭 push·Suspense 대기 — 첫 페인트 전 홈 피드 캐시 */
+  clientFeedInstantBoot?: boolean;
 }) {
   if (isProductionDeploy()) {
-    return <HomeProductList initialHomeTradeFeed={initialHomeTradeFeed ?? undefined} />;
+    return (
+      <HomeProductList
+        initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
+        clientInstantBoot={clientFeedInstantBoot}
+      />
+    );
   }
   const experimental =
     process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_HOME_FEED === "1" ||
     process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_HOME_FEED === "true";
   if (!experimental) {
-    return <HomeProductList initialHomeTradeFeed={initialHomeTradeFeed ?? undefined} />;
+    return (
+      <HomeProductList
+        initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
+        clientInstantBoot={clientFeedInstantBoot}
+      />
+    );
   }
   return <HomeFeedViewExperimental />;
 }
 
 export function MarketContent({
   initialHomeTradeFeed,
+  clientFeedInstantBoot = false,
 }: {
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
+  clientFeedInstantBoot?: boolean;
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -216,6 +231,7 @@ export function MarketContent({
         <MarketTradeFeedBody
           key={`home-feed:${tradeState || "latest"}`}
           initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
+          clientFeedInstantBoot={clientFeedInstantBoot}
         />
       </div>
     </div>
