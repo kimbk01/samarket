@@ -32,6 +32,8 @@ export interface GetPostsForHomeResult {
 
 const HOME_POSTS_TTL_MS = 45_000;
 const HOME_POSTS_SESSION_CACHE_KEY_PREFIX = "samarket:home-posts:v1:";
+const HOME_POSTS_LOCAL_TTL_MS = 1000 * 60 * 60 * 24;
+const HOME_POSTS_LOCAL_CACHE_KEY_PREFIX = "samarket:home-posts:local:v1:";
 
 type HomePostsCacheEntry = {
   data: GetPostsForHomeResult;
@@ -52,8 +54,16 @@ function canUseSessionStorage(): boolean {
   return typeof window !== "undefined" && typeof window.sessionStorage !== "undefined";
 }
 
+function canUseLocalStorage(): boolean {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
 function makeSessionCacheKey(cacheKey: string): string {
   return `${HOME_POSTS_SESSION_CACHE_KEY_PREFIX}${cacheKey}`;
+}
+
+function makeLocalCacheKey(cacheKey: string): string {
+  return `${HOME_POSTS_LOCAL_CACHE_KEY_PREFIX}${cacheKey}`;
 }
 
 function readHomePostsSessionCache(cacheKey: string): GetPostsForHomeResult | null {
@@ -66,6 +76,29 @@ function readHomePostsSessionCache(cacheKey: string): GetPostsForHomeResult | nu
       data?: GetPostsForHomeResult;
     };
     if (!parsed || typeof parsed.expiresAt !== "number" || !parsed.data) return null;
+    const data = parsed.data;
+    if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object") return null;
+    return {
+      posts: data.posts,
+      hasMore: data.hasMore === true,
+      favoriteMap: data.favoriteMap ?? {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readHomePostsLocalCache(cacheKey: string): GetPostsForHomeResult | null {
+  if (!canUseLocalStorage()) return null;
+  try {
+    const raw = window.localStorage.getItem(makeLocalCacheKey(cacheKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      expiresAt?: number;
+      data?: GetPostsForHomeResult;
+    };
+    if (!parsed || typeof parsed.expiresAt !== "number" || !parsed.data) return null;
+    if (parsed.expiresAt < Date.now()) return null;
     const data = parsed.data;
     if (!Array.isArray(data.posts) || typeof data.favoriteMap !== "object") return null;
     return {
@@ -93,6 +126,21 @@ function writeHomePostsSessionCache(cacheKey: string, data: GetPostsForHomeResul
   }
 }
 
+function writeHomePostsLocalCache(cacheKey: string, data: GetPostsForHomeResult): void {
+  if (!canUseLocalStorage()) return;
+  try {
+    window.localStorage.setItem(
+      makeLocalCacheKey(cacheKey),
+      JSON.stringify({
+        expiresAt: Date.now() + HOME_POSTS_LOCAL_TTL_MS,
+        data,
+      })
+    );
+  } catch {
+    /* quota/private mode */
+  }
+}
+
 function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   const page = Math.max(1, options.page ?? 1);
   const sort = options.sort ?? "latest";
@@ -105,15 +153,16 @@ function normalizeOptions(options: GetPostsForHomeOptions = {}) {
   return { page, sort, typeFilter, tradeMarketParent, tradeState, cacheKey };
 }
 
-function restoreHomePostsFromSessionToMemory(cacheKey: string): GetPostsForHomeResult | null {
+function restoreHomePostsFromStorageToMemory(cacheKey: string): GetPostsForHomeResult | null {
   const sessionHit = readHomePostsSessionCache(cacheKey);
-  if (!sessionHit) return null;
+  const localHit = sessionHit ?? readHomePostsLocalCache(cacheKey);
+  if (!localHit) return null;
   homePostsCache.set(cacheKey, {
-    data: sessionHit,
+    data: localHit,
     expiresAt: Date.now() + HOME_POSTS_TTL_MS,
   });
   capHomePostsClientCache();
-  return sessionHit;
+  return localHit;
 }
 
 export function peekCachedPostsForHome(
@@ -124,7 +173,7 @@ export function peekCachedPostsForHome(
   if (cached && cached.data.posts.length > 0) {
     return cached.data;
   }
-  return restoreHomePostsFromSessionToMemory(cacheKey);
+  return restoreHomePostsFromStorageToMemory(cacheKey);
 }
 
 export function isCachedPostsForHomeFresh(
@@ -163,6 +212,7 @@ export function primeHomePostsCache(
   });
   capHomePostsClientCache();
   writeHomePostsSessionCache(cacheKey, data);
+  writeHomePostsLocalCache(cacheKey, data);
 }
 
 /** `HomeProductList`·`PostListByCategory` 가 네트워크로 다시 채우도록 구독 */
@@ -196,6 +246,22 @@ export function invalidateHomePostsCache(): void {
     }
   } catch {
     /* ignore */
+  }
+  if (canUseLocalStorage()) {
+    try {
+      const prefix = HOME_POSTS_LOCAL_CACHE_KEY_PREFIX;
+      const removeKeys: string[] = [];
+      for (let i = 0; i < window.localStorage.length; i += 1) {
+        const key = window.localStorage.key(i);
+        if (!key || !key.startsWith(prefix)) continue;
+        removeKeys.push(key);
+      }
+      for (const key of removeKeys) {
+        window.localStorage.removeItem(key);
+      }
+    } catch {
+      /* ignore */
+    }
   }
   dispatchTradePostListCacheInvalidated();
 }
@@ -233,8 +299,8 @@ export async function getPostsForHome(
     return cached.data;
   }
   if (!cached) {
-    const sessionRestored = restoreHomePostsFromSessionToMemory(cacheKey);
-    if (sessionRestored) {
+    const storageRestored = restoreHomePostsFromStorageToMemory(cacheKey);
+    if (storageRestored) {
       if (genAtEnter !== homePostsInvalidationGeneration) {
         homePostsCache.delete(cacheKey);
         if (canUseSessionStorage()) {
@@ -244,9 +310,16 @@ export async function getPostsForHome(
             /* ignore */
           }
         }
+        if (canUseLocalStorage()) {
+          try {
+            window.localStorage.removeItem(makeLocalCacheKey(cacheKey));
+          } catch {
+            /* ignore */
+          }
+        }
         return getPostsForHome(options, opts);
       }
-      return sessionRestored;
+      return storageRestored;
     }
   }
 
