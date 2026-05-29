@@ -10,6 +10,7 @@ import { getMessages } from "@/lib/chats/mock-chat-messages";
 import { getMessagesFromDb } from "@/lib/chats/getMessagesFromDb";
 import { sendChatMessage } from "@/lib/chat/sendChatMessage";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { markRoomAsRead } from "@/lib/chat/markRoomAsRead";
@@ -247,10 +248,17 @@ export function ChatDetailView({
   const storeOrderMessengerRoomId = room.communityMessengerRoomId?.trim() || "";
   useEffect(() => {
     if (!isStoreOrderChat || !storeOrderMessengerRoomId) return;
-    router.replace(
-      `/community-messenger/rooms/${encodeURIComponent(storeOrderMessengerRoomId)}?from=delivery&cm_list=delivery`
-    );
-  }, [isStoreOrderChat, router, storeOrderMessengerRoomId]);
+    let url = `/community-messenger/rooms/${encodeURIComponent(storeOrderMessengerRoomId)}?from=delivery&cm_list=delivery`;
+    if (storeOrderId) {
+      try {
+        const cmCtx = encodeCommunityMessengerRoomCmCtx({ v: 1, kind: "delivery", storeOrderId });
+        url += `&cm_ctx=${encodeURIComponent(cmCtx)}`;
+      } catch {
+        // cm_ctx 없이 진입 — 2왕복 폴백
+      }
+    }
+    router.replace(url);
+  }, [isStoreOrderChat, router, storeOrderMessengerRoomId, storeOrderId]);
   /** 상품 거래 1:1 (스토어 주문·일반 목적 채팅 제외) — presence·typing */
   const isTradeProductPresenceRoom =
     room.chatDomain === "trade" && !isGeneralPurposeChat && !!partnerId?.trim();

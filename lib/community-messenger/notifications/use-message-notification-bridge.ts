@@ -8,6 +8,10 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useNotificationSurface } from "@/contexts/NotificationSurfaceContext";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
+import {
+  applyCommunityMessengerUnreadOptimistic,
+  getOwnerHubBadgeSnapshot,
+} from "@/lib/chats/owner-hub-badge-store";
 import { documentVisibilityToAppVisibility } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
 import { resolveParticipantUnreadDeltaInAppEffects } from "@/lib/community-messenger/notifications/messenger-message-notification-policy";
 import { tryShowMessengerWebDesktopNotification } from "@/lib/community-messenger/notifications/messenger-web-desktop-notification";
@@ -202,6 +206,17 @@ export function useMessageNotificationBridge(
            * 메시지 테이블 Realtime(publication 누락/세션 레이스 등)이 드물게 끊겨도
            * 방 화면은 `cm.room.bump`로 증분 동기화를 즉시 실행해 새로고침 없이 따라잡는다.
            */
+          /**
+           * unread 증가: 하단 탭 뱃지를 deferred fetch(2.5s) 이전에 즉시 낙관 패치.
+           * communityMessengerUnread + delta 로 추정, deferred fetch 시 정확한 값으로 교체됨.
+           * DO NOT: 제거하면 메시지 수신 후 탭 숫자 2.5s 이상 지연.
+           */
+          {
+            const delta = nextUnread - prevUnread;
+            const currentCmUnread = getOwnerHubBadgeSnapshot().communityMessengerUnread;
+            applyCommunityMessengerUnreadOptimistic(Math.max(0, currentCmUnread) + delta);
+          }
+
           const now = Date.now();
           const roomNorm = nextRoomId.toLowerCase();
           const last = roomBumpLastAtRef.current.get(roomNorm) ?? 0;

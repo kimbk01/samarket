@@ -24,9 +24,9 @@ const PhilifeHeaderNotificationInbox = dynamic(
   { ssr: false }
 );
 
-/** 히어로 이미지 위에서 보이는 반투명 글래스 버튼(매장·상품 상세) */
+/** 히어로 이미지 위 — 검은 반투명 배경·흰 아이콘 (`delivery-components.css` `.store-order-hero-glass-icon-btn`) */
 export const STORE_ORDER_HERO_GLASS_ICON_BTN =
-  `${APP_TIER1_HEADER_ICON_BTN_CLASS} relative border border-white/35 bg-black/62 text-white shadow-[0_2px_10px_rgba(0,0,0,0.36)] backdrop-blur-[2px] active:scale-[0.96] active:border-white/55 active:bg-black/72`;
+  `${APP_TIER1_HEADER_ICON_BTN_CLASS} store-order-hero-glass-icon-btn relative`;
 
 export const STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME =
   "absolute -right-0.5 -top-0.5 z-[1] flex h-[16px] min-w-[16px] items-center justify-center rounded-full border border-white/45 bg-[var(--delivery-primary)] px-0.5 text-[9px] font-bold leading-none text-white";

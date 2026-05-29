@@ -625,9 +625,9 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                     (vm.voiceRecording && vm.voiceHandsFree) ||
                     (composerSurfaceMode === "phase1" && !getMessengerRoomComposerPhase2Bridge())
                   }
-                  className={`absolute inset-0 z-[1] flex touch-none select-none items-center justify-center rounded-full transition-colors duration-150 disabled:opacity-35 ${
+                  className={`absolute inset-0 z-[1] flex touch-none select-none items-center justify-center rounded-full transition-[colors,transform] duration-150 disabled:opacity-35 ${
                     vm.voiceMicArming || vm.voiceRecording
-                      ? "bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]"
+                      ? "scale-125 bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]"
                       : "bg-transparent text-[color:var(--delivery-icon-muted)]"
                   }`}
                   aria-label={t("cm_ui_voice_message_recording_guide")}
@@ -637,7 +637,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                       : t("cm_ui_hold_record_send_slide_cancel_lock")
                   }
                 >
-                  <Mic className="h-4 w-4 shrink-0" strokeWidth={2} />
+                  <Mic className="h-5 w-5 shrink-0" strokeWidth={2} />
                 </button>
               </div>
             </div>
@@ -783,10 +783,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                     (vm.voiceRecording && vm.voiceHandsFree) ||
                     (composerSurfaceMode === "phase1" && !getMessengerRoomComposerPhase2Bridge())
                   }
-                  className={`sam-cm-voice-mic-ripple-btn absolute right-1.5 top-1/2 z-[5] flex h-8 w-8 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full shadow-none transition-[transform,background-color,color] duration-200 active:scale-[0.96] disabled:text-[#9ca3af] disabled:opacity-45 ${
+                  className={`sam-cm-voice-mic-ripple-btn absolute right-1.5 top-1/2 z-[5] flex h-8 w-8 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full shadow-none transition-[transform,background-color,color] duration-200 disabled:text-[#9ca3af] disabled:opacity-45 ${
                     vm.voiceMicArming
-                      ? "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-2 ring-[color:var(--cm-room-primary)]/45"
-                      : "bg-transparent text-[#1f2937] hover:bg-black/[0.06] active:bg-black/[0.08]"
+                      ? "scale-[1.35] bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-2 ring-[color:var(--cm-room-primary)]/45"
+                      : "scale-100 bg-transparent text-[#1f2937] hover:bg-black/[0.06] active:scale-[0.96] active:bg-black/[0.08]"
                   }`}
                   aria-label={t("cm_ui_voice_message_recording_guide")}
                   title={

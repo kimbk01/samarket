@@ -80,7 +80,7 @@ export const DeliveryTheme = {
   menuPlus: "delivery-menu-plus",
   categoryChip: "delivery-category-chip",
   categoryChipActive: "delivery-category-chip delivery-category-chip--active",
-  /** 매장 상세 메뉴 — 박스형 탭(§ store detail category bar) */
+  /** 매장 상세 메뉴 — 배민형 pill 탭(§ store detail category bar) */
   categoryTab: "delivery-category-tab",
   categoryTabActive: "delivery-category-tab delivery-category-tab--active",
   categorySearch: "delivery-category-search",

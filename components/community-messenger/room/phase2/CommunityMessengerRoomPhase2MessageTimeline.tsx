@@ -932,9 +932,19 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
    * vm 전체를 deps 에 두면 매 렌더마다 onScroll 이 바뀌어 스케줄러가 불안정해지므로 ref 로 최신만 참조.
    */
   const scrollRafRef = useRef<number | null>(null);
+  /**
+   * 롱프레스 팝오버 오픈 직후 레이아웃 변화(ring-offset)가 virtualizer 스크롤 이벤트를 유발해
+   * 팝오버가 즉시 닫히는 현상을 방지하기 위한 grace window.
+   * setMessageActionItem / setCallStubSheet 호출 시 이 값을 갱신한다.
+   * DO NOT: 이 ref를 제거하면 롱프레스 직후 스크롤 이벤트가 시트를 즉시 닫음.
+   */
+  const actionSheetOpenedAtRef = useRef<number>(0);
   const onScroll = useCallback(() => {
     const v = vmRef.current;
     v.updateStickToBottomFromScroll();
+    const gracePeriod = 500;
+    const now = Date.now();
+    if (now - actionSheetOpenedAtRef.current < gracePeriod) return;
     if (v.messageActionItem) v.setMessageActionItem(null);
     if (v.callStubSheet) v.setCallStubSheet(null);
   }, []);
@@ -1018,6 +1028,29 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     });
   }, [onScroll]);
 
+  /**
+   * grace window 용 래퍼: setMessageActionItem/setCallStubSheet 호출 시 타임스탬프를 기록해
+   * 직후 virtualizer 레이아웃 스크롤 이벤트가 팝오버를 즉시 닫지 않도록 한다.
+   * DO NOT: 이 래퍼를 제거하고 vm.setMessageActionItem 을 직접 전달하면
+   *          ring-offset 레이아웃 변화로 발생하는 스크롤이 팝오버를 즉시 닫음.
+   */
+  const setMessageActionItemWithGrace = useCallback(
+    (v: Parameters<typeof vm.setMessageActionItem>[0]) => {
+      if (v !== null) actionSheetOpenedAtRef.current = Date.now();
+      vm.setMessageActionItem(v);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vm.setMessageActionItem]
+  );
+  const setCallStubSheetWithGrace = useCallback(
+    (v: Parameters<typeof vm.setCallStubSheet>[0]) => {
+      if (v !== null) actionSheetOpenedAtRef.current = Date.now();
+      vm.setCallStubSheet(v);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [vm.setCallStubSheet]
+  );
+
   const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
   const virtualizerHasMeasuredRangeRaw =
     virtualItemsForLayout.length > 0 || vm.chatVirtualizer.getTotalSize() > 0;
@@ -1068,6 +1101,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     if (hasStoreOrderDock) {
       holdDirectDomRef.current = false;
       setHoldDirectDom(false);
+      // 배달·주문 direct layout은 virtualizer upgrade 경로를 거치지 않아
+      // firstCommitRowsLocked가 해제되지 않는다. holdDirectDom 해제 시 함께 unlock.
+      setFirstCommitRowsLocked(false);
       return;
     }
     if (!virtualizerHasMeasuredRangeRaw) return;
@@ -1983,8 +2019,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     senderLabelDisplay={resolveMessageSenderLabel(item)}
                     onOpenImageLightbox={onOpenImageLightbox}
                     onReactionRosterOpen={onReactionRosterOpen}
-                    setMessageActionItem={vm.setMessageActionItem}
-                    setCallStubSheet={vm.setCallStubSheet}
+                    setMessageActionItem={setMessageActionItemWithGrace}
+                    setCallStubSheet={setCallStubSheetWithGrace}
                     messageLongPressTimerRef={vm.messageLongPressTimerRef}
                     messageLongPressItemRef={vm.messageLongPressItemRef}
                     focusTimelineMessage={vm.focusTimelineMessage}

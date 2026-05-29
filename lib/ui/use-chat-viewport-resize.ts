@@ -148,9 +148,29 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
 
     const vv = window.visualViewport;
     const onWin = () => scheduleSync();
+    let orientationRafId = 0;
     const onOrientation = () => {
-      safeBottomPx = readSafeAreaInsetBottomPx();
-      sync();
+      /**
+       * iOS/Android: `orientationchange` 는 회전 완료 전에 발생한다.
+       * 직후 즉시 sync 하면 이전 크기로 한 번 그려진 뒤 다시 올바른 크기로 그려지는
+       * 1프레임 깜빡임이 생긴다.
+       * → 다음 `resize` 이벤트(회전 완료 후 브라우저 발행)를 기다려 sync 실행.
+       * `resize` 이벤트가 200ms 안에 오지 않으면(일부 구형 기기) fallback 으로 바로 sync.
+       */
+      const handlePostOrientationResize = () => {
+        cancelAnimationFrame(orientationRafId);
+        window.removeEventListener("resize", handlePostOrientationResize);
+        safeBottomPx = readSafeAreaInsetBottomPx();
+        scheduleSync();
+      };
+      window.addEventListener("resize", handlePostOrientationResize, { once: true });
+      // fallback: 200ms 이내 resize 미발행 시 직접 sync
+      cancelAnimationFrame(orientationRafId);
+      orientationRafId = window.setTimeout(() => {
+        window.removeEventListener("resize", handlePostOrientationResize);
+        safeBottomPx = readSafeAreaInsetBottomPx();
+        scheduleSync();
+      }, 200) as unknown as number;
     };
     vv?.addEventListener("resize", onWin);
     vv?.addEventListener("scroll", onWin);
@@ -164,6 +184,7 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
       cancelAnimationFrame(syncRafId);
       cancelAnimationFrame(bootRaf1);
       cancelAnimationFrame(bootRaf2);
+      clearTimeout(orientationRafId);
       vv?.removeEventListener("resize", onWin);
       vv?.removeEventListener("scroll", onWin);
       window.removeEventListener("orientationchange", onOrientation);

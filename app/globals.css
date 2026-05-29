@@ -120,8 +120,13 @@ body {
   max-width: 100%;
   min-width: 0;
   overflow-x: clip;
+  /**
+   * svh = small viewport height (주소창 항상 표시 기준 = 최소 높이).
+   * dvh 대신 svh 를 쓰면 iOS/Android 주소창 토글 시 body 가 늘어나는 흔들림이 없다.
+   * svh 미지원 환경 fallback 순서: 100vh → 100svh.
+   */
   min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
   background: var(--sam-bg-app);
   color: var(--sam-text-primary);
   font-family: var(--font-sans);
@@ -151,6 +156,16 @@ html.sam-store-order-hero-doc-root body {
 #__next,
 #root {
   background: var(--sam-bg-app);
+}
+
+/**
+ * interactiveWidget="resizes-content"(Android Chrome) 전역 보완.
+ * 키보드 등장 시 레이아웃 뷰포트가 줄어들어 fixed/absolute 요소가 위로 올라올 수 있다.
+ * 채팅 방은 `useChatViewportResize` 가 CSS vars 로 정밀 보정하므로 별도 처리 불필요.
+ * 일반 페이지 fixed bottom CTA·모달은 `env(safe-area-inset-bottom)` 만 적용하면 키보드 위에 안착.
+ */
+.sam-keyboard-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 ::selection {

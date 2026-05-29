@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   memo,
   type MutableRefObject,
+  useRef,
 } from "react";
 import {
   communityMessengerMemberAvatar,
@@ -217,36 +219,50 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     bumpCmR9Counter(streamRoomId, "avatarRenderCount");
   }
 
+  // DO NOT: bindMessageInteraction 에서 onPointerMove 취소 로직·touch-action 제거 금지.
+  // 모바일 WebView 에서 스크롤 제스처가 pointercancel 을 즉시 발생시켜 520ms 타이머가 항상 취소된다.
+  // touch-action:none 으로 브라우저 스크롤을 말풍선에서 막고, 이동 거리(8px) 초과 시 직접 취소한다.
+  const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const cancelLongPress = () => {
+    if (messageLongPressTimerRef.current) {
+      clearTimeout(messageLongPressTimerRef.current);
+      messageLongPressTimerRef.current = null;
+    }
+    messageLongPressItemRef.current = null;
+    longPressOriginRef.current = null;
+  };
+
   const bindMessageInteraction =
     item.messageType === "system"
       ? {}
       : item.messageType === "call_stub"
         ? {
+            style: { touchAction: "none" } as CSSProperties,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
+              if (!e.isPrimary) return;
               messageLongPressItemRef.current = item;
+              longPressOriginRef.current = { x: e.clientX, y: e.clientY };
+              // setPointerCapture: 손가락이 요소 밖으로 나가도 pointermove/up 이벤트 보장.
+              // DO NOT: 제거 시 살짝 이동하면 pointercancel → 타이머 취소.
+              try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
               const el = e.currentTarget;
               messageLongPressTimerRef.current = window.setTimeout(() => {
                 messageLongPressTimerRef.current = null;
+                longPressOriginRef.current = null;
                 setCallStubSheet({
                   item,
                   anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
                 });
               }, 520);
             },
-            onPointerUp: () => {
-              if (messageLongPressTimerRef.current) {
-                clearTimeout(messageLongPressTimerRef.current);
-                messageLongPressTimerRef.current = null;
-              }
-              messageLongPressItemRef.current = null;
+            onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
+              if (!longPressOriginRef.current) return;
+              const dx = e.clientX - longPressOriginRef.current.x;
+              const dy = e.clientY - longPressOriginRef.current.y;
+              if (Math.sqrt(dx * dx + dy * dy) > 8) cancelLongPress();
             },
-            onPointerCancel: () => {
-              if (messageLongPressTimerRef.current) {
-                clearTimeout(messageLongPressTimerRef.current);
-                messageLongPressTimerRef.current = null;
-              }
-              messageLongPressItemRef.current = null;
-            },
+            onPointerUp: cancelLongPress,
+            onPointerCancel: cancelLongPress,
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
               setCallStubSheet({
@@ -256,31 +272,32 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             },
           }
         : {
+            style: { touchAction: "none" } as CSSProperties,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
+              if (!e.isPrimary) return;
               messageLongPressItemRef.current = item;
+              longPressOriginRef.current = { x: e.clientX, y: e.clientY };
+              // setPointerCapture: 손가락이 요소 밖으로 나가도 pointermove/up 이벤트 보장.
+              // DO NOT: 제거 시 살짝 이동하면 pointercancel → 타이머 취소.
+              try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
               const el = e.currentTarget;
               messageLongPressTimerRef.current = window.setTimeout(() => {
                 messageLongPressTimerRef.current = null;
+                longPressOriginRef.current = null;
                 setMessageActionItem({
                   item,
                   anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
                 });
               }, 520);
             },
-            onPointerUp: () => {
-              if (messageLongPressTimerRef.current) {
-                clearTimeout(messageLongPressTimerRef.current);
-                messageLongPressTimerRef.current = null;
-              }
-              messageLongPressItemRef.current = null;
+            onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => {
+              if (!longPressOriginRef.current) return;
+              const dx = e.clientX - longPressOriginRef.current.x;
+              const dy = e.clientY - longPressOriginRef.current.y;
+              if (Math.sqrt(dx * dx + dy * dy) > 8) cancelLongPress();
             },
-            onPointerCancel: () => {
-              if (messageLongPressTimerRef.current) {
-                clearTimeout(messageLongPressTimerRef.current);
-                messageLongPressTimerRef.current = null;
-              }
-              messageLongPressItemRef.current = null;
-            },
+            onPointerUp: cancelLongPress,
+            onPointerCancel: cancelLongPress,
             onContextMenu: (e: ReactMouseEvent<HTMLDivElement>) => {
               e.preventDefault();
               setMessageActionItem({

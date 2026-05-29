@@ -46,6 +46,13 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: anchorRect.top, left: anchorRect.left });
   const [shareExpanded, setShareExpanded] = useState(false);
   const [deleteExpanded, setDeleteExpanded] = useState(false);
+  /**
+   * touch-through 방지: 롱프레스 손가락을 뗄 때 발생하는 click 이벤트가
+   * backdrop에 전달되어 팝오버가 즉시 닫히는 현상을 막는다.
+   * 열린 직후 350ms 안의 backdrop click/pointerdown은 무시한다.
+   * DO NOT: 이 guard를 제거하면 롱프레스 팝오버가 열리자마자 닫히는 "깜빡거림" 재현.
+   */
+  const openedAtRef = useRef<number>(Date.now());
 
   const roomKind = messageRoomKindForActions({
     roomType: snapshot.room.roomType,
@@ -159,7 +166,27 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
 
   const node = (
     <div className="fixed inset-0 z-[60]" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default bg-black/45" aria-label={t("nav_close")} onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default bg-black/45"
+        aria-label={t("nav_close")}
+        onPointerDown={(e) => {
+          if (Date.now() - openedAtRef.current < 350) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onClose();
+        }}
+        onClick={(e) => {
+          if (Date.now() - openedAtRef.current < 350) {
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+          onClose();
+        }}
+      />
       <div
         ref={panelRef}
         className="absolute z-[61] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"

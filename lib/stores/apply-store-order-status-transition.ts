@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
+import {
+  appendStoreOrderMessengerStatusTransition,
+  syncStoreOrderMessengerRoomContextMeta,
+} from "@/lib/community-messenger/store-order-chat-service";
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
 import { createStoreOrderStatusEvent } from "@/lib/stores/store-order-events";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
@@ -225,6 +228,8 @@ export async function applyStoreOrderStatusTransition(
     });
   }
 
+  // 채팅 system 메시지 삽입 — 실패해도 주문 상태 전이는 성공으로 처리하되 오류를 기록한다.
+  // DO NOT: catch { /* ignore */ } — 무음 실패 시 구매자 채팅에 상태 줄이 영구 누락된다.
   try {
     await appendStoreOrderMessengerStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
@@ -232,8 +237,27 @@ export async function applyStoreOrderStatusTransition(
       current,
       nextStatus
     );
-  } catch {
-    /* ignore */
+  } catch (err) {
+    console.error("[applyStoreOrderStatusTransition] messenger status transition failed", {
+      orderId: oid,
+      from: current,
+      to: nextStatus,
+      error: err,
+    });
+  }
+
+  // 방 summary(contextMeta)의 stepLabel·headline을 현재 주문 상태로 동기화한다.
+  // DO NOT: 이 호출을 제거하면 chrome 1줄 상태 표시가 최초 생성 시점에 영구 고정된다.
+  try {
+    await syncStoreOrderMessengerRoomContextMeta(
+      sb as import("@supabase/supabase-js").SupabaseClient<any>,
+      oid
+    );
+  } catch (err) {
+    console.error("[applyStoreOrderStatusTransition] sync context meta failed", {
+      orderId: oid,
+      error: err,
+    });
   }
 
   invalidateStoreOrderDetailSnapshot(

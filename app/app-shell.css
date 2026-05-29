@@ -26,9 +26,16 @@ html.sam-main-shell-viewport-lock body {
 
 
 :root {
-  /** 동적 뷰포트(키보드/주소창 변동 반영). 미지원 시 `--app-height-fallback` 사용 */
-  --app-height: 100dvh;
+  /**
+   * 안정 뷰포트(주소창 항상 표시 기준). iOS/Android 주소창 토글 시 레이아웃 흔들림 없음.
+   * `svh` 미지원 환경은 `100vh` fallback.
+   * 채팅 방 등 "전체 화면 고정"이 필요한 곳은 별도 `--app-height-dynamic` 을 쓴다.
+   */
+  --app-height: 100vh;
+  --app-height: 100svh;
   --app-height-fallback: 100vh;
+  /** 동적 뷰포트(채팅 방·전체화면 시트 전용 — 주소창 변동 반영) */
+  --app-height-dynamic: 100dvh;
 
   /** 안전 영역 — env() 미지원 환경에서는 0 */
   --safe-top: env(safe-area-inset-top, 0px);

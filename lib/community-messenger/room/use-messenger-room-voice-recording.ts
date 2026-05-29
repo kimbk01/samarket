@@ -327,6 +327,14 @@ export function useMessengerRoomVoiceRecording({
         return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
+      // setPointerCapture: 손가락이 버튼 밖으로 벗어나도 onPointerMove·onPointerUp 이벤트를
+      // 이 버튼에서 계속 수신한다. 없으면 slide-to-cancel·lock 제스처가 중도 소실된다.
+      // DO NOT: 이 호출을 제거하면 손가락 이탈 후 녹음 종료·취소가 동작하지 않는다.
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      } catch {
+        /* 일부 환경에서 실패 가능 — 무시하고 진행 */
+      }
       const session = ++voiceSessionIdRef.current;
       setVoiceMicArming(true);
       voicePointerDownRef.current = true;

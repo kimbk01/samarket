@@ -800,10 +800,12 @@ export function useMessengerRoomPhase2Controller() {
           onMessengerOutboundConfirmed(confirmedMessage, clientMessageId);
           return;
         }
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        // 서버 저장 성공이지만 응답에 message 객체 없음 — pending을 즉시 제거하면
+        // Realtime·refresh가 오기 전까지 화면에 빈 구간이 생긴다.
+        // pending을 유지한 채 Realtime INSERT 또는 refresh가 clientMessageId 로 교체하도록 한다.
         const scheduleRefresh = () => {
           const exists = roomMessagesRef.current.some(
-            (item) => item.clientMessageId === clientMessageId && item.id !== tempId && !item.pending
+            (item) => item.clientMessageId === clientMessageId && !item.pending
           );
           if (!exists) {
             void refresh(true);

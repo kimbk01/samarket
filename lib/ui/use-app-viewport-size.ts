@@ -13,15 +13,19 @@ import { useEffect, useRef, useState } from "react";
  *   (이 훅은 글쓰기·일반 시트·하단 고정 CTA 등 일반 화면 전용)
  *
  * width 기준(헌장):
- * - mobile: 0 ~ 767
- * - mobile-landscape-or-tablet: 768 ~ 1023
- * - tablet: 1024 ~ 1279
- * - desktop: 1280+
+ * - mobile:           0 ~ 767    폰 세로 (iPhone SE~Max, Galaxy S)
+ * - phone-landscape:  768 ~ 1023 + isLandscape=true + !isTouchTablet
+ * - tablet-portrait:  768 ~ 1023 + (!isLandscape OR isTouchTablet)
+ * - tablet:           1024 ~ 1279 (iPad Air/Pro 가로, Galaxy Tab 세로 등)
+ * - desktop:          1280+, maxTouchPoints < 2 (Galaxy Tab 가로 등 터치 기기는 tablet)
+ *
+ * isTouchTablet 판별: maxTouchPoints >= 2 + width 768~1279 범위
  */
 
 export type AppViewportBreakpoint =
   | "mobile"
-  | "mobile-landscape-or-tablet"
+  | "phone-landscape"
+  | "tablet-portrait"
   | "tablet"
   | "desktop";
 
@@ -32,10 +36,12 @@ export type AppViewportSize = {
   height: number;
   /** visualViewport.height — 키보드/주소창 변동 반영 (지원 안 하면 layout height 와 동일) */
   visualHeight: number;
-  /** width 기반 4단계 */
+  /** width + touch + orientation 기반 5단계 */
   breakpoint: AppViewportBreakpoint;
   /** 가로 모드 추정 — `width > height` (정사각·여백은 mobile 로 남음) */
   isLandscape: boolean;
+  /** 터치 태블릿 추정 — maxTouchPoints >= 2, width 768+ */
+  isTouchTablet: boolean;
 };
 
 const SSR_FALLBACK: AppViewportSize = {
@@ -44,12 +50,28 @@ const SSR_FALLBACK: AppViewportSize = {
   visualHeight: 720,
   breakpoint: "mobile",
   isLandscape: false,
+  isTouchTablet: false,
 };
 
-function pickBreakpoint(width: number): AppViewportBreakpoint {
-  if (width >= 1280) return "desktop";
+/**
+ * maxTouchPoints >= 2 이고 width 768+ 이면 터치 태블릿으로 추정.
+ * Galaxy Tab S9 가로(1280px)처럼 desktop 폭이어도 태블릿으로 분류할 때 사용.
+ */
+function detectTouchTablet(width: number): boolean {
+  if (typeof navigator === "undefined") return false;
+  return width >= 768 && navigator.maxTouchPoints >= 2;
+}
+
+function pickBreakpoint(width: number, isLandscape: boolean, isTouchTablet: boolean): AppViewportBreakpoint {
+  // 1280px+ 이지만 터치 기기(Galaxy Tab 가로 등) → tablet
+  if (width >= 1280) return isTouchTablet ? "tablet" : "desktop";
   if (width >= 1024) return "tablet";
-  if (width >= 768) return "mobile-landscape-or-tablet";
+  if (width >= 768) {
+    // 768~1023: 폰 가로 vs 태블릿 세로 구분
+    // isTouchTablet(maxTouchPoints>=2) 이거나 세로 모드이면 tablet-portrait
+    if (isTouchTablet || !isLandscape) return "tablet-portrait";
+    return "phone-landscape";
+  }
   return "mobile";
 }
 
@@ -59,12 +81,15 @@ function readCurrentSize(): AppViewportSize {
   const h = window.innerHeight;
   const vv = window.visualViewport;
   const visualH = vv?.height ?? h;
+  const isLandscape = w > h;
+  const isTouchTablet = detectTouchTablet(w);
   return {
     width: w,
     height: h,
     visualHeight: visualH,
-    breakpoint: pickBreakpoint(w),
-    isLandscape: w > h,
+    breakpoint: pickBreakpoint(w, isLandscape, isTouchTablet),
+    isLandscape,
+    isTouchTablet,
   };
 }
 
@@ -74,7 +99,8 @@ function viewportSizesEqual(a: AppViewportSize, b: AppViewportSize): boolean {
     a.height === b.height &&
     a.visualHeight === b.visualHeight &&
     a.breakpoint === b.breakpoint &&
-    a.isLandscape === b.isLandscape
+    a.isLandscape === b.isLandscape &&
+    a.isTouchTablet === b.isTouchTablet
   );
 }
 
@@ -124,7 +150,13 @@ export function useAppViewportBreakpoint(): AppViewportBreakpoint {
   return useAppViewportSize().breakpoint;
 }
 
-/** 모바일 폭(0~767px) 인지 여부만 필요할 때 */
+/** 폰 세로(0~767px) 인지 여부만 필요할 때 */
 export function useIsAppViewportMobile(): boolean {
   return useAppViewportBreakpoint() === "mobile";
+}
+
+/** 태블릿 이상(tablet-portrait·tablet·desktop) 인지 여부 */
+export function useIsAppViewportTabletOrAbove(): boolean {
+  const bp = useAppViewportBreakpoint();
+  return bp === "tablet-portrait" || bp === "tablet" || bp === "desktop";
 }

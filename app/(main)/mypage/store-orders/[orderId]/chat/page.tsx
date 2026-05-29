@@ -7,6 +7,7 @@ import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-o
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
+import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 
 /** 마이페이지 매장 주문 채팅 — RSC 선로딩 */
 export default function MypageStoreOrderChatPage({
@@ -75,5 +76,15 @@ async function MypageStoreOrderChatPageBody({
   );
   roomUrl.searchParams.set("from", "delivery");
   roomUrl.searchParams.set("cm_list", "delivery");
+  // cm_ctx 첨부: 클라이언트가 bootstrap+ensure 2왕복 없이 ensure 1왕복만 하도록 한다.
+  const cmCtx = encodeCommunityMessengerRoomCmCtx({
+    v: 1,
+    kind: "delivery",
+    storeOrderId: orderId,
+    orderNo: result.orderNo,
+    storeDisplayName: result.storeName,
+    headline: result.storeName,
+  });
+  roomUrl.searchParams.set("cm_ctx", cmCtx);
   redirect(`${roomUrl.pathname}${roomUrl.search}`);
 }
