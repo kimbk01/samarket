@@ -6,7 +6,6 @@ import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeader
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
-import { MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
@@ -33,7 +32,6 @@ export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string
       <SectionHeader
         embedded
         titleAlign="left"
-        leftSlot={<MyHubHeaderInfoHubTrigger />}
         title={segmentTitle}
         rightSlot={
           <div className={samTier1HeaderIconCluster}>

@@ -17,7 +17,8 @@ type NavPerfRow = Record<string, unknown>;
 test.describe.configure({ timeout: 240_000 });
 
 test.describe("nav-perf idle bottom-nav (터미널 덤프)", () => {
-  test.beforeEach(async ({ context }) => {
+  test.beforeEach(async ({ page, context }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
     await context.addInitScript(() => {
       try {
         sessionStorage.setItem("samarket:debug:runtime", "1");

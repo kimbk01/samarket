@@ -79,6 +79,8 @@ export type ConditionalAppShellResolvedFlags = {
   isMypageHub: boolean;
   showFloat: boolean;
   showBottomNav: boolean;
+  /** Desktop 좌측 메인 탭 레일 — `showBottomNav` 와 동일 경로 자격(뷰포트는 Shell 클라이언트에서 AND) */
+  showMainDesktopSideNavEligible: boolean;
   showOwnerLiteStoreBar: boolean;
   mountGlobalRealtimeChromeOnTradeOrStoreDetail: boolean;
   mountGlobalRealtimeChrome: boolean;
@@ -320,6 +322,7 @@ export function resolveConditionalAppShellFlags(
     isMypageHub,
     showFloat,
     showBottomNav,
+    showMainDesktopSideNavEligible: showBottomNav,
     showOwnerLiteStoreBar,
     mountGlobalRealtimeChromeOnTradeOrStoreDetail,
     mountGlobalRealtimeChrome,

@@ -23,35 +23,18 @@ import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { MyInfoProfileCard } from "@/components/mypage/myinfo/MyInfoProfileCard";
 import { DeliveryStyleAddressPickerSheet } from "@/components/addresses/DeliveryStyleAddressPickerSheet";
 import { buildMypageAddressesHrefFromPath, resolveAddressFlowEntryPath } from "@/lib/addresses/mypage-addresses-return-to";
-import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
-import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
-import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
-import { MyInfoLanguageToggleRow } from "@/components/mypage/myinfo/MyInfoLanguageToggleRow";
+import { MyInfoQuickAccessSection } from "@/components/mypage/myinfo/MyInfoQuickAccessSection";
 import {
-  Bell,
-  BookOpen,
-  CalendarDays,
-  CreditCard,
-  Globe,
-  Heart,
-  HelpCircle,
-  Languages,
-  MessageCircle,
-  Package,
-  ReceiptText,
-  Settings,
-  Shield,
-  ShoppingBag,
-  Store,
-  Truck,
-  UserRound,
-} from "lucide-react";
+  MyInfoAccountMenuSection,
+  MyInfoServiceMenuSection,
+  MyInfoStoreMenuSection,
+  MyInfoSupportMenuSection,
+} from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
 
-
-const ICON = "h-[18px] w-[18px]";
+const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
 export function MyPageHomeDashboard({
   profile,
@@ -67,12 +50,10 @@ export function MyPageHomeDashboard({
   overviewCounts: MyPageOverviewCounts;
   showBanner?: boolean;
   bannerSlot?: React.ReactNode;
-  /** From RSC — skips client list fetches for order/post counts. */
   homeDashboardCounts?: MyPageHomeDashboardCounts | null;
-  /** From RSC — 대표 주소 첫 페인트(클라 fetch 대기 없음). */
   addressDefaultsSnapshot?: AddressDefaultsSnapshot | null;
 }) {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const addressesMenuHref = buildMypageAddressesHrefFromPath(
@@ -95,12 +76,10 @@ export function MyPageHomeDashboard({
     initialSnapshot: addressDefaultsSnapshot,
   });
   const countsFetchScheduledRef = useRef(false);
-  const hasRscStoreOrderCount =
-    typeof homeDashboardCounts?.storeOrderCount === "number";
+  const hasRscStoreOrderCount = typeof homeDashboardCounts?.storeOrderCount === "number";
 
   const viewerId = profile.id?.trim() ?? "";
 
-  /** RSC buyer order count when present; otherwise capped list endpoints as fallback. */
   useEffect(() => {
     if (!viewerId) {
       setOrderCount(null);
@@ -125,27 +104,18 @@ export function MyPageHomeDashboard({
         if (cancelled) return;
         setOrderCount(Array.isArray(oj?.orders) ? oj.orders.length : 0);
       } catch {
-        if (!cancelled) {
-          setOrderCount(null);
-        }
+        if (!cancelled) setOrderCount(null);
       }
     };
 
-    /**
-     * MI2: fallback count fetch must not compete with first visible paint.
-     * - schedule after hydration on an idle slice (or short delay fallback)
-     * - failure must never block UI
-     */
     const schedule = () => {
       if (cancelled) return;
       void run();
     };
 
-    const w = typeof window !== "undefined" ? (window as any) : null;
-    const idle: ((cb: () => void, opts?: { timeout?: number }) => number) | null =
-      w && typeof w.requestIdleCallback === "function" ? w.requestIdleCallback.bind(w) : null;
-    const cancelIdle: ((id: number) => void) | null =
-      w && typeof w.cancelIdleCallback === "function" ? w.cancelIdleCallback.bind(w) : null;
+    const w = typeof window !== "undefined" ? (window as Window & { requestIdleCallback?: typeof requestIdleCallback; cancelIdleCallback?: typeof cancelIdleCallback }) : null;
+    const idle = w?.requestIdleCallback?.bind(w) ?? null;
+    const cancelIdle = w?.cancelIdleCallback?.bind(w) ?? null;
 
     let idleId: number | null = null;
     let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -220,7 +190,6 @@ export function MyPageHomeDashboard({
     t,
   ]);
 
-  /** 스타벅스형 내정보 — 프로필 편집과 동일 크림·카드·섹션 */
   return (
     <div className={MYPAGE_HOME_BODY_CLASS}>
       {showBanner && bannerSlot ? <div className="mb-3 shrink-0">{bannerSlot}</div> : null}
@@ -254,122 +223,47 @@ export function MyPageHomeDashboard({
 
         <MyInfoStatGrid items={statRows} />
 
-        <div className="grid grid-cols-1 items-start gap-3 sm:gap-4 lg:grid-cols-2">
-          <MyInfoMenuSection title={safeT("mypage_comp_section_trade")}>
-            <MyInfoMenuItem
-              first
-              href="/mypage/section/trade/sales"
-              title={safeT("mypage_comp_menu_trade_active_title")}
-              icon={<Package className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/trade/favorites"
-              title={safeT("mypage_comp_menu_trade_favorites_title")}
-              icon={<Heart className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/my/offers"
-              title={safeT("mypage_comp_menu_trade_offers_title")}
-              icon={<ReceiptText className={ICON} strokeWidth={2} />}
-            />
-          </MyInfoMenuSection>
-
-          <MyInfoMenuSection title={safeT("mypage_comp_section_community")}>
-            <MyInfoMenuItem
-              first
-              href="/mypage/section/community/posts"
-              title={safeT("mypage_comp_menu_community_posts_title")}
-              icon={<BookOpen className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/community/comments"
-              title={safeT("mypage_comp_menu_community_activity_title")}
-              icon={<MessageCircle className={ICON} strokeWidth={2} />}
-            />
-          </MyInfoMenuSection>
-
-          <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
-            <MyInfoMenuItem
-              first
-              href="/stores/owner/apply"
-              title={safeT("mypage_comp_menu_store_register_title")}
-              icon={<Store className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/store/orders"
-              title={safeT("mypage_comp_menu_store_order_history_title")}
-              icon={<ShoppingBag className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/store/rider"
-              title={safeT("mypage_comp_menu_store_rider_title")}
-              icon={<Truck className={ICON} strokeWidth={2} />}
-            />
-          </MyInfoMenuSection>
-
-          <MyInfoMenuSection title={safeT("mypage_comp_section_account_menu")}>
-            <MyInfoMenuItem
-              first
-              href={addressesMenuHref}
-              title={safeT("mypage_comp_menu_account_address_title")}
-              icon={
-                <AddressKindHeadPin kind="general" className={`${ICON} [&_svg]:h-[18px] [&_svg]:w-[15px]`} />
-              }
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/store/payment"
-              title={safeT("mypage_comp_menu_account_payment_title")}
-              icon={<CreditCard className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/settings/device-permissions"
-              title={safeT("mypage_comp_menu_account_security_title")}
-              icon={<Shield className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/settings/notifications"
-              title={safeT("mypage_comp_menu_account_notifications_title")}
-              icon={<Bell className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoLanguageToggleRow icon={<Languages className={ICON} strokeWidth={2} />} />
-            <MyInfoMenuItem
-              href="/mypage/section/settings/country"
-              title={safeT("mypage_comp_menu_account_region_title")}
-              icon={<Globe className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/settings"
-              title={safeT("mypage_comp_menu_account_settings_title")}
-              icon={<Settings className={ICON} strokeWidth={2} />}
-            />
-          </MyInfoMenuSection>
-
-          <MyInfoMenuSection title={safeT("mypage_comp_section_support")}>
-            <MyInfoMenuItem
-              first
-              href="/mypage/section/settings/support"
-              title={safeT("mypage_comp_menu_support_cs_title")}
-              icon={<HelpCircle className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/settings/notices"
-              title={safeT("mypage_comp_menu_support_notices_title")}
-              icon={<UserRound className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/settings/events"
-              title={safeT("mypage_comp_menu_support_events_title")}
-              icon={<CalendarDays className={ICON} strokeWidth={2} />}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/settings/terms"
-              title={safeT("mypage_comp_menu_support_terms_title")}
-              icon={<Shield className={ICON} strokeWidth={2} />}
-            />
-          </MyInfoMenuSection>
+        {/* Mobile: icon quick access + full-width list sections */}
+        <div className="flex flex-col gap-3 md:hidden">
+          <MyInfoQuickAccessSection variant="icons" />
+          <MyInfoStoreMenuSection />
+          <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
+          <MyInfoServiceMenuSection />
+          <MyInfoSupportMenuSection />
+          <MyPageAdminMenuEntry starbucks />
         </div>
 
-        <MyPageAdminMenuEntry starbucks />
+        {/* Tablet: 2-column column stacks */}
+        <div className="hidden grid-cols-1 gap-3 md:grid md:grid-cols-2 md:gap-4 min-[1025px]:hidden">
+          <div className={COLUMN_STACK_CLASS}>
+            <MyInfoQuickAccessSection variant="list" />
+            <MyInfoSupportMenuSection />
+            <MyInfoServiceMenuSection />
+          </div>
+          <div className={COLUMN_STACK_CLASS}>
+            <MyInfoStoreMenuSection />
+            <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
+          </div>
+          <div className="md:col-span-2">
+            <MyPageAdminMenuEntry starbucks />
+          </div>
+        </div>
+
+        {/* Desktop: 3-column column stacks */}
+        <div className="hidden min-[1025px]:grid min-[1025px]:grid-cols-3 min-[1025px]:gap-4">
+          <div className={COLUMN_STACK_CLASS}>
+            <MyInfoQuickAccessSection variant="list" />
+            <MyInfoSupportMenuSection />
+          </div>
+          <div className={COLUMN_STACK_CLASS}>
+            <MyInfoStoreMenuSection />
+            <MyPageAdminMenuEntry starbucks />
+          </div>
+          <div className={COLUMN_STACK_CLASS}>
+            <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
+            <MyInfoServiceMenuSection />
+          </div>
+        </div>
       </div>
 
       <DeliveryStyleAddressPickerSheet
@@ -418,4 +312,3 @@ export function MyPageHomeDashboard({
     </div>
   );
 }
-

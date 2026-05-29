@@ -17,6 +17,7 @@ import {
 
 /**
  * 내정보 프로필 — 스타벅스 팔레트 · 프로필 편집과 동일 타이포 · 하단 액션(수정·로그아웃).
+ * md+ : 가로형 — 좌 프로필·우 액션 버튼, 주소는 전체 폭.
  */
 export function MyInfoProfileCard({
   avatarUrl,
@@ -56,20 +57,45 @@ export function MyInfoProfileCard({
     </span>
   );
 
+  const actionButtons = (
+    <>
+      <Link href={editHref} className={`${MYPAGE_HOME_OUTLINE_BTN_CLASS} md:min-w-[120px] md:flex-none`}>
+        {t("mypage_comp_profile_edit")}
+      </Link>
+      {onLogoutPress ? (
+        <button
+          type="button"
+          onClick={onLogoutPress}
+          className={`${MYPAGE_HOME_GHOST_BTN_CLASS} md:min-w-[120px] md:flex-none`}
+          aria-label={t("mypage_comp_settings_block_logout")}
+        >
+          <LogOut className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden />
+          <span>{t("mypage_comp_settings_block_logout")}</span>
+        </button>
+      ) : null}
+    </>
+  );
+
   return (
     <article className={MYINFO_SURFACE.profileCard}>
       <div className={`${MYINFO_SURFACE.cardPad} space-y-4`}>
-        <div className="flex items-start gap-3.5">
-          <Link href={editHref} className="block shrink-0" aria-label={t("mypage_comp_profile_image_aria")}>
-            <SamarketUserAvatar avatarUrl={avatarUrl} sizePx={72} badge="verified" alt="" />
-          </Link>
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex min-w-0 items-start gap-3.5">
+            <Link href={editHref} className="block shrink-0" aria-label={t("mypage_comp_profile_image_aria")}>
+              <SamarketUserAvatar avatarUrl={avatarUrl} sizePx={72} badge="verified" alt="" />
+            </Link>
 
-          <div className="min-w-0 flex-1 pt-0.5">
-            <p className={`${MYINFO_TYPO.profileName} truncate text-left`}>{displayName}</p>
-            {atUsername ? (
-              <p className={`mt-0.5 truncate text-left ${MYINFO_TYPO.handle}`}>{atUsername}</p>
-            ) : null}
-            {rightMetaSlot ? <div className="mt-2.5 flex justify-start">{rightMetaSlot}</div> : null}
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className={`${MYINFO_TYPO.profileName} truncate text-left`}>{displayName}</p>
+              {atUsername ? (
+                <p className={`mt-0.5 truncate text-left ${MYINFO_TYPO.handle}`}>{atUsername}</p>
+              ) : null}
+              {rightMetaSlot ? <div className="mt-2.5 flex justify-start">{rightMetaSlot}</div> : null}
+            </div>
+          </div>
+
+          <div className="hidden shrink-0 flex-col gap-2 md:flex md:items-stretch md:pt-0.5">
+            {actionButtons}
           </div>
         </div>
 
@@ -92,22 +118,7 @@ export function MyInfoProfileCard({
         )}
       </div>
 
-      <div className={MYPAGE_HOME_CARD_FOOTER_CLASS}>
-        <Link href={editHref} className={MYPAGE_HOME_OUTLINE_BTN_CLASS}>
-          {t("mypage_comp_profile_edit")}
-        </Link>
-        {onLogoutPress ? (
-          <button
-            type="button"
-            onClick={onLogoutPress}
-            className={MYPAGE_HOME_GHOST_BTN_CLASS}
-            aria-label={t("mypage_comp_settings_block_logout")}
-          >
-            <LogOut className="h-[15px] w-[15px]" strokeWidth={2.25} aria-hidden />
-            <span>{t("mypage_comp_settings_block_logout")}</span>
-          </button>
-        ) : null}
-      </div>
+      <div className={`${MYPAGE_HOME_CARD_FOOTER_CLASS} md:hidden`}>{actionButtons}</div>
     </article>
   );
 }

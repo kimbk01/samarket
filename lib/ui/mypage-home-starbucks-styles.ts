@@ -5,6 +5,7 @@ import {
   ADDR_SB_GREEN_DARK,
   ADDR_SB_MINT,
 } from "@/lib/ui/address-list-starbucks-styles";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 
 export {
   ADDR_SB_COFFEE,
@@ -19,7 +20,7 @@ export const MYPAGE_HOME_PAGE_BG_CLASS = "min-h-0 bg-[#F2F0EB]";
 
 /** 모바일·태블릿 본문 — 하단 여백은 앱 셸 `MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV` 에만 의존 */
 export const MYPAGE_HOME_BODY_CLASS =
-  "mx-auto w-full min-w-0 max-w-[768px] px-4 pt-2 pb-0";
+  `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} px-4 pt-2 pb-0`;
 
 export const MYPAGE_HOME_CARD_CLASS =
   "overflow-hidden rounded-ui-rect border border-[#00704A]/12 bg-white shadow-[0_1px_0_rgba(30,57,50,0.04)]";
@@ -83,7 +84,18 @@ export const MYPAGE_HOME_GHOST_BTN_CLASS =
 
 export const MYPAGE_HOME_DANGER_TEXT_CLASS = "text-[#C0392B]";
 
-export const MYPAGE_HOME_STAT_GRID_CLASS = "grid grid-cols-2 gap-px bg-[#D4E9E2]/60 sm:grid-cols-5";
+export const MYPAGE_HOME_STAT_GRID_CLASS = "grid grid-cols-2 gap-px bg-[#D4E9E2]/60 md:grid-cols-5";
+
+export const MYPAGE_HOME_QUICK_GRID_CLASS = "grid grid-cols-5 gap-px bg-[#D4E9E2]/60";
+
+export const MYPAGE_HOME_QUICK_ICON_CELL_CLASS =
+  "flex min-h-[88px] flex-col items-center justify-center gap-1.5 bg-white px-1 py-3 text-center transition-colors hover:bg-[#F2F0EB]/50 active:bg-[#E8F3EE]";
+
+export const MYPAGE_HOME_QUICK_ICON_WRAP_CLASS =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#D4E9E2] text-[#00704A]";
+
+export const MYPAGE_HOME_QUICK_ICON_LABEL_CLASS =
+  "line-clamp-2 text-[10px] font-semibold leading-tight text-[#1E3932]";
 
 export const MYPAGE_HOME_STAT_CELL_CLASS =
   "flex min-h-[76px] flex-col justify-center bg-white px-3 py-3 transition-colors hover:bg-[#F2F0EB]/50 active:bg-[#E8F3EE]";

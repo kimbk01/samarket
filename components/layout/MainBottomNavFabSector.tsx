@@ -18,6 +18,11 @@ import {
   MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS,
   MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
+import { useIsDesktopShellViewport } from "@/hooks/use-is-desktop-shell-viewport";
+import {
+  MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_BOTTOM_CLASS,
+  MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_LEFT_CLASS,
+} from "@/lib/layout/main-desktop-side-nav-layout";
 import {
   isMainBottomNavFabHrefActive,
   resolveMainBottomNavFabForPath,
@@ -74,6 +79,7 @@ export function MainBottomNavFabSector() {
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const isDesktopShell = useIsDesktopShellViewport();
   const tabs = useMainBottomNavTabs();
   const fabConfigResolved = useMemo(
     () => resolveMainBottomNavFabForPath(pathname, tabs),
@@ -250,7 +256,11 @@ export function MainBottomNavFabSector() {
         data-fab-shell-expanded={shellExpanded ? "true" : "false"}
         data-panel-enter-ready={panelEnterReady ? "true" : "false"}
         data-fab-surface-alpha={FAB_SURFACE_ALPHA}
-        className={`main-bottom-nav-fab-sector pointer-events-none fixed inset-x-0 ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS}`}
+        className={`main-bottom-nav-fab-sector pointer-events-none fixed ${
+          isDesktopShell ? "inset-x-auto right-0" : "inset-x-0"
+        } ${MAIN_BOTTOM_NAV_FAB_SECTOR_Z_CLASS} ${
+          isDesktopShell ? MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_BOTTOM_CLASS : MAIN_BOTTOM_NAV_FAB_BOTTOM_CLASS
+        } ${isDesktopShell ? MAIN_BOTTOM_NAV_FAB_DESKTOP_SIDE_NAV_LEFT_CLASS : ""}`}
         style={fabRootStyle}
       >
         <div

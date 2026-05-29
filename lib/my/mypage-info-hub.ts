@@ -2,14 +2,14 @@
 export const MYPAGE_MAIN_HREF = "/mypage" as const;
 
 /**
- * 전역 1단 헤더 우측 **톱니** 및 계정·설정 “앱 설정 허브” 진입 — 설정 대메뉴 목록.
+ * 레거시 앱 설정 허브 진입 — 햄버거 패널 제거 후 내정보 홈으로 통일.
  * 예전 `?sheet=info` URL은 호환용으로만 유지합니다.
  */
 export const MYPAGE_INFO_HUB_SHEET_PARAM = "sheet";
 export const MYPAGE_INFO_HUB_SHEET_VALUE = "info";
 
 export function buildMypageInfoHubHref(): string {
-  return "/mypage/section/settings";
+  return MYPAGE_MAIN_HREF;
 }
 
 /** @deprecated 직접 문자열 대신 `buildMypageInfoHubHref()` 사용 권장 */

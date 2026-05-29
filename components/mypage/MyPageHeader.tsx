@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
+import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
 import { SectionHeader } from "@/components/layout/sector-header";
 
 export function MyPageHeader() {
@@ -10,7 +10,7 @@ export function MyPageHeader() {
     <SectionHeader
       title={t("mypage_comp_header_title")}
       titleAlign="left"
-      rightSlot={<MyHubHeaderInfoHubTrigger />}
+      rightSlot={<MyHubHeaderActions />}
     />
   );
 }

@@ -16,8 +16,15 @@ import {
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import {
   BOTTOM_NAV_SHELL,
+  MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS,
+  MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS,
   resolveBottomNavScrollHideOuterClass,
 } from "@/lib/main-menu/bottom-nav-config";
+import { useIsDesktopShellViewport } from "@/hooks/use-is-desktop-shell-viewport";
+import {
+  MAIN_DESKTOP_SIDE_NAV_CONTENT_INSET_CLASS,
+  MAIN_SCROLL_PADDING_WITH_DESKTOP_SIDE_NAV_CLASS,
+} from "@/lib/layout/main-desktop-side-nav-layout";
 import {
   mainBottomNavPrefetchTriggerKey,
   type MainBottomNavPrefetchDomain,
@@ -73,6 +80,10 @@ const MainBottomNavFabSectorLazy = dynamic(
   { ssr: false }
 );
 const BottomNavLazy = dynamic(() => import("./BottomNav").then((m) => m.BottomNav), { ssr: false });
+const MainDesktopSideNavLazy = dynamic(
+  () => import("./MainDesktopSideNav").then((m) => m.MainDesktopSideNav),
+  { ssr: false }
+);
 const CommunityMessengerRoomOpeningOverlayHostLazy = dynamic(
   () =>
     import("@/components/community-messenger/room/CommunityMessengerRoomOpeningOverlayHost").then(
@@ -117,18 +128,12 @@ export function ConditionalAppShell({
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
     [pathname, regionBarInLayout]
   );
+  const isDesktopShell = useIsDesktopShellViewport();
   const storeOwnerFlyoutSuppressesBottomNav = useSyncExternalStore(
     subscribeStoreOwnerMainBottomNavSuppressed,
     getStoreOwnerMainBottomNavSuppressed,
     () => false
   );
-  const mainBottomClassLive = useMemo(() => {
-    if (!storeOwnerFlyoutSuppressesBottomNav) return f.mainBottomClass;
-    if (f.isChatRoomDetail || f.isCommunityMessengerSurface || f.isTradeMeetSpotPickRoute) {
-      return f.mainBottomClass;
-    }
-    return "pb-4";
-  }, [storeOwnerFlyoutSuppressesBottomNav, f]);
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const { isOpen: philifeWriteSheetOpen } = usePhilifeWriteSheet();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -152,8 +157,26 @@ export function ConditionalAppShell({
     !suppressBottomNavForWriteSheet &&
     !(isMessengerStackSurface && headerMessengerFromPhilife) &&
     !storeOwnerFlyoutSuppressesBottomNav;
+  const showDesktopSideNav =
+    showBottomNavEffective && isDesktopShell && f.showMainDesktopSideNavEligible;
+  const showBottomNavMounted = showBottomNavEffective && !isDesktopShell;
+  const mainBottomClassLive = useMemo(() => {
+    let base = !storeOwnerFlyoutSuppressesBottomNav
+      ? f.mainBottomClass
+      : f.isChatRoomDetail || f.isCommunityMessengerSurface || f.isTradeMeetSpotPickRoute
+        ? f.mainBottomClass
+        : "pb-4";
+    if (showDesktopSideNav) {
+      if (base === MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS) {
+        base = MAIN_SCROLL_PADDING_WITH_DESKTOP_SIDE_NAV_CLASS;
+      } else if (base === MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS) {
+        base = "pb-[calc(env(safe-area-inset-bottom,0px)+80px)]";
+      }
+    }
+    return base;
+  }, [storeOwnerFlyoutSuppressesBottomNav, f, showDesktopSideNav]);
   const bottomNavScrollHideEnabled =
-    showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
+    showBottomNavMounted && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
   const heroMenuSurface = f.isStoreOrderHeroMenuSurface;
   const mainScrollInMainColumn = resolvesMainScrollInMainColumn({
@@ -227,9 +250,16 @@ export function ConditionalAppShell({
     {/** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */}
     <div
       className={`app-shell w-full min-w-0 ${
+        showDesktopSideNav ? MAIN_DESKTOP_SIDE_NAV_CONTENT_INSET_CLASS : ""
+      } ${
         hubScrollColumn ? `min-h-0 flex-1 ${MAIN_HUB_SCROLL_SHELL_ROOT_CLASS}` : mainShellInnerRootClass
       } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
     >
+      {showDesktopSideNav ? (
+        <Suspense fallback={null}>
+          <MainDesktopSideNavLazy />
+        </Suspense>
+      ) : null}
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHostLazy />
@@ -243,7 +273,7 @@ export function ConditionalAppShell({
           {mainBodyTransition}
         </main>
       )}
-      {showBottomNavEffective ? (
+      {showBottomNavMounted ? (
         <Suspense
           fallback={
             <div className={BOTTOM_NAV_SHELL.outerClassName} aria-hidden>
@@ -264,7 +294,7 @@ export function ConditionalAppShell({
           />
         </Suspense>
       ) : null}
-      {showBottomNavEffective && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
+      {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
         <HomeTradeHubFloatingBarLazy />
       ) : null}
       {f.showMainBottomNavFabSector ? <MainBottomNavFabSectorLazy /> : null}

@@ -13,7 +13,7 @@ import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerifica
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
-import { MypageInfoHubPanelProvider, useMypageInfoHubPanel } from "@/contexts/MypageInfoHubPanelContext";
+import { MypageInfoHubPanelProvider } from "@/contexts/MypageInfoHubPanelContext";
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
@@ -67,8 +67,6 @@ const TradeChatEntryCreatingOverlayLazy = dynamic(
   { ssr: false }
 );
 
-const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
-const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
 const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
 
 function AppWideRuntimePerfHooks() {
@@ -112,20 +110,8 @@ function AppWideRuntimePerfHooks() {
 }
 
 function MainShellPushLayer({ children }: { children: ReactNode }) {
-  const { open } = useMypageInfoHubPanel();
-  const pushStyle = open
-    ? {
-        transform: `translate3d(${INFO_HUB_PANEL_PUSH_WIDTH},0,0)`,
-        transition: INFO_HUB_PANEL_PUSH_TRANSITION,
-        willChange: "transform" as const,
-      }
-    : undefined;
   return (
-    <div
-      data-main-shell-root
-      className="flex min-h-0 min-w-0 w-full flex-1 flex-col"
-      style={pushStyle}
-    >
+    <div data-main-shell-root className="flex min-h-0 min-w-0 w-full flex-1 flex-col">
       {children}
     </div>
   );

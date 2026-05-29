@@ -115,6 +115,26 @@ describe("orders hub store review shell", () => {
   });
 });
 
+describe("desktop side nav eligibility", () => {
+  it("/mypage hub enables desktop side nav eligibility with bottom nav", () => {
+    const f = resolveConditionalAppShellFlags("/mypage", false);
+    expect(f.showBottomNav).toBe(true);
+    expect(f.showMainDesktopSideNavEligible).toBe(true);
+  });
+
+  it("/mypage/trade/chat room hides desktop side nav eligibility", () => {
+    const f = resolveConditionalAppShellFlags("/mypage/trade/chat/room-1", false);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.showMainDesktopSideNavEligible).toBe(false);
+  });
+
+  it("/mypage/addresses hides desktop side nav eligibility", () => {
+    const f = resolveConditionalAppShellFlags("/mypage/addresses", false);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.showMainDesktopSideNavEligible).toBe(false);
+  });
+});
+
 describe("mypage address tier1 titles", () => {
   it("/mypage/addresses uses address_manage_title not dibaY fallback", () => {
     const f = resolveMainTier1Subpage("/mypage/addresses");
