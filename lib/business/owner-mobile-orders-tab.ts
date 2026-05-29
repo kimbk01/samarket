@@ -55,7 +55,7 @@ export function orderMatchesOwnerMobileOrdersTabId(
     case "done":
       return s === "completed";
     case "cancelled":
-      return s === "cancelled" || s === "refunded" || s === "refund_requested";
+      return s === "cancelled" || s === "cancel_requested" || s === "refunded" || s === "refund_requested";
     default:
       return false;
   }
@@ -66,7 +66,7 @@ export function ownerMobileOrdersTabForStatus(orderStatus: string): OwnerMobileO
   const s = orderStatus.trim();
   if (s === "pending") return "new";
   if (s === "completed") return "done";
-  if (s === "cancelled" || s === "refunded" || s === "refund_requested") return "cancelled";
+  if (s === "cancelled" || s === "cancel_requested" || s === "refunded" || s === "refund_requested") return "cancelled";
   if (s === "delivering" || s === "arrived") return "shipping";
   if (s === "accepted" || s === "preparing" || s === "ready_for_pickup") return "progress";
   return "progress";

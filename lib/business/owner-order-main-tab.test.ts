@@ -13,6 +13,7 @@ describe("ownerOrderMainTabForStatus", () => {
 
   it("maps terminal states", () => {
     expect(ownerOrderMainTabForStatus("completed")).toBe("done");
+    expect(ownerOrderMainTabForStatus("cancel_requested")).toBe("cancelled");
     expect(ownerOrderMainTabForStatus("cancelled")).toBe("cancelled");
   });
 });

@@ -285,6 +285,140 @@ export async function adminSetRefundRequestedStoreOrder(
   return { ok: true };
 }
 
+export async function adminApproveStoreOrderCancelRequest(
+  sb: SupabaseClient,
+  orderId: string,
+  audit: AdminOrderOpsAudit
+): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
+  const oid = orderId.trim();
+  if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
+
+  const { data: order, error: oErr } = await sb
+    .from("store_orders")
+    .select("id, store_id, order_status")
+    .eq("id", oid)
+    .maybeSingle();
+  if (oErr || !order) return { ok: false, error: "order_not_found", httpStatus: 404 };
+
+  const { data: reqRow, error: rErr } = await sb
+    .from("store_order_cancel_requests")
+    .select("id, status, previous_order_status")
+    .eq("order_id", oid)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (rErr) return { ok: false, error: rErr.message, httpStatus: 500 };
+  if (!reqRow?.id) return { ok: false, error: "cancel_request_not_found", httpStatus: 404 };
+
+  const force = await adminForceCancelStoreOrder(sb, oid, audit);
+  if (!force.ok) return force;
+
+  await sb
+    .from("store_order_cancel_requests")
+    .update({
+      status: "approved",
+      approved_by: audit.adminUserId,
+      approved_at: new Date().toISOString(),
+      refund_status: "pending",
+    })
+    .eq("id", reqRow.id as string);
+
+  void createStoreOrderEvent(sb, {
+    orderId: oid,
+    storeId: order.store_id as string,
+    actorUserId: audit.adminUserId,
+    actorRole: "admin",
+    eventType: "cancel_approved",
+    fromStatus: order.order_status as string,
+    toStatus: "cancelled",
+    metadata: { source: "admin_cancel_request_approve" },
+  });
+
+  return { ok: true };
+}
+
+export async function adminRejectStoreOrderCancelRequest(
+  sb: SupabaseClient,
+  orderId: string,
+  rejectedReason: string,
+  audit: AdminOrderOpsAudit
+): Promise<{ ok: true } | { ok: false; error: string; httpStatus: number }> {
+  const oid = orderId.trim();
+  if (!oid) return { ok: false, error: "missing_order_id", httpStatus: 400 };
+
+  const { data: order, error: oErr } = await sb
+    .from("store_orders")
+    .select("id, store_id, order_status")
+    .eq("id", oid)
+    .maybeSingle();
+  if (oErr || !order) return { ok: false, error: "order_not_found", httpStatus: 404 };
+
+  const { data: reqRow, error: rErr } = await sb
+    .from("store_order_cancel_requests")
+    .select("id, status, previous_order_status")
+    .eq("order_id", oid)
+    .eq("status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (rErr) return { ok: false, error: rErr.message, httpStatus: 500 };
+  if (!reqRow?.id) return { ok: false, error: "cancel_request_not_found", httpStatus: 404 };
+
+  const reason = rejectedReason.trim().slice(0, 500) || "Rejected by admin";
+  const { error: uReqErr } = await sb
+    .from("store_order_cancel_requests")
+    .update({
+      status: "rejected",
+      rejected_at: new Date().toISOString(),
+      rejected_reason: reason,
+      refund_status: "not_applicable",
+    })
+    .eq("id", reqRow.id as string);
+  if (uReqErr) return { ok: false, error: uReqErr.message, httpStatus: 500 };
+
+  const previousStatus =
+    typeof (reqRow as { previous_order_status?: unknown }).previous_order_status === "string" &&
+    (reqRow as { previous_order_status?: string }).previous_order_status?.trim()
+      ? (reqRow as { previous_order_status: string }).previous_order_status.trim()
+      : "preparing";
+
+  const { error: uOrderErr } = await sb
+    .from("store_orders")
+    .update({ order_status: previousStatus, needs_admin_attention: false })
+    .eq("id", oid)
+    .eq("order_status", "cancel_requested");
+  if (uOrderErr) return { ok: false, error: uOrderErr.message, httpStatus: 500 };
+
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: audit.adminUserId,
+    target_type: "store_order",
+    target_id: oid,
+    action: "store_order.admin_reject_cancel_request",
+    before_json: { order_status: order.order_status as string },
+    after_json: { rejected_reason: reason },
+    ip: audit.ip ?? null,
+    user_agent: audit.user_agent ?? null,
+  });
+
+  void createStoreOrderEvent(sb, {
+    orderId: oid,
+    storeId: order.store_id as string,
+    actorUserId: audit.adminUserId,
+    actorRole: "admin",
+    eventType: "cancel_rejected",
+    fromStatus: order.order_status as string,
+    toStatus: previousStatus,
+    message: reason,
+    metadata: { source: "admin_cancel_request_reject", rejected_reason: reason },
+  });
+
+  const ownerId = await loadOwnerUserId(sb, order.store_id as string);
+  invalidateCaches(sb, order.store_id as string, ownerId);
+  return { ok: true };
+}
+
 export type AdminStoreOrderMetaPatch = {
   admin_locked?: boolean;
   admin_flagged?: boolean;

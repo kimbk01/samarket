@@ -30,7 +30,7 @@ export function orderMatchesOwnerMainTab(order: { order_status: string }, tab: O
     case "done":
       return s === "completed";
     case "cancelled":
-      return s === "cancelled" || s === "refunded";
+      return s === "cancelled" || s === "cancel_requested" || s === "refunded";
     default:
       return true;
   }
@@ -52,6 +52,6 @@ export function ownerOrderMainTabForStatus(orderStatus: string): OwnerOrderMainT
   const s = orderStatus.trim();
   if (s === "pending") return "new";
   if (s === "completed") return "done";
-  if (s === "cancelled" || s === "refunded") return "cancelled";
+  if (s === "cancelled" || s === "cancel_requested" || s === "refunded") return "cancelled";
   return "progress";
 }

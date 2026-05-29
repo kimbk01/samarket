@@ -12,6 +12,7 @@ describe("ownerMobileOrdersTabForStatus", () => {
     expect(ownerMobileOrdersTabForStatus("delivering")).toBe("shipping");
     expect(ownerMobileOrdersTabForStatus("completed")).toBe("done");
     expect(ownerMobileOrdersTabForStatus("cancelled")).toBe("cancelled");
+    expect(ownerMobileOrdersTabForStatus("cancel_requested")).toBe("cancelled");
     expect(ownerMobileOrdersTabForStatus("refunded")).toBe("cancelled");
     expect(ownerMobileOrdersTabForStatus("refund_requested")).toBe("cancelled");
   });

@@ -150,6 +150,7 @@ export function ownerOrderStatusTone(status: string): {
         stepActive: OWNER_MOBILE_GRAY,
       };
     case "refund_requested":
+    case "cancel_requested":
       return {
         badgeBg: "bg-[#B45309]",
         badgeText: "text-white",
@@ -188,6 +189,8 @@ export function ownerOrderStatusLabelKo(status: string): string {
       return "배달완료";
     case "cancelled":
       return "취소";
+    case "cancel_requested":
+      return "취소요청";
     case "refunded":
       return "취소";
     case "refund_requested":

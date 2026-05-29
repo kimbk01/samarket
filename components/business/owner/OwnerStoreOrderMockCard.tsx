@@ -18,11 +18,18 @@ import {
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
-import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-order-status";
+import {
+  patchOwnerStoreOrderStatus,
+  postOwnerStoreOrderCancelRequest,
+} from "@/lib/business/patch-owner-store-order-status";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
 import {
   isDeliveryFulfillment,
 } from "@/lib/stores/order-status-transitions";
+import {
+  ownerCancelActionButtonKey,
+  resolveStoreOrderCancelPolicy,
+} from "@/lib/stores/store-order-cancel-policy";
 import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
@@ -82,6 +89,17 @@ export function OwnerStoreOrderMockCard({
   });
   const menuSummary = summarizeMenu(order.items, t);
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type, language);
+  const cancelPolicy = useMemo(
+    () =>
+      resolveStoreOrderCancelPolicy({
+        role: "owner",
+        orderStatus: order.order_status,
+        paymentStatus: order.payment_status,
+        deliveryStatus: order.delivery?.delivery_status ?? null,
+      }),
+    [order.delivery?.delivery_status, order.order_status, order.payment_status]
+  );
+  const cancelButtonKey = ownerCancelActionButtonKey(cancelPolicy);
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [acceptOpen, setAcceptOpen] = useState(false);
@@ -128,9 +146,9 @@ export function OwnerStoreOrderMockCard({
   }, [busy, nextAction, runPatch]);
 
   const onReject = useCallback(() => {
-    if (busy) return;
+    if (busy || !cancelButtonKey) return;
     setRejectOpen(true);
-  }, [busy]);
+  }, [busy, cancelButtonKey]);
 
   const confirmAccept = useCallback(
     (minutes: number) => {
@@ -142,12 +160,28 @@ export function OwnerStoreOrderMockCard({
   );
 
   const confirmReject = useCallback(
-    (_reason: string) => {
-      void runPatch("cancelled").then((ok) => {
-        if (ok) setRejectOpen(false);
+    (reason: string) => {
+      const busyKey = cancelPolicy.kind === "request_cancel" ? "cancel_requested" : "cancelled";
+      setBusy(busyKey);
+      setErr(null);
+      void postOwnerStoreOrderCancelRequest(storeId, order.id, { reason }).then(async (res) => {
+        if (!res.ok) {
+          setErr(formatOwnerOrderPatchErr(res.error ?? "cancel_request_failed", language));
+          setBusy(null);
+          return;
+        }
+        dispatchOwnerHubBadgeRefresh({
+          source: "owner-order-ops-card-cancel",
+          key: `${storeId}:${order.id}:${res.order_status ?? busyKey}`,
+        });
+        invalidateOwnerStoreOrdersListCache(storeId);
+        onOrderStatusPatched?.(order.id);
+        await onUpdated();
+        setBusy(null);
+        setRejectOpen(false);
       });
     },
-    [runPatch]
+    [cancelPolicy.kind, language, onOrderStatusPatched, onUpdated, order.id, storeId]
   );
 
   const flow = useMemo(
@@ -256,26 +290,28 @@ export function OwnerStoreOrderMockCard({
           </p>
         ) : null}
 
-        {nextAction ? (
+        {(nextAction || cancelButtonKey) ? (
           <div className="mt-3 flex gap-2">
-            {order.order_status === "pending" ? (
+            {cancelButtonKey ? (
               <button
                 type="button"
                 disabled={busy !== null}
                 onClick={onReject}
                 className="flex min-h-11 flex-1 items-center justify-center rounded-[4px] border border-[#D14545] bg-white px-3 text-[14px] font-bold leading-[1.35] text-[#B42318] disabled:opacity-50"
               >
-                {t("store_owner_action_reject_order")}
+                {t(cancelButtonKey)}
               </button>
             ) : null}
-            <button
-              type="button"
-              disabled={busy !== null}
-              onClick={onPrimaryAction}
-              className="flex min-h-11 flex-[1.25] items-center justify-center rounded-[4px] bg-[var(--biz-primary)] px-3 text-[14px] font-bold leading-[1.35] text-white shadow-sm active:bg-[var(--biz-primary-active)] disabled:opacity-50"
-            >
-              {busy === nextAction.status ? t("common_processing") : nextAction.label}
-            </button>
+            {nextAction ? (
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={onPrimaryAction}
+                className="flex min-h-11 flex-[1.25] items-center justify-center rounded-[4px] bg-[var(--biz-primary)] px-3 text-[14px] font-bold leading-[1.35] text-white shadow-sm active:bg-[var(--biz-primary-active)] disabled:opacity-50"
+              >
+                {busy === nextAction.status ? t("common_processing") : nextAction.label}
+              </button>
+            ) : null}
           </div>
         ) : null}
 
@@ -404,11 +440,22 @@ export function OwnerStoreOrderMockCard({
       />
       <OwnerOrderRejectSheet
         open={rejectOpen}
-        busy={busy === "cancelled"}
+        busy={busy === "cancelled" || busy === "cancel_requested"}
         onClose={() => {
           if (!busy) setRejectOpen(false);
         }}
         onConfirm={confirmReject}
+        title={
+          cancelPolicy.kind === "request_cancel"
+            ? t("store_owner_cancel_request_sheet_title")
+            : t("store_owner_cancel_sheet_title")
+        }
+        description={
+          cancelPolicy.kind === "request_cancel"
+            ? t("store_owner_cancel_request_sheet_desc")
+            : t("store_owner_cancel_sheet_desc")
+        }
+        confirmLabel={cancelButtonKey ? t(cancelButtonKey) : undefined}
       />
     </li>
   );

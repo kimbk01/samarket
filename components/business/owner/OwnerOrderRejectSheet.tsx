@@ -22,11 +22,17 @@ export function OwnerOrderRejectSheet({
   busy,
   onClose,
   onConfirm,
+  title,
+  description,
+  confirmLabel,
 }: {
   open: boolean;
   busy: boolean;
   onClose: () => void;
   onConfirm: (reasonLabel: string) => void;
+  title?: string;
+  description?: string;
+  confirmLabel?: string;
 }) {
   const { t } = useI18n();
   const [reasonKey, setReasonKey] = useState<ReasonKey>(REASON_KEYS[0]!);
@@ -68,9 +74,9 @@ export function OwnerOrderRejectSheet({
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--biz-card-border)] sm:hidden" aria-hidden />
         <h2 id="owner-order-reject-title" className={Biz.textCardTitle}>
-          {t("business_phase7_261")}
+          {title ?? t("business_phase7_261")}
         </h2>
-        <p className={`mt-1 ${Biz.textMuted}`}>{t("business_phase7_137")}</p>
+        <p className={`mt-1 ${Biz.textMuted}`}>{description ?? t("business_phase7_137")}</p>
 
         <div className="mt-3 flex flex-col gap-2">
           {REASON_KEYS.map((key) => (
@@ -118,7 +124,7 @@ export function OwnerOrderRejectSheet({
             onClick={() => onConfirm(label)}
             className="w-full rounded-[14px] border border-red-200 bg-white px-4 py-3 text-[15px] font-semibold text-red-700 shadow-sm sm:w-auto min-h-[52px]"
           >
-            {busy ? t("common_processing") : t("business_phase7_261")}
+            {busy ? t("common_processing") : (confirmLabel ?? t("business_phase7_261"))}
           </button>
         </div>
       </div>

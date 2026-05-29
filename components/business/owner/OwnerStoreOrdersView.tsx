@@ -756,6 +756,13 @@ export function OwnerStoreOrdersView() {
     });
   }, [expandedOrderId, state, tab]);
 
+  const onCollapseTransient = useCallback(() => {
+    if (state.kind !== "ok") return;
+    setExpandedOrderId("");
+    setChatOrderId("");
+    replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab });
+  }, [state, tab]);
+
   let body: ReactNode;
   if (state.kind === "loading") {
     body = (
@@ -820,6 +827,7 @@ export function OwnerStoreOrdersView() {
         onCloseDetail={onCloseDetail}
         onOpenChat={onOpenChat}
         onCloseChat={onCloseChat}
+        onCollapseTransient={onCollapseTransient}
       />
     );
   }

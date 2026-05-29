@@ -14,6 +14,10 @@ export type StoreOrderEventType =
   | "order_delivering"
   | "order_completed"
   | "order_cancelled"
+  | "cancel_requested"
+  | "cancel_approved"
+  | "cancel_rejected"
+  | "cancel_completed"
   | "refund_requested"
   | "refund_approved"
   | "refund_rejected"
@@ -110,8 +114,9 @@ export function mapOrderStatusToEventType(status: string): StoreOrderEventType {
     case "completed":
       return "order_completed";
     case "cancelled":
-    case "cancel_requested":
       return "order_cancelled";
+    case "cancel_requested":
+      return "cancel_requested";
     case "refund_requested":
       return "refund_requested";
     case "refunded":

@@ -7,6 +7,7 @@ export const STORE_ORDER_STATUS_LIST = [
   "delivering",
   "arrived",
   "completed",
+  "cancel_requested",
   "cancelled",
   "refund_requested",
   "refunded",
@@ -38,15 +39,15 @@ export function allowedOrderTransitions(current: string, fulfillment: string): s
     case "accepted":
       return ["preparing", "cancelled"];
     case "preparing":
-      return ["ready_for_pickup", "cancelled"];
+      return ["ready_for_pickup"];
     case "ready_for_pickup":
-      if (deliveryLike) return ["delivering", "cancelled"];
-      return ["completed", "cancelled"];
+      if (deliveryLike) return ["delivering"];
+      return ["completed"];
     case "delivering":
       /** 오너 운영 CTA: 배달완료를 우선. 서버 채팅은 완료 시 주소근처도착 라인을 보강한다. */
-      return ["completed", "arrived", "cancelled"];
+      return ["completed", "arrived"];
     case "arrived":
-      return ["completed", "cancelled"];
+      return ["completed"];
     default:
       return [];
   }

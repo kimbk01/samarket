@@ -46,6 +46,7 @@ export function OwnerStoreOrdersMobileBody({
   onCloseDetail,
   onOpenChat,
   onCloseChat,
+  onCollapseTransient,
 }: {
   storeId: string;
   storeName: string;
@@ -61,6 +62,7 @@ export function OwnerStoreOrdersMobileBody({
   onCloseDetail: () => void;
   onOpenChat: (orderId: string) => void;
   onCloseChat: () => void;
+  onCollapseTransient: () => void;
 }) {
   const { t } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
@@ -120,13 +122,18 @@ export function OwnerStoreOrdersMobileBody({
         ? t("store_owner_mobile_filter_delivery_only")
         : t("store_owner_mobile_filter_pickup_only");
 
-  const onOpenSearch = useCallback(() => setSearchOpen((v) => !v), []);
+  const onOpenSearch = useCallback(() => {
+    onCollapseTransient();
+    setSearchOpen((v) => !v);
+  }, [onCollapseTransient]);
   const onOpenFilter = useCallback(
-    () =>
+    () => {
+      onCollapseTransient();
       setFilterFulfillment((f) =>
         f === "all" ? "local_delivery" : f === "local_delivery" ? "pickup" : "all"
-      ),
-    []
+      );
+    },
+    [onCollapseTransient]
   );
 
   const headerTrailing = useMemo(
@@ -166,6 +173,7 @@ export function OwnerStoreOrdersMobileBody({
                   key={tabDef.id}
                   href={onTabHref(tabDef.id)}
                   scroll={false}
+                  onClick={onCollapseTransient}
                   aria-label={buildOwnerMobileStackedLabelCountAriaLabel(t(tabDef.labelKey), count)}
                   className={`relative flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-[4px] px-0.5 py-1.5 ${
                     active ? "bg-[var(--biz-primary)] text-white" : "text-[var(--biz-text)]"
@@ -188,24 +196,28 @@ export function OwnerStoreOrdersMobileBody({
               value={summaryCounts.pending}
               tone="text-[#B42318]"
               href={onTabHref("new")}
+              onClick={onCollapseTransient}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_preparing")}
               value={summaryCounts.preparing}
               tone="text-[#B45309]"
               href={onTabHref("preparing")}
+              onClick={onCollapseTransient}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_delivering")}
               value={summaryCounts.delivering}
               tone="text-[var(--biz-primary)]"
               href={onTabHref("shipping")}
+              onClick={onCollapseTransient}
             />
             <KpiCard
               label={t("store_owner_mobile_kpi_done_today")}
               value={summaryCounts.doneToday}
               tone="text-[var(--biz-text)]"
               href={onTabHref("done")}
+              onClick={onCollapseTransient}
             />
           </div>
 
@@ -223,7 +235,10 @@ export function OwnerStoreOrdersMobileBody({
             <span className="text-[12px] leading-[1.35] text-[#6B7280]">{filterLabel}</span>
             <button
               type="button"
-              onClick={() => setSortNewestFirst((v) => !v)}
+              onClick={() => {
+                onCollapseTransient();
+                setSortNewestFirst((v) => !v);
+              }}
               className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-1 text-[12px] font-bold leading-[1.35] text-[var(--biz-text)]"
             >
               {sortNewestFirst ? t("store_owner_mobile_sort_newest") : t("store_owner_mobile_sort_oldest")}
@@ -284,16 +299,19 @@ function KpiCard({
   value,
   tone,
   href,
+  onClick,
 }: {
   label: string;
   value: number;
   tone: string;
   href: string;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
       scroll={false}
+      onClick={onClick}
       aria-label={buildOwnerMobileStackedLabelCountAriaLabel(label, value)}
       className="rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
     >
