@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { Suspense } from "react";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
+import { OwnerStoreNeedStoreIdRscMessage } from "@/components/business/owner/OwnerStoreNeedStoreIdRscMessage";
 
 export default function OwnerNewProductPage({
   searchParams,
@@ -27,15 +27,10 @@ async function OwnerNewProductPageBody({
     typeof sp.menuSectionId === "string" ? sp.menuSectionId.trim() : "";
   if (!storeId) {
     return (
-      <div className="min-h-screen bg-background px-4 py-8">
-        <p className="sam-text-body text-sam-fg">
-          매장을 지정할 수 없습니다.{" "}
-          <Link href="/stores/owner" className="font-medium text-signature underline">
-            내 상점
-          </Link>
-          에서 「상품 등록」을 눌러 주세요.
-        </p>
-      </div>
+      <OwnerStoreNeedStoreIdRscMessage
+        hintKey="owner_store_need_store_id_suffix_products"
+        useScrollShell={false}
+      />
     );
   }
   return (

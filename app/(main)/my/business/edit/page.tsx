@@ -8,17 +8,19 @@ import {
   CURRENT_USER_ID,
 } from "@/lib/business/mock-business-profiles";
 import { BusinessProfileEditForm, type BusinessProfileEditFormValues } from "@/components/business/BusinessProfileEditForm";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export default function BusinessEditRoute() {
   const router = useRouter();
+  const { t } = useI18n();
   const profile = getBusinessProfileByOwnerUserId(CURRENT_USER_ID);
 
   if (!profile) {
     return (
       <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
-        상점 정보가 없습니다.
+        {t("business_phase7_057")}
         <Link href="/stores/owner" className="ml-1 text-signature">
-          내 상점으로
+          {t("common_back_to_store")}
         </Link>
       </div>
     );
@@ -44,7 +46,6 @@ export default function BusinessEditRoute() {
       <BusinessProfileEditForm
         profile={profile}
         onSubmit={handleSubmit}
-        submitLabel="저장"
       />
     </div>
   );

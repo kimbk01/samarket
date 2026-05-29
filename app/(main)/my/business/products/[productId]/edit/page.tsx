@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MainFormRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductForm } from "@/components/business/owner/OwnerProductForm";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { translate } from "@/lib/i18n/messages";
 
 export default function OwnerEditProductPage({
   params,
@@ -30,14 +32,16 @@ async function OwnerEditProductPageBody({
   const pid = typeof productId === "string" ? productId.trim() : "";
 
   if (!storeId || !pid) {
+    const language = getRuntimeAppLanguage();
     return (
       <div className="min-h-screen bg-background px-4 py-8">
         <p className="sam-text-body text-sam-fg">
-          주소에 <code className="rounded bg-sam-surface-muted px-1">storeId</code> 쿼리가 필요합니다.{" "}
+          {translate(language, "business_phase7_698")}{" "}
+          <code className="rounded bg-sam-surface-muted px-1">storeId</code>{" "}
           <Link href="/stores/owner" className="font-medium text-signature underline">
-            내 상점
+            {translate(language, "business_phase7_699")}
           </Link>
-          에서 「상품 등록」으로 들어가 상품을 선택해 주세요.
+          {translate(language, "business_phase7_700")}
         </p>
       </div>
     );

@@ -74,7 +74,7 @@ function MyBusinessProfilePageInner() {
   }, [load]);
 
   return (
-    <OwnerAdminPageScrollShell>
+    <OwnerAdminPageScrollShell padForOwnerBottomNav={false}>
       <div className="mx-auto min-w-0 max-w-4xl py-0">
         <OwnerStorePagePhaseGate phase={toGatePhase(phase)} onRetry={() => void load()}>
           {phase.kind === "ok" ? (
@@ -97,7 +97,7 @@ export default function MyBusinessProfilePage() {
   return (
     <Suspense
       fallback={
-        <OwnerAdminPageScrollShell className="py-4">
+        <OwnerAdminPageScrollShell padForOwnerBottomNav={false} className="py-4">
           <OwnerStoreSuspenseFallback />
         </OwnerAdminPageScrollShell>
       }

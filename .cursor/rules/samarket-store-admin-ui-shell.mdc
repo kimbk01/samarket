@@ -1,6 +1,6 @@
 ---
 description: 사용자가 「매장 어드민 UI 적용」「매장 어드민 UI」등으로 매장 운영 화면에 동일 셸을 적용할 때 — 섹션 카드·입력·하단 저장바
-globs: components/business/**,components/business/owner/**,app/**/stores/owner/**,app/**/my/business/**,lib/business/owner-store-stack.ts,app/samarket-components.css
+globs: components/business/**,components/business/owner/**,app/**/stores/owner/**,app/**/my/business/**,lib/business/owner-store-stack.ts,lib/business/owner-admin-footer-actions.ts,lib/business/owner-admin-list-ui.ts,app/samarket-components.css
 alwaysApply: false
 ---
 
@@ -15,6 +15,8 @@ alwaysApply: false
 | 셸(헤더 포털·본문 열) | `components/business/admin/BusinessAdminShell.tsx` |
 | 매장 설정(프로필) 전체 | `components/business/OwnerStoreProfileForm.tsx` |
 | 기본 정보(동일 하단 바) | `components/business/OwnerStoreBasicInfoForm.tsx` |
+| 하단 취소·저장(제출) 바 | `lib/business/owner-admin-footer-actions.ts` (`BusinessApplyForm` 과 동일 divide-x) |
+| 배너·공지 목록 카드·모달 버튼 | `lib/business/owner-admin-list-ui.ts` |
 | 이탈·저장·삭제 공통 확인창 | `components/business/owner/OwnerStoreAdminConfirmModal.tsx` (`OwnerStoreAdminLeavePromptModal` 포함) |
 | 운영 사이드 메뉴 | `components/business/admin/BusinessAdminSidebar.tsx` (현재 페이지: 대시 섹션 헤더와 동일 `#dbedf5` 톤) |
 | 섹션 카드 | `components/business/owner/OwnerStoreAdminDashSection.tsx` |
@@ -44,16 +46,16 @@ alwaysApply: false
 
 ## 4. 하단 확인 / 취소·저장 바 (필수 패턴)
 
-`isDirty` 일 때만 **`BodyPortal`** 안에 고정 **`footer`**:
+`isDirty` 일 때만 **`BodyPortal`** 안에 고정 **`footer`** — **기본 정보·매장 설정(프로필)** 은 apply 와 같이 **항상 표시**하고 `!isDirty` 일 때 버튼만 `disabled` (숨기지 않음). 신청·카테고리·상품 등 다른 화면은 각 UX에 맞게 유지.
 
-- **`pointer-events-none`** 를 풀기 위해 내부 래퍼에 **`pointer-events-auto`**.
-- **`z-[54]`** (앱 하단 탭과 겹침 방지 — 프로필·기본정보와 동일).
-- 위치: 메인 BottomNav와 겹치면 **`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS`**, 아니면 **`bottom-0 pb-[env(safe-area-inset-bottom,0px)]`** (`OwnerStoreProfileForm` / `OwnerStoreBasicInfoForm` 과 동일 분기).
-- 너비: **`APP_MAIN_COLUMN_CLASS`**, **`APP_MAIN_GUTTER_X_CLASS`**, `mx-auto max-w-full`.
-- 스타일: `border-t border-sam-border`, `bg-sam-surface/95 backdrop-blur-md`, `supports-[backdrop-filter]:bg-sam-surface/88`.
-- **한 줄 두 칸**: `flex divide-x divide-sam-border`
-  - **취소**: `type="button"`, `revertToSaved` 등, **`BOTTOM_NAV_SHELL.heightClass`**, `flex-1`, `bg-sam-surface`, **`text-signature`**, `rounded-none border-0`.
-  - **저장**: `type="submit"`, **`form="<폼 id>"`**, 동일 높이, **`bg-signature text-white`**, 문구 `저장 중…` / `저장`.
+- 클래스·버튼 톤: **`lib/business/owner-admin-footer-actions.ts`** — `/stores/owner/apply` 와 동일.
+
+- 클래스·버튼 톤: **`lib/business/owner-admin-footer-actions.ts`** — `/stores/owner/apply` 와 동일.
+- **`ownerStoreAdminFooterFixedClass({ aboveBottomNav })`**, **`OWNER_STORE_ADMIN_FOOTER_INNER_CLASS`**, **`OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS`**
+- **취소**: **`OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS`** — `bg-sam-surface` + `text-signature`, `rounded-none`, `h-[60px]`
+- **저장·제출**: **`OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS`** — `bg-signature text-white`, `rounded-none`, `h-[60px]`
+- 한 줄 **`divide-x divide-sam-border`** (gap·pill `Biz.btn*` 사용 금지)
+- 폼 하단 패딩(더티): **`OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS`**
 - 상단에 **`error`** 가 있으면 붉은 알림 띠(두 폼과 동일 마크업).
 
 ## 5. 이탈(뒤로가기) 가드

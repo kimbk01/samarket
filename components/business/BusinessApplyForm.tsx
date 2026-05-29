@@ -19,9 +19,14 @@ import {
   OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS,
   OWNER_STORE_STACK_Y_CLASS,
 } from "@/lib/business/owner-store-stack";
-import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
-import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
-import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
+import {
+  OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+  ownerStoreAdminFooterFixedClass,
+} from "@/lib/business/owner-admin-footer-actions";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
@@ -329,7 +334,7 @@ export function BusinessApplyForm({
       <form
         id="business-apply-form"
         onSubmit={handleSubmit}
-        className={`${OWNER_STORE_STACK_Y_CLASS} pb-[calc(60px+env(safe-area-inset-bottom,0px))] [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
+        className={`${OWNER_STORE_STACK_Y_CLASS} ${OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS} [&_.owner-store-admin-dash-section__header_h2]:text-base [&_.owner-store-admin-dash-section__header_h2]:font-bold`}
       >
       <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
@@ -498,17 +503,15 @@ export function BusinessApplyForm({
         <footer
           role="contentinfo"
           aria-label={t("business_phase7_177")}
-          className="pointer-events-none fixed inset-x-0 bottom-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 pb-[env(safe-area-inset-bottom,0px)]"
+          className={ownerStoreAdminFooterFixedClass()}
         >
-          <div
-            className={`pointer-events-auto mx-auto w-full max-w-[42rem] px-2 ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2`}
-          >
-            <div className="flex min-w-0 divide-x divide-sam-border">
+          <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
               <button
                 type="button"
                 disabled={disabled}
                 onClick={() => router.push("/stores/owner")}
-                className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
+                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
               >
                 {t("common_cancel")}
               </button>
@@ -516,7 +519,7 @@ export function BusinessApplyForm({
                 type="submit"
                 form="business-apply-form"
                 disabled={submitDisabled}
-                className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
+                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
               >
                 {resolvedSubmitLabel}
               </button>

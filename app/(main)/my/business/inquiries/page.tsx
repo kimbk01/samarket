@@ -9,12 +9,12 @@ export default function OwnerStoreInquiriesPage() {
   return (
     <Suspense
       fallback={
-        <OwnerAdminPageScrollShell className="pt-4">
+        <OwnerAdminPageScrollShell padForOwnerBottomNav={false} className="pt-4">
           <OwnerStoreSuspenseFallback className="text-sm text-sam-muted" />
         </OwnerAdminPageScrollShell>
       }
     >
-      <OwnerAdminPageScrollShell className="pt-1">
+      <OwnerAdminPageScrollShell padForOwnerBottomNav={false} className="pt-1">
         <OwnerStoreInquiriesView />
       </OwnerAdminPageScrollShell>
     </Suspense>

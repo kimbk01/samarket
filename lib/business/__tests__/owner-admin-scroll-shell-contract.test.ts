@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isOwnerBasicInfoPath } from "@/lib/business/owner-basic-info-guard";
+import { isOwnerBasicInfoPath, isOwnerInquiriesPath, isOwnerStoreFormBottomNavHiddenPath, isOwnerStoreProfilePath } from "@/lib/business/owner-basic-info-guard";
 import {
   isOwnerStoreProductComposerPath,
   resolveOwnerStackScrollHostPath,
@@ -53,8 +53,49 @@ describe("owner admin scroll shell contract", () => {
     );
   });
 
-  it("basic-info still hides owner mobile bottom nav separately", () => {
+  it("basic-info and profile hide owner mobile bottom nav separately", () => {
     const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
-    expect(shell).toMatch(/!isOwnerBasicInfoRoute\s*\?/);
+    expect(shell).toMatch(/!isOwnerFormBottomNavHiddenRoute\s*\?/);
+    expect(isOwnerBasicInfoPath("/stores/owner/basic-info")).toBe(true);
+    expect(isOwnerStoreProfilePath("/stores/owner/profile")).toBe(true);
+  });
+
+  it("inquiries hides owner mobile bottom nav", () => {
+    expect(isOwnerInquiriesPath("/stores/owner/inquiries")).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/inquiries")).toBe(true);
+  });
+
+  it("basic-info and profile keep save/cancel footer always visible", () => {
+    for (const rel of [
+      "components/business/OwnerStoreBasicInfoForm.tsx",
+      "components/business/OwnerStoreProfileForm.tsx",
+    ]) {
+      const src = readRepo(rel);
+      expect(src).toContain("owner-admin-footer-actions");
+      expect(src).toContain("OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS");
+      expect(src).not.toMatch(/\{isDirty\s*\?\s*\n?\s*<BodyPortal>/);
+      expect(src).toMatch(/disabled=\{!isDirty \|\|/);
+    }
+  });
+
+  it("owner admin footer actions use shared apply-style divide-x bar", () => {
+    const shared = readRepo("lib/business/owner-admin-footer-actions.ts");
+    expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS");
+    expect(shared).toContain("OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS");
+    expect(shared).toContain("divide-x divide-sam-border");
+    expect(shared).toContain("bg-signature text-white");
+
+    for (const rel of [
+      "components/business/OwnerStoreProfileForm.tsx",
+      "components/business/OwnerStoreBasicInfoForm.tsx",
+      "components/business/BusinessApplyForm.tsx",
+      "components/business/owner/OwnerMenuCategoriesClient.tsx",
+      "components/business/owner/OwnerProductForm.tsx",
+    ]) {
+      const src = readRepo(rel);
+      expect(src).toContain("owner-admin-footer-actions");
+      expect(src).toContain("OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS");
+      expect(src).not.toMatch(/Biz\.btnPrimary/);
+    }
   });
 });

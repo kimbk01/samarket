@@ -11,8 +11,14 @@ import { useBusinessAdminStore } from "@/components/business/admin/business-admi
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
-import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
+import {
+  OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+  ownerStoreAdminFooterFixedClass,
+} from "@/lib/business/owner-admin-footer-actions";
 
 type Section = {
   id: string;
@@ -38,7 +44,7 @@ export function OwnerMenuCategoriesClient({
 }) {
   const { t } = useI18n();
   /** 본문이 고정 저장·취소 바에 가리지 않도록 */
-  const editScrollBottomPaddingClass = "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
+  const editScrollBottomPaddingClass = OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS;
   const [sections, setSections] = useState<Section[]>(() =>
     (initialSections ?? []).map((s) => ({
       id: s.id,
@@ -312,13 +318,11 @@ export function OwnerMenuCategoriesClient({
         const msg =
           typeof bad.j?.error === "string" ? bad.j.error : t("business_phase7_476");
         setError(msg);
-        window.alert(msg);
         return;
       }
     } catch {
       setSections(previous);
       setError("network_error");
-      window.alert(t("business_phase7_046"));
     } finally {
       setReorderBusy(false);
     }
@@ -446,27 +450,27 @@ export function OwnerMenuCategoriesClient({
           <div
             role="toolbar"
             aria-label={t("business_phase7_303")}
-            className={`pointer-events-auto fixed inset-x-0 bottom-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${OWNER_DESKTOP_SHELL_MIN_TW}:left-[260px]`}
+            className={ownerStoreAdminFooterFixedClass()}
           >
-            <div
-              className={`flex ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} min-w-0 gap-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] ${OWNER_DESKTOP_SHELL_MIN_TW}:mx-auto ${OWNER_DESKTOP_SHELL_MIN_TW}:max-w-6xl ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2`}
-            >
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => closeEditToListOnly()}
-                className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-lg font-semibold text-sam-muted shadow-sm transition-[transform,opacity,background-color] duration-150 hover:bg-sam-surface-muted hover:text-sam-fg active:scale-[0.99] active:bg-sam-border-soft active:opacity-90 disabled:opacity-45"
-              >
-                {t("common_cancel")}
-              </button>
-              <button
-                type="button"
-                disabled={saving || editorTab !== "basic"}
-                onClick={() => void saveEditor()}
-                className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-transparent bg-signature px-4 py-3 sam-text-body-lg font-semibold !text-white shadow-sm transition-[transform,opacity,background-color] duration-150 hover:bg-signature/90 active:scale-[0.99] active:bg-signature/95 disabled:opacity-45"
-              >
-                {saving ? t("common_processing") : t("common_confirm")}
-              </button>
+            <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+              <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => closeEditToListOnly()}
+                  className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+                >
+                  {t("common_cancel")}
+                </button>
+                <button
+                  type="button"
+                  disabled={saving || editorTab !== "basic"}
+                  onClick={() => void saveEditor()}
+                  className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+                >
+                  {saving ? t("common_processing") : t("common_confirm")}
+                </button>
+              </div>
             </div>
           </div>
         </BodyPortal>

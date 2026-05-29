@@ -5,6 +5,10 @@ function titleT(key: MessageKey): string {
   return translate(getRuntimeAppLanguage(), key);
 }
 
+function ownerAdminTitle(key: MessageKey): string {
+  return titleT(key).toLocaleUpperCase();
+}
+
 export function getBusinessAdminPageTitleI18n(pathname: string): string | null {
   const raw = pathname.split("?")[0] ?? pathname;
   const p = raw.replace(/\/+$/, "") || "/";
@@ -18,41 +22,43 @@ export function getBusinessAdminPageTitleI18n(pathname: string): string | null {
 
   if (p === "/stores/owner" || p === "/my/business" || p === "/mypage/business") return null;
 
-  if (matchAny("/orders") || matchAny("/store-orders")) return titleT("biz_title_orders");
-  if (matchAny("/inquiries")) return titleT("biz_title_inquiries");
-  if (matchAny("/settlements")) return titleT("biz_title_settlements");
-  if (matchAny("/menu-categories")) return titleT("biz_title_menu_categories");
+  if (matchAny("/orders") || matchAny("/store-orders")) return ownerAdminTitle("biz_title_orders");
+  if (matchAny("/inquiries")) return ownerAdminTitle("biz_title_inquiries");
+  if (matchAny("/settlements")) return ownerAdminTitle("biz_title_settlements");
+  if (matchAny("/menu-categories")) return ownerAdminTitle("biz_title_menu_categories");
   if (
     p === "/stores/owner/products/new" ||
     p.startsWith("/stores/owner/products/new/") ||
     p === "/my/business/products/new" ||
     p.startsWith("/my/business/products/new/")
   ) {
-    return titleT("biz_title_product_new");
+    return ownerAdminTitle("biz_title_product_new");
   }
   if (
     matchPattern(/^\/stores\/owner\/products\/[^/]+\/edit$/) ||
     matchPattern(/^\/my\/business\/products\/[^/]+\/edit$/)
   ) {
-    return titleT("biz_title_product_edit");
+    return ownerAdminTitle("biz_title_product_edit");
   }
-  if (matchAny("/products")) return titleT("biz_title_products");
-  if (matchAny("/basic-info")) return titleT("biz_title_basic_info");
-  if (matchAny("/profile")) return titleT("biz_title_profile");
-  if (matchAny("/ops-status")) return titleT("biz_title_ops");
-  if (matchAny("/reviews")) return titleT("biz_title_reviews");
-  if (matchAny("/banners")) return titleT("biz_title_banners");
-  if (matchAny("/notices")) return titleT("biz_title_notices");
-  if (matchAny("/settings")) return titleT("biz_title_settings");
-  if (matchAny("/edit")) return titleT("biz_title_edit");
-  if (matchAny("/apply")) return titleT("biz_title_apply");
+  if (matchAny("/products")) return ownerAdminTitle("biz_title_products");
+  if (matchAny("/basic-info")) return ownerAdminTitle("biz_title_basic_info");
+  if (matchAny("/profile")) return ownerAdminTitle("biz_title_profile");
+  if (matchAny("/ops-status")) return ownerAdminTitle("biz_title_ops");
+  if (matchAny("/reviews")) return ownerAdminTitle("biz_title_reviews");
+  if (matchAny("/banners")) return ownerAdminTitle("biz_title_banners");
+  if (matchAny("/notices")) return ownerAdminTitle("biz_title_notices");
+  if (matchAny("/settings")) return ownerAdminTitle("biz_title_settings");
+  if (matchAny("/edit")) return ownerAdminTitle("biz_title_edit");
+  if (matchAny("/apply")) return ownerAdminTitle("biz_title_apply");
+
+  if (matchAny("/order-chats")) return ownerAdminTitle("biz_title_order_chats");
 
   if (
     matchPattern(/^\/stores\/owner\/order-chat\/[^/]+$/) ||
     matchPattern(/^\/my\/business\/store-order-chat\/[^/]+$/)
   ) {
-    return titleT("biz_title_order_chat");
+    return ownerAdminTitle("biz_title_order_chat");
   }
 
-  return titleT("biz_title_default");
+  return ownerAdminTitle("biz_title_default");
 }

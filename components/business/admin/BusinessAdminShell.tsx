@@ -58,8 +58,8 @@ import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-sh
 import {
   emitOwnerBasicInfoLeave,
   getOwnerBasicInfoDirty,
-  isOwnerBasicInfoPath,
   isOwnerStoreAdminDirtyGuardPath,
+  isOwnerStoreFormBottomNavHiddenPath,
 } from "@/lib/business/owner-basic-info-guard";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import {
@@ -148,8 +148,8 @@ export function BusinessAdminShell({
   const isOwnerMobileAdminShell =
     isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
 
-  const isOwnerBasicInfoRoute = useMemo(
-    () => isOwnerBasicInfoPath(ownerPathNorm),
+  const isOwnerFormBottomNavHiddenRoute = useMemo(
+    () => isOwnerStoreFormBottomNavHiddenPath(ownerPathNorm),
     [ownerPathNorm]
   );
 
@@ -157,7 +157,7 @@ export function BusinessAdminShell({
     const f = resolveConditionalAppShellFlags(pathname, false);
     const isStoreOwnerAdminSubroute = ownerPathNorm.startsWith("/stores/owner/");
     if (isOwnerMobileAdminShell) {
-      if (isOwnerBasicInfoRoute) {
+      if (isOwnerFormBottomNavHiddenRoute) {
         return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3";
       }
       return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
@@ -167,7 +167,7 @@ export function BusinessAdminShell({
       return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 lg:pb-6";
     }
     return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
-  }, [pathname, ownerPathNorm, isOwnerMobileAdminShell, isOwnerBasicInfoRoute]);
+  }, [pathname, ownerPathNorm, isOwnerMobileAdminShell, isOwnerFormBottomNavHiddenRoute]);
 
   /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
   const isOwnerStoreProductsHubRoute = useMemo(() => {
@@ -228,7 +228,7 @@ export function BusinessAdminShell({
     if (
       isOwnerStoreProductComposerRoute ||
       isOwnerStoreProductsHubRoute ||
-      isOwnerBasicInfoRoute
+      isOwnerFormBottomNavHiddenRoute
     ) {
       return "pb-0";
     }
@@ -237,7 +237,7 @@ export function BusinessAdminShell({
   }, [
     isOwnerStoreProductComposerRoute,
     isOwnerStoreProductsHubRoute,
-    isOwnerBasicInfoRoute,
+    isOwnerFormBottomNavHiddenRoute,
     isOwnerMenuCategoriesRoute,
     storeOwnerFlyoutSuppressesOwnerMobileBottomNav,
     ownerMainBottomPad,
@@ -827,7 +827,7 @@ export function BusinessAdminShell({
             selectedRow &&
             !ownerOrderOverlayOpen &&
             !storeOwnerFlyoutSuppressesOwnerMobileBottomNav &&
-            !isOwnerBasicInfoRoute ?
+            !isOwnerFormBottomNavHiddenRoute ?
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
                 storeSlug={selectedRow.slug}

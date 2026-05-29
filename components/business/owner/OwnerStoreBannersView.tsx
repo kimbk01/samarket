@@ -1,15 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
-import { Biz } from "@/lib/ui/biz-component-classes";
+import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { invalidateStoreBannersPublicCache } from "@/lib/stores/store-delivery-api-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import {
+  OWNER_ADMIN_FIELD_INPUT_CLASS,
+  OWNER_ADMIN_FIELD_LABEL_CLASS,
+  OWNER_ADMIN_LIST_CARD_CLASS,
+  OWNER_ADMIN_MODAL_PANEL_CLASS,
+  OWNER_ADMIN_OUTLINE_BTN_CLASS,
+  OWNER_ADMIN_PRIMARY_BTN_CLASS,
+} from "@/lib/business/owner-admin-list-ui";
 
 type BannerRow = {
   id: string;
@@ -315,55 +322,50 @@ export function OwnerStoreBannersView() {
     return <p className="sam-text-body text-sam-muted">{t("business_phase7_088")}</p>;
   }
 
-  const q = `storeId=${encodeURIComponent(resolvedStoreId)}`;
-
   return (
-    <div className={`py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className={Biz.textTitle}>{t("business_phase7_102")}</h1>
-        <Link href={`/stores/owner?${q}`} className={Biz.textMuted}>
-          {t("business_phase7_429")}
-        </Link>
-      </div>
-      <p className={`mt-1 ${Biz.textMuted}`}>{t("business_phase7_018")}</p>
+    <div className={OWNER_STORE_STACK_Y_CLASS}>
+      <OwnerStoreAdminDashSection>
+        <p className="sam-text-body text-sam-muted">{t("business_phase7_018")}</p>
 
-      {err ? <p className="mt-2 text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
+        {err ? <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
-      <button
-        type="button"
-        disabled={busy || !!editor}
-        onClick={() => {
-          setErr(null);
-          setEditor({
-            mode: "new",
-            draft: {
-              image_url: "",
-              title: "",
-              description: "",
-              link_type: "none",
-              link_target_id: null,
-              sort_order: banners.length,
-              is_active: true,
-            },
-          });
-        }}
-        className={`mt-4 ${Biz.btnPrimary}`}
-      >
-        {t("business_phase7_452")}
-      </button>
+        <button
+          type="button"
+          disabled={busy || !!editor}
+          onClick={() => {
+            setErr(null);
+            setEditor({
+              mode: "new",
+              draft: {
+                image_url: "",
+                title: "",
+                description: "",
+                link_type: "none",
+                link_target_id: null,
+                sort_order: banners.length,
+                is_active: true,
+              },
+            });
+          }}
+          className={`mt-2 ${OWNER_ADMIN_PRIMARY_BTN_CLASS}`}
+        >
+          {t("business_phase7_452")}
+        </button>
 
-      {loading ? <p className="mt-3 text-sm text-sam-muted">{t("common_loading")}</p> : null}
+        {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+      </OwnerStoreAdminDashSection>
 
-      <ul className="mt-4 space-y-3">
+      <OwnerStoreAdminDashSection className="mt-3">
+        <ul className="space-y-3">
         {banners.map((b) => (
-          <li key={b.id} className={Biz.card}>
+          <li key={b.id} className={OWNER_ADMIN_LIST_CARD_CLASS}>
             <div className="flex gap-3">
-              <div className="h-20 w-28 shrink-0 overflow-hidden rounded-[12px] bg-[var(--biz-app-bg)]">
+              <div className="h-20 w-28 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                 <img src={b.image_url} alt="" className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[var(--biz-text)]">{b.title?.trim() || t("business_phase7_451")}</p>
-                <p className="text-[12px] text-[var(--biz-text-muted)]">
+                <p className="font-semibold text-sam-fg">{b.title?.trim() || t("business_phase7_451")}</p>
+                <p className="sam-text-xxs text-sam-muted">
                   {t("business_phase7_436", {
                     v1: b.is_active ? t("business_phase7_135") : t("business_phase7_418"),
                     v2: String(b.sort_order),
@@ -378,7 +380,7 @@ export function OwnerStoreBannersView() {
                       setErr(null);
                       setEditor({ mode: "edit", row: { ...b } });
                     }}
-                    className={Biz.btnOutline}
+                    className={OWNER_ADMIN_OUTLINE_BTN_CLASS}
                   >
                     {t("common_edit")}
                   </button>
@@ -386,7 +388,7 @@ export function OwnerStoreBannersView() {
                     type="button"
                     disabled={busy}
                     onClick={() => setDeleteConfirmId(b.id)}
-                    className={Biz.btnOutline}
+                    className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-red-600`}
                   >
                     {t("common_delete")}
                   </button>
@@ -395,12 +397,13 @@ export function OwnerStoreBannersView() {
             </div>
           </li>
         ))}
-      </ul>
+        </ul>
+      </OwnerStoreAdminDashSection>
 
       {editor ? (
         <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/45 p-3 sm:items-center">
-          <div className={`max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-[16px] bg-[var(--biz-card-bg)] p-4 sm:rounded-[16px] ${Biz.card}`}>
-            <h2 className={Biz.textCardTitle}>
+          <div className={OWNER_ADMIN_MODAL_PANEL_CLASS}>
+            <h2 className="sam-text-body font-semibold text-sam-fg">
               {editor.mode === "new" ? t("business_phase7_453") : t("business_phase7_454")}
             </h2>
             <div className="mt-4 space-y-5">
@@ -428,7 +431,7 @@ export function OwnerStoreBannersView() {
 
               <div>
                 <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                  <span className={`${Biz.textMuted}`}>{t("business_phase7_103")}</span>
+                  <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_103")}</span>
                   <span className="text-[11px] text-[var(--biz-text-muted)]">{t("business_phase7_338")}</span>
                 </div>
                 {(() => {
@@ -487,9 +490,9 @@ export function OwnerStoreBannersView() {
               </div>
 
               <label className="block">
-                <span className={Biz.textMuted}>{t("business_phase7_254")}</span>
+                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_254")}</span>
                 <input
-                  className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
+                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.title ?? "") : String(editor.row.title ?? "")}
                   onChange={(e) => {
                     if (editor.mode === "new") {
@@ -501,9 +504,9 @@ export function OwnerStoreBannersView() {
                 />
               </label>
               <label className="block">
-                <span className={Biz.textMuted}>{t("business_phase7_165")}</span>
+                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_165")}</span>
                 <textarea
-                  className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
+                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
                   rows={2}
                   value={editor.mode === "new" ? String(editor.draft.description ?? "") : String(editor.row.description ?? "")}
                   onChange={(e) => {
@@ -515,16 +518,16 @@ export function OwnerStoreBannersView() {
                   }}
                 />
               </label>
-              <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-app-bg)]/50 p-3.5">
-                <p className="text-[14px] font-semibold text-[var(--biz-text)]">{t("business_phase7_105")}</p>
-                <p className="mt-1 text-[12px] leading-snug text-[var(--biz-text-muted)]">
+              <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted/50 p-3.5">
+                <p className="sam-text-body font-semibold text-sam-fg">{t("business_phase7_105")}</p>
+                <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
                   {t("business_phase7_458")}
                 </p>
                 <label htmlFor="owner-banner-link-action" className="mt-3 block">
                   <span className="sr-only">{t("business_phase7_054")}</span>
                   <select
                     id="owner-banner-link-action"
-                    className="w-full rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px] text-[var(--biz-text)]"
+                    className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} py-2.5`}
                     value={
                       editor.mode === "new"
                         ? bannerLinkSelectValue(editor.draft.link_type)
@@ -549,9 +552,9 @@ export function OwnerStoreBannersView() {
 
                 {(editor.mode === "new" ? editor.draft.link_type : editor.row.link_type) === "notice" ? (
                   <label className="mt-3 block border-t border-[var(--biz-card-border)] pt-3">
-                    <span className={`${Biz.textMuted} mb-1.5 block text-[13px]`}>{t("business_phase7_197")}</span>
+                    <span className={`${OWNER_ADMIN_FIELD_LABEL_CLASS} mb-1.5 block`}>{t("business_phase7_197")}</span>
                     <select
-                      className="w-full rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px]"
+                      className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} py-2.5`}
                       disabled={busy || linkPick.loading}
                       value={
                         editor.mode === "new"
@@ -601,14 +604,14 @@ export function OwnerStoreBannersView() {
                     }
                   }}
                 />
-                <span className={Biz.textBody}>{t("business_phase7_048")}</span>
+                <span className="sam-text-body text-sam-fg">{t("business_phase7_048")}</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className={Biz.textMuted}>{t("business_phase7_174")}</span>
+                  <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_174")}</span>
                   <input
                     type="datetime-local"
-                    className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-2 py-1 text-[12px]"
+                    className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} sam-text-xxs`}
                     value={
                       (editor.mode === "new" ? editor.draft.start_at : editor.row.start_at)?.slice(0, 16) ?? ""
                     }
@@ -623,10 +626,10 @@ export function OwnerStoreBannersView() {
                   />
                 </label>
                 <label className="block">
-                  <span className={Biz.textMuted}>{t("business_phase7_258")}</span>
+                  <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_258")}</span>
                   <input
                     type="datetime-local"
-                    className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-2 py-1 text-[12px]"
+                    className={`${OWNER_ADMIN_FIELD_INPUT_CLASS} sam-text-xxs`}
                     value={(editor.mode === "new" ? editor.draft.end_at : editor.row.end_at)?.slice(0, 16) ?? ""}
                     onChange={(e) => {
                       const v = e.target.value ? new Date(e.target.value).toISOString() : null;
@@ -640,11 +643,11 @@ export function OwnerStoreBannersView() {
                 </label>
               </div>
             </div>
-            <div className="mt-5 flex gap-2 border-t border-[var(--biz-card-border)] pt-4">
-              <button type="button" disabled={busy} onClick={() => setEditor(null)} className={Biz.btnOutline}>
+            <div className="mt-5 flex gap-2 border-t border-sam-border pt-4">
+              <button type="button" disabled={busy} onClick={() => setEditor(null)} className={`min-h-[44px] flex-1 ${OWNER_ADMIN_OUTLINE_BTN_CLASS}`}>
                 {t("common_close")}
               </button>
-              <button type="button" disabled={busy} onClick={() => void saveEditor()} className={Biz.btnPrimaryLg}>
+              <button type="button" disabled={busy} onClick={() => void saveEditor()} className={`min-h-[44px] flex-1 ${OWNER_ADMIN_PRIMARY_BTN_CLASS}`}>
                 {busy ? t("business_phase7_384") : t("business_phase7_385")}
               </button>
             </div>

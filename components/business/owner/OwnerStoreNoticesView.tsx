@@ -1,17 +1,24 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
-import { Biz } from "@/lib/ui/biz-component-classes";
+import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { invalidateStoreNoticesPublicCache } from "@/lib/stores/store-delivery-api-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import {
+  OWNER_ADMIN_FIELD_INPUT_CLASS,
+  OWNER_ADMIN_FIELD_LABEL_CLASS,
+  OWNER_ADMIN_LIST_CARD_CLASS,
+  OWNER_ADMIN_MODAL_PANEL_CLASS,
+  OWNER_ADMIN_OUTLINE_BTN_CLASS,
+  OWNER_ADMIN_PRIMARY_BTN_CLASS,
+} from "@/lib/business/owner-admin-list-ui";
 
 type NoticeRow = {
   id: string;
@@ -203,54 +210,49 @@ export function OwnerStoreNoticesView() {
     return <p className="sam-text-body text-sam-muted">{t("business_phase7_088")}</p>;
   }
 
-  const q = `storeId=${encodeURIComponent(resolvedStoreId)}`;
-
   return (
-    <div className={`py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className={Biz.textTitle}>{t("business_phase7_030")}</h1>
-        <Link href={`/stores/owner?${q}`} className={Biz.textMuted}>
-          {t("business_phase7_429")}
-        </Link>
-      </div>
-      <p className={`mt-1 ${Biz.textMuted}`}>{t("business_phase7_430")}</p>
-      {err ? <p className="mt-2 text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
+    <div className={OWNER_STORE_STACK_Y_CLASS}>
+      <OwnerStoreAdminDashSection>
+        <p className="sam-text-body text-sam-muted">{t("business_phase7_430")}</p>
+        {err ? <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
-      <button
-        type="button"
-        disabled={busy || !!editor}
-        onClick={() =>
-          setEditor({
-            mode: "new",
-            draft: {
-              title: "",
-              body: "",
-              placement: "store_top",
-              sort_order: notices.length,
-              is_active: true,
-              images: [],
-            },
-          })
-        }
-        className={`mt-4 ${Biz.btnPrimary}`}
-      >
-        {t("business_phase7_431")}
-      </button>
+        <button
+          type="button"
+          disabled={busy || !!editor}
+          onClick={() =>
+            setEditor({
+              mode: "new",
+              draft: {
+                title: "",
+                body: "",
+                placement: "store_top",
+                sort_order: notices.length,
+                is_active: true,
+                images: [],
+              },
+            })
+          }
+          className={`mt-2 ${OWNER_ADMIN_PRIMARY_BTN_CLASS}`}
+        >
+          {t("business_phase7_431")}
+        </button>
 
-      {loading ? <p className="mt-3 text-sm text-sam-muted">{t("common_loading")}</p> : null}
+        {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+      </OwnerStoreAdminDashSection>
 
-      <ul className="mt-4 space-y-3">
+      <OwnerStoreAdminDashSection className="mt-3">
+        <ul className="space-y-3">
         {notices.map((n) => (
-          <li key={n.id} className={Biz.card}>
-            <p className="font-semibold text-[var(--biz-text)]">{n.title}</p>
-            <p className="text-[12px] text-[var(--biz-text-muted)]">
+          <li key={n.id} className={OWNER_ADMIN_LIST_CARD_CLASS}>
+            <p className="font-semibold text-sam-fg">{n.title}</p>
+            <p className="sam-text-xxs text-sam-muted">
               {t("business_phase7_486", {
                 v1: placementLabel(n.placement),
                 v2: n.is_active ? t("business_phase7_135") : t("business_phase7_418"),
                 v3: String(n.sort_order),
               })}
             </p>
-            <p className="mt-1 line-clamp-2 text-[13px] text-[var(--biz-text)]">{n.body}</p>
+            <p className="mt-1 line-clamp-2 sam-text-body text-sam-fg">{n.body}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -261,7 +263,7 @@ export function OwnerStoreNoticesView() {
                     row: { ...n, images: parseNoticeImages(n.images_json) },
                   })
                 }
-                className={Biz.btnOutline}
+                className={OWNER_ADMIN_OUTLINE_BTN_CLASS}
               >
                 {t("common_edit")}
               </button>
@@ -269,26 +271,27 @@ export function OwnerStoreNoticesView() {
                 type="button"
                 disabled={busy}
                 onClick={() => setDeleteConfirmId(n.id)}
-                className={Biz.btnOutline}
+                className={`${OWNER_ADMIN_OUTLINE_BTN_CLASS} text-red-600`}
               >
                 {t("common_delete")}
               </button>
             </div>
           </li>
         ))}
-      </ul>
+        </ul>
+      </OwnerStoreAdminDashSection>
 
       {editor ? (
         <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/45 p-3 sm:items-center">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-[16px] bg-[var(--biz-card-bg)] p-4 sm:rounded-[16px]">
-            <h2 className={Biz.textCardTitle}>
+          <div className={OWNER_ADMIN_MODAL_PANEL_CLASS}>
+            <h2 className="sam-text-body font-semibold text-sam-fg">
               {editor.mode === "new" ? t("business_phase7_437") : t("business_phase7_438")}
             </h2>
             <div className="mt-3 space-y-3">
               <label className="block">
-                <span className={Biz.textMuted}>{t("business_phase7_254")}</span>
+                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_254")}</span>
                 <input
-                  className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
+                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.title ?? "") : editor.row.title}
                   onChange={(e) => {
                     if (editor.mode === "new") {
@@ -300,10 +303,10 @@ export function OwnerStoreNoticesView() {
                 />
               </label>
               <label className="block">
-                <span className={Biz.textMuted}>{t("business_phase7_045")}</span>
+                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_045")}</span>
                 <textarea
                   rows={4}
-                  className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
+                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.body ?? "") : editor.row.body}
                   onChange={(e) => {
                     if (editor.mode === "new") {
@@ -315,9 +318,9 @@ export function OwnerStoreNoticesView() {
                 />
               </label>
               <label className="block">
-                <span className={Biz.textMuted}>{t("business_phase7_049")}</span>
+                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_049")}</span>
                 <select
-                  className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
+                  className={OWNER_ADMIN_FIELD_INPUT_CLASS}
                   value={editor.mode === "new" ? String(editor.draft.placement ?? "store_top") : editor.row.placement}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -336,12 +339,12 @@ export function OwnerStoreNoticesView() {
                 </select>
               </label>
               <div>
-                <span className={Biz.textMuted}>{t("business_phase7_236")}</span>
+                <span className={OWNER_ADMIN_FIELD_LABEL_CLASS}>{t("business_phase7_236")}</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
                   disabled={busy || (editor.mode === "new" ? editor.draft.images!.length >= 3 : editor.row.images.length >= 3)}
-                  className="mt-1 block w-full text-sm"
+                  className="mt-1 block w-full sam-text-body"
                   onChange={async (e) => {
                     const f = e.target.files?.[0];
                     e.target.value = "";
@@ -362,7 +365,7 @@ export function OwnerStoreNoticesView() {
                 />
                 <ul className="mt-1 flex flex-wrap gap-2">
                   {(editor.mode === "new" ? editor.draft.images! : editor.row.images).map((u) => (
-                    <li key={u} className="relative h-16 w-24 overflow-hidden rounded-[10px] border">
+                    <li key={u} className="relative h-16 w-24 overflow-hidden rounded-ui-rect border border-sam-border">
                       <img src={u} alt="" className="h-full w-full object-cover" />
                       <button
                         type="button"
@@ -402,14 +405,14 @@ export function OwnerStoreNoticesView() {
                     }
                   }}
                 />
-                <span className={Biz.textBody}>{t("business_phase7_135")}</span>
+                <span className="sam-text-body text-sam-fg">{t("business_phase7_135")}</span>
               </label>
             </div>
-            <div className="mt-4 flex gap-2">
-              <button type="button" disabled={busy} onClick={() => setEditor(null)} className={Biz.btnOutline}>
+            <div className="mt-4 flex gap-2 border-t border-sam-border pt-4">
+              <button type="button" disabled={busy} onClick={() => setEditor(null)} className={`min-h-[44px] flex-1 ${OWNER_ADMIN_OUTLINE_BTN_CLASS}`}>
                 {t("common_close")}
               </button>
-              <button type="button" disabled={busy} onClick={() => void saveEditor()} className={Biz.btnPrimaryLg}>
+              <button type="button" disabled={busy} onClick={() => void saveEditor()} className={`min-h-[44px] flex-1 ${OWNER_ADMIN_PRIMARY_BTN_CLASS}`}>
                 {busy ? t("business_phase7_384") : t("business_phase7_385")}
               </button>
             </div>

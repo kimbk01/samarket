@@ -122,6 +122,8 @@ export const mypageRoutesMessages = {
     owner_store_admin_hub: "매장 어드민",
     owner_store_server_config_required: "서버 설정이 필요합니다.",
     owner_store_order_chat_load_failed: "채팅을 불러오지 못했습니다.",
+    owner_store_need_store_id_suffix_products: "에서 「상품 등록」을 눌러 주세요.",
+    owner_store_need_store_id_suffix_menu_categories: "에서 「카테고리」를 눌러 주세요.",
   },
   en: {
     settings_logout: "Log out",
@@ -248,5 +250,7 @@ export const mypageRoutesMessages = {
     owner_store_admin_hub: "Store admin",
     owner_store_server_config_required: "Server configuration is required.",
     owner_store_order_chat_load_failed: "Could not load chat.",
+    owner_store_need_store_id_suffix_products: " and tap Add product.",
+    owner_store_need_store_id_suffix_menu_categories: " and tap Categories.",
   },
 } as const;

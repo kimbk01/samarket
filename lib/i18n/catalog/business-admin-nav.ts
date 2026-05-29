@@ -101,6 +101,7 @@ export const businessAdminNavMessages = {
     biz_title_edit: "상점 정보",
     biz_title_apply: "매장 신청",
     biz_title_order_chat: "주문 채팅",
+    biz_title_order_chats: "주문 채팅함",
     biz_title_default: "매장 어드민",
 
   },
@@ -204,6 +205,7 @@ export const businessAdminNavMessages = {
     biz_title_edit: "Store info",
     biz_title_apply: "Apply for store",
     biz_title_order_chat: "Order chat",
+    biz_title_order_chats: "Order chats",
     biz_title_default: "Store admin",
 
   },

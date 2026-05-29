@@ -47,7 +47,25 @@ export function isOwnerStoreProfilePath(pathname: string): boolean {
   return p.endsWith("/stores/owner/profile");
 }
 
+export function isOwnerInquiriesPath(pathname: string): boolean {
+  const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
+  return (
+    p.endsWith("/stores/owner/inquiries") ||
+    p.endsWith("/my/business/inquiries") ||
+    p.endsWith("/mypage/business/inquiries")
+  );
+}
+
 /** 사이드바·뒤로가기 가드: 기본 정보 또는 매장 설정(프로필) */
 export function isOwnerStoreAdminDirtyGuardPath(pathname: string): boolean {
   return isOwnerBasicInfoPath(pathname) || isOwnerStoreProfilePath(pathname);
+}
+
+/** 하단 `OwnerMobileBottomNav` 숨김 — 편집 폼·문의 목록 등 전체 화면 서브라우트 */
+export function isOwnerStoreFormBottomNavHiddenPath(pathname: string): boolean {
+  return (
+    isOwnerBasicInfoPath(pathname) ||
+    isOwnerStoreProfilePath(pathname) ||
+    isOwnerInquiriesPath(pathname)
+  );
 }

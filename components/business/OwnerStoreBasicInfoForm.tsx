@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
+import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
-  formatPhMobileDisplay0956,
+  formatPhMobileDisplayPlus63,
   normalizePhMobileDb,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
@@ -30,9 +30,12 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import {
-  OWNER_STORE_CONTROL_CLASS,
   OWNER_STORE_FORM_GRID_2_CLASS,
-  OWNER_STORE_SELECT_CLASS,
+  OWNER_STORE_PROFILE_CONTROL_CLASS,
+  OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS,
+  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
+  OWNER_STORE_PROFILE_SELECT_CLASS,
+  OWNER_STORE_STACK_Y_CLASS,
 } from "@/lib/business/owner-store-stack";
 import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
@@ -40,16 +43,18 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import {
-  BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS,
-  BOTTOM_NAV_SHELL,
-} from "@/lib/main-menu/bottom-nav-config";
+  OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+  ownerStoreAdminFooterFixedClass,
+} from "@/lib/business/owner-admin-footer-actions";
 import {
   OWNER_BASIC_INFO_LEAVE_EVENT,
   setOwnerBasicInfoDirty,
   type OwnerBasicInfoLeaveDetail,
 } from "@/lib/business/owner-basic-info-guard";
-import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
-import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
 import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
@@ -60,6 +65,7 @@ import {
   formatStoreAddressDetailOnly,
   formatStoreAddressStreetDisplay,
 } from "@/lib/stores/store-location-label";
+import { OwnerBasicInfoBrandingHero } from "@/components/business/owner/OwnerBasicInfoBrandingHero";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreAdminLeavePromptModal } from "@/components/business/owner/OwnerStoreAdminLeavePromptModal";
@@ -68,6 +74,26 @@ import {
   formatOwnerStoreImageUploadError,
   formatOwnerStorePatchError,
 } from "@/lib/business/owner-store-patch-error-i18n";
+import {
+  resolveStoreTaxonomyPrimaryDisplayName,
+  resolveStoreTaxonomyTopicDisplayName,
+} from "@/lib/stores/resolve-store-taxonomy-display-name";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+
+const OWNER_BASIC_INFO_SUBBLOCK_HEAD_CLASS =
+  "-mx-4 mb-4 block border-b border-[var(--biz-primary-active)] bg-[var(--biz-primary)] px-4 py-3 text-[13px] font-bold leading-snug text-[var(--biz-cream)]";
+
+const OWNER_BASIC_INFO_CHECKBOX_ROW_CLASS =
+  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
+
+function OwnerBasicInfoSubBlock({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className={`${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]`}>
+      <span className={OWNER_BASIC_INFO_SUBBLOCK_HEAD_CLASS}>{title}</span>
+      <div className="space-y-4">{children}</div>
+    </div>
+  );
+}
 
 function resolveRegionCityIds(regionRaw: string, cityRaw: string): { rid: string; cid: string } {
   const rn = regionRaw.trim();
@@ -104,12 +130,28 @@ type BasicValues = {
   category: string;
 };
 
-type StoreRelEmbed = { name?: string } | { name?: string }[] | null | undefined;
+type StoreRelEmbed = { name?: string; slug?: string } | { name?: string; slug?: string }[] | null | undefined;
 
-function storeEmbedName(rel: StoreRelEmbed): string {
-  if (rel == null) return "";
-  if (Array.isArray(rel)) return (rel[0]?.name ?? "").trim();
-  return (rel.name ?? "").trim();
+function storeEmbedFirst(rel: StoreRelEmbed): { name: string; slug: string } | null {
+  if (rel == null) return null;
+  const item = Array.isArray(rel) ? rel[0] : rel;
+  if (!item) return null;
+  const name = (item.name ?? "").trim();
+  const slug = (item.slug ?? "").trim();
+  if (!name && !slug) return null;
+  return { name, slug };
+}
+
+function resolveStoreCategoryEmbedLabel(lang: AppLanguageCode, rel: StoreRelEmbed): string {
+  const item = storeEmbedFirst(rel);
+  if (!item) return "";
+  return resolveStoreTaxonomyPrimaryDisplayName(lang, item.slug, item.name, null);
+}
+
+function resolveStoreTopicEmbedLabel(lang: AppLanguageCode, rel: StoreRelEmbed): string {
+  const item = storeEmbedFirst(rel);
+  if (!item) return "";
+  return resolveStoreTaxonomyTopicDisplayName(lang, item.slug, item.name, null);
 }
 
 function deriveStoreTopicIdsFromRow(
@@ -239,8 +281,8 @@ export function OwnerStoreBasicInfoForm({
 
   const industryVersion = useBrowseIndustryDatasetVersion();
   const identityEditable = row.owner_can_edit_store_identity === true;
-  const primaryIndustryNames = useMemo(
-    () => listBrowsePrimaryIndustries().map((p) => p.nameKo),
+  const primaryIndustries = useMemo(
+    () => listBrowsePrimaryIndustries(),
     [industryVersion]
   );
 
@@ -396,11 +438,12 @@ export function OwnerStoreBasicInfoForm({
   useEffect(() => {
     if (!identityEditable) return;
     if (taxonomy && taxonomy.categories.length > 0 && taxonomy.topics.length > 0) return;
-    if (primaryIndustryNames.length === 0) return;
+    if (primaryIndustries.length === 0) return;
+    const firstKo = primaryIndustries[0]!.nameKo;
     setValues((v) =>
-      primaryIndustryNames.includes(v.category) ? v : { ...v, category: primaryIndustryNames[0]! }
+      primaryIndustries.some((p) => p.nameKo === v.category) ? v : { ...v, category: firstKo }
     );
-  }, [primaryIndustryNames, taxonomy, identityEditable]);
+  }, [primaryIndustries, taxonomy, identityEditable]);
 
   useEffect(() => {
     const la = parseFiniteLatitude(row.lat);
@@ -791,194 +834,118 @@ export function OwnerStoreBasicInfoForm({
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
+          if (!isDirty) return;
           void saveBasicInfo();
         }}
-        className={`max-w-full min-w-0 space-y-3 sm:space-y-4 ${
-          isDirty
-            ? "pb-[calc(60px+env(safe-area-inset-bottom,0px))]"
-            : "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3"
-        }`}
+        className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} ${OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS}`}
       >
-        <OwnerStoreAdminDashSection title={t("business_phase7_026")}>
-        <div>
-          <label className="mb-2 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_053")}</label>
-          <div>
-            <div className="relative inline-block shrink-0">
-              <div className="h-20 w-20 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app">
-                {values.profileImageUrl ? (
-                  <img src={values.profileImageUrl} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">{t("common_none")}</div>
-                )}
-              </div>
-              <input
-                ref={profileFileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                disabled={uploading}
-                className="sr-only"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void uploadProfileImage(f);
-                  e.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={() => profileFileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 z-10 flex min-h-[44px] min-w-[44px] translate-x-1 translate-y-1 items-center justify-center border-0 bg-transparent p-0 shadow-none outline-none ring-0 hover:opacity-90 active:opacity-75 disabled:opacity-40 focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1"
-                aria-label={
-                  values.profileImageUrl.trim()
-                    ? t("business_phase7_531")
-                    : t("business_phase7_532")
-                }
-              >
-                <span
-                  className="sam-text-hero leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)] sm:sam-text-hero"
-                  aria-hidden
-                >
-                  📷
-                </span>
-                <span className="sr-only">
-                  {values.profileImageUrl.trim()
-                    ? t("business_phase7_533")
-                    : t("business_phase7_534")}
-                </span>
-              </button>
-            </div>
-          </div>
-          {uploading ? <p className="mt-1 sam-text-helper text-sam-muted">{t("business_phase7_188")}</p> : null}
-        </div>
-
-        <div>
-          <p className="mb-1 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_081")}</p>
-          <div className="mb-2 rounded-ui-rect border border-signature/25 bg-signature/5 px-2.5 py-2">
-            <p className="sam-text-xxs font-normal leading-snug text-signature">
-              {t("business_phase7_535")}
-            </p>
-          </div>
-          {identityEditable ? (
-            <input
-              type="text"
-              value={values.shopName}
-              onChange={(e) => setValues((v) => ({ ...v, shopName: e.target.value }))}
-              autoComplete="organization"
-              className={OWNER_STORE_CONTROL_CLASS}
-            />
-          ) : (
-            <p className="sam-text-body-lg font-normal text-sam-fg">
-              {(row.store_name ?? "").trim() || "—"}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label className="mb-1 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_071")}</label>
-          <textarea
-            value={values.description}
-            onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
-            rows={4}
-            className={OWNER_STORE_CONTROL_CLASS}
-            placeholder={t("business_phase7_028")}
+        <OwnerStoreAdminDashSection title={t("business_phase7_026")} surfaceTone="bizSoft">
+          <OwnerBasicInfoBrandingHero
+            logoLabel={t("business_phase7_053")}
+            storeNameLabel={t("business_phase7_081")}
+            introLabel={t("business_phase7_071")}
+            storeNameHint={t("business_phase7_535")}
+            introPlaceholder={t("business_phase7_028")}
+            noneLabel={t("common_none")}
+            uploadingLabel={uploading ? t("business_phase7_188") : null}
+            changePhotoAria={t("business_phase7_531")}
+            addPhotoAria={t("business_phase7_532")}
+            changePhotoSr={t("business_phase7_533")}
+            addPhotoSr={t("business_phase7_534")}
+            profileImageUrl={values.profileImageUrl}
+            shopName={identityEditable ? values.shopName : (row.store_name ?? "")}
+            description={values.description}
+            identityEditable={identityEditable}
+            uploading={uploading}
+            profileFileInputRef={profileFileInputRef}
+            onPickFile={(f) => void uploadProfileImage(f)}
+            onShopNameChange={(v) => setValues((prev) => ({ ...prev, shopName: v }))}
+            onDescriptionChange={(v) => setValues((prev) => ({ ...prev, description: v }))}
           />
-        </div>
-
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_025")}>
-          <div className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+        <OwnerStoreAdminDashSection title={t("business_phase7_025")} surfaceTone="bizSoft">
+          <label htmlFor={`basic-menu-sold-out-bottom-${storeId}`} className={OWNER_BASIC_INFO_CHECKBOX_ROW_CLASS}>
             <input
               id={`basic-menu-sold-out-bottom-${storeId}`}
               type="checkbox"
               checked={values.menuSoldOutBottom}
               onChange={(e) => setValues((v) => ({ ...v, menuSoldOutBottom: e.target.checked }))}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]"
             />
-            <label htmlFor={`basic-menu-sold-out-bottom-${storeId}`} className="min-w-0 leading-snug">
-              <span className="sam-text-body-secondary font-medium text-sam-fg">
+            <span className="min-w-0 leading-snug">
+              <span className="block text-[13px] font-semibold text-[var(--biz-text)]">
                 {t("business_phase7_536")}
               </span>
-              <span className="mt-0.5 block sam-text-xxs text-sam-muted">
+              <span className="mt-0.5 block sam-text-helper text-[var(--biz-text-muted)]">
                 {t("business_phase7_537")}
               </span>
-            </label>
-          </div>
+            </span>
+          </label>
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_195")}>
+        <OwnerStoreAdminDashSection title={t("business_phase7_195")} surfaceTone="bizSoft">
           <div className="space-y-4">
-            <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app/30">
-              <div className="border-b border-sam-border-soft bg-sam-app/70 px-3 py-2">
-                <p className="sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_194")}</p>
-              </div>
-              <div className="p-3 sm:p-4">
-                <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-helper font-normal text-sam-muted">{t("business_phase7_245")}</label>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      value={formatPhMobileDisplay0956(values.phone)}
-                      onChange={(e) => setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))}
-                      className={OWNER_STORE_CONTROL_CLASS}
-                      placeholder="0956 188 6313"
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-helper font-normal text-sam-muted">{t("business_phase7_297")}</label>
-                    <input
-                      type="text"
-                      value={values.kakaoId}
-                      onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
-                      className={OWNER_STORE_CONTROL_CLASS}
-                      placeholder={t("business_phase7_193")}
-                    />
-                  </div>
+            <OwnerBasicInfoSubBlock title={t("business_phase7_194")}>
+              <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
+                <div className="min-w-0">
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_245")}</label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={formatPhMobileDisplayPlus63(values.phone)}
+                    onChange={(e) => setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                    placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
+                    title={t("phone_rule")}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
+                  <input
+                    type="text"
+                    value={values.kakaoId}
+                    onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                    placeholder={t("business_phase7_193")}
+                  />
                 </div>
               </div>
-            </div>
+            </OwnerBasicInfoSubBlock>
 
-            <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app/30">
-              <div className="border-b border-sam-border-soft bg-sam-app/70 px-3 py-2">
-                <p className="sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_012")}</p>
-              </div>
-              <div className="p-3 sm:p-4">
-                <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-helper font-normal text-sam-muted">{t("business_phase7_337")}</label>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="off"
-                      value={formatPhMobileDisplay0956(values.email)}
-                      onChange={(e) => setValues((v) => ({ ...v, email: parsePhMobileInput(e.target.value) }))}
-                      className={OWNER_STORE_CONTROL_CLASS}
-                      placeholder="0956 188 6313"
-                      title={PH_LOCAL_09_PLACEHOLDER}
-                    />
-                  </div>
-
-                  <div className="min-w-0">
-                    <label className="mb-1 block sam-text-helper font-normal text-sam-muted">{t("business_phase7_336")}</label>
-                    <input
-                      type="text"
-                      autoComplete="name"
-                      value={values.websiteUrl}
-                      onChange={(e) => setValues((v) => ({ ...v, websiteUrl: e.target.value }))}
-                      className={OWNER_STORE_CONTROL_CLASS}
-                      placeholder={t("business_phase7_014")}
-                    />
-                  </div>
+            <OwnerBasicInfoSubBlock title={t("business_phase7_012")}>
+              <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
+                <div className="min-w-0">
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_337")}</label>
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="off"
+                    value={formatPhMobileDisplayPlus63(values.email)}
+                    onChange={(e) => setValues((v) => ({ ...v, email: parsePhMobileInput(e.target.value) }))}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                    placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
+                    title={t("phone_rule")}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_336")}</label>
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    value={values.websiteUrl}
+                    onChange={(e) => setValues((v) => ({ ...v, websiteUrl: e.target.value }))}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                    placeholder={t("business_phase7_014")}
+                  />
                 </div>
               </div>
-            </div>
+            </OwnerBasicInfoSubBlock>
           </div>
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_080")}>
+        <OwnerStoreAdminDashSection title={t("business_phase7_080")} surfaceTone="bizSoft">
           <div className="space-y-4">
             {!storeMapCoordsOk ? (
               <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2.5 sam-text-helper text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
@@ -986,160 +953,158 @@ export function OwnerStoreBasicInfoForm({
                 <p className="mt-1 leading-relaxed">{t("business_phase7_540")}</p>
                 <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
                   <div className="min-w-0">
-                    <label className="mb-1 block font-medium text-amber-900 dark:text-amber-50">{t("business_phase7_229")}</label>
+                    <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_229")}</label>
                     <input
                       type="text"
                       inputMode="decimal"
                       autoComplete="off"
                       value={manualMapLat}
                       onChange={(e) => setManualMapLat(e.target.value)}
-                      className={OWNER_STORE_CONTROL_CLASS}
+                      className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                       placeholder={t("business_phase7_200")}
                     />
                   </div>
                   <div className="min-w-0">
-                    <label className="mb-1 block font-medium text-amber-900 dark:text-amber-50">{t("business_phase7_013")}</label>
+                    <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_013")}</label>
                     <input
                       type="text"
                       inputMode="decimal"
                       autoComplete="off"
                       value={manualMapLng}
                       onChange={(e) => setManualMapLng(e.target.value)}
-                      className={OWNER_STORE_CONTROL_CLASS}
+                      className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                       placeholder={t("business_phase7_199")}
                     />
                   </div>
                 </div>
               </div>
             ) : null}
-            <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app/30">
-              <div className="border-b border-sam-border-soft bg-sam-app/70 px-3 py-2">
-                <p className="sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_276")}</p>
-              </div>
-              <div className="p-3 sm:p-4">
-                <OwnerAddressBookSnapshotCard
-                  bare
-                  snapshotMode="store_linked"
-                  returnToPath={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
-                  addressReady={addressReady}
-                  addressDefault={storeLinkedUserAddress}
-                  listError={addressBookListError}
-                />
-              </div>
-            </div>
+
+            <OwnerBasicInfoSubBlock title={t("business_phase7_276")}>
+              <OwnerAddressBookSnapshotCard
+                bare
+                snapshotMode="store_linked"
+                returnToPath={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
+                addressReady={addressReady}
+                addressDefault={storeLinkedUserAddress}
+                listError={addressBookListError}
+              />
+            </OwnerBasicInfoSubBlock>
 
             {addressReady && !storeLinkedUserAddress?.id ? (
-              <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app/30">
-                <div className="border-b border-sam-border-soft bg-sam-app/70 px-3 py-2">
-                  <p className="sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_285")}</p>
-                </div>
-                <div className="p-3 sm:p-4">
-                  <StoreAddressLocationSection
-                    sectionHint={STORE_LOCATION_SECTION_HINT_STORE_PUBLIC}
-                    regionId={regionId}
-                    cityId={cityId}
-                    onRegionChange={(id) => {
-                      setRegionId(id);
-                      setCityId("");
-                    }}
-                    onCityChange={(id) => {
-                      setCityId(id);
-                    }}
-                    addressStreetLine={values.addressStreetLine}
-                    addressDetail={values.addressDetail}
-                    onAddressStreetLineChange={(v) => setValues((x) => ({ ...x, addressStreetLine: v }))}
-                    onAddressDetailChange={(v) => setValues((x) => ({ ...x, addressDetail: v }))}
-                    showRequired={false}
-                  />
-                </div>
-              </div>
+              <OwnerBasicInfoSubBlock title={t("business_phase7_285")}>
+                <StoreAddressLocationSection
+                  sectionHint={STORE_LOCATION_SECTION_HINT_STORE_PUBLIC}
+                  regionId={regionId}
+                  cityId={cityId}
+                  onRegionChange={(id) => {
+                    setRegionId(id);
+                    setCityId("");
+                  }}
+                  onCityChange={(id) => {
+                    setCityId(id);
+                  }}
+                  addressStreetLine={values.addressStreetLine}
+                  addressDetail={values.addressDetail}
+                  onAddressStreetLineChange={(v) => setValues((x) => ({ ...x, addressStreetLine: v }))}
+                  onAddressDetailChange={(v) => setValues((x) => ({ ...x, addressDetail: v }))}
+                  showRequired={false}
+                />
+              </OwnerBasicInfoSubBlock>
             ) : null}
           </div>
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
-          {taxonomyLoading ? (
-            <p className="sam-text-body-secondary text-sam-muted">{t("business_phase7_130")}</p>
-          ) : identityEditable && useDbTaxonomy ? (
-            <div className={`mt-2 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
-              <div className="min-w-0">
-                <label className="mb-1 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_005")}</label>
-                <select
-                  value={storeCategoryId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setStoreCategoryId(id);
-                    const first = taxonomy!.topics.find((t) => t.store_category_id === id);
-                    setStoreTopicId(first?.id ?? "");
-                  }}
-                  className={OWNER_STORE_SELECT_CLASS}
-                >
-                  {taxonomy!.categories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
+        {taxonomyLoading ? (
+          <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
+            <p className="sam-text-body-secondary text-[var(--biz-text-muted)]">{t("business_phase7_130")}</p>
+          </OwnerStoreAdminDashSection>
+        ) : identityEditable && useDbTaxonomy ? (
+          <>
+            <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
+              <select
+                value={storeCategoryId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setStoreCategoryId(id);
+                  const first = taxonomy!.topics.find((tp) => tp.store_category_id === id);
+                  setStoreTopicId(first?.id ?? "");
+                }}
+                className={OWNER_STORE_PROFILE_SELECT_CLASS}
+              >
+                {taxonomy!.categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {resolveStoreTaxonomyPrimaryDisplayName(language, c.slug, c.name, c.name_en)}
+                  </option>
+                ))}
+              </select>
+            </OwnerStoreAdminDashSection>
+            <OwnerStoreAdminDashSection title={t("business_phase7_006")} surfaceTone="bizSoft">
+              <select
+                value={storeTopicId}
+                onChange={(e) => setStoreTopicId(e.target.value)}
+                disabled={topicsForCategory.length === 0}
+                className={OWNER_STORE_PROFILE_SELECT_CLASS}
+              >
+                {topicsForCategory.length === 0 ? (
+                  <option value="">{t("business_phase7_161")}</option>
+                ) : (
+                  topicsForCategory.map((tp) => (
+                    <option key={tp.id} value={tp.id}>
+                      {resolveStoreTaxonomyTopicDisplayName(language, tp.slug, tp.name, tp.name_en)}
                     </option>
-                  ))}
-                </select>
-              </div>
-              <div className="min-w-0">
-                <label className="mb-1 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_006")}</label>
-                <select
-                  value={storeTopicId}
-                  onChange={(e) => setStoreTopicId(e.target.value)}
-                  disabled={topicsForCategory.length === 0}
-                  className={OWNER_STORE_SELECT_CLASS}
-                >
-                  {topicsForCategory.length === 0 ? (
-                    <option value="">{t("business_phase7_161")}</option>
-                  ) : (
-                    topicsForCategory.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-            </div>
-          ) : identityEditable && !useDbTaxonomy ? (
-            <div className="mt-2 space-y-2">
+                  ))
+                )}
+              </select>
+            </OwnerStoreAdminDashSection>
+          </>
+        ) : identityEditable && !useDbTaxonomy ? (
+          <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
+            <div className="space-y-2">
               <p className="sam-text-helper leading-relaxed text-amber-900">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_541")}</>
                 ) : (
-                  <>{t("business_phase7_335")}<code className="rounded bg-amber-100 px-1">business_type</code>{t("business_phase7_001")}</>
+                  <>
+                    {t("business_phase7_335")}
+                    <code className="rounded bg-amber-100 px-1">business_type</code>
+                    {t("business_phase7_001")}
+                  </>
                 )}
               </p>
-              <label className="mb-1 block sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_189")}</label>
               <select
                 value={values.category}
                 onChange={(e) => setValues((v) => ({ ...v, category: e.target.value }))}
-                className={OWNER_STORE_SELECT_CLASS}
+                className={OWNER_STORE_PROFILE_SELECT_CLASS}
               >
-                {primaryIndustryNames.length === 0 ? (
+                {primaryIndustries.length === 0 ? (
                   <option value={t("business_phase7_040")}>{t("business_phase7_040")}</option>
                 ) : (
-                  primaryIndustryNames.map((name) => (
-                    <option key={name} value={name}>
-                      {name}
+                  primaryIndustries.map((p) => (
+                    <option key={p.id} value={p.nameKo}>
+                      {resolveStoreTaxonomyPrimaryDisplayName(language, p.slug, p.nameKo, p.nameEn)}
                     </option>
                   ))
                 )}
               </select>
             </div>
-          ) : useDbTaxonomy ? (
-            <div className="mt-2 space-y-3">
-              <div>
-                <p className="mb-0.5 sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_005")}</p>
-                <p className="sam-text-body font-normal text-sam-fg">{storeEmbedName(row.store_categories) || "—"}</p>
-              </div>
-              <div>
-                <p className="mb-0.5 sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_006")}</p>
-                <p className="sam-text-body font-normal text-sam-fg">{storeEmbedName(row.store_topics) || "—"}</p>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-2 space-y-2">
+          </OwnerStoreAdminDashSection>
+        ) : useDbTaxonomy ? (
+          <>
+            <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
+              <p className="sam-text-body font-normal text-[var(--biz-text)]">
+                {resolveStoreCategoryEmbedLabel(language, row.store_categories) || t("common_none")}
+              </p>
+            </OwnerStoreAdminDashSection>
+            <OwnerStoreAdminDashSection title={t("business_phase7_006")} surfaceTone="bizSoft">
+              <p className="sam-text-body font-normal text-[var(--biz-text)]">
+                {resolveStoreTopicEmbedLabel(language, row.store_topics) || t("common_none")}
+              </p>
+            </OwnerStoreAdminDashSection>
+          </>
+        ) : (
+          <OwnerStoreAdminDashSection title={t("business_phase7_005")} surfaceTone="bizSoft">
+            <div className="space-y-2">
               <p className="sam-text-helper leading-relaxed text-amber-900">
                 {taxonomyMeta?.source === "supabase_unconfigured" ? (
                   <>{t("business_phase7_542")}</>
@@ -1149,57 +1114,52 @@ export function OwnerStoreBasicInfoForm({
                   <>{t("business_phase7_334")}</>
                 )}
               </p>
-              <p className="mb-0.5 sam-text-body-secondary font-bold text-sam-fg">{t("business_phase7_191")}</p>
-              <p className="sam-text-body font-normal text-sam-fg">{(row.business_type || "—").trim() || "—"}</p>
+              <p className="sam-text-body font-normal text-[var(--biz-text)]">
+                {(row.business_type || "").trim() || t("common_none")}
+              </p>
             </div>
-          )}
-        </OwnerStoreAdminDashSection>
+          </OwnerStoreAdminDashSection>
+        )}
       </form>
 
-      {isDirty ?
-        <BodyPortal>
-          <footer
-            role="contentinfo"
-            aria-label={t("business_phase7_039")}
-            className={`pointer-events-none fixed inset-x-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 ${
-              dockActionBarAboveMainBottomNav
-                ? BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS
-                : "bottom-0 pb-[env(safe-area-inset-bottom,0px)]"
-            }`}
-          >
-            <div
-              className={`pointer-events-auto ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} ${OWNER_DESKTOP_SHELL_MIN_TW}:mx-auto ${OWNER_DESKTOP_SHELL_MIN_TW}:max-w-6xl ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2 ${OWNER_DESKTOP_SHELL_MIN_TW}:pr-2`}
-            >
-              {error ?
-                <div
-                  className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
-                  role="alert"
-                >
-                  {error}
-                </div>
-              : null}
-              <div className="flex min-w-0 divide-x divide-sam-border">
-                <button
-                  type="button"
-                  onClick={revertToSaved}
-                  disabled={submitting || uploading || leaveSaving || saveConfirmOpen}
-                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
-                >
-                  {t("common_cancel")}
-                </button>
-                <button
-                  type="submit"
-                  form="owner-store-basic-info-form"
-                  disabled={submitting || uploading || leaveSaving || saveConfirmOpen}
-                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
-                >
-                  {submitting ? t("business_phase7_384") : t("common_save")}
-                </button>
+      <BodyPortal>
+        <footer
+          role="contentinfo"
+          aria-label={t("business_phase7_039")}
+          className={ownerStoreAdminFooterFixedClass({
+            aboveBottomNav: dockActionBarAboveMainBottomNav,
+          })}
+        >
+          <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            {error ?
+              <div
+                className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                role="alert"
+              >
+                {error}
               </div>
+            : null}
+            <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+              <button
+                type="button"
+                onClick={revertToSaved}
+                disabled={!isDirty || submitting || uploading || leaveSaving || saveConfirmOpen}
+                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+              >
+                {t("common_cancel")}
+              </button>
+              <button
+                type="submit"
+                form="owner-store-basic-info-form"
+                disabled={!isDirty || submitting || uploading || leaveSaving || saveConfirmOpen}
+                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+              >
+                {submitting ? t("business_phase7_384") : t("common_save")}
+              </button>
             </div>
-          </footer>
-        </BodyPortal>
-      : null}
+          </div>
+        </footer>
+      </BodyPortal>
 
       <OwnerStoreAdminConfirmModal
         open={saveConfirmOpen}

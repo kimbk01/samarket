@@ -45,7 +45,7 @@ async function OwnerStoreOrderChatPageBody({
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
         <Link href="/login" className="font-medium text-signature underline">
-          로그인
+          {translate(lang, "common_login")}
         </Link>
       </div>
     );
@@ -55,7 +55,7 @@ async function OwnerStoreOrderChatPageBody({
   if (!sb) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-sm text-sam-muted">
-        서버 설정이 필요합니다.
+        {translate(lang, "owner_store_server_config_required")}
       </div>
     );
   }
@@ -64,10 +64,10 @@ async function OwnerStoreOrderChatPageBody({
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center">
         <p className="text-sm text-sam-fg">
-          채팅을 불러오지 못했습니다.{` (${result.error})`}
+          {translate(lang, "owner_store_order_chat_load_failed")} ({result.error})
         </p>
         <Link href="/stores/owner" className="text-sm font-medium text-signature underline">
-          매장 어드민
+          {translate(lang, "owner_store_admin_hub")}
         </Link>
       </div>
     );

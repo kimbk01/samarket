@@ -1,22 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
   OWNER_STORE_FORM_GRID_2_CLASS,
   OWNER_STORE_PROFILE_CONTROL_CLASS,
   OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS,
-  OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS,
   OWNER_STORE_PROFILE_FIELD_EDGE_CLASS,
   OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
-  OWNER_STORE_PROFILE_INNER_PANEL_CLASS,
   OWNER_STORE_PROFILE_SELECT_CLASS,
   OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS,
   OWNER_STORE_PROFILE_TIME_BUTTON_CLASS,
+  OWNER_STORE_STACK_Y_CLASS,
 } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OwnerStoreAdminLeavePromptModal } from "@/components/business/owner/OwnerStoreAdminLeavePromptModal";
 import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
@@ -51,13 +51,15 @@ import { applyAutoBusinessHoursToRecord } from "@/lib/stores/serialize-store-bus
 import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
 import { TumblerTimePickerDialog } from "@/components/ui/TumblerTimePickerDialog";
 import { BodyPortal } from "@/components/layout/BodyPortal";
-import {
-  BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS,
-  BOTTOM_NAV_SHELL,
-} from "@/lib/main-menu/bottom-nav-config";
-import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
-import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import {
+  OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_INNER_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+  ownerStoreAdminFooterFixedClass,
+} from "@/lib/business/owner-admin-footer-actions";
 import {
   OWNER_BASIC_INFO_LEAVE_EVENT,
   setOwnerBasicInfoDirty,
@@ -72,6 +74,20 @@ import {
   ownerStoreTimezoneLabel,
 } from "@/lib/business/owner-store-patch-error-i18n";
 const GALLERY_MAX = 16;
+
+const OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS =
+  "-mx-4 mb-4 block border-b border-[var(--biz-primary-active)] bg-[var(--biz-primary)] px-4 py-3 text-[13px] font-bold leading-snug text-[var(--biz-cream)]";
+
+const OWNER_STORE_PROFILE_FIELD_SHELL_CLASS = `${OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS} border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]`;
+
+const OWNER_STORE_PROFILE_CHECKBOX_CLASS =
+  "mt-0.5 h-4 w-4 shrink-0 rounded border-[var(--biz-card-border)] text-[var(--biz-primary)] accent-[var(--biz-primary)]";
+
+const OWNER_STORE_PROFILE_CHECKBOX_ROW_CLASS =
+  "flex min-h-[60px] cursor-pointer items-start gap-3 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-3 transition-colors hover:border-[var(--biz-primary)]/45 active:bg-[var(--biz-primary-soft)]";
+
+const OWNER_STORE_PROFILE_BIZ_INNER_PANEL_CLASS =
+  "space-y-4 rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-4 py-4";
 
 function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string): string {
   const v = o[snake] ?? o[camel];
@@ -433,6 +449,7 @@ export function OwnerStoreProfileForm({
   const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
   const [leavePrompt, setLeavePrompt] = useState<OwnerBasicInfoLeaveDetail | null>(null);
   const [leaveSaving, setLeaveSaving] = useState(false);
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false);
   const [globalRideTimeSource, setGlobalRideTimeSource] = useState<"store" | "google" | null>(null);
 
   const valuesRef = useRef(values);
@@ -450,6 +467,11 @@ export function OwnerStoreProfileForm({
   const isDirty =
     baselineSnapshot != null &&
     serializeProfileSnapshot(valuesRef.current) !== baselineSnapshot;
+
+  const saveConfirmDescription = useMemo(
+    () => `${t("business_phase7_697")} ${t("business_phase7_530")}`.trim(),
+    [t],
+  );
 
   useEffect(() => {
     setOwnerBasicInfoDirty(isDirty);
@@ -527,7 +549,7 @@ export function OwnerStoreProfileForm({
     setBaselineSnapshot(serializeProfileSnapshot(next));
   }, [row]);
 
-  const runSave = async (): Promise<boolean> => {
+  const runSave = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
     try {
       setError(null);
       const business_hours_json = buildBusinessHoursJson(row, values);
@@ -563,6 +585,10 @@ export function OwnerStoreProfileForm({
           setError(t("business_phase7_525"));
           return false;
         }
+      }
+      if (!options?.skipPrompt) {
+        setSaveConfirmOpen(true);
+        return false;
       }
       setSubmitting(true);
       try {
@@ -620,7 +646,7 @@ export function OwnerStoreProfileForm({
     if (!leavePrompt) return;
     setLeaveSaving(true);
     try {
-      const ok = await runSave();
+      const ok = await runSave({ skipPrompt: true });
       if (ok) {
         const href = leavePrompt.href;
         setLeavePrompt(null);
@@ -685,36 +711,20 @@ export function OwnerStoreProfileForm({
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
+          if (!isDirty) return;
           void saveStoreProfile();
         }}
-        className={`max-w-full min-w-0 space-y-3 sm:space-y-4 ${
-          isDirty
-            ? "pb-[calc(60px+env(safe-area-inset-bottom,0px))]"
-            : "pb-0"
-        }`}
+        className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} ${OWNER_STORE_ADMIN_FOOTER_FORM_PAD_CLASS}`}
       >
-      <OwnerStoreAdminDashSection title={t("business_phase7_313")}>
-        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 px-3 py-2.5 sam-text-xxs leading-snug text-sam-fg">
-{t("business_phase7_544")}
-          <Link
-            href={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
-            className="font-semibold text-sam-primary underline underline-offset-2"
-          >
-            {t("business_phase7_038")}
-          </Link>
-          {t("business_phase7_545")}
-        </div>
-      </OwnerStoreAdminDashSection>
-
-      <OwnerStoreAdminDashSection title={t("business_phase7_159")}>
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-sam-fg">
+      <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_159")}>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-[var(--biz-text)]">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               id="svc-delivery"
               type="checkbox"
               checked={values.deliveryAvailable}
               onChange={(e) => setValues((v) => ({ ...v, deliveryAvailable: e.target.checked }))}
-              className="h-4 w-4 rounded border-sam-border text-signature"
+              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
             />
             <span>{t("business_phase7_106")}</span>
           </label>
@@ -724,38 +734,38 @@ export function OwnerStoreProfileForm({
               type="checkbox"
               checked={values.pickupAvailable}
               onChange={(e) => setValues((v) => ({ ...v, pickupAvailable: e.target.checked }))}
-              className="h-4 w-4 rounded border-sam-border text-signature"
+              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
             />
             <span>{t("business_phase7_315")}</span>
           </label>
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title={t("business_phase7_176")}>
-        <p className="sam-text-helper text-sam-muted">
-{t("business_phase7_546")}
-          <span className="font-medium text-sam-fg">{t("business_phase7_072")}</span>
+      <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_176")}>
+        <p className="sam-text-helper text-[var(--biz-text-muted)]">
+          {t("business_phase7_546")}
+          <span className="font-medium text-[var(--biz-text)]">{t("business_phase7_072")}</span>
           {t("business_phase7_547")}
           {t("business_phase7_548")}
         </p>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title={t("business_phase7_086")}>
-        <div className={OWNER_STORE_PROFILE_INNER_PANEL_CLASS}>
-          <label className="flex cursor-pointer items-start gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+      <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_086")}>
+        <div className={OWNER_STORE_PROFILE_BIZ_INNER_PANEL_CLASS}>
+          <label className={`${OWNER_STORE_PROFILE_CHECKBOX_ROW_CLASS} items-start`}>
             <input
               type="checkbox"
               checked={values.autoBusinessHoursEnabled}
               onChange={(e) =>
                 setValues((v) => ({ ...v, autoBusinessHoursEnabled: e.target.checked }))
               }
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
             />
             <span className="min-w-0">
-              <span className="block text-[13px] font-semibold text-sam-fg">
+              <span className="block text-[13px] font-semibold text-[var(--biz-text)]">
                 {t("business_phase7_auto_hours_schedule_enabled")}
               </span>
-              <span className="mt-0.5 block sam-text-helper text-sam-muted">
+              <span className="mt-0.5 block sam-text-helper text-[var(--biz-text-muted)]">
                 {t("business_phase7_auto_hours_schedule_hint")}
               </span>
             </span>
@@ -777,7 +787,7 @@ export function OwnerStoreProfileForm({
           </div>
 
           <div>
-            <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
+            <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--biz-text-muted)]">
               {t("business_phase7_549")}
             </p>
             <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
@@ -804,7 +814,7 @@ export function OwnerStoreProfileForm({
             </div>
           </div>
 
-          <div className="border-t border-sam-border-soft pt-4">
+          <div className="border-t border-[var(--biz-card-border)] pt-4">
             <label className="flex cursor-pointer items-start gap-2">
               <input
                 type="checkbox"
@@ -820,10 +830,10 @@ export function OwnerStoreProfileForm({
                     ...(!on ? { breakHoursStart: "", breakHoursEnd: "" } : {}),
                   }));
                 }}
-                className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+                className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
               />
               <span>
-                <span className="text-[13px] font-semibold text-sam-fg">{t("business_phase7_172")}</span>
+                <span className="text-[13px] font-semibold text-[var(--biz-text)]">{t("business_phase7_172")}</span>
               </span>
             </label>
             {values.breakHoursEnabled ?
@@ -852,15 +862,15 @@ export function OwnerStoreProfileForm({
             : null}
           </div>
 
-          <div className="flex items-start gap-2 rounded-ui-rect border border-sam-primary/20 bg-sam-primary-soft/40 px-3 py-3">
+          <div className="flex items-start gap-2 rounded-[16px] border border-[var(--biz-primary)]/25 bg-[var(--biz-primary-soft)] px-4 py-3">
             <input
               id="temp-closed"
               type="checkbox"
               checked={!values.isOpen}
               onChange={(e) => setValues((v) => ({ ...v, isOpen: !e.target.checked }))}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+              className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
             />
-            <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-sam-fg">
+            <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-[var(--biz-text)]">
               <span className="font-medium">{t("business_phase7_239")}</span>
             </label>
           </div>
@@ -878,47 +888,47 @@ export function OwnerStoreProfileForm({
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title={t("business_phase7_027")}>
-        <div className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+      <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_027")}>
+        <label htmlFor={`menu-sold-out-bottom-${storeId}`} className={OWNER_STORE_PROFILE_CHECKBOX_ROW_CLASS}>
           <input
             id={`menu-sold-out-bottom-${storeId}`}
             type="checkbox"
             checked={values.menuSoldOutBottom}
             onChange={(e) => setValues((v) => ({ ...v, menuSoldOutBottom: e.target.checked }))}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+            className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
           />
-          <label htmlFor={`menu-sold-out-bottom-${storeId}`} className="min-w-0 leading-snug">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">
+          <span className="min-w-0 leading-snug">
+            <span className="block text-[13px] font-semibold text-[var(--biz-text)]">
               {t("business_phase7_539")}
             </span>
-            <span className="mt-0.5 block sam-text-xxs text-sam-muted">
+            <span className="mt-0.5 block sam-text-helper text-[var(--biz-text-muted)]">
               {t("business_phase7_538")}
             </span>
-          </label>
-        </div>
-        <label className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+          </span>
+        </label>
+        <label className={`${OWNER_STORE_PROFILE_CHECKBOX_ROW_CLASS} mt-3`}>
           <input
             type="checkbox"
             checked={publicCommerceDetailOpen}
             onChange={(e) => setPublicCommerceDetailOpen(e.target.checked)}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+            className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
           />
           <span className="min-w-0">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_140")}</span>
+            <span className="block text-[13px] font-semibold text-[var(--biz-text)]">{t("business_phase7_140")}</span>
           </span>
         </label>
         {publicCommerceDetailOpen ? (
-          <div className="mt-4 space-y-4 border-t border-sam-border-soft pt-4">
+          <div className="mt-4 space-y-4 border-t border-[var(--biz-card-border)] pt-4">
             <div>
               <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_011")}</span>
-              <div className="rounded-ui-rect border border-sam-primary/18 bg-sam-primary-soft/30 px-3 py-3 sam-text-body text-sam-fg">
+              <div className="rounded-[16px] border border-[var(--biz-primary)]/20 bg-[var(--biz-primary-soft)] px-4 py-3 sam-text-body text-[var(--biz-text)]">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
                       type="checkbox"
                       checked={values.payMethodGcash}
                       onChange={(e) => setValues((v) => ({ ...v, payMethodGcash: e.target.checked }))}
-                      className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+                      className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
                     />
                     <span>GCash</span>
                   </label>
@@ -927,7 +937,7 @@ export function OwnerStoreProfileForm({
                       type="checkbox"
                       checked={values.payMethodCashMeet}
                       onChange={(e) => setValues((v) => ({ ...v, payMethodCashMeet: e.target.checked }))}
-                      className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+                      className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
                     />
                     <span>{t("business_phase7_067")}</span>
                   </label>
@@ -936,11 +946,11 @@ export function OwnerStoreProfileForm({
                       type="checkbox"
                       checked={values.payMethodBank}
                       onChange={(e) => setValues((v) => ({ ...v, payMethodBank: e.target.checked }))}
-                      className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+                      className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
                     />
                     <span>{t("business_phase7_015")}</span>
                   </label>
-                  <span className="mx-0.5 h-4 w-px shrink-0 bg-sam-border-soft" aria-hidden />
+                  <span className="mx-0.5 h-4 w-px shrink-0 bg-[var(--biz-card-border)]" aria-hidden />
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
                       type="checkbox"
@@ -948,7 +958,7 @@ export function OwnerStoreProfileForm({
                       onChange={(e) =>
                         setValues((v) => ({ ...v, payMethodOtherEnabled: e.target.checked }))
                       }
-                      className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+                      className={OWNER_STORE_PROFILE_CHECKBOX_CLASS}
                     />
                     <span>{t("business_phase7_040")}</span>
                   </label>
@@ -958,14 +968,14 @@ export function OwnerStoreProfileForm({
                     onChange={(e) => setValues((v) => ({ ...v, payMethodOtherText: e.target.value }))}
                     disabled={!values.payMethodOtherEnabled}
                     placeholder={t("business_phase7_042")}
-                    className={`sam-input min-w-[8rem] max-w-[14rem] flex-1 sam-text-body-secondary text-sam-fg disabled:bg-sam-app disabled:text-sam-meta sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem] ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
+                    className={`sam-input min-w-[8rem] max-w-[14rem] flex-1 sam-text-body-secondary text-[var(--biz-text)] disabled:bg-[var(--biz-tan-soft)] disabled:text-[var(--biz-text-muted)] sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem] ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
                   />
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_292")}</label>
+              <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+                <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>{t("business_phase7_292")}</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -978,9 +988,9 @@ export function OwnerStoreProfileForm({
                 />
               </div>
             </div>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <span className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_109")}</span>
-              <p className="mb-2 sam-text-xxs text-sam-muted">
+            <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+              <span className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>{t("business_phase7_109")}</span>
+              <p className="mb-2 sam-text-xxs text-[var(--biz-text-muted)]">
                 {t("business_phase7_566")}
               </p>
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2">
@@ -995,7 +1005,7 @@ export function OwnerStoreProfileForm({
                         deliveryFeeMode: "self",
                       }))
                     }
-                    className="h-4 w-4 border-sam-border text-signature"
+                    className={`${OWNER_STORE_PROFILE_CHECKBOX_CLASS} border-0`}
                   />
                   <span>{t("business_phase7_240")}</span>
                 </label>
@@ -1010,7 +1020,7 @@ export function OwnerStoreProfileForm({
                         deliveryFeeMode: "self_free_promo",
                       }))
                     }
-                    className="h-4 w-4 border-sam-border text-signature"
+                    className={`${OWNER_STORE_PROFILE_CHECKBOX_CLASS} border-0`}
                   />
                   <span>{t("business_phase7_116")}</span>
                 </label>
@@ -1025,15 +1035,15 @@ export function OwnerStoreProfileForm({
                         deliveryFeeMode: "courier",
                       }))
                     }
-                    className="h-4 w-4 border-sam-border text-signature"
+                    className={`${OWNER_STORE_PROFILE_CHECKBOX_CLASS} border-0`}
                   />
                   <span>{t("business_phase7_112")}</span>
                 </label>
               </div>
             </div>
             {values.deliveryFeeMode === "self" ? (
-              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+              <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+                <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>
                   {t("business_phase7_567")}
                 </label>
                 <input
@@ -1049,8 +1059,8 @@ export function OwnerStoreProfileForm({
               </div>
             ) : null}
             {values.deliveryFeeMode === "self_free_promo" ? (
-              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+              <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+                <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>
                   {t("business_phase7_568")}
                 </label>
                 <input
@@ -1069,8 +1079,8 @@ export function OwnerStoreProfileForm({
               </div>
             ) : null}
             {values.deliveryFeeMode === "courier" ? (
-              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+              <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+                <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>
                   {t("business_phase7_569")}
                 </label>
                 <input
@@ -1085,8 +1095,8 @@ export function OwnerStoreProfileForm({
               </div>
             ) : null}
             {values.deliveryFeeMode === "self" ? (
-              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+              <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+                <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>
                   {t("business_phase7_570")}
                 </label>
                 <input
@@ -1104,22 +1114,22 @@ export function OwnerStoreProfileForm({
                 />
               </div>
             ) : null}
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+            <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+              <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>
                 {t("business_phase7_555")}
               </label>
-              <p className="mb-2 sam-text-xxs text-sam-muted">
+              <p className="mb-2 sam-text-xxs text-[var(--biz-text-muted)]">
                 {t("business_phase7_556")}
                 <Link
                   href={`/stores/owner/notices?storeId=${encodeURIComponent(storeId)}`}
-                  className="font-semibold text-sam-primary underline underline-offset-2"
+                  className="font-semibold text-[var(--biz-primary)] underline underline-offset-2"
                 >
                   {t("business_phase7_030")}
                 </Link>
                 {t("business_phase7_557")}
               </p>
               {values.publicNotices.length === 0 ? (
-                <p className="mb-2 sam-text-helper text-sam-meta">{t("business_phase7_056")}</p>
+                <p className="mb-2 sam-text-helper text-[var(--biz-text-muted)]">{t("business_phase7_056")}</p>
               ) : (
                 <ul className="mb-2 space-y-2">
                   {values.publicNotices.map((line, i) => (
@@ -1145,7 +1155,7 @@ export function OwnerStoreProfileForm({
                             publicNotices: v.publicNotices.filter((_, j) => j !== i),
                           }))
                         }
-                        className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-2 sam-text-helper font-medium text-sam-fg active:bg-sam-app"
+                        className="shrink-0 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2.5 py-2 sam-text-helper font-medium text-[var(--biz-text)] active:bg-[var(--biz-primary-soft)]"
                       >
                         {t("common_delete")}
                       </button>
@@ -1156,13 +1166,13 @@ export function OwnerStoreProfileForm({
               <button
                 type="button"
                 onClick={() => setValues((v) => ({ ...v, publicNotices: [...v.publicNotices, ""] }))}
-                className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg active:bg-sam-app"
+                className="rounded-ui-rect border border-dashed border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 sam-text-body-secondary font-medium text-[var(--biz-text)] active:bg-[var(--biz-primary-soft)]"
               >
                 {t("business_phase7_559")}
               </button>
             </div>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_118")}</label>
+            <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+              <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>{t("business_phase7_118")}</label>
               <textarea
                 value={values.deliveryNotice}
                 onChange={(e) => setValues((v) => ({ ...v, deliveryNotice: e.target.value }))}
@@ -1171,8 +1181,8 @@ export function OwnerStoreProfileForm({
                 className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_211")}</label>
+            <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+              <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>{t("business_phase7_211")}</label>
               <input
                 type="number"
                 min={1}
@@ -1183,17 +1193,17 @@ export function OwnerStoreProfileForm({
                 placeholder={t("business_phase7_203")}
                 className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
-              <p className="mt-1.5 sam-text-helper text-sam-meta">
+              <p className="mt-1.5 sam-text-helper text-[var(--biz-text-muted)]">
                 {globalRideTimeSource === "google" ? (
                   <>
                     {t("business_phase7_561")}
-                    <strong className="text-sam-fg">{t("business_phase7_035")}</strong>
+                    <strong className="text-[var(--biz-text)]">{t("business_phase7_035")}</strong>
                     {t("business_phase7_562")}
                   </>
                 ) : globalRideTimeSource === "store" ? (
                   <>
                     {t("business_phase7_563")}
-                    <strong className="text-sam-fg">{t("business_phase7_166")}</strong>
+                    <strong className="text-[var(--biz-text)]">{t("business_phase7_166")}</strong>
                     {t("business_phase7_564")}
                   </>
                 ) : (
@@ -1202,8 +1212,8 @@ export function OwnerStoreProfileForm({
               </p>
             </div>
             {globalRideTimeSource === "store" ? (
-              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_110")}</label>
+              <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+                <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>{t("business_phase7_110")}</label>
                 <input
                   type="text"
                   maxLength={80}
@@ -1214,13 +1224,13 @@ export function OwnerStoreProfileForm({
                   placeholder={t("business_phase7_204")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
-                <p className="mt-1.5 sam-text-helper text-sam-meta">
+                <p className="mt-1.5 sam-text-helper text-[var(--biz-text-muted)]">
                   {t("business_phase7_565")}
                 </p>
               </div>
             ) : null}
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_314")}</label>
+            <div className={OWNER_STORE_PROFILE_FIELD_SHELL_CLASS}>
+              <label className={OWNER_STORE_PROFILE_SUBBLOCK_HEAD_CLASS}>{t("business_phase7_314")}</label>
               <input
                 type="text"
                 value={values.avgChatResponse}
@@ -1233,12 +1243,12 @@ export function OwnerStoreProfileForm({
         ) : null}
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title={t("business_phase7_007")}>
-        <p className="sam-text-helper text-sam-muted">
+      <OwnerStoreAdminDashSection surfaceTone="bizSoft" title={t("business_phase7_007")}>
+        <p className="sam-text-helper text-[var(--biz-text-muted)]">
           {t("business_phase7_571", { v1: GALLERY_MAX })}
         </p>
         <div className="flex flex-wrap gap-2">
-          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-50">
+          <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 sam-text-body-secondary font-medium text-[var(--biz-text)] disabled:cursor-not-allowed disabled:opacity-50">
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp"
@@ -1252,13 +1262,13 @@ export function OwnerStoreProfileForm({
             />
             {uploading === "gallery" ? t("business_phase7_188") : t("business_phase7_572")}
           </label>
-          <span className="flex min-w-0 items-center sam-text-helper text-sam-meta">
+          <span className="flex min-w-0 items-center sam-text-helper text-[var(--biz-text-muted)]">
             {t("business_phase7_573", { v1: values.galleryUrls.filter((u) => u.trim()).length, v2: GALLERY_MAX })}
           </span>
         </div>
         <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {values.galleryUrls.filter((u) => u.trim()).length === 0 ? (
-            <li className="col-span-full min-w-0 break-words sam-text-body-secondary leading-snug text-sam-meta">
+            <li className="col-span-full min-w-0 break-words sam-text-body-secondary leading-snug text-[var(--biz-text-muted)]">
               {t("business_phase7_574")}
             </li>
           ) : (
@@ -1268,7 +1278,7 @@ export function OwnerStoreProfileForm({
               return (
                 <li
                   key={`${i}-${u.slice(0, 48)}`}
-                  className="relative aspect-square min-w-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app"
+                  className="relative aspect-square min-w-0 overflow-hidden rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-tan-soft)]"
                 >
                   <img
                     src={u}
@@ -1296,50 +1306,62 @@ export function OwnerStoreProfileForm({
       </OwnerStoreAdminDashSection>
     </form>
 
-      {isDirty ?
-        <BodyPortal>
-          <footer
-            role="contentinfo"
-            aria-label={t("business_phase7_070")}
-            className={`pointer-events-none fixed inset-x-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 ${
-              dockActionBarAboveMainBottomNav
-                ? BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS
-                : "bottom-0 pb-[env(safe-area-inset-bottom,0px)]"
-            }`}
-          >
-            <div
-              className={`pointer-events-auto ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} ${OWNER_DESKTOP_SHELL_MIN_TW}:mx-auto ${OWNER_DESKTOP_SHELL_MIN_TW}:max-w-6xl ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2 ${OWNER_DESKTOP_SHELL_MIN_TW}:pr-2`}
-            >
-              {error ?
-                <div
-                  className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
-                  role="alert"
-                >
-                  {error}
-                </div>
-              : null}
-              <div className="flex min-w-0 divide-x divide-sam-border">
-                <button
-                  type="button"
-                  onClick={revertToSaved}
-                  disabled={submitting || !!uploading || leaveSaving}
-                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
-                >
-                  {t("common_cancel")}
-                </button>
-                <button
-                  type="submit"
-                  form="owner-store-profile-form"
-                  disabled={submitting || !!uploading || leaveSaving}
-                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
-                >
-                  {submitting ? t("business_phase7_384") : t("common_save")}
-                </button>
+      <BodyPortal>
+        <footer
+          role="contentinfo"
+          aria-label={t("business_phase7_070")}
+          className={ownerStoreAdminFooterFixedClass({
+            aboveBottomNav: dockActionBarAboveMainBottomNav,
+          })}
+        >
+          <div className={OWNER_STORE_ADMIN_FOOTER_INNER_CLASS}>
+            {error ?
+              <div
+                className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                role="alert"
+              >
+                {error}
               </div>
+            : null}
+            <div className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}>
+              <button
+                type="button"
+                onClick={revertToSaved}
+                disabled={!isDirty || submitting || !!uploading || leaveSaving || saveConfirmOpen}
+                className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
+              >
+                {t("common_cancel")}
+              </button>
+              <button
+                type="submit"
+                form="owner-store-profile-form"
+                disabled={!isDirty || submitting || !!uploading || leaveSaving || saveConfirmOpen}
+                className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
+              >
+                {submitting ? t("business_phase7_384") : t("common_save")}
+              </button>
             </div>
-          </footer>
-        </BodyPortal>
-      : null}
+          </div>
+        </footer>
+      </BodyPortal>
+
+      <OwnerStoreAdminConfirmModal
+        open={saveConfirmOpen}
+        titleId="owner-store-profile-save-confirm-title"
+        title={t("business_phase7_070")}
+        description={saveConfirmDescription}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("common_save")}
+        confirmBusyLabel={t("business_phase7_384")}
+        busy={submitting}
+        disableActions={submitting || !!uploading || leaveSaving}
+        confirmTone="primary"
+        onCancel={() => setSaveConfirmOpen(false)}
+        onConfirm={async () => {
+          setSaveConfirmOpen(false);
+          await runSave({ skipPrompt: true });
+        }}
+      />
 
       <OwnerStoreAdminLeavePromptModal
         open={leavePrompt != null}

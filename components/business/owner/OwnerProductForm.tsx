@@ -38,6 +38,11 @@ import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerSt
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import {
+  OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS,
+  OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS,
+} from "@/lib/business/owner-admin-footer-actions";
+import {
   resolveOwnerProductRegisterError,
   type OwnerProductRegisterErrorModal,
 } from "@/lib/business/owner-product-register-error";
@@ -1025,7 +1030,7 @@ export function OwnerProductForm({
 
         <OwnerStoreAdminDashSection pad="narrow">
           <div
-            className="grid grid-cols-2 gap-2 pb-[max(0px,env(safe-area-inset-bottom,0px))]"
+            className={OWNER_STORE_ADMIN_FOOTER_ACTIONS_ROW_CLASS}
             role="group"
             aria-label={t("business_phase7_295")}
           >
@@ -1033,14 +1038,14 @@ export function OwnerProductForm({
               type="button"
               onClick={() => void requestCancel()}
               disabled={saving || deleting || uploading}
-              className="min-h-[48px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-body font-semibold text-signature disabled:opacity-50"
+              className={OWNER_STORE_ADMIN_FOOTER_CANCEL_BTN_CLASS}
             >
               {t("common_cancel")}
             </button>
             <button
               type="submit"
               disabled={!isDirty || saving || deleting || uploading}
-              className="min-h-[48px] rounded-ui-rect border border-transparent bg-signature px-2 sam-text-body font-semibold text-white disabled:opacity-50"
+              className={OWNER_STORE_ADMIN_FOOTER_PRIMARY_BTN_CLASS}
             >
               {saving ? t("business_phase7_384") : t("business_phase7_385")}
             </button>

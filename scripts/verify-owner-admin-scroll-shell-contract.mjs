@@ -20,8 +20,10 @@ if (!shell.includes("resolveOwnerStackScrollHostPath")) {
 if (/ownerStackScrollHostPath[\s\S]{0,120}!isOwnerBasicInfoRoute/.test(shell)) {
   errors.push("BusinessAdminShell: must not exclude basic-info from scroll host path");
 }
-if (!/!isOwnerBasicInfoRoute\s*\?/.test(shell)) {
-  errors.push("BusinessAdminShell: must still hide bottom nav on basic-info via !isOwnerBasicInfoRoute");
+if (!/!isOwnerFormBottomNavHiddenRoute\s*\?/.test(shell)) {
+  errors.push(
+    "BusinessAdminShell: must still hide bottom nav on basic-info/profile/inquiries via !isOwnerFormBottomNavHiddenRoute"
+  );
 }
 
 const scrollHost = readFileSync("lib/business/owner-stack-scroll-host-path.ts", "utf8");
