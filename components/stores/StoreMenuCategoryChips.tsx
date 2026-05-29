@@ -35,7 +35,7 @@ export function StoreMenuCategoryChips({
 
   const wrapPad =
     variant === "orderDetail"
-      ? "px-0 py-1"
+      ? "border-y border-[var(--delivery-border-section)] bg-[var(--delivery-bg)] px-0 py-1.5"
       : plainBackground
         ? "px-0 py-0"
         : "bg-sam-surface px-4";
@@ -51,14 +51,14 @@ export function StoreMenuCategoryChips({
     "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
   const scrollCls =
     variant === "orderDetail"
-      ? `sam-i18n-chip-row flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] ${scrollHide}`
+      ? `sam-i18n-chip-row flex flex-nowrap gap-1.5 overflow-x-auto px-3 [-webkit-overflow-scrolling:touch] ${scrollHide}`
       : `sam-tabs sam-tabs--scroll sam-i18n-chip-row -mx-4 ${scrollHide}`;
 
   const chipCls = (on: boolean) =>
     variant === "orderDetail"
       ? on
-        ? DeliveryTheme.categoryChipActive
-        : DeliveryTheme.categoryChip
+        ? DeliveryTheme.categoryTabActive
+        : DeliveryTheme.categoryTab
       : `sam-tab ${on ? "sam-tab--active" : ""}`;
 
   return (
@@ -68,7 +68,11 @@ export function StoreMenuCategoryChips({
           <button
             type="button"
             onClick={onSearchClick}
-            className={DeliveryTheme.categorySearch}
+            className={
+              variant === "orderDetail"
+                ? `${DeliveryTheme.categoryTab} ${DeliveryTheme.categorySearch}`
+                : DeliveryTheme.categorySearch
+            }
             aria-label={t("store_menu_search_aria")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

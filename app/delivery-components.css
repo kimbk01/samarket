@@ -319,6 +319,7 @@
     height: var(--delivery-badge-h);
     align-items: center;
     border-radius: var(--delivery-radius);
+    border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
     padding-inline: var(--delivery-badge-px);
     font-size: var(--delivery-fs-badge);
     font-weight: 700;
@@ -961,7 +962,7 @@
     gap: var(--delivery-row-gap);
     padding: var(--delivery-menu-card-py) var(--delivery-menu-card-px);
     min-height: var(--delivery-menu-card-min-h);
-    border-bottom: 1px solid var(--delivery-border);
+    border: 1px solid var(--delivery-border-section);
     background: var(--delivery-bg-card);
   }
 
@@ -999,6 +1000,15 @@
     transform: scale(0.96);
   }
 
+  .delivery-menu-plus--compact {
+    right: 4px;
+    bottom: 4px;
+    width: 34px;
+    height: 34px;
+    font-size: 20px;
+    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.12);
+  }
+
   .delivery-category-chip {
     display: inline-flex;
     height: var(--delivery-sticky-tab-h);
@@ -1020,6 +1030,43 @@
     border-color: var(--delivery-primary);
     background: var(--delivery-primary);
     color: var(--dibay-cream);
+  }
+
+  /** 매장 상세 메뉴 카테고리 — 박스형 탭( pill 대신 ) */
+  .delivery-category-tab {
+    display: inline-flex;
+    height: var(--delivery-sticky-tab-h);
+    max-width: 9rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--delivery-radius);
+    border: 1px solid color-mix(in srgb, var(--delivery-primary) 22%, var(--delivery-border));
+    background: color-mix(in srgb, var(--delivery-bg-card) 82%, var(--delivery-bg));
+    padding-inline: 11px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--delivery-dark);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .delivery-category-tab--active {
+    border-color: var(--delivery-primary);
+    background: var(--delivery-primary);
+    color: var(--dibay-cream);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dibay-cream) 22%, transparent), 0 2px 6px rgba(0, 0, 0, 0.08);
+  }
+
+  .delivery-category-search.delivery-category-tab {
+    width: var(--delivery-sticky-tab-h);
+    min-width: var(--delivery-sticky-tab-h);
+    padding-inline: 0;
+    color: var(--delivery-primary);
   }
 
   /** browse 헤더 3단 — 1차 업종 균등 텍스트 탭바 (토큰 비율) */

@@ -20,6 +20,7 @@ function BadgeChip({ kind, label }: { kind: BadgeKind; label: string }) {
 
 /**
  * 상품명 아래 뱃지 행 — 품절은 이미지 오버레이와 별개(행에서 숨기지 않음).
+ * CONTRACT: 썸네일 오버레이 금지 — 제목 아래 1줄만(`ProductBadgeRow`). 색은 delivery-badge--menu-*.
  * 최대 3개: 인기 > 사장님 추천 > 대표 (할인은 가격 줄 전용)
  */
 export function ProductBadgeRow({

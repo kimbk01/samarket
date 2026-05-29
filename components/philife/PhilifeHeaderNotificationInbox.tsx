@@ -180,6 +180,10 @@ export function PhilifeHeaderNotificationInbox({
 
   deferInboxListPrefetch = false,
 
+  triggerClassName,
+
+  unreadBadgeClassName,
+
 }: {
 
   /** 녹색 배달 홈 헤더 — 흰 아이콘·delivery 뱃지 */
@@ -189,6 +193,14 @@ export function PhilifeHeaderNotificationInbox({
   /** `/stores` cold — 목록 prefetch 는 패널 open 시. badge store TTL 재사용 */
 
   deferInboxListPrefetch?: boolean;
+
+  /** 지정 시 tone 기본 버튼 클래스 대신 사용(매장 히어로 글래스 등) */
+
+  triggerClassName?: string;
+
+  /** 지정 시 tone 기본 unread 뱃지 클래스 대신 사용 */
+
+  unreadBadgeClassName?: string;
 
 }) {
 
@@ -1072,13 +1084,10 @@ export function PhilifeHeaderNotificationInbox({
         }}
 
         className={
-
-          tone === "onPrimary"
-
+          triggerClassName ??
+          (tone === "onPrimary"
             ? STORES_HOME_HEADER_ICON_BTN_CLASS
-
-            : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`
-
+            : `${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`)
         }
 
         aria-haspopup="dialog"
@@ -1102,13 +1111,10 @@ export function PhilifeHeaderNotificationInbox({
           <span
 
             className={
-
-              tone === "onPrimary"
-
+              unreadBadgeClassName ??
+              (tone === "onPrimary"
                 ? STORES_HOME_HEADER_NOTIF_BADGE_CLASS
-
-                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary"
-
+                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary")
             }
 
             aria-hidden

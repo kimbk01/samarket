@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
+import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
 import {
   OwnerFlowStepArrow,
   OwnerFlowStepCircle,
@@ -67,6 +69,7 @@ export function OwnerOrderFlowCard({
               <Link
                 href={href}
                 prefetch={false}
+                aria-label={buildOwnerMobileStackedLabelCountAriaLabel(t(step.labelKey), count)}
                 className="flex min-w-0 flex-1 flex-col items-center active:opacity-85"
               >
                 <div
@@ -75,19 +78,20 @@ export function OwnerOrderFlowCard({
                 >
                   <OwnerFlowStepCircle variant={step.key} />
                 </div>
-                <span className="mt-1.5 text-[11px] font-medium leading-tight text-[#8C8C8C]">
-                  {t(step.labelKey)}
-                </span>
-                <span className="mt-0.5 text-[16px] font-bold leading-tight tabular-nums text-[#262626]">
-                  {count}
-                </span>
-                {delay > 0 ? (
-                  <span className="mt-0.5 text-[10px] font-semibold leading-tight text-[#FF4D4F]">
-                    {t("store_owner_dash_delay_count", { count: delay })}
-                  </span>
-                ) : (
-                  <span className="mt-0.5 block h-[14px]" aria-hidden />
-                )}
+                <OwnerMobileStackedLabelCount
+                  variant="flow"
+                  label={t(step.labelKey)}
+                  count={count}
+                  footer={
+                    delay > 0 ? (
+                      <span className="mt-0.5 text-[10px] font-semibold leading-tight text-[#FF4D4F]">
+                        {t("store_owner_dash_delay_count", { count: delay })}
+                      </span>
+                    ) : (
+                      <span className="mt-0.5 block h-[14px]" aria-hidden />
+                    )
+                  }
+                />
               </Link>
               {idx < STEPS.length - 1 ? (
                 <div

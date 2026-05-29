@@ -2,6 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
@@ -15,9 +16,20 @@ import {
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-commerce-cart-selector";
 
+const PhilifeHeaderNotificationInbox = dynamic(
+  () =>
+    import("@/components/philife/PhilifeHeaderNotificationInbox").then(
+      (m) => m.PhilifeHeaderNotificationInbox
+    ),
+  { ssr: false }
+);
+
 /** 히어로 이미지 위에서 보이는 반투명 글래스 버튼(매장·상품 상세) */
 export const STORE_ORDER_HERO_GLASS_ICON_BTN =
-  `${APP_TIER1_HEADER_ICON_BTN_CLASS} border border-white/40 bg-black/40 text-white shadow-[0_2px_8px_rgba(0,0,0,0.28)] backdrop-blur-sm active:scale-[0.96] active:border-white/55 active:bg-black/55`;
+  `${APP_TIER1_HEADER_ICON_BTN_CLASS} relative border border-white/35 bg-black/62 text-white shadow-[0_2px_10px_rgba(0,0,0,0.36)] backdrop-blur-[2px] active:scale-[0.96] active:border-white/55 active:bg-black/72`;
+
+export const STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME =
+  "absolute -right-0.5 -top-0.5 z-[1] flex h-[16px] min-w-[16px] items-center justify-center rounded-full border border-white/45 bg-[var(--delivery-primary)] px-0.5 text-[9px] font-bold leading-none text-white";
 
 export function StoreOrderStickyHeader({
   elevated,
@@ -31,6 +43,8 @@ export function StoreOrderStickyHeader({
   onMenuSearchFocus,
   onShareClick,
   onCartPreviewClick,
+  /** CONTRACT: storeMenu = 검색·알림·카트, productDetail = 검색·공유·카트. */
+  headerTrailingVariant = "storeMenu",
   /** true: 스크롤 전 히어로 위 액션을 글래스 버튼으로(밝은 사진에서도 보임) */
   heroGlassOverlayButtons = false,
 }: {
@@ -43,9 +57,10 @@ export function StoreOrderStickyHeader({
   favoriteBusy: boolean;
   onFavoriteClick: () => void | Promise<void>;
   onMenuSearchFocus: () => void;
-  onShareClick: () => void;
+  onShareClick?: () => void;
   /** 빈 카트에서도 프리뷰 시트 열기용 — 카트 링크와 병행 */
   onCartPreviewClick: () => void;
+  headerTrailingVariant?: "storeMenu" | "productDetail";
   heroGlassOverlayButtons?: boolean;
 }) {
   const { t } = useI18n();
@@ -119,29 +134,42 @@ export function StoreOrderStickyHeader({
                   <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
                 </svg>
               </button>
-              <button
-                type="button"
-                className={actionBtnClass()}
-                aria-label={t("common_share")}
-                onClick={onShareClick}
-              >
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  aria-hidden
+              {headerTrailingVariant === "productDetail" ? (
+                <button
+                  type="button"
+                  className={actionBtnClass()}
+                  aria-label={t("common_share")}
+                  onClick={onShareClick}
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l4-4 4 4" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 11h10" opacity="0" />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5 11v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    aria-hidden
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l4-4 4 4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 11h10" opacity="0" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 11v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"
+                    />
+                  </svg>
+                </button>
+              ) : (
+                <PhilifeHeaderNotificationInbox
+                  tone={glassOverlay ? "onPrimary" : elevated ? "default" : "onPrimary"}
+                  triggerClassName={
+                    glassOverlay ? STORE_ORDER_HERO_GLASS_ICON_BTN : elevated ? undefined : actionBtnClass()
+                  }
+                  unreadBadgeClassName={
+                    glassOverlay ? STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME : undefined
+                  }
+                  deferInboxListPrefetch
+                />
+              )}
               <Link
                 href={cartHref}
                 onClick={onCartPress}

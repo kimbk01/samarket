@@ -252,12 +252,14 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
             canInteract={canInteract}
             menuSelectBlocked={menuSelectBlocked}
             onOpenProduct={onOpenProductSheet}
+            onQuickAddProduct={onQuickAddProduct}
           />
           <RecommendedMenuSection
             cards={recommendedForUi}
             canInteract={canInteract}
             menuSelectBlocked={menuSelectBlocked}
             onOpenProduct={onOpenProductSheet}
+            onQuickAddProduct={onQuickAddProduct}
           />
         </>
       ) : null}

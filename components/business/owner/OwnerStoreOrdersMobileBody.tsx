@@ -15,6 +15,8 @@ import {
   orderMatchesStoreTab,
   type StoreOrderTabId,
 } from "@/lib/business/store-orders-tab";
+import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
+import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
 const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = [
   { id: "new", labelKey: "store_owner_mobile_tab_new_orders" },
   { id: "progress", labelKey: "store_owner_mobile_tab_progress" },
@@ -178,14 +180,17 @@ export function OwnerStoreOrdersMobileBody({
                   key={tabDef.id}
                   href={onTabHref(tabDef.id)}
                   scroll={false}
-                  className={`relative flex min-h-10 flex-1 flex-col items-center justify-center rounded-[4px] px-1 py-1.5 text-[12px] font-bold leading-[1.35] ${
+                  aria-label={buildOwnerMobileStackedLabelCountAriaLabel(t(tabDef.labelKey), count)}
+                  className={`relative flex min-h-11 min-w-0 flex-1 flex-col items-center justify-center rounded-[4px] px-0.5 py-1.5 ${
                     active ? "bg-[var(--biz-primary)] text-white" : "text-[var(--biz-text)]"
                   }`}
                 >
-                  <span>
-                    {t(tabDef.labelKey)}
-                    {count > 0 ? ` ${count}` : ""}
-                  </span>
+                  <OwnerMobileStackedLabelCount
+                    variant="tab"
+                    label={t(tabDef.labelKey)}
+                    count={count}
+                    active={active}
+                  />
                 </Link>
               );
             })}
@@ -303,10 +308,15 @@ function KpiCard({
     <Link
       href={href}
       scroll={false}
+      aria-label={buildOwnerMobileStackedLabelCountAriaLabel(label, value)}
       className="rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
     >
-      <p className="text-[10px] font-semibold leading-[1.35] text-[#6B7280]">{label}</p>
-      <p className={`mt-0.5 text-[17px] font-bold tabular-nums ${tone}`}>{value}</p>
+      <OwnerMobileStackedLabelCount
+        variant="kpi"
+        label={label}
+        count={value}
+        countClassName={tone}
+      />
     </Link>
   );
 }

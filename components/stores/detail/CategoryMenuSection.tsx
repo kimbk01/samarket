@@ -66,8 +66,12 @@ export function CategoryMenuSection({
             : undefined
       }
     >
-      <div className={sectionIndex === 0 ? "pt-3.5" : "pt-4.5"}>
-        <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-neutral-900">
+      <div
+        className={`border-t border-[var(--delivery-border-section)] bg-[var(--delivery-bg)] ${
+          sectionIndex === 0 ? "pt-3.5" : "pt-4.5"
+        }`}
+      >
+        <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-[var(--delivery-dark)]">
           {section.listHeading ?? section.heading}
         </h3>
       </div>

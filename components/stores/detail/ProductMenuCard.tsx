@@ -5,9 +5,9 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { memo, useCallback } from "react";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { cardIsMenuSoldOut, type StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
-import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { ProductBadgeRow } from "@/components/stores/detail/ProductBadgeRow";
+import { MenuQuickAddButton } from "@/components/stores/detail/MenuQuickAddButton";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
 import { storeMenuProductDomId } from "@/lib/dibay/store-menu-product-focus";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
@@ -37,11 +37,6 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     p.discount_price < p.price &&
     p.price > 0;
   const salePrice = hasDiscount ? p.discount_price! : p.price;
-  const badgePct = hasDiscount
-    ? p.discount_percent && p.discount_percent > 0
-      ? p.discount_percent
-      : approximateDiscountPercent(p.price, p.discount_price!)
-    : 0;
   const soldOut = cardIsMenuSoldOut(p);
   const thumbSrc = p.thumbnail_url?.trim() || "";
   const dimmed = soldOut || menuSelectBlocked;
@@ -131,21 +126,9 @@ export const ProductMenuCard = memo(function ProductMenuCard({
           size={sz}
           roundedClassName="rounded-[var(--delivery-radius-thumb)]"
         />
-        {hasDiscount && badgePct > 0 ? (
-          <span className="absolute left-1 top-1 z-10 inline-flex h-5 items-center rounded-[var(--delivery-radius)] bg-[color:var(--delivery-danger)] px-1.5 text-[11px] font-bold leading-none text-white">
-            {badgePct}%
-          </span>
-        ) : null}
         {soldOut ? <SoldOutOverlay /> : null}
         {!menuSelectBlocked && onOpenProduct && !soldOut ? (
-          <button
-            type="button"
-            onClick={onAddPress}
-            className={DeliveryTheme.menuPlus}
-            aria-label={t("store_add_to_cart_aria", { title: p.title })}
-          >
-            +
-          </button>
+          <MenuQuickAddButton title={p.title} onPress={onAddPress} />
         ) : null}
       </div>
     </div>

@@ -56,7 +56,7 @@ alwaysApply: true
 | 메신저 홈·Realtime·bootstrap | `verify:messenger-home`, `verify:messenger-home-list-owner`, `verify:messenger-realtime-store-scope`, `verify:messenger-consistency-structural`, `verify:cm-bootstrap-snapshot-*` (스냅샷/RPC 변경 시) |
 | 스토어 장바구니·결제·자동영업 | `verify:store-cart-sheet-contract`, `verify:store-cart-hooks-contract`, `verify:store-payment-cod-label-contract`, `verify:store-auto-hours-contract` |
 | 스토어 홈·browse·featured 썸네일 | `verify:stores-home-hub-contract`, `verify:store-delivery-featured-thumbnails-contract`, `verify:stores-browse-snapshot-*` |
-| 오너 주문·대시보드 | `verify:owner-store-orders-list-contract`, `verify:owner-orders-list-snapshot-*`, `verify:owner-dashboard-notifications-snapshot-*` |
+| 오너 주문·대시보드 | `verify:owner-store-orders-list-contract`, `verify:owner-mobile-stacked-label-count-contract`, `verify:owner-orders-list-snapshot-*`, `verify:owner-dashboard-notifications-snapshot-*` |
 | `BusinessAdminShell`·`StoreBusinessGuard`·오너 compact 스크롤 | `verify:owner-admin-scroll-shell-contract`, `vitest run lib/business/__tests__/owner-admin-scroll-shell-contract.test.ts` |
 | 주문 채팅·메신저 방 진입 | `verify:store-order-messenger-room-entry` |
 | 썸네일·이미지 UI | `verify:thumbnail-contract`, `verify:store-delivery-featured-thumbnails-contract` |

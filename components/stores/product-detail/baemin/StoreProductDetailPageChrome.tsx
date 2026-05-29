@@ -105,6 +105,7 @@ export function StoreProductDetailPageChrome({
         onFavoriteClick={() => {}}
         onMenuSearchFocus={onMenuSearchFocus}
         onShareClick={onShare}
+        headerTrailingVariant="productDetail"
         onCartPreviewClick={onCartPreviewClick}
       />
 
