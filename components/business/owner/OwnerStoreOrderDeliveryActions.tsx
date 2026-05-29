@@ -9,7 +9,7 @@ import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getBrowserLanguage } from "@/lib/i18n/config";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
 
 const BTN_PRIMARY =
@@ -450,7 +450,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
 
 /** 주문 카드 하단 안내 (환불·종료 등) — 기존 UI와 동일 조건 */
 export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactNode | null {
-  const lang = getBrowserLanguage();
+  const lang = getRuntimeAppLanguage();
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const showTransitionButtons =
     order.order_status !== "refund_requested" &&

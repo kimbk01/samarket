@@ -6,11 +6,6 @@
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
-import {
-  APP_LANGUAGE_CHANGED_EVENT,
-  getBrowserLanguage,
-} from "@/lib/i18n/config";
-import { clearLanguagePersistence } from "@/lib/i18n/language-preference";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -85,12 +80,7 @@ export async function performClientLogout(): Promise<LogoutResult> {
   invalidateMeProfileDedupedCache();
   clearBootstrapCache();
   resetMessengerNotificationSurfacesAfterSignOut();
-  clearLanguagePersistence();
-  window.dispatchEvent(
-    new CustomEvent(APP_LANGUAGE_CHANGED_EVENT, {
-      detail: getBrowserLanguage(),
-    })
-  );
+  // DIBAY 언어 정책: 로그아웃은 세션만 종료. samarket_app_language·samarket_signup_locale 유지.
 
   const supabase = getSupabaseClient();
   if (supabase) {

@@ -1,9 +1,15 @@
 /**
- * cookie/local/browser 읽기·쓰기 — `AppLanguageProvider`·`app/layout` SSR·로그아웃·auth callback 전용.
+ * cookie/local/browser 읽기·쓰기 — `AppLanguageProvider`·`app/layout` SSR·auth callback 전용.
  * product UI 컴포넌트는 `useI18n()` / `runtime-app-language` 만 사용한다.
+ *
+ * DIBAY 우선순위 (클라이언트):
+ * - 로그인: user_settings → localStorage → cookie → device 1회 seed → en
+ * - 비로그인: localStorage → cookie → device 1회 seed → en
+ * - 로그아웃 시 `clearLanguagePersistence` 호출 금지 (세션만 종료)
  */
 import {
   APP_LANGUAGE_COOKIE,
+  APP_LANGUAGE_DEVICE_SEEDED_KEY,
   APP_LANGUAGE_STORAGE_KEY,
   FALLBACK_APP_LANGUAGE,
   getBrowserLanguage,
@@ -41,6 +47,50 @@ export function readExplicitLanguageCookie(): AppLanguageCode | null {
 export function readExplicitLocalLanguage(): AppLanguageCode | null {
   if (typeof window === "undefined") return null;
   return parseExplicitAppLanguage(window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY));
+}
+
+/** 비로그인 explicit: localStorage → cookie */
+export function readGuestExplicitAppLanguage(): AppLanguageCode | null {
+  return readExplicitLocalLanguage() ?? readExplicitLanguageCookie() ?? null;
+}
+
+/** 로그인 explicit: user_settings(DB/캐시) → localStorage → cookie */
+export function readLoggedInExplicitAppLanguage(cachedPreferredLanguage?: unknown): AppLanguageCode | null {
+  const fromSettings = parseExplicitAppLanguage(cachedPreferredLanguage);
+  if (fromSettings) return fromSettings;
+  return readExplicitLocalLanguage() ?? readExplicitLanguageCookie() ?? null;
+}
+
+/**
+ * 명시 ko/en 저장이 없을 때만 사용.
+ * navigator는 최초 1회 seed 후 `FALLBACK_APP_LANGUAGE`(en)만 반환한다.
+ * seed 시 감지한 언어는 persist 해 이후 기기 언어가 선택을 덮어쓰지 않게 한다.
+ */
+export function resolveImplicitAppLanguage(): AppLanguageCode {
+  if (typeof window === "undefined") return FALLBACK_APP_LANGUAGE;
+  try {
+    if (window.localStorage.getItem(APP_LANGUAGE_DEVICE_SEEDED_KEY) === "1") {
+      return FALLBACK_APP_LANGUAGE;
+    }
+    const detected = getBrowserLanguage();
+    window.localStorage.setItem(APP_LANGUAGE_DEVICE_SEEDED_KEY, "1");
+    persistExplicitLanguage(detected);
+    return detected;
+  } catch {
+    return FALLBACK_APP_LANGUAGE;
+  }
+}
+
+/** 클라이언트 앱 UI 언어 — 로그인/비로그인 우선순위 단일 진입 */
+export function resolveClientAppLanguageCode(options: {
+  isLoggedIn: boolean;
+  cachedPreferredLanguage?: unknown;
+}): AppLanguageCode {
+  const explicit = options.isLoggedIn
+    ? readLoggedInExplicitAppLanguage(options.cachedPreferredLanguage)
+    : readGuestExplicitAppLanguage();
+  if (explicit) return explicit;
+  return resolveImplicitAppLanguage();
 }
 
 export function clearLanguagePersistence(): void {
@@ -135,15 +185,16 @@ export function resolveGuestAppLanguageCode(options: {
   return (options.browserDetect ?? getBrowserLanguage)();
 }
 
-/** 로그인 사용자 — cookie/localStorage/설정 캐시에서 명시 ko/en 읽기 (sync 트리거 없음) */
+/**
+ * @deprecated `readGuestExplicitAppLanguage` 또는 `readLoggedInExplicitAppLanguage` 사용.
+ */
 export function readClientExplicitAppLanguage(options?: {
   cachedPreferredLanguage?: unknown;
 }): AppLanguageCode | null {
-  return (
-    readExplicitLocalLanguage() ??
-    readExplicitLanguageCookie() ??
-    parseExplicitAppLanguage(options?.cachedPreferredLanguage)
-  );
+  if (options && "cachedPreferredLanguage" in options) {
+    return readLoggedInExplicitAppLanguage(options.cachedPreferredLanguage);
+  }
+  return readGuestExplicitAppLanguage();
 }
 
 /** 로그인: DB/설정 explicit ko/en → 없으면 기기·브라우저 (쿠키는 system일 때만 보조) */

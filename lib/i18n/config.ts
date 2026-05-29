@@ -24,6 +24,8 @@ export type AppLanguagePreference = StoredPreferredLanguage;
 
 export const APP_LANGUAGE_STORAGE_KEY = "samarket_app_language";
 export const APP_LANGUAGE_COOKIE = "samarket_signup_locale";
+/** 최초 방문 시 기기 언어 1회 seed 완료 표시 (이후 navigator 재적용 금지) */
+export const APP_LANGUAGE_DEVICE_SEEDED_KEY = "samarket_lang_device_seeded";
 export const APP_LANGUAGE_CHANGED_EVENT = "samarket-language-changed";
 
 const LANGUAGE_ALIASES: Record<string, AppLanguageCode> = {

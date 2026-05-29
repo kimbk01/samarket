@@ -152,7 +152,7 @@ test.describe("i18n DIBAY — language policy smoke", () => {
       await visitDomainsAndAssertLanguage(page, "ko", origin);
     });
 
-    test("logout clears explicit cookie and returns to browser ko", async ({ page, request }) => {
+    test("logout preserves explicit language — no reset on sign-out", async ({ page }) => {
       await gotoLanguageSettings(page, origin);
       await selectAppLanguageInSettings(page, "en");
       await expect.poll(async () => readAppLanguageCookie(page)).toBe("en");
@@ -160,14 +160,11 @@ test.describe("i18n DIBAY — language policy smoke", () => {
       await gotoWithRetry(page, `${origin}${I18N_E2E_LOGOUT_PATH}`);
       await page.getByRole("button", { name: "로그아웃", exact: true }).click();
       await expect(page).toHaveURL(/\/login/, { timeout: 30_000 });
-      await expect.poll(async () => readAppLanguageCookie(page), { timeout: 15_000 }).toBeNull();
 
-      const guest = await page.context().newPage();
-      await installAcceptLanguageForPage(guest, "ko");
-      await installBrowserLanguageOnly(guest, "ko");
-      await gotoWithRetry(guest, `${origin}/login`);
-      await assertLoginPageLanguage(guest, "ko");
-      await guest.close();
+      // 로그아웃 후에도 사용자가 선택한 언어 쿠키가 유지되어야 한다
+      await expect.poll(async () => readAppLanguageCookie(page), { timeout: 15_000 }).toBe("en");
+      // 로그인 페이지도 설정된 언어(영어)로 표시된다
+      await assertLoginPageLanguage(page, "en");
     });
   });
 });
