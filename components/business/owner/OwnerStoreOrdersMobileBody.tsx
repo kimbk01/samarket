@@ -8,48 +8,36 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
 import { useRegisterOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
-import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
+import type { StoreOrderTabId } from "@/lib/business/store-orders-tab";
 import {
-  orderMatchesStoreTab,
-  type StoreOrderTabId,
-} from "@/lib/business/store-orders-tab";
+  effectiveOwnerMobileOrdersTab,
+  orderMatchesOwnerMobileOrdersTab,
+  OWNER_MOBILE_ORDER_TAB_IDS,
+} from "@/lib/business/owner-mobile-orders-tab";
 import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
 import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
-const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = [
-  { id: "new", labelKey: "store_owner_mobile_tab_new_orders" },
-  { id: "progress", labelKey: "store_owner_mobile_tab_progress" },
-  { id: "shipping", labelKey: "store_owner_mobile_tab_shipping" },
-  { id: "done", labelKey: "store_owner_mobile_tab_done" },
-  { id: "cancelled", labelKey: "store_owner_mobile_tab_cancelled" },
-];
-
-function orderMatchesOwnerOpsTab(order: { order_status: string }, tab: StoreOrderTabId): boolean {
-  const s = order.order_status;
-  switch (tab) {
-    case "new":
-      return s === "pending";
-    case "progress":
-      return s === "accepted" || s === "preparing" || s === "ready_for_pickup";
-    case "shipping":
-      return s === "delivering" || s === "arrived";
-    case "done":
-      return s === "completed";
-    case "cancelled":
-      return s === "cancelled" || s === "refunded" || s === "refund_requested";
-    default:
-      return orderMatchesStoreTab(order, tab);
+const TABS: Array<{ id: StoreOrderTabId; labelKey: MessageKey }> = OWNER_MOBILE_ORDER_TAB_IDS.map(
+  (id) => {
+    const labelById: Record<(typeof OWNER_MOBILE_ORDER_TAB_IDS)[number], MessageKey> = {
+      new: "store_owner_mobile_tab_new_orders",
+      progress: "store_owner_mobile_tab_progress",
+      shipping: "store_owner_mobile_tab_shipping",
+      done: "store_owner_mobile_tab_done",
+      cancelled: "store_owner_mobile_tab_cancelled",
+    };
+    return { id, labelKey: labelById[id] };
   }
-}
+);
 
 export function OwnerStoreOrdersMobileBody({
   storeId,
   storeName,
   orders,
   tab,
-  highlightOrderId,
-  highlightChatOrderId,
+  expandedOrderId,
+  chatOrderId,
   summaryCounts,
   onTabHref,
   onUpdated,
@@ -63,8 +51,8 @@ export function OwnerStoreOrdersMobileBody({
   storeName: string;
   orders: OwnerStoreOrderListRow[];
   tab: StoreOrderTabId;
-  highlightOrderId: string;
-  highlightChatOrderId: string;
+  expandedOrderId: string;
+  chatOrderId: string;
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
   onTabHref: (tabId: StoreOrderTabId) => string;
   onUpdated: () => void | Promise<void>;
@@ -79,21 +67,21 @@ export function OwnerStoreOrdersMobileBody({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState<"all" | "local_delivery" | "pickup">("all");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const effectiveTab: StoreOrderTabId = tab === "all" ? "new" : tab;
+  const effectiveTab = effectiveOwnerMobileOrdersTab(tab);
 
   const tabCounts = useMemo(() => {
     const m = new Map<StoreOrderTabId, number>();
     for (const t of TABS) {
       m.set(
         t.id,
-        orders.filter((o) => orderMatchesOwnerOpsTab(o, t.id)).length
+        orders.filter((o) => orderMatchesOwnerMobileOrdersTab(o, t.id)).length
       );
     }
     return m;
   }, [orders]);
 
   const displayOrders = useMemo(() => {
-    let list = orders.filter((o) => orderMatchesOwnerOpsTab(o, effectiveTab));
+    let list = orders.filter((o) => orderMatchesOwnerMobileOrdersTab(o, effectiveTab));
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((o) => {
@@ -123,9 +111,7 @@ export function OwnerStoreOrdersMobileBody({
     return list;
   }, [orders, effectiveTab, searchQuery, filterFulfillment, sortNewestFirst]);
 
-  const chatOrder = highlightChatOrderId
-    ? orders.find((o) => o.id === highlightChatOrderId) ?? null
-    : null;
+  const chatOrder = chatOrderId ? orders.find((o) => o.id === chatOrderId) ?? null : null;
 
   const filterLabel =
     filterFulfillment === "all"
@@ -246,7 +232,7 @@ export function OwnerStoreOrdersMobileBody({
       </div>
 
       <main
-        className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]"
       >
         <div className="space-y-2.5 py-3">
           {displayOrders.length === 0 ? (
@@ -263,10 +249,10 @@ export function OwnerStoreOrdersMobileBody({
                   order={o}
                   onUpdated={onUpdated}
                   onOrderStatusPatched={onOrderStatusPatched}
-                  isHighlight={highlightOrderId === o.id || highlightChatOrderId === o.id}
-                  isExpanded={highlightOrderId === o.id && !highlightChatOrderId}
+                  isHighlight={expandedOrderId === o.id || chatOrderId === o.id}
+                  isExpanded={expandedOrderId === o.id && !chatOrderId}
                   onToggleExpanded={() => {
-                    if (highlightOrderId === o.id && !highlightChatOrderId) {
+                    if (expandedOrderId === o.id && !chatOrderId) {
                       onCloseDetail();
                     } else {
                       onOpenDetail(o.id);
@@ -280,9 +266,9 @@ export function OwnerStoreOrdersMobileBody({
         </div>
       </main>
 
-      {highlightChatOrderId ?
+      {chatOrderId ?
         <OwnerStoreOrderChatSlidePanel
-          orderId={highlightChatOrderId}
+          orderId={chatOrderId}
           order={chatOrder}
           storeId={storeId}
           storeName={storeName}

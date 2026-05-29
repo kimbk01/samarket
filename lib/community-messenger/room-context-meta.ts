@@ -1,4 +1,7 @@
-import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import type {
+  CommunityMessengerRoomContextMetaV1,
+  CommunityMessengerRoomSummary,
+} from "@/lib/community-messenger/types";
 
 /**
  * `community_messenger_rooms.summary` 에 JSON 으로 넣는 거래/배달 컨텍스트(v1).
@@ -59,4 +62,38 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
 /** DB `summary` 컬럼에 저장할 문자열 — 파서와 쌍을 이룸 */
 export function serializeCommunityMessengerRoomContextMeta(meta: CommunityMessengerRoomContextMetaV1): string {
   return JSON.stringify(meta);
+}
+
+/** 배달·매장 주문 채팅 방 판별 — `contextMeta`·`summary` JSON·`direct_key` 통합. */
+export type CommunityMessengerRoomDeliveryDetectSource = Pick<
+  CommunityMessengerRoomSummary,
+  "contextMeta" | "messengerDirectKey" | "summary"
+>;
+
+/**
+ * 배달 주문 메신저 방의 컨텍스트 메타 — composer·셸 `delivery-ui` 에 사용.
+ * `contextMeta` 만 보면 instant shell·레거시 방에서 주문자 입력 라인(pill)이 빠진다.
+ * DO NOT: `kind === "delivery"` 단일 조건만 쓰면 summary/direct_key 방에서 일반 입력줄로 떨어짐.
+ */
+export function resolveCommunityMessengerDeliveryContextMeta(
+  room: CommunityMessengerRoomDeliveryDetectSource
+): CommunityMessengerRoomContextMetaV1 | null {
+  const inline = room.contextMeta;
+  if (inline?.kind === "delivery") return inline;
+  const fromSummary = parseCommunityMessengerRoomContextMeta(
+    typeof room.summary === "string" ? room.summary : null
+  );
+  if (fromSummary?.kind === "delivery") return fromSummary;
+  const dk = room.messengerDirectKey?.trim() ?? "";
+  if (dk.startsWith("store_order:") || dk.startsWith("trade_order:")) {
+    const orderId = dk.slice(dk.indexOf(":") + 1).trim();
+    if (orderId) return { v: 1, kind: "delivery", storeOrderId: orderId };
+  }
+  return null;
+}
+
+export function isCommunityMessengerStoreOrderDeliveryRoom(
+  room: CommunityMessengerRoomDeliveryDetectSource
+): boolean {
+  return resolveCommunityMessengerDeliveryContextMeta(room) != null;
 }

@@ -14,9 +14,11 @@ import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realt
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
-import { Search } from "lucide-react";
+import { Phone, Search } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
@@ -41,20 +43,20 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
   const bindPresenceAndTyping = hydrationPass >= 2;
 
-  const deliveryMeta = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const deliveryMeta = useMemo(
+    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
+    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+  );
   const storeOrderId =
-    deliveryMeta?.kind === "delivery" && typeof deliveryMeta.storeOrderId === "string"
-      ? deliveryMeta.storeOrderId.trim()
-      : "";
-  const storeId =
-    deliveryMeta?.kind === "delivery" && typeof deliveryMeta.storeId === "string"
-      ? deliveryMeta.storeId.trim()
-      : "";
-  const isDeliveryRoom = deliveryMeta?.kind === "delivery" && storeOrderId.length > 0;
+    typeof deliveryMeta?.storeOrderId === "string" ? deliveryMeta.storeOrderId.trim() : "";
+  const storeId = typeof deliveryMeta?.storeId === "string" ? deliveryMeta.storeId.trim() : "";
+  const isDeliveryRoom = deliveryMeta != null && storeOrderId.length > 0;
+  const deliveryViewerRole = messengerDeliveryViewerRole(deliveryMeta, vm.snapshot.myRole);
+  const isDeliveryBuyer = isDeliveryRoom && deliveryViewerRole === "buyer";
 
   const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
-    deliveryHeadline: deliveryMeta?.kind === "delivery" ? deliveryMeta.headline : undefined,
+    deliveryHeadline: deliveryMeta?.headline,
     storeOrderId,
     storeId,
     myRole: vm.snapshot.myRole,
@@ -63,8 +65,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     peerUserId: vm.snapshot.room.peerUserId ?? "",
     viewerUserId: vm.snapshot.viewerUserId ?? "",
     members: vm.snapshot.members,
-    thumbnailUrl:
-      deliveryMeta?.kind === "delivery" ? (deliveryMeta.thumbnailUrl ?? null) : null,
+    thumbnailUrl: deliveryMeta?.thumbnailUrl ?? null,
   });
 
   const useDeliveryHeaderBlock =
@@ -224,14 +225,26 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => vm.setActiveSheet("menu")}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-            aria-label={vm.t("nav_messenger_room_menu")}
-          >
-            <MoreIcon className="h-[18px] w-[18px]" />
-          </button>
+          {isDeliveryBuyer ? (
+            <button
+              type="button"
+              onClick={() => void vm.startManagedDirectCall("voice")}
+              disabled={vm.roomUnavailable || vm.outgoingDialLocked}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-45"
+              aria-label={vm.t("cm_ui_voice_call")}
+            >
+              <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => vm.setActiveSheet("menu")}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+              aria-label={vm.t("nav_messenger_room_menu")}
+            >
+              <MoreIcon className="h-[18px] w-[18px]" />
+            </button>
+          )}
         </div>
       </div>
     </MessengerHeader>

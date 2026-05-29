@@ -8,17 +8,19 @@ import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/
 import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
 import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-order-chat/store-order-messenger-entry-shell-snapshot";
 import { prepareStoreOrderMessengerRoomEntryByRoomId } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
+import { inferInstantStoreOrderMessengerMyRole } from "@/lib/store-order-chat/infer-store-order-messenger-instant-role";
 
 function buildInstantEntrySnapshot(
   roomId: string,
   viewerUserId: string | undefined,
-  contextMeta: ReturnType<typeof decodeCommunityMessengerRoomCmCtx>
+  contextMeta: ReturnType<typeof decodeCommunityMessengerRoomCmCtx>,
+  searchParams: URLSearchParams
 ): CommunityMessengerRoomSnapshot {
   return resolveInstantStoreOrderMessengerEntrySnapshot({
     roomId,
     viewerUserId,
     contextMeta,
-    myRole: "member",
+    myRole: inferInstantStoreOrderMessengerMyRole(contextMeta, searchParams),
   });
 }
 
@@ -42,8 +44,13 @@ export function CommunityMessengerRoomBootstrapGate({
   const viewerUserId =
     initialViewerUserId?.trim() || peekMessengerRoomViewerUserIdClient() || undefined;
 
+  const instantMyRole = useMemo(
+    () => inferInstantStoreOrderMessengerMyRole(cmCtx, searchParams),
+    [cmCtx, searchParams]
+  );
+
   const [hydratedSnapshot, setHydratedSnapshot] = useState<CommunityMessengerRoomSnapshot>(() =>
-    buildInstantEntrySnapshot(roomId, viewerUserId, cmCtx)
+    buildInstantEntrySnapshot(roomId, viewerUserId, cmCtx, searchParams)
   );
   const [entryError, setEntryError] = useState<string | null>(null);
 
@@ -51,8 +58,8 @@ export function CommunityMessengerRoomBootstrapGate({
     const rid = roomId.trim();
     if (!rid) return;
     setEntryError(null);
-    setHydratedSnapshot(buildInstantEntrySnapshot(rid, viewerUserId, cmCtx));
-  }, [roomId, viewerUserId, cmCtx]);
+    setHydratedSnapshot(buildInstantEntrySnapshot(rid, viewerUserId, cmCtx, searchParams));
+  }, [roomId, viewerUserId, cmCtx, searchParams]);
 
   useEffect(() => {
     const rid = roomId.trim();
@@ -67,7 +74,7 @@ export function CommunityMessengerRoomBootstrapGate({
     void (async () => {
       const result = await prepareStoreOrderMessengerRoomEntryByRoomId(rid, {
         instantContextMeta: cmCtx,
-        myRole: "member",
+        myRole: instantMyRole,
         viewerUserId,
       });
       if (cancelled) return;
@@ -81,7 +88,7 @@ export function CommunityMessengerRoomBootstrapGate({
     return () => {
       cancelled = true;
     };
-  }, [roomId, viewerUserId, cmCtx]);
+  }, [roomId, viewerUserId, cmCtx, instantMyRole]);
 
   const showFatalEntryError =
     Boolean(entryError) && Boolean(hydratedSnapshot.clientShellPlaceholder);

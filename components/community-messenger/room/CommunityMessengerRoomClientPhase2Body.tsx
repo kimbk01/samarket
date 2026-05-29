@@ -57,6 +57,10 @@ import {
   runMessengerRoomBackNavigation,
 } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
+import {
+  isCommunityMessengerStoreOrderDeliveryRoom,
+  resolveCommunityMessengerDeliveryContextMeta,
+} from "@/lib/community-messenger/room-context-meta";
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { CmReactCommitProbe, useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { logCmRenderRoomEntry } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
@@ -299,15 +303,17 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     () => messengerTradeViewerRoleFromContextMeta(view.snapshot.room.contextMeta ?? undefined),
     [view.snapshot.room.contextMeta]
   );
+  const resolvedDeliveryMeta = useMemo(
+    () => resolveCommunityMessengerDeliveryContextMeta(view.snapshot.room),
+    [view.snapshot.room.contextMeta, view.snapshot.room.messengerDirectKey, view.snapshot.room.summary]
+  );
   const deliveryViewerRole = useMemo(
-    () =>
-      messengerDeliveryViewerRole(
-        view.snapshot.room.contextMeta ?? undefined,
-        view.snapshot.myRole
-      ),
-    [view.snapshot.room.contextMeta, view.snapshot.myRole]
+    () => messengerDeliveryViewerRole(resolvedDeliveryMeta, view.snapshot.myRole),
+    [resolvedDeliveryMeta, view.snapshot.myRole]
   );
   const storeOrderDeliveryRoomEnabled = view.showMessengerStoreOrderDock && view.storeOrderIdForDock.length > 0;
+  /** 배달 kind 방 — summary/direct_key 포함, composer 입력 라인(pill)·footer 구분선. */
+  const isDeliveryKindRoom = isCommunityMessengerStoreOrderDeliveryRoom(view.snapshot.room);
   const storeOrderDeliveryIsOwnerApi =
     deliveryViewerRole === "seller" && view.storeIdForDock.length > 0;
   const headerView = useMemo(
@@ -528,7 +534,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
           data-delivery-viewer-role={deliveryViewerRole ?? undefined}
-          className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${storeOrderDeliveryRoomEnabled ? " delivery-ui" : ""}`}
+          className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${isDeliveryKindRoom ? " delivery-ui" : ""}`}
           style={
             narrowViewport
               ? ({

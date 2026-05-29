@@ -18,6 +18,7 @@ import type {
   CommunityMessengerFriendRequest,
   CommunityMessengerRoomContextMetaV1,
 } from "@/lib/community-messenger/types";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
@@ -120,17 +121,18 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     [vm.snapshot.members, peerUserId]
   );
 
-  const deliveryMeta = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const deliveryMeta = useMemo(
+    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
+    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+  );
   const storeOrderId =
-    deliveryMeta?.kind === "delivery" && typeof deliveryMeta.storeOrderId === "string"
-      ? deliveryMeta.storeOrderId.trim()
-      : "";
-  const isDeliveryRoom = deliveryMeta?.kind === "delivery" && storeOrderId.length > 0;
+    typeof deliveryMeta?.storeOrderId === "string" ? deliveryMeta.storeOrderId.trim() : "";
+  const isDeliveryRoom = deliveryMeta != null && storeOrderId.length > 0;
 
   const deliveryRoomSnap = useStoreOrderDeliveryRoomOptional();
   const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
     isDeliveryRoom,
-    deliveryHeadline: deliveryMeta?.kind === "delivery" ? deliveryMeta.headline : undefined,
+    deliveryHeadline: deliveryMeta?.headline,
     storeOrderId,
     storeId: vm.storeIdForDock,
     myRole: vm.snapshot.myRole,
@@ -139,7 +141,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     peerUserId: vm.snapshot.room.peerUserId ?? "",
     viewerUserId: vm.snapshot.viewerUserId ?? "",
     members: vm.snapshot.members,
-    thumbnailUrl: deliveryMeta?.kind === "delivery" ? (deliveryMeta.thumbnailUrl ?? null) : null,
+    thumbnailUrl: deliveryMeta?.thumbnailUrl ?? null,
   });
 
   const roomType: RoomType = useMemo(() => {

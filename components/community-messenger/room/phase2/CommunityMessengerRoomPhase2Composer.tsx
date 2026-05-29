@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -95,10 +96,7 @@ import {
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
-import {
-  DELIVERY_BUYER_QUICK_REPLY_KEYS,
-  DELIVERY_OWNER_QUICK_REPLY_KEYS,
-} from "@/lib/store-order-chat/delivery-room-quick-replies";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
@@ -363,15 +361,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
   const tradeOnlyBlocked =
     Boolean(vm.snapshot?.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
-  const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
-  const isDeliveryRoom = ctx?.kind === "delivery";
-  const isOwnerDeliveryRoom = isDeliveryRoom && vm.snapshot.myRole === "owner";
+  const deliveryCtx = useMemo(
+    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
+    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+  );
+  const ctx = (deliveryCtx ??
+    vm.snapshot.room.contextMeta) as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const isDeliveryRoom = deliveryCtx != null;
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
-  const deliveryQuickReplyKeys = isOwnerDeliveryRoom
-    ? DELIVERY_OWNER_QUICK_REPLY_KEYS
-    : isDeliveryRoom
-      ? DELIVERY_BUYER_QUICK_REPLY_KEYS
-      : [];
 
   const commitTextSend = useCallback(() => {
     if (
@@ -485,27 +482,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             </div>
           </div>
         ) : null}
-        {isDeliveryRoom && !vm.voiceRecording ? (
-          <div
-            className="delivery-ui mb-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            role="region"
-            aria-label={t("store_delivery_chat_quick_replies_aria")}
-          >
-            {deliveryQuickReplyKeys.map((key) => (
-              <button
-                key={key}
-                type="button"
-                disabled={vm.roomUnavailable || vm.busy === "send"}
-                onClick={() => {
-                  void vm.sendMessage(t(key));
-                }}
-                className="delivery-ui shrink-0 rounded-full border border-[color:var(--delivery-chip-border)] bg-[color:var(--delivery-chip-bg)] px-2.5 py-1.5 text-[12px] font-medium leading-[1.35] text-[color:var(--delivery-primary)] active:bg-[color:var(--delivery-primary-soft)] disabled:opacity-45"
-              >
-                {t(key)}
-              </button>
-            ))}
-          </div>
-        ) : null}
         {isDeliveryRoom ? (
           <div
             data-delivery-composer-row
@@ -527,7 +503,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             )}
             <div
               data-delivery-composer-pill
-              className="flex min-h-[var(--delivery-composer-row-min-h)] min-w-0 flex-[1_1_0%] items-center gap-0.5 rounded-[18px] bg-[color:var(--delivery-composer-surface)] px-2.5 py-1"
+              className="flex min-h-[var(--delivery-composer-row-min-h,36px)] min-w-0 flex-[1_1_0%] items-center gap-0.5 rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 py-1"
             >
               {vm.voiceRecording ? (
                 <DeliveryVoiceRecordingPane
@@ -883,7 +859,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     vm.voiceRecording && !isDeliveryRoom
       ? "border-t border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white"
       : isDeliveryRoom
-        ? "delivery-ui bg-white"
+        ? "delivery-ui border-t border-[#e8e8e8] bg-white"
         : "border-t border-[#e5e7eb] bg-white"
   }`;
 

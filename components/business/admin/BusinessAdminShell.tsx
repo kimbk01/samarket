@@ -135,16 +135,13 @@ export function BusinessAdminShell({
     [pathname]
   );
   const isOwnerHubRoute = ownerPathNorm === "/stores/owner";
-  const isOwnerOrdersRoute = ownerPathNorm.includes("/stores/owner/orders");
-  const ownerOrderDetailOpen = useMemo(
-    () => isOwnerOrdersRoute && Boolean(searchParams.get("order_id")?.trim()),
-    [isOwnerOrdersRoute, searchParams]
-  );
+  const isOwnerOrdersRoute = ownerPathNorm === "/stores/owner/orders";
   const ownerOrderChatSlideOpen = useMemo(
     () => isOwnerOrdersRoute && Boolean(searchParams.get("chat_order_id")?.trim()),
     [isOwnerOrdersRoute, searchParams]
   );
-  const ownerOrderOverlayOpen = ownerOrderDetailOpen || ownerOrderChatSlideOpen;
+  /** `order_id` 는 카드 인라인 펼치기 — 채팅 슬라이드만 오버레이로 취급 */
+  const ownerOrderOverlayOpen = ownerOrderChatSlideOpen;
   const isOwnerMobileAdminShell =
     isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
 

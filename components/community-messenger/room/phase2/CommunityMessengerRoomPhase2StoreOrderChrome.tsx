@@ -10,6 +10,8 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { StoreOrderBuyerRoomSheet } from "@/components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet";
 import { useStoreOrderDeliveryRoom } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
 import { patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { STORE_ORDER_MATCH_ACK_MESSAGE } from "@/lib/chats/store-order-match-ack-text";
@@ -45,10 +47,16 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     detailDrawerOpen,
     setDetailDrawerOpen,
   } = useStoreOrderDeliveryRoom();
-  const meta = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const deliveryMeta = useMemo(
+    () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
+    [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
+  );
+  const meta = deliveryMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
   const storeOrderId = typeof meta?.storeOrderId === "string" ? meta.storeOrderId.trim() : "";
   const storeId = typeof meta?.storeId === "string" ? meta.storeId.trim() : "";
-  const participantLooksSeller = vm.snapshot.myRole === "owner" && storeOrderId.length > 0;
+  const deliveryViewerRole = messengerDeliveryViewerRole(meta, vm.snapshot.myRole);
+  const participantLooksSeller =
+    deliveryViewerRole === "seller" && storeOrderId.length > 0;
 
   const [cancelBusy, setCancelBusy] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);

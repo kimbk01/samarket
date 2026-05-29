@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isOwnerBasicInfoPath, isOwnerInquiriesPath, isOwnerStoreFormBottomNavHiddenPath, isOwnerStoreProfilePath } from "@/lib/business/owner-basic-info-guard";
+import {
+  isOwnerBasicInfoPath,
+  isOwnerInquiriesPath,
+  isOwnerStoreFormBottomNavHiddenPath,
+  isOwnerStoreOrdersPath,
+  isOwnerStoreProfilePath,
+} from "@/lib/business/owner-basic-info-guard";
 import {
   isOwnerStoreProductComposerPath,
   resolveOwnerStackScrollHostPath,
@@ -63,6 +69,12 @@ describe("owner admin scroll shell contract", () => {
   it("inquiries hides owner mobile bottom nav", () => {
     expect(isOwnerInquiriesPath("/stores/owner/inquiries")).toBe(true);
     expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/inquiries")).toBe(true);
+  });
+
+  it("orders management hides owner mobile bottom nav", () => {
+    expect(isOwnerStoreOrdersPath("/stores/owner/orders")).toBe(true);
+    expect(isOwnerStoreFormBottomNavHiddenPath("/stores/owner/orders")).toBe(true);
+    expect(isOwnerStoreOrdersPath("/stores/owner/orders/")).toBe(true);
   });
 
   it("basic-info and profile keep save/cancel footer always visible", () => {

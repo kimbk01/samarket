@@ -6,7 +6,13 @@
 
  */
 
-[data-cm-room].delivery-ui {
+/**
+ * `.delivery-ui` on shell 또는 배달 composer 마운트 직후 — 주문자 instant shell 에서
+ * storeOrderId 도크 전에도 footer 구분선·pill 배경(#ececec) 동일.
+ * DO NOT: `.delivery-ui` only 로 축소하면 주문자 입력창 라인·배경 소실.
+ */
+[data-cm-room].delivery-ui,
+[data-cm-room]:has([data-delivery-composer-pill]) {
 
   --delivery-radius: 12px;
 
@@ -66,8 +72,10 @@
 
 
 [data-cm-room].delivery-ui footer[data-cm-composer],
+[data-cm-room]:has([data-delivery-composer-pill]) footer[data-cm-composer],
 
-[data-cm-room].delivery-ui footer[data-cm-line-composer-footer] {
+[data-cm-room].delivery-ui footer[data-cm-line-composer-footer],
+[data-cm-room]:has([data-delivery-composer-pill]) footer[data-cm-line-composer-footer] {
 
   background-color: #ffffff !important;
 
@@ -89,25 +97,27 @@
 
 
 
-[data-cm-room].delivery-ui [data-delivery-composer-pill] {
+[data-cm-room].delivery-ui [data-delivery-composer-pill],
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill] {
 
   flex: 1 1 0% !important;
 
   min-width: 0 !important;
 
-  border: none !important;
+  border: 1px solid #d8d8d8 !important;
 
   box-shadow: none !important;
 
-  background-color: var(--delivery-composer-surface) !important;
+  background-color: var(--delivery-composer-surface, #ececec) !important;
 
 }
 
 
 
-[data-cm-room].delivery-ui [data-delivery-composer-pill]:focus-within {
+[data-cm-room].delivery-ui [data-delivery-composer-pill]:focus-within,
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill]:focus-within {
 
-  border: none !important;
+  border-color: #c8c8c8 !important;
 
   box-shadow: none !important;
 

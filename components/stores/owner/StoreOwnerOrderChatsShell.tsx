@@ -108,7 +108,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
       <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
         <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm ring-1 ring-sam-border-soft">
           <p>{t("business_phase7_267")}</p>
-          <Link href="/community-messenger/delivery-chats" className="mt-3 inline-block font-medium text-signature underline">
+          <Link href="/stores/owner/order-chats" className="mt-3 inline-block font-medium text-signature underline">
             {t("store_owner_chats_open_delivery")}
           </Link>
         </div>

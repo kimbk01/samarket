@@ -16,7 +16,7 @@ import {
   ownerRiderStatusLabelI18n,
 } from "@/lib/stores/owner-order-ui-labels";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import type { MessageKey } from "@/lib/i18n/messages";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-order-status";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
@@ -229,14 +229,20 @@ export function OwnerStoreOrderMockCard({
         <div className="mt-3 flex gap-2">
           <button
             type="button"
-            onClick={onToggleExpanded}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleExpanded();
+            }}
             className="flex min-h-10 flex-1 items-center justify-center rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]"
           >
             {isExpanded ? t("store_owner_card_collapse") : t("store_owner_card_expand")}
           </button>
           <button
             type="button"
-            onClick={onOpenChat}
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenChat();
+            }}
             className="flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-[4px] border border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] px-3 text-[13px] font-bold leading-[1.35] text-[var(--biz-primary)]"
           >
             <MessageSquare className="h-4 w-4" aria-hidden />
@@ -354,7 +360,10 @@ export function OwnerStoreOrderMockCard({
                   </div>
                   <button
                     type="button"
-                    onClick={onOpenChat}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenChat();
+                    }}
                     className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-[4px] bg-[var(--biz-primary)] px-3 text-[12px] font-bold text-white"
                   >
                     <MessageSquare className="h-4 w-4" aria-hidden />
@@ -422,12 +431,21 @@ function summarizeMenu(
 
 type FlowStep = { label: string; state: "done" | "current" | "upcoming" };
 
+const TERMINAL_ORDER_STATUSES = new Set(["cancelled", "refunded", "refund_requested"]);
+
 function buildOwnerOpsFlow(status: string, fulfillment: string, lang: AppLanguageCode): FlowStep[] {
   const deliveryLike = isDeliveryFulfillment(fulfillment);
   const keys = deliveryLike
     ? ["pending", "accepted", "preparing", "ready_for_pickup", "delivering", "arrived", "completed"]
     : ["pending", "accepted", "preparing", "ready_for_pickup", "completed"];
   const labels = ownerOpsFlowStepLabelsI18n(lang, deliveryLike);
+  if (TERMINAL_ORDER_STATUSES.has(status)) {
+    const terminalLabel =
+      status === "refund_requested"
+        ? translate(lang, "store_owner_status_refund_requested")
+        : translate(lang, "store_owner_status_cancelled");
+    return [{ label: terminalLabel, state: "current" }];
+  }
   const current = keys.includes(status) ? keys.indexOf(status) : -1;
   return keys.map((key, i) => ({
     label: labels[i] ?? key,

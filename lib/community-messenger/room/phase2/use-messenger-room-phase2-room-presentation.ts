@@ -2,7 +2,10 @@
 
 import { useMemo } from "react";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
-import { parseCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
+import {
+  parseCommunityMessengerRoomContextMeta,
+  resolveCommunityMessengerDeliveryContextMeta,
+} from "@/lib/community-messenger/room-context-meta";
 import {
   communityMessengerCallSessionIsActiveConnected,
   communityMessengerCallStubStatusIsTerminal,
@@ -50,16 +53,18 @@ export function useMessengerRoomPhase2RoomPresentation({
     return typeof m.productChatId === "string" ? m.productChatId.trim() : "";
   }, [snapshot?.room.contextMeta]);
   const showMessengerTradeProcessDock = !isGroupRoom && tradeProductChatIdForDock.length > 0;
+  const deliveryContextMeta = useMemo(
+    () => (snapshot?.room ? resolveCommunityMessengerDeliveryContextMeta(snapshot.room) : null),
+    [snapshot?.room.contextMeta, snapshot?.room.messengerDirectKey, snapshot?.room.summary]
+  );
   const storeOrderIdForDock = useMemo(() => {
-    const m = snapshot?.room.contextMeta;
-    if (!m || m.kind !== "delivery") return "";
-    return typeof m.storeOrderId === "string" ? m.storeOrderId.trim() : "";
-  }, [snapshot?.room.contextMeta]);
+    const id = deliveryContextMeta?.storeOrderId;
+    return typeof id === "string" ? id.trim() : "";
+  }, [deliveryContextMeta?.storeOrderId]);
   const storeIdForDock = useMemo(() => {
-    const m = snapshot?.room.contextMeta;
-    if (!m || m.kind !== "delivery") return "";
-    return typeof m.storeId === "string" ? m.storeId.trim() : "";
-  }, [snapshot?.room.contextMeta]);
+    const id = deliveryContextMeta?.storeId;
+    return typeof id === "string" ? id.trim() : "";
+  }, [deliveryContextMeta?.storeId]);
   const showMessengerStoreOrderDock = !isGroupRoom && storeOrderIdForDock.length > 0;
   const permissionGuide = callPanel ? getCommunityMessengerPermissionGuide(callPanel.kind) : null;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";

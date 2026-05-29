@@ -40,16 +40,19 @@ import {
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import {
   buildStoreOrdersHref,
-  orderMatchesStoreTab,
   parseStoreOrderTab,
   type StoreOrderTabId,
 } from "@/lib/business/store-orders-tab";
 import {
   countOrdersMatchingTab,
-  ownerOrderMainTabForStatus,
 } from "@/lib/business/owner-order-main-tab";
+import {
+  effectiveOwnerMobileOrdersTab,
+  orderMatchesOwnerMobileOrdersTab,
+  ownerMobileOrdersTabForStatus,
+} from "@/lib/business/owner-mobile-orders-tab";
+import { replaceOwnerOrdersUrlQuery } from "@/lib/business/owner-orders-url";
 import { buildOwnerOrdersViewInitialState } from "@/lib/business/build-owner-orders-view-initial-state";
-import { runOwnerAdminBackNavigation } from "@/lib/business/owner-admin-back-navigation";
 import { pickOwnerStoreFromMeList } from "@/lib/business/pick-owner-store-from-me-list";
 import { OwnerStoreOrdersMobileBody } from "@/components/business/owner/OwnerStoreOrdersMobileBody";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -72,12 +75,6 @@ import {
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 type OrderRow = OwnerStoreOrderListRow;
-
-function ownerOrdersUiTabForStatus(orderStatus: string): StoreOrderTabId {
-  const tab = ownerOrderMainTabForStatus(orderStatus);
-  if (tab === "new" || tab === "progress" || tab === "done" || tab === "cancelled") return tab;
-  return "all";
-}
 
 function startOfTodayMs(): number {
   const d = new Date();
@@ -111,6 +108,11 @@ export function OwnerStoreOrdersView() {
   const ownerNotifAckRef = useRef(false);
   const deepLinkEnrichAttemptedRef = useRef(false);
   const deepLinkChatEnrichAttemptedRef = useRef(false);
+  const tabSyncForOrderRef = useRef<string | null>(null);
+
+  /** 펼치기 UI — URL만 쓰면 Suspense 리마운트로 취소 탭·버튼이 먹통이 될 수 있음 */
+  const [expandedOrderId, setExpandedOrderId] = useState(highlightOrderId);
+  const [chatOrderId, setChatOrderId] = useState(highlightChatOrderId);
 
   const [state, setState] = useState(() => buildOwnerOrdersViewInitialState(urlStoreId));
 
@@ -268,12 +270,31 @@ export function OwnerStoreOrdersView() {
   }, [load]);
 
   useEffect(() => {
+    setExpandedOrderId(highlightOrderId);
+  }, [highlightOrderId]);
+
+  useEffect(() => {
+    setChatOrderId(highlightChatOrderId);
+  }, [highlightChatOrderId]);
+
+  useEffect(() => {
     deepLinkEnrichAttemptedRef.current = false;
+    tabSyncForOrderRef.current = null;
   }, [highlightOrderId, urlStoreId]);
 
   useEffect(() => {
     deepLinkChatEnrichAttemptedRef.current = false;
   }, [highlightChatOrderId, urlStoreId]);
+
+  useEffect(() => {
+    if (!expandedOrderId || state.kind !== "ok") return;
+    const order = state.orders.find((o) => o.id === expandedOrderId);
+    if (!order) return;
+    if (!orderMatchesOwnerMobileOrdersTab(order, tab)) {
+      setExpandedOrderId("");
+      replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab });
+    }
+  }, [expandedOrderId, state, tab]);
 
   const summaryCounts = useMemo(() => {
     if (state.kind !== "ok") {
@@ -503,39 +524,46 @@ export function OwnerStoreOrdersView() {
       });
   }, []);
 
+  const activeExpandOrderId = expandedOrderId || highlightOrderId;
+
   useEffect(() => {
-    if (state.kind !== "ok" || !highlightOrderId) return;
-    const order = state.orders.find((o) => o.id === highlightOrderId);
+    if (state.kind !== "ok" || !activeExpandOrderId) return;
+    const order = state.orders.find((o) => o.id === activeExpandOrderId);
     if (!order) {
       if (!deepLinkEnrichAttemptedRef.current) {
         deepLinkEnrichAttemptedRef.current = true;
-        enrichOrder(highlightOrderId);
+        enrichOrder(activeExpandOrderId);
       }
       return;
     }
-    if (!orderMatchesStoreTab(order, tab)) {
-      const wantTab = ownerOrdersUiTabForStatus(order.order_status);
-      if (tab !== wantTab) {
+    const effectiveTab = effectiveOwnerMobileOrdersTab(tab);
+    if (!orderMatchesOwnerMobileOrdersTab(order, tab)) {
+      const wantTab = ownerMobileOrdersTabForStatus(order.order_status);
+      if (effectiveTab !== wantTab && tabSyncForOrderRef.current !== activeExpandOrderId) {
+        tabSyncForOrderRef.current = activeExpandOrderId;
+        setExpandedOrderId(activeExpandOrderId);
         router.replace(
           buildStoreOrdersHref({
             storeId: state.storeId,
             tab: wantTab,
-            orderId: highlightOrderId,
+            orderId: activeExpandOrderId,
           }),
           { scroll: false }
         );
       }
     }
-  }, [state, highlightOrderId, tab, router, enrichOrder]);
+  }, [state, activeExpandOrderId, tab, router, enrichOrder]);
+
+  const activeChatOrderId = chatOrderId || highlightChatOrderId;
 
   useEffect(() => {
-    if (state.kind !== "ok" || !highlightChatOrderId) return;
-    const exists = state.orders.some((o) => o.id === highlightChatOrderId);
+    if (state.kind !== "ok" || !activeChatOrderId) return;
+    const exists = state.orders.some((o) => o.id === activeChatOrderId);
     if (!exists && !deepLinkChatEnrichAttemptedRef.current) {
       deepLinkChatEnrichAttemptedRef.current = true;
-      enrichOrder(highlightChatOrderId);
+      enrichOrder(activeChatOrderId);
     }
-  }, [state, highlightChatOrderId, enrichOrder]);
+  }, [state, activeChatOrderId, enrichOrder]);
 
   useOwnerStoreOrdersRealtime({
     storeId: pollStoreId,
@@ -682,43 +710,51 @@ export function OwnerStoreOrdersView() {
       return buildStoreOrdersHref({
         storeId: state.storeId,
         tab: tabId,
-        orderId: highlightOrderId || undefined,
       });
     },
-    [state, highlightOrderId]
+    [state]
   );
 
   const onOpenDetail = useCallback(
     (orderId: string) => {
       if (state.kind !== "ok") return;
-      router.push(buildStoreOrdersHref({ storeId: state.storeId, tab, orderId }));
+      const oid = orderId.trim();
+      setExpandedOrderId(oid);
+      replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab, orderId: oid });
     },
-    [router, state, tab]
+    [state, tab]
   );
 
   const onCloseDetail = useCallback(() => {
     if (state.kind !== "ok") return;
-    runOwnerAdminBackNavigation(
-      router,
-      buildStoreOrdersHref({ storeId: state.storeId, tab })
-    );
-  }, [router, state, tab]);
+    setExpandedOrderId("");
+    replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab });
+  }, [state, tab]);
 
   const onOpenChat = useCallback(
     (orderId: string) => {
       if (state.kind !== "ok") return;
-      router.push(buildStoreOrdersHref({ storeId: state.storeId, tab, chatOrderId: orderId }));
+      const oid = orderId.trim();
+      setChatOrderId(oid);
+      replaceOwnerOrdersUrlQuery({
+        storeId: state.storeId,
+        tab,
+        chatOrderId: oid,
+        orderId: expandedOrderId || undefined,
+      });
     },
-    [router, state, tab]
+    [expandedOrderId, state, tab]
   );
 
   const onCloseChat = useCallback(() => {
     if (state.kind !== "ok") return;
-    runOwnerAdminBackNavigation(
-      router,
-      buildStoreOrdersHref({ storeId: state.storeId, tab })
-    );
-  }, [router, state, tab]);
+    setChatOrderId("");
+    replaceOwnerOrdersUrlQuery({
+      storeId: state.storeId,
+      tab,
+      orderId: expandedOrderId || undefined,
+    });
+  }, [expandedOrderId, state, tab]);
 
   let body: ReactNode;
   if (state.kind === "loading") {
@@ -774,8 +810,8 @@ export function OwnerStoreOrdersView() {
         storeName={state.storeName}
         orders={state.orders}
         tab={tab}
-        highlightOrderId={highlightOrderId}
-        highlightChatOrderId={highlightChatOrderId}
+        expandedOrderId={expandedOrderId}
+        chatOrderId={activeChatOrderId}
         summaryCounts={summaryCounts}
         onTabHref={onTabHref}
         onUpdated={() => load({ silent: true, reason: "order_status_patch", forceNetwork: true })}

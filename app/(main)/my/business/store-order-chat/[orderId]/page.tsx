@@ -77,7 +77,7 @@ async function OwnerStoreOrderChatPageBody({
     `/community-messenger/rooms/${encodeURIComponent(result.roomId)}`,
     "https://samarket.local"
   );
-  roomUrl.searchParams.set("from", "delivery");
+  roomUrl.searchParams.set("from", "delivery-owner");
   roomUrl.searchParams.set("cm_list", "delivery");
   // cm_ctx 첨부: 클라이언트가 bootstrap+ensure 2왕복 없이 ensure 1왕복만 하도록 한다.
   const cmCtx = encodeCommunityMessengerRoomCmCtx({
@@ -85,6 +85,7 @@ async function OwnerStoreOrderChatPageBody({
     kind: "delivery",
     storeOrderId: orderId,
     orderNo: result.orderNo,
+    storeId: result.storeId,
     storeDisplayName: result.storeName,
     headline: result.storeName,
   });

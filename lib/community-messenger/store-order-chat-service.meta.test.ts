@@ -125,6 +125,7 @@ describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
       roomId: "room-1",
       buyerUserId: "buyer",
       ownerUserId: "owner",
+      storeId: "store-1",
       orderStatus: "pending",
       orderFlow: "delivery",
       storeName: "Store",

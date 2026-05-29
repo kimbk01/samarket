@@ -81,6 +81,7 @@ export type StoreOrderMessengerEnsureResult =
       roomId: string;
       buyerUserId: string;
       ownerUserId: string;
+      storeId: string;
       orderStatus: SharedOrderStatus;
       orderFlow: OrderChatFlow;
       storeName: string;
@@ -482,6 +483,7 @@ export async function ensureStoreOrderMessengerRoom(
     roomId,
     buyerUserId,
     ownerUserId,
+    storeId: trimText(row.store_id),
     orderStatus: storeOrderStatusToShared(trimText(row.order_status)) ?? "pending",
     orderFlow: flowFromFulfillment(row.fulfillment_type),
     storeName: trimText(store?.store_name) || "매장",

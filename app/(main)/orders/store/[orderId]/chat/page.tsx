@@ -91,6 +91,7 @@ async function OrdersStoreOrderChatPageBody({
     kind: "delivery",
     storeOrderId: orderId,
     orderNo: result.orderNo,
+    storeId: result.storeId,
     storeDisplayName: result.storeName,
     headline: result.storeName,
   });
