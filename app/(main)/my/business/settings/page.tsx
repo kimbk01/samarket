@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreSettingsContent } from "@/components/business/owner/OwnerStoreSettingsContent";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
@@ -107,12 +108,14 @@ export default function MyBusinessSettingsPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-full overflow-x-hidden py-4">
+        <OwnerAdminPageScrollShell className="py-4">
           <OwnerStoreSuspenseFallback />
-        </div>
+        </OwnerAdminPageScrollShell>
       }
     >
-      <MyBusinessSettingsPageInner />
+      <OwnerAdminPageScrollShell>
+        <MyBusinessSettingsPageInner />
+      </OwnerAdminPageScrollShell>
     </Suspense>
   );
 }

@@ -1498,13 +1498,14 @@
    * --fab-surface-alpha: 0.6 = 60% 불투명 (MainBottomNavFabSector FAB_SURFACE_ALPHA)
    */
   .main-bottom-nav-fab-sector {
-    --fab-shell-w: 4.05rem;
-    --fab-panel-inset: 0.825rem;
-    --fab-icon-box: 2.4rem;
+    --fab-shell-w: clamp(4.05rem, 11vw, 4.75rem);
+    --fab-panel-inset: calc((var(--fab-shell-w) - var(--fab-icon-box)) / 2);
+    --fab-icon-box: clamp(2.4rem, 6.4vw, 2.6rem);
     --fab-icon-inner-gap-scale: 0.81;
     --fab-icon-glyph: calc(var(--fab-icon-box) - (var(--fab-icon-box) - 1.28rem) * var(--fab-icon-inner-gap-scale));
     --fab-gutter: calc((var(--fab-shell-w) - var(--fab-icon-box)) / 2);
     --fab-surface-alpha: 0.6;
+    --fab-caption-size: clamp(10px, 2.75vw, 12px);
     /* Christmas Starbucks — hex는 delivery-fab-christmas-starbucks-palette.ts → fabSectorRootStyle() */
     --fab-surface-bg: rgb(11 66 26 / var(--fab-surface-alpha));
     --fab-edge-bg: var(--fab-palette-green, #0b421a);
@@ -1545,6 +1546,7 @@
     border-radius: var(--sam-radius-sm);
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.12);
     justify-content: flex-start;
+    overflow: visible;
   }
 
   .main-bottom-nav-fab-sector[data-fab-shell-expanded="false"] .main-bottom-nav-fab-sector__shell {
@@ -1558,7 +1560,9 @@
   }
 
   .main-bottom-nav-fab-sector__panel-body {
-    @apply pointer-events-auto box-border min-h-0 w-full shrink overflow-hidden;
+    @apply pointer-events-auto box-border min-h-0 w-full shrink;
+    overflow-x: visible;
+    overflow-y: hidden;
     /* §2 계약: padding-top = fabPanelBodyInlineStyle() only — CSS padding-top 금지 */
     transition:
       max-height var(--fab-dock-ms) var(--fab-dock-ease),
@@ -1585,18 +1589,30 @@
     @apply m-0 flex list-none flex-col items-center;
     gap: 0.6rem;
     max-height: min(62vh, 19.2rem);
+    overflow-x: visible;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 0;
+    padding: 0.125rem 0.25rem 0;
     scrollbar-width: thin;
   }
 
   .main-bottom-nav-fab-sector__row {
-    @apply flex w-full cursor-pointer flex-col items-center border-0 bg-transparent p-0 text-center no-underline;
+    @apply flex w-full min-w-0 cursor-pointer flex-col items-center border-0 bg-transparent p-0 text-center no-underline;
     gap: 0.3rem;
     color: inherit;
     touch-action: manipulation;
     transition: opacity 120ms ease;
+  }
+
+  .main-bottom-nav-fab-sector__row--store-admin .main-bottom-nav-fab-sector__caption {
+    color: var(--fab-palette-gold);
+    font-weight: 700;
+  }
+
+  .main-bottom-nav-fab-sector__row--store-admin .main-bottom-nav-fab-sector__icon-box {
+    box-shadow:
+      0 0 0 2px rgb(234 199 132 / 0.55),
+      0 2px 8px rgb(0 0 0 / 0.16);
   }
 
   .main-bottom-nav-fab-sector__row--active .main-bottom-nav-fab-sector__icon-box {
@@ -1606,7 +1622,7 @@
   }
 
   .main-bottom-nav-fab-sector__icon-box {
-    @apply flex shrink-0 items-center justify-center rounded-ui-rect shadow-sm;
+    @apply relative flex shrink-0 items-center justify-center overflow-visible rounded-ui-rect shadow-sm;
     width: var(--fab-icon-box);
     height: var(--fab-icon-box);
     background-color: var(--fab-palette-cream);
@@ -1642,13 +1658,23 @@
   }
 
   .main-bottom-nav-fab-sector__caption {
-    @apply w-full text-center font-semibold leading-tight;
-    font-size: 11px;
-    white-space: nowrap;
+    @apply w-full min-w-0 text-center font-semibold leading-tight;
+    font-size: var(--fab-caption-size);
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: keep-all;
+    overflow-x: clip;
     color: var(--fab-fg);
     transition:
       transform 120ms ease,
       opacity 120ms ease;
+  }
+
+  /** 펼침 패널 뱃지 — 아이콘 박스 안쪽 우상단(셸·리스트 clip 방지) */
+  .main-bottom-nav-fab-sector__panel-badge {
+    @apply pointer-events-none absolute z-[2];
+    right: 0.125rem;
+    top: 0.125rem;
   }
 
   /** 하단 토글 — ‹ 탭·X 공통 높이(접·펼 morph 중 상하 크기 고정) */

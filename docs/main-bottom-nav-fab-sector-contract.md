@@ -136,3 +136,5 @@ min(62vh, 19.2rem) + var(--fab-edge-h) + var(--fab-panel-inset)
 | 2026-05-27 | FAB scroll 깜빡임 — Context로 하단 탭 hidden 공유, 이중 subscribe·settled 검사 제거 |
 | 2026-05-27 | FAB·하단 탭 스크롤 분리 — FAB는 위·아래 스크롤 접힘, 하단 탭은 아래만 숨김 |
 | 2026-05-27 | `/stores/browse/*`·`/stores/search` — `isStoresDeliveryHubChromePath` 헤더·FAB 동일 계약 |
+| 2026-05-29 | 캡션 줄바꿈·가로 스크롤 제거, 펼침 shell overflow visible·패널 뱃지, clamp 반응형, 스토어 어드민 gold 강조 |
+| 2026-05-29 | 패널 뱃지 — 아이콘 박스 inset·list/panel overflow visible 로 우측 clip 제거 |

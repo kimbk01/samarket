@@ -72,5 +72,7 @@ alwaysApply: false
 - `OwnerStoreAdminDashSection` 에 설명 전용 슬롯을 **임의로** 다시 추가하기 (명시 지시 시에만).
 - 하단 바를 폼 안에 넣거나 `z-index`·BottomNav 오프셋을 임의로 바꿔 겹침·터치 실패 만들기.
 - 가드 레이아웃의 **`main`에 `flex-1`** 을 붙여 본문 아래 빈 면적을 만든다.
+- **`StoreBusinessGuard` ok 래퍼에 `min-h-screen`** — compact 셸에서 `.owner-compact-shell__scroll` 스크롤 불가. (`OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS` · `npm run verify:owner-admin-scroll-shell-contract`)
+- **`basic-info` 를 `resolveOwnerStackScrollHostPath` 에서 제외** — 하단 5탭 숨김(`!isOwnerBasicInfoRoute`)과 scroll host 잠금은 분리.
 
 작업 후: 해당 화면에서 **더티 → 하단 바 노출**, **저장/취소**, **BottomNav 유무** 를 한 번씩 확인한다.

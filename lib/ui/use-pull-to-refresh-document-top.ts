@@ -1,14 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
-import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
+import { resolveAppShellScrollTopY } from "@/lib/layout/resolve-app-shell-scroll-top";
+import { subscribeAppOrOwnerShellScroll } from "@/lib/layout/subscribe-app-or-owner-shell-scroll";
 
 const DEFAULT_THRESHOLD_PX = 52;
-
-function scrollTopY(): number {
-  return getMainAppScrollTop();
-}
 
 /**
  * 문서가 맨 위일 때 세로로 아래로 당기면 `onRefresh` 실행 (모바일 웹 P2R).
@@ -43,12 +39,12 @@ export function usePullToRefreshAtDocumentTop(
     const onStart = (e: TouchEvent) => {
       if (refreshingRef.current) return;
       removeMove();
-      if (scrollTopY() > 2) return;
+      if (resolveAppShellScrollTopY() > 2) return;
       startYRef.current = e.touches[0]?.clientY ?? null;
       if (startYRef.current == null) return;
 
       const onMove = (ev: TouchEvent) => {
-        if (scrollTopY() > 2) {
+        if (resolveAppShellScrollTopY() > 2) {
           removeMove();
           pullRef.current = 0;
           setPullPx(0);
@@ -110,8 +106,8 @@ export function usePullToRefreshAtDocumentTop(
       setPullPx(0);
     };
 
-    const unsubScroll = subscribeAppShellScroll(() => {
-      if (scrollTopY() > 2) {
+    const unsubScroll = subscribeAppOrOwnerShellScroll(() => {
+      if (resolveAppShellScrollTopY() > 2) {
         removeMove();
         pullRef.current = 0;
         setPullPx(0);

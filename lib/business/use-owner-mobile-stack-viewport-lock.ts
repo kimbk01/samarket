@@ -1,14 +1,15 @@
 "use client";
 
 import { useLayoutEffect } from "react";
+import { matchesOwnerCompactShellViewport } from "@/lib/business/owner-compact-shell-viewport";
 
 /**
  * `/stores/owner/*` 모바일 스택 — 문서 루트 스크롤을 막고 내부 `overflow-y-auto` 만 스크롤.
  * (고정 헤더가 transform 조상 밖 `BodyPortal` 에 있어도, 루트가 스크롤되면 체감상 헤더가 늘어남)
  */
-export function useOwnerMobileStackViewportLock(enabled: boolean): void {
+export function useOwnerMobileStackViewportLock(ownerStackScrollHost: boolean): void {
   useLayoutEffect(() => {
-    if (!enabled) return;
+    if (!ownerStackScrollHost || !matchesOwnerCompactShellViewport()) return;
     const html = document.documentElement;
     const body = document.body;
     const snap = {
@@ -27,5 +28,5 @@ export function useOwnerMobileStackViewportLock(enabled: boolean): void {
       html.style.overscrollBehavior = snap.htmlOverscroll;
       body.style.overscrollBehavior = snap.bodyOverscroll;
     };
-  }, [enabled]);
+  }, [ownerStackScrollHost]);
 }

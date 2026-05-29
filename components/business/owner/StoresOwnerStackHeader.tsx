@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
+import { OWNER_DESKTOP_SHELL_MIN_TW, OWNER_COMPACT_SHELL_MAX_TW } from "@/lib/business/owner-compact-shell-viewport";
 
 export function StoresOwnerStackHeader({
   variant,
@@ -17,8 +17,9 @@ export function StoresOwnerStackHeader({
   pageTitle,
   rightSlot,
   desktopInsetLeft = false,
-  /** 허브 대시보드 — 본문 `OwnerDashboardHeader`와 제목 중복 방지 */
   hideTitle = false,
+  /** true — 모바일·태블릿(≤1024)에서 `OwnerMobileAdminHeader` 와 중복 방지 */
+  hideOnCompactShell = false,
 }: {
   variant: "hub" | "admin";
   backHref?: string;
@@ -35,6 +36,7 @@ export function StoresOwnerStackHeader({
   /** 좌측 고정 사이드바(260px)만큼 헤더 시작 위치 보정 */
   desktopInsetLeft?: boolean;
   hideTitle?: boolean;
+  hideOnCompactShell?: boolean;
 }) {
   const { t } = useI18n();
   const resolvedBackAria = backAriaLabel ?? t("business_phase7_351");
@@ -45,6 +47,8 @@ export function StoresOwnerStackHeader({
     <BodyPortal>
       <header
         className={`fixed inset-x-0 top-0 z-[55] border-b border-sam-border bg-sam-surface/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm ${
+          hideOnCompactShell ? `${OWNER_COMPACT_SHELL_MAX_TW}:hidden ` : ""
+        }${
           desktopInsetLeft ?
             `${OWNER_DESKTOP_SHELL_MIN_TW}:left-[260px] ${OWNER_DESKTOP_SHELL_MIN_TW}:right-0`
           : ""

@@ -12,6 +12,7 @@ import {
 } from "@/lib/me/fetch-me-stores-deduped";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS } from "@/lib/business/owner-store-business-guard-layout";
 
 type MeStore = {
   id: string;
@@ -175,5 +176,5 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     );
   }
 
-  return <div className="min-h-screen">{children}</div>;
+  return <div className={OWNER_STORE_BUSINESS_GUARD_OK_SHELL_CLASS}>{children}</div>;
 }

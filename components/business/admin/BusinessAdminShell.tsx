@@ -45,6 +45,10 @@ import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBotto
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
+import {
+  isOwnerStoreProductComposerPath,
+  resolveOwnerStackScrollHostPath,
+} from "@/lib/business/owner-stack-scroll-host-path";
 import { useOwnerMobileStackViewportLock } from "@/lib/business/use-owner-mobile-stack-viewport-lock";
 import { buildStoreOpsMetaFromRow } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
@@ -54,6 +58,7 @@ import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-sh
 import {
   emitOwnerBasicInfoLeave,
   getOwnerBasicInfoDirty,
+  isOwnerBasicInfoPath,
   isOwnerStoreAdminDirtyGuardPath,
 } from "@/lib/business/owner-basic-info-guard";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
@@ -67,18 +72,18 @@ import {
   subscribeStoreOwnerMainBottomNavSuppressed,
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useOwnerCompactShellViewport } from "@/hooks/use-owner-compact-shell-viewport";
-import { applyOwnerCompactShellBodyFlag } from "@/lib/business/owner-compact-shell-layout";
+import { subscribeOwnerCompactShellBodyFlag } from "@/lib/business/sync-owner-compact-shell-body-flag";
 import {
-  matchesOwnerCompactShellViewport,
   OWNER_COMPACT_SHELL_MAX_TW,
-  OWNER_DESKTOP_SHELL_MIN_TW,
 } from "@/lib/business/owner-compact-shell-viewport";
-import { ChevronRight } from "lucide-react";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import {
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
 } from "@/lib/stores/owner-mobile-ui-tokens";
-import { OWNER_COMPACT_SHELL_COLUMN_CLASS, OWNER_COMPACT_SHELL_MAIN_CLASS } from "@/lib/business/owner-compact-shell-layout";
+import {
+  OWNER_COMPACT_SHELL_COLUMN_CLASS,
+  OWNER_COMPACT_SHELL_MAIN_CLASS,
+} from "@/lib/business/owner-compact-shell-layout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   registerOwnerMobileOpsMenuOpen,
@@ -114,8 +119,6 @@ export function BusinessAdminShell({
   });
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  /** md 이상: 우측 도킹 패널 — 기본 펼침, 접으면 본문 전폭 */
-  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [linkedStoreAddressRow, setLinkedStoreAddressRow] = useState<UserAddressDTO | null>(null);
   /** 운영 사이드 내비 스크롤 — 열 때 내부 목록은 항상 맨 위 */
   const sidebarNavScrollRef = useRef<HTMLDivElement | null>(null);
@@ -145,16 +148,26 @@ export function BusinessAdminShell({
   const isOwnerMobileAdminShell =
     isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
 
+  const isOwnerBasicInfoRoute = useMemo(
+    () => isOwnerBasicInfoPath(ownerPathNorm),
+    [ownerPathNorm]
+  );
+
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
     const isStoreOwnerAdminSubroute = ownerPathNorm.startsWith("/stores/owner/");
-    if (isOwnerMobileAdminShell) return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
+    if (isOwnerMobileAdminShell) {
+      if (isOwnerBasicInfoRoute) {
+        return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3";
+      }
+      return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
+    }
     if (f.showBottomNav) return "pb-4 sm:pb-5 lg:pb-6";
     if (isStoreOwnerAdminSubroute) {
       return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 lg:pb-6";
     }
     return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
-  }, [pathname, ownerPathNorm, isOwnerMobileAdminShell]);
+  }, [pathname, ownerPathNorm, isOwnerMobileAdminShell, isOwnerBasicInfoRoute]);
 
   /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
   const isOwnerStoreProductsHubRoute = useMemo(() => {
@@ -174,29 +187,57 @@ export function BusinessAdminShell({
   );
 
   /** 상품 등록·편집: 본문 스크롤 + 하단 액션 분리를 위해 main 열 높이를 뷰포트에 맞춘다 */
-  const isOwnerStoreProductComposerRoute = useMemo(() => {
-    const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
-    return (
-      p === "/stores/owner/products/new" ||
-      /^\/stores\/owner\/products\/[^/]+\/edit$/.test(p) ||
-      p === "/my/business/products/new" ||
-      /^\/my\/business\/products\/[^/]+\/edit$/.test(p)
-    );
-  }, [pathname]);
+  const isOwnerStoreProductComposerRoute = useMemo(
+    () => isOwnerStoreProductComposerPath(ownerPathNorm),
+    [ownerPathNorm]
+  );
 
   const isOwnerMobileStackViewport =
     isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute;
 
-  useOwnerMobileStackViewportLock(isOwnerMobileStackViewport);
+  const ownerStackViewportLocked =
+    isOwnerMobileAdminShell || isOwnerStoreProductComposerRoute;
 
-  /** 상품 작성·목록 허브·카테고리 편집: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
+  /** compact 스택 scroll host — `resolveOwnerStackScrollHostPath` (basic-info 포함, 하단 탭 숨김과 분리) */
+  const ownerStackScrollHostPath = resolveOwnerStackScrollHostPath(ownerPathNorm);
+
+  /** Tailwind — compact 뷰포트 높이 잠금(hydration 전 CSS) */
+  const ownerCompactStackLayoutClass =
+    !isOwnerStoreProductComposerRoute
+      ? `${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:max-h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden`
+      : "";
+
+  /** 헤더·본문 column — 모바일·태블릿·데스크톱 웹 동일(중앙 정렬) */
+  const ownerUnifiedMainLayoutClass =
+    !isOwnerStoreProductComposerRoute
+      ? `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden min-[1025px]:overflow-y-auto min-[1025px]:overscroll-y-contain`
+      : "";
+
+  /** 데스크톱(≥1025) — 앱 셸 overflow-y-hidden 안에서 본문 열 스크롤 */
+  const isOwnerDesktopStackViewport =
+    !isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
+
+  const ownerStackShellHeightClass = isOwnerStoreProductComposerRoute
+    ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+    : `${ownerCompactStackLayoutClass} min-[1025px]:min-h-0 min-[1025px]:flex-1 min-[1025px]:overflow-hidden`;
+
+  useOwnerMobileStackViewportLock(ownerStackScrollHostPath);
+
+  /** 상품 작성·목록 허브·기본 정보·카테고리 편집: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
   const ownerMainBottomPadForChildren = useMemo(() => {
-    if (isOwnerStoreProductComposerRoute || isOwnerStoreProductsHubRoute) return "pb-0";
+    if (
+      isOwnerStoreProductComposerRoute ||
+      isOwnerStoreProductsHubRoute ||
+      isOwnerBasicInfoRoute
+    ) {
+      return "pb-0";
+    }
     if (isOwnerMenuCategoriesRoute && storeOwnerFlyoutSuppressesOwnerMobileBottomNav) return "pb-0";
     return ownerMainBottomPad;
   }, [
     isOwnerStoreProductComposerRoute,
     isOwnerStoreProductsHubRoute,
+    isOwnerBasicInfoRoute,
     isOwnerMenuCategoriesRoute,
     storeOwnerFlyoutSuppressesOwnerMobileBottomNav,
     ownerMainBottomPad,
@@ -264,21 +305,9 @@ export function BusinessAdminShell({
   }, [reloadStores, stores, initialStores, isHub, hubRuntime?.stores?.length, hubRuntime?.stores]);
 
   /** BodyPortal 헤더·하단 탭이 조상 밖에 있어도 동일 기기 변수(safe-area·content-max) 적용 */
-  const ownerCompactShellBodyAppliedRef = useRef(false);
   useLayoutEffect(() => {
-    const on = isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
-    if (ownerCompactShellBodyAppliedRef.current === on) return;
-    ownerCompactShellBodyAppliedRef.current = on;
-    applyOwnerCompactShellBodyFlag(on);
-    return () => {
-      ownerCompactShellBodyAppliedRef.current = false;
-      applyOwnerCompactShellBodyFlag(false);
-    };
-  }, [isOwnerCompactShell, ownerPathNorm]);
-
-  useEffect(() => {
-    if (!isOwnerCompactShell) setMobileMenuOpen(false);
-  }, [isOwnerCompactShell]);
+    return subscribeOwnerCompactShellBodyFlag(isStoresOwnerStackPath(ownerPathNorm));
+  }, [ownerPathNorm]);
 
   const selectedRow = useMemo(() => {
     if (!stores || stores.length === 0) return null;
@@ -449,7 +478,7 @@ export function BusinessAdminShell({
 
   useEffect(() => {
     const releases: Array<() => void> = [];
-    if (isOwnerCompactShell && mobileMenuOpen) {
+    if (mobileMenuOpen) {
       releases.push(pushStoreOwnerMainBottomNavSuppressed());
     }
     if (ownerOrderOverlayOpen) {
@@ -458,7 +487,7 @@ export function BusinessAdminShell({
     return () => {
       for (const release of releases) release();
     };
-  }, [isOwnerCompactShell, mobileMenuOpen, ownerOrderOverlayOpen]);
+  }, [mobileMenuOpen, ownerOrderOverlayOpen]);
 
   /**
    * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금.
@@ -467,7 +496,7 @@ export function BusinessAdminShell({
    * 고정하고, 닫을 때 `scrollTo`로 이전 위치를 복원한다.
    */
   useLayoutEffect(() => {
-    if (!isOwnerCompactShell || !mobileMenuOpen) return;
+    if (!mobileMenuOpen) return;
     const y = window.scrollY || document.documentElement.scrollTop || 0;
     mobileOwnerDrawerLockYRef.current = y;
 
@@ -504,17 +533,15 @@ export function BusinessAdminShell({
         window.scrollTo(0, restoreY);
       });
     };
-  }, [isOwnerCompactShell, mobileMenuOpen]);
+  }, [mobileMenuOpen]);
 
   useLayoutEffect(() => {
-    const shouldResetNavScroll =
-      (isOwnerCompactShell && mobileMenuOpen) || (!isOwnerCompactShell && desktopSidebarOpen);
-    if (!shouldResetNavScroll) return;
+    if (!mobileMenuOpen) return;
     const el = sidebarNavScrollRef.current;
     if (!el) return;
     el.scrollTop = 0;
     el.scrollLeft = 0;
-  }, [isOwnerCompactShell, mobileMenuOpen, desktopSidebarOpen]);
+  }, [mobileMenuOpen]);
 
   const hubPartialHeaderRight = ownerNotificationBell;
 
@@ -561,14 +588,8 @@ export function BusinessAdminShell({
   }, [basicInfoBackIntercept]);
 
   const openMobileOwnerMenu = useCallback(() => {
-    /** 태블릿(≤1024)은 드로어 — 예전 767px 분기면 햄버거가 데스크톱 사이드만 열어 아무 것도 안 보임 */
-    const compact = isOwnerCompactShell || matchesOwnerCompactShellViewport();
-    if (compact) {
-      setMobileMenuOpen(true);
-      return;
-    }
-    setDesktopSidebarOpen(true);
-  }, [isOwnerCompactShell]);
+    setMobileMenuOpen(true);
+  }, []);
 
   useLayoutEffect(() => {
     registerOwnerMobileOpsMenuOpen(openMobileOwnerMenu);
@@ -638,29 +659,7 @@ export function BusinessAdminShell({
     );
   }
 
-  const hubHeaderRightSlot = (
-    <>
-      {ownerNotificationBell}
-      {(isOwnerCompactShell || !desktopSidebarOpen) ?
-        <button
-          type="button"
-          className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted"
-          aria-label={
-            isOwnerCompactShell ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")
-          }
-          aria-expanded={mobileMenuOpen}
-          aria-haspopup="dialog"
-          onClick={() => openMobileOwnerMenu()}
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-      : null}
-    </>
-  );
-
-  const headerRightSlot = (
+  const composerHeaderRightSlot = (
     <>
       {ownerNotificationBell}
       {publicStoreHref ?
@@ -677,22 +676,6 @@ export function BusinessAdminShell({
             />
           </svg>
         </Link>
-      : null}
-      {(isOwnerCompactShell || !desktopSidebarOpen) ?
-        <button
-          type="button"
-          className="relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted"
-          aria-label={
-            isOwnerCompactShell ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")
-          }
-          aria-expanded={mobileMenuOpen}
-          aria-haspopup="dialog"
-          onClick={() => openMobileOwnerMenu()}
-        >
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
       : null}
     </>
   );
@@ -782,28 +765,9 @@ export function BusinessAdminShell({
     </div>
   );
 
-  const desktopOwnerSidebar = (
-    <aside
-      className="owner-ops-desktop-sidebar flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]"
-      data-open={desktopSidebarOpen ? "true" : "false"}
-    >
-      <div className="owner-ops-desktop-sidebar-collapse hidden shrink-0 items-center justify-end border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2 py-1.5">
-        <button
-          type="button"
-          className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label={t("business_phase7_224")}
-          onClick={() => setDesktopSidebarOpen(false)}
-        >
-          <ChevronRight className="h-5 w-5" strokeWidth={2} aria-hidden />
-        </button>
-      </div>
-      {sidebarBody}
-    </aside>
-  );
-
   return (
     <BusinessAdminStoreProvider value={ctxValue}>
-      {isOwnerCompactShell ?
+      {isStoresOwnerStackPath(ownerPathNorm) && selectedRow ?
         <OwnerMobileOpsMenuDrawer
           open={mobileMenuOpen}
           onClose={() => setMobileMenuOpen(false)}
@@ -816,25 +780,13 @@ export function BusinessAdminShell({
       : null}
       <div
         data-biz="1"
-        className={`flex min-w-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_DESKTOP_SHELL_MIN_TW}:flex-row-reverse ${
-          isOwnerStoreProductComposerRoute || isOwnerMobileStackViewport
-            ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
-            : "min-h-screen"
-        }`}
+        className={`flex min-w-0 flex-1 min-h-0 w-full flex-col bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
       >
-        {!isOwnerCompactShell ? desktopOwnerSidebar : null}
-
         <OwnerMobileAdminHeaderTrailingProvider>
           <div
-            className={`flex min-w-0 flex-1 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] ${OWNER_DESKTOP_SHELL_MIN_TW}:border-r ${OWNER_DESKTOP_SHELL_MIN_TW}:border-sam-border-soft ${
-              isOwnerStoreProductComposerRoute
-                ? "min-h-0 overflow-hidden"
-                : isOwnerMobileStackViewport
-                  ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
-                  : "min-h-screen"
-            }`}
+            className={`flex min-w-0 flex-1 min-h-0 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] ${ownerStackShellHeightClass}`}
           >
-            {isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute && selectedRow ?
+            {selectedRow && !isOwnerStoreProductComposerRoute ?
               <OwnerMobileAdminHeader
                 variant={isOwnerHubRoute ? "hub" : "page"}
                 storeName={shopName}
@@ -846,42 +798,36 @@ export function BusinessAdminShell({
                 pageTitle={pageTitle}
                 backHref={mobileAdminHeaderBackHref}
                 backIntercept={combinedAdminHeaderBackIntercept}
+                opsMenuOpen={mobileMenuOpen}
               />
             : null}
-            {!(isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute) ?
+            {isOwnerStoreProductComposerRoute ?
               <StoresOwnerStackHeader
-                variant={isHub ? "hub" : "admin"}
-                hideTitle={isHub}
-                backHref={isHub ? "/mypage" : adminHeaderBackHref}
-                backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
+                variant="admin"
+                backHref={adminHeaderBackHref}
+                backIntercept={combinedAdminHeaderBackIntercept}
                 backPreferHistory
                 backAriaLabel={t("business_phase7_351")}
                 shopName={shopName}
-                pageTitle={isHub ? null : pageTitle}
-                rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
-                desktopInsetLeft={desktopSidebarOpen}
+                pageTitle={pageTitle}
+                rightSlot={composerHeaderRightSlot}
               />
             : null}
 
             <main
-              className={`mx-auto w-full min-w-0 ${
-                isOwnerMobileAdminShell
-                  ? `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex flex-1 flex-col overflow-hidden min-h-0`
-                  : "max-w-6xl px-2 sm:px-2"
-              } ${
-                !isOwnerMobileAdminShell
-                  ? `pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] ${OWNER_DESKTOP_SHELL_MIN_TW}:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]`
-                  : ""
-              } bg-[var(--biz-app-bg)] ${
-                isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren
-              }${isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""}`}
+              className={`mx-auto w-full min-w-0 bg-[var(--biz-app-bg)] ${
+                isOwnerStoreProductComposerRoute
+                  ? "flex min-h-0 max-w-6xl flex-1 flex-col overflow-hidden px-2 sm:px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)]"
+                  : `${ownerUnifiedMainLayoutClass} ${isOwnerDesktopStackViewport ? ownerMainBottomPadForChildren : ""}`
+              }`}
             >
               <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
             </main>
-            {isOwnerMobileStackViewport &&
+            {ownerStackScrollHostPath &&
             selectedRow &&
             !ownerOrderOverlayOpen &&
-            !storeOwnerFlyoutSuppressesOwnerMobileBottomNav ?
+            !storeOwnerFlyoutSuppressesOwnerMobileBottomNav &&
+            !isOwnerBasicInfoRoute ?
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
                 storeSlug={selectedRow.slug}

@@ -444,6 +444,21 @@
   transform: translateX(-50%) scale(1.06);
 }
 
+.app-bottom-nav-item--delivery-hub:active {
+  transform: none;
+}
+
+.app-bottom-nav-item--delivery-hub:active .app-bottom-nav-delivery-home-orbit {
+  transform: translateX(-50%) scale(var(--app-bottom-nav-orbit-press-scale));
+  background: var(--app-bottom-nav-orbit-bg-pressed);
+  box-shadow: var(--app-bottom-nav-orbit-shadow-pressed);
+}
+
+.app-bottom-nav-item--delivery-hub:active .app-bottom-nav-delivery-home-orbit--active,
+.app-bottom-nav-item--delivery-hub[data-switcher-open="true"]:active .app-bottom-nav-delivery-home-orbit {
+  transform: translateX(-50%) scale(calc(1.06 * var(--app-bottom-nav-orbit-press-scale)));
+}
+
 .app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub .app-bottom-nav-label--delivery-tab {
   bottom: calc(var(--delivery-tab-label-bottom-inset) + var(--delivery-tab-label-hub-bottom-offset));
 }
@@ -463,7 +478,7 @@
 }
 
 .owner-mobile-bottom-nav.app-bottom-nav-shell--delivery {
-  /* owner shell reuses delivery overhang rules */
+  /* 배달 5탭과 동일 셸 — overhang·높이는 `.app-bottom-nav-shell--delivery` */
 }
 
 /**

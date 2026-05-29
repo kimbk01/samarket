@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { OwnerStoreOpsStatusBody } from "@/components/business/owner/OwnerStoreOpsStatusBody";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import {
   OwnerStorePagePhaseGate,
   type OwnerStorePagePhase,
@@ -82,8 +83,8 @@ function MyBusinessOpsStatusPageInner() {
   }, [phase]);
 
   return (
-    <div className="max-w-full overflow-x-hidden">
-      <div className="mx-auto min-w-0 max-w-4xl overflow-x-hidden py-1">
+    <OwnerAdminPageScrollShell>
+      <div className="mx-auto min-w-0 max-w-4xl py-1">
         <OwnerStorePagePhaseGate phase={toGatePhase(phase)} onRetry={() => void load()}>
           {stripProps ? (
             <OwnerStoreOpsStatusBody
@@ -94,7 +95,7 @@ function MyBusinessOpsStatusPageInner() {
           ) : null}
         </OwnerStorePagePhaseGate>
       </div>
-    </div>
+    </OwnerAdminPageScrollShell>
   );
 }
 
@@ -102,9 +103,9 @@ export default function MyBusinessOpsStatusPage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-full overflow-x-hidden py-4">
+        <OwnerAdminPageScrollShell className="py-4">
           <OwnerStoreSuspenseFallback />
-        </div>
+        </OwnerAdminPageScrollShell>
       }
     >
       <MyBusinessOpsStatusPageInner />

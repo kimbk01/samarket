@@ -31,6 +31,7 @@ import {
   parseOpsSnapshotFromCountsJson,
   useOwnerOpsPulse,
 } from "@/components/stores/owner/dashboard/OwnerOperationsDashboard";
+import { useOwnerCompactShellViewport } from "@/hooks/use-owner-compact-shell-viewport";
 
 export function BusinessAdminDashboard({
   row,
@@ -195,9 +196,16 @@ export function BusinessAdminDashboard({
   const { pullPx, refreshing, willReleaseRefresh } = usePullToRefreshAtDocumentTop(handlePullRefresh);
 
   const pulseNew = useOwnerOpsPulse(opsSnapshot?.pending_accept_count ?? 0);
+  const isOwnerCompactShell = useOwnerCompactShellViewport();
 
   return (
-    <div className="relative flex h-full min-h-0 flex-1 flex-col">
+    <div
+      className={
+        isOwnerCompactShell
+          ? "relative flex h-full min-h-0 flex-1 flex-col"
+          : "relative flex w-full min-w-0 flex-col"
+      }
+    >
       {(refreshing || pullPx > 6) && (
         <div
           aria-live="polite"
@@ -221,7 +229,9 @@ export function BusinessAdminDashboard({
       )}
 
       <div
-        className="flex min-h-0 flex-1 flex-col"
+        className={
+          isOwnerCompactShell ? "flex min-h-0 flex-1 flex-col" : "flex w-full min-w-0 flex-col"
+        }
         style={{
           transform: pullPx > 0 ? `translateY(${pullPx}px)` : undefined,
           transition: pullPx === 0 ? "transform 0.2s ease-out" : undefined,

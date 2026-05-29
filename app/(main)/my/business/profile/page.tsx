@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { OwnerStoreProfileForm } from "@/components/business/OwnerStoreProfileForm";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import {
   OwnerStorePagePhaseGate,
   type OwnerStorePagePhase,
@@ -73,8 +74,8 @@ function MyBusinessProfilePageInner() {
   }, [load]);
 
   return (
-    <div className="max-w-full overflow-x-hidden">
-      <div className="mx-auto min-w-0 max-w-4xl overflow-x-hidden py-0">
+    <OwnerAdminPageScrollShell>
+      <div className="mx-auto min-w-0 max-w-4xl py-0">
         <OwnerStorePagePhaseGate phase={toGatePhase(phase)} onRetry={() => void load()}>
           {phase.kind === "ok" ? (
             <div className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
@@ -88,7 +89,7 @@ function MyBusinessProfilePageInner() {
           ) : null}
         </OwnerStorePagePhaseGate>
       </div>
-    </div>
+    </OwnerAdminPageScrollShell>
   );
 }
 
@@ -96,9 +97,9 @@ export default function MyBusinessProfilePage() {
   return (
     <Suspense
       fallback={
-        <div className="max-w-full overflow-x-hidden py-4">
+        <OwnerAdminPageScrollShell className="py-4">
           <OwnerStoreSuspenseFallback />
-        </div>
+        </OwnerAdminPageScrollShell>
       }
     >
       <MyBusinessProfilePageInner />

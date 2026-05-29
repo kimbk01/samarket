@@ -17,7 +17,8 @@ import {
   resolveBottomNavScrollHideOuterClass,
 } from "@/lib/main-menu/bottom-nav-config";
 import { DELIVERY_BOTTOM_NAV_LABEL_CLASS } from "@/lib/main-menu/delivery-bottom-nav-layout";
-import { useBottomNavScrollHide } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
+import { useOwnerBottomNavScrollHide } from "@/lib/layout/use-owner-bottom-nav-scroll-hide-behavior";
+import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 import {
   isOwnerBottomNavTabActive,
   type OwnerBottomNavTabId,
@@ -73,6 +74,7 @@ function OwnerMobileBottomNavSideTab({
       aria-label={label}
       aria-current={active ? "page" : undefined}
       className={cn("app-bottom-nav-item group", BOTTOM_NAV_ITEM_TOUCH_CLASS)}
+      onPointerDown={(e) => triggerLightTapFeedback(e)}
       onClick={() => {
         onCloseDomainSwitcher?.();
         if (!active) onNavigate(item.id);
@@ -161,6 +163,10 @@ function OwnerMobileBottomNavHomeHub({
       aria-label={homeLabel}
       aria-expanded={switcherOpen}
       aria-haspopup="dialog"
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        triggerLightTapFeedback(e);
+      }}
       onClick={onHubClick}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
@@ -196,7 +202,7 @@ export function OwnerMobileBottomNav({
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
-  const hiddenByScroll = useBottomNavScrollHide(scrollHideEnabled);
+  const hiddenByScroll = useOwnerBottomNavScrollHide(scrollHideEnabled);
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const [portalToBody, setPortalToBody] = useState(false);
   const [domainSwitcherOpen, setDomainSwitcherOpen] = useState(false);

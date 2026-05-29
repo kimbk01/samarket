@@ -53,7 +53,7 @@ export function OwnerOperationsDashboard({
   return (
     <div className={`flex h-full min-h-0 w-full flex-col ${OWNER_DASH_PAGE_CLASS}`}>
       <main
-        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS} min-h-0 flex-1`}
       >
         <div className="space-y-2.5 pb-2">
           {offline ? <OwnerDashOfflineBanner stale={stale} /> : null}

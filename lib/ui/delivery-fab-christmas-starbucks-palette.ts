@@ -48,7 +48,7 @@ export function deliveryFabIconBoxStyle(itemId: string): {
     case "fab_delivery_home":
       return { backgroundColor: P.brown, color: P.cream };
     case "fab_delivery_store_admin":
-      return { backgroundColor: P.green, color: P.gold };
+      return { backgroundColor: P.gold, color: P.brown };
     default:
       return { backgroundColor: P.cream, color: P.green };
   }

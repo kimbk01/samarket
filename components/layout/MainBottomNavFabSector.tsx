@@ -55,7 +55,7 @@ export { FAB_SURFACE_ALPHA } from "@/lib/layout/main-bottom-nav-fab-sector-confi
 
 type FabPhase = "open" | "closing" | "closed" | "opening";
 
-const FAB_PANEL_CART_COUNT_BADGE_CLASS = `absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME} ring-white`;
+const FAB_PANEL_COUNT_BADGE_CLASS = `main-bottom-nav-fab-sector__panel-badge ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME} ring-white`;
 const FAB_TOGGLE_CART_COUNT_BADGE_CLASS = `main-bottom-nav-fab-sector__toggle-cart-badge ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`;
 
 function formatFabCartCountBadge(count: number): string {
@@ -277,6 +277,7 @@ export function MainBottomNavFabSector() {
                     const rowClass = [
                       "main-bottom-nav-fab-sector__row",
                       FAB_SECTOR_TOUCH_CLASS,
+                      storeAdminItem ? "main-bottom-nav-fab-sector__row--store-admin" : "",
                       active ? "main-bottom-nav-fab-sector__row--active" : "",
                       isPressed(item.id) ? "main-bottom-nav-fab-sector__row--pressed" : "",
                     ]
@@ -291,12 +292,12 @@ export function MainBottomNavFabSector() {
                         >
                           <MainBottomNavTabIcon tab={iconTab} className="main-bottom-nav-fab-sector__glyph" />
                           {showCartBadge ? (
-                            <span className={FAB_PANEL_CART_COUNT_BADGE_CLASS} aria-hidden>
+                            <span className={FAB_PANEL_COUNT_BADGE_CLASS} aria-hidden>
                               {formatFabCartCountBadge(cartCount)}
                             </span>
                           ) : null}
                           {showOpsBadge ? (
-                            <span className={FAB_PANEL_CART_COUNT_BADGE_CLASS} aria-hidden>
+                            <span className={FAB_PANEL_COUNT_BADGE_CLASS} aria-hidden>
                               {formatFabCartCountBadge(ownerOpsAttention)}
                             </span>
                           ) : null}

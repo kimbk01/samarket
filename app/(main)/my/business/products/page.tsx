@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
+import { OwnerAdminPageScrollShell } from "@/components/business/owner/OwnerAdminPageScrollShell";
 import { OwnerProductsHubClient } from "@/components/business/owner/OwnerProductsHubClient";
 import { loadOwnerProductsHubBootstrap } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 
@@ -25,33 +26,39 @@ async function OwnerProductsHubPageBody({
   const storeId = typeof sp.storeId === "string" ? sp.storeId.trim() : "";
   if (!storeId) {
     return (
-      <div className="min-h-screen bg-background px-4 py-8">
-        <p className="sam-text-body text-sam-fg">
-          매장을 지정할 수 없습니다.{" "}
-          <Link href="/stores/owner" className="font-medium text-signature underline">
-            내 상점
-          </Link>
-          에서 「상품 등록」을 눌러 주세요.
-        </p>
-      </div>
+      <OwnerAdminPageScrollShell>
+        <div className="px-4 py-8">
+          <p className="sam-text-body text-sam-fg">
+            매장을 지정할 수 없습니다.{" "}
+            <Link href="/stores/owner" className="font-medium text-signature underline">
+              내 상점
+            </Link>
+            에서 「상품 등록」을 눌러 주세요.
+          </p>
+        </div>
+      </OwnerAdminPageScrollShell>
     );
   }
   const bootstrap = await loadOwnerProductsHubBootstrap(storeId);
   if (!bootstrap.ok) {
     return (
-      <OwnerProductsHubClient
-        key={storeId}
-        storeId={storeId}
-        rscBootstrapError={bootstrap.error}
-      />
+      <OwnerAdminPageScrollShell>
+        <OwnerProductsHubClient
+          key={storeId}
+          storeId={storeId}
+          rscBootstrapError={bootstrap.error}
+        />
+      </OwnerAdminPageScrollShell>
     );
   }
   return (
-    <OwnerProductsHubClient
-      key={storeId}
-      storeId={storeId}
-      initialSections={bootstrap.sections}
-      initialProducts={bootstrap.products}
-    />
+    <OwnerAdminPageScrollShell>
+      <OwnerProductsHubClient
+        key={storeId}
+        storeId={storeId}
+        initialSections={bootstrap.sections}
+        initialProducts={bootstrap.products}
+      />
+    </OwnerAdminPageScrollShell>
   );
 }

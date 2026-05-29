@@ -51,6 +51,7 @@ export function OwnerMobileAdminHeader({
   backHref,
   backIntercept,
   exitHref = OWNER_MOBILE_EXIT_HREF,
+  opsMenuOpen = false,
 }: {
   variant: "hub" | "page";
   storeName: string;
@@ -65,6 +66,7 @@ export function OwnerMobileAdminHeader({
   backIntercept?: () => boolean;
   /** 허브 「나가기」— 소비자 배달 홈 (`/stores`) */
   exitHref?: string;
+  opsMenuOpen?: boolean;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -196,6 +198,7 @@ export function OwnerMobileAdminHeader({
             className={`relative z-10 ${HEADER_ICON_BTN_CLASS}`}
             aria-label={t("store_owner_aria_open_menu")}
             aria-haspopup="dialog"
+            aria-expanded={opsMenuOpen}
             onClick={onOpenOpsMenu}
           >
             <OwnerMenuIcon />
