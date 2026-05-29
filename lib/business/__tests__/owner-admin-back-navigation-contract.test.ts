@@ -27,9 +27,21 @@ describe("owner admin back navigation contract", () => {
     expect(shell).not.toContain("backPreferHistory={!isHub}");
   });
 
-  it("order overlay close uses runOwnerAdminBackNavigation", () => {
+  it("order detail collapse uses replaceOwnerOrdersUrlQuery (not router.replace)", () => {
     const orders = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
-    expect(orders).toContain("runOwnerAdminBackNavigation");
+    expect(orders).toContain("replaceOwnerOrdersUrlQuery");
     expect(orders).not.toMatch(/onCloseDetail[\s\S]{0,200}router\.replace/);
+  });
+
+  it("chat slide overlay is chat_order_id only in BusinessAdminShell", () => {
+    const shell = readRepo("components/business/admin/BusinessAdminShell.tsx");
+    expect(shell).toContain('searchParams.get("chat_order_id")');
+    expect(shell).toContain("ownerOrderChatSlideOpen");
+    expect(shell).not.toMatch(/ownerOrderOverlayOpen[\s\S]{0,120}searchParams\.get\("order_id"\)/);
+  });
+
+  it("chat slide close clears chat via replaceOwnerOrdersUrlQuery", () => {
+    const orders = readRepo("components/business/owner/OwnerStoreOrdersView.tsx");
+    expect(orders).toMatch(/onCloseChat[\s\S]{0,400}replaceOwnerOrdersUrlQuery/);
   });
 });
