@@ -76,7 +76,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     const orderId = ordersHubStoreReviewMatch[1]!;
     return {
       ...DEFAULT,
-      backHref: `/orders/store/${encodeURIComponent(orderId)}`,
+      backHref: `/orders?expand=${encodeURIComponent(orderId)}`,
       preferHistoryBack: true,
       ariaLabel: "tier1_back",
       titleText: "tier1_review_write",
@@ -89,7 +89,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
   if (/^\/orders\/store\/[^/]+$/.test(p)) {
     return {
       ...DEFAULT,
-      backHref: "/orders?tab=store",
+      backHref: "/orders",
       preferHistoryBack: true,
       ariaLabel: "tier1_back",
       titleText: "tier1_order_detail",

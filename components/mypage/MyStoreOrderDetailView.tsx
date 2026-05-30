@@ -31,6 +31,7 @@ import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReor
 import { BuyerStoreOrderCompletedReviewBlock } from "@/components/mypage/BuyerStoreOrderCompletedReviewBlock";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 import {
   fetchMeStoreOrderDetailDeduped,
@@ -88,6 +89,7 @@ type OrderDetail = {
   store_id: string;
   store_name: string;
   store_slug: string;
+  store_profile_image_url?: string | null;
   total_amount: number;
   discount_amount: number;
   payment_amount: number;
@@ -152,7 +154,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const router = useRouter();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const orderId = typeof params?.orderId === "string" ? params.orderId : "";
-  const listHref = ordersHub ? "/orders?tab=store" : "/mypage/store-orders";
+  const listHref = ordersHub ? "/orders" : "/mypage/store-orders";
   const orderBase = ordersHub
     ? `/orders/store/${encodeURIComponent(orderId)}`
     : `/mypage/store-orders/${encodeURIComponent(orderId)}`;
@@ -493,15 +495,33 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   });
   const fulfillLabel = buyerFulfillmentLabel(order.fulfillment_type, t);
   const dash = t("mypage_comp_placeholder_dash");
+  const storeProfileImageUrl = order.store_profile_image_url?.trim() || "";
 
   return (
     <div className="space-y-4">
       <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap justify-between gap-2">
-          <p className="sam-text-body font-bold text-[#123B4A]">
-            {order.store_name || t("mypage_comp_store_fallback_name")}
-          </p>
-          <span className="text-xs font-semibold text-[#6B7280]">{order.order_no}</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <SamarketThumbnail
+              src={storeProfileImageUrl}
+              alt={order.store_name || t("mypage_comp_store_fallback_name")}
+              size={44}
+              roundedClassName="rounded-full"
+              className="bg-[#E4E6EB]"
+              fallbackSrc=""
+              fallbackNode={
+                <div className="text-[11px] font-semibold text-[#6B7280]">
+                  {t("mypage_comp_store_fallback_name")}
+                </div>
+              }
+            />
+            <div className="min-w-0">
+              <p className="truncate sam-text-body font-bold text-[#123B4A]">
+                {order.store_name || t("mypage_comp_store_fallback_name")}
+              </p>
+              <p className="mt-0.5 text-xs font-semibold text-[#6B7280]">{order.order_no}</p>
+            </div>
+          </div>
         </div>
         <div className="delivery-ui mt-3 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] px-3 py-3 text-white">
           {order.admin_locked === true ? (
@@ -592,7 +612,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 orderStatus: order.order_status,
                 paymentAmount: order.payment_amount,
                 firstLineProductTitle: items[0]?.product_title_snapshot ?? null,
-                thumbnailUrl: null,
+                thumbnailUrl: storeProfileImageUrl || null,
               })}
             />
           </div>

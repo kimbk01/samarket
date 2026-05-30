@@ -33,6 +33,10 @@ type Props = {
   reviewStatus?: string | null;
   chatHref?: string;
   orderChatDisabled?: boolean;
+  /** `/orders` 카드 — 주문 목록·매장 리뷰 CTA 숨김 */
+  hideNavigationActions?: boolean;
+  /** 슬라이드 리뷰 작성 (Link 대신 버튼) */
+  onWriteReview?: () => void;
 };
 
 /**
@@ -48,24 +52,27 @@ export function BuyerStoreOrderCompletedReviewBlock({
   reviewStatus,
   chatHref,
   orderChatDisabled = false,
+  hideNavigationActions = false,
+  onWriteReview,
 }: Props) {
   const { t, language } = useI18n();
   const compact = variant === "list";
   const ownerReply = review?.owner_reply_content?.trim() ?? "";
   const dateLocale = language === "en" ? "en-US" : "ko-KR";
 
-  const primaryReviewCta = (
-    <Link
-      href={reviewHref}
-      className={
-        compact
-          ? "inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-amber-500 px-2 py-2.5 text-center text-sm font-bold text-white shadow-sm"
-          : "inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-amber-500 px-3 py-3 text-center text-sm font-bold text-white shadow-sm"
-      }
-    >
-      {t("mypage_comp_store_review_write_star_cta")}
-    </Link>
-  );
+  const primaryReviewCtaClass =
+    compact
+      ? "inline-flex min-h-[44px] min-w-0 w-full items-center justify-center rounded-ui-rect bg-amber-500 px-2 py-2.5 text-center text-sm font-bold text-white shadow-sm"
+      : "inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-amber-500 px-3 py-3 text-center text-sm font-bold text-white shadow-sm";
+
+  const primaryReviewCta =
+    onWriteReview ?
+      <button type="button" onClick={onWriteReview} className={primaryReviewCtaClass}>
+        {t("mypage_comp_store_review_write_star_cta")}
+      </button>
+    : <Link href={reviewHref} className={primaryReviewCtaClass}>
+        {t("mypage_comp_store_review_write_star_cta")}
+      </Link>;
 
   const listCta = (
     <Link
@@ -95,9 +102,9 @@ export function BuyerStoreOrderCompletedReviewBlock({
           <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("mypage_comp_delivery_review_submit_prompt")}</p>
           <div className={`flex gap-2 ${compact ? "flex-col sm:flex-row" : "flex-col sm:flex-row"}`}>
             {primaryReviewCta}
-            {listCta}
+            {!hideNavigationActions ? listCta : null}
           </div>
-          {!orderChatDisabled && chatHref ? (
+          {!orderChatDisabled && chatHref && !hideNavigationActions ? (
             <Link
               href={chatHref}
               className="delivery-ui block text-center text-[13px] font-semibold text-[color:var(--delivery-primary)] underline underline-offset-2"
@@ -151,21 +158,23 @@ export function BuyerStoreOrderCompletedReviewBlock({
               {t("mypage_comp_owner_reply_pending")}
             </p>
           )}
-          <div className={`flex gap-2 ${compact ? "flex-col sm:flex-row" : "flex-row flex-wrap"}`}>
-            {listCta}
-            {storeReviewsHref && review.visible_to_public ? (
-              <Link
-                href={storeReviewsHref}
-                className={
-                  compact
-                    ? "delivery-ui inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-2 py-2.5 text-center text-sm font-semibold text-[color:var(--delivery-primary)]"
-                    : "delivery-ui inline-flex min-h-11 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5 text-sm font-bold text-[color:var(--delivery-primary)]"
-                }
-              >
-                {t("mypage_comp_view_store_reviews")}
-              </Link>
-            ) : null}
-          </div>
+          {!hideNavigationActions ?
+            <div className={`flex gap-2 ${compact ? "flex-col sm:flex-row" : "flex-row flex-wrap"}`}>
+              {listCta}
+              {storeReviewsHref && review.visible_to_public ?
+                <Link
+                  href={storeReviewsHref}
+                  className={
+                    compact
+                      ? "delivery-ui inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-2 py-2.5 text-center text-sm font-semibold text-[color:var(--delivery-primary)]"
+                      : "delivery-ui inline-flex min-h-11 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5 text-sm font-bold text-[color:var(--delivery-primary)]"
+                  }
+                >
+                  {t("mypage_comp_view_store_reviews")}
+                </Link>
+              : null}
+            </div>
+          : null}
         </div>
       ) : (
         <div className="mt-2 space-y-2">
@@ -174,7 +183,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
               ? t("mypage_comp_review_feature_unavailable")
               : t("mypage_comp_review_status_unknown")}
           </p>
-          {listCta}
+          {!hideNavigationActions ? listCta : null}
         </div>
       )}
     </div>

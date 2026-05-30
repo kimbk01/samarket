@@ -181,6 +181,7 @@ export function resolveConditionalAppShellFlags(
   const isTradeMeetSpotPickRoute = pathname === "/market/trade-meet-spot";
   const showMainBottomNavFabSector =
     isMainBottomNavFabDeliverySurface(normalizedStorePath) &&
+    !isOrdersHub &&
     !isStoreOwnerAdminRoute &&
     !isStoreCommerceCartCheckoutPage &&
     !isChatRoomDetail &&
@@ -228,6 +229,7 @@ export function resolveConditionalAppShellFlags(
     !isStoreProductDetail &&
     /** `/products/new`, `/products/.../edit` — 폼 하단 고정 저장·취소와 z-index 충돌 방지(글쓰기와 동일) */
     !isPersonalProductComposerPage &&
+    !isOrdersHub &&
     !isTradeMeetSpotPickRoute &&
     !isMypageAddressFlowPage &&
     !suppressBottomNavForStoreOwnerAdminSubroutes;

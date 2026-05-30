@@ -14,7 +14,7 @@ import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realt
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
-import { Phone, Search } from "lucide-react";
+import { Phone, Search, X } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
@@ -28,6 +28,7 @@ import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultA
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { translate } from "@/lib/i18n/messages";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
+import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 
@@ -36,6 +37,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const vm = useMessengerRoomPhase2HeaderView();
   const hydrationPass = useCmRoomPhase2HydrationPass();
   const ownerSlideHost = useOwnerOrderChatSlideHost();
+  const buyerSlideHost = useBuyerOrderChatSlideHost();
   useLayoutEffect(() => {
     noteCmRoomPass1HeaderMs();
   }, [vm.snapshot.room.id]);
@@ -133,6 +135,10 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
       ownerSlideHost.closeSlide();
       return;
     }
+    if (buyerSlideHost?.closeSlide) {
+      buyerSlideHost.closeSlide();
+      return;
+    }
     if (requestAnimatedBack) {
       requestAnimatedBack();
       return;
@@ -163,9 +169,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           type="button"
           onClick={handleBack}
           className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-          aria-label={vm.t("tier1_back")}
+          aria-label={buyerSlideHost ? vm.t("common_close") : vm.t("tier1_back")}
         >
-          <BackIcon className="h-[18px] w-[18px]" />
+          {buyerSlideHost ?
+            <X className="h-[18px] w-[18px]" aria-hidden />
+          : <BackIcon className="h-[18px] w-[18px]" />}
         </button>
 
         {useDeliveryHeaderBlock ? (

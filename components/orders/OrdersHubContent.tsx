@@ -1,121 +1,38 @@
 "use client";
 
-import { useCallback, useMemo, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
-import { AppTopHeader } from "@/components/app-shell";
-import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
-import { PurchasesView } from "@/components/mypage/PurchasesView";
+import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
-  ORDERS_HUB_TAB_ORDER,
-  OrdersHubTopTabs,
-  parseOrdersHubTabParam,
-  type OrdersHubTabId,
-} from "@/components/orders/OrdersHubTopTabs";
-import { OrdersHubStoreAdminMenuTrigger } from "@/components/orders/OrdersHubStoreAdminAccess";
+  BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS,
+  BuyerDeliveryOrdersHeader,
+} from "@/components/orders/BuyerDeliveryOrdersHeader";
+import { MyStoreOrdersView } from "@/components/mypage/MyStoreOrdersView";
 
-const SWIPE_MIN_DX = 56;
-
-function neighborOrdersHubTab(current: OrdersHubTabId, delta: -1 | 1): OrdersHubTabId | null {
-  const i = ORDERS_HUB_TAB_ORDER.indexOf(current);
-  if (i < 0) return null;
-  const j = i + delta;
-  if (j < 0 || j >= ORDERS_HUB_TAB_ORDER.length) return null;
-  return ORDERS_HUB_TAB_ORDER[j] ?? null;
-}
-
-export function OrdersHubContent() {
-  const { tt } = useI18n();
-  const router = useRouter();
+function OrdersHubListBody() {
   const searchParams = useSearchParams();
-
-  const tab = useMemo(
-    () => parseOrdersHubTabParam(searchParams.get("tab")),
-    [searchParams]
-  );
-
-  /**
-   * `tab=chat`·`room=` 는 `app/(main)/orders/page.tsx` 서버에서 `/chats/...` 또는 `/my/store-orders` 로 리다이렉트.
-   * 여기서 클라 `router.replace` 를 또 쓰면 이중 네비·깜빡임만 생김.
-   */
-
-  const onSelectTab = useCallback(
-    (id: OrdersHubTabId) => {
-      if (id === "store") {
-        router.replace("/orders", { scroll: false });
-        return;
-      }
-      if (id === "chat") {
-        router.replace("/my/store-orders", { scroll: false });
-        return;
-      }
-      router.replace(`/orders?tab=${encodeURIComponent(id)}`, { scroll: false });
-    },
-    [router]
-  );
-
-  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  const onSwipeTouchStart = useCallback((e: React.TouchEvent) => {
-    const t = e.changedTouches[0];
-    if (!t) return;
-    touchStartRef.current = { x: t.clientX, y: t.clientY };
-  }, []);
-
-  const onSwipeTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
-      const start = touchStartRef.current;
-      touchStartRef.current = null;
-      if (!start) return;
-      const t = e.changedTouches[0];
-      if (!t) return;
-      const dx = t.clientX - start.x;
-      const dy = t.clientY - start.y;
-      if (Math.abs(dx) < SWIPE_MIN_DX) return;
-      if (Math.abs(dx) <= Math.abs(dy)) return;
-      if (dx < 0) {
-        const next = neighborOrdersHubTab(tab, 1);
-        if (next) onSelectTab(next);
-      } else {
-        const prev = neighborOrdersHubTab(tab, -1);
-        if (prev) onSelectTab(prev);
-      }
-    },
-    [tab, onSelectTab]
-  );
+  const expandOrderId = searchParams?.get("expand")?.trim() || null;
 
   return (
-    <div className="flex min-h-screen flex-col bg-sam-app">
-      <AppTopHeader
-        hidePrimaryRow={false}
-        hideBackButton
-        title={tt("주문")}
-        backButtonProps={{
-          preferHistoryBack: true,
-          backHref: "/philife",
-          ariaLabel: tt("이전 화면"),
-        }}
-        actions={<CommerceCartHeaderLink />}
-        shellFooter={
-          <OrdersHubTopTabs
-            active={tab}
-            onSelect={onSelectTab}
-            onSwipeTouchStart={onSwipeTouchStart}
-            onSwipeTouchEnd={onSwipeTouchEnd}
-            trailing={<OrdersHubStoreAdminMenuTrigger />}
-          />
-        }
-      />
+    <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS}`}>
+      <MyStoreOrdersView variant="deliveryHub" initialExpandOrderId={expandOrderId} />
+    </div>
+  );
+}
 
-      <div className="touch-pan-y mt-1" onTouchStart={onSwipeTouchStart} onTouchEnd={onSwipeTouchEnd}>
-        {tab === "store" ? <MyStoreOrdersView embedded /> : null}
-        {tab === "purchases" ? (
-          <div className="mx-auto max-w-lg px-4 py-3 pb-24">
-            <PurchasesView />
+/** 구매자 배달 주문 목록 — `/stores/owner/orders` 와 동일 헤더·본문 톤, 거래·채팅 탭 없음 */
+export function OrdersHubContent() {
+  return (
+    <div className="flex min-h-screen flex-col bg-[#f6f6f6]">
+      <BuyerDeliveryOrdersHeader />
+      <Suspense
+        fallback={
+          <div className={`flex min-h-[40vh] items-center justify-center ${BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS} text-sm text-[#6B7280]`}>
+            불러오는 중…
           </div>
-        ) : null}
-      </div>
+        }
+      >
+        <OrdersHubListBody />
+      </Suspense>
     </div>
   );
 }

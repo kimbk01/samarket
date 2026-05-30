@@ -25,7 +25,7 @@ function resolveChatListHref(from: string | undefined): string {
     case "orders-chat":
       return "/my/store-orders";
     case "orders-hub":
-      return "/orders?tab=store";
+      return "/orders";
     default:
       return TRADE_CHAT_SURFACE.messengerListHref;
   }

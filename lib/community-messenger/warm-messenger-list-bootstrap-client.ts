@@ -15,7 +15,6 @@ import type {
   CommunityMessengerBootstrap,
   CommunityMessengerBootstrapCritical,
 } from "@/lib/community-messenger/types";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   recordMessengerHomeWarmCallSiteInvocation,
   samarketMessengerHomeDebugEvent,
@@ -29,7 +28,7 @@ function hasWarmSkipBootstrap(): boolean {
 
 /**
  * 하단 탭 pointerdown 직후 — 목록 cold gate(`bootstrap?tier=critical`)와 동일 tier 를 prewarm.
- * lite 는 deferred enrich 용으로 이어서 warm(기존 `primeBootstrapCache` 계약 유지).
+ * lite 는 enrich 용 — critical 과 병렬 시작해 `fetchCommunityMessengerBootstrapClient("lite")` 단일 비행과 합류.
  */
 export function warmMessengerListBootstrapClient(): void {
   if (typeof window === "undefined") return;
@@ -42,8 +41,10 @@ export function warmMessengerListBootstrapClient(): void {
   void (async () => {
     samarketMessengerHomeDebugEvent("messenger_home_warm_start");
     try {
-      const resCrit = await fetchCommunityMessengerBootstrapCriticalClient();
-      if (resCrit.ok) {
+      /** critical·lite 병렬 — lite 는 `fetchCommunityMessengerBootstrapClient` 단일 비행과 합류 */
+      const criticalP = (async () => {
+        const resCrit = await fetchCommunityMessengerBootstrapCriticalClient();
+        if (!resCrit.ok) return;
         const jsonCrit = (await resCrit.clone().json().catch(() => null)) as
           | (CommunityMessengerBootstrapCritical & { ok?: boolean })
           | null;
@@ -51,18 +52,20 @@ export function warmMessengerListBootstrapClient(): void {
           primeMessengerBootstrapCritical(jsonCrit);
           samarketMessengerHomeDebugEvent("messenger_home_warm_critical_success");
         }
-      }
-      if (hasWarmSkipBootstrap()) return;
-      const resLite = await runSingleFlight("community-messenger:list-bootstrap-warm", () =>
-        fetchCommunityMessengerBootstrapClient("lite")
-      );
-      if (!resLite.ok) return;
-      const json = (await resLite.clone().json().catch(() => null)) as Record<string, unknown> | null;
-      if (!json || json.ok !== true) return;
-      const payload = { ...json };
-      delete payload.ok;
-      primeBootstrapCache(payload as CommunityMessengerBootstrap);
-      samarketMessengerHomeDebugEvent("messenger_home_warm_success");
+      })();
+
+      const liteP = (async () => {
+        const resLite = await fetchCommunityMessengerBootstrapClient("lite");
+        if (!resLite.ok) return;
+        const json = (await resLite.clone().json().catch(() => null)) as Record<string, unknown> | null;
+        if (!json || json.ok !== true) return;
+        const payload = { ...json };
+        delete payload.ok;
+        primeBootstrapCache(payload as CommunityMessengerBootstrap);
+        samarketMessengerHomeDebugEvent("messenger_home_warm_success");
+      })();
+
+      await Promise.all([criticalP, liteP]);
     } catch {
       /* ignore */
     }

@@ -68,7 +68,7 @@ async function OrdersStoreOrderChatPageBody({
           {translate(lang, "store_order_chat_open_failed_error", { error: result.error })}
         </p>
         <Link
-          href={`/orders/store/${encodeURIComponent(orderId)}`}
+          href={`/orders?expand=${encodeURIComponent(orderId)}`}
           className="text-sm font-medium text-signature underline"
         >
           주문 상세

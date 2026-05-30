@@ -134,7 +134,7 @@ export function StoreOrderDashboardSection({
         </Link>
         {recentOrder ?
           <Link
-            href={`/orders/store/${encodeURIComponent(recentOrder.id)}`}
+            href={`/orders?expand=${encodeURIComponent(recentOrder.id)}`}
             className="flex w-[148px] shrink-0 flex-col rounded-ui-rect border border-dashed border-signature/30 bg-signature/[0.04] p-3"
           >
             <span className="sam-text-xxs font-medium text-sam-muted">{t("store_recent")}</span>

@@ -99,12 +99,27 @@ describe("orders hub store review tier1", () => {
     const f = resolveMainTier1Subpage(`/orders/store/${orderId}/review`);
     expect(f?.titleText).toBe("tier1_review_write");
     expect(f?.subtitle).toBe("tier1_review_write_subtitle");
-    expect(f?.backHref).toBe(`/orders/store/${orderId}`);
+    expect(f?.backHref).toBe(`/orders?expand=${encodeURIComponent(orderId)}`);
     expect(f?.showHubQuickActions).toBe(false);
   });
 });
 
 describe("orders hub store review shell", () => {
+  it("/orders hides bottom nav and delivery FAB", () => {
+    const f = resolveConditionalAppShellFlags("/orders", false);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.showMainBottomNavFabSector).toBe(false);
+    expect(f.mainBottomClass).toBe("pb-4");
+  });
+
+  it("/orders/store/:id hides bottom nav and delivery FAB", () => {
+    const orderId = "267ca6b7-bbc4-415c-83df-da3c37808613";
+    const f = resolveConditionalAppShellFlags(`/orders/store/${orderId}`, false);
+    expect(f.showBottomNav).toBe(false);
+    expect(f.showMainBottomNavFabSector).toBe(false);
+    expect(f.mainBottomClass).toBe("pb-4");
+  });
+
   it("/orders/store/:id/review hides bottom nav, FAB, and bottom padding", () => {
     const orderId = "267ca6b7-bbc4-415c-83df-da3c37808613";
     const f = resolveConditionalAppShellFlags(`/orders/store/${orderId}/review`, false);

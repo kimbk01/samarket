@@ -713,16 +713,99 @@ export async function fetchStoreFavoriteMutation(
 }
 
 /** GET /api/me/store-orders/:orderId — 주문 상세·완료 화면·채팅 등 동시 진입 합류 */
+const ME_STORE_ORDER_DETAIL_CACHE_TTL_MS = 45_000;
+const meStoreOrderDetailCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const meStoreOrderEventsCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+
+function peekMeStoreOrderResponseCache(
+  map: Map<string, { expiresAt: number; value: StoreApiJsonResponse }>,
+  orderId: string
+): StoreApiJsonResponse | null {
+  const id = orderId.trim();
+  if (!id) return null;
+  const hit = map.get(id);
+  if (!hit || hit.expiresAt <= Date.now()) {
+    if (hit) map.delete(id);
+    return null;
+  }
+  return hit.value;
+}
+
+function primeMeStoreOrderResponseCache(
+  map: Map<string, { expiresAt: number; value: StoreApiJsonResponse }>,
+  orderId: string,
+  value: StoreApiJsonResponse,
+  ttlMs: number
+): void {
+  const id = orderId.trim();
+  if (!id || value.status < 200 || value.status >= 300) {
+    if (id) map.delete(id);
+    return;
+  }
+  const json = value.json as { ok?: boolean };
+  if (json?.ok !== true) {
+    map.delete(id);
+    return;
+  }
+  map.set(id, { expiresAt: Date.now() + ttlMs, value });
+}
+
+/** 펼침 패널·리뷰 슬라이드 — 상세+이벤트 선로드 */
+export function warmMeStoreOrderExpandDetail(orderId: string): void {
+  const id = orderId.trim();
+  if (!id) return;
+  void fetchMeStoreOrderDetailDeduped(id);
+  void fetchMeStoreOrderEventsDeduped(id);
+}
+
+export function peekMeStoreOrderDetailCache(orderId: string): StoreApiJsonResponse | null {
+  return peekMeStoreOrderResponseCache(meStoreOrderDetailCache, orderId);
+}
+
+export function peekMeStoreOrderEventsCache(orderId: string): StoreApiJsonResponse | null {
+  return peekMeStoreOrderResponseCache(meStoreOrderEventsCache, orderId);
+}
+
+/** PATCH/DELETE 후 목록·펼침 캐시 무효화 */
+export function invalidateMeStoreOrderClientCaches(orderId: string): void {
+  const id = orderId.trim();
+  if (!id) return;
+  meStoreOrderDetailCache.delete(id);
+  meStoreOrderEventsCache.delete(id);
+  forgetSingleFlight(`me:store-order:detail:get:${id}`);
+  forgetSingleFlight(`me:store-order:events:get:${id}`);
+}
+
 export async function fetchMeStoreOrderDetailDeduped(orderId: string): Promise<StoreApiJsonResponse> {
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
+  const cached = peekMeStoreOrderResponseCache(meStoreOrderDetailCache, id);
+  if (cached) return cached;
+  const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(`me:store-order:detail:get:${id}`);
+  if (inFlight) {
+    const value = await inFlight;
+    primeMeStoreOrderResponseCache(
+      meStoreOrderDetailCache,
+      id,
+      value,
+      ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
+    );
+    return value;
+  }
   return runSingleFlight(`me:store-order:detail:get:${id}`, async () => {
     const res = await fetch(`/api/me/store-orders/${encodeURIComponent(id)}`, {
       credentials: "include",
       cache: "no-store",
     });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    primeMeStoreOrderResponseCache(
+      meStoreOrderDetailCache,
+      id,
+      value,
+      ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
+    );
+    return value;
   });
 }
 
@@ -730,13 +813,33 @@ export async function fetchMeStoreOrderDetailDeduped(orderId: string): Promise<S
 export async function fetchMeStoreOrderEventsDeduped(orderId: string): Promise<StoreApiJsonResponse> {
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
+  const cached = peekMeStoreOrderResponseCache(meStoreOrderEventsCache, id);
+  if (cached) return cached;
+  const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(`me:store-order:events:get:${id}`);
+  if (inFlight) {
+    const value = await inFlight;
+    primeMeStoreOrderResponseCache(
+      meStoreOrderEventsCache,
+      id,
+      value,
+      ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
+    );
+    return value;
+  }
   return runSingleFlight(`me:store-order:events:get:${id}`, async () => {
     const res = await fetch(`/api/me/store-orders/${encodeURIComponent(id)}/events`, {
       credentials: "include",
       cache: "no-store",
     });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    primeMeStoreOrderResponseCache(
+      meStoreOrderEventsCache,
+      id,
+      value,
+      ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
+    );
+    return value;
   });
 }
 
@@ -754,6 +857,7 @@ export async function patchMeStoreOrder(
     body: JSON.stringify(body),
   });
   const json = await res.json().catch(() => ({}));
+  invalidateMeStoreOrderClientCaches(id);
   return { status: res.status, json };
 }
 
@@ -766,6 +870,7 @@ export async function deleteMeStoreOrder(orderId: string): Promise<StoreApiJsonR
     credentials: "include",
   });
   const json = await res.json().catch(() => ({}));
+  invalidateMeStoreOrderClientCaches(id);
   return { status: res.status, json };
 }
 

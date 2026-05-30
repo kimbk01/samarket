@@ -39,23 +39,33 @@ function CameraIcon() {
 export function StoreOrderReviewForm({
   ordersHub = false,
   layout = "fullscreen",
+  orderId: orderIdProp,
+  onSubmittedSuccess,
+  onDismiss,
 }: {
   ordersHub?: boolean;
-  /** fullscreen: 상단 X + 매장명 / inline: 폼만 */
-  layout?: "fullscreen" | "inline";
+  /** fullscreen: 상단 X + 매장명 / inline: 폼만 / slide: 슬라이드 패널 본문 */
+  layout?: "fullscreen" | "inline" | "slide";
+  /** 라우트 params 대신 주문 id (슬라이드 패널) */
+  orderId?: string;
+  onSubmittedSuccess?: () => void;
+  /** slide — 닫기·이미 작성됨 등 */
+  onDismiss?: () => void;
 }) {
   const { t } = useI18n();
   const params = useParams();
   const router = useRouter();
-  const orderId = typeof params?.orderId === "string" ? params.orderId : "";
+  const orderId =
+    (typeof orderIdProp === "string" ? orderIdProp.trim() : "") ||
+    (typeof params?.orderId === "string" ? params.orderId : "");
   const detailHref = orderId
     ? ordersHub
-      ? `/orders/store/${encodeURIComponent(orderId)}`
+      ? `/orders?expand=${encodeURIComponent(orderId)}`
       : `/mypage/store-orders/${encodeURIComponent(orderId)}`
     : ordersHub
-      ? "/orders?tab=store"
+      ? "/orders"
       : "/mypage/store-orders";
-  const listHref = ordersHub ? "/orders?tab=store" : "/mypage/store-orders";
+  const listHref = ordersHub ? "/orders" : "/mypage/store-orders";
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
@@ -195,10 +205,14 @@ export function StoreOrderReviewForm({
         return;
       }
       dispatchWrittenReviewUpdated();
+      if (onSubmittedSuccess) {
+        onSubmittedSuccess();
+        return;
+      }
       router.replace(detailHref);
       router.refresh();
     } catch {
-      setErr("network_error");
+      setErr(t("mypage_comp_network_error"));
     } finally {
       setBusy(false);
     }
@@ -386,7 +400,7 @@ export function StoreOrderReviewForm({
   );
 
   const shell = (body: React.ReactNode) => {
-    if (layout === "inline") {
+    if (layout === "inline" || layout === "slide") {
       return inlineScrollShell(body);
     }
     return (
@@ -410,9 +424,19 @@ export function StoreOrderReviewForm({
     return shell(
       <div className="space-y-4 text-center text-sm text-sam-muted">
         <p>{t("mypage_comp_store_review_already")}</p>
-        <Link href={detailHref} className="inline-block font-semibold text-signature underline">
-          {t("mypage_comp_store_review_to_detail")}
-        </Link>
+        {layout === "slide" && onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="inline-block font-semibold text-signature underline"
+          >
+            {t("common_close")}
+          </button>
+        ) : (
+          <Link href={detailHref} className="inline-block font-semibold text-signature underline">
+            {t("mypage_comp_store_review_to_detail")}
+          </Link>
+        )}
       </div>
     );
   }
@@ -420,14 +444,26 @@ export function StoreOrderReviewForm({
     return shell(
       <div className="space-y-4 text-center text-sm text-sam-muted">
         <p>{t("mypage_comp_store_review_after_complete")}</p>
-        <Link href={detailHref} className="inline-block font-semibold text-signature underline">
-          {t("mypage_comp_store_review_to_detail")}
-        </Link>
-        <div>
-          <Link href={listHref} className="sam-text-body-secondary text-sam-muted underline">
-            {t("mypage_comp_store_review_to_list")}
-          </Link>
-        </div>
+        {layout === "slide" && onDismiss ? (
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="inline-block font-semibold text-signature underline"
+          >
+            {t("common_close")}
+          </button>
+        ) : (
+          <>
+            <Link href={detailHref} className="inline-block font-semibold text-signature underline">
+              {t("mypage_comp_store_review_to_detail")}
+            </Link>
+            <div>
+              <Link href={listHref} className="sam-text-body-secondary text-sam-muted underline">
+                {t("mypage_comp_store_review_to_list")}
+              </Link>
+            </div>
+          </>
+        )}
       </div>
     );
   }

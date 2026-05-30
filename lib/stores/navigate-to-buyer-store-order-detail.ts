@@ -1,7 +1,7 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 
 export function buyerStoreOrderDetailPath(orderId: string): string {
-  return `/orders/store/${encodeURIComponent(orderId.trim())}`;
+  return `/orders?expand=${encodeURIComponent(orderId.trim())}`;
 }
 
 /**
