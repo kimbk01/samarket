@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { usePathname } from "next/navigation";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import {
@@ -11,6 +11,7 @@ import {
   type MainShellRoutePushAxis,
   type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
+import { resolveMainShellPushDurationMs } from "@/lib/navigation/resolve-main-shell-push-duration-ms";
 import { useRouteTransitionKindRef } from "@/components/route-transition/useRouteTransitionDirection";
 import {
   consumeMainShellPushEnterSession,
@@ -35,6 +36,7 @@ type PushSession = {
   animate: boolean;
   startedAt: number;
   targetPath?: string;
+  durationMs: number;
 };
 
 type PushHandoff = {
@@ -182,6 +184,9 @@ export function AppRouteTransition({
     lastPushAxisRef.current = axis;
     pushSessionActiveRef.current = true;
     setPushHandoff(null);
+    const durationMs = resolveMainShellPushDurationMs(intent, targetPath, {
+      reducedMotion: prefersReducedMotion(),
+    });
     setPushSession({
       exiting: prev.node,
       entering: pendingPushNode ?? children,
@@ -189,6 +194,7 @@ export function AppRouteTransition({
       animate: false,
       startedAt: performance.now(),
       targetPath,
+      durationMs,
     });
     const raf = beginPushTrackAnimation(setPushSession);
     return () => cancelAnimationFrame(raf);
@@ -234,12 +240,17 @@ export function AppRouteTransition({
         }
 
         setPushHandoff(null);
+        const durationMs = resolveMainShellPushDurationMs(pendingMenuIntent, pathKey, {
+          reducedMotion: prefersReducedMotion(),
+        });
         setPushSession({
           exiting: prev.node,
           entering: pendingPushNode ?? children,
           axis: pushAxis,
           animate: false,
           startedAt: performance.now(),
+          targetPath: pathKey,
+          durationMs,
         });
         pushSessionActiveRef.current = true;
         renderedRef.current = { pathname: pathKey, node: children };
@@ -294,6 +305,7 @@ export function AppRouteTransition({
 
   useLayoutEffect(() => {
     if (!pushSession?.animate) return;
+    const durationMs = pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS;
     const timer = window.setTimeout(() => {
       if (!pushTargetReached(pathname, pushSession.targetPath)) return;
       if (pushSession.entering) {
@@ -306,15 +318,16 @@ export function AppRouteTransition({
       pushSessionActiveRef.current = false;
       setPushSession(null);
       lastPushAxisRef.current = null;
-    }, MAIN_SHELL_ROUTE_TRANSITION_MS + 64);
+    }, durationMs + 64);
     return () => window.clearTimeout(timer);
-  }, [pathname, pushSession?.animate, pushSession?.targetPath]);
+  }, [pathname, pushSession?.animate, pushSession?.durationMs, pushSession?.targetPath]);
 
   useLayoutEffect(() => {
     if (!pushSession?.targetPath) return;
     if (!pushTargetReached(pathname, pushSession.targetPath)) return;
+    const durationMs = pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS;
     const elapsed = performance.now() - pushSession.startedAt;
-    const remaining = Math.max(40, MAIN_SHELL_ROUTE_TRANSITION_MS + 64 - elapsed);
+    const remaining = Math.max(40, durationMs + 64 - elapsed);
     const timer = window.setTimeout(() => {
       if (pushSession.entering) {
         setPushHandoff({
@@ -328,7 +341,7 @@ export function AppRouteTransition({
       lastPushAxisRef.current = null;
     }, remaining);
     return () => window.clearTimeout(timer);
-  }, [pathname, pushSession?.startedAt, pushSession?.targetPath]);
+  }, [pathname, pushSession?.durationMs, pushSession?.startedAt, pushSession?.targetPath]);
 
   useLayoutEffect(() => {
     if (!pushSession?.targetPath) return;
@@ -436,6 +449,11 @@ export function AppRouteTransition({
           <div
             className={pushTrackClass}
             data-axis={pushSession.axis}
+            style={
+              {
+                "--main-shell-push-ms": `${pushSession.durationMs ?? MAIN_SHELL_ROUTE_TRANSITION_MS}ms`,
+              } as CSSProperties
+            }
             onTransitionEnd={(e) => {
               if (e.target !== e.currentTarget) return;
               if (e.propertyName !== "transform") return;

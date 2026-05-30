@@ -3,6 +3,7 @@
  *
  * 1. **모든 일반 하단 탭** (주문내역·장바구니·주문채팅·내정보·분할탭 community/home/stores 등)
  *    → 탭 선택 즉시 `commitMainBottomNavRoute` (push/replace). 이미 동일 URL이면 맨 위 스크롤.
+ *    → read-only hub 교차·메신저 진입: **교육용 Confirm 없음** (Phase A). 데이터 보호는 write/cart/checkout guard.
  *
  * 2. **다이얼 있는 배달 5탭 셸** (`isDeliveryBottomNavRail`)
  *    - **홈 짧은 탭** → 도메인 다이얼 열기/닫기 (`runDeliveryHomeHubShortTap`) — 이동 없음

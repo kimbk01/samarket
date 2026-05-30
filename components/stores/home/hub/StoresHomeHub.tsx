@@ -88,13 +88,19 @@ export function StoresHomeHub({
     if (feedSnapshotSeededRef.current) return;
     feedSnapshotSeededRef.current = true;
     const snap = readStoresHomeFeedInitialSnapshot(querySuffix);
-    if (snap.stores.length === 0) return;
+    if (snap.stores.length === 0) {
+      const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
+      const inflight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
+      if (inflight) setLoading(false);
+      return;
+    }
     setStores(snap.stores);
     setMeta(snap.meta);
     setLoading(false);
     storesRef.current = snap.stores;
     metaRef.current = snap.meta;
-  }, [querySuffix]);
+    markStoresHomePerf("store-card");
+  }, [language, querySuffix]);
 
   useLayoutEffect(() => {
     markStoresHomePerf("shell");
@@ -142,10 +148,10 @@ export function StoresHomeHub({
         if (hasFreshCache && !opts?.fromBfcacheRestore) return;
       }
       const hasDisplayableStores = storesRef.current.length > 0 || (cachedEntry?.stores.length ?? 0) > 0;
-      if (!silent && !hasDisplayableStores) setLoading(true);
+      const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
+      const inflight = !force ? getSingleFlightPromise<StoreApiJsonResponse>(flightKey) : undefined;
+      if (!silent && !hasDisplayableStores && !inflight) setLoading(true);
       try {
-        const flightKey = storesHomeFeedSingleFlightKey(querySuffix, language);
-        const inflight = !force ? getSingleFlightPromise<StoreApiJsonResponse>(flightKey) : undefined;
         const { status, json } = await (inflight ??
           fetchStoresHomeFeedDeduped(querySuffix, {
             signal: controller.signal,

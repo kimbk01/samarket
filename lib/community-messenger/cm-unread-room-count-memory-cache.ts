@@ -3,8 +3,14 @@
  * key: cm-unread-snapshot:${userId}
  */
 
-const DEFAULT_TTL_MS = 10_000;
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+/** owner-hub-badge route TTL(12s)와 맞춤 — cold 직후 warm hit */
+const DEFAULT_TTL_MS = 12_000;
 const STALE_MULTIPLIER = 2;
+
+/** `sumCommunityMessengerParticipantUnread` singleflight 키 prefix — revalidate dedupe 공유 */
+export const CM_UNREAD_DEDUPE_KEY_PREFIX = "cm-unread-sum:";
 
 type MemoryEntry = {
   unreadRoomCount: number;
@@ -15,7 +21,6 @@ type MemoryEntry = {
 
 type CmUnreadMemoryCacheGlobal = {
   __samarketCmUnreadRoomCountMemoryCache?: Map<string, MemoryEntry>;
-  __samarketCmUnreadRevalidateInflight?: Map<string, Promise<void>>;
 };
 
 function memoryByUser(): Map<string, MemoryEntry> {
@@ -26,12 +31,8 @@ function memoryByUser(): Map<string, MemoryEntry> {
   return g.__samarketCmUnreadRoomCountMemoryCache;
 }
 
-function revalidateInflight(): Map<string, Promise<void>> {
-  const g = globalThis as CmUnreadMemoryCacheGlobal;
-  if (!g.__samarketCmUnreadRevalidateInflight) {
-    g.__samarketCmUnreadRevalidateInflight = new Map();
-  }
-  return g.__samarketCmUnreadRevalidateInflight;
+export function cmUnreadDedupeKey(userId: string): string {
+  return `${CM_UNREAD_DEDUPE_KEY_PREFIX}${userId.trim()}`;
 }
 
 export function cmUnreadSnapshotMemoryCacheKey(userId: string): string {
@@ -87,26 +88,21 @@ export function readCmUnreadRoomCountMemory(userId: string): CmUnreadRoomCountMe
   };
 }
 
-/** stale-while-revalidate — 응답 즉시, 백그라운드 refresh */
+/** stale-while-revalidate — 응답 즉시, 백그라운드 refresh (cold RPC dedupe 공유) */
 export function scheduleCmUnreadSnapshotRevalidate(
   userId: string,
   fetcher: () => Promise<number>
 ): void {
   const k = userId.trim();
   if (!k) return;
-  const inflight = revalidateInflight();
-  if (inflight.has(k)) return;
-  const flight = (async () => {
+  void runSingleFlight(`${cmUnreadDedupeKey(k)}:revalidate`, async () => {
     try {
       const unreadRoomCount = await fetcher();
       writeCmUnreadRoomCountMemory(k, unreadRoomCount);
     } catch {
       /* keep stale snapshot */
     }
-  })().finally(() => {
-    if (inflight.get(k) === flight) inflight.delete(k);
   });
-  inflight.set(k, flight);
 }
 
 export function writeCmUnreadRoomCountMemory(userId: string, unreadRoomCount: number): void {

@@ -20,7 +20,7 @@ globs:
 |---|------|-----------|
 | 1 | 탭 즉시 활성 | 클릭 직후 `pendingMenuIntent.source === "trade-primary"` → **의도 탭만** `isDisplayActive` |
 | 2 | 전면 스켈레톤 금지 | `trade-primary` pending 중 `MainFeedRouteLoading`·`CommunityFeedSkeleton` **overlay 없음** |
-| 3 | 440ms push | `mainShellPushAxis`(탭 **배열 인덱스**) + dual-panel (`MAIN_SHELL_ROUTE_TRANSITION_MS`) |
+| 3 | push duration | `mainShellPushAxis` + dual-panel; **`/market` cache-hit**(`peekCachedPostsForHome`) → **250ms**, miss·cross-group → **440ms** (`TRADE_MARKET_CACHE_HIT_PUSH_MS`) |
 | 4 | 들어오는 패널 | RSC 전 `TradeMarketTabPushEnterPanel` — `peek*` / `clientInstantBoot` |
 | 5 | 세그먼트 loading | `app/(main)/market/loading.tsx` → `null` |
 

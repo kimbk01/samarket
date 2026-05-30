@@ -58,6 +58,7 @@
 | T-L2 | `openCreateTradeChat`가 `createOrGetChatRoom` 동기 대기 | 즉시 compose `replace` | `.mdc` trade-post-detail |
 | T-L3 | `getPostsForHome`에 AbortSignal로 prewarm 이중화 | 단일 비행·고정 키 | `trade-home-list-invariants.mdc` |
 | T-L4 | 메신저 방에서 BottomNav 경로 외 스위치 | `conditional-app-shell-flags` | chat-detail-bottom-nav |
+| T-L5 | read-only 하단 탭 hub 교차·메신저 진입 시 **교육용 Cross-domain/Messenger Confirm blocking** | **Phase A (2026-05-30):** safe navigation → `resolveBottomNavTransitionConfirmCopy` null·즉시 `commitMainBottomNavRoute`. **유지:** `useInlineWriteSheetNavigationGuard`·cart/checkout Confirm. **Phase B scaffold:** `main-bottom-nav-risky-navigation.ts` (probe only). **금지:** tab id 우회(3안)·write guard 제거 | `main-bottom-nav-transition-copy.ts`, `BottomNav.tsx`, `main-bottom-nav-interaction-contract.ts` |
 
 ### 1.3 배달
 
@@ -185,6 +186,10 @@
 2. `npm run verify:parity-gates` (거래/메신저 해당 시).
 3. `docs/trade-perf-hot-path-changelog.md` **한 줄 append** (개선·역행 모두).
 4. lock 문서와 충돌 시 **lock 문서 먼저** 갱신 또는 역행 사유 명시.
+
+**앱 부트 API (2026-05-30 완료)**: profile lite · hub badge · notifications · auth/session cold-path — [dibay-app-boot-api-perf-lock.md](./dibay-app-boot-api-perf-lock.md). 해당 4 route semantics·warm SLO 역행 시 **회귀**로 처리.
+
+**하단 탭 nav-perf Confirm Phase A FINAL LOCK (2026-05-30)**: read-only hub 교차·메신저 진입 — cross-domain/messenger Confirm blocking 제거 (+600~900ms 회수). dirty write sheet·cart/checkout guard 유지. 측정: `node scripts/measure-bottom-nav-confirm-immediacy.mjs` (`bn6_phase_a_safe_nav`, confirm gate 7/7). Phase B risky probe(cart/upload/chat)는 **승인 전 scaffold only**. remaining blocker (Phase A 무관): vitest/vite `ERR_REQUIRE_ESM` → `verify:messenger-home`·`verify:i18n-key-exposure`.
 
 ---
 

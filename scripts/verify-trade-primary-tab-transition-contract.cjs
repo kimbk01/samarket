@@ -111,6 +111,26 @@ if (messengerListPane.includes("CommunityMessengerHomeShellSkeleton")) {
   fail("CommunityMessengerHomeListPane must not render messenger skeleton during main bottom-nav transitions");
 }
 
+const routeConfig = read("components/route-transition/route-transition-config.ts");
+if (!routeConfig.includes("TRADE_MARKET_CACHE_HIT_PUSH_MS = 250")) {
+  fail("route-transition-config must define TRADE_MARKET_CACHE_HIT_PUSH_MS = 250");
+}
+
+const pushDuration = read("lib/navigation/resolve-main-shell-push-duration-ms.ts");
+if (!pushDuration.includes("peekCachedPostsForHome") || !pushDuration.includes("TRADE_MARKET_CACHE_HIT_PUSH_MS")) {
+  fail("resolve-main-shell-push-duration-ms must gate cache-hit push on peekCachedPostsForHome");
+}
+
+const appTransitionDuration = read("components/route-transition/AppRouteTransition.tsx");
+if (!appTransitionDuration.includes("resolveMainShellPushDurationMs") || !appTransitionDuration.includes("durationMs")) {
+  fail("AppRouteTransition must branch push duration via resolveMainShellPushDurationMs");
+}
+
+const tradePrewarm = read("lib/main-menu/bottom-nav-tap-prewarm-trade.ts");
+if (!tradePrewarm.includes("peekCachedPostsForHome")) {
+  fail("bottom-nav-tap-prewarm-trade must skip via peekCachedPostsForHome");
+}
+
 if (failed) {
   process.exit(1);
 }

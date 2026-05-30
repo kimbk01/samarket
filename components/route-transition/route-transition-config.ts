@@ -81,6 +81,9 @@ export function resolveCanonicalNavIndex(pathname: string | null): number | null
 /** 메인 5탭 슬라이드 — 하단 탭 전환과 동일 440ms */
 export const MAIN_SHELL_ROUTE_TRANSITION_MS = 440;
 
+/** `/market` cache-hit push — trade-primary·bottom-nav 전용( miss·cross-group 은 440ms 유지) */
+export const TRADE_MARKET_CACHE_HIT_PUSH_MS = 250;
+
 export const MAIN_SHELL_ROUTE_TRANSITION_EASING = "cubic-bezier(0.25, 0.9, 0.35, 1)";
 
 export type MainShellRoutePushAxis = "ltr" | "rtl";

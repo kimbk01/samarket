@@ -349,7 +349,12 @@ export async function fetchProfileRowSafe(
     return null;
   }
 
-  if (usedSelectList !== SELECT_FULL) {
+  // lite=1: SELECT_ME_PROFILE_LITE 성공 시 optional merge 생략 — 2번째 DB RTT 제거(부트 cold).
+  // region_code/region_name 은 lite select에 포함. map-pin 전용(full_address+lat/lng)은
+  // background full profile hydration 으로 보강(schedule-app-boot-background).
+  const skipOptionalMergeForLite =
+    selectMode === "lite" && usedSelectList === SELECT_ME_PROFILE_LITE;
+  if (usedSelectList !== SELECT_FULL && !skipOptionalMergeForLite) {
     row = await mergeOptionalFields(sb, uid, row, metrics);
     if (metrics) {
       metrics.profileSelectColumns =

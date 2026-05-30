@@ -117,6 +117,7 @@ no-store 게이트 측정: `OWNER_DASHBOARD_GATE_NO_HUB=1` + hub 없는 계정(�
 - cold `notifications_via: rpc_segmented` · `db_round_trips: 1`
 - warm `cache_hit: 1` · `notification_count_ms: 0` (globalThis 캐시락)
 - `?owner_store_id=` 목록: `notifications_via: rpc_owner_store_list` (SQL `meta.store_id` 필터)
+- **cold index (2026-05-30)**: `idx_notifications_user_unread_consumer_no_chat_count` · `idx_notifications_user_unread_bottom_nav_no_chat_count` — migration `20260830120000_notification_unread_segmented_badge_indexes.sql` · RPC/cache/route **미변경** · [dibay-app-boot-api-perf-lock.md](./dibay-app-boot-api-perf-lock.md) §3
 
 ---
 

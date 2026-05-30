@@ -5,17 +5,31 @@ import {
   logCmUnreadAggregatePerf,
   type CmUnreadAggregatePerfLog,
 } from "@/lib/community-messenger/cm-unread-aggregate-perf";
-import { readCmUnreadRoomCountMemory } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
+import {
+  communityMessengerUnreadMemoryTtlMs,
+  readCmUnreadRoomCountMemory,
+} from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 export type CmUnreadAggregateRead =
   | { hit: false; reason: "missing" | "stale" | "no_table" | "no_column" | "error" }
-  | { hit: true; unreadRoomCount: number; stalenessMs: number };
+  | { hit: true; unreadRoomCount: number; stalenessMs: number; stale?: boolean };
+
+/** cm_unread aggregate fresh TTL — hub badge route·memory TTL과 정렬(5s counter 기본보다 길게) */
+export function cmUnreadRoomCountAggregateFreshTtlMs(): number {
+  return Math.max(hubBadgeUnreadCounterTtlMs(), communityMessengerUnreadMemoryTtlMs(), 12_000);
+}
+
+/** stale counter row 즉시 응답 상한 — memory staleUntil(60s)과 동급 */
+export function cmUnreadRoomCountAggregateStaleServeMaxMs(): number {
+  return 60_000;
+}
 
 /** `hub_badge_user_unread_counters.community_messenger_unread_room_count` — 1 PK lookup */
 export async function readCmUnreadRoomCountAggregate(
   sbAny: SupabaseClient<any>,
-  userId: string
+  userId: string,
+  opts?: { serveStaleWithinMs?: number }
 ): Promise<CmUnreadAggregateRead> {
   const uid = userId.trim();
   if (!uid) return { hit: false, reason: "missing" };
@@ -39,16 +53,23 @@ export async function readCmUnreadRoomCountAggregate(
   if (!data?.updated_at) return { hit: false, reason: "missing" };
 
   const stalenessMs = Math.max(0, Date.now() - new Date(data.updated_at as string).getTime());
-  if (stalenessMs > hubBadgeUnreadCounterTtlMs()) {
+  const unreadRoomCount = Math.max(
+    0,
+    Math.floor(Number((data as { community_messenger_unread_room_count?: unknown }).community_messenger_unread_room_count) || 0)
+  );
+  const freshTtl = cmUnreadRoomCountAggregateFreshTtlMs();
+  const staleServeMax = opts?.serveStaleWithinMs ?? 0;
+
+  if (stalenessMs > freshTtl) {
+    if (staleServeMax > 0 && stalenessMs <= staleServeMax) {
+      return { hit: true, unreadRoomCount, stalenessMs, stale: true };
+    }
     return { hit: false, reason: "stale" };
   }
 
   return {
     hit: true,
-    unreadRoomCount: Math.max(
-      0,
-      Math.floor(Number((data as { community_messenger_unread_room_count?: unknown }).community_messenger_unread_room_count) || 0)
-    ),
+    unreadRoomCount,
     stalenessMs,
   };
 }

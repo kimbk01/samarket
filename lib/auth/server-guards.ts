@@ -141,29 +141,54 @@ export async function validateActiveSessionLight(
 
   let activeSessionId = "";
   let dbTrips = 0;
-  const profile0 = devPerfNow();
-  const { data: pr, error } = await sbRead
-    .from("profiles")
-    .select("active_session_id")
-    .eq("id", userId)
-    .maybeSingle();
-  breakdown.auth_profile_sync_ms = Math.round(devPerfNow() - profile0);
-  dbTrips += 1;
-  if (error || !pr) {
-    breakdown.auth_db_round_trips = dbTrips;
-    breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
-  }
-  activeSessionId = String((pr as { active_session_id?: string | null }).active_session_id ?? "").trim();
-
   const sb = tryCreateSupabaseServiceClient();
+
   if (sb) {
-    const reg0 = devPerfNow();
-    const { ok: registryOk, cacheHit: regCacheHit } = await validateUserSessionRegistryCached(sb, userId, sessionId);
-    breakdown.auth_registry_ms = Math.round(devPerfNow() - reg0);
-    if (!regCacheHit) dbTrips += 1;
+    const [profileResult, registryResult] = await Promise.all([
+      (async () => {
+        const profile0 = devPerfNow();
+        const { data: pr, error } = await sbRead
+          .from("profiles")
+          .select("active_session_id")
+          .eq("id", userId)
+          .maybeSingle();
+        return {
+          pr,
+          error,
+          ms: Math.round(devPerfNow() - profile0),
+        };
+      })(),
+      (async () => {
+        const reg0 = devPerfNow();
+        const { ok: registryOk, cacheHit: regCacheHit } = await validateUserSessionRegistryCached(
+          sb,
+          userId,
+          sessionId
+        );
+        return {
+          registryOk,
+          regCacheHit,
+          ms: Math.round(devPerfNow() - reg0),
+        };
+      })(),
+    ]);
+
+    breakdown.auth_profile_sync_ms = profileResult.ms;
+    breakdown.auth_registry_ms = registryResult.ms;
+    dbTrips += 1;
+    if (!registryResult.regCacheHit) dbTrips += 1;
     else breakdown.auth_cache_hit = 1;
-    if (!registryOk) {
+
+    if (profileResult.error || !profileResult.pr) {
+      breakdown.auth_db_round_trips = dbTrips;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
+    }
+    activeSessionId = String(
+      (profileResult.pr as { active_session_id?: string | null }).active_session_id ?? ""
+    ).trim();
+
+    if (!registryResult.registryOk) {
       if (activeSessionId && activeSessionId !== sessionId) {
         breakdown.auth_db_round_trips = dbTrips;
         breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
@@ -174,6 +199,21 @@ export async function validateActiveSessionLight(
       return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
     }
   } else {
+    const profile0 = devPerfNow();
+    const { data: pr, error } = await sbRead
+      .from("profiles")
+      .select("active_session_id")
+      .eq("id", userId)
+      .maybeSingle();
+    breakdown.auth_profile_sync_ms = Math.round(devPerfNow() - profile0);
+    dbTrips += 1;
+    if (error || !pr) {
+      breakdown.auth_db_round_trips = dbTrips;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
+    }
+    activeSessionId = String((pr as { active_session_id?: string | null }).active_session_id ?? "").trim();
+
     if (activeSessionId && activeSessionId !== sessionId) {
       breakdown.auth_db_round_trips = dbTrips;
       breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
@@ -188,7 +228,7 @@ export async function validateActiveSessionLight(
 
   setAuthLightSessionSnapshot(userId, sessionId, activeSessionId);
   breakdown.auth_db_round_trips = dbTrips;
-  breakdown.auth_validate_ms = breakdown.auth_profile_sync_ms + breakdown.auth_registry_ms;
+  breakdown.auth_validate_ms = Math.max(breakdown.auth_profile_sync_ms, breakdown.auth_registry_ms);
   breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
   if (opts?.logBreakdown) logAuthHotPathBreakdown({ ...breakdown, route: opts.route, phase: "light" });
   return { ok: true, breakdown };

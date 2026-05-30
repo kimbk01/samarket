@@ -24,6 +24,7 @@ import {
   peekBootstrapCache,
   peekMessengerBootstrapCritical,
   peekMessengerBootstrapFull,
+  peekMessengerBootstrapMinimal,
   primeBootstrapCache,
   primeMessengerBootstrapCritical,
   primeMessengerBootstrapFull,
@@ -188,6 +189,8 @@ function peekClientStaleBootstrap(): CommunityMessengerBootstrap | null {
   if (typeof window === "undefined") return null;
   const fullCached = peekMessengerBootstrapFull();
   if (fullCached) return fullCached;
+  const minCached = peekMessengerBootstrapMinimal();
+  if (minCached) return minCached;
   const critCached = peekMessengerBootstrapCritical();
   if (!critCached) return null;
   return communityMessengerBootstrapFromCriticalPayload(critCached);
@@ -278,6 +281,17 @@ export function useCommunityMessengerHomeBootstrap({
     if (fullCached) {
       setData((prev) => {
         const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: fullCached }, "bootstrap");
+        if (next) primeBootstrapCache(next);
+        return next;
+      });
+      setLoading(false);
+      setListAwaitingCritical(false);
+      return;
+    }
+    const minCached = peekMessengerBootstrapMinimal();
+    if (minCached) {
+      setData((prev) => {
+        const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: minCached }, "bootstrap");
         if (next) primeBootstrapCache(next);
         return next;
       });

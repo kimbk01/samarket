@@ -2,7 +2,7 @@
 
 import {
   getPostsForHome,
-  isCachedPostsForHomeFresh,
+  peekCachedPostsForHome,
 } from "@/lib/posts/getPostsForHome";
 import {
   getPostsByTradeCategoryIds,
@@ -18,10 +18,16 @@ function decodeSegment(raw: string): string {
   }
 }
 
+const MARKET_PREWARM_DEDUPE_MS = 800;
+let lastMarketPrewarmAt = 0;
+
 export function prewarmBottomNavMarketTab(path: string): void {
   if (path === "/market") {
     const opts = { sort: "latest" as const, type: null, tradeState: "latest" as const };
-    if (isCachedPostsForHomeFresh(opts)) return;
+    if (peekCachedPostsForHome(opts)?.posts?.length) return;
+    const now = Date.now();
+    if (now - lastMarketPrewarmAt < MARKET_PREWARM_DEDUPE_MS) return;
+    lastMarketPrewarmAt = now;
     void getPostsForHome({ page: 1, ...opts }).catch(() => {
       /* 마운트 후 single-flight 합류 */
     });

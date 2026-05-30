@@ -82,6 +82,9 @@ import {
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { probeMainBottomNavRiskyNavigation } from "@/lib/navigation/main-bottom-nav-risky-navigation";
+import { usePhilifeWriteSheetOptional } from "@/contexts/PhilifeWriteSheetContext";
+import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type {
   BeginMenuNavigationOptions,
@@ -1221,6 +1224,23 @@ export function BottomNav({
   }, [bodyPortal]);
 
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+  const tradeWriteSheet = useTradeWriteSheetOptional();
+  const philifeWriteSheet = usePhilifeWriteSheetOptional();
+  const bottomNavRiskyNavigationState = useMemo(
+    () =>
+      probeMainBottomNavRiskyNavigation({
+        tradeWriteOpen: tradeWriteSheet?.isOpen,
+        tradeWriteBlocking: tradeWriteSheet?.blockingDraft,
+        philifeWriteOpen: philifeWriteSheet?.isOpen,
+        philifeWriteBlocking: philifeWriteSheet?.blockingDraft,
+      }),
+    [
+      tradeWriteSheet?.isOpen,
+      tradeWriteSheet?.blockingDraft,
+      philifeWriteSheet?.isOpen,
+      philifeWriteSheet?.blockingDraft,
+    ]
+  );
   const { t } = useI18n();
   const hubDomain = useMemo(() => resolveMainBottomNavHubDomain(pathname ?? null), [pathname]);
   const {
@@ -1232,7 +1252,11 @@ export function BottomNav({
 
   const commitTabRouteWithConfirm = useCallback(
     (tabId: string, commitOpts: BottomNavTabCommitOpts) => {
-      const copy = resolveBottomNavTransitionConfirmCopy(pathname ?? null, tabId);
+      const copy = resolveBottomNavTransitionConfirmCopy(
+        pathname ?? null,
+        tabId,
+        bottomNavRiskyNavigationState
+      );
       if (copy != null) {
         /**
          * 확인 모달 노출 시점부터 목적지 prewarm을 선행해,
@@ -1261,7 +1285,7 @@ export function BottomNav({
         });
       });
     },
-    [pathname, requestTransition]
+    [pathname, requestTransition, bottomNavRiskyNavigationState]
   );
 
   const confirmTransitionWithPerf = useCallback(() => {

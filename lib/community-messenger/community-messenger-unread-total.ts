@@ -8,9 +8,11 @@ import { emptyCmUnreadAggregatePerf } from "@/lib/community-messenger/cm-unread-
 import {
   emitCmUnreadAggregatePerfFromTiming,
   readCmUnreadRoomCountAggregate,
+  cmUnreadRoomCountAggregateStaleServeMaxMs,
   writeCmUnreadRoomCountAggregate,
 } from "@/lib/community-messenger/cm-unread-room-count-aggregate";
 import {
+  cmUnreadDedupeKey,
   communityMessengerUnreadMemoryTtlMs,
   invalidateCommunityMessengerUnreadTotalCache,
   readCmUnreadRoomCountMemory,
@@ -23,8 +25,6 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 export { invalidateCommunityMessengerUnreadTotalCache };
 
 export const CM_UNREAD_ROOM_COUNT_RPC = "get_community_messenger_unread_room_count";
-
-const CM_UNREAD_SINGLE_FLIGHT_PREFIX = "cm-unread-sum:";
 
 /**
  * 하단 「메신저」탭 배지용 — `community_messenger_participants.unread_count > 0` 인 방 개수.
@@ -102,6 +102,23 @@ function scheduleCmUnreadAggregateUpsert(
   unreadRoomCount: number
 ): void {
   void writeCmUnreadRoomCountAggregate(sbAny, uid, unreadRoomCount).catch(() => {});
+}
+
+/** memory·aggregate miss 시 RPC/legacy — revalidate·cold path 공유 */
+async function fetchCmUnreadRoomCountFromDb(
+  sbAny: SupabaseClient<any>,
+  uid: string
+): Promise<number> {
+  const rpcProbe = await sumCommunityMessengerParticipantUnreadViaRpc(sbAny, uid);
+  if (rpcProbe.result != null) {
+    scheduleCmUnreadAggregateUpsert(sbAny, uid, rpcProbe.result);
+    return rpcProbe.result;
+  }
+  const legacy = await sumCommunityMessengerParticipantUnreadLegacy(sbAny, uid);
+  if (!legacy.error) {
+    scheduleCmUnreadAggregateUpsert(sbAny, uid, legacy.result);
+  }
+  return legacy.result;
 }
 
 function applyCmUnreadMemoryHitTiming(
@@ -183,14 +200,7 @@ async function sumCommunityMessengerParticipantUnreadInner(
   if (mem.hit) {
     const totalMs = devPerfNow() - mountMs;
     if (mem.stale) {
-      scheduleCmUnreadSnapshotRevalidate(uid, async () => {
-        const agg = await readCmUnreadRoomCountAggregate(sbAny, uid);
-        if (agg.hit) return agg.unreadRoomCount;
-        const rpcProbe = await sumCommunityMessengerParticipantUnreadViaRpc(sbAny, uid);
-        if (rpcProbe.result != null) return rpcProbe.result;
-        const legacy = await sumCommunityMessengerParticipantUnreadLegacy(sbAny, uid);
-        return legacy.result;
-      });
+      scheduleCmUnreadSnapshotRevalidate(uid, () => fetchCmUnreadRoomCountFromDb(sbAny, uid));
     }
     if (timingOut) {
       applyCmUnreadMemoryHitTiming(timingOut, totalMs, mem.unreadRoomCount, mem.ageMs);
@@ -230,7 +240,9 @@ async function sumCommunityMessengerParticipantUnreadInner(
   }
 
   const aggLookup0 = devPerfNow();
-  const agg = await readCmUnreadRoomCountAggregate(sbAny, uid);
+  const agg = await readCmUnreadRoomCountAggregate(sbAny, uid, {
+    serveStaleWithinMs: cmUnreadRoomCountAggregateStaleServeMaxMs(),
+  });
   const aggMs = devPerfNow() - aggLookup0;
   cacheLookupMs += aggMs;
 
@@ -238,6 +250,9 @@ async function sumCommunityMessengerParticipantUnreadInner(
     const memSet0 = devPerfNow();
     writeCmUnreadRoomCountMemory(uid, agg.unreadRoomCount);
     cacheSetMs += devPerfNow() - memSet0;
+    if (agg.stale) {
+      scheduleCmUnreadSnapshotRevalidate(uid, () => fetchCmUnreadRoomCountFromDb(sbAny, uid));
+    }
     const totalMs = devPerfNow() - mountMs;
     if (timingOut) {
       timingOut.cm_unread_ms = Math.round(totalMs);
@@ -263,6 +278,7 @@ async function sumCommunityMessengerParticipantUnreadInner(
         user_id_short: uid.slice(0, 8),
         unread_room_count: agg.unreadRoomCount,
         aggregate_staleness_ms: Math.round(agg.stalenessMs),
+        aggregate_stale_swr: Boolean(agg.stale),
       });
     }
     logCmUnreadDeepFromPath({
@@ -282,73 +298,28 @@ async function sumCommunityMessengerParticipantUnreadInner(
     return agg.unreadRoomCount;
   }
 
-  const rpcProbe = await sumCommunityMessengerParticipantUnreadViaRpc(sbAny, uid);
+  const rpc0 = devPerfNow();
+  const rpcResult = await fetchCmUnreadRoomCountFromDb(sbAny, uid);
+  const rpcWallMs = devPerfNow() - rpc0;
 
-  if (rpcProbe.result != null) {
-    const memSet0 = devPerfNow();
-    writeCmUnreadRoomCountMemory(uid, rpcProbe.result);
-    cacheSetMs += devPerfNow() - memSet0;
-    scheduleCmUnreadAggregateUpsert(sbAny, uid, rpcProbe.result);
-    emitCmUnreadAggregatePerfFromTiming(aggregatePerf, {
-      via: "rpc",
-      totalMs: devPerfNow() - mountMs,
-      rpcMs: rpcProbe.wallMs,
-      dbTrips: 1,
-      counterUpserted: false,
-    });
-    if (timingOut) {
-      timingOut.cm_unread_ms = Math.round(devPerfNow() - mountMs);
-      timingOut.cm_unread_query_ms = Math.round(rpcProbe.wallMs);
-      timingOut.cm_unread_rpc_ms = Math.round(rpcProbe.wallMs);
-      timingOut.cm_unread_legacy_ms = 0;
-      timingOut.cm_unread_via = "rpc";
-      timingOut.cm_unread_rows = rpcProbe.result;
-      timingOut.cm_unread_memory_hit = 0;
-    }
-    const totalMs = devPerfNow() - mountMs;
-    logCmUnreadDeepFromPath({
-      mountMs,
-      totalMs,
-      cacheLookupMs,
-      cacheSetMs,
-      cacheSetUpsertDeferred: true,
-      postgrestWallMs: rpcProbe.wallMs,
-      responseParseMs: rpcProbe.parseMs,
-      aggregationMs,
-      payloadBytes: rpcProbe.payloadBytes,
-      unreadRoomCount: rpcProbe.result,
-      via: "rpc",
-      cacheHit: false,
-      actualHandlerMs: opts?.actualHandlerMs,
-    });
-    return rpcProbe.result;
-  }
-
-  const legacy = await sumCommunityMessengerParticipantUnreadLegacy(sbAny, uid);
-  let counterUpserted = false;
-  if (!legacy.error) {
-    const memSet0 = devPerfNow();
-    writeCmUnreadRoomCountMemory(uid, legacy.result);
-    cacheSetMs += devPerfNow() - memSet0;
-    scheduleCmUnreadAggregateUpsert(sbAny, uid, legacy.result);
-    counterUpserted = false;
-  }
+  const memSet0 = devPerfNow();
+  writeCmUnreadRoomCountMemory(uid, rpcResult);
+  cacheSetMs += devPerfNow() - memSet0;
   emitCmUnreadAggregatePerfFromTiming(aggregatePerf, {
-    via: "legacy",
+    via: "rpc",
     totalMs: devPerfNow() - mountMs,
-    rpcMs: rpcProbe.wallMs,
-    dbTrips: 2,
-    counterUpserted,
+    rpcMs: rpcWallMs,
+    dbTrips: 1,
+    counterUpserted: false,
   });
   if (timingOut) {
     timingOut.cm_unread_ms = Math.round(devPerfNow() - mountMs);
-    timingOut.cm_unread_query_ms = Math.round(legacy.wallMs);
-    timingOut.cm_unread_rpc_ms = Math.round(rpcProbe.wallMs);
-    timingOut.cm_unread_legacy_ms = Math.round(legacy.wallMs);
-    timingOut.cm_unread_via = legacy.error ? "error" : "postgrest_count_head";
-    timingOut.cm_unread_rows = legacy.result;
+    timingOut.cm_unread_query_ms = Math.round(rpcWallMs);
+    timingOut.cm_unread_rpc_ms = Math.round(rpcWallMs);
+    timingOut.cm_unread_legacy_ms = 0;
+    timingOut.cm_unread_via = "rpc";
+    timingOut.cm_unread_rows = rpcResult;
     timingOut.cm_unread_memory_hit = 0;
-    if (legacy.error) timingOut.cm_unread_error = legacy.error.slice(0, 120);
   }
   const totalMs = devPerfNow() - mountMs;
   logCmUnreadDeepFromPath({
@@ -356,17 +327,17 @@ async function sumCommunityMessengerParticipantUnreadInner(
     totalMs,
     cacheLookupMs,
     cacheSetMs,
-    cacheSetUpsertDeferred: !legacy.error,
-    postgrestWallMs: rpcProbe.wallMs + legacy.wallMs,
+    cacheSetUpsertDeferred: true,
+    postgrestWallMs: rpcWallMs,
     responseParseMs: 0,
     aggregationMs,
-    payloadBytes: legacy.payloadBytes + rpcProbe.payloadBytes,
-    unreadRoomCount: legacy.result,
-    via: legacy.error ? "error" : "postgrest_count_head",
+    payloadBytes: 32,
+    unreadRoomCount: rpcResult,
+    via: "rpc",
     cacheHit: false,
     actualHandlerMs: opts?.actualHandlerMs,
   });
-  return legacy.result;
+  return rpcResult;
 }
 
 export async function sumCommunityMessengerParticipantUnread(
@@ -380,7 +351,7 @@ export async function sumCommunityMessengerParticipantUnread(
     if (timingOut) timingOut.cm_unread_via = "skipped";
     return 0;
   }
-  return runSingleFlight(`${CM_UNREAD_SINGLE_FLIGHT_PREFIX}${uid}`, () =>
+  return runSingleFlight(cmUnreadDedupeKey(uid), () =>
     sumCommunityMessengerParticipantUnreadInner(sbAny, userId, timingOut, opts)
   );
 }
