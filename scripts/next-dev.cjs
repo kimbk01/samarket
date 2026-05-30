@@ -217,16 +217,20 @@ if (!fs.existsSync(nextCli)) {
 }
 
 /**
- * Windows 에서 Turbopack(next dev 기본)이 간헐적으로 내부 패닉을 일으키는 경우가 있어
+ * Turbopack(next dev 기본)이 간헐적으로 내부 패닉·dev 서버 재시작을 일으키는 경우가 있어
  * (!.next FATAL: unexpected Turbopack error) — 기본은 Webpack 이 더 안정적.
  * Turbopack 을 쓰려면: NEXT_DEV_BUNDLER=turbo npm run dev
  * 또는: node scripts/next-dev.cjs --turbo
  */
 const webpackRequested = extra.includes("--webpack");
 const devArgs =
-  process.platform === "win32" && !turboRequested && !webpackRequested
-    ? [...extra, "--webpack"]
-    : extra;
+  !turboRequested && !webpackRequested ? [...extra, "--webpack"] : extra;
+
+if (!turboRequested && !webpackRequested) {
+  console.log(
+    "[samarket] Dev bundler: Webpack (default). Turbopack: NEXT_DEV_BUNDLER=turbo npm run dev"
+  );
+}
 
 const child = spawn(process.execPath, [nextCli, "dev", ...devArgs], {
   stdio: "inherit",

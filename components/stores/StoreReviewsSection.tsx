@@ -7,7 +7,10 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
-import { fetchStoreReviewsPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStoreReviewsPublicDeduped,
+  fetchStoreReviewsSummaryDeduped,
+} from "@/lib/stores/store-delivery-api-client";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 function ReviewOrderDetailShimmer() {
@@ -40,6 +43,8 @@ type Review = {
   product_id: string | null;
   buyer_public_label?: string;
   image_urls?: string[];
+  item_feedback?: Record<string, "up" | "down"> | null;
+  order_type?: "delivery" | "pickup" | null;
   owner_reply_content?: string | null;
   owner_reply_created_at?: string | null;
 };
@@ -57,6 +62,9 @@ export function StoreReviewsSection({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
+  const [distribution, setDistribution] = useState<Record<number, number>>({
+    1: 0, 2: 0, 3: 0, 4: 0, 5: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [photoOnly, setPhotoOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"recommended" | "latest" | "rating_desc" | "rating_asc">(
@@ -68,8 +76,11 @@ export function StoreReviewsSection({
       const silent = !!opts?.silent;
       if (!silent) setLoading((prev) => (prev ? prev : true));
       try {
-        const { json } = await fetchStoreReviewsPublicDeduped(storeSlug);
-        const j = json as {
+        const [reviewsRes, summaryRes] = await Promise.all([
+          fetchStoreReviewsPublicDeduped(storeSlug),
+          fetchStoreReviewsSummaryDeduped(storeSlug),
+        ]);
+        const j = reviewsRes.json as {
           ok?: boolean;
           reviews?: Review[];
           avg_rating?: number;
@@ -79,6 +90,26 @@ export function StoreReviewsSection({
           setReviews(j.reviews);
           setAvg(typeof j.avg_rating === "number" ? j.avg_rating : null);
           setCount(Number(j.count) || 0);
+        }
+        // 분포는 summary API에서 가져옴 (전체 집계 기반, 50건 제한 없음)
+        const sj = summaryRes.json as {
+          ok?: boolean;
+          avg_rating?: number;
+          count?: number;
+          distribution?: Record<string, number>;
+        };
+        if (sj?.ok) {
+          if (typeof sj.avg_rating === "number") setAvg(sj.avg_rating);
+          if (typeof sj.count === "number") setCount(sj.count);
+          if (sj.distribution && typeof sj.distribution === "object") {
+            setDistribution({
+              1: Number(sj.distribution["1"]) || 0,
+              2: Number(sj.distribution["2"]) || 0,
+              3: Number(sj.distribution["3"]) || 0,
+              4: Number(sj.distribution["4"]) || 0,
+              5: Number(sj.distribution["5"]) || 0,
+            });
+          }
         }
       } catch {
         if (!silent) setReviews((prev) => (prev.length === 0 ? prev : []));
@@ -108,14 +139,7 @@ export function StoreReviewsSection({
   const wrap =
     surface === "orderDetail" ? wrapOrderDetail : variant === "plain" ? wrapPlain : wrapCard;
 
-  const ratingDist = useMemo(() => {
-    const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (const r of reviews) {
-      const n = Math.max(1, Math.min(5, Math.floor(Number(r.rating) || 0)));
-      dist[n] = (dist[n] ?? 0) + 1;
-    }
-    return dist;
-  }, [reviews]);
+  // distribution은 summary API에서 가져온 전체 집계 (state에서 직접 사용)
 
   const ownerReplyCount = useMemo(
     () => reviews.filter((r) => Boolean(r.owner_reply_content?.trim())).length,
@@ -229,7 +253,7 @@ export function StoreReviewsSection({
           </div>
           <div className="mt-3 space-y-1.5">
             {[5, 4, 3, 2, 1].map((star) => {
-              const n = ratingDist[star] ?? 0;
+              const n = distribution[star] ?? 0;
               const pct = count > 0 ? Math.round((n / count) * 1000) / 10 : 0;
               return (
                 <div key={star} className="flex items-center gap-2">
@@ -316,21 +340,56 @@ export function StoreReviewsSection({
               key={r.id}
               className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80"
             >
-              <div className="flex items-start justify-between gap-2">
-                <p
-                  className="min-w-0 truncate text-[13px] font-semibold leading-snug"
-                  style={{ color: STORE_ORDER_BRAND.title }}
-                >
-                  {r.buyer_public_label || t("store_member_fallback")}
-                </p>
-                <p className="shrink-0 text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
-                  {formatAppDate(r.created_at, language)}
-                </p>
+              {/* 헤더: 작성자 + 날짜 + 신고 */}
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p
+                    className="min-w-0 truncate text-[13px] font-semibold leading-snug"
+                    style={{ color: STORE_ORDER_BRAND.title }}
+                  >
+                    {r.buyer_public_label || t("store_member_fallback")}
+                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[14px] font-medium leading-snug text-amber-500">
+                      {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
+                    </span>
+                    {r.order_type === "delivery" ? (
+                      <span className="rounded-full bg-blue-50 px-1.5 py-0.5 text-[11px] text-blue-600">
+                        {t("store_order_type_delivery")}
+                      </span>
+                    ) : r.order_type === "pickup" ? (
+                      <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[11px] text-emerald-600">
+                        {t("store_order_type_pickup")}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <p className="text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
+                    {formatAppDate(r.created_at, language)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const reason = window.prompt(t("store_review_report_prompt") ?? "신고 사유를 입력해주세요");
+                      if (reason && reason.trim()) {
+                        fetch("/api/me/store-reviews/report", {
+                          method: "POST",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ review_id: r.id, reason: reason.trim() }),
+                        }).catch(() => null);
+                        alert(t("store_review_report_submitted") ?? "신고가 접수되었습니다.");
+                      }
+                    }}
+                    className="text-[11px]"
+                    style={{ color: STORE_ORDER_BRAND.muted }}
+                    aria-label={t("store_review_report_aria") ?? "신고하기"}
+                  >
+                    {t("store_review_report_btn")}
+                  </button>
+                </div>
               </div>
-              <p className="mt-1 text-[14px] font-medium leading-snug text-amber-500">
-                {"★".repeat(r.rating)}
-                {"☆".repeat(5 - r.rating)}
-              </p>
               {r.image_urls && r.image_urls.length > 0 ? (
                 <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
                   {r.image_urls.slice(0, 5).map((src) => (
@@ -350,6 +409,22 @@ export function StoreReviewsSection({
               >
                 {r.content}
               </p>
+              {/* 메뉴별 평가 태그 */}
+              {r.item_feedback && Object.keys(r.item_feedback).length > 0 ? (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {Object.entries(r.item_feedback).map(([itemId, v]) =>
+                    v === "up" ? (
+                      <span key={`${r.id}-${itemId}`} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
+                        👍 {t("store_review_menu_good")}
+                      </span>
+                    ) : (
+                      <span key={`${r.id}-${itemId}`} className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700">
+                        👎 {t("store_review_menu_bad")}
+                      </span>
+                    )
+                  )}
+                </div>
+              ) : null}
               {r.owner_reply_content?.trim() ? (
                 <div
                   className="mt-3 rounded-[12px] px-3 py-2.5"
@@ -397,7 +472,7 @@ export function StoreReviewsSection({
         </div>
         <div className="mt-3 space-y-1.5">
           {[5, 4, 3, 2, 1].map((star) => {
-            const n = ratingDist[star] ?? 0;
+            const n = distribution[star] ?? 0;
             const pct = count > 0 ? Math.round((n / count) * 1000) / 10 : 0;
             return (
               <div key={star} className="flex items-center gap-2">
@@ -445,15 +520,54 @@ export function StoreReviewsSection({
       <ul className="space-y-2.5">
         {filteredReviews.map((r) => (
           <li key={r.id} className={`${STORE_DETAIL_CARD} p-3`}>
-            <div className="flex items-center justify-between gap-2">
-              <p className={`truncate font-semibold text-sam-fg ${Sam.text.bodySecondary}`}>
-                {r.buyer_public_label || t("store_member_fallback")}
-              </p>
-              <p className={`${Sam.text.helper}`}>
-                {formatAppDate(r.created_at, language)}
-              </p>
+            {/* 헤더: 작성자 + 날짜 + 신고 */}
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <p className={`truncate font-semibold text-sam-fg ${Sam.text.bodySecondary}`}>
+                  {r.buyer_public_label || t("store_member_fallback")}
+                </p>
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                  <span className={`text-amber-600 ${Sam.text.body}`}>
+                    {"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}
+                  </span>
+                  {r.order_type === "delivery" ? (
+                    <span className={`rounded-full bg-blue-50 px-1.5 py-0.5 text-blue-600 ${Sam.text.xxs}`}>
+                      {t("store_order_type_delivery")}
+                    </span>
+                  ) : r.order_type === "pickup" ? (
+                    <span className={`rounded-full bg-emerald-50 px-1.5 py-0.5 text-emerald-600 ${Sam.text.xxs}`}>
+                      {t("store_order_type_pickup")}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <p className={`text-sam-meta ${Sam.text.xxs}`}>
+                  {formatAppDate(r.created_at, language)}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const reason = window.prompt(t("store_review_report_prompt") ?? "신고 사유를 입력해주세요");
+                    if (reason && reason.trim()) {
+                      fetch("/api/me/store-reviews/report", {
+                        method: "POST",
+                        credentials: "include",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ review_id: r.id, reason: reason.trim() }),
+                      }).catch(() => null);
+                      alert(t("store_review_report_submitted") ?? "신고가 접수되었습니다.");
+                    }
+                  }}
+                  className={`text-sam-meta hover:text-sam-muted ${Sam.text.xxs}`}
+                  aria-label={t("store_review_report_aria") ?? "신고하기"}
+                >
+                  {t("store_review_report_btn")}
+                </button>
+              </div>
             </div>
-            <p className={`mt-1 text-amber-600 ${Sam.text.body}`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
+
+            {/* 이미지 가로 스크롤 */}
             {r.image_urls && r.image_urls.length > 0 ? (
               <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
                 {r.image_urls.slice(0, 5).map((src) => (
@@ -467,9 +581,36 @@ export function StoreReviewsSection({
                 ))}
               </div>
             ) : null}
+
+            {/* 리뷰 본문 */}
             <p className={`mt-1.5 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>
               {r.content}
             </p>
+
+            {/* 메뉴별 평가 태그 (item_feedback) */}
+            {r.item_feedback && Object.keys(r.item_feedback).length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {Object.entries(r.item_feedback).map(([itemId, v]) =>
+                  v === "up" ? (
+                    <span
+                      key={`${r.id}-${itemId}`}
+                      className={`rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 ${Sam.text.xxs}`}
+                    >
+                      👍 {t("store_review_menu_good")}
+                    </span>
+                  ) : (
+                    <span
+                      key={`${r.id}-${itemId}`}
+                      className={`rounded-full bg-rose-50 px-2 py-0.5 text-rose-700 ${Sam.text.xxs}`}
+                    >
+                      👎 {t("store_review_menu_bad")}
+                    </span>
+                  )
+                )}
+              </div>
+            ) : null}
+
+            {/* 사장님 댓글 */}
             {r.owner_reply_content?.trim() ? (
               <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2">
                 <p className={`font-semibold text-sam-fg ${Sam.text.helper}`}>{t("store_owner_reply")}</p>

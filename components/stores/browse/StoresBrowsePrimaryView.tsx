@@ -45,6 +45,12 @@ import {
   invalidateStoresBrowseClientCache,
   peekStoresBrowseClientCache,
 } from "@/lib/stores/store-delivery-api-client";
+import {
+  invalidateStoresBrowseSessionCache,
+  peekStoresBrowseListPaintCache,
+  readInitialBrowseListSessionSnapshot,
+  writeStoresBrowseSessionCache,
+} from "@/lib/stores/stores-browse-client-session-cache";
 import { reloadBrowseTaxonomySnapshot } from "@/lib/stores/browse-taxonomy-snapshot";
 import {
   resolveBrowseListQuerySub,
@@ -53,7 +59,11 @@ import {
 import { useBrowseSubIndustries } from "@/lib/stores/use-browse-sub-industries";
 import { useBrowseSubAllCanonicalUrl } from "@/lib/stores/use-browse-sub-all-canonical-url";
 import { useBrowseTaxonomySnapshot } from "@/lib/stores/use-browse-taxonomy-snapshot";
-import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user-origin-coords";
+import {
+  browseListUserOriginCoordsEqual,
+  resolveBrowseListUserOriginCoords,
+} from "@/lib/stores/browse-list-user-origin-coords";
+import { APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
@@ -114,6 +124,13 @@ function sortBrowseStores(
   }
 }
 
+/** `browseListContextKey` — geo(5번째) 제외 비교용 */
+function browseListContextKeyWithoutGeo(key: string): string {
+  const parts = key.split("|");
+  if (parts.length >= 5) parts[4] = "";
+  return parts.join("|");
+}
+
 function browseCityLabel(regionId: string, cityId: string): string {
   const reg = REGIONS.find((x) => x.id === regionId);
   const city = reg?.cities.find((c) => c.id === cityId);
@@ -146,10 +163,22 @@ export function StoresBrowsePrimaryView({
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
   const taxonomy = useBrowseTaxonomySnapshot();
-  /** undefined = 아직 첫 응답 전 */
-  const [remoteRows, setRemoteRows] = useState<BrowseStoreListItem[] | undefined>(undefined);
-  const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
-  const [remoteLoading, setRemoteLoading] = useState(true);
+  /** undefined = 아직 첫 응답 전 — remount·HMR 직후 sessionStorage 로 즉시 paint */
+  const [remoteRows, setRemoteRows] = useState<BrowseStoreListItem[] | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    return readInitialBrowseListSessionSnapshot()?.rows;
+  });
+  const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(() => {
+    if (typeof window === "undefined") return null;
+    return readInitialBrowseListSessionSnapshot()?.source ?? null;
+  });
+  const [remoteLoading, setRemoteLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return !readInitialBrowseListSessionSnapshot();
+  });
+  const browseEverPaintedListRef = useRef(
+    typeof window !== "undefined" && !!(readInitialBrowseListSessionSnapshot()?.rows.length)
+  );
   const [listSort, setListSort] = useState<StoreBrowseSortId>(() =>
     parseStoreBrowseSortParam(searchParams?.get("sort"))
   );
@@ -157,26 +186,38 @@ export function StoresBrowsePrimaryView({
   const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
 
+  const browseUserGeoRef = useRef(browseUserGeo);
+  useEffect(() => {
+    browseUserGeoRef.current = browseUserGeo;
+  }, [browseUserGeo]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
     let seq = 0;
+    const commitGeo = (next: { lat: number; lng: number } | null) => {
+      if (browseListUserOriginCoordsEqual(browseUserGeoRef.current, next)) return;
+      setBrowseUserGeo(next);
+    };
     const run = () => {
       const my = ++seq;
       void (async () => {
         const c = await resolveBrowseListUserOriginCoords();
         if (cancelled || my !== seq) return;
-        setBrowseUserGeo(c);
+        commitGeo(c);
       })();
     };
     run();
     const onRefresh = () => run();
+    const onBootProfile = () => run();
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onRefresh);
     window.addEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
+    window.addEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBootProfile);
     return () => {
       cancelled = true;
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onRefresh);
       window.removeEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
+      window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBootProfile);
     };
   }, []);
 
@@ -343,7 +384,7 @@ export function StoresBrowsePrimaryView({
     return sp.toString();
   }, [browseQuerySuffix]);
   const prevBrowseListContextKeyRef = useRef<string | null>(null);
-  const browseHadListForContextRef = useRef(false);
+  const browseHadListForContextRef = useRef(browseEverPaintedListRef.current);
   const remoteCacheRef = useRef<
     Map<string, { rows: BrowseStoreListItem[]; source: BrowseFeedMetaSource }>
   >(new Map());
@@ -353,20 +394,34 @@ export function StoresBrowsePrimaryView({
     browseListContextKeyRef.current = browseListContextKey;
   }, [browseListContextKey]);
 
+  const browseQuerySuffixRef = useRef(browseQuerySuffix);
+  useEffect(() => {
+    browseQuerySuffixRef.current = browseQuerySuffix;
+  }, [browseQuerySuffix]);
+
+  const peekBrowsePaintCache = useCallback(
+    (queryString: string) =>
+      peekStoresBrowseListPaintCache(queryString, language, (qs, lang) =>
+        peekStoresBrowseClientCache(qs, { language: lang as typeof language })
+      ),
+    [language]
+  );
+
   const loadRemote = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = !!opts?.silent;
       const force = !!opts?.force;
       const requestId = ++loadRemoteRequestIdRef.current;
-      const contextKeyAtStart = browseListContextKey;
-      if (!silent) {
-        setRemoteLoading((prev) => (prev ? prev : true));
+      const contextKeyAtStart = browseListContextKeyRef.current;
+      const qsAtStart = browseQuerySuffixRef.current;
+      if (!silent && !browseEverPaintedListRef.current) {
+        setRemoteLoading(true);
         setFeedSource((prev) => (prev === null ? prev : null));
       }
       try {
         const qs = force
-          ? `${browseQuerySuffix}${browseQuerySuffix.includes("?") ? "&" : "?"}fresh=1`
-          : browseQuerySuffix;
+          ? `${qsAtStart}${qsAtStart.includes("?") ? "&" : "?"}fresh=1`
+          : qsAtStart;
         const { json } = await fetchStoresBrowseDeduped(qs, { language });
         if (
           requestId !== loadRemoteRequestIdRef.current ||
@@ -386,10 +441,14 @@ export function StoresBrowsePrimaryView({
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
           const source = src as BrowseFeedMetaSource;
-          remoteCacheRef.current.set(browseListContextKey, { rows, source });
+          remoteCacheRef.current.set(browseListContextKeyRef.current, { rows, source });
           setRemoteRows(rows);
           setFeedSource(source);
           browseHadListForContextRef.current = true;
+          if (rows.length > 0) {
+            browseEverPaintedListRef.current = true;
+            writeStoresBrowseSessionCache(qsAtStart, language, { rows, source });
+          }
         } else {
           setRemoteRows([]);
           setFeedSource(null);
@@ -409,53 +468,80 @@ export function StoresBrowsePrimaryView({
         }
       } finally {
         if (
-          !silent &&
           requestId === loadRemoteRequestIdRef.current &&
           contextKeyAtStart === browseListContextKeyRef.current
         ) {
-          setRemoteLoading((prev) => (prev ? false : prev));
+          setRemoteLoading(false);
         }
       }
     },
-    [browseQuerySuffix, browseListContextKey, language]
+    [language]
   );
+
+  const loadRemoteRef = useRef(loadRemote);
+  useEffect(() => {
+    loadRemoteRef.current = loadRemote;
+  }, [loadRemote]);
 
   useLayoutEffect(() => {
     const fromRef = remoteCacheRef.current.get(browseListContextKey);
     const fromClient =
-      peekStoresBrowseClientCache(browseQuerySuffix, { language }) ??
-      peekStoresBrowseClientCache(browseQuerySuffixWithoutGeo, { language });
+      peekBrowsePaintCache(browseQuerySuffix) ?? peekBrowsePaintCache(browseQuerySuffixWithoutGeo);
     const cached = fromRef ?? fromClient;
     if (!cached) return;
     setRemoteRows(cached.rows);
     setFeedSource(cached.source);
     setRemoteLoading(false);
     browseHadListForContextRef.current = true;
+    if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
     remoteCacheRef.current.set(browseListContextKey, cached);
-  }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, language]);
+  }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, peekBrowsePaintCache]);
 
   useEffect(() => {
-    const ctxChanged = prevBrowseListContextKeyRef.current !== browseListContextKey;
+    const prevKey = prevBrowseListContextKeyRef.current;
+    const ctxChanged = prevKey !== browseListContextKey;
+    const geoOnlyChange =
+      ctxChanged &&
+      prevKey != null &&
+      browseListContextKeyWithoutGeo(prevKey) === browseListContextKeyWithoutGeo(browseListContextKey);
     if (ctxChanged) {
       prevBrowseListContextKeyRef.current = browseListContextKey;
-      browseHadListForContextRef.current = false;
+      if (!geoOnlyChange) {
+        browseHadListForContextRef.current = false;
+      } else if (prevKey) {
+        const prevCached = remoteCacheRef.current.get(prevKey);
+        if (prevCached && !remoteCacheRef.current.has(browseListContextKey)) {
+          remoteCacheRef.current.set(browseListContextKey, prevCached);
+        }
+      }
     }
-    const cached = remoteCacheRef.current.get(browseListContextKey);
+    let cached = remoteCacheRef.current.get(browseListContextKey);
+    if (!cached) {
+      const paint =
+        peekBrowsePaintCache(browseQuerySuffix) ?? peekBrowsePaintCache(browseQuerySuffixWithoutGeo);
+      if (paint) {
+        cached = paint;
+        remoteCacheRef.current.set(browseListContextKey, paint);
+      }
+    }
     if (cached) {
       setRemoteRows(cached.rows);
       setFeedSource(cached.source);
       setRemoteLoading(false);
       browseHadListForContextRef.current = true;
+      if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
     }
     const silent = !!cached || browseHadListForContextRef.current;
-    void loadRemote({ silent });
-  }, [loadRemote, browseListContextKey]);
+    void loadRemoteRef.current({ silent });
+  }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, peekBrowsePaintCache]);
 
   useEffect(() => {
     setListSort("default");
   }, [activeSub, primarySlug]);
 
-  useRefetchOnPageShowRestore(() => void loadRemote({ silent: true }));
+  useRefetchOnPageShowRestore(() => void loadRemoteRef.current({ silent: true }), {
+    enableVisibilityRefetch: false,
+  });
 
   /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 직선거리 정렬만 수행 — matrix ETA 금지 */
   const hasGeo = browseUserGeo != null;
@@ -524,6 +610,9 @@ export function StoresBrowsePrimaryView({
     invalidateStoresBrowseMemoryCache(primarySlug);
     invalidateStoresBrowseClientCache(browseQuerySuffix, language);
     invalidateStoresBrowseClientCache(browseQuerySuffixWithoutGeo, language);
+    invalidateStoresBrowseSessionCache(browseQuerySuffix, language);
+    invalidateStoresBrowseSessionCache(browseQuerySuffixWithoutGeo, language);
+    browseEverPaintedListRef.current = false;
     forgetStoresBrowseFetchSingleFlight(browseQuerySuffix, language);
     forgetStoresBrowseFetchSingleFlight(browseQuerySuffixWithoutGeo, language);
     remoteCacheRef.current.delete(browseListContextKey);
@@ -592,7 +681,7 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
       <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
-        {remoteLoading && !listLoaded ?
+        {remoteLoading && !listLoaded && !browseEverPaintedListRef.current ?
           <StoreDeliveryListLoading />
         : null}
         {useRemoteList ?

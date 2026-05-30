@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
@@ -36,6 +36,11 @@ import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } fr
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
+import {
+  OwnerOrderItemFeedbackBadge,
+  OwnerStoreOrderReviewBlock,
+} from "@/components/business/owner/OwnerStoreOrderReviewBlock";
+import type { OwnerStoreOrderReviewDetail } from "@/lib/stores/owner-store-order-review-meta";
 
 const FULFILL_LABEL_KEYS = {
   pickup: "store_owner_fulfillment_pickup_short",
@@ -104,6 +109,16 @@ export function OwnerStoreOrderMockCard({
   const [err, setErr] = useState<string | null>(null);
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [orderReview, setOrderReview] = useState<OwnerStoreOrderReviewDetail | null>(null);
+
+  const showReviewSection =
+    isExpanded &&
+    order.order_status === "completed" &&
+    order.review_status !== "not_applicable";
+
+  useEffect(() => {
+    if (!isExpanded) setOrderReview(null);
+  }, [isExpanded]);
 
   const runPatch = useCallback(
     async (nextStatus: string, estimatedPrepMinutes?: number) => {
@@ -324,9 +339,14 @@ export function OwnerStoreOrderMockCard({
                     <div key={it.id} className="rounded-[4px] bg-[#f6f6f6] px-2.5 py-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
-                            {it.product_title_snapshot} x {it.qty}
-                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-[13px] font-bold leading-[1.35] text-[var(--biz-text)]">
+                              {it.product_title_snapshot} x {it.qty}
+                            </p>
+                            {orderReview?.item_feedback?.[it.id] ? (
+                              <OwnerOrderItemFeedbackBadge vote={orderReview.item_feedback[it.id]} />
+                            ) : null}
+                          </div>
                           {orderLineOptionsSummary(it.options_snapshot_json) ? (
                             <p className="mt-0.5 text-[12px] leading-[1.35] text-[#6B7280]">
                               {orderLineOptionsSummary(it.options_snapshot_json)}
@@ -382,6 +402,16 @@ export function OwnerStoreOrderMockCard({
                 <InfoPill label={t("store_owner_label_receipt")} value={order.order_no} />
               </div>
             </OwnerOpsSection>
+
+            {showReviewSection ? (
+              <OwnerStoreOrderReviewBlock
+                storeId={storeId}
+                orderId={order.id}
+                reviewStatus={order.review_status}
+                enabled={showReviewSection}
+                onReviewLoaded={setOrderReview}
+              />
+            ) : null}
 
             <OwnerOpsSection title={t("store_owner_order_progress_chat_title")}>
               <div className="rounded-[4px] border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] p-2.5">

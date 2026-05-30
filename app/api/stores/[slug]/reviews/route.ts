@@ -42,7 +42,7 @@ export async function GET(
     const sel = await sb
       .from("store_reviews")
       .select(
-        "id, rating, content, created_at, product_id, image_urls, visible_to_public, item_feedback, buyer_user_id, owner_reply_content, owner_reply_created_at"
+        "id, rating, content, created_at, product_id, image_urls, visible_to_public, item_feedback, order_type, buyer_user_id, owner_reply_content, owner_reply_created_at"
       )
       .eq("store_id", store.id)
       .eq("status", "visible")
@@ -95,6 +95,10 @@ export async function GET(
         buyer_public_label:
           buyerMap[String(r.buyer_user_id ?? "").trim()] ?? BUYER_PUBLIC_LABEL_FALLBACK,
         image_urls: imgs.slice(0, 5),
+        item_feedback:
+          r.item_feedback && typeof r.item_feedback === "object" ? r.item_feedback : null,
+        order_type:
+          r.order_type === "delivery" || r.order_type === "pickup" ? r.order_type : null,
         owner_reply_content:
           typeof r.owner_reply_content === "string" ? r.owner_reply_content : null,
         owner_reply_created_at:

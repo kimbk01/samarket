@@ -39,7 +39,7 @@ export async function GET(
   const { data: rows, error } = await sb
     .from("store_reviews")
     .select(
-      "id, order_id, product_id, buyer_user_id, rating, content, status, visible_to_public, image_urls, created_at, owner_reply_content, owner_reply_created_at"
+      "id, order_id, product_id, buyer_user_id, rating, content, status, visible_to_public, image_urls, item_feedback, created_at, owner_reply_content, owner_reply_created_at"
     )
     .eq("store_id", id)
     .order("created_at", { ascending: false })
@@ -71,6 +71,10 @@ export async function GET(
       image_urls: Array.isArray(r.image_urls)
         ? (r.image_urls as unknown[]).map((x) => String(x)).filter(Boolean)
         : [],
+      item_feedback:
+        r.item_feedback && typeof r.item_feedback === "object" && !Array.isArray(r.item_feedback)
+          ? (r.item_feedback as Record<string, "up" | "down">)
+          : null,
       created_at: String(r.created_at ?? ""),
       owner_reply_content:
         typeof r.owner_reply_content === "string" ? r.owner_reply_content : null,

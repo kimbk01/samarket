@@ -123,6 +123,37 @@ export function OwnerStoreReviewsView() {
     [drafts, load, storeId]
   );
 
+  const deleteReply = useCallback(
+    async (reviewId: string) => {
+      const sid = storeId.trim();
+      if (!sid || !reviewId) return;
+      setBusyId(reviewId);
+      try {
+        const res = await fetch(
+          `/api/me/stores/${encodeURIComponent(sid)}/reviews/${encodeURIComponent(reviewId)}/reply`,
+          {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ reply: "" }),
+          }
+        );
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (!res.ok || !j?.ok) {
+          setErr(typeof j?.error === "string" ? j.error : "delete_reply_failed");
+          return;
+        }
+        setDrafts((prev) => ({ ...prev, [reviewId]: "" }));
+        await load();
+      } catch {
+        setErr("network_error");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [load, storeId]
+  );
+
   if (loading) return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   if (err) return <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p>;
   if (rows.length === 0) return <p className="text-sm text-sam-muted">{t("business_phase7_066")}</p>;
@@ -156,7 +187,19 @@ export function OwnerStoreReviewsView() {
                 rows={3}
                 className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary outline-none ring-signature/20 focus:ring-2"
               />
-              <div className="mt-2 flex justify-end">
+              <div className="mt-2 flex items-center justify-between gap-2">
+                {r.owner_reply_content ? (
+                  <button
+                    type="button"
+                    disabled={busyId !== null}
+                    onClick={() => void deleteReply(r.id)}
+                    className="rounded-ui-rect border border-red-200 bg-white px-2.5 py-1.5 sam-text-helper text-red-600 disabled:opacity-40"
+                  >
+                    {t("business_phase7_reply_delete")}
+                  </button>
+                ) : (
+                  <span />
+                )}
                 <button
                   type="button"
                   disabled={busyId !== null || !(drafts[r.id] ?? "").trim()}

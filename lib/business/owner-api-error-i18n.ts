@@ -6,6 +6,7 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   save_failed: "business_phase7_368",
   upload_failed: "business_phase7_440",
   reply_failed: "business_phase7_368",
+  delete_reply_failed: "business_phase7_352",
   delete_failed: "business_phase7_352",
 };
 

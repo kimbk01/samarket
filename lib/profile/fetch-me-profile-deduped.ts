@@ -11,7 +11,8 @@ export type MeProfileGetResult = {
   json: unknown;
 };
 
-const TTL_MS = 4_000;
+/** background·Region — 서버 route TTL(15s)와 맞춰 짧은 4s 재네트워크 burst 완화 */
+const TTL_MS = 15_000;
 /** RSC·session에서 seed 한 row — mypage 재방문·boot 직후 prewarm 완화 */
 const PRIMED_PROFILE_TTL_MS = 5 * 60 * 1000;
 const FLIGHT_KEY_FULL = "me:profile:get:full" as const;

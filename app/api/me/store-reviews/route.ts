@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, buyer_user_id, order_status")
+    .select("id, store_id, buyer_user_id, order_status, order_type")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -134,6 +134,9 @@ export async function POST(req: NextRequest) {
   const hasExtras =
     imageUrls.length > 0 || Object.keys(itemFeedback).length > 0 || ownerOnly === true;
 
+  const orderTypeRaw = String((order as Record<string, unknown>).order_type ?? "").trim();
+  const orderType = orderTypeRaw === "delivery" || orderTypeRaw === "pickup" ? orderTypeRaw : null;
+
   const baseRow = {
     order_id: orderId,
     store_id: order.store_id,
@@ -149,6 +152,7 @@ export async function POST(req: NextRequest) {
     image_urls: imageUrls,
     visible_to_public: !ownerOnly,
     item_feedback: itemFeedback,
+    order_type: orderType,
   };
 
   let row: { id?: string } | null = null;

@@ -21,6 +21,7 @@ function trimContent(s: unknown): string {
 
 /**
  * 리뷰 평균·최근 3건·분포 — 전체 목록은 `GET /api/stores/:slug/reviews` 유지.
+ * distribution은 전체 리뷰를 COUNT/GROUP BY로 집계 (50건 제한 없음).
  */
 export async function GET(
   _req: Request,
@@ -63,40 +64,30 @@ export async function GET(
 
     const storeId = String(storeRes.store.id ?? "");
 
-    let reviews: ReviewRow[] | null = null;
-    let error: { message?: string } | null = null;
-    {
-      const sel = await sb
-        .from("store_reviews")
-        .select(
-          "id, rating, content, created_at, product_id, image_urls, visible_to_public, item_feedback, buyer_user_id, owner_reply_content, owner_reply_created_at"
-        )
-        .eq("store_id", storeId)
-        .eq("status", "visible")
-        .eq("visible_to_public", true)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      reviews = sel.data as ReviewRow[] | null;
-      error = sel.error;
-      if (
-        error &&
-        String(error.message).toLowerCase().includes("column") &&
-        String(error.message).toLowerCase().includes("does not exist")
-      ) {
-        const fb = await sb
-          .from("store_reviews")
-          .select("id, rating, content, created_at, product_id, buyer_user_id")
-          .eq("store_id", storeId)
-          .eq("status", "visible")
-          .order("created_at", { ascending: false })
-          .limit(50);
-        reviews = fb.data as ReviewRow[] | null;
-        error = fb.error;
-      }
-    }
+    // 전체 분포/집계: rating만 조회해 COUNT (50건 제한 없음)
+    const { data: allRatings, error: aggErr } = await sb
+      .from("store_reviews")
+      .select("rating")
+      .eq("store_id", storeId)
+      .eq("status", "visible")
+      .eq("visible_to_public", true);
 
-    if (error) {
-      if (error.message?.includes("store_reviews") && error.message?.includes("does not exist")) {
+    const distribution: Record<1 | 2 | 3 | 4 | 5, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let totalCount = 0;
+    let avgRating: number | null = null;
+
+    if (!aggErr && Array.isArray(allRatings) && allRatings.length > 0) {
+      let sum = 0;
+      for (const row of allRatings) {
+        const n = Math.min(5, Math.max(1, Math.floor(Number(row.rating) || 0))) as 1 | 2 | 3 | 4 | 5;
+        distribution[n] += 1;
+        sum += n;
+      }
+      totalCount = allRatings.length;
+      avgRating = Math.round((sum / totalCount) * 10) / 10;
+    } else if (aggErr) {
+      // 컬럼 오류면 table_missing으로 처리
+      if (aggErr.message?.includes("store_reviews") && aggErr.message?.includes("does not exist")) {
         return NextResponse.json({
           ok: true,
           avg_rating: null,
@@ -106,24 +97,30 @@ export async function GET(
           meta: { table_missing: true as const },
         });
       }
-      console.error("[GET store reviews-summary]", error);
-      return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      console.error("[GET store reviews-summary] aggErr", aggErr);
     }
 
-    const list = (reviews ?? []).filter((r) => r.visible_to_public !== false);
+    // 최근 3건: 리뷰 본문·작성자 표시용
+    let recentRows: ReviewRow[] | null = null;
+    {
+      const sel = await sb
+        .from("store_reviews")
+        .select(
+          "id, rating, content, created_at, buyer_user_id, owner_reply_content, owner_reply_created_at"
+        )
+        .eq("store_id", storeId)
+        .eq("status", "visible")
+        .eq("visible_to_public", true)
+        .order("created_at", { ascending: false })
+        .limit(3);
+      recentRows = sel.data as ReviewRow[] | null;
+    }
+
+    const list = recentRows ?? [];
     const buyerIds = list.map((r) => String(r.buyer_user_id ?? "").trim()).filter(Boolean);
     const buyerMap = await mapBuyerUserIdsToPublicLabels(sb, buyerIds);
-    const sum = list.reduce((a, r) => a + (Number(r.rating) || 0), 0);
-    const avg = list.length ? Math.round((sum / list.length) * 10) / 10 : null;
 
-    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    for (const r of list) {
-      const n = Math.min(5, Math.max(1, Math.floor(Number(r.rating) || 0)));
-      if (n >= 1 && n <= 5) distribution[n as 1 | 2 | 3 | 4 | 5] += 1;
-    }
-
-    const recentRaw = list.slice(0, 3);
-    const recent = recentRaw.map((r) => ({
+    const recent = list.map((r) => ({
       id: r.id,
       rating: r.rating,
       content: trimContent(r.content),
@@ -134,8 +131,8 @@ export async function GET(
 
     return NextResponse.json({
       ok: true,
-      avg_rating: avg,
-      count: list.length,
+      avg_rating: avgRating,
+      count: totalCount,
       recent,
       distribution,
       meta: { source: "supabase" as const },

@@ -689,6 +689,22 @@ export const storeCommerceUiMessages = {
 
     store_owner_reply: "사장님 댓글",
 
+    store_order_type_delivery: "배달",
+
+    store_order_type_pickup: "픽업",
+
+    store_review_report_btn: "신고",
+
+    store_review_report_aria: "리뷰 신고하기",
+
+    store_review_report_prompt: "신고 사유를 입력해주세요",
+
+    store_review_report_submitted: "신고가 접수되었습니다.",
+
+    store_review_menu_good: "맛있어요",
+
+    store_review_menu_bad: "아쉬워요",
+
     store_cart_preview_none: "담긴 메뉴 없음",
 
     store_cart_items_kind: "· {count}종",
@@ -1522,6 +1538,11 @@ export const storeCommerceUiMessages = {
     store_owner_review_status_completed: "리뷰 완료",
     store_owner_review_status_unavailable: "리뷰 불가",
     store_owner_review_status_na: "—",
+    store_owner_order_review_section: "고객 리뷰",
+    store_owner_order_review_pending: "고객 리뷰를 기다리는 중이에요.",
+    store_owner_order_review_unavailable: "리뷰 기능을 사용할 수 없어요.",
+    store_owner_order_review_private_badge: "사장님만 보기",
+    store_owner_order_review_rating_aria: "별점 {n}점",
     store_owner_quick_reply_late: "조금 늦어요",
     store_owner_quick_reply_door: "문 앞에 두세요",
     store_owner_quick_reply_ingredients: "재료 문의",
@@ -2253,6 +2274,22 @@ export const storeCommerceUiMessages = {
     store_no_matching_reviews: "No reviews match your filters.",
 
     store_owner_reply: "Owner reply",
+
+    store_order_type_delivery: "Delivery",
+
+    store_order_type_pickup: "Pickup",
+
+    store_review_report_btn: "Report",
+
+    store_review_report_aria: "Report this review",
+
+    store_review_report_prompt: "Please enter the reason for the report",
+
+    store_review_report_submitted: "Your report has been submitted.",
+
+    store_review_menu_good: "Delicious",
+
+    store_review_menu_bad: "Could be better",
 
     store_cart_preview_none: "No items",
 
@@ -3087,6 +3124,11 @@ export const storeCommerceUiMessages = {
     store_owner_review_status_completed: "Reviewed",
     store_owner_review_status_unavailable: "Review unavailable",
     store_owner_review_status_na: "—",
+    store_owner_order_review_section: "Customer review",
+    store_owner_order_review_pending: "Waiting for the customer's review.",
+    store_owner_order_review_unavailable: "Reviews are unavailable.",
+    store_owner_order_review_private_badge: "Owner only",
+    store_owner_order_review_rating_aria: "Rating {n} stars",
     store_owner_quick_reply_late: "Running a bit late",
     store_owner_quick_reply_door: "Leave at the door",
     store_owner_quick_reply_ingredients: "Ingredients question",

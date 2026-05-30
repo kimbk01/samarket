@@ -74,19 +74,39 @@ export function setAppBootProfile(profile: ProfileRow, status: "ready" | "error"
   if (profile && profile !== prev) emitProfileUpdated();
 }
 
+/** boot full merge — Region·browse geo·주소 헤더가 구독하는 슬라이스만 비교 */
+function bootProfileSyncSliceChanged(prev: ProfileRow, next: ProfileRow): boolean {
+  const keys = [
+    "region_code",
+    "region_name",
+    "address_detail",
+    "full_address",
+    "latitude",
+    "longitude",
+  ] as const;
+  for (const k of keys) {
+    const a = prev[k];
+    const b = next[k];
+    if (a !== b) return true;
+  }
+  return false;
+}
+
 export function mergeAppBootProfileFull(profile: ProfileRow): void {
   if (!state.profile) {
     setAppBootProfile(profile);
     return;
   }
+  const merged: ProfileRow = { ...state.profile, ...profile };
+  const syncChanged = bootProfileSyncSliceChanged(state.profile, merged);
   state = {
     ...state,
     status: "ready",
-    profile: { ...state.profile, ...profile },
+    profile: merged,
     bootedAt: Date.now(),
   };
   emit();
-  emitProfileUpdated();
+  if (syncChanged) emitProfileUpdated();
 }
 
 export function peekAppBootProfile(): ProfileRow | null {

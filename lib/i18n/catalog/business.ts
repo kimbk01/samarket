@@ -478,6 +478,7 @@ export const businessMessages = {
     business_phase7_470: "공개",
     business_phase7_471: "댓글 저장",
     business_phase7_472: "최근 저장: {v1}",
+    business_phase7_reply_delete: "댓글 삭제",
     business_phase7_473: "카테고리 이름을 입력해 주세요.",
     business_phase7_474: "같은 이름의 카테고리가 이미 있습니다.",
     business_phase7_475: "이 카테고리에 메뉴가 {v1}개 있습니다. 상품 관리에서 다른 카테고리로 옮긴 뒤 삭제해 주세요.",
@@ -1210,6 +1211,7 @@ export const businessMessages = {
     business_phase7_470: "Public",
     business_phase7_471: "Save reply",
     business_phase7_472: "Last saved: {v1}",
+    business_phase7_reply_delete: "Delete reply",
     business_phase7_473: "Enter a category name.",
     business_phase7_474: "A category with this name already exists.",
     business_phase7_475:

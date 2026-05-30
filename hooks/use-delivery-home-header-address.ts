@@ -75,6 +75,9 @@ export function useDeliveryHomeHeaderAddress(): DeliveryHomeHeaderAddressView {
 
   useEffect(() => {
     if (peekFreshAddressDefaultsSnapshot()) return;
+    const path = pathname ?? "";
+    /** browse 1·2차 칩·sub 만 바뀔 때 pathname effect 로 address-defaults 중복 GET 방지 */
+    if (path.startsWith("/stores/browse/") && hasResolvedOnceRef.current) return;
     void load({ silent: true });
   }, [pathname, load]);
 
