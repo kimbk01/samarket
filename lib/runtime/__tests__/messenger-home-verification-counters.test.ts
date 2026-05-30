@@ -101,7 +101,7 @@ describe("messenger home verification counters (실행 횟수)", () => {
     expect(snap.bootstrapClientNetworkFetchTotal).toBe(0);
   });
 
-  it("warm + bootstrap(lite): 동시 호출 → lite 네트워크 1회(내부 동일 단일 비행 키)", async () => {
+  it("warm + bootstrap(lite): 동시 호출 → lite 1회(단일 비행)·critical 1회(warm 병렬 prewarm)", async () => {
     vi.stubGlobal("window", {});
     const warmP = new Promise<void>((resolve) => {
       warmMessengerListBootstrapClient();
@@ -111,7 +111,8 @@ describe("messenger home verification counters (실행 횟수)", () => {
     const snap = getMessengerHomeVerificationSnapshot();
     expect(snap.warmCallSiteInvocations).toBe(1);
     expect(snap.bootstrapClientNetworkFetch.lite).toBe(1);
-    expect(snap.bootstrapClientNetworkFetchTotal).toBe(1);
+    expect(snap.bootstrapClientNetworkFetch.critical).toBe(1);
+    expect(snap.bootstrapClientNetworkFetchTotal).toBe(2);
     vi.unstubAllGlobals();
   });
 
