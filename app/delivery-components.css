@@ -1542,6 +1542,33 @@ button.delivery-category-search.delivery-category-tab,
   animation: stores-browse-sub-slide-out 360ms ease-out both;
 }
 
+/** 매장 상세 — 리뷰 목록 슬라이드 패널(우→좌 진입 · X 닫기 좌→우) */
+@keyframes store-reviews-panel-slide-in {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes store-reviews-panel-slide-out {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.delivery-ui .store-reviews-panel-slide-in {
+  animation: store-reviews-panel-slide-in 360ms ease-out both;
+}
+
+.delivery-ui .store-reviews-panel-slide-out {
+  animation: store-reviews-panel-slide-out 360ms ease-out both;
+}
+
 /** `/stores` 홈 — iOS PTR·터치 잔상: coarse 에서 scale active 비활성 */
 @media (pointer: coarse) {
   .stores-home-hub :where(a, button)[class*="active:scale"] {

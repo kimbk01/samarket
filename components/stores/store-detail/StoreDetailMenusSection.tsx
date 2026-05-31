@@ -19,6 +19,8 @@ import type { MenuSection, StoreDetailProductCard } from "@/lib/stores/group-sto
 import { StoreDetailMenusSkeleton } from "@/components/stores/store-detail/StoreDetailMenusSkeleton";
 import { useMenuSubtreeCartStabilityGuard } from "@/components/stores/detail/use-menu-subtree-cart-stability-guard";
 import { useStoreProductSheetUIStore } from "@/lib/stores/store-product-sheet-ui-store";
+import type { StoreReviewsPanelOpenOptions } from "@/lib/stores/store-reviews-panel-open";
+import { StoreMenuReviewFlowLink, type StoreMenuReviewRailProduct } from "@/components/stores/StoreMenuReviewFlowLink";
 import {
   DELIVERY_PERF_TAG_MENU_SUBTREE_STABILITY,
   deliveryPerfTraceEnabled,
@@ -50,6 +52,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   commerceCartStoreId,
   focusProductId,
   onFocusProductHandled,
+  menuProductsForReviewRail,
+  onOpenReviews,
 }: {
   menusLoading: boolean;
   menuStickyMeasureRef: RefObject<HTMLDivElement | null>;
@@ -76,6 +80,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   /** browse·검색 등 — 해당 상품 행으로 스크롤 */
   focusProductId?: string | null;
   onFocusProductHandled?: () => void;
+  menuProductsForReviewRail?: StoreMenuReviewRailProduct[];
+  onOpenReviews: (opts?: StoreReviewsPanelOpenOptions) => void;
 }) {
   const canInteract = canSell && !menuSelectBlocked;
   const menuBoardRef = useRef<StoreMenuBoardListHandle>(null);
@@ -221,6 +227,13 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
 
   return (
     <div id="store-menu-panel">
+      {!menusLoading && storeSlug ? (
+        <StoreMenuReviewFlowLink
+          storeSlug={storeSlug}
+          menuProducts={menuProductsForReviewRail ?? []}
+          onOpenReviews={onOpenReviews}
+        />
+      ) : null}
       <div
         id="store-menu-tabs-sentinel"
         ref={tabsSentinelRef}

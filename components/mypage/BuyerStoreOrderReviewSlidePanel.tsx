@@ -106,7 +106,7 @@ export function BuyerStoreOrderReviewSlidePanel({
             </p>
           </header>
 
-          <div className="relative min-h-0 flex-1 overflow-hidden bg-sam-surface">
+          <div className="relative flex h-full min-h-0 flex-1 flex-col overflow-hidden bg-sam-surface">
             <StoreOrderReviewForm
               orderId={orderId}
               ordersHub

@@ -26,6 +26,10 @@ import { StoreDetailCartChrome } from "@/components/stores/detail/StoreDetailCar
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
 import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
+import { StoreReviewsSlidePanel } from "@/components/stores/store-detail/StoreReviewsSlidePanel";
+import type { StoreMenuReviewRailProduct } from "@/components/stores/StoreMenuReviewFlowLink";
+import type { StoreReviewsPanelOpenOptions } from "@/lib/stores/store-reviews-panel-open";
+import { buildStoreMenuReviewRailProducts } from "@/lib/stores/build-store-menu-review-rail-products";
 import { StoreDetailSummarySection } from "@/components/stores/store-detail/StoreDetailSummarySection";
 import {
   groupStoreProductsByMenuSectionModel,
@@ -1133,6 +1137,27 @@ export function StoreDetailPublic({
     return localizeMenuSectionHeadings(sections, language);
   }, [menuSections, menuQuery, focusProductId, language]);
 
+  const menuProductsForReviewRail = useMemo((): StoreMenuReviewRailProduct[] => {
+    const sectionItems = menuSectionsFiltered.flatMap((s) => s.items);
+    return buildStoreMenuReviewRailProducts({
+      popularMenuCards,
+      recommendedMenuCards,
+      menuSectionItems: sectionItems,
+    });
+  }, [popularMenuCards, recommendedMenuCards, menuSectionsFiltered]);
+
+  const [reviewsPanelOpen, setReviewsPanelOpen] = useState(false);
+  const [reviewsPanelOptions, setReviewsPanelOptions] = useState<StoreReviewsPanelOpenOptions>({});
+
+  const handleOpenReviewsPanel = useCallback((opts?: StoreReviewsPanelOpenOptions) => {
+    setReviewsPanelOptions(opts ?? {});
+    setReviewsPanelOpen(true);
+  }, []);
+
+  const handleCloseReviewsPanel = useCallback(() => {
+    setReviewsPanelOpen(false);
+  }, []);
+
   const menuSectionScrollKey = useMemo(
     () => menuSectionsFiltered.map((s) => `${s.heading}:${s.items.length}`).join("\0"),
     [menuSectionsFiltered]
@@ -1697,6 +1722,15 @@ export function StoreDetailPublic({
         menuTopSlot={menuTopSlot}
         focusProductId={focusProductId}
         onFocusProductHandled={onFocusProductHandled}
+        menuProductsForReviewRail={menuProductsForReviewRail}
+        onOpenReviews={handleOpenReviewsPanel}
+      />
+
+      <StoreReviewsSlidePanel
+        open={reviewsPanelOpen}
+        storeSlug={detailStore.slug}
+        options={reviewsPanelOptions}
+        onRequestClose={handleCloseReviewsPanel}
       />
 
       <StoreDetailDeferredInfoSection

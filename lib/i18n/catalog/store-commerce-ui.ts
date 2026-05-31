@@ -837,9 +837,21 @@ export const storeCommerceUiMessages = {
 
     store_reviews_total: "총 리뷰 {count}",
 
+    store_review_preview_empty: "리뷰가 없습니다.",
+
     store_photo_reviews: "사진 리뷰",
 
     store_photo_reviews_only: "사진 리뷰만",
+
+    store_photo_reviews_more_line1: "사진",
+
+    store_photo_reviews_more_line2: "리뷰 더보기",
+
+    store_photo_reviews_more_aria: "사진 리뷰 더보기",
+
+    store_review_menu_entry_aria: "{name} 리뷰 보기",
+
+    store_reviews_filter_all: "전체",
 
     store_reviews_with_count: "리뷰 {count}",
 
@@ -2422,9 +2434,21 @@ export const storeCommerceUiMessages = {
 
     store_reviews_total: "Total reviews {count}",
 
+    store_review_preview_empty: "No reviews yet.",
+
     store_photo_reviews: "Photo reviews",
 
     store_photo_reviews_only: "Photos only",
+
+    store_photo_reviews_more_line1: "Photo",
+
+    store_photo_reviews_more_line2: "reviews",
+
+    store_photo_reviews_more_aria: "See more photo reviews",
+
+    store_review_menu_entry_aria: "Reviews for {name}",
+
+    store_reviews_filter_all: "All",
 
     store_reviews_with_count: "Reviews {count}",
 

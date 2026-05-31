@@ -2,16 +2,25 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAppDate, formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 
-import { useCallback, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import {
+  attachReviewCountsToRailProducts,
+  buildStoreMenuReviewRailFromFlatProducts,
+  type StoreMenuReviewRailProduct,
+} from "@/lib/stores/build-store-menu-review-rail-products";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
 import {
+  fetchStoreMenusDeduped,
   fetchStoreReviewsPublicDeduped,
   fetchStoreReviewsSummaryDeduped,
 } from "@/lib/stores/store-delivery-api-client";
+import { parseStoreMenusPayload } from "@/lib/stores/store-detail-split-types";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { StoreReviewThumbIcon } from "@/components/stores/review/StoreReviewThumbIcon";
 
 function ReviewOrderDetailShimmer() {
   const Bar = ({ className }: { className: string }) => (
@@ -53,10 +62,14 @@ export function StoreReviewsSection({
   storeSlug,
   variant = "plain",
   surface = "default",
+  initialProductId = null,
+  initialPhotoOnly = false,
 }: {
   storeSlug: string;
   variant?: "card" | "plain";
   surface?: "default" | "orderDetail";
+  initialProductId?: string | null;
+  initialPhotoOnly?: boolean;
 }) {
   const { t, language } = useI18n();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -66,10 +79,51 @@ export function StoreReviewsSection({
     1: 0, 2: 0, 3: 0, 4: 0, 5: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [photoOnly, setPhotoOnly] = useState(false);
+  const [photoOnly, setPhotoOnly] = useState(initialPhotoOnly);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    initialProductId?.trim() || null
+  );
+  const [menuProducts, setMenuProducts] = useState<StoreMenuReviewRailProduct[]>([]);
   const [sortBy, setSortBy] = useState<"recommended" | "latest" | "rating_desc" | "rating_asc">(
     "recommended"
   );
+
+  useLayoutEffect(() => {
+    setSelectedProductId(initialProductId?.trim() || null);
+    if (initialPhotoOnly) setPhotoOnly(true);
+  }, [initialProductId, initialPhotoOnly]);
+
+  useEffect(() => {
+    if (surface !== "orderDetail" || !storeSlug.trim()) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { status, json } = await fetchStoreMenusDeduped(storeSlug);
+        if (cancelled || status !== 200) return;
+        const payload = parseStoreMenusPayload(json);
+        if (!payload.ok) return;
+        const rows = payload.products ?? [];
+        const flat: StoreMenuReviewRailProduct[] = [];
+        for (const raw of rows) {
+          const row = raw as Record<string, unknown>;
+          const id = String(row.id ?? "").trim();
+          if (!id) continue;
+          flat.push({
+            id,
+            title: String(row.title ?? row.name ?? "").trim() || id,
+            thumbnail_url: typeof row.thumbnail_url === "string" ? row.thumbnail_url : null,
+            is_representative: row.is_representative === true,
+          });
+        }
+        if (!cancelled) setMenuProducts(buildStoreMenuReviewRailFromFlatProducts(flat));
+      } catch {
+        if (!cancelled) setMenuProducts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [surface, storeSlug]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -146,10 +200,27 @@ export function StoreReviewsSection({
     [reviews]
   );
 
+  const menuReviewFilterItems = useMemo(
+    () => attachReviewCountsToRailProducts(menuProducts, reviews),
+    [menuProducts, reviews]
+  );
+
+  const productTitleById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of menuProducts) {
+      if (p.id && p.title) m[p.id] = p.title;
+    }
+    return m;
+  }, [menuProducts]);
+
   const filteredReviews = useMemo(() => {
-    const base = photoOnly
-      ? reviews.filter((r) => Array.isArray(r.image_urls) && r.image_urls.length > 0)
+    const byProduct =
+      selectedProductId ?
+        reviews.filter((r) => String(r.product_id ?? "").trim() === selectedProductId)
       : reviews;
+    const base = photoOnly
+      ? byProduct.filter((r) => Array.isArray(r.image_urls) && r.image_urls.length > 0)
+      : byProduct;
     const copied = [...base];
     if (sortBy === "latest") {
       copied.sort((a, b) => +new Date(b.created_at) - +new Date(a.created_at));
@@ -177,7 +248,7 @@ export function StoreReviewsSection({
       return +new Date(b.created_at) - +new Date(a.created_at);
     });
     return copied;
-  }, [photoOnly, reviews, sortBy]);
+  }, [photoOnly, reviews, selectedProductId, sortBy]);
 
   const photoReviewThumbUrls = useMemo(() => {
     const seen = new Set<string>();
@@ -299,6 +370,65 @@ export function StoreReviewsSection({
           ) : null}
         </div>
 
+        {menuReviewFilterItems.length > 0 ? (
+          <div className="overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setSelectedProductId(null)}
+                className={`flex w-[56px] shrink-0 flex-col items-center gap-1 touch-manipulation ${
+                  selectedProductId ? "opacity-75" : "opacity-100"
+                }`}
+                aria-pressed={!selectedProductId}
+              >
+                <span
+                  className={`flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-neutral-100 text-[11px] font-bold text-neutral-700 ${
+                    !selectedProductId ? "ring-2 ring-neutral-900 ring-offset-1" : ""
+                  }`}
+                >
+                  {t("store_reviews_filter_all")}
+                </span>
+              </button>
+              {menuReviewFilterItems.map((item) => {
+                const thumb = item.thumbnail_url?.trim() || "";
+                const active = selectedProductId === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedProductId(item.id)}
+                    className={`flex w-[56px] shrink-0 flex-col items-center gap-1 touch-manipulation ${
+                      active ? "opacity-100" : "opacity-85"
+                    }`}
+                    aria-pressed={active}
+                    aria-label={t("store_review_menu_entry_aria", { name: item.title })}
+                  >
+                    {thumb ? (
+                      <SamarketThumbnail
+                        src={thumb}
+                        size={52}
+                        roundedClassName={`rounded-[8px] ${active ? "ring-2 ring-neutral-900 ring-offset-1" : ""}`}
+                        className="bg-neutral-100"
+                      />
+                    ) : (
+                      <span
+                        className={`flex h-[52px] w-[52px] items-center justify-center rounded-[8px] bg-neutral-100 text-[14px] font-bold text-neutral-700 ${
+                          active ? "ring-2 ring-neutral-900 ring-offset-1" : ""
+                        }`}
+                      >
+                        {item.title.slice(0, 1) || "·"}
+                      </span>
+                    )}
+                    <span className="line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight text-neutral-800">
+                      {item.title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between gap-2">
           <label
             className="inline-flex cursor-pointer items-center gap-2 text-[13px] font-semibold"
@@ -409,17 +539,26 @@ export function StoreReviewsSection({
               >
                 {r.content}
               </p>
+              {r.product_id && productTitleById[r.product_id] ? (
+                <div className="mt-2">
+                  <span className="inline-flex rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-[11px] font-semibold text-neutral-700">
+                    {productTitleById[r.product_id]}
+                  </span>
+                </div>
+              ) : null}
               {/* 메뉴별 평가 태그 */}
               {r.item_feedback && Object.keys(r.item_feedback).length > 0 ? (
                 <div className="mt-1.5 flex flex-wrap gap-1">
                   {Object.entries(r.item_feedback).map(([itemId, v]) =>
                     v === "up" ? (
-                      <span key={`${r.id}-${itemId}`} className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700">
-                        👍 {t("store_review_menu_good")}
+                      <span key={`${r.id}-${itemId}`} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] text-blue-600">
+                        <StoreReviewThumbIcon variant="up" className="h-3.5 w-3.5" filled />
+                        {t("store_review_menu_good")}
                       </span>
                     ) : (
-                      <span key={`${r.id}-${itemId}`} className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-700">
-                        👎 {t("store_review_menu_bad")}
+                      <span key={`${r.id}-${itemId}`} className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] text-rose-600">
+                        <StoreReviewThumbIcon variant="down" className="h-3.5 w-3.5" filled />
+                        {t("store_review_menu_bad")}
                       </span>
                     )
                   )}
@@ -594,16 +733,18 @@ export function StoreReviewsSection({
                   v === "up" ? (
                     <span
                       key={`${r.id}-${itemId}`}
-                      className={`rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700 ${Sam.text.xxs}`}
+                      className={`inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-blue-600 ${Sam.text.xxs}`}
                     >
-                      👍 {t("store_review_menu_good")}
+                      <StoreReviewThumbIcon variant="up" className="h-3.5 w-3.5" filled />
+                      {t("store_review_menu_good")}
                     </span>
                   ) : (
                     <span
                       key={`${r.id}-${itemId}`}
-                      className={`rounded-full bg-rose-50 px-2 py-0.5 text-rose-700 ${Sam.text.xxs}`}
+                      className={`inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-600 ${Sam.text.xxs}`}
                     >
-                      👎 {t("store_review_menu_bad")}
+                      <StoreReviewThumbIcon variant="down" className="h-3.5 w-3.5" filled />
+                      {t("store_review_menu_bad")}
                     </span>
                   )
                 )}

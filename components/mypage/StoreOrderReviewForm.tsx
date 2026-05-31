@@ -18,6 +18,15 @@ import {
   STORE_ORDER_REVIEW_SCROLL_BODY_CLASS,
   STORE_ORDER_REVIEW_SCROLL_INNER_CLASS,
 } from "@/lib/stores/store-order-review-page-layout";
+import {
+  resolveStoreOrderReviewSubmitErrorKey,
+  STORE_ORDER_REVIEW_VIEWPORT_SHELL_CLASS,
+} from "@/lib/stores/store-order-review-form-errors";
+import {
+  StoreReviewThumbIcon,
+  storeReviewThumbVoteButtonClass,
+} from "@/components/stores/review/StoreReviewThumbIcon";
+import { Star } from "lucide-react";
 
 type ItemRow = { id: string; product_id: string; product_title_snapshot: string; qty?: number };
 
@@ -84,7 +93,11 @@ export function StoreOrderReviewForm({
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    if (!orderId) return;
+    if (!orderId) {
+      setLoading(false);
+      setErr(t("mypage_comp_store_review_load_failed"));
+      return;
+    }
     setLoading(true);
     setErr(null);
     try {
@@ -98,27 +111,29 @@ export function StoreOrderReviewForm({
         can_submit_review?: boolean;
       };
       if (!j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : "load_failed");
+        setErr(t("mypage_comp_store_review_load_failed"));
         return;
       }
       setStoreName(String(j.order?.store_name ?? ""));
       const raw = (j.items ?? []) as Record<string, unknown>[];
       setItems(
-        raw.map((r) => ({
-          id: String(r.id ?? ""),
-          product_id: String(r.product_id ?? ""),
-          product_title_snapshot: String(r.product_title_snapshot ?? ""),
-          qty: typeof r.qty === "number" ? r.qty : Number(r.qty) || 1,
-        }))
+        raw
+          .map((r) => ({
+            id: String(r.id ?? ""),
+            product_id: String(r.product_id ?? ""),
+            product_title_snapshot: String(r.product_title_snapshot ?? ""),
+            qty: typeof r.qty === "number" ? r.qty : Number(r.qty) || 1,
+          }))
+          .filter((row) => row.id.trim().length > 0)
       );
       setHasReview(!!j.review?.id);
       setCanSubmit(!!j.can_submit_review);
     } catch {
-      setErr("network_error");
+      setErr(t("mypage_comp_network_error"));
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [orderId, t]);
 
   useEffect(() => {
     void load();
@@ -145,7 +160,7 @@ export function StoreOrderReviewForm({
         });
         const j = await res.json().catch(() => ({}));
         if (!res.ok || !j?.ok || !j.url) {
-          setErr(typeof j?.error === "string" ? j.error : t("mypage_comp_store_review_upload_failed"));
+          setErr(t("mypage_comp_store_review_upload_failed"));
           break;
         }
         next.push(String(j.url));
@@ -195,13 +210,7 @@ export function StoreOrderReviewForm({
       const json = await res.json();
       if (!json?.ok) {
         const code = typeof json?.error === "string" ? json.error : "failed";
-        setErr(
-          code === "order_not_completed"
-            ? t("mypage_comp_store_review_err_not_completed")
-            : code === "review_already_exists"
-              ? t("mypage_comp_store_review_err_exists")
-              : t("mypage_comp_store_review_save_failed", { code })
-        );
+        setErr(t(resolveStoreOrderReviewSubmitErrorKey(code)));
         return;
       }
       dispatchWrittenReviewUpdated();
@@ -243,18 +252,20 @@ export function StoreOrderReviewForm({
 
   const reviewFormFields = (
     <>
-      <div className="flex justify-center gap-2 py-1">
+      <div className="flex justify-center gap-1.5 py-1">
         {[1, 2, 3, 4, 5].map((n) => (
           <button
             key={n}
             type="button"
             onClick={() => setRating(n)}
-            className="p-1 transition-transform active:scale-95"
+            className="flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-95"
             aria-label={t("mypage_comp_store_review_rating_aria", { n })}
           >
-            <span className={`sam-text-hero leading-none ${n <= rating ? "text-amber-400" : "text-sam-meta"}`}>
-              ★
-            </span>
+            <Star
+              className={`h-8 w-8 ${n <= rating ? "text-amber-400" : "text-sam-meta"}`}
+              strokeWidth={1.5}
+              fill={n <= rating ? "currentColor" : "none"}
+            />
           </button>
         ))}
       </div>
@@ -342,26 +353,22 @@ export function StoreOrderReviewForm({
                       <span className="ml-1 sam-text-helper font-normal text-sam-muted">×{it.qty}</span>
                     ) : null}
                   </span>
-                  <div className="flex shrink-0 gap-1">
+                  <div className="flex shrink-0 gap-1.5">
                     <button
                       type="button"
                       onClick={() => setVote(it.id, "up")}
-                      className={`rounded-ui-rect px-3 py-2 text-lg ${
-                        v === "up" ? "bg-emerald-100 text-emerald-800" : "bg-sam-surface-muted text-sam-meta"
-                      }`}
+                      className={storeReviewThumbVoteButtonClass(v, "up")}
                       aria-label={t("mypage_comp_store_review_thumb_up_aria")}
                     >
-                      👍
+                      <StoreReviewThumbIcon variant="up" className="h-5 w-5" filled={v === "up"} />
                     </button>
                     <button
                       type="button"
                       onClick={() => setVote(it.id, "down")}
-                      className={`rounded-ui-rect px-3 py-2 text-lg ${
-                        v === "down" ? "bg-rose-100 text-rose-800" : "bg-sam-surface-muted text-sam-meta"
-                      }`}
+                      className={storeReviewThumbVoteButtonClass(v, "down")}
                       aria-label={t("mypage_comp_store_review_thumb_down_aria")}
                     >
-                      👎
+                      <StoreReviewThumbIcon variant="down" className="h-5 w-5" filled={v === "down"} />
                     </button>
                   </div>
                 </li>
@@ -379,8 +386,13 @@ export function StoreOrderReviewForm({
     </>
   );
 
+  const usesViewportLockedShell = layout === "slide" || layout === "inline";
+  const viewportShellClass = usesViewportLockedShell
+    ? STORE_ORDER_REVIEW_VIEWPORT_SHELL_CLASS
+    : "flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden";
+
   const inlineScrollShell = (body: React.ReactNode) => (
-    <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden">
+    <div className={viewportShellClass}>
       <div className={STORE_ORDER_REVIEW_SCROLL_BODY_CLASS}>
         <div className={STORE_ORDER_REVIEW_SCROLL_INNER_CLASS}>{body}</div>
       </div>
@@ -390,7 +402,9 @@ export function StoreOrderReviewForm({
   const reviewFormShell = (body: React.ReactNode) => (
     <form
       onSubmit={(e) => void submit(e)}
-      className="delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
+      className={`delivery-ui flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden${
+        usesViewportLockedShell ? " h-full" : ""
+      }`}
     >
       <div className={STORE_ORDER_REVIEW_SCROLL_BODY_CLASS}>
         <div className={`${STORE_ORDER_REVIEW_SCROLL_INNER_CLASS} space-y-6`}>{body}</div>

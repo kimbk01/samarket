@@ -6,6 +6,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { OwnerStoreOrderReviewDetail } from "@/lib/stores/owner-store-order-review-meta";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { StoreReviewThumbIcon } from "@/components/stores/review/StoreReviewThumbIcon";
 
 function StarRatingRow({
   rating,
@@ -295,7 +296,7 @@ function OwnerReviewShell({ children }: { children: ReactNode }) {
   );
 }
 
-/** 메뉴 라인 옆 👍/👎 배지 */
+/** 메뉴 라인 옆 좋아요/싫어요 배지 */
 export function OwnerOrderItemFeedbackBadge({
   vote,
 }: {
@@ -304,15 +305,17 @@ export function OwnerOrderItemFeedbackBadge({
   const { t } = useI18n();
   if (vote === "up") {
     return (
-      <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
-        👍 {t("store_review_menu_good")}
+      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600">
+        <StoreReviewThumbIcon variant="up" className="h-3 w-3" filled />
+        {t("store_review_menu_good")}
       </span>
     );
   }
   if (vote === "down") {
     return (
-      <span className="shrink-0 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-        👎 {t("store_review_menu_bad")}
+      <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-semibold text-rose-600">
+        <StoreReviewThumbIcon variant="down" className="h-3 w-3" filled />
+        {t("store_review_menu_bad")}
       </span>
     );
   }

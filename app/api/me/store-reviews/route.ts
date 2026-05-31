@@ -128,6 +128,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "product_not_in_order" }, { status: 400 });
     }
     productId = productIdRaw;
+  } else if (productIdsInOrder.size === 1) {
+    productId = [...productIdsInOrder][0] ?? null;
   }
 
   const itemFeedback = parseItemFeedback(itemFeedbackRaw, lineIdsInOrder);

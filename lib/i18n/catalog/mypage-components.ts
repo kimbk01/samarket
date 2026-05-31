@@ -617,7 +617,9 @@ export const mypageComponentsMessages = {
     mypage_comp_store_review_upload_error: "이미지 업로드 중 오류가 발생했습니다.",
     mypage_comp_store_review_err_not_completed: "거래 완료된 주문만 리뷰를 남길 수 있습니다.",
     mypage_comp_store_review_err_exists: "이미 리뷰를 작성했습니다.",
+    mypage_comp_store_review_load_failed: "주문 정보를 불러오지 못했습니다.",
     mypage_comp_store_review_save_failed: "저장에 실패했습니다. ({code})",
+    mypage_comp_store_review_save_failed_generic: "저장에 실패했습니다. 잠시 후 다시 시도해 주세요.",
 
     mypage_comp_settings_block_video_autoplay: "동영상 자동 재생",
     mypage_comp_settings_block_personalization: "맞춤 설정",
@@ -1318,7 +1320,9 @@ export const mypageComponentsMessages = {
     mypage_comp_store_review_upload_error: "Something went wrong while uploading.",
     mypage_comp_store_review_err_not_completed: "Only completed orders can be reviewed.",
     mypage_comp_store_review_err_exists: "You already submitted a review.",
+    mypage_comp_store_review_load_failed: "Couldn’t load order details.",
     mypage_comp_store_review_save_failed: "Couldn’t save. ({code})",
+    mypage_comp_store_review_save_failed_generic: "Couldn’t save your review. Please try again.",
 
     mypage_comp_settings_block_video_autoplay: "Video autoplay",
     mypage_comp_settings_block_personalization: "Personalization",

@@ -20,7 +20,10 @@ describe("store order review layout contract", () => {
     const form = readRepo("components/mypage/StoreOrderReviewForm.tsx");
     expect(form).toContain("inline");
     expect(form).toContain("STORE_ORDER_REVIEW_FOOTER_CHROME_CLASS");
+    expect(form).toContain("STORE_ORDER_REVIEW_VIEWPORT_SHELL_CLASS");
     expect(form).not.toContain("storeCommerceActionContentPadClass");
+    expect(form).not.toMatch(/setErr\(\s*["']load_failed["']/);
+    expect(form).not.toMatch(/setErr\(\s*["']network_error["']/);
 
     const flags = readRepo("lib/layout/conditional-app-shell-flags.ts");
     expect(flags).toContain("isStoreOrderReviewPage");
