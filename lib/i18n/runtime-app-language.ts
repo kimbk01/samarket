@@ -4,7 +4,12 @@
  * cookie/local/browser 직접 읽기 금지 — Provider state와 동기화된 값만 쓴다.
  * Provider는 렌더마다 `setRuntimeAppLanguage(language)`로 SSR·하이드레이션과 맞춘다.
  */
-import { APP_LANGUAGE_CHANGED_EVENT, FALLBACK_APP_LANGUAGE, type AppLanguageCode } from "./config";
+import {
+  APP_LANGUAGE_CHANGED_EVENT,
+  FALLBACK_APP_LANGUAGE,
+  parseExplicitAppLanguage,
+  type AppLanguageCode,
+} from "./config";
 
 let runtimeLanguage: AppLanguageCode = FALLBACK_APP_LANGUAGE;
 
@@ -13,7 +18,7 @@ export function getRuntimeAppLanguage(): AppLanguageCode {
 }
 
 export function setRuntimeAppLanguage(language: AppLanguageCode): void {
-  runtimeLanguage = language;
+  runtimeLanguage = parseExplicitAppLanguage(language) ?? FALLBACK_APP_LANGUAGE;
 }
 
 export function subscribeRuntimeAppLanguage(

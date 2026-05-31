@@ -28,6 +28,9 @@ export const APP_LANGUAGE_COOKIE = "samarket_signup_locale";
 export const APP_LANGUAGE_DEVICE_SEEDED_KEY = "samarket_lang_device_seeded";
 export const APP_LANGUAGE_CHANGED_EVENT = "samarket-language-changed";
 
+/** cookie·localStorage·API 입력 길이 상한 — 비정상 값·DoS 방지 */
+export const MAX_APP_LANGUAGE_INPUT_LENGTH = 32;
+
 const LANGUAGE_ALIASES: Record<string, AppLanguageCode> = {
   ko: "ko",
   "ko-kr": "ko",
@@ -54,7 +57,9 @@ export function isSystemLanguagePreference(input: unknown): boolean {
 export function parseExplicitAppLanguage(input: unknown): AppLanguageCode | null {
   if (isSystemLanguagePreference(input)) return null;
   if (typeof input !== "string") return null;
-  const normalized = input.trim().toLowerCase();
+  const trimmed = input.trim();
+  if (!trimmed || trimmed.length > MAX_APP_LANGUAGE_INPUT_LENGTH) return null;
+  const normalized = trimmed.toLowerCase();
   return LANGUAGE_ALIASES[normalized] ?? null;
 }
 

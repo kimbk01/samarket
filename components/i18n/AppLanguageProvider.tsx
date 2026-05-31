@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -25,11 +26,9 @@ import {
   type StoredPreferredLanguage,
 } from "@/lib/i18n/config";
 import {
-  getStoredLanguagePreference,
   persistExplicitLanguage,
-  readGuestExplicitAppLanguage,
-  readLoggedInExplicitAppLanguage,
-  resolveClientAppLanguageCode,
+  resolveClientLanguagePresentation,
+  type ClientLanguagePresentation,
 } from "@/lib/i18n/language-preference";
 import { translateText, type MessageKey } from "@/lib/i18n/messages";
 import { safeTranslate, type SafeTranslateOptions } from "@/lib/i18n/safe-translate";
@@ -49,30 +48,14 @@ type AppLanguageContextValue = {
 
 const AppLanguageContext = createContext<AppLanguageContextValue | null>(null);
 
-function readLoggedInExplicitLanguage(userId: string): AppLanguageCode | null {
-  return readLoggedInExplicitAppLanguage(
-    peekUserSettingsSnapshot(userId).preferred_language
-  );
-}
-
-function resolveClientAppLanguage(): AppLanguageCode {
-  if (typeof window === "undefined") return FALLBACK_APP_LANGUAGE;
+function resolvePresentationForCurrentUser(
+  cachedPreferredLanguage?: unknown
+): ClientLanguagePresentation {
   const userId = getCurrentUser()?.id;
-  return resolveClientAppLanguageCode({
+  return resolveClientLanguagePresentation({
     isLoggedIn: Boolean(userId),
-    cachedPreferredLanguage: userId
-      ? peekUserSettingsSnapshot(userId).preferred_language
-      : undefined,
+    cachedPreferredLanguage: userId ? cachedPreferredLanguage : undefined,
   });
-}
-
-function resolveClientStoredPreference(): StoredPreferredLanguage {
-  if (typeof window === "undefined") return null;
-  const userId = getCurrentUser()?.id;
-  if (userId) {
-    return getStoredLanguagePreference(peekUserSettingsSnapshot(userId).preferred_language);
-  }
-  return readGuestExplicitAppLanguage();
 }
 
 function emitLanguageChanged(language: AppLanguageCode): void {
@@ -101,16 +84,27 @@ export function AppLanguageProvider({
    */
   setRuntimeAppLanguage(language);
   const [languagePreference, setLanguagePreferenceState] = useState<StoredPreferredLanguage>(null);
+  const lastAppliedRef = useRef<ClientLanguagePresentation | null>(null);
 
-  const applyResolvedLanguage = useCallback(
-    (preference: StoredPreferredLanguage, resolved: AppLanguageCode) => {
-      setLanguagePreferenceState(preference);
-      setLanguageState(resolved);
-      setRuntimeAppLanguage(resolved);
-      emitLanguageChanged(resolved);
-    },
-    []
-  );
+  const applyPresentation = useCallback((presentation: ClientLanguagePresentation) => {
+    const last = lastAppliedRef.current;
+    if (
+      last &&
+      last.preference === presentation.preference &&
+      last.resolved === presentation.resolved
+    ) {
+      return;
+    }
+    lastAppliedRef.current = presentation;
+
+    if (presentation.preference) {
+      persistExplicitLanguage(presentation.resolved);
+    }
+    setLanguagePreferenceState(presentation.preference);
+    setLanguageState(presentation.resolved);
+    setRuntimeAppLanguage(presentation.resolved);
+    emitLanguageChanged(presentation.resolved);
+  }, []);
 
   const setLanguage = useCallback(
     (next: AppLanguageCode) => {
@@ -122,50 +116,39 @@ export function AppLanguageProvider({
       if (userId) {
         updateUserSettings(userId, { preferred_language: explicit });
       }
-      applyResolvedLanguage(explicit, explicit);
+      applyPresentation({ preference: explicit, resolved: explicit });
     },
-    [applyResolvedLanguage]
+    [applyPresentation]
   );
 
   useEffect(() => {
     let cancelled = false;
+    const userId = getCurrentUser()?.id;
+    const cachedPreferredLanguage = userId
+      ? peekUserSettingsSnapshot(userId).preferred_language
+      : undefined;
 
-    const applyFromResolved = () => {
-      const resolved = resolveClientAppLanguage();
-      setLanguageState((prev) => (prev === resolved ? prev : resolved));
-      setLanguagePreferenceState(resolveClientStoredPreference());
-    };
-
-    applyFromResolved();
+    applyPresentation(
+      resolveClientLanguagePresentation({
+        isLoggedIn: Boolean(userId),
+        cachedPreferredLanguage,
+      })
+    );
 
     async function syncSettingsLanguage() {
-      const userId = getCurrentUser()?.id;
-      if (!userId) return;
+      const syncUserId = getCurrentUser()?.id;
+      if (!syncUserId) return;
 
-      const localExplicit = readLoggedInExplicitLanguage(userId);
-
-      const remoteSettings = await syncUserSettings(userId).catch(() => null);
+      await syncUserSettings(syncUserId).catch(() => null);
       if (cancelled) return;
 
-      const remoteExplicit = parseExplicitAppLanguage(remoteSettings?.preferred_language);
-
-      if (remoteExplicit) {
-        persistExplicitLanguage(remoteExplicit);
-        applyResolvedLanguage(remoteExplicit, remoteExplicit);
-        return;
-      }
-
-      if (localExplicit) {
-        persistExplicitLanguage(localExplicit);
-        applyResolvedLanguage(localExplicit, localExplicit);
-        return;
-      }
-
-      const resolved = resolveClientAppLanguageCode({
-        isLoggedIn: true,
-        cachedPreferredLanguage: null,
-      });
-      applyResolvedLanguage(null, resolved);
+      const snapshot = peekUserSettingsSnapshot(syncUserId);
+      applyPresentation(
+        resolveClientLanguagePresentation({
+          isLoggedIn: true,
+          cachedPreferredLanguage: snapshot.preferred_language,
+        })
+      );
     }
 
     void syncSettingsLanguage();
@@ -175,56 +158,42 @@ export function AppLanguageProvider({
         (event as CustomEvent<AppLanguageCode | undefined>).detail
       );
       if (next) {
-        setLanguageState(next);
-        setRuntimeAppLanguage(next);
+        applyPresentation({ preference: next, resolved: next });
         return;
       }
-      const resolved = resolveClientAppLanguage();
-      setLanguageState(resolved);
-      setRuntimeAppLanguage(resolved);
+      applyPresentation(
+        resolvePresentationForCurrentUser(
+          getCurrentUser()?.id
+            ? peekUserSettingsSnapshot(getCurrentUser()!.id).preferred_language
+            : undefined
+        )
+      );
     };
 
     const onStorage = (event: StorageEvent) => {
       if (event.key !== APP_LANGUAGE_STORAGE_KEY) return;
-      const explicit = parseExplicitAppLanguage(event.newValue);
-      if (explicit) {
-        setLanguageState(explicit);
-        setRuntimeAppLanguage(explicit);
-        return;
-      }
-      const resolved = resolveClientAppLanguage();
-      setLanguageState(resolved);
-      setRuntimeAppLanguage(resolved);
+      applyPresentation(
+        resolvePresentationForCurrentUser(
+          getCurrentUser()?.id
+            ? peekUserSettingsSnapshot(getCurrentUser()!.id).preferred_language
+            : undefined
+        )
+      );
     };
 
     window.addEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
     window.addEventListener("storage", onStorage);
     const unsubscribeSettings = subscribeUserSettings(({ userId, settings }) => {
       if (userId !== getCurrentUser()?.id) return;
-      const stored = getStoredLanguagePreference(settings.preferred_language);
-      const explicit = parseExplicitAppLanguage(settings.preferred_language);
-      if (explicit) {
-        persistExplicitLanguage(explicit);
-        setLanguagePreferenceState(explicit);
-        setLanguageState(explicit);
-        setRuntimeAppLanguage(explicit);
-        return;
-      }
-      const localExplicit = readLoggedInExplicitLanguage(userId);
-      if (localExplicit) {
-        persistExplicitLanguage(localExplicit);
-        setLanguagePreferenceState(localExplicit);
-        setLanguageState(localExplicit);
-        setRuntimeAppLanguage(localExplicit);
-        return;
-      }
-      const resolved = resolveClientAppLanguageCode({
+      const presentation = resolveClientLanguagePresentation({
         isLoggedIn: true,
         cachedPreferredLanguage: settings.preferred_language,
       });
-      setLanguagePreferenceState(stored);
-      setLanguageState(resolved);
-      setRuntimeAppLanguage(resolved);
+      const settingsExplicit = parseExplicitAppLanguage(settings.preferred_language);
+      if (presentation.preference != null && presentation.preference !== settingsExplicit) {
+        updateUserSettings(userId, { preferred_language: presentation.preference });
+      }
+      applyPresentation(presentation);
     });
 
     return () => {
@@ -233,7 +202,7 @@ export function AppLanguageProvider({
       window.removeEventListener("storage", onStorage);
       unsubscribeSettings();
     };
-  }, [applyResolvedLanguage]);
+  }, [applyPresentation]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;

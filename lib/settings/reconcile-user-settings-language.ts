@@ -3,27 +3,41 @@ import {
   type AppLanguageCode,
   type StoredPreferredLanguage,
 } from "@/lib/i18n/config";
+import { readExplicitLocalLanguage } from "@/lib/i18n/language-preference";
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 
 /**
- * GET /api/me/settings 응답 병합 — 서버가 null(기기 언어)인데 로컬에 명시 ko/en 이 있으면
- * PATCH 완료 전 원격 sync 가 선택을 지우지 않도록 유지한다.
+ * GET /api/me/settings 응답 병합.
+ * - 서버 null + 로컬 명시 ko/en → 로컬 유지·업로드
+ * - 서버·로컬 모두 명시인데 다르면 **로컬(내정보·setLanguage 직후)** 우선·업로드
  */
 export function reconcilePreferredLanguageOnRemoteSync(input: {
   remotePreferredLanguage: unknown;
   localPreferredLanguage: unknown;
+  /** `samarket_app_language` — kasama_user_settings 캐시보다 우선 */
+  persistedAppLanguage?: unknown;
 }): {
   preferredLanguage: StoredPreferredLanguage;
   shouldUploadToServer: AppLanguageCode | null;
 } {
   const remoteExplicit = parseExplicitAppLanguage(input.remotePreferredLanguage);
-  if (remoteExplicit) {
-    return { preferredLanguage: remoteExplicit, shouldUploadToServer: null };
+  const localExplicit =
+    parseExplicitAppLanguage(input.persistedAppLanguage) ??
+    parseExplicitAppLanguage(input.localPreferredLanguage);
+
+  if (localExplicit && remoteExplicit) {
+    if (localExplicit === remoteExplicit) {
+      return { preferredLanguage: localExplicit, shouldUploadToServer: null };
+    }
+    return { preferredLanguage: localExplicit, shouldUploadToServer: localExplicit };
   }
 
-  const localExplicit = parseExplicitAppLanguage(input.localPreferredLanguage);
   if (localExplicit) {
     return { preferredLanguage: localExplicit, shouldUploadToServer: localExplicit };
+  }
+
+  if (remoteExplicit) {
+    return { preferredLanguage: remoteExplicit, shouldUploadToServer: null };
   }
 
   return { preferredLanguage: null, shouldUploadToServer: null };
@@ -37,6 +51,7 @@ export function mergeUserSettingsPreferredLanguage(
   const { preferredLanguage, shouldUploadToServer } = reconcilePreferredLanguageOnRemoteSync({
     remotePreferredLanguage: remote.preferred_language,
     localPreferredLanguage: local.preferred_language,
+    persistedAppLanguage: readExplicitLocalLanguage(),
   });
   return {
     settings: {

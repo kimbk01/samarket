@@ -5,13 +5,32 @@ import {
 } from "@/lib/settings/reconcile-user-settings-language";
 
 describe("reconcilePreferredLanguageOnRemoteSync", () => {
-  it("keeps remote explicit ko/en", () => {
+  it("matches when remote and local agree", () => {
     expect(
       reconcilePreferredLanguageOnRemoteSync({
         remotePreferredLanguage: "en",
-        localPreferredLanguage: "ko",
+        localPreferredLanguage: "en",
       })
     ).toEqual({ preferredLanguage: "en", shouldUploadToServer: null });
+  });
+
+  it("prefers local explicit when remote differs (same-device user choice)", () => {
+    expect(
+      reconcilePreferredLanguageOnRemoteSync({
+        remotePreferredLanguage: "ko",
+        localPreferredLanguage: "en",
+      })
+    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: "en" });
+  });
+
+  it("prefers persistedAppLanguage over stale kasama cache", () => {
+    expect(
+      reconcilePreferredLanguageOnRemoteSync({
+        remotePreferredLanguage: "ko",
+        localPreferredLanguage: "ko",
+        persistedAppLanguage: "en",
+      })
+    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: "en" });
   });
 
   it("keeps local explicit when remote is null", () => {
@@ -21,6 +40,25 @@ describe("reconcilePreferredLanguageOnRemoteSync", () => {
         localPreferredLanguage: "ko",
       })
     ).toEqual({ preferredLanguage: "ko", shouldUploadToServer: "ko" });
+  });
+
+  it("uses remote when local has no explicit language", () => {
+    expect(
+      reconcilePreferredLanguageOnRemoteSync({
+        remotePreferredLanguage: "en",
+        localPreferredLanguage: null,
+      })
+    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: null });
+  });
+
+  it("uploads local explicit when remote is null", () => {
+    expect(
+      reconcilePreferredLanguageOnRemoteSync({
+        remotePreferredLanguage: null,
+        localPreferredLanguage: null,
+        persistedAppLanguage: "en",
+      })
+    ).toEqual({ preferredLanguage: "en", shouldUploadToServer: "en" });
   });
 
   it("returns null when neither side has explicit language", () => {
@@ -46,13 +84,13 @@ describe("mergeUserSettingsPreferredLanguage", () => {
     expect(shouldUploadToServer).toBe("en");
   });
 
-  it("remote explicit wins over stale local", () => {
+  it("local explicit wins over stale remote on conflict", () => {
     const { settings, shouldUploadToServer } = mergeUserSettingsPreferredLanguage(
       "user-1",
       { preferred_language: "ko" },
       { preferred_language: "en" }
     );
-    expect(settings.preferred_language).toBe("ko");
-    expect(shouldUploadToServer).toBeNull();
+    expect(settings.preferred_language).toBe("en");
+    expect(shouldUploadToServer).toBe("en");
   });
 });

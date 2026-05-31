@@ -3,8 +3,9 @@
  * product UI 컴포넌트는 `useI18n()` / `runtime-app-language` 만 사용한다.
  *
  * DIBAY 우선순위 (클라이언트):
- * - 로그인: user_settings → localStorage → cookie → device 1회 seed → en
+ * - 로그인: localStorage(`samarket_app_language`) → cookie → user_settings 캐시 → device 1회 seed → en
  * - 비로그인: localStorage → cookie → device 1회 seed → en
+ * - 내정보에서 명시 변경 직후 PATCH·원격 sync 전에도 localStorage가 stale server/kasama 캐시를 덮지 않게 한다.
  * - 로그아웃 시 `clearLanguagePersistence` 호출 금지 (세션만 종료)
  */
 import {
@@ -12,6 +13,7 @@ import {
   APP_LANGUAGE_DEVICE_SEEDED_KEY,
   APP_LANGUAGE_STORAGE_KEY,
   FALLBACK_APP_LANGUAGE,
+  MAX_APP_LANGUAGE_INPUT_LENGTH,
   getBrowserLanguage,
   isSystemLanguagePreference,
   parseExplicitAppLanguage,
@@ -22,6 +24,40 @@ import {
 } from "@/lib/i18n/config";
 
 export type { StoredPreferredLanguage };
+
+/** Provider·내정보 토글 — preference(null=기기) + 실제 UI 언어 */
+export type ClientLanguagePresentation = {
+  preference: StoredPreferredLanguage;
+  resolved: AppLanguageCode;
+};
+
+function safeLocalStorageGet(key: string): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function safeLocalStorageSet(key: string, value: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeLocalStorageRemove(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    /* private mode · quota */
+  }
+}
 
 /** @deprecated `getStoredLanguagePreference` */
 export function parseLanguagePreference(input: unknown): StoredPreferredLanguage {
@@ -40,13 +76,18 @@ export function readExplicitLanguageCookie(): AppLanguageCode | null {
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${APP_LANGUAGE_COOKIE}=`));
   if (!raw) return null;
-  const value = decodeURIComponent(raw.slice(APP_LANGUAGE_COOKIE.length + 1));
-  return parseExplicitAppLanguage(value);
+  const encoded = raw.slice(APP_LANGUAGE_COOKIE.length + 1);
+  if (!encoded || encoded.length > MAX_APP_LANGUAGE_INPUT_LENGTH * 4) return null;
+  try {
+    const value = decodeURIComponent(encoded);
+    return parseExplicitAppLanguage(value);
+  } catch {
+    return null;
+  }
 }
 
 export function readExplicitLocalLanguage(): AppLanguageCode | null {
-  if (typeof window === "undefined") return null;
-  return parseExplicitAppLanguage(window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY));
+  return parseExplicitAppLanguage(safeLocalStorageGet(APP_LANGUAGE_STORAGE_KEY));
 }
 
 /** 비로그인 explicit: localStorage → cookie */
@@ -54,11 +95,14 @@ export function readGuestExplicitAppLanguage(): AppLanguageCode | null {
   return readExplicitLocalLanguage() ?? readExplicitLanguageCookie() ?? null;
 }
 
-/** 로그인 explicit: user_settings(DB/캐시) → localStorage → cookie */
+/** 로그인 explicit: localStorage → cookie → user_settings(DB/캐시) */
 export function readLoggedInExplicitAppLanguage(cachedPreferredLanguage?: unknown): AppLanguageCode | null {
-  const fromSettings = parseExplicitAppLanguage(cachedPreferredLanguage);
-  if (fromSettings) return fromSettings;
-  return readExplicitLocalLanguage() ?? readExplicitLanguageCookie() ?? null;
+  return (
+    readExplicitLocalLanguage() ??
+    readExplicitLanguageCookie() ??
+    parseExplicitAppLanguage(cachedPreferredLanguage) ??
+    null
+  );
 }
 
 /**
@@ -69,11 +113,11 @@ export function readLoggedInExplicitAppLanguage(cachedPreferredLanguage?: unknow
 export function resolveImplicitAppLanguage(): AppLanguageCode {
   if (typeof window === "undefined") return FALLBACK_APP_LANGUAGE;
   try {
-    if (window.localStorage.getItem(APP_LANGUAGE_DEVICE_SEEDED_KEY) === "1") {
+    if (safeLocalStorageGet(APP_LANGUAGE_DEVICE_SEEDED_KEY) === "1") {
       return FALLBACK_APP_LANGUAGE;
     }
     const detected = getBrowserLanguage();
-    window.localStorage.setItem(APP_LANGUAGE_DEVICE_SEEDED_KEY, "1");
+    safeLocalStorageSet(APP_LANGUAGE_DEVICE_SEEDED_KEY, "1");
     persistExplicitLanguage(detected);
     return detected;
   } catch {
@@ -81,29 +125,50 @@ export function resolveImplicitAppLanguage(): AppLanguageCode {
   }
 }
 
-/** 클라이언트 앱 UI 언어 — 로그인/비로그인 우선순위 단일 진입 */
+/**
+ * 클라이언트 UI 언어 + preference(내정보 토글) — 단일 진입.
+ * 명시 ko/en → preference·resolved 동일. 없으면 preference null + 기기/seed.
+ */
+export function resolveClientLanguagePresentation(options: {
+  isLoggedIn: boolean;
+  cachedPreferredLanguage?: unknown;
+}): ClientLanguagePresentation {
+  const explicit = options.isLoggedIn
+    ? readLoggedInExplicitAppLanguage(options.cachedPreferredLanguage)
+    : readGuestExplicitAppLanguage();
+  if (explicit) {
+    return { preference: explicit, resolved: explicit };
+  }
+  return { preference: null, resolved: resolveImplicitAppLanguage() };
+}
+
+/** @deprecated `resolveClientLanguagePresentation().resolved` */
 export function resolveClientAppLanguageCode(options: {
   isLoggedIn: boolean;
   cachedPreferredLanguage?: unknown;
 }): AppLanguageCode {
-  const explicit = options.isLoggedIn
-    ? readLoggedInExplicitAppLanguage(options.cachedPreferredLanguage)
-    : readGuestExplicitAppLanguage();
-  if (explicit) return explicit;
-  return resolveImplicitAppLanguage();
+  return resolveClientLanguagePresentation(options).resolved;
 }
 
 export function clearLanguagePersistence(): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(APP_LANGUAGE_STORAGE_KEY);
-  document.cookie = `${APP_LANGUAGE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  safeLocalStorageRemove(APP_LANGUAGE_STORAGE_KEY);
+  try {
+    document.cookie = `${APP_LANGUAGE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
 }
 
 export function persistExplicitLanguage(language: AppLanguageCode): void {
   if (typeof window === "undefined") return;
   const resolved = parseExplicitAppLanguage(language) ?? FALLBACK_APP_LANGUAGE;
-  window.localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, resolved);
-  document.cookie = `${APP_LANGUAGE_COOKIE}=${encodeURIComponent(resolved)}; path=/; max-age=31536000; SameSite=Lax`;
+  safeLocalStorageSet(APP_LANGUAGE_STORAGE_KEY, resolved);
+  try {
+    document.cookie = `${APP_LANGUAGE_COOKIE}=${encodeURIComponent(resolved)}; path=/; max-age=31536000; SameSite=Lax`;
+  } catch {
+    /* ignore */
+  }
 }
 
 /**

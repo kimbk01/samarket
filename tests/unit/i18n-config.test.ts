@@ -15,8 +15,10 @@ import {
 import {
   detectAcceptLanguageAppLanguage,
   readClientExplicitAppLanguage,
+  readExplicitLanguageCookie,
   readGuestExplicitAppLanguage,
   readLoggedInExplicitAppLanguage,
+  resolveClientLanguagePresentation,
   resolveGuestAppLanguageCode,
   resolveImplicitAppLanguage,
 } from "@/lib/i18n/language-preference";
@@ -61,6 +63,16 @@ describe("parseExplicitAppLanguage", () => {
     expect(parseExplicitAppLanguage("ja")).toBeNull();
     expect(parseExplicitAppLanguage("zh")).toBeNull();
   });
+
+  it("rejects oversized input", () => {
+    expect(parseExplicitAppLanguage("en")).toBe("en");
+    expect(parseExplicitAppLanguage("x".repeat(33))).toBeNull();
+  });
+
+  it("rejects unsupported language codes", () => {
+    expect(parseExplicitAppLanguage("fr")).toBeNull();
+    expect(parseExplicitAppLanguage("javascript:alert(1)")).toBeNull();
+  });
 });
 
 describe("stored preferred language (null = device)", () => {
@@ -90,14 +102,44 @@ describe("getBrowserLanguage", () => {
   });
 });
 
+describe("resolveClientLanguagePresentation", () => {
+  it("returns explicit preference when localStorage is set", () => {
+    const storage = { [APP_LANGUAGE_STORAGE_KEY]: "en" };
+    vi.stubGlobal("window", { localStorage: { getItem: (key: string) => storage[key as keyof typeof storage] ?? null } });
+    vi.stubGlobal("document", { cookie: "" });
+
+    expect(
+      resolveClientLanguagePresentation({ isLoggedIn: true, cachedPreferredLanguage: "ko" })
+    ).toEqual({ preference: "en", resolved: "en" });
+    vi.unstubAllGlobals();
+  });
+});
+
 describe("readLoggedInExplicitAppLanguage", () => {
-  it("prefers user_settings (cached) over localStorage", () => {
-    const storage = { [APP_LANGUAGE_STORAGE_KEY]: "ko" };
+  it("prefers localStorage over user_settings cache", () => {
+    const storage = { [APP_LANGUAGE_STORAGE_KEY]: "en" };
     const getItem = (key: string) => storage[key as keyof typeof storage] ?? null;
     vi.stubGlobal("window", { localStorage: { getItem } });
     vi.stubGlobal("document", { cookie: "" });
 
+    expect(readLoggedInExplicitAppLanguage("ko")).toBe("en");
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to user_settings when localStorage is empty", () => {
+    vi.stubGlobal("window", { localStorage: { getItem: () => null } });
+    vi.stubGlobal("document", { cookie: "" });
+
     expect(readLoggedInExplicitAppLanguage("en")).toBe("en");
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("readExplicitLanguageCookie", () => {
+  it("ignores malformed cookie values", () => {
+    vi.stubGlobal("window", { localStorage: { getItem: () => null } });
+    vi.stubGlobal("document", { cookie: "samarket_signup_locale=%E0%A4%A" });
+    expect(readExplicitLanguageCookie()).toBeNull();
     vi.unstubAllGlobals();
   });
 });
