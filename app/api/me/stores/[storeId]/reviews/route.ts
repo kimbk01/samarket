@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-order-review-meta";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
 
@@ -11,8 +12,32 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function resolveOwnerStoreOrderRow(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  storeId: string,
+  orderIdOrNo: string
+) {
+  const byId = await sb
+    .from("store_orders")
+    .select("id, order_status")
+    .eq("id", orderIdOrNo)
+    .eq("store_id", storeId)
+    .maybeSingle();
+  if (byId.error) return { order: null as null, error: byId.error };
+  if (byId.data) return { order: byId.data, error: null };
+
+  const byNo = await sb
+    .from("store_orders")
+    .select("id, order_status")
+    .eq("order_no", orderIdOrNo)
+    .eq("store_id", storeId)
+    .maybeSingle();
+  if (byNo.error) return { order: null as null, error: byNo.error };
+  return { order: byNo.data, error: null };
+}
+
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -34,6 +59,44 @@ export async function GET(
   const gate = await getStoreIfOwner(sb, userId, id);
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
+  }
+
+  const orderId = req.nextUrl.searchParams.get("order_id")?.trim() ?? "";
+  if (orderId) {
+    const { order, error: orderErr } = await resolveOwnerStoreOrderRow(sb, id, orderId);
+    if (orderErr) {
+      return NextResponse.json({ ok: false, error: orderErr.message ?? "order_lookup_failed" }, { status: 500 });
+    }
+    if (!order) {
+      return NextResponse.json({ ok: false, error: "order_not_found" }, { status: 404 });
+    }
+
+    if (String(order.order_status ?? "") !== "completed") {
+      return NextResponse.json({
+        ok: true,
+        review_status: "not_applicable" as const,
+        review: null,
+      });
+    }
+
+    const oid = String(order.id ?? "").trim();
+    const { review, revErr } = await loadOwnerStoreOrderReviewForOrder(sb, oid);
+    if (revErr) {
+      if (revErr.message?.includes("store_reviews") && revErr.message.includes("does not exist")) {
+        return NextResponse.json({
+          ok: true,
+          review_status: "unavailable" as const,
+          review: null,
+        });
+      }
+      console.error("[GET owner store review by order_id]", revErr);
+    }
+
+    return NextResponse.json({
+      ok: true,
+      review_status: review ? ("completed" as const) : ("pending" as const),
+      review,
+    });
   }
 
   const { data: rows, error } = await sb

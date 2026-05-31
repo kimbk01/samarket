@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { OwnerStoreOrderReviewDetail } from "@/lib/stores/owner-store-order-review-meta";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { StoreReviewThumbIcon } from "@/components/stores/review/StoreReviewThumbIcon";
 
 function StarRatingRow({
@@ -26,78 +25,47 @@ function StarRatingRow({
 
 type Props = {
   storeId: string;
-  orderId: string;
   reviewStatus: string | null | undefined;
   enabled: boolean;
-  onReviewLoaded?: (review: OwnerStoreOrderReviewDetail | null) => void;
+  review: OwnerStoreOrderReviewDetail | null;
+  loading: boolean;
+  loadErr: string | null;
+  onReviewChange?: Dispatch<SetStateAction<OwnerStoreOrderReviewDetail | null>>;
 };
 
 export function OwnerStoreOrderReviewBlock({
   storeId,
-  orderId,
   reviewStatus,
   enabled,
-  onReviewLoaded,
+  review,
+  loading,
+  loadErr,
+  onReviewChange,
 }: Props) {
   const { t, language } = useI18n();
-  const [review, setReview] = useState<OwnerStoreOrderReviewDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
+  const [replyErr, setReplyErr] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async () => {
-    const sid = storeId.trim();
-    const oid = orderId.trim();
-    if (!sid || !oid) return;
-    setLoading(true);
-    setErr(null);
-    try {
-      const res = await runSingleFlight(`owner:order-review:${sid}:${oid}`, () =>
-        fetch(`/api/me/stores/${encodeURIComponent(sid)}/orders/${encodeURIComponent(oid)}/review`, {
-          credentials: "include",
-          cache: "no-store",
-        })
-      );
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        review?: OwnerStoreOrderReviewDetail | null;
-      };
-      if (!res.ok || !j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : "load_failed");
-        setReview(null);
-        onReviewLoaded?.(null);
-        return;
-      }
-      const next = j.review ?? null;
-      setReview(next);
-      setDraft(next?.owner_reply_content ?? "");
-      onReviewLoaded?.(next);
-    } catch {
-      setErr("network_error");
-      setReview(null);
-      onReviewLoaded?.(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [onReviewLoaded, orderId, storeId]);
-
   useEffect(() => {
-    if (!enabled) {
-      setReview(null);
-      setDraft("");
-      setErr(null);
-      onReviewLoaded?.(null);
-      return;
-    }
-    if (reviewStatus === "not_applicable" || reviewStatus === "unavailable") {
-      setReview(null);
-      onReviewLoaded?.(null);
-      return;
-    }
-    void load();
-  }, [enabled, load, onReviewLoaded, reviewStatus]);
+    setDraft(review?.owner_reply_content ?? "");
+  }, [review?.id, review?.owner_reply_content]);
+
+  const applyReplyLocally = useCallback(
+    (reply: string | null) => {
+      onReviewChange?.((prev) => {
+        if (!prev) return prev;
+        const trimmed = reply?.trim() ?? "";
+        return {
+          ...prev,
+          owner_reply_content: trimmed || null,
+          owner_reply_created_at: trimmed ? prev.owner_reply_created_at || new Date().toISOString() : null,
+        };
+      });
+      setDraft(reply ?? "");
+    },
+    [onReviewChange]
+  );
 
   const saveReply = useCallback(async () => {
     const sid = storeId.trim();
@@ -105,7 +73,7 @@ export function OwnerStoreOrderReviewBlock({
     const reply = draft.trim();
     if (!sid || !rid || !reply) return;
     setBusy(true);
-    setErr(null);
+    setReplyErr(null);
     try {
       const res = await fetch(
         `/api/me/stores/${encodeURIComponent(sid)}/reviews/${encodeURIComponent(rid)}/reply`,
@@ -118,23 +86,23 @@ export function OwnerStoreOrderReviewBlock({
       );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : "reply_failed");
+        setReplyErr(typeof j?.error === "string" ? j.error : "reply_failed");
         return;
       }
-      await load();
+      applyReplyLocally(reply);
     } catch {
-      setErr("network_error");
+      setReplyErr("network_error");
     } finally {
       setBusy(false);
     }
-  }, [draft, load, review?.id, storeId]);
+  }, [applyReplyLocally, draft, review?.id, storeId]);
 
   const deleteReply = useCallback(async () => {
     const sid = storeId.trim();
     const rid = review?.id?.trim();
     if (!sid || !rid) return;
     setBusy(true);
-    setErr(null);
+    setReplyErr(null);
     try {
       const res = await fetch(
         `/api/me/stores/${encodeURIComponent(sid)}/reviews/${encodeURIComponent(rid)}/reply`,
@@ -147,17 +115,16 @@ export function OwnerStoreOrderReviewBlock({
       );
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j?.ok) {
-        setErr(typeof j?.error === "string" ? j.error : "delete_reply_failed");
+        setReplyErr(typeof j?.error === "string" ? j.error : "delete_reply_failed");
         return;
       }
-      setDraft("");
-      await load();
+      applyReplyLocally(null);
     } catch {
-      setErr("network_error");
+      setReplyErr("network_error");
     } finally {
       setBusy(false);
     }
-  }, [load, review?.id, storeId]);
+  }, [applyReplyLocally, review?.id, storeId]);
 
   if (!enabled || reviewStatus === "not_applicable") return null;
 
@@ -171,6 +138,14 @@ export function OwnerStoreOrderReviewBlock({
     );
   }
 
+  if (reviewStatus === "pending") {
+    return (
+      <OwnerReviewShell>
+        <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("store_owner_order_review_pending")}</p>
+      </OwnerReviewShell>
+    );
+  }
+
   if (loading && !review) {
     return (
       <OwnerReviewShell>
@@ -179,23 +154,20 @@ export function OwnerStoreOrderReviewBlock({
     );
   }
 
-  if (err && !review) {
+  if (!review) {
+    if (loadErr) {
+      return (
+        <OwnerReviewShell>
+          <p className="text-[12px] text-red-700">{resolveOwnerApiErrorMessage(loadErr, t)}</p>
+        </OwnerReviewShell>
+      );
+    }
     return (
       <OwnerReviewShell>
-        <p className="text-[12px] text-red-700">{resolveOwnerApiErrorMessage(err, t)}</p>
+        <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("store_owner_order_review_empty")}</p>
       </OwnerReviewShell>
     );
   }
-
-  if (reviewStatus === "pending" && !review) {
-    return (
-      <OwnerReviewShell>
-        <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("store_owner_order_review_pending")}</p>
-      </OwnerReviewShell>
-    );
-  }
-
-  if (!review) return null;
 
   return (
     <OwnerReviewShell>
@@ -223,13 +195,13 @@ export function OwnerStoreOrderReviewBlock({
           <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--biz-text)]">{review.content}</p>
         ) : null}
 
-        {review.image_urls.length > 0 ? (
+        {review.image_urls?.length ? (
           <div className="flex flex-wrap gap-1.5">
             {review.image_urls.map((src) => (
               <SamarketThumbnail
                 key={src}
                 src={src}
-                alt=""
+                alt={t("store_owner_order_review_photo_alt")}
                 size={64}
                 className="h-16 w-16 shrink-0"
                 roundedClassName="rounded-[4px]"
@@ -275,11 +247,10 @@ export function OwnerStoreOrderReviewBlock({
             {new Date(review.owner_reply_created_at).toLocaleString(dateLocale)}
           </p>
         ) : null}
+        {replyErr ? (
+          <p className="mt-2 text-[12px] text-red-700">{resolveOwnerApiErrorMessage(replyErr, t)}</p>
+        ) : null}
       </div>
-
-      {err ? (
-        <p className="mt-2 text-[12px] text-red-700">{resolveOwnerApiErrorMessage(err, t)}</p>
-      ) : null}
     </OwnerReviewShell>
   );
 }

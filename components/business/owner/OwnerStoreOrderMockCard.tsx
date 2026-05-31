@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
@@ -40,7 +40,7 @@ import {
   OwnerOrderItemFeedbackBadge,
   OwnerStoreOrderReviewBlock,
 } from "@/components/business/owner/OwnerStoreOrderReviewBlock";
-import type { OwnerStoreOrderReviewDetail } from "@/lib/stores/owner-store-order-review-meta";
+import { useOwnerStoreOrderReviewLoad } from "@/components/business/owner/use-owner-store-order-review-load";
 
 const FULFILL_LABEL_KEYS = {
   pickup: "store_owner_fulfillment_pickup_short",
@@ -109,16 +109,23 @@ export function OwnerStoreOrderMockCard({
   const [err, setErr] = useState<string | null>(null);
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
-  const [orderReview, setOrderReview] = useState<OwnerStoreOrderReviewDetail | null>(null);
 
   const showReviewSection =
     isExpanded &&
     order.order_status === "completed" &&
     order.review_status !== "not_applicable";
 
-  useEffect(() => {
-    if (!isExpanded) setOrderReview(null);
-  }, [isExpanded]);
+  const {
+    review: orderReview,
+    loading: reviewLoading,
+    loadErr: reviewLoadErr,
+    setReview: setOrderReview,
+  } = useOwnerStoreOrderReviewLoad({
+    storeId,
+    orderId: order.id,
+    reviewStatus: order.review_status,
+    enabled: showReviewSection,
+  });
 
   const runPatch = useCallback(
     async (nextStatus: string, estimatedPrepMinutes?: number) => {
@@ -231,6 +238,15 @@ export function OwnerStoreOrderMockCard({
                 </span>
                 {elapsed ? (
                   <span className="text-[12px] font-medium leading-[1.35] text-[#6B7280]">{elapsed}</span>
+                ) : null}
+                {order.order_status === "completed" && order.review_status === "completed" ? (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-[4px] bg-amber-50 px-1.5 py-0.5 text-[11px] font-bold leading-[1.35] text-amber-800 ring-1 ring-amber-200"
+                    aria-label={t("store_owner_order_review_card_badge_aria")}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
+                    {t("store_owner_order_review_card_badge")}
+                  </span>
                 ) : null}
               </div>
               <p className="mt-2 text-[12px] font-semibold leading-[1.35] text-[#4B5B53]">{order.order_no}</p>
@@ -406,10 +422,12 @@ export function OwnerStoreOrderMockCard({
             {showReviewSection ? (
               <OwnerStoreOrderReviewBlock
                 storeId={storeId}
-                orderId={order.id}
                 reviewStatus={order.review_status}
                 enabled={showReviewSection}
-                onReviewLoaded={setOrderReview}
+                review={orderReview}
+                loading={reviewLoading}
+                loadErr={reviewLoadErr}
+                onReviewChange={setOrderReview}
               />
             ) : null}
 

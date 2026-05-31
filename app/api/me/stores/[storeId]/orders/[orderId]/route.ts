@@ -8,6 +8,7 @@ import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache"
 import { fetchOwnerStoreOrderDetailSnapshot } from "@/lib/stores/fetch-store-order-detail-snapshot-rpc";
 import { isValidOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
+import { loadOwnerStoreOrderReviewForOrder } from "@/lib/stores/owner-store-order-review-meta";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
@@ -87,6 +88,23 @@ async function loadOwnerOrderReviewStatus(
   return data?.id ? "completed" : "pending";
 }
 
+async function loadOwnerOrderReviewDetail(
+  sb: import("@supabase/supabase-js").SupabaseClient<any>,
+  orderId: string,
+  orderStatus: string,
+  reviewStatus: string
+) {
+  if (orderStatus !== "completed" || reviewStatus === "unavailable" || reviewStatus === "pending") {
+    return null;
+  }
+  const { review, revErr } = await loadOwnerStoreOrderReviewForOrder(sb, orderId);
+  if (revErr) {
+    console.error("[GET owner store-order review detail]", revErr);
+    return null;
+  }
+  return review;
+}
+
 /** 매장 오너: 단일 주문 + 라인 */
 export async function GET(
   _req: Request,
@@ -132,6 +150,12 @@ export async function GET(
         ? 1
         : 0;
     const order_chat_ready = room_id_exists === 1;
+    const review = await loadOwnerOrderReviewDetail(
+      sbAny,
+      oid,
+      String(order.order_status ?? ""),
+      snapshotGate.review_status
+    );
     const body = {
       ok: true as const,
       meta: {
@@ -144,6 +168,7 @@ export async function GET(
       },
       order: { ...order, review_status: snapshotGate.review_status, items: snapshotGate.items },
       delivery: snapshotGate.delivery,
+      review,
     };
     logStoreOrderDetailPerf({
       route: "owner_get",
@@ -219,7 +244,7 @@ export async function GET(
     .then((r) => ({ r, ms: Math.round(perfNowMs() - tItems0) }));
 
   const tReview0 = perfNowMs();
-  const reviewPromise = loadOwnerOrderReviewStatus(sbAny, oid, String(order.order_status ?? "")).then(
+  const reviewStatusPromise = loadOwnerOrderReviewStatus(sbAny, oid, String(order.order_status ?? "")).then(
     (r) => ({ r, ms: Math.round(perfNowMs() - tReview0) })
   );
   const tDelivery0 = perfNowMs();
@@ -229,7 +254,14 @@ export async function GET(
   }));
 
   const [{ r: itemsRes, ms: items_fetch_ms }, { r: reviewStatus, ms: review_meta_ms }, { r: deliverySnap, ms: delivery_snapshot_ms }] =
-    await Promise.all([itemsPromise, reviewPromise, deliveryPromise]);
+    await Promise.all([itemsPromise, reviewStatusPromise, deliveryPromise]);
+
+  const review = await loadOwnerOrderReviewDetail(
+    sbAny,
+    oid,
+    String(order.order_status ?? ""),
+    reviewStatus
+  );
 
   const { data: items, error: iErr } = itemsRes;
   if (iErr) {
@@ -251,6 +283,7 @@ export async function GET(
     },
     order: { ...order, review_status: reviewStatus, items: items ?? [] },
     delivery: deliverySnap.ok ? deliverySnap.delivery : null,
+    review,
   };
 
   logStoreOrderDetailPerf({

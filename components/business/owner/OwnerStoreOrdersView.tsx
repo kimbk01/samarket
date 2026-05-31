@@ -14,7 +14,7 @@ import {
   type SetStateAction,
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchOwnerStoreOrderDetailDeduped } from "@/lib/business/fetch-owner-store-order-detail";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { useOwnerStoreOrdersRealtime } from "@/hooks/stores/useOwnerStoreOrdersRealtime";
@@ -472,21 +472,13 @@ export function OwnerStoreOrdersView() {
     const oid = orderId.trim();
     const storeId = alertStoreIdRef.current;
     if (!oid || !storeId) return;
-    void runSingleFlight(`owner:store-order-enrich:${storeId}:${oid}`, async () => {
-        const res = await fetch(
-          `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(oid)}`,
-          { credentials: "include", cache: "no-store" }
-        );
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          order?: OrderRow;
-          delivery?: OrderRow["delivery"];
-        };
-        if (!json?.ok || !json.order) return;
+    void fetchOwnerStoreOrderDetailDeduped(storeId, oid).then((result) => {
+        if (!result.ok || !result.order) return;
+        const orderRow = result.order;
         const parsed = parseOwnerStoreOrderListRowFromApi({
-          ...json.order,
-          delivery: json.delivery ?? undefined,
-          buyer_public_label: json.order.buyer_public_label,
+          ...orderRow,
+          delivery: result.delivery ?? undefined,
+          buyer_public_label: orderRow.buyer_public_label,
         });
         if (!parsed) return;
         setState((cur) => {
@@ -494,7 +486,7 @@ export function OwnerStoreOrdersView() {
           const idx = cur.orders.findIndex((o) => o.id === oid);
           const merged: OrderRow = {
             ...parsed,
-            delivery: json.delivery ?? cur.orders[idx]?.delivery ?? null,
+            delivery: (result.delivery as OrderRow["delivery"]) ?? cur.orders[idx]?.delivery ?? null,
             buyer_public_label:
               cur.orders[idx]?.buyer_public_label ?? parsed.buyer_public_label,
             items:

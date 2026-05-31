@@ -3,11 +3,19 @@ import type { MessageKey } from "@/lib/i18n/messages";
 const KNOWN_CODES: Record<string, MessageKey> = {
   network_error: "common_network_error",
   load_failed: "business_phase7_353",
+  review_load_failed: "business_phase7_353",
   save_failed: "business_phase7_368",
   upload_failed: "business_phase7_440",
   reply_failed: "business_phase7_368",
   delete_reply_failed: "business_phase7_352",
   delete_failed: "business_phase7_352",
+  unauthorized: "common_login_required",
+  missing_ids: "store_owner_order_not_found",
+  order_not_found: "store_owner_order_not_found",
+  order_lookup_failed: "store_owner_order_not_found",
+  review_not_found: "store_owner_order_review_unavailable",
+  supabase_unconfigured: "common_content_unavailable",
+  table_missing: "store_owner_order_review_unavailable",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;
