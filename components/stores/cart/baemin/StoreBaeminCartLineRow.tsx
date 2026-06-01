@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import { commerceCartLineSubtotalPhp } from "@/lib/stores/store-commerce-cart-add-merge";
 import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
@@ -27,6 +28,7 @@ export function StoreBaeminCartLineRow({
   onDecrease: () => void;
   onIncrease: () => void;
 }) {
+  const { t } = useI18n();
   const mountedRef = useRef(false);
   const prevQtyRef = useRef(line.qty);
   const [newLineFlash, setNewLineFlash] = useState(true);
@@ -66,7 +68,7 @@ export function StoreBaeminCartLineRow({
         <div className="min-w-0 flex-1">
           <p className={`${BAEMIN_CART_TYPE.itemTitle} text-[color:var(--delivery-text-main)]`}>{line.title}</p>
           <p className={`mt-1 ${BAEMIN_CART_TYPE.priceMeta}`}>
-            {"\uac00\uaca9"} :{" "}
+            {t("store_product_price_label")}:{" "}
             {showListStrike ? (
               <>
                 <span className="text-[color:var(--delivery-text-muted)] line-through">{formatMoneyPhp(listU)}</span>{" "}
@@ -79,7 +81,7 @@ export function StoreBaeminCartLineRow({
           <p className={`mt-1 whitespace-pre-wrap ${BAEMIN_CART_TYPE.bodyMuted}`}>{optionsText}</p>
           {line.lineNote?.trim() ? (
             <p className="mt-1 text-[13px] leading-relaxed text-[color:var(--dibay-gold)]">
-              {"\uc694\uccad"}: {line.lineNote.trim()}
+              {t("store_cart_line_request", { note: line.lineNote.trim() })}
             </p>
           ) : null}
           <p className={`mt-2 ${BAEMIN_CART_TYPE.itemTotal} text-[color:var(--delivery-text-main)]`}>
@@ -101,7 +103,7 @@ export function StoreBaeminCartLineRow({
           onClick={onChangeOptions}
           className={`inline-flex items-center justify-center disabled:opacity-40 ${BAEMIN_CART_TYPE.btnOption}`}
         >
-          {"\uc635\uc158 \ubcc0\uacbd"}
+          {t("store_change_options")}
         </button>
         <div
           className={`flex items-stretch overflow-hidden rounded-[8px] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] ${BAEMIN_CART_TYPE.btnQty}`}
@@ -111,7 +113,7 @@ export function StoreBaeminCartLineRow({
             disabled={busy}
             onClick={showTrash ? onRemove : onDecrease}
             className="flex w-9 items-center justify-center text-[color:var(--delivery-text-sub)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30"
-            aria-label={showTrash ? deleteLabel : "\uc218\ub7c9 \uc904\uc774\uae30"}
+            aria-label={showTrash ? deleteLabel : t("store_qty_decrease_alt_aria")}
           >
             {showTrash ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -135,7 +137,7 @@ export function StoreBaeminCartLineRow({
             disabled={busy || line.qty >= line.maxOrderQty}
             onClick={onIncrease}
             className="flex w-9 items-center justify-center text-[18px] font-medium text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)] disabled:opacity-30"
-            aria-label={"\uc218\ub7c9 \ub298\ub9ac\uae30"}
+            aria-label={t("store_qty_increase_alt_aria")}
           >
             +
           </button>

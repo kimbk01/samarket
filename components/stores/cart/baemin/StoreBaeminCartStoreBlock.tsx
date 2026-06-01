@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import {
   BAEMIN_CART_CARD_CLASS,
@@ -41,6 +42,7 @@ export function StoreBaeminCartStoreBlock({
   onDecreaseQty: (line: StoreCommerceCartLine) => void;
   onIncreaseQty: (line: StoreCommerceCartLine) => void;
 }) {
+  const { t } = useI18n();
   const thumb = store.profile_image_url?.trim();
   const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
 
@@ -71,7 +73,7 @@ export function StoreBaeminCartStoreBlock({
           onClick={onRequestClear}
           className="shrink-0 text-[12px] font-medium text-[#999] underline-offset-2 hover:underline disabled:opacity-40"
         >
-          {"\ube44\uc6b0\uae30"}
+          {t("store_cart_clear_confirm")}
         </button>
       </div>
 
@@ -99,7 +101,7 @@ export function StoreBaeminCartStoreBlock({
         className="flex w-full items-center justify-center gap-1 py-3.5 text-[14px] font-semibold text-[#333] active:bg-[#FAFAFA] disabled:opacity-40"
       >
         <span className="text-[18px] leading-none">+</span>
-        {"\uba54\ub274 \ucd94\uac00"}
+        {t("store_cart_add_menu")}
       </button>
     </section>
   );

@@ -772,6 +772,14 @@ export const storeCommerceUiMessages = {
 
     store_cart_page_title: "카트",
 
+    store_cart_fulfillment_select_hint: "수령방법을 선택해주세요",
+
+    store_cart_add_menu: "메뉴 추가",
+
+    store_cart_upsell_title: "함께 먹으면 좋아요",
+
+    store_cart_line_request: "요청: {note}",
+
     store_manage_my_shop: "내 상점 관리",
 
     store_favorite_remove_aria: "찜 해제",
@@ -2424,6 +2432,14 @@ export const storeCommerceUiMessages = {
     store_cart_summary_hint: "You can only checkout items from this store together.",
 
     store_cart_page_title: "Cart",
+
+    store_cart_fulfillment_select_hint: "Please choose how you'd like to receive your order",
+
+    store_cart_add_menu: "Add items",
+
+    store_cart_upsell_title: "Goes well with your order",
+
+    store_cart_line_request: "Request: {note}",
 
     store_manage_my_shop: "Manage my store",
 

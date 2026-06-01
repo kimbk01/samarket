@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import {
   BAEMIN_CART_CARD_INSET_CLASS,
@@ -32,6 +33,7 @@ export function StoreBaeminCartUpsellSection({
   onToggleExpand: () => void;
   onPickProduct: (productId: string) => void;
 }) {
+  const { t } = useI18n();
   if (products.length === 0) return null;
 
   const visible = expanded ? products : products.slice(0, 5);
@@ -39,7 +41,7 @@ export function StoreBaeminCartUpsellSection({
   return (
     <section className={`${BAEMIN_CART_TYPE.cardGap} ${BAEMIN_CART_TYPE.pagePadX}`}>
       <h2 className={`mb-2 px-0.5 ${BAEMIN_CART_TYPE.sectionTitle} text-[color:var(--delivery-text-main)]`}>
-        {"\ud568\uaed8 \uba39\uc73c\uba74 \uc88b\uc544\uc694"}
+        {t("store_cart_upsell_title")}
       </h2>
       <div className={BAEMIN_CART_CARD_INSET_CLASS}>
         <ul>
@@ -73,7 +75,7 @@ export function StoreBaeminCartUpsellSection({
                     type="button"
                     onClick={() => onPickProduct(p.id)}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] text-[20px] font-medium leading-none text-[color:var(--delivery-text-main)] active:bg-[color:var(--delivery-bg-soft)]"
-                    aria-label={`${p.title} ${"\ub2f4\uae30"}`}
+                    aria-label={t("store_add_to_cart_aria", { title: p.title })}
                   >
                     +
                   </button>
@@ -90,7 +92,7 @@ export function StoreBaeminCartUpsellSection({
               onClick={onToggleExpand}
               className="flex w-full items-center justify-center gap-1 py-3 text-[14px] font-semibold text-[#333333] active:bg-[#FAFAFA]"
             >
-              {expanded ? "\uc811\uae30" : "\ub354\ubcf4\uae30"}
+              {expanded ? t("store_owner_card_collapse") : t("store_show_more")}
               <span className="text-[12px]" aria-hidden>
                 {expanded ? "\u2227" : "\u2228"}
               </span>
