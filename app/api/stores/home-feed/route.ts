@@ -3,6 +3,7 @@ import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
+import { resolveStoreFrontOrderable } from "@/lib/stores/store-point-commerce-block";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
@@ -78,6 +79,7 @@ type FeedRow = {
   profile_image_url: string | null;
   description: string | null;
   is_open: boolean | null;
+  point_commerce_blocked?: boolean | null;
   business_hours_json: unknown;
   created_at: string;
   rating_avg: number | null;
@@ -155,6 +157,7 @@ export async function GET(req: Request) {
         profile_image_url,
         description,
         is_open,
+        point_commerce_blocked,
         business_hours_json,
         created_at,
         rating_avg,
@@ -286,7 +289,8 @@ export async function GET(req: Request) {
 
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
-      const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
+      const scheduleOpen = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
+      const orderable = resolveStoreFrontOrderable(scheduleOpen, r);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
       const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
       const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
@@ -340,7 +344,11 @@ export async function GET(req: Request) {
         primarySlug: cat?.slug ?? null,
         primaryNameKo: cat?.name ?? null,
         regionLabel,
-        status: openNow ? "open" : r.is_open === false ? "closed" : "preparing",
+        status: orderable
+          ? "open"
+          : r.is_open === false && !r.point_commerce_blocked
+            ? "closed"
+            : "preparing",
         rating: r.rating_avg != null ? Number(r.rating_avg) : 0,
         reviewCount: r.review_count ?? 0,
         deliveryAvailable: !!r.delivery_available,

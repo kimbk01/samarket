@@ -19,6 +19,8 @@ import {
 } from "@/lib/stores/order-status-transitions";
 import { restoreStockForOrderLines } from "@/lib/stores/restore-order-stock";
 import { computeAutoCompleteAtIso } from "@/lib/stores/store-auto-complete-config";
+import { chargeStorePointsOnOrderAccept } from "@/lib/stores/charge-store-order-points";
+import { notifyStoreOwnerPointDeducted, notifyStoreOwnerPointBlocked } from "@/lib/notifications/notify-store-points";
 
 export type ApplyOrderStatusResult =
   | { ok: true; order_status: string; previous: string }
@@ -54,7 +56,7 @@ export async function applyStoreOrderStatusTransition(
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
-      "id, store_id, order_status, fulfillment_type, payment_status, auto_complete_at, buyer_user_id, order_no"
+      "id, store_id, order_status, fulfillment_type, payment_status, payment_amount, auto_complete_at, buyer_user_id, order_no"
     )
     .eq("id", oid)
     .maybeSingle();
@@ -82,6 +84,51 @@ export async function applyStoreOrderStatusTransition(
     const mins = raw == null ? NaN : Math.floor(Number(raw));
     if (!Number.isFinite(mins) || mins < 1 || mins > 180) {
       return { ok: false, error: "prep_minutes_required", httpStatus: 400 };
+    }
+  }
+
+  if (current === "pending" && nextStatus === "accepted") {
+    const gross = Math.max(0, Math.floor(Number(order.payment_amount) || 0));
+    const charged = await chargeStorePointsOnOrderAccept(sb, {
+      storeId: sid,
+      orderId: oid,
+      grossAmountPhp: gross,
+      actorUserId: opts.audit.actor_id,
+    });
+    if (!charged.ok) {
+      if (charged.error === "store_points_insufficient") {
+        const { data: storeRow } = await sb
+          .from("stores")
+          .select("owner_user_id")
+          .eq("id", sid)
+          .maybeSingle();
+        if (storeRow?.owner_user_id) {
+          void notifyStoreOwnerPointBlocked(sb, {
+            storeId: sid,
+            ownerUserId: storeRow.owner_user_id as string,
+            balance: charged.balance ?? 0,
+            required: charged.required ?? 0,
+          });
+        }
+        return { ok: false, error: "store_points_insufficient", httpStatus: 402 };
+      }
+      return { ok: false, error: charged.error, httpStatus: 500 };
+    }
+    if (!charged.idempotent && charged.feeAmount > 0) {
+      const { data: storeRow } = await sb
+        .from("stores")
+        .select("owner_user_id")
+        .eq("id", sid)
+        .maybeSingle();
+      if (storeRow?.owner_user_id) {
+        void notifyStoreOwnerPointDeducted(sb, {
+          storeId: sid,
+          ownerUserId: storeRow.owner_user_id as string,
+          orderId: oid,
+          feeAmount: charged.feeAmount,
+          balanceAfter: charged.balanceAfter,
+        });
+      }
     }
   }
 

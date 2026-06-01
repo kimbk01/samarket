@@ -11,6 +11,7 @@ import {
   resolveChargedDeliveryFeePhp,
 } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
+import { isStorePointCommerceBlocked } from "@/lib/stores/store-point-commerce-block";
 import { canOwnerSellProducts } from "@/lib/stores/owner-product-gate";
 
 export type StoreOrderLineInput = {
@@ -51,6 +52,7 @@ type StoreRow = {
   approval_status: string;
   is_visible: boolean;
   is_open: boolean | null;
+  point_commerce_blocked?: boolean | null;
   business_hours_json: unknown;
   pickup_available?: boolean | null;
   delivery_available?: boolean | null;
@@ -129,7 +131,7 @@ export async function validateStoreOrderCheckout(params: {
     const { data: store, error: sErr } = await sb
       .from("stores")
       .select(
-        "id, owner_user_id, approval_status, is_visible, is_open, business_hours_json, pickup_available, delivery_available"
+        "id, owner_user_id, approval_status, is_visible, is_open, point_commerce_blocked, business_hours_json, pickup_available, delivery_available"
       )
       .eq("id", storeId)
       .maybeSingle();
@@ -150,6 +152,10 @@ export async function validateStoreOrderCheckout(params: {
 
   if (!resolveStoreFrontOpen(storeRow.business_hours_json, storeRow.is_open)) {
     return { ok: false, error: "store_closed", status: 400 };
+  }
+
+  if (isStorePointCommerceBlocked(storeRow)) {
+    return { ok: false, error: "store_point_blocked", status: 400 };
   }
 
   const storePickupOff = storeRow.pickup_available === false;

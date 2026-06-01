@@ -44,6 +44,7 @@ export const OwnerRoutes = {
   banners: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/banners`, storeId),
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
+  points: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/points`, storeId),
 } as const;
 
 /**

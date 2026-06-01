@@ -16,6 +16,10 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   review_not_found: "store_owner_order_review_unavailable",
   supabase_unconfigured: "common_content_unavailable",
   table_missing: "store_owner_order_review_unavailable",
+  account_inquiry_required: "store_owner_point_err_account_inquiry_required",
+  account_inquiry_not_answered: "store_owner_point_err_account_inquiry_not_answered",
+  charge_already_pending: "store_owner_point_err_charge_already_pending",
+  account_inquiry_already_open: "store_owner_point_err_account_inquiry_already_open",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;

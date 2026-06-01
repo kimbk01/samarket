@@ -2,6 +2,7 @@ import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
+import { resolveStoreFrontOrderable } from "@/lib/stores/store-point-commerce-block";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
@@ -31,6 +32,7 @@ export type StoreBrowseRow = {
   district: string | null;
   profile_image_url: string | null;
   is_open: boolean | null;
+  point_commerce_blocked?: boolean | null;
   rating_avg: number | null;
   review_count: number | null;
   delivery_available: boolean | null;
@@ -213,6 +215,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         district,
         profile_image_url,
         is_open,
+        point_commerce_blocked,
         rating_avg,
         review_count,
         delivery_available,
@@ -226,7 +229,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         business_type`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_name,slug,region,city,district,profile_image_url,is_open,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type";
+  "id,store_category_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -462,8 +465,9 @@ export function assembleStoresBrowseResponse(
       (r.business_type ?? "").trim().length > 0 ?
         parseBizTypePrimarySub(r.business_type, primary, primaryAliases)
       : null;
-    const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
-    const status: BrowseStoreListItem["status"] = openNow ? "open" : "preparing";
+    const scheduleOpen = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
+    const orderable = resolveStoreFrontOrderable(scheduleOpen, r);
+    const status: BrowseStoreListItem["status"] = orderable ? "open" : "preparing";
     const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
     const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
     const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);

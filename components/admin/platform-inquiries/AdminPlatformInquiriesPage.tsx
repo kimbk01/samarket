@@ -1,0 +1,148 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type Row = {
+  id: string;
+  inquiry_type: string;
+  inquiry_kind: string;
+  store_id: string | null;
+  store_name: string;
+  point_balance: number;
+  from_user_id: string;
+  subject: string;
+  content: string;
+  status: string;
+  answer: string | null;
+  created_at: string;
+};
+
+const TYPE_KEYS: Record<string, MessageKey> = {
+  general: "admin_platform_inquiry_type_general",
+  store_ops: "admin_platform_inquiry_type_store_ops",
+  store_point: "admin_platform_inquiry_type_store_point",
+  settlement: "admin_platform_inquiry_type_settlement",
+  ad: "admin_platform_inquiry_type_ad",
+};
+
+const KIND_KEYS: Record<string, MessageKey> = {
+  account_request: "admin_platform_inquiry_kind_account",
+};
+
+const STATUS_KEYS: Record<string, MessageKey> = {
+  open: "admin_platform_inquiry_status_open",
+  answered: "admin_platform_inquiry_status_answered",
+  closed: "admin_platform_inquiry_status_closed",
+};
+
+export function AdminPlatformInquiriesPage() {
+  const { t } = useI18n();
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/platform-inquiries", { credentials: "include" });
+      const json = await res.json();
+      setRows(json?.inquiries ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const submitAnswer = async (id: string) => {
+    const answer = answerDraft[id]?.trim();
+    if (!answer) return;
+    setBusyId(id);
+    try {
+      await fetch(`/api/admin/platform-inquiries/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answer, status: "answered" }),
+      });
+      await load();
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <AdminPageHeader titleKey="admin_page_platform_inquiries" />
+      <p className="text-sm text-sam-muted">{t("admin_platform_inquiries_desc")}</p>
+
+      {loading ? (
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-sam-muted">{t("admin_platform_inquiries_empty")}</p>
+      ) : (
+        <div className="space-y-3">
+          {rows.map((r) => (
+            <article
+              key={r.id}
+              className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
+            >
+              <div className="flex flex-wrap justify-between gap-2 text-sm">
+                <span className="font-semibold text-sam-fg">
+                  {TYPE_KEYS[r.inquiry_type] ? t(TYPE_KEYS[r.inquiry_type]) : t("common_content_unavailable")}
+                  {KIND_KEYS[r.inquiry_kind] ? (
+                    <span className="ml-2 rounded-full bg-[#006241]/10 px-2 py-0.5 text-xs text-[#006241]">
+                      {t(KIND_KEYS[r.inquiry_kind])}
+                    </span>
+                  ) : null}
+                </span>
+                <span className="text-sam-muted">
+                  {STATUS_KEYS[r.status] ? t(STATUS_KEYS[r.status]) : t("common_content_unavailable")}
+                </span>
+              </div>
+              {r.store_name ? (
+                <p className="mt-1 text-xs text-sam-muted">
+                  {r.store_name}
+                  {typeof r.point_balance === "number"
+                    ? ` · ${t("admin_store_point_charge_store_balance")}: ${r.point_balance.toLocaleString()}P`
+                    : ""}
+                </p>
+              ) : null}
+              <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
+              {r.answer ? (
+                <div className="mt-3 rounded-ui-rect bg-sam-app p-3 text-sm whitespace-pre-wrap">{r.answer}</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  <textarea
+                    className="w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
+                    rows={3}
+                    placeholder={t("admin_platform_inquiry_answer_placeholder")}
+                    value={answerDraft[r.id] ?? ""}
+                    onChange={(e) =>
+                      setAnswerDraft((d) => ({ ...d, [r.id]: e.target.value }))
+                    }
+                  />
+                  <button
+                    type="button"
+                    disabled={busyId === r.id}
+                    className="rounded-ui-rect bg-[#006241] px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-50"
+                    onClick={() => void submitAnswer(r.id)}
+                  >
+                    {t("admin_platform_inquiry_answer_submit")}
+                  </button>
+                </div>
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

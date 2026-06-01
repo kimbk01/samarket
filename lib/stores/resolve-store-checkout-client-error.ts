@@ -9,6 +9,7 @@ const CHECKOUT_ERROR_KEY: Record<string, MessageKey> = {
   insufficient_stock: "store_err_out_of_stock_checkout",
   cannot_order_own_store: "store_err_own_store_block",
   store_closed: "store_err_preparing",
+  store_point_blocked: "store_err_point_blocked",
   below_min_order: "store_err_below_minimum_cart",
   delivery_address_required: "store_err_delivery_address_required",
   client_unit_php_required: "store_err_price_changed_cart",

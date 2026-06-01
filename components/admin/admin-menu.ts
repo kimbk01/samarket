@@ -164,6 +164,10 @@ const ADMIN_MENU_TITLE_KEY_OVERRIDES: Partial<Record<string, MessageKey>> = {
   "runtime-health": "admin_menu_runtime_health",
   "delivery-release-gate": "admin_menu_delivery_release_gate",
   "store-fee-policies-admin": "admin_menu_store_fee_policies_admin",
+  "platform-inquiries-admin": "admin_menu_platform_inquiries",
+  "store-points-admin": "admin_menu_store_points",
+  "store-point-charges-admin": "admin_menu_store_point_charges",
+  "store-point-policies-admin": "admin_menu_store_point_policies",
   "dibay-notification-campaigns": "admin_menu_dibay_notification_campaigns",
 };
 
@@ -391,6 +395,30 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             title: "",
             path: "/admin/store-inquiries",
             status: "partial",
+          },
+          {
+            key: "platform-inquiries-admin",
+            title: "",
+            path: "/admin/platform-inquiries",
+            status: "done",
+          },
+          {
+            key: "store-points-admin",
+            title: "",
+            path: "/admin/store-points",
+            status: "done",
+          },
+          {
+            key: "store-point-charges-admin",
+            title: "",
+            path: "/admin/store-point-charges",
+            status: "done",
+          },
+          {
+            key: "store-point-policies-admin",
+            title: "",
+            path: "/admin/store-point-policies",
+            status: "done",
           },
           {
             key: "store-reviews-admin",

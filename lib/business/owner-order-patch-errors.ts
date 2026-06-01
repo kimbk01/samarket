@@ -7,6 +7,7 @@ const PATCH_ERR_KEYS: Record<string, MessageKey> = {
   order_admin_locked: "store_biz_patch_err_admin_locked",
   cancel_reason_required: "store_biz_patch_err_cancel_reason_required",
   cancel_not_allowed_for_status: "store_owner_cancel_not_allowed",
+  store_points_insufficient: "store_biz_patch_err_points_insufficient",
 };
 
 export function formatOwnerOrderPatchErr(code: string, lang: AppLanguageCode): string {

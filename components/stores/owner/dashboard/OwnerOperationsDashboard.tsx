@@ -12,6 +12,7 @@ import {
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
 } from "@/lib/stores/owner-mobile-ui-tokens";
 import { OwnerUrgentOrdersCard } from "./OwnerUrgentOrdersCard";
+import { OwnerStorePointWarningCard } from "@/components/business/owner/OwnerStorePointWarningCard";
 import { OwnerOrderFlowCard } from "./OwnerOrderFlowCard";
 import { OwnerSalesSummaryCard } from "./OwnerSalesSummaryCard";
 import { OwnerCustomerCareCard } from "./OwnerCustomerCareCard";
@@ -33,6 +34,7 @@ export function OwnerOperationsDashboard({
   onRefresh,
   refreshing,
   snapshotUpdatedAt,
+  pointSummary,
 }: {
   row: StoreRow;
   snapshot: OwnerStoreOpsSnapshot | null;
@@ -45,6 +47,11 @@ export function OwnerOperationsDashboard({
   onRefresh?: () => void;
   refreshing?: boolean;
   snapshotUpdatedAt?: Date | null;
+  pointSummary?: {
+    pointBalance: number;
+    pointCommerceBlocked: boolean;
+    estimatedAcceptCount: number;
+  } | null;
 }) {
   const data = snapshot ?? EMPTY_OWNER_STORE_OPS_SNAPSHOT;
 
@@ -64,6 +71,14 @@ export function OwnerOperationsDashboard({
             </>
           ) : (
             <>
+              {pointSummary ? (
+                <OwnerStorePointWarningCard
+                  storeId={row.id}
+                  pointBalance={pointSummary.pointBalance}
+                  pointCommerceBlocked={pointSummary.pointCommerceBlocked}
+                  estimatedAcceptCount={pointSummary.estimatedAcceptCount}
+                />
+              ) : null}
               <OwnerUrgentOrdersCard
                 storeId={row.id}
                 snapshot={data}

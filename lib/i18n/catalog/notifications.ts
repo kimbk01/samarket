@@ -149,6 +149,19 @@ export const notificationMessages = {
     notify_commerce_auto_completed_title: "주문이 자동 완료됐어요",
     notify_commerce_auto_completed_body:
       "「{store}」 {orderNo} 주문이 기한에 따라 자동으로 완료 처리되었습니다.",
+    notify_store_point_blocked_title: "포인트 부족 — 주문 접수 불가",
+    notify_store_point_blocked_body:
+      "매장 포인트가 부족합니다(보유 {balance}P · 필요 {required}P). 충전 후 다시 주문을 받을 수 있어요.",
+    notify_store_point_deducted_title: "주문 수수료 차감",
+    notify_store_point_deducted_body: "주문 수락으로 {fee}P가 차감되었습니다. 잔액 {balance}P",
+    notify_store_point_low_title: "매장 포인트 잔액 부족",
+    notify_store_point_low_body: "포인트가 {balance}P 남았습니다. 곧 주문을 받을 수 없을 수 있어요.",
+    notify_store_point_charge_approved_title: "포인트 충전 완료",
+    notify_store_point_charge_approved_body: "{points}P가 충전되었습니다. 잔액 {balance}P",
+    notify_store_point_charge_rejected_title: "포인트 충전 반려",
+    notify_store_point_charge_rejected_body: "충전 신청이 반려되었습니다. 관리자 답변을 확인해 주세요.",
+    notify_store_point_account_replied_title: "입금 계좌 안내",
+    notify_store_point_account_replied_body: "매장 포인트 충전 입금 계좌 안내가 등록되었습니다. 확인 후 입금 신청해 주세요.",
   },
   en: {
     notify_chat_new_message_title: "New message",
@@ -300,6 +313,19 @@ export const notificationMessages = {
     notify_commerce_auto_completed_title: "Order auto-completed",
     notify_commerce_auto_completed_body:
       "\"{store}\" order {orderNo} was automatically marked as completed when the time limit expired.",
+    notify_store_point_blocked_title: "Insufficient points — cannot accept orders",
+    notify_store_point_blocked_body:
+      "Store points are too low ({balance}P held · {required}P needed). Top up to accept orders again.",
+    notify_store_point_deducted_title: "Order fee deducted",
+    notify_store_point_deducted_body: "{fee}P deducted on order acceptance. Balance {balance}P",
+    notify_store_point_low_title: "Low store point balance",
+    notify_store_point_low_body: "Only {balance}P left. You may not be able to accept orders soon.",
+    notify_store_point_charge_approved_title: "Points topped up",
+    notify_store_point_charge_approved_body: "{points}P added. Balance {balance}P",
+    notify_store_point_charge_rejected_title: "Top-up rejected",
+    notify_store_point_charge_rejected_body: "Your top-up request was rejected. Check the admin reply.",
+    notify_store_point_account_replied_title: "Deposit account details",
+    notify_store_point_account_replied_body: "Deposit account details for store points are ready. Review and submit your top-up.",
   },
   
 } as const;

@@ -92,6 +92,13 @@ export function BusinessDashboardOwnerCardMenu({
       href: `/stores/owner/settlements?${q}`,
       disabled: !showOps,
     },
+    {
+      id: "points",
+      titleKey: "store_owner_point_title",
+      descKey: "store_owner_point_charge_cta",
+      href: `/stores/owner/points?${q}`,
+      disabled: !showOps,
+    },
   ];
 
   return (
