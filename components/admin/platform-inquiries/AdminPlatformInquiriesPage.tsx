@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 
 type Row = {
   id: string;
@@ -38,8 +40,11 @@ const STATUS_KEYS: Record<string, MessageKey> = {
   closed: "admin_platform_inquiry_status_closed",
 };
 
+type FilterType = "all" | "store_point";
+
 export function AdminPlatformInquiriesPage() {
   const { t } = useI18n();
+  const [filter, setFilter] = useState<FilterType>("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [answerDraft, setAnswerDraft] = useState<Record<string, string>>({});
@@ -49,13 +54,14 @@ export function AdminPlatformInquiriesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/platform-inquiries", { credentials: "include" });
+      const qs = filter === "store_point" ? "?inquiry_type=store_point" : "";
+      const res = await fetch(`/api/admin/platform-inquiries${qs}`, { credentials: "include" });
       const json = await res.json();
       setRows(json?.inquiries ?? []);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
     void load();
@@ -75,7 +81,7 @@ export function AdminPlatformInquiriesPage() {
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setErr(json.error ?? t("admin_platform_inquiry_answer_failed"));
+        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_platform_inquiry_answer_failed"));
         return;
       }
       await load();
@@ -90,6 +96,29 @@ export function AdminPlatformInquiriesPage() {
     <div className="space-y-4">
       <AdminPageHeader titleKey="admin_page_platform_inquiries" />
       <p className="text-sm text-sam-muted">{t("admin_platform_inquiries_desc")}</p>
+
+      <div className="flex gap-2">
+        {(
+          [
+            ["all", "admin_platform_inquiries_filter_all"],
+            ["store_point", "admin_platform_inquiries_filter_store_point"],
+          ] as const
+        ).map(([val, key]) => (
+          <button
+            key={val}
+            type="button"
+            className={`rounded-full px-3 py-1 text-sm font-semibold transition-colors ${
+              filter === val
+                ? "bg-[#006241] text-white"
+                : "border border-sam-border text-sam-fg"
+            }`}
+            onClick={() => setFilter(val)}
+          >
+            {t(key)}
+          </button>
+        ))}
+      </div>
+
       {err ? (
         <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-700">{err}</p>
       ) : null}
@@ -119,12 +148,22 @@ export function AdminPlatformInquiriesPage() {
                 </span>
               </div>
               {r.store_name ? (
-                <p className="mt-1 text-xs text-sam-muted">
-                  {r.store_name}
-                  {typeof r.point_balance === "number"
-                    ? ` · ${t("admin_store_point_charge_store_balance")}: ${r.point_balance.toLocaleString()}P`
-                    : ""}
-                </p>
+                <div className="mt-1 flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-sam-muted">
+                    {r.store_name}
+                    {typeof r.point_balance === "number"
+                      ? ` · ${t("admin_store_point_charge_store_balance")}: ${r.point_balance.toLocaleString()}P`
+                      : ""}
+                  </p>
+                  {r.store_id ? (
+                    <Link
+                      href={`/admin/store-point-charges?storeId=${encodeURIComponent(r.store_id)}`}
+                      className="rounded-full border border-[#006241]/40 px-2 py-0.5 text-xs text-[#006241]"
+                    >
+                      {t("admin_platform_inquiry_go_charges")}
+                    </Link>
+                  ) : null}
+                </div>
               ) : null}
               <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>

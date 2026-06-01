@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 
 type BlockedStore = {
   id: string;
@@ -75,7 +76,7 @@ export function AdminStorePointsOverviewPage() {
           error?: string;
         };
         if (!res.ok || !json.ok) {
-          setErr(json.error ?? t("admin_store_points_load_failed"));
+          setErr(resolveAdminApiErrorMessage(json.error, t, "admin_store_points_load_failed"));
           if (!append) setStores([]);
           return;
         }
@@ -120,12 +121,7 @@ export function AdminStorePointsOverviewPage() {
       });
       const json = (await res.json()) as { ok?: boolean; error?: string; result?: { balance_after?: number } };
       if (!res.ok || !json.ok) {
-        const code = json.error ?? "";
-        setErr(
-          code === "rpc_missing"
-            ? t("admin_store_points_rpc_missing")
-            : t("admin_store_points_adjust_failed")
-        );
+        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_store_points_adjust_failed"));
         return;
       }
       setDraftDelta((d) => ({ ...d, [storeId]: "" }));

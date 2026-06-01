@@ -8,6 +8,7 @@ import {
   type StorePointLedgerRow,
 } from "@/lib/stores/group-store-point-ledger-by-date";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 
 const TYPE_KEYS: Record<string, MessageKey> = {
@@ -63,7 +64,7 @@ export function AdminStorePointLedgerByDatePage() {
         error?: string;
       };
       if (!res.ok || !json.ok) {
-        setErr(json.error ?? t("common_error"));
+        setErr(resolveAdminApiErrorMessage(json.error, t));
         setEntries([]);
         return;
       }
