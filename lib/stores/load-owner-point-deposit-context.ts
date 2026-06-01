@@ -26,6 +26,97 @@ function isMissingInquiryKindColumn(msg: string): boolean {
   return /inquiry_kind/i.test(msg) && /(does not exist|column)/i.test(msg);
 }
 
+function isAccountRequestRow(row: Record<string, unknown>): boolean {
+  const kind = String(row.inquiry_kind ?? "").trim();
+  if (kind === "account_request") return true;
+  if (kind && kind !== "general") return false;
+  return String(row.inquiry_type ?? "") === "store_point";
+}
+
+async function fetchOpenAccountInquiry(
+  sb: SupabaseClient,
+  storeId: string
+): Promise<OwnerPointAccountInquirySnapshot | null> {
+  const withKind = await sb
+    .from("platform_admin_inquiries")
+    .select(ACCOUNT_INQUIRY_SELECT)
+    .eq("store_id", storeId)
+    .eq("inquiry_type", "store_point")
+    .eq("inquiry_kind", "account_request")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!withKind.error && withKind.data) {
+    return mapInquiry(withKind.data as Record<string, unknown>);
+  }
+  if (withKind.error && !isMissingInquiryKindColumn(withKind.error.message ?? "")) {
+    return null;
+  }
+
+  const fallback = await sb
+    .from("platform_admin_inquiries")
+    .select(ACCOUNT_INQUIRY_SELECT)
+    .eq("store_id", storeId)
+    .eq("inquiry_type", "store_point")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (fallback.error) return null;
+  const row = (fallback.data ?? []).find((r) =>
+    isAccountRequestRow(r as Record<string, unknown>)
+  ) as Record<string, unknown> | undefined;
+  return row ? mapInquiry(row) : null;
+}
+
+async function fetchAnsweredAccountInquiry(
+  sb: SupabaseClient,
+  storeId: string
+): Promise<OwnerPointAccountInquirySnapshot | null> {
+  const withKind = await sb
+    .from("platform_admin_inquiries")
+    .select(ACCOUNT_INQUIRY_SELECT)
+    .eq("store_id", storeId)
+    .eq("inquiry_type", "store_point")
+    .eq("inquiry_kind", "account_request")
+    .eq("status", "answered")
+    .not("answer", "is", null)
+    .order("answered_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!withKind.error && withKind.data) {
+    const mapped = mapInquiry(withKind.data as Record<string, unknown>);
+    if (String(mapped.answer ?? "").trim()) return mapped;
+  }
+  if (withKind.error && !isMissingInquiryKindColumn(withKind.error.message ?? "")) {
+    return null;
+  }
+
+  const fallback = await sb
+    .from("platform_admin_inquiries")
+    .select(ACCOUNT_INQUIRY_SELECT)
+    .eq("store_id", storeId)
+    .eq("inquiry_type", "store_point")
+    .eq("status", "answered")
+    .not("answer", "is", null)
+    .order("answered_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (fallback.error) return null;
+  for (const raw of fallback.data ?? []) {
+    const row = raw as Record<string, unknown>;
+    if (!isAccountRequestRow(row)) continue;
+    const mapped = mapInquiry(row);
+    if (String(mapped.answer ?? "").trim()) return mapped;
+  }
+  return null;
+}
+
 export type OwnerPointDepositContext = {
   depositStep: OwnerPointDepositStep;
   activeAccountInquiry: OwnerPointAccountInquirySnapshot | null;
@@ -39,52 +130,15 @@ export async function loadOwnerPointDepositContext(
   storeId: string
 ): Promise<OwnerPointDepositContext> {
   const sid = storeId.trim();
-  let openInquiry: OwnerPointAccountInquirySnapshot | null = null;
-  let answeredInquiry: OwnerPointAccountInquirySnapshot | null = null;
+  const openInquiry = await fetchOpenAccountInquiry(sb, sid);
+  const answeredInquiry = await fetchAnsweredAccountInquiry(sb, sid);
   let pendingCharge: OwnerPointPendingChargeSnapshot | null = null;
-
-  const openRes = await sb
-    .from("platform_admin_inquiries")
-    .select(ACCOUNT_INQUIRY_SELECT)
-    .eq("store_id", sid)
-    .eq("inquiry_type", "store_point")
-    .eq("inquiry_kind", "account_request")
-    .eq("status", "open")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!openRes.error && openRes.data) {
-    openInquiry = mapInquiry(openRes.data as Record<string, unknown>);
-  } else if (openRes.error && !isMissingInquiryKindColumn(openRes.error.message ?? "")) {
-    // table missing or other error — leave null
-  }
-
-  const answeredRes = await sb
-    .from("platform_admin_inquiries")
-    .select(ACCOUNT_INQUIRY_SELECT)
-    .eq("store_id", sid)
-    .eq("inquiry_type", "store_point")
-    .eq("inquiry_kind", "account_request")
-    .eq("status", "answered")
-    .not("answer", "is", null)
-    .order("answered_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!answeredRes.error && answeredRes.data) {
-    const mapped = mapInquiry(answeredRes.data as Record<string, unknown>);
-    if (String(mapped.answer ?? "").trim()) {
-      answeredInquiry = mapped;
-    }
-  }
 
   const chargeRes = await sb
     .from("store_point_charge_requests")
     .select("id, request_status, point_amount, payment_amount, requested_at")
     .eq("store_id", sid)
-    .in("request_status", ["pending", "waiting_confirm"])
+    .in("request_status", ["pending", "waiting_confirm", "on_hold"])
     .order("requested_at", { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -16,6 +16,7 @@ export function OwnerStoreAdminDashSection({
   surfaceTone = "default",
   /** 지정 시 `<section>`에 합쳐짐. `border-0` 등으로 기본 테두리·그림자를 덮어쓸 때 사용 */
   className,
+  id,
 }: {
   /** 비우거나 생략하면 헤더(제목 줄)를 렌더하지 않습니다. */
   title?: string;
@@ -25,6 +26,7 @@ export function OwnerStoreAdminDashSection({
   pad?: "default" | "narrow";
   surfaceTone?: "default" | "muted" | "emphasized" | "bizSoft";
   className?: string;
+  id?: string;
 }) {
   const hasBody = children != null && children !== false;
   const showHeader = typeof title === "string" && title.trim() !== "";
@@ -50,6 +52,7 @@ export function OwnerStoreAdminDashSection({
 
   return (
     <section
+      id={id}
       className={`owner-store-admin-dash-section overflow-hidden rounded-ui-rect ${surfaceClass} ${shell}`}
     >
       {showHeader ? (

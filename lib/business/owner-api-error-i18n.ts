@@ -20,6 +20,11 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   account_inquiry_not_answered: "store_owner_point_err_account_inquiry_not_answered",
   charge_already_pending: "store_owner_point_err_charge_already_pending",
   account_inquiry_already_open: "store_owner_point_err_account_inquiry_already_open",
+  platform_inquiries_table_missing: "store_owner_point_err_platform_unavailable",
+  store_point_charge_table_missing: "store_owner_point_err_platform_unavailable",
+  point_amount_required: "store_owner_point_err_point_amount_required",
+  subject_and_content_required: "store_owner_point_err_subject_required",
+  invalid_json: "common_error",
 };
 
 type TranslateFn = (key: MessageKey, vars?: Record<string, string | number>) => string;

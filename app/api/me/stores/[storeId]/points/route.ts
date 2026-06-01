@@ -109,7 +109,7 @@ export async function GET(
   }
 
   return NextResponse.json({
-    ok: true,
+    ok: true as const,
     summary: summary ?? {
       pointBalance: 0,
       pointCommerceBlocked: false,

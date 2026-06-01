@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canSubmitPointCharge,
+  isPendingChargeStatus,
   resolveOwnerPointDepositStep,
   type OwnerPointAccountInquirySnapshot,
 } from "@/lib/stores/owner-point-deposit-context";
@@ -91,6 +92,26 @@ describe("canSubmitPointCharge", () => {
     });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toBe("charge_already_pending");
+  });
+
+  it("blocks when on_hold charge", () => {
+    const r = canSubmitPointCharge({
+      answeredInquiry: answered,
+      pendingCharge: {
+        id: "c2",
+        requestStatus: "on_hold",
+        pointAmount: 10,
+        paymentAmount: 10,
+        requestedAt: "",
+      },
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toBe("charge_already_pending");
+  });
+
+  it("treats on_hold as pending charge status", () => {
+    expect(isPendingChargeStatus("on_hold")).toBe(true);
+    expect(isPendingChargeStatus("approved")).toBe(false);
   });
 
   it("blocks when no answered inquiry", () => {

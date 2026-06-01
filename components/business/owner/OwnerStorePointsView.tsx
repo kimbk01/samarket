@@ -7,6 +7,7 @@ import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerSto
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { StorePointChargeRequest, StorePointLedgerEntry } from "@/lib/types/store-point";
 import type { OwnerPointDepositStep } from "@/lib/stores/owner-point-deposit-context";
+import { OWNER_POINT_DEPOSIT_SECTION_ID } from "@/lib/stores/owner-point-deposit-section-id";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 
@@ -81,11 +82,14 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
 
   const load = useCallback(async () => {
     setLoading(true);
+    setFormError(null);
     try {
       const pointsRes = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/points`, {
         credentials: "include",
       });
       const pointsJson = (await pointsRes.json()) as {
+        ok?: boolean;
+        error?: string;
         summary?: Summary;
         ledger?: StorePointLedgerEntry[];
         chargeRequests?: StorePointChargeRequest[];
@@ -94,6 +98,10 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
         pendingCharge?: PendingCharge | null;
         canSubmitCharge?: boolean;
       };
+      if (!pointsRes.ok || pointsJson.ok === false) {
+        setFormError(resolveOwnerApiErrorMessage(pointsJson.error, t));
+        return;
+      }
       setSummary(pointsJson.summary ?? null);
       setLedger(pointsJson.ledger ?? []);
       setCharges(pointsJson.chargeRequests ?? []);
@@ -101,14 +109,26 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
       setLatestAccountAnswer(pointsJson.latestAccountAnswer ?? null);
       setPendingCharge(pointsJson.pendingCharge ?? null);
       setCanSubmitCharge(Boolean(pointsJson.canSubmitCharge));
+    } catch {
+      setFormError(t("common_network_error"));
     } finally {
       setLoading(false);
     }
-  }, [storeId]);
+  }, [storeId, t]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== `#${OWNER_POINT_DEPOSIT_SECTION_ID}`) return;
+    document.getElementById(OWNER_POINT_DEPOSIT_SECTION_ID)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [loading]);
 
   const submitAccountInquiry = async () => {
     setSubmitting(true);
@@ -135,6 +155,11 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
   };
 
   const submitCharge = async () => {
+    const pointAmount = Math.floor(Number(chargeForm.point_amount) || 0);
+    if (pointAmount < 1) {
+      setFormError(resolveOwnerApiErrorMessage("point_amount_required", t));
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     try {
@@ -188,10 +213,13 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
         pendingCharge={pendingCharge}
       />
 
-      <OwnerStoreAdminDashSection title={t(STEP_TITLE_KEYS[depositStep])}>
+      <OwnerStoreAdminDashSection
+        title={t(STEP_TITLE_KEYS[depositStep])}
+        id={OWNER_POINT_DEPOSIT_SECTION_ID}
+      >
         {depositStep === "account_inquiry" ? (
           <div className="space-y-3">
-            <p className="text-sm text-sam-muted">{t("store_owner_point_deposit_blocked_hint")}</p>
+            <p className="text-sm text-sam-muted">{t("store_owner_point_account_inquiry_intro")}</p>
             <button
               type="button"
               disabled={submitting}
@@ -219,7 +247,9 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
 
         {depositStep === "charge_pending" && pendingCharge ? (
           <p className="mt-3 rounded-ui-rect bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            {t("store_owner_point_charge_pending")}: {pendingCharge.pointAmount.toLocaleString()}P
+            {pendingCharge.requestStatus === "on_hold"
+              ? t("store_owner_point_charge_on_hold")
+              : `${t("store_owner_point_charge_pending")}: ${pendingCharge.pointAmount.toLocaleString()}P`}
           </p>
         ) : null}
 

@@ -23,7 +23,8 @@ export type OwnerPointPendingChargeSnapshot = {
   requestedAt: string;
 };
 
-export const PENDING_CHARGE_STATUSES = new Set(["pending", "waiting_confirm"]);
+/** Blocks new charge requests and keeps owner on charge_pending step (incl. admin hold). */
+export const PENDING_CHARGE_STATUSES = new Set(["pending", "waiting_confirm", "on_hold"]);
 
 export function isPendingChargeStatus(status: string | null | undefined): boolean {
   return PENDING_CHARGE_STATUSES.has(String(status ?? "").trim());

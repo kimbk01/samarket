@@ -169,6 +169,7 @@ const ADMIN_MENU_TITLE_KEY_OVERRIDES: Partial<Record<string, MessageKey>> = {
   "store-points-admin": "admin_menu_store_points",
   "store-point-charges-admin": "admin_menu_store_point_charges",
   "store-point-policies-admin": "admin_menu_store_point_policies",
+  "store-point-ledger-admin": "admin_menu_store_point_ledger",
   "dibay-notification-campaigns": "admin_menu_dibay_notification_campaigns",
 };
 
@@ -419,6 +420,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "store-point-charges-admin",
             title: "",
             path: "/admin/store-point-charges",
+            status: "done",
+          },
+          {
+            key: "store-point-ledger-admin",
+            title: "",
+            path: "/admin/store-point-ledger",
             status: "done",
           },
           {
