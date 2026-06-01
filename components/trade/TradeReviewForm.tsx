@@ -92,7 +92,7 @@ export function TradeReviewForm({
       dispatchWrittenReviewUpdated();
       onSuccess();
     } catch {
-      setError("네트워크 오류입니다.");
+      setError(t("trade_review_form_network_error"));
     } finally {
       setLoading(false);
     }

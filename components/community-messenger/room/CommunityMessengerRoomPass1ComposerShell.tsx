@@ -1,8 +1,9 @@
 "use client";
 
 import { ArrowUp, Mic, Plus } from "lucide-react";
-import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
@@ -145,6 +146,15 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
   const globallyUsable = communityMessengerRoomIsGloballyUsable(vm.snapshot.room);
   const tradeOnlyBlocked =
     Boolean(vm.snapshot.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
+  const tradeBlockedMessage = useMemo(() => {
+    const tm = vm.snapshot.tradeMessaging;
+    if (!tm || tm.canSendMessage !== false) return "";
+    return (
+      getMessengerRoomActionErrorMessage(tm.denyCode ?? undefined, t) ||
+      tm.denyMessage ||
+      t("nav_messenger_trade_seller_closed")
+    );
+  }, [vm.snapshot.tradeMessaging, t]);
   const roomUnavailable = vm.roomUnavailable;
   const voiceBridgeReady = Boolean(getMessengerRoomComposerPhase2Bridge());
   const placeholder = vm.snapshot.clientShellPlaceholder
@@ -199,7 +209,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
               vm.busy === "send-file" ||
               vm.busy === "send-sticker"
             }
-            placeholder={tradeOnlyBlocked ? vm.snapshot.tradeMessaging?.denyMessage ?? t("cm_ui_cannot_send_message") : placeholder}
+            placeholder={tradeOnlyBlocked ? tradeBlockedMessage || t("cm_ui_cannot_send_message") : placeholder}
             className="h-[38px] min-h-[38px] w-full min-w-0 resize-none border-0 bg-transparent text-[14px] leading-[1.35] outline-none placeholder:text-[#65676b] disabled:opacity-50"
           />
         </div>

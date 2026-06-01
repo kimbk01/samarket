@@ -1,13 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
-import { TRADE_LISTING_CHAT_STEPS } from "@/lib/trade/seller-listing-chat-transitions";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
+
+function listingStepLabelKey(listing: SellerListingState): "trade_listing_step_inquiry" | "trade_listing_step_negotiating" | "trade_listing_step_reserved" | "trade_listing_step_completed" {
+  switch (listing) {
+    case "negotiating":
+      return "trade_listing_step_negotiating";
+    case "reserved":
+      return "trade_listing_step_reserved";
+    case "completed":
+      return "trade_listing_step_completed";
+    default:
+      return "trade_listing_step_inquiry";
+  }
+}
 
 interface TradeFlowBannerProps {
   room: ChatRoom;
@@ -91,6 +103,11 @@ export function TradeFlowBanner({
     amBuyer &&
     room.soldBuyerId !== currentUserId;
 
+  const listingStepLabel = useMemo(
+    () => t(listingStepLabelKey(displayListing)),
+    [displayListing, t]
+  );
+
   const post = async (path: string, body: Record<string, unknown>) => {
     setLoading(path);
     setMsg(null);
@@ -102,7 +119,7 @@ export function TradeFlowBanner({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        setMsg(data.error ?? "처리하지 못했습니다.");
+        setMsg(data.error ?? t("trade_detail_action_failed"));
         return;
       }
       if (path.includes("/seller-complete")) {
@@ -113,7 +130,7 @@ export function TradeFlowBanner({
         onOpenReview();
       }
     } catch {
-      setMsg("네트워크 오류입니다.");
+      setMsg(t("trade_review_form_network_error"));
     } finally {
       setLoading(null);
     }
@@ -138,7 +155,7 @@ export function TradeFlowBanner({
       <div
         className={`border-b border-sam-warning/20 bg-sam-warning-soft px-3 ${compactPad} sam-text-body-secondary text-sam-warning`}
       >
-        이미 다른 구매자와 거래가 완료된 상품입니다. 새 메시지는 제한될 수 있어요.
+        {t("trade_flow_sold_to_other_limited")}
       </div>
     );
   }
@@ -148,8 +165,8 @@ export function TradeFlowBanner({
       <div
         className={`border-b border-sam-border bg-sam-surface-muted px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}
       >
-        같은 상품의 다른 거래가 완료되어 이 채팅은 종료된 방입니다.
-        {mode === "readonly" ? " 읽기 전용이에요." : null}
+        {t("trade_flow_archived_room")}
+        {mode === "readonly" ? t("trade_flow_archived_readonly_suffix") : null}
       </div>
     );
   }
@@ -158,7 +175,7 @@ export function TradeFlowBanner({
   if (mode === "readonly" && !room.product) {
     return (
       <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
-        이 채팅은 읽기 전용입니다. 추가 문의는 새 거래·고객센터를 이용해 주세요.
+        {t("trade_flow_readonly_no_product")}
       </div>
     );
   }
@@ -166,44 +183,37 @@ export function TradeFlowBanner({
   if (mode === "limited" && !room.product) {
     return (
       <div className={`border-b border-sam-border bg-sam-app px-3 ${compactPad} sam-text-body-secondary text-sam-fg`}>
-        <p className="sam-text-xxs text-sam-fg">
-          일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.
-        </p>
+        <p className="sam-text-xxs text-sam-fg">{t("trade_flow_limited_hint")}</p>
         {canOpenReviewSheet && onOpenReview ? (
           <button
             type="button"
             onClick={() => onOpenReview()}
             className="mt-2 rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
           >
-            후기 보내기
+            {t("nav_trade_review_send")}
           </button>
         ) : null}
       </div>
     );
   }
 
-  const listingStepLabel = TRADE_LISTING_CHAT_STEPS.find((s) => s.state === displayListing)?.label ?? "진행";
   const diagramCompactOneLine = Boolean(room.product && postNotSold && flow === "chatting" && compact && !diagramExpanded);
 
   return (
     <div className={`border-b border-sam-primary-border bg-sam-primary-soft px-3 ${compactPad}`}>
       {mode === "readonly" && room.product ? (
-        <p className="mb-2 sam-text-xxs text-sam-fg">
-          이 채팅은 읽기 전용입니다. 이전 대화는 계속 확인할 수 있어요.
-        </p>
+        <p className="mb-2 sam-text-xxs text-sam-fg">{t("trade_flow_readonly_with_history")}</p>
       ) : null}
       {mode === "limited" && room.product ? (
         <div className="mb-2 space-y-2">
-          <p className="sam-text-xxs text-sam-fg">
-            일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.
-          </p>
+          <p className="sam-text-xxs text-sam-fg">{t("trade_flow_limited_hint")}</p>
           {canOpenReviewSheet && onOpenReview ? (
             <button
               type="button"
               onClick={() => onOpenReview()}
               className="rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
             >
-              후기 보내기
+              {t("nav_trade_review_send")}
             </button>
           ) : null}
         </div>
@@ -213,14 +223,14 @@ export function TradeFlowBanner({
         diagramCompactOneLine ? (
           <div className="flex min-h-[40px] items-center justify-between gap-2">
             <p className="min-w-0 truncate sam-text-helper font-semibold text-sam-fg">
-              거래 단계: <span className="text-sam-primary">{listingStepLabel}</span>
+              {t("trade_flow_step_heading", { label: listingStepLabel })}
             </p>
             <button
               type="button"
               onClick={() => setDiagramExpanded(true)}
               className="shrink-0 rounded-sam-sm border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-semibold text-sam-fg active:opacity-90"
             >
-              펼치기
+              {t("trade_flow_expand")}
             </button>
           </div>
         ) : (
@@ -232,9 +242,7 @@ export function TradeFlowBanner({
               onPickListing={(next) => void onPersistListing(next)}
               onCompleteTrade={() => {
                 if (typeof window !== "undefined") {
-                  const ok = window.confirm(
-                    "판매 완료로 처리할까요? 완료 후에는 이 채팅에서 단계를 다시 바꾸기 어려울 수 있어요.",
-                  );
+                  const ok = window.confirm(t("trade_flow_seller_complete_confirm"));
                   if (!ok) return;
                 }
                 void post(`${base}/seller-complete`, {});
@@ -246,7 +254,7 @@ export function TradeFlowBanner({
                 onClick={() => setDiagramExpanded(false)}
                 className="mt-1.5 w-full rounded-sam-sm border border-sam-border bg-sam-surface py-1.5 sam-text-xxs font-medium text-sam-muted active:opacity-90"
               >
-                단계 접기
+                {t("trade_flow_collapse")}
               </button>
             ) : null}
           </div>
@@ -256,8 +264,7 @@ export function TradeFlowBanner({
       {flow === "seller_marked_done" && amBuyer && !actionsDismissed && (
         <div className="mt-2 space-y-1.5">
           <p className="sam-text-helper text-sam-fg">
-            판매자가 거래완료 처리했어요. 거래가 끝났다면 <strong className="font-semibold">{t("trade_022")}</strong>으로
-            넘어간 뒤 평가·후기를 남겨 주세요.
+            {t("trade_flow_buyer_seller_done_body", { confirmStep: t("trade_022") })}
           </p>
           <div className="flex flex-wrap gap-2">
             <button
@@ -266,7 +273,7 @@ export function TradeFlowBanner({
               onClick={() => post(`${base}/buyer-confirm`, {})}
               className="rounded-sam-sm bg-sam-primary px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
             >
-              {loading === `${base}/buyer-confirm` ? "처리 중…" : "거래완료 확인"}
+              {loading === `${base}/buyer-confirm` ? t("trade_flow_processing") : t("trade_022")}
             </button>
             <button
               type="button"
@@ -274,14 +281,14 @@ export function TradeFlowBanner({
               onClick={() => post(`${base}/buyer-issue`, {})}
               className="rounded-sam-sm border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg disabled:opacity-50"
             >
-              문제있어요
+              {t("trade_flow_buyer_issue")}
             </button>
             <button
               type="button"
               onClick={dismissBuyerActions}
               className="rounded-sam-sm border border-transparent px-3 py-1.5 sam-text-helper font-medium text-sam-primary underline-offset-2 hover:underline"
             >
-              나중에
+              {t("trade_flow_later")}
             </button>
           </div>
         </div>
@@ -289,8 +296,7 @@ export function TradeFlowBanner({
 
       {flow === "seller_marked_done" && amBuyer && actionsDismissed && (
         <p className="mt-2 sam-text-xxs text-sam-fg">
-          거래완료 확인·평가·후기는 새로고침하거나{" "}
-          <span className="font-medium">{t("trade_052")}</span>의 메뉴(⋮)에서 진행할 수 있어요.
+          {t("trade_flow_buyer_dismissed_hint", { menuPath: t("trade_052") })}
         </p>
       )}
 
@@ -300,8 +306,8 @@ export function TradeFlowBanner({
             <>
               <p className="sam-text-xxs text-sam-fg">
                 {room.buyerReviewSubmitted
-                  ? "평가·후기 작성이 완료되었어요."
-                  : "거래완료 확인이 끝났어요. 평가·후기를 남겨보세요. 구매 내역 메뉴(⋮)의 「후기 보내기」에서도 할 수 있어요."}
+                  ? t("trade_flow_review_done_buyer")
+                  : t("trade_flow_review_pending_buyer")}
               </p>
               {canOpenReviewSheet && onOpenReview && !room.buyerReviewSubmitted ? (
                 <button
@@ -309,14 +315,17 @@ export function TradeFlowBanner({
                   onClick={() => onOpenReview()}
                   className="rounded-sam-sm bg-sam-primary px-3 py-1.5 sam-text-helper font-medium text-white"
                 >
-                  평가·후기 보내기
+                  {t("nav_trade_review_send")}
                 </button>
               ) : null}
             </>
           ) : (
             <p className="sam-text-xxs text-sam-fg">
-              평가·후기는 구매자만 작성해요. 구매자가 남기면{" "}
-              {room.buyerReviewSubmitted ? "거래 흐름이 모두 끝나요." : "이 단계가 마무리돼요."}
+              {t("trade_flow_review_seller_intro", {
+                suffix: room.buyerReviewSubmitted
+                  ? t("trade_flow_review_seller_done")
+                  : t("trade_flow_review_seller_pending"),
+              })}
             </p>
           )}
         </div>

@@ -1,12 +1,14 @@
 "use client";
 
-import { Fragment, useId } from "react";
+import { Fragment, useId, useMemo } from "react";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import {
   TRADE_LISTING_CHAT_STEPS,
   canSellerListingTransition,
   nextSellerListingTradeStepForward,
 } from "@/lib/trade/seller-listing-chat-transitions";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 function listingStepIndex(listing: SellerListingState): number {
   switch (listing) {
@@ -28,7 +30,12 @@ const NODE_BOX =
 
 const STEP_COL_W = "w-[3.25rem] shrink-0 sm:w-14";
 
-const STEP_ROW_LABELS = ["판매중", "문의중", "예약중", "판매완료"] as const;
+const STEP_ROW_LABEL_KEYS: MessageKey[] = [
+  "trade_listing_step_inquiry",
+  "trade_listing_step_negotiating",
+  "trade_listing_step_reserved",
+  "trade_listing_step_completed",
+];
 
 function safeSvgId(raw: string): string {
   return raw.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -89,7 +96,9 @@ export function TradeSellerListingStepDiagram({
   onPickListing,
   onCompleteTrade,
 }: TradeSellerListingStepDiagramProps) {
+  const { t } = useI18n();
   const flowUid = safeSvgId(useId());
+  const stepRowLabels = useMemo(() => STEP_ROW_LABEL_KEYS.map((key) => t(key)), [t]);
   const currentIdx = listingStepIndex(listing);
   const busy = disabled;
   const showPulse = listing !== "completed";
@@ -113,7 +122,7 @@ export function TradeSellerListingStepDiagram({
     }
   };
 
-  const stepLabels = STEP_ROW_LABELS.join(", ");
+  const stepLabels = stepRowLabels.join(", ");
 
   return (
     <div
@@ -208,7 +217,7 @@ export function TradeSellerListingStepDiagram({
                       className={`${nodeClass} z-[1] outline-none transition active:scale-[0.96] focus-visible:ring-2 focus-visible:ring-[color:var(--sam-primary)]/40 disabled:opacity-50 ${
                         isFlowDestination ? "sam-trade-step-flow-dest" : ""
                       }`}
-                      aria-label={`${STEP_ROW_LABELS[i]} 단계로 변경`}
+                      aria-label={t("trade_listing_step_change_aria", { label: stepRowLabels[i] })}
                     >
                       {i + 1}
                     </button>
@@ -244,7 +253,7 @@ export function TradeSellerListingStepDiagram({
                 <p
                   className={`inline-flex min-h-[1rem] w-full items-center justify-center text-center text-[10px] leading-tight ${labelClass}`}
                 >
-                  {STEP_ROW_LABELS[i]}
+                  {stepRowLabels[i]}
                 </p>
               </div>
             </Fragment>

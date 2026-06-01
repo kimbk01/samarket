@@ -13785,13 +13785,17 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   if (sb && !isCriticalTier) {
     let tradePc = tradeProductChatExitForSnapshot;
     if (!tradePc && summary.contextMeta?.kind === "trade") {
-      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta);
+      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, summary.contextMeta, {
+        directKey: summary.messengerDirectKey,
+      });
     }
     if (
       !tradePc &&
       (tradeChatRoomDetail || earlyTradeContextMetaForExitSnapshot?.kind === "trade")
     ) {
-      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null);
+      tradePc = await loadTradeProductChatExitSnapshotForMessengerRoom(sb, id, null, {
+        directKey: summary.messengerDirectKey,
+      });
     }
     const ev = evaluateTradeMessagingForMessengerRoom({
       viewerUserId: userId,

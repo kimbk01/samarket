@@ -47,6 +47,7 @@ import {
   VoiceMessageBubble,
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
+import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 import {
@@ -361,6 +362,15 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
   const tradeOnlyBlocked =
     Boolean(vm.snapshot?.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
+  const tradeBlockedMessage = useMemo(() => {
+    const tm = vm.snapshot?.tradeMessaging;
+    if (!tm || tm.canSendMessage !== false) return "";
+    return (
+      getMessengerRoomActionErrorMessage(tm.denyCode ?? undefined, t) ||
+      tm.denyMessage ||
+      t("nav_messenger_trade_seller_closed")
+    );
+  }, [vm.snapshot?.tradeMessaging, t]);
   const deliveryCtx = useMemo(
     () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
     [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
@@ -457,16 +467,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             className="mb-2 rounded-sam-md border border-sam-warning/15 bg-sam-warning-soft px-3 py-2 sam-text-helper leading-snug text-sam-warning"
             role="status"
           >
-            <p className="font-semibold break-words">
-              {vm.snapshot.tradeMessaging?.denyMessage ?? "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다."}
-            </p>
+            <p className="font-semibold break-words">{tradeBlockedMessage}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {vm.snapshot.room.peerUserId ? (
                 <Link
                   href="/community-messenger?section=friends"
                   className="sam-btn sam-btn--primary sam-btn--sm"
                 >
-                  친구 추가
+                  {t("cm_ui_add_friend")}
                 </Link>
               ) : null}
               {vm.snapshot.room.contextMeta?.kind === "trade" &&
@@ -476,7 +484,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
                   className="sam-btn sam-btn--outline sam-btn--sm"
                 >
-                  상품 상세보기
+                  {t("cm_ui_view_product_detail")}
                 </Link>
               ) : null}
             </div>
@@ -725,7 +733,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   }
                   placeholder={
                     tradeOnlyBlocked
-                      ? vm.snapshot.tradeMessaging?.denyMessage ?? "메시지를 보낼 수 없습니다"
+                      ? tradeBlockedMessage || t("cm_ui_cannot_send_message")
                       : vm.roomUnavailable
                         ? vm.snapshot.room.isReadonly
                           ? "읽기 전용 방입니다"

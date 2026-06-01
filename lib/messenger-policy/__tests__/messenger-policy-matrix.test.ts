@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canSendMessageInRoom } from "@/lib/messenger-policy/chat-room-permission";
+import { evaluateTradeMessagingForMessengerRoom } from "@/lib/messenger-policy/load-trade-product-chat-exit-for-room";
 import { getRoomUiStateAfterLeave, leavePolicyMetaForRoom } from "@/lib/messenger-policy/chat-room-exit-policy";
 import { getSwipeActions, getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
@@ -65,10 +66,14 @@ describe("canSendMessageInRoom (trade matrix)", () => {
       canSendMessageInRoom({ policyType: "direct", viewerUserId: "x", tradeProductChat: pc({ sellerLeftAt: "t" }) })
     ).toEqual({ ok: true });
   });
-  it("blocks trade when product chat snapshot missing", () => {
-    const r = canSendMessageInRoom({ policyType: "trade", viewerUserId: "buyer-1", tradeProductChat: null });
-    expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.code).toBe("trade_product_chat_unlinked");
+  it("allows trade context when product chat snapshot missing (server guards ledger)", () => {
+    const ev = evaluateTradeMessagingForMessengerRoom({
+      viewerUserId: "buyer-1",
+      roomType: "direct",
+      contextMeta: { v: 1, kind: "trade", productChatId: "pc-1", postId: "post-1" },
+      tradeProductChat: null,
+    });
+    expect(ev.canSendMessage).toBe(true);
   });
   it("blocks trade when viewer is neither seller nor buyer", () => {
     const r = canSendMessageInRoom({ policyType: "trade", viewerUserId: "stranger", tradeProductChat: pc() });

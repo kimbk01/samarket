@@ -44,6 +44,15 @@ export const chatsMessages = {
     chats_compose_fallback_product: "상품",
     chats_compose_fallback_price: "가격 문의",
     chats_compose_fallback_seller: "판매자",
+    chats_send_forbidden: "접근이 제한되었거나 권한이 없습니다. 서버 안내를 확인해 주세요.",
+    chats_send_server_error: "서버 오류로 전송하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    chats_send_ack_failed: "확인 메시지 전송에 실패했습니다. 다시 시도해 주세요.",
+    chats_send_image_order_unlinked:
+      "주문 채팅 통합 화면에서는 아직 사진 전송이 연결되지 않았습니다. 텍스트로 먼저 보내 주세요.",
+    chats_send_image_size_limit: "10MB 이하 이미지만 보낼 수 있어요.",
+    chats_send_image_type_only: "이미지 파일만 보낼 수 있어요.",
+    chats_send_image_upload_failed: "이미지 업로드에 실패했습니다. 다시 시도해 주세요.",
+    chats_direct_chat_fallback: "채팅",
   },
   en: {
     chats_change_item_status_confirm: 'Change item status to "{label}"?',
@@ -90,5 +99,14 @@ export const chatsMessages = {
     chats_compose_fallback_product: "Item",
     chats_compose_fallback_price: "Price on request",
     chats_compose_fallback_seller: "Seller",
+    chats_send_forbidden: "Access is restricted or you do not have permission. Check the server message.",
+    chats_send_server_error: "Could not send because of a server error. Please try again shortly.",
+    chats_send_ack_failed: "Could not send the confirmation message. Please try again.",
+    chats_send_image_order_unlinked:
+      "Photo send is not wired on the unified order chat screen yet. Please send text first.",
+    chats_send_image_size_limit: "You can only send images up to 10MB.",
+    chats_send_image_type_only: "Only image files can be sent.",
+    chats_send_image_upload_failed: "Image upload failed. Please try again.",
+    chats_direct_chat_fallback: "Chat",
   },
 } as const;

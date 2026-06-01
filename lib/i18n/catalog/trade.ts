@@ -197,6 +197,39 @@ export const tradeMessages = {
     trade_detail_btn_reserve: "예약",
     trade_detail_btn_negotiating_reserve: "거래중(예약)",
     trade_detail_btn_partial_edit: "일부 수정",
+    trade_flow_sold_to_other_limited:
+      "이미 다른 구매자와 거래가 완료된 상품입니다. 새 메시지는 제한될 수 있어요.",
+    trade_flow_archived_room: "같은 상품의 다른 거래가 완료되어 이 채팅은 종료된 방입니다.",
+    trade_flow_archived_readonly_suffix: " 읽기 전용이에요.",
+    trade_flow_readonly_no_product:
+      "이 채팅은 읽기 전용입니다. 추가 문의는 새 거래·고객센터를 이용해 주세요.",
+    trade_flow_limited_hint:
+      "일정 기간이 지나면 일반 채팅이 제한될 수 있어요. 신고·차단은 메뉴(⋮)를 이용해 주세요.",
+    trade_flow_readonly_with_history: "이 채팅은 읽기 전용입니다. 이전 대화는 계속 확인할 수 있어요.",
+    trade_flow_step_heading: "거래 단계: {label}",
+    trade_flow_step_in_progress: "진행",
+    trade_flow_expand: "펼치기",
+    trade_flow_collapse: "단계 접기",
+    trade_flow_seller_complete_confirm:
+      "판매 완료로 처리할까요? 완료 후에는 이 채팅에서 단계를 다시 바꾸기 어려울 수 있어요.",
+    trade_flow_buyer_seller_done_body:
+      "판매자가 거래완료 처리했어요. 거래가 끝났다면 {confirmStep}으로 넘어간 뒤 평가·후기를 남겨 주세요.",
+    trade_flow_processing: "처리 중…",
+    trade_flow_buyer_issue: "문제있어요",
+    trade_flow_later: "나중에",
+    trade_flow_buyer_dismissed_hint:
+      "거래완료 확인·평가·후기는 새로고침하거나 {menuPath}의 메뉴(⋮)에서 진행할 수 있어요.",
+    trade_flow_review_done_buyer: "평가·후기 작성이 완료되었어요.",
+    trade_flow_review_pending_buyer:
+      "거래완료 확인이 끝났어요. 평가·후기를 남겨보세요. 구매 내역 메뉴(⋮)의 「후기 보내기」에서도 할 수 있어요.",
+    trade_flow_review_seller_done: "거래 흐름이 모두 끝나요.",
+    trade_flow_review_seller_pending: "이 단계가 마무리돼요.",
+    trade_flow_review_seller_intro: "평가·후기는 구매자만 작성해요. 구매자가 남기면 {suffix}",
+    trade_listing_step_inquiry: "판매중",
+    trade_listing_step_negotiating: "문의중",
+    trade_listing_step_reserved: "예약중",
+    trade_listing_step_completed: "판매완료",
+    trade_listing_step_change_aria: "{label} 단계로 변경",
   },
   en: {
     trade_001: "(Select)",
@@ -396,5 +429,40 @@ export const tradeMessages = {
     trade_detail_btn_reserve: "Reserve",
     trade_detail_btn_negotiating_reserve: "In trade (reserve)",
     trade_detail_btn_partial_edit: "Limited edit",
+    trade_flow_sold_to_other_limited:
+      "This item was sold to another buyer. New messages may be limited.",
+    trade_flow_archived_room:
+      "Another deal on this item finished, so this chat room is closed.",
+    trade_flow_archived_readonly_suffix: " It is read-only.",
+    trade_flow_readonly_no_product:
+      "This chat is read-only. Start a new trade or contact support for further help.",
+    trade_flow_limited_hint:
+      "General chat may be limited after some time. Use the menu (⋮) to report or block.",
+    trade_flow_readonly_with_history:
+      "This chat is read-only. You can still read previous messages.",
+    trade_flow_step_heading: "Trade step: {label}",
+    trade_flow_step_in_progress: "In progress",
+    trade_flow_expand: "Expand",
+    trade_flow_collapse: "Collapse steps",
+    trade_flow_seller_complete_confirm:
+      "Mark this sale complete? You may not be able to change the step again in this chat.",
+    trade_flow_buyer_seller_done_body:
+      "The seller marked the trade complete. If you are done, continue to {confirmStep} and leave a rating and review.",
+    trade_flow_processing: "Processing…",
+    trade_flow_buyer_issue: "Report an issue",
+    trade_flow_later: "Later",
+    trade_flow_buyer_dismissed_hint:
+      "You can confirm completion, rate, and review after refreshing or from the menu (⋮) under {menuPath}.",
+    trade_flow_review_done_buyer: "Your rating and review are submitted.",
+    trade_flow_review_pending_buyer:
+      "Completion is confirmed. Leave a rating and review, or use Send review in Purchases (⋮).",
+    trade_flow_review_seller_done: "The trade flow is fully complete.",
+    trade_flow_review_seller_pending: "This step will finish once they submit.",
+    trade_flow_review_seller_intro: "Only the buyer can leave a review. When they do, {suffix}",
+    trade_listing_step_inquiry: "For sale",
+    trade_listing_step_negotiating: "In inquiry",
+    trade_listing_step_reserved: "Reserved",
+    trade_listing_step_completed: "Sold",
+    trade_listing_step_change_aria: "Change to {label} step",
   },
 } as const;

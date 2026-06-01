@@ -1425,7 +1425,7 @@ export function ChatDetailView({
 
   const postChatText = useCallback(
     async (message: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
-      if (!canWriteTradeMessage) return { ok: false, error: "이 채팅에서는 메시지를 보낼 수 없습니다." };
+      if (!canWriteTradeMessage) return { ok: false, error: t("nav_trade_cannot_message_here") };
       const optimistic = appendOptimisticMessage({
         roomId: room.id,
         senderId: currentUserId,
@@ -1463,17 +1463,17 @@ export function ChatDetailView({
           dropOptimisticMessage(optimistic.id);
           const apiErr = typeof data?.error === "string" ? data.error.trim() : "";
           if (apiErr) return { ok: false, error: apiErr };
-          if (res.status === 401) return { ok: false, error: "로그인이 필요합니다." };
+          if (res.status === 401) return { ok: false, error: t("common_login_required") };
           if (res.status === 403) {
-            return { ok: false, error: "접근이 제한되었거나 권한이 없습니다. 서버 안내를 확인해 주세요." };
+            return { ok: false, error: t("chats_send_forbidden") };
           }
-          if (res.status >= 500) return { ok: false, error: "서버 오류로 전송하지 못했습니다. 잠시 후 다시 시도해 주세요." };
+          if (res.status >= 500) return { ok: false, error: t("chats_send_server_error") };
         } catch {
           dropOptimisticMessage(optimistic.id);
-          return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
+          return { ok: false, error: t("nav_trade_network_error") };
         }
         dropOptimisticMessage(optimistic.id);
-        return { ok: false, error: "전송에 실패했습니다. 다시 시도해 주세요." };
+        return { ok: false, error: t("nav_trade_cannot_send_message") };
       }
 
       try {
@@ -1494,7 +1494,7 @@ export function ChatDetailView({
         return { ok: false, error: res.error };
       } catch {
         dropOptimisticMessage(optimistic.id);
-        return { ok: false, error: "네트워크 오류로 전송하지 못했습니다." };
+        return { ok: false, error: t("nav_trade_network_error") };
       }
     },
     [
@@ -1508,65 +1508,66 @@ export function ChatDetailView({
       appendOptimisticMessage,
       confirmOptimisticMessage,
       dropOptimisticMessage,
+      t,
     ]
   );
 
   const postChatTextForSellerPanel = useCallback(
     async (text: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
       const r = await postChatText(text);
-      return r.ok ? { ok: true } : { ok: false, error: r.error ?? "전송에 실패했습니다." };
+      return r.ok ? { ok: true } : { ok: false, error: r.error ?? t("nav_trade_cannot_send_message") };
     },
-    [postChatText]
+    [postChatText, t]
   );
 
   const sendBuyerOrderMatchAck = useCallback(async () => {
     const r = await postChatText(STORE_ORDER_MATCH_ACK_MESSAGE);
     if (!r.ok) {
       if (redirectForBlockedAction(router, r.error, pathname ?? "")) return false;
-      setSendError(r.error ?? "확인 메시지 전송에 실패했습니다. 다시 시도해 주세요.");
+      setSendError(r.error ?? t("chats_send_ack_failed"));
     }
     return r.ok;
-  }, [postChatText, router, pathname]);
+  }, [postChatText, router, pathname, t]);
 
   const handleSend = useCallback(
     async (message: string) => {
       setSendError(null);
       if (!canWriteTradeMessage) {
-        setSendError("이 채팅에서는 메시지를 보낼 수 없습니다.");
+        setSendError(t("nav_trade_cannot_message_here"));
         return;
       }
       const r = await postChatText(message);
       if (!r.ok) {
         if (redirectForBlockedAction(router, r.error, pathname ?? "")) return;
-        setSendError(r.error ?? "전송에 실패했습니다. 다시 시도해 주세요.");
+        setSendError(r.error ?? t("nav_trade_cannot_send_message"));
       }
     },
-    [canWriteTradeMessage, postChatText, router, pathname]
+    [canWriteTradeMessage, postChatText, router, pathname, t]
   );
 
   const handleSendImageFile = useCallback(
     async (file: File) => {
       setSendError(null);
       if (!canWriteTradeMessage) {
-        setSendError("이 채팅에서는 메시지를 보낼 수 없습니다.");
+        setSendError(t("nav_trade_cannot_message_here"));
         return;
       }
       if (isStoreOrderChat && isChatRoom) {
-        setSendError("주문 채팅 통합 화면에서는 아직 사진 전송이 연결되지 않았습니다. 텍스트로 먼저 보내 주세요.");
+        setSendError(t("chats_send_image_order_unlinked"));
         return;
       }
       const maxBytes = 10 * 1024 * 1024;
       if (file.size > maxBytes) {
-        setSendError("10MB 이하 이미지만 보낼 수 있어요.");
+        setSendError(t("chats_send_image_size_limit"));
         return;
       }
       if (!file.type.startsWith("image/")) {
-        setSendError("이미지 파일만 보낼 수 있어요.");
+        setSendError(t("chats_send_image_type_only"));
         return;
       }
       const user = getCurrentUser();
       if (!user?.id) {
-        setSendError("로그인이 필요합니다.");
+        setSendError(t("common_login_required"));
         return;
       }
       setImageSending(true);
@@ -1575,7 +1576,7 @@ export function ChatDetailView({
         const urls = await uploadPostImages([file], user.id);
         const imageUrl = urls[0];
         if (!imageUrl) {
-          setSendError("이미지 업로드에 실패했습니다. 다시 시도해 주세요.");
+          setSendError(t("chats_send_image_upload_failed"));
           return;
         }
         optimistic = appendOptimisticMessage({
@@ -1610,7 +1611,7 @@ export function ChatDetailView({
           } else {
             dropOptimisticMessage(optimistic.id);
             const err =
-              typeof data?.error === "string" ? data.error : "전송에 실패했습니다. 다시 시도해 주세요.";
+              typeof data?.error === "string" ? data.error : t("nav_trade_cannot_send_message");
             if (redirectForBlockedAction(router, err, pathname ?? "")) return;
             setSendError(err);
           }
@@ -1635,11 +1636,11 @@ export function ChatDetailView({
         } else {
           dropOptimisticMessage(optimistic.id);
           if (redirectForBlockedAction(router, sendRes.error, pathname ?? "")) return;
-          setSendError(sendRes.error || "전송에 실패했습니다. 다시 시도해 주세요.");
+          setSendError(sendRes.error || t("nav_trade_cannot_send_message"));
         }
       } catch {
         if (optimistic) dropOptimisticMessage(optimistic.id);
-        setSendError("전송에 실패했습니다. 다시 시도해 주세요.");
+        setSendError(t("nav_trade_cannot_send_message"));
       } finally {
         setImageSending(false);
       }
@@ -1655,6 +1656,7 @@ export function ChatDetailView({
       dropOptimisticMessage,
       pathname,
       router,
+      t,
     ]
   );
 
@@ -1966,12 +1968,12 @@ export function ChatDetailView({
 
   const headerRoleLine =
     isStoreOrderChat && !isStoreOrderBuyer
-      ? room.roomSubtitle?.trim() || (amISeller ? "상대방 · 주문 고객" : "상대방 · 매장")
+      ? room.roomSubtitle?.trim() || (amISeller ? t("nav_trade_partner_order_customer") : t("nav_trade_partner_store"))
       : room.product
         ? amISeller
-          ? "상대방 · 구매자"
-          : "상대방 · 이 글의 판매자"
-        : "채팅";
+          ? t("nav_trade_partner_buyer")
+          : t("nav_trade_partner_seller_of_post")
+        : t("chats_direct_chat_fallback");
 
   /** 상품 거래 1:1 — 닉네임 줄에 `닉네임 | 구매자` 형태로 넣어 아래 줄과 중복하지 않음 */
   const showTradePeerRoleInline =
