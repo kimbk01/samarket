@@ -6,9 +6,16 @@ import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   DELIVERY_OPS_SETTING_KEYS,
+  DEFAULT_DELIVERY_DISTANCE_POLICY,
+  DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES,
+  invalidateDeliveryDistanceSettingsCache,
   invalidateDeliveryRideTimeSourceCache,
+  normalizeDeliveryDistancePolicy,
   normalizeDeliveryRideTimeSource,
+  normalizeDeliveryStoreDistanceOverrides,
+  type DeliveryDistancePolicy,
   type DeliveryRideTimeSource,
+  type DeliveryStoreDistanceOverrides,
 } from "@/lib/delivery/delivery-ops-settings";
 
 export const runtime = "nodejs";
@@ -17,6 +24,32 @@ export const dynamic = "force-dynamic";
 function readBoolSetting(row: { value_json?: unknown } | null | undefined): boolean {
   const v = row?.value_json as { value?: unknown } | null | undefined;
   return v?.value === true;
+}
+
+const DELIVERY_SETTINGS_KEYS = [
+  DELIVERY_OPS_SETTING_KEYS.riderLocationEnabled,
+  DELIVERY_OPS_SETTING_KEYS.rideTimeSource,
+  DELIVERY_OPS_SETTING_KEYS.distancePolicy,
+  DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides,
+] as const;
+
+function buildSettingsPayload(rows: { key?: string; value_json?: unknown }[]) {
+  const riderRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.riderLocationEnabled);
+  const rideRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.rideTimeSource);
+  const distanceRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.distancePolicy);
+  const overridesRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides);
+  const rideJson = rideRow?.value_json as { value?: unknown } | null | undefined;
+
+  return {
+    rider_location_enabled: readBoolSetting(riderRow ?? null),
+    ride_time_source: normalizeDeliveryRideTimeSource(rideJson?.value),
+    distance_policy: normalizeDeliveryDistancePolicy(
+      distanceRow?.value_json ?? DEFAULT_DELIVERY_DISTANCE_POLICY
+    ),
+    store_distance_overrides: normalizeDeliveryStoreDistanceOverrides(
+      overridesRow?.value_json ?? DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES
+    ),
+  };
 }
 
 export async function GET() {
@@ -29,7 +62,7 @@ export async function GET() {
   const { data, error } = await sb
     .from("admin_settings")
     .select("key, value_json")
-    .in("key", [DELIVERY_OPS_SETTING_KEYS.riderLocationEnabled, DELIVERY_OPS_SETTING_KEYS.rideTimeSource]);
+    .in("key", DELIVERY_SETTINGS_KEYS);
   if (error) {
     if (error.message?.includes("admin_settings") && error.message.includes("does not exist")) {
       return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
@@ -38,21 +71,19 @@ export async function GET() {
   }
 
   const rows = (data ?? []) as { key?: string; value_json?: unknown }[];
-  const riderRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.riderLocationEnabled);
-  const rideRow = rows.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.rideTimeSource);
-  const rideJson = rideRow?.value_json as { value?: unknown } | null | undefined;
-  const ride_time_source: DeliveryRideTimeSource = normalizeDeliveryRideTimeSource(rideJson?.value);
+  const payload = buildSettingsPayload(rows);
 
   return NextResponse.json({
     ok: true,
-    rider_location_enabled: readBoolSetting(riderRow ?? null),
-    ride_time_source,
+    ...payload,
   });
 }
 
 type PutBody = {
   rider_location_enabled?: boolean | null;
   ride_time_source?: DeliveryRideTimeSource | null;
+  distance_policy?: DeliveryDistancePolicy | null;
+  store_distance_overrides?: DeliveryStoreDistanceOverrides | null;
 };
 
 export async function PUT(req: NextRequest) {
@@ -67,7 +98,9 @@ export async function PUT(req: NextRequest) {
   }
   const hasRider = "rider_location_enabled" in body;
   const hasRide = "ride_time_source" in body;
-  if (!hasRider && !hasRide) {
+  const hasDistancePolicy = "distance_policy" in body;
+  const hasStoreDistanceOverrides = "store_distance_overrides" in body;
+  if (!hasRider && !hasRide && !hasDistancePolicy && !hasStoreDistanceOverrides) {
     return NextResponse.json({ ok: false, error: "no_fields" }, { status: 400 });
   }
 
@@ -130,8 +163,66 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  if (hasRide) {
+  if (hasDistancePolicy) {
+    if (body.distance_policy === null) {
+      const { error } = await sb.from("admin_settings").delete().eq("key", DELIVERY_OPS_SETTING_KEYS.distancePolicy);
+      if (error && !error.message?.includes("does not exist")) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      afterJson.distance_policy = DEFAULT_DELIVERY_DISTANCE_POLICY;
+    } else {
+      const policy = normalizeDeliveryDistancePolicy(body.distance_policy);
+      const { error } = await sb.from("admin_settings").upsert(
+        {
+          key: DELIVERY_OPS_SETTING_KEYS.distancePolicy,
+          value_json: policy,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" }
+      );
+      if (error) {
+        if (error.message?.includes("admin_settings") && error.message?.includes("does not exist")) {
+          return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
+        }
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      afterJson.distance_policy = policy;
+    }
+  }
+
+  if (hasStoreDistanceOverrides) {
+    if (body.store_distance_overrides === null) {
+      const { error } = await sb
+        .from("admin_settings")
+        .delete()
+        .eq("key", DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides);
+      if (error && !error.message?.includes("does not exist")) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      afterJson.store_distance_overrides = DEFAULT_DELIVERY_STORE_DISTANCE_OVERRIDES;
+    } else {
+      const overrides = normalizeDeliveryStoreDistanceOverrides(body.store_distance_overrides);
+      const { error } = await sb.from("admin_settings").upsert(
+        {
+          key: DELIVERY_OPS_SETTING_KEYS.storeDistanceOverrides,
+          value_json: overrides,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "key" }
+      );
+      if (error) {
+        if (error.message?.includes("admin_settings") && error.message?.includes("does not exist")) {
+          return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
+        }
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      }
+      afterJson.store_distance_overrides = overrides;
+    }
+  }
+
+  if (hasRide || hasDistancePolicy || hasStoreDistanceOverrides) {
     invalidateDeliveryRideTimeSourceCache();
+    invalidateDeliveryDistanceSettingsCache();
   }
 
   const actorId = await getRouteUserId();
@@ -150,18 +241,15 @@ export async function PUT(req: NextRequest) {
   const { data: data2, error: err2 } = await sb
     .from("admin_settings")
     .select("key, value_json")
-    .in("key", [DELIVERY_OPS_SETTING_KEYS.riderLocationEnabled, DELIVERY_OPS_SETTING_KEYS.rideTimeSource]);
+    .in("key", DELIVERY_SETTINGS_KEYS);
   if (err2) {
     return NextResponse.json({ ok: true, ...afterJson }, { status: 200 });
   }
   const rows2 = (data2 ?? []) as { key?: string; value_json?: unknown }[];
-  const riderRow2 = rows2.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.riderLocationEnabled);
-  const rideRow2 = rows2.find((r) => r.key === DELIVERY_OPS_SETTING_KEYS.rideTimeSource);
-  const rideJson2 = rideRow2?.value_json as { value?: unknown } | null | undefined;
+  const payload2 = buildSettingsPayload(rows2);
 
   return NextResponse.json({
     ok: true,
-    rider_location_enabled: readBoolSetting(riderRow2 ?? null),
-    ride_time_source: normalizeDeliveryRideTimeSource(rideJson2?.value),
+    ...payload2,
   });
 }

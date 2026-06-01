@@ -183,6 +183,8 @@ export const storeCommerceUiMessages = {
     store_show_more: "더보기",
 
     store_straight_distance_title: "직선 거리",
+    store_delivery_distance_out_of_range: "거리 초과",
+    store_delivery_distance_out_of_range_with_max: "{km}km 초과",
 
     store_hub_my_zone_title: "내 주문 · 매장 운영",
     store_hub_ops_center: "운영 센터",
@@ -1845,6 +1847,8 @@ export const storeCommerceUiMessages = {
     store_show_more: "More",
 
     store_straight_distance_title: "Straight-line distance",
+    store_delivery_distance_out_of_range: "Out of range",
+    store_delivery_distance_out_of_range_with_max: "Over {km}km",
 
     store_hub_my_zone_title: "My orders · Store ops",
     store_hub_ops_center: "Owner center",

@@ -1,9 +1,9 @@
 /** browse 2차 칩·optimistic UI·perf 계측에 쓰는 「전체」 식별자 (`?sub` 없음과 동일) */
 export const STORES_BROWSE_SUB_ALL = "all" as const;
 
-/** 시뮬레이션 업종 탐색 URL (실매장 /stores/[slug] 와 분리 유지) */
+/** 1차 업종 진입 URL — 목록 API와 캐시 키를 `sub=all`로 통일한다. */
 export function storesBrowsePrimaryPath(primarySlug: string): string {
-  return `/stores/browse/${encodeURIComponent(primarySlug)}`;
+  return storesBrowseAllPath(primarySlug);
 }
 
 export function storesBrowsePath(primarySlug: string, subSlug: string): string {

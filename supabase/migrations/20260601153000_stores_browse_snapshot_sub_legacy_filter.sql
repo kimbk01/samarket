@@ -1,41 +1,5 @@
--- SB1: Stores browse snapshot — unified RPC (1 PostgREST RTT cold path).
--- DB bundle: taxonomy + store rows + product previews + banner previews.
--- CPU assemble (sort/geo/labels) remains in TS — response shape unchanged.
-
-CREATE TABLE IF NOT EXISTS public.stores_browse_snapshots (
-  primary_slug text NOT NULL,
-  sub_slug text NOT NULL,
-  region text NOT NULL DEFAULT '',
-  city text NOT NULL DEFAULT '',
-  district text NOT NULL DEFAULT '',
-  geo_part text NOT NULL DEFAULT 'g:none',
-  list_limit integer NOT NULL DEFAULT 60,
-  ui_lang text NOT NULL DEFAULT 'ko',
-  list_scope text NOT NULL DEFAULT 'default',
-  cursor_key text NOT NULL DEFAULT '',
-  payload_json jsonb NOT NULL DEFAULT '{}'::jsonb,
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (
-    primary_slug,
-    sub_slug,
-    region,
-    city,
-    district,
-    geo_part,
-    list_limit,
-    ui_lang,
-    list_scope,
-    cursor_key
-  )
-);
-
-COMMENT ON TABLE public.stores_browse_snapshots IS
-  'Precomputed stores browse list responses. Event-driven refresh; read path 1 PK select.';
-
-CREATE INDEX IF NOT EXISTS idx_stores_browse_snapshots_updated
-  ON public.stores_browse_snapshots (updated_at DESC);
-
-ALTER TABLE public.stores_browse_snapshots ENABLE ROW LEVEL SECURITY;
+-- SB1 patch: legacy business_type 후보를 선택 2차 sub(slug/name)까지 좁힘 — RPC payload·product/banner join 비용 절감.
+-- TS `browseStoreRowMatchesSubFilter` 와 동일 의도 (배포 DB용 CREATE OR REPLACE).
 
 CREATE OR REPLACE FUNCTION public.get_stores_browse_snapshot(
   p_region text DEFAULT '',
@@ -288,9 +252,4 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.get_stores_browse_snapshot(text, text, text, integer, text, text, text) IS
-  'SB1 stores browse — taxonomy + stores + product/banner previews in one RPC RTT.';
-
-REVOKE ALL ON FUNCTION public.get_stores_browse_snapshot(text, text, text, integer, text, text, text) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.get_stores_browse_snapshot(text, text, text, integer, text, text, text) FROM anon;
-REVOKE ALL ON FUNCTION public.get_stores_browse_snapshot(text, text, text, integer, text, text, text) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.get_stores_browse_snapshot(text, text, text, integer, text, text, text) TO service_role;
+  'SB1 stores browse — taxonomy + stores + product/banner previews; legacy business_type rows scoped to selected sub.';

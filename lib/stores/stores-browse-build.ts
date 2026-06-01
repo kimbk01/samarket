@@ -7,7 +7,11 @@ import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import type { DeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
+import type {
+  DeliveryDistancePolicy,
+  DeliveryStoreDistanceOverrides,
+  DeliveryRideTimeSource,
+} from "@/lib/delivery/delivery-ops-settings";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import type { BrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import {
@@ -36,6 +40,7 @@ export type StoreBrowseRow = {
   rating_avg: number | null;
   review_count: number | null;
   delivery_available: boolean | null;
+  store_topic_id?: string | null;
   pickup_available: boolean | null;
   visit_available: boolean | null;
   reservation_available: boolean | null;
@@ -88,13 +93,20 @@ export function buildBrowseStoresOrFilter(
   wantsAllSubs: boolean,
   orphanOrParts: string[],
 ): string {
+  const legacyByBusinessType =
+    orphanOrParts.length > 0 ? `or(${orphanOrParts.join(",")})` : null;
   const linked =
-    wantsAllSubs || !resolvedTopicId ?
-      `store_category_id.eq.${categoryId}`
-    : `and(store_category_id.eq.${categoryId},store_topic_id.eq.${resolvedTopicId})`;
-  if (orphanOrParts.length === 0) return linked;
-  const orphan = `and(store_category_id.is.null,or(${orphanOrParts.join(",")}))`;
-  return `${linked},${orphan}`;
+    wantsAllSubs || !resolvedTopicId
+      ? `store_category_id.eq.${categoryId}`
+      : `and(store_category_id.eq.${categoryId},store_topic_id.eq.${resolvedTopicId})`;
+  const parts = [linked];
+  if (legacyByBusinessType) {
+    if (!wantsAllSubs && resolvedTopicId) {
+      parts.push(`and(store_category_id.eq.${categoryId},store_topic_id.is.null,${legacyByBusinessType})`);
+    }
+    parts.push(`and(store_category_id.is.null,${legacyByBusinessType})`);
+  }
+  return parts.join(",");
 }
 
 export function logBrowseRoutePerf(args: {
@@ -182,6 +194,86 @@ export function normalizeBizTypeSeparators(raw: string): string {
  * business_type 첫 토큰이 primary 슬러그 또는 DB 1차 표시명(예: 식당) 과 일치할 때 세부 파싱.
  * (신청 실패 시 `${slug} · ${sub}` 또는 `식당 · 한식` 등 혼재)
  */
+export type BrowseSubFilterRow = {
+  store_category_id?: string | null;
+  store_topic_id?: string | null;
+  business_type?: string | null;
+};
+
+export type BrowseSubFilterContext = {
+  primary: string;
+  subRaw: string;
+  wantsAllSubs: boolean;
+  primaryAliases: string[];
+  topicList: { slug: string; name: string }[];
+  resolvedTopicId: string | null;
+};
+
+/** 2차 업종 표시명 → slug (legacy business_type 매칭용) */
+export function buildBrowseTopicNameToSlugMap(
+  topicList: { slug: string; name: string }[],
+): Map<string, string> {
+  const topicNameToSlug = new Map<string, string>();
+  for (const t of topicList) {
+    const nk = String(t.name).trim().toLowerCase();
+    const sk = String(t.slug).trim().toLowerCase();
+    if (nk && !topicNameToSlug.has(nk)) topicNameToSlug.set(nk, sk);
+  }
+  return topicNameToSlug;
+}
+
+export function browseOrphanMatchesChosenSub(
+  parsed: { subSlugGuess: string; subLabelGuess: string } | null,
+  opts: { wantsAllSubs: boolean; subRaw: string; topicNameToSlug: Map<string, string> },
+): boolean {
+  if (opts.wantsAllSubs) return true;
+  if (!parsed) return false;
+  const guessSlug = parsed.subSlugGuess.trim().toLowerCase();
+  if (guessSlug === opts.subRaw) return true;
+  const slugViaKoName = opts.topicNameToSlug.get(parsed.subLabelGuess.trim().toLowerCase());
+  return slugViaKoName === opts.subRaw;
+}
+
+/**
+ * CONTRACT: browse 2차 sub 필터 — RPC 후보와 TS assemble 이 동일 규칙.
+ * - `wantsAllSubs`: 1차(category) 연결 매장 전부 + business_type 1차 일치 orphan
+ * - 특정 sub: store_topic_id 일치, 또는 topic_id 비어 있을 때만 business_type legacy
+ * - store_topic_id 가 다른 topic 을 가리키면 legacy 로 우회하지 않음 (undefined ≠ 전체 1차)
+ */
+export function browseStoreRowMatchesSubFilter(
+  row: BrowseSubFilterRow,
+  ctx: BrowseSubFilterContext,
+  topicNameToSlug?: Map<string, string>,
+): boolean {
+  const nameToSlug = topicNameToSlug ?? buildBrowseTopicNameToSlugMap(ctx.topicList);
+  const orphanOpts = {
+    wantsAllSubs: ctx.wantsAllSubs,
+    subRaw: ctx.subRaw,
+    topicNameToSlug: nameToSlug,
+  };
+
+  if (ctx.wantsAllSubs) {
+    if (row.store_category_id) return true;
+    return parseBizTypePrimarySub(row.business_type, ctx.primary, ctx.primaryAliases) != null;
+  }
+
+  if (row.store_category_id) {
+    if (
+      row.store_topic_id &&
+      ctx.resolvedTopicId &&
+      row.store_topic_id === ctx.resolvedTopicId
+    ) {
+      return true;
+    }
+    if (row.store_topic_id) return false;
+    const legacy = parseBizTypePrimarySub(row.business_type, ctx.primary, ctx.primaryAliases);
+    return browseOrphanMatchesChosenSub(legacy, orphanOpts);
+  }
+
+  const legacy = parseBizTypePrimarySub(row.business_type, ctx.primary, ctx.primaryAliases);
+  return browseOrphanMatchesChosenSub(legacy, orphanOpts);
+}
+
 export function parseBizTypePrimarySub(
   businessType: string | null | undefined,
   primarySlug: string,
@@ -208,6 +300,7 @@ export function sanitizeForIlikeFragment(s: string): string {
 export const STORE_ROW_BROWSE_FIELDS = `
         id,
         store_category_id,
+        store_topic_id,
         store_name,
         slug,
         region,
@@ -229,7 +322,7 @@ export const STORE_ROW_BROWSE_FIELDS = `
         business_type`;
 
 export const BROWSE_STORE_ROW_SELECTED_COLUMNS =
-  "id,store_category_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type";
+  "id,store_category_id,store_topic_id,store_name,slug,region,city,district,profile_image_url,is_open,point_commerce_blocked,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type";
 
 export function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
@@ -253,6 +346,9 @@ export type StoresBrowseRequestContext = {
   uiLang: AppLanguageCode;
   origin: BrowseRouteOrigin;
   deliveryRideTimeSource: DeliveryRideTimeSource;
+  deliveryDistancePolicy: DeliveryDistancePolicy;
+  storeDistanceOverrides: DeliveryStoreDistanceOverrides;
+  routeMetricsByStoreId?: Map<string, { rideMinutes: number | null; routeDistanceMeters: number | null }> | null;
 };
 
 export type StoresBrowseDbBundle = {
@@ -280,6 +376,12 @@ export type StoresBrowseResponseBody = {
     origin_source: BrowseRouteOrigin["source"];
     origin_address_id: null;
     delivery_ride_time_source: DeliveryRideTimeSource;
+    delivery_distance_policy: {
+      enabled: boolean;
+      source: DeliveryDistancePolicy["source"];
+      default_max_km: number | null;
+      over_distance_behavior: DeliveryDistancePolicy["overDistanceBehavior"];
+    };
   };
 };
 
@@ -291,53 +393,91 @@ export type StoresBrowseAssembleResult = {
   dbRelatedMs: number;
 };
 
+function resolveStoreDistancePolicy(
+  ctx: Pick<StoresBrowseRequestContext, "deliveryDistancePolicy" | "storeDistanceOverrides">,
+  storeId: string
+): { applies: boolean; maxKm: number | null } {
+  const global = ctx.deliveryDistancePolicy;
+  if (!global.enabled) return { applies: false, maxKm: null };
+  const override = ctx.storeDistanceOverrides.stores[storeId];
+  if (override?.mode === "disabled") return { applies: false, maxKm: override.maxKm ?? global.defaultMaxKm };
+  const applies = override?.mode === "enabled" || global.enabled;
+  return {
+    applies,
+    maxKm: override?.maxKm ?? global.defaultMaxKm,
+  };
+}
+
+function resolveDistanceForSort(
+  ctx: StoresBrowseRequestContext,
+  row: StoreBrowseRow
+): { distanceKm: number | null; outOfRange: boolean; applies: boolean } {
+  const policy = resolveStoreDistancePolicy(ctx, row.id);
+  if (!policy.applies || ctx.origin.lat == null || ctx.origin.lng == null) {
+    return { distanceKm: null, outOfRange: false, applies: false };
+  }
+  const routeMeters = ctx.routeMetricsByStoreId?.get(row.id)?.routeDistanceMeters ?? null;
+  const routeKm =
+    ctx.deliveryDistancePolicy.source === "google" &&
+    routeMeters != null &&
+    Number.isFinite(routeMeters) &&
+    routeMeters >= 0
+      ? routeMeters / 1000
+      : null;
+  const straightKm = haversineKm(ctx.origin.lat, ctx.origin.lng, row.lat, row.lng);
+  const distanceKm = routeKm ?? straightKm;
+  const outOfRange =
+    policy.maxKm != null && distanceKm != null && Number.isFinite(distanceKm) && distanceKm > policy.maxKm;
+  return { distanceKm, outOfRange, applies: true };
+}
+
+export type BrowseFilteredStoreRowsResult = {
+  rows: StoreBrowseRow[];
+  distById: Map<string, number | null> | null;
+  distanceSortMs: number;
+};
+
+/** RPC/legacy 후보에서 sub·orphan 규칙으로 행만 추림 (정렬·거리 전) */
+export function resolveBrowseFilteredStoreRows(
+  ctx: Pick<StoresBrowseRequestContext, "primary" | "subRaw" | "wantsAllSubs">,
+  taxonomySlice: BrowseTaxonomySlice,
+  storeRowsRaw: unknown[],
+): StoreBrowseRow[] {
+  const filterCtx: BrowseSubFilterContext = {
+    primary: ctx.primary,
+    subRaw: ctx.subRaw,
+    wantsAllSubs: ctx.wantsAllSubs,
+    primaryAliases: taxonomySlice.primaryAliases,
+    topicList: taxonomySlice.topicList,
+    resolvedTopicId: taxonomySlice.resolvedTopicId,
+  };
+  const topicNameToSlug = buildBrowseTopicNameToSlugMap(taxonomySlice.topicList);
+  type StoreRowWithCat = StoreBrowseRow & { store_category_id?: string | null; store_topic_id?: string | null };
+  const mapped = mapBrowseEmbedRows(storeRowsRaw ?? []) as StoreRowWithCat[];
+  const rows: StoreBrowseRow[] = [];
+  const seen = new Set<string>();
+  for (const r of mapped) {
+    if (!browseStoreRowMatchesSubFilter(r, filterCtx, topicNameToSlug)) continue;
+    if (seen.has(r.id)) continue;
+    seen.add(r.id);
+    rows.push(r);
+  }
+  return rows;
+}
+
 /** orphan·거리 정렬 후 목록 행 — legacy fetch 가 product/banner id 추출에 사용 */
 export function resolveBrowseFilteredSortedStoreRows(
   ctx: StoresBrowseRequestContext,
   taxonomySlice: BrowseTaxonomySlice,
   storeRowsRaw: unknown[],
-): { rows: StoreBrowseRow[]; distById: Map<string, number | null> | null; distanceSortMs: number } {
-  const { primary, subRaw, wantsAllSubs, district, origin } = ctx;
+  prefilteredRows?: StoreBrowseRow[],
+): BrowseFilteredStoreRowsResult {
+  const { district, origin } = ctx;
   const userLat = origin.lat;
   const userLng = origin.lng;
-  const primaryAliases = taxonomySlice.primaryAliases;
-  const topicList = taxonomySlice.topicList;
 
-  const topicNameToSlug = new Map<string, string>();
-  for (const t of topicList) {
-    const nk = String(t.name).trim().toLowerCase();
-    const sk = String(t.slug).trim().toLowerCase();
-    if (nk && !topicNameToSlug.has(nk)) topicNameToSlug.set(nk, sk);
-  }
-
-  function orphanMatchesChosenSub(parsed: { subSlugGuess: string; subLabelGuess: string } | null): boolean {
-    if (wantsAllSubs) return true;
-    if (!parsed) return false;
-    const guessSlug = parsed.subSlugGuess.trim().toLowerCase();
-    if (guessSlug === subRaw) return true;
-    const slugViaKoName = topicNameToSlug.get(parsed.subLabelGuess.trim().toLowerCase());
-    return slugViaKoName === subRaw;
-  }
-
-  type StoreRowWithCat = StoreBrowseRow & { store_category_id?: string | null };
-  const mapped = mapBrowseEmbedRows(storeRowsRaw ?? []) as StoreRowWithCat[];
-  const linked: StoreBrowseRow[] = [];
-  const seen = new Set<string>();
-  for (const r of mapped) {
-    if (r.store_category_id) {
-      linked.push(r);
-      seen.add(r.id);
-    }
-  }
-  let rows: StoreBrowseRow[] = linked;
-  for (const o of mapped) {
-    if (o.store_category_id) continue;
-    if (seen.has(o.id)) continue;
-    const legacy = parseBizTypePrimarySub(o.business_type, primary, primaryAliases);
-    if (!orphanMatchesChosenSub(legacy)) continue;
-    seen.add(o.id);
-    rows.push(o);
-  }
+  let rows: StoreBrowseRow[] =
+    prefilteredRows ?? resolveBrowseFilteredStoreRows(ctx, taxonomySlice, storeRowsRaw);
 
   const distanceSort0 = devPerfNow();
   const stableSlug = (a: StoreBrowseRow, b: StoreBrowseRow) =>
@@ -361,13 +501,20 @@ export function resolveBrowseFilteredSortedStoreRows(
   };
 
   let distById: Map<string, number | null> | null = null;
-  if (userLat != null && userLng != null) {
+  const distanceEnabled = ctx.deliveryDistancePolicy.enabled && userLat != null && userLng != null;
+  if (distanceEnabled) {
     const distMap = new Map<string, number | null>();
+    const outOfRangeMap = new Map<string, boolean>();
     for (const r of rows) {
-      distMap.set(r.id, haversineKm(userLat, userLng, r.lat, r.lng));
+      const d = resolveDistanceForSort(ctx, r);
+      distMap.set(r.id, d.distanceKm);
+      outOfRangeMap.set(r.id, d.outOfRange);
     }
     distById = distMap;
     rows = [...rows].sort((a, b) => {
+      const ao = outOfRangeMap.get(a.id) === true ? 1 : 0;
+      const bo = outOfRangeMap.get(b.id) === true ? 1 : 0;
+      if (ao !== bo) return ao - bo;
       const dr = districtRank(a.district, district) - districtRank(b.district, district);
       if (dr !== 0) return dr;
       const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
@@ -386,7 +533,13 @@ export function resolveBrowseFilteredSortedStoreRows(
   rows = rows.slice(0, BROWSE_STORE_LIMIT);
   const distanceSortMs = devPerfNow() - distanceSort0;
 
-  if (process.env.NODE_ENV === "development" && userLat != null && userLng != null && rows.length > 0) {
+  if (
+    process.env.NODE_ENV === "development" &&
+    ctx.deliveryDistancePolicy.source !== "google" &&
+    userLat != null &&
+    userLng != null &&
+    rows.length > 0
+  ) {
     devLogRoutesSkipped("list_screen_disabled", "api/stores/browse");
   }
 
@@ -396,6 +549,7 @@ export function resolveBrowseFilteredSortedStoreRows(
 export function assembleStoresBrowseResponse(
   ctx: StoresBrowseRequestContext,
   bundle: StoresBrowseDbBundle,
+  prefetchedFilter?: BrowseFilteredStoreRowsResult,
 ): StoresBrowseAssembleResult {
   const {
     primary,
@@ -405,6 +559,7 @@ export function assembleStoresBrowseResponse(
     uiLang,
     origin,
     deliveryRideTimeSource,
+    deliveryDistancePolicy,
   } = ctx;
   const userLat = origin.lat;
   const userLng = origin.lng;
@@ -413,7 +568,8 @@ export function assembleStoresBrowseResponse(
   const primaryAliases = taxonomySlice.primaryAliases;
   const selectedTopicMeta = taxonomySlice.selectedTopicMeta;
 
-  const { rows, distById } = resolveBrowseFilteredSortedStoreRows(ctx, taxonomySlice, storeRowsRaw);
+  const { rows, distById } =
+    prefetchedFilter ?? resolveBrowseFilteredSortedStoreRows(ctx, taxonomySlice, storeRowsRaw);
 
   const featuredByStore = new Map<
     string,
@@ -476,6 +632,8 @@ export function assembleStoresBrowseResponse(
     if (distById) {
       distanceKm = distById.get(r.id) ?? null;
     }
+    const rowPolicy = resolveStoreDistancePolicy(ctx, r.id);
+    const rowDistance = resolveDistanceForSort(ctx, r);
 
     const isSameAddress = isSameDeliveryAddressForList(
       {
@@ -490,11 +648,14 @@ export function assembleStoresBrowseResponse(
       },
       r,
     );
-    /** 목록: 직선거리만 — `routeDistanceKm` 필드 미포함 */
-    const displayDistanceKm = isSameAddress ? 0 : distanceKm;
+    /** 목록: 관리자 정책 산식 — 기본은 직선, google 선택 시 matrix 성공분만 route 거리 */
+    const routeMeters = ctx.routeMetricsByStoreId?.get(r.id)?.routeDistanceMeters ?? null;
+    const routeDistanceKm =
+      routeMeters != null && Number.isFinite(routeMeters) && routeMeters >= 0 ? routeMeters / 1000 : null;
+    const displayDistanceKm = rowPolicy.applies ? (isSameAddress ? 0 : distanceKm) : null;
     const rideRaw = isSameAddress ? 0 : null;
     const rideMinutes = r.delivery_available ? rideRaw : null;
-    const routeCtx = userLat != null && userLng != null;
+    const routeCtx = rowPolicy.applies && userLat != null && userLng != null;
     const rowLabels = formatBrowseStoreRowLabels(uiLang, commerce, {
       deliveryAvailable: !!r.delivery_available,
       rideMinutes,
@@ -535,7 +696,16 @@ export function assembleStoresBrowseResponse(
       minOrderLabel: rowLabels.minOrderLabel,
       commerce,
       distanceKm: displayDistanceKm,
-      straightDistanceKm: distanceKm,
+      straightDistanceKm:
+        rowPolicy.applies && userLat != null && userLng != null
+          ? haversineKm(userLat, userLng, r.lat, r.lng)
+          : null,
+      routeDistanceKm:
+        deliveryDistancePolicy.source === "google" && rowPolicy.applies ? routeDistanceKm : null,
+      distancePolicyApplied: rowPolicy.applies,
+      distanceOutOfRange: rowDistance.outOfRange,
+      distanceSource: rowPolicy.applies ? deliveryDistancePolicy.source : null,
+      maxDeliveryDistanceKm: rowPolicy.maxKm,
     };
   });
 
@@ -548,12 +718,18 @@ export function assembleStoresBrowseResponse(
       sub,
       all_topics: wantsAllSubs,
       sorted_by:
-        userLat != null && userLng != null
+        deliveryDistancePolicy.enabled && userLat != null && userLng != null
           ? "district_featured_distance_rating"
           : "district_featured_rating",
       origin_source: origin.source,
       origin_address_id: null,
       delivery_ride_time_source: deliveryRideTimeSource,
+      delivery_distance_policy: {
+        enabled: deliveryDistancePolicy.enabled,
+        source: deliveryDistancePolicy.source,
+        default_max_km: deliveryDistancePolicy.defaultMaxKm,
+        over_distance_behavior: deliveryDistancePolicy.overDistanceBehavior,
+      },
     },
   };
   const transformMs = devPerfNow() - transform0;

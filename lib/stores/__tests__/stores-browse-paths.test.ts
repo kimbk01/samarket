@@ -7,8 +7,8 @@ import {
 } from "@/components/stores/browse/stores-browse-paths";
 
 describe("stores-browse-paths", () => {
-  it("primary path has no sub query", () => {
-    expect(storesBrowsePrimaryPath("restaurant")).toBe("/stores/browse/restaurant");
+  it("primary path canonicalizes to sub=all", () => {
+    expect(storesBrowsePrimaryPath("restaurant")).toBe("/stores/browse/restaurant?sub=all");
   });
 
   it("topic path sets sub query", () => {

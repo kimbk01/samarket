@@ -162,6 +162,8 @@ export function StoresBrowsePrimaryView({
       ),
     [pathname, primarySlug, listScrollSearch]
   );
+  /** 거리 정책 운영 적용 전까지 기본 browse 목록 요청에는 좌표를 싣지 않는다. */
+  const browseDistanceCoordsEnabled = false;
   const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
@@ -195,6 +197,7 @@ export function StoresBrowsePrimaryView({
   }, [browseUserGeo]);
 
   useEffect(() => {
+    if (!browseDistanceCoordsEnabled) return;
     if (typeof window === "undefined") return;
     let cancelled = false;
     let seq = 0;
@@ -222,7 +225,7 @@ export function StoresBrowsePrimaryView({
       window.removeEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
       window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBootProfile);
     };
-  }, []);
+  }, [browseDistanceCoordsEnabled]);
 
   const primary = useMemo(() => {
     if (!taxonomy || taxonomy.categories.length === 0) return getBrowsePrimaryBySlug(primarySlug);
@@ -355,6 +358,7 @@ export function StoresBrowsePrimaryView({
     if (cityLabel) q.set("city", cityLabel);
     if (d) q.set("district", d);
     if (
+      browseDistanceCoordsEnabled &&
       browseUserGeo &&
       Number.isFinite(browseUserGeo.lat) &&
       Number.isFinite(browseUserGeo.lng)
@@ -369,6 +373,7 @@ export function StoresBrowsePrimaryView({
     primaryRegion?.regionId,
     primaryRegion?.cityId,
     primaryRegion?.barangay,
+    browseDistanceCoordsEnabled,
     browseUserGeo?.lat,
     browseUserGeo?.lng,
   ]);
@@ -381,9 +386,9 @@ export function StoresBrowsePrimaryView({
         primaryRegion?.regionId ?? "",
         primaryRegion?.cityId ?? "",
         primaryRegion?.barangay ?? "",
-        browseUserGeo ? `${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}` : "",
+        browseDistanceCoordsEnabled && browseUserGeo ? `${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}` : "",
       ].join("|"),
-    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseUserGeo]
+    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseDistanceCoordsEnabled, browseUserGeo]
   );
 
   /** prewarm·pointerdown 은 geo 없는 키 — 마운트 직후 동기 peek 폴백 */
@@ -564,8 +569,8 @@ export function StoresBrowsePrimaryView({
     },
   );
 
-  /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 직선거리 정렬만 수행 — matrix ETA 금지 */
-  const hasGeo = browseUserGeo != null;
+  /** 거리 정책 OFF 기간에는 기본 목록에서 좌표 기반 정렬을 하지 않는다. */
+  const hasGeo = browseDistanceCoordsEnabled && browseUserGeo != null;
   const listLoaded = remoteRows !== undefined;
   useDeliveryListScrollRestore(listScrollRouteKey, listLoaded);
   const useRemoteList = listLoaded && remoteRows.length > 0;

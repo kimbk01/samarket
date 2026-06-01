@@ -161,6 +161,7 @@ const ADMIN_MENU_TITLE_KEY_OVERRIDES: Partial<Record<string, MessageKey>> = {
   "delivery-riders-ops": "admin_menu_delivery_riders_ops",
   "delivery-operation-alerts": "admin_menu_delivery_operation_alerts",
   "delivery-auto-actions": "admin_menu_delivery_auto_actions",
+  "delivery-distance": "admin_menu_delivery_distance",
   "runtime-health": "admin_menu_runtime_health",
   "delivery-release-gate": "admin_menu_delivery_release_gate",
   "store-fee-policies-admin": "admin_menu_store_fee_policies_admin",
@@ -376,6 +377,12 @@ export const adminMenu: AdminMenuItem[] = attachAdminMenuTitleKeys([
             key: "delivery-auto-actions",
             title: "",
             path: "/admin/delivery-auto-actions",
+            status: "done",
+          },
+          {
+            key: "delivery-distance",
+            title: "",
+            path: "/admin/delivery-distance",
             status: "done",
           },
           {

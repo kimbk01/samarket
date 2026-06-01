@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
+  DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED,
   loadDeliveryRideTimeSource,
+  loadDeliveryDistanceSettings,
   peekDeliveryRideTimeSource,
   type DeliveryRideTimeSource,
 } from "@/lib/delivery/delivery-ops-settings";
@@ -109,48 +111,6 @@ export async function GET(req: Request) {
     );
   }
 
-  const browseCacheKey = browseListCacheKey({
-    primary,
-    sub,
-    region: regionQ,
-    city: cityQ,
-    district: district ?? "",
-    geoPart: origin.cacheGeoPart,
-    page: pageQ,
-    limit: limitQ,
-    uiLang,
-  });
-
-  const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
-  if (cachedBrowse != null) {
-    const cachedCount = Array.isArray((cachedBrowse as { stores?: unknown }).stores)
-      ? (cachedBrowse as { stores: unknown[] }).stores.length
-      : 0;
-    logBrowseRoutePerf({
-      tRoute0,
-      cacheKey: browseCacheKey,
-      cacheHit: 1,
-      authMs: 0,
-      dbBaseMs: 0,
-      dbRelatedMs: 0,
-      transformMs: 0,
-      resultCount: cachedCount,
-    });
-    return NextResponse.json(cachedBrowse, {
-      headers: browseJsonHeaders({
-        tRoute0,
-        cache_hit: 1,
-        db_execution_ms: 0,
-        query_count: 0,
-        bypass: effectiveCacheBypass,
-        bypass_reason: storesBrowseBypass ? cacheBypass.reason ?? "fresh" : cacheBypass.reason,
-        snapshotVia: "memory_response_cache",
-        query_wave_2_ms: 0,
-        rpc_removed: 1,
-      }),
-    });
-  }
-
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json(
@@ -170,6 +130,62 @@ export async function GET(req: Request) {
       void loadDeliveryRideTimeSource(supabase).catch(() => {});
     }
 
+    const distanceSettings = await loadDeliveryDistanceSettings(supabase);
+    const deliveryDistancePolicy = {
+      ...distanceSettings.policy,
+      enabled: DELIVERY_DISTANCE_POLICY_RUNTIME_ENABLED && distanceSettings.policy.enabled,
+    };
+    const distancePolicyKey = [
+      "off",
+      deliveryDistancePolicy.source,
+      deliveryDistancePolicy.defaultMaxKm ?? "none",
+      Object.entries(distanceSettings.overrides.stores)
+        .map(([id, v]) => `${id}:${v.mode}:${v.maxKm ?? "none"}`)
+        .sort()
+        .join(","),
+    ].join("|");
+    const browseCacheKey = `${browseListCacheKey({
+      primary,
+      sub,
+      region: regionQ,
+      city: cityQ,
+      district: district ?? "",
+      geoPart: origin.cacheGeoPart,
+      page: pageQ,
+      limit: limitQ,
+      uiLang,
+    })}:distance=${distancePolicyKey}`;
+
+    const cachedBrowse = effectiveCacheBypass ? null : peekStoresBrowseCache(browseCacheKey);
+    if (cachedBrowse != null) {
+      const cachedCount = Array.isArray((cachedBrowse as { stores?: unknown }).stores)
+        ? (cachedBrowse as { stores: unknown[] }).stores.length
+        : 0;
+      logBrowseRoutePerf({
+        tRoute0,
+        cacheKey: browseCacheKey,
+        cacheHit: 1,
+        authMs: 0,
+        dbBaseMs: 0,
+        dbRelatedMs: 0,
+        transformMs: 0,
+        resultCount: cachedCount,
+      });
+      return NextResponse.json(cachedBrowse, {
+        headers: browseJsonHeaders({
+          tRoute0,
+          cache_hit: 1,
+          db_execution_ms: 0,
+          query_count: 0,
+          bypass: effectiveCacheBypass,
+          bypass_reason: storesBrowseBypass ? cacheBypass.reason ?? "fresh" : cacheBypass.reason,
+          snapshotVia: "memory_response_cache",
+          query_wave_2_ms: 0,
+          rpc_removed: 1,
+        }),
+      });
+    }
+
     const ctx: StoresBrowseRequestContext = {
       primary,
       subRaw,
@@ -181,6 +197,8 @@ export async function GET(req: Request) {
       uiLang,
       origin,
       deliveryRideTimeSource,
+      deliveryDistancePolicy,
+      storeDistanceOverrides: distanceSettings.overrides,
     };
 
     const snap = await tryLoadStoresBrowseFromSnapshot(supabase, ctx, {

@@ -47,6 +47,14 @@ export type BrowseStoreListItem = {
   straightDistanceKm?: number | null;
   /** @deprecated 목록 API에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
+  /** 관리자 거리 정책으로 이 행에 거리 계산을 적용했는지 */
+  distancePolicyApplied?: boolean;
+  /** 관리자 최대 거리(km)를 초과했는지 — 목록에서는 하단 배치 */
+  distanceOutOfRange?: boolean;
+  /** 표시 거리 산식 */
+  distanceSource?: "straight" | "google" | null;
+  /** 이 행에 적용된 최대 거리(km) */
+  maxDeliveryDistanceKm?: number | null;
   /** 카드 라벨 클라이언트 생성용 — 언어 중립 영업·결제 스냅샷 */
   commerce: BrowseStoreCommerceSnapshot;
 };

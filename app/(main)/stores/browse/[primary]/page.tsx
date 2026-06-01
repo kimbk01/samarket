@@ -73,9 +73,7 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
         fallbackEn: `Find ${primaryName} stores near you.`,
       });
 
-  const path = sub
-    ? `/stores/browse/${encodeURIComponent(p)}?sub=${encodeURIComponent(sub)}`
-    : `/stores/browse/${encodeURIComponent(p)}`;
+  const path = `/stores/browse/${encodeURIComponent(p)}?sub=${encodeURIComponent(sub || "all")}`;
 
   return {
     title: safeTranslate(lang, "store_browse_meta_title_suffix", {

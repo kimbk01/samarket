@@ -28,11 +28,15 @@ import { scheduleStoresBrowseSnapshotRefresh } from "@/lib/stores/stores-browse-
 import {
   assembleStoresBrowseResponse,
   BROWSE_STORE_ROW_SELECTED_COLUMNS,
+  resolveBrowseFilteredSortedStoreRows,
+  resolveBrowseFilteredStoreRows,
+  type StoreBrowseRow,
   type StoresBrowseAssembleResult,
   type StoresBrowseRequestContext,
 } from "@/lib/stores/stores-browse-build";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchRouteLegMetricsByStoreId } from "@/lib/geo/google-routes-two-wheeler-matrix";
 
 const SNAPSHOT_SINGLE_FLIGHT_PREFIX = "sb1-stores-browse-snapshot:";
 const ROUTE = "/api/stores/browse";
@@ -228,11 +232,34 @@ function buildBreakdown(input: {
   };
 }
 
-function finishFromPayload(
+async function loadBrowseRouteMetricsIfNeeded(
+  ctx: StoresBrowseRequestContext,
+  filteredRows: StoreBrowseRow[],
+): Promise<StoresBrowseRequestContext> {
+  if (
+    ctx.deliveryDistancePolicy.source !== "google" ||
+    !ctx.deliveryDistancePolicy.enabled ||
+    ctx.origin.lat == null ||
+    ctx.origin.lng == null
+  ) {
+    return ctx;
+  }
+  const eligible = filteredRows
+    .filter((row) => ctx.storeDistanceOverrides.stores[row.id]?.mode !== "disabled")
+    .map((row) => ({ id: row.id, lat: row.lat, lng: row.lng }));
+  if (eligible.length === 0) return ctx;
+  const routeMetricsByStoreId = await fetchRouteLegMetricsByStoreId({
+    user: { lat: ctx.origin.lat, lng: ctx.origin.lng },
+    stores: eligible,
+  });
+  return { ...ctx, routeMetricsByStoreId };
+}
+
+async function finishFromPayload(
   payload: StoresBrowseSnapshotPayloadJson,
   ctx: StoresBrowseRequestContext,
   input: { totalMs: number; readMs: number; via: SnapshotReadVia; payloadBuildMs?: number }
-): StoresBrowseSnapshotReadResult | null {
+): Promise<StoresBrowseSnapshotReadResult | null> {
   const early = earlyBrowseBodyFromRpcPayload(
     payload,
     ctx.primary,
@@ -281,8 +308,16 @@ function finishFromPayload(
     ctx.wantsAllSubs,
     Math.round(input.readMs)
   );
+  const prefilteredRows = resolveBrowseFilteredStoreRows(ctx, bundle.taxonomySlice, bundle.storeRowsRaw);
+  const ctxWithDistance = await loadBrowseRouteMetricsIfNeeded(ctx, prefilteredRows);
+  const prefetchedFilter = resolveBrowseFilteredSortedStoreRows(
+    ctxWithDistance,
+    bundle.taxonomySlice,
+    bundle.storeRowsRaw,
+    prefilteredRows,
+  );
   const assemble0 = devPerfNow();
-  const assembled = assembleStoresBrowseResponse(ctx, bundle);
+  const assembled = assembleStoresBrowseResponse(ctxWithDistance, bundle, prefetchedFilter);
   const payloadBuildMs = input.payloadBuildMs ?? devPerfNow() - assemble0;
   const breakdown = buildBreakdown({
     totalMs: input.totalMs,
@@ -333,7 +368,7 @@ export async function tryLoadStoresBrowseFromSnapshot(
       const readMs = devPerfNow() - read0;
 
       if (counter.hit && !counter.stale) {
-        const done = finishFromPayload(counter.row.payload_json, ctx, {
+        const done = await finishFromPayload(counter.row.payload_json, ctx, {
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",
@@ -342,7 +377,7 @@ export async function tryLoadStoresBrowseFromSnapshot(
       }
       if (counter.hit && counter.stale) {
         scheduleStoresBrowseSnapshotRefresh(ctx.primary);
-        const done = finishFromPayload(counter.row.payload_json, ctx, {
+        const done = await finishFromPayload(counter.row.payload_json, ctx, {
           totalMs: devPerfNow() - build0,
           readMs,
           via: "counter_row",

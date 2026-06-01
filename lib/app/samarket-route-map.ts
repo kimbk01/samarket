@@ -64,7 +64,7 @@ export const SAMARKET_ROUTES = {
     legacyPost: (postId: string) => `/community/post/${encodeURIComponent(postId)}`,
   },
   stores: {
-    browsePrimary: (primary: string) => `/stores/browse/${encodeURIComponent(primary)}`,
+    browsePrimary: (primary: string) => `/stores/browse/${encodeURIComponent(primary)}?sub=all`,
     store: (slug: string) => `/stores/${encodeURIComponent(slug)}`,
     cart: (slug: string) => `/stores/${encodeURIComponent(slug)}/cart`,
     checkout: (slug: string) => `/stores/${encodeURIComponent(slug)}/checkout`,

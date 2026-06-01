@@ -82,6 +82,10 @@ export type StoreRowCardData = {
   distanceKm: number | null;
   routeDistanceKm?: number | null;
   straightDistanceKm?: number | null;
+  distancePolicyApplied?: boolean;
+  distanceOutOfRange?: boolean;
+  distanceSource?: "straight" | "google" | null;
+  maxDeliveryDistanceKm?: number | null;
   /** Routes 실패로 직선거리 fallback 일 때만 빨간 핀으로 표시 */
   showStraightLineMapPin?: boolean;
   menuPreview: string | null;
@@ -132,6 +136,10 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     a.distanceKm === b.distanceKm &&
     (a.routeDistanceKm ?? null) === (b.routeDistanceKm ?? null) &&
     (a.straightDistanceKm ?? null) === (b.straightDistanceKm ?? null) &&
+    a.distancePolicyApplied === b.distancePolicyApplied &&
+    a.distanceOutOfRange === b.distanceOutOfRange &&
+    (a.distanceSource ?? null) === (b.distanceSource ?? null) &&
+    (a.maxDeliveryDistanceKm ?? null) === (b.maxDeliveryDistanceKm ?? null) &&
     a.showStraightLineMapPin === b.showStraightLineMapPin &&
     a.menuPreview === b.menuPreview &&
     a.profileImageUrl === b.profileImageUrl &&
@@ -207,6 +215,10 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
     distanceKm: s.distanceKm,
     routeDistanceKm: s.routeDistanceKm ?? null,
     straightDistanceKm: s.straightDistanceKm ?? null,
+    distancePolicyApplied: false,
+    distanceOutOfRange: false,
+    distanceSource: null,
+    maxDeliveryDistanceKm: null,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
     heroBannerImageUrl: null,
@@ -256,6 +268,10 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     distanceKm: s.distanceKm ?? null,
     routeDistanceKm: s.routeDistanceKm ?? null,
     straightDistanceKm: s.straightDistanceKm ?? null,
+    distancePolicyApplied: s.distancePolicyApplied === true,
+    distanceOutOfRange: s.distanceOutOfRange === true,
+    distanceSource: s.distanceSource ?? null,
+    maxDeliveryDistanceKm: s.maxDeliveryDistanceKm ?? null,
     /** browse 목록은 Routes 미사용 — 직선 거리만이므로 “경로 실패” 빨간 핀 비표시 */
     showStraightLineMapPin: false,
     menuPreview: menuPreview?.trim() || null,
@@ -330,6 +346,12 @@ function StoreDeliveryRowCardInner({
   const d = distLabel(data.distanceKm);
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
   const showPinHaversine = !showBrowseStraightPin && d;
+  const distanceOutOfRangeLabel =
+    data.distanceOutOfRange && data.maxDeliveryDistanceKm != null
+      ? t("store_delivery_distance_out_of_range_with_max", { km: data.maxDeliveryDistanceKm })
+      : data.distanceOutOfRange
+        ? t("store_delivery_distance_out_of_range")
+        : null;
 
   const rowLabels = useMemo(() => {
     if (!data.commerce) return null;
@@ -398,6 +420,12 @@ function StoreDeliveryRowCardInner({
   }
   if (data.reservationAvailable) {
     badgeLabels.push({ label: t("store_badge_reservation"), className: serviceBadgeClass });
+  }
+  if (distanceOutOfRangeLabel) {
+    badgeLabels.push({
+      label: distanceOutOfRangeLabel,
+      className: "bg-sam-warning-soft text-sam-warning",
+    });
   }
 
   const navigateToStore = useCallback(
