@@ -19,15 +19,18 @@ describe("browse-header-sub-selection", () => {
     expect(resolveBrowseMatchedSubSlug("korean", subs)).toBe("korean");
   });
 
-  it("resolveBrowseSubChipActiveSlug strips all", () => {
-    expect(resolveBrowseSubChipActiveSlug(STORES_BROWSE_SUB_ALL, null)).toBeNull();
-    expect(resolveBrowseSubChipActiveSlug("korean", null)).toBe("korean");
+  it("resolveBrowseSubChipActiveSlug strips all and trusts URL before taxonomy", () => {
+    expect(resolveBrowseSubChipActiveSlug("", STORES_BROWSE_SUB_ALL, null)).toBeNull();
+    expect(resolveBrowseSubChipActiveSlug("", "korean", null)).toBe("korean");
+    expect(resolveBrowseSubChipActiveSlug("korean", null, null)).toBe("korean");
+    expect(resolveBrowseSubChipActiveSlug("korean", null, "chinese")).toBe("chinese");
   });
 
   it("resolveBrowseListQuerySub defaults to all for list", () => {
-    expect(resolveBrowseListQuerySub(null, null)).toBe(STORES_BROWSE_SUB_ALL);
-    expect(resolveBrowseListQuerySub(STORES_BROWSE_SUB_ALL, null)).toBe(STORES_BROWSE_SUB_ALL);
-    expect(resolveBrowseListQuerySub(null, "korean")).toBe("korean");
+    expect(resolveBrowseListQuerySub("", null, null)).toBe(STORES_BROWSE_SUB_ALL);
+    expect(resolveBrowseListQuerySub("", STORES_BROWSE_SUB_ALL, null)).toBe(STORES_BROWSE_SUB_ALL);
+    expect(resolveBrowseListQuerySub("", null, "korean")).toBe("korean");
+    expect(resolveBrowseListQuerySub("korean", null, null)).toBe("korean");
   });
 
   it("shouldCanonicalizeBrowseSubToAll", () => {

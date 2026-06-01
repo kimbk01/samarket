@@ -12,26 +12,30 @@ export function resolveBrowseMatchedSubSlug(
   return hit ? hit.slug : null;
 }
 
+/**
+ * 2차 칩·목록 API 공통 active slug.
+ * taxonomy 로드 전에도 URL `?sub=` 를 신뢰(로드 후 canonical 이 보정).
+ */
 export function resolveBrowseSubChipActiveSlug(
+  trimmedSubParam: string,
   optimisticSub: string | null,
   matchedTopicSlug: string | null,
 ): string | null {
   const raw = optimisticSub ?? matchedTopicSlug;
-  if (!raw || raw.toLowerCase() === STORES_BROWSE_SUB_ALL) return null;
-  return raw;
+  if (raw && raw.toLowerCase() !== STORES_BROWSE_SUB_ALL) return raw;
+  const p = trimmedSubParam.trim().toLowerCase();
+  if (p && p !== STORES_BROWSE_SUB_ALL) return p;
+  return null;
 }
 
-/**
- * 목록 API `sub` — `?sub=all`·없음·비정상 → 항상 `all`(1차 전체 매장).
- * 2차 칩을 고르면 해당 topic slug.
- */
+/** 목록 API `sub` — URL·optimistic·matched 순, 없으면 `all`(1차 전체) */
 export function resolveBrowseListQuerySub(
+  trimmedSubParam: string,
   optimisticSub: string | null,
   matchedTopicSlug: string | null,
 ): string {
-  const chip = resolveBrowseSubChipActiveSlug(optimisticSub, matchedTopicSlug);
-  if (chip) return chip;
-  return STORES_BROWSE_SUB_ALL;
+  return resolveBrowseSubChipActiveSlug(trimmedSubParam, optimisticSub, matchedTopicSlug)
+    ?? STORES_BROWSE_SUB_ALL;
 }
 
 /** canonical — `sub` 없음·유효하지 않은 slug → `?sub=all` (목록 전체, 칩 UI 없음) */

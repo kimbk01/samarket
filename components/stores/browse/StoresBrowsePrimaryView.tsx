@@ -73,6 +73,9 @@ import {
   getBrowseSubChipOptimisticSubSnapshot,
   setBrowseSubChipOptimisticSub,
   subscribeBrowseSubChipOptimisticSub,
+  getBrowseListRefreshServerSnapshot,
+  getBrowseListRefreshSnapshot,
+  subscribeBrowseListRefresh,
 } from "@/lib/stores/browse-sub-chip-navigation";
 
 function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): number {
@@ -245,6 +248,11 @@ export function StoresBrowsePrimaryView({
     getBrowseSubChipOptimisticSubSnapshot,
     getBrowseSubChipOptimisticSubServerSnapshot
   );
+  const listRefreshTick = useSyncExternalStore(
+    subscribeBrowseListRefresh,
+    getBrowseListRefreshSnapshot,
+    getBrowseListRefreshServerSnapshot
+  );
   const lastTapPerfRef = useRef<{ sub: string; t0: number } | null>(null);
   const lastNavPerfRef = useRef<{ sub: string; t0: number; kind: "tap" | "pop" } | null>(null);
 
@@ -272,7 +280,9 @@ export function StoresBrowsePrimaryView({
     setBrowseSubChipOptimisticSub(null);
   }, [matchedTopicSlug, primarySlug]);
 
-  const activeSub = resolveBrowseListQuerySub(optimisticSub, matchedTopicSlug);
+  useEffect(() => () => setBrowseSubChipOptimisticSub(null), []);
+
+  const activeSub = resolveBrowseListQuerySub(trimmedBrowseSubParam, optimisticSub, matchedTopicSlug);
 
   useEffect(() => {
     // 탭 클릭 직후 "선택 표시"까지의 지연(대략 1~2 frame) 계측
@@ -530,18 +540,29 @@ export function StoresBrowsePrimaryView({
       setRemoteLoading(false);
       browseHadListForContextRef.current = true;
       if (cached.rows.length > 0) browseEverPaintedListRef.current = true;
+    } else if (ctxChanged && !geoOnlyChange) {
+      setRemoteRows(undefined);
+      setRemoteLoading(true);
     }
     const silent = !!cached || browseHadListForContextRef.current;
     void loadRemoteRef.current({ silent });
   }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, peekBrowsePaintCache]);
 
   useEffect(() => {
+    if (listRefreshTick === 0) return;
+    void loadRemoteRef.current({ force: true, silent: false });
+  }, [listRefreshTick]);
+
+  useEffect(() => {
     setListSort("default");
   }, [activeSub, primarySlug]);
 
-  useRefetchOnPageShowRestore(() => void loadRemoteRef.current({ silent: true }), {
-    enableVisibilityRefetch: false,
-  });
+  useRefetchOnPageShowRestore(
+    () => void loadRemoteRef.current({ silent: browseEverPaintedListRef.current, force: true }),
+    {
+      enableVisibilityRefetch: false,
+    },
+  );
 
   /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 직선거리 정렬만 수행 — matrix ETA 금지 */
   const hasGeo = browseUserGeo != null;
@@ -681,10 +702,9 @@ export function StoresBrowsePrimaryView({
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
       <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
-        {remoteLoading && !listLoaded && !browseEverPaintedListRef.current ?
+        {remoteRows === undefined ?
           <StoreDeliveryListLoading />
-        : null}
-        {useRemoteList ?
+        : useRemoteList ?
           <ul className="space-y-2">
             {storeDeliveryRowDataList.map((data) => (
               <StoreDeliveryRowCard

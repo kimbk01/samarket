@@ -38,6 +38,7 @@ import { readStoreDetailListSeed, writeStoreDetailListSeed } from "@/lib/dibay/s
 import {
   parseBrowsePrimarySlugFromPathname,
   writeStoreDetailBrowseOrigin,
+  parseBrowseSubSlugFromSearch,
 } from "@/lib/dibay/store-detail-browse-origin";
 import { showStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
 import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
@@ -409,7 +410,13 @@ function StoreDeliveryRowCardInner({
         (typeof window !== "undefined"
           ? parseBrowsePrimarySlugFromPathname(window.location.pathname)
           : null);
-      if (browsePrimary) writeStoreDetailBrowseOrigin(data.slug, browsePrimary);
+      if (browsePrimary) {
+        const browseSub =
+          typeof window !== "undefined"
+            ? parseBrowseSubSlugFromSearch(window.location.search)
+            : "all";
+        writeStoreDetailBrowseOrigin(data.slug, browsePrimary, browseSub);
+      }
       writeStoreDetailListSeed({
         slug: data.slug,
         store_name: data.nameKo,

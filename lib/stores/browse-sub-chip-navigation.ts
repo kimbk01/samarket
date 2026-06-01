@@ -34,3 +34,25 @@ export function getBrowseSubChipOptimisticSubSnapshot(): string | null {
 export function getBrowseSubChipOptimisticSubServerSnapshot(): string | null {
   return null;
 }
+
+/** 2차 칩 재탭 등 — 목록 강제 refetch (헤더 ↔ 본문 경량 신호) */
+let listRefreshTick = 0;
+const listRefreshListeners = new Set<() => void>();
+
+export function bumpBrowseListRefresh(): void {
+  listRefreshTick += 1;
+  listRefreshListeners.forEach((l) => l());
+}
+
+export function subscribeBrowseListRefresh(listener: () => void): () => void {
+  listRefreshListeners.add(listener);
+  return () => listRefreshListeners.delete(listener);
+}
+
+export function getBrowseListRefreshSnapshot(): number {
+  return listRefreshTick;
+}
+
+export function getBrowseListRefreshServerSnapshot(): number {
+  return 0;
+}

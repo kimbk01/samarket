@@ -1,4 +1,4 @@
-import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
+import { STORES_BROWSE_SUB_ALL, storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { readStoreDetailBrowseOrigin } from "@/lib/dibay/store-detail-browse-origin";
 import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 
@@ -55,7 +55,7 @@ function normalizePrimarySlug(candidate: string | null | undefined): string {
 }
 
 /**
- * 매장 상세 뒤로가기 — 해당 업종 **전체** browse 목록 (`sub=all`).
+ * 매장 상세 뒤로가기 — browse 진입 시 저장한 1·2차 업종 목록으로 복귀.
  */
 export function resolveStoreBrowseListHref(input: StoreBrowseListHrefInput): string {
   const slug = input.storeSlug?.trim();
@@ -67,12 +67,15 @@ export function resolveStoreBrowseListHref(input: StoreBrowseListHrefInput): str
   const fromBiz = bizPrimary ? normalizePrimarySlug(bizPrimary) : null;
 
   const primary =
-    (fromSession && getBrowsePrimaryBySlug(fromSession) ? fromSession : null) ??
+    (fromSession?.primarySlug && getBrowsePrimaryBySlug(fromSession.primarySlug)
+      ? fromSession.primarySlug
+      : null) ??
     fromCategory ??
     fromBiz ??
     DEFAULT_PRIMARY_SLUG;
 
-  return storesBrowsePath(normalizePrimarySlug(primary), "all");
+  const sub = fromSession?.subSlug ?? STORES_BROWSE_SUB_ALL;
+  return storesBrowsePath(normalizePrimarySlug(primary), sub);
 }
 
 export function storeCategorySlugFromStoreRow(

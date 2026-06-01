@@ -23,6 +23,7 @@ import {
   getBrowseSubChipOptimisticSubServerSnapshot,
   getBrowseSubChipOptimisticSubSnapshot,
   subscribeBrowseSubChipOptimisticSub,
+  bumpBrowseListRefresh,
 } from "@/lib/stores/browse-sub-chip-navigation";
 import {
   onBrowseSubTaxonomyCommit,
@@ -124,6 +125,7 @@ function BrowseSubCategoryRail({
               clearPressed(e.currentTarget);
               if (on) {
                 e.preventDefault();
+                bumpBrowseListRefresh();
                 return;
               }
               e.preventDefault();
@@ -198,7 +200,7 @@ export function StoresBrowseHeaderSubTopicChips({ primarySlug }: { primarySlug: 
     getBrowseSubChipOptimisticSubServerSnapshot,
   );
 
-  const activeSub = resolveBrowseSubChipActiveSlug(optimisticSub, matchedTopicSlug);
+  const activeSub = resolveBrowseSubChipActiveSlug(trimmedBrowseSubParam, optimisticSub, matchedTopicSlug);
 
   const primaryReady = useMemo(() => {
     if (!taxonomy?.categories.length) return !!getBrowsePrimaryBySlug(primarySlug);

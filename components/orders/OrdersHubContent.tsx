@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS,
   BuyerDeliveryOrdersHeader,
@@ -19,18 +20,23 @@ function OrdersHubListBody() {
   );
 }
 
+function OrdersHubLoadingFallback() {
+  const { t } = useI18n();
+  return (
+    <div
+      className={`flex min-h-[40vh] items-center justify-center ${BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS} text-sm text-[#6B7280]`}
+    >
+      {t("common_loading")}
+    </div>
+  );
+}
+
 /** 구매자 배달 주문 목록 — `/stores/owner/orders` 와 동일 헤더·본문 톤, 거래·채팅 탭 없음 */
 export function OrdersHubContent() {
   return (
     <div className="flex min-h-screen flex-col bg-[#f6f6f6]">
       <BuyerDeliveryOrdersHeader />
-      <Suspense
-        fallback={
-          <div className={`flex min-h-[40vh] items-center justify-center ${BUYER_DELIVERY_ORDERS_HEADER_OFFSET_CLASS} text-sm text-[#6B7280]`}>
-            불러오는 중…
-          </div>
-        }
-      >
+      <Suspense fallback={<OrdersHubLoadingFallback />}>
         <OrdersHubListBody />
       </Suspense>
     </div>
