@@ -2,9 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   canSubmitPointCharge,
   isPendingChargeStatus,
-  resolveOwnerPointDepositStep,
+  resolveOwnerPointChargeUiState,
   type OwnerPointAccountInquirySnapshot,
-  type OwnerPointDepositStep,
+  type OwnerPointChargeUiState,
   type OwnerPointPendingChargeSnapshot,
 } from "@/lib/stores/owner-point-deposit-context";
 
@@ -118,7 +118,9 @@ async function fetchAnsweredAccountInquiry(
 }
 
 export type OwnerPointDepositContext = {
-  depositStep: OwnerPointDepositStep;
+  /** @deprecated Alias — use chargeUiState */
+  depositStep: OwnerPointChargeUiState;
+  chargeUiState: OwnerPointChargeUiState;
   activeAccountInquiry: OwnerPointAccountInquirySnapshot | null;
   latestAccountAnswer: OwnerPointAccountInquirySnapshot | null;
   pendingCharge: OwnerPointPendingChargeSnapshot | null;
@@ -156,16 +158,12 @@ export async function loadOwnerPointDepositContext(
     }
   }
 
-  const depositStep = resolveOwnerPointDepositStep({
-    openInquiry,
-    answeredInquiry,
-    pendingCharge,
-  });
-
-  const chargeGate = canSubmitPointCharge({ answeredInquiry, pendingCharge });
+  const chargeUiState = resolveOwnerPointChargeUiState({ pendingCharge });
+  const chargeGate = canSubmitPointCharge({ pendingCharge });
 
   return {
-    depositStep,
+    depositStep: chargeUiState,
+    chargeUiState,
     activeAccountInquiry: openInquiry,
     latestAccountAnswer: answeredInquiry,
     pendingCharge,

@@ -5,18 +5,14 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { loadOwnerPointDepositContext } from "@/lib/stores/load-owner-point-deposit-context";
 import { canSubmitPointCharge } from "@/lib/stores/owner-point-deposit-context";
+import { computeStorePointChargePaymentAmount } from "@/lib/stores/store-point-charge-amount";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type PostBody = {
   point_amount?: number;
-  payment_amount?: number;
-  payment_method?: string;
   depositor_name?: string;
-  bank_name?: string;
-  receipt_image_url?: string;
-  user_memo?: string;
 };
 
 function isMissingTable(msg: string): boolean {
@@ -49,10 +45,16 @@ export async function POST(
   }
 
   const pointAmount = Math.max(0, Math.floor(Number(body.point_amount) || 0));
-  const paymentAmount = Math.max(0, Math.floor(Number(body.payment_amount) || 0));
   if (pointAmount < 1) {
     return NextResponse.json({ ok: false, error: "point_amount_required" }, { status: 400 });
   }
+
+  const depositorName = String(body.depositor_name ?? "").trim().slice(0, 120);
+  if (!depositorName) {
+    return NextResponse.json({ ok: false, error: "depositor_name_required" }, { status: 400 });
+  }
+
+  const paymentAmount = computeStorePointChargePaymentAmount(pointAmount);
 
   const sb = tryGetSupabaseForStores();
   if (!sb) {
@@ -65,43 +67,29 @@ export async function POST(
   }
 
   const depositCtx = await loadOwnerPointDepositContext(sb, sid);
-  const chargeGate = canSubmitPointCharge({
-    answeredInquiry: depositCtx.latestAccountAnswer,
-    pendingCharge: depositCtx.pendingCharge,
-  });
+  const chargeGate = canSubmitPointCharge({ pendingCharge: depositCtx.pendingCharge });
   if (!chargeGate.ok) {
-    const status = chargeGate.error === "charge_already_pending" ? 409 : 400;
-    return NextResponse.json({ ok: false, error: chargeGate.error }, { status });
+    return NextResponse.json({ ok: false, error: chargeGate.error }, { status: 409 });
   }
 
   const insertPayload: Record<string, unknown> = {
     store_id: sid,
     owner_user_id: userId,
-    payment_method: String(body.payment_method ?? "manual_confirm").trim() || "manual_confirm",
+    payment_method: "manual_confirm",
     payment_amount: paymentAmount,
     point_amount: pointAmount,
     request_status: "pending",
-    depositor_name: String(body.depositor_name ?? "").trim().slice(0, 120),
-    bank_name: String(body.bank_name ?? "").trim().slice(0, 80),
-    receipt_image_url: String(body.receipt_image_url ?? "").trim().slice(0, 2000),
-    user_memo: body.user_memo ? String(body.user_memo).trim().slice(0, 800) : null,
-    inquiry_id: chargeGate.inquiryId,
+    depositor_name: depositorName,
+    bank_name: "",
+    receipt_image_url: "",
+    user_memo: null,
   };
 
-  let { data, error } = await sb
+  const { data, error } = await sb
     .from("store_point_charge_requests")
     .insert(insertPayload)
     .select("id")
     .maybeSingle();
-
-  if (error && /inquiry_id/i.test(error.message ?? "") && /(does not exist|column)/i.test(error.message ?? "")) {
-    delete insertPayload.inquiry_id;
-    ({ data, error } = await sb
-      .from("store_point_charge_requests")
-      .insert(insertPayload)
-      .select("id")
-      .maybeSingle());
-  }
 
   if (error) {
     if (isMissingTable(error.message ?? "")) {

@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
+import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import { isLeafMenuActive } from "./admin-sidebar-active-path";
+
+const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
 
 function isPathActive(path: string | undefined, currentPath: string): boolean {
   if (!path) return false;
@@ -32,7 +35,10 @@ export function AdminSidebarItem({
   pathsScope?: string[];
 }) {
   const { tt, t } = useI18n();
+  const { pendingCount } = useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
+  const menuBadge =
+    item.key === STORE_POINT_CHARGES_MENU_KEY && pendingCount > 0 ? pendingCount : 0;
 
   const isActive = isPathActive(item.path, currentPath);
   const childActive = hasActiveChild(item, currentPath);
@@ -127,8 +133,13 @@ export function AdminSidebarItem({
 
   return (
     <div className="py-0.5">
-      <Link href={item.path} className={linkClass}>
-        {displayTitle}
+      <Link href={item.path} className={`${linkClass} flex items-center justify-between gap-2`}>
+        <span className="truncate">{displayTitle}</span>
+        {menuBadge > 0 ? (
+          <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+            {menuBadge > 99 ? "99+" : menuBadge}
+          </span>
+        ) : null}
       </Link>
     </div>
   );

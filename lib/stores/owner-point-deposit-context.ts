@@ -1,10 +1,9 @@
-/** Pure helpers for store point deposit pipeline (account inquiry → deposit). */
+/** Store point charge UI state (account inquiry is independent — not a pipeline step). */
 
-export type OwnerPointDepositStep =
-  | "account_inquiry"
-  | "awaiting_answer"
-  | "deposit"
-  | "charge_pending";
+export type OwnerPointChargeUiState = "ready" | "charge_pending";
+
+/** @deprecated Use OwnerPointChargeUiState — kept for API field name compatibility */
+export type OwnerPointDepositStep = OwnerPointChargeUiState;
 
 export type OwnerPointAccountInquirySnapshot = {
   id: string;
@@ -23,7 +22,7 @@ export type OwnerPointPendingChargeSnapshot = {
   requestedAt: string;
 };
 
-/** Blocks new charge requests and keeps owner on charge_pending step (incl. admin hold). */
+/** Blocks new charge requests and keeps owner on charge_pending state (incl. admin hold). */
 export const PENDING_CHARGE_STATUSES = new Set(["pending", "waiting_confirm", "on_hold"]);
 
 export function isPendingChargeStatus(status: string | null | undefined): boolean {
@@ -38,26 +37,26 @@ export function isAnsweredAccountInquiry(
   return String(inquiry.answer ?? "").trim().length > 0;
 }
 
+export function resolveOwnerPointChargeUiState(input: {
+  pendingCharge: OwnerPointPendingChargeSnapshot | null;
+}): OwnerPointChargeUiState {
+  return input.pendingCharge ? "charge_pending" : "ready";
+}
+
+/** @deprecated Use resolveOwnerPointChargeUiState */
 export function resolveOwnerPointDepositStep(input: {
-  openInquiry: OwnerPointAccountInquirySnapshot | null;
-  answeredInquiry: OwnerPointAccountInquirySnapshot | null;
+  openInquiry?: OwnerPointAccountInquirySnapshot | null;
+  answeredInquiry?: OwnerPointAccountInquirySnapshot | null;
   pendingCharge: OwnerPointPendingChargeSnapshot | null;
 }): OwnerPointDepositStep {
-  if (input.pendingCharge) return "charge_pending";
-  if (isAnsweredAccountInquiry(input.answeredInquiry)) return "deposit";
-  if (input.openInquiry?.status === "open") return "awaiting_answer";
-  return "account_inquiry";
+  return resolveOwnerPointChargeUiState({ pendingCharge: input.pendingCharge });
 }
 
 export function canSubmitPointCharge(input: {
-  answeredInquiry: OwnerPointAccountInquirySnapshot | null;
   pendingCharge: OwnerPointPendingChargeSnapshot | null;
-}): { ok: true; inquiryId: string } | { ok: false; error: string } {
+}): { ok: true } | { ok: false; error: string } {
   if (input.pendingCharge) {
     return { ok: false, error: "charge_already_pending" };
   }
-  if (!isAnsweredAccountInquiry(input.answeredInquiry)) {
-    return { ok: false, error: "account_inquiry_not_answered" };
-  }
-  return { ok: true, inquiryId: input.answeredInquiry.id };
+  return { ok: true };
 }

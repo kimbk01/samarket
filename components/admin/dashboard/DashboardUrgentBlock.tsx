@@ -2,11 +2,17 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
-const URGENT_LINKS: { id: string; href: string; labelKey: MessageKey }[] = [
+const URGENT_LINKS: { id: string; href: string; labelKey: MessageKey; countFromPending?: boolean }[] = [
   { id: "reports-pending", href: "/admin/reports", labelKey: "admin_dashboard_urgent_reports_pending" },
-  { id: "charges-pending", href: "/admin/point-charges", labelKey: "admin_dashboard_urgent_charge_pending" },
+  {
+    id: "charges-pending",
+    href: "/admin/store-point-charges",
+    labelKey: "admin_dashboard_urgent_charge_pending",
+    countFromPending: true,
+  },
   { id: "blind-review", href: "/admin/reports", labelKey: "admin_dashboard_urgent_blind_review" },
   { id: "feed-incident", href: "/admin/feed-emergency", labelKey: "admin_dashboard_urgent_feed_incident" },
   { id: "system-warn", href: "/admin/system", labelKey: "admin_dashboard_urgent_system_warn" },
@@ -14,22 +20,32 @@ const URGENT_LINKS: { id: string; href: string; labelKey: MessageKey }[] = [
 
 export function DashboardUrgentBlock() {
   const { t } = useI18n();
+  const { pendingCount } = useAdminStorePointPendingCount();
+
   return (
     <div className="rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4">
       <h2 className="mb-3 sam-text-body-secondary font-medium text-amber-800">
         {t("admin_dashboard_urgent_title")}
       </h2>
       <ul className="flex flex-wrap gap-2">
-        {URGENT_LINKS.map(({ id, href, labelKey }) => (
-          <li key={id}>
-            <Link
-              href={href}
-              className="inline-block rounded border border-amber-300 bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-amber-800 hover:bg-amber-100"
-            >
-              {t(labelKey)}
-            </Link>
-          </li>
-        ))}
+        {URGENT_LINKS.map(({ id, href, labelKey, countFromPending }) => {
+          const count = countFromPending ? pendingCount : 0;
+          return (
+            <li key={id}>
+              <Link
+                href={href}
+                className="inline-flex items-center gap-1.5 rounded border border-amber-300 bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-amber-800 hover:bg-amber-100"
+              >
+                {t(labelKey)}
+                {count > 0 ? (
+                  <span className="rounded-full bg-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+                    {count}
+                  </span>
+                ) : null}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

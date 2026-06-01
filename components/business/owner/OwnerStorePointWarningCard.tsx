@@ -4,47 +4,39 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import type { OwnerPointDepositStep } from "@/lib/stores/owner-point-deposit-context";
-import { OWNER_POINT_DEPOSIT_SECTION_ID } from "@/lib/stores/owner-point-deposit-section-id";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
+import {
+  OWNER_POINT_ACCOUNT_SECTION_ID,
+  OWNER_POINT_DEPOSIT_SECTION_ID,
+} from "@/lib/stores/owner-point-deposit-section-id";
+
+function scrollToSection(id: string) {
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 export function OwnerStorePointWarningCard({
   storeId,
   pointBalance,
   pointCommerceBlocked,
-  estimatedAcceptCount,
-  depositStep,
   pendingCharge,
 }: {
   storeId: string;
   pointBalance: number;
   pointCommerceBlocked: boolean;
-  estimatedAcceptCount?: number;
-  depositStep?: OwnerPointDepositStep;
   pendingCharge?: { pointAmount: number } | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const locale = catalogDateLocale(language);
   const pathname = usePathname();
   const pointsHref = OwnerRoutes.points(storeId);
   const onPointsPage =
     pathname === "/stores/owner/points" || pathname?.endsWith("/stores/owner/points");
 
-  const scrollToDeposit = () => {
-    document.getElementById(OWNER_POINT_DEPOSIT_SECTION_ID)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  };
-
   const balance = Math.max(0, Math.floor(pointBalance));
   const blocked = pointCommerceBlocked;
-  const est = estimatedAcceptCount ?? Math.floor(balance / 10);
 
-  const stepHint =
-    depositStep === "awaiting_answer"
-      ? t("store_owner_point_dashboard_awaiting_account")
-      : depositStep === "charge_pending" && pendingCharge
-        ? t("store_owner_point_dashboard_charge_pending")
-        : null;
+  const scrollAccount = () => scrollToSection(OWNER_POINT_ACCOUNT_SECTION_ID);
+  const scrollCharge = () => scrollToSection(OWNER_POINT_DEPOSIT_SECTION_ID);
 
   return (
     <section
@@ -59,8 +51,8 @@ export function OwnerStorePointWarningCard({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-xs font-medium text-sam-muted">{t("store_owner_point_title")}</p>
-          <p className="mt-1 text-2xl font-bold text-[#006241]">
-            {balance.toLocaleString()}P
+          <p className="mt-1 text-2xl font-bold tabular-nums text-[#006241]">
+            {balance.toLocaleString(locale)}P
           </p>
           <p className="mt-0.5 text-xs text-sam-muted">{t("store_owner_point_balance_label")}</p>
         </div>
@@ -73,24 +65,35 @@ export function OwnerStorePointWarningCard({
 
       {blocked ? (
         <p className="mt-3 text-sm text-amber-900">{t("store_owner_point_blocked_message")}</p>
-      ) : (
-        <p className="mt-2 text-sm text-sam-muted">
-          {t("store_owner_point_estimated_orders")}:{" "}
-          {t("store_owner_point_estimated_orders_unit", { count: String(Math.max(0, est)) })}
+      ) : null}
+
+      {pendingCharge ? (
+        <p className="mt-2 text-sm text-sam-fg">
+          {t("store_owner_point_charge_pending")}:{" "}
+          <span className="font-semibold tabular-nums text-[#006241]">
+            {pendingCharge.pointAmount.toLocaleString(locale)}P
+          </span>
         </p>
-      )}
+      ) : null}
 
-      {stepHint ? <p className="mt-2 text-sm text-sam-fg">{stepHint}</p> : null}
-
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap gap-2">
         {onPointsPage ? (
-          <button
-            type="button"
-            className="inline-flex rounded-ui-rect bg-[#006241] px-3 py-2 text-sm font-semibold text-white"
-            onClick={scrollToDeposit}
-          >
-            {t("store_owner_point_charge_cta")}
-          </button>
+          <>
+            <button
+              type="button"
+              className="inline-flex rounded-ui-rect border border-[#006241] bg-sam-surface px-3 py-2 text-sm font-semibold text-[#006241]"
+              onClick={scrollAccount}
+            >
+              {t("store_owner_point_account_cta")}
+            </button>
+            <button
+              type="button"
+              className="inline-flex rounded-ui-rect bg-[#006241] px-3 py-2 text-sm font-semibold text-white"
+              onClick={scrollCharge}
+            >
+              {t("store_owner_point_charge_cta")}
+            </button>
+          </>
         ) : (
           <Link
             href={`${pointsHref}#${OWNER_POINT_DEPOSIT_SECTION_ID}`}

@@ -76,7 +76,6 @@ export function OwnerOperationsDashboard({
                   storeId={row.id}
                   pointBalance={pointSummary.pointBalance}
                   pointCommerceBlocked={pointSummary.pointCommerceBlocked}
-                  estimatedAcceptCount={pointSummary.estimatedAcceptCount}
                 />
               ) : null}
               <OwnerUrgentOrdersCard

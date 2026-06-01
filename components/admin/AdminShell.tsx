@@ -8,6 +8,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTestSwitcher } from "@/components/admin/AdminTestSwitcher";
 import { AdminNotificationBell } from "@/components/admin/order-notifications/AdminNotificationBell";
 import { AdminShellToolbar } from "@/components/admin/AdminShellToolbar";
+import { AdminStorePointPendingProvider } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
 
 /** Shell 레이아웃·권한 불변 — 언어 토글(설정/프로필 서브그래프)만 별도 청크로 분리. */
@@ -25,6 +26,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
+    <AdminStorePointPendingProvider>
     <div data-admin className="flex min-h-screen w-full min-w-0 max-w-full overflow-x-hidden bg-sam-app">
       {sidebarExpanded && <AdminSidebar />}
       <div className="flex min-w-0 max-w-full flex-1 flex-col overflow-x-hidden">
@@ -53,5 +55,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+    </AdminStorePointPendingProvider>
   );
 }

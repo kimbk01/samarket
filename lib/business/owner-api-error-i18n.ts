@@ -23,6 +23,7 @@ const KNOWN_CODES: Record<string, MessageKey> = {
   platform_inquiries_table_missing: "store_owner_point_err_platform_unavailable",
   store_point_charge_table_missing: "store_owner_point_err_platform_unavailable",
   point_amount_required: "store_owner_point_err_point_amount_required",
+  depositor_name_required: "store_owner_point_err_depositor_name_required",
   subject_and_content_required: "store_owner_point_err_subject_required",
   invalid_json: "common_error",
 };

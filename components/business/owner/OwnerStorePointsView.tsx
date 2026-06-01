@@ -6,8 +6,11 @@ import { OwnerStorePointWarningCard } from "@/components/business/owner/OwnerSto
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 import type { StorePointChargeRequest, StorePointLedgerEntry } from "@/lib/types/store-point";
-import type { OwnerPointDepositStep } from "@/lib/stores/owner-point-deposit-context";
-import { OWNER_POINT_DEPOSIT_SECTION_ID } from "@/lib/stores/owner-point-deposit-section-id";
+import type { OwnerPointAccountInquirySnapshot } from "@/lib/stores/owner-point-deposit-context";
+import {
+  OWNER_POINT_ACCOUNT_SECTION_ID,
+  OWNER_POINT_DEPOSIT_SECTION_ID,
+} from "@/lib/stores/owner-point-deposit-section-id";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 
@@ -16,15 +19,6 @@ type Summary = {
   pointCommerceBlocked: boolean;
   estimatedAcceptCount: number;
   estimatedFeePerOrder: number;
-};
-
-type AccountInquiry = {
-  id: string;
-  status: string;
-  subject: string;
-  answer: string | null;
-  createdAt: string;
-  answeredAt: string | null;
 };
 
 type PendingCharge = {
@@ -49,13 +43,6 @@ const CHARGE_STATUS_KEYS: Record<string, MessageKey> = {
   on_hold: "store_owner_point_charge_status_hold",
 };
 
-const STEP_TITLE_KEYS: Record<OwnerPointDepositStep, MessageKey> = {
-  account_inquiry: "store_owner_point_step_account",
-  awaiting_answer: "store_owner_point_step_awaiting",
-  deposit: "store_owner_point_step_deposit",
-  charge_pending: "store_owner_point_step_charge_pending",
-};
-
 export function OwnerStorePointsView({ storeId }: { storeId: string }) {
   const { t, language } = useI18n();
   const locale = catalogDateLocale(language);
@@ -63,8 +50,10 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [ledger, setLedger] = useState<StorePointLedgerEntry[]>([]);
   const [charges, setCharges] = useState<StorePointChargeRequest[]>([]);
-  const [depositStep, setDepositStep] = useState<OwnerPointDepositStep>("account_inquiry");
-  const [latestAccountAnswer, setLatestAccountAnswer] = useState<AccountInquiry | null>(null);
+  const [activeAccountInquiry, setActiveAccountInquiry] =
+    useState<OwnerPointAccountInquirySnapshot | null>(null);
+  const [latestAccountAnswer, setLatestAccountAnswer] =
+    useState<OwnerPointAccountInquirySnapshot | null>(null);
   const [pendingCharge, setPendingCharge] = useState<PendingCharge | null>(null);
   const [canSubmitCharge, setCanSubmitCharge] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -73,12 +62,11 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
 
   const [chargeForm, setChargeForm] = useState({
     point_amount: "",
-    payment_amount: "",
     depositor_name: "",
-    bank_name: "",
-    receipt_image_url: "",
-    user_memo: "",
   });
+
+  const formatPoints = (amount: number) =>
+    `${Math.max(0, Math.floor(amount)).toLocaleString(locale)}P`;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,8 +81,8 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
         summary?: Summary;
         ledger?: StorePointLedgerEntry[];
         chargeRequests?: StorePointChargeRequest[];
-        depositStep?: OwnerPointDepositStep;
-        latestAccountAnswer?: AccountInquiry | null;
+        activeAccountInquiry?: OwnerPointAccountInquirySnapshot | null;
+        latestAccountAnswer?: OwnerPointAccountInquirySnapshot | null;
         pendingCharge?: PendingCharge | null;
         canSubmitCharge?: boolean;
       };
@@ -105,7 +93,7 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
       setSummary(pointsJson.summary ?? null);
       setLedger(pointsJson.ledger ?? []);
       setCharges(pointsJson.chargeRequests ?? []);
-      setDepositStep(pointsJson.depositStep ?? "account_inquiry");
+      setActiveAccountInquiry(pointsJson.activeAccountInquiry ?? null);
       setLatestAccountAnswer(pointsJson.latestAccountAnswer ?? null);
       setPendingCharge(pointsJson.pendingCharge ?? null);
       setCanSubmitCharge(Boolean(pointsJson.canSubmitCharge));
@@ -123,11 +111,9 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
   useEffect(() => {
     if (loading) return;
     if (typeof window === "undefined") return;
-    if (window.location.hash !== `#${OWNER_POINT_DEPOSIT_SECTION_ID}`) return;
-    document.getElementById(OWNER_POINT_DEPOSIT_SECTION_ID)?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    const hash = window.location.hash.replace(/^#/, "");
+    if (hash !== OWNER_POINT_DEPOSIT_SECTION_ID && hash !== OWNER_POINT_ACCOUNT_SECTION_ID) return;
+    document.getElementById(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [loading]);
 
   const submitAccountInquiry = async () => {
@@ -160,6 +146,11 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
       setFormError(resolveOwnerApiErrorMessage("point_amount_required", t));
       return;
     }
+    const depositorName = chargeForm.depositor_name.trim();
+    if (!depositorName) {
+      setFormError(resolveOwnerApiErrorMessage("depositor_name_required", t));
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     try {
@@ -168,24 +159,13 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          point_amount: Number(chargeForm.point_amount),
-          payment_amount: Number(chargeForm.payment_amount),
-          depositor_name: chargeForm.depositor_name,
-          bank_name: chargeForm.bank_name,
-          receipt_image_url: chargeForm.receipt_image_url,
-          user_memo: chargeForm.user_memo,
+          point_amount: pointAmount,
+          depositor_name: depositorName,
         }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) {
-        setChargeForm({
-          point_amount: "",
-          payment_amount: "",
-          depositor_name: "",
-          bank_name: "",
-          receipt_image_url: "",
-          user_memo: "",
-        });
+        setChargeForm({ point_amount: "", depositor_name: "" });
         void load();
       } else {
         setFormError(resolveOwnerApiErrorMessage(j.error, t));
@@ -201,6 +181,9 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
 
   const bal = summary?.pointBalance ?? 0;
   const blocked = summary?.pointCommerceBlocked ?? false;
+  const accountAnswer =
+    latestAccountAnswer?.answer?.trim() ||
+    (activeAccountInquiry?.status === "answered" ? activeAccountInquiry.answer?.trim() : "");
 
   return (
     <div className="space-y-4 pb-8">
@@ -208,79 +191,81 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
         storeId={storeId}
         pointBalance={bal}
         pointCommerceBlocked={blocked}
-        estimatedAcceptCount={summary?.estimatedAcceptCount}
-        depositStep={depositStep}
         pendingCharge={pendingCharge}
       />
 
+      {formError ? (
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-600">{formError}</p>
+      ) : null}
+
       <OwnerStoreAdminDashSection
-        title={t(STEP_TITLE_KEYS[depositStep])}
-        id={OWNER_POINT_DEPOSIT_SECTION_ID}
+        title={t("store_owner_point_section_account")}
+        id={OWNER_POINT_ACCOUNT_SECTION_ID}
       >
-        {depositStep === "account_inquiry" ? (
-          <div className="space-y-3">
-            <p className="text-sm text-sam-muted">{t("store_owner_point_account_inquiry_intro")}</p>
-            <button
-              type="button"
-              disabled={submitting}
-              className="w-full rounded-ui-rect bg-[#006241] py-2.5 text-sm font-semibold text-white disabled:opacity-50"
-              onClick={() => void submitAccountInquiry()}
-            >
-              {t("store_owner_point_account_inquiry_submit")}
-            </button>
-          </div>
+        <p className="text-sm text-sam-muted">{t("store_owner_point_account_inquiry_intro")}</p>
+
+        {activeAccountInquiry?.status === "open" ? (
+          <p className="mt-2 text-sm text-amber-800">{t("store_owner_point_account_inquiry_pending")}</p>
         ) : null}
 
-        {depositStep === "awaiting_answer" ? (
-          <p className="text-sm text-sam-muted">{t("store_owner_point_account_inquiry_pending")}</p>
-        ) : null}
-
-        {(depositStep === "deposit" || depositStep === "charge_pending") && latestAccountAnswer?.answer ? (
-          <div className="space-y-2">
+        {accountAnswer ? (
+          <div className="mt-3 space-y-2">
             <p className="text-sm font-semibold text-sam-fg">{t("store_owner_point_account_answer_title")}</p>
             <p className="text-xs text-sam-muted">{t("store_owner_point_account_answer_hint")}</p>
             <div className="rounded-ui-rect bg-sam-app p-3 text-sm whitespace-pre-wrap text-sam-fg">
-              {latestAccountAnswer.answer}
+              {accountAnswer}
             </div>
           </div>
         ) : null}
 
-        {depositStep === "charge_pending" && pendingCharge ? (
+        {!activeAccountInquiry || activeAccountInquiry.status !== "open" ? (
+          <button
+            type="button"
+            disabled={submitting}
+            className="mt-3 w-full rounded-ui-rect border border-[#006241] bg-sam-surface py-2.5 text-sm font-semibold text-[#006241] disabled:opacity-50"
+            onClick={() => void submitAccountInquiry()}
+          >
+            {t("store_owner_point_account_inquiry_submit")}
+          </button>
+        ) : null}
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection
+        title={t("store_owner_point_section_charge")}
+        id={OWNER_POINT_DEPOSIT_SECTION_ID}
+      >
+        <p className="text-sm text-sam-muted">
+          {t("store_owner_point_balance_current")}:{" "}
+          <span className="font-semibold tabular-nums text-[#006241]">{formatPoints(bal)}</span>
+        </p>
+        <p className="mt-1 text-xs text-sam-muted">{t("store_owner_point_charge_ratio_hint")}</p>
+
+        {pendingCharge ? (
           <p className="mt-3 rounded-ui-rect bg-amber-50 px-3 py-2 text-sm text-amber-900">
             {pendingCharge.requestStatus === "on_hold"
               ? t("store_owner_point_charge_on_hold")
-              : `${t("store_owner_point_charge_pending")}: ${pendingCharge.pointAmount.toLocaleString()}P`}
+              : `${t("store_owner_point_charge_pending")}: ${formatPoints(pendingCharge.pointAmount)}`}
           </p>
         ) : null}
 
-        {depositStep === "deposit" && canSubmitCharge ? (
+        {canSubmitCharge ? (
           <div className="mt-4 space-y-3 border-t border-sam-border-soft pt-4">
-            <h3 className="font-semibold text-sam-fg">{t("store_owner_point_charge_title")}</h3>
-            {(
-              [
-                ["point_amount", "store_owner_point_charge_amount"],
-                ["payment_amount", "store_owner_point_charge_payment"],
-                ["depositor_name", "store_owner_point_charge_depositor"],
-                ["bank_name", "store_owner_point_charge_bank"],
-                ["receipt_image_url", "store_owner_point_charge_receipt"],
-              ] as const
-            ).map(([field, labelKey]) => (
-              <label key={field} className="block text-sm">
-                <span className="font-medium text-sam-fg">{t(labelKey)}</span>
-                <input
-                  className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2"
-                  value={chargeForm[field]}
-                  onChange={(e) => setChargeForm((f) => ({ ...f, [field]: e.target.value }))}
-                />
-              </label>
-            ))}
             <label className="block text-sm">
-              <span className="font-medium text-sam-fg">{t("store_owner_point_charge_memo")}</span>
-              <textarea
+              <span className="font-medium text-sam-fg">{t("store_owner_point_charge_amount")}</span>
+              <input
+                type="number"
+                min={1}
+                className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 tabular-nums"
+                value={chargeForm.point_amount}
+                onChange={(e) => setChargeForm((f) => ({ ...f, point_amount: e.target.value }))}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="font-medium text-sam-fg">{t("store_owner_point_charge_depositor")}</span>
+              <input
                 className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2"
-                rows={3}
-                value={chargeForm.user_memo}
-                onChange={(e) => setChargeForm((f) => ({ ...f, user_memo: e.target.value }))}
+                value={chargeForm.depositor_name}
+                onChange={(e) => setChargeForm((f) => ({ ...f, depositor_name: e.target.value }))}
               />
             </label>
             <button
@@ -293,8 +278,6 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
             </button>
           </div>
         ) : null}
-
-        {formError ? <p className="mt-2 text-sm text-red-600">{formError}</p> : null}
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection title={t("store_owner_point_ledger_title")}>
@@ -316,7 +299,7 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
                   className={`font-semibold tabular-nums ${row.amount < 0 ? "text-red-600" : "text-[#006241]"}`}
                 >
                   {row.amount > 0 ? "+" : ""}
-                  {row.amount}P
+                  {row.amount.toLocaleString(locale)}P
                 </span>
               </li>
             ))}
@@ -332,7 +315,10 @@ export function OwnerStorePointsView({ storeId }: { storeId: string }) {
             {charges.map((row) => (
               <li key={row.id} className="flex flex-wrap justify-between gap-2 py-2 text-sm">
                 <span className="text-sam-fg">
-                  {row.pointAmount.toLocaleString()}P · {row.paymentAmount.toLocaleString()} PHP
+                  <span className="font-semibold tabular-nums">{row.pointAmount.toLocaleString(locale)}P</span>
+                  {row.depositorName ? (
+                    <span className="ml-2 text-xs text-sam-muted">{row.depositorName}</span>
+                  ) : null}
                   <span className="ml-2 text-xs text-sam-muted">
                     {new Date(row.requestedAt).toLocaleString(locale)}
                   </span>
