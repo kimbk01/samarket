@@ -349,11 +349,11 @@ export function MyHeaderNotificationInbox() {
   }, [pendingDelete, t]);
 
   return (
-    <div ref={wrapperRef} className="relative shrink-0">
+    <div ref={wrapperRef} className="pointer-events-auto relative z-[30] shrink-0">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative`}
+        className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative touch-manipulation pointer-events-auto`}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}

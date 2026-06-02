@@ -697,6 +697,43 @@ export async function appendStoreOrderMessengerStatusTransition(
   await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
 }
 
+function deliveryStatusToMessengerStatus(deliveryStatus: string): SharedOrderStatus | null {
+  switch (deliveryStatus.trim()) {
+    case "pickup_in_progress":
+      return "ready_for_pickup";
+    case "delivering":
+      return "delivering";
+    case "delivered":
+      return "completed";
+    default:
+      return null;
+  }
+}
+
+export async function appendStoreOrderMessengerDeliveryStatusTransition(
+  sb: SupabaseClient<any>,
+  orderId: string,
+  nextDeliveryStatus: string
+): Promise<void> {
+  const next = deliveryStatusToMessengerStatus(nextDeliveryStatus);
+  if (!next) return;
+  const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId });
+  if (!ensured.ok) return;
+  const line = storeOrderMessengerOwnerStatusLine(next, "delivery");
+  if (!line) return;
+  await appendStoreOrderMessengerSystemMessage(
+    sb,
+    {
+      orderId,
+      actorUserId: ensured.ownerUserId,
+      content: line,
+      relatedOrderStatus: next,
+    },
+    ensured
+  );
+  await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
+}
+
 export async function getBuyerStoreOrderMessengerUnreadMap(
   sb: SupabaseClient<any>,
   buyerUserId: string,

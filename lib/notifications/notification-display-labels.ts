@@ -35,6 +35,7 @@ export function commerceMetaKindLabel(
     store_order_created: "notify_kind_store_order_created",
     store_order_accept_reminder_30s: "notify_kind_store_order_created",
     store_order_accept_reminder_60s: "notify_kind_store_order_created",
+    store_order_payment_completed_buyer: "notify_kind_store_order_payment_completed",
     store_order_payment_completed: "notify_kind_store_order_payment_completed",
     store_order_buyer_cancelled: "notify_kind_store_order_buyer_cancelled",
     store_order_refund_requested: "notify_kind_store_order_refund_requested",
@@ -42,6 +43,12 @@ export function commerceMetaKindLabel(
     store_order_payment_failed: "notify_kind_store_order_payment_failed",
     store_order_refund_approved: "notify_kind_store_order_refund_approved",
     store_order_auto_completed: "notify_kind_store_order_auto_completed",
+    store_point_blocked: "notify_kind_store_point",
+    store_point_deducted: "notify_kind_store_point",
+    store_point_low: "notify_kind_store_point",
+    store_point_charge_approved: "notify_kind_store_point",
+    store_point_charge_rejected: "notify_kind_store_point",
+    store_point_account_replied: "notify_kind_store_point",
   };
   const key = m[kind];
   return key ? notifySafeT(language, key) : null;

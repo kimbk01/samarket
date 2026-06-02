@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import { appendStoreOrderMessengerDeliveryStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { allowedDeliveryTransitions, isValidDeliveryStatus, type StoreOrderDeliveryStatus } from "@/lib/stores/store-order-delivery-status";
 import { createStoreOrderDeliveryLifecycleEvent } from "@/lib/stores/store-order-events";
 import type { StoreOrderDeliveryMilestone } from "@/lib/stores/store-order-events";
@@ -615,8 +616,9 @@ export async function ownerPatchStoreOrderDelivery(
       milestone: deliveryMilestoneForStatus(nextDeliveryOwner),
       fromDeliveryStatus: prev,
       toDeliveryStatus: nextDeliveryOwner,
-      metadata: { source: "store_order.delivery.owner_patch" },
+      metadata: { source: "store_order.delivery.owner_patch", buyer_user_id: guard.buyer_user_id },
     });
+    void appendStoreOrderMessengerDeliveryStatusTransition(sb, opts.orderId.trim(), nextDeliveryOwner);
   }
 
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };

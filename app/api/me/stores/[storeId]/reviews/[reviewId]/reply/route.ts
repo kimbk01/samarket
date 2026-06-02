@@ -3,6 +3,8 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,7 +57,7 @@ export async function PATCH(
 
   const { data: row, error: getErr } = await sb
     .from("store_reviews")
-    .select("id, store_id, buyer_user_id, owner_reply_content")
+    .select("id, order_id, store_id, buyer_user_id, owner_reply_content")
     .eq("id", rid)
     .eq("store_id", sid)
     .maybeSingle();
@@ -109,9 +111,15 @@ export async function PATCH(
     }
   }
 
+  const buyerUserId = String((row as Record<string, unknown>).buyer_user_id ?? "").trim();
+  const orderId = String((row as Record<string, unknown>).order_id ?? "").trim();
+  if (orderId && buyerUserId) {
+    invalidateStoreOrderDetailSnapshot(orderId, buyerUserId, "store_review_owner_reply");
+    invalidateBuyerStoreOrdersListSnapshot(buyerUserId, "store_review_owner_reply");
+  }
+
   // 최초 댓글 작성 시 리뷰 작성자에게 알림 (삭제·수정은 알림 없음)
   if (!isDelete && isFirstReply) {
-    const buyerUserId = String((row as Record<string, unknown>).buyer_user_id ?? "").trim();
     if (buyerUserId) {
       void appendUserNotification(sb, {
         user_id: buyerUserId,

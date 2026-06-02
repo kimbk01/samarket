@@ -17,6 +17,7 @@ export function useSupabaseBuyerStoreOrdersRealtime(handlers: StoreOrdersRealtim
     if (!sb) return;
 
     let ch: RealtimeChannel | null = null;
+    let deliveryCh: RealtimeChannel | null = null;
     let cancelled = false;
     let debTimer: ReturnType<typeof setTimeout> | null = null;
     let boundUid = "";
@@ -43,6 +44,7 @@ export function useSupabaseBuyerStoreOrdersRealtime(handlers: StoreOrdersRealtim
       if (u === boundUid && ch) return;
       boundUid = u;
       if (ch) void sb.removeChannel(ch);
+      if (deliveryCh) void sb.removeChannel(deliveryCh);
       clearDebounce();
       ch = sb
         .channel(`buyer-store-orders-rt:${u}`)
@@ -68,13 +70,30 @@ export function useSupabaseBuyerStoreOrdersRealtime(handlers: StoreOrdersRealtim
           }
         )
         .subscribe();
+      deliveryCh = sb
+        .channel(`buyer-store-order-deliveries-rt:${u}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "store_order_deliveries",
+            filter: `buyer_user_id=eq.${u}`,
+          },
+          () => {
+            scheduleChange();
+          }
+        )
+        .subscribe();
     };
 
     const teardownChannel = () => {
       boundUid = "";
       clearDebounce();
       if (ch) void sb.removeChannel(ch);
+      if (deliveryCh) void sb.removeChannel(deliveryCh);
       ch = null;
+      deliveryCh = null;
     };
 
     const {
@@ -95,6 +114,7 @@ export function useSupabaseBuyerStoreOrdersRealtime(handlers: StoreOrdersRealtim
       clearDebounce();
       subscription.unsubscribe();
       if (ch) void sb.removeChannel(ch);
+      if (deliveryCh) void sb.removeChannel(deliveryCh);
     };
   }, []);
 }

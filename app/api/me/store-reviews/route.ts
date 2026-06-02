@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
+import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function storeReviewOrderTypeFromFulfillment(value: unknown): "delivery" | "pickup" | null {
+  const fulfillmentType = String(value ?? "").trim();
+  if (fulfillmentType === "local_delivery") return "delivery";
+  if (fulfillmentType === "pickup" || fulfillmentType === "store_pickup") return "pickup";
+  return null;
+}
 
 type PostBody = {
   order_id?: string;
@@ -93,7 +102,7 @@ export async function POST(req: NextRequest) {
 
   const { data: order, error: oErr } = await sb
     .from("store_orders")
-    .select("id, store_id, buyer_user_id, order_status, order_type")
+    .select("id, store_id, buyer_user_id, order_status, fulfillment_type")
     .eq("id", orderId)
     .maybeSingle();
 
@@ -133,11 +142,12 @@ export async function POST(req: NextRequest) {
   }
 
   const itemFeedback = parseItemFeedback(itemFeedbackRaw, lineIdsInOrder);
-  const hasExtras =
-    imageUrls.length > 0 || Object.keys(itemFeedback).length > 0 || ownerOnly === true;
 
-  const orderTypeRaw = String((order as Record<string, unknown>).order_type ?? "").trim();
-  const orderType = orderTypeRaw === "delivery" || orderTypeRaw === "pickup" ? orderTypeRaw : null;
+  const orderType = storeReviewOrderTypeFromFulfillment(
+    (order as Record<string, unknown>).fulfillment_type
+  );
+  const hasExtras =
+    imageUrls.length > 0 || Object.keys(itemFeedback).length > 0 || ownerOnly === true || orderType !== null;
 
   const baseRow = {
     order_id: orderId,
@@ -183,6 +193,9 @@ export async function POST(req: NextRequest) {
     console.error("[POST store-reviews]", insErr);
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
+
+  invalidateStoreOrderDetailSnapshot(orderId, buyerId, "store_review_created");
+  invalidateBuyerStoreOrdersListSnapshot(buyerId, "store_review_created");
 
   return NextResponse.json({ ok: true, id: row?.id });
 }

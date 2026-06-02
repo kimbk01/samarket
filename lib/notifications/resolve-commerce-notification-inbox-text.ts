@@ -4,6 +4,7 @@ import {
   notifySafeT,
   resolveInboxNotificationDisplayText,
 } from "@/lib/notifications/notify-safe-translate";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 export type CommerceNotificationMeta = {
   kind?: string;
@@ -11,6 +12,16 @@ export type CommerceNotificationMeta = {
   order_status?: string;
   store_display_name?: string;
   estimated_prep_minutes?: number;
+  payment_amount?: number;
+  line_count?: number;
+  payment_label?: string;
+  buyer_note_preview?: string;
+  reminder_bucket_sec?: number;
+  balance?: number;
+  required?: number;
+  fee_amount?: number;
+  balance_after?: number;
+  point_amount?: number;
 };
 
 function metaStoreLabel(
@@ -100,6 +111,18 @@ function commerceTitleKey(kind: string, orderStatus: string): MessageKey | null 
       return "notify_commerce_refund_processed_title";
     case "store_order_auto_completed":
       return "notify_commerce_auto_completed_title";
+    case "store_point_blocked":
+      return "notify_store_point_blocked_title";
+    case "store_point_deducted":
+      return "notify_store_point_deducted_title";
+    case "store_point_low":
+      return "notify_store_point_low_title";
+    case "store_point_charge_approved":
+      return "notify_store_point_charge_approved_title";
+    case "store_point_charge_rejected":
+      return "notify_store_point_charge_rejected_title";
+    case "store_point_account_replied":
+      return "notify_store_point_account_replied_title";
     default:
       return null;
   }
@@ -107,8 +130,19 @@ function commerceTitleKey(kind: string, orderStatus: string): MessageKey | null 
 
 function commerceBodyKey(kind: string, orderStatus: string): MessageKey | null {
   switch (kind) {
+    case "store_order_created":
+      return "notify_commerce_new_order_body_named";
+    case "store_order_accept_reminder_30s":
+    case "store_order_accept_reminder_60s":
+      return "notify_commerce_owner_accept_reminder_body_named";
     case "store_order_payment_completed_buyer":
       return "notify_commerce_payment_done_body";
+    case "store_order_payment_completed":
+      return "notify_commerce_owner_payment_done_body_named";
+    case "store_order_buyer_cancelled":
+      return "notify_commerce_buyer_cancelled_body_named";
+    case "store_order_refund_requested":
+      return "notify_commerce_refund_requested_body_named";
     case "store_order_owner_status":
       return ownerStatusBodyKey(orderStatus);
     case "store_order_payment_failed":
@@ -117,9 +151,61 @@ function commerceBodyKey(kind: string, orderStatus: string): MessageKey | null {
       return "notify_commerce_refund_processed_body";
     case "store_order_auto_completed":
       return "notify_commerce_auto_completed_body";
+    case "store_point_blocked":
+      return "notify_store_point_blocked_body";
+    case "store_point_deducted":
+      return "notify_store_point_deducted_body";
+    case "store_point_low":
+      return "notify_store_point_low_body";
+    case "store_point_charge_approved":
+      return "notify_store_point_charge_approved_body";
+    case "store_point_charge_rejected":
+      return "notify_store_point_charge_rejected_body";
+    case "store_point_account_replied":
+      return "notify_store_point_account_replied_body";
     default:
       return null;
   }
+}
+
+function metaNumber(meta: CommerceNotificationMeta, key: keyof CommerceNotificationMeta): number {
+  const n = Number(meta[key] ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function commerceBodyVars(
+  lang: AppLanguageCode,
+  kind: string,
+  meta: CommerceNotificationMeta,
+  storedBody?: string | null
+): Record<string, string | number> {
+  const store = metaStoreLabel(meta, lang, storedBody);
+  const orderNo = metaOrderNo(meta, storedBody);
+  const amount = formatMoneyPhp(metaNumber(meta, "payment_amount"));
+  const lineCount = Math.max(0, Math.floor(metaNumber(meta, "line_count")));
+  const paymentLabel = typeof meta.payment_label === "string" ? meta.payment_label.trim() : "";
+  const note = typeof meta.buyer_note_preview === "string" ? meta.buyer_note_preview.trim() : "";
+  const extras: string[] = [];
+  if (paymentLabel && paymentLabel !== "—") {
+    extras.push(notifySafeT(lang, "notify_commerce_payment_prefix", { vars: { payment: paymentLabel } }));
+  }
+  if (note) {
+    extras.push(notifySafeT(lang, "notify_commerce_request_prefix", { vars: { note } }));
+  }
+  const fallbackSec = kind === "store_order_accept_reminder_60s" ? 60 : 30;
+  const seconds = Math.max(0, Math.floor(metaNumber(meta, "reminder_bucket_sec") || fallbackSec));
+  return {
+    store,
+    orderNo,
+    amount,
+    lineCount,
+    extra: extras.length ? ` · ${extras.join(" · ")}` : "",
+    seconds,
+    balance: Math.floor(metaNumber(meta, "balance") || metaNumber(meta, "balance_after")),
+    required: Math.floor(metaNumber(meta, "required")),
+    fee: Math.floor(metaNumber(meta, "fee_amount")),
+    points: Math.floor(metaNumber(meta, "point_amount")),
+  };
 }
 
 function acceptedEtaSuffix(lang: AppLanguageCode, meta: CommerceNotificationMeta): string {
@@ -163,7 +249,9 @@ export function resolveCommerceNotificationInboxBody(
 
   const store = metaStoreLabel(m, lang, storedBody);
   const orderNo = metaOrderNo(m, storedBody);
-  const body = notifySafeT(lang, key, { vars: { store, orderNo } });
+  const body = notifySafeT(lang, key, {
+    vars: { ...commerceBodyVars(lang, kind, m, storedBody), store, orderNo },
+  });
   if (kind === "store_order_owner_status") {
     return `${body}${acceptedEtaSuffix(lang, m)}`;
   }
