@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-25 (STAB1 prod observation — automated **PASS** · manual **▲**) |
+| Last updated | 2026-06-02 (CM-INSTANT — 구조 복구 1라운드 · verify 대기) |
 | Owner | (선택) |
 
 ---
@@ -116,6 +116,13 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | 트랙 이름 | **LFC1-D** Phase D (RB1 · HUB BADGE) |
 | **트랙 상태** | **▲ 대기** — STAB1 manual gates PASS 전 hard delete **금지** |
 | PASS 게이트 | STAB1 long-session · multi-tab · prod stable · real feel → per-route hard delete |
+
+| 트랙 이름 | **CM-INSTANT** 메신저 즉시성·구조 복구 (거래 방·전송·입장·통화) |
+| **트랙 상태** | **구현 1라운드 완료** — prod 체감·3회 측정 **대기** |
+| 이번 원인 1개 | `trade_pc`/`trade_item` CM 방 이중 + 전송 `pending:*` virtualizer key + `realtime_on_refresh` full bootstrap 중첩 + RT 정상 시 수신 통화 2.4s HTTP 백업 |
+| 이번 조치 | canonical trade dedupe/ensure · `clientMessageId` stable merge · POST message body 보장 · silent_delta on refresh when `after=` 성공 · bootstrap debounce 400ms · RT ok 시 incoming backup GET off · group signal poll 1.5s |
+| 측정 (다음) | `verify:trade-hot-path-contract` · `verify:messenger-home` · `verify:messenger-consistency-structural` · `scripts/verify-cm-receive-latency-coalesce.mjs` · 2기기 연속 전송 20회 |
+| lock | `docs/messenger-realtime-policy.md` · `docs/trade-chat-room-identity.md` |
 
 | 트랙 이름 | **STAB1** Post cleanup stabilization |
 | **트랙 상태** | **▲ 진행** — automated prod observation **PASS** · manual observation **▲** |

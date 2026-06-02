@@ -195,6 +195,34 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
             event.eventType === "INSERT" &&
             Boolean(event.message.senderId) &&
             messengerUserIdsEqual(event.message.senderId, snap.viewerUserId);
+          if (isOwnInsert) {
+            const ownCid =
+              typeof mapped.clientMessageId === "string" ? mapped.clientMessageId.trim() : "";
+            if (ownCid) {
+              cur = cur.filter(
+                (row) =>
+                  !(
+                    row.pending &&
+                    typeof row.clientMessageId === "string" &&
+                    row.clientMessageId.trim() === ownCid
+                  )
+              );
+            } else {
+              // clientMessageId가 RT 메타에 없을 때: content + messageType + sender + 3s 타임윈도우로 pending 제거
+              const mappedAt = new Date(mapped.createdAt).getTime();
+              cur = cur.filter(
+                (row) =>
+                  !(
+                    row.pending &&
+                    row.senderId === mapped.senderId &&
+                    row.messageType === mapped.messageType &&
+                    row.content === mapped.content &&
+                    Number.isFinite(mappedAt) &&
+                    Math.abs(new Date(row.createdAt).getTime() - mappedAt) < 3_000
+                  )
+              );
+            }
+          }
           if (event.eventType === "INSERT" && !isOwnInsert) {
             if (
               peerTailMarkReadHintRef &&

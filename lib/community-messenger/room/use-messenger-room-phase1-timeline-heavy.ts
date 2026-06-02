@@ -8,6 +8,7 @@ import { estimateMessengerTimelineRowPx } from "@/lib/store-order-chat/messenger
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
 import { useMessengerRoomStoreOrderDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-store-order-dock-scroll-anchor";
+import { messengerTimelineVirtualRowKey } from "@/components/community-messenger/room/community-messenger-room-helpers";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 
@@ -54,7 +55,8 @@ export function useMessengerRoomPhase1TimelineHeavy({
     getScrollElement: () => messagesViewportRef.current,
     estimateSize: (index) => estimateMessengerTimelineRowPx(displayRoomMessages[index]),
     overscan: MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
-    getItemKey: (index) => displayRoomMessages[index]?.id ?? `__cm_timeline_${index}`,
+    getItemKey: (index) =>
+      messengerTimelineVirtualRowKey(displayRoomMessages[index]) || `__cm_timeline_${index}`,
   });
 
   useMessengerRoomTradeDockScrollAnchor({

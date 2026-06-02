@@ -1,5 +1,9 @@
 "use client";
 
+function trimCmText(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+
 /**
  * 커뮤니티 메신저 방 Phase2 전용 컨트롤러 — Phase1 컨텍스트 + 그룹 통화 컨텍스트 위에서
  * 전송·권한·통화·그룹 운영 등 모든 상호작용 상태와 이펙트를 한곳에 둔다.
@@ -788,40 +792,43 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         bumpCommunityMessengerPresenceActivity("message_sent");
-        if (json.message) {
-          const confirmedMessage = json.message;
+        const confirmedMessage = json.message;
+        if (confirmedMessage?.id) {
+          const withCid =
+            !trimCmText(confirmedMessage.clientMessageId) && clientMessageId
+              ? { ...confirmedMessage, clientMessageId }
+              : confirmedMessage;
           setRoomMessages((prev) =>
             mergeRoomMessages(
-              prev.filter((item) => item.id !== tempId),
-              [confirmedMessage]
+              prev.filter(
+                (item) =>
+                  item.id !== tempId &&
+                  !(
+                    (item as { pending?: boolean }).pending &&
+                    item.clientMessageId === clientMessageId
+                  )
+              ),
+              [withCid]
             )
           );
           scrollMessengerToBottom();
-          onMessengerOutboundConfirmed(confirmedMessage, clientMessageId);
+          onMessengerOutboundConfirmed(withCid, clientMessageId);
+          forgetRoomBootstrapClientFlightsAfterMutation();
           return;
         }
-        // 서버 저장 성공이지만 응답에 message 객체 없음 — pending을 즉시 제거하면
-        // Realtime·refresh가 오기 전까지 화면에 빈 구간이 생긴다.
-        // pending을 유지한 채 Realtime INSERT 또는 refresh가 clientMessageId 로 교체하도록 한다.
-        const scheduleRefresh = () => {
+        void catchUpNewerMessages().finally(() => {
           const exists = roomMessagesRef.current.some(
             (item) => item.clientMessageId === clientMessageId && !item.pending
           );
-          if (!exists) {
-            void refresh(true);
-          }
-        };
-        if (typeof window !== "undefined") {
-          window.setTimeout(scheduleRefresh, 420);
-        } else {
-          scheduleRefresh();
-        }
+          if (!exists) void refresh(true, { triggerReason: "send_missing_message_body" });
+        });
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {
         setBusy(null);
       }
     },
     [
+      catchUpNewerMessages,
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
       redirectIfMessengerAuthBlocked,

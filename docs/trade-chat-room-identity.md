@@ -13,3 +13,4 @@
 - `product_chats` — `(post_id, seller_id, buyer_id)` 유니크(기존).
 - `chat_rooms` — `room_type = 'item_trade'` 일 때 `(item_id, seller_id, buyer_id)` 유니크 인덱스(마이그레이션).
 - 메신저 `direct_key` — `trade_item:` / `trade_pc:` 로 친구 DM 과 분리(`lib/community-messenger/service.ts`).
+- **CM 방 1개(거래 triple)** — 동일 `product_chats` 에 `trade_pc:`·`trade_item:` 방이 둘 다 있으면 **`trade_item:` 방을 canonical** 으로 FK·목록 dedupe (`ensureCommunityMessengerDirectRoom`, `dedupeTradeMessengerRoomSummaries`, migration `20260902120000_trade_messenger_duplicate_room_fk_align.sql`).

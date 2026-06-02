@@ -57,10 +57,27 @@ export async function publishCommunityMessengerCallInviteRing(
     tmpSessionId?: string | null;
   }
 ): Promise<void> {
+  void publishCommunityMessengerCallInviteRingInner(sb, args).catch(() => {
+    /* postgres_changes·수신 GET 백업으로 정합 */
+  });
+}
+
+async function publishCommunityMessengerCallInviteRingInner(
+  sb: SupabaseClient,
+  args: {
+    recipientUserId: string;
+    sessionId: string;
+    roomId: string;
+    callKind: string;
+    startedAtIso: string;
+    initiatorUserId: string;
+    tmpSessionId?: string | null;
+  }
+): Promise<void> {
   const name = communityMessengerCallInviteChannelName(args.recipientUserId);
   const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
   try {
-    await waitForChannelSubscribed(ch, 4500);
+    await waitForChannelSubscribed(ch, 1_800);
     const tmp = typeof args.tmpSessionId === "string" ? args.tmpSessionId.trim() : "";
     await ch.send({
       type: "broadcast",

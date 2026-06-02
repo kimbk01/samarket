@@ -105,6 +105,16 @@ export function communityMessengerVoiceAudioSrc(
  * 발신 낙관적 말풍선이 타임라인에서 **직전 확정 메시지 뒤**에 오도록 한다.
  * 로컬 시계가 서버·상대보다 느릴 때 `new Date()` 만 쓰면 수신분보다 앞서 정렬되어 두 클라이언트 순서가 갈린다.
  */
+/** Virtualizer row key — `clientMessageId` 가 있으면 id 교체 시에도 행 remount 를 막는다. */
+export function messengerTimelineVirtualRowKey(
+  message: (CommunityMessengerMessage & { pending?: boolean }) | undefined
+): string {
+  if (!message) return "";
+  const cid = typeof message.clientMessageId === "string" ? message.clientMessageId.trim() : "";
+  if (cid) return `cmc:${cid}`;
+  return String(message.id ?? "");
+}
+
 export function nextOptimisticCommunityMessengerCreatedAtIso(
   prev: Array<CommunityMessengerMessage & { pending?: boolean }>
 ): string {
@@ -135,6 +145,17 @@ export function mergeRoomMessages(
     mergedConfirmed.set(item.id, item);
   }
   for (const item of next) {
+    const cidNext =
+      typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
+    if (cidNext) {
+      for (const [existingId, existingRow] of mergedConfirmed) {
+        const cidExisting =
+          typeof existingRow.clientMessageId === "string" ? existingRow.clientMessageId.trim() : "";
+        if (cidExisting === cidNext && existingId !== item.id) {
+          mergedConfirmed.delete(existingId);
+        }
+      }
+    }
     const existing = mergedConfirmed.get(item.id);
     const itemMetadata =
       item.metadata && Object.keys(item.metadata).length > 0

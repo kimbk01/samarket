@@ -22,6 +22,7 @@ import {
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
 
 export type { MessengerFriendState, MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
@@ -380,7 +381,11 @@ export function useCommunityMessengerHomeState({
    */
   const pillarBaseChatListItems = useMemo(() => {
     if (pillar === "trade") {
-      return baseChatListItems.filter((item) => communityMessengerRoomIsTrade(item.room));
+      const tradeItems = baseChatListItems.filter((item) => communityMessengerRoomIsTrade(item.room));
+      const keepIds = new Set(
+        dedupeTradeMessengerRoomSummaries(tradeItems.map((item) => item.room)).map((room) => room.id)
+      );
+      return tradeItems.filter((item) => keepIds.has(item.room.id));
     }
     if (pillar === "delivery") {
       return baseChatListItems.filter((item) => communityMessengerRoomIsDelivery(item.room));

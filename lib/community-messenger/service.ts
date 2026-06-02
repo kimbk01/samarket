@@ -238,6 +238,7 @@ import {
   CommunityMessengerRoomVisibility,
 } from "@/lib/community-messenger/types";
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
+import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export {
@@ -3736,7 +3737,10 @@ export async function listCommunityMessengerMyChatsAndGroups(
       if (messengerPerfStepsEnabled()) {
         logMessengerPerfMs("listCommunityMessengerMyChatsAndGroups_wall", performance.now() - tListTop);
       }
-      return { chats: snap.chats, groups: snap.groups };
+      return {
+        chats: dedupeTradeMessengerRoomSummaries(snap.chats),
+        groups: snap.groups,
+      };
     }
     throw new HomeSyncSnapshotUnavailableError("unified_rpc_unavailable");
   }
@@ -3958,8 +3962,9 @@ export async function listCommunityMessengerMyChatsAndGroups(
     });
   }
   const tSplitLists = performance.now();
-  const chats = mySummaries.filter((room) => room.roomType === "direct");
-  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const listDeduped = dedupeTradeMessengerRoomSummaries(mySummaries);
+  const chats = listDeduped.filter((room) => room.roomType === "direct");
+  const groups = listDeduped.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
   const listSplitFilterMs = performance.now() - tSplitLists;
   const payloadBuildMs = ms(roomIdsMs + roomSliceCpuMs + summarizeMs + listSplitFilterMs);
 
@@ -9054,28 +9059,54 @@ export async function ensureCommunityMessengerDirectRoom(
           ? `store_order:${storeOrderId}`
           : basePairKey;
   const legacyStoreOrderDirectKey = storeOrderId !== "" ? `trade_order:${storeOrderId}` : "";
+  const tradeLookupKeys = dedupeIds([
+    ...(itemTradeChatRoomId ? [`trade_item:${itemTradeChatRoomId}`] : []),
+    ...(productChatId ? [`trade_pc:${productChatId}`] : []),
+  ]);
   const sb = getSupabaseOrNull();
   if (sb) {
-    const loadExistingRoomId = async () => {
-      let q = (sb as any)
-        .from("community_messenger_rooms")
-        .select("id")
-        .eq("room_type", "direct");
-      q = legacyStoreOrderDirectKey ? q.in("direct_key", [directKey, legacyStoreOrderDirectKey]) : q.eq("direct_key", directKey);
-      const { data } = await q.order("created_at", { ascending: true }).limit(1).maybeSingle();
-      return typeof data?.id === "string" ? (data.id as string) : null;
+    const directKeyLookupSet = dedupeIds([
+      ...tradeLookupKeys,
+      ...(legacyStoreOrderDirectKey ? [directKey, legacyStoreOrderDirectKey] : [directKey]),
+    ]);
+    const pickCanonicalTradeRoomId = (
+      rows: Array<{ id?: unknown; direct_key?: unknown }>
+    ): string | null => {
+      if (!rows.length) return null;
+      const itemRow = rows.find((r) => trimText(r.direct_key).startsWith("trade_item:"));
+      if (itemRow?.id) return String(itemRow.id);
+      const pcRow = rows.find((r) => trimText(r.direct_key).startsWith("trade_pc:"));
+      if (pcRow?.id) return String(pcRow.id);
+      const first = rows[0]?.id;
+      return typeof first === "string" ? first : null;
     };
-    let existingQ = (sb as any)
+    const loadExistingRoomId = async () => {
+      const { data } = await (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, direct_key")
+        .eq("room_type", "direct")
+        .in("direct_key", directKeyLookupSet)
+        .order("created_at", { ascending: true })
+        .limit(Math.min(8, directKeyLookupSet.length + 2));
+      const rows = (Array.isArray(data) ? data : data ? [data] : []) as Array<{
+        id?: unknown;
+        direct_key?: unknown;
+      }>;
+      return pickCanonicalTradeRoomId(rows);
+    };
+    const { data: existingRows, error: existingError } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("id")
-      .eq("room_type", "direct");
-    existingQ = legacyStoreOrderDirectKey
-      ? existingQ.in("direct_key", [directKey, legacyStoreOrderDirectKey])
-      : existingQ.eq("direct_key", directKey);
-    const { data: existing, error: existingError } = await existingQ
+      .select("id, direct_key")
+      .eq("room_type", "direct")
+      .in("direct_key", directKeyLookupSet)
       .order("created_at", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(Math.min(8, directKeyLookupSet.length + 2));
+    const existingList = (Array.isArray(existingRows) ? existingRows : existingRows ? [existingRows] : []) as Array<{
+      id?: unknown;
+      direct_key?: unknown;
+    }>;
+    const existingId = pickCanonicalTradeRoomId(existingList);
+    const existing = existingId ? { id: existingId } : null;
     if (existing?.id && !existingError) {
       const rid = existing.id as string;
       await ensureDirectMessengerRoomParticipantsForPair(sb, rid, userId, peerId);
@@ -14460,10 +14491,21 @@ async function trySendCommunityMessengerTextAtomic(
   clientMessageId: string,
   replyToMessageId?: string | null
 ): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string } | null> {
-  const tradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+  let tradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
     viewerUserId: input.userId,
     messengerRoomId: roomId,
   });
+  if (!tradeGuard.ok && tradeGuard.error === "trade_product_chat_unlinked") {
+    const { reconcileMessengerTradeRoomLinkOnSend } = await import(
+      "@/lib/trade/reconcile-messenger-trade-room-link-on-send"
+    );
+    if (await reconcileMessengerTradeRoomLinkOnSend(sb as never, roomId)) {
+      tradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+        viewerUserId: input.userId,
+        messengerRoomId: roomId,
+      });
+    }
+  }
   if (!tradeGuard.ok) {
     return { ok: false, error: tradeGuard.error };
   }
@@ -14509,6 +14551,9 @@ async function trySendCommunityMessengerTextAtomic(
     return { ok: false, error: "message_send_failed" };
   }
   const message = communityMessengerTextMessageFromRpcRow(roomId, input.userId, msgRow as Record<string, unknown>);
+  if (clientMessageId && !trimText(message.clientMessageId)) {
+    message.clientMessageId = clientMessageId;
+  }
   const deduped = payload.deduped === true;
   if (!deduped) {
     const recipientUserIds = parseRpcRecipientUserIds(payload.recipient_user_ids);
@@ -14534,6 +14579,39 @@ async function trySendCommunityMessengerTextAtomic(
     invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
   }
   return { ok: true, message };
+}
+
+/** POST 응답 body 가 비었을 때 `client_message_id` 로 확정 행 재조회. */
+export async function findCommunityMessengerMessageByClientId(input: {
+  userId: string;
+  roomId: string;
+  clientMessageId: string;
+}): Promise<CommunityMessengerMessage | null> {
+  const roomId = trimText(input.roomId);
+  const userId = trimText(input.userId);
+  const clientMessageId = trimText(input.clientMessageId);
+  if (!roomId || !userId || !clientMessageId) return null;
+  const sb = getSupabaseOrNull();
+  if (!sb) return null;
+  const { data, error } = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
+    (sb as any)
+      .from("community_messenger_messages")
+      .select(cols)
+      .eq("room_id", roomId)
+      .eq("sender_id", userId)
+      .filter("metadata->>client_message_id", "eq", clientMessageId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  );
+  if (error || !data) return null;
+  const prof = await hydrateProfiles(userId, [userId], { includeSelf: true });
+  const profileById = new Map(prof.map((m) => [m.id, m]));
+  return mapCommunityMessengerDbMessageRowToMessage({
+    row: data as MessageRow,
+    viewerUserId: userId,
+    profileById,
+  });
 }
 
 export async function sendCommunityMessengerMessage(input: {
@@ -14604,10 +14682,21 @@ export async function sendCommunityMessengerMessage(input: {
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
-    const tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+    let tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
       viewerUserId: input.userId,
       messengerRoomId: roomId,
     });
+    if (!tradeSendGuard.ok && tradeSendGuard.error === "trade_product_chat_unlinked") {
+      const { reconcileMessengerTradeRoomLinkOnSend } = await import(
+        "@/lib/trade/reconcile-messenger-trade-room-link-on-send"
+      );
+      if (await reconcileMessengerTradeRoomLinkOnSend(sb as never, roomId)) {
+        tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+          viewerUserId: input.userId,
+          messengerRoomId: roomId,
+        });
+      }
+    }
     if (!tradeSendGuard.ok) {
       return { ok: false, error: tradeSendGuard.error };
     }
@@ -14729,14 +14818,15 @@ export async function sendCommunityMessengerMessage(input: {
       const insRow = insertedMessage as MessageRow;
       const profIns = await hydrateProfiles(input.userId, [input.userId], { includeSelf: true });
       const profileByIdIns = new Map(profIns.map((m) => [m.id, m]));
-      return {
-        ok: true,
-        message: mapCommunityMessengerDbMessageRowToMessage({
-          row: insRow,
-          viewerUserId: input.userId,
-          profileById: profileByIdIns,
-        }),
-      };
+      const mapped = mapCommunityMessengerDbMessageRowToMessage({
+        row: insRow,
+        viewerUserId: input.userId,
+        profileById: profileByIdIns,
+      });
+      if (clientMessageId && !trimText(mapped.clientMessageId)) {
+        mapped.clientMessageId = clientMessageId;
+      }
+      return { ok: true, message: mapped };
     }
     if (!isMissingTableError(insertError)) {
       const insErr = insertError as { message?: string } | null | undefined;

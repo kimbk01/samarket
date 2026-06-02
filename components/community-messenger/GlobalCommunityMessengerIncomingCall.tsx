@@ -75,6 +75,7 @@ import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
   MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS,
+  MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS,
   MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS,
   MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS,
   MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS,
@@ -180,14 +181,11 @@ function shouldRunIncomingCallBackupHttpRequest(args: {
   realtimeOk: boolean;
 }): boolean {
   if (!shouldRunIncomingCallBackupHttpPoll(args.pathname, args.hasRingingDirectCallee)) return false;
-  if (!isIncomingCallWindowForeground()) return false;
-  /**
-   * 수신 통화는 사용자 표면에서 "항상" 보장돼야 하므로
-   * Realtime 정상 여부와 무관하게 백업 HTTP 경로를 유지한다.
-   * (silent subscription / auth race 시에도 수신 누락 방지)
-   */
+  /** ringing 중에는 탭이 숨겨져 있어도 취소/상태 동기화를 위해 HTTP 백업을 허용한다. */
   if (args.hasRingingDirectCallee) return true;
-  void args.realtimeOk;
+  if (!isIncomingCallWindowForeground()) return false;
+  /** Realtime·Broadcast·SW 로 목록이 갱신되면 2.4s 백업 GET 은 중단. */
+  if (args.realtimeOk) return false;
   return true;
 }
 
@@ -753,7 +751,9 @@ export function GlobalCommunityMessengerIncomingCall() {
         ? ringingDirectCalleeRef.current
           ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
           : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false)
-        : INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
+        : !isIncomingCallWindowForeground() && ringingDirectCalleeRef.current
+          ? MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS
+          : INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
       pollTimer = window.setTimeout(() => {
         pollTimer = null;
         if (

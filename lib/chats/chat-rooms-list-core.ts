@@ -99,7 +99,7 @@ export function dedupeTradeChatRoomRows(rows: ChatRoomListRow[]): ChatRoomListRo
     }
     const newest = crs[0];
     out.push(pc ? mergeLegacyProductChatIntoItemTradeRow(pc, newest) : newest);
-    for (let i = 1; i < crs.length; i += 1) out.push(crs[i]);
+    /* 동일 triple 다중 item_trade — 최신 1행만(레거시 유니크 위반 잔여) */
   }
   for (const pc of pcByTriple.values()) out.push(pc);
   return [...general, ...out];

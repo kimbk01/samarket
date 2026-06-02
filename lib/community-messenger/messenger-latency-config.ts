@@ -85,6 +85,14 @@ export const MESSENGER_ROOM_META_DEBOUNCE_MS = readPublicEnvMs(
   3000
 );
 
+/** silent 방 부트스트랩·입장 coalesce — `cm-bootstrap-orchestration` 과 동일 */
+export const MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS",
+  400,
+  250,
+  1200
+);
+
 /** 음성 메시지 INSERT 후 보조 스냅샷 정합 */
 export const MESSENGER_VOICE_AUX_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_VOICE_AUX_DEBOUNCE_MS",

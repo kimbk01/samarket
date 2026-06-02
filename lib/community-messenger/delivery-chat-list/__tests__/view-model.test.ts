@@ -42,4 +42,28 @@ describe("buildDeliveryChatListRowModel", () => {
     expect(m?.orderStatusLabel).toBeTruthy();
     expect(m?.storeThumbnailUrl).toContain("logo.jpg");
   });
+
+  it("완료·취소 주문도 stepLabel 을 유지(목록에서 별도 행)", () => {
+    const completed = {
+      id: "r-done",
+      summary: "",
+      contextMeta: {
+        v: 1 as const,
+        kind: "delivery" as const,
+        storeDisplayName: "맛집",
+        storeId: "store-1",
+        orderNo: "ORD-DONE",
+        stepLabel: "completed",
+      },
+    } as unknown as CommunityMessengerRoomSummary;
+    const cancelled = {
+      ...completed,
+      id: "r-cancel",
+      contextMeta: { ...completed.contextMeta, orderNo: "ORD-CANCEL", stepLabel: "cancelled" },
+    } as unknown as CommunityMessengerRoomSummary;
+    expect(buildDeliveryChatListRowModel(completed)?.orderStatusLabel).toBeTruthy();
+    expect(buildDeliveryChatListRowModel(cancelled)?.orderStatusLabel).toBeTruthy();
+    expect(buildDeliveryChatListRowModel(completed)?.orderNo).toBe("ORD-DONE");
+    expect(buildDeliveryChatListRowModel(cancelled)?.orderNo).toBe("ORD-CANCEL");
+  });
 });

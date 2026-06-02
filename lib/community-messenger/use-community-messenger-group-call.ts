@@ -90,7 +90,7 @@ type Props = {
 
 type BindRemoteVideo = (userId: string, node: HTMLVideoElement | null) => void;
 
-const GROUP_CALL_SIGNAL_POLL_MS_REALTIME_OK = 7_000;
+const GROUP_CALL_SIGNAL_POLL_MS_REALTIME_OK = 1_500;
 const GROUP_CALL_SIGNAL_POLL_MS_FALLBACK = 2_000;
 const GROUP_CALL_SIGNAL_POLL_MS_HIDDEN_TAB = 14_000;
 function isRecord(value: unknown): value is Record<string, unknown> {

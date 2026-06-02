@@ -245,12 +245,30 @@ export async function POST(
       /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
     }
   }
+  let responsePayload = result;
+  if (responsePayload.ok && (!responsePayload.message || !trimText((responsePayload.message as { id?: string })?.id)) && clientMessageId) {
+    const cm = await import("@/lib/community-messenger/service");
+    const reread = await cm.findCommunityMessengerMessageByClientId({
+      userId: auth.userId,
+      roomId: canonicalRoomId,
+      clientMessageId,
+    });
+    if (reread) {
+      responsePayload = { ok: true, message: reread };
+    } else {
+      responsePayload = { ok: false, error: "message_send_failed" };
+    }
+  }
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
     Math.round(performance.now() - t0),
-    result.ok ? 200 : 400
+    responsePayload.ok ? 200 : 400
   );
-  return result.ok
-    ? jsonOk(result)
-    : jsonError(result.error ?? "메시지 전송에 실패했습니다.", 400, result);
+  return responsePayload.ok
+    ? jsonOk(responsePayload)
+    : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", 400, responsePayload);
+}
+
+function trimText(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
 }

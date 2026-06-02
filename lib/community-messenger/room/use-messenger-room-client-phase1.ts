@@ -183,9 +183,11 @@ import {
   ViberChatBubble,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 
+import { MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
+
 /** 입장 직후 여러 경로가 동시에 `refresh(true)` 를 열 때 silent bootstrap GET 을 한 번으로 합류 */
-const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 1000;
-const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = 1200;
+const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 500;
+const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS;
 
 function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
@@ -982,7 +984,7 @@ export function useMessengerRoomClientPhase1({
 
   /**
    * 상대 `community_messenger_participants` UPDATE 가 오면 읽음 커서를 스냅샷에 즉시 반영한다.
-   * `refresh(true)` 만 기다리면 silent 부트스트랩 220ms coalesce 등으로 라벨이 늦거나 유실될 수 있다.
+   * `refresh(true)` 만 기다리면 silent 부트스트랩 400ms coalesce 등으로 라벨이 늦거나 유실될 수 있다.
    */
   const onParticipantPostgresForPeerRead = useCallback(
     (
@@ -1252,14 +1254,14 @@ export function useMessengerRoomClientPhase1({
       // Realtime 메시지 이벤트가 RLS/Publication/세션 레이스로 누락돼도
       // 방 화면은 unread/participants 변화(onRefresh)만으로 즉시 증분 동기화해 따라잡는다.
       void (async () => {
-        await catchUpNewerMessages();
+        const mergedNewMessages = await catchUpNewerMessages();
         /**
-         * 상대 mark_read 만 오고 신규 메시지 REST 가 비면 `catchUpNewerMessages` 가 false → 기존에도 refresh 했음.
-         * 반대로 peer 읽음 커서 갱신이 **내 타임라인보다 먼저** 도착하면 after= 증분만 성공(true) 하고
-         * 전체 부트스트랩을 건너뛰어 `readReceipt`(상대 last_read_message_id) 가 영구히 낡은 채로 남을 수 있다.
-         * 증분 후 항상 silent 부트스트랩으로 스냅샷(읽음 표시 포함)을 맞춘다 — coalesce 로 폭주 완화.
+         * 신규 메시지는 `after=` 증분·ingest 로 이미 반영됐으면 silent_delta(full) 생략.
+         * 상대 mark_read·참가자 메타만 온 경우(증분 false)는 `silent_delta` 로 읽음·unread 만 맞춘다.
          */
-        void refresh(true, { triggerReason: "realtime_on_refresh" });
+        if (!mergedNewMessages) {
+          void refresh(true, { triggerReason: "realtime_on_refresh" });
+        }
       })();
     },
   });

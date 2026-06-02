@@ -1,9 +1,10 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { cmDevHmrFlags } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS } from "@/lib/community-messenger/messenger-latency-config";
 import { getSingleFlightPromise } from "@/lib/http/run-single-flight";
 
 /** 동일 room+tier bootstrap 최소 간격 */
-export const CM_BOOTSTRAP_DEBOUNCE_MS = 1_200;
+export const CM_BOOTSTRAP_DEBOUNCE_MS = MESSENGER_ROOM_BOOTSTRAP_DEBOUNCE_MS;
 /** 최근 성공 snapshot 재사용 TTL — fetch skip */
 export const CM_BOOTSTRAP_STALE_TTL_MS = 5_000;
 
