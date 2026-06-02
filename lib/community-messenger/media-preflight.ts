@@ -116,7 +116,7 @@ export async function runCommunityMessengerEntryMediaPreflight(
   const tryAcquire = async (): Promise<boolean> => {
     try {
       /** 메신저 진입 프리플라이트는 마이크만 — DiBaY 게이트·GUM 단일 경로. */
-      const stream = await acquireSimpleMicStreamWithDiBaYGate();
+      const stream = await acquireSimpleMicStreamWithDiBaYGate({ featureKey: "messenger_voice_call" });
       persistDeviceIdsFromMediaStream(stream);
       stream.getTracks().forEach((t) => t.stop());
       await refreshPreferredCommunityMessengerDevicesFromEnumerate();

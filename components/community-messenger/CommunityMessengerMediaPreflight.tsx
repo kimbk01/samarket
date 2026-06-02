@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import {
-  hasCommunityMessengerMediaTrustedMark,
   markCommunityMessengerMediaTrustedOnce,
 } from "@/lib/community-messenger/call-permission";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
@@ -33,7 +32,6 @@ export function CommunityMessengerMediaPreflight() {
   useEffect(() => {
     if (typeof window === "undefined" || attemptedRef.current) return;
     /** 탭 이탈 후 재진입마다 Permissions/GUM 경로를 다시 타면 메인 스레드·브라우저 작업이 전환 체감을 망친다. */
-    if (hasCommunityMessengerMediaTrustedMark()) return;
     try {
       if (window.sessionStorage.getItem(SESSION_PREFLIGHT_OK_KEY) === "1") return;
     } catch {
@@ -45,7 +43,7 @@ export function CommunityMessengerMediaPreflight() {
     const run = async (allowPrompt: boolean) => {
       const r = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: allowPrompt });
       if (r.ok) {
-        markCommunityMessengerMediaTrustedOnce();
+        markCommunityMessengerMediaTrustedOnce("voice");
         try {
           window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
         } catch {
@@ -57,7 +55,7 @@ export function CommunityMessengerMediaPreflight() {
         retry = () => {
           void runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: true }).then((r2) => {
             if (r2.ok) {
-              markCommunityMessengerMediaTrustedOnce();
+              markCommunityMessengerMediaTrustedOnce("voice");
               try {
                 window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
               } catch {

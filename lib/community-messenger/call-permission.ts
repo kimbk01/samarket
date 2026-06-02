@@ -2,25 +2,25 @@ import {
   acquirePrimedCommunityMessengerStream,
   assertCallMediaNotPersistentlyDenied,
 } from "@/lib/call/permission-manager";
+import {
+  isPermissionFeatureCompleted,
+  markPermissionFeatureCompleted,
+} from "@/lib/permissions/device-permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-/** 한 번 통화 장치를 통과한 브라우저는 이후 발신 시 확인 오버레이를 생략(동종 메신저와 유사) */
-const LS_CM_MEDIA_TRUSTED = "cm_messenger_media_trusted_v1";
-
-export function markCommunityMessengerMediaTrustedOnce(): void {
-  try {
-    localStorage.setItem(LS_CM_MEDIA_TRUSTED, "1");
-  } catch {
-    /* ignore */
-  }
+function featureKeyForCallKind(kind: CommunityMessengerCallKind): "messenger_voice_call" | "messenger_video_call" {
+  return kind === "video" ? "messenger_video_call" : "messenger_voice_call";
 }
 
-export function hasCommunityMessengerMediaTrustedMark(): boolean {
-  try {
-    return localStorage.getItem(LS_CM_MEDIA_TRUSTED) === "1";
-  } catch {
-    return false;
-  }
+export function markCommunityMessengerMediaTrustedOnce(kind: CommunityMessengerCallKind = "voice"): void {
+  markPermissionFeatureCompleted(featureKeyForCallKind(kind));
+}
+
+export function hasCommunityMessengerMediaTrustedMark(kind: CommunityMessengerCallKind = "voice"): boolean {
+  return isPermissionFeatureCompleted(featureKeyForCallKind(kind));
 }
 
 const PERMISSIONS_QUERY_BUDGET_MS = 380;
@@ -50,28 +50,8 @@ type PrimedDeviceStreamState = {
 
 let primedDeviceStreamState: PrimedDeviceStreamState = null;
 
-function isIosSafari(): boolean {
-  if (typeof window === "undefined") return false;
-  const ua = window.navigator.userAgent;
-  const isIos = /iPhone|iPad|iPod/i.test(ua);
-  const isWebkit = /WebKit/i.test(ua);
-  const isCriOS = /CriOS|FxiOS|EdgiOS|OPT\//i.test(ua);
-  return isIos && isWebkit && !isCriOS;
-}
-
-function isIosChrome(): boolean {
-  if (typeof window === "undefined") return false;
-  return /iPhone|iPad|iPod/i.test(window.navigator.userAgent) && /CriOS/i.test(window.navigator.userAgent);
-}
-
-function isAndroid(): boolean {
-  if (typeof window === "undefined") return false;
-  return /Android/i.test(window.navigator.userAgent);
-}
-
-function isWindows(): boolean {
-  if (typeof window === "undefined") return false;
-  return /Windows/i.test(window.navigator.userAgent);
+function callPermissionT(key: MessageKey, fallbackKo: string, fallbackEn: string): string {
+  return safeTranslate(getRuntimeAppLanguage(), key, { fallbackKo, fallbackEn });
 }
 
 export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCallKind): {
@@ -79,34 +59,24 @@ export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCal
   retryLabel: string;
   settingsLabel: string;
 } {
-  const baseDescription =
-    kind === "video"
-      ? "카메라와 마이크 권한이 꺼져 있으면 브라우저 주소창 왼쪽의 사이트 설정에서 카메라와 마이크를 허용해 주세요."
-      : "마이크 권한이 꺼져 있으면 브라우저 주소창 왼쪽의 사이트 설정에서 마이크를 허용해 주세요.";
-  const androidDescription =
-    kind === "video"
-      ? "안드로이드에서는 브라우저 주소창의 사이트 정보에서 카메라와 마이크를 허용하고, 필요하면 `설정 > 앱 > 브라우저 > 권한`에서도 카메라와 마이크를 허용해 주세요."
-      : "안드로이드에서는 브라우저 주소창의 사이트 정보에서 마이크를 허용하고, 필요하면 `설정 > 앱 > 브라우저 > 권한`에서 마이크를 허용해 주세요.";
-  const windowsDescription =
-    kind === "video"
-      ? "윈도우에서는 브라우저 주소창의 사이트 권한을 허용하고, 필요하면 `Windows 설정 > 개인정보 및 보안 > 카메라/마이크`에서 브라우저 접근을 허용해 주세요."
-      : "윈도우에서는 브라우저 주소창의 사이트 권한을 허용하고, 필요하면 `Windows 설정 > 개인정보 및 보안 > 마이크`에서 브라우저 접근을 허용해 주세요.";
   return {
-    description: isIosSafari()
-      ? kind === "video"
-        ? "아이폰 Safari에서는 주소창의 `aA` 또는 페이지 왼쪽 사이트 설정에서 카메라와 마이크를 허용하고, 필요하면 `설정 > Safari > 카메라/마이크`에서도 허용해 주세요."
-        : "아이폰 Safari에서는 주소창의 `aA` 또는 페이지 왼쪽 사이트 설정에서 마이크를 허용하고, 필요하면 `설정 > Safari > 마이크`에서도 허용해 주세요."
-      : isIosChrome()
-        ? kind === "video"
-          ? "아이폰 Chrome에서는 통화 시작 시 뜨는 시스템 팝업에서 마이크(·카메라)를 허용해 주세요. `설정 > Chrome > 마이크`에서도 허용할 수 있습니다. 같은 탭에서 통화·채팅을 오갈 때 팝업이 다시 뜰 수 있으니, 한 번 허용한 뒤에는 탭을 유지해 주세요."
-          : "아이폰 Chrome에서는 통화 시작 시 뜨는 시스템 팝업에서 마이크를 허용해 주세요. `설정 > Chrome > 마이크`에서도 허용할 수 있습니다. 연결에 실패하면 아래 「다시 시도」를 눌러 주세요."
-      : isAndroid()
-        ? androidDescription
-        : isWindows()
-          ? windowsDescription
-      : baseDescription,
-    retryLabel: kind === "video" ? "카메라/마이크 확인" : "마이크 확인",
-    settingsLabel: "권한 설정 안내",
+    description:
+      kind === "video"
+        ? callPermissionT(
+            "permission_call_guide_video_desc",
+            "브라우저 또는 기기 설정에서 카메라와 마이크를 허용해 주세요.",
+            "Allow camera and microphone in browser or device settings.",
+          )
+        : callPermissionT(
+            "permission_call_guide_voice_desc",
+            "브라우저 또는 기기 설정에서 마이크를 허용해 주세요.",
+            "Allow microphone in browser or device settings.",
+          ),
+    retryLabel:
+      kind === "video"
+        ? callPermissionT("permission_call_retry_video", "카메라/마이크 확인", "Check camera/microphone")
+        : callPermissionT("permission_call_retry_voice", "마이크 확인", "Check microphone"),
+    settingsLabel: callPermissionT("permission_call_settings_label", "권한 설정 안내", "Permission setup guide"),
   };
 }
 
@@ -160,7 +130,6 @@ export function hasUsablePrimedCommunityMessengerDeviceStream(kind: CommunityMes
 /** Permissions API 대기 없이 즉시 — 발신 통화 첫 페인트·자동 조인 판단용 */
 export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCallKind): boolean {
   if (typeof window === "undefined") return false;
-  if (hasCommunityMessengerMediaTrustedMark()) return true;
   return hasUsablePrimedCommunityMessengerDeviceStream(kind);
 }
 
@@ -174,12 +143,17 @@ export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerC
   if (shouldSkipCallerMediaGateOverlaySync(kind)) return true;
   if (typeof window === "undefined") return false;
   const perm = navigator.permissions;
-  if (!perm?.query) return false;
+  const trusted = hasCommunityMessengerMediaTrustedMark(kind);
+  if (!perm?.query) return trusted;
   try {
     const micState = await readPermissionStateBudgeted(() => perm.query({ name: "microphone" as PermissionName }));
+    if (micState === "denied") return false;
+    if (micState == null) return trusted;
     if (micState !== "granted") return false;
     if (kind === "video") {
       const camState = await readPermissionStateBudgeted(() => perm.query({ name: "camera" as PermissionName }));
+      if (camState === "denied") return false;
+      if (camState == null) return trusted;
       if (camState !== "granted") return false;
     }
     return true;
@@ -231,7 +205,7 @@ export function primeCommunityMessengerDevicePermissionFromUserGesture(
         return;
       }
       storePrimedStream(kind, stream);
-      markCommunityMessengerMediaTrustedOnce();
+      markCommunityMessengerMediaTrustedOnce(kind);
     });
 }
 

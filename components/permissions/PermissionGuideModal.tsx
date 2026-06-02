@@ -1,29 +1,43 @@
 "use client";
 
-import type { DevicePermissionKind } from "@/lib/permissions/device-permission-kind";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { DevicePermissionGuideKind } from "@/lib/permissions/device-permission-kind";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const COPY: Record<
-  DevicePermissionKind,
-  { title: string; body: string; primary: string; secondary: string }
+  DevicePermissionGuideKind,
+  { title: MessageKey; body: MessageKey; primary: MessageKey; secondary: MessageKey }
 > = {
   location: {
-    title: "위치 권한을 허용할까요?",
-    body: "거래 위치, 주변 상품, 배달 주소 확인에 사용됩니다.",
-    primary: "허용하기",
-    secondary: "나중에",
+    title: "permission_guide_location_title",
+    body: "permission_guide_location_body",
+    primary: "permission_guide_allow",
+    secondary: "permission_guide_later",
   },
   microphone: {
-    title: "마이크 권한을 허용할까요?",
-    body: "음성 통화, 음성 메시지 기능에 사용됩니다.",
-    primary: "허용하기",
-    secondary: "나중에",
+    title: "permission_guide_microphone_title",
+    body: "permission_guide_microphone_body",
+    primary: "permission_guide_allow",
+    secondary: "permission_guide_later",
+  },
+  camera: {
+    title: "permission_guide_camera_title",
+    body: "permission_guide_camera_body",
+    primary: "permission_guide_allow",
+    secondary: "permission_guide_later",
+  },
+  notification: {
+    title: "permission_guide_notification_title",
+    body: "permission_guide_notification_body",
+    primary: "permission_guide_allow",
+    secondary: "permission_guide_later",
   },
   speaker: {
-    title: "소리 출력을 확인해 주세요",
-    body: "채팅 알림음과 통화음을 들을 수 있는지 테스트합니다.",
-    primary: "소리 테스트",
-    secondary: "나중에",
+    title: "permission_guide_speaker_title",
+    body: "permission_guide_speaker_body",
+    primary: "permission_guide_speaker_primary",
+    secondary: "permission_guide_later",
   },
 };
 
@@ -32,10 +46,11 @@ export function PermissionGuideModal({
   onLater,
   onPrimary,
 }: {
-  kind: DevicePermissionKind;
+  kind: DevicePermissionGuideKind;
   onLater: () => void;
   onPrimary: () => void;
 }) {
+  const { t } = useI18n();
   const c = COPY[kind];
   return (
     <div
@@ -46,15 +61,15 @@ export function PermissionGuideModal({
     >
       <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
         <h2 id={`dibay-perm-guide-${kind}`} className={`${Sam.text.sectionTitle} text-sam-fg`}>
-          {c.title}
+          {t(c.title)}
         </h2>
-        <p className={`mt-3 ${Sam.text.bodySecondary} leading-relaxed text-sam-muted`}>{c.body}</p>
+        <p className={`mt-3 ${Sam.text.bodySecondary} leading-relaxed text-sam-muted`}>{t(c.body)}</p>
         <div className="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
           <button type="button" className={`${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[48px]`} onClick={onPrimary}>
-            {c.primary}
+            {t(c.primary)}
           </button>
           <button type="button" className={`${Sam.btn.secondaryCombo} ${Sam.btn.block} min-h-[48px]`} onClick={onLater}>
-            {c.secondary}
+            {t(c.secondary)}
           </button>
         </div>
       </div>

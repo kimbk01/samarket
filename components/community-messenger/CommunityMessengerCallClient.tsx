@@ -30,7 +30,6 @@ async function loadCommunityMessengerCallProvider() {
 }
 import { ensureVideoPermission } from "@/lib/call/permission-manager";
 import {
-  hasCommunityMessengerMediaTrustedMark,
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
   peekPrimedCommunityMessengerDeviceStream,
@@ -1320,7 +1319,7 @@ export function CommunityMessengerCallClient({
           /* optional */
         }
         setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
-        markCommunityMessengerMediaTrustedOnce();
+        markCommunityMessengerMediaTrustedOnce("video");
         bindLocalVideoTrack();
       } catch (e) {
         console.warn("[messenger-call] auto video publish", e);
@@ -1690,7 +1689,7 @@ export function CommunityMessengerCallClient({
           role: targetSession.isMineInitiator ? "initiator" : "recipient",
         });
         setCallerMediaConsentDone(true);
-        markCommunityMessengerMediaTrustedOnce();
+        markCommunityMessengerMediaTrustedOnce(targetSession.callKind);
         autoJoinBlockedRef.current = false;
       };
 
@@ -1846,7 +1845,7 @@ export function CommunityMessengerCallClient({
         if (s.isMineInitiator) {
           if (s.status === "active") {
             await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
-            markCommunityMessengerMediaTrustedOnce();
+            markCommunityMessengerMediaTrustedOnce(s.callKind);
             setCallerMediaConsentDone(true);
             await joinCall(s);
           }
@@ -1858,7 +1857,7 @@ export function CommunityMessengerCallClient({
         }
         if (s.status === "active") {
           await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
-          markCommunityMessengerMediaTrustedOnce();
+          markCommunityMessengerMediaTrustedOnce(s.callKind);
           setCallerMediaConsentDone(true);
         }
         await joinCall(s);
@@ -1875,7 +1874,7 @@ export function CommunityMessengerCallClient({
     void (async () => {
       try {
         await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
-        markCommunityMessengerMediaTrustedOnce();
+        markCommunityMessengerMediaTrustedOnce(s.callKind);
         setCallerMediaConsentDone(true);
         const cur = sessionRef.current;
         if (
@@ -2246,7 +2245,7 @@ export function CommunityMessengerCallClient({
       }
       setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
       setSession(json.session);
-      markCommunityMessengerMediaTrustedOnce();
+      markCommunityMessengerMediaTrustedOnce(json.session.callKind);
       bindLocalVideoTrack();
       autoVideoPublishAttemptedRef.current = `${json.session.id}:vpub`;
     } catch (e) {
@@ -2660,7 +2659,7 @@ export function CommunityMessengerCallClient({
     let cancelled = false;
 
     /** Permissions API 대기 없이 게이트 통과 — 실제 Agora 조인은 아래 active 전용 effect 만 */
-    if (hasCommunityMessengerMediaTrustedMark()) {
+    if (shouldSkipCallerMediaGateOverlaySync(session.callKind)) {
       setCallerMediaConsentDone(true);
     }
 

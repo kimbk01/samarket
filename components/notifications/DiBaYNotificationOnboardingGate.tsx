@@ -9,6 +9,7 @@ import {
   shouldOfferDiBaYNotificationPrePrompt,
   writeDiBaYNotificationPromptState,
 } from "@/lib/notifications/dibay-notification-prompt-storage";
+import { requestNotificationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
@@ -76,9 +77,9 @@ export function DiBaYNotificationOnboardingGate() {
   const onAccept = async () => {
     setBusy(true);
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") {
-        writeDiBaYNotificationPromptState("browser_denied");
+      const perm = await requestNotificationWithDiBaYGate({ explicitRetry: true });
+      if (!perm.ok) {
+        writeDiBaYNotificationPromptState(perm.reason === "denied" ? "browser_denied" : "declined");
         setOpen(false);
         return;
       }

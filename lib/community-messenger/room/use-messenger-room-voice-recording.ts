@@ -475,17 +475,13 @@ export function useMessengerRoomVoiceRecording({
         setVoiceMicArming(false);
         if (session !== voiceSessionIdRef.current) return;
         if (isDiBaYMicGateDeferredAbort(err)) {
-          showMessengerSnackbar("설정의 기기 권한에서 마이크를 다시 확인해 주세요.", { variant: "error" });
+          showMessengerSnackbar(getCommunityMessengerPermissionGuide("voice").description, { variant: "error" });
           return;
         }
         if (err instanceof DOMException && err.name === "AbortError") {
           return;
         }
-        showMessengerSnackbar(
-          getCommunityMessengerPermissionGuide("voice")?.description ??
-            "마이크 권한을 허용한 뒤 다시 시도해 주세요.",
-          { variant: "error" },
-        );
+        showMessengerSnackbar(getCommunityMessengerPermissionGuide("voice").description, { variant: "error" });
       }
     },
     [busy, finalizeVoiceRecording, message, roomUnavailable, snapshot]

@@ -938,7 +938,7 @@ export function useMessengerRoomPhase2Controller() {
   const sendLocationMessage = useCallback(() => {
     if (!snapshot || roomUnavailable) return;
     void (async () => {
-      const res = await requestLocationWithDiBaYGate();
+      const res = await requestLocationWithDiBaYGate({ featureKey: "messenger_current_location" });
       if (!res.ok) {
         if (res.reason === "later") return;
         if (res.reason === "deferred") {
@@ -948,7 +948,12 @@ export function useMessengerRoomPhase2Controller() {
           );
           return;
         }
-        showMessengerSnackbar(res.message ?? translateCmUi("cm_ui_location_fetch_failed"), { variant: "error" });
+        showMessengerSnackbar(
+          res.reason === "denied"
+            ? translateCmUi("cm_ui_location_permission_hint")
+            : translateCmUi("cm_ui_location_fetch_failed"),
+          { variant: "error" },
+        );
         return;
       }
       const { latitude, longitude } = res.position;

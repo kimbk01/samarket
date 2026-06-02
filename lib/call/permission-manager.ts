@@ -16,7 +16,10 @@ import {
 import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
 import {
   acquireSimpleMicStreamWithDiBaYGate,
+  ensureCameraWithDiBaYGate,
   ensureMicrophoneWithDiBaYGate,
+  ensureMicrophoneCameraWithDiBaYGate,
+  markPermissionFeatureCompleted,
 } from "@/lib/permissions/device-permission-manager";
 import {
   DIBAY_MIC_ABORT_MESSAGE_DEFERRED,
@@ -65,6 +68,11 @@ function constraintsRequestsLiveAudio(constraints: MediaStreamConstraints): bool
   return a === true || (typeof a === "object" && a !== null);
 }
 
+function constraintsRequestsLiveVideo(constraints: MediaStreamConstraints): boolean {
+  const v = constraints.video;
+  return v === true || (typeof v === "object" && v !== null);
+}
+
 /**
  * 기본 마이크만(`audio: true`, 비디오 미요청/명시 false`)일 때 DiBaY 게이트+GUM 단일 모듈로 통합.
  * `deviceId` 등 오디오 제약이 있거나 영상을 요청하면 기존 분기(게이트 후 해당 constraints 로 GUM).
@@ -86,42 +94,53 @@ export async function getCommunityMessengerUserMedia(constraints: MediaStreamCon
   return invokeGetUserMedia(constraints);
 }
 
-async function invokeGetUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
+async function invokeGetUserMedia(
+  constraints: MediaStreamConstraints,
+  options?: { featureKey?: "messenger_voice_call" | "messenger_video_call" }
+): Promise<MediaStream> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new DOMException("getUserMedia unavailable", "NotSupportedError");
   }
 
   if (shouldUseAcquireSimpleMicPath(constraints)) {
-    const stream = await acquireSimpleMicStreamWithDiBaYGate();
+    const stream = await acquireSimpleMicStreamWithDiBaYGate({ featureKey: options?.featureKey });
     persistDeviceIdsFromMediaStream(stream);
     void refreshPreferredCommunityMessengerDevicesFromEnumerate();
     return stream;
   }
 
-  if (constraintsRequestsLiveAudio(constraints)) {
-    const mic = await ensureMicrophoneWithDiBaYGate();
-    if (!mic.ok) {
-      if (mic.reason === "denied") {
+  const needsAudio = constraintsRequestsLiveAudio(constraints);
+  const needsVideo = constraintsRequestsLiveVideo(constraints);
+
+  if (needsAudio || needsVideo) {
+    const gate = needsAudio && needsVideo
+      ? await ensureMicrophoneCameraWithDiBaYGate({ featureKey: options?.featureKey })
+      : needsAudio
+        ? await ensureMicrophoneWithDiBaYGate({ featureKey: options?.featureKey })
+        : await ensureCameraWithDiBaYGate({ featureKey: options?.featureKey });
+    if (!gate.ok) {
+      if (gate.reason === "denied") {
         throw new DOMException("Microphone permission denied", "NotAllowedError");
       }
-      if (mic.reason === "no_api") {
+      if (gate.reason === "no_api") {
         throw new DOMException("getUserMedia unavailable", "NotSupportedError");
       }
-      if (mic.reason === "insecure") {
+      if (gate.reason === "insecure") {
         throw new DOMException("insecure context", "SecurityError");
       }
-      if (mic.reason === "later") {
+      if (gate.reason === "later") {
         throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_LATER, "AbortError");
       }
-      if (mic.reason === "deferred") {
+      if (gate.reason === "deferred") {
         throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_DEFERRED, "AbortError");
       }
-      throw new DOMException("Microphone request aborted", "AbortError");
+      throw new DOMException("Media permission request aborted", "AbortError");
     }
   }
   const stream = await navigator.mediaDevices.getUserMedia(constraints);
   persistDeviceIdsFromMediaStream(stream);
   void refreshPreferredCommunityMessengerDevicesFromEnumerate();
+  if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
   return stream;
 }
 
@@ -184,7 +203,9 @@ export async function acquirePrimedCommunityMessengerStream(kind: CommunityMesse
     throw new DOMException("insecure context", "NotAllowedError");
   }
   await assertCallMediaNotPersistentlyDenied(kind);
-  return invokeGetUserMedia(buildCommunityMessengerMediaStreamConstraints(kind));
+  return invokeGetUserMedia(buildCommunityMessengerMediaStreamConstraints(kind), {
+    featureKey: kind === "video" ? "messenger_video_call" : "messenger_voice_call",
+  });
 }
 
 /** Agora 마이크 생성 실패 시 마지막 수단 — audio-only, 세션 캐시와 분리 */
@@ -192,7 +213,7 @@ export async function createFallbackAudioOnlyMediaStream(): Promise<MediaStream>
   if (!isCommunityMessengerMediaSecureContext()) {
     throw new DOMException("insecure context", "NotAllowedError");
   }
-  return invokeGetUserMedia({ audio: true, video: false });
+  return invokeGetUserMedia({ audio: true, video: false }, { featureKey: "messenger_voice_call" });
 }
 
 /**
@@ -228,7 +249,10 @@ export async function acquireCommunityMessengerWebRtcStream(
     if (kind === "video" && liveA && !liveV) {
       const { videoDeviceId } = readPreferredCommunityMessengerDeviceIds();
       const videoConstraints = videoDeviceId ? { deviceId: { exact: videoDeviceId } } : true;
-      const vidStream = await invokeGetUserMedia({ audio: false, video: videoConstraints });
+      const vidStream = await invokeGetUserMedia(
+        { audio: false, video: videoConstraints },
+        { featureKey: "messenger_video_call" },
+      );
       const vt = vidStream.getVideoTracks()[0];
       if (!vt) {
         for (const t of vidStream.getTracks()) t.stop();
@@ -241,7 +265,9 @@ export async function acquireCommunityMessengerWebRtcStream(
   }
 
   stopAndClearCache();
-  const stream = await invokeGetUserMedia(buildCommunityMessengerMediaStreamConstraints(kind));
+  const stream = await invokeGetUserMedia(buildCommunityMessengerMediaStreamConstraints(kind), {
+    featureKey: kind === "video" ? "messenger_video_call" : "messenger_voice_call",
+  });
   sessionCache = {
     sessionKey: key,
     stream,

@@ -3,12 +3,12 @@
  * 사용자 제스처 이후에만 모달을 띄우고, Promise 로 결과를 되돌린다.
  */
 
-import type { DevicePermissionKind } from "@/lib/permissions/device-permission-kind";
+import type { DevicePermissionGuideKind } from "@/lib/permissions/device-permission-kind";
 
 export type PermissionGuideChoice = "allow" | "later";
 
 type Pending = {
-  kind: DevicePermissionKind;
+  kind: DevicePermissionGuideKind;
   resolve: (choice: PermissionGuideChoice) => void;
 } | null;
 
@@ -36,7 +36,7 @@ export function getPermissionGuidePending(): Pending {
   return pending;
 }
 
-export function openPermissionGuideModal(kind: DevicePermissionKind): Promise<PermissionGuideChoice> {
+export function openPermissionGuideModal(kind: DevicePermissionGuideKind): Promise<PermissionGuideChoice> {
   return new Promise((resolve) => {
     pending = { kind, resolve };
     bump();

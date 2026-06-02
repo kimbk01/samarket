@@ -1288,12 +1288,7 @@ export function ChatDetailView({
                     /* ignore */
                   }
                 };
-                const p = Notification.permission;
-                if (p === "granted") showNote();
-                else if (p === "default")
-                  void Notification.requestPermission().then((r) => {
-                    if (r === "granted") showNote();
-                  });
+                if (Notification.permission === "granted") showNote();
               }
             }
             if (

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildMyPageHref } from "@/components/mypage/mypage-nav";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -11,6 +12,7 @@ export function PermissionRequiredBanner({
   message: string;
   showSettingsLink?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div
       role="status"
@@ -20,7 +22,7 @@ export function PermissionRequiredBanner({
       {showSettingsLink ? (
         <p className="mt-2">
           <Link href={buildMyPageHref("settings", "device-permissions")} className={`${Sam.text.body} font-medium text-sam-fg underline`}>
-            설정에서 권한 확인
+            {t("permission_settings_open")}
           </Link>
         </p>
       ) : null}

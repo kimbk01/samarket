@@ -8,7 +8,12 @@ import {
   openPermissionGuideModal,
   type PermissionGuideChoice,
 } from "@/lib/permissions/permission-ui-bridge";
-import type { DevicePermissionKind } from "@/lib/permissions/device-permission-kind";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+import type {
+  DevicePermissionFeatureKey,
+  DevicePermissionGuideKind,
+  DevicePermissionKind,
+} from "@/lib/permissions/device-permission-kind";
 import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
 import {
@@ -19,16 +24,32 @@ import { DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX } from "@/lib/permissions/d
 
 export type BrowserPermissionState = PermissionState | "unknown";
 
+const STABLE_CLIENT_ID_KEY = "dibay.device.stableClientId";
+const ANONYMOUS_PERMISSION_USER_ID = "anonymous";
+
+const LEGACY_LS = {
+  guideSeen: (k: DevicePermissionGuideKind) => `dibay.permission.${k}.guideSeen`,
+  lastState: (k: DevicePermissionGuideKind) => `dibay.permission.${k}.lastState`,
+  dismissedAt: (k: DevicePermissionGuideKind) => `dibay.permission.dismissedAt.${k}`,
+} as const;
+
 const LS = {
-  guideSeen: (k: DevicePermissionKind) => `dibay.permission.${k}.guideSeen`,
-  lastState: (k: DevicePermissionKind) => `dibay.permission.${k}.lastState`,
-  dismissedAt: (k: DevicePermissionKind) => `dibay.permission.dismissedAt.${k}`,
+  guideSeen: (userId: string, deviceId: string, k: DevicePermissionGuideKind) =>
+    `dibay.permission.${userId}.${deviceId}.${k}.guideSeen`,
+  status: (userId: string, deviceId: string, k: DevicePermissionGuideKind) =>
+    `dibay.permission.${userId}.${deviceId}.${k}.status`,
+  dismissedAt: (userId: string, deviceId: string, k: DevicePermissionGuideKind) =>
+    `dibay.permission.${userId}.${deviceId}.${k}.dismissedAt`,
+  featureCompleted: (userId: string, deviceId: string, featureKey: DevicePermissionFeatureKey) =>
+    `dibay.permission.${userId}.${deviceId}.${featureKey}.completed`,
 } as const;
 
 /** 같은 탭 세션에서「나중에」직후 동일 화면 반복 방지 */
-const SS_LATER = (k: DevicePermissionKind) => `${DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX}later.${k}`;
+const SS_LATER = (userId: string, deviceId: string, k: DevicePermissionGuideKind) =>
+  `${DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX}${userId}.${deviceId}.later.${k}`;
+const LEGACY_SS_LATER = (k: DevicePermissionGuideKind) => `${DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX}later.${k}`;
 
-const memoryCache = new Map<DevicePermissionKind, BrowserPermissionState>();
+const memoryCache = new Map<string, BrowserPermissionState>();
 
 function readLs(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -43,6 +64,15 @@ function writeLs(key: string, value: string): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
+
+function removeLs(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
   } catch {
     /* ignore */
   }
@@ -66,47 +96,105 @@ function writeSs(key: string, value: string): void {
   }
 }
 
-export function markGuideSeen(kind: DevicePermissionKind): void {
-  writeLs(LS.guideSeen(kind), "1");
+function removeSs(key: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
 }
 
-export function isGuideSeen(kind: DevicePermissionKind): boolean {
-  return readLs(LS.guideSeen(kind)) === "1";
+function sanitizePermissionKeyPart(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return "unknown";
+  return encodeURIComponent(trimmed).replace(/\./g, "%2E");
 }
 
-function markSessionLater(kind: DevicePermissionKind): void {
-  writeSs(SS_LATER(kind), "1");
-  writeLs(LS.dismissedAt(kind), new Date().toISOString());
+function createStableClientId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `client-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export function wasSessionLater(kind: DevicePermissionKind): boolean {
-  return readSs(SS_LATER(kind)) === "1";
+export function getDiBaYStableClientId(): string {
+  if (typeof window === "undefined") return "server";
+  const existing = readLs(STABLE_CLIENT_ID_KEY)?.trim();
+  if (existing) return existing;
+  const next = createStableClientId();
+  writeLs(STABLE_CLIENT_ID_KEY, next);
+  return next;
 }
 
-export function setCachedPermissionState(kind: DevicePermissionKind, state: BrowserPermissionState): void {
-  memoryCache.set(kind, state);
-  writeLs(LS.lastState(kind), state);
+function getPermissionStorageScope(): { userId: string; deviceId: string } {
+  const userId = sanitizePermissionKeyPart(getSyncViewerUserIdForClient() ?? ANONYMOUS_PERMISSION_USER_ID);
+  const deviceId = sanitizePermissionKeyPart(getDiBaYStableClientId());
+  return { userId, deviceId };
 }
 
-export function getCachedPermissionState(kind: DevicePermissionKind): BrowserPermissionState | null {
-  const m = memoryCache.get(kind);
+function scopedCacheKey(kind: DevicePermissionGuideKind): string {
+  const { userId, deviceId } = getPermissionStorageScope();
+  return `${userId}:${deviceId}:${kind}`;
+}
+
+export function markGuideSeen(kind: DevicePermissionGuideKind): void {
+  const { userId, deviceId } = getPermissionStorageScope();
+  writeLs(LS.guideSeen(userId, deviceId, kind), "1");
+}
+
+export function isGuideSeen(kind: DevicePermissionGuideKind): boolean {
+  const { userId, deviceId } = getPermissionStorageScope();
+  return readLs(LS.guideSeen(userId, deviceId, kind)) === "1";
+}
+
+function markSessionLater(kind: DevicePermissionGuideKind): void {
+  const { userId, deviceId } = getPermissionStorageScope();
+  writeSs(SS_LATER(userId, deviceId, kind), "1");
+  writeLs(LS.dismissedAt(userId, deviceId, kind), new Date().toISOString());
+}
+
+export function wasSessionLater(kind: DevicePermissionGuideKind): boolean {
+  const { userId, deviceId } = getPermissionStorageScope();
+  return readSs(SS_LATER(userId, deviceId, kind)) === "1";
+}
+
+export function setCachedPermissionState(kind: DevicePermissionGuideKind, state: BrowserPermissionState): void {
+  const { userId, deviceId } = getPermissionStorageScope();
+  memoryCache.set(scopedCacheKey(kind), state);
+  writeLs(LS.status(userId, deviceId, kind), state);
+}
+
+export function getCachedPermissionState(kind: DevicePermissionGuideKind): BrowserPermissionState | null {
+  const { userId, deviceId } = getPermissionStorageScope();
+  const m = memoryCache.get(scopedCacheKey(kind));
   if (m) return m;
-  const ls = readLs(LS.lastState(kind));
+  const ls = readLs(LS.status(userId, deviceId, kind));
   if (ls === "granted" || ls === "denied" || ls === "prompt") return ls;
   return null;
 }
 
 /** 설정「권한 다시 확인」: 안내 추적만 초기화(브라우저 권한은 건드리지 않음). */
-export function resetPermissionGuideTracking(kind: DevicePermissionKind): void {
+export function resetPermissionGuideTracking(kind: DevicePermissionGuideKind): void {
   if (typeof window === "undefined") return;
-  try {
-    window.localStorage.removeItem(LS.guideSeen(kind));
-    window.localStorage.removeItem(LS.dismissedAt(kind));
-    window.sessionStorage.removeItem(SS_LATER(kind));
-  } catch {
-    /* ignore */
-  }
-  memoryCache.delete(kind);
+  const { userId, deviceId } = getPermissionStorageScope();
+  removeLs(LS.guideSeen(userId, deviceId, kind));
+  removeLs(LS.dismissedAt(userId, deviceId, kind));
+  removeLs(LEGACY_LS.guideSeen(kind));
+  removeLs(LEGACY_LS.dismissedAt(kind));
+  removeSs(SS_LATER(userId, deviceId, kind));
+  removeSs(LEGACY_SS_LATER(kind));
+  memoryCache.delete(scopedCacheKey(kind));
+}
+
+export function markPermissionFeatureCompleted(featureKey: DevicePermissionFeatureKey): void {
+  const { userId, deviceId } = getPermissionStorageScope();
+  writeLs(LS.featureCompleted(userId, deviceId, featureKey), new Date().toISOString());
+}
+
+export function isPermissionFeatureCompleted(featureKey: DevicePermissionFeatureKey): boolean {
+  const { userId, deviceId } = getPermissionStorageScope();
+  return Boolean(readLs(LS.featureCompleted(userId, deviceId, featureKey)));
 }
 
 export async function queryGeolocationPermission(): Promise<BrowserPermissionState> {
@@ -119,6 +207,13 @@ export async function queryGeolocationPermission(): Promise<BrowserPermissionSta
   }
 }
 
+export function queryNotificationPermission(): BrowserPermissionState {
+  if (typeof window === "undefined" || !("Notification" in window)) return "unknown";
+  const state = Notification.permission;
+  if (state === "default") return "prompt";
+  return state;
+}
+
 export async function refreshPermissionState(kind: DevicePermissionKind): Promise<BrowserPermissionState> {
   if (typeof window === "undefined") return "unknown";
 
@@ -128,36 +223,36 @@ export async function refreshPermissionState(kind: DevicePermissionKind): Promis
     return st;
   }
 
-  if (kind === "microphone") {
+  if (kind === "microphone" || kind === "camera") {
     const perms = await queryCommunityMessengerMediaPermissions();
-    const st = perms.microphone ?? "unknown";
-    setCachedPermissionState("microphone", st);
+    const st = (kind === "microphone" ? perms.microphone : perms.camera) ?? "unknown";
+    setCachedPermissionState(kind, st);
     return st;
   }
 
-  // speaker: 브라우저 권한 API 없음 — 마지막 테스트 결과만 LS 에 유지
-  {
-    const ls = readLs(LS.lastState("speaker"));
-    if (ls === "granted" || ls === "denied" || ls === "prompt") {
-      memoryCache.set("speaker", ls);
-      return ls;
-    }
-    return "unknown";
-  }
+  const st = queryNotificationPermission();
+  setCachedPermissionState("notification", st);
+  return st;
+}
+
+export function refreshSpeakerOutputState(): BrowserPermissionState {
+  const ls = getCachedPermissionState("speaker");
+  if (ls === "granted" || ls === "denied" || ls === "prompt") return ls;
+  return "unknown";
 }
 
 export function getPermissionState(kind: DevicePermissionKind): BrowserPermissionState {
   return getCachedPermissionState(kind) ?? "unknown";
 }
 
-export function shouldShowGuide(kind: DevicePermissionKind, browserState: BrowserPermissionState): boolean {
+export function shouldShowGuide(kind: DevicePermissionGuideKind, browserState: BrowserPermissionState): boolean {
   if (browserState === "granted" || browserState === "denied") return false;
   if (wasSessionLater(kind)) return false;
   if (isGuideSeen(kind)) return false;
   return browserState === "prompt" || browserState === "unknown";
 }
 
-async function requestGuideChoice(kind: DevicePermissionKind): Promise<PermissionGuideChoice> {
+async function requestGuideChoice(kind: DevicePermissionGuideKind): Promise<PermissionGuideChoice> {
   return openPermissionGuideModal(kind);
 }
 
@@ -176,6 +271,7 @@ export type LocationRequestResult =
  */
 export async function requestLocationWithDiBaYGate(options?: {
   explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
 }): Promise<LocationRequestResult> {
   if (typeof navigator === "undefined" || !navigator.geolocation) {
     return { ok: false, reason: "no_api", message: "이 환경에서는 위치를 사용할 수 없습니다." };
@@ -190,7 +286,10 @@ export async function requestLocationWithDiBaYGate(options?: {
 
   if (browserState === "granted") {
     const pos = await getBestCurrentPosition();
-    if (pos.ok) return { ok: true, position: pos };
+    if (pos.ok) {
+      if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
+      return { ok: true, position: pos };
+    }
     return {
       ok: false,
       reason: "position_error",
@@ -220,6 +319,7 @@ export async function requestLocationWithDiBaYGate(options?: {
   const pos = await getBestCurrentPosition();
   if (pos.ok) {
     void refreshPermissionState("location");
+    if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
     return { ok: true, position: pos };
   }
   if (pos.code === 1) {
@@ -243,36 +343,47 @@ export type MicrophoneEnsureResult =
   | { ok: true }
   | { ok: false; reason: "denied" | "deferred" | "later" | "insecure" | "no_api" };
 
-/**
- * getUserMedia 직전: 마이크 DiBaY 안내 (prompt + 미안내 시에만 모달).
- */
-export async function ensureMicrophoneWithDiBaYGate(options?: {
-  explicitRetry?: boolean;
-}): Promise<MicrophoneEnsureResult> {
+export type DevicePermissionEnsureResult = MicrophoneEnsureResult;
+
+async function ensureDevicePermissionsWithDiBaYGate(
+  kinds: readonly DevicePermissionKind[],
+  options?: {
+    explicitRetry?: boolean;
+    guideKind?: DevicePermissionGuideKind;
+    featureKey?: DevicePermissionFeatureKey;
+  },
+): Promise<DevicePermissionEnsureResult> {
   if (typeof window === "undefined") return { ok: false, reason: "no_api" };
-  if (!window.isSecureContext) return { ok: false, reason: "insecure" };
-  if (!navigator.mediaDevices?.getUserMedia) return { ok: false, reason: "no_api" };
-
-  const browserState = await refreshPermissionState("microphone");
-  const explicitRetry = !!options?.explicitRetry;
-
-  if (browserState === "denied") {
-    return { ok: false, reason: "denied" };
+  if ((kinds.includes("microphone") || kinds.includes("camera")) && !window.isSecureContext) {
+    return { ok: false, reason: "insecure" };
+  }
+  if ((kinds.includes("microphone") || kinds.includes("camera")) && !navigator.mediaDevices?.getUserMedia) {
+    return { ok: false, reason: "no_api" };
+  }
+  if (kinds.includes("notification") && !("Notification" in window)) {
+    return { ok: false, reason: "no_api" };
   }
 
-  if (browserState === "granted") {
+  const states = await Promise.all(kinds.map((kind) => refreshPermissionState(kind)));
+  if (states.some((state) => state === "denied")) {
+    return { ok: false, reason: "denied" };
+  }
+  if (states.every((state) => state === "granted")) {
     return { ok: true };
   }
 
+  const explicitRetry = !!options?.explicitRetry;
+  const guideKind = options?.guideKind ?? kinds[0] ?? "microphone";
+
   if (!explicitRetry) {
-    if (shouldShowGuide("microphone", browserState)) {
-      const choice = await requestGuideChoice("microphone");
-      markGuideSeen("microphone");
+    if (shouldShowGuide(guideKind, states.find((state) => state !== "granted") ?? "unknown")) {
+      const choice = await requestGuideChoice(guideKind);
+      for (const kind of kinds) markGuideSeen(kind);
       if (choice === "later") {
-        markSessionLater("microphone");
+        for (const kind of kinds) markSessionLater(kind);
         return { ok: false, reason: "later" };
       }
-    } else if (isGuideSeen("microphone") || wasSessionLater("microphone")) {
+    } else if (kinds.some((kind) => isGuideSeen(kind) || wasSessionLater(kind))) {
       return { ok: false, reason: "deferred" };
     }
   }
@@ -281,12 +392,52 @@ export async function ensureMicrophoneWithDiBaYGate(options?: {
 }
 
 /**
+ * getUserMedia 직전: 마이크 DiBaY 안내 (prompt + 미안내 시에만 모달).
+ */
+export async function ensureMicrophoneWithDiBaYGate(options?: {
+  explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
+}): Promise<MicrophoneEnsureResult> {
+  return ensureDevicePermissionsWithDiBaYGate(["microphone"], {
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: options?.featureKey,
+    guideKind: "microphone",
+  });
+}
+
+export async function ensureCameraWithDiBaYGate(options?: {
+  explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
+}): Promise<DevicePermissionEnsureResult> {
+  return ensureDevicePermissionsWithDiBaYGate(["camera"], {
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: options?.featureKey,
+    guideKind: "camera",
+  });
+}
+
+export async function ensureMicrophoneCameraWithDiBaYGate(options?: {
+  explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
+}): Promise<DevicePermissionEnsureResult> {
+  return ensureDevicePermissionsWithDiBaYGate(["microphone", "camera"], {
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: options?.featureKey,
+    guideKind: "camera",
+  });
+}
+
+/**
  * `{ audio: true, video: false }` 만 — DiBaY 게이트 + GUM 을 한 함수로 묶어 프리플라이트·프로브에서 이중 gate 방지.
  */
 export async function acquireSimpleMicStreamWithDiBaYGate(options?: {
   explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
 }): Promise<MediaStream> {
-  const gate = await ensureMicrophoneWithDiBaYGate({ explicitRetry: options?.explicitRetry === true });
+  const gate = await ensureMicrophoneWithDiBaYGate({
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: options?.featureKey,
+  });
   if (!gate.ok) {
     if (gate.reason === "denied") {
       throw new DOMException("Microphone permission denied", "NotAllowedError");
@@ -308,7 +459,9 @@ export async function acquireSimpleMicStreamWithDiBaYGate(options?: {
   if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
     throw new DOMException("getUserMedia unavailable", "NotSupportedError");
   }
-  return navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+  if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
+  return stream;
 }
 
 /**
@@ -316,10 +469,12 @@ export async function acquireSimpleMicStreamWithDiBaYGate(options?: {
  */
 export async function probeMicrophoneWithGetUserMedia(options?: {
   explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
 }): Promise<MicrophoneEnsureResult> {
   try {
     const stream = await acquireSimpleMicStreamWithDiBaYGate({
       explicitRetry: options?.explicitRetry === true,
+      featureKey: options?.featureKey,
     });
     for (const t of stream.getTracks()) {
       try {
@@ -344,6 +499,85 @@ export async function probeMicrophoneWithGetUserMedia(options?: {
     }
     return { ok: false, reason: "denied" };
   }
+}
+
+export async function probeCameraWithGetUserMedia(options?: {
+  explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
+}): Promise<DevicePermissionEnsureResult> {
+  const gate = await ensureCameraWithDiBaYGate({
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: options?.featureKey,
+  });
+  if (!gate.ok) return gate;
+  try {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      return { ok: false, reason: "no_api" };
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true });
+    for (const t of stream.getTracks()) {
+      try {
+        t.stop();
+      } catch {
+        /* ignore */
+      }
+    }
+    void refreshPermissionState("camera");
+    if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
+    return { ok: true };
+  } catch (e) {
+    void refreshPermissionState("camera");
+    if (e instanceof DOMException) {
+      if (e.name === "SecurityError") return { ok: false, reason: "insecure" };
+      if (e.name === "NotAllowedError") return { ok: false, reason: "denied" };
+      if (e.name === "NotSupportedError") return { ok: false, reason: "no_api" };
+    }
+    return { ok: false, reason: "denied" };
+  }
+}
+
+export type NotificationPermissionRequestResult =
+  | { ok: true; permission: NotificationPermission }
+  | { ok: false; reason: "denied" | "deferred" | "later" | "no_api"; permission?: NotificationPermission };
+
+export async function requestNotificationWithDiBaYGate(options?: {
+  explicitRetry?: boolean;
+  featureKey?: DevicePermissionFeatureKey;
+}): Promise<NotificationPermissionRequestResult> {
+  if (typeof window === "undefined" || !("Notification" in window)) {
+    return { ok: false, reason: "no_api" };
+  }
+  const gate = await ensureDevicePermissionsWithDiBaYGate(["notification"], {
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: options?.featureKey,
+    guideKind: "notification",
+  });
+  if (!gate.ok) {
+    return {
+      ok: false,
+      reason: gate.reason === "insecure" ? "no_api" : gate.reason,
+      permission: Notification.permission,
+    };
+  }
+  if (Notification.permission === "granted") {
+    setCachedPermissionState("notification", "granted");
+    return { ok: true, permission: "granted" };
+  }
+  if (Notification.permission === "denied") {
+    setCachedPermissionState("notification", "denied");
+    return { ok: false, reason: "denied", permission: "denied" };
+  }
+  const permission = await Notification.requestPermission();
+  setCachedPermissionState("notification", permission === "default" ? "prompt" : permission);
+  if (permission === "granted") {
+    if (options?.featureKey) markPermissionFeatureCompleted(options.featureKey);
+    return { ok: true, permission };
+  }
+  return {
+    ok: false,
+    reason: permission === "denied" ? "denied" : "deferred",
+    permission,
+  };
 }
 
 /** 스피커: 소리 테스트. 반복 모달 없음 — 설정에서만 안내 모달 병행 가능 */
@@ -404,24 +638,52 @@ export async function runSpeakerTestWithOptionalGuide(options?: {
 
 export type DevicePermissionRequestResult =
   | { kind: "location"; result: LocationRequestResult }
+  | { kind: "camera"; result: DevicePermissionEnsureResult }
   | { kind: "microphone"; result: MicrophoneEnsureResult }
+  | { kind: "notification"; result: NotificationPermissionRequestResult }
   | { kind: "speaker"; result: { ok: boolean; error?: string } };
 
 /** 타입별 진입점 — UI·설정에서 공통 호출 */
 export async function requestPermission(
-  kind: DevicePermissionKind,
-  opts?: { explicitRetry?: boolean; speakerShowFirstGuide?: boolean },
+  kind: DevicePermissionGuideKind,
+  opts?: {
+    explicitRetry?: boolean;
+    speakerShowFirstGuide?: boolean;
+    featureKey?: DevicePermissionFeatureKey;
+  },
 ): Promise<DevicePermissionRequestResult> {
   switch (kind) {
     case "location":
       return {
         kind: "location",
-        result: await requestLocationWithDiBaYGate({ explicitRetry: opts?.explicitRetry === true }),
+        result: await requestLocationWithDiBaYGate({
+          explicitRetry: opts?.explicitRetry === true,
+          featureKey: opts?.featureKey,
+        }),
+      };
+    case "camera":
+      return {
+        kind: "camera",
+        result: await probeCameraWithGetUserMedia({
+          explicitRetry: opts?.explicitRetry === true,
+          featureKey: opts?.featureKey,
+        }),
       };
     case "microphone":
       return {
         kind: "microphone",
-        result: await probeMicrophoneWithGetUserMedia({ explicitRetry: opts?.explicitRetry === true }),
+        result: await probeMicrophoneWithGetUserMedia({
+          explicitRetry: opts?.explicitRetry === true,
+          featureKey: opts?.featureKey,
+        }),
+      };
+    case "notification":
+      return {
+        kind: "notification",
+        result: await requestNotificationWithDiBaYGate({
+          explicitRetry: opts?.explicitRetry === true,
+          featureKey: opts?.featureKey,
+        }),
       };
     case "speaker":
       return {
@@ -447,5 +709,7 @@ export async function warmDevicePermissionCache(): Promise<void> {
   await Promise.all([
     refreshPermissionState("location").catch(() => {}),
     refreshPermissionState("microphone").catch(() => {}),
+    refreshPermissionState("camera").catch(() => {}),
+    refreshPermissionState("notification").catch(() => {}),
   ]);
 }

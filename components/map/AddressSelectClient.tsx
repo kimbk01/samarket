@@ -224,17 +224,17 @@ export function AddressSelectClient() {
     setGeoHint(null);
     setLocating(true);
     try {
-      const res = await requestLocationWithDiBaYGate();
+      const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
       if (!res.ok) {
         if (res.reason === "later") {
           setGeoHint(null);
           return;
         }
         if (res.reason === "deferred") {
-          setGeoHint(res.message ?? t("addr_ui_geo_hint_default"));
+          setGeoHint(t("addr_ui_geo_hint_default"));
           return;
         }
-        setGeoHint(res.message ?? t("addr_ui_geo_failed"));
+        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_default") : t("addr_ui_geo_failed"));
         return;
       }
       goToMap({ lat: res.position.latitude, lng: res.position.longitude });
@@ -247,17 +247,17 @@ export function AddressSelectClient() {
     setGeoHint(null);
     setLocating(true);
     try {
-      const res = await requestLocationWithDiBaYGate();
+      const res = await requestLocationWithDiBaYGate({ featureKey: "delivery_address_location" });
       if (!res.ok) {
         if (res.reason === "later") {
           setGeoHint(null);
           return;
         }
         if (res.reason === "deferred") {
-          setGeoHint(res.message ?? t("addr_ui_geo_hint_map"));
+          setGeoHint(t("addr_ui_geo_hint_map"));
           return;
         }
-        setGeoHint(res.message ?? t("addr_ui_geo_failed"));
+        setGeoHint(res.reason === "denied" ? t("addr_ui_geo_hint_map") : t("addr_ui_geo_failed"));
         return;
       }
       setMarker({ lat: res.position.latitude, lng: res.position.longitude });

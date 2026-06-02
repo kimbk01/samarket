@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { requestNotificationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
 
 function isPushSupported(): boolean {
@@ -84,8 +85,8 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     }
     setBusy((prev) => (prev ? prev : true));
     try {
-      const perm = await Notification.requestPermission();
-      if (perm !== "granted") {
+      const perm = await requestNotificationWithDiBaYGate({ explicitRetry: true });
+      if (!perm.ok) {
         setHint(t("settings_web_push_err_permission"));
         return;
       }
