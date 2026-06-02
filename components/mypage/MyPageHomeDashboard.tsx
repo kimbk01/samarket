@@ -233,8 +233,12 @@ export function MyPageHomeDashboard({
           <MyPageAdminMenuEntry starbucks />
         </div>
 
-        {/* Tablet: 2-column column stacks */}
-        <div className="hidden grid-cols-1 gap-3 md:grid md:grid-cols-2 md:gap-4 min-[1025px]:hidden">
+        {/*
+         * Tablet 768–1024px: `md:grid` + `min-[1025px]:hidden` 은 Tailwind v4 에서
+         * `.md\:grid` 규칙이 `.min-\[1025px\]\:hidden` 보다 뒤에 생성되어 1025px+ 에도
+         * 2열 블록이 남고, 데스크톱 3열과 메뉴가 중복된다. 상한은 `md:max-[1025px]:*`.
+         */}
+        <div className="hidden md:max-[1025px]:grid md:max-[1025px]:grid-cols-2 md:max-[1025px]:gap-4">
           <div className={COLUMN_STACK_CLASS}>
             <MyInfoQuickAccessSection variant="list" />
             <MyInfoSupportMenuSection />
@@ -244,7 +248,7 @@ export function MyPageHomeDashboard({
             <MyInfoStoreMenuSection />
             <MyInfoAccountMenuSection addressesMenuHref={addressesMenuHref} />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:max-[1025px]:col-span-2">
             <MyPageAdminMenuEntry starbucks />
           </div>
         </div>

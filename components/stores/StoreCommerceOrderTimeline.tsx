@@ -76,7 +76,7 @@ export function StoreCommerceOrderTimeline({
 }: {
   fulfillmentType: string;
   orderStatus: string;
-  /** 주문 상세: 배달·픽업 모두 4단계 라벨 */
+  /** 주문 상세: 배달 6단계 · 픽업 4단계 */
   variant?: TimelineVariant;
 }) {
   const { t, language } = useI18n();
@@ -86,8 +86,19 @@ export function StoreCommerceOrderTimeline({
   const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus, language) : null;
 
   if (variant === "buyer_detail") {
-    const steps = [...buyerOrderTimelineDeliveryStepLabels(language)];
-    const rowStates = buyerDetailSixStepStates(fulfillmentType, orderStatus);
+    const steps = deliveryLike
+      ? [...buyerOrderTimelineDeliveryStepLabels(language)]
+      : [...buyerOrderTimelinePickupStepLabels(language)];
+    const rowStates: BuyerDetailStepState[] = deliveryLike
+      ? buyerDetailSixStepStates(fulfillmentType, orderStatus)
+      : (() => {
+          const cur = storeOrderTimelineCurrentStep(fulfillmentType, orderStatus);
+          return steps.map((_, i) => {
+            if (allDone || i < cur) return "done";
+            if (i === cur) return "current";
+            return "upcoming";
+          });
+        })();
 
     return (
       <nav
