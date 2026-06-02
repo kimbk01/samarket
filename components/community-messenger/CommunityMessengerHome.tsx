@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -19,7 +18,6 @@ import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
 import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/MessengerHomeFabPlusIcon";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
-import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
@@ -42,19 +40,14 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   type CommunityMessengerLocalSettings,
-  isCommunityMessengerIncomingCallBannerEnabled,
-  isCommunityMessengerIncomingCallSoundEnabled,
-  readCommunityMessengerLocalSettings,
   setCommunityMessengerIncomingCallBannerEnabled,
   setCommunityMessengerIncomingCallSoundEnabled,
   writeCommunityMessengerLocalSettings,
 } from "@/lib/community-messenger/preferences";
 import { messengerMonitorUnreadListSync } from "@/lib/community-messenger/monitoring/client";
 import {
-  fetchMeNotificationSettingsGet,
   invalidateMeNotificationSettingsGetFlight,
 } from "@/lib/me/fetch-me-notification-settings-client";
-import { RECENT_SEARCHES_STORAGE_KEY } from "@/lib/community-messenger/home/community-messenger-home-constants";
 import type {
   CommunityMessengerSettingsBackup,
   FriendSheetState,
@@ -68,8 +61,7 @@ import {
   markMessengerShellVisible,
   resetMessengerAppShellFastPathClock,
 } from "@/lib/community-messenger/app-shell-fast-path-log";
-import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
-import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
+import { commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -140,11 +132,8 @@ import {
   type MessengerChatInboxFilter,
   type MessengerChatKindFilter,
   type MessengerArchiveSection,
-  type MessengerChatListChip,
   type MessengerChatListContext,
   type MessengerMainSection,
-  chipToInboxKind,
-  messengerChatFiltersToSearchParams,
   messengerRoomMenuItemId,
   resolveMessengerChatFilters,
   resolveMessengerSection,
@@ -158,7 +147,6 @@ import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
   type CommunityMessengerDiscoverableGroupSummary,
-  type CommunityMessengerFriendRequest,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
   type CommunityMessengerRoomSummary,
@@ -173,7 +161,6 @@ import {
   useCommunityMessengerHomeState,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import {
-  readDismissedCommunityMessengerNotificationIds,
   writeDismissedCommunityMessengerNotificationIds,
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
 import { useCommunityMessengerHomeNavigation } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
@@ -195,7 +182,6 @@ import {
 } from "@/lib/community-messenger/read/cm-home-optimistic-mark-read";
 import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
 import { seedMessengerRealtimeViewerFromBootstrap } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
 import {
   cmRtRoomSubLog,
   messengerRealtimeGetSubscribedMessageRoomIds,
@@ -656,13 +642,15 @@ export function CommunityMessengerHome({
     [incomingRequestCount, openHomeOverlay, pillar]
   );
 
+  const closeRoomActionSheet = useCallback(() => setRoomActionSheet(null), []);
+
   useCommunityMessengerHomeShellEffects({
     router,
     searchParams,
     setMainTier1Extras,
     headerActionsNode,
     roomActionSheetOpen: Boolean(roomActionSheet),
-    setRoomActionSheet: setRoomActionSheet as any,
+    setRoomActionSheet: closeRoomActionSheet,
     setOpenedMenuItemId,
     setIncomingCallSoundEnabled,
     setIncomingCallBannerEnabled,
@@ -712,7 +700,7 @@ export function CommunityMessengerHome({
       );
       return true;
     },
-    [getMessengerActionErrorMessage]
+    [getMessengerActionErrorMessage, setData]
   );
 
   const maybePrefetchDirectRoom = useCallback(
@@ -798,6 +786,9 @@ export function CommunityMessengerHome({
       pathname,
       reviveDirectRoomForEntry,
       router,
+      setAuthRequired,
+      setData,
+      setPageError,
       t,
     ]
   );
@@ -1138,7 +1129,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.requests, pillar, refresh, router, searchParams, setData]
+    [data?.me?.id, data?.requests, pillar, refresh, router, searchParams, setData, t]
   );
 
   const onFriendRequestNotif = useCallback(
@@ -1307,7 +1298,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, pathname, refresh, router, t]
+    [getMessengerActionErrorMessage, pathname, refresh, router, setAuthRequired, setData, setPageError, t]
   );
 
   const toggleHiddenFriend = useCallback(
@@ -1356,27 +1347,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [refresh]
-  );
-
-  const toggleFollow = useCallback(
-    async (targetUserId: string) => {
-      setBusyId(`follow:${targetUserId}`);
-      try {
-        const res = await fetch("/api/community/neighbor-relations", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId }),
-        });
-        if (res.ok) {
-          void refresh(true);
-          void searchUsers();
-        }
-      } finally {
-        setBusyId(null);
-      }
-    },
-    [refresh, searchUsers]
+    [refresh, setData]
   );
 
   const toggleBlock = useCallback(
@@ -1418,6 +1389,8 @@ export function CommunityMessengerHome({
       refresh,
       router,
       searchUsers,
+      setAuthRequired,
+      setPageError,
       t,
     ]
   );
@@ -1471,6 +1444,8 @@ export function CommunityMessengerHome({
     refresh,
     resetGroupCreateDraft,
     router,
+    setAuthRequired,
+    setPageError,
     t,
   ]);
 
@@ -1544,6 +1519,8 @@ export function CommunityMessengerHome({
     refresh,
     resetGroupCreateDraft,
     router,
+    setAuthRequired,
+    setPageError,
     t,
   ]);
 
@@ -2350,14 +2327,6 @@ export function CommunityMessengerHome({
     [resetMessengerTransientUi]
   );
 
-  const onPreviewOpenGroupStable = useCallback(
-    (groupId: string) => {
-      resetMessengerTransientUi();
-      void openJoinModal(groupId);
-    },
-    [resetMessengerTransientUi, openJoinModal]
-  );
-
   const onOpenMeetingFindStable = useCallback(() => {
     resetMessengerTransientUi();
     openHomeOverlay("public-group-find");
@@ -2474,7 +2443,7 @@ export function CommunityMessengerHome({
         setActionError(t("cm_ui_failed_to_load_backup"));
       }
     },
-    [importSettingsBackup]
+    [importSettingsBackup, t]
   );
   const removeFriend = useCallback(
     async (friendUserId: string, options?: { confirm?: boolean }) => {
@@ -2513,7 +2482,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage]
+    [getMessengerActionErrorMessage, setData, t]
   );
 
   const reportCommunityUser = useCallback(async (userId: string) => {
@@ -2541,7 +2510,7 @@ export function CommunityMessengerHome({
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [t]);
 
   const reportCommunityRoom = useCallback(async (roomId: string) => {
     const detail = window.prompt(t("cm_ui_prompt_report_detail"))?.trim() ?? "";
@@ -2568,7 +2537,7 @@ export function CommunityMessengerHome({
     } finally {
       setBusyId(null);
     }
-  }, []);
+  }, [t]);
 
   const leaveMessengerRoom = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
@@ -2605,7 +2574,7 @@ export function CommunityMessengerHome({
     invalidateRoomSnapshot(roomId);
     setRoomActionSheet(null);
     showMessengerSnackbar(t("cm_ui_cleared_local_preview_cache"));
-  }, []);
+  }, [t]);
 
   return (
     <div
@@ -3073,8 +3042,12 @@ export function CommunityMessengerHome({
       ) : null}
 
       {groupCreateStep !== "closed" ? (
-        <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/30 px-4 pb-6 pt-10">
-          <div className="w-full max-w-[520px] rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]">
+        <MessengerHomeBottomSheetShell
+          onClose={() => setGroupCreateStep("closed")}
+          closeAriaLabel={t("nav_close")}
+          dialogAriaLabel={t("cm_ui_create_group")}
+          panelClassName="mx-auto max-w-[520px] overflow-y-auto rounded-t-ui-rect border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]"
+        >
             {groupCreateStep === "select" ? (
               <>
                 <p className="sam-text-body-secondary font-medium text-sam-fg">{t("cm_ui_create_group")}</p>
@@ -3365,8 +3338,7 @@ export function CommunityMessengerHome({
                 </button>
               ) : null}
             </div>
-          </div>
-        </div>
+        </MessengerHomeBottomSheetShell>
       ) : null}
 
       {joinTargetGroup ? (

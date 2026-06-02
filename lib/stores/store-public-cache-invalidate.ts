@@ -7,6 +7,7 @@ export const STORE_PUBLIC_CACHE_INVALIDATE_EVENT = "samarket:store-public-cache-
 /**
  * slug 공개 API·클라 캐시 무효화 — 오너 저장 직후 (브라우저).
  * 서버 snapshot·route memory purge는 `store-public-cache-invalidate-server.ts` (API route).
+ * 서버 45s summary cache 는 server-only 경로에서 `invalidateStoreSummaryPublicServerCache` 로 제거한다.
  */
 export function invalidateStorePublicCachesForSlug(slug: string): void {
   const s = slug.trim();

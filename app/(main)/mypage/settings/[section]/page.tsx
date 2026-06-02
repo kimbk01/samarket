@@ -3,24 +3,26 @@ import { redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 
 const SECTION_REDIRECTS: Record<string, string> = {
-  account: "/mypage?tab=account&section=basic",
-  notifications: "/mypage?tab=messenger&section=alerts",
-  "quiet-hours": "/mypage?tab=messenger&section=alerts",
-  "order-notifications": "/mypage?tab=messenger&section=alerts",
-  following: "/mypage?tab=settings&section=users",
-  "blocked-users": "/mypage?tab=settings&section=users",
-  "hidden-users": "/mypage?tab=settings&section=users",
-  autoplay: "/mypage?tab=settings&section=service",
-  "region-bulk": "/mypage?tab=settings&section=region-language",
-  chat: "/mypage?tab=settings&section=service",
-  preferences: "/mypage?tab=settings&section=service",
-  notice: "/mypage?tab=settings&section=support",
-  country: "/mypage?tab=settings&section=region-language",
-  language: "/mypage?tab=settings&section=region-language",
-  cache: "/mypage?tab=settings&section=system",
-  version: "/mypage?tab=settings&section=system",
-  leave: "/mypage?tab=settings&section=system",
-  permissions: "/mypage?tab=settings&section=device-permissions",
+  account: "/mypage/section/account/account-info",
+  notifications: "/mypage/section/settings/notifications",
+  "quiet-hours": "/mypage/section/settings/notifications",
+  "order-notifications": "/mypage/section/settings/notifications",
+  following: "/mypage/section/account/favorite-users",
+  "blocked-users": "/mypage/section/account/blocked-users",
+  "hidden-users": "/mypage/section/account/hidden-users",
+  autoplay: "/mypage/section/settings/video-autoplay",
+  "region-bulk": "/mypage/section/settings/region",
+  chat: "/mypage/section/settings/chat-settings",
+  preferences: "/mypage/section/settings/personalization",
+  notice: "/mypage/section/settings/notices",
+  notices: "/mypage/section/settings/notices",
+  country: "/mypage/section/settings/country",
+  language: "/mypage/section/settings/language",
+  cache: "/mypage/section/settings/cache",
+  version: "/mypage/section/settings/version",
+  leave: "/mypage/section/settings/leave",
+  permissions: "/mypage/section/settings/device-permissions",
+  "device-permissions": "/mypage/section/settings/device-permissions",
 };
 
 export default function SettingsSectionPage({
@@ -41,5 +43,5 @@ async function SettingsSectionPageBody({
   params: Promise<{ section: string }>;
 }) {
   const { section } = await params;
-  return redirect(SECTION_REDIRECTS[section] ?? "/mypage?tab=settings&section=service");
+  return redirect(SECTION_REDIRECTS[section] ?? "/mypage/section/settings/chat-settings");
 }

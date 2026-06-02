@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 
 type Props = {
   onClose: () => void;
@@ -48,9 +49,12 @@ export function MessengerNewConversationSheet({
 }: Props) {
   const { t } = useI18n();
   return (
-    <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
-      <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--ui-shadow-card)]">
+    <MessengerHomeBottomSheetShell
+      onClose={onClose}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={t("cm_ui_new_conversation")}
+      panelClassName="rounded-t-[12px] border-ui-border bg-ui-surface px-4 pb-4 pt-3 shadow-[var(--ui-shadow-card)]"
+    >
         <p className="text-center sam-text-body font-semibold text-ui-fg">{t("cm_ui_new_conversation")}</p>
         <p className="mt-3 text-center sam-text-helper text-ui-muted">{t("cm_ui_new_conversation_menu")}</p>
         <div className="mt-4 grid gap-2">
@@ -94,7 +98,6 @@ export function MessengerNewConversationSheet({
         <button type="button" className="mt-3 w-full py-2 sam-text-body text-ui-muted" onClick={onClose}>
           {t("common_cancel")}
         </button>
-      </div>
-    </div>
+    </MessengerHomeBottomSheetShell>
   );
 }

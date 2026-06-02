@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
+import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import type {
@@ -107,12 +108,12 @@ function SearchActionsSheet({
     "w-full rounded-ui-rect px-4 py-3 text-left text-[14px] font-normal leading-[1.5] text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
 
   return (
-    <div className="fixed inset-0 z-[44] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onDismiss} />
-      <div
-        data-messenger-shell
-        className="rounded-t-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--messenger-shadow-soft)]"
-      >
+    <MessengerHomeBottomSheetShell
+      onClose={onDismiss}
+      closeAriaLabel={t("nav_close")}
+      dialogAriaLabel={t("cm_ui_chat_actions")}
+      panelClassName="rounded-t-ui-rect border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-3 shadow-[var(--messenger-shadow-soft)]"
+    >
         {action.kind === "recent" ? (
           <nav className="flex flex-col p-1" aria-label={t("cm_ui_recent_search_actions")}>
             <button
@@ -233,8 +234,7 @@ function SearchActionsSheet({
         >
           {t("common_cancel")}
         </button>
-      </div>
-    </div>
+    </MessengerHomeBottomSheetShell>
   );
 }
 
@@ -447,11 +447,15 @@ export function MessengerSearchSheet({
 
   return (
     <>
-      <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
-        <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
+      <MessengerHomeBottomSheetShell
+        onClose={onClose}
+        closeAriaLabel={t("nav_close")}
+        dialogAriaLabel={t("common_search")}
+        panelClassName="rounded-t-[var(--messenger-radius-md)] border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
+      >
         <div
           data-messenger-shell
-          className="max-h-[min(82vh,640px)] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
+          className="min-h-0 flex-1 overflow-y-auto px-3 pb-3 pt-2"
         >
           <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
             {t("common_search")}
@@ -584,7 +588,7 @@ export function MessengerSearchSheet({
             {t("nav_close")}
           </button>
         </div>
-      </div>
+      </MessengerHomeBottomSheetShell>
       {action ? (
         <SearchActionsSheet
           action={action}

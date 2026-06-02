@@ -131,52 +131,52 @@ export const MYPAGE_HOME_ACCOUNT_ITEMS: MypageHomeMenuItemConfig[] = [
 
 export const MYPAGE_HOME_SERVICE_ITEMS: MypageHomeLinkMenuItem[] = [
   {
-    href: "/mypage/settings/following",
+    href: "/mypage/section/account/favorite-users",
     titleKey: "settings_following_users",
     icon: "users",
   },
   {
-    href: "/mypage/settings/blocked-users",
+    href: "/mypage/section/account/blocked-users",
     titleKey: "settings_blocked_users",
     icon: "user-block",
   },
   {
-    href: "/mypage/settings/hidden-users",
+    href: "/mypage/section/account/hidden-users",
     titleKey: "settings_hidden_users",
     icon: "eye-off",
   },
   {
-    href: "/mypage/settings/autoplay",
+    href: "/mypage/section/settings/video-autoplay",
     titleKey: "settings_video_autoplay",
     icon: "play-circle",
   },
   {
-    href: "/mypage/settings/region-bulk",
+    href: "/mypage/section/settings/region",
     titleKey: "settings_bulk_region_change",
     icon: "map-pin",
   },
   {
-    href: "/mypage/settings/chat",
+    href: "/mypage/section/settings/chat-settings",
     titleKey: "settings_chat",
     icon: "message-square",
   },
   {
-    href: "/mypage/settings/preferences",
+    href: "/mypage/section/settings/personalization",
     titleKey: "settings_personalization",
     icon: "ellipsis-vertical",
   },
   {
-    href: "/mypage/settings/cache",
+    href: "/mypage/section/settings/cache",
     titleKey: "settings_cache_clear",
     icon: "trash-2",
   },
   {
-    href: "/mypage/settings/version",
+    href: "/mypage/section/settings/version",
     titleKey: "settings_version",
     icon: "info",
   },
   {
-    href: "/mypage/settings/leave",
+    href: "/mypage/section/settings/leave",
     titleKey: "settings_leave",
     icon: "hand",
     tone: "danger",

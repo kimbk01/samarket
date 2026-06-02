@@ -11,7 +11,7 @@ export type BrowseStoreListItem = {
   primaryNameKo: string;
   subNameKo: string;
   regionLabel: string;
-  status: "open" | "preparing" | "closed";
+  status: "open" | "preparing" | "closed" | "resting";
   rating: number;
   reviewCount: number;
   deliveryAvailable: boolean;

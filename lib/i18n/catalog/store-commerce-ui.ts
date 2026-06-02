@@ -402,6 +402,7 @@ export const storeCommerceUiMessages = {
 
     store_preparing: "준비중",
     store_closed_now: "영업종료",
+    store_resting_now: "휴식중",
     store_delivery_available: "배달가능",
     store_pickup_available: "픽업가능",
     store_visit_available: "방문가능",
@@ -2078,6 +2079,7 @@ export const storeCommerceUiMessages = {
 
     store_preparing: "Preparing",
     store_closed_now: "Closed",
+    store_resting_now: "On break",
     store_delivery_available: "Delivery",
     store_pickup_available: "Pickup",
     store_visit_available: "Dine-in",

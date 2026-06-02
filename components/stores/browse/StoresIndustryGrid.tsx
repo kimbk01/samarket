@@ -2,10 +2,10 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
-import { useMemo, type ReactNode } from "react";
-import { listBrowsePrimaryIndustries, listBrowseSubIndustries } from "@/lib/stores/browse-mock/queries";
+import type { ReactNode } from "react";
+import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
-import { storesBrowsePrimaryPath, storesBrowsePath } from "./stores-browse-paths";
+import { storesBrowsePrimaryPath } from "./stores-browse-paths";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { I18N_COMPACT_SUB_CARD_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 
@@ -16,11 +16,8 @@ export function StoresIndustryGrid({
   headerTrailing?: ReactNode;
 }) {
   const { t, language } = useI18n();
-  const industryVersion = useBrowseIndustryDatasetVersion();
-  const primaries = useMemo(
-    () => listBrowsePrimaryIndustries(),
-    [industryVersion]
-  );
+  useBrowseIndustryDatasetVersion();
+  const primaries = listBrowsePrimaryIndustries();
 
   return (
     <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">
@@ -32,9 +29,7 @@ export function StoresIndustryGrid({
       </div>
       <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {primaries.map((p) => {
-          const subs = listBrowseSubIndustries(p.slug);
-          const firstSub = subs[0]?.slug;
-          const href = firstSub ? storesBrowsePath(p.slug, firstSub) : storesBrowsePrimaryPath(p.slug);
+          const href = storesBrowsePrimaryPath(p.slug);
           return (
             <li key={p.id}>
               <Link

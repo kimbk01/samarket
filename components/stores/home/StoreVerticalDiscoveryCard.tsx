@@ -45,6 +45,13 @@ function statusBadge(
       </span>
     );
   }
+  if (status === "resting") {
+    return (
+      <span className="shrink-0 rounded-ui-rect bg-sam-warning-soft px-2 py-0.5 sam-text-helper font-semibold text-sam-warning">
+        {t("store_resting_now")}
+      </span>
+    );
+  }
   return (
     <span className="shrink-0 rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-helper font-semibold text-sam-muted">
       {t("store_closed_now")}

@@ -8,6 +8,7 @@ import {
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
 } from "@/lib/community-messenger/messenger-room-domain";
+import { MAIN_BOTTOM_NAV_SHEET_Z_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { communityMessengerRoomIsInboxHidden } from "@/lib/community-messenger/types";
 import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 
@@ -84,6 +85,14 @@ export function MessengerChatRoomActionSheet({
   const anchoredStyle = useMemo(() => {
     const viewportWidth = typeof window === "undefined" ? 390 : window.innerWidth;
     const viewportHeight = typeof window === "undefined" ? 844 : window.innerHeight;
+    const bottomNavTop =
+      typeof document === "undefined"
+        ? null
+        : document.querySelector(".app-bottom-nav-shell")?.getBoundingClientRect().top ?? null;
+    const viewportBottomLimit =
+      bottomNavTop != null && Number.isFinite(bottomNavTop) && bottomNavTop > 0
+        ? Math.min(viewportHeight - 12, bottomNavTop - 12)
+        : viewportHeight - 12;
     const menuWidth = Math.min(272, viewportWidth - 24);
     const spacing = 8;
     const fallbackLeft = Math.max(12, viewportWidth - menuWidth - 12);
@@ -97,7 +106,7 @@ export function MessengerChatRoomActionSheet({
     };
     const preferredTop = anchor.bottom + spacing;
     const nextTop =
-      panelHeight > 0 && preferredTop + panelHeight > viewportHeight - 12
+      panelHeight > 0 && preferredTop + panelHeight > viewportBottomLimit
         ? Math.max(12, anchor.top - panelHeight - spacing)
         : preferredTop;
     const left = Math.min(
@@ -145,7 +154,7 @@ export function MessengerChatRoomActionSheet({
   return (
     <div
       data-messenger-chat-sheet="true"
-      className="fixed inset-0 z-[46]"
+      className={`fixed inset-0 ${MAIN_BOTTOM_NAV_SHEET_Z_CLASS}`}
       role="dialog"
       aria-modal="true"
     >

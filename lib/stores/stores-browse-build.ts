@@ -1,7 +1,7 @@
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
-import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
+import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { resolveStoreFrontOrderable } from "@/lib/stores/store-point-commerce-block";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
@@ -372,7 +372,9 @@ export type StoresBrowseResponseBody = {
     primary: string;
     sub: string;
     all_topics: boolean;
-    sorted_by: "district_featured_distance_rating" | "district_featured_rating";
+    sorted_by:
+      | "status_district_featured_distance_rating"
+      | "status_district_featured_rating";
     origin_source: BrowseRouteOrigin["source"];
     origin_address_id: null;
     delivery_ride_time_source: DeliveryRideTimeSource;
@@ -434,8 +436,26 @@ function resolveDistanceForSort(
 export type BrowseFilteredStoreRowsResult = {
   rows: StoreBrowseRow[];
   distById: Map<string, number | null> | null;
+  statusById: Map<string, BrowseStoreListItem["status"]>;
   distanceSortMs: number;
 };
+
+function resolveBrowseStoreRowStatus(row: StoreBrowseRow): BrowseStoreListItem["status"] {
+  const commerceState = resolveStoreFrontCommerceState(row.business_hours_json, row.is_open);
+  const orderable = resolveStoreFrontOrderable(commerceState.isOpenForCommerce, row);
+  if (orderable) return "open";
+  if (commerceState.inBreak) return "resting";
+  if (!commerceState.isOpenForCommerce && row.point_commerce_blocked !== true) return "closed";
+  return "preparing";
+}
+
+function buildBrowseStoreStatusMap(rows: StoreBrowseRow[]): Map<string, BrowseStoreListItem["status"]> {
+  const statusById = new Map<string, BrowseStoreListItem["status"]>();
+  for (const row of rows) {
+    statusById.set(row.id, resolveBrowseStoreRowStatus(row));
+  }
+  return statusById;
+}
 
 /** RPC/legacy 후보에서 sub·orphan 규칙으로 행만 추림 (정렬·거리 전) */
 export function resolveBrowseFilteredStoreRows(
@@ -480,12 +500,16 @@ export function resolveBrowseFilteredSortedStoreRows(
     prefilteredRows ?? resolveBrowseFilteredStoreRows(ctx, taxonomySlice, storeRowsRaw);
 
   const distanceSort0 = devPerfNow();
+  const statusById = buildBrowseStoreStatusMap(rows);
+  const statusRank = (row: StoreBrowseRow) => (statusById.get(row.id) === "open" ? 0 : 1);
   const stableSlug = (a: StoreBrowseRow, b: StoreBrowseRow) =>
     String(a.slug ?? "").localeCompare(String(b.slug ?? ""));
 
   const stableId = (a: StoreBrowseRow, b: StoreBrowseRow) => String(a.id).localeCompare(String(b.id));
 
   const byDistrictFeaturedRating = (a: StoreBrowseRow, b: StoreBrowseRow) => {
+    const status = statusRank(a) - statusRank(b);
+    if (status !== 0) return status;
     const dr = districtRank(a.district, district) - districtRank(b.district, district);
     if (dr !== 0) return dr;
     const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
@@ -512,6 +536,8 @@ export function resolveBrowseFilteredSortedStoreRows(
     }
     distById = distMap;
     rows = [...rows].sort((a, b) => {
+      const status = statusRank(a) - statusRank(b);
+      if (status !== 0) return status;
       const ao = outOfRangeMap.get(a.id) === true ? 1 : 0;
       const bo = outOfRangeMap.get(b.id) === true ? 1 : 0;
       if (ao !== bo) return ao - bo;
@@ -543,7 +569,7 @@ export function resolveBrowseFilteredSortedStoreRows(
     devLogRoutesSkipped("list_screen_disabled", "api/stores/browse");
   }
 
-  return { rows, distById, distanceSortMs };
+  return { rows, distById, statusById, distanceSortMs };
 }
 
 export function assembleStoresBrowseResponse(
@@ -568,7 +594,7 @@ export function assembleStoresBrowseResponse(
   const primaryAliases = taxonomySlice.primaryAliases;
   const selectedTopicMeta = taxonomySlice.selectedTopicMeta;
 
-  const { rows, distById } =
+  const { rows, distById, statusById } =
     prefetchedFilter ?? resolveBrowseFilteredSortedStoreRows(ctx, taxonomySlice, storeRowsRaw);
 
   const featuredByStore = new Map<
@@ -621,9 +647,7 @@ export function assembleStoresBrowseResponse(
       (r.business_type ?? "").trim().length > 0 ?
         parseBizTypePrimarySub(r.business_type, primary, primaryAliases)
       : null;
-    const scheduleOpen = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
-    const orderable = resolveStoreFrontOrderable(scheduleOpen, r);
-    const status: BrowseStoreListItem["status"] = orderable ? "open" : "preparing";
+    const status = statusById.get(r.id) ?? resolveBrowseStoreRowStatus(r);
     const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
     const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
     const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
@@ -719,8 +743,8 @@ export function assembleStoresBrowseResponse(
       all_topics: wantsAllSubs,
       sorted_by:
         deliveryDistancePolicy.enabled && userLat != null && userLng != null
-          ? "district_featured_distance_rating"
-          : "district_featured_rating",
+          ? "status_district_featured_distance_rating"
+          : "status_district_featured_rating",
       origin_source: origin.source,
       origin_address_id: null,
       delivery_ride_time_source: deliveryRideTimeSource,

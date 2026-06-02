@@ -30,7 +30,9 @@ describe("browse-header-sub-selection", () => {
     expect(resolveBrowseListQuerySub("", null, null)).toBe(STORES_BROWSE_SUB_ALL);
     expect(resolveBrowseListQuerySub("", STORES_BROWSE_SUB_ALL, null)).toBe(STORES_BROWSE_SUB_ALL);
     expect(resolveBrowseListQuerySub("", null, "korean")).toBe("korean");
-    expect(resolveBrowseListQuerySub("korean", null, null)).toBe("korean");
+    expect(resolveBrowseListQuerySub("korean", null, null)).toBe(STORES_BROWSE_SUB_ALL);
+    expect(resolveBrowseListQuerySub("unknown", null, null)).toBe(STORES_BROWSE_SUB_ALL);
+    expect(resolveBrowseListQuerySub("unknown", "korean", null)).toBe("korean");
   });
 
   it("shouldCanonicalizeBrowseSubToAll", () => {

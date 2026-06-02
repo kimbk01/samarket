@@ -28,7 +28,7 @@ export function StoreHorizontalStoreTile({
   const openDot =
     store.status === "open" ?
       "bg-emerald-500"
-    : store.status === "preparing" ?
+    : store.status === "preparing" || store.status === "resting" ?
       "bg-amber-400"
     : "bg-sam-surface-muted";
 

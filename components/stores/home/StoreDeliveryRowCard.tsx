@@ -63,7 +63,7 @@ export type StoreRowCardData = {
   tagline: string | null;
   categoryLine: string | null;
   regionBadge: string | null;
-  status: "open" | "preparing" | "closed";
+  status: "open" | "preparing" | "closed" | "resting";
   rating: number;
   reviewCount: number;
   deliveryAvailable: boolean;
@@ -154,7 +154,6 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
 }
 
 function reviewLabel(n: number) {
-  const { t } = useI18n();
   if (n > 9999) return "9,999+";
   return n.toLocaleString("en-PH");
 }
@@ -388,6 +387,14 @@ function StoreDeliveryRowCardInner({
     (deliveryFeeUi === t("store_delivery_fee_free_line") ||
       deliveryFeeUi === t("store_free_delivery_applied"));
   const hasDiscountHint = data.isFeatured;
+  const statusBadge =
+    data.status === "open"
+      ? { label: t("store_open_now"), className: "bg-sam-success-soft text-sam-success" }
+      : data.status === "resting"
+        ? { label: t("store_resting_now"), className: "bg-sam-warning-soft text-sam-warning" }
+        : data.status === "closed"
+          ? { label: t("store_closed_now"), className: "bg-sam-surface-muted text-sam-muted" }
+          : { label: t("store_preparing"), className: "bg-sam-warning-soft text-sam-warning" };
 
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
@@ -405,7 +412,7 @@ function StoreDeliveryRowCardInner({
   /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
   const serviceBadgeClass =
     "bg-sam-surface-muted text-sam-muted";
-  const badgeLabels: { label: string; className: string }[] = [];
+  const badgeLabels: { label: string; className: string }[] = [statusBadge];
   if (data.deliveryAvailable) {
     badgeLabels.push({ label: t("store_badge_delivery"), className: serviceBadgeClass });
   }
@@ -486,7 +493,7 @@ function StoreDeliveryRowCardInner({
         ...(focusProductId ? { product_id: focusProductId } : {}),
       });
     },
-    [data, prefetchStoreDetail, router]
+    [data, router]
   );
 
   const onRowPointerWarm = useCallback(() => {

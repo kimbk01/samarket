@@ -34,8 +34,12 @@ export function resolveBrowseListQuerySub(
   optimisticSub: string | null,
   matchedTopicSlug: string | null,
 ): string {
-  return resolveBrowseSubChipActiveSlug(trimmedSubParam, optimisticSub, matchedTopicSlug)
-    ?? STORES_BROWSE_SUB_ALL;
+  const optimistic = optimisticSub?.trim().toLowerCase();
+  if (optimistic && optimistic !== STORES_BROWSE_SUB_ALL) return optimisticSub!;
+  if (matchedTopicSlug) return matchedTopicSlug;
+  const p = trimmedSubParam.trim().toLowerCase();
+  if (!p || p === STORES_BROWSE_SUB_ALL) return STORES_BROWSE_SUB_ALL;
+  return STORES_BROWSE_SUB_ALL;
 }
 
 /** canonical — `sub` 없음·유효하지 않은 slug → `?sub=all` (목록 전체, 칩 UI 없음) */
