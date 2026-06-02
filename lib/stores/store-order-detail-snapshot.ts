@@ -23,6 +23,10 @@ import {
   evaluateStoreOrderDetailRegressionGuards,
   type StoreOrderDetailSnapshotBreakdown,
 } from "@/lib/stores/store-order-detail-snapshot-regression-guard";
+import {
+  clearStoreOrderDetailSnapshotInvalidation,
+  peekStoreOrderDetailSnapshotInvalidated,
+} from "@/lib/stores/store-order-detail-snapshot-cache";
 import { scheduleStoreOrderDetailSnapshotRefresh } from "@/lib/stores/store-order-detail-snapshot-refresh";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -226,8 +230,12 @@ export async function tryLoadBuyerStoreOrderDetailFromSnapshot(
 
   return runSingleFlight(`${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${oid}:${uid}`, async () => {
     const build0 = devPerfNow();
+    const bypassCounter = opts?.bypassCounter || peekStoreOrderDetailSnapshotInvalidated(oid, uid);
+    if (bypassCounter) {
+      clearStoreOrderDetailSnapshotInvalidation(oid, uid);
+    }
 
-    if (!opts?.bypassCounter) {
+    if (!bypassCounter) {
       const read0 = devPerfNow();
       const counter = await readSnapshotCounter(sbAny, keys);
       const readMs = devPerfNow() - read0;

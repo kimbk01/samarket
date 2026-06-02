@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
@@ -29,6 +30,11 @@ import { buildInboxGroupItems, type InboxGroupItem } from "@/lib/notifications/g
 import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { SAM_TIER1_HEADER_ACTION_BTN_CLASS } from "@/lib/ui/tier1-header-icon";
+import {
+  TIER1_HEADER_OVERLAY_BACKDROP_CLASS,
+  TIER1_HEADER_OVERLAY_SHELL_CLASS,
+  tier1HeaderOverlayBackdropStateClass,
+} from "@/lib/ui/tier1-header-overlay-backdrop";
 
 type Row = {
   id: string;
@@ -114,6 +120,10 @@ export function MyHeaderNotificationInbox() {
   const [soundOn, setSoundOn] = useState(true);
   const [soundLoaded, setSoundLoaded] = useState(false);
   const [soundBusy, setSoundBusy] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [domReady, setDomReady] = useState(false);
+  const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null);
 
   const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
@@ -191,11 +201,39 @@ export function MyHeaderNotificationInbox() {
   }, [loadInbox]);
 
   useEffect(() => {
+    setDomReady(true);
+  }, []);
+
+  const updatePanelStyle = useCallback(() => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(window.innerWidth * 0.92, 384);
+    const rightGap = 12;
+    const top = Math.max(8, rect.bottom + 8);
+    const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - rightGap));
+    const maxHeight = Math.min(window.innerHeight * 0.72, 544);
+    setPanelStyle({ top, left, width, height: maxHeight, maxHeight });
+  }, []);
+
+  useEffect(() => {
     if (open) {
+      updatePanelStyle();
       void loadInbox(true);
       void myGeneralNotificationUnreadStore.refresh(true);
     }
-  }, [open, loadInbox]);
+  }, [open, loadInbox, updatePanelStyle]);
+
+  useEffect(() => {
+    if (!open) return;
+    updatePanelStyle();
+    const onWindow = () => updatePanelStyle();
+    window.addEventListener("resize", onWindow);
+    window.addEventListener("scroll", onWindow, true);
+    return () => {
+      window.removeEventListener("resize", onWindow);
+      window.removeEventListener("scroll", onWindow, true);
+    };
+  }, [open, updatePanelStyle]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -351,6 +389,7 @@ export function MyHeaderNotificationInbox() {
   return (
     <div ref={wrapperRef} className="pointer-events-auto relative z-[30] shrink-0">
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={`${SAM_TIER1_HEADER_ACTION_BTN_CLASS} relative touch-manipulation pointer-events-auto`}
@@ -369,13 +408,23 @@ export function MyHeaderNotificationInbox() {
         ) : null}
       </button>
 
-      {open ? (
-        <div
-          id={panelId}
-          role="dialog"
-          aria-modal="false"
-          className="absolute right-0 top-[46px] z-[120] flex h-[min(72vh,34rem)] w-[min(92vw,24rem)] flex-col overflow-hidden rounded-[12px] border border-sam-border bg-sam-surface shadow-[0_18px_42px_-18px_rgba(0,0,0,0.45)]"
-        >
+      {domReady && open && panelStyle
+        ? createPortal(
+            <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation">
+              <button
+                type="button"
+                className={`${TIER1_HEADER_OVERLAY_BACKDROP_CLASS} ${tier1HeaderOverlayBackdropStateClass(true)}`}
+                aria-label={t("common_close")}
+                onClick={() => setOpen(false)}
+              />
+              <div
+                ref={panelRef}
+                id={panelId}
+                role="dialog"
+                aria-modal="true"
+                style={panelStyle}
+                className="fixed z-[1201] flex min-h-0 flex-col overflow-hidden rounded-[12px] border border-sam-border bg-sam-surface shadow-[0_18px_42px_-18px_rgba(0,0,0,0.45)]"
+              >
           <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/80 px-3 py-2.5">
             <h2 className="min-w-0 text-[16px] font-bold leading-tight text-sam-fg">{t("notif_tier1_sheet_title")}</h2>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -448,8 +497,11 @@ export function MyHeaderNotificationInbox() {
               {t("notif_tier1_see_all")}
             </Link>
           </div>
-        </div>
-      ) : null}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
       <NotificationDeleteConfirmDialog
         open={pendingDelete != null}

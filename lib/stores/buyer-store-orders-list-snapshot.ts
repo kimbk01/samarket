@@ -26,6 +26,10 @@ import {
   evaluateBuyerOrdersListRegressionGuards,
   type BuyerStoreOrdersListSnapshotBreakdown,
 } from "@/lib/stores/buyer-store-orders-list-snapshot-regression-guard";
+import {
+  clearBuyerStoreOrdersListSnapshotInvalidation,
+  peekBuyerStoreOrdersListSnapshotInvalidated,
+} from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
 import { scheduleBuyerStoreOrdersListSnapshotRefresh } from "@/lib/stores/buyer-store-orders-list-snapshot-refresh";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -241,8 +245,12 @@ export async function tryLoadBuyerStoreOrdersListFromSnapshot(
     `${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${keys.buyer_user_id}:${keys.list_limit}:${keys.status_filter}:${keys.cursor_key}`,
     async () => {
       const build0 = devPerfNow();
+      const bypassCounter = opts?.bypassCounter || peekBuyerStoreOrdersListSnapshotInvalidated(uid);
+      if (bypassCounter) {
+        clearBuyerStoreOrdersListSnapshotInvalidation(uid);
+      }
 
-      if (!opts?.bypassCounter) {
+      if (!bypassCounter) {
         const read0 = devPerfNow();
         const counter = await readSnapshotCounter(sbAny, keys);
         const readMs = devPerfNow() - read0;
