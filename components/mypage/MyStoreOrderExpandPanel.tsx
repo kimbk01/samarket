@@ -317,14 +317,15 @@ export function MyStoreOrderExpandPanel({
   );
 
   const load = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = opts?.silent === true;
+      const force = opts?.force === true;
       if (!orderId) return;
       if (!silent) {
         setState((prev) => (prev.kind === "ok" ? prev : { kind: "loading" }));
       }
       try {
-        const detailRes = await fetchMeStoreOrderDetailDeduped(orderId);
+        const detailRes = await fetchMeStoreOrderDetailDeduped(orderId, { force });
         const parsed = parseDetailFromResponse(detailRes);
         if (!parsed) {
           if (!silent) {
@@ -362,12 +363,12 @@ export function MyStoreOrderExpandPanel({
 
   useSupabaseStoreOrderRowRealtime(orderId, {
     debounceMs: 350,
-    onChange: () => void load({ silent: true }),
+    onChange: () => void load({ silent: true, force: true }),
   });
 
   useSupabaseStoreOrderDeliveriesRealtime(
     orderId ? { kind: "order", orderId } : null,
-    { debounceMs: 420, onChange: () => void load({ silent: true }) }
+    { debounceMs: 420, onChange: () => void load({ silent: true, force: true }) }
   );
 
   if (state.kind === "loading") {

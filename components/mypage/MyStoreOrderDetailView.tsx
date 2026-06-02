@@ -198,8 +198,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     else setState({ kind: "loading" });
   }, [orderId]);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
     const silent = opts?.silent === true;
+    const force = opts?.force === true;
     if (!orderId) {
       if (!silent) setState({ kind: "not_found" });
       return;
@@ -211,8 +212,8 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     }
     try {
       const [detailRes, eventsRes] = await Promise.all([
-        fetchMeStoreOrderDetailDeduped(orderId),
-        fetchMeStoreOrderEventsDeduped(orderId),
+        fetchMeStoreOrderDetailDeduped(orderId, { force }),
+        fetchMeStoreOrderEventsDeduped(orderId, { force }),
       ]);
       const { status, json } = detailRes;
       const data = json as {
@@ -281,12 +282,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
   useSupabaseStoreOrderRowRealtime(orderId.trim() || null, {
     debounceMs: 350,
-    onChange: () => void load({ silent: true }),
+    onChange: () => void load({ silent: true, force: true }),
   });
 
   useSupabaseStoreOrderDeliveriesRealtime(
     orderId.trim() ? { kind: "order", orderId } : null,
-    { debounceMs: 420, onChange: () => void load({ silent: true }) }
+    { debounceMs: 420, onChange: () => void load({ silent: true, force: true }) }
   );
 
   useEffect(() => {

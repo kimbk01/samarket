@@ -776,29 +776,45 @@ export function invalidateMeStoreOrderClientCaches(orderId: string): void {
   forgetSingleFlight(`me:store-order:events:get:${id}`);
 }
 
-export async function fetchMeStoreOrderDetailDeduped(orderId: string): Promise<StoreApiJsonResponse> {
+export async function fetchMeStoreOrderDetailDeduped(
+  orderId: string,
+  opts?: { force?: boolean }
+): Promise<StoreApiJsonResponse> {
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
-  const cached = peekMeStoreOrderResponseCache(meStoreOrderDetailCache, id);
-  if (cached) return cached;
-  const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(`me:store-order:detail:get:${id}`);
-  if (inFlight) {
-    const value = await inFlight;
-    primeMeStoreOrderResponseCache(
-      meStoreOrderDetailCache,
-      id,
-      value,
-      ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
-    );
-    return value;
+  const force = opts?.force === true;
+  if (!force) {
+    const cached = peekMeStoreOrderResponseCache(meStoreOrderDetailCache, id);
+    if (cached) return cached;
   }
-  return runSingleFlight(`me:store-order:detail:get:${id}`, async () => {
-    const res = await fetch(`/api/me/store-orders/${encodeURIComponent(id)}`, {
+  // force=true 시 별도 flight key로 스냅샷 bypass + ?fresh=1 요청
+  const flightKey = force
+    ? `me:store-order:detail:get:${id}:fresh`
+    : `me:store-order:detail:get:${id}`;
+  if (!force) {
+    const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
+    if (inFlight) {
+      const value = await inFlight;
+      primeMeStoreOrderResponseCache(
+        meStoreOrderDetailCache,
+        id,
+        value,
+        ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
+      );
+      return value;
+    }
+  }
+  return runSingleFlight(flightKey, async () => {
+    const url = force
+      ? `/api/me/store-orders/${encodeURIComponent(id)}?fresh=1`
+      : `/api/me/store-orders/${encodeURIComponent(id)}`;
+    const res = await fetch(url, {
       credentials: "include",
       cache: "no-store",
     });
     const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
+    // 신선한 응답을 일반 캐시에도 반영 → 이후 non-force 호출에 재사용
     primeMeStoreOrderResponseCache(
       meStoreOrderDetailCache,
       id,
@@ -810,24 +826,38 @@ export async function fetchMeStoreOrderDetailDeduped(orderId: string): Promise<S
 }
 
 /** GET /api/me/store-orders/:orderId/events — 주문 이벤트 원장(타임라인 보강) */
-export async function fetchMeStoreOrderEventsDeduped(orderId: string): Promise<StoreApiJsonResponse> {
+export async function fetchMeStoreOrderEventsDeduped(
+  orderId: string,
+  opts?: { force?: boolean }
+): Promise<StoreApiJsonResponse> {
   const id = orderId.trim();
   if (!id) return { status: 400, json: { ok: false } };
-  const cached = peekMeStoreOrderResponseCache(meStoreOrderEventsCache, id);
-  if (cached) return cached;
-  const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(`me:store-order:events:get:${id}`);
-  if (inFlight) {
-    const value = await inFlight;
-    primeMeStoreOrderResponseCache(
-      meStoreOrderEventsCache,
-      id,
-      value,
-      ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
-    );
-    return value;
+  const force = opts?.force === true;
+  if (!force) {
+    const cached = peekMeStoreOrderResponseCache(meStoreOrderEventsCache, id);
+    if (cached) return cached;
   }
-  return runSingleFlight(`me:store-order:events:get:${id}`, async () => {
-    const res = await fetch(`/api/me/store-orders/${encodeURIComponent(id)}/events`, {
+  const flightKey = force
+    ? `me:store-order:events:get:${id}:fresh`
+    : `me:store-order:events:get:${id}`;
+  if (!force) {
+    const inFlight = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
+    if (inFlight) {
+      const value = await inFlight;
+      primeMeStoreOrderResponseCache(
+        meStoreOrderEventsCache,
+        id,
+        value,
+        ME_STORE_ORDER_DETAIL_CACHE_TTL_MS
+      );
+      return value;
+    }
+  }
+  return runSingleFlight(flightKey, async () => {
+    const url = force
+      ? `/api/me/store-orders/${encodeURIComponent(id)}/events?fresh=1`
+      : `/api/me/store-orders/${encodeURIComponent(id)}/events`;
+    const res = await fetch(url, {
       credentials: "include",
       cache: "no-store",
     });

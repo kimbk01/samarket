@@ -620,11 +620,12 @@ export function MyStoreOrdersView({
   >({ kind: "loading" });
 
   const load = useCallback(
-    async (opts?: { silent?: boolean }) => {
+    async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = opts?.silent === true;
+      const force = opts?.force === true;
       if (!silent) setState({ kind: "loading" });
       try {
-        const { status, json } = await fetchMeStoreOrdersListDeduped("");
+        const { status, json } = await fetchMeStoreOrdersListDeduped(force ? "?fresh=1" : "");
         if (status === 401) {
           if (!silent) setState({ kind: "unauth" });
           return;
@@ -658,7 +659,7 @@ export function MyStoreOrdersView({
 
   useSupabaseBuyerStoreOrdersRealtime({
     debounceMs: 400,
-    onChange: () => void load({ silent: true }),
+    onChange: () => void load({ silent: true, force: true }),
   });
 
   useEffect(() => {
