@@ -1,4 +1,8 @@
 import { adminMenu, type AdminMenuItem as SidebarAdminMenuItem } from "@/components/admin/admin-menu";
+import {
+  findAdminMenuByKey,
+  requireAdminMenuByKey,
+} from "@/lib/admin/find-admin-menu-item";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 export type AdminRole = "operator" | "manager" | "master";
@@ -38,16 +42,9 @@ function cloneMenuItem(item: SidebarAdminMenuItem): AdminMenuItem {
   };
 }
 
-function getTopMenu(key: string): SidebarAdminMenuItem {
-  const item = adminMenu.find((row) => row.key === key);
-  if (!item) {
-    throw new Error(`Missing admin menu key: ${key}`);
-  }
-  return item;
-}
-
-function topChildren(key: string): AdminMenuItem[] {
-  return (getTopMenu(key).children ?? []).map(cloneMenuItem);
+function menuChildrenAsConfigItems(key: string): AdminMenuItem[] {
+  const node = findAdminMenuByKey(adminMenu, key);
+  return (node?.children ?? []).map(cloneMenuItem);
 }
 
 function flattenMenuLinks(items: AdminMenuItem[]): { label: string; href: string }[] {
@@ -59,15 +56,22 @@ function flattenMenuLinks(items: AdminMenuItem[]): { label: string; href: string
   return out;
 }
 
-const OPS_ITEMS = topChildren("operations");
-const ADS_ITEMS = topChildren("ads");
-const POINT_ITEMS = topChildren("points");
-const SETTINGS_ITEMS = topChildren("settings");
-const MANAGE_TOP = getTopMenu("manage");
-const SYSTEM_TOP = getTopMenu("system");
+/** 운영 도메인 — 구 `operations` 최상위 대신 4그룹 하위 메뉴 */
+const OPS_DOMAIN_KEYS = ["community", "trade", "delivery", "messenger"] as const;
+
+const OPS_ITEMS: AdminMenuItem[] = OPS_DOMAIN_KEYS.flatMap((key) =>
+  menuChildrenAsConfigItems(key)
+);
+
+const ADS_ITEMS = menuChildrenAsConfigItems("ads");
+const POINT_ITEMS = menuChildrenAsConfigItems("points");
+const SETTINGS_TOP = requireAdminMenuByKey(adminMenu, "settings");
+const SETTINGS_ITEMS = (SETTINGS_TOP.children ?? []).map(cloneMenuItem);
+const MANAGE_TOP = requireAdminMenuByKey(adminMenu, "manage");
+const SYSTEM_TOP = requireAdminMenuByKey(adminMenu, "system");
 
 export const MANAGE_MENU_GROUPS: OpsMenuGroup[] = (MANAGE_TOP.children ?? []).map((group) => ({
-  groupLabel: group.title,
+  groupLabel: group.key,
   items: flattenMenuLinks((group.children ?? []).map(cloneMenuItem)),
 }));
 
@@ -77,9 +81,13 @@ const MANAGE_ITEMS: AdminMenuItem[] = MANAGE_MENU_GROUPS.flatMap((group) =>
 
 const DEV_ITEMS = (SYSTEM_TOP.children ?? []).map(cloneMenuItem);
 
-export const OPS_MENU_GROUPS: OpsMenuGroup[] = [
-  { groupLabel: getTopMenu("operations").title, items: flattenMenuLinks(OPS_ITEMS) },
-];
+export const OPS_MENU_GROUPS: OpsMenuGroup[] = OPS_DOMAIN_KEYS.map((key) => {
+  const node = requireAdminMenuByKey(adminMenu, key);
+  return {
+    groupLabel: key,
+    items: flattenMenuLinks((node.children ?? []).map(cloneMenuItem)),
+  };
+});
 
 /** 대시보드 바로가기 — 라벨은 `t(labelKey)` 로 표시 */
 export const OPS_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: MessageKey }[] = [
@@ -103,12 +111,14 @@ export const MANAGE_QUICK_LINKS_PRIORITY: readonly { href: string; labelKey: Mes
   { href: "/admin/ops-maturity", labelKey: "admin_menu_manage_maturity" },
 ];
 
+const DASHBOARD_TOP = requireAdminMenuByKey(adminMenu, "dashboard");
+
 export const ADMIN_MENU_SECTIONS: AdminMenuSection[] = [
-  { id: "dashboard", label: getTopMenu("dashboard").title, requiredRole: "operator", items: [] },
-  { id: "ops", label: getTopMenu("operations").title, requiredRole: "operator", items: OPS_ITEMS },
-  { id: "ads", label: getTopMenu("ads").title, requiredRole: "operator", items: ADS_ITEMS },
-  { id: "point", label: getTopMenu("points").title, requiredRole: "operator", items: POINT_ITEMS },
-  { id: "settings", label: getTopMenu("settings").title, requiredRole: "operator", items: SETTINGS_ITEMS },
-  { id: "manage", label: MANAGE_TOP.title, requiredRole: "manager", items: MANAGE_ITEMS },
-  { id: "dev", label: SYSTEM_TOP.title, requiredRole: "master", items: DEV_ITEMS },
+  { id: "dashboard", label: DASHBOARD_TOP.title, requiredRole: "operator", items: [] },
+  { id: "ops", label: "ops", requiredRole: "operator", items: OPS_ITEMS },
+  { id: "ads", label: "ads", requiredRole: "operator", items: ADS_ITEMS },
+  { id: "point", label: "points", requiredRole: "operator", items: POINT_ITEMS },
+  { id: "settings", label: SETTINGS_TOP.title, requiredRole: "operator", items: SETTINGS_ITEMS },
+  { id: "manage", label: MANAGE_TOP.key, requiredRole: "manager", items: MANAGE_ITEMS },
+  { id: "dev", label: SYSTEM_TOP.key, requiredRole: "master", items: DEV_ITEMS },
 ];

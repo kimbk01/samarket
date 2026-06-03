@@ -1,12 +1,16 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminSidebarItem } from "./AdminSidebarItem";
 import type { AdminMenuItem } from "../admin-menu";
 import { getMenuStatus, getMenuDisplayTitle } from "@/lib/admin-menu-status";
-import { collectMenuPaths } from "./admin-sidebar-active-path";
+import {
+  collectMenuPaths,
+  hasActiveDescendantInMenu,
+} from "./admin-sidebar-active-path";
 
-/** 그룹(children 있는 메뉴): 제목 + 하위 항목. 하위 active 시 AdminSidebarItem에서 자동 open. */
+/** 그룹(children 있는 메뉴): 접기/펼치기 — active 하위가 있으면 기본 펼침 */
 export function AdminSidebarGroup({
   item,
   currentPath,
@@ -20,26 +24,46 @@ export function AdminSidebarGroup({
   const status = getMenuStatus(item);
   const displayTitle = getMenuDisplayTitle(item.titleKey ? t(item.titleKey) : tt(item.title), status);
   const pathsScope = collectMenuPaths(item.children);
+  const childActive = hasActiveDescendantInMenu(item.children, currentPath);
+  const [open, setOpen] = useState(childActive);
+
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
+  const toggleOpen = () => setOpen((o) => !o);
+
+  const titleRowClass = `admin-sidebar__group-title mb-2 flex w-full items-center gap-1 rounded-ui-rect px-3 py-2 ${
+    childActive ? "admin-sidebar__group-active" : "admin-sidebar__group-inactive"
+  }`;
 
   return (
-    <div className="mb-4">
-      <div className="admin-sidebar__group-title mb-2 rounded-ui-rect px-3 py-2">
-        <p className="font-bold tracking-wide uppercase">
-          {displayTitle}
-        </p>
-      </div>
-      <div className="space-y-0">
-        {item.children.map((child) => (
-          <AdminSidebarItem
-            key={child.key}
-            item={child}
-            currentPath={currentPath}
-            depth={0}
-            pathsScope={pathsScope}
-            onClose={onClose}
-          />
-        ))}
-      </div>
+    <div className="mb-2">
+      <button
+        type="button"
+        className={`${titleRowClass} cursor-pointer border-0 bg-transparent text-left font-inherit`}
+        onClick={toggleOpen}
+        aria-expanded={open}
+      >
+        <span className="min-w-0 flex-1 font-bold tracking-wide uppercase">{displayTitle}</span>
+        <span className="admin-sidebar__toggle shrink-0 rounded p-1 sam-text-body font-semibold" aria-hidden>
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+      {open ? (
+        <div className="space-y-0">
+          {item.children.map((child) => (
+            <AdminSidebarItem
+              key={child.key}
+              item={child}
+              currentPath={currentPath}
+              depth={0}
+              pathsScope={pathsScope}
+              onClose={onClose}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

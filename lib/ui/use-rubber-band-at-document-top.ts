@@ -6,6 +6,14 @@ import {
   getMainAppScrollTop,
 } from "@/lib/layout/main-app-scroll-root";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
+import {
+  classifyRubberBandTouchMove,
+  resolveRubberBandGestureLock,
+  rubberBandStretchFromDy,
+  shouldBlockNativeOverscroll,
+  touchStartedInStoreHeroHorizontalScroller,
+  type RubberBandGestureLock,
+} from "@/lib/ui/rubber-band-gesture";
 
 export type RubberBandAtDocumentTopOptions = {
   /**
@@ -13,11 +21,27 @@ export type RubberBandAtDocumentTopOptions = {
    * `touchmove` 를 `passive: false` 로 두고 `preventDefault` — CSS `overscroll-behavior` 와 함께 쓴다.
    */
   blockNativeViewportOverscroll?: boolean;
+  /** stretch(px) 변경 시 — 헤더 solid 동결·`data-rubber-stretch-px` 동기화용 */
+  onStretchChange?: (px: number) => void;
 };
+
+function publishStretch(
+  next: number,
+  stretchRef: { current: number },
+  setStretch: (v: number) => void,
+  onStretchChange?: (px: number) => void
+): void {
+  const rounded = Math.max(0, next);
+  if (stretchRef.current === rounded) return;
+  stretchRef.current = rounded;
+  setStretch(rounded);
+  onStretchChange?.(rounded);
+}
 
 /**
  * 문서 최상단에서 위로 더 당길 수 없을 때(고무줄), 시각 피드백용 값.
  * 데스크톱: wheel deltaY&lt;0, 터치: 최상단에서 아래로 당김.
+ * 매장 히어로 배너 가로 스와이프는 stretch·preventDefault 에서 제외한다.
  */
 export function useRubberBandAtDocumentTop(
   maxStretchPx = 90,
@@ -28,17 +52,22 @@ export function useRubberBandAtDocumentTop(
   const decayRaf = useRef<number>(0);
   const touchStartYRef = useRef<number | null>(null);
   const touchStartXRef = useRef<number | null>(null);
+  const gestureLockRef = useRef<RubberBandGestureLock>("none");
+  const touchInHeroScrollerRef = useRef(false);
+
+  const onStretchChange = options?.onStretchChange;
+  const onStretchChangeRef = useRef(onStretchChange);
+  onStretchChangeRef.current = onStretchChange;
 
   const scheduleDecay = useCallback(() => {
     cancelAnimationFrame(decayRaf.current);
     const tick = () => {
       stretchRef.current *= 0.88;
       if (stretchRef.current < 0.6) {
-        stretchRef.current = 0;
-        setStretch(0);
+        publishStretch(0, stretchRef, setStretch, onStretchChangeRef.current);
         return;
       }
-      setStretch(stretchRef.current);
+      publishStretch(stretchRef.current, stretchRef, setStretch, onStretchChangeRef.current);
       decayRaf.current = requestAnimationFrame(tick);
     };
     decayRaf.current = requestAnimationFrame(tick);
@@ -49,10 +78,14 @@ export function useRubberBandAtDocumentTop(
   useEffect(() => {
     const scrollTop = () => getMainAppScrollTop();
 
+    const clearStretch = () => {
+      if (stretchRef.current === 0) return;
+      publishStretch(0, stretchRef, setStretch, onStretchChangeRef.current);
+    };
+
     const onScroll = () => {
       if (scrollTop() > 14) {
-        stretchRef.current = 0;
-        setStretch(0);
+        clearStretch();
       }
     };
 
@@ -61,12 +94,18 @@ export function useRubberBandAtDocumentTop(
       if (scrollTop() > 4) return;
       if (evt.deltaY >= 0) return;
       const add = Math.min(18, -evt.deltaY * 0.07);
-      stretchRef.current = Math.min(maxStretchPx, stretchRef.current + add);
-      setStretch(stretchRef.current);
+      publishStretch(
+        Math.min(maxStretchPx, stretchRef.current + add),
+        stretchRef,
+        setStretch,
+        onStretchChangeRef.current
+      );
       scheduleDecay();
     };
 
     const onTouchStart = (e: TouchEvent) => {
+      gestureLockRef.current = "none";
+      touchInHeroScrollerRef.current = false;
       if (scrollTop() > 2) {
         touchStartYRef.current = null;
         touchStartXRef.current = null;
@@ -74,25 +113,55 @@ export function useRubberBandAtDocumentTop(
       }
       touchStartYRef.current = e.touches[0]?.clientY ?? null;
       touchStartXRef.current = e.touches[0]?.clientX ?? null;
+      touchInHeroScrollerRef.current = touchStartedInStoreHeroHorizontalScroller(
+        e.target
+      );
     };
 
     const onTouchMove = (e: TouchEvent) => {
       if (touchStartYRef.current == null || touchStartXRef.current == null) return;
       if (scrollTop() > 2) return;
+
       const y = e.touches[0]?.clientY;
       const x = e.touches[0]?.clientX;
       if (y == null || x == null) return;
+
       const dy = y - touchStartYRef.current;
       const dx = x - touchStartXRef.current;
-      /** 가로 스크롤(카테고리 칩 등)과 구분 — 세로 아래 당김이 우세할 때만 네이티브 바운스 차단 */
-      const verticalPullDominant = dy > 4 && dy >= Math.abs(dx) * 0.85;
-      if (verticalPullDominant && blockNativeViewportOverscroll) {
+
+      if (touchInHeroScrollerRef.current && gestureLockRef.current === "none") {
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        if (absDx > absDy * 1.1 && absDx > 6) {
+          gestureLockRef.current = "horizontal";
+        }
+      }
+
+      const classification = classifyRubberBandTouchMove(
+        dx,
+        dy,
+        gestureLockRef.current
+      );
+      gestureLockRef.current = resolveRubberBandGestureLock(
+        gestureLockRef.current,
+        classification
+      );
+
+      if (
+        blockNativeViewportOverscroll &&
+        shouldBlockNativeOverscroll(classification)
+      ) {
         e.preventDefault();
       }
-      if (dy > 0) {
+
+      if (classification === "vertical_pull") {
         cancelAnimationFrame(decayRaf.current);
-        stretchRef.current = Math.min(maxStretchPx, dy * 0.58);
-        setStretch(stretchRef.current);
+        publishStretch(
+          rubberBandStretchFromDy(dy, maxStretchPx),
+          stretchRef,
+          setStretch,
+          onStretchChangeRef.current
+        );
       }
     };
 
@@ -100,6 +169,8 @@ export function useRubberBandAtDocumentTop(
       if (stretchRef.current > 0) scheduleDecay();
       touchStartYRef.current = null;
       touchStartXRef.current = null;
+      gestureLockRef.current = "none";
+      touchInHeroScrollerRef.current = false;
     };
 
     const unsubScroll = subscribeAppShellScroll(onScroll, { passive: true });

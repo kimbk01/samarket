@@ -46,6 +46,7 @@ import {
   getStoreDetailScrollTop,
   setStoreDetailScrollTop,
 } from "@/lib/ui/store-detail-scroll-root";
+import { STORE_HERO_RUBBER_STRETCH_ATTR } from "@/lib/ui/rubber-band-gesture";
 import { readStoreDetailFixedHeaderOffsetPxCached } from "@/lib/ui/store-detail-viewport-metrics";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
@@ -1083,6 +1084,9 @@ export function StoreDetailPublic({
       setHeaderSolid(true);
       return;
     }
+    const rubberPx = Number(hero.getAttribute(STORE_HERO_RUBBER_STRETCH_ATTR) ?? 0);
+    if (rubberPx > 0) return;
+
     const bottom = hero.getBoundingClientRect().bottom;
     const hysteresisPx = 10;
     setHeaderSolid((prev) => {

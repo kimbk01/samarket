@@ -40,7 +40,7 @@ export function AdminSidebar({
   const menu = useMemo(() => filterMenuByRole(adminMenu, role), [role]);
 
   const asideClass = [
-    "admin-sidebar sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r",
+    "admin-sidebar sticky top-0 z-30 flex h-[100dvh] max-h-[100dvh] w-56 min-w-[14rem] shrink-0 flex-col border-r",
     !desktopVisible ? "lg:hidden" : "",
     isMobileOpen ? "admin-sidebar--open" : "",
   ]
@@ -51,11 +51,16 @@ export function AdminSidebar({
     <aside className={asideClass}>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="admin-sidebar__header flex shrink-0 items-center border-b px-3 py-3">
-          <Link href="/admin" className="admin-sidebar__brand sam-text-section-title" onClick={() => onClose?.()}>
+          <Link
+            href="/admin"
+            prefetch={false}
+            className="admin-sidebar__brand sam-text-section-title"
+            onClick={() => onClose?.()}
+          >
             {t("admin_brand")}
           </Link>
         </div>
-        <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+        <nav className="admin-sidebar__nav min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-2 py-3 [-webkit-overflow-scrolling:touch] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]">
           {menu.map((item) =>
             item.children?.length ? (
               <AdminSidebarGroup

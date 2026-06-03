@@ -105,7 +105,12 @@ export function StoreOwnerBannerCarousel({
 
     return (
       <div className="absolute inset-0 min-h-0 min-w-0 overflow-hidden">
-        <div ref={scrollerRef} className={scrollerClass} style={{ WebkitOverflowScrolling: "touch" }}>
+        <div
+          ref={scrollerRef}
+          data-store-hero-banner-scroller
+          className={scrollerClass}
+          style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorX: "contain" }}
+        >
           {banners.map((b) => {
             const href = bannerHref(storeSlug, b);
             const body = (

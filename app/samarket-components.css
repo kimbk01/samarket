@@ -1165,6 +1165,10 @@
   [data-admin] .admin-sidebar__toggle {
     color: color-mix(in srgb, var(--dibay-card) 78%, transparent);
   }
+
+  [data-admin] .admin-sidebar__nav {
+    scrollbar-gutter: stable;
+  }
 }
 
 /* 모바일(lg 미만)에서 어드민 사이드바 — fixed overlay drawer */

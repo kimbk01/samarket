@@ -37,3 +37,12 @@ export function isLeafMenuActive(
   const best = bestMatchingMenuPath(currentPath, pathsScope);
   return best === path;
 }
+
+/** 그룹 하위(중첩 포함)에 현재 경로와 매칭되는 path 가 있는지 */
+export function hasActiveDescendantInMenu(
+  items: AdminMenuItem[],
+  currentPath: string
+): boolean {
+  const paths = collectMenuPaths(items);
+  return bestMatchingMenuPath(currentPath, paths) != null;
+}

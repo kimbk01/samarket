@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { storeDetailHeroMediaBoxStyle } from "@/lib/dibay/store-detail-hero-layout";
+import { STORE_HERO_RUBBER_STRETCH_ATTR } from "@/lib/ui/rubber-band-gesture";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 
 /** 매장 상세 `StoreOrderHeroSummary` 와 동일 — `#store-hero-media` + 당김 확대 */
@@ -13,8 +14,21 @@ export function StoreProductDetailHeroMedia({
   imageUrl: string;
   profileFallbackUrl: string;
 }) {
+  const heroMediaRef = useRef<HTMLDivElement>(null);
+
+  const syncHeroRubberStretchAttr = useCallback((px: number) => {
+    const el = heroMediaRef.current;
+    if (!el) return;
+    if (px > 0) {
+      el.setAttribute(STORE_HERO_RUBBER_STRETCH_ATTR, String(Math.round(px)));
+    } else {
+      el.removeAttribute(STORE_HERO_RUBBER_STRETCH_ATTR);
+    }
+  }, []);
+
   const { stretch: heroStretch, scale: heroRubberScale } = useRubberBandAtDocumentTop(120, {
     blockNativeViewportOverscroll: true,
+    onStretchChange: syncHeroRubberStretchAttr,
   });
   const heroRubberPx = Math.max(0, heroStretch);
   const img = imageUrl.trim() || profileFallbackUrl.trim() || "";
@@ -38,6 +52,7 @@ export function StoreProductDetailHeroMedia({
         }
       >
         <div
+          ref={heroMediaRef}
           id="store-hero-media"
           className={
             img

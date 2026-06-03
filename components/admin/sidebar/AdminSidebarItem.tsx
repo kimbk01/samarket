@@ -93,6 +93,7 @@ export function AdminSidebarItem({
           {item.path ? (
             <Link
               href={item.path}
+              prefetch={false}
               className={`${groupLabelClass} cursor-pointer`}
               onClick={(e) => {
                 e.preventDefault();
@@ -140,15 +141,39 @@ export function AdminSidebarItem({
 
   if (!item.path) return null;
 
+  const badge =
+    menuBadge > 0 ? (
+      <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+        {menuBadge > 99 ? "99+" : menuBadge}
+      </span>
+    ) : null;
+
+  /** pendingRoute — Next Link prefetch 가 미구현 path 로 _rsc 404 를 유발하므로 네비게이션 금지 */
+  if (pending) {
+    return (
+      <div className="py-0.5">
+        <span
+          className={`${linkClass} flex cursor-not-allowed items-center justify-between gap-2`}
+          aria-disabled="true"
+          title={t("admin_trade_hub_note_page_prep")}
+        >
+          <span className="truncate">{displayTitle}</span>
+          {badge}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className="py-0.5">
-      <Link href={item.path} className={`${linkClass} flex items-center justify-between gap-2`} onClick={() => onClose?.()}>
+      <Link
+        href={item.path}
+        prefetch={false}
+        className={`${linkClass} flex items-center justify-between gap-2`}
+        onClick={() => onClose?.()}
+      >
         <span className="truncate">{displayTitle}</span>
-        {menuBadge > 0 ? (
-          <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
-            {menuBadge > 99 ? "99+" : menuBadge}
-          </span>
-        ) : null}
+        {badge}
       </Link>
     </div>
   );

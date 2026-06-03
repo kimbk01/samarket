@@ -11,6 +11,8 @@ type HubCard = {
   titleKey: MessageKey;
   descriptionKey: MessageKey;
   noteKey?: MessageKey;
+  /** true — 라우트 미구현, Link/prefetch 금지(404 방지) */
+  pendingRoute?: true;
 };
 
 type HubSection = {
@@ -72,12 +74,14 @@ const SECTIONS: HubSection[] = [
         titleKey: "admin_menu_trade_offers",
         descriptionKey: "admin_trade_hub_desc_offers",
         noteKey: "admin_trade_hub_note_route_404",
+        pendingRoute: true,
       },
       {
         href: "/admin/trade-status",
         titleKey: "admin_menu_trade_status",
         descriptionKey: "admin_trade_hub_desc_trade_status",
         noteKey: "admin_trade_hub_note_page_prep",
+        pendingRoute: true,
       },
     ],
   },
@@ -139,6 +143,7 @@ export function AdminTradeHub() {
           title: t(card.titleKey),
           description: t(card.descriptionKey),
           note: card.noteKey ? t(card.noteKey) : undefined,
+          pendingRoute: card.pendingRoute === true,
         })),
       })),
     [t]
@@ -156,14 +161,26 @@ export function AdminTradeHub() {
             <ul className="grid gap-3 sm:grid-cols-2">
               {section.items.map((card) => (
                 <li key={card.href}>
-                  <Link
-                    href={card.href}
-                    className="block h-full rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body shadow-sm transition hover:border-signature/40 hover:bg-sam-app/80"
-                  >
-                    <span className="font-medium text-sam-fg">{card.title}</span>
-                    <p className="mt-1 sam-text-body-secondary text-sam-muted">{card.description}</p>
-                    {card.note ? <p className="mt-1 sam-text-xxs text-amber-800/90">{card.note}</p> : null}
-                  </Link>
+                  {card.pendingRoute ? (
+                    <div
+                      className="block h-full cursor-not-allowed rounded-ui-rect border border-dashed border-sam-border bg-sam-surface/80 p-4 sam-text-body opacity-90"
+                      aria-disabled="true"
+                    >
+                      <span className="font-medium text-sam-fg">{card.title}</span>
+                      <p className="mt-1 sam-text-body-secondary text-sam-muted">{card.description}</p>
+                      {card.note ? <p className="mt-1 sam-text-xxs text-amber-800/90">{card.note}</p> : null}
+                    </div>
+                  ) : (
+                    <Link
+                      href={card.href}
+                      prefetch={false}
+                      className="block h-full rounded-ui-rect border border-sam-border bg-sam-surface p-4 sam-text-body shadow-sm transition hover:border-signature/40 hover:bg-sam-app/80"
+                    >
+                      <span className="font-medium text-sam-fg">{card.title}</span>
+                      <p className="mt-1 sam-text-body-secondary text-sam-muted">{card.description}</p>
+                      {card.note ? <p className="mt-1 sam-text-xxs text-amber-800/90">{card.note}</p> : null}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

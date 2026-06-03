@@ -4,7 +4,10 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef } from "react";
+import {
+  STORE_HERO_RUBBER_STRETCH_ATTR,
+} from "@/lib/ui/rubber-band-gesture";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
@@ -129,9 +132,22 @@ export function StoreOrderHeroSummary({
   storeSlug?: string | null;
 }) {
   const { t, language } = useI18n();
+  const heroMediaRef = useRef<HTMLDivElement>(null);
+
+  const syncHeroRubberStretchAttr = useCallback((px: number) => {
+    const el = heroMediaRef.current;
+    if (!el) return;
+    if (px > 0) {
+      el.setAttribute(STORE_HERO_RUBBER_STRETCH_ATTR, String(Math.round(px)));
+    } else {
+      el.removeAttribute(STORE_HERO_RUBBER_STRETCH_ATTR);
+    }
+  }, []);
+
   /** 당김 시 레이아웃 높이 + 위로 이동을 같이 줘서 헤더 위 흰 빈 공간이 보이지 않게 함 */
   const { stretch: heroStretch, scale: heroRubberScale } = useRubberBandAtDocumentTop(120, {
     blockNativeViewportOverscroll: true,
+    onStretchChange: syncHeroRubberStretchAttr,
   });
   const heroRubberPx = Math.max(0, heroStretch);
   const img = profileImageUrl?.trim() || "";
@@ -245,6 +261,7 @@ export function StoreOrderHeroSummary({
         }
       >
         <div
+          ref={heroMediaRef}
           id="store-hero-media"
           className={
             heroBannerSlot
