@@ -13,14 +13,20 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  KASAMA_NOTIFICATIONS_UPDATED,
+  NOTIFICATION_SYNC_POLL_MS,
+} from "@/lib/notifications/notification-events";
 
 type Ctx = {
   pendingCount: number;
+  adminBellCount: number;
   refresh: () => Promise<void>;
 };
 
 const AdminStorePointPendingContext = createContext<Ctx>({
   pendingCount: 0,
+  adminBellCount: 0,
   refresh: async () => {},
 });
 
@@ -31,19 +37,28 @@ export function useAdminStorePointPendingCount(): Ctx {
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
+  const [adminBellCount, setAdminBellCount] = useState(0);
   const [toast, setToast] = useState(false);
   const toastTimeoutRef = useRef<number | null>(null);
   const rtTimeoutRef = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/store-points/summary", { credentials: "include" });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        summary?: { pending_charge_count?: number };
-      };
-      if (res.ok && json.ok) {
-        setPendingCount(Number(json.summary?.pending_charge_count) || 0);
+      const { resOk, json } = await runSingleFlight("admin:bell:summary-json", async () => {
+        const res = await fetch("/api/admin/admin-bell", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          total?: number;
+          by_category?: { charges?: number };
+        };
+        return { resOk: res.ok, json };
+      });
+      if (resOk && json.ok) {
+        setAdminBellCount(Math.max(0, Math.floor(Number(json.total) || 0)));
+        setPendingCount(Math.max(0, Math.floor(Number(json.by_category?.charges) || 0)));
       }
     } catch {
       /* ignore */
@@ -52,6 +67,24 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    const onUpdated = () => void refresh();
+    window.addEventListener("visibilitychange", onVis);
+    window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refresh();
+    }, NOTIFICATION_SYNC_POLL_MS);
+
+    return () => {
+      window.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
+      window.clearInterval(id);
+    };
   }, [refresh]);
 
   useEffect(() => {
@@ -90,7 +123,10 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     };
   }, [refresh]);
 
-  const value = useMemo(() => ({ pendingCount, refresh }), [pendingCount, refresh]);
+  const value = useMemo(
+    () => ({ pendingCount, adminBellCount, refresh }),
+    [adminBellCount, pendingCount, refresh]
+  );
 
   return (
     <AdminStorePointPendingContext.Provider value={value}>

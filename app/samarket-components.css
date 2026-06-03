@@ -1131,14 +1131,19 @@
   }
 
   [data-admin] .admin-sidebar__group-title {
-    background: color-mix(in srgb, var(--dibay-card) 10%, transparent);
-    color: var(--dibay-card);
+    background: color-mix(in srgb, var(--dibay-card) 8%, transparent);
+    color: color-mix(in srgb, var(--dibay-card) 55%, transparent);
+    /* 섹션 구분: 소문자 그대로, 크기만 줄여 메뉴 항목과 위계 구분 */
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
   }
 
   [data-admin] .admin-sidebar__item-active,
   [data-admin] .admin-sidebar__group-active {
     background: color-mix(in srgb, var(--dibay-gold) 22%, transparent);
-    box-shadow: none;
+    /* inset left border: padding 변경 없이 gold 지시자 표시 */
+    box-shadow: inset 3px 0 0 var(--dibay-gold);
     outline: 1px solid color-mix(in srgb, var(--dibay-gold) 32%, transparent);
     outline-offset: -1px;
   }
@@ -1146,6 +1151,8 @@
   [data-admin] .admin-sidebar__item-inactive,
   [data-admin] .admin-sidebar__group-inactive {
     color: color-mix(in srgb, var(--dibay-card) 82%, transparent);
+    /* placeholder: 레이아웃 흔들림 방지 (box-shadow는 공간 차지 안 함) */
+    box-shadow: inset 3px 0 0 transparent;
   }
 
   [data-admin] .admin-sidebar__item-inactive:hover,
@@ -1158,7 +1165,26 @@
   [data-admin] .admin-sidebar__toggle {
     color: color-mix(in srgb, var(--dibay-card) 78%, transparent);
   }
+}
 
+/* 모바일(lg 미만)에서 어드민 사이드바 — fixed overlay drawer */
+@media (max-width: 1023px) {
+  [data-admin] .admin-sidebar {
+    position: fixed;
+    inset-block: 0;
+    left: 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+    width: 18rem;
+  }
+
+  [data-admin] .admin-sidebar--open {
+    transform: translateX(0);
+  }
+}
+
+@layer components {
   .sam-divider {
     @apply h-px w-full bg-sam-border;
   }

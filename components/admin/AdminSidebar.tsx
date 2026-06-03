@@ -21,18 +21,37 @@ function toMenuRole(role: "operator" | "manager" | "master"): AdminMenuRole {
   return "master";
 }
 
-export function AdminSidebar() {
-  const { tt, t } = useI18n();
+export function AdminSidebar({
+  desktopVisible = true,
+  isMobileOpen = false,
+  onClose,
+}: {
+  /** 데스크탑에서 사이드바 표시 여부. false면 lg: 이상에서 숨겨짐 */
+  desktopVisible?: boolean;
+  /** 모바일 overlay 열림 여부 */
+  isMobileOpen?: boolean;
+  /** 모바일에서 메뉴 링크 클릭 시 호출 */
+  onClose?: () => void;
+}) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const role = toMenuRole(getAdminRole());
   const menu = useMemo(() => filterMenuByRole(adminMenu, role), [role]);
 
+  const asideClass = [
+    "admin-sidebar sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r",
+    !desktopVisible ? "lg:hidden" : "",
+    isMobileOpen ? "admin-sidebar--open" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <aside className="admin-sidebar sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r">
+    <aside className={asideClass}>
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="admin-sidebar__header flex shrink-0 items-center border-b px-3 py-3">
-          <Link href="/admin" className="admin-sidebar__brand sam-text-section-title">
+          <Link href="/admin" className="admin-sidebar__brand sam-text-section-title" onClick={() => onClose?.()}>
             {t("admin_brand")}
           </Link>
         </div>
@@ -43,6 +62,7 @@ export function AdminSidebar() {
                 key={item.key}
                 item={item as AdminMenuItem & { children: AdminMenuItem[] }}
                 currentPath={currentPath}
+                onClose={onClose}
               />
             ) : (
               <AdminSidebarItem
@@ -51,6 +71,7 @@ export function AdminSidebar() {
                 currentPath={currentPath}
                 depth={0}
                 pathsScope={item.path ? [item.path] : undefined}
+                onClose={onClose}
               />
             )
           )}

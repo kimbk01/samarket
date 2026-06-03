@@ -10,9 +10,11 @@ import { collectMenuPaths } from "./admin-sidebar-active-path";
 export function AdminSidebarGroup({
   item,
   currentPath,
+  onClose,
 }: {
   item: AdminMenuItem & { children: AdminMenuItem[] };
   currentPath: string;
+  onClose?: () => void;
 }) {
   const { t, tt } = useI18n();
   const status = getMenuStatus(item);
@@ -21,8 +23,8 @@ export function AdminSidebarGroup({
 
   return (
     <div className="mb-4">
-      <div className="admin-sidebar__group-title mb-2 rounded-ui-rect px-3 py-2.5">
-        <p className="sam-text-body-lg font-extrabold tracking-tight">
+      <div className="admin-sidebar__group-title mb-2 rounded-ui-rect px-3 py-2">
+        <p className="font-bold tracking-wide uppercase">
           {displayTitle}
         </p>
       </div>
@@ -34,6 +36,7 @@ export function AdminSidebarGroup({
             currentPath={currentPath}
             depth={0}
             pathsScope={pathsScope}
+            onClose={onClose}
           />
         ))}
       </div>

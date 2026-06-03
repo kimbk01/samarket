@@ -1,68 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  KASAMA_NOTIFICATIONS_UPDATED,
-  NOTIFICATION_SYNC_POLL_MS,
-} from "@/lib/notifications/notification-events";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 
+/**
+ * 어드민 전용 알림 벨.
+ *
+ * /api/admin/admin-bell 에서 어드민 액션 필요 항목(충전 대기·신고·배달 알림)을
+ * 집계해 뱃지로 표시한다. 일반 유저 알림 API(/api/me/notifications)와 무관.
+ */
 export function AdminNotificationBell() {
   const { t } = useI18n();
-  const [count, setCount] = useState(0);
-
-  const load = useCallback(async () => {
-    try {
-      const res = await runSingleFlight("me:notifications:unread_count_only=1:admin-bell", () =>
-        fetch("/api/me/notifications?unread_count_only=1", {
-          credentials: "include",
-          cache: "no-store",
-        })
-      );
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; unread_count?: number };
-      if (res.ok && j?.ok) {
-        setCount(Math.max(0, Math.floor(Number(j.unread_count) || 0)));
-      } else {
-        setCount(0);
-      }
-    } catch {
-      setCount(0);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  useEffect(() => {
-    const onVis = () => {
-      if (document.visibilityState === "visible") void load();
-    };
-    const onUpdated = () => void load();
-    if (typeof window !== "undefined") {
-      window.addEventListener("visibilitychange", onVis);
-      window.addEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener("visibilitychange", onVis);
-        window.removeEventListener(KASAMA_NOTIFICATIONS_UPDATED, onUpdated);
-      }
-    };
-  }, [load]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (document.visibilityState === "visible") void load();
-    }, NOTIFICATION_SYNC_POLL_MS);
-    return () => clearInterval(id);
-  }, [load]);
+  const { adminBellCount: count } = useAdminStorePointPendingCount();
 
   return (
     <Link
-      href="/admin/order-notifications"
+      href="/admin/reports"
       className="relative inline-flex h-9 items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 sam-text-helper font-medium text-foreground"
     >
       <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>

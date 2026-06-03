@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminMenuItem } from "../admin-menu";
@@ -12,7 +12,8 @@ const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
 
 function isPathActive(path: string | undefined, currentPath: string): boolean {
   if (!path) return false;
-  return currentPath === path || currentPath.startsWith(`${path}/`);
+  const normalizedPath = path.split("?")[0] ?? path;
+  return currentPath === normalizedPath || currentPath.startsWith(`${normalizedPath}/`);
 }
 
 function hasActiveChild(item: AdminMenuItem, currentPath: string): boolean {
@@ -28,11 +29,14 @@ export function AdminSidebarItem({
   depth = 0,
   /** 같은 사이드바 그룹 내 path 집합 — 있으면 leaf 활성은 '가장 긴 prefix 일치'만 true */
   pathsScope,
+  /** 모바일 overlay 닫기 — 링크 클릭 시 호출 */
+  onClose,
 }: {
   item: AdminMenuItem;
   currentPath: string;
   depth?: number;
   pathsScope?: string[];
+  onClose?: () => void;
 }) {
   const { tt, t } = useI18n();
   const { pendingCount } = useAdminStorePointPendingCount();
@@ -43,6 +47,10 @@ export function AdminSidebarItem({
   const isActive = isPathActive(item.path, currentPath);
   const childActive = hasActiveChild(item, currentPath);
   const [open, setOpen] = useState(isActive || childActive);
+
+  useEffect(() => {
+    if (isActive || childActive) setOpen(true);
+  }, [childActive, isActive]);
 
   const pending = item.pendingRoute === true;
   const status = getMenuStatus(item);
@@ -121,6 +129,7 @@ export function AdminSidebarItem({
                 currentPath={currentPath}
                 depth={depth + 1}
                 pathsScope={pathsScope}
+                onClose={onClose}
               />
             ))}
           </div>
@@ -133,7 +142,7 @@ export function AdminSidebarItem({
 
   return (
     <div className="py-0.5">
-      <Link href={item.path} className={`${linkClass} flex items-center justify-between gap-2`}>
+      <Link href={item.path} className={`${linkClass} flex items-center justify-between gap-2`} onClick={() => onClose?.()}>
         <span className="truncate">{displayTitle}</span>
         {menuBadge > 0 ? (
           <span className="shrink-0 rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">

@@ -123,7 +123,7 @@ export function AdminShellToolbar({
         onClick={toggleSidebar}
         aria-pressed={sidebarExpanded}
         aria-label={sidebarToggleLabel}
-        className={iconBtnClass}
+        className={`${iconBtnClass} hidden lg:inline-flex`}
         title={sidebarToggleLabel}
       >
         {sidebarExpanded ? <IconSidebarClose /> : <IconSidebarOpen />}
