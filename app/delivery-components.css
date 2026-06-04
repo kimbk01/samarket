@@ -1032,14 +1032,13 @@
     color: var(--dibay-cream);
   }
 
-  /** browse 헤더 3단 — 1차 업종 균등 텍스트 탭바 (토큰 비율) */
+  /** browse 헤더 3단 — 1차 업종 pill(정렬 칩과 동일 `delivery-category-chip`) */
   .stores-browse-header-primary-tabs {
     --browse-primary-tab-menu-w: var(--delivery-browse-primary-tab-menu-w);
-    --browse-primary-tab-count: var(--delivery-browse-primary-tab-count);
     display: flex;
     width: 100%;
-    height: var(--delivery-browse-primary-tab-h);
-    align-items: stretch;
+    min-height: calc(var(--delivery-browse-primary-tab-h) + 0.5rem);
+    align-items: center;
     border-bottom: 1px solid var(--delivery-border);
     background: var(--dibay-cream);
   }
@@ -1048,7 +1047,8 @@
     display: flex;
     min-width: 0;
     flex: 1 1 0;
-    align-items: stretch;
+    align-items: center;
+    padding-block: 0.25rem;
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
@@ -1067,70 +1067,39 @@
   .stores-browse-header-primary-tabs__track {
     display: inline-flex;
     width: max-content;
-    min-width: 100%;
     flex-wrap: nowrap;
-    align-items: stretch;
+    align-items: center;
+    gap: 0.5rem;
+    padding-inline: var(--delivery-page-x);
   }
 
-  .stores-browse-header-primary-tab {
-    position: relative;
-    display: flex;
-    height: var(--delivery-browse-primary-tab-h);
+  .stores-browse-header-primary-tab.delivery-category-chip {
     box-sizing: border-box;
     flex: 0 0 auto;
-    min-width: var(--delivery-browse-primary-tab-min-w);
-    align-items: center;
-    justify-content: center;
-    padding-inline: 10px;
-    color: var(--delivery-text-sub);
-    font-family: inherit;
-    text-align: center;
+    max-width: 9.5rem;
+    overflow: hidden;
     text-decoration: none;
     touch-action: manipulation;
-    user-select: none;
-    -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
   .stores-browse-header-primary-tab__label {
     display: block;
-    width: 100%;
     min-width: 0;
+    max-width: 100%;
     overflow: hidden;
-    font-size: var(--delivery-browse-primary-tab-fs);
-    font-weight: var(--delivery-browse-primary-tab-weight-idle);
-    line-height: var(--delivery-browse-primary-tab-lh);
-    letter-spacing: var(--delivery-browse-primary-tab-tracking);
     text-overflow: ellipsis;
     white-space: nowrap;
     transition: transform 120ms cubic-bezier(0.25, 0.9, 0.35, 1);
   }
 
-  .stores-browse-header-primary-tab--active {
-    color: var(--delivery-text-main);
-  }
-
-  .stores-browse-header-primary-tab--active .stores-browse-header-primary-tab__label {
-    font-weight: var(--delivery-browse-primary-tab-weight-active);
-  }
-
-  .stores-browse-header-primary-tab--active::after {
-    position: absolute;
-    right: 6px;
-    bottom: 0;
-    left: 6px;
-    height: 2px;
-    background: var(--delivery-text-main);
-    content: "";
-  }
-
-  .stores-browse-header-primary-tab:active,
-  .stores-browse-header-primary-tab--pending {
-    background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
-  }
-
   .stores-browse-header-primary-tab:active .stores-browse-header-primary-tab__label {
     transform: scale(0.96);
+  }
+
+  .stores-browse-header-primary-tab--pending:not(.delivery-category-chip--active) {
+    border-color: var(--delivery-primary);
+    color: var(--delivery-text-main);
   }
 
   /** browse 헤더 4단 — 2차 칩 눌림·선택 */
@@ -1184,6 +1153,21 @@
 
   .stores-browse-header-primary-tab-menu-btn:active {
     background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
+  }
+
+  /** browse 4단(2차) — 목록 스크롤 시 접기(1차·정렬 칩 유지) */
+  [data-stores-browse-subtopic-collapse] {
+    max-height: var(--delivery-home-subcategory-reveal-h);
+    overflow: hidden;
+    transition:
+      max-height 200ms ease,
+      opacity 150ms ease;
+  }
+
+  [data-stores-browse-subtopic-collapse][data-collapsed="true"] {
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .stores-browse-header-subtopic-tabs {

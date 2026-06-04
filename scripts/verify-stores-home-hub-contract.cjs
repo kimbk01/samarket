@@ -897,6 +897,37 @@ assertIncludes(
   "load policy must read session live store before TTL cache"
 );
 
+const browsePrimaryTabs = read("components/stores/browse/StoresBrowseHeaderPrimaryTabs.tsx");
+assertIncludes(
+  browsePrimaryTabs,
+  "delivery-category-chip",
+  "browse primary tabs must use delivery-category-chip pills"
+);
+assertIncludes(
+  browsePrimaryTabs,
+  "storeCategoryPillClass",
+  "browse primary tabs must use shared pill class helper"
+);
+
+const browseScrollCollapse = read("components/stores/browse/StoresBrowseHeaderScrollCollapse.tsx");
+assertIncludes(
+  browseScrollCollapse,
+  "useStoresBrowseHeaderScrollHide",
+  "browse subtopic collapse must wire scroll-hide hook"
+);
+
+const deliveryComponents = read("app/delivery-components.css");
+assertIncludes(
+  deliveryComponents,
+  "data-stores-browse-subtopic-collapse",
+  "delivery CSS must define browse subtopic collapse"
+);
+assertIncludes(
+  deliveryComponents,
+  '[data-stores-browse-subtopic-collapse][data-collapsed="true"]',
+  "delivery CSS must collapse browse subtopic row on scroll"
+);
+
 if (process.exitCode !== 1) {
 
   console.log("verify-stores-home-hub-contract: ok");

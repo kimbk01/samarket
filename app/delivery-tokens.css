@@ -140,10 +140,9 @@
   --delivery-menu-card-min-h: 124px;
   --delivery-menu-plus-size: 44px;
   --delivery-sticky-tab-h: 36px;
-  /** browse 3단 1차 텍스트 탭 — 44px 행·8칸·▼44px 비율 */
-  --delivery-browse-primary-tab-h: 44px;
-  --delivery-browse-primary-tab-menu-w: 44px;
-  --delivery-browse-primary-tab-count: 8;
+  /** browse 3단 1차 pill — 정렬 칩과 동일 36px + ▼ */
+  --delivery-browse-primary-tab-h: var(--delivery-sticky-tab-h);
+  --delivery-browse-primary-tab-menu-w: var(--delivery-sticky-tab-h);
   --delivery-browse-primary-tab-fs: 14px;
   --delivery-browse-primary-tab-lh: 1.143;
   --delivery-browse-primary-tab-tracking: -0.02em;
