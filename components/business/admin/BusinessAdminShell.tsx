@@ -36,7 +36,6 @@ import { useOwnerCommerceNotificationUnreadCountDeferred } from "@/hooks/useOwne
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
-import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { OwnerMobileAdminHeader } from "@/components/business/owner/OwnerMobileAdminHeader";
 import { OwnerMobileAdminHeaderTrailingProvider } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
@@ -397,13 +396,18 @@ export function BusinessAdminShell({
   const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCountDeferred(isHub);
   const isOwnerAdminRoute = isStoreOwnerAdminPathname(pathname);
   const ownerHubBreakdown = useOwnerHubBadgeBreakdownWhenEnabled(!isOwnerAdminRoute);
-  const ownerOpsAttention = resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown);
   const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? shellOrderAlertsBadge;
+  const ownerOrderAttentionCount = isHub
+    ? hubOrderAlertsBadge
+    : Math.max(
+        Math.floor(Number(ownerHubBreakdown.orderAttention) || 0),
+        shellOrderAlertsBadge
+      );
+  const ownerHeaderBellCount = ownerOrderAttentionCount;
+  const ownerBellShowsUnreadDot =
+    (ownerCommerceUnread ?? 0) > 0 && ownerHeaderBellCount === 0;
   const ownerMobileBottomNavChatBadge =
     hubOrderAlertsBadge > 0 ? Math.min(hubOrderAlertsBadge, 99) : 0;
-  const ownerHeaderBellCount = isHub
-    ? Math.max(hubOrderAlertsBadge, ownerCommerceUnread ?? 0)
-    : Math.max(ownerOpsAttention, shellOrderAlertsBadge, ownerCommerceUnread ?? 0);
 
   const navCtx = useMemo(() => {
     if (!selectedRow) {
@@ -447,15 +451,34 @@ export function BusinessAdminShell({
     return resolveOwnerStoreNotificationsHref(row);
   }, [selectedRow, stores, storeIdParam]);
 
+  const ownerBellHref = useMemo(() => {
+    const sid = (selectedRow?.id ?? storeIdParam).trim();
+    if (ownerOrderAttentionCount > 0 && sid) {
+      return (
+        ownerHubBreakdown.storeDeepLink ??
+        buildStoreOrdersHref({ storeId: sid, tab: "new" })
+      );
+    }
+    return ownerNotificationsHref;
+  }, [
+    ownerOrderAttentionCount,
+    ownerHubBreakdown.storeDeepLink,
+    selectedRow?.id,
+    storeIdParam,
+    ownerNotificationsHref,
+  ]);
+
   const ownerNotificationBell =
-    ownerNotificationsHref ?
+    ownerBellHref ?
       <Link
-        href={ownerNotificationsHref}
+        href={ownerBellHref}
         className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
         aria-label={
           ownerHeaderBellCount > 0
             ? t("business_phase7_581", { v1: String(ownerHeaderBellCount) })
-            : t("business_phase7_580")
+            : ownerBellShowsUnreadDot
+              ? t("store_owner_aria_notifications_unread_only")
+              : t("business_phase7_580")
         }
       >
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -469,6 +492,11 @@ export function BusinessAdminShell({
           <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
             {ownerHeaderBellCount > 99 ? "99+" : ownerHeaderBellCount}
           </span>
+        ) : ownerBellShowsUnreadDot ? (
+          <span
+            className={`${OWNER_HUB_BADGE_DOT_CLASS} h-2.5 min-w-2.5 ring-sam-surface/80`}
+            aria-hidden
+          />
         ) : null}
       </Link>
     : null;

@@ -10,7 +10,12 @@ import type {
 } from "@/lib/community-messenger/types";
 import { getMessageLongPressActions } from "@/lib/community-messenger/message-actions/message-long-press-policy";
 import { messageRoomKindForActions } from "@/lib/community-messenger/message-actions/message-room-kind";
-import { canDeleteMessageForEveryone, canDeleteMessageForMe } from "@/lib/community-messenger/message-actions/message-delete-policy";
+import {
+  canDeleteMessageForEveryone,
+  canDeleteMessageForMe,
+  canHideMessageForMe,
+} from "@/lib/community-messenger/message-actions/message-delete-policy";
+import { canEditMessageText } from "@/lib/community-messenger/message-actions/message-edit-policy";
 import {
   canCopyMessageLink,
   canShareMessageExternally,
@@ -28,6 +33,7 @@ export type MessageLongPressPopoverProps = {
   snapshot: CommunityMessengerRoomSnapshot;
   onClose: () => void;
   onCopy: () => void;
+  onEdit: () => void;
   onReply: () => void;
   onShareToRoom: () => void;
   onShareExternal: () => void;
@@ -45,7 +51,6 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number }>({ top: anchorRect.top, left: anchorRect.left });
   const [shareExpanded, setShareExpanded] = useState(false);
-  const [deleteExpanded, setDeleteExpanded] = useState(false);
   /**
    * touch-through 방지: 롱프레스 손가락을 뗄 때 발생하는 click 이벤트가
    * backdrop에 전달되어 팝오버가 즉시 닫히는 현상을 막는다.
@@ -71,11 +76,11 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   });
 
   useEffect(() => {
+    openedAtRef.current = Date.now();
     setShareExpanded((prev) => (prev ? false : prev));
-    setDeleteExpanded((prev) => (prev ? false : prev));
   }, [item.id]);
 
-  /** 앵커·말풍선 정렬 + 공유/삭제 펼침 등으로 패널 높이가 바뀔 때마다 보정(ResizeObserver). */
+  /** 앵커·말풍선 정렬 + 공유 펼침 등으로 패널 높이가 바뀔 때마다 보정(ResizeObserver). */
   useLayoutEffect(() => {
     const el = panelRef.current;
     if (!el) return;
@@ -106,7 +111,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       cancelAnimationFrame(raf);
       ro?.disconnect();
     };
-  }, [anchorRect.bottom, anchorRect.left, anchorRect.right, anchorRect.top, item.isMine]);
+  }, [anchorRect.bottom, anchorRect.left, anchorRect.right, anchorRect.top, item.isMine, shareExpanded]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -119,13 +124,15 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const copyLabel =
     item.messageType === "image" ? t("cm_ui_copy_image_address") : item.messageType === "file" ? t("cm_ui_copy_file_link") : t("common_copy");
   const copyAction = actions.find((a) => a.action === "copy");
+  const editAction = actions.find((a) => a.action === "edit");
   const replyAction = actions.find((a) => a.action === "reply");
   const shareAction = actions.find((a) => a.action === "share");
   const deleteAction = actions.find((a) => a.action === "delete");
   const reactAction = actions.find((a) => a.action === "react");
 
-  const canHide = canDeleteMessageForMe(item, roomKind);
-  const canEveryone = canDeleteMessageForEveryone(item, roomKind);
+  const canHide = canHideMessageForMe(item, roomKind);
+  const canEveryone = item.isMine && canDeleteMessageForEveryone(item, roomKind);
+  const canEdit = canEditMessageText(item, roomKind);
   const isVoice = item.messageType === "voice";
 
   const shareToRoomOk = !roomUnavailable && canShareMessageToRoom(item, roomKind);
@@ -133,9 +140,11 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const shareLinkOk = !roomUnavailable && canCopyMessageLink(item, roomKind);
   const shareBranches = shareToRoomOk || shareExternalOk || shareLinkOk;
 
-  const showDeleteSection = item.isMine && !item.pending && item.messageType !== "system";
+  const showHideForMe = !item.pending && canHide;
+  const showDeleteForEveryone =
+    item.isMine && !item.pending && item.messageType !== "system" && canDeleteMessageForMe(item, roomKind);
 
-  const deleteForMe = showDeleteSection
+  const deleteForMe = showHideForMe
     ? {
         disabled: !canHide || busy === "hide-message",
         title: !canHide ? t("cm_ui_cannot_delete_message") : undefined,
@@ -145,7 +154,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       }
     : undefined;
 
-  const deleteForEveryone = showDeleteSection
+  const deleteForEveryone = showDeleteForEveryone
     ? {
         disabled: !canEveryone || busy === "delete-for-everyone",
         title: !canEveryone ? t("cm_ui_delete_own_within_24h_only") : deleteAction?.reason,
@@ -156,7 +165,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
     : undefined;
 
   const deleteVoiceHard =
-    showDeleteSection && isVoice && props.onDeleteVoice
+    showDeleteForEveryone && isVoice && props.onDeleteVoice
       ? {
           onClick: () => {
             props.onDeleteVoice?.();
@@ -164,11 +173,21 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
         }
       : undefined;
 
+  const editRow = editAction
+    ? {
+        disabled: !editAction.enabled || !canEdit || busy === "edit-message",
+        title: !canEdit ? t("cm_ui_edit_message_unavailable") : editAction.reason,
+        onClick: () => {
+          props.onEdit();
+        },
+      }
+    : undefined;
+
   const node = (
     <div className="fixed inset-0 z-[60]" role="presentation">
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-black/45"
+        className="absolute inset-0 cursor-default bg-transparent"
         aria-label={t("nav_close")}
         onPointerDown={(e) => {
           if (Date.now() - openedAtRef.current < 350) {
@@ -207,6 +226,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           copyDisabled={!copyAction?.enabled}
           copyTitle={copyAction?.reason}
           onCopy={props.onCopy}
+          edit={editRow}
           replyDisabled={!replyAction?.enabled}
           replyTitle={replyAction?.reason}
           onReply={props.onReply}
@@ -214,17 +234,9 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           shareDisabled={!shareAction?.enabled || !shareBranches}
           shareTitle={shareAction?.reason ?? (!shareBranches ? t("cm_ui_cannot_share_in_this_room") : undefined)}
           onToggleShare={() => {
-            setDeleteExpanded(false);
             if (!shareAction?.enabled || !shareBranches) return;
             setShareExpanded((v) => !v);
           }}
-          deleteExpanded={deleteExpanded}
-          onToggleDelete={() => {
-            setShareExpanded(false);
-            if (!showDeleteSection) return;
-            setDeleteExpanded((v) => !v);
-          }}
-          onCancelDeleteNested={() => setDeleteExpanded(false)}
           shareNested={
             shareExpanded && shareBranches
               ? {

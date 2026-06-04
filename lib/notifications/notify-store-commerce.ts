@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -109,9 +109,10 @@ export async function notifyStoreOwnerNewOrder(
           lineCount: lines,
           extra: extraSeg,
         }),
-    link_url: buildStoreOrdersHref({
+    link_url: buildOwnerStoreOrderNotificationHref({
       storeId: sid,
       orderId: oid,
+      kind: "store_order_created",
       ackOwnerNotifications: true,
     }),
     meta: {
@@ -189,9 +190,10 @@ export async function notifyStoreOwnerAcceptReminder(
     dedupe_key: dedupe,
     title,
     body: name ? bodyNamed : body,
-    link_url: buildStoreOrdersHref({
+    link_url: buildOwnerStoreOrderNotificationHref({
       storeId: sid,
       orderId: oid,
+      kind,
       ackOwnerNotifications: true,
     }),
     meta: {
@@ -301,9 +303,10 @@ export async function notifyStoreOwnerPaymentCompleted(
           orderNo,
           amount: amt,
         }),
-    link_url: buildStoreOrdersHref({
+    link_url: buildOwnerStoreOrderNotificationHref({
       storeId: sid,
       orderId: oid,
+      kind: "store_order_payment_completed",
       ackOwnerNotifications: true,
     }),
     meta: {
@@ -358,9 +361,10 @@ export async function notifyStoreOwnerBuyerCancelled(
     body: name
       ? nt(language, "notify_commerce_buyer_cancelled_body_named", { store: name, orderNo })
       : nt(language, "notify_commerce_buyer_cancelled_body", { orderNo }),
-    link_url: buildStoreOrdersHref({
+    link_url: buildOwnerStoreOrderNotificationHref({
       storeId: sid,
       orderId: oid,
+      kind: "store_order_buyer_cancelled",
       ackOwnerNotifications: true,
     }),
     meta: {
@@ -415,10 +419,10 @@ export async function notifyStoreOwnerRefundRequested(
     body: name
       ? nt(language, "notify_commerce_refund_requested_body_named", { store: name, orderNo })
       : nt(language, "notify_commerce_refund_requested_body", { orderNo }),
-    link_url: buildStoreOrdersHref({
+    link_url: buildOwnerStoreOrderNotificationHref({
       storeId: sid,
       orderId: oid,
-      tab: "refund",
+      kind: "store_order_refund_requested",
       ackOwnerNotifications: true,
     }),
     meta: {

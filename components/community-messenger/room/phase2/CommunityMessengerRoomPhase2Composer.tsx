@@ -210,6 +210,9 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     snapshot: phase1Snapshot,
     replyToMessage,
     setReplyToMessage,
+    editingMessage,
+    setEditingMessage,
+    setMessage,
     focusTimelineMessage,
   } = useMessengerRoomClientPhase1Context();
   const roomKey = vm.snapshot.room.id;
@@ -389,7 +392,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       vm.busy === "send-file" ||
       vm.busy === "send-voice" ||
       vm.busy === "send-sticker" ||
-      vm.busy === "delete-message"
+      vm.busy === "delete-message" ||
+      vm.busy === "edit-message"
     ) {
       return;
     }
@@ -436,7 +440,29 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     : `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`;
   const composerFooterInner = (
     <>
-        {replyToMessage && !vm.voiceRecording ? (
+        {editingMessage && !vm.voiceRecording ? (
+          <div className="relative z-[1] mb-2 flex shrink-0 items-center gap-2 border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2">
+            <div className="min-w-0 flex-1 border-l-2 border-[color:var(--cm-room-primary)] pl-2">
+              <p className="sam-text-xxs font-bold leading-snug text-[color:var(--cm-room-primary)]">
+                {t("cm_ui_editing_message_banner")}
+              </p>
+              <p className="mt-0.5 line-clamp-2 sam-text-helper text-[color:var(--cm-room-text-muted)]">
+                {editingMessage.content.trim()}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setEditingMessage(null);
+                setMessage("");
+                setDraft("");
+              }}
+              className="shrink-0 rounded-ui-rect px-2 py-1 text-[12px] font-semibold text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
+            >
+              {t("common_cancel")}
+            </button>
+          </div>
+        ) : replyToMessage && !vm.voiceRecording ? (
           <div className="relative z-[1] mb-2 flex shrink-0 items-center gap-2 border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-primary-soft)] px-3 py-2">
             <button
               type="button"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import {
   deleteCommunityMessengerVoiceMessage,
+  editCommunityMessengerTextMessage,
   getCommunityMessengerRoomMessageById,
   hideCommunityMessengerMessageForMe,
   softDeleteCommunityMessengerMessageForEveryone,
@@ -70,7 +71,7 @@ export async function PATCH(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const parsed = await parseJsonBody<{ action?: string }>(req, "invalid_json");
+  const parsed = await parseJsonBody<{ action?: string; content?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
   const action = String(parsed.value.action ?? "").trim();
 
@@ -117,6 +118,35 @@ export async function PATCH(
       return jsonError("메시지를 삭제하지 못했습니다.", 400, { code: result.error });
     }
     return jsonOk({ ok: true });
+  }
+
+  if (action === "edit_content") {
+    const content = String(parsed.value.content ?? "").trim();
+    if (!content) {
+      return jsonError("메시지 내용이 필요합니다.", 400, { code: "content_required" });
+    }
+    const result = await editCommunityMessengerTextMessage({
+      userId: auth.userId,
+      roomId: canon.canonicalRoomId,
+      messageId: messageId.trim(),
+      content,
+    });
+    if (!result.ok) {
+      if (result.error === "not_found") {
+        return jsonError("메시지를 찾을 수 없습니다.", 404, { code: result.error });
+      }
+      if (result.error === "forbidden") {
+        return jsonError("이 메시지를 수정할 수 없습니다.", 403, { code: result.error });
+      }
+      if (result.error === "room_readonly") {
+        return jsonError("읽기 전용 방에서는 수정할 수 없습니다.", 403, { code: result.error });
+      }
+      if (result.error === "room_blocked") {
+        return jsonError("차단된 방에서는 수정할 수 없습니다.", 403, { code: result.error });
+      }
+      return jsonError("메시지를 수정하지 못했습니다.", 400, { code: result.error });
+    }
+    return jsonOk({ ok: true, message: result.message });
   }
 
   return jsonError("지원하지 않는 action 입니다.", 400, { code: "bad_request" });

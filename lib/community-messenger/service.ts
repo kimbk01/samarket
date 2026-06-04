@@ -13,7 +13,9 @@ import {
 import {
   canDeleteMessageForEveryone,
   canDeleteMessageForMe,
+  canHideMessageForMe,
 } from "@/lib/community-messenger/message-actions/message-delete-policy";
+import { canEditMessageText } from "@/lib/community-messenger/message-actions/message-edit-policy";
 import { messageRoomKindForActions } from "@/lib/community-messenger/message-actions/message-room-kind";
 import {
   canReactToMessage,
@@ -15693,7 +15695,7 @@ export async function hideCommunityMessengerMessageForMe(input: {
     viewerUserId: userId,
     profileById: new Map(),
   });
-  if (!canDeleteMessageForMe(cm, roomKind)) return { ok: false, error: "forbidden" };
+  if (!canHideMessageForMe(cm, roomKind)) return { ok: false, error: "forbidden" };
 
   const { error: insErr } = await (sb as any).from("community_messenger_message_user_hides").upsert(
     { user_id: userId, message_id: messageId, hidden_at: nowIso() },
@@ -15776,6 +15778,94 @@ export async function softDeleteCommunityMessengerMessageForEveryone(input: {
 
   await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
   return { ok: true };
+}
+
+export async function editCommunityMessengerTextMessage(input: {
+  userId: string;
+  roomId: string;
+  messageId: string;
+  content: string;
+}): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string }> {
+  const roomId = trimText(input.roomId);
+  const messageId = trimText(input.messageId);
+  const userId = trimText(input.userId);
+  const content = trimText(input.content);
+  if (!roomId || !messageId || !userId || !content) return { ok: false, error: "bad_request" };
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const fb = ensureCommunityMessengerDevFallbackAllowed();
+    if (!fb.ok) return { ok: false, error: fb.error ?? "messenger_storage_unavailable" };
+    return { ok: false, error: "unsupported_type" };
+  }
+  const { data: part } = await (sb as any)
+    .from("community_messenger_participants")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!part) return { ok: false, error: "forbidden" };
+
+  const { data: roomRow } = await (sb as any)
+    .from("community_messenger_rooms")
+    .select("room_type, summary, room_status, is_readonly")
+    .eq("id", roomId)
+    .maybeSingle();
+  if (!roomRow) return { ok: false, error: "room_not_found" };
+  if ((roomRow as { room_status?: string }).room_status === "blocked") {
+    return { ok: false, error: "room_blocked" };
+  }
+  if ((roomRow as { is_readonly?: boolean }).is_readonly === true) {
+    return { ok: false, error: "room_readonly" };
+  }
+
+  const { data: msg, error: msgErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select(`${COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT}, deleted_at`)
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (msgErr || !msg) return { ok: false, error: "not_found" };
+  if (trimText((msg as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "not_found" };
+
+  const msgRow = msg as MessageRow;
+  if (trimText(msgRow.sender_id) !== userId) return { ok: false, error: "forbidden" };
+
+  const roomKind = messageRoomKindForActions({
+    roomType: (roomRow as { room_type?: CommunityMessengerRoomType }).room_type as CommunityMessengerRoomType,
+    contextMeta: parseCommunityMessengerRoomContextMeta(trimText((roomRow as { summary?: string | null }).summary)),
+  });
+  const cm = mapCommunityMessengerDbMessageRowToMessage({ row: msgRow, viewerUserId: userId, profileById: new Map() });
+  if (!canEditMessageText(cm, roomKind)) return { ok: false, error: "forbidden" };
+
+  const prevMeta =
+    msgRow.metadata && typeof msgRow.metadata === "object" && !Array.isArray(msgRow.metadata)
+      ? (msgRow.metadata as Record<string, unknown>)
+      : {};
+  const { error: upErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .update({
+      content,
+      metadata: { ...prevMeta, editedAt: nowIso() },
+    })
+    .eq("id", messageId)
+    .eq("room_id", roomId);
+  if (upErr) return { ok: false, error: "edit_failed" };
+
+  const { data: updated, error: reloadErr } = await (sb as any)
+    .from("community_messenger_messages")
+    .select(COMMUNITY_MESSENGER_MESSAGE_LIST_SELECT)
+    .eq("id", messageId)
+    .eq("room_id", roomId)
+    .maybeSingle();
+  if (reloadErr || !updated) return { ok: false, error: "load_failed" };
+
+  await recomputeCommunityMessengerRoomLastMessage(sb, roomId);
+  const mapped = mapCommunityMessengerDbMessageRowToMessage({
+    row: updated as MessageRow,
+    viewerUserId: userId,
+    profileById: new Map(),
+  });
+  return { ok: true, message: mapped };
 }
 
 export async function toggleCommunityMessengerMessageReaction(input: {

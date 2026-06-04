@@ -120,6 +120,8 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_message_type_delete_unsupported");
     case "delete_failed":
       return t("nav_messenger_message_delete_failed");
+    case "edit_failed":
+      return t("nav_messenger_message_edit_failed");
     default:
       return t("nav_messenger_action_failed");
   }

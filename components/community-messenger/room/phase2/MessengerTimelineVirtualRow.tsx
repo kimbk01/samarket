@@ -354,7 +354,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   const renderBubbleStack = (bubbleChild: ReactNode) => (
     <div
       className={`inline-flex max-w-full flex-col ${item.isMine ? "items-end" : "items-start"} ${
-        longPressMenuOpenOnBubble ? "rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-2 ring-offset-[color:var(--cm-room-bg)]" : ""
+        longPressMenuOpenOnBubble ? "rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)]" : ""
       }`}
       {...bindMessageInteraction}
     >

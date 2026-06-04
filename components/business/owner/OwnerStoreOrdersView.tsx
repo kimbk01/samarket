@@ -71,6 +71,8 @@ import {
 import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
 import { setOwnerOrdersAttentionBridge } from "@/lib/business/owner-orders-attention-bridge";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { OwnerStoreOrderDeepLinkMissBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkMissBanner";
 import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
@@ -107,9 +109,10 @@ export function OwnerStoreOrdersView() {
   );
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
-  const deepLinkEnrichAttemptedRef = useRef(false);
+  const deepLinkEnrichAttemptsRef = useRef(0);
   const deepLinkChatEnrichAttemptedRef = useRef(false);
   const tabSyncForOrderRef = useRef<string | null>(null);
+  const [deepLinkEnrichSettled, setDeepLinkEnrichSettled] = useState(false);
 
   /** 펼치기 UI — URL만 쓰면 Suspense 리마운트로 취소 탭·버튼이 먹통이 될 수 있음 */
   const [expandedOrderId, setExpandedOrderId] = useState(highlightOrderId);
@@ -280,12 +283,31 @@ export function OwnerStoreOrdersView() {
   useEffect(() => {
     r2d1OwnerOrdersTraceInstallCollector();
     r2d1KpiMetaTraceInstallCollector();
+    const oid = highlightOrderId.trim();
+    if (oid && urlStoreId.trim()) {
+      invalidateOwnerStoreOrdersListCache(urlStoreId.trim());
+    }
     void load({
-      reason: "mount",
-      silent: state.kind === "ok",
+      reason: oid ? "notification_deeplink" : "mount",
+      silent: state.kind === "ok" && !oid,
+      forceNetwork: oid.length > 0,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount: 초기 ok 캐시면 silent 백그라운드 정합만
   }, [load]);
+
+  useEffect(() => {
+    const oid = highlightOrderId.trim();
+    if (!oid) return;
+    const sid = urlStoreId.trim();
+    if (sid) invalidateOwnerStoreOrdersListCache(sid);
+    setDeepLinkEnrichSettled(false);
+    deepLinkEnrichAttemptsRef.current = 0;
+    void load({
+      forceNetwork: true,
+      reason: "notification_deeplink",
+      silent: state.kind === "ok",
+    });
+  }, [highlightOrderId, urlStoreId, load]);
 
   useEffect(() => {
     setExpandedOrderId(highlightOrderId);
@@ -296,9 +318,17 @@ export function OwnerStoreOrdersView() {
   }, [highlightChatOrderId]);
 
   useEffect(() => {
-    deepLinkEnrichAttemptedRef.current = false;
+    deepLinkEnrichAttemptsRef.current = 0;
+    setDeepLinkEnrichSettled(false);
     tabSyncForOrderRef.current = null;
   }, [highlightOrderId, urlStoreId]);
+
+  useEffect(() => {
+    if (!highlightOrderId || state.kind !== "ok") return;
+    if (state.orders.some((o) => o.id === highlightOrderId)) {
+      setDeepLinkEnrichSettled(true);
+    }
+  }, [highlightOrderId, state]);
 
   useEffect(() => {
     deepLinkChatEnrichAttemptedRef.current = false;
@@ -452,13 +482,20 @@ export function OwnerStoreOrdersView() {
         if (typeof window !== "undefined") {
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
         }
+        if (state.kind !== "ok") return;
         const oid = searchParams.get("order_id")?.trim();
-        const base = pathname ?? "/stores/owner/orders";
-        const qs = oid ? `?order_id=${encodeURIComponent(oid)}` : "";
-        router.replace(`${base}${qs}`, { scroll: false });
+        const ackTab = effectiveOwnerMobileOrdersTab(parseStoreOrderTab(searchParams.get("tab")));
+        router.replace(
+          buildStoreOrdersHref({
+            storeId: state.storeId,
+            tab: ackTab,
+            orderId: oid || undefined,
+          }),
+          { scroll: false }
+        );
       }
     })();
-  }, [state.kind, searchParams, pathname, router]);
+  }, [state, searchParams, router]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true, reason: "page_show_restore" }));
 
@@ -503,7 +540,8 @@ export function OwnerStoreOrdersView() {
     const oid = orderId.trim();
     const storeId = alertStoreIdRef.current;
     if (!oid || !storeId) return;
-    void fetchOwnerStoreOrderDetailDeduped(storeId, oid).then((result) => {
+    void fetchOwnerStoreOrderDetailDeduped(storeId, oid)
+      .then((result) => {
         if (!result.ok || !result.order) return;
         const orderRow = result.order;
         const parsed = parseOwnerStoreOrderListRowFromApi({
@@ -544,6 +582,9 @@ export function OwnerStoreOrdersView() {
           orderId: oid,
           fetchReason: "order_enrich_get",
         });
+      })
+      .finally(() => {
+        setDeepLinkEnrichSettled(true);
       });
   }, []);
 
@@ -553,9 +594,11 @@ export function OwnerStoreOrdersView() {
     if (state.kind !== "ok" || !activeExpandOrderId) return;
     const order = state.orders.find((o) => o.id === activeExpandOrderId);
     if (!order) {
-      if (!deepLinkEnrichAttemptedRef.current) {
-        deepLinkEnrichAttemptedRef.current = true;
+      if (deepLinkEnrichAttemptsRef.current < 2) {
+        deepLinkEnrichAttemptsRef.current += 1;
         enrichOrder(activeExpandOrderId);
+      } else {
+        setDeepLinkEnrichSettled(true);
       }
       return;
     }
@@ -833,6 +876,12 @@ export function OwnerStoreOrdersView() {
     body = null;
   }
 
+  const showDeepLinkMiss =
+    state.kind === "ok" &&
+    highlightOrderId.length > 0 &&
+    deepLinkEnrichSettled &&
+    !state.orders.some((o) => o.id === highlightOrderId);
+
   if (state.kind === "ok") {
     return (
       <OwnerStoreOrdersMobileBody
@@ -843,6 +892,20 @@ export function OwnerStoreOrdersView() {
         expandedOrderId={expandedOrderId}
         chatOrderId={activeChatOrderId}
         summaryCounts={summaryCounts}
+        deepLinkMissBanner={
+          showDeepLinkMiss ? (
+            <OwnerStoreOrderDeepLinkMissBanner
+              storeId={state.storeId}
+              orderId={highlightOrderId}
+              onRefresh={() => {
+                invalidateOwnerStoreOrdersListCache(state.storeId);
+                deepLinkEnrichAttemptsRef.current = 0;
+                setDeepLinkEnrichSettled(false);
+                void load({ forceNetwork: true, reason: "notification_deeplink_refresh", silent: true });
+              }}
+            />
+          ) : null
+        }
         onTabHref={onTabHref}
         onUpdated={() => load({ silent: true, reason: "order_status_patch", forceNetwork: true })}
         onPatchOrderRow={patchOrderInList}

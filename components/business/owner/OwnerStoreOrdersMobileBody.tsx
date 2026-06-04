@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Filter, Search } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
@@ -51,6 +51,7 @@ export function OwnerStoreOrdersMobileBody({
   onOpenChat,
   onCloseChat,
   onCollapseTransient,
+  deepLinkMissBanner = null,
 }: {
   storeId: string;
   storeName: string;
@@ -59,6 +60,7 @@ export function OwnerStoreOrdersMobileBody({
   expandedOrderId: string;
   chatOrderId: string;
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
+  deepLinkMissBanner?: ReactNode;
   onTabHref: (tabId: StoreOrderTabId) => string;
   onUpdated: () => void | Promise<void>;
   onPatchOrderRow: (orderId: string, patch: Partial<OwnerStoreOrderListRow>) => void;
@@ -256,6 +258,7 @@ export function OwnerStoreOrdersMobileBody({
         className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]"
       >
         <div className="space-y-2.5 py-3">
+          {deepLinkMissBanner}
           {displayOrders.length === 0 ? (
             <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
               <p className="font-bold text-[var(--biz-text)]">{t("store_owner_mobile_empty_title")}</p>

@@ -203,6 +203,7 @@ export function useMessengerRoomPhase2Controller() {
     privateGroupNoticeDraft,
     refresh,
     replyToMessage,
+    editingMessage,
     roomId,
     streamRoomId,
     roomMembersDisplay,
@@ -255,6 +256,7 @@ export function useMessengerRoomPhase2Controller() {
     setPagedRoomMembers,
     setPrivateGroupNoticeDraft,
     setReplyToMessage,
+    setEditingMessage,
     setRoomMessages,
     setRoomPreferences,
     setRoomReadyForRealtime,
@@ -842,16 +844,78 @@ export function useMessengerRoomPhase2Controller() {
     ]
   );
 
-  const sendMessage = useCallback(async (textOverride?: string) => {
-    const raw = (textOverride ?? message).trim();
-    if (!raw || !snapshot) return;
-    if (busy === "send") return;
-    const replyTarget = replyToMessage;
-    const replyId = replyTarget?.id?.trim() ?? "";
-    setMessage("");
-    setReplyToMessage(null);
-    await sendRawText(raw, undefined, replyId || null, replyId ? replyTarget : null);
-  }, [busy, message, replyToMessage, sendRawText, snapshot]);
+  const editRoomMessageText = useCallback(
+    async (messageId: string, content: string) => {
+      const mid = messageId.trim();
+      const trimmed = content.trim();
+      if (!mid || !trimmed) return;
+      setBusy("edit-message");
+      try {
+        const res = await fetch(
+          `${communityMessengerRoomResourcePath(streamRoomId)}/messages/${encodeURIComponent(mid)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "edit_content", content: trimmed }),
+          }
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          message?: CommunityMessengerMessage;
+        };
+        if (!res.ok || !json.ok || !json.message?.id) {
+          if (redirectIfMessengerAuthBlocked(res, json)) return;
+          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+          return;
+        }
+        setRoomMessages((prev) => prev.map((m) => (m.id === mid ? { ...m, ...json.message } : m)));
+        setEditingMessage(null);
+        setMessage("");
+      } finally {
+        setBusy(null);
+      }
+    },
+    [
+      getRoomActionErrorMessage,
+      redirectIfMessengerAuthBlocked,
+      setEditingMessage,
+      setMessage,
+      setRoomMessages,
+      streamRoomId,
+    ]
+  );
+
+  const startEditMessage = useCallback(
+    (item: CommunityMessengerMessage & { pending?: boolean }) => {
+      setMessageActionItem(null);
+      setReplyToMessage(null);
+      setEditingMessage(item);
+      setMessage(item.content?.trim() ?? "");
+      window.requestAnimationFrame(() => composerTextareaRef.current?.focus());
+    },
+    [composerTextareaRef, setEditingMessage, setMessage, setMessageActionItem, setReplyToMessage]
+  );
+
+  const sendMessage = useCallback(
+    async (textOverride?: string) => {
+      const raw = (textOverride ?? message).trim();
+      if (!raw || !snapshot) return;
+      if (busy === "send" || busy === "edit-message") return;
+      const editTarget = editingMessage;
+      if (editTarget?.id) {
+        setMessage("");
+        await editRoomMessageText(editTarget.id, raw);
+        return;
+      }
+      const replyTarget = replyToMessage;
+      const replyId = replyTarget?.id?.trim() ?? "";
+      setMessage("");
+      setReplyToMessage(null);
+      await sendRawText(raw, undefined, replyId || null, replyId ? replyTarget : null);
+    },
+    [busy, editRoomMessageText, editingMessage, message, replyToMessage, sendRawText, setMessage, setReplyToMessage, snapshot]
+  );
 
   const sendSticker = useCallback(
     async (fileUrl: string, stickerItemId?: string) => {
@@ -1250,12 +1314,13 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         setReplyToMessage((prev) => (prev?.id === messageId ? null : prev));
+        setEditingMessage((prev) => (prev?.id === messageId ? null : prev));
         setRoomMessages((prev) => prev.filter((item) => item.id !== messageId));
       } finally {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setReplyToMessage, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, setEditingMessage, setReplyToMessage, setRoomMessages, streamRoomId]
   );
 
   const deleteRoomMessageForEveryone = useCallback(
@@ -2046,6 +2111,8 @@ export function useMessengerRoomPhase2Controller() {
     deleteRoomMessage,
     hideRoomMessageForMe,
     deleteRoomMessageForEveryone,
+    editRoomMessageText,
+    startEditMessage,
     toggleMessageReaction,
     blockPeerFromMessage,
     inviteMembers,

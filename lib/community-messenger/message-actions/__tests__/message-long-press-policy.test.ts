@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   canDeleteMessageForEveryone,
   canDeleteMessageForMe,
+  canHideMessageForMe,
   MESSAGE_DELETE_FOR_EVERYONE_MAX_AGE_SEC,
 } from "@/lib/community-messenger/message-actions/message-delete-policy";
+import { canEditMessageText } from "@/lib/community-messenger/message-actions/message-edit-policy";
 import {
   canReplyToMessage,
   formatReplyPreviewMessageTypeLabel,
@@ -34,12 +36,14 @@ const baseMsg = (over: Partial<CommunityMessengerMessage> = {}): CommunityMessen
   ...over,
 });
 
-describe("canDeleteMessageForMe / Everyone", () => {
+describe("canDeleteMessageForMe / Everyone / Hide", () => {
   it("allows me to hide my non-system message", () => {
     expect(canDeleteMessageForMe(baseMsg(), "direct")).toBe(true);
+    expect(canHideMessageForMe(baseMsg(), "direct")).toBe(true);
   });
-  it("blocks others message", () => {
+  it("allows hide for peer non-system message", () => {
     expect(canDeleteMessageForMe(baseMsg({ isMine: false }), "direct")).toBe(false);
+    expect(canHideMessageForMe(baseMsg({ isMine: false }), "direct")).toBe(true);
   });
   it("blocks for everyone after window", () => {
     const old = new Date(Date.now() - (MESSAGE_DELETE_FOR_EVERYONE_MAX_AGE_SEC + 60) * 1000).toISOString();
@@ -111,7 +115,19 @@ describe("getMessageLongPressActions", () => {
     });
     expect(actions.find((a) => a.action === "reply")?.enabled).toBe(true);
     expect(actions.find((a) => a.action === "react")?.enabled).toBe(true);
-    expect(actions.find((a) => a.action === "delete")?.enabled).toBe(false);
+    expect(actions.find((a) => a.action === "delete")?.enabled).toBe(true);
+    expect(actions.find((a) => a.action === "edit")?.enabled).toBe(false);
+  });
+
+  it("own text enables edit within window", () => {
+    expect(canEditMessageText(baseMsg({ messageType: "text" }), "direct")).toBe(true);
+    const actions = getMessageLongPressActions({
+      message: baseMsg({ isMine: true, messageType: "text" }),
+      room: { roomType: "direct", contextMeta: null, isReadonly: false, roomStatus: "active" },
+      viewerUserId: "u1",
+      roomUnavailable: false,
+    });
+    expect(actions.find((a) => a.action === "edit")?.enabled).toBe(true);
   });
 
   it("own message disables react in long-press menu", () => {

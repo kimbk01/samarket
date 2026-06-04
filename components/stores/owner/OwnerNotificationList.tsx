@@ -18,6 +18,7 @@ import {
   invalidateMeOwnerStoreNotificationsCache,
 } from "@/lib/me/fetch-me-owner-store-notifications";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -152,6 +153,8 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
     return rows.filter((r) => g.match(r));
   }, [rows, tab]);
 
+  const unreadCount = useMemo(() => rows.filter((r) => !r.is_read).length, [rows]);
+
   const broadcast = useCallback(() => {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
@@ -222,6 +225,11 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
 
   return (
     <div className="space-y-4">
+      {unreadCount > 0 ? (
+        <p className="sam-text-xxs font-semibold text-sam-fg">
+          {t("store_owner_notif_inbox_unread", { count: String(unreadCount) })}
+        </p>
+      ) : null}
       <div className="flex flex-wrap gap-1">
         {(["all", ...GROUPS.map((g) => g.id)] as const).map((tabId) => (
           <button
@@ -259,9 +267,19 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
             const kindLabel = commerceMetaKindLabel(kind, language);
             const typeLabel = notificationTypeLabel(r.notification_type, language);
             const orderId = String((r.meta as { order_id?: string } | undefined)?.order_id ?? "").trim();
+            const orderNo = String((r.meta as { order_no?: string } | undefined)?.order_no ?? "").trim();
+            const orderStatus = String(
+              (r.meta as { order_status?: string } | undefined)?.order_status ?? ""
+            ).trim();
             const href =
               orderId.length > 0
-                ? buildStoreOrdersHref({ storeId, orderId })
+                ? buildOwnerStoreOrderNotificationHref({
+                    storeId,
+                    orderId,
+                    kind,
+                    orderStatus: orderStatus || undefined,
+                    ackOwnerNotifications: true,
+                  })
                 : r.link_url?.trim() || buildStoreOrdersHref({ storeId });
 
             return (
@@ -279,6 +297,11 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
                   <span>{new Date(r.created_at).toLocaleString("ko-KR")}</span>
                 </div>
                 <p className="mt-1 text-sm font-bold text-sam-fg">{r.title}</p>
+                {orderNo ? (
+                  <p className="mt-0.5 sam-text-xxs text-sam-muted">
+                    {t("store_owner_notif_order_no_label", { orderNo })}
+                  </p>
+                ) : null}
                 {r.body ? <p className="mt-0.5 sam-text-body-secondary text-sam-fg">{r.body}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Link

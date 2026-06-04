@@ -4,6 +4,18 @@ import type { MessageRoomKindForActions } from "@/lib/community-messenger/messag
 /** 모두에게 삭제 허용 시간(초) — 기본 24시간 */
 export const MESSAGE_DELETE_FOR_EVERYONE_MAX_AGE_SEC = 24 * 60 * 60;
 
+/** 나에게만 숨기기 — 본인·상대 일반 메시지 모두(시스템·전원삭제·pending 제외) */
+export function canHideMessageForMe(
+  message: Pick<CommunityMessengerMessage, "messageType" | "pending" | "deletedForEveryoneAt">,
+  _roomKind: MessageRoomKindForActions
+): boolean {
+  if (message.pending) return false;
+  if (message.messageType === "system") return false;
+  if (message.deletedForEveryoneAt) return false;
+  return true;
+}
+
+/** 모두에게 삭제·음성 완전 삭제 등 — 본인 메시지만 */
 export function canDeleteMessageForMe(
   message: Pick<CommunityMessengerMessage, "isMine" | "messageType" | "pending">,
   _roomKind: MessageRoomKindForActions

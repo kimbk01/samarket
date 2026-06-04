@@ -1,12 +1,16 @@
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { messageRoomKindForActions, type MessageRoomKindForActions } from "@/lib/community-messenger/message-actions/message-room-kind";
-import { canDeleteMessageForEveryone, canDeleteMessageForMe } from "@/lib/community-messenger/message-actions/message-delete-policy";
+import {
+  canDeleteMessageForEveryone,
+  canHideMessageForMe,
+} from "@/lib/community-messenger/message-actions/message-delete-policy";
+import { canEditMessageText } from "@/lib/community-messenger/message-actions/message-edit-policy";
 import { canReplyToMessage } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { canShareMessage } from "@/lib/community-messenger/message-actions/message-share-policy";
 import { canReactToMessage, MESSENGER_QUICK_REACTION_KEYS } from "@/lib/community-messenger/message-actions/message-reaction-policy";
 
-export type MessageLongPressMenuAction = "copy" | "reply" | "share" | "delete" | "react";
+export type MessageLongPressMenuAction = "copy" | "reply" | "share" | "delete" | "react" | "edit";
 
 export type MessageLongPressActionDef = {
   action: MessageLongPressMenuAction;
@@ -46,8 +50,14 @@ export function getMessageLongPressActions(input: {
       enabled: !blocked && canShareMessage(message, rk),
     },
     {
+      action: "edit",
+      enabled: !blocked && canEditMessageText(message, rk),
+    },
+    {
       action: "delete",
-      enabled: !blocked && (canDeleteMessageForMe(message, rk) || canDeleteMessageForEveryone(message, rk)),
+      enabled:
+        !blocked &&
+        (canHideMessageForMe(message, rk) || canDeleteMessageForEveryone(message, rk)),
     },
   ];
 }

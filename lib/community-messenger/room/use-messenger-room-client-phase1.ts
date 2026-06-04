@@ -627,12 +627,17 @@ export function useMessengerRoomClientPhase1({
   const [replyToMessage, setReplyToMessage] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
     null
   );
-  /** 방 이동 시 답장 대상은 이전 방과 섞이지 않도록 초기화 */
+  const [editingMessage, setEditingMessage] = useState<(CommunityMessengerMessage & { pending?: boolean }) | null>(
+    null
+  );
+  /** 방 이동 시 답장·수정 대상은 이전 방과 섞이지 않도록 초기화 */
   useEffect(() => {
     setReplyToMessage(null);
+    setEditingMessage(null);
   }, [roomId]);
 
   const replyDraftTargetId = replyToMessage?.id ?? null;
+  const editingDraftTargetId = editingMessage?.id ?? null;
   /** 대상 메시지가 목록에서 사라지면(삭제·나만 숨김·동기화) 답장 바를 비워 고아 상태 방지 */
   useEffect(() => {
     if (!replyDraftTargetId) return;
@@ -641,6 +646,13 @@ export function useMessengerRoomClientPhase1({
       setReplyToMessage(null);
     }
   }, [roomMessages, replyDraftTargetId, loading]);
+  useEffect(() => {
+    if (!editingDraftTargetId) return;
+    if (loading) return;
+    if (!roomMessages.some((m) => m.id === editingDraftTargetId)) {
+      setEditingMessage(null);
+    }
+  }, [roomMessages, editingDraftTargetId, loading]);
 
   const [callStubSheet, setCallStubSheet] = useState<CommunityMessengerMessageActionOpenState | null>(null);
   const [hiddenCallStubIds, setHiddenCallStubIds] = useState<Set<string>>(() => new Set());
@@ -1838,6 +1850,7 @@ export function useMessengerRoomClientPhase1({
   privateGroupNoticeDraft,
   refresh,
   replyToMessage,
+  editingMessage,
   roomMembersDisplay,
   roomMembersDisplayRef,
   roomMessages,
@@ -1890,6 +1903,7 @@ export function useMessengerRoomClientPhase1({
   setPagedRoomMembers,
   setPrivateGroupNoticeDraft,
   setReplyToMessage,
+  setEditingMessage,
   setRoomMessages,
   setRoomPreferences,
   setRoomReadyForRealtime,

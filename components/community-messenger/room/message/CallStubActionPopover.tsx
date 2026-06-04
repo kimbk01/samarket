@@ -89,7 +89,7 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
     <div className="fixed inset-0 z-[62]" role="presentation">
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-black/45"
+        className="absolute inset-0 cursor-default bg-transparent"
         aria-label={t("nav_close")}
         onPointerDown={(e) => {
           if (Date.now() - openedAtRef.current < 350) {

@@ -56,9 +56,13 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
           onShareExternal={() => void vm.shareMessageExternally(messageActionItem.item)}
           onShareCopyLink={() => void vm.shareMessageCopyDeepLink(messageActionItem.item)}
           onReply={() => {
+            vm.setEditingMessage(null);
             vm.setReplyToMessage(messageActionItem.item);
             vm.setMessageActionItem(null);
             window.requestAnimationFrame(() => vm.composerTextareaRef.current?.focus());
+          }}
+          onEdit={() => {
+            vm.startEditMessage(messageActionItem.item);
           }}
         />
       ) : null}

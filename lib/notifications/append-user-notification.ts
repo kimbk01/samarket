@@ -2,11 +2,28 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { publishNotificationSideEffect } from "@/lib/notifications/publish-notification-side-effect";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
+import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
 
 function notificationStoreIdFromMeta(meta: Record<string, unknown> | null | undefined): string | null {
   if (!meta || typeof meta !== "object") return null;
   const sid = String(meta.store_id ?? "").trim();
   return sid || null;
+}
+
+function afterOwnerCommerceNotificationInserted(
+  userId: string,
+  meta: Record<string, unknown> | null | undefined
+): void {
+  const uid = userId.trim();
+  const storeId = notificationStoreIdFromMeta(meta);
+  invalidateNotificationUnreadCountCache(uid, storeId);
+  if (meta && isOwnerStoreCommerceNotificationRow({ meta })) {
+    invalidateOwnerStoreOrdersListCache(storeId ?? undefined, uid, {
+      route: "append-user-notification",
+      reason: "owner_commerce_notification",
+    });
+  }
 }
 
 export type AppNotificationType =
@@ -110,7 +127,7 @@ export async function appendUserNotification(
     const code2 = (err2 as { code?: string } | null)?.code;
     if (err2 && code2 === "23505") return true;
     if (!err2) {
-      invalidateNotificationUnreadCountCache(uid, notificationStoreIdFromMeta(metaMerged as Record<string, unknown>));
+      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
       void publishNotificationSideEffect(
         {
           user_id: uid,
@@ -128,7 +145,7 @@ export async function appendUserNotification(
   }
 
   if (!error) {
-    invalidateNotificationUnreadCountCache(uid, notificationStoreIdFromMeta(metaMerged as Record<string, unknown>));
+    afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
     void publishNotificationSideEffect(
       {
         user_id: uid,
@@ -153,7 +170,7 @@ export async function appendUserNotification(
     const { error: e2 } = await sb.from("notifications").insert(insert);
     if (e2 && (e2 as { code?: string }).code === "23505") return true;
     if (!e2) {
-      invalidateNotificationUnreadCountCache(uid, notificationStoreIdFromMeta(metaMerged as Record<string, unknown>));
+      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
       void publishNotificationSideEffect(
         {
           user_id: uid,
@@ -190,7 +207,7 @@ export async function appendUserNotification(
     const { error: e3 } = await sb.from("notifications").insert(sysRow);
     if (e3 && (e3 as { code?: string }).code === "23505") return true;
     if (!e3) {
-      invalidateNotificationUnreadCountCache(uid, notificationStoreIdFromMeta(metaMerged as Record<string, unknown>));
+      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
       void publishNotificationSideEffect(
         {
           user_id: uid,
@@ -220,7 +237,7 @@ export async function appendUserNotification(
     const { error: e4 } = await sb.from("notifications").insert(fallback);
     if (e4 && (e4 as { code?: string }).code === "23505") return true;
     if (!e4) {
-      invalidateNotificationUnreadCountCache(uid, notificationStoreIdFromMeta(metaMerged as Record<string, unknown>));
+      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
       void publishNotificationSideEffect(
         {
           user_id: uid,

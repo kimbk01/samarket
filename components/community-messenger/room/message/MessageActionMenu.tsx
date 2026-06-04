@@ -38,6 +38,7 @@ export type MessageActionMenuProps = {
   copyDisabled: boolean;
   copyTitle?: string;
   onCopy: () => void;
+  edit?: { disabled: boolean; title?: string; onClick: () => void };
   replyDisabled: boolean;
   replyTitle?: string;
   onReply: () => void;
@@ -50,10 +51,6 @@ export type MessageActionMenuProps = {
     external: { disabled: boolean; title?: string; onClick: () => void };
     link: { disabled: boolean; title?: string; onClick: () => void };
   } | null;
-  deleteExpanded: boolean;
-  onToggleDelete: () => void;
-  /** 삭제 서브메뉴만 닫기(취소) */
-  onCancelDeleteNested: () => void;
   deleteForMe?: { disabled: boolean; title?: string; onClick: () => void };
   deleteForEveryone?: { disabled: boolean; title?: string; onClick: () => void };
   deleteVoiceHard?: { onClick: () => void };
@@ -67,6 +64,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     copyDisabled,
     copyTitle,
     onCopy,
+    edit,
     replyDisabled,
     replyTitle,
     onReply,
@@ -75,16 +73,12 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
     shareTitle,
     onToggleShare,
     shareNested,
-    deleteExpanded,
-    onToggleDelete,
-    onCancelDeleteNested,
     deleteForMe,
     deleteForEveryone,
     deleteVoiceHard,
   } = props;
 
-  const hasDeleteSection = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
-  const deleteNestedOpen = deleteExpanded && hasDeleteSection;
+  const hasDeleteRows = Boolean(deleteForMe || deleteForEveryone || deleteVoiceHard);
 
   return (
     <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_message_actions")}>
@@ -94,6 +88,14 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         disabled={roomUnavailable || copyDisabled}
         title={copyTitle}
       />
+      {edit ? (
+        <MenuRow
+          label={t("common_edit")}
+          onClick={edit.onClick}
+          disabled={roomUnavailable || edit.disabled}
+          title={edit.title}
+        />
+      ) : null}
       <MenuRow
         label={t("cm_ui_reply")}
         onClick={onReply}
@@ -133,56 +135,32 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
           </div>
         ) : null}
       </div>
-      {hasDeleteSection ? (
+      {hasDeleteRows ? (
         <div className="border-b border-neutral-200 dark:border-neutral-700">
-          <MenuRow
-            label={t("common_delete")}
-            onClick={onToggleDelete}
-            disabled={roomUnavailable}
-            title={t("cm_ui_hide_for_me_or_delete_for_everyone")}
-            danger
-          />
-          {deleteNestedOpen ? (
-            <div className="border-t border-neutral-100 bg-neutral-50 pb-1 dark:border-neutral-800 dark:bg-neutral-900">
-              {deleteForMe ? (
-                <MenuRow
-                  label={t("cm_ui_delete_for_me_only")}
-                  onClick={() => {
-                    onCancelDeleteNested();
-                    deleteForMe.onClick();
-                  }}
-                  disabled={roomUnavailable || deleteForMe.disabled}
-                  title={deleteForMe.title}
-                  nested
-                  danger
-                />
-              ) : null}
-              {deleteForEveryone ? (
-                <MenuRow
-                  label={t("cm_ui_delete_for_everyone")}
-                  onClick={() => {
-                    onCancelDeleteNested();
-                    deleteForEveryone.onClick();
-                  }}
-                  disabled={roomUnavailable || deleteForEveryone.disabled}
-                  title={deleteForEveryone.title}
-                  nested
-                  danger
-                />
-              ) : null}
-              {deleteVoiceHard ? (
-                <MenuRow
-                  label={t("cm_ui_permanently_delete_voice_message")}
-                  onClick={() => {
-                    onCancelDeleteNested();
-                    deleteVoiceHard.onClick();
-                  }}
-                  nested
-                  danger
-                />
-              ) : null}
-              <MenuRow label={t("common_cancel")} onClick={onCancelDeleteNested} nested />
-            </div>
+          {deleteForMe ? (
+            <MenuRow
+              label={t("cm_ui_delete_for_me_only")}
+              onClick={deleteForMe.onClick}
+              disabled={roomUnavailable || deleteForMe.disabled}
+              title={deleteForMe.title}
+              danger
+            />
+          ) : null}
+          {deleteForEveryone ? (
+            <MenuRow
+              label={t("cm_ui_delete_for_everyone")}
+              onClick={deleteForEveryone.onClick}
+              disabled={roomUnavailable || deleteForEveryone.disabled}
+              title={deleteForEveryone.title}
+              danger
+            />
+          ) : null}
+          {deleteVoiceHard ? (
+            <MenuRow
+              label={t("cm_ui_permanently_delete_voice_message")}
+              onClick={deleteVoiceHard.onClick}
+              danger
+            />
           ) : null}
         </div>
       ) : null}
