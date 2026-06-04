@@ -688,6 +688,7 @@ export function useMessengerRoomClientPhase1({
     | "files"
     | "links"
     | "stickers"
+    | "emoji"
   >(null);
   const [roomSearchQuery, setRoomSearchQuery] = useState("");
   const [managedDirectCallError, setManagedDirectCallError] = useState<string | null>(null);

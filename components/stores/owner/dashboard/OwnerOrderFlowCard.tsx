@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildOwnerOrdersEntryHref } from "@/lib/business/owner-orders-entry-policy";
 import { buildOwnerMobileStackedLabelCountAriaLabel } from "@/lib/business/owner-mobile-stacked-label-count";
 import { OwnerMobileStackedLabelCount } from "@/components/business/owner/OwnerMobileStackedLabelCount";
 import {
@@ -36,7 +36,7 @@ export function OwnerOrderFlowCard({
   snapshot: OwnerStoreOpsSnapshot;
 }) {
   const { t } = useI18n();
-  const ordersHref = buildStoreOrdersHref({ storeId });
+  const ordersHref = buildOwnerOrdersEntryHref({ storeId, freshList: true });
   const counts = {
     waiting: snapshot.flow_waiting_count,
     cooking: snapshot.flow_cooking_count,
@@ -63,7 +63,7 @@ export function OwnerOrderFlowCard({
               : step.key === "delivering"
                 ? delays.delivering
                 : 0;
-          const href = buildStoreOrdersHref({ storeId, tab: step.tab });
+          const href = buildOwnerOrdersEntryHref({ storeId, tab: step.tab, freshList: true });
           return (
             <div key={step.key} className="flex min-w-0 flex-1 items-start">
               <Link

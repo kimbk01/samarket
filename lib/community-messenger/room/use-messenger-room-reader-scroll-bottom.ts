@@ -52,7 +52,8 @@ export function useMessengerRoomReaderScrollBottom({
     | "media"
     | "files"
     | "links"
-    | "stickers";
+    | "stickers"
+    | "emoji";
   stickToBottomRef: MutableRefObject<boolean>;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   messageEndRef: RefObject<HTMLDivElement | null>;

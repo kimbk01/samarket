@@ -1422,6 +1422,10 @@ export const storeCommerceUiMessages = {
       "이미 완료·취소되었거나 목록이 아직 갱신되지 않았을 수 있어요. 새로고침하거나 다른 탭에서 확인해 보세요.",
     store_owner_orders_deeplink_miss_refresh: "목록 새로고침",
     store_owner_orders_deeplink_miss_try_tab: "{tab} 탭에서 보기",
+    store_owner_orders_deeplink_wrong_tab_title: "다른 탭에 있는 주문입니다",
+    store_owner_orders_deeplink_wrong_tab_body:
+      "알림 링크의 탭과 주문 상태가 맞지 않을 수 있어요. 아래에서 올바른 탭으로 이동해 주세요.",
+    store_owner_orders_deeplink_wrong_tab_open: "{tab} 탭에서 열기",
     store_owner_mobile_aria_search: "주문 검색",
     store_owner_mobile_aria_filter: "주문 필터",
     store_owner_fulfillment_pickup_short: "포장",
@@ -3110,6 +3114,10 @@ export const storeCommerceUiMessages = {
       "It may already be completed or cancelled, or the list may still be updating. Refresh or check another tab.",
     store_owner_orders_deeplink_miss_refresh: "Refresh list",
     store_owner_orders_deeplink_miss_try_tab: "Check {tab}",
+    store_owner_orders_deeplink_wrong_tab_title: "This order is on another tab",
+    store_owner_orders_deeplink_wrong_tab_body:
+      "The tab from the alert may not match the order status. Open the correct tab below.",
+    store_owner_orders_deeplink_wrong_tab_open: "Open in {tab}",
     store_owner_mobile_aria_search: "Search orders",
     store_owner_mobile_aria_filter: "Filter orders",
     store_owner_fulfillment_pickup_short: "Pickup",

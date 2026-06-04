@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Filter, Search } from "lucide-react";
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
@@ -52,6 +52,7 @@ export function OwnerStoreOrdersMobileBody({
   onCloseChat,
   onCollapseTransient,
   deepLinkMissBanner = null,
+  scrollToHighlightOrderId = "",
 }: {
   storeId: string;
   storeName: string;
@@ -61,6 +62,8 @@ export function OwnerStoreOrdersMobileBody({
   chatOrderId: string;
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
   deepLinkMissBanner?: ReactNode;
+  /** 알림·대시보드 딥링크 — 목록 스크롤 영역에서 카드로 이동 */
+  scrollToHighlightOrderId?: string;
   onTabHref: (tabId: StoreOrderTabId) => string;
   onUpdated: () => void | Promise<void>;
   onPatchOrderRow: (orderId: string, patch: Partial<OwnerStoreOrderListRow>) => void;
@@ -78,6 +81,8 @@ export function OwnerStoreOrdersMobileBody({
   const [filterFulfillment, setFilterFulfillment] = useState<"all" | "local_delivery" | "pickup">("all");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
   const effectiveTab = effectiveOwnerMobileOrdersTab(tab);
+  const listScrollRef = useRef<HTMLElement | null>(null);
+  const scrolledHighlightRef = useRef<string | null>(null);
 
   const tabCounts = useMemo(() => {
     const m = new Map<StoreOrderTabId, number>();
@@ -120,6 +125,34 @@ export function OwnerStoreOrdersMobileBody({
     });
     return list;
   }, [orders, effectiveTab, searchQuery, filterFulfillment, sortNewestFirst]);
+
+  const scrollHighlightId = (scrollToHighlightOrderId || expandedOrderId).trim();
+
+  useLayoutEffect(() => {
+    const oid = scrollHighlightId;
+    if (!oid) {
+      scrolledHighlightRef.current = null;
+      return;
+    }
+    if (scrolledHighlightRef.current !== null && scrolledHighlightRef.current !== oid) {
+      scrolledHighlightRef.current = null;
+    }
+    if (!displayOrders.some((o) => o.id === oid)) return;
+    if (scrolledHighlightRef.current === oid) return;
+    scrolledHighlightRef.current = oid;
+    const el = document.getElementById(`owner-order-${oid}`);
+    if (!el) return;
+    const host = listScrollRef.current;
+    if (host && typeof host.scrollTo === "function") {
+      const top =
+        el.getBoundingClientRect().top -
+        host.getBoundingClientRect().top +
+        host.scrollTop;
+      host.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      return;
+    }
+    el.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [scrollHighlightId, displayOrders, expandedOrderId, effectiveTab]);
 
   const chatOrder = chatOrderId ? orders.find((o) => o.id === chatOrderId) ?? null : null;
 
@@ -255,6 +288,9 @@ export function OwnerStoreOrdersMobileBody({
       </div>
 
       <main
+        ref={(el) => {
+          listScrollRef.current = el;
+        }}
         className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]"
       >
         <div className="space-y-2.5 py-3">

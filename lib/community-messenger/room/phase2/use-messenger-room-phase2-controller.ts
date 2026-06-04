@@ -66,6 +66,8 @@ import {
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { syncMessengerHomeAfterOutboundSend } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
+import { normalizeCommunityMessengerStickerContent } from "@/lib/stickers/sticker-content";
+import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
 import { useMessengerRoomPhase2RoomPresentation } from "@/lib/community-messenger/room/phase2/use-messenger-room-phase2-room-presentation";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
@@ -901,7 +903,7 @@ export function useMessengerRoomPhase2Controller() {
     async (textOverride?: string) => {
       const raw = (textOverride ?? message).trim();
       if (!raw || !snapshot) return;
-      if (busy === "send" || busy === "edit-message") return;
+      if (isMessengerComposerOutboundBusy(busy)) return;
       const editTarget = editingMessage;
       if (editTarget?.id) {
         setMessage("");
@@ -919,8 +921,22 @@ export function useMessengerRoomPhase2Controller() {
 
   const sendSticker = useCallback(
     async (fileUrl: string, stickerItemId?: string) => {
-      const url = fileUrl.trim();
-      if (!snapshot || roomUnavailable || !url.startsWith("/stickers/")) return;
+      const path = normalizeCommunityMessengerStickerContent(fileUrl);
+      if (!snapshot || roomUnavailable) {
+        showMessengerSnackbar(
+          getRoomActionErrorMessage(roomUnavailable ? "room_unavailable" : "room_not_found"),
+          { variant: "error" }
+        );
+        return;
+      }
+      if (!path) {
+        showMessengerSnackbar(getRoomActionErrorMessage("sticker_asset_invalid"), { variant: "error" });
+        return;
+      }
+      if (isMessengerComposerOutboundBusy(busy)) {
+        showMessengerSnackbar(getRoomActionErrorMessage("composer_busy"), { variant: "error" });
+        return;
+      }
       const clientMessageId = createCommunityMessengerClientMessageId();
       const tempId = `pending:sticker:${streamRoomId}:${pendingMessageIdRef.current++}`;
       const optimisticSender = optimisticOutboundSender(snapshot, roomMembersDisplay);
@@ -930,7 +946,7 @@ export function useMessengerRoomPhase2Controller() {
         senderId: optimisticSender.senderId,
         senderLabel: optimisticSender.senderLabel,
         messageType: "sticker",
-        content: url,
+        content: path,
         createdAt: nextOptimisticCommunityMessengerCreatedAtIso(roomMessagesRef.current),
         clientMessageId,
         isMine: true,
@@ -948,7 +964,7 @@ export function useMessengerRoomPhase2Controller() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            content: url,
+            content: path,
             clientMessageId,
             stickerItemId: stickerItemId ?? "",
           }),
@@ -970,7 +986,7 @@ export function useMessengerRoomPhase2Controller() {
           return;
         }
         bumpCommunityMessengerPresenceActivity("message_sent");
-        touchRecentStickerUrl(url);
+        touchRecentStickerUrl(path);
         const confirmedSticker = json.message;
         if (confirmedSticker) {
           setRoomMessages((prev) =>
@@ -991,6 +1007,7 @@ export function useMessengerRoomPhase2Controller() {
       }
     },
     [
+      busy,
       dismissRoomSheet,
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
@@ -1002,6 +1019,7 @@ export function useMessengerRoomPhase2Controller() {
       roomUnavailable,
       scrollMessengerToBottom,
       onMessengerOutboundConfirmed,
+      showMessengerSnackbar,
       snapshot,
     ]
   );

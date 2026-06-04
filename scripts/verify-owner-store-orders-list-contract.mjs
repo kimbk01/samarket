@@ -7,6 +7,7 @@ const files = [
   "lib/stores/fetch-store-orders-list-deduped.ts",
   "lib/stores/owner-hub-dashboard-orders-cache.ts",
   "lib/stores/owner-store-orders-list-cache.ts",
+  "lib/business/owner-orders-entry-policy.ts",
   "components/business/owner/OwnerStoreOrdersView.tsx",
 ];
 
@@ -33,6 +34,20 @@ for (const f of files) {
     }
     if (!s.includes("parseOwnerStoreOrdersListFromApiJson")) {
       errors.push(`${f}: must ingest list via parseOwnerStoreOrdersListFromApiJson`);
+    }
+    if (!s.includes("owner-orders-entry-policy")) {
+      errors.push(`${f}: must use owner-orders-entry-policy for fresh_list entry`);
+    }
+    if (!s.includes("orders_entry_fresh")) {
+      errors.push(`${f}: must load with orders_entry_fresh reason`);
+    }
+  }
+  if (f.includes("owner-orders-entry-policy")) {
+    if (!s.includes("OWNER_ORDERS_FRESH_LIST_PARAM")) {
+      errors.push(`${f}: must define fresh_list query param`);
+    }
+    if (!s.includes("shouldOwnerOrdersForceNetwork")) {
+      errors.push(`${f}: must export shouldOwnerOrdersForceNetwork`);
     }
   }
 }

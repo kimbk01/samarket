@@ -2023,7 +2023,7 @@ export function ChatDetailView({
               ? t("nav_trade_chat_composer_placeholder")
               : undefined
         }
-        showEmojiButton={!isStoreOrderBuyer && !messengerAlignedTradeComposer}
+        showEmojiButton={!isStoreOrderBuyer}
         variant={isStoreOrderChat || messengerAlignedTradeComposer ? "instagram" : "default"}
         onImageFilesSelected={handleImageFilesSelectedStable}
         imageSending={imageSending}

@@ -24,10 +24,12 @@ export function MessengerStickerSheet({
   const [activePackId, setActivePackId] = useState<string | null>(null);
   const [items, setItems] = useState<StickerItemDto[] | null>(null);
   const [itemsBusy, setItemsBusy] = useState(false);
+  const [brokenSrc, setBrokenSrc] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     if (!open) return;
     setActivePackId(RECENT_PACK_ID);
+    setBrokenSrc(new Set());
     let cancelled = false;
     setPackErr((prev) => (prev === null ? prev : null));
     void (async () => {
@@ -53,10 +55,11 @@ export function MessengerStickerSheet({
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, t]);
 
   useEffect(() => {
     if (!open || !activePackId) return;
+    setBrokenSrc(new Set());
     if (activePackId === RECENT_PACK_ID) {
       const recent = readRecentStickerUrls();
       setItems(
@@ -102,7 +105,7 @@ export function MessengerStickerSheet({
       sortOrder: -1,
     };
     return [recentPack, ...(packs ?? [])];
-  }, [packs, open]);
+  }, [packs, t]);
 
   const handlePick = useCallback(
     (fileUrl: string, stickerItemId?: string) => {
@@ -110,6 +113,17 @@ export function MessengerStickerSheet({
     },
     [onPick]
   );
+
+  const markBroken = useCallback((src: string) => {
+    setBrokenSrc((prev) => {
+      const next = new Set(prev);
+      next.add(src);
+      return next;
+    });
+  }, []);
+
+  const allItemsBroken =
+    Boolean(items?.length) && !itemsBusy && brokenSrc.size >= (items?.length ?? 0);
 
   if (!open) return null;
 
@@ -132,6 +146,9 @@ export function MessengerStickerSheet({
         </button>
       </div>
       {packErr ? <p className="px-3 py-2 sam-text-body-secondary text-red-600">{packErr}</p> : null}
+      {allItemsBroken ? (
+        <p className="px-3 py-2 sam-text-body-secondary text-red-600">{t("cm_ui_sticker_assets_missing")}</p>
+      ) : null}
       <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-sam-border-soft px-2 py-2">
         {packRow.map((p) => (
           <button
@@ -156,13 +173,14 @@ export function MessengerStickerSheet({
           <p className="py-6 text-center sam-text-body-secondary text-sam-muted">
             {activePackId === RECENT_PACK_ID ? t("cm_ui_no_recent_stickers") : t("cm_ui_no_stickers")}
           </p>
-        ) : (
+        ) : allItemsBroken ? null : (
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">
             {items.map((it) => (
               <MessengerStickerLazyImage
                 key={it.id}
                 src={it.fileUrl}
                 alt={it.keyword || "sticker"}
+                onBroken={markBroken}
                 onActivate={() => handlePick(it.fileUrl, it.id.startsWith("recent:") ? undefined : it.id)}
               />
             ))}

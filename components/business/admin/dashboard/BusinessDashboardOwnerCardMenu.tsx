@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Biz } from "@/lib/ui/biz-component-classes";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildOwnerOrdersEntryHref } from "@/lib/business/owner-orders-entry-policy";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -38,7 +38,7 @@ export function BusinessDashboardOwnerCardMenu({
       id: "orders-new",
       titleKey: "business_phase7_265",
       descKey: "business_phase7_587",
-      href: buildStoreOrdersHref({ storeId, tab: "new" }),
+      href: buildOwnerOrdersEntryHref({ storeId, tab: "new", freshList: true }),
       badge: badges.newOrders > 0 ? String(badges.newOrders > 99 ? "99+" : badges.newOrders) : undefined,
       disabled: !showOps,
     },
@@ -46,7 +46,7 @@ export function BusinessDashboardOwnerCardMenu({
       id: "orders-progress",
       titleKey: "business_phase7_588",
       descKey: "business_phase7_589",
-      href: buildStoreOrdersHref({ storeId, tab: "progress" }),
+      href: buildOwnerOrdersEntryHref({ storeId, tab: "progress", freshList: true }),
       badge: badges.inProgress > 0 ? String(badges.inProgress > 99 ? "99+" : badges.inProgress) : undefined,
       disabled: !showOps,
     },

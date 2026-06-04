@@ -2,9 +2,15 @@
 
 import Link from "next/link";
 import { AlertCircle, RefreshCw, Siren } from "lucide-react";
+import { useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildOwnerOrdersEntryHref } from "@/lib/business/owner-orders-entry-policy";
+import type { StoreOrderTabId } from "@/lib/business/store-orders-tab";
+import {
+  peekOwnerHubLatestPendingOrderId,
+  subscribeOwnerHubLatestPendingOrderId,
+} from "@/lib/business/owner-hub-pending-order-bridge";
 import {
   formatOwnerDashUpdatedAt,
   ownerDashTypography,
@@ -36,7 +42,19 @@ export function OwnerUrgentOrdersCard({
   refreshing?: boolean;
 }) {
   const { t } = useI18n();
-  const ordersHref = buildStoreOrdersHref({ storeId, tab: "new" });
+  const pendingOrderId = useSyncExternalStore(
+    subscribeOwnerHubLatestPendingOrderId,
+    () => peekOwnerHubLatestPendingOrderId(storeId),
+    () => null
+  );
+  const entryHref = (tab: StoreOrderTabId, withPendingOrder?: boolean) =>
+    buildOwnerOrdersEntryHref({
+      storeId,
+      tab,
+      orderId: withPendingOrder ? (pendingOrderId ?? undefined) : undefined,
+      freshList: true,
+    });
+  const newOrdersHref = entryHref("new", true);
   const unconfirmed = Math.max(snapshot.pending_over_3m_count, 0);
   const cells: UrgentCell[] = [
     {
@@ -50,7 +68,7 @@ export function OwnerUrgentOrdersCard({
             ? t("store_owner_dash_waiting_accept")
             : undefined,
       danger: unconfirmed > 0 || snapshot.pending_accept_count > 0,
-      href: ordersHref,
+      href: newOrdersHref,
     },
     {
       id: "cooking",
@@ -61,7 +79,7 @@ export function OwnerUrgentOrdersCard({
           ? t("store_owner_dash_over_eta")
           : t("store_owner_dash_status_normal"),
       danger: snapshot.cooking_delay_count > 0,
-      href: buildStoreOrdersHref({ storeId, tab: "preparing" }),
+      href: entryHref("preparing"),
     },
     {
       id: "delivery",
@@ -74,7 +92,7 @@ export function OwnerUrgentOrdersCard({
             ? t("store_owner_dash_delivery_delayed_occurred")
             : t("store_owner_dash_status_normal"),
       danger: snapshot.delivery_delay_count > 0 || snapshot.rider_unassigned_count > 0,
-      href: buildStoreOrdersHref({ storeId, tab: "shipping" }),
+      href: entryHref("shipping"),
     },
     {
       id: "unconfirmed",
@@ -85,7 +103,7 @@ export function OwnerUrgentOrdersCard({
           ? t("store_owner_dash_unconfirmed_over_3m")
           : t("store_owner_dash_confirm_done"),
       danger: unconfirmed > 0,
-      href: ordersHref,
+      href: newOrdersHref,
     },
   ];
 
@@ -149,7 +167,7 @@ export function OwnerUrgentOrdersCard({
       )}
 
       <Link
-        href={ordersHref}
+        href={newOrdersHref}
         prefetch={false}
         className={`flex min-h-[44px] w-full items-center justify-center rounded-[4px] text-[14px] font-bold text-white ${
           hasUrgent ? "bg-[#DC2626] active:bg-red-700" : "pointer-events-none bg-gray-300 text-gray-600"

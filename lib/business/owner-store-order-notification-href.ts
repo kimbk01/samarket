@@ -32,6 +32,7 @@ export function buildOwnerStoreOrderNotificationHref(params: {
   kind?: string | null;
   orderStatus?: string | null;
   ackOwnerNotifications?: boolean;
+  freshList?: boolean;
 }): string {
   const storeId = params.storeId.trim();
   const orderId = params.orderId.trim();
@@ -44,5 +45,6 @@ export function buildOwnerStoreOrderNotificationHref(params: {
     orderId,
     tab,
     ackOwnerNotifications: params.ackOwnerNotifications === true,
+    freshList: params.freshList === true || params.ackOwnerNotifications === true,
   });
 }

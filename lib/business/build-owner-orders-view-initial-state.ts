@@ -3,6 +3,10 @@ import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  shouldOwnerOrdersSkipCachePeek,
+  type OwnerOrdersEntrySearchParams,
+} from "@/lib/business/owner-orders-entry-policy";
 import { peekOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 
@@ -19,8 +23,11 @@ export type OwnerOrdersViewLoadState =
       orders: OwnerStoreOrderListRow[];
     };
 
-/** 허브·`me/stores` 캐시·주문 목록 캐시로 첫 페인트를 즉시 — 이후 `load({ silent: true })` 로 정합 */
-export function buildOwnerOrdersViewInitialState(urlStoreId: string): OwnerOrdersViewLoadState {
+/** 허브·`me/stores` 캐시·주문 목록 캐시로 첫 페인트를 즉시 — 딥링크·`fresh_list` 진입은 peek 생략 */
+export function buildOwnerOrdersViewInitialState(
+  urlStoreId: string,
+  entry: OwnerOrdersEntrySearchParams = {}
+): OwnerOrdersViewLoadState {
   const peekStores = peekMeStoresListClientCache();
   if (!peekStores || peekStores.status !== 200) {
     return { kind: "loading" };
@@ -34,6 +41,9 @@ export function buildOwnerOrdersViewInitialState(urlStoreId: string): OwnerOrder
     urlStoreId
   );
   if (!store) {
+    return { kind: "loading" };
+  }
+  if (shouldOwnerOrdersSkipCachePeek(entry)) {
     return { kind: "loading" };
   }
   const ordersPeek = peekOwnerStoreOrdersListCache(store.id);

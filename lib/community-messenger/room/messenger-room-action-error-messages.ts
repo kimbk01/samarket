@@ -25,6 +25,10 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_room_not_found");
     case "content_required":
       return t("nav_messenger_message_required");
+    case "sticker_asset_invalid":
+      return t("cm_ui_sticker_assets_missing");
+    case "composer_busy":
+      return t("nav_messenger_action_failed");
     case "room_blocked":
       return t("nav_messenger_room_blocked_error");
     case "room_archived":

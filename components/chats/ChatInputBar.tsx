@@ -16,6 +16,10 @@ import { ChatMobileImagePickerSheet } from "@/components/chats/ChatMobileImagePi
 import { ChatMobileAttachSheet } from "@/components/chats/ChatMobileAttachSheet";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import {
+  ALL_CHAT_EMOJIS,
+  CHAT_EMOJI_PANEL_PREVIEW_COUNT,
+} from "@/lib/chat-ui/chat-emoji-catalog";
 
 interface ChatInputBarProps {
   onSend: (message: string) => void;
@@ -39,23 +43,11 @@ interface ChatInputBarProps {
   onComposerFocusChange?: (focused: boolean) => void;
   /** 모바일 거래 채팅 — 입력 필·글자 크기 축소 */
   composerDense?: boolean;
+  /** 이모지 탭 시 insert=입력창 삽입, send=즉시 전송(기본) */
+  emojiPickMode?: "insert" | "send";
 }
 
 const DEFAULT_MAX_MESSAGE_LENGTH = 1000;
-
-/** 이모지 패널용 — 다양한 이모지 (스마일·감정·손동작·기타) */
-const EMOJI_GRID: string[][] = [
-  ["😀", "😃", "😄", "😁", "😅", "😂", "🤣", "😊", "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛"],
-  ["😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😌", "😔", "😪"],
-  ["🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "😎", "🤓", "🧐", "😕", "😟"],
-  ["🙁", "😮", "😯", "😲", "😳", "🥺", "😦", "😧", "😨", "😰", "😥", "😢", "😭", "😱", "😖", "😣", "😞", "😓", "😩", "😫"],
-  ["👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖", "👋", "🤝", "🙏"],
-  ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💟", "♥️"],
-];
-
-const ALL_CHAT_EMOJIS = EMOJI_GRID.flat();
-/** 첫 패널에만 표시 — 태블릿에서도 한눈에 들어오게; 나머지는 더보기 */
-const EMOJI_PANEL_PREVIEW_COUNT = 35;
 
 function draftKey(k: string) {
   return `kasama-chat-draft:${k}`;
@@ -74,6 +66,7 @@ function ChatInputBarInner({
   onComposerTextChange,
   onComposerFocusChange,
   composerDense = false,
+  emojiPickMode = "send",
 }: ChatInputBarProps) {
   const { t } = useI18n();
   const resolvedPlaceholder = placeholder ?? t("chats_compose_input_placeholder");
@@ -129,6 +122,14 @@ function ChatInputBarInner({
     persistDraft("");
   };
 
+  const sendEmojiImmediate = (emoji: string) => {
+    if (inputLocked || !emoji) return;
+    notifyChatSendStartForPerf();
+    onSend(emoji);
+    notifyChatSendSuccessForPerf();
+    setEmojiOpen(false);
+  };
+
   const insertEmoji = (emoji: string) => {
     const el = inputRef.current;
     if (!el) {
@@ -151,6 +152,14 @@ function ChatInputBarInner({
       const newPos = start + emoji.length;
       el.setSelectionRange(newPos, newPos);
     });
+  };
+
+  const handleEmojiPick = (emoji: string) => {
+    if (emojiPickMode === "send") {
+      sendEmojiImmediate(emoji);
+      return;
+    }
+    insertEmoji(emoji);
   };
 
   useEffect(() => {
@@ -233,13 +242,13 @@ function ChatInputBarInner({
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pt-2.5">
             <div className="grid grid-cols-7 gap-1 touch-manipulation sm:grid-cols-8 md:grid-cols-7 md:gap-1.5">
-              {(emojiShowAll ? ALL_CHAT_EMOJIS : ALL_CHAT_EMOJIS.slice(0, EMOJI_PANEL_PREVIEW_COUNT)).map(
+              {(emojiShowAll ? ALL_CHAT_EMOJIS : ALL_CHAT_EMOJIS.slice(0, CHAT_EMOJI_PANEL_PREVIEW_COUNT)).map(
                 (emoji, i) => (
                   <button
                     key={`${emoji}-${i}`}
                     type="button"
                     className="sam-header-action flex h-10 w-10 items-center justify-center sam-text-hero active:scale-[0.96] sm:h-11 sm:w-11 sm:sam-text-hero md:sam-text-hero"
-                    onClick={() => insertEmoji(emoji)}
+                    onClick={() => handleEmojiPick(emoji)}
                     aria-label={`${t("common_emoji")} ${emoji}`}
                   >
                     {emoji}
@@ -247,13 +256,13 @@ function ChatInputBarInner({
                 )
               )}
             </div>
-            {!emojiShowAll && ALL_CHAT_EMOJIS.length > EMOJI_PANEL_PREVIEW_COUNT ? (
+            {!emojiShowAll && ALL_CHAT_EMOJIS.length > CHAT_EMOJI_PANEL_PREVIEW_COUNT ? (
               <button
                 type="button"
                 className="mt-2 w-full rounded-sam-md border border-sam-border bg-sam-surface py-2.5 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-surface-muted active:bg-sam-surface-muted"
                 onClick={() => setEmojiShowAll(true)}
               >
-                {t("common_emoji_show_more")} · {ALL_CHAT_EMOJIS.length - EMOJI_PANEL_PREVIEW_COUNT}+
+                {t("common_emoji_show_more")} · {ALL_CHAT_EMOJIS.length - CHAT_EMOJI_PANEL_PREVIEW_COUNT}+
               </button>
             ) : null}
           </div>

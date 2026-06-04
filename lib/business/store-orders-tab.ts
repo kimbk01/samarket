@@ -90,6 +90,8 @@ export function buildStoreOrdersHref(params: {
   orderId?: string;
   chatOrderId?: string;
   ackOwnerNotifications?: boolean;
+  /** 대시보드·알림 진입 — OwnerStoreOrdersView 가 목록 캐시 peek 없이 네트워크 갱신 */
+  freshList?: boolean;
 }): string {
   const p = new URLSearchParams();
   p.set("storeId", params.storeId.trim());
@@ -97,6 +99,7 @@ export function buildStoreOrdersHref(params: {
   if (params.orderId?.trim()) p.set("order_id", params.orderId.trim());
   if (params.chatOrderId?.trim()) p.set("chat_order_id", params.chatOrderId.trim());
   if (params.ackOwnerNotifications) p.set("ack_owner_notifications", "1");
+  if (params.freshList) p.set("fresh_list", "1");
   return `/stores/owner/orders?${p.toString()}`;
 }
 

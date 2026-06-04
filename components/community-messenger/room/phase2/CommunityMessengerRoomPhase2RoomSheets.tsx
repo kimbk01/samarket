@@ -49,11 +49,14 @@ import {
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
+import { ChatEmojiPicker } from "@/components/chat-ui/ChatEmojiPicker";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Sticker } from "lucide-react";
+import { isMessengerComposerOutboundBusy } from "@/lib/community-messenger/room/messenger-composer-outbound-busy";
+import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Smile, Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
   const vm = useMessengerRoomPhase2View();
+  const composerOutboundBusy = isMessengerComposerOutboundBusy(vm.busy);
   const isGroupMenuDrawer = vm.activeSheet === "menu" && vm.isGroupRoom;
   return (
     <>
@@ -76,7 +79,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 : `max-h-[85vh] w-full overflow-y-auto shadow-[0_-8px_32px_rgba(0,0,0,0.08)] ${
                     vm.activeSheet === "attach" ||
                     vm.activeSheet === "attach-confirm" ||
-                    vm.activeSheet === "stickers"
+                    vm.activeSheet === "stickers" ||
+                    vm.activeSheet === "emoji"
                       ? "rounded-t-ui-rect border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                       : `mx-auto max-h-[78vh] w-full max-w-[520px] rounded-t-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] ${
                           vm.activeSheet === "menu" && !vm.isGroupRoom ? "p-0" : "p-5"
@@ -94,16 +98,20 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 <nav className="flex flex-col" aria-label={vm.t("common_attach")}>
                   <button
                     type="button"
+                    onClick={() => vm.setActiveSheet("emoji")}
+                    disabled={vm.roomUnavailable || composerOutboundBusy}
+                    className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <Smile className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
+                      {vm.t("common_emoji")}
+                    </span>
+                    <span className="text-[color:var(--cm-room-text-muted)]">›</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => vm.setActiveSheet("stickers")}
-                    disabled={
-                      vm.roomUnavailable ||
-                      vm.busy === "send-sticker" ||
-                      vm.busy === "send" ||
-                      vm.busy === "send-image" ||
-                      vm.busy === "send-file" ||
-                      vm.busy === "send-voice" ||
-                      vm.busy === "delete-message"
-                    }
+                    disabled={vm.roomUnavailable || composerOutboundBusy}
                     className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
                     <span className="flex items-center gap-2.5">
@@ -240,6 +248,36 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
               </>
+            ) : null}
+
+            {vm.activeSheet === "emoji" ? (
+              <div className="w-full bg-[color:var(--cm-room-header-bg)]">
+                <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--cm-room-divider)] px-3 py-2">
+                  <button
+                    type="button"
+                    className="rounded-full px-2 py-1 sam-text-body-secondary font-medium text-[color:var(--cm-room-text-muted)] hover:bg-sam-surface-muted"
+                    onClick={() => vm.setActiveSheet("attach")}
+                  >
+                    {vm.t("nav_back")}
+                  </button>
+                  <span className="sam-text-body font-semibold text-[color:var(--cm-room-text)]">{vm.t("common_emoji")}</span>
+                  <button
+                    type="button"
+                    className="rounded-full px-2 py-1 sam-text-body-secondary font-medium text-[color:var(--cm-room-text-muted)] hover:bg-sam-surface-muted"
+                    onClick={vm.dismissRoomSheet}
+                  >
+                    {vm.t("nav_close")}
+                  </button>
+                </div>
+                <ChatEmojiPicker
+                  disabled={vm.roomUnavailable || composerOutboundBusy}
+                  onPick={(emoji) => {
+                    if (vm.roomUnavailable || composerOutboundBusy) return;
+                    vm.dismissRoomSheet();
+                    void vm.sendMessage(emoji);
+                  }}
+                />
+              </div>
             ) : null}
 
             {vm.activeSheet === "stickers" ? (

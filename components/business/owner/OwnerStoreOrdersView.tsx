@@ -54,6 +54,13 @@ import {
 } from "@/lib/business/owner-mobile-orders-tab";
 import { replaceOwnerOrdersUrlQuery } from "@/lib/business/owner-orders-url";
 import { buildOwnerOrdersViewInitialState } from "@/lib/business/build-owner-orders-view-initial-state";
+import {
+  ownerOrdersEntrySearchParamsFromUrlSearchParams,
+  OWNER_ORDERS_FRESH_LIST_PARAM,
+  parseOwnerOrdersFreshList,
+  shouldOwnerOrdersForceNetwork,
+} from "@/lib/business/owner-orders-entry-policy";
+import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { pickOwnerStoreFromMeList } from "@/lib/business/pick-owner-store-from-me-list";
 import { OwnerStoreOrdersMobileBody } from "@/components/business/owner/OwnerStoreOrdersMobileBody";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -73,6 +80,7 @@ import { setOwnerOrdersAttentionBridge } from "@/lib/business/owner-orders-atten
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
 import { OwnerStoreOrderDeepLinkMissBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkMissBanner";
+import { OwnerStoreOrderDeepLinkWrongTabBanner } from "@/components/business/owner/OwnerStoreOrderDeepLinkWrongTabBanner";
 import {
   parseStoreRowsFromMeStoresJson,
   peekMeStoresListClientCache,
@@ -107,18 +115,36 @@ export function OwnerStoreOrdersView() {
     () => searchParams.get("chat_order_id")?.trim() ?? "",
     [searchParams]
   );
+  const entryParams = useMemo(
+    () => ownerOrdersEntrySearchParamsFromUrlSearchParams(searchParams),
+    [searchParams]
+  );
+  const entryForceNetwork = useMemo(
+    () => shouldOwnerOrdersForceNetwork(entryParams),
+    [entryParams]
+  );
+  const hubRuntime = useOwnerHubRuntime();
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
   const deepLinkEnrichAttemptsRef = useRef(0);
   const deepLinkChatEnrichAttemptedRef = useRef(false);
   const tabSyncForOrderRef = useRef<string | null>(null);
+  /** mount URL 의 highlight — 별도 effect 중복 fetch 방지 */
+  const prevHighlightOrderIdRef = useRef(highlightOrderId);
+  const freshListStrippedRef = useRef(false);
+  const loadInFlightRef = useRef(false);
   const [deepLinkEnrichSettled, setDeepLinkEnrichSettled] = useState(false);
 
   /** 펼치기 UI — URL만 쓰면 Suspense 리마운트로 취소 탭·버튼이 먹통이 될 수 있음 */
   const [expandedOrderId, setExpandedOrderId] = useState(highlightOrderId);
   const [chatOrderId, setChatOrderId] = useState(highlightChatOrderId);
 
-  const [state, setState] = useState(() => buildOwnerOrdersViewInitialState(urlStoreId));
+  const [state, setState] = useState(() =>
+    buildOwnerOrdersViewInitialState(
+      searchParams.get("storeId")?.trim() ?? "",
+      ownerOrdersEntrySearchParamsFromUrlSearchParams(searchParams)
+    )
+  );
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -176,7 +202,11 @@ export function OwnerStoreOrdersView() {
       storeId: alertStoreIdRef.current ?? undefined,
       silent,
     });
-    if (!silent) setState({ kind: "loading" });
+    if (!silent) {
+      if (loadInFlightRef.current) return;
+      loadInFlightRef.current = true;
+      setState({ kind: "loading" });
+    }
     try {
       const storesPeek = peekMeStoresListClientCache();
       let prefetchStore: { id: string; store_name?: string; slug?: string } | null = null;
@@ -277,6 +307,8 @@ export function OwnerStoreOrdersView() {
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
+    } finally {
+      if (!silent) loadInFlightRef.current = false;
     }
   }, [urlStoreId, t]);
 
@@ -284,19 +316,23 @@ export function OwnerStoreOrdersView() {
     r2d1OwnerOrdersTraceInstallCollector();
     r2d1KpiMetaTraceInstallCollector();
     const oid = highlightOrderId.trim();
-    if (oid && urlStoreId.trim()) {
-      invalidateOwnerStoreOrdersListCache(urlStoreId.trim());
+    const sid = urlStoreId.trim();
+    const force = entryForceNetwork;
+    if ((force || oid.length > 0) && sid) {
+      invalidateOwnerStoreOrdersListCache(sid);
     }
     void load({
-      reason: oid ? "notification_deeplink" : "mount",
-      silent: state.kind === "ok" && !oid,
-      forceNetwork: oid.length > 0,
+      reason: force ? (oid ? "notification_deeplink" : "orders_entry_fresh") : "mount",
+      silent: !force && state.kind === "ok",
+      forceNetwork: force,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount: 초기 ok 캐시면 silent 백그라운드 정합만
   }, [load]);
 
   useEffect(() => {
     const oid = highlightOrderId.trim();
+    if (oid === prevHighlightOrderIdRef.current) return;
+    prevHighlightOrderIdRef.current = oid;
     if (!oid) return;
     const sid = urlStoreId.trim();
     if (sid) invalidateOwnerStoreOrdersListCache(sid);
@@ -307,7 +343,49 @@ export function OwnerStoreOrdersView() {
       reason: "notification_deeplink",
       silent: state.kind === "ok",
     });
-  }, [highlightOrderId, urlStoreId, load]);
+  }, [highlightOrderId, urlStoreId, load, state.kind]);
+
+  useEffect(() => {
+    const sub = hubRuntime?.subscribeOrdersRefresh;
+    if (!sub) return;
+    return sub(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      const onOrders =
+        pathname === "/stores/owner/orders" || pathname.endsWith("/store-orders");
+      if (!onOrders) return;
+      /** 주문 화면은 `useOwnerStoreOrdersRealtime` 가 행 패치 — 전체 목록 refetch 폭주 방지 */
+      void load({ silent: true, forceNetwork: false, reason: "hub_orders_refresh" });
+    });
+  }, [hubRuntime, pathname, load]);
+
+  const ordersStoreId = state.kind === "ok" ? state.storeId : null;
+
+  useEffect(() => {
+    if (!ordersStoreId) return;
+    if (!parseOwnerOrdersFreshList(searchParams.get(OWNER_ORDERS_FRESH_LIST_PARAM))) {
+      freshListStrippedRef.current = false;
+      return;
+    }
+    if (freshListStrippedRef.current) return;
+    freshListStrippedRef.current = true;
+    const oid = highlightOrderId.trim();
+    router.replace(
+      buildStoreOrdersHref({
+        storeId: ordersStoreId,
+        tab,
+        orderId: oid || undefined,
+        chatOrderId: highlightChatOrderId || undefined,
+      }),
+      { scroll: false }
+    );
+  }, [
+    ordersStoreId,
+    searchParams,
+    tab,
+    highlightOrderId,
+    highlightChatOrderId,
+    router,
+  ]);
 
   useEffect(() => {
     setExpandedOrderId(highlightOrderId);
@@ -333,16 +411,6 @@ export function OwnerStoreOrdersView() {
   useEffect(() => {
     deepLinkChatEnrichAttemptedRef.current = false;
   }, [highlightChatOrderId, urlStoreId]);
-
-  useEffect(() => {
-    if (!expandedOrderId || state.kind !== "ok") return;
-    const order = state.orders.find((o) => o.id === expandedOrderId);
-    if (!order) return;
-    if (!orderMatchesOwnerMobileOrdersTab(order, tab)) {
-      setExpandedOrderId("");
-      replaceOwnerOrdersUrlQuery({ storeId: state.storeId, tab });
-    }
-  }, [expandedOrderId, state, tab]);
 
   const summaryCounts = useMemo(() => {
     if (state.kind !== "ok") {
@@ -613,12 +681,15 @@ export function OwnerStoreOrdersView() {
             storeId: state.storeId,
             tab: wantTab,
             orderId: activeExpandOrderId,
+            freshList: parseOwnerOrdersFreshList(
+              searchParams.get(OWNER_ORDERS_FRESH_LIST_PARAM)
+            ),
           }),
           { scroll: false }
         );
       }
     }
-  }, [state, activeExpandOrderId, tab, router, enrichOrder]);
+  }, [state, activeExpandOrderId, tab, router, enrichOrder, searchParams]);
 
   const activeChatOrderId = chatOrderId || highlightChatOrderId;
 
@@ -882,6 +953,24 @@ export function OwnerStoreOrdersView() {
     deepLinkEnrichSettled &&
     !state.orders.some((o) => o.id === highlightOrderId);
 
+  const deeplinkWrongTabBanner =
+    state.kind === "ok" && highlightOrderId.length > 0 && deepLinkEnrichSettled
+      ? (() => {
+          const order = state.orders.find((o) => o.id === highlightOrderId);
+          if (!order || orderMatchesOwnerMobileOrdersTab(order, tab)) return null;
+          return (
+            <OwnerStoreOrderDeepLinkWrongTabBanner
+              storeId={state.storeId}
+              orderId={highlightOrderId}
+              wantTab={ownerMobileOrdersTabForStatus(order.order_status)}
+            />
+          );
+        })()
+      : null;
+
+  const scrollToHighlightOrderId =
+    state.kind === "ok" && highlightOrderId.length > 0 ? highlightOrderId : "";
+
   if (state.kind === "ok") {
     return (
       <OwnerStoreOrdersMobileBody
@@ -904,8 +993,9 @@ export function OwnerStoreOrdersView() {
                 void load({ forceNetwork: true, reason: "notification_deeplink_refresh", silent: true });
               }}
             />
-          ) : null
+          ) : deeplinkWrongTabBanner
         }
+        scrollToHighlightOrderId={scrollToHighlightOrderId}
         onTabHref={onTabHref}
         onUpdated={() => load({ silent: true, reason: "order_status_patch", forceNetwork: true })}
         onPatchOrderRow={patchOrderInList}

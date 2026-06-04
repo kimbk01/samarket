@@ -36,6 +36,8 @@ import {
   peekOwnerHubDashboardOrdersCache,
 } from "@/lib/stores/owner-hub-dashboard-orders-cache";
 import { scheduleOwnerDashboardAfterFirstPaint } from "@/lib/business/owner-dashboard-waterfall";
+import { recordOwnerHubStoreOrderRealtimeRow } from "@/lib/business/owner-hub-pending-order-bridge";
+import { invalidateOwnerStoreOrdersListCacheCoalesced } from "@/lib/stores/owner-store-orders-list-cache-invalidate-coalesce";
 
 type OwnerHubRuntimeValue = {
   stores: StoreRow[] | null;
@@ -169,6 +171,14 @@ export function OwnerHubRuntimeProvider({
   }, []);
 
   const onStoreOrderInsert = useCallback((row: Record<string, unknown>) => {
+    const sid = alertStoreIdRef.current?.trim() ?? "";
+    if (sid) {
+      recordOwnerHubStoreOrderRealtimeRow(sid, row, "INSERT");
+      invalidateOwnerStoreOrdersListCacheCoalesced(sid, {
+        route: "OwnerHubRuntimeProvider",
+        reason: "store_orders_insert",
+      });
+    }
     if (String(row.fulfillment_type ?? "") !== "local_delivery") return;
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
@@ -238,6 +248,7 @@ export function OwnerHubRuntimeProvider({
     debounceMs: 450,
     onInsert: onStoreOrderInsert,
     onChange: () => {
+      /** UPDATE burst — 목록 캐시 무효화는 INSERT 만(주문 화면 RT·single-flight 와 중복 refetch 방지) */
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       dispatchOwnerHubBadgeRefresh({ source: "owner_hub_runtime_store_orders" });
       void (async () => {

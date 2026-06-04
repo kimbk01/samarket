@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Home } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
@@ -35,6 +35,12 @@ import {
   type OwnerMobileBottomNavItem,
 } from "@/lib/stores/owner-mobile-bottom-nav-layout";
 import { OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
+import { buildOwnerOrdersEntryHref } from "@/lib/business/owner-orders-entry-policy";
+import {
+  peekOwnerHubLatestPendingOrderId,
+  subscribeOwnerHubLatestPendingOrderId,
+} from "@/lib/business/owner-hub-pending-order-bridge";
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
@@ -200,6 +206,12 @@ export function OwnerMobileBottomNav({
   scrollHideEnabled?: boolean;
 }) {
   const { t } = useI18n();
+  const hubRuntime = useOwnerHubRuntime();
+  const pendingOrderId = useSyncExternalStore(
+    subscribeOwnerHubLatestPendingOrderId,
+    () => peekOwnerHubLatestPendingOrderId(storeId),
+    () => null
+  );
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const hiddenByScroll = useOwnerBottomNavScrollHide(scrollHideEnabled);
@@ -263,7 +275,15 @@ export function OwnerMobileBottomNav({
 
   const renderSide = (items: OwnerMobileBottomNavItem[]) =>
     items.map((item) => {
-      const href = item.href(storeId, storeSlug);
+      let href = item.href(storeId, storeSlug);
+      if (item.id === "orders" && (hubRuntime?.orderAlertsBadge ?? 0) > 0) {
+        href = buildOwnerOrdersEntryHref({
+          storeId,
+          tab: "new",
+          orderId: pendingOrderId ?? undefined,
+          freshList: true,
+        });
+      }
       return (
         <OwnerMobileBottomNavSideTab
           key={item.id}

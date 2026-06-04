@@ -30,6 +30,7 @@ describe("buildOwnerStoreOrderNotificationHref", () => {
     expect(href).toContain(`order_id=${encodeURIComponent(ORDER)}`);
     expect(href).toContain("tab=progress");
     expect(href).toContain("ack_owner_notifications=1");
+    expect(href).toContain("fresh_list=1");
   });
 
   it("uses kind when orderStatus absent", () => {
@@ -50,5 +51,6 @@ describe("buildOwnerStoreOrderNotificationHref", () => {
       ackOwnerNotifications: true,
     });
     expect(href).toContain("tab=new");
+    expect(href).toContain("fresh_list=1");
   });
 });
