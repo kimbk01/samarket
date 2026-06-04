@@ -1235,6 +1235,7 @@ export const storeCommerceUiMessages = {
     store_biz_sla_level: "SLA {level}",
     store_biz_patch_err_prep_minutes: "예상 준비 시간(1–180분)을 선택해 주세요.",
     store_biz_patch_err_invalid_transition: "지금 단계에서는 해당 처리를 할 수 없습니다.",
+    store_biz_patch_err_stale_reconciled: "이미 처리된 주문입니다. 화면을 맞췄습니다.",
     store_biz_patch_err_admin_locked: "플랫폼에서 이 주문을 잠갔습니다. 운영센터로 문의해 주세요.",
     store_biz_patch_err_cancel_reason_required: "취소 사유를 선택해 주세요.",
     store_biz_patch_err_points_insufficient:
@@ -1606,6 +1607,7 @@ export const storeCommerceUiMessages = {
     store_owner_ops_status_ready_pickup: "픽업 준비 완료",
     store_owner_ops_status_completed_delivery: "배달 완료",
     store_owner_ops_status_completed_pickup: "픽업 완료",
+    store_order_process_step_ready_dispatch: "배달 출발 준비",
     store_owner_ops_flow_new: "신규",
     store_owner_ops_flow_accepted: "접수",
     store_owner_ops_flow_cooking: "조리",
@@ -2912,6 +2914,7 @@ export const storeCommerceUiMessages = {
     store_biz_sla_level: "SLA {level}",
     store_biz_patch_err_prep_minutes: "Select prep time between 1–180 minutes.",
     store_biz_patch_err_invalid_transition: "This action is not allowed at the current step.",
+    store_biz_patch_err_stale_reconciled: "This order was already updated. The screen is now in sync.",
     store_biz_patch_err_admin_locked: "This order is locked by the platform. Contact support.",
     store_biz_patch_err_cancel_reason_required: "Select a cancellation reason.",
     store_biz_patch_err_points_insufficient:
@@ -3284,6 +3287,7 @@ export const storeCommerceUiMessages = {
     store_owner_ops_status_ready_pickup: "Ready for pickup",
     store_owner_ops_status_completed_delivery: "Delivered",
     store_owner_ops_status_completed_pickup: "Picked up",
+    store_order_process_step_ready_dispatch: "Ready for dispatch",
     store_owner_ops_flow_new: "New",
     store_owner_ops_flow_accepted: "Accepted",
     store_owner_ops_flow_cooking: "Preparing",

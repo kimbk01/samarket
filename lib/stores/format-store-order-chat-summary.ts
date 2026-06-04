@@ -49,7 +49,7 @@ export function formatStoreOrderSummaryForChatMessage(
     const labeled =
       order.order_status.includes("주문") || order.order_status.includes("배달") || order.order_status.includes("조리")
         ? order.order_status
-        : orderStatusLabelForSummary(order.order_status);
+        : orderStatusLabelForSummary(order.order_status, order.fulfillment_type ?? "local_delivery");
     lines.push(`상태: ${labeled}`);
   }
   const deliveryAddr = formatStoreOrderDeliveryAddressPlain({

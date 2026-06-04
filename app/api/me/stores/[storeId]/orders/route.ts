@@ -203,7 +203,10 @@ export async function GET(
     return NextResponse.json(body);
   }
 
-  const snapPromise = tryLoadOwnerStoreOrdersListFromSnapshot(sb as never, id, userId);
+  const listFresh = url.searchParams.get("fresh") === "1";
+  const snapPromise = tryLoadOwnerStoreOrdersListFromSnapshot(sb as never, id, userId, {
+    forceRpc: listFresh,
+  });
 
   let orders: import("@/lib/business/owner-store-order-list-row-bridge").OwnerStoreOrderListRow[] = [];
   let snapshotVia: string | undefined;

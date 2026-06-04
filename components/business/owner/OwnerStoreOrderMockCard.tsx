@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
@@ -8,24 +8,30 @@ import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRej
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
 import { ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
-import { formatOwnerOrderPatchErr } from "@/lib/business/owner-order-patch-errors";
 import {
-  ownerOpsFlowStepLabelsI18n,
+  runOwnerStoreOrderCancelRequest,
+  runOwnerStoreOrderPatch,
+  type OwnerStoreOrderMutationCallbacks,
+} from "@/lib/business/owner-store-order-mutation";
+import {
   ownerOpsStatusLabelI18n,
   ownerReviewStatusLabelI18n,
   ownerRiderStatusLabelI18n,
 } from "@/lib/stores/owner-order-ui-labels";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
-import {
-  patchOwnerStoreOrderStatus,
-  postOwnerStoreOrderCancelRequest,
-} from "@/lib/business/patch-owner-store-order-status";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { forgetSingleFlight } from "@/lib/http/run-single-flight";
+import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import {
-  isDeliveryFulfillment,
-} from "@/lib/stores/order-status-transitions";
+  isStoreOrderTerminalStatus,
+  processFlowStepStates,
+  processStatusLabel,
+  processStepLabel,
+  processSteps,
+  type StoreOrderProcessStepKey,
+} from "@/lib/stores/store-order-process-model";
 import {
   ownerCancelActionButtonKey,
   resolveStoreOrderCancelPolicy,
@@ -59,6 +65,8 @@ export function OwnerStoreOrderMockCard({
   storeId,
   order,
   onUpdated,
+  onPatchOrderRow,
+  onReconcileOrder,
   onOrderStatusPatched,
   isHighlight,
   isExpanded,
@@ -68,6 +76,8 @@ export function OwnerStoreOrderMockCard({
   storeId: string;
   order: OwnerStoreOrderListRow;
   onUpdated: () => void | Promise<void>;
+  onPatchOrderRow: OwnerStoreOrderMutationCallbacks["onPatchOrderRow"];
+  onReconcileOrder?: OwnerStoreOrderMutationCallbacks["onReconcileOrder"];
   onOrderStatusPatched?: (orderId: string) => void;
   isHighlight: boolean;
   isExpanded: boolean;
@@ -127,26 +137,54 @@ export function OwnerStoreOrderMockCard({
     enabled: showReviewSection,
   });
 
+  const mutationCallbacks = useMemo(
+    (): OwnerStoreOrderMutationCallbacks => ({
+      onPatchOrderRow,
+      onReconcileOrder,
+    }),
+    [onPatchOrderRow, onReconcileOrder]
+  );
+
+  useEffect(() => {
+    setErr(null);
+  }, [order.id, order.order_status]);
+
+  const afterMutationSuccess = useCallback(
+    async (nextStatus: string) => {
+      dispatchOwnerHubBadgeRefresh({
+        source: "owner-order-ops-card",
+        key: `${storeId}:${order.id}:${nextStatus}`,
+      });
+      invalidateOwnerStoreOrdersListCache(storeId);
+      forgetSingleFlight(`me:store:${storeId}:orders:fresh`);
+      forgetSingleFlight(`me:store:${storeId}:orders`);
+      onOrderStatusPatched?.(order.id);
+      await onReconcileOrder?.(order.id);
+      await onUpdated();
+    },
+    [onOrderStatusPatched, onReconcileOrder, onUpdated, order.id, storeId]
+  );
+
   const runPatch = useCallback(
     async (nextStatus: string, estimatedPrepMinutes?: number) => {
       setBusy(nextStatus);
       setErr(null);
       try {
-        const res = await patchOwnerStoreOrderStatus(storeId, order.id, {
-          order_status: nextStatus,
-          ...(estimatedPrepMinutes != null ? { estimated_prep_minutes: estimatedPrepMinutes } : {}),
-        });
+        const res = await runOwnerStoreOrderPatch(
+          storeId,
+          order.id,
+          {
+            order_status: nextStatus,
+            ...(estimatedPrepMinutes != null ? { estimated_prep_minutes: estimatedPrepMinutes } : {}),
+          },
+          language,
+          mutationCallbacks
+        );
         if (!res.ok) {
-          setErr(formatOwnerOrderPatchErr(res.error ?? "update_failed", language));
+          setErr(res.displayMessage);
           return false;
         }
-        dispatchOwnerHubBadgeRefresh({
-          source: "owner-order-ops-card",
-          key: `${storeId}:${order.id}:${nextStatus}`,
-        });
-        invalidateOwnerStoreOrdersListCache(storeId);
-        onOrderStatusPatched?.(order.id);
-        await onUpdated();
+        await afterMutationSuccess(res.order_status);
         return true;
       } catch {
         setErr(t("store_owner_network_patch_failed"));
@@ -155,7 +193,7 @@ export function OwnerStoreOrderMockCard({
         setBusy(null);
       }
     },
-    [language, onOrderStatusPatched, onUpdated, order.id, storeId, t]
+    [afterMutationSuccess, language, mutationCallbacks, order.id, storeId, t]
   );
 
   const onPrimaryAction = useCallback(() => {
@@ -186,28 +224,42 @@ export function OwnerStoreOrderMockCard({
       const busyKey = cancelPolicy.kind === "request_cancel" ? "cancel_requested" : "cancelled";
       setBusy(busyKey);
       setErr(null);
-      void postOwnerStoreOrderCancelRequest(storeId, order.id, { reason }).then(async (res) => {
-        if (!res.ok) {
-          setErr(formatOwnerOrderPatchErr(res.error ?? "cancel_request_failed", language));
+      void runOwnerStoreOrderCancelRequest(storeId, order.id, { reason }, language, mutationCallbacks).then(
+        async (res) => {
+          if (!res.ok) {
+            setErr(res.displayMessage);
+            setBusy(null);
+            return;
+          }
+          dispatchOwnerHubBadgeRefresh({
+            source: "owner-order-ops-card-cancel",
+            key: `${storeId}:${order.id}:${res.order_status}`,
+          });
+          invalidateOwnerStoreOrdersListCache(storeId);
+          forgetSingleFlight(`me:store:${storeId}:orders:fresh`);
+          forgetSingleFlight(`me:store:${storeId}:orders`);
+          onOrderStatusPatched?.(order.id);
+          await onReconcileOrder?.(order.id);
+          await onUpdated();
           setBusy(null);
-          return;
+          setRejectOpen(false);
         }
-        dispatchOwnerHubBadgeRefresh({
-          source: "owner-order-ops-card-cancel",
-          key: `${storeId}:${order.id}:${res.order_status ?? busyKey}`,
-        });
-        invalidateOwnerStoreOrdersListCache(storeId);
-        onOrderStatusPatched?.(order.id);
-        await onUpdated();
-        setBusy(null);
-        setRejectOpen(false);
-      });
+      );
     },
-    [cancelPolicy.kind, language, onOrderStatusPatched, onUpdated, order.id, storeId]
+    [
+      cancelPolicy.kind,
+      language,
+      mutationCallbacks,
+      onOrderStatusPatched,
+      onReconcileOrder,
+      onUpdated,
+      order.id,
+      storeId,
+    ]
   );
 
   const flow = useMemo(
-    () => buildOwnerOpsFlow(order.order_status, order.fulfillment_type, language),
+    () => buildOwnerOpsFlowFromModel(order.order_status, order.fulfillment_type, language),
     [language, order.fulfillment_type, order.order_status]
   );
 
@@ -526,25 +578,16 @@ function summarizeMenu(
 
 type FlowStep = { label: string; state: "done" | "current" | "upcoming" };
 
-const TERMINAL_ORDER_STATUSES = new Set(["cancelled", "refunded", "refund_requested"]);
-
-function buildOwnerOpsFlow(status: string, fulfillment: string, lang: AppLanguageCode): FlowStep[] {
-  const deliveryLike = isDeliveryFulfillment(fulfillment);
-  const keys = deliveryLike
-    ? ["pending", "accepted", "preparing", "ready_for_pickup", "delivering", "arrived", "completed"]
-    : ["pending", "accepted", "preparing", "ready_for_pickup", "completed"];
-  const labels = ownerOpsFlowStepLabelsI18n(lang, deliveryLike);
-  if (TERMINAL_ORDER_STATUSES.has(status)) {
-    const terminalLabel =
-      status === "refund_requested"
-        ? translate(lang, "store_owner_status_refund_requested")
-        : translate(lang, "store_owner_status_cancelled");
+function buildOwnerOpsFlowFromModel(status: string, fulfillment: string, lang: AppLanguageCode): FlowStep[] {
+  if (isStoreOrderTerminalStatus(status)) {
+    const terminalLabel = processStatusLabel(status, fulfillment, "owner_badge", lang);
     return [{ label: terminalLabel, state: "current" }];
   }
-  const current = keys.includes(status) ? keys.indexOf(status) : -1;
+  const keys = processSteps(fulfillment);
+  const states = processFlowStepStates(fulfillment, status);
   return keys.map((key, i) => ({
-    label: labels[i] ?? key,
-    state: current < 0 ? "upcoming" : i < current ? "done" : i === current ? "current" : "upcoming",
+    label: processStepLabel(key as StoreOrderProcessStepKey, fulfillment, "owner", lang),
+    state: states[i] ?? "upcoming",
   }));
 }
 

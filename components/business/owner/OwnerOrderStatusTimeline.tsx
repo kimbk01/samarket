@@ -3,9 +3,9 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import {
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
-} from "@/lib/stores/store-order-process-criteria";
+  buyerOrderTimelineDeliveryStepLabels,
+  buyerOrderTimelinePickupStepLabels,
+} from "@/lib/stores/buyer-order-status-labels";
 import { Biz } from "@/lib/ui/biz-component-classes";
 
 type Step = { label: string };
@@ -20,8 +20,10 @@ function activeStepIndex(status: string, deliveryLike: boolean): number {
   return 0;
 }
 
-function stepsFor(deliveryLike: boolean): Step[] {
-  const labels = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
+function stepsFor(deliveryLike: boolean, fulfillmentType: string, lang: import("@/lib/i18n/config").AppLanguageCode): Step[] {
+  const labels = deliveryLike
+    ? buyerOrderTimelineDeliveryStepLabels(lang, fulfillmentType)
+    : buyerOrderTimelinePickupStepLabels(lang, fulfillmentType);
   return labels.map((label) => ({ label }));
 }
 
@@ -32,9 +34,9 @@ export function OwnerOrderStatusTimeline({
   orderStatus: string;
   fulfillmentType: string;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
-  const steps = stepsFor(deliveryLike);
+  const steps = stepsFor(deliveryLike, fulfillmentType, language);
   const terminal = new Set(["cancelled", "refunded", "refund_requested"]);
   if (terminal.has(orderStatus)) {
     return (

@@ -2,6 +2,7 @@
  * 매장 주문 프로세스 (사마켓: 앱 내 결제 없음 — 금액 수납은 고객·매장 직접 정산)
  *
  * - DB: store_orders.order_status 중심. payment_status 는 금액 확정·정산 호환용 메타에 가깝게 둠.
+ * - 신규 파생 API: `lib/stores/store-order-process-model.ts` (단계·CTA·채팅 key).
  * - 구매자 화면 상태 문구: `buyerOrderStatusLabel` (`lib/stores/buyer-order-status-labels.ts`).
  */
 
@@ -133,8 +134,13 @@ export const BUYER_ORDER_STATUS_LABEL: Record<string, string> = new Proxy(
   }
 );
 
-/** @deprecated `buyerOrderTimelineDeliveryStepLabels(lang)` 사용 */
-export const TIMELINE_DELIVERY_STEPS = buyerOrderTimelineDeliveryStepLabels();
-
-/** @deprecated `buyerOrderTimelinePickupStepLabels(lang)` 사용 */
-export const TIMELINE_PICKUP_STEPS = buyerOrderTimelinePickupStepLabels();
+export {
+  isStoreOrderTerminalStatus,
+  ownerNextAction,
+  processFlowStepStates,
+  processStepIndex,
+  processSteps,
+  processStatusLabel,
+  processStepLabel,
+  STORE_ORDER_TERMINAL_STATUSES,
+} from "@/lib/stores/store-order-process-model";

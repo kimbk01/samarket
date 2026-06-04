@@ -5,6 +5,9 @@ import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcc
 import { OwnerOrderCardProgressSteps } from "@/components/business/owner/OwnerOrderCardProgressSteps";
 import { OwnerOrderStepConfirmDialog } from "@/components/business/owner/OwnerOrderStepConfirmDialog";
 import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-order-status";
+import { runOwnerStoreOrderPatch } from "@/lib/business/owner-store-order-mutation";
+import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   resolveOwnerStepperClickAction,
   type OwnerStepperClickAction,
@@ -20,6 +23,8 @@ export function OwnerStoreOrderCardStepperWithActions({
   buyerPublicLabel,
   onUpdated,
   onOrderStatusPatched,
+  onPatchOrderRow,
+  onReconcileOrder,
 }: {
   storeId: string;
   orderId: string;
@@ -28,7 +33,10 @@ export function OwnerStoreOrderCardStepperWithActions({
   buyerPublicLabel?: string | null;
   onUpdated: () => void | Promise<void>;
   onOrderStatusPatched?: (orderId: string) => void;
+  onPatchOrderRow?: (orderId: string, patch: Partial<OwnerStoreOrderListRow>) => void;
+  onReconcileOrder?: (orderId: string) => void | Promise<void>;
 }) {
+  const { language } = useI18n();
   const buyerLabel =
     typeof buyerPublicLabel === "string" && buyerPublicLabel.trim()
       ? buyerPublicLabel.trim()
@@ -50,20 +58,29 @@ export function OwnerStoreOrderCardStepperWithActions({
         if (estimatedPrepMinutes != null) {
           body.estimated_prep_minutes = estimatedPrepMinutes;
         }
-        const res = await patchOwnerStoreOrderStatus(storeId, orderId, body);
-        if (!res.ok) return false;
+        if (onPatchOrderRow) {
+          const res = await runOwnerStoreOrderPatch(storeId, orderId, body, language, {
+            onPatchOrderRow,
+            onReconcileOrder,
+          });
+          if (!res.ok) return false;
+        } else {
+          const res = await patchOwnerStoreOrderStatus(storeId, orderId, body);
+          if (!res.ok) return false;
+        }
         dispatchOwnerHubBadgeRefresh({
           source: "owner-order-card-stepper",
           key: `${storeId}:${orderId}:${nextStatus}`,
         });
         onOrderStatusPatched?.(orderId);
+        await onReconcileOrder?.(orderId);
         await onUpdated();
         return true;
       } finally {
         setBusy(false);
       }
     },
-    [onOrderStatusPatched, onUpdated, orderId, storeId]
+    [language, onOrderStatusPatched, onPatchOrderRow, onReconcileOrder, onUpdated, orderId, storeId]
   );
 
   const onStepClick = useCallback(

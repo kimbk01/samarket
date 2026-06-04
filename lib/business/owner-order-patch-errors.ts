@@ -14,3 +14,7 @@ export function formatOwnerOrderPatchErr(code: string, lang: AppLanguageCode): s
   const key = PATCH_ERR_KEYS[code];
   return key ? translate(lang, key) : code;
 }
+
+export function formatOwnerOrderPatchErrAfterReconcile(lang: AppLanguageCode): string {
+  return translate(lang, "store_biz_patch_err_stale_reconciled");
+}

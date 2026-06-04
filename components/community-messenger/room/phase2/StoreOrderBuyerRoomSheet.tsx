@@ -19,7 +19,13 @@ import {
 } from "@/lib/utils/ph-mobile";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
-import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import {
+  processStepIndex,
+  processStepLabel,
+  processSteps,
+  type StoreOrderProcessStepKey,
+} from "@/lib/stores/store-order-process-model";
 import type { StoreOrderChatCardView } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
@@ -497,8 +503,9 @@ function BuyerOpsStatusCard({
   visible: boolean;
   onDismiss: () => void;
 }) {
-  const steps = buyerChatFlowSteps(order.fulfillment_type ?? "pickup", t);
-  const current = buyerChatCurrentStep(order.order_status, order.fulfillment_type ?? "pickup");
+  const fulfillment = order.fulfillment_type ?? "pickup";
+  const steps = buyerChatFlowSteps(fulfillment);
+  const current = processStepIndex(order.order_status, fulfillment);
   return (
     <section className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
       <div className="flex items-start justify-between gap-2">
@@ -548,39 +555,9 @@ function BuyerOpsStatusCard({
   );
 }
 
-function buyerChatFlowSteps(fulfillmentType: string, t: StoreOrderI18nT): string[] {
-  return isDeliveryFulfillment(fulfillmentType)
-    ? [
-        t("store_messenger_buyer_step_new"),
-        t("store_messenger_buyer_step_accepted"),
-        t("store_messenger_buyer_step_preparing"),
-        t("store_messenger_buyer_step_delivery_ready"),
-        t("store_messenger_buyer_step_delivering"),
-        t("store_messenger_buyer_step_near_address"),
-        t("store_messenger_buyer_step_completed"),
-      ]
-    : [
-        t("store_messenger_buyer_step_new"),
-        t("store_messenger_buyer_step_accepted"),
-        t("store_messenger_buyer_step_preparing"),
-        t("store_messenger_buyer_step_pickup_ready"),
-        t("store_messenger_buyer_step_pickup_done"),
-      ];
-}
-
-function buyerChatCurrentStep(status: string, fulfillmentType: string): number {
-  if (isDeliveryFulfillment(fulfillmentType)) {
-    if (status === "accepted") return 1;
-    if (status === "preparing") return 2;
-    if (status === "ready_for_pickup") return 3;
-    if (status === "delivering") return 4;
-    if (status === "arrived") return 5;
-    if (status === "completed") return 6;
-    return 0;
-  }
-  if (status === "accepted") return 1;
-  if (status === "preparing") return 2;
-  if (status === "ready_for_pickup") return 3;
-  if (status === "completed") return 4;
-  return 0;
+function buyerChatFlowSteps(fulfillmentType: string): string[] {
+  const lang = getRuntimeAppLanguage();
+  return processSteps(fulfillmentType).map((key) =>
+    processStepLabel(key as StoreOrderProcessStepKey, fulfillmentType, "buyer", lang)
+  );
 }

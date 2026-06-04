@@ -10,9 +10,9 @@ import {
   ownerOrderStepConfirmMessageI18n,
   ownerStepLabelForNextI18n,
 } from "@/lib/stores/owner-order-ui-labels";
-import { labelForOwnerTransition } from "@/lib/stores/store-order-process-criteria";
 import type { BuyerDetailStepState } from "@/lib/stores/store-order-process-criteria";
 import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
+import { ownerNextAction } from "@/lib/stores/store-order-process-model";
 
 /** 상세 보기 시 신규 주문 자동 접수 — `OwnerOrderAcceptSheet` 프리셋과 동일 기본값 */
 export const OWNER_AUTO_ACCEPT_PREP_MINUTES = 30;
@@ -37,12 +37,7 @@ export function resolveOwnerNextOrderAction(
   fulfillment: string,
   lang: AppLanguageCode = getRuntimeAppLanguage()
 ): OwnerNextOrderAction | null {
-  const next = ownerOrderForwardTransition(current, fulfillment);
-  if (!next) return null;
-  return {
-    status: next,
-    label: labelForOwnerTransition(current, next, fulfillment, lang),
-  };
+  return ownerNextAction(current, fulfillment, lang);
 }
 
 export type OwnerOrderCardStepperModel = {

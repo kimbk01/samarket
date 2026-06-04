@@ -1,6 +1,10 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import {
+  labelForOwnerTransitionFromModel,
+  processStatusLabel,
+} from "@/lib/stores/store-order-process-model";
 import type { OwnerOrderStatus, OwnerOrderTab } from "@/lib/store-owner/types";
 
 export const OWNER_ORDER_STATUS_KEYS: Record<OwnerOrderStatus, MessageKey> = {
@@ -39,30 +43,14 @@ export function ownerOrderTabLabel(
   return translate(lang, OWNER_ORDER_TAB_KEYS[tab]);
 }
 
-const TRANSITION_NEXT_KEYS: Partial<Record<string, MessageKey>> = {
-  accepted: "store_owner_transition_accepted",
-  preparing: "store_owner_transition_preparing",
-  ready_for_pickup: "store_owner_transition_ready",
-  delivering: "store_owner_transition_delivering",
-  arrived: "store_owner_transition_arrived",
-  completed: "store_owner_transition_completed",
-};
-
-/** 사장님·비즈 콘솔: 현재 상태 → 다음 상태 버튼 문구 */
+/** 사장님·비즈 콘솔: 현재 상태 → 다음 상태 버튼 문구 — `store-order-process-model` 위임 */
 export function labelForOwnerTransitionI18n(
   lang: AppLanguageCode,
   current: string,
   next: string,
-  _fulfillment: string
+  fulfillment: string
 ): string {
-  if (next === "cancelled") {
-    return translate(
-      lang,
-      current === "pending" ? "store_owner_action_reject_order" : "store_owner_action_cancel_order"
-    );
-  }
-  const key = TRANSITION_NEXT_KEYS[next];
-  return key ? translate(lang, key) : next;
+  return labelForOwnerTransitionFromModel(lang, current, next, fulfillment);
 }
 
 export function ownerOrderStepConfirmMessageI18n(
@@ -119,23 +107,10 @@ export function ownerOpsStatusLabelI18n(
   status: string,
   fulfillment: string
 ): string {
-  const deliveryLike = fulfillment === "local_delivery" || fulfillment === "shipping";
-  if (status === "ready_for_pickup") {
-    return translate(
-      lang,
-      deliveryLike ? "store_owner_ops_status_ready_delivery" : "store_owner_ops_status_ready_pickup"
-    );
-  }
-  if (status === "completed") {
-    return translate(
-      lang,
-      deliveryLike ? "store_owner_ops_status_completed_delivery" : "store_owner_ops_status_completed_pickup"
-    );
-  }
-  const key = OWNER_ORDER_STATUS_KEYS[status as OwnerOrderStatus];
-  return key ? translate(lang, key) : status;
+  return processStatusLabel(status, fulfillment, "owner_badge", lang);
 }
 
+/** @deprecated `processStepLabel` + `processSteps` (`store-order-process-model`) */
 export function ownerOpsFlowStepLabelsI18n(
   lang: AppLanguageCode,
   deliveryLike: boolean

@@ -4,6 +4,11 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
 import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 import { formatOwnerOrderPatchErr } from "@/lib/business/owner-order-patch-errors";
+import {
+  runOwnerStoreOrderPatch,
+  type OwnerStoreOrderMutationCallbacks,
+} from "@/lib/business/owner-store-order-mutation";
+import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
@@ -39,7 +44,15 @@ export function ownerOrderHasTransitionButtons(order: OwnerDeliveryOrderRef): bo
   );
 }
 
-function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated: () => void) {
+function usePatchOrder(
+  storeId: string,
+  order: OwnerDeliveryOrderRef,
+  onUpdated: () => void,
+  mutation?: {
+    onPatchOrderRow?: OwnerStoreOrderMutationCallbacks["onPatchOrderRow"];
+    onReconcileOrder?: OwnerStoreOrderMutationCallbacks["onReconcileOrder"];
+  }
+) {
   const { t, language } = useI18n();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -51,6 +64,34 @@ function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated:
       setErr(null);
       setBusy(status);
       try {
+        if (mutation?.onPatchOrderRow) {
+          const res = await runOwnerStoreOrderPatch(
+            storeId,
+            order.id,
+            {
+              order_status: status,
+              ...(extras?.estimated_prep_minutes != null
+                ? { estimated_prep_minutes: extras.estimated_prep_minutes }
+                : {}),
+            },
+            language,
+            {
+              onPatchOrderRow: mutation.onPatchOrderRow,
+              onReconcileOrder: mutation.onReconcileOrder,
+            }
+          );
+          if (!res.ok) {
+            setErr(res.displayMessage);
+            return false;
+          }
+          dispatchOwnerHubBadgeRefresh({
+            source: "owner-store-order-delivery-actions",
+            key: `${storeId}:${order.id}:${status}`,
+          });
+          await mutation.onReconcileOrder?.(order.id);
+          onUpdated();
+          return true;
+        }
         const body: Record<string, unknown> = { order_status: status };
         if (extras?.estimated_prep_minutes != null) {
           body.estimated_prep_minutes = extras.estimated_prep_minutes;
@@ -83,7 +124,7 @@ function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated:
         setBusy(null);
       }
     },
-    [language, onUpdated, order.id, storeId, t]
+    [language, mutation, onUpdated, order.id, storeId, t]
   );
 
   const onTransitionClick = useCallback(
@@ -139,6 +180,8 @@ export function OwnerStoreOrderDeliveryActionsAside({
   storeId,
   order,
   onUpdated,
+  onPatchOrderRow,
+  onReconcileOrder,
   variant = "aside",
   acceptSheetOverlayClassName,
   rowBelowButtonLayout = "column",
@@ -146,6 +189,8 @@ export function OwnerStoreOrderDeliveryActionsAside({
   storeId: string;
   order: OwnerDeliveryOrderRef;
   onUpdated: () => void;
+  onPatchOrderRow?: (orderId: string, patch: Partial<OwnerStoreOrderListRow>) => void;
+  onReconcileOrder?: (orderId: string) => void | Promise<void>;
   variant?: "aside" | "rowBelow";
   acceptSheetOverlayClassName?: string;
   rowBelowButtonLayout?: "column" | "row";
@@ -170,7 +215,10 @@ export function OwnerStoreOrderDeliveryActionsAside({
     confirmReject,
     prepBusy,
     rejectBusy,
-  } = usePatchOrder(storeId, order, onUpdated);
+  } = usePatchOrder(storeId, order, onUpdated, {
+    onPatchOrderRow,
+    onReconcileOrder,
+  });
 
   if (!showTransitionButtons) return null;
 

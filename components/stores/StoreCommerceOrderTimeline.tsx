@@ -8,15 +8,15 @@ import {
   buyerOrderStatusLabel,
   buyerOrderTimelineDeliveryStepLabels,
   buyerOrderTimelinePickupStepLabels,
-  storeOrderTimelineCurrentStep,
   type BuyerDetailStepState,
 } from "@/lib/stores/store-order-process-criteria";
+import { processFlowStepStates, processStepIndex } from "@/lib/stores/store-order-process-model";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 
 type TimelineVariant = "default" | "buyer_detail";
 
 /** 취소·환불 등 터미널일 때 스테퍼 맨 뒤에 붙이는 단계 */
-function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode): {
+function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode, fulfillmentType: string): {
   label: string;
   lineClass: string;
   circleClass: string;
@@ -28,7 +28,7 @@ function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode): {
     case "refund_requested":
     case "refunded":
       return {
-        label: buyerOrderStatusLabel(orderStatus, lang),
+        label: buyerOrderStatusLabel(orderStatus, lang, fulfillmentType),
         lineClass:
           orderStatus === "cancelled" || orderStatus === "cancel_requested"
             ? orderStatus === "cancelled"
@@ -83,22 +83,15 @@ export function StoreCommerceOrderTimeline({
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
   const terminal = ["cancelled", "refund_requested", "refunded", "cancel_requested"].includes(orderStatus);
   const allDone = orderStatus === "completed";
-  const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus, language) : null;
+  const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus, language, fulfillmentType) : null;
 
   if (variant === "buyer_detail") {
     const steps = deliveryLike
-      ? [...buyerOrderTimelineDeliveryStepLabels(language)]
-      : [...buyerOrderTimelinePickupStepLabels(language)];
+      ? [...buyerOrderTimelineDeliveryStepLabels(language, fulfillmentType)]
+      : [...buyerOrderTimelinePickupStepLabels(language, fulfillmentType)];
     const rowStates: BuyerDetailStepState[] = deliveryLike
       ? buyerDetailSixStepStates(fulfillmentType, orderStatus)
-      : (() => {
-          const cur = storeOrderTimelineCurrentStep(fulfillmentType, orderStatus);
-          return steps.map((_, i) => {
-            if (allDone || i < cur) return "done";
-            if (i === cur) return "current";
-            return "upcoming";
-          });
-        })();
+      : (processFlowStepStates(fulfillmentType, orderStatus) as BuyerDetailStepState[]);
 
     return (
       <nav
@@ -184,9 +177,9 @@ export function StoreCommerceOrderTimeline({
   }
 
   const steps = deliveryLike
-    ? [...buyerOrderTimelineDeliveryStepLabels(language)]
-    : [...buyerOrderTimelinePickupStepLabels(language)];
-  const cur = storeOrderTimelineCurrentStep(fulfillmentType, orderStatus);
+    ? [...buyerOrderTimelineDeliveryStepLabels(language, fulfillmentType)]
+    : [...buyerOrderTimelinePickupStepLabels(language, fulfillmentType)];
+  const cur = processStepIndex(orderStatus, fulfillmentType);
 
   return (
     <nav

@@ -13,6 +13,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/stores/owner-store-orders-list-snapshot";
 import {
   jsonPayloadKb,
   logStoreOrderDetailPerf,
@@ -405,6 +406,7 @@ export async function PATCH(
     reason: "order_status_mutation",
     afterMutationSuccess: true,
   });
+  await deleteOwnerStoreOrdersListSnapshotCounter(sb, sid, userId);
 
   return NextResponse.json({ ok: true, order_status: applied.order_status });
 }

@@ -9,7 +9,9 @@ import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/Owner
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
 import { useRegisterOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
-import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
+import type {
+  OwnerStoreOrderListRow,
+} from "@/lib/business/owner-store-order-list-row-bridge";
 import type { StoreOrderTabId } from "@/lib/business/store-orders-tab";
 import {
   effectiveOwnerMobileOrdersTab,
@@ -41,6 +43,8 @@ export function OwnerStoreOrdersMobileBody({
   summaryCounts,
   onTabHref,
   onUpdated,
+  onPatchOrderRow,
+  onReconcileOrder,
   onOrderStatusPatched,
   onOpenDetail,
   onCloseDetail,
@@ -57,6 +61,8 @@ export function OwnerStoreOrdersMobileBody({
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
   onTabHref: (tabId: StoreOrderTabId) => string;
   onUpdated: () => void | Promise<void>;
+  onPatchOrderRow: (orderId: string, patch: Partial<OwnerStoreOrderListRow>) => void;
+  onReconcileOrder?: (orderId: string) => void | Promise<void>;
   onOrderStatusPatched?: (orderId: string) => void;
   onOpenDetail: (orderId: string) => void;
   onCloseDetail: () => void;
@@ -263,6 +269,8 @@ export function OwnerStoreOrdersMobileBody({
                   storeId={storeId}
                   order={o}
                   onUpdated={onUpdated}
+                  onPatchOrderRow={onPatchOrderRow}
+                  onReconcileOrder={onReconcileOrder}
                   onOrderStatusPatched={onOrderStatusPatched}
                   isHighlight={expandedOrderId === o.id || chatOrderId === o.id}
                   isExpanded={expandedOrderId === o.id && !chatOrderId}

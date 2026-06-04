@@ -7,12 +7,11 @@ import type { MessageKey } from "@/lib/i18n/messages";
 type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import { OwnerStoreOrderDeliveryActionsAside } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerDeliveryOrderRef } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
+import { BUYER_ORDER_STATUS_LABEL, buyerDetailSixStepStates } from "@/lib/stores/store-order-process-criteria";
 import {
-  BUYER_ORDER_STATUS_LABEL,
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
-  buyerDetailSixStepStates,
-} from "@/lib/stores/store-order-process-criteria";
+  buyerOrderTimelineDeliveryStepLabels,
+  buyerOrderTimelinePickupStepLabels,
+} from "@/lib/stores/buyer-order-status-labels";
 import { ownerOrderHasTransitionButtons } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
@@ -34,7 +33,7 @@ export function StoreOrderOwnerMessengerActionBar({
   onUpdated,
   onOpenOrderPanel,
 }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
   const showActions = ownerOrderHasTransitionButtons(order);
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
@@ -69,7 +68,7 @@ export function StoreOrderOwnerMessengerActionBar({
 
       {showActions ? (
         <div className="space-y-2 px-3 py-2.5">
-          <OwnerProgressRail t={t} order={order} />
+          <OwnerProgressRail t={t} language={language} order={order} />
           <p className="sam-text-xxs font-semibold text-[color:var(--cm-room-text)]">
             {order.order_status === "pending"
               ? t("store_messenger_owner_accept_prompt")
@@ -97,9 +96,19 @@ export function StoreOrderOwnerMessengerActionBar({
   );
 }
 
-function OwnerProgressRail({ t, order }: { t: StoreOrderI18nT; order: OwnerDeliveryOrderRef }) {
+function OwnerProgressRail({
+  t,
+  language,
+  order,
+}: {
+  t: StoreOrderI18nT;
+  language: import("@/lib/i18n/config").AppLanguageCode;
+  order: OwnerDeliveryOrderRef;
+}) {
   const deliveryLike = isDeliveryFulfillment(order.fulfillment_type);
-  const labels = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
+  const labels = deliveryLike
+    ? buyerOrderTimelineDeliveryStepLabels(language, order.fulfillment_type)
+    : buyerOrderTimelinePickupStepLabels(language, order.fulfillment_type);
   const states = buyerDetailSixStepStates(order.fulfillment_type, order.order_status);
   return (
     <div className="grid grid-cols-4 gap-1.5" aria-label={t("store_order_timeline_aria")}>

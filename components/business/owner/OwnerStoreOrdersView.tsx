@@ -27,6 +27,7 @@ import {
   mapRealtimeRecordToOrderDelivery,
   mergeRealtimeRecordIntoOrderDelivery,
 } from "@/lib/business/owner-store-order-delivery-row-rt";
+import { mergeOwnerStoreOrderListRows } from "@/lib/business/merge-owner-store-order-list-rows";
 import {
   listRowToOwnerOrder,
   normalizeOwnerStoreOrderListRow,
@@ -230,7 +231,10 @@ export function OwnerStoreOrdersView() {
       ) {
         rawOj = prefetchedOrders.json;
       } else {
-        const ordersRes = await fetchStoreOrdersListDeduped(store.id, { forceNetwork: opts?.forceNetwork === true });
+        const ordersRes = await fetchStoreOrdersListDeduped(store.id, {
+          forceNetwork: opts?.forceNetwork === true,
+          fresh: opts?.forceNetwork === true,
+        });
         rawOj = ordersRes.json;
       }
       const oj = rawOj as {
@@ -248,11 +252,25 @@ export function OwnerStoreOrdersView() {
         }
         return;
       }
-      setState({
-        kind: "ok",
-        storeId: store.id,
-        storeName: String(store.store_name ?? t("nav_store_name_fallback")),
-        orders: parseOwnerStoreOrdersListFromApiJson(oj),
+      const incoming = parseOwnerStoreOrdersListFromApiJson(oj);
+      setState((prev) => {
+        const base =
+          prev.kind === "ok" && prev.storeId === store.id
+            ? {
+                kind: "ok" as const,
+                storeId: prev.storeId,
+                storeName: prev.storeName,
+                orders: silent
+                  ? mergeOwnerStoreOrderListRows(prev.orders, incoming)
+                  : incoming,
+              }
+            : {
+                kind: "ok" as const,
+                storeId: store.id,
+                storeName: String(store.store_name ?? t("nav_store_name_fallback")),
+                orders: incoming,
+              };
+        return base;
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
@@ -467,6 +485,19 @@ export function OwnerStoreOrdersView() {
         return { ...prev, orders };
       });
     }, []);
+
+  const patchOrderInList = useCallback((orderId: string, patch: Partial<OwnerStoreOrderListRow>) => {
+    const oid = orderId.trim();
+    if (!oid) return;
+    setState((prev) => {
+      if (prev.kind !== "ok") return prev;
+      const idx = prev.orders.findIndex((o) => o.id === oid);
+      if (idx < 0) return prev;
+      const next = [...prev.orders];
+      next[idx] = normalizeOwnerStoreOrderListRow({ ...next[idx]!, ...patch });
+      return { ...prev, orders: sortOwnerStoreOrderListRowsDesc(next) };
+    });
+  }, []);
 
   const enrichOrder = useCallback((orderId: string) => {
     const oid = orderId.trim();
@@ -814,6 +845,8 @@ export function OwnerStoreOrdersView() {
         summaryCounts={summaryCounts}
         onTabHref={onTabHref}
         onUpdated={() => load({ silent: true, reason: "order_status_patch", forceNetwork: true })}
+        onPatchOrderRow={patchOrderInList}
+        onReconcileOrder={enrichOrder}
         onOrderStatusPatched={(orderId) => enrichOrder(orderId)}
         onOpenDetail={onOpenDetail}
         onCloseDetail={onCloseDetail}

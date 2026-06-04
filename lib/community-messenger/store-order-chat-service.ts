@@ -33,7 +33,12 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { storeOrderMessengerStatusLineContent } from "@/lib/store-order-chat/store-order-ops-i18n";
+import {
+  chatMessageKey,
+  chatMessageKeyWithPrep,
+} from "@/lib/stores/store-order-process-model";
 import { buildStoreOrderSummaryTimelineSteps } from "@/lib/store-order-chat/store-order-summary-timeline";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 
@@ -550,7 +555,15 @@ async function publishStoreOrderMessengerSystemMessageBump(
 
 async function appendStoreOrderMessengerSystemMessage(
   sb: SupabaseClient<any>,
-  input: { orderId: string; actorUserId?: string | null; content: string; relatedOrderStatus?: SharedOrderStatus | null },
+  input: {
+    orderId: string;
+    actorUserId?: string | null;
+    content: string;
+    relatedOrderStatus?: SharedOrderStatus | null;
+    messageKey?: MessageKey | null;
+    messageVars?: Record<string, string | number>;
+    prepMinutes?: number;
+  },
   ensuredRoom?: Extract<StoreOrderMessengerEnsureResult, { ok: true }>
 ): Promise<void> {
   const ensured =
@@ -560,13 +573,22 @@ async function appendStoreOrderMessengerSystemMessage(
   const content = input.content.trim();
   if (!content) return;
   const createdAt = nowIso();
+  const fulfillment = ensured.orderFlow === "delivery" ? "local_delivery" : "pickup";
+  const relatedStatus = input.relatedOrderStatus ?? null;
+  const resolvedMessageKey =
+    input.messageKey ??
+    (relatedStatus
+      ? chatMessageKeyWithPrep(relatedStatus, fulfillment, input.prepMinutes)
+      : null);
   const metadata = {
     domain: "store_order",
     lineKind: storeOrderSystemLineKind(input.relatedOrderStatus),
     orderFlow: ensured.orderFlow,
     actorRole: input.actorUserId ? "store" : "system",
     storeOrderId: input.orderId,
-    orderStatus: input.relatedOrderStatus ?? null,
+    orderStatus: relatedStatus,
+    message_key: resolvedMessageKey,
+    message_vars: input.messageVars ?? null,
     deliveryStatus:
       input.relatedOrderStatus === "delivering"
         ? "delivering"
@@ -644,18 +666,6 @@ export async function appendStoreOrderMessengerStatusTransition(
   if (!next) return;
   const ensured = await ensureStoreOrderMessengerRoom(sb, { orderId });
   if (!ensured.ok) return;
-  if (next === "completed" && storeOrderStatusToShared(previousDbStatus) === "delivering" && ensured.orderFlow === "delivery") {
-    await appendStoreOrderMessengerSystemMessage(
-      sb,
-      {
-        orderId,
-        actorUserId: ensured.ownerUserId,
-        content: systemChatLineForOrderStatus("arrived", "delivery") ?? "",
-        relatedOrderStatus: "arrived",
-      },
-      ensured
-    );
-  }
   if (next === "accepted") {
     await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
     const { data: orderRow } = await sb
@@ -675,6 +685,7 @@ export async function appendStoreOrderMessengerStatusTransition(
         actorUserId: ensured.ownerUserId,
         content: line,
         relatedOrderStatus: "accepted",
+        prepMinutes: Number.isFinite(mins) && mins > 0 ? mins : undefined,
       },
       ensured
     );

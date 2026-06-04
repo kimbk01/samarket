@@ -15,9 +15,10 @@ export type StoreOrdersListResult = {
 
 export function fetchStoreOrdersListDeduped(
   storeId: string,
-  opts?: { forceNetwork?: boolean }
+  opts?: { forceNetwork?: boolean; fresh?: boolean }
 ): Promise<StoreOrdersListResult> {
   const sid = storeId.trim();
+  const fresh = opts?.fresh === true || opts?.forceNetwork === true;
   const peek = opts?.forceNetwork ? null : peekOwnerStoreOrdersListCache(sid);
   if (peek) {
     return Promise.resolve({
@@ -33,8 +34,10 @@ export function fetchStoreOrdersListDeduped(
       },
     });
   }
-  return runSingleFlight(`me:store:${sid}:orders`, async (): Promise<StoreOrdersListResult> => {
-    const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/orders`, {
+  const flightKey = fresh ? `me:store:${sid}:orders:fresh` : `me:store:${sid}:orders`;
+  const query = fresh ? "?fresh=1" : "";
+  return runSingleFlight(flightKey, async (): Promise<StoreOrdersListResult> => {
+    const res = await fetch(`/api/me/stores/${encodeURIComponent(sid)}/orders${query}`, {
       credentials: "include",
       cache: "no-store",
     });

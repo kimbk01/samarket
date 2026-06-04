@@ -231,7 +231,7 @@ export async function tryLoadOwnerStoreOrdersListFromSnapshot(
   sbAny: SupabaseClient<any>,
   storeId: string,
   ownerUserId: string,
-  opts?: { status?: string; limit?: number; cursor?: string }
+  opts?: { status?: string; limit?: number; cursor?: string; forceRpc?: boolean }
 ): Promise<OwnerStoreOrdersListSnapshotReadResult | null> {
   const sid = storeId.trim();
   const uid = ownerUserId.trim();
@@ -247,9 +247,14 @@ export async function tryLoadOwnerStoreOrdersListFromSnapshot(
     listScope: OWNER_STORE_ORDERS_LIST_DEFAULT_SCOPE,
   });
 
-  return runSingleFlight(`${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${keys.store_id}:${keys.owner_user_id}`, async () => {
+  const forceRpc = opts?.forceRpc === true;
+  const flightSuffix = forceRpc ? ":fresh-rpc" : "";
+  return runSingleFlight(
+    `${SNAPSHOT_SINGLE_FLIGHT_PREFIX}${keys.store_id}:${keys.owner_user_id}${flightSuffix}`,
+    async () => {
     const build0 = devPerfNow();
 
+    if (!forceRpc) {
     const read0 = devPerfNow();
     const counter = await readSnapshotCounter(sbAny, keys);
     const readMs = devPerfNow() - read0;
@@ -273,7 +278,9 @@ export async function tryLoadOwnerStoreOrdersListFromSnapshot(
       });
       if (done) return done;
     }
+    }
 
+    const rpc0 = devPerfNow();
     const { payload, rpcMs } = await fetchSnapshotViaRpc(
       sbAny,
       sid,
@@ -288,10 +295,11 @@ export async function tryLoadOwnerStoreOrdersListFromSnapshot(
     return finishFromPayload(payload, {
       storeId: sid,
       totalMs: devPerfNow() - build0,
-      readMs: rpcMs || devPerfNow() - read0,
+      readMs: rpcMs || devPerfNow() - rpc0,
       via: "unified_rpc",
     });
-  });
+  }
+  );
 }
 
 export async function refreshOwnerStoreOrdersListSnapshotFromRpc(
@@ -318,6 +326,34 @@ export async function refreshOwnerStoreOrdersListSnapshotFromRpc(
   return payload;
 }
 
+/** mutation 직후 stale counter serve 방지 — default scope/limit 행 삭제 */
+export async function deleteOwnerStoreOrdersListSnapshotCounter(
+  sbAny: SupabaseClient<any>,
+  storeId: string,
+  ownerUserId: string
+): Promise<void> {
+  const keys = ownerStoreOrdersListSnapshotCacheKeyParts({
+    storeId,
+    ownerUserId,
+    listScope: OWNER_STORE_ORDERS_LIST_DEFAULT_SCOPE,
+    limit: OWNER_STORE_ORDERS_LIST_DEFAULT_LIMIT,
+  });
+  const { error } = await sbAny
+    .from(OWNER_STORE_ORDERS_LIST_SNAPSHOT_TABLE)
+    .delete()
+    .eq("store_id", keys.store_id)
+    .eq("owner_user_id", keys.owner_user_id)
+    .eq("list_scope", keys.list_scope)
+    .eq("status_filter", keys.status_filter)
+    .eq("list_limit", keys.list_limit)
+    .eq("cursor_key", keys.cursor_key);
+  if (error && process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console -- snapshot delete probe
+    console.warn("[owner-orders-list-snapshot-delete]", error.message);
+  }
+}
+
+/** @deprecated — 서버는 `deleteOwnerStoreOrdersListSnapshotCounter` 사용 */
 export function invalidateOwnerStoreOrdersListSnapshotCounter(
   storeId: string,
   ownerUserId: string

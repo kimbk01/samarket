@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { deleteOwnerStoreOrdersListSnapshotCounter } from "@/lib/stores/owner-store-orders-list-snapshot";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
@@ -128,6 +129,7 @@ export async function POST(
       reason: "owner_direct_cancel",
       afterMutationSuccess: true,
     });
+    await deleteOwnerStoreOrdersListSnapshotCounter(sb, sid, userId);
     return NextResponse.json({ ok: true, order_status: "cancelled", mode: "direct_cancel" });
   }
 
@@ -201,6 +203,7 @@ export async function POST(
     reason: "owner_cancel_request",
     afterMutationSuccess: true,
   });
+  await deleteOwnerStoreOrdersListSnapshotCounter(sb, sid, userId);
 
   return NextResponse.json({ ok: true, order_status: "cancel_requested", mode: "request_cancel" });
 }

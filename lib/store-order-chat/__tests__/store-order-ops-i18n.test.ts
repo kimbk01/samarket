@@ -51,6 +51,18 @@ describe("store-order-ops-i18n", () => {
     expect(title).toBe("주문 접수");
   });
 
+  it("prefers metadata message_key over legacy content", () => {
+    const body = resolveStoreOrderOpsBodyText({
+      orderStatus: "preparing",
+      lineKind: "status",
+      content: "legacy ko text",
+      metadata: { message_key: "store_delivery_ops_body_preparing" },
+      t: ko,
+    });
+    expect(body).toContain("준비");
+    expect(body).not.toBe("legacy ko text");
+  });
+
   it("translates body when DB stored the key string", () => {
     const body = resolveStoreOrderOpsBodyText({
       orderStatus: "preparing",

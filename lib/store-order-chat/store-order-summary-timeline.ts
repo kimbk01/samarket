@@ -1,10 +1,13 @@
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import {
-  BUYER_ORDER_STATUS_LABEL,
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
-  buyerDetailSixStepStates,
-} from "@/lib/stores/store-order-process-criteria";
-import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+  isStoreOrderTerminalStatus,
+  processFlowStepStates,
+  processStatusLabel,
+  processStepLabel,
+  processSteps,
+  type StoreOrderProcessStepKey,
+} from "@/lib/stores/store-order-process-model";
 
 export type StoreOrderSummaryTimelineStep = {
   key: string;
@@ -25,13 +28,8 @@ export function buildStoreOrderSummaryTimelineSteps(input: {
   orderCreatedAt?: string | null;
   statusEvents?: StatusEventRow[];
 }): StoreOrderSummaryTimelineStep[] {
-  const deliveryLike = isDeliveryFulfillment(input.fulfillmentType);
-  const labels = deliveryLike ? [...TIMELINE_DELIVERY_STEPS] : [...TIMELINE_PICKUP_STEPS];
-  const statusKeys = deliveryLike
-    ? (["accepted", "preparing", "delivering", "completed"] as const)
-    : (["accepted", "preparing", "ready_for_pickup", "completed"] as const);
-
-  const states = buyerDetailSixStepStates(input.fulfillmentType, input.orderStatus);
+  const lang = getRuntimeAppLanguage();
+  const orderStatus = input.orderStatus.trim();
   const atByStatus = new Map<string, string>();
 
   if (input.orderCreatedAt?.trim()) {
@@ -53,14 +51,26 @@ export function buildStoreOrderSummaryTimelineSteps(input: {
     atByStatus.set("delivering", atByStatus.get("arrived")!);
   }
 
-  return labels.map((label, i) => {
-    const key = statusKeys[i] ?? `step_${i}`;
+  if (isStoreOrderTerminalStatus(orderStatus)) {
+    return [
+      {
+        key: orderStatus,
+        label: processStatusLabel(orderStatus, input.fulfillmentType, "buyer", lang),
+        at: atByStatus.get(orderStatus) ?? input.orderCreatedAt?.trim() ?? null,
+        state: "current",
+      },
+    ];
+  }
+
+  const keys = processSteps(input.fulfillmentType);
+  const states = processFlowStepStates(input.fulfillmentType, orderStatus);
+
+  return keys.map((key, i) => {
     const uiState = states[i] ?? "upcoming";
-    const state: StoreOrderSummaryTimelineStep["state"] =
-      uiState === "na" ? "na" : uiState === "done" ? "done" : uiState === "current" ? "current" : "upcoming";
+    const state: StoreOrderSummaryTimelineStep["state"] = uiState;
     return {
       key,
-      label,
+      label: processStepLabel(key as StoreOrderProcessStepKey, input.fulfillmentType, "buyer", lang),
       at: atByStatus.get(key) ?? null,
       state,
     };
@@ -80,7 +90,7 @@ export function formatStoreOrderSummaryTimelineTime(iso: string | null): string 
   });
 }
 
-export function orderStatusLabelForSummary(dbStatus: string): string {
+export function orderStatusLabelForSummary(dbStatus: string, fulfillmentType: string = "local_delivery"): string {
   const s = dbStatus.trim();
-  return BUYER_ORDER_STATUS_LABEL[s] ?? s;
+  return buyerOrderStatusLabel(s, getRuntimeAppLanguage(), fulfillmentType);
 }

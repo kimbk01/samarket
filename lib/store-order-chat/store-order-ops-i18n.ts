@@ -10,6 +10,10 @@ import {
 import type { OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
 import { systemChatLineForOrderStatus } from "@/lib/shared-order-chat/chat-message-builder";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
+import {
+  chatMessageKey,
+  chatMessageKeyWithPrep,
+} from "@/lib/stores/store-order-process-model";
 
 export type StoreOrderOpsI18nT = (
   key: MessageKey,
@@ -137,6 +141,17 @@ export function resolveStoreOrderOpsBodyText(input: {
 }): string {
   const { orderStatus, lineKind, content, metadata, t } = input;
   const trimmed = content.trim();
+  const metaKey = typeof metadata?.message_key === "string" ? metadata.message_key.trim() : "";
+  if (metaKey && looksLikeMessageKey(metaKey)) {
+    const vars =
+      metadata?.message_vars && typeof metadata.message_vars === "object"
+        ? (metadata.message_vars as Record<string, string | number>)
+        : undefined;
+    const translated = translateOpsKey(t, metaKey as MessageKey, vars);
+    if (translated && translated !== metaKey && !looksLikeMessageKey(translated)) {
+      return translated;
+    }
+  }
   if (trimmed.startsWith("store_delivery_ops_") && looksLikeMessageKey(trimmed)) {
     return translateOpsKey(t, trimmed as MessageKey);
   }
@@ -180,7 +195,11 @@ export function resolveStoreOrderOpsTitleText(input: {
   return translateOpsKey(input.t, key);
 }
 
-/** 서버 system 메시지 본문(기본 ko 저장 — UI는 orderStatus로 재번역) */
+function fulfillmentFromChatFlow(flow: OrderChatFlow): string {
+  return flow === "delivery" ? "local_delivery" : "pickup";
+}
+
+/** 서버 system 메시지 본문(기본 ko 저장 — UI는 `message_key`·orderStatus로 재번역) */
 export function storeOrderMessengerStatusLineContent(
   status: SharedOrderStatus,
   flow: OrderChatFlow,
@@ -188,25 +207,16 @@ export function storeOrderMessengerStatusLineContent(
 ): string | null {
   const lang = opts?.language ?? DEFAULT_APP_LANGUAGE;
   const t: StoreOrderOpsI18nT = (key, vars) => translate(lang, key, vars);
-
-  if (status === "accepted") {
-    const mins = opts?.prepMinutes;
-    if (mins != null && mins > 0) {
-      return t("store_delivery_ops_body_accepted_prep", { minutes: mins });
+  const fulfillment = fulfillmentFromChatFlow(flow);
+  const key =
+    status === "accepted"
+      ? chatMessageKeyWithPrep(status, fulfillment, opts?.prepMinutes)
+      : chatMessageKey(status, fulfillment);
+  if (key) {
+    if (key === "store_delivery_ops_body_accepted_prep" && opts?.prepMinutes) {
+      return t(key, { minutes: opts.prepMinutes });
     }
-    return t("store_delivery_ops_body_accepted");
-  }
-  if (status === "preparing") return t("store_delivery_ops_body_preparing");
-  if (status === "ready_for_pickup") {
-    return flow === "delivery"
-      ? t("store_delivery_ops_body_ready_delivery")
-      : t("store_delivery_ops_body_ready_pickup");
-  }
-  if (status === "delivering") return t("store_delivery_ops_body_delivering");
-  if (status === "completed") {
-    return flow === "delivery"
-      ? t("store_delivery_ops_body_completed_delivery")
-      : t("store_delivery_ops_body_completed_pickup");
+    return t(key);
   }
   return systemChatLineForOrderStatus(status, flow, lang);
 }
