@@ -1097,9 +1097,21 @@
     transform: scale(0.96);
   }
 
-  .stores-browse-header-primary-tab--pending:not(.delivery-category-chip--active) {
+  .stores-browse-header-primary-tab.delivery-category-chip:not(.stores-browse-header-primary-tab--active) {
+    color: var(--dibay-brown);
+  }
+
+  .stores-browse-header-primary-tab--active {
     border-color: var(--delivery-primary);
-    color: var(--delivery-text-main);
+    background: var(--delivery-bg-card);
+    color: var(--dibay-brown);
+    padding-inline: 20px;
+    font-weight: 700;
+  }
+
+  .stores-browse-header-primary-tab--pending:not(.stores-browse-header-primary-tab--active) {
+    border-color: var(--delivery-primary);
+    color: var(--dibay-brown);
   }
 
   /** browse 헤더 4단 — 2차 칩 눌림·선택 */
@@ -1155,19 +1167,24 @@
     background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
   }
 
-  /** browse 4단(2차) — 목록 스크롤 시 접기(1차·정렬 칩 유지) */
+  /** browse 4단(2차) — 고정 슬롯 + transform (scrollTop 흔들림 방지) */
   [data-stores-browse-subtopic-collapse] {
-    max-height: var(--delivery-home-subcategory-reveal-h);
+    height: var(--delivery-home-subcategory-reveal-h);
+    flex-shrink: 0;
     overflow: hidden;
+  }
+
+  [data-stores-browse-subtopic-collapse] > div {
+    height: 100%;
     transition:
-      max-height 200ms ease,
+      transform 200ms ease,
       opacity 150ms ease;
   }
 
-  [data-stores-browse-subtopic-collapse][data-collapsed="true"] {
-    max-height: 0;
+  [data-stores-browse-subtopic-collapse][data-collapsed="true"] > div {
     opacity: 0;
     pointer-events: none;
+    transform: translateY(-100%);
   }
 
   .stores-browse-header-subtopic-tabs {

@@ -16,6 +16,17 @@ function isScrollable(el: HTMLElement): boolean {
   return overflowYAllowsScroll(el);
 }
 
+/** 메인 허브·`<main>` 스크롤 본문이 실제로 넘치는지 — browse scroll-chrome hide 게이트 */
+export function isMainAppScrollBodyOverflowing(minOverflowPx = 24): boolean {
+  if (typeof document === "undefined") return false;
+  const root = getStoreDetailAppScrollRootCached();
+  if (isDocumentScrollRoot(root)) {
+    const doc = document.documentElement;
+    return doc.scrollHeight > doc.clientHeight + minOverflowPx;
+  }
+  return root.scrollHeight > root.clientHeight + minOverflowPx;
+}
+
 export function isDocumentScrollRoot(root: HTMLElement): boolean {
   return typeof document !== "undefined" && root === document.documentElement;
 }

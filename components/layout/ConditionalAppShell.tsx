@@ -13,6 +13,7 @@ import {
   resolveBottomNavScrollHideEnabled,
   useBottomNavScrollHide,
 } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
+import { useBrowseScrollChromeHidden } from "@/lib/stores/use-browse-scroll-chrome-hidden";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 import {
   BOTTOM_NAV_SHELL,
@@ -177,7 +178,14 @@ export function ConditionalAppShell({
   }, [storeOwnerFlyoutSuppressesBottomNav, f, showDesktopSideNav]);
   const bottomNavScrollHideEnabled =
     showBottomNavMounted && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
-  const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
+  const isBrowseRoute = pathNoQuery.startsWith("/stores/browse/");
+  const browseScrollChromeHidden = useBrowseScrollChromeHidden(
+    Boolean(bottomNavScrollHideEnabled && isBrowseRoute)
+  );
+  const defaultBottomNavHiddenByScroll = useBottomNavScrollHide(
+    Boolean(bottomNavScrollHideEnabled && !isBrowseRoute)
+  );
+  const bottomNavHiddenByScroll = isBrowseRoute ? browseScrollChromeHidden : defaultBottomNavHiddenByScroll;
   const heroMenuSurface = f.isStoreOrderHeroMenuSurface;
   const mainScrollInMainColumn = resolvesMainScrollInMainColumn({
     isChatRoomDetail: f.isChatRoomDetail,

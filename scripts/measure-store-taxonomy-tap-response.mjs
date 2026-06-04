@@ -141,7 +141,7 @@ async function measurePrimaryClickInPage(page, selector, title) {
       if (!el) throw new Error(`missing selector ${sel}`);
       const t0 = performance.now();
       el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
-      const activeNow = el.classList.contains("delivery-category-chip--active")
+      const activeNow = el.classList.contains("stores-browse-header-primary-tab--active")
         ? performance.now() - t0
         : null;
       const titleNow = document.querySelector("h1")?.textContent?.trim() === expectedTitle
@@ -156,7 +156,7 @@ async function measurePrimaryClickInPage(page, selector, title) {
               reject(new Error("timeout waiting active"));
             }, 5000);
             const obs = new MutationObserver(() => {
-              if (!el.classList.contains("delivery-category-chip--active")) return;
+              if (!el.classList.contains("stores-browse-header-primary-tab--active")) return;
               window.clearTimeout(timeout);
               obs.disconnect();
               resolve(["active", performance.now() - t0]);

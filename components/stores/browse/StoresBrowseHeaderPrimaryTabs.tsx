@@ -16,11 +16,21 @@ import {
 } from "@/lib/stores/browse-primary-tab-navigation";
 import type { BrowsePrimaryIndustryWithImage } from "@/lib/stores/browse-primary-industry-display";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
-import { storeCategoryPillClass } from "@/components/stores/store-category-pill-styles";
 import {
   onBrowsePrimaryTaxonomyCommit,
   onBrowsePrimaryTaxonomyPointerDown,
 } from "@/lib/stores/stores-browse-taxonomy-interaction";
+
+function browsePrimaryTabClass(active: boolean, pending: boolean): string {
+  return [
+    "stores-browse-header-primary-tab",
+    "delivery-category-chip",
+    active ? "stores-browse-header-primary-tab--active" : "",
+    pending ? "stores-browse-header-primary-tab--pending" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
 
 function MenuExpandIcon({ open }: { open: boolean }) {
   return (
@@ -36,7 +46,7 @@ function MenuExpandIcon({ open }: { open: boolean }) {
 }
 
 /**
- * browse 헤더 3단 — 1차 업종 pill(`delivery-category-chip`) + ▼
+ * browse 헤더 3단 — 1차 업종 테두리형 pill + ▼
  * CONTRACT: `primaries` 는 부모 `StoresBrowseHeaderChrome` 단일 `useBrowsePrimaryIndustries` 만 사용.
  */
 export function StoresBrowseHeaderPrimaryTabs({
@@ -95,7 +105,7 @@ export function StoresBrowseHeaderPrimaryTabs({
                 scroll={false}
                 role="tab"
                 aria-selected={on}
-                className={`stores-browse-header-primary-tab ${storeCategoryPillClass(on)} ${pending ? "stores-browse-header-primary-tab--pending" : ""}`}
+                className={browsePrimaryTabClass(on, pending)}
                 onPointerDown={(e) => {
                   onBrowsePrimaryTaxonomyPointerDown({
                     ev: e,
@@ -105,7 +115,7 @@ export function StoresBrowseHeaderPrimaryTabs({
                   });
                 }}
                 onClick={(e) => {
-                  e.currentTarget.classList.add("delivery-category-chip--active");
+                  e.currentTarget.classList.add("stores-browse-header-primary-tab--active");
                   e.currentTarget.classList.add("stores-browse-header-primary-tab--pending");
                   onBrowsePrimaryTaxonomyCommit(slug);
                   onMenuOpenChange(false);

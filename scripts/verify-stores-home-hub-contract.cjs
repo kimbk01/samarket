@@ -905,8 +905,25 @@ assertIncludes(
 );
 assertIncludes(
   browsePrimaryTabs,
+  "stores-browse-header-primary-tab--active",
+  "browse primary tabs must use outline active class"
+);
+assertNotIncludes(
+  browsePrimaryTabs,
   "storeCategoryPillClass",
-  "browse primary tabs must use shared pill class helper"
+  "browse primary tabs must not use filled chip active helper"
+);
+
+const browseScrollChrome = read("lib/stores/browse-scroll-chrome.ts");
+assertIncludes(
+  browseScrollChrome,
+  "isMainAppScrollBodyOverflowing",
+  "browse scroll chrome must gate hide on overflow"
+);
+assertIncludes(
+  browseScrollChrome,
+  'action === "hold"',
+  "browse scroll chrome must respect hold action"
 );
 
 const browseScrollCollapse = read("components/stores/browse/StoresBrowseHeaderScrollCollapse.tsx");
@@ -924,8 +941,13 @@ assertIncludes(
 );
 assertIncludes(
   deliveryComponents,
-  '[data-stores-browse-subtopic-collapse][data-collapsed="true"]',
-  "delivery CSS must collapse browse subtopic row on scroll"
+  "translateY(-100%)",
+  "browse subtopic collapse must use transform not layout shrink"
+);
+assertNotIncludes(
+  deliveryComponents,
+  '[data-stores-browse-subtopic-collapse][data-collapsed="true"] {\n    max-height: 0',
+  "browse subtopic collapse must not use max-height zero collapse"
 );
 
 if (process.exitCode !== 1) {
