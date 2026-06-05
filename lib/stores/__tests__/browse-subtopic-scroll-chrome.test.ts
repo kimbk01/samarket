@@ -1,48 +1,38 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  applyBrowseSubtopicScrollChromeForTests,
-  getBrowseSubtopicScrollChromeHiddenSnapshot,
-  resetBrowseSubtopicScrollChromeStateForTests,
-} from "@/lib/stores/browse-subtopic-scroll-chrome";
+import { describe, expect, it } from "vitest";
+import { applyBrowseSubtopicScrollStepForTests } from "@/lib/stores/use-stores-browse-header-scroll-hide";
 
 describe("browse-subtopic-scroll-chrome", () => {
-  beforeEach(() => {
-    resetBrowseSubtopicScrollChromeStateForTests();
-  });
-
-  afterEach(() => {
-    resetBrowseSubtopicScrollChromeStateForTests();
-  });
-
   it("hides on scroll down without overflow gate", () => {
-    applyBrowseSubtopicScrollChromeForTests(0);
-    applyBrowseSubtopicScrollChromeForTests(20);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
+    let lastY = 0;
+    const step = applyBrowseSubtopicScrollStepForTests(lastY, 20);
+    expect(step.action).toBe("hide");
+    lastY = step.nextY;
+    expect(lastY).toBe(20);
   });
 
   it("reveals when scrolling back toward top", () => {
-    applyBrowseSubtopicScrollChromeForTests(0);
-    applyBrowseSubtopicScrollChromeForTests(20);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
-    applyBrowseSubtopicScrollChromeForTests(10);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(false);
+    let lastY = 0;
+    let step = applyBrowseSubtopicScrollStepForTests(lastY, 20);
+    expect(step.action).toBe("hide");
+    lastY = step.nextY;
+    step = applyBrowseSubtopicScrollStepForTests(lastY, 10);
+    expect(step.action).toBe("reveal");
   });
 
   it("holds hidden state on small scroll deltas while hidden", () => {
-    applyBrowseSubtopicScrollChromeForTests(0);
-    applyBrowseSubtopicScrollChromeForTests(20);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
-    applyBrowseSubtopicScrollChromeForTests(22);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
-    applyBrowseSubtopicScrollChromeForTests(24);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
+    let lastY = 0;
+    let step = applyBrowseSubtopicScrollStepForTests(lastY, 20);
+    expect(step.action).toBe("hide");
+    lastY = step.nextY;
+    step = applyBrowseSubtopicScrollStepForTests(lastY, 22);
+    expect(step.action).toBe("hold");
+    lastY = step.nextY;
+    step = applyBrowseSubtopicScrollStepForTests(lastY, 24);
+    expect(step.action).toBe("hold");
   });
 
-  it("reset clears hidden state", () => {
-    applyBrowseSubtopicScrollChromeForTests(0);
-    applyBrowseSubtopicScrollChromeForTests(20);
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
-    resetBrowseSubtopicScrollChromeStateForTests();
-    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(false);
+  it("reveals at top without requiring upward delta", () => {
+    const step = applyBrowseSubtopicScrollStepForTests(80, 10);
+    expect(step.action).toBe("reveal");
   });
 });

@@ -69,10 +69,6 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
 import {
-  refreshBrowseSubtopicScrollChromeBindings,
-  resetBrowseSubtopicScrollChrome,
-} from "@/lib/stores/browse-subtopic-scroll-chrome";
-import {
   getBrowseSubChipOptimisticSubServerSnapshot,
   getBrowseSubChipOptimisticSubSnapshot,
   setBrowseSubChipOptimisticSub,
@@ -625,15 +621,6 @@ export function StoresBrowsePrimaryView({
   }, [sortedRemoteRows]);
 
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
-
-  useLayoutEffect(() => {
-    resetBrowseSubtopicScrollChrome();
-  }, [primarySlug, activeSub]);
-
-  useLayoutEffect(() => {
-    if (!listLoaded) return;
-    refreshBrowseSubtopicScrollChromeBindings();
-  }, [listLoaded]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 

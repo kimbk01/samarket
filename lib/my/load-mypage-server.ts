@@ -7,9 +7,8 @@ import { runMeProfileReadPipeline } from "@/lib/profile/me-profile-read-pipeline
 import { getTrustSummary } from "@/lib/reviews/trust-utils";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import type { MyPageData, MyPageBannerRow, MyServiceRow, MyPageSectionRow } from "./types";
-import { DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS } from "./my-page-defaults";
-import { MY_PAGE_BANNERS_SELECT, MY_PAGE_SECTIONS_SELECT, MY_SERVICES_SELECT } from "@/lib/my/mypage-tables-select";
+import type { MyPageData } from "./types";
+import { defaultMypageCmsPack, loadMypageCmsPack } from "@/lib/my/load-mypage-cms-pack";
 import { loadMypageHubExtrasServer } from "@/lib/my/load-mypage-hub-extras-server";
 import { loadMypageHomeDashboardCountsServer } from "@/lib/my/load-mypage-home-dashboard-counts-server";
 import { loadAddressDefaultsSnapshotServer } from "@/lib/addresses/load-address-defaults-snapshot-server";
@@ -23,8 +22,9 @@ function isAdminProfileRole(role: string | null | undefined): boolean {
 /** 프로필·CMS·매장 보유 + `loadMypageHubExtrasServer` 용 라우트 user id */
 type MypageCoreInternal = Omit<MyPageData, "hubServerExtras" | "homeDashboardCounts"> & { viewerIdForHub: string };
 
-function defaultCmsPack(): [MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]] {
-  return [null, DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS];
+function defaultCmsPack() {
+  const pack = defaultMypageCmsPack();
+  return [pack.banner, pack.services, pack.sections] as const;
 }
 
 const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> => {
@@ -55,44 +55,16 @@ const loadMypageCoreCached = cache(async (): Promise<MypageCoreInternal | null> 
       ? sbStores.from("stores").select("id").eq("owner_user_id", userId).limit(1)
       : Promise.resolve({ data: null as unknown });
 
-  const loadCmsPack = async (): Promise<[MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]]> => {
-    if (!userSb) return [null, DEFAULT_MY_SERVICES, DEFAULT_MY_SECTIONS];
-    try {
-      const [bannerRes, servicesRes, sectionsRes] = await Promise.all([
-        userSb
-          .from("my_page_banners")
-          .select(MY_PAGE_BANNERS_SELECT)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true })
-          .limit(1)
-          .maybeSingle(),
-        userSb
-          .from("my_services")
-          .select(MY_SERVICES_SELECT)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-        userSb
-          .from("my_page_sections")
-          .select(MY_PAGE_SECTIONS_SELECT)
-          .eq("is_active", true)
-          .order("sort_order", { ascending: true }),
-      ]);
-      let banner: MyPageBannerRow | null = null;
-      let services: MyServiceRow[] = DEFAULT_MY_SERVICES;
-      let sections: MyPageSectionRow[] = DEFAULT_MY_SECTIONS;
-      if (bannerRes.data) banner = bannerRes.data as MyPageBannerRow;
-      if (servicesRes.data?.length) services = servicesRes.data as MyServiceRow[];
-      if (sectionsRes.data?.length) sections = sectionsRes.data as MyPageSectionRow[];
-      return [banner, services, sections];
-    } catch {
-      return defaultCmsPack();
-    }
+  const loadCmsPack = async () => {
+    if (!userSb) return defaultCmsPack();
+    const cmsPack = await loadMypageCmsPack(userSb);
+    return [cmsPack.banner, cmsPack.services, cmsPack.sections] as const;
   };
-  const loadCmsPackWithTimeout = async (): Promise<[MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]]> => {
+  const loadCmsPackWithTimeout = async () => {
     try {
       return await Promise.race([
         loadCmsPack(),
-        new Promise<[MyPageBannerRow | null, MyServiceRow[], MyPageSectionRow[]]>((resolve) => {
+        new Promise<ReturnType<typeof defaultCmsPack>>((resolve) => {
           setTimeout(() => resolve(defaultCmsPack()), MYPAGE_CMS_PACK_TIMEOUT_MS);
         }),
       ]);

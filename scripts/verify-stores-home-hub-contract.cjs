@@ -951,52 +951,57 @@ assertNotIncludes(
   "if (!primary || subs.length === 0)",
   "browse list must not block render on empty subs"
 );
-assertIncludes(
+assertNotIncludes(
   browsePrimaryView,
-  "[primarySlug, activeSub]",
-  "browse subtopic scroll chrome reset must key off primary+sub only"
+  "browse-subtopic-scroll-chrome",
+  "browse list must not import deleted subtopic scroll chrome module"
 );
-assertIncludes(
+assertNotIncludes(
   browsePrimaryView,
   "resetBrowseSubtopicScrollChrome",
-  "browse primary view must reset subtopic scroll chrome on route context change"
-);
-assertIncludes(
-  browsePrimaryView,
-  "refreshBrowseSubtopicScrollChromeBindings",
-  "browse primary view must refresh subtopic scroll bindings after list paint"
+  "browse list must not reset subtopic scroll chrome from primary view"
 );
 assertNotIncludes(
   browsePrimaryView,
-  "remoteRows?.length, showEmptyBlock",
-  "browse subtopic scroll chrome reset must not depend on list length or empty state"
+  "refreshBrowseSubtopicScrollChromeBindings",
+  "browse list must not refresh subtopic scroll bindings from primary view"
 );
 
-const browseSubtopicScrollChrome = read("lib/stores/browse-subtopic-scroll-chrome.ts");
+const browseHeaderScrollHide = read("lib/stores/use-stores-browse-header-scroll-hide.ts");
 assertIncludes(
-  browseSubtopicScrollChrome,
+  browseHeaderScrollHide,
+  "useState",
+  "browse header scroll hide must use local state"
+);
+assertIncludes(
+  browseHeaderScrollHide,
+  "subscribeAppShellScroll",
+  "browse header scroll hide must subscribe to app shell scroll"
+);
+assertIncludes(
+  browseHeaderScrollHide,
   "resolveBottomNavScrollChromeAction",
-  "browse subtopic scroll chrome must use shared scroll chrome action"
+  "browse header scroll hide must use shared scroll chrome action"
+);
+assertIncludes(
+  browseHeaderScrollHide,
+  "useLayoutEffect",
+  "browse header scroll hide must reset collapsed on route change"
+);
+assertIncludes(
+  browseHeaderScrollHide,
+  "routeKey",
+  "browse header scroll hide must key route reset off primary+sub"
 );
 assertNotIncludes(
-  browseSubtopicScrollChrome,
+  browseHeaderScrollHide,
+  "useSyncExternalStore",
+  "browse header scroll hide must not use unstable external store subscription"
+);
+assertNotIncludes(
+  browseHeaderScrollHide,
   "isMainAppScrollBodyOverflowing",
-  "browse subtopic scroll chrome must not gate on overflow"
-);
-assertIncludes(
-  browseSubtopicScrollChrome,
-  "refreshBrowseSubtopicScrollChromeBindings",
-  "browse subtopic scroll chrome must export scroll binding refresh"
-);
-assertIncludes(
-  browseSubtopicScrollChrome,
-  "scheduleSubtopicRecheck",
-  "browse subtopic scroll chrome must recheck on resize"
-);
-assertIncludes(
-  read("lib/stores/use-stores-browse-header-scroll-hide.ts"),
-  "browse-subtopic-scroll-chrome",
-  "browse header scroll hide must use subtopic scroll chrome module"
+  "browse header scroll hide must not gate on overflow"
 );
 
 const browseScrollChrome = read("lib/stores/browse-scroll-chrome.ts");

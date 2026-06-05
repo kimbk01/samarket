@@ -4,6 +4,22 @@
 import type { MessengerConsistencyAnalysis } from "@/lib/community-messenger/consistency/messenger-consistency-analysis";
 import { recordLongSessionEvent } from "@/lib/ops/long-session-stability";
 
+const REGRESSION_ALERT_DEDUPE_MS = 30_000;
+const recentRegressionAlertKeys = new Map<string, number>();
+
+function shouldEmitRegressionAlert(signature: string): boolean {
+  const now = Date.now();
+  const lastAt = recentRegressionAlertKeys.get(signature) ?? 0;
+  if (now - lastAt < REGRESSION_ALERT_DEDUPE_MS) return false;
+  recentRegressionAlertKeys.set(signature, now);
+  if (recentRegressionAlertKeys.size > 200) {
+    for (const [key, at] of recentRegressionAlertKeys) {
+      if (now - at > REGRESSION_ALERT_DEDUPE_MS) recentRegressionAlertKeys.delete(key);
+    }
+  }
+  return true;
+}
+
 export type MessengerConsistencyRegressionAlert = {
   stale_snapshot_overwrote_realtime: 0 | 1;
   unread_resurrected_after_read: 0 | 1;
@@ -57,6 +73,10 @@ export function evaluateMessengerConsistencyRegressionGuards(
   };
 
   if (alerts.length > 0) {
+    const signature = `${row.surface}:${row.room_id ?? "global"}:${alerts.slice().sort().join("|")}`;
+    if (!shouldEmitRegressionAlert(signature)) {
+      return alert;
+    }
     if (typeof window !== "undefined") {
       recordLongSessionEvent("regression_alert");
     }
