@@ -230,7 +230,11 @@ export function MainBottomNavFabSector() {
 
   const shellExpanded = isFabShellExpanded(phase, panelEnterReady);
   const toggleInteractive = phase === "open" || phase === "closed";
-  const showToggleCartBadge = cartCount > 0 && !shellExpanded;
+  const hasStoreAdminFabItem = fabConfig.items.some((item) => isMainBottomNavFabStoreAdminItem(item));
+  const showToggleOpsBadge =
+    ownerOpsAttention > 0 && !shellExpanded && hasStoreAdminFabItem;
+  const showToggleCartBadge =
+    cartCount > 0 && !shellExpanded && !showToggleOpsBadge;
 
   const toggleClass = [
     "main-bottom-nav-fab-sector__toggle",
@@ -243,9 +247,11 @@ export function MainBottomNavFabSector() {
   const toggleAriaLabel =
     phase === "open"
       ? t("store_delivery_fab_close_aria")
-      : cartCount > 0
-        ? t("nav_cart_aria")
-        : t("store_delivery_fab_open_aria");
+      : showToggleOpsBadge
+        ? t("store_delivery_float_ops_center")
+        : cartCount > 0
+          ? t("nav_cart_aria")
+          : t("store_delivery_fab_open_aria");
 
   return (
     <BodyPortal>
@@ -394,7 +400,11 @@ export function MainBottomNavFabSector() {
                 </span>
               </button>
             </div>
-            {showToggleCartBadge ? (
+            {showToggleOpsBadge ? (
+              <span className={FAB_TOGGLE_CART_COUNT_BADGE_CLASS} aria-hidden>
+                {formatFabCartCountBadge(ownerOpsAttention)}
+              </span>
+            ) : showToggleCartBadge ? (
               <span className={FAB_TOGGLE_CART_COUNT_BADGE_CLASS} aria-hidden>
                 {formatFabCartCountBadge(cartCount)}
               </span>

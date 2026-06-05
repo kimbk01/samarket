@@ -914,6 +914,23 @@ assertNotIncludes(
   "browse primary tabs must not use filled chip active helper"
 );
 
+const browsePrimaryView = read("components/stores/browse/StoresBrowsePrimaryView.tsx");
+assertNotIncludes(
+  browsePrimaryView,
+  "if (!primary || subs.length === 0)",
+  "browse list must not block render on empty subs"
+);
+assertIncludes(
+  browsePrimaryView,
+  "[primarySlug, activeSub]",
+  "browse scroll chrome reset must key off primary+sub only"
+);
+assertNotIncludes(
+  browsePrimaryView,
+  "remoteRows?.length, showEmptyBlock",
+  "browse scroll chrome reset must not depend on list length or empty state"
+);
+
 const browseScrollChrome = read("lib/stores/browse-scroll-chrome.ts");
 assertIncludes(
   browseScrollChrome,

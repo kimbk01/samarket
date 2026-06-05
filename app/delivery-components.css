@@ -1058,6 +1058,7 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
+    background: var(--dibay-cream);
   }
 
   .stores-browse-header-primary-tabs__scroll::-webkit-scrollbar {

@@ -625,7 +625,7 @@ export function StoresBrowsePrimaryView({
 
   useLayoutEffect(() => {
     resetBrowseScrollChrome();
-  }, [listLoaded, remoteRows?.length, showEmptyBlock]);
+  }, [primarySlug, activeSub]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
@@ -634,7 +634,7 @@ export function StoresBrowsePrimaryView({
     [primarySlug, industryVersion]
   );
 
-  const browseListReady = !!primary && subs.length > 0;
+  const browseListReady = !!primary;
   useStoresBrowsePullRefresh(browseListReady);
 
   const onBrowsePullRefresh = useCallback(async () => {
@@ -681,7 +681,7 @@ export function StoresBrowsePrimaryView({
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
-    if (!primary || subs.length === 0) {
+    if (!primary) {
       setMainTier1Extras(null);
       return () => setMainTier1Extras(null);
     }
@@ -691,9 +691,9 @@ export function StoresBrowsePrimaryView({
       stickyBelow: browseStickyBelow,
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, primary, subs, browseStickyBelow, browseHeaderTitle]);
+  }, [setMainTier1Extras, primary, browseStickyBelow, browseHeaderTitle]);
 
-  if (!primary || subs.length === 0) {
+  if (!primary) {
     return (
       <div className="min-h-[40vh] pb-8">
         <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-4`}>

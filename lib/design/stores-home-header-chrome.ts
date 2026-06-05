@@ -81,7 +81,7 @@ export const STORES_HOME_HEADER_BROWSE_TABS_STACK_CLASS =
   "delivery-ui relative z-[4] w-full shrink-0 border-t border-white/15 bg-[var(--dibay-cream)]";
 
 export const STORES_HOME_HEADER_BROWSE_TABS_INNER_CLASS =
-  "relative mx-auto w-full min-w-0 max-w-[768px]";
+  "relative mx-auto w-full min-w-0 max-w-[768px] bg-[var(--dibay-cream)]";
 
 /** browse 3단 — 1차 텍스트 탭 행(▼ 패널·2차 칩보다 위) */
 export const STORES_HOME_HEADER_BROWSE_PRIMARY_TABS_ROW_CLASS =
