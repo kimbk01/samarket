@@ -68,7 +68,10 @@ import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profi
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
-import { resetBrowseSubtopicScrollChrome } from "@/lib/stores/browse-subtopic-scroll-chrome";
+import {
+  refreshBrowseSubtopicScrollChromeBindings,
+  resetBrowseSubtopicScrollChrome,
+} from "@/lib/stores/browse-subtopic-scroll-chrome";
 import {
   getBrowseSubChipOptimisticSubServerSnapshot,
   getBrowseSubChipOptimisticSubSnapshot,
@@ -626,6 +629,11 @@ export function StoresBrowsePrimaryView({
   useLayoutEffect(() => {
     resetBrowseSubtopicScrollChrome();
   }, [primarySlug, activeSub]);
+
+  useLayoutEffect(() => {
+    if (!listLoaded) return;
+    refreshBrowseSubtopicScrollChromeBindings();
+  }, [listLoaded]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 

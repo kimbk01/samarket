@@ -37,4 +37,12 @@ describe("browse-subtopic-scroll-chrome", () => {
     applyBrowseSubtopicScrollChromeForTests(24);
     expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
   });
+
+  it("reset clears hidden state", () => {
+    applyBrowseSubtopicScrollChromeForTests(0);
+    applyBrowseSubtopicScrollChromeForTests(20);
+    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(true);
+    resetBrowseSubtopicScrollChromeStateForTests();
+    expect(getBrowseSubtopicScrollChromeHiddenSnapshot()).toBe(false);
+  });
 });

@@ -915,10 +915,22 @@ assertIncludes(
 );
 assertIncludes(
   read("app/delivery-components.css").slice(
+    read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab.delivery-category-chip")
+  ),
+  "border-radius: var(--delivery-radius)",
+  "browse primary tab must use rounded rect not pill radius"
+);
+assertIncludes(
+  read("app/delivery-components.css").slice(
     read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab--active")
   ),
-  "background: var(--delivery-text-main)",
-  "browse primary tab active must use dark filled background"
+  "background: #000",
+  "browse primary tab active must use black filled background"
+);
+assertNotIncludes(
+  browsePrimaryTabs,
+  'classList.add("stores-browse-header-primary-tab--active")',
+  "browse primary tabs must not imperatively add active class on click"
 );
 assertIncludes(
   read("app/delivery-components.css").slice(
@@ -949,6 +961,11 @@ assertIncludes(
   "resetBrowseSubtopicScrollChrome",
   "browse primary view must reset subtopic scroll chrome on route context change"
 );
+assertIncludes(
+  browsePrimaryView,
+  "refreshBrowseSubtopicScrollChromeBindings",
+  "browse primary view must refresh subtopic scroll bindings after list paint"
+);
 assertNotIncludes(
   browsePrimaryView,
   "remoteRows?.length, showEmptyBlock",
@@ -965,6 +982,16 @@ assertNotIncludes(
   browseSubtopicScrollChrome,
   "isMainAppScrollBodyOverflowing",
   "browse subtopic scroll chrome must not gate on overflow"
+);
+assertIncludes(
+  browseSubtopicScrollChrome,
+  "refreshBrowseSubtopicScrollChromeBindings",
+  "browse subtopic scroll chrome must export scroll binding refresh"
+);
+assertIncludes(
+  browseSubtopicScrollChrome,
+  "scheduleSubtopicRecheck",
+  "browse subtopic scroll chrome must recheck on resize"
 );
 assertIncludes(
   read("lib/stores/use-stores-browse-header-scroll-hide.ts"),

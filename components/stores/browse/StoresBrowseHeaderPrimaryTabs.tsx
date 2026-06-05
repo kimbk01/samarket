@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
@@ -46,7 +46,7 @@ function MenuExpandIcon({ open }: { open: boolean }) {
 }
 
 /**
- * browse 헤더 3단 — 1차 업종 테두리형 pill + ▼
+ * browse 헤더 3단 — 1차 업종 rounded rect tab + ▼
  * CONTRACT: `primaries` 는 부모 `StoresBrowseHeaderChrome` 단일 `useBrowsePrimaryIndustries` 만 사용.
  */
 export function StoresBrowseHeaderPrimaryTabs({
@@ -74,6 +74,7 @@ export function StoresBrowseHeaderPrimaryTabs({
   );
 
   const activeSlug = resolveBrowsePrimaryTabActiveSlug(pathnamePrimarySlug, optimisticPrimary);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!optimisticPrimary || !pathnamePrimarySlug) return;
@@ -82,6 +83,14 @@ export function StoresBrowseHeaderPrimaryTabs({
     }
   }, [optimisticPrimary, pathnamePrimarySlug]);
 
+  useLayoutEffect(() => {
+    if (!activeSlug || !trackRef.current) return;
+    const activeTab = trackRef.current.querySelector<HTMLElement>(
+      '[role="tab"][aria-selected="true"]'
+    );
+    activeTab?.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+  }, [activeSlug, primaries.length]);
+
   return (
     <div className="stores-browse-header-primary-tabs">
       <HorizontalDragScroll
@@ -89,6 +98,7 @@ export function StoresBrowseHeaderPrimaryTabs({
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div
+          ref={trackRef}
           className="stores-browse-header-primary-tabs__track"
           role="tablist"
           aria-label={t("store_primary_industry_aria")}
@@ -114,9 +124,7 @@ export function StoresBrowseHeaderPrimaryTabs({
                     primaryRegion,
                   });
                 }}
-                onClick={(e) => {
-                  e.currentTarget.classList.add("stores-browse-header-primary-tab--active");
-                  e.currentTarget.classList.add("stores-browse-header-primary-tab--pending");
+                onClick={() => {
                   onBrowsePrimaryTaxonomyCommit(slug);
                   onMenuOpenChange(false);
                 }}

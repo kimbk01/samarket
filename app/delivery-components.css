@@ -1032,7 +1032,7 @@
     color: var(--dibay-cream);
   }
 
-  /** browse 헤더 3단 — 1차 업종 pill(정렬 칩과 동일 `delivery-category-chip`) */
+  /** browse 헤더 3단 — 1차 업종 rounded rect tab (`delivery-category-chip` 베이스) */
   .stores-browse-header-primary-tabs {
     --browse-primary-tab-menu-w: var(--delivery-browse-primary-tab-menu-w);
     display: flex;
@@ -1077,7 +1077,9 @@
   .stores-browse-header-primary-tab.delivery-category-chip {
     box-sizing: border-box;
     flex: 0 0 auto;
+    min-width: var(--delivery-browse-primary-tab-min-w);
     max-width: 9.5rem;
+    border-radius: var(--delivery-radius);
     overflow: hidden;
     text-decoration: none;
     touch-action: manipulation;
@@ -1103,11 +1105,16 @@
   }
 
   .stores-browse-header-primary-tab--active {
-    border-color: var(--delivery-text-main);
-    background: var(--delivery-text-main);
+    border-color: #000;
+    background: #000;
     color: #fff;
     padding-inline: 20px;
     font-weight: 700;
+  }
+
+  .stores-browse-header-primary-tab--active .stores-browse-header-primary-tab__label {
+    flex-shrink: 0;
+    color: #fff;
   }
 
   .stores-browse-header-primary-tab--pending:not(.stores-browse-header-primary-tab--active) {

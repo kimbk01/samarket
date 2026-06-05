@@ -3,7 +3,10 @@
 import { resolveBottomNavScrollChromeAction } from "@/lib/layout/main-bottom-nav-fab-scroll-signal";
 import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
-import { getStoreDetailScrollTop } from "@/lib/ui/store-detail-scroll-root";
+import {
+  getStoreDetailScrollTop,
+  invalidateStoreDetailScrollRootCache,
+} from "@/lib/ui/store-detail-scroll-root";
 
 function readScrollTopFromScrollTarget(target: EventTarget | null): number {
   if (target instanceof Element) {
@@ -26,6 +29,7 @@ let hidden = false;
 let lastY = 0;
 let subscriberCount = 0;
 let unsubscribeScroll: (() => void) | null = null;
+let resizeTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
 function notify(): void {
@@ -51,12 +55,42 @@ function applySubtopicScrollChrome(y: number): void {
   lastY = y;
 }
 
+function onAppShellScroll(event: Event): void {
+  applySubtopicScrollChrome(readScrollTopFromScrollTarget(event.target));
+}
+
+function attachScrollListeners(): void {
+  unsubscribeScroll = subscribeAppShellScroll(onAppShellScroll);
+}
+
+function scheduleSubtopicRecheck(): void {
+  if (typeof window === "undefined") return;
+  if (resizeTimer != null) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeTimer = null;
+    refreshBrowseSubtopicScrollChromeBindings();
+  }, 100);
+}
+
+/** 목록 paint·resize 후 스크롤 루트 재연결 */
+export function refreshBrowseSubtopicScrollChromeBindings(): void {
+  if (typeof window === "undefined") return;
+  if (subscriberCount === 0) return;
+  invalidateStoreDetailScrollRootCache();
+  if (unsubscribeScroll) {
+    unsubscribeScroll();
+    unsubscribeScroll = null;
+  }
+  attachScrollListeners();
+  lastY = getMainAppScrollTop();
+  applySubtopicScrollChrome(lastY);
+}
+
 function startBrowseSubtopicScrollChrome(): void {
   if (unsubscribeScroll) return;
   lastY = getMainAppScrollTop();
-  unsubscribeScroll = subscribeAppShellScroll((event) => {
-    applySubtopicScrollChrome(readScrollTopFromScrollTarget(event.target));
-  });
+  attachScrollListeners();
+  window.addEventListener("resize", scheduleSubtopicRecheck, { passive: true });
   applySubtopicScrollChrome(lastY);
 }
 
@@ -64,6 +98,13 @@ function stopBrowseSubtopicScrollChrome(): void {
   if (unsubscribeScroll) {
     unsubscribeScroll();
     unsubscribeScroll = null;
+  }
+  if (typeof window !== "undefined") {
+    window.removeEventListener("resize", scheduleSubtopicRecheck);
+    if (resizeTimer != null) {
+      clearTimeout(resizeTimer);
+      resizeTimer = null;
+    }
   }
   hidden = false;
   notify();
@@ -84,6 +125,7 @@ export function resetBrowseSubtopicScrollChrome(): void {
   hidden = false;
   lastY = getMainAppScrollTop();
   notify();
+  refreshBrowseSubtopicScrollChromeBindings();
 }
 
 /** @internal vitest */
