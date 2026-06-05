@@ -85,6 +85,7 @@ function SearchIcon() {
  * 4단(②): 2차 업종 (`/stores` 홈 크기 · 1차 전환 360ms 슬라이드 · 목록 기본 `?sub=all`)
  * 5단: 정렬 칩 — `StoresBrowsePrimaryView` `stickyBelow`
  * 목록 스크롤 다운 시 **4단만** `StoresBrowseHeaderScrollCollapse` 로 접음(1·2·3·5단 유지).
+ * 4단 숨김: `browse-subtopic-scroll-chrome` 전용(하단 탭 `browse-scroll-chrome` 과 분리).
  *
  * CONTRACT — taxonomy: `useBrowsePrimaryIndustries`·`useBrowseSubIndustries` 가
  * `browse-taxonomy-snapshot` 단일 로드 공유. DO NOT: 헤더·목록 각각 `fetchStoresTaxonomyDeduped`.

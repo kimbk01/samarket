@@ -906,7 +906,26 @@ assertIncludes(
 assertIncludes(
   browsePrimaryTabs,
   "stores-browse-header-primary-tab--active",
-  "browse primary tabs must use outline active class"
+  "browse primary tabs must use dark filled active class"
+);
+assertIncludes(
+  read("app/delivery-components.css"),
+  ".stores-browse-header-primary-tab--active",
+  "browse primary tab active must be styled in delivery-components"
+);
+assertIncludes(
+  read("app/delivery-components.css").slice(
+    read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab--active")
+  ),
+  "background: var(--delivery-text-main)",
+  "browse primary tab active must use dark filled background"
+);
+assertIncludes(
+  read("app/delivery-components.css").slice(
+    read("app/delivery-components.css").indexOf(".stores-browse-header-primary-tab--active")
+  ),
+  "color: #fff",
+  "browse primary tab active must use white label"
 );
 assertNotIncludes(
   browsePrimaryTabs,
@@ -923,12 +942,34 @@ assertNotIncludes(
 assertIncludes(
   browsePrimaryView,
   "[primarySlug, activeSub]",
-  "browse scroll chrome reset must key off primary+sub only"
+  "browse subtopic scroll chrome reset must key off primary+sub only"
+);
+assertIncludes(
+  browsePrimaryView,
+  "resetBrowseSubtopicScrollChrome",
+  "browse primary view must reset subtopic scroll chrome on route context change"
 );
 assertNotIncludes(
   browsePrimaryView,
   "remoteRows?.length, showEmptyBlock",
-  "browse scroll chrome reset must not depend on list length or empty state"
+  "browse subtopic scroll chrome reset must not depend on list length or empty state"
+);
+
+const browseSubtopicScrollChrome = read("lib/stores/browse-subtopic-scroll-chrome.ts");
+assertIncludes(
+  browseSubtopicScrollChrome,
+  "resolveBottomNavScrollChromeAction",
+  "browse subtopic scroll chrome must use shared scroll chrome action"
+);
+assertNotIncludes(
+  browseSubtopicScrollChrome,
+  "isMainAppScrollBodyOverflowing",
+  "browse subtopic scroll chrome must not gate on overflow"
+);
+assertIncludes(
+  read("lib/stores/use-stores-browse-header-scroll-hide.ts"),
+  "browse-subtopic-scroll-chrome",
+  "browse header scroll hide must use subtopic scroll chrome module"
 );
 
 const browseScrollChrome = read("lib/stores/browse-scroll-chrome.ts");
@@ -958,8 +999,18 @@ assertIncludes(
 );
 assertIncludes(
   deliveryComponents,
+  '[data-stores-browse-subtopic-collapse][data-collapsed="true"]',
+  "browse subtopic collapse must define collapsed wrapper state"
+);
+assertIncludes(
+  deliveryComponents,
+  "height: 0",
+  "browse subtopic collapse must shrink wrapper height to zero when collapsed"
+);
+assertNotIncludes(
+  deliveryComponents,
   "translateY(-100%)",
-  "browse subtopic collapse must use transform not layout shrink"
+  "browse subtopic collapse must not use transform-only hide"
 );
 assertNotIncludes(
   deliveryComponents,

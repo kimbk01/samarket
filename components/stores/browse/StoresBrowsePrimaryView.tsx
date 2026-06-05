@@ -68,7 +68,7 @@ import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profi
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
-import { resetBrowseScrollChrome } from "@/lib/stores/browse-scroll-chrome";
+import { resetBrowseSubtopicScrollChrome } from "@/lib/stores/browse-subtopic-scroll-chrome";
 import {
   getBrowseSubChipOptimisticSubServerSnapshot,
   getBrowseSubChipOptimisticSubSnapshot,
@@ -624,7 +624,7 @@ export function StoresBrowsePrimaryView({
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
 
   useLayoutEffect(() => {
-    resetBrowseScrollChrome();
+    resetBrowseSubtopicScrollChrome();
   }, [primarySlug, activeSub]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
