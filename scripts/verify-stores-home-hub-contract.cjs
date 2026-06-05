@@ -1003,6 +1003,31 @@ assertNotIncludes(
   "isMainAppScrollBodyOverflowing",
   "browse header scroll hide must not gate on overflow"
 );
+assertIncludes(
+  browseHeaderScrollHide,
+  "getMainAppScrollTop",
+  "browse header scroll hide must read Y from main hub scroll root only"
+);
+assertNotIncludes(
+  browseHeaderScrollHide,
+  "readScrollTopFromScrollTarget",
+  "browse header scroll hide must not read scrollTop from event.target"
+);
+assertNotIncludes(
+  browseHeaderScrollHide,
+  "window.scrollY",
+  "browse header scroll hide must not fall back to window.scrollY"
+);
+assertIncludes(
+  browseHeaderScrollHide,
+  'action === "hold"',
+  "browse header scroll hide must respect hold action"
+);
+assertIncludes(
+  browseHeaderScrollHide,
+  "collapsedRef",
+  "browse header scroll hide must skip redundant collapse setState"
+);
 
 const browseScrollChrome = read("lib/stores/browse-scroll-chrome.ts");
 assertIncludes(
@@ -1014,6 +1039,28 @@ assertIncludes(
   browseScrollChrome,
   'action === "hold"',
   "browse scroll chrome must respect hold action"
+);
+assertIncludes(
+  browseScrollChrome,
+  "getMainAppScrollTop",
+  "browse scroll chrome must read Y from main hub scroll root only"
+);
+assertNotIncludes(
+  browseScrollChrome,
+  "readScrollTopFromScrollTarget",
+  "browse scroll chrome must not read scrollTop from event.target"
+);
+
+const browseRowCard = read("components/stores/home/StoreDeliveryRowCard.tsx");
+assertIncludes(
+  browseRowCard,
+  "touch-pan-x",
+  "browse row featured menu rail must isolate horizontal touch axis"
+);
+assertIncludes(
+  browseRowCard,
+  'touchAction: "pan-x"',
+  "browse row featured menu rail must set touchAction pan-x"
 );
 
 const browseScrollCollapse = read("components/stores/browse/StoresBrowseHeaderScrollCollapse.tsx");

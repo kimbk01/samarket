@@ -515,10 +515,10 @@ function StoreDeliveryRowCardInner({
           ) : featuredMenuTiles.length > 0 ? (
             <div
               className={[
-                "flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain select-none",
-                "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                "flex snap-x snap-mandatory gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain select-none",
+                "touch-pan-x [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               ].join(" ")}
-              style={{ WebkitOverflowScrolling: "touch" }}
+              style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-x" }}
               aria-label={t("store_featured_menu_image_aria")}
             >
               {featuredMenuTiles.map((item) => {

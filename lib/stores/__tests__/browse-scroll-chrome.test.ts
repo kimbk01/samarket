@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/ui/store-detail-scroll-root", () => ({
@@ -49,5 +51,11 @@ describe("browse-scroll-chrome", () => {
     expect(getBrowseScrollChromeHiddenSnapshot()).toBe(true);
     applyBrowseScrollChromeForTests(24);
     expect(getBrowseScrollChromeHiddenSnapshot()).toBe(true);
+  });
+
+  it("reads scroll Y from main app root only (no event.target reader)", () => {
+    const src = readFileSync(join(process.cwd(), "lib/stores/browse-scroll-chrome.ts"), "utf8");
+    expect(src).toContain("getMainAppScrollTop()");
+    expect(src).not.toContain("readScrollTopFromScrollTarget");
   });
 });

@@ -3,24 +3,7 @@
 import { resolveBottomNavScrollChromeAction } from "@/lib/layout/main-bottom-nav-fab-scroll-signal";
 import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
-import { getStoreDetailScrollTop, isMainAppScrollBodyOverflowing } from "@/lib/ui/store-detail-scroll-root";
-
-function readScrollTopFromScrollTarget(target: EventTarget | null): number {
-  if (target instanceof Element) {
-    const el =
-      target === document.documentElement ?
-        (document.scrollingElement ?? document.documentElement)
-      : target;
-    if (
-      el instanceof HTMLElement &&
-      el !== document.body &&
-      (el.scrollHeight > el.clientHeight + 1 || el === document.scrollingElement)
-    ) {
-      return el.scrollTop;
-    }
-  }
-  return getStoreDetailScrollTop();
-}
+import { isMainAppScrollBodyOverflowing } from "@/lib/ui/store-detail-scroll-root";
 
 let hidden = false;
 let lastY = 0;
@@ -71,8 +54,8 @@ function scheduleOverflowRecheck(): void {
 function startBrowseScrollChrome(): void {
   if (unsubscribeScroll) return;
   lastY = getMainAppScrollTop();
-  unsubscribeScroll = subscribeAppShellScroll((event) => {
-    applyScrollChrome(readScrollTopFromScrollTarget(event.target));
+  unsubscribeScroll = subscribeAppShellScroll(() => {
+    applyScrollChrome(getMainAppScrollTop());
   });
   window.addEventListener("resize", scheduleOverflowRecheck, { passive: true });
   applyScrollChrome(lastY);

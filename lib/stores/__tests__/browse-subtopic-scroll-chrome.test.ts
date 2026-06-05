@@ -1,5 +1,10 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBrowseSubtopicScrollStepForTests } from "@/lib/stores/use-stores-browse-header-scroll-hide";
+import {
+  applyBrowseSubtopicScrollStepForTests,
+  resolveBrowseSubtopicScrollChromeAction,
+} from "@/lib/stores/use-stores-browse-header-scroll-hide";
 
 describe("browse-subtopic-scroll-chrome", () => {
   it("hides on scroll down without overflow gate", () => {
@@ -34,5 +39,22 @@ describe("browse-subtopic-scroll-chrome", () => {
   it("reveals at top without requiring upward delta", () => {
     const step = applyBrowseSubtopicScrollStepForTests(80, 10);
     expect(step.action).toBe("reveal");
+  });
+
+  it("does not spuriously reveal when y stays high after hide", () => {
+    expect(resolveBrowseSubtopicScrollChromeAction(20, 22)).toBe("hold");
+    expect(resolveBrowseSubtopicScrollChromeAction(22, 24)).toBe("hold");
+  });
+
+  it("reads scroll Y from main app root only (no event.target / window.scrollY)", () => {
+    const src = readFileSync(
+      join(process.cwd(), "lib/stores/use-stores-browse-header-scroll-hide.ts"),
+      "utf8"
+    );
+    expect(src).toContain("getMainAppScrollTop()");
+    expect(src).not.toContain("readScrollTopFromScrollTarget");
+    expect(src).not.toContain("readScrollTopFromScrollTarget(event");
+    expect(src).toContain('action === "hold"');
+    expect(src).toContain("collapsedRef");
   });
 });
