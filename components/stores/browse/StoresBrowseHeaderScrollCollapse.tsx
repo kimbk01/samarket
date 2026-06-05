@@ -1,11 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useStoresBrowseHeaderScrollHide } from "@/lib/stores/use-stores-browse-header-scroll-hide";
+import { useBrowseSubtopicCollapsed } from "@/lib/stores/use-browse-subtopic-collapsed";
 
-/** browse 4단(2차 업종 칩) — 레이아웃 높이를 고정해 iOS/Android 관성 스크롤 흔들림을 막는다. */
+/** browse 4단(2차 업종 칩) — sentinel+IO 모듈 store 가 높이 접힘을 제어한다. */
 export function StoresBrowseHeaderScrollCollapse({ children }: { children: ReactNode }) {
-  const collapsed = useStoresBrowseHeaderScrollHide();
+  const collapsed = useBrowseSubtopicCollapsed();
 
   return (
     <div

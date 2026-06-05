@@ -26,6 +26,7 @@ import { REGIONS } from "@/lib/products/form-options";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { BrowseSubtopicCollapseSentinel } from "@/components/stores/browse/BrowseSubtopicCollapseSentinel";
 import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBrowsePullRefreshHint";
 import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
@@ -162,6 +163,10 @@ export function StoresBrowsePrimaryView({
       ),
     [pathname, primarySlug, listScrollSearch]
   );
+  const subtopicCollapseRouteKey = useMemo(() => {
+    const sub = searchParams?.get("sub")?.trim().toLowerCase() || "all";
+    return `${primarySlug}|${sub}`;
+  }, [primarySlug, searchParams]);
   /** 거리 정책 운영 적용 전까지 기본 browse 목록 요청에는 좌표를 싣지 않는다. */
   const browseDistanceCoordsEnabled = false;
   const industryVersion = useBrowseIndustryDatasetVersion();
@@ -703,6 +708,8 @@ export function StoresBrowsePrimaryView({
 
   return (
     <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
+      <BrowseSubtopicCollapseSentinel routeKey={subtopicCollapseRouteKey} />
+      <div className="pt-3">
       {browseListReady ?
         <StoresBrowsePullRefreshRegister onRefresh={onBrowsePullRefresh} />
       : null}
@@ -754,6 +761,7 @@ export function StoresBrowsePrimaryView({
           </div>
         : null}
       </section>
+      </div>
     </div>
   );
 }

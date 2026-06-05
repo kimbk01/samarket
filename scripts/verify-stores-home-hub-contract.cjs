@@ -967,66 +967,79 @@ assertNotIncludes(
   "browse list must not refresh subtopic scroll bindings from primary view"
 );
 
-const browseHeaderScrollHide = read("lib/stores/use-stores-browse-header-scroll-hide.ts");
+const browseSubtopicCollapseChrome = read("lib/stores/browse-subtopic-collapse-chrome.ts");
 assertIncludes(
-  browseHeaderScrollHide,
-  "useState",
-  "browse header scroll hide must use local state"
+  browseSubtopicCollapseChrome,
+  "IntersectionObserver",
+  "browse subtopic collapse must use IntersectionObserver"
 );
 assertIncludes(
-  browseHeaderScrollHide,
+  browseSubtopicCollapseChrome,
+  "getStoreDetailAppScrollRootCached",
+  "browse subtopic collapse must use main hub scroll root as IO root"
+);
+assertIncludes(
+  browseSubtopicCollapseChrome,
   "subscribeAppShellScroll",
-  "browse header scroll hide must subscribe to app shell scroll"
+  "browse subtopic collapse must sync geometry on app shell scroll"
 );
 assertIncludes(
-  browseHeaderScrollHide,
+  browseSubtopicCollapseChrome,
+  "resolveBrowseSubtopicCollapsedFromScroll",
+  "browse subtopic collapse must use scroll-root hysteresis resolver"
+);
+assertIncludes(
+  browseSubtopicCollapseChrome,
+  "resolveBrowseSubtopicSentinelRelativeTop",
+  "browse subtopic collapse must use header-resize-invariant sentinel offset"
+);
+assertIncludes(
+  browseSubtopicCollapseChrome,
+  "registerBrowseSubtopicCollapseSentinel",
+  "browse subtopic collapse must register list sentinel element"
+);
+assertIncludes(
+  browseSubtopicCollapseChrome,
+  "resetBrowseSubtopicCollapseChrome",
+  "browse subtopic collapse must reset on route change"
+);
+assertNotIncludes(
+  browseSubtopicCollapseChrome,
   "resolveBottomNavScrollChromeAction",
-  "browse header scroll hide must use shared scroll chrome action"
-);
-assertIncludes(
-  browseHeaderScrollHide,
-  "useLayoutEffect",
-  "browse header scroll hide must reset collapsed on route change"
-);
-assertIncludes(
-  browseHeaderScrollHide,
-  "routeKey",
-  "browse header scroll hide must key route reset off primary+sub"
+  "browse subtopic collapse must not use scroll delta chrome action"
 );
 assertNotIncludes(
-  browseHeaderScrollHide,
-  "useSyncExternalStore",
-  "browse header scroll hide must not use unstable external store subscription"
-);
-assertNotIncludes(
-  browseHeaderScrollHide,
+  browseSubtopicCollapseChrome,
   "isMainAppScrollBodyOverflowing",
-  "browse header scroll hide must not gate on overflow"
-);
-assertIncludes(
-  browseHeaderScrollHide,
-  "getMainAppScrollTop",
-  "browse header scroll hide must read Y from main hub scroll root only"
+  "browse subtopic collapse must not gate on overflow"
 );
 assertNotIncludes(
-  browseHeaderScrollHide,
-  "readScrollTopFromScrollTarget",
-  "browse header scroll hide must not read scrollTop from event.target"
+  browseSubtopicCollapseChrome,
+  "useState",
+  "browse subtopic collapse must not use React useState in module"
+);
+
+assertIncludes(
+  browsePrimaryView,
+  "BrowseSubtopicCollapseSentinel",
+  "browse list must mount subtopic collapse sentinel"
+);
+
+const browseSubtopicSentinel = read("components/stores/browse/BrowseSubtopicCollapseSentinel.tsx");
+assertIncludes(
+  browseSubtopicSentinel,
+  "data-browse-subtopic-collapse-sentinel",
+  "browse sentinel must use data attribute marker"
 );
 assertNotIncludes(
-  browseHeaderScrollHide,
-  "window.scrollY",
-  "browse header scroll hide must not fall back to window.scrollY"
+  browseSubtopicSentinel,
+  "resetBrowseSubtopicCollapseChrome",
+  "browse sentinel must not force-expand before geometry sync on route change"
 );
 assertIncludes(
-  browseHeaderScrollHide,
-  'action === "hold"',
-  "browse header scroll hide must respect hold action"
-);
-assertIncludes(
-  browseHeaderScrollHide,
-  "collapsedRef",
-  "browse header scroll hide must skip redundant collapse setState"
+  browsePrimaryView,
+  "subtopicCollapseRouteKey",
+  "browse list must key sentinel reset off primary+sub"
 );
 
 const browseScrollChrome = read("lib/stores/browse-scroll-chrome.ts");
@@ -1066,8 +1079,15 @@ assertIncludes(
 const browseScrollCollapse = read("components/stores/browse/StoresBrowseHeaderScrollCollapse.tsx");
 assertIncludes(
   browseScrollCollapse,
-  "useStoresBrowseHeaderScrollHide",
-  "browse subtopic collapse must wire scroll-hide hook"
+  "useBrowseSubtopicCollapsed",
+  "browse subtopic collapse UI must wire module store hook"
+);
+
+const browseSubtopicCollapsedHook = read("lib/stores/use-browse-subtopic-collapsed.ts");
+assertIncludes(
+  browseSubtopicCollapsedHook,
+  "useSyncExternalStore",
+  "browse subtopic collapsed hook must use useSyncExternalStore"
 );
 
 const deliveryComponents = read("app/delivery-components.css");
@@ -1095,6 +1115,11 @@ assertNotIncludes(
   deliveryComponents,
   '[data-stores-browse-subtopic-collapse][data-collapsed="true"] {\n    max-height: 0',
   "browse subtopic collapse must not use max-height zero collapse"
+);
+assertNotIncludes(
+  deliveryComponents,
+  "transition: height 200ms ease",
+  "browse subtopic collapse must not animate height (flicker)"
 );
 
 if (process.exitCode !== 1) {

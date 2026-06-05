@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -24,10 +24,30 @@ export function OwnerMobileOpsMenuDrawer({
   children: ReactNode;
 }) {
   const [mounted, setMounted] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     setMounted(true);
   }, []);
+
+  const releaseDrawerFocus = useCallback(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && root.contains(active)) {
+      active.blur();
+    }
+  }, []);
+
+  const closeDrawer = useCallback(() => {
+    releaseDrawerFocus();
+    onClose();
+  }, [onClose, releaseDrawerFocus]);
+
+  useLayoutEffect(() => {
+    if (open) return;
+    releaseDrawerFocus();
+  }, [open, releaseDrawerFocus]);
 
   if (!mounted || typeof document === "undefined") {
     return null;
@@ -36,25 +56,25 @@ export function OwnerMobileOpsMenuDrawer({
   const dataOpen = open ? "true" : "false";
 
   return createPortal(
-    <div data-biz="1" data-owner-ops-drawer-root aria-hidden={!open}>
+    <div ref={rootRef} data-biz="1" data-owner-ops-drawer-root inert={!open}>
       <button
         type="button"
         className="owner-ops-drawer-scrim"
         data-open={dataOpen}
         aria-label={scrimLabel}
         tabIndex={open ? 0 : -1}
-        onClick={onClose}
+        onClick={closeDrawer}
         onKeyDown={(e) => {
           if (!open) return;
           if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            onClose();
+            closeDrawer();
           }
         }}
       />
       <aside
-        role="dialog"
-        aria-modal="true"
+        role={open ? "dialog" : undefined}
+        aria-modal={open ? true : undefined}
         aria-label={panelLabel}
         className="owner-ops-drawer-panel"
         data-open={dataOpen}

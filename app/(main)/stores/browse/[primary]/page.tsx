@@ -101,7 +101,7 @@ async function StoresBrowsePrimaryPageBody({ params, searchParams }: PageProps) 
   const safePrimary = typeof primary === "string" ? primary.trim().toLowerCase() : "";
 
   return (
-    <div className="bg-sam-app py-3 dark:bg-[#18191A]">
+    <div className="bg-sam-app dark:bg-[#18191A]">
       <StoresBrowsePrimaryView primarySlug={safePrimary} initialSubSlug={sub} />
     </div>
   );

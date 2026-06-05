@@ -1175,12 +1175,11 @@
     background: color-mix(in srgb, var(--delivery-text-main) 6%, transparent);
   }
 
-  /** browse 4단(2차) — 스크롤 시 height 0 접힘 (빈 띠 없음) */
+  /** browse 4단(2차) — sentinel+IO 접힘, height 0 즉시 (transition 금지 — 떨림 방지) */
   [data-stores-browse-subtopic-collapse] {
     overflow: hidden;
     flex-shrink: 0;
     height: var(--delivery-home-subcategory-reveal-h);
-    transition: height 200ms ease;
   }
 
   [data-stores-browse-subtopic-collapse][data-collapsed="true"] {
@@ -1188,20 +1187,9 @@
     border-bottom-width: 0;
   }
 
-  [data-stores-browse-subtopic-collapse] > div {
-    transition: opacity 150ms ease;
-  }
-
   [data-stores-browse-subtopic-collapse][data-collapsed="true"] > div {
     opacity: 0;
     pointer-events: none;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    [data-stores-browse-subtopic-collapse],
-    [data-stores-browse-subtopic-collapse] > div {
-      transition: none !important;
-    }
   }
 
   .stores-browse-header-subtopic-tabs {
