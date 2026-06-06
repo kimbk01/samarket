@@ -61,6 +61,7 @@ export { FAB_SURFACE_ALPHA } from "@/lib/layout/main-bottom-nav-fab-sector-confi
 type FabPhase = "open" | "closing" | "closed" | "opening";
 
 const FAB_PANEL_COUNT_BADGE_CLASS = `main-bottom-nav-fab-sector__panel-badge ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME} ring-white`;
+const FAB_TOGGLE_OPS_BADGE_CLASS = "main-bottom-nav-fab-sector__toggle-ops-badge";
 const FAB_TOGGLE_CART_COUNT_BADGE_CLASS = `main-bottom-nav-fab-sector__toggle-cart-badge ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`;
 
 function formatFabCartCountBadge(count: number): string {
@@ -105,7 +106,7 @@ export function MainBottomNavFabSector() {
   const ownerOpsAttention = approvedOwnerStore
     ? resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown)
     : 0;
-  const { cartCount } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
+  const { href, cartCount, cartHydrated } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
   const enabled = fabConfig != null && fabConfig.items.length > 0;
   const [expandLocked, setExpandLocked] = useState(false);
   const { collapsed, collapse, expand } = useMainBottomNavFabSectorScroll(enabled, expandLocked);
@@ -234,7 +235,7 @@ export function MainBottomNavFabSector() {
   const showToggleOpsBadge =
     ownerOpsAttention > 0 && !shellExpanded && hasStoreAdminFabItem;
   const showToggleCartBadge =
-    cartCount > 0 && !shellExpanded && !showToggleOpsBadge;
+    cartHydrated && cartCount > 0 && !shellExpanded && !showToggleOpsBadge;
 
   const toggleClass = [
     "main-bottom-nav-fab-sector__toggle",
@@ -286,7 +287,7 @@ export function MainBottomNavFabSector() {
                     const active = isMainBottomNavFabHrefActive(pathname, item.href);
                     const cartItem = isFabCartItem(item);
                     const storeAdminItem = isMainBottomNavFabStoreAdminItem(item);
-                    const showCartBadge = cartItem && cartCount > 0;
+                    const showCartBadge = cartItem && cartHydrated && cartCount > 0;
                     const showOpsBadge = storeAdminItem && ownerOpsAttention > 0;
                     const hubIntercept = storeAdminItem && shouldInterceptBusinessHubHref(item.href);
                     const iconTab = { icon: item.icon, lucideIcon: item.lucideIcon };
@@ -401,7 +402,7 @@ export function MainBottomNavFabSector() {
               </button>
             </div>
             {showToggleOpsBadge ? (
-              <span className={FAB_TOGGLE_CART_COUNT_BADGE_CLASS} aria-hidden>
+              <span className={FAB_TOGGLE_OPS_BADGE_CLASS} aria-hidden>
                 {formatFabCartCountBadge(ownerOpsAttention)}
               </span>
             ) : showToggleCartBadge ? (

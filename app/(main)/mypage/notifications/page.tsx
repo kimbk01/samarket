@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useLayoutEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyNotificationsView } from "@/components/my/MyNotificationsView";
-import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -37,34 +36,19 @@ export default function MypageNotificationsPage() {
         hideCtaStrip
         rightSlot={
           <Link
-            href="/mypage/notifications#notification-settings"
+            href="/mypage/section/settings/notifications"
             className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-fg"
             aria-label={t("notifications_settings_title")}
-            scroll={false}
           >
             <MypageNotificationSettingsLink />
           </Link>
         }
       />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-        <div className="flex min-w-0 flex-col gap-10 py-4">
-        <section id="notification-inbox" className="min-w-0 scroll-mt-4" aria-label={t("common_notifications")}>
-          <MyNotificationsView />
-        </section>
-        <section
-          id="notification-settings"
-          className="min-w-0 scroll-mt-4"
-          aria-labelledby="mypage-notifications-settings-heading"
-        >
-          <h2
-            id="mypage-notifications-settings-heading"
-            className="mb-3 text-[15px] font-semibold text-sam-fg"
-          >
-            {t("notifications_settings_title")}
-          </h2>
-          <p className="mb-4 sam-text-helper text-sam-muted">{t("notifications_settings_subtitle")}</p>
-          <NotificationsSettingsContent />
-        </section>
+        <div className="flex min-w-0 flex-col py-4">
+          <section id="notification-inbox" className="min-w-0 scroll-mt-4" aria-label={t("common_notifications")}>
+            <MyNotificationsView />
+          </section>
         </div>
       </div>
     </div>

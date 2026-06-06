@@ -4,12 +4,13 @@ import type { ReactNode } from "react";
 import { Trash2 } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { InboxGroupItem } from "@/lib/notifications/group-inbox-by-thread";
+import { resolveInboxOrderMetaLine } from "@/lib/notifications/inbox-order-status-label";
 import { TRADE_HUB_LIST_ITEM_CARD_CLASS } from "@/lib/ui/app-content-layout";
 
 const CHAT_UNREAD_BADGE =
   "inline-flex min-w-[1.125rem] shrink-0 items-center justify-center rounded-md bg-violet-500/15 px-1 py-0.5 text-[10px] font-bold leading-none text-violet-800";
-const OTHER_UNREAD_BADGE =
-  "inline-flex min-w-[1rem] shrink-0 items-center justify-center rounded-full bg-sam-surface-muted px-1 py-0.5 text-[9px] font-semibold text-sam-muted";
+const ORDER_STATUS_CHIP =
+  "inline-flex shrink-0 items-center rounded-md bg-[color:var(--delivery-primary,#0B421A)]/12 px-1.5 py-0.5 text-[10px] font-semibold leading-tight text-[color:var(--delivery-primary,#0B421A)]";
 const SURFACE_BADGE =
   "inline-flex max-w-[min(100%,14rem)] shrink-0 items-center truncate rounded-md bg-sam-surface-muted px-1 py-0.5 text-[10px] font-semibold leading-tight text-sam-fg";
 
@@ -54,6 +55,9 @@ export function InboxGroupCardList({
         const kind = item.kindLabel;
         const hasUnread = item.unreadCount > 0;
         const isChat = item.notification_type === "chat";
+        const isOrderGroup = item.isOrderGroup;
+        const orderMetaLine = isOrderGroup ? resolveInboxOrderMetaLine(item.meta) : null;
+        const showBody = item.body && !(isOrderGroup && item.body === item.displayTitle);
         const deleting = deleteBusyKey === item.key;
         return (
           <li key={item.key}>
@@ -73,25 +77,30 @@ export function InboxGroupCardList({
                       <span className={SURFACE_BADGE} title={item.surfaceBadge}>
                         {item.surfaceBadge}
                       </span>
-                      {kind ? <span className="truncate text-sam-meta">· {kind}</span> : null}
+                      {kind && isOrderGroup ? (
+                        <span className={ORDER_STATUS_CHIP}>{kind}</span>
+                      ) : kind ? (
+                        <span className="truncate text-sam-meta">· {kind}</span>
+                      ) : null}
                     </span>
-                    {hasUnread ? (
-                      isChat ? (
-                        <span
-                          className={CHAT_UNREAD_BADGE}
-                          title={t("notif_inbox_unread_n", { n: item.unreadCount })}
-                        >
-                          {item.unreadCount > 99 ? "99+" : item.unreadCount}
-                        </span>
-                      ) : (
-                        <span className={OTHER_UNREAD_BADGE}>{item.unreadCount}</span>
-                      )
+                    {hasUnread && isChat ? (
+                      <span
+                        className={CHAT_UNREAD_BADGE}
+                        title={t("notif_inbox_unread_n", { n: item.unreadCount })}
+                      >
+                        {item.unreadCount > 99 ? "99+" : item.unreadCount}
+                      </span>
                     ) : null}
                   </div>
+                  {orderMetaLine ? (
+                    <p className="mt-0.5 truncate text-[11px] font-medium leading-snug text-sam-meta">
+                      {orderMetaLine}
+                    </p>
+                  ) : null}
                   <p className="mt-0.5 line-clamp-2 break-words text-[14px] font-semibold leading-snug text-sam-fg">
                     {item.displayTitle}
                   </p>
-                  {item.body ? (
+                  {showBody ? (
                     <p className="mt-0.5 line-clamp-2 break-words text-[12px] leading-snug text-sam-fg">
                       {item.body}
                     </p>

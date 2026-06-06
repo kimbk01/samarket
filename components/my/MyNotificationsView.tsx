@@ -61,6 +61,7 @@ export function MyNotificationsView() {
   const inboxFilterChips = useMemo(
     (): { key: InboxPushKindFilter; label: string }[] => [
       { key: "all", label: t("notif_filter_all") },
+      { key: "delivery", label: t("notif_filter_delivery") },
       { key: "trade", label: t("notif_filter_trade") },
       { key: "chat", label: t("notif_filter_chat") },
       { key: "notice", label: t("notif_filter_notice") },

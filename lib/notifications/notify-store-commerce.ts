@@ -3,7 +3,37 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { buildOwnerStoreOrderNotificationHref } from "@/lib/business/owner-store-order-notification-href";
 import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
 import { formatMoneyPhp } from "@/lib/utils/format";
+
+const BUYER_COMMERCE_PUSH_KIND = "delivery" as const;
+const BUYER_ORDER_STATUS_META_KIND = "store_order_owner_status";
+
+/** 새 주문 상태 알림 전 — 동일 주문의 이전 미읽음 status 알림을 읽음 처리 */
+export async function markPriorBuyerOrderStatusNotificationsRead(
+  sb: SupabaseClient,
+  userId: string,
+  orderId: string
+): Promise<void> {
+  const uid = userId.trim();
+  const oid = orderId.trim();
+  if (!uid || !oid) return;
+
+  const { error } = await sb
+    .from("notifications")
+    .update({ is_read: true })
+    .eq("user_id", uid)
+    .eq("notification_type", "commerce")
+    .eq("is_read", false)
+    .eq("meta->>kind", BUYER_ORDER_STATUS_META_KIND)
+    .or(`ref_id.eq.${oid},meta->>order_id.eq.${oid}`);
+
+  if (error && !/does not exist|schema cache/i.test(String(error.message ?? ""))) {
+    console.warn("[markPriorBuyerOrderStatusNotificationsRead]", error.message);
+    return;
+  }
+  invalidateNotificationUnreadCountCache(uid);
+}
 
 /** 구매자 매장 주문 알림의 바로가기 — 주문 내역 목록으로 통일 */
 const BUYER_STORE_ORDERS_NOTIFICATION_HREF = "/my/store-orders";
@@ -239,6 +269,7 @@ export async function notifyBuyerStorePaymentCompleted(
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_payment_done_title"),
@@ -533,18 +564,21 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   const evTrim = (opts.storeOrderEventId ?? "").trim();
   const dedupe = `commerce:buyer:owner_status:${oid}:${opts.nextStatus}`;
 
+  await markPriorBuyerOrderStatusNotificationsRead(sb, bid, oid);
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
     title: copy.title,
     body: `${copy.body}${etaSuffix}`,
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: {
-      kind: "store_order_owner_status",
+      kind: BUYER_ORDER_STATUS_META_KIND,
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId.trim(),
@@ -586,6 +620,7 @@ export async function notifyBuyerStorePaymentFailed(
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_payment_failed_title"),
@@ -629,6 +664,7 @@ export async function notifyBuyerStoreRefundApproved(
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_refund_processed_title"),
@@ -672,6 +708,7 @@ export async function notifyBuyerStoreOrderAutoCompleted(
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    push_kind: BUYER_COMMERCE_PUSH_KIND,
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
     title: nt(language, "notify_commerce_auto_completed_title"),

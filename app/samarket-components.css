@@ -1779,7 +1779,8 @@
   }
 
   /** ‹ 탭 장바구니 뱃지 — dock 기준 좌상단 3/4 겹침 (1/4만 바깥) */
-  .main-bottom-nav-fab-sector__toggle-cart-badge {
+  .main-bottom-nav-fab-sector__toggle-cart-badge,
+  .main-bottom-nav-fab-sector__toggle-ops-badge {
     @apply pointer-events-none absolute z-[10] ring-2 ring-white;
     left: 0;
     top: 0;

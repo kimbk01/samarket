@@ -2,6 +2,9 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { commerceMetaKindLabel } from "@/lib/notifications/notification-display-labels";
 import {
+  resolveInboxOrderStatusChip,
+} from "@/lib/notifications/inbox-order-status-label";
+import {
   buildInboxDisplayTitle,
   resolveInboxSurfaceBadge,
 } from "@/lib/notifications/notification-inbox-surface-label";
@@ -29,8 +32,10 @@ export type InboxRowInput = {
 export type InboxGroupItem = {
   key: string;
   ids: string[];
-  /** 같은 채팅방/스레드로 합쳐진 그룹이면 true (채팅만) */
+  /** 같은 채팅방/스레드로 합쳐진 그룹 */
   isThread: boolean;
+  /** commerce 주문번호 단위 그룹 */
+  isOrderGroup: boolean;
   notification_type: string;
   title: string;
   /** 발신자·제목 요약 (채팅 sender_label 반영) */
@@ -57,10 +62,21 @@ function toPathname(u: string): string {
   return t.split("?")[0] ?? t;
 }
 
+function orderIdFromInboxRow(r: InboxRowInput): string | null {
+  const meta = r.meta as { order_id?: unknown } | null | undefined;
+  const fromMeta = typeof meta?.order_id === "string" ? meta.order_id.trim() : "";
+  if (fromMeta) return fromMeta;
+  return null;
+}
+
 /**
- * `chat` 은 `link_url` 의 방 id 기준으로 묶는다. 매칭되지 않으면 건별(id) 유지.
+ * `chat` — 방 id · `commerce`+주문 id — 주문 단위 1행. 그 외 건별(id).
  */
 export function groupKeyForInboxRow(r: InboxRowInput): string {
+  if (r.notification_type === "commerce") {
+    const oid = orderIdFromInboxRow(r);
+    if (oid) return `order:${oid}`;
+  }
   if (r.notification_type !== "chat") {
     return `one:${r.id}`;
   }
@@ -105,6 +121,7 @@ export function buildInboxGroupItems(
     const ids = g.map((x) => x.id);
     const unreadCount = g.filter((x) => !x.is_read).length;
     const isThread = latest.notification_type === "chat" && (g.length > 1 || /^(cm|ch|mp):/.test(key));
+    const isOrderGroup = latest.notification_type === "commerce" && key.startsWith("order:");
     const rawHref = resolveNotificationInboxHref(latest) ?? latest.link_url?.trim() ?? null;
     const href = rawHref && rawHref.length > 0 ? rawHref : defaultInboxFallbackHref();
     const knd =
@@ -125,7 +142,12 @@ export function buildInboxGroupItems(
       },
       language
     );
-    const kindLabel = knd && knd !== surfaceBadge ? knd : null;
+    const kindLabel = isOrderGroup
+      ? resolveInboxOrderStatusChip((metaObj as { order_status?: unknown } | null)?.order_status, language) ??
+        (knd && knd !== surfaceBadge ? knd : null)
+      : knd && knd !== surfaceBadge
+        ? knd
+        : null;
     const safeTitle = resolveNotificationInboxTitle(language, {
       notification_type: latest.notification_type,
       title: latest.title,
@@ -142,6 +164,7 @@ export function buildInboxGroupItems(
       key: `${key}:${ids[0]}`,
       ids,
       isThread,
+      isOrderGroup,
       notification_type: latest.notification_type,
       title: safeTitle,
       displayTitle,

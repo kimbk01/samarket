@@ -32,5 +32,5 @@ export function useCommerceCartNavHref(fallback: string = COMMERCE_CART_NAV_FALL
 
   const cartCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
 
-  return { href, cartCount };
+  return { href, cartCount, cartHydrated: commerceCart?.hydrated ?? false };
 }

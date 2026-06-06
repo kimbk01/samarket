@@ -119,7 +119,6 @@ export function MyHeaderNotificationInbox() {
   }, [pendingDelete]);
   const [soundOn, setSoundOn] = useState(true);
   const [soundLoaded, setSoundLoaded] = useState(false);
-  const [soundBusy, setSoundBusy] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [domReady, setDomReady] = useState(false);
@@ -306,29 +305,6 @@ export function MyHeaderNotificationInbox() {
     prewarmInboxNotificationChatHref(router, item.href);
   };
 
-  const toggleSound = useCallback(async () => {
-    if (soundBusy) return;
-    setSoundBusy(true);
-    const next = !soundOn;
-    try {
-      const res = await fetch("/api/me/notification-settings", {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sound_enabled: next }),
-      });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-      if (res.ok && j?.ok) {
-        setSoundOn(next);
-        if (next && typeof window !== "undefined") primeNotificationSoundAudio();
-        invalidateMeNotificationSettingsGetFlight();
-        window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
-      }
-    } finally {
-      setSoundBusy(false);
-    }
-  }, [soundBusy, soundOn]);
-
   const markAllRead = useCallback(async () => {
     if (markBusy || totalUnread === 0) return;
     setMarkBusy(true);
@@ -434,7 +410,7 @@ export function MyHeaderNotificationInbox() {
                 </span>
               ) : null}
               <Link
-                href="/mypage/notifications#notification-settings"
+                href="/mypage/section/settings/notifications"
                 onClick={() => setOpen(false)}
                 className="sam-header-action flex h-8 w-8 items-center justify-center rounded-full text-sam-fg"
                 aria-label={t("notif_tier1_to_settings")}
@@ -458,25 +434,6 @@ export function MyHeaderNotificationInbox() {
                 deleteBusyKey={deleteBusyKey}
               />
             )}
-          </div>
-
-          <div className="shrink-0 border-t border-sam-border/60 px-3 py-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="sam-text-body text-sam-fg">{t("notif_tier1_inapp_sound")}</span>
-              <button
-                type="button"
-                disabled={soundBusy || !soundLoaded}
-                aria-pressed={soundOn}
-                onClick={() => void toggleSound()}
-                className={`shrink-0 rounded-full border px-3 py-1 sam-text-xxs font-semibold transition ${
-                  soundOn
-                    ? "border-sam-primary/40 bg-sam-primary/10 text-sam-primary"
-                    : "border-sam-border text-sam-muted"
-                }`}
-              >
-                {soundOn ? t("notif_toggle_on") : t("notif_toggle_off")}
-              </button>
-            </div>
           </div>
 
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-sam-border/50 px-3 py-2.5">

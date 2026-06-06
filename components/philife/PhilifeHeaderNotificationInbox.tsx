@@ -168,6 +168,32 @@ function CloseIcon({ className }: { className?: string }) {
 
 
 
+function SettingsGearIcon() {
+
+  return (
+
+    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+
+      <path
+
+        strokeLinecap="round"
+
+        strokeLinejoin="round"
+
+        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+
+      />
+
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+
+    </svg>
+
+  );
+
+}
+
+
+
 /**
 
  * `/philife`·`/stores` 1단 우측 종 — 벨 기준 팝업(좌하 펼침) + 배경 딤 + 즉시 목록
@@ -249,8 +275,6 @@ export function PhilifeHeaderNotificationInbox({
   const [soundOn, setSoundOn] = useState(true);
 
   const [soundLoaded, setSoundLoaded] = useState(false);
-
-  const [soundBusy, setSoundBusy] = useState(false);
 
 
 
@@ -668,52 +692,6 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-  const toggleSound = useCallback(async () => {
-
-    if (soundBusy) return;
-
-    setSoundBusy(true);
-
-    const next = !soundOn;
-
-    try {
-
-      const res = await fetch("/api/me/notification-settings", {
-
-        method: "PATCH",
-
-        credentials: "include",
-
-        headers: { "Content-Type": "application/json" },
-
-        body: JSON.stringify({ sound_enabled: next }),
-
-      });
-
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
-
-      if (res.ok && j?.ok) {
-
-        setSoundOn(next);
-
-        if (next && typeof window !== "undefined") primeNotificationSoundAudio();
-
-        invalidateMeNotificationSettingsGetFlight();
-
-        window.dispatchEvent(new Event("kasama:user-notification-settings-changed"));
-
-      }
-
-    } finally {
-
-      setSoundBusy(false);
-
-    }
-
-  }, [soundBusy, soundOn]);
-
-
-
   const markAllRead = useCallback(async () => {
 
     if (markBusy || totalUnread === 0) return;
@@ -919,7 +897,9 @@ export function PhilifeHeaderNotificationInbox({
 
               </button>
 
-              <div className="flex shrink-0 items-center gap-2 border-b border-sam-border/80 py-2.5 pl-3 pr-12">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/80 py-2.5 pl-3 pr-12">
+
+                <div className="flex min-w-0 items-center gap-2">
 
                 <h2 id="philife-inbox-title" className="min-w-0 text-[16px] font-bold leading-tight text-sam-fg">
 
@@ -936,6 +916,24 @@ export function PhilifeHeaderNotificationInbox({
                   </span>
 
                 ) : null}
+
+                </div>
+
+                <Link
+
+                  href="/mypage/section/settings/notifications"
+
+                  onClick={closePanel}
+
+                  className="sam-header-action flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sam-fg"
+
+                  aria-label={t("notif_tier1_to_settings")}
+
+                >
+
+                  <SettingsGearIcon />
+
+                </Link>
 
               </div>
 
@@ -968,44 +966,6 @@ export function PhilifeHeaderNotificationInbox({
                   />
 
                 )}
-
-              </div>
-
-
-
-              <div className="shrink-0 space-y-1.5 border-t border-sam-border/60 px-3 py-2">
-
-                <div className="flex flex-wrap items-center justify-between gap-2">
-
-                  <span className="sam-text-body text-sam-fg">{t("notif_tier1_inapp_sound")}</span>
-
-                  <button
-
-                    type="button"
-
-                    disabled={soundBusy || !soundLoaded}
-
-                    aria-pressed={soundOn}
-
-                    onClick={() => void toggleSound()}
-
-                    className={`shrink-0 rounded-full border px-3 py-1 sam-text-xxs font-semibold transition ${
-
-                      soundOn
-
-                        ? "border-sam-primary/40 bg-sam-primary/10 text-sam-primary"
-
-                        : "border-sam-border text-sam-muted"
-
-                    }`}
-
-                  >
-
-                    {soundOn ? t("notif_toggle_on") : t("notif_toggle_off")}
-
-                  </button>
-
-                </div>
 
               </div>
 

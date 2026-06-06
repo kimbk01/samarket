@@ -309,6 +309,8 @@ export async function GET(req: NextRequest) {
       .eq("user_id", userId);
     if (includePushKindCol && inboxPushKind === "chat") {
       q = q.or("push_kind.eq.chat,notification_type.eq.chat");
+    } else if (includePushKindCol && inboxPushKind === "delivery") {
+      q = q.or("push_kind.eq.delivery,notification_type.eq.commerce");
     } else if (includePushKindCol && inboxPushKind) {
       q = q.eq("push_kind", inboxPushKind);
     }
