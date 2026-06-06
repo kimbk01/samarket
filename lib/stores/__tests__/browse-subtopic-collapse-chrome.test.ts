@@ -24,14 +24,21 @@ describe("browse-subtopic-collapse-chrome", () => {
     ).toBe(true);
   });
 
-  it("holds collapsed until scroll returns above reveal threshold (hysteresis)", () => {
+  it("holds collapsed until scroll returns within reveal band (hysteresis)", () => {
     const relativeTop = 40;
     const hideAt = relativeTop + BROWSE_SUBTOPIC_COLLAPSE_HIDE_AFTER_PX + 5;
     expect(resolveBrowseSubtopicCollapsedFromScroll(false, hideAt, relativeTop)).toBe(true);
-    const barelyAboveHide = relativeTop + BROWSE_SUBTOPIC_COLLAPSE_HIDE_AFTER_PX;
-    expect(resolveBrowseSubtopicCollapsedFromScroll(true, barelyAboveHide, relativeTop)).toBe(true);
-    const revealAt = relativeTop - BROWSE_SUBTOPIC_COLLAPSE_REVEAL_BEFORE_PX;
+    const stillCollapsed = relativeTop + BROWSE_SUBTOPIC_COLLAPSE_REVEAL_BEFORE_PX + 1;
+    expect(resolveBrowseSubtopicCollapsedFromScroll(true, stillCollapsed, relativeTop)).toBe(true);
+    const revealAt = relativeTop + BROWSE_SUBTOPIC_COLLAPSE_REVEAL_BEFORE_PX;
     expect(resolveBrowseSubtopicCollapsedFromScroll(true, revealAt, relativeTop)).toBe(false);
+  });
+
+  it("reveals at scroll top when sentinel is at content origin", () => {
+    expect(resolveBrowseSubtopicCollapsedFromScroll(true, 0, 0)).toBe(false);
+    expect(resolveBrowseSubtopicCollapsedFromScroll(true, 5, 0)).toBe(false);
+    expect(resolveBrowseSubtopicCollapsedFromScroll(true, 8, 0)).toBe(false);
+    expect(resolveBrowseSubtopicCollapsedFromScroll(true, 9, 0)).toBe(true);
   });
 
   it("computes sentinel relative top invariant to shared viewport shift", () => {

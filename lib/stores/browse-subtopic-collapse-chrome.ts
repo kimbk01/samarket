@@ -42,10 +42,12 @@ export function resolveBrowseSubtopicCollapsedFromScroll(
 ): boolean {
   const hideAfter = opts?.hideAfterPx ?? BROWSE_SUBTOPIC_COLLAPSE_HIDE_AFTER_PX;
   const revealBefore = opts?.revealBeforePx ?? BROWSE_SUBTOPIC_COLLAPSE_REVEAL_BEFORE_PX;
+  const hideAt = sentinelRelativeTop + hideAfter;
+  const revealAt = sentinelRelativeTop + revealBefore;
   if (!currentCollapsed) {
-    return scrollTop > sentinelRelativeTop + hideAfter;
+    return scrollTop > hideAt;
   }
-  return scrollTop > sentinelRelativeTop - revealBefore;
+  return scrollTop > revealAt;
 }
 
 /** sentinel top in scroll-root content coordinates (header resize invariant) */
