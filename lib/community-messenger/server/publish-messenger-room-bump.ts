@@ -2,6 +2,8 @@ import type { CommunityMessengerMessage } from "@/lib/community-messenger/types"
 import { serializeCommunityMessengerMessageForBump } from "@/lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot";
 import { publishCommunityMessengerRoomBumpFromServer } from "@/lib/community-messenger/realtime/room-bump-broadcast-server";
 import { invalidateRoomBootstrapRouteCacheForRoom } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { bumpMessengerRoomTargetsForRecipients } from "@/lib/notifications/notification-target-messenger-bridge";
 
 /** 메시지·미디어 변경 후 부트스트랩 캐시 무효화 + 원장 방 기준 Broadcast bump(거래 URL id 와 CM uuid 가 다를 때 둘 다 무효화). */
 export async function publishMessengerRoomBumpAfterMutation(args: {
@@ -44,5 +46,12 @@ export async function publishMessengerRoomBumpAfterMutation(args: {
       rawRouteRoomId: rawTagged,
       messageSnapshot,
     });
+  }
+
+  try {
+    const sb = getSupabaseServer();
+    await bumpMessengerRoomTargetsForRecipients(sb, { roomId: canon, fromUserId });
+  } catch {
+    /* badge target bump best-effort */
   }
 }

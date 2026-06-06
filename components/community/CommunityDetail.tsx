@@ -126,6 +126,16 @@ export function CommunityDetail({
   }, []);
 
   useEffect(() => {
+    if (!mounted || !post.id) return;
+    void fetch("/api/me/notification-targets/clear", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetType: "community_post", targetId: post.id }),
+    }).catch(() => {});
+  }, [mounted, post.id]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     setPostUrl(`${window.location.origin}${pathname || ""}`);
   }, [pathname]);

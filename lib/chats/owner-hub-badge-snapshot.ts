@@ -37,6 +37,15 @@ import type {
   OwnerHubBadgeApiPayload,
   OwnerHubBadgeBuildMeta,
 } from "@/lib/chats/build-owner-hub-badge-payload";
+import {
+  mergeOwnerHubBadgeUnreadAndStore,
+} from "@/lib/chats/build-owner-hub-badge-payload";
+import {
+  countNotificationTargetsHubBundle,
+} from "@/lib/notifications/notification-targets";
+import {
+  ownerHubUnreadPartialFromTargetBundle,
+} from "@/lib/chats/build-owner-hub-badge-from-targets";
 import { writeCmUnreadRoomCountMemory } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
 import { writeHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
 import { writeHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
@@ -334,42 +343,31 @@ function unreadPartsFromSnapshot(snapshot: OwnerHubBadgeSnapshotRow): UserChatUn
   });
 }
 
-function payloadFromSnapshot(snapshot: OwnerHubBadgeSnapshotRow): OwnerHubBadgeApiPayload {
-  const unreadParts = unreadPartsFromSnapshot(snapshot);
+function payloadFromSnapshot(
+  snapshot: OwnerHubBadgeSnapshotRow,
+  bundle: import("@/lib/notifications/notification-targets").NotificationTargetHubBundle
+): OwnerHubBadgeApiPayload {
+  const unread = ownerHubUnreadPartialFromTargetBundle(bundle);
   const orderAttention = snapshot.refund_pending_count + snapshot.order_pending_count;
   const inquiryAttention = snapshot.inquiry_pending_count;
-  const socialChatUnread =
-    unreadParts.itemTradeParticipantUnread +
-    unreadParts.communityParticipantUnread +
-    unreadParts.productChatUnreadDeduped;
+  const ownerReviewAttention = Math.max(0, bundle.fab_owner_store - inquiryAttention);
   let storeDeepLink: string | null = null;
   if (snapshot.has_hub_store && snapshot.hub_store_id) {
     if (inquiryAttention > 0) {
       storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(snapshot.hub_store_id)}`;
     } else if (orderAttention > 0) {
       storeDeepLink = buildStoreOrdersHref({ storeId: snapshot.hub_store_id });
-    } else if (snapshot.store_order_chat_unread > 0) {
+    } else if (unread.storeOrderChatUnread > 0) {
       storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
     }
   }
-  return {
-    ok: true as const,
-    total:
-      socialChatUnread +
-      Math.max(0, orderAttention) +
-      Math.max(0, inquiryAttention) +
-      Math.max(0, snapshot.community_messenger_unread_room_count),
-    chatUnread:
-      unreadParts.itemTradeParticipantUnread + unreadParts.productChatUnreadDeduped,
-    communityMessengerUnread: snapshot.community_messenger_unread_room_count,
-    philifeChatUnread: unreadParts.communityParticipantUnread,
-    socialChatUnread,
-    storeOrderChatUnread: snapshot.store_order_chat_unread,
-    orderAttention,
+  return mergeOwnerHubBadgeUnreadAndStore(unread, {
+    orderAttention: Math.max(orderAttention, bundle.fab_owner_orders),
     inquiryAttention,
-    storesTabAttention: Math.max(0, orderAttention) + Math.max(0, inquiryAttention),
+    ownerReviewAttention,
+    buyerOrderAttention: Math.max(0, bundle.bottom_nav_delivery),
     storeDeepLink,
-  };
+  });
 }
 
 function participantUnreadTotal(snapshot: OwnerHubBadgeSnapshotRow): number {
@@ -526,7 +524,12 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
         syncProcessMemoryLayersFromSnapshot(uid, counter.row);
         const participant_merge_ms = devPerfNow() - merge0;
         const payload0 = devPerfNow();
-        const payload = payloadFromSnapshot(counter.row);
+        const targetBundle = await countNotificationTargetsHubBundle(
+          sbAny,
+          uid,
+          counter.row.hub_store_id
+        );
+        const payload = payloadFromSnapshot(counter.row, targetBundle);
         const payload_build_ms = devPerfNow() - payload0;
         const breakdown = buildSnapshotBreakdown({
           userId: uid,
@@ -557,7 +560,7 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
         });
         evaluateHubBadgeRegressionGuards({
           breakdown,
-          dbRoundTrips: 1,
+          dbRoundTrips: 2,
           snapshotVia: "counter_row",
         });
         return { payload, meta: { ...meta, existsQueryUsed: 0 }, breakdown };
@@ -569,7 +572,12 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
         syncProcessMemoryLayersFromSnapshot(uid, counter.row);
         const participant_merge_ms = devPerfNow() - merge0;
         const payload0 = devPerfNow();
-        const payload = payloadFromSnapshot(counter.row);
+        const targetBundle = await countNotificationTargetsHubBundle(
+          sbAny,
+          uid,
+          counter.row.hub_store_id
+        );
+        const payload = payloadFromSnapshot(counter.row, targetBundle);
         const payload_build_ms = devPerfNow() - payload0;
         const breakdown = buildSnapshotBreakdown({
           userId: uid,
@@ -610,7 +618,8 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       updated_at: new Date().toISOString(),
     };
     const payload0 = devPerfNow();
-    const payload = payloadFromSnapshot(fullRow);
+    const targetBundle = await countNotificationTargetsHubBundle(sbAny, uid, fullRow.hub_store_id);
+    const payload = payloadFromSnapshot(fullRow, targetBundle);
     const payload_build_ms = devPerfNow() - payload0;
     const rpcTiming: SnapshotCounterReadTiming = {
       db_fetch_ms: Math.round(rpcMs || rpcWallMs),

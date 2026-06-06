@@ -24,6 +24,7 @@ import {
   safeErrorMessage,
 } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
+import { bumpNotificationTarget } from "@/lib/notifications/notification-targets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -214,6 +215,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     if (error || !ins) {
       return jsonError(safeErrorMessage(error, "댓글 저장에 실패했습니다."), 500, {
         code: "community_comment_insert_failed",
+      });
+    }
+    const postAuthorId = String(prow.user_id ?? "").trim();
+    if (postAuthorId && postAuthorId !== auth.userId) {
+      void bumpNotificationTarget(sb, {
+        userId: postAuthorId,
+        targetType: "community_post",
+        targetId: id,
+        scope: "consumer",
       });
     }
     return jsonOk({ id: (ins as { id: string }).id });

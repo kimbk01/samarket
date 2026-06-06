@@ -49,7 +49,12 @@ import { localizeMainBottomNavFabDisplayItems } from "@/lib/main-menu/main-botto
 import { prefetchOwnerLiteStoreQuiet } from "@/lib/stores/owner-lite-external-store";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
-import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
+import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
+import {
+  resolveFabOwnerOrderChatBadgeCount,
+  resolveFabOwnerOrdersBadgeCount,
+  resolveFabOwnerStoreBadgeCount,
+} from "@/lib/stores/owner-store-badge-display-policy";
 
 /**
  * CONTRACT — 배달 하단 FAB (`docs/main-bottom-nav-fab-sector-contract.md`)
@@ -68,8 +73,27 @@ function formatFabCartCountBadge(count: number): string {
   return count > 99 ? "99+" : String(count);
 }
 
-function isFabCartItem(item: { id: string; icon: string }): boolean {
-  return item.icon === "cart" || item.id === "fab_delivery_cart";
+function isFabCartItem(item: { id: string; icon?: string }): boolean {
+  return item.id === "fab_delivery_cart" || item.icon === "cart";
+}
+
+function isFabOrderHistoryItem(item: { id: string; icon: string }): boolean {
+  return item.id === "fab_delivery_orders" || item.icon === "orders";
+}
+
+function isFabOrderChatItem(item: { id: string; icon: string }): boolean {
+  return item.id === "fab_delivery_order_chat" || item.icon === "chat";
+}
+
+function resolveFabItemBadgeCount(
+  item: { id: string; icon: string; href: string },
+  bd: OwnerHubBadgeBreakdown
+): number {
+  if (isFabCartItem(item)) return 0;
+  if (isMainBottomNavFabStoreAdminItem(item)) return resolveFabOwnerStoreBadgeCount(bd);
+  if (isFabOrderHistoryItem(item)) return resolveFabOwnerOrdersBadgeCount(bd);
+  if (isFabOrderChatItem(item)) return resolveFabOwnerOrderChatBadgeCount(bd);
+  return 0;
 }
 
 function isFabShellExpanded(phase: FabPhase, panelEnterReady: boolean): boolean {
@@ -103,9 +127,12 @@ export function MainBottomNavFabSector() {
     if (!fabConfigResolved) return;
     prefetchOwnerLiteStoreQuiet();
   }, [fabConfigResolved, approvedOwnerStore?.id]);
-  const ownerOpsAttention = approvedOwnerStore
-    ? resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown)
+  const fabOrdersBadge = approvedOwnerStore ? resolveFabOwnerOrdersBadgeCount(ownerHubBreakdown) : 0;
+  const fabStoreBadge = approvedOwnerStore ? resolveFabOwnerStoreBadgeCount(ownerHubBreakdown) : 0;
+  const fabOrderChatBadge = approvedOwnerStore
+    ? resolveFabOwnerOrderChatBadgeCount(ownerHubBreakdown)
     : 0;
+  const fabToggleAttention = Math.max(fabOrdersBadge, fabStoreBadge, fabOrderChatBadge);
   const { href, cartCount, cartHydrated } = useCommerceCartNavHref(COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART);
   const enabled = fabConfig != null && fabConfig.items.length > 0;
   const [expandLocked, setExpandLocked] = useState(false);
@@ -233,7 +260,7 @@ export function MainBottomNavFabSector() {
   const toggleInteractive = phase === "open" || phase === "closed";
   const hasStoreAdminFabItem = fabConfig.items.some((item) => isMainBottomNavFabStoreAdminItem(item));
   const showToggleOpsBadge =
-    ownerOpsAttention > 0 && !shellExpanded && hasStoreAdminFabItem;
+    fabToggleAttention > 0 && !shellExpanded && hasStoreAdminFabItem;
   const showToggleCartBadge =
     cartHydrated && cartCount > 0 && !shellExpanded && !showToggleOpsBadge;
 
@@ -287,8 +314,11 @@ export function MainBottomNavFabSector() {
                     const active = isMainBottomNavFabHrefActive(pathname, item.href);
                     const cartItem = isFabCartItem(item);
                     const storeAdminItem = isMainBottomNavFabStoreAdminItem(item);
+                    const itemBadge = approvedOwnerStore
+                      ? resolveFabItemBadgeCount(item, ownerHubBreakdown)
+                      : 0;
                     const showCartBadge = cartItem && cartHydrated && cartCount > 0;
-                    const showOpsBadge = storeAdminItem && ownerOpsAttention > 0;
+                    const showItemBadge = !showCartBadge && itemBadge > 0;
                     const hubIntercept = storeAdminItem && shouldInterceptBusinessHubHref(item.href);
                     const iconTab = { icon: item.icon, lucideIcon: item.lucideIcon };
                     const rowClass = [
@@ -313,9 +343,9 @@ export function MainBottomNavFabSector() {
                               {formatFabCartCountBadge(cartCount)}
                             </span>
                           ) : null}
-                          {showOpsBadge ? (
+                          {showItemBadge ? (
                             <span className={FAB_PANEL_COUNT_BADGE_CLASS} aria-hidden>
-                              {formatFabCartCountBadge(ownerOpsAttention)}
+                              {formatFabCartCountBadge(itemBadge)}
                             </span>
                           ) : null}
                         </span>
@@ -403,7 +433,7 @@ export function MainBottomNavFabSector() {
             </div>
             {showToggleOpsBadge ? (
               <span className={FAB_TOGGLE_OPS_BADGE_CLASS} aria-hidden>
-                {formatFabCartCountBadge(ownerOpsAttention)}
+                {formatFabCartCountBadge(fabToggleAttention)}
               </span>
             ) : showToggleCartBadge ? (
               <span className={FAB_TOGGLE_CART_COUNT_BADGE_CLASS} aria-hidden>

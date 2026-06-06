@@ -4,6 +4,7 @@ import type { NotificationDomain } from "@/lib/notifications/notification-domain
 import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/notification-unread-count-cache";
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import { bumpNotificationTargetFromInboxRow } from "@/lib/notifications/notification-target-from-inbox-row";
 
 function notificationStoreIdFromMeta(meta: Record<string, unknown> | null | undefined): string | null {
   if (!meta || typeof meta !== "object") return null;
@@ -24,6 +25,40 @@ function afterOwnerCommerceNotificationInserted(
       reason: "owner_commerce_notification",
     });
   }
+}
+
+function afterNotificationInsertedSuccess(
+  sb: SupabaseClient,
+  row: {
+    user_id: string;
+    notification_type: AppNotificationType;
+    title: string;
+    body?: string | null;
+    link_url?: string | null;
+    ref_id?: string | null;
+    meta?: Record<string, unknown> | null;
+  },
+  metaMerged: Record<string, unknown> | null
+): void {
+  const uid = row.user_id.trim();
+  afterOwnerCommerceNotificationInserted(uid, metaMerged ?? undefined);
+  void bumpNotificationTargetFromInboxRow(sb, {
+    user_id: uid,
+    notification_type: row.notification_type,
+    ref_id: row.ref_id ?? null,
+    meta: metaMerged,
+  }).catch(() => {});
+  void publishNotificationSideEffect(
+    {
+      user_id: uid,
+      notification_type: row.notification_type,
+      title: row.title,
+      body: row.body ?? null,
+      link_url: row.link_url ?? null,
+      meta: metaMerged,
+    },
+    sb
+  );
 }
 
 export type AppNotificationType =
@@ -127,36 +162,14 @@ export async function appendUserNotification(
     const code2 = (err2 as { code?: string } | null)?.code;
     if (err2 && code2 === "23505") return true;
     if (!err2) {
-      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
-      void publishNotificationSideEffect(
-        {
-          user_id: uid,
-          notification_type: row.notification_type,
-          title: row.title,
-          body: row.body ?? null,
-          link_url: row.link_url ?? null,
-          meta: metaMerged,
-        },
-        sb
-      );
+      afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
       return true;
     }
     error = err2;
   }
 
   if (!error) {
-    afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
-    void publishNotificationSideEffect(
-      {
-        user_id: uid,
-        notification_type: row.notification_type,
-        title: row.title,
-        body: row.body ?? null,
-        link_url: row.link_url ?? null,
-        meta: metaMerged,
-      },
-      sb
-    );
+    afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
     return true;
   }
 
@@ -170,18 +183,7 @@ export async function appendUserNotification(
     const { error: e2 } = await sb.from("notifications").insert(insert);
     if (e2 && (e2 as { code?: string }).code === "23505") return true;
     if (!e2) {
-      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
-      void publishNotificationSideEffect(
-        {
-          user_id: uid,
-          notification_type: row.notification_type,
-          title: row.title,
-          body: row.body ?? null,
-          link_url: row.link_url ?? null,
-          meta: metaMerged,
-        },
-        sb
-      );
+      afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
       return true;
     }
     if (e2.message?.includes("notifications") && e2.message?.includes("does not exist")) return false;
@@ -207,17 +209,10 @@ export async function appendUserNotification(
     const { error: e3 } = await sb.from("notifications").insert(sysRow);
     if (e3 && (e3 as { code?: string }).code === "23505") return true;
     if (!e3) {
-      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
-      void publishNotificationSideEffect(
-        {
-          user_id: uid,
-          notification_type: "system",
-          title: row.title,
-          body: row.body ?? null,
-          link_url: row.link_url ?? null,
-          meta: metaMerged,
-        },
-        sb
+      afterNotificationInsertedSuccess(
+        sb,
+        { ...row, notification_type: "system" },
+        metaMerged as Record<string, unknown>
       );
       return true;
     }
@@ -237,18 +232,7 @@ export async function appendUserNotification(
     const { error: e4 } = await sb.from("notifications").insert(fallback);
     if (e4 && (e4 as { code?: string }).code === "23505") return true;
     if (!e4) {
-      afterOwnerCommerceNotificationInserted(uid, metaMerged as Record<string, unknown>);
-      void publishNotificationSideEffect(
-        {
-          user_id: uid,
-          notification_type: row.notification_type,
-          title: row.title,
-          body: row.body ?? null,
-          link_url: row.link_url ?? null,
-          meta: metaMerged,
-        },
-        sb
-      );
+      afterNotificationInsertedSuccess(sb, row, metaMerged as Record<string, unknown>);
       return true;
     }
     if (e4.message?.includes("notifications") && e4.message?.includes("does not exist")) return false;

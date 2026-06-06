@@ -33,7 +33,7 @@ export function resolveOwnerLiteStoreShortcuts(
   ownerStore: { id: string; sales_permission?: SalesPermission },
   b: Pick<
     OwnerHubBadgeBreakdown,
-    "inquiryAttention" | "orderAttention" | "storeOrderChatUnread" | "storeDeepLink"
+    "inquiryAttention" | "ownerReviewAttention" | "orderAttention" | "storeOrderChatUnread" | "storeDeepLink"
   >
 ): { primary: OwnerLiteStoreShortcut; secondary: OwnerLiteStoreShortcut } {
   const canSell = computeOwnerCanSell(ownerStore.sales_permission);
@@ -43,9 +43,11 @@ export function resolveOwnerLiteStoreShortcuts(
   const orderHref = buildStoreOrdersHref({ storeId: ownerStore.id, tab: "new" });
   const inquiryHref = `/stores/owner/inquiries?storeId=${enc}`;
   const safeStoreDeepLink = resolveSafeStoreDeepLink(ownerStore.id, b.storeDeepLink);
+  const storeSideAttention =
+    Math.max(0, b.inquiryAttention) + Math.max(0, b.ownerReviewAttention ?? 0);
 
   const primaryHref =
-    b.inquiryAttention > 0
+    storeSideAttention > 0
       ? safeStoreDeepLink ?? inquiryHref
       : canSell && b.orderAttention > 0
         ? safeStoreDeepLink ?? orderHref
@@ -55,7 +57,7 @@ export function resolveOwnerLiteStoreShortcuts(
             ? safeStoreDeepLink ?? orderHref
             : profileHref;
   const primaryLabelKey =
-    b.inquiryAttention > 0
+    storeSideAttention > 0
       ? "store_lite_inquiry_check"
       : canSell && b.orderAttention > 0
         ? "store_lite_order_manage"
@@ -65,8 +67,8 @@ export function resolveOwnerLiteStoreShortcuts(
             ? "store_lite_order_manage"
             : "store_lite_store_settings";
   const primaryBadge =
-    b.inquiryAttention > 0
-      ? b.inquiryAttention
+    storeSideAttention > 0
+      ? storeSideAttention
       : canSell && b.orderAttention > 0
         ? b.orderAttention
         : b.storeOrderChatUnread > 0
@@ -76,9 +78,9 @@ export function resolveOwnerLiteStoreShortcuts(
             : 0;
 
   const secondaryHref =
-    b.inquiryAttention > 0 ? (canSell ? orderHref : basicInfoHref) : canSell ? inquiryHref : basicInfoHref;
+    storeSideAttention > 0 ? (canSell ? orderHref : basicInfoHref) : canSell ? inquiryHref : basicInfoHref;
   const secondaryLabelKey =
-    b.inquiryAttention > 0
+    storeSideAttention > 0
       ? canSell
         ? "store_lite_order_manage"
         : "store_hub_ops_basic_info"
@@ -86,7 +88,7 @@ export function resolveOwnerLiteStoreShortcuts(
         ? "store_lite_received_inquiries"
         : "store_hub_ops_basic_info";
   const secondaryBadge =
-    b.inquiryAttention > 0 ? (canSell ? b.orderAttention : 0) : canSell ? b.inquiryAttention : 0;
+    storeSideAttention > 0 ? (canSell ? b.orderAttention : 0) : canSell ? storeSideAttention : 0;
 
   return {
     primary: { href: primaryHref, labelKey: primaryLabelKey, badge: primaryBadge },

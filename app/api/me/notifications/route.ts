@@ -491,7 +491,7 @@ export async function PATCH(req: NextRequest) {
   if (body.mark_all_owner_store_commerce_read === true) {
     const { data, error } = await sb
       .from("notifications")
-      .select("id, meta")
+      .select("id, meta, ref_id")
       .eq("user_id", userId)
       .eq("is_read", false)
       .limit(500);
@@ -527,6 +527,41 @@ export async function PATCH(req: NextRequest) {
       .in("id", ids);
     if (uErr) {
       return NextResponse.json({ ok: false, error: uErr.message }, { status: 500 });
+    }
+    const orderIds = [
+      ...new Set(
+        (data ?? [])
+          .filter((r) => isOwnerStoreCommerceNotificationRow(r))
+          .map((r) => {
+            const meta = r.meta;
+            if (!meta || typeof meta !== "object") return "";
+            return String((meta as Record<string, unknown>).order_id ?? r.ref_id ?? "").trim();
+          })
+          .filter(Boolean)
+      ),
+    ];
+    try {
+      const { clearNotificationTarget } = await import("@/lib/notifications/notification-targets");
+      for (const orderId of orderIds) {
+        const storeIdForOrder = (data ?? [])
+          .filter((r) => isOwnerStoreCommerceNotificationRow(r))
+          .map((r) => {
+            const meta = r.meta;
+            if (!meta || typeof meta !== "object") return "";
+            const oid = String((meta as Record<string, unknown>).order_id ?? r.ref_id ?? "").trim();
+            if (oid !== orderId) return "";
+            return String((meta as Record<string, unknown>).store_id ?? "").trim();
+          })
+          .find(Boolean);
+        await clearNotificationTarget(sb, {
+          userId,
+          targetType: "owner_order",
+          targetId: orderId,
+          storeId: storeIdForOrder || null,
+        });
+      }
+    } catch {
+      /* badge target clear best-effort */
     }
     invalidateNotificationUnreadCountCache(userId);
     for (const storeId of storeIds) {

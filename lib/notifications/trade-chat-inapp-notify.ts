@@ -1,5 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
+import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
+import { bumpNotificationTarget } from "@/lib/notifications/notification-targets";
+import { bumpTradeTargetForMessengerRoomRecipients } from "@/lib/notifications/notification-target-messenger-bridge";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
@@ -35,6 +38,46 @@ async function shouldSkipDueToCooldown(
   }
 }
 
+async function bumpTradeTargetForLegacyChatRoom(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  recipientUserIds: string[]
+): Promise<void> {
+  const rid = roomId.trim();
+  if (!rid || !recipientUserIds.length) return;
+  const { data } = await sb
+    .from("chat_rooms")
+    .select("item_id, seller_id, buyer_id, community_messenger_room_id, room_type")
+    .eq("id", rid)
+    .maybeSingle();
+  if (!data || typeof data !== "object") return;
+  const row = data as {
+    item_id?: unknown;
+    seller_id?: unknown;
+    buyer_id?: unknown;
+    community_messenger_room_id?: unknown;
+    room_type?: unknown;
+  };
+  if (String(row.room_type ?? "") !== "item_trade") return;
+  const cmLink = typeof row.community_messenger_room_id === "string" ? row.community_messenger_room_id.trim() : "";
+  if (cmLink) return;
+  const postId = typeof row.item_id === "string" ? row.item_id.trim() : "";
+  const sellerId = typeof row.seller_id === "string" ? row.seller_id.trim() : "";
+  const buyerId = typeof row.buyer_id === "string" ? row.buyer_id.trim() : "";
+  if (!postId || !sellerId || !buyerId) return;
+  const targetId = buildTradeTargetId(postId, sellerId, buyerId);
+  for (const rawUid of recipientUserIds) {
+    const uid = rawUid.trim();
+    if (!uid) continue;
+    await bumpNotificationTarget(sb, {
+      userId: uid,
+      targetType: "trade",
+      targetId,
+      scope: "consumer",
+    });
+  }
+}
+
 /**
  * 거래 채팅 수신자에게 인앱 알림 1건 (쿨다운: 동일 room·수신자 기준 admin 설정 초 내 1회).
  */
@@ -55,6 +98,7 @@ export async function notifyTradeChatInAppForRecipients(
   const senderLabel = nickMap.get(senderUserId.trim())?.trim() || null;
   const linkUrl = tradeChatNotificationHref(roomId, "chat_room");
 
+  const bumpedRecipients: string[] = [];
   for (const uid of recipientUserIds) {
     if (!uid || uid === senderUserId) continue;
     const skip = await shouldSkipDueToCooldown(sb, uid, roomId, cooldownSec);
@@ -80,5 +124,11 @@ export async function notifyTradeChatInAppForRecipients(
         ...(senderLabel ? { sender_label: senderLabel } : {}),
       },
     });
+    bumpedRecipients.push(uid);
+  }
+
+  if (bumpedRecipients.length) {
+    await bumpTradeTargetForMessengerRoomRecipients(sb, { roomId, recipientUserIds: bumpedRecipients });
+    await bumpTradeTargetForLegacyChatRoom(sb, roomId, bumpedRecipients);
   }
 }

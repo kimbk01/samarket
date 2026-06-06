@@ -15,25 +15,14 @@ import {
   readHubStoreAttentionMemory,
 } from "@/lib/stores/hub-store-attention-memory-cache";
 import { invalidateHubBadgeUnreadPartsMemory } from "@/lib/chat/hub-badge-unread-parts-memory-cache";
-import {
-  getCachedUserChatUnreadParts,
-  sumSocialChatUnread,
-  sumTradeChatUnread,
-  zeroUnreadPartsForNoHubStore,
-} from "@/lib/chat/user-chat-unread-parts";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
 import {
   invalidateCommunityMessengerUnreadTotalCache,
-  sumCommunityMessengerParticipantUnread,
 } from "@/lib/community-messenger/community-messenger-unread-total";
 import { invalidateHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
 import { invalidateHubStoreOrderRoomIdsMemory } from "@/lib/community-messenger/hub-store-order-roomids-memory-cache";
-import {
-  countOwnerStoreOrderMessengerUnreadForHubStore,
-} from "@/lib/community-messenger/store-order-chat-service";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
-import { peekLastUnreadPartsComputeMeta } from "@/lib/chat/user-chat-unread-parts";
 import {
   hubBadgeBreakdownForUser,
   logHubBadgeBreakdown,
@@ -68,6 +57,10 @@ import {
   STORE_ORDER_UNREAD_HUB_PARTS_SELECT,
 } from "@/lib/chats/hub-badge-wave2-perf";
 import { evaluateHubBadgeRegressionGuards } from "@/lib/chats/hub-badge-regression-guard";
+import {
+  fetchOwnerHubBadgeTargetBundle,
+  ownerHubUnreadPartialFromTargetBundle,
+} from "@/lib/chats/build-owner-hub-badge-from-targets";
 import { tryBuildOwnerHubBadgeFromSnapshot } from "@/lib/chats/owner-hub-badge-snapshot";
 
 export type OwnerHubBadgeBuildMeta = {
@@ -88,6 +81,8 @@ export type OwnerHubBadgeApiPayload = {
   storeOrderChatUnread: number;
   orderAttention: number;
   inquiryAttention: number;
+  ownerReviewAttention: number;
+  buyerOrderAttention: number;
   storesTabAttention: number;
   storeDeepLink: string | null;
 };
@@ -161,33 +156,20 @@ export type OwnerHubBadgeUnreadPartial = {
 export type OwnerHubBadgeStorePartial = {
   orderAttention: number;
   inquiryAttention: number;
+  ownerReviewAttention: number;
+  buyerOrderAttention: number;
   storeDeepLink: string | null;
 };
 
-/** 1차: 채팅 미읽음·메신저 unread (스토어 목록·문의·접수 카운트 없음) */
+/** 1차: 채팅·커뮤니티·주문채팅 — notification_targets bundle (badge SSOT) */
 export async function buildOwnerHubBadgeUnreadSegment(
   sbAny: SupabaseClient<any>,
   storesSb: SupabaseClient<any> | null,
   userId: string
 ): Promise<OwnerHubBadgeUnreadPartial> {
   const hubStore = await findOwnerHubStore(storesSb, userId);
-  const hasOwnerStore = hubStore != null;
-  const unreadParts = hasOwnerStore
-    ? await getCachedUserChatUnreadParts(sbAny, userId)
-    : zeroUnreadPartsForNoHubStore();
-  const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
-    sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
-    hasOwnerStore && storesSb && hubStore
-      ? countOwnerStoreOrderMessengerUnreadForHubStore(storesSb as any, userId, hubStore.id).catch(() => 0)
-      : Promise.resolve(0),
-  ]);
-  return {
-    chatUnread: sumTradeChatUnread(unreadParts),
-    communityMessengerUnread: Math.max(0, communityMessengerUnread),
-    philifeChatUnread: Math.max(0, unreadParts.communityParticipantUnread),
-    socialChatUnread: sumSocialChatUnread(unreadParts),
-    storeOrderChatUnread: Math.max(0, storeOrderChatUnread),
-  };
+  const bundle = await fetchOwnerHubBadgeTargetBundle(sbAny, userId, hubStore?.id ?? null);
+  return ownerHubUnreadPartialFromTargetBundle(bundle);
 }
 
 
@@ -292,7 +274,21 @@ async function findOwnerHubStore(
   return flight;
 }
 
-export type OwnerHubBadgeStoreAttentionTiming = {
+function enrichStorePartialWithTargetBundle(
+  store: OwnerHubBadgeStorePartial,
+  bundle: import("@/lib/notifications/notification-targets").NotificationTargetHubBundle
+): OwnerHubBadgeStorePartial {
+  const inquiryAttention = Math.max(0, store.inquiryAttention);
+  const ownerReviewAttention = Math.max(0, bundle.fab_owner_store - inquiryAttention);
+  return {
+    ...store,
+    orderAttention: Math.max(store.orderAttention, bundle.fab_owner_orders),
+    ownerReviewAttention,
+    buyerOrderAttention: Math.max(0, bundle.bottom_nav_delivery),
+  };
+}
+
+type OwnerHubBadgeStoreAttentionTiming = {
   refund_pending_ms: number;
   order_pending_ms: number;
   inquiry_pending_ms: number;
@@ -324,7 +320,13 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
       timingOut.inquiry_pending_ms = 0;
       timingOut.store_attention_total_ms = 0;
     }
-    return { orderAttention, inquiryAttention, storeDeepLink };
+    return {
+      orderAttention,
+      inquiryAttention,
+      ownerReviewAttention: 0,
+      buyerOrderAttention: 0,
+      storeDeepLink,
+    };
   }
   const attention0 = devPerfNow();
   let refund = 0;
@@ -366,7 +368,13 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     } else if (storeOrderChatUnread > 0) {
       storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
     }
-    return { orderAttention, inquiryAttention, storeDeepLink };
+    return {
+      orderAttention,
+      inquiryAttention,
+      ownerReviewAttention: 0,
+      buyerOrderAttention: 0,
+      storeDeepLink,
+    };
   }
 
   const rpc0 = devPerfNow();
@@ -448,7 +456,13 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
     storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
   }
 
-  return { orderAttention, inquiryAttention, storeDeepLink };
+  return {
+    orderAttention,
+    inquiryAttention,
+    ownerReviewAttention: 0,
+    buyerOrderAttention: 0,
+    storeDeepLink,
+  };
 }
 
 /** 2차 단독 라우트: 스토어 목록부터 조회 */
@@ -465,12 +479,14 @@ export function mergeOwnerHubBadgeUnreadAndStore(
   unread: OwnerHubBadgeUnreadPartial,
   store: OwnerHubBadgeStorePartial
 ): OwnerHubBadgeApiPayload {
-  const { chatUnread, communityMessengerUnread, philifeChatUnread, socialChatUnread, storeOrderChatUnread } = unread;
-  const { orderAttention, inquiryAttention } = store;
+  const { chatUnread, communityMessengerUnread, philifeChatUnread, socialChatUnread, storeOrderChatUnread } =
+    unread;
+  const { orderAttention, inquiryAttention, ownerReviewAttention, buyerOrderAttention } = store;
   const storeDeepLink = store.storeDeepLink;
-  /** 배달 채팅 unread 는 `communityMessengerUnread`·`storeOrderChatUnread` 필드로만 — `total`·매장 탭 합산에 이중 포함하지 않음 */
-  const storesTabAttention = Math.max(0, orderAttention) + Math.max(0, inquiryAttention);
-  const total = socialChatUnread + storesTabAttention + Math.max(0, communityMessengerUnread);
+  /** 구매자: buyer_order targets — 오너 매장 할 일은 FAB 전용 */
+  const storesTabAttention = Math.max(0, buyerOrderAttention);
+  const total =
+    Math.max(0, socialChatUnread) + storesTabAttention + Math.max(0, communityMessengerUnread);
   return {
     ok: true,
     total,
@@ -481,6 +497,8 @@ export function mergeOwnerHubBadgeUnreadAndStore(
     storeOrderChatUnread,
     orderAttention,
     inquiryAttention,
+    ownerReviewAttention,
+    buyerOrderAttention,
     storesTabAttention,
     storeDeepLink,
   };
@@ -578,23 +596,9 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const wave1Start = devPerfNow();
   const cmUnreadTiming = emptyCmUnreadTiming();
   const storeOrderUnreadTiming = emptyStoreOrderUnreadTiming();
-  let cmUnreadFallback = false;
-  let storeOrderUnreadFallback = false;
-  let orderRoomIdsHit = 0;
-
-  /**
-   * wave1+2 병렬: find_hub → unread_parts·store_order·store_attention prefetch chain,
-   * cm_unread 는 find_hub 와 동시 시작 (community_messenger_participants — unread_parts 와 소스 분리).
-   */
-  const cmUnreadPromise = (async () => {
-    try {
-      return await sumCommunityMessengerParticipantUnread(sbAny, userId, cmUnreadTiming);
-    } catch {
-      cmUnreadFallback = true;
-      cmUnreadTiming.cm_unread_via = "error";
-      return 0;
-    }
-  })();
+  const cmUnreadFallback = false;
+  const storeOrderUnreadFallback = false;
+  const orderRoomIdsHit = 0;
 
   const findHubPromise = findOwnerHubStore(storesSb, userId, findHubStoreTiming).catch(() => {
     findHubStoreError = true;
@@ -602,8 +606,8 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     return null;
   });
 
-  const unreadPartsPromise = findHubPromise.then((hubStore) =>
-    hubStore ? getCachedUserChatUnreadParts(sbAny, userId) : Promise.resolve(zeroUnreadPartsForNoHubStore())
+  const targetBundlePromise = findHubPromise.then((hubStore) =>
+    fetchOwnerHubBadgeTargetBundle(sbAny, userId, hubStore?.id ?? null)
   );
 
   const storeAttentionPrefetchStartedAt = devPerfNow();
@@ -611,36 +615,7 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     hubStore && storesSb ? getOwnerHubStoreAttentionCounts(storesSb, hubStore.id) : Promise.resolve(null)
   );
 
-  const storeOrderPromise = findHubPromise.then(async (hubStore) => {
-    if (!hasOwnerStoreFromHub(hubStore) || !storesSb || !hubStore) {
-      storeOrderUnreadTiming.store_order_unread_via = "skipped_no_hub";
-      return 0;
-    }
-    try {
-      return await countOwnerStoreOrderMessengerUnreadForHubStore(
-        storesSb as SupabaseClient<any>,
-        userId,
-        hubStore.id,
-        storeOrderUnreadTiming,
-        {
-          onRoomIdsCacheHit: () => {
-            orderRoomIdsHit = 1;
-          },
-        }
-      );
-    } catch {
-      storeOrderUnreadFallback = true;
-      storeOrderUnreadTiming.store_order_unread_via = "error";
-      return 0;
-    }
-  });
-
-  const [hubStore, communityMessengerUnread, unreadParts, storeOrderChatUnread] = await Promise.all([
-    findHubPromise,
-    cmUnreadPromise,
-    unreadPartsPromise,
-    storeOrderPromise,
-  ]);
+  const [hubStore, targetBundle] = await Promise.all([findHubPromise, targetBundlePromise]);
 
   const hasOwnerStoreEarly = hubStore != null;
   const noHubFastPath = !hasOwnerStoreEarly;
@@ -655,33 +630,18 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   }
 
   const queryWave1Ms = devPerfNow() - wave1Start;
-  const unreadPartsMeta = peekLastUnreadPartsComputeMeta();
-  const unreadPartsMs = Math.round(unreadPartsMeta?.total_ms ?? 0);
-  const unreadPartsVia = unreadPartsMeta?.via;
+  const unreadPartsMs = 0;
+  const unreadPartsVia = "skipped_no_hub" as const;
   const findHubStoreMs = findHubStoreTiming.find_hub_store_ms;
-  const cmUnreadMs = cmUnreadTiming.cm_unread_ms;
-  const storeOrderUnreadMs = storeOrderUnreadTiming.store_order_unread_ms;
-  const wave1ParallelSlackMs = Math.max(
-    0,
-    Math.round(
-      queryWave1Ms - Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMs, storeOrderUnreadMs)
-    )
-  );
+  const cmUnreadMs = 0;
+  const storeOrderUnreadMs = 0;
+  const wave1ParallelSlackMs = Math.max(0, Math.round(queryWave1Ms - findHubStoreMs));
   const hasOwnerStore = hasOwnerStoreEarly;
   const queryWave2Ms = 0;
   const wave2ParallelSlackMs = 0;
-  const wave2Worst =
-    cmUnreadMs >= storeOrderUnreadMs
-      ? { stage: "cm_unread" as const, ms: cmUnreadMs }
-      : { stage: "store_order_unread" as const, ms: storeOrderUnreadMs };
+  const wave2Worst = { stage: "target_bundle" as const, ms: queryWave1Ms };
 
-  const unread: OwnerHubBadgeUnreadPartial = {
-    chatUnread: sumTradeChatUnread(unreadParts),
-    communityMessengerUnread: Math.max(0, communityMessengerUnread),
-    philifeChatUnread: Math.max(0, unreadParts.communityParticipantUnread),
-    socialChatUnread: sumSocialChatUnread(unreadParts),
-    storeOrderChatUnread: Math.max(0, storeOrderChatUnread),
-  };
+  const unread = ownerHubUnreadPartialFromTargetBundle(targetBundle);
 
   const attentionTiming: OwnerHubBadgeStoreAttentionTiming = {
     refund_pending_ms: 0,
@@ -690,7 +650,7 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     store_attention_total_ms: 0,
   };
   const wave3Start = devPerfNow();
-  const store = hasOwnerStore
+  const storeRaw = hasOwnerStore
     ? await resolveOwnerHubBadgeStoreAttentionFromHubStore(
         storesSb,
         hubStore,
@@ -699,7 +659,14 @@ export async function buildOwnerHubBadgePayloadWithMeta(
         storeAttentionCountsPromise,
         storeAttentionPrefetchStartedAt
       )
-    : { orderAttention: 0, inquiryAttention: 0, storeDeepLink: null };
+    : {
+        orderAttention: 0,
+        inquiryAttention: 0,
+        ownerReviewAttention: 0,
+        buyerOrderAttention: targetBundle.bottom_nav_delivery,
+        storeDeepLink: null,
+      };
+  const store = enrichStorePartialWithTargetBundle(storeRaw, targetBundle);
   const queryWave3Ms = devPerfNow() - wave3Start;
 
   const merge0 = devPerfNow();
@@ -737,24 +704,6 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     unread_parts_ms: unreadPartsMs,
     ...(unreadPartsVia ? { unread_parts_via: unreadPartsVia } : {}),
     ...(noHubFastPath ? { no_hub_fast_path: 1 as const } : {}),
-    ...(unreadPartsMeta?.unread_memory_hit != null
-      ? { unread_memory_hit: unreadPartsMeta.unread_memory_hit }
-      : {}),
-    ...(unreadPartsMeta?.unread_memory_age_ms != null
-      ? { unread_memory_age_ms: unreadPartsMeta.unread_memory_age_ms }
-      : {}),
-    ...(unreadPartsMeta?.unread_counter_hit != null
-      ? { unread_counter_hit: unreadPartsMeta.unread_counter_hit }
-      : {}),
-    ...(unreadPartsMeta?.unread_counter_age_ms != null
-      ? { unread_counter_age_ms: unreadPartsMeta.unread_counter_age_ms }
-      : {}),
-    ...(unreadPartsMeta?.unread_counter_refresh_ms != null
-      ? { unread_counter_refresh_ms: unreadPartsMeta.unread_counter_refresh_ms }
-      : {}),
-    ...(unreadPartsMeta?.unread_parts_rpc_ms != null
-      ? { unread_parts_rpc_ms: unreadPartsMeta.unread_parts_rpc_ms }
-      : {}),
     find_hub_store_via: findHubStoreTiming.find_hub_store_via,
     find_hub_store_query_ms: findHubStoreTiming.find_hub_store_query_ms,
     find_hub_store_permission_join_ms: findHubStoreTiming.find_hub_store_permission_join_ms,

@@ -257,6 +257,18 @@ export async function PATCH(
       }
       const { result, diag, markWallMs } = bundle;
 
+      if (result.ok) {
+        try {
+          const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+          const { clearMessengerRoomNotificationTargetAfterRead } = await import(
+            "@/lib/notifications/notification-target-messenger-bridge"
+          );
+          await clearMessengerRoomNotificationTargetAfterRead(getSupabaseServer(), auth.userId, roomId);
+        } catch {
+          /* badge target clear best-effort */
+        }
+      }
+
       const tBeforeResponse = devPerfNow();
       const response_before_broadcast = 1;
       const broadcastDuplicateDetected = 0;

@@ -81,6 +81,19 @@ export async function GET(
   const auth_ms = Math.round(perfNowMs() - tAuth0);
   if (!session.ok) return session.response;
 
+  void (async () => {
+    try {
+      const { clearNotificationTarget } = await import("@/lib/notifications/notification-targets");
+      await clearNotificationTarget(sb as import("@supabase/supabase-js").SupabaseClient<any>, {
+        userId: buyerId,
+        targetType: "buyer_order",
+        targetId: oid,
+      });
+    } catch {
+      /* badge target clear best-effort */
+    }
+  })();
+
   if (snap && "body" in snap) {
     const linkedRoomId =
       typeof snap.body.order.community_messenger_room_id === "string"

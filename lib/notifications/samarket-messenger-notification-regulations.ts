@@ -16,7 +16,7 @@
  * [1. 시스템 구조]
  * ---------------------------------------------------------------------------
  * 목표 `room_type`: `trade` | `direct` | `group` | `order` | `system`
- * (DB 완전 통합 전까지 레거시 `chatUnread` + `communityMessengerUnread` 병행 — 뱃지는 메신저 탭 한 곳에만 합산 표기)
+ * Badge SSOT: `notification_targets` — `communityMessengerUnread` = unread **room/target** count (`badge-target-policy.ts`).
  *
  * ---------------------------------------------------------------------------
  * [2. 탭 역할]
@@ -93,14 +93,10 @@ export const SAMARKET_ROOM_TYPE_TO_NOTIFICATION_DOMAIN: Record<
 };
 
 /**
- * §3 + 레거시 병행: 메신저 탭에 표시할 **전체 채팅 미읽음** (거래 레거시 허브 + 메신저 참가자).
- * `chatUnread` 집계는 `community_messenger_room_id` 가 있는 `item_trade` 방을 제외해 통합 메신저와 이중 합산하지 않는다.
+ * §3 — 메신저 탭: unread **target** count (`bottom_nav_chat`). 메시지 SUM·`chatUnread` 합산 금지.
  */
 export function resolveMessengerTabTotalUnreadBadgeCount(bd: OwnerHubBadgeBreakdown): number {
-  return (
-    Math.max(0, Math.floor(Number(bd.communityMessengerUnread) || 0)) +
-    Math.max(0, Math.floor(Number(bd.chatUnread) || 0))
-  );
+  return Math.max(0, Math.floor(Number(bd.communityMessengerUnread) || 0));
 }
 
 /**

@@ -31,6 +31,8 @@ export type OwnerHubBadgePayload = {
   storeOrderChatUnread: number;
   orderAttention: number;
   inquiryAttention: number;
+  ownerReviewAttention: number;
+  buyerOrderAttention: number;
   storesTabAttention: number;
   storeDeepLink: string | null;
 };

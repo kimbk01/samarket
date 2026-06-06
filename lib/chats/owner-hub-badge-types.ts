@@ -14,8 +14,12 @@ export type OwnerHubBadgeBreakdown = {
   orderAttention: number;
   /** 허브 매장: 미답변 문의(open) */
   inquiryAttention: number;
+  /** 매장 FAB 스토어 — 신규 리뷰 (owner_store scope target) */
+  ownerReviewAttention: number;
   /** 하단 「매장」탭 숫자 (주문+문의+매장 주문 채팅, 딥링크는 API storeDeepLink) */
   storesTabAttention: number;
+  /** 구매자 — 확인 안 한 주문 target 수 (배달 탭) */
+  buyerOrderAttention: number;
   /** 매장 탭 탭 시 이동할 경로; 없으면 기본 /stores */
   storeDeepLink: string | null;
   /** socialChatUnread + storesTabAttention */
@@ -30,7 +34,9 @@ export const OWNER_HUB_BADGE_EMPTY: OwnerHubBadgeBreakdown = {
   storeOrderChatUnread: 0,
   orderAttention: 0,
   inquiryAttention: 0,
+  ownerReviewAttention: 0,
   storesTabAttention: 0,
+  buyerOrderAttention: 0,
   storeDeepLink: null,
   total: 0,
 };
@@ -66,10 +72,15 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
     typeof d.storeOrderChatUnread === "number" ? d.storeOrderChatUnread : 0;
   const orderAttention = typeof d.orderAttention === "number" ? d.orderAttention : 0;
   const inquiryAttention = typeof d.inquiryAttention === "number" ? d.inquiryAttention : 0;
+  const ownerReviewAttention =
+    typeof d.ownerReviewAttention === "number" ? d.ownerReviewAttention : 0;
+  const buyerOrderAttention =
+    typeof d.buyerOrderAttention === "number" ? d.buyerOrderAttention : 0;
   const storesTabAttention =
     typeof d.storesTabAttention === "number"
       ? d.storesTabAttention
-      : Math.max(0, orderAttention) + Math.max(0, inquiryAttention);
+      : Math.max(0, buyerOrderAttention) ||
+        Math.max(0, orderAttention) + Math.max(0, inquiryAttention);
   const storeDeepLink = parseInternalAppHref(d.storeDeepLink);
   const total =
     typeof d.total === "number"
@@ -83,7 +94,9 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
     storeOrderChatUnread,
     orderAttention,
     inquiryAttention,
+    ownerReviewAttention,
     storesTabAttention,
+    buyerOrderAttention,
     storeDeepLink,
     total,
   };
@@ -98,7 +111,9 @@ export function sameOwnerHubBadge(a: OwnerHubBadgeBreakdown, b: OwnerHubBadgeBre
     a.storeOrderChatUnread === b.storeOrderChatUnread &&
     a.orderAttention === b.orderAttention &&
     a.inquiryAttention === b.inquiryAttention &&
+    a.ownerReviewAttention === b.ownerReviewAttention &&
     a.storesTabAttention === b.storesTabAttention &&
+    a.buyerOrderAttention === b.buyerOrderAttention &&
     a.storeDeepLink === b.storeDeepLink &&
     a.total === b.total
   );
