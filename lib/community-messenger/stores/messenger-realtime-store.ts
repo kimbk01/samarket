@@ -479,3 +479,14 @@ if (typeof window !== "undefined") {
     }
   });
 }
+
+/** 로그아웃·계정 전환 — Realtime 메시지·active room 런타임 초기화 */
+export function resetMessengerRealtimeStore(): void {
+  seenIncomingMessageIdsByRoom.clear();
+  useMessengerRealtimeStore.setState({
+    viewerUserId: null,
+    messagesByRoomId: {},
+    activeRoomId: null,
+    lastReadByRoomId: {},
+  });
+}

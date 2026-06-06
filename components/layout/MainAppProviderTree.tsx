@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/StoreCommerceCartRuntimeBoundary";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
+import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
 import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerificationRequiredDialog";
@@ -175,6 +176,7 @@ export function MainAppProviderTree({
           ) : null}
           <AppWideRuntimePerfHooks />
           <SessionLostRedirect />
+          <PostLogoutBfcacheGuard />
           <AuthComplianceRedirect />
           <OwnerHubBadgeRuntime />
           <MandatoryAddressGate />

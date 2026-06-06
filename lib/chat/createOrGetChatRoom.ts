@@ -197,3 +197,9 @@ async function executeTradeChatStart(
     return { ok: false, error: msg || tClient("chats_compose_create_failed") };
   }
 }
+
+/** 로그아웃·계정 전환 — 거래 채팅방 클라이언트 캐시·inflight 제거 */
+export function clearTradeChatRoomClientCache(): void {
+  itemRoomCache.clear();
+  inflightByUserProduct.clear();
+}

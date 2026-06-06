@@ -63,3 +63,21 @@ export function requestCloseMessengerCallNotifications(sessionId: string): void 
     /* ignore */
   }
 }
+
+/** 로그아웃·계정 전환 — SW 등록 알림 전부 닫기 */
+export function closeAllServiceWorkerNotifications(): void {
+  if (typeof navigator === "undefined") return;
+  if (!navigator.serviceWorker?.getRegistration) return;
+  void navigator.serviceWorker.getRegistration().then((reg) => {
+    if (!reg?.getNotifications) return;
+    return reg.getNotifications().then((list) => {
+      for (const n of list) {
+        try {
+          n.close();
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+  });
+}

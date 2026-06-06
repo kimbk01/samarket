@@ -142,6 +142,8 @@ export type MessengerRoomBootstrapRefreshDeps = {
   setRoomMessages?: Dispatch<
     SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>
   >;
+  /** blocking bootstrap 403/404 — toast 후 목록으로 replace */
+  onBlockingBootstrapDenied?: (status: number) => void;
 };
 
 function applyPrimedTimelineSeed(
@@ -230,6 +232,7 @@ export function createMessengerRoomBootstrapRefresh(
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
     setRoomMessages,
+    onBlockingBootstrapDenied,
   } = deps;
 
   /** 사일런트 GET 폭주(visibility/pageshow/realtime 버스트) 완화 */
@@ -883,6 +886,13 @@ export function createMessengerRoomBootstrapRefresh(
         bootstrapTierHdr,
         tBoot,
       });
+      if (
+        shouldBlock &&
+        !roomRes.ok &&
+        (roomRes.status === 403 || roomRes.status === 404)
+      ) {
+        onBlockingBootstrapDenied?.(roomRes.status);
+      }
       if (roomRes.ok && snap) {
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);

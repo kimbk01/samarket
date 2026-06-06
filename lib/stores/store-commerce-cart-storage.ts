@@ -127,3 +127,14 @@ export function readCommerceCartGenerationFromStorage(): number {
   const { snapshot } = readCommerceCartFromStorage();
   return snapshotGeneration(snapshot);
 }
+
+/** 로그아웃·계정 전환 — 장바구니 memory·localStorage 제거 */
+export function clearCommerceCartStorage(): void {
+  memoryFallback = null;
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORE_COMMERCE_CART_STORAGE_KEY);
+  } catch {
+    storageAvailable = false;
+  }
+}

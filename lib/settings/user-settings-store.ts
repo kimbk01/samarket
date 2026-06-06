@@ -208,6 +208,28 @@ export function subscribeUserSettings(
   };
 }
 
+/** 로그아웃·계정 전환 — in-memory 캐시·localStorage user_settings 제거 */
+export function clearUserSettingsClientCache(): void {
+  cache.clear();
+  inflight.clear();
+  languageUploadInflight.clear();
+  languageUploadCooldownUntil.clear();
+  if (typeof window === "undefined") return;
+  try {
+    const prefix = `${STORAGE_KEY}_`;
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(prefix)) keysToRemove.push(key);
+    }
+    for (const key of keysToRemove) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    /* private mode */
+  }
+}
+
 export const LANGUAGE_NAMES: Record<string, string> = {
   ko: "한국어",
   en: "English",

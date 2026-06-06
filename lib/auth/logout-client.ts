@@ -3,10 +3,8 @@
  * 제품 코드는 `@/lib/auth/logout` 의 `logoutDiBaYAppSession` 만 호출할 것.
  */
 
-import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
-import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
+import { wipeClientSessionState, markExplicitLogoutWipeDone, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -77,10 +75,9 @@ export async function performClientLogout(): Promise<LogoutResult> {
     };
   }
 
-  invalidateMeProfileDedupedCache();
-  clearBootstrapCache();
-  resetMessengerNotificationSurfacesAfterSignOut();
-  // DIBAY 언어 정책: 로그아웃은 세션만 종료. samarket_app_language·samarket_signup_locale 유지.
+  await wipeClientSessionState("user_logout");
+  markExplicitLogoutWipeDone();
+  // DIBAY 언어 정책: wipe allowlist — samarket_app_language·device seed 유지.
 
   const supabase = getSupabaseClient();
   if (supabase) {

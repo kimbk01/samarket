@@ -286,6 +286,15 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     getServerSnapshot: () => null as number | null,
     reconcile,
     refresh,
+    pauseAndClear() {
+      setSnap(null);
+      unauthorizedPaused = false;
+      bootInitialFetchScheduled = false;
+      storeBootAt = 0;
+      lastFetchCompletedAt = 0;
+      lastFetchStartedAt = 0;
+      disarmListeners();
+    },
   };
 }
 
@@ -303,3 +312,10 @@ export const myBottomNavNotificationUnreadStore = createNotificationUnreadBadgeS
 export const ownerCommerceNotificationUnreadStore = createNotificationUnreadBadgeStore(
   "/api/me/notifications?unread_count_only=1&owner_store_commerce_unread_only=1"
 );
+
+/** 로그아웃·계정 전환 — unread badge 폴링·캐시 초기화 */
+export function pauseAndClearAllNotificationUnreadBadgeStores(): void {
+  myGeneralNotificationUnreadStore.pauseAndClear();
+  myBottomNavNotificationUnreadStore.pauseAndClear();
+  ownerCommerceNotificationUnreadStore.pauseAndClear();
+}

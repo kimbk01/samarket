@@ -3,6 +3,7 @@
 /** 방 메시지·메타 Realtime 은 시청자당 단일 `global-messenger:bundle` 채널(`useCommunityMessengerRoomRealtime`)로 수신·`room_id` 로만 분배한다. */
 
 import { usePathname, useRouter } from "next/navigation";
+import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { noteR2M11Phase1SeedReady } from "@/lib/community-messenger/room/cm-room-r2-m11-suspense-release";
 import { noteR2M11BPhase1SeedReady } from "@/lib/community-messenger/room/cm-room-r2-m11b-breakdown";
@@ -745,6 +746,20 @@ export function useMessengerRoomClientPhase1({
     };
   }, []);
 
+  const bootstrapAccessDeniedRedirectRef = useRef(false);
+  const onBlockingBootstrapDeniedRef = useRef<(status: number) => void>(() => {});
+  onBlockingBootstrapDeniedRef.current = (_status: number) => {
+    if (bootstrapAccessDeniedRedirectRef.current) return;
+    bootstrapAccessDeniedRedirectRef.current = true;
+    redirectResourceAccessDenied(router, "/community-messenger", {
+      dedupeKey: `cm-room:${roomId}`,
+    });
+  };
+
+  useEffect(() => {
+    bootstrapAccessDeniedRedirectRef.current = false;
+  }, [roomId]);
+
   const refreshBootstrapDepsRef = useRef({
     roomId,
     viewerBootstrapDedupRef,
@@ -758,6 +773,7 @@ export function useMessengerRoomClientPhase1({
     silentRoomRefreshAgainRef,
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
+    onBlockingBootstrapDenied: (status: number) => onBlockingBootstrapDeniedRef.current(status),
   });
   refreshBootstrapDepsRef.current = {
     roomId,
@@ -772,6 +788,7 @@ export function useMessengerRoomClientPhase1({
     silentRoomRefreshAgainRef,
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
+    onBlockingBootstrapDenied: (status: number) => onBlockingBootstrapDeniedRef.current(status),
   };
 
   const refreshBootstrapImplRef = useRef<ReturnType<typeof createMessengerRoomBootstrapRefresh> | null>(
@@ -794,6 +811,7 @@ export function useMessengerRoomClientPhase1({
       silentRoomRefreshAgainRef: d.silentRoomRefreshAgainRef,
       silentBootstrapThrottleCoalesceTimerRef: d.silentBootstrapThrottleCoalesceTimerRef,
       swrDeferredBootstrapTimerRef: d.swrDeferredBootstrapTimerRef,
+      onBlockingBootstrapDenied: d.onBlockingBootstrapDenied,
     });
     return refreshBootstrapImplRef.current;
   }, []);

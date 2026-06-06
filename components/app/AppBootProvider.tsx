@@ -9,7 +9,7 @@ import { resetAppBootStore, subscribeAppBoot, getAppBootSnapshot } from "@/lib/a
 import type { AppBootState } from "@/lib/app-boot/app-boot-types";
 import type { ProfileRow } from "@/lib/profile/types";
 import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-journal";
-import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+import { ensureAppBoot, invalidateAppBootFlight } from "@/lib/app-boot/run-app-boot";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkReloadOnce } from "@/lib/next/import-with-chunk-retry";
@@ -17,6 +17,7 @@ import { clearChunkReloadSessionFlag, isWebpackChunkLoadError, scheduleChunkRelo
 const AppBootContext = createContext<AppBootState | null>(null);
 
 export function invalidateAppBootAll(): void {
+  invalidateAppBootFlight();
   invalidateAppBootProfileCache();
   invalidateMeProfileDedupedCache();
   clearAuthSessionClientCache();

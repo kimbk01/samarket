@@ -115,6 +115,7 @@ export const authUiMessages = {
     auth_logout_err_server_unreachable:
       "서버 로그아웃 응답을 받지 못했습니다. 다음 로그인 시 자동으로 정리됩니다.",
     auth_logout_err_browser_only: "브라우저 환경에서만 로그아웃을 실행할 수 있습니다.",
+    auth_resource_access_denied: "존재하지 않거나 접근할 수 없는 정보입니다.",
   },
   en: {
     auth_login_title: "Sign in to dibaY",
@@ -231,5 +232,6 @@ export const authUiMessages = {
     auth_logout_err_server_unreachable:
       "Could not reach the server for sign-out. It will be cleaned up on your next sign-in.",
     auth_logout_err_browser_only: "Sign-out is only available in a browser.",
+    auth_resource_access_denied: "This information does not exist or is not accessible.",
   },
 } as const;

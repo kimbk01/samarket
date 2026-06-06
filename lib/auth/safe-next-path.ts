@@ -92,3 +92,52 @@ export function withNextSearchParam(base: string, next: string | null | undefine
 export function buildLoginPath(next?: string | null): string {
   return withNextSearchParam("/login", next);
 }
+
+/** 신규 로그인·계정 전환 후 deep link 복원 금지 — 탭 루트·허브만 허용 */
+const FRESH_LOGIN_DENIED_PREFIXES = [
+  "/community-messenger/rooms/",
+  "/community-messenger/calls/",
+  "/chats/",
+  "/group-chat/",
+  "/orders/store/",
+  "/mypage/store-orders/",
+  "/stores/owner/orders/",
+  "/mypage/trade/chat/",
+  "/post/",
+  "/products/",
+] as const;
+
+function pathnameOnly(pathWithOptionalSearch: string): string {
+  const qIdx = pathWithOptionalSearch.indexOf("?");
+  return qIdx >= 0 ? pathWithOptionalSearch.slice(0, qIdx) : pathWithOptionalSearch;
+}
+
+function isFreshLoginDeniedPath(pathname: string): boolean {
+  const normalized = pathname.replace(/\/+$/, "") || "/";
+  for (const prefix of FRESH_LOGIN_DENIED_PREFIXES) {
+    if (normalized === prefix.slice(0, -1) || normalized.startsWith(prefix)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * 신규 로그인·계정 전환 직후 landing 전용.
+ * 온보딩·동의 등은 `sanitizeNextPath` + `withNextSearchParam` 을 그대로 사용한다.
+ */
+export function sanitizeFreshLoginLandingPath(input: string | null | undefined): string | null {
+  const safe = sanitizeNextPath(input);
+  if (!safe) return null;
+  const pathname = pathnameOnly(safe);
+  if (isFreshLoginDeniedPath(pathname)) return null;
+  return safe;
+}
+
+/** OAuth 콜백·로그인 성공 시 `next` — deep link 는 제거하고 탭 루트만 통과 */
+export function withFreshLoginNextSearchParam(base: string, next: string | null | undefined): string {
+  const safe = sanitizeFreshLoginLandingPath(next);
+  if (!safe) return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}next=${encodeURIComponent(safe)}`;
+}

@@ -8,7 +8,9 @@ import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-provider
 import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
+import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
+import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -27,6 +29,13 @@ import {
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
 const LOGIN_BOOTSTRAP_CACHE_TTL_MS = 30_000;
+
+async function navigateAfterFreshLogin(destination: string): Promise<void> {
+  await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
+  await ensureAppBoot();
+  clearPostLogoutBfcacheGuard();
+  window.location.replace(destination);
+}
 
 function looksLikeEmailForLogin(identifierRaw: string): boolean {
   const s = identifierRaw.trim();
@@ -72,7 +81,8 @@ function LoginPageContent() {
     () => sanitizeNextPath(searchParams?.get("next") ?? null),
     [searchParams]
   );
-  const postLoginDestination = next ?? POST_LOGIN_PATH;
+  const postLoginDestination =
+    sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
@@ -355,7 +365,7 @@ function LoginPageContent() {
         Math.round(performance.now() - loginUntilNavT0)
       );
       leaveLoginShellIntact = true;
-      window.location.replace(postLoginDestination);
+      await navigateAfterFreshLogin(postLoginDestination);
       return;
     } catch (unexpected) {
       /**

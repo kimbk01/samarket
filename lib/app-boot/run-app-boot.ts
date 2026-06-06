@@ -21,9 +21,17 @@ import { logStartupApiPlan } from "@/lib/http/startup-api-scheduler";
 import { primeMeProfileDedupedFromBoot } from "@/lib/profile/fetch-me-profile-deduped";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 
+let bootEpoch = 0;
 let bootInFlight: Promise<void> | null = null;
 
-async function runAppBootOnce(): Promise<void> {
+/** wipe·invalidate 직후 진행 중 boot 가 stale 프로필을 쓰지 않게 epoch 를 올린다. */
+export function invalidateAppBootFlight(): void {
+  bootEpoch += 1;
+  bootInFlight = null;
+}
+
+async function runAppBootOnce(startEpoch: number): Promise<void> {
+  const isStale = () => startEpoch !== bootEpoch;
   logStartupApiPlan({
     blocking: ["/api/me/profile?lite=1"],
     deferred: [
@@ -40,6 +48,7 @@ async function runAppBootOnce(): Promise<void> {
 
   const sb = getSupabaseClient();
   if (!sb) {
+    if (isStale()) return;
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;
@@ -49,6 +58,7 @@ async function runAppBootOnce(): Promise<void> {
     data: { user },
     error,
   } = await dedupeSupabaseAuthGetUser(sb);
+  if (isStale()) return;
   if (!user || error) {
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
@@ -57,6 +67,7 @@ async function runAppBootOnce(): Promise<void> {
 
   const cached = peekAppBootProfileFetchCached();
   const { status, json } = cached ?? (await fetchAppBootProfileMinimal());
+  if (isStale()) return;
   if (status === 401 || status === 403) {
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
@@ -65,6 +76,7 @@ async function runAppBootOnce(): Promise<void> {
 
   const data = json as { ok?: boolean; profile?: ProfileRow } | null;
   if (status === 200 && data?.ok && data.profile) {
+    if (isStale()) return;
     primeMeProfileDedupedFromBoot({ status, json });
     setAppBootProfile(data.profile);
     const clientProfile = profileRowToClientProfile(data.profile);
@@ -77,9 +89,11 @@ async function runAppBootOnce(): Promise<void> {
     });
     dispatchTestAuthChanged();
   } else {
+    if (isStale()) return;
     setAppBootAnonymous();
   }
 
+  if (isStale()) return;
   bumpAppWidePerf("app_bootstrap_success");
   recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
 }
@@ -87,7 +101,8 @@ async function runAppBootOnce(): Promise<void> {
 export function ensureAppBoot(): Promise<void> {
   if (isAppBootReady()) return Promise.resolve();
   if (!bootInFlight) {
-    bootInFlight = runAppBootOnce().finally(() => {
+    const epoch = bootEpoch;
+    bootInFlight = runAppBootOnce(epoch).finally(() => {
       bootInFlight = null;
       scheduleAppBootBackgroundHydration();
     });

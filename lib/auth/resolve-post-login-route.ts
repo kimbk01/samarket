@@ -1,5 +1,9 @@
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { withNextSearchParam, sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import {
+  withNextSearchParam,
+  sanitizeNextPath,
+  sanitizeFreshLoginLandingPath,
+} from "@/lib/auth/safe-next-path";
 import type { OnboardingStatus } from "@/lib/auth/get-onboarding-status";
 
 /**
@@ -32,13 +36,13 @@ export function resolvePostLoginRoute({
     return "/login?error=session_missing";
   }
   if (!status) {
-    return POST_LOGIN_PATH;
+    return sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null)) ?? POST_LOGIN_PATH;
   }
   const safeNext = sanitizeNextPath(next ?? null);
 
   // 관리자(특권 역할)는 동의/주소 게이트를 건너뛴다 — 운영 동선에서 갑자기 막히지 않도록.
   if (status.isPrivilegedAdmin) {
-    return safeNext ?? POST_LOGIN_PATH;
+    return sanitizeFreshLoginLandingPath(safeNext) ?? POST_LOGIN_PATH;
   }
 
   if (!status.consentComplete) {
@@ -53,5 +57,5 @@ export function resolvePostLoginRoute({
   if (!status.addressComplete) {
     return withNextSearchParam("/onboarding/address", safeNext);
   }
-  return safeNext ?? POST_LOGIN_PATH;
+  return sanitizeFreshLoginLandingPath(safeNext) ?? POST_LOGIN_PATH;
 }

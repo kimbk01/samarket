@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
+import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { decodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
@@ -35,6 +37,8 @@ export function CommunityMessengerRoomBootstrapGate({
   roomId: string;
   initialViewerUserId?: string | null;
 }) {
+  const router = useRouter();
+  const redirectedRef = useRef(false);
   const searchParams = useMessengerRoomUrlSearchParams();
   const cmCtx = useMemo(() => {
     const raw = searchParams.get("cm_ctx");
@@ -93,13 +97,14 @@ export function CommunityMessengerRoomBootstrapGate({
   const showFatalEntryError =
     Boolean(entryError) && Boolean(hydratedSnapshot.clientShellPlaceholder);
 
+  useEffect(() => {
+    if (!showFatalEntryError || redirectedRef.current) return;
+    redirectedRef.current = true;
+    redirectResourceAccessDenied(router, "/community-messenger");
+  }, [router, showFatalEntryError]);
+
   if (showFatalEntryError) {
-    return (
-      <div className="flex min-h-[40vh] flex-col items-center justify-center bg-[color:var(--cm-room-page-bg)] px-4 text-center">
-        <p className="text-sm text-[color:var(--cm-room-text-muted)]">채팅을 불러오지 못했습니다.</p>
-        <p className="mt-1 text-xs text-[color:var(--cm-room-text-muted)]">{entryError}</p>
-      </div>
-    );
+    return null;
   }
 
   const viewer = viewerUserId || hydratedSnapshot.viewerUserId?.trim() || undefined;

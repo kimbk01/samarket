@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { redirectResourceAccessDenied } from "@/lib/auth/resource-access-denied-flow";
 import { useTradeChatResolvedViewer } from "@/components/chats/use-trade-chat-resolved-viewer";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ChatDetailView } from "@/components/chats/ChatDetailView";
@@ -103,12 +105,25 @@ export function ChatRoomScreen({
   });
   const chatEntryShellLoggedRef = useRef(false);
   const chatEntryRoomReadyLoggedRef = useRef<string | null>(null);
+  const accessDeniedRedirectRef = useRef(false);
+  const router = useRouter();
   /** `lite` 부트스트랩 후 `full` 보강 예약 취소용 */
   const bootstrapFullIdleIdRef = useRef<number | null>(null);
 
   useNotificationSurfaceTradeChatRoom(roomId);
 
   useTradeChatResolvedViewer(initialViewerUserId, setResolvedUserId);
+
+  useEffect(() => {
+    accessDeniedRedirectRef.current = false;
+  }, [roomId]);
+
+  useEffect(() => {
+    if (!err || accessDeniedRedirectRef.current) return;
+    if (err !== "not_found" && err !== "auth" && err !== "bad_room") return;
+    accessDeniedRedirectRef.current = true;
+    redirectResourceAccessDenied(router, listHref);
+  }, [err, listHref, router]);
 
   useEffect(() => {
     return () => {
@@ -567,21 +582,8 @@ export function ChatRoomScreen({
     );
   }
 
-  if (err === "not_found") {
-    return (
-      <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-sam-muted">{t("common_chat_room_not_found")}</p>
-        {onListNavigate ? (
-          <button type="button" onClick={onListNavigate} className="mt-3 font-medium text-signature underline">
-            {t("common_to_list")}
-          </button>
-        ) : (
-          <Link href={listHref} className="mt-3 font-medium text-signature underline" replace scroll={false}>
-            {t("common_to_list")}
-          </Link>
-        )}
-      </div>
-    );
+  if (err === "not_found" || err === "auth" || err === "bad_room") {
+    return null;
   }
 
   if (err || !room) {

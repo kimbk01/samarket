@@ -238,6 +238,14 @@ export function invalidateRoomSnapshot(roomId: string): void {
   }
 }
 
+/** 로그아웃·계정 전환 — 방 스냅샷 LRU·hot 캐시 전부 제거 */
+export function clearAllRoomSnapshotCaches(): void {
+  entries.clear();
+  hotEntries.clear();
+  lastPrefetchSuccessRoomId = "";
+  lastPrefetchSuccessAt = 0;
+}
+
 export function seedRoomSnapshotFromSummary(args: {
   room: CommunityMessengerRoomSummary;
   viewerUserId: string;

@@ -68,3 +68,19 @@ export const useNotificationStore = create<NotificationState>((set) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
 }));
+
+/** 로그아웃·계정 전환 — 메신저 알림 UI 스토어 초기화 */
+export function resetMessengerNotificationStore(): void {
+  useNotificationStore.setState({
+    messageNotificationEnabled: true,
+    friendRequestNotificationEnabled: true,
+    tradeNotificationEnabled: true,
+    deliveryNotificationEnabled: true,
+    incomingCallSoundEnabled:
+      typeof window !== "undefined" ? isCommunityMessengerIncomingCallSoundEnabled() : true,
+    vibrationEnabled: true,
+    overlayEnabled:
+      typeof window !== "undefined" ? isCommunityMessengerIncomingCallBannerEnabled() : true,
+    notifications: [],
+  });
+}
