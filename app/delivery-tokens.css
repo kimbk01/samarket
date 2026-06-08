@@ -138,7 +138,17 @@
   --delivery-menu-card-py: 16px;
   --delivery-menu-card-px: 16px;
   --delivery-menu-card-min-h: 124px;
-  --delivery-menu-plus-size: 44px;
+  --delivery-menu-plus-size: 35px;
+  --delivery-menu-plus-size-compact: 27px;
+  --delivery-menu-plus-font-size: 19px;
+  --delivery-menu-plus-font-size-compact: 16px;
+  --delivery-menu-plus-inset: 4px;
+  --delivery-menu-plus-bg: #FFFFFF;
+  --delivery-menu-plus-fg: #00704A;
+  --delivery-menu-plus-border: #00704A;
+  --delivery-menu-plus-border-width: 2px;
+  --delivery-menu-plus-active-bg: #E8F3EE;
+  --delivery-menu-plus-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   --delivery-sticky-tab-h: 36px;
   /** browse 3단 1차 pill — 정렬 칩과 동일 36px + ▼ */
   --delivery-browse-primary-tab-h: var(--delivery-sticky-tab-h);

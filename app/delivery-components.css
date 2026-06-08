@@ -975,40 +975,6 @@
     background: var(--delivery-bg-thumb);
   }
 
-  .delivery-menu-plus {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    z-index: 10;
-    display: inline-flex;
-    width: var(--delivery-menu-plus-size);
-    height: var(--delivery-menu-plus-size);
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--delivery-radius-pill);
-    border: 1px solid var(--delivery-border);
-    background: var(--delivery-bg-card);
-    color: var(--delivery-primary);
-    font-size: 24px;
-    font-weight: 500;
-    line-height: 1;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-    transition: transform 150ms ease, background-color 150ms ease;
-  }
-
-  .delivery-menu-plus:active {
-    transform: scale(0.96);
-  }
-
-  .delivery-menu-plus--compact {
-    right: 4px;
-    bottom: 4px;
-    width: 34px;
-    height: 34px;
-    font-size: 20px;
-    box-shadow: 0 2px 7px rgba(0, 0, 0, 0.12);
-  }
-
   .delivery-category-chip {
     display: inline-flex;
     height: var(--delivery-sticky-tab-h);
@@ -1250,6 +1216,36 @@
  * 매장 상세 히어로 글래스·메뉴 pill 탭도 동일 — `sector-header.css` 는 unlayered 라
  * `@layer components` 안 규칙은 화면에 반영되지 않을 수 있음.
  */
+
+/**
+ * 매장 메뉴 + — unlayered (카트 아이콘·category-tab 동일).
+ * Tailwind utility(`MenuQuickAddButton`)가 색·테두리 담당; 여기는 위치·z-index + preflight 백업.
+ */
+button.delivery-menu-plus,
+.delivery-menu-plus {
+  position: absolute;
+  right: var(--delivery-menu-plus-inset);
+  bottom: var(--delivery-menu-plus-inset);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  line-height: 1;
+  border: var(--delivery-menu-plus-border-width) solid var(--delivery-menu-plus-border) !important;
+  background-color: var(--delivery-menu-plus-bg) !important;
+  color: var(--delivery-menu-plus-fg) !important;
+  box-shadow: var(--delivery-menu-plus-shadow);
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button.delivery-menu-plus:active,
+.delivery-menu-plus:active {
+  background-color: var(--delivery-menu-plus-active-bg) !important;
+}
 
 /** 매장·상품 상세 히어로 위 — 검은 반투명·흰 아이콘 */
 .delivery-ui .sam-tier1-header__icon-btn.store-order-hero-glass-icon-btn {

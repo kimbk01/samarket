@@ -99,12 +99,16 @@ function RecommendedMenuCard({
       }`}
       style={{ borderRadius: DibayMenuBoard.cardRadiusPx }}
     >
-      <div className={`relative bg-[var(--delivery-bg-thumb)] ${DeliveryTheme.menuThumb}`} style={{ width: "100%", aspectRatio: "1", maxHeight: sz + 16 }}>
+      <div
+        className={`relative overflow-hidden bg-[var(--delivery-bg-thumb)] ${DeliveryTheme.menuThumb}`}
+        style={{ width: "100%", aspectRatio: "1", maxHeight: sz + 16 }}
+      >
         <StoreProductThumbnail
           src={thumb}
           size={112}
           roundedClassName="rounded-none"
           className="h-full w-full"
+          fill
         />
         {soldOut ? <SoldOutOverlay /> : null}
         <MenuQuickAddButton

@@ -120,7 +120,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
 
   const thumb = (
     <div className="relative shrink-0 p-4 pl-0" style={{ width: sz + 16, height: sz + 32 }}>
-      <div className={`${DeliveryTheme.menuThumb} relative`}>
+      <div className={`relative ${DeliveryTheme.menuThumb}`}>
         <StoreProductThumbnail
           src={thumbSrc}
           size={sz}

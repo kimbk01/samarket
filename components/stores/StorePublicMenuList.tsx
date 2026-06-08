@@ -12,10 +12,7 @@ import {
 } from "@/lib/stores/group-store-products-by-menu";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
-import { DeliveryTheme } from "@/lib/design/delivery-theme";
-
-const PLUS_BTN =
-  DeliveryTheme.menuPlus;
+import { MenuQuickAddButton } from "@/components/stores/detail/MenuQuickAddButton";
 
 type RowProps = {
   storeSlug: string;
@@ -99,26 +96,17 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   );
 
   const thumb = (
-    <div className="relative h-[88px] w-[88px] shrink-0">
-      <div className="relative h-full w-full overflow-hidden rounded-[10px]">
-        {hasDiscount && badgePct > 0 ? (
-          <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
-            {badgePct}%
-          </span>
-        ) : null}
-        <StoreProductThumbnail src={thumbSrc} size={88} roundedClassName="rounded-[10px]" />
-        {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
-        {!menuSelectBlocked && onOpenProduct && !soldOut ? (
-          <button
-            type="button"
-            onClick={onAddPress}
-            className={PLUS_BTN}
-            aria-label={t("store_add_to_cart_aria", { title: p.title })}
-          >
-            +
-          </button>
-        ) : null}
-      </div>
+    <div className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-[10px]">
+      {hasDiscount && badgePct > 0 ? (
+        <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
+          {badgePct}%
+        </span>
+      ) : null}
+      <StoreProductThumbnail src={thumbSrc} size={88} roundedClassName="rounded-[10px]" />
+      {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
+      {!menuSelectBlocked && onOpenProduct && !soldOut ? (
+        <MenuQuickAddButton title={p.title} onPress={onAddPress} />
+      ) : null}
     </div>
   );
 
