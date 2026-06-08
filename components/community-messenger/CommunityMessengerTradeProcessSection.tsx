@@ -14,7 +14,10 @@ import { bustChatRoomBootstrapFlights } from "@/lib/chats/fetch-chat-room-bootst
 import { forgetSingleFlight } from "@/lib/http/run-single-flight";
 import { canOpenTradeReviewSheet } from "@/lib/trade/can-open-trade-review-sheet";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
-import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
+import {
+  normalizeSellerListingState,
+  sellerListingStateMessageKey,
+} from "@/lib/products/seller-listing-state";
 import { dispatchTradeChatUnreadUpdated } from "@/lib/chats/chat-channel-events";
 import { dispatchTradeListingThreadNotices } from "@/lib/chats/trade-listing-thread-sync";
 import { useTradePostListingBroadcast } from "@/lib/chats/use-trade-post-listing-broadcast";
@@ -211,7 +214,7 @@ export function CommunityMessengerTradeProcessSection({
     async (state: SellerListingState) => {
       if (!room || !postId || state === displayListing) return;
       if (amISeller) {
-        const label = SELLER_LISTING_LABEL[state];
+        const label = t(sellerListingStateMessageKey(state));
         if (typeof window !== "undefined" && !window.confirm(t("cm_ui_confirm_change_item_status", { label }))) {
           return;
         }
@@ -263,7 +266,7 @@ export function CommunityMessengerTradeProcessSection({
         setListingSaving(false);
       }
     },
-    [room, postId, displayListing, amISeller, reload, onTradeMetaChanged]
+    [room, postId, displayListing, amISeller, reload, onTradeMetaChanged, t]
   );
 
   const onActionDone = useCallback(async () => {

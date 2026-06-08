@@ -53,7 +53,6 @@ import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-ke
 /** 메시지 스크롤·입력창·스티키 하단을 동일 읽기 폭으로 — 거래 허브 전체 페이지 vs 홈 시트 모달 정렬 일치 */
 const CHAT_THREAD_COLUMN_INNER_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 import {
-  SELLER_LISTING_LABEL,
   type SellerListingState,
   normalizeSellerListingState,
 } from "@/lib/products/seller-listing-state";
@@ -128,8 +127,10 @@ import { formatAtUsername } from "@/lib/users/user-label";
 import {
   normalizeTradeChatCallPolicy,
   tradeChatCallPolicyAllowsVoice,
-  tradeChatCallPolicySummaryKo,
+  tradeChatCallPolicySummaryKey,
 } from "@/lib/trade/trade-chat-call-policy";
+import { formatTradeLastSeenLabel } from "@/lib/chats/trade-presence-policy";
+import { sellerListingStateMessageKey } from "@/lib/products/seller-listing-state";
 
 function bustRoomClientCachesAfterTradeMutation(roomId: string) {
   const k = roomId.trim();
@@ -206,7 +207,7 @@ export function ChatDetailView({
   initialBootstrapMessages = null,
   tradeChatBootstrapReady = true,
 }: ChatDetailViewProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const rootHeightClass = embedded
@@ -774,6 +775,12 @@ export function ChatDetailView({
     };
   }, [isTradeProductPresenceRoom, room.id]);
 
+  const tradePeerLastSeenLabel = useMemo(() => {
+    const at = tradePresenceMeta?.peerLastSeenAt;
+    if (!at) return "";
+    return formatTradeLastSeenLabel(language, at);
+  }, [language, tradePresenceMeta?.peerLastSeenAt]);
+
   const publishTradePresenceLive = tradePresenceMeta?.viewerMayPublishLive === true;
   const peerSharesTradePresenceLive = tradePresenceMeta?.peerSharesLive === true;
 
@@ -950,7 +957,7 @@ export function ChatDetailView({
     async (state: SellerListingState) => {
       if (!postId || state === displayListing) return;
       if (amISeller) {
-        const label = SELLER_LISTING_LABEL[state];
+        const label = t(sellerListingStateMessageKey(state));
         if (
           typeof window !== "undefined" &&
           !window.confirm(t("chats_change_item_status_confirm", { label }))
@@ -981,15 +988,13 @@ export function ChatDetailView({
           threadNotices?: TradeListingThreadNotice[];
         };
         if (!res.ok || !data.ok || !data.sellerListingState) {
-          const errMsg = String(data.error ?? "저장에 실패했습니다.");
+          const errMsg = String(data.error ?? t("common_save_failed"));
           const schemaBlock =
             /seller_listing_state|마이그레이션|schema cache|Could not find|posts\.seller_listing/i.test(
               errMsg
             );
           if (schemaBlock) {
-            setListingError(
-              "판매 단계를 DB에 반영하지 못했습니다. Supabase에 posts.seller_listing_state 컬럼이 있는지 확인한 뒤 다시 시도해 주세요."
-            );
+            setListingError(t("chats_listing_save_schema_error"));
             return;
           }
           setListingError(errMsg);
@@ -1016,12 +1021,12 @@ export function ChatDetailView({
         });
         onRoomReload?.();
       } catch {
-        setListingError("네트워크 오류로 저장하지 못했습니다.");
+        setListingError(t("chats_listing_save_network_error"));
       } finally {
         setListingSaving(false);
       }
     },
-    [postId, displayListing, room, amISeller, onRoomReload, hardRefreshMessagesAfterSellerListingWrite]
+    [postId, displayListing, room, amISeller, onRoomReload, hardRefreshMessagesAfterSellerListingWrite, t]
   );
 
   /** 통합 거래방·레거시 product_chat: 상단 근처 스크롤 시 과거 메시지(키셋) 로드 */
@@ -1819,14 +1824,16 @@ export function ChatDetailView({
     <div className="absolute right-0 top-full z-[80] mt-1 min-w-[180px] rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
       {isChatRoom && room.chatDomain === "trade" && !isGeneralPurposeChat ? (
         <div className="border-b border-sam-border-soft px-4 py-2.5">
-          <p className="leading-snug sam-text-helper text-sam-muted">{tradeChatCallPolicySummaryKo(tradeChatCallPolicyNormalized)}</p>
+          <p className="leading-snug sam-text-helper text-sam-muted">
+            {t(tradeChatCallPolicySummaryKey(tradeChatCallPolicyNormalized))}
+          </p>
           {amISeller && postId ? (
             <Link
               href={`/products/${encodeURIComponent(postId)}/edit`}
               onClick={() => setMenuOpen(false)}
               className="mt-2 inline-block sam-text-body font-medium text-signature underline-offset-2 hover:underline"
             >
-              통화 허용은 글 수정에서 바꿀 수 있어요
+              {t("chats_trade_call_policy_edit_hint")}
             </Link>
           ) : null}
         </div>
@@ -1997,7 +2004,7 @@ export function ChatDetailView({
           onClick={() => setSellerAdminModalOpenExclusive(true)}
           className="rounded-full border border-signature/35 bg-signature/8 px-3.5 py-1.5 sam-text-body-secondary font-semibold leading-tight tracking-[-0.01em] text-signature hover:bg-signature/14 active:bg-signature/20"
         >
-          관리자 메뉴
+          {t("chats_admin_menu")}
         </button>
       </div>
     ) : null;
@@ -2095,7 +2102,7 @@ export function ChatDetailView({
                 <AppBackButton
                   preferHistoryBack
                   backHref={effectiveListHref}
-                  ariaLabel="이전 화면"
+                  ariaLabel={t("nav_back")}
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   <SamarketThumbnail
@@ -2111,7 +2118,7 @@ export function ChatDetailView({
                       <p className="truncate sam-text-xxs leading-snug text-sam-muted">
                         <span className="font-medium text-sam-fg">{partnerDisplayNickname}</span>
                         <span aria-hidden> | </span>
-                        <span>{amISeller ? "구매자" : "판매자"}</span>
+                        <span>{amISeller ? t("cm_ui_trade_role_buyer") : t("cm_ui_trade_role_seller")}</span>
                       </p>
                     ) : (
                       <p className="truncate sam-text-body font-semibold text-sam-fg">{partnerDisplayNickname}</p>
@@ -2128,7 +2135,7 @@ export function ChatDetailView({
                           peerLiveState={peerTradeLiveState}
                           peerTyping={peerTradeTyping}
                           peerLastSeenLabel={
-                            peerTradeLiveState === "offline" ? tradePresenceMeta.peerLastSeenLabel : ""
+                            peerTradeLiveState === "offline" ? tradePeerLastSeenLabel : ""
                           }
                         />
                         {!showTradePeerRoleInline ? (

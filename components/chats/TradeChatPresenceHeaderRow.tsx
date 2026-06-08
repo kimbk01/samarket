@@ -31,7 +31,7 @@ export function TradeChatPresenceHeaderRow(props: {
       {peerSharesLive ? (
         <span className="inline-flex items-center gap-1.5">
           <Dot state={peerLiveState} />
-          <span className="text-sam-fg/80">{tradePresenceStateLabel(peerLiveState)}</span>
+          <span className="text-sam-fg/80">{tradePresenceStateLabel(peerLiveState, t)}</span>
         </span>
       ) : null}
       {peerLiveState === "offline" && peerLastSeenLabel ? (

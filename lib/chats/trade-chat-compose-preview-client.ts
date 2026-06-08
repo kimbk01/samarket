@@ -1,5 +1,8 @@
 "use client";
 
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+
 /**
  * 상세 → compose 즉시 표시용 미리보기 (동일 탭 sessionStorage).
  * URL 길이 제한 없이 썸네일·제목 등을 넘길 때 사용.
@@ -16,6 +19,14 @@ export type TradeChatComposePreviewFields = {
 
 type Stored = TradeChatComposePreviewFields & { productId: string };
 
+function fallbackProductTitle(): string {
+  return translate(getRuntimeAppLanguage(), "chats_compose_fallback_product");
+}
+
+function fallbackSellerName(): string {
+  return translate(getRuntimeAppLanguage(), "chats_compose_fallback_seller");
+}
+
 export function setTradeChatComposePreview(productId: string, preview: TradeChatComposePreviewFields): void {
   if (typeof window === "undefined") return;
   const id = productId.trim();
@@ -23,10 +34,10 @@ export function setTradeChatComposePreview(productId: string, preview: TradeChat
   try {
     const payload: Stored = {
       productId: id,
-      productTitle: preview.productTitle.trim() || "상품",
+      productTitle: preview.productTitle.trim() || fallbackProductTitle(),
       productThumbnail: preview.productThumbnail.trim(),
       priceText: preview.priceText.trim() || "",
-      sellerName: preview.sellerName.trim() || "판매자",
+      sellerName: preview.sellerName.trim() || fallbackSellerName(),
     };
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
   } catch {
@@ -44,10 +55,16 @@ export function readTradeChatComposePreview(productId: string): TradeChatCompose
     const parsed = JSON.parse(raw) as Partial<Stored> | null;
     if (!parsed || typeof parsed.productId !== "string" || parsed.productId.trim() !== id) return null;
     return {
-      productTitle: typeof parsed.productTitle === "string" && parsed.productTitle.trim() ? parsed.productTitle.trim() : "상품",
+      productTitle:
+        typeof parsed.productTitle === "string" && parsed.productTitle.trim()
+          ? parsed.productTitle.trim()
+          : fallbackProductTitle(),
       productThumbnail: typeof parsed.productThumbnail === "string" ? parsed.productThumbnail.trim() : "",
       priceText: typeof parsed.priceText === "string" ? parsed.priceText.trim() : "",
-      sellerName: typeof parsed.sellerName === "string" && parsed.sellerName.trim() ? parsed.sellerName.trim() : "판매자",
+      sellerName:
+        typeof parsed.sellerName === "string" && parsed.sellerName.trim()
+          ? parsed.sellerName.trim()
+          : fallbackSellerName(),
     };
   } catch {
     return null;

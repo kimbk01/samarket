@@ -85,7 +85,7 @@ export function ChatProductSummary({
             line1={line1}
             line2={line2}
             detailHref={detailHref}
-            productLabel={(product.title || "상품").trim()}
+            productLabel={(product.title || t("nav_trade_product_fallback")).trim()}
           />
         </div>
         {!hideFavorite ? (
@@ -115,7 +115,9 @@ export function ChatProductSummary({
         <Link
           href={detailHref}
           className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft transition active:opacity-90 sm:h-[100px] sm:w-[100px]"
-          aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
+          aria-label={t("chats_product_thumbnail_aria", {
+            title: (product.title || t("nav_trade_product_fallback")).trim(),
+          })}
         >
           <SamarketThumbnail
             src={product.thumbnail}
@@ -145,7 +147,9 @@ export function ChatProductSummary({
               <Link
                 href={detailHref}
                 className="flex min-h-0 min-w-0 flex-1 flex-col text-left transition active:bg-sam-app/0"
-                aria-label={`${product.title || "상품"} 상세 보기`}
+                aria-label={t("chats_product_detail_aria", {
+                  title: (product.title || t("nav_trade_product_fallback")).trim(),
+                })}
               >
                 <PostListPreviewColumn
                   listingPost={listingPost}
@@ -179,7 +183,7 @@ export function ChatProductSummary({
                 <TradeListingStatusBadge post={listingPost} size="list" className="mb-1 block max-w-full shrink-0" />
               ) : null}
               <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-sam-fg">
-                {product.title || "상품"}
+                {product.title || t("nav_trade_product_fallback")}
               </p>
               {!isPhilifeCard ? (
                 <p className="mt-0.5 sam-text-body font-bold text-sam-fg">

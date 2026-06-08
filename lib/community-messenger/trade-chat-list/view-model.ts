@@ -11,14 +11,20 @@ import {
   serializeCommunityMessengerRoomContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
 import { resolvePostImagePublicUrl } from "@/lib/posts/resolve-post-image-public-url";
-import { DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL } from "@/lib/community-messenger/trade-chat-list/category-menu-label";
+import {
+  DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL,
+  defaultTradeChatCategoryMenuLabel,
+} from "@/lib/community-messenger/trade-chat-list/category-menu-label";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 let tradeChatListDevMissingPostIdWarned = false;
 let tradeChatListDebugInfoOnce = false;
+
+export type TradeChatListTranslate = (key: MessageKey, vars?: Record<string, string | number>) => string;
 
 export type TradeChatListRowModel = {
   /** 1행 칩 — 대메뉴 5분류 `categoryMenuLabel` 단일 소스(부트스트랩 enrich) */
@@ -100,7 +106,10 @@ function tradeListParseSource(room: CommunityMessengerRoomSummary): string {
   return sum;
 }
 
-export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary): TradeChatListRowModel {
+export function buildTradeChatListRowModel(
+  room: CommunityMessengerRoomSummary,
+  t: TradeChatListTranslate
+): TradeChatListRowModel {
   const parseSource = tradeListParseSource(room);
   const parsedStrict = parseCommunityMessengerRoomContextMeta(parseSource);
   const loose = looseSkimTradeSummaryJson(parseSource);
@@ -119,12 +128,12 @@ export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary):
     });
   }
 
-  const peerName = room.title.trim() || "상대";
+  const peerName = room.title.trim() || t("chats_trade_list_peer_fallback");
   const productTitle =
     ctx?.headline?.trim() ||
     par?.headline?.trim() ||
     loose.headline?.trim() ||
-    "제목 없음";
+    t("chats_trade_list_no_title");
   const productPriceText =
     ctx?.priceLabel?.trim() || par?.priceLabel?.trim() || loose.priceLabel?.trim() || null;
   const productStatusText =
@@ -134,7 +143,7 @@ export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary):
     ctx?.categoryMenuLabel?.trim() ||
     par?.categoryMenuLabel?.trim() ||
     loose.categoryMenuLabel?.trim() ||
-    DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL;
+    defaultTradeChatCategoryMenuLabel(t);
 
   const thumbCandidates = [ctx?.thumbnailUrl, par?.thumbnailUrl, loose.thumbnailCandidate];
   let thumb: string | null = null;
@@ -158,8 +167,12 @@ export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary):
   }
 
   const sellerName =
-    ctx?.sellerDisplayName?.trim() || par?.sellerDisplayName?.trim() || loose.sellerDisplayName?.trim() || "알 수 없음";
-  const listingOwnerLine = `${categoryChipLabel === "일자리" ? "작성자" : "판매자"}: ${sellerName}`;
+    ctx?.sellerDisplayName?.trim() ||
+    par?.sellerDisplayName?.trim() ||
+    loose.sellerDisplayName?.trim() ||
+    t("chats_trade_list_unknown_seller");
+  const jobsCategory = categoryChipLabel === "일자리";
+  const listingOwnerLine = `${jobsCategory ? t("chats_trade_list_owner_author") : t("chats_trade_list_owner_seller")}: ${sellerName}`;
 
   return {
     categoryChipLabel,
@@ -173,29 +186,38 @@ export function buildTradeChatListRowModel(room: CommunityMessengerRoomSummary):
   };
 }
 
-function messengerMessageToPreviewSnippet(msg: CommunityMessengerMessage): string {
-  const t = msg.messageType ?? "text";
+function messengerMessageToPreviewSnippet(
+  msg: CommunityMessengerMessage,
+  t: TradeChatListTranslate
+): string {
+  const type = msg.messageType ?? "text";
   const content = (msg.content ?? "").trim();
-  if (t === "image") return "사진";
-  if (t === "voice") return "음성 메시지";
-  if (t === "sticker") return "스티커";
-  if (t === "file") return content || "파일";
-  if (t === "call_stub") {
-    if (!content) return "통화";
-    return content.includes("통화") ? content : `통화 · ${content}`;
+  if (type === "image") return t("cm_ui_photo");
+  if (type === "voice") return t("cm_ui_voice_message");
+  if (type === "sticker") return t("cm_ui_sticker");
+  if (type === "file") return content || t("chats_trade_list_file");
+  if (type === "call_stub") {
+    if (!content) return t("chats_trade_list_call");
+    return content.includes("통화") || content.toLowerCase().includes("call")
+      ? content
+      : `${t("chats_trade_list_call")} · ${content}`;
   }
-  if (t === "system") return content || "알림";
-  return content || "새 메시지";
+  if (type === "system") return content || t("chats_trade_list_notification");
+  return content || t("chats_trade_list_new_message");
 }
 
 export function buildTradeChatListPreviewLine(args: {
   listPreview: string;
   peerName: string;
   lastClientMessage: CommunityMessengerMessage | null | undefined;
+  t: TradeChatListTranslate;
 }): string {
   const msg = args.lastClientMessage;
   if (!msg) return args.listPreview;
-  const snippet = messengerMessageToPreviewSnippet(msg);
-  const who = msg.isMine ? "나" : args.peerName.trim() || "상대";
+  const snippet = messengerMessageToPreviewSnippet(msg, args.t);
+  const who = msg.isMine ? args.t("chats_trade_list_preview_me") : args.peerName.trim() || args.t("chats_trade_list_peer_fallback");
   return `${who}: ${snippet}`;
 }
+
+/** @deprecated 테스트·비-i18n 비교용 */
+export { DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL };

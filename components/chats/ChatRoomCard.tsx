@@ -67,7 +67,7 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const sellerPreview = amISeller && isNewOrUnread
     ? t("nav_trade_new_chat_on_product", { nickname: room.partnerNickname, product: productTitle })
     : null;
-  const lastMessageDisplay = tradeChatListLastMessageDisplay(room);
+  const lastMessageDisplay = tradeChatListLastMessageDisplay(room, t("chats_trade_list_completed_preview"));
 
   const listingPost = {
     seller_listing_state: product?.sellerListingState,

@@ -8,7 +8,8 @@ import {
   tradePresencePeerAllowsLiveShare,
   tradePresenceViewerMayPublishLive,
 } from "@/lib/chats/trade-presence-rules";
-import { formatTradeLastSeenKo } from "@/lib/chats/trade-presence-policy";
+import { formatTradeLastSeenLabel } from "@/lib/chats/trade-presence-policy";
+import { loadUserAppLanguage } from "@/lib/i18n/load-user-app-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ type PresenceRow = {
 };
 
 /** GET — 거래 1:1 방에서 상대 presence 규칙·last_seen(프라이버시 적용) */
-export async function GET(_req: Request, { params }: { params: Promise<{ roomId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ roomId: string }> }) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
@@ -106,12 +107,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ roomId:
     trade_presence_audience: viewerRow.trade_presence_audience,
   });
 
+  const userLang = await loadUserAppLanguage(sb, auth.userId, req.headers.get("accept-language"));
+
   return NextResponse.json({
     ok: true,
     partnerId,
     viewerMayPublishLive,
     peerSharesLive,
     peerLastSeenAt,
-    peerLastSeenLabel: peerLastSeenAt ? formatTradeLastSeenKo(peerLastSeenAt) : "",
+    peerLastSeenLabel: peerLastSeenAt ? formatTradeLastSeenLabel(userLang, peerLastSeenAt) : "",
   });
 }

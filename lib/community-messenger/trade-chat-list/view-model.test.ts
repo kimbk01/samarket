@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { translate } from "@/lib/i18n/messages";
-import { DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL } from "@/lib/community-messenger/trade-chat-list/category-menu-label";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { buildTradeChatListRowModel } from "@/lib/community-messenger/trade-chat-list/view-model";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+
+const t = (key: MessageKey, vars?: Record<string, string | number>) => translate("ko", key, vars);
 
 function room(overrides: Partial<CommunityMessengerRoomSummary>): CommunityMessengerRoomSummary {
   return {
@@ -42,7 +44,8 @@ describe("buildTradeChatListRowModel", () => {
           priceLabel: "₱1",
           categoryMenuLabel: "부동산",
         },
-      })
+      }),
+      t
     );
     expect(m.categoryChipLabel).toBe("부동산");
     expect(m.productTitle).toBe("제목");
@@ -59,7 +62,8 @@ describe("buildTradeChatListRowModel", () => {
           categoryMenuLabel: "중고거래",
           productCategoryLabel: "생활가전",
         },
-      })
+      }),
+      t
     );
     expect(m.categoryChipLabel).toBe("생활가전");
   });
@@ -74,9 +78,10 @@ describe("buildTradeChatListRowModel", () => {
           categoryMenuLabel: "중고거래",
           sellerDisplayName: "닉네임",
         },
-      })
+      }),
+      t
     );
-    expect(m.listingOwnerLine).toBe("판매자: 닉네임");
+    expect(m.listingOwnerLine).toBe(`${t("chats_trade_list_owner_seller")}: 닉네임`);
   });
 
   it("uses 작성자 prefix for 일자리", () => {
@@ -89,13 +94,17 @@ describe("buildTradeChatListRowModel", () => {
           categoryMenuLabel: "일자리",
           sellerDisplayName: "회사",
         },
-      })
+      }),
+      t
     );
-    expect(m.listingOwnerLine).toBe("작성자: 회사");
+    expect(m.listingOwnerLine).toBe(`${t("chats_trade_list_owner_author")}: 회사`);
   });
 
   it("defaults categoryChipLabel when absent", () => {
-    const m = buildTradeChatListRowModel(room({ summary: JSON.stringify({ v: 1, kind: "trade", headline: "X" }) }));
-    expect(m.categoryChipLabel).toBe(DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL);
+    const m = buildTradeChatListRowModel(
+      room({ summary: JSON.stringify({ v: 1, kind: "trade", headline: "X" }) }),
+      t
+    );
+    expect(m.categoryChipLabel).toBe(t("cm_ui_trade_headline_fallback"));
   });
 });

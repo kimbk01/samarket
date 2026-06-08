@@ -22,18 +22,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Variant = "trade" | "delivery";
 
-const VARIANT_COPY: Record<Variant, { title: string; href: string; emptyPreview: string; defaultRoomLabel: string }> = {
+const VARIANT_COPY: Record<Variant, { href: string }> = {
   trade: {
-    title: "거래 채팅",
     href: "/community-messenger/trade-chats",
-    emptyPreview: "받은 거래 채팅이 아직 없어요.",
-    defaultRoomLabel: "거래 채팅",
   },
   delivery: {
-    title: "",
     href: "/community-messenger/delivery-chats",
-    emptyPreview: "",
-    defaultRoomLabel: "",
   },
 };
 
@@ -108,7 +102,14 @@ export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery =
   const { t } = useI18n();
   const copy = useMemo(() => {
     const base = VARIANT_COPY[variant];
-    if (variant !== "delivery") return base;
+    if (variant === "trade") {
+      return {
+        ...base,
+        title: t("cm_ui_chat_group_trade"),
+        emptyPreview: t("nav_chat_trade_empty"),
+        defaultRoomLabel: t("cm_ui_chat_group_trade"),
+      };
+    }
     return {
       ...base,
       title: t("nav_chat_order_compact"),

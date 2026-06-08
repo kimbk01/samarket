@@ -251,8 +251,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const isDeliveryChatListVisual = listVisual === "delivery";
   const roomStoreId = useMemo(() => normalizeMessengerRealtimeRoomId(room.id), [room.id]);
   const tradeRowModel = useMemo(
-    () => (isTradeChatListVisual ? buildTradeChatListRowModel(room) : null),
-    [isTradeChatListVisual, room]
+    () => (isTradeChatListVisual ? buildTradeChatListRowModel(room, t) : null),
+    [isTradeChatListVisual, room, t]
   );
   const deliveryRowModel = useMemo(
     () => (isDeliveryChatListVisual ? buildDeliveryChatListRowModel(room) : null),
@@ -330,8 +330,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       listPreview: item.preview,
       peerName: tradeRowModel.peerName,
       lastClientMessage,
+      t,
     });
-  }, [isTradeChatListVisual, tradeRowModel, item.preview, lastClientMessage]);
+  }, [isTradeChatListVisual, tradeRowModel, item.preview, lastClientMessage, t]);
 
   useEffect(() => {
     if (!isTradeChatListVisual || process.env.NODE_ENV !== "development") return;

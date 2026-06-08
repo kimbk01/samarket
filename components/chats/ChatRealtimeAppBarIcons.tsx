@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChatRoomRealtimeConnectionState } from "@/lib/chats/use-chat-room-realtime";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   state: ChatRoomRealtimeConnectionState;
@@ -43,6 +44,7 @@ export function ChatRealtimeAppBarIcons({
   messageSoundMuted,
   onToggleMessageSound,
 }: Props) {
+  const { t } = useI18n();
   const ig = variant === "instagram";
 
   const dotClass =
@@ -56,14 +58,14 @@ export function ChatRealtimeAppBarIcons({
 
   const dotLabel =
     messagesLoading || state === "disabled"
-      ? "채팅 연결 상태 확인 중"
+      ? t("chats_realtime_status_checking")
       : state === "live"
-        ? "실시간 연결됨"
+        ? t("chats_realtime_status_live")
         : state === "connecting"
-          ? "실시간 연결 중"
+          ? t("chats_realtime_status_connecting")
           : state === "reconnecting"
-            ? "실시간 재연결 중"
-            : "실시간 미연결";
+            ? t("chats_realtime_status_reconnecting")
+            : t("chats_realtime_status_offline");
 
   const iconClass = ig ? "h-[22px] w-[22px]" : "h-5 w-5";
 
@@ -83,7 +85,9 @@ export function ChatRealtimeAppBarIcons({
             ? "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-black/[0.05] active:bg-black/[0.08]"
             : "flex h-9 w-9 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 active:bg-black/15"
         }
-        aria-label={messageSoundMuted ? "이 채팅방 메시지 알림음 켜기" : "이 채팅방 메시지 알림음 끄기"}
+        aria-label={
+          messageSoundMuted ? t("chats_message_sound_unmute_aria") : t("chats_message_sound_mute_aria")
+        }
         aria-pressed={messageSoundMuted}
       >
         {messageSoundMuted ? <BellOffIcon className={iconClass} /> : <BellOnIcon className={iconClass} />}

@@ -1,3 +1,5 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+
 /**
  * 거래 1:1 채팅 — 판매자가 글에 설정하는 **통화 허용** 범위.
  * 저장 위치: `posts.meta.trade_chat_call_policy`
@@ -24,7 +26,13 @@ export function tradeChatCallPolicyAllowsVideo(p: TradeChatCallPolicy): boolean 
   return p === "voice_and_video";
 }
 
-/** 거래 채팅 메뉴·안내용 짧은 한국어 문구 */
+export function tradeChatCallPolicySummaryKey(p: TradeChatCallPolicy): MessageKey {
+  if (p === "voice_and_video") return "chats_trade_call_policy_voice_and_video";
+  if (p === "voice_only") return "cm_ui_trade_post_voice_only";
+  return "cm_ui_trade_post_calls_disabled";
+}
+
+/** @deprecated UI는 `tradeChatCallPolicySummaryKey` + `t()` 사용 */
 export function tradeChatCallPolicySummaryKo(p: TradeChatCallPolicy): string {
   if (p === "voice_and_video") return "이 글에서는 거래 채팅에서 음성·영상 통화가 허용돼요.";
   if (p === "voice_only") return "이 글에서는 거래 채팅에서 음성 통화만 허용돼요.";

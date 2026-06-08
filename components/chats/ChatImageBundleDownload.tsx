@@ -26,10 +26,16 @@ export function ChatImageBundleDownload({ urls }: { urls: string[] }) {
     setHint(null);
     const { okCount, failCount } = await saveChatImagesBundle(urls);
     setBusy(false);
-    if (failCount === 0) setHint(`${okCount}장 저장`);
-    else setHint(okCount ? `일부 실패 ${okCount}/${urls.length}` : "저장 실패");
+    if (failCount === 0) setHint(t("chats_bundle_saved_count", { count: okCount }));
+    else {
+      setHint(
+        okCount
+          ? t("chats_bundle_save_partial_fail", { ok: okCount, total: urls.length })
+          : t("chats_bundle_save_failed")
+      );
+    }
     window.setTimeout(() => setHint(null), 2200);
-  }, [busy, urls]);
+  }, [busy, t, urls]);
 
   if (!urls.length) return null;
 

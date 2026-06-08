@@ -42,15 +42,15 @@ export function ChatButton({
   className,
   children,
 }: ChatButtonProps) {
-  const { t, tt } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
 
   const hasExisting = !!existingRoomId;
   const label = hasExisting
     ? t("common_existing_chat")
     : typeof children === "string"
-      ? tt(children)
-      : children ?? tt("채팅하기");
+      ? children
+      : children ?? t("trade_detail_chat_cta");
 
   useEffect(() => {
     const user = getCurrentUser();

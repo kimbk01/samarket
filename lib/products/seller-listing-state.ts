@@ -21,6 +21,21 @@ export const SELLER_LISTING_LABEL: Record<SellerListingState, string> = {
   completed: "거래완료",
 };
 
+export function sellerListingStateMessageKey(
+  state: SellerListingState
+): "trade_listing_step_inquiry" | "trade_listing_step_negotiating" | "trade_listing_step_reserved" | "trade_listing_step_completed" {
+  switch (state) {
+    case "negotiating":
+      return "trade_listing_step_negotiating";
+    case "reserved":
+      return "trade_listing_step_reserved";
+    case "completed":
+      return "trade_listing_step_completed";
+    default:
+      return "trade_listing_step_inquiry";
+  }
+}
+
 const ALLOWED: Set<string> = new Set(["inquiry", "negotiating", "reserved", "completed"]);
 
 export function normalizeSellerListingState(

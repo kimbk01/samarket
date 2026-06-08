@@ -190,7 +190,10 @@ export function assembleChatRoomsList(input: ChatRoomsListAssembleInput): ChatRo
       source: "product_chat",
       chatDomain: "trade",
       roomTitle: partnerNickname,
-      roomSubtitle: amISeller ? "상대방 · 구매자" : "상대방 · 판매자",
+      roomSubtitle: translate(
+        input.userLang,
+        amISeller ? "nav_trade_partner_buyer" : "nav_trade_partner_seller_of_post"
+      ),
       ...(typeof r.community_messenger_room_id === "string" && r.community_messenger_room_id.trim()
         ? { communityMessengerRoomId: r.community_messenger_room_id.trim() }
         : null),
@@ -233,7 +236,10 @@ export function assembleChatRoomsList(input: ChatRoomsListAssembleInput): ChatRo
       source: "chat_room" as const,
       chatDomain: "trade",
       roomTitle: input.nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8),
-      roomSubtitle: amISeller ? "상대방 · 구매자" : "상대방 · 판매자",
+      roomSubtitle: translate(
+        input.userLang,
+        amISeller ? "nav_trade_partner_buyer" : "nav_trade_partner_seller_of_post"
+      ),
       ...(typeof r.community_messenger_room_id === "string" && r.community_messenger_room_id.trim()
         ? { communityMessengerRoomId: r.community_messenger_room_id.trim() }
         : null),

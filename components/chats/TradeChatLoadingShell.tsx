@@ -1,11 +1,14 @@
+"use client";
+
 import { TradeChatEntryRingSpinner } from "@/components/chats/TradeChatEntryRingSpinner";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 const THREAD_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
 export function TradeChatLoadingShell({
-  label = "채팅 준비 중...",
-  description = "대화방을 여는 중이에요.",
+  label,
+  description,
   className = "",
   variant = "chat-shell",
 }: {
@@ -15,6 +18,10 @@ export function TradeChatLoadingShell({
   /** 거래 방 최초 생성·진입 대기 — 링 스피너 중심 UI */
   variant?: "chat-shell" | "creating";
 }) {
+  const { t } = useI18n();
+  const resolvedLabel = label ?? t("chats_loading_shell_label");
+  const resolvedDescription = description ?? t("chats_loading_shell_description");
+
   if (variant === "creating") {
     return (
       <div
@@ -23,8 +30,10 @@ export function TradeChatLoadingShell({
         aria-busy="true"
       >
         <TradeChatEntryRingSpinner />
-        <p className="mt-5 sam-text-body font-medium text-sam-fg">{label}</p>
-        {description ? <p className="mt-1.5 max-w-[16rem] text-center text-xs text-sam-muted">{description}</p> : null}
+        <p className="mt-5 sam-text-body font-medium text-sam-fg">{resolvedLabel}</p>
+        {resolvedDescription ? (
+          <p className="mt-1.5 max-w-[16rem] text-center text-xs text-sam-muted">{resolvedDescription}</p>
+        ) : null}
       </div>
     );
   }
@@ -53,8 +62,8 @@ export function TradeChatLoadingShell({
             <div className="h-10 w-48 animate-pulse rounded-2xl bg-sam-surface-muted" />
           </div>
           <div className="pt-2 text-center">
-            <p className="text-sm font-medium text-sam-fg">{label}</p>
-            <p className="mt-1 text-xs text-sam-muted">{description}</p>
+            <p className="text-sm font-medium text-sam-fg">{resolvedLabel}</p>
+            <p className="mt-1 text-xs text-sam-muted">{resolvedDescription}</p>
           </div>
         </div>
 

@@ -1,3 +1,9 @@
+import type { MessageKey } from "@/lib/i18n/messages";
+
+/** UI 폴백 — `t("cm_ui_trade_headline_fallback")` 와 동일 의미 */
+export const DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL_KEY: MessageKey = "cm_ui_trade_headline_fallback";
+
+/** @deprecated 테스트·레거시 비교용 — UI는 `DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL_KEY` + `t()` */
 export const DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL = "거래";
 
 export type TradeChatCategoryMetaLike = {
@@ -70,6 +76,10 @@ export function resolveTradeChatCategoryLabelForList(
   if (postCategoryText) return postCategoryText;
   const fallback = resolveTradeChatCategoryMenuLabelFallback(post, category);
   return fallback || DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL;
+}
+
+export function defaultTradeChatCategoryMenuLabel(t: (key: MessageKey) => string): string {
+  return t(DEFAULT_TRADE_CHAT_CATEGORY_MENU_LABEL_KEY);
 }
 
 /**
