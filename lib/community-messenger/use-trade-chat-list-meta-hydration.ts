@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import { getMessengerBackgroundHydrationScheduler } from "@/lib/community-messenger/background-hydration-scheduler";
+import {
+  getMessengerBackgroundHydrationScheduler,
+  subscribeMessengerHomeHydrationSurfaceResume,
+} from "@/lib/community-messenger/background-hydration-scheduler";
 import { shouldDeferTradeChatListMetaHydration } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
@@ -52,6 +55,14 @@ export function useTradeChatListMetaHydration(args: {
 }): void {
   const { enabled, viewerUserId, chats, setData } = args;
   const tradeMetaFetchAttemptedRef = useRef(new Set<string>());
+  const [surfaceResumeTick, setSurfaceResumeTick] = useState(0);
+
+  useEffect(() => {
+    return subscribeMessengerHomeHydrationSurfaceResume(() => {
+      setSurfaceResumeTick((tick) => tick + 1);
+    });
+  }, []);
+
   const missingKey =
     chats?.length && enabled && viewerUserId
       ? chats
@@ -83,11 +94,12 @@ export function useTradeChatListMetaHydration(args: {
             body: JSON.stringify({ roomIds }),
             signal,
           });
+          if (signal.aborted || stale) return;
           const json = (await res.json().catch(() => ({}))) as {
             ok?: boolean;
             patches?: Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>;
           };
-          if (stale) return;
+          if (stale || signal.aborted) return;
           if (!res.ok || !json.ok || !Array.isArray(json.patches)) return;
           for (const id of roomIds) tradeMetaFetchAttemptedRef.current.add(id);
           const toApply = json.patches.filter((p) => p.contextMeta != null);
@@ -101,8 +113,9 @@ export function useTradeChatListMetaHydration(args: {
             if (next && next !== prev) primeBootstrapCache(next);
             return next;
           });
-        } catch {
-          /* ignore */
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          if (signal.aborted || stale) return;
         }
       },
     });
@@ -110,5 +123,5 @@ export function useTradeChatListMetaHydration(args: {
     return () => {
       stale = true;
     };
-  }, [enabled, missingKey, setData, viewerUserId]);
+  }, [enabled, missingKey, setData, viewerUserId, surfaceResumeTick]);
 }

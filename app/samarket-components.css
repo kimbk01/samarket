@@ -840,8 +840,8 @@
     box-shadow: none !important;
   }
 
-  /** 배달 주문 채팅은 `delivery-chat-room.css` + `data-delivery-composer-pill` 전용 composer (카톡형 pill) */
-  [data-cm-room]:not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea {
+  /** 구형 grid composer 만 — pill(`data-delivery-composer-pill`) 은 `delivery-chat-room.css` */
+  [data-cm-room]:not(:has([data-delivery-composer-pill])):not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea {
     background-color: var(--dibay-card) !important;
     box-shadow: none !important;
     border: none !important;
@@ -854,55 +854,55 @@
     overflow-y: hidden !important;
   }
 
-  [data-cm-room]:not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea:focus {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])):not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea:focus {
     outline: none !important;
     box-shadow: 0 0 0 2px var(--cm-room-primary) !important;
   }
 
-  [data-cm-room]:not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea::placeholder {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])):not([data-delivery-viewer-role]) footer[data-cm-line-composer-footer] textarea::placeholder {
     color: var(--dibay-muted);
   }
 
-  [data-cm-room] [data-cm-line-plus-btn] {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-plus-btn] {
     background-color: transparent !important;
     color: var(--dibay-muted) !important;
   }
 
-  [data-cm-room] [data-cm-line-plus-btn]:hover,
-  [data-cm-room] [data-cm-line-plus-btn]:active {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-plus-btn]:hover,
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-plus-btn]:active {
     background-color: color-mix(in srgb, var(--dibay-gold) 14%, transparent) !important;
   }
 
-  [data-cm-room]:not([data-delivery-viewer-role]) [data-cm-line-mic-btn] {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])):not([data-delivery-viewer-role]) [data-cm-line-mic-btn] {
     width: 32px !important;
     height: 32px !important;
     color: var(--dibay-muted) !important;
     opacity: 1 !important;
   }
 
-  [data-cm-room]:not([data-delivery-viewer-role]) [data-cm-line-mic-btn]:disabled {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])):not([data-delivery-viewer-role]) [data-cm-line-mic-btn]:disabled {
     color: color-mix(in srgb, var(--dibay-muted) 56%, var(--dibay-card)) !important;
     opacity: 0.42 !important;
   }
 
-  [data-cm-room]:not([data-delivery-viewer-role]) [data-cm-line-mic-btn]:not(:disabled):hover {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])):not([data-delivery-viewer-role]) [data-cm-line-mic-btn]:not(:disabled):hover {
     background-color: color-mix(in srgb, var(--dibay-gold) 14%, transparent) !important;
   }
 
-  [data-cm-room] [data-cm-line-send-btn]:not(:disabled) {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-send-btn]:not(:disabled) {
     background-color: var(--cm-room-primary) !important;
     color: var(--dibay-cream) !important;
   }
 
-  [data-cm-room] [data-cm-line-send-btn]:not(:disabled):hover {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-send-btn]:not(:disabled):hover {
     background-color: var(--cm-room-primary-hover) !important;
   }
 
-  [data-cm-room] [data-cm-line-send-btn]:not(:disabled):active {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-send-btn]:not(:disabled):active {
     background-color: var(--cm-room-primary-active) !important;
   }
 
-  [data-cm-room] [data-cm-line-send-btn]:disabled {
+  [data-cm-room]:not(:has([data-delivery-composer-pill])) [data-cm-line-send-btn]:disabled {
     background-color: var(--cm-room-primary-disabled) !important;
     color: var(--dibay-cream) !important;
     opacity: 1 !important;

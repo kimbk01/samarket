@@ -1,10 +1,9 @@
 "use client";
 
-import { ArrowUp, Mic, Plus } from "lucide-react";
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
-import { MessengerInputBar } from "@/components/community-messenger/line-ui";
+import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
 import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
@@ -23,7 +22,10 @@ import {
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
-import { MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
+import {
+  MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
+  MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX,
+} from "@/lib/ui/messenger-chat-viewport-tuning";
 import {
   emitR2M9ProfileSummary,
   noteR2M9DomTreeBeforeComposer,
@@ -62,6 +64,8 @@ function recordCmComposerInputReadyMilestones(
   scheduleR2M9LayoutAfterTextarea();
   emitR2M9ProfileSummary("textarea_visible");
 }
+
+const noopPointer = () => undefined;
 
 /** Phase2 chunk·controller 없이 textarea·send만 선커밋 (R2-M8). */
 export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityMessengerRoomPass1ComposerShell({
@@ -163,81 +167,64 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
       ? t("cm_ui_read_only_room")
       : t("cm_ui_message");
 
+  const footerBottomPx = MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX + MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX;
+
   return (
     <footer
       data-cm-composer
       data-cm-line-composer-footer
       data-cm-pass1-composer-shell
-      className="sticky bottom-0 z-[5] shrink-0 border-t border-[#e5e7eb] bg-white px-3 pt-2"
+      className="delivery-ui sticky bottom-0 z-[5] shrink-0 border-t border-[#e8e8e8] bg-white px-2 pt-0"
       style={{
-        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX}px)`,
+        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerBottomPx}px)`,
       }}
     >
-      <MessengerInputBar>
-        <div className="flex min-h-[54px] min-w-0 items-center justify-center">
-          <button
-            type="button"
-            data-cm-line-plus-btn
-            onClick={() => vm.setActiveSheet("attach")}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] active:bg-black/[0.08]"
-            aria-label={t("cm_ui_attachment_menu")}
-          >
-            <Plus className="h-[21px] w-[21px]" strokeWidth={2} />
-          </button>
-        </div>
-        <div className="flex min-h-[54px] min-w-0 flex-1 items-center py-1">
-          <textarea
-            ref={(node) => {
-              textareaRef.current = node;
-              vm.composerTextareaRef.current = node;
-              if (node) noteR2M9Stage("textarea_dom_attach");
-            }}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onFocus={() => useMessengerRoomUiStore.getState().setComposerFocused(true)}
-            onBlur={() => useMessengerRoomUiStore.getState().setComposerFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
-              e.preventDefault();
-              commitTextSend();
-            }}
-            rows={1}
-            disabled={
-              roomUnavailable ||
-              vm.busy === "delete-message" ||
-              vm.busy === "send-image" ||
-              vm.busy === "send-file" ||
-              vm.busy === "send-sticker"
-            }
-            placeholder={tradeOnlyBlocked ? tradeBlockedMessage || t("cm_ui_cannot_send_message") : placeholder}
-            className="h-[38px] min-h-[38px] w-full min-w-0 resize-none border-0 bg-transparent text-[14px] leading-[1.35] outline-none placeholder:text-[#65676b] disabled:opacity-50"
-          />
-        </div>
-        <div className="flex min-h-[54px] min-w-0 items-center justify-center">
-          {!draft.trim() ? (
-            <button
-              type="button"
-              data-cm-line-mic-btn
-              disabled={roomUnavailable || !voiceBridgeReady}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] disabled:opacity-45"
-              aria-label={t("cm_ui_voice_message")}
-            >
-              <Mic className="h-5 w-5" strokeWidth={2} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              data-cm-line-send-btn
-              onClick={() => commitTextSend()}
-              disabled={roomUnavailable || !draft.trim() || vm.busy === "send"}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary)] text-white disabled:opacity-50"
-              aria-label={t("common_send")}
-            >
-              <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
-            </button>
-          )}
-        </div>
-      </MessengerInputBar>
+      <MessengerComposerSector
+        draft={draft}
+        placeholder={tradeOnlyBlocked ? tradeBlockedMessage || t("cm_ui_cannot_send_message") : placeholder}
+        textareaRef={textareaRef}
+        onTextareaRef={(node) => {
+          vm.composerTextareaRef.current = node;
+          if (node) noteR2M9Stage("textarea_dom_attach");
+        }}
+        onDraftChange={setDraft}
+        onAttach={() => vm.setActiveSheet("attach")}
+        onSend={commitTextSend}
+        onTextareaKeyDown={(e) => {
+          if (e.key !== "Enter" || e.shiftKey || e.nativeEvent.isComposing) return;
+          e.preventDefault();
+          commitTextSend();
+        }}
+        onTextareaFocus={() => useMessengerRoomUiStore.getState().setComposerFocused(true)}
+        onTextareaBlur={() => useMessengerRoomUiStore.getState().setComposerFocused(false)}
+        textareaDisabled={
+          roomUnavailable ||
+          vm.busy === "delete-message" ||
+          vm.busy === "send-image" ||
+          vm.busy === "send-file" ||
+          vm.busy === "send-sticker"
+        }
+        sendDisabled={roomUnavailable || !draft.trim() || vm.busy === "send"}
+        sendAriaLabel={t("common_send")}
+        attachAriaLabel={t("cm_ui_attachment_menu")}
+        attachDisabled={roomUnavailable}
+        voice={{
+          recording: false,
+          micArming: false,
+          handsFree: false,
+          elapsedMs: 0,
+          peaks: [],
+          cancelHint: false,
+          onMicPointerDown: noopPointer,
+          onMicPointerMove: noopPointer,
+          onMicPointerUp: noopPointer,
+          onMicPointerCancel: noopPointer,
+          onFinalizeRecording: () => undefined,
+          micDisabled: roomUnavailable || !voiceBridgeReady,
+          micTitle: t("cm_ui_hold_record_send_slide_cancel_lock"),
+        }}
+        t={t}
+      />
     </footer>
   );
 });

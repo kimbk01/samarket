@@ -14,8 +14,13 @@ import { MAX_CHAT_IMAGE_ATTACH } from "@/lib/chats/chat-image-bundle";
 import { usePreferMobileChatImagePicker } from "@/lib/ui/use-prefer-mobile-chat-image-picker";
 import { ChatMobileImagePickerSheet } from "@/components/chats/ChatMobileImagePickerSheet";
 import { ChatMobileAttachSheet } from "@/components/chats/ChatMobileAttachSheet";
+import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
+import {
+  MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
+  MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX,
+} from "@/lib/ui/messenger-chat-viewport-tuning";
 import {
   ALL_CHAT_EMOJIS,
   CHAT_EMOJI_PANEL_PREVIEW_COUNT,
@@ -223,6 +228,137 @@ function ChatInputBarInner({
   };
 
   const attachBtnClass = `sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center disabled:opacity-50 ${ig ? "text-sam-fg hover:bg-sam-surface-muted" : "text-sam-muted hover:bg-sam-surface-muted"}`;
+
+  const openAttachMenu = () => {
+    if (!onImageFilesSelected) return;
+    if (preferMobileImageSheet) {
+      setMobileAttachSheetOpen((o) => !o);
+      return;
+    }
+    setAttachOpen((o) => !o);
+  };
+
+  if (ig) {
+    const instagramFooterBottomPx =
+      Math.max(MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX, composerBottomPadPx) +
+      MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX;
+
+    return (
+      <>
+        <footer
+          data-delivery-composer-host
+          className="delivery-ui relative w-full shrink-0 border-t border-[#e8e8e8] bg-white px-2 pt-0"
+          style={{
+            paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${instagramFooterBottomPx}px)`,
+          }}
+        >
+          {onImageFilesSelected ? (
+            <>
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+                disabled={inputLocked}
+                onChange={onImageInputChange}
+              />
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden
+                disabled={inputLocked}
+                onChange={onImageInputChange}
+              />
+              {!preferMobileImageSheet && attachOpen ? (
+                <div
+                  role="menu"
+                  className="absolute bottom-full left-2 z-30 mb-1 min-w-[10.5rem] overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-none"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                    onClick={() => {
+                      setAttachOpen(false);
+                      cameraInputRef.current?.click();
+                    }}
+                  >
+                    <CameraIcon className="h-5 w-5 shrink-0 opacity-80" />
+                    {t("common_take_photo")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg hover:bg-sam-surface-muted"
+                    onClick={() => {
+                      setAttachOpen(false);
+                      galleryInputRef.current?.click();
+                    }}
+                  >
+                    <GalleryIcon className="h-5 w-5 shrink-0 opacity-80" />
+                    {t("common_choose_from_album")}
+                  </button>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+          <MessengerComposerSector
+            draft={text}
+            placeholder={resolvedPlaceholder}
+            textareaRef={inputRef}
+            onDraftChange={(value) => {
+              const v = value.slice(0, maxLength);
+              setText(v);
+              notifyComposer(v);
+              persistDraft(v);
+              queueMicrotask(() => notifyChatInputCommitForPerf());
+            }}
+            onAttach={onImageFilesSelected ? openAttachMenu : () => undefined}
+            onSend={handleSubmit}
+            onTextareaKeyDown={(e) => {
+              notifyChatInputKeydownForPerf();
+              if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
+              if (e.shiftKey) return;
+              if (e.nativeEvent.isComposing) return;
+              e.preventDefault();
+              handleSubmit();
+            }}
+            onTextareaFocus={() => onComposerFocusChange?.(true)}
+            onTextareaBlur={() => onComposerFocusChange?.(false)}
+            textareaDisabled={inputLocked}
+            sendDisabled={inputLocked || !hasText}
+            sendAriaLabel={t("common_send")}
+            attachAriaLabel={t("common_photo_attach")}
+            attachDisabled={inputLocked || !onImageFilesSelected}
+            showVoiceMic={false}
+            voice={null}
+            t={t}
+          />
+        </footer>
+        <ChatMobileImagePickerSheet
+          open={Boolean(pickerStagingFiles?.length)}
+          files={pickerStagingFiles ?? []}
+          onClose={() => setPickerStagingFiles(null)}
+          onConfirm={(files) => onImageFilesSelected?.(files)}
+        />
+        <ChatMobileAttachSheet
+          open={preferMobileImageSheet && mobileAttachSheetOpen}
+          onClose={() => setMobileAttachSheetOpen(false)}
+          instagram={ig}
+          disabled={inputLocked}
+          onPickCamera={() => cameraInputRef.current?.click()}
+          onPickGallery={() => galleryInputRef.current?.click()}
+        />
+      </>
+    );
+  }
 
   return (
     <>

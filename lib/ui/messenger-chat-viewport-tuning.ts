@@ -22,6 +22,23 @@ export const MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX = 10;
 /** 배달·주문 채팅 composer — 카톡/텔레그램급 홈 인디케이터 여유(잘림 방지) */
 export const MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX = 14;
 
+/** 배달·주문 채팅 입력 한 줄(+ / pill / 전송) 섹터 높이(px) — safe-area 제외 */
+export const MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_PX = 60;
+
+export const MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS =
+  "box-border h-[60px] min-h-[60px] max-h-[60px]";
+
+/** 60px 섹터 안 — + / pill / 전송 세로 중앙(`items-center`) */
+export const MESSENGER_DELIVERY_COMPOSER_ROW_CLASS =
+  "flex h-full w-full min-h-0 items-center gap-1.5";
+
+/** 배달 composer 좌·우 고정 슬롯(+ / 전송) — 녹음 중에도 폭·위치 유지 */
+export const MESSENGER_DELIVERY_COMPOSER_SIDE_SLOT_CLASS = "h-9 w-9 shrink-0 self-center";
+
+/** 배달 composer pill 우측 마이크 슬롯 — off/on 동일 좌표 */
+export const MESSENGER_DELIVERY_COMPOSER_MIC_SLOT_CLASS =
+  "relative h-8 w-8 shrink-0 self-center overflow-hidden";
+
 /**
  * iOS + vv 셸로 overlap 추정을 끈 상태에서, 키보드 크롬 UI가 켜졌을 때 추가 패딩(px).
  * vv·innerHeight 미세 어긋남 보정.

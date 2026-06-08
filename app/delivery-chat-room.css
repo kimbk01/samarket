@@ -11,6 +11,7 @@
  * storeOrderId 도크 전에도 footer 구분선·pill 배경(#ececec) 동일.
  * DO NOT: `.delivery-ui` only 로 축소하면 주문자 입력창 라인·배경 소실.
  */
+[data-delivery-composer-host],
 [data-cm-room].delivery-ui,
 [data-cm-room]:has([data-delivery-composer-pill]) {
 
@@ -75,7 +76,8 @@
 [data-cm-room]:has([data-delivery-composer-pill]) footer[data-cm-composer],
 
 [data-cm-room].delivery-ui footer[data-cm-line-composer-footer],
-[data-cm-room]:has([data-delivery-composer-pill]) footer[data-cm-line-composer-footer] {
+[data-cm-room]:has([data-delivery-composer-pill]) footer[data-cm-line-composer-footer],
+footer[data-delivery-composer-host] {
 
   background-color: #ffffff !important;
 
@@ -87,18 +89,23 @@
 
 
 
-[data-cm-room].delivery-ui [data-delivery-composer-row] {
+[data-cm-room].delivery-ui [data-delivery-composer-row],
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-row],
+[data-delivery-composer-host] [data-delivery-composer-row] {
 
   width: 100%;
 
   max-width: 100%;
+
+  box-sizing: border-box;
 
 }
 
 
 
 [data-cm-room].delivery-ui [data-delivery-composer-pill],
-[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill] {
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill],
+[data-delivery-composer-host] [data-delivery-composer-pill] {
 
   flex: 1 1 0% !important;
 
@@ -115,7 +122,8 @@
 
 
 [data-cm-room].delivery-ui [data-delivery-composer-pill]:focus-within,
-[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill]:focus-within {
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill]:focus-within,
+[data-delivery-composer-host] [data-delivery-composer-pill]:focus-within {
 
   border-color: #c8c8c8 !important;
 
@@ -127,7 +135,9 @@
 
 
 
-[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea {
+[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea,
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill] textarea,
+[data-delivery-composer-host] [data-delivery-composer-pill] textarea {
 
   width: 100% !important;
 
@@ -147,6 +157,8 @@
 
   min-height: 20px !important;
 
+  max-height: 36px !important;
+
   font-size: 16px !important;
 
   line-height: 1.25 !important;
@@ -160,8 +172,11 @@
 
 
 [data-cm-room].delivery-ui [data-delivery-composer-pill] textarea:focus,
-
-[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea:focus-visible {
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill] textarea:focus,
+[data-cm-room].delivery-ui [data-delivery-composer-pill] textarea:focus-visible,
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-pill] textarea:focus-visible,
+[data-delivery-composer-host] [data-delivery-composer-pill] textarea:focus,
+[data-delivery-composer-host] [data-delivery-composer-pill] textarea:focus-visible {
 
   outline: none !important;
 
@@ -173,7 +188,9 @@
 
 
 
-[data-cm-room].delivery-ui [data-delivery-composer-mic-slot] {
+[data-cm-room].delivery-ui [data-delivery-composer-mic-slot],
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-mic-slot],
+[data-delivery-composer-host] [data-delivery-composer-mic-slot] {
 
   width: 32px;
 
@@ -181,11 +198,15 @@
 
   flex-shrink: 0;
 
+  overflow: hidden;
+
 }
 
 
 
-[data-cm-room].delivery-ui [data-delivery-composer-mic-slot] [data-delivery-composer-mic] {
+[data-cm-room].delivery-ui [data-delivery-composer-mic-slot] [data-delivery-composer-mic],
+[data-cm-room]:has([data-delivery-composer-pill]) [data-delivery-composer-mic-slot] [data-delivery-composer-mic],
+[data-delivery-composer-host] [data-delivery-composer-mic-slot] [data-delivery-composer-mic] {
 
   width: 100% !important;
 
@@ -194,6 +215,8 @@
   min-width: 0 !important;
 
   min-height: 0 !important;
+
+  transform: none !important;
 
 }
 

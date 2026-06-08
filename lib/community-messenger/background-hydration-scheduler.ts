@@ -68,6 +68,9 @@ export class MessengerBackgroundHydrationScheduler {
       this.cancelAll("surface_inactive");
     } else {
       this.pump();
+      if (this.label === "messenger_home") {
+        notifyMessengerHomeHydrationSurfaceResume();
+      }
     }
   }
 
@@ -254,6 +257,29 @@ export class MessengerBackgroundHydrationScheduler {
 
 let messengerSchedulerSingleton: MessengerBackgroundHydrationScheduler | null = null;
 let messengerRoomEntrySchedulerSingleton: MessengerBackgroundHydrationScheduler | null = null;
+
+type MessengerHydrationSurfaceResumeListener = () => void;
+const messengerHomeSurfaceResumeListeners = new Set<MessengerHydrationSurfaceResumeListener>();
+
+function notifyMessengerHomeHydrationSurfaceResume(): void {
+  for (const listener of messengerHomeSurfaceResumeListeners) {
+    try {
+      listener();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/** 홈 표면 재활성(surface_inactive abort 후) — trade meta 등 LOW 보강 재스케줄용 */
+export function subscribeMessengerHomeHydrationSurfaceResume(
+  listener: MessengerHydrationSurfaceResumeListener
+): () => void {
+  messengerHomeSurfaceResumeListeners.add(listener);
+  return () => {
+    messengerHomeSurfaceResumeListeners.delete(listener);
+  };
+}
 
 export function getMessengerBackgroundHydrationScheduler(): MessengerBackgroundHydrationScheduler {
   if (!messengerSchedulerSingleton) {

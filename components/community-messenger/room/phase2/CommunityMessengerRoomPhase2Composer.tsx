@@ -2,7 +2,6 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { ArrowUp, Mic, Plus, Trash2 } from "lucide-react";
 import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
@@ -33,11 +32,9 @@ import {
   formatParticipantStatus,
   formatRoomCallStatus,
   formatTime,
-  formatVoiceRecordTenThousandths,
   getLatestCallStubForSession,
   looksLikeDirectImageUrl,
   mergeRoomMessages,
-  VoiceRecordingLiveWaveform,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
   CommunityMessengerTradeProcessSection,
@@ -95,10 +92,8 @@ import {
   buildReplyPreviewSnapshot,
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
-import { MessengerInputBar } from "@/components/community-messenger/line-ui";
-import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
-import type { MessageKey } from "@/lib/i18n/messages";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   const st = window.getComputedStyle(el);
@@ -125,66 +120,6 @@ function recordCmComposerInputReadyMilestones(
     recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_input_enabled_ms");
   }
   notifyComposerTextareaVisibleForSeededBootstrap();
-}
-
-type DeliveryVoiceRecordingPaneProps = {
-  elapsedMs: number;
-  peaks: number[];
-  cancelHint: boolean;
-  handsFree: boolean;
-  onDelete: () => void;
-  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
-};
-
-/** 배달 composer pill 안 녹음 UI — 마이크 슬롯 위치 고정을 위해 부모가 레이아웃만 담당 */
-function DeliveryVoiceRecordingPane({
-  elapsedMs,
-  peaks,
-  cancelHint,
-  handsFree,
-  onDelete,
-  t,
-}: DeliveryVoiceRecordingPaneProps) {
-  const timer = (
-    <span className="flex shrink-0 items-center gap-1 tabular-nums text-[13px] font-semibold leading-none text-[color:var(--delivery-dark)]">
-      <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-red-500" />
-      {formatVoiceRecordTenThousandths(elapsedMs)}
-    </span>
-  );
-  if (handsFree) {
-    return (
-      <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-0.5">
-        {timer}
-        <div className="flex min-w-0 flex-1 items-center gap-1">
-          <VoiceRecordingLiveWaveform peaks={peaks} />
-          <span className="shrink-0 text-[11px] font-medium leading-tight text-[color:var(--delivery-text-muted)]">
-            {t("cm_ui_locked_recording")}
-          </span>
-        </div>
-        <button
-          type="button"
-          onClick={onDelete}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#e5e7eb] bg-white text-[color:var(--delivery-icon-muted)]"
-          aria-label={t("cm_ui_delete_recording")}
-        >
-          <Trash2 className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
-    );
-  }
-  return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5 pr-0.5">
-      {timer}
-      <VoiceRecordingLiveWaveform peaks={peaks} className="min-w-0 flex-1" />
-      <span
-        className={`shrink-0 text-[11px] leading-tight ${
-          cancelHint ? "font-medium text-red-600" : "text-[color:var(--delivery-text-muted)]"
-        }`}
-      >
-        {t("cm_ui_slide_to_cancel")}
-      </span>
-    </div>
-  );
 }
 
 export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMessengerRoomPhase2Composer({
@@ -378,10 +313,21 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     () => resolveCommunityMessengerDeliveryContextMeta(vm.snapshot.room),
     [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
   );
-  const ctx = (deliveryCtx ??
-    vm.snapshot.room.contextMeta) as CommunityMessengerRoomContextMetaV1 | null | undefined;
   const isDeliveryRoom = deliveryCtx != null;
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
+  const composerPlaceholder = isDeliveryRoom
+    ? (deliveryInputPlaceholder ?? t("nav_messenger_input_placeholder"))
+    : tradeOnlyBlocked
+      ? tradeBlockedMessage || t("cm_ui_cannot_send_message")
+      : vm.roomUnavailable
+        ? vm.snapshot.room.isReadonly
+          ? "읽기 전용 방입니다"
+          : vm.snapshot.room.roomStatus === "blocked"
+            ? "차단된 방입니다"
+            : "보관된 방입니다"
+        : vm.snapshot.clientShellPlaceholder
+          ? "메시지를 입력하세요"
+          : "메시지";
 
   const commitTextSend = useCallback(() => {
     if (
@@ -424,7 +370,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     messengerComposerDense &&
     keyboardInsetPx <= 0;
   const deliveryComposerBottomExtraPx =
-    isDeliveryRoom && !vm.voiceRecording ? MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX : 0;
+    !vm.voiceRecording ? MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX : 0;
   const footerExtraBottomPx =
     keyboardInsetPx > 0
       ? keyboardInsetPx +
@@ -516,391 +462,115 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             </div>
           </div>
         ) : null}
-        {isDeliveryRoom ? (
-          <div
-            data-delivery-composer-row
-            className="delivery-ui flex w-full max-w-full min-h-0 items-center gap-1.5 pb-1"
-          >
-            {!vm.voiceRecording ? (
-              <button
-                type="button"
-                data-delivery-composer-attach
-                data-cm-line-plus-btn
-                onClick={() => vm.setActiveSheet("attach")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center text-[#191919] transition active:opacity-70"
-                aria-label={t("cm_ui_attachment_menu")}
-              >
-                <Plus className="h-[22px] w-[22px]" strokeWidth={1.75} />
-              </button>
-            ) : (
-              <div className="h-9 w-9 shrink-0" aria-hidden />
-            )}
-            <div
-              data-delivery-composer-pill
-              className="flex min-h-[var(--delivery-composer-row-min-h,36px)] min-w-0 flex-[1_1_0%] items-center gap-0.5 rounded-[18px] border border-[#d8d8d8] bg-[#ececec] bg-[color:var(--delivery-composer-surface,#ececec)] px-2.5 py-1"
-            >
-              {vm.voiceRecording ? (
-                <DeliveryVoiceRecordingPane
-                  elapsedMs={vm.voiceRecordElapsedMs}
-                  peaks={vm.voiceLivePreviewBars}
-                  cancelHint={vm.voiceCancelHint}
-                  handsFree={vm.voiceHandsFree}
-                  onDelete={() => void vm.finalizeVoiceRecording(false)}
-                  t={t}
-                />
-              ) : (
-                <textarea
-                  ref={vm.composerTextareaRef}
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    queueMicrotask(() => notifyChatInputCommitForPerf());
-                  }}
-                  onKeyDown={(e) => {
-                    notifyChatInputKeydownForPerf();
-                    if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
-                    if (e.shiftKey) return;
-                    if (e.nativeEvent.isComposing) return;
-                    e.preventDefault();
-                    commitTextSend();
-                  }}
-                  onFocus={(e) => {
-                    useMessengerRoomUiStore.getState().setComposerFocused(true);
-                    const ta = e.currentTarget;
-                    const t0 = typeof performance !== "undefined" ? performance.now() : 0;
-                    const skipScrollIntoView =
-                      isNarrowViewport && messengerKeyboardChromeOpen && keyboardOverlapSuppressed;
-                    window.requestAnimationFrame(() => {
-                      window.requestAnimationFrame(() => {
-                        if (cmPolishAnalysisEnabled() && typeof performance !== "undefined") {
-                          logCmPolishAnalysis({
-                            composer_focus_to_ready_ms: Math.round((performance.now() - t0) * 1000) / 1000,
-                            room_id_suffix:
-                              String(vm.snapshot.room.id ?? "").length > 8
-                                ? String(vm.snapshot.room.id).slice(-8)
-                                : String(vm.snapshot.room.id ?? ""),
-                          });
-                        }
-                        if (skipScrollIntoView) return;
-                        try {
-                          ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
-                        } catch {
-                          ta.scrollIntoView({ block: "nearest" });
-                        }
-                      });
-                    });
-                  }}
-                  onBlur={() => {
-                    useMessengerRoomUiStore.getState().setComposerFocused(false);
-                  }}
-                  rows={1}
-                  disabled={
-                    vm.roomUnavailable ||
-                    vm.busy === "delete-message" ||
-                    vm.busy === "send-image" ||
-                    vm.busy === "send-file" ||
-                    vm.busy === "send-sticker"
-                  }
-                  placeholder={deliveryInputPlaceholder ?? t("nav_messenger_input_placeholder")}
-                  className="max-h-[120px] min-h-[20px] w-full min-w-0 flex-1 resize-none overflow-y-auto border-0 bg-transparent p-0 text-[16px] leading-[1.25] text-[color:var(--delivery-dark)] shadow-none outline-none ring-0 placeholder:text-[#888888] focus:border-0 focus:shadow-none focus:outline-none focus:ring-0 focus-visible:shadow-none focus-visible:outline-none focus-visible:ring-0 disabled:opacity-50"
-                />
-              )}
-              <div data-delivery-composer-mic-slot className="relative h-8 w-8 shrink-0">
-                {vm.voiceMicArming ? (
-                  <>
-                    <span className="sam-cm-voice-mic-ripple-wave pointer-events-none" aria-hidden />
-                    <span
-                      className="sam-cm-voice-mic-ripple-wave sam-cm-voice-mic-ripple-wave--delay pointer-events-none"
-                      aria-hidden
-                    />
-                  </>
-                ) : null}
-                <button
-                  type="button"
-                  data-cm-line-mic-btn
-                  data-delivery-composer-mic
-                  onPointerDown={vm.onVoiceMicPointerDown}
-                  onPointerMove={vm.onVoiceMicPointerMove}
-                  onPointerUp={vm.onVoiceMicPointerUp}
-                  onPointerCancel={vm.onVoiceMicPointerCancel}
-                  disabled={
-                    vm.roomUnavailable ||
-                    vm.busy === "send" ||
-                    vm.busy === "send-image" ||
-                    vm.busy === "send-file" ||
-                    vm.busy === "send-voice" ||
-                    vm.busy === "send-sticker" ||
-                    vm.busy === "delete-message" ||
-                    Boolean(draft.trim()) ||
-                    (vm.voiceRecording && vm.voiceHandsFree) ||
-                    (composerSurfaceMode === "phase1" && !getMessengerRoomComposerPhase2Bridge())
-                  }
-                  className={`absolute inset-0 z-[1] flex touch-none select-none items-center justify-center rounded-full transition-[colors,transform] duration-150 disabled:opacity-35 ${
-                    vm.voiceMicArming || vm.voiceRecording
-                      ? "scale-125 bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]"
-                      : "bg-transparent text-[color:var(--delivery-icon-muted)]"
-                  }`}
-                  aria-label={t("cm_ui_voice_message_recording_guide")}
-                  title={
-                    draft.trim()
-                      ? t("cm_ui_clear_text_for_voice_recording")
-                      : t("cm_ui_hold_record_send_slide_cancel_lock")
-                  }
-                >
-                  <Mic className="h-5 w-5 shrink-0" strokeWidth={2} />
-                </button>
-              </div>
-            </div>
-            {vm.voiceRecording && vm.voiceHandsFree ? (
-              <button
-                type="button"
-                data-cm-line-send-btn
-                onClick={() => void vm.finalizeVoiceRecording(true)}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--delivery-primary)] text-white transition active:opacity-90"
-                aria-label={t("cm_ui_send_voice")}
-              >
-                <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
-              </button>
-            ) : !vm.voiceRecording ? (
-              <button
-                type="button"
-                data-cm-line-send-btn
-                onClick={() => commitTextSend()}
-                disabled={
-                  vm.roomUnavailable ||
-                  !draft.trim() ||
-                  vm.busy === "send" ||
-                  vm.busy === "send-image" ||
-                  vm.busy === "send-file" ||
-                  vm.busy === "send-voice" ||
-                  vm.busy === "send-sticker" ||
-                  vm.busy === "delete-message"
+        <MessengerComposerSector
+          draft={draft}
+          placeholder={composerPlaceholder}
+          textareaRef={vm.composerTextareaRef}
+          onDraftChange={(value) => {
+            setDraft(value);
+            queueMicrotask(() => notifyChatInputCommitForPerf());
+          }}
+          onAttach={() => vm.setActiveSheet("attach")}
+          onSend={commitTextSend}
+          onTextareaKeyDown={(e) => {
+            notifyChatInputKeydownForPerf();
+            if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
+            if (e.shiftKey) return;
+            if (e.nativeEvent.isComposing) return;
+            e.preventDefault();
+            commitTextSend();
+          }}
+          onTextareaFocus={(e) => {
+            useMessengerRoomUiStore.getState().setComposerFocused(true);
+            const ta = e.currentTarget;
+            const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+            const skipScrollIntoView =
+              isNarrowViewport && messengerKeyboardChromeOpen && keyboardOverlapSuppressed;
+            window.requestAnimationFrame(() => {
+              window.requestAnimationFrame(() => {
+                if (cmPolishAnalysisEnabled() && typeof performance !== "undefined") {
+                  logCmPolishAnalysis({
+                    composer_focus_to_ready_ms: Math.round((performance.now() - t0) * 1000) / 1000,
+                    room_id_suffix:
+                      String(vm.snapshot.room.id ?? "").length > 8
+                        ? String(vm.snapshot.room.id).slice(-8)
+                        : String(vm.snapshot.room.id ?? ""),
+                  });
                 }
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--delivery-primary)] text-white transition active:opacity-90 disabled:bg-[#d0d0d0] disabled:text-[#888888] disabled:opacity-100"
-                aria-label={t("common_send")}
-              >
-                <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
-              </button>
-            ) : (
-              <div className="h-9 w-9 shrink-0" aria-hidden />
-            )}
-          </div>
-        ) : (
-        <MessengerInputBar>
-          <div className="flex min-h-[54px] min-w-0 items-center justify-center justify-self-stretch self-stretch">
-            {!vm.voiceRecording ? (
-              <button
-                type="button"
-                data-cm-line-plus-btn
-                onClick={() => vm.setActiveSheet("attach")}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] transition hover:bg-black/[0.06] active:bg-black/[0.08]"
-                aria-label={t("cm_ui_attachment_menu")}
-              >
-                <Plus className="h-[21px] w-[21px]" strokeWidth={2} />
-              </button>
-            ) : (
-              <div className="h-9 w-9 shrink-0" aria-hidden />
-            )}
-          </div>
-          <div className="flex min-h-[54px] min-w-0 flex-1 items-center self-stretch py-1">
-            {!vm.voiceRecording ? (
-              <div className="relative flex h-[38px] min-h-[38px] w-full min-w-0 items-center">
-                <textarea
-                  ref={vm.composerTextareaRef}
-                  value={draft}
-                  onChange={(e) => {
-                    setDraft(e.target.value);
-                    queueMicrotask(() => notifyChatInputCommitForPerf());
-                  }}
-                  onKeyDown={(e) => {
-                    notifyChatInputKeydownForPerf();
-                    if (e.key !== "Enter" && e.key !== "NumpadEnter") return;
-                    if (e.shiftKey) return;
-                    if (e.nativeEvent.isComposing) return;
-                    e.preventDefault();
-                    commitTextSend();
-                  }}
-                  onFocus={(e) => {
-                    useMessengerRoomUiStore.getState().setComposerFocused(true);
-                    const ta = e.currentTarget;
-                    const t0 = typeof performance !== "undefined" ? performance.now() : 0;
-                    const skipScrollIntoView =
-                      isNarrowViewport && messengerKeyboardChromeOpen && keyboardOverlapSuppressed;
-                    window.requestAnimationFrame(() => {
-                      window.requestAnimationFrame(() => {
-                        if (cmPolishAnalysisEnabled() && typeof performance !== "undefined") {
-                          logCmPolishAnalysis({
-                            composer_focus_to_ready_ms: Math.round((performance.now() - t0) * 1000) / 1000,
-                            room_id_suffix:
-                              String(vm.snapshot.room.id ?? "").length > 8
-                                ? String(vm.snapshot.room.id).slice(-8)
-                                : String(vm.snapshot.room.id ?? ""),
-                          });
-                        }
-                        if (skipScrollIntoView) return;
-                        try {
-                          ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
-                        } catch {
-                          ta.scrollIntoView({ block: "nearest" });
-                        }
-                      });
-                    });
-                  }}
-                  onBlur={() => {
-                    useMessengerRoomUiStore.getState().setComposerFocused(false);
-                  }}
-                  rows={1}
-                  disabled={
-                    vm.roomUnavailable ||
-                    vm.busy === "delete-message" ||
-                    vm.busy === "send-image" ||
-                    vm.busy === "send-file" ||
-                    vm.busy === "send-sticker"
-                  }
-                  placeholder={
-                    tradeOnlyBlocked
-                      ? tradeBlockedMessage || t("cm_ui_cannot_send_message")
-                      : vm.roomUnavailable
-                        ? vm.snapshot.room.isReadonly
-                          ? "읽기 전용 방입니다"
-                          : vm.snapshot.room.roomStatus === "blocked"
-                            ? "차단된 방입니다"
-                            : "보관된 방입니다"
-                        : vm.snapshot.clientShellPlaceholder
-                          ? "메시지를 입력하세요"
-                          : "메시지"
-                  }
-                  className={`h-[38px] max-h-[38px] min-h-[38px] w-full min-w-0 resize-none border-0 bg-transparent pr-11 text-[14px] leading-[1.35] outline-none ring-0 placeholder:text-[#65676b] focus:outline-none disabled:opacity-50 ${
-                    messengerComposerDense ? "min-h-[38px]" : "min-h-[38px]"
-                  }`}
-                />
-                <button
-                  type="button"
-                  data-cm-line-mic-btn
-                  onPointerDown={vm.onVoiceMicPointerDown}
-                  onPointerMove={vm.onVoiceMicPointerMove}
-                  onPointerUp={vm.onVoiceMicPointerUp}
-                  onPointerCancel={vm.onVoiceMicPointerCancel}
-                  disabled={
-                    vm.roomUnavailable ||
-                    vm.busy === "send" ||
-                    vm.busy === "send-image" ||
-                    vm.busy === "send-file" ||
-                    vm.busy === "send-voice" ||
-                    vm.busy === "send-sticker" ||
-                    vm.busy === "delete-message" ||
-                    Boolean(draft.trim()) ||
-                    (vm.voiceRecording && vm.voiceHandsFree) ||
-                    (composerSurfaceMode === "phase1" && !getMessengerRoomComposerPhase2Bridge())
-                  }
-                  className={`sam-cm-voice-mic-ripple-btn absolute right-1.5 top-1/2 z-[5] flex h-8 w-8 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full shadow-none transition-[transform,background-color,color] duration-200 disabled:text-[#9ca3af] disabled:opacity-45 ${
-                    vm.voiceMicArming
-                      ? "scale-[1.35] bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-2 ring-[color:var(--cm-room-primary)]/45"
-                      : "scale-100 bg-transparent text-[#1f2937] hover:bg-black/[0.06] active:scale-[0.96] active:bg-black/[0.08]"
-                  }`}
-                  aria-label={t("cm_ui_voice_message_recording_guide")}
-                  title={
-                    draft.trim()
-                      ? t("cm_ui_clear_text_for_voice_recording")
-                      : t("cm_ui_hold_record_send_slide_cancel_lock")
-                  }
-                >
-                  <Mic className="h-5 w-5" strokeWidth={2} />
-                </button>
-              </div>
-            ) : vm.voiceHandsFree ? (
-              <div className="flex h-[44px] min-h-[44px] max-h-[44px] min-w-0 w-full items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 shadow-none">
-                <span className="flex shrink-0 items-center gap-1 tabular-nums sam-text-body-secondary text-[13px] font-semibold leading-none text-sam-fg">
-                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-sam-danger" />
-                  {formatVoiceRecordTenThousandths(vm.voiceRecordElapsedMs)}
-                </span>
-                <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg">{t("cm_ui_locked_recording")}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void vm.finalizeVoiceRecording(false)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-sam-muted shadow-none"
-                  aria-label={t("cm_ui_delete_recording")}
-                >
-                  <Trash2 className="h-4 w-4" strokeWidth={2} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void vm.finalizeVoiceRecording(true)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary text-sam-on-primary shadow-none"
-                  aria-label={t("cm_ui_send_voice")}
-                >
-                  <ArrowUp className="h-4 w-4 text-sam-on-primary" strokeWidth={2.25} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex h-[44px] min-h-[44px] max-h-[44px] min-w-0 w-full items-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 shadow-none">
-                <span className="flex shrink-0 items-center gap-1 tabular-nums sam-text-body-secondary text-[13px] font-semibold leading-none text-sam-fg">
-                  <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-sam-danger" />
-                  {formatVoiceRecordTenThousandths(vm.voiceRecordElapsedMs)}
-                </span>
-                <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
-                <span
-                  className={`min-w-0 shrink-0 text-center sam-text-xxs leading-tight ${
-                    vm.voiceCancelHint ? "font-medium text-sam-danger" : "text-sam-muted"
-                  }`}
-                >
-                  ‹ 밀어서 취소
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex min-h-[54px] min-w-0 items-center justify-center justify-self-stretch self-stretch">
-            {!vm.voiceRecording ? (
-              <button
-                type="button"
-                data-cm-line-send-btn
-                onClick={() => commitTextSend()}
-                disabled={
-                  vm.roomUnavailable ||
-                  !draft.trim() ||
-                  vm.busy === "send" ||
-                  vm.busy === "send-image" ||
-                  vm.busy === "send-file" ||
-                  vm.busy === "send-voice" ||
-                  vm.busy === "send-sticker" ||
-                  vm.busy === "delete-message"
+                if (skipScrollIntoView) return;
+                try {
+                  ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+                } catch {
+                  ta.scrollIntoView({ block: "nearest" });
                 }
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-none transition active:scale-[0.98] disabled:text-white ${
-                  isDeliveryRoom
-                    ? "bg-[color:var(--delivery-primary)] disabled:bg-[color:var(--delivery-primary)]/40"
-                    : "bg-[color:var(--cm-room-primary)] disabled:bg-[color:var(--cm-room-primary-disabled)]"
-                }`}
-                aria-label={t("common_send")}
-              >
-                <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
-              </button>
-            ) : (
-              <div className="pointer-events-none h-9 w-9 shrink-0" aria-hidden />
-            )}
-          </div>
-        </MessengerInputBar>
-        )}
+              });
+            });
+          }}
+          onTextareaBlur={() => {
+            useMessengerRoomUiStore.getState().setComposerFocused(false);
+          }}
+          textareaDisabled={
+            vm.roomUnavailable ||
+            vm.busy === "delete-message" ||
+            vm.busy === "send-image" ||
+            vm.busy === "send-file" ||
+            vm.busy === "send-sticker"
+          }
+          sendDisabled={
+            vm.roomUnavailable ||
+            !draft.trim() ||
+            vm.busy === "send" ||
+            vm.busy === "send-image" ||
+            vm.busy === "send-file" ||
+            vm.busy === "send-voice" ||
+            vm.busy === "send-sticker" ||
+            vm.busy === "delete-message"
+          }
+          sendAriaLabel={
+            vm.voiceRecording && vm.voiceHandsFree ? t("cm_ui_send_voice") : t("common_send")
+          }
+          attachAriaLabel={t("cm_ui_attachment_menu")}
+          attachDisabled={vm.roomUnavailable}
+          voice={{
+            recording: vm.voiceRecording,
+            micArming: vm.voiceMicArming,
+            handsFree: vm.voiceHandsFree,
+            elapsedMs: vm.voiceRecordElapsedMs,
+            peaks: vm.voiceLivePreviewBars,
+            cancelHint: vm.voiceCancelHint,
+            onMicPointerDown: vm.onVoiceMicPointerDown,
+            onMicPointerMove: vm.onVoiceMicPointerMove,
+            onMicPointerUp: vm.onVoiceMicPointerUp,
+            onMicPointerCancel: vm.onVoiceMicPointerCancel,
+            onFinalizeRecording: (send) => void vm.finalizeVoiceRecording(send),
+            micDisabled:
+              vm.roomUnavailable ||
+              vm.busy === "send" ||
+              vm.busy === "send-image" ||
+              vm.busy === "send-file" ||
+              vm.busy === "send-voice" ||
+              vm.busy === "send-sticker" ||
+              vm.busy === "delete-message" ||
+              Boolean(draft.trim()) ||
+              (vm.voiceRecording && vm.voiceHandsFree) ||
+              (composerSurfaceMode === "phase1" && !getMessengerRoomComposerPhase2Bridge()),
+            micTitle: draft.trim()
+              ? t("cm_ui_clear_text_for_voice_recording")
+              : t("cm_ui_hold_record_send_slide_cancel_lock"),
+          }}
+          t={t}
+        />
     </>
   );
 
-  const composerFooterClass = `z-[5] shrink-0 w-full max-w-full ${isDeliveryRoom ? "px-2 pt-1.5" : "px-3 pt-2"} shadow-none transition-[background-color] duration-200 ${
+  const composerFooterClass = `z-[5] shrink-0 w-full max-w-full px-2 pt-0 shadow-none transition-[background-color] duration-200 ${
     composerAnchoredByShell ? "shrink-0" : "sticky bottom-0"
-  } ${
-    vm.voiceRecording && !isDeliveryRoom
-      ? "border-t border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white"
-      : isDeliveryRoom
-        ? "delivery-ui border-t border-[#e8e8e8] bg-white"
-        : "border-t border-[#e5e7eb] bg-white"
-  }`;
+  } delivery-ui border-t border-[#e8e8e8] bg-white`;
 
   return (
     <footer
       data-cm-composer
-      {...(isDeliveryRoom || !vm.voiceRecording ? { "data-cm-line-composer-footer": true } : {})}
+      data-cm-line-composer-footer
       className={composerFooterClass}
       style={{ paddingBottom: footerPaddingBottom }}
     >
