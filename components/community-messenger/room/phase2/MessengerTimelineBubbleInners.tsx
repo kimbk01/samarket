@@ -155,7 +155,9 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
     >
       <span
         className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          item.isMine ? "bg-sam-surface/55 text-sam-fg" : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
+          item.isMine
+            ? "bg-white/20 text-[color:var(--cm-room-bubble-outgoing-fg)]"
+            : "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)]"
         }`}
         aria-hidden
       >
@@ -165,14 +167,14 @@ export const TimelineViberInnerCallStub = memo(function TimelineViberInnerCallSt
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
           <span
             className={`sam-text-body font-semibold leading-snug ${
-              item.isMine ? "text-sam-fg" : "text-[color:var(--cm-room-text)]"
+              item.isMine ? "text-inherit" : "text-[color:var(--cm-room-text)]"
             }`}
           >
             {item.callKind === "video" ? videoCallLabel : voiceCallLabel}
           </span>
           <span
             className={`sam-text-xxs font-medium leading-snug ${
-              item.isMine ? "text-sam-muted" : "text-[color:var(--cm-room-text-muted)]"
+              item.isMine ? "text-white/80" : "text-[color:var(--cm-room-text-muted)]"
             }`}
           >
             {callStatusLabel}

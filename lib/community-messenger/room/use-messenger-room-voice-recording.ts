@@ -320,7 +320,6 @@ export function useMessengerRoomVoiceRecording({
         roomUnavailable ||
         !snapshot ||
         message.trim() ||
-        busy === "send" ||
         busy === "send-voice" ||
         busy === "delete-message"
       )

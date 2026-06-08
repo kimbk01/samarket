@@ -333,7 +333,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     if (
       vm.roomUnavailable ||
       !draft.trim() ||
-      vm.busy === "send" ||
       vm.busy === "send-image" ||
       vm.busy === "send-file" ||
       vm.busy === "send-voice" ||
@@ -519,7 +518,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           sendDisabled={
             vm.roomUnavailable ||
             !draft.trim() ||
-            vm.busy === "send" ||
             vm.busy === "send-image" ||
             vm.busy === "send-file" ||
             vm.busy === "send-voice" ||
@@ -545,7 +543,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             onFinalizeRecording: (send) => void vm.finalizeVoiceRecording(send),
             micDisabled:
               vm.roomUnavailable ||
-              vm.busy === "send" ||
               vm.busy === "send-image" ||
               vm.busy === "send-file" ||
               vm.busy === "send-voice" ||

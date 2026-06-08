@@ -762,75 +762,70 @@ export function useMessengerRoomPhase2Controller() {
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
       scrollMessengerToBottom();
-      setBusy("send");
-      try {
-        cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
-        const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const replyId = rid;
-        const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            content: trimmed,
-            clientMessageId,
-            ...(replyId ? { replyToMessageId: replyId } : {}),
-          }),
-        });
-        cmReceiveLatencyMark(latencyKey, { send_api_done_ms: cmReceiveLatencyNow() });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          error?: string;
-          message?: CommunityMessengerMessage;
-        };
-        const createdAt = typeof json.message?.createdAt === "string" ? json.message.createdAt : "";
-        if (createdAt) cmReceiveLatencyMark(latencyKey, { db_message_created_at: createdAt });
-        if (res.ok && json.ok) {
-          const elapsed =
-            typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
-          messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
-        }
-        if (!res.ok || !json.ok) {
-          setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
-          if (restoreOnFail !== undefined) setMessage(restoreOnFail);
-          if (redirectIfMessengerAuthBlocked(res, json)) return;
-          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-          return;
-        }
-        bumpCommunityMessengerPresenceActivity("message_sent");
-        const confirmedMessage = json.message;
-        if (confirmedMessage?.id) {
-          const withCid =
-            !trimCmText(confirmedMessage.clientMessageId) && clientMessageId
-              ? { ...confirmedMessage, clientMessageId }
-              : confirmedMessage;
-          setRoomMessages((prev) =>
-            mergeRoomMessages(
-              prev.filter(
-                (item) =>
-                  item.id !== tempId &&
-                  !(
-                    (item as { pending?: boolean }).pending &&
-                    item.clientMessageId === clientMessageId
-                  )
-              ),
-              [withCid]
-            )
-          );
-          scrollMessengerToBottom();
-          onMessengerOutboundConfirmed(withCid, clientMessageId);
-          forgetRoomBootstrapClientFlightsAfterMutation();
-          return;
-        }
-        void catchUpNewerMessages().finally(() => {
-          const exists = roomMessagesRef.current.some(
-            (item) => item.clientMessageId === clientMessageId && !item.pending
-          );
-          if (!exists) void refresh(true, { triggerReason: "send_missing_message_body" });
-        });
-        forgetRoomBootstrapClientFlightsAfterMutation();
-      } finally {
-        setBusy(null);
+      cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
+      const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
+      const replyId = rid;
+      const res = await fetch(`${communityMessengerRoomResourcePath(streamRoomId)}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: trimmed,
+          clientMessageId,
+          ...(replyId ? { replyToMessageId: replyId } : {}),
+        }),
+      });
+      cmReceiveLatencyMark(latencyKey, { send_api_done_ms: cmReceiveLatencyNow() });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        message?: CommunityMessengerMessage;
+      };
+      const createdAt = typeof json.message?.createdAt === "string" ? json.message.createdAt : "";
+      if (createdAt) cmReceiveLatencyMark(latencyKey, { db_message_created_at: createdAt });
+      if (res.ok && json.ok) {
+        const elapsed =
+          typeof performance !== "undefined" ? Math.round(performance.now() - tSend) : Math.round(Date.now() - tSend);
+        messengerMonitorMessageRtt(streamRoomId, elapsed, "text");
       }
+      if (!res.ok || !json.ok) {
+        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        if (restoreOnFail !== undefined) setMessage(restoreOnFail);
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+        return;
+      }
+      bumpCommunityMessengerPresenceActivity("message_sent");
+      const confirmedMessage = json.message;
+      if (confirmedMessage?.id) {
+        const withCid =
+          !trimCmText(confirmedMessage.clientMessageId) && clientMessageId
+            ? { ...confirmedMessage, clientMessageId }
+            : confirmedMessage;
+        setRoomMessages((prev) =>
+          mergeRoomMessages(
+            prev.filter(
+              (item) =>
+                item.id !== tempId &&
+                !(
+                  (item as { pending?: boolean }).pending &&
+                  item.clientMessageId === clientMessageId
+                )
+            ),
+            [withCid]
+          )
+        );
+        scrollMessengerToBottom();
+        onMessengerOutboundConfirmed(withCid, clientMessageId);
+        forgetRoomBootstrapClientFlightsAfterMutation();
+        return;
+      }
+      void catchUpNewerMessages().finally(() => {
+        const exists = roomMessagesRef.current.some(
+          (item) => item.clientMessageId === clientMessageId && !item.pending
+        );
+        if (!exists) void refresh(true, { triggerReason: "send_missing_message_body" });
+      });
+      forgetRoomBootstrapClientFlightsAfterMutation();
     },
     [
       catchUpNewerMessages,

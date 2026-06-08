@@ -236,7 +236,6 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     onClick={() => void vm.confirmAttachmentSend()}
                     disabled={
                       vm.roomUnavailable ||
-                      vm.busy === "send" ||
                       vm.busy === "send-image" ||
                       vm.busy === "send-file" ||
                       vm.busy === "send-voice" ||

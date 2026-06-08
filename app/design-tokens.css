@@ -303,9 +303,9 @@
   --cm-room-primary-active: var(--sam-primary-active);
   --cm-room-primary-soft: var(--sam-primary-soft);
   --cm-room-primary-disabled: var(--sam-primary-disabled);
-  --cm-room-page-bg: var(--messenger-bg);
-  /* Messenger 대화 영역: 채팅 배경과 수신 말풍선 대비 고정 */
-  --messenger-chat-bg: var(--dibay-cream);
+  /* 배달 채팅방과 동일 웜 그레이 — `delivery-chat-room.css` `--delivery-chat-bg` */
+  --cm-room-page-bg: #f7f6f3;
+  --messenger-chat-bg: #f7f6f3;
   --cm-room-chat-bg: var(--messenger-chat-bg);
   --cm-room-bg: var(--cm-room-chat-bg);
   --cm-room-text: var(--messenger-text);

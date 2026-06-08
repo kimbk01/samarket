@@ -140,7 +140,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
   const commitTextSend = useCallback(() => {
     if (!vm) return;
     const text = draft.trim();
-    if (!text || vm.roomUnavailable || vm.busy === "send") return;
+    if (!text || vm.roomUnavailable) return;
     setDraft("");
     void vm.sendMessage(text);
   }, [draft, vm]);
@@ -204,7 +204,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
           vm.busy === "send-file" ||
           vm.busy === "send-sticker"
         }
-        sendDisabled={roomUnavailable || !draft.trim() || vm.busy === "send"}
+        sendDisabled={roomUnavailable || !draft.trim()}
         sendAriaLabel={t("common_send")}
         attachAriaLabel={t("cm_ui_attachment_menu")}
         attachDisabled={roomUnavailable}

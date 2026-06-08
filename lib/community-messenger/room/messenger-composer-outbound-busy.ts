@@ -10,9 +10,9 @@ export type MessengerComposerBusy =
   | "edit-message"
   | string;
 
+/** 텍스트 `send` 는 clientMessageId·낙관적 UI 로 병렬 전송 가능 — 여기서 막지 않음 */
 export function isMessengerComposerOutboundBusy(busy: MessengerComposerBusy): boolean {
   return (
-    busy === "send" ||
     busy === "send-sticker" ||
     busy === "send-image" ||
     busy === "send-file" ||

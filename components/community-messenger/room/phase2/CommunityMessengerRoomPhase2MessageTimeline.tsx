@@ -1097,6 +1097,25 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return stableFirstCommitRowsRef.current ?? timelinePaintMessages;
   }, [firstCommitRowsLocked, timelinePaintMessages]);
 
+  /**
+   * 일반 1:1·그룹 direct layout — FMV용 첫 행 freeze 후 전송·수신으로 목록이 늘어나면 즉시 unlock.
+   * (배달은 hasStoreOrderDock 분기에서 별도 unlock — 2026-05-24 회귀와 동일 클래스)
+   */
+  useLayoutEffect(() => {
+    if (!firstCommitRowsLocked) return;
+    const frozen = stableFirstCommitRowsRef.current;
+    if (!frozen || frozen.length === 0) return;
+    if (timelinePaintMessages.length > frozen.length) {
+      setFirstCommitRowsLocked(false);
+      return;
+    }
+    const frozenLastId = frozen[frozen.length - 1]?.id ?? "";
+    const liveLastId = timelinePaintMessages[timelinePaintMessages.length - 1]?.id ?? "";
+    if (liveLastId && frozenLastId !== liveLastId) {
+      setFirstCommitRowsLocked(false);
+    }
+  }, [firstCommitRowsLocked, timelinePaintMessages]);
+
   useEffect(() => {
     if (hasStoreOrderDock) {
       holdDirectDomRef.current = false;
@@ -1148,6 +1167,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           commit.virtualizerUpgradeStartMs = nowFromT0Ms();
           holdDirectDomRef.current = false;
           setHoldDirectDom(false);
+          setFirstCommitRowsLocked(false);
         });
       });
     });
