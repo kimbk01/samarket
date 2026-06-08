@@ -30,7 +30,10 @@ import {
   pruneSeenIncomingMessageIdsByRoom,
   pruneTrackedRoomMaps,
 } from "@/lib/community-messenger/stores/messenger-realtime-prune";
-import { sessionKeysMatchMessage } from "@/lib/community-messenger/call-event-message";
+import {
+  callStubSessionDedupeKeys,
+  sessionKeysMatchMessage,
+} from "@/lib/community-messenger/call-event-message";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmRtStoreScopeLog } from "@/lib/community-messenger/realtime/cm-rt-store-scope-log";
 
@@ -129,7 +132,20 @@ function mergeMessages(
   prev: CommunityMessengerMessage[],
   nextMessage: CommunityMessengerMessage
 ): CommunityMessengerMessage[] {
-  const next = prev.filter((item) => item.id !== nextMessage.id);
+  const callStubKeys = callStubSessionDedupeKeys(nextMessage);
+  const incomingIsLocal = String(nextMessage.id ?? "").startsWith("cm-cevt-");
+  let skipIncomingCallStub = false;
+  const next = prev.filter((item) => {
+    if (item.id === nextMessage.id) return false;
+    if (callStubKeys.length === 0) return true;
+    const existingKeys = callStubSessionDedupeKeys(item);
+    if (!existingKeys.some((key) => callStubKeys.includes(key))) return true;
+    const existingIsLocal = String(item.id ?? "").startsWith("cm-cevt-");
+    if (existingIsLocal || !incomingIsLocal) return false;
+    skipIncomingCallStub = true;
+    return true;
+  });
+  if (skipIncomingCallStub) return prev;
   next.push(nextMessage);
   next.sort((a, b) => {
     const ta = new Date(a.createdAt).getTime();
@@ -138,6 +154,34 @@ function mergeMessages(
     return String(a.id).localeCompare(String(b.id));
   });
   return next;
+}
+
+function mergeCallStubDuplicates(messages: CommunityMessengerMessage[]): CommunityMessengerMessage[] {
+  let changed = false;
+  const byKey = new Map<string, CommunityMessengerMessage>();
+  const out: CommunityMessengerMessage[] = [];
+  for (const message of messages) {
+    const keys = callStubSessionDedupeKeys(message);
+    if (keys.length === 0) {
+      out.push(message);
+      continue;
+    }
+    const existing = keys.map((key) => byKey.get(key)).find(Boolean);
+    if (!existing) {
+      for (const key of keys) byKey.set(key, message);
+      out.push(message);
+      continue;
+    }
+    changed = true;
+    const existingIsLocal = String(existing.id ?? "").startsWith("cm-cevt-");
+    const incomingIsLocal = String(message.id ?? "").startsWith("cm-cevt-");
+    if (existingIsLocal && !incomingIsLocal) {
+      const idx = out.findIndex((item) => item.id === existing.id);
+      if (idx >= 0) out[idx] = message;
+      for (const key of keys) byKey.set(key, message);
+    }
+  }
+  return changed ? out : messages;
 }
 
 function trimMeta(value: unknown): string {
@@ -219,7 +263,7 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
     set((state) => {
       let messagesByRoomId = {
         ...state.messagesByRoomId,
-        [rid]: snapshot.messages ?? state.messagesByRoomId[rid] ?? [],
+        [rid]: mergeCallStubDuplicates(snapshot.messages ?? state.messagesByRoomId[rid] ?? []),
       };
       let lastReadByRoomId = {
         ...state.lastReadByRoomId,

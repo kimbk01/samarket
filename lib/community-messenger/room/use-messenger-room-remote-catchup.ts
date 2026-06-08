@@ -30,7 +30,10 @@ export function useMessengerRoomRemoteCatchup({
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
 }): {
   catchUpNewerMessages: () => Promise<boolean>;
-  catchUpAfterRemoteBump: (hintMessageId?: string | null) => Promise<void>;
+  catchUpAfterRemoteBump: (
+    hintMessageId?: string | null,
+    opts?: { alreadyMergedSnapshot?: boolean }
+  ) => Promise<void>;
 } {
   const catchUpNewerMessages = useCallback(async (): Promise<boolean> => {
     const id = (snapshotRef.current?.room?.id?.trim() || roomId?.trim() || "").trim();
@@ -113,8 +116,20 @@ export function useMessengerRoomRemoteCatchup({
 
   /** 원격 bump 직후: 단건 병합 → 실패 시 `after` 증분 → 마지막에 스냅샷 refresh */
   const catchUpAfterRemoteBump = useCallback(
-    async (hintMessageId?: string | null) => {
+    async (hintMessageId?: string | null, opts?: { alreadyMergedSnapshot?: boolean }) => {
       const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
+      const mergedBySnapshot = Boolean(opts?.alreadyMergedSnapshot && hint);
+      if (mergedBySnapshot) {
+        const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
+        const meta =
+          merged?.metadata && typeof merged.metadata === "object"
+            ? (merged.metadata as { domain?: unknown; orderStatus?: unknown })
+            : null;
+        if (meta?.domain === "store_order" && meta.orderStatus) {
+          void refresh(true, { triggerReason: "store_order_status_bump" });
+        }
+        return;
+      }
       if (hint && (await tryMergeSingleMessageFromBump(hint))) {
         const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
         const meta =

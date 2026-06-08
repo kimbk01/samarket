@@ -12,7 +12,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 export function CommunityMessengerCallRouteLoading() {
   const { t } = useI18n();
   return (
-    <CallScreenShell variant="page" className="min-h-[100dvh] overflow-hidden">
+    <CallScreenShell variant="page" className="overflow-hidden">
       <CallBackground mode="video" phase="connecting" showVideo={false} />
       <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
         <CallHeader onBack={null} topLabel={null} trailing={null} />

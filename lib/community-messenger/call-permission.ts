@@ -130,7 +130,7 @@ export function hasUsablePrimedCommunityMessengerDeviceStream(kind: CommunityMes
 /** Permissions API 대기 없이 즉시 — 발신 통화 첫 페인트·자동 조인 판단용 */
 export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCallKind): boolean {
   if (typeof window === "undefined") return false;
-  return hasUsablePrimedCommunityMessengerDeviceStream(kind);
+  return hasUsablePrimedCommunityMessengerDeviceStream(kind) || hasCommunityMessengerMediaTrustedMark(kind);
 }
 
 /**
@@ -140,7 +140,7 @@ export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCal
  * - Permissions API 로 이미 granted 인 경우(쿼리는 상한 ms — 일부 환경에서 수 초 걸려 연결 화면이 늦게 뜨는 문제 방지)
  */
 export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerCallKind): Promise<boolean> {
-  if (shouldSkipCallerMediaGateOverlaySync(kind)) return true;
+  if (hasUsablePrimedCommunityMessengerDeviceStream(kind)) return true;
   if (typeof window === "undefined") return false;
   const perm = navigator.permissions;
   const trusted = hasCommunityMessengerMediaTrustedMark(kind);
@@ -149,16 +149,18 @@ export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerC
     const micState = await readPermissionStateBudgeted(() => perm.query({ name: "microphone" as PermissionName }));
     if (micState === "denied") return false;
     if (micState == null) return trusted;
-    if (micState !== "granted") return false;
     if (kind === "video") {
       const camState = await readPermissionStateBudgeted(() => perm.query({ name: "camera" as PermissionName }));
       if (camState === "denied") return false;
       if (camState == null) return trusted;
-      if (camState !== "granted") return false;
+      if (trusted) return true;
+      if (micState !== "granted" || camState !== "granted") return false;
+      return true;
     }
-    return true;
+    if (trusted) return true;
+    return micState === "granted";
   } catch {
-    return false;
+    return trusted;
   }
 }
 

@@ -4,6 +4,7 @@ import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { appendCommunityMessengerCallStubMessage } from "@/lib/community-messenger/service";
 import type { CommunityMessengerCallKind, CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,6 +95,11 @@ export async function POST(req: NextRequest) {
     replaceExisting,
     incrementUnread: !replaceExisting,
     durationSeconds,
+  });
+  await publishMessengerRoomBumpAfterMutation({
+    rawRouteRoomId: roomId,
+    canonicalRoomId: roomId,
+    fromUserId: senderId,
   });
 
   return NextResponse.json({ ok: true });

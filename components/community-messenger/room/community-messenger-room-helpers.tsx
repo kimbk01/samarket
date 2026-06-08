@@ -18,6 +18,7 @@ import type {
 import type { CommunityMessengerRoomRealtimeMessageRow } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { isCommunityMessengerStickerPublicPath } from "@/lib/stickers/sticker-content";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
+import { callStubSessionDedupeKeys } from "@/lib/community-messenger/call-event-message";
 
 /** 녹음 경과 시간 — 1/10000초(0.0001s) 단위까지 표시 */
 export function formatVoiceRecordTenThousandths(ms: number): string {
@@ -145,6 +146,23 @@ export function mergeRoomMessages(
     mergedConfirmed.set(item.id, item);
   }
   for (const item of next) {
+    let skipIncomingCallStub = false;
+    const callStubKeys = callStubSessionDedupeKeys(item);
+    if (callStubKeys.length > 0) {
+      for (const [existingId, existingRow] of mergedConfirmed) {
+        if (existingId === item.id) continue;
+        const existingKeys = callStubSessionDedupeKeys(existingRow);
+        if (!existingKeys.some((key) => callStubKeys.includes(key))) continue;
+        const existingIsLocal = existingId.startsWith("cm-cevt-");
+        const incomingIsLocal = String(item.id ?? "").startsWith("cm-cevt-");
+        if (existingIsLocal || !incomingIsLocal) {
+          mergedConfirmed.delete(existingId);
+        } else {
+          skipIncomingCallStub = true;
+        }
+      }
+    }
+    if (skipIncomingCallStub) continue;
     const cidNext =
       typeof item.clientMessageId === "string" ? item.clientMessageId.trim() : "";
     if (cidNext) {

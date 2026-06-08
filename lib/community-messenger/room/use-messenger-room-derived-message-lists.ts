@@ -7,6 +7,7 @@ import {
   extractHttpUrls,
   looksLikeDirectImageUrl,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import { finalizeStoreOrderChatDisplayMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
@@ -39,7 +40,9 @@ export function useMessengerRoomDerivedMessageLists(
         messageSearchBase.push(m);
       }
 
-      if (!(m.messageType === "call_stub" && hiddenCallStubIds.has(m.id))) {
+      const callStubHidden =
+        m.messageType === "call_stub" && callStubHiddenKeys(m).some((key) => hiddenCallStubIds.has(key));
+      if (!callStubHidden) {
         displayRoomMessages.push(m);
       }
 

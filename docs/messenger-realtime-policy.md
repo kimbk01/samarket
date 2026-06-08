@@ -34,7 +34,7 @@
 | 발행 | 메시지·미디어 mutation 직후 **서비스 롤**이 Realtime Broadcast 로 bump 전송. 응답 본문 전에 `await` 로 전송 완료를 보장. | [`publish-messenger-room-bump.ts`](../lib/community-messenger/server/publish-messenger-room-bump.ts) → [`room-bump-broadcast-server.ts`](../lib/community-messenger/realtime/room-bump-broadcast-server.ts) |
 | 페이로드 | v2: `canonicalRoomId`, `fromUserId`, `messageId`, 선택 **`message`**(직렬화된 확정 행). 거래·레거시 URL id 와 canonical 이 다르면 **두 채널** 모두 발행 + `rawRouteRoomId` 로 매칭. | [`community-messenger-room-bump-channel.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-channel.ts) (`communityMessengerBumpPayloadMatchesKnownRooms` 등) |
 | 직렬화·검증 | 서버→와이어용 `serialize…`, 수신 측 `parse…` — `fromUserId`·방 id·`messageId` 힌트와 교차 검증 후에만 UI 병합. | [`community-messenger-room-bump-message-snapshot.ts`](../lib/community-messenger/realtime/community-messenger-room-bump-message-snapshot.ts) |
-| 수신 UI | `subscribeCommunityMessengerRoomBumpBroadcast` + 즉시 `mergeRoomMessages`; 이어서 HTTP 증분(`catchUpAfterRemoteBump`)으로 정합. `postgres_changes` 는 병행. | [`room-bump-broadcast.ts`](../lib/community-messenger/realtime/room-bump-broadcast.ts) (구독만), [`use-messenger-room-client-phase1.ts`](../lib/community-messenger/room/use-messenger-room-client-phase1.ts) |
+| 수신 UI | `subscribeCommunityMessengerRoomBumpBroadcast` + 즉시 `mergeRoomMessages`; bump `message` snapshot 병합 성공 시 단건 GET 은 생략하고, snapshot 이 없거나 검증 실패한 경우에만 HTTP 증분(`catchUpAfterRemoteBump`)으로 정합. `postgres_changes` 는 병행. | [`room-bump-broadcast.ts`](../lib/community-messenger/realtime/room-bump-broadcast.ts) (구독만), [`use-messenger-room-client-phase1.ts`](../lib/community-messenger/room/use-messenger-room-client-phase1.ts) |
 | 금지 | **클라이언트**가 동일 bump 채널로 메시지 알림을 발행하는 것 — 서버 bump 와 중복·지연·보안 모델이 어긋난다. | (구 `publishCommunityMessengerRoomBump*` 클라 발행 제거됨) |
 
 ## 원칙
@@ -43,6 +43,7 @@
 2. **방당 WebSocket 채널 1개** — `postgres_changes` 를 한 채널에 묶어 구독 수를 줄임.
 3. **홈 목록** — `community_messenger_rooms` 의 `id=in.(…)` 필터는 **90개 단위 청크** (Supabase `in` 한도 여유). 상수: `HOME_ROOMS_IN_FILTER_MAX` in [`use-community-messenger-realtime.ts`](../lib/community-messenger/use-community-messenger-realtime.ts).
 4. **typing / presence** (향후) — 별 테이블 또는 브로드캐스트 채널, **수십 바이트 이하** 페이로드; 방 전체 `GET` 금지.
+5. **1:1 통화 히스토리** — terminal 상태(`rejected`/`cancelled`/`missed`/`ended`)는 세션 로그 중복 여부와 무관하게 채팅 `call_stub` 를 보장한다. 클라이언트는 즉시 로컬 stub 를 병합하고, 서버는 `replaceExisting` 으로 최종 stub 를 보정한다. 로컬 `cm-cevt-*`와 DB UUID stub는 `sessionId/tmpSessionId + callResolvedEvent/callStatus` 기준으로 한 줄만 표시하고, 숨김도 message id와 session key를 함께 저장한다.
 
 ## 안티패턴
 

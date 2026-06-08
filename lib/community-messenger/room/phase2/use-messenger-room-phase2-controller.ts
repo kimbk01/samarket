@@ -63,6 +63,7 @@ import {
   mergeRoomMessages,
   nextOptimisticCommunityMessengerCreatedAtIso,
 } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import { createCommunityMessengerClientMessageId } from "@/lib/community-messenger/client-message-id";
 import { syncMessengerHomeAfterOutboundSend } from "@/lib/community-messenger/multi-tab-bus";
 import { touchRecentStickerUrl } from "@/lib/stickers/recent-stickers-client";
@@ -1885,10 +1886,12 @@ export function useMessengerRoomPhase2Controller() {
   const forwardMessage = shareMessageExternally;
 
   const hideCallStubLocally = useCallback(
-    (messageId: string) => {
+    (message: CommunityMessengerMessage & { pending?: boolean }) => {
       setHiddenCallStubIds((prev) => {
         const next = new Set(prev);
-        next.add(messageId);
+        for (const key of callStubHiddenKeys(message)) {
+          next.add(key);
+        }
         try {
           const key = `cm_hidden_call_stubs:${streamRoomId.trim()}`;
           localStorage.setItem(key, JSON.stringify([...next]));

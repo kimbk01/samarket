@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { NextRequest, NextResponse, after } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { buildMessengerImageVariantBuffers } from "@/lib/community-messenger/messenger-image-variants";
@@ -148,13 +148,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
       messageCreatedAt: result.message?.createdAt,
       messageForBump: result.message ?? null,
     };
-    after(async () => {
-      try {
-        await publishMessengerRoomBumpAfterMutation(bumpArgs);
-      } catch {
-        /* best-effort */
-      }
-    });
+    try {
+      await publishMessengerRoomBumpAfterMutation(bumpArgs);
+    } catch {
+      /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+    }
   }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

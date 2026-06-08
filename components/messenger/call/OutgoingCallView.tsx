@@ -15,7 +15,7 @@ export function OutgoingCallView({ vm }: { vm: CallScreenViewModel }) {
   return (
     <div
       key={layoutKey}
-      className="relative z-[2] flex min-h-0 min-h-[100dvh] flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#6b3df1_0%,#5a35d8_28%,#3d2699_55%,#2a1a6e_100%)] px-5 pb-[max(22px,calc(env(safe-area-inset-bottom)+10px))]"
+      className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[linear-gradient(180deg,#6b3df1_0%,#5a35d8_28%,#3d2699_55%,#2a1a6e_100%)] px-5 pb-[max(22px,calc(env(safe-area-inset-bottom)+10px))]"
     >
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_14%,rgba(255,255,255,0.16),transparent_42%),radial-gradient(circle_at_50%_96%,rgba(255,255,255,0.06),transparent_38%)]"

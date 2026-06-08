@@ -54,8 +54,8 @@ export function CallScreen({
         variant === "dock-top"
           ? "min-h-0 overflow-hidden rounded-b-3xl shadow-2xl"
           : variant === "page"
-            ? "h-full max-h-full min-h-0 min-h-[100dvh] overflow-hidden supports-[height:100svh]:min-h-[100svh]"
-            : "min-h-[100dvh] overflow-hidden"
+            ? "h-full max-h-full min-h-0 overflow-hidden"
+            : "h-full min-h-0 overflow-hidden"
       }
     >
       {hideCallBackground ? null : (

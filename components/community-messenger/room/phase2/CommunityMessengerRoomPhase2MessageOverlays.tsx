@@ -89,7 +89,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             })();
           }}
           onHideLocal={() => {
-            vm.hideCallStubLocally(callStubSheet.item.id);
+            vm.hideCallStubLocally(callStubSheet.item);
           }}
         />
       ) : null}

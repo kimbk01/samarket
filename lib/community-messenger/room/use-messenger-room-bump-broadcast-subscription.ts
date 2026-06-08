@@ -84,7 +84,10 @@ export function useMessengerRoomBumpBroadcastSubscription({
   remoteBumpCatchUpRafRef: MutableRefObject<number | null>;
   lastRemoteBumpDedupeRef: MutableRefObject<string>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
-  catchUpAfterRemoteBump: (hintMessageId?: string | null) => Promise<void>;
+  catchUpAfterRemoteBump: (
+    hintMessageId?: string | null,
+    opts?: { alreadyMergedSnapshot?: boolean }
+  ) => Promise<void>;
 }): void {
   const listenerRef = useRef<RoomBumpListener>({ onBump: () => undefined });
   /**
@@ -111,10 +114,12 @@ export function useMessengerRoomBumpBroadcastSubscription({
     let lastCatchUpAt = 0;
     let catchUpTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingHint = "";
-    const scheduleCatchUp = (hintMessageId: string) => {
+    let pendingAlreadyMergedSnapshot = false;
+    const scheduleCatchUp = (hintMessageId: string, opts?: { alreadyMergedSnapshot?: boolean }) => {
       const now = Date.now();
       const elapsed = now - lastCatchUpAt;
       const minGap = 180;
+      if (opts?.alreadyMergedSnapshot) pendingAlreadyMergedSnapshot = true;
       if (elapsed < minGap) {
         if (hintMessageId) pendingHint = hintMessageId;
         if (catchUpTimer != null) return;
@@ -122,15 +127,19 @@ export function useMessengerRoomBumpBroadcastSubscription({
           catchUpTimer = null;
           lastCatchUpAt = Date.now();
           const h = pendingHint;
+          const alreadyMergedSnapshot = pendingAlreadyMergedSnapshot;
           pendingHint = "";
-          void catchUpAfterRemoteBump(h || undefined);
+          pendingAlreadyMergedSnapshot = false;
+          void catchUpAfterRemoteBump(h || undefined, { alreadyMergedSnapshot });
         }, minGap - elapsed);
         return;
       }
       lastCatchUpAt = now;
       const h = hintMessageId || pendingHint;
+      const alreadyMergedSnapshot = Boolean(opts?.alreadyMergedSnapshot || pendingAlreadyMergedSnapshot);
       pendingHint = "";
-      void catchUpAfterRemoteBump(h || undefined);
+      pendingAlreadyMergedSnapshot = false;
+      void catchUpAfterRemoteBump(h || undefined, { alreadyMergedSnapshot });
     };
     const onBump = (payload: Record<string, unknown>) => {
       const known = communityMessengerBumpKnownRoomIds({
@@ -170,13 +179,17 @@ export function useMessengerRoomBumpBroadcastSubscription({
       remoteBumpCatchUpRafRef.current = requestAnimationFrame(() => {
         remoteBumpCatchUpRafRef.current = null;
         const pre = parseCommunityMessengerBumpMessageSnapshot(payload, viewer);
+        let mergedSnapshot = false;
+        let catchUpHint = hint;
         if (pre) {
           const member = roomMembersDisplayRef.current.find((m) => messengerUserIdsEqual(m.id, pre.senderId ?? ""));
           const enriched =
             member?.label && member.label.trim().length > 0 ? { ...pre, senderLabel: member.label } : pre;
           setRoomMessages((prev) => mergeRoomMessages(prev, [enriched]));
+          catchUpHint = catchUpHint || String(pre.id ?? "").trim();
+          mergedSnapshot = true;
         }
-        scheduleCatchUp(hint);
+        scheduleCatchUp(catchUpHint, { alreadyMergedSnapshot: mergedSnapshot });
       });
     };
     listenerRef.current.onBump = onBump;

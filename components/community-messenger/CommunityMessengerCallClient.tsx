@@ -91,6 +91,7 @@ import {
   notifyCommunityMessengerCallInviteRingBestEffort,
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
@@ -420,6 +421,38 @@ export function CommunityMessengerCallClient({
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
   sessionRef.current = session;
+  /**
+   * PATCH 직후 GET/Realtime 이 아직 ringing/active 를 돌려줄 때 로컬 종료 상태가 덮이는 레이스 방지
+   * (발신 취소·수신 종료 후 화면·링백이 다시 살아나던 현상). TTL 은 수신 전역 hard-clear 와 동일하게 길게 둔다.
+   */
+  const callTerminalLocalPinRef = useRef<{
+    sessionId: string;
+    until: number;
+    snapshot: CommunityMessengerCallSession;
+  } | null>(null);
+  const appendTerminalCallHistory = useCallback(
+    (
+      source: CommunityMessengerCallSession,
+      status: CommunityMessengerCallSession["status"],
+      opts?: { hangupReason?: string | null; endedReason?: string | null }
+    ) => {
+      if (source.sessionMode !== "direct") return;
+      if (!isTerminalCallSessionStatus(status)) return;
+      appendLocalCallChatMessageFromTerminalSession({
+        roomId: source.roomId,
+        sessionId: source.id,
+        tmpSessionId: isCommunityMessengerTempCallSessionId(source.id) ? source.id : undefined,
+        initiatorUserId: source.initiatorUserId,
+        recipientUserId: source.recipientUserId ?? undefined,
+        callKind: source.callKind,
+        status,
+        answeredAt: source.answeredAt ?? null,
+        hangupReason: opts?.hangupReason ?? null,
+        endedReason: opts?.endedReason ?? source.endedReason ?? null,
+      });
+    },
+    []
+  );
 
   useEffect(() => {
     const off = onCommunityMessengerBusEvent((ev) => {
@@ -436,12 +469,33 @@ export function CommunityMessengerCallClient({
         messengerUserIdsEqual(cur.initiatorUserId, evIni) &&
         cur.callKind === ev.callKind;
       if (!sidOk && !triple) return;
+      const terminalStatus = readRealtimeSessionStatus(ev.status);
+      if (terminalStatus && isTerminalCallSessionStatus(terminalStatus)) {
+        appendTerminalCallHistory(cur, terminalStatus);
+        const snapshot: CommunityMessengerCallSession = {
+          ...cur,
+          status: terminalStatus,
+          endedAt: new Date().toISOString(),
+        };
+        callTerminalLocalPinRef.current = {
+          sessionId: cur.id,
+          until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
+          snapshot,
+        };
+        setSession(snapshot);
+        joiningRef.current = false;
+        setJoined(false);
+        joinedRef.current = false;
+        setRemoteJoined(false);
+        stopCommunityMessengerCallTone();
+        stopCommunityMessengerCallFeedback();
+      }
       if (cur.status === "ringing" && !cur.isMineInitiator) {
         queueMicrotask(() => navigateBackFromCommunityMessengerCall(router, cur.roomId));
       }
     });
     return off;
-  }, [router]);
+  }, [appendTerminalCallHistory, router]);
 
   const latencyFirstScreenLoggedRef = useRef(false);
   const remoteAudioFirstFrameLoggedRef = useRef(false);
@@ -589,15 +643,6 @@ export function CommunityMessengerCallClient({
   }, [session?.id, session?.status]);
   const remoteJoinedRef = useRef(false);
   remoteJoinedRef.current = remoteJoined;
-  /**
-   * PATCH 직후 GET/Realtime 이 아직 ringing/active 를 돌려줄 때 로컬 종료 상태가 덮이는 레이스 방지
-   * (발신 취소·수신 종료 후 화면·링백이 다시 살아나던 현상). TTL 은 수신 전역 hard-clear 와 동일하게 길게 둔다.
-   */
-  const callTerminalLocalPinRef = useRef<{
-    sessionId: string;
-    until: number;
-    snapshot: CommunityMessengerCallSession;
-  } | null>(null);
   /** effect 가 백업 폴링 간격을 Realtime 구독 상태에 맞출 수 있게 state 로도 반영 */
   const [sessionRealtimeSubscribed, setSessionRealtimeSubscribed] = useState(false);
   /** Realtime + polling + user-action refresh가 동시에 붙을 때 GET 폭주 방지 */
@@ -1914,6 +1959,7 @@ export function CommunityMessengerCallClient({
           until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
           snapshot,
         };
+        appendTerminalCallHistory(snapshot, snapshot.status);
         setSession(snapshot);
       }
       joiningRef.current = false;
@@ -1921,7 +1967,7 @@ export function CommunityMessengerCallClient({
       joinedRef.current = false;
       setRemoteJoined(false);
     },
-    []
+    [appendTerminalCallHistory]
   );
 
   const rejectIncoming = useCallback(async () => {
@@ -1942,6 +1988,7 @@ export function CommunityMessengerCallClient({
       if (prev?.id === sid) {
         const snap: CommunityMessengerCallSession = { ...prev, status: "rejected", endedAt: endedAtIso };
         callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS, snapshot: snap };
+        appendTerminalCallHistory(prev, "rejected", { hangupReason: "reject" });
         setSession(snap);
       }
     }
@@ -2010,7 +2057,7 @@ export function CommunityMessengerCallClient({
         directCallPatchInFlightRef.current = false;
       }
     })();
-  }, [disposeCallMedia, router, scheduleSilentRefresh, session]);
+  }, [appendTerminalCallHistory, disposeCallMedia, router, scheduleSilentRefresh, session]);
 
   const endCall = useCallback(async () => {
     if (!session) return;
@@ -2048,6 +2095,7 @@ export function CommunityMessengerCallClient({
           until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
           snapshot: snap,
         };
+        appendTerminalCallHistory(prev, optimisticEnd, { hangupReason });
         setSession(snap);
       }
     }
@@ -2111,7 +2159,7 @@ export function CommunityMessengerCallClient({
         directCallPatchInFlightRef.current = false;
       }
     })();
-  }, [applyTerminalSessionAfterPatch, disposeCallMedia, elapsedSeconds, router, scheduleSilentRefresh, session]);
+  }, [applyTerminalSessionAfterPatch, appendTerminalCallHistory, disposeCallMedia, elapsedSeconds, router, scheduleSilentRefresh, session]);
 
   const requestUpgradeToVideo = useCallback(async () => {
     const s = sessionRef.current;
@@ -2559,6 +2607,7 @@ export function CommunityMessengerCallClient({
                 : null;
             const nextStatus = resolveHangupTerminalStatusForSnapshot(active, payloadObj?.reason);
             const endedAtIso = new Date().toISOString();
+            const hangupReason = typeof payloadObj?.reason === "string" ? payloadObj.reason.trim() : null;
             const snapshot: CommunityMessengerCallSession = {
               ...active,
               status: nextStatus,
@@ -2569,6 +2618,7 @@ export function CommunityMessengerCallClient({
               until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
               snapshot,
             };
+            appendTerminalCallHistory(active, nextStatus, { hangupReason });
             setSession(snapshot);
             joiningRef.current = false;
             setJoined(false);
@@ -2584,7 +2634,7 @@ export function CommunityMessengerCallClient({
       cancelled = true;
       sub.stop();
     };
-  }, [disposeCallMedia, scheduleSilentRefresh, sessionId]);
+  }, [appendTerminalCallHistory, disposeCallMedia, scheduleSilentRefresh, sessionId]);
 
   useEffect(() => {
     const sb = getSupabaseClient();
@@ -2630,6 +2680,10 @@ export function CommunityMessengerCallClient({
           until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
           snapshot,
         };
+        appendTerminalCallHistory(active, optimisticStatus, {
+          hangupReason:
+            optimisticStatus === "rejected" ? "reject" : optimisticStatus === "cancelled" ? "cancel" : "end",
+        });
         setSession(snapshot);
         joiningRef.current = false;
         setJoined(false);
@@ -2644,7 +2698,7 @@ export function CommunityMessengerCallClient({
       cancelled = true;
       void sb.removeChannel(ch);
     };
-  }, [disposeCallMedia, scheduleSilentRefresh, session?.id, session?.participants, sessionId]);
+  }, [appendTerminalCallHistory, disposeCallMedia, scheduleSilentRefresh, session?.id, session?.participants, sessionId]);
 
   useEffect(() => {
     autoJoinBlockedRef.current = false;
@@ -3228,7 +3282,7 @@ export function CommunityMessengerCallClient({
       ? terminalFailureHeadline
       : failureEndedDetail !== null
         ? t("cm_ui_call_ended")
-        : showCallerMediaGate && directPhase === "ringing"
+        : showCallerMediaGate
           ? videoCall
             ? t("cm_ui_mic_camera_permission_required")
             : t("cm_ui_mic_permission_required")
@@ -3261,7 +3315,7 @@ export function CommunityMessengerCallClient({
   const subStatusText =
     failureEndedDetail ??
     errorMessage ??
-    (showCallerMediaGate && directPhase === "ringing"
+    (showCallerMediaGate
       ? videoCall
         ? t("cm_ui_gate_grant_camera_mic_hint")
         : t("cm_ui_gate_grant_mic_via_controls_hint")
@@ -3422,10 +3476,10 @@ export function CommunityMessengerCallClient({
     Boolean(session) &&
     !showCallerInsecureGateOverlay &&
     showCallerMediaGate &&
-    directPhase === "ringing";
+    (directPhase === "connecting" || directPhase === "ringing");
 
   return (
-    <div className="relative h-[100dvh] max-h-[100dvh] min-h-[100dvh] overflow-hidden supports-[height:100svh]:h-[100svh] supports-[height:100svh]:max-h-[100svh] supports-[height:100svh]:min-h-[100svh]">
+    <div className="relative min-h-0 overflow-hidden">
       <CallScreen vm={callVm} variant="page" />
       {showCallerInsecureGateOverlay ? (
         <CallerMediaGateOverlay

@@ -4375,7 +4375,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
         .eq("room_id", input.roomId)
         .eq("message_type", "call_stub")
         .order("created_at", { ascending: false })
-        .limit(20);
+        .limit(100);
       const existingRow = ((existingRows ?? []) as Array<{ id: string; metadata?: unknown }>).find((row) =>
         hasMatchingCallStubSessionId(row.metadata, input.sessionId)
       );
@@ -16843,15 +16843,33 @@ export async function updateCommunityMessengerCallSession(input: {
   const sessionId = trimText(input.sessionId);
   if (!sessionId) return { ok: false, error: "session_required" };
   const durationSeconds = Math.max(0, Number(input.durationSeconds ?? 0));
+  const terminalLogStatus = (mapped: CommunityMessengerCallSession): CommunityMessengerCallStatus =>
+    mapped.status === "ended"
+      ? "ended"
+      : mapped.status === "rejected"
+        ? "rejected"
+        : mapped.status === "cancelled"
+          ? "cancelled"
+          : "missed";
+  const ensureTerminalCallStub = async (
+    session: CallSessionRow | DevCallSession,
+    mapped: CommunityMessengerCallSession
+  ) => {
+    if (!isTerminalCallSessionStatus(mapped.status)) return;
+    await appendCommunityMessengerCallStubMessage({
+      userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
+      roomId: "room_id" in session ? session.room_id : session.roomId,
+      sessionId,
+      callKind: "call_kind" in session ? session.call_kind : session.callKind,
+      status: terminalLogStatus(mapped),
+      createdAt: mapped.endedAt ?? nowIso(),
+      replaceExisting: mapped.sessionMode === "direct",
+      incrementUnread: false,
+      durationSeconds,
+    });
+  };
   const finalizeLog = async (session: CallSessionRow | DevCallSession, mapped: CommunityMessengerCallSession) => {
-    const status =
-      mapped.status === "ended"
-        ? "ended"
-        : mapped.status === "rejected"
-          ? "rejected"
-          : mapped.status === "cancelled"
-            ? "cancelled"
-            : "missed";
+    const status = terminalLogStatus(mapped);
     await createCommunityMessengerCallLog({
       userId: "initiator_user_id" in session ? session.initiator_user_id : session.initiatorUserId,
       roomId: "room_id" in session ? session.room_id : session.roomId,
@@ -17014,6 +17032,7 @@ export async function updateCommunityMessengerCallSession(input: {
           /** 발신 취소 등으로 이미 종료된 뒤 수신 측 거절이 늦게 오는 경우 — bad_action 반복 방지 */
           if (isTerminalCallSessionStatus(session.status)) {
             const mapped = await mapCallSession(input.userId, session);
+            await ensureTerminalCallStub(session, mapped);
             return { ok: true, session: mapped };
           }
           if (session.status !== "ringing" && session.status !== "active") return { ok: false, error: "bad_action" };
@@ -17102,6 +17121,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("session_id", sessionId)
             .maybeSingle();
           if (!existingLog) await finalizeLog(session, mapped);
+          else await ensureTerminalCallStub(session, mapped);
         }
         await appendCommunityMessengerCallSessionEvent(sb, {
           sessionId,
@@ -17120,6 +17140,7 @@ export async function updateCommunityMessengerCallSession(input: {
           isTerminalCallSessionStatus(session.status)
         ) {
           const mapped = await mapCallSession(input.userId, session);
+          await ensureTerminalCallStub(session, mapped);
           return { ok: true, session: mapped };
         }
         return { ok: false, error: "bad_action" };
@@ -17189,6 +17210,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .eq("session_id", sessionId)
             .maybeSingle();
           if (!existingLog) await finalizeLog(session, mapped);
+          else await ensureTerminalCallStub(session, mapped);
         }
         await appendCommunityMessengerCallSessionEvent(sb, {
           sessionId,
@@ -17279,8 +17301,9 @@ export async function updateCommunityMessengerCallSession(input: {
       }
     }
     const mapped = await mapCallSession(input.userId, session);
-    if (isTerminalCallSessionStatus(mapped.status) && !dev.calls.some((item) => item.sessionId === sessionId)) {
-      await finalizeLog(session, mapped);
+    if (isTerminalCallSessionStatus(mapped.status)) {
+      if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
+      else await ensureTerminalCallStub(session, mapped);
     }
     return { ok: true, session: mapped };
   }
@@ -17294,6 +17317,7 @@ export async function updateCommunityMessengerCallSession(input: {
       isTerminalCallSessionStatus(session.status)
     ) {
       const mapped = await mapCallSession(input.userId, session);
+      await ensureTerminalCallStub(session, mapped);
       return { ok: true, session: mapped };
     }
     return { ok: false, error: "bad_action" };
@@ -17329,8 +17353,9 @@ export async function updateCommunityMessengerCallSession(input: {
     participant.leftAt = next.endedAt ?? participant.leftAt;
   }
   const mapped = await mapCallSession(input.userId, session);
-  if (isTerminalCallSessionStatus(mapped.status) && !dev.calls.some((item) => item.sessionId === sessionId)) {
-    await finalizeLog(session, mapped);
+  if (isTerminalCallSessionStatus(mapped.status)) {
+    if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
+    else await ensureTerminalCallStub(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {
     const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)

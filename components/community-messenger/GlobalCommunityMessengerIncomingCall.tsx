@@ -170,6 +170,18 @@ function markIncomingCallHardClearedSession(hardClearedAtBySessionId: Map<string
   hardClearedAtBySessionId.set(sid, Date.now());
 }
 
+function clearIncomingMissedTimer(
+  scheduleRef: { current: Map<string, { deadline: number; timerId: number }> },
+  sessionId: string
+) {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  const meta = scheduleRef.current.get(sid);
+  if (!meta) return;
+  window.clearTimeout(meta.timerId);
+  scheduleRef.current.delete(sid);
+}
+
 function isIncomingCallWindowForeground(): boolean {
   if (typeof document === "undefined") return true;
   if (document.visibilityState !== "visible" || document.hidden) return false;
@@ -478,6 +490,18 @@ export function GlobalCommunityMessengerIncomingCall() {
     });
     const q: CallIncomingTerminalQuery = { ...baseQuery, status: statusNorm };
 
+    if (sessionId) {
+      markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
+      suppressMissedSoundRef.current.add(sessionId);
+      clearIncomingMissedTimer(ringMissedScheduleRef, sessionId);
+    }
+    if (tmpSessionId) {
+      markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, tmpSessionId);
+      suppressMissedSoundRef.current.add(tmpSessionId);
+      clearIncomingMissedTimer(ringMissedScheduleRef, tmpSessionId);
+    }
+    stopCommunityMessengerCallTone();
+
     setSessions((prev) => {
       const { next, removed, matchedBy } = filterRemoveIncomingSessionsMatchingTerminal(prev, q);
       if (removed.length === 0) {
@@ -504,13 +528,8 @@ export function GlobalCommunityMessengerIncomingCall() {
       for (const r of removed) {
         markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, r.id);
         suppressMissedSoundRef.current.add(r.id);
-        const meta = ringMissedScheduleRef.current.get(r.id);
-        if (meta) {
-          window.clearTimeout(meta.timerId);
-          ringMissedScheduleRef.current.delete(r.id);
-        }
+        clearIncomingMissedTimer(ringMissedScheduleRef, r.id);
       }
-      stopCommunityMessengerCallTone();
 
       if (statusNorm === "cancelled") {
         if (isDebugMessengerEnabled()) {

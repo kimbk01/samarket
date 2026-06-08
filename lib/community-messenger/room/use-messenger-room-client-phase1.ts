@@ -144,6 +144,7 @@ import {
   onCommunityMessengerBusEvent,
   postCommunityMessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
+import { callStubHiddenKeys } from "@/lib/community-messenger/call-event-message";
 import {
   patchMessengerRoomReadSnapshotRuntime,
   patchMessengerRoomSnapshotRuntime,
@@ -1562,7 +1563,11 @@ export function useMessengerRoomClientPhase1({
   const displayRoomMessagesBootstrap = useMemo(() => {
     const tMemo0 = typeof performance !== "undefined" ? performance.now() : 0;
     const filtered = roomMessages.filter(
-      (m) => !(m.messageType === "call_stub" && hiddenCallStubIds.has(m.id))
+      (m) =>
+        !(
+          m.messageType === "call_stub" &&
+          callStubHiddenKeys(m).some((key) => hiddenCallStubIds.has(key))
+        )
     );
     const result = phase1EntryLightPass
       ? filtered

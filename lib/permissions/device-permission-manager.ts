@@ -371,6 +371,9 @@ async function ensureDevicePermissionsWithDiBaYGate(
   if (states.every((state) => state === "granted")) {
     return { ok: true };
   }
+  if (options?.featureKey && isPermissionFeatureCompleted(options.featureKey)) {
+    return { ok: true };
+  }
 
   const explicitRetry = !!options?.explicitRetry;
   const guideKind = options?.guideKind ?? kinds[0] ?? "microphone";

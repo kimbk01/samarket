@@ -1,7 +1,11 @@
 /**
  * 커뮤니티 메신저 1:1 통화 — 채팅 스텁 문구·터미널 이벤트 해석 단일 정의.
  */
-import type { CommunityMessengerCallKind, CommunityMessengerCallStatus } from "@/lib/community-messenger/types";
+import type {
+  CommunityMessengerCallKind,
+  CommunityMessengerCallStatus,
+  CommunityMessengerMessage,
+} from "@/lib/community-messenger/types";
 
 export type CallSessionViewerRole = "caller" | "callee";
 
@@ -192,4 +196,82 @@ export function sessionKeysMatchMessage(
   if (a && (ms === a || mt === a)) return true;
   if (b && (ms === b || mt === b)) return true;
   return false;
+}
+
+function callStubMetaString(message: Pick<CommunityMessengerMessage, "metadata">, key: string): string {
+  const meta = message.metadata;
+  if (!meta || typeof meta !== "object") return "";
+  const value = (meta as Record<string, unknown>)[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function callStubSessionKey(
+  message: Pick<CommunityMessengerMessage, "messageType" | "callSessionId" | "callTmpSessionId" | "metadata">
+): string {
+  if (message.messageType !== "call_stub") return "";
+  const sessionId = message.callSessionId?.trim() || callStubMetaString(message, "sessionId");
+  const tmpSessionId = message.callTmpSessionId?.trim() || callStubMetaString(message, "tmpSessionId");
+  return sessionId || tmpSessionId || "";
+}
+
+export function callStubSessionKeys(
+  message: Pick<CommunityMessengerMessage, "messageType" | "callSessionId" | "callTmpSessionId" | "metadata">
+): string[] {
+  if (message.messageType !== "call_stub") return [];
+  const keys = new Set<string>();
+  const sessionId = message.callSessionId?.trim() || callStubMetaString(message, "sessionId");
+  const tmpSessionId = message.callTmpSessionId?.trim() || callStubMetaString(message, "tmpSessionId");
+  if (sessionId) keys.add(sessionId);
+  if (tmpSessionId) keys.add(tmpSessionId);
+  return [...keys];
+}
+
+export function callStubResolvedEventKey(
+  message: Pick<CommunityMessengerMessage, "messageType" | "callStatus" | "metadata">
+): string {
+  if (message.messageType !== "call_stub") return "";
+  return callStubMetaString(message, "callResolvedEvent") || message.callStatus?.trim() || "";
+}
+
+export function callStubSessionDedupeKey(
+  message: Pick<
+    CommunityMessengerMessage,
+    "messageType" | "callSessionId" | "callTmpSessionId" | "callStatus" | "metadata"
+  >
+): string {
+  const sessionKey = callStubSessionKey(message);
+  if (!sessionKey) return "";
+  const eventKey = callStubResolvedEventKey(message);
+  return `call_stub:${sessionKey}:${eventKey || "status_unknown"}`;
+}
+
+export function callStubSessionDedupeKeys(
+  message: Pick<
+    CommunityMessengerMessage,
+    "messageType" | "callSessionId" | "callTmpSessionId" | "callStatus" | "metadata"
+  >
+): string[] {
+  const sessionKeys = callStubSessionKeys(message);
+  if (sessionKeys.length === 0) return [];
+  const eventKey = callStubResolvedEventKey(message) || "status_unknown";
+  return sessionKeys.map((sessionKey) => `call_stub:${sessionKey}:${eventKey}`);
+}
+
+export function callStubHiddenKeys(
+  message: Pick<
+    CommunityMessengerMessage,
+    "id" | "messageType" | "callSessionId" | "callTmpSessionId" | "callStatus" | "metadata"
+  >
+): string[] {
+  const id = String(message.id ?? "").trim();
+  if (message.messageType !== "call_stub") return id ? [id] : [];
+  const keys = new Set<string>();
+  if (id) keys.add(id);
+  for (const sessionKey of callStubSessionKeys(message)) {
+    keys.add(`call_stub_session:${sessionKey}`);
+  }
+  for (const dedupeKey of callStubSessionDedupeKeys(message)) {
+    keys.add(dedupeKey);
+  }
+  return [...keys];
 }
