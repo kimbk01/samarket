@@ -31,6 +31,12 @@ export type HubBadgeDeepBreakdown = {
   stale?: 0 | 1;
   total_ms?: number;
   explain_ran?: 0 | 1;
+  /** PK select hub_badge_user_unread_counters */
+  counter_row_ms?: number;
+  /** count_notification_targets_hub_bundle RPC (0 when embedded bundle on counter row) */
+  target_bundle_ms?: number;
+  target_bundle_rpc_skipped?: 0 | 1;
+  target_bundle_refetch_ms?: number;
 };
 
 let lastHubBadgeDeepBreakdown: HubBadgeDeepBreakdown | null = null;

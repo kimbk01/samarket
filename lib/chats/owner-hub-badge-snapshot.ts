@@ -1,6 +1,6 @@
 /**
  * Owner hub badge snapshot — read-only assembly (counter row → unified RPC fallback).
- * Route must not multi-wave aggregate when snapshot path succeeds (1 RTT max cold).
+ * Cold path: counter row + notification_targets bundle (parallel → embedded 1 RTT).
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -32,20 +32,20 @@ import {
   type HubBadgeDeepBreakdownPath,
 } from "@/lib/chats/hub-badge-deep-breakdown";
 import { scheduleOwnerHubBadgeSnapshotRefresh } from "@/lib/chats/hub-badge-snapshot-refresh";
-import { writeOwnerHubStoreLookupMemory } from "@/lib/chats/owner-hub-store-lookup-cache";
+import {
+  readOwnerHubStoreLookupMemory,
+  writeOwnerHubStoreLookupMemory,
+} from "@/lib/chats/owner-hub-store-lookup-cache";
 import type {
   OwnerHubBadgeApiPayload,
   OwnerHubBadgeBuildMeta,
 } from "@/lib/chats/build-owner-hub-badge-payload";
-import {
-  mergeOwnerHubBadgeUnreadAndStore,
-} from "@/lib/chats/build-owner-hub-badge-payload";
+import { mergeOwnerHubBadgeUnreadAndStore } from "@/lib/chats/build-owner-hub-badge-payload";
 import {
   countNotificationTargetsHubBundle,
+  type NotificationTargetHubBundle,
 } from "@/lib/notifications/notification-targets";
-import {
-  ownerHubUnreadPartialFromTargetBundle,
-} from "@/lib/chats/build-owner-hub-badge-from-targets";
+import { ownerHubUnreadPartialFromTargetBundle } from "@/lib/chats/build-owner-hub-badge-from-targets";
 import { writeCmUnreadRoomCountMemory } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
 import { writeHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
 import { writeHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
@@ -69,47 +69,50 @@ export type OwnerHubBadgeSnapshotRow = {
   refund_pending_count: number;
   order_pending_count: number;
   inquiry_pending_count: number;
+  nt_bottom_nav_chat?: number;
+  nt_bottom_nav_community?: number;
+  nt_bottom_nav_delivery?: number;
+  nt_fab_owner_orders?: number;
+  nt_fab_owner_store?: number;
+  nt_fab_owner_order_chat?: number;
+  nt_owner_commerce_inbox?: number;
+  nt_bundle_at?: string | null;
   updated_at: string;
 };
 
 type SnapshotReadVia = "counter_row" | "unified_rpc";
 
-function parseSnapshotRpcData(data: unknown): Omit<OwnerHubBadgeSnapshotRow, "updated_at"> | null {
-  if (!data || typeof data !== "object") return null;
-  const d = data as Record<string, unknown>;
-  const hubId = typeof d.hub_store_id === "string" ? d.hub_store_id.trim() : null;
-  return {
-    has_hub_store: Boolean(d.has_hub_store),
-    hub_store_id: hubId || null,
-    hub_store_slug: typeof d.hub_store_slug === "string" ? d.hub_store_slug : null,
-    store_order_participant_unread: Math.max(
-      0,
-      Math.floor(Number(d.store_order_participant_unread) || 0)
-    ),
-    item_trade_participant_unread: Math.max(
-      0,
-      Math.floor(Number(d.item_trade_participant_unread) || 0)
-    ),
-    community_participant_unread: Math.max(
-      0,
-      Math.floor(Number(d.community_participant_unread) || 0)
-    ),
-    product_chat_unread_deduped: Math.max(
-      0,
-      Math.floor(Number(d.product_chat_unread_deduped) || 0)
-    ),
-    community_messenger_unread_room_count: Math.max(
-      0,
-      Math.floor(Number(d.community_messenger_unread_room_count) || 0)
-    ),
-    store_order_chat_unread: Math.max(0, Math.floor(Number(d.store_order_chat_unread) || 0)),
-    refund_pending_count: Math.max(0, Math.floor(Number(d.refund_pending_count) || 0)),
-    order_pending_count: Math.max(0, Math.floor(Number(d.order_pending_count) || 0)),
-    inquiry_pending_count: Math.max(0, Math.floor(Number(d.inquiry_pending_count) || 0)),
-  };
-}
+type SnapshotCounterReadTiming = {
+  db_fetch_ms: number;
+  snapshot_deserialize_ms: number;
+  query_row_bytes: number;
+};
 
-function counterSelectFields(): string {
+type SnapshotCounterRead =
+  | {
+      hit: false;
+      reason: "missing" | "stale" | "no_column" | "error";
+      timing: SnapshotCounterReadTiming;
+      bundleColumnsAvailable: boolean;
+    }
+  | {
+      hit: true;
+      row: OwnerHubBadgeSnapshotRow;
+      ageMs: number;
+      stale: boolean;
+      raw: Record<string, unknown> | null;
+      timing: SnapshotCounterReadTiming;
+      bundleColumnsAvailable: boolean;
+    };
+
+type SnapshotTargetBundleTiming = {
+  counterRowMs: number;
+  targetBundleMs: number;
+  targetBundleRpcSkipped: 0 | 1;
+  targetBundleRefetchMs: number;
+};
+
+function counterBareSelectFields(): string {
   return [
     "user_id",
     "store_order_participant_unread",
@@ -128,69 +131,136 @@ function counterSelectFields(): string {
   ].join(",");
 }
 
-function rowFromDb(data: Record<string, unknown>): OwnerHubBadgeSnapshotRow | null {
+function counterBundleSelectFields(): string {
+  return [
+    counterBareSelectFields(),
+    "nt_bottom_nav_chat",
+    "nt_bottom_nav_community",
+    "nt_bottom_nav_delivery",
+    "nt_fab_owner_orders",
+    "nt_fab_owner_store",
+    "nt_fab_owner_order_chat",
+    "nt_owner_commerce_inbox",
+    "nt_bundle_at",
+  ].join(",");
+}
+
+function isNtBundleColumnError(error: { message?: string; code?: string }): boolean {
+  const msg = error.message ?? "";
+  return (
+    msg.includes("nt_bundle_at") ||
+    msg.includes("nt_bottom_nav_chat") ||
+    msg.includes("nt_fab_owner_orders") ||
+    error.code === "42703"
+  );
+}
+
+function floorCount(value: unknown): number {
+  return Math.max(0, Math.floor(Number(value) || 0));
+}
+
+function embeddedBundleFromSnapshotRow(row: OwnerHubBadgeSnapshotRow): NotificationTargetHubBundle | null {
+  if (!row.nt_bundle_at || typeof row.nt_bundle_at !== "string") return null;
+  return {
+    bottom_nav_chat: floorCount(row.nt_bottom_nav_chat),
+    bottom_nav_community: floorCount(row.nt_bottom_nav_community),
+    bottom_nav_delivery: floorCount(row.nt_bottom_nav_delivery),
+    fab_owner_orders: floorCount(row.nt_fab_owner_orders),
+    fab_owner_store: floorCount(row.nt_fab_owner_store),
+    fab_owner_order_chat: floorCount(row.nt_fab_owner_order_chat),
+    owner_commerce_inbox: floorCount(row.nt_owner_commerce_inbox),
+  };
+}
+
+function bundleFieldsFromRpcData(d: Record<string, unknown>): Partial<OwnerHubBadgeSnapshotRow> {
+  return {
+    nt_bottom_nav_chat: floorCount(d.nt_bottom_nav_chat),
+    nt_bottom_nav_community: floorCount(d.nt_bottom_nav_community),
+    nt_bottom_nav_delivery: floorCount(d.nt_bottom_nav_delivery),
+    nt_fab_owner_orders: floorCount(d.nt_fab_owner_orders),
+    nt_fab_owner_store: floorCount(d.nt_fab_owner_store),
+    nt_fab_owner_order_chat: floorCount(d.nt_fab_owner_order_chat),
+    nt_owner_commerce_inbox: floorCount(d.nt_owner_commerce_inbox),
+    nt_bundle_at: new Date().toISOString(),
+  };
+}
+
+function parseSnapshotRpcData(data: unknown): Omit<OwnerHubBadgeSnapshotRow, "updated_at"> | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const hubId = typeof d.hub_store_id === "string" ? d.hub_store_id.trim() : null;
+  const base = {
+    has_hub_store: Boolean(d.has_hub_store),
+    hub_store_id: hubId || null,
+    hub_store_slug: typeof d.hub_store_slug === "string" ? d.hub_store_slug : null,
+    store_order_participant_unread: floorCount(d.store_order_participant_unread),
+    item_trade_participant_unread: floorCount(d.item_trade_participant_unread),
+    community_participant_unread: floorCount(d.community_participant_unread),
+    product_chat_unread_deduped: floorCount(d.product_chat_unread_deduped),
+    community_messenger_unread_room_count: floorCount(d.community_messenger_unread_room_count),
+    store_order_chat_unread: floorCount(d.store_order_chat_unread),
+    refund_pending_count: floorCount(d.refund_pending_count),
+    order_pending_count: floorCount(d.order_pending_count),
+    inquiry_pending_count: floorCount(d.inquiry_pending_count),
+  };
+  if ("nt_bottom_nav_chat" in d) {
+    return { ...base, ...bundleFieldsFromRpcData(d) };
+  }
+  return base;
+}
+
+function rowFromDb(
+  data: Record<string, unknown>,
+  bundleColumnsAvailable: boolean
+): OwnerHubBadgeSnapshotRow | null {
   if (!data.updated_at || typeof data.updated_at !== "string") return null;
   const hubId =
     typeof data.hub_store_id === "string" && data.hub_store_id.trim()
       ? data.hub_store_id.trim()
       : null;
-  return {
+  const row: OwnerHubBadgeSnapshotRow = {
     has_hub_store: Boolean(data.has_hub_store),
     hub_store_id: hubId,
     hub_store_slug: typeof data.hub_store_slug === "string" ? data.hub_store_slug : null,
-    store_order_participant_unread: Math.max(
-      0,
-      Math.floor(Number(data.store_order_participant_unread) || 0)
-    ),
-    item_trade_participant_unread: Math.max(
-      0,
-      Math.floor(Number(data.item_trade_participant_unread) || 0)
-    ),
-    community_participant_unread: Math.max(
-      0,
-      Math.floor(Number(data.community_participant_unread) || 0)
-    ),
-    product_chat_unread_deduped: Math.max(
-      0,
-      Math.floor(Number(data.product_chat_unread_deduped) || 0)
-    ),
-    community_messenger_unread_room_count: Math.max(
-      0,
-      Math.floor(Number(data.community_messenger_unread_room_count) || 0)
-    ),
-    store_order_chat_unread: Math.max(0, Math.floor(Number(data.store_order_chat_unread) || 0)),
-    refund_pending_count: Math.max(0, Math.floor(Number(data.refund_pending_count) || 0)),
-    order_pending_count: Math.max(0, Math.floor(Number(data.order_pending_count) || 0)),
-    inquiry_pending_count: Math.max(0, Math.floor(Number(data.inquiry_pending_count) || 0)),
+    store_order_participant_unread: floorCount(data.store_order_participant_unread),
+    item_trade_participant_unread: floorCount(data.item_trade_participant_unread),
+    community_participant_unread: floorCount(data.community_participant_unread),
+    product_chat_unread_deduped: floorCount(data.product_chat_unread_deduped),
+    community_messenger_unread_room_count: floorCount(data.community_messenger_unread_room_count),
+    store_order_chat_unread: floorCount(data.store_order_chat_unread),
+    refund_pending_count: floorCount(data.refund_pending_count),
+    order_pending_count: floorCount(data.order_pending_count),
+    inquiry_pending_count: floorCount(data.inquiry_pending_count),
     updated_at: data.updated_at,
   };
+  if (bundleColumnsAvailable) {
+    row.nt_bottom_nav_chat = floorCount(data.nt_bottom_nav_chat);
+    row.nt_bottom_nav_community = floorCount(data.nt_bottom_nav_community);
+    row.nt_bottom_nav_delivery = floorCount(data.nt_bottom_nav_delivery);
+    row.nt_fab_owner_orders = floorCount(data.nt_fab_owner_orders);
+    row.nt_fab_owner_store = floorCount(data.nt_fab_owner_store);
+    row.nt_fab_owner_order_chat = floorCount(data.nt_fab_owner_order_chat);
+    row.nt_owner_commerce_inbox = floorCount(data.nt_owner_commerce_inbox);
+    row.nt_bundle_at =
+      typeof data.nt_bundle_at === "string" && data.nt_bundle_at.trim()
+        ? data.nt_bundle_at
+        : null;
+  }
+  return row;
 }
-
-type SnapshotCounterReadTiming = {
-  db_fetch_ms: number;
-  snapshot_deserialize_ms: number;
-  query_row_bytes: number;
-};
 
 export async function readOwnerHubBadgeSnapshotCounter(
   sbAny: SupabaseClient<any>,
-  userId: string
-): Promise<
-  | { hit: false; reason: "missing" | "stale" | "no_column" | "error"; timing: SnapshotCounterReadTiming }
-  | {
-      hit: true;
-      row: OwnerHubBadgeSnapshotRow;
-      ageMs: number;
-      stale: boolean;
-      raw: Record<string, unknown> | null;
-      timing: SnapshotCounterReadTiming;
-    }
-> {
+  userId: string,
+  opts?: { bare?: boolean }
+): Promise<SnapshotCounterRead> {
   const uid = userId.trim();
+  const bundleColumnsAvailable = opts?.bare !== true;
+  const select = bundleColumnsAvailable ? counterBundleSelectFields() : counterBareSelectFields();
   const db0 = devPerfNow();
   const { data, error } = await sbAny
     .from(HUB_BADGE_UNREAD_COUNTERS_TABLE)
-    .select(counterSelectFields())
+    .select(select)
     .eq("user_id", uid)
     .maybeSingle();
   const db_fetch_ms = Math.round(devPerfNow() - db0);
@@ -199,28 +269,30 @@ export async function readOwnerHubBadgeSnapshotCounter(
   let snapshot_deserialize_ms = 0;
 
   if (error) {
-    const msg = error.message ?? "";
     const timing: SnapshotCounterReadTiming = {
       db_fetch_ms,
       snapshot_deserialize_ms: 0,
       query_row_bytes,
     };
+    if (isNtBundleColumnError(error) && bundleColumnsAvailable) {
+      return readOwnerHubBadgeSnapshotCounter(sbAny, userId, { bare: true });
+    }
     if (
-      msg.includes("has_hub_store") ||
-      msg.includes("hub_store_id") ||
-      msg.includes("store_order_chat_unread") ||
+      error.message?.includes("has_hub_store") ||
+      error.message?.includes("hub_store_id") ||
+      error.message?.includes("store_order_chat_unread") ||
       error.code === "42703"
     ) {
-      return { hit: false, reason: "no_column", timing };
+      return { hit: false, reason: "no_column", timing, bundleColumnsAvailable: false };
     }
-    if (msg.includes("does not exist") || error.code === "42P01") {
-      return { hit: false, reason: "missing", timing };
+    if (error.message?.includes("does not exist") || error.code === "42P01") {
+      return { hit: false, reason: "missing", timing, bundleColumnsAvailable: false };
     }
-    return { hit: false, reason: "error", timing };
+    return { hit: false, reason: "error", timing, bundleColumnsAvailable: false };
   }
 
   const des0 = devPerfNow();
-  const row = data ? rowFromDb(data as unknown as Record<string, unknown>) : null;
+  const row = data ? rowFromDb(data as unknown as Record<string, unknown>, bundleColumnsAvailable) : null;
   snapshot_deserialize_ms = Math.round(devPerfNow() - des0);
   const timing: SnapshotCounterReadTiming = {
     db_fetch_ms,
@@ -228,7 +300,7 @@ export async function readOwnerHubBadgeSnapshotCounter(
     query_row_bytes,
   };
 
-  if (!row) return { hit: false, reason: "missing", timing };
+  if (!row) return { hit: false, reason: "missing", timing, bundleColumnsAvailable };
 
   const ageMs = Math.max(0, Date.now() - new Date(row.updated_at).getTime());
   const stale = ageMs > hubBadgeUnreadCounterTtlMs();
@@ -239,6 +311,119 @@ export async function readOwnerHubBadgeSnapshotCounter(
     stale,
     raw: data ? (data as unknown as Record<string, unknown>) : null,
     timing,
+    bundleColumnsAvailable,
+  };
+}
+
+async function fetchSnapshotCounterAndTargetBundle(
+  sbAny: SupabaseClient<any>,
+  uid: string
+): Promise<
+  | {
+      counter: SnapshotCounterRead & { hit: true };
+      bundle: NotificationTargetHubBundle;
+      timing: SnapshotTargetBundleTiming;
+    }
+  | {
+      counter: SnapshotCounterRead;
+      bundle: NotificationTargetHubBundle | null;
+      timing: SnapshotTargetBundleTiming;
+    }
+> {
+  const mem = readOwnerHubStoreLookupMemory(uid);
+  const storeIdHint = mem.hit ? (mem.hubStore?.id ?? null) : null;
+
+  const counter = await readOwnerHubBadgeSnapshotCounter(sbAny, uid);
+  const counterRowMs = counter.timing.db_fetch_ms;
+
+  if (counter.hit) {
+    const embedded = embeddedBundleFromSnapshotRow(counter.row);
+    if (embedded) {
+      return {
+        counter,
+        bundle: embedded,
+        timing: {
+          counterRowMs,
+          targetBundleMs: 0,
+          targetBundleRpcSkipped: 1,
+          targetBundleRefetchMs: 0,
+        },
+      };
+    }
+  }
+
+  if (!counter.hit && counter.reason !== "missing" && counter.reason !== "stale") {
+    return {
+      counter,
+      bundle: null,
+      timing: {
+        counterRowMs,
+        targetBundleMs: 0,
+        targetBundleRpcSkipped: 0,
+        targetBundleRefetchMs: 0,
+      },
+    };
+  }
+
+  if (counter.bundleColumnsAvailable && counter.hit) {
+    const bundleT0 = devPerfNow();
+    const bundle = await countNotificationTargetsHubBundle(sbAny, uid, counter.row.hub_store_id);
+    return {
+      counter,
+      bundle,
+      timing: {
+        counterRowMs,
+        targetBundleMs: Math.round(devPerfNow() - bundleT0),
+        targetBundleRpcSkipped: 0,
+        targetBundleRefetchMs: 0,
+      },
+    };
+  }
+
+  // Phase 1 fallback (nt columns absent): counter + bundle RPC in parallel.
+  const counterPromise =
+    counter.hit || counter.reason === "missing" || counter.reason === "stale"
+      ? Promise.resolve(counter)
+      : readOwnerHubBadgeSnapshotCounter(sbAny, uid, { bare: true });
+  const bundleT0 = devPerfNow();
+  const bundlePromise = countNotificationTargetsHubBundle(sbAny, uid, storeIdHint);
+  const [counterFinal, bundleParallel] = await Promise.all([counterPromise, bundlePromise]);
+  const parallelBundleMs = Math.round(devPerfNow() - bundleT0);
+  const finalCounterRowMs = counterFinal.timing.db_fetch_ms;
+
+  if (counterFinal.hit) {
+    const embedded = embeddedBundleFromSnapshotRow(counterFinal.row);
+    if (embedded) {
+      return {
+        counter: counterFinal,
+        bundle: embedded,
+        timing: {
+          counterRowMs: finalCounterRowMs,
+          targetBundleMs: 0,
+          targetBundleRpcSkipped: 1,
+          targetBundleRefetchMs: 0,
+        },
+      };
+    }
+  }
+
+  let bundle = bundleParallel;
+  let targetBundleRefetchMs = 0;
+  if (counterFinal.hit && counterFinal.row.hub_store_id !== storeIdHint) {
+    const refetch0 = devPerfNow();
+    bundle = await countNotificationTargetsHubBundle(sbAny, uid, counterFinal.row.hub_store_id);
+    targetBundleRefetchMs = Math.round(devPerfNow() - refetch0);
+  }
+
+  return {
+    counter: counterFinal,
+    bundle,
+    timing: {
+      counterRowMs: finalCounterRowMs,
+      targetBundleMs: parallelBundleMs + targetBundleRefetchMs,
+      targetBundleRpcSkipped: 0,
+      targetBundleRefetchMs,
+    },
   };
 }
 
@@ -250,25 +435,35 @@ export async function upsertOwnerHubBadgeSnapshotCounter(
   const uid = userId.trim();
   if (!uid) return;
   const now = new Date().toISOString();
-  const { error } = await sbAny.from(HUB_BADGE_UNREAD_COUNTERS_TABLE).upsert(
-    {
-      user_id: uid,
-      store_order_participant_unread: snapshot.store_order_participant_unread,
-      item_trade_participant_unread: snapshot.item_trade_participant_unread,
-      community_participant_unread: snapshot.community_participant_unread,
-      product_chat_unread_deduped: snapshot.product_chat_unread_deduped,
-      community_messenger_unread_room_count: snapshot.community_messenger_unread_room_count,
-      has_hub_store: snapshot.has_hub_store,
-      hub_store_id: snapshot.hub_store_id,
-      hub_store_slug: snapshot.hub_store_slug,
-      store_order_chat_unread: snapshot.store_order_chat_unread,
-      refund_pending_count: snapshot.refund_pending_count,
-      order_pending_count: snapshot.order_pending_count,
-      inquiry_pending_count: snapshot.inquiry_pending_count,
-      updated_at: now,
-    },
-    { onConflict: "user_id" }
-  );
+  const row: Record<string, unknown> = {
+    user_id: uid,
+    store_order_participant_unread: snapshot.store_order_participant_unread,
+    item_trade_participant_unread: snapshot.item_trade_participant_unread,
+    community_participant_unread: snapshot.community_participant_unread,
+    product_chat_unread_deduped: snapshot.product_chat_unread_deduped,
+    community_messenger_unread_room_count: snapshot.community_messenger_unread_room_count,
+    has_hub_store: snapshot.has_hub_store,
+    hub_store_id: snapshot.hub_store_id,
+    hub_store_slug: snapshot.hub_store_slug,
+    store_order_chat_unread: snapshot.store_order_chat_unread,
+    refund_pending_count: snapshot.refund_pending_count,
+    order_pending_count: snapshot.order_pending_count,
+    inquiry_pending_count: snapshot.inquiry_pending_count,
+    updated_at: now,
+  };
+  if (snapshot.nt_bundle_at) {
+    row.nt_bottom_nav_chat = floorCount(snapshot.nt_bottom_nav_chat);
+    row.nt_bottom_nav_community = floorCount(snapshot.nt_bottom_nav_community);
+    row.nt_bottom_nav_delivery = floorCount(snapshot.nt_bottom_nav_delivery);
+    row.nt_fab_owner_orders = floorCount(snapshot.nt_fab_owner_orders);
+    row.nt_fab_owner_store = floorCount(snapshot.nt_fab_owner_store);
+    row.nt_fab_owner_order_chat = floorCount(snapshot.nt_fab_owner_order_chat);
+    row.nt_owner_commerce_inbox = floorCount(snapshot.nt_owner_commerce_inbox);
+    row.nt_bundle_at = snapshot.nt_bundle_at;
+  }
+  const { error } = await sbAny.from(HUB_BADGE_UNREAD_COUNTERS_TABLE).upsert(row, {
+    onConflict: "user_id",
+  });
   if (error && process.env.NODE_ENV === "development") {
     // eslint-disable-next-line no-console -- snapshot upsert probe
     console.warn("[owner-hub-badge-snapshot-upsert]", error.message);
@@ -331,21 +526,9 @@ export function syncProcessMemoryLayersFromSnapshot(
   }
 }
 
-function unreadPartsFromSnapshot(snapshot: OwnerHubBadgeSnapshotRow): UserChatUnreadParts {
-  if (!snapshot.has_hub_store) return zeroUnreadPartsForNoHubStore();
-  return userChatUnreadPartsFromCounterRow({
-    user_id: "",
-    store_order_participant_unread: snapshot.store_order_participant_unread,
-    item_trade_participant_unread: snapshot.item_trade_participant_unread,
-    community_participant_unread: snapshot.community_participant_unread,
-    product_chat_unread_deduped: snapshot.product_chat_unread_deduped,
-    updated_at: snapshot.updated_at,
-  });
-}
-
 function payloadFromSnapshot(
   snapshot: OwnerHubBadgeSnapshotRow,
-  bundle: import("@/lib/notifications/notification-targets").NotificationTargetHubBundle
+  bundle: NotificationTargetHubBundle
 ): OwnerHubBadgeApiPayload {
   const unread = ownerHubUnreadPartialFromTargetBundle(bundle);
   const orderAttention = snapshot.refund_pending_count + snapshot.order_pending_count;
@@ -383,6 +566,7 @@ function buildAndLogSnapshotDeepBreakdown(input: {
   path: HubBadgeDeepBreakdownPath;
   snapshot: OwnerHubBadgeSnapshotRow;
   timing: SnapshotCounterReadTiming;
+  bundleTiming: SnapshotTargetBundleTiming;
   participant_merge_ms: number;
   payload_build_ms: number;
   aggregate_compute_ms: number;
@@ -409,6 +593,10 @@ function buildAndLogSnapshotDeepBreakdown(input: {
     snapshot_json_bytes,
     cm_unread_room_count: input.snapshot.community_messenger_unread_room_count,
     participant_unread_total: participantUnreadTotal(input.snapshot),
+    counter_row_ms: input.bundleTiming.counterRowMs,
+    target_bundle_ms: input.bundleTiming.targetBundleMs,
+    target_bundle_rpc_skipped: input.bundleTiming.targetBundleRpcSkipped,
+    target_bundle_refetch_ms: input.bundleTiming.targetBundleRefetchMs,
     ...(input.aggregate_inside_rpc ? { aggregate_inside_rpc: input.aggregate_inside_rpc } : {}),
     ...(input.stale ? { stale: 1 as const } : {}),
   };
@@ -425,11 +613,20 @@ function buildSnapshotBreakdown(input: {
   readMs: number;
   via: SnapshotReadVia;
   snapshot: OwnerHubBadgeSnapshotRow;
+  bundleTiming: SnapshotTargetBundleTiming;
   rpcMs?: number;
   stale?: boolean;
 }): HubBadgeBreakdown {
-  const { snapshot, via, totalMs, readMs, rpcMs = 0, stale } = input;
+  const { snapshot, via, totalMs, readMs, rpcMs = 0, stale, bundleTiming } = input;
   const snapshotMs = Math.round(via === "counter_row" ? readMs : rpcMs || readMs);
+  const payloadBuildMs = Math.round(
+    bundleTiming.targetBundleRpcSkipped ? 0 : bundleTiming.targetBundleMs
+  );
+  const worstCandidates = [
+    { stage: via === "counter_row" ? "owner_hub_badge_snapshot_row" : "owner_hub_badge_unified_rpc", ms: snapshotMs },
+    { stage: "target_bundle", ms: bundleTiming.targetBundleMs },
+    { stage: "payload_build", ms: payloadBuildMs },
+  ];
   const breakdown: HubBadgeBreakdown = {
     total_ms: Math.round(totalMs),
     find_hub_store_ms: 0,
@@ -448,40 +645,40 @@ function buildSnapshotBreakdown(input: {
     refund_pending_ms: 0,
     order_pending_ms: 0,
     inquiry_pending_ms: 0,
-    payload_build_ms: 0,
+    payload_build_ms: payloadBuildMs,
     cache_hit: 0,
     cache_hit_reason: via === "counter_row" ? "owner_hub_badge_snapshot_row" : "owner_hub_badge_unified_rpc",
     has_hub_store: snapshot.has_hub_store ? 1 : 0,
     store_id_short: storeIdShort(snapshot.hub_store_id),
-    query_wave_1_ms: snapshotMs,
+    query_wave_1_ms: Math.max(snapshotMs, bundleTiming.targetBundleMs),
     query_wave_2_ms: 0,
     query_wave_3_ms: 0,
-    query_wave_1_parallel_slack_ms: 0,
+    query_wave_1_parallel_slack_ms: Math.max(
+      0,
+      Math.round(snapshotMs + bundleTiming.targetBundleMs - Math.max(snapshotMs, bundleTiming.targetBundleMs))
+    ),
     query_wave_2_parallel_slack_ms: 0,
     find_hub_store_via: "memory",
     find_hub_store_cache_hit: 1,
     ...(snapshot.has_hub_store ? {} : { no_hub_fast_path: 1 as const }),
-    worst_stage: via === "counter_row" ? "owner_hub_badge_snapshot_row" : "owner_hub_badge_unified_rpc",
-    worst_stage_ms: snapshotMs,
+    worst_stage: worstCandidates[0].stage,
+    worst_stage_ms: worstCandidates[0].ms,
     hub_store_memory_hit: 1,
     unread_snapshot_hit: 1,
     order_roomids_hit: 0,
     transport_saved_ms: via === "counter_row" ? snapshotMs : 0,
     rpc_removed: via === "counter_row" ? 1 : 0,
-    wave_parallelized: 1,
+    wave_parallelized: bundleTiming.targetBundleRpcSkipped ? 0 : 1,
     ...hubBadgeBreakdownForUser(input.userId),
   };
-  const { worst_stage, worst_stage_ms } = pickWorstStage([
-    { stage: breakdown.worst_stage, ms: breakdown.worst_stage_ms },
-    { stage: "payload_build", ms: breakdown.payload_build_ms },
-  ]);
+  const { worst_stage, worst_stage_ms } = pickWorstStage(worstCandidates);
   breakdown.worst_stage = worst_stage;
   breakdown.worst_stage_ms = worst_stage_ms;
 
   if (stale) {
     evaluateHubBadgeRegressionGuards({
       breakdown,
-      dbRoundTrips: 1,
+      dbRoundTrips: bundleTiming.targetBundleRpcSkipped ? 1 : 2,
       snapshotVia: via === "counter_row" ? "counter_row" : "unified_rpc",
       staleSnapshot: true,
       snapshotMissReason: "counter_row_stale_swr",
@@ -489,6 +686,64 @@ function buildSnapshotBreakdown(input: {
   }
 
   return breakdown;
+}
+
+function buildSnapshotFromCounterHit(input: {
+  userId: string;
+  build0: number;
+  counter: SnapshotCounterRead & { hit: true };
+  bundle: NotificationTargetHubBundle;
+  bundleTiming: SnapshotTargetBundleTiming;
+  stale?: boolean;
+  meta: OwnerHubBadgeBuildMeta;
+}): SnapshotBuildResult {
+  const { userId: uid, counter, bundle, bundleTiming, stale, meta, build0 } = input;
+  const readMs = counter.timing.db_fetch_ms;
+  const merge0 = devPerfNow();
+  syncProcessMemoryLayersFromSnapshot(uid, counter.row);
+  const participant_merge_ms = devPerfNow() - merge0;
+  const payload0 = devPerfNow();
+  const payload = payloadFromSnapshot(counter.row, bundle);
+  const payload_build_ms = devPerfNow() - payload0;
+  const breakdown = buildSnapshotBreakdown({
+    userId: uid,
+    totalMs: devPerfNow() - build0,
+    readMs,
+    via: "counter_row",
+    snapshot: counter.row,
+    bundleTiming,
+    stale,
+  });
+  breakdown.payload_build_ms = Math.round(payload_build_ms);
+  logHubBadgeBreakdown(breakdown);
+  buildAndLogSnapshotDeepBreakdown({
+    path: stale ? "counter_row_stale_swr" : "counter_row",
+    snapshot: counter.row,
+    timing: counter.timing,
+    bundleTiming,
+    participant_merge_ms,
+    payload_build_ms,
+    aggregate_compute_ms: 0,
+    memory_snapshot_hit: 1,
+    stale,
+    userId: uid,
+  });
+  if (!stale) {
+    logHubBadgeCacheAnalysis({
+      hub_store_memory_hit: 1,
+      unread_snapshot_hit: 1,
+      order_roomids_hit: 0,
+      transport_saved_ms: Math.round(readMs),
+      rpc_removed: 1,
+      wave_parallelized: bundleTiming.targetBundleRpcSkipped ? 0 : 1,
+    });
+    evaluateHubBadgeRegressionGuards({
+      breakdown,
+      dbRoundTrips: bundleTiming.targetBundleRpcSkipped ? 1 : 2,
+      snapshotVia: "counter_row",
+    });
+  }
+  return { payload, meta: { ...meta, existsQueryUsed: 0 }, breakdown };
 }
 
 export type SnapshotBuildResult = {
@@ -516,91 +771,30 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
     };
 
     if (!opts?.forceRpc) {
-      const counter = await readOwnerHubBadgeSnapshotCounter(sbAny, uid);
-      const readMs = counter.timing.db_fetch_ms;
+      const fetched = await fetchSnapshotCounterAndTargetBundle(sbAny, uid);
 
-      if (counter.hit && !counter.stale) {
-        const merge0 = devPerfNow();
-        syncProcessMemoryLayersFromSnapshot(uid, counter.row);
-        const participant_merge_ms = devPerfNow() - merge0;
-        const payload0 = devPerfNow();
-        const targetBundle = await countNotificationTargetsHubBundle(
-          sbAny,
-          uid,
-          counter.row.hub_store_id
-        );
-        const payload = payloadFromSnapshot(counter.row, targetBundle);
-        const payload_build_ms = devPerfNow() - payload0;
-        const breakdown = buildSnapshotBreakdown({
+      if (fetched.counter.hit && !fetched.counter.stale && fetched.bundle) {
+        return buildSnapshotFromCounterHit({
           userId: uid,
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-          snapshot: counter.row,
+          build0,
+          counter: fetched.counter,
+          bundle: fetched.bundle,
+          bundleTiming: fetched.timing,
+          meta,
         });
-        breakdown.payload_build_ms = Math.round(payload_build_ms);
-        logHubBadgeBreakdown(breakdown);
-        buildAndLogSnapshotDeepBreakdown({
-          path: "counter_row",
-          snapshot: counter.row,
-          timing: counter.timing,
-          participant_merge_ms,
-          payload_build_ms,
-          aggregate_compute_ms: 0,
-          memory_snapshot_hit: 1,
-          userId: uid,
-        });
-        logHubBadgeCacheAnalysis({
-          hub_store_memory_hit: 1,
-          unread_snapshot_hit: 1,
-          order_roomids_hit: 0,
-          transport_saved_ms: Math.round(readMs),
-          rpc_removed: 1,
-          wave_parallelized: 1,
-        });
-        evaluateHubBadgeRegressionGuards({
-          breakdown,
-          dbRoundTrips: 2,
-          snapshotVia: "counter_row",
-        });
-        return { payload, meta: { ...meta, existsQueryUsed: 0 }, breakdown };
       }
 
-      if (counter.hit && counter.stale) {
+      if (fetched.counter.hit && fetched.counter.stale && fetched.bundle) {
         scheduleOwnerHubBadgeSnapshotRefresh(uid);
-        const merge0 = devPerfNow();
-        syncProcessMemoryLayersFromSnapshot(uid, counter.row);
-        const participant_merge_ms = devPerfNow() - merge0;
-        const payload0 = devPerfNow();
-        const targetBundle = await countNotificationTargetsHubBundle(
-          sbAny,
-          uid,
-          counter.row.hub_store_id
-        );
-        const payload = payloadFromSnapshot(counter.row, targetBundle);
-        const payload_build_ms = devPerfNow() - payload0;
-        const breakdown = buildSnapshotBreakdown({
+        return buildSnapshotFromCounterHit({
           userId: uid,
-          totalMs: devPerfNow() - build0,
-          readMs,
-          via: "counter_row",
-          snapshot: counter.row,
+          build0,
+          counter: fetched.counter,
+          bundle: fetched.bundle,
+          bundleTiming: fetched.timing,
           stale: true,
+          meta,
         });
-        breakdown.payload_build_ms = Math.round(payload_build_ms);
-        logHubBadgeBreakdown(breakdown);
-        buildAndLogSnapshotDeepBreakdown({
-          path: "counter_row_stale_swr",
-          snapshot: counter.row,
-          timing: counter.timing,
-          participant_merge_ms,
-          payload_build_ms,
-          aggregate_compute_ms: 0,
-          memory_snapshot_hit: 1,
-          stale: true,
-          userId: uid,
-        });
-        return { payload, meta: { ...meta, existsQueryUsed: 0 }, breakdown };
       }
     }
 
@@ -617,9 +811,29 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       ...snapshot,
       updated_at: new Date().toISOString(),
     };
+    const embedded = embeddedBundleFromSnapshotRow(fullRow);
+    let bundle: NotificationTargetHubBundle;
+    let bundleTiming: SnapshotTargetBundleTiming;
+    if (embedded) {
+      bundle = embedded;
+      bundleTiming = {
+        counterRowMs: 0,
+        targetBundleMs: 0,
+        targetBundleRpcSkipped: 1,
+        targetBundleRefetchMs: 0,
+      };
+    } else {
+      const bundleT0 = devPerfNow();
+      bundle = await countNotificationTargetsHubBundle(sbAny, uid, fullRow.hub_store_id);
+      bundleTiming = {
+        counterRowMs: 0,
+        targetBundleMs: Math.round(devPerfNow() - bundleT0),
+        targetBundleRpcSkipped: 0,
+        targetBundleRefetchMs: 0,
+      };
+    }
     const payload0 = devPerfNow();
-    const targetBundle = await countNotificationTargetsHubBundle(sbAny, uid, fullRow.hub_store_id);
-    const payload = payloadFromSnapshot(fullRow, targetBundle);
+    const payload = payloadFromSnapshot(fullRow, bundle);
     const payload_build_ms = devPerfNow() - payload0;
     const rpcTiming: SnapshotCounterReadTiming = {
       db_fetch_ms: Math.round(rpcMs || rpcWallMs),
@@ -632,6 +846,7 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       readMs: rpcMs,
       via: "unified_rpc",
       snapshot: fullRow,
+      bundleTiming,
       rpcMs,
     });
     breakdown.payload_build_ms = Math.round(payload_build_ms);
@@ -640,6 +855,7 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
       path: "unified_rpc",
       snapshot: fullRow,
       timing: rpcTiming,
+      bundleTiming,
       participant_merge_ms,
       payload_build_ms,
       aggregate_compute_ms: Math.round(rpcMs || rpcWallMs),
@@ -657,7 +873,7 @@ export async function tryBuildOwnerHubBadgeFromSnapshot(
     });
     evaluateHubBadgeRegressionGuards({
       breakdown,
-      dbRoundTrips: 1,
+      dbRoundTrips: bundleTiming.targetBundleRpcSkipped ? 1 : 2,
       snapshotVia: "unified_rpc",
     });
     return { payload, meta, breakdown };

@@ -6,6 +6,7 @@
  */
 
 import { samarketMessengerTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 export type CmRtHs4SubscribeContext = {
   /** `roomsBindFingerprint` 또는 메타+룸 공통 원본(fingerprint split 로 생성된 문자열) */
@@ -17,6 +18,7 @@ export type CmRtHs4SubscribeContext = {
 };
 
 export function cmRtHs4DiagnosisEnabled(): boolean {
+  if (isDebugMessengerEnabled()) return true;
   const env = typeof process !== "undefined" ? process.env : undefined;
   if (!env) return false;
   if (samarketMessengerTraceLogEnabled()) return true;

@@ -3,6 +3,7 @@
  */
 
 import { cmDebugTailUserId, pushCmBrowserDebugEvent } from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 export type CmRtStableSubTag =
   | "fingerprint_changed"
@@ -12,7 +13,7 @@ export type CmRtStableSubTag =
   | "home_realtime_refresh_schedule";
 
 export function cmRtStableSubLog(tag: CmRtStableSubTag, payload: Record<string, unknown>): void {
-  if (typeof console === "undefined" || typeof console.info !== "function") return;
+  if (!isDebugMessengerEnabled()) return;
   console.info("[cm-rt-stable-sub]", tag, payload);
   if (tag === "fingerprint_changed") {
     const viewerUserId = typeof payload.viewerUserId === "string" ? payload.viewerUserId : null;

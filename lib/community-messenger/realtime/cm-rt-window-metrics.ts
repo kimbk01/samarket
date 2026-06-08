@@ -2,8 +2,10 @@
 
 /**
  * Realtime churn — **최근 window** 기준(누적 since reload 과 분리).
- * `[cm-rt-window-summary]` 는 dev 전용.
+ * `[cm-rt-window-summary]` — `DEBUG_MESSENGER` 일 때만.
  */
+
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 type WindowKind = "home_create" | "final_stop" | "cancel_stop" | "reuse_existing";
 
@@ -11,10 +13,46 @@ const events: Array<{ t: number; kind: WindowKind }> = [];
 const MAX_EVENTS = 600;
 const PRUNE_MS = 65_000;
 
-const devEnabled = typeof process !== "undefined" && process.env.NODE_ENV === "development";
+let windowSummaryTimer: ReturnType<typeof setInterval> | null = null;
+/** 진단 타이머 — 무활동 시 정지 (subscribe-with-retry loop summary 와 동일) */
+const WINDOW_SUMMARY_IDLE_TICKS_TO_STOP = 6;
+let windowSummaryIdleTickCount = 0;
 
 function nowMs(): number {
   return Date.now();
+}
+
+function stopWindowSummaryTimer(): void {
+  if (windowSummaryTimer == null) return;
+  clearInterval(windowSummaryTimer);
+  windowSummaryTimer = null;
+  windowSummaryIdleTickCount = 0;
+}
+
+function ensureWindowSummaryTimer(): void {
+  if (!isDebugMessengerEnabled()) return;
+  if (windowSummaryTimer != null) return;
+  windowSummaryIdleTickCount = 0;
+  windowSummaryTimer = setInterval(() => {
+    if (!isDebugMessengerEnabled()) {
+      stopWindowSummaryTimer();
+      return;
+    }
+    try {
+      const hasRecentEvents = events.length > 0;
+      if (!hasRecentEvents) {
+        windowSummaryIdleTickCount += 1;
+        if (windowSummaryIdleTickCount >= WINDOW_SUMMARY_IDLE_TICKS_TO_STOP) {
+          stopWindowSummaryTimer();
+        }
+        return;
+      }
+      windowSummaryIdleTickCount = 0;
+      emitCmRtWindowSummaryNow();
+    } catch {
+      /* ignore */
+    }
+  }, 12_000);
 }
 
 function pruneOld(): void {
@@ -25,10 +63,11 @@ function pruneOld(): void {
 }
 
 function push(kind: WindowKind): void {
-  if (!devEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   pruneOld();
   if (events.length >= MAX_EVENTS) events.shift();
   events.push({ t: nowMs(), kind });
+  ensureWindowSummaryTimer();
 }
 
 /** `subscribeWithRetry` — `community-messenger-home:*` 물리 create 만 */
@@ -70,7 +109,7 @@ function churnLevel(args: {
  * `[cm-rt-loop-summary]` 와 같은 틱에서 호출해도 되고, 단독 호출해도 된다.
  */
 export function emitCmRtWindowSummaryNow(): void {
-  if (!devEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   if (typeof console === "undefined" || typeof console.warn !== "function") return;
   pruneOld();
   const last30s_create = countSince(30_000, "home_create");
@@ -90,7 +129,7 @@ export function emitCmRtWindowSummaryNow(): void {
     cancel_stop_count,
   });
   try {
-    // eslint-disable-next-line no-console -- dev-only window churn summary
+    // eslint-disable-next-line no-console -- DEBUG_MESSENGER window churn summary
     console.warn("[cm-rt-window-summary]", {
       last30s_create,
       last30s_final_stop,
@@ -106,20 +145,5 @@ export function emitCmRtWindowSummaryNow(): void {
     });
   } catch {
     /* ignore */
-  }
-}
-
-if (devEnabled && typeof window !== "undefined") {
-  const w = window as unknown as { __cmRtWindowSummaryTimer?: ReturnType<typeof setInterval> };
-  if (w.__cmRtWindowSummaryTimer != null) {
-    /* already scheduled (HMR may re-evaluate) */
-  } else {
-    w.__cmRtWindowSummaryTimer = setInterval(() => {
-      try {
-        emitCmRtWindowSummaryNow();
-      } catch {
-        /* ignore */
-      }
-    }, 12_000);
   }
 }

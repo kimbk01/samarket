@@ -1,16 +1,13 @@
 /**
  * 개발 전용 — 통화 발신 지연·오디오 정리 실측 로그.
- * 프로덕션(`NODE_ENV === "production"`): noop · 전역·버퍼 미설치.
+ * `DEBUG_MESSENGER=true` 일 때만 — 기본 비활성.
  */
 
-const isProdBuild =
-  typeof process !== "undefined" && process.env.NODE_ENV === "production";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
-/** 로그·버퍼·콘솔 출력 — 운영 빌드 제외 */
-const cmCallLatencyEnabled = !isProdBuild;
-
-/** `[cm-call-audio-cleanup]` — 운영 빌드 제외( cmCallLatencyEnabled 와 동일) */
-const cmCallAudioReportEnabled = !isProdBuild;
+function isCmCallDebugEnabled(): boolean {
+  return isDebugMessengerEnabled();
+}
 
 let latencyAnchorMs = 0;
 
@@ -29,7 +26,7 @@ function pushCmCallLatencyBuffer(
   tag: "[cm-call-latency]" | "[cm-call-latency-analysis]",
   payload: Record<string, unknown>
 ): void {
-  if (!cmCallLatencyEnabled || typeof window === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof window === "undefined") return;
   CM_CALL_LATENCY_LOG_BUFFER.push({
     at: Date.now(),
     tag,
@@ -44,7 +41,7 @@ function pushCmCallLatencyBuffer(
 let cmLatencyWindowHooksInstalled = false;
 
 function installCmCallLatencyWindowHooks(): void {
-  if (!cmCallLatencyEnabled || typeof window === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof window === "undefined") return;
   if (cmLatencyWindowHooksInstalled) return;
   cmLatencyWindowHooksInstalled = true;
   try {
@@ -94,7 +91,7 @@ let pendingCallPostStartWallMs: number | null = null;
 
 /** 전화 버튼 등 발신 제스처 시각 — 이후 단계에 sinceClick 계산 */
 export function cmCallLatencyMarkClick(extra: Record<string, unknown> = {}): void {
-  if (!cmCallLatencyEnabled || typeof performance === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof performance === "undefined") return;
   latencyAnchorMs = performance.now();
   if (typeof Date !== "undefined") {
     pendingIncomingCallerClickWallMs = Date.now();
@@ -106,7 +103,7 @@ export function cmCallLatencyMarkClick(extra: Record<string, unknown> = {}): voi
  * 통일 형식 (요청 스펙): console.info, step / t / sinceClick / sessionId / roomId / role / callKind
  */
 export function cmCallLatencyInfo(step: string, extra: Record<string, unknown> = {}): void {
-  if (!cmCallLatencyEnabled || typeof performance === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof performance === "undefined") return;
   const t = Math.round(performance.now() * 100) / 100;
   const sinceClick =
     latencyAnchorMs > 0 ? Math.round(t - latencyAnchorMs) : undefined;
@@ -140,7 +137,7 @@ export function cmCallAudioCleanup(
   step: string,
   extra: Record<string, unknown> = {}
 ): void {
-  if (!cmCallAudioReportEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   console.info("[cm-call-audio-cleanup]", {
     ...extra,
     step,
@@ -168,7 +165,7 @@ export function cmCallLatencyAnalysis(args: {
   totalMs: number | undefined;
   serverMs: CallSessionServerTimings | undefined;
 }): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   const durationMs = args.totalMs ?? 0;
   const dbRpc = args.serverMs?.db_insert_rpc_ms ?? 0;
   const networkMs = durationMs - dbRpc;
@@ -192,7 +189,7 @@ export function cmCallLatencyAnalysis(args: {
  * 발신→수신→연결 시그널 구간 측정(비프로덕션만). 통화 로직·상태는 건드리지 않는다.
  */
 export function cmCallFlow(step: string, extra: Record<string, unknown> = {}): void {
-  if (!cmCallLatencyEnabled || typeof performance === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof performance === "undefined") return;
   console.info("[cm-call-flow]", {
     step,
     t: Math.round(performance.now() * 100) / 100,
@@ -220,7 +217,7 @@ const INCOMING_E2E_LS_PREFIX = "samarket.cm_call_incoming_e2e.";
 
 /** 발신 탭 → 수신 탭: 동일 세션 id 로 caller_click·POST·signal_emit 상관 */
 export function cmCallIncomingTracePublishToStorage(sessionId: string): void {
-  if (!cmCallLatencyEnabled || typeof localStorage === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof localStorage === "undefined") return;
   const sid = sessionId.trim();
   if (!sid) return;
   const row = incomingE2eTraces.get(sid);
@@ -233,7 +230,7 @@ export function cmCallIncomingTracePublishToStorage(sessionId: string): void {
 }
 
 export function cmCallIncomingTraceMergeFromStorage(sessionId: string): void {
-  if (!cmCallLatencyEnabled || typeof localStorage === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof localStorage === "undefined") return;
   const sid = sessionId.trim();
   if (!sid) return;
   try {
@@ -248,12 +245,12 @@ export function cmCallIncomingTraceMergeFromStorage(sessionId: string): void {
 }
 
 export function cmCallIncomingTraceMarkCallPostStart(): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   pendingCallPostStartWallMs = Date.now();
 }
 
 export function cmCallIncomingTraceBindSession(sessionId: string): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   const sid = sessionId.trim();
   if (!sid) return;
   const cur = incomingE2eTraces.get(sid) ?? {};
@@ -273,7 +270,7 @@ export function cmCallIncomingTracePatch(
   patch: Partial<CmCallIncomingE2eTrace>,
   opts?: { onlyIfUnset?: boolean }
 ): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   const sid = sessionId.trim();
   if (!sid) return;
   const cur = incomingE2eTraces.get(sid) ?? {};
@@ -287,7 +284,7 @@ export function cmCallIncomingTracePatch(
 }
 
 export function cmCallIncomingTraceRegisterRingingRoom(sessionId: string, roomId: string): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   const s = sessionId.trim();
   const r = roomId.trim();
   if (!s || !r) return;
@@ -295,12 +292,12 @@ export function cmCallIncomingTraceRegisterRingingRoom(sessionId: string, roomId
 }
 
 export function cmCallIncomingTraceClearRingingRoom(roomId: string): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   incomingRingingRoomToSessionId.delete(roomId.trim());
 }
 
 export function cmCallIncomingTraceMaybeRoomBootstrap(roomId: string, phase: "start" | "done"): void {
-  if (!cmCallLatencyEnabled) return;
+  if (!isCmCallDebugEnabled()) return;
   const sid = incomingRingingRoomToSessionId.get(roomId.trim());
   if (!sid) return;
   const now = Date.now();
@@ -314,7 +311,7 @@ export function cmCallIncomingTraceMaybeRoomBootstrap(roomId: string, phase: "st
 }
 
 export function cmCallIncomingTraceLogTable(sessionId: string): void {
-  if (!cmCallLatencyEnabled || typeof console === "undefined") return;
+  if (!isCmCallDebugEnabled() || typeof console === "undefined") return;
   const sid = sessionId.trim();
   const row = incomingE2eTraces.get(sid);
   if (!row) return;

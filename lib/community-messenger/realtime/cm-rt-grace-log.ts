@@ -3,6 +3,7 @@
  * `MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS` 정합.
  */
 
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { recordCmRtWindowGraceAction } from "@/lib/community-messenger/realtime/cm-rt-window-metrics";
 
 export type CmRtGraceAction = "defer_stop" | "cancel_stop" | "reuse_existing" | "final_stop";
@@ -14,7 +15,7 @@ export function logCmRtGrace(payload: {
   same_fingerprint?: boolean | null;
   had_existing_subscription?: boolean | null;
 }): void {
-  if (typeof process !== "undefined" && process.env.NODE_ENV !== "development") return;
+  if (!isDebugMessengerEnabled()) return;
   if (payload.action === "final_stop" || payload.action === "cancel_stop" || payload.action === "reuse_existing") {
     recordCmRtWindowGraceAction(payload.action);
   }

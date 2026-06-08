@@ -1,7 +1,8 @@
 /**
- * 브라우저 전역 디버그 버퍼 — Cursor/터미널로 전달되지 않는 DevTools 로그를
- * 재현 후 `cmDebugDump()` 로 복사하기 위한 용도.
+ * 브라우저 전역 디버그 버퍼 — `DEBUG_MESSENGER` 일 때만 이벤트·요약 타이머 유지.
  */
+
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 export type CmBrowserDebugEvent = {
   ts: number;
@@ -109,6 +110,7 @@ function flushSummaryTick(): void {
 }
 
 function ensureSummaryTimer(): void {
+  if (!isDebugMessengerEnabled()) return;
   if (typeof window === "undefined" || summaryTimer != null) return;
   summaryIdleTickCount = 0;
   summaryTimer = setInterval(() => flushSummaryTick(), 5000);
@@ -116,6 +118,7 @@ function ensureSummaryTimer(): void {
 
 /** subscribeWithRetry 채널 생성 시 호출 — 카운터·요약 타이머 유지 */
 export function recordCmRtLoopCreateForBuffer(channelName: string): { create: number; stop: number } {
+  if (!isDebugMessengerEnabled()) return { create: 0, stop: 0 };
   const row = rtLoopLifetimeByChannel.get(channelName) ?? { create: 0, stop: 0 };
   row.create += 1;
   rtLoopLifetimeByChannel.set(channelName, row);
@@ -126,6 +129,7 @@ export function recordCmRtLoopCreateForBuffer(channelName: string): { create: nu
 
 /** subscribeWithRetry stop 시 호출 */
 export function recordCmRtLoopStopForBuffer(channelName: string): { create: number; stop: number } {
+  if (!isDebugMessengerEnabled()) return { create: 0, stop: 0 };
   const row = rtLoopLifetimeByChannel.get(channelName) ?? { create: 0, stop: 0 };
   row.stop += 1;
   rtLoopLifetimeByChannel.set(channelName, row);
@@ -146,6 +150,7 @@ export function pushCmBrowserDebugEvent(partial: {
   fingerprint?: string | null;
   userIdTail?: string | null;
 }): void {
+  if (!isDebugMessengerEnabled()) return;
   try {
     if (typeof window === "undefined") return;
     ensureWindowHelpers();
@@ -171,6 +176,6 @@ export function pushCmBrowserDebugEvent(partial: {
   }
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && isDebugMessengerEnabled()) {
   ensureWindowHelpers();
 }

@@ -3,6 +3,8 @@
  * `docs/messenger-realtime-policy.md` 표와 `MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS` 정합.
  */
 
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
+
 export type CmRtLifecycleFixAction = "reuse" | "create";
 
 export function logCmRtLifecycleFix(payload: {
@@ -15,7 +17,7 @@ export function logCmRtLifecycleFix(payload: {
   active_count?: number | null;
   listener_count?: number | null;
 }): void {
-  if (typeof process !== "undefined" && process.env.NODE_ENV !== "development") return;
+  if (!isDebugMessengerEnabled()) return;
   try {
     const pathname = typeof window !== "undefined" ? window.location.pathname : null;
     // eslint-disable-next-line no-console -- dev-only churn diagnosis

@@ -1,5 +1,6 @@
 "use client";
 
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 /** 연속 실패 후 쿨다운 진입 임계 */
 export const CM_RT_MAX_CONSECUTIVE_FAILURES = 5;
 
@@ -103,14 +104,11 @@ export function cmRtResetFailureState(channelKey: string): void {
   failureStateByChannelKey.delete(channelKey);
 }
 
-const devRegistryLogEnabled =
-  typeof process !== "undefined" && process.env.NODE_ENV === "development";
-
 export function cmRtLoopGuardDevLog(
   event: "cooldown_enter" | "cooldown_exit",
   payload: Record<string, unknown>
 ): void {
-  if (!devRegistryLogEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   try {
     // eslint-disable-next-line no-console -- dev-only loop guard
     console.warn("[cm-rt-loop-guard]", { event, ...payload });
@@ -123,7 +121,7 @@ export function cmRtRegistryDevLog(
   event: "create" | "reuse" | "remove" | "skip-stale-retry" | "cooldown_enter" | "cooldown_exit",
   payload: Record<string, unknown>
 ): void {
-  if (!devRegistryLogEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   try {
     // eslint-disable-next-line no-console -- dev-only cm-rt-registry
     console.warn("[cm-rt-registry]", { event, ...payload });
@@ -133,7 +131,7 @@ export function cmRtRegistryDevLog(
 }
 
 export function cmRtPresenceIsolatedError(reason: string, detail: Record<string, unknown>): void {
-  if (!devRegistryLogEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   try {
     // eslint-disable-next-line no-console -- dev-only presence isolation
     console.warn("[cm-rt-presence]", { event: "isolated_error", reason, ...detail });

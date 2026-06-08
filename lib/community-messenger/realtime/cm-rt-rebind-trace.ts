@@ -1,9 +1,9 @@
 /**
- * Community messenger Realtime rebind audit — dev-only.
+ * Community messenger Realtime rebind audit — DEBUG_MESSENGER 전용.
  * `[rt-rebind-trace]`, `[rt-channel-lifecycle]`, `[rt-room-diff]`
  */
 
-const isDev = typeof process !== "undefined" && process.env.NODE_ENV === "development";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 export function logRtRebindTrace(args: {
   reason: string;
@@ -11,7 +11,7 @@ export function logRtRebindTrace(args: {
   added?: number;
   removed?: number;
 }): void {
-  if (!isDev) return;
+  if (!isDebugMessengerEnabled()) return;
   console.log("[rt-rebind-trace]", {
     reason: args.reason,
     pathname: typeof window !== "undefined" ? window.location.pathname : "",
@@ -30,7 +30,7 @@ export function logRtChannelLifecycle(args: {
   roomId?: string | null;
   subscribers?: number;
 }): void {
-  if (!isDev) return;
+  if (!isDebugMessengerEnabled()) return;
   console.log("[rt-channel-lifecycle]", {
     action: args.action,
     channel: args.channel,
@@ -46,7 +46,7 @@ export function logRtRoomDiff(args: {
   added: string[];
   removed: string[];
 }): void {
-  if (!isDev) return;
+  if (!isDebugMessengerEnabled()) return;
   console.log("[rt-room-diff]", {
     prev: args.prev,
     next: args.next,

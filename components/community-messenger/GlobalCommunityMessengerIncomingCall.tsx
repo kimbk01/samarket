@@ -38,6 +38,7 @@ import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
@@ -483,11 +484,13 @@ export function GlobalCommunityMessengerIncomingCall() {
         return prev;
       }
 
-      console.log("[CALL TERMINAL APPLY]", {
-        sessionId: sessionId || undefined,
-        tmpSessionId: tmpSessionId || undefined,
-        removed: true,
-      });
+      if (isDebugMessengerEnabled()) {
+        console.log("[CALL TERMINAL APPLY]", {
+          sessionId: sessionId || undefined,
+          tmpSessionId: tmpSessionId || undefined,
+          removed: true,
+        });
+      }
 
       const uid = viewerUserIdRef.current?.trim() ?? "";
       const overlayBefore =
@@ -510,15 +513,19 @@ export function GlobalCommunityMessengerIncomingCall() {
       stopCommunityMessengerCallTone();
 
       if (statusNorm === "cancelled") {
-        console.info("[cm-call-state] incoming_cancel_received", {
-          sessionId: sessionId || undefined,
-          sourceTag,
-        });
+        if (isDebugMessengerEnabled()) {
+          console.info("[cm-call-state] incoming_cancel_received", {
+            sessionId: sessionId || undefined,
+            sourceTag,
+          });
+        }
       } else if (statusNorm === "rejected") {
-        console.info("[cm-call-state] incoming_reject_received", {
-          sessionId: sessionId || undefined,
-          sourceTag,
-        });
+        if (isDebugMessengerEnabled()) {
+          console.info("[cm-call-state] incoming_reject_received", {
+            sessionId: sessionId || undefined,
+            sourceTag,
+          });
+        }
       }
 
       const afterDismissed = filterIncomingSessionsRespectingDismissed(next, dismissedIncomingSessionsAtRef.current);
@@ -539,19 +546,21 @@ export function GlobalCommunityMessengerIncomingCall() {
           status: statusNorm,
           at: Date.now(),
         });
-        console.info("[cm-call-terminal-received]", {
-          sessionId,
-          tmpSessionId,
-          status: statusNorm,
-          matchedBy,
-          removedPreviewCount: removed.filter((r) => r.isPreview).length,
-          closedOverlay,
-          closedCallScreen: removed.length > 0,
-          sourceTag,
-        });
-        for (const r of removed) {
-          if (r.isPreview) {
-            console.info("[cm-call-preview-removed]", { sessionId: r.id, reason: statusNorm });
+        if (isDebugMessengerEnabled()) {
+          console.info("[cm-call-terminal-received]", {
+            sessionId,
+            tmpSessionId,
+            status: statusNorm,
+            matchedBy,
+            removedPreviewCount: removed.filter((r) => r.isPreview).length,
+            closedOverlay,
+            closedCallScreen: removed.length > 0,
+            sourceTag,
+          });
+          for (const r of removed) {
+            if (r.isPreview) {
+              console.info("[cm-call-preview-removed]", { sessionId: r.id, reason: statusNorm });
+            }
           }
         }
       });

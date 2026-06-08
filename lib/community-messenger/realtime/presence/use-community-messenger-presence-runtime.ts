@@ -16,6 +16,7 @@ import {
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { cmRtPresenceIsolatedError } from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 type PresencePayload = {
   userId?: unknown;
@@ -67,6 +68,7 @@ function clearPresenceHeartbeatTimer() {
 let lastPresenceHttpPostAt = 0;
 
 function logPresenceHttpFailure(kind: string, args: { status: number; bodySnippet: string; deltaMs: number; payloadNote?: string }) {
+  if (!isDebugMessengerEnabled()) return;
   try {
     // eslint-disable-next-line no-console -- presence 400/네트워크 진단
     console.warn("[cm-presence-client]", {
@@ -131,15 +133,17 @@ function postPresenceHeartbeatHttp() {
   const deltaMs = lastPresenceHttpPostAt ? now - lastPresenceHttpPostAt : -1;
   lastPresenceHttpPostAt = now;
   if (deltaMs >= 0 && deltaMs < 90) {
-    try {
-      // eslint-disable-next-line no-console -- 연속 POST(중복/race) 힌트
-      console.warn("[cm-presence-client]", {
-        kind: "heartbeat_burst",
-        deltaMs,
-        runtimeUserIdLen: runtimeUserId.length,
-      });
-    } catch {
-      /* ignore */
+    if (isDebugMessengerEnabled()) {
+      try {
+        // eslint-disable-next-line no-console -- 연속 POST(중복/race) 힌트
+        console.warn("[cm-presence-client]", {
+          kind: "heartbeat_burst",
+          deltaMs,
+          runtimeUserIdLen: runtimeUserId.length,
+        });
+      } catch {
+        /* ignore */
+      }
     }
   }
   const payload = {

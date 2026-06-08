@@ -4,10 +4,11 @@ import {
   cmDebugUserIdTailFromChannelName,
   pushCmBrowserDebugEvent,
 } from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 /**
  * 커뮤니티 메신저 Realtime 1:1 동기화 근본 점검용 로그.
- * `NEXT_PUBLIC_CM_REALTIME_DEBUG=1` 일 때만 콘솔에 출력 — 기본 비활성.
+ * `DEBUG_MESSENGER=true` 또는 `NEXT_PUBLIC_CM_REALTIME_DEBUG=1` 일 때만 콘솔에 출력 — 기본 비활성.
  * (켜 두면 탭 전환·스크롄 때마다 `console.info` 비용이 쌓이므로 성능 확인 시에는 끄는 것을 권장)
  *
  * 브라우저 콘솔에서 `[cm-rt]` 로 필터.
@@ -16,6 +17,7 @@ import {
 const PREFIX = "[cm-rt]";
 
 export function isCommunityMessengerRealtimeDebugEnabled(): boolean {
+  if (isDebugMessengerEnabled()) return true;
   return typeof process !== "undefined" && process.env.NEXT_PUBLIC_CM_REALTIME_DEBUG === "1";
 }
 

@@ -2,6 +2,7 @@
 
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import { cmStrictEffectRunProbe } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 type IncomingCallSub = ReturnType<typeof subscribeWithRetry>;
 
@@ -20,7 +21,7 @@ function logCmRtSubscriptionStable(payload: {
   activeCount: number;
   strict_double_run_detected: boolean;
 }): void {
-  if (process.env.NODE_ENV !== "development") return;
+  if (!isDebugMessengerEnabled()) return;
   // eslint-disable-next-line no-console -- dev subscription stability
   console.log("[cm-rt-subscription-stable]", payload);
 }

@@ -5,6 +5,7 @@
  * HMR(모듈 재평가) 직후 vs idle 중 churn 구분용 관측만; 구독 동작 변경 없음.
  */
 
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import {
   getAuthRefreshLastEndedAgeMs,
   getAuthSessionSignalAgeMs,
@@ -27,7 +28,7 @@ export function registerCmRtLoopActiveCountLookup(fn: (channelName: string) => n
 
 export function markCmRtSubscribeWithRetryModuleEval(): void {
   if (typeof window === "undefined") return;
-  if (typeof process !== "undefined" && process.env.NODE_ENV !== "development") return;
+  if (!isDebugMessengerEnabled()) return;
   const w = window as unknown as Record<string, unknown>;
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   w[BOOT_COUNT_KEY] = (typeof w[BOOT_COUNT_KEY] === "number" ? w[BOOT_COUNT_KEY] : 0) + 1;
@@ -46,7 +47,7 @@ function readBootState(): { bootCount: number; bootAt: number } {
 export function logCmRtLoopIntervalSummaryDiagnosis(
   top: Array<{ name: string; create: number; stop: number }>
 ): void {
-  if (typeof process !== "undefined" && process.env.NODE_ENV !== "development") return;
+  if (!isDebugMessengerEnabled()) return;
   const pathname = typeof window !== "undefined" ? window.location.pathname : null;
   const { bootCount, bootAt } = readBootState();
   const nowPerf = typeof performance !== "undefined" ? performance.now() : Date.now();

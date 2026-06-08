@@ -48,11 +48,9 @@ import {
   cmRtResetFailureState,
   cmRtShouldDeferRetries,
 } from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
+import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 type SubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CHANNEL_ERROR" | "CLOSED";
-
-const devRtLoopDiagEnabled =
-  typeof process !== "undefined" && process.env.NODE_ENV === "development";
 type RtLoopDiagEvent =
   | "create"
   | "attach_subscribe"
@@ -91,7 +89,7 @@ function stopRtLoopDiagSummaryTimer(): void {
 }
 
 function rtLoopDiagBumpCounter(name: string, kind: "create" | "stop"): void {
-  if (!devRtLoopDiagEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   if (!name.startsWith("community-messenger")) return;
   if (name.startsWith("community-messenger-home") && kind === "create") {
     recordCmRtWindowHomePhysicalCreate();
@@ -168,7 +166,7 @@ function rtLoopDiagLog(args: {
   expectedInternalClosed?: number;
   stopSourceStack?: string | null;
 }): void {
-  if (!devRtLoopDiagEnabled) return;
+  if (!isDebugMessengerEnabled()) return;
   if (!args.name.startsWith("community-messenger")) return;
   const now = typeof performance !== "undefined" ? performance.now() : Date.now();
   const prev = rtLoopDiagLastAtByName.get(args.name);
@@ -301,7 +299,7 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
    * dev 에서만 ring buffer 누적·rtLoopDiag 출력.
    * 헌장 §「근본 대책만」 — hot path direct logging 금지, 진단 가치는 dev 에서만 의미.
    */
-  if (devRtLoopDiagEnabled && args.name.startsWith("community-messenger")) {
+  if (isDebugMessengerEnabled() && args.name.startsWith("community-messenger")) {
     const counts = recordCmRtLoopCreateForBuffer(args.name);
     pushCmBrowserDebugEvent({
       label: "cm-rt-loop",
@@ -317,7 +315,7 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
     });
   }
 
-  if (devRtLoopDiagEnabled) {
+  if (isDebugMessengerEnabled()) {
     rtLoopDiagBumpCounter(args.name, "create");
     rtLoopDiagLog({
       event: "create",
@@ -374,7 +372,7 @@ function createInternalSubscribeWithRetry(args: SubscribeWithRetryArgs): Subscri
      * 헌장 §「근본 대책만」·사용자 §「production hot path 진단 완전 skip」.
      */
     const activeBeforeStop = rtLoopDiagActiveCountByName.get(args.name) ?? 0;
-    if (devRtLoopDiagEnabled && args.name.startsWith("community-messenger")) {
+    if (isDebugMessengerEnabled() && args.name.startsWith("community-messenger")) {
       let stopSourceStack: string | null = null;
       try {
         stopSourceStack = new Error("subscribeWithRetry.stop").stack ?? null;
