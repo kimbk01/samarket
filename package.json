@@ -72,6 +72,7 @@
     "verify:owner-store-orders-list-contract": "node scripts/verify-owner-store-orders-list-contract.mjs",
     "verify:owner-mobile-stacked-label-count-contract": "node scripts/verify-owner-mobile-stacked-label-count-contract.mjs",
     "verify:owner-admin-scroll-shell-contract": "node scripts/verify-owner-admin-scroll-shell-contract.mjs",
+    "verify:posts-client-db-boundary": "node scripts/verify-posts-client-db-boundary.cjs",
     "verify:store-order-messenger-room-entry": "node scripts/verify-store-order-messenger-room-entry-contract.cjs",
     "verify:store-order-process-model-contract": "node scripts/verify-store-order-process-model-contract.mjs",
     "verify:owner-products-perf": "node scripts/verify-owner-products-perf.mjs",

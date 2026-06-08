@@ -1,4 +1,13 @@
 import type { StoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
+import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-mock/queries";
+
+/** `stores-browse-build` import 금지 — 클라 헤더 훅이 server-only `next/headers` 그래프를 끌어옴 */
+function normalizeBizTypeSeparators(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\s*[\u00B7\u2219‧･]\s*/g, " · ")
+    .replace(/\s*[-–—|]\s*/g, " · ");
+}
 
 /**
  * 메신저 배달 주문 방 헤더 — 오너(매장) vs 구매자 표시 분기.
@@ -104,6 +113,28 @@ export function resolveDeliveryChromePrimaryLabel(input: {
     roomTitle: input.roomTitle,
     storeSlug: input.storeOrderSnap?.storeSlug,
   });
+}
+
+/** 배달 채팅 헤더 subtitle — `business_type` 의 1·2차 업종 표시명 (`식당 · 한식`) */
+export function resolveDeliveryStoreIndustrySubtitle(input: {
+  storeBusinessType?: string | null;
+  storeCategorySlug?: string | null;
+  storePrimaryCategoryName?: string | null;
+}): string | null {
+  const bt = normalizeBizTypeSeparators(input.storeBusinessType ?? "");
+  if (bt) {
+    const parts = bt.split(" · ").map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) return parts.join(" · ");
+    if (parts.length === 1) return parts[0]!;
+  }
+  const primaryName = input.storePrimaryCategoryName?.trim();
+  if (primaryName) return primaryName;
+  const slug = input.storeCategorySlug?.trim();
+  if (slug) {
+    const primary = getBrowsePrimaryBySlug(slug);
+    if (primary?.nameKo?.trim()) return primary.nameKo.trim();
+  }
+  return null;
 }
 
 export function resolveDeliveryPeerUserId(input: {

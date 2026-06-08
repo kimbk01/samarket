@@ -6,6 +6,7 @@ import {
   buyerNicknameForOwnerHeader,
   resolveDeliveryPeerUserId,
   resolveDeliveryStoreDisplayName,
+  resolveDeliveryStoreIndustrySubtitle,
   resolveStoreOrderDeliveryHeaderMode,
   type StoreOrderDeliveryHeaderMode,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
@@ -145,17 +146,23 @@ export function useStoreOrderDeliveryMessengerHeader(
     storeSlug: storeOrderSnap?.storeSlug,
   });
 
-  const [storeLogoFromSummary, setStoreLogoFromSummary] = useState<string | null>(null);
+  const [storeSummaryExtras, setStoreSummaryExtras] = useState<{
+    profileImageUrl: string | null;
+    businessType: string | null;
+    primaryCategoryName: string | null;
+  } | null>(null);
 
   useEffect(() => {
-    setStoreLogoFromSummary(null);
+    setStoreSummaryExtras(null);
   }, [input.storeOrderId, mode]);
 
   useEffect(() => {
     if (mode !== "buyer_store") return;
     const slug = storeOrderSnap?.storeSlug?.trim();
     if (!slug) return;
-    if (storeOrderSnap?.storeProfileImageUrl?.trim() || input.thumbnailUrl?.trim()) return;
+    const needLogo = !storeOrderSnap?.storeProfileImageUrl?.trim() && !input.thumbnailUrl?.trim();
+    const needBusinessType = !storeOrderSnap?.storeBusinessType?.trim();
+    if (!needLogo && !needBusinessType) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -165,14 +172,30 @@ export function useStoreOrderDeliveryMessengerHeader(
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
-          store?: { profile_image_url?: string | null; profileImageUrl?: string | null };
+          store?: {
+            profile_image_url?: string | null;
+            profileImageUrl?: string | null;
+            business_type?: string | null;
+            store_categories?: { name?: string | null } | Array<{ name?: string | null }> | null;
+          };
         };
+        if (cancelled || !json?.ok || !json.store) return;
         const url =
-          (typeof json.store?.profile_image_url === "string" ? json.store.profile_image_url : null) ||
-          (typeof json.store?.profileImageUrl === "string" ? json.store.profileImageUrl : null);
-        if (!cancelled && json.ok && url?.trim()) setStoreLogoFromSummary(url.trim());
+          (typeof json.store.profile_image_url === "string" ? json.store.profile_image_url : null) ||
+          (typeof json.store.profileImageUrl === "string" ? json.store.profileImageUrl : null);
+        const businessType =
+          typeof json.store.business_type === "string" ? json.store.business_type.trim() || null : null;
+        const categoryEmbed = json.store.store_categories;
+        const primaryCategoryName = Array.isArray(categoryEmbed)
+          ? categoryEmbed[0]?.name?.trim() || null
+          : categoryEmbed?.name?.trim() || null;
+        setStoreSummaryExtras({
+          profileImageUrl: url?.trim() || null,
+          businessType,
+          primaryCategoryName,
+        });
       } catch {
-        if (!cancelled) setStoreLogoFromSummary(null);
+        if (!cancelled) setStoreSummaryExtras(null);
       }
     })();
     return () => {
@@ -182,14 +205,30 @@ export function useStoreOrderDeliveryMessengerHeader(
     input.storeOrderId,
     input.thumbnailUrl,
     mode,
+    storeOrderSnap?.storeBusinessType,
     storeOrderSnap?.storeProfileImageUrl,
     storeOrderSnap?.storeSlug,
   ]);
 
+  const storeIndustrySubtitle = useMemo(
+    () =>
+      resolveDeliveryStoreIndustrySubtitle({
+        storeBusinessType: storeOrderSnap?.storeBusinessType ?? storeSummaryExtras?.businessType,
+        storeCategorySlug: storeOrderSnap?.storeCategorySlug,
+        storePrimaryCategoryName: storeSummaryExtras?.primaryCategoryName,
+      }),
+    [
+      storeOrderSnap?.storeBusinessType,
+      storeOrderSnap?.storeCategorySlug,
+      storeSummaryExtras?.businessType,
+      storeSummaryExtras?.primaryCategoryName,
+    ]
+  );
+
   const storeAvatarUrl =
     storeOrderSnap?.storeProfileImageUrl?.trim() ||
     input.thumbnailUrl?.trim() ||
-    storeLogoFromSummary?.trim() ||
+    storeSummaryExtras?.profileImageUrl?.trim() ||
     input.roomAvatarUrl?.trim() ||
     null;
 
@@ -214,7 +253,7 @@ export function useStoreOrderDeliveryMessengerHeader(
         avatarUrl: storeAvatarUrl,
         avatarRounded: "store_rect",
         title: storeDisplayName,
-        subtitle: null,
+        subtitle: storeIndustrySubtitle,
         showPresence: true,
         buyerTrustPercent: null,
         buyerTrustTier: null,
@@ -253,6 +292,7 @@ export function useStoreOrderDeliveryMessengerHeader(
     mode,
     storeAvatarUrl,
     storeDisplayName,
-    storeLogoFromSummary,
+    storeIndustrySubtitle,
+    storeSummaryExtras,
   ]);
 }

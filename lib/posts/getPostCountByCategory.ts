@@ -1,31 +1,34 @@
 "use client";
 
-import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-
-import { getSupabaseClient } from "@/lib/supabase/client";
+export type GetPostCountByCategoryResult =
+  | { ok: true; count: number }
+  | { ok: false; error: string };
 
 /**
- * 해당 카테고리 하위 게시물 수 (삭제 가능 여부 판단용)
+ * 해당 카테고리 하위 게시물 수 (어드민 삭제 가능 여부 판단용)
+ * - `GET /api/admin/categories/[categoryId]/post-count` (service_role)
+ * - 실패 시 0으로 뭉개지 않음 — fail-closed
  */
-export async function getPostCountByCategory(categoryId: string): Promise<number> {
-  const supabase = getSupabaseClient();
-  if (!supabase || !categoryId?.trim()) return 0;
+export async function getPostCountByCategory(categoryId: string): Promise<GetPostCountByCategoryResult> {
+  const id = categoryId?.trim();
+  if (!id) {
+    return { ok: false, error: "categoryId 필요" };
+  }
 
-  const idTrim = categoryId.trim();
   try {
-    let res = await (supabase as any)
-      .from(POSTS_TABLE_READ)
-      .select("id", { count: "exact", head: true })
-      .eq("trade_category_id", idTrim);
-    if (res.error && typeof res.error?.message === "string" && res.error.message.includes("trade_category_id")) {
-      res = await (supabase as any)
-        .from(POSTS_TABLE_READ)
-        .select("id", { count: "exact", head: true })
-        .eq("category_id", idTrim);
+    const res = await fetch(`/api/admin/categories/${encodeURIComponent(id)}/post-count`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; count?: number; error?: string };
+    if (!res.ok || !data.ok) {
+      return {
+        ok: false,
+        error: typeof data.error === "string" ? data.error : "게시물 수를 확인할 수 없습니다.",
+      };
     }
-    if (res.error) return 0;
-    return typeof res.count === "number" ? res.count : 0;
+    return { ok: true, count: typeof data.count === "number" ? data.count : 0 };
   } catch {
-    return 0;
+    return { ok: false, error: "게시물 수를 확인할 수 없습니다." };
   }
 }

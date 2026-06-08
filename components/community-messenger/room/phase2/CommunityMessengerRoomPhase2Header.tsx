@@ -162,6 +162,24 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     vm.snapshot.room.roomType === "direct" &&
     peerPresence;
 
+  const deliveryHeaderSubtitle = useMemo(() => {
+    if (!useDeliveryHeaderBlock) return statusLine;
+    if (typingPeerCount > 0) return t("chats_peer_typing");
+    if (bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence) {
+      return formatMessengerPeerPresenceLine(peerPresence);
+    }
+    return deliveryHeaderModel.subtitle?.trim() || null;
+  }, [
+    bindPresenceAndTyping,
+    deliveryHeaderModel.subtitle,
+    peerPresence,
+    statusLine,
+    t,
+    typingPeerCount,
+    useDeliveryHeaderBlock,
+    vm.snapshot.room.roomType,
+  ]);
+
   return (
     <MessengerHeader>
       <div className="flex items-stretch gap-1.5">
@@ -181,7 +199,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             model={deliveryHeaderModel}
             presenceState={showDeliveryPresence ? peerPresence.state : null}
             showPresence={Boolean(showDeliveryPresence)}
-            subtitle={statusLine}
+            subtitle={deliveryHeaderSubtitle}
           />
         ) : (
           <>

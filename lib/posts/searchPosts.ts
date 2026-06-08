@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * @deprecated 미사용 — 클라이언트 `posts` direct SELECT 는 env·GRANT 에 따라 깨질 수 있음.
+ * DO NOT import in new code. 필요 시 Route Handler + `POSTS_TABLE_READ` 또는 검색 API 로 재도입.
+ */
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 import { getSupabaseClient } from "@/lib/supabase/client";

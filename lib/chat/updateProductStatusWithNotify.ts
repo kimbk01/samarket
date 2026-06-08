@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * @deprecated 미사용 — 클라이언트 `posts` direct UPDATE 는 `posts_masked` 마이그레이션 후 깨짐.
+ * DO NOT import in new code. 대체: `POST /api/posts/[postId]/seller-listing-state` · `owner-status`.
+ */
 import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
 
 import { getSupabaseClient } from "@/lib/supabase/client";

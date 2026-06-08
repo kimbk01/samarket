@@ -1,6 +1,6 @@
 "use client";
 
-import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
+import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { AdminChatRoom, RoomStatus } from "@/lib/types/admin-chat";

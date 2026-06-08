@@ -17,11 +17,17 @@ export async function deleteCategory(id: string): Promise<DeleteCategoryResult> 
   }
 
   try {
-    const postCount = await getPostCountByCategory(id);
-    if (postCount > 0) {
+    const countRes = await getPostCountByCategory(id);
+    if (!countRes.ok) {
       return {
         ok: false,
-        error: `${postCount}개의 게시물이 있어 삭제할 수 없습니다. 수정(변경)을 이용하시거나, 게시물을 다른 카테고리로 옮긴 뒤 삭제해 주세요.`,
+        error: countRes.error || "게시물 수를 확인할 수 없어 삭제할 수 없습니다.",
+      };
+    }
+    if (countRes.count > 0) {
+      return {
+        ok: false,
+        error: `${countRes.count}개의 게시물이 있어 삭제할 수 없습니다. 수정(변경)을 이용하시거나, 게시물을 다른 카테고리로 옮긴 뒤 삭제해 주세요.`,
       };
     }
 

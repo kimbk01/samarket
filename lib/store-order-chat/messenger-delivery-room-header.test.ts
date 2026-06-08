@@ -4,6 +4,7 @@ import {
   isStoreTechnicalIdentifier,
   resolveDeliveryChromePrimaryLabel,
   resolveDeliveryStoreDisplayName,
+  resolveDeliveryStoreIndustrySubtitle,
   resolveStoreOrderDeliveryHeaderMode,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { resolveDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
@@ -93,6 +94,24 @@ describe("resolveDeliveryChromePrimaryLabel", () => {
         deliveryHeadline: undefined,
       })
     ).toBe("스타벅스");
+  });
+});
+
+describe("resolveDeliveryStoreIndustrySubtitle", () => {
+  it("parses 1·2차 from business_type", () => {
+    expect(
+      resolveDeliveryStoreIndustrySubtitle({
+        storeBusinessType: "식당 · 한식",
+      })
+    ).toBe("식당 · 한식");
+  });
+
+  it("falls back to primary category name", () => {
+    expect(
+      resolveDeliveryStoreIndustrySubtitle({
+        storePrimaryCategoryName: "식당",
+      })
+    ).toBe("식당");
   });
 });
 
