@@ -36,6 +36,10 @@ import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaitin
 import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import {
+  MESSENGER_CHAT_HEADER_ROW_CLASS,
+  MESSENGER_CHAT_HEADER_SECTOR_HEIGHT_CLASS,
+} from "@/components/community-messenger/line-ui";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
@@ -2086,7 +2090,7 @@ export function ChatDetailView({
           >
             <TradePrimaryAppBarShell>
               <div
-                className={`flex h-14 items-center gap-2 ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
+                className={`${MESSENGER_CHAT_HEADER_ROW_CLASS} gap-2 ${MESSENGER_CHAT_HEADER_SECTOR_HEIGHT_CLASS} ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
               >
                 <AppBackButton
                   preferHistoryBack

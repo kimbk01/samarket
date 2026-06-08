@@ -115,26 +115,77 @@ export function resolveDeliveryChromePrimaryLabel(input: {
   });
 }
 
-/** 배달 채팅 헤더 subtitle — `business_type` 의 1·2차 업종 표시명 (`식당 · 한식`) */
+export type DeliveryStoreIndustryParts = {
+  primary: string | null;
+  secondary: string | null;
+};
+
+/** `business_type` 문자열에 1·2차 구분자가 있는지 */
+export function deliveryIndustryHasTwoSegments(businessType: string | null | undefined): boolean {
+  const bt = normalizeBizTypeSeparators(businessType ?? "");
+  if (!bt) return false;
+  return bt.split(" · ").map((s) => s.trim()).filter(Boolean).length >= 2;
+}
+
+/** 배달 채팅 헤더 — 1·2차 업종 표시명 분리 */
+export function resolveDeliveryStoreIndustryParts(input: {
+  storeBusinessType?: string | null;
+  storeCategorySlug?: string | null;
+  storePrimaryCategoryName?: string | null;
+  storeSecondaryCategoryName?: string | null;
+}): DeliveryStoreIndustryParts {
+  const secondaryFromTopic = input.storeSecondaryCategoryName?.trim() || null;
+  const bt = normalizeBizTypeSeparators(input.storeBusinessType ?? "");
+  if (bt) {
+    const parts = bt.split(" · ").map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      return { primary: parts[0]!, secondary: parts.slice(1).join(" · ") };
+    }
+    if (parts.length === 1) {
+      return { primary: parts[0]!, secondary: secondaryFromTopic };
+    }
+  }
+  const primaryName = input.storePrimaryCategoryName?.trim() || null;
+  if (primaryName || secondaryFromTopic) {
+    return { primary: primaryName, secondary: secondaryFromTopic };
+  }
+  const slug = input.storeCategorySlug?.trim();
+  if (slug) {
+    const primary = getBrowsePrimaryBySlug(slug);
+    const primaryKo = primary?.nameKo?.trim() || null;
+    if (primaryKo || secondaryFromTopic) {
+      return { primary: primaryKo, secondary: secondaryFromTopic };
+    }
+  }
+  return { primary: null, secondary: null };
+}
+
+/** 배달 채팅 헤더 subtitle — `business_type` 의 1·2차 업종 (`식당 · 한식`) */
 export function resolveDeliveryStoreIndustrySubtitle(input: {
   storeBusinessType?: string | null;
   storeCategorySlug?: string | null;
   storePrimaryCategoryName?: string | null;
+  storeSecondaryCategoryName?: string | null;
 }): string | null {
-  const bt = normalizeBizTypeSeparators(input.storeBusinessType ?? "");
-  if (bt) {
-    const parts = bt.split(" · ").map((s) => s.trim()).filter(Boolean);
-    if (parts.length >= 2) return parts.join(" · ");
-    if (parts.length === 1) return parts[0]!;
-  }
-  const primaryName = input.storePrimaryCategoryName?.trim();
-  if (primaryName) return primaryName;
-  const slug = input.storeCategorySlug?.trim();
-  if (slug) {
-    const primary = getBrowsePrimaryBySlug(slug);
-    if (primary?.nameKo?.trim()) return primary.nameKo.trim();
-  }
-  return null;
+  const { primary, secondary } = resolveDeliveryStoreIndustryParts(input);
+  if (primary && secondary) return `${primary} · ${secondary}`;
+  return primary ?? secondary;
+}
+
+/** 배달 구매자 헤더 subtitle — `온라인 - 식당 - 한식` */
+export function formatDeliveryMessengerPresenceIndustrySubtitle(input: {
+  presenceLine?: string | null;
+  industryPrimary?: string | null;
+  industrySecondary?: string | null;
+}): string | null {
+  const segments: string[] = [];
+  const presence = input.presenceLine?.trim();
+  if (presence) segments.push(presence);
+  const primary = input.industryPrimary?.trim();
+  if (primary) segments.push(primary);
+  const secondary = input.industrySecondary?.trim();
+  if (secondary) segments.push(secondary);
+  return segments.length > 0 ? segments.join(" - ") : null;
 }
 
 export function resolveDeliveryPeerUserId(input: {

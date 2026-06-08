@@ -4,9 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import {
   buyerNicknameForOwnerHeader,
+  deliveryIndustryHasTwoSegments,
   resolveDeliveryPeerUserId,
   resolveDeliveryStoreDisplayName,
-  resolveDeliveryStoreIndustrySubtitle,
+  resolveDeliveryStoreIndustryParts,
   resolveStoreOrderDeliveryHeaderMode,
   type StoreOrderDeliveryHeaderMode,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
@@ -26,6 +27,8 @@ export type StoreOrderDeliveryMessengerHeaderModel = {
   avatarRounded: "circle" | "store_rect";
   title: string;
   subtitle: string | null;
+  industryPrimary: string | null;
+  industrySecondary: string | null;
   showPresence: boolean;
   buyerTrustPercent: number | null;
   buyerTrustTier: ReturnType<typeof mannerBatteryTier> | null;
@@ -150,6 +153,7 @@ export function useStoreOrderDeliveryMessengerHeader(
     profileImageUrl: string | null;
     businessType: string | null;
     primaryCategoryName: string | null;
+    secondaryCategoryName: string | null;
   } | null>(null);
 
   useEffect(() => {
@@ -160,9 +164,16 @@ export function useStoreOrderDeliveryMessengerHeader(
     if (mode !== "buyer_store") return;
     const slug = storeOrderSnap?.storeSlug?.trim();
     if (!slug) return;
+    const snapBusinessType = storeOrderSnap?.storeBusinessType?.trim() ?? "";
+    const extrasBusinessType = storeSummaryExtras?.businessType?.trim() ?? "";
     const needLogo = !storeOrderSnap?.storeProfileImageUrl?.trim() && !input.thumbnailUrl?.trim();
-    const needBusinessType = !storeOrderSnap?.storeBusinessType?.trim();
-    if (!needLogo && !needBusinessType) return;
+    const needBusinessType = !snapBusinessType && !extrasBusinessType;
+    const hasTwoPartIndustry =
+      deliveryIndustryHasTwoSegments(snapBusinessType) ||
+      deliveryIndustryHasTwoSegments(extrasBusinessType);
+    const hasSecondaryFromExtras = Boolean(storeSummaryExtras?.secondaryCategoryName?.trim());
+    const needIndustryEnrich = !hasTwoPartIndustry && !hasSecondaryFromExtras;
+    if (!needLogo && !needBusinessType && !needIndustryEnrich) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -177,6 +188,7 @@ export function useStoreOrderDeliveryMessengerHeader(
             profileImageUrl?: string | null;
             business_type?: string | null;
             store_categories?: { name?: string | null } | Array<{ name?: string | null }> | null;
+            store_topics?: { name?: string | null } | Array<{ name?: string | null }> | null;
           };
         };
         if (cancelled || !json?.ok || !json.store) return;
@@ -189,10 +201,15 @@ export function useStoreOrderDeliveryMessengerHeader(
         const primaryCategoryName = Array.isArray(categoryEmbed)
           ? categoryEmbed[0]?.name?.trim() || null
           : categoryEmbed?.name?.trim() || null;
+        const topicEmbed = json.store.store_topics;
+        const secondaryCategoryName = Array.isArray(topicEmbed)
+          ? topicEmbed[0]?.name?.trim() || null
+          : topicEmbed?.name?.trim() || null;
         setStoreSummaryExtras({
           profileImageUrl: url?.trim() || null,
           businessType,
           primaryCategoryName,
+          secondaryCategoryName,
         });
       } catch {
         if (!cancelled) setStoreSummaryExtras(null);
@@ -208,20 +225,24 @@ export function useStoreOrderDeliveryMessengerHeader(
     storeOrderSnap?.storeBusinessType,
     storeOrderSnap?.storeProfileImageUrl,
     storeOrderSnap?.storeSlug,
+    storeSummaryExtras?.businessType,
+    storeSummaryExtras?.secondaryCategoryName,
   ]);
 
-  const storeIndustrySubtitle = useMemo(
+  const storeIndustryParts = useMemo(
     () =>
-      resolveDeliveryStoreIndustrySubtitle({
+      resolveDeliveryStoreIndustryParts({
         storeBusinessType: storeOrderSnap?.storeBusinessType ?? storeSummaryExtras?.businessType,
         storeCategorySlug: storeOrderSnap?.storeCategorySlug,
         storePrimaryCategoryName: storeSummaryExtras?.primaryCategoryName,
+        storeSecondaryCategoryName: storeSummaryExtras?.secondaryCategoryName,
       }),
     [
       storeOrderSnap?.storeBusinessType,
       storeOrderSnap?.storeCategorySlug,
       storeSummaryExtras?.businessType,
       storeSummaryExtras?.primaryCategoryName,
+      storeSummaryExtras?.secondaryCategoryName,
     ]
   );
 
@@ -241,6 +262,8 @@ export function useStoreOrderDeliveryMessengerHeader(
         avatarRounded: "circle",
         title: buyerNickname,
         subtitle: null,
+        industryPrimary: null,
+        industrySecondary: null,
         showPresence: true,
         buyerTrustPercent,
         buyerTrustTier,
@@ -253,7 +276,9 @@ export function useStoreOrderDeliveryMessengerHeader(
         avatarUrl: storeAvatarUrl,
         avatarRounded: "store_rect",
         title: storeDisplayName,
-        subtitle: storeIndustrySubtitle,
+        subtitle: null,
+        industryPrimary: storeIndustryParts.primary,
+        industrySecondary: storeIndustryParts.secondary,
         showPresence: true,
         buyerTrustPercent: null,
         buyerTrustTier: null,
@@ -267,6 +292,8 @@ export function useStoreOrderDeliveryMessengerHeader(
         avatarRounded: "circle",
         title: input.roomTitle,
         subtitle: null,
+        industryPrimary: null,
+        industrySecondary: null,
         showPresence: false,
         buyerTrustPercent: null,
         buyerTrustTier: null,
@@ -279,6 +306,8 @@ export function useStoreOrderDeliveryMessengerHeader(
       avatarRounded: "circle",
       title: input.roomTitle,
       subtitle: null,
+      industryPrimary: null,
+      industrySecondary: null,
       showPresence: false,
       buyerTrustPercent: null,
       buyerTrustTier: null,
@@ -292,7 +321,8 @@ export function useStoreOrderDeliveryMessengerHeader(
     mode,
     storeAvatarUrl,
     storeDisplayName,
-    storeIndustrySubtitle,
+    storeIndustryParts.primary,
+    storeIndustryParts.secondary,
     storeSummaryExtras,
   ]);
 }

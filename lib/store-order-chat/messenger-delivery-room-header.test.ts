@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   buyerNicknameForOwnerHeader,
+  formatDeliveryMessengerPresenceIndustrySubtitle,
   isStoreTechnicalIdentifier,
   resolveDeliveryChromePrimaryLabel,
   resolveDeliveryStoreDisplayName,
+  resolveDeliveryStoreIndustryParts,
   resolveDeliveryStoreIndustrySubtitle,
   resolveStoreOrderDeliveryHeaderMode,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
@@ -112,6 +114,47 @@ describe("resolveDeliveryStoreIndustrySubtitle", () => {
         storePrimaryCategoryName: "식당",
       })
     ).toBe("식당");
+  });
+
+  it("merges 1차 business_type with 2차 topic name", () => {
+    expect(
+      resolveDeliveryStoreIndustrySubtitle({
+        storeBusinessType: "식당",
+        storeSecondaryCategoryName: "한식",
+      })
+    ).toBe("식당 · 한식");
+  });
+});
+
+describe("resolveDeliveryStoreIndustryParts", () => {
+  it("splits primary and secondary from taxonomy fields", () => {
+    expect(
+      resolveDeliveryStoreIndustryParts({
+        storePrimaryCategoryName: "식당",
+        storeSecondaryCategoryName: "한식",
+      })
+    ).toEqual({ primary: "식당", secondary: "한식" });
+  });
+});
+
+describe("formatDeliveryMessengerPresenceIndustrySubtitle", () => {
+  it("joins presence and industries with hyphen separators", () => {
+    expect(
+      formatDeliveryMessengerPresenceIndustrySubtitle({
+        presenceLine: "온라인",
+        industryPrimary: "식당",
+        industrySecondary: "한식",
+      })
+    ).toBe("온라인 - 식당 - 한식");
+  });
+
+  it("omits missing segments", () => {
+    expect(
+      formatDeliveryMessengerPresenceIndustrySubtitle({
+        presenceLine: "오프라인",
+        industryPrimary: "식당",
+      })
+    ).toBe("오프라인 - 식당");
   });
 });
 

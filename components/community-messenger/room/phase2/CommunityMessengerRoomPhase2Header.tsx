@@ -29,6 +29,7 @@ import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { translate } from "@/lib/i18n/messages";
 import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
+import { formatDeliveryMessengerPresenceIndustrySubtitle } from "@/lib/store-order-chat/messenger-delivery-room-header";
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 
@@ -165,12 +166,26 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   const deliveryHeaderSubtitle = useMemo(() => {
     if (!useDeliveryHeaderBlock) return statusLine;
     if (typingPeerCount > 0) return t("chats_peer_typing");
+    if (deliveryHeaderModel.mode === "buyer_store") {
+      const presenceLine =
+        bindPresenceAndTyping && vm.snapshot.room.roomType === "direct"
+          ? formatMessengerPeerPresenceLine(peerPresence)
+          : null;
+      return formatDeliveryMessengerPresenceIndustrySubtitle({
+        presenceLine,
+        industryPrimary: deliveryHeaderModel.industryPrimary,
+        industrySecondary: deliveryHeaderModel.industrySecondary,
+      });
+    }
     if (bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence) {
       return formatMessengerPeerPresenceLine(peerPresence);
     }
     return deliveryHeaderModel.subtitle?.trim() || null;
   }, [
     bindPresenceAndTyping,
+    deliveryHeaderModel.industryPrimary,
+    deliveryHeaderModel.industrySecondary,
+    deliveryHeaderModel.mode,
     deliveryHeaderModel.subtitle,
     peerPresence,
     statusLine,
@@ -182,7 +197,6 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
 
   return (
     <MessengerHeader>
-      <div className="flex items-stretch gap-1.5">
         <button
           type="button"
           onClick={handleBack}
@@ -272,7 +286,6 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             </button>
           )}
         </div>
-      </div>
     </MessengerHeader>
   );
 });
