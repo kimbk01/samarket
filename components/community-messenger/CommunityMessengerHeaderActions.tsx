@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { Phone, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
@@ -15,20 +14,19 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 
 /**
- * 메신저 홈 상단 우측: 검색 / 통화 / 친구요청 / 설정 / **종(통합 인박스, 맨 끝)**.
+ * 메신저 홈 상단 우측: 검색 / 친구요청 / 설정 / **종(통합 인박스, 맨 끝)**.
+ * 통화목록은 2단 탭에서 진입한다.
  */
 export function CommunityMessengerHeaderActions({
   incomingRequestCount,
   onOpenSearch,
   onOpenRequestList,
   onOpenSettings,
-  showCallLogsLink = true,
 }: {
   incomingRequestCount: number;
   onOpenSearch: () => void;
   onOpenRequestList: () => void;
   onOpenSettings: () => void;
-  showCallLogsLink?: boolean;
 }) {
   const { t } = useI18n();
   const iconBtn = `${Sam.headerAction} relative h-10 w-10 shrink-0 text-sam-fg ${samTier1HeaderIconMicro}`;
@@ -38,15 +36,6 @@ export function CommunityMessengerHeaderActions({
       <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label={t("cm_ui_messenger_search")}>
         <Tier1HeaderSearchGlyph />
       </button>
-      {showCallLogsLink ? (
-        <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label={t("cm_ui_call_logs_title")}>
-          <Phone
-            className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
-            strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
-            aria-hidden
-          />
-        </Link>
-      ) : null}
       <button
         type="button"
         onClick={onOpenRequestList}

@@ -29,8 +29,8 @@ import {
 } from "@/lib/community-messenger/messenger-ia";
 import {
   inferMessengerEntryOriginFromReferrer,
-  messengerEntryOriginBackHref,
   parseMessengerEntryOrigin,
+  resolveMessengerHomeTier1BackHref,
   persistMessengerEntryOrigin,
   readStoredMessengerEntryOrigin,
   type MessengerEntryOrigin,
@@ -159,9 +159,10 @@ export function useCommunityMessengerHomeShellEffects({
 
   useEffect(() => {
     if (fromPhilifeHeaderStack) return;
+    const preserveFrom = fromParam ? `&from=${encodeURIComponent(fromParam)}` : "";
     if (activeTab === "settings") {
       openSettingsSheet();
-      guardedRouterReplace(router, "/community-messenger?section=chats", {
+      guardedRouterReplace(router, `/community-messenger?section=chats${preserveFrom}`, {
         source: "messenger-home-shell",
         reason: "legacy_tab_settings",
         scroll: false,
@@ -170,7 +171,7 @@ export function useCommunityMessengerHomeShellEffects({
     }
     if (activeTab === "friends") {
       setMainSection((prev) => (prev === "friends" ? prev : "friends"));
-      guardedRouterReplace(router, "/community-messenger?section=friends", {
+      guardedRouterReplace(router, `/community-messenger?section=friends${preserveFrom}`, {
         source: "messenger-home-shell",
         reason: "legacy_tab_friends",
         scroll: false,
@@ -191,6 +192,7 @@ export function useCommunityMessengerHomeShellEffects({
     activeKind,
     activeSection,
     activeTab,
+    fromParam,
     fromPhilifeHeaderStack,
     openSettingsSheet,
     router,
@@ -245,15 +247,13 @@ export function useCommunityMessengerHomeShellEffects({
      * 1단 헤더 뒤로가기:
      * - 인박스·거래/배달 묶음 모두 **명시적 `backHref` + `preferHistoryBack: false`** — 히스토리 back 에 의존하지 않음.
      * - `?from=` 이 없으면 세션에 저장된 마지막 출처로 `/philife`·`/market`·`/stores` 결정.
-     * - 묶음 → 인박스: `resolvedOrigin` 으로 `?section=chats&from=` 보존.
+     * - 채팅홈: 출처 탭. FAB 섹션(친구·모임·보관함): 채팅 인박스(`section=chats` + `from` 보존).
      */
-    const inboxQs = resolvedOrigin ? `?section=chats&from=${encodeURIComponent(resolvedOrigin)}` : "?section=chats";
-    let backHref: string;
-    if (pillar) {
-      backHref = `/community-messenger${inboxQs}`;
-    } else {
-      backHref = messengerEntryOriginBackHref(resolvedOrigin);
-    }
+    const backHref = resolveMessengerHomeTier1BackHref({
+      pillar: pillar ?? null,
+      mainSection,
+      origin: resolvedOrigin,
+    });
     setMainTier1Extras({
       tier1: {
         rightSlot: headerActionsNode,

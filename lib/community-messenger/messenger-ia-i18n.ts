@@ -38,6 +38,8 @@ export function messengerSectionLabelI18n(section: MessengerMainSection): string
       return translateCmUi("cm_ia_section_open_chat");
     case "archive":
       return translateCmUi("cm_ia_section_archive");
+    case "call_logs":
+      return translateCmUi("cm_ia_section_call_logs");
     default:
       return translateCmUi("cm_ia_section_chats");
   }

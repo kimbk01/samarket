@@ -915,16 +915,14 @@ export function PhilifeHeaderNotificationInbox({
   }, [layout]);
 
   const closeBtnClass =
-    "absolute right-1.5 top-1.5 z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-muted/15";
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-muted/15 active:bg-sam-muted/20";
 
-
+  const headerIconBtnClass =
+    "flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-muted/15 active:bg-sam-muted/20";
 
   const panel =
-
     !domReady || !visible || !layout || !panelStyle
-
       ? null
-
       : createPortal(
 
           <div className={TIER1_HEADER_OVERLAY_SHELL_CLASS} role="presentation">
@@ -959,65 +957,69 @@ export function PhilifeHeaderNotificationInbox({
 
             >
 
-              <button
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/80 bg-sam-surface-muted px-3 py-2.5">
 
-                type="button"
+                <div className="flex min-w-0 flex-1 items-center gap-2">
 
-                onClick={closePanel}
+                  <h2 id="philife-inbox-title" className="min-w-0 truncate text-[16px] font-bold leading-none text-sam-fg">
 
-                className={closeBtnClass}
+                    {t("notif_tier1_sheet_title")}
 
-                aria-label={t("common_close")}
+                  </h2>
 
-              >
+                  {totalUnread > 0 ? (
 
-                <CloseIcon />
+                    <span className="rounded-full bg-sam-primary/15 px-2 py-0.5 sam-text-xxs font-semibold leading-none text-sam-primary">
 
-              </button>
+                      {totalUnread}
 
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-sam-border/80 py-2.5 pl-3 pr-12">
+                    </span>
 
-                <div className="flex min-w-0 items-center gap-2">
-
-                <h2 id="philife-inbox-title" className="min-w-0 text-[16px] font-bold leading-tight text-sam-fg">
-
-                  {t("notif_tier1_sheet_title")}
-
-                </h2>
-
-                {totalUnread > 0 ? (
-
-                  <span className="rounded-full bg-sam-primary/15 px-2 py-0.5 sam-text-xxs font-semibold text-sam-primary">
-
-                    {totalUnread}
-
-                  </span>
-
-                ) : null}
+                  ) : null}
 
                 </div>
 
-                <Link
+                <div className="flex shrink-0 items-center gap-0.5">
 
-                  href="/mypage/section/settings/notifications"
+                  <Link
 
-                  onClick={closePanel}
+                    href="/mypage/section/settings/notifications"
 
-                  className="sam-header-action flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sam-fg"
+                    onClick={closePanel}
 
-                  aria-label={t("notif_tier1_to_settings")}
+                    className={headerIconBtnClass}
 
-                >
+                    aria-label={t("notif_tier1_to_settings")}
 
-                  <SettingsGearIcon />
+                  >
 
-                </Link>
+                    <SettingsGearIcon />
+
+                  </Link>
+
+                  <button
+
+                    type="button"
+
+                    onClick={closePanel}
+
+                    className={closeBtnClass}
+
+                    aria-label={t("common_close")}
+
+                  >
+
+                    <CloseIcon />
+
+                  </button>
+
+                </div>
 
               </div>
 
 
 
-              <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain py-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
+              <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sam-surface py-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
 
                 {pinnedSections ? (
                   <div className="mb-2 border-b border-sam-border/60 pb-2">{pinnedSections}</div>

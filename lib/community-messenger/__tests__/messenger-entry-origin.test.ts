@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { resolveMessengerChatFilters } from "@/lib/community-messenger/messenger-ia";
 import {
   bottomNavMessengerHrefWithOrigin,
   buildMessengerRoomListBackHref,
@@ -7,8 +8,50 @@ import {
   mainBottomNavMessengerTabHref,
   messengerEntryOriginBackHref,
   messengerEntryOriginToSecondaryRail,
+  resolveMessengerHomeTier1BackHref,
   shouldForceDirectDeliveryMessengerRoomBack,
 } from "@/lib/community-messenger/messenger-entry-origin";
+
+describe("resolveMessengerHomeTier1BackHref", () => {
+  it("채팅홈은 출처 탭으로", () => {
+    expect(
+      resolveMessengerHomeTier1BackHref({
+        pillar: null,
+        mainSection: "chats",
+        origin: "delivery",
+      })
+    ).toBe("/stores");
+  });
+
+  it("FAB 섹션(친구·모임·보관함·통화목록)은 채팅 인박스로", () => {
+    for (const mainSection of ["friends", "open_chat", "archive", "call_logs"] as const) {
+      const href = resolveMessengerHomeTier1BackHref({
+        pillar: null,
+        mainSection,
+        origin: "delivery",
+      });
+      expect(href).toContain("/community-messenger");
+      expect(href).toContain("section=chats");
+      expect(href).toContain("from=delivery");
+      expect(href).not.toBe("/stores");
+    }
+  });
+
+  it("from=delivery 직접 진입 — kind 미지정 시 인박스는 kind=all(pillar 행 노출)", () => {
+    const { kind } = resolveMessengerChatFilters(undefined, undefined, undefined);
+    expect(kind).toBe("all");
+  });
+
+  it("거래/배달 묶음 서브 라우트는 채팅 인박스로", () => {
+    expect(
+      resolveMessengerHomeTier1BackHref({
+        pillar: "delivery",
+        mainSection: "chats",
+        origin: "delivery",
+      })
+    ).toContain("section=chats");
+  });
+});
 
 describe("messengerEntryOriginBackHref", () => {
   it("출처별 1단 뒤로가기", () => {

@@ -3,7 +3,7 @@
  * 백엔드 도메인 변경 없이 URL·UI 상태만 정리한다.
  */
 
-export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive";
+export type MessengerMainSection = "friends" | "chats" | "open_chat" | "archive" | "call_logs";
 
 /** 채팅 목록 행·액션 시트가 일반 탭인지 보관함 탭인지(복원·로컬 삭제 범위 문구 분기). `open_chat` 은 모임 탭 전용. */
 export type MessengerChatListContext = "default" | "archive" | "open_chat";
@@ -70,7 +70,7 @@ export function resolveMessengerSection(
   tabParam: string | undefined
 ): MessengerMainSection {
   const raw = sectionParam?.trim().toLowerCase();
-  if (raw === "friends" || raw === "chats" || raw === "open_chat" || raw === "archive") {
+  if (raw === "friends" || raw === "chats" || raw === "open_chat" || raw === "archive" || raw === "call_logs") {
     return raw;
   }
   const tab = tabParam?.trim().toLowerCase();

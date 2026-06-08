@@ -1,11 +1,13 @@
 "use client";
 
 import type { MutableRefObject } from "react";
-import { memo, useMemo } from "react";
+import { memo } from "react";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerChatsScreen, MessengerOpenChatScreen } from "@/components/community-messenger/MessengerChatsScreen";
 import { MessengerArchiveScreen } from "@/components/community-messenger/MessengerArchiveScreen";
+import { MessengerCallLogsPanel } from "@/components/community-messenger/MessengerCallLogsPanel";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
+import { MessengerHomeSectionTabs } from "@/components/community-messenger/MessengerHomeSectionTabs";
 import {
   inboxKindToChatListChip,
   messengerChatListEmptyMessageForChip,
@@ -16,18 +18,16 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerPillarSummary,
   UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
-import { useSwipeTabNavigation } from "@/lib/ui/use-swipe-tab-navigation";
 
 type Props = {
   mainSection: MessengerMainSection;
-  onPrimarySectionChange: (next: MessengerMainSection) => void;
   openedSwipeItemId: string | null;
   openedMenuItemId: string | null;
   friendQuickMenuBlocksTabSwipeRef: MutableRefObject<boolean>;
@@ -84,11 +84,15 @@ type Props = {
   entryOriginQuery?: string | null;
   /** 거래 서브라우트(`/trade-chats`) — `listVisual="trade"` */
   chatListVisual?: MessengerChatListVisual;
+  bootstrapCalls?: CommunityMessengerCallLog[];
+  callsHydrating?: boolean;
+  showSectionTabs?: boolean;
+  onPrimarySectionChange?: (next: MessengerMainSection) => void;
+  onOpenFriendManager?: () => void;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
   mainSection,
-  onPrimarySectionChange,
   openedSwipeItemId,
   openedMenuItemId,
   friendQuickMenuBlocksTabSwipeRef,
@@ -138,41 +142,28 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   pillarSummaries = null,
   entryOriginQuery = null,
   chatListVisual = "default",
+  bootstrapCalls = [],
+  callsHydrating = false,
+  showSectionTabs = false,
+  onPrimarySectionChange,
+  onOpenFriendManager,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
-  const swipeTabs = useMemo(
-    () => [
-      { href: "/community-messenger?section=friends" },
-      { href: "/community-messenger?section=chats" },
-      { href: "/community-messenger?section=open_chat" },
-      { href: "/community-messenger?section=archive" },
-    ],
-    []
-  );
-  const activeIndex = useMemo(
-    () => ["friends", "chats", "open_chat", "archive"].indexOf(mainSection),
-    [mainSection]
-  );
-  const swipeHandlers = useSwipeTabNavigation(swipeTabs, activeIndex, (href) => {
-    const q = new URLSearchParams(href.split("?")[1] ?? "");
-    const nextSection = q.get("section") as MessengerMainSection | null;
-    if (nextSection) onPrimarySectionChange(nextSection);
-  });
 
   return (
-    <section data-cm-messenger-main className="space-y-2 px-3">
+    <section data-cm-messenger-main className="space-y-2">
+      {showSectionTabs && onPrimarySectionChange && onOpenFriendManager ? (
+        <MessengerHomeSectionTabs
+          mainSection={mainSection}
+          onPrimarySectionChange={onPrimarySectionChange}
+          onOpenFriendManager={onOpenFriendManager}
+          incomingRequestCount={incomingRequestCount}
+        />
+      ) : null}
       <div
-        className="min-h-[56dvh]"
+        className="min-h-[56dvh] space-y-2 px-3"
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
-        onTouchStart={(e) => {
-          if (friendQuickMenuBlocksTabSwipeRef.current) return;
-          swipeHandlers.onTouchStart(e);
-        }}
-        onTouchEnd={(e) => {
-          if (friendQuickMenuBlocksTabSwipeRef.current) return;
-          swipeHandlers.onTouchEnd(e);
-        }}
       >
         {mainSection === "friends" ? (
           <MessengerFriendsScreen
@@ -219,6 +210,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             chatListChip={chatListChip}
             onChatListChipChange={onChatListChipChange}
             emptyMessage={messengerChatListEmptyMessageForChip(chatListChip)}
+            showFilters
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
             onCloseMenuItem={onCloseMenuItem}
@@ -249,6 +241,16 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
           />
+        ) : null}
+
+        {mainSection === "call_logs" ? (
+          <div className="pt-1">
+            <MessengerCallLogsPanel
+              seedCalls={bootstrapCalls}
+              callsHydrating={callsHydrating}
+              entryOrigin={entryOriginQuery}
+            />
+          </div>
         ) : null}
 
         {mainSection === "archive" ? (

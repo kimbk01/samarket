@@ -11,13 +11,14 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-const SECTIONS: MessengerMainSection[] = ["friends", "chats", "open_chat", "archive"];
+const SECTIONS: MessengerMainSection[] = ["friends", "chats", "call_logs", "open_chat", "archive"];
 
 const SECTION_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
   friends: "cm_ia_section_friends",
   chats: "cm_ia_section_chats",
   open_chat: "cm_ia_section_open_chat",
   archive: "cm_ia_section_archive",
+  call_logs: "cm_ia_section_call_logs",
 };
 
 export type MessengerTabsProps = {

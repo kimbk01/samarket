@@ -10,23 +10,19 @@ type MessengerSearch = { tab?: string; section?: string; filter?: string; kind?:
  * 셸은 즉시 내리고 데이터는 `useCommunityMessengerHomeBootstrap` 이
  * `peekBootstrapCache`·`GET /api/community-messenger/bootstrap` 로만 맞춘다.
  *
- * `?from=delivery` / `?from=trade` — 진입 출처(뒤로가기용)이기도 하지만,
- * `kind` 가 지정되지 않았을 때 해당 도메인 채팅 목록을 **기본 선택**으로 쓴다.
- * (배달 탭에서 메신저로 오면 배달 채팅이 먼저 보이고, 상단 칩으로 자유롭게 전환 가능)
+ * `?from=delivery` / `?from=trade` — 1단 헤더 뒤로가기·세션 출처(`messenger-entry-origin`)용.
+ * 인박스 채팅 목록 필터(`kind`)는 URL `kind`/`filter` 만 따른다 — `from` 으로 kind 를 강제하지 않는다.
+ * (거래·배달 묶음은 `kind=all` 인박스 상단 pillar 행으로 노출)
  */
 async function CommunityMessengerPageBody({ searchParamsPromise }: { searchParamsPromise: Promise<MessengerSearch> }) {
-  const { tab, section, filter, kind, from } = await searchParamsPromise;
-  // kind 미지정 + from 출처로 도메인 기본 필터 결정
-  // DO NOT: from 으로 pillar 강제(목록 고정)하지 않는다 — 칩 전환 자유 유지
-  const resolvedKind =
-    kind ??
-    (from === "delivery" ? "delivery" : from === "trade" ? "trade" : undefined);
+  const { tab, section, filter, kind, from: _from } = await searchParamsPromise;
+  void _from;
   return (
     <CommunityMessengerHome
       initialTab={tab}
       initialSection={section}
       initialFilter={filter}
-      initialKind={resolvedKind}
+      initialKind={kind}
     />
   );
 }

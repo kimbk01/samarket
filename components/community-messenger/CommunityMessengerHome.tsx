@@ -16,9 +16,7 @@ import { CommunityMessengerHeaderActions } from "@/components/community-messenge
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
-import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/MessengerHomeFabPlusIcon";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
-import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
 import { MessengerHomeBottomSheetShell } from "@/components/community-messenger/MessengerSheetUi";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
@@ -127,7 +125,6 @@ import { CommunityMessengerHomeReturnConsume } from "@/components/community-mess
 import { getSwipeLeaveConfirmMessage } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
-import { BOTTOM_NAV_FAB_LAYOUT } from "@/lib/main-menu/bottom-nav-config";
 import {
   type MessengerChatInboxFilter,
   type MessengerChatKindFilter,
@@ -635,7 +632,6 @@ export function CommunityMessengerHome({
           onOpenSearch={() => openHomeOverlay("search")}
           onOpenRequestList={() => openHomeOverlay("requests")}
           onOpenSettings={() => openHomeOverlay("settings")}
-          showCallLogsLink={pillar !== "delivery"}
         />
       </div>
     ),
@@ -2606,17 +2602,6 @@ export function CommunityMessengerHome({
           </div>
         </header>
       ) : null}
-      {/**
-       * 메신저 1차 섹션 탭 — 친구·채팅·모임·보관함.
-       * 5탭 통합 BottomNav 와 다른 레벨이라 충돌 없음.
-       * sticky 로 두어 리스트 스크롤 시에도 진입점이 보이게 한다.
-       */}
-      <div
-        data-cm-home-primary-nav
-        className="sticky top-0 z-20 bg-[color:var(--messenger-bg,#ffffff)]/95 backdrop-blur-[8px]"
-      >
-        <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} />
-      </div>
       <CommunityMessengerHomeListPane
         loading={loading}
         listPlaceholder={listAwaitingCritical}
@@ -2674,7 +2659,11 @@ export function CommunityMessengerHome({
         onRetry={() => void refresh()}
         pillarSummaries={inboxPillarSummaries}
         entryOriginQuery={entryOriginQuery}
+        bootstrapCalls={data?.calls ?? []}
+        callsHydrating={Boolean(data?.deferredCallLog)}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
+        showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
+        onOpenFriendManager={() => setFriendManagerOpen(true)}
       />
 
       {outgoingCallConfirm ? (
@@ -3360,16 +3349,6 @@ export function CommunityMessengerHome({
         />
       ) : null}
 
-      {!listAwaitingCritical && !authRequired && pillar !== "delivery" ? (
-        <button
-          type="button"
-          onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : openHomeOverlay("composer"))}
-          className={`fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} right-4 z-[41] flex h-14 w-14 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-primary-soft-2)] bg-[color:var(--messenger-primary)] text-white shadow-[var(--messenger-shadow-soft)] transition active:scale-[0.98] active:opacity-90`}
-          aria-label={mainSection === "friends" ? t("cm_ui_add_friend") : t("cm_ui_new_conversation")}
-        >
-          <MessengerHomeFabPlusIcon className="h-6 w-6" />
-        </button>
-      ) : null}
     </div>
   );
 }

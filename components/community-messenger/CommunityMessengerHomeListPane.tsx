@@ -26,6 +26,7 @@ import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/compone
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
 import type {
   CommunityMessengerBootstrap,
+  CommunityMessengerCallLog,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
@@ -107,6 +108,10 @@ type Props = {
   /** 인박스 진입 시점의 `?from=...` — 묶음 행이 서브 라우트로 진입할 때 보존. */
   entryOriginQuery?: string | null;
   chatListVisual?: MessengerChatListVisual;
+  bootstrapCalls?: CommunityMessengerCallLog[];
+  callsHydrating?: boolean;
+  showSectionTabs?: boolean;
+  onOpenFriendManager?: () => void;
 };
 
 export function CommunityMessengerHomeListPane(props: Props) {
@@ -225,7 +230,6 @@ export function CommunityMessengerHomeListPane(props: Props) {
           <div data-cm-home-list-mounted="true">
             <MessengerHomeMainSections
               mainSection={props.mainSection}
-              onPrimarySectionChange={props.onPrimarySectionChange}
               openedSwipeItemId={props.openedSwipeItemId}
               openedMenuItemId={props.openedMenuItemId}
               friendQuickMenuBlocksTabSwipeRef={props.friendQuickMenuBlocksTabSwipeRef}
@@ -275,6 +279,11 @@ export function CommunityMessengerHomeListPane(props: Props) {
               pillarSummaries={props.pillarSummaries ?? null}
               entryOriginQuery={props.entryOriginQuery ?? null}
               chatListVisual={props.chatListVisual ?? "default"}
+              bootstrapCalls={props.bootstrapCalls ?? []}
+              callsHydrating={props.callsHydrating ?? false}
+              showSectionTabs={props.showSectionTabs}
+              onPrimarySectionChange={props.onPrimarySectionChange}
+              onOpenFriendManager={props.onOpenFriendManager}
             />
           </div>
         ) : null}

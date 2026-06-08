@@ -26,6 +26,18 @@ export const messengerIaMessages = {
 
     cm_ia_section_archive: "보관함",
 
+    cm_ia_messenger_tab_friends_list: "친구목록",
+
+    cm_ia_messenger_tab_add_friend: "친구추가",
+
+    cm_ia_messenger_tab_call_logs: "통화목록",
+
+    cm_ia_messenger_tab_meeting_room: "모임방",
+
+    cm_ia_messenger_tab_archive: "보관함",
+
+    cm_ia_section_call_logs: "통화목록",
+
     cm_ia_empty_trade:
 
       "거래로 분류된 대화가 없습니다. 중고 거래채팅에서「SAMessenger에서 이 거래 열기」 또는 스토어 주문 채팅에서「SAMessenger에서 이 주문 열기」로 연결하면 맥락이 붙습니다. 친구 이름만 있는 일반 1:1은 거래 탭에 포함되지 않습니다.",
@@ -71,6 +83,18 @@ export const messengerIaMessages = {
     cm_ia_section_open_chat: "Meetings",
 
     cm_ia_section_archive: "Archive",
+
+    cm_ia_messenger_tab_friends_list: "Friends",
+
+    cm_ia_messenger_tab_add_friend: "Add",
+
+    cm_ia_messenger_tab_call_logs: "Calls",
+
+    cm_ia_messenger_tab_meeting_room: "Rooms",
+
+    cm_ia_messenger_tab_archive: "Archive",
+
+    cm_ia_section_call_logs: "Calls",
 
     cm_ia_empty_trade:
 

@@ -19,9 +19,14 @@ export const STORE_MENU_QUICK_ADD_SIZE_CLASS = {
     "h-[var(--delivery-menu-plus-size-compact)] w-[var(--delivery-menu-plus-size-compact)] text-[length:var(--delivery-menu-plus-font-size-compact)]",
 } as const;
 
-/** + 글리프 — Pretendard 기준 시각적 중앙 */
-export const STORE_MENU_QUICK_ADD_GLYPH_CLASS =
-  "pointer-events-none flex h-full w-full items-center justify-center leading-none translate-y-[0.5px]";
+/** + 글리프 — Pretendard bold 기준 시각적 중앙 (폰트 메트릭 보정) */
+export const STORE_MENU_QUICK_ADD_GLYPH_BASE_CLASS =
+  "pointer-events-none grid h-full w-full place-items-center leading-none";
+
+export const STORE_MENU_QUICK_ADD_GLYPH_SIZE_CLASS = {
+  list: "-translate-y-[1px]",
+  compact: "-translate-y-[0.5px]",
+} as const;
 
 /** unlayered CSS 보조 — JSX utility 와 동일 hex (문서·테스트용) */
 export const STORE_MENU_QUICK_ADD_TOKENS = {

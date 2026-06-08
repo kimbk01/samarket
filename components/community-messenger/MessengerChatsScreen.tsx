@@ -312,16 +312,9 @@ export function MessengerChatsScreen({
       {showFilters ? (
         <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
           <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
-                {listContext === "archive"
-                  ? safeT("cm_ui_chat_list_heading_archived")
-                  : safeT("cm_ui_chat_list_heading_default")}
-              </p>
-              <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-                {t("cm_ui_chat_list_filter_hint")}
-              </p>
-            </div>
+            <p className="min-w-0 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+              {t("cm_ui_chat_list_filter_hint")}
+            </p>
             <div className="flex shrink-0 items-center gap-1.5">
               <button
                 type="button"

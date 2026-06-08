@@ -39,19 +39,29 @@ export function useCommunityMessengerHomeNavigation({
   messengerEntryOrigin = null,
 }: Args) {
   const replaceMessengerSectionUrl = useCallback(
-    (section: MessengerMainSection, inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter) => {
+    (
+      section: MessengerMainSection,
+      inbox: MessengerChatInboxFilter,
+      kind: MessengerChatKindFilter,
+      options?: { history?: "push" | "replace" }
+    ) => {
       const qs = new URLSearchParams();
       qs.set("section", section);
       if (section === "chats") {
         const extra = messengerChatFiltersToSearchParams(inbox, kind);
         extra.forEach((v, k) => qs.set(k, v));
       }
+      if (typeof window !== "undefined") {
+        const from = new URLSearchParams(window.location.search).get("from")?.trim();
+        if (from) qs.set("from", from);
+      }
       const nextUrl = `/community-messenger?${qs.toString()}`;
       if (typeof window !== "undefined") {
         const cur = `${window.location.pathname}${window.location.search}`;
         if (cur === nextUrl) return;
       }
-      void router.replace(nextUrl, { scroll: false });
+      const navigate = options?.history === "push" ? router.push.bind(router) : router.replace.bind(router);
+      void navigate(nextUrl, { scroll: false });
     },
     [router]
   );
@@ -73,11 +83,7 @@ export function useCommunityMessengerHomeNavigation({
     (next: MessengerMainSection) => {
       resetMessengerTransientUi();
       setMainSection(next);
-      if (next === "chats") {
-        replaceMessengerSectionUrl("chats", chatInboxFilter, chatKindFilter);
-      } else {
-        replaceMessengerSectionUrl(next, chatInboxFilter, chatKindFilter);
-      }
+      replaceMessengerSectionUrl(next, chatInboxFilter, chatKindFilter, { history: "push" });
     },
     [chatInboxFilter, chatKindFilter, replaceMessengerSectionUrl, resetMessengerTransientUi, setMainSection]
   );

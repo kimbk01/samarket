@@ -5,7 +5,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import {
   STORE_MENU_QUICK_ADD_BTN_VISUAL_CLASS,
-  STORE_MENU_QUICK_ADD_GLYPH_CLASS,
+  STORE_MENU_QUICK_ADD_GLYPH_BASE_CLASS,
+  STORE_MENU_QUICK_ADD_GLYPH_SIZE_CLASS,
   STORE_MENU_QUICK_ADD_SIZE_CLASS,
 } from "@/lib/stores/store-menu-quick-add-button-styles";
 
@@ -31,7 +32,10 @@ export function MenuQuickAddButton({
       className={`${DeliveryTheme.menuPlus} ${STORE_MENU_QUICK_ADD_BTN_VISUAL_CLASS} ${STORE_MENU_QUICK_ADD_SIZE_CLASS[size]} ${className}`.trim()}
       aria-label={t("store_add_to_cart_aria", { title })}
     >
-      <span className={STORE_MENU_QUICK_ADD_GLYPH_CLASS} aria-hidden>
+      <span
+        className={`${STORE_MENU_QUICK_ADD_GLYPH_BASE_CLASS} ${STORE_MENU_QUICK_ADD_GLYPH_SIZE_CLASS[size]}`}
+        aria-hidden
+      >
         +
       </span>
     </button>

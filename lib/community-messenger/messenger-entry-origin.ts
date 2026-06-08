@@ -1,3 +1,5 @@
+import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
+
 /**
  * 메신저 진입 출처(`?from=...`) 단일 원천.
  *
@@ -97,6 +99,27 @@ export function withMessengerEntryOrigin(href: string, origin: MessengerEntryOri
 /** 거래/배달 서브 라우트 → 메신저 인박스로 돌아갈 때 출처를 보존하기 위한 helper. */
 export function messengerInboxHrefWithOrigin(origin: MessengerEntryOrigin): string {
   return withMessengerEntryOrigin("/community-messenger?section=chats", origin);
+}
+
+/**
+ * 메신저 홈 1단 헤더 뒤로가기.
+ * - 채팅홈(`section=chats`): 진입 출처 탭(`/stores`·`/market`·`/philife`)
+ * - FAB 섹션(친구·모임·보관함): 채팅 인박스(`section=chats` + `?from=` 보존)
+ * - 거래/배달 묶음 서브 라우트(`pillar`): 채팅 인박스
+ */
+export function resolveMessengerHomeTier1BackHref(args: {
+  pillar: "trade" | "delivery" | null;
+  mainSection: MessengerMainSection;
+  origin: MessengerEntryOrigin;
+}): string {
+  const inboxHref = messengerInboxHrefWithOrigin(args.origin);
+  if (args.pillar != null) {
+    return inboxHref;
+  }
+  if (args.mainSection === "chats") {
+    return messengerEntryOriginBackHref(args.origin);
+  }
+  return inboxHref;
 }
 
 /**
