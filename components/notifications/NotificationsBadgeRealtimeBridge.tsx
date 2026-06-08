@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
-import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
+import { refreshAllSurfaceNotificationUnreadStores } from "@/lib/notifications/notification-unread-badge-store";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
@@ -37,7 +37,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
 
   const bump = useCallback(({ eventType }: { eventType: string }) => {
     if (eventType === "INSERT") {
-      void myGeneralNotificationUnreadStore.refresh(true);
+      refreshAllSurfaceNotificationUnreadStores(true);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }

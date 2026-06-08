@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { CommerceCartHeaderLink } from "@/components/layout/CommerceCartHeaderLink";
-import { MyHeaderNotificationInbox } from "@/components/my/MyHeaderNotificationInbox";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OWNER_MOBILE_EXIT_HREF } from "@/lib/stores/owner-mobile-ui-tokens";
 
@@ -47,9 +47,11 @@ export function BuyerDeliveryOrdersHeader() {
           </div>
           <div className="ml-auto flex shrink-0 items-center justify-end gap-0">
             <Suspense fallback={<HeaderActionsFallback />}>
-              <MyHeaderNotificationInbox />
+              <CommerceCartHeaderLink />
             </Suspense>
-            <CommerceCartHeaderLink />
+            <Suspense fallback={<HeaderActionsFallback />}>
+              <Tier1NotificationAnchor surface="bottom_nav_delivery" />
+            </Suspense>
           </div>
         </div>
       </header>

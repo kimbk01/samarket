@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Phone } from "lucide-react";
+import { Phone, UserPlus } from "lucide-react";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
@@ -10,19 +10,12 @@ import {
   samTier1HeaderIconCluster,
   samTier1HeaderIconMicro,
 } from "@/lib/ui/tier1-header-icon";
-import {
-  Tier1HeaderBellGlyph,
-  Tier1HeaderSearchGlyph,
-  Tier1HeaderSettingsGlyph,
-} from "@/lib/ui/tier1-header-glyphs";
+import { Tier1HeaderSearchGlyph, Tier1HeaderSettingsGlyph } from "@/lib/ui/tier1-header-glyphs";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 
 /**
- * 메신저 홈 상단 우측 액션: 검색 / 통화 기록 / 알림 / 설정.
- * 새 대화는 하단 FAB 한 곳만 사용(중복 CTA 제거).
- *
- * 거래·필라이프 1단 우측과 동일 타입: `sam-header-action` + 40×40 히트, 글리프 `h-6 w-6`,
- * 클러스터 간격 `samTier1HeaderIconCluster` — 원형 배경 셸 없음.
+ * 메신저 홈 상단 우측: 검색 / 통화 / 친구요청 / 설정 / **종(통합 인박스, 맨 끝)**.
  */
 export function CommunityMessengerHeaderActions({
   incomingRequestCount,
@@ -35,7 +28,6 @@ export function CommunityMessengerHeaderActions({
   onOpenSearch: () => void;
   onOpenRequestList: () => void;
   onOpenSettings: () => void;
-  /** 배달 채팅 목록 등 — 상단 통화 기록(전화) 아이콘 숨김 */
   showCallLogsLink?: boolean;
 }) {
   const { t } = useI18n();
@@ -62,10 +54,14 @@ export function CommunityMessengerHeaderActions({
         aria-label={
           incomingRequestCount > 0
             ? t("cm_ui_notifications_pending_friend_requests", { count: incomingRequestCount })
-            : t("common_notifications")
+            : t("cm_ui_requests_box")
         }
       >
-        <Tier1HeaderBellGlyph />
+        <UserPlus
+          className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+          strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+          aria-hidden
+        />
         {incomingRequestCount > 0 ? (
           <span className={samTier1HeaderIconBadge}>
             {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
@@ -75,6 +71,7 @@ export function CommunityMessengerHeaderActions({
       <button type="button" onClick={onOpenSettings} className={iconBtn} aria-label={t("nav_messenger_settings")}>
         <Tier1HeaderSettingsGlyph />
       </button>
+      <Tier1NotificationAnchor surface="bottom_nav_chat" />
     </div>
   );
 }

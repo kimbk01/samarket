@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
-import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
 import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
@@ -38,14 +38,14 @@ export function RegionBarExplorationTier1({ pathNoQuery }: { pathNoQuery: string
             {isPhilifeFeed ?
               <>
                 <PhilifeHeaderComposeButton />
-                <PhilifeHeaderNotificationInbox />
                 <PhilifeHeaderMessengerButton />
                 <PhilifeHeaderAddressMenuButton />
+                <Tier1NotificationAnchor surface="bottom_nav_community" />
               </>
             : <>
                 <TradeHeaderComposeButton />
-                <PhilifeHeaderNotificationInbox />
                 <PhilifeHeaderMessengerButton />
+                <Tier1NotificationAnchor surface="bottom_nav_my" />
               </>
             }
           </div>

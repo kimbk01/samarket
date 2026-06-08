@@ -95,7 +95,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
                 onSidebarExpandedChange={handleSidebarExpandedChange}
               />
               <AdminLanguageToggleLazy />
-              <AdminNotificationBell />
               <AdminTestSwitcher />
               <Link
                 href="/philife"
@@ -103,6 +102,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               >
                 {t("common_homepage")}
               </Link>
+              <AdminNotificationBell />
             </div>
           </header>
           <main className="min-h-0 w-full min-w-0 flex-1 px-4 py-4">

@@ -1,4 +1,6 @@
 import { invalidateOwnerDashboardNotificationsSnapshotCache } from "@/lib/notifications/owner-dashboard-notifications-snapshot-cache";
+import type { BadgeTargetSurface } from "@/lib/notifications/badge-target-policy";
+import { isTier1BellBadgeSurface } from "@/lib/notifications/resolve-tier1-bell-surface";
 
 export type UnreadCountMode =
   | "all"
@@ -36,6 +38,11 @@ function flightMap(): Map<string, Promise<number>> {
 
 function makeKey(userId: string, mode: UnreadCountMode): string {
   return `${userId.trim()}::${mode}`;
+}
+
+function makeSurfaceKey(userId: string, surface: BadgeTargetSurface, storeId?: string | null): string {
+  const sid = storeId?.trim() || "";
+  return `${userId.trim()}::surface::${surface}::${sid}`;
 }
 
 function prune(now: number) {
@@ -141,4 +148,68 @@ export function getCachedNotificationUnreadCount(
     cache_hit: false,
     singleflight_hit: false,
   }));
+}
+
+export function getCachedNotificationUnreadCountBySurface(
+  userId: string,
+  surface: BadgeTargetSurface,
+  storeId: string | null | undefined,
+  factory: () => Promise<number>
+): Promise<CachedNotificationUnreadCountResult> {
+  const uid = userId.trim();
+  if (!uid) {
+    return factory().then((value) => ({
+      value: Math.max(0, Math.floor(Number(value) || 0)),
+      cache_hit: false,
+      singleflight_hit: false,
+    }));
+  }
+
+  const key = makeSurfaceKey(uid, surface, storeId);
+  const now = Date.now();
+  const cache = cacheMap();
+  const flights = flightMap();
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return Promise.resolve({
+      value: cached.value,
+      cache_hit: true,
+      singleflight_hit: false,
+    });
+  }
+
+  const existingFlight = flights.get(key);
+  if (existingFlight) {
+    return existingFlight.then((value) => ({
+      value,
+      cache_hit: cached != null && cached.expiresAt > now,
+      singleflight_hit: true,
+    }));
+  }
+
+  prune(now);
+
+  const flight = factory()
+    .then((value) => {
+      const next = Math.max(0, Math.floor(Number(value) || 0));
+      cache.set(key, { value: next, expiresAt: Date.now() + TTL_MS });
+      return next;
+    })
+    .finally(() => {
+      if (flights.get(key) === flight) {
+        flights.delete(key);
+      }
+    });
+
+  flights.set(key, flight);
+  return flight.then((value) => ({
+    value,
+    cache_hit: false,
+    singleflight_hit: false,
+  }));
+}
+
+export function isBadgeSurfaceQueryParam(v: string | null | undefined): v is BadgeTargetSurface {
+  if (!v?.trim()) return false;
+  return isTier1BellBadgeSurface(v.trim()) || v.trim() === "all";
 }

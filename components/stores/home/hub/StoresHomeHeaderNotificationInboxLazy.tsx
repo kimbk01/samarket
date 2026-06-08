@@ -7,13 +7,15 @@ import {
   STORES_HOME_HEADER_ICON_BTN_CLASS,
   STORES_HOME_HEADER_NOTIF_BADGE_CLASS,
 } from "@/lib/design/stores-home-header-chrome";
-import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
+import { getSurfaceNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
 import { useSyncExternalStore } from "react";
 
-const PhilifeHeaderNotificationInbox = dynamic(
+const deliveryBellUnreadStore = getSurfaceNotificationUnreadStore("bottom_nav_delivery");
+
+const Tier1NotificationAnchor = dynamic(
   () =>
-    import("@/components/philife/PhilifeHeaderNotificationInbox").then(
-      (m) => m.PhilifeHeaderNotificationInbox
+    import("@/components/notifications/Tier1NotificationAnchor").then(
+      (m) => m.Tier1NotificationAnchor
     ),
   { ssr: false, loading: () => <NotificationBellPlaceholder /> }
 );
@@ -21,9 +23,9 @@ const PhilifeHeaderNotificationInbox = dynamic(
 function NotificationBellPlaceholder() {
   const { t } = useI18n();
   const unread = useSyncExternalStore(
-    myGeneralNotificationUnreadStore.subscribe,
-    myGeneralNotificationUnreadStore.getSnapshot,
-    myGeneralNotificationUnreadStore.getServerSnapshot
+    deliveryBellUnreadStore.subscribe,
+    deliveryBellUnreadStore.getSnapshot,
+    deliveryBellUnreadStore.getServerSnapshot
   );
   const showDot = (unread ?? 0) > 0;
   const badgeLabel = (unread ?? 0) > 99 ? "99+" : String(unread ?? 0);
@@ -58,8 +60,8 @@ export function StoresHomeHeaderNotificationInboxLazy({
   tone?: "onPrimary" | "default";
 }) {
   useEffect(() => {
-    void myGeneralNotificationUnreadStore.refresh(true);
+    void deliveryBellUnreadStore.refresh(true);
   }, []);
 
-  return <PhilifeHeaderNotificationInbox tone={tone} />;
+  return <Tier1NotificationAnchor surface="bottom_nav_delivery" tone={tone} />;
 }

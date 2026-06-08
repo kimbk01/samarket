@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { SectorHeaderBackButton } from "@/components/layout/sector-header/SectorHeaderBackButton";
-import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { StoresHomeSearchModal } from "@/components/stores/home/hub/StoresHomeSearchModal";
 import {
   STORES_HOME_HEADER_ACTION_ROW_CLASS,
@@ -71,7 +71,7 @@ export function StoresGreenFixedHeaderChrome({
         >
           <SearchIcon />
         </button>
-        <PhilifeHeaderNotificationInbox tone="onPrimary" />
+        <Tier1NotificationAnchor surface="bottom_nav_delivery" tone="onPrimary" />
       </div>
     ) : (
       <div

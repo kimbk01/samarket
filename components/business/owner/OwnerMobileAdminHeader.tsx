@@ -1,14 +1,12 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Bell, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { openOwnerMobileOpsMenu } from "@/lib/business/owner-mobile-ops-menu-bridge";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
@@ -45,7 +43,7 @@ export function OwnerMobileAdminHeader({
   storeId,
   storeSlug,
   storeOps,
-  urgentAlertCount,
+  urgentAlertCount: _urgentAlertCount,
   stores,
   pageTitle,
   backHref,
@@ -80,8 +78,6 @@ export function OwnerMobileAdminHeader({
     biz?.openMobileOwnerMenu?.();
   };
   const storeList = stores ?? hubRuntime?.stores ?? null;
-  const notificationsHref =
-    resolveOwnerStoreNotificationsHref({ slug: storeSlug }) ?? OwnerRoutes.settings(storeId);
   const open = storeOps.is_open;
   const prep =
     storeOps.prep_minutes != null && storeOps.prep_minutes > 0
@@ -181,18 +177,7 @@ export function OwnerMobileAdminHeader({
 
         <div className={OWNER_MOBILE_PAGE_HEADER_ACTIONS_CLASS}>
           {trailingCtx?.trailing}
-          <Link
-            href={notificationsHref}
-            className={`relative ${HEADER_ICON_BTN_CLASS}`}
-            aria-label={t("store_owner_aria_notifications", { count: String(urgentAlertCount) })}
-          >
-            <Bell className="h-5 w-5" aria-hidden />
-            {urgentAlertCount > 0 ? (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF4D4F] px-1 text-[10px] font-bold leading-none text-white">
-                {urgentAlertCount > 99 ? "99+" : urgentAlertCount}
-              </span>
-            ) : null}
-          </Link>
+          <Tier1NotificationAnchor surface="owner_commerce_inbox" storeId={storeId} />
           <button
             type="button"
             className={`relative z-10 ${HEADER_ICON_BTN_CLASS}`}

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Bell, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import {
   OWNER_MOBILE_PAGE_HEADER_ROW_CLASS,
   OWNER_MOBILE_PAGE_HEADER_SHELL_BLEED_CLASS,
@@ -28,9 +27,8 @@ function OwnerMenuIcon() {
 export function OwnerDashboardHeader({
   storeName,
   storeId,
-  storeSlug,
   storeOps,
-  urgentAlertCount,
+  urgentAlertCount: _urgentAlertCount,
   stores,
 }: {
   storeName: string;
@@ -46,12 +44,10 @@ export function OwnerDashboardHeader({
   const hubRuntime = useOwnerHubRuntime();
   const biz = useBusinessAdminStore();
   const storeList = stores ?? hubRuntime?.stores ?? null;
-  const notificationsHref =
-    resolveOwnerStoreNotificationsHref({ slug: storeSlug }) ?? OwnerRoutes.settings(storeId);
   const open = storeOps.is_open;
   const prep =
     storeOps.prep_minutes != null && storeOps.prep_minutes > 0
-      ? t("store_owner_ops_prep_minutes", { minutes: storeOps.prep_minutes })
+      ? t("store_owner_ops_prep_minutes", { minutes: String(storeOps.prep_minutes) })
       : null;
 
   const onStoreChange = (nextId: string) => {
@@ -109,18 +105,7 @@ export function OwnerDashboardHeader({
         </div>
 
         <div className="flex shrink-0 items-center">
-          <Link
-            href={notificationsHref}
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label={t("store_owner_aria_notifications", { count: urgentAlertCount })}
-          >
-            <Bell className="h-5 w-5" aria-hidden />
-            {urgentAlertCount > 0 ? (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF4D4F] px-1 text-[10px] font-bold leading-none text-white">
-                {urgentAlertCount > 99 ? "99+" : urgentAlertCount}
-              </span>
-            ) : null}
-          </Link>
+          <Tier1NotificationAnchor surface="owner_commerce_inbox" storeId={storeId} />
           <button
             type="button"
             className="flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"

@@ -39,11 +39,18 @@ export type FetchMeNotificationsListOpts = {
   limit?: number;
   /** 페이지 시작 오프셋 */
   offset?: number;
+  /** 오너 매장 알림 목록 — `owner_store_id` 쿼리 */
+  ownerStoreId?: string;
 };
 
 function buildNotificationsListUrl(opts?: FetchMeNotificationsListOpts): string {
   const sp = new URLSearchParams();
-  sp.set("exclude_owner_store_commerce", "1");
+  const ownerSid = opts?.ownerStoreId?.trim();
+  if (ownerSid) {
+    sp.set("owner_store_id", ownerSid);
+  } else {
+    sp.set("exclude_owner_store_commerce", "1");
+  }
   if (opts?.excludeChatMessages === true) {
     sp.set("exclude_chat_message", "1");
   }

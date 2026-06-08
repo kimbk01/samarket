@@ -1,13 +1,12 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import Link from "next/link";
-import { Bell, Filter, Search } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { openOwnerMobileOpsMenu } from "@/lib/business/owner-mobile-ops-menu-bridge";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import {
   OWNER_MOBILE_PAGE_HEADER_ACTIONS_CLASS,
   OWNER_MOBILE_PAGE_HEADER_ROW_CLASS,
@@ -25,7 +24,7 @@ function OwnerMenuIcon() {
 
 export function OwnerOrdersPageHeader({
   storeRow,
-  bellCount,
+  bellCount: _bellCount,
   onOpenSearch,
   onOpenFilter,
   backHref,
@@ -43,9 +42,6 @@ export function OwnerOrdersPageHeader({
     if (openOwnerMobileOpsMenu()) return;
     biz?.openMobileOwnerMenu?.();
   };
-  const notificationsHref =
-    resolveOwnerStoreNotificationsHref(storeRow) ??
-    `/stores/owner/settings?storeId=${encodeURIComponent(storeRow?.id ?? "")}`;
 
   return (
     <header
@@ -81,18 +77,9 @@ export function OwnerOrdersPageHeader({
           >
             <Filter className="h-[18px] w-[18px]" aria-hidden />
           </button>
-          <Link
-            href={notificationsHref}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label={t("store_owner_aria_notifications", { count: String(bellCount) })}
-          >
-            <Bell className="h-5 w-5" aria-hidden />
-            {bellCount > 0 ? (
-              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF4D4F] px-1 text-[10px] font-bold text-white">
-                {bellCount > 99 ? "99+" : bellCount}
-              </span>
-            ) : null}
-          </Link>
+          {storeRow?.id ? (
+            <Tier1NotificationAnchor surface="owner_commerce_inbox" storeId={storeRow.id} />
+          ) : null}
           <button
             type="button"
             className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"

@@ -4,7 +4,7 @@
 
 import Link from "next/link";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 import {
 
@@ -23,6 +23,8 @@ import {
   useSyncExternalStore,
 
   type CSSProperties,
+
+  type ReactNode,
 
 } from "react";
 
@@ -67,7 +69,7 @@ import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-e
 
 import { prewarmInboxNotificationChatHref } from "@/lib/notifications/prewarm-inbox-notification-href";
 
-import { myGeneralNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
+import { getSurfaceNotificationUnreadStore } from "@/lib/notifications/notification-unread-badge-store";
 
 import {
 
@@ -76,6 +78,16 @@ import {
   syncTier1HeaderInboxUnreadFromRows,
 
 } from "@/lib/notifications/tier1-header-inbox-sync";
+
+import {
+  badgeSurfaceToPriorityPushKind,
+  resolveTier1BellListFetchOpts,
+  resolveTier1BellMarkAllReadBody,
+  resolveTier1BellSurfaceFromPathname,
+  type Tier1BellBadgeSurface,
+} from "@/lib/notifications/resolve-tier1-bell-surface";
+
+export type { Tier1BellBadgeSurface };
 
 import {
 
@@ -210,6 +222,12 @@ export function PhilifeHeaderNotificationInbox({
 
   unreadBadgeClassName,
 
+  surface: surfaceProp,
+
+  storeId,
+
+  pinnedSections,
+
 }: {
 
   /** 녹색 배달 홈 헤더 — 흰 아이콘·delivery 뱃지 */
@@ -228,7 +246,38 @@ export function PhilifeHeaderNotificationInbox({
 
   unreadBadgeClassName?: string;
 
+  /** 미지정 시 pathname 자동 — notification_targets surface */
+
+  surface?: Tier1BellBadgeSurface;
+
+  /** owner_commerce_inbox surface용 매장 id */
+
+  storeId?: string | null;
+
+  /** 패널 상단 고정(친구 요청 등) */
+
+  pinnedSections?: ReactNode;
+
 }) {
+
+  const pathname = usePathname();
+
+  const resolvedSurface = surfaceProp ?? resolveTier1BellSurfaceFromPathname(pathname);
+
+  const listFetchOpts = useMemo(
+    () => resolveTier1BellListFetchOpts(resolvedSurface, storeId),
+    [resolvedSurface, storeId]
+  );
+
+  const priorityPushKind = useMemo(
+    () => badgeSurfaceToPriorityPushKind(resolvedSurface),
+    [resolvedSurface]
+  );
+
+  const badgeStore = useMemo(
+    () => getSurfaceNotificationUnreadStore(resolvedSurface, storeId),
+    [resolvedSurface, storeId]
+  );
 
   const router = useRouter();
 
@@ -278,17 +327,20 @@ export function PhilifeHeaderNotificationInbox({
 
 
 
-  const grouped = useMemo(() => buildInboxGroupItems(rows, language), [rows, language]);
+  const grouped = useMemo(
+    () => buildInboxGroupItems(rows, language, priorityPushKind),
+    [rows, language, priorityPushKind]
+  );
 
   const rowUnread = useMemo(() => countUnread(rows), [rows]);
 
   const storeUnread = useSyncExternalStore(
 
-    myGeneralNotificationUnreadStore.subscribe,
+    badgeStore.subscribe,
 
-    myGeneralNotificationUnreadStore.getSnapshot,
+    badgeStore.getSnapshot,
 
-    myGeneralNotificationUnreadStore.getServerSnapshot
+    badgeStore.getServerSnapshot
 
   );
 
@@ -460,7 +512,12 @@ export function PhilifeHeaderNotificationInbox({
 
       }
 
-      const { status, json: raw } = await fetchMeNotificationsListDeduped({ force, excludeChatMessages: true });
+      const { status, json: raw } = await fetchMeNotificationsListDeduped({
+        force,
+        excludeChatMessages: listFetchOpts.excludeChatMessages,
+        pushKind: listFetchOpts.pushKind,
+        ownerStoreId: listFetchOpts.ownerStoreId,
+      });
 
       const j = raw as { ok?: boolean; notifications?: Row[] };
 
@@ -498,7 +555,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, []);
+  }, [listFetchOpts]);
 
 
 
@@ -531,6 +588,13 @@ export function PhilifeHeaderNotificationInbox({
 
 
   useEffect(() => {
+    setListSynced(false);
+    setRows([]);
+  }, [resolvedSurface, storeId]);
+
+
+
+  useEffect(() => {
 
     if (typeof window === "undefined") return;
 
@@ -546,6 +610,8 @@ export function PhilifeHeaderNotificationInbox({
 
       void loadInbox(true, { silent: true });
 
+      void badgeStore.refresh(true);
+
     };
 
     window.addEventListener("kasama:user-notification-settings-changed", onCustom);
@@ -560,7 +626,7 @@ export function PhilifeHeaderNotificationInbox({
 
     };
 
-  }, [loadInbox, loadSound]);
+  }, [loadInbox, loadSound, badgeStore]);
 
 
 
@@ -622,7 +688,9 @@ export function PhilifeHeaderNotificationInbox({
 
     void loadInbox(true, { silent: listSynced });
 
-  }, [open, listSynced, loadInbox]);
+    void badgeStore.refresh(true);
+
+  }, [open, listSynced, loadInbox, badgeStore]);
 
 
 
@@ -699,6 +767,14 @@ export function PhilifeHeaderNotificationInbox({
     setMarkBusy(true);
 
     try {
+      const unreadIds = grouped
+        .filter((g) => g.unreadCount > 0)
+        .flatMap((g) => g.ids);
+      const rowUnreadIds = rows.filter((r) => !r.is_read).map((r) => r.id);
+      const markBody = resolveTier1BellMarkAllReadBody(
+        resolvedSurface,
+        unreadIds.length > 0 ? unreadIds : rowUnreadIds
+      );
 
       const res = await fetch("/api/me/notifications", {
 
@@ -708,7 +784,7 @@ export function PhilifeHeaderNotificationInbox({
 
         headers: { "Content-Type": "application/json" },
 
-        body: JSON.stringify({ mark_my_notifications_read_excluding_owner_and_chat: true }),
+        body: JSON.stringify(markBody),
 
       });
 
@@ -719,6 +795,8 @@ export function PhilifeHeaderNotificationInbox({
         invalidateMeNotificationsListDedupedCache();
 
         void loadInbox(true, { silent: true });
+
+        void badgeStore.refresh(true);
 
         if (typeof window !== "undefined") {
 
@@ -734,7 +812,7 @@ export function PhilifeHeaderNotificationInbox({
 
     }
 
-  }, [loadInbox, markBusy, totalUnread]);
+  }, [badgeStore, grouped, loadInbox, markBusy, resolvedSurface, rows, totalUnread]);
 
 
 
@@ -940,6 +1018,10 @@ export function PhilifeHeaderNotificationInbox({
 
 
               <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain py-2 ${APP_MAIN_GUTTER_X_CLASS}`}>
+
+                {pinnedSections ? (
+                  <div className="mb-2 border-b border-sam-border/60 pb-2">{pinnedSections}</div>
+                ) : null}
 
                 {showListLoading ? (
 

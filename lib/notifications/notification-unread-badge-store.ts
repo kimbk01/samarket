@@ -12,6 +12,11 @@ import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/netwo
 import { logFetchTrace, logPollingTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 
+import {
+  resolveTier1BellUnreadFetchUrl,
+  type Tier1BellBadgeSurface,
+} from "@/lib/notifications/resolve-tier1-bell-surface";
+
 /** Realtime UPDATE burst(읽음 일괄 등) — trailing 1회만 unread fetch */
 const NOTIFICATION_EVENT_FETCH_COALESCE_MS = 1_200;
 /** 성공 응답 재사용 — 동일 URL 중복 GET 방지 */
@@ -298,24 +303,53 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   };
 }
 
-/** 일반 인앱 알림(오너 전용 매장주문 제외) — 상단 종·마이 허더 등, 구매자 매장주문 포함 */
-export const myGeneralNotificationUnreadStore = createNotificationUnreadBadgeStore(
-  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_chat_message=1"
-);
+const surfaceBadgeStores = new Map<string, ReturnType<typeof createNotificationUnreadBadgeStore>>();
+
+function surfaceStoreKey(surface: Tier1BellBadgeSurface, storeId?: string | null): string {
+  const sid = storeId?.trim() || "";
+  return `${surface}::${sid}`;
+}
+
+/** Tier1 종 surface별 unread store — URL 단일 비행·TTL 공유 */
+export function getSurfaceNotificationUnreadStore(
+  surface: Tier1BellBadgeSurface,
+  storeId?: string | null
+) {
+  const key = surfaceStoreKey(surface, storeId);
+  let store = surfaceBadgeStores.get(key);
+  if (!store) {
+    store = createNotificationUnreadBadgeStore(resolveTier1BellUnreadFetchUrl(surface, storeId));
+    surfaceBadgeStores.set(key, store);
+  }
+  return store;
+}
+
+/** 일반 인앱 알림(오너 전용 매장주문 제외) — tier1_inbox_bell surface */
+export const myGeneralNotificationUnreadStore = getSurfaceNotificationUnreadStore("tier1_inbox_bell");
 
 /** 하단 네비 「내정보」탭 — 구매자 매장주문(배송 중 등) 알림 미읽음은 제외 */
 export const myBottomNavNotificationUnreadStore = createNotificationUnreadBadgeStore(
   "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_buyer_store_commerce=1&exclude_chat_message=1"
 );
 
-/** 매장 사업자 전용 매장주문 인앱 알림 */
-export const ownerCommerceNotificationUnreadStore = createNotificationUnreadBadgeStore(
-  "/api/me/notifications?unread_count_only=1&owner_store_commerce_unread_only=1"
+/** 매장 사업자 전용 매장주문 인백스 — owner_commerce_inbox surface (storeId 없음 = 전체) */
+export const ownerCommerceNotificationUnreadStore = getSurfaceNotificationUnreadStore(
+  "owner_commerce_inbox"
 );
+
+/** Realtime INSERT 등 — 마운트된 surface store + 하단탭 legacy store 일괄 갱신 */
+export function refreshAllSurfaceNotificationUnreadStores(force = false): void {
+  if (typeof window === "undefined") return;
+  void myBottomNavNotificationUnreadStore.refresh(force);
+  for (const store of surfaceBadgeStores.values()) {
+    void store.refresh(force);
+  }
+}
 
 /** 로그아웃·계정 전환 — unread badge 폴링·캐시 초기화 */
 export function pauseAndClearAllNotificationUnreadBadgeStores(): void {
-  myGeneralNotificationUnreadStore.pauseAndClear();
   myBottomNavNotificationUnreadStore.pauseAndClear();
-  ownerCommerceNotificationUnreadStore.pauseAndClear();
+  for (const store of surfaceBadgeStores.values()) {
+    store.pauseAndClear();
+  }
 }

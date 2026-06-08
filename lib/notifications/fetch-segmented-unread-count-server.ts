@@ -1,14 +1,28 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { BadgeTargetSurface } from "@/lib/notifications/badge-target-policy";
 import {
   BUYER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
   OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
 } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import { countNotificationTargets } from "@/lib/notifications/notification-targets";
 import type { UnreadCountMode } from "@/lib/notifications/notification-unread-count-cache";
 
 export const NOTIFICATION_UNREAD_SEGMENTED_RPC = "count_notification_unread_segmented";
 
 function isRpcMissing(err: { message?: string } | null): boolean {
   return /count_notification_unread_segmented|schema cache|function/i.test(String(err?.message ?? ""));
+}
+
+/**
+ * Tier1 종 surface — notification_targets only (legacy notifications COUNT fallback 없음).
+ */
+export async function countNotificationTargetsSurfaceServer(
+  sb: SupabaseClient<any>,
+  userId: string,
+  surface: BadgeTargetSurface,
+  storeId?: string | null
+): Promise<number> {
+  return countNotificationTargets(sb, userId, surface, storeId);
 }
 
 /** 단일 RPC — cold 1 RTT (mode별 SQL CASE). */

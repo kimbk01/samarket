@@ -16,10 +16,10 @@ import {
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-commerce-cart-selector";
 
-const PhilifeHeaderNotificationInbox = dynamic(
+const Tier1NotificationAnchor = dynamic(
   () =>
-    import("@/components/philife/PhilifeHeaderNotificationInbox").then(
-      (m) => m.PhilifeHeaderNotificationInbox
+    import("@/components/notifications/Tier1NotificationAnchor").then(
+      (m) => m.Tier1NotificationAnchor
     ),
   { ssr: false }
 );
@@ -158,18 +158,7 @@ export function StoreOrderStickyHeader({
                     />
                   </svg>
                 </button>
-              ) : (
-                <PhilifeHeaderNotificationInbox
-                  tone={glassOverlay ? "onPrimary" : elevated ? "default" : "onPrimary"}
-                  triggerClassName={
-                    glassOverlay ? STORE_ORDER_HERO_GLASS_ICON_BTN : elevated ? undefined : actionBtnClass()
-                  }
-                  unreadBadgeClassName={
-                    glassOverlay ? STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME : undefined
-                  }
-                  deferInboxListPrefetch
-                />
-              )}
+              ) : null}
               <Link
                 href={cartHref}
                 onClick={onCartPress}
@@ -193,6 +182,19 @@ export function StoreOrderStickyHeader({
                   </span>
                 ) : null}
               </Link>
+              {headerTrailingVariant === "storeMenu" ? (
+                <Tier1NotificationAnchor
+                  surface="bottom_nav_delivery"
+                  tone={glassOverlay ? "onPrimary" : elevated ? "default" : "onPrimary"}
+                  triggerClassName={
+                    glassOverlay ? STORE_ORDER_HERO_GLASS_ICON_BTN : elevated ? undefined : actionBtnClass()
+                  }
+                  unreadBadgeClassName={
+                    glassOverlay ? STORE_ORDER_HERO_GLASS_NOTIF_BADGE_CLASSNAME : undefined
+                  }
+                  deferInboxListPrefetch
+                />
+              ) : null}
             </>
           }
         />

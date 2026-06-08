@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -32,10 +33,8 @@ import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminS
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
 import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
-import { useOwnerCommerceNotificationUnreadCountDeferred } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
-import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { OwnerMobileAdminHeader } from "@/components/business/owner/OwnerMobileAdminHeader";
 import { OwnerMobileAdminHeaderTrailingProvider } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
@@ -51,8 +50,6 @@ import {
 import { useOwnerMobileStackViewportLock } from "@/lib/business/use-owner-mobile-stack-viewport-lock";
 import { buildStoreOpsMetaFromRow } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
-import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import {
   emitOwnerBasicInfoLeave,
@@ -393,7 +390,6 @@ export function BusinessAdminShell({
     };
   }, [orderCountsStoreId, isHub, hubRuntime, isOwnerOrdersRoute]);
 
-  const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCountDeferred(isHub);
   const isOwnerAdminRoute = isStoreOwnerAdminPathname(pathname);
   const ownerHubBreakdown = useOwnerHubBadgeBreakdownWhenEnabled(!isOwnerAdminRoute);
   const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? shellOrderAlertsBadge;
@@ -404,8 +400,14 @@ export function BusinessAdminShell({
         shellOrderAlertsBadge
       );
   const ownerHeaderBellCount = ownerOrderAttentionCount;
-  const ownerBellShowsUnreadDot =
-    (ownerCommerceUnread ?? 0) > 0 && ownerHeaderBellCount === 0;
+
+  const ownerStoreIdForBell = (selectedRow?.id ?? storeIdParam).trim();
+
+  const ownerNotificationBell =
+    ownerStoreIdForBell ?
+      <Tier1NotificationAnchor surface="owner_commerce_inbox" storeId={ownerStoreIdForBell} />
+    : null;
+
   const ownerMobileBottomNavChatBadge =
     hubOrderAlertsBadge > 0 ? Math.min(hubOrderAlertsBadge, 99) : 0;
 
@@ -441,65 +443,6 @@ export function BusinessAdminShell({
     selectedRow.slug
       ? `/stores/${encodeURIComponent(selectedRow.slug)}`
       : null;
-
-  const ownerNotificationsHref = useMemo(() => {
-    const fromRow = resolveOwnerStoreNotificationsHref(selectedRow);
-    if (fromRow) return fromRow;
-    const sid = storeIdParam.trim();
-    if (!sid || !stores?.length) return null;
-    const row = stores.find((s) => s.id === sid);
-    return resolveOwnerStoreNotificationsHref(row);
-  }, [selectedRow, stores, storeIdParam]);
-
-  const ownerBellHref = useMemo(() => {
-    const sid = (selectedRow?.id ?? storeIdParam).trim();
-    if (ownerOrderAttentionCount > 0 && sid) {
-      return (
-        ownerHubBreakdown.storeDeepLink ??
-        buildStoreOrdersHref({ storeId: sid, tab: "new" })
-      );
-    }
-    return ownerNotificationsHref;
-  }, [
-    ownerOrderAttentionCount,
-    ownerHubBreakdown.storeDeepLink,
-    selectedRow?.id,
-    storeIdParam,
-    ownerNotificationsHref,
-  ]);
-
-  const ownerNotificationBell =
-    ownerBellHref ?
-      <Link
-        href={ownerBellHref}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-        aria-label={
-          ownerHeaderBellCount > 0
-            ? t("business_phase7_581", { v1: String(ownerHeaderBellCount) })
-            : ownerBellShowsUnreadDot
-              ? t("store_owner_aria_notifications_unread_only")
-              : t("business_phase7_580")
-        }
-      >
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
-        {ownerHeaderBellCount > 0 ? (
-          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
-            {ownerHeaderBellCount > 99 ? "99+" : ownerHeaderBellCount}
-          </span>
-        ) : ownerBellShowsUnreadDot ? (
-          <span
-            className={`${OWNER_HUB_BADGE_DOT_CLASS} h-2.5 min-w-2.5 ring-sam-surface/80`}
-            aria-hidden
-          />
-        ) : null}
-      </Link>
-    : null;
 
   useEffect(() => {
     const releases: Array<() => void> = [];

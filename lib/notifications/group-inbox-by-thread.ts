@@ -16,6 +16,8 @@ import {
   defaultInboxFallbackHref,
   resolveNotificationInboxHref,
 } from "@/lib/notifications/resolve-notification-inbox-href";
+import { buildTradeTargetId } from "@/lib/notifications/badge-target-policy";
+import type { InboxPushKindFilter } from "@/lib/me/fetch-me-notifications-deduped";
 
 export type InboxRowInput = {
   id: string;
@@ -27,6 +29,7 @@ export type InboxRowInput = {
   created_at: string;
   meta?: Record<string, unknown> | null;
   domain?: string | null;
+  push_kind?: string | null;
 };
 
 export type InboxGroupItem = {
@@ -48,6 +51,8 @@ export type InboxGroupItem = {
   kindLabel: string | null;
   /** 상단 채널/도메인 요약 뱃지 */
   surfaceBadge: string;
+  /** stable sort — groupKeyForInboxRow prefix */
+  groupSortKey: string;
 };
 
 function toPathname(u: string): string {
@@ -69,14 +74,41 @@ function orderIdFromInboxRow(r: InboxRowInput): string | null {
   return null;
 }
 
+function postIdFromInboxRow(r: InboxRowInput): string | null {
+  const meta = r.meta as { post_id?: unknown; community_post_id?: unknown } | null | undefined;
+  const fromPost = typeof meta?.post_id === "string" ? meta.post_id.trim() : "";
+  if (fromPost) return fromPost;
+  const fromCommunity = typeof meta?.community_post_id === "string" ? meta.community_post_id.trim() : "";
+  return fromCommunity || null;
+}
+
 /**
- * `chat` — 방 id · `commerce`+주문 id — 주문 단위 1행. 그 외 건별(id).
+ * `chat` — 방 id · `commerce`+주문 id — 주문 단위 · trade/post — 대상 1행.
  */
 export function groupKeyForInboxRow(r: InboxRowInput): string {
   if (r.notification_type === "commerce") {
     const oid = orderIdFromInboxRow(r);
     if (oid) return `order:${oid}`;
   }
+
+  if (r.notification_type === "status") {
+    const meta = r.meta as { kind?: unknown; product_id?: unknown; seller_id?: unknown; buyer_id?: unknown } | null;
+    const kind = typeof meta?.kind === "string" ? meta.kind.trim() : "";
+    if (kind === "trade_offer") {
+      const productId = typeof meta?.product_id === "string" ? meta.product_id.trim() : "";
+      const sellerId = typeof meta?.seller_id === "string" ? meta.seller_id.trim() : "";
+      const buyerId = typeof meta?.buyer_id === "string" ? meta.buyer_id.trim() : "";
+      if (productId && sellerId && buyerId) {
+        return `trade:${buildTradeTargetId(productId, sellerId, buyerId)}`;
+      }
+    }
+  }
+
+  const postId = postIdFromInboxRow(r);
+  if (postId && (r.notification_type === "review" || r.domain === "community" || r.notification_type === "system")) {
+    return `post:${postId}`;
+  }
+
   if (r.notification_type !== "chat") {
     return `one:${r.id}`;
   }
@@ -100,12 +132,31 @@ export function groupKeyForInboxRow(r: InboxRowInput): string {
   return `one:${r.id}`;
 }
 
+function rowMatchesSurfacePriority(row: InboxRowInput, priorityPushKind: InboxPushKindFilter | null): boolean {
+  if (!priorityPushKind || priorityPushKind === "all") return true;
+  const pk = String(row.push_kind ?? "").trim().toLowerCase();
+  const domain = String(row.domain ?? "").trim().toLowerCase();
+  switch (priorityPushKind) {
+    case "chat":
+      return row.notification_type === "chat" || pk === "chat" || domain.includes("chat");
+    case "trade":
+      return pk === "trade" || domain === "trade_chat" || row.notification_type === "status";
+    case "delivery":
+      return pk === "delivery" || domain === "order" || row.notification_type === "commerce";
+    case "community":
+      return pk === "community" || domain === "community" || Boolean(postIdFromInboxRow(row));
+    default:
+      return true;
+  }
+}
+
 /**
- * 최신순 — 목록/드롭다운 공통. 채팅은 방 단위 1행, 그 외는 1알림 1행.
+ * 최신순 — 목록/드롭다운 공통. surface priorityPushKind 가 있으면 해당 domain을 상단(stable).
  */
 export function buildInboxGroupItems(
   rows: InboxRowInput[],
-  language: AppLanguageCode = DEFAULT_APP_LANGUAGE
+  language: AppLanguageCode = DEFAULT_APP_LANGUAGE,
+  priorityPushKind?: InboxPushKindFilter | null
 ): InboxGroupItem[] {
   const sorted = [...rows].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
   const map = new Map<string, InboxRowInput[]>();
@@ -175,7 +226,21 @@ export function buildInboxGroupItems(
       meta: metaObj,
       kindLabel,
       surfaceBadge,
+      groupSortKey: key,
     });
   }
-  return out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  const pk = priorityPushKind && priorityPushKind !== "all" ? priorityPushKind : null;
+  const priorityByGroup = new Map<string, boolean>();
+  for (const [key, list] of map) {
+    const latest = [...list].sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0]!;
+    priorityByGroup.set(key, pk ? rowMatchesSurfacePriority(latest, pk) : true);
+  }
+  return out.sort((a, b) => {
+    if (pk) {
+      const aPri = priorityByGroup.get(a.groupSortKey) ?? false;
+      const bPri = priorityByGroup.get(b.groupSortKey) ?? false;
+      if (aPri !== bPri) return aPri ? -1 : 1;
+    }
+    return a.created_at < b.created_at ? 1 : -1;
+  });
 }
