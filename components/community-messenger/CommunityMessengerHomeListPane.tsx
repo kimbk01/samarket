@@ -128,6 +128,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
     recordCmLiteListPaneRenderForFirstPaint();
   }
   recordCmClientMergePaneRender();
+  const isPillarChatList = props.chatListVisual === "trade" || props.chatListVisual === "delivery";
 
   useLayoutEffect(() => {
     if (listFrozen) return;
@@ -212,8 +213,9 @@ export function CommunityMessengerHomeListPane(props: Props) {
     <>
       <div
         ref={frameRef}
-        className="relative min-h-[56dvh]"
+        className={`relative min-h-[56dvh] ${isPillarChatList ? "sam-messenger-pillar-list-enter" : ""}`}
         data-cm-home-frame="true"
+        data-cm-pillar-list={isPillarChatList ? props.chatListVisual : undefined}
         data-cm-home-state={
           canRenderList
             ? showRefreshingOverlay

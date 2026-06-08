@@ -69,7 +69,7 @@ type Args = {
   /**
    * 거래/배달 전용 서브 라우트 모드.
    * - `null` 이면 인박스: `?from=community|trade|delivery` 로 1단 헤더 뒤로가기 분기.
-   * - `"trade" | "delivery"` 면 1단 헤더 제목을 「거래 채팅」/「배달 채팅」 으로,
+   * - `"trade" | "delivery"` 면 1단 헤더 제목을 해당 채팅 scope 로,
    *   뒤로가기는 메신저 인박스(`/community-messenger?section=chats` + `?from` 보존).
    */
   pillar?: "trade" | "delivery" | null;

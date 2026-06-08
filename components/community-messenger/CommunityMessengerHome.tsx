@@ -225,7 +225,7 @@ export function CommunityMessengerHome({
    * 거래/배달 전용 서브 라우트(`/community-messenger/trade-chats`, `/delivery-chats`).
    * - 채팅 목록을 해당 pillar 의 방으로 강제 한정.
    * - 상단 묶음 행·기타 main section(친구/모임/보관함) 은 표시하지 않음.
-   * - 1단 헤더 제목은 「거래 채팅」/「배달 채팅」 으로 표기.
+   * - 1단 헤더 제목은 해당 채팅 scope 로 표기.
    */
   pillar = null,
 }: {

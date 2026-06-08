@@ -20,7 +20,7 @@ const KNOWN: ReadonlySet<NonNullable<MessengerEntryOrigin>> = new Set([
 
 export const MESSENGER_ENTRY_ORIGIN_QUERY_KEY = "from";
 
-/** 방에서 뒤로가기 시 돌아갈 목록 — 거래 묶음 / 배달 묶음 / 인박스(1:1·그룹) */
+/** 방에서 뒤로가기 시 돌아갈 목록 — 거래 / 배달 / 인박스(일반 채팅 리스트) */
 export type MessengerRoomListSource = "trade" | "delivery" | "inbox";
 
 export const MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY = "cm_list";

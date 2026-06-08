@@ -10,8 +10,10 @@
 :root {
   --sam-messenger-room-enter-duration: 240ms;
   --sam-messenger-room-exit-duration: 220ms;
+  --sam-messenger-pillar-list-enter-duration: 360ms;
   --sam-messenger-room-enter-easing: cubic-bezier(0.2, 0, 0, 1);
   --sam-messenger-room-exit-easing: cubic-bezier(0.4, 0, 1, 1);
+  --sam-messenger-pillar-list-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .messenger-page {
@@ -47,10 +49,28 @@
   transition: transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing);
 }
 
+@keyframes sam-messenger-pillar-list-enter-rtl {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+.sam-messenger-pillar-list-enter {
+  animation: sam-messenger-pillar-list-enter-rtl var(--sam-messenger-pillar-list-enter-duration)
+    var(--sam-messenger-pillar-list-enter-easing) both;
+  contain: paint;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .messenger-enter-active,
-  .messenger-exit-active {
+  .messenger-exit-active,
+  .sam-messenger-pillar-list-enter {
     transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
   }
 }
 

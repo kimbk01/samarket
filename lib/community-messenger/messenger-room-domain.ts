@@ -6,6 +6,29 @@
 
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
+export type CommunityMessengerInboxGroupKind = "trade" | "delivery" | "general";
+
+export function communityMessengerRoomIsConfirmedTrade(room: CommunityMessengerRoomSummary): boolean {
+  if (room.contextMeta?.kind === "trade") return true;
+  const dk = room.messengerDirectKey?.trim() ?? "";
+  return dk.startsWith("trade_pc:") || dk.startsWith("trade_item:");
+}
+
+export function communityMessengerRoomIsConfirmedDelivery(room: CommunityMessengerRoomSummary): boolean {
+  if (room.contextMeta?.kind === "delivery") return true;
+  const dk = room.messengerDirectKey?.trim() ?? "";
+  if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;
+  return dk.startsWith("store_order:") || dk.startsWith("trade_order:");
+}
+
+export function communityMessengerRoomInboxGroupKind(
+  room: CommunityMessengerRoomSummary
+): CommunityMessengerInboxGroupKind {
+  if (communityMessengerRoomIsConfirmedTrade(room)) return "trade";
+  if (communityMessengerRoomIsConfirmedDelivery(room)) return "delivery";
+  return "general";
+}
+
 export function communityMessengerRoomIsTrade(room: CommunityMessengerRoomSummary): boolean {
   if (room.contextMeta?.kind === "trade") return true;
   const dk = room.messengerDirectKey?.trim() ?? "";

@@ -182,6 +182,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const searchParams = useSearchParams();
   const fromEntryOrigin = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
   const roomListSource = useMemo(() => messengerRoomListSourceFromPathname(pathname), [pathname]);
+  const roomReturnHref = useMemo(() => {
+    if (roomListSource === "inbox") return null;
+    const qs = searchParams.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
+  }, [pathname, roomListSource, searchParams]);
   const room = item.room;
   const rowRef = useRef<HTMLDivElement | null>(null);
   const roomPrefetchPriority = useMemo(
@@ -368,8 +373,8 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           : null;
 
   const roomHref = useMemo(
-    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource),
-    [room.id, fromEntryOrigin, roomListSource]
+    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource, roomReturnHref),
+    [room.id, fromEntryOrigin, roomListSource, roomReturnHref]
   );
 
   const kickRoomNavPrefetchOnPointerDown = useCallback(() => {

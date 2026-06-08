@@ -5,8 +5,9 @@ import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
 import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import {
-  communityMessengerRoomIsDelivery,
-  communityMessengerRoomIsTrade,
+  communityMessengerRoomInboxGroupKind,
+  communityMessengerRoomIsConfirmedDelivery,
+  communityMessengerRoomIsConfirmedTrade,
   messengerDirectThreadListCollapseKey,
 } from "@/lib/community-messenger/messenger-room-domain";
 import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
@@ -43,13 +44,13 @@ type Params = {
   roomSearchKeyword: string;
   openGroupSearch: string;
   /**
-   * 거래/배달 전용 서브 라우트(`/community-messenger/trade-chats`, `/delivery-chats`)에서는
-   * 채팅 리스트를 해당 pillar 의 방으로 강제 한정한다(칩 필터·검색은 그 위에서 동작).
+   * 거래/배달/일반 전용 서브 라우트에서는 채팅 리스트를 해당 scope 의 방으로 강제 한정한다
+   * (칩 필터·검색은 그 위에서 동작).
    */
   pillar?: MessengerPillarMode;
 };
 
-/** 거래/배달 묶음 행이 가리키는 도메인. */
+/** 채팅 전용 목록이 가리키는 도메인 scope. */
 export type MessengerPillarMode = "trade" | "delivery" | null;
 
 export type MessengerPillarSummary = {
@@ -362,39 +363,35 @@ export function useCommunityMessengerHomeState({
    * 추가 fetch 없이 `unifiedRooms` 에서 파생 — 거래 가볍게 invariant 유지.
    */
   const tradePillarSummary = useMemo<MessengerPillarSummary>(
-    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsTrade(item.room))),
+    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room))),
     [baseChatListItems]
   );
 
   const deliveryPillarSummary = useMemo<MessengerPillarSummary>(
-    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsDelivery(item.room))),
+    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room))),
     [baseChatListItems]
   );
 
   /**
    * visibleChatListItems 필터 입력 원본.
    * - 거래/배달 서브 라우트(`pillar`): 해당 도메인 방만.
-   * - 메신저 인박스(`pillar == null`)이면서 **대화 유형이 「전체」**일 때:
-   *   거래·배달 방은 상단 묶음 행(거래 채팅 / 배달 채팅)으로만 보이고,
-   *   이 목록에는 **1:1·그룹(비거래·비배달)만** 둔다.
+   * - 메신저 홈 인박스(`pillar == null`) + 전체 칩: 거래·배달은 상단 그룹 행으로만 보이고,
+   *   실제 리스트에는 일반 채팅만 둔다.
    * - `kind=거래`·`kind=배달`·`1:1`·`그룹` 등으로 좁혔을 때는 전체 base 를 쓴다(묶음 행은 UI 에서 숨김).
    */
   const pillarBaseChatListItems = useMemo(() => {
     if (pillar === "trade") {
-      const tradeItems = baseChatListItems.filter((item) => communityMessengerRoomIsTrade(item.room));
+      const tradeItems = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room));
       const keepIds = new Set(
         dedupeTradeMessengerRoomSummaries(tradeItems.map((item) => item.room)).map((room) => room.id)
       );
       return tradeItems.filter((item) => keepIds.has(item.room.id));
     }
     if (pillar === "delivery") {
-      return baseChatListItems.filter((item) => communityMessengerRoomIsDelivery(item.room));
+      return baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room));
     }
     if (chatKindFilter === "all") {
-      return baseChatListItems.filter(
-        (item) =>
-          !communityMessengerRoomIsTrade(item.room) && !communityMessengerRoomIsDelivery(item.room)
-      );
+      return baseChatListItems.filter((item) => communityMessengerRoomInboxGroupKind(item.room) === "general");
     }
     return baseChatListItems;
   }, [baseChatListItems, pillar, chatKindFilter]);
@@ -420,8 +417,8 @@ export function useCommunityMessengerHomeState({
       if (chatInboxFilter === "pinned" && !room.isPinned) return false;
       if (chatKindFilter === "direct" && room.roomType !== "direct") return false;
       if (chatKindFilter === "private_group" && room.roomType !== "private_group") return false;
-      if (chatKindFilter === "trade" && !communityMessengerRoomIsTrade(room)) return false;
-      if (chatKindFilter === "delivery" && !communityMessengerRoomIsDelivery(room)) return false;
+      if (chatKindFilter === "trade" && !communityMessengerRoomIsConfirmedTrade(room)) return false;
+      if (chatKindFilter === "delivery" && !communityMessengerRoomIsConfirmedDelivery(room)) return false;
       if (!keyword) return true;
       const meetingRoleHaystack = room.philifeMeetingMemberLabel
         ? philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)
