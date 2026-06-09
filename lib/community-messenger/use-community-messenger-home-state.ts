@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import type { MessengerChatInboxFilter, MessengerChatKindFilter, MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
-import { buildMessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
+import {
+  buildMessengerFriendStateModel,
+  type MessengerFriendState,
+  type MessengerFriendStateModel,
+} from "@/lib/community-messenger/messenger-friend-model";
 import {
   communityMessengerRoomInboxGroupKind,
   communityMessengerRoomIsConfirmedDelivery,
@@ -16,6 +20,10 @@ import {
   getRoomPreviewText,
   getRoomTypeBadgeLabel,
 } from "@/lib/community-messenger/cm-home-list-copy";
+import {
+  profileArraysReferenceEqual,
+  roomSummaryListRowShallowEqual,
+} from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
@@ -63,6 +71,108 @@ export type MessengerPillarSummary = {
 };
 
 const EMPTY_PILLAR_SUMMARY: MessengerPillarSummary = { lastItem: null, unreadTotal: 0, count: 0 };
+
+/** memo·RoomList propsEqual — 동일 행 참조면 true */
+export function roomListItemsRowRefsEqual(a: UnifiedRoomListItem[], b: UnifiedRoomListItem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+export function messengerStringSetsEqual(a: Set<string>, b: Set<string>): boolean {
+  if (a === b) return true;
+  if (a.size !== b.size) return false;
+  for (const id of b) {
+    if (!a.has(id)) return false;
+  }
+  return true;
+}
+
+function stabilizeStringSet(next: Set<string>, stableRef: { current: Set<string> }): Set<string> {
+  const prev = stableRef.current;
+  if (messengerStringSetsEqual(prev, next)) return prev;
+  stableRef.current = next;
+  return next;
+}
+
+function stabilizeRoomListItems(
+  next: UnifiedRoomListItem[],
+  stableRef: { current: UnifiedRoomListItem[] }
+): UnifiedRoomListItem[] {
+  const prev = stableRef.current;
+  if (roomListItemsRowRefsEqual(prev, next)) return prev;
+  if (roomListItemsDisplayEqual(prev, next)) return prev;
+  stableRef.current = next;
+  return next;
+}
+
+function messengerPillarSummaryLastItemDisplayEqual(
+  a: UnifiedRoomListItem | null,
+  b: UnifiedRoomListItem | null
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return unifiedListItemRowDisplayEqual(a, b);
+}
+
+function messengerPillarSummariesEqual(a: MessengerPillarSummary, b: MessengerPillarSummary): boolean {
+  return (
+    a.unreadTotal === b.unreadTotal &&
+    a.count === b.count &&
+    messengerPillarSummaryLastItemDisplayEqual(a.lastItem, b.lastItem)
+  );
+}
+
+function messengerFriendStateEntriesEqual(a: MessengerFriendState[], b: MessengerFriendState[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].profile !== b[i].profile) return false;
+    const sa = a[i].states;
+    const sb = b[i].states;
+    if (sa.length !== sb.length) return false;
+    for (let j = 0; j < sa.length; j++) {
+      if (sa[j] !== sb[j]) return false;
+    }
+  }
+  return true;
+}
+
+function messengerFriendStateModelsEqual(a: MessengerFriendStateModel, b: MessengerFriendStateModel): boolean {
+  return (
+    messengerFriendStateEntriesEqual(a.favorites, b.favorites) &&
+    messengerFriendStateEntriesEqual(a.friends, b.friends) &&
+    messengerFriendStateEntriesEqual(a.hidden, b.hidden) &&
+    messengerFriendStateEntriesEqual(a.blocked, b.blocked) &&
+    messengerFriendStateEntriesEqual(a.requestedSent, b.requestedSent) &&
+    messengerFriendStateEntriesEqual(a.requestedReceived, b.requestedReceived) &&
+    messengerFriendStateEntriesEqual(a.suggested, b.suggested) &&
+    messengerFriendStateEntriesEqual(a.muted, b.muted)
+  );
+}
+
+function stabilizeFriendStateModel(
+  next: MessengerFriendStateModel,
+  stableRef: { current: MessengerFriendStateModel }
+): MessengerFriendStateModel {
+  const prev = stableRef.current;
+  if (messengerFriendStateModelsEqual(prev, next)) return prev;
+  stableRef.current = next;
+  return next;
+}
+
+function stabilizePillarSummary(
+  next: MessengerPillarSummary,
+  stableRef: { current: MessengerPillarSummary }
+): MessengerPillarSummary {
+  const prev = stableRef.current;
+  if (messengerPillarSummariesEqual(prev, next)) return prev;
+  stableRef.current = next;
+  return next;
+}
 
 function summarizePillarItems(items: UnifiedRoomListItem[]): MessengerPillarSummary {
   if (items.length === 0) return EMPTY_PILLAR_SUMMARY;
@@ -201,17 +311,21 @@ export function useCommunityMessengerHomeState({
     setFriendSortEpochMs(Date.now());
   }, [data?.friends]);
 
-  const hiddenFriendIds = useMemo(() => new Set((data?.hidden ?? []).map((friend) => friend.id)), [data?.hidden]);
+  const hiddenFriendIdsStableRef = useRef<Set<string>>(new Set());
+  const hiddenFriendIds = useMemo(() => {
+    const next = new Set((data?.hidden ?? []).map((friend) => friend.id));
+    return stabilizeStringSet(next, hiddenFriendIdsStableRef);
+  }, [data?.hidden]);
 
-  const favoriteFriendIds = useMemo(
-    () =>
-      new Set(
-        (data?.friends ?? [])
-          .filter((friend) => friend.isFavoriteFriend && !hiddenFriendIds.has(friend.id))
-          .map((friend) => friend.id)
-      ),
-    [data?.friends, hiddenFriendIds]
-  );
+  const favoriteFriendIdsStableRef = useRef<Set<string>>(new Set());
+  const favoriteFriendIds = useMemo(() => {
+    const next = new Set(
+      (data?.friends ?? [])
+        .filter((friend) => friend.isFavoriteFriend && !hiddenFriendIds.has(friend.id))
+        .map((friend) => friend.id)
+    );
+    return stabilizeStringSet(next, favoriteFriendIdsStableRef);
+  }, [data?.friends, hiddenFriendIds]);
 
   const directRoomMapStableRef = useRef<Map<string, CommunityMessengerRoomSummary>>(new Map());
 
@@ -258,17 +372,20 @@ export function useCommunityMessengerHomeState({
       });
   }, [data?.friends, friendSortEpochMs, hiddenFriendIds]);
 
-  const friendStateModel = useMemo(
-    () => buildMessengerFriendStateModel(data, directRoomByPeerId),
-    [
-      data?.friends,
-      data?.hidden,
-      data?.blocked,
-      data?.requests,
-      data?.following,
-      directRoomByPeerId,
-    ]
+  const friendStateModelStableRef = useRef<MessengerFriendStateModel>(
+    buildMessengerFriendStateModel(null, new Map())
   );
+  const friendStateModel = useMemo(() => {
+    const next = buildMessengerFriendStateModel(data, directRoomByPeerId);
+    return stabilizeFriendStateModel(next, friendStateModelStableRef);
+  }, [
+    data?.friends,
+    data?.hidden,
+    data?.blocked,
+    data?.requests,
+    data?.following,
+    directRoomByPeerId,
+  ]);
 
   const sortedChats = useMemo(() => sortRoomsWithStableOutput(data?.chats ?? []), [data?.chats]);
   const sortedGroups = useMemo(() => sortRoomsWithStableOutput(data?.groups ?? []), [data?.groups]);
@@ -330,7 +447,7 @@ export function useCommunityMessengerHomeState({
     for (const item of sortedNext) {
       const id = item.room.id;
       const prevRow = rowCache.get(id);
-      if (prevRow && unifiedListItemRowVisualEqual(prevRow, item)) {
+      if (prevRow && unifiedListItemRowDisplayEqual(prevRow, item)) {
         reconciled.push(prevRow);
       } else {
         rowCache.set(id, item);
@@ -346,7 +463,8 @@ export function useCommunityMessengerHomeState({
     if (
       prevList &&
       prevList.length === reconciled.length &&
-      prevList.every((row, i) => row === reconciled[i])
+      (prevList.every((row, i) => row === reconciled[i]) ||
+        roomListItemsDisplayEqual(prevList, reconciled))
     ) {
       return prevList;
     }
@@ -354,23 +472,33 @@ export function useCommunityMessengerHomeState({
     return reconciled;
   }, [sortedChats, sortedGroups, sortedCalls]);
 
+  const baseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const baseChatListItems = useMemo(() => {
-    return unifiedRooms.filter((item) => item.room.roomType !== "open_group" && !communityMessengerRoomIsInboxHidden(item.room));
+    const next = unifiedRooms.filter(
+      (item) => item.room.roomType !== "open_group" && !communityMessengerRoomIsInboxHidden(item.room)
+    );
+    return stabilizeRoomListItems(next, baseChatListItemsStableRef);
   }, [unifiedRooms]);
 
   /**
    * 인박스(거래/배달 pillar 모드 아님)에서만 의미가 있는 묶음 행 요약값.
    * 추가 fetch 없이 `unifiedRooms` 에서 파생 — 거래 가볍게 invariant 유지.
    */
-  const tradePillarSummary = useMemo<MessengerPillarSummary>(
-    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room))),
-    [baseChatListItems]
-  );
+  const tradePillarSummaryStableRef = useRef<MessengerPillarSummary>(EMPTY_PILLAR_SUMMARY);
+  const tradePillarSummary = useMemo<MessengerPillarSummary>(() => {
+    const next = summarizePillarItems(
+      baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room))
+    );
+    return stabilizePillarSummary(next, tradePillarSummaryStableRef);
+  }, [baseChatListItems]);
 
-  const deliveryPillarSummary = useMemo<MessengerPillarSummary>(
-    () => summarizePillarItems(baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room))),
-    [baseChatListItems]
-  );
+  const deliveryPillarSummaryStableRef = useRef<MessengerPillarSummary>(EMPTY_PILLAR_SUMMARY);
+  const deliveryPillarSummary = useMemo<MessengerPillarSummary>(() => {
+    const next = summarizePillarItems(
+      baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room))
+    );
+    return stabilizePillarSummary(next, deliveryPillarSummaryStableRef);
+  }, [baseChatListItems]);
 
   /**
    * visibleChatListItems 필터 입력 원본.
@@ -379,32 +507,40 @@ export function useCommunityMessengerHomeState({
    *   실제 리스트에는 일반 채팅만 둔다.
    * - `kind=거래`·`kind=배달`·`1:1`·`그룹` 등으로 좁혔을 때는 전체 base 를 쓴다(묶음 행은 UI 에서 숨김).
    */
+  const pillarBaseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const pillarBaseChatListItems = useMemo(() => {
+    let next: UnifiedRoomListItem[];
     if (pillar === "trade") {
       const tradeItems = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedTrade(item.room));
       const keepIds = new Set(
         dedupeTradeMessengerRoomSummaries(tradeItems.map((item) => item.room)).map((room) => room.id)
       );
-      return tradeItems.filter((item) => keepIds.has(item.room.id));
+      next = tradeItems.filter((item) => keepIds.has(item.room.id));
+    } else if (pillar === "delivery") {
+      next = baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room));
+    } else if (chatKindFilter === "all") {
+      next = baseChatListItems.filter((item) => communityMessengerRoomInboxGroupKind(item.room) === "general");
+    } else {
+      next = baseChatListItems;
     }
-    if (pillar === "delivery") {
-      return baseChatListItems.filter((item) => communityMessengerRoomIsConfirmedDelivery(item.room));
-    }
-    if (chatKindFilter === "all") {
-      return baseChatListItems.filter((item) => communityMessengerRoomInboxGroupKind(item.room) === "general");
-    }
-    return baseChatListItems;
+    return stabilizeRoomListItems(next, pillarBaseChatListItemsStableRef);
   }, [baseChatListItems, pillar, chatKindFilter]);
 
-  const archiveListItems = useMemo(
-    () => unifiedRooms.filter((item) => communityMessengerRoomIsInboxHidden(item.room)),
-    [unifiedRooms]
-  );
-
-  const openChatJoinedItems = useMemo(() => {
-    return unifiedRooms.filter((item) => item.room.roomType === "open_group" && !communityMessengerRoomIsInboxHidden(item.room));
+  const archiveListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
+  const archiveListItems = useMemo(() => {
+    const next = unifiedRooms.filter((item) => communityMessengerRoomIsInboxHidden(item.room));
+    return stabilizeRoomListItems(next, archiveListItemsStableRef);
   }, [unifiedRooms]);
 
+  const openChatJoinedItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
+  const openChatJoinedItems = useMemo(() => {
+    const next = unifiedRooms.filter(
+      (item) => item.room.roomType === "open_group" && !communityMessengerRoomIsInboxHidden(item.room)
+    );
+    return stabilizeRoomListItems(next, openChatJoinedItemsStableRef);
+  }, [unifiedRooms]);
+
+  const visibleChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const visibleChatListItems = useMemo(() => {
     const keyword = roomSearchKeyword.trim().toLowerCase();
     const cacheKey = visibleChatListInputKey(pillarBaseChatListItems, chatInboxFilter, chatKindFilter, keyword);
@@ -428,9 +564,10 @@ export function useCommunityMessengerHomeState({
         .toLowerCase();
       return haystack.includes(keyword);
     });
+    const stabilized = stabilizeRoomListItems(out, visibleChatListItemsStableRef);
     if (visibleChatListByInputKey.size >= VISIBLE_CHAT_LIST_CACHE_MAX) visibleChatListByInputKey.clear();
-    visibleChatListByInputKey.set(cacheKey, out);
-    return out;
+    visibleChatListByInputKey.set(cacheKey, stabilized);
+    return stabilized;
   }, [pillarBaseChatListItems, chatInboxFilter, chatKindFilter, roomSearchKeyword]);
 
   const searchSheetRoomItems = useMemo(() => {
@@ -450,11 +587,14 @@ export function useCommunityMessengerHomeState({
       .slice(0, 24);
   }, [roomSearchKeyword, unifiedRooms]);
 
+  const primaryListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const primaryListItems = useMemo(() => {
-    if (mainSection === "chats") return visibleChatListItems;
-    if (mainSection === "archive") return archiveListItems;
-    if (mainSection === "open_chat") return openChatJoinedItems;
-    return [];
+    let next: UnifiedRoomListItem[];
+    if (mainSection === "chats") next = visibleChatListItems;
+    else if (mainSection === "archive") next = archiveListItems;
+    else if (mainSection === "open_chat") next = openChatJoinedItems;
+    else next = [];
+    return stabilizeRoomListItems(next, primaryListItemsStableRef);
   }, [archiveListItems, mainSection, openChatJoinedItems, visibleChatListItems]);
 
   return {
@@ -496,16 +636,113 @@ export function formatConversationTimestamp(value: string): string {
   return `${date.getFullYear()}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")} ${hh}:${mm}`;
 }
 
-export function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
+/** 목록 행 표시에 영향 — `room` object 참조 없이 roomId·필드 동일성만 비교 */
+/** memo·RoomList propsEqual — 행 id·표시 필드 동일이면 true (배열·room 참조 무관) */
+export function roomListItemsDisplayEqual(a: UnifiedRoomListItem[], b: UnifiedRoomListItem[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (!unifiedListItemRowDisplayEqual(a[i], b[i])) return false;
+  }
+  return true;
+}
+
+export function unifiedListItemRowDisplayEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
+  if (a === b) return true;
+  if (a.room.id !== b.room.id) return false;
+  const ar = a.room;
+  const br = b.room;
   return (
-    messengerRoomTradeThumbKeyPart(a.room) === messengerRoomTradeThumbKeyPart(b.room) &&
-    messengerRoomTradeListMetaSig(a.room) === messengerRoomTradeListMetaSig(b.room) &&
-    a.room === b.room &&
+    messengerRoomTradeThumbKeyPart(ar) === messengerRoomTradeThumbKeyPart(br) &&
+    messengerRoomTradeListMetaSig(ar) === messengerRoomTradeListMetaSig(br) &&
+    ar.unreadCount === br.unreadCount &&
+    ar.isPinned === br.isPinned &&
+    ar.isMuted === br.isMuted &&
+    ar.lastMessageAt === br.lastMessageAt &&
+    ar.title === br.title &&
+    ar.subtitle === br.subtitle &&
+    ar.summary === br.summary &&
+    ar.peerUserId === br.peerUserId &&
+    ar.roomType === br.roomType &&
+    (ar.philifeMeetingMemberLabel ?? "") === (br.philifeMeetingMemberLabel ?? "") &&
+    ar.memberCount === br.memberCount &&
     a.preview === b.preview &&
     a.previewKind === b.previewKind &&
     a.callStatus === b.callStatus &&
     a.callKind === b.callKind &&
     a.lastEventAt === b.lastEventAt
+  );
+}
+
+export function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
+  return (
+    a.room === b.room &&
+    unifiedListItemRowDisplayEqual(a, b)
+  );
+}
+
+export function communityMessengerRoomSummaryArraysRowRefsEqual(
+  a: CommunityMessengerRoomSummary[] | undefined,
+  b: CommunityMessengerRoomSummary[] | undefined
+): boolean {
+  if (a === b) return true;
+  const aa = a ?? [];
+  const bb = b ?? [];
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i++) {
+    if (aa[i] !== bb[i]) return false;
+  }
+  return true;
+}
+
+/** ListPane·setData bail-out — room id·표시 필드 기준 (행 참조 무관) */
+export function communityMessengerRoomSummaryListsDisplayEqual(
+  a: CommunityMessengerRoomSummary[] | undefined,
+  b: CommunityMessengerRoomSummary[] | undefined
+): boolean {
+  if (a === b) return true;
+  const aa = a ?? [];
+  const bb = b ?? [];
+  if (aa.length !== bb.length) return false;
+  for (let i = 0; i < aa.length; i++) {
+    if (aa[i].id !== bb[i].id) return false;
+    if (!roomSummaryListRowShallowEqual(aa[i], bb[i])) return false;
+  }
+  return true;
+}
+
+function messengerBootstrapTabsEqual(
+  a: CommunityMessengerBootstrap["tabs"],
+  b: CommunityMessengerBootstrap["tabs"]
+): boolean {
+  return (
+    a.chats === b.chats &&
+    a.groups === b.groups &&
+    a.friends === b.friends &&
+    a.calls === b.calls
+  );
+}
+
+/** Home setData 동일 내용 bail-out — list subtree 관련 bootstrap 필드만 */
+export function communityMessengerBootstrapDisplayEqual(
+  a: CommunityMessengerBootstrap,
+  b: CommunityMessengerBootstrap
+): boolean {
+  if (a === b) return true;
+  return (
+    a.me === b.me &&
+    communityMessengerRoomSummaryListsDisplayEqual(a.chats, b.chats) &&
+    communityMessengerRoomSummaryListsDisplayEqual(a.groups, b.groups) &&
+    profileArraysReferenceEqual(a.friends, b.friends) &&
+    profileArraysReferenceEqual(a.following, b.following) &&
+    profileArraysReferenceEqual(a.hidden, b.hidden) &&
+    profileArraysReferenceEqual(a.blocked, b.blocked) &&
+    profileArraysReferenceEqual(a.requests, b.requests) &&
+    profileArraysReferenceEqual(a.calls, b.calls) &&
+    profileArraysReferenceEqual(a.discoverableGroups, b.discoverableGroups) &&
+    a.deferredCallLog === b.deferredCallLog &&
+    a.clientHydrationTier === b.clientHydrationTier &&
+    messengerBootstrapTabsEqual(a.tabs, b.tabs)
   );
 }
 

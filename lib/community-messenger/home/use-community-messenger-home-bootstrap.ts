@@ -87,7 +87,11 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
-import { useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import {
+  resolveMessengerHomeBootstrapSetData,
+  useCmDevRenderTrace,
+} from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { profileArraysReferenceEqual } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import {
   deferHomeSyncMerge,
@@ -275,26 +279,44 @@ export function useCommunityMessengerHomeBootstrap({
   const dataRef = useRef(data);
   dataRef.current = data;
 
+  const commitBootstrapSetData = useCallback(
+    (
+      prev: CommunityMessengerBootstrap | null,
+      next: CommunityMessengerBootstrap | null,
+      reason: string,
+      prime: (bootstrap: CommunityMessengerBootstrap) => void = primeBootstrapCache
+    ): CommunityMessengerBootstrap | null => {
+      const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, { reason });
+      if (resolved && resolved !== prev) prime(resolved);
+      return resolved;
+    },
+    []
+  );
+
   useLayoutEffect(() => {
     if (initialServerBootstrap) return;
     const fullCached = peekMessengerBootstrapFull();
     if (fullCached) {
-      setData((prev) => {
-        const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: fullCached }, "bootstrap");
-        if (next) primeBootstrapCache(next);
-        return next;
-      });
+      setData((prev) =>
+        commitBootstrapSetData(
+          prev,
+          applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: fullCached }, "bootstrap"),
+          "cache_full_seed"
+        )
+      );
       setLoading(false);
       setListAwaitingCritical(false);
       return;
     }
     const minCached = peekMessengerBootstrapMinimal();
     if (minCached) {
-      setData((prev) => {
-        const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: minCached }, "bootstrap");
-        if (next) primeBootstrapCache(next);
-        return next;
-      });
+      setData((prev) =>
+        commitBootstrapSetData(
+          prev,
+          applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: minCached }, "bootstrap"),
+          "cache_minimal_seed"
+        )
+      );
       setLoading(false);
       setListAwaitingCritical(false);
       return;
@@ -302,11 +324,13 @@ export function useCommunityMessengerHomeBootstrap({
     const critCached = peekMessengerBootstrapCritical();
     if (!critCached) return;
     const critBootstrap = communityMessengerBootstrapFromCriticalPayload(critCached);
-    setData((prev) => {
-      const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: critBootstrap }, "bootstrap");
-      if (next) primeBootstrapCache(next);
-      return next;
-    });
+    setData((prev) =>
+      commitBootstrapSetData(
+        prev,
+        applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: critBootstrap }, "bootstrap"),
+        "cache_critical_seed"
+      )
+    );
     setLoading(false);
     setListAwaitingCritical(false);
   }, [initialServerBootstrap]);
@@ -363,15 +387,20 @@ export function useCommunityMessengerHomeBootstrap({
       if (!res.ok || !json.ok) return;
       setData((prev) => {
         if (!prev) return prev;
+        const nextCalls = json.calls ?? prev.calls;
+        const nextCallsTab = json.tabs?.calls ?? prev.tabs.calls;
         const { deferredCallLog: _omit, ...rest } = prev;
         void _omit;
         const merged: CommunityMessengerBootstrap = {
           ...rest,
-          calls: json.calls ?? rest.calls,
-          tabs: { ...rest.tabs, calls: json.tabs?.calls ?? rest.tabs.calls },
+          calls: nextCalls,
+          tabs: { ...rest.tabs, calls: nextCallsTab },
         };
-        primeBootstrapCache(merged);
-        return merged;
+        const resolved = resolveMessengerHomeBootstrapSetData("deferred-calls", prev, merged, {
+          reason: "deferred_call_log",
+        });
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
       });
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") return;
@@ -411,10 +440,27 @@ export function useCommunityMessengerHomeBootstrap({
             },
             "home-sync"
           );
-          if (!next || next === base) return prev;
-          primeBootstrapCache(next);
+          const stats = peekLastHomeListPatchStats();
+          const criticalChangedFields = stats?.criticalChangedFields;
+          const firstChangedRoomId =
+            criticalChangedFields && Object.keys(criticalChangedFields).length > 0
+              ? Object.keys(criticalChangedFields)[0]
+              : payload.chats?.[0]?.id ?? payload.groups?.[0]?.id;
+          const resolved = resolveMessengerHomeBootstrapSetData(
+            "home-sync",
+            prev,
+            !next || next === base ? prev : next,
+            {
+              reason: `home_sync_patch:${roomMode}`,
+              changedRoomCount: stats?.changedRoomCount ?? 0,
+              criticalChangedFields,
+              roomId: firstChangedRoomId,
+            }
+          );
+          if (!resolved || resolved === prev) return prev;
+          primeBootstrapCache(resolved);
           noteHomeSyncPayloadFlushed({ ...payload, roomMode });
-          return next;
+          return resolved;
         } finally {
           if (tUiAlign0 != null && typeof performance !== "undefined") {
             messengerMonitorHomeListBootstrapUiAlign(Math.round(performance.now() - tUiAlign0));
@@ -527,7 +573,13 @@ export function useCommunityMessengerHomeBootstrap({
     const shouldBlock = !silent && !loadedRef.current && !stale;
     const useLiteBootstrapFallback = !silent && !stale && !loadedRef.current;
     if (stale) {
-      setData((prev) => applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"));
+      setData((prev) =>
+        commitBootstrapSetData(
+          prev,
+          applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"),
+          "refresh_stale_seed"
+        )
+      );
       setAuthRequired(false);
       setPageError(null);
       setListAwaitingCritical(false);
@@ -647,12 +699,8 @@ export function useCommunityMessengerHomeBootstrap({
                   { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
                   "bootstrap"
                 );
-                if (!merged) {
-                  primeBootstrapCache(next);
-                  return next;
-                }
-                primeBootstrapCache(merged);
-                return merged;
+                const candidate = merged ?? next;
+                return commitBootstrapSetData(prev, candidate, "silent_fallback_full");
               });
               if ((next.discoverableGroups?.length ?? 0) === 0) {
                 const schSf = getMessengerBackgroundHydrationScheduler();
@@ -744,10 +792,8 @@ export function useCommunityMessengerHomeBootstrap({
                       );
                       const stats = peekLastHomeListPatchStats();
                       if (stats) recordCmClientMergePatchStats(stats);
-                      if (!merged) return prev ?? next;
-                      if (merged === prev) return prev;
-                      primeMessengerBootstrapFull(merged);
-                      return merged;
+                      const candidate = merged ?? prev ?? next;
+                      return commitBootstrapSetData(prev, candidate, "deferred_lite_bootstrap", primeMessengerBootstrapFull);
                     });
                   });
                   recordCmClientMergeStoreEmitMs(
@@ -874,15 +920,17 @@ export function useCommunityMessengerHomeBootstrap({
               refreshDataOk = true;
               setAuthRequired(false);
               setPageError(null);
-              setData((prev) => {
-                const seeded = applyHomeListPatch(
+              setData((prev) =>
+                commitBootstrapSetData(
                   prev,
-                  { kind: "bootstrap_full_seed", bootstrap: partial },
-                  "bootstrap"
-                );
-                if (seeded) primeBootstrapCache(seeded);
-                return seeded;
-              });
+                  applyHomeListPatch(
+                    prev,
+                    { kind: "bootstrap_full_seed", bootstrap: partial },
+                    "bootstrap"
+                  ),
+                  "critical_bootstrap_seed"
+                )
+              );
               setListAwaitingCritical(false);
               const critical_state_apply_ms =
                 typeof performance !== "undefined" ? Math.round(performance.now() - tApplyCrit0) : 0;
@@ -981,10 +1029,8 @@ export function useCommunityMessengerHomeBootstrap({
                   );
                   const stats = peekLastHomeListPatchStats();
                   if (stats) recordCmClientMergePatchStats(stats);
-                  if (!merged) return prev ?? next;
-                  if (merged === prev) return prev;
-                  primeMessengerBootstrapFull(merged);
-                  return merged;
+                  const candidate = merged ?? prev ?? next;
+                  return commitBootstrapSetData(prev, candidate, "bootstrap_apply_full", primeMessengerBootstrapFull);
                 });
               });
               if (useLiteBootstrapFallback) {

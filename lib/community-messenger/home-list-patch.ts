@@ -7,6 +7,7 @@ import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messeng
 import {
   mergeJsonRecordsPreserveRefs,
   mergeRoomListsPreserveRefs,
+  roomSummaryListRowShallowEqual,
 } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import {
@@ -15,6 +16,10 @@ import {
 } from "@/lib/community-messenger/home/patch-bootstrap-room-list-from-realtime-message";
 import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
+import {
+  resolveMessengerHomeBootstrapSetData,
+  type CmHomeSetDataSource,
+} from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { messengerTraceConsoleDebug } from "@/lib/community-messenger/messenger-trace-console";
 import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
 import { normalizeMessengerRealtimeRoomId } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -94,6 +99,8 @@ export type HomeListPatchStats = {
   /** `bootstrap_apply_full` — 변경 없어 reference 유지한 방 수 */
   changedRoomCount?: number;
   unchangedRoomCount?: number;
+  /** `home_sync` `critical_patch` — roomId별 표시 필드 diff */
+  criticalChangedFields?: Record<string, string[]>;
   listReferenceStable?: boolean;
   bootstrapReferenceStable?: boolean;
   patchBuildMs?: number;
@@ -121,6 +128,106 @@ function homeListOwnerTraceEnabled(): boolean {
 function countListRooms(data: CommunityMessengerBootstrap | null): number {
   if (!data) return 0;
   return (data.chats?.length ?? 0) + (data.groups?.length ?? 0);
+}
+
+const ROOM_CONTEXT_META_DISPLAY_KEYS: (keyof CommunityMessengerRoomContextMetaV1)[] = [
+  "v",
+  "kind",
+  "headline",
+  "priceLabel",
+  "thumbnailUrl",
+  "stepLabel",
+  "roleLabel",
+  "itemStateLabel",
+  "categoryMenuLabel",
+  "productCategoryLabel",
+  "productChatId",
+  "postId",
+  "sellerDisplayName",
+  "tradeFlowStatus",
+  "storeOrderId",
+  "orderNo",
+  "storeId",
+  "storeDisplayName",
+  "fulfillmentType",
+];
+
+function roomContextMetaDisplayEqual(
+  a: CommunityMessengerRoomContextMetaV1 | null | undefined,
+  b: CommunityMessengerRoomContextMetaV1 | null | undefined
+): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  for (const key of ROOM_CONTEXT_META_DISPLAY_KEYS) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+/** 목록 표시·unread·last message 기준 — `contextMeta` 는 필드값 비교(참조 무관) */
+function roomSummaryListRowDisplayEqual(
+  a: CommunityMessengerRoomSummary,
+  b: CommunityMessengerRoomSummary
+): boolean {
+  if (a === b) return true;
+  const keys = Object.keys(a) as Array<keyof CommunityMessengerRoomSummary>;
+  if (keys.length !== Object.keys(b).length) return false;
+  for (const k of keys) {
+    if (!(k in b)) return false;
+    if (k === "contextMeta") {
+      if (!roomContextMetaDisplayEqual(a.contextMeta, b.contextMeta)) return false;
+      continue;
+    }
+    if (a[k] !== b[k]) return false;
+  }
+  return true;
+}
+
+function diffRoomContextMetaDisplayFields(
+  prev: CommunityMessengerRoomContextMetaV1 | null | undefined,
+  next: CommunityMessengerRoomContextMetaV1 | null | undefined
+): string[] {
+  if (prev === next) return [];
+  if (prev == null || next == null) return ["contextMeta"];
+  const fields: string[] = [];
+  for (const key of ROOM_CONTEXT_META_DISPLAY_KEYS) {
+    if (prev[key] !== next[key]) fields.push(`contextMeta.${String(key)}`);
+  }
+  return fields;
+}
+
+function diffRoomSummaryDisplayFields(
+  prev: CommunityMessengerRoomSummary | undefined,
+  next: CommunityMessengerRoomSummary
+): string[] {
+  if (!prev) return ["*new*"];
+  const fields: string[] = [];
+  const keys = Object.keys(next) as Array<keyof CommunityMessengerRoomSummary>;
+  for (const k of keys) {
+    if (!(k in prev)) {
+      fields.push(String(k));
+      continue;
+    }
+    if (k === "contextMeta") {
+      fields.push(...diffRoomContextMetaDisplayFields(prev.contextMeta, next.contextMeta));
+      continue;
+    }
+    if (prev[k] !== next[k]) fields.push(String(k));
+  }
+  return fields;
+}
+
+function roomSummaryListsDisplayEqual(
+  a: CommunityMessengerRoomSummary[],
+  b: CommunityMessengerRoomSummary[]
+): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id) return false;
+    if (!roomSummaryListRowDisplayEqual(a[i], b[i])) return false;
+  }
+  return true;
 }
 
 function logHomeListOwner(stats: HomeListPatchStats): void {
@@ -153,18 +260,49 @@ function mergeRoomListsWithVersionGuard(
 function mergeCriticalRoomPatchesIntoLists(
   baseList: CommunityMessengerRoomSummary[],
   incoming: CommunityMessengerRoomSummary[]
-): { list: CommunityMessengerRoomSummary[]; unreadGuardApplied: number } {
-  if (!incoming.length) return { list: baseList, unreadGuardApplied: 0 };
+): {
+  list: CommunityMessengerRoomSummary[];
+  unreadGuardApplied: number;
+  changedRoomCount: number;
+  criticalChangedFields: Record<string, string[]>;
+} {
+  if (!incoming.length) {
+    return { list: baseList, unreadGuardApplied: 0, changedRoomCount: 0, criticalChangedFields: {} };
+  }
   let unreadGuardApplied = 0;
-  const baseById = new Map(baseList.map((r) => [r.id, r]));
-  const incomingIds = new Set(incoming.map((r) => r.id));
-  const head = incoming.map((inc) => {
-    const merged = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(baseById.get(inc.id), inc);
+  let changedRoomCount = 0;
+  const criticalChangedFields: Record<string, string[]> = {};
+  const incomingById = new Map(incoming.map((r) => [r.id, r]));
+  const patchedIncomingIds = new Set<string>();
+
+  const patched = baseList.map((room) => {
+    const inc = incomingById.get(room.id);
+    if (!inc) return room;
+    patchedIncomingIds.add(room.id);
+    const merged = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(room, inc);
     if (merged.unreadCount !== inc.unreadCount) unreadGuardApplied += 1;
+    if (roomSummaryListRowDisplayEqual(room, merged)) return room;
+    const changedFields = diffRoomSummaryDisplayFields(room, merged);
+    criticalChangedFields[room.id] = changedFields;
+    changedRoomCount += 1;
     return merged;
   });
-  const tail = baseList.filter((r) => !incomingIds.has(r.id));
-  return { list: [...head, ...tail], unreadGuardApplied };
+
+  const newRooms: CommunityMessengerRoomSummary[] = [];
+  for (const inc of incoming) {
+    if (patchedIncomingIds.has(inc.id)) continue;
+    const merged = mergeMessengerRoomSummaryForHomeSyncCriticalPatch(undefined, inc);
+    criticalChangedFields[inc.id] = ["*new*"];
+    changedRoomCount += 1;
+    newRooms.push(merged);
+  }
+
+  if (newRooms.length === 0 && patched.every((row, index) => row === baseList[index])) {
+    return { list: baseList, unreadGuardApplied, changedRoomCount: 0, criticalChangedFields: {} };
+  }
+
+  const list = newRooms.length > 0 ? [...newRooms, ...patched] : patched;
+  return { list, unreadGuardApplied, changedRoomCount, criticalChangedFields };
 }
 
 /** silent full 보강 시 outgoing pending 유지 — home-bootstrap 와 동일 */
@@ -204,11 +342,15 @@ function applyRoomUpdateToLists(
     rooms.map((room) => {
       if (normalizeMessengerRealtimeRoomId(room.id) !== norm) return room;
       hit = true;
-      return updater(room);
+      const updated = updater(room);
+      return roomSummaryListRowShallowEqual(room, updated) ? room : updated;
     });
   const chats = patchBucket(data.chats ?? []);
   const groups = patchBucket(data.groups ?? []);
   if (!hit) return data;
+  const prevChats = data.chats ?? [];
+  const prevGroups = data.groups ?? [];
+  if (chats === prevChats && groups === prevGroups) return data;
   return {
     ...data,
     chats,
@@ -227,14 +369,20 @@ function applyLocalUnreadToLists(
     rooms.map((room) => {
       if (normalizeMessengerRealtimeRoomId(room.id) !== evRoomNorm) return room;
       hit = true;
+      if (room.unreadCount === unreadCount) return room;
       return { ...room, unreadCount };
     });
   if (!hit) return { data, applied: false };
+  const nextChats = patchRooms(data.chats ?? []);
+  const nextGroups = patchRooms(data.groups ?? []);
+  if (nextChats === data.chats && nextGroups === data.groups) {
+    return { data, applied: false };
+  }
   return {
     data: {
       ...data,
-      chats: patchRooms(data.chats ?? []),
-      groups: patchRooms(data.groups ?? []),
+      chats: nextChats,
+      groups: nextGroups,
     },
     applied: true,
   };
@@ -285,15 +433,25 @@ function applyTradeContextMetaPatches(
 function applyHomeSyncPatch(
   base: CommunityMessengerBootstrap,
   patch: Extract<HomeListPatch, { kind: "home_sync" }>
-): { data: CommunityMessengerBootstrap; unreadGuardApplied: number; duplicateRemoved: number } {
+): {
+  data: CommunityMessengerBootstrap;
+  unreadGuardApplied: number;
+  duplicateRemoved: number;
+  changedRoomCount: number;
+  criticalChangedFields: Record<string, string[]>;
+} {
   const roomMode = patch.roomMode ?? "replace";
   let unreadGuardApplied = 0;
+  let changedRoomCount = 0;
+  const criticalChangedFields: Record<string, string[]> = {};
   let chats = base.chats;
   if (patch.chats !== undefined) {
     if (roomMode === "critical_patch") {
       const merged = mergeCriticalRoomPatchesIntoLists(base.chats ?? [], patch.chats);
       chats = merged.list;
       unreadGuardApplied += merged.unreadGuardApplied;
+      changedRoomCount += merged.changedRoomCount;
+      Object.assign(criticalChangedFields, merged.criticalChangedFields);
     } else {
       const versioned = mergeRoomListsWithVersionGuard(base.chats ?? [], patch.chats);
       const merged = mergeRoomListsPreserveRefs(base.chats ?? [], versioned.list);
@@ -307,6 +465,8 @@ function applyHomeSyncPatch(
       const merged = mergeCriticalRoomPatchesIntoLists(base.groups ?? [], patch.groups);
       groups = merged.list;
       unreadGuardApplied += merged.unreadGuardApplied;
+      changedRoomCount += merged.changedRoomCount;
+      Object.assign(criticalChangedFields, merged.criticalChangedFields);
     } else {
       const versioned = mergeRoomListsWithVersionGuard(base.groups ?? [], patch.groups);
       const merged = mergeRoomListsPreserveRefs(base.groups ?? [], versioned.list);
@@ -329,13 +489,41 @@ function applyHomeSyncPatch(
     if (!afterIds.has(id)) duplicateRemoved += 1;
   }
 
+  const prevChats = base.chats ?? [];
+  const prevGroups = base.groups ?? [];
+  const nextChats = chats ?? [];
+  const nextGroups = groups ?? [];
+  const listsDisplayEqual =
+    roomSummaryListsDisplayEqual(prevChats, nextChats) &&
+    roomSummaryListsDisplayEqual(prevGroups, nextGroups);
+
+  if (
+    listsDisplayEqual &&
+    requests === base.requests &&
+    friends === base.friends
+  ) {
+    return {
+      data: base,
+      unreadGuardApplied,
+      duplicateRemoved: 0,
+      changedRoomCount: 0,
+      criticalChangedFields: {},
+    };
+  }
+
   if (
     chats === base.chats &&
     groups === base.groups &&
     requests === base.requests &&
     friends === base.friends
   ) {
-    return { data: base, unreadGuardApplied, duplicateRemoved: 0 };
+    return {
+      data: base,
+      unreadGuardApplied,
+      duplicateRemoved: 0,
+      changedRoomCount: 0,
+      criticalChangedFields: {},
+    };
   }
 
   return {
@@ -347,13 +535,15 @@ function applyHomeSyncPatch(
       friends,
       tabs: {
         ...base.tabs,
-        chats: (chats ?? []).length,
-        groups: (groups ?? []).length,
+        chats: nextChats.length,
+        groups: nextGroups.length,
         friends: (friends ?? []).length,
       },
     },
     unreadGuardApplied,
     duplicateRemoved,
+    changedRoomCount,
+    criticalChangedFields,
   };
 }
 
@@ -376,6 +566,7 @@ export function applyHomeListPatch(
   let duplicateRemoved = 0;
   let changedRoomCount = 0;
   let unchangedRoomCount = 0;
+  let statsCriticalChangedFields: Record<string, string[]> | undefined;
   let listReferenceStable = false;
   let bootstrapReferenceStable = false;
   const patchBuildMs = 0;
@@ -530,8 +721,15 @@ export function applyHomeListPatch(
           const synced = applyHomeSyncPatch(base, patch);
           unreadGuardApplied += synced.unreadGuardApplied;
           duplicateRemoved += synced.duplicateRemoved;
+          changedRoomCount = synced.changedRoomCount;
+          if (Object.keys(synced.criticalChangedFields).length > 0) {
+            statsCriticalChangedFields = synced.criticalChangedFields;
+          }
           next = synced.data === base ? base : synced.data;
-          appliedRooms = countListRooms(next) - beforeCount;
+          appliedRooms =
+            patch.roomMode === "critical_patch"
+              ? synced.changedRoomCount
+              : countListRooms(next) - beforeCount;
           if (appliedRooms < 0) appliedRooms = incomingPatchRooms;
           break;
         }
@@ -640,6 +838,7 @@ export function applyHomeListPatch(
     durationMs,
     changedRoomCount,
     unchangedRoomCount,
+    ...(statsCriticalChangedFields ? { criticalChangedFields: statsCriticalChangedFields } : {}),
     listReferenceStable,
     bootstrapReferenceStable,
     patchBuildMs,
@@ -666,17 +865,42 @@ export function findHomeListRoomRow(
 }
 
 /** list patch + bootstrap cache prime (기존 call site 패턴). */
+function mapHomeListPatchSourceToSetDataSource(source: HomeListPatchSource): CmHomeSetDataSource {
+  switch (source) {
+    case "home-sync":
+      return "home-sync";
+    case "realtime":
+      return "realtime-message";
+    case "mark-read":
+      return "mark-read";
+    case "optimistic-read":
+      return "optimistic-read";
+    case "trade-meta":
+      return "trade-meta";
+    case "multi-tab":
+      return "multi-tab";
+    default:
+      return "bootstrap";
+  }
+}
+
 export function commitHomeListPatch(
   setData: import("react").Dispatch<import("react").SetStateAction<CommunityMessengerBootstrap | null>>,
   patch: HomeListPatch,
   source: HomeListPatchSource,
   options?: { primeCache?: boolean }
 ): void {
+  const setDataSource = mapHomeListPatchSourceToSetDataSource(source);
   setData((prev) => {
     const next = applyHomeListPatch(prev, patch, source);
-    if (next && next !== prev && options?.primeCache !== false) {
-      primeBootstrapCache(next);
+    const resolved = resolveMessengerHomeBootstrapSetData(setDataSource, prev, next, {
+      reason: `home_list_patch:${patch.kind}`,
+      roomId:
+        "roomId" in patch && typeof patch.roomId === "string" ? patch.roomId : undefined,
+    });
+    if (resolved && resolved !== prev && options?.primeCache !== false) {
+      primeBootstrapCache(resolved);
     }
-    return next;
+    return resolved;
   });
 }

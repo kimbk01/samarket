@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
 import { fetchCommunityMessengerPresenceSnapshotClient } from "@/lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client";
@@ -15,7 +15,8 @@ export function useCommunityMessengerPeerPresence(
   fallback?: CommunityMessengerPeerPresenceSnapshot | null
 ): CommunityMessengerPeerPresenceSnapshot | null {
   const id = typeof userId === "string" ? userId.trim() : "";
-  const live = useMessengerPresenceStore((state) => (id ? state.byUserId[id] ?? null : null));
+  /** 전체 `byUserId` 엔트리가 아닌 표시용 state primitive 만 구독 — `replacePresenceMap` 시 무관 행 리렌더 방지 */
+  const liveState = useMessengerPresenceStore((state) => (id ? state.byUserId[id]?.state ?? null : null));
   useEffect(() => {
     if (!id) return;
     if (isCommunityMessengerRealtimeScopeHealthy(PRESENCE_RUNTIME_SCOPE)) return;
@@ -53,16 +54,21 @@ export function useCommunityMessengerPeerPresence(
       cancelled = true;
     };
   }, [id]);
+  const snapshotStableRef = useRef<CommunityMessengerPeerPresenceSnapshot | null>(null);
   return useMemo(() => {
     if (!id) return null;
-    if (live) {
-      return {
+    if (liveState) {
+      const prev = snapshotStableRef.current;
+      if (prev && prev.userId === id && prev.state === liveState) return prev;
+      const next: CommunityMessengerPeerPresenceSnapshot = {
         userId: id,
-        state: live.state,
-        lastSeenAt: live.lastSeenAt ?? fallback?.lastSeenAt ?? null,
+        state: liveState,
+        lastSeenAt: fallback?.lastSeenAt ?? null,
       };
+      snapshotStableRef.current = next;
+      return next;
     }
     if (!fallback) return null;
     return fallback;
-  }, [fallback, id, live]);
+  }, [fallback, id, liveState]);
 }

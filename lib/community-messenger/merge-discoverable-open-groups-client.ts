@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { resolveMessengerHomeBootstrapSetData } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { fetchCommunityMessengerOpenGroupsClient } from "@/lib/community-messenger/cm-open-groups-client-fetch";
 import type {
   CommunityMessengerBootstrap,
@@ -29,15 +30,29 @@ export async function mergeDiscoverableGroupsFromOpenGroupsClient(
     setData((prev) => {
       if (!prev) return prev;
       if (mode === "fill_if_empty") {
-        if ((prev.discoverableGroups?.length ?? 0) > 0) return prev;
-        if (incoming.length === 0) return prev;
+        if ((prev.discoverableGroups?.length ?? 0) > 0) {
+          return resolveMessengerHomeBootstrapSetData("bootstrap", prev, prev, {
+            reason: "discoverable_groups_already_filled",
+          });
+        }
+        if (incoming.length === 0) {
+          return resolveMessengerHomeBootstrapSetData("bootstrap", prev, prev, {
+            reason: "discoverable_groups_incoming_empty",
+          });
+        }
         const merged = { ...prev, discoverableGroups: incoming };
-        primeBootstrapCache(merged);
-        return merged;
+        const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, merged, {
+          reason: "discoverable_groups_fill_if_empty",
+        });
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
       }
       const merged = { ...prev, discoverableGroups: incoming };
-      primeBootstrapCache(merged);
-      return merged;
+      const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, merged, {
+        reason: "discoverable_groups_replace",
+      });
+      if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+      return resolved;
     });
   } catch {
     /* ignore */

@@ -2,7 +2,7 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
 import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
 import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -12,10 +12,13 @@ import {
   messengerChatListChipLabel,
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import type {
-  MessengerPillarSummary,
-  UnifiedRoomListItem,
+import {
+  messengerStringSetsEqual,
+  roomListItemsDisplayEqual,
+  type MessengerPillarSummary,
+  type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { logCmMemoPropDiff, logCmMemoPropEqual } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
 import { FlatListContainer } from "@/components/community-messenger/line-ui";
@@ -108,7 +111,43 @@ function MessengerVirtualRoomRowShell({
   );
 }
 
-function MessengerRoomRows({
+function messengerRoomRowsPropsEqual(prev: MessengerRoomRowsProps, next: MessengerRoomRowsProps): boolean {
+  const reasons: string[] = [];
+  if (!roomListItemsDisplayEqual(prev.items, next.items)) {
+    if (prev.items.length !== next.items.length) reasons.push("items.length");
+    else reasons.push("items.display");
+  }
+  if (prev.useVirtual !== next.useVirtual) reasons.push("useVirtual");
+  if (prev.viewerUserId !== next.viewerUserId) reasons.push("viewerUserId");
+  if (
+    prev.favoriteFriendIds !== next.favoriteFriendIds &&
+    !messengerStringSetsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)
+  ) {
+    reasons.push("favoriteFriendIds");
+  }
+  if (prev.busyId !== next.busyId) reasons.push("busyId");
+  if (prev.openedSwipeItemId !== next.openedSwipeItemId) reasons.push("openedSwipeItemId");
+  if (prev.listContext !== next.listContext) reasons.push("listContext");
+  if (prev.chatListVisual !== next.chatListVisual) reasons.push("chatListVisual");
+  if (prev.onTogglePin !== next.onTogglePin) reasons.push("onTogglePin");
+  if (prev.onToggleMute !== next.onToggleMute) reasons.push("onToggleMute");
+  if (prev.onMarkRead !== next.onMarkRead) reasons.push("onMarkRead");
+  if (prev.onToggleArchive !== next.onToggleArchive) reasons.push("onToggleArchive");
+  if (prev.onLeaveRoom !== next.onLeaveRoom) reasons.push("onLeaveRoom");
+  if (prev.onOpenRoomActions !== next.onOpenRoomActions) reasons.push("onOpenRoomActions");
+  if (prev.onOpenSwipeItem !== next.onOpenSwipeItem) reasons.push("onOpenSwipeItem");
+  if (prev.onCloseMenuItem !== next.onCloseMenuItem) reasons.push("onCloseMenuItem");
+  if (prev.onResetTransientUi !== next.onResetTransientUi) reasons.push("onResetTransientUi");
+
+  if (reasons.length > 0) {
+    logCmMemoPropDiff("RoomList", `rows:${next.items.length}`, reasons);
+    return false;
+  }
+  logCmMemoPropEqual("RoomList", `rows:${next.items.length}`);
+  return true;
+}
+
+const MessengerRoomRows = memo(function MessengerRoomRows({
   useVirtual,
   items,
   viewerUserId = null,
@@ -130,12 +169,20 @@ function MessengerRoomRows({
   useCmDevRenderTrace("RoomList");
   const rowEstimatePx =
     chatListVisual === "trade" || chatListVisual === "delivery" ? 88 : MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX;
+  const getVirtualScrollElement = useCallback(
+    () => (typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null),
+    []
+  );
+  const estimateVirtualRowSize = useCallback(() => rowEstimatePx, [rowEstimatePx]);
+  const getVirtualItemKey = useCallback(
+    (index: number) => items[index]?.room.id ?? index,
+    [items]
+  );
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? items.length : 0,
-    getItemKey: (index) => items[index]?.room.id ?? index,
-    getScrollElement: () =>
-      typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null,
-    estimateSize: () => rowEstimatePx,
+    getItemKey: getVirtualItemKey,
+    getScrollElement: getVirtualScrollElement,
+    estimateSize: estimateVirtualRowSize,
     overscan: 6,
   });
 
@@ -207,7 +254,9 @@ function MessengerRoomRows({
     </FlatListContainer>
     </CmReactCommitProbe>
   );
-}
+}, messengerRoomRowsPropsEqual);
+
+MessengerRoomRows.displayName = "RoomList";
 
 function FilterIcon() {
   return (

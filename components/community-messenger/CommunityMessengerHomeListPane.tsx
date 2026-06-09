@@ -19,7 +19,7 @@ import {
   recordCmClientMergeListRenderMs,
   recordCmClientMergePaneRender,
 } from "@/lib/community-messenger/cm-client-merge-breakdown";
-import { useLayoutEffect, useRef, type ReactElement } from "react";
+import { memo, useLayoutEffect, useRef, type ReactElement } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -30,10 +30,16 @@ import type {
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import type {
-  MessengerPillarSummary,
-  UnifiedRoomListItem,
+import {
+  communityMessengerRoomSummaryListsDisplayEqual,
+  messengerStringSetsEqual,
+  roomListItemsDisplayEqual,
+  unifiedListItemRowDisplayEqual,
+  type MessengerPillarSummary,
+  type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
+import { profileArraysReferenceEqual } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
+import { logCmMemoPropDiff, logCmMemoPropEqual } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerArchiveSection,
@@ -114,7 +120,160 @@ type Props = {
   onOpenFriendManager?: () => void;
 };
 
-export function CommunityMessengerHomeListPane(props: Props) {
+function messengerPillarSummaryDisplayEqual(a: MessengerPillarSummary, b: MessengerPillarSummary): boolean {
+  if (a.unreadTotal !== b.unreadTotal || a.count !== b.count) return false;
+  const al = a.lastItem;
+  const bl = b.lastItem;
+  if (al === bl) return true;
+  if (!al || !bl) return al === bl;
+  return unifiedListItemRowDisplayEqual(al, bl);
+}
+
+function messengerHomeListPanePillarSummariesEqual(
+  a: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null | undefined,
+  b: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null | undefined
+): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    messengerPillarSummaryDisplayEqual(a.trade, b.trade) &&
+    messengerPillarSummaryDisplayEqual(a.delivery, b.delivery)
+  );
+}
+
+function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boolean {
+  const reasons: string[] = [];
+  if (prev.loading !== next.loading) reasons.push("loading");
+  if (prev.listPlaceholder !== next.listPlaceholder) reasons.push("listPlaceholder");
+  if (prev.authRequired !== next.authRequired) reasons.push("authRequired");
+  if (prev.actionError !== next.actionError) reasons.push("actionError");
+  if (prev.mainSection !== next.mainSection) reasons.push("mainSection");
+  if (prev.openedSwipeItemId !== next.openedSwipeItemId) reasons.push("openedSwipeItemId");
+  if (prev.openedMenuItemId !== next.openedMenuItemId) reasons.push("openedMenuItemId");
+  if (prev.messengerOverlayGeneration !== next.messengerOverlayGeneration) {
+    reasons.push("messengerOverlayGeneration");
+  }
+  if (prev.selectedArchiveSection !== next.selectedArchiveSection) reasons.push("selectedArchiveSection");
+  if (prev.isScrolling !== next.isScrolling) reasons.push("isScrolling");
+  if (prev.busyId !== next.busyId) reasons.push("busyId");
+  if (prev.chatInboxFilter !== next.chatInboxFilter) reasons.push("chatInboxFilter");
+  if (prev.chatKindFilter !== next.chatKindFilter) reasons.push("chatKindFilter");
+  if (prev.incomingRequestCount !== next.incomingRequestCount) reasons.push("incomingRequestCount");
+  if (prev.pageError !== next.pageError) reasons.push("pageError");
+  if (prev.loginRequiredText !== next.loginRequiredText) reasons.push("loginRequiredText");
+  if (prev.retryText !== next.retryText) reasons.push("retryText");
+  if (prev.entryOriginQuery !== next.entryOriginQuery) reasons.push("entryOriginQuery");
+  if (prev.chatListVisual !== next.chatListVisual) reasons.push("chatListVisual");
+  if (prev.callsHydrating !== next.callsHydrating) reasons.push("callsHydrating");
+  if (prev.showSectionTabs !== next.showSectionTabs) reasons.push("showSectionTabs");
+  if (!roomListItemsDisplayEqual(prev.primaryListItems, next.primaryListItems)) {
+    reasons.push("primaryListItems");
+  }
+  if (!roomListItemsDisplayEqual(prev.openChatJoinedItems, next.openChatJoinedItems)) {
+    reasons.push("openChatJoinedItems");
+  }
+  if (!messengerStringSetsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)) {
+    reasons.push("favoriteFriendIds");
+  }
+  if (!messengerHomeListPanePillarSummariesEqual(prev.pillarSummaries, next.pillarSummaries)) {
+    reasons.push("pillarSummaries");
+  }
+  if (!prev.data || !next.data) {
+    if (prev.data !== next.data) reasons.push("data.null");
+  } else if (
+    prev.data.me !== next.data.me ||
+    !communityMessengerRoomSummaryListsDisplayEqual(prev.data.chats, next.data.chats) ||
+    !communityMessengerRoomSummaryListsDisplayEqual(prev.data.groups, next.data.groups) ||
+    !profileArraysReferenceEqual(prev.data.friends, next.data.friends) ||
+    prev.data.calls !== next.data.calls ||
+    prev.data.deferredCallLog !== next.data.deferredCallLog
+  ) {
+    reasons.push("data.lists");
+  }
+  if (!profileArraysReferenceEqual(prev.sortedFriends, next.sortedFriends)) reasons.push("sortedFriends");
+  if (prev.friendStateModel !== next.friendStateModel) reasons.push("friendStateModel");
+  if (prev.bootstrapCalls !== next.bootstrapCalls) {
+    if ((prev.bootstrapCalls ?? []).length !== (next.bootstrapCalls ?? []).length) {
+      reasons.push("bootstrapCalls.length");
+    } else {
+      const a = prev.bootstrapCalls ?? [];
+      const b = next.bootstrapCalls ?? [];
+      for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) {
+          reasons.push("bootstrapCalls.rowRef");
+          break;
+        }
+      }
+    }
+  }
+  if (prev.onPrimarySectionChange !== next.onPrimarySectionChange) reasons.push("onPrimarySectionChange");
+  if (prev.resetMessengerTransientUi !== next.resetMessengerTransientUi) reasons.push("resetMessengerTransientUi");
+  if (prev.notifyMessengerListScroll !== next.notifyMessengerListScroll) reasons.push("notifyMessengerListScroll");
+  if (prev.openMessengerMenuItem !== next.openMessengerMenuItem) reasons.push("openMessengerMenuItem");
+  if (prev.closeMessengerMenuItem !== next.closeMessengerMenuItem) reasons.push("closeMessengerMenuItem");
+  if (prev.setOpenedSwipeItemId !== next.setOpenedSwipeItemId) reasons.push("setOpenedSwipeItemId");
+  if (prev.setSelectedArchiveSection !== next.setSelectedArchiveSection) reasons.push("setSelectedArchiveSection");
+  if (prev.onOpenFriendsPrivacySummary !== next.onOpenFriendsPrivacySummary) {
+    reasons.push("onOpenFriendsPrivacySummary");
+  }
+  if (prev.onOpenProfile !== next.onOpenProfile) reasons.push("onOpenProfile");
+  if (prev.toggleFavoriteFriend !== next.toggleFavoriteFriend) reasons.push("toggleFavoriteFriend");
+  if (prev.toggleHiddenFriend !== next.toggleHiddenFriend) reasons.push("toggleHiddenFriend");
+  if (prev.removeFriend !== next.removeFriend) reasons.push("removeFriend");
+  if (prev.toggleBlock !== next.toggleBlock) reasons.push("toggleBlock");
+  if (prev.startDirectRoom !== next.startDirectRoom) reasons.push("startDirectRoom");
+  if (prev.onFriendRowVoiceCallStable !== next.onFriendRowVoiceCallStable) {
+    reasons.push("onFriendRowVoiceCallStable");
+  }
+  if (prev.onFriendRowVideoCallStable !== next.onFriendRowVideoCallStable) {
+    reasons.push("onFriendRowVideoCallStable");
+  }
+  if (prev.getFriendDirectRoomMutedStable !== next.getFriendDirectRoomMutedStable) {
+    reasons.push("getFriendDirectRoomMutedStable");
+  }
+  if (prev.getFriendDirectRoomKindStable !== next.getFriendDirectRoomKindStable) {
+    reasons.push("getFriendDirectRoomKindStable");
+  }
+  if (prev.friendNotificationsBusyStable !== next.friendNotificationsBusyStable) {
+    reasons.push("friendNotificationsBusyStable");
+  }
+  if (prev.onFriendToggleRoomMuteStable !== next.onFriendToggleRoomMuteStable) {
+    reasons.push("onFriendToggleRoomMuteStable");
+  }
+  if (prev.friendHasDirectRoomStable !== next.friendHasDirectRoomStable) reasons.push("friendHasDirectRoomStable");
+  if (prev.handleMessengerHomeTogglePin !== next.handleMessengerHomeTogglePin) {
+    reasons.push("handleMessengerHomeTogglePin");
+  }
+  if (prev.handleMessengerHomeToggleMute !== next.handleMessengerHomeToggleMute) {
+    reasons.push("handleMessengerHomeToggleMute");
+  }
+  if (prev.handleMessengerHomeMarkRoomRead !== next.handleMessengerHomeMarkRoomRead) {
+    reasons.push("handleMessengerHomeMarkRoomRead");
+  }
+  if (prev.handleMessengerHomeToggleRoomArchive !== next.handleMessengerHomeToggleRoomArchive) {
+    reasons.push("handleMessengerHomeToggleRoomArchive");
+  }
+  if (prev.handleMessengerHomeLeaveRoom !== next.handleMessengerHomeLeaveRoom) {
+    reasons.push("handleMessengerHomeLeaveRoom");
+  }
+  if (prev.openRoomActions !== next.openRoomActions) reasons.push("openRoomActions");
+  if (prev.onChatListChipChange !== next.onChatListChipChange) reasons.push("onChatListChipChange");
+  if (prev.onOpenMeetingFindStable !== next.onOpenMeetingFindStable) reasons.push("onOpenMeetingFindStable");
+  if (prev.onRetry !== next.onRetry) reasons.push("onRetry");
+  if (prev.onOpenFriendManager !== next.onOpenFriendManager) reasons.push("onOpenFriendManager");
+  if (prev.friendQuickMenuBlocksTabSwipeRef !== next.friendQuickMenuBlocksTabSwipeRef) {
+    reasons.push("friendQuickMenuBlocksTabSwipeRef");
+  }
+
+  if (reasons.length > 0) {
+    logCmMemoPropDiff("CommunityMessengerHomeListPane", next.mainSection, reasons);
+    return false;
+  }
+  logCmMemoPropEqual("CommunityMessengerHomeListPane", next.mainSection);
+  return true;
+}
+
+export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHomeListPane(props: Props) {
   const { t } = useI18n();
   const frozenTreeRef = useRef<ReactElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
@@ -351,7 +510,9 @@ export function CommunityMessengerHomeListPane(props: Props) {
   );
   frozenTreeRef.current = tree;
   return tree;
-}
+}, communityMessengerHomeListPanePropsEqual);
+
+CommunityMessengerHomeListPane.displayName = "CommunityMessengerHomeListPane";
 
 function CommunityMessengerHomePendingBlank() {
   return (

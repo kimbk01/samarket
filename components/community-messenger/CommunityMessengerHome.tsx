@@ -1,7 +1,8 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -9,7 +10,10 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type Dispatch,
   type MutableRefObject,
+  type ReactNode,
+  type SetStateAction,
 } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
@@ -199,7 +203,13 @@ import {
   setTradeVisibleRoomRealtimeReportingEnabled,
   subscribeTradeVisibleRoomRealtimeSubscribeSet,
 } from "@/lib/trade/trade-visible-room-realtime-registry";
-import { useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import {
+  cmEventLoopDiagnosticsEnabled,
+  logCmMemoPropEqual,
+  useCmDevRenderTrace,
+  useCmHomeRenderSourceProbe,
+  useCmStrictModeEffectProbe,
+} from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 type CommunityMessengerHomeOverlayKind =
   | "composer"
@@ -209,7 +219,320 @@ type CommunityMessengerHomeOverlayKind =
   | "settings"
   | "public-group-find";
 
-export function CommunityMessengerHome({
+type CommunityMessengerHomeProps = {
+  initialTab?: string;
+  initialSection?: string;
+  initialFilter?: string;
+  initialKind?: string;
+  initialServerBootstrap?: CommunityMessengerBootstrap | null;
+  fromPhilifeHeaderStack?: boolean;
+  pillar?: "trade" | "delivery" | null;
+};
+
+/** `use-community-messenger-home-state` 의 `directRoomMapsEqual` 과 동일 — peer→room Map 참조 안정화 */
+function directRoomMapsEqual(
+  a: Map<string, CommunityMessengerRoomSummary>,
+  b: Map<string, CommunityMessengerRoomSummary>
+): boolean {
+  if (a.size !== b.size) return false;
+  for (const [k, v] of b) {
+    if (a.get(k) !== v) return false;
+  }
+  return true;
+}
+
+type CommunityMessengerHomePropsMemoDiffEntry = {
+  prev: string | boolean | null | undefined;
+  next: string | boolean | null | undefined;
+  /** 참조만 바뀌고 표시값은 동일할 수 있음 */
+  refChurn: boolean;
+  /** primitive 값 자체가 다름 */
+  valueChange: boolean;
+};
+
+function bootstrapPropsMemoRefLabel(value: CommunityMessengerBootstrap | null | undefined): string | null {
+  if (value == null) return null;
+  return `ref:me=${value.me?.id ?? "none"}`;
+}
+
+const cmHomePropsMemoDiffLastLogAt = { at: 0 };
+
+function logCommunityMessengerHomePropsMemoDiff(
+  reasons: string[],
+  propDiff: Partial<Record<keyof CommunityMessengerHomeProps, CommunityMessengerHomePropsMemoDiffEntry>>
+): void {
+  if (!cmEventLoopDiagnosticsEnabled() || reasons.length === 0) return;
+  const now = Date.now();
+  if (now - cmHomePropsMemoDiffLastLogAt.at < 280) return;
+  cmHomePropsMemoDiffLastLogAt.at = now;
+  // eslint-disable-next-line no-console -- gated Home props memo diagnostics
+  console.debug("[cm-memo-diff]", {
+    component: "CommunityMessengerHome",
+    entityIdSuffix: "props",
+    reasons,
+    memo_equal: false,
+    propDiff,
+  });
+}
+
+function communityMessengerHomePropsEqual(
+  prev: CommunityMessengerHomeProps,
+  next: CommunityMessengerHomeProps
+): boolean {
+  const reasons: string[] = [];
+  const propDiff: Partial<Record<keyof CommunityMessengerHomeProps, CommunityMessengerHomePropsMemoDiffEntry>> =
+    {};
+
+  const checkPrimitive = (
+    key: "initialTab" | "initialSection" | "initialFilter" | "initialKind",
+    prevValue: string | undefined,
+    nextValue: string | undefined
+  ) => {
+    if (prevValue === nextValue) return;
+    reasons.push(key);
+    propDiff[key] = {
+      prev: prevValue,
+      next: nextValue,
+      refChurn: false,
+      valueChange: true,
+    };
+  };
+
+  checkPrimitive("initialTab", prev.initialTab, next.initialTab);
+  checkPrimitive("initialSection", prev.initialSection, next.initialSection);
+  checkPrimitive("initialFilter", prev.initialFilter, next.initialFilter);
+  checkPrimitive("initialKind", prev.initialKind, next.initialKind);
+
+  if (prev.initialServerBootstrap !== next.initialServerBootstrap) {
+    reasons.push("initialServerBootstrap");
+    propDiff.initialServerBootstrap = {
+      prev: bootstrapPropsMemoRefLabel(prev.initialServerBootstrap),
+      next: bootstrapPropsMemoRefLabel(next.initialServerBootstrap),
+      refChurn:
+        prev.initialServerBootstrap != null &&
+        next.initialServerBootstrap != null &&
+        prev.initialServerBootstrap !== next.initialServerBootstrap,
+      valueChange: prev.initialServerBootstrap == null || next.initialServerBootstrap == null,
+    };
+  }
+
+  if (prev.fromPhilifeHeaderStack !== next.fromPhilifeHeaderStack) {
+    reasons.push("fromPhilifeHeaderStack");
+    propDiff.fromPhilifeHeaderStack = {
+      prev: prev.fromPhilifeHeaderStack,
+      next: next.fromPhilifeHeaderStack,
+      refChurn: false,
+      valueChange: true,
+    };
+  }
+
+  if (prev.pillar !== next.pillar) {
+    reasons.push("pillar");
+    propDiff.pillar = {
+      prev: prev.pillar,
+      next: next.pillar,
+      refChurn: false,
+      valueChange: true,
+    };
+  }
+
+  if (reasons.length > 0) {
+    logCommunityMessengerHomePropsMemoDiff(reasons, propDiff);
+    return false;
+  }
+  logCmMemoPropEqual("CommunityMessengerHome", "props");
+  return true;
+}
+
+/** pillar 서브 라우트·인박스별 목록 pathname — `usePathname` 구독 없이 navigation·auth redirect 에 사용 */
+function resolveCommunityMessengerHomeListPathname(pillar: "trade" | "delivery" | null): string {
+  if (pillar === "trade") return "/community-messenger/trade-chats";
+  if (pillar === "delivery") return "/community-messenger/delivery-chats";
+  return "/community-messenger";
+}
+
+function readMessengerEntryOriginFromLocation(): string | null {
+  if (typeof window === "undefined") return null;
+  return new URLSearchParams(window.location.search).get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
+}
+
+function buildCommunityMessengerHomeProbeSearchQueryString(args: {
+  initialTab?: string;
+  initialSection?: string;
+  initialFilter?: string;
+  initialKind?: string;
+  entryOriginQuery: string | null;
+}): string {
+  const qs = new URLSearchParams();
+  if (args.initialTab) qs.set("tab", args.initialTab);
+  if (args.initialSection) qs.set("section", args.initialSection);
+  if (args.initialFilter) qs.set("filter", args.initialFilter);
+  if (args.initialKind) qs.set("kind", args.initialKind);
+  if (args.entryOriginQuery) qs.set(MESSENGER_ENTRY_ORIGIN_QUERY_KEY, args.entryOriginQuery);
+  return qs.toString();
+}
+
+type CommunityMessengerHomeRouterEffectsHostProps = {
+  onEntryOriginQueryChange: (next: string | null) => void;
+  openHomeOverlay: (overlay: CommunityMessengerHomeOverlayKind) => void;
+  setMainSection: Dispatch<SetStateAction<MessengerMainSection>>;
+  setMainTier1Extras: ReturnType<typeof useSetMainTier1ExtrasOptional>;
+  headerActionsNode: ReactNode;
+  roomActionSheetOpen: boolean;
+  setRoomActionSheet: () => void;
+  setOpenedMenuItemId: Dispatch<SetStateAction<string | null>>;
+  setIncomingCallSoundEnabled: Dispatch<SetStateAction<boolean>>;
+  setIncomingCallBannerEnabled: Dispatch<SetStateAction<boolean>>;
+  setLocalSettings: Dispatch<SetStateAction<CommunityMessengerLocalSettings>>;
+  setRecentSearches: Dispatch<SetStateAction<string[]>>;
+  recentSearches: string[];
+  setDismissedNotificationIds: Dispatch<SetStateAction<string[]>>;
+  openSettingsSheet: () => void;
+  setChatInboxFilter: Dispatch<SetStateAction<MessengerChatInboxFilter>>;
+  setChatKindFilter: Dispatch<SetStateAction<MessengerChatKindFilter>>;
+  setNotificationSettings: Dispatch<SetStateAction<MessengerNotificationSettings>>;
+  data: CommunityMessengerBootstrap | null;
+  fromPhilifeHeaderStack: boolean;
+  mainSection: MessengerMainSection;
+  pillar: "trade" | "delivery" | null;
+};
+
+/** Router context(`useSearchParams`) 구독·URL 동기 effect — Home 본문 리렌더 전파 차단 */
+function CommunityMessengerHomeRouterEffectsHost({
+  onEntryOriginQueryChange,
+  openHomeOverlay,
+  setMainSection,
+  setMainTier1Extras,
+  headerActionsNode,
+  roomActionSheetOpen,
+  setRoomActionSheet,
+  setOpenedMenuItemId,
+  setIncomingCallSoundEnabled,
+  setIncomingCallBannerEnabled,
+  setLocalSettings,
+  setRecentSearches,
+  recentSearches,
+  setDismissedNotificationIds,
+  openSettingsSheet,
+  setChatInboxFilter,
+  setChatKindFilter,
+  setNotificationSettings,
+  data,
+  fromPhilifeHeaderStack,
+  mainSection,
+  pillar,
+}: CommunityMessengerHomeRouterEffectsHostProps): null {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const searchQueryString = searchParams.toString();
+  const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
+  const openParam = searchParams.get("open")?.trim() ?? "";
+  const fromParam = searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
+
+  useLayoutEffect(() => {
+    onEntryOriginQueryChange(fromParam);
+  }, [fromParam, onEntryOriginQueryChange]);
+
+  useCommunityMessengerHomeShellEffects({
+    router,
+    searchParams,
+    setMainTier1Extras,
+    headerActionsNode,
+    roomActionSheetOpen,
+    setRoomActionSheet,
+    setOpenedMenuItemId,
+    setIncomingCallSoundEnabled,
+    setIncomingCallBannerEnabled,
+    setLocalSettings,
+    setRecentSearches,
+    recentSearches,
+    setDismissedNotificationIds,
+    openSettingsSheet,
+    setMainSection,
+    setChatInboxFilter,
+    setChatKindFilter,
+    setNotificationSettings,
+    data,
+    fromPhilifeHeaderStack,
+    mainSection,
+    pillar,
+  });
+
+  const messengerMeetingDeeplinkSeq = useRef(0);
+  useEffect(() => {
+    if (!meetingIdParam) return;
+    const seq = ++messengerMeetingDeeplinkSeq.current;
+    const ac = new AbortController();
+    const strip = () => {
+      guardedRouterReplace(router, "/community-messenger?section=open_chat", {
+        source: "community-messenger-home",
+        reason: "meeting_deeplink_strip",
+        scroll: false,
+      });
+    };
+    void (async () => {
+      try {
+        const resolved = await fetchMeetingDeeplink(meetingIdParam, ac.signal);
+        if (seq !== messengerMeetingDeeplinkSeq.current) return;
+        if (resolved.kind === "room") {
+          try {
+            await fetch(
+              `/api/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}/meeting-ensure-participant`,
+              { method: "POST", credentials: "include", signal: ac.signal }
+            );
+          } catch {
+            /* */
+          }
+          guardedRouterReplace(
+            router,
+            `/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`,
+            {
+              source: "community-messenger-home",
+              reason: "meeting_deeplink_room",
+            }
+          );
+          return;
+        }
+        if (resolved.kind === "post") {
+          guardedRouterReplace(router, philifeAppPaths.post(resolved.postId), {
+            source: "community-messenger-home",
+            reason: "meeting_deeplink_post",
+          });
+          return;
+        }
+        strip();
+      } catch {
+        if (seq !== messengerMeetingDeeplinkSeq.current || ac.signal.aborted) return;
+        strip();
+      }
+    })();
+    return () => {
+      ac.abort();
+    };
+  }, [meetingIdParam, router]);
+
+  useEffect(() => {
+    if (openParam !== "public-group-find") return;
+    setMainSection("open_chat");
+    openHomeOverlay("public-group-find");
+    const next = new URLSearchParams(searchQueryString);
+    next.delete("open");
+    if (next.get("section") !== "open_chat") {
+      next.set("section", "open_chat");
+    }
+    const qs = next.toString();
+    const target = qs ? `/community-messenger?${qs}` : "/community-messenger?section=open_chat";
+    guardedRouterReplace(router, target, {
+      source: "community-messenger-home",
+      reason: "open_public_group_find",
+      scroll: false,
+    });
+  }, [openParam, openHomeOverlay, router, searchQueryString, setMainSection]);
+
+  return null;
+}
+
+export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   initialTab,
   initialSection,
   initialFilter,
@@ -228,27 +551,25 @@ export function CommunityMessengerHome({
    * - 1단 헤더 제목은 해당 채팅 scope 로 표기.
    */
   pillar = null,
-}: {
-  initialTab?: string;
-  initialSection?: string;
-  initialFilter?: string;
-  initialKind?: string;
-  initialServerBootstrap?: CommunityMessengerBootstrap | null;
-  fromPhilifeHeaderStack?: boolean;
-  pillar?: "trade" | "delivery" | null;
-}) {
+}: CommunityMessengerHomeProps) {
   useCmDevRenderTrace("CommunityMessengerHome");
   useCmStrictModeEffectProbe("CommunityMessengerHome");
   bumpMessengerRenderPerf("messenger_home_render");
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
-  const pathname = usePathname() ?? "";
-  const searchParams = useSearchParams();
-  /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있어 router.replace effect 가 무한 재실행됨 → 문자열만 의존 */
-  const searchQueryString = searchParams.toString();
-  const { requestClose: closePhilifeHeaderMessenger } = usePhilifeHeaderMessengerStack();
-  const meetingIdParam = searchParams.get("meetingId")?.trim() ?? "";
-  const openParam = searchParams.get("open")?.trim() ?? "";
+  const messengerListPathname = useMemo(
+    () => resolveCommunityMessengerHomeListPathname(pillar),
+    [pillar]
+  );
+  const [entryOriginQuery, setEntryOriginQuery] = useState<string | null>(() => {
+    if (pillar) return null;
+    return readMessengerEntryOriginFromLocation();
+  });
+  const onEntryOriginQueryChange = useCallback((next: string | null) => {
+    setEntryOriginQuery((prev) => (prev === next ? prev : next));
+  }, []);
+  const { requestClose: closePhilifeHeaderMessenger, isOpen: philifeHeaderStackIsOpen } =
+    usePhilifeHeaderMessengerStack();
   /** 언어 전환 시에도 부트스트랩 effect 가 재실행되지 않도록 번역 함수만 최신으로 유지 */
   const tRef = useRef(t) as MutableRefObject<(key: string) => string>;
   tRef.current = t as (key: string) => string;
@@ -416,8 +737,8 @@ export function CommunityMessengerHome({
       setMainSection,
       setChatInboxFilter,
       setChatKindFilter,
-      pathname,
-      messengerEntryOrigin: searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+      pathname: messengerListPathname,
+      messengerEntryOrigin: entryOriginQuery,
     });
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -501,6 +822,31 @@ export function CommunityMessengerHome({
     sound_enabled: true,
     vibration_enabled: true,
   });
+  const notificationSettingsMountRef = useRef(notificationSettings);
+  const notificationSettingsLoadedProbeRef = useRef(false);
+  if (
+    !notificationSettingsLoadedProbeRef.current &&
+    notificationSettings !== notificationSettingsMountRef.current
+  ) {
+    notificationSettingsLoadedProbeRef.current = true;
+  }
+  useCmHomeRenderSourceProbe({
+    pathname: messengerListPathname,
+    searchQueryString: buildCommunityMessengerHomeProbeSearchQueryString({
+      initialTab,
+      initialSection,
+      initialFilter,
+      initialKind,
+      entryOriginQuery,
+    }),
+    language,
+    philifeHeaderStackIsOpen,
+    loading,
+    listAwaitingCritical,
+    homeRealtimeGateOpen,
+    notificationSettingsLoaded: notificationSettingsLoadedProbeRef.current,
+    data,
+  });
   const backupInputRef = useRef<HTMLInputElement | null>(null);
   /** 받은·보낸 pending 모두 알림 벨·알림 센터에서 한 번에 볼 수 있게 집계 */
   const incomingRequestCount = useMemo(
@@ -544,6 +890,7 @@ export function CommunityMessengerHome({
     seedMessengerRealtimeViewerFromBootstrap(data);
   }, [data]);
 
+  const directRoomMapStableRef = useRef<Map<string, CommunityMessengerRoomSummary>>(new Map());
   const directRoomByPeerId = useMemo(() => {
     const map = new Map<string, CommunityMessengerRoomSummary>();
     for (const room of data?.chats ?? []) {
@@ -553,6 +900,11 @@ export function CommunityMessengerHome({
         map.set(room.peerUserId, room);
       }
     }
+    const prevStable = directRoomMapStableRef.current;
+    if (directRoomMapsEqual(prevStable, map)) {
+      return prevStable;
+    }
+    directRoomMapStableRef.current = map;
     return map;
   }, [data?.chats]);
 
@@ -639,31 +991,6 @@ export function CommunityMessengerHome({
   );
 
   const closeRoomActionSheet = useCallback(() => setRoomActionSheet(null), []);
-
-  useCommunityMessengerHomeShellEffects({
-    router,
-    searchParams,
-    setMainTier1Extras,
-    headerActionsNode,
-    roomActionSheetOpen: Boolean(roomActionSheet),
-    setRoomActionSheet: closeRoomActionSheet,
-    setOpenedMenuItemId,
-    setIncomingCallSoundEnabled,
-    setIncomingCallBannerEnabled,
-    setLocalSettings,
-    setRecentSearches,
-    recentSearches,
-    setDismissedNotificationIds,
-    openSettingsSheet: () => openHomeOverlay("settings"),
-    setMainSection,
-    setChatInboxFilter,
-    setChatKindFilter,
-    setNotificationSettings,
-    data,
-    fromPhilifeHeaderStack,
-    mainSection,
-    pillar,
-  });
 
   useCommunityMessengerTradePostListingRealtime({
     viewerUserId: data?.me?.id ?? null,
@@ -760,7 +1087,7 @@ export function CommunityMessengerHome({
           typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
         const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
-          redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
         ) {
           return;
         }
@@ -779,7 +1106,7 @@ export function CommunityMessengerHome({
       data?.me?.id,
       getMessengerActionErrorMessage,
       navigateToCommunityRoom,
-      pathname,
+      messengerListPathname,
       reviveDirectRoomForEntry,
       router,
       setAuthRequired,
@@ -951,7 +1278,7 @@ export function CommunityMessengerHome({
             router.push(
               communityMessengerRoomHref(
                 rid,
-                searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                readMessengerEntryOriginFromLocation(),
                 pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
               )
             );
@@ -976,7 +1303,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.me?.label, pillar, refresh, router, searchParams, searchResults, searchUsers, setData]
+    [data?.me?.id, data?.me?.label, pillar, refresh, router, searchResults, searchUsers, setData]
   );
 
   const respondRequest = useCallback(
@@ -1112,7 +1439,7 @@ export function CommunityMessengerHome({
             router.push(
               communityMessengerRoomHref(
                 rid,
-                searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                readMessengerEntryOriginFromLocation(),
                 pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
               )
             );
@@ -1125,7 +1452,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.requests, pillar, refresh, router, searchParams, setData, t]
+    [data?.me?.id, data?.requests, pillar, refresh, router, setData, t]
   );
 
   const onFriendRequestNotif = useCallback(
@@ -1280,7 +1607,7 @@ export function CommunityMessengerHome({
           typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
         const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
-          redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
         ) {
           return;
         }
@@ -1294,7 +1621,7 @@ export function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [getMessengerActionErrorMessage, pathname, refresh, router, setAuthRequired, setData, setPageError, t]
+    [getMessengerActionErrorMessage, messengerListPathname, refresh, router, setAuthRequired, setData, setPageError, t]
   );
 
   const toggleHiddenFriend = useCallback(
@@ -1365,7 +1692,7 @@ export function CommunityMessengerHome({
           typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
         const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
-          redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
         ) {
           return;
         }
@@ -1381,7 +1708,7 @@ export function CommunityMessengerHome({
     },
     [
       getMessengerActionErrorMessage,
-      pathname,
+      messengerListPathname,
       refresh,
       router,
       searchUsers,
@@ -1418,7 +1745,7 @@ export function CommunityMessengerHome({
         typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
       const authHint = res.status === 401 ? t("common_login_required") : "";
       if (
-        redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+        redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
       ) {
         return;
       }
@@ -1436,7 +1763,7 @@ export function CommunityMessengerHome({
     groupMembers,
     groupTitle,
     navigateToCommunityRoom,
-    pathname,
+    messengerListPathname,
     refresh,
     resetGroupCreateDraft,
     router,
@@ -1484,7 +1811,7 @@ export function CommunityMessengerHome({
         typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
       const authHint = res.status === 401 ? t("common_login_required") : "";
       if (
-        redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
+        redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
       ) {
         return;
       }
@@ -1511,7 +1838,7 @@ export function CommunityMessengerHome({
     openGroupPassword,
     openGroupSummary,
     openGroupTitle,
-    pathname,
+    messengerListPathname,
     refresh,
     resetGroupCreateDraft,
     router,
@@ -1601,79 +1928,6 @@ export function CommunityMessengerHome({
     [getMessengerActionErrorMessage, joinOpenGroup, localSettings.groupJoinPreviewEnabled, resetJoinOpenGroupDraft]
   );
 
-  const messengerMeetingDeeplinkSeq = useRef(0);
-  /** `meetingId` 쿼리(모임 딥링크) — Philife를 거치지 않고 메신저에서 방/게시글로 연결 */
-  useEffect(() => {
-    if (!meetingIdParam) return;
-    const seq = ++messengerMeetingDeeplinkSeq.current;
-    const ac = new AbortController();
-    const strip = () => {
-      guardedRouterReplace(router, "/community-messenger?section=open_chat", {
-        source: "community-messenger-home",
-        reason: "meeting_deeplink_strip",
-        scroll: false,
-      });
-    };
-    void (async () => {
-      try {
-        const resolved = await fetchMeetingDeeplink(meetingIdParam, ac.signal);
-        if (seq !== messengerMeetingDeeplinkSeq.current) return;
-        if (resolved.kind === "room") {
-          try {
-            await fetch(
-              `/api/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}/meeting-ensure-participant`,
-              { method: "POST", credentials: "include", signal: ac.signal }
-            );
-          } catch {
-            /* */
-          }
-          guardedRouterReplace(
-            router,
-            `/community-messenger/rooms/${encodeURIComponent(resolved.roomId)}`,
-            {
-              source: "community-messenger-home",
-              reason: "meeting_deeplink_room",
-            }
-          );
-          return;
-        }
-        if (resolved.kind === "post") {
-          guardedRouterReplace(router, philifeAppPaths.post(resolved.postId), {
-            source: "community-messenger-home",
-            reason: "meeting_deeplink_post",
-          });
-          return;
-        }
-        strip();
-      } catch {
-        if (seq !== messengerMeetingDeeplinkSeq.current || ac.signal.aborted) return;
-        strip();
-      }
-    })();
-    return () => {
-      ac.abort();
-    };
-  }, [meetingIdParam, router]);
-
-  /** 외부 링크 `open=public-group-find` — 모임 찾기/만들기 시트(Philife meetup 글쓰기 대체 진입) */
-  useEffect(() => {
-    if (openParam !== "public-group-find") return;
-    setMainSection("open_chat");
-    openHomeOverlay("public-group-find");
-    const next = new URLSearchParams(searchQueryString);
-    next.delete("open");
-    if (next.get("section") !== "open_chat") {
-      next.set("section", "open_chat");
-    }
-    const qs = next.toString();
-    const target = qs ? `/community-messenger?${qs}` : "/community-messenger?section=open_chat";
-    guardedRouterReplace(router, target, {
-      source: "community-messenger-home",
-      reason: "open_public_group_find",
-      scroll: false,
-    });
-  }, [openParam, openHomeOverlay, router, searchQueryString, setMainSection]);
-
   const {
     favoriteFriendIds,
     sortedFriends,
@@ -1696,10 +1950,8 @@ export function CommunityMessengerHome({
     pillar,
   });
 
-  const routeOpenMessengerRoomIdNorm = useMemo(() => {
-    const m = pathname.match(/\/community-messenger\/rooms\/([^/?#]+)/);
-    return m?.[1] ? normalizeCmRealtimeSubscribeRoomId(m[1]) : null;
-  }, [pathname]);
+  /** Home 마운트 경로에서는 room 서브 pathname 이 없음 — realtime 은 `homeRoomIds` 만 사용 */
+  const routeOpenMessengerRoomIdNorm = null;
 
   /** A+B: 부트스트랩 홈 방 + URL 라우트 방 — `roomOrder`·리스트 행과 분리해 fingerprint 안정 */
   const homeRouteRealtimeRoomIds = useMemo(() => {
@@ -1883,12 +2135,6 @@ export function CommunityMessengerHome({
     () => (pillar ? null : { trade: tradePillarSummary, delivery: deliveryPillarSummary }),
     [pillar, tradePillarSummary, deliveryPillarSummary]
   );
-
-  /** 인박스 진입 시점의 `?from=...` 을 묶음 행으로 전달(서브 라우트에서 출처 보존). */
-  const entryOriginQuery = useMemo(() => {
-    if (pillar) return null;
-    return searchParams?.get("from") ?? null;
-  }, [pillar, searchParams]);
 
   const listPrefetchSeedSig = useMemo(() => {
     if (mainSection !== "chats" && mainSection !== "open_chat" && mainSection !== "archive") return "";
@@ -2572,6 +2818,44 @@ export function CommunityMessengerHome({
     showMessengerSnackbar(t("cm_ui_cleared_local_preview_cache"));
   }, [t]);
 
+  const onListPaneToggleFavoriteFriend = useCallback(
+    (userId: string) => {
+      void toggleFavoriteFriend(userId);
+    },
+    [toggleFavoriteFriend]
+  );
+  const onListPaneToggleHiddenFriend = useCallback(
+    (userId: string) => {
+      void toggleHiddenFriend(userId);
+    },
+    [toggleHiddenFriend]
+  );
+  const onListPaneRemoveFriend = useCallback(
+    (userId: string) => {
+      void removeFriend(userId);
+    },
+    [removeFriend]
+  );
+  const onListPaneToggleBlock = useCallback(
+    (userId: string) => {
+      void toggleBlock(userId);
+    },
+    [toggleBlock]
+  );
+  const onListPaneStartDirectRoom = useCallback(
+    (userId: string) => {
+      void startDirectRoom(userId);
+    },
+    [startDirectRoom]
+  );
+  const onMessengerHomeRetryStable = useCallback(() => {
+    void refresh();
+  }, [refresh]);
+  const onOpenFriendManagerStable = useCallback(() => {
+    setFriendManagerOpen(true);
+  }, []);
+  const messengerHomeBootstrapCalls = useMemo(() => data?.calls ?? [], [data?.calls]);
+
   return (
     <div
       data-messenger-shell
@@ -2583,6 +2867,30 @@ export function CommunityMessengerHome({
       }
     >
       <CommunityMessengerHomeReturnConsume />
+      <CommunityMessengerHomeRouterEffectsHost
+        onEntryOriginQueryChange={onEntryOriginQueryChange}
+        openHomeOverlay={openHomeOverlay}
+        setMainSection={setMainSection}
+        setMainTier1Extras={setMainTier1Extras}
+        headerActionsNode={headerActionsNode}
+        roomActionSheetOpen={Boolean(roomActionSheet)}
+        setRoomActionSheet={closeRoomActionSheet}
+        setOpenedMenuItemId={setOpenedMenuItemId}
+        setIncomingCallSoundEnabled={setIncomingCallSoundEnabled}
+        setIncomingCallBannerEnabled={setIncomingCallBannerEnabled}
+        setLocalSettings={setLocalSettings}
+        setRecentSearches={setRecentSearches}
+        recentSearches={recentSearches}
+        setDismissedNotificationIds={setDismissedNotificationIds}
+        openSettingsSheet={() => openHomeOverlay("settings")}
+        setChatInboxFilter={setChatInboxFilter}
+        setChatKindFilter={setChatKindFilter}
+        setNotificationSettings={setNotificationSettings}
+        data={data}
+        fromPhilifeHeaderStack={fromPhilifeHeaderStack}
+        mainSection={mainSection}
+        pillar={pillar}
+      />
       {fromPhilifeHeaderStack ? (
         <header className="sticky top-0 z-30 w-full min-w-0 max-w-full shrink-0 border-b border-sam-border/80 bg-[color:var(--messenger-bg,#ffffff)]/95 backdrop-blur-[10px] text-[color:var(--messenger-fg,#0f0f0f)]">
           <div
@@ -2627,11 +2935,11 @@ export function CommunityMessengerHome({
         busyId={busyId}
         onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}
         onOpenProfile={onOpenProfileForMessengerMainStable}
-        toggleFavoriteFriend={(userId) => void toggleFavoriteFriend(userId)}
-        toggleHiddenFriend={(userId) => void toggleHiddenFriend(userId)}
-        removeFriend={(userId) => void removeFriend(userId)}
-        toggleBlock={(userId) => void toggleBlock(userId)}
-        startDirectRoom={(userId) => void startDirectRoom(userId)}
+        toggleFavoriteFriend={onListPaneToggleFavoriteFriend}
+        toggleHiddenFriend={onListPaneToggleHiddenFriend}
+        removeFriend={onListPaneRemoveFriend}
+        toggleBlock={onListPaneToggleBlock}
+        startDirectRoom={onListPaneStartDirectRoom}
         onFriendRowVoiceCallStable={onFriendRowVoiceCallStable}
         onFriendRowVideoCallStable={onFriendRowVideoCallStable}
         getFriendDirectRoomMutedStable={getFriendDirectRoomMutedStable}
@@ -2656,14 +2964,14 @@ export function CommunityMessengerHome({
         pageError={pageError}
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
-        onRetry={() => void refresh()}
+        onRetry={onMessengerHomeRetryStable}
         pillarSummaries={inboxPillarSummaries}
         entryOriginQuery={entryOriginQuery}
-        bootstrapCalls={data?.calls ?? []}
+        bootstrapCalls={messengerHomeBootstrapCalls}
         callsHydrating={Boolean(data?.deferredCallLog)}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
-        onOpenFriendManager={() => setFriendManagerOpen(true)}
+        onOpenFriendManager={onOpenFriendManagerStable}
       />
 
       {outgoingCallConfirm ? (
@@ -2799,7 +3107,7 @@ export function CommunityMessengerHome({
                   setRoomActionSheet(null);
                   const base = communityMessengerRoomHref(
                     id,
-                    searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                    readMessengerEntryOriginFromLocation(),
                     pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
                   );
                   router.push(`${base}${base.includes("?") ? "&" : "?"}sheet=info`);
@@ -2813,7 +3121,7 @@ export function CommunityMessengerHome({
                   setRoomActionSheet(null);
                   const base = communityMessengerRoomHref(
                     id,
-                    searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY),
+                    readMessengerEntryOriginFromLocation(),
                     pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
                   );
                   router.push(`${base}${base.includes("?") ? "&" : "?"}sheet=info`);
@@ -3351,4 +3659,6 @@ export function CommunityMessengerHome({
 
     </div>
   );
-}
+}, communityMessengerHomePropsEqual);
+
+CommunityMessengerHome.displayName = "CommunityMessengerHome";

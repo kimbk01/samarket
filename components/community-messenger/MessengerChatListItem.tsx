@@ -42,7 +42,8 @@ import { communityMessengerRoomIsInboxHidden, type CommunityMessengerRoomSummary
 import {
   formatConversationTimestamp,
   getRoomTypeBadgeLabel,
-  unifiedListItemRowVisualEqual,
+  messengerStringSetsEqual,
+  unifiedListItemRowDisplayEqual,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import {
@@ -50,8 +51,7 @@ import {
   type MessengerSwipeActionKind,
 } from "@/lib/messenger-policy/chat-room-swipe-actions";
 import { toMessengerPolicyRoomType } from "@/lib/messenger-policy/messenger-policy-room-type";
-import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
-import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
+import { MessengerChatListItemPresenceDot } from "@/components/community-messenger/MessengerChatListItemPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import {
   buildTradeChatListPreviewLine,
@@ -76,9 +76,14 @@ import {
   normalizeMessengerRealtimeRoomId,
   useMessengerRealtimeStore,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
-import { useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import {
+  logCmMemoPropDiff,
+  logCmMemoPropEqual,
+  useCmDevRenderTrace,
+} from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 const ACTION_W = 78;
+const MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM = (_room: CommunityMessengerRoomSummary) => {};
 const DRAG_START_X = 16;
 const DRAG_CANCEL_Y = 14;
 const PRESS_RELEASE_MS = 90;
@@ -125,30 +130,43 @@ type Props = {
   listVisual?: MessengerChatListVisual;
 };
 
+function favoriteFriendIdsEqual(prev: Set<string>, next: Set<string>): boolean {
+  return prev === next || messengerStringSetsEqual(prev, next);
+}
+
 function messengerChatListItemPropsEqual(prev: Props, next: Props): boolean {
-  if (prev.item === next.item) {
-    return (
-      prev.viewerUserId === next.viewerUserId &&
-      prev.favoriteFriendIds === next.favoriteFriendIds &&
-      prev.busyId === next.busyId &&
-      prev.openedSwipeItemId === next.openedSwipeItemId &&
-      prev.listContext === next.listContext &&
-      prev.compact === next.compact &&
-      prev.listVisual === next.listVisual
-    );
+  const reasons: string[] = [];
+  const roomId = next.item.room.id;
+
+  if (prev.item !== next.item && !unifiedListItemRowDisplayEqual(prev.item, next.item)) {
+    if (prev.item.room.id !== next.item.room.id) reasons.push("item.roomId");
+    else if (prev.item.room !== next.item.room) reasons.push("item.roomRef");
+    else reasons.push("item.display");
   }
-  if (prev.item.room === next.item.room && unifiedListItemRowVisualEqual(prev.item, next.item)) {
-    return (
-      prev.viewerUserId === next.viewerUserId &&
-      prev.favoriteFriendIds === next.favoriteFriendIds &&
-      prev.busyId === next.busyId &&
-      prev.openedSwipeItemId === next.openedSwipeItemId &&
-      prev.listContext === next.listContext &&
-      prev.compact === next.compact &&
-      prev.listVisual === next.listVisual
-    );
+  if (prev.viewerUserId !== next.viewerUserId) reasons.push("viewerUserId");
+  if (!favoriteFriendIdsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)) reasons.push("favoriteFriendIds");
+  if (prev.busyId !== next.busyId) reasons.push("busyId");
+  if (prev.openedSwipeItemId !== next.openedSwipeItemId) reasons.push("openedSwipeItemId");
+  if (prev.listContext !== next.listContext) reasons.push("listContext");
+  if (prev.compact !== next.compact) reasons.push("compact");
+  if (prev.listVisual !== next.listVisual) reasons.push("listVisual");
+  if (prev.onTogglePin !== next.onTogglePin) reasons.push("onTogglePin");
+  if (prev.onToggleMute !== next.onToggleMute) reasons.push("onToggleMute");
+  if (prev.onMarkRead !== next.onMarkRead) reasons.push("onMarkRead");
+  if (prev.onToggleArchive !== next.onToggleArchive) reasons.push("onToggleArchive");
+  if (prev.onLeaveRoom !== next.onLeaveRoom) reasons.push("onLeaveRoom");
+  if (prev.onOpenRoomActions !== next.onOpenRoomActions) reasons.push("onOpenRoomActions");
+  if (prev.onOpenSwipeItem !== next.onOpenSwipeItem) reasons.push("onOpenSwipeItem");
+  if (prev.onCloseMenuItem !== next.onCloseMenuItem) reasons.push("onCloseMenuItem");
+  if (prev.onResetTransientUi !== next.onResetTransientUi) reasons.push("onResetTransientUi");
+  if (prev.onCompactLongPress !== next.onCompactLongPress) reasons.push("onCompactLongPress");
+
+  if (reasons.length > 0) {
+    logCmMemoPropDiff("MessengerChatListItem", roomId, reasons);
+    return false;
   }
-  return false;
+  logCmMemoPropEqual("MessengerChatListItem", roomId);
+  return true;
 }
 
 export const MessengerChatListItem = memo(function MessengerChatListItem({
@@ -173,7 +191,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 }: Props) {
   const { t } = useI18n();
   useCmDevRenderTrace("MessengerChatListItem");
-  const onLeaveRoom = onLeaveRoomProp ?? (() => {});
+  const onLeaveRoom = onLeaveRoomProp ?? MESSENGER_CHAT_LIST_ITEM_NOOP_LEAVE_ROOM;
   if (!shouldFreezeRoomListSubtree()) {
     bumpMessengerRenderPerf("messenger_room_row_render");
   }
@@ -219,7 +237,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const roomTypeLabel = getRoomTypeBadgeLabel(room);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
-  const peerPresence = useCommunityMessengerPeerPresence(room.peerUserId ?? null);
+  /** presence dot — 일반 1:1 direct 만 구독 (거래·배달·시스템 묶음 행 제외) */
+  const presencePeerUserId =
+    room.roomType === "direct" &&
+    commerceMeta?.kind !== "trade" &&
+    commerceMeta?.kind !== "delivery"
+      ? room.peerUserId ?? null
+      : null;
   const titleSuffix = room.roomType !== "direct" && room.memberCount > 0 ? String(room.memberCount) : "";
   const commerceSubline =
     commerceMeta && (commerceMeta.headline || commerceMeta.priceLabel)
@@ -672,12 +696,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     ) : isTradeChatListVisual && tradeRowModel ? (
       <div className="relative">
         <TradeProductThumb src={tradeRowModel.productThumbnailUrl} postId={tradeRowModel.postId} />
-        {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
+        {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
       </div>
     ) : commerceMeta?.thumbnailUrl ? (
       <div className="relative">
         <CommerceThumb src={commerceMeta.thumbnailUrl} fallbackAvatarUrl={room.avatarUrl} fallbackLabel={room.title} />
-        {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
+        {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
       </div>
     ) : (
       <div className="relative">
@@ -688,7 +712,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           sizeClassName="h-12 w-12"
           textClassName="sam-text-body"
         />
-        {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
+        {presencePeerUserId ? <MessengerChatListItemPresenceDot peerUserId={presencePeerUserId} /> : null}
       </div>
     );
 

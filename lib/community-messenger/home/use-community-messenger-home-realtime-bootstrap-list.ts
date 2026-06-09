@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, type Dispatch, type SetStateAction } from "react";
+import { resolveMessengerHomeBootstrapSetData } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { createCmHomeListRafPatchScheduler } from "@/lib/community-messenger/dev/cm-raf-home-list-patch";
 import { createCmParticipantUnreadRafBatcher } from "@/lib/community-messenger/dev/cm-raf-participant-unread-batch";
 import { useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
@@ -108,6 +109,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   const homeSummaryLastFetchAtRef = useRef<Map<string, number>>(new Map());
   const homeRealtimeRefreshLastAtRef = useRef(0);
   const homeRealtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const homeRealtimeSilentRefreshInFlightRef = useRef(false);
   const refreshRef = useRef(refresh);
   refreshRef.current = refresh;
 
@@ -171,9 +173,15 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (shouldBlockSilentHomeSyncForVisibilityRestore()) {
         return;
       }
+      if (homeRealtimeSilentRefreshInFlightRef.current) {
+        return;
+      }
       homeRealtimeRefreshLastAtRef.current = Date.now();
       recordReconnectStressEvent("home", "silent_refresh");
-      void silentRefreshRef.current(true);
+      homeRealtimeSilentRefreshInFlightRef.current = true;
+      void silentRefreshRef.current(true).finally(() => {
+        homeRealtimeSilentRefreshInFlightRef.current = false;
+      });
     };
     if (elapsed >= minGapMs) {
       scheduleWhenBrowserIdle(runSilentHomeSync, 520);
@@ -219,9 +227,14 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
                 { kind: "merge_room_summary", summary: json.room! },
                 "realtime"
               );
-              if (!merged || merged === prev) return prev;
-              primeBootstrapCache(merged);
-              return merged;
+              const resolved = resolveMessengerHomeBootstrapSetData(
+                "realtime-message",
+                prev,
+                !merged || merged === prev ? prev : merged,
+                { reason: "missing_room_summary_merge", roomId: id }
+              );
+              if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+              return resolved;
             });
           } catch {
             /* ignore */
@@ -273,9 +286,14 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             cur = next;
           }
         }
-        if (cur === prev) return prev;
-        primeBootstrapCache(cur);
-        return cur;
+        const resolved = resolveMessengerHomeBootstrapSetData(
+          "realtime-message",
+          prev,
+          cur === prev ? prev : cur,
+          { reason: "realtime_message_batch", roomId: batch[0]?.roomId }
+        );
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
       });
       for (const rid of missedRooms) {
         if (rid) scheduleHomeMissingRoomSummaryMerge(rid);
@@ -334,6 +352,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
                   duplicateEventKey: `${rid}:${hint.unreadCount}:${hint.lastReadMessageId ?? ""}:${hint.lastReadAt ?? ""}`,
                   reconnectState: "realtime",
                 });
+                if (merged.unreadCount === room.unreadCount) return room;
                 return { ...room, unreadCount: merged.unreadCount };
               },
             },
@@ -357,7 +376,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
         if (!changed) return prev;
         primeBootstrapCache(cur);
         return cur;
-      });
+      }, "unread-delta");
     },
     [scheduleHomeMissingRoomSummaryMerge, userId]
   );
@@ -387,7 +406,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           if (!next || next === prev) return prev;
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         queueMicrotask(() => {
           requestMessengerHubBadgeResync("home_list_merge_summary");
         });
@@ -397,6 +416,15 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (ev.type === "cm.room.local_unread") {
         if (String(ev.viewerUserId) !== me) return;
         if (tryConsumeBusLocalUnreadDuplicateAfterRead(ev.roomId, ev.unreadCount)) {
+          return;
+        }
+        const evRoomNormEarly = normalizeMessengerRealtimeRoomId(ev.roomId);
+        const existingEarly = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+        if (
+          existingEarly &&
+          evRoomNormEarly &&
+          existingEarly.unreadCount === ev.unreadCount
+        ) {
           return;
         }
         let tradeRoomForLegacyUnreadResync: string | null = null;
@@ -420,7 +448,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         if (missedList) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         else if (tradeRoomForLegacyUnreadResync) {
           scheduleHomeMissingRoomSummaryMerge(tradeRoomForLegacyUnreadResync);
@@ -458,13 +486,21 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         if (missedIncoming) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         return;
       }
 
       if (ev.type === "cm.room.summary_patch") {
         if (String(ev.viewerUserId) !== me) return;
+        const summaryExisting = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+        const nextUnread =
+          typeof ev.unreadCount === "number" && Number.isFinite(ev.unreadCount)
+            ? Math.max(0, Math.floor(ev.unreadCount))
+            : null;
+        if (summaryExisting && nextUnread != null && summaryExisting.unreadCount === nextUnread) {
+          return;
+        }
         let missedSummary = false;
         scheduleListPatch((prev) => {
           const existing = findHomeListRoomRow(prev, ev.roomId);
@@ -477,12 +513,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
             {
               kind: "room_update",
               roomId: ev.roomId,
-              updater: (room) => ({
-                ...room,
-                ...(typeof ev.unreadCount === "number" && Number.isFinite(ev.unreadCount)
-                  ? { unreadCount: Math.max(0, Math.floor(ev.unreadCount)) }
-                  : null),
-              }),
+              updater: (room) => {
+                if (nextUnread == null || room.unreadCount === nextUnread) return room;
+                return { ...room, unreadCount: nextUnread };
+              },
             },
             "mark-read"
           );
@@ -492,7 +526,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         if (missedSummary) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         return;
       }
@@ -500,6 +534,10 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       if (ev.type === "cm.room.read") {
         if (String(ev.viewerUserId) !== me) return;
         const readRow = findHomeListRoomRow(peekBootstrapCache(), ev.roomId);
+        if (readRow && (readRow.unreadCount ?? 0) === 0) {
+          registerBusRoomReadUnreadZeroForDedupe(ev.roomId);
+          return;
+        }
         setLocalReadGuard({
           roomId: ev.roomId,
           referenceLastMessageAt: String(readRow?.lastMessageAt ?? ""),
@@ -523,7 +561,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         if (missedRead) scheduleHomeMissingRoomSummaryMerge(ev.roomId);
         registerBusRoomReadUnreadZeroForDedupe(ev.roomId);
         return;
@@ -545,7 +583,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
           }
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         if (missedEcho) {
           void requestMessengerHomeListMergeFromHomeSummary(ev.roomId, "sender_echo_room_missing");
         }
@@ -561,15 +599,24 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
       onMarkAllRead: () => {
         scheduleListPatch((prev) => {
           const zeroAll = (rooms: CommunityMessengerRoomSummary[]) =>
-            rooms.map((room) => ({ ...room, unreadCount: 0 }));
+            rooms.map((room) => (room.unreadCount === 0 ? room : { ...room, unreadCount: 0 }));
+          const prevChats = prev.chats ?? [];
+          const prevGroups = prev.groups ?? [];
+          const nextChats = zeroAll(prevChats);
+          const nextGroups = zeroAll(prevGroups);
+          const chatsStable =
+            nextChats.length === prevChats.length && nextChats.every((row, i) => row === prevChats[i]);
+          const groupsStable =
+            nextGroups.length === prevGroups.length && nextGroups.every((row, i) => row === prevGroups[i]);
+          if (chatsStable && groupsStable) return prev;
           const next = {
             ...prev,
-            chats: zeroAll(prev.chats ?? []),
-            groups: zeroAll(prev.groups ?? []),
+            chats: nextChats,
+            groups: nextGroups,
           };
           primeBootstrapCache(next);
           return next;
-        });
+        }, "bus");
         requestMessengerHubBadgeResync("mark_all_read_cross_tab");
       },
     });

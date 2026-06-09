@@ -1,8 +1,17 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import {
+  resolveMessengerHomeBootstrapSetData,
+  type CmHomeSetDataSource,
+} from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { deferCmRoomListRenderUpdate } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
+
+type CmHomeListPatchMutator = {
+  mutate: (prev: CommunityMessengerBootstrap) => CommunityMessengerBootstrap | null;
+  source: CmHomeSetDataSource;
+};
 
 const CM_HOME_LIST_PATCH_MAX_MUTATORS_PER_FRAME = 8;
 const CM_HOME_LIST_PATCH_FRAME_BUDGET_MS = 16;
@@ -14,9 +23,12 @@ const CM_HOME_LIST_PATCH_FRAME_BUDGET_MS = 16;
  */
 export function createCmHomeListRafPatchScheduler(
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>
-): (mutate: (prev: CommunityMessengerBootstrap) => CommunityMessengerBootstrap | null) => void {
+): (
+  mutate: (prev: CommunityMessengerBootstrap) => CommunityMessengerBootstrap | null,
+  source?: CmHomeSetDataSource
+) => void {
   let rafId: number | null = null;
-  const mutators: Array<(prev: CommunityMessengerBootstrap) => CommunityMessengerBootstrap | null> = [];
+  const mutators: CmHomeListPatchMutator[] = [];
 
   const scheduleFlush = () => {
     if (rafId != null) return;
@@ -34,15 +46,15 @@ export function createCmHomeListRafPatchScheduler(
     setData((prev) => {
       if (!prev) return prev;
       let cur: CommunityMessengerBootstrap = prev;
-      let changed = false;
+      let lastSource: CmHomeSetDataSource = "bus";
       const frameStart = typeof performance !== "undefined" ? performance.now() : 0;
       let consumed = 0;
-      for (const m of batch) {
-        const next = m(cur);
+      for (const entry of batch) {
+        lastSource = entry.source;
+        const next = entry.mutate(cur);
         if (next == null) return prev;
         if (next !== cur) {
           cur = next;
-          changed = true;
         }
         consumed += 1;
         if (
@@ -58,13 +70,15 @@ export function createCmHomeListRafPatchScheduler(
         mutators.unshift(...deferredRest);
       }
       if (mutators.length > 0) scheduleFlush();
-      return changed ? cur : prev;
+      return resolveMessengerHomeBootstrapSetData(lastSource, prev, cur === prev ? prev : cur, {
+        reason: "raf_patch_batch",
+      });
     });
   };
 
-  return (mutate) => {
+  return (mutate, source = "bus") => {
     deferCmRoomListRenderUpdate(() => {
-      mutators.push(mutate);
+      mutators.push({ mutate, source });
       scheduleFlush();
     });
   };

@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-messenger/background-hydration-scheduler";
 import { shouldDeferTradeChatListMetaHydration } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { resolveMessengerHomeBootstrapSetData } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
@@ -15,6 +16,96 @@ import type {
   CommunityMessengerRoomContextMetaV1,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+
+type TradeMetaPatch = { roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null };
+
+const TRADE_CONTEXT_META_KEYS: (keyof CommunityMessengerRoomContextMetaV1)[] = [
+  "v",
+  "kind",
+  "headline",
+  "priceLabel",
+  "thumbnailUrl",
+  "stepLabel",
+  "roleLabel",
+  "itemStateLabel",
+  "categoryMenuLabel",
+  "productCategoryLabel",
+  "productChatId",
+  "postId",
+  "sellerDisplayName",
+  "tradeFlowStatus",
+  "storeOrderId",
+  "orderNo",
+  "storeId",
+  "storeDisplayName",
+  "fulfillmentType",
+];
+
+/** 동일 roomId batch가 동시에 두 번 돌지 않도록 */
+const tradeMetaHydrationInFlightKeys = new Set<string>();
+
+/** 마지막으로 API가 돌려준 패치 내용 fingerprint — 동일이면 재요청·재적용 생략 */
+let tradeMetaLastSuccessfulBatchFingerprint = "";
+
+function tradeContextMetaContentEqual(
+  a: CommunityMessengerRoomContextMetaV1 | null | undefined,
+  b: CommunityMessengerRoomContextMetaV1 | null | undefined
+): boolean {
+  if (a === b) return true;
+  if (a == null || b == null) return a == null && b == null;
+  for (const key of TRADE_CONTEXT_META_KEYS) {
+    if (a[key] !== b[key]) return false;
+  }
+  return true;
+}
+
+function findBootstrapRoom(
+  bootstrap: CommunityMessengerBootstrap | null,
+  roomId: string
+): CommunityMessengerRoomSummary | null {
+  if (!bootstrap) return null;
+  return (
+    bootstrap.chats.find((r) => r.id === roomId) ??
+    bootstrap.groups.find((r) => r.id === roomId) ??
+    null
+  );
+}
+
+function filterTradeMetaPatchesNeedingApply(
+  bootstrap: CommunityMessengerBootstrap | null,
+  patches: TradeMetaPatch[]
+): TradeMetaPatch[] {
+  return patches.filter((patch) => {
+    if (patch.contextMeta == null) return false;
+    const room = findBootstrapRoom(bootstrap, patch.roomId);
+    if (!room) return true;
+    return !tradeContextMetaContentEqual(room.contextMeta, patch.contextMeta);
+  });
+}
+
+function tradeMetaPatchesContentFingerprint(patches: TradeMetaPatch[]): string {
+  return patches
+    .filter((p) => p.contextMeta != null)
+    .map((p) => `${p.roomId}:${JSON.stringify(p.contextMeta)}`)
+    .sort()
+    .join("|");
+}
+
+function logTradeMetaSetDataSkipped(
+  setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>,
+  reason: string,
+  roomId: string | undefined,
+  changedRoomCount: number
+): void {
+  setData((prev) => {
+    resolveMessengerHomeBootstrapSetData("trade-meta", prev, prev, {
+      reason,
+      roomId,
+      changedRoomCount,
+    });
+    return prev;
+  });
+}
 
 /**
  * 거래 탭에서 `trade-chat-list-meta` 를 부를지 — 썸네일이 이미 있어도
@@ -24,6 +115,7 @@ function tradeChatListSummaryNeedsMetaHydration(
   room: CommunityMessengerRoomSummary,
   attemptedRoomIds: ReadonlySet<string>
 ): boolean {
+  if (attemptedRoomIds.has(room.id)) return false;
   if (room.roomType !== "direct") return false;
   if (!communityMessengerRoomIsTrade(room)) return false;
   const ctx = room.contextMeta;
@@ -38,7 +130,7 @@ function tradeChatListSummaryNeedsMetaHydration(
     ctx?.kind === "trade" &&
     typeof ctx.productCategoryLabel === "string" &&
     ctx.productCategoryLabel.trim().length > 0;
-  if (postId && !hasLeaf && !attemptedRoomIds.has(room.id)) return true;
+  if (postId && !hasLeaf) return true;
 
   return false;
 }
@@ -78,15 +170,19 @@ export function useTradeChatListMetaHydration(args: {
     const roomIds = missingKey.split(",").filter(Boolean);
     if (roomIds.length === 0) return;
 
-    let stale = false;
     const dedupeKey = `trade-chat-list-meta:${missingKey}`;
+    if (tradeMetaHydrationInFlightKeys.has(dedupeKey)) return;
+
+    let stale = false;
     getMessengerBackgroundHydrationScheduler().schedule({
       id: dedupeKey,
       dedupeKey,
       priority: "low",
       run: async (signal) => {
-        if (stale || signal.aborted) return;
+        if (tradeMetaHydrationInFlightKeys.has(dedupeKey)) return;
+        tradeMetaHydrationInFlightKeys.add(dedupeKey);
         try {
+          if (stale || signal.aborted) return;
           const res = await fetch("/api/community-messenger/trade-chat-list-meta", {
             method: "POST",
             credentials: "include",
@@ -97,25 +193,73 @@ export function useTradeChatListMetaHydration(args: {
           if (signal.aborted || stale) return;
           const json = (await res.json().catch(() => ({}))) as {
             ok?: boolean;
-            patches?: Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>;
+            patches?: TradeMetaPatch[];
           };
           if (stale || signal.aborted) return;
           if (!res.ok || !json.ok || !Array.isArray(json.patches)) return;
-          for (const id of roomIds) tradeMetaFetchAttemptedRef.current.add(id);
+
           const toApply = json.patches.filter((p) => p.contextMeta != null);
-          if (toApply.length === 0) return;
+          const contentFingerprint = tradeMetaPatchesContentFingerprint(toApply);
+          for (const id of roomIds) tradeMetaFetchAttemptedRef.current.add(id);
+
+          if (toApply.length === 0) {
+            logTradeMetaSetDataSkipped(
+              setData,
+              "trade_context_meta_batch:empty_patches",
+              roomIds[0],
+              0
+            );
+            return;
+          }
+
+          if (
+            contentFingerprint.length > 0 &&
+            contentFingerprint === tradeMetaLastSuccessfulBatchFingerprint
+          ) {
+            logTradeMetaSetDataSkipped(
+              setData,
+              "trade_context_meta_batch:same_fingerprint",
+              toApply[0]?.roomId,
+              0
+            );
+            return;
+          }
+
           setData((prev) => {
+            const filtered = filterTradeMetaPatchesNeedingApply(prev, toApply);
+            const changedRoomCount = filtered.length;
+            if (changedRoomCount === 0) {
+              if (contentFingerprint.length > 0) {
+                tradeMetaLastSuccessfulBatchFingerprint = contentFingerprint;
+              }
+              resolveMessengerHomeBootstrapSetData("trade-meta", prev, prev, {
+                reason: "trade_context_meta_batch:content_equal",
+                roomId: toApply[0]?.roomId,
+                changedRoomCount: 0,
+              });
+              return prev;
+            }
             const next = applyHomeListPatch(
               prev,
-              { kind: "trade_context_meta", patches: toApply },
+              { kind: "trade_context_meta", patches: filtered },
               "trade-meta"
             );
-            if (next && next !== prev) primeBootstrapCache(next);
-            return next;
+            const resolved = resolveMessengerHomeBootstrapSetData("trade-meta", prev, next, {
+              reason: "trade_context_meta_batch",
+              roomId: filtered[0]?.roomId,
+              changedRoomCount,
+            });
+            if (resolved && resolved !== prev) {
+              primeBootstrapCache(resolved);
+              tradeMetaLastSuccessfulBatchFingerprint = tradeMetaPatchesContentFingerprint(filtered);
+            }
+            return resolved;
           });
         } catch (e) {
           if (e instanceof DOMException && e.name === "AbortError") return;
           if (signal.aborted || stale) return;
+        } finally {
+          tradeMetaHydrationInFlightKeys.delete(dedupeKey);
         }
       },
     });
