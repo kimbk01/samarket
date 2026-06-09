@@ -28,6 +28,14 @@ async function loadCommunityMessengerCallProvider() {
   return import("@/lib/community-messenger/call-provider/client");
 }
 import { ensureVideoPermission } from "@/lib/call/permission-manager";
+import { primeVideoCallMediaFromUserGesture, primeVoiceCallMediaFromUserGesture } from "@/lib/community-messenger/call-media-bootstrap";
+import {
+  attachPreJoinHtmlVideo,
+  bindAgoraLocalVideoTrack,
+  clearLocalVideoContainer,
+  detachPreJoinHtmlVideo,
+  primeVideoElementAutoplayFromUserGesture,
+} from "@/lib/community-messenger/call-local-video-pipeline";
 import {
   isCommunityMessengerCallMediaReadySync,
   markCommunityMessengerMediaTrustedOnce,
@@ -65,6 +73,7 @@ import {
   startCommunityMessengerCallTone,
   stopCommunityMessengerCallFeedback,
   stopCommunityMessengerCallTone,
+  unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
 import {
   cmCallAudioCleanup,
@@ -384,6 +393,7 @@ export function CommunityMessengerCallClient({
   const [terminalClosedAt, setTerminalClosedAt] = useState<number | null>(null);
   const [endedDurationSeconds, setEndedDurationSeconds] = useState<number | null>(null);
   const [localVideoReady, setLocalVideoReady] = useState(false);
+  const [localVideoPlayBlocked, setLocalVideoPlayBlocked] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
   const [camOff, setCamOff] = useState(false);
@@ -752,6 +762,7 @@ export function CommunityMessengerCallClient({
     joiningRef.current = false;
     setRemoteJoined(false);
     setLocalVideoReady(false);
+    setLocalVideoPlayBlocked(false);
     setRemoteVideoReady(false);
     setCamOff(false);
     setLayoutSwapped(false);
@@ -1137,6 +1148,7 @@ export function CommunityMessengerCallClient({
         setJoined(false);
         setRemoteJoined(false);
         setLocalVideoReady(false);
+        setLocalVideoPlayBlocked(false);
         setRemoteVideoReady(false);
         heldPreJoinVideoPreviewRef.current = null;
         if (ringPreviewVideoRef.current) {
@@ -1358,7 +1370,7 @@ export function CommunityMessengerCallClient({
     };
   }, [fetchConnection, session?.id, session?.sessionMode, session?.status]);
 
-  const bindLocalVideoTrack = useCallback(() => {
+  const bindLocalVideoTrack = useCallback(async (): Promise<boolean> => {
     const videoTrack = localTracksRef.current?.videoTrack ?? null;
     const swapped = layoutSwappedRef.current;
     const s = sessionRef.current;
@@ -1375,50 +1387,63 @@ export function CommunityMessengerCallClient({
     const lg = largeVideoRef.current;
 
     if (soloLocalFull) {
-      if (sm) sm.innerHTML = "";
-      if (lg) lg.innerHTML = "";
+      clearLocalVideoContainer(sm);
       if (!videoTrack || !lg) {
         setLocalVideoReady(false);
-        return;
+        return false;
       }
       if (!videoTrack.enabled) {
-        if (sm) sm.innerHTML = "";
-        if (lg) lg.innerHTML = "";
+        clearLocalVideoContainer(lg);
         setLocalVideoReady(true);
-        return;
+        setLocalVideoPlayBlocked(false);
+        return true;
       }
-      videoTrack.play(lg, { fit: "cover", mirror: true });
+      const ok = await bindAgoraLocalVideoTrack(videoTrack, lg, { fit: "cover", mirror: true });
+      if (ok) {
+        setLocalVideoReady(true);
+        setLocalVideoPlayBlocked(false);
+        if (!cmCallVideoLogOnceRef.current.localReady) {
+          cmCallVideoLogOnceRef.current.localReady = true;
+          console.info("[cm-call-video] local_track_ready", {
+            sessionId: sessionRef.current?.id?.slice(-8),
+            layout: "solo_full",
+          });
+        }
+      } else {
+        setLocalVideoReady(false);
+        setLocalVideoPlayBlocked(true);
+      }
+      return ok;
+    }
+
+    const localEl = swapped ? lg : sm;
+    if (localEl) clearLocalVideoContainer(localEl);
+    if (!videoTrack || !localEl) {
+      setLocalVideoReady(false);
+      return false;
+    }
+    if (!videoTrack.enabled) {
+      clearLocalVideoContainer(localEl);
       setLocalVideoReady(true);
+      setLocalVideoPlayBlocked(false);
+      return true;
+    }
+    const ok = await bindAgoraLocalVideoTrack(videoTrack, localEl, { fit: "cover", mirror: true });
+    if (ok) {
+      setLocalVideoReady(true);
+      setLocalVideoPlayBlocked(false);
       if (!cmCallVideoLogOnceRef.current.localReady) {
         cmCallVideoLogOnceRef.current.localReady = true;
         console.info("[cm-call-video] local_track_ready", {
           sessionId: sessionRef.current?.id?.slice(-8),
-          layout: "solo_full",
+          layout: swapped ? "pip_swapped" : "pip_default",
         });
       }
-      return;
-    }
-
-    const localEl = swapped ? lg : sm;
-    if (localEl) localEl.innerHTML = "";
-    if (!videoTrack || !localEl) {
+    } else {
       setLocalVideoReady(false);
-      return;
+      setLocalVideoPlayBlocked(true);
     }
-    if (!videoTrack.enabled) {
-      if (localEl) localEl.innerHTML = "";
-      setLocalVideoReady(true);
-      return;
-    }
-    videoTrack.play(localEl, { fit: "cover", mirror: true });
-    setLocalVideoReady(true);
-    if (!cmCallVideoLogOnceRef.current.localReady) {
-      cmCallVideoLogOnceRef.current.localReady = true;
-      console.info("[cm-call-video] local_track_ready", {
-        sessionId: sessionRef.current?.id?.slice(-8),
-        layout: swapped ? "pip_swapped" : "pip_default",
-      });
-    }
+    return ok;
   }, []);
 
   const bindRemoteVideoTrack = useCallback((track: IRemoteVideoTrack | null) => {
@@ -1436,18 +1461,17 @@ export function CommunityMessengerCallClient({
         console.info("[cm-call-video] remote_track_ready", { sessionId: sessionRef.current?.id?.slice(-8) });
       }
       /* 원격 수신 직후 로컬이 솔로 풀에 남는 것을 막음 — layout effect deps 에서 remoteVideoReady 를 뺌 */
-      bindLocalVideoTrack();
+      void bindLocalVideoTrack();
       return;
     }
     setRemoteVideoReady(false);
-    bindLocalVideoTrack();
+    void bindLocalVideoTrack();
   }, [bindLocalVideoTrack]);
 
   /* 레이아웃 전환·join 직후: 양쪽 슬롯에 트랙을 다시 붙인다 */
   useLayoutEffect(() => {
     if (!session || session.status !== "active" || session.callKind !== "video" || !joined) return;
     const remote = remoteVideoTrackRef.current;
-    const local = localTracksRef.current?.videoTrack ?? null;
     const swapped = layoutSwapped;
     const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
       callKind: session.callKind,
@@ -1458,48 +1482,28 @@ export function CommunityMessengerCallClient({
     });
 
     if (soloLocalFull) {
-      const sm = smallVideoRef.current;
-      const lg = largeVideoRef.current;
-      if (sm) sm.innerHTML = "";
-      if (lg) lg.innerHTML = "";
-      if (local && lg) {
-        if (local.enabled) {
-          local.play(lg, { fit: "cover", mirror: true });
-        }
-        setLocalVideoReady(true);
-      } else {
-        setLocalVideoReady(false);
-      }
+      void bindLocalVideoTrack();
       setRemoteVideoReady(false);
       return;
     }
 
     const remoteEl = swapped ? smallVideoRef.current : largeVideoRef.current;
-    const localEl = swapped ? largeVideoRef.current : smallVideoRef.current;
     if (remoteEl) remoteEl.innerHTML = "";
-    if (localEl) localEl.innerHTML = "";
     if (remote && remoteEl) {
       remote.play(remoteEl, { fit: "cover", mirror: false });
       setRemoteVideoReady(true);
     } else {
       setRemoteVideoReady(false);
     }
-    if (local && localEl) {
-      if (local.enabled) {
-        local.play(localEl, { fit: "cover", mirror: true });
-      }
-      setLocalVideoReady(true);
-    } else {
-      setLocalVideoReady(false);
-    }
-  }, [layoutSwapped, joined, remoteJoined, session?.callKind, session?.id, session?.isMineInitiator, session?.status]);
+    void bindLocalVideoTrack();
+  }, [bindLocalVideoTrack, layoutSwapped, joined, remoteJoined, session?.callKind, session?.id, session?.isMineInitiator, session?.status]);
 
   /** Remote upgraded session to video — same call, publish local camera. */
   useEffect(() => {
     if (!session || session.callKind !== "video" || !joined || session.status !== "active") return;
     if (camOff) return;
     if (localTracksRef.current?.videoTrack) {
-      bindLocalVideoTrack();
+      void bindLocalVideoTrack();
       return;
     }
     const mark = `${session.id}:vpub`;
@@ -1532,7 +1536,7 @@ export function CommunityMessengerCallClient({
         }
         setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
         markCommunityMessengerMediaTrustedOnce("video");
-        bindLocalVideoTrack();
+        void bindLocalVideoTrack();
       } catch (e) {
         console.warn("[messenger-call] auto video publish", e);
         setErrorMessage(getCommunityMessengerMediaErrorMessage(e, "video"));
@@ -1568,7 +1572,7 @@ export function CommunityMessengerCallClient({
         /* ignore */
       }
     } finally {
-      bindLocalVideoTrack();
+      void bindLocalVideoTrack();
       console.info("[cm-call-video] camera_switch_done", { sessionId: sessionRef.current?.id?.slice(-8) });
       setBusy(null);
     }
@@ -1600,7 +1604,7 @@ export function CommunityMessengerCallClient({
           }
         }
       }
-      bindLocalVideoTrack();
+      void bindLocalVideoTrack();
     } catch {
       setCamOff(!nextOff);
     }
@@ -1806,6 +1810,38 @@ export function CommunityMessengerCallClient({
           }, 480);
         });
 
+        const clearPreJoinPreviewAfterLocalPlay = () => {
+          heldPreJoinVideoPreviewRef.current = null;
+          detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+        };
+
+        const isVideoCall = targetSession.callKind === "video";
+        let localVideoBoundDuringJoin = false;
+        if (isVideoCall) {
+          heldPreJoinVideoPreviewRef.current = null;
+          detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+          const tracks = await createCommunityMessengerAgoraLocalTracks("video");
+          localTracksRef.current = tracks;
+          const lg = largeVideoRef.current;
+          if (tracks.videoTrack && lg) {
+            const localPlayOk = await bindAgoraLocalVideoTrack(tracks.videoTrack, lg, {
+              fit: "cover",
+              mirror: true,
+            });
+            if (localPlayOk) {
+              localVideoBoundDuringJoin = true;
+              setLocalVideoReady(true);
+              setLocalVideoPlayBlocked(false);
+              clearPreJoinPreviewAfterLocalPlay();
+            } else {
+              setLocalVideoReady(false);
+              setLocalVideoPlayBlocked(true);
+            }
+          } else {
+            setLocalVideoReady(false);
+          }
+        }
+
         await joinCommunityMessengerAgoraChannel({
           client,
           appId: connection.appId,
@@ -1813,7 +1849,7 @@ export function CommunityMessengerCallClient({
           token: connection.token,
           uid: connection.uid,
         });
-        if (targetSession.callKind === "video") {
+        if (isVideoCall) {
           try {
             const c = client as IAgoraRTCClient & { enableDualStream?: () => Promise<void> };
             await c.enableDualStream?.();
@@ -1821,22 +1857,15 @@ export function CommunityMessengerCallClient({
             /* 일부 환경 미지원 */
           }
         }
-        /** iOS: HTML preview와 Agora가 동일 트랙 공유 시 프레임 중단 — consume 직전 해제 */
-        heldPreJoinVideoPreviewRef.current = null;
-        if (ringPreviewVideoRef.current) {
-          try {
-            ringPreviewVideoRef.current.srcObject = null;
-          } catch {
-            /* noop */
-          }
+        if (!isVideoCall) {
+          const tracks = await createCommunityMessengerAgoraLocalTracks("voice");
+          localTracksRef.current = tracks;
         }
-        const tracks = await createCommunityMessengerAgoraLocalTracks(targetSession.callKind);
-        localTracksRef.current = tracks;
         await publishCommunityMessengerAgoraTracks({
           client,
-          tracks,
+          tracks: localTracksRef.current!,
         });
-        const at = tracks.audioTrack;
+        const at = localTracksRef.current?.audioTrack;
         if (at) {
           try {
             await at.setEnabled(!micMutedRef.current);
@@ -1846,8 +1875,8 @@ export function CommunityMessengerCallClient({
         }
         joinedRef.current = true;
         setJoined(true);
-        if (targetSession.callKind === "video") {
-          bindLocalVideoTrack();
+        if (isVideoCall && !localVideoBoundDuringJoin) {
+          void bindLocalVideoTrack();
         }
         cmCallLatencyInfo("agora_join_done", {
           sessionId: targetSession.id,
@@ -1926,6 +1955,15 @@ export function CommunityMessengerCallClient({
     callFlowAcceptStartRef.current = acceptT0;
     setBusy("accept");
     setErrorMessage(null);
+    unlockCommunityMessengerCallPlaybackFromUserGesture();
+    if (s.callKind === "video") {
+      const primedPeek = peekPrimedCommunityMessengerDeviceStream("video");
+      if (primedPeek) primeVideoElementAutoplayFromUserGesture(primedPeek);
+    }
+    const mediaPrimePromise =
+      s.callKind === "video"
+        ? primeVideoCallMediaFromUserGesture({ explicitRetry: true })
+        : primeVoiceCallMediaFromUserGesture();
     try {
       stopCommunityMessengerCallTone();
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
@@ -1977,10 +2015,13 @@ export function CommunityMessengerCallClient({
         callKind: s.callKind,
       });
       setSession(json.session);
-      /** 링 중 getUserMedia 금지 — 서버가 active 인 뒤에만 프라임(조인 직전 Agora 가 소비) */
       if (json.session.status === "active") {
         try {
-          await primeCommunityMessengerDevicePermissionFromUserGesture(json.session.callKind);
+          const primeResult = await mediaPrimePromise;
+          if (primeResult.ok && json.session.callKind === "video") {
+            const peek = peekPrimedCommunityMessengerDeviceStream("video");
+            if (peek) primeVideoElementAutoplayFromUserGesture(peek);
+          }
         } catch {
           /* 조인 시도에서 실제 미디어 오류 표시 */
         }
@@ -2004,6 +2045,7 @@ export function CommunityMessengerCallClient({
     if (!s) return;
     autoVideoPublishAttemptedRef.current = null;
     autoJoinBlockedRef.current = false;
+    setLocalVideoPlayBlocked(false);
     setErrorMessage(null);
     void (async () => {
       try {
@@ -2405,7 +2447,7 @@ export function CommunityMessengerCallClient({
       setSession(json.session);
       setSpeakerEnabled(true);
       markCommunityMessengerMediaTrustedOnce(json.session.callKind);
-      bindLocalVideoTrack();
+      void bindLocalVideoTrack();
       autoVideoPublishAttemptedRef.current = `${json.session.id}:vpub`;
       showMessengerSnackbar(t("cm_ui_switched_to_video_snackbar"));
       return true;
@@ -2636,7 +2678,7 @@ export function CommunityMessengerCallClient({
       setCamOff(false);
       setLayoutSwapped(false);
       autoVideoPublishAttemptedRef.current = null;
-      bindLocalVideoTrack();
+      void bindLocalVideoTrack();
       setSpeakerEnabled(false);
       showMessengerSnackbar(t("cm_ui_switched_to_voice_snackbar"));
     } catch (e) {
@@ -3542,8 +3584,9 @@ export function CommunityMessengerCallClient({
   }
 
   if (
-    errorMessage &&
-    !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage) &&
+    (localVideoPlayBlocked ||
+      (errorMessage &&
+        !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage))) &&
     !incomingVideoUpgradeRequest &&
     directPhase !== "ended" &&
     directPhase !== "declined" &&
@@ -3621,7 +3664,9 @@ export function CommunityMessengerCallClient({
   const subStatusText =
     failureEndedDetail ??
     errorMessage ??
-    (callScreenPhase === "ringing"
+    (localVideoPlayBlocked
+      ? t("cm_ui_video_preparing_display")
+      : callScreenPhase === "ringing"
         ? session.isMineInitiator
           ? t("cm_ui_waiting_for_peer_answer")
           : t("cm_ui_choose_accept_or_reject")
@@ -3661,7 +3706,7 @@ export function CommunityMessengerCallClient({
     }
     const resolved = resolvePreJoinVideoPreviewStream({
       session,
-      localVideoReady,
+      localVideoPlaying: localVideoReady,
       peekStream: peek,
       heldStream: heldPreJoinVideoPreviewRef.current,
     });
@@ -3680,19 +3725,17 @@ export function CommunityMessengerCallClient({
   ]);
 
   useLayoutEffect(() => {
-    const detach = () => {
-      const v = ringPreviewVideoRef.current;
-      if (v) v.srcObject = null;
-    };
     if (!preJoinVideoPreviewStream || localVideoReady) {
-      detach();
+      detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
       return;
     }
     const el = ringPreviewVideoRef.current;
     if (!el) return;
-    el.srcObject = preJoinVideoPreviewStream;
-    void el.play().catch(() => {});
-    return detach;
+    void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream);
+    return () => {
+      if (!localVideoReady) return;
+      detachPreJoinHtmlVideo(el);
+    };
   }, [localVideoReady, preJoinVideoPreviewStream]);
 
   useEffect(() => {

@@ -34,57 +34,34 @@ function fakeStream(live = true): MediaStream {
 }
 
 describe("resolvePreJoinVideoPreviewStream", () => {
-  it("shows preview during active before Agora localVideoReady", () => {
+  it("shows preview during active before localVideoPlaying", () => {
     const stream = fakeStream();
     const out = resolvePreJoinVideoPreviewStream({
       session: session({ status: "active", isMineInitiator: true }),
-      localVideoReady: false,
+      localVideoPlaying: false,
       peekStream: null,
       heldStream: stream,
     });
     expect(out).toBe(stream);
   });
 
-  it("does not require ringing status when held stream exists", () => {
+  it("keeps preview during join busy when local video not playing yet", () => {
     const stream = fakeStream();
     expect(
       resolvePreJoinVideoPreviewStream({
-        session: session({ status: "ringing" }),
-        localVideoReady: false,
+        session: session({ status: "active" }),
+        localVideoPlaying: false,
         peekStream: stream,
         heldStream: null,
       })
     ).toBe(stream);
   });
 
-  it("allows initiator preview when live held stream exists", () => {
-    const stream = fakeStream();
-    expect(
-      resolvePreJoinVideoPreviewStream({
-        session: session({ status: "ringing", isMineInitiator: true }),
-        localVideoReady: false,
-        peekStream: null,
-        heldStream: stream,
-      })
-    ).toBe(stream);
-  });
-
-  it("returns null when no held stream", () => {
-    expect(
-      resolvePreJoinVideoPreviewStream({
-        session: session({ status: "ringing", isMineInitiator: true }),
-        localVideoReady: false,
-        peekStream: null,
-        heldStream: null,
-      })
-    ).toBeNull();
-  });
-
-  it("clears when localVideoReady", () => {
+  it("clears when localVideoPlaying", () => {
     expect(
       resolvePreJoinVideoPreviewStream({
         session: session({ status: "active" }),
-        localVideoReady: true,
+        localVideoPlaying: true,
         peekStream: fakeStream(),
         heldStream: fakeStream(),
       })

@@ -11,13 +11,13 @@ function isTerminal(status: CommunityMessengerCallSessionStatus): boolean {
  */
 export function resolvePreJoinVideoPreviewStream(args: {
   session: CommunityMessengerCallSession | null;
-  localVideoReady: boolean;
+  localVideoPlaying: boolean;
   peekStream: MediaStream | null;
   heldStream: MediaStream | null;
 }): MediaStream | null {
-  const { session, localVideoReady, peekStream } = args;
+  const { session, localVideoPlaying, peekStream } = args;
   if (!session || session.callKind !== "video") return null;
-  if (localVideoReady) return null;
+  if (localVideoPlaying) return null;
   if (isTerminal(session.status)) return null;
   if (session.status !== "ringing" && session.status !== "active") return null;
 

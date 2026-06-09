@@ -43,9 +43,16 @@ vi.mock("@/lib/community-messenger/media-preflight", () => ({
   refreshPreferredCommunityMessengerDevicesFromEnumerate: vi.fn(() => Promise.resolve()),
 }));
 
+const primeVideoAutoplayMock = vi.hoisted(() => vi.fn(() => true));
+
+vi.mock("@/lib/community-messenger/call-local-video-pipeline", () => ({
+  primeVideoElementAutoplayFromUserGesture: primeVideoAutoplayMock,
+}));
+
 describe("call-media-bootstrap", () => {
   beforeEach(() => {
     permissionMockState.completed.clear();
+    primeVideoAutoplayMock.mockClear();
     vi.stubGlobal("navigator", {
       mediaDevices: { getUserMedia: vi.fn() },
     } as unknown as Navigator);
@@ -133,9 +140,20 @@ describe("call-media-bootstrap", () => {
     await primeVideoCallMediaFromUserGesture({ explicitRetry: true });
     expect(hasUsablePrimedCommunityMessengerDeviceStream("video")).toBe(true);
     const callsBefore = vi.mocked(acquirePrimedCommunityMessengerStream).mock.calls.length;
+    primeVideoAutoplayMock.mockClear();
 
     await primeVideoCallMediaFromUserGesture({ explicitRetry: true });
     expect(hasUsablePrimedCommunityMessengerDeviceStream("video")).toBe(true);
     expect(vi.mocked(acquirePrimedCommunityMessengerStream).mock.calls.length).toBe(callsBefore);
+    expect(primeVideoAutoplayMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("primes video element autoplay after successful video prime", async () => {
+    const { primeVideoCallMediaFromUserGesture } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    const result = await primeVideoCallMediaFromUserGesture({ explicitRetry: true });
+    expect(result.ok).toBe(true);
+    expect(primeVideoAutoplayMock).toHaveBeenCalledTimes(1);
   });
 });
