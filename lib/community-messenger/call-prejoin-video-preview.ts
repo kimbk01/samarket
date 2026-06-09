@@ -16,16 +16,16 @@ export function resolvePreJoinVideoPreviewStream(args: {
   peekStream: MediaStream | null;
   heldStream: MediaStream | null;
 }): MediaStream | null {
-  const { session, localVideoReady, callerMediaConsentDone, peekStream } = args;
+  const { session, localVideoReady, peekStream } = args;
   if (!session || session.callKind !== "video") return null;
   if (localVideoReady) return null;
   if (isTerminal(session.status)) return null;
-  if (session.isMineInitiator && !callerMediaConsentDone) return null;
   if (session.status !== "ringing" && session.status !== "active") return null;
 
   const held = peekStream ?? args.heldStream;
   if (!held) return null;
   const tracks = held.getVideoTracks();
   if (!tracks.length || tracks.every((t) => t.readyState !== "live")) return null;
+  /** 발신 Agora 조인은 `callerMediaConsentDone` 유지 — 프리뷰만 live held/peek 로 허용 */
   return held;
 }

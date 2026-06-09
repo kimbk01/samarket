@@ -17,6 +17,7 @@ import {
   cmCallLatencyAnalysis,
   cmCallLatencyInfo,
 } from "@/lib/community-messenger/cm-call-debug";
+import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
@@ -398,9 +399,10 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   },
   navigate: (href: string) => void
 ): Promise<OutgoingCallSessionBootstrapResult> {
-  /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·관리자 벨 URL 재생 자동재생 정책 대응 */
+  /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
+  void primeCommunityMessengerDevicePermissionFromUserGesture(input.kind).catch(() => undefined);
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
@@ -453,6 +455,7 @@ export async function startOutgoingCallSessionAndOpen(
 ): Promise<OutgoingCallSessionBootstrapResult> {
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
+  void primeCommunityMessengerDevicePermissionFromUserGesture(input.kind).catch(() => undefined);
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }

@@ -34,7 +34,17 @@ export function shouldRetainPrimedDeviceStreamForVideoPreview(args: {
   return args.callKind === "video" && isLiveCommunityMessengerCallSessionStatus(args.sessionStatus);
 }
 
-/** PiP 크롬 — 원격 `remoteJoined`·`remoteVideoReady` 와 분리(연결 직후 즉시) */
+/** PiP DOM·`smallVideoRef` — `localVideoReady` 전에도 마운트해 Agora bind deadlock 방지 */
+export function shouldMountLocalVideoPipShell(args: {
+  videoCall: boolean;
+  sessionStatus?: CommunityMessengerCallSessionStatus;
+  joined: boolean;
+}): boolean {
+  if (args.sessionStatus && TERMINAL.includes(args.sessionStatus)) return false;
+  return Boolean(args.videoCall && args.joined);
+}
+
+/** PiP 크롬 가시성 — 트랙 play 완료 후 opacity/콘텐츠 표시 */
 export function shouldShowLocalVideoPipChrome(args: {
   videoCall: boolean;
   sessionStatus?: CommunityMessengerCallSessionStatus;

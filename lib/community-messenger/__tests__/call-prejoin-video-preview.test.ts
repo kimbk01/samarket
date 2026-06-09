@@ -59,6 +59,31 @@ describe("resolvePreJoinVideoPreviewStream", () => {
     ).toBe(stream);
   });
 
+  it("allows initiator preview without consent when live held stream exists", () => {
+    const stream = fakeStream();
+    expect(
+      resolvePreJoinVideoPreviewStream({
+        session: session({ status: "ringing", isMineInitiator: true }),
+        localVideoReady: false,
+        callerMediaConsentDone: false,
+        peekStream: null,
+        heldStream: stream,
+      })
+    ).toBe(stream);
+  });
+
+  it("blocks initiator preview without consent when no held stream", () => {
+    expect(
+      resolvePreJoinVideoPreviewStream({
+        session: session({ status: "ringing", isMineInitiator: true }),
+        localVideoReady: false,
+        callerMediaConsentDone: false,
+        peekStream: null,
+        heldStream: null,
+      })
+    ).toBeNull();
+  });
+
   it("clears when localVideoReady", () => {
     expect(
       resolvePreJoinVideoPreviewStream({

@@ -84,8 +84,10 @@ export type CallScreenViewModel = {
   mainVideoSlot?: ReactNode;
   miniVideoSlot?: ReactNode;
   showRemoteVideo?: boolean;
-  /** PiP(작은 타일) 표시 — 양쪽 영상이 모두 있을 때 */
+  /** PiP(작은 타일) 표시 — 로컬 트랙 play 완료 후 */
   showLocalVideo?: boolean;
+  /** PiP DOM·`smallVideoRef` — joined 직후 마운트(ready 전에도) */
+  pipShellMounted?: boolean;
   /** PiP 우하단·드래그·탭 교체 */
   videoPipLayout?: VideoCallPipLayoutBindings | null;
   participantsSummary?: string | null;

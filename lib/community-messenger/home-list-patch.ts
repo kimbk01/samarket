@@ -480,7 +480,14 @@ function applyHomeSyncPatch(
       : patch.requests !== undefined
         ? mergeFriendRequestsKeepStaleOutgoingForBootstrap(base, patch.requests)
         : base.requests;
-  const friends = roomMode === "critical_patch" ? base.friends : patch.friends ?? base.friends;
+  const friends =
+    roomMode === "critical_patch"
+      ? base.friends
+      : patch.friends !== undefined
+        ? patch.friends.length === 0 && (base.friends ?? []).length > 0
+          ? base.friends
+          : patch.friends
+        : base.friends;
 
   const beforeIds = new Set([...(base.chats ?? []), ...(base.groups ?? [])].map((r) => r.id));
   const afterIds = new Set([...(chats ?? []), ...(groups ?? [])].map((r) => r.id));

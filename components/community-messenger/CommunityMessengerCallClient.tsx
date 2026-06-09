@@ -32,6 +32,7 @@ import { ensureVideoPermission } from "@/lib/call/permission-manager";
 import {
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
+  hasUsablePrimedCommunityMessengerDeviceStream,
   peekPrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
   resumePrimedCommunityMessengerDeviceStreamIdleRelease,
@@ -40,6 +41,7 @@ import {
   suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
 } from "@/lib/community-messenger/call-permission";
 import {
+  shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
   shouldUseSoloLocalFullVideoLayout,
@@ -1249,15 +1251,25 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (session?.callKind !== "video") return;
-    if (!joined || !localVideoReady) return;
+    if (!joined) return;
     if (cmCallVideoLogOnceRef.current.pipRendered) return;
     cmCallVideoLogOnceRef.current.pipRendered = true;
     console.info("[cm-call-video] pip_rendered", {
       sessionId: session?.id?.slice(-8),
       layoutSwapped,
       remoteJoined,
+      chromeVisible: localVideoReady,
     });
   }, [session?.callKind, session?.id, joined, localVideoReady, layoutSwapped, remoteJoined]);
+
+  /** 발신 ringing — user-gesture 프라임 스트림이 있으면 consent·프리뷰 즉시 허용 */
+  useEffect(() => {
+    const s = session;
+    if (!s?.isMineInitiator || s.callKind !== "video" || callerMediaConsentDone) return;
+    if (hasUsablePrimedCommunityMessengerDeviceStream("video")) {
+      setCallerMediaConsentDone(true);
+    }
+  }, [callerMediaConsentDone, session, session?.callKind, session?.id, session?.isMineInitiator]);
 
   /** 링·active 동안 프라임 미리보기 스트림이 idle 90초 TTL 로 끊기지 않게 유지 */
   useEffect(() => {
@@ -3793,7 +3805,13 @@ export function CommunityMessengerCallClient({
               ? lastMileLine
               : null);
 
-  /** PiP — `joined`+로컬 트랙 준비 직후 즉시(원격 publish·`remoteVideoReady` 와 분리) */
+  /** PiP shell — joined 직후 DOM 마운트(`localVideoReady` 와 분리) */
+  const pipShellMounted = shouldMountLocalVideoPipShell({
+    videoCall,
+    sessionStatus: session.status,
+    joined,
+  });
+  /** PiP 크롬 — 로컬 트랙 play 완료 후 표시 */
   const videoPipChromeActive = shouldShowLocalVideoPipChrome({
     videoCall,
     sessionStatus: session.status,
@@ -3938,8 +3956,9 @@ export function CommunityMessengerCallClient({
       </div>
     ) : undefined,
     showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
+    pipShellMounted,
     showLocalVideo: videoPipChromeActive,
-    videoPipLayout: videoPipChromeActive
+    videoPipLayout: pipShellMounted
         ? {
             stageRef: videoStageRef,
             pipRef: pipWrapRef,

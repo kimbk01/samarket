@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
   shouldUseSoloLocalFullVideoLayout,
@@ -60,6 +61,29 @@ describe("shouldRetainPrimedDeviceStreamForVideoPreview", () => {
   it("does not retain after terminal", () => {
     expect(
       shouldRetainPrimedDeviceStreamForVideoPreview({ callKind: "video", sessionStatus: "ended" })
+    ).toBe(false);
+  });
+});
+
+describe("shouldMountLocalVideoPipShell", () => {
+  it("mounts shell when joined before localVideoReady", () => {
+    expect(
+      shouldMountLocalVideoPipShell({
+        videoCall: true,
+        sessionStatus: "active",
+        joined: true,
+      })
+    ).toBe(true);
+  });
+
+  it("does not mount before join or after terminal", () => {
+    expect(shouldMountLocalVideoPipShell({ videoCall: true, joined: false })).toBe(false);
+    expect(
+      shouldMountLocalVideoPipShell({
+        videoCall: true,
+        sessionStatus: "ended",
+        joined: true,
+      })
     ).toBe(false);
   });
 });

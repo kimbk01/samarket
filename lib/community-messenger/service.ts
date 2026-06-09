@@ -95,6 +95,7 @@ import {
   peekHomeSyncCriticalRoomsCache,
   setHomeSyncCriticalRoomsCache,
 } from "@/lib/community-messenger/home-sync-critical-rooms-cache";
+import { allowCommunityMessengerFriendInMemoryDevFallback } from "@/lib/community-messenger/friend-store-policy";
 import { extractHs5TradeHintsFromRoomsPayload } from "@/lib/community-messenger/home-sync-hs5-trade-hints";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import {
@@ -8555,6 +8556,10 @@ export async function sendCommunityMessengerFriendRequest(
     }
   }
 
+  if (!allowCommunityMessengerFriendInMemoryDevFallback()) {
+    return { ok: false, error: "friend_store_unavailable" };
+  }
+
   const dev = getDevState();
   const existing = dev.friendRequests.find(
     (row) =>
@@ -8670,6 +8675,10 @@ export async function respondCommunityMessengerFriendRequest(
       }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
     }
+  }
+
+  if (!allowCommunityMessengerFriendInMemoryDevFallback()) {
+    return { ok: false, error: "friend_store_unavailable" };
   }
 
   const dev = getDevState();

@@ -591,6 +591,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     refresh,
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
+    hydrateMessengerFriends,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   useLayoutEffect(() => {
     markMessengerShellVisible();
@@ -758,6 +759,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     if (!data?.deferredCallLog) return;
     void hydrateDeferredCallLogs();
   }, [mainSection, data?.deferredCallLog, hydrateDeferredCallLogs]);
+  /** 친구 탭 — lite/critical 에 friends 가 비었을 때 DB fallback hydrate */
+  useEffect(() => {
+    if (mainSection !== "friends") return;
+    void hydrateMessengerFriends();
+  }, [mainSection, hydrateMessengerFriends, data?.clientHydrationTier, data?.friends?.length]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const cancelledOutgoingWhileOptimisticRef = useRef<Set<string>>(new Set());

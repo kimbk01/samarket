@@ -225,6 +225,8 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   homeRealtimeGateOpen: boolean;
   /** `deferredCallLog` 즉시 보강 — 통화 탭 진입 시 1200ms follow-up 대기 생략 */
   hydrateDeferredCallLogs: () => Promise<void>;
+  /** 친구 탭 — lite/critical 에 friends 가 비었을 때 GET /friends 단일 보강 */
+  hydrateMessengerFriends: () => Promise<void>;
 };
 
 /**
@@ -253,6 +255,8 @@ export function useCommunityMessengerHomeBootstrap({
   const refreshAbortRef = useRef<AbortController | null>(null);
   const deferredCallLogRequestIdRef = useRef(0);
   const deferredCallLogAbortRef = useRef<AbortController | null>(null);
+  const friendsHydrateRequestIdRef = useRef(0);
+  const friendsHydrateAbortRef = useRef<AbortController | null>(null);
   /** silent critical 직후 full 보강 — 400ms 지연·라운드 시작 시 취소 */
   const silentFullSupplementTimerRef = useRef<number | null>(null);
 
@@ -1286,6 +1290,57 @@ export function useCommunityMessengerHomeBootstrap({
     await mergeDeferredMessengerCallLogs();
   }, [mergeDeferredMessengerCallLogs]);
 
+  /** 친구 탭 — DB 단일 진실원 fallback (`call_logs` 패턴) */
+  const mergeDeferredMessengerFriends = useCallback(async () => {
+    const requestId = ++friendsHydrateRequestIdRef.current;
+    friendsHydrateAbortRef.current?.abort();
+    const controller = new AbortController();
+    friendsHydrateAbortRef.current = controller;
+    try {
+      const res = await fetch("/api/community-messenger/friends", {
+        cache: "no-store",
+        credentials: "include",
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || requestId !== friendsHydrateRequestIdRef.current) return;
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        friends?: CommunityMessengerBootstrap["friends"];
+      };
+      if (!res.ok || !json.ok) return;
+      setData((prev) => {
+        if (!prev) return prev;
+        const incomingFriends = json.friends ?? [];
+        const next = applyHomeListPatch(
+          prev,
+          { kind: "home_sync", friends: incomingFriends, roomMode: "replace" },
+          "bootstrap"
+        );
+        const resolved = resolveMessengerHomeBootstrapSetData("bootstrap", prev, next, {
+          reason: "friends_tab_hydrate",
+        });
+        if (resolved && resolved !== prev) primeBootstrapCache(resolved);
+        return resolved;
+      });
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      /* ignore */
+    } finally {
+      if (friendsHydrateAbortRef.current === controller) {
+        friendsHydrateAbortRef.current = null;
+      }
+    }
+  }, []);
+
+  const hydrateMessengerFriends = useCallback(async () => {
+    const cur = dataRef.current;
+    if (!cur) return;
+    const friendsEmpty = (cur.friends ?? []).length === 0;
+    const criticalTier = cur.clientHydrationTier === "critical";
+    if (!friendsEmpty && !criticalTier) return;
+    await mergeDeferredMessengerFriends();
+  }, [mergeDeferredMessengerFriends]);
+
   return {
     data,
     setData,
@@ -1298,5 +1353,6 @@ export function useCommunityMessengerHomeBootstrap({
     refresh,
     homeRealtimeGateOpen,
     hydrateDeferredCallLogs,
+    hydrateMessengerFriends,
   };
 }

@@ -80,10 +80,12 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     : "pt-[max(8px,calc(env(safe-area-inset-top)+48px))]";
 
   /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — 항상 카메라·영상 레이어 유지 */
+  const pipShellMounted = Boolean(vm.pipShellMounted);
   const showAvatarCenterCard =
     !(vm.mode === "video" && vm.direction === "outgoing") &&
     !vm.showRemoteVideo &&
     !outgoingSoloVideoLayout &&
+    !pipShellMounted &&
     !vm.showLocalVideo;
 
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
@@ -98,9 +100,14 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-12";
 
   const pipCornerExtra =
-    vm.showLocalVideo && pipBindings && !pipBindings.pipPixelStyle && autoHideControlsEnabled && !controlsVisible
+    (pipShellMounted || vm.showLocalVideo) &&
+    pipBindings &&
+    !pipBindings.pipPixelStyle &&
+    autoHideControlsEnabled &&
+    !controlsVisible
       ? "!bottom-5"
       : "";
+  const pipChromeHiddenClass = pipShellMounted && !vm.showLocalVideo ? "opacity-0 pointer-events-none" : "";
 
   return (
     <div className="relative z-[2] min-h-0 w-full flex-1 overflow-hidden">
@@ -201,14 +208,14 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
           </div>
         ) : null}
-        {vm.showLocalVideo && pipBindings ? (
+        {pipShellMounted && pipBindings ? (
           <MiniLocalVideo
             ref={pipBindings.pipRef}
             label={pipBindings.pipLabel}
             minimized
             useFreePosition={Boolean(pipBindings.pipPixelStyle)}
             style={pipBindings.pipPixelStyle ?? undefined}
-            className={pipCornerExtra}
+            className={`${pipCornerExtra} ${pipChromeHiddenClass}`.trim()}
             onPointerDown={pipBindings.onPipPointerDown}
             onPointerMove={pipBindings.onPipPointerMove}
             onPointerUp={pipBindings.onPipPointerUp}
@@ -216,8 +223,12 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           >
             {vm.miniVideoSlot}
           </MiniLocalVideo>
-        ) : vm.showLocalVideo ? (
-          <MiniLocalVideo label={t("common_me")} minimized={vm.mediaState.localVideoMinimized} className={pipCornerExtra}>
+        ) : pipShellMounted ? (
+          <MiniLocalVideo
+            label={t("common_me")}
+            minimized={vm.mediaState.localVideoMinimized}
+            className={`${pipCornerExtra} ${pipChromeHiddenClass}`.trim()}
+          >
             {vm.miniVideoSlot}
           </MiniLocalVideo>
         ) : null}
