@@ -47,6 +47,10 @@ import {
   getStoreOwnerMainBottomNavSuppressed,
   subscribeStoreOwnerMainBottomNavSuppressed,
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
+import {
+  getMessengerCallMainBottomNavSuppressed,
+  subscribeMessengerCallMainBottomNavSuppressed,
+} from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { AppStickyHeader } from "./AppStickyHeader";
 import { RegionBar } from "./RegionBar";
@@ -135,6 +139,11 @@ export function ConditionalAppShell({
     getStoreOwnerMainBottomNavSuppressed,
     () => false
   );
+  const messengerCallSuppressesBottomNav = useSyncExternalStore(
+    subscribeMessengerCallMainBottomNavSuppressed,
+    getMessengerCallMainBottomNavSuppressed,
+    () => false
+  );
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const { isOpen: philifeWriteSheetOpen } = usePhilifeWriteSheet();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -157,7 +166,8 @@ export function ConditionalAppShell({
     showBottomNavBase &&
     !suppressBottomNavForWriteSheet &&
     !(isMessengerStackSurface && headerMessengerFromPhilife) &&
-    !storeOwnerFlyoutSuppressesBottomNav;
+    !storeOwnerFlyoutSuppressesBottomNav &&
+    !messengerCallSuppressesBottomNav;
   const showDesktopSideNav =
     showBottomNavEffective && isDesktopShell && f.showMainDesktopSideNavEligible;
   const showBottomNavMounted = showBottomNavEffective && !isDesktopShell;
@@ -305,7 +315,9 @@ export function ConditionalAppShell({
       {showBottomNavMounted && f.showHomeTradeHubFloatingBar && !isTradeWriteSheetSurface ? (
         <HomeTradeHubFloatingBarLazy />
       ) : null}
-      {f.showMainBottomNavFabSector ? <MainBottomNavFabSectorLazy /> : null}
+      {f.showMainBottomNavFabSector && !messengerCallSuppressesBottomNav ? (
+        <MainBottomNavFabSectorLazy />
+      ) : null}
       {f.showFloat && <FloatingAddButtonLazy />}
     </div>
     </BottomNavScrollChromeProvider>

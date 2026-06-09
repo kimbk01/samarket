@@ -16,7 +16,9 @@ export type CallSessionResolvedEvent =
   | "cancelled_by_caller"
   | "rejected_by_callee"
   | "missed"
-  | "ended";
+  | "ended"
+  /** 세션 미생성 peer_busy — 로컬 스텁 전용 */
+  | "peer_busy";
 
 export function resolveViewerCallRole(
   viewerUserId: string | null | undefined,
@@ -92,6 +94,8 @@ export function mapResolvedEventToCallStatus(ev: CallSessionResolvedEvent): Comm
       return "missed";
     case "ended":
       return "ended";
+    case "peer_busy":
+      return "cancelled";
     default:
       return "cancelled";
   }
@@ -132,6 +136,7 @@ export function getCallStubTimelineSecondLine(args: {
     return `${kind} 수신 중`;
   }
 
+  if (inferred === "peer_busy") return `${kind} — 상대방이 통화 중`;
   if (inferred === "cancelled_by_caller" || fs === "cancelled") return `${kind} 취소됨`;
   if (inferred === "rejected_by_callee" || fs === "rejected") return `${kind} 거절됨`;
   if (inferred === "missed" || fs === "missed") return `${kind} 부재중`;

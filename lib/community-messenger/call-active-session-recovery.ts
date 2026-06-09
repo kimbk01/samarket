@@ -1,0 +1,93 @@
+"use client";
+
+/** 동일 브라우저 다중 탭에서 active 복구 라우팅 1회만 */
+export const ACTIVE_CALL_RECOVERY_LOCK_KEY = "samarket:cm-active-call-recovery";
+export const ACTIVE_CALL_RECOVERY_LOCK_TTL_MS = 120_000;
+/** 다중 탭 동시 복구 라우팅만 억제 — 새로고침 재시도는 TTL 이후 허용 */
+export const ACTIVE_CALL_RECOVERY_DEDUPE_MS = 5_000;
+
+export type ActiveCallRecoverySession = {
+  id?: string | null;
+  status?: string | null;
+  sessionMode?: string | null;
+};
+
+const TERMINAL_RECOVERY_STATUSES = new Set([
+  "ended",
+  "rejected",
+  "missed",
+  "cancelled",
+  "canceled",
+]);
+
+export function isTerminalCallRecoveryStatus(status: string | null | undefined): boolean {
+  const st = status?.trim().toLowerCase() ?? "";
+  return TERMINAL_RECOVERY_STATUSES.has(st);
+}
+
+/**
+ * active 1:1 세션만 복구 대상 session id 반환. 그 외 null.
+ */
+export function resolveActiveCallRecoveryTarget(
+  session: ActiveCallRecoverySession | null | undefined,
+  pathname: string
+): string | null {
+  if (pathname.startsWith("/community-messenger/calls/")) return null;
+  const sid = session?.id?.trim();
+  if (!sid) return null;
+  const status = session?.status?.trim().toLowerCase() ?? "";
+  if (status !== "active") return null;
+  if (isTerminalCallRecoveryStatus(status)) return null;
+  if (session?.sessionMode && session.sessionMode !== "direct") return null;
+  return sid;
+}
+
+export function readActiveCallRecoveryLock(): { sessionId: string; at: number } | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as { sessionId?: string; at?: number };
+    if (!j.sessionId?.trim() || typeof j.at !== "number") return null;
+    if (Date.now() - j.at > ACTIVE_CALL_RECOVERY_LOCK_TTL_MS) {
+      sessionStorage.removeItem(ACTIVE_CALL_RECOVERY_LOCK_KEY);
+      return null;
+    }
+    return { sessionId: j.sessionId.trim(), at: j.at };
+  } catch {
+    return null;
+  }
+}
+
+export function shouldSkipActiveCallRecoveryRouting(sessionId: string): boolean {
+  const lock = readActiveCallRecoveryLock();
+  const sid = sessionId.trim();
+  if (!lock || lock.sessionId !== sid) return false;
+  return Date.now() - lock.at < ACTIVE_CALL_RECOVERY_DEDUPE_MS;
+}
+
+export function writeActiveCallRecoveryLock(sessionId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(
+      ACTIVE_CALL_RECOVERY_LOCK_KEY,
+      JSON.stringify({ sessionId: sessionId.trim(), at: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function fetchActiveDirectCallSessionForRecovery(): Promise<ActiveCallRecoverySession | null> {
+  const res = await fetch("/api/community-messenger/calls/sessions/active", {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    session?: ActiveCallRecoverySession | null;
+  };
+  if (!json.ok || !json.session) return null;
+  return json.session;
+}

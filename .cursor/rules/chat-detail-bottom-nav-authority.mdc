@@ -21,6 +21,8 @@ alwaysApply: false
    방 내부에서는 `composerFocused`, `useMessengerTradeKeyboardChrome`, safe-area·inset만 조정하고, **`BottomNav` 마운트 여부를 Zustand·Phase 이펙트로 덮어쓰지 않는다.**  
    (과거 `messengerSuppressBottomNavForKeyboard` + 조건부 숨김은 **이중 권한**으로 로딩·동기화 중 탭 잔류·입력 가림을 재발시켰다.)
 
+   **예외(통화)**: 허브 pathname 에서 전역 수신 벨·풀스크린 통화는 `lib/layout/messenger-call-main-bottom-nav-suppress.ts` → `ConditionalAppShell` `showBottomNavEffective` 한 경로로만 억제한다. `BottomNav` 내부 별도 숨김 스위치 금지.
+
 3. **메신저 방 상세 분류**는 `isCommunityMessengerRoomPathname` 등과 함께 확인한다. 허브는 전역 `BottomNav`를 쓰고, 방·통화 상세는 메인 `BottomNav`를 끈다.
 
 ## 수정 시 체크

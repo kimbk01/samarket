@@ -28,6 +28,7 @@ import {
   getMessengerCallSoundConfigCache,
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
+import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
@@ -691,13 +692,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
       timer = setTimeout(() => {
         void (async () => {
           try {
-            const patchRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "missed" }),
-            });
-            const patchJson = (await patchRes.json().catch(() => ({}))) as { ok?: boolean };
-            if (!patchRes.ok || !patchJson.ok) {
+            const patchJson = await patchCommunityMessengerCallMissedOnce(sessionId);
+            if (patchJson.skipped) return;
+            if (!patchJson.ok) {
               setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
               return;
             }

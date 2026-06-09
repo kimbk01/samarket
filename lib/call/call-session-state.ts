@@ -1,5 +1,5 @@
 /**
- * LEGACY 보조 — `use-call-session.ts`(미연결) 등 레거시 패널 합성 참고용.
+ * LEGACY 보조 — 레거시 패널 합성 참고용.
  *
  * 1:1 통화 UI·계측용 단일 상태 — WebRTC transport와 패널(발신/수신/연결)을 합성한다.
  * DB `CommunityMessengerCallSessionStatus` 와 1:1이 아니며, 클라이언트 표시용이다.

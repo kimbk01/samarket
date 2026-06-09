@@ -9,6 +9,7 @@ import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/
 import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
+import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 
 type PermissionGuide = ReturnType<typeof getCommunityMessengerPermissionGuide>;
 
@@ -41,6 +42,7 @@ export function GroupRoomCallOverlay({
 }: GroupRoomCallOverlayProps) {
   const sessionPanel = groupCall.panel;
   const endedPanel = groupCall.endedPanel;
+  useMessengerCallMainBottomNavSuppress(Boolean(sessionPanel || endedPanel));
 
   if (endedPanel) {
     const endedVm: CallScreenViewModel = {

@@ -19,6 +19,7 @@ export type CallDirection = "outgoing" | "incoming";
 export type CallPhase =
   | "ringing"
   | "connecting"
+  | "reconnecting"
   | "connected"
   | "ended"
   | "declined"

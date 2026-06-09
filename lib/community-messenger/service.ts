@@ -674,17 +674,69 @@ function getSupabaseOrNull(): SupabaseLike | null {
 }
 
 async function userHasActiveDirectCallSession(sb: SupabaseLike, userId: string): Promise<boolean> {
+  const id = await getUserLiveDirectCallSessionId(sb, userId, "active");
+  return Boolean(id);
+}
+
+/** 발신·수신 중(ringing|active) 1:1 direct 세션 — busy·중복 발신 차단 */
+async function userHasLiveDirectCallSession(sb: SupabaseLike, userId: string): Promise<boolean> {
+  const id = await getUserLiveDirectCallSessionId(sb, userId, "live");
+  return Boolean(id);
+}
+
+async function getUserLiveDirectCallSessionId(
+  sb: SupabaseLike,
+  userId: string,
+  mode: "live" | "active" = "live"
+): Promise<string | null> {
   const u = trimText(userId);
-  if (!u) return false;
-  const { data } = await (sb as any)
+  if (!u) return null;
+  let q = (sb as any)
     .from("community_messenger_call_sessions")
     .select("id")
-    .eq("status", "active")
     .eq("session_mode", "direct")
     .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
-    .limit(1)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (mode === "active") {
+    q = q.eq("status", "active");
+  } else {
+    q = q.in("status", ["ringing", "active"]);
+  }
+  const { data } = await q.maybeSingle();
+  const id = trimText((data as { id?: string } | null)?.id ?? "");
+  return id || null;
+}
+
+/** 앱 부팅·새로고침 — 본인 active 1:1 통화 복구용 */
+export async function getActiveDirectCallSessionForUser(
+  userId: string
+): Promise<CommunityMessengerCallSession | null> {
+  const uid = trimText(userId);
+  if (!uid) return null;
+  const sb = getSupabaseOrNull();
+  if (!sb) {
+    const dev = getDevState();
+    const row = dev.callSessions.find(
+      (s) =>
+        s.sessionMode === "direct" &&
+        s.status === "active" &&
+        (messengerUserIdsEqual(s.initiatorUserId, uid) ||
+          (s.recipientUserId != null && messengerUserIdsEqual(s.recipientUserId, uid)))
+    );
+    return row ? await mapCallSession(uid, row) : null;
+  }
+  const sessionId = await getUserLiveDirectCallSessionId(sb, uid, "active");
+  if (!sessionId) return null;
+  const { data: row } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select(
+      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+    )
+    .eq("id", sessionId)
     .maybeSingle();
-  return Boolean(data && trimText((data as { id?: string }).id));
+  if (!row) return null;
+  return mapCallSession(uid, row as CallSessionRow);
 }
 
 async function appendCommunityMessengerCallSessionEvent(
@@ -750,6 +802,15 @@ async function filterDirectIncomingRowsForPolicy(
   policy: MessengerCallAdminPolicy
 ): Promise<CallSessionRow[]> {
   if (!rows.length) return [];
+  const viewerLiveSessionId = await getUserLiveDirectCallSessionId(sb, userId, "live");
+  if (viewerLiveSessionId) {
+    for (const row of rows) {
+      if (row.id === viewerLiveSessionId) continue;
+      if (row.status !== "ringing") continue;
+      void updateCommunityMessengerCallSession({ userId, sessionId: row.id, action: "reject" }).catch(() => {});
+    }
+    return [];
+  }
   let out = [...rows];
   const initiatorIds = out.map((r) => trimText(r.initiator_user_id));
   const { blocked } = await getViewerRelationSets(userId, initiatorIds);
@@ -16468,10 +16529,16 @@ export async function startCommunityMessengerCallSession(input: {
 
   const startedAt = nowIso();
   if (sb) {
-    if (!isGroupRoom && peerUserId) {
-      const peerBusy = await userHasActiveDirectCallSession(sb, peerUserId);
-      if (peerBusy) {
+    if (!isGroupRoom) {
+      const callerBusy = await userHasLiveDirectCallSession(sb, input.userId);
+      if (callerBusy) {
         return { ok: false, error: "peer_busy" };
+      }
+      if (peerUserId) {
+        const peerBusy = await userHasLiveDirectCallSession(sb, peerUserId);
+        if (peerBusy) {
+          return { ok: false, error: "peer_busy" };
+        }
       }
     }
     if (recordTimings) timing.pre_insert_gate_ms = Math.round(performance.now() - tGateStart);
@@ -17450,8 +17517,10 @@ export async function listIncomingCommunityMessengerCallSessions(
 ): Promise<CommunityMessengerCallSession[]> {
   const policy = await getMessengerCallAdminPolicyCached();
   const sb = getSupabaseOrNull();
-  if (sb && policy.busy_auto_reject_enabled) {
-    if (await userHasActiveDirectCallSession(sb, userId)) {
+  let viewerLiveSessionId: string | null = null;
+  if (sb) {
+    viewerLiveSessionId = await getUserLiveDirectCallSessionId(sb, userId, "live");
+    if (policy.busy_auto_reject_enabled && viewerLiveSessionId) {
       return [];
     }
   }

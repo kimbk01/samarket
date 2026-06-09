@@ -28,6 +28,7 @@ import { resetSharedOrderChat } from "@/lib/shared-order-chat/shared-chat-store"
 import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-storage";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messenger/call-logout-teardown";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -117,6 +118,9 @@ async function runWipeClientSessionState(
   reason: ClientSessionWipeReason,
   setPostLogoutGuard: boolean
 ): Promise<void> {
+  await teardownCommunityMessengerCallOnAuthExit(
+    reason === "account_switched" ? "account_switch" : "logout"
+  );
   await disconnectSupabaseRealtime();
   resetInMemoryClientStores();
   resetAuthClientCaches();

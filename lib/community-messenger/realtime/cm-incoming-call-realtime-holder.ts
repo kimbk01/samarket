@@ -94,3 +94,15 @@ export function releaseIncomingCallRealtimeSubscription(userId: string): void {
   holderByUserId.delete(id);
   row.sub.stop();
 }
+
+/** 로그아웃·계정 전환 — refcount 무시하고 모든 incoming-call Realtime 채널 해제 */
+export function forceReleaseAllIncomingCallRealtimeSubscriptions(): void {
+  for (const [userId, row] of [...holderByUserId.entries()]) {
+    holderByUserId.delete(userId);
+    try {
+      row.sub.stop();
+    } catch {
+      /* ignore */
+    }
+  }
+}

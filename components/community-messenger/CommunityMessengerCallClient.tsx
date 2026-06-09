@@ -44,6 +44,7 @@ import {
   isCommunityMessengerMediaBlockedByInsecureOrigin,
   isCommunityMessengerNonRetryableCallErrorMessage,
 } from "@/lib/community-messenger/media-errors";
+import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallSession,
@@ -117,6 +118,22 @@ import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitor
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { fetchMessengerCallSoundConfig, getMessengerCallSoundConfigCache } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
+import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
+import { registerCommunityMessengerCallRuntime } from "@/lib/community-messenger/call-runtime-registry";
+import {
+  AGORA_PEER_LEFT_END_GRACE_MS,
+  AGORA_RECONNECT_ATTEMPT_MS,
+  AGORA_RECONNECT_MAX_MS,
+} from "@/lib/community-messenger/call-agora-reconnect-policy";
+import { claimCallTerminalPatch } from "@/lib/community-messenger/call-terminal-patch-dedupe";
+import {
+  CM_VIDEO_UPGRADE_REQUEST,
+  CM_VIDEO_UPGRADE_RESPONSE,
+  publishVideoUpgradeRequest,
+  publishVideoUpgradeResponse,
+  subscribeVideoUpgradeBroadcast,
+} from "@/lib/community-messenger/call-video-upgrade-broadcast";
+import { bestEffortKeepaliveCallSessionTeardown } from "@/lib/community-messenger/call-page-leave-patch";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
@@ -313,6 +330,7 @@ export function CommunityMessengerCallClient({
   initialSession?: CommunityMessengerCallSession | null;
 }) {
   const { t } = useI18n();
+  useMessengerCallMainBottomNavSuppress(true);
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
@@ -377,6 +395,19 @@ export function CommunityMessengerCallClient({
   /** Agora last-mile `network-quality` 기반(고정 문구 대신 실측) */
   const [lastMileLine, setLastMileLine] = useState(() => t("cm_ui_network_quality_checking"));
   const [lastMileWorst, setLastMileWorst] = useState(0);
+  const [agoraReconnecting, setAgoraReconnecting] = useState(false);
+  const [pendingVideoUpgradeRequest, setPendingVideoUpgradeRequest] = useState(false);
+  const [incomingVideoUpgradeRequest, setIncomingVideoUpgradeRequest] = useState(false);
+  const networkReconnectTimerRef = useRef<number | null>(null);
+  const networkReconnectFailTimerRef = useRef<number | null>(null);
+  const elapsedSecondsRef = useRef(0);
+  const endCallRef = useRef<() => Promise<void>>(async () => {});
+  const peerLeftEndTimerRef = useRef<number | null>(null);
+  const agoraNetworkHooksRef = useRef({
+    clearTimers: () => {},
+    scheduleRecovery: () => {},
+    scheduleFailTimer: () => {},
+  });
   const lastMileToneClass = useMemo(() => {
     if (lastMileWorst >= 6) return "text-amber-400/95";
     if (lastMileWorst >= 4) return "text-yellow-200/90";
@@ -992,7 +1023,7 @@ export function CommunityMessengerCallClient({
 
     /**
      * 타이머 등록을 네트워크 왕복(`await fetchMessengerCallSoundConfig`)에 묶지 않는다.
-     * 캐시가 비면 기본 45s 와 동일한 클램프가 적용되고, 백그라운드로 설정만 채운다.
+     * 캐시가 비면 기본 30s 와 동일한 클램프가 적용되고, 백그라운드로 설정만 채운다.
      */
     if (!getMessengerCallSoundConfigCache()) {
       void fetchMessengerCallSoundConfig();
@@ -1009,10 +1040,8 @@ export function CommunityMessengerCallClient({
       const c2 = sessionRef.current;
       if (!c2 || c2.id !== sid || c2.status !== "ringing") return;
       if (joinedRef.current) return;
-      void patchCommunityMessengerCallSession(
+      void patchCommunityMessengerCallMissedOnce(
         sid,
-        "missed",
-        undefined,
         (() => {
           const c = sessionRef.current;
           return c && c.id === sid
@@ -1020,10 +1049,11 @@ export function CommunityMessengerCallClient({
             : undefined;
         })()
       ).then((res) => {
+        if (res.skipped) return;
         if (res.ok && res.session) {
           beginRingingCallDismiss(c2.roomId);
           setSession(res.session);
-        } else {
+        } else if (!res.ok) {
           scheduleSilentRefresh("terminal");
         }
       });
@@ -1054,12 +1084,20 @@ export function CommunityMessengerCallClient({
 
   const agoraMediaCleanupInFlightRef = useRef<Promise<void> | null>(null);
 
+  const clearPeerLeftEndTimer = useCallback(() => {
+    if (peerLeftEndTimerRef.current != null) {
+      window.clearTimeout(peerLeftEndTimerRef.current);
+      peerLeftEndTimerRef.current = null;
+    }
+  }, []);
+
   const cleanupClient = useCallback(async (domAudioNuclear = false) => {
     if (agoraMediaCleanupInFlightRef.current) {
       await agoraMediaCleanupInFlightRef.current;
       return;
     }
     const run = async () => {
+      clearPeerLeftEndTimer();
       if (networkQualityFlushTimerRef.current != null) {
         clearTimeout(networkQualityFlushTimerRef.current);
         networkQualityFlushTimerRef.current = null;
@@ -1114,7 +1152,7 @@ export function CommunityMessengerCallClient({
     } finally {
       agoraMediaCleanupInFlightRef.current = null;
     }
-  }, [sessionId]);
+  }, [clearPeerLeftEndTimer, sessionId]);
 
   const disposeCallMedia = useCallback(
     async (opts?: { domAudioNuclear?: boolean }) => {
@@ -1136,6 +1174,34 @@ export function CommunityMessengerCallClient({
     },
     [cleanupClient, sessionId]
   );
+
+  useEffect(() => {
+    return registerCommunityMessengerCallRuntime({
+      sessionId,
+      session: sessionRef.current,
+      cleanupMedia: async () => {
+        await disposeCallMedia({ domAudioNuclear: true });
+      },
+      patchTerminalBestEffort: async (_reason) => {
+        const s = sessionRef.current;
+        if (!s || isTerminalCallSessionStatus(s.status)) return;
+        const action =
+          s.status === "ringing"
+            ? s.isMineInitiator
+              ? "cancel"
+              : "reject"
+            : s.status === "active"
+              ? "end"
+              : null;
+        if (!action || !claimCallTerminalPatch(s.id, action)) return;
+        if (s.status === "ringing") {
+          await patchCommunityMessengerCallSession(s.id, s.isMineInitiator ? "cancel" : "reject");
+        } else if (s.status === "active") {
+          await patchCommunityMessengerCallSession(s.id, "end", { durationSeconds: elapsedSecondsRef.current });
+        }
+      },
+    });
+  }, [disposeCallMedia, sessionId]);
 
   useEffect(() => {
     if (session?.callKind !== "video") return;
@@ -1171,6 +1237,13 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     const onPageLeave = () => {
+      const s = sessionRef.current;
+      if (s?.status === "ringing") {
+        bestEffortKeepaliveCallSessionTeardown({
+          session: s,
+          durationSeconds: elapsedSecondsRef.current,
+        });
+      }
       stopCommunityMessengerCallTone();
       stopCommunityMessengerCallFeedback();
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
@@ -1361,6 +1434,7 @@ export function CommunityMessengerCallClient({
   /** Remote upgraded session to video — same call, publish local camera. */
   useEffect(() => {
     if (!session || session.callKind !== "video" || !joined || session.status !== "active") return;
+    if (camOff) return;
     if (localTracksRef.current?.videoTrack) {
       bindLocalVideoTrack();
       return;
@@ -1405,7 +1479,7 @@ export function CommunityMessengerCallClient({
     return () => {
       cancelled = true;
     };
-  }, [session?.id, session?.callKind, session?.status, joined, bindLocalVideoTrack]);
+  }, [camOff, session?.id, session?.callKind, session?.status, joined, bindLocalVideoTrack]);
 
   /** 모바일: facingMode user/environment 우선 · 데스크톱/실패 시 videoinput 목록 순환 · 실패 시 catch 에서 이전 facing 복구 */
   const switchCameraFacing = useCallback(async () => {
@@ -1439,11 +1513,30 @@ export function CommunityMessengerCallClient({
 
   const toggleCamEnabled = useCallback(async () => {
     const v = localTracksRef.current?.videoTrack;
+    const client = clientRef.current;
     if (!v) return;
     const nextOff = !camOff;
     setCamOff(nextOff);
     try {
-      await v.setEnabled(!nextOff);
+      if (nextOff) {
+        if (client) {
+          try {
+            await client.unpublish([v]);
+          } catch {
+            /* already unpublished */
+          }
+        }
+        await v.setEnabled(false);
+      } else {
+        await v.setEnabled(true);
+        if (client) {
+          try {
+            await client.publish([v]);
+          } catch {
+            /* retry on next tap */
+          }
+        }
+      }
       bindLocalVideoTrack();
     } catch {
       setCamOff(!nextOff);
@@ -1675,10 +1768,12 @@ export function CommunityMessengerCallClient({
               });
             }
             void applyAgoraRemoteSpeakerPreference(user.audioTrack, speakerEnabledRef.current);
+            clearPeerLeftEndTimer();
             setRemoteJoined(true);
           }
           if (mediaType === "video" && user.videoTrack) {
             bindRemoteVideoTrack(user.videoTrack);
+            clearPeerLeftEndTimer();
             setRemoteJoined(true);
           }
         });
@@ -1695,14 +1790,49 @@ export function CommunityMessengerCallClient({
           bindRemoteVideoTrack(null);
           remoteAudioTrackRef.current = null;
           setRemoteJoined(false);
+          const active = sessionRef.current;
+          if (
+            active?.status === "active" &&
+            joinedRef.current &&
+            !isTerminalCallSessionStatus(active.status)
+          ) {
+            clearPeerLeftEndTimer();
+            peerLeftEndTimerRef.current = window.setTimeout(() => {
+              peerLeftEndTimerRef.current = null;
+              const cur = sessionRef.current;
+              if (!cur || cur.status !== "active" || isTerminalCallSessionStatus(cur.status)) return;
+              if (remoteJoinedRef.current) return;
+              void endCallRef.current();
+            }, AGORA_PEER_LEFT_END_GRACE_MS);
+            return;
+          }
           void refreshSession(true);
         });
         client.on("connection-state-change", (cur) => {
-          if (cur === "DISCONNECTED") {
-            setRemoteJoined(false);
+          const active = sessionRef.current;
+          const inActiveMedia =
+            active?.status === "active" && joinedRef.current && !isTerminalCallSessionStatus(active.status);
+          if (!inActiveMedia) {
+            if (cur === "DISCONNECTED") setRemoteJoined(false);
+            if (cur === "DISCONNECTED" || cur === "DISCONNECTING") void refreshSession(true);
+            return;
+          }
+          if (cur === "RECONNECTING") {
+            setAgoraReconnecting(true);
+            agoraNetworkHooksRef.current.clearTimers();
+            agoraNetworkHooksRef.current.scheduleFailTimer();
+            return;
+          }
+          if (cur === "CONNECTED") {
+            setAgoraReconnecting(false);
+            agoraNetworkHooksRef.current.clearTimers();
+            return;
           }
           if (cur === "DISCONNECTED" || cur === "DISCONNECTING") {
-            void refreshSession(true);
+            setAgoraReconnecting(true);
+            agoraNetworkHooksRef.current.clearTimers();
+            agoraNetworkHooksRef.current.scheduleRecovery();
+            if (cur === "DISCONNECTED") void refreshSession(true);
           }
         });
         client.on("network-quality", (stats: { uplinkNetworkQuality: number; downlinkNetworkQuality: number }) => {
@@ -1820,7 +1950,7 @@ export function CommunityMessengerCallClient({
         setBusy(null);
       }
     },
-    [bindRemoteVideoTrack, cleanupClient, fetchConnection, refreshSession, scheduleSilentRefresh]
+    [bindRemoteVideoTrack, cleanupClient, clearPeerLeftEndTimer, fetchConnection, refreshSession, scheduleSilentRefresh]
   );
 
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {
@@ -2199,6 +2329,211 @@ export function CommunityMessengerCallClient({
     t,
   ]);
 
+  endCallRef.current = endCall;
+
+  useEffect(() => {
+    const clearTimers = () => {
+      if (networkReconnectTimerRef.current != null) {
+        window.clearTimeout(networkReconnectTimerRef.current);
+        networkReconnectTimerRef.current = null;
+      }
+      if (networkReconnectFailTimerRef.current != null) {
+        window.clearTimeout(networkReconnectFailTimerRef.current);
+        networkReconnectFailTimerRef.current = null;
+      }
+    };
+
+    const tryManualRejoin = async () => {
+      const client = clientRef.current;
+      const s = sessionRef.current;
+      if (!client || !s || s.status !== "active") return;
+      try {
+        const connection = await fetchConnection();
+        const state = (client as IAgoraRTCClient).connectionState;
+        if (state === "CONNECTED" || state === "RECONNECTING") {
+          setAgoraReconnecting(state === "RECONNECTING");
+          return;
+        }
+        const provider = await loadCommunityMessengerCallProvider();
+        await provider.joinCommunityMessengerAgoraChannel({
+          client,
+          appId: connection.appId,
+          channelName: connection.channelName,
+          token: connection.token,
+          uid: connection.uid,
+        });
+        setAgoraReconnecting(false);
+        clearTimers();
+      } catch {
+        /* fail timer handles terminal end */
+      }
+    };
+
+    const endForNetworkLoss = () => {
+      clearTimers();
+      setAgoraReconnecting(false);
+      setErrorMessage(t("cm_ui_network_connection_ended"));
+      void endCallRef.current();
+    };
+
+    agoraNetworkHooksRef.current = {
+      clearTimers,
+      scheduleRecovery: () => {
+        clearTimers();
+        networkReconnectTimerRef.current = window.setTimeout(() => {
+          void tryManualRejoin();
+        }, AGORA_RECONNECT_ATTEMPT_MS);
+        networkReconnectFailTimerRef.current = window.setTimeout(endForNetworkLoss, AGORA_RECONNECT_MAX_MS);
+      },
+      scheduleFailTimer: () => {
+        if (networkReconnectFailTimerRef.current != null) return;
+        networkReconnectFailTimerRef.current = window.setTimeout(endForNetworkLoss, AGORA_RECONNECT_MAX_MS);
+      },
+    };
+
+    return () => {
+      clearTimers();
+      setAgoraReconnecting(false);
+    };
+  }, [fetchConnection, t]);
+
+  const applyActiveVideoUpgradeRef = useRef<() => Promise<boolean>>(async () => false);
+
+  const applyActiveVideoUpgrade = useCallback(async (): Promise<boolean> => {
+    const s = sessionRef.current;
+    if (!s) return false;
+    setBusy("join");
+    setErrorMessage(null);
+    setPendingVideoUpgradeRequest(false);
+    setIncomingVideoUpgradeRequest(false);
+    try {
+      const perm = await ensureVideoPermission();
+      if (!perm.ok) {
+        setErrorMessage(
+          perm.code === "denied"
+            ? t("cm_ui_camera_mic_denied_site_settings")
+            : perm.code === "insecure_context"
+              ? getCommunityMessengerInsecureOriginMediaHint()
+              : t("cm_ui_browser_camera_unavailable")
+        );
+        return false;
+      }
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "upgrade_to_video" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      logCommunityMessengerCallSessionPatchDev({
+        sessionId: s.id,
+        action: "upgrade_to_video",
+        responseStatus: res.status,
+        responseBody: json,
+        context: {
+          sessionStatus: s.status,
+          isInitiator: s.isMineInitiator,
+          endedReason: s.endedReason ?? null,
+        },
+      });
+      if (!res.ok || !json.ok || !json.session) {
+        const code = json.error;
+        setErrorMessage(
+          code === "bad_action"
+            ? t("cm_ui_video_upgrade_blocked")
+            : code === "forbidden"
+              ? t("cm_ui_call_forbidden")
+              : code === "trade_chat_video_not_allowed"
+                ? t("cm_ui_trade_post_voice_only")
+                : code === "trade_chat_calls_disabled"
+                  ? t("cm_ui_trade_post_calls_disabled")
+                  : t("cm_ui_video_upgrade_failed")
+        );
+        return false;
+      }
+      const mod = await loadCommunityMessengerCallProvider();
+      const videoTrack = await mod.createCommunityMessengerAgoraVideoTrackOnly();
+      const client = clientRef.current;
+      const tracks = localTracksRef.current;
+      if (!client || !tracks) {
+        videoTrack.stop();
+        videoTrack.close();
+        setErrorMessage(t("cm_ui_call_disconnected"));
+        return false;
+      }
+      await client.publish([videoTrack]);
+      localTracksRef.current = { ...tracks, videoTrack };
+      try {
+        const c = client as IAgoraRTCClient & { enableDualStream?: () => Promise<void> };
+        await c.enableDualStream?.();
+      } catch {
+        /* optional */
+      }
+      setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
+      setSession(json.session);
+      setSpeakerEnabled(true);
+      markCommunityMessengerMediaTrustedOnce(json.session.callKind);
+      bindLocalVideoTrack();
+      autoVideoPublishAttemptedRef.current = `${json.session.id}:vpub`;
+      showMessengerSnackbar(t("cm_ui_switched_to_video_snackbar"));
+      return true;
+    } catch (e) {
+      setErrorMessage(getCommunityMessengerMediaErrorMessage(e, "video"));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }, [bindLocalVideoTrack, t]);
+
+  applyActiveVideoUpgradeRef.current = applyActiveVideoUpgrade;
+
+  const respondVideoUpgradeRequest = useCallback(
+    async (accepted: boolean) => {
+      const s = sessionRef.current;
+      if (!s) return;
+      const parties = resolveDirectCallPartyIds(s);
+      if (!parties) return;
+      setIncomingVideoUpgradeRequest(false);
+      setErrorMessage(null);
+      const sent = await publishVideoUpgradeResponse(parties.peerUserId, {
+        sessionId: s.id,
+        fromUserId: parties.myUserId,
+        accepted,
+      });
+      if (!sent && !accepted) {
+        showMessengerSnackbar(t("cm_ui_video_upgrade_failed"));
+        return;
+      }
+      if (accepted) {
+        await applyActiveVideoUpgrade();
+      }
+    },
+    [applyActiveVideoUpgrade]
+  );
+
+  useEffect(() => {
+    const parties = resolveDirectCallPartyIds(session);
+    if (!parties?.myUserId) return;
+    const myUserId = parties.myUserId;
+    return subscribeVideoUpgradeBroadcast(myUserId, (event, payload) => {
+      const active = sessionRef.current;
+      if (!active || active.id !== payload.sessionId || active.status !== "active") return;
+      const parties = resolveDirectCallPartyIds(active);
+      if (!parties || payload.fromUserId === parties.myUserId) return;
+      if (event === CM_VIDEO_UPGRADE_REQUEST) {
+        setIncomingVideoUpgradeRequest(true);
+        return;
+      }
+      if (event === CM_VIDEO_UPGRADE_RESPONSE) {
+        setPendingVideoUpgradeRequest(false);
+        if (payload.accepted) {
+          void applyActiveVideoUpgradeRef.current();
+        } else {
+          showMessengerSnackbar(t("cm_ui_video_upgrade_blocked"));
+        }
+      }
+    });
+  }, [session, sessionId, t]);
+
   const requestUpgradeToVideo = useCallback(async () => {
     const s = sessionRef.current;
     if (!s || s.sessionMode !== "direct") {
@@ -2217,6 +2552,30 @@ export function CommunityMessengerCallClient({
     }
     if (activeUpgrade && localTracksRef.current?.videoTrack) {
       showMessengerSnackbar(t("cm_ui_camera_already_on"));
+      return;
+    }
+
+    if (activeUpgrade) {
+      if (pendingVideoUpgradeRequest) {
+        showMessengerSnackbar(t("cm_ui_video_upgrade_request_pending"));
+        return;
+      }
+      const parties = resolveDirectCallPartyIds(s);
+      if (!parties) {
+        showMessengerSnackbar(t("cm_ui_video_upgrade_failed"));
+        return;
+      }
+      setPendingVideoUpgradeRequest(true);
+      const sent = await publishVideoUpgradeRequest(parties.peerUserId, {
+        sessionId: s.id,
+        fromUserId: parties.myUserId,
+      });
+      if (!sent) {
+        setPendingVideoUpgradeRequest(false);
+        showMessengerSnackbar(t("cm_ui_video_upgrade_failed"));
+        return;
+      }
+      showMessengerSnackbar(t("cm_ui_video_upgrade_request_pending"));
       return;
     }
 
@@ -2264,82 +2623,7 @@ export function CommunityMessengerCallClient({
       }
       return;
     }
-
-    setBusy("join");
-    setErrorMessage(null);
-    try {
-      const perm = await ensureVideoPermission();
-      if (!perm.ok) {
-        setErrorMessage(
-          perm.code === "denied"
-            ? t("cm_ui_camera_mic_denied_site_settings")
-            : perm.code === "insecure_context"
-              ? getCommunityMessengerInsecureOriginMediaHint()
-              : t("cm_ui_browser_camera_unavailable")
-        );
-        return;
-      }
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "upgrade_to_video" }),
-      });
-      const json = (await res.json().catch(() => ({}))) as SessionResponse;
-      logCommunityMessengerCallSessionPatchDev({
-        sessionId: s.id,
-        action: "upgrade_to_video",
-        responseStatus: res.status,
-        responseBody: json,
-        context: {
-          sessionStatus: s.status,
-          isInitiator: s.isMineInitiator,
-          endedReason: s.endedReason ?? null,
-        },
-      });
-      if (!res.ok || !json.ok || !json.session) {
-        const code = json.error;
-        setErrorMessage(
-          code === "bad_action"
-            ? t("cm_ui_video_upgrade_blocked")
-            : code === "forbidden"
-              ? t("cm_ui_call_forbidden")
-              : code === "trade_chat_video_not_allowed"
-                ? t("cm_ui_trade_post_voice_only")
-                : code === "trade_chat_calls_disabled"
-                  ? t("cm_ui_trade_post_calls_disabled")
-                  : t("cm_ui_video_upgrade_failed")
-        );
-        return;
-      }
-      const mod = await loadCommunityMessengerCallProvider();
-      const videoTrack = await mod.createCommunityMessengerAgoraVideoTrackOnly();
-      const client = clientRef.current;
-      const tracks = localTracksRef.current;
-      if (!client || !tracks) {
-        videoTrack.stop();
-        videoTrack.close();
-        setErrorMessage(t("cm_ui_call_disconnected"));
-        return;
-      }
-      await client.publish([videoTrack]);
-      localTracksRef.current = { ...tracks, videoTrack };
-      try {
-        const c = client as IAgoraRTCClient & { enableDualStream?: () => Promise<void> };
-        await c.enableDualStream?.();
-      } catch {
-        /* optional */
-      }
-      setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
-      setSession(json.session);
-      markCommunityMessengerMediaTrustedOnce(json.session.callKind);
-      bindLocalVideoTrack();
-      autoVideoPublishAttemptedRef.current = `${json.session.id}:vpub`;
-    } catch (e) {
-      setErrorMessage(getCommunityMessengerMediaErrorMessage(e, "video"));
-    } finally {
-      setBusy(null);
-    }
-  }, [bindLocalVideoTrack, joined]);
+  }, [joined, pendingVideoUpgradeRequest, t]);
 
   const requestDowngradeToVoice = useCallback(async () => {
     const s = sessionRef.current;
@@ -2850,10 +3134,13 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session || !joined || !session.answeredAt) return;
     const startedAt = new Date(session.answeredAt).getTime();
-    setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-    const timer = window.setInterval(() => {
-      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
-    }, 1000);
+    const tick = () => {
+      const next = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+      elapsedSecondsRef.current = next;
+      setElapsedSeconds(next);
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
     return () => window.clearInterval(timer);
   }, [joined, session?.answeredAt]);
 
@@ -2894,8 +3181,12 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (!session || session.status !== "active") return;
     if (!joined || !remoteJoined) return;
-    setConnectedAtTs((prev) => prev ?? Date.now());
-  }, [joined, remoteJoined, session?.id, session?.status]);
+    setConnectedAtTs((prev) => {
+      if (prev != null) return prev;
+      const answeredMs = session.answeredAt ? new Date(session.answeredAt).getTime() : NaN;
+      return Number.isFinite(answeredMs) ? answeredMs : Date.now();
+    });
+  }, [joined, remoteJoined, session?.answeredAt, session?.id, session?.status]);
 
   useEffect(() => {
     if (session?.callKind !== "video") return;
@@ -3028,7 +3319,11 @@ export function CommunityMessengerCallClient({
     session.status === "ringing" &&
     (requestedAction === "accept" || busy === "accept" || calleeVideoConnectingShell);
   const callScreenPhase: CallPhase =
-    calleeAcceptBridgeLayout && effectiveDirectPhase === "ringing" ? "connecting" : effectiveDirectPhase;
+    agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
+      ? "reconnecting"
+      : calleeAcceptBridgeLayout && effectiveDirectPhase === "ringing"
+        ? "connecting"
+        : effectiveDirectPhase;
   /** 발신자만: 상대 수락(active) 후 실제 미디어 조인 전에만 게이트 — 링 중에는 ‘전화 거는 중’만 표시 */
   const showCallerMediaGate =
     session.isMineInitiator &&
@@ -3313,9 +3608,31 @@ export function CommunityMessengerCallClient({
     );
   }
 
+  if (incomingVideoUpgradeRequest && session.status === "active" && !videoCall) {
+    secondaryActions.push(
+      {
+        id: "video-upgrade-decline",
+        label: t("cm_ui_video_upgrade_decline"),
+        icon: "decline",
+        tone: "danger",
+        disabled: busy === "join" || busy === "upgrade",
+        onClick: () => void respondVideoUpgradeRequest(false),
+      },
+      {
+        id: "video-upgrade-accept",
+        label: t("cm_ui_video_upgrade_accept"),
+        icon: "video",
+        tone: "accept",
+        disabled: busy === "join" || busy === "upgrade",
+        onClick: () => void respondVideoUpgradeRequest(true),
+      }
+    );
+  }
+
   if (
     errorMessage &&
     !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage) &&
+    !incomingVideoUpgradeRequest &&
     directPhase !== "ended" &&
     directPhase !== "declined" &&
     directPhase !== "missed" &&
@@ -3375,6 +3692,8 @@ export function CommunityMessengerCallClient({
                 : t("cm_ui_incoming_voice_ringing")
             : callScreenPhase === "connecting"
               ? t("cm_ui_connecting")
+              : callScreenPhase === "reconnecting"
+                ? t("cm_ui_call_reconnecting")
               : callScreenPhase === "connected"
                 ? videoCall
                   ? t("cm_ui_call_active_video")
@@ -3403,12 +3722,14 @@ export function CommunityMessengerCallClient({
           ? t("cm_ui_waiting_for_peer_answer")
           : t("cm_ui_choose_accept_or_reject")
         : callScreenPhase === "connecting"
-        ? calleeAcceptBridgeLayout
-          ? t("cm_ui_call_connecting_session")
-          : t("cm_ui_call_attaching_media")
-        : callScreenPhase === "connected"
-          ? lastMileLine
-          : null);
+          ? calleeAcceptBridgeLayout
+            ? t("cm_ui_call_connecting_session")
+            : t("cm_ui_call_attaching_media")
+          : callScreenPhase === "reconnecting"
+            ? t("cm_ui_call_reconnecting")
+            : callScreenPhase === "connected"
+              ? lastMileLine
+              : null);
 
   /** PiP·탭 바인딩은 원격 비디오 트랙 준비(`remoteVideoReady`)와 무관 — 상대 채널 참가(`remoteJoined`)·로컬 트랙만으로 켬 */
   const videoPipChromeActive = Boolean(videoCall && joined && remoteJoined && localVideoReady);
@@ -3804,6 +4125,20 @@ function resolveDirectCallPhase(
     return joined ? "connected" : "connecting";
   }
   return "connecting";
+}
+
+function resolveDirectCallPartyIds(
+  session: CommunityMessengerCallSession | null | undefined
+): { myUserId: string; peerUserId: string } | null {
+  if (!session) return null;
+  const myUserId =
+    session.participants.find((p) => p.isMe)?.userId?.trim() ??
+    (session.isMineInitiator
+      ? session.initiatorUserId.trim()
+      : (session.recipientUserId?.trim() ?? ""));
+  const peerUserId = session.peerUserId?.trim() ?? "";
+  if (!myUserId || !peerUserId) return null;
+  return { myUserId, peerUserId };
 }
 
 function peerDisplayInitial(label: string): string {

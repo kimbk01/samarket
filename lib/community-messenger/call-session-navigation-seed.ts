@@ -18,6 +18,8 @@ import {
   cmCallLatencyInfo,
 } from "@/lib/community-messenger/cm-call-debug";
 import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
+import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const KEY = "samarket.cm.call_session_seed.v1";
@@ -324,6 +326,16 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
       return { ok: false, userMessage: "그룹 통화 실연결은 다음 단계에서 지원합니다." };
     }
     if (json.error === "peer_busy") {
+      const viewerId = getSyncViewerUserIdForClient()?.trim();
+      if (roomId && viewerId) {
+        appendLocalCallChatMessageForPeerBusy({
+          roomId,
+          initiatorUserId: viewerId,
+          peerUserId: args.peerUserId,
+          callKind: args.kind,
+        });
+      }
+      cmCallFlow("outgoing_peer_busy", { roomId, callKind: args.kind, peerUserId: args.peerUserId?.trim() });
       return { ok: false, userMessage: "상대방이 현재 통화중입니다." };
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
