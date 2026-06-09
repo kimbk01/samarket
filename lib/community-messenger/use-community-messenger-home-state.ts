@@ -439,7 +439,6 @@ export function useCommunityMessengerHomeState({
       }
     }
     const merged = collapseDirectPeerRooms([...roomMap.values()]);
-    bumpMessengerRenderPerf("messenger_room_list_sort");
     const sortedNext = merged.sort(sortUnifiedRoomListItems);
 
     const rowCache = unifiedRoomsRowCacheRef.current;
@@ -468,6 +467,7 @@ export function useCommunityMessengerHomeState({
     ) {
       return prevList;
     }
+    bumpMessengerRenderPerf("messenger_room_list_sort");
     unifiedRoomsStableListRef.current = reconciled;
     return reconciled;
   }, [sortedChats, sortedGroups, sortedCalls]);

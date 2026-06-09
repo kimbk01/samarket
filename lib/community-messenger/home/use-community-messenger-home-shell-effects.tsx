@@ -1,8 +1,11 @@
 "use client";
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { MainTier1ExtrasState } from "@/contexts/MainTier1ExtrasContext";
-import { useEffect, useLayoutEffect, useMemo } from "react";
+import {
+  sameMainTier1ExtrasState,
+  type MainTier1ExtrasState,
+} from "@/contexts/MainTier1ExtrasContext";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
@@ -99,6 +102,7 @@ export function useCommunityMessengerHomeShellEffects({
   mainSection,
   pillar = null,
 }: Args): void {
+  const lastRegisteredTier1ExtrasRef = useRef<MainTier1ExtrasState | null>(null);
   /** `useSearchParams` 객체는 렌더마다 참조가 바뀔 수 있음 → primitive deps 만 사용 */
   const queryString = searchParams.toString();
   const activeTab = searchParams.get("tab")?.trim() ?? "";
@@ -254,7 +258,7 @@ export function useCommunityMessengerHomeShellEffects({
       mainSection,
       origin: resolvedOrigin,
     });
-    setMainTier1Extras({
+    const nextExtras: MainTier1ExtrasState = {
       tier1: {
         rightSlot: headerActionsNode,
         titleText,
@@ -264,8 +268,16 @@ export function useCommunityMessengerHomeShellEffects({
         backHref,
         preferHistoryBack: false,
       },
-    });
-    return () => setMainTier1Extras(null);
+    };
+    const prevRegistered = lastRegisteredTier1ExtrasRef.current;
+    if (prevRegistered == null || !sameMainTier1ExtrasState(prevRegistered, nextExtras)) {
+      lastRegisteredTier1ExtrasRef.current = nextExtras;
+      setMainTier1Extras(nextExtras);
+    }
+    return () => {
+      lastRegisteredTier1ExtrasRef.current = null;
+      setMainTier1Extras(null);
+    };
   }, [headerActionsNode, mainSection, setMainTier1Extras, fromPhilifeHeaderStack, pillar, fromParam]);
 
   useEffect(() => {
@@ -277,15 +289,27 @@ export function useCommunityMessengerHomeShellEffects({
           try {
             const snapshot = await fetchMeNotificationSettingsSnapshot();
             if (!cancelled && snapshot?.ok && snapshot.settings) {
-              setNotificationSettings((prev) => ({
-                ...prev,
-                trade_chat_enabled: snapshot.settings?.trade_chat_enabled !== false,
-                community_chat_enabled: snapshot.settings?.community_chat_enabled !== false,
-                order_enabled: snapshot.settings?.order_enabled !== false,
-                store_enabled: snapshot.settings?.store_enabled !== false,
-                sound_enabled: snapshot.settings?.sound_enabled !== false,
-                vibration_enabled: snapshot.settings?.vibration_enabled !== false,
-              }));
+              setNotificationSettings((prev) => {
+                const next: MessengerNotificationSettings = {
+                  trade_chat_enabled: snapshot.settings?.trade_chat_enabled !== false,
+                  community_chat_enabled: snapshot.settings?.community_chat_enabled !== false,
+                  order_enabled: snapshot.settings?.order_enabled !== false,
+                  store_enabled: snapshot.settings?.store_enabled !== false,
+                  sound_enabled: snapshot.settings?.sound_enabled !== false,
+                  vibration_enabled: snapshot.settings?.vibration_enabled !== false,
+                };
+                if (
+                  prev.trade_chat_enabled === next.trade_chat_enabled &&
+                  prev.community_chat_enabled === next.community_chat_enabled &&
+                  prev.order_enabled === next.order_enabled &&
+                  prev.store_enabled === next.store_enabled &&
+                  prev.sound_enabled === next.sound_enabled &&
+                  prev.vibration_enabled === next.vibration_enabled
+                ) {
+                  return prev;
+                }
+                return next;
+              });
             }
           } catch {
             /* ignore */

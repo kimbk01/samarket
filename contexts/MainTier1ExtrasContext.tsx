@@ -57,7 +57,8 @@ function sameMainTier1Partial(a: MainTier1Partial | undefined, b: MainTier1Parti
   );
 }
 
-function sameMainTier1ExtrasState(a: MainTier1ExtrasState, b: MainTier1ExtrasState): boolean {
+/** Provider·shell effect — 동일 extras 재등록 방지 */
+export function sameMainTier1ExtrasState(a: MainTier1ExtrasState, b: MainTier1ExtrasState): boolean {
   return (
     sameMainTier1Partial(a.tier1, b.tier1) &&
     a.ctaLinks === b.ctaLinks &&
@@ -70,7 +71,10 @@ type MainTier1ExtrasContextValue = {
   setMainTier1Extras: (next: MainTier1ExtrasState | null) => void;
 };
 
-const MainTier1ExtrasContext = createContext<MainTier1ExtrasContextValue | null>(null);
+const MainTier1ExtrasStateContext = createContext<MainTier1ExtrasState | null>(null);
+const MainTier1ExtrasSetterContext = createContext<
+  MainTier1ExtrasContextValue["setMainTier1Extras"] | null
+>(null);
 
 export function MainTier1ExtrasProvider({ children }: { children: ReactNode }) {
   const [extras, setExtras] = useState<MainTier1ExtrasState | null>(null);
@@ -83,25 +87,28 @@ export function MainTier1ExtrasProvider({ children }: { children: ReactNode }) {
       return next;
     });
   }, []);
-  const value = useMemo(
-    () => ({ extras, setMainTier1Extras }),
-    [extras, setMainTier1Extras]
-  );
+
   return (
-    <MainTier1ExtrasContext.Provider value={value}>{children}</MainTier1ExtrasContext.Provider>
+    <MainTier1ExtrasSetterContext.Provider value={setMainTier1Extras}>
+      <MainTier1ExtrasStateContext.Provider value={extras}>{children}</MainTier1ExtrasStateContext.Provider>
+    </MainTier1ExtrasSetterContext.Provider>
   );
 }
 
-/** Provider 없으면 `null` — 폴백 UI용 */
+/** Provider 없으면 `null` — 폴백 UI용 (extras·setter 모두 구독) */
 export function useMainTier1ExtrasOptional(): MainTier1ExtrasContextValue | null {
-  return useContext(MainTier1ExtrasContext);
+  const extras = useContext(MainTier1ExtrasStateContext);
+  const setMainTier1Extras = useContext(MainTier1ExtrasSetterContext);
+  return useMemo(() => {
+    if (!setMainTier1Extras) return null;
+    return { extras, setMainTier1Extras };
+  }, [extras, setMainTier1Extras]);
 }
 
 /**
- * `extras`가 바뀔 때마다 컨텍스트 객체 참조가 바뀌므로,
- * `useLayoutEffect` 의존성에 전체 컨텍스트를 넣으면 `setMainTier1Extras` 호출 → 무한 루프가 난다.
- * 이 훅의 반환 setter만 의존성에 넣을 것(참조 안정).
+ * setter 전용 — `extras` 변경 시 리렌더하지 않음.
+ * `useLayoutEffect` 의존성에는 이 훅 반환값만 넣을 것(참조 안정).
  */
 export function useSetMainTier1ExtrasOptional(): MainTier1ExtrasContextValue["setMainTier1Extras"] | null {
-  return useContext(MainTier1ExtrasContext)?.setMainTier1Extras ?? null;
+  return useContext(MainTier1ExtrasSetterContext);
 }
