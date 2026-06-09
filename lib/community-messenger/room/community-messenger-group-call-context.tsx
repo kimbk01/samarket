@@ -5,6 +5,7 @@ import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenge
 
 const noopAsync = async () => {};
 const remoteVideoNoop: CommunityMessengerGroupCallHandle["bindRemoteVideo"] = () => {};
+const remoteAudioNoop: CommunityMessengerGroupCallHandle["bindRemoteAudio"] = () => {};
 
 /** 1:1 대화방 — 그룹 통화 훅을 마운트하지 않을 때 컨텍스트 기본값 (카카오톡식: 그룹 기능 그래프 미로드) */
 export const DIRECT_ROOM_GROUP_CALL_STUB: CommunityMessengerGroupCallHandle = {
@@ -18,6 +19,7 @@ export const DIRECT_ROOM_GROUP_CALL_STUB: CommunityMessengerGroupCallHandle = {
   localVideoRef: { current: null },
   remotePeers: [],
   bindRemoteVideo: remoteVideoNoop,
+  bindRemoteAudio: remoteAudioNoop,
   callStatusLabel: "",
   connectionBadge: null,
   participants: [],

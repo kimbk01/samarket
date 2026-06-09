@@ -7,7 +7,7 @@
  *
  * 이 파일은 포트 인터페이스 대신 경계 규칙만 둔다(순환 의존 방지).
  */
-export type CallSignalingStackKind = "webrtc_group" | "agora";
+export type CallSignalingStackKind = "agora";
 
 export const CALL_SIGNALING_DOC = {
   /** 실제 라우트: `GET /api/community-messenger/calls/ice-servers` */

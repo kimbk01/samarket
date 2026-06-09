@@ -1,6 +1,6 @@
 # Community 메신저 통화 상태 머신 (코드 정렬안)
 
-**범위**: 기존 `community_messenger_call_sessions` 원장 + 시그널(`community_messenger_call_signals`)·감사(`community_messenger_call_events`)—경로별로 Agora 또는 WebRTC를 사용한다.  
+**범위**: 기존 `community_messenger_call_sessions` 원장 + 감사(`community_messenger_call_events`)—**1:1·그룹 미디어는 Agora SFU** (`call-provider`). 레거시 `community_messenger_call_signals`는 direct 터미널 hangup 등 제한적.  
 **금지**: 새 테이블 생성, unread/badge/bootstrap/prefetch/message list 변경은 본 문서 범위 밖.
 
 ---
@@ -20,15 +20,18 @@
 
 1:1 방 UI에서는 `MessengerRoomGroupCallShell`이 **`DIRECT_ROOM_GROUP_CALL_STUB`** 을 쓰므로, 그룹용 WebRTC 훅 그래프는 **로드되지 않는다**.
 
-### B. Group Call — WebRTC + 그룹 훅
+### B. Group Call — Agora SFU + 방 오버레이
 
 | 단계 | 코드·경로 |
 |------|-----------|
 | Provider | `lib/community-messenger/room/CommunityMessengerGroupCallProviderBridge.tsx` |
 | 훅 | `lib/community-messenger/use-community-messenger-group-call.ts` |
+| Agora 세션 | `lib/community-messenger/call-provider/group-agora-session.ts` |
+| 토큰 | `GET /api/community-messenger/calls/sessions/[sessionId]/token` (group 허용) |
+| UI | `components/community-messenger/call-ui/GroupRoomCallOverlay.tsx` |
 | 컨텍스트 스텁(1:1) | `lib/community-messenger/room/community-messenger-group-call-context.tsx` — `DIRECT_ROOM_GROUP_CALL_STUB` |
 
-그룹 방에서만 `startOutgoingCall`·패널·시그널 루프가 살아 있다.
+그룹 방에서만 `startOutgoingCall`·패널·Agora 조인이 살아 있다. 세션 PATCH: `accept` / `reject` / `cancel` / **`leave`**(개인 퇴장) / **`end`**(전체 종료).
 
 ### 미연결·레거시 후보 (파일 주석·본 절로 분류)
 

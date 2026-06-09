@@ -52,6 +52,7 @@ export type PatchCommunityCallSessionAction =
   | "reject"
   | "cancel"
   | "end"
+  | "leave"
   | "missed"
   | "upgrade_to_video"
   | "downgrade_to_voice";

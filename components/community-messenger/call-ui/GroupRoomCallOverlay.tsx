@@ -6,7 +6,6 @@ import type { CommunityMessengerCallParticipant } from "@/lib/community-messenge
 import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenger/use-community-messenger-group-call";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
-import { bindMediaStreamToElement } from "@/lib/community-messenger/media-element";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
@@ -26,6 +25,10 @@ export type GroupRoomCallOverlayProps = {
   onRetryCallDevicePermission: () => void | Promise<void>;
   onAcceptIncomingCall: () => void | Promise<unknown>;
 };
+
+function remoteVideoPeers(groupCall: CommunityMessengerGroupCallHandle) {
+  return groupCall.remotePeers.filter((p) => p.agora.videoTrack);
+}
 
 export function GroupRoomCallOverlay({
   t,
@@ -103,7 +106,9 @@ export function GroupRoomCallOverlay({
 
   if (!sessionPanel) return null;
 
-  const remoteLead = groupCall.remotePeers[0] ?? null;
+  const videoRemotes = remoteVideoPeers(groupCall);
+  const remoteLead = videoRemotes[0] ?? groupCall.remotePeers[0] ?? null;
+  const hasLocal = Boolean(groupCall.localStream);
   const panelPhase: CallPhase =
     sessionPanel.mode === "incoming"
       ? "ringing"
@@ -139,14 +144,14 @@ export function GroupRoomCallOverlay({
               id: "switch-camera",
               label: t("cm_ui_switch_camera"),
               icon: "camera-switch",
-              disabled: !groupCall.localStream,
+              disabled: !hasLocal,
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
               id: "camera",
               label: t("cm_ui_camera"),
               icon: "camera",
-              active: Boolean(groupCall.localStream),
+              active: hasLocal,
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
@@ -209,7 +214,7 @@ export function GroupRoomCallOverlay({
       onClick: () => void groupCall.retryConnection(),
     });
   }
-  if (permissionGuide && !groupCall.localStream && sessionPanel.mode !== "incoming") {
+  if (permissionGuide && !hasLocal && sessionPanel.mode !== "incoming") {
     secondaryActions.push({
       id: "permission",
       label: permissionGuide.retryLabel ?? t("cm_ui_check_permission"),
@@ -252,7 +257,25 @@ export function GroupRoomCallOverlay({
     secondaryActions,
     mainVideoSlot:
       sessionPanel.kind === "video" ? (
-        remoteLead ? (
+        videoRemotes.length > 1 ? (
+          <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-0.5 bg-black">
+            {videoRemotes.slice(0, 4).map((peer) => (
+              <div key={peer.userId} className="relative min-h-0 min-w-0 bg-black">
+                <video
+                  ref={(node) => {
+                    groupCall.bindRemoteVideo(peer.userId, node);
+                  }}
+                  autoPlay
+                  playsInline
+                  className="h-full w-full object-cover"
+                />
+                <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1.5 py-0.5 sam-text-xxs text-white">
+                  {peer.label}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : remoteLead ? (
           <div className="absolute inset-0 bg-black">
             <video
               ref={(node) => {
@@ -270,11 +293,11 @@ export function GroupRoomCallOverlay({
         )
       ) : undefined,
     miniVideoSlot:
-      sessionPanel.kind === "video" && groupCall.localStream ? (
+      sessionPanel.kind === "video" && hasLocal ? (
         <video ref={groupCall.localVideoRef} autoPlay muted playsInline className="h-full w-full object-cover" />
       ) : undefined,
     showRemoteVideo: Boolean(remoteLead),
-    showLocalVideo: Boolean(groupCall.localStream && remoteLead),
+    showLocalVideo: Boolean(hasLocal && remoteLead),
     participantsSummary:
       isGroupRoom && groupCall.participants.length
         ? t("cm_ui_participant_count", { count: groupCall.participants.length })
@@ -284,19 +307,17 @@ export function GroupRoomCallOverlay({
   return (
     <>
       <CallScreen vm={vm} variant="overlay" />
-      {sessionPanel.kind !== "video"
-        ? groupCall.remotePeers.map((peer) => (
-            <audio
-              key={`audio:${peer.userId}`}
-              ref={(node) => {
-                bindMediaStreamToElement(node, peer.stream);
-              }}
-              autoPlay
-              playsInline
-              className="hidden"
-            />
-          ))
-        : null}
+      {groupCall.remotePeers.map((peer) => (
+        <audio
+          key={`audio:${peer.userId}`}
+          ref={(node) => {
+            groupCall.bindRemoteAudio(peer.userId, node);
+          }}
+          autoPlay
+          playsInline
+          className="hidden"
+        />
+      ))}
     </>
   );
 }

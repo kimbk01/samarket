@@ -23,10 +23,12 @@ N명(N>3) **full mesh WebRTC**는 대역·CPU·모바일 배터리 측면에서 
 - `connected` = **SFU에 publish/subscribe 성공** (첫 키프레임/오디오 패킷 정책은 제품별).
 - `reconnecting` = 전송 단(transport) 재연결; ICE restart 대신 **공급자 SDK의 reconnect**에 매핑한다.
 
-## SAMarket 코드베이스 정렬
+## SAMarket 코드베이스 정렬 (2026-06)
 
-- 그룹 **관리형** 경로: [`CommunityMessengerCallClient`](../components/community-messenger/CommunityMessengerCallClient.tsx) + Agora 등 — 이미 P2P 메시가 아님.
-- **직접 WebRTC** 그룹: [`use-community-messenger-group-call.ts`](../lib/community-messenger/use-community-messenger-group-call.ts)는 실험/제한적; 프로덕션 그룹 실연결 시 SFU로 교체하거나 비활성화한다.
+- **1:1·그룹 공통 SFU**: Agora (`call-provider/server` 토큰 · `call-provider/client` SDK).
+- **1:1 UI**: [`CommunityMessengerCallClient`](../components/community-messenger/CommunityMessengerCallClient.tsx) — 전용 `/calls/[sessionId]` 페이지.
+- **그룹 UI**: [`use-community-messenger-group-call.ts`](../lib/community-messenger/use-community-messenger-group-call.ts) + [`group-agora-session.ts`](../lib/community-messenger/call-provider/group-agora-session.ts) — 방 인라인 오버레이 (`GroupRoomCallOverlay`).
+- **제거됨**: 그룹 full mesh WebRTC (`RTCPeerConnection` × N-1, `community_messenger_call_signals` offer/answer/ICE).
 
 ## 마이그레이션 체크리스트
 

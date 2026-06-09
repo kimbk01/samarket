@@ -55,7 +55,7 @@ export async function PATCH(
   if (!rateLimit.ok) return rateLimit.response;
 
   let body: {
-    action?: "accept" | "reject" | "cancel" | "end" | "missed" | "upgrade_to_video" | "downgrade_to_voice";
+    action?: "accept" | "reject" | "cancel" | "end" | "leave" | "missed" | "upgrade_to_video" | "downgrade_to_voice";
     durationSeconds?: number;
     clientEndedReason?: string;
   };
@@ -88,6 +88,7 @@ export async function PATCH(
     body.action !== "reject" &&
     body.action !== "cancel" &&
     body.action !== "end" &&
+    body.action !== "leave" &&
     body.action !== "missed"
   ) {
     return NextResponse.json({ ok: false, error: "bad_action" }, { status: 400 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { buildCommunityMessengerManagedCallToken } from "@/lib/community-messenger/call-provider/server";
+import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { getCommunityMessengerCallSessionById } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 
@@ -28,11 +29,14 @@ export async function GET(
   if (!session) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
-  if (session.sessionMode !== "direct") {
-    return NextResponse.json({ ok: false, error: "group_call_not_supported_yet" }, { status: 400 });
-  }
   if (session.status !== "ringing" && session.status !== "active") {
     return NextResponse.json({ ok: false, error: "session_not_joinable" }, { status: 409 });
+  }
+  if (session.sessionMode === "group") {
+    const mine = session.participants.find((p) => messengerUserIdsEqual(p.userId, auth.userId));
+    if (!mine || (mine.status !== "joined" && mine.status !== "invited")) {
+      return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+    }
   }
   const connection = buildCommunityMessengerManagedCallToken(session, auth.userId);
   if (!connection) {

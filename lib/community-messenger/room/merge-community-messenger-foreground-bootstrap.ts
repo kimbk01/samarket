@@ -38,11 +38,19 @@ function mergeMembers(
   return Array.from(byId.values());
 }
 
-/** 동일 타임라인·unread 이면 setState no-op — FMV 직후 merge 비용·flash 방지 */
+function activeCallFingerprint(snap: CommunityMessengerRoomSnapshot): string {
+  const ac = snap.activeCall;
+  if (!ac) return "none";
+  const participantSig =
+    ac.participants?.map((p) => `${p.userId}:${p.status}`).join("|") ?? "";
+  return `${ac.id}|${ac.status}|${participantSig}`;
+}
+
+/** 동일 타임라인·unread·통화 이면 setState no-op — FMV 직후 merge 비용·flash 방지 */
 export function roomBootstrapTimelineFingerprint(snap: CommunityMessengerRoomSnapshot): string {
   const msgs = snap.messages ?? [];
   const tailId = msgs.length > 0 ? String(msgs[msgs.length - 1]?.id ?? "") : "";
-  return `${msgs.length}|${tailId}|${snap.room.unreadCount ?? 0}|${(snap.room.lastMessage ?? "").slice(0, 48)}`;
+  return `${msgs.length}|${tailId}|${snap.room.unreadCount ?? 0}|${(snap.room.lastMessage ?? "").slice(0, 48)}|${activeCallFingerprint(snap)}`;
 }
 
 /**
@@ -71,7 +79,7 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
     messages,
     readReceipt: next.readReceipt ?? prev.readReceipt,
     peerPresence: next.peerPresence ?? prev.peerPresence,
-    activeCall: next.activeCall ?? prev.activeCall,
+    activeCall: Object.prototype.hasOwnProperty.call(next, "activeCall") ? next.activeCall : prev.activeCall,
     hasMoreOlderMessages:
       prevCount > nextCount && prevCount > 0
         ? prev.hasMoreOlderMessages

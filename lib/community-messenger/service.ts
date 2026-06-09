@@ -771,7 +771,7 @@ async function appendCommunityMessengerCallSessionEvent(
 }
 
 function endedReasonForSessionDelta(
-  action: "accept" | "reject" | "cancel" | "end" | "missed",
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
   nextStatus: CommunityMessengerCallSessionStatus
 ): string | null {
   if (nextStatus === "active" || nextStatus === "ringing") return null;
@@ -785,7 +785,7 @@ function endedReasonForSessionDelta(
 }
 
 function auditEventTypeForAction(
-  action: "accept" | "reject" | "cancel" | "end" | "missed",
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
   nextStatus: CommunityMessengerCallSessionStatus
 ): string {
   if (action === "accept" || nextStatus === "active") return "accepted";
@@ -4284,6 +4284,37 @@ const ACTIVE_CALL_ROOM_CACHE_TTL_MS = 2500;
 const ACTIVE_CALL_ROOM_CACHE_MAX_ENTRIES = 2_000;
 const activeCallSessionByUserRoomCache = new Map<string, { expiresAt: number; session: CommunityMessengerCallSession | null }>();
 
+function invalidateActiveCallSessionByUserRoomCacheForRoom(roomId: string): void {
+  const rid = trimText(roomId);
+  if (!rid) return;
+  const suffix = `\0${rid}`;
+  for (const key of [...activeCallSessionByUserRoomCache.keys()]) {
+    if (key.endsWith(suffix)) activeCallSessionByUserRoomCache.delete(key);
+  }
+}
+
+export function resolveGroupCallSessionStatusAfterParticipantChange(input: {
+  joinedCount: number;
+  invitedCount: number;
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed";
+}): CommunityMessengerCallSessionStatus {
+  const { joinedCount, invitedCount, action } = input;
+  if (joinedCount > 1 || (joinedCount >= 1 && invitedCount > 0)) return "active";
+  if (invitedCount > 0) return "ringing";
+  if (joinedCount > 0) return "ended";
+  return action === "reject" ? "rejected" : "ended";
+}
+
+function viewerMaySeeActiveGroupCallSession(
+  mapped: CommunityMessengerCallSession,
+  viewerUserId: string
+): boolean {
+  if (mapped.sessionMode !== "group") return true;
+  const mine = mapped.participants.find((p) => messengerUserIdsEqual(p.userId, viewerUserId));
+  if (!mine) return false;
+  return mine.status === "joined" || mine.status === "invited";
+}
+
 async function getActiveCallSessionForRoom(
   userId: string,
   roomId: string
@@ -4309,13 +4340,17 @@ async function getActiveCallSessionForRoom(
       .maybeSingle();
     if (data && !error) {
       const mapped = await mapCallSession(userId, data as CallSessionRow, undefined, undefined, undefined, "labels_only");
+      const visible =
+        viewerMaySeeActiveGroupCallSession(mapped, uid) && !isTerminalCallSessionStatus(mapped.status)
+          ? mapped
+          : null;
       const tSet = Date.now();
       activeCallSessionByUserRoomCache.set(ck, {
         expiresAt: tSet + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
-        session: mapped,
+        session: visible,
       });
       pruneByExpiresAtAndMaxSize(activeCallSessionByUserRoomCache, tSet, ACTIVE_CALL_ROOM_CACHE_MAX_ENTRIES);
-      return mapped;
+      return visible;
     }
   }
 
@@ -4323,9 +4358,13 @@ async function getActiveCallSessionForRoom(
   const session = dev.callSessions
     .filter((item) => item.roomId === roomId && (item.status === "ringing" || item.status === "active"))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-  const mapped = session
+  const mappedRaw = session
     ? await mapCallSession(userId, session, undefined, undefined, undefined, "labels_only")
     : null;
+  const mapped =
+    mappedRaw && viewerMaySeeActiveGroupCallSession(mappedRaw, uid) && !isTerminalCallSessionStatus(mappedRaw.status)
+      ? mappedRaw
+      : null;
   const tSetDev = Date.now();
   activeCallSessionByUserRoomCache.set(ck, {
     expiresAt: tSetDev + ACTIVE_CALL_ROOM_CACHE_TTL_MS,
@@ -16906,7 +16945,7 @@ export async function downgradeCommunityMessengerCallSessionToVoice(input: {
 export async function updateCommunityMessengerCallSession(input: {
   userId: string;
   sessionId: string;
-  action: "accept" | "reject" | "cancel" | "end" | "missed";
+  action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed";
   durationSeconds?: number;
   /** Agora/P2P 조인 실패 등 — `ended` 시 DB `ended_reason` (CHECK 없음) */
   clientEndedReason?: string;
@@ -17011,7 +17050,7 @@ export async function updateCommunityMessengerCallSession(input: {
     return null;
   };
   const resolveHangupReason = (
-    action: "accept" | "reject" | "cancel" | "end" | "missed",
+    action: "accept" | "reject" | "cancel" | "end" | "leave" | "missed",
     nextStatus: CommunityMessengerCallSessionStatus
   ): "reject" | "cancel" | "missed" | "end" | null => {
     if (!isTerminalCallSessionStatus(nextStatus)) return null;
@@ -17041,6 +17080,26 @@ export async function updateCommunityMessengerCallSession(input: {
     }
   };
 
+  const publishGroupCallHangupSignalsBestEffort = async (
+    participantUserIds: string[],
+    payload: Record<string, unknown>
+  ) => {
+    for (const toUserId of participantUserIds) {
+      if (messengerUserIdsEqual(toUserId, input.userId)) continue;
+      try {
+        await createCommunityMessengerCallSignal({
+          userId: input.userId,
+          sessionId,
+          toUserId,
+          signalType: "hangup",
+          payload,
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+  };
+
   const sb = getSupabaseOrNull();
   if (sb) {
     const { data: row } = await (sb as any)
@@ -17063,7 +17122,10 @@ export async function updateCommunityMessengerCallSession(input: {
         if (!mine) return { ok: false, error: "forbidden" };
 
         if (input.action === "cancel") {
-          if (session.initiator_user_id !== input.userId || session.status !== "ringing") {
+          if (
+            !messengerUserIdsEqual(session.initiator_user_id, input.userId) ||
+            session.status !== "ringing"
+          ) {
             return { ok: false, error: "bad_action" };
           }
           await (sb as any)
@@ -17080,7 +17142,15 @@ export async function updateCommunityMessengerCallSession(input: {
             .single();
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+            invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
             await finalizeLog(session, mapped);
+            const cancelTargets = participants
+              .map((p) => trimText(p.user_id ?? ""))
+              .filter((id) => id && !messengerUserIdsEqual(id, input.userId));
+            await publishGroupCallHangupSignalsBestEffort(cancelTargets, {
+              reason: "cancel",
+              source: "session_patch",
+            });
             await appendCommunityMessengerCallSessionEvent(sb, {
               sessionId,
               actorUserId: input.userId,
@@ -17090,6 +17160,55 @@ export async function updateCommunityMessengerCallSession(input: {
             return { ok: true, session: mapped };
           }
           return { ok: false, error: "call_session_update_failed" };
+        }
+
+        if (input.action === "end") {
+          if (session.status !== "active" && session.status !== "ringing") {
+            return { ok: false, error: "bad_action" };
+          }
+          const endTargets = participants
+            .filter((p) => p.participation_status === "joined" || p.participation_status === "invited")
+            .map((p) => trimText(p.user_id ?? ""))
+            .filter((id) => id.length > 0);
+          await (sb as any)
+            .from("community_messenger_call_session_participants")
+            .update({ participation_status: "left", left_at: now })
+            .eq("session_id", sessionId)
+            .in("participation_status", ["joined", "invited"]);
+          const { data: updated } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .update({
+              status: "ended",
+              ended_at: now,
+              updated_at: now,
+              ended_reason: "ended",
+            })
+            .eq("id", sessionId)
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            )
+            .single();
+          if (!updated) return { ok: false, error: "call_session_update_failed" };
+          const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+          invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
+          await publishGroupCallHangupSignalsBestEffort(
+            endTargets.filter((id) => !messengerUserIdsEqual(id, input.userId)),
+            { reason: "end", source: "session_patch" }
+          );
+          const { data: existingLog } = await (sb as any)
+            .from("community_messenger_call_logs")
+            .select("id")
+            .eq("session_id", sessionId)
+            .maybeSingle();
+          if (!existingLog) await finalizeLog(session, mapped);
+          else await ensureTerminalCallStub(session, mapped);
+          await appendCommunityMessengerCallSessionEvent(sb, {
+            sessionId,
+            actorUserId: input.userId,
+            eventType: "ended",
+            payload: { scope: "group", terminate_all: true },
+          });
+          return { ok: true, session: mapped };
         }
 
         if (input.action === "accept") {
@@ -17112,8 +17231,10 @@ export async function updateCommunityMessengerCallSession(input: {
             .update({ participation_status: "rejected", left_at: now })
             .eq("session_id", sessionId)
             .eq("user_id", input.userId);
-        } else if (input.action === "end") {
-          if (session.status !== "active" && session.status !== "ringing") return { ok: false, error: "bad_action" };
+        } else if (input.action === "leave") {
+          if (session.status !== "active" && session.status !== "ringing") {
+            return { ok: false, error: "bad_action" };
+          }
           await (sb as any)
             .from("community_messenger_call_session_participants")
             .update({ participation_status: "left", left_at: now })
@@ -17135,6 +17256,7 @@ export async function updateCommunityMessengerCallSession(input: {
             .single();
           if (updated) {
             const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+            invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
             await finalizeLog(session, mapped);
             await appendCommunityMessengerCallSessionEvent(sb, {
               sessionId,
@@ -17156,16 +17278,11 @@ export async function updateCommunityMessengerCallSession(input: {
         const refreshedParticipants = (refreshedRows ?? []) as CallSessionParticipantRow[];
         const joinedCount = refreshedParticipants.filter((item) => item.participation_status === "joined").length;
         const invitedCount = refreshedParticipants.filter((item) => item.participation_status === "invited").length;
-        const nextStatus =
-          joinedCount > 1 || (joinedCount >= 1 && invitedCount > 0)
-            ? "active"
-            : invitedCount > 0
-              ? "ringing"
-              : joinedCount > 0
-                ? "ended"
-                : input.action === "reject"
-                  ? "rejected"
-                  : "ended";
+        const nextStatus = resolveGroupCallSessionStatusAfterParticipantChange({
+          joinedCount,
+          invitedCount,
+          action: input.action,
+        });
         const updatePayload: Record<string, unknown> = {
           status: nextStatus,
           updated_at: now,
@@ -17185,7 +17302,26 @@ export async function updateCommunityMessengerCallSession(input: {
           .single();
         if (!updated) return { ok: false, error: "call_session_update_failed" };
         const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+        invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
+        if (input.action === "leave" && !isTerminalCallSessionStatus(mapped.status)) {
+          const leaveTargets = refreshedParticipants
+            .filter((p) => p.participation_status === "joined")
+            .map((p) => trimText(p.user_id ?? ""))
+            .filter((id) => id.length > 0 && !messengerUserIdsEqual(id, input.userId));
+          await publishGroupCallHangupSignalsBestEffort(leaveTargets, {
+            reason: "leave",
+            source: "session_patch",
+          });
+        }
         if (isTerminalCallSessionStatus(mapped.status)) {
+          const terminalTargets = refreshedParticipants
+            .filter((p) => p.participation_status === "joined" || p.participation_status === "invited")
+            .map((p) => trimText(p.user_id ?? ""))
+            .filter((id) => id.length > 0 && !messengerUserIdsEqual(id, input.userId));
+          await publishGroupCallHangupSignalsBestEffort(terminalTargets, {
+            reason: resolveHangupReason(input.action, nextStatus as CommunityMessengerCallSessionStatus) ?? "end",
+            source: "session_patch",
+          });
           const { data: existingLog } = await (sb as any)
             .from("community_messenger_call_logs")
             .select("id")
@@ -17274,6 +17410,7 @@ export async function updateCommunityMessengerCallSession(input: {
           .eq("session_id", sessionId)
           .eq("user_id", input.userId);
         const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+        invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
         if (isTerminalCallSessionStatus(mapped.status)) {
           const { data: existingLog } = await (sb as any)
             .from("community_messenger_call_logs")
@@ -17341,6 +17478,13 @@ export async function updateCommunityMessengerCallSession(input: {
       mine.participationStatus = "rejected";
       mine.leftAt = now;
     } else if (input.action === "end") {
+      session.status = "ended";
+      session.endedAt = now;
+      for (const participant of session.participants) {
+        participant.participationStatus = "left";
+        participant.leftAt = now;
+      }
+    } else if (input.action === "leave") {
       mine.participationStatus = "left";
       mine.leftAt = now;
     } else if (input.action === "cancel") {
@@ -17364,14 +17508,15 @@ export async function updateCommunityMessengerCallSession(input: {
     if (!isTerminalCallSessionStatus(session.status)) {
       const joinedCount = session.participants.filter((item) => item.participationStatus === "joined").length;
       const invitedCount = session.participants.filter((item) => item.participationStatus === "invited").length;
-      if (joinedCount > 1 || (joinedCount >= 1 && invitedCount > 0)) session.status = "active";
-      else if (invitedCount > 0) session.status = "ringing";
-      else {
-        session.status = joinedCount > 0 ? "ended" : input.action === "reject" ? "rejected" : "ended";
-        session.endedAt = now;
-      }
+      session.status = resolveGroupCallSessionStatusAfterParticipantChange({
+        joinedCount,
+        invitedCount,
+        action: input.action,
+      });
+      if (isTerminalCallSessionStatus(session.status)) session.endedAt = now;
     }
     const mapped = await mapCallSession(input.userId, session);
+    invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
     if (isTerminalCallSessionStatus(mapped.status)) {
       if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
       else await ensureTerminalCallStub(session, mapped);

@@ -25,6 +25,7 @@ export function mergeCommunityMessengerSilentDeltaIntoSnapshot(
     ...prev,
     viewerUserId: delta.viewerUserId || prev.viewerUserId,
     myRole: delta.myRole ?? prev.myRole,
+    ...(Object.prototype.hasOwnProperty.call(delta, "activeCall") ? { activeCall: delta.activeCall } : {}),
     room: {
       ...prev.room,
       unreadCount: unreadResolved.unreadCount,
