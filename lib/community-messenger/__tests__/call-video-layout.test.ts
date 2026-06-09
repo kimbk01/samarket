@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  shouldAllowPipPointerInteraction,
   shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
   shouldShowLocalVideoPipChrome,
@@ -27,12 +28,38 @@ describe("shouldUseSoloLocalFullVideoLayout", () => {
     ).toBe(true);
   });
 
-  it("PiP layout after join even when remote has not published", () => {
+  it("keeps initiator full local after join until remote publishes", () => {
     expect(
       shouldUseSoloLocalFullVideoLayout({
         callKind: "video",
         sessionStatus: "active",
         joined: true,
+        remoteJoined: false,
+        isInitiator: true,
+      })
+    ).toBe(true);
+  });
+
+  it("switches initiator to PiP layout after remote joined", () => {
+    expect(
+      shouldUseSoloLocalFullVideoLayout({
+        callKind: "video",
+        sessionStatus: "active",
+        joined: true,
+        remoteJoined: true,
+        isInitiator: true,
+      })
+    ).toBe(false);
+  });
+
+  it("PiP layout for callee after join even before remote", () => {
+    expect(
+      shouldUseSoloLocalFullVideoLayout({
+        callKind: "video",
+        sessionStatus: "active",
+        joined: true,
+        remoteJoined: false,
+        isInitiator: false,
       })
     ).toBe(false);
   });
@@ -117,6 +144,23 @@ describe("shouldShowLocalVideoPipChrome", () => {
         joined: true,
         localVideoReady: true,
       })
+    ).toBe(false);
+  });
+});
+
+describe("shouldAllowPipPointerInteraction", () => {
+  it("allows drag when shell mounted with gesture bindings", () => {
+    expect(
+      shouldAllowPipPointerInteraction({ pipShellMounted: true, hasPipGestureBindings: true })
+    ).toBe(true);
+  });
+
+  it("blocks when shell not mounted or no bindings", () => {
+    expect(
+      shouldAllowPipPointerInteraction({ pipShellMounted: false, hasPipGestureBindings: true })
+    ).toBe(false);
+    expect(
+      shouldAllowPipPointerInteraction({ pipShellMounted: true, hasPipGestureBindings: false })
     ).toBe(false);
   });
 });

@@ -120,4 +120,22 @@ describe("call-media-bootstrap", () => {
     await primeOutgoingCallMediaBeforeNavigate("video");
     expect(acquireVideoCallStreamWithDiBaYGate).toHaveBeenCalledWith({ explicitRetry: true });
   });
+
+  it("does not discard usable video primed stream on re-prime", async () => {
+    const { primeVideoCallMediaFromUserGesture } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    const { acquirePrimedCommunityMessengerStream } = await import("@/lib/call/permission-manager");
+    const { hasUsablePrimedCommunityMessengerDeviceStream } = await import(
+      "@/lib/community-messenger/call-permission"
+    );
+
+    await primeVideoCallMediaFromUserGesture({ explicitRetry: true });
+    expect(hasUsablePrimedCommunityMessengerDeviceStream("video")).toBe(true);
+    const callsBefore = vi.mocked(acquirePrimedCommunityMessengerStream).mock.calls.length;
+
+    await primeVideoCallMediaFromUserGesture({ explicitRetry: true });
+    expect(hasUsablePrimedCommunityMessengerDeviceStream("video")).toBe(true);
+    expect(vi.mocked(acquirePrimedCommunityMessengerStream).mock.calls.length).toBe(callsBefore);
+  });
 });

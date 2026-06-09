@@ -12,7 +12,6 @@ function isTerminal(status: CommunityMessengerCallSessionStatus): boolean {
 export function resolvePreJoinVideoPreviewStream(args: {
   session: CommunityMessengerCallSession | null;
   localVideoReady: boolean;
-  callerMediaConsentDone: boolean;
   peekStream: MediaStream | null;
   heldStream: MediaStream | null;
 }): MediaStream | null {
@@ -26,6 +25,5 @@ export function resolvePreJoinVideoPreviewStream(args: {
   if (!held) return null;
   const tracks = held.getVideoTracks();
   if (!tracks.length || tracks.every((t) => t.readyState !== "live")) return null;
-  /** 발신 Agora 조인은 `callerMediaConsentDone` 유지 — 프리뷰만 live held/peek 로 허용 */
   return held;
 }

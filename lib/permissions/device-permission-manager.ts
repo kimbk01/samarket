@@ -133,6 +133,24 @@ function getPermissionStorageScope(): { userId: string; deviceId: string } {
   return { userId, deviceId };
 }
 
+/** 로그인 전 anonymous 키에 저장된 통화 trusted mark 를 실제 userId 로 승격 */
+function promoteAnonymousFeatureMarksIfNeeded(featureKey: DevicePermissionFeatureKey): void {
+  if (typeof window === "undefined") return;
+  const { userId, deviceId } = getPermissionStorageScope();
+  const anonUserId = sanitizePermissionKeyPart(ANONYMOUS_PERMISSION_USER_ID);
+  if (userId === anonUserId) return;
+  const anonCompleted = readLs(LS.featureCompleted(anonUserId, deviceId, featureKey));
+  if (!anonCompleted) return;
+  const userKey = LS.featureCompleted(userId, deviceId, featureKey);
+  if (!readLs(userKey)) {
+    writeLs(userKey, anonCompleted);
+  }
+}
+
+function isCallMediaFeatureKey(featureKey?: DevicePermissionFeatureKey): boolean {
+  return featureKey === "messenger_video_call" || featureKey === "messenger_voice_call";
+}
+
 function scopedCacheKey(kind: DevicePermissionGuideKind): string {
   const { userId, deviceId } = getPermissionStorageScope();
   return `${userId}:${deviceId}:${kind}`;
@@ -193,6 +211,7 @@ export function markPermissionFeatureCompleted(featureKey: DevicePermissionFeatu
 }
 
 export function isPermissionFeatureCompleted(featureKey: DevicePermissionFeatureKey): boolean {
+  promoteAnonymousFeatureMarksIfNeeded(featureKey);
   const { userId, deviceId } = getPermissionStorageScope();
   return Boolean(readLs(LS.featureCompleted(userId, deviceId, featureKey)));
 }
@@ -375,7 +394,7 @@ async function ensureDevicePermissionsWithDiBaYGate(
     return { ok: true };
   }
 
-  const explicitRetry = !!options?.explicitRetry;
+  const explicitRetry = !!options?.explicitRetry || isCallMediaFeatureKey(options?.featureKey);
   const guideKind = options?.guideKind ?? kinds[0] ?? "microphone";
 
   if (!explicitRetry) {

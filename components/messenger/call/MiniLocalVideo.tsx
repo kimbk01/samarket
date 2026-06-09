@@ -64,9 +64,9 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
     <div
       ref={ref}
       style={sizeStyle}
-      className={`touch-none select-none overflow-hidden rounded-[16px] border border-white/25 bg-black shadow-[0_8px_28px_rgba(0,0,0,0.4)] ${positionClass} ${className} ${
-        onPointerDown ? "cursor-grab active:cursor-grabbing" : ""
-      }`}
+      className={`touch-none select-none overflow-hidden rounded-[16px] border border-white/25 bg-black shadow-[0_8px_28px_rgba(0,0,0,0.4)] ${positionClass} ${
+        onPointerDown ? "pointer-events-auto cursor-grab active:cursor-grabbing" : ""
+      } ${className}`.trim()}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

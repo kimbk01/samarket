@@ -69,10 +69,10 @@ describe("primed device stream idle release", () => {
     } as unknown as Navigator);
     const {
       hasCommunityMessengerMediaTrustedMark,
-      shouldSkipCallerMediaGateOverlay,
+      resolveCommunityMessengerCallMediaReady,
     } = await import("@/lib/community-messenger/call-permission");
 
-    await expect(shouldSkipCallerMediaGateOverlay("video")).resolves.toBe(true);
+    await expect(resolveCommunityMessengerCallMediaReady("video")).resolves.toBe(true);
     expect(hasCommunityMessengerMediaTrustedMark("video")).toBe(true);
   });
 

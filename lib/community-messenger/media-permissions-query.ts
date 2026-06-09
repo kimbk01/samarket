@@ -19,6 +19,29 @@ export function isCommunityMessengerMediaBrowserGrantedSync(kind: "voice" | "vid
   return true;
 }
 
+/**
+ * Safari iOS 등 Permissions API 미지원·null — enumerateDevices 라벨로 허용 여부 추론.
+ * (한 번 GUM 허용 후에는 deviceId/label 이 채워진다)
+ */
+export async function inferCommunityMessengerMediaGrantedFromDeviceLabels(
+  kind: "voice" | "video"
+): Promise<boolean> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) return false;
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const micGranted = devices.some(
+      (d) => d.kind === "audioinput" && typeof d.label === "string" && d.label.trim().length > 0
+    );
+    if (!micGranted) return false;
+    if (kind === "voice") return true;
+    return devices.some(
+      (d) => d.kind === "videoinput" && typeof d.label === "string" && d.label.trim().length > 0
+    );
+  } catch {
+    return false;
+  }
+}
+
 export async function queryCommunityMessengerMediaPermissions(): Promise<CommunityMessengerMediaPermissionSnapshot> {
   const out: CommunityMessengerMediaPermissionSnapshot = { microphone: null, camera: null };
   if (typeof navigator === "undefined" || !navigator.permissions?.query) {

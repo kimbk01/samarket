@@ -12,17 +12,21 @@ export function isLiveCommunityMessengerCallSessionStatus(
 }
 
 /**
- * 풀스크린 로컬 영상 — Agora 채널 조인 전(발신 링·연결 중)만.
- * `active`+`joined` 이후에는 PiP(작은 화면)에 본인 영상을 붙인다(원격 publish 대기와 무관).
+ * 풀스크린 로컬 영상
+ * - ringing / active 조인 전
+ * - 발신: 상대 영상(remoteJoined) 수신 전까지 본인 풀스크린 유지
  */
 export function shouldUseSoloLocalFullVideoLayout(args: {
   callKind: CommunityMessengerCallKind;
   sessionStatus: CommunityMessengerCallSessionStatus;
   joined: boolean;
+  remoteJoined?: boolean;
+  isInitiator?: boolean;
 }): boolean {
   if (args.callKind !== "video") return false;
   if (TERMINAL.includes(args.sessionStatus)) return false;
   if (args.sessionStatus === "ringing") return true;
+  if (args.isInitiator && !args.remoteJoined) return true;
   return args.sessionStatus === "active" && !args.joined;
 }
 
@@ -44,7 +48,7 @@ export function shouldMountLocalVideoPipShell(args: {
   return Boolean(args.videoCall && args.joined);
 }
 
-/** PiP 크롬 가시성 — 트랙 play 완료 후 opacity/콘텐츠 표시 */
+/** PiP 크롬 가시성 — 트랙 play 완료 후 opacity/콘텐츠 표시 (드래그는 별도 허용) */
 export function shouldShowLocalVideoPipChrome(args: {
   videoCall: boolean;
   sessionStatus?: CommunityMessengerCallSessionStatus;
@@ -53,4 +57,12 @@ export function shouldShowLocalVideoPipChrome(args: {
 }): boolean {
   if (args.sessionStatus && TERMINAL.includes(args.sessionStatus)) return false;
   return Boolean(args.videoCall && args.joined && args.localVideoReady);
+}
+
+/** PiP 드래그·스냅 — 영상 ready 전에도 shell 이 마운트되면 허용 */
+export function shouldAllowPipPointerInteraction(args: {
+  pipShellMounted: boolean;
+  hasPipGestureBindings: boolean;
+}): boolean {
+  return Boolean(args.pipShellMounted && args.hasPipGestureBindings);
 }

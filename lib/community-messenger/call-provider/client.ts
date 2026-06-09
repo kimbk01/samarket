@@ -7,9 +7,13 @@ import AgoraRTC, {
   type IRemoteAudioTrack,
   type IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
-import { createFallbackAudioOnlyMediaStream } from "@/lib/call/permission-manager";
-import { consumePrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
+import { createFallbackAudioOnlyMediaStream, getCommunityMessengerUserMedia } from "@/lib/call/permission-manager";
 import {
+  consumePrimedCommunityMessengerDevicePermission,
+  resolveCommunityMessengerCallMediaReady,
+} from "@/lib/community-messenger/call-permission";
+import {
+  buildCommunityMessengerMediaStreamConstraints,
   readPreferredCommunityMessengerDeviceIds,
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
@@ -124,6 +128,47 @@ async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
   }
 }
 
+function agoraLocalTracksFromMediaStream(
+  stream: MediaStream,
+  kind: CommunityMessengerCallKind
+): CommunityMessengerAgoraLocalTracks {
+  const audioMedia = stream.getAudioTracks().find((t) => t.readyState === "live") ?? null;
+  if (!audioMedia) {
+    throw new DOMException("No audio track", "NotFoundError");
+  }
+  const audioTrack = AgoraRTC.createCustomAudioTrack({
+    mediaStreamTrack: audioMedia,
+    encoderConfig: "speech_standard",
+    ...MIC_3A,
+  });
+  if (kind !== "video") {
+    return { audioTrack, videoTrack: null };
+  }
+  const videoMedia = stream.getVideoTracks().find((t) => t.readyState === "live") ?? null;
+  if (!videoMedia) {
+    throw new DOMException("No video track", "NotFoundError");
+  }
+  const videoTrack = AgoraRTC.createCustomVideoTrack({
+    mediaStreamTrack: videoMedia,
+  });
+  return { audioTrack, videoTrack };
+}
+
+async function createCommunityMessengerAgoraLocalTracksFromTrustedGum(
+  kind: CommunityMessengerCallKind
+): Promise<CommunityMessengerAgoraLocalTracks | null> {
+  if (!(await resolveCommunityMessengerCallMediaReady(kind))) return null;
+  try {
+    const featureKey = kind === "video" ? "messenger_video_call" : "messenger_voice_call";
+    const stream = await getCommunityMessengerUserMedia(buildCommunityMessengerMediaStreamConstraints(kind), {
+      featureKey,
+    });
+    return agoraLocalTracksFromMediaStream(stream, kind);
+  } catch {
+    return null;
+  }
+}
+
 export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
@@ -160,6 +205,11 @@ export async function createCommunityMessengerAgoraLocalTracks(
         throw error;
       }
     }
+  }
+
+  const trustedGum = await createCommunityMessengerAgoraLocalTracksFromTrustedGum(kind);
+  if (trustedGum) {
+    return trustedGum;
   }
 
   if (kind !== "video") {

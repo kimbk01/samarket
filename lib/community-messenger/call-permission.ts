@@ -1,4 +1,7 @@
-import { isCommunityMessengerMediaBrowserGrantedSync } from "@/lib/community-messenger/media-permissions-query";
+import {
+  inferCommunityMessengerMediaGrantedFromDeviceLabels,
+  isCommunityMessengerMediaBrowserGrantedSync,
+} from "@/lib/community-messenger/media-permissions-query";
 import {
   isPermissionFeatureCompleted,
   markPermissionFeatureCompleted,
@@ -18,6 +21,16 @@ export function markCommunityMessengerMediaTrustedOnce(kind: CommunityMessengerC
 
 export function hasCommunityMessengerMediaTrustedMark(kind: CommunityMessengerCallKind = "voice"): boolean {
   return isPermissionFeatureCompleted(featureKeyForCallKind(kind));
+}
+
+/** trusted · live primed · Permissions API granted(캐시) — 동기 단일 진실 소스 */
+export function isCommunityMessengerCallMediaReadySync(kind: CommunityMessengerCallKind): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    hasUsablePrimedCommunityMessengerDeviceStream(kind) ||
+    hasCommunityMessengerMediaTrustedMark(kind) ||
+    isCommunityMessengerMediaBrowserGrantedSync(kind)
+  );
 }
 
 function markTrustedIfBrowserGranted(
@@ -175,14 +188,15 @@ export function hasUsablePrimedCommunityMessengerDeviceStream(kind: CommunityMes
   return primedStreamIsUsableForKind(kind);
 }
 
-/** Permissions API 대기 없이 즉시 — 발신 통화 첫 페인트·자동 조인 판단용 */
+/** 재프라임 직전: 다른 kind·ended primed 만 정리(usable 동일 kind 는 유지) */
+export function shouldDiscardPrimedBeforeCommunityMessengerPrime(kind: CommunityMessengerCallKind): boolean {
+  if (!primedDeviceStreamState) return false;
+  return !primedStreamIsUsableForKind(kind);
+}
+
+/** @deprecated `isCommunityMessengerCallMediaReadySync` 사용 */
 export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCallKind): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    hasUsablePrimedCommunityMessengerDeviceStream(kind) ||
-    hasCommunityMessengerMediaTrustedMark(kind) ||
-    isCommunityMessengerMediaBrowserGrantedSync(kind)
-  );
+  return isCommunityMessengerCallMediaReadySync(kind);
 }
 
 /**
@@ -191,28 +205,51 @@ export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCal
  * - 채팅방 클릭 직후 프라임된 스트림이 아직 유효한 경우
  * - Permissions API 로 이미 granted 인 경우(쿼리는 상한 ms — 일부 환경에서 수 초 걸려 연결 화면이 늦게 뜨는 문제 방지)
  */
-export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerCallKind): Promise<boolean> {
-  if (hasUsablePrimedCommunityMessengerDeviceStream(kind)) return true;
+async function skipCallerGateFromDeviceLabelsOrTrusted(
+  kind: CommunityMessengerCallKind,
+  trusted: boolean
+): Promise<boolean> {
+  if (trusted) return true;
+  const inferred = await inferCommunityMessengerMediaGrantedFromDeviceLabels(kind);
+  if (!inferred) return false;
+  markCommunityMessengerMediaTrustedOnce(kind);
+  return true;
+}
+
+/** async: sync ready + Permissions API·enumerateDevices 라벨 추론 */
+export async function resolveCommunityMessengerCallMediaReady(kind: CommunityMessengerCallKind): Promise<boolean> {
+  if (isCommunityMessengerCallMediaReadySync(kind)) return true;
   if (typeof window === "undefined") return false;
   const perm = navigator.permissions;
   const trusted = hasCommunityMessengerMediaTrustedMark(kind);
-  if (!perm?.query) return trusted;
+  if (!perm?.query) {
+    return skipCallerGateFromDeviceLabelsOrTrusted(kind, trusted);
+  }
   try {
     const micState = await readPermissionStateBudgeted(() => perm.query({ name: "microphone" as PermissionName }));
     if (micState === "denied") return false;
-    if (micState == null) return trusted;
+    if (micState == null) {
+      return skipCallerGateFromDeviceLabelsOrTrusted(kind, trusted);
+    }
     if (kind === "video") {
       const camState = await readPermissionStateBudgeted(() => perm.query({ name: "camera" as PermissionName }));
       if (camState === "denied") return false;
-      if (camState == null) return trusted;
+      if (camState == null) {
+        return skipCallerGateFromDeviceLabelsOrTrusted(kind, trusted);
+      }
       if (trusted) return true;
       return markTrustedIfBrowserGranted(kind, { microphone: micState, camera: camState });
     }
     if (trusted) return true;
     return markTrustedIfBrowserGranted(kind, { microphone: micState });
   } catch {
-    return trusted;
+    return skipCallerGateFromDeviceLabelsOrTrusted(kind, trusted);
   }
+}
+
+/** @deprecated `resolveCommunityMessengerCallMediaReady` 사용 */
+export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerCallKind): Promise<boolean> {
+  return resolveCommunityMessengerCallMediaReady(kind);
 }
 
 function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream) {

@@ -15,6 +15,7 @@ import {
   clearCallPipActionBarHeightCssVar,
   syncCallPipActionBarHeightCssVar,
 } from "@/lib/community-messenger/call-pip-metrics";
+import { shouldAllowPipPointerInteraction } from "@/lib/community-messenger/call-video-layout";
 
 const IDLE_HIDE_MS = 4200;
 
@@ -153,7 +154,13 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
   const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-12";
 
-  const pipChromeHiddenClass = pipShellMounted && !vm.showLocalVideo ? "opacity-0 pointer-events-none" : "";
+  const pipAllowPointer = shouldAllowPipPointerInteraction({
+    pipShellMounted,
+    hasPipGestureBindings: Boolean(pipBindings?.onPipPointerDown),
+  });
+  /** 영상 ready 전 opacity 만 숨김 — 드래그는 shell 마운트 시 허용 */
+  const pipChromeHiddenClass = pipShellMounted && !vm.showLocalVideo ? "opacity-0" : "";
+  const pipInteractionClass = pipAllowPointer ? "pointer-events-auto touch-none" : "";
 
   const renderPip = () => {
     if (!pipShellMounted) return null;
@@ -168,7 +175,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       micMuted: bindings?.micMuted ?? !vm.mediaState.micEnabled,
       cameraOff: bindings?.cameraOff ?? !vm.mediaState.cameraEnabled,
       onExpand: bindings?.onPipExpand,
-      className: pipChromeHiddenClass.trim(),
+      className: `${pipChromeHiddenClass} ${pipInteractionClass}`.trim(),
       onPointerDown: bindings?.onPipPointerDown,
       onPointerMove: bindings?.onPipPointerMove,
       onPointerUp: bindings?.onPipPointerUp,

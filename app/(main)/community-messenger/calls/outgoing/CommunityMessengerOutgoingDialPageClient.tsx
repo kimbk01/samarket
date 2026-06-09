@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { primeOutgoingCallMediaBeforeNavigate, isCallMediaReadyForKind } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   buildCommunityMessengerInstantOutgoingCallHref,
 } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -46,17 +46,21 @@ export function CommunityMessengerOutgoingDialPageClient() {
       return;
     }
     void (async () => {
-      const primeResult = await primeOutgoingCallMediaBeforeNavigate(p.kind);
-      if (!primeResult.ok && p.kind === "video") {
-        setError(t("nav_messenger_permission_retry_camera_mic"));
-        return;
-      }
       const href = buildCommunityMessengerInstantOutgoingCallHref({
         kind: p.kind,
         roomId: p.roomId || undefined,
         peerUserId: p.peerUserId || undefined,
         peerLabel: p.peerLabelRaw || undefined,
       });
+      if (p.kind === "video" && isCallMediaReadyForKind("video")) {
+        router.replace(href);
+        return;
+      }
+      const primeResult = await primeOutgoingCallMediaBeforeNavigate(p.kind);
+      if (!primeResult.ok && p.kind === "video") {
+        setError(t("nav_messenger_permission_retry_camera_mic"));
+        return;
+      }
       router.replace(href);
     })();
   }, [router, t]);

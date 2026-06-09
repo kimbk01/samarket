@@ -29,19 +29,13 @@ async function loadCommunityMessengerCallProvider() {
 }
 import { ensureVideoPermission } from "@/lib/call/permission-manager";
 import {
-  isCallMediaReadyForKind,
-  primeVideoCallMediaFromUserGesture,
-  primeVoiceCallMediaFromUserGesture,
-} from "@/lib/community-messenger/call-media-bootstrap";
-import {
+  isCommunityMessengerCallMediaReadySync,
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
   hasUsablePrimedCommunityMessengerDeviceStream,
   peekPrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
   resumePrimedCommunityMessengerDeviceStreamIdleRelease,
-  shouldSkipCallerMediaGateOverlay,
-  shouldSkipCallerMediaGateOverlaySync,
   suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
 } from "@/lib/community-messenger/call-permission";
 import {
@@ -415,6 +409,8 @@ export function CommunityMessengerCallClient({
   const [lastMileLine, setLastMileLine] = useState(() => t("cm_ui_network_quality_checking"));
   const [lastMileWorst, setLastMileWorst] = useState(0);
   const [agoraReconnecting, setAgoraReconnecting] = useState(false);
+  const agoraReconnectingRef = useRef(false);
+  agoraReconnectingRef.current = agoraReconnecting;
   const [pendingVideoUpgradeRequest, setPendingVideoUpgradeRequest] = useState(false);
   const [incomingVideoUpgradeRequest, setIncomingVideoUpgradeRequest] = useState(false);
   const networkReconnectTimerRef = useRef<number | null>(null);
@@ -721,16 +717,6 @@ export function CommunityMessengerCallClient({
   const autoJoinBlockedRef = useRef(false);
   /** 수락·거절·종료 PATCH 중복 클릭 방지 */
   const directCallPatchInFlightRef = useRef(false);
-  /**
-   * 발신( initiator ): 브라우저는 마이크·카메라를 사용자 제스처 없이 열지 못하는 경우가 많아,
-   * 「허용하고 연결」 확인 후에만 Agora 조인한다. 수신은 수락 버튼·자동수락 경로에서 이미 제스처가 있다.
-   */
-  const [callerMediaConsentDone, setCallerMediaConsentDone] = useState(() => {
-    const s = initialCallHydration.session;
-    if (!s) return true;
-    if (!s.isMineInitiator) return true;
-    return isCallMediaReadyForKind(s.callKind);
-  });
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
   const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
   /** 터미널 silent GET 은 일반 silent in-flight 과 합류하지 않음 — 터미널끼리만 동일 비행 합류로 폭주 완화 */
@@ -861,11 +847,6 @@ export function CommunityMessengerCallClient({
     if (seeded) {
       setSession(seeded);
       setLoading(false);
-      if (!seeded.isMineInitiator) {
-        setCallerMediaConsentDone(true);
-      } else {
-        setCallerMediaConsentDone(isCallMediaReadyForKind(seeded.callKind));
-      }
     }
   }, [sessionId]);
 
@@ -1269,15 +1250,6 @@ export function CommunityMessengerCallClient({
     });
   }, [session?.callKind, session?.id, joined, localVideoReady, layoutSwapped, remoteJoined]);
 
-  /** 발신 ringing — user-gesture 프라임 스트림이 있으면 consent·프리뷰 즉시 허용 */
-  useEffect(() => {
-    const s = session;
-    if (!s?.isMineInitiator || s.callKind !== "video" || callerMediaConsentDone) return;
-    if (hasUsablePrimedCommunityMessengerDeviceStream("video")) {
-      setCallerMediaConsentDone(true);
-    }
-  }, [callerMediaConsentDone, session, session?.callKind, session?.id, session?.isMineInitiator]);
-
   /** 링·active 동안 프라임 미리보기 스트림이 idle 90초 TTL 로 끊기지 않게 유지 */
   useEffect(() => {
     const s = session;
@@ -1330,6 +1302,8 @@ export function CommunityMessengerCallClient({
       }
       stopCommunityMessengerCallTone();
       stopCommunityMessengerCallFeedback();
+      /** active+joined 통화는 iOS 탭 전환·주소창에도 Agora 유지 — pagehide 즉시 dispose 금지 */
+      if (s?.status === "active" && joinedRef.current) return;
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
     window.addEventListener("pagehide", onPageLeave);
@@ -1388,11 +1362,13 @@ export function CommunityMessengerCallClient({
     const videoTrack = localTracksRef.current?.videoTrack ?? null;
     const swapped = layoutSwappedRef.current;
     const s = sessionRef.current;
-    /** 링·Agora 조인 전만 풀화면 로컬 — `joined` 이후 즉시 PiP(원격 publish 대기와 무관) */
+    /** 링·조인 전·발신 상대 미수신 전 풀화면 로컬 */
     const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
       callKind: s?.callKind ?? "voice",
       sessionStatus: s?.status ?? "ended",
       joined: joinedRef.current,
+      remoteJoined: remoteJoinedRef.current,
+      isInitiator: s?.isMineInitiator ?? false,
     });
 
     const sm = smallVideoRef.current;
@@ -1477,6 +1453,8 @@ export function CommunityMessengerCallClient({
       callKind: session.callKind,
       sessionStatus: session.status,
       joined,
+      remoteJoined,
+      isInitiator: session.isMineInitiator,
     });
 
     if (soloLocalFull) {
@@ -1773,11 +1751,13 @@ export function CommunityMessengerCallClient({
             !isTerminalCallSessionStatus(active.status)
           ) {
             clearPeerLeftEndTimer();
+            if (agoraReconnectingRef.current) return;
             peerLeftEndTimerRef.current = window.setTimeout(() => {
               peerLeftEndTimerRef.current = null;
               const cur = sessionRef.current;
               if (!cur || cur.status !== "active" || isTerminalCallSessionStatus(cur.status)) return;
               if (remoteJoinedRef.current) return;
+              if (agoraReconnectingRef.current) return;
               void endCallRef.current();
             }, AGORA_PEER_LEFT_END_GRACE_MS);
             return;
@@ -1841,6 +1821,15 @@ export function CommunityMessengerCallClient({
             /* 일부 환경 미지원 */
           }
         }
+        /** iOS: HTML preview와 Agora가 동일 트랙 공유 시 프레임 중단 — consume 직전 해제 */
+        heldPreJoinVideoPreviewRef.current = null;
+        if (ringPreviewVideoRef.current) {
+          try {
+            ringPreviewVideoRef.current.srcObject = null;
+          } catch {
+            /* noop */
+          }
+        }
         const tracks = await createCommunityMessengerAgoraLocalTracks(targetSession.callKind);
         localTracksRef.current = tracks;
         await publishCommunityMessengerAgoraTracks({
@@ -1865,7 +1854,6 @@ export function CommunityMessengerCallClient({
           callKind: targetSession.callKind,
           role: targetSession.isMineInitiator ? "initiator" : "recipient",
         });
-        setCallerMediaConsentDone(true);
         markCommunityMessengerMediaTrustedOnce(targetSession.callKind);
         autoJoinBlockedRef.current = false;
       };
@@ -2023,7 +2011,6 @@ export function CommunityMessengerCallClient({
           if (s.status === "active") {
             await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
             markCommunityMessengerMediaTrustedOnce(s.callKind);
-            setCallerMediaConsentDone(true);
             await joinCall(s);
           }
           return;
@@ -2035,7 +2022,6 @@ export function CommunityMessengerCallClient({
         if (s.status === "active") {
           await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
           markCommunityMessengerMediaTrustedOnce(s.callKind);
-          setCallerMediaConsentDone(true);
         }
         await joinCall(s);
       } catch (err) {
@@ -2043,41 +2029,6 @@ export function CommunityMessengerCallClient({
       }
     })();
   }, [acceptIncoming, joinCall]);
-
-  const confirmCallerMediaAndConnect = useCallback(() => {
-    const s = sessionRef.current;
-    if (!s) return;
-    setErrorMessage(null);
-    void (async () => {
-      try {
-        const primeResult =
-          s.callKind === "video"
-            ? await primeVideoCallMediaFromUserGesture({ explicitRetry: true })
-            : await primeVoiceCallMediaFromUserGesture({ explicitRetry: true });
-        if (!primeResult.ok) {
-          setErrorMessage(
-            s.callKind === "video"
-              ? t("nav_messenger_permission_retry_camera_mic")
-              : t("nav_messenger_permission_retry_mic")
-          );
-          return;
-        }
-        setCallerMediaConsentDone(true);
-        const cur = sessionRef.current;
-        if (
-          cur &&
-          cur.isMineInitiator &&
-          cur.sessionMode === "direct" &&
-          cur.status === "active" &&
-          !isTerminalCallSessionStatus(cur.status)
-        ) {
-          await joinCall(cur);
-        }
-      } catch (err) {
-        setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
-      }
-    })();
-  }, [joinCall, t]);
 
   const applyTerminalSessionAfterPatch = useCallback(
     (
@@ -3037,33 +2988,22 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (!session) return;
-    if (!session.isMineInitiator) {
-      setCallerMediaConsentDone(true);
-      return;
+    if (!session.isMineInitiator) return;
+    if (session.sessionMode !== "direct") return;
+    if (session.status !== "active") return;
+    if (isTerminalCallSessionStatus(session.status)) return;
+    const ready =
+      isCommunityMessengerCallMediaReadySync(session.callKind) ||
+      hasUsablePrimedCommunityMessengerDeviceStream(session.callKind);
+    if (!ready) {
+      autoJoinBlockedRef.current = true;
+      setErrorMessage(
+        session.callKind === "video"
+          ? t("nav_messenger_permission_retry_camera_mic")
+          : t("nav_messenger_permission_retry_mic")
+      );
     }
-    let cancelled = false;
-
-    if (isCallMediaReadyForKind(session.callKind)) {
-      setCallerMediaConsentDone(true);
-      return;
-    }
-
-    /** Permissions API 대기 없이 게이트 통과 — 실제 Agora 조인은 아래 active 전용 effect 만 */
-    if (shouldSkipCallerMediaGateOverlaySync(session.callKind)) {
-      setCallerMediaConsentDone(true);
-    }
-
-    void (async () => {
-      const skip =
-        isCallMediaReadyForKind(session.callKind) ||
-        (await shouldSkipCallerMediaGateOverlay(session.callKind));
-      if (cancelled) return;
-      setCallerMediaConsentDone(skip);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [session?.callKind, session?.id, session?.isMineInitiator, session?.sessionMode]);
+  }, [session?.callKind, session?.id, session?.isMineInitiator, session?.sessionMode, session?.status, t]);
 
   /** active 에서만 Agora·로컬 미디어 세션 시작(ringing 에서는 벨/링백만) */
   useEffect(() => {
@@ -3074,11 +3014,15 @@ export function CommunityMessengerCallClient({
     setErrorMessage(null);
     stopCommunityMessengerCallTone();
     if (autoJoinBlockedRef.current) return;
-    if (s.isMineInitiator && !callerMediaConsentDone) return;
     if (joiningRef.current || joinedRef.current) return;
+    if (s.isMineInitiator) {
+      const ready =
+        isCommunityMessengerCallMediaReadySync(s.callKind) ||
+        hasUsablePrimedCommunityMessengerDeviceStream(s.callKind);
+      if (!ready) return;
+    }
     void joinCall(s);
   }, [
-    callerMediaConsentDone,
     joinCall,
     session?.id,
     session?.isMineInitiator,
@@ -3372,13 +3316,7 @@ export function CommunityMessengerCallClient({
       : calleeAcceptBridgeLayout && effectiveDirectPhase === "ringing"
         ? "connecting"
         : effectiveDirectPhase;
-  /** 발신자만: 상대 수락(active) 후 실제 미디어 조인 전에만 게이트 — 링 중에는 ‘전화 거는 중’만 표시 */
-  const showCallerMediaGate =
-    session.isMineInitiator &&
-    !callerMediaConsentDone &&
-    !joined &&
-    session.status === "active";
-
+  /** 발신자: 상대 수락(active) 후 media ready 이면 자동 Agora 조인 — 앱 레벨 권한 오버레이 없음 */
   const acceptFromScreen = () => {
     autoJoinBlockedRef.current = false;
     void acceptIncoming();
@@ -3437,80 +3375,6 @@ export function CommunityMessengerCallClient({
         onClick: () => startOutgoingAgain(session.callKind),
         disabled: !session.peerUserId,
       });
-    }
-  } else if (session.isMineInitiator && showCallerMediaGate) {
-    /** 권한 대기: 음성은 스피커·영상·음소거 탭, 영상은 전환·영상·음소거 탭이 동일 제스처로 GUM·조인 */
-    const gateBusy = busy === "join" || busy === "accept";
-    const grantConnect = () => void confirmCallerMediaAndConnect();
-    if (!videoCall) {
-      primaryActions.push(
-        {
-          id: "speaker",
-          label: t("cm_ui_speaker"),
-          icon: "speaker",
-          active: speakerEnabled,
-          disabled: busy === "upgrade" || gateBusy,
-          onClick: grantConnect,
-        },
-        {
-          id: "upgrade-video",
-          label: t("cm_ui_video_short"),
-          icon: "video",
-          active: session.callKind === "video",
-          disabled: busy === "upgrade" || busy === "end" || gateBusy,
-          onClick: grantConnect,
-        },
-        {
-          id: "mute",
-          label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
-          icon: "mic",
-          active: !micMuted,
-          disabled: busy === "end" || gateBusy,
-          onClick: grantConnect,
-        },
-        {
-          id: "end",
-          label: busy === "end" ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
-          icon: "end",
-          tone: "danger",
-          disabled: busy === "end",
-          onClick: () => void endCall(),
-        }
-      );
-    } else {
-      primaryActions.push(
-        {
-          id: "switch-camera",
-          label: t("cm_ui_switch_camera"),
-          icon: "camera-switch",
-          disabled: gateBusy,
-          onClick: grantConnect,
-        },
-        {
-          id: "camera",
-          label: t("cm_ui_video_short"),
-          icon: "camera",
-          active: true,
-          disabled: gateBusy,
-          onClick: grantConnect,
-        },
-        {
-          id: "mute",
-          label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
-          icon: "mic",
-          active: !micMuted,
-          disabled: gateBusy,
-          onClick: grantConnect,
-        },
-        {
-          id: "end",
-          label: busy === "end" ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
-          icon: "end",
-          tone: "danger",
-          disabled: busy === "end",
-          onClick: () => void endCall(),
-        }
-      );
     }
   } else if (session.isMineInitiator && effectiveDirectPhase === "ringing" && !videoCall) {
     /** 음성 발신 벨 — 권한 이미 허용됨: 실제 스피커·영상 전환·음소거 */
@@ -3726,11 +3590,7 @@ export function CommunityMessengerCallClient({
       ? terminalFailureHeadline
       : failureEndedDetail !== null
         ? t("cm_ui_call_ended")
-        : showCallerMediaGate
-          ? videoCall
-            ? t("cm_ui_mic_camera_permission_required")
-            : t("cm_ui_mic_permission_required")
-          : callScreenPhase === "ringing"
+        : callScreenPhase === "ringing"
             ? session.isMineInitiator
               ? videoCall
                 ? t("cm_ui_outgoing_video_dialing")
@@ -3761,11 +3621,7 @@ export function CommunityMessengerCallClient({
   const subStatusText =
     failureEndedDetail ??
     errorMessage ??
-    (showCallerMediaGate
-      ? videoCall
-        ? t("cm_ui_gate_grant_camera_mic_hint")
-        : t("cm_ui_gate_grant_mic_via_controls_hint")
-      : callScreenPhase === "ringing"
+    (callScreenPhase === "ringing"
         ? session.isMineInitiator
           ? t("cm_ui_waiting_for_peer_answer")
           : t("cm_ui_choose_accept_or_reject")
@@ -3806,7 +3662,6 @@ export function CommunityMessengerCallClient({
     const resolved = resolvePreJoinVideoPreviewStream({
       session,
       localVideoReady,
-      callerMediaConsentDone,
       peekStream: peek,
       heldStream: heldPreJoinVideoPreviewRef.current,
     });
@@ -3815,7 +3670,6 @@ export function CommunityMessengerCallClient({
     }
     return resolved;
   }, [
-    callerMediaConsentDone,
     joined,
     localVideoReady,
     session,
@@ -3914,13 +3768,9 @@ export function CommunityMessengerCallClient({
     topLabel: null,
     onTopLabelClick: null,
     footerNote:
-      showCallerMediaGate && directPhase === "ringing"
-        ? null
-        : showCallerMediaGate
-          ? t("cm_ui_browser_permission_required_footer")
-          : directPhase === "ringing" && ringStartAt
-            ? t("cm_ui_call_timer_starts_after_connect")
-            : null,
+      directPhase === "ringing" && ringStartAt
+        ? t("cm_ui_call_timer_starts_after_connect")
+        : null,
     connectionLabel: callScreenPhase === "connected" ? lastMileLine : null,
     connectedAt: connectedAtTs,
     endedAt: terminalClosedAt,
@@ -4001,12 +3851,6 @@ export function CommunityMessengerCallClient({
     session.status === "ringing" &&
     !joined &&
     insecureOriginBlocked;
-  const showCallerPermissionGateOverlay =
-    Boolean(session) &&
-    !suppressTerminalView &&
-    !showCallerInsecureGateOverlay &&
-    showCallerMediaGate &&
-    (directPhase === "connecting" || directPhase === "ringing");
 
   if (presentation === "minimized") {
     return (
@@ -4020,18 +3864,8 @@ export function CommunityMessengerCallClient({
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
       <CallScreen vm={callVm} variant="page" />
       {showCallerInsecureGateOverlay ? (
-        <CallerMediaGateOverlay
-          variant="insecure"
+        <CallerInsecureGateOverlay
           onClose={() => void endCall()}
-          closeBusy={busy === "end"}
-        />
-      ) : showCallerPermissionGateOverlay ? (
-        <CallerMediaGateOverlay
-          variant="permission"
-          callKind={session.callKind}
-          onConfirm={() => void confirmCallerMediaAndConnect()}
-          onClose={() => void endCall()}
-          confirmBusy={busy === "join" || busy === "accept"}
           closeBusy={busy === "end"}
         />
       ) : null}
@@ -4282,31 +4116,10 @@ function peerDisplayInitial(label: string): string {
   return first ?? "?";
 }
 
-function CallerMediaGateOverlay(
-  props:
-    | {
-        variant: "insecure";
-        onClose: () => void;
-        closeBusy: boolean;
-      }
-    | {
-        variant: "permission";
-        callKind: "voice" | "video";
-        onConfirm: () => void;
-        onClose: () => void;
-        confirmBusy: boolean;
-        closeBusy: boolean;
-      }
-) {
+function CallerInsecureGateOverlay(props: { onClose: () => void; closeBusy: boolean }) {
   const { t } = useI18n();
-  const headline =
-    props.variant === "insecure"
-      ? t("cm_ui_call_https_required_headline")
-      : props.callKind === "video"
-        ? t("cm_ui_mic_camera_permission_required")
-        : t("cm_ui_mic_permission_required");
-  const detail =
-    props.variant === "insecure" ? messengerCallFailureEndedDetail("failed_insecure_context") : null;
+  const headline = t("cm_ui_call_https_required_headline");
+  const detail = messengerCallFailureEndedDetail("failed_insecure_context");
 
   return (
     <div className="pointer-events-auto absolute inset-0 z-[45] flex items-center justify-center bg-black/50 px-5 backdrop-blur-[2px]">
@@ -4315,23 +4128,11 @@ function CallerMediaGateOverlay(
         {detail ? (
           <p className="mt-2 sam-text-body-secondary leading-snug text-white/75">{detail}</p>
         ) : null}
-        {props.variant === "permission" ? (
-          <button
-            type="button"
-            onClick={props.onConfirm}
-            disabled={props.confirmBusy || props.closeBusy}
-            className="mt-4 w-full rounded-full bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
-          >
-            {props.confirmBusy ? t("cm_ui_connecting") : t("cm_ui_allow_and_connect")}
-          </button>
-        ) : null}
         <button
           type="button"
           onClick={props.onClose}
           disabled={props.closeBusy}
-          className={`w-full rounded-full border border-white/20 bg-transparent py-3 sam-text-body font-semibold text-white/90 disabled:opacity-40 ${
-            props.variant === "permission" ? "mt-2" : "mt-4"
-          }`}
+          className="mt-4 w-full rounded-full border border-white/20 bg-transparent py-3 sam-text-body font-semibold text-white/90 disabled:opacity-40"
         >
           {props.closeBusy ? t("cm_ui_ending_call") : t("nav_close")}
         </button>

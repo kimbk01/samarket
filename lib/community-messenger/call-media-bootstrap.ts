@@ -5,12 +5,12 @@ import {
 import { acquireVideoCallStreamWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 import {
   discardPrimedCommunityMessengerDevicePermission,
-  hasCommunityMessengerMediaTrustedMark,
   hasUsablePrimedCommunityMessengerDeviceStream,
+  isCommunityMessengerCallMediaReadySync,
   markCommunityMessengerMediaTrustedOnce,
+  shouldDiscardPrimedBeforeCommunityMessengerPrime,
   storePrimedCommunityMessengerDeviceStream,
 } from "@/lib/community-messenger/call-permission";
-import { isCommunityMessengerMediaBrowserGrantedSync } from "@/lib/community-messenger/media-permissions-query";
 import {
   isCommunityMessengerMediaSecureContext,
   persistDeviceIdsFromMediaStream,
@@ -51,22 +51,12 @@ function mapPrimeError(error: unknown): CallMediaPrimeResult {
 
 /** 영상 통화 즉시 카메라 — trusted·live primed(video)·브라우저 granted(캐시) */
 export function isVideoCallMediaReady(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    hasCommunityMessengerMediaTrustedMark("video") ||
-    hasUsablePrimedCommunityMessengerDeviceStream("video") ||
-    isCommunityMessengerMediaBrowserGrantedSync("video")
-  );
+  return isCommunityMessengerCallMediaReadySync("video");
 }
 
 /** 음성 통화 — trusted·live primed(voice)·브라우저 granted(캐시) */
 export function isVoiceCallMediaReady(): boolean {
-  if (typeof window === "undefined") return false;
-  return (
-    hasCommunityMessengerMediaTrustedMark("voice") ||
-    hasUsablePrimedCommunityMessengerDeviceStream("voice") ||
-    isCommunityMessengerMediaBrowserGrantedSync("voice")
-  );
+  return isCommunityMessengerCallMediaReadySync("voice");
 }
 
 export function isCallMediaReadyForKind(kind: CommunityMessengerCallKind): boolean {
@@ -85,7 +75,9 @@ export async function primeVideoCallMediaFromUserGesture(opts?: {
   if (hasUsablePrimedCommunityMessengerDeviceStream("video")) {
     return { ok: true };
   }
-  discardPrimedCommunityMessengerDevicePermission();
+  if (shouldDiscardPrimedBeforeCommunityMessengerPrime("video")) {
+    discardPrimedCommunityMessengerDevicePermission();
+  }
   try {
     await assertCallMediaNotPersistentlyDenied("video");
     const stream = opts?.explicitRetry
@@ -123,7 +115,9 @@ export async function primeVoiceCallMediaFromUserGesture(_opts?: {
   if (hasUsablePrimedCommunityMessengerDeviceStream("voice")) {
     return { ok: true };
   }
-  discardPrimedCommunityMessengerDevicePermission();
+  if (shouldDiscardPrimedBeforeCommunityMessengerPrime("voice")) {
+    discardPrimedCommunityMessengerDevicePermission();
+  }
   try {
     await assertCallMediaNotPersistentlyDenied("voice");
     const stream = await acquirePrimedCommunityMessengerStream("voice");

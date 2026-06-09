@@ -87,11 +87,14 @@ function shouldUseAcquireSimpleMicPath(constraints: MediaStreamConstraints): boo
 /**
  * DiBaY 마이크 게이트·장치 ID 저장 포함 — 클라이언트는 raw `getUserMedia` 대신 이 함수만 사용.
  */
-export async function getCommunityMessengerUserMedia(constraints: MediaStreamConstraints): Promise<MediaStream> {
+export async function getCommunityMessengerUserMedia(
+  constraints: MediaStreamConstraints,
+  options?: { featureKey?: "messenger_voice_call" | "messenger_video_call" }
+): Promise<MediaStream> {
   if (!isCommunityMessengerMediaSecureContext()) {
     throw new DOMException("insecure context", "NotAllowedError");
   }
-  return invokeGetUserMedia(constraints);
+  return invokeGetUserMedia(constraints, options);
 }
 
 async function invokeGetUserMedia(
@@ -102,8 +105,15 @@ async function invokeGetUserMedia(
     throw new DOMException("getUserMedia unavailable", "NotSupportedError");
   }
 
+  const callFeature =
+    options?.featureKey === "messenger_video_call" || options?.featureKey === "messenger_voice_call";
+  const gateOpts = {
+    featureKey: options?.featureKey,
+    explicitRetry: callFeature,
+  };
+
   if (shouldUseAcquireSimpleMicPath(constraints)) {
-    const stream = await acquireSimpleMicStreamWithDiBaYGate({ featureKey: options?.featureKey });
+    const stream = await acquireSimpleMicStreamWithDiBaYGate(gateOpts);
     persistDeviceIdsFromMediaStream(stream);
     void refreshPreferredCommunityMessengerDevicesFromEnumerate();
     return stream;
@@ -114,10 +124,10 @@ async function invokeGetUserMedia(
 
   if (needsAudio || needsVideo) {
     const gate = needsAudio && needsVideo
-      ? await ensureMicrophoneCameraWithDiBaYGate({ featureKey: options?.featureKey })
+      ? await ensureMicrophoneCameraWithDiBaYGate(gateOpts)
       : needsAudio
-        ? await ensureMicrophoneWithDiBaYGate({ featureKey: options?.featureKey })
-        : await ensureCameraWithDiBaYGate({ featureKey: options?.featureKey });
+        ? await ensureMicrophoneWithDiBaYGate(gateOpts)
+        : await ensureCameraWithDiBaYGate(gateOpts);
     if (!gate.ok) {
       if (gate.reason === "denied") {
         throw new DOMException("Microphone permission denied", "NotAllowedError");
