@@ -134,6 +134,7 @@ import { fetchMessengerCallSoundConfig, getMessengerCallSoundConfigCache } from 
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface, syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { peekMessengerBootstrapCritical, peekMessengerBootstrapFull } from "@/lib/community-messenger/bootstrap-cache";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
 import {
   AGORA_PEER_LEFT_END_GRACE_MS,
@@ -707,6 +708,10 @@ export function CommunityMessengerCallClient({
   }, [session?.id, session?.status]);
   const remoteJoinedRef = useRef(false);
   remoteJoinedRef.current = remoteJoined;
+  const localVideoReadyRef = useRef(false);
+  localVideoReadyRef.current = localVideoReady;
+  const remoteVideoReadyRef = useRef(false);
+  remoteVideoReadyRef.current = remoteVideoReady;
   /** effect 가 백업 폴링 간격을 Realtime 구독 상태에 맞출 수 있게 state 로도 반영 */
   const [sessionRealtimeSubscribed, setSessionRealtimeSubscribed] = useState(false);
   /** Realtime + polling + user-action refresh가 동시에 붙을 때 GET 폭주 방지 */
@@ -3251,6 +3256,11 @@ export function CommunityMessengerCallClient({
     navigateBackFromCommunityMessengerCall(router, s.roomId);
   }, [disposeCallMedia, router]);
 
+  const handlePipSingleTapSwap = useCallback(() => {
+    if (!remoteJoinedRef.current || !localVideoReadyRef.current || !remoteVideoReadyRef.current) return;
+    setLayoutSwapped((prev) => !prev);
+  }, []);
+
   const videoPipGesture = useCallVideoPipGesture({
     sessionId: session?.id,
     enabled: Boolean(
@@ -3267,8 +3277,9 @@ export function CommunityMessengerCallClient({
     micMuted,
     cameraOff: camOff,
     pipLabel: layoutSwapped ? (session?.peerLabel ?? t("common_me")) : t("common_me"),
-    onSingleTap: () => setLayoutSwapped((prev) => !prev),
+    onSingleTap: handlePipSingleTapSwap,
     onExpandFullscreen: handleExpandToFullscreen,
+    doubleTapAction: presentation === "minimized" ? "fullscreen" : "zoom",
   });
 
   if (loading && !session) {
@@ -3842,13 +3853,19 @@ export function CommunityMessengerCallClient({
     }
   }, [localVideoReady]);
 
+  const selfAvatarUrlForPip = useMemo(
+    () =>
+      peekMessengerBootstrapFull()?.me?.avatarUrl ?? peekMessengerBootstrapCritical()?.me?.avatarUrl ?? null,
+    []
+  );
+
   const miniVideoSlotEl = videoCall ? (
     <div className="relative h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
       <div ref={smallVideoRef} className="h-full w-full" />
       {camOff ? (
         <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-black">
           <SamarketUserAvatarThumb
-            avatarUrl={null}
+            avatarUrl={selfAvatarUrlForPip}
             size={40}
             roundedClassName="rounded-full"
             className="ring-1 ring-white/20"

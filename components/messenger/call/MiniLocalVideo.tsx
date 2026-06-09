@@ -26,7 +26,7 @@ export type MiniLocalVideoProps = {
 };
 
 /**
- * 영상 통화 PiP — 16:9, 4모서리 스냅·드래그·indicator.
+ * 영상 통화 PiP — 카톡/텔레그램/바이버식 세로 self view (3:4 · width×1.38) · 4모서리 스냅·드래그.
  */
 const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(function MiniLocalVideo(
   {
@@ -51,8 +51,8 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
     positionMode === "viewport-fixed"
       ? "fixed z-[79]"
       : useAnchoredPosition
-        ? "absolute z-[6]"
-        : "absolute z-[6] bottom-[7.4rem] right-3";
+        ? "absolute z-[25]"
+        : "absolute z-[25] bottom-[7.4rem] right-4";
 
   const sizeStyle: CSSProperties = {
     ...(widthPx != null ? { width: widthPx } : {}),
@@ -64,7 +64,7 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
     <div
       ref={ref}
       style={sizeStyle}
-      className={`touch-none select-none overflow-hidden rounded-[14px] border border-white/10 bg-black shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${positionClass} ${className} ${
+      className={`touch-none select-none overflow-hidden rounded-[16px] border border-white/25 bg-black shadow-[0_8px_28px_rgba(0,0,0,0.4)] ${positionClass} ${className} ${
         onPointerDown ? "cursor-grab active:cursor-grabbing" : ""
       }`}
       onPointerDown={onPointerDown}

@@ -281,14 +281,13 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
           </div>
         ) : null}
-        {renderPip()}
         {vm.participantsSummary ? (
           <div className="absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full bg-black/30 px-3 py-1.5 sam-text-helper font-medium text-white/90 backdrop-blur-sm">
             {vm.participantsSummary}
           </div>
         ) : null}
 
-        {/* 컨트롤 숨김 시 탭으로 복귀 — PiP(z-6)·헤더 버튼(z-8) 아래 레이어 */}
+        {/* 컨트롤 숨김 시 탭으로 복귀 — 보조 PiP(z-20) 아래 레이어 */}
         {autoHideControlsEnabled && !controlsVisible ? (
           <button
             type="button"
@@ -298,6 +297,11 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           />
         ) : null}
       </div>
+
+      {/* 보조 PiP — 하단 컨트롤(z-10) 위 터치 레이어 · stage 좌표계와 동일 inset-0 */}
+      {pipShellMounted ? (
+        <div className="pointer-events-none absolute inset-0 z-[15] min-h-0">{renderPip()}</div>
+      ) : null}
 
       {/* 하단 컨트롤 — 영상 위 오버레이 · 숨김 시 아래로 슬라이드(translate-y-full), 표시 시 아래에서 올라옴 */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[10] overflow-hidden">

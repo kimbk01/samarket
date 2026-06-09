@@ -7,12 +7,15 @@ import {
   clampCallPipDragDelta,
   computeCallPipCornerAnchors,
   computeCallPipDimensions,
+  invalidateCallPipSafeAreaCache,
   migrateLegacyCallPipSnapStorage,
   readCallPipInsetsFromStage,
   readCallPipSnapPosition,
+  resolveCallPipDragSnapCenter,
   snapCallPipToNearestCorner,
   writeCallPipSnapPosition,
   type CallPipCorner,
+  type CallPipDimensions,
   type CallPipInsets,
   type CallVideoPipPositionMode,
 } from "@/lib/community-messenger/call-pip-metrics";
@@ -23,6 +26,15 @@ export type { CallVideoPipPositionMode } from "@/lib/community-messenger/call-pi
 const DRAG_THRESHOLD_PX = 10;
 const DOUBLE_TAP_MS = 300;
 
+type CallPipLayoutSnapshot = {
+  pipSize: CallPipDimensions;
+  anchor: { left: number; top: number };
+  anchors: ReturnType<typeof computeCallPipCornerAnchors>;
+  viewport: { width: number; height: number };
+  insets: CallPipInsets;
+  viewportOffset: { left: number; top: number };
+};
+
 type PipGesture = {
   pointerId: number;
   startClientX: number;
@@ -30,6 +42,8 @@ type PipGesture = {
   originLeft: number;
   originTop: number;
 };
+
+export type CallVideoPipDoubleTapAction = "zoom" | "fullscreen";
 
 export type UseCallVideoPipGestureArgs = {
   sessionId?: string | null;
@@ -45,6 +59,8 @@ export type UseCallVideoPipGestureArgs = {
   pipLabel: string;
   onSingleTap?: () => void;
   onExpandFullscreen?: () => void;
+  /** fullscreen: minimized portal 복귀 · zoom: PiP 더블탭 확대/축소 */
+  doubleTapAction?: CallVideoPipDoubleTapAction;
 };
 
 function readViewportMetrics(): {
@@ -65,6 +81,17 @@ function readViewportMetrics(): {
   };
 }
 
+function readStageViewport(stageEl: HTMLElement): { width: number; height: number } {
+  const rect = stageEl.getBoundingClientRect();
+  const vv = typeof window !== "undefined" ? window.visualViewport : null;
+  const width = Math.max(1, Math.round(rect.width || stageEl.clientWidth));
+  const height = Math.max(
+    1,
+    Math.round(vv?.height ? Math.min(rect.height, vv.height) : rect.height || stageEl.clientHeight)
+  );
+  return { width, height };
+}
+
 export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoCallPipLayoutBindings | null {
   const {
     enabled = true,
@@ -77,6 +104,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
     pipLabel,
     onSingleTap,
     onExpandFullscreen,
+    doubleTapAction = "zoom",
   } = args;
 
   const pipRef = useRef<HTMLDivElement | null>(null);
@@ -90,9 +118,20 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
   const singleTapTimerRef = useRef<number | null>(null);
   const bodyOverflowRef = useRef<string | null>(null);
   const bodyTouchActionRef = useRef<string | null>(null);
+  const pipExpandedRef = useRef(false);
+  const layoutRef = useRef<CallPipLayoutSnapshot | null>(null);
+  const viewportBumpRafRef = useRef(0);
 
   const [corner, setCorner] = useState<CallPipCorner>(CALL_PIP_DEFAULT_CORNER);
   const [viewportTick, setViewportTick] = useState(0);
+
+  const scheduleViewportBump = useCallback(() => {
+    if (viewportBumpRafRef.current) return;
+    viewportBumpRafRef.current = requestAnimationFrame(() => {
+      viewportBumpRafRef.current = 0;
+      setViewportTick((v) => v + 1);
+    });
+  }, []);
 
   useEffect(() => {
     migrateLegacyCallPipSnapStorage();
@@ -101,20 +140,34 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      pipExpandedRef.current = false;
+    }
+  }, [enabled]);
+
+  useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
-    const bump = () => setViewportTick((v) => v + 1);
+    const bump = () => scheduleViewportBump();
+    const onOrientationChange = () => {
+      invalidateCallPipSafeAreaCache();
+      scheduleViewportBump();
+    };
     window.addEventListener("resize", bump);
-    window.addEventListener("orientationchange", bump);
+    window.addEventListener("orientationchange", onOrientationChange);
     const vv = window.visualViewport;
     vv?.addEventListener("resize", bump);
     vv?.addEventListener("scroll", bump);
     return () => {
       window.removeEventListener("resize", bump);
-      window.removeEventListener("orientationchange", bump);
+      window.removeEventListener("orientationchange", onOrientationChange);
       vv?.removeEventListener("resize", bump);
       vv?.removeEventListener("scroll", bump);
+      if (viewportBumpRafRef.current) {
+        cancelAnimationFrame(viewportBumpRafRef.current);
+        viewportBumpRafRef.current = 0;
+      }
     };
-  }, [enabled]);
+  }, [enabled, scheduleViewportBump]);
 
   /** stage 마운트·크기 변화 시 앵커 재계산 (초기 clientWidth 0 방지) */
   useEffect(() => {
@@ -131,7 +184,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
         if (attempts < 90) requestAnimationFrame(attach);
         return;
       }
-      const bump = () => setViewportTick((v) => v + 1);
+      const bump = () => scheduleViewportBump();
       ro = new ResizeObserver(bump);
       ro.observe(stageEl);
       bump();
@@ -142,7 +195,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
       cancelled = true;
       ro?.disconnect();
     };
-  }, [enabled, positionMode, resolvedStageRef]);
+  }, [enabled, positionMode, resolvedStageRef, scheduleViewportBump]);
 
   const layout = useMemo(() => {
     void viewportTick;
@@ -150,16 +203,13 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
     const viewportMetrics = readViewportMetrics();
     const viewport =
       positionMode === "stage-absolute" && stageEl
-        ? {
-            width: stageEl.clientWidth,
-            height: stageEl.clientHeight,
-          }
+        ? readStageViewport(stageEl)
         : {
             width: viewportMetrics.width,
             height: viewportMetrics.height,
           };
 
-    const pipSize = computeCallPipDimensions(viewport.width);
+    const pipSize = computeCallPipDimensions(viewport.width, pipExpandedRef.current);
     const stageInsets = readCallPipInsetsFromStage(stageEl, positionMode);
     const insets =
       positionMode === "viewport-fixed"
@@ -187,6 +237,8 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
           : { left: 0, top: 0 },
     };
   }, [corner, positionMode, resolvedStageRef, stageBottomExtraPx, viewportInsets, viewportTick]);
+
+  layoutRef.current = layout;
 
   const lockBodyScroll = useCallback(() => {
     if (typeof document === "undefined") return;
@@ -274,11 +326,17 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
     resolvedStageRef,
   ]);
 
+  const togglePipExpanded = useCallback(() => {
+    pipExpandedRef.current = !pipExpandedRef.current;
+    setViewportTick((v) => v + 1);
+  }, []);
+
   const onPipPointerDown = useCallback<PointerEventHandler<HTMLDivElement>>(
     (e) => {
       if (!enabled) return;
       if (e.pointerType === "mouse" && e.button !== 0) return;
       e.preventDefault();
+      e.stopPropagation();
       const origin = resolvePointerOrigin();
       if (!origin) return;
       pipDragMovedRef.current = false;
@@ -298,6 +356,8 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
     (e) => {
       const g = pipGestureRef.current;
       if (!g || e.pointerId !== g.pointerId) return;
+      e.preventDefault();
+      e.stopPropagation();
       const rawDx = e.clientX - g.startClientX;
       const rawDy = e.clientY - g.startClientY;
       if (Math.hypot(rawDx, rawDy) > DRAG_THRESHOLD_PX) {
@@ -306,24 +366,28 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
       }
       if (Math.hypot(rawDx, rawDy) <= 4) return;
 
+      const currentLayout = layoutRef.current;
+      if (!currentLayout) return;
+
       const { dx, dy } = clampCallPipDragDelta({
         originLeft: g.originLeft,
         originTop: g.originTop,
         dx: rawDx,
         dy: rawDy,
-        pipSize: layout.pipSize,
-        viewport: layout.viewport,
-        insets: layout.insets,
+        pipSize: currentLayout.pipSize,
+        viewport: currentLayout.viewport,
+        insets: currentLayout.insets,
       });
       applyDragTransform(dx, dy);
     },
-    [applyDragTransform, layout.insets, layout.pipSize, layout.viewport, lockBodyScroll]
+    [applyDragTransform, lockBodyScroll]
   );
 
   const onPipPointerUp = useCallback<PointerEventHandler<HTMLDivElement>>(
     (e) => {
       const g = pipGestureRef.current;
       if (!g || e.pointerId !== g.pointerId) return;
+      e.stopPropagation();
       const moved = pipDragMovedRef.current;
       pipGestureRef.current = null;
       pipDragMovedRef.current = false;
@@ -334,31 +398,42 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
         /* noop */
       }
 
-      resetDragTransform();
-
       if (moved) {
-        const pipEl = pipRef.current;
-        if (!pipEl) return;
-        const pr = pipEl.getBoundingClientRect();
-        let centerX = pr.left + pr.width / 2;
-        let centerY = pr.top + pr.height / 2;
-        if (positionMode === "stage-absolute" && resolvedStageRef.current) {
-          const sr = resolvedStageRef.current.getBoundingClientRect();
-          centerX -= sr.left;
-          centerY -= sr.top;
-        } else if (positionMode === "viewport-fixed") {
-          centerX -= layout.viewportOffset.left;
-          centerY -= layout.viewportOffset.top;
+        const currentLayout = layoutRef.current;
+        if (!currentLayout) {
+          resetDragTransform();
+          return;
         }
+        const rawDx = e.clientX - g.startClientX;
+        const rawDy = e.clientY - g.startClientY;
+        const { dx, dy } = clampCallPipDragDelta({
+          originLeft: g.originLeft,
+          originTop: g.originTop,
+          dx: rawDx,
+          dy: rawDy,
+          pipSize: currentLayout.pipSize,
+          viewport: currentLayout.viewport,
+          insets: currentLayout.insets,
+        });
+        const { x: centerX, y: centerY } = resolveCallPipDragSnapCenter({
+          originLeft: g.originLeft,
+          originTop: g.originTop,
+          dx,
+          dy,
+          pipSize: currentLayout.pipSize,
+        });
+        resetDragTransform();
         const { corner: nextCorner } = snapCallPipToNearestCorner(
           { x: centerX, y: centerY },
-          layout.anchors,
-          layout.pipSize
+          currentLayout.anchors,
+          currentLayout.pipSize
         );
         setCorner(nextCorner);
         writeCallPipSnapPosition(nextCorner);
         return;
       }
+
+      resetDragTransform();
 
       const now = Date.now();
       if (now - lastTapAtRef.current <= DOUBLE_TAP_MS) {
@@ -367,7 +442,11 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
           window.clearTimeout(singleTapTimerRef.current);
           singleTapTimerRef.current = null;
         }
-        onExpandFullscreen?.();
+        if (doubleTapAction === "fullscreen") {
+          onExpandFullscreen?.();
+        } else {
+          togglePipExpanded();
+        }
         return;
       }
       lastTapAtRef.current = now;
@@ -382,15 +461,11 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
       }, DOUBLE_TAP_MS + 16);
     },
     [
-      layout.anchors,
-      layout.pipSize,
-      layout.viewportOffset.left,
-      layout.viewportOffset.top,
+      doubleTapAction,
       onExpandFullscreen,
       onSingleTap,
-      positionMode,
       resetDragTransform,
-      resolvedStageRef,
+      togglePipExpanded,
       unlockBodyScroll,
     ]
   );
@@ -409,7 +484,7 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
 
   useLayoutEffect(() => {
     resetDragTransform();
-  }, [corner, layout.anchor.left, layout.anchor.top, resetDragTransform]);
+  }, [corner, layout.anchor.left, layout.anchor.top, layout.pipSize.height, layout.pipSize.width, resetDragTransform]);
 
   const pipStyle: CSSProperties = useMemo(
     () => ({

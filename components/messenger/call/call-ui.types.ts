@@ -1,7 +1,7 @@
 import type { CSSProperties, PointerEventHandler, ReactNode, RefObject } from "react";
 import type { CallPipCorner, CallVideoPipPositionMode } from "@/lib/community-messenger/call-pip-metrics";
 
-/** 카카오톡식 영상통화: PiP 4모서리 스냅, 드래그, 짧은 탭 스왑·더블탭 전체화면 */
+/** 카카오톡/텔레그램/바이버식 영상통화: PiP 4모서리 스냅, 드래그, 탭 스왑·더블탭 확대 — 세로 self view (3:4) */
 export type VideoCallPipLayoutBindings = {
   stageRef: RefObject<HTMLDivElement | null>;
   pipRef: RefObject<HTMLDivElement | null>;
