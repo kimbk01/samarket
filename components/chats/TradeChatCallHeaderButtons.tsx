@@ -49,6 +49,13 @@ export function TradeChatCallHeaderButtons(props: {
       const cmRid = communityMessengerRoomId?.trim() ?? "";
       if ((!pcRid && !cmRid) || busy) return;
       setBusy(true);
+      const videoPrimeWork =
+        kind === "video"
+          ? primeCommunityMessengerDevicePermissionFromUserGesture(kind).catch(() => undefined)
+          : null;
+      if (kind === "voice") {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+      }
       try {
         let messengerRoomId = cmRid;
         if (!messengerRoomId) {
@@ -91,6 +98,9 @@ export function TradeChatCallHeaderButtons(props: {
           callKind: kind,
           role: "initiator",
         });
+        if (videoPrimeWork) {
+          await videoPrimeWork;
+        }
         router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: messengerRoomId }));
       } catch {
         onErrorMessage(t("chats_trade_call_network_error"));
@@ -112,7 +122,6 @@ export function TradeChatCallHeaderButtons(props: {
           cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "voice" });
           setCmCallLatencyContext({ role: "initiator", callKind: "voice" });
           unlockCommunityMessengerCallPlaybackFromUserGesture();
-          void primeCommunityMessengerDevicePermissionFromUserGesture("voice");
           void startCall("voice");
         }}
         className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
@@ -128,7 +137,6 @@ export function TradeChatCallHeaderButtons(props: {
             cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "video" });
             setCmCallLatencyContext({ role: "initiator", callKind: "video" });
             unlockCommunityMessengerCallPlaybackFromUserGesture();
-            void primeCommunityMessengerDevicePermissionFromUserGesture("video");
             void startCall("video");
           }}
           className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"

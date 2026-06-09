@@ -583,12 +583,25 @@ export function useMessengerRoomPhase2Controller() {
         peerLabel: peerLabel ?? null,
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
-      router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel }));
-      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-        setOutgoingDialLocked(false);
-      }, 0);
+      const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
+      const releaseDialGuard = () => {
+        window.setTimeout(() => {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+        }, 0);
+      };
+      const pushDial = () => {
+        router.push(dialHref);
+        releaseDialGuard();
+      };
+      if (kind === "video") {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
+          .catch(() => undefined)
+          .finally(pushDial);
+      } else {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+        pushDial();
+      }
       return true;
     },
     [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title]
@@ -1652,12 +1665,25 @@ export function useMessengerRoomPhase2Controller() {
         role: "initiator",
       });
       logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
-      router.push(buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer }));
-      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-        setOutgoingDialLocked(false);
-      }, 0);
+      const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer });
+      const releaseDialGuard = () => {
+        window.setTimeout(() => {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+        }, 0);
+      };
+      const pushDial = () => {
+        router.push(dialHref);
+        releaseDialGuard();
+      };
+      if (kind === "video") {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
+          .catch(() => undefined)
+          .finally(pushDial);
+      } else {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+        pushDial();
+      }
       return true;
     },
     [router]

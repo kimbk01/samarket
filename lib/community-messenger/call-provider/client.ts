@@ -162,15 +162,32 @@ export async function createCommunityMessengerAgoraLocalTracks(
     }
   }
 
-  const audioTrack = await createAgoraMicWithPreferredDevice();
   if (kind !== "video") {
+    const audioTrack = await createAgoraMicWithPreferredDevice();
     return { audioTrack, videoTrack: null };
   }
+
+  const audioPromise = createAgoraMicWithPreferredDevice();
+  const videoPromise = createAgoraCamWithPreferredDevice();
   try {
-    const videoTrack = await createAgoraCamWithPreferredDevice();
+    const [audioTrack, videoTrack] = await Promise.all([audioPromise, videoPromise]);
     return { audioTrack, videoTrack };
   } catch (error) {
-    await audioTrack.close();
+    try {
+      const audioTrack = await audioPromise.catch(() => null);
+      if (audioTrack) await audioTrack.close();
+    } catch {
+      /* ignore */
+    }
+    try {
+      const videoTrack = await videoPromise.catch(() => null);
+      if (videoTrack) {
+        videoTrack.stop();
+        videoTrack.close();
+      }
+    } catch {
+      /* ignore */
+    }
     throw error;
   }
 }

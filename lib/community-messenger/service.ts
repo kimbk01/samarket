@@ -809,7 +809,9 @@ async function filterDirectIncomingRowsForPolicy(
       if (row.status !== "ringing") continue;
       void updateCommunityMessengerCallSession({ userId, sessionId: row.id, action: "reject" }).catch(() => {});
     }
-    return [];
+    /** 본인 live(ringing 수신 등) 세션은 목록에 남긴다 — `return []` 는 GET refresh 가 Broadcast UI 를 지움 */
+    const liveRow = rows.find((row) => row.id === viewerLiveSessionId);
+    return liveRow ? [liveRow] : [];
   }
   let out = [...rows];
   const initiatorIds = out.map((r) => trimText(r.initiator_user_id));
@@ -17517,14 +17519,6 @@ export async function listIncomingCommunityMessengerCallSessions(
 ): Promise<CommunityMessengerCallSession[]> {
   const policy = await getMessengerCallAdminPolicyCached();
   const sb = getSupabaseOrNull();
-  let viewerLiveSessionId: string | null = null;
-  if (sb) {
-    viewerLiveSessionId = await getUserLiveDirectCallSessionId(sb, userId, "live");
-    if (policy.busy_auto_reject_enabled && viewerLiveSessionId) {
-      return [];
-    }
-  }
-
   if (sb) {
     if (options?.directOnly) {
       const { data: directRows, error: directError } = await (sb as any)

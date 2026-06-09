@@ -1136,7 +1136,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       outgoingDialSyncGuardRef.current = true;
       setActionError(null);
       cmCallLatencyMarkClick({ surface: "messenger_home", callKind: kind });
-      void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
       const existingRoom = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       if (existingRoom && communityMessengerRoomIsInboxHidden(existingRoom)) {
         void reviveDirectRoomForEntry(existingRoom);
@@ -1158,19 +1157,32 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         role: "initiator",
       });
       rememberCallNavigationReturnPath();
-      router.push(
-        buildCommunityMessengerOutgoingDialHref(
-          roomId
-            ? { kind, roomId, peerLabel: pl || undefined }
-            : { kind, peerUserId: peer, peerLabel: pl || undefined }
-        )
+      const dialHref = buildCommunityMessengerOutgoingDialHref(
+        roomId
+          ? { kind, roomId, peerLabel: pl || undefined }
+          : { kind, peerUserId: peer, peerLabel: pl || undefined }
       );
-      if (typeof window !== "undefined") {
-        window.setTimeout(() => {
+      const releaseDialGuard = () => {
+        if (typeof window !== "undefined") {
+          window.setTimeout(() => {
+            outgoingDialSyncGuardRef.current = false;
+          }, 0);
+        } else {
           outgoingDialSyncGuardRef.current = false;
-        }, 0);
+        }
+      };
+      const pushDial = () => {
+        router.push(dialHref);
+        releaseDialGuard();
+      };
+      /** 영상: 제스처 안에서 GUM 완료 후 이동 — 링 단계 카메라 미리보기·‘준비 중’ 체감 지연 완화 */
+      if (kind === "video") {
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
+          .catch(() => undefined)
+          .finally(pushDial);
       } else {
-        outgoingDialSyncGuardRef.current = false;
+        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+        pushDial();
       }
       return true;
     },

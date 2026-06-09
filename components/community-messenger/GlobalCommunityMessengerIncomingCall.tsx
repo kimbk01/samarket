@@ -105,14 +105,13 @@ import {
 } from "@/lib/layout/incoming-call-backup-poll-policy";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
+import { mergeIncomingCallSessionsAfterFetch } from "@/lib/community-messenger/incoming-call-sessions-merge";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
 const INCOMING_CALL_REALTIME_SCOPE = "community-messenger-incoming-call";
 const INCOMING_CALL_REALTIME_SILENT_AFTER_MS = 12_000;
 
-/** GET 수신 목록이 Realtime INSERT 보다 빨리(또는 빈 배열로) 돌아올 때 낙관적 세션을 지우지 않도록 합친다. */
-const INCOMING_OPTIMISTIC_KEEP_MS = 55_000;
 /** 사용자가 거절한 세션을 merge·Realtime 이 다시 살리지 못하게 함 */
 const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
 /**
@@ -1661,44 +1660,3 @@ export function GlobalCommunityMessengerIncomingCall() {
   }
 }
 
-function mergeIncomingCallSessionsAfterFetch(
-  viewerUserId: string | null,
-  serverList: CommunityMessengerCallSession[],
-  previous: CommunityMessengerCallSession[],
-  dismissedAtBySessionId: Map<string, number>,
-  hardClearedAtBySessionId: Map<string, number>
-): CommunityMessengerCallSession[] {
-  const now = Date.now();
-  pruneDismissedIncomingSessionIds(dismissedAtBySessionId);
-  pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId);
-
-  if (!viewerUserId) {
-    return serverList
-      .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
-      .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
-  }
-
-  const serverFiltered = serverList
-    .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
-    .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
-  const serverIds = new Set(serverFiltered.map((s) => s.id));
-  const previousFiltered = previous
-    .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
-    .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
-  const optimisticExtras = previousFiltered.filter((s) => {
-    if (serverIds.has(s.id)) return false;
-    /** signal-first 프리뷰는 서버 목록에 없을 수 있음 — 취소 후 GET 이 빈 배열이면 여기서 유령 부활 금지 */
-    if (s.isPreview === true || s.source === "invite_preview") return false;
-    if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;
-    if (!messengerUserIdsEqual(s.recipientUserId, viewerUserId)) return false;
-    const started = new Date(s.startedAt).getTime();
-    if (!Number.isFinite(started) || now - started > INCOMING_OPTIMISTIC_KEEP_MS) return false;
-    return true;
-  });
-
-  if (optimisticExtras.length === 0) return serverFiltered;
-
-  return [...serverFiltered, ...optimisticExtras].sort(
-    (a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime()
-  );
-}
