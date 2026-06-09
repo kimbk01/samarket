@@ -9,6 +9,7 @@ import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
+import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
 
 type PermissionGuide = ReturnType<typeof getCommunityMessengerPermissionGuide>;
 
@@ -46,6 +47,27 @@ export function GroupRoomCallOverlay({
   const sessionPanel = groupCall.panel;
   const endedPanel = groupCall.endedPanel;
   useMessengerCallMainBottomNavSuppress(Boolean(sessionPanel || endedPanel));
+
+  const videoRemotesPreview = sessionPanel ? remoteVideoPeers(groupCall) : [];
+  const remoteLeadPreview = videoRemotesPreview[0] ?? groupCall.remotePeers[0] ?? null;
+  const hasLocalPreview = Boolean(groupCall.localStream);
+  const groupPipEnabled = Boolean(
+    sessionPanel?.kind === "video" &&
+      sessionPanel.mode === "active" &&
+      hasLocalPreview &&
+      remoteLeadPreview
+  );
+
+  const groupVideoPipGesture = useCallVideoPipGesture({
+    sessionId: sessionPanel?.sessionId,
+    enabled: groupPipEnabled,
+    positionMode: "stage-absolute",
+    stageBottomExtraPx: 80,
+    micMuted: false,
+    cameraOff: !hasLocalPreview,
+    pipLabel: t("common_me"),
+    onMinimize: groupCall.dismissPanel,
+  });
 
   if (endedPanel) {
     const endedVm: CallScreenViewModel = {
@@ -298,6 +320,8 @@ export function GroupRoomCallOverlay({
       ) : undefined,
     showRemoteVideo: Boolean(remoteLead),
     showLocalVideo: Boolean(hasLocal && remoteLead),
+    pipShellMounted: groupPipEnabled,
+    videoPipLayout: groupPipEnabled ? groupVideoPipGesture : null,
     participantsSummary:
       isGroupRoom && groupCall.participants.length
         ? t("cm_ui_participant_count", { count: groupCall.participants.length })

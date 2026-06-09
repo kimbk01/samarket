@@ -99,15 +99,35 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
   const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-12";
 
-  const pipCornerExtra =
-    (pipShellMounted || vm.showLocalVideo) &&
-    pipBindings &&
-    !pipBindings.pipPixelStyle &&
-    autoHideControlsEnabled &&
-    !controlsVisible
-      ? "!bottom-5"
-      : "";
   const pipChromeHiddenClass = pipShellMounted && !vm.showLocalVideo ? "opacity-0 pointer-events-none" : "";
+
+  const renderPip = () => {
+    if (!pipShellMounted) return null;
+    const bindings = pipBindings;
+    const common = {
+      label: bindings?.pipLabel ?? t("common_me"),
+      widthPx: bindings?.widthPx,
+      heightPx: bindings?.heightPx,
+      style: bindings?.pipStyle ?? undefined,
+      useAnchoredPosition: Boolean(bindings?.pipStyle),
+      positionMode: bindings?.positionMode ?? "stage-absolute",
+      micMuted: bindings?.micMuted ?? !vm.mediaState.micEnabled,
+      cameraOff: bindings?.cameraOff ?? !vm.mediaState.cameraEnabled,
+      onCloseClick: bindings?.onPipClose,
+      onExpand: bindings?.onPipExpand,
+      className: pipChromeHiddenClass.trim(),
+      onPointerDown: bindings?.onPipPointerDown,
+      onPointerMove: bindings?.onPipPointerMove,
+      onPointerUp: bindings?.onPipPointerUp,
+      onPointerCancel: bindings?.onPipPointerCancel,
+      children: vm.miniVideoSlot,
+    };
+
+    if (bindings) {
+      return <MiniLocalVideo ref={bindings.pipRef} {...common} />;
+    }
+    return <MiniLocalVideo {...common} />;
+  };
 
   return (
     <div className="relative z-[2] min-h-0 w-full flex-1 overflow-hidden">
@@ -208,30 +228,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={detailLine} />
           </div>
         ) : null}
-        {pipShellMounted && pipBindings ? (
-          <MiniLocalVideo
-            ref={pipBindings.pipRef}
-            label={pipBindings.pipLabel}
-            minimized
-            useFreePosition={Boolean(pipBindings.pipPixelStyle)}
-            style={pipBindings.pipPixelStyle ?? undefined}
-            className={`${pipCornerExtra} ${pipChromeHiddenClass}`.trim()}
-            onPointerDown={pipBindings.onPipPointerDown}
-            onPointerMove={pipBindings.onPipPointerMove}
-            onPointerUp={pipBindings.onPipPointerUp}
-            onPointerCancel={pipBindings.onPipPointerCancel}
-          >
-            {vm.miniVideoSlot}
-          </MiniLocalVideo>
-        ) : pipShellMounted ? (
-          <MiniLocalVideo
-            label={t("common_me")}
-            minimized={vm.mediaState.localVideoMinimized}
-            className={`${pipCornerExtra} ${pipChromeHiddenClass}`.trim()}
-          >
-            {vm.miniVideoSlot}
-          </MiniLocalVideo>
-        ) : null}
+        {renderPip()}
         {vm.participantsSummary ? (
           <div className="absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full bg-black/30 px-3 py-1.5 sam-text-helper font-medium text-white/90 backdrop-blur-sm">
             {vm.participantsSummary}

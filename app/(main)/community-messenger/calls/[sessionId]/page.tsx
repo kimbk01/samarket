@@ -3,10 +3,13 @@
 import { useParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
+import {
+  readActiveDirectVideoCallSessionId,
+  readMinimizedCommunityCallSessionId,
+} from "@/lib/community-messenger/direct-call-minimize";
 
 /**
- * 통화 화면은 발신 직후 `sessionStorage` 시드 + 클라 GET으로 충분하다.
- * `dynamic(loading:…)` 청크 대기 UI 가 실제 통화 UI 와 겹쳐 보이는 이중 전환을 만들어 정적 import로 통일한다.
+ * 통화 화면 — active direct 영상통화는 `CommunityMessengerActiveCallHost` 가 CallClient 를 단일 상주.
  */
 export default function CommunityMessengerCallPage() {
   const params = useParams();
@@ -15,5 +18,13 @@ export default function CommunityMessengerCallPage() {
   if (!sessionId) {
     return <CommunityMessengerCallRouteLoading />;
   }
+
+  const hostOwnsSession =
+    readActiveDirectVideoCallSessionId() === sessionId || readMinimizedCommunityCallSessionId() === sessionId;
+
+  if (hostOwnsSession) {
+    return null;
+  }
+
   return <CommunityMessengerCallClient key={sessionId} sessionId={sessionId} initialSession={null} />;
 }

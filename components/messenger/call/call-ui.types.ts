@@ -1,6 +1,7 @@
 import type { CSSProperties, PointerEventHandler, ReactNode, RefObject } from "react";
+import type { CallPipCorner, CallVideoPipPositionMode } from "@/lib/community-messenger/call-pip-metrics";
 
-/** 카카오톡식 영상통화: PiP 우하단 기본, 드래그로 이동, 짧은 탭으로 메인↔PiP 스왑 */
+/** 카카오톡식 영상통화: PiP 4모서리 스냅, 드래그, 짧은 탭 스왑·더블탭 전체화면 */
 export type VideoCallPipLayoutBindings = {
   stageRef: RefObject<HTMLDivElement | null>;
   pipRef: RefObject<HTMLDivElement | null>;
@@ -10,8 +11,16 @@ export type VideoCallPipLayoutBindings = {
   onPipPointerCancel: PointerEventHandler<HTMLDivElement>;
   /** PiP 안에 표시되는 사람(작은 쪽이 나/상대) */
   pipLabel: string;
-  /** 스테이지 기준 `left`/`top`(px); 없으면 우하단 CSS */
-  pipPixelStyle?: CSSProperties | null;
+  /** 앵커 기준 `left`/`top`/`width`/`height` */
+  pipStyle?: CSSProperties | null;
+  corner?: CallPipCorner;
+  positionMode?: CallVideoPipPositionMode;
+  widthPx?: number;
+  heightPx?: number;
+  micMuted?: boolean;
+  cameraOff?: boolean;
+  onPipClose?: () => void;
+  onPipExpand?: () => void;
 };
 
 export type CallMode = "voice" | "video";

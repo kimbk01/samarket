@@ -17,7 +17,6 @@ import {
   useRef,
   useState,
   type ReactNode,
-  type PointerEvent as ReactPointerEvent,
 } from "react";
 import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
 
@@ -75,7 +74,8 @@ import {
   setCmCallLatencyContext,
 } from "@/lib/community-messenger/cm-call-debug";
 import { runCommunityMessengerCallMediaCleanup } from "@/lib/community-messenger/community-messenger-call-media-cleanup";
-import { takeDetachedCommunityCallCleanup } from "@/lib/community-messenger/direct-call-minimize";
+import { takeDetachedCommunityCallCleanup, resumeDetachedCommunityCall, minimizeCommunityCallToPip, shouldSkipCallClientUnmountDispose, clearMinimizedCommunityCallSessionFlags, writeActiveDirectVideoCallSession, clearAllCommunityCallLocalSessionFlags } from "@/lib/community-messenger/direct-call-minimize";
+import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import {
   formatMessengerAgoraLastMileLine,
@@ -128,7 +128,8 @@ import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { fetchMessengerCallSoundConfig, getMessengerCallSoundConfigCache } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
-import { registerCommunityMessengerCallRuntime } from "@/lib/community-messenger/call-runtime-registry";
+import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface, syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
 import {
   AGORA_PEER_LEFT_END_GRACE_MS,
   AGORA_RECONNECT_ATTEMPT_MS,
@@ -334,13 +335,15 @@ function resolveHangupTerminalStatusForSnapshot(
 export function CommunityMessengerCallClient({
   sessionId,
   initialSession = null,
+  presentation = "fullscreen",
 }: {
   sessionId: string;
   /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
   initialSession?: CommunityMessengerCallSession | null;
+  presentation?: "fullscreen" | "minimized";
 }) {
   const { t } = useI18n();
-  useMessengerCallMainBottomNavSuppress(true);
+  useMessengerCallMainBottomNavSuppress(presentation !== "minimized");
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
@@ -381,8 +384,6 @@ export function CommunityMessengerCallClient({
   const [localVideoReady, setLocalVideoReady] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
-  /** PiP 드래그 시 스테이지 기준 px; null이면 우하단 CSS */
-  const [pipFreePos, setPipFreePos] = useState<{ left: number; top: number } | null>(null);
   const [camOff, setCamOff] = useState(false);
   const [micMuted, setMicMuted] = useState(false);
   /** 조인 직후(트랙 생성 시점)에도 최신 음소거 의도를 반영 */
@@ -426,18 +427,6 @@ export function CommunityMessengerCallClient({
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
-  const pipWrapRef = useRef<HTMLDivElement | null>(null);
-  type PipGesture = {
-    pointerId: number;
-    startClientX: number;
-    startClientY: number;
-    originLeft: number;
-    originTop: number;
-  };
-  const pipGestureRef = useRef<PipGesture | null>(null);
-  const pipDragMovedRef = useRef(false);
-  /** PiP 드래그 직후 sessionStorage 저장용(비동기 setState 이전 좌표) */
-  const pipFreePosLatestRef = useRef<{ left: number; top: number } | null>(null);
   /** 발신 링 단계: 프라임된 getUserMedia 스트림 HTML 미리보기(조인 시 Agora 소비 전 해제) */
   const ringPreviewVideoRef = useRef<HTMLVideoElement | null>(null);
   /**
@@ -1250,6 +1239,12 @@ export function CommunityMessengerCallClient({
   }, [disposeCallMedia, sessionId]);
 
   useEffect(() => {
+    return () => {
+      resetCommunityMessengerCallRuntimeSurface();
+    };
+  }, [sessionId]);
+
+  useEffect(() => {
     if (session?.callKind !== "video") return;
     if (!joined) return;
     if (cmCallVideoLogOnceRef.current.pipRendered) return;
@@ -1307,6 +1302,7 @@ export function CommunityMessengerCallClient({
     return () => {
       cmCallAudioCleanup("call_client_route_unmount", { sessionId });
       joiningRef.current = false;
+      if (shouldSkipCallClientUnmountDispose(sessionId)) return;
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
   }, [disposeCallMedia, sessionId]);
@@ -1653,116 +1649,6 @@ export function CommunityMessengerCallClient({
       showMessengerSnackbar(t("cm_ui_bluetooth_route_hint"));
     }
   }, []);
-
-  const onPipPointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    if (e.pointerType === "mouse" && e.button !== 0) return;
-    e.preventDefault();
-    const stage = videoStageRef.current;
-    const pipEl = pipWrapRef.current;
-    if (!stage || !pipEl) return;
-    const sr = stage.getBoundingClientRect();
-    const pr = pipEl.getBoundingClientRect();
-    pipDragMovedRef.current = false;
-    pipGestureRef.current = {
-      pointerId: e.pointerId,
-      startClientX: e.clientX,
-      startClientY: e.clientY,
-      originLeft: pr.left - sr.left,
-      originTop: pr.top - sr.top,
-    };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  }, []);
-
-  const onPipPointerMove = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const g = pipGestureRef.current;
-    if (!g || e.pointerId !== g.pointerId) return;
-    const dx = e.clientX - g.startClientX;
-    const dy = e.clientY - g.startClientY;
-    if (Math.hypot(dx, dy) > 10) pipDragMovedRef.current = true;
-    if (Math.hypot(dx, dy) <= 4) return;
-    const stage = videoStageRef.current;
-    const pipEl = pipWrapRef.current;
-    if (!stage || !pipEl) return;
-    const sw = stage.clientWidth;
-    const sh = stage.clientHeight;
-    const pw = pipEl.offsetWidth;
-    const ph = pipEl.offsetHeight;
-    const margin = 8;
-    const maxL = Math.max(margin, sw - pw - margin);
-    const maxT = Math.max(margin, sh - ph - margin);
-    const nextL = g.originLeft + dx;
-    const nextT = g.originTop + dy;
-    const nextPos = {
-      left: Math.min(Math.max(margin, nextL), maxL),
-      top: Math.min(Math.max(margin, nextT), maxT),
-    };
-    pipFreePosLatestRef.current = nextPos;
-    setPipFreePos(nextPos);
-  }, []);
-
-  const onPipPointerUp = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const g = pipGestureRef.current;
-    if (!g || e.pointerId !== g.pointerId) return;
-    const moved = pipDragMovedRef.current;
-    pipGestureRef.current = null;
-    pipDragMovedRef.current = false;
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    } catch {
-      /* noop */
-    }
-    if (moved) {
-      const sid = sessionRef.current?.id?.trim();
-      const pos = pipFreePosLatestRef.current;
-      if (sid && pos) {
-        try {
-          sessionStorage.setItem(`cm_call_pip_pos:${sid}`, JSON.stringify(pos));
-        } catch {
-          /* noop */
-        }
-      }
-    } else {
-      setLayoutSwapped((prev) => !prev);
-    }
-  }, []);
-
-  const onPipPointerCancel = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const g = pipGestureRef.current;
-    if (!g || e.pointerId !== g.pointerId) return;
-    pipGestureRef.current = null;
-    pipDragMovedRef.current = false;
-  }, []);
-
-  useEffect(() => {
-    const sid = session?.id?.trim();
-    if (!sid) {
-      setPipFreePos(null);
-      pipFreePosLatestRef.current = null;
-      return;
-    }
-    try {
-      const raw = sessionStorage.getItem(`cm_call_pip_pos:${sid}`);
-      if (!raw) {
-        setPipFreePos(null);
-        pipFreePosLatestRef.current = null;
-        return;
-      }
-      const j = JSON.parse(raw) as { left?: unknown; top?: unknown };
-      const left = typeof j.left === "number" ? j.left : Number.NaN;
-      const top = typeof j.top === "number" ? j.top : Number.NaN;
-      if (!Number.isFinite(left) || !Number.isFinite(top)) {
-        setPipFreePos(null);
-        pipFreePosLatestRef.current = null;
-        return;
-      }
-      const pos = { left, top };
-      pipFreePosLatestRef.current = pos;
-      setPipFreePos(pos);
-    } catch {
-      setPipFreePos(null);
-      pipFreePosLatestRef.current = null;
-    }
-  }, [session?.id]);
 
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
@@ -2791,9 +2677,11 @@ export function CommunityMessengerCallClient({
     let cancelled = false;
     const shellT0 = perfNow();
     const bootstrap = async () => {
-      const prevDetached = takeDetachedCommunityCallCleanup(sessionId);
-      if (prevDetached) {
-        await prevDetached();
+      if (!resumeDetachedCommunityCall(sessionId)) {
+        const staleDetached = takeDetachedCommunityCallCleanup(sessionId);
+        if (staleDetached) {
+          await staleDetached();
+        }
       }
       const fromServer = initialSessionRef.current;
       const sessionUrl = `/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`;
@@ -3179,8 +3067,9 @@ export function CommunityMessengerCallClient({
         connectedAtTs != null ? Math.max(0, Math.floor((endedAtMs - connectedAtTs) / 1000)) : null
       );
       try {
-        sessionStorage.removeItem("cm_minimized_call_session");
-        sessionStorage.removeItem("cm_minimized_call_room");
+        clearAllCommunityCallLocalSessionFlags();
+        notifyCommunityCallHostSync();
+        resetCommunityMessengerCallRuntimeSurface();
       } catch {
         /* ignore */
       }
@@ -3303,10 +3192,61 @@ export function CommunityMessengerCallClient({
     return () => window.clearInterval(timer);
   }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
+  useEffect(() => {
+    const s = sessionRef.current;
+    if (!s?.id || s.callKind !== "video" || !joinedRef.current || s.status !== "active") return;
+    writeActiveDirectVideoCallSession(s.id);
+    notifyCommunityCallHostSync();
+  }, [joined, session?.callKind, session?.id, session?.status]);
+
   /** 조건부 return 위에 두어야 함 — 그 아래에서 훅을 호출하면 렌더마다 훅 개수가 달라져 런타임 오류가 난다. */
   const closeTerminalView = useCallback(() => {
     navigateBackFromCommunityMessengerCall(router, sessionRef.current?.roomId);
   }, [router]);
+
+  const handleExpandToFullscreen = useCallback(() => {
+    const sid = sessionRef.current?.id?.trim();
+    if (!sid) return;
+    clearMinimizedCommunityCallSessionFlags();
+    resumeDetachedCommunityCall(sid);
+    notifyCommunityCallHostSync();
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "fullscreen" });
+    router.push(`/community-messenger/calls/${encodeURIComponent(sid)}`);
+  }, [router]);
+
+  const handleMinimizeToPip = useCallback(() => {
+    const s = sessionRef.current;
+    if (!s?.id || s.callKind !== "video" || !joinedRef.current) return;
+    minimizeCommunityCallToPip({
+      sessionId: s.id,
+      roomId: s.roomId,
+      cleanup: () => disposeCallMedia(),
+    });
+    notifyCommunityCallHostSync();
+    syncCommunityMessengerCallRuntimeSurface({ presentation: "minimized" });
+    navigateBackFromCommunityMessengerCall(router, s.roomId);
+  }, [disposeCallMedia, router]);
+
+  const videoPipGesture = useCallVideoPipGesture({
+    sessionId: session?.id,
+    enabled: Boolean(
+      session?.callKind === "video" &&
+        shouldMountLocalVideoPipShell({
+          videoCall: true,
+          sessionStatus: session?.status,
+          joined,
+        })
+    ),
+    positionMode: presentation === "minimized" ? "viewport-fixed" : "stage-absolute",
+    stageRef: videoStageRef,
+    stageBottomExtraPx: 80,
+    micMuted,
+    cameraOff: camOff,
+    pipLabel: layoutSwapped ? (session?.peerLabel ?? t("common_me")) : t("common_me"),
+    onSingleTap: () => setLayoutSwapped((prev) => !prev),
+    onExpandFullscreen: handleExpandToFullscreen,
+    onMinimize: handleMinimizeToPip,
+  });
 
   if (loading && !session) {
     /** 시드 없이 진입한 짧은 구간 — 보라 플레이스홀더(`RouteLoading`)는 실제 통화 UI 와 겹쳐 보여 동일 껍데기로만 표시 */
@@ -3879,6 +3819,44 @@ export function CommunityMessengerCallClient({
     }
   }, [localVideoReady]);
 
+  const miniVideoSlotEl = videoCall ? (
+    <div className="relative h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+      <div ref={smallVideoRef} className="h-full w-full" />
+      {camOff ? (
+        <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1 bg-black/75 px-2">
+          <span className="text-center sam-text-xxs font-semibold leading-tight text-white/95">{t("cm_ui_camera_off")}</span>
+        </div>
+      ) : null}
+    </div>
+  ) : undefined;
+
+  useLayoutEffect(() => {
+    const livePresentation =
+      presentation === "minimized"
+        ? "minimized"
+        : joined && session?.callKind === "video" && session.status === "active"
+          ? "fullscreen"
+          : "idle";
+    syncCommunityMessengerCallRuntimeSurface({
+      presentation: livePresentation,
+      videoPipLayout: pipShellMounted ? videoPipGesture : null,
+      miniVideoSlot: miniVideoSlotEl ?? null,
+      expandToFullscreen: handleExpandToFullscreen,
+      minimizeToPip: handleMinimizeToPip,
+    });
+  }, [
+    camOff,
+    handleExpandToFullscreen,
+    handleMinimizeToPip,
+    joined,
+    miniVideoSlotEl,
+    pipShellMounted,
+    presentation,
+    session?.callKind,
+    session?.status,
+    videoPipGesture,
+  ]);
+
   const callVm: CallScreenViewModel = {
     mode: videoCall ? "video" : "voice",
     direction: session.isMineInitiator ? "outgoing" : "incoming",
@@ -3945,31 +3923,11 @@ export function CommunityMessengerCallClient({
         ) : null}
       </div>
     ) : undefined,
-    miniVideoSlot: videoCall ? (
-      <div className="relative h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
-        <div ref={smallVideoRef} className="h-full w-full" />
-        {camOff ? (
-          <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1 bg-black/75 px-2">
-            <span className="text-center sam-text-xxs font-semibold leading-tight text-white/95">{t("cm_ui_camera_off")}</span>
-          </div>
-        ) : null}
-      </div>
-    ) : undefined,
+    miniVideoSlot: miniVideoSlotEl,
     showRemoteVideo: videoCall ? remoteJoined && remoteVideoReady : false,
     pipShellMounted,
     showLocalVideo: videoPipChromeActive,
-    videoPipLayout: pipShellMounted
-        ? {
-            stageRef: videoStageRef,
-            pipRef: pipWrapRef,
-            onPipPointerDown,
-            onPipPointerMove,
-            onPipPointerUp,
-            onPipPointerCancel,
-            pipLabel: layoutSwapped ? session.peerLabel : t("common_me"),
-            pipPixelStyle: pipFreePos ? { left: pipFreePos.left, top: pipFreePos.top } : null,
-          }
-        : null,
+    videoPipLayout: pipShellMounted ? videoPipGesture : null,
     participantsSummary: null,
     suppressTerminalView,
     /**
@@ -4003,6 +3961,14 @@ export function CommunityMessengerCallClient({
     !showCallerInsecureGateOverlay &&
     showCallerMediaGate &&
     (directPhase === "connecting" || directPhase === "ringing");
+
+  if (presentation === "minimized") {
+    return (
+      <div className="fixed -left-[9999px] top-0 h-px w-px overflow-hidden opacity-0 pointer-events-none" aria-hidden>
+        {videoCall ? <div ref={largeVideoRef} className="h-full w-full" /> : null}
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">

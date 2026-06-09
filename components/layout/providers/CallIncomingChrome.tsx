@@ -7,6 +7,7 @@ import { resolveSuppressIncomingCallOverlay } from "@/lib/layout/conditional-app
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/CallActiveSessionRecoveryHost";
+import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 
 const IncomingCallOverlay = dynamic(
   () =>
@@ -27,6 +28,7 @@ export function CallIncomingChrome() {
   return (
     <CallProvider>
       <CallActiveSessionRecoveryHost />
+      <CommunityMessengerActiveCallHost />
       {suppressOverlay ? null : (
         <IncomingCallOverlayChunkBoundary>
           <IncomingCallOverlay />

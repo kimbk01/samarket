@@ -10,6 +10,10 @@ import {
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
 } from "@/lib/community-messenger/call-active-session-recovery";
+import {
+  readActiveDirectVideoCallSessionId,
+  readMinimizedCommunityCallSessionId,
+} from "@/lib/community-messenger/direct-call-minimize";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const MAX_RECOVERY_ATTEMPTS = 2;
@@ -39,6 +43,10 @@ export function CallActiveSessionRecoveryHost() {
     const tryRecovery = async (reason: "initial" | "auth_ready"): Promise<void> => {
       if (cancelled || routedRef.current || inFlightRef.current) return;
       if (pathname.startsWith("/community-messenger/calls/")) return;
+      if (readMinimizedCommunityCallSessionId() || readActiveDirectVideoCallSessionId()) {
+        routedRef.current = true;
+        return;
+      }
       if (attemptCountRef.current >= MAX_RECOVERY_ATTEMPTS) return;
 
       const syncUserId = getCurrentUser()?.id?.trim();

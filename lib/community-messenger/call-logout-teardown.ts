@@ -1,6 +1,12 @@
 "use client";
 
-import { getCommunityMessengerCallRuntime } from "@/lib/community-messenger/call-runtime-registry";
+import { getCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
+import {
+  clearAllCommunityCallLocalSessionFlags,
+  forceDisposeDetachedCommunityCall,
+} from "@/lib/community-messenger/direct-call-minimize";
+import { clearCallPipCornerStorage, clearLegacyCallPipPositionStorage } from "@/lib/community-messenger/call-pip-metrics";
+import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { forceReleaseAllIncomingCallRealtimeSubscriptions } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { stopCommunityMessengerCallFeedback, stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
@@ -25,6 +31,13 @@ export async function teardownCommunityMessengerCallOnAuthExit(reason: "logout" 
       /* best-effort */
     }
   }
+
+  await forceDisposeDetachedCommunityCall();
+  clearAllCommunityCallLocalSessionFlags();
+  clearCallPipCornerStorage();
+  clearLegacyCallPipPositionStorage();
+  resetCommunityMessengerCallRuntimeSurface();
+  notifyCommunityCallHostSync();
 
   forceReleaseAllIncomingCallRealtimeSubscriptions();
 
