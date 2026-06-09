@@ -4,7 +4,7 @@ import { Check, ChevronDown, Clock, MessageCircle, Phone, X } from "lucide-react
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CallScreenViewModel } from "./call-ui.types";
 
-/** 수신 벨 — 텔레그램 iOS형: 풀스크린 단색, 상단 중앙 앱·통화 종류, 큰 이름, 중하단 보조/주 버튼(하단 시스템·탭바 여유). */
+/** 수신 벨 — 텔레그램 iOS형: 풀스크린 단색, 상단 중앙 앱·통화 종류, 큰 이름, 중하단 보조/주 버튼. */
 export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
   const { t } = useI18n();
   const accept = vm.primaryActions.find((a) => a.icon === "accept" || a.tone === "accept") ?? null;
@@ -15,7 +15,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
     vm.mode === "video" ? t("cm_ui_samarket_video_call_brand") : t("cm_ui_samarket_voice_call_brand");
 
   return (
-    <div className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[#8B5E2E] px-5 pb-[max(1rem,calc(4rem+env(safe-area-inset-bottom,0px)+8px))]">
+    <div className="relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden bg-[#8B5E2E] px-5 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+12px))]">
       <button
         type="button"
         onClick={() => vm.onBack?.()}

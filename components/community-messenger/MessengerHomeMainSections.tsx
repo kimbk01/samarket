@@ -211,7 +211,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             chatListChip={chatListChip}
             onChatListChipChange={onChatListChipChange}
             emptyMessage={messengerChatListEmptyMessageForChip(chatListChip)}
-            showFilters
+            showFilters={entryOriginQuery !== "delivery"}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
             onCloseMenuItem={onCloseMenuItem}

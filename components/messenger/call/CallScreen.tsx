@@ -11,6 +11,10 @@ import { OutgoingCallPanel } from "./OutgoingCallPanel";
 import { VoiceCallView } from "./VoiceCallView";
 import type { CallScreenViewModel } from "./call-ui.types";
 
+/** 음성 발신 벨 — `OutgoingCallView` 와 동일, 셸 전체 배경용 */
+const OUTGOING_VOICE_RING_SURFACE =
+  "bg-[linear-gradient(180deg,#6b3df1_0%,#5a35d8_28%,#3d2699_55%,#2a1a6e_100%)]";
+
 export function CallScreen({
   vm,
   variant = "overlay",
@@ -35,26 +39,33 @@ export function CallScreen({
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
   const telegramCallSurface = "bg-[#8B5E2E]";
   const useTelegramSolidShell = isIncomingRinging;
+  const useOutgoingVoiceRingShell = isOutgoingVoiceRinging;
+  const shellSurfaceClassName = useTelegramSolidShell
+    ? telegramCallSurface
+    : useOutgoingVoiceRingShell
+      ? OUTGOING_VOICE_RING_SURFACE
+      : undefined;
   /**
    * 발신 영상은 항상 `ConnectedVideoView` 단일 레이어(중복 `CallBackground`·그라데이션 없음).
    * 원격 연결 후에도 첨부1처럼 카메라/영상 면이 끊기지 않게 한다.
    */
   const hideCallBackground =
     useTelegramSolidShell || isOutgoingVoiceRinging || (vm.mode === "video" && vm.direction === "outgoing");
-  /** 발신 영상 — 브라우저 내 `< 뒤로` 헤더 없이 safe-area 만 사용 */
+  /** 발신 영상·음성 벨 — 브라우저 내 `< 뒤로` 헤더 없이 safe-area 만 사용 */
   const showCallHeader =
     !(vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") &&
-    !(vm.mode === "video" && vm.direction === "outgoing");
+    !(vm.mode === "video" && vm.direction === "outgoing") &&
+    !(isOutgoingVoiceRinging);
 
   return (
     <CallScreenShell
       variant={variant === "dock-top" ? "dock-top" : variant}
-      surfaceClassName={useTelegramSolidShell ? telegramCallSurface : undefined}
+      surfaceClassName={shellSurfaceClassName}
       className={
         variant === "dock-top"
           ? "min-h-0 overflow-hidden rounded-b-3xl shadow-2xl"
           : variant === "page"
-            ? "h-full max-h-full min-h-0 overflow-hidden"
+            ? "min-h-0 overflow-hidden"
             : "h-full min-h-0 overflow-hidden"
       }
     >
@@ -75,17 +86,16 @@ export function CallScreen({
             trailing={null}
           />
         ) : null}
-        {renderCallView(vm, variant)}
+        {renderCallView(vm)}
       </div>
     </CallScreenShell>
   );
 }
 
-function renderCallView(
-  vm: CallScreenViewModel,
-  variant: "overlay" | "page" | "dock-top",
-) {
-  if (vm.phase === "ended" || vm.phase === "declined" || vm.phase === "missed" || vm.phase === "failed") {
+function renderCallView(vm: CallScreenViewModel) {
+  const isTerminalPhase =
+    vm.phase === "ended" || vm.phase === "declined" || vm.phase === "missed" || vm.phase === "failed";
+  if (isTerminalPhase && !vm.suppressTerminalView) {
     return <EndedCallView vm={vm} />;
   }
   if (vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") {

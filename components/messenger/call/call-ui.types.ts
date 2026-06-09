@@ -91,4 +91,6 @@ export type CallScreenViewModel = {
   autoCloseMs?: number | null;
   /** 영상 발신 솔로(상대 영상 전) — 상단 「사마켓 영상 통화」 브랜드 줄 숨김(텔레그램식). */
   hideOutgoingVideoBrandRow?: boolean;
+  /** 벨 거절·취소 직후 `EndedCallView` 대신 ringing UI 유지(복귀 전 단일 화면). */
+  suppressTerminalView?: boolean;
 };
