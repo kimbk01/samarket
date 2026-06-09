@@ -223,6 +223,8 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   setPageError: Dispatch<SetStateAction<string | null>>;
   refresh: (silent?: boolean) => Promise<void>;
   homeRealtimeGateOpen: boolean;
+  /** `deferredCallLog` 즉시 보강 — 통화 탭 진입 시 1200ms follow-up 대기 생략 */
+  hydrateDeferredCallLogs: () => Promise<void>;
 };
 
 /**
@@ -1278,6 +1280,12 @@ export function useCommunityMessengerHomeBootstrap({
     };
   }, [homeRealtimeGateOpen, data?.me?.id]);
 
+  /** `deferredCallLog` — 통화 탭 진입 등에서 1200ms follow-up 을 기다리지 않고 즉시 보강 */
+  const hydrateDeferredCallLogs = useCallback(async () => {
+    if (!dataRef.current?.deferredCallLog) return;
+    await mergeDeferredMessengerCallLogs();
+  }, [mergeDeferredMessengerCallLogs]);
+
   return {
     data,
     setData,
@@ -1289,5 +1297,6 @@ export function useCommunityMessengerHomeBootstrap({
     setPageError,
     refresh,
     homeRealtimeGateOpen,
+    hydrateDeferredCallLogs,
   };
 }

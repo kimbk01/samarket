@@ -529,7 +529,9 @@ export function useCommunityMessengerHomeState({
   const openChatJoinedItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const openChatJoinedItems = useMemo(() => {
     const next = unifiedRooms.filter(
-      (item) => item.room.roomType === "open_group" && !communityMessengerRoomIsInboxHidden(item.room)
+      (item) =>
+        (item.room.roomType === "private_group" || item.room.roomType === "open_group") &&
+        !communityMessengerRoomIsInboxHidden(item.room)
     );
     return stabilizeRoomListItems(next, openChatJoinedItemsStableRef);
   }, [unifiedRooms]);

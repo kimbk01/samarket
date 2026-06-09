@@ -9,12 +9,13 @@ import {
   MESSENGER_SETTINGS_SHEET_DEVICE_HEIGHT_RATIO,
 } from "@/lib/main-menu/bottom-nav-config";
 
-export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom";
+export type MessengerHomeBottomSheetAnchor = "above-bottom-nav" | "device-bottom" | "center";
 
 /**
  * 메신저 홈(채팅·친구·모임) 오버레이 — `body` 포털·본문 스크롤.
- * - `above-bottom-nav`: 하단 탭 상단에 맞춤(알림·친구 추가 등)
- * - `device-bottom`: 기기 최하단에서 뷰포트 비율만큼 올라옴(설정 시트, 기본 70%)
+ * - `above-bottom-nav`: 하단 탭 상단에 맞춤(알림 등)
+ * - `device-bottom`: 기기 최하단에서 뷰포트 비율만큼 올라옴(설정·그룹 생성, 기본 70%)
+ * - `center`: 화면 중앙 팝업(친구 추가)
  */
 export function MessengerHomeBottomSheetShell({
   onClose,
@@ -42,7 +43,7 @@ export function MessengerHomeBottomSheetShell({
   }, []);
 
   useEffect(() => {
-    if (!mounted || anchor !== "device-bottom") return;
+    if (!mounted || (anchor !== "device-bottom" && anchor !== "center")) return;
     const id = requestAnimationFrame(() => setEntered(true));
     return () => cancelAnimationFrame(id);
   }, [mounted, anchor]);
@@ -58,12 +59,17 @@ export function MessengerHomeBottomSheetShell({
   if (!mounted || typeof document === "undefined" || !document.body) return null;
 
   const deviceBottom = anchor === "device-bottom";
+  const center = anchor === "center";
   const panelAnchorClass = deviceBottom
     ? MESSENGER_HOME_BOTTOM_SHEET_DEVICE_BOTTOM_CLASS
-    : MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS;
+    : center
+      ? "messenger-home-center-sheet-panel"
+      : MESSENGER_HOME_BOTTOM_SHEET_PANEL_CLASS;
   const panelMotionClass =
     deviceBottom ?
       entered ? "messenger-home-bottom-sheet-panel--entered" : "messenger-home-bottom-sheet-panel--entering"
+    : center ?
+      entered ? "messenger-home-center-sheet-panel--entered" : "messenger-home-center-sheet-panel--entering"
     : "";
 
   return createPortal(
@@ -86,7 +92,7 @@ export function MessengerHomeBottomSheetShell({
             } as CSSProperties)
           : undefined
         }
-        className={`absolute inset-x-0 flex w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)] ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
+        className={`${center ? "fixed" : "absolute inset-x-0 w-full"} flex flex-col overflow-hidden ${center ? "rounded-[var(--messenger-radius-md)]" : "rounded-t-[var(--messenger-radius-md)]"} border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)] ${panelAnchorClass} ${panelMotionClass} ${panelClassName}`}
       >
         {children}
       </div>

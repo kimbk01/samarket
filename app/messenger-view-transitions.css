@@ -11,6 +11,8 @@
   --sam-messenger-room-enter-duration: 240ms;
   --sam-messenger-room-exit-duration: 220ms;
   --sam-messenger-pillar-list-enter-duration: 360ms;
+  --sam-messenger-home-section-enter-duration: 360ms;
+  --sam-messenger-home-section-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
   --sam-messenger-room-enter-easing: cubic-bezier(0.2, 0, 0, 1);
   --sam-messenger-room-exit-easing: cubic-bezier(0.4, 0, 1, 1);
   --sam-messenger-pillar-list-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
@@ -65,10 +67,47 @@
   will-change: transform;
 }
 
+/* 메신저 홈 2단 탭 본문 — 친구 목록: 좌→우 / 그룹방: 하→상 */
+@keyframes cm-messenger-section-enter-from-left {
+  from {
+    transform: translate3d(-28px, 0, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes cm-messenger-section-enter-from-bottom {
+  from {
+    transform: translate3d(0, 24px, 0);
+    opacity: 0;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+  }
+}
+
+.cm-messenger-section-enter-friends {
+  animation: cm-messenger-section-enter-from-left var(--sam-messenger-home-section-enter-duration)
+    var(--sam-messenger-home-section-enter-easing) both;
+  contain: paint;
+}
+
+.cm-messenger-section-enter-open-chat {
+  animation: cm-messenger-section-enter-from-bottom var(--sam-messenger-home-section-enter-duration)
+    var(--sam-messenger-home-section-enter-easing) both;
+  contain: paint;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .messenger-enter-active,
   .messenger-exit-active,
-  .sam-messenger-pillar-list-enter {
+  .sam-messenger-pillar-list-enter,
+  .cm-messenger-section-enter-friends,
+  .cm-messenger-section-enter-open-chat {
     transition-duration: 1ms !important;
     animation-duration: 1ms !important;
   }

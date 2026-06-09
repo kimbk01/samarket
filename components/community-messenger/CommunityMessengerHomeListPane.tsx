@@ -103,7 +103,8 @@ type Props = {
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: any) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
-  onOpenMeetingFindStable: () => void;
+  onCreateGroupStable: () => void;
+  onCreateOpenGroupStable: () => void;
   incomingRequestCount: number;
   pageError: string | null;
   loginRequiredText: string;
@@ -117,7 +118,6 @@ type Props = {
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
   showSectionTabs?: boolean;
-  onOpenFriendManager?: () => void;
 };
 
 function messengerPillarSummaryDisplayEqual(a: MessengerPillarSummary, b: MessengerPillarSummary): boolean {
@@ -258,9 +258,9 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   }
   if (prev.openRoomActions !== next.openRoomActions) reasons.push("openRoomActions");
   if (prev.onChatListChipChange !== next.onChatListChipChange) reasons.push("onChatListChipChange");
-  if (prev.onOpenMeetingFindStable !== next.onOpenMeetingFindStable) reasons.push("onOpenMeetingFindStable");
+  if (prev.onCreateGroupStable !== next.onCreateGroupStable) reasons.push("onCreateGroupStable");
+  if (prev.onCreateOpenGroupStable !== next.onCreateOpenGroupStable) reasons.push("onCreateOpenGroupStable");
   if (prev.onRetry !== next.onRetry) reasons.push("onRetry");
-  if (prev.onOpenFriendManager !== next.onOpenFriendManager) reasons.push("onOpenFriendManager");
   if (prev.friendQuickMenuBlocksTabSwipeRef !== next.friendQuickMenuBlocksTabSwipeRef) {
     reasons.push("friendQuickMenuBlocksTabSwipeRef");
   }
@@ -435,7 +435,8 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               chatKindFilter={props.chatKindFilter}
               onChatListChipChange={props.onChatListChipChange}
               openChatJoinedItems={props.openChatJoinedItems}
-              onOpenMeetingFind={props.onOpenMeetingFindStable}
+              onCreateGroup={props.onCreateGroupStable}
+              onCreateOpenGroup={props.onCreateOpenGroupStable}
               incomingRequestCount={props.incomingRequestCount}
               pillarSummaries={props.pillarSummaries ?? null}
               entryOriginQuery={props.entryOriginQuery ?? null}
@@ -444,7 +445,6 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               callsHydrating={props.callsHydrating ?? false}
               showSectionTabs={props.showSectionTabs}
               onPrimarySectionChange={props.onPrimarySectionChange}
-              onOpenFriendManager={props.onOpenFriendManager}
             />
           </div>
         ) : null}

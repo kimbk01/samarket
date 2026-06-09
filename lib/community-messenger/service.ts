@@ -23,6 +23,7 @@ import {
 } from "@/lib/community-messenger/message-actions/message-reaction-policy";
 import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { buildProfileUserSearchOrFilter } from "@/lib/community-messenger/profile-user-search-filter";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
   downsampleVoiceWaveformPeaks,
@@ -8370,17 +8371,17 @@ export async function searchCommunityMessengerUsers(
   userId: string,
   query: string
 ): Promise<CommunityMessengerProfileLite[]> {
-  const keywordRaw = trimText(query);
-  const keyword = keywordRaw.startsWith("@") ? keywordRaw.slice(1) : keywordRaw;
-  if (!keyword) return [];
+  const orFilter = buildProfileUserSearchOrFilter(trimText(query));
+  if (!orFilter) return [];
   const sb = getSupabaseOrNull();
   if (!sb) return [];
-  const { data } = await (sb as any)
+  const { data, error } = await (sb as any)
     .from("profiles")
     .select("id")
-    .ilike("username", keyword)
+    .or(orFilter)
     .neq("id", userId)
     .limit(12);
+  if (error) return [];
   return hydrateProfiles(
     userId,
     dedupeIds(((data ?? []) as Array<{ id?: string }>).map((row) => trimText(row.id)))
@@ -8676,23 +8677,24 @@ async function isFriend(userId: string, targetUserId: string): Promise<boolean> 
   return ids.includes(targetUserId);
 }
 
-async function validateCommunityMessengerGroupTargets(
+/** 그룹 생성·초대 대상 검증 — 친구 여부 무관, 차단·무효 ID·중복만 정리. */
+export async function validateCommunityMessengerGroupTargets(
   userId: string,
   memberIds: string[]
 ): Promise<{ ok: true; memberIds: string[] } | { ok: false; error: string }> {
   const peerIds = dedupeIds(memberIds.filter((id) => id && id !== userId));
   if (!peerIds.length) return { ok: false, error: "members_required" };
 
-  const checks = await Promise.all(
-    peerIds.map(async (memberId) => ({
-      memberId,
-      isFriend: await isFriend(userId, memberId),
-      allowedByBlock: await ensureNoBlockedEitherWay(userId, memberId),
-    }))
+  const blockChecks = await Promise.all(
+    peerIds.map(async (memberId) => ensureNoBlockedEitherWay(userId, memberId))
   );
+  if (blockChecks.some((allowed) => !allowed)) return { ok: false, error: "blocked_target" };
 
-  if (checks.some((item) => !item.allowedByBlock)) return { ok: false, error: "blocked_target" };
-  if (checks.some((item) => !item.isFriend)) return { ok: false, error: "friend_required" };
+  const profileMap = await fetchProfilesByIds(peerIds);
+  if (peerIds.some((memberId) => !profileMap.has(memberId))) {
+    return { ok: false, error: "invalid_target" };
+  }
+
   return { ok: true, memberIds: peerIds };
 }
 
@@ -14919,14 +14921,6 @@ async function appendCommunityMessengerSystemMessage(input: {
           updated_at: createdAt,
         })
         .eq("id", roomId);
-      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
-        p_room_id: roomId,
-        p_sender_id: input.userId,
-        p_read_at: createdAt,
-      });
-      if (unreadRpcError) {
-        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
       return { ok: true };
     }
     if (!isMissingTableError(insertError)) {
@@ -14951,9 +14945,6 @@ async function appendCommunityMessengerSystemMessage(input: {
   room.lastMessage = content;
   room.lastMessageAt = createdAt;
   room.lastMessageType = "system";
-  for (const participant of dev.participants.filter((row) => row.roomId === roomId)) {
-    participant.unreadCount = participant.userId === input.userId ? 0 : participant.unreadCount + 1;
-  }
   return { ok: true };
 }
 

@@ -101,7 +101,8 @@ export function MessengerFriendAddSheet({
       onClose={onClose}
       closeAriaLabel={t("nav_close")}
       dialogAriaLabel={t("cm_ui_add_friend")}
-      panelClassName="rounded-t-ui-rect"
+      anchor="center"
+      panelClassName="rounded-ui-rect"
     >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>

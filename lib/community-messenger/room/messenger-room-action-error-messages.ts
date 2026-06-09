@@ -37,6 +37,12 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_room_readonly_error");
     case "friend_required":
       return t("nav_messenger_friend_required");
+    case "blocked_target":
+      return t("nav_messenger_blocked_target");
+    case "invalid_target":
+      return t("nav_messenger_invalid_target");
+    case "members_required":
+      return t("nav_messenger_members_required");
     case "target_not_found":
       return t("nav_messenger_target_not_found");
     case "invalid_role":

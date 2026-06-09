@@ -88,33 +88,29 @@ export function MessengerCallLogsPanel({
     setError(null);
   }, [callsHydrating]);
 
-  /** bootstrap deferred 가 지연·실패할 때 탭 진입 1회 fallback */
+  /** bootstrap deferred 가 지연·실패할 때 탭 진입 즉시 1회 fallback */
   useEffect(() => {
     if (!callsHydrating || fallbackFetchedRef.current) return;
+    fallbackFetchedRef.current = true;
     let cancelled = false;
-    const timer = window.setTimeout(() => {
-      if (cancelled || fallbackFetchedRef.current) return;
-      fallbackFetchedRef.current = true;
-      void (async () => {
-        try {
-          const res = await fetch("/api/community-messenger/calls", { credentials: "include" });
-          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; calls?: CommunityMessengerCallLog[] };
-          if (cancelled) return;
-          if (!res.ok || !json.ok) {
-            setError(t("cm_ui_call_logs_load_failed"));
-            return;
-          }
-          setCalls(json.calls ?? []);
-        } catch {
-          if (!cancelled) setError(t("cm_ui_call_logs_network_failed"));
-        } finally {
-          if (!cancelled) setLoading(false);
+    void (async () => {
+      try {
+        const res = await fetch("/api/community-messenger/calls", { credentials: "include" });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; calls?: CommunityMessengerCallLog[] };
+        if (cancelled) return;
+        if (!res.ok || !json.ok) {
+          setError(t("cm_ui_call_logs_load_failed"));
+          return;
         }
-      })();
-    }, 2200);
+        setCalls(json.calls ?? []);
+      } catch {
+        if (!cancelled) setError(t("cm_ui_call_logs_network_failed"));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
   }, [callsHydrating, t]);
 
@@ -133,13 +129,19 @@ export function MessengerCallLogsPanel({
     [router, entryOrigin]
   );
 
-  if (loading && calls.length === 0 && !error) {
-    return <p className="py-10 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>;
-  }
   if (error && calls.length === 0) {
     return <p className="py-10 text-center sam-text-body text-red-600">{error}</p>;
   }
   if (calls.length === 0) {
+    if (loading) {
+      return (
+        <ul
+          className="min-h-[120px] divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface"
+          aria-busy="true"
+          aria-label={t("cm_ui_call_logs_title")}
+        />
+      );
+    }
     return <p className="py-10 text-center sam-text-body-secondary text-sam-muted">{t("cm_ui_call_logs_empty")}</p>;
   }
 

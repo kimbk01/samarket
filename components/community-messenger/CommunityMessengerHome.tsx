@@ -18,6 +18,7 @@ import {
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
+import { CommunityMessengerPrivateGroupCreatePanel } from "@/components/community-messenger/CommunityMessengerPrivateGroupCreatePanel";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -589,6 +590,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     setPageError,
     refresh,
     homeRealtimeGateOpen,
+    hydrateDeferredCallLogs,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
   useLayoutEffect(() => {
     markMessengerShellVisible();
@@ -750,6 +752,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       pathname: messengerListPathname,
       messengerEntryOrigin: entryOriginQuery,
     });
+  /** 통화 탭 — `deferredCallLog` 1200ms follow-up 대기 없이 즉시 보강 */
+  useEffect(() => {
+    if (mainSection !== "call_logs") return;
+    if (!data?.deferredCallLog) return;
+    void hydrateDeferredCallLogs();
+  }, [mainSection, data?.deferredCallLog, hydrateDeferredCallLogs]);
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const cancelledOutgoingWhileOptimisticRef = useRef<Set<string>>(new Set());
@@ -760,6 +768,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [searchResults, setSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
   const [groupTitle, setGroupTitle] = useState("");
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  const [groupInviteSearchQuery, setGroupInviteSearchQuery] = useState("");
+  const [groupInviteSearchResults, setGroupInviteSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
+  const [groupInviteSearchBusy, setGroupInviteSearchBusy] = useState(false);
+  const [groupInviteSearchFailed, setGroupInviteSearchFailed] = useState(false);
+  const [groupSelectedProfiles, setGroupSelectedProfiles] = useState<Record<string, CommunityMessengerProfileLite>>({});
+  const groupInviteSearchSeqRef = useRef(0);
   const [groupCreateStep, setGroupCreateStep] = useState<"closed" | "select" | "private_group" | "open_group">("closed");
   const [openGroupTitle, setOpenGroupTitle] = useState("");
   const [openGroupSummary, setOpenGroupSummary] = useState("");
@@ -787,6 +801,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const resetGroupCreateDraft = useCallback(() => {
     setGroupTitle((prev) => (prev === "" ? prev : ""));
     setGroupMembers((prev) => (prev.length === 0 ? prev : []));
+    setGroupInviteSearchQuery((prev) => (prev === "" ? prev : ""));
+    setGroupInviteSearchResults((prev) => (prev.length === 0 ? prev : []));
+    setGroupInviteSearchBusy((prev) => (prev ? false : prev));
+    setGroupInviteSearchFailed((prev) => (prev ? false : prev));
+    setGroupSelectedProfiles((prev) => (Object.keys(prev).length === 0 ? prev : {}));
     setOpenGroupTitle((prev) => (prev === "" ? prev : ""));
     setOpenGroupSummary((prev) => (prev === "" ? prev : ""));
     setOpenGroupPassword((prev) => (prev === "" ? prev : ""));
@@ -975,23 +994,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [groupCreateStep, resetGroupCreateDraft]);
 
   useEffect(() => {
+    if (groupCreateStep !== "private_group") return;
+    void refresh(true);
+  }, [groupCreateStep, refresh]);
+
+  useEffect(() => {
     if (joinTargetGroup) return;
     resetJoinOpenGroupDraft();
   }, [joinTargetGroup, resetJoinOpenGroupDraft]);
-
-  const headerActionsNode = useMemo(
-    () => (
-      <div className={`${samTier1HeaderRightColumn} max-w-[min(100vw-120px,240px)]`}>
-        <CommunityMessengerHeaderActions
-          incomingRequestCount={incomingRequestCount}
-          onOpenSearch={() => openHomeOverlay("search")}
-          onOpenRequestList={() => openHomeOverlay("requests")}
-          onOpenSettings={() => openHomeOverlay("settings")}
-        />
-      </div>
-    ),
-    [incomingRequestCount, openHomeOverlay, pillar]
-  );
 
   const closeRoomActionSheet = useCallback(() => setRoomActionSheet(null), []);
 
@@ -1186,6 +1196,49 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setBusyId(null);
     }
   }, [searchKeyword]);
+
+  useEffect(() => {
+    if (groupCreateStep !== "private_group") return;
+    const keyword = groupInviteSearchQuery.trim();
+    if (!keyword) {
+      groupInviteSearchSeqRef.current += 1;
+      setGroupInviteSearchResults([]);
+      setGroupInviteSearchBusy(false);
+      setGroupInviteSearchFailed(false);
+      return;
+    }
+    const viewerId = data?.me?.id ?? "";
+    const seq = ++groupInviteSearchSeqRef.current;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setGroupInviteSearchBusy(true);
+        setGroupInviteSearchFailed(false);
+        try {
+          const res = await fetch(`/api/community-messenger/users?q=${encodeURIComponent(keyword)}`, {
+            cache: "no-store",
+          });
+          if (seq !== groupInviteSearchSeqRef.current) return;
+          const json = (await res.json()) as { ok?: boolean; users?: CommunityMessengerProfileLite[] };
+          if (!res.ok || !json.ok) {
+            setGroupInviteSearchResults([]);
+            setGroupInviteSearchFailed(true);
+            return;
+          }
+          const users = json.users ?? [];
+          setGroupInviteSearchResults(viewerId ? users.filter((user) => user.id !== viewerId) : users);
+        } catch {
+          if (seq !== groupInviteSearchSeqRef.current) return;
+          setGroupInviteSearchResults([]);
+          setGroupInviteSearchFailed(true);
+        } finally {
+          if (seq === groupInviteSearchSeqRef.current) {
+            setGroupInviteSearchBusy(false);
+          }
+        }
+      })();
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [data?.me?.id, groupCreateStep, groupInviteSearchQuery]);
 
   const requestFriend = useCallback(
     async (targetUserId: string) => {
@@ -1753,7 +1806,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
 
   const createPrivateGroup = useCallback(async () => {
-    const memberIds = groupMembers.filter(Boolean);
+    const memberIds = [...new Set(groupMembers.filter(Boolean))];
     if (memberIds.length === 0) return;
     setActionError((prev) => (prev === null ? prev : null));
     setBusyId("create-private-group");
@@ -2295,6 +2348,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     },
     [data]
   );
+  const groupInviteFriendIdSet = useMemo(() => {
+    const ids = new Set<string>();
+    for (const friend of data?.friends ?? []) ids.add(friend.id);
+    for (const friend of data?.hidden ?? []) ids.add(friend.id);
+    return ids;
+  }, [data?.friends, data?.hidden]);
   const groupSelectableFriends = useMemo(() => {
     const visible = sortedFriends;
     const hiddenSelected = groupMembers
@@ -2307,17 +2366,42 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       return true;
     });
   }, [data?.hidden, groupMembers, sortedFriends]);
-  const selectedGroupFriends = useMemo(() => {
+  const groupInviteSearchNormalized = groupInviteSearchQuery.trim().toLowerCase();
+  const filteredGroupSelectableFriends = useMemo(() => {
+    if (!groupInviteSearchNormalized) return groupSelectableFriends;
+    return groupSelectableFriends.filter((friend) =>
+      [friend.label, friend.subtitle ?? ""].join(" ").toLowerCase().includes(groupInviteSearchNormalized)
+    );
+  }, [groupInviteSearchNormalized, groupSelectableFriends]);
+  const groupInviteNonFriendResults = useMemo(() => {
+    if (!groupInviteSearchQuery.trim()) return [];
+    return groupInviteSearchResults.filter((user) => !groupInviteFriendIdSet.has(user.id));
+  }, [groupInviteFriendIdSet, groupInviteSearchQuery, groupInviteSearchResults]);
+  const selectedGroupMemberProfiles = useMemo(() => {
     const friendMap = new Map(
       [...(data?.friends ?? []), ...(data?.hidden ?? [])].map((friend) => [friend.id, friend] as const)
     );
-    return groupMembers.map((id) => friendMap.get(id)).filter((friend): friend is CommunityMessengerProfileLite => Boolean(friend));
-  }, [data?.friends, data?.hidden, groupMembers]);
+    const searchMap = new Map(groupInviteSearchResults.map((user) => [user.id, user] as const));
+    return groupMembers
+      .map((id) => {
+        const known = groupSelectedProfiles[id] ?? friendMap.get(id) ?? searchMap.get(id);
+        if (known) return known;
+        return {
+          id,
+          label: t("cm_svc_member_fallback", { id: id.slice(0, 8) }),
+          avatarUrl: null,
+          following: false,
+          blocked: false,
+          isFriend: false,
+          isFavoriteFriend: false,
+        } satisfies CommunityMessengerProfileLite;
+      });
+  }, [data?.friends, data?.hidden, groupInviteSearchResults, groupMembers, groupSelectedProfiles, t]);
   const groupTitlePreview = useMemo(() => {
     const explicitTitle = groupTitle.trim();
     if (explicitTitle) return explicitTitle;
-    if (selectedGroupFriends.length === 0) return "";
-    const labels = selectedGroupFriends.map((friend) => friend.label).filter(Boolean).slice(0, 3);
+    if (selectedGroupMemberProfiles.length === 0) return "";
+    const labels = selectedGroupMemberProfiles.map((member) => member.label).filter(Boolean).slice(0, 3);
     if (groupMembers.length > labels.length) {
       return t("cm_ui_group_members_and_others", {
         names: labels.join(", "),
@@ -2325,7 +2409,31 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
     }
     return labels.join(", ");
-  }, [groupMembers.length, groupTitle, selectedGroupFriends, t]);
+  }, [groupMembers.length, groupTitle, selectedGroupMemberProfiles, t]);
+  const showGroupInviteSearchEmpty = Boolean(
+    groupInviteSearchQuery.trim() &&
+      !groupInviteSearchBusy &&
+      !groupInviteSearchFailed &&
+      !groupInviteSearchResults.length
+  );
+  const togglePrivateGroupMember = useCallback((user: CommunityMessengerProfileLite, checked: boolean) => {
+    setGroupMembers((prev) =>
+      checked ? (prev.includes(user.id) ? prev : [...prev, user.id]) : prev.filter((id) => id !== user.id)
+    );
+    setGroupSelectedProfiles((prev) => {
+      if (!checked) {
+        if (!prev[user.id]) return prev;
+        const next = { ...prev };
+        delete next[user.id];
+        return next;
+      }
+      return { ...prev, [user.id]: user };
+    });
+  }, []);
+  const clearPrivateGroupSelection = useCallback(() => {
+    setGroupMembers([]);
+    setGroupSelectedProfiles({});
+  }, []);
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
     const pending = (data?.requests ?? []).filter((request) => request.status === "pending");
@@ -2377,6 +2485,23 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       importantCount: notificationCenterItems.filter((item) => item.kind === "important_room").length,
     }),
     [notificationCenterItems]
+  );
+  const onOpenFriendManagerStable = useCallback(() => {
+    setFriendManagerOpen(true);
+  }, []);
+  const headerActionsNode = useMemo(
+    () => (
+      <div className={`${samTier1HeaderRightColumn} max-w-[min(100vw-96px,300px)]`}>
+        <CommunityMessengerHeaderActions
+          messengerAlertSummary={notificationCenterSummary}
+          onOpenFriendAdd={onOpenFriendManagerStable}
+          onOpenSearch={() => openHomeOverlay("search")}
+          onOpenNotificationCenter={() => openHomeOverlay("requests")}
+          onOpenSettings={() => openHomeOverlay("settings")}
+        />
+      </div>
+    ),
+    [notificationCenterSummary, onOpenFriendManagerStable, openHomeOverlay]
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {
@@ -2600,10 +2725,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [resetMessengerTransientUi]
   );
 
-  const onOpenMeetingFindStable = useCallback(() => {
+  const onCreateGroupStable = useCallback(() => {
     resetMessengerTransientUi();
-    openHomeOverlay("public-group-find");
-  }, [openHomeOverlay, resetMessengerTransientUi]);
+    setGroupCreateStep("private_group");
+  }, [resetMessengerTransientUi]);
+
+  const onCreateOpenGroupStable = useCallback(() => {
+    resetMessengerTransientUi();
+    setGroupCreateStep("open_group");
+  }, [resetMessengerTransientUi]);
 
   const notificationRoomMuteToggle = useCallback(
     async (room: CommunityMessengerRoomSummary) => {
@@ -2882,9 +3012,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const onMessengerHomeRetryStable = useCallback(() => {
     void refresh();
   }, [refresh]);
-  const onOpenFriendManagerStable = useCallback(() => {
-    setFriendManagerOpen(true);
-  }, []);
   const messengerHomeBootstrapCalls = useMemo(() => data?.calls ?? [], [data?.calls]);
 
   return (
@@ -2990,7 +3117,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         chatKindFilter={chatKindFilter}
         onChatListChipChange={onChatListChipChange}
         openChatJoinedItems={openChatJoinedItems}
-        onOpenMeetingFindStable={onOpenMeetingFindStable}
+        onCreateGroupStable={onCreateGroupStable}
+        onCreateOpenGroupStable={onCreateOpenGroupStable}
         incomingRequestCount={incomingRequestCount}
         pageError={pageError}
         loginRequiredText={t("nav_messenger_login_required")}
@@ -3002,7 +3130,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         callsHydrating={Boolean(data?.deferredCallLog)}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
-        onOpenFriendManager={onOpenFriendManagerStable}
       />
 
       {outgoingCallConfirm ? (
@@ -3390,92 +3517,39 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
                     <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_private_group")}</p>
                     <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("cm_ui_private_group_quick_create_hint")}</p>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setGroupCreateStep("open_group")}
+                    className="rounded-ui-rect border border-sam-border px-4 py-4 text-left transition hover:border-sam-border hover:bg-sam-app"
+                  >
+                    <p className="sam-text-helper text-sam-muted">{t("cm_svc_open_group_room")}</p>
+                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_open_group")}</p>
+                    <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("cm_ui_create_open_group_room")}</p>
+                  </button>
                 </div>
               </>
             ) : null}
 
             {groupCreateStep === "private_group" ? (
-              <>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">{t("nav_messenger_private_group")}</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_create_friend_invite_group")}</h2>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setGroupCreateStep("closed")}
-                    className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
-                  >
-                    {t("nav_close")}
-                  </button>
-                </div>
-                <input
-                  value={groupTitle}
-                  onChange={(e) => setGroupTitle(e.target.value)}
-                  placeholder={t("cm_ui_group_title_placeholder_example")}
-                  className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
-                />
-                <div className="mt-3 flex items-center justify-between gap-3 sam-text-helper text-sam-muted">
-                  <span>{t("cm_ui_selected_friends_count", { count: groupMembers.length })}</span>
-                  {groupMembers.length ? (
-                    <button
-                      type="button"
-                      onClick={() => setGroupMembers([])}
-                      className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
-                    >
-                      {t("cm_ui_clear_selection")}
-                    </button>
-                  ) : null}
-                </div>
-                {groupTitlePreview ? (
-                  <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-helper text-sam-muted">
-                    {t("cm_ui_upcoming_group_name")}: <span className="font-semibold text-sam-fg">{groupTitlePreview}</span>
-                  </div>
-                ) : null}
-                <div className="mt-3 max-h-[280px] space-y-2 overflow-y-auto">
-                  {groupSelectableFriends.map((friend) => {
-                    const checked = groupMembers.includes(friend.id);
-                    const hiddenSelected = Boolean(friend.isHiddenFriend);
-                    const friendHelper = hiddenSelected
-                      ? [friend.subtitle, t("cm_ui_hidden_friend")].filter(Boolean).join(" · ")
-                      : (friend.subtitle ?? t("nav_messenger_friend"));
-                    return (
-                      <label key={friend.id} className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3">
-                        <div>
-                          <p className="sam-text-body font-medium text-sam-fg">{friend.label}</p>
-                          <p className="sam-text-helper text-sam-muted">{friendHelper}</p>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            setGroupMembers((prev) =>
-                              e.target.checked ? [...prev, friend.id] : prev.filter((id) => id !== friend.id)
-                            );
-                          }}
-                          className="h-4 w-4 rounded border-sam-border text-sam-fg focus:ring-sam-border"
-                        />
-                      </label>
-                    );
-                  })}
-                </div>
-                {groupSelectableFriends.length === 0 ? (
-                  <div className="mt-4 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-5 text-center">
-                    <p className="sam-text-body font-semibold text-sam-fg">{t("cm_ui_no_friends_to_invite_yet")}</p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGroupCreateStep("closed");
-                        setFriendManagerOpen(true);
-                        requestAnimationFrame(() => friendSearchRef.current?.focus());
-                      }}
-                      className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-secondary font-semibold text-sam-fg"
-                    >
-                      {t("cm_ui_go_to_friends_tab")}
-                    </button>
-                  </div>
-                ) : null}
-              </>
+              <CommunityMessengerPrivateGroupCreatePanel
+                t={t}
+                groupTitle={groupTitle}
+                onGroupTitleChange={setGroupTitle}
+                groupTitlePreview={groupTitlePreview}
+                groupMembers={groupMembers}
+                selectedMemberProfiles={selectedGroupMemberProfiles}
+                onClearSelection={clearPrivateGroupSelection}
+                onToggleMember={togglePrivateGroupMember}
+                onClose={() => setGroupCreateStep("closed")}
+                inviteSearchQuery={groupInviteSearchQuery}
+                onInviteSearchQueryChange={setGroupInviteSearchQuery}
+                inviteSearchBusy={groupInviteSearchBusy}
+                inviteSearchFailed={groupInviteSearchFailed}
+                filteredFriends={filteredGroupSelectableFriends}
+                nonFriendSearchResults={groupInviteNonFriendResults}
+                hasFriends={groupSelectableFriends.length > 0}
+                showInviteSearchEmpty={showGroupInviteSearchEmpty}
+              />
             ) : null}
 
             {groupCreateStep === "open_group" ? (

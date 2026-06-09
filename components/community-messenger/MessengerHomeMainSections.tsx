@@ -8,6 +8,7 @@ import { MessengerArchiveScreen } from "@/components/community-messenger/Messeng
 import { MessengerCallLogsPanel } from "@/components/community-messenger/MessengerCallLogsPanel";
 import { MessengerFriendsScreen } from "@/components/community-messenger/MessengerFriendsScreen";
 import { MessengerHomeSectionTabs } from "@/components/community-messenger/MessengerHomeSectionTabs";
+import { MessengerHomeSectionTransition } from "@/components/community-messenger/MessengerHomeSectionTransition";
 import {
   inboxKindToChatListChip,
   messengerChatListEmptyMessageForChip,
@@ -76,7 +77,8 @@ type Props = {
   chatKindFilter: MessengerChatKindFilter;
   onChatListChipChange: (next: MessengerChatListChip) => void;
   openChatJoinedItems: UnifiedRoomListItem[];
-  onOpenMeetingFind: () => void;
+  onCreateGroup: () => void;
+  onCreateOpenGroup: () => void;
   incomingRequestCount: number;
   /** 인박스 상단 「거래 채팅」/「배달 채팅」 묶음 행. pillar 모드에선 null. */
   pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
@@ -88,7 +90,6 @@ type Props = {
   callsHydrating?: boolean;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
-  onOpenFriendManager?: () => void;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
@@ -137,7 +138,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   chatKindFilter,
   onChatListChipChange,
   openChatJoinedItems,
-  onOpenMeetingFind,
+  onCreateGroup,
+  onCreateOpenGroup,
   incomingRequestCount,
   pillarSummaries = null,
   entryOriginQuery = null,
@@ -146,17 +148,15 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   callsHydrating = false,
   showSectionTabs = false,
   onPrimarySectionChange,
-  onOpenFriendManager,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
 
   return (
     <section data-cm-messenger-main className="space-y-2">
-      {showSectionTabs && onPrimarySectionChange && onOpenFriendManager ? (
+      {showSectionTabs && onPrimarySectionChange ? (
         <MessengerHomeSectionTabs
           mainSection={mainSection}
           onPrimarySectionChange={onPrimarySectionChange}
-          onOpenFriendManager={onOpenFriendManager}
           incomingRequestCount={incomingRequestCount}
         />
       ) : null}
@@ -165,6 +165,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
         data-messenger-scrolling={isScrolling ? "true" : "false"}
         data-messenger-pending-call={pendingCallTarget ? "true" : "false"}
       >
+        <MessengerHomeSectionTransition section={mainSection}>
         {mainSection === "friends" ? (
           <MessengerFriendsScreen
             me={me}
@@ -233,7 +234,8 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onMarkRead={onMarkRead}
             onToggleArchive={onToggleArchive}
             onLeaveRoom={onLeaveRoom}
-            onOpenMeetingFind={onOpenMeetingFind}
+            onCreateGroup={onCreateGroup}
+            onCreateOpenGroup={onCreateOpenGroup}
             onOpenRoomActions={onOpenRoomActions}
             openedSwipeItemId={openedSwipeItemId}
             onOpenSwipeItem={onOpenSwipeItem}
@@ -278,6 +280,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onSelectArchiveSection={onSelectArchiveSection}
           />
         ) : null}
+        </MessengerHomeSectionTransition>
       </div>
     </section>
   );

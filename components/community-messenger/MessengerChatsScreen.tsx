@@ -460,7 +460,8 @@ export function MessengerOpenChatScreen({
   onMarkRead,
   onToggleArchive,
   onLeaveRoom,
-  onOpenMeetingFind,
+  onCreateGroup,
+  onCreateOpenGroup,
   onOpenRoomActions,
   openedSwipeItemId,
   onOpenSwipeItem,
@@ -477,7 +478,8 @@ export function MessengerOpenChatScreen({
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
   onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
-  onOpenMeetingFind: () => void;
+  onCreateGroup: () => void;
+  onCreateOpenGroup: () => void;
   onOpenRoomActions?: (
     item: UnifiedRoomListItem,
     listContext: MessengerChatListContext,
@@ -511,6 +513,32 @@ export function MessengerOpenChatScreen({
         <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
           {safeT("cm_ui_open_chat_hub_desc")}
         </p>
+        <p className="mt-1 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
+          {safeT("cm_ui_group_rooms_manage_hint")}
+        </p>
+      </div>
+
+      <div className="grid gap-2 px-0.5">
+        <button
+          type="button"
+          onClick={() => {
+            onResetTransientUi();
+            onCreateGroup();
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-[var(--messenger-radius-md)] border border-sam-primary-border bg-sam-primary-soft px-4 py-3 sam-text-body-secondary font-semibold text-sam-primary active:opacity-90"
+        >
+          {safeT("cm_ui_create_group_chat")}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onResetTransientUi();
+            onCreateOpenGroup();
+          }}
+          className="flex w-full items-center justify-center gap-2 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3 sam-text-body-secondary font-semibold text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-surface-muted)]"
+        >
+          {safeT("cm_ui_create_open_group_room")}
+        </button>
       </div>
 
       <div>
@@ -543,19 +571,6 @@ export function MessengerOpenChatScreen({
             {safeT("cm_ui_open_chat_empty_joined")}
           </div>
         )}
-      </div>
-
-      <div className="px-0.5 pt-3">
-        <button
-          type="button"
-          onClick={() => {
-            onResetTransientUi();
-            onOpenMeetingFind();
-          }}
-          className="flex w-full items-center justify-center gap-2 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3.5 sam-text-body-secondary font-semibold text-[color:var(--messenger-text)] shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-surface-muted)]"
-        >
-          {safeT("cm_ui_find_meeting")}
-        </button>
       </div>
     </section>
   );

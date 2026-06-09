@@ -12,6 +12,8 @@ export function messengerHomeActionErrorMessage(
       return t("nav_messenger_direct_target_invalid");
     case "blocked_target":
       return t("nav_messenger_blocked_target");
+    case "invalid_target":
+      return t("nav_messenger_invalid_target");
     case "friend_required":
       return t("nav_messenger_friend_required");
     case "title_required":

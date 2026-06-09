@@ -47,5 +47,34 @@ html:not(:has(.app-bottom-nav-shell)) .messenger-home-bottom-sheet-panel {
 
 .messenger-home-bottom-sheet-panel--device-bottom.messenger-home-bottom-sheet-panel--entered {
   transform: translate3d(0, 0, 0);
-  transition: transform 280ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 360ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/** 친구 추가 등 — 화면 중앙 팝업 */
+.messenger-home-center-sheet-panel {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: min(calc(100vw - 2rem), 420px);
+  max-height: min(80dvh, 560px);
+  transform: translate3d(-50%, -50%, 0);
+}
+
+.messenger-home-center-sheet-panel--entering {
+  transform: translate3d(-50%, calc(-50% + 16px), 0);
+  opacity: 0;
+}
+
+.messenger-home-center-sheet-panel--entered {
+  transform: translate3d(-50%, -50%, 0);
+  opacity: 1;
+  transition:
+    transform 360ms cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 360ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .messenger-home-center-sheet-panel--entered {
+    transition-duration: 1ms !important;
+  }
 }

@@ -4,49 +4,50 @@ import { HorizontalDragScroll } from "@/components/community/HorizontalDragScrol
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
-import {
-  APP_MAIN_GUTTER_NEG_X_CLASS,
-  APP_MAIN_HEADER_INNER_CLASS,
-} from "@/lib/ui/app-content-layout";
-import { Sam } from "@/lib/ui/sam-component-classes";
 
-type SectionTabId = "friends" | "add_friend" | "call_logs" | "open_chat" | "archive";
+type SectionTabId = "home" | "friends" | "call_logs" | "open_chat" | "archive";
 
 type TabDef = {
   id: SectionTabId;
-  section: MessengerMainSection | null;
+  section: MessengerMainSection;
   labelKey: MessageKey;
-  action?: "add_friend";
 };
 
 const TABS: TabDef[] = [
+  { id: "home", section: "chats", labelKey: "cm_ia_messenger_tab_home" },
   { id: "friends", section: "friends", labelKey: "cm_ia_messenger_tab_friends_list" },
-  { id: "add_friend", section: null, labelKey: "cm_ia_messenger_tab_add_friend", action: "add_friend" },
   { id: "call_logs", section: "call_logs", labelKey: "cm_ia_messenger_tab_call_logs" },
   { id: "open_chat", section: "open_chat", labelKey: "cm_ia_messenger_tab_meeting_room" },
   { id: "archive", section: "archive", labelKey: "cm_ia_messenger_tab_archive" },
 ];
 
-/** 좌측 칩 탭 — gap-2·shrink-0·whitespace-nowrap 으로 영문 라벨 줄바꿈 방지 */
-function sectionTabChipClass(active: boolean): string {
-  const base = "shrink-0 whitespace-nowrap !px-3.5 text-[12px] leading-none touch-manipulation";
-  return active ? `${Sam.chip.activeCombo} ${base}` : `${Sam.chip.inactiveCombo} ${base}`;
+/**
+ * 알약 탭 — 테두리·배경·호버가 동일한 rounded-full 틀 안에서만 변함.
+ * ring/shadow/outline 밖으로 번지는 효과는 쓰지 않는다.
+ */
+const SECTION_TAB_PILL_FRAME =
+  "relative box-border inline-flex shrink-0 items-center justify-center min-h-8 overflow-hidden whitespace-nowrap rounded-full border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
+
+function sectionTabPillClass(active: boolean): string {
+  if (active) {
+    return `${SECTION_TAB_PILL_FRAME} border-sam-primary bg-sam-primary-soft font-bold text-sam-primary`;
+  }
+  return `${SECTION_TAB_PILL_FRAME} border-sam-border bg-sam-surface font-semibold text-sam-fg hover:border-sam-primary-border hover:bg-sam-primary-soft hover:text-sam-primary`;
 }
 
 type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
-  onOpenFriendManager: () => void;
   incomingRequestCount?: number;
 };
 
 /**
- * 메신저 홈 2단 섹션 탭 — 친구목록·친구추가·통화목록·모임방·보관함.
+ * 메신저 홈 2단 섹션 탭 — 홈·친구목록·통화목록·그룹방·보관함.
+ * 친구 추가는 1단 헤더(검색 앞)로 이동.
  */
 export function MessengerHomeSectionTabs({
   mainSection,
   onPrimarySectionChange,
-  onOpenFriendManager,
   incomingRequestCount = 0,
 }: Props) {
   const { t } = useI18n();
@@ -55,9 +56,9 @@ export function MessengerHomeSectionTabs({
     <div
       data-cm-primary-nav
       data-cm-messenger-section-tabs
-      className={`${APP_MAIN_GUTTER_NEG_X_CLASS} sticky top-0 z-20 min-w-0 overflow-x-hidden bg-[color:var(--messenger-bg)]`}
+      className="sticky top-0 z-20 min-w-0 w-full overflow-x-hidden bg-[color:var(--messenger-bg)]"
     >
-      <div className={`${APP_MAIN_HEADER_INNER_CLASS} py-2`}>
+      <div className="box-border py-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))]">
         <HorizontalDragScroll
           className="flex min-w-0 max-w-full items-center justify-start gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ WebkitOverflowScrolling: "touch" }}
@@ -65,24 +66,8 @@ export function MessengerHomeSectionTabs({
           aria-label={t("cm_ui_messenger_section_aria")}
         >
           {TABS.map((tab) => {
-            const isAction = tab.action === "add_friend";
-            const active = !isAction && tab.section != null && mainSection === tab.section;
+            const active = mainSection === tab.section;
             const showBadge = tab.id === "archive" && incomingRequestCount > 0;
-
-            if (isAction) {
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={false}
-                  className={sectionTabChipClass(false)}
-                  onClick={onOpenFriendManager}
-                >
-                  {t(tab.labelKey)}
-                </button>
-              );
-            }
 
             return (
               <button
@@ -91,22 +76,19 @@ export function MessengerHomeSectionTabs({
                 role="tab"
                 aria-selected={active}
                 aria-current={active ? "page" : undefined}
-                className={sectionTabChipClass(active)}
-                onClick={() => {
-                  if (tab.section) onPrimarySectionChange(tab.section);
-                }}
+                data-active={active ? "true" : "false"}
+                className={sectionTabPillClass(active)}
+                onClick={() => onPrimarySectionChange(tab.section)}
               >
-                <span className="relative inline-flex items-center gap-1">
-                  {t(tab.labelKey)}
-                  {showBadge ? (
-                    <span
-                      className="inline-flex min-w-[1.125rem] items-center justify-center rounded-full bg-sam-primary px-1 py-px text-[10px] font-bold leading-none text-white"
-                      aria-hidden
-                    >
-                      {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
-                    </span>
-                  ) : null}
-                </span>
+                <span className="max-w-[min(10rem,42vw)] truncate">{t(tab.labelKey)}</span>
+                {showBadge ? (
+                  <span
+                    className="pointer-events-none absolute -right-1 -top-1 z-[1] inline-flex h-4 min-w-4 items-center justify-center rounded-full border-[1.5px] border-sam-surface bg-[#e53935] px-0.5 text-[9px] font-bold leading-none text-white"
+                    aria-hidden
+                  >
+                    {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
+                  </span>
+                ) : null}
               </button>
             );
           })}

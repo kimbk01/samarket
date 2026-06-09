@@ -63,6 +63,8 @@ import {
 
   dispatchTier1HeaderOverlayOpen,
 
+  TIER1_HEADER_OVERLAY_CLOSE,
+
 } from "@/lib/layout/tier1-header-overlay-events";
 
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
@@ -228,6 +230,8 @@ export function PhilifeHeaderNotificationInbox({
 
   pinnedSections,
 
+  supplementalUnreadCount = 0,
+
 }: {
 
   /** 녹색 배달 홈 헤더 — 흰 아이콘·delivery 뱃지 */
@@ -257,6 +261,10 @@ export function PhilifeHeaderNotificationInbox({
   /** 패널 상단 고정(친구 요청 등) */
 
   pinnedSections?: ReactNode;
+
+  /** surface badge store 외 추가 미확인 건(메신저 주요 알림 등) */
+
+  supplementalUnreadCount?: number;
 
 }) {
 
@@ -360,9 +368,9 @@ export function PhilifeHeaderNotificationInbox({
 
         loading,
 
-      }),
+      }) + Math.max(0, Math.floor(supplementalUnreadCount)),
 
-    [listSynced, loading, open, rowUnread, storeUnread]
+    [listSynced, loading, open, rowUnread, storeUnread, supplementalUnreadCount]
 
   );
 
@@ -411,6 +419,18 @@ export function PhilifeHeaderNotificationInbox({
     }
 
   }, [open]);
+
+
+
+  useEffect(() => {
+
+    const onExternalClose = () => closePanel();
+
+    window.addEventListener(TIER1_HEADER_OVERLAY_CLOSE, onExternalClose);
+
+    return () => window.removeEventListener(TIER1_HEADER_OVERLAY_CLOSE, onExternalClose);
+
+  }, [closePanel]);
 
 
 
