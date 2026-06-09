@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import type { CommunityMessengerFriendRequestStatus } from "@/lib/community-messenger/types";
 
 export type FriendRequestNotificationEvent =
   | {
@@ -17,6 +18,14 @@ export type FriendRequestNotificationEvent =
       requestId: string;
       addresseeUserId: string;
       addresseeLabel: string;
+      createdAt: string;
+    }
+  | {
+      kind: "friend_status_changed";
+      requestId: string;
+      status: Exclude<CommunityMessengerFriendRequestStatus, "blocked">;
+      requesterUserId: string;
+      addresseeUserId: string;
       createdAt: string;
     };
 
@@ -77,6 +86,34 @@ function parseIncomingFriendRequestRow(
   };
 }
 
+function parseFriendRequestStatusRow(
+  row: Record<string, unknown>,
+  viewerUserId: string
+): FriendRequestNotificationEvent | null {
+  const id = trimString(row.id);
+  const rawStatus = trimString(row.status);
+  const requesterId = trimString(row.requester_id);
+  const addresseeId = trimString(row.addressee_id);
+  const createdAt =
+    trimString(row.responded_at) ||
+    trimString(row.updated_at) ||
+    trimString(row.created_at) ||
+    new Date().toISOString();
+  if (!id || !requesterId || !addresseeId) return null;
+  if (viewerUserId !== requesterId && viewerUserId !== addresseeId) return null;
+  if (rawStatus !== "accepted" && rawStatus !== "rejected" && rawStatus !== "cancelled") {
+    return null;
+  }
+  return {
+    kind: "friend_status_changed",
+    requestId: id,
+    status: rawStatus,
+    requesterUserId: requesterId,
+    addresseeUserId: addresseeId,
+    createdAt,
+  };
+}
+
 export function useFriendRequestNotificationRealtime(
   userId: string | null,
   enabled: boolean,
@@ -97,8 +134,17 @@ export function useFriendRequestNotificationRealtime(
 
     let cancelled = false;
 
+    const dedupeKeyForEvent = (ev: FriendRequestNotificationEvent): string => {
+      if (ev.kind === "friend_accepted") return `friend_notif:${ev.requestId}:accepted`;
+      if (ev.kind === "friend_rejected") return `friend_notif:${ev.requestId}:rejected`;
+      if (ev.kind === "friend_status_changed") {
+        return `friend_cfr:${ev.requestId}:${ev.status}`;
+      }
+      return `${ev.kind}:${ev.requestId}`;
+    };
+
     const emitDeduped = (ev: FriendRequestNotificationEvent) => {
-      const dedupeKey = `${ev.kind}:${ev.requestId}`;
+      const dedupeKey = dedupeKeyForEvent(ev);
       if (seenRef.current.has(dedupeKey)) return;
       seenRef.current.add(dedupeKey);
       onEventRef.current(ev);
@@ -139,6 +185,36 @@ export function useFriendRequestNotificationRealtime(
               const row = (payload as { new?: Record<string, unknown> }).new ?? {};
               const ev = parseIncomingFriendRequestRow(row, userId);
               if (!ev || ev.kind !== "friend_request") return;
+              emitDeduped(ev);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `addressee_id=eq.${userId}`,
+            },
+            (payload) => {
+              const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+              const ev = parseFriendRequestStatusRow(row, userId);
+              if (!ev || ev.kind !== "friend_status_changed") return;
+              emitDeduped(ev);
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `requester_id=eq.${userId}`,
+            },
+            (payload) => {
+              const row = (payload as { new?: Record<string, unknown> }).new ?? {};
+              const ev = parseFriendRequestStatusRow(row, userId);
+              if (!ev || ev.kind !== "friend_status_changed") return;
               emitDeduped(ev);
             }
           ),

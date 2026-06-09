@@ -146,6 +146,8 @@ import {
 import { bestEffortKeepaliveCallSessionTeardown } from "@/lib/community-messenger/call-page-leave-patch";
 import { resolvePreJoinVideoPreviewStream } from "@/lib/community-messenger/call-prejoin-video-preview";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { VideoOff } from "lucide-react";
+import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 
@@ -3245,7 +3247,6 @@ export function CommunityMessengerCallClient({
     pipLabel: layoutSwapped ? (session?.peerLabel ?? t("common_me")) : t("common_me"),
     onSingleTap: () => setLayoutSwapped((prev) => !prev),
     onExpandFullscreen: handleExpandToFullscreen,
-    onMinimize: handleMinimizeToPip,
   });
 
   if (loading && !session) {
@@ -3823,8 +3824,14 @@ export function CommunityMessengerCallClient({
     <div className="relative h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
       <div ref={smallVideoRef} className="h-full w-full" />
       {camOff ? (
-        <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1 bg-black/75 px-2">
-          <span className="text-center sam-text-xxs font-semibold leading-tight text-white/95">{t("cm_ui_camera_off")}</span>
+        <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-black">
+          <SamarketUserAvatarThumb
+            avatarUrl={null}
+            size={40}
+            roundedClassName="rounded-full"
+            className="ring-1 ring-white/20"
+          />
+          <VideoOff size={14} strokeWidth={2.25} className="text-white/85" aria-hidden />
         </div>
       ) : null}
     </div>

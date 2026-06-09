@@ -1,8 +1,7 @@
 "use client";
 
-import { MicOff, VideoOff, X } from "lucide-react";
-import { forwardRef, type CSSProperties, type PointerEventHandler, type ReactNode } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { MicOff } from "lucide-react";
+import { forwardRef, memo, type CSSProperties, type PointerEventHandler, type ReactNode } from "react";
 import type { CallVideoPipPositionMode } from "@/lib/community-messenger/call-pip-metrics";
 
 export type { CallVideoPipPositionMode };
@@ -19,7 +18,6 @@ export type MiniLocalVideoProps = {
   className?: string;
   micMuted?: boolean;
   cameraOff?: boolean;
-  onCloseClick?: () => void;
   onExpand?: () => void;
   onPointerDown?: PointerEventHandler<HTMLDivElement>;
   onPointerMove?: PointerEventHandler<HTMLDivElement>;
@@ -30,7 +28,7 @@ export type MiniLocalVideoProps = {
 /**
  * 영상 통화 PiP — 16:9, 4모서리 스냅·드래그·indicator.
  */
-export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(function MiniLocalVideo(
+const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(function MiniLocalVideo(
   {
     children,
     label,
@@ -41,8 +39,6 @@ export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(fu
     positionMode = "stage-absolute",
     className = "",
     micMuted = false,
-    cameraOff = false,
-    onCloseClick,
     onExpand,
     onPointerDown,
     onPointerMove,
@@ -51,8 +47,6 @@ export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(fu
   },
   ref
 ) {
-  const { t } = useI18n();
-
   const positionClass =
     positionMode === "viewport-fixed"
       ? "fixed z-[79]"
@@ -70,7 +64,7 @@ export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(fu
     <div
       ref={ref}
       style={sizeStyle}
-      className={`touch-none select-none overflow-hidden rounded-[14px] bg-black shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${positionClass} ${className} ${
+      className={`touch-none select-none overflow-hidden rounded-[14px] border border-white/10 bg-black shadow-[0_8px_24px_rgba(0,0,0,0.35)] ${positionClass} ${className} ${
         onPointerDown ? "cursor-grab active:cursor-grabbing" : ""
       }`}
       onPointerDown={onPointerDown}
@@ -90,34 +84,10 @@ export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(fu
 
       {micMuted ? (
         <div
-          className="pointer-events-none absolute left-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white"
+          className="pointer-events-none absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white"
           aria-hidden
         >
-          <MicOff size={13} strokeWidth={2.25} />
-        </div>
-      ) : null}
-
-      {onCloseClick ? (
-        <button
-          type="button"
-          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white transition active:scale-95"
-          aria-label={t("cm_ui_minimize_call_window")}
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            onCloseClick();
-          }}
-        >
-          <X size={14} strokeWidth={2.5} />
-        </button>
-      ) : null}
-
-      {cameraOff ? (
-        <div
-          className="pointer-events-none absolute bottom-1.5 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black/55 p-1 text-white"
-          aria-hidden
-        >
-          <VideoOff size={13} strokeWidth={2.25} />
+          <MicOff size={11} strokeWidth={2.25} />
         </div>
       ) : null}
 
@@ -129,3 +99,5 @@ export const MiniLocalVideo = forwardRef<HTMLDivElement, MiniLocalVideoProps>(fu
     </div>
   );
 });
+
+export const MiniLocalVideo = memo(MiniLocalVideoInner);

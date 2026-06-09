@@ -42,7 +42,6 @@ export function GlobalCallVideoPipHost() {
       positionMode="viewport-fixed"
       micMuted={bindings.micMuted}
       cameraOff={bindings.cameraOff}
-      onCloseClick={bindings.onPipClose ?? undefined}
       onExpand={bindings.onPipExpand ?? surface.expandToFullscreen ?? undefined}
       onPointerDown={bindings.onPipPointerDown}
       onPointerMove={bindings.onPipPointerMove}

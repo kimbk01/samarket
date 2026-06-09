@@ -186,6 +186,7 @@ import {
   notifyCommunityMessengerFriendRequestReceived,
   notifyCommunityMessengerFriendRequestRejected,
 } from "@/lib/notifications/community-messenger-friend-inapp-notify";
+import { notifyCommunityMessengerGroupInviteReceived } from "@/lib/notifications/community-messenger-group-inapp-notify";
 import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
   getMessengerCallAdminPolicyCached,
@@ -9554,6 +9555,27 @@ export async function createPrivateGroupRoom(input: {
         }))
       );
       if (!participantError) {
+        void (async () => {
+          try {
+            const profileMap = await fetchProfilesByIds([input.userId]);
+            const inviterLabel = profileLabel(profileMap.get(input.userId), input.userId);
+            await Promise.all(
+              memberIds
+                .filter((memberId) => memberId !== input.userId)
+                .map((memberId) =>
+                  notifyCommunityMessengerGroupInviteReceived(sb as any, {
+                    userId: memberId,
+                    roomId,
+                    roomTitle: title,
+                    inviterUserId: input.userId,
+                    inviterLabel,
+                  })
+                )
+            );
+          } catch (err) {
+            console.warn("[community-messenger] group create invite notify failed", err);
+          }
+        })();
         return { ok: true, roomId };
       }
       await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
@@ -9582,7 +9604,30 @@ export async function createPrivateGroupRoom(input: {
           role: memberId === input.userId ? "owner" : "member",
         }))
       );
-      if (!participantError) return { ok: true, roomId };
+      if (!participantError) {
+        void (async () => {
+          try {
+            const profileMap = await fetchProfilesByIds([input.userId]);
+            const inviterLabel = profileLabel(profileMap.get(input.userId), input.userId);
+            await Promise.all(
+              memberIds
+                .filter((memberId) => memberId !== input.userId)
+                .map((memberId) =>
+                  notifyCommunityMessengerGroupInviteReceived(sb as any, {
+                    userId: memberId,
+                    roomId,
+                    roomTitle: title,
+                    inviterUserId: input.userId,
+                    inviterLabel,
+                  })
+                )
+            );
+          } catch (err) {
+            console.warn("[community-messenger] legacy group create invite notify failed", err);
+          }
+        })();
+        return { ok: true, roomId };
+      }
       await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
       return { ok: false, error: String(participantError.message ?? "group_participant_create_failed") };
     }
@@ -9801,7 +9846,7 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   if (sb) {
     const { data: room, error: roomError } = await (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly, allow_member_invite, allow_admin_invite, owner_user_id")
+      .select("id, room_type, room_status, is_readonly, allow_member_invite, allow_admin_invite, owner_user_id, title")
       .eq("id", roomId)
       .maybeSingle();
     if (roomError && !isMissingTableError(roomError)) {
@@ -9826,6 +9871,18 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       isOwner ||
       (myRole === "admin" ? (room as { allow_admin_invite?: boolean } | null)?.allow_admin_invite !== false : room?.allow_member_invite !== false);
     if (!canInvite) return { ok: false, error: "forbidden" };
+    const { data: existingParticipants, error: existingParticipantsError } = await (sb as any)
+      .from("community_messenger_participants")
+      .select("user_id")
+      .eq("room_id", roomId)
+      .in("user_id", memberIds);
+    if (existingParticipantsError && !isMissingTableError(existingParticipantsError)) {
+      return { ok: false, error: String(existingParticipantsError.message ?? "participant_lookup_failed") };
+    }
+    const existingMemberIds = new Set(
+      ((existingParticipants ?? []) as Array<{ user_id?: string }>).map((row) => trimText(row.user_id))
+    );
+    const newlyInvitedMemberIds = memberIds.filter((memberId) => !existingMemberIds.has(memberId));
     const { error } = await (sb as any).from("community_messenger_participants").upsert(
       memberIds.map((memberId) => ({
         room_id: roomId,
@@ -9842,6 +9899,28 @@ export async function inviteCommunityMessengerGroupMembers(input: {
         roomId,
         content: cmMgmtMemberInviteContent(labels),
       });
+      if (newlyInvitedMemberIds.length > 0) {
+        void (async () => {
+          try {
+            const profileMap = await fetchProfilesByIds([input.userId]);
+            const inviterLabel = profileLabel(profileMap.get(input.userId), input.userId);
+            const roomTitle = trimText((room as { title?: string } | null)?.title);
+            await Promise.all(
+              newlyInvitedMemberIds.map((memberId) =>
+                notifyCommunityMessengerGroupInviteReceived(sb as any, {
+                  userId: memberId,
+                  roomId,
+                  roomTitle,
+                  inviterUserId: input.userId,
+                  inviterLabel,
+                })
+              )
+            );
+          } catch (err) {
+            console.warn("[community-messenger] group invite notify failed", err);
+          }
+        })();
+      }
       return { ok: true };
     }
     if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "invite_failed") };

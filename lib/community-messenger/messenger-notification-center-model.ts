@@ -8,6 +8,7 @@ import type {
   CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import type { IncomingGroupInvitePopupEntry } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 
 export type MessengerNotificationCenterItem =
   | {
@@ -21,6 +22,12 @@ export type MessengerNotificationCenterItem =
       kind: "missed_call";
       createdAt: string;
       call: CommunityMessengerCallLog;
+    }
+  | {
+      id: string;
+      kind: "group_invite";
+      createdAt: string;
+      invite: IncomingGroupInvitePopupEntry;
     }
   | {
       id: string;

@@ -88,7 +88,7 @@ export function useSupabaseNotificationsRealtime(
             markRealtimeSignal();
             const ev = payload as { eventType?: string; new?: Record<string, unknown> };
             const eventType = typeof ev.eventType === "string" ? ev.eventType : "UNKNOWN";
-            if (ev.new && typeof ev.new === "object") {
+            if (eventType === "INSERT" && ev.new && typeof ev.new === "object") {
               upsertIncomingFriendRequestPopupFromNotificationInsertRow(ev.new as Record<string, unknown>);
             }
             if (playSoundOnInsertRef.current && shouldPlaySoundForNotificationInsert(payload)) {
@@ -111,7 +111,7 @@ export function useSupabaseNotificationsRealtime(
                 const metaAny = row?.meta as { kind?: string } | undefined;
                 const routedDomain =
                   domain === "community_chat"
-                    ? metaAny?.kind === "group_chat"
+                    ? metaAny?.kind === "group_chat" || metaAny?.kind === "community_group_invite"
                       ? "community_group_chat"
                       : "community_direct_chat"
                     : (domain as NotificationDomain);

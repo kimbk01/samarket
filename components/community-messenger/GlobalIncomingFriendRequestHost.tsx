@@ -7,6 +7,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
 import { useIncomingFriendRequestPopup } from "@/lib/community-messenger/use-incoming-friend-request-popup";
 import { MessengerIncomingFriendRequestPopup } from "@/components/community-messenger/MessengerIncomingFriendRequestPopup";
+import { MessengerIncomingGroupInvitePopup } from "@/components/community-messenger/MessengerIncomingGroupInvitePopup";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -34,9 +35,11 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const incomingList = useIncomingFriendRequestPopupStore((s) => s.incomingList);
+  const groupInviteList = useIncomingFriendRequestPopupStore((s) => s.groupInviteList);
   const upsertIncoming = useIncomingFriendRequestPopupStore((s) => s.upsertIncoming);
   const dismissAllIncoming = useIncomingFriendRequestPopupStore((s) => s.dismissAllIncoming);
   const dismissIncomingIfRequestId = useIncomingFriendRequestPopupStore((s) => s.dismissIncomingIfRequestId);
+  const dismissGroupInviteIfId = useIncomingFriendRequestPopupStore((s) => s.dismissGroupInviteIfId);
 
   useEffect(() => {
     setMounted(true);
@@ -146,13 +149,25 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
   );
 
   if (!mounted || typeof document === "undefined") return null;
-  if (!incomingList.length) return null;
+  if (!incomingList.length && !groupInviteList.length) return null;
 
   return createPortal(
     <div
       className={`pointer-events-none fixed inset-x-0 z-[118] flex max-h-[min(46vh,380px)] flex-col-reverse gap-2 overflow-y-auto px-3 pb-1 pt-1 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
       data-global-incoming-friend-request
     >
+      {groupInviteList.map((invite) => (
+        <MessengerIncomingGroupInvitePopup
+          key={invite.id}
+          layout="stack"
+          invite={invite}
+          onDismiss={() => dismissGroupInviteIfId(invite.id)}
+          onOpen={() => {
+            dismissGroupInviteIfId(invite.id);
+            router.push(`/community-messenger/rooms/${encodeURIComponent(invite.roomId)}`);
+          }}
+        />
+      ))}
       {incomingList.map((req) => (
         <MessengerIncomingFriendRequestPopup
           key={req.id}

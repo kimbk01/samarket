@@ -1536,25 +1536,23 @@ export function GlobalCommunityMessengerIncomingCall() {
             primeCommunityMessengerCallNavigationSeed(session.id, acceptedSession);
           }
 
-          /** 링 중 getUserMedia 금지 — 서버가 active 일 때만 프라임 후 통화 화면으로 이동 */
-          let permissionFailed = false;
-          if (acceptedSession.status === "active") {
-            try {
-              await primeCommunityMessengerDevicePermissionFromUserGesture(acceptedSession.callKind);
-            } catch {
-              permissionFailed = true;
-            }
-          }
-
+          /** 링 중 getUserMedia 금지 — active 확인 뒤에는 화면 전환을 막지 않고 권한 프라임만 병렬 진행 */
+          const permissionPrime =
+            acceptedSession.status === "active"
+              ? primeCommunityMessengerDevicePermissionFromUserGesture(acceptedSession.callKind)
+                  .then(() => true)
+                  .catch(() => false)
+              : Promise.resolve(true);
           router.replace(groupUrl ?? directCallUrl);
-          if (permissionFailed) {
+          void permissionPrime.then((ok) => {
+            if (ok) return;
             showMessengerSnackbar(
               session.callKind === "video"
                 ? t("cm_ui_call_accept_permission_video_failed")
                 : t("cm_ui_call_accept_permission_voice_failed"),
               { variant: "error" }
             );
-          }
+          });
           void refresh(true, { bypassDevSafeIncomingThrottle: true });
         } finally {
           setBusyId(null);

@@ -19,7 +19,6 @@ export type VideoCallPipLayoutBindings = {
   heightPx?: number;
   micMuted?: boolean;
   cameraOff?: boolean;
-  onPipClose?: () => void;
   onPipExpand?: () => void;
 };
 

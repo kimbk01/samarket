@@ -27,6 +27,7 @@ export function CommunityMessengerHeaderActions({
 }: {
   messengerAlertSummary: {
     requestCount: number;
+    groupInviteCount: number;
     missedCallCount: number;
     importantCount: number;
   };
@@ -43,6 +44,7 @@ export function CommunityMessengerHeaderActions({
       Math.max(
         0,
         messengerAlertSummary.requestCount +
+          messengerAlertSummary.groupInviteCount +
           messengerAlertSummary.missedCallCount +
           messengerAlertSummary.importantCount
       ),

@@ -66,7 +66,6 @@ export function GroupRoomCallOverlay({
     micMuted: false,
     cameraOff: !hasLocalPreview,
     pipLabel: t("common_me"),
-    onMinimize: groupCall.dismissPanel,
   });
 
   if (endedPanel) {

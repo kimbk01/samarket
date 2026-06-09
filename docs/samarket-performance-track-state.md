@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-08 (CM-INSTANT — 전체 채팅 통화 안정화 보강) |
+| Last updated | 2026-06-09 (CM-SOCIAL-CALL — 친구·그룹 초대 동기화 및 수신 통화 accept fast-path) |
 | Owner | (선택) |
 
 ---
@@ -118,10 +118,10 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | PASS 게이트 | STAB1 long-session · multi-tab · prod stable · real feel → per-route hard delete |
 
 | 트랙 이름 | **CM-INSTANT** 메신저 즉시성·구조 복구 (거래 방·전송·입장·통화) |
-| **트랙 상태** | **메신저 즉시성 1차 복구 구현 완료** — prod 체감·2기기 3회 측정 **대기** |
+| **트랙 상태** | **메신저 즉시성 1차 복구 구현 완료** — 친구 요청 UPDATE 즉시 반영·그룹 초대 전용 팝업/알림·수신 통화 accept 후 라우팅 선행 보강. prod 체감·2기기 3회 측정 **대기** |
 | 이번 원인 1개 | 전체 채팅 통화 스택이 공통 `community_messenger` 세션/스텁을 쓰는 동안, 로컬 optimistic `cm-cevt-*`와 DB UUID `call_stub`가 id만 다르면 중복 표시될 수 있고, 숨김도 id 기준이라 refresh 뒤 재노출될 수 있었다. |
-| 이번 조치 | 이미지 메시지 bump 응답 전 `await` 통일 · bump snapshot 단건 GET 생략 · terminal tombstone/벨/오버레이/미디어 cleanup · 통화 `call_stub` 서버/클라 보장 · session/event 기준 `call_stub` dedupe·숨김 · 메신저 call 권한 완료 기록 신뢰 및 active 발신 gate 정합화 · 통화 전용 `visualViewport` 높이 변수와 자식 화면 최소 높이 단일화 |
-| 측정 (다음) | `scripts/verify-cm-receive-latency-coalesce.mjs` PASS · `verify:messenger-consistency-structural` PASS · 2기기 3회: 거래/배달/일반 voice/video 발신→거절/취소/종료, 통화 히스토리 1줄 유지, 숨긴 히스토리 refresh 재노출 없음, 권한 안내 반복 없음, iOS/Android/태블릿 리사이즈 안정 |
+| 이번 조치 | 이미지 메시지 bump 응답 전 `await` 통일 · bump snapshot 단건 GET 생략 · terminal tombstone/벨/오버레이/미디어 cleanup · 통화 `call_stub` 서버/클라 보장 · session/event 기준 `call_stub` dedupe·숨김 · 메신저 call 권한 완료 기록 신뢰 및 active 발신 gate 정합화 · 통화 전용 `visualViewport` 높이 변수와 자식 화면 최소 높이 단일화 · 친구 요청 `community_friend_requests` UPDATE 구독으로 수락/거절/취소 즉시 정리 · 그룹 초대 `community_group_invite` 알림/팝업 분리 · direct call accept PATCH 후 권한 프라임을 라우팅 뒤 병렬화 |
+| 측정 (다음) | `scripts/verify-cm-receive-latency-coalesce.mjs` PASS · `verify:messenger-consistency-structural` PASS · 2기기 3회: 친구 요청 발송→수락/거절/취소 양방향 즉시 반영, 그룹 생성/초대 팝업이 친구 요청과 구분, 일반 voice/video 수신 수락→통화 화면 즉시 진입→원격 미디어 연결, 거래/배달/일반 voice/video 발신→거절/취소/종료, 통화 히스토리 1줄 유지, 숨긴 히스토리 refresh 재노출 없음, 권한 안내 반복 없음, iOS/Android/태블릿 리사이즈 안정 |
 | lock | `docs/messenger-realtime-policy.md` · `docs/trade-chat-room-identity.md` |
 
 | 트랙 이름 | **STAB1** Post cleanup stabilization |

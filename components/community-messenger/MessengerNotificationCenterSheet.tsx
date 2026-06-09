@@ -21,6 +21,7 @@ export { resolveImportantRoomHighlightReason } from "@/lib/community-messenger/m
 
 type Summary = {
   requestCount: number;
+  groupInviteCount: number;
   missedCallCount: number;
   importantCount: number;
 };
@@ -33,6 +34,7 @@ type Props = {
   onRespondRequest: (requestId: string, action: "accept" | "reject" | "cancel") => Promise<void>;
   onOpenMissedCall: (call: CommunityMessengerCallLog) => void;
   onOpenImportantRoom: (roomId: string) => void;
+  onOpenGroupInvite: (roomId: string, inviteId: string) => void;
   onDismissNotification: (id: string) => void;
   onMarkRoomRead: (roomId: string) => Promise<void>;
   onToggleRoomMute: (room: CommunityMessengerRoomSummary) => Promise<void>;
@@ -263,6 +265,52 @@ function MissedCallRow({
   );
 }
 
+function GroupInviteRow({
+  item,
+  onOpen,
+  onDismiss,
+}: {
+  item: Extract<MessengerNotificationCenterItem, { kind: "group_invite" }>;
+  onOpen: () => void;
+  onDismiss: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  const invite = item.invite;
+  const roomTitle = invite.roomTitle.trim() || t("cm_ui_group");
+  const inviterLabel = invite.inviterLabel.trim() || t("common_partner");
+  return (
+    <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+      <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
+        <div className="flex items-center gap-1.5">
+          <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
+            {t("cm_ui_group_invite")}
+          </span>
+          <p className="truncate sam-text-body-secondary font-medium text-ui-fg">{roomTitle}</p>
+        </div>
+        <p className="mt-0.5 truncate sam-text-xxs text-ui-muted">
+          {t("cm_ui_group_invite_added_by", { name: inviterLabel })}
+        </p>
+      </button>
+      <div className="flex shrink-0 gap-1">
+        <button
+          type="button"
+          onClick={onOpen}
+          className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 sam-text-xxs font-semibold text-ui-surface"
+        >
+          {t("cm_ui_open")}
+        </button>
+        <button
+          type="button"
+          onClick={() => onDismiss(item.id)}
+          className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
+        >
+          {t("nav_close")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function highlightReasonLabel(reason: "pinned" | "trade" | "delivery"): "cm_ui_reason_pinned" | "cm_ui_reason_trade" | "cm_ui_reason_delivery" {
   if (reason === "pinned") return "cm_ui_reason_pinned";
   if (reason === "trade") return "cm_ui_reason_trade";
@@ -372,6 +420,7 @@ function ImportantRoomRow({
 function buildSummaryLine(summary: Summary): string | null {
   const parts: string[] = [];
   if (summary.requestCount > 0) parts.push(`request ${summary.requestCount}`);
+  if (summary.groupInviteCount > 0) parts.push(`group_invite ${summary.groupInviteCount}`);
   if (summary.missedCallCount > 0) parts.push(`missed ${summary.missedCallCount}`);
   if (summary.importantCount > 0) parts.push(`important ${summary.importantCount}`);
   if (!parts.length) return null;
@@ -386,6 +435,7 @@ export function MessengerNotificationCenterSheet({
   onRespondRequest,
   onOpenMissedCall,
   onOpenImportantRoom,
+  onOpenGroupInvite,
   onDismissNotification,
   onMarkRoomRead,
   onToggleRoomMute,
@@ -398,6 +448,7 @@ export function MessengerNotificationCenterSheet({
       ? null
       : summaryLineRaw
           .replace(/request (\d+)/g, (_, n) => t("cm_ui_request_count", { count: Number(n) }))
+          .replace(/group_invite (\d+)/g, (_, n) => t("cm_ui_group_invite_count", { count: Number(n) }))
           .replace(/missed (\d+)/g, (_, n) => t("cm_ui_missed_call_count", { count: Number(n) }))
           .replace(/important (\d+)/g, (_, n) => t("cm_ui_important_chat_count", { count: Number(n) }));
 
@@ -426,6 +477,16 @@ export function MessengerNotificationCenterSheet({
                   item={item}
                   busyId={busyId}
                   onAction={onRespondRequest}
+                  onDismiss={onDismissNotification}
+                />
+              ) : item.kind === "group_invite" ? (
+                <GroupInviteRow
+                  key={item.id}
+                  item={item}
+                  onOpen={() => {
+                    onClose();
+                    onOpenGroupInvite(item.invite.roomId, item.invite.id);
+                  }}
                   onDismiss={onDismissNotification}
                 />
               ) : item.kind === "missed_call" ? (

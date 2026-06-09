@@ -17,7 +17,7 @@ function normalizeNotificationMeta(raw: unknown): Record<string, unknown> | null
   return null;
 }
 
-/** `useSupabaseNotificationsRealtime` 전용 — 친구요청(meta.kind) 행만 스토어 반영 */
+/** `useSupabaseNotificationsRealtime` 전용 — 소셜 알림(meta.kind) 행을 전역 팝업 스토어에 반영 */
 function coalesceStr(...vals: unknown[]): string {
   for (const v of vals) {
     if (v == null) continue;
@@ -29,7 +29,33 @@ function coalesceStr(...vals: unknown[]): string {
 
 export function upsertIncomingFriendRequestPopupFromNotificationInsertRow(row: Record<string, unknown>): void {
   const meta = normalizeNotificationMeta(row.meta);
-  if (!meta || meta.kind !== "friend_request") return;
+  if (!meta) return;
+
+  if (meta.kind === "community_group_invite") {
+    const roomId = coalesceStr(meta.room_id, (meta as { roomId?: unknown }).roomId);
+    const uid = coalesceStr(row.user_id);
+    if (!roomId || !uid) return;
+    const notificationId = coalesceStr(row.id) || `group_invite:${roomId}`;
+    const inviterUserId = coalesceStr(
+      meta.inviter_user_id,
+      (meta as { inviterUserId?: unknown }).inviterUserId
+    );
+    const inviterLabel = coalesceStr(meta.inviter_label, (meta as { inviterLabel?: unknown }).inviterLabel);
+    const roomTitle = coalesceStr(meta.room_title, (meta as { roomTitle?: unknown }).roomTitle);
+    const createdAt = typeof row.created_at === "string" ? row.created_at : new Date().toISOString();
+    const store = useIncomingFriendRequestPopupStore.getState();
+    store.upsertGroupInvite({
+      id: notificationId,
+      roomId,
+      roomTitle,
+      inviterUserId,
+      inviterLabel,
+      createdAt,
+    });
+    return;
+  }
+
+  if (meta.kind !== "friend_request") return;
 
   const requestId = coalesceStr(
     meta.request_id,
@@ -47,7 +73,7 @@ export function upsertIncomingFriendRequestPopupFromNotificationInsertRow(row: R
   store.upsertIncoming({
     id: requestId,
     requesterId,
-    requesterLabel: requesterLabel || "상대",
+    requesterLabel,
     addresseeId: uid,
     addresseeLabel: "",
     status: "pending",

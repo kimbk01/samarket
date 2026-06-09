@@ -770,6 +770,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [roomSearchKeyword, setRoomSearchKeyword] = useState("");
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [dismissedNotificationIds, setDismissedNotificationIds] = useState<string[]>([]);
+  const groupInviteNotifications = useIncomingFriendRequestPopupStore((s) => s.groupInviteList);
   const [searchKeyword, setSearchKeyword] = useState("");
   const [searchResults, setSearchResults] = useState<CommunityMessengerProfileLite[]>([]);
   const [groupTitle, setGroupTitle] = useState("");
@@ -1659,6 +1660,78 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           showMessengerSnackbar(rejectMsg, { variant: "error" });
         }
         void refresh(true);
+        return;
+      }
+      if (ev.kind === "friend_status_changed") {
+        if (ev.status === "pending") return;
+        const meId = data.me.id;
+        const peerId =
+          ev.requesterUserId === meId
+            ? ev.addresseeUserId
+            : ev.addresseeUserId === meId
+              ? ev.requesterUserId
+              : "";
+        setData((prev) => {
+          if (!prev) return prev;
+          const nextRequests = (prev.requests ?? []).filter((r) => {
+            if (r.id === ev.requestId) return false;
+            if (
+              peerId &&
+              r.status === "pending" &&
+              ((r.requesterId === meId && r.addresseeId === peerId) ||
+                (r.requesterId === peerId && r.addresseeId === meId))
+            ) {
+              return false;
+            }
+            return true;
+          });
+          let next: typeof prev = { ...prev, requests: nextRequests };
+          if (ev.status === "accepted" && peerId) {
+            const exists = (prev.friends ?? []).some((f) => f.id === peerId);
+            if (!exists) {
+              const nowIso = ev.createdAt || new Date().toISOString();
+              const nextFriend: CommunityMessengerProfileLite = {
+                id: peerId,
+                label: t("cm_ui_friend_label"),
+                subtitle: "",
+                bio: null,
+                avatarUrl: null,
+                following: false,
+                blocked: false,
+                isFriend: true,
+                isFavoriteFriend: false,
+                isHiddenFriend: false,
+                friendshipAcceptedAt: nowIso,
+              };
+              const nextFriends = [...(prev.friends ?? []), nextFriend];
+              next = { ...next, friends: nextFriends, tabs: { ...prev.tabs, friends: nextFriends.length } };
+            }
+          }
+          return next;
+        });
+        useIncomingFriendRequestPopupStore.getState().dismissIncomingIfRequestId(ev.requestId);
+        if (peerId) {
+          setSearchResults((prev) =>
+            prev.map((p) =>
+              p.id === peerId
+                ? { ...p, isFriend: ev.status === "accepted" ? true : p.isFriend }
+                : p
+            )
+          );
+          setFriendSheet((prev) =>
+            prev?.profile.id === peerId
+              ? { ...prev, profile: { ...prev.profile, isFriend: ev.status === "accepted" ? true : prev.profile.isFriend } }
+              : prev
+          );
+        }
+        if (ev.status === "cancelled") {
+          void refresh(true);
+        } else if (
+          (ev.status === "accepted" || ev.status === "rejected") &&
+          meId === ev.requesterUserId
+        ) {
+          void refresh(true);
+        }
       }
     },
     [data?.me?.id, refresh, setData, t]
@@ -2471,6 +2544,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         createdAt: call.startedAt,
         call,
       }));
+    const groupInviteItems: MessengerNotificationCenterItem[] = groupInviteNotifications.map((invite) => ({
+      id: `group_invite:${invite.id}`,
+      kind: "group_invite" as const,
+      createdAt: invite.createdAt,
+      invite,
+    }));
     const importantRoomItems: MessengerNotificationCenterItem[] = baseChatListItems
       .filter((item) => {
         const r = item.room;
@@ -2488,10 +2567,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         preview: item.preview,
         highlightReason: resolveImportantRoomHighlightReason(item.room),
       }));
-    return [...requestItems, ...missedCallItems, ...importantRoomItems].sort(
+    return [...requestItems, ...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [baseChatListItems, data?.requests, sortedCalls]);
+  }, [baseChatListItems, data?.requests, groupInviteNotifications, sortedCalls]);
   const notificationCenterItems = useMemo(
     () => notificationCenterItemsAll.filter((item) => !dismissedNotificationIds.includes(item.id)),
     [dismissedNotificationIds, notificationCenterItemsAll]
@@ -2499,6 +2578,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const notificationCenterSummary = useMemo(
     () => ({
       requestCount: notificationCenterItems.filter((item) => item.kind === "request").length,
+      groupInviteCount: notificationCenterItems.filter((item) => item.kind === "group_invite").length,
       missedCallCount: notificationCenterItems.filter((item) => item.kind === "missed_call").length,
       importantCount: notificationCenterItems.filter((item) => item.kind === "important_room").length,
     }),
@@ -3431,7 +3511,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             }
           }}
           onOpenImportantRoom={(roomId) => navigateToCommunityRoom(roomId)}
-          onDismissNotification={dismissNotification}
+          onOpenGroupInvite={(roomId, inviteId) => {
+            useIncomingFriendRequestPopupStore.getState().dismissGroupInviteIfId(inviteId);
+            dismissNotification(`group_invite:${inviteId}`);
+            navigateToCommunityRoom(roomId);
+          }}
+          onDismissNotification={(id) => {
+            if (id.startsWith("group_invite:")) {
+              useIncomingFriendRequestPopupStore.getState().dismissGroupInviteIfId(id.slice("group_invite:".length));
+            }
+            dismissNotification(id);
+          }}
           onMarkRoomRead={markRoomRead}
           onToggleRoomMute={notificationRoomMuteToggle}
           onArchiveRoom={notificationArchiveRoom}

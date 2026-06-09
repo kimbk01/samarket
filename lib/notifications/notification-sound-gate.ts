@@ -83,8 +83,20 @@ export function routeNotificationInsertSound(row: Record<string, unknown>): bool
   const surface = gateSnapshot;
   if (!surface) return undefined;
 
-  /** `playIncomingFriendRequestInAppAlert` — `route` 와 이중 재생 방지 */
-  if ((row.meta as { kind?: string } | undefined)?.kind === "friend_request") {
+  const metaKind = (row.meta as { kind?: string; room_id?: string } | undefined)?.kind;
+  /** 팝업 전용 알림음 경로와 이중 재생 방지 */
+  if (metaKind === "friend_request") {
+    return false;
+  }
+  if (metaKind === "community_group_invite") {
+    const roomId = (row.meta as { room_id?: string } | undefined)?.room_id;
+    if (typeof roomId === "string" && roomId.trim()) {
+      if (!shouldPlayGroupChatInAppSoundFromGate(surface, roomId)) {
+        return false;
+      }
+      void playDomainNotificationSound("community_group_chat");
+      return true;
+    }
     return false;
   }
 

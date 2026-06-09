@@ -10,6 +10,11 @@ import { useCallTimer } from "./useCallTimer";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  CALL_PIP_MARGIN_BOTTOM_GAP_PX,
+  clearCallPipActionBarHeightCssVar,
+  syncCallPipActionBarHeightCssVar,
+} from "@/lib/community-messenger/call-pip-metrics";
 
 const IDLE_HIDE_MS = 4200;
 
@@ -28,6 +33,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
 
   const [controlsVisible, setControlsVisible] = useState(true);
   const idleHideTimerRef = useRef<number | null>(null);
+  const actionBarMeasureRef = useRef<HTMLDivElement | null>(null);
 
   const clearIdleHideTimer = useCallback(() => {
     if (idleHideTimerRef.current != null) {
@@ -57,6 +63,55 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     return clearIdleHideTimer;
   }, [autoHideControlsEnabled, vm.phase, armIdleHideTimer, clearIdleHideTimer]);
 
+  const pipShellMounted = Boolean(vm.pipShellMounted);
+
+  useEffect(() => {
+    if (!pipShellMounted || typeof ResizeObserver === "undefined") return;
+
+    let ro: ResizeObserver | null = null;
+    let cancelled = false;
+    let attempts = 0;
+
+    const applyHeight = () => {
+      const actionBarEl = actionBarMeasureRef.current;
+      if (!actionBarEl) return;
+      const h = controlsVisible
+        ? Math.ceil(actionBarEl.getBoundingClientRect().height)
+        : CALL_PIP_MARGIN_BOTTOM_GAP_PX + 8;
+      if (h > 0) syncCallPipActionBarHeightCssVar(h);
+    };
+
+    const attach = () => {
+      if (cancelled) return;
+      const actionBarEl = actionBarMeasureRef.current;
+      if (!actionBarEl) {
+        attempts += 1;
+        if (attempts < 90) requestAnimationFrame(attach);
+        return;
+      }
+      applyHeight();
+      ro = new ResizeObserver(applyHeight);
+      ro.observe(actionBarEl);
+    };
+
+    attach();
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+    };
+  }, [
+    controlsVisible,
+    pipShellMounted,
+    vm.phase,
+    vm.primaryActions.length,
+    vm.secondaryActions?.length,
+  ]);
+
+  useEffect(() => {
+    if (pipShellMounted) return;
+    clearCallPipActionBarHeightCssVar();
+  }, [pipShellMounted]);
+
   const revealControls = useCallback(() => {
     setControlsVisible(true);
     armIdleHideTimer();
@@ -80,7 +135,6 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     : "pt-[max(8px,calc(env(safe-area-inset-top)+48px))]";
 
   /** 발신 영상은 중앙 대기 카드(아바타+검은 배경) 금지 — 항상 카메라·영상 레이어 유지 */
-  const pipShellMounted = Boolean(vm.pipShellMounted);
   const showAvatarCenterCard =
     !(vm.mode === "video" && vm.direction === "outgoing") &&
     !vm.showRemoteVideo &&
@@ -113,7 +167,6 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       positionMode: bindings?.positionMode ?? "stage-absolute",
       micMuted: bindings?.micMuted ?? !vm.mediaState.micEnabled,
       cameraOff: bindings?.cameraOff ?? !vm.mediaState.cameraEnabled,
-      onCloseClick: bindings?.onPipClose,
       onExpand: bindings?.onPipExpand,
       className: pipChromeHiddenClass.trim(),
       onPointerDown: bindings?.onPipPointerDown,
@@ -249,6 +302,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       {/* 하단 컨트롤 — 영상 위 오버레이 · 숨김 시 아래로 슬라이드(translate-y-full), 표시 시 아래에서 올라옴 */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[10] overflow-hidden">
         <div
+          ref={actionBarMeasureRef}
           className={`transition-transform duration-300 ease-out will-change-transform ${
             controlsVisible ? "pointer-events-auto translate-y-0" : "pointer-events-none translate-y-full"
           }`}

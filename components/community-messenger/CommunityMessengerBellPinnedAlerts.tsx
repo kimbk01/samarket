@@ -5,6 +5,7 @@ import { dispatchTier1HeaderOverlayClose } from "@/lib/layout/tier1-header-overl
 
 type MessengerAlertSummary = {
   requestCount: number;
+  groupInviteCount: number;
   missedCallCount: number;
   importantCount: number;
 };
@@ -13,6 +14,9 @@ function formatPinnedSummaryLine(summary: MessengerAlertSummary, t: ReturnType<t
   const parts: string[] = [];
   if (summary.requestCount > 0) {
     parts.push(t("cm_ui_request_count", { count: summary.requestCount }));
+  }
+  if (summary.groupInviteCount > 0) {
+    parts.push(t("cm_ui_group_invite_count", { count: summary.groupInviteCount }));
   }
   if (summary.missedCallCount > 0) {
     parts.push(t("cm_ui_missed_call_count", { count: summary.missedCallCount }));
@@ -34,7 +38,7 @@ export function CommunityMessengerBellPinnedAlerts({
   onOpenNotificationCenter: () => void;
 }) {
   const { t } = useI18n();
-  const total = summary.requestCount + summary.missedCallCount + summary.importantCount;
+  const total = summary.requestCount + summary.groupInviteCount + summary.missedCallCount + summary.importantCount;
   const summaryLine = formatPinnedSummaryLine(summary, t);
   if (total < 1) return null;
 
