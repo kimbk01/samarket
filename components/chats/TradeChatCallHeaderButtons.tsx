@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
-import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
@@ -49,14 +49,12 @@ export function TradeChatCallHeaderButtons(props: {
       const cmRid = communityMessengerRoomId?.trim() ?? "";
       if ((!pcRid && !cmRid) || busy) return;
       setBusy(true);
-      const videoPrimeWork =
-        kind === "video"
-          ? primeCommunityMessengerDevicePermissionFromUserGesture(kind).catch(() => undefined)
-          : null;
-      if (kind === "voice") {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
-      }
       try {
+        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
+        if (!primeResult.ok && kind === "video") {
+          onErrorMessage(t("nav_messenger_permission_retry_camera_mic"));
+          return;
+        }
         let messengerRoomId = cmRid;
         if (!messengerRoomId) {
           const res = await fetch("/api/community-messenger/bridge/product-chat", {
@@ -98,9 +96,6 @@ export function TradeChatCallHeaderButtons(props: {
           callKind: kind,
           role: "initiator",
         });
-        if (videoPrimeWork) {
-          await videoPrimeWork;
-        }
         router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: messengerRoomId }));
       } catch {
         onErrorMessage(t("chats_trade_call_network_error"));

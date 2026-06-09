@@ -17,7 +17,9 @@ import {
   cmCallLatencyAnalysis,
   cmCallLatencyInfo,
 } from "@/lib/community-messenger/cm-call-debug";
-import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
@@ -185,6 +187,20 @@ export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMess
 export type OutgoingCallSessionBootstrapResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string }
   | { ok: false; userMessage: string };
+
+function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
+  const lang = getRuntimeAppLanguage();
+  if (kind === "video") {
+    return safeTranslate(lang, "nav_messenger_permission_retry_camera_mic", {
+      fallbackKo: "카메라·마이크 권한을 허용한 뒤 다시 시도해 주세요.",
+      fallbackEn: "Allow camera and microphone, then try again.",
+    });
+  }
+  return safeTranslate(lang, "nav_messenger_permission_retry_mic", {
+    fallbackKo: "마이크 권한을 허용한 뒤 다시 시도해 주세요.",
+    fallbackEn: "Allow microphone, then try again.",
+  });
+}
 
 /** 발신 세션 POST 는 사용자 대기 구간이므로 브라우저에 높은 네트워크 우선순위를 힌트한다. */
 function outgoingCallFetchInit(init: RequestInit): RequestInit {
@@ -402,7 +418,11 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
-  void primeCommunityMessengerDevicePermissionFromUserGesture(input.kind).catch(() => undefined);
+  const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
+  if (!primeResult.ok && input.kind === "video") {
+    stopCommunityMessengerCallTone();
+    return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
+  }
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
@@ -455,7 +475,11 @@ export async function startOutgoingCallSessionAndOpen(
 ): Promise<OutgoingCallSessionBootstrapResult> {
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
-  void primeCommunityMessengerDevicePermissionFromUserGesture(input.kind).catch(() => undefined);
+  const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
+  if (!primeResult.ok && input.kind === "video") {
+    stopCommunityMessengerCallTone();
+    return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
+  }
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }

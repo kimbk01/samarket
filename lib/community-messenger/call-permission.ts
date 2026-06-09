@@ -1,7 +1,4 @@
-import {
-  acquirePrimedCommunityMessengerStream,
-  assertCallMediaNotPersistentlyDenied,
-} from "@/lib/call/permission-manager";
+import { isCommunityMessengerMediaBrowserGrantedSync } from "@/lib/community-messenger/media-permissions-query";
 import {
   isPermissionFeatureCompleted,
   markPermissionFeatureCompleted,
@@ -164,8 +161,13 @@ export function resumePrimedCommunityMessengerDeviceStreamIdleRelease(
 
 function primedStreamIsUsableForKind(kind: CommunityMessengerCallKind): boolean {
   if (!primedDeviceStreamState || primedDeviceStreamState.kind !== kind) return false;
-  const tracks = primedDeviceStreamState.stream.getTracks();
-  return tracks.length > 0 && tracks.every((t) => t.readyState === "live");
+  const stream = primedDeviceStreamState.stream;
+  const tracks = stream.getTracks();
+  if (tracks.length === 0 || !tracks.every((t) => t.readyState === "live")) return false;
+  if (kind === "video") {
+    return stream.getVideoTracks().some((t) => t.readyState === "live");
+  }
+  return stream.getAudioTracks().some((t) => t.readyState === "live");
 }
 
 /** 전역 수락 직후 방으로 이동했을 때 자동 수락 effect 가 getUserMedia 를 호출해도 되는지(프라임 성공 여부) */
@@ -176,7 +178,11 @@ export function hasUsablePrimedCommunityMessengerDeviceStream(kind: CommunityMes
 /** Permissions API 대기 없이 즉시 — 발신 통화 첫 페인트·자동 조인 판단용 */
 export function shouldSkipCallerMediaGateOverlaySync(kind: CommunityMessengerCallKind): boolean {
   if (typeof window === "undefined") return false;
-  return hasUsablePrimedCommunityMessengerDeviceStream(kind) || hasCommunityMessengerMediaTrustedMark(kind);
+  return (
+    hasUsablePrimedCommunityMessengerDeviceStream(kind) ||
+    hasCommunityMessengerMediaTrustedMark(kind) ||
+    isCommunityMessengerMediaBrowserGrantedSync(kind)
+  );
 }
 
 /**
@@ -222,6 +228,13 @@ function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream
   }
 }
 
+export function storePrimedCommunityMessengerDeviceStream(
+  kind: CommunityMessengerCallKind,
+  stream: MediaStream
+): void {
+  storePrimedStream(kind, stream);
+}
+
 /**
  * 전역 수신 배너에서 클릭으로 프라임한 뒤 방으로 이동하면, 자동 수락이 `useEffect`에서
  * 돌아 사용자 제스처가 없다. 이 경우 다시 `getUserMedia`를 호출하면 Chrome 등에서
@@ -234,27 +247,17 @@ function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream
 export function primeCommunityMessengerDevicePermissionFromUserGesture(
   kind: CommunityMessengerCallKind
 ): Promise<void> {
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
-    return Promise.resolve();
-  }
-  if (typeof window !== "undefined") {
-    if (primedStreamIsUsableForKind(kind)) {
-      return Promise.resolve();
-    }
-    clearPrimedDeviceStream(true);
-  }
-  return assertCallMediaNotPersistentlyDenied(kind)
-    .then(() => acquirePrimedCommunityMessengerStream(kind))
-    .then((stream) => {
-      if (typeof window === "undefined") {
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-        return;
+  return import("@/lib/community-messenger/call-media-bootstrap").then((m) => {
+    const run =
+      kind === "video"
+        ? m.primeVideoCallMediaFromUserGesture()
+        : m.primeVoiceCallMediaFromUserGesture();
+    return run.then((result) => {
+      if (!result.ok) {
+        throw new DOMException("Media prime failed", "NotAllowedError");
       }
-      storePrimedStream(kind, stream);
-      markCommunityMessengerMediaTrustedOnce(kind);
     });
+  });
 }
 
 export async function primeCommunityMessengerDevicePermission(kind: CommunityMessengerCallKind): Promise<void> {

@@ -30,11 +30,6 @@ import {
   type ReactNode,
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  hasUsablePrimedCommunityMessengerDeviceStream,
-  primeCommunityMessengerDevicePermissionFromUserGesture,
-  openCommunityMessengerPermissionSettings,
-} from "@/lib/community-messenger/call-permission";
 import { startCommunityMessengerCallTone, type CallToneController } from "@/lib/community-messenger/call-feedback-sound";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";

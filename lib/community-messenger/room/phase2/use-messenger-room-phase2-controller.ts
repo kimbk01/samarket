@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   hasUsablePrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
@@ -594,17 +595,18 @@ export function useMessengerRoomPhase2Controller() {
         router.push(dialHref);
         releaseDialGuard();
       };
-      if (kind === "video") {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
-          .catch(() => undefined)
-          .finally(pushDial);
-      } else {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+      void (async () => {
+        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
+        if (!primeResult.ok && kind === "video") {
+          showMessengerSnackbar(t("nav_messenger_permission_retry_camera_mic"), { variant: "error" });
+          releaseDialGuard();
+          return;
+        }
         pushDial();
-      }
+      })();
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
   );
 
   useEffect(() => {
@@ -1676,17 +1678,18 @@ export function useMessengerRoomPhase2Controller() {
         router.push(dialHref);
         releaseDialGuard();
       };
-      if (kind === "video") {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
-          .catch(() => undefined)
-          .finally(pushDial);
-      } else {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+      void (async () => {
+        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
+        if (!primeResult.ok && kind === "video") {
+          showMessengerSnackbar(t("nav_messenger_permission_retry_camera_mic"), { variant: "error" });
+          releaseDialGuard();
+          return;
+        }
         pushDial();
-      }
+      })();
       return true;
     },
-    [router]
+    [router, t]
   );
 
   const removeGroupMember = useCallback(

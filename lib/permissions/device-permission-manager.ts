@@ -468,6 +468,43 @@ export async function acquireSimpleMicStreamWithDiBaYGate(options?: {
 }
 
 /**
+ * 영상 통화용 mic+cam — DiBaY 게이트 + GUM 단일 경로 (프리플라이트·온보딩).
+ */
+export async function acquireVideoCallStreamWithDiBaYGate(options?: {
+  explicitRetry?: boolean;
+}): Promise<MediaStream> {
+  const gate = await ensureMicrophoneCameraWithDiBaYGate({
+    explicitRetry: options?.explicitRetry === true,
+    featureKey: "messenger_video_call",
+  });
+  if (!gate.ok) {
+    if (gate.reason === "denied") {
+      throw new DOMException("Camera or microphone permission denied", "NotAllowedError");
+    }
+    if (gate.reason === "no_api") {
+      throw new DOMException("getUserMedia unavailable", "NotSupportedError");
+    }
+    if (gate.reason === "insecure") {
+      throw new DOMException("insecure context", "SecurityError");
+    }
+    if (gate.reason === "later") {
+      throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_LATER, "AbortError");
+    }
+    if (gate.reason === "deferred") {
+      throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_DEFERRED, "AbortError");
+    }
+    throw new DOMException("Media permission request aborted", "AbortError");
+  }
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    throw new DOMException("getUserMedia unavailable", "NotSupportedError");
+  }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  markPermissionFeatureCompleted("messenger_video_call");
+  markPermissionFeatureCompleted("messenger_voice_call");
+  return stream;
+}
+
+/**
  * 마이크 허용 확인용으로만 짧게 GUM 후 트랙 정리 (안내 이후「허용하기」경로).
  */
 export async function probeMicrophoneWithGetUserMedia(options?: {

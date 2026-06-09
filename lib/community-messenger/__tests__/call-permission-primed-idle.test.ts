@@ -19,6 +19,12 @@ vi.mock("@/lib/call/permission-manager", () => ({
   assertCallMediaNotPersistentlyDenied: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@/lib/community-messenger/media-preflight", () => ({
+  isCommunityMessengerMediaSecureContext: vi.fn(() => true),
+  persistDeviceIdsFromMediaStream: vi.fn(),
+  refreshPreferredCommunityMessengerDevicesFromEnumerate: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("@/lib/permissions/device-permission-manager", () => ({
   markPermissionFeatureCompleted: vi.fn((featureKey: string) => {
     permissionMockState.completed.add(featureKey);
@@ -36,6 +42,8 @@ describe("primed device stream idle release", () => {
     vi.stubGlobal("window", {
       setTimeout: (...args: Parameters<typeof setTimeout>) => setTimeout(...args),
       clearTimeout: (...args: Parameters<typeof clearTimeout>) => clearTimeout(...args),
+      isSecureContext: true,
+      location: { hostname: "localhost" },
     });
   });
 

@@ -29,6 +29,11 @@ async function loadCommunityMessengerCallProvider() {
 }
 import { ensureVideoPermission } from "@/lib/call/permission-manager";
 import {
+  isCallMediaReadyForKind,
+  primeVideoCallMediaFromUserGesture,
+  primeVoiceCallMediaFromUserGesture,
+} from "@/lib/community-messenger/call-media-bootstrap";
+import {
   markCommunityMessengerMediaTrustedOnce,
   openCommunityMessengerPermissionSettings,
   hasUsablePrimedCommunityMessengerDeviceStream,
@@ -719,7 +724,7 @@ export function CommunityMessengerCallClient({
     const s = initialCallHydration.session;
     if (!s) return true;
     if (!s.isMineInitiator) return true;
-    return shouldSkipCallerMediaGateOverlaySync(s.callKind);
+    return isCallMediaReadyForKind(s.callKind);
   });
   /** silent 세션 GET 이 동시에 여러 번 호출될 때(폴링+Realtime) 한 번의 네트워크로 합친다 */
   const refreshSilentInFlightRef = useRef<Promise<CommunityMessengerCallSession | null> | null>(null);
@@ -854,7 +859,7 @@ export function CommunityMessengerCallClient({
       if (!seeded.isMineInitiator) {
         setCallerMediaConsentDone(true);
       } else {
-        setCallerMediaConsentDone(shouldSkipCallerMediaGateOverlaySync(seeded.callKind));
+        setCallerMediaConsentDone(isCallMediaReadyForKind(seeded.callKind));
       }
     }
   }, [sessionId]);
@@ -2040,8 +2045,18 @@ export function CommunityMessengerCallClient({
     setErrorMessage(null);
     void (async () => {
       try {
-        await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
-        markCommunityMessengerMediaTrustedOnce(s.callKind);
+        const primeResult =
+          s.callKind === "video"
+            ? await primeVideoCallMediaFromUserGesture({ explicitRetry: true })
+            : await primeVoiceCallMediaFromUserGesture({ explicitRetry: true });
+        if (!primeResult.ok) {
+          setErrorMessage(
+            s.callKind === "video"
+              ? t("nav_messenger_permission_retry_camera_mic")
+              : t("nav_messenger_permission_retry_mic")
+          );
+          return;
+        }
         setCallerMediaConsentDone(true);
         const cur = sessionRef.current;
         if (
@@ -2057,7 +2072,7 @@ export function CommunityMessengerCallClient({
         setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
       }
     })();
-  }, [joinCall]);
+  }, [joinCall, t]);
 
   const applyTerminalSessionAfterPatch = useCallback(
     (
@@ -3023,13 +3038,20 @@ export function CommunityMessengerCallClient({
     }
     let cancelled = false;
 
+    if (isCallMediaReadyForKind(session.callKind)) {
+      setCallerMediaConsentDone(true);
+      return;
+    }
+
     /** Permissions API 대기 없이 게이트 통과 — 실제 Agora 조인은 아래 active 전용 effect 만 */
     if (shouldSkipCallerMediaGateOverlaySync(session.callKind)) {
       setCallerMediaConsentDone(true);
     }
 
     void (async () => {
-      const skip = await shouldSkipCallerMediaGateOverlay(session.callKind);
+      const skip =
+        isCallMediaReadyForKind(session.callKind) ||
+        (await shouldSkipCallerMediaGateOverlay(session.callKind));
       if (cancelled) return;
       setCallerMediaConsentDone(skip);
     })();

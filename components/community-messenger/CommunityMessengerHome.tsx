@@ -77,7 +77,7 @@ import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-tra
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
-import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
@@ -1182,18 +1182,18 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         router.push(dialHref);
         releaseDialGuard();
       };
-      /** 영상: 제스처 안에서 GUM 완료 후 이동 — 링 단계 카메라 미리보기·‘준비 중’ 체감 지연 완화 */
-      if (kind === "video") {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
-          .catch(() => undefined)
-          .finally(pushDial);
-      } else {
-        void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
+      void (async () => {
+        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
+        if (!primeResult.ok && kind === "video") {
+          showMessengerSnackbar(t("nav_messenger_permission_retry_camera_mic"), { variant: "error" });
+          releaseDialGuard();
+          return;
+        }
         pushDial();
-      }
+      })();
       return true;
     },
-    [data?.chats, reviveDirectRoomForEntry, router]
+    [data?.chats, reviveDirectRoomForEntry, router, t]
   );
 
   const searchUsers = useCallback(async () => {

@@ -1,9 +1,14 @@
+import {
+  markCommunityMessengerMediaTrustedOnce,
+  storePrimedCommunityMessengerDeviceStream,
+} from "@/lib/community-messenger/call-permission";
+import { readDiBaYCallMediaPromptState } from "@/lib/community-messenger/call-media-onboarding-storage";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
   queryCommunityMessengerMediaPermissions,
   type CommunityMessengerMediaPermissionSnapshot,
 } from "@/lib/community-messenger/media-permissions-query";
-import { acquireSimpleMicStreamWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
+import { acquireVideoCallStreamWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
 
 export type { CommunityMessengerMediaPermissionSnapshot };
 export { queryCommunityMessengerMediaPermissions };
@@ -100,25 +105,28 @@ export async function runCommunityMessengerEntryMediaPreflight(
   }
 
   const perms = await queryCommunityMessengerMediaPermissions();
-  if (perms.microphone === "denied") {
+  if (perms.microphone === "denied" || perms.camera === "denied") {
     return { ok: false, code: "denied" };
   }
 
-  const micUnset = perms.microphone == null;
-  const camUnset = perms.camera == null;
-  const micPrompt = perms.microphone === "prompt";
-  const needGesturePath = micPrompt || (micUnset && camUnset);
+  const micGranted = perms.microphone === "granted";
+  const camGranted = perms.camera === "granted";
 
-  if (needGesturePath && !allowPrompt) {
-    return { ok: false, code: "gum_failed" };
-  }
-
-  const tryAcquire = async (): Promise<boolean> => {
+  const tryAcquireVideo = async (
+    explicitRetry: boolean,
+    opts?: { retainPrimedStream?: boolean }
+  ): Promise<boolean> => {
     try {
-      /** 메신저 진입 프리플라이트는 마이크만 — DiBaY 게이트·GUM 단일 경로. */
-      const stream = await acquireSimpleMicStreamWithDiBaYGate({ featureKey: "messenger_voice_call" });
+      const stream = await acquireVideoCallStreamWithDiBaYGate({ explicitRetry });
       persistDeviceIdsFromMediaStream(stream);
-      stream.getTracks().forEach((t) => t.stop());
+      const hasLiveVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
+      if (opts?.retainPrimedStream && hasLiveVideo && typeof window !== "undefined") {
+        storePrimedCommunityMessengerDeviceStream("video", stream);
+        markCommunityMessengerMediaTrustedOnce("voice");
+        markCommunityMessengerMediaTrustedOnce("video");
+      } else {
+        stream.getTracks().forEach((t) => t.stop());
+      }
       await refreshPreferredCommunityMessengerDevicesFromEnumerate();
       return true;
     } catch {
@@ -126,22 +134,24 @@ export async function runCommunityMessengerEntryMediaPreflight(
     }
   };
 
-  if (perms.microphone === "granted" || (allowPrompt && perms.microphone === "prompt")) {
-    if (await tryAcquire()) return { ok: true };
+  const onboardingAccepted = readDiBaYCallMediaPromptState() === "accepted";
+
+  /** 이미 mic+cam granted — 프롬프트 없이 조용히 장치 ID 확보 (온보딩 완료 후에도 동일) */
+  if (micGranted && camGranted && !allowPrompt) {
+    if (await tryAcquireVideo(false)) return { ok: true };
     return { ok: false, code: "gum_failed" };
   }
 
-  /** Safari 등: microphone 만 null 이고 이미 스트림이 열린 적 있으면 granted 와 유사하게 시도 */
-  if (allowPrompt && micUnset && !camUnset) {
-    if (await tryAcquire()) return { ok: true };
+  if (!allowPrompt) {
     return { ok: false, code: "gum_failed" };
   }
 
-  if (allowPrompt) {
-    if (await tryAcquire()) return { ok: true };
+  /** 제스처 경로 — primed stream 유지해 발신 CTA 즉시성 확보. 온보딩 accepted 는 위 silent 만 */
+  if (onboardingAccepted) {
     return { ok: false, code: "gum_failed" };
   }
 
+  if (await tryAcquireVideo(true, { retainPrimedStream: true })) return { ok: true };
   return { ok: false, code: "gum_failed" };
 }
 

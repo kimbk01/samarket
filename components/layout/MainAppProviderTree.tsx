@@ -31,6 +31,7 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
+import { DiBaYCallMediaOnboardingGate } from "@/components/community-messenger/DiBaYCallMediaOnboardingGate";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
@@ -182,6 +183,7 @@ export function MainAppProviderTree({
           <MandatoryAddressGate />
           <PhoneVerificationRequiredDialog />
           <DiBaYNotificationOnboardingGate />
+          <DiBaYCallMediaOnboardingGate />
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { readDiBaYCallMediaPromptState } from "@/lib/community-messenger/call-media-onboarding-storage";
 import {
   markCommunityMessengerMediaTrustedOnce,
 } from "@/lib/community-messenger/call-permission";
@@ -38,12 +39,14 @@ export function CommunityMessengerMediaPreflight() {
       /* private mode */
     }
     attemptedRef.current = true;
+    const onboardingAccepted = readDiBaYCallMediaPromptState() === "accepted";
 
     let retry: (() => void) | null = null;
     const run = async (allowPrompt: boolean) => {
       const r = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: allowPrompt });
       if (r.ok) {
         markCommunityMessengerMediaTrustedOnce("voice");
+        markCommunityMessengerMediaTrustedOnce("video");
         try {
           window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
         } catch {
@@ -51,11 +54,12 @@ export function CommunityMessengerMediaPreflight() {
         }
         return;
       }
-      if (r.code === "gum_failed" && !allowPrompt) {
+      if (r.code === "gum_failed" && !allowPrompt && !onboardingAccepted) {
         retry = () => {
           void runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: true }).then((r2) => {
             if (r2.ok) {
               markCommunityMessengerMediaTrustedOnce("voice");
+              markCommunityMessengerMediaTrustedOnce("video");
               try {
                 window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
               } catch {
