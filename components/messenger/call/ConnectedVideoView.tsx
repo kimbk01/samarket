@@ -158,8 +158,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     pipShellMounted,
     hasPipGestureBindings: Boolean(pipBindings?.onPipPointerDown),
   });
-  /** 영상 ready 전 opacity 만 숨김 — 드래그는 shell 마운트 시 허용 */
-  const pipChromeHiddenClass = pipShellMounted && !vm.showLocalVideo ? "opacity-0" : "";
+  /** PiP 영상은 항상 표시 — opacity-0 으로 전체를 숨기면 메인 검은 화면·터치 스왑에만 의존하게 됨 */
+  const pipChromeHiddenClass = "";
   const pipInteractionClass = pipAllowPointer ? "pointer-events-auto touch-none" : "";
 
   const renderPip = () => {

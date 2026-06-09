@@ -65,6 +65,19 @@ describe("call-local-video-pipeline", () => {
     expect(shouldRetainPreJoinPreview(true)).toBe(false);
   });
 
+  it("bindAgoraRemoteVideoTrack verifies container video like local", async () => {
+    const play = vi.fn();
+    const track = { play } as unknown as import("agora-rtc-sdk-ng").IRemoteVideoTrack;
+    const video = { videoWidth: 640, readyState: 4 };
+    const container = {
+      querySelector: () => video,
+      innerHTML: "",
+    } as unknown as HTMLElement;
+    const { bindAgoraRemoteVideoTrack } = await import("@/lib/community-messenger/call-local-video-pipeline");
+    await expect(bindAgoraRemoteVideoTrack(track, container)).resolves.toBe(true);
+    expect(play).toHaveBeenCalled();
+  });
+
   it("primeVideoElementAutoplayFromUserGesture starts sync play in gesture tick", async () => {
     const play = vi.fn(() => Promise.resolve());
     const stream = { getVideoTracks: () => [{ readyState: "live" }] } as unknown as MediaStream;

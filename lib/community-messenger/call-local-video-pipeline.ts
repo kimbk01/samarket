@@ -1,4 +1,4 @@
-import type { ILocalVideoTrack } from "agora-rtc-sdk-ng";
+import type { ILocalVideoTrack, IRemoteVideoTrack } from "agora-rtc-sdk-ng";
 import { bindMediaStreamToElement, detachMediaStreamFromElement } from "@/lib/community-messenger/media-element";
 
 const AGORA_PLAY_VERIFY_TIMEOUT_MS = 2_500;
@@ -97,17 +97,20 @@ function waitForAgoraVideoInContainer(
   });
 }
 
-export type BindAgoraLocalVideoOptions = {
+export type BindAgoraVideoPlayOptions = {
   fit?: "cover" | "contain" | "fill";
   mirror?: boolean;
   timeoutMs?: number;
 };
 
+/** @deprecated `BindAgoraVideoPlayOptions` */
+export type BindAgoraLocalVideoOptions = BindAgoraVideoPlayOptions;
+
 /** Agora local video play — DOM 에 프레임이 붙을 때까지 검증 */
 export async function bindAgoraLocalVideoTrack(
   track: ILocalVideoTrack | null,
   container: HTMLElement | null,
-  options?: BindAgoraLocalVideoOptions
+  options?: BindAgoraVideoPlayOptions
 ): Promise<boolean> {
   if (!track || !container) return false;
   if (!track.enabled) {
@@ -118,6 +121,24 @@ export async function bindAgoraLocalVideoTrack(
     track.play(container, {
       fit: options?.fit ?? "cover",
       mirror: options?.mirror ?? true,
+    });
+  } catch {
+    return false;
+  }
+  return waitForAgoraVideoInContainer(container, options?.timeoutMs ?? AGORA_PLAY_VERIFY_TIMEOUT_MS);
+}
+
+/** Agora remote video play — 로컬과 동일하게 프레임 검증 */
+export async function bindAgoraRemoteVideoTrack(
+  track: IRemoteVideoTrack | null,
+  container: HTMLElement | null,
+  options?: BindAgoraVideoPlayOptions
+): Promise<boolean> {
+  if (!track || !container) return false;
+  try {
+    track.play(container, {
+      fit: options?.fit ?? "cover",
+      mirror: options?.mirror ?? false,
     });
   } catch {
     return false;

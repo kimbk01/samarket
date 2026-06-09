@@ -32,7 +32,9 @@ import { primeVideoCallMediaFromUserGesture, primeVoiceCallMediaFromUserGesture 
 import {
   attachPreJoinHtmlVideo,
   bindAgoraLocalVideoTrack,
+  bindAgoraRemoteVideoTrack,
   clearLocalVideoContainer,
+  detachAutoplayPrimingVideo,
   detachPreJoinHtmlVideo,
   primeVideoElementAutoplayFromUserGesture,
 } from "@/lib/community-messenger/call-local-video-pipeline";
@@ -140,6 +142,7 @@ import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRunti
 import { peekMessengerBootstrapCritical, peekMessengerBootstrapFull } from "@/lib/community-messenger/bootstrap-cache";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
 import {
+  AGORA_PEER_LEFT_EARLY_CALL_GUARD_MS,
   AGORA_PEER_LEFT_END_GRACE_MS,
   AGORA_RECONNECT_ATTEMPT_MS,
   AGORA_RECONNECT_MAX_MS,
@@ -331,6 +334,18 @@ function mapHangupReasonToTerminalStatus(
 }
 
 /** 시그널 payload.reason 이 표준 값이 아닐 때에도 터미널 전환 (브로드캐스트 hangup 과 동일 규칙). */
+/**
+ * 발신 active 자동 조인 — Permissions trusted 마크만으로는 iOS/Android Chrome 에서
+ * 제스처 없이 GUM 재획득이 실패할 수 있다. 영상은 live primed 스트림이 있을 때만 자동 조인.
+ */
+function initiatorCanAutoJoinWithMedia(kind: CommunityMessengerCallKind): boolean {
+  if (hasUsablePrimedCommunityMessengerDeviceStream(kind)) return true;
+  if (kind === "voice") {
+    return isCommunityMessengerCallMediaReadySync("voice");
+  }
+  return false;
+}
+
 function resolveHangupTerminalStatusForSnapshot(
   active: CommunityMessengerCallSession,
   reason: unknown
@@ -1417,7 +1432,12 @@ export function CommunityMessengerCallClient({
     }
 
     const localEl = swapped ? lg : sm;
+    const mainEl = swapped ? sm : lg;
     if (localEl) clearLocalVideoContainer(localEl);
+    /** 솔로 풀(발신 링) → PiP 전환 시 메인 슬롯에 남은 로컬 Agora DOM 제거 */
+    if (!swapped && mainEl && localEl !== mainEl && !remoteVideoTrackRef.current) {
+      clearLocalVideoContainer(mainEl);
+    }
     if (!videoTrack || !localEl) {
       setLocalVideoReady(false);
       return false;
@@ -1446,27 +1466,29 @@ export function CommunityMessengerCallClient({
     return ok;
   }, []);
 
-  const bindRemoteVideoTrack = useCallback((track: IRemoteVideoTrack | null) => {
-    remoteVideoTrackRef.current?.stop();
-    remoteVideoTrackRef.current = track;
-    const swapped = layoutSwappedRef.current;
-    const remoteEl = swapped ? smallVideoRef.current : largeVideoRef.current;
-    if (remoteEl) remoteEl.innerHTML = "";
-    if (track && remoteEl) {
-      /* 큰·작은 슬롯 모두 영역을 꽉 채움(상하 우선 시 좌우 크롭). */
-      track.play(remoteEl, { fit: "cover", mirror: false });
-      setRemoteVideoReady(true);
-      if (!cmCallVideoLogOnceRef.current.remoteReady) {
-        cmCallVideoLogOnceRef.current.remoteReady = true;
-        console.info("[cm-call-video] remote_track_ready", { sessionId: sessionRef.current?.id?.slice(-8) });
+  const bindRemoteVideoTrack = useCallback(
+    async (track: IRemoteVideoTrack | null) => {
+      remoteVideoTrackRef.current?.stop();
+      remoteVideoTrackRef.current = track;
+      const swapped = layoutSwappedRef.current;
+      const remoteEl = swapped ? smallVideoRef.current : largeVideoRef.current;
+      if (remoteEl) remoteEl.innerHTML = "";
+      if (track && remoteEl) {
+        const ok = await bindAgoraRemoteVideoTrack(track, remoteEl, { fit: "cover", mirror: false });
+        setRemoteVideoReady(ok);
+        if (ok && !cmCallVideoLogOnceRef.current.remoteReady) {
+          cmCallVideoLogOnceRef.current.remoteReady = true;
+          console.info("[cm-call-video] remote_track_ready", { sessionId: sessionRef.current?.id?.slice(-8) });
+        }
+        /* 원격 수신 직후 로컬이 솔로 풀에 남는 것을 막음 — layout effect deps 에서 remoteVideoReady 를 뺌 */
+        void bindLocalVideoTrack();
+        return;
       }
-      /* 원격 수신 직후 로컬이 솔로 풀에 남는 것을 막음 — layout effect deps 에서 remoteVideoReady 를 뺌 */
+      setRemoteVideoReady(false);
       void bindLocalVideoTrack();
-      return;
-    }
-    setRemoteVideoReady(false);
-    void bindLocalVideoTrack();
-  }, [bindLocalVideoTrack]);
+    },
+    [bindLocalVideoTrack]
+  );
 
   /* 레이아웃 전환·join 직후: 양쪽 슬롯에 트랙을 다시 붙인다 */
   useLayoutEffect(() => {
@@ -1490,8 +1512,9 @@ export function CommunityMessengerCallClient({
     const remoteEl = swapped ? smallVideoRef.current : largeVideoRef.current;
     if (remoteEl) remoteEl.innerHTML = "";
     if (remote && remoteEl) {
-      remote.play(remoteEl, { fit: "cover", mirror: false });
-      setRemoteVideoReady(true);
+      void bindAgoraRemoteVideoTrack(remote, remoteEl, { fit: "cover", mirror: false }).then((ok) => {
+        setRemoteVideoReady(ok);
+      });
     } else {
       setRemoteVideoReady(false);
     }
@@ -1667,6 +1690,8 @@ export function CommunityMessengerCallClient({
       const runJoinAttempt = async (): Promise<void> => {
         /** 링 루프와 Agora 로컬/원격 오디오가 겹치지 않게 조인 직전에 동기 중단 */
         stopCommunityMessengerCallTone();
+        detachAutoplayPrimingVideo();
+        detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
         cmCallLatencyInfo("force_ringing_ui", {
           sessionId: targetSession.id,
           callKind: targetSession.callKind,
@@ -1678,9 +1703,9 @@ export function CommunityMessengerCallClient({
           callKind: targetSession.callKind,
           role: targetSession.isMineInitiator ? "initiator" : "recipient",
         });
-        const prefetchedConn = prefetchedConnectionRef.current;
+        /** 수락 직후 조인 — 링 단계 prefetch 토큰 대신 항상 최신 connection */
         prefetchedConnectionRef.current = null;
-        const connectionPromise = prefetchedConn ? Promise.resolve(prefetchedConn) : fetchConnection();
+        const connectionPromise = fetchConnection();
         const [provider, connection] = await Promise.all([
           loadCommunityMessengerCallProvider(),
           connectionPromise,
@@ -1756,12 +1781,25 @@ export function CommunityMessengerCallClient({
           ) {
             clearPeerLeftEndTimer();
             if (agoraReconnectingRef.current) return;
+            const answeredMs = active?.answeredAt ? new Date(active.answeredAt).getTime() : NaN;
+            const earlyCallGuard =
+              Number.isFinite(answeredMs) && Date.now() - answeredMs < AGORA_PEER_LEFT_EARLY_CALL_GUARD_MS;
+            if (earlyCallGuard) {
+              return;
+            }
             peerLeftEndTimerRef.current = window.setTimeout(() => {
               peerLeftEndTimerRef.current = null;
               const cur = sessionRef.current;
               if (!cur || cur.status !== "active" || isTerminalCallSessionStatus(cur.status)) return;
               if (remoteJoinedRef.current) return;
               if (agoraReconnectingRef.current) return;
+              const answeredAtMs = cur.answeredAt ? new Date(cur.answeredAt).getTime() : NaN;
+              if (
+                Number.isFinite(answeredAtMs) &&
+                Date.now() - answeredAtMs < AGORA_PEER_LEFT_EARLY_CALL_GUARD_MS
+              ) {
+                return;
+              }
               void endCallRef.current();
             }, AGORA_PEER_LEFT_END_GRACE_MS);
             return;
@@ -1887,18 +1925,28 @@ export function CommunityMessengerCallClient({
         autoJoinBlockedRef.current = false;
       };
 
+      const joinErrors: unknown[] = [];
       try {
-        try {
-          await runJoinAttempt();
-        } catch (first) {
-          await cleanupClient();
-          if (!isAgoraJoinRetryableError(first)) {
-            throw first;
+        const maxJoinAttempts = 3;
+        for (let attempt = 0; attempt < maxJoinAttempts; attempt += 1) {
+          try {
+            await runJoinAttempt();
+            joinErrors.length = 0;
+            break;
+          } catch (attemptError) {
+            joinErrors.push(attemptError);
+            await cleanupClient();
+            const retryable = isAgoraJoinRetryableError(attemptError);
+            if (!retryable || attempt >= maxJoinAttempts - 1) {
+              throw attemptError;
+            }
+            await new Promise<void>((resolve) => {
+              window.setTimeout(resolve, 280 * (attempt + 1));
+            });
           }
-          await runJoinAttempt();
         }
       } catch (error) {
-        autoJoinBlockedRef.current = true;
+        autoJoinBlockedRef.current = false;
         await cleanupClient();
         const cur = sessionRef.current;
         if (
@@ -1909,30 +1957,21 @@ export function CommunityMessengerCallClient({
           setErrorMessage(null);
           scheduleSilentRefresh("terminal");
         } else {
-          /** `joinCall` 은 active 전용 — 실패 시에도 링 단계로 되돌리지 않고 세션 end 시도 */
+          /**
+           * 수락 직후 조인 실패 — 세션을 즉시 end 하지 않음(발신 측 자동 끊김 방지).
+           * 사용자 제스처 재시도(`handleRetryMediaAndJoin`)로 미디어·Agora 재조인.
+           */
           const reason = classifyMessengerCallJoinFailure(error, targetSession.callKind);
-          setErrorMessage(null);
-          try {
-            const patch = await patchCommunityMessengerCallSession(
-              targetSession.id,
-              "end",
-              {
-                clientEndedReason: reason,
-              },
-              {
-                sessionStatus: targetSession.status,
-                isInitiator: targetSession.isMineInitiator,
-                endedReason: targetSession.endedReason ?? null,
-              }
-            );
-            if (patch.ok && patch.session) {
-              setSession(patch.session);
-            } else {
-              scheduleSilentRefresh("terminal");
-            }
-          } catch {
-            scheduleSilentRefresh("terminal");
+          const detail = messengerCallFailureEndedDetail(reason, targetSession.callKind);
+          setErrorMessage(detail);
+          if (targetSession.callKind === "video") {
+            setLocalVideoPlayBlocked(true);
           }
+          console.warn("[community-messenger-call] join_failed_stay_active", {
+            sessionId: targetSession.id.slice(-8),
+            reason,
+            attempts: joinErrors.length,
+          });
         }
       } finally {
         joiningRef.current = false;
@@ -3034,17 +3073,17 @@ export function CommunityMessengerCallClient({
     if (session.sessionMode !== "direct") return;
     if (session.status !== "active") return;
     if (isTerminalCallSessionStatus(session.status)) return;
-    const ready =
-      isCommunityMessengerCallMediaReadySync(session.callKind) ||
-      hasUsablePrimedCommunityMessengerDeviceStream(session.callKind);
-    if (!ready) {
-      autoJoinBlockedRef.current = true;
-      setErrorMessage(
-        session.callKind === "video"
-          ? t("nav_messenger_permission_retry_camera_mic")
-          : t("nav_messenger_permission_retry_mic")
-      );
+    if (joinedRef.current || joiningRef.current) return;
+    if (initiatorCanAutoJoinWithMedia(session.callKind)) {
+      autoJoinBlockedRef.current = false;
+      return;
     }
+    autoJoinBlockedRef.current = true;
+    setErrorMessage(
+      session.callKind === "video"
+        ? t("nav_messenger_permission_retry_camera_mic")
+        : t("nav_messenger_permission_retry_mic")
+    );
   }, [session?.callKind, session?.id, session?.isMineInitiator, session?.sessionMode, session?.status, t]);
 
   /** active 에서만 Agora·로컬 미디어 세션 시작(ringing 에서는 벨/링백만) */
@@ -3053,16 +3092,19 @@ export function CommunityMessengerCallClient({
     if (!s || s.sessionMode !== "direct") return;
     if (s.status !== "active") return;
     if (isTerminalCallSessionStatus(s.status)) return;
-    setErrorMessage(null);
     stopCommunityMessengerCallTone();
     if (autoJoinBlockedRef.current) return;
     if (joiningRef.current || joinedRef.current) return;
-    if (s.isMineInitiator) {
-      const ready =
-        isCommunityMessengerCallMediaReadySync(s.callKind) ||
-        hasUsablePrimedCommunityMessengerDeviceStream(s.callKind);
-      if (!ready) return;
+    if (s.isMineInitiator && !initiatorCanAutoJoinWithMedia(s.callKind)) {
+      autoJoinBlockedRef.current = true;
+      setErrorMessage(
+        s.callKind === "video"
+          ? t("nav_messenger_permission_retry_camera_mic")
+          : t("nav_messenger_permission_retry_mic")
+      );
+      return;
     }
+    setErrorMessage(null);
     void joinCall(s);
   }, [
     joinCall,
@@ -3070,6 +3112,7 @@ export function CommunityMessengerCallClient({
     session?.isMineInitiator,
     session?.sessionMode,
     session?.status,
+    t,
   ]);
 
   useEffect(() => {
