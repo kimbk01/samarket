@@ -2,56 +2,26 @@
 
 import { Phone, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
-import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type {
-  CommunityMessengerCallLog,
-  CommunityMessengerCallLogDisplayType,
-} from "@/lib/community-messenger/types";
-
-function displayTypeLabel(
-  type: CommunityMessengerCallLogDisplayType,
-  tr: ReturnType<typeof useI18n>["t"]
-): string {
-  switch (type) {
-    case "missed_outgoing":
-      return tr("cm_ui_call_type_missed_outgoing");
-    case "missed_incoming":
-      return tr("cm_ui_call_type_missed_incoming");
-    case "rejected":
-      return tr("cm_ui_call_type_rejected");
-    case "cancelled":
-      return tr("common_cancel");
-    case "failed":
-      return tr("cm_ui_call_type_failed");
-    case "outgoing":
-      return tr("cm_ui_call_type_outgoing");
-    case "incoming":
-      return tr("cm_ui_call_type_incoming");
-    default:
-      return tr("cm_ui_call_label");
-  }
-}
-
-function formatLogDate(iso: string | null | undefined): string {
-  const raw = iso?.trim();
-  if (!raw) return "";
-  const d = new Date(raw);
-  if (!Number.isFinite(d.getTime())) return "";
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(d);
-}
-
-function resolveRowTimestamp(call: CommunityMessengerCallLog): string {
-  return formatLogDate(call.endedAt) || formatLogDate(call.startedAt);
-}
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { MessengerListRow } from "@/components/community-messenger/line-ui";
+import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
+import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import {
+  formatCallLogListTime,
+  isCallLogMissedDisplayType,
+  normalizeCommunityMessengerCallLog,
+  normalizeCommunityMessengerCallLogs,
+  resolveCallLogListTimestampIso,
+  resolveCallLogStatusMessageKey,
+  shouldShowCallLogDuration,
+} from "@/lib/community-messenger/call-log-row-copy";
+import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 
 type Props = {
   /** 부트스트랩 `data.calls` — 있으면 우선 표시(중복 fetch 방지) */
@@ -61,6 +31,149 @@ type Props = {
   /** 방 진입 시 `?from=` 유지 */
   entryOrigin?: string | null;
 };
+
+function CallLogRow({
+  call,
+  onNavigate,
+}: {
+  call: CommunityMessengerCallLog;
+  onNavigate: (call: CommunityMessengerCallLog) => void;
+}) {
+  const { t, safeT, language } = useI18n();
+  const router = useRouter();
+  const [redialing, setRedialing] = useState(false);
+  const redialingRef = useRef(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const name = call.peerLabel?.trim() || call.title?.trim() || t("common_partner");
+  const timestampIso = resolveCallLogListTimestampIso(call);
+  const timeLabel = formatCallLogListTime(timestampIso, language, t("cm_ui_call_log_time_yesterday"));
+  const statusKey = resolveCallLogStatusMessageKey(call.callKind, call.displayType);
+  const statusLabel = safeT(statusKey, {
+    fallbackKo: "통화 기록",
+    fallbackEn: "Call log",
+  });
+  const isMissed = isCallLogMissedDisplayType(call.displayType);
+  const showDuration = shouldShowCallLogDuration(call.displayType, call.durationSeconds);
+  const durationLine = showDuration
+    ? formatCommunityMessengerCallDurationLabel(call.durationSeconds)
+    : null;
+  const canNavigate = Boolean(call.roomId?.trim() || call.sessionId?.trim());
+  const canRedial =
+    call.sessionMode !== "group" && Boolean(call.roomId?.trim() || call.peerUserId?.trim());
+  const redialKind = call.callKind;
+  const RedialIcon = redialKind === "video" ? Video : Phone;
+  const redialAriaLabel =
+    redialKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice");
+
+  const handleRedial = useCallback(
+    (event: MouseEvent | PointerEvent) => {
+      event.stopPropagation();
+      if (!canRedial || redialingRef.current) return;
+      redialingRef.current = true;
+      setRedialing(true);
+      void (async () => {
+        try {
+          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+            {
+              roomId: call.roomId?.trim() ?? null,
+              peerUserId: call.peerUserId?.trim() ?? null,
+              kind: redialKind,
+            },
+            (href) => router.push(href)
+          );
+          if (!result.ok) {
+            showMessengerSnackbar(result.userMessage, { variant: "error" });
+          }
+        } catch {
+          showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+        } finally {
+          redialingRef.current = false;
+          if (mountedRef.current) setRedialing(false);
+        }
+      })();
+    },
+    [call.peerUserId, call.roomId, canRedial, redialKind, router, t]
+  );
+
+  return (
+    <li>
+      <div
+        role={canNavigate ? "button" : undefined}
+        tabIndex={canNavigate ? 0 : undefined}
+        onClick={() => canNavigate && onNavigate(call)}
+        onKeyDown={(event) => {
+          if (!canNavigate) return;
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onNavigate(call);
+          }
+        }}
+        className={`w-full text-left transition active:bg-sam-surface-muted ${
+          canNavigate ? "cursor-pointer" : "cursor-default"
+        }`}
+      >
+        <MessengerListRow
+          centerWithAvatar
+          trailingLayout="center"
+          avatar={
+            <SamarketThumbnail
+              src={resolveUserAvatarImageSrc(call.peerAvatarUrl ?? null)}
+              size={48}
+              roundedClassName="rounded-full"
+              className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]"
+              fallbackSrc=""
+              fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
+            />
+          }
+          trailing={
+            <div className="flex flex-col items-end justify-center gap-1.5">
+              {timeLabel ? (
+                <span className="shrink-0 whitespace-nowrap sam-text-helper tabular-nums text-sam-meta">
+                  {timeLabel}
+                </span>
+              ) : null}
+              {canRedial ? (
+                <button
+                  type="button"
+                  disabled={redialing}
+                  aria-label={redialAriaLabel}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={handleRedial}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg transition hover:bg-sam-surface-muted disabled:opacity-50"
+                >
+                  <RedialIcon className="h-5 w-5" aria-hidden />
+                </button>
+              ) : null}
+            </div>
+          }
+        >
+          <p className="truncate sam-text-body font-semibold text-sam-fg">{name}</p>
+          <p
+            className={`truncate sam-text-body-secondary ${
+              isMissed ? "font-medium text-red-600" : "text-sam-muted"
+            }`}
+          >
+            {statusLabel}
+            {durationLine ? (
+              <>
+                <span className="mx-1.5 text-sam-border">·</span>
+                {durationLine}
+              </>
+            ) : null}
+          </p>
+        </MessengerListRow>
+      </div>
+    </li>
+  );
+}
 
 /** 통화 목록 본문 — 독립 페이지·메신저 홈 탭 공용 */
 export function MessengerCallLogsPanel({
@@ -76,7 +189,7 @@ export function MessengerCallLogsPanel({
   const fallbackFetchedRef = useRef(false);
 
   useEffect(() => {
-    setCalls(seedCalls);
+    setCalls(normalizeCommunityMessengerCallLogs(seedCalls));
     if (!callsHydrating) {
       setLoading(false);
     }
@@ -102,7 +215,7 @@ export function MessengerCallLogsPanel({
           setError(t("cm_ui_call_logs_load_failed"));
           return;
         }
-        setCalls(json.calls ?? []);
+        setCalls(normalizeCommunityMessengerCallLogs(json.calls ?? []));
       } catch {
         if (!cancelled) setError(t("cm_ui_call_logs_network_failed"));
       } finally {
@@ -136,7 +249,7 @@ export function MessengerCallLogsPanel({
     if (loading) {
       return (
         <ul
-          className="min-h-[120px] divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface"
+          className="min-h-[120px] divide-y divide-sam-border"
           aria-busy="true"
           aria-label={t("cm_ui_call_logs_title")}
         />
@@ -146,45 +259,10 @@ export function MessengerCallLogsPanel({
   }
 
   return (
-    <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
-      {calls.map((call) => {
-        const name = call.peerLabel?.trim() || call.title?.trim() || t("common_partner");
-        const dateLine = resolveRowTimestamp(call);
-        const durationLine =
-          call.durationSeconds > 0
-            ? formatCommunityMessengerCallDurationLabel(call.durationSeconds)
-            : t("mypage_comp_placeholder_dash");
-        const canNavigate = Boolean(call.roomId?.trim() || call.sessionId?.trim());
-        return (
-          <li key={call.id}>
-            <button
-              type="button"
-              disabled={!canNavigate}
-              onClick={() => canNavigate && onRowNavigate(call)}
-              className={`flex w-full items-start gap-3 px-4 py-3 text-left transition active:bg-sam-surface-muted ${
-                canNavigate ? "cursor-pointer" : "cursor-default opacity-90"
-              }`}
-            >
-              <span className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted text-sam-fg">
-                {call.callKind === "video" ? (
-                  <Video className="h-5 w-5" aria-hidden />
-                ) : (
-                  <Phone className="h-5 w-5" aria-hidden />
-                )}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate sam-text-body font-semibold text-sam-fg">{name}</span>
-                <span className="mt-0.5 block sam-text-body-secondary text-sam-muted">
-                  {displayTypeLabel(call.displayType, t)}
-                  <span className="mx-1.5 text-sam-border">·</span>
-                  {durationLine}
-                </span>
-                {dateLine ? <span className="mt-1 block sam-text-helper text-sam-meta">{dateLine}</span> : null}
-              </span>
-            </button>
-          </li>
-        );
-      })}
+    <ul className="divide-y divide-sam-border" aria-label={t("cm_ui_call_logs_title")}>
+      {calls.map((call) => (
+        <CallLogRow key={call.id} call={call} onNavigate={onRowNavigate} />
+      ))}
     </ul>
   );
 }

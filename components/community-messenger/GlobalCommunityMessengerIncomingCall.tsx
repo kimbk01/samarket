@@ -1489,7 +1489,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [busyId, refresh, sessions]);
 
   const acceptCall = useCallback(
-    (session: CommunityMessengerCallSession, acceptMode: "voice" | "video" = "video") => {
+    (session: CommunityMessengerCallSession) => {
       if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
       rememberCallNavigationReturnPath();
       setBusyId(`accept:${session.id}`);
@@ -1520,29 +1520,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             return;
           }
 
-          let acceptedSession = patchJson.session;
-          if (
-            acceptMode === "voice" &&
-            session.callKind === "video" &&
-            acceptedSession.callKind === "video"
-          ) {
-            const downRes = await fetch(
-              `/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`,
-              {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ action: "downgrade_to_voice" }),
-              }
-            );
-            const downJson = (await downRes.json().catch(() => ({}))) as {
-              ok?: boolean;
-              session?: CommunityMessengerCallSession;
-            };
-            if (downRes.ok && downJson.ok && downJson.session) {
-              acceptedSession = downJson.session;
-            }
-          }
+          const acceptedSession = patchJson.session;
 
           cmCallFlow("incoming_accepted", { sessionId: session.id });
 

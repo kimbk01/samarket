@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
@@ -108,6 +108,8 @@ export function ConditionalAppShell({
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeSearch = searchParams.toString();
   useLayoutEffect(() => {
     logDevSafeModeProbeOnce("client");
   }, []);
@@ -187,7 +189,8 @@ export function ConditionalAppShell({
     return base;
   }, [storeOwnerFlyoutSuppressesBottomNav, f, showDesktopSideNav]);
   const bottomNavScrollHideEnabled =
-    showBottomNavMounted && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
+    showBottomNavMounted &&
+    resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife, routeSearch);
   const isBrowseRoute = pathNoQuery.startsWith("/stores/browse/");
   const browseScrollChromeHidden = useBrowseScrollChromeHidden(
     Boolean(bottomNavScrollHideEnabled && isBrowseRoute)

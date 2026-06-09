@@ -13,7 +13,7 @@ export type CommunityMessengerIncomingCallOverlayProps = {
   incomingListError: string | null;
   onMinimize: () => void;
   onReject: (sessionId: string) => void;
-  onAccept: (session: CommunityMessengerCallSession, acceptMode?: "voice" | "video") => void;
+  onAccept: (session: CommunityMessengerCallSession) => void;
   /** 레거시 API 호환용 — 수신 벨은 항상 전체 화면(텔레그램형)으로만 표시한다. */
   placement?: "global" | "in-room";
   /** 관리자 수신 타임아웃(초) — 남은 시간 표시 */
@@ -86,54 +86,24 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
       localVideoMinimized: true,
     },
     onBack: onMinimize,
-    primaryActions:
-      session.callKind === "video"
-        ? [
-            {
-              id: "reject",
-              label: busyId === `reject:${session.id}` ? t("cm_ui_rejecting") : t("cm_ui_reject"),
-              icon: "decline",
-              tone: "danger",
-              disabled: busyId === `reject:${session.id}` || busyId === `accept:${session.id}`,
-              onClick: () => void onReject(session.id),
-            },
-            {
-              id: "accept-voice",
-              label:
-                busyId === `accept:${session.id}` ? t("cm_ui_connecting") : t("cm_ui_incoming_accept_voice"),
-              icon: "accept",
-              tone: "accept",
-              disabled: busyId === `accept:${session.id}`,
-              onClick: () => void onAccept(session, "voice"),
-            },
-            {
-              id: "accept-video",
-              label:
-                busyId === `accept:${session.id}` ? t("cm_ui_connecting") : t("cm_ui_incoming_accept_video"),
-              icon: "accept",
-              tone: "accept",
-              disabled: busyId === `accept:${session.id}`,
-              onClick: () => void onAccept(session, "video"),
-            },
-          ]
-        : [
-            {
-              id: "reject",
-              label: busyId === `reject:${session.id}` ? t("cm_ui_rejecting") : t("cm_ui_reject"),
-              icon: "decline",
-              tone: "danger",
-              disabled: busyId === `reject:${session.id}` || busyId === `accept:${session.id}`,
-              onClick: () => void onReject(session.id),
-            },
-            {
-              id: "accept",
-              label: busyId === `accept:${session.id}` ? t("cm_ui_connecting") : t("cm_ui_accept"),
-              icon: "accept",
-              tone: "accept",
-              disabled: busyId === `accept:${session.id}`,
-              onClick: () => void onAccept(session, "voice"),
-            },
-          ],
+    primaryActions: [
+      {
+        id: "reject",
+        label: busyId === `reject:${session.id}` ? t("cm_ui_rejecting") : t("cm_ui_reject"),
+        icon: "decline",
+        tone: "danger",
+        disabled: busyId === `reject:${session.id}` || busyId === `accept:${session.id}`,
+        onClick: () => void onReject(session.id),
+      },
+      {
+        id: "accept",
+        label: busyId === `accept:${session.id}` ? t("cm_ui_connecting") : t("cm_ui_accept"),
+        icon: "accept",
+        tone: "accept",
+        disabled: busyId === `accept:${session.id}`,
+        onClick: () => void onAccept(session),
+      },
+    ],
   };
 
   return <CallScreen vm={incomingVm} variant="overlay" />;

@@ -23,6 +23,17 @@ export function hasCommunityMessengerMediaTrustedMark(kind: CommunityMessengerCa
   return isPermissionFeatureCompleted(featureKeyForCallKind(kind));
 }
 
+function markTrustedIfBrowserGranted(
+  kind: CommunityMessengerCallKind,
+  states: { microphone: PermissionState | null; camera?: PermissionState | null }
+): boolean {
+  const micGranted = states.microphone === "granted";
+  const cameraGranted = kind !== "video" || states.camera === "granted";
+  if (!micGranted || !cameraGranted) return false;
+  markCommunityMessengerMediaTrustedOnce(kind);
+  return true;
+}
+
 const PERMISSIONS_QUERY_BUDGET_MS = 380;
 
 async function readPermissionStateBudgeted(
@@ -45,10 +56,15 @@ async function readPermissionStateBudgeted(
 type PrimedDeviceStreamState = {
   kind: CommunityMessengerCallKind;
   stream: MediaStream;
-  timeoutId: number;
+  /** `null` — live 통화 중 idle 자동 해제 일시 중단 */
+  timeoutId: number | null;
 } | null;
 
 let primedDeviceStreamState: PrimedDeviceStreamState = null;
+/** `suspendPrimed…` 중에는 `storePrimedStream` 이 idle TTL 을 다시 걸지 않는다 */
+let primedIdleReleaseSuspended = false;
+
+const PRIMED_STREAM_IDLE_RELEASE_MS = 90_000;
 
 function callPermissionT(key: MessageKey, fallbackKo: string, fallbackEn: string): string {
   return safeTranslate(getRuntimeAppLanguage(), key, { fallbackKo, fallbackEn });
@@ -105,15 +121,45 @@ export function openCommunityMessengerPermissionSettings(): boolean {
   return false;
 }
 
+function clearPrimedDeviceStreamTimeout() {
+  if (!primedDeviceStreamState?.timeoutId) return;
+  window.clearTimeout(primedDeviceStreamState.timeoutId);
+  primedDeviceStreamState.timeoutId = null;
+}
+
+function armPrimedDeviceStreamIdleRelease(idleMs = PRIMED_STREAM_IDLE_RELEASE_MS) {
+  if (!primedDeviceStreamState || typeof window === "undefined") return;
+  clearPrimedDeviceStreamTimeout();
+  primedDeviceStreamState.timeoutId = window.setTimeout(() => {
+    clearPrimedDeviceStream(true);
+  }, idleMs);
+}
+
 function clearPrimedDeviceStream(stopTracks: boolean) {
   if (!primedDeviceStreamState) return;
-  window.clearTimeout(primedDeviceStreamState.timeoutId);
+  clearPrimedDeviceStreamTimeout();
   if (stopTracks) {
     for (const track of primedDeviceStreamState.stream.getTracks()) {
       track.stop();
     }
   }
   primedDeviceStreamState = null;
+}
+
+/**
+ * 링·통화 화면 동안 프라임 GUM 스트림이 90초 idle TTL 로 `track.stop()` 되지 않게 한다.
+ * `consumePrimed`·`discardPrimed`·통화 종료 시 `resume…` 으로 idle 해제를 복구한다.
+ */
+export function suspendPrimedCommunityMessengerDeviceStreamIdleRelease(): void {
+  primedIdleReleaseSuspended = true;
+  clearPrimedDeviceStreamTimeout();
+}
+
+export function resumePrimedCommunityMessengerDeviceStreamIdleRelease(
+  idleMs = PRIMED_STREAM_IDLE_RELEASE_MS
+): void {
+  primedIdleReleaseSuspended = false;
+  armPrimedDeviceStreamIdleRelease(idleMs);
 }
 
 function primedStreamIsUsableForKind(kind: CommunityMessengerCallKind): boolean {
@@ -154,11 +200,10 @@ export async function shouldSkipCallerMediaGateOverlay(kind: CommunityMessengerC
       if (camState === "denied") return false;
       if (camState == null) return trusted;
       if (trusted) return true;
-      if (micState !== "granted" || camState !== "granted") return false;
-      return true;
+      return markTrustedIfBrowserGranted(kind, { microphone: micState, camera: camState });
     }
     if (trusted) return true;
-    return micState === "granted";
+    return markTrustedIfBrowserGranted(kind, { microphone: micState });
   } catch {
     return trusted;
   }
@@ -169,11 +214,12 @@ function storePrimedStream(kind: CommunityMessengerCallKind, stream: MediaStream
   primedDeviceStreamState = {
     kind,
     stream,
-    /** 방↔통화 이동·토큰 요청 등으로 조인이 늦어져도 한 번 허용한 스트림을 재사용할 수 있게 여유를 둔다 */
-    timeoutId: window.setTimeout(() => {
-      clearPrimedDeviceStream(true);
-    }, 90_000),
+    timeoutId: null,
   };
+  /** 방↔통화 이동·토큰 요청 등으로 조인이 늦어져도 한 번 허용한 스트림을 재사용할 수 있게 여유를 둔다 */
+  if (!primedIdleReleaseSuspended) {
+    armPrimedDeviceStreamIdleRelease();
+  }
 }
 
 /**

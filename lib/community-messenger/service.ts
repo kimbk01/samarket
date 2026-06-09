@@ -3712,6 +3712,8 @@ function buildCallLogEntriesFromRows(
       sessionMode,
       title,
       peerLabel: sessionMode === "group" ? groupPeerLabel : peer?.label ?? cmPeerFallbackLabel(),
+      peerAvatarUrl:
+        sessionMode === "group" ? roomMeta?.avatarUrl ?? null : peer?.avatarUrl ?? null,
       peerUserId,
       participantCount,
       participantLabels,

@@ -34,9 +34,16 @@ import {
   openCommunityMessengerPermissionSettings,
   peekPrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
+  resumePrimedCommunityMessengerDeviceStreamIdleRelease,
   shouldSkipCallerMediaGateOverlay,
   shouldSkipCallerMediaGateOverlaySync,
+  suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
 } from "@/lib/community-messenger/call-permission";
+import {
+  shouldRetainPrimedDeviceStreamForVideoPreview,
+  shouldShowLocalVideoPipChrome,
+  shouldUseSoloLocalFullVideoLayout,
+} from "@/lib/community-messenger/call-video-layout";
 import {
   getCommunityMessengerInsecureOriginMediaHint,
   getCommunityMessengerMediaErrorMessage,
@@ -448,6 +455,7 @@ export function CommunityMessengerCallClient({
   layoutSwappedRef.current = layoutSwapped;
   const clientRef = useRef<IAgoraRTCClient | null>(null);
   const localTracksRef = useRef<CommunityMessengerAgoraLocalTracks | null>(null);
+  const mediaOwnerSessionIdRef = useRef<string | null>(null);
   const remoteVideoTrackRef = useRef<IRemoteVideoTrack | null>(null);
   const remoteAudioTrackRef = useRef<IRemoteAudioTrack | null>(null);
   const joinedRef = useRef(false);
@@ -750,6 +758,20 @@ export function CommunityMessengerCallClient({
     setCalleeVideoConnectingShell(false);
     wasCallSessionRingingRef.current = false;
     heldPreJoinVideoPreviewRef.current = null;
+    setJoined(false);
+    joinedRef.current = false;
+    joiningRef.current = false;
+    setRemoteJoined(false);
+    setLocalVideoReady(false);
+    setRemoteVideoReady(false);
+    setCamOff(false);
+    setLayoutSwapped(false);
+    cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
+    if (ringPreviewVideoRef.current) {
+      ringPreviewVideoRef.current.srcObject = null;
+    }
+    if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
+    if (smallVideoRef.current) smallVideoRef.current.innerHTML = "";
   }, [sessionId]);
 
   useLayoutEffect(() => {
@@ -1098,7 +1120,7 @@ export function CommunityMessengerCallClient({
     }
   }, []);
 
-  const cleanupClient = useCallback(async (domAudioNuclear = false) => {
+  const cleanupClient = useCallback(async (domAudioNuclear = false, cleanupSessionId = sessionRef.current?.id ?? sessionId) => {
     if (agoraMediaCleanupInFlightRef.current) {
       await agoraMediaCleanupInFlightRef.current;
       return;
@@ -1111,52 +1133,59 @@ export function CommunityMessengerCallClient({
       }
       pendingNetworkQualityRef.current = null;
 
-      const client = clientRef.current;
-      const tracks = localTracksRef.current;
-      const remoteAudioTrack = remoteAudioTrackRef.current;
-      const remoteVideoTrack = remoteVideoTrackRef.current;
-      clientRef.current = null;
-      localTracksRef.current = null;
-      remoteAudioTrackRef.current = null;
-      remoteVideoTrackRef.current = null;
-
-      joinedRef.current = false;
-      joiningRef.current = false;
-      setJoined(false);
-      setRemoteJoined(false);
-      setLocalVideoReady(false);
-      setRemoteVideoReady(false);
-      heldPreJoinVideoPreviewRef.current = null;
-      if (ringPreviewVideoRef.current) {
-        try {
-          ringPreviewVideoRef.current.srcObject = null;
-        } catch {
-          /* noop */
-        }
+      const ownsCurrentMedia =
+        mediaOwnerSessionIdRef.current == null || mediaOwnerSessionIdRef.current === cleanupSessionId;
+      const client = ownsCurrentMedia ? clientRef.current : null;
+      const tracks = ownsCurrentMedia ? localTracksRef.current : null;
+      const remoteAudioTrack = ownsCurrentMedia ? remoteAudioTrackRef.current : null;
+      const remoteVideoTrack = ownsCurrentMedia ? remoteVideoTrackRef.current : null;
+      if (ownsCurrentMedia) {
+        clientRef.current = null;
+        localTracksRef.current = null;
+        remoteAudioTrackRef.current = null;
+        remoteVideoTrackRef.current = null;
+        mediaOwnerSessionIdRef.current = null;
       }
-      if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
-      if (smallVideoRef.current) smallVideoRef.current.innerHTML = "";
-      setLayoutSwapped(false);
-      setCamOff(false);
-      setMicMuted(false);
-      micMutedRef.current = false;
-      useRearFacingRef.current = false;
-      setLastMileLine(t("cm_ui_network_quality_checking"));
-      setLastMileWorst(0);
-      cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
+
+      if (ownsCurrentMedia) {
+        joinedRef.current = false;
+        joiningRef.current = false;
+        setJoined(false);
+        setRemoteJoined(false);
+        setLocalVideoReady(false);
+        setRemoteVideoReady(false);
+        heldPreJoinVideoPreviewRef.current = null;
+        if (ringPreviewVideoRef.current) {
+          try {
+            ringPreviewVideoRef.current.srcObject = null;
+          } catch {
+            /* noop */
+          }
+        }
+        if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
+        if (smallVideoRef.current) smallVideoRef.current.innerHTML = "";
+        setLayoutSwapped(false);
+        setCamOff(false);
+        setMicMuted(false);
+        micMutedRef.current = false;
+        useRearFacingRef.current = false;
+        setLastMileLine(t("cm_ui_network_quality_checking"));
+        setLastMileWorst(0);
+        cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
+      }
 
       await runCommunityMessengerCallMediaCleanup({
         reason: "call_client_cleanup",
-        sessionId: sessionRef.current?.id ?? sessionId,
+        sessionId: cleanupSessionId,
         client,
         tracks,
         remoteAudioTrack,
         remoteVideoTrack,
         afterAgora: () => {
           /** 종료·나가기 후 스피커 라우트 UI 가 ‘켜짐’으로 남는 것 방지 */
-          setSpeakerEnabled(false);
+          if (ownsCurrentMedia) setSpeakerEnabled(false);
         },
-        domAudioNuclear,
+        domAudioNuclear: domAudioNuclear && ownsCurrentMedia,
       });
     };
 
@@ -1181,7 +1210,7 @@ export function CommunityMessengerCallClient({
           return;
         }
       }
-      await cleanupClient(domAudioNuclear);
+      await cleanupClient(domAudioNuclear, sid ?? sessionId);
       console.info("[cm-call-state] call_ended_cleanup_done", {
         sessionId: sessionRef.current?.id ?? sessionId,
         domAudioNuclear,
@@ -1220,14 +1249,34 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (session?.callKind !== "video") return;
-    if (!joined || !remoteJoined || !localVideoReady) return;
+    if (!joined || !localVideoReady) return;
     if (cmCallVideoLogOnceRef.current.pipRendered) return;
     cmCallVideoLogOnceRef.current.pipRendered = true;
     console.info("[cm-call-video] pip_rendered", {
       sessionId: session?.id?.slice(-8),
       layoutSwapped,
+      remoteJoined,
     });
-  }, [session?.callKind, session?.id, joined, remoteJoined, localVideoReady, layoutSwapped]);
+  }, [session?.callKind, session?.id, joined, localVideoReady, layoutSwapped, remoteJoined]);
+
+  /** 링·active 동안 프라임 미리보기 스트림이 idle 90초 TTL 로 끊기지 않게 유지 */
+  useEffect(() => {
+    const s = session;
+    if (!s || s.callKind !== "video") return;
+    if (
+      !shouldRetainPrimedDeviceStreamForVideoPreview({
+        callKind: s.callKind,
+        sessionStatus: s.status,
+      })
+    ) {
+      resumePrimedCommunityMessengerDeviceStreamIdleRelease();
+      return;
+    }
+    suspendPrimedCommunityMessengerDeviceStreamIdleRelease();
+    return () => {
+      resumePrimedCommunityMessengerDeviceStreamIdleRelease();
+    };
+  }, [session?.callKind, session?.id, session?.status]);
 
   useEffect(() => {
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
@@ -1319,15 +1368,17 @@ export function CommunityMessengerCallClient({
     const videoTrack = localTracksRef.current?.videoTrack ?? null;
     const swapped = layoutSwappedRef.current;
     const s = sessionRef.current;
-    /** 상대가 채널에 붙기 전까지만 풀화면 로컬 — 이후엔 PiP+메인(원격 대기) */
-    const soloOutgoingLocalFull = Boolean(s?.callKind === "video" && s.isMineInitiator && !remoteJoinedRef.current);
-    /** 수신자도 발신과 동일: 상대 미디어 전까지 본인 영상은 풀(카카오·텔레그램형), 작은 타일은 비움 */
-    const soloIncomingLocalFull = Boolean(s?.callKind === "video" && !s.isMineInitiator && !remoteJoinedRef.current);
+    /** 링·Agora 조인 전만 풀화면 로컬 — `joined` 이후 즉시 PiP(원격 publish 대기와 무관) */
+    const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
+      callKind: s?.callKind ?? "voice",
+      sessionStatus: s?.status ?? "ended",
+      joined: joinedRef.current,
+    });
 
     const sm = smallVideoRef.current;
     const lg = largeVideoRef.current;
 
-    if (soloOutgoingLocalFull || soloIncomingLocalFull) {
+    if (soloLocalFull) {
       if (sm) sm.innerHTML = "";
       if (lg) lg.innerHTML = "";
       if (!videoTrack || !lg) {
@@ -1402,14 +1453,13 @@ export function CommunityMessengerCallClient({
     const remote = remoteVideoTrackRef.current;
     const local = localTracksRef.current?.videoTrack ?? null;
     const swapped = layoutSwapped;
-    const soloOutgoingLocalFull = Boolean(
-      session.callKind === "video" && session.isMineInitiator && !remoteJoined
-    );
-    const soloIncomingLocalFull = Boolean(
-      session.callKind === "video" && !session.isMineInitiator && !remoteJoined
-    );
+    const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
+      callKind: session.callKind,
+      sessionStatus: session.status,
+      joined,
+    });
 
-    if (soloOutgoingLocalFull || soloIncomingLocalFull) {
+    if (soloLocalFull) {
       const sm = smallVideoRef.current;
       const lg = largeVideoRef.current;
       if (sm) sm.innerHTML = "";
@@ -1750,6 +1800,7 @@ export function CommunityMessengerCallClient({
           publishCommunityMessengerAgoraTracks,
         } = provider;
         const client = createCommunityMessengerAgoraClient();
+        mediaOwnerSessionIdRef.current = targetSession.id;
         clientRef.current = client;
         client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {
           try {
@@ -3742,8 +3793,13 @@ export function CommunityMessengerCallClient({
               ? lastMileLine
               : null);
 
-  /** PiP·탭 바인딩은 원격 비디오 트랙 준비(`remoteVideoReady`)와 무관 — 상대 채널 참가(`remoteJoined`)·로컬 트랙만으로 켬 */
-  const videoPipChromeActive = Boolean(videoCall && joined && remoteJoined && localVideoReady);
+  /** PiP — `joined`+로컬 트랙 준비 직후 즉시(원격 publish·`remoteVideoReady` 와 분리) */
+  const videoPipChromeActive = shouldShowLocalVideoPipChrome({
+    videoCall,
+    sessionStatus: session.status,
+    joined,
+    localVideoReady,
+  });
 
   /**
    * 영상 조인 전 로컬 미리보기 — `ringing`→`active`·Agora consume 직후에도 끊기지 않게
