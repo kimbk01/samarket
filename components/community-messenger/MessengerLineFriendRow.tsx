@@ -39,7 +39,7 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
   friend,
   busyFavorite,
   onToggleFavorite,
-  friendKind,
+  friendKind: _friendKind,
   openedSwipeItemId,
   onOpenSwipeItem,
   onOpenFriendQuickMenu,
@@ -375,15 +375,9 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
                 {friend.label}
               </p>
               <span
-                className={
-                  friendKind === "trade"
-                    ? "shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--messenger-success)32%,var(--messenger-surface))] bg-[color:var(--messenger-badge-trade-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--messenger-success)]"
-                    : friendKind === "delivery"
-                      ? "shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--sam-warning)38%,var(--messenger-surface))] bg-[color:var(--messenger-badge-delivery-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--sam-warning)]"
-                      : "shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--messenger-primary)32%,var(--messenger-surface))] bg-[color:var(--messenger-badge-direct-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--messenger-primary)]"
-                }
+                className="shrink-0 rounded-[6px] border border-[color:color-mix(in_srgb,var(--messenger-primary)32%,var(--messenger-surface))] bg-[color:var(--messenger-badge-direct-bg)] px-1 py-px text-[10.5px] font-medium leading-tight text-[color:var(--messenger-primary)]"
               >
-                {friendKind === "trade" ? "거래 친구" : friendKind === "delivery" ? "배달 친구" : "친구"}
+                친구
               </span>
               {friend.blocked ? (
                 <span

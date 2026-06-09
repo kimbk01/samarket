@@ -68,3 +68,74 @@ export function messengerDirectThreadListCollapseKey(room: CommunityMessengerRoo
   }
   return `direct:${peer}`;
 }
+
+/** 친구 1:1 DM — trade/delivery 맥락 방 제외. 친구 목록·메시지 버튼·뮤트 SSOT. */
+export function isGeneralFriendDirectRoom(room: CommunityMessengerRoomSummary): boolean {
+  if (room.roomType !== "direct") return false;
+  if (!room.peerUserId?.trim()) return false;
+  return communityMessengerRoomInboxGroupKind(room) === "general";
+}
+
+/** peer 기준 general friend direct room 1개 — lastMessageAt 최신 우선. */
+export function pickGeneralDirectRoomForPeer(
+  chats: readonly CommunityMessengerRoomSummary[],
+  peerId: string
+): CommunityMessengerRoomSummary | null {
+  const peer = peerId.trim();
+  if (!peer) return null;
+  let best: CommunityMessengerRoomSummary | null = null;
+  for (const room of chats) {
+    if (!isGeneralFriendDirectRoom(room) || room.peerUserId !== peer) continue;
+    if (!best || new Date(room.lastMessageAt).getTime() >= new Date(best.lastMessageAt).getTime()) {
+      best = room;
+    }
+  }
+  return best;
+}
+
+/** 친구 탭 peer→room 맵 — trade/delivery room 미포함. */
+export function buildGeneralDirectRoomByPeerMap(
+  chats: readonly CommunityMessengerRoomSummary[]
+): Map<string, CommunityMessengerRoomSummary> {
+  const map = new Map<string, CommunityMessengerRoomSummary>();
+  for (const room of chats) {
+    if (!isGeneralFriendDirectRoom(room)) continue;
+    const peer = room.peerUserId!.trim();
+    const prev = map.get(peer);
+    if (!prev || new Date(room.lastMessageAt).getTime() >= new Date(prev.lastMessageAt).getTime()) {
+      map.set(peer, room);
+    }
+  }
+  return map;
+}
+
+/** 점세개(dot) 메뉴 통화 노출 축 — roomType direct 폴백 금지. */
+export type MessengerDotMenuCallKind = "general" | "trade" | "delivery";
+
+export function resolveMessengerDotMenuCallKind(
+  room: CommunityMessengerRoomSummary,
+  opts?: { isDeliveryRoom?: boolean }
+): MessengerDotMenuCallKind {
+  if (opts?.isDeliveryRoom || communityMessengerRoomIsConfirmedDelivery(room)) return "delivery";
+  if (communityMessengerRoomIsConfirmedTrade(room)) return "trade";
+  return "general";
+}
+
+/** dot menu 음성/영상 행 노출 — 배달은 헤더·주문 UI만, dot menu 통화 숨김. */
+export function resolveMessengerDotMenuCallVisibility(input: {
+  callKind: MessengerDotMenuCallKind;
+  tradeAllowCall?: boolean;
+  tradeVideoCallEnabled?: boolean;
+}): { showVoice: boolean; showVideo: boolean } {
+  if (input.callKind === "delivery") {
+    return { showVoice: false, showVideo: false };
+  }
+  if (input.callKind === "general") {
+    return { showVoice: true, showVideo: true };
+  }
+  const allow = Boolean(input.tradeAllowCall);
+  return {
+    showVoice: allow,
+    showVideo: allow && Boolean(input.tradeVideoCallEnabled),
+  };
+}

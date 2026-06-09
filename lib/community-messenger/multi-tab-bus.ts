@@ -86,6 +86,11 @@ export type MessengerBusEvent =
       lastReadMessageId: string | null;
       lastReadAt: string | null;
       at: number;
+    }
+  | {
+      /** 친구 승인·거절 등 social graph 변경 후 홈 silent refresh */
+      type: "cm.home.social_sync";
+      at: number;
     };
 
 const CHANNEL = "samarket:community-messenger";

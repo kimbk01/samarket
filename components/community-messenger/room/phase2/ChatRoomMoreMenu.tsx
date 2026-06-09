@@ -81,10 +81,10 @@ export type ChatRoomMoreMenuProps = {
   /** 배달·주문: 매장 요약(구매자 점세개) */
   deliveryStoreSummary?: DeliveryStoreMenuSummary;
   menuProfile?: ChatRoomMenuProfileOverride;
-  /** 배달·주문 방 — 영상 통화 메뉴 숨김 */
-  hideVideoCall?: boolean;
-  /** 거래: `trade_chat_call_policy === voice_and_video` 일 때만 true */
-  tradeVideoCallEnabled?: boolean;
+  /** dot menu 음성 통화 행 — 상위 callKind SSOT에서 전달 */
+  showVoiceCall: boolean;
+  /** dot menu 영상 통화 행 — 상위 callKind SSOT에서 전달 */
+  showVideoCall: boolean;
   disableVoiceCall?: boolean;
   disableVideoCall?: boolean;
   disableMuteToggle?: boolean;
@@ -162,8 +162,8 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     tradeContext,
     deliveryStoreSummary,
     menuProfile,
-    hideVideoCall = false,
-    tradeVideoCallEnabled = false,
+    showVoiceCall,
+    showVideoCall,
     disableVoiceCall = false,
     disableVideoCall = false,
     disableMuteToggle = false,
@@ -191,12 +191,8 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
 
   const friendLabelNone = roomType === "direct" ? t("cm_ui_add_friend") : t("cm_ui_friend_request");
 
-  const showVoice =
-    roomType === "direct" || (roomType === "trade" && Boolean(tradeContext?.product.allow_call));
-
-  const showVideo =
-    !hideVideoCall &&
-    (roomType === "direct" || (roomType === "trade" && Boolean(tradeContext?.product.allow_call) && tradeVideoCallEnabled));
+  const showVoice = showVoiceCall;
+  const showVideo = showVideoCall;
 
   const profileNickname = menuProfile?.nickname?.trim() || otherUser.nickname;
   const profileAvatarUrl = menuProfile?.avatarUrl ?? otherUser.avatarUrl;
@@ -405,6 +401,8 @@ export const MOCK_CHAT_ROOM_MORE_MENU_DIRECT: ChatRoomMoreMenuProps = {
   },
   isMuted: false,
   isArchived: false,
+  showVoiceCall: true,
+  showVideoCall: true,
   onSearch: () => {},
   onOpenMediaFiles: () => {},
   onFriendRequest: () => {},
@@ -427,7 +425,8 @@ export const MOCK_CHAT_ROOM_MORE_MENU_TRADE: ChatRoomMoreMenuProps = {
   },
   isMuted: true,
   isArchived: false,
-  tradeVideoCallEnabled: false,
+  showVoiceCall: true,
+  showVideoCall: false,
   tradeContext: {
     sellerId: "s1",
     buyerId: "b1",

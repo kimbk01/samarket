@@ -85,6 +85,7 @@
     "verify:stores-home-hub-contract": "node scripts/verify-stores-home-hub-contract.cjs",
     "verify:main-bottom-nav-fab-sector-contract": "node scripts/verify-main-bottom-nav-fab-sector-contract.mjs",
     "verify:badge-target-policy": "node scripts/verify-badge-target-policy.mjs",
+    "verify:bottom-nav-chat-surface": "node scripts/verify-bottom-nav-chat-surface-post-migrate.mjs",
     "verify:delivery-dial-navigation-contract": "node scripts/verify-delivery-dial-navigation-contract.cjs",
     "check:bundle": "node scripts/check-bundle-budgets.mjs",
     "check:bundle:update-baseline": "node scripts/update-bundle-budget-baseline.mjs",

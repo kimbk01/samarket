@@ -101,6 +101,11 @@ export function messengerInboxHrefWithOrigin(origin: MessengerEntryOrigin): stri
   return withMessengerEntryOrigin("/community-messenger?section=chats", origin);
 }
 
+/** 친구 승인 후 목록 이동 — `?from=` 보존 */
+export function messengerFriendsSectionHrefWithOrigin(origin: MessengerEntryOrigin): string {
+  return withMessengerEntryOrigin("/community-messenger?section=friends", origin);
+}
+
 /**
  * 메신저 홈 1단 헤더 뒤로가기.
  * - 채팅홈(`section=chats`): 진입 출처 탭(`/stores`·`/market`·`/philife`)

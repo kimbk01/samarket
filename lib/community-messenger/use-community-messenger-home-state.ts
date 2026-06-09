@@ -9,6 +9,7 @@ import {
   type MessengerFriendStateModel,
 } from "@/lib/community-messenger/messenger-friend-model";
 import {
+  buildGeneralDirectRoomByPeerMap,
   communityMessengerRoomInboxGroupKind,
   communityMessengerRoomIsConfirmedDelivery,
   communityMessengerRoomIsConfirmedTrade,
@@ -330,14 +331,7 @@ export function useCommunityMessengerHomeState({
   const directRoomMapStableRef = useRef<Map<string, CommunityMessengerRoomSummary>>(new Map());
 
   const directRoomByPeerId = useMemo(() => {
-    const map = new Map<string, CommunityMessengerRoomSummary>();
-    for (const room of data?.chats ?? []) {
-      if (room.roomType !== "direct" || !room.peerUserId) continue;
-      const prev = map.get(room.peerUserId);
-      if (!prev || new Date(room.lastMessageAt).getTime() >= new Date(prev.lastMessageAt).getTime()) {
-        map.set(room.peerUserId, room);
-      }
-    }
+    const map = buildGeneralDirectRoomByPeerMap(data?.chats ?? []);
     const prevStable = directRoomMapStableRef.current;
     if (directRoomMapsEqual(prevStable, map)) {
       return prevStable;

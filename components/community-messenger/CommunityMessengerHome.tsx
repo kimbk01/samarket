@@ -66,7 +66,10 @@ import {
 import { commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  onCommunityMessengerBusEvent,
+  postCommunityMessengerBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
@@ -141,8 +144,10 @@ import {
 } from "@/lib/community-messenger/messenger-ia";
 import { MESSENGER_SCROLL_OVERLAY_IDLE_MS } from "@/lib/community-messenger/messenger-transient-ui-policy";
 import {
+  buildGeneralDirectRoomByPeerMap,
   communityMessengerRoomIsDelivery,
   communityMessengerRoomIsTrade,
+  pickGeneralDirectRoomForPeer,
 } from "@/lib/community-messenger/messenger-room-domain";
 import {
   communityMessengerRoomIsInboxHidden,
@@ -597,6 +602,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   useEffect(() => {
     initLongSessionStabilityMonitor();
   }, []);
+  useEffect(() => {
+    return onCommunityMessengerBusEvent((ev) => {
+      if (ev.type === "cm.home.social_sync") void refresh(true);
+    });
+  }, [refresh]);
   /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
   /** home-sync critical 은 trade meta 를 defer — 목록·거래 탭 모두 silent `trade-chat-list-meta` 보강 */
   useTradeChatListMetaHydration({
@@ -892,14 +902,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const directRoomMapStableRef = useRef<Map<string, CommunityMessengerRoomSummary>>(new Map());
   const directRoomByPeerId = useMemo(() => {
-    const map = new Map<string, CommunityMessengerRoomSummary>();
-    for (const room of data?.chats ?? []) {
-      if (room.roomType !== "direct" || !room.peerUserId) continue;
-      const prev = map.get(room.peerUserId);
-      if (!prev || new Date(room.lastMessageAt).getTime() >= new Date(prev.lastMessageAt).getTime()) {
-        map.set(room.peerUserId, room);
-      }
-    }
+    const map = buildGeneralDirectRoomByPeerMap(data?.chats ?? []);
     const prevStable = directRoomMapStableRef.current;
     if (directRoomMapsEqual(prevStable, map)) {
       return prevStable;
@@ -1028,7 +1031,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const maybePrefetchDirectRoom = useCallback(
     (peerUserId: string) => {
-      const existing = (data?.chats ?? []).find((room) => room.roomType === "direct" && room.peerUserId === peerUserId);
+      const existing = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       if (existing) void prefetchCommunityMessengerRoomSnapshot(existing.id);
     },
     [data?.chats]
@@ -1037,7 +1040,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const startDirectRoom = useCallback(
     async (peerUserId: string) => {
       setActionError(null);
-      const existingRoom = (data?.chats ?? []).find((room) => room.roomType === "direct" && room.peerUserId === peerUserId);
+      const existingRoom = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       if (existingRoom) {
         const revived = await reviveDirectRoomForEntry(existingRoom);
         if (!revived) return;
@@ -1124,7 +1127,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setActionError(null);
       cmCallLatencyMarkClick({ surface: "messenger_home", callKind: kind });
       void primeCommunityMessengerDevicePermissionFromUserGesture(kind);
-      const existingRoom = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId) ?? null;
+      const existingRoom = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       if (existingRoom && communityMessengerRoomIsInboxHidden(existingRoom)) {
         void reviveDirectRoomForEntry(existingRoom);
       }
@@ -1272,16 +1275,46 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           // 목록 전체 refresh는 백그라운드에서만(즉시성 우선)
           void refresh(true);
           void searchUsers();
-          /** 교차 요청 흡수 시 수락과 동일하게 DM 방으로 이동 */
-          if (result.mergedFromIncoming && typeof result.directRoomId === "string" && result.directRoomId.trim()) {
-            const rid = result.directRoomId.trim();
-            router.push(
-              communityMessengerRoomHref(
-                rid,
-                readMessengerEntryOriginFromLocation(),
-                pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
-              )
+          if (result.mergedFromIncoming) {
+            const nowIso = new Date().toISOString();
+            const peerLabel = searchResults.find((u) => u.id === targetUserId)?.label ?? "";
+            setData((prev) => {
+              const meId = prev?.me?.id;
+              if (!prev || !meId) return prev;
+              const nextRequests = (prev.requests ?? []).filter(
+                (r) =>
+                  !(
+                    r.id === optimisticId ||
+                    (r.status === "pending" && r.requesterId === targetUserId && r.addresseeId === meId)
+                  )
+              );
+              const exists = (prev.friends ?? []).some((f) => f.id === targetUserId);
+              if (exists) return { ...prev, requests: nextRequests };
+              const nextFriend: CommunityMessengerProfileLite = {
+                id: targetUserId,
+                label: peerLabel || t("cm_ui_friend_label"),
+                subtitle: "",
+                bio: null,
+                avatarUrl: null,
+                following: false,
+                blocked: false,
+                isFriend: true,
+                isFavoriteFriend: false,
+                isHiddenFriend: false,
+                friendshipAcceptedAt: nowIso,
+              };
+              return {
+                ...prev,
+                requests: nextRequests,
+                friends: [...(prev.friends ?? []), nextFriend],
+                tabs: { ...prev.tabs, friends: (prev.friends ?? []).length + 1 },
+              };
+            });
+            setSearchResults((prev) =>
+              prev.map((p) => (p.id === targetUserId ? { ...p, isFriend: true } : p))
             );
+            showMessengerSnackbar(t("cm_ui_friend_merged_incoming_snackbar"), { variant: "success" });
+            onPrimarySectionChange("friends");
           }
           return;
         }
@@ -1303,7 +1336,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.me?.label, pillar, refresh, router, searchResults, searchUsers, setData]
+    [
+      data?.me?.id,
+      data?.me?.label,
+      onPrimarySectionChange,
+      refresh,
+      searchResults,
+      searchUsers,
+      setData,
+      t,
+    ]
   );
 
   const respondRequest = useCallback(
@@ -1434,15 +1476,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             cancelledOutgoingWhileOptimisticRef.current.delete(optimisticPeer);
           }
           void refresh(true);
-          if (action === "accept" && typeof json.directRoomId === "string" && json.directRoomId.trim()) {
-            const rid = json.directRoomId.trim();
-            router.push(
-              communityMessengerRoomHref(
-                rid,
-                readMessengerEntryOriginFromLocation(),
-                pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "inbox"
-              )
-            );
+          if (action === "accept") {
+            showMessengerSnackbar(t("cm_ui_friend_accept_success_snackbar"), { variant: "success" });
+            onPrimarySectionChange("friends");
           }
         } else {
           // 실패 시: 즉시성보다 정확성이 우선이므로 silent refresh로 복구
@@ -1452,7 +1488,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.requests, pillar, refresh, router, setData, t]
+    [data?.me?.id, data?.requests, onPrimarySectionChange, refresh, setData, t]
   );
 
   const onFriendRequestNotif = useCallback(
@@ -1551,9 +1587,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           }
           showMessengerSnackbar(rejectMsg, { variant: "error" });
         }
-        if (!peerId) {
-          void refresh(true);
-        }
+        void refresh(true);
       }
     },
     [data?.me?.id, refresh, setData, t]
@@ -2163,7 +2197,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const openOutgoingCallConfirm = useCallback(
     (peerUserId: string, kind: "voice" | "video") => {
       const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
-      const room = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId);
+      const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       const peerLabel = fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
       setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
     },
@@ -2534,10 +2568,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [directRoomByPeerId]
   );
 
-  const getFriendDirectRoomKindStable = useCallback(
-    (userId: string) => directRoomByPeerId.get(userId)?.contextMeta?.kind ?? null,
-    [directRoomByPeerId]
-  );
+  const getFriendDirectRoomKindStable = useCallback((_userId: string) => null, []);
 
   const friendNotificationsBusyStable = useCallback(
     (userId: string) =>

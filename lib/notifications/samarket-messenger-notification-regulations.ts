@@ -93,7 +93,8 @@ export const SAMARKET_ROOM_TYPE_TO_NOTIFICATION_DOMAIN: Record<
 };
 
 /**
- * §3 — 메신저 탭: unread **target** count (`bottom_nav_chat`). 메시지 SUM·`chatUnread` 합산 금지.
+ * §3 — 메신저 탭: unread **target** count (`bottom_nav_chat` = consumer `chat_room` only).
+ * trade/delivery CM 방은 각각 `trade`·`buyer_order` target — 메시지 SUM·`chatUnread` 합산 금지.
  */
 export function resolveMessengerTabTotalUnreadBadgeCount(bd: OwnerHubBadgeBreakdown): number {
   return Math.max(0, Math.floor(Number(bd.communityMessengerUnread) || 0));

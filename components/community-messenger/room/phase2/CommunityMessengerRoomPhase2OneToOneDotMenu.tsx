@@ -36,6 +36,11 @@ import {
 import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
 import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
+import {
+  communityMessengerRoomIsConfirmedTrade,
+  resolveMessengerDotMenuCallKind,
+  resolveMessengerDotMenuCallVisibility,
+} from "@/lib/community-messenger/messenger-room-domain";
 
 function mapSellerListingToProductStatus(
   raw: unknown,
@@ -144,11 +149,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     thumbnailUrl: deliveryMeta?.thumbnailUrl ?? null,
   });
 
-  const roomType: RoomType = useMemo(() => {
-    const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
-    if (ctx?.kind === "trade" && typeof ctx.productChatId === "string" && ctx.productChatId.trim()) return "trade";
-    return "direct";
-  }, [vm.snapshot.room.contextMeta]);
+  const isTradeRoom = communityMessengerRoomIsConfirmedTrade(vm.snapshot.room);
+  const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom });
+  const roomType: RoomType = isTradeRoom ? "trade" : "direct";
 
   const friendAddCta = useMemo((): MessengerFriendAddCta => {
     if (!peerUserId) return { kind: "add" };
@@ -181,13 +184,14 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       peerProfile?.avatarUrl,
       peerProfile?.label,
       peerUserId,
+      t,
       vm.snapshot.room.avatarUrl,
       vm.snapshot.room.title,
     ]
   );
 
   const tradeContext: TradeRoomContext | undefined = useMemo(() => {
-    if (roomType !== "trade") return undefined;
+    if (!isTradeRoom) return undefined;
     const detail = vm.snapshot.tradeChatRoomDetail;
     if (detail) {
       const built = buildTradeContextFromDetail(detail, vm.snapshot.viewerUserId);
@@ -196,15 +200,25 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
     if (ctx?.kind === "trade") return buildTradeContextFromMeta(ctx, vm.snapshot.viewerUserId);
     return undefined;
-  }, [roomType, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
+  }, [isTradeRoom, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
 
   const tradeVideoCallEnabled = useMemo(() => {
-    if (roomType !== "trade") return false;
+    if (!isTradeRoom) return false;
     const detail = vm.snapshot.tradeChatRoomDetail;
     if (!detail?.product) return false;
     const policy = normalizeTradeChatCallPolicy(detail.product.tradeChatCallPolicy);
     return tradeChatCallPolicyAllowsVideo(policy);
-  }, [roomType, vm.snapshot.tradeChatRoomDetail]);
+  }, [isTradeRoom, vm.snapshot.tradeChatRoomDetail]);
+
+  const dotMenuCallVisibility = useMemo(
+    () =>
+      resolveMessengerDotMenuCallVisibility({
+        callKind: callMenuKind,
+        tradeAllowCall: tradeContext?.product.allow_call,
+        tradeVideoCallEnabled,
+      }),
+    [callMenuKind, tradeContext?.product.allow_call, tradeVideoCallEnabled]
+  );
 
   const deliveryMenuProfile = useMemo((): ChatRoomMenuProfileOverride | undefined => {
     if (!isDeliveryRoom || deliveryHeaderModel.mode === "none" || deliveryHeaderModel.mode === "generic_delivery") {
@@ -278,11 +292,11 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       otherUser={otherUser}
       menuProfile={deliveryMenuProfile}
       deliveryStoreSummary={deliveryStoreSummary}
-      hideVideoCall={isDeliveryRoom}
+      showVoiceCall={dotMenuCallVisibility.showVoice}
+      showVideoCall={dotMenuCallVisibility.showVideo}
       isMuted={Boolean(vm.snapshot.room.isMuted)}
       isArchived={Boolean(vm.snapshot.room.isArchivedByViewer)}
       tradeContext={tradeContext}
-      tradeVideoCallEnabled={tradeVideoCallEnabled}
       disableVoiceCall={vm.roomUnavailable || vm.outgoingDialLocked}
       disableVideoCall={vm.roomUnavailable || vm.outgoingDialLocked}
       disableMuteToggle={vm.busy === "room-mute"}

@@ -9,6 +9,14 @@ import { useIncomingFriendRequestPopup } from "@/lib/community-messenger/use-inc
 import { MessengerIncomingFriendRequestPopup } from "@/components/community-messenger/MessengerIncomingFriendRequestPopup";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import {
+  MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
+  messengerFriendsSectionHrefWithOrigin,
+  parseMessengerEntryOrigin,
+} from "@/lib/community-messenger/messenger-entry-origin";
+import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 
 function rtStr(v: unknown): string {
   if (v == null) return "";
@@ -21,6 +29,7 @@ function rtStr(v: unknown): string {
  */
 export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean }) {
   const router = useRouter();
+  const { t } = useI18n();
   const [userId, setUserId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -104,28 +113,36 @@ export function GlobalIncomingFriendRequestHost({ enabled }: { enabled: boolean 
   const respondIncoming = useCallback(
     async (requestId: string, action: "accept" | "reject") => {
       setBusyId(`request:${requestId}:${action}`);
-      dismissIncomingIfRequestId(requestId);
       try {
         const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(requestId)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action }),
         });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; directRoomId?: string };
-        if (
-          res.ok &&
-          json.ok &&
-          action === "accept" &&
-          typeof json.directRoomId === "string" &&
-          json.directRoomId.trim()
-        ) {
-          router.push(`/community-messenger/rooms/${encodeURIComponent(json.directRoomId.trim())}`);
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && json.ok) {
+          dismissIncomingIfRequestId(requestId);
+          if (action === "accept") {
+            showMessengerSnackbar(t("cm_ui_friend_accept_success_snackbar"), { variant: "success" });
+            postCommunityMessengerBusEvent({ type: "cm.home.social_sync", at: Date.now() });
+            const from =
+              typeof window !== "undefined"
+                ? parseMessengerEntryOrigin(
+                    new URLSearchParams(window.location.search).get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY)
+                  )
+                : null;
+            router.push(messengerFriendsSectionHrefWithOrigin(from));
+          }
+          return;
         }
+        showMessengerSnackbar(t("cm_ui_friend_request_respond_failed"), { variant: "error" });
+      } catch {
+        showMessengerSnackbar(t("cm_ui_friend_request_respond_failed"), { variant: "error" });
       } finally {
         setBusyId(null);
       }
     },
-    [dismissIncomingIfRequestId, router]
+    [dismissIncomingIfRequestId, router, t]
   );
 
   if (!mounted || typeof document === "undefined") return null;

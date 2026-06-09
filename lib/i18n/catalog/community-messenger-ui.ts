@@ -618,6 +618,11 @@ export const communityMessengerUiMessages = {
     cm_ui_peer_fallback: "상대",
     cm_ui_chat_peer_fallback: "대화 상대",
     cm_ui_friend_request_accepted_snackbar: "{name}님이 친구 요청을 수락했습니다.",
+    cm_ui_friend_accept_success_snackbar:
+      "친구로 추가되었습니다. 친구 목록에서 메시지를 시작할 수 있습니다.",
+    cm_ui_friend_merged_incoming_snackbar: "상대가 보낸 요청을 수락하여 친구가 되었습니다.",
+    cm_ui_friend_request_respond_failed:
+      "친구 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     cm_ui_friend_request_rejected_snackbar: "{name}님이 친구 요청을 거절했습니다.",
     cm_ui_group_members_and_others: "{names} 외 {count}명",
     cm_ui_settings_backup_export_failed: "설정 백업 파일을 만들지 못했습니다.",
@@ -1412,6 +1417,11 @@ export const communityMessengerUiMessages = {
     cm_ui_peer_fallback: "Contact",
     cm_ui_chat_peer_fallback: "Chat partner",
     cm_ui_friend_request_accepted_snackbar: "{name} accepted your friend request.",
+    cm_ui_friend_accept_success_snackbar:
+      "Added as a friend. You can start a message from your friends list.",
+    cm_ui_friend_merged_incoming_snackbar: "You accepted their request and are now friends.",
+    cm_ui_friend_request_respond_failed:
+      "Could not process the friend request. Please try again.",
     cm_ui_friend_request_rejected_snackbar: "{name} declined your friend request.",
     cm_ui_group_members_and_others: "{names} and {count} more",
     cm_ui_settings_backup_export_failed: "Could not create the settings backup file.",

@@ -208,13 +208,13 @@ export function useMessageNotificationBridge(
            */
           /**
            * unread 증가: 하단 탭 뱃지를 deferred fetch(2.5s) 이전에 즉시 낙관 패치.
-           * communityMessengerUnread + delta 로 추정, deferred fetch 시 정확한 값으로 교체됨.
+           * 방 **수** 기준 — prevUnread=0→nextUnread>0 일 때만 +1 (메시지 delta 합산 금지).
            * DO NOT: 제거하면 메시지 수신 후 탭 숫자 2.5s 이상 지연.
            */
           {
-            const delta = nextUnread - prevUnread;
+            const roomCountDelta = prevUnread === 0 && nextUnread > 0 ? 1 : 0;
             const currentCmUnread = getOwnerHubBadgeSnapshot().communityMessengerUnread;
-            applyCommunityMessengerUnreadOptimistic(Math.max(0, currentCmUnread) + delta);
+            applyCommunityMessengerUnreadOptimistic(Math.max(0, currentCmUnread) + roomCountDelta);
           }
 
           const now = Date.now();
