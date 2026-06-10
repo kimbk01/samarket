@@ -172,12 +172,13 @@
 | MP-AUDIT-5 | `list_prefetch`·`room_client_block` **single-flight 합류** | `room_bootstrap_get_count` 과다·primed skip 누락 금지 |
 | MP-AUDIT-6 | POST canonical resolve **parse·rate·phone 과 병렬** | 멤버십 왕복을 ACK 직전 직렬 대기에 두지 않음 |
 | MP-AUDIT-7 | send POST **auth·parse·params 병렬** + service import 선시작 + phone verified **positive cache** | ACK 직전 profiles SELECT·번들 로드 직렬 대기 금지 |
+| MP-AUDIT-8 | `community_messenger_send_text_message` — non-trade `product_chats` 스킵·insert 경로 participants 단일 스캔·client_message_id 인덱스 | RPC ACK 왕복·중복 스캔 금지 |
 
 ### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
 
 | 지표 | 목표 | 현재 베이스라인( dev warm, 2026-06-10 ) |
 |------|------|----------------------------------------|
-| `ack_ms` | ≤ 200ms (prod 동일 리전) | ~400–570ms — INSERT+네트워크 한계, 별도 라운드 |
+| `ack_ms` | ≤ 200ms (prod 동일 리전) | dev warm **159–318ms**, avg≈240 (MP-AUDIT-7/8 후) |
 | `home_bootstrap_client_fetch_total` | ≤ 2 | 2 (PASS) |
 | `room_bootstrap_get_count` | ≤ 1.5 avg | ~1.3 (PASS) |
 | `failed_count` (홈 첫 진입) | 0 | 0 (PASS) |

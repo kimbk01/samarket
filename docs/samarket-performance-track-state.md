@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-7 ACK send 직렬 구간) |
+| Last updated | 2026-06-10 (MP-AUDIT-8 send RPC ACK hot path) |
 | Owner | (선택) |
 
 ---
@@ -104,6 +104,18 @@
 | 재측정 | direct probe **3/3**, `failed_count=0`, `findings=[]`. `ack_ms_avg≈690`(dev, 200ms 미달), `home_bootstrap_client_fetch_total_avg=2` |
 | 판정 | **부분 성공** — profiles SELECT·직렬 구간 제거. ACK 200ms 는 RPC·INSERT 별도(MP-AUDIT-8 후보) |
 | 다음 | RPC 경량화 또는 체크시트 합의 |
+
+## MP-AUDIT-8 — send RPC ACK hot path (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공 · dev warm ACK 목표 근접** |
+| 이번 원인 1개 | `community_messenger_send_text_message` 가 일반 방에도 `product_chats` 조회 + insert 후 participants **2회 스캔** + client_message_id dedupe 인덱스 부재 |
+| 이번 조치 | `20260610150000_community_messenger_send_text_ack_hot_path.sql` — trade `direct_key` 만 product_chats, recipients 선집계, partial index |
+| 기능 | **변경 없음** — 거래 가드·dedupe·unread 계약 동일 |
+| 재측정 | direct probe **3/3**, `failed_count=0`, `findings=[]`. `ack_ms` run별 318/242/159 → **avg≈240**, `home_bootstrap_client_fetch_total_avg=2` |
+| 판정 | RPC hot path **성공**. prod 동일 리전·체크시트 `[x]` 는 별도 합의 |
+| 다음 | 체크시트 메신저 0/5 합의 또는 push |
 
 ---
 
