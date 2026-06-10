@@ -19,7 +19,7 @@ const CommunityMessengerCallClient = dynamic(
 
 const HOST_SYNC_EVENT = "samarket:cm-call-host-sync";
 
-function subscribeCommunityCallHostSync(onStoreChange: () => void): () => void {
+export function subscribeCommunityCallHostSync(onStoreChange: () => void): () => void {
   if (typeof window === "undefined") return () => {};
   const handler = () => onStoreChange();
   window.addEventListener(HOST_SYNC_EVENT, handler);

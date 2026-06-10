@@ -8,7 +8,7 @@ import type {
   IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -84,7 +84,16 @@ import {
   setCmCallLatencyContext,
 } from "@/lib/community-messenger/cm-call-debug";
 import { runCommunityMessengerCallMediaCleanup } from "@/lib/community-messenger/community-messenger-call-media-cleanup";
-import { takeDetachedCommunityCallCleanup, resumeDetachedCommunityCall, minimizeCommunityCallToPip, shouldSkipCallClientUnmountDispose, clearMinimizedCommunityCallSessionFlags, writeActiveDirectVideoCallSession, clearAllCommunityCallLocalSessionFlags } from "@/lib/community-messenger/direct-call-minimize";
+import {
+  takeDetachedCommunityCallCleanup,
+  resumeDetachedCommunityCall,
+  minimizeCommunityCallToPip,
+  shouldSkipCallClientUnmountDispose,
+  clearMinimizedCommunityCallSessionFlags,
+  writeActiveDirectVideoCallSession,
+  clearAllCommunityCallLocalSessionFlags,
+  isCommunityMessengerDedicatedCallSessionPath,
+} from "@/lib/community-messenger/direct-call-minimize";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import {
@@ -371,6 +380,7 @@ export function CommunityMessengerCallClient({
   const { t } = useI18n();
   useMessengerCallMainBottomNavSuppress(presentation !== "minimized");
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
   const [initialCallHydration] = useState(() => {
@@ -3250,12 +3260,17 @@ export function CommunityMessengerCallClient({
     return () => window.clearInterval(timer);
   }, [joined, remoteJoined, scheduleSilentRefresh, sessionRealtimeSubscribed, session?.id, session?.sessionMode, session?.status]);
 
+  /**
+   * 전용 `/calls/:id` 라우트는 페이지 CallClient 가 단일 소유 — host `writeActive` 시 이중 마운트·Agora 충돌.
+   * 다른 화면으로 나간 뒤 host 상주(minimize·PiP)할 때만 active 플래그를 쓴다.
+   */
   useEffect(() => {
     const s = sessionRef.current;
     if (!s?.id || s.callKind !== "video" || !joinedRef.current || s.status !== "active") return;
+    if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) return;
     writeActiveDirectVideoCallSession(s.id);
     notifyCommunityCallHostSync();
-  }, [joined, session?.callKind, session?.id, session?.status]);
+  }, [joined, pathname, session?.callKind, session?.id, session?.status]);
 
   /** 조건부 return 위에 두어야 함 — 그 아래에서 훅을 호출하면 렌더마다 훅 개수가 달라져 런타임 오류가 난다. */
   const closeTerminalView = useCallback(() => {

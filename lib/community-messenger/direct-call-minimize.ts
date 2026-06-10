@@ -133,3 +133,29 @@ export function clearAllCommunityCallLocalSessionFlags(): void {
   clearMinimizedCommunityCallSessionFlags();
   clearActiveDirectVideoCallSession();
 }
+
+/**
+ * `/community-messenger/calls/:sessionId` 전용 라우트 — 이 경로의 CallClient 가 단일 소유자.
+ * (host `writeActive` 와 중복 마운트·이중 Agora 조인 방지)
+ */
+export function isCommunityMessengerDedicatedCallSessionPath(
+  pathname: string | null | undefined,
+  sessionId: string
+): boolean {
+  const sid = sessionId.trim();
+  if (!pathname?.trim() || !sid) return false;
+  const m = pathname.match(/^\/community-messenger\/calls\/([^/?#]+)$/);
+  if (!m?.[1]) return false;
+  try {
+    return decodeURIComponent(m[1]).trim() === sid;
+  } catch {
+    return m[1].trim() === sid;
+  }
+}
+
+/** ActiveCallHost 가 CallClient 를 상주시키는 세션인지 (active 영상·minimized PiP) */
+export function isCallSessionHostedByActiveCallHost(sessionId: string): boolean {
+  const sid = sessionId.trim();
+  if (!sid) return false;
+  return readActiveDirectVideoCallSessionId() === sid || readMinimizedCommunityCallSessionId() === sid;
+}
