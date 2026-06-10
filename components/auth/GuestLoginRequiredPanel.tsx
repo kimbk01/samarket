@@ -4,7 +4,7 @@ import { useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {
-  requireAuthAction,
+  openLoginRequiredSheet,
   type RequireAuthActionType,
 } from "@/lib/auth/require-auth-action";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
@@ -45,8 +45,7 @@ export function GuestLoginRequiredPanel({
   });
 
   const openAuth = useCallback(() => {
-    const target = resolveNext(next);
-    void requireAuthAction(actionType, async () => {}, { next: target });
+    openLoginRequiredSheet({ actionType, next: resolveNext(next) });
   }, [actionType, next]);
 
   return (

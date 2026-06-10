@@ -9,6 +9,7 @@ import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 export function MyPageItemRouteClient({
   initialMyPageData,
@@ -23,6 +24,7 @@ export function MyPageItemRouteClient({
 }) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "/mypage";
+  const membership = useClientMembershipState("mypage-item-route");
   const itemLabel = t(itemLabelKey);
   const {
     data,
@@ -44,6 +46,26 @@ export function MyPageItemRouteClient({
         ? t("mypage_comp_store_attention_summary")
         : null;
 
+  if (membership.status === "checking") {
+    return (
+      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
+        <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>
+      </MyPageStackShell>
+    );
+  }
+
+  if (membership.status === "guest") {
+    return (
+      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
+        <GuestLoginRequiredPanel
+          actionType="profile_edit"
+          next={pathname}
+          messageKey="mypage_comp_login_required"
+        />
+      </MyPageStackShell>
+    );
+  }
+
   if (loading) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
@@ -55,11 +77,9 @@ export function MyPageItemRouteClient({
   if (!data?.profile) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <GuestLoginRequiredPanel
-          actionType="profile_edit"
-          next={pathname}
-          messageKey="mypage_comp_login_required"
-        />
+        <div className="py-6 text-center sam-text-body text-sam-muted">
+          {t("mypage_comp_profile_load_failed_short")}
+        </div>
       </MyPageStackShell>
     );
   }

@@ -20,6 +20,7 @@ import {
 } from "@/lib/auth/login-error-i18n";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
@@ -250,50 +251,46 @@ export function AuthModal({ open, detail, onClose }: Props) {
     [next, t],
   );
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-[130] flex flex-col justify-end bg-black/50 sm:items-center sm:justify-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="dibay-auth-modal-title">
-      <div className="w-full max-w-md rounded-t-[24px] border border-[#d9e5df] bg-[#ffffff] px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-[24px] sm:p-6">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#006241]/10 text-[#006241]" aria-hidden>
-          <span className="text-xl font-bold">D</span>
-        </div>
-        <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
-          {t("auth_login_required_title")}
-        </h2>
-        <p className="mt-2 text-center sam-text-body leading-relaxed text-[#1e3932]/75">{body}</p>
-
-        <div className="mt-5 space-y-4">
-          <LoginProviderButtons
-            providers={providers}
-            disabled={Boolean(oauthBusy) || loading}
-            busyProvider={oauthBusy}
-            emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
-            onSelectProvider={(provider) => void handleOAuthLogin(provider)}
-          />
-          {passwordEnabled ? (
-            <PasswordLoginForm
-              identifier={identifier}
-              password={password}
-              error={error}
-              disabled={loading || Boolean(oauthBusy)}
-              loading={loading}
-              loadingText={passwordLoginStatus}
-              onIdentifierChange={setIdentifier}
-              onPasswordChange={setPassword}
-              onSubmit={handleEmailSubmit}
-            />
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 w-full rounded-full border border-[#006241] bg-white px-4 py-3 sam-text-body font-semibold text-[#006241] active:bg-[#f6f6f6]"
-        >
-          {t("auth_login_required_later")}
-        </button>
+    <AuthGateOverlay open={open} onClose={onClose} labelledBy="dibay-auth-modal-title">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#006241]/10 text-[#006241]" aria-hidden>
+        <span className="text-xl font-bold">D</span>
       </div>
-    </div>
+      <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
+        {t("auth_login_required_title")}
+      </h2>
+      <p className="mt-2 text-center sam-text-body leading-relaxed text-[#1e3932]/75">{body}</p>
+
+      <div className="mt-5 space-y-4">
+        <LoginProviderButtons
+          providers={providers}
+          disabled={Boolean(oauthBusy) || loading}
+          busyProvider={oauthBusy}
+          emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
+          onSelectProvider={(provider) => void handleOAuthLogin(provider)}
+        />
+        {passwordEnabled ? (
+          <PasswordLoginForm
+            identifier={identifier}
+            password={password}
+            error={error}
+            disabled={loading || Boolean(oauthBusy)}
+            loading={loading}
+            loadingText={passwordLoginStatus}
+            onIdentifierChange={setIdentifier}
+            onPasswordChange={setPassword}
+            onSubmit={handleEmailSubmit}
+          />
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onClose}
+        className="mt-4 w-full rounded-full border border-[#006241] bg-white px-4 py-3 sam-text-body font-semibold text-[#006241] active:bg-[#f6f6f6]"
+      >
+        {t("auth_login_required_later")}
+      </button>
+    </AuthGateOverlay>
   );
 }

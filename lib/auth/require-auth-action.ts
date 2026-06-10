@@ -2,9 +2,7 @@
 
 import type { Profile } from "@/lib/types/profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
-import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { resolveClientProfileFromSession } from "@/lib/auth/resolve-client-profile-session";
 import {
   clientHasVerifiedContactForInteractive,
   openPhoneVerificationRequiredDialog,
@@ -111,11 +109,7 @@ export async function consumePendingAuthAction(token: string | null | undefined)
 async function resolveClientProfile(): Promise<Profile | null> {
   const cached = getCurrentUser();
   if (cached?.id) return cached;
-  const row = await getMyProfile();
-  if (!row?.id) return null;
-  const profile = profileRowToClientProfile(row);
-  setSupabaseProfileCache(profile);
-  return profile;
+  return resolveClientProfileFromSession("requireAuthAction");
 }
 
 async function hasDefaultAddress(): Promise<boolean> {

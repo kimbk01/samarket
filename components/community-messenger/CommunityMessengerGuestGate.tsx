@@ -1,12 +1,9 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
-import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 /**
  * 메신저 도메인 — 비회원은 목록 대신 로그인 안내(404 금지).
@@ -14,34 +11,9 @@ import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPan
  */
 export function CommunityMessengerGuestGate({ children }: { children: ReactNode }) {
   const { t } = useI18n();
-  const [allowed, setAllowed] = useState<boolean | null>(() =>
-    getCurrentUser()?.id ? true : null,
-  );
+  const membership = useClientMembershipState("community-messenger-guest-gate");
 
-  useEffect(() => {
-    if (allowed !== null) return;
-    let cancelled = false;
-    void (async () => {
-      const cached = getCurrentUser();
-      if (cached?.id) {
-        if (!cancelled) setAllowed(true);
-        return;
-      }
-      const row = await getMyProfile().catch(() => null);
-      if (cancelled) return;
-      if (row?.id) {
-        setSupabaseProfileCache(profileRowToClientProfile(row));
-        setAllowed(true);
-        return;
-      }
-      setAllowed(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [allowed]);
-
-  if (allowed === null) {
+  if (membership.status === "checking") {
     return (
       <div className="flex min-h-[40vh] items-center justify-center px-4 py-16">
         <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
@@ -49,7 +21,7 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
     );
   }
 
-  if (!allowed) {
+  if (membership.status === "guest") {
     return (
       <div className="flex min-h-0 flex-1 flex-col px-4 py-8">
         <GuestLoginRequiredPanel actionType="messenger_open" />

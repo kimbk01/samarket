@@ -30,6 +30,8 @@ import {
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
+import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -62,7 +64,9 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
   const recoveryTriggeredRef = useRef(false);
   const ensureRetriedRef = useRef(false);
+  const guestAuthPromptedRef = useRef(false);
 
+  const membership = useClientMembershipState("mypage-root");
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
 
   useEffect(() => {
@@ -88,6 +92,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }, []);
 
   useEffect(() => {
+    if (membership.status !== "member") return;
     if (loading || recoveryTriggeredRef.current) return;
     if (data?.profile) return;
     /**
@@ -109,7 +114,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
       return;
     }
     recoveryTriggeredRef.current = true;
-  }, [loading, data, load]);
+  }, [membership.status, loading, data, load]);
 
   useEffect(() => {
     if (!infoHubOpen) return;
@@ -161,6 +166,46 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     }
   }, [loading, data]);
 
+  useEffect(() => {
+    if (membership.status !== "guest") return;
+    if (guestAuthPromptedRef.current) return;
+    guestAuthPromptedRef.current = true;
+    openLoginRequiredSheet({
+      actionType: "profile_edit",
+      next: pathname || "/mypage",
+    });
+  }, [membership.status, pathname]);
+
+  const guestLoginShell = (
+    <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+      <MyPageHeader backFallbackHref="/philife" />
+      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} px-4 pt-4`}>
+        <GuestLoginRequiredPanel
+          actionType="profile_edit"
+          next={pathname || "/mypage"}
+          messageKey="mypage_comp_login_required"
+        />
+      </div>
+    </div>
+  );
+
+  if (membership.status === "checking") {
+    return (
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+        <MyPageHeader backFallbackHref="/philife" />
+        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
+          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
+            {t("mypage_comp_loading_hub")}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (membership.status === "guest") {
+    return guestLoginShell;
+  }
+
   if (loading) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
@@ -178,12 +223,10 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
-        <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} px-4 pt-4`}>
-          <GuestLoginRequiredPanel
-            actionType="profile_edit"
-            next="/mypage"
-            messageKey="mypage_comp_login_required"
-          />
+        <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
+          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
+            {t("mypage_comp_profile_load_failed_short")}
+          </div>
         </div>
       </div>
     );
@@ -192,29 +235,34 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const { profile, banner, bannerHidden, mannerScore } = data;
   const showBanner = banner && !bannerHidden;
 
+  if (!profile) {
+    return (
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+        <MyPageHeader backFallbackHref="/philife" />
+        <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1 ${APP_MAIN_TAB_SCROLL_BODY_CLASS}`}>
+          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
+            {t("mypage_comp_profile_load_failed_short")}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
       <MyPageHeader backFallbackHref="/philife" />
       <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-        {profile ? (
-          <MyPageHomeDashboard
-            profile={profile}
-            mannerScore={mannerScore}
-            overviewCounts={overviewCounts}
-            homeDashboardCounts={data.homeDashboardCounts ?? null}
-            addressDefaultsSnapshot={data.addressDefaultsSnapshot ?? null}
-            showBanner={Boolean(showBanner)}
-            bannerSlot={
-              showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null
-            }
-          />
-        ) : (
-          <div className={`${PHILIFE_FEED_INSET_X_CLASS} pt-1`}>
-            <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-              {t("mypage_comp_profile_load_failed_short")}
-            </div>
-          </div>
-        )}
+        <MyPageHomeDashboard
+          profile={profile}
+          mannerScore={mannerScore}
+          overviewCounts={overviewCounts}
+          homeDashboardCounts={data.homeDashboardCounts ?? null}
+          addressDefaultsSnapshot={data.addressDefaultsSnapshot ?? null}
+          showBanner={Boolean(showBanner)}
+          bannerSlot={
+            showBanner ? <MyTopBanner banner={banner} onDismiss={loadBanner} /> : null
+          }
+        />
       </div>
     </div>
   );
