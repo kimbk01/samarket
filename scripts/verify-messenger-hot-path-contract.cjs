@@ -123,6 +123,15 @@ if (!roomBootstrapRefresh.includes("getSingleFlightPromise")) {
   fail("messenger-room-bootstrap-refresh must join prefetch single-flight via getSingleFlightPromise");
 }
 
+// 6) display_ready — 4s 인위 fallback 금지 (MP-AUDIT-9)
+const r6DisplayReady = read("lib/community-messenger/room/cm-room-r6-display-ready-instrumentation.ts");
+if (/setTimeout\([^)]*4_?000/.test(r6DisplayReady)) {
+  fail("scheduleCmRoomTimelineHeavyReadyAfterDom must not use 4000ms display_ready fallback");
+}
+if (!r6DisplayReady.includes("CM_ROOM_DISPLAY_READY_HEAVY_FALLBACK_MS")) {
+  fail("cm-room-r6-display-ready must define CM_ROOM_DISPLAY_READY_HEAVY_FALLBACK_MS short fallback");
+}
+
 if (failed) {
   console.error(
     "→ 의도적 변경이면 docs/messenger-performance-architecture.md §11 과 본 스크립트 금지 목록을 함께 갱신하세요."

@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-8 send RPC ACK hot path) |
+| Last updated | 2026-06-10 (MP-AUDIT-9 display_ready 4s fallback 제거) |
 | Owner | (선택) |
 
 ---
@@ -115,7 +115,19 @@
 | 기능 | **변경 없음** — 거래 가드·dedupe·unread 계약 동일 |
 | 재측정 | direct probe **3/3**, `failed_count=0`, `findings=[]`. `ack_ms` run별 318/242/159 → **avg≈240**, `home_bootstrap_client_fetch_total_avg=2` |
 | 판정 | RPC hot path **성공**. prod 동일 리전·체크시트 `[x]` 는 별도 합의 |
-| 다음 | 체크시트 메신저 0/5 합의 또는 push |
+| 다음 | 체크시트 메신저 0/5 합의 |
+
+## MP-AUDIT-9 — display_ready 4s fallback 제거 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **부분 성공 · FMR·100ms 미달 보류** |
+| 이번 원인 1개 | `scheduleCmRoomTimelineHeavyReadyAfterDom` 가 DOM FMR 미기록 시 **4s setTimeout** 으로 `display_room_messages_ready` 를 찍어 merge→display gap **~4.5s** (E2E prefmr winner) |
+| 이번 조치 | 2×rAF 직후 finish + **480ms** safety fallback. `cmRoomR6TraceEnabled` 와 정합 |
+| 기능 | **변경 없음** — 타임라인·virtualizer 계약 유지, 계측·체감 stall 만 축소 |
+| 재측정 | room_entry E2E **3/3 PASS**. merge→display gap run별 **474/576/483ms** (이전 **~4482ms**). `first_message_render_ms` null 유지 |
+| 판정 | 4s fallback 제거 **성공**. ~480ms safety·FMR 경로는 MP-AUDIT-10 후보 |
+| 다음 | FMR 기록·display≤100ms 또는 call smoke 안정화 |
 
 ---
 

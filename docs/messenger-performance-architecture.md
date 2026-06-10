@@ -173,6 +173,7 @@
 | MP-AUDIT-6 | POST canonical resolve **parse·rate·phone 과 병렬** | 멤버십 왕복을 ACK 직전 직렬 대기에 두지 않음 |
 | MP-AUDIT-7 | send POST **auth·parse·params 병렬** + service import 선시작 + phone verified **positive cache** | ACK 직전 profiles SELECT·번들 로드 직렬 대기 금지 |
 | MP-AUDIT-8 | `community_messenger_send_text_message` — non-trade `product_chats` 스킵·insert 경로 participants 단일 스캔·client_message_id 인덱스 | RPC ACK 왕복·중복 스캔 금지 |
+| MP-AUDIT-9 | `display_room_messages_ready` — **4s setTimeout fallback 금지** (rAF×2 + ≤480ms safety) | merge→display 인위 지연 금지 |
 
 ### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
 

@@ -164,12 +164,15 @@ export function recordCmRoomDomFirstMessageVisible(args: {
   return true;
 }
 
+/** heavy 준비 후 display_ready — DOM first paint 우선, stall 시 짧은 fallback (4s 금지). */
+const CM_ROOM_DISPLAY_READY_HEAVY_FALLBACK_MS = 480;
+
 /** heavy bundle 은 먼저 붙되, display_ready 메트릭은 DOM first paint 이후에만 기록 */
 export function scheduleCmRoomTimelineHeavyReadyAfterDom(
   roomId: string,
   reason: CmRoomDisplayReadyGateReason
 ): void {
-  if (!cmRoomEntryTraceEnabled()) return;
+  if (!cmRoomR6TraceEnabled()) return;
   const id = roomId.trim();
   if (!id) return;
   if (domRecordedRooms.has(id)) {
@@ -177,13 +180,29 @@ export function scheduleCmRoomTimelineHeavyReadyAfterDom(
     return;
   }
   pendingHeavyReadyReasonByRoom.set(id, reason);
-  if (typeof window !== "undefined") {
-    window.setTimeout(() => {
-      if (!pendingHeavyReadyReasonByRoom.has(id)) return;
-      pendingHeavyReadyReasonByRoom.delete(id);
-      recordCmRoomTimelineHeavyReady(id, reason);
-    }, 4_000);
-  }
+  if (typeof window === "undefined") return;
+
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    if (!pendingHeavyReadyReasonByRoom.has(id)) return;
+    settled = true;
+    pendingHeavyReadyReasonByRoom.delete(id);
+    recordCmRoomTimelineHeavyReady(id, reason);
+  };
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (domRecordedRooms.has(id)) {
+        pendingHeavyReadyReasonByRoom.delete(id);
+        settled = true;
+        return;
+      }
+      finish();
+    });
+  });
+
+  window.setTimeout(finish, CM_ROOM_DISPLAY_READY_HEAVY_FALLBACK_MS);
 }
 
 export function noteCmRoomR6HeavyHostMount(roomId: string): void {
