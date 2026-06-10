@@ -1,10 +1,16 @@
+/**
+ * Apple Sign in with Apple — JWT Client Secret 생성기
+ *
+ * .p8 private key 원문이 아니라 Supabase Apple Provider에 붙여넣을 JWT 문자열(eyJ…)을 출력합니다.
+ * Team ID + Key ID + Services ID(client_id) + AuthKey_<KEY_ID>.p8 로 ES256 서명합니다.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { importPKCS8, SignJWT } from "jose";
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "2TFKXT6Y99";
-const KEY_ID = process.env.APPLE_KEY_ID ?? "QDR9HRVX3G";
-const CLIENT_ID = process.env.APPLE_CLIENT_ID ?? "com.dibay.web";
+const KEY_ID = process.env.APPLE_KEY_ID ?? "3747N7936Z";
+const CLIENT_ID = process.env.APPLE_CLIENT_ID ?? "com.dibay.login";
 const AUTH_KEY_FILENAME = process.env.APPLE_AUTH_KEY_PATH ?? `AuthKey_${KEY_ID}.p8`;
 const EXPIRY_DAYS = 180;
 
