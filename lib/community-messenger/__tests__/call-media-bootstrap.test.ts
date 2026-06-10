@@ -156,4 +156,27 @@ describe("call-media-bootstrap", () => {
     expect(result.ok).toBe(true);
     expect(primeVideoAutoplayMock).toHaveBeenCalledTimes(1);
   });
+
+  it("suspends primed idle release after successful video prime", async () => {
+    vi.useFakeTimers();
+    const { primeOutgoingCallMediaBeforeNavigate } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    const {
+      peekPrimedCommunityMessengerDeviceStream,
+      resumePrimedCommunityMessengerDeviceStreamIdleRelease,
+    } = await import("@/lib/community-messenger/call-permission");
+
+    const result = await primeOutgoingCallMediaBeforeNavigate("video");
+    expect(result.ok).toBe(true);
+    const stream = peekPrimedCommunityMessengerDeviceStream("video");
+    const videoTrack = stream!.getVideoTracks()[0] as MediaStreamTrack & { stop: ReturnType<typeof vi.fn> };
+
+    vi.advanceTimersByTime(120_000);
+    expect(videoTrack.stop).not.toHaveBeenCalled();
+
+    resumePrimedCommunityMessengerDeviceStreamIdleRelease(0);
+    vi.advanceTimersByTime(5_000);
+    vi.useRealTimers();
+  });
 });

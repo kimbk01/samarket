@@ -235,12 +235,18 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     setLongPressHolding(false);
   };
 
+  const messageBubbleTouchStyle: CSSProperties = {
+    touchAction: "none",
+    WebkitTouchCallout: "none",
+    userSelect: "none",
+  };
+
   const bindMessageInteraction =
     item.messageType === "system"
       ? {}
       : item.messageType === "call_stub"
         ? {
-            style: { touchAction: "none" } as CSSProperties,
+            style: messageBubbleTouchStyle,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!e.isPrimary) return;
               messageLongPressItemRef.current = item;
@@ -277,7 +283,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             },
           }
         : {
-            style: { touchAction: "none" } as CSSProperties,
+            style: messageBubbleTouchStyle,
             onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => {
               if (!e.isPrimary) return;
               messageLongPressItemRef.current = item;

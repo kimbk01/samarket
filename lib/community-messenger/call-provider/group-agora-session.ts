@@ -8,6 +8,10 @@ import type {
   IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
+import {
+  isCommunityMessengerCameraSwitchSupported,
+  switchCommunityMessengerCameraFacing,
+} from "@/lib/community-messenger/call-camera-switch";
 import { AGORA_PEER_LEFT_END_GRACE_MS } from "@/lib/community-messenger/call-agora-reconnect-policy";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
@@ -46,6 +50,7 @@ export class CommunityMessengerGroupAgoraSession {
   private peerLeftTimer: ReturnType<typeof setTimeout> | null = null;
   private speakerEnabled = true;
   private viewerUserId = "";
+  private useRearFacing = false;
 
   constructor(private readonly callbacks: GroupAgoraSessionCallbacks) {}
 
@@ -236,6 +241,36 @@ export class CommunityMessengerGroupAgoraSession {
       await vt.setEnabled(enabled);
     } catch {
       /* ignore */
+    }
+  }
+
+  isCameraSwitchSupported(): boolean {
+    return isCommunityMessengerCameraSwitchSupported(this.localTracks?.videoTrack ?? null);
+  }
+
+  async switchCameraFacing(localVideoNode?: HTMLVideoElement | null): Promise<void> {
+    const vt = this.localTracks?.videoTrack;
+    if (!vt || !isCommunityMessengerCameraSwitchSupported(vt)) return;
+    const useRearFacingRef = { current: this.useRearFacing };
+    const next = await switchCommunityMessengerCameraFacing({
+      videoTrack: vt,
+      useRearFacingRef,
+      client: this.client,
+      onReplacedVideoTrack: (replaced) => {
+        const tracks = this.localTracks;
+        if (tracks) {
+          this.localTracks = { ...tracks, videoTrack: replaced };
+        }
+      },
+      onAfterSwitch: () => {
+        const node = localVideoNode ?? null;
+        if (node) this.playLocalVideo(node);
+      },
+    });
+    this.useRearFacing = useRearFacingRef.current;
+    const tracks = this.localTracks;
+    if (tracks && tracks.videoTrack !== next) {
+      this.localTracks = { ...tracks, videoTrack: next };
     }
   }
 

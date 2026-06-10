@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { resolvePreJoinVideoPreviewStream } from "@/lib/community-messenger/call-prejoin-video-preview";
+import {
+  hasLiveCommunityMessengerVideoPreviewStream,
+  resolvePreJoinVideoPreviewStream,
+  shouldPreserveHeldPreJoinVideoOnSessionRouteChange,
+} from "@/lib/community-messenger/call-prejoin-video-preview";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 function session(
@@ -66,5 +70,74 @@ describe("resolvePreJoinVideoPreviewStream", () => {
         heldStream: fakeStream(),
       })
     ).toBeNull();
+  });
+
+  it("shows preview for outgoing initiator while ringing", () => {
+    const stream = fakeStream();
+    expect(
+      resolvePreJoinVideoPreviewStream({
+        session: session({ status: "ringing", isMineInitiator: true }),
+        localVideoPlaying: false,
+        peekStream: null,
+        heldStream: stream,
+      })
+    ).toBe(stream);
+  });
+});
+
+describe("hasLiveCommunityMessengerVideoPreviewStream", () => {
+  it("returns true for live video tracks", () => {
+    expect(hasLiveCommunityMessengerVideoPreviewStream(fakeStream(true))).toBe(true);
+  });
+
+  it("returns false for ended tracks", () => {
+    expect(hasLiveCommunityMessengerVideoPreviewStream(fakeStream(false))).toBe(false);
+  });
+});
+
+describe("shouldPreserveHeldPreJoinVideoOnSessionRouteChange", () => {
+  it("preserves preview across tmp to real session replace", () => {
+    const stream = fakeStream();
+    expect(
+      shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
+        nextSessionId: "real-session-id",
+        prevSessionId: "tmp_abc",
+        peekStream: stream,
+        heldStream: null,
+      })
+    ).toBe(true);
+  });
+
+  it("does not preserve when stream is ended", () => {
+    expect(
+      shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
+        nextSessionId: "real-session-id",
+        prevSessionId: "tmp_abc",
+        peekStream: fakeStream(false),
+        heldStream: null,
+      })
+    ).toBe(false);
+  });
+
+  it("preserves primed preview on first route mount", () => {
+    expect(
+      shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
+        nextSessionId: "tmp_abc",
+        prevSessionId: null,
+        peekStream: fakeStream(),
+        heldStream: null,
+      })
+    ).toBe(true);
+  });
+
+  it("does not preserve across unrelated session switches", () => {
+    expect(
+      shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
+        nextSessionId: "call-b",
+        prevSessionId: "call-a",
+        peekStream: fakeStream(),
+        heldStream: null,
+      })
+    ).toBe(false);
   });
 });

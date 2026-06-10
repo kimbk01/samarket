@@ -106,6 +106,13 @@ async function createAgoraMicWithPreferredDevice(): Promise<ILocalAudioTrack> {
   return AgoraRTC.createMicrophoneAudioTrack();
 }
 
+/** Agora 조인 직전 — localStorage exact videoDeviceId 가 facingMode 전환을 막지 않게 핀 해제 */
+async function createAgoraCamForMessengerJoin(): Promise<ILocalVideoTrack> {
+  const { audioDeviceId } = readPreferredCommunityMessengerDeviceIds();
+  writePreferredCommunityMessengerDeviceIds(audioDeviceId, null);
+  return createAgoraCamWithPreferredDevice();
+}
+
 async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
   const { videoDeviceId } = readPreferredCommunityMessengerDeviceIds();
   /* 720p + 원격·로컬 동시 디코드는 저사양/모바일 웹에서 프레임 드랍 유발 → 480p 기본 */
@@ -128,10 +135,21 @@ async function createAgoraCamWithPreferredDevice(): Promise<ILocalVideoTrack> {
   }
 }
 
-function agoraLocalTracksFromMediaStream(
+function stopMediaStreamVideoTracks(stream: MediaStream): void {
+  for (const track of stream.getVideoTracks()) {
+    try {
+      track.stop();
+    } catch {
+      /* already stopped */
+    }
+  }
+}
+
+/** primed/trusted GUM 오디오는 custom · 비디오는 CameraVideoTrack(setDevice 전환 지원) */
+async function agoraLocalTracksFromMediaStream(
   stream: MediaStream,
   kind: CommunityMessengerCallKind
-): CommunityMessengerAgoraLocalTracks {
+): Promise<CommunityMessengerAgoraLocalTracks> {
   const audioMedia = stream.getAudioTracks().find((t) => t.readyState === "live") ?? null;
   if (!audioMedia) {
     throw new DOMException("No audio track", "NotFoundError");
@@ -148,10 +166,14 @@ function agoraLocalTracksFromMediaStream(
   if (!videoMedia) {
     throw new DOMException("No video track", "NotFoundError");
   }
-  const videoTrack = AgoraRTC.createCustomVideoTrack({
-    mediaStreamTrack: videoMedia,
-  });
-  return { audioTrack, videoTrack };
+  stopMediaStreamVideoTracks(stream);
+  try {
+    const videoTrack = await createAgoraCamForMessengerJoin();
+    return { audioTrack, videoTrack };
+  } catch (error) {
+    await audioTrack.close();
+    throw error;
+  }
 }
 
 async function createCommunityMessengerAgoraLocalTracksFromTrustedGum(
@@ -163,7 +185,7 @@ async function createCommunityMessengerAgoraLocalTracksFromTrustedGum(
     const stream = await getCommunityMessengerUserMedia(buildCommunityMessengerMediaStreamConstraints(kind), {
       featureKey,
     });
-    return agoraLocalTracksFromMediaStream(stream, kind);
+    return await agoraLocalTracksFromMediaStream(stream, kind);
   } catch {
     return null;
   }
@@ -188,9 +210,8 @@ export async function createCommunityMessengerAgoraLocalTracks(
       const videoMedia = primed.getVideoTracks().find((t) => t.readyState === "live") ?? null;
       if (videoMedia) {
         try {
-          const videoTrack = AgoraRTC.createCustomVideoTrack({
-            mediaStreamTrack: videoMedia,
-          });
+          stopMediaStreamVideoTracks(primed);
+          const videoTrack = await createAgoraCamForMessengerJoin();
           return { audioTrack, videoTrack };
         } catch (error) {
           await audioTrack.close();
@@ -198,7 +219,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
         }
       }
       try {
-        const videoTrack = await createAgoraCamWithPreferredDevice();
+        const videoTrack = await createAgoraCamForMessengerJoin();
         return { audioTrack, videoTrack };
       } catch (error) {
         await audioTrack.close();

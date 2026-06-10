@@ -772,6 +772,26 @@
   .sam-bubble {
     @apply relative inline-block w-max max-w-full overflow-visible rounded-sam-md;
     box-shadow: var(--sam-shadow-none);
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  [data-cm-room] .sam-bubble p,
+  [data-cm-room] .sam-bubble img {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  [data-cm-room] .sam-bubble img {
+    -webkit-user-drag: none;
+  }
+
+  [data-cm-room] [data-cm-timeline-message-row] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   [data-cm-room] .sam-bubble--outgoing {

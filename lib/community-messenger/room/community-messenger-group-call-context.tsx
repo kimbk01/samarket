@@ -18,6 +18,8 @@ export const DIRECT_ROOM_GROUP_CALL_STUB: CommunityMessengerGroupCallHandle = {
   localStream: null,
   localVideoRef: { current: null },
   remotePeers: [],
+  cameraSwitchSupported: false,
+  switchCameraFacing: noopAsync,
   bindRemoteVideo: remoteVideoNoop,
   bindRemoteAudio: remoteAudioNoop,
   callStatusLabel: "",

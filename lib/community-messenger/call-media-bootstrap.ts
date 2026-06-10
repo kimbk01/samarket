@@ -11,6 +11,7 @@ import {
   peekPrimedCommunityMessengerDeviceStream,
   shouldDiscardPrimedBeforeCommunityMessengerPrime,
   storePrimedCommunityMessengerDeviceStream,
+  suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
 } from "@/lib/community-messenger/call-permission";
 import { primeVideoElementAutoplayFromUserGesture } from "@/lib/community-messenger/call-local-video-pipeline";
 import {
@@ -76,7 +77,10 @@ export async function primeVideoCallMediaFromUserGesture(opts?: {
   }
   if (hasUsablePrimedCommunityMessengerDeviceStream("video")) {
     const primed = peekPrimedCommunityMessengerDeviceStream("video");
-    if (primed) primeVideoElementAutoplayFromUserGesture(primed);
+    if (primed) {
+      suspendPrimedCommunityMessengerDeviceStreamIdleRelease();
+      primeVideoElementAutoplayFromUserGesture(primed);
+    }
     return { ok: true };
   }
   if (shouldDiscardPrimedBeforeCommunityMessengerPrime("video")) {
@@ -99,6 +103,7 @@ export async function primeVideoCallMediaFromUserGesture(opts?: {
     persistDeviceIdsFromMediaStream(stream);
     void refreshPreferredCommunityMessengerDevicesFromEnumerate();
     storePrimedCommunityMessengerDeviceStream("video", stream);
+    suspendPrimedCommunityMessengerDeviceStreamIdleRelease();
     markCommunityMessengerMediaTrustedOnce("voice");
     markCommunityMessengerMediaTrustedOnce("video");
     primeVideoElementAutoplayFromUserGesture(stream);

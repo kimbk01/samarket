@@ -98,9 +98,16 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
 
   const kind = item.callKind === "video" ? "video" : "voice";
 
+  const popoverBackdropStyle = {
+    WebkitTouchCallout: "none" as const,
+    touchAction: "none" as const,
+    userSelect: "none" as const,
+  };
+
   const node = (
     <div
-      className="fixed inset-0 z-[220] touch-none"
+      className="fixed inset-0 z-[220] touch-none select-none"
+      style={popoverBackdropStyle}
       role="presentation"
       onContextMenu={(e) => e.preventDefault()}
     >

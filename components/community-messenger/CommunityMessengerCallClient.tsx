@@ -1,10 +1,8 @@
 "use client";
 
 import type {
-  ICameraVideoTrack,
   IAgoraRTCClient,
   IAgoraRTCRemoteUser,
-  ILocalVideoTrack,
   IRemoteAudioTrack,
   IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
@@ -166,7 +164,15 @@ import {
   subscribeVideoUpgradeBroadcast,
 } from "@/lib/community-messenger/call-video-upgrade-broadcast";
 import { bestEffortKeepaliveCallSessionTeardown } from "@/lib/community-messenger/call-page-leave-patch";
-import { resolvePreJoinVideoPreviewStream } from "@/lib/community-messenger/call-prejoin-video-preview";
+import {
+  hasLiveCommunityMessengerVideoPreviewStream,
+  resolvePreJoinVideoPreviewStream,
+  shouldPreserveHeldPreJoinVideoOnSessionRouteChange,
+} from "@/lib/community-messenger/call-prejoin-video-preview";
+import {
+  isCommunityMessengerCameraSwitchSupported,
+  switchCommunityMessengerCameraFacing,
+} from "@/lib/community-messenger/call-camera-switch";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
@@ -213,10 +219,6 @@ function pinTerminalCallLocalSurfaceDismiss(sessionId: string): void {
   } catch {
     /* ignore */
   }
-}
-
-function isCameraVideoTrackWithDevice(track: ILocalVideoTrack | null): track is ICameraVideoTrack {
-  return !!track && typeof (track as ICameraVideoTrack).setDevice === "function";
 }
 
 /** 폴링으로 객체 참조만 바뀌는 경우 effect·리렌더 난사를 막는다 */
@@ -382,6 +384,61 @@ function resolveHangupTerminalStatusForSnapshot(
   return "ended";
 }
 
+function HydrateOutgoingVideoPreview({ loadingLabel }: { loadingLabel: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(() => {
+    if (typeof window === "undefined") return null;
+    const peek = peekPrimedCommunityMessengerDeviceStream("video");
+    return hasLiveCommunityMessengerVideoPreviewStream(peek) ? peek : null;
+  });
+
+  useLayoutEffect(() => {
+    let cancelled = false;
+    const syncPeek = () => {
+      if (cancelled) return;
+      const peek = peekPrimedCommunityMessengerDeviceStream("video");
+      const next = hasLiveCommunityMessengerVideoPreviewStream(peek) ? peek : null;
+      setStream((prev) => (prev === next ? prev : next));
+    };
+    syncPeek();
+    const raf = requestAnimationFrame(syncPeek);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const el = videoRef.current;
+    if (!el || !stream) {
+      detachPreJoinHtmlVideo(el);
+      return;
+    }
+    void attachPreJoinHtmlVideo(el, stream);
+    return () => {
+      detachPreJoinHtmlVideo(el);
+    };
+  }, [stream]);
+
+  if (stream) {
+    return (
+      <video
+        ref={videoRef}
+        className="absolute inset-0 h-full w-full object-cover"
+        autoPlay
+        muted
+        playsInline
+      />
+    );
+  }
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center bg-[#003D29]">
+      <span className="sam-text-body-secondary text-[#D4E9E2]/58">{loadingLabel}</span>
+    </div>
+  );
+}
+
 export function CommunityMessengerCallClient({
   sessionId,
   initialSession = null,
@@ -489,6 +546,7 @@ export function CommunityMessengerCallClient({
    * `peek` 가 null 이 되어도 동일 MediaStream 트랙은 살아 있음.
    */
   const heldPreJoinVideoPreviewRef = useRef<MediaStream | null>(null);
+  const prevCallRouteSessionIdRef = useRef<string | null>(null);
   const cmCallVideoLogOnceRef = useRef({
     localReady: false,
     remoteReady: false,
@@ -800,10 +858,24 @@ export function CommunityMessengerCallClient({
   const wasCallSessionRingingRef = useRef(false);
 
   useLayoutEffect(() => {
+    const prevSessionId = prevCallRouteSessionIdRef.current;
+    prevCallRouteSessionIdRef.current = sessionId;
+    const peek = peekPrimedCommunityMessengerDeviceStream("video");
+    const preservePreview = shouldPreserveHeldPreJoinVideoOnSessionRouteChange({
+      nextSessionId: sessionId,
+      prevSessionId,
+      peekStream: peek,
+      heldStream: heldPreJoinVideoPreviewRef.current,
+    });
+
     stopCommunityMessengerCallTone();
     setCalleeVideoConnectingShell(false);
     wasCallSessionRingingRef.current = false;
-    heldPreJoinVideoPreviewRef.current = null;
+    if (!preservePreview) {
+      heldPreJoinVideoPreviewRef.current = null;
+    } else if (peek) {
+      heldPreJoinVideoPreviewRef.current = peek;
+    }
     setJoined(false);
     joinedRef.current = false;
     joiningRef.current = false;
@@ -814,7 +886,7 @@ export function CommunityMessengerCallClient({
     setCamOff(false);
     setLayoutSwapped(false);
     cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
-    if (ringPreviewVideoRef.current) {
+    if (!preservePreview && ringPreviewVideoRef.current) {
       ringPreviewVideoRef.current.srcObject = null;
     }
     if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
@@ -1589,7 +1661,7 @@ export function CommunityMessengerCallClient({
         } catch {
           /* optional */
         }
-        setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
+        setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(videoTrack));
         markCommunityMessengerMediaTrustedOnce("video");
         void bindLocalVideoTrack();
       } catch (e) {
@@ -1603,31 +1675,32 @@ export function CommunityMessengerCallClient({
     };
   }, [camOff, session?.id, session?.callKind, session?.status, joined, bindLocalVideoTrack]);
 
-  /** 모바일: facingMode user/environment 우선 · 데스크톱/실패 시 videoinput 목록 순환 · 실패 시 catch 에서 이전 facing 복구 */
   const switchCameraFacing = useCallback(async () => {
     const v = localTracksRef.current?.videoTrack;
-    if (!v || !isCameraVideoTrackWithDevice(v)) return;
+    if (!v || !isCommunityMessengerCameraSwitchSupported(v)) return;
     console.info("[cm-call-video] camera_switch_start", { sessionId: sessionRef.current?.id?.slice(-8) });
     setBusy("camera");
     try {
-      useRearFacingRef.current = !useRearFacingRef.current;
-      await v.setDevice({ facingMode: useRearFacingRef.current ? "environment" : "user" });
-    } catch {
-      useRearFacingRef.current = !useRearFacingRef.current;
-      try {
-        const { listCommunityMessengerCameras } = await loadCommunityMessengerCallProvider();
-        const list = await listCommunityMessengerCameras();
-        if (list.length < 2) return;
-        const cur = v.getMediaStreamTrack().getSettings().deviceId;
-        const next = list.find((d) => d.deviceId !== cur) ?? list[1];
-        await v.setDevice(next.deviceId);
-        /* deviceId 로 전환되면 실제 전후면과 facing 추적이 어긋날 수 있어 다음 번은 목록 기준으로만 맞춘다 */
-        useRearFacingRef.current = false;
-      } catch {
-        /* ignore */
+      const next = await switchCommunityMessengerCameraFacing({
+        videoTrack: v,
+        useRearFacingRef,
+        client: clientRef.current,
+        onReplacedVideoTrack: (replaced) => {
+          const tracks = localTracksRef.current;
+          if (tracks) {
+            localTracksRef.current = { ...tracks, videoTrack: replaced };
+          }
+        },
+        onAfterSwitch: async () => {
+          await bindLocalVideoTrack();
+        },
+      });
+      const tracks = localTracksRef.current;
+      if (tracks && tracks.videoTrack !== next) {
+        localTracksRef.current = { ...tracks, videoTrack: next };
       }
+      setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(next));
     } finally {
-      void bindLocalVideoTrack();
       console.info("[cm-call-video] camera_switch_done", { sessionId: sessionRef.current?.id?.slice(-8) });
       setBusy(null);
     }
@@ -2513,7 +2586,7 @@ export function CommunityMessengerCallClient({
       } catch {
         /* optional */
       }
-      setCameraSwitchSupported(isCameraVideoTrackWithDevice(videoTrack));
+      setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(videoTrack));
       setSession(json.session);
       setSpeakerEnabled(true);
       markCommunityMessengerMediaTrustedOnce(json.session.callKind);
@@ -3272,7 +3345,9 @@ export function CommunityMessengerCallClient({
       setCameraSwitchSupported(false);
       return;
     }
-    setCameraSwitchSupported(isCameraVideoTrackWithDevice(localTracksRef.current?.videoTrack ?? null));
+    setCameraSwitchSupported(
+      isCommunityMessengerCameraSwitchSupported(localTracksRef.current?.videoTrack ?? null)
+    );
   }, [joined, session?.callKind, session?.id, localVideoReady]);
 
   useEffect(() => {
@@ -3374,10 +3449,23 @@ export function CommunityMessengerCallClient({
       peekStream: peek,
       heldStream: heldPreJoinVideoPreviewRef.current,
     });
-    if (!resolved) {
+    if (resolved) {
+      return resolved;
+    }
+    const held = heldPreJoinVideoPreviewRef.current;
+    if (
+      session?.callKind === "video" &&
+      session.isMineInitiator &&
+      session.status === "ringing" &&
+      !localVideoReady &&
+      hasLiveCommunityMessengerVideoPreviewStream(held)
+    ) {
+      return held;
+    }
+    if (!hasLiveCommunityMessengerVideoPreviewStream(held)) {
       heldPreJoinVideoPreviewRef.current = null;
     }
-    return resolved;
+    return null;
   }, [
     joined,
     localVideoReady,
@@ -3514,9 +3602,7 @@ export function CommunityMessengerCallClient({
       ],
       mainVideoSlot:
         hydrateKind === "video" ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#003D29]">
-            <span className="sam-text-body-secondary text-[#D4E9E2]/58">{t("common_loading")}</span>
-          </div>
+          <HydrateOutgoingVideoPreview loadingLabel={t("common_loading")} />
         ) : undefined,
       showRemoteVideo: false,
       showLocalVideo: false,

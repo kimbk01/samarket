@@ -165,8 +165,11 @@ export function GroupRoomCallOverlay({
               id: "switch-camera",
               label: t("cm_ui_switch_camera"),
               icon: "camera-switch",
-              disabled: !hasLocal,
-              onClick: () => void onRetryCallDevicePermission(),
+              disabled:
+                !hasLocal ||
+                !groupCall.cameraSwitchSupported ||
+                groupCall.busy === "camera",
+              onClick: () => void groupCall.switchCameraFacing(),
             },
             {
               id: "camera",

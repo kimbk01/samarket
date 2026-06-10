@@ -82,6 +82,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const [connectedAt, setConnectedAt] = useState<number | null>(null);
   const [remotePeers, setRemotePeers] = useState<GroupCallRemotePeer[]>([]);
   const [hasLocalMedia, setHasLocalMedia] = useState(false);
+  const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
   const [agoraReconnecting, setAgoraReconnecting] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const agoraSessionRef = useRef<CommunityMessengerGroupAgoraSession | null>(null);
@@ -155,6 +156,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     await agoraSessionRef.current?.cleanup();
     agoraSessionRef.current = null;
     setHasLocalMedia(false);
+    setCameraSwitchSupported(false);
     setRemotePeers([]);
     setAgoraReconnecting(false);
     activeSinceRef.current = null;
@@ -398,6 +400,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         });
         if (cancelled || !mountedRef.current) return;
         setHasLocalMedia(true);
+        setCameraSwitchSupported(agora.isCameraSwitchSupported());
         migrateCommunityMessengerMediaSessionKey(null, sessionId);
         setPanel((prev) => (prev ? { ...prev, mode: "connecting" } : prev));
       } catch (error) {
@@ -662,11 +665,24 @@ export function useCommunityMessengerGroupCall(args: Props) {
         connection,
       });
       setHasLocalMedia(true);
+      setCameraSwitchSupported(agora.isCameraSwitchSupported());
       setAgoraReconnecting(false);
     } finally {
       setBusy(null);
     }
   }, [args.enabled, args.viewerUserId, currentSessionId, ensureAgoraSession, panel]);
+
+  const switchCameraFacing = useCallback(async () => {
+    const agora = agoraSessionRef.current;
+    if (!agora || !agora.isCameraSwitchSupported()) return;
+    setBusy("camera");
+    try {
+      await agora.switchCameraFacing(localVideoRef.current);
+      setCameraSwitchSupported(agora.isCameraSwitchSupported());
+    } finally {
+      setBusy(null);
+    }
+  }, []);
 
   const prepareDevices = useCallback(async () => {
     const kind = panel?.kind ?? args.activeCall?.callKind;
@@ -726,6 +742,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
     localStream: hasLocalMedia ? ({} as MediaStream) : null,
     localVideoRef,
     remotePeers,
+    cameraSwitchSupported,
+    switchCameraFacing,
     bindRemoteVideo,
     bindRemoteAudio,
     callStatusLabel,
