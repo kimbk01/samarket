@@ -10,7 +10,7 @@ import { importPKCS8, SignJWT } from "jose";
 
 const TEAM_ID = process.env.APPLE_TEAM_ID ?? "2TFKXT6Y99";
 const KEY_ID = process.env.APPLE_KEY_ID ?? "3747N7936Z";
-const CLIENT_ID = process.env.APPLE_CLIENT_ID ?? "com.dibay.login";
+const CLIENT_ID = process.env.APPLE_CLIENT_ID ?? "com.dibay.login2";
 const AUTH_KEY_FILENAME = process.env.APPLE_AUTH_KEY_PATH ?? `AuthKey_${KEY_ID}.p8`;
 const EXPIRY_DAYS = 180;
 

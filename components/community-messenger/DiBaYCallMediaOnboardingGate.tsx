@@ -2,29 +2,27 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import {
   isVideoCallMediaReady,
-  primeVideoCallMediaFromUserGesture,
+  primeVideoCallMediaFromOnboardingClick,
 } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   readDiBaYCallMediaPromptState,
   shouldOfferCallMediaPrePrompt,
-  writeDiBaYCallMediaPromptState,
 } from "@/lib/community-messenger/call-media-onboarding-storage";
 import { readDiBaYNotificationPromptState } from "@/lib/notifications/dibay-notification-prompt-storage";
+import {
+  canAttemptPostLoginOnboardingGate,
+  isPostLoginOnboardingBlockedByAddressGate,
+  schedulePostLoginOnboardingOpen,
+} from "@/lib/permissions/dibay-post-login-onboarding-gate";
+import {
+  recordDiBaYOnboardingDecision,
+  syncDiBaYOnboardingFromBrowserPermission,
+} from "@/lib/permissions/device-permission-manager";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
-
-function isAuthExcludedPath(path: string): boolean {
-  return (
-    path === "/login" ||
-    path.startsWith("/login/") ||
-    path === "/signup" ||
-    path.startsWith("/signup/") ||
-    path.startsWith("/auth/")
-  );
-}
 
 /**
  * 로그인 후 1회: 영상 통화용 mic+cam 허용 (알림 온보딩 결정 이후).
@@ -34,30 +32,28 @@ export function DiBaYCallMediaOnboardingGate() {
   const pathname = usePathname() ?? "";
   const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const shownRef = useRef(false);
 
   const tryOpen = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (deferStoresHomeLcp) return;
-    if (isAuthExcludedPath(pathname)) return;
-    if (!getSupabaseProfileCache()?.id) return;
+    if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
     if (!shouldOfferCallMediaPrePrompt()) return;
-    if (isVideoCallMediaReady()) return;
+    if (isVideoCallMediaReady()) {
+      syncDiBaYOnboardingFromBrowserPermission("call_media");
+      return;
+    }
     if (readDiBaYNotificationPromptState() == null) return;
     if (shownRef.current) return;
     if (readDiBaYCallMediaPromptState() != null) return;
 
     const run = () => {
       if (!shouldOfferCallMediaPrePrompt() || isVideoCallMediaReady()) return;
-      shownRef.current = true;
-      setOpen(true);
+      void isPostLoginOnboardingBlockedByAddressGate().then((needsBlock) => {
+        if (needsBlock) return;
+        shownRef.current = true;
+        setOpen(true);
+      });
     };
-    if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(run, { timeout: 1200 });
-    } else {
-      window.setTimeout(run, 600);
-    }
+    schedulePostLoginOnboardingOpen(run);
   }, [deferStoresHomeLcp, pathname]);
 
   useEffect(() => {
@@ -65,25 +61,32 @@ export function DiBaYCallMediaOnboardingGate() {
     return () => window.clearTimeout(timer);
   }, [tryOpen]);
 
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      shownRef.current = false;
+      tryOpen();
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [tryOpen]);
+
   const onLater = () => {
-    writeDiBaYCallMediaPromptState("declined");
+    recordDiBaYOnboardingDecision("call_media", "declined");
     setOpen(false);
   };
 
-  const onAccept = async () => {
-    setBusy(true);
-    try {
-      const result = await primeVideoCallMediaFromUserGesture({ explicitRetry: true });
+  const onAccept = () => {
+    setOpen(false);
+    void primeVideoCallMediaFromOnboardingClick().then((result) => {
       if (!result.ok) {
-        writeDiBaYCallMediaPromptState(result.code === "denied" ? "browser_denied" : "declined");
-        setOpen(false);
+        recordDiBaYOnboardingDecision(
+          "call_media",
+          result.code === "denied" ? "browser_denied" : "declined",
+        );
         return;
       }
-      writeDiBaYCallMediaPromptState("accepted");
-      setOpen(false);
-    } finally {
-      setBusy(false);
-    }
+      recordDiBaYOnboardingDecision("call_media", "accepted");
+    });
   };
 
   if (!open) return null;
@@ -103,7 +106,6 @@ export function DiBaYCallMediaOnboardingGate() {
         <div className="mt-5 flex gap-3">
           <button
             type="button"
-            disabled={busy}
             onClick={onLater}
             className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg"
           >
@@ -111,11 +113,10 @@ export function DiBaYCallMediaOnboardingGate() {
           </button>
           <button
             type="button"
-            disabled={busy}
-            onClick={() => void onAccept()}
+            onClick={onAccept}
             className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white"
           >
-            {busy ? t("common_processing") : t("dibay_call_media_accept")}
+            {t("dibay_call_media_accept")}
           </button>
         </div>
       </div>

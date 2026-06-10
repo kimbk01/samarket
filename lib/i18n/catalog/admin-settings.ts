@@ -133,7 +133,7 @@ export const adminSettingsMessages = {
     admin_auth_apple_banner_line1: "이 설정은 dibaY 로그인 버튼 노출용입니다.",
     admin_auth_apple_banner_line2:
       "실제 Apple OAuth 활성화는 Supabase Dashboard → Authentication → Providers → Apple에서 별도로 설정해야 합니다.",
-    admin_auth_apple_client_id_hint: "Apple Developer Services ID를 입력하세요. 예: com.dibay.login",
+    admin_auth_apple_client_id_hint: "Apple Developer Services ID를 입력하세요. 예: com.dibay.login2",
     admin_auth_apple_client_secret_hint:
       "Apple .p8 키 파일 원문이 아니라 JWT Client Secret을 입력하세요. eyJ로 시작하는 긴 문자열입니다.",
     admin_auth_apple_callback_hint:
@@ -401,7 +401,7 @@ export const adminSettingsMessages = {
     admin_auth_apple_banner_line1: "These settings control dibaY login button visibility only.",
     admin_auth_apple_banner_line2:
       "To enable Apple OAuth, configure Supabase Dashboard → Authentication → Providers → Apple separately.",
-    admin_auth_apple_client_id_hint: "Enter your Apple Developer Services ID. Example: com.dibay.login",
+    admin_auth_apple_client_id_hint: "Enter your Apple Developer Services ID. Example: com.dibay.login2",
     admin_auth_apple_client_secret_hint:
       "Enter the JWT Client Secret, not the raw .p8 key file. It is a long string starting with eyJ.",
     admin_auth_apple_callback_hint:

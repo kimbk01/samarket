@@ -2,25 +2,28 @@
 
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { shouldOfferDiBaYNotificationPrePrompt } from "@/lib/notifications/dibay-notification-prompt-storage";
 import {
-  readDiBaYNotificationPromptState,
-  shouldOfferDiBaYNotificationPrePrompt,
-  writeDiBaYNotificationPromptState,
-} from "@/lib/notifications/dibay-notification-prompt-storage";
-import { requestNotificationWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
+  canAttemptPostLoginOnboardingGate,
+  isPostLoginOnboardingBlockedByAddressGate,
+  schedulePostLoginOnboardingOpen,
+} from "@/lib/permissions/dibay-post-login-onboarding-gate";
+import {
+  recordDiBaYOnboardingDecision,
+  syncDiBaYOnboardingFromBrowserPermission,
+} from "@/lib/permissions/device-permission-manager";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
-function isAuthExcludedPath(path: string): boolean {
-  return (
-    path === "/login" ||
-    path.startsWith("/login/") ||
-    path === "/signup" ||
-    path.startsWith("/signup/") ||
-    path.startsWith("/auth/")
-  );
+function schedulePushRegistration(): void {
+  void registerWebPushSubscriptionFromClient().then((reg) => {
+    if (!reg.ok && process.env.NODE_ENV === "development") {
+      console.info("[DiBaYNotificationOnboarding] push register", reg);
+    }
+  });
 }
 
 /**
@@ -32,36 +35,29 @@ export function DiBaYNotificationOnboardingGate() {
   const pathname = usePathname() ?? "";
   const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const shownRef = useRef(false);
 
   const tryOpen = useCallback(() => {
-    if (typeof window === "undefined") return;
-    if (deferStoresHomeLcp) return;
-    if (isAuthExcludedPath(pathname)) return;
-    if (!getSupabaseProfileCache()?.id) return;
+    if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
     if (!shouldOfferDiBaYNotificationPrePrompt()) return;
     if (shownRef.current) return;
     if (!("Notification" in window)) return;
+
     const perm = Notification.permission;
-    if (perm === "granted") {
-      writeDiBaYNotificationPromptState("accepted");
+    if (perm === "granted" || perm === "denied") {
+      syncDiBaYOnboardingFromBrowserPermission("notification");
       return;
     }
-    if (perm === "denied") {
-      writeDiBaYNotificationPromptState("browser_denied");
-      return;
-    }
+
     const run = () => {
-      if (readDiBaYNotificationPromptState() != null) return;
-      shownRef.current = true;
-      setOpen(true);
+      if (!shouldOfferDiBaYNotificationPrePrompt()) return;
+      void isPostLoginOnboardingBlockedByAddressGate().then((needsBlock) => {
+        if (needsBlock) return;
+        shownRef.current = true;
+        setOpen(true);
+      });
     };
-    if (typeof window.requestIdleCallback === "function") {
-      window.requestIdleCallback(run, { timeout: 900 });
-    } else {
-      window.setTimeout(run, 480);
-    }
+    schedulePostLoginOnboardingOpen(run);
   }, [deferStoresHomeLcp, pathname]);
 
   useEffect(() => {
@@ -69,29 +65,49 @@ export function DiBaYNotificationOnboardingGate() {
     return () => window.clearTimeout(t);
   }, [tryOpen]);
 
+  useEffect(() => {
+    const onAddressesUpdated = () => {
+      shownRef.current = false;
+      tryOpen();
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [tryOpen]);
+
   const onLater = () => {
-    writeDiBaYNotificationPromptState("declined");
+    recordDiBaYOnboardingDecision("notification", "declined");
     setOpen(false);
   };
 
-  const onAccept = async () => {
-    setBusy(true);
-    try {
-      const perm = await requestNotificationWithDiBaYGate({ explicitRetry: true });
-      if (!perm.ok) {
-        writeDiBaYNotificationPromptState(perm.reason === "denied" ? "browser_denied" : "declined");
-        setOpen(false);
-        return;
-      }
-      writeDiBaYNotificationPromptState("accepted");
-      const reg = await registerWebPushSubscriptionFromClient();
-      if (!reg.ok && process.env.NODE_ENV === "development") {
-        console.info("[DiBaYNotificationOnboarding] push register", reg);
-      }
+  const onAccept = () => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      recordDiBaYOnboardingDecision("notification", "declined");
       setOpen(false);
-    } finally {
-      setBusy(false);
+      return;
     }
+
+    const existing = Notification.permission;
+    if (existing === "granted") {
+      recordDiBaYOnboardingDecision("notification", "accepted");
+      setOpen(false);
+      schedulePushRegistration();
+      return;
+    }
+    if (existing === "denied") {
+      recordDiBaYOnboardingDecision("notification", "browser_denied");
+      setOpen(false);
+      return;
+    }
+
+    setOpen(false);
+    void Notification.requestPermission().then((permission) => {
+      const state =
+        permission === "granted" ? "accepted" : permission === "denied" ? "browser_denied" : "declined";
+      recordDiBaYOnboardingDecision("notification", state);
+      if (permission === "granted") {
+        schedulePushRegistration();
+      }
+    });
   };
 
   if (!open) return null;
@@ -116,7 +132,6 @@ export function DiBaYNotificationOnboardingGate() {
         <div className="mt-5 flex gap-3">
           <button
             type="button"
-            disabled={busy}
             onClick={onLater}
             className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg"
           >
@@ -124,11 +139,10 @@ export function DiBaYNotificationOnboardingGate() {
           </button>
           <button
             type="button"
-            disabled={busy}
-            onClick={() => void onAccept()}
+            onClick={onAccept}
             className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white"
           >
-            {busy ? t("common_processing") : t("dibay_notif_accept")}
+            {t("dibay_notif_accept")}
           </button>
         </div>
       </div>

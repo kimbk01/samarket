@@ -66,6 +66,59 @@ export function isCallMediaReadyForKind(kind: CommunityMessengerCallKind): boole
   return kind === "video" ? isVideoCallMediaReady() : isVoiceCallMediaReady();
 }
 
+/**
+ * 로그인 후 통화 미디어 온보딩 — 클릭 동기 구간에서 GUM 시작(제스처 유지).
+ * DiBaY 프리프롬프트 모달이 이미 떴으므로 ensure*Gate await 없이 직접 요청.
+ */
+export function primeVideoCallMediaFromOnboardingClick(): Promise<CallMediaPrimeResult> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+    return Promise.resolve({ ok: false, code: "no_api" });
+  }
+  if (!isCommunityMessengerMediaSecureContext()) {
+    return Promise.resolve({ ok: false, code: "insecure_context" });
+  }
+  if (hasUsablePrimedCommunityMessengerDeviceStream("video")) {
+    const primed = peekPrimedCommunityMessengerDeviceStream("video");
+    if (primed) {
+      suspendPrimedCommunityMessengerDeviceStreamIdleRelease();
+      primeVideoElementAutoplayFromUserGesture(primed);
+    }
+    return Promise.resolve({ ok: true });
+  }
+  if (shouldDiscardPrimedBeforeCommunityMessengerPrime("video")) {
+    discardPrimedCommunityMessengerDevicePermission();
+  }
+
+  const gumPromise = navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+  return gumPromise
+    .then(async (stream) => {
+      try {
+        await assertCallMediaNotPersistentlyDenied("video");
+      } catch (error) {
+        for (const track of stream.getTracks()) track.stop();
+        return mapPrimeError(error);
+      }
+      if (typeof window === "undefined") {
+        for (const track of stream.getTracks()) track.stop();
+        return { ok: true as const };
+      }
+      const hasLiveVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
+      if (!hasLiveVideo) {
+        for (const track of stream.getTracks()) track.stop();
+        return { ok: false as const, code: "failed" as const };
+      }
+      persistDeviceIdsFromMediaStream(stream);
+      void refreshPreferredCommunityMessengerDevicesFromEnumerate();
+      storePrimedCommunityMessengerDeviceStream("video", stream);
+      suspendPrimedCommunityMessengerDeviceStreamIdleRelease();
+      markCommunityMessengerMediaTrustedOnce("voice");
+      markCommunityMessengerMediaTrustedOnce("video");
+      primeVideoElementAutoplayFromUserGesture(stream);
+      return { ok: true as const };
+    })
+    .catch((error) => mapPrimeError(error));
+}
+
 export async function primeVideoCallMediaFromUserGesture(opts?: {
   explicitRetry?: boolean;
 }): Promise<CallMediaPrimeResult> {

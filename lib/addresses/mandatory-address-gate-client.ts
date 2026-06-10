@@ -21,6 +21,27 @@ export function invalidateMandatoryAddressGateClientCache(): void {
   cached = null;
 }
 
+type MandatoryAddressGateJson = {
+  ok?: boolean;
+  authenticated?: boolean;
+  needsBlock?: boolean;
+};
+
+/** 대표 주소 미등록 등으로 주소 게이트가 화면을 막는지 (알림 온보딩 등 다른 오버레이 지연용) */
+export async function readMandatoryAddressGateNeedsBlock(): Promise<boolean> {
+  try {
+    const res = await fetchMandatoryAddressGateDeduped({
+      component: "mandatory-address-gate-client",
+      reason: "readMandatoryAddressGateNeedsBlock",
+    });
+    if (!res.ok) return false;
+    const j = (await res.clone().json()) as MandatoryAddressGateJson;
+    return j.ok === true && j.authenticated === true && j.needsBlock === true;
+  } catch {
+    return false;
+  }
+}
+
 export function fetchMandatoryAddressGateDeduped(opts?: {
   component?: string;
   reason?: string;

@@ -21,6 +21,12 @@ import {
   DIBAY_MIC_ABORT_MESSAGE_LATER,
 } from "@/lib/permissions/dibay-mic-gate-messages";
 import { DIBAY_PERMISSION_SESSION_STORAGE_KEY_PREFIX } from "@/lib/permissions/device-permission-session-prefix";
+import {
+  resetAllDiBaYOnboardingPrompts,
+  writeDiBaYOnboardingPromptState,
+  type DiBaYOnboardingPromptId,
+  type DiBaYOnboardingPromptState,
+} from "@/lib/permissions/dibay-onboarding-prompt-storage";
 
 export type BrowserPermissionState = PermissionState | "unknown";
 
@@ -752,6 +758,85 @@ export async function requestPermission(
         }),
       };
   }
+}
+
+/**
+ * 온보딩 모달 결정 + device-permission-manager 캐시·guideSeen·featureCompleted 동기화.
+ * 브라우저 실제 허용은 OS가 유지; 여기는 앱 재노출·설정 표시 일관성용.
+ */
+export function recordDiBaYOnboardingDecision(
+  promptId: DiBaYOnboardingPromptId,
+  state: DiBaYOnboardingPromptState,
+): void {
+  writeDiBaYOnboardingPromptState(promptId, state);
+
+  if (promptId === "notification") {
+    markGuideSeen("notification");
+    if (state === "accepted") {
+      setCachedPermissionState("notification", "granted");
+    } else if (state === "browser_denied") {
+      setCachedPermissionState("notification", "denied");
+    }
+    return;
+  }
+
+  if (promptId === "call_media") {
+    markGuideSeen("microphone");
+    markGuideSeen("camera");
+    if (state === "accepted") {
+      setCachedPermissionState("microphone", "granted");
+      setCachedPermissionState("camera", "granted");
+      markPermissionFeatureCompleted("messenger_video_call");
+      markPermissionFeatureCompleted("messenger_voice_call");
+    } else if (state === "browser_denied") {
+      setCachedPermissionState("microphone", "denied");
+      setCachedPermissionState("camera", "denied");
+    }
+  }
+}
+
+/** 브라우저에 이미 허용/거부가 반영된 경우 온보딩·캐시만 맞춤 (모달 없이) */
+export function syncDiBaYOnboardingFromBrowserPermission(promptId: DiBaYOnboardingPromptId): void {
+  if (typeof window === "undefined") return;
+
+  if (promptId === "notification") {
+    if (!("Notification" in window)) return;
+    const perm = Notification.permission;
+    if (perm === "granted") {
+      recordDiBaYOnboardingDecision("notification", "accepted");
+    } else if (perm === "denied") {
+      recordDiBaYOnboardingDecision("notification", "browser_denied");
+    }
+    return;
+  }
+
+  if (promptId === "call_media") {
+    void Promise.all([refreshPermissionState("microphone"), refreshPermissionState("camera")]).then(
+      ([mic, cam]) => {
+        if (mic === "granted" && cam === "granted") {
+          recordDiBaYOnboardingDecision("call_media", "accepted");
+        } else if (mic === "denied" || cam === "denied") {
+          recordDiBaYOnboardingDecision("call_media", "browser_denied");
+        }
+      },
+    );
+  }
+}
+
+/** 설정「온보딩 안내 초기화」— guideSeen·온보딩 모달 결정 함께 리셋 */
+export function resetAllDiBaYPermissionOnboardingTracking(): void {
+  if (typeof window === "undefined") return;
+  const kinds: DevicePermissionGuideKind[] = [
+    "location",
+    "microphone",
+    "camera",
+    "notification",
+    "speaker",
+  ];
+  for (const kind of kinds) {
+    resetPermissionGuideTracking(kind);
+  }
+  resetAllDiBaYOnboardingPrompts();
 }
 
 let lastDevicePermissionWarmAt = 0;

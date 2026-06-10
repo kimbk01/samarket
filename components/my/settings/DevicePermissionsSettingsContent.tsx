@@ -11,6 +11,7 @@ import {
   refreshPermissionState,
   refreshSpeakerOutputState,
   requestPermission,
+  resetAllDiBaYPermissionOnboardingTracking,
   resetPermissionGuideTracking,
   runSpeakerTestWithOptionalGuide,
 } from "@/lib/permissions/device-permission-manager";
@@ -197,8 +198,7 @@ export function DevicePermissionsSettingsContent() {
   };
 
   const onResetGuides = () => {
-    for (const kind of PERMISSION_KINDS) resetPermissionGuideTracking(kind);
-    resetPermissionGuideTracking("speaker");
+    resetAllDiBaYPermissionOnboardingTracking();
     void reloadLabels();
     setHint(t("settings_device_onboarding_reset_done"));
   };
