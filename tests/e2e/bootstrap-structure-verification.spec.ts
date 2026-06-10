@@ -7,7 +7,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { classifyCommunityMessengerRoomBootstrapCmReqSrc } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
+import { ensureE2eUserSession, openMessengerRoomFromList } from "./helpers/playwright-origin-and-session";
 
 type Snap = {
   appWidePhaseLastMs?: Record<string, number>;
@@ -234,8 +234,8 @@ async function measureChatRoomEntry(page: import("@playwright/test").Page, origi
   const logs: RequestLog[] = [];
   const detach = attachRequestLog(page, logs);
   const tClick = Date.now();
-  await roomRow.click();
-  await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 45_000 });
+  const opened = await openMessengerRoomFromList(page, 0);
+  if (!opened) throw new Error("CM 방 링크가 있는 목록 행이 없습니다");
   await page.locator("textarea").first().waitFor({ state: "visible", timeout: 45_000 });
   const textareaAt = Date.now();
   const composer_wall_ms = textareaAt - tClick;

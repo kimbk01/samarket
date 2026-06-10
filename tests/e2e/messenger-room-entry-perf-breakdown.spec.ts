@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
+import { ensureE2eUserSession, openMessengerRoomFromList } from "./helpers/playwright-origin-and-session";
 
 type Snap = {
   appWidePhaseLastMs?: Record<string, number>;
@@ -50,8 +50,8 @@ test.describe("messenger room entry perf breakdown", () => {
     await page.goto(`${origin}/community-messenger`, { waitUntil: "domcontentloaded" });
     const roomRow = page.locator('[data-messenger-chat-row="true"]').first();
     await roomRow.waitFor({ state: "visible", timeout: 60_000 });
-    await roomRow.click();
-    await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 30_000 });
+    const opened = await openMessengerRoomFromList(page, 0);
+    expect(opened, "CM 방 링크가 있는 목록 행 필요").toBe(true);
     await page.locator("textarea").first().waitFor({ state: "visible", timeout: 30_000 });
     await expect
       .poll(

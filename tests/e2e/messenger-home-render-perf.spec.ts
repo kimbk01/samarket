@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
+import { ensureE2eUserSession, openMessengerRoomFromList } from "./helpers/playwright-origin-and-session";
 
 type FullSnap = Record<string, unknown> & {
   messengerRenderPerf?: Record<string, number>;
@@ -58,12 +58,10 @@ test.describe("messenger home render perf (로그인·본문 마운트)", () => 
     expect(Number(perf0.messenger_home_list_render ?? 0)).toBeGreaterThan(0);
 
     for (let i = 0; i < 3; i++) {
-      const row = page.locator('[data-messenger-chat-row="true"]').nth(i);
-      if ((await row.count()) === 0) break;
-      await row.click();
-      await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 30_000 });
-      await page.goBack({ waitUntil: "domcontentloaded" });
-      await roomRow.waitFor({ state: "visible", timeout: 30_000 });
+      const opened = await openMessengerRoomFromList(page, i);
+      if (!opened) break;
+      await page.goto(`${origin}/community-messenger`, { waitUntil: "domcontentloaded" });
+      await roomRow.waitFor({ state: "visible", timeout: 60_000 });
     }
 
     await page.goto(`${baseURL ?? "http://localhost:3000"}/philife`, { waitUntil: "domcontentloaded" });

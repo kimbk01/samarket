@@ -5,7 +5,7 @@
  *   npx playwright test tests/e2e/messenger-scenario-perf-capture.spec.ts
  */
 import { test, expect } from "@playwright/test";
-import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
+import { ensureE2eUserSession, openMessengerRoomFromList } from "./helpers/playwright-origin-and-session";
 
 type Snap = {
   messengerRenderPerf?: Record<string, number>;
@@ -80,7 +80,6 @@ test.describe("messenger scenario perf capture", () => {
     }
     /** 기본 리스트 행은 `MessengerChatListItem` 이 `Link` 가 아니라 `div[role=button]` 탭 — `a[href^=…]` 는 비어 있음 */
     const roomRows = page.locator('[data-messenger-chat-row="true"]');
-    const firstRoomTap = roomRows.first().locator("div[role=\"button\"]").first();
     const homeEmpty = page.locator('[data-cm-home-empty-state="true"]');
     /**
      * `waitForResponse` 는 `goto` 직전에 걸면 메인 프레임 전환과 겹쳐 이벤트를 놓칠 수 있음(서버엔 200이 찍혀도 PW 타임아웃).
@@ -104,20 +103,18 @@ test.describe("messenger scenario perf capture", () => {
     const homeFirst = await readSnap(page);
     expect(homeFirst, "getMessengerHomeVerificationSnapshot 없음").not.toBeNull();
 
-    await firstRoomTap.click();
-    await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 30_000 });
+    expect(await openMessengerRoomFromList(page, 0), "CM 방 링크가 있는 목록 행 필요").toBe(true);
     const ta = page.locator("textarea").first();
     await ta.waitFor({ state: "visible", timeout: 30_000 });
     await waitForStablePaint(page, 400);
     const roomFirst = await readSnap(page);
 
-    await page.goBack({ waitUntil: "domcontentloaded" });
-    await roomRows.first().waitFor({ state: "visible", timeout: 30_000 });
+    await page.goto(`${origin}/community-messenger`, { waitUntil: "domcontentloaded" });
+    await roomRows.first().waitFor({ state: "visible", timeout: 60_000 });
     await waitForStablePaint(page, 300);
     const homeAfterBack = await readSnap(page);
 
-    await firstRoomTap.click();
-    await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 30_000 });
+    expect(await openMessengerRoomFromList(page, 0), "CM 방 재진입 링크 필요").toBe(true);
     await ta.waitFor({ state: "visible", timeout: 30_000 });
     await waitForStablePaint(page, 400);
     const roomReenter = await readSnap(page);
@@ -136,7 +133,8 @@ test.describe("messenger scenario perf capture", () => {
     const afterPaste = await readSnap(page);
 
     await ta.fill("sendprobe");
-    await page.getByRole("button", { name: "전송" }).click();
+    const sendBtn = page.getByRole("button", { name: /^(전송|Send)$/i });
+    await sendBtn.click();
     await waitForStablePaint(page, 400);
     const afterSend = await readSnap(page);
 
