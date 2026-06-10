@@ -155,6 +155,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
+  const wall0 = performance.now();
   const sendServiceImport = import("@/lib/community-messenger/service");
   const [authGate, parsed, routeParams] = await Promise.all([
     ensureApiRouteAuthGate(),
@@ -185,6 +186,7 @@ export async function POST(
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   const body = parsed.value;
   const canonicalRoomId = canon.canonicalRoomId;
+  const gateMs = Math.round(performance.now() - wall0);
   const t0 = performance.now();
   const content = String(body.content ?? "");
   const clientMessageId = String(body.clientMessageId ?? "").trim();
@@ -255,14 +257,24 @@ export async function POST(
       responsePayload = { ok: false, error: "message_send_failed" };
     }
   }
+  const handlerMs = Math.round(performance.now() - t0);
+  const routeMs = Math.round(performance.now() - wall0);
   recordMessengerApiTiming(
     "POST /api/community-messenger/rooms/[roomId]/messages",
-    Math.round(performance.now() - t0),
+    handlerMs,
     responsePayload.ok ? 200 : 400
   );
+  const ackHeaders = {
+    "x-samarket-send-route-ms": String(routeMs),
+    "x-samarket-send-gate-ms": String(gateMs),
+    "x-samarket-send-handler-ms": String(handlerMs),
+    "x-samarket-membership-cache-hit": String(canon.membership_cache_hit),
+  };
   return responsePayload.ok
-    ? jsonOk(responsePayload)
-    : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", 400, responsePayload);
+    ? jsonOk(responsePayload, { headers: ackHeaders })
+    : jsonError(responsePayload.error ?? "메시지 전송에 실패했습니다.", { status: 400, headers: ackHeaders }, {
+        ...responsePayload,
+      });
 }
 
 function trimText(v: unknown): string {

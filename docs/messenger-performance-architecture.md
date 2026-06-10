@@ -175,6 +175,8 @@
 | MP-AUDIT-8 | `community_messenger_send_text_message` — non-trade `product_chats` 스킵·insert 경로 participants 단일 스캔·client_message_id 인덱스 | RPC ACK 왕복·중복 스캔 금지 |
 | MP-AUDIT-9 | `display_room_messages_ready` — **4s setTimeout fallback 금지** (rAF×2 + ≤480ms safety) | merge→display 인위 지연 금지 |
 | MP-AUDIT-10 | pass2 row commit 시 **FMR + display_ready** (heavy 대기 금지) | merge→display ≤100ms 목표·FMR null 금지 |
+| MP-AUDIT-13 | send RPC insert 경로 **participants 선조회 제거** — unread `UPDATE … RETURNING` 으로 `recipient_user_ids` | ACK 전 participants 이중 스캔 금지 |
+| MP-AUDIT-13b | POST send 응답 **`x-samarket-send-*-ms`** 헤더 | 클라 RTT 와 서버 handler 분리 관측 |
 
 ### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
 

@@ -1,0 +1,125 @@
+{
+  "measured_at": "2026-06-10T08:25:55.339Z",
+  "base_url": "http://localhost:3000",
+  "cycles": 3,
+  "warm_discard": "cycle 1 per scenario",
+  "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+  "hypothesis": "trade_detail_total_ms = server RSC only; tap_to_h2_wall − trade_detail = client navigation/flight overhead",
+  "list_tap_prefetch_wait": {
+    "trade_detail_total_ms_warm": {
+      "count": 2,
+      "min": 676,
+      "max": 684,
+      "avg": 680,
+      "p95": 684
+    },
+    "tap_to_h2_wall_ms_warm": {
+      "count": 2,
+      "min": 1367,
+      "max": 1451,
+      "avg": 1409,
+      "p95": 1451
+    },
+    "navigation_overhead_ms_warm": {
+      "count": 2,
+      "min": 683,
+      "max": 775,
+      "avg": 729,
+      "p95": 775
+    },
+    "cycles_detail": [
+      {
+        "scenario": "list_tap_prefetch_wait",
+        "cycle": 1,
+        "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+        "trade_list_ms": 838,
+        "trade_detail_total_ms": 4492,
+        "product_detail_to_paint_ms": 5180,
+        "tap_to_h2_wall_ms": 5221,
+        "navigation_overhead_ms": 729
+      },
+      {
+        "scenario": "list_tap_prefetch_wait",
+        "cycle": 2,
+        "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+        "trade_list_ms": 2566,
+        "trade_detail_total_ms": 676,
+        "product_detail_to_paint_ms": 1132,
+        "tap_to_h2_wall_ms": 1451,
+        "navigation_overhead_ms": 775
+      },
+      {
+        "scenario": "list_tap_prefetch_wait",
+        "cycle": 3,
+        "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+        "trade_list_ms": 3237,
+        "trade_detail_total_ms": 684,
+        "product_detail_to_paint_ms": 1048,
+        "tap_to_h2_wall_ms": 1367,
+        "navigation_overhead_ms": 683
+      }
+    ]
+  },
+  "direct_goto_post": {
+    "trade_detail_total_ms_warm": {
+      "count": 2,
+      "min": 523,
+      "max": 563,
+      "avg": 543,
+      "p95": 563
+    },
+    "tap_to_h2_wall_ms_warm": {
+      "count": 2,
+      "min": 1594,
+      "max": 1633,
+      "avg": 1614,
+      "p95": 1633
+    },
+    "navigation_overhead_ms_warm": {
+      "count": 2,
+      "min": 1070,
+      "max": 1071,
+      "avg": 1071,
+      "p95": 1071
+    },
+    "cycles_detail": [
+      {
+        "scenario": "direct_goto_post",
+        "cycle": 1,
+        "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+        "trade_list_ms": null,
+        "trade_detail_total_ms": 601,
+        "product_detail_to_paint_ms": -5891,
+        "tap_to_h2_wall_ms": 1690,
+        "navigation_overhead_ms": 1089
+      },
+      {
+        "scenario": "direct_goto_post",
+        "cycle": 2,
+        "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+        "trade_list_ms": null,
+        "trade_detail_total_ms": 523,
+        "product_detail_to_paint_ms": -5983,
+        "tap_to_h2_wall_ms": 1594,
+        "navigation_overhead_ms": 1071
+      },
+      {
+        "scenario": "direct_goto_post",
+        "cycle": 3,
+        "post_url": "http://localhost:3000/post/9acccf43-791d-4be3-aea2-c7b7cd7b7290",
+        "trade_list_ms": null,
+        "trade_detail_total_ms": 563,
+        "product_detail_to_paint_ms": -5924,
+        "tap_to_h2_wall_ms": 1633,
+        "navigation_overhead_ms": 1070
+      }
+    ]
+  },
+  "errors": [],
+  "reference": {
+    "prior_baseline_dev_ms": 177,
+    "audit1_warm_detail_p95": 558,
+    "audit1_warm_wall_p95": 1527,
+    "doc": "docs/trade-c2c-perf-baseline.md"
+  }
+}

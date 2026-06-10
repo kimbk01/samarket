@@ -1,0 +1,52 @@
+{
+  "measured_at": "2026-06-10T08:33:18.650Z",
+  "base_url": "http://localhost:3000",
+  "cycles": 3,
+  "warm_discard": "cycle 1",
+  "trade_chat_open_total_ms_warm": {
+    "count": 1,
+    "min": 0,
+    "max": 0,
+    "avg": 0,
+    "p95": 0
+  },
+  "click_to_textarea_wall_ms_warm": {
+    "count": 1,
+    "min": 1137,
+    "max": 1137,
+    "avg": 1137,
+    "p95": 1137
+  },
+  "cycles_detail": [
+    {
+      "cycle": 1,
+      "post_url": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7?source=chat_room",
+      "room_url_reached": true,
+      "compose_url": false,
+      "trade_chat_open_total_ms": 8804,
+      "trade_chat_bootstrap_ms": null,
+      "chat_click_to_room_ready_ms": 16030,
+      "click_to_textarea_wall_ms": 18236
+    },
+    {
+      "cycle": 3,
+      "post_url": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7?source=chat_room",
+      "room_url_reached": true,
+      "compose_url": false,
+      "trade_chat_open_total_ms": 0,
+      "trade_chat_bootstrap_ms": null,
+      "chat_click_to_room_ready_ms": 629,
+      "click_to_textarea_wall_ms": 1137
+    }
+  ],
+  "errors": [
+    {
+      "cycle": 2,
+      "message": "TimeoutError: page.waitForURL: Timeout 45000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/market\"\n  navigated to \"http://localhost:3000/market\"\n  navigated to \"http://localhost:3000/market\"\n  navigated to \"http://localhost:3000/market\"\n  navigated to \"http://localhost:3000/market\"\n  navigated to \"http://localhost:3000/market\"\n============================================================"
+    }
+  ],
+  "reference": {
+    "prior_baseline_ms": 9380,
+    "doc": "docs/trade-c2c-perf-baseline.md"
+  }
+}

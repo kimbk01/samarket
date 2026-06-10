@@ -1,0 +1,109 @@
+{
+  "measured_at": "2026-06-10T08:33:04.507Z",
+  "base_url": "http://localhost:3000",
+  "cycles": 3,
+  "sends_per_cycle": 3,
+  "warm_discard": "first send per cycle",
+  "target_ms": 200,
+  "gate": {
+    "prod_same_region_ack_le_target": false,
+    "note": "PASS requires warm p95 ≤ target and max ≤ 1.5× target. Local dev may exceed prod."
+  },
+  "warm_ack_ms": {
+    "count": 4,
+    "min": 250,
+    "max": 413,
+    "avg": 330,
+    "p95": 413
+  },
+  "warm_server_route_ms": {
+    "count": 4,
+    "min": 157,
+    "max": 259,
+    "avg": 221,
+    "p95": 259
+  },
+  "warm_server_handler_ms": {
+    "count": 4,
+    "min": 153,
+    "max": 259,
+    "avg": 220,
+    "p95": 259
+  },
+  "cycles_detail": [
+    {
+      "cycle": 2,
+      "room_href": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7",
+      "sends": [
+        {
+          "send_index": 1,
+          "ack_ms": 360,
+          "status": 200,
+          "server_route_ms": 328,
+          "server_handler_ms": 149,
+          "server_gate_ms": 179
+        },
+        {
+          "send_index": 2,
+          "ack_ms": 327,
+          "status": 200,
+          "server_route_ms": 259,
+          "server_handler_ms": 259,
+          "server_gate_ms": 0
+        },
+        {
+          "send_index": 3,
+          "ack_ms": 329,
+          "status": 200,
+          "server_route_ms": 256,
+          "server_handler_ms": 255,
+          "server_gate_ms": 0
+        }
+      ],
+      "warm_ack_ms": [
+        327,
+        329
+      ]
+    },
+    {
+      "cycle": 3,
+      "room_href": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7",
+      "sends": [
+        {
+          "send_index": 1,
+          "ack_ms": 273,
+          "status": 200,
+          "server_route_ms": 242,
+          "server_handler_ms": 242,
+          "server_gate_ms": 1
+        },
+        {
+          "send_index": 2,
+          "ack_ms": 413,
+          "status": 200,
+          "server_route_ms": 157,
+          "server_handler_ms": 153,
+          "server_gate_ms": 4
+        },
+        {
+          "send_index": 3,
+          "ack_ms": 250,
+          "status": 200,
+          "server_route_ms": 213,
+          "server_handler_ms": 211,
+          "server_gate_ms": 1
+        }
+      ],
+      "warm_ack_ms": [
+        413,
+        250
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "cycle": 1,
+      "message": "TimeoutError: locator.waitFor: Timeout 45000ms exceeded.\nCall log:\n  - waiting for locator('[data-messenger-chat-row=\"true\"]').first() to be visible\n    - waiting for\" http://localhost:3000/community-messenger\" navigation to finish...\n"
+    }
+  ]
+}

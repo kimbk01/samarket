@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (parity-gates·build PASS) |
+| Last updated | 2026-06-10 (MP-AUDIT-13·TRADE-AUDIT-3·§1 합의) |
 | Owner | (선택) |
 
 ---
@@ -151,6 +151,79 @@
 | 재측정 | call smoke **3/3×3 passed** |
 | 후속 | `npm run verify:parity-gates` **PASS** · `npm run build` **PASS** (2026-06-10) |
 | 판정 | **성공** |
+
+## MP-AUDIT-12 — send ACK warm 실측·prod 게이트 정의 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **dev 실측 완료 · prod 동일 리전 보류** |
+| 이번 원인 1개 | MP-AUDIT-8 이후 dev warm avg≈240ms — **prod·동일 리전 ≤200ms** 미확인·재현 스크립트 부재 |
+| 이번 조치 | `scripts/measure-messenger-ack-warm.mjs` · `npm run measure:messenger-ack-warm` · [messenger-prod-ack-measurement.md](./messenger-prod-ack-measurement.md) |
+| 재측정 | localhost·`qqqq@manual.local` · 3사이클×warm 2건 = **6샘플**. ack_ms **min 174 · max 544 · avg 329 · p95 544** (200ms gate **미달**) |
+| 판정 | **dev warm 구조 유지** — prod URL 실측 전까지 H축 ACK 200ms **보류**. exit `2` = 측정 OK·gate 미달 |
+| 다음 | `PLAYWRIGHT_BASE_URL=<prod>` 동일 명령 3회 · 미달 시 RPC·엣지 RTT 별도 라운드 |
+
+## TRADE-AUDIT-0 — 거래 핫패스 기준선 (마스터 순서 2 시작, 2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **기준선 확정 · 체크시트 §1 0/5 유지** |
+| 이번 원인 1개 | (아직 미개선) 체크시트 §1 **동일 조건 3회 측정·합의** 없음 — P1 구조만 PASS |
+| 이번 조치 | `verify:trade-hot-path-contract` **PASS** 재확인. 마스터 순서 2(당근) 다음 라운드 후보 정리 |
+| 후보 1순위 | `/market` 목록→`/post` 상세 **첫 페인트** 3회 측정 (`measure:nav-perf`·상세 RSC trace) |
+| 후보 2순위 | `openCreateTradeChat` 진입 직후 composer_wall (`measure-trade-entry-resolve.mjs`) |
+| 판정 | **구조 lock 유지** — `[x]` 는 측정 합의 후만 |
+
+## TRADE-AUDIT-1 — `/market`→`/post` 첫 페인트 3회 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **실측 완료 · 체크시트 §1 `[x]` 보류** |
+| 이번 원인 1개 | warm **tap→h2 벽시계 ~1.0–1.5s** — `trade_detail_total_ms` warm **448–558ms**(p95 558)로 체감 지연·계측 키 불일치 |
+| 이번 조치 | `scripts/measure-trade-market-to-post.mjs` · `npm run measure:trade-market-to-post` · `docs/perf/trade-market-to-post-latest.json` |
+| 재측정 | localhost·`qqqq@manual.local` · **3/3**. warm(2·3): `trade_detail_total_ms` **avg 503 · p95 558** · `tap_to_h2_wall_ms` **avg 1272 · p95 1527** |
+| 비교 | 이전 1회 baseline `trade_detail_total_ms` **177ms** — warm p95 **3×** 초과 |
+| 판정 | **보류** — §1「목록→상세 즉시」미충족. 다음 후보: 상세 RSC flight·prefetch hit 또는 `tap_to_h2` vs `trade_detail_total` 분해 |
+| 다음 | ~~TRADE-AUDIT-2~~ → 본문 |
+
+## TRADE-AUDIT-2 — list tap vs direct·navigation overhead (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **원인 확정 · 구조 라운드 보류** |
+| 이번 원인 1개 | `trade_detail_total_ms` 는 **서버 RSC만**(`getItemDetailPageData` 벽시계). warm tap→h2 **~1.4s** 중 **navigation overhead ~700–770ms** 가 체감 병목 — prefetch 유무로는 ~200ms 수준만 차이 |
+| 이번 조치 | `measure-trade-market-to-post.mjs` — `list_tap_prefetch_wait` vs `direct_goto_post` 분해 |
+| 재측정 | localhost 3/3×2. warm list tap: detail p95 **684** · wall p95 **1451** · overhead p95 **775**. warm direct: detail p95 **563** · wall p95 **1633** · overhead p95 **1071** |
+| 판정 | **병목 = App Router 클라 RSC flight·페인트**(M11 상세 축과 동형). 단일 핫패스 코드 1~3파일 수정으로 §1 닫기 **ROI 낮음** — 제품 shell/overlay 변경은 별도 합의 |
+| 다음 | 체크시트 §1은 **합의 기준 재정의**(서버 RSC vs 체감 wall) 또는 거래 다른 항목(§2 채팅 진입) 우선 |
+
+## MP-AUDIT-12 보충 — prod ACK `samarket.vercel.app` (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 운영 도메인 | **[https://samarket.vercel.app](https://samarket.vercel.app)** (`dibay.vercel.app` 무효) |
+| 조치 | `samarket_active_session_id` 쿠키 동기화 |
+| 재측정 | prod warm 6샘플 — ack **p95 414**(이전 715) · **3/3** |
+| 판정 | 200ms gate **미달** — MP-AUDIT-13 후속 |
+
+## MP-AUDIT-13 — send RPC participants RETURNING + ACK 서버 헤더 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **구조 완료 · DB·배포 후 재측정** |
+| 이번 원인 1개 | insert 경로 participants **선조회 + unread UPDATE** 이중 스캔 |
+| 이번 조치 | `20260610160000_community_messenger_send_ack_recipients_returning.sql` · `x-samarket-send-*-ms` 헤더 |
+| 재측정 | localhost warm: 클라 ack p95 **413** · **서버 route p95 259**. prod warm p95 **414** (헤더 배포 전) |
+| 판정 | **부분 성공** — 서버 ~260ms·gate 200ms 미달. 마이그레이션 + Vercel 배포 후 prod `server_route_ms` 분해 |
+
+## TRADE-AUDIT-3 — 상세→채팅 진입 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **warm 개선 · §2 `[x]` 보류** |
+| 이번 조치 | `measure-trade-chat-open.mjs` · `npm run measure:trade-chat-open` |
+| 재측정 | warm `click_to_textarea_wall_ms` **1137** · `chat_click_to_room_ready_ms` **629** (baseline 9380 대비 개선) |
+| 체크시트 §1 | tap→페인트 wall 기준 **합의 문서화** — `[x]` 없음 |
 
 ---
 

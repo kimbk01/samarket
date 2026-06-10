@@ -46,12 +46,14 @@
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|
 | 1 | 대표 경로: 목록(또는 피드) → 상세 전환이 체감상 즉시에 가깝다 (측정 또는 합의된 기준 충족) | [ ] |
+
+**§1 합의 기준 (2026-06-10, `[x]` 전):** `trade_detail_total_ms`(서버 RSC) **단독**으로 §1 완료 판정하지 않음. 체감은 **tap→본문 페인트 벽시계** — TRADE-AUDIT-2 warm p95 **1527ms** 로 **미충족**. App Router navigation overhead(~700ms+)는 별도 제품·shell 합의 전 구조 라운드 보류.
 | 2 | 상세 → **거래/커뮤니티** 채팅 진입이 빠르고, 진입 직후 입력·스크롤이 막히지 않는다 | [ ] |
 | 3 | 이미지·카드가 있는 목록에서도 스크롤·탭이 버벅이지 않는다 | [ ] |
 | 4 | 뒤로가기·재진입·같은 상세 반복 진입이 빠르다 | [ ] |
 | 5 | 탭·필터·리스트 항목 **선택 시 즉시** 반응(로딩·전환이 체감상 끊기지 않음)한다 | [ ] |
 
-**최근 증거(완료 체크 아님):** 라운드 **P1**(2026-05-10) — `/post/[id]` 에서 `getItemDetailPageData` 첫 블록이 **`getTradeDetailRelatedData` 를 await 하지 않음**. related 는 **`Suspense` + `PostDetailRelatedDeferredLoader`** 로 동일 `getTradeDetailRelatedData`·`preloadedItem` 스트림. `verify:trade-hot-path-contract` 통과. **2026-05-10 핫패스 마감 점검** — `openCreateTradeChat` 비대기·번들 직접 호출 없음 재확인(구조 변경 없음). **라운드 S1**(마스터 순서 1·셸) — `BottomNav` idle·부트웜 `/stores` prewarm 이 BN3 와 **동일 region home-feed suffix**. `verify:parity-gates` 통과. **라운드 BN7**(2026-05-28) — 하단 5탭 pending enter panel + 루트 skeleton-free fallback 으로 `/philife`·`/market` 탭 전환 중 카드 스켈레톤 재등장 경로 차단. 체크시트 §1 `[x]` 는 **동일 조건 3회 측정·합의 전** 유지.
+**최근 증거(완료 체크 아님):** **TRADE-AUDIT-3**(2026-06-10) — warm 채팅 진입 textarea **1137ms**·room ready **629ms** (`measure:trade-chat-open`). **TRADE-AUDIT-2**(2026-06-10) — 병목 **navigation overhead ~700ms+**(서버 RSC와 분리). list prefetch는 direct 대비 ~200ms만 개선. §1 `[x]` **보류**. **TRADE-AUDIT-1** — wall p95 1451ms. **TRADE-AUDIT-0** — `verify:trade-hot-path-contract` PASS. 라운드 **P1**(2026-05-10) — `/post/[id]` 에서 `getItemDetailPageData` 첫 블록이 **`getTradeDetailRelatedData` 를 await 하지 않음**. related 는 **`Suspense` + `PostDetailRelatedDeferredLoader`** 로 동일 `getTradeDetailRelatedData`·`preloadedItem` 스트림. `verify:trade-hot-path-contract` 통과. **2026-05-10 핫패스 마감 점검** — `openCreateTradeChat` 비대기·번들 직접 호출 없음 재확인(구조 변경 없음). **라운드 S1**(마스터 순서 1·셸) — `BottomNav` idle·부트웜 `/stores` prewarm 이 BN3 와 **동일 region home-feed suffix**. `verify:parity-gates` 통과. **라운드 BN7**(2026-05-28) — 하단 5탭 pending enter panel + 루트 skeleton-free fallback 으로 `/philife`·`/market` 탭 전환 중 카드 스켈레톤 재등장 경로 차단. 체크시트 §1 `[x]` 는 **동일 조건 3회 측정·합의 전** 유지.
 
 ---
 
