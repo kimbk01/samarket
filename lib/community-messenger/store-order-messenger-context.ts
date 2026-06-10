@@ -22,6 +22,9 @@ export type StoreOrderMessengerContextInput = {
   orderNo?: string | null;
   /** 매장 id */
   storeId?: string | null;
+  storeVoiceMessagesEnabled?: boolean | null;
+  storeVoiceCallsEnabled?: boolean | null;
+  storeVideoCallsEnabled?: boolean | null;
   /** 상품명·주문 한 줄 제목 */
   productTitle: string;
   thumbnailUrl?: string | null;
@@ -45,6 +48,15 @@ export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMesseng
   if (orderNo) meta.orderNo = orderNo;
   const storeId = input.storeId?.trim();
   if (storeId) meta.storeId = storeId;
+  if (typeof input.storeVoiceMessagesEnabled === "boolean") {
+    meta.storeVoiceMessagesEnabled = input.storeVoiceMessagesEnabled;
+  }
+  if (typeof input.storeVoiceCallsEnabled === "boolean") {
+    meta.storeVoiceCallsEnabled = input.storeVoiceCallsEnabled;
+  }
+  if (typeof input.storeVideoCallsEnabled === "boolean") {
+    meta.storeVideoCallsEnabled = input.storeVideoCallsEnabled;
+  }
   if (ft) meta.fulfillmentType = ft;
   if (typeof input.paymentAmount === "number" && Number.isFinite(input.paymentAmount) && input.paymentAmount >= 0) {
     meta.priceLabel = formatMoneyPhp(input.paymentAmount);
@@ -71,6 +83,9 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
     paymentAmount: number;
     firstLineProductTitle?: string | null;
     thumbnailUrl?: string | null;
+    storeVoiceMessagesEnabled?: boolean | null;
+    storeVoiceCallsEnabled?: boolean | null;
+    storeVideoCallsEnabled?: boolean | null;
   },
   lang: AppLanguageCode = getRuntimeAppLanguage()
 ): StoreOrderMessengerContextInput {
@@ -92,6 +107,9 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
     paymentAmount: args.paymentAmount,
     orderStatusLabel: buyerOrderStatusLabel(args.orderStatus, lang),
     thumbnailUrl: args.thumbnailUrl ?? null,
+    storeVoiceMessagesEnabled: args.storeVoiceMessagesEnabled ?? null,
+    storeVoiceCallsEnabled: args.storeVoiceCallsEnabled ?? null,
+    storeVideoCallsEnabled: args.storeVideoCallsEnabled ?? null,
   };
 }
 

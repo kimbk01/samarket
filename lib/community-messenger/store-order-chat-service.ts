@@ -75,8 +75,22 @@ type StoreOrderMessengerOrderRow = {
   total_amount?: unknown;
   community_messenger_room_id?: unknown;
   stores?:
-    | { store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }
-    | Array<{ store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }>
+    | {
+        store_name?: unknown;
+        owner_user_id?: unknown;
+        profile_image_url?: unknown;
+        messenger_voice_messages_enabled?: unknown;
+        messenger_voice_calls_enabled?: unknown;
+        messenger_video_calls_enabled?: unknown;
+      }
+    | Array<{
+        store_name?: unknown;
+        owner_user_id?: unknown;
+        profile_image_url?: unknown;
+        messenger_voice_messages_enabled?: unknown;
+        messenger_voice_calls_enabled?: unknown;
+        messenger_video_calls_enabled?: unknown;
+      }>
     | null;
 };
 
@@ -116,6 +130,9 @@ function contextMetaFromOrder(row: StoreOrderMessengerOrderRow): CommunityMessen
       storeName,
       orderNo,
       storeId: trimText(row.store_id),
+      storeVoiceMessagesEnabled: store?.messenger_voice_messages_enabled !== false,
+      storeVoiceCallsEnabled: store?.messenger_voice_calls_enabled !== false,
+      storeVideoCallsEnabled: store?.messenger_video_calls_enabled !== false,
       fulfillmentType,
       orderStatus,
       paymentAmount,
@@ -205,7 +222,7 @@ export async function syncStoreOrderMessengerRoomContextMeta(
   const { data: orderRow, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name)"
+      "id, order_no, store_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled)"
     )
     .eq("id", oid)
     .maybeSingle();
@@ -393,7 +410,7 @@ export async function ensureStoreOrderMessengerRoom(
   const { data, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, owner_user_id, profile_image_url)"
+      "id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, owner_user_id, profile_image_url, messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled)"
     )
     .eq("id", orderId)
     .maybeSingle();

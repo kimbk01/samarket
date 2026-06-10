@@ -1,26 +1,17 @@
 import { expect, test } from "@playwright/test";
+import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
 
 async function loginViaTestApi(page: import("@playwright/test").Page, origin: string): Promise<boolean> {
-  return page.evaluate(async ({ base, username, password }) => {
-    try {
-      const res = await fetch(`${base}/api/test-login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ username, password }),
-      });
-      const j = (await res.json()) as { ok?: boolean; userId?: string };
-      if (!j?.ok || !j.userId) return false;
-      document.cookie = `kasama_dev_uid_pub=${encodeURIComponent(j.userId)}; path=/; max-age=${60 * 60}; SameSite=Lax`;
-      return true;
-    } catch {
-      return false;
-    }
-  }, {
-    base: origin,
-    username: process.env.E2E_TEST_USERNAME ?? "aaaa",
-    password: process.env.E2E_TEST_PASSWORD ?? "1234",
-  });
+  void origin;
+  try {
+    await ensureE2eUserSession(page, {
+      username: process.env.E2E_TEST_USERNAME ?? "aaaa",
+      password: process.env.E2E_TEST_PASSWORD ?? "1234",
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 test.describe("community messenger call smoke", () => {

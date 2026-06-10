@@ -5,6 +5,7 @@
  *   npx playwright test tests/e2e/messenger-scenario-perf-capture.spec.ts
  */
 import { test, expect } from "@playwright/test";
+import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
 
 type Snap = {
   messengerRenderPerf?: Record<string, number>;
@@ -56,36 +57,14 @@ test.describe("messenger scenario perf capture", () => {
      * `goto(/community-messenger)` 직후 GET 레이스를 깨기 쉽다.
      * `fetch(test-login)` + sessionStorage 는 `messenger-home-render-perf.spec.ts` 와 동일하게 HttpOnly+클라 힌트를 맞춘다.
      */
-    await page.goto(origin, { waitUntil: "domcontentloaded" });
-    const loginResult = await page.evaluate(
-      async ({ o, username, password }) => {
-        const r = await fetch(`${o}/api/test-login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ username, password }),
-        });
-        const data = (await r.json()) as { ok?: boolean; userId?: string; username?: string; role?: string };
-        if (!data?.ok || !data.userId || !data.username) return false;
-        try {
-          sessionStorage.removeItem("samarket.messenger.bootstrap.v1");
-        } catch {
-          /* ignore */
-        }
-        sessionStorage.setItem("test_user_id", data.userId);
-        sessionStorage.setItem("test_username", data.username);
-        sessionStorage.setItem("test_role", data.role || "member");
-        try {
-          document.cookie = `kasama_dev_uid_pub=${encodeURIComponent(data.userId)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-        } catch {
-          /* ignore */
-        }
-        window.dispatchEvent(new Event("kasama-test-auth-changed"));
-        return true;
-      },
-      { o: origin, username: user, password: pass }
-    );
-    expect(loginResult, "test-login + test auth 세션 실패 — test_users·표면 확인").toBe(true);
+    await ensureE2eUserSession(page, { username: user, password: pass });
+    await page.evaluate(() => {
+      try {
+        sessionStorage.removeItem("samarket.messenger.bootstrap.v1");
+      } catch {
+        /* ignore */
+      }
+    });
 
     await page.goto(`${origin}/community-messenger`, { waitUntil: "domcontentloaded" });
     /** 프록시는 미인증 시 `/login` 으로만 보냄 — 여기서 걸러야 bootstrap 75초 헛대기를 막음 */

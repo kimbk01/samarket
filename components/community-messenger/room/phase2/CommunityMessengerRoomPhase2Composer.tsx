@@ -94,6 +94,16 @@ import {
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
+import {
+  communityMessengerRoomIsConfirmedTrade,
+  resolveMessengerDotMenuCallKind,
+  resolveMessengerRoomFeatureGate,
+} from "@/lib/community-messenger/messenger-room-domain";
+import {
+  normalizeTradeChatCallPolicy,
+  tradeChatCallPolicyAllowsVideo,
+  tradeChatCallPolicyAllowsVoice,
+} from "@/lib/trade/trade-chat-call-policy";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   const st = window.getComputedStyle(el);
@@ -314,6 +324,30 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     [vm.snapshot.room.contextMeta, vm.snapshot.room.messengerDirectKey, vm.snapshot.room.summary]
   );
   const isDeliveryRoom = deliveryCtx != null;
+  const isTradeRoom = communityMessengerRoomIsConfirmedTrade(vm.snapshot.room);
+  const tradeCallPolicy = useMemo(() => {
+    if (!isTradeRoom) return "none";
+    return normalizeTradeChatCallPolicy(vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy);
+  }, [isTradeRoom, vm.snapshot.tradeChatRoomDetail?.product?.tradeChatCallPolicy]);
+  const composerFeatureGate = useMemo(
+    () =>
+      resolveMessengerRoomFeatureGate({
+        callKind: resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom }),
+        tradeAllowCall: tradeChatCallPolicyAllowsVoice(tradeCallPolicy),
+        tradeVideoCallEnabled: tradeChatCallPolicyAllowsVideo(tradeCallPolicy),
+        deliveryAllowVoiceMessage: deliveryCtx?.storeVoiceMessagesEnabled,
+        deliveryAllowVoiceCall: deliveryCtx?.storeVoiceCallsEnabled,
+        deliveryAllowVideoCall: deliveryCtx?.storeVideoCallsEnabled,
+      }),
+    [
+      deliveryCtx?.storeVideoCallsEnabled,
+      deliveryCtx?.storeVoiceCallsEnabled,
+      deliveryCtx?.storeVoiceMessagesEnabled,
+      isDeliveryRoom,
+      tradeCallPolicy,
+      vm.snapshot.room,
+    ]
+  );
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
   const composerPlaceholder = isDeliveryRoom
     ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" }))
@@ -528,6 +562,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           }
           attachAriaLabel={t("cm_ui_attachment_menu")}
           attachDisabled={vm.roomUnavailable}
+          showVoiceMic={composerFeatureGate.allowVoiceMessage}
           voice={{
             recording: vm.voiceRecording,
             micArming: vm.voiceMicArming,

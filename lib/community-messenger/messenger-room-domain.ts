@@ -112,6 +112,12 @@ export function buildGeneralDirectRoomByPeerMap(
 /** 점세개(dot) 메뉴 통화 노출 축 — roomType direct 폴백 금지. */
 export type MessengerDotMenuCallKind = "general" | "trade" | "delivery";
 
+export type MessengerRoomFeatureGate = {
+  allowVoiceMessage: boolean;
+  allowVoiceCall: boolean;
+  allowVideoCall: boolean;
+};
+
 export function resolveMessengerDotMenuCallKind(
   room: CommunityMessengerRoomSummary,
   opts?: { isDeliveryRoom?: boolean }
@@ -121,21 +127,40 @@ export function resolveMessengerDotMenuCallKind(
   return "general";
 }
 
-/** dot menu 음성/영상 행 노출 — 배달은 헤더·주문 UI만, dot menu 통화 숨김. */
+export function resolveMessengerRoomFeatureGate(input: {
+  callKind: MessengerDotMenuCallKind;
+  tradeAllowCall?: boolean;
+  tradeVideoCallEnabled?: boolean;
+  deliveryAllowVoiceMessage?: boolean;
+  deliveryAllowVoiceCall?: boolean;
+  deliveryAllowVideoCall?: boolean;
+}): MessengerRoomFeatureGate {
+  if (input.callKind === "delivery") {
+    return {
+      allowVoiceMessage: input.deliveryAllowVoiceMessage ?? true,
+      allowVoiceCall: input.deliveryAllowVoiceCall ?? true,
+      allowVideoCall: input.deliveryAllowVideoCall ?? true,
+    };
+  }
+  if (input.callKind === "general") {
+    return { allowVoiceMessage: true, allowVoiceCall: true, allowVideoCall: true };
+  }
+  const allow = Boolean(input.tradeAllowCall);
+  return {
+    allowVoiceMessage: allow,
+    allowVoiceCall: allow,
+    allowVideoCall: allow && Boolean(input.tradeVideoCallEnabled),
+  };
+}
+
+/** dot menu 음성/영상 행 노출 — 공통 feature gate 의 통화 축만 사용. */
 export function resolveMessengerDotMenuCallVisibility(input: {
   callKind: MessengerDotMenuCallKind;
   tradeAllowCall?: boolean;
   tradeVideoCallEnabled?: boolean;
+  deliveryAllowVoiceCall?: boolean;
+  deliveryAllowVideoCall?: boolean;
 }): { showVoice: boolean; showVideo: boolean } {
-  if (input.callKind === "delivery") {
-    return { showVoice: false, showVideo: false };
-  }
-  if (input.callKind === "general") {
-    return { showVoice: true, showVideo: true };
-  }
-  const allow = Boolean(input.tradeAllowCall);
-  return {
-    showVoice: allow,
-    showVideo: allow && Boolean(input.tradeVideoCallEnabled),
-  };
+  const gate = resolveMessengerRoomFeatureGate(input);
+  return { showVoice: gate.allowVoiceCall, showVideo: gate.allowVideoCall };
 }

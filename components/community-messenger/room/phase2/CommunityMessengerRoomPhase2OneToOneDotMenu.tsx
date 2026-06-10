@@ -216,8 +216,16 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
         callKind: callMenuKind,
         tradeAllowCall: tradeContext?.product.allow_call,
         tradeVideoCallEnabled,
+        deliveryAllowVoiceCall: deliveryMeta?.storeVoiceCallsEnabled,
+        deliveryAllowVideoCall: deliveryMeta?.storeVideoCallsEnabled,
       }),
-    [callMenuKind, tradeContext?.product.allow_call, tradeVideoCallEnabled]
+    [
+      callMenuKind,
+      deliveryMeta?.storeVideoCallsEnabled,
+      deliveryMeta?.storeVoiceCallsEnabled,
+      tradeContext?.product.allow_call,
+      tradeVideoCallEnabled,
+    ]
   );
 
   const deliveryMenuProfile = useMemo((): ChatRoomMenuProfileOverride | undefined => {

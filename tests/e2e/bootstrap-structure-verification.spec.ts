@@ -7,6 +7,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { classifyCommunityMessengerRoomBootstrapCmReqSrc } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
 
 type Snap = {
   appWidePhaseLastMs?: Record<string, number>;
@@ -30,35 +31,8 @@ async function testLoginViaFetch(
   username: string,
   password: string
 ): Promise<void> {
-  await page.goto(baseURL, { waitUntil: "domcontentloaded" });
-  let ok = false;
-  for (let i = 0; i < 3 && !ok; i += 1) {
-    if (i > 0) await page.waitForTimeout(600);
-    ok = await page.evaluate(
-      async ({ origin, user, pass }) => {
-        try {
-          const res = await fetch(`${origin}/api/test-login`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ username: user, password: pass }),
-          });
-          const data = (await res.json()) as { ok?: boolean; userId?: string; username?: string; role?: string };
-          if (!data?.ok || !data.userId || !data.username) return false;
-          sessionStorage.setItem("test_user_id", data.userId);
-          sessionStorage.setItem("test_username", data.username);
-          sessionStorage.setItem("test_role", data.role || "member");
-          document.cookie = `kasama_dev_uid_pub=${encodeURIComponent(data.userId)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-          window.dispatchEvent(new Event("kasama-test-auth-changed"));
-          return true;
-        } catch {
-          return false;
-        }
-      },
-      { origin: baseURL, user: username, pass: password }
-    );
-  }
-  expect(ok).toBe(true);
+  void baseURL;
+  await ensureE2eUserSession(page, { username, password });
 }
 
 function pickPhaseMap(page: import("@playwright/test").Page): Promise<Record<string, number> | null> {

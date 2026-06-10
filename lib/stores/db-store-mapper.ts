@@ -36,6 +36,12 @@ export type StoreRow = {
   delivery_available?: boolean | null;
   /** 품절 메뉴를 카테고리 하단으로 모을지 — `stores.menu_sold_out_bottom` */
   menu_sold_out_bottom?: boolean | null;
+  /** 주문 메신저 방 음성 메시지 허용 — `stores.messenger_voice_messages_enabled` */
+  messenger_voice_messages_enabled?: boolean | null;
+  /** 주문 메신저 방 음성 통화 허용 — `stores.messenger_voice_calls_enabled` */
+  messenger_voice_calls_enabled?: boolean | null;
+  /** 주문 메신저 방 영상 통화 허용 — `stores.messenger_video_calls_enabled` */
+  messenger_video_calls_enabled?: boolean | null;
   pickup_available?: boolean | null;
   reservation_available?: boolean | null;
   visit_available?: boolean | null;

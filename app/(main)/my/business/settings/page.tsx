@@ -80,6 +80,38 @@ function MyBusinessSettingsPageInner() {
     }
   }, [phase, load]);
 
+  const toggleMessengerFeature = useCallback(
+    async (
+      key:
+        | "messenger_voice_messages_enabled"
+        | "messenger_voice_calls_enabled"
+        | "messenger_video_calls_enabled",
+      next: boolean
+    ) => {
+      if (phase.kind !== "ok") return;
+      const row = phase.row;
+      if (row.approval_status !== "approved") return;
+      try {
+        const res = await fetch(`/api/me/stores/${row.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ [key]: next }),
+        });
+        const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
+        if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
+        if (json.store?.id === row.id) {
+          setPhase({ kind: "ok", row: json.store });
+        } else {
+          await load();
+        }
+      } catch {
+        await load();
+      }
+    },
+    [phase, load]
+  );
+
   if (phase.kind === "loading") {
     return <OwnerStoreSuspenseFallback />;
   }
@@ -101,7 +133,13 @@ function MyBusinessSettingsPageInner() {
     );
   }
 
-  return <OwnerStoreSettingsContent row={phase.row} onToggleVisible={() => void toggleVisible()} />;
+  return (
+    <OwnerStoreSettingsContent
+      row={phase.row}
+      onToggleVisible={() => void toggleVisible()}
+      onToggleMessengerFeature={(key, next) => void toggleMessengerFeature(key, next)}
+    />
+  );
 }
 
 export default function MyBusinessSettingsPage() {

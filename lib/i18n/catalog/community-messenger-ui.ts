@@ -564,6 +564,9 @@ export const communityMessengerUiMessages = {
     cm_ui_video_upgrade_blocked: "지금은 영상으로 전환할 수 없습니다.",
     cm_ui_trade_post_voice_only: "이 글에서는 음성 통화만 허용되어 있습니다.",
     cm_ui_trade_post_calls_disabled: "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다.",
+    cm_ui_store_order_voice_messages_disabled: "이 매장은 주문 채팅 음성 메시지를 허용하지 않았습니다.",
+    cm_ui_store_order_voice_calls_disabled: "이 매장은 주문 채팅 음성 통화를 허용하지 않았습니다.",
+    cm_ui_store_order_video_calls_disabled: "이 매장은 주문 채팅 영상 통화를 허용하지 않았습니다.",
     cm_ui_video_upgrade_failed: "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     cm_ui_switched_to_video_snackbar: "영상 통화로 바꿨어요. 연결되면 카메라가 사용됩니다.",
     cm_ui_camera_mic_denied_site_settings:
@@ -1406,6 +1409,9 @@ export const communityMessengerUiMessages = {
     cm_ui_video_upgrade_blocked: "You cannot switch to video right now.",
     cm_ui_trade_post_voice_only: "Only voice calls are allowed on this listing.",
     cm_ui_trade_post_calls_disabled: "The seller has not allowed trade chat calls on this listing.",
+    cm_ui_store_order_voice_messages_disabled: "This store does not allow voice messages in order chat.",
+    cm_ui_store_order_voice_calls_disabled: "This store does not allow voice calls in order chat.",
+    cm_ui_store_order_video_calls_disabled: "This store does not allow video calls in order chat.",
     cm_ui_video_upgrade_failed: "Could not switch to video. Please try again shortly.",
     cm_ui_switched_to_video_snackbar: "Switched to video. The camera will be used once connected.",
     cm_ui_camera_mic_denied_site_settings:

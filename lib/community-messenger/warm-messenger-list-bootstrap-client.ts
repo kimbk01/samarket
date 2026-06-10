@@ -21,6 +21,13 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
+const WARM_CACHE_READY_EVENT = "samarket:messenger-home-warm-cache-ready";
+
+function notifyWarmCacheReady(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(WARM_CACHE_READY_EVENT));
+}
+
 function hasWarmSkipBootstrap(): boolean {
   if (peekMessengerBootstrapFull() || peekMessengerBootstrapCritical()) return true;
   return isBootstrapCacheFresh();
@@ -51,6 +58,7 @@ export function warmMessengerListBootstrapClient(): void {
         if (jsonCrit?.ok === true && jsonCrit.tier === "critical") {
           primeMessengerBootstrapCritical(jsonCrit);
           samarketMessengerHomeDebugEvent("messenger_home_warm_critical_success");
+          notifyWarmCacheReady();
         }
       })();
 
@@ -63,6 +71,7 @@ export function warmMessengerListBootstrapClient(): void {
         delete payload.ok;
         primeBootstrapCache(payload as CommunityMessengerBootstrap);
         samarketMessengerHomeDebugEvent("messenger_home_warm_success");
+        notifyWarmCacheReady();
       })();
 
       await Promise.all([criticalP, liteP]);

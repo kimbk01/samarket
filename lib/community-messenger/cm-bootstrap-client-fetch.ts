@@ -5,8 +5,8 @@
  * @see docs/trade-lightweight-design.md — `SAMARKET_LIGHTWEIGHT_GOALS.fetchOnceOnServer` 의 클라이언트 대응(단일 비행).
  */
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { peekBootstrapCache, peekMessengerBootstrapCritical } from "@/lib/community-messenger/bootstrap-cache";
 import { beginCmLiteClientFirstPaintSession } from "@/lib/community-messenger/cm-client-first-paint-perf";
 import { beginLiteClientMergeGate } from "@/lib/community-messenger/home/lite-merge-gate";
 import {
@@ -25,6 +25,22 @@ const flightKey = (mode: CommunityMessengerClientBootstrapMode) =>
   `community-messenger:client:bootstrap:${mode}`;
 
 const FLIGHT_CRITICAL = "community-messenger:client:bootstrap:critical";
+
+function syntheticBootstrapJsonResponse(payload: Record<string, unknown>): Response {
+  return new Response(JSON.stringify({ ok: true, ...payload }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function joinBootstrapSingleFlight<T>(key: string, factory: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (signal?.aborted) {
+    return Promise.reject(new DOMException("Aborted", "AbortError"));
+  }
+  const inflight = getSingleFlightPromise<T>(key);
+  if (inflight) return inflight;
+  return runSingleFlight(key, factory);
+}
 
 function readResponseSizeBytes(response: Response, requestUrl: string): number | null {
   const headerValue = Number(response.headers.get("content-length") ?? "");
@@ -86,12 +102,7 @@ export function fetchCommunityMessengerBootstrapClient(
     if (cached) {
       beginCmLiteClientFirstPaintSession("lite_cache_hit");
       beginLiteClientMergeGate();
-      return Promise.resolve(
-        new Response(JSON.stringify({ ok: true, ...cached }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      );
+      return Promise.resolve(syntheticBootstrapJsonResponse(cached));
     }
   }
   const url =
@@ -138,18 +149,35 @@ export function fetchCommunityMessengerBootstrapClient(
     });
     return res;
   };
-  if (opts.signal) {
-    return runFetch(opts.signal);
-  }
-  return runSingleFlight(flightKey(mode), async () => {
+  return joinBootstrapSingleFlight(flightKey(mode), async () => {
+    if (mode === "lite") {
+      let forceLiteNetwork = false;
+      if (typeof window !== "undefined") {
+        try {
+          forceLiteNetwork = sessionStorage.getItem("samarket:cm:force-lite-network") === "1";
+        } catch {
+          /* */
+        }
+      }
+      const cached = forceLiteNetwork ? null : peekBootstrapCache();
+      if (cached) {
+        beginCmLiteClientFirstPaintSession("lite_cache_hit");
+        beginLiteClientMergeGate();
+        return syntheticBootstrapJsonResponse(cached);
+      }
+    }
     return runFetch();
-  });
+  }, opts.signal);
 }
 
 /** 리스트 첫 페인트 전용 — full/lite 와 독립 단일 비행 */
 export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: AbortSignal } = {}): Promise<Response> {
+  const cachedCritical = peekMessengerBootstrapCritical();
+  if (cachedCritical?.tier === "critical") {
+    return Promise.resolve(syntheticBootstrapJsonResponse(cachedCritical));
+  }
   const url = "/api/community-messenger/bootstrap?tier=critical";
-  const runFetch = async (signal?: AbortSignal): Promise<Response> => {
+  const runFetch = async (): Promise<Response> => {
     tryTrackFirstMenuListFetchStart();
     bumpAppWidePerf("messenger_list_fetch_start");
     beginMessengerBootstrapClientPhase("critical");
@@ -161,7 +189,6 @@ export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: 
       cache: "no-store",
       credentials: "include",
       headers: { "x-samarket-client-call-source": "messenger_bootstrap_critical" },
-      ...(signal ? { signal } : {}),
     });
     recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
     captureResponseSizeBytes(res, url);
@@ -183,8 +210,11 @@ export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: 
     });
     return res;
   };
-  if (opts.signal) {
-    return runFetch(opts.signal);
-  }
-  return runSingleFlight(FLIGHT_CRITICAL, async () => runFetch());
+  return joinBootstrapSingleFlight(FLIGHT_CRITICAL, async () => {
+    const cached = peekMessengerBootstrapCritical();
+    if (cached?.tier === "critical") {
+      return syntheticBootstrapJsonResponse(cached);
+    }
+    return runFetch();
+  }, opts.signal);
 }

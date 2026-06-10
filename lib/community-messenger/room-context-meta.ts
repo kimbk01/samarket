@@ -53,6 +53,15 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
     if (typeof o.fulfillmentType === "string" && o.fulfillmentType.trim()) {
       out.fulfillmentType = o.fulfillmentType.trim();
     }
+    if (typeof o.storeVoiceMessagesEnabled === "boolean") {
+      out.storeVoiceMessagesEnabled = o.storeVoiceMessagesEnabled;
+    }
+    if (typeof o.storeVoiceCallsEnabled === "boolean") {
+      out.storeVoiceCallsEnabled = o.storeVoiceCallsEnabled;
+    }
+    if (typeof o.storeVideoCallsEnabled === "boolean") {
+      out.storeVideoCallsEnabled = o.storeVideoCallsEnabled;
+    }
     return out;
   } catch {
     return null;

@@ -90,6 +90,18 @@ export function getMessengerRoomActionErrorMessage(
       return t("nav_messenger_forbidden");
     case "call_provider_not_configured":
       return t("nav_messenger_call_provider_not_ready");
+    case "trade_chat_calls_disabled":
+      return t("cm_ui_trade_post_calls_disabled");
+    case "trade_chat_video_not_allowed":
+      return t("cm_ui_trade_post_voice_only");
+    case "trade_chat_call_friend_required_after_complete":
+      return t("nav_messenger_friend_required");
+    case "store_order_voice_messages_disabled":
+      return t("cm_ui_store_order_voice_messages_disabled");
+    case "store_order_voice_calls_disabled":
+      return t("cm_ui_store_order_voice_calls_disabled");
+    case "store_order_video_calls_disabled":
+      return t("cm_ui_store_order_video_calls_disabled");
     case "call_session_start_failed":
     case "call_session_participants_insert_failed":
       return t("nav_messenger_call_start_failed");

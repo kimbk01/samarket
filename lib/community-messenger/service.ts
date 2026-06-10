@@ -165,7 +165,7 @@ import {
   evaluateTradeMessagingForMessengerRoom,
   loadTradeProductChatExitSnapshotForMessengerRoom,
 } from "@/lib/messenger-policy/load-trade-product-chat-exit-for-room";
-import { assertMessengerTradeDirectRoomAllowsCallKind } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
+import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 import { hashMeetingPassword, verifyMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
@@ -16657,14 +16657,14 @@ export async function startCommunityMessengerCallSession(input: {
   const sb = getSupabaseOrNull();
   const tGateStart = performance.now();
   if (!isGroupRoom && sb) {
-    const tradeCallGate = await assertMessengerTradeDirectRoomAllowsCallKind({
+    const callGate = await assertMessengerRoomAllowsCommunicationFeature({
       supabase: sb,
       roomId,
-      callKind: input.callKind,
+      feature: input.callKind === "video" ? "video_call" : "voice_call",
       requesterUserId: input.userId,
     });
-    if (!tradeCallGate.ok) {
-      return { ok: false, error: tradeCallGate.error };
+    if (!callGate.ok) {
+      return { ok: false, error: callGate.error };
     }
   }
 
@@ -16918,14 +16918,14 @@ export async function upgradeCommunityMessengerCallSessionToVideo(input: {
     }
     if (session.call_kind !== "voice") return { ok: false, error: "bad_action" };
 
-    const tradeVideoGate = await assertMessengerTradeDirectRoomAllowsCallKind({
+    const videoGate = await assertMessengerRoomAllowsCommunicationFeature({
       supabase: sb,
       roomId: trimText(session.room_id ?? ""),
-      callKind: "video",
+      feature: "video_call",
       requesterUserId: uid,
     });
-    if (!tradeVideoGate.ok) {
-      return { ok: false, error: tradeVideoGate.error };
+    if (!videoGate.ok) {
+      return { ok: false, error: videoGate.error };
     }
 
     const now = nowIso();

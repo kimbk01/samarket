@@ -5,6 +5,7 @@ import {
   pickGeneralDirectRoomForPeer,
   resolveMessengerDotMenuCallKind,
   resolveMessengerDotMenuCallVisibility,
+  resolveMessengerRoomFeatureGate,
 } from "@/lib/community-messenger/messenger-room-domain";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
@@ -160,8 +161,21 @@ describe("resolveMessengerDotMenuCallVisibility", () => {
     });
   });
 
-  it("delivery hides voice and video in dot menu", () => {
+  it("delivery follows store policy defaults and shows voice and video in dot menu", () => {
     expect(resolveMessengerDotMenuCallVisibility({ callKind: "delivery" })).toEqual({
+      showVoice: true,
+      showVideo: true,
+    });
+  });
+
+  it("delivery hides calls when the store policy closes them", () => {
+    expect(
+      resolveMessengerDotMenuCallVisibility({
+        callKind: "delivery",
+        deliveryAllowVoiceCall: false,
+        deliveryAllowVideoCall: false,
+      })
+    ).toEqual({
       showVoice: false,
       showVideo: false,
     });
@@ -182,5 +196,55 @@ describe("resolveMessengerDotMenuCallVisibility", () => {
         tradeVideoCallEnabled: true,
       })
     ).toEqual({ showVoice: false, showVideo: false });
+  });
+});
+
+describe("resolveMessengerRoomFeatureGate", () => {
+  it("general enables voice messages and calls", () => {
+    expect(resolveMessengerRoomFeatureGate({ callKind: "general" })).toEqual({
+      allowVoiceMessage: true,
+      allowVoiceCall: true,
+      allowVideoCall: true,
+    });
+  });
+
+  it("trade uses the seller voice and video policy for voice features", () => {
+    expect(
+      resolveMessengerRoomFeatureGate({
+        callKind: "trade",
+        tradeAllowCall: true,
+        tradeVideoCallEnabled: false,
+      })
+    ).toEqual({
+      allowVoiceMessage: true,
+      allowVoiceCall: true,
+      allowVideoCall: false,
+    });
+    expect(
+      resolveMessengerRoomFeatureGate({
+        callKind: "trade",
+        tradeAllowCall: false,
+        tradeVideoCallEnabled: true,
+      })
+    ).toEqual({
+      allowVoiceMessage: false,
+      allowVoiceCall: false,
+      allowVideoCall: false,
+    });
+  });
+
+  it("delivery can be closed by store policy without changing the shared builder", () => {
+    expect(
+      resolveMessengerRoomFeatureGate({
+        callKind: "delivery",
+        deliveryAllowVoiceMessage: true,
+        deliveryAllowVoiceCall: false,
+        deliveryAllowVideoCall: false,
+      })
+    ).toEqual({
+      allowVoiceMessage: true,
+      allowVoiceCall: false,
+      allowVideoCall: false,
+    });
   });
 });

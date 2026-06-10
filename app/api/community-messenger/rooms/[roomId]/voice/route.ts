@@ -6,6 +6,7 @@ import { sendCommunityMessengerVoiceMessage } from "@/lib/community-messenger/se
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { assertMessengerRoomAllowsCommunicationFeature } from "@/lib/trade/enforce-messenger-trade-room-call-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +56,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
     sb = getSupabaseServer();
   } catch {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
+  }
+
+  const policy = await assertMessengerRoomAllowsCommunicationFeature({
+    supabase: sb,
+    roomId: canonicalRoomId,
+    feature: "voice_message",
+    requesterUserId: auth.userId,
+  });
+  if (!policy.ok) {
+    return NextResponse.json({ ok: false, error: policy.error }, { status: 403 });
   }
 
   let form: FormData;

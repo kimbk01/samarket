@@ -125,6 +125,12 @@ export type CommunityMessengerRoomContextMetaV1 = {
   storeDisplayName?: string;
   /** `store_orders.fulfillment_type` 스냅샷 */
   fulfillmentType?: string;
+  /** 배달·주문 채팅 음성 메시지 허용 스냅샷 */
+  storeVoiceMessagesEnabled?: boolean;
+  /** 배달·주문 채팅 음성 통화 허용 스냅샷 */
+  storeVoiceCallsEnabled?: boolean;
+  /** 배달·주문 채팅 영상 통화 허용 스냅샷 */
+  storeVideoCallsEnabled?: boolean;
 };
 
 export type CommunityMessengerRoomSummary = {

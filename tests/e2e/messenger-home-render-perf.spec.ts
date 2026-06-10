@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { ensureE2eUserSession } from "./helpers/playwright-origin-and-session";
 
 type FullSnap = Record<string, unknown> & {
   messengerRenderPerf?: Record<string, number>;
@@ -29,36 +30,14 @@ test.describe("messenger home render perf (로그인·본문 마운트)", () => 
     test.skip(!user || !pass, "E2E_TEST_USERNAME / E2E_TEST_PASSWORD 환경변수로 test-login 가능한 계정 필요");
 
     const origin = baseURL ?? "http://localhost:3000";
-    await page.goto(origin, { waitUntil: "domcontentloaded" });
-    const loginResult = await page.evaluate(
-      async ({ o, username, password }) => {
-        const r = await fetch(`${o}/api/test-login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ username, password }),
-        });
-        const data = (await r.json()) as { ok?: boolean; userId?: string; username?: string; role?: string };
-        if (!data?.ok || !data.userId || !data.username) return false;
-        try {
-          sessionStorage.removeItem("samarket.messenger.bootstrap.v1");
-        } catch {
-          /* ignore */
-        }
-        sessionStorage.setItem("test_user_id", data.userId);
-        sessionStorage.setItem("test_username", data.username);
-        sessionStorage.setItem("test_role", data.role || "member");
-        try {
-          document.cookie = `kasama_dev_uid_pub=${encodeURIComponent(data.userId)}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
-        } catch {
-          /* ignore */
-        }
-        window.dispatchEvent(new Event("kasama-test-auth-changed"));
-        return true;
-      },
-      { o: origin, username: user, password: pass }
-    );
-    expect(loginResult, "test-login + test auth 세션 실패 — test_users·표면 확인").toBe(true);
+    await ensureE2eUserSession(page, { username: user, password: pass });
+    await page.evaluate(() => {
+      try {
+        sessionStorage.removeItem("samarket.messenger.bootstrap.v1");
+      } catch {
+        /* ignore */
+      }
+    });
 
     await page.goto(`${baseURL ?? "http://localhost:3000"}/community-messenger`, { waitUntil: "domcontentloaded" });
     await page.waitForResponse(
@@ -66,8 +45,8 @@ test.describe("messenger home render perf (로그인·본문 마운트)", () => 
       { timeout: 60_000 }
     );
 
-    const roomLink = page.locator('a[href^="/community-messenger/rooms/"]').first();
-    await roomLink.waitFor({ state: "visible", timeout: 60_000 });
+    const roomRow = page.locator('[data-messenger-chat-row="true"]').first();
+    await roomRow.waitFor({ state: "visible", timeout: 60_000 });
 
     const snapAfterList = await readFullSnapshot(page);
     expect(snapAfterList, "getMessengerHomeVerificationSnapshot 없음").not.toBeNull();
@@ -79,17 +58,17 @@ test.describe("messenger home render perf (로그인·본문 마운트)", () => 
     expect(Number(perf0.messenger_home_list_render ?? 0)).toBeGreaterThan(0);
 
     for (let i = 0; i < 3; i++) {
-      const link = page.locator('a[href^="/community-messenger/rooms/"]').nth(i);
-      if ((await link.count()) === 0) break;
-      await link.click();
+      const row = page.locator('[data-messenger-chat-row="true"]').nth(i);
+      if ((await row.count()) === 0) break;
+      await row.click();
       await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 30_000 });
       await page.goBack({ waitUntil: "domcontentloaded" });
-      await roomLink.waitFor({ state: "visible", timeout: 30_000 });
+      await roomRow.waitFor({ state: "visible", timeout: 30_000 });
     }
 
     await page.goto(`${baseURL ?? "http://localhost:3000"}/philife`, { waitUntil: "domcontentloaded" });
     await page.goto(`${baseURL ?? "http://localhost:3000"}/community-messenger`, { waitUntil: "domcontentloaded" });
-    await roomLink.waitFor({ state: "visible", timeout: 60_000 });
+    await roomRow.waitFor({ state: "visible", timeout: 60_000 });
 
     const snapEnd = await readFullSnapshot(page);
     expect(snapEnd).not.toBeNull();

@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-09 (CM-SOCIAL-CALL — 친구·그룹 초대 동기화 및 수신 통화 accept fast-path) |
+| Last updated | 2026-06-10 (MP-AUDIT-2 — 홈 bootstrap 중복 fetch 제거) |
 | Owner | (선택) |
 
 ---
@@ -29,6 +29,28 @@
 | 5 | 탭·채팅 선택 즉시 반응 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
 
 **도메인 완료율(메신저):** **0 / 5 → 0%** (위 항목이 모두 `[x]`일 때만 100%).
+
+---
+
+## MP-AUDIT — 메신저 전체 성능 감사 및 1순위 병목 개선 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **1차 성공** (첫 진입 실패 고정) |
+| 이번 원인 1개 | 하단 탭 prewarm 이 `bootstrap?lite=1`·`bootstrap?tier=critical` 을 성공시켜 캐시에 넣어도, foreground 홈 bootstrap 이 abort/경합으로 `data=null` 인 채 끝나면 warm cache 가 UI state 로 승격되지 않아 첫 진입이 `Failed to load messenger` 로 고정될 수 있었다. |
+| 이번 조치 | `scripts/measure-messenger-parity-audit.mjs` 추가. warm cache ready 이벤트를 발행하고, 홈 bootstrap hook 이 `data=null` 인 경우 warm full/critical cache 를 즉시 `bootstrap_full_seed` 로 승격하도록 수정. |
+| 재측정 | direct probe **3/3 PASS**, `failed_count=0`, `rows_min=11`, `home_ready_ms_avg≈2367` (1차). |
+
+## MP-AUDIT-2 — 홈 bootstrap 중복 fetch 제거 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공 · ACK·raw HTTP 잔여 보류** |
+| 이번 원인 1개 | `MessengerBootstrapEarlyWarm` 과 foreground `refresh(false)` 가 동시에 critical·lite 를 열고, `AbortSignal` 이 있으면 `runSingleFlight` 를 우회해 warm+foreground 가 각각 네트워크 1회씩(합계 4 GET) 발생. full 캐시 hit 시에도 deferred lite 가 불필요하게 스케줄됨. |
+| 이번 조치 | `cm-bootstrap-client-fetch` — signal 유무와 무관 single-flight 합류·critical 캐시 합성 응답. `use-community-messenger-home-bootstrap` — full 캐시면 deferred lite 스킵·follow-up 만 예약·Strict Mode 이중 마운트 foreground 가드. 감사 스크립트 — `home_bootstrap_client_fetch_total` 지표·`callsLog` 제외. |
+| 재측정 | 동일 direct probe **3/3 PASS**, `failed_count=0`, `rows_min=11`, `home_bootstrap_client_fetch_total_avg=2`, `home_ready_ms_avg≈2316`, `room_ready_ms_avg≈4520`, `ack_ms_avg≈1764`(dev). Playwright raw `home_bootstrap_get_count_avg=4` 는 RSC/기타 HTTP 와 혼재 — **클라이언트 계약 지표 2회 기준 PASS**. |
+| 판정 | 홈 bootstrap 중복 fetch **성공**. `ack_ms`·composer_wall·체크시트 `[x]` 는 별도 라운드. |
+| 다음 1순위 후보 | 메시지 POST ACK(dev ~1.7s) 또는 room bootstrap 중복(`room_bootstrap_get_count_avg≈1.7`). 종료 트랙 재개 금지 동일. |
 
 ---
 

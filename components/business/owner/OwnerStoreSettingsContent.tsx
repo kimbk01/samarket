@@ -8,13 +8,23 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 type Props = {
   row: StoreRow;
   onToggleVisible: () => void;
+  onToggleMessengerFeature: (
+    key:
+      | "messenger_voice_messages_enabled"
+      | "messenger_voice_calls_enabled"
+      | "messenger_video_calls_enabled",
+    next: boolean
+  ) => void;
 };
 
-export function OwnerStoreSettingsContent({ row, onToggleVisible }: Props) {
+export function OwnerStoreSettingsContent({ row, onToggleVisible, onToggleMessengerFeature }: Props) {
   const { t } = useI18n();
   const q = `storeId=${encodeURIComponent(row.id)}`;
   const isApproved = row.approval_status === "approved";
   const visible = row.is_visible === true;
+  const voiceMessagesEnabled = row.messenger_voice_messages_enabled !== false;
+  const voiceCallsEnabled = row.messenger_voice_calls_enabled !== false;
+  const videoCallsEnabled = row.messenger_video_calls_enabled !== false;
 
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
@@ -53,6 +63,54 @@ export function OwnerStoreSettingsContent({ row, onToggleVisible }: Props) {
           >
             {visible ? t("owner_store_toggle_hide") : t("owner_store_toggle_show")}
           </button>
+        </div>
+      </section>
+
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("owner_store_messenger_features_title")}</h2>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
+          {t("owner_store_messenger_features_body")}
+        </p>
+        <div className="mt-3 space-y-2">
+          {[
+            {
+              key: "messenger_voice_messages_enabled" as const,
+              enabled: voiceMessagesEnabled,
+              label: t("owner_store_messenger_voice_messages"),
+            },
+            {
+              key: "messenger_voice_calls_enabled" as const,
+              enabled: voiceCallsEnabled,
+              label: t("owner_store_messenger_voice_calls"),
+            },
+            {
+              key: "messenger_video_calls_enabled" as const,
+              enabled: videoCallsEnabled,
+              label: t("owner_store_messenger_video_calls"),
+            },
+          ].map((item) => (
+            <div
+              key={item.key}
+              className="flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2"
+            >
+              <p className="min-w-0 sam-text-body font-medium text-sam-fg">{item.label}</p>
+              <button
+                type="button"
+                disabled={!isApproved}
+                onClick={() => onToggleMessengerFeature(item.key, !item.enabled)}
+                className={[
+                  "shrink-0 rounded-ui-rect px-3 py-2 sam-text-body font-medium",
+                  isApproved
+                    ? item.enabled
+                      ? "bg-signature text-white"
+                      : "border border-sam-border bg-sam-surface text-sam-fg"
+                    : "cursor-not-allowed border border-sam-border bg-sam-surface-muted text-sam-muted",
+                ].join(" ")}
+              >
+                {item.enabled ? t("owner_store_messenger_feature_on") : t("owner_store_messenger_feature_off")}
+              </button>
+            </div>
+          ))}
         </div>
       </section>
 

@@ -13,6 +13,7 @@ const ME_STORE_SELECT =
     "place_id, formatted_address, detail_address",
     "profile_image_url, business_hours_json, gallery_images_json, is_open",
     "delivery_available, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
+    "messenger_voice_messages_enabled, messenger_voice_calls_enabled, messenger_video_calls_enabled",
     "approval_status, is_visible, rejected_reason, revision_note",
     "created_at, updated_at, approved_at",
     // Optional column (older DBs might not have it). When present, it avoids an extra round-trip.
@@ -76,6 +77,25 @@ export async function loadMeStoresListForUser(
         .order("created_at", { ascending: false });
       data = r3.data as unknown[] | null;
       error = (r3.error as any) ?? null;
+    }
+    if (
+      error &&
+      /messenger_voice_messages_enabled|messenger_voice_calls_enabled|messenger_video_calls_enabled/i.test(
+        String(error.message ?? "")
+      ) &&
+      /does not exist/i.test(String(error.message ?? ""))
+    ) {
+      const legacySelect = ME_STORE_SELECT.replace(
+        /,\s*messenger_voice_messages_enabled,\s*messenger_voice_calls_enabled,\s*messenger_video_calls_enabled\s*(?=,)/,
+        ""
+      );
+      const r4 = await supabase
+        .from("stores")
+        .select(legacySelect)
+        .eq("owner_user_id", userId)
+        .order("created_at", { ascending: false });
+      data = r4.data as unknown[] | null;
+      error = (r4.error as any) ?? null;
     }
   }
 

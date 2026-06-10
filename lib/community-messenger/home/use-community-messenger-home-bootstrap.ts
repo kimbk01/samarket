@@ -187,7 +187,20 @@ function abortSignalAny(signals: AbortSignal[]): AbortSignal {
 const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
 /** silent home-sync·visibility 직후 폭주 완화 — `refresh(true)` 최소 간격 */
 const HOME_SILENT_REFRESH_MIN_GAP_MS = 680;
+const INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY = "samarket:cm:initial-foreground-bootstrap:v1";
 let lastStaleCacheResumeSilentRefreshAt = 0;
+
+/** React Strict Mode 이중 마운트에서 foreground `refresh(false)` 가 두 번 열리지 않게 */
+function tryClaimInitialForegroundBootstrap(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    if (sessionStorage.getItem(INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY) === "1") return false;
+    sessionStorage.setItem(INITIAL_FOREGROUND_BOOTSTRAP_SS_KEY, "1");
+    return true;
+  } catch {
+    return true;
+  }
+}
 
 function peekClientStaleBootstrap(): CommunityMessengerBootstrap | null {
   if (typeof window === "undefined") return null;
@@ -340,6 +353,34 @@ export function useCommunityMessengerHomeBootstrap({
     setLoading(false);
     setListAwaitingCritical(false);
   }, [initialServerBootstrap]);
+
+  useEffect(() => {
+    if (initialServerBootstrap || typeof window === "undefined") return;
+    const applyWarmCacheIfEmpty = () => {
+      if (dataRef.current) return;
+      const fullCached = peekMessengerBootstrapFull();
+      const critCached = peekMessengerBootstrapCritical();
+      const warmSeed =
+        fullCached ?? (critCached ? communityMessengerBootstrapFromCriticalPayload(critCached) : null);
+      if (!warmSeed) return;
+      setData((prev) =>
+        commitBootstrapSetData(
+          prev,
+          applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: warmSeed }, "bootstrap"),
+          "warm_cache_seed"
+        )
+      );
+      setAuthRequired(false);
+      setPageError(null);
+      setLoading(false);
+      setListAwaitingCritical(false);
+    };
+    window.addEventListener("samarket:messenger-home-warm-cache-ready", applyWarmCacheIfEmpty);
+    applyWarmCacheIfEmpty();
+    return () => {
+      window.removeEventListener("samarket:messenger-home-warm-cache-ready", applyWarmCacheIfEmpty);
+    };
+  }, [commitBootstrapSetData, initialServerBootstrap]);
 
   useLayoutEffect(() => {
     if (!getCmClientFirstPaintActiveSessionId()) return;
@@ -733,6 +774,56 @@ export function useCommunityMessengerHomeBootstrap({
         markCmBootstrapV2ClientFlowAnchor();
         const shellVisibleAt = typeof performance !== "undefined" ? performance.now() : 0;
 
+        const armPostBootstrapFollowUps = (
+          hydrateRequestId: number,
+          bootstrap: CommunityMessengerBootstrap
+        ) => {
+          if (isDevSafeMode()) return;
+          const sch = getMessengerBackgroundHydrationScheduler();
+          const armFollowUp = (delayMs: number, enqueue: () => void) => {
+            if (typeof window === "undefined") return;
+            window.setTimeout(() => {
+              if (hydrateRequestId !== refreshRequestIdRef.current) return;
+              enqueue();
+            }, delayMs);
+          };
+          armFollowUp(250, () => {
+            if (shouldDeferPostLiteFollowUp()) return;
+            sch.schedule({
+              id: `messenger:followup:silent-refresh:${hydrateRequestId}`,
+              dedupeKey: "messenger:followup:silent-refresh",
+              priority: "low",
+              run: async () => {
+                await refresh(true);
+              },
+            });
+          });
+          if (bootstrap.deferredCallLog) {
+            armFollowUp(1200, () => {
+              if (shouldDeferPostLiteFollowUp()) return;
+              sch.schedule({
+                id: `messenger:followup:calls-log:${hydrateRequestId}`,
+                dedupeKey: "messenger:followup:calls-log",
+                priority: "low",
+                run: async () => {
+                  await mergeDeferredMessengerCallLogs();
+                },
+              });
+            });
+          }
+          armFollowUp(1800, () => {
+            if (shouldDeferPostLiteFollowUp()) return;
+            sch.schedule({
+              id: `messenger:followup:discoverable:${hydrateRequestId}`,
+              dedupeKey: "messenger:followup:discoverable-open-groups",
+              priority: "low",
+              run: async () => {
+                await mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
+              },
+            });
+          });
+        };
+
         const scheduleDeferredLiteAndLog = (
           criticalRequestStartAt: number,
           criticalResponseAt: number,
@@ -743,14 +834,6 @@ export function useCommunityMessengerHomeBootstrap({
           if (isDevSafeMode()) return;
           const sch = getMessengerBackgroundHydrationScheduler();
           const hydrateRequestId = requestId;
-
-          const armFollowUp = (delayMs: number, enqueue: () => void) => {
-            if (typeof window === "undefined") return;
-            window.setTimeout(() => {
-              if (hydrateRequestId !== refreshRequestIdRef.current) return;
-              enqueue();
-            }, delayMs);
-          };
 
           scheduleMessengerDeferredOnIdle(() => {
             sch.schedule({
@@ -807,42 +890,7 @@ export function useCommunityMessengerHomeBootstrap({
                   );
                   runAfterLiteClientMergePaint(completeLiteClientMergeAfterPaint);
                   deferredFinishAt = typeof performance !== "undefined" ? performance.now() : 0;
-
-                  armFollowUp(250, () => {
-                    if (shouldDeferPostLiteFollowUp()) return;
-                    sch.schedule({
-                      id: `messenger:followup:silent-refresh:${hydrateRequestId}`,
-                      dedupeKey: "messenger:followup:silent-refresh",
-                      priority: "low",
-                      run: async () => {
-                        await refresh(true);
-                      },
-                    });
-                  });
-                  if (next.deferredCallLog) {
-                    armFollowUp(1200, () => {
-                      if (shouldDeferPostLiteFollowUp()) return;
-                      sch.schedule({
-                        id: `messenger:followup:calls-log:${hydrateRequestId}`,
-                        dedupeKey: "messenger:followup:calls-log",
-                        priority: "low",
-                        run: async () => {
-                          await mergeDeferredMessengerCallLogs();
-                        },
-                      });
-                    });
-                  }
-                  armFollowUp(1800, () => {
-                    if (shouldDeferPostLiteFollowUp()) return;
-                    sch.schedule({
-                      id: `messenger:followup:discoverable:${hydrateRequestId}`,
-                      dedupeKey: "messenger:followup:discoverable-open-groups",
-                      priority: "low",
-                      run: async () => {
-                        await mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
-                      },
-                    });
-                  });
+                  armPostBootstrapFollowUps(hydrateRequestId, next);
                 } else {
                   const unauthorized = resLite.status === 401 || resLite.status === 403;
                   if (unauthorized) {
@@ -885,7 +933,19 @@ export function useCommunityMessengerHomeBootstrap({
         };
 
         if (staleFullOnly) {
-          scheduleDeferredLiteAndLog(shellVisibleAt, shellVisibleAt, shellVisibleAt, true, false);
+          refreshDataOk = true;
+          bootstrapClientOk = true;
+          logCmBootstrapV2ClientFinalize({
+            shellVisibleAt,
+            criticalRequestStartAt: shellVisibleAt,
+            criticalResponseAt: shellVisibleAt,
+            roomListVisibleAt: shellVisibleAt,
+            deferredStartAt: shellVisibleAt,
+            deferredFinishAt: shellVisibleAt,
+            used_cached_snapshot: true,
+            used_critical_payload: false,
+          });
+          armPostBootstrapFollowUps(requestId, staleFullOnly);
         } else if (staleCritPayload) {
           scheduleDeferredLiteAndLog(shellVisibleAt, shellVisibleAt, shellVisibleAt, true, true);
         } else {
@@ -1255,6 +1315,7 @@ export function useCommunityMessengerHomeBootstrap({
         if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
       };
     }
+    if (!tryClaimInitialForegroundBootstrap()) return;
     void refreshRef.current();
   }, [initialServerBootstrap, mergeDeferredMessengerCallLogs]);
 
