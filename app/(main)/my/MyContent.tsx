@@ -29,6 +29,7 @@ import {
 } from "@/lib/runtime/dibay-myinfo-perf";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -177,10 +178,12 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />
-        <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
-          <div className={`${PHILIFE_FB_CARD_CLASS} sam-card__body py-10 text-center sam-text-body-secondary`}>
-            {t("mypage_comp_login_required")}
-          </div>
+        <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} px-4 pt-4`}>
+          <GuestLoginRequiredPanel
+            actionType="profile_edit"
+            next="/mypage"
+            messageKey="mypage_comp_login_required"
+          />
         </div>
       </div>
     );

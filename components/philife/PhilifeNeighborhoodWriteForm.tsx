@@ -44,6 +44,7 @@ import {
   PHILIFE_WRITE_FB_SECTION,
   PHILIFE_WRITE_FORM_ROOT_CLASS,
   PHILIFE_WRITE_SCROLL_BODY_CLASS,
+  PHILIFE_WRITE_SELECT_CLASS,
 } from "@/lib/ui/philife-write-fb-ui";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
@@ -1051,7 +1052,7 @@ export function PhilifeNeighborhoodWriteForm({
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className={PHILIFE_WRITE_FB_CONTROL}
+                      className={PHILIFE_WRITE_SELECT_CLASS}
                       aria-label={t("philife_write_topic_select_aria")}
                     >
                       {writeTopicOptions.map((o) => (

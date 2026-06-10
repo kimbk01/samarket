@@ -13,6 +13,7 @@ import {
   clientHasVerifiedContactForInteractive,
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { resolveMessengerTabTotalUnreadBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import {
@@ -46,12 +47,18 @@ export function PhilifeHeaderMessengerButton() {
 
   const openMessengerStack = useCallback(() => {
     if (!guardBeforeNavigate()) return;
-    const user = getCurrentUser();
-    if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
-      openPhoneVerificationRequiredDialog({ next: baseMessengerHref });
-      return;
-    }
-    stack.open();
+    void requireAuthAction(
+      "messenger_open",
+      () => {
+        const user = getCurrentUser();
+        if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
+          openPhoneVerificationRequiredDialog({ next: baseMessengerHref });
+          return;
+        }
+        stack.open();
+      },
+      { next: baseMessengerHref },
+    );
   }, [stack, guardBeforeNavigate, baseMessengerHref]);
 
   if (useStack) {
@@ -87,7 +94,14 @@ export function PhilifeHeaderMessengerButton() {
             return;
           }
           const user = getCurrentUser();
-          if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
+          if (!user?.id) {
+            e.preventDefault();
+            void requireAuthAction("messenger_open", () => {
+              window.location.assign(baseMessengerHref);
+            }, { next: baseMessengerHref });
+            return;
+          }
+          if (!clientHasVerifiedContactForInteractive(user)) {
             e.preventDefault();
             openPhoneVerificationRequiredDialog({ next: baseMessengerHref });
           }

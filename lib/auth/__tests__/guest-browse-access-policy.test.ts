@@ -17,17 +17,22 @@ describe("guest-browse-access-policy", () => {
     "/market/trade",
     "/post/abc",
     "/products/abc",
+    "/stores",
     "/stores/browse/delivery",
     "/stores/some-store",
     "/stores/some-store/menu",
+    "/stores/some-store/checkout",
     "/search",
     "/mypage",
     "/mypage/account",
+    "/mypage/section/trade",
+    "/mypage/community-posts",
+    "/community-messenger",
+    "/community-messenger/trade-chats",
+    "/community-messenger/rooms/room-1",
   ];
 
   const privatePaths = [
-    "/community-messenger",
-    "/community-messenger/rooms/room-1",
     "/group-chat/room-1",
     "/orders/store/order-1/chat",
     "/mypage/store-orders/order-1/chat",
@@ -39,6 +44,10 @@ describe("guest-browse-access-policy", () => {
     "/admin",
     "/my/notifications",
     "/onboarding/profile",
+    "/community-messenger/calls/session-1",
+    "/mypage/section/account/profile/edit",
+    "/mypage/business",
+    "/mypage/business/apply",
   ];
 
   it("allows guest public browse paths", () => {

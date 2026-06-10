@@ -16,6 +16,7 @@ import {
   clientHasVerifiedContactForInteractive,
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 
 type PhilifeWriteSheetContextValue = {
   isOpen: boolean;
@@ -49,18 +50,25 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
 
   const open = useCallback(
     (category: string) => {
-      const user = getCurrentUser();
-      if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
-        const q = typeof window !== "undefined" ? window.location.search : "";
-        openPhoneVerificationRequiredDialog({ next: `${pathname}${q}` });
-        return;
-      }
-      setInitialCategory((category ?? "").trim());
-      setOpenEpoch((e) => e + 1);
-      setBlockingDraft(false);
-      setIsOpen(true);
+      const q = typeof window !== "undefined" ? window.location.search : "";
+      const next = `${pathname}${q}`;
+      void requireAuthAction(
+        "community_write",
+        () => {
+          const user = getCurrentUser();
+          if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
+            openPhoneVerificationRequiredDialog({ next });
+            return;
+          }
+          setInitialCategory((category ?? "").trim());
+          setOpenEpoch((e) => e + 1);
+          setBlockingDraft(false);
+          setIsOpen(true);
+        },
+        { next },
+      );
     },
-    [pathname]
+    [pathname],
   );
 
   const close = useCallback(() => {

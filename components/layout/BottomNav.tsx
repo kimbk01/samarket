@@ -81,6 +81,7 @@ import {
   clientHasVerifiedContactForInteractive,
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { probeMainBottomNavRiskyNavigation } from "@/lib/navigation/main-bottom-nav-risky-navigation";
 import { usePhilifeWriteSheetOptional } from "@/contexts/PhilifeWriteSheetContext";
@@ -395,7 +396,10 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        if (!guardBeforeNavigate(effectiveHref)) return;
+        if (!guardBeforeNavigate(effectiveHref)) {
+          e.preventDefault();
+          return;
+        }
         runBottomNavTabClickOrOpenNew(
           e,
           tab,
@@ -894,7 +898,10 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
       aria-current={isActive ? "page" : undefined}
       onPointerDown={(e) => triggerLightTapFeedback(e)}
       onClick={(e) => {
-        if (!guardBeforeNavigate(effectiveHref)) return;
+        if (!guardBeforeNavigate(effectiveHref)) {
+          e.preventDefault();
+          return;
+        }
         runBottomNavTabClickOrOpenNew(
           e,
           tab,
@@ -1075,7 +1082,10 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         e.currentTarget.click();
       }}
       onClick={(e) => {
-        if (!guardBeforeNavigate(storesTabHref)) return;
+        if (!guardBeforeNavigate(storesTabHref)) {
+          e.preventDefault();
+          return;
+        }
         runBottomNavTabClickOrOpenNew(
           e,
           tab,
@@ -1342,7 +1352,16 @@ export function BottomNav({
         if (!guardBeforeNavigate(targetHref)) return false;
         if (!targetHref.includes("/community-messenger")) return true;
         const user = getCurrentUser();
-        if (!user?.id) return true;
+        if (!user?.id) {
+          void requireAuthAction(
+            "messenger_open",
+            () => {
+              router.push(targetHref);
+            },
+            { next: targetHref },
+          );
+          return false;
+        }
         if (clientHasVerifiedContactForInteractive(user)) return true;
         openPhoneVerificationRequiredDialog({ next: targetHref });
         return false;
@@ -1410,6 +1429,7 @@ export function BottomNav({
       markBottomNavIntent,
       beginBottomNavNavigation,
       guardBeforeNavigate,
+      router,
       usesDeliveryHubShell,
       hubDomain,
       commitTabRouteWithConfirm,

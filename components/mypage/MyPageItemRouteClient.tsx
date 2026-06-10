@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MyPageData } from "@/lib/my/types";
@@ -7,6 +8,7 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
 
 export function MyPageItemRouteClient({
   initialMyPageData,
@@ -20,6 +22,7 @@ export function MyPageItemRouteClient({
   itemLabelKey: MessageKey;
 }) {
   const { t } = useI18n();
+  const pathname = usePathname() ?? "/mypage";
   const itemLabel = t(itemLabelKey);
   const {
     data,
@@ -52,7 +55,11 @@ export function MyPageItemRouteClient({
   if (!data?.profile) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_login_required")}</div>
+        <GuestLoginRequiredPanel
+          actionType="profile_edit"
+          next={pathname}
+          messageKey="mypage_comp_login_required"
+        />
       </MyPageStackShell>
     );
   }

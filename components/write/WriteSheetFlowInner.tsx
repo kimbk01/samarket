@@ -19,6 +19,7 @@ import { CommunityWriteForm } from "@/components/write/community/CommunityWriteF
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
 import { APP_TRADE_WRITE_HORIZONTAL_CLASS } from "@/lib/ui/app-content-layout";
+import { PHILIFE_WRITE_SELECT_CLASS } from "@/lib/ui/philife-write-fb-ui";
 
 export type WriteSheetFlowMode = "page" | "tradeSheet";
 
@@ -416,7 +417,7 @@ export function WriteSheetFlowInner({
           id="write-category-select"
           value={categoryKey.trim()}
           onChange={(e) => handleDropdownChange(e.target.value)}
-          className="h-11 w-full rounded-sam-md border border-sam-border bg-white px-3 sam-text-body text-sam-fg outline-none focus:border-sam-primary"
+          className={PHILIFE_WRITE_SELECT_CLASS}
           disabled={selectableCategories.length === 0}
         >
           <option value="">{t("ui_write_select_category")}</option>

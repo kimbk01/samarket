@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isBootstrapCacheFresh } from "@/lib/community-messenger/bootstrap-cache";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
@@ -24,6 +25,7 @@ export function MessengerBootstrapEarlyWarm() {
     let cancelled = false;
     const run = () => {
       if (cancelled) return;
+      if (!getCurrentUser()?.id) return;
       if (isBootstrapCacheFresh()) return;
       warmMessengerListBootstrapClient();
     };

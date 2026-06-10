@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
-import { philifeAppPaths } from "@/lib/philife/paths";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import {
   SAM_TIER1_HEADER_ACTION_BTN_CLASS,
   SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
@@ -27,14 +27,14 @@ export function PhilifeHeaderComposeButton() {
 function PhilifeHeaderComposeButtonFallback() {
   const { t } = useI18n();
   return (
-    <Link
-      href={philifeAppPaths.write}
-      prefetch={false}
+    <button
+      type="button"
       className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
       aria-label={t("tier1_community_write")}
+      disabled
     >
       <PlusInSquareIcon />
-    </Link>
+    </button>
   );
 }
 
@@ -42,6 +42,7 @@ function PhilifeHeaderComposeButtonInner() {
   const { t } = useI18n();
   const { open: openWriteSheet } = usePhilifeWriteSheet();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+  const requireAuth = useRequireAuthAction();
   const searchParams = useSearchParams();
   const category = searchParams.get("category")?.trim() ?? "";
   const href = buildPhilifeComposeHref(category);
@@ -57,7 +58,18 @@ function PhilifeHeaderComposeButtonInner() {
         className={SAM_TIER1_HEADER_ACTION_BTN_CLASS}
         aria-label={aria}
         onClick={(e) => {
-          if (!guardBeforeNavigate()) e.preventDefault();
+          if (!guardBeforeNavigate()) {
+            e.preventDefault();
+            return;
+          }
+          e.preventDefault();
+          void requireAuth(
+            "community_write",
+            () => {
+              window.location.assign(href);
+            },
+            { next: href },
+          );
         }}
       >
         <PlusInSquareIcon />
