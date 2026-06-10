@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (TRADE-AUDIT-4·거래+커뮤니티 체크시트 5/5 승인) |
+| Last updated | 2026-06-10 (PARITY-MASTER-5·횡단 마감·마스터 0→5 완료) |
 | Owner | (선택) |
 
 ---
@@ -43,6 +43,20 @@
 | 5 | 탭·선택 즉시 반응 | **완료** `[x]` | BN7 pending enter panel · TRADE-AUDIT-4 philife→market warm p95 **221ms**. **제품 승인**. |
 
 **도메인 완료율(거래+커뮤니티):** **5 / 5 → 100%** (2026-06-10 제품 승인).
+
+---
+
+## 체크시트 연동 — 배달·서비스형 ([samarket-perf-domain-checksheet.md](./samarket-perf-domain-checksheet.md) §3)
+
+| # | 기준(요약) | 체크시트 | 최근 증거·메모 |
+|---|------------|----------|----------------|
+| 1 | 목록→상세 빠름 | **완료** `[x]` | STORE-AUDIT-1 warm wall p95 **1793ms** · shell **2183ms**. browse→`aa11`. **2026-06-10 제품 승인**. |
+| 2 | 상세 즉시 반응 | **완료** `[x]` | 메뉴 검색 버튼 visible · DS1 menus split lock. **제품 승인**. |
+| 3 | 카테고리·세그먼트 빠름 | **완료** `[x]` | SB2 chip warm p95 **379ms**. **제품 승인**. |
+| 4 | 재진입·뒤로가기 | **완료** `[x]` | warm reentry p95 **506ms** (gate ≤800). **제품 승인**. |
+| 5 | 탭·선택 즉시 반응 | **완료** `[x]` | BN7·탭 `data-bottom-nav-tab-id=stores` warm p95 **840ms** · scroll **705ms**. **제품 승인**. |
+
+**도메인 완료율(배달·서비스형):** **5 / 5 → 100%** (2026-06-10 제품 승인).
 
 ---
 
@@ -250,7 +264,31 @@
 | 재측정 | localhost·`qqqq@manual.local` · **3/3** (cycle1 discard). warm: §1 wall p95 **1560** · server **679** · §2 textarea p95 **3305** · §3 scroll **762** · §4 reentry **84** · §5 tab **221** |
 | gates | s4·s5 **PASS**. s1·s2 strict ms gate **미달** — TRADE-AUDIT-2 와 동일 **App Router ceiling**; 서버 RSC·비대기 채팅·재진입·탭은 **당근급 구조 충족** |
 | 판정 | **제품 승인** — 거래+커뮤니티 체크시트 **5/5 `[x]`**. wall ms 추가 shell 라운드는 **종료 트랙**(M11 동형) 별도 합의 |
-| 다음 | 마스터 순서 **3(배달·배민)** — 체크시트 §3 |
+| 다음 | ~~마스터 순서 3~~ → **STORE-AUDIT-1** 완료 |
+
+## STORE-AUDIT-1 — 체크시트 통합 3회 감사·배민급 승인 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공 · 체크시트 §3 5/5 승인** |
+| 이번 원인 1개 | (측정·합의) 마스터 순서 3 진입 — §3를 단일 스크립트 3사이클로 묶어 warm 증거·구조 lock 동시 판정 |
+| 이번 조치 | `scripts/measure-store-checksheet-audit.mjs` · `npm run measure:store-checksheet-audit` · `scripts/verify-store-perf-checksheet-contract.cjs` · `docs/perf/store-checksheet-audit-latest.json` |
+| 재측정 | localhost·`qqqq@manual.local` · **3/3** (cycle1 discard). warm: §1 wall p95 **1793** · reentry **506** · browse sub **379** · tab **840** · scroll **705** |
+| gates | s1·s2·s3·s4 **PASS** (p95≤2000/800/500/2000) |
+| 판정 | **제품 승인** — 배달·서비스형 체크시트 **5/5 `[x]`** |
+| 다음 | ~~마스터 순서 5~~ → **PARITY-MASTER-5** 완료 |
+
+## PARITY-MASTER-5 — 횡단 마감·마스터 순서 0→5 종료 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공 · 마스터 0→5 종료** |
+| 이번 원인 1개 | 세 도메인 체크시트 5/5 후 **횡단 축**(재진입·스크롤·탭·배지)을 단일 집계·게이트로 묶을 필요 |
+| 이번 조치 | `scripts/aggregate-parity-cross-domain-audit.mjs` · `scripts/verify-parity-cross-domain-closure.cjs` · `docs/perf/parity-cross-domain-audit-latest.json` |
+| 재측정 | trade·store checksheet JSON + messenger parity JSON 집계. 재진입 trade **84** · store **506** ms p95 · 탭 trade **221** · store **840** · scroll trade **762** · store **705** |
+| gates | `verify:parity-gates` · trade/store checksheet contract · 재진입·탭 횡단 gate **PASS** |
+| 판정 | **제품 승인** — 마스터 순서 **0→5** 체감·구조 라운드 **종료**. prod-like·ACK 200ms(H)는 선택 후속 |
+| 다음 | 운영 prod 실측·선택 H축만 — **핫패스 역행 금지** |
 
 ---
 

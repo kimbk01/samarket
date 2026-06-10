@@ -1,0 +1,46 @@
+{
+  "master_order": 5,
+  "theme": "횡단 마감 — 스크롤·재진입·탭·배지",
+  "aggregated_at": "2026-06-10T09:18:45.569Z",
+  "sources": {
+    "trade": "2026-06-10T08:53:52.996Z",
+    "store": "2026-06-10T09:15:27.771Z",
+    "messenger": "2026-06-10T08:09:19.530Z"
+  },
+  "cross_axes": {
+    "reentry_back_ms": {
+      "trade_p95": 84,
+      "store_p95": 506,
+      "gate_p95_le_800": true
+    },
+    "scroll_list_ms": {
+      "trade_p95": 762,
+      "store_p95": 705
+    },
+    "tab_select_ms": {
+      "trade_p95": 221,
+      "store_p95": 840,
+      "messenger_home_ready_ms": 2587
+    },
+    "messenger_badge_read": {
+      "badge_compute_ms": 5,
+      "home_bootstrap_client_fetch_total": 2,
+      "structural": "MP-AUDIT-6~11·zero-fetch reentry lock"
+    }
+  },
+  "domain_checksheet": {
+    "trade": "5/5",
+    "messenger": "5/5",
+    "store": "5/5"
+  },
+  "gates": {
+    "reentry_trade_store_p95_le_800": true,
+    "tab_all_p95_le_2000": true
+  },
+  "structural_lock": [
+    "verify:parity-gates",
+    "verify:trade-perf-checksheet-contract",
+    "verify:store-perf-checksheet-contract",
+    "verify:messenger-hot-path-contract"
+  ]
+}

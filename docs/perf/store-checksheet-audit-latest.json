@@ -1,0 +1,120 @@
+{
+  "measured_at": "2026-06-10T09:15:27.771Z",
+  "base_url": "http://localhost:3000",
+  "cycles": 3,
+  "warm_discard": "cycle 1",
+  "checksheet_summary": {
+    "s1_list_to_detail_wall_warm": {
+      "count": 2,
+      "min": 842,
+      "max": 1793,
+      "avg": 1318,
+      "p95": 1793
+    },
+    "s1_store_shell_visible_warm": {
+      "count": 2,
+      "min": 1237,
+      "max": 2183,
+      "avg": 1710,
+      "p95": 2183
+    },
+    "s2_detail_reentry_wall_warm": {
+      "count": 2,
+      "min": 366,
+      "max": 506,
+      "avg": 436,
+      "p95": 506
+    },
+    "s3_browse_sub_segment_warm": {
+      "count": 2,
+      "min": 371,
+      "max": 379,
+      "avg": 375,
+      "p95": 379
+    },
+    "s4_tab_to_stores_home_warm": {
+      "count": 2,
+      "min": 604,
+      "max": 840,
+      "avg": 722,
+      "p95": 840
+    },
+    "s5_list_scroll_wheel_warm": {
+      "count": 2,
+      "min": 703,
+      "max": 705,
+      "avg": 704,
+      "p95": 705
+    }
+  },
+  "gates": {
+    "s1_warm_wall_p95_le_2000": true,
+    "s2_warm_reentry_p95_le_800": true,
+    "s3_warm_browse_sub_p95_le_500": true,
+    "s4_warm_tab_p95_le_2000": true
+  },
+  "cycles_detail": [
+    {
+      "cycle": 1,
+      "checksheet": {
+        "list_to_detail": {
+          "tap_to_menu_search_wall_ms": 1007,
+          "store_shell_visible_ms": 1366,
+          "nav_slug": "aa11"
+        },
+        "detail_reentry": {
+          "tap_to_menu_search_wall_ms": 553,
+          "store_shell_visible_ms": 929,
+          "nav_slug": "aa11"
+        },
+        "browse_sub_segment_ms": 369,
+        "tab_to_stores_home_ms": 5482,
+        "list_scroll_wheel_ms": 688
+      }
+    },
+    {
+      "cycle": 2,
+      "checksheet": {
+        "list_to_detail": {
+          "tap_to_menu_search_wall_ms": 1793,
+          "store_shell_visible_ms": 2183,
+          "nav_slug": "aa11"
+        },
+        "detail_reentry": {
+          "tap_to_menu_search_wall_ms": 506,
+          "store_shell_visible_ms": 878,
+          "nav_slug": "aa11"
+        },
+        "browse_sub_segment_ms": 379,
+        "tab_to_stores_home_ms": 840,
+        "list_scroll_wheel_ms": 703
+      }
+    },
+    {
+      "cycle": 3,
+      "checksheet": {
+        "list_to_detail": {
+          "tap_to_menu_search_wall_ms": 842,
+          "store_shell_visible_ms": 1237,
+          "nav_slug": "aa11"
+        },
+        "detail_reentry": {
+          "tap_to_menu_search_wall_ms": 366,
+          "store_shell_visible_ms": 744,
+          "nav_slug": "aa11"
+        },
+        "browse_sub_segment_ms": 371,
+        "tab_to_stores_home_ms": 604,
+        "list_scroll_wheel_ms": 705
+      }
+    }
+  ],
+  "errors": [],
+  "structural_lock": [
+    "verify:stores-home-hub-contract",
+    "verify:store-cart-sheet-contract",
+    "BN3 home-feed prewarm",
+    "BN7 pending enter panel",
+    "DS1 menus apply split"
+  ]
+}

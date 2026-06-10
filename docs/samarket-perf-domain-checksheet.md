@@ -37,7 +37,7 @@
 |--------|-----------|-----------|------|--------|
 | 거래 + 커뮤니티 | 당근마켓급 | 5 | 5 | **100%** |
 | 메신저 | 카카오톡급 | 5 | 5 | **100%** |
-| 배달·서비스형 | 배달의민족급 | 0 | 5 | **0%** |
+| 배달·서비스형 | 배달의민족급 | 5 | 5 | **100%** |
 
 ---
 
@@ -75,15 +75,19 @@
 
 ## 3) 배달·서비스형 (배달의민족 수준)
 
+> **완료 승인 (2026-06-10, 제품 합의):** STORE-AUDIT-1 — 핫패스 lock(`verify:store-perf-checksheet-contract`·`verify:stores-home-hub-contract`·`verify:store-cart-sheet-contract`)·BN3·BN7·DS1·SB2. 통합 3회 감사 warm: 목록→상세 wall p95 **1793ms**·재진입 **506ms**·browse 세그먼트 **379ms**·탭 **840ms**·스크롤 **705ms**. (연동: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 배달·서비스형」·STORE-AUDIT-1.)
+
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|
-| 1 | 스토어/주문 관련 **목록 → 상세** 전환이 빠르다 | [ ] |
-| 2 | 주문·서비스형 상세 화면이 즉시 반응한다 | [ ] |
-| 3 | 카테고리·상단 탭·세그먼트 이동이 빠르다 | [ ] |
-| 4 | 뒤로가기·반복 진입이 빠르다 | [ ] |
-| 5 | 리스트 항목·CTA **선택 즉시** 반응한다 | [ ] |
+| 1 | 스토어/주문 관련 **목록 → 상세** 전환이 빠르다 | [x] |
+| 2 | 주문·서비스형 상세 화면이 즉시 반응한다 | [x] |
+| 3 | 카테고리·상단 탭·세그먼트 이동이 빠르다 | [x] |
+| 4 | 뒤로가기·반복 진입이 빠르다 | [x] |
+| 5 | 리스트 항목·CTA **선택 즉시** 반응한다 | [x] |
 
-**최근 증거(완료 체크 아님):**
+**최근 증거:** **STORE-AUDIT-1**(2026-06-10) — `docs/perf/store-checksheet-audit-latest.json` · `npm run measure:store-checksheet-audit`.
+
+**이전 증거(구조 라운드):**
 - 라운드 **BZ1** — `/mypage/business?storeId=...` 진입에서 RSC가 상품 목록 쿼리를 선로딩하며 cold `time_starttransfer`가 **4.881s**까지 상승하던 병목을 제거. 수정 후 cold **0.286s**, warm 평균(런2–3) **0.117s**.
 - 라운드 **BZ2** — 내 매장 로드에서 “닉네임 보강용 2번째 stores 조회”를 제거해 warm 평균 `time_starttransfer` **0.1167s → 0.0590s**로 감소.
 - 라운드 **BN1** — 하단 탭 직후 비목적지 Philife feed warm 경합 제거. `/stores → /mypage` 3회에서 클릭 후 1.5s 창의 slowest API가 `/api/philife/neighborhood-feed` **1235/1157/704ms → me/stores·notification 116/18/90ms**로 변경. 전체 하단 탭 SLO는 Run3 dev 튐으로 아직 `[ ]`.

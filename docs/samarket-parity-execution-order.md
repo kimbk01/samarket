@@ -49,6 +49,8 @@
 
 **순서 2(거래 핫패스) — 2026-05-10 작업 마감:** 라운드 **P1** related `Suspense`·`getTradeDetailRelatedData` 단일 경유·`openCreateTradeChat` 비대기 계약을 검증 스크립트·코드로 재확인([samarket-performance-track-state.md](./samarket-performance-track-state.md) 「라운드 P1」판정). related 번들 **내부** DB·캐시는 별 라운드(원인 1개)로 분리.
 
+**순서 5(횡단 마감) — 2026-06-10 종료:** **PARITY-MASTER-5** — 세 도메인 체크시트 5/5 + `npm run verify:parity-cross-domain-closure` · `docs/perf/parity-cross-domain-audit-latest.json`. 마스터 **0→5** 체감·구조 라운드 종료 — [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「PARITY-MASTER-5」.
+
 ---
 
 ## 3) Phase 블록 (문서·트랙과의 대응)
