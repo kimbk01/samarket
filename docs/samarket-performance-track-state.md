@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-4/5 재측정 완료 · E2E 안정화 진행) |
+| Last updated | 2026-06-10 (MP-AUDIT-6 핫패스 lock · canonical 병렬) |
 | Owner | (선택) |
 
 ---
@@ -80,7 +80,18 @@
 | 이번 조치 | block 직전 prefetch single-flight 합류·캐시 재사용. primed 시드 경로 명시 return. `wasRoomPrefetchRecentlySuccessful` 반영. |
 | 재측정 | direct probe **3/3 PASS**, `failed_count=0`, `findings=[]`. `home_bootstrap_client_fetch_total_avg=2`, `room_bootstrap_get_count_avg=1.3`, `ack_ms_avg≈485`(warm 397–569ms), `home_ready_ms_avg≈6088`(run1 cold ~13.5s 포함). |
 | 판정 | room bootstrap 중복 **성공**. 체크시트·composer_wall·ACK 200ms 는 별도. |
-| 다음 | E2E 3종 안정화 → call smoke → DB 마이그레이션 적용. |
+| 다음 | E2E·call smoke·DB 마이그레이션 **완료**. H축 ACK 200ms·체크시트 별도. |
+
+## MP-AUDIT-6 — send POST canonical 병렬 + 핫패스 lock (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **구조 lock 완료 · ACK 200ms 미달 보류** |
+| 이번 원인 1개 | `POST .../messages` 가 parse·rate·phone `Promise.all` **이후** `messengerRoomCanonicalOrJsonError` 를 직렬 await 해 멤버십 왕복이 ACK 에 추가됨. |
+| 이번 조치 | canonical resolve 를 동일 `Promise.all` 에 합류. `scripts/verify-messenger-hot-path-contract.cjs` + `docs/messenger-performance-architecture.md` §11 MP-AUDIT lock 표. |
+| 기능 | **변경 없음** — 멤버십·거래 가드·bump `after()`·voice 정책 유지. |
+| 재측정 | verify **PASS**. direct probe **3/3**, `failed_count=0`, `findings=[]`. `home_bootstrap_client_fetch_total_avg=2`, `room_bootstrap_get_count_avg=0.7`, `ack_ms_avg≈1513`(run1 cold 포함; warm 구간 별도). |
+| 판정 | 구조 회귀 방지 **정의 완료**. dev ACK 200ms 는 RPC·리전 한계 — 별도 라운드. |
 
 ---
 

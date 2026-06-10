@@ -159,9 +159,8 @@ export async function POST(
   if (!authGate.ok) return authGate.response;
   const userId = authGate.userId;
 
-  const [parsed, routeParams, rateLimit, phone] = await Promise.all([
+  const [parsed, rateLimit, phone, canon] = await Promise.all([
     parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),
-    params,
     enforceRateLimit({
       key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
@@ -170,21 +169,20 @@ export async function POST(
       code: "community_messenger_message_rate_limited",
     }),
     requirePhoneVerified(userId),
+  /** parse·rate·phone 과 멤버십 canonical resolve 를 겹쳐 ACK RTT 에서 왕복 1회를 줄인다. */
+    params.then(({ roomId: rawRoomId }) =>
+      import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(
+        ({ messengerRoomCanonicalOrJsonError }) =>
+          messengerRoomCanonicalOrJsonError(userId, String(rawRoomId ?? "").trim())
+      )
+    ),
   ]);
   if (!parsed.ok) return parsed.response;
   if (!rateLimit.ok) return rateLimit.response;
   if (!phone.ok) return phone.response;
-  const { messengerRoomCanonicalOrJsonError } = await import(
-    "@/lib/community-messenger/server/messenger-room-canonical-resolve-api"
-  );
+  if (!canon.ok) return canon.response;
   const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   const body = parsed.value;
-
-  const { roomId: rawRoomId } = routeParams;
-  const canon = await messengerRoomCanonicalOrJsonError(userId, String(rawRoomId ?? "").trim());
-  if (!canon.ok) {
-    return canon.response;
-  }
   const canonicalRoomId = canon.canonicalRoomId;
   const t0 = performance.now();
   const content = String(body.content ?? "");

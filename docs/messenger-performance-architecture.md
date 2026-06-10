@@ -155,3 +155,30 @@
 
 까지 완료되어, 단순 CRUD 채팅이 아닌 **카카오/텔레그램식 체감 구조** 단계에 도달했다.  
 이후 메신저 작업은 기능 확장보다 **회귀 방지·베이스라인 유지**를 우선한다.
+
+---
+
+## 11. MP-AUDIT 핫패스 lock (회귀 방지)
+
+**자동 검증:** `npm run verify:messenger-hot-path-contract`  
+**런타임 감사(3회):** `node scripts/measure-messenger-parity-audit.mjs` — 산출 `docs/perf/messenger-parity-audit-latest.json`
+
+| ID | 금지·필수 | 의미 |
+|----|-----------|------|
+| MP-AUDIT-1 | warm cache → `bootstrap_full_seed` 승격 | 첫 홈 진입 `Failed to load` 고정 방지 |
+| MP-AUDIT-2 | 홈 클라 bootstrap fetch ≤ **2** (`home_bootstrap_client_fetch_total`) | warm+foreground 중복 GET 금지 |
+| MP-AUDIT-3 | 텍스트 POST bump **`after()`** | ACK 에 bump·배지 RTT 합산 금지 |
+| MP-AUDIT-4 | atomic send **RPC 단일** — 사전 `loadTradeProductChatExitSnapshotForMessengerRoom` 금지 | 거래 가드는 `community_messenger_send_text_message` 에만 |
+| MP-AUDIT-5 | `list_prefetch`·`room_client_block` **single-flight 합류** | `room_bootstrap_get_count` 과다·primed skip 누락 금지 |
+| MP-AUDIT-6 | POST canonical resolve **parse·rate·phone 과 병렬** | 멤버십 왕복을 ACK 직전 직렬 대기에 두지 않음 |
+
+### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
+
+| 지표 | 목표 | 현재 베이스라인( dev warm, 2026-06-10 ) |
+|------|------|----------------------------------------|
+| `ack_ms` | ≤ 200ms (prod 동일 리전) | ~400–570ms — INSERT+네트워크 한계, 별도 라운드 |
+| `home_bootstrap_client_fetch_total` | ≤ 2 | 2 (PASS) |
+| `room_bootstrap_get_count` | ≤ 1.5 avg | ~1.3 (PASS) |
+| `failed_count` (홈 첫 진입) | 0 | 0 (PASS) |
+
+**기능 정책 불변:** `messenger_voice_*`·통화 게이트·거래 가드 **동작**은 속도 작업으로 바꾸지 않는다. 위 표는 **구조·왕복 수** lock 이다.
