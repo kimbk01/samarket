@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-3 — 메시지 POST ACK bump after) |
+| Last updated | 2026-06-10 (MP-AUDIT-4/5 — send atomic·room prefetch 합류) |
 | Owner | (선택) |
 
 ---
@@ -61,6 +61,24 @@
 | 이번 조치 | mark_read 와 동일하게 bump 를 `after()` 로 이동·auth gate 병렬화(`ensureApiRouteAuthGate` + phone/rateLimit `Promise.all`). |
 | 재측정 | direct probe 3/3 PASS. `ack_ms` run별 3024(cold)/529/945 → avg≈1499(dev compile 1회 포함). warm 2·3회는 ~0.5–0.9s. |
 | 판정 | bump 인라인 제거로 ACK **개선**. 목표 200ms·prod 동일 리전은 send 본문(INSERT+unread RPC) 별도 라운드. |
+
+## MP-AUDIT-4 — send atomic 경로 사전 trade guard 제거 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **부분 성공 · 200ms 미달 보류** |
+| 이번 원인 1개 | `trySendCommunityMessengerTextAtomic` 이 RPC 전 `loadTradeProductChatExitSnapshotForMessengerRoom` 를 매 전송마다 실행해 ACK RTT 에 왕복 1~2회가 추가됨. 동일 가드는 `community_messenger_send_text_message` RPC 에 이미 포함. |
+| 이번 조치 | atomic 경로에서 사전 assert·reconcile 제거 — 단일 RPC 만 await. |
+| 판정 | 구조적 중복 제거 **성공**. dev ACK warm ~0.5–0.9s — INSERT+네트워크 한계는 별도. |
+
+## MP-AUDIT-5 — room bootstrap list_prefetch·block 경합 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **구현 완료 · 재측정 대기** |
+| 이번 원인 1개 | 홈 목록 `list_prefetch` 와 입장 `room_client_block` 이 동시에 열리면 single-flight 키가 달라 bootstrap GET 2회+. `hasPrefetchSnapshot` 이 5s TTL 만 보던 것도 skip 판정을 놓침. |
+| 이번 조치 | block 직전 prefetch single-flight 합류·캐시 재사용. primed 시드 경로 명시 return. `wasRoomPrefetchRecentlySuccessful` 반영. |
+| 다음 | direct probe 3회로 `room_bootstrap_get_count_avg` ≤1.3 확인 후 E2E 4종 안정화. |
 
 ---
 

@@ -14687,24 +14687,10 @@ async function trySendCommunityMessengerTextAtomic(
   clientMessageId: string,
   replyToMessageId?: string | null
 ): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string } | null> {
-  let tradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
-    viewerUserId: input.userId,
-    messengerRoomId: roomId,
-  });
-  if (!tradeGuard.ok && tradeGuard.error === "trade_product_chat_unlinked") {
-    const { reconcileMessengerTradeRoomLinkOnSend } = await import(
-      "@/lib/trade/reconcile-messenger-trade-room-link-on-send"
-    );
-    if (await reconcileMessengerTradeRoomLinkOnSend(sb as never, roomId)) {
-      tradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
-        viewerUserId: input.userId,
-        messengerRoomId: roomId,
-      });
-    }
-  }
-  if (!tradeGuard.ok) {
-    return { ok: false, error: tradeGuard.error };
-  }
+  /**
+   * 거래 전송 가드·dedupe·unread 는 `community_messenger_send_text_message` RPC 가 단일 트랜잭션으로 처리.
+   * 사전 `product_chats` 조회는 ACK RTT 만 늘리므로 atomic 경로에서는 생략한다.
+   */
   const createdAt = nowIso();
   const replyRpc = trimText(replyToMessageId ?? "");
   const { data: rpcRaw, error: rpcErr } = await sb.rpc("community_messenger_send_text_message", {

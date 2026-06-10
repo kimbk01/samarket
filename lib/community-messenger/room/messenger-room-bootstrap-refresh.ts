@@ -30,6 +30,7 @@ import {
   recordCmBootstrapTriggerChain,
   releaseCmBootstrapRoomLock,
   tryAcquireCmBootstrapRoomLock,
+  wasRoomPrefetchRecentlySuccessful,
 } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 import {
   evaluateCmRoomForegroundBootstrap,
@@ -485,7 +486,59 @@ export function createMessengerRoomBootstrapRefresh(
         } else if (typeof setTimeout !== "undefined") {
           setTimeout(scheduleSecondary, delayMs);
         }
+        loadedRef.current = true;
+        setRoomReadyForRealtime(true);
+        finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+        return;
       } else {
+      if (!silent && shouldBlock) {
+        const prefetchFlightKey = `cm:prefetch-room-snapshot:${roomId.trim()}`;
+        const prefetchJoin = getSingleFlightPromise<boolean>(prefetchFlightKey);
+        if (prefetchJoin) {
+          try {
+            await prefetchJoin;
+          } catch {
+            /* ignore */
+          }
+          const reuseAfterPrefetch =
+            peekRoomSnapshot(roomId, viewerIdForCache) ?? peekRoomSnapshot(roomId, null);
+          if (reuseAfterPrefetch) {
+            setSnapshot(reuseAfterPrefetch);
+            applyPrimedTimelineSeed(reuseAfterPrefetch, setRoomMessages);
+            setLoading(false);
+            touchCmRoomForegroundLockFromSnapshot(roomId, reuseAfterPrefetch);
+            if (cmRoomEntryTraceEnabled()) {
+              const prefetchHit = consumePrefetchHitForRoom(roomId);
+              const bytes = new TextEncoder().encode(JSON.stringify(reuseAfterPrefetch)).length;
+              const kb = Math.round((bytes / 1024) * 10) / 10;
+              setCmRoomEntryBootstrapMeta({
+                payload_kb: kb,
+                used_prefetch: prefetchHit,
+                used_cached_snapshot: true,
+                cached_seed_hit: (reuseAfterPrefetch.messages?.length ?? 0) > 0,
+                bootstrap_cache_hit: isRoomSnapshotFreshWithin(
+                  roomId,
+                  CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
+                  viewerIdForCache
+                ),
+              });
+              noteCmColdEntryBootstrapCompleted(roomId, false);
+            }
+            logCmRoomReentryZeroFetchWithRegression({
+              roomId,
+              used_cached_snapshot: true,
+              foreground_fetch_skipped: true,
+              silent_fetch_scheduled: false,
+              silent_fetch_skipped: true,
+              snapshot_age_ms: getRoomSnapshotCacheAgeMs(roomId, viewerIdForCache),
+            });
+            loadedRef.current = true;
+            setRoomReadyForRealtime(true);
+            finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+            return;
+          }
+        }
+      }
       const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
       /** 첫 차단 네트워크는 항상 instant+critical(서버에서 trade/normalize/full 병렬 차단) — 시드 슬라이스는 SEED_LIMIT 과 동일 */
       const BLOCKING_FIRST_BOOTSTRAP_Q =
@@ -495,7 +548,8 @@ export function createMessengerRoomBootstrapRefresh(
       let bootstrapQueryWithSrc: string;
       let reqSrc: string;
       const peekSnap = peekSnapEarly ?? peekRoomSnapshot(roomId, viewerIdForCache);
-      const hasPrefetchSnapshot = cacheFresh5s;
+      const hasPrefetchSnapshot =
+        cacheFresh5s || wasRoomPrefetchRecentlySuccessful(roomId) || Boolean(peekSnap);
 
       if (!silent) {
         const fg = evaluateCmRoomForegroundBootstrap({
