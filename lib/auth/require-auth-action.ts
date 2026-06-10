@@ -52,6 +52,7 @@ export type AddressRequiredDetail = {
 };
 
 export const DIBAY_LOGIN_REQUIRED_EVENT = "dibay:login-required" as const;
+export const DIBAY_LOGIN_REQUIRED_DISMISS_EVENT = "dibay:login-required-dismiss" as const;
 export const DIBAY_ADDRESS_REQUIRED_EVENT = "dibay:address-required" as const;
 
 type PendingAction = () => void | Promise<void>;
@@ -89,6 +90,11 @@ function dispatchLoginRequired(detail: LoginRequiredDetail): void {
 
 export function openLoginRequiredSheet(detail: LoginRequiredDetail): void {
   dispatchLoginRequired(detail);
+}
+
+export function dismissLoginRequiredSheet(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(DIBAY_LOGIN_REQUIRED_DISMISS_EVENT));
 }
 
 export function openAddressRequiredSheet(detail: AddressRequiredDetail): void {

@@ -27,6 +27,9 @@ import {
 } from "@/lib/ui/tier1-header-icon";
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 
 export function PhilifeHeaderAddressMenuButton({
   panelPlacement = "anchor",
@@ -41,7 +44,9 @@ export function PhilifeHeaderAddressMenuButton({
   const [panelOrigin, setPanelOrigin] = useState("top right");
   const [view, setView] = useState<"menu" | "picker">("menu");
   const [viewAnimating, setViewAnimating] = useState(false);
-  const [list, setList] = useState<UserAddressDTO[]>(() => readCachedMeAddressList() ?? []);
+  const [list, setList] = useState<UserAddressDTO[]>(() =>
+    getCurrentUser()?.id ? (readCachedMeAddressList() ?? []) : [],
+  );
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -50,13 +55,18 @@ export function PhilifeHeaderAddressMenuButton({
   const panelRef = useRef<HTMLDivElement | null>(null);
   const prevViewRef = useRef<"menu" | "picker">("menu");
   const closeTimerRef = useRef<number | null>(null);
+  const membership = useClientMembershipState("philife-header-address-menu");
   const { currentRegion } = useRegion();
   const rep = useRepresentativeAddressLine();
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
   const label = neighborhoodLocationLabelFromRegion(currentRegion);
   const fallback = formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
-  const addressLine =
-    rep.status === "loading"
+  const isMemberViewer = membership.status === "member";
+  const addressLine = !isMemberViewer
+    ? membership.status === "checking"
+      ? t("philife_addr_loading_line")
+      : t("philife_addr_not_set")
+    : rep.status === "loading"
       ? t("philife_addr_loading_line")
       : rep.line?.trim() || fallback || t("philife_addr_not_set");
 
@@ -65,6 +75,10 @@ export function PhilifeHeaderAddressMenuButton({
   }, []);
 
   const toggleMenu = () => {
+    if (!isMemberViewer) {
+      openLoginRequiredSheet({ actionType: "address_save" });
+      return;
+    }
     if (open) {
       if (closeTimerRef.current != null) {
         window.clearTimeout(closeTimerRef.current);
@@ -99,6 +113,12 @@ export function PhilifeHeaderAddressMenuButton({
       closeTimerRef.current = null;
     }, 240);
   };
+
+  useEffect(() => {
+    if (isMemberViewer) return;
+    setList([]);
+    closeMenu();
+  }, [isMemberViewer]);
 
   useEffect(() => {
     return () => {

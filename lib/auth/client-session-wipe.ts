@@ -21,6 +21,9 @@ import {
   APP_LANGUAGE_STORAGE_KEY,
 } from "@/lib/i18n/config";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
+import { invalidateMeAddressesListClientCache } from "@/lib/addresses/address-list-client-cache";
+import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-client-profile-session";
 import { pauseAndClearAllNotificationUnreadBadgeStores } from "@/lib/notifications/notification-unread-badge-store";
 import { closeAllServiceWorkerNotifications } from "@/lib/push/push-manager";
 import { clearUserSettingsClientCache } from "@/lib/settings/user-settings-store";
@@ -89,12 +92,19 @@ function resetInMemoryClientStores(): void {
   resetSharedOrderChat();
 }
 
+function resetAddressClientCaches(): void {
+  invalidateAddressDefaultsSnapshotCache();
+  invalidateMeAddressesListClientCache();
+  invalidateClientMembershipResolveFlight();
+}
+
 function resetAuthClientCaches(): void {
   invalidateAppBootAll();
   setSupabaseProfileCache(null);
   invalidateMeProfileDedupedCache();
   clearAuthSessionClientCache();
   clearBootstrapCache();
+  resetAddressClientCaches();
   resetMessengerNotificationSurfacesAfterSignOut();
 }
 

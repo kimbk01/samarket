@@ -81,7 +81,7 @@ import {
   clientHasVerifiedContactForInteractive,
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
-import { requireAuthAction } from "@/lib/auth/require-auth-action";
+import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { probeMainBottomNavRiskyNavigation } from "@/lib/navigation/main-bottom-nav-risky-navigation";
 import { usePhilifeWriteSheetOptional } from "@/contexts/PhilifeWriteSheetContext";
@@ -1207,6 +1207,7 @@ export function BottomNav({
   /** 탭 클릭 인텐트 — 본문 슬라이드는 `route-transition-config` pathname 단일 소스 (`mainShellTabSlide` 미사용) */
   const beginBottomNavNavigation = useCallback(
     (href: string, source?: MenuNavigationSource, options?: BeginMenuNavigationOptions) => {
+      dismissLoginRequiredSheet();
       beginMenuNavigation(href, source ?? "bottom-nav", options);
     },
     [beginMenuNavigation]
@@ -1343,6 +1344,7 @@ export function BottomNav({
         pendingChatNav: pendingChatNav && tab.id === pendingActiveTabId,
       });
       const guardNav = () => {
+        dismissLoginRequiredSheet();
         const targetHref = resolveMainBottomNavTabTapHref(tab.id, tab.href, {
           emphasisKind,
           pathname,

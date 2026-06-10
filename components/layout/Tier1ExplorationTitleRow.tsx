@@ -11,6 +11,7 @@ import {
   formatNeighborhoodRegionSubtitle,
 } from "@/lib/neighborhood/location-key";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
+import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 /** 필라이프·거래 홈 상단 동네 줄 — 주소 관리(대표 주소)로 이동 */
 type Tier1ExplorationTitleRowProps = {
@@ -35,31 +36,39 @@ export function Tier1ExplorationTitleRow({
     pathname,
     searchParams?.toString() ? `?${searchParams.toString()}` : ""
   );
+  const membership = useClientMembershipState("tier1-exploration-title");
   const { currentRegion } = useRegion();
   const rep = useRepresentativeAddressLine();
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
   const label = neighborhoodLocationLabelFromRegion(currentRegion);
   const fallback = formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
+  const isMemberViewer = membership.status === "member";
   /** 대표 주소 로드 후 전체 한 줄 — 로딩 중엔 폴백 쓰지 않음(이전 Manila 깜빡임 방지) */
-  const addressLine =
-    rep.status === "loading"
+  const addressLine = !isMemberViewer
+    ? ""
+    : rep.status === "loading"
       ? "…"
       : rep.line?.trim() || fallback;
+  const showAddress = isMemberViewer && Boolean(addressLine.trim());
 
   const justify = align === "start" ? "justify-start" : "justify-center";
   return (
     <span className={`flex w-full min-w-0 max-w-full items-center ${justify} gap-1.5 overflow-hidden`}>
       <span className="sam-text-page-title shrink-0 leading-none">{segmentTitle}</span>
-      <span className="shrink-0 sam-text-body leading-none text-sam-muted" aria-hidden>
-        ·
-      </span>
-      <Link
-        href={addressManagementHref}
-        className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
-        aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
-      >
-        {addressLine}
-      </Link>
+      {showAddress ? (
+        <>
+          <span className="shrink-0 sam-text-body leading-none text-sam-muted" aria-hidden>
+            ·
+          </span>
+          <Link
+            href={addressManagementHref}
+            className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
+            aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
+          >
+            {addressLine}
+          </Link>
+        </>
+      ) : null}
     </span>
   );
 }

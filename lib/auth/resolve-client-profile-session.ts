@@ -6,6 +6,9 @@ import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
+import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+
+const MEMBERSHIP_RESOLVE_FLIGHT = "client:resolve-client-membership";
 
 /**
  * 클라이언트 회원 여부 단일 판정.
@@ -33,10 +36,19 @@ export type ClientMembershipResolution =
   | { status: "member"; profile: Profile }
   | { status: "guest" };
 
+export function invalidateClientMembershipResolveFlight(): void {
+  forgetSingleFlight(MEMBERSHIP_RESOLVE_FLIGHT);
+}
+
 export async function resolveClientMembership(
   source = "resolveClientMembership",
 ): Promise<ClientMembershipResolution> {
-  const profile = await resolveClientProfileFromSession(source);
-  if (profile?.id) return { status: "member", profile };
-  return { status: "guest" };
+  const cached = getCurrentUser();
+  if (cached?.id) return { status: "member", profile: cached };
+
+  return runSingleFlight(MEMBERSHIP_RESOLVE_FLIGHT, async () => {
+    const profile = await resolveClientProfileFromSession(source);
+    if (profile?.id) return { status: "member", profile };
+    return { status: "guest" };
+  });
 }

@@ -253,6 +253,17 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   return (
     <AuthGateOverlay open={open} onClose={onClose} labelledBy="dibay-auth-modal-title">
+      <div className="relative">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-[#1e3932]/60 hover:bg-[#f6f6f6] hover:text-[#1e3932]"
+          aria-label={t("common_close")}
+        >
+          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#006241]/10 text-[#006241]" aria-hidden>
         <span className="text-xl font-bold">D</span>
       </div>
@@ -291,6 +302,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
       >
         {t("auth_login_required_later")}
       </button>
+      </div>
     </AuthGateOverlay>
   );
 }

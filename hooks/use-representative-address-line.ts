@@ -16,6 +16,8 @@ import {
 } from "@/lib/addresses/fetch-address-defaults-client";
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 
 export type RepresentativeAddressLineState =
   | { status: "loading" }
@@ -26,6 +28,10 @@ export type RepresentativeAddressPresentationState =
   | { status: "ready"; presentation: AddressBookCardPresentation | null };
 
 type RepresentativeAddressLineReady = Extract<RepresentativeAddressLineState, { status: "ready" }>;
+
+function canLoadRepresentativeAddress(): boolean {
+  return Boolean(getCurrentUser()?.id);
+}
 
 function lineStateFromExplorationSnapshot(snapshot: AddressDefaultsSnapshot | null): RepresentativeAddressLineReady {
   return { status: "ready", line: resolveExplorationAddressLineFromSnapshot(snapshot) };
@@ -43,6 +49,7 @@ export function useRepresentativeAddressPresentation(opts?: {
   const pathname = usePathname();
   const hasPresentationRef = useRef(false);
   const [state, setState] = useState<RepresentativeAddressPresentationState>(() => {
+    if (!canLoadRepresentativeAddress()) return { status: "ready", presentation: null };
     const snap = opts?.initialSnapshot ?? peekFreshAddressDefaultsSnapshot();
     if (!snap) return { status: "loading" };
     const presentation = resolveAddressBookPresentationFromSnapshot(snap);
@@ -56,6 +63,11 @@ export function useRepresentativeAddressPresentation(opts?: {
   }, [opts?.initialSnapshot]);
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    if (!canLoadRepresentativeAddress()) {
+      hasPresentationRef.current = false;
+      setState({ status: "ready", presentation: null });
+      return;
+    }
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
@@ -94,6 +106,19 @@ export function useRepresentativeAddressPresentation(opts?: {
     () => !hasPresentationRef.current
   );
 
+  useEffect(() => {
+    const onAuthChanged = () => {
+      if (getCurrentUser()?.id) {
+        void load({ silent: false, force: true });
+        return;
+      }
+      hasPresentationRef.current = false;
+      setState({ status: "ready", presentation: null });
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [load]);
+
   return state;
 }
 
@@ -105,6 +130,7 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   const pathname = usePathname();
   const lastLineRef = useRef<string | null>(null);
   const [state, setState] = useState<RepresentativeAddressLineState>(() => {
+    if (!canLoadRepresentativeAddress()) return { status: "ready", line: null };
     const snap = peekFreshAddressDefaultsSnapshot();
     if (!snap) return { status: "loading" };
     const next = lineStateFromExplorationSnapshot(snap);
@@ -113,6 +139,11 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
   });
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    if (!canLoadRepresentativeAddress()) {
+      lastLineRef.current = null;
+      setState({ status: "ready", line: null });
+      return;
+    }
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
@@ -151,6 +182,19 @@ export function useRepresentativeAddressLine(): RepresentativeAddressLineState {
     () => !lastLineRef.current?.trim()
   );
 
+  useEffect(() => {
+    const onAuthChanged = () => {
+      if (getCurrentUser()?.id) {
+        void load({ silent: false, force: true });
+        return;
+      }
+      lastLineRef.current = null;
+      setState({ status: "ready", line: null });
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [load]);
+
   return state;
 }
 
@@ -162,6 +206,7 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
   const pathname = usePathname();
   const lastLineRef = useRef<string | null>(null);
   const [state, setState] = useState<RepresentativeAddressLineState>(() => {
+    if (!canLoadRepresentativeAddress()) return { status: "ready", line: null };
     const snap = peekFreshAddressDefaultsSnapshot();
     if (!snap) return { status: "loading" };
     const next = lineStateFromFullSnapshot(snap);
@@ -170,6 +215,11 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
   });
 
   const load = useCallback(async (opts?: { silent?: boolean; force?: boolean }) => {
+    if (!canLoadRepresentativeAddress()) {
+      lastLineRef.current = null;
+      setState({ status: "ready", line: null });
+      return;
+    }
     const silent = opts?.silent === true;
     if (!silent) setState({ status: "loading" });
     try {
@@ -206,6 +256,19 @@ export function useRepresentativeFullAddressLine(): RepresentativeAddressLineSta
     () => void load({ silent: true, force: true }),
     () => !lastLineRef.current?.trim()
   );
+
+  useEffect(() => {
+    const onAuthChanged = () => {
+      if (getCurrentUser()?.id) {
+        void load({ silent: false, force: true });
+        return;
+      }
+      lastLineRef.current = null;
+      setState({ status: "ready", line: null });
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [load]);
 
   return state;
 }

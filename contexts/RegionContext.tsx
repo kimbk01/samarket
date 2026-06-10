@@ -18,6 +18,8 @@ import {
 } from "@/lib/regions/mock-user-regions";
 import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { fetchMeProfileDeduped, ME_PROFILE_CACHE_INVALIDATED_EVENT, isMeProfileCacheFresh, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
@@ -127,8 +129,14 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     }
   }, [applyProfileSlice]);
 
-  /** 로그인 계정이 바뀌면 mock 동네 버킷·현재 선택을 분리하고 프로필 지역을 다시 맞춤 */
+  /** 로그아웃·비회원 — 프로필·mock 동네 표시 제거(헤더 주소 잔존 방지) */
   useEffect(() => {
+    if (userId === "guest") {
+      setProfileSourcedRegion(null);
+      setCurrentRegionId(null);
+      setUserRegions([]);
+      return;
+    }
     setUserRegions(getUserRegions(userId));
     setCurrentRegionId(null);
     const boot = peekAppBootProfile();
@@ -193,6 +201,18 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [refreshProfileLocation, applyProfileSlice]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onAuthChanged = () => {
+      if (getCurrentUser()?.id) return;
+      setProfileSourcedRegion(null);
+      setCurrentRegionId(null);
+      setUserRegions([]);
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+  }, []);
+
   /** 프로필 캐시 무효화(저장·아바타·세션) — 단일 이벤트로 지역 상태 동기화 */
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -217,8 +237,11 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
   }, [refreshProfileLocation]);
 
   const mockPrimaryRegion = useMemo(
-    () => userRegions.find((r) => r.isPrimary) ?? userRegions[0] ?? null,
-    [userRegions]
+    () =>
+      userId === "guest"
+        ? null
+        : userRegions.find((r) => r.isPrimary) ?? userRegions[0] ?? null,
+    [userRegions, userId]
   );
 
   /** 내정보 프로필 주소가 채워져 있으면 mock 동네보다 우선 */
