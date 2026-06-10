@@ -16,7 +16,6 @@ export function isMessengerComposerOutboundBusy(busy: MessengerComposerBusy): bo
     busy === "send-sticker" ||
     busy === "send-image" ||
     busy === "send-file" ||
-    busy === "send-voice" ||
     busy === "delete-message" ||
     busy === "edit-message"
   );

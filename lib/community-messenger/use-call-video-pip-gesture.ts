@@ -43,7 +43,7 @@ type PipGesture = {
   originTop: number;
 };
 
-export type CallVideoPipDoubleTapAction = "zoom" | "fullscreen";
+export type CallVideoPipDoubleTapAction = "zoom" | "fullscreen" | "swap";
 
 export type UseCallVideoPipGestureArgs = {
   sessionId?: string | null;
@@ -444,12 +444,15 @@ export function useCallVideoPipGesture(args: UseCallVideoPipGestureArgs): VideoC
         }
         if (doubleTapAction === "fullscreen") {
           onExpandFullscreen?.();
+        } else if (doubleTapAction === "swap") {
+          onSingleTap?.();
         } else {
           togglePipExpanded();
         }
         return;
       }
       lastTapAtRef.current = now;
+      if (doubleTapAction === "swap") return;
       if (singleTapTimerRef.current != null) {
         window.clearTimeout(singleTapTimerRef.current);
       }

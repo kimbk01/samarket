@@ -94,6 +94,7 @@ import {
   clearAllCommunityCallLocalSessionFlags,
   isCommunityMessengerDedicatedCallSessionPath,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import {
@@ -199,6 +200,20 @@ function defaultSpeakerEnabledForCallKind(kind: CommunityMessengerCallKind): boo
 
 /** 종료 PATCH/Realtime 후 stale 세션 GET 이 `ringing` 으로 되돌아와 링백이 다시 도는 윈도 — 수신 전역 tombstone(120s)과 동급 */
 const CALL_SESSION_TERMINAL_PIN_MS = 120_000;
+
+/** 종료·거절 직후 host 플래그·active 복구 라우팅이 통화 화면을 다시 띄우지 않게 한다 */
+function pinTerminalCallLocalSurfaceDismiss(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  writeTerminalCallRecoverySuppress(sid);
+  clearAllCommunityCallLocalSessionFlags();
+  notifyCommunityCallHostSync();
+  try {
+    resetCommunityMessengerCallRuntimeSurface();
+  } catch {
+    /* ignore */
+  }
+}
 
 function isCameraVideoTrackWithDevice(track: ILocalVideoTrack | null): track is ICameraVideoTrack {
   return !!track && typeof (track as ICameraVideoTrack).setDevice === "function";
@@ -453,6 +468,7 @@ export function CommunityMessengerCallClient({
   const elapsedSecondsRef = useRef(0);
   const endCallRef = useRef<() => Promise<void>>(async () => {});
   const peerLeftEndTimerRef = useRef<number | null>(null);
+  const terminalDismissTimerRef = useRef<number | null>(null);
   const agoraNetworkHooksRef = useRef({
     clearTimers: () => {},
     scheduleRecovery: () => {},
@@ -536,6 +552,7 @@ export function CommunityMessengerCallClient({
       if (callDismissInFlightRef.current) return;
       const active = sessionRef.current;
       if (!active || active.status !== "ringing") return;
+      pinTerminalCallLocalSurfaceDismiss(active.id);
       callDismissInFlightRef.current = true;
       navigateBackFromCommunityMessengerCall(router, roomId ?? active.roomId);
     },
@@ -579,6 +596,7 @@ export function CommunityMessengerCallClient({
           snapshot,
         };
         setSession(snapshot);
+        pinTerminalCallLocalSurfaceDismiss(cur.id);
         joiningRef.current = false;
         setJoined(false);
         joinedRef.current = false;
@@ -625,6 +643,10 @@ export function CommunityMessengerCallClient({
     remoteAudioFirstFrameLoggedRef.current = false;
     remoteUserJoinedLoggedRef.current = false;
     terminalImmediateCleanupOnceRef.current = null;
+    if (terminalDismissTimerRef.current != null) {
+      window.clearTimeout(terminalDismissTimerRef.current);
+      terminalDismissTimerRef.current = null;
+    }
   }, [sessionId]);
 
   /** 임시 발신 세션 — initiator UUID 를 동기 세션에서 채워 PATCH·폴링 단계 안전 */
@@ -1701,7 +1723,6 @@ export function CommunityMessengerCallClient({
         /** 링 루프와 Agora 로컬/원격 오디오가 겹치지 않게 조인 직전에 동기 중단 */
         stopCommunityMessengerCallTone();
         detachAutoplayPrimingVideo();
-        detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
         cmCallLatencyInfo("force_ringing_ui", {
           sessionId: targetSession.id,
           callKind: targetSession.callKind,
@@ -1866,8 +1887,6 @@ export function CommunityMessengerCallClient({
         const isVideoCall = targetSession.callKind === "video";
         let localVideoBoundDuringJoin = false;
         if (isVideoCall) {
-          heldPreJoinVideoPreviewRef.current = null;
-          detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
           const tracks = await createCommunityMessengerAgoraLocalTracks("video");
           localTracksRef.current = tracks;
           const lg = largeVideoRef.current;
@@ -2063,19 +2082,19 @@ export function CommunityMessengerCallClient({
         role: "callee",
         callKind: s.callKind,
       });
-      setSession(json.session);
-      if (json.session.status === "active") {
-        try {
-          const primeResult = await mediaPrimePromise;
-          if (primeResult.ok && json.session.callKind === "video") {
+      const acceptedSession = json.session;
+      setSession(acceptedSession);
+      if (acceptedSession.status === "active") {
+        void mediaPrimePromise.then((primeResult) => {
+          if (primeResult.ok && acceptedSession.callKind === "video") {
             const peek = peekPrimedCommunityMessengerDeviceStream("video");
             if (peek) primeVideoElementAutoplayFromUserGesture(peek);
           }
-        } catch {
+        }).catch(() => {
           /* 조인 시도에서 실제 미디어 오류 표시 */
-        }
+        });
       }
-      return json.session;
+      return acceptedSession;
     } catch (e) {
       callFlowAcceptStartRef.current = null;
       if (!s.isMineInitiator) {
@@ -2175,6 +2194,7 @@ export function CommunityMessengerCallClient({
         callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS, snapshot: snap };
         appendTerminalCallHistory(prev, "rejected", { hangupReason: "reject" });
         setSession(snap);
+        pinTerminalCallLocalSurfaceDismiss(sid);
       }
     }
     joiningRef.current = false;
@@ -2283,6 +2303,7 @@ export function CommunityMessengerCallClient({
         };
         appendTerminalCallHistory(prev, optimisticEnd, { hangupReason });
         setSession(snap);
+        pinTerminalCallLocalSurfaceDismiss(sid);
       }
     }
     joiningRef.current = false;
@@ -3134,15 +3155,27 @@ export function CommunityMessengerCallClient({
       setEndedDurationSeconds(
         connectedAtTs != null ? Math.max(0, Math.floor((endedAtMs - connectedAtTs) / 1000)) : null
       );
-      try {
-        clearAllCommunityCallLocalSessionFlags();
-        notifyCommunityCallHostSync();
-        resetCommunityMessengerCallRuntimeSurface();
-      } catch {
-        /* ignore */
-      }
+      pinTerminalCallLocalSurfaceDismiss(session.id);
     }
-  }, [connectedAtTs, disposeCallMedia, session, terminalClosedAt]);
+    const failureRequiresDismiss =
+      session.status === "ended" &&
+      Boolean(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
+    if (failureRequiresDismiss || callDismissInFlightRef.current || terminalDismissTimerRef.current != null) return;
+    terminalDismissTimerRef.current = window.setTimeout(() => {
+      terminalDismissTimerRef.current = null;
+      if (callDismissInFlightRef.current) return;
+      const cur = sessionRef.current;
+      if (!cur || !isTerminalCallSessionStatus(cur.status)) return;
+      callDismissInFlightRef.current = true;
+      navigateBackFromCommunityMessengerCall(router, cur.roomId);
+    }, 1000);
+    return () => {
+      if (terminalDismissTimerRef.current != null) {
+        window.clearTimeout(terminalDismissTimerRef.current);
+        terminalDismissTimerRef.current = null;
+      }
+    };
+  }, [connectedAtTs, router, session?.endedReason, session?.id, session?.status, terminalClosedAt]);
 
   useEffect(() => {
     const s = sessionRef.current;
@@ -3323,7 +3356,7 @@ export function CommunityMessengerCallClient({
     pipLabel: layoutSwapped ? (session?.peerLabel ?? t("common_me")) : t("common_me"),
     onSingleTap: handlePipSingleTapSwap,
     onExpandFullscreen: handleExpandToFullscreen,
-    doubleTapAction: presentation === "minimized" ? "fullscreen" : "zoom",
+    doubleTapAction: presentation === "minimized" ? "fullscreen" : "swap",
   });
 
   if (loading && !session) {
@@ -3331,6 +3364,7 @@ export function CommunityMessengerCallClient({
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateKind = searchParams.get("kind") === "video" ? "video" : "voice";
     const hydrateVm: CallScreenViewModel = {
+      visualTheme: "starbucks",
       mode: hydrateKind,
       direction: "outgoing",
       phase: "ringing",
@@ -3365,8 +3399,8 @@ export function CommunityMessengerCallClient({
       ],
       mainVideoSlot:
         hydrateKind === "video" ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black">
-            <span className="sam-text-body-secondary text-white/40">{t("common_loading")}</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-[#003D29]">
+            <span className="sam-text-body-secondary text-[#D4E9E2]/58">{t("common_loading")}</span>
           </div>
         ) : undefined,
       showRemoteVideo: false,
@@ -3533,51 +3567,82 @@ export function CommunityMessengerCallClient({
     );
   } else if (videoCall) {
     const mediaReady = joined;
-    primaryActions.push(
-      {
-        id: "switch-camera",
-        label: t("cm_ui_switch_camera"),
-        icon: "camera-switch",
-        disabled: !mediaReady || !cameraSwitchSupported || busy === "camera",
-        onClick: () => void switchCameraFacing(),
-      },
-      {
-        id: "swap-pip-main",
-        label: t("cm_ui_swap_pip_layout"),
-        icon: "pip-swap",
-        disabled:
-          !mediaReady ||
-          !remoteJoined ||
-          !localVideoReady ||
-          busy === "join" ||
-          busy === "upgrade",
-        onClick: () => setLayoutSwapped((p) => !p),
-      },
-      {
-        id: "camera",
-        label: t("cm_ui_video_short"),
-        icon: "camera",
-        active: !camOff,
-        disabled: !mediaReady || busy === "join" || busy === "upgrade",
-        onClick: () => void toggleCamEnabled(),
-      },
-      {
-        id: "mute",
-        label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
-        icon: "mic",
-        active: !micMuted,
-        disabled: busy === "join" || busy === "upgrade",
-        onClick: () => void toggleMicEnabled(),
-      },
-      {
-        id: "end",
-        label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
-        icon: "end",
-        tone: "danger",
-        disabled: busy === "end",
-        onClick: () => void endCall(),
+    /** PiP↔메인 교환은 PiP 제스처(탭) 전용 — 명시 버튼 없음 */
+    const incomingCalleePreRemote =
+      !session.isMineInitiator &&
+      (effectiveDirectPhase === "connecting" || effectiveDirectPhase === "ringing") &&
+      !remoteJoined;
+    if (incomingCalleePreRemote) {
+      if (mediaReady && cameraSwitchSupported) {
+        primaryActions.push({
+          id: "switch-camera",
+          label: t("cm_ui_switch_camera"),
+          icon: "camera-switch",
+          disabled: !localVideoReady || busy === "camera",
+          onClick: () => void switchCameraFacing(),
+        });
       }
-    );
+      primaryActions.push(
+        {
+          id: "camera",
+          label: t("cm_ui_video_short"),
+          icon: "camera",
+          active: !camOff,
+          disabled: !mediaReady || busy === "join" || busy === "upgrade",
+          onClick: () => void toggleCamEnabled(),
+        },
+        {
+          id: "mute",
+          label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
+          icon: "mic",
+          active: !micMuted,
+          disabled: busy === "join" || busy === "upgrade" || busy === "accept",
+          onClick: () => void toggleMicEnabled(),
+        },
+        {
+          id: "end",
+          label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
+          icon: "end",
+          tone: "danger",
+          disabled: busy === "end",
+          onClick: () => void endCall(),
+        }
+      );
+    } else {
+      primaryActions.push(
+        {
+          id: "switch-camera",
+          label: t("cm_ui_switch_camera"),
+          icon: "camera-switch",
+          disabled: !mediaReady || !cameraSwitchSupported || busy === "camera",
+          onClick: () => void switchCameraFacing(),
+        },
+        {
+          id: "camera",
+          label: t("cm_ui_video_short"),
+          icon: "camera",
+          active: !camOff,
+          disabled: !mediaReady || busy === "join" || busy === "upgrade",
+          onClick: () => void toggleCamEnabled(),
+        },
+        {
+          id: "mute",
+          label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
+          icon: "mic",
+          active: !micMuted,
+          disabled: busy === "join" || busy === "upgrade",
+          onClick: () => void toggleMicEnabled(),
+        },
+        {
+          id: "end",
+          label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
+          icon: "end",
+          tone: "danger",
+          disabled: busy === "end",
+          onClick: () => void endCall(),
+        }
+      );
+    }
   } else {
     primaryActions.push(
       {
@@ -3641,21 +3706,22 @@ export function CommunityMessengerCallClient({
     );
   }
 
-  if (
+  const joinAttemptInFlight = busy === "join" || busy === "accept";
+  const showRetryMediaAction =
     (localVideoPlayBlocked ||
-      (errorMessage &&
-        !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage))) &&
+      (errorMessage && !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage))) &&
     !incomingVideoUpgradeRequest &&
     directPhase !== "ended" &&
     directPhase !== "declined" &&
     directPhase !== "missed" &&
-    directPhase !== "failed"
-  ) {
+    directPhase !== "failed" &&
+    !joinAttemptInFlight &&
+    !(effectiveDirectPhase === "connecting" && !joined && !errorMessage && !localVideoPlayBlocked);
+  if (showRetryMediaAction) {
     secondaryActions.push({
       id: "retry-media",
-      label: busy === "join" || busy === "accept" ? t("cm_ui_retrying") : t("common_retry"),
+      label: t("common_retry"),
       icon: "retry",
-      disabled: busy === "join" || busy === "accept",
       onClick: handleRetryMediaAndJoin,
     });
   }
@@ -3815,17 +3881,17 @@ export function CommunityMessengerCallClient({
   );
 
   const miniVideoSlotEl = videoCall ? (
-    <div className="relative h-full w-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+    <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
       <div ref={smallVideoRef} className="h-full w-full" />
       {camOff ? (
-        <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-black">
+        <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
           <SamarketUserAvatarThumb
             avatarUrl={selfAvatarUrlForPip}
             size={40}
             roundedClassName="rounded-full"
-            className="ring-1 ring-white/20"
+            className="ring-1 ring-[#D4E9E2]/28"
           />
-          <VideoOff size={14} strokeWidth={2.25} className="text-white/85" aria-hidden />
+          <VideoOff size={14} strokeWidth={2.25} className="text-[#F1F8F4]/90" aria-hidden />
         </div>
       ) : null}
     </div>
@@ -3859,6 +3925,7 @@ export function CommunityMessengerCallClient({
   ]);
 
   const callVm: CallScreenViewModel = {
+    visualTheme: "starbucks",
     mode: videoCall ? "video" : "voice",
     direction: session.isMineInitiator ? "outgoing" : "incoming",
     phase: callScreenPhase,
@@ -3895,7 +3962,7 @@ export function CommunityMessengerCallClient({
     primaryActions,
     secondaryActions,
     mainVideoSlot: videoCall ? (
-      <div className="absolute inset-0 min-h-0 bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
+      <div className="absolute inset-0 min-h-0 bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
         <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
         {preJoinVideoPreviewStream && !localVideoReady ? (
           <video
@@ -3910,10 +3977,10 @@ export function CommunityMessengerCallClient({
         !localVideoReady &&
         !preJoinVideoPreviewStream ? (
           <div
-            className="absolute inset-0 z-[2] flex items-center justify-center bg-black pointer-events-none"
+            className="absolute inset-0 z-[2] flex items-center justify-center bg-[#003D29] pointer-events-none"
             aria-hidden
           >
-            <span className="sam-text-body-secondary text-center text-white/50">
+            <span className="sam-text-body-secondary text-center text-[#D4E9E2]/70">
               {!joined ? t("cm_ui_camera_preparing_connection") : t("cm_ui_video_preparing_display")}
             </span>
           </div>

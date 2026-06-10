@@ -5,6 +5,9 @@ export const ACTIVE_CALL_RECOVERY_LOCK_KEY = "samarket:cm-active-call-recovery";
 export const ACTIVE_CALL_RECOVERY_LOCK_TTL_MS = 120_000;
 /** 다중 탭 동시 복구 라우팅만 억제 — 새로고침 재시도는 TTL 이후 허용 */
 export const ACTIVE_CALL_RECOVERY_DEDUPE_MS = 5_000;
+/** 종료 직후 `/sessions/active` 가 stale `active` 를 주어도 통화 화면으로 되돌리지 않음 */
+export const TERMINAL_CALL_RECOVERY_SUPPRESS_KEY = "samarket:cm-terminal-call-recovery-suppress";
+export const TERMINAL_CALL_RECOVERY_SUPPRESS_TTL_MS = 120_000;
 
 export type ActiveCallRecoverySession = {
   id?: string | null;
@@ -59,9 +62,43 @@ export function readActiveCallRecoveryLock(): { sessionId: string; at: number } 
   }
 }
 
-export function shouldSkipActiveCallRecoveryRouting(sessionId: string): boolean {
-  const lock = readActiveCallRecoveryLock();
+export function readTerminalCallRecoverySuppress(): { sessionId: string; until: number } | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as { sessionId?: string; until?: number };
+    const sessionId = j.sessionId?.trim();
+    if (!sessionId || typeof j.until !== "number") return null;
+    if (Date.now() >= j.until) {
+      sessionStorage.removeItem(TERMINAL_CALL_RECOVERY_SUPPRESS_KEY);
+      return null;
+    }
+    return { sessionId, until: j.until };
+  } catch {
+    return null;
+  }
+}
+
+export function writeTerminalCallRecoverySuppress(sessionId: string): void {
+  if (typeof sessionStorage === "undefined") return;
   const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    sessionStorage.setItem(
+      TERMINAL_CALL_RECOVERY_SUPPRESS_KEY,
+      JSON.stringify({ sessionId: sid, until: Date.now() + TERMINAL_CALL_RECOVERY_SUPPRESS_TTL_MS })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function shouldSkipActiveCallRecoveryRouting(sessionId: string): boolean {
+  const sid = sessionId.trim();
+  const suppress = readTerminalCallRecoverySuppress();
+  if (suppress?.sessionId === sid) return true;
+  const lock = readActiveCallRecoveryLock();
   if (!lock || lock.sessionId !== sid) return false;
   return Date.now() - lock.at < ACTIVE_CALL_RECOVERY_DEDUPE_MS;
 }

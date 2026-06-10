@@ -1434,6 +1434,20 @@ export function GlobalCommunityMessengerIncomingCall() {
     dismissedIncomingSessionsAtRef.current.set(sessionId, Date.now());
     setSessions((prev) => prev.filter((item) => item.id !== sessionId));
     setBusyId(`reject:${sessionId}`);
+    if (session?.sessionMode === "direct") {
+      appendLocalCallChatMessageFromTerminalSession({
+        roomId: session.roomId,
+        sessionId: session.id,
+        tmpSessionId: undefined,
+        initiatorUserId: session.initiatorUserId,
+        recipientUserId: session.recipientUserId ?? undefined,
+        callKind: session.callKind,
+        status: "rejected",
+        answeredAt: session.answeredAt ?? null,
+        hangupReason: "reject",
+        endedReason: session.endedReason ?? null,
+      });
+    }
     try {
       if (session?.peerUserId?.trim()) {
         /** PATCH·DB 반영보다 먼저 — 발신 탭이 `cm_invite_hangup` 으로 즉시 새로고침 */

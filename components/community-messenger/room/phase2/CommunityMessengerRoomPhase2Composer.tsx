@@ -520,7 +520,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             !draft.trim() ||
             vm.busy === "send-image" ||
             vm.busy === "send-file" ||
-            vm.busy === "send-voice" ||
             vm.busy === "send-sticker" ||
             vm.busy === "delete-message"
           }
@@ -545,7 +544,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
               vm.roomUnavailable ||
               vm.busy === "send-image" ||
               vm.busy === "send-file" ||
-              vm.busy === "send-voice" ||
               vm.busy === "send-sticker" ||
               vm.busy === "delete-message" ||
               Boolean(draft.trim()) ||

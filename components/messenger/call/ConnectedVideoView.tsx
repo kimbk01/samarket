@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Monitor } from "lucide-react";
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallActionBar } from "./CallActionBar";
+import { CallAvatar } from "./CallAvatar";
 import { CallStatusText } from "./CallStatusText";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
@@ -21,6 +22,7 @@ const IDLE_HIDE_MS = 4200;
 
 export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   const { t } = useI18n();
+  const isStarbucks = vm.visualTheme === "starbucks";
   const timer = useCallTimer({
     connectedAt: vm.connectedAt,
     endedAt: vm.endedAt,
@@ -143,6 +145,13 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     !pipShellMounted &&
     !vm.showLocalVideo;
 
+  /** 영상 수신 벨·연결 중 — 카톡/텔레그램식 중앙 발신자 아바타 */
+  const incomingVideoRingHero =
+    vm.mode === "video" &&
+    vm.direction === "incoming" &&
+    (vm.phase === "ringing" || vm.phase === "connecting") &&
+    !vm.showRemoteVideo;
+
   const detailLine = vm.connectionLabel ?? vm.subStatusText ?? null;
 
   const liftIncomingRingingActions =
@@ -180,6 +189,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
       onPointerMove: bindings?.onPipPointerMove,
       onPointerUp: bindings?.onPipPointerUp,
       onPointerCancel: bindings?.onPipPointerCancel,
+      theme: vm.visualTheme,
       children: vm.miniVideoSlot,
     };
 
@@ -199,10 +209,29 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
 
         {vm.showRemoteVideo ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
-            <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
-              <div className="sam-text-page-title font-semibold tracking-tight text-white">{vm.peerLabel}</div>
-              <div className="mt-1 flex items-center justify-center gap-2 sam-text-body font-medium text-white/90">
-                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]" aria-hidden />
+            <div
+              className={`max-w-[92vw] text-center ${
+                isStarbucks
+                  ? "drop-shadow-[0_2px_14px_rgba(0,61,41,0.48)]"
+                  : "drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]"
+              }`}
+            >
+              <div className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"}`}>
+                {vm.peerLabel}
+              </div>
+              <div
+                className={`mt-1 flex items-center justify-center gap-2 sam-text-body font-medium ${
+                  isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"
+                }`}
+              >
+                <span
+                  className={
+                    isStarbucks
+                      ? "inline-flex h-2 w-2 rounded-full bg-[#D4E9E2] shadow-[0_0_0_4px_rgba(212,233,226,0.22)]"
+                      : "inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]"
+                  }
+                  aria-hidden
+                />
                 <span>{timer ?? vm.statusText}</span>
               </div>
             </div>
@@ -211,32 +240,56 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
 
         {outgoingSoloVideoLayout ? (
           <div className={`pointer-events-none absolute inset-x-0 top-0 z-[4] flex justify-center px-4 ${topOverlayPad}`}>
-            <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
-              {vm.hideOutgoingVideoBrandRow ? null : (
-                <div className="flex items-center justify-center gap-2 text-white/95">
+            <div
+              className={`max-w-[92vw] text-center ${
+                isStarbucks
+                  ? "drop-shadow-[0_2px_14px_rgba(0,61,41,0.48)]"
+                  : "drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]"
+              }`}
+            >
+              {incomingVideoRingHero || !vm.hideOutgoingVideoBrandRow ? (
+                <div className={`flex items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]/95" : "text-white/95"}`}>
                   <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">
                     {t("cm_ui_samarket_video_call_brand")}…
                   </span>
                 </div>
+              ) : null}
+              {incomingVideoRingHero ? null : (
+                <div
+                  className={`sam-text-page-title font-semibold tracking-tight ${isStarbucks ? "text-[#F1F8F4]" : "text-white"} ${
+                    vm.hideOutgoingVideoBrandRow ? "" : "mt-3"
+                  }`}
+                >
+                  {vm.peerLabel}
+                </div>
               )}
               <div
-                className={`sam-text-page-title font-semibold tracking-tight text-white ${vm.hideOutgoingVideoBrandRow ? "" : "mt-3"}`}
+                className={`flex items-center justify-center gap-2 sam-text-body font-medium ${
+                  incomingVideoRingHero || !vm.hideOutgoingVideoBrandRow ? "mt-1" : ""
+                } ${isStarbucks ? "text-[#D4E9E2]/95" : "text-white/90"}`}
               >
-                {vm.peerLabel}
-              </div>
-              <div className="mt-1 flex items-center justify-center gap-2 sam-text-body font-medium text-white/90">
                 <span
                   className={
                     vm.phase === "connected"
-                      ? "inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]"
-                      : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
+                      ? isStarbucks
+                        ? "inline-flex h-2 w-2 rounded-full bg-[#D4E9E2] shadow-[0_0_0_4px_rgba(212,233,226,0.22)]"
+                        : "inline-flex h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_4px_rgba(16,185,129,0.22)]"
+                      : isStarbucks
+                        ? "inline-flex h-2 w-2 animate-pulse rounded-full bg-[#CBA258] shadow-[0_0_0_4px_rgba(203,162,88,0.22)]"
+                        : "inline-flex h-2 w-2 animate-pulse rounded-full bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.22)]"
                   }
                   aria-hidden
                 />
                 <span>{timer ?? vm.statusText}</span>
               </div>
               {detailLine ? (
-                <p className="mt-1.5 sam-text-body-secondary leading-snug text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]">
+                <p
+                  className={`mt-1.5 sam-text-body-secondary leading-snug ${
+                    isStarbucks
+                      ? "text-[#D4E9E2]/80 drop-shadow-[0_1px_10px_rgba(0,61,41,0.48)]"
+                      : "text-white/72 drop-shadow-[0_1px_10px_rgba(0,0,0,0.5)]"
+                  }`}
+                >
                   {detailLine}
                 </p>
               ) : null}
@@ -254,12 +307,31 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           >
             <button
               type="button"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition active:scale-[0.96]"
+              className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-md transition active:scale-[0.96] ${
+                isStarbucks
+                  ? "bg-[#003D29]/54 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/24"
+                  : "bg-black/40 text-white"
+              }`}
               aria-label={t("cm_ui_participants")}
               onClick={() => showMessengerSnackbar(t("cm_ui_participant_invite_soon"))}
             >
               <Monitor size={22} />
             </button>
+          </div>
+        ) : null}
+
+        {incomingVideoRingHero ? (
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[min(26dvh,200px)] pt-[min(18dvh,140px)]">
+            <div className="flex w-full max-w-md flex-col items-center text-center">
+              <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
+              <h2
+                className={`mt-6 text-center text-[clamp(1.35rem,5.5vw,2rem)] font-bold leading-tight tracking-tight ${
+                  isStarbucks ? "text-[#F1F8F4]" : "text-white"
+                }`}
+              >
+                {vm.peerLabel}
+              </h2>
+            </div>
           </div>
         ) : null}
 
@@ -270,11 +342,19 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
                 src={vm.peerAvatarUrl}
                 size={96}
                 roundedClassName="rounded-full"
-                className="mb-5 shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/20"
+                className={
+                  isStarbucks
+                    ? "mb-5 shadow-[0_8px_28px_rgba(0,61,41,0.38)] ring-2 ring-[#D4E9E2]/26"
+                    : "mb-5 shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/20"
+                }
               />
             ) : vm.mode === "video" ? (
               <div
-                className="mb-5 flex h-24 w-24 shrink-0 items-center justify-center rounded-full bg-white/14 text-[1.65rem] font-semibold uppercase tracking-wide text-white shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/22"
+                className={`mb-5 flex h-24 w-24 shrink-0 items-center justify-center rounded-full text-[1.65rem] font-semibold uppercase tracking-wide ${
+                  isStarbucks
+                    ? "bg-[#D4E9E2]/18 text-[#F1F8F4] shadow-[0_8px_28px_rgba(0,61,41,0.38)] ring-2 ring-[#D4E9E2]/26"
+                    : "bg-white/14 text-white shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/22"
+                }`}
                 aria-hidden
               >
                 {(() => {
@@ -289,7 +369,11 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         ) : null}
         {vm.participantsSummary ? (
-          <div className="absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full bg-black/30 px-3 py-1.5 sam-text-helper font-medium text-white/90 backdrop-blur-sm">
+          <div
+            className={`absolute left-4 top-[calc(env(safe-area-inset-top)+52px)] z-[3] rounded-full px-3 py-1.5 sam-text-helper font-medium backdrop-blur-sm ${
+              isStarbucks ? "bg-[#003D29]/45 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/18" : "bg-black/30 text-white/90"
+            }`}
+          >
             {vm.participantsSummary}
           </div>
         ) : null}
@@ -322,12 +406,16 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           }}
         >
           <div
-            className={`bg-gradient-to-t from-black/95 via-black/55 to-transparent px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
+            className={`${
+              isStarbucks
+                ? "bg-gradient-to-t from-[#003D29]/96 via-[#006241]/58 to-transparent"
+                : "bg-gradient-to-t from-black/95 via-black/55 to-transparent"
+            } px-3 ${actionBarPaddingTop} ${actionBarPaddingBottom}`}
           >
-            <CallActionBar actions={vm.primaryActions} />
+            <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
             {vm.secondaryActions?.length ? (
               <div className="mt-4">
-                <CallActionBar actions={vm.secondaryActions} compact />
+                <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
               </div>
             ) : null}
           </div>

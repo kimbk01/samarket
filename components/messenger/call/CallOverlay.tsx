@@ -70,6 +70,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
   const subStatusText = (baseSub + tail).trim() || null;
 
   const incomingVm: CallScreenViewModel = {
+    visualTheme: "starbucks",
     mode: session.callKind === "video" ? "video" : "voice",
     direction: "incoming",
     phase: "ringing",

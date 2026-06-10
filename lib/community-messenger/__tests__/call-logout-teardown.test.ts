@@ -4,6 +4,7 @@ const resetCall = vi.fn();
 const forceRelease = vi.fn();
 const cleanupMedia = vi.fn();
 const patchTerminal = vi.fn();
+const resetRuntimeSurface = vi.fn();
 
 vi.mock("@/lib/community-messenger/stores/useCallStore", () => ({
   useCallStore: {
@@ -25,6 +26,11 @@ vi.mock("@/lib/community-messenger/call-runtime-registry", () => ({
     cleanupMedia,
     patchTerminalBestEffort: patchTerminal,
   }),
+  resetCommunityMessengerCallRuntimeSurface: () => resetRuntimeSurface(),
+}));
+
+vi.mock("@/components/layout/providers/CommunityMessengerActiveCallHost", () => ({
+  notifyCommunityCallHostSync: vi.fn(),
 }));
 
 describe("teardownCommunityMessengerCallOnAuthExit", () => {
@@ -33,6 +39,7 @@ describe("teardownCommunityMessengerCallOnAuthExit", () => {
     forceRelease.mockReset();
     cleanupMedia.mockReset();
     patchTerminal.mockReset();
+    resetRuntimeSurface.mockReset();
     cleanupMedia.mockResolvedValue(undefined);
     patchTerminal.mockResolvedValue(undefined);
   });
@@ -44,6 +51,7 @@ describe("teardownCommunityMessengerCallOnAuthExit", () => {
     await teardownCommunityMessengerCallOnAuthExit("logout");
     expect(patchTerminal).toHaveBeenCalledWith("logout");
     expect(cleanupMedia).toHaveBeenCalled();
+    expect(resetRuntimeSurface).toHaveBeenCalled();
     expect(forceRelease).toHaveBeenCalled();
     expect(resetCall).toHaveBeenCalled();
   });

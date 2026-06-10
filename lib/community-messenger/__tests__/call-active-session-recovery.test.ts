@@ -3,6 +3,7 @@ import {
   isTerminalCallRecoveryStatus,
   resolveActiveCallRecoveryTarget,
   shouldSkipActiveCallRecoveryRouting,
+  writeTerminalCallRecoverySuppress,
   ACTIVE_CALL_RECOVERY_DEDUPE_MS,
   ACTIVE_CALL_RECOVERY_LOCK_KEY,
 } from "@/lib/community-messenger/call-active-session-recovery";
@@ -25,6 +26,29 @@ describe("call-active-session-recovery", () => {
       expect(isTerminalCallRecoveryStatus(status)).toBe(true);
       expect(resolveActiveCallRecoveryTarget({ id: "s1", status }, "/")).toBeNull();
     }
+  });
+
+  it("suppresses recovery after local terminal dismiss", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal(
+      "sessionStorage",
+      {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          store.set(k, v);
+        },
+        removeItem: (k: string) => {
+          store.delete(k);
+        },
+      }
+    );
+
+    expect(shouldSkipActiveCallRecoveryRouting("sess-ended")).toBe(false);
+    writeTerminalCallRecoverySuppress("sess-ended");
+    expect(shouldSkipActiveCallRecoveryRouting("sess-ended")).toBe(true);
+    expect(shouldSkipActiveCallRecoveryRouting("sess-other")).toBe(false);
+
+    vi.unstubAllGlobals();
   });
 
   it("dedupes cross-tab routing within short window", () => {

@@ -70,6 +70,8 @@ export type CallActionItem = {
 };
 
 export type CallScreenViewModel = {
+  /** 1:1 DiBaY 통화 전용 시각 테마. 그룹 통화 등 기존 사용처는 기본 테마 유지. */
+  visualTheme?: "starbucks";
   mode: CallMode;
   direction: CallDirection;
   phase: CallPhase;

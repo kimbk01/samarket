@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearAllCommunityCallLocalSessionFlags,
   isCallSessionHostedByActiveCallHost,
@@ -7,9 +7,32 @@ import {
   writeMinimizedCommunityCallSession,
 } from "@/lib/community-messenger/direct-call-minimize";
 
+function createSessionStorageStub(): Storage {
+  const store = new Map<string, string>();
+  return {
+    get length() {
+      return store.size;
+    },
+    clear: () => store.clear(),
+    getItem: (key: string) => store.get(key) ?? null,
+    key: (index: number) => [...store.keys()][index] ?? null,
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+  };
+}
+
 describe("direct-call-minimize host ownership", () => {
+  beforeEach(() => {
+    vi.stubGlobal("sessionStorage", createSessionStorageStub());
+  });
+
   afterEach(() => {
     clearAllCommunityCallLocalSessionFlags();
+    vi.unstubAllGlobals();
   });
 
   it("isCommunityMessengerDedicatedCallSessionPath matches calls route session id", () => {

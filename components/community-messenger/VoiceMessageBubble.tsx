@@ -26,9 +26,38 @@ function formatVoiceDuration(totalSec: number): string {
 const PLAYBACK_RATES = [1, 1.5, 2] as const;
 
 const PLACEHOLDER_BARS = 40;
+const BUFFER_DOTS = 12;
 
 function placeholderPeaks(): number[] {
   return Array.from({ length: PLACEHOLDER_BARS }, () => 0.12);
+}
+
+function VoicePendingSpinner({ light, label }: { light: boolean; label: string }) {
+  return (
+    <span
+      className="relative block h-5 w-5"
+      role="status"
+      aria-label={label}
+    >
+      {Array.from({ length: BUFFER_DOTS }, (_, i) => {
+        const deg = (i * 360) / BUFFER_DOTS;
+        const delayMs = (i * 85).toFixed(0);
+        return (
+          <span
+            key={i}
+            className={`absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full ${
+              light ? "bg-white" : "bg-sam-muted"
+            }`}
+            style={{
+              transform: `rotate(${deg}deg) translateY(-8px) scale(0.55)`,
+              animationDelay: `${delayMs}ms`,
+            }}
+            aria-hidden
+          />
+        );
+      })}
+    </span>
+  );
 }
 
 export function VoiceMessageBubble({
@@ -247,7 +276,7 @@ export function VoiceMessageBubble({
         <button
           type="button"
           onClick={toggle}
-          disabled={loadError || playbackBlocked}
+          disabled={pending || loadError || playbackBlocked}
           className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
             isMine
               ? mineLight
@@ -257,7 +286,9 @@ export function VoiceMessageBubble({
           }`}
           aria-label={playing ? t("common_pause") : t("common_play")}
         >
-          {playing ? (
+          {pending ? (
+            <VoicePendingSpinner light={isMine} label={t("chats_spinner_loading_aria")} />
+          ) : playing ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="5" width="4" height="14" rx="1" />
               <rect x="14" y="5" width="4" height="14" rx="1" />
@@ -350,14 +381,9 @@ export function VoiceMessageBubble({
           <source src={safePlaybackSrc} type={sourceType} />
         </audio>
       ) : null}
-      {loadError || playbackBlocked ? (
+      {!pending && (loadError || playbackBlocked) ? (
         <span className={`sam-text-xxs ${isMine ? (mineLight ? "text-red-600" : "text-white/85") : "text-red-600"}`}>
           {t("nav_messenger_voice_upload_failed")}
-        </span>
-      ) : null}
-      {pending ? (
-        <span className={`sam-text-xxs ${isMine ? (mineLight ? "text-sam-muted" : "text-white/80") : "text-sam-muted"}`}>
-          {t("common_sending")}
         </span>
       ) : null}
     </div>

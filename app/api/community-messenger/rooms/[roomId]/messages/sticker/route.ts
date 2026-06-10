@@ -57,5 +57,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ roo
       messageForBump: result.message ?? null,
     });
   }
-  return result.ok ? jsonOk(result) : jsonError(result.error ?? "스티커를 보내지 못했습니다.", 400, result);
+  const errorCode = result.error ?? "message_send_failed";
+  return result.ok ? jsonOk(result) : jsonError(errorCode, { status: 400, code: errorCode }, result);
 }

@@ -12,6 +12,7 @@ import { useCallTimer } from "./useCallTimer";
  * (수신 ringing 은 수락·거절 레이아웃이 달라 IncomingCallView 유지)
  */
 export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
+  const isStarbucks = vm.visualTheme === "starbucks";
   const timer = useCallTimer({
     connectedAt: vm.connectedAt,
     endedAt: vm.endedAt,
@@ -22,7 +23,12 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
     <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-end px-5 pb-[max(14px,calc(env(safe-area-inset-bottom)+8px))] pt-4">
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center">
-          <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse={vm.phase === "ringing"} />
+          <CallAvatar
+            label={vm.peerLabel}
+            avatarUrl={vm.peerAvatarUrl}
+            pulse={vm.phase === "ringing"}
+            theme={vm.visualTheme}
+          />
           <div className="mt-8">
             <CallStatusText
               title={vm.peerLabel}
@@ -33,11 +39,17 @@ export function VoiceCallView({ vm }: { vm: CallScreenViewModel }) {
           </div>
         </div>
       </div>
-      <div className="rounded-t-3xl bg-gradient-to-t from-[#170d32]/82 via-[#2b1858]/38 to-transparent px-1 pt-12 pb-1">
-        <CallActionBar actions={vm.primaryActions} />
+      <div
+        className={`rounded-t-3xl px-1 pt-12 pb-1 ${
+          isStarbucks
+            ? "bg-gradient-to-t from-[#003D29]/88 via-[#006241]/42 to-transparent"
+            : "bg-gradient-to-t from-[#170d32]/82 via-[#2b1858]/38 to-transparent"
+        }`}
+      >
+        <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
         {vm.secondaryActions?.length ? (
           <div className="mt-4">
-            <CallActionBar actions={vm.secondaryActions} compact />
+            <CallActionBar actions={vm.secondaryActions} compact theme={vm.visualTheme} />
           </div>
         ) : null}
       </div>

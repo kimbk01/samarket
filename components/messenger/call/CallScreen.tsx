@@ -14,6 +14,8 @@ import type { CallScreenViewModel } from "./call-ui.types";
 /** 음성 발신 벨 — `OutgoingCallView` 와 동일, 셸 전체 배경용 */
 const OUTGOING_VOICE_RING_SURFACE =
   "bg-[linear-gradient(180deg,#6b3df1_0%,#5a35d8_28%,#3d2699_55%,#2a1a6e_100%)]";
+const STARBUCKS_CALL_SURFACE =
+  "bg-[radial-gradient(circle_at_50%_0%,rgba(212,233,226,0.24),transparent_34%),linear-gradient(180deg,#00754A_0%,#006241_44%,#003D29_100%)]";
 
 export function CallScreen({
   vm,
@@ -37,10 +39,13 @@ export function CallScreen({
   /** 음성 수신 벨만 텔레그램형 단색 셸 — 영상 수신 링은 발신과 동일 풀스크린(`ConnectedVideoView`) */
   const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video";
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
+  const useStarbucksTheme = vm.visualTheme === "starbucks";
   const telegramCallSurface = "bg-[#8B5E2E]";
   const useTelegramSolidShell = isIncomingRinging;
   const useOutgoingVoiceRingShell = isOutgoingVoiceRinging;
-  const shellSurfaceClassName = useTelegramSolidShell
+  const shellSurfaceClassName = useStarbucksTheme
+    ? STARBUCKS_CALL_SURFACE
+    : useTelegramSolidShell
     ? telegramCallSurface
     : useOutgoingVoiceRingShell
       ? OUTGOING_VOICE_RING_SURFACE
@@ -73,6 +78,7 @@ export function CallScreen({
         <CallBackground
           mode={vm.mode}
           phase={vm.phase}
+          theme={vm.visualTheme}
           videoSlot={vm.mainVideoSlot}
           showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
         />

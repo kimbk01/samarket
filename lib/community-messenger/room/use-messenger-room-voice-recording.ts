@@ -58,7 +58,6 @@ export function useMessengerRoomVoiceRecording({
   busy,
   pendingMessageIdRef,
   getRoomActionErrorMessage,
-  setBusy,
   setRoomMessages,
   scrollMessengerToBottom,
   onOutboundMessageConfirmed,
@@ -180,22 +179,13 @@ export function useMessengerRoomVoiceRecording({
         return;
       }
 
-      const measuredSeconds = await measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout(blob);
-      const durationSeconds =
-        measuredSeconds != null &&
-        Number.isFinite(measuredSeconds) &&
-        measuredSeconds > 0.04 &&
-        Math.abs(measuredSeconds - wallDurationSeconds) < 25
-          ? measuredSeconds
-          : wallDurationSeconds;
-
-      if (durationSeconds < 0.32) {
+      if (wallDurationSeconds < 0.32) {
         voiceFinalizingRef.current = false;
         showMessengerSnackbar("녹음이 너무 짧습니다.", { variant: "error" });
         return;
       }
 
-      const roundedDur = Math.max(1, Math.min(600, Math.round(durationSeconds)));
+      const roundedDur = Math.max(1, Math.min(600, Math.round(wallDurationSeconds)));
       const blobUrl = URL.createObjectURL(blob);
       const tempId = `pending:${apiRoom}:voice:${pendingMessageIdRef.current++}`;
       setRoomMessages((prev) => {
@@ -218,12 +208,26 @@ export function useMessengerRoomVoiceRecording({
         return mergeRoomMessages(prev, [optimisticMessage]);
       });
       scrollMessengerToBottom();
-      setBusy("send-voice");
+      voiceFinalizingRef.current = false;
       try {
+        const measuredSeconds = await measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout(blob);
+        const durationSeconds =
+          measuredSeconds != null &&
+          Number.isFinite(measuredSeconds) &&
+          measuredSeconds > 0.04 &&
+          Math.abs(measuredSeconds - wallDurationSeconds) < 25
+            ? measuredSeconds
+            : wallDurationSeconds;
+        const uploadDurationSeconds = Math.max(1, Math.min(600, Math.round(durationSeconds)));
+        if (uploadDurationSeconds !== roundedDur) {
+          setRoomMessages((prev) =>
+            prev.map((item) => (item.id === tempId ? { ...item, voiceDurationSeconds: uploadDurationSeconds } : item))
+          );
+        }
         const form = new FormData();
         const fileForUpload = new File([blob], `voice.${ext}`, { type: blobMime });
         form.append("file", fileForUpload);
-        form.append("durationSeconds", String(roundedDur));
+        form.append("durationSeconds", String(uploadDurationSeconds));
         if (waveformPeaks.length > 0) {
           form.append("waveformPeaks", JSON.stringify(waveformPeaks));
         }
@@ -235,6 +239,7 @@ export function useMessengerRoomVoiceRecording({
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
+          code?: string;
           message?: CommunityMessengerMessage;
         };
         if (res.ok && json.ok) {
@@ -265,7 +270,6 @@ export function useMessengerRoomVoiceRecording({
         URL.revokeObjectURL(blobUrl);
         setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
       } finally {
-        setBusy(null);
         voiceFinalizingRef.current = false;
       }
     },
@@ -320,7 +324,6 @@ export function useMessengerRoomVoiceRecording({
         roomUnavailable ||
         !snapshot ||
         message.trim() ||
-        busy === "send-voice" ||
         busy === "delete-message"
       )
         return;

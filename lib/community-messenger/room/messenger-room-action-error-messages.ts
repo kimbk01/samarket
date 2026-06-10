@@ -116,6 +116,10 @@ export function getMessengerRoomActionErrorMessage(
     case "upload_failed":
     case "server_config":
       return t("nav_messenger_voice_upload_failed");
+    case "message_send_failed":
+    case "unread_update_failed":
+    case "community_messenger_sticker_rate_limited":
+      return t("nav_messenger_action_failed");
     case "not_found":
       return t("nav_messenger_message_not_found");
     case "reply_target_not_found":

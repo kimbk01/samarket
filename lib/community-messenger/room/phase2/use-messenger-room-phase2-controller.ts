@@ -875,6 +875,7 @@ export function useMessengerRoomPhase2Controller() {
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           error?: string;
+          code?: string;
           message?: CommunityMessengerMessage;
         };
         if (!res.ok || !json.ok || !json.message?.id) {
@@ -1010,7 +1011,7 @@ export function useMessengerRoomPhase2Controller() {
           onMessengerOutboundConfirmed(confirmedSticker, clientMessageId);
           return;
         }
-        setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
+        setRoomMessages((prev) => prev.map((item) => (item.id === tempId ? { ...item, pending: false } : item)));
         void refresh(true);
         forgetRoomBootstrapClientFlightsAfterMutation();
       } finally {

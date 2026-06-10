@@ -19,6 +19,7 @@ export type MiniLocalVideoProps = {
   micMuted?: boolean;
   cameraOff?: boolean;
   onExpand?: () => void;
+  theme?: "starbucks";
   onPointerDown?: PointerEventHandler<HTMLDivElement>;
   onPointerMove?: PointerEventHandler<HTMLDivElement>;
   onPointerUp?: PointerEventHandler<HTMLDivElement>;
@@ -40,6 +41,7 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
     className = "",
     micMuted = false,
     onExpand,
+    theme,
     onPointerDown,
     onPointerMove,
     onPointerUp,
@@ -59,12 +61,17 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
     ...(heightPx != null ? { height: heightPx } : {}),
     ...style,
   };
+  const isStarbucks = theme === "starbucks";
 
   return (
     <div
       ref={ref}
       style={sizeStyle}
-      className={`touch-none select-none overflow-hidden rounded-[16px] border border-white/25 bg-black shadow-[0_8px_28px_rgba(0,0,0,0.4)] ${positionClass} ${
+      className={`touch-none select-none overflow-hidden rounded-[16px] border ${
+        isStarbucks
+          ? "border-[#D4E9E2]/38 bg-[#003D29] shadow-[0_8px_28px_rgba(0,61,41,0.38)]"
+          : "border-white/25 bg-black shadow-[0_8px_28px_rgba(0,0,0,0.4)]"
+      } ${positionClass} ${
         onPointerDown ? "pointer-events-auto cursor-grab active:cursor-grabbing" : ""
       } ${className}`.trim()}
       onPointerDown={onPointerDown}
@@ -80,11 +87,19 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
       }
     >
       <div className="pointer-events-none absolute inset-0">{children}</div>
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.35)_0%,transparent_28%,transparent_62%,rgba(0,0,0,0.45)_100%)]" />
+      <div
+        className={
+          isStarbucks
+            ? "pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,61,41,0.32)_0%,transparent_28%,transparent_62%,rgba(0,61,41,0.48)_100%)]"
+            : "pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.35)_0%,transparent_28%,transparent_62%,rgba(0,0,0,0.45)_100%)]"
+        }
+      />
 
       {micMuted ? (
         <div
-          className="pointer-events-none absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white"
+          className={`pointer-events-none absolute left-1 top-1 flex h-5 w-5 items-center justify-center rounded-full ${
+            isStarbucks ? "bg-[#003D29]/65 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/20" : "bg-black/55 text-white"
+          }`}
           aria-hidden
         >
           <MicOff size={11} strokeWidth={2.25} />
@@ -92,7 +107,11 @@ const MiniLocalVideoInner = forwardRef<HTMLDivElement, MiniLocalVideoProps>(func
       ) : null}
 
       {label ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 pb-1.5 pt-4 text-center sam-text-xxs font-medium text-white/92">
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 px-2 pb-1.5 pt-4 text-center sam-text-xxs font-medium ${
+            isStarbucks ? "text-[#F1F8F4]" : "text-white/92"
+          }`}
+        >
           {label}
         </div>
       ) : null}

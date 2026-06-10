@@ -8,6 +8,7 @@ import { CallStatusText } from "./CallStatusText";
 import { useCallTimer } from "./useCallTimer";
 
 export function EndedCallView({ vm }: { vm: CallScreenViewModel }) {
+  const isStarbucks = vm.visualTheme === "starbucks";
   const timer = useCallTimer({
     connectedAt: vm.connectedAt,
     endedAt: vm.endedAt,
@@ -22,7 +23,11 @@ export function EndedCallView({ vm }: { vm: CallScreenViewModel }) {
           <button
             type="button"
             onClick={close.onClick}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-[#2e1a5d]/52 text-white/92 backdrop-blur-sm transition active:scale-[0.96]"
+            className={`flex h-11 w-11 items-center justify-center rounded-full backdrop-blur-sm transition active:scale-[0.96] ${
+              isStarbucks
+                ? "bg-[#D4E9E2]/18 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/24"
+                : "bg-[#2e1a5d]/52 text-white/92"
+            }`}
             aria-label={close.label}
           >
             <X size={22} strokeWidth={2.4} />
@@ -31,14 +36,14 @@ export function EndedCallView({ vm }: { vm: CallScreenViewModel }) {
       ) : null}
       <div className="flex flex-1 items-center justify-center">
         <div className="flex flex-col items-center">
-          <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} />
+          <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} theme={vm.visualTheme} />
           <div className="mt-8">
             <CallStatusText title={vm.peerLabel} status={vm.statusText} timer={timer} detail={vm.subStatusText ?? vm.footerNote ?? null} />
           </div>
         </div>
       </div>
       <div className="space-y-6">
-        <CallActionBar actions={vm.primaryActions} />
+        <CallActionBar actions={vm.primaryActions} theme={vm.visualTheme} />
       </div>
     </div>
   );

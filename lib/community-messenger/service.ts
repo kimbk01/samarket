@@ -15379,10 +15379,21 @@ export async function sendCommunityMessengerStickerMessage(input: {
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
 
-    const stickerTradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+    let stickerTradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
       viewerUserId: input.userId,
       messengerRoomId: roomId,
     });
+    if (!stickerTradeGuard.ok && stickerTradeGuard.error === "trade_product_chat_unlinked") {
+      const { reconcileMessengerTradeRoomLinkOnSend } = await import(
+        "@/lib/trade/reconcile-messenger-trade-room-link-on-send"
+      );
+      if (await reconcileMessengerTradeRoomLinkOnSend(sb as never, roomId)) {
+        stickerTradeGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+          viewerUserId: input.userId,
+          messengerRoomId: roomId,
+        });
+      }
+    }
     if (!stickerTradeGuard.ok) {
       return { ok: false, error: stickerTradeGuard.error };
     }
@@ -15445,9 +15456,6 @@ export async function sendCommunityMessengerStickerMessage(input: {
         p_sender_id: input.userId,
         p_read_at: createdAt,
       });
-      if (unreadRpcError) {
-        return { ok: false, error: String(unreadRpcError.message ?? "unread_update_failed") };
-      }
       const { data: recipientRows } = await (sb as any)
         .from("community_messenger_participants")
         .select("user_id")
@@ -15462,7 +15470,9 @@ export async function sendCommunityMessengerStickerMessage(input: {
         preview: cmLastPreviewSticker(),
         recipientUserIds,
       }).catch(() => {});
-      invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
+      if (!unreadRpcError) {
+        invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
+      }
       return {
         ok: true,
         message: {
