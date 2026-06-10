@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (체크시트 메신저 승인 · MP-AUDIT-11 call smoke) |
+| Last updated | 2026-06-10 (parity-gates·build PASS) |
 | Owner | (선택) |
 
 ---
@@ -149,6 +149,7 @@
 | 이번 조치 | `community-messenger-call-smoke.spec.ts` — login → route mock → goto·reload 순서 |
 | 체크시트 | 메신저 §2 **5/5 `[x]`** — **2026-06-10 제품 승인** |
 | 재측정 | call smoke **3/3×3 passed** |
+| 후속 | `npm run verify:parity-gates` **PASS** · `npm run build` **PASS** (2026-06-10) |
 | 판정 | **성공** |
 
 ---
