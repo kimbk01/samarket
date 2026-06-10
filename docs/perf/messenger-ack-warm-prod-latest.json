@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-06-10T09:30:57.534Z",
+  "measured_at": "2026-06-10T09:36:44.605Z",
   "base_url": "https://samarket.vercel.app",
   "cycles": 3,
   "sends_per_cycle": 3,
@@ -11,24 +11,24 @@
   },
   "warm_ack_ms": {
     "count": 6,
-    "min": 189,
-    "max": 1295,
-    "avg": 451,
-    "p95": 1295
+    "min": 247,
+    "max": 354,
+    "avg": 288,
+    "p95": 354
   },
   "warm_server_route_ms": {
     "count": 6,
-    "min": 37,
-    "max": 1138,
-    "avg": 268,
-    "p95": 1138
+    "min": 45,
+    "max": 196,
+    "avg": 105,
+    "p95": 196
   },
   "warm_server_handler_ms": {
     "count": 6,
-    "min": 31,
-    "max": 1138,
-    "avg": 249,
-    "p95": 1138
+    "min": 42,
+    "max": 196,
+    "avg": 87,
+    "p95": 196
   },
   "cycles_detail": [
     {
@@ -37,32 +37,32 @@
       "sends": [
         {
           "send_index": 1,
-          "ack_ms": 242,
+          "ack_ms": 229,
           "status": 200,
-          "server_route_ms": 69,
-          "server_handler_ms": 30,
-          "server_gate_ms": 39
+          "server_route_ms": 79,
+          "server_handler_ms": 36,
+          "server_gate_ms": 43
         },
         {
           "send_index": 2,
-          "ack_ms": 1295,
+          "ack_ms": 266,
           "status": 200,
-          "server_route_ms": 1138,
-          "server_handler_ms": 1138,
-          "server_gate_ms": 1
+          "server_route_ms": 111,
+          "server_handler_ms": 42,
+          "server_gate_ms": 69
         },
         {
           "send_index": 3,
-          "ack_ms": 274,
+          "ack_ms": 333,
           "status": 200,
-          "server_route_ms": 128,
-          "server_handler_ms": 127,
+          "server_route_ms": 196,
+          "server_handler_ms": 196,
           "server_gate_ms": 1
         }
       ],
       "warm_ack_ms": [
-        1295,
-        274
+        266,
+        333
       ]
     },
     {
@@ -71,32 +71,32 @@
       "sends": [
         {
           "send_index": 1,
-          "ack_ms": 241,
+          "ack_ms": 312,
           "status": 200,
-          "server_route_ms": 86,
-          "server_handler_ms": 40,
-          "server_gate_ms": 46
+          "server_route_ms": 76,
+          "server_handler_ms": 30,
+          "server_gate_ms": 45
         },
         {
           "send_index": 2,
-          "ack_ms": 321,
+          "ack_ms": 247,
           "status": 200,
-          "server_route_ms": 84,
-          "server_handler_ms": 31,
-          "server_gate_ms": 53
+          "server_route_ms": 96,
+          "server_handler_ms": 95,
+          "server_gate_ms": 1
         },
         {
           "send_index": 3,
-          "ack_ms": 300,
+          "ack_ms": 259,
           "status": 200,
-          "server_route_ms": 99,
-          "server_handler_ms": 98,
+          "server_route_ms": 63,
+          "server_handler_ms": 62,
           "server_gate_ms": 1
         }
       ],
       "warm_ack_ms": [
-        321,
-        300
+        247,
+        259
       ]
     },
     {
@@ -105,32 +105,32 @@
       "sends": [
         {
           "send_index": 1,
-          "ack_ms": 235,
+          "ack_ms": 229,
           "status": 200,
-          "server_route_ms": 71,
-          "server_handler_ms": 31,
-          "server_gate_ms": 40
+          "server_route_ms": 76,
+          "server_handler_ms": 33,
+          "server_gate_ms": 43
         },
         {
           "send_index": 2,
-          "ack_ms": 189,
+          "ack_ms": 266,
           "status": 200,
-          "server_route_ms": 37,
-          "server_handler_ms": 37,
+          "server_route_ms": 45,
+          "server_handler_ms": 44,
           "server_gate_ms": 1
         },
         {
           "send_index": 3,
-          "ack_ms": 324,
+          "ack_ms": 354,
           "status": 200,
-          "server_route_ms": 120,
-          "server_handler_ms": 60,
-          "server_gate_ms": 60
+          "server_route_ms": 119,
+          "server_handler_ms": 83,
+          "server_gate_ms": 36
         }
       ],
       "warm_ack_ms": [
-        189,
-        324
+        266,
+        354
       ]
     }
   ],

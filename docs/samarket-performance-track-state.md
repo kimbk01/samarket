@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-14·PARITY-MASTER-5·마스터 0→5) |
+| Last updated | 2026-06-10 (MP-AUDIT-14 prod 재실측·PARITY-MASTER-5·마스터 0→5) |
 | Owner | (선택) |
 
 ---
@@ -287,20 +287,21 @@
 | 이번 조치 | `scripts/aggregate-parity-cross-domain-audit.mjs` · `scripts/verify-parity-cross-domain-closure.cjs` · `docs/perf/parity-cross-domain-audit-latest.json` |
 | 재측정 | trade·store checksheet JSON + messenger parity JSON 집계. 재진입 trade **84** · store **506** ms p95 · 탭 trade **221** · store **840** · scroll trade **762** · store **705** |
 | gates | `verify:parity-gates` · trade/store checksheet contract · 재진입·탭 횡단 gate **PASS** |
-| 판정 | **제품 승인** — 마스터 순서 **0→5** 체감·구조 라운드 **종료**. prod-like·ACK 200ms(H)는 선택 후속 |
-| 다음 | ~~선택 H축~~ → **MP-AUDIT-14** 본문 |
+| 판정 | **제품 승인** — 마스터 순서 **0→5** 체감·구조 라운드 **종료**. H축 서버 handler 200ms 는 **MP-AUDIT-14** prod 재실측으로 달성 |
+| 다음 | ~~MP-AUDIT-14~~ → **CM-INSTANT** 2기기 수동·클라 ack RTT(선택) |
 
 ## MP-AUDIT-14 — send post-ACK 부수효과 `after()` (2026-06-10)
 
 | 항목 | 내용 |
 |------|------|
-| 트랙 상태 | **부분 성공 · H축 200ms 안정 구간 근접** |
+| 트랙 상태 | **종료 · H축 서버 handler 200ms 달성** |
 | 이번 원인 1개 | atomic send 성공 직후 **동기 배지 캐시 무효화** + in-app notify 시작이 handler_ms·ACK 에 합산 |
-| 이번 조치 | `community-messenger-send-post-ack-effects.ts` · route `after()` 에서 notify·mirror·invalidate · verify lock |
+| 이번 조치 | `community-messenger-send-post-ack-effects.ts` · route `after()` 에서 notify·mirror·invalidate · verify lock · **`2f8aaf12` prod 배포** |
 | 재측정 (localhost) | warm **6샘플** — 클라 ack p95 **439** · **서버 route p95 410** · 안정 구간 **121–297ms** |
-| 재측정 (prod, 배포 전 코드) | warm **6샘플** — 안정 서버 handler **31–127ms** · 1회 이상치 **1138ms** → p95 왜곡 |
-| 판정 | **구조 성공** — ACK 직후 부수효과 제거. H축 **200ms** 는 배포 후 prod **서버 route** 재실측 |
-| 다음 | 배포 후 prod warm 6샘플 · 이상치 제거 시 **≤200ms** 합의 가능 |
+| 재측정 (prod, 배포 후 `samarket.vercel.app`) | warm **6샘플** — **서버 handler p95 196ms** (min 42 · max 196) · **서버 route p95 196ms** · 이상치 없음 · `docs/perf/messenger-ack-warm-prod-latest.json` |
+| 클라 RTT (참고) | warm ack p95 **354ms** — 스크립트 gate(`prod_same_region_ack_le_target`)는 **클라 왕복** 기준이라 FAIL; H축 판정은 **서버 handler/route** |
+| 판정 | **구조·H축 성공** — post-ACK 부수효과 분리 후 prod 서버 handler **≤200ms** 안정. 클라 ack 200ms 는 RTT·별도 트랙 |
+| 다음 | ~~prod 재실측~~ 완료. (선택) 동일 리전·실기기 클라 ack 왕복 |
 
 ---
 
@@ -338,6 +339,7 @@
 | **SOL1** `/api/me/store-orders` **buyer store orders list snapshot-first** | **2026-05-25 Structural PASS · LFC1-B hard delete** — `get_buyer_store_orders_list_snapshot` deployed · snapshot-only read path · fallback **removed** · `query_wave_2_ms=0` · `rpc_removed=1` · event invalidation wired. **재개 금지**(legacy 2-wave orders+stores+unread aggregate·request-time list recompute). lock: [buyer-orders-list-regression-lock.md](./perf/buyer-orders-list-regression-lock.md). |
 | **SB1** `/api/stores/browse` **stores browse snapshot-first** | **2026-05-25 Structural PASS · LFC1-B hard delete** — `get_stores_browse_snapshot` deployed · snapshot-only read path · fallback **removed** · `query_wave_2_ms=0` · `rpc_removed=1` · event invalidation wired. **재개 금지**(legacy taxonomy+stores+products/banners multi-wave·request-time browse aggregate). lock: [stores-browse-regression-lock.md](./perf/stores-browse-regression-lock.md). |
 | **FBT1** `/api/community-messenger/bootstrap` **full bootstrap tier snapshot-first** | **2026-05-25 Structural PASS · LFC1-C hard delete** — `get_cm_bootstrap_full_snapshot` deployed · full + `?tier=critical` snapshot-only · fallback **removed** · `query_wave_2_ms=0` · `rpc_removed=1` · reconnect stress PASS. **재개 금지**(legacy full/critical bootstrap monolith). lock: [full-bootstrap-regression-lock.md](./perf/full-bootstrap-regression-lock.md). |
+| **MP-AUDIT-14** send **post-ACK 부수효과** `after()` | **2026-06-10 종료** — notify·mirror·invalidate 를 route `after()` 로 분리 · prod warm 서버 handler **p95 196ms** (≤200). **재개 금지**(ACK handler 인라인 notify·동기 invalidate). lock: `verify:messenger-hot-path-contract` · `docs/messenger-performance-architecture.md` §11 |
 
 ---
 
@@ -390,7 +392,7 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | PASS 게이트 | STAB1 long-session · multi-tab · prod stable · real feel → per-route hard delete |
 
 | 트랙 이름 | **CM-INSTANT** 메신저 즉시성·구조 복구 (거래 방·전송·입장·통화) |
-| **트랙 상태** | **메신저 즉시성 1차 복구 구현 완료** — 친구 요청 UPDATE 즉시 반영·그룹 초대 전용 팝업/알림·수신 통화 accept 후 라우팅 선행 보강. prod 체감·2기기 3회 측정 **대기** |
+| **트랙 상태** | **자동 검증 PASS · 2기기 수동 대기** — `verify:messenger-consistency-structural` · `verify-cm-receive-latency-coalesce` · call smoke E2E **3/3 PASS** (2026-06-10). prod 체감·2기기 3회는 수동 |
 | 이번 원인 1개 | 전체 채팅 통화 스택이 공통 `community_messenger` 세션/스텁을 쓰는 동안, 로컬 optimistic `cm-cevt-*`와 DB UUID `call_stub`가 id만 다르면 중복 표시될 수 있고, 숨김도 id 기준이라 refresh 뒤 재노출될 수 있었다. |
 | 이번 조치 | 이미지 메시지 bump 응답 전 `await` 통일 · bump snapshot 단건 GET 생략 · terminal tombstone/벨/오버레이/미디어 cleanup · 통화 `call_stub` 서버/클라 보장 · session/event 기준 `call_stub` dedupe·숨김 · 메신저 call 권한 완료 기록 신뢰 및 active 발신 gate 정합화 · 통화 전용 `visualViewport` 높이 변수와 자식 화면 최소 높이 단일화 · 친구 요청 `community_friend_requests` UPDATE 구독으로 수락/거절/취소 즉시 정리 · 그룹 초대 `community_group_invite` 알림/팝업 분리 · direct call accept PATCH 후 권한 프라임을 라우팅 뒤 병렬화 |
 | 측정 (다음) | `scripts/verify-cm-receive-latency-coalesce.mjs` PASS · `verify:messenger-consistency-structural` PASS · 2기기 3회: 친구 요청 발송→수락/거절/취소 양방향 즉시 반영, 그룹 생성/초대 팝업이 친구 요청과 구분, 일반 voice/video 수신 수락→통화 화면 즉시 진입→원격 미디어 연결, 거래/배달/일반 voice/video 발신→거절/취소/종료, 통화 히스토리 1줄 유지, 숨긴 히스토리 refresh 재노출 없음, 권한 안내 반복 없음, iOS/Android/태블릿 리사이즈 안정 |

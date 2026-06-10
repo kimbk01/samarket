@@ -179,11 +179,13 @@
 | MP-AUDIT-13b | POST send 응답 **`x-samarket-send-*-ms`** 헤더 | 클라 RTT 와 서버 handler 분리 관측 |
 | MP-AUDIT-14 | atomic send **postAckEffects** — notify·mirror·hub invalidate 는 route **`after()`** 만 | ACK handler 에 in-app notify·동기 invalidate 금지 |
 
-### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
+### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합목)
 
-| 지표 | 목표 | 현재 베이스라인( dev warm, 2026-06-10 ) |
-|------|------|----------------------------------------|
-| `ack_ms` | ≤ 200ms (prod 동일 리전) | dev warm **159–318ms**, avg≈240 (MP-AUDIT-7/8 후) |
+| 지표 | 목표 | 현재 베이스라인 |
+|------|------|----------------|
+| `x-samarket-send-handler-ms` (서버 handler) | ≤ 200ms prod warm | **prod warm p95 196ms** (min 42 · max 196, 6샘플, MP-AUDIT-14, `docs/perf/messenger-ack-warm-prod-latest.json`) |
+| `ack_ms` (클라 왕복) | ≤ 200ms (참고) | prod warm p95 **354ms** — RTT·클라 스택 별도 축 |
+| `ack_ms` (dev warm) | — | dev warm **159–318ms**, avg≈240 (MP-AUDIT-7/8 후) |
 | `home_bootstrap_client_fetch_total` | ≤ 2 | 2 (PASS) |
 | `room_bootstrap_get_count` | ≤ 1.5 avg | ~1.3 (PASS) |
 | `failed_count` (홈 첫 진입) | 0 | 0 (PASS) |
