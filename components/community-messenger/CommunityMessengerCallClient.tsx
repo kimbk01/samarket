@@ -3359,6 +3359,121 @@ export function CommunityMessengerCallClient({
     doubleTapAction: presentation === "minimized" ? "fullscreen" : "swap",
   });
 
+  /**
+   * 조건부 return(loading·!session) 위에 유지 — 아래로 내리면 첫 페인트에서 훅 개수가 달라져 런타임 오류.
+   */
+  const preJoinVideoPreviewStream = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const peek = peekPrimedCommunityMessengerDeviceStream("video");
+    if (peek) {
+      heldPreJoinVideoPreviewRef.current = peek;
+    }
+    const resolved = resolvePreJoinVideoPreviewStream({
+      session,
+      localVideoPlaying: localVideoReady,
+      peekStream: peek,
+      heldStream: heldPreJoinVideoPreviewRef.current,
+    });
+    if (!resolved) {
+      heldPreJoinVideoPreviewRef.current = null;
+    }
+    return resolved;
+  }, [
+    joined,
+    localVideoReady,
+    session,
+    session?.callKind,
+    session?.id,
+    session?.isMineInitiator,
+    session?.status,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!preJoinVideoPreviewStream || localVideoReady) {
+      detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
+      return;
+    }
+    const el = ringPreviewVideoRef.current;
+    if (!el) return;
+    void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream);
+    return () => {
+      if (!localVideoReady) return;
+      detachPreJoinHtmlVideo(el);
+    };
+  }, [localVideoReady, preJoinVideoPreviewStream]);
+
+  useEffect(() => {
+    if (!localVideoReady) return;
+    heldPreJoinVideoPreviewRef.current = null;
+    if (ringPreviewVideoRef.current) {
+      try {
+        ringPreviewVideoRef.current.srcObject = null;
+      } catch {
+        /* noop */
+      }
+    }
+  }, [localVideoReady]);
+
+  const selfAvatarUrlForPip = useMemo(
+    () =>
+      peekMessengerBootstrapFull()?.me?.avatarUrl ?? peekMessengerBootstrapCritical()?.me?.avatarUrl ?? null,
+    []
+  );
+
+  const pipShellMountedForSync = shouldMountLocalVideoPipShell({
+    videoCall: session?.callKind === "video",
+    sessionStatus: session?.status,
+    joined,
+  });
+
+  const miniVideoSlotEl = useMemo(
+    () =>
+      session?.callKind === "video" ? (
+        <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
+          <div ref={smallVideoRef} className="h-full w-full" />
+          {camOff ? (
+            <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
+              <SamarketUserAvatarThumb
+                avatarUrl={selfAvatarUrlForPip}
+                size={40}
+                roundedClassName="rounded-full"
+                className="ring-1 ring-[#D4E9E2]/28"
+              />
+              <VideoOff size={14} strokeWidth={2.25} className="text-[#F1F8F4]/90" aria-hidden />
+            </div>
+          ) : null}
+        </div>
+      ) : undefined,
+    [camOff, selfAvatarUrlForPip, session?.callKind]
+  );
+
+  useLayoutEffect(() => {
+    const livePresentation =
+      presentation === "minimized"
+        ? "minimized"
+        : joined && session?.callKind === "video" && session.status === "active"
+          ? "fullscreen"
+          : "idle";
+    syncCommunityMessengerCallRuntimeSurface({
+      presentation: livePresentation,
+      videoPipLayout: pipShellMountedForSync ? videoPipGesture : null,
+      miniVideoSlot: miniVideoSlotEl ?? null,
+      expandToFullscreen: handleExpandToFullscreen,
+      minimizeToPip: handleMinimizeToPip,
+    });
+  }, [
+    camOff,
+    handleExpandToFullscreen,
+    handleMinimizeToPip,
+    joined,
+    miniVideoSlotEl,
+    pipShellMountedForSync,
+    presentation,
+    session?.callKind,
+    session?.status,
+    videoPipGesture,
+  ]);
+
   if (loading && !session) {
     /** 시드 없이 진입한 짧은 구간 — 보라 플레이스홀더(`RouteLoading`)는 실제 통화 UI 와 겹쳐 보여 동일 껍데기로만 표시 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
@@ -3817,112 +3932,6 @@ export function CommunityMessengerCallClient({
     joined,
     localVideoReady,
   });
-
-  /**
-   * 영상 조인 전 로컬 미리보기 — `ringing`→`active`·Agora consume 직후에도 끊기지 않게
-   * held ref 로 동일 스트림을 `localVideoReady` 까지 유지한다.
-   */
-  const preJoinVideoPreviewStream = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    const peek = peekPrimedCommunityMessengerDeviceStream("video");
-    if (peek) {
-      heldPreJoinVideoPreviewRef.current = peek;
-    }
-    const resolved = resolvePreJoinVideoPreviewStream({
-      session,
-      localVideoPlaying: localVideoReady,
-      peekStream: peek,
-      heldStream: heldPreJoinVideoPreviewRef.current,
-    });
-    if (!resolved) {
-      heldPreJoinVideoPreviewRef.current = null;
-    }
-    return resolved;
-  }, [
-    joined,
-    localVideoReady,
-    session,
-    session?.callKind,
-    session?.id,
-    session?.isMineInitiator,
-    session?.status,
-  ]);
-
-  useLayoutEffect(() => {
-    if (!preJoinVideoPreviewStream || localVideoReady) {
-      detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
-      return;
-    }
-    const el = ringPreviewVideoRef.current;
-    if (!el) return;
-    void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream);
-    return () => {
-      if (!localVideoReady) return;
-      detachPreJoinHtmlVideo(el);
-    };
-  }, [localVideoReady, preJoinVideoPreviewStream]);
-
-  useEffect(() => {
-    if (!localVideoReady) return;
-    heldPreJoinVideoPreviewRef.current = null;
-    if (ringPreviewVideoRef.current) {
-      try {
-        ringPreviewVideoRef.current.srcObject = null;
-      } catch {
-        /* noop */
-      }
-    }
-  }, [localVideoReady]);
-
-  const selfAvatarUrlForPip = useMemo(
-    () =>
-      peekMessengerBootstrapFull()?.me?.avatarUrl ?? peekMessengerBootstrapCritical()?.me?.avatarUrl ?? null,
-    []
-  );
-
-  const miniVideoSlotEl = videoCall ? (
-    <div className="relative h-full w-full bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:object-cover">
-      <div ref={smallVideoRef} className="h-full w-full" />
-      {camOff ? (
-        <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1.5 bg-[#003D29]">
-          <SamarketUserAvatarThumb
-            avatarUrl={selfAvatarUrlForPip}
-            size={40}
-            roundedClassName="rounded-full"
-            className="ring-1 ring-[#D4E9E2]/28"
-          />
-          <VideoOff size={14} strokeWidth={2.25} className="text-[#F1F8F4]/90" aria-hidden />
-        </div>
-      ) : null}
-    </div>
-  ) : undefined;
-
-  useLayoutEffect(() => {
-    const livePresentation =
-      presentation === "minimized"
-        ? "minimized"
-        : joined && session?.callKind === "video" && session.status === "active"
-          ? "fullscreen"
-          : "idle";
-    syncCommunityMessengerCallRuntimeSurface({
-      presentation: livePresentation,
-      videoPipLayout: pipShellMounted ? videoPipGesture : null,
-      miniVideoSlot: miniVideoSlotEl ?? null,
-      expandToFullscreen: handleExpandToFullscreen,
-      minimizeToPip: handleMinimizeToPip,
-    });
-  }, [
-    camOff,
-    handleExpandToFullscreen,
-    handleMinimizeToPip,
-    joined,
-    miniVideoSlotEl,
-    pipShellMounted,
-    presentation,
-    session?.callKind,
-    session?.status,
-    videoPipGesture,
-  ]);
 
   const callVm: CallScreenViewModel = {
     visualTheme: "starbucks",

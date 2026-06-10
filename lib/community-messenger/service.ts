@@ -17430,7 +17430,14 @@ export async function updateCommunityMessengerCallSession(input: {
           messengerUserIdsEqual(session.recipient_user_id, input.userId) &&
           isTerminalCallSessionStatus(session.status)
         ) {
-          const mapped = await mapCallSession(input.userId, session);
+          const mapped = await mapCallSession(
+            input.userId,
+            session,
+            undefined,
+            undefined,
+            undefined,
+            "labels_only"
+          );
           await ensureTerminalCallStub(session, mapped);
           return { ok: true, session: mapped };
         }
@@ -17493,7 +17500,14 @@ export async function updateCommunityMessengerCallSession(input: {
           })
           .eq("session_id", sessionId)
           .eq("user_id", input.userId);
-        const mapped = await mapCallSession(input.userId, updated as CallSessionRow);
+        const mapped = await mapCallSession(
+          input.userId,
+          updated as CallSessionRow,
+          undefined,
+          undefined,
+          undefined,
+          "labels_only"
+        );
         invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
         if (isTerminalCallSessionStatus(mapped.status)) {
           const { data: existingLog } = await (sb as any)
@@ -17616,7 +17630,14 @@ export async function updateCommunityMessengerCallSession(input: {
       messengerUserIdsEqual(session.recipientUserId, input.userId) &&
       isTerminalCallSessionStatus(session.status)
     ) {
-      const mapped = await mapCallSession(input.userId, session);
+      const mapped = await mapCallSession(
+        input.userId,
+        session,
+        undefined,
+        undefined,
+        undefined,
+        "labels_only"
+      );
       await ensureTerminalCallStub(session, mapped);
       return { ok: true, session: mapped };
     }
@@ -17652,7 +17673,14 @@ export async function updateCommunityMessengerCallSession(input: {
     participant.joinedAt = next.answeredAt ?? participant.joinedAt;
     participant.leftAt = next.endedAt ?? participant.leftAt;
   }
-  const mapped = await mapCallSession(input.userId, session);
+  const mapped = await mapCallSession(
+    input.userId,
+    session,
+    undefined,
+    undefined,
+    undefined,
+    "labels_only"
+  );
   if (isTerminalCallSessionStatus(mapped.status)) {
     if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
     else await ensureTerminalCallStub(session, mapped);
