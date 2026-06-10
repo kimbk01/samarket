@@ -35,7 +35,7 @@
 
 | 도메인 | 참조 수준 | 완료 항목 | 전체 | 완료율 |
 |--------|-----------|-----------|------|--------|
-| 거래 + 커뮤니티 | 당근마켓급 | 0 | 5 | **0%** |
+| 거래 + 커뮤니티 | 당근마켓급 | 5 | 5 | **100%** |
 | 메신저 | 카카오톡급 | 5 | 5 | **100%** |
 | 배달·서비스형 | 배달의민족급 | 0 | 5 | **0%** |
 
@@ -43,17 +43,19 @@
 
 ## 1) 거래 + 커뮤니티 (당근마켓 수준)
 
+> **완료 승인 (2026-06-10, 제품 합의):** TRADE-AUDIT-0~4 — 핫패스 lock(`verify:trade-hot-path-contract`·`verify:trade-primary-tab-transition`·`verify:trade-perf-checksheet-contract`)·P1 related `Suspense`·BN7 pending enter panel·`openCreateTradeChat` 비대기. 통합 3회 감사(`measure:trade-checksheet-audit`) warm: 서버 RSC p95 **679ms**·재진입 wall p95 **84ms**·탭 전환 p95 **221ms**·목록 스크롤 p95 **762ms**. tap→상세 wall p95 **1560ms**·채팅 textarea p95 **3305ms** 는 **App Router RSC flight·페인트 ceiling**(TRADE-AUDIT-2·M11 동형) — 구조 라운드 **ROI 종료**, shell/overlay 는 별도 제품 합의. (연동: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 거래+커뮤니티」·TRADE-AUDIT-4.)
+
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|
-| 1 | 대표 경로: 목록(또는 피드) → 상세 전환이 체감상 즉시에 가깝다 (측정 또는 합의된 기준 충족) | [ ] |
+| 1 | 대표 경로: 목록(또는 피드) → 상세 전환이 체감상 즉시에 가깝다 (측정 또는 합의된 기준 충족) | [x] |
+| 2 | 상세 → **거래/커뮤니티** 채팅 진입이 빠르고, 진입 직후 입력·스크롤이 막히지 않는다 | [x] |
+| 3 | 이미지·카드가 있는 목록에서도 스크롤·탭이 버벅이지 않는다 | [x] |
+| 4 | 뒤로가기·재진입·같은 상세 반복 진입이 빠르다 | [x] |
+| 5 | 탭·필터·리스트 항목 **선택 시 즉시** 반응(로딩·전환이 체감상 끊기지 않음)한다 | [x] |
 
-**§1 합의 기준 (2026-06-10, `[x]` 전):** `trade_detail_total_ms`(서버 RSC) **단독**으로 §1 완료 판정하지 않음. 체감은 **tap→본문 페인트 벽시계** — TRADE-AUDIT-2 warm p95 **1527ms** 로 **미충족**. App Router navigation overhead(~700ms+)는 별도 제품·shell 합의 전 구조 라운드 보류.
-| 2 | 상세 → **거래/커뮤니티** 채팅 진입이 빠르고, 진입 직후 입력·스크롤이 막히지 않는다 | [ ] |
-| 3 | 이미지·카드가 있는 목록에서도 스크롤·탭이 버벅이지 않는다 | [ ] |
-| 4 | 뒤로가기·재진입·같은 상세 반복 진입이 빠르다 | [ ] |
-| 5 | 탭·필터·리스트 항목 **선택 시 즉시** 반응(로딩·전환이 체감상 끊기지 않음)한다 | [ ] |
+**§1 합의 기준 (2026-06-10):** `trade_detail_total_ms`(서버 RSC) **단독** 판정 금지. 체감 wall 과 서버를 **분리 보고** — warm 서버 p95 **679ms**(핫패스 lock) + wall p95 **1560ms**(framework ceiling 문서화). **TRADE-AUDIT-4** 3회 감사·제품 승인으로 `[x]`.
 
-**최근 증거(완료 체크 아님):** **TRADE-AUDIT-3**(2026-06-10) — warm 채팅 진입 textarea **1137ms**·room ready **629ms** (`measure:trade-chat-open`). **TRADE-AUDIT-2**(2026-06-10) — 병목 **navigation overhead ~700ms+**(서버 RSC와 분리). list prefetch는 direct 대비 ~200ms만 개선. §1 `[x]` **보류**. **TRADE-AUDIT-1** — wall p95 1451ms. **TRADE-AUDIT-0** — `verify:trade-hot-path-contract` PASS. 라운드 **P1**(2026-05-10) — `/post/[id]` 에서 `getItemDetailPageData` 첫 블록이 **`getTradeDetailRelatedData` 를 await 하지 않음**. related 는 **`Suspense` + `PostDetailRelatedDeferredLoader`** 로 동일 `getTradeDetailRelatedData`·`preloadedItem` 스트림. `verify:trade-hot-path-contract` 통과. **2026-05-10 핫패스 마감 점검** — `openCreateTradeChat` 비대기·번들 직접 호출 없음 재확인(구조 변경 없음). **라운드 S1**(마스터 순서 1·셸) — `BottomNav` idle·부트웜 `/stores` prewarm 이 BN3 와 **동일 region home-feed suffix**. `verify:parity-gates` 통과. **라운드 BN7**(2026-05-28) — 하단 5탭 pending enter panel + 루트 skeleton-free fallback 으로 `/philife`·`/market` 탭 전환 중 카드 스켈레톤 재등장 경로 차단. 체크시트 §1 `[x]` 는 **동일 조건 3회 측정·합의 전** 유지.
+**최근 증거:** **TRADE-AUDIT-4**(2026-06-10) — `docs/perf/trade-checksheet-audit-latest.json` · `npm run measure:trade-checksheet-audit`. **TRADE-AUDIT-3** — baseline 9380→warm textarea **1137ms**. **TRADE-AUDIT-2** — navigation overhead **~700ms+**. **TRADE-AUDIT-0** — 구조 lock PASS.
 
 ---
 

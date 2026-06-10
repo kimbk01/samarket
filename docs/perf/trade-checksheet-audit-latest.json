@@ -1,0 +1,126 @@
+{
+  "measured_at": "2026-06-10T08:53:52.996Z",
+  "base_url": "http://localhost:3000",
+  "cycles": 3,
+  "warm_discard": "cycle 1",
+  "checksheet_summary": {
+    "s1_list_to_detail_wall_warm": {
+      "count": 2,
+      "min": 1359,
+      "max": 1560,
+      "avg": 1460,
+      "p95": 1560
+    },
+    "s1_trade_detail_server_warm": {
+      "count": 2,
+      "min": 670,
+      "max": 679,
+      "avg": 675,
+      "p95": 679
+    },
+    "s2_chat_to_textarea_warm": {
+      "count": 2,
+      "min": 2079,
+      "max": 3305,
+      "avg": 2692,
+      "p95": 3305
+    },
+    "s4_detail_reentry_wall_warm": {
+      "count": 2,
+      "min": 82,
+      "max": 84,
+      "avg": 83,
+      "p95": 84
+    },
+    "s5_philife_to_market_tab_warm": {
+      "count": 2,
+      "min": 212,
+      "max": 221,
+      "avg": 217,
+      "p95": 221
+    },
+    "s3_list_scroll_wheel_warm": {
+      "count": 2,
+      "min": 748,
+      "max": 762,
+      "avg": 755,
+      "p95": 762
+    }
+  },
+  "gates": {
+    "s1_warm_wall_p95_le_1200": false,
+    "s2_warm_chat_p95_le_1500": false,
+    "s4_warm_reentry_p95_le_800": true,
+    "s5_warm_tab_p95_le_2000": true
+  },
+  "cycles_detail": [
+    {
+      "cycle": 1,
+      "checksheet": {
+        "list_to_detail": {
+          "tap_to_h2_wall_ms": 1378,
+          "trade_detail_total_ms": 673
+        },
+        "detail_reentry": {
+          "tap_to_h2_wall_ms": 80,
+          "trade_detail_total_ms": 673
+        },
+        "detail_to_chat": {
+          "click_to_textarea_wall_ms": 2766,
+          "trade_chat_open_total_ms": 513,
+          "chat_click_to_room_ready_ms": 1199
+        },
+        "tab_to_market_list_ms": 7999,
+        "list_scroll_wheel_ms": 679
+      }
+    },
+    {
+      "cycle": 2,
+      "checksheet": {
+        "list_to_detail": {
+          "tap_to_h2_wall_ms": 1560,
+          "trade_detail_total_ms": 670
+        },
+        "detail_reentry": {
+          "tap_to_h2_wall_ms": 82,
+          "trade_detail_total_ms": 670
+        },
+        "detail_to_chat": {
+          "click_to_textarea_wall_ms": 3305,
+          "trade_chat_open_total_ms": 559,
+          "chat_click_to_room_ready_ms": 1669
+        },
+        "tab_to_market_list_ms": 212,
+        "list_scroll_wheel_ms": 762
+      }
+    },
+    {
+      "cycle": 3,
+      "checksheet": {
+        "list_to_detail": {
+          "tap_to_h2_wall_ms": 1359,
+          "trade_detail_total_ms": 679
+        },
+        "detail_reentry": {
+          "tap_to_h2_wall_ms": 84,
+          "trade_detail_total_ms": 679
+        },
+        "detail_to_chat": {
+          "click_to_textarea_wall_ms": 2079,
+          "trade_chat_open_total_ms": 0,
+          "chat_click_to_room_ready_ms": 726
+        },
+        "tab_to_market_list_ms": 221,
+        "list_scroll_wheel_ms": 748
+      }
+    }
+  ],
+  "errors": [],
+  "structural_lock": [
+    "verify:trade-hot-path-contract",
+    "verify:trade-primary-tab-transition",
+    "P1 related Suspense",
+    "BN7 pending enter panel",
+    "openCreateTradeChat 비대기"
+  ]
+}

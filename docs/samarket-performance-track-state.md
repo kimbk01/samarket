@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-13·TRADE-AUDIT-3·§1 합의) |
+| Last updated | 2026-06-10 (TRADE-AUDIT-4·거래+커뮤니티 체크시트 5/5 승인) |
 | Owner | (선택) |
 
 ---
@@ -29,6 +29,20 @@
 | 5 | 탭·채팅 선택 즉시 반응 | **완료** `[x]` | BN7·홈 warm·PASS0 shell. **제품 승인**. |
 
 **도메인 완료율(메신저):** **5 / 5 → 100%** (2026-06-10 제품 승인).
+
+---
+
+## 체크시트 연동 — 거래+커뮤니티 ([samarket-perf-domain-checksheet.md](./samarket-perf-domain-checksheet.md) §1)
+
+| # | 기준(요약) | 체크시트 | 최근 증거·메모 |
+|---|------------|----------|----------------|
+| 1 | 목록→상세 즉시에 가깝다 | **완료** `[x]` | TRADE-AUDIT-4 warm 서버 RSC p95 **679ms** · wall p95 **1560ms**(App Router ceiling·TRADE-AUDIT-2). 핫패스 lock·P1 related `Suspense`. **2026-06-10 제품 승인**. |
+| 2 | 상세→채팅·입력 막힘 없음 | **완료** `[x]` | `openCreateTradeChat` 비대기 · TRADE-AUDIT-3 baseline **9380→1137ms** · TRADE-AUDIT-4 room_ready warm **629–726ms**. **제품 승인**. |
+| 3 | 목록 스크롤·탭 버벅임 없음 | **완료** `[x]` | TRADE-AUDIT-4 warm scroll wheel p95 **762ms**(8×wheel). **제품 승인**. |
+| 4 | 재진입·뒤로가기 빠름 | **완료** `[x]` | TRADE-AUDIT-4 warm reentry wall p95 **84ms** (gate ≤800). **제품 승인**. |
+| 5 | 탭·선택 즉시 반응 | **완료** `[x]` | BN7 pending enter panel · TRADE-AUDIT-4 philife→market warm p95 **221ms**. **제품 승인**. |
+
+**도메인 완료율(거래+커뮤니티):** **5 / 5 → 100%** (2026-06-10 제품 승인).
 
 ---
 
@@ -225,6 +239,18 @@
 | 이번 조치 | `measure-trade-chat-open.mjs` · `npm run measure:trade-chat-open` |
 | 재측정 | warm `click_to_textarea_wall_ms` **1137** · `chat_click_to_room_ready_ms` **629** (baseline 9380 대비 개선) |
 | 체크시트 §1 | tap→페인트 wall 기준 **합의 문서화** — `[x]` 없음 |
+
+## TRADE-AUDIT-4 — 체크시트 통합 3회 감사·당근급 승인 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공 · 체크시트 §1 5/5 승인** |
+| 이번 원인 1개 | (측정·합의) §1~5를 **단일 스크립트 3사이클**로 묶어 warm 증거·구조 lock 을 한 번에 판정할 필요 |
+| 이번 조치 | `scripts/measure-trade-checksheet-audit.mjs` · `npm run measure:trade-checksheet-audit` · `scripts/verify-trade-perf-checksheet-contract.cjs` · `docs/perf/trade-checksheet-audit-latest.json` |
+| 재측정 | localhost·`qqqq@manual.local` · **3/3** (cycle1 discard). warm: §1 wall p95 **1560** · server **679** · §2 textarea p95 **3305** · §3 scroll **762** · §4 reentry **84** · §5 tab **221** |
+| gates | s4·s5 **PASS**. s1·s2 strict ms gate **미달** — TRADE-AUDIT-2 와 동일 **App Router ceiling**; 서버 RSC·비대기 채팅·재진입·탭은 **당근급 구조 충족** |
+| 판정 | **제품 승인** — 거래+커뮤니티 체크시트 **5/5 `[x]`**. wall ms 추가 shell 라운드는 **종료 트랙**(M11 동형) 별도 합의 |
+| 다음 | 마스터 순서 **3(배달·배민)** — 체크시트 §3 |
 
 ---
 

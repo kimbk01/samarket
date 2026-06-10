@@ -61,6 +61,8 @@
     "measure:messenger-ack-warm": "cross-env PLAYWRIGHT_NO_WEBSERVER=1 node scripts/measure-messenger-ack-warm.mjs",
     "measure:trade-market-to-post": "cross-env PLAYWRIGHT_NO_WEBSERVER=1 node scripts/measure-trade-market-to-post.mjs",
     "measure:trade-chat-open": "cross-env PLAYWRIGHT_NO_WEBSERVER=1 node scripts/measure-trade-chat-open.mjs",
+    "measure:trade-checksheet-audit": "cross-env PLAYWRIGHT_NO_WEBSERVER=1 node scripts/measure-trade-checksheet-audit.mjs",
+    "verify:trade-perf-checksheet-contract": "node scripts/verify-trade-perf-checksheet-contract.cjs",
     "measure:store-detail-infrastructure": "node scripts/measure-store-detail-infrastructure.mjs",
     "measure:delivery-flow-prod": "node scripts/measure-delivery-flow-prod.mjs",
     "measure:cart-page-phases": "node scripts/measure-cart-page-phases.mjs",
