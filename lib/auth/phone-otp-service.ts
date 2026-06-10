@@ -190,10 +190,10 @@ export async function sendPhoneOtpForUser(
   const otpRow = await upsertPhoneOtpChallenge(sb, userId, normalizedPhone, otpCodeHash, expiresAtIso);
   if (!otpRow.ok) return otpRow;
 
-  const smsMessage = `[dibaY] 인증번호 ${otpCode} (유효 ${Math.floor(settings.otp_ttl_seconds / 60)}분)`;
+  const smsMessage = `[DIBAY] Verification code: ${otpCode}`;
   const smsSent = await sendSemaphoreSms(normalizedPhone, smsMessage);
   if (!smsSent.ok) {
-    return { ok: false, status: 502, message: smsSent.error || "OTP 발송에 실패했습니다." };
+    return { ok: false, status: 502, message: "인증번호 발송에 실패했습니다." };
   }
 
   const nowIso = new Date().toISOString();
@@ -210,7 +210,7 @@ export async function sendPhoneOtpForUser(
     })
     .eq("id", userId);
   if (profileError) {
-    return { ok: false, status: 500, message: profileError.message };
+    return { ok: false, status: 500, message: "인증번호 발송에 실패했습니다." };
   }
 
   return { ok: true, data: { phone: normalizedPhone, settings } };

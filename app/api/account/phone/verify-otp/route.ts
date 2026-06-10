@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
-    return NextResponse.json({ ok: false, message: "supabase_service_unconfigured" }, { status: 503 });
+    return NextResponse.json({ ok: false, message: "인증에 실패했습니다." }, { status: 503 });
   }
 
   let body: { phone?: string; otp?: string };

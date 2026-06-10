@@ -31,6 +31,49 @@ function toClampedInt(value: unknown, fallback: number, min: number, max: number
   return Math.min(max, Math.max(min, Math.floor(n)));
 }
 
+function readEnvInt(name: string): number | null {
+  const raw = process.env[name]?.trim();
+  if (!raw) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.floor(n) : null;
+}
+
+/** SEMAPHORE_API_KEY 가 있으면 OTP 활성(관리자 DB off 여도 Vercel 배포 기본). PHONE_OTP_ENABLED=0 으로 끔. */
+function applyPhoneOtpEnvEnable(settings: AuthPhoneSettings): AuthPhoneSettings {
+  const flag = process.env.PHONE_OTP_ENABLED?.trim().toLowerCase();
+  if (flag === "false" || flag === "0") {
+    return { ...settings, enabled: false };
+  }
+  if (process.env.SEMAPHORE_API_KEY?.trim()) {
+    return { ...settings, enabled: true, provider: "semaphore" };
+  }
+  if (flag === "true" || flag === "1") {
+    return { ...settings, enabled: true, provider: "semaphore" };
+  }
+  return settings;
+}
+
+function applyPhoneOtpEnvOverrides(settings: AuthPhoneSettings): AuthPhoneSettings {
+  const expireMinutes = readEnvInt("PHONE_OTP_EXPIRE_MINUTES");
+  const resendSeconds = readEnvInt("PHONE_OTP_RESEND_SECONDS");
+  const maxAttempts = readEnvInt("PHONE_OTP_MAX_ATTEMPTS");
+  return {
+    ...settings,
+    otp_ttl_seconds:
+      expireMinutes != null
+        ? toClampedInt(expireMinutes * 60, settings.otp_ttl_seconds, 60, 1800)
+        : settings.otp_ttl_seconds,
+    resend_cooldown_seconds:
+      resendSeconds != null
+        ? toClampedInt(resendSeconds, settings.resend_cooldown_seconds, 10, 600)
+        : settings.resend_cooldown_seconds,
+    max_attempts:
+      maxAttempts != null
+        ? toClampedInt(maxAttempts, settings.max_attempts, 1, 20)
+        : settings.max_attempts,
+  };
+}
+
 function normalizeProvider(value: unknown): "supabase" | "semaphore" {
   const provider = String(value ?? "").trim().toLowerCase();
   if (provider === "supabase") return "supabase";
@@ -61,7 +104,7 @@ export function sanitizeAuthPhoneSettingsInput(raw: Partial<AuthPhoneSettings>):
 
 export async function loadAuthPhoneSettings(): Promise<AuthPhoneSettings> {
   const sb = tryCreateSupabaseServiceClient();
-  if (!sb) return DEFAULT_AUTH_PHONE_SETTINGS;
+  if (!sb) return applyPhoneOtpEnvOverrides(applyPhoneOtpEnvEnable(DEFAULT_AUTH_PHONE_SETTINGS));
   const { data, error } = await sb
     .from("auth_phone_settings")
     .select(
@@ -71,6 +114,10 @@ export async function loadAuthPhoneSettings(): Promise<AuthPhoneSettings> {
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error || !data) return DEFAULT_AUTH_PHONE_SETTINGS;
-  return sanitizeAuthPhoneSettingsInput(data as Partial<AuthPhoneSettings>);
+  if (error || !data) {
+    return applyPhoneOtpEnvOverrides(applyPhoneOtpEnvEnable(DEFAULT_AUTH_PHONE_SETTINGS));
+  }
+  return applyPhoneOtpEnvOverrides(
+    applyPhoneOtpEnvEnable(sanitizeAuthPhoneSettingsInput(data as Partial<AuthPhoneSettings>)),
+  );
 }
