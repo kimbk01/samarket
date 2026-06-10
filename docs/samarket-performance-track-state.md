@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-4/5 — send atomic·room prefetch 합류) |
+| Last updated | 2026-06-10 (MP-AUDIT-4/5 재측정 완료 · E2E 안정화 진행) |
 | Owner | (선택) |
 
 ---
@@ -75,10 +75,12 @@
 
 | 항목 | 내용 |
 |------|------|
-| 트랙 상태 | **구현 완료 · 재측정 대기** |
+| 트랙 상태 | **성공 · E2E·call smoke 후속** |
 | 이번 원인 1개 | 홈 목록 `list_prefetch` 와 입장 `room_client_block` 이 동시에 열리면 single-flight 키가 달라 bootstrap GET 2회+. `hasPrefetchSnapshot` 이 5s TTL 만 보던 것도 skip 판정을 놓침. |
 | 이번 조치 | block 직전 prefetch single-flight 합류·캐시 재사용. primed 시드 경로 명시 return. `wasRoomPrefetchRecentlySuccessful` 반영. |
-| 다음 | direct probe 3회로 `room_bootstrap_get_count_avg` ≤1.3 확인 후 E2E 4종 안정화. |
+| 재측정 | direct probe **3/3 PASS**, `failed_count=0`, `findings=[]`. `home_bootstrap_client_fetch_total_avg=2`, `room_bootstrap_get_count_avg=1.3`, `ack_ms_avg≈485`(warm 397–569ms), `home_ready_ms_avg≈6088`(run1 cold ~13.5s 포함). |
+| 판정 | room bootstrap 중복 **성공**. 체크시트·composer_wall·ACK 200ms 는 별도. |
+| 다음 | E2E 3종 안정화 → call smoke → DB 마이그레이션 적용. |
 
 ---
 
