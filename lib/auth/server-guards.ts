@@ -36,6 +36,10 @@ import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
+import {
+  peekPhoneVerifiedPositiveProfile,
+  rememberPhoneVerifiedPositiveProfile,
+} from "@/lib/auth/phone-verified-positive-cache";
 
 export async function requireAuth(): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
@@ -234,26 +238,31 @@ export async function validateActiveSessionLight(
   return { ok: true, breakdown };
 }
 
+function profilePassesPhoneVerificationGate(profile: ProfileRow): boolean {
+  if (isPrivilegedAdminRole(profile.role)) return true;
+  return hasPhilippinePhoneVerification({
+    role: profile.role,
+    phone_verified: profile.phone_verified === true,
+    phone_verified_at: profile.phone_verified_at ?? null,
+    provider: profile.provider ?? profile.auth_provider,
+    auth_provider: profile.auth_provider,
+    email: profile.email,
+  });
+}
+
 export async function requirePhoneVerified(
   userId: string
 ): Promise<{ ok: true; profile: ProfileRow } | { ok: false; response: NextResponse; profile?: ProfileRow | null }> {
+  const cached = peekPhoneVerifiedPositiveProfile(userId);
+  if (cached && profilePassesPhoneVerificationGate(cached)) {
+    return { ok: true, profile: cached };
+  }
   const profile = await getCurrentProfile(userId);
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
   }
-  if (isPrivilegedAdminRole(profile.role)) {
-    return { ok: true, profile };
-  }
-  if (
-    hasPhilippinePhoneVerification({
-      role: profile.role,
-      phone_verified: profile.phone_verified === true,
-      phone_verified_at: profile.phone_verified_at ?? null,
-      provider: profile.provider ?? profile.auth_provider,
-      auth_provider: profile.auth_provider,
-      email: profile.email,
-    })
-  ) {
+  if (profilePassesPhoneVerificationGate(profile)) {
+    rememberPhoneVerifiedPositiveProfile(userId, profile);
     return { ok: true, profile };
   }
   return {

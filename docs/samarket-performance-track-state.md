@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-6 핫패스 lock · canonical 병렬) |
+| Last updated | 2026-06-10 (MP-AUDIT-7 ACK send 직렬 구간) |
 | Owner | (선택) |
 
 ---
@@ -92,6 +92,18 @@
 | 기능 | **변경 없음** — 멤버십·거래 가드·bump `after()`·voice 정책 유지. |
 | 재측정 | verify **PASS**. direct probe **3/3**, `failed_count=0`, `findings=[]`. `home_bootstrap_client_fetch_total_avg=2`, `room_bootstrap_get_count_avg=0.7`, `ack_ms_avg≈1513`(run1 cold 포함; warm 구간 별도). |
 | 판정 | 구조 회귀 방지 **정의 완료**. dev ACK 200ms 는 RPC·리전 한계 — 별도 라운드. |
+
+## MP-AUDIT-7 — send ACK 직렬 구간 제거 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **진행 · 200ms 목표 재측정** |
+| 이번 원인 1개 | `POST .../messages` 가 auth→gate 직렬 대기 중 parse·service import 미시작 + `requirePhoneVerified` 가 매 전송 `getCurrentProfile`(profiles SELECT) 1회 |
+| 이번 조치 | auth·parse·params 병렬 + service dynamic import 선시작. `phone-verified-positive-cache`(인증 완료만 TTL 45s)·verify 시 invalidate |
+| 기능 | **변경 없음** — 미인증 캐시 금지·게이트 동일 |
+| 재측정 | direct probe **3/3**, `failed_count=0`, `findings=[]`. `ack_ms_avg≈690`(dev, 200ms 미달), `home_bootstrap_client_fetch_total_avg=2` |
+| 판정 | **부분 성공** — profiles SELECT·직렬 구간 제거. ACK 200ms 는 RPC·INSERT 별도(MP-AUDIT-8 후보) |
+| 다음 | RPC 경량화 또는 체크시트 합의 |
 
 ---
 

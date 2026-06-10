@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
+import { invalidatePhoneVerifiedPositiveProfile } from "@/lib/auth/phone-verified-positive-cache";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
   if (error) {
     return jsonError(error.message || "phone_verification_verify_failed", 500);
   }
+  invalidatePhoneVerifiedPositiveProfile(auth.userId);
   return jsonOk({
     verification: {
       phone: phoneFields.phone ?? verified.data.phone,

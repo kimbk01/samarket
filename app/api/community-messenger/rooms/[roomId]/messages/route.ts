@@ -155,12 +155,17 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
-  const authGate = await ensureApiRouteAuthGate();
+  const sendServiceImport = import("@/lib/community-messenger/service");
+  const [authGate, parsed, routeParams] = await Promise.all([
+    ensureApiRouteAuthGate(),
+    parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),
+    params,
+  ]);
   if (!authGate.ok) return authGate.response;
   const userId = authGate.userId;
+  const rawRoomId = String(routeParams.roomId ?? "").trim();
 
-  const [parsed, rateLimit, phone, canon] = await Promise.all([
-    parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),
+  const [rateLimit, phone, canon] = await Promise.all([
     enforceRateLimit({
       key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
@@ -169,12 +174,8 @@ export async function POST(
       code: "community_messenger_message_rate_limited",
     }),
     requirePhoneVerified(userId),
-  /** parse·rate·phone 과 멤버십 canonical resolve 를 겹쳐 ACK RTT 에서 왕복 1회를 줄인다. */
-    params.then(({ roomId: rawRoomId }) =>
-      import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(
-        ({ messengerRoomCanonicalOrJsonError }) =>
-          messengerRoomCanonicalOrJsonError(userId, String(rawRoomId ?? "").trim())
-      )
+    import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api").then(
+      ({ messengerRoomCanonicalOrJsonError }) => messengerRoomCanonicalOrJsonError(userId, rawRoomId)
     ),
   ]);
   if (!parsed.ok) return parsed.response;
@@ -203,7 +204,7 @@ export async function POST(
     return cached.res.ok ? jsonOk(cached.res) : jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
   }
   const result = await runSingleFlight(key, async () => {
-    const cm = await import("@/lib/community-messenger/service");
+    const cm = await sendServiceImport;
     const r = await cm.sendCommunityMessengerMessage({
       userId,
       roomId: canonicalRoomId,
@@ -242,7 +243,7 @@ export async function POST(
   }
   let responsePayload = result;
   if (responsePayload.ok && (!responsePayload.message || !trimText((responsePayload.message as { id?: string })?.id)) && clientMessageId) {
-    const cm = await import("@/lib/community-messenger/service");
+    const cm = await sendServiceImport;
     const reread = await cm.findCommunityMessengerMessageByClientId({
       userId,
       roomId: canonicalRoomId,

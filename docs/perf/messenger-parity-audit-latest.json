@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-10T07:20:12.666Z",
+  "generatedAt": "2026-06-10T07:29:40.689Z",
   "baseUrl": "http://localhost:3000",
   "runs": 3,
   "specs": [
@@ -14,7 +14,7 @@
       "parsed": true,
       "direct": {
         "home": {
-          "ready_ms": 7887,
+          "ready_ms": 5663,
           "failed": false,
           "rows": 11,
           "room_links": 0,
@@ -25,24 +25,24 @@
             "critical": 1
           },
           "app_wide_phase_last_ms": {
-            "app_bootstrap_ms": 16,
+            "app_bootstrap_ms": 15,
             "messenger_room_entry_presence_effect_count": 1,
-            "messenger_bootstrap_fetch_network_ms": 4799,
-            "messenger_list_fetch_ms": 4799,
-            "messenger_bootstrap_fetch_wall_ms": 4799,
-            "messenger_bootstrap_response_size_bytes": 27809,
-            "messenger_bootstrap_first_list_item_render_ms": 4849,
-            "messenger_bootstrap_full_list_render_ms": 4850,
-            "messenger_bootstrap_first_interactive_ms": 4850,
-            "messenger_list_to_paint_ms": 4891,
-            "messenger_bootstrap_to_paint_ms": 4891,
-            "app_boot_layer_ms": 5576
+            "messenger_bootstrap_fetch_network_ms": 2796,
+            "messenger_list_fetch_ms": 2796,
+            "messenger_bootstrap_fetch_wall_ms": 2796,
+            "messenger_bootstrap_response_size_bytes": 32738,
+            "messenger_bootstrap_first_list_item_render_ms": 2741,
+            "messenger_bootstrap_full_list_render_ms": 2741,
+            "messenger_bootstrap_first_interactive_ms": 2741,
+            "messenger_list_to_paint_ms": 2806,
+            "messenger_bootstrap_to_paint_ms": 2806,
+            "app_boot_layer_ms": 3411
           },
           "render_perf": {
-            "messenger_home_render": 258,
-            "messenger_room_list_sort": 125,
+            "messenger_home_render": 372,
+            "messenger_room_list_sort": 182,
             "messenger_room_list_filter": 2,
-            "messenger_home_list_render": 250,
+            "messenger_home_list_render": 364,
             "messenger_badge_compute": 5,
             "messenger_room_row_render": 18
           },
@@ -50,32 +50,49 @@
             "messenger_home_refresh_start": 1,
             "messenger_home_warm_start": 1,
             "messenger_home_warm_critical_success": 1,
-            "messenger_home_subscribe_create": 1
+            "messenger_home_subscribe_create": 1,
+            "messenger_home_warm_success": 1
           }
         },
         "room": {
-          "ready_ms": null,
-          "url": "http://localhost:3000/community-messenger",
-          "target_href": "",
-          "textarea_visible": false
+          "ready_ms": 8006,
+          "url": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+          "target_href": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+          "textarea_visible": true
         },
-        "ack": null,
+        "ack": {
+          "ack_ms": 1616,
+          "status": 200
+        },
         "network": {
-          "bootstrap_get_count": 2,
-          "home_bootstrap_get_count": 2,
+          "bootstrap_get_count": 7,
+          "home_bootstrap_get_count": 4,
           "home_bootstrap_client_fetch_total": 2,
-          "room_bootstrap_get_count": 0,
-          "message_post_count": 0,
+          "room_bootstrap_get_count": 3,
+          "message_post_count": 1,
           "statuses": [
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
+            200,
             200,
             200,
             200,
             200
           ]
         },
-        "errors": [
-          "Error: no_room_href_for_direct_probe"
-        ]
+        "errors": []
       },
       "extraParsed": {}
     },
@@ -87,7 +104,7 @@
       "parsed": true,
       "direct": {
         "home": {
-          "ready_ms": 25310,
+          "ready_ms": 2464,
           "failed": false,
           "rows": 11,
           "room_links": 0,
@@ -98,24 +115,25 @@
             "critical": 1
           },
           "app_wide_phase_last_ms": {
-            "app_bootstrap_ms": 10,
+            "app_bootstrap_ms": 9,
             "messenger_room_entry_presence_effect_count": 1,
-            "app_boot_layer_ms": 5033,
-            "messenger_bootstrap_fetch_network_ms": 4849,
-            "messenger_list_fetch_ms": 4850,
-            "messenger_bootstrap_fetch_wall_ms": 4850,
-            "messenger_bootstrap_response_size_bytes": 27809,
-            "messenger_bootstrap_first_list_item_render_ms": 4882,
-            "messenger_bootstrap_full_list_render_ms": 4883,
-            "messenger_bootstrap_first_interactive_ms": 4883,
-            "messenger_list_to_paint_ms": 4918,
-            "messenger_bootstrap_to_paint_ms": 4918
+            "app_boot_layer_ms": 681,
+            "messenger_bootstrap_fetch_network_ms": 350,
+            "messenger_list_fetch_ms": 350,
+            "messenger_bootstrap_fetch_wall_ms": 350,
+            "messenger_bootstrap_response_size_bytes": 32737,
+            "messenger_bootstrap_first_list_item_render_ms": 329,
+            "messenger_bootstrap_full_list_render_ms": 329,
+            "messenger_bootstrap_first_interactive_ms": 329,
+            "messenger_list_to_paint_ms": 355,
+            "messenger_bootstrap_to_paint_ms": 355,
+            "auth_session_resolve_ms": 464
           },
           "render_perf": {
-            "messenger_home_render": 134,
-            "messenger_room_list_sort": 63,
+            "messenger_home_render": 370,
+            "messenger_room_list_sort": 181,
             "messenger_room_list_filter": 2,
-            "messenger_home_list_render": 124,
+            "messenger_home_list_render": 362,
             "messenger_badge_compute": 5,
             "messenger_room_row_render": 18
           },
@@ -123,17 +141,18 @@
             "messenger_home_refresh_start": 1,
             "messenger_home_warm_start": 1,
             "messenger_home_warm_critical_success": 1,
+            "messenger_home_warm_success": 1,
             "messenger_home_subscribe_create": 1
           }
         },
         "room": {
-          "ready_ms": 8857,
+          "ready_ms": 2156,
           "url": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
           "target_href": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
           "textarea_visible": true
         },
         "ack": {
-          "ack_ms": 2619,
+          "ack_ms": 307,
           "status": 200
         },
         "network": {
@@ -174,9 +193,9 @@
       "parsed": true,
       "direct": {
         "home": {
-          "ready_ms": 3297,
+          "ready_ms": 1897,
           "failed": false,
-          "rows": 11,
+          "rows": 12,
           "room_links": 0,
           "bootstrap_fetch": {
             "lite": 1,
@@ -185,53 +204,56 @@
             "critical": 1
           },
           "app_wide_phase_last_ms": {
-            "app_bootstrap_ms": 14,
+            "app_bootstrap_ms": 10,
+            "app_boot_layer_ms": 305,
             "messenger_room_entry_presence_effect_count": 1,
-            "messenger_bootstrap_fetch_network_ms": 320,
-            "messenger_list_fetch_ms": 320,
-            "messenger_bootstrap_fetch_wall_ms": 320,
-            "messenger_bootstrap_response_size_bytes": 32738,
-            "messenger_bootstrap_first_list_item_render_ms": 301,
-            "messenger_bootstrap_full_list_render_ms": 301,
-            "messenger_bootstrap_first_interactive_ms": 301,
-            "messenger_list_to_paint_ms": 327,
-            "messenger_bootstrap_to_paint_ms": 327,
-            "auth_session_resolve_ms": 0,
-            "app_boot_layer_ms": 1034
+            "messenger_bootstrap_fetch_network_ms": 134,
+            "messenger_list_fetch_ms": 134,
+            "messenger_bootstrap_fetch_wall_ms": 134,
+            "messenger_bootstrap_response_size_bytes": 27801,
+            "messenger_bootstrap_first_list_item_render_ms": 31,
+            "messenger_bootstrap_full_list_render_ms": 31,
+            "messenger_bootstrap_first_interactive_ms": 31,
+            "messenger_list_to_paint_ms": 147,
+            "messenger_bootstrap_to_paint_ms": 147,
+            "auth_session_resolve_ms": 438
           },
           "render_perf": {
-            "messenger_home_render": 226,
-            "messenger_room_list_sort": 109,
+            "messenger_home_render": 244,
+            "messenger_room_list_sort": 119,
             "messenger_room_list_filter": 2,
-            "messenger_home_list_render": 218,
+            "messenger_home_list_render": 236,
             "messenger_badge_compute": 5,
-            "messenger_room_row_render": 18
+            "messenger_room_row_render": 20
           },
           "debug_events": {
             "messenger_home_refresh_start": 1,
             "messenger_home_warm_start": 1,
-            "messenger_home_warm_critical_success": 1,
             "messenger_home_warm_success": 1,
-            "messenger_home_subscribe_create": 1
+            "messenger_home_subscribe_create": 1,
+            "messenger_home_warm_critical_success": 1
           }
         },
         "room": {
-          "ready_ms": 2450,
+          "ready_ms": 1989,
           "url": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
           "target_href": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
           "textarea_visible": true
         },
         "ack": {
-          "ack_ms": 407,
+          "ack_ms": 146,
           "status": 200
         },
         "network": {
-          "bootstrap_get_count": 5,
+          "bootstrap_get_count": 7,
           "home_bootstrap_get_count": 4,
           "home_bootstrap_client_fetch_total": 2,
-          "room_bootstrap_get_count": 1,
+          "room_bootstrap_get_count": 3,
           "message_post_count": 1,
           "statuses": [
+            200,
+            200,
+            200,
             200,
             200,
             200,
@@ -294,13 +316,13 @@
     },
     "direct_probe": {
       "runs": 3,
-      "home_ready_ms_avg": 12164.7,
-      "room_ready_ms_avg": 5653.5,
-      "ack_ms_avg": 1513,
-      "bootstrap_get_count_avg": 4,
-      "home_bootstrap_get_count_avg": 3.3,
+      "home_ready_ms_avg": 3341.3,
+      "room_ready_ms_avg": 4050.3,
+      "ack_ms_avg": 689.7,
+      "bootstrap_get_count_avg": 6.3,
+      "home_bootstrap_get_count_avg": 4,
       "home_bootstrap_client_fetch_total_avg": 2,
-      "room_bootstrap_get_count_avg": 0.7,
+      "room_bootstrap_get_count_avg": 2.3,
       "rows_min": 11,
       "failed_count": 0
     }

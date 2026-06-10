@@ -171,6 +171,7 @@
 | MP-AUDIT-4 | atomic send **RPC 단일** — 사전 `loadTradeProductChatExitSnapshotForMessengerRoom` 금지 | 거래 가드는 `community_messenger_send_text_message` 에만 |
 | MP-AUDIT-5 | `list_prefetch`·`room_client_block` **single-flight 합류** | `room_bootstrap_get_count` 과다·primed skip 누락 금지 |
 | MP-AUDIT-6 | POST canonical resolve **parse·rate·phone 과 병렬** | 멤버십 왕복을 ACK 직전 직렬 대기에 두지 않음 |
+| MP-AUDIT-7 | send POST **auth·parse·params 병렬** + service import 선시작 + phone verified **positive cache** | ACK 직전 profiles SELECT·번들 로드 직렬 대기 금지 |
 
 ### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
 
