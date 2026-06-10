@@ -202,7 +202,21 @@ export function getAppWidePerfCounts(): Readonly<Record<string, number>> {
 }
 
 export function getAppWidePhaseLastMs(): Readonly<Record<string, number>> {
-  return { ...appWidePhaseLastMsStore() };
+  const merged = { ...appWidePhaseLastMsStore() };
+  if (typeof window === "undefined") return merged;
+  const w = window as unknown as {
+    __samarketAppWidePhaseLastMs?: Record<string, number>;
+    __samarketCommunityListPhaseProbe?: Record<string, number>;
+  };
+  if (w.__samarketAppWidePhaseLastMs) Object.assign(merged, w.__samarketAppWidePhaseLastMs);
+  if (w.__samarketCommunityListPhaseProbe) Object.assign(merged, w.__samarketCommunityListPhaseProbe);
+  try {
+    const raw = sessionStorage.getItem(SAMARKET_E2E_COMMUNITY_PHASE_SESSION_KEY);
+    if (raw) Object.assign(merged, JSON.parse(raw) as Record<string, number>);
+  } catch {
+    /* ignore */
+  }
+  return merged;
 }
 
 /** 첫 메인 메뉴 리스트 fetch 시작(앱당 1회) */
@@ -431,6 +445,13 @@ function recordRouteEntryElapsedPhase(
   if (state.startedAt <= 0 || state[field] === state.activeCycleId) return;
   state[field] = state.activeCycleId;
   recordAppWidePhaseLastMs(phaseKey, Math.round(performance.now() - state.startedAt));
+}
+
+/** list 탭 없이 room URL 직접 진입·E2E goto fallback 시 `startedAt` 이 비어 메트릭이 null 이 되는 것 방지 */
+export function ensureRouteEntryPerfStarted(scope: RouteEntryPerfScope, targetPath: string): void {
+  if (!samarketRuntimeDebugEnabled()) return;
+  if (readRouteEntryPerfState(scope).startedAt > 0) return;
+  beginRouteEntryPerf(scope, targetPath);
 }
 
 export function beginRouteEntryPerf(scope: RouteEntryPerfScope, targetPath: string): void {

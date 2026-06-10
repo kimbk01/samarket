@@ -10,7 +10,12 @@ import {
 import { noteR2M11RouteChangeStart } from "@/lib/community-messenger/room/cm-room-r2-m11-suspense-release";
 import { noteR2M11BRouteChangeStart } from "@/lib/community-messenger/room/cm-room-r2-m11b-breakdown";
 import { noteR2M11DRoomRouteChange } from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
-import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
+import { ensureCmRoomEntryRouteT0 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { acquireCmRoomEntryTimingSession } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
+import {
+  ensureRouteEntryPerfStarted,
+  recordRouteEntryElapsedMetricOnce,
+} from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatEntryJourneyMilestone } from "@/lib/trade/trade-chat-entry-journey-perf";
 import { readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
@@ -30,6 +35,11 @@ export function MessengerRoomRouteEntryMountProbe({ stage }: { stage: "layout" |
 
   if (match) {
     if (stage === "layout") {
+      ensureRouteEntryPerfStarted("messenger_room_entry", pathname);
+      if (roomId) {
+        acquireCmRoomEntryTimingSession(roomId, "route_t0_fallback");
+        ensureCmRoomEntryRouteT0();
+      }
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "next_route_start_ms");
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "layout_mount_start_ms");
       noteR2M9Stage("route_layout_mount");

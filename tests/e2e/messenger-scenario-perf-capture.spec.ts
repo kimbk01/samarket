@@ -133,7 +133,8 @@ test.describe("messenger scenario perf capture", () => {
     const afterPaste = await readSnap(page);
 
     await ta.fill("sendprobe");
-    const sendBtn = page.getByRole("button", { name: /^(전송|Send)$/i });
+    const sendBtn = page.locator("footer button:not([disabled])").last();
+    await sendBtn.waitFor({ state: "visible", timeout: 15_000 });
     await sendBtn.click();
     await waitForStablePaint(page, 400);
     const afterSend = await readSnap(page);

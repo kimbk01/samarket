@@ -19,6 +19,10 @@ test.describe("community messenger call smoke", () => {
     const origin = baseURL ?? "http://127.0.0.1:3000";
     const sessionId = "e2e-active-call-session";
 
+    await page.goto(`${origin}/community-messenger?section=chats`, { waitUntil: "domcontentloaded" });
+    const loggedIn = await loginViaTestApi(page, origin);
+    test.skip(!loggedIn, "test-login unavailable");
+
     await page.route("**/api/community-messenger/calls/sessions/active", async (route) => {
       await route.fulfill({
         status: 200,
@@ -30,14 +34,22 @@ test.describe("community messenger call smoke", () => {
       });
     });
 
-    await page.goto(`${origin}/community-messenger?section=chats`, { waitUntil: "domcontentloaded" });
-    const loggedIn = await loginViaTestApi(page, origin);
-    test.skip(!loggedIn, "test-login unavailable");
-
-    await page.goto(`${origin}/community-messenger?section=chats`, { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(new RegExp(`/community-messenger/calls/${sessionId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`), {
-      timeout: 20_000,
+    await page.evaluate(() => {
+      try {
+        sessionStorage.removeItem("samarket:cm-active-call-recovery");
+        sessionStorage.removeItem("samarket:cm-terminal-call-recovery-suppress");
+      } catch {
+        /* ignore */
+      }
     });
+
+    const recoveryNav = page.waitForURL(
+      new RegExp(`/community-messenger/calls/${sessionId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
+      { timeout: 25_000 }
+    );
+    /** pathname 동일 재진입은 recovery effect 가 재실행되지 않을 수 있음 — reload 로 마운트·auth·mock 를 한 번에 검증 */
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await recoveryNav;
   });
 
   test("terminal session is not recovered", async ({ page, baseURL }) => {

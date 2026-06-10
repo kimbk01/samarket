@@ -1,6 +1,7 @@
 "use client";
 
 import { cmRoomEntryTraceEnabled } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 import { noteCmRoomR7FirstRowDomVisible } from "@/lib/community-messenger/room/cm-room-r7-first-row-commit-instrumentation";
 import { noteCmRoomR5VirtualizerReady } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
@@ -127,7 +128,7 @@ export function recordCmRoomDomFirstMessageVisible(args: {
   fmrGateReason: CmRoomFmrGateReason;
   directLayout: boolean;
 }): boolean {
-  if (!cmRoomEntryTraceEnabled()) return false;
+  if (!cmRoomEntryTraceEnabled() && !samarketRuntimeDebugEnabled()) return false;
   const id = args.roomId.trim();
   if (!id || domRecordedRooms.has(id)) return false;
   domRecordedRooms.add(id);
@@ -194,8 +195,12 @@ export function noteCmRoomR6HeavyHostMount(roomId: string): void {
   emitR6Log(roomId);
 }
 
+function cmRoomR6TraceEnabled(): boolean {
+  return cmRoomEntryTraceEnabled() || samarketRuntimeDebugEnabled();
+}
+
 export function noteCmRoomR6VirtualizerReady(roomId: string): void {
-  if (!cmRoomEntryTraceEnabled()) return;
+  if (!cmRoomR6TraceEnabled()) return;
   const st = roomState(roomId);
   if (st.virtualizer_ready_ms != null) return;
   st.virtualizer_ready_ms = t0Ms();
@@ -207,7 +212,7 @@ export function noteCmRoomR6VirtualizerReady(roomId: string): void {
 
 /** legacy `display_room_messages_ready` — heavy bundle·virtualizer fully attached */
 export function recordCmRoomTimelineHeavyReady(roomId: string, reason: CmRoomDisplayReadyGateReason): void {
-  if (!cmRoomEntryTraceEnabled()) return;
+  if (!cmRoomR6TraceEnabled()) return;
   const id = roomId.trim();
   if (!id || displayReadyRecordedRooms.has(id)) return;
   displayReadyRecordedRooms.add(id);

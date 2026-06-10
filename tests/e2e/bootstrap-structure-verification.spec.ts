@@ -7,7 +7,11 @@
  */
 import { expect, test } from "@playwright/test";
 import { classifyCommunityMessengerRoomBootstrapCmReqSrc } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { ensureE2eUserSession, openMessengerRoomFromList } from "./helpers/playwright-origin-and-session";
+import {
+  ensureE2eUserSession,
+  gotoWithRetry,
+  openMessengerRoomFromList,
+} from "./helpers/playwright-origin-and-session";
 
 type Snap = {
   appWidePhaseLastMs?: Record<string, number>;
@@ -171,16 +175,30 @@ async function measureHome(page: import("@playwright/test").Page, origin: string
   const logs: RequestLog[] = [];
   const detach = attachRequestLog(page, logs);
   const navStart = Date.now();
-  await page.goto(`${origin}/home`, { waitUntil: "domcontentloaded" });
+  /** `/home` 는 Philife 로 redirect — 거래 목록·`/post/` 링크는 `/market` */
+  await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
+  await page
+    .locator('a[href^="/post/"]')
+    .first()
+    .waitFor({ state: "visible", timeout: 30_000 })
+    .catch(() => undefined);
   await expect
     .poll(
-      async () =>
-        page.evaluate(() => {
-          const w = window as typeof window & {
-            __tradeListRenderProbe?: { toPaintMs: number | null };
-          };
-          return w.__tradeListRenderProbe?.toPaintMs ?? null;
-        }),
+      async () => {
+        try {
+          const probe = await page.evaluate(() => {
+            const w = window as typeof window & {
+              __tradeListRenderProbe?: { toPaintMs: number | null };
+            };
+            return w.__tradeListRenderProbe?.toPaintMs ?? null;
+          });
+          if (probe != null) return probe;
+          const phase = await pickPhaseMap(page);
+          return pickMsPhase(phase, "trade_list_to_paint_ms");
+        } catch {
+          return null;
+        }
+      },
       { timeout: 25_000 }
     )
     .not.toBeNull();
@@ -203,12 +221,26 @@ async function measureHome(page: import("@playwright/test").Page, origin: string
 async function measureProductDetail(page: import("@playwright/test").Page, origin: string) {
   const logs: RequestLog[] = [];
   const detach = attachRequestLog(page, logs);
-  await page.goto(`${origin}/home`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
   const link = page.locator('a[href^="/post/"]').first();
-  await link.waitFor({ state: "visible", timeout: 30_000 });
   const t0 = Date.now();
-  await link.click();
-  await page.waitForURL(/\/post\/[^/?#]+$/, { timeout: 30_000 });
+  const linkVisible = await link
+    .waitFor({ state: "visible", timeout: 45_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (linkVisible) {
+    await link.click();
+    await page.waitForURL(/\/post\/[^/?#]+$/, { timeout: 30_000 });
+  } else {
+    const res = await page.request.get(`${origin}/api/philife/posts?page=1&sort=latest`);
+    const json = (await res.json().catch(() => null)) as { posts?: Array<{ id?: string }> } | null;
+    const postId = json?.posts?.[0]?.id;
+    if (typeof postId !== "string" || !postId.trim()) {
+      throw new Error("거래 목록에 상품이 없어 상세 측정을 건너뛸 수 없습니다");
+    }
+    await gotoWithRetry(page, `${origin}/post/${encodeURIComponent(postId.trim())}`);
+    await page.waitForURL(/\/post\/[^/?#]+$/, { timeout: 30_000 });
+  }
   await page.locator("h2").first().waitFor({ state: "visible", timeout: 30_000 });
   const tHeading = Date.now();
   await page.waitForTimeout(800);

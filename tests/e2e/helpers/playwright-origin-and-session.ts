@@ -185,6 +185,34 @@ export async function assertPlaywrightOriginAndTestLogin(
   }
 }
 
+/** Turbopack 이중 로드·sessionStorage 미러까지 합쳐 E2E 스냅샷을 읽는다 */
+export async function readMessengerVerificationSnap(page: Page): Promise<{
+  appWidePhaseLastMs?: Record<string, number>;
+  messengerRenderPerf?: Record<string, number>;
+  appWidePerf?: Record<string, number>;
+} | null> {
+  try {
+    return await page.evaluate(() => {
+      const w = window as unknown as {
+        getMessengerHomeVerificationSnapshot?: () => {
+          appWidePhaseLastMs?: Record<string, number>;
+          messengerRenderPerf?: Record<string, number>;
+          appWidePerf?: Record<string, number>;
+        };
+        getAppWidePhaseLastMs?: () => Record<string, number>;
+      };
+      const base = w.getMessengerHomeVerificationSnapshot?.() ?? null;
+      const phase = w.getAppWidePhaseLastMs?.() ?? base?.appWidePhaseLastMs ?? {};
+      if (!base) {
+        return Object.keys(phase).length > 0 ? { appWidePhaseLastMs: phase } : null;
+      }
+      return { ...base, appWidePhaseLastMs: phase };
+    });
+  } catch {
+    return null;
+  }
+}
+
 /** 거래 허브(`/trade-chats`) 행을 건너뛰고 CM `/rooms/[id]` 로 진입 */
 export async function openMessengerRoomFromList(page: Page, index = 0): Promise<boolean> {
   const origin = playwrightOriginFromEnv();
@@ -216,9 +244,7 @@ export async function openMessengerRoomFromList(page: Page, index = 0): Promise<
   const chats = Array.isArray(json?.chats) ? json!.chats! : [];
   const roomId = chats[index]?.id ?? chats[0]?.id;
   if (typeof roomId !== "string" || !roomId.trim()) return false;
-  await page.goto(`${origin}/community-messenger/rooms/${encodeURIComponent(roomId.trim())}`, {
-    waitUntil: "domcontentloaded",
-  });
+  await gotoWithRetry(page, `${origin}/community-messenger/rooms/${encodeURIComponent(roomId.trim())}`);
   await page.waitForURL(/\/community-messenger\/rooms\//, { timeout: 45_000 });
   return true;
 }

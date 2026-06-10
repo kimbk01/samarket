@@ -48,6 +48,13 @@ let traceRoomId: string | null = null;
 export function cmRoomEntryTraceEnabled(): boolean {
   if (cmProdParityModeEnabled()) return false;
   try {
+    if (typeof window !== "undefined") {
+      try {
+        if (sessionStorage.getItem("samarket:debug:runtime") === "1") return true;
+      } catch {
+        /* ignore */
+      }
+    }
     return (
       typeof process !== "undefined" &&
       typeof process.env !== "undefined" &&
