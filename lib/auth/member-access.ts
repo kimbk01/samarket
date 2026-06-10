@@ -3,6 +3,7 @@ import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
+import { buildDefaultDibayPublicId } from "@/lib/profile/default-profile";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
   deriveStoreMemberStatus,
@@ -243,7 +244,7 @@ export async function ensureAuthProfileRow(
   const username =
     pickTrimmed(meta.username) ??
     pickTrimmed(meta.login_id) ??
-    (email ? email.split("@")[0] : null);
+    buildDefaultDibayPublicId(user.id);
   const nickname = resolveNicknameSeed({
     nickname: meta.nickname ?? meta.full_name ?? meta.name,
     username,
@@ -288,17 +289,19 @@ export async function ensureAuthProfileRow(
   };
 
   if (!existing) {
-    const insertNickname = await ensureUniqueNickname();
+    const publicId = buildDefaultDibayPublicId(user.id);
+    const displaySeed = username || publicId;
     const seedRow = {
       id: user.id,
       email,
-      display_name: insertNickname,
-      username,
-      nickname: insertNickname,
+      display_name: displaySeed,
+      username: displaySeed,
+      nickname: displaySeed,
       auth_login_email: email,
       provider: dbProvider,
       auth_provider: dbProvider,
       avatar_url: oauthAvatar,
+      profile_completed: false,
       ...(preferredLanguage ? { preferred_language: preferredLanguage } : {}),
     };
     const fullRow = {
@@ -333,8 +336,8 @@ export async function ensureAuthProfileRow(
       const minimalRow = {
         id: user.id,
         email,
-        display_name: insertNickname,
-        nickname: insertNickname,
+        display_name: displaySeed,
+        nickname: displaySeed,
         avatar_url: oauthAvatar,
         updated_at: nowIso,
       };

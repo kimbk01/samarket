@@ -10,6 +10,8 @@ import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
 import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
+import { AddressRequiredSheet } from "@/components/auth/AddressRequiredSheet";
+import { LoginRequiredSheet } from "@/components/auth/LoginRequiredSheet";
 import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerificationRequiredDialog";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
@@ -180,6 +182,8 @@ export function MainAppProviderTree({
           <AuthComplianceRedirect />
           <OwnerHubBadgeRuntime />
           <MandatoryAddressGate />
+          <LoginRequiredSheet />
+          <AddressRequiredSheet />
           <PhoneVerificationRequiredDialog />
           <DiBaYNotificationOnboardingGate />
           <DevicePermissionUiHost />

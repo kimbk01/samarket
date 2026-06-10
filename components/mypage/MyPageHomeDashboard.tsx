@@ -5,7 +5,6 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
 import { logoutDiBaYAppSession } from "@/lib/auth/logout";
-import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF, buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
@@ -294,7 +293,7 @@ export function MyPageHomeDashboard({
           const safety = window.setTimeout(() => {
             setLogoutSubmitting(false);
             setLogoutOpen(false);
-            window.location.replace(buildLoginPath());
+            window.location.replace("/");
           }, 6_000);
           try {
             const result = await logoutDiBaYAppSession();
@@ -305,7 +304,7 @@ export function MyPageHomeDashboard({
               return;
             }
             setLogoutOpen(false);
-            window.location.replace(buildLoginPath());
+            window.location.replace("/");
           } catch (e) {
             window.clearTimeout(safety);
             setLogoutSubmitting(false);

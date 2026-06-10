@@ -2,12 +2,10 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { getFavoriteStatus } from "@/lib/favorites/getFavoriteStatus";
 import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-
-const LOGIN_REDIRECT = "/mypage/account";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 export interface PostFavoriteButtonProps {
   postId: string;
@@ -33,7 +31,7 @@ export function PostFavoriteButton({
   onFavoriteChange,
 }: PostFavoriteButtonProps) {
   const { t } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const listMode = onFavoriteChange != null;
 
   const [standaloneFavorited, setStandaloneFavorited] = useState(false);
@@ -71,7 +69,7 @@ export function PostFavoriteButton({
       e.stopPropagation();
       const user = getCurrentUser();
       if (!user?.id) {
-        router.push(LOGIN_REDIRECT);
+        await requireAction("trade_favorite", () => undefined);
         return;
       }
       if (authorUserId && user.id === authorUserId) return;
@@ -102,7 +100,7 @@ export function PostFavoriteButton({
         busyRef.current = false;
       }
     },
-    [postId, authorUserId, router, onFavoriteChange, listMode, standaloneLoaded]
+    [postId, authorUserId, requireAction, onFavoriteChange, listMode, standaloneLoaded]
   );
 
   if (hideForOwnPost) return null;

@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   type StoreOrdersHubFilter,
   ordersHubHref,
@@ -66,12 +67,15 @@ export function StoreOrderDashboardSection({
           {loadingHint ?? t("store_order_dash_guest_hint")}
         </p>
         <div className={`mt-3 ${RAIL}`}>
-          <Link
-            href="/login"
+          <button
+            type="button"
+            onClick={() => {
+              void requireAuthAction("delivery_order", async () => {}, { next: "/orders" });
+            }}
             className="flex w-[120px] shrink-0 flex-col justify-center rounded-ui-rect bg-sam-ink px-3 py-3 text-center sam-text-helper font-bold text-white"
           >
             {t("store_order_dash_login")}
-          </Link>
+          </button>
           <Link
             href="/orders"
             className="flex w-[120px] shrink-0 flex-col justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-center sam-text-helper font-semibold text-sam-fg"

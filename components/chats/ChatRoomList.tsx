@@ -170,10 +170,7 @@ export function ChatRoomList({
   if (sessionDenied) {
     return (
       <div className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} py-10 text-center sam-text-body-secondary`}>
-        <p>{t("common_login_required_for_chat_list")}</p>
-        <Link href="/login" className="mt-3 inline-block font-medium text-sam-primary underline">
-          {t("common_login")}
-        </Link>
+        <p>{t("auth_resource_access_denied")}</p>
       </div>
     );
   }

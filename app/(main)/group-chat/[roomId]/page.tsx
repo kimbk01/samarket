@@ -4,6 +4,7 @@ import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
@@ -26,14 +27,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
 
   const userId = await getOptionalAuthenticatedUserId();
   if (!userId) {
-    return (
-      <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-sm text-sam-muted">{translate(lang, "common_login_required")}</p>
-        <Link href="/login" className="font-medium text-signature underline">
-          로그인
-        </Link>
-      </div>
-    );
+    notFound();
   }
 
   const boot = await loadGroupChatBootstrapForUser(userId, id);

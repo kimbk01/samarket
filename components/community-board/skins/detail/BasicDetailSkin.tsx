@@ -1,11 +1,11 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { BoardDetailSkinProps } from "@/lib/community-board/types";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { createCommunityPostReport } from "@/lib/reports/createCommunityPostReport";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 export function BasicDetailSkin({
   post,
@@ -16,7 +16,7 @@ export function BasicDetailSkin({
   showReport = true,
 }: BoardDetailSkinProps) {
   const { t, language } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const [reportBusy, setReportBusy] = useState(false);
   const me = getCurrentUser()?.id ?? "";
   const authorId = post.author?.id ?? "";
@@ -24,7 +24,7 @@ export function BasicDetailSkin({
   const onReport = async () => {
     const u = getCurrentUser();
     if (!u?.id) {
-      router.push("/login");
+      await requireAction("community_report", onReport);
       return;
     }
     const reason = window.prompt("신고 사유를 짧게 입력해 주세요.");

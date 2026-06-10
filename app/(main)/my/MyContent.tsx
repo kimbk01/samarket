@@ -57,12 +57,10 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const legacyTabParam = searchParams.get("tab")?.trim() ?? "";
   const legacySectionParam = searchParams.get("section");
   const legacyNavParam = searchParams.get(MYPAGE_MOBILE_NAV_QUERY);
-  const authErrorParam = searchParams.get("auth_error");
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
   const recoveryTriggeredRef = useRef(false);
   const ensureRetriedRef = useRef(false);
-  const lastLoginRedirectRef = useRef<string | null>(null);
 
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
 
@@ -104,42 +102,13 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
           invalidateMeProfileDedupedCache();
           await load({ silent: true });
         } catch {
-          // 다음 단계의 로그인 복구로 자연 fallback
+          /* guest 또는 일시 실패 — 허브 UI fallback */
         }
       })();
       return;
     }
     recoveryTriggeredRef.current = true;
-    const hasAuthError = Boolean(authErrorParam);
-    const reason = data
-      ? t("mypage_comp_profile_load_failed_short")
-      : t("auth_err_session_sync_failed");
-    if (typeof window !== "undefined") {
-      window.alert(reason);
-    }
-    const errorCode = hasAuthError
-      ? String(authErrorParam ?? "session_recovery_required")
-      : data
-        ? "profile_load_failed"
-        : "session_recovery_required";
-    const target = `/login?auth_error=${encodeURIComponent(errorCode)}`;
-    if (lastLoginRedirectRef.current === target) {
-      logNetworkLoopGuardReplace({
-        source: "my-content",
-        targetUrl: target,
-        reason: "login_recovery_duplicate",
-      });
-      return;
-    }
-    if (
-      guardedRouterReplace(router, target, {
-        source: "my-content",
-        reason: "session_recovery_redirect",
-      })
-    ) {
-      lastLoginRedirectRef.current = target;
-    }
-  }, [loading, data, load, router, authErrorParam, language]);
+  }, [loading, data, load]);
 
   useEffect(() => {
     if (!infoHubOpen) return;

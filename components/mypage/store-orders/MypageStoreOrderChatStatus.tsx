@@ -18,10 +18,8 @@ export function MypageStoreOrderChatMissingOrderId() {
 export function MypageStoreOrderChatLoginPrompt() {
   const { t } = useI18n();
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-sm">
-      <Link href="/login" className="font-medium text-signature underline">
-        {t("common_login")}
-      </Link>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-sm text-sam-muted">
+      <p>{t("auth_resource_access_denied")}</p>
     </div>
   );
 }

@@ -195,6 +195,7 @@ export function profileRowToEnsureApiPayload(row: ProfileRow) {
     nickname: row.nickname ?? "user",
     avatar_url: withDefaultAvatar(row.avatar_url),
     username: row.username,
+    profile_completed: row.profile_completed === true,
     role: row.role,
     status: row.status,
     member_type: row.member_type,

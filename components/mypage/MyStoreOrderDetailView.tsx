@@ -417,13 +417,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   if (state.kind === "unauth") {
     return (
       <div className="space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted shadow-sm">
-        <p>{t("mypage_comp_order_unauth_prompt")}</p>
-        <Link
-          href="/login"
-          className="inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white"
-        >
-          {t("mypage_comp_order_login_continue")}
-        </Link>
+        <p>{t("auth_resource_access_denied")}</p>
       </div>
     );
   }

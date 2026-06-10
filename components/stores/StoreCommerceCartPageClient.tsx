@@ -142,6 +142,7 @@ import {
 } from "@/lib/addresses/address-list-client-cache";
 import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
@@ -220,6 +221,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const goCartBack = useStoreCartBack(storeSlug);
   const cartFlowMountT0Ref = useRef(
     typeof performance !== "undefined" ? performance.now() : 0
@@ -1215,6 +1217,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   );
 
   async function submitOrder() {
+    await requireAction("delivery_order", submitOrderAfterAuth, {
+      requireAddress: fulfillment === "local_delivery",
+    });
+  }
+
+  async function submitOrderAfterAuth() {
     if (!store || lines.length === 0) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
       setErr(t("store_network_order_retry"));

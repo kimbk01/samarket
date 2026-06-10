@@ -2,9 +2,9 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { blockUser } from "@/lib/reports/mock-blocked-users";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 function IconEyeSlash({ className }: { className?: string }) {
   return (
@@ -30,8 +30,6 @@ function IconReportAlert({ className }: { className?: string }) {
   );
 }
 
-const LOGIN_REDIRECT = "/mypage/account";
-
 export function PostDetailMoreBottomSheet({
   open,
   onClose,
@@ -50,7 +48,7 @@ export function PostDetailMoreBottomSheet({
   reportEnabled?: boolean;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const [slideIn, setSlideIn] = useState(false);
 
   useEffect(() => {
@@ -74,7 +72,7 @@ export function PostDetailMoreBottomSheet({
   const handleHideAuthor = () => {
     const u = getCurrentUser();
     if (!u?.id) {
-      router.push(LOGIN_REDIRECT);
+      void requireAction("community_bookmark", handleHideAuthor);
       return;
     }
     blockUser(u.id, authorUserId, authorNickname ?? undefined);
@@ -85,7 +83,7 @@ export function PostDetailMoreBottomSheet({
   const handleReport = () => {
     const u = getCurrentUser();
     if (!u?.id) {
-      router.push(LOGIN_REDIRECT);
+      void requireAction("trade_report", handleReport);
       return;
     }
     onClose();

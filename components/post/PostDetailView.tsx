@@ -126,6 +126,7 @@ import {
   TRADE_FB_DETAIL_PLACEHOLDER_TEXT,
 } from "@/lib/ui/trade-write-fb-ui";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 /** 거래 상세 — FB형 연속 섹션 스택(글쓰기와 동일 밀도) */
 const TRADE_POST_DETAIL_FB_STACK_CLASS = `${PHILIFE_FEED_INSET_X_CLASS} space-y-0 pt-0`;
@@ -491,8 +492,6 @@ function TradeMetaBlock({
   );
 }
 
-const LOGIN_REDIRECT = "/mypage/account";
-
 type PostDetailSellerAuthor = {
   id: string;
   nickname: string | null;
@@ -843,6 +842,7 @@ export function PostDetailView({
 }: PostDetailViewProps) {
   const { t } = useI18n();
   const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -1274,47 +1274,43 @@ export function PostDetailView({
   }, [post.id, post.favorite_count]);
 
   const handleFavorite = useCallback(async () => {
-    const uid = (await getCurrentUserIdForDb())?.trim() || null;
-    if (!uid) {
-      router.push(LOGIN_REDIRECT);
-      return;
-    }
-    if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) return;
-    const prevFavorite = isFavorite;
-    const prevCount = favoriteCount;
-    setIsFavorite(!prevFavorite);
-    setFavoriteCount((c) => Math.max(0, c + (prevFavorite ? -1 : 1)));
-    const res = await toggleFavorite(post.id);
-    if (!res.ok) {
-      setIsFavorite(prevFavorite);
-      setFavoriteCount(prevCount);
-    } else {
-      setIsFavorite(res.isFavorite);
-    }
-  }, [post, post.id, router, isFavorite, favoriteCount]);
+    await requireAction("trade_favorite", async () => {
+      const uid = (await getCurrentUserIdForDb())?.trim() || null;
+      if (!uid) return;
+      if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) return;
+      const prevFavorite = isFavorite;
+      const prevCount = favoriteCount;
+      setIsFavorite(!prevFavorite);
+      setFavoriteCount((c) => Math.max(0, c + (prevFavorite ? -1 : 1)));
+      const res = await toggleFavorite(post.id);
+      if (!res.ok) {
+        setIsFavorite(prevFavorite);
+        setFavoriteCount(prevCount);
+      } else {
+        setIsFavorite(res.isFavorite);
+      }
+    });
+  }, [post, post.id, requireAction, isFavorite, favoriteCount]);
 
   const handleReport = useCallback(async () => {
-    const uid = (await getCurrentUserIdForDb())?.trim() || null;
-    if (!uid) {
-      router.push(LOGIN_REDIRECT);
-      return;
-    }
-    if (!reportReason.trim()) return;
-    setReportError((prev) => (prev === "" ? prev : ""));
-    setReportSubmitting((prev) => (prev ? prev : true));
-    try {
-      const res = await createReport(post.id, reportReason.trim());
-      if (res.ok) {
-        setReportOpen((prev) => (prev ? false : prev));
-        setReportReason((prev) => (prev === "" ? prev : ""));
-        setReportError((prev) => (prev === "" ? prev : ""));
-      } else {
-        setReportError(res.error ?? t("ui_report_failed"));
+    await requireAction("trade_report", async () => {
+      if (!reportReason.trim()) return;
+      setReportError((prev) => (prev === "" ? prev : ""));
+      setReportSubmitting((prev) => (prev ? prev : true));
+      try {
+        const res = await createReport(post.id, reportReason.trim());
+        if (res.ok) {
+          setReportOpen((prev) => (prev ? false : prev));
+          setReportReason((prev) => (prev === "" ? prev : ""));
+          setReportError((prev) => (prev === "" ? prev : ""));
+        } else {
+          setReportError(res.error ?? t("ui_report_failed"));
+        }
+      } finally {
+        setReportSubmitting((prev) => (prev ? false : prev));
       }
-    } finally {
-      setReportSubmitting((prev) => (prev ? false : prev));
-    }
-  }, [post.id, reportReason, router, t]);
+    });
+  }, [post.id, reportReason, requireAction, t]);
 
   const chatBlockedByOtherReservation = useMemo(() => {
     if (post.type === "community") return false;
@@ -1338,54 +1334,53 @@ export function PostDetailView({
 
   const handleChat = useCallback(async () => {
     setChatError("");
-    const uid = (await getCurrentUserIdForDb())?.trim() || null;
-    if (!uid) {
-      router.push(LOGIN_REDIRECT);
-      return;
-    }
-    if (chatBlockedByCompleted) {
-      setChatError(t("trade_detail_chat_blocked_completed"));
-      return;
-    }
-    if (chatBlockedByReservedState) {
-      setChatError(t("trade_detail_chat_blocked_reserved"));
-      return;
-    }
-    if (existingTradeRoomId) {
-      openExistingTradeChat(router, {
+    await requireAction("trade_chat", async () => {
+      const uid = (await getCurrentUserIdForDb())?.trim() || null;
+      if (!uid) return;
+      if (chatBlockedByCompleted) {
+        setChatError(t("trade_detail_chat_blocked_completed"));
+        return;
+      }
+      if (chatBlockedByReservedState) {
+        setChatError(t("trade_detail_chat_blocked_reserved"));
+        return;
+      }
+      if (existingTradeRoomId) {
+        openExistingTradeChat(router, {
+          productId: post.id,
+          roomId: existingTradeRoomId,
+          messengerRoomId: existingTradeMessengerId,
+          sourceHint: existingTradeRoomSource,
+        });
+        return;
+      }
+      if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) {
+        setChatError(t("trade_detail_chat_error_own_product"));
+        return;
+      }
+      if (chatBlockedByOtherReservation) {
+        setChatError(t("trade_detail_chat_error_reserved_buyer"));
+        return;
+      }
+      const thumbs = resolveTradePostDetailImageUrls(post);
+      const productThumbnail = thumbs[0] ?? "";
+      const productTitle = (post.title ?? t("trade_detail_product_fallback")).trim();
+      const priceText = post.is_free_share
+        ? t("trade_detail_free_share")
+        : post.price != null
+          ? formatPrice(post.price, defaultCurrency)
+          : t("trade_detail_price_inquiry");
+      const sellerName = author?.nickname?.trim() || t("trade_detail_seller_fallback");
+      const sellerNameDisplay = author?.display_name?.trim() || sellerName;
+      openCreateTradeChat(router, {
         productId: post.id,
-        roomId: existingTradeRoomId,
-        messengerRoomId: existingTradeMessengerId,
-        sourceHint: existingTradeRoomSource,
+        composePreview: {
+          productTitle,
+          productThumbnail,
+          priceText,
+          sellerName: sellerNameDisplay,
+        },
       });
-      return;
-    }
-    if (postOwnedByUserId(post as unknown as Record<string, unknown>, uid)) {
-      setChatError(t("trade_detail_chat_error_own_product"));
-      return;
-    }
-    if (chatBlockedByOtherReservation) {
-      setChatError(t("trade_detail_chat_error_reserved_buyer"));
-      return;
-    }
-    const thumbs = resolveTradePostDetailImageUrls(post);
-    const productThumbnail = thumbs[0] ?? "";
-    const productTitle = (post.title ?? t("trade_detail_product_fallback")).trim();
-    const priceText = post.is_free_share
-      ? t("trade_detail_free_share")
-      : post.price != null
-        ? formatPrice(post.price, defaultCurrency)
-        : t("trade_detail_price_inquiry");
-    const sellerName = author?.nickname?.trim() || t("trade_detail_seller_fallback");
-    const sellerNameDisplay = author?.display_name?.trim() || sellerName;
-    openCreateTradeChat(router, {
-      productId: post.id,
-      composePreview: {
-        productTitle,
-        productThumbnail,
-        priceText,
-        sellerName: sellerNameDisplay,
-      },
     });
   }, [
     post,
@@ -1399,6 +1394,7 @@ export function PostDetailView({
     chatBlockedByOtherReservation,
     chatBlockedByCompleted,
     chatBlockedByReservedState,
+    requireAction,
     t,
   ]);
 

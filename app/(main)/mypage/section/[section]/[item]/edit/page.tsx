@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { ProfileEditForm } from "@/components/my/edit/ProfileEditForm";
 import { buildMypageItemHref } from "@/lib/mypage/mypage-mobile-nav-registry";
@@ -29,7 +29,7 @@ async function MypageSectionProfileEditPageBody({
 
   const userId = await getRouteUserId();
   if (!userId) {
-    return redirect("/login");
+    notFound();
   }
 
   const backHref = buildMypageItemHref("account", "profile");

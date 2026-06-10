@@ -8,7 +8,9 @@ import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 
 export async function submitCommunityPost(boardSlug: string, payload: PostCreatePayload) {
   const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) redirect("/login");
+  if (!auth.ok) {
+    throw new Error("로그인이 필요합니다.");
+  }
   const { id } = await createPost(payload, auth.userId);
   redirect(SAMARKET_ROUTES.community.boardPost(boardSlug, id));
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import {
   getCurrentUser,
@@ -11,10 +10,11 @@ import {
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 export function NeighborFollowButton({ targetUserId }: { targetUserId: string }) {
   const { t } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [busy, setBusy] = useState(false);
@@ -43,7 +43,7 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
 
   const toggle = async () => {
     if (!me?.id) {
-      router.push("/login");
+      await requireAction("friend_add", toggle);
       return;
     }
     setBusy((prev) => (prev ? prev : true));

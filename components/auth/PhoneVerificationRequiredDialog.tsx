@@ -54,25 +54,28 @@ export function PhoneVerificationRequiredDialog() {
       aria-labelledby="phone-gate-title"
       aria-describedby="phone-gate-desc"
     >
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 shadow-xl sm:rounded-ui-rect sm:p-6">
-        <h2 id="phone-gate-title" className="sam-text-section-title font-semibold text-ui-fg">
+      <div className="w-full max-w-md rounded-t-[24px] border border-[#d9e5df] bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-[24px] sm:p-6">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#006241]/10 text-[#006241]" aria-hidden>
+          <span className="text-xl font-bold">P</span>
+        </div>
+        <h2 id="phone-gate-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
           {t("auth_phone_gate_title")}
         </h2>
-        <p id="phone-gate-desc" className="mt-2 sam-text-body leading-relaxed text-ui-muted">
+        <p id="phone-gate-desc" className="mt-2 text-center sam-text-body leading-relaxed text-[#1e3932]/75">
           {t("auth_phone_gate_body", { requirement })}
         </p>
         <div className="mt-5 flex flex-col gap-2">
           <button
             type="button"
             onClick={goVerify}
-            className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white"
+            className="w-full rounded-full bg-[#006241] px-4 py-3 sam-text-body font-semibold text-white active:bg-[#1e3932]"
           >
             {t("auth_phone_gate_verify")}
           </button>
           <button
             type="button"
             onClick={close}
-            className="w-full rounded-ui-rect border border-ui-border bg-transparent py-3 sam-text-body font-medium text-ui-fg"
+            className="w-full rounded-full border border-[#006241] bg-white px-4 py-3 sam-text-body font-semibold text-[#006241] active:bg-[#f6f6f6]"
           >
             {t("common_cancel")}
           </button>

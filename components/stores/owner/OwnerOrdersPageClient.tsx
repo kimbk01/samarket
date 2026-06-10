@@ -164,10 +164,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   if (gate.kind === "unauth") {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-fg">
-        {t("common_login_required")}{" "}
-        <Link className="font-bold text-sam-fg underline" href="/login">
-          {t("common_login")}
-        </Link>
+        {t("auth_resource_access_denied")}
       </div>
     );
   }

@@ -510,10 +510,7 @@ export function ChatRoomScreen({
   if (resolvedUserId === null) {
     return (
       <div className={`flex flex-col items-center justify-center px-4 text-center ${embeddedEmptyClass}`}>
-        <p className="text-sm text-sam-muted">{t("common_login_required")}</p>
-        <Link href="/login" className="mt-3 font-medium text-signature underline">
-          {t("common_login")}
-        </Link>
+        <p className="text-sm text-sam-muted">{t("auth_resource_access_denied")}</p>
       </div>
     );
   }

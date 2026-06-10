@@ -2,11 +2,12 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityCommentReport } from "@/lib/reports/createCommunityCommentReport";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
+import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 
 type CommentRow = {
   id: string;
@@ -18,8 +19,6 @@ type CommentRow = {
   authorUsername?: string | null;
 };
 
-const LOGIN_REDIRECT = "/mypage/account";
-
 export function PostCommunityCommentsSection({
   postId,
   currentUserId,
@@ -30,7 +29,7 @@ export function PostCommunityCommentsSection({
   showCommentReport?: boolean;
 }) {
   const { t } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [draft, setDraft] = useState("");
@@ -95,8 +94,9 @@ export function PostCommunityCommentsSection({
   }, [comments]);
 
   const onSubmitComment = async () => {
-    if (!currentUserId) {
-      router.push(LOGIN_REDIRECT);
+    const actorId = currentUserId ?? (await getCurrentUserIdForDb())?.trim() ?? null;
+    if (!actorId) {
+      await requireAction("community_comment", onSubmitComment);
       return;
     }
     const text = draft.trim();
@@ -106,7 +106,7 @@ export function PostCommunityCommentsSection({
     const tempId = `temp-${Date.now()}`;
     const optimisticComment: CommentRow = {
       id: tempId,
-      user_id: currentUserId,
+      user_id: actorId,
       content: text,
       created_at: new Date().toISOString(),
       parent_id: replyParentId?.trim() || null,
@@ -141,8 +141,9 @@ export function PostCommunityCommentsSection({
   };
 
   const onReportComment = async (commentId: string) => {
-    if (!currentUserId) {
-      router.push(LOGIN_REDIRECT);
+    const actorId = currentUserId ?? (await getCurrentUserIdForDb())?.trim() ?? null;
+    if (!actorId) {
+      await requireAction("community_report", () => onReportComment(commentId));
       return;
     }
     const reason = window.prompt("댓글 신고 사유를 짧게 입력해 주세요.");
@@ -263,7 +264,7 @@ export function PostCommunityCommentsSection({
         />
         <button
           type="button"
-          onClick={() => (currentUserId ? void onSubmitComment() : router.push(LOGIN_REDIRECT))}
+          onClick={() => void onSubmitComment()}
           disabled={!!currentUserId && (submitting || !draft.trim())}
           className={`mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 font-medium text-white disabled:opacity-50 ${Sam.text.body}`}
         >

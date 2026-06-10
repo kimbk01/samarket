@@ -11,10 +11,12 @@ import {
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
   const { t } = useI18n();
   const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [busy, setBusy] = useState(false);
@@ -40,7 +42,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
 
   const toggle = async () => {
     if (!me?.id) {
-      router.push("/login");
+      await requireAction("community_report", toggle);
       return;
     }
     if (!targetUserId || me.id === targetUserId) return;
@@ -82,7 +84,9 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
     return (
       <button
         type="button"
-        onClick={() => router.push("/login")}
+        onClick={() => {
+          void requireAction("community_report", toggle);
+        }}
         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg"
       >
         {t("community_block")}

@@ -9,6 +9,7 @@ import { formatMeetingJoinRequestMessage } from "@/lib/neighborhood/meeting-join
 import { MeetingJoinRequestModal } from "./MeetingJoinRequestModal";
 import { MeetingPasswordOnlyModal } from "./MeetingPasswordOnlyModal";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 type ViewerMeetingStatus = "joined" | "pending" | "left" | "kicked" | "banned" | "rejected" | null;
 
@@ -44,6 +45,7 @@ export function MeetingJoinButton({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const pathname = usePathname();
   const meetingPath = philifeAppPaths.meeting(meetingId);
   const messengerRoomPath = chatRoomId ? `/community-messenger/rooms/${encodeURIComponent(chatRoomId)}` : meetingPath;
@@ -103,7 +105,7 @@ export function MeetingJoinButton({
 
   const finishJoin = async (payload?: { password?: string; message?: string }) => {
     if (!me?.id) {
-      router.push("/login");
+      await requireAction("messenger_open", () => finishJoin(payload));
       return;
     }
     setBusy((prev) => (prev ? prev : true));
@@ -117,7 +119,7 @@ export function MeetingJoinButton({
         body: payload ? JSON.stringify(payload) : undefined,
       });
       if (res.status === 401) {
-        router.push("/login");
+        await requireAction("messenger_open", () => finishJoin(payload));
         return;
       }
       const json = (await parseJoinResponse(res)) as {
@@ -159,7 +161,7 @@ export function MeetingJoinButton({
   const onClickMain = () => {
     if (!meetingId) return;
     if (!me?.id) {
-      router.push("/login");
+      void requireAction("messenger_open", onClickMain);
       return;
     }
     if (isJoined) {

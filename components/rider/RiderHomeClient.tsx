@@ -84,11 +84,8 @@ export function RiderHomeClient() {
       <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-8 max-w-md mx-auto`}>
         <h1 className={Sam.text.pageTitle}>{t("ui_rider_center_title")}</h1>
         <p className={`mt-3 ${Sam.text.bodySecondary}`}>
-          {err === "unauthorized" ? t("ui_rider_login_required") : t("ui_rider_not_registered")}
+          {err === "unauthorized" ? t("auth_resource_access_denied") : t("ui_rider_not_registered")}
         </p>
-        <Link href="/login" className={`mt-6 inline-flex ${Sam.btn.primary}`}>
-          {t("common_login")}
-        </Link>
       </div>
     );
   }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
 import { logoutDiBaYAppSession } from "@/lib/auth/logout";
-import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 type LogoutActionTriggerProps = {
@@ -27,10 +26,10 @@ export function LogoutActionTrigger({
 
   const navigateAfterLogout = () => {
     if (typeof window !== "undefined") {
-      window.location.replace(buildLoginPath());
+      window.location.replace("/");
       return;
     }
-    router.replace("/login");
+    router.replace("/");
     router.refresh();
   };
 

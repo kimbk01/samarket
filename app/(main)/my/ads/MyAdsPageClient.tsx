@@ -63,10 +63,7 @@ export default function MyAdsPageClient() {
       <div className="mx-auto max-w-lg px-4 py-4">
         {authHint ? (
           <p className="mb-4 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-            {authHint}{" "}
-            <Link href="/login" className="font-semibold text-signature underline">
-              {t("common_login")}
-            </Link>
+            {t("auth_resource_access_denied")}
           </p>
         ) : null}
 

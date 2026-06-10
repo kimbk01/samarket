@@ -239,13 +239,7 @@ export function MyBusinessPage({
   if (state.kind === "unauth") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-amber-50 p-4 sam-text-body text-amber-900`}>
-        <p>{t("business_phase7_063")}</p>
-        <Link
-          href="/login"
-          className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-sam-surface px-4 py-2 sam-text-body font-medium text-amber-900"
-        >
-          {t("business_phase7_606")}
-        </Link>
+        <p>{t("auth_resource_access_denied")}</p>
       </div>
     );
   }

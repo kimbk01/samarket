@@ -63,9 +63,7 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
   if (gate.kind === "unauth") {
     return (
       <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-fg">
-        <Link href="/login" className="font-semibold text-signature underline">
-          {t("common_login")}
-        </Link>
+        <p>{t("auth_resource_access_denied")}</p>
       </div>
     );
   }

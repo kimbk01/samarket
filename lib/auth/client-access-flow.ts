@@ -14,6 +14,7 @@ import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -56,20 +57,13 @@ export function isSessionReplacedError(error: string | null | undefined): boolea
   return msg.includes(SESSION_REPLACED_CODE) || msg.includes(SESSION_REPLACED_MESSAGE);
 }
 
-function confirmMove(message: string): boolean {
-  if (typeof window === "undefined") return true;
-  return window.confirm(message);
-}
-
 export function redirectForBlockedAction(
   router: RouterLike,
   error: string | null | undefined,
   next?: string
 ): boolean {
   if (isLoginRequiredError(error)) {
-    if (confirmMove("로그인이 필요합니다.\n로그인 화면으로 이동하시겠습니까?")) {
-      router.push(buildLoginHref(next));
-    }
+    openLoginRequiredSheet({ actionType: "messenger_open", next: next?.trim() || currentHrefFallback() });
     return true;
   }
   if (isPhoneVerificationRequiredError(error)) {
@@ -85,24 +79,15 @@ export function ensureClientAccessOrRedirect(
   next?: string
 ): boolean {
   if (!user?.id) {
-    if (confirmMove("로그인이 필요합니다.\n로그인 화면으로 이동하시겠습니까?")) {
-      const href = buildLoginHref(next);
-      if (typeof router.replace === "function") {
-        router.replace(href);
-      } else {
-        router.push(href);
-      }
-    }
+    openLoginRequiredSheet({ actionType: "profile_edit", next: next?.trim() || currentHrefFallback() });
     return false;
   }
   if (!hasStoreTermsConsent(user)) {
-    if (confirmMove("서비스 이용약관과 개인정보처리방침 동의가 필요합니다.\n동의 화면으로 이동하시겠습니까?")) {
-      const href = buildConsentHref(next);
-      if (typeof router.replace === "function") {
-        router.replace(href);
-      } else {
-        router.push(href);
-      }
+    const href = buildConsentHref(next);
+    if (typeof router.replace === "function") {
+      router.replace(href);
+    } else {
+      router.push(href);
     }
     return false;
   }

@@ -1,7 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
-import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
-import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import {
   peekProxyAuthSessionCache,
@@ -10,11 +8,16 @@ import {
   setProxyAuthSessionCache,
 } from "@/lib/auth/proxy-auth-session-cache";
 import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
+import {
+  shouldAllowUnauthenticatedHtmlRequest,
+  shouldBlockUnauthenticatedHtmlRequest,
+} from "@/lib/auth/guest-browse-access-policy";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
 /**
- * 앱 UI(HTML·RSC) — 미로그인 시 /login 으로만 진입 가능.
+ * 앱 UI(HTML·RSC) — 비회원은 공개 브라우징 allowlist 만 통과, private URL 은 404.
+ * 행동 버튼 로그인 유도는 `requireAuthAction`·AuthModal 이 담당한다.
  * (탭 전환·뒤로가기·PWA 백그라운드는 로그아웃이 아님; 세션 만료/명시 로그아웃 후에는 여기서 매 요청 재검증)
  * - /api/* 는 matcher 에서 제외 (각 Route Handler가 인증 처리).
  * - Next.js 16+: `proxy.ts` + `export function proxy` — 세션 쿠키 갱신 포함.
@@ -23,20 +26,6 @@ import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
  * RSC·프록시는 캐시로 통과하고 `/api/me/profile` 만 401이 되어 “로그인 필요”와
  * 뒤로가기 시 이전 화면의 로그인 UI가 어긋날 수 있음 → 매 요청 `getUser()` 검증 유지.
  */
-
-function isPublicPath(pathname: string): boolean {
-  if (pathname === "/login" || pathname.startsWith("/login/")) return true;
-  if (pathname === "/signup" || pathname.startsWith("/signup/")) return true;
-  if (pathname.startsWith("/auth/")) return true;
-  if (pathname === "/terms" || pathname.startsWith("/terms/")) return true;
-  if (pathname === "/privacy" || pathname.startsWith("/privacy/")) return true;
-  if (pathname === "/account/delete-request" || pathname.startsWith("/account/delete-request/")) return true;
-  return false;
-}
-
-function isAdminPath(pathname: string): boolean {
-  return pathname === "/admin" || pathname.startsWith("/admin/");
-}
 
 function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
   for (const { name } of request.cookies.getAll()) {
@@ -67,23 +56,11 @@ function finalizeOwnerDocResponse(res: NextResponse, pathname: string): NextResp
   return preventAuthPageCache(res);
 }
 
-/**
- * 미인증 시 `/login` 으로 보낸다.
- * 원래 가려던 *내부* 경로가 안전(`sanitizeNextPath`)하면 `?next=` 로 보존해
- * `/auth/callback` 또는 로그인 성공 후 그 경로로 복귀하게 한다.
- *
- * 보존하지 않는 경우(루프·외부 송출 위험): `/login`, `/auth/callback`, `/auth/consent`, `/api/*`, `//`, 외부 URL 등.
- */
-function redirectToLogin(request: NextRequest): NextResponse {
-  const loginUrl = request.nextUrl.clone();
-  const originalPathWithSearch = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  const safeNext = sanitizeNextPath(originalPathWithSearch);
-  loginUrl.pathname = "/login";
-  loginUrl.search = "";
-  if (safeNext) {
-    loginUrl.searchParams.set("next", safeNext);
-  }
-  return preventAuthPageCache(NextResponse.redirect(loginUrl));
+/** 미인증 private·회원 전용 URL — `/login` 리다이렉트 대신 404(not-found UI) */
+function respondGuestBlocked(request: NextRequest): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = "/__guest_private_blocked__";
+  return preventAuthPageCache(NextResponse.rewrite(url));
 }
 
 function respondServerMisconfigured(message: string): NextResponse {
@@ -144,7 +121,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (isPublicPath(pathname)) {
+  if (shouldAllowUnauthenticatedHtmlRequest(pathname)) {
     return preventAuthPageCache(NextResponse.next());
   }
 
@@ -156,11 +133,14 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!requestHasSupabaseAuthCookies(request)) {
-    const loginRedirect = redirectToLogin(request);
-    if (/^\/stores\/[^/]+\/cart\/?$/.test(pathname)) {
-      loginRedirect.headers.set("x-samarket-cart-auth-required", "1");
+    if (shouldBlockUnauthenticatedHtmlRequest(pathname)) {
+      const blocked = respondGuestBlocked(request);
+      if (/^\/stores\/[^/]+\/cart\/?$/.test(pathname)) {
+        blocked.headers.set("x-samarket-cart-auth-required", "1");
+      }
+      return blocked;
     }
-    return loginRedirect;
+    return preventAuthPageCache(NextResponse.next());
   }
 
   let response = NextResponse.next({ request });
@@ -249,10 +229,10 @@ export async function proxy(request: NextRequest) {
             auth_session_ms: Math.round(proxyAuthMs),
             total_route_ms: Math.round(devPerfNow() - tProxy0),
           },
-          { pathname, redirect_login: 1, auth_cache_hit: proxyAuthCacheHit }
+          { pathname, guest_blocked: 1, auth_cache_hit: proxyAuthCacheHit }
         );
       }
-      return redirectToLogin(request);
+      return respondGuestBlocked(request);
     }
 
     if (shouldLogProxyPerf) {

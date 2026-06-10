@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
@@ -43,13 +43,7 @@ async function MypageStoreOrderChatPageBody({
 
   const userId = await getOptionalAuthenticatedUserId();
   if (!userId) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-sm">
-        <Link href="/login" className="font-medium text-signature underline">
-          로그인
-        </Link>
-      </div>
-    );
+    notFound();
   }
 
   const sb = tryGetSupabaseForStores();

@@ -40,6 +40,7 @@ import {
 import { jsonError } from "@/lib/http/api-route";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
+import { computeProfileCompleted } from "@/lib/profile/profile-completed";
 export const dynamic = "force-dynamic";
 
 /**
@@ -237,6 +238,7 @@ type PatchKey = keyof ProfileUpdatePayload;
 
 const PROFILE_ADDRESS_KEYS = ["address_street_line", "address_detail"] as const;
 const PROFILE_MAP_KEYS = ["latitude", "longitude", "full_address"] as const;
+const PROFILE_COMPLETION_KEYS = ["profile_completed"] as const;
 
 function serviceUnavailable(why: string) {
   return NextResponse.json({ ok: false, error: why }, { status: 503 });
@@ -250,7 +252,8 @@ function isMissingProfileAddressColumnError(message: string): boolean {
     m.includes("address_street_line") ||
     m.includes("latitude") ||
     m.includes("longitude") ||
-    m.includes("full_address");
+    m.includes("full_address") ||
+    m.includes("profile_completed");
   if (!mentionsCol) return false;
   return (
     m.includes("schema cache") ||
@@ -304,12 +307,17 @@ function omitProfileAddressFields(row: Record<string, unknown>): Record<string, 
   for (const k of PROFILE_MAP_KEYS) {
     delete next[k];
   }
+  for (const k of PROFILE_COMPLETION_KEYS) {
+    delete next[k];
+  }
   return next;
 }
 
 function rowHasOptionalProfileAddressFields(row: Record<string, unknown>): boolean {
   return (
-    PROFILE_ADDRESS_KEYS.some((k) => k in row) || PROFILE_MAP_KEYS.some((k) => k in row)
+    PROFILE_ADDRESS_KEYS.some((k) => k in row) ||
+    PROFILE_MAP_KEYS.some((k) => k in row) ||
+    PROFILE_COMPLETION_KEYS.some((k) => k in row)
   );
 }
 
@@ -404,6 +412,51 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   }
 
   return { ok: true, patch };
+}
+
+type ProfileCompletionRow = {
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+};
+
+async function fetchProfileCompletionRow(
+  userId: string
+): Promise<ProfileCompletionRow | null> {
+  const serviceSb = tryCreateSupabaseServiceClient();
+  const sb = serviceSb ?? (await createSupabaseRouteHandlerClient());
+  if (!sb) return null;
+  const { data, error } = await sb
+    .from("profiles")
+    .select("username, display_name, avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as ProfileCompletionRow;
+  return {
+    username: row.username ?? null,
+    display_name: row.display_name ?? null,
+    avatar_url: row.avatar_url ?? null,
+  };
+}
+
+function applyProfileCompletedFromMergedRow(
+  patch: Record<string, unknown>,
+  existing: ProfileCompletionRow | null
+): void {
+  const merged = {
+    username:
+      "username" in patch
+        ? (patch.username as string | null)
+        : (existing?.username ?? null),
+    display_name:
+      "display_name" in patch
+        ? (patch.display_name as string | null)
+        : (existing?.display_name ?? null),
+    avatar_url:
+      "avatar_url" in patch ? (patch.avatar_url as string | null) : (existing?.avatar_url ?? null),
+  };
+  patch.profile_completed = computeProfileCompleted(merged);
 }
 
 /**
@@ -1026,6 +1079,9 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.ok) {
     return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
   }
+
+  const existingCompletionRow = await fetchProfileCompletionRow(auth.userId);
+  applyProfileCompletedFromMergedRow(parsed.patch, existingCompletionRow);
 
   const row = {
     ...parsed.patch,

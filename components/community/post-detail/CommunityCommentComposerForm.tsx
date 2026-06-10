@@ -1,12 +1,12 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useRouter } from "next/navigation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   COMMUNITY_BUTTON_PRIMARY_CLASS,
   PHILIFE_FB_INPUT_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 export type MeAvatarProps = { name: string; avatarUrl: string | null };
 
@@ -63,7 +63,7 @@ export function CommunityCommentComposerForm({
   className = "",
 }: Props) {
   const { t } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
 
   return (
     <form
@@ -85,7 +85,7 @@ export function CommunityCommentComposerForm({
         onClick={() => {
           if (!isLoggedIn) {
             const n = window.location.pathname + window.location.search;
-            void router.push(`/login?next=${encodeURIComponent(n)}`);
+            void requireAction("community_comment", () => undefined, { next: n });
           }
         }}
         onChange={(e) => onChange(e.target.value)}
@@ -104,7 +104,7 @@ export function CommunityCommentComposerForm({
         className={`h-10 shrink-0 px-4 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
         aria-label={t("community_comment_post_aria")}
       >
-        게시
+        {t("community_comment_post_aria")}
       </button>
     </form>
   );

@@ -8,6 +8,7 @@ export interface Profile {
   nickname: string;
   avatar_url: string | null;
   username?: string | null;
+  profile_completed?: boolean;
   role?: string;
   status?: string;
   member_type?: string;

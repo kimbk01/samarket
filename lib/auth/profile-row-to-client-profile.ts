@@ -15,6 +15,7 @@ export function profileRowToClientProfile(row: ProfileRow): Profile {
     nickname: nick,
     avatar_url: withDefaultAvatar(row.avatar_url),
     username: row.username ?? null,
+    profile_completed: row.profile_completed === true,
     role: row.role,
     status: row.status,
     member_type: row.member_type,

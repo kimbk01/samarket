@@ -8,9 +8,11 @@ import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { ProfileVerificationCenter } from "@/components/profile/ProfileVerificationCenter";
 
 export function MyAccountContent() {
   const { t } = useI18n();
@@ -33,14 +35,26 @@ export function MyAccountContent() {
   }
   if (!profile) {
     return (
-      <div className="space-y-3 py-4 text-center sam-text-body text-sam-muted">
-        <p>{t("common_login_required")}</p>
-        <p>
-          <Link href="/login" className="font-medium text-signature underline">
-            {t("common_login")}
-          </Link>
-        </p>
-        <Link href="/my" className="block text-sam-muted">{t("common_back_to_mypage")}</Link>
+      <div className="space-y-4">
+        <div className="rounded-[20px] border border-[#d9e5df] bg-white p-5 text-center shadow-sm">
+          <div className="mx-auto flex justify-center">
+            <SamarketUserAvatar avatarUrl={null} sizePx={72} alt="" />
+          </div>
+          <p className="mt-3 sam-text-section-title font-semibold text-[#1e3932]">{t("profile_guest_name")}</p>
+          <p className="mt-1 sam-text-body text-[#1e3932]/70">{t("profile_guest_desc")}</p>
+          <button
+            type="button"
+            onClick={() => {
+              void requireAuthAction("profile_edit", load, {
+                next: "/mypage/account",
+              });
+            }}
+            className="mt-4 w-full rounded-full bg-[#006241] px-4 py-3 sam-text-body font-semibold text-white active:bg-[#1e3932]"
+          >
+            {t("profile_guest_login_cta")}
+          </button>
+        </div>
+        <Link href="/my" className="block text-center sam-text-body text-sam-muted">{t("common_back_to_mypage")}</Link>
       </div>
     );
   }
@@ -59,19 +73,22 @@ export function MyAccountContent() {
   });
   const storeMemberStatus = deriveStoreMemberStatus(profile);
   const consentDone = hasStoreTermsConsent(profile);
+  const profileCompleted = profile.profile_completed === true;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={64} badge="verified" alt="" />
+      <div className="flex items-center gap-4 rounded-[20px] border border-[#d9e5df] bg-white p-4 shadow-sm">
+        <SamarketUserAvatar avatarUrl={profile.avatar_url} sizePx={64} badge={profileCompleted ? "verified" : "none"} alt="" />
         <div className="min-w-0 flex-1">
-          <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>
+          <p className="sam-text-section-title font-semibold text-[#1e3932]">{displayNickname}</p>
           {atUsername ? (
-            <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">{atUsername}</p>
+            <p className="mt-0.5 truncate font-mono sam-text-xxs text-[#1e3932]/65 tabular-nums">{atUsername}</p>
           ) : null}
-          <p className="mt-0.5 truncate sam-text-body-secondary text-sam-muted">{t("account_nickname_note")}</p>
-          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-medium text-signature">
-            {t("account_edit_profile")}
+          <p className="mt-0.5 truncate sam-text-body-secondary text-[#1e3932]/70">
+            {profileCompleted ? t("account_nickname_note") : t("profile_complete_desc")}
+          </p>
+          <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-semibold text-[#006241]">
+            {profileCompleted ? t("account_edit_profile") : t("profile_complete_cta")}
           </Link>
         </div>
       </div>
@@ -136,6 +153,7 @@ export function MyAccountContent() {
           </Link>
         ) : null}
       </div>
+      <ProfileVerificationCenter profile={profile} />
       <Link
         href={buildMypageInfoHubHref()}
         className="block rounded-ui-rect bg-sam-surface px-4 py-3 text-center sam-text-body font-medium text-sam-fg shadow-sm"

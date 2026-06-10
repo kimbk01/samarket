@@ -18,6 +18,7 @@ export interface ProfileRow {
   username?: string | null;
   nickname: string | null;
   avatar_url: string | null;
+  profile_completed?: boolean;
   bio: string | null;
   region_code: string | null;
   region_name: string | null;
@@ -103,6 +104,7 @@ export const DEFAULT_PROFILE_ROW: ProfileRow = {
   username: null,
   nickname: null,
   avatar_url: null,
+  profile_completed: false,
   bio: null,
   region_code: null,
   region_name: null,

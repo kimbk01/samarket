@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
 import { logoutDiBaYAppSession } from "@/lib/auth/logout";
-import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { isAppBootReady, peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
@@ -66,7 +65,7 @@ export function SessionLostRedirect() {
     if (result.ok) {
       setSessionReplacedOpen((prev) => (prev ? false : prev));
       if (typeof window !== "undefined") {
-        window.location.replace(buildLoginPath());
+        window.location.replace("/");
       }
     }
   }, []);

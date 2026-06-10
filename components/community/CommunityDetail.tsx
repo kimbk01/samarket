@@ -59,6 +59,7 @@ import {
   PHILIFE_FEED_INSET_X_CLASS,
   PHILIFE_DETAIL_POST_SLAB_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function countNeighborhoodCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
@@ -96,6 +97,7 @@ export function CommunityDetail({
 }) {
   const { t, language } = useI18n();
   const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const pathname = usePathname();
   const [postUrl, setPostUrl] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -366,7 +368,7 @@ export function CommunityDetail({
     async (commentId: string) => {
       if (!me?.id) {
         const n = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
-        void router.push(`/login?next=${encodeURIComponent(n)}`);
+        void requireAction("community_like", () => undefined, { next: n });
         return;
       }
       try {
@@ -383,7 +385,7 @@ export function CommunityDetail({
         await refreshComments({ silent: true, force: true });
       }
     },
-    [me?.id, post.id, refreshComments, router]
+    [me?.id, post.id, refreshComments, requireAction]
   );
 
   const onCommentEdit = useCallback(
@@ -635,7 +637,15 @@ export function CommunityDetail({
                   {t("community_inquiry")}
                 </Link>
               ) : (
-                <button type="button" onClick={() => router.push("/login")} className={meetingToolbarBtn}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void requireAction("messenger_open", () => undefined, {
+                      next: typeof window !== "undefined" ? window.location.pathname + window.location.search : "/",
+                    });
+                  }}
+                  className={meetingToolbarBtn}
+                >
                   {t("community_inquiry")}
                 </button>
               )}

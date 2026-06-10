@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -45,7 +45,6 @@ function validate(
 }
 
 export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string }) {
-  const router = useRouter();
   const pathname = usePathname();
   const { t } = useI18n();
   const { refreshProfileLocation } = useRegion();
@@ -125,13 +124,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     ]);
 
     if (!data) {
+      setProfile(null);
       setLoading(false);
-      const loginUrl = "/login";
-      if (typeof window !== "undefined") {
-        window.location.replace(loginUrl);
-      } else {
-        router.replace(loginUrl);
-      }
       return;
     }
 
@@ -183,7 +177,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     setPhone(parsePhMobileInput(merged.phone ?? ""));
     setPreferredCountry(merged.preferred_country ?? "PH");
     setLoading(false);
-  }, [pathname, router]);
+  }, [pathname]);
 
   useEffect(() => {
     void load();
@@ -251,7 +245,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
         <ProfileEditHeader backHref={backHref} />
-        <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("profile_edit_redirect_login")}</div>
+        <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("auth_resource_access_denied")}</div>
       </div>
     );
   }

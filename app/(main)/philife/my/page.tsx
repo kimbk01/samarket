@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { CommunityMyHubClient } from "@/components/community/CommunityMyHubClient";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
@@ -19,7 +19,7 @@ export default function PhilifeMyPage() {
 
 async function PhilifeMyPageBody() {
   const uid = await getOptionalAuthenticatedUserId();
-  if (!uid) return redirect("/login");
+  if (!uid) notFound();
   const lang = resolveServerInitialLanguage({});
 
   return (

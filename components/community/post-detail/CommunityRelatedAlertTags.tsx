@@ -1,15 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { addInterestTagLocal } from "./post-detail-utils";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 type Props = { tags: string[] };
 
 export function CommunityRelatedAlertTags({ tags }: Props) {
   const { t } = useI18n();
-  const router = useRouter();
+  const requireAction = useRequireAuthAction();
   const me = getHydrationSafeCurrentUser();
 
   if (tags.length === 0) return null;
@@ -30,7 +30,7 @@ export function CommunityRelatedAlertTags({ tags }: Props) {
                 onClick={() => {
                   if (!me?.id) {
                     const next = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/philife";
-                    void router.push(`/login?next=${encodeURIComponent(next)}`);
+                    void requireAction("community_bookmark", () => addInterestTagLocal(t), { next });
                     return;
                   }
                   addInterestTagLocal(t);
