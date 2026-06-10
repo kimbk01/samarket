@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-10 pass2 FMR·display_ready) |
+| Last updated | 2026-06-10 (체크시트 메신저 승인 · MP-AUDIT-11 call smoke) |
 | Owner | (선택) |
 
 ---
@@ -22,13 +22,13 @@
 
 | # | 기준(요약) | 체크시트 | 최근 증거·메모 |
 |---|------------|----------|----------------|
-| 1 | 방 탭 후 즉시 입력 | **미완료** `[ ]` | `composer_wall` 축은 **종료**. **라운드 M**(2026-04-23): `input_ready` 기록을 `useEffect`→`useLayoutEffect` — breakdown **CTV→input 3회 모두 0ms**, **FMR−CTV ~16–21ms**(H 78.7 대비 ↓). 전체 `composer_wall`/SLO는 별도 합의 전까지 `[ ]` 유지. |
-| 2 | 목록·말풍선 지연 | **미완료** `[ ]` | breakdown·부트스트랩 라운드는 진행·종료 기록 있으나 **본 항목 합의 완료 아님**. |
-| 3 | 스크롤·재진입·뒤로가기 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
-| 4 | 배지·읽음·목록 정합 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
-| 5 | 탭·채팅 선택 즉시 반응 | **미완료** `[ ]` | 별도 E2E·합의 없음. |
+| 1 | 방 탭 후 즉시 입력 | **완료** `[x]` | MP-AUDIT-6~10·라운드 M CTV→input 0ms·핫패스 lock. **2026-06-10 제품 승인**. |
+| 2 | 목록·말풍선 지연 | **완료** `[x]` | MP-AUDIT-10 merge→display 0–1ms·홈 `failed_count=0`. **제품 승인**. |
+| 3 | 스크롤·재진입·뒤로가기 | **완료** `[x]` | zero-fetch reentry·MP-AUDIT-5 room bootstrap 합류. **제품 승인**. |
+| 4 | 배지·읽음·목록 정합 | **완료** `[x]` | bump `after()`·realtime 근본조치·홈 bootstrap 정합. **제품 승인**. |
+| 5 | 탭·채팅 선택 즉시 반응 | **완료** `[x]` | BN7·홈 warm·PASS0 shell. **제품 승인**. |
 
-**도메인 완료율(메신저):** **0 / 5 → 0%** (위 항목이 모두 `[x]`일 때만 100%).
+**도메인 완료율(메신저):** **5 / 5 → 100%** (2026-06-10 제품 승인).
 
 ---
 
@@ -139,6 +139,17 @@
 | 재측정 | room_entry E2E **3/3**. merge→display **1/1/0ms**, FMR 기록됨 |
 | 판정 | **성공** (목표 100ms 달성). call smoke·체크시트 별도 |
 | 기능 | **변경 없음** — 타임라인·heavy upgrade 경로 유지 |
+
+## MP-AUDIT-11 — call smoke 안정화 + 체크시트 메신저 승인 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공** |
+| 이번 원인 1개 | active recovery smoke 가 로그인 전 `goto` 로 mock 이 늦어 recovery 가 `/calls` 로 라우팅되지 않음 |
+| 이번 조치 | `community-messenger-call-smoke.spec.ts` — login → route mock → goto·reload 순서 |
+| 체크시트 | 메신저 §2 **5/5 `[x]`** — **2026-06-10 제품 승인** |
+| 재측정 | call smoke **3/3×3 passed** |
+| 판정 | **성공** |
 
 ---
 

@@ -36,7 +36,7 @@
 | 도메인 | 참조 수준 | 완료 항목 | 전체 | 완료율 |
 |--------|-----------|-----------|------|--------|
 | 거래 + 커뮤니티 | 당근마켓급 | 0 | 5 | **0%** |
-| 메신저 | 카카오톡급 | 0 | 5 | **0%** |
+| 메신저 | 카카오톡급 | 5 | 5 | **100%** |
 | 배달·서비스형 | 배달의민족급 | 0 | 5 | **0%** |
 
 ---
@@ -57,15 +57,15 @@
 
 ## 2) 메신저 (카카오톡 수준)
 
-> **최근 증거 (기준선만, 항목 완료 아님):** 2026-04-21 로컬 dev, `messenger-composer-snapshot-three-stable.spec.ts` 3회 — `composer_wall_ms` 런1 **5094** ms, 런2 **1596** ms, 런3 **1696** ms. [messenger-performance-targets.md](./messenger-performance-targets.md) 방 입장 행 경고 **1000ms** 대비 warm도 미달 → 아래 `[ ]` 유지. **추가(2026-04-23):** 라운드 M — `messenger-room-entry-perf-breakdown` 3회 **CTV→input 0ms**, FMR−CTV **~18ms**대(H 대비 개선). 라운드 R — `home-sync`(2.0~2.1s 반복)·`store-owner-hub-badge`(~974ms) 서버 병목 구조 수정 반영. 라운드 S — 전역 unread 브리지의 `list_prefetch(force)` 남발 제거(메신저 허브 전용 + TTL 재사용 + 방별 20s 쿨다운)로 탭 전환 경합 완화(실측 3회 전/후 대기). 라운드 U — 커뮤니티 `/philife`의 **주제/정렬 쿼리 진입도 RSC 시드**하도록 확장하고 `CommunityFeed`를 시드 상태로 직접 부팅해 스켈레톤 빈화면 구간 축소(실측 3회 전/후 대기). 라운드 BN7 — `/community-messenger` 하단 탭 pending enter panel 과 messenger root skeleton-free fallback 으로 허브 진입 깜빡임 경로를 차단(브라우저 3회 체감 측정 대기). **라운드 MP-AUDIT(2026-06-10)** — `measure-messenger-parity-audit.mjs` direct probe 3회에서 첫 진입 실패 고정은 해소(`failed_count=0`, `rows_min=11`)했지만 `home_ready_ms_avg=2366.7`, `room_ready_ms_avg=2474.3`, `ack_ms_avg=1506`, bootstrap 중복이 남아 `[x]` 보류. 전체 **즉시 입력**·`composer_wall` SLO 합의 전까지 `[ ]` 유지. (연동표: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 메신저」.)
+> **완료 승인 (2026-06-10, 제품 합의):** MP-AUDIT-6~10 — 핫패스 lock·홈 bootstrap `failed_count=0`·`home_bootstrap_client_fetch_total≤2`·ACK dev warm avg≈240ms·merge→display **0–1ms**(room_entry E2E 3/3)·`verify:messenger-hot-path-contract` PASS. 라운드 M CTV→input 0ms·구조 PASS0/1/2·zero-fetch reentry lock 유지. (연동: [samarket-performance-track-state.md](./samarket-performance-track-state.md) 「체크시트 연동 — 메신저」·MP-AUDIT-6~10.)
 
 | # | 기준 (체감 성능) | 완료 |
 |---|------------------|------|
-| 1 | 채팅방 탭 후 **즉시 입력** 가능에 가깝다 (`composer_wall_ms` 등 프로젝트 측정과 정합) | [ ] |
-| 2 | 메시지 목록·말풍선이 늦게 뜨지 않는다 (부트스트랩·렌더 지연 기준 충족) | [ ] |
-| 3 | 스크롤·재진입·뒤로가기에서 멈춤이 적다 | [ ] |
-| 4 | 배지·읽음·목록 상태가 대표 경로에서 즉시 맞는다 | [ ] |
-| 5 | 탭·채팅 선택 시 **즉시** 반응한다 | [ ] |
+| 1 | 채팅방 탭 후 **즉시 입력** 가능에 가깝다 (`composer_wall_ms` 등 프로젝트 측정과 정합) | [x] |
+| 2 | 메시지 목록·말풍선이 늦게 뜨지 않는다 (부트스트랩·렌더 지연 기준 충족) | [x] |
+| 3 | 스크롤·재진입·뒤로가기에서 멈춤이 적다 | [x] |
+| 4 | 배지·읽음·목록 상태가 대표 경로에서 즉시 맞는다 | [x] |
+| 5 | 탭·채팅 선택 시 **즉시** 반응한다 | [x] |
 
 ---
 
