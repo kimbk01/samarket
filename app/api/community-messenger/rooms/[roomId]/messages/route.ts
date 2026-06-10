@@ -1,8 +1,7 @@
-import { NextRequest } from "next/server";
+import { after, NextRequest } from "next/server";
 import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
 import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requirePhoneVerified } from "@/lib/auth/server-guards";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -156,26 +155,25 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-  const session = await validateActiveSession(auth.userId);
-  if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
+  const authGate = await ensureApiRouteAuthGate();
+  if (!authGate.ok) return authGate.response;
+  const userId = authGate.userId;
 
-  const [parsed, routeParams, rateLimit] = await Promise.all([
+  const [parsed, routeParams, rateLimit, phone] = await Promise.all([
     parseJsonBody<{ content?: string; clientMessageId?: string; replyToMessageId?: string }>(req, "invalid_json"),
     params,
     enforceRateLimit({
-      key: `community-messenger:message-send:${getRateLimitKey(req, auth.userId)}`,
+      key: `community-messenger:message-send:${getRateLimitKey(req, userId)}`,
       limit: 30,
       windowMs: 60_000,
       message: "메신저 전송 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
       code: "community_messenger_message_rate_limited",
     }),
+    requirePhoneVerified(userId),
   ]);
   if (!parsed.ok) return parsed.response;
   if (!rateLimit.ok) return rateLimit.response;
+  if (!phone.ok) return phone.response;
   const { messengerRoomCanonicalOrJsonError } = await import(
     "@/lib/community-messenger/server/messenger-room-canonical-resolve-api"
   );
@@ -183,7 +181,7 @@ export async function POST(
   const body = parsed.value;
 
   const { roomId: rawRoomId } = routeParams;
-  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  const canon = await messengerRoomCanonicalOrJsonError(userId, String(rawRoomId ?? "").trim());
   if (!canon.ok) {
     return canon.response;
   }
@@ -193,8 +191,8 @@ export async function POST(
   const clientMessageId = String(body.clientMessageId ?? "").trim();
   const replyToMessageId = String(body.replyToMessageId ?? "").trim();
   const key = clientMessageId
-    ? `community-messenger:send:${auth.userId}:${canonicalRoomId}:${clientMessageId}`
-    : `community-messenger:send:${auth.userId}:${canonicalRoomId}:${content.slice(0, 24)}`;
+    ? `community-messenger:send:${userId}:${canonicalRoomId}:${clientMessageId}`
+    : `community-messenger:send:${userId}:${canonicalRoomId}:${content.slice(0, 24)}`;
   const now = Date.now();
   pruneByAtMaxAgeAndMaxSize(sendDedupe, now, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
   const cached = sendDedupe.get(key);
@@ -209,7 +207,7 @@ export async function POST(
   const result = await runSingleFlight(key, async () => {
     const cm = await import("@/lib/community-messenger/service");
     const r = await cm.sendCommunityMessengerMessage({
-      userId: auth.userId,
+      userId,
       roomId: canonicalRoomId,
       content,
       clientMessageId: clientMessageId || undefined,
@@ -227,29 +225,28 @@ export async function POST(
     const bumpArgs = {
       rawRouteRoomId: canon.rawRouteRoomId,
       canonicalRoomId,
-      fromUserId: auth.userId,
+      fromUserId: userId,
       messageId: typeof msg?.id === "string" ? msg.id : undefined,
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
     };
-    /**
-     * `after()` 는 요청 라이프사이클 종료 뒤에 실행되어 수신측 bump·뱅지가 늦게 붙을 수 있음.
-     * INSERT 직후 동일 요청에서 bump 를 끝내면 상대 화면·Realtime 보강이 앞당겨진다(발신 RTT 소폭 증가).
-     */
-    try {
-      const { publishMessengerRoomBumpAfterMutation } = await import(
-        "@/lib/community-messenger/server/publish-messenger-room-bump"
-      );
-      await publishMessengerRoomBumpAfterMutation(bumpArgs);
-    } catch {
-      /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
-    }
+    /** mark_read 와 동일 — ACK 는 INSERT 직후 반환, bump·배지는 응답 flush 뒤 `after()` (동일 invocation). */
+    after(async () => {
+      try {
+        const { publishMessengerRoomBumpAfterMutation } = await import(
+          "@/lib/community-messenger/server/publish-messenger-room-bump"
+        );
+        await publishMessengerRoomBumpAfterMutation(bumpArgs);
+      } catch {
+        /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */
+      }
+    });
   }
   let responsePayload = result;
   if (responsePayload.ok && (!responsePayload.message || !trimText((responsePayload.message as { id?: string })?.id)) && clientMessageId) {
     const cm = await import("@/lib/community-messenger/service");
     const reread = await cm.findCommunityMessengerMessageByClientId({
-      userId: auth.userId,
+      userId,
       roomId: canonicalRoomId,
       clientMessageId,
     });
