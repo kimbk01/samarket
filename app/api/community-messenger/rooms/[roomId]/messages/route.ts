@@ -221,6 +221,7 @@ export async function POST(
     pruneByAtMaxAgeAndMaxSize(sendDedupe, tStore, SEND_DEDUPE_TTL_MS, SEND_DEDUPE_MAX_ENTRIES);
     return r;
   });
+  const postAckEffects = result.ok ? result.postAckEffects : undefined;
   if (result.ok) {
     const msg = result.message as { id?: string; createdAt?: string } | undefined;
     const bumpArgs = {
@@ -231,8 +232,20 @@ export async function POST(
       messageCreatedAt: typeof msg?.createdAt === "string" ? msg.createdAt : undefined,
       messageForBump: result.message ?? null,
     };
-    /** mark_read 와 동일 — ACK 는 INSERT 직후 반환, bump·배지는 응답 flush 뒤 `after()` (동일 invocation). */
+    /** mark_read 와 동일 — ACK 는 RPC 직후 반환, 알림·배지·bump 는 `after()` (MP-AUDIT-14). */
     after(async () => {
+      if (postAckEffects) {
+        try {
+          const { runCommunityMessengerSendPostAckEffects } = await import(
+            "@/lib/community-messenger/server/community-messenger-send-post-ack-effects"
+          );
+          const { resolveServiceSupabaseForApi } = await import("@/lib/supabase/resolve-service-supabase-for-api");
+          const sb = resolveServiceSupabaseForApi();
+          if (sb) await runCommunityMessengerSendPostAckEffects(sb, postAckEffects);
+        } catch {
+          /* best-effort */
+        }
+      }
       try {
         const { publishMessengerRoomBumpAfterMutation } = await import(
           "@/lib/community-messenger/server/publish-messenger-room-bump"

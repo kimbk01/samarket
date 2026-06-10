@@ -66,7 +66,9 @@ async function ensureStorageState() {
     username.includes("@") ? username : `${username}@manual.local`,
     username.includes("@") ? username : `${username}@samarket.local`,
     username,
-  ];
+    "aaaa@manual.local",
+    "qqqq@manual.local",
+  ].filter((v, i, a) => a.indexOf(v) === i);
   const sb = createClient(url, anon, { auth: { persistSession: false } });
   let session = null;
   let usedEmail = "";

@@ -14686,7 +14686,15 @@ async function trySendCommunityMessengerTextAtomic(
   content: string,
   clientMessageId: string,
   replyToMessageId?: string | null
-): Promise<{ ok: true; message: CommunityMessengerMessage } | { ok: false; error: string } | null> {
+): Promise<
+  | {
+      ok: true;
+      message: CommunityMessengerMessage;
+      postAckEffects?: import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendPostAckEffects;
+    }
+  | { ok: false; error: string }
+  | null
+> {
   /**
    * 거래 전송 가드·dedupe·unread 는 `community_messenger_send_text_message` RPC 가 단일 트랜잭션으로 처리.
    * 사전 `product_chats` 조회는 ACK RTT 만 늘리므로 atomic 경로에서는 생략한다.
@@ -14737,30 +14745,24 @@ async function trySendCommunityMessengerTextAtomic(
     message.clientMessageId = clientMessageId;
   }
   const deduped = payload.deduped === true;
+  let postAckEffects:
+    | import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendPostAckEffects
+    | undefined;
   if (!deduped) {
     const recipientUserIds = parseRpcRecipientUserIds(payload.recipient_user_ids);
     const dk = payload.room_direct_key;
     const directKeyStr = typeof dk === "string" ? dk : dk == null ? null : String(dk);
     const itemTradeLedgerId = itemTradeChatRoomIdFromMessengerDirectKey(directKeyStr);
-    if (itemTradeLedgerId) {
-      void mirrorCommunityMessengerTextToItemTradeLedger(sb, {
-        itemTradeChatRoomId: itemTradeLedgerId,
-        senderUserId: input.userId,
-        textContent: content,
-        createdAt: message.createdAt,
-      }).catch(() => {});
-    }
-    const preview = cmMessagePreviewFallback(content);
-    void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+    postAckEffects = {
       roomId,
       senderUserId: input.userId,
-      preview,
+      content,
       recipientUserIds,
-      hasMention: /@\S/.test(content),
-    }).catch(() => {});
-    invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
+      createdAt: message.createdAt,
+      itemTradeLedgerId,
+    };
   }
-  return { ok: true, message };
+  return { ok: true, message, postAckEffects };
 }
 
 /** POST 응답 body 가 비었을 때 `client_message_id` 로 확정 행 재조회. */
@@ -14807,7 +14809,12 @@ export async function sendCommunityMessengerMessage(input: {
    * 동일 RTT 내 `community_messenger_participants` 존재 조회를 한 번 줄인다.
    */
   membershipPreflightDone?: boolean;
-}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+}): Promise<{
+  ok: boolean;
+  message?: CommunityMessengerMessage;
+  error?: string;
+  postAckEffects?: import("@/lib/community-messenger/server/community-messenger-send-post-ack-effects").CommunityMessengerSendPostAckEffects;
+}> {
   const roomId = trimText(input.roomId);
   const content = trimText(input.content);
   if (!roomId || !content) return { ok: false, error: "content_required" };
@@ -14825,7 +14832,9 @@ export async function sendCommunityMessengerMessage(input: {
       replyToMessageIdOpt || null
     );
     if (atomic !== null) {
-      if (atomic.ok) return { ok: true, message: atomic.message };
+      if (atomic.ok) {
+        return { ok: true, message: atomic.message, postAckEffects: atomic.postAckEffects };
+      }
       return { ok: false, error: atomic.error };
     }
     const roomQ = (sb as any)

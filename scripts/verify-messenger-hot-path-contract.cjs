@@ -94,6 +94,19 @@ if (!atomicBody) {
   fail(
     "loadTradeProductChatExitSnapshotForMessengerRoom must not appear inside trySendCommunityMessengerTextAtomic (RPC 가드 단일화)"
   );
+} else if (atomicBody.includes("notifyCommunityChatInAppForRecipients")) {
+  fail(
+    "notifyCommunityChatInAppForRecipients must not run inside trySendCommunityMessengerTextAtomic (MP-AUDIT-14 after() defer)"
+  );
+} else if (atomicBody.includes("invalidateOwnerHubBadgeForCommunityMessengerPeers")) {
+  fail(
+    "invalidateOwnerHubBadgeForCommunityMessengerPeers must not run inside trySendCommunityMessengerTextAtomic (MP-AUDIT-14 after() defer)"
+  );
+}
+
+// 2b) POST — postAckEffects 는 after() 에서만 실행
+if (postBody && !postBody.includes("runCommunityMessengerSendPostAckEffects")) {
+  fail("POST .../messages must defer postAckEffects via runCommunityMessengerSendPostAckEffects in after()");
 }
 
 // 3) 홈 bootstrap 클라 fetch — AbortSignal 이 있어도 single-flight 합류

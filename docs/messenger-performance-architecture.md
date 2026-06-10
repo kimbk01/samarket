@@ -177,6 +177,7 @@
 | MP-AUDIT-10 | pass2 row commit 시 **FMR + display_ready** (heavy 대기 금지) | merge→display ≤100ms 목표·FMR null 금지 |
 | MP-AUDIT-13 | send RPC insert 경로 **participants 선조회 제거** — unread `UPDATE … RETURNING` 으로 `recipient_user_ids` | ACK 전 participants 이중 스캔 금지 |
 | MP-AUDIT-13b | POST send 응답 **`x-samarket-send-*-ms`** 헤더 | 클라 RTT 와 서버 handler 분리 관측 |
+| MP-AUDIT-14 | atomic send **postAckEffects** — notify·mirror·hub invalidate 는 route **`after()`** 만 | ACK handler 에 in-app notify·동기 invalidate 금지 |
 
 ### 런타임 목표 (H축 — 체크시트 `[x]` 별도 합의)
 

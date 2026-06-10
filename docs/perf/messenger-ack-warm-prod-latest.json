@@ -1,30 +1,138 @@
 {
-  "measured_at": "2026-06-10T08:41:59.015Z",
+  "measured_at": "2026-06-10T09:30:57.534Z",
   "base_url": "https://samarket.vercel.app",
-  "sql_migrations_applied": [
-    "20260610150000_community_messenger_send_text_ack_hot_path.sql",
-    "20260610160000_community_messenger_send_ack_recipients_returning.sql"
-  ],
-  "deploy_ref": "ba9aa329",
   "cycles": 3,
   "sends_per_cycle": 3,
   "warm_discard": "first send per cycle",
   "target_ms": 200,
   "gate": {
-    "client_ack_le_target": false,
-    "note": "클라 ack = 브라우저 RTT + 서버. 동일 리전 판정은 server_route_ms 권장."
+    "prod_same_region_ack_le_target": false,
+    "note": "PASS requires warm p95 ≤ target and max ≤ 1.5× target. Local dev may exceed prod."
   },
   "warm_ack_ms": {
     "count": 6,
-    "min": 220,
-    "max": 337,
-    "avg": 284,
-    "p95": 337
+    "min": 189,
+    "max": 1295,
+    "avg": 451,
+    "p95": 1295
   },
   "warm_server_route_ms": {
-    "count": 0,
-    "note": "prod 응답 헤더 미수신 — Vercel 배포 전파 확인 또는 measure 스크립트 재실행"
+    "count": 6,
+    "min": 37,
+    "max": 1138,
+    "avg": 268,
+    "p95": 1138
   },
-  "comparison_prior_prod_p95": 414,
+  "warm_server_handler_ms": {
+    "count": 6,
+    "min": 31,
+    "max": 1138,
+    "avg": 249,
+    "p95": 1138
+  },
+  "cycles_detail": [
+    {
+      "cycle": 1,
+      "room_href": "https://samarket.vercel.app/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+      "sends": [
+        {
+          "send_index": 1,
+          "ack_ms": 242,
+          "status": 200,
+          "server_route_ms": 69,
+          "server_handler_ms": 30,
+          "server_gate_ms": 39
+        },
+        {
+          "send_index": 2,
+          "ack_ms": 1295,
+          "status": 200,
+          "server_route_ms": 1138,
+          "server_handler_ms": 1138,
+          "server_gate_ms": 1
+        },
+        {
+          "send_index": 3,
+          "ack_ms": 274,
+          "status": 200,
+          "server_route_ms": 128,
+          "server_handler_ms": 127,
+          "server_gate_ms": 1
+        }
+      ],
+      "warm_ack_ms": [
+        1295,
+        274
+      ]
+    },
+    {
+      "cycle": 2,
+      "room_href": "https://samarket.vercel.app/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+      "sends": [
+        {
+          "send_index": 1,
+          "ack_ms": 241,
+          "status": 200,
+          "server_route_ms": 86,
+          "server_handler_ms": 40,
+          "server_gate_ms": 46
+        },
+        {
+          "send_index": 2,
+          "ack_ms": 321,
+          "status": 200,
+          "server_route_ms": 84,
+          "server_handler_ms": 31,
+          "server_gate_ms": 53
+        },
+        {
+          "send_index": 3,
+          "ack_ms": 300,
+          "status": 200,
+          "server_route_ms": 99,
+          "server_handler_ms": 98,
+          "server_gate_ms": 1
+        }
+      ],
+      "warm_ack_ms": [
+        321,
+        300
+      ]
+    },
+    {
+      "cycle": 3,
+      "room_href": "https://samarket.vercel.app/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
+      "sends": [
+        {
+          "send_index": 1,
+          "ack_ms": 235,
+          "status": 200,
+          "server_route_ms": 71,
+          "server_handler_ms": 31,
+          "server_gate_ms": 40
+        },
+        {
+          "send_index": 2,
+          "ack_ms": 189,
+          "status": 200,
+          "server_route_ms": 37,
+          "server_handler_ms": 37,
+          "server_gate_ms": 1
+        },
+        {
+          "send_index": 3,
+          "ack_ms": 324,
+          "status": 200,
+          "server_route_ms": 120,
+          "server_handler_ms": 60,
+          "server_gate_ms": 60
+        }
+      ],
+      "warm_ack_ms": [
+        189,
+        324
+      ]
+    }
+  ],
   "errors": []
 }

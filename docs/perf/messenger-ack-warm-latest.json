@@ -1,5 +1,5 @@
 {
-  "measured_at": "2026-06-10T08:42:39.052Z",
+  "measured_at": "2026-06-10T09:30:03.597Z",
   "base_url": "http://localhost:3000",
   "cycles": 3,
   "sends_per_cycle": 3,
@@ -11,126 +11,126 @@
   },
   "warm_ack_ms": {
     "count": 6,
-    "min": 197,
-    "max": 2192,
-    "avg": 786,
-    "p95": 2192
+    "min": 189,
+    "max": 439,
+    "avg": 322,
+    "p95": 439
   },
   "warm_server_route_ms": {
     "count": 6,
-    "min": 145,
-    "max": 282,
-    "avg": 197,
-    "p95": 282
+    "min": 122,
+    "max": 410,
+    "avg": 262,
+    "p95": 410
   },
   "warm_server_handler_ms": {
     "count": 6,
-    "min": 143,
-    "max": 281,
-    "avg": 196,
-    "p95": 281
+    "min": 121,
+    "max": 408,
+    "avg": 260,
+    "p95": 408
   },
   "cycles_detail": [
     {
       "cycle": 1,
-      "room_href": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7",
+      "room_href": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
       "sends": [
         {
           "send_index": 1,
-          "ack_ms": 477,
+          "ack_ms": 2796,
           "status": 200,
-          "server_route_ms": 448,
-          "server_handler_ms": 227,
-          "server_gate_ms": 221
+          "server_route_ms": 697,
+          "server_handler_ms": 299,
+          "server_gate_ms": 398
         },
         {
           "send_index": 2,
-          "ack_ms": 276,
+          "ack_ms": 439,
           "status": 200,
-          "server_route_ms": 180,
-          "server_handler_ms": 178,
+          "server_route_ms": 410,
+          "server_handler_ms": 408,
           "server_gate_ms": 2
         },
         {
           "send_index": 3,
-          "ack_ms": 266,
+          "ack_ms": 261,
           "status": 200,
-          "server_route_ms": 226,
-          "server_handler_ms": 225,
-          "server_gate_ms": 1
+          "server_route_ms": 232,
+          "server_handler_ms": 230,
+          "server_gate_ms": 2
         }
       ],
       "warm_ack_ms": [
-        276,
-        266
+        439,
+        261
       ]
     },
     {
       "cycle": 2,
-      "room_href": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7",
+      "room_href": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
       "sends": [
         {
           "send_index": 1,
-          "ack_ms": 195,
+          "ack_ms": 243,
           "status": 200,
-          "server_route_ms": 165,
-          "server_handler_ms": 163,
-          "server_gate_ms": 2
+          "server_route_ms": 121,
+          "server_handler_ms": 116,
+          "server_gate_ms": 5
         },
         {
           "send_index": 2,
-          "ack_ms": 225,
+          "ack_ms": 189,
           "status": 200,
-          "server_route_ms": 145,
-          "server_handler_ms": 143,
+          "server_route_ms": 122,
+          "server_handler_ms": 121,
           "server_gate_ms": 2
         },
         {
           "send_index": 3,
-          "ack_ms": 197,
+          "ack_ms": 380,
           "status": 200,
-          "server_route_ms": 151,
-          "server_handler_ms": 150,
-          "server_gate_ms": 1
+          "server_route_ms": 249,
+          "server_handler_ms": 246,
+          "server_gate_ms": 2
         }
       ],
       "warm_ack_ms": [
-        225,
-        197
+        189,
+        380
       ]
     },
     {
       "cycle": 3,
-      "room_href": "http://localhost:3000/community-messenger/rooms/495ac162-0f9b-41ec-bb9e-a54e04afd8e7",
+      "room_href": "http://localhost:3000/community-messenger/rooms/9362db41-4f6e-4dde-a0a6-430c0efd0fad",
       "sends": [
         {
           "send_index": 1,
-          "ack_ms": 2581,
+          "ack_ms": 249,
           "status": 200,
-          "server_route_ms": 959,
-          "server_handler_ms": 495,
-          "server_gate_ms": 463
+          "server_route_ms": 226,
+          "server_handler_ms": 224,
+          "server_gate_ms": 2
         },
         {
           "send_index": 2,
-          "ack_ms": 1562,
+          "ack_ms": 316,
           "status": 200,
-          "server_route_ms": 282,
-          "server_handler_ms": 281,
+          "server_route_ms": 261,
+          "server_handler_ms": 260,
           "server_gate_ms": 1
         },
         {
           "send_index": 3,
-          "ack_ms": 2192,
+          "ack_ms": 346,
           "status": 200,
-          "server_route_ms": 199,
-          "server_handler_ms": 198,
-          "server_gate_ms": 1
+          "server_route_ms": 300,
+          "server_handler_ms": 297,
+          "server_gate_ms": 3
         }
       ],
       "warm_ack_ms": [
-        1562,
-        2192
+        316,
+        346
       ]
     }
   ],

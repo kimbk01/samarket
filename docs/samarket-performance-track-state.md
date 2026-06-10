@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (PARITY-MASTER-5·횡단 마감·마스터 0→5 완료) |
+| Last updated | 2026-06-10 (MP-AUDIT-14·PARITY-MASTER-5·마스터 0→5) |
 | Owner | (선택) |
 
 ---
@@ -288,7 +288,19 @@
 | 재측정 | trade·store checksheet JSON + messenger parity JSON 집계. 재진입 trade **84** · store **506** ms p95 · 탭 trade **221** · store **840** · scroll trade **762** · store **705** |
 | gates | `verify:parity-gates` · trade/store checksheet contract · 재진입·탭 횡단 gate **PASS** |
 | 판정 | **제품 승인** — 마스터 순서 **0→5** 체감·구조 라운드 **종료**. prod-like·ACK 200ms(H)는 선택 후속 |
-| 다음 | 운영 prod 실측·선택 H축만 — **핫패스 역행 금지** |
+| 다음 | ~~선택 H축~~ → **MP-AUDIT-14** 본문 |
+
+## MP-AUDIT-14 — send post-ACK 부수효과 `after()` (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **부분 성공 · H축 200ms 안정 구간 근접** |
+| 이번 원인 1개 | atomic send 성공 직후 **동기 배지 캐시 무효화** + in-app notify 시작이 handler_ms·ACK 에 합산 |
+| 이번 조치 | `community-messenger-send-post-ack-effects.ts` · route `after()` 에서 notify·mirror·invalidate · verify lock |
+| 재측정 (localhost) | warm **6샘플** — 클라 ack p95 **439** · **서버 route p95 410** · 안정 구간 **121–297ms** |
+| 재측정 (prod, 배포 전 코드) | warm **6샘플** — 안정 서버 handler **31–127ms** · 1회 이상치 **1138ms** → p95 왜곡 |
+| 판정 | **구조 성공** — ACK 직후 부수효과 제거. H축 **200ms** 는 배포 후 prod **서버 route** 재실측 |
+| 다음 | 배포 후 prod warm 6샘플 · 이상치 제거 시 **≤200ms** 합의 가능 |
 
 ---
 
