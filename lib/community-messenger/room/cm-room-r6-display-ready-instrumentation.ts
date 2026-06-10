@@ -160,6 +160,9 @@ export function recordCmRoomDomFirstMessageVisible(args: {
   if (pendingReason) {
     pendingHeavyReadyReasonByRoom.delete(id);
     recordCmRoomTimelineHeavyReady(id, pendingReason);
+  } else if (!displayReadyRecordedRooms.has(id)) {
+    /** pass2 direct row — heavy virtualizer 전 사용자 가시 메시지 기준 display_ready */
+    recordCmRoomTimelineHeavyReady(id, "legacy_display_list");
   }
   return true;
 }
@@ -187,8 +190,19 @@ export function scheduleCmRoomTimelineHeavyReadyAfterDom(
     if (settled) return;
     if (!pendingHeavyReadyReasonByRoom.has(id)) return;
     settled = true;
+    const pendingReason = pendingHeavyReadyReasonByRoom.get(id) ?? reason;
     pendingHeavyReadyReasonByRoom.delete(id);
-    recordCmRoomTimelineHeavyReady(id, reason);
+    if (!domRecordedRooms.has(id)) {
+      recordCmRoomDomFirstMessageVisible({
+        roomId: id,
+        seedRowsCount: 1,
+        fmrGateReason: "fallback_visible_rows",
+        directLayout: false,
+      });
+    }
+    if (!displayReadyRecordedRooms.has(id)) {
+      recordCmRoomTimelineHeavyReady(id, pendingReason);
+    }
   };
 
   requestAnimationFrame(() => {

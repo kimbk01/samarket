@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-9 display_ready 4s fallback 제거) |
+| Last updated | 2026-06-10 (MP-AUDIT-10 pass2 FMR·display_ready) |
 | Owner | (선택) |
 
 ---
@@ -128,6 +128,17 @@
 | 재측정 | room_entry E2E **3/3 PASS**. merge→display gap run별 **474/576/483ms** (이전 **~4482ms**). `first_message_render_ms` null 유지 |
 | 판정 | 4s fallback 제거 **성공**. ~480ms safety·FMR 경로는 MP-AUDIT-10 후보 |
 | 다음 | FMR 기록·display≤100ms 또는 call smoke 안정화 |
+
+## MP-AUDIT-10 — pass2 FMR·display_ready 동기화 (2026-06-10)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공** |
+| 이번 원인 1개 | heavy bundle 대기(~480ms) 동안 FMR 미기록·display_ready 만 fallback — merge→display gap 과대 |
+| 이번 조치 | snapshot merge 직후 `recordCmRoomDomFirstMessageVisible` + FMR 시 `display_ready` 즉시. heavy finish FMR fallback 유지 |
+| 재측정 | room_entry E2E **3/3**. merge→display **1/1/0ms**, FMR 기록됨 |
+| 판정 | **성공** (목표 100ms 달성). call smoke·체크시트 별도 |
+| 기능 | **변경 없음** — 타임라인·heavy upgrade 경로 유지 |
 
 ---
 

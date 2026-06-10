@@ -106,6 +106,7 @@ import { resetCmRoomR5TimelineMountInstrumentation } from "@/lib/community-messe
 import {
   noteCmRoomR6HeavyHostMount,
   noteCmRoomR6VirtualizerReady,
+  recordCmRoomDomFirstMessageVisible,
   scheduleCmRoomTimelineHeavyReadyAfterDom,
   resetCmRoomR6DisplayReadyInstrumentation,
 } from "@/lib/community-messenger/room/cm-room-r6-display-ready-instrumentation";
@@ -1381,6 +1382,12 @@ export function useMessengerRoomClientPhase1({
       recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_normalize_ms", 0);
       recordRouteEntryMetric("messenger_room_entry", "initial_messages_merge_sort_ms", 0);
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
+      recordCmRoomDomFirstMessageVisible({
+        roomId,
+        seedRowsCount: roomMessagesRef.current.length,
+        fmrGateReason: "fallback_visible_rows",
+        directLayout: false,
+      });
       return;
     }
     setRoomMessages((prev) => {
@@ -1402,6 +1409,12 @@ export function useMessengerRoomClientPhase1({
       }
       if (next.length > 0) {
         recordRouteEntryElapsedMetricOnce("messenger_room_entry", "room_snapshot_messages_merge_applied_ms");
+        recordCmRoomDomFirstMessageVisible({
+          roomId,
+          seedRowsCount: next.length,
+          fmrGateReason: "fallback_visible_rows",
+          directLayout: false,
+        });
       }
       return next;
     });
