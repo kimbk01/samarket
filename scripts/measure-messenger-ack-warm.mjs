@@ -32,9 +32,11 @@ const baseUrl = (process.env.PLAYWRIGHT_BASE_URL || process.env.SAMARKET_BASE_UR
 const username = process.env.E2E_TEST_USERNAME || "aaaa";
 const password = process.env.E2E_TEST_PASSWORD || "1234";
 const storageStatePath = path.join(root, "tests", "e2e", ".auth", "cm-storage.json");
-const outPath =
-  process.env.MESSENGER_ACK_WARM_OUT ||
-  path.join(root, "docs", "perf", "messenger-ack-warm-latest.json");
+const defaultOut =
+  baseUrl.includes("samarket.vercel.app") || baseUrl.includes("vercel.app")
+    ? "messenger-ack-warm-prod-latest.json"
+    : "messenger-ack-warm-latest.json";
+const outPath = process.env.MESSENGER_ACK_WARM_OUT || path.join(root, "docs", "perf", defaultOut);
 
 function loadEnvLocal() {
   const envPath = path.join(root, ".env.local");
@@ -184,15 +186,21 @@ async function sendOnce(page) {
   const t0 = Date.now();
   await page.locator("footer button:not([disabled])").last().click();
   const res = await resP;
-  const serverRouteMs = Number(res.headers()["x-samarket-send-route-ms"]);
-  const serverHandlerMs = Number(res.headers()["x-samarket-send-handler-ms"]);
-  const serverGateMs = Number(res.headers()["x-samarket-send-gate-ms"]);
+  const hdr = res.headers();
+  const pickHdr = (name) => {
+    const v = hdr[name] ?? hdr[name.toLowerCase()];
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const serverRouteMs = pickHdr("x-samarket-send-route-ms");
+  const serverHandlerMs = pickHdr("x-samarket-send-handler-ms");
+  const serverGateMs = pickHdr("x-samarket-send-gate-ms");
   return {
     ack_ms: Date.now() - t0,
     status: res.status(),
-    server_route_ms: Number.isFinite(serverRouteMs) ? serverRouteMs : null,
-    server_handler_ms: Number.isFinite(serverHandlerMs) ? serverHandlerMs : null,
-    server_gate_ms: Number.isFinite(serverGateMs) ? serverGateMs : null,
+    server_route_ms: serverRouteMs,
+    server_handler_ms: serverHandlerMs,
+    server_gate_ms: serverGateMs,
   };
 }
 

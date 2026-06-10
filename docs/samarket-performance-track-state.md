@@ -213,8 +213,9 @@
 | 트랙 상태 | **구조 완료 · DB·배포 후 재측정** |
 | 이번 원인 1개 | insert 경로 participants **선조회 + unread UPDATE** 이중 스캔 |
 | 이번 조치 | `20260610160000_community_messenger_send_ack_recipients_returning.sql` · `x-samarket-send-*-ms` 헤더 |
-| 재측정 | localhost warm: 클라 ack p95 **413** · **서버 route p95 259**. prod warm p95 **414** (헤더 배포 전) |
-| 판정 | **부분 성공** — 서버 ~260ms·gate 200ms 미달. 마이그레이션 + Vercel 배포 후 prod `server_route_ms` 분해 |
+| 재측정 (SQL+배포 후) | prod 클라 warm p95 **337**(이전 414). localhost **서버 handler** warm 안정 구간 **143–198ms** · p95 281(이상치 포함) |
+| prod 헤더 | `x-samarket-send-*` **미수신** — 배포 전파·재실측. 클라만으로는 RTT 혼재 |
+| 판정 | **부분 성공** — RPC·구조 lock 완료. H축 200ms는 **서버 route 헤더** 기준 재확인 또는 동일 리전 클라이언트 |
 
 ## TRADE-AUDIT-3 — 상세→채팅 진입 (2026-06-10)
 

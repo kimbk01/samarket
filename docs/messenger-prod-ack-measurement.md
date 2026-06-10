@@ -41,8 +41,9 @@ node scripts/measure-messenger-ack-warm.mjs
 
 - **dev**: Next dev compile·HMR로 첫 send가 수백 ms~수초 튈 수 있음 → warm만 본다.
 - **dev (2026-06-10, localhost)**: warm p95 **325ms** — gate 미달.
-- **prod (2026-06-10, [samarket.vercel.app](https://samarket.vercel.app))**: warm 6샘플 — **min 171 · max 414 · avg 284 · p95 414**. gate **미달**. (`active_session_id` 동기화 후)
-- **로컬 서버 분해** (헤더 배포 후): warm `x-samarket-send-route-ms` p95 **259** — 클라 ack p95 413 중 **~150ms** 는 브라우저 RTT.
+- **prod (2026-06-10, SQL+배포 `ba9aa329` 후)**: warm 6샘플 — **min 220 · max 337 · avg 284 · p95 337** (`docs/perf/messenger-ack-warm-prod-latest.json`). 이전 p95 414 → **개선**. 클라 200ms gate **미달**.
+- **로컬 서버 분해** (헤더): warm `x-samarket-send-handler-ms` **min 143 · p95 281** — 안정 구간은 **~150–200ms**. 클라 ack는 RTT가 추가됨.
+- **판정 권장**: H축「동일 리전」은 **`x-samarket-send-route-ms` ≤200** 으로 서버만 본다. 로컬 브라우저→prod 측정은 지리 RTT가 섞임.
 - 로컬 계정: 방이 없으면 `E2E_TEST_USERNAME=qqqq` 사용.
 
 ### prod 시도 (2026-06-10, 잘못된 호스트 `dibay.vercel.app`)

@@ -1,0 +1,30 @@
+{
+  "measured_at": "2026-06-10T08:41:59.015Z",
+  "base_url": "https://samarket.vercel.app",
+  "sql_migrations_applied": [
+    "20260610150000_community_messenger_send_text_ack_hot_path.sql",
+    "20260610160000_community_messenger_send_ack_recipients_returning.sql"
+  ],
+  "deploy_ref": "ba9aa329",
+  "cycles": 3,
+  "sends_per_cycle": 3,
+  "warm_discard": "first send per cycle",
+  "target_ms": 200,
+  "gate": {
+    "client_ack_le_target": false,
+    "note": "클라 ack = 브라우저 RTT + 서버. 동일 리전 판정은 server_route_ms 권장."
+  },
+  "warm_ack_ms": {
+    "count": 6,
+    "min": 220,
+    "max": 337,
+    "avg": 284,
+    "p95": 337
+  },
+  "warm_server_route_ms": {
+    "count": 0,
+    "note": "prod 응답 헤더 미수신 — Vercel 배포 전파 확인 또는 measure 스크립트 재실행"
+  },
+  "comparison_prior_prod_p95": 414,
+  "errors": []
+}
