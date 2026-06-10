@@ -369,6 +369,12 @@ export function AuthLoginSettingsForm() {
                 </div>
                   );
                 })()}
+                {row.provider === "apple" ? (
+                  <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
+                    <p>{t("admin_auth_apple_banner_line1")}</p>
+                    <p className="mt-1">{t("admin_auth_apple_banner_line2")}</p>
+                  </div>
+                ) : null}
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="sam-text-body text-sam-fg">
                     <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_provider_name")}</span>
@@ -401,6 +407,11 @@ export function AuthLoginSettingsForm() {
                       onChange={(e) => updateProvider(row.provider, { client_id: e.target.value })}
                       className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
                     />
+                    {row.provider === "apple" ? (
+                      <span className="mt-1 block sam-text-helper text-sam-muted">
+                        {t("admin_auth_apple_client_id_hint")}
+                      </span>
+                    ) : null}
                   </label>
                   <label className="sam-text-body text-sam-fg">
                     <span className="mb-1 block sam-text-helper text-sam-muted">Client Secret</span>
@@ -411,6 +422,11 @@ export function AuthLoginSettingsForm() {
                       className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
                       autoComplete="new-password"
                     />
+                    {row.provider === "apple" ? (
+                      <span className="mt-1 block sam-text-helper text-sam-muted">
+                        {t("admin_auth_apple_client_secret_hint")}
+                      </span>
+                    ) : null}
                     <span className="mt-1 block sam-text-helper text-sam-muted">
                       {t("admin_auth_secret_status", {
                         status: row.client_secret_configured
@@ -430,7 +446,9 @@ export function AuthLoginSettingsForm() {
                       className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
                     />
                     <span className="mt-1 block sam-text-helper text-sam-muted">
-                      {t("admin_auth_settings_oauth_callback_guide")}
+                      {row.provider === "apple"
+                        ? t("admin_auth_apple_callback_hint")
+                        : t("admin_auth_settings_oauth_callback_guide")}
                     </span>
                   </label>
                 </div>
