@@ -80,6 +80,15 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
     setShareExpanded((prev) => (prev ? false : prev));
   }, [item.id]);
 
+  /** 팝오버 열림 동안 뒤 타임라인·입력 스크롤·탭 전달 차단 */
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
   /** 앵커·말풍선 정렬 + 공유 펼침 등으로 패널 높이가 바뀔 때마다 보정(ResizeObserver). */
   useLayoutEffect(() => {
     const el = panelRef.current;
@@ -184,10 +193,14 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
     : undefined;
 
   const node = (
-    <div className="fixed inset-0 z-[60]" role="presentation">
+    <div
+      className="fixed inset-0 z-[220] touch-none"
+      role="presentation"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-transparent"
+        className="absolute inset-0 cursor-default bg-transparent touch-none"
         aria-label={t("nav_close")}
         onPointerDown={(e) => {
           if (Date.now() - openedAtRef.current < 350) {
@@ -208,7 +221,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
       />
       <div
         ref={panelRef}
-        className="absolute z-[61] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        className="absolute z-[221] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
         style={{ top: pos.top, left: pos.left }}
         role="dialog"
         aria-modal="true"

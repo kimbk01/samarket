@@ -8,6 +8,7 @@ import {
   memo,
   type MutableRefObject,
   useRef,
+  useState,
 } from "react";
 import {
   communityMessengerMemberAvatar,
@@ -223,6 +224,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   // 모바일 WebView 에서 스크롤 제스처가 pointercancel 을 즉시 발생시켜 520ms 타이머가 항상 취소된다.
   // touch-action:none 으로 브라우저 스크롤을 말풍선에서 막고, 이동 거리(8px) 초과 시 직접 취소한다.
   const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const [longPressHolding, setLongPressHolding] = useState(false);
   const cancelLongPress = () => {
     if (messageLongPressTimerRef.current) {
       clearTimeout(messageLongPressTimerRef.current);
@@ -230,6 +232,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     }
     messageLongPressItemRef.current = null;
     longPressOriginRef.current = null;
+    setLongPressHolding(false);
   };
 
   const bindMessageInteraction =
@@ -242,6 +245,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               if (!e.isPrimary) return;
               messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
+              setLongPressHolding(true);
               // setPointerCapture: 손가락이 요소 밖으로 나가도 pointermove/up 이벤트 보장.
               // DO NOT: 제거 시 살짝 이동하면 pointercancel → 타이머 취소.
               try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
@@ -249,6 +253,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               messageLongPressTimerRef.current = window.setTimeout(() => {
                 messageLongPressTimerRef.current = null;
                 longPressOriginRef.current = null;
+                setLongPressHolding(false);
                 setCallStubSheet({
                   item,
                   anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
@@ -277,6 +282,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               if (!e.isPrimary) return;
               messageLongPressItemRef.current = item;
               longPressOriginRef.current = { x: e.clientX, y: e.clientY };
+              setLongPressHolding(true);
               // setPointerCapture: 손가락이 요소 밖으로 나가도 pointermove/up 이벤트 보장.
               // DO NOT: 제거 시 살짝 이동하면 pointercancel → 타이머 취소.
               try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
@@ -284,6 +290,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
               messageLongPressTimerRef.current = window.setTimeout(() => {
                 messageLongPressTimerRef.current = null;
                 longPressOriginRef.current = null;
+                setLongPressHolding(false);
                 setMessageActionItem({
                   item,
                   anchorRect: messengerMessageAnchorRectFromDomRect(el.getBoundingClientRect()),
@@ -313,6 +320,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   const longPressMenuOpenOnBubble =
     (Boolean(messageActionItemId) && messageActionItemId === item.id) ||
     (Boolean(callStubSheetItemId) && callStubSheetItemId === item.id);
+
+  const longPressVisualActive = longPressHolding || longPressMenuOpenOnBubble;
 
   const renderReplyQuoteInsideBubble = () => {
     if (!replyQuote) return null;
@@ -353,8 +362,10 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
 
   const renderBubbleStack = (bubbleChild: ReactNode) => (
     <div
-      className={`inline-flex max-w-full flex-col ${item.isMine ? "items-end" : "items-start"} ${
-        longPressMenuOpenOnBubble ? "rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)]" : ""
+      className={`inline-flex max-w-full flex-col transition-[transform,box-shadow] duration-150 ease-out ${item.isMine ? "items-end" : "items-start"} ${
+        longPressVisualActive
+          ? "scale-[0.97] rounded-[14px] ring-2 ring-[color:var(--cm-room-primary)] ring-offset-1 ring-offset-[color:var(--cm-room-bg,#f0f2f5)] shadow-[0_10px_28px_rgba(0,0,0,0.16)]"
+          : ""
       }`}
       {...bindMessageInteraction}
     >

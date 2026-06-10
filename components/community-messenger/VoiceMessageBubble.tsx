@@ -15,6 +15,7 @@ import {
   COMMUNITY_MESSENGER_VOICE_PLAY_EVENT,
   dispatchCommunityMessengerVoicePlay,
 } from "@/lib/community-messenger/voice-playback-bus";
+import { VoiceMessageBufferingSpinner } from "@/components/community-messenger/VoiceMessageBufferingSpinner";
 
 function formatVoiceDuration(totalSec: number): string {
   const s = Math.max(0, Math.ceil(totalSec));
@@ -26,38 +27,9 @@ function formatVoiceDuration(totalSec: number): string {
 const PLAYBACK_RATES = [1, 1.5, 2] as const;
 
 const PLACEHOLDER_BARS = 40;
-const BUFFER_DOTS = 12;
 
 function placeholderPeaks(): number[] {
   return Array.from({ length: PLACEHOLDER_BARS }, () => 0.12);
-}
-
-function VoicePendingSpinner({ light, label }: { light: boolean; label: string }) {
-  return (
-    <span
-      className="relative block h-5 w-5"
-      role="status"
-      aria-label={label}
-    >
-      {Array.from({ length: BUFFER_DOTS }, (_, i) => {
-        const deg = (i * 360) / BUFFER_DOTS;
-        const delayMs = (i * 85).toFixed(0);
-        return (
-          <span
-            key={i}
-            className={`absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full ${
-              light ? "bg-white" : "bg-sam-muted"
-            }`}
-            style={{
-              transform: `rotate(${deg}deg) translateY(-8px) scale(0.55)`,
-              animationDelay: `${delayMs}ms`,
-            }}
-            aria-hidden
-          />
-        );
-      })}
-    </span>
-  );
 }
 
 export function VoiceMessageBubble({
@@ -84,7 +56,7 @@ export function VoiceMessageBubble({
   mediaType?: string | null;
   mineBubbleStyle?: "signature" | "viberLight";
 }) {
-  const { t } = useI18n();
+  const { safeT } = useI18n();
   const instanceId = useId();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const waveformRef = useRef<HTMLDivElement | null>(null);
@@ -155,6 +127,7 @@ export function VoiceMessageBubble({
   }, [activeSrc]);
 
   const playbackBlocked = !pending && !safePlaybackSrc;
+  const showBuffering = pending || loadError || playbackBlocked;
 
   useEffect(() => {
     const el = audioRef.current;
@@ -270,24 +243,40 @@ export function VoiceMessageBubble({
   const durationLabelSec =
     playing && remainingSec != null && Number.isFinite(remainingSec) ? remainingSec : Math.max(0, durationSeconds);
 
+  const playAriaLabel = playing
+    ? safeT("common_pause", { fallbackKo: "일시정지", fallbackEn: "Pause" })
+    : safeT("common_play", { fallbackKo: "재생", fallbackEn: "Play" });
+  const loadingAriaLabel = safeT("chats_spinner_loading_aria", {
+    fallbackKo: "불러오는 중",
+    fallbackEn: "Loading",
+  });
+  const waveformSeekAriaLabel = safeT("nav_messenger_voice_waveform_seek", {
+    fallbackKo: "재생 위치 — 파형을 눌러 이동",
+    fallbackEn: "Playback position — tap the waveform to seek",
+  });
+  const playbackRateAriaLabel = safeT("nav_messenger_voice_playback_rate", {
+    fallbackKo: "재생 속도",
+    fallbackEn: "Playback speed",
+  });
+
   return (
     <div className="flex min-w-[220px] max-w-[min(300px,82vw)] flex-col gap-1">
       <div className="flex items-stretch gap-2.5">
         <button
           type="button"
           onClick={toggle}
-          disabled={pending || loadError || playbackBlocked}
-          className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-50 ${
+          disabled={showBuffering}
+          className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center self-center rounded-full shadow-sm transition active:scale-95 disabled:opacity-100 ${
             isMine
               ? mineLight
                 ? "bg-sam-surface/25 text-white ring-2 ring-sam-surface/40"
                 : "bg-sam-surface/25 text-white ring-2 ring-sam-surface/35"
               : "bg-sam-ink text-white ring-2 ring-sam-border"
           }`}
-          aria-label={playing ? t("common_pause") : t("common_play")}
+          aria-label={playAriaLabel}
         >
-          {pending ? (
-            <VoicePendingSpinner light={isMine} label={t("chats_spinner_loading_aria")} />
+          {showBuffering ? (
+            <VoiceMessageBufferingSpinner light={isMine} label={loadingAriaLabel} />
           ) : playing ? (
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="5" width="4" height="14" rx="1" />
@@ -306,7 +295,7 @@ export function VoiceMessageBubble({
             onPointerDown={onWaveformPointerDown}
             role="slider"
             tabIndex={0}
-            aria-label={t("nav_messenger_voice_waveform_seek")}
+            aria-label={waveformSeekAriaLabel}
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={Math.round(progress)}
@@ -354,7 +343,7 @@ export function VoiceMessageBubble({
                         : "bg-sam-surface/20 text-white hover:bg-sam-surface/30"
                       : "bg-sam-border-soft text-sam-fg hover:bg-sam-border"
                   }`}
-                  aria-label={t("nav_messenger_voice_playback_rate")}
+                  aria-label={playbackRateAriaLabel}
                 >
                   {playbackRate === 1 ? "1×" : playbackRate === 1.5 ? "1.5×" : "2×"}
                 </button>
@@ -380,11 +369,6 @@ export function VoiceMessageBubble({
         >
           <source src={safePlaybackSrc} type={sourceType} />
         </audio>
-      ) : null}
-      {!pending && (loadError || playbackBlocked) ? (
-        <span className={`sam-text-xxs ${isMine ? (mineLight ? "text-red-600" : "text-white/85") : "text-red-600"}`}>
-          {t("nav_messenger_voice_upload_failed")}
-        </span>
       ) : null}
     </div>
   );

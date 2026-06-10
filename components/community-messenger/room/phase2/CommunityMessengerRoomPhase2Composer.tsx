@@ -136,7 +136,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const composerRenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   composerRenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   if (cmPolishAnalysisEnabled()) bumpCmPolishComposerRender();
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const lastComposerPerfLogRef = useRef(0);
   const vm = useMessengerRoomPhase2ComposerView();
   const {
@@ -316,18 +316,18 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const isDeliveryRoom = deliveryCtx != null;
   const deliveryInputPlaceholder = isDeliveryRoom ? t("store_delivery_chat_input_placeholder") : null;
   const composerPlaceholder = isDeliveryRoom
-    ? (deliveryInputPlaceholder ?? t("nav_messenger_input_placeholder"))
+    ? (deliveryInputPlaceholder ?? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" }))
     : tradeOnlyBlocked
-      ? tradeBlockedMessage || t("cm_ui_cannot_send_message")
+      ? tradeBlockedMessage || safeT("cm_ui_cannot_send_message", { fallbackKo: "메시지를 보낼 수 없습니다", fallbackEn: "You cannot send messages" })
       : vm.roomUnavailable
         ? vm.snapshot.room.isReadonly
-          ? "읽기 전용 방입니다"
+          ? safeT("cm_ui_read_only_room", { fallbackKo: "읽기 전용 방입니다", fallbackEn: "This room is read-only" })
           : vm.snapshot.room.roomStatus === "blocked"
-            ? "차단된 방입니다"
-            : "보관된 방입니다"
+            ? safeT("cm_ui_blocked_room", { fallbackKo: "차단된 방입니다", fallbackEn: "This room is blocked" })
+            : safeT("cm_ui_archived_room", { fallbackKo: "보관된 방입니다", fallbackEn: "This room is archived" })
         : vm.snapshot.clientShellPlaceholder
-          ? "메시지를 입력하세요"
-          : "메시지";
+          ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
+          : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
 
   const commitTextSend = useCallback(() => {
     if (

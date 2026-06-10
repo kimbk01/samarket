@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/voice-waveform";
 import { measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout } from "@/lib/community-messenger/measure-voice-blob-duration";
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { getCommunityMessengerUserMedia } from "@/lib/call/permission-manager";
 import { isDiBaYMicGateDeferredAbort } from "@/lib/permissions/dibay-mic-gate-messages";
@@ -43,6 +44,7 @@ export type UseMessengerRoomVoiceRecordingParams = {
   onOutboundMessageConfirmed?: (message: CommunityMessengerMessage) => void;
   /** 로그인·전화 인증 필요 시 스낵바 대신 방 공통 리다이렉트 */
   tryRedirectAuthBlocked?: (res: Response, json: { error?: unknown; code?: unknown }) => boolean;
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string;
 };
 
 /**
@@ -62,6 +64,7 @@ export function useMessengerRoomVoiceRecording({
   scrollMessengerToBottom,
   onOutboundMessageConfirmed,
   tryRedirectAuthBlocked,
+  t,
 }: UseMessengerRoomVoiceRecordingParams) {
   const apiRoom = (apiRoomId?.trim() || roomId.trim()).trim();
   const voiceFinalizingRef = useRef(false);
@@ -171,7 +174,7 @@ export function useMessengerRoomVoiceRecording({
       const blob = new Blob(chunks, { type: blobMime });
       if (blob.size < 400) {
         voiceFinalizingRef.current = false;
-        showMessengerSnackbar("녹음이 너무 짧습니다.", { variant: "error" });
+        showMessengerSnackbar(t("cm_ui_voice_recording_too_short"), { variant: "error" });
         return;
       }
       if (!snapshot) {
@@ -181,7 +184,7 @@ export function useMessengerRoomVoiceRecording({
 
       if (wallDurationSeconds < 0.32) {
         voiceFinalizingRef.current = false;
-        showMessengerSnackbar("녹음이 너무 짧습니다.", { variant: "error" });
+        showMessengerSnackbar(t("cm_ui_voice_recording_too_short"), { variant: "error" });
         return;
       }
 
@@ -193,7 +196,7 @@ export function useMessengerRoomVoiceRecording({
           id: tempId,
           roomId: apiRoom,
           senderId: snapshot.viewerUserId,
-          senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? "나",
+          senderLabel: roomMembersDisplay.find((member) => member.id === snapshot.viewerUserId)?.label ?? t("common_me"),
           messageType: "voice",
           content: blobUrl,
           createdAt: nextOptimisticCommunityMessengerCreatedAtIso(prev),
@@ -282,6 +285,7 @@ export function useMessengerRoomVoiceRecording({
       roomMembersDisplay,
       scrollMessengerToBottom,
       snapshot,
+      t,
     ]
   );
 
@@ -381,7 +385,7 @@ export function useMessengerRoomVoiceRecording({
           recordStreamRef.current = null;
           stream.getTracks().forEach((t) => t.stop());
           if (session === voiceSessionIdRef.current) {
-            showMessengerSnackbar("녹음을 시작하지 못했습니다. 다른 앱에서 마이크를 쓰는지 확인해 주세요.", {
+            showMessengerSnackbar(t("cm_ui_voice_recording_start_failed"), {
               variant: "error",
             });
           }

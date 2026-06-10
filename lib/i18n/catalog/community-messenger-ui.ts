@@ -368,6 +368,9 @@ export const communityMessengerUiMessages = {
     cm_ui_confirm_remove_group_member: "{name}님을 이 그룹에서보낼까요?",
     cm_ui_delete_for_me_only: "나에게서만 삭제",
     cm_ui_delete_recording: "녹음 삭제",
+    cm_ui_voice_recording_start_failed:
+      "녹음을 시작하지 못했습니다. 다른 앱에서 마이크를 쓰는지 확인해 주세요.",
+    cm_ui_voice_recording_too_short: "녹음이 너무 짧습니다.",
     cm_ui_direct_chat: "1:1 채팅",
     cm_ui_dtmf_local_only_notice: "로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.",
     cm_ui_end_current_group_participation: "현재 그룹 참여를 종료합니다.",
@@ -1207,6 +1210,9 @@ export const communityMessengerUiMessages = {
     cm_ui_confirm_remove_group_member: "Remove {name} from this group?",
     cm_ui_delete_for_me_only: "Delete for me only",
     cm_ui_delete_recording: "Delete recording",
+    cm_ui_voice_recording_start_failed:
+      "Could not start recording. Check whether another app is using the microphone.",
+    cm_ui_voice_recording_too_short: "Recording is too short.",
     cm_ui_direct_chat: "1:1 chat",
     cm_ui_dtmf_local_only_notice: "Tone plays locally only and may not be delivered to the other party.",
     cm_ui_end_current_group_participation: "End current group participation.",

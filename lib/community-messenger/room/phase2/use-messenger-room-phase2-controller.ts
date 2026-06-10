@@ -444,6 +444,7 @@ export function useMessengerRoomPhase2Controller() {
     scrollMessengerToBottom,
     onOutboundMessageConfirmed: onMessengerOutboundConfirmed,
     tryRedirectAuthBlocked: redirectIfMessengerAuthBlocked,
+    t,
   });
 
   const toggleRoomMute = useCallback(async () => {

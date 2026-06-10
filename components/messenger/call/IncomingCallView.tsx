@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, ChevronDown, Clock, MessageCircle, Phone, X } from "lucide-react";
+import { Check, Phone, Video, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallAvatar } from "./CallAvatar";
@@ -15,28 +15,18 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
   const peerName = vm.peerLabel.trim() || "?";
   const appCallLine =
     vm.mode === "video" ? t("cm_ui_samarket_video_call_brand") : t("cm_ui_samarket_voice_call_brand");
+  const CallKindIcon = vm.mode === "video" ? Video : Phone;
 
   return (
     <div
       className={`relative z-[2] flex min-h-0 flex-1 flex-col overflow-hidden px-5 pb-[max(1rem,calc(env(safe-area-inset-bottom,0px)+12px))] ${
         isStarbucks
-          ? "bg-[radial-gradient(circle_at_50%_0%,rgba(212,233,226,0.24),transparent_34%),linear-gradient(180deg,#00754A_0%,#006241_45%,#003D29_100%)]"
+          ? "bg-[radial-gradient(circle_at_50%_0%,rgba(212,233,226,0.20),transparent_34%),linear-gradient(180deg,#101827_0%,#064332_52%,#021E18_100%)]"
           : "bg-[#8B5E2E]"
       }`}
     >
-      <button
-        type="button"
-        onClick={() => vm.onBack?.()}
-        className={`absolute right-3 top-[max(8px,env(safe-area-inset-top))] z-10 flex h-11 w-11 items-center justify-center rounded-full transition active:scale-[0.97] ${
-          isStarbucks ? "bg-[#D4E9E2]/14 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/25" : "text-white/80 active:text-white"
-        }`}
-        aria-label={t("cm_ui_minimize_call_window")}
-      >
-        <ChevronDown size={26} strokeWidth={2} />
-      </button>
-
       <div className="flex min-h-0 w-full max-w-md flex-1 flex-col items-center self-center">
-        <div className="flex w-full shrink-0 flex-col items-center pt-[max(44px,9dvh)]">
+        <div className="flex w-full shrink-0 flex-col items-center pt-[max(42px,8dvh)]">
           <div className={`flex max-w-full items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]" : "text-white"}`}>
             <span
               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
@@ -44,7 +34,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
               }`}
               aria-hidden
             >
-              <Phone size={18} strokeWidth={2} />
+              <CallKindIcon size={18} strokeWidth={2} />
             </span>
             <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">{appCallLine}…</span>
           </div>
@@ -77,48 +67,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
           ) : null}
         </div>
 
-        <div className="flex w-full max-w-[360px] shrink-0 flex-col items-center gap-6 pb-1 pt-2">
-          <div className="flex w-full max-w-[340px] items-center justify-between">
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => vm.onBack?.()}
-                className={`flex h-[clamp(44px,13vw,52px)] w-[clamp(44px,13vw,52px)] items-center justify-center rounded-full transition active:scale-[0.96] ${
-                  isStarbucks ? "bg-[#D4E9E2]/18 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/24" : "bg-black/20 text-white"
-                }`}
-                aria-label={t("cm_ui_send_message_from_call")}
-              >
-                <MessageCircle size={22} strokeWidth={2} />
-              </button>
-              <span
-                className={`max-w-[118px] text-center sam-text-body-secondary font-medium leading-tight ${
-                  isStarbucks ? "text-[#F1F8F4]" : "text-white"
-                }`}
-              >
-                {t("cm_ui_send_message_from_call")}
-              </span>
-            </div>
-            <div className="flex flex-col items-center gap-2">
-              <button
-                type="button"
-                onClick={() => vm.onBack?.()}
-                className={`flex h-[clamp(44px,13vw,52px)] w-[clamp(44px,13vw,52px)] items-center justify-center rounded-full transition active:scale-[0.96] ${
-                  isStarbucks ? "bg-[#D4E9E2]/18 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/24" : "bg-black/20 text-white"
-                }`}
-                aria-label={t("cm_ui_remind_later")}
-              >
-                <Clock size={22} strokeWidth={2} />
-              </button>
-              <span
-                className={`max-w-[118px] text-center sam-text-body-secondary font-medium leading-tight ${
-                  isStarbucks ? "text-[#F1F8F4]" : "text-white"
-                }`}
-              >
-                {t("cm_ui_remind_later")}
-              </span>
-            </div>
-          </div>
-
+        <div className="flex w-full max-w-[360px] shrink-0 flex-col items-center gap-5 pb-1 pt-3">
           <div
             className={`flex w-full shrink-0 items-center justify-center ${
               isStarbucks ? "gap-[clamp(5rem,24vw,7.25rem)]" : "gap-[68px]"

@@ -36,8 +36,8 @@ export function CallScreen({
     return () => window.clearTimeout(timer);
   }, [vm.autoCloseMs]);
 
-  /** 음성 수신 벨만 텔레그램형 단색 셸 — 영상 수신 링은 발신과 동일 풀스크린(`ConnectedVideoView`) */
-  const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video";
+  /** 수락 전 수신 벨은 음성/영상 모두 미디어 preview 없이 동일한 수신 화면을 쓴다. */
+  const isIncomingRinging = vm.direction === "incoming" && vm.phase === "ringing";
   const isOutgoingVoiceRinging = vm.direction === "outgoing" && vm.phase === "ringing" && vm.mode === "voice";
   const useStarbucksTheme = vm.visualTheme === "starbucks";
   const telegramCallSurface = "bg-[#8B5E2E]";
@@ -58,7 +58,7 @@ export function CallScreen({
     useTelegramSolidShell || isOutgoingVoiceRinging || (vm.mode === "video" && vm.direction === "outgoing");
   /** 발신 영상·음성 벨 — 브라우저 내 `< 뒤로` 헤더 없이 safe-area 만 사용 */
   const showCallHeader =
-    !(vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") &&
+    !(vm.direction === "incoming" && vm.phase === "ringing") &&
     !(vm.mode === "video" && vm.direction === "outgoing") &&
     !(isOutgoingVoiceRinging);
 
@@ -104,7 +104,7 @@ function renderCallView(vm: CallScreenViewModel) {
   if (isTerminalPhase && !vm.suppressTerminalView) {
     return <EndedCallView vm={vm} />;
   }
-  if (vm.direction === "incoming" && vm.phase === "ringing" && vm.mode !== "video") {
+  if (vm.direction === "incoming" && vm.phase === "ringing") {
     return <IncomingCallView vm={vm} />;
   }
   /** 음성 발신 벨만 전용 패널 — 영상 발신은 아래와 동일 풀스크린으로 통일 */

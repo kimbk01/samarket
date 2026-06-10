@@ -5,6 +5,7 @@ import type { CommunityMessengerCallSession } from "@/lib/community-messenger/ty
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { computeIncomingRingRemainingSeconds } from "@/lib/community-messenger/messenger-call-ring-timeout";
 
 export type CommunityMessengerIncomingCallOverlayProps = {
   session: CommunityMessengerCallSession;
@@ -14,7 +15,7 @@ export type CommunityMessengerIncomingCallOverlayProps = {
   onMinimize: () => void;
   onReject: (sessionId: string) => void;
   onAccept: (session: CommunityMessengerCallSession) => void;
-  /** 레거시 API 호환용 — 수신 벨은 항상 전체 화면(텔레그램형)으로만 표시한다. */
+  /** 레거시 API — 전용 통화 라우트(`/calls/*`)의 전체 수신 화면 VM 조립용 */
   placement?: "global" | "in-room";
   /** 관리자 수신 타임아웃(초) — 남은 시간 표시 */
   ringTimeoutSeconds?: number | null;
@@ -45,15 +46,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
       return;
     }
     const tick = () => {
-      const start = new Date(session.startedAt).getTime();
-      if (!Number.isFinite(start)) {
-        setRemainSec(null);
-        return;
-      }
-      const end = start + sec * 1000;
-      const rem = Math.max(0, Math.ceil((end - Date.now()) / 1000));
-      /* 0 이면 "남은 0초"만 남고 오버레이가 계속 떠 보이므로 표시 생략 */
-      setRemainSec(rem <= 0 ? null : rem);
+      setRemainSec(computeIncomingRingRemainingSeconds(session.startedAt, sec));
     };
     tick();
     const id = window.setInterval(tick, 1000);
@@ -83,7 +76,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     mediaState: {
       micEnabled: true,
       speakerEnabled: true,
-      cameraEnabled: session.callKind === "video",
+      cameraEnabled: false,
       localVideoMinimized: true,
     },
     onBack: onMinimize,

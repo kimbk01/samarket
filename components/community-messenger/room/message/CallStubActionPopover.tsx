@@ -76,6 +76,19 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
   }, [anchorRect]);
 
   useEffect(() => {
+    openedAtRef.current = Date.now();
+  }, [item.id]);
+
+  /** 팝오버 열림 동안 뒤 타임라인·입력 스크롤·탭 전달 차단 */
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -86,10 +99,14 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
   const kind = item.callKind === "video" ? "video" : "voice";
 
   const node = (
-    <div className="fixed inset-0 z-[62]" role="presentation">
+    <div
+      className="fixed inset-0 z-[220] touch-none"
+      role="presentation"
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <button
         type="button"
-        className="absolute inset-0 cursor-default bg-transparent"
+        className="absolute inset-0 cursor-default bg-transparent touch-none"
         aria-label={t("nav_close")}
         onPointerDown={(e) => {
           if (Date.now() - openedAtRef.current < 350) {
@@ -110,7 +127,7 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
       />
       <div
         ref={panelRef}
-        className="absolute z-[63] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
+        className="absolute z-[221] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
         style={{ top: pos.top, left: pos.left }}
         role="dialog"
         aria-modal="true"

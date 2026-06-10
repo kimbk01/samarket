@@ -22,9 +22,6 @@ import {
   fetchMessengerCallSoundConfig,
   getMessengerCallSoundConfigCache,
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
-import { useCommunityCallSurface } from "@/contexts/CommunityCallSurfaceContext";
-import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
-import { primeCommunityMessengerDevicePermissionFromUserGesture } from "@/lib/community-messenger/call-permission";
 import {
   primeCommunityMessengerCallNavigationSeed,
   rememberCallNavigationReturnPath,
@@ -42,7 +39,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
-import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
@@ -67,6 +63,12 @@ import {
   applyIncomingCallSessionsRealtimeEvent,
   communityMessengerIncomingSessionFromInviteBroadcast,
 } from "@/lib/community-messenger/incoming-call-realtime-preview";
+import {
+  resolveIncomingCallSurface,
+  shouldRenderInternalIncomingCallUi,
+  shouldUseIncomingCallBrowserNotification,
+  type IncomingCallSurface,
+} from "@/lib/community-messenger/incoming-call-surface";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
 import {
   callIncomingTerminalQueryFromEvent,
@@ -193,6 +195,16 @@ function isIncomingCallWindowForeground(): boolean {
   return typeof document.hasFocus === "function" ? document.hasFocus() : true;
 }
 
+function readIncomingCallVisibilityState(): "visible" | "hidden" | "prerender" | "unloaded" {
+  if (typeof document === "undefined") return "visible";
+  const state = String(document.visibilityState);
+  return state === "visible" || state === "hidden" || state === "prerender" || state === "unloaded"
+    ? state
+    : document.hidden
+      ? "hidden"
+      : "visible";
+}
+
 function shouldRunIncomingCallBackupHttpRequest(args: {
   pathname: string | null;
   hasRingingDirectCallee: boolean;
@@ -215,7 +227,6 @@ export function GlobalCommunityMessengerIncomingCall() {
   pathnameRef.current = pathname ?? null;
   /** `pathname` 전용 burst 보강 — 최초(userId 확정 직후)는 폴링 effect 가 burst 담당 */
   const incomingCallPathBurstPrevRef = useRef<string | null>(null);
-  const { messengerRoomIdFromPath } = useCommunityCallSurface();
   const [userId, setUserId] = useState<string | null>(() =>
     typeof window !== "undefined" ? getCurrentUser()?.id?.trim() || null : null
   );
@@ -227,9 +238,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const [incomingRealtimeOk, setIncomingRealtimeOk] = useState(false);
+  const [incomingVisibilityState, setIncomingVisibilityState] = useState<
+    "visible" | "hidden" | "prerender" | "unloaded"
+  >(() => readIncomingCallVisibilityState());
   /** 수신 목록 GET 실패(이전 목록은 유지). 세션 거절 등 액션 실패는 별도 */
   const [incomingListError, setIncomingListError] = useState<string | null>(null);
-  const [sessionActionError, setSessionActionError] = useState<string | null>(null);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const refreshTimerIdsRef = useRef<number[]>([]);
   const lastRefreshAtRef = useRef(0);
@@ -388,7 +401,6 @@ export function GlobalCommunityMessengerIncomingCall() {
             )
           );
           setIncomingListError(null);
-          setSessionActionError(null);
           return;
         }
         setIncomingListError(
@@ -1249,6 +1261,17 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (session.isMineInitiator) continue;
       if (!session.recipientUserId || !messengerUserIdsEqual(session.recipientUserId, userId)) continue;
       if (incomingCallBrowserNotifiedIdsRef.current.has(session.id)) continue;
+      if (
+        !shouldUseIncomingCallBrowserNotification({
+          visibilityState: incomingVisibilityState,
+          currentPathname: pathname,
+          isAppForeground: incomingVisibilityState === "visible",
+          sessionStatus: session.status,
+          callKind: session.callKind,
+        })
+      ) {
+        continue;
+      }
       const suppressed = getMessengerCallSoundConfigCache()?.suppress_incoming_local_notifications === true;
       const shown = showIncomingCallBrowserNotification({
         sessionId: session.id,
@@ -1266,7 +1289,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       const stillRinging = sessions.some((s) => s.id === id && s.status === "ringing");
       if (!stillRinging) incomingCallBrowserNotifiedIdsRef.current.delete(id);
     }
-  }, [sessions, userId]);
+  }, [incomingVisibilityState, pathname, sessions, userId]);
 
   /** ringing 이 목록에서 사라졌을 때(타임아웃 부재 등) 부재 사운드 — 사용자가 거절/수락한 경우는 제외 */
   useEffect(() => {
@@ -1278,6 +1301,19 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     prevRingingIdsRef.current = nowRinging;
   }, [sessions]);
+
+  useEffect(() => {
+    const syncVisibility = () => setIncomingVisibilityState(readIncomingCallVisibilityState());
+    syncVisibility();
+    document.addEventListener("visibilitychange", syncVisibility);
+    window.addEventListener("focus", syncVisibility);
+    window.addEventListener("blur", syncVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", syncVisibility);
+      window.removeEventListener("focus", syncVisibility);
+      window.removeEventListener("blur", syncVisibility);
+    };
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
@@ -1338,9 +1374,22 @@ export function GlobalCommunityMessengerIncomingCall() {
   const visibleSession =
     hideGlobalIncomingOverlay || !incomingTabLeader ? null : firstRingingCalleeSession;
   const visibleSessionId = visibleSession?.id ?? null;
+  const incomingSurface: IncomingCallSurface | null = visibleSession
+    ? resolveIncomingCallSurface({
+        visibilityState: incomingVisibilityState,
+        currentPathname: pathname,
+        isAppForeground: incomingVisibilityState === "visible",
+        sessionStatus: visibleSession.status,
+        callKind: visibleSession.callKind,
+        acceptInProgress: busyId === `accept:${visibleSession.id}`,
+      })
+    : null;
+  const renderIncomingBanner = Boolean(visibleSession && incomingSurface === "top-banner");
+  const nativeIncomingSession =
+    visibleSession && shouldRenderInternalIncomingCallUi(incomingSurface) ? visibleSession : null;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
   useLayoutEffect(() => {
-    if (!visibleSessionId || !visibleSession) return;
+    if (!visibleSessionId || !visibleSession || incomingSurface === "system-notification") return;
     const hasMinimal =
       Boolean(visibleSession.peerUserId?.trim()) &&
       (visibleSession.callKind === "voice" || visibleSession.callKind === "video") &&
@@ -1353,7 +1402,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     cmCallIncomingTraceRegisterRingingRoom(visibleSessionId, visibleSession.roomId);
     cmCallFlow("incoming_received", { sessionId: visibleSessionId });
     cmCallIncomingTraceLogTable(visibleSessionId);
-  }, [visibleSession, visibleSessionId]);
+  }, [incomingSurface, visibleSession, visibleSessionId]);
   useEffect(() => {
     if (!visibleSession?.roomId) return;
     const rid = visibleSession.roomId.trim();
@@ -1361,8 +1410,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       cmCallIncomingTraceClearRingingRoom(rid);
     };
   }, [visibleSession?.id, visibleSession?.roomId]);
-  const isMinimized = Boolean(visibleSession && minimizedSessionId === visibleSession.id);
-  useMessengerCallMainBottomNavSuppress(Boolean(visibleSession && !isMinimized));
   const _bridgeStatus = getCommunityMessengerIncomingCallBridgeStatus();
 
   /** 배너 UI 끄기와 무관하게, 직통 수신 ringing 이면 벨은 울려야 함 */
@@ -1379,6 +1426,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!incomingTabLeader) return;
     if (directRingingCalleeSession?.status !== "ringing") return;
     if (!incomingCallSoundEnabled) return;
+    if (incomingVisibilityState !== "visible") return;
     let cancelled = false;
     let tone: { stop: () => void } | null = null;
     void startCommunityMessengerCallTone("incoming", {
@@ -1398,6 +1446,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     directRingingCalleeSession?.id,
     directRingingCalleeSession?.status,
     directRingingCalleeSession?.callKind,
+    incomingVisibilityState,
     incomingCallSoundEnabled,
     incomingTabLeader,
   ]);
@@ -1420,11 +1469,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh, sessions, userId, viewerLiveSessionId]);
 
   useEffect(() => {
-    syncCommunityMessengerNativeIncomingCall(visibleSession);
+    syncCommunityMessengerNativeIncomingCall(nativeIncomingSession);
     return () => {
-      if (visibleSession) syncCommunityMessengerNativeIncomingCall({ ...visibleSession, status: "missed" });
+      if (nativeIncomingSession) syncCommunityMessengerNativeIncomingCall({ ...nativeIncomingSession, status: "missed" });
     };
-  }, [visibleSession]);
+  }, [nativeIncomingSession]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
     if (busyId === `reject:${sessionId}` || busyId === `accept:${sessionId}`) return;
@@ -1486,15 +1535,14 @@ export function GlobalCommunityMessengerIncomingCall() {
         if (err === "bad_action") {
           markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
           suppressMissedSoundRef.current.add(sessionId);
-          setSessionActionError(null);
+          showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
         } else {
           dismissedIncomingSessionsAtRef.current.delete(sessionId);
-          setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
+          showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
         }
         await refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
         return;
       }
-      setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
       await refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
     } finally {
@@ -1506,110 +1554,76 @@ export function GlobalCommunityMessengerIncomingCall() {
     (session: CommunityMessengerCallSession) => {
       if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
       rememberCallNavigationReturnPath();
-      setBusyId(`accept:${session.id}`);
-      setSessionActionError(null);
 
-      const groupUrl =
-        session.sessionMode === "group"
-          ? `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
-          : null;
-      /** 직통 1:1 — PATCH 수락 성공 후에만 이동. `?action=accept` 로 통화 화면에 지연 PATCH 맡기지 않음 */
-      const directCallUrl = `/community-messenger/calls/${encodeURIComponent(session.id)}`;
-
-      void (async () => {
-        try {
-          const patchJson = await patchCommunityMessengerCallSession(
-            session.id,
-            "accept",
-            undefined,
-            {
-              sessionStatus: session.status,
-              isInitiator: session.isMineInitiator,
-              endedReason: session.endedReason ?? null,
-            }
-          );
-          if (!patchJson.ok || !patchJson.session) {
-            await refresh(true, { bypassDevSafeIncomingThrottle: true });
-            setSessionActionError(MESSENGER_CALL_USER_MSG.sessionActionFailed);
-            return;
-          }
-
-          const acceptedSession = patchJson.session;
-
-          cmCallFlow("incoming_accepted", { sessionId: session.id });
-
-          /** 성공 즉시: 오버레이 제거 → 링 정지 → (시드·프라임) → 통화 라우트로 이동 */
-          dismissedIncomingSessionsAtRef.current.set(session.id, Date.now());
-          setSessions((prev) => prev.filter((item) => item.id !== session.id));
-          stopCommunityMessengerCallTone();
-
-          markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
-          suppressMissedSoundRef.current.add(session.id);
-
-          if (!groupUrl && acceptedSession) {
-            primeCommunityMessengerCallNavigationSeed(session.id, acceptedSession);
-          }
-
-          /** 링 중 getUserMedia 금지 — active 확인 뒤에는 화면 전환을 막지 않고 권한 프라임만 병렬 진행 */
-          const permissionPrime =
-            acceptedSession.status === "active"
-              ? primeCommunityMessengerDevicePermissionFromUserGesture(acceptedSession.callKind)
-                  .then(() => true)
-                  .catch(() => false)
-              : Promise.resolve(true);
-          router.replace(groupUrl ?? directCallUrl);
-          void permissionPrime.then((ok) => {
-            if (ok) return;
-            showMessengerSnackbar(
-              session.callKind === "video"
-                ? t("cm_ui_call_accept_permission_video_failed")
-                : t("cm_ui_call_accept_permission_voice_failed"),
-              { variant: "error" }
+      if (session.sessionMode === "group") {
+        setBusyId(`accept:${session.id}`);
+        const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
+        void (async () => {
+          try {
+            const patchJson = await patchCommunityMessengerCallSession(
+              session.id,
+              "accept",
+              undefined,
+              {
+                sessionStatus: session.status,
+                isInitiator: session.isMineInitiator,
+                endedReason: session.endedReason ?? null,
+              }
             );
-          });
-          void refresh(true, { bypassDevSafeIncomingThrottle: true });
-        } finally {
-          setBusyId(null);
-        }
-      })();
+            if (!patchJson.ok || !patchJson.session) {
+              await refresh(true, { bypassDevSafeIncomingThrottle: true });
+              showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
+              return;
+            }
+            cmCallFlow("incoming_accepted", { sessionId: session.id });
+            dismissedIncomingSessionsAtRef.current.set(session.id, Date.now());
+            setSessions((prev) => prev.filter((item) => item.id !== session.id));
+            stopCommunityMessengerCallTone();
+            markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
+            suppressMissedSoundRef.current.add(session.id);
+            router.replace(groupUrl);
+            void refresh(true, { bypassDevSafeIncomingThrottle: true });
+          } finally {
+            setBusyId(null);
+          }
+        })();
+        return;
+      }
+
+      /** 1:1 — 전체 통화 화면으로 먼저 이동한 뒤 CallClient 가 accept PATCH + Agora join 처리 */
+      stopCommunityMessengerCallTone();
+      primeCommunityMessengerCallNavigationSeed(session.id, session);
+      router.replace(
+        `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`
+      );
     },
-    [busyId, refresh, router, t]
+    [busyId, refresh, router]
   );
 
-  if (visibleSession && isMinimized) {
+  const openIncomingCallFullScreen = (session: CommunityMessengerCallSession) => {
+    rememberCallNavigationReturnPath();
+    primeCommunityMessengerCallNavigationSeed(session.id, session);
+    setMinimizedSessionId((prev) => (prev === session.id ? null : prev));
+    router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}`);
+  };
+
+  if (visibleSession && renderIncomingBanner) {
     return (
       <IncomingCallBanner
+        sessionId={visibleSession.id}
         peerLabel={visibleSession.peerLabel}
+        peerAvatarUrl={visibleSession.peerAvatarUrl ?? null}
         callKind={visibleSession.callKind === "video" ? "video" : "voice"}
-        busyReject={busyId === `reject:${visibleSession.id}` || busyId === `accept:${visibleSession.id}`}
-        busyAccept={busyId === `accept:${visibleSession.id}`}
-        onExpand={() => setMinimizedSessionId(null)}
-        onReject={() => void rejectCall(visibleSession.id)}
-        onAccept={() => void acceptCall(visibleSession)}
-      />
-    );
-  }
-
-  if (visibleSession) {
-    const inRoomStrip =
-      Boolean(messengerRoomIdFromPath) &&
-      visibleSession.sessionMode === "direct" &&
-      messengerUserIdsEqual(visibleSession.roomId, messengerRoomIdFromPath ?? "");
-    return (
-      <CommunityMessengerIncomingCallOverlay
-        key={visibleSession.id}
-        session={visibleSession}
-        busyId={busyId}
-        sessionActionError={sessionActionError}
-        incomingListError={incomingListError}
-        onMinimize={() => setMinimizedSessionId(visibleSession.id)}
-        onReject={rejectCall}
-        onAccept={acceptCall}
-        placement={inRoomStrip ? "in-room" : "global"}
         ringTimeoutSeconds={
           getMessengerCallSoundConfigCache()?.incoming_ring_timeout_seconds ??
           DEFAULT_INCOMING_RING_TIMEOUT_SECONDS
         }
+        startedAt={visibleSession.startedAt ?? null}
+        busyReject={busyId === `reject:${visibleSession.id}`}
+        busyAccept={false}
+        onExpand={() => openIncomingCallFullScreen(visibleSession)}
+        onReject={() => void rejectCall(visibleSession.id)}
+        onAccept={() => acceptCall(visibleSession)}
       />
     );
   }
