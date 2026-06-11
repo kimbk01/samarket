@@ -47,14 +47,23 @@ export function ProfileEditFieldRow({
   label,
   children,
   first = false,
+  htmlFor,
 }: {
   label: string;
   children: ReactNode;
   first?: boolean;
+  /** 입력 필드 id — 없으면 읽기 전용 라벨(`p`) */
+  htmlFor?: string;
 }) {
   return (
     <div className={first ? "" : PROFILE_EDIT_ROW_DIVIDER_CLASS + " pt-3 mt-3"}>
-      <label className={PROFILE_EDIT_FIELD_LABEL_CLASS}>{label}</label>
+      {htmlFor ? (
+        <label htmlFor={htmlFor} className={PROFILE_EDIT_FIELD_LABEL_CLASS}>
+          {label}
+        </label>
+      ) : (
+        <p className={PROFILE_EDIT_FIELD_LABEL_CLASS}>{label}</p>
+      )}
       <div className="mt-1">{children}</div>
     </div>
   );

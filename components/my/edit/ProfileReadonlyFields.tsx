@@ -3,6 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 
 function ReadonlyRow({ label, value }: { label: string; value: string }) {
   return (
@@ -27,6 +28,8 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
       ? t("account_pending")
       : t("account_unverified");
 
+  const verifiedPhoneDisplay = formatPhMobileDisplayPlus63(parsePhMobileInput(profile.phone ?? ""));
+
   return (
     <div className="divide-y divide-[#D4E9E2]/80">
       <ReadonlyRow label={t("account_email")} value={profile.email ?? "—"} />
@@ -35,6 +38,9 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
         value={profile.realname_verified ? t("account_verified") : t("account_unverified")}
       />
       <ReadonlyRow label={t("account_phone_verification")} value={phoneStatus} />
+      {contactFormal && verifiedPhoneDisplay ? (
+        <ReadonlyRow label={t("profile_edit_contact_label")} value={verifiedPhoneDisplay} />
+      ) : null}
       <ReadonlyRow label={t("profile_edit_member_tier")} value={profile.role} />
       <ReadonlyRow label={t("profile_edit_points")} value={String(profile.points)} />
     </div>

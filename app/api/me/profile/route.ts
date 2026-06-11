@@ -29,7 +29,6 @@ import {
 import { createEmptyProfileFetchMetrics, type ProfileFetchMetrics } from "@/lib/profile/fetch-profile-row-safe";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { normalizeAppLanguage, normalizeLanguagePreferenceForStorage } from "@/lib/i18n/config";
-import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 import {
   clearProfileResponseCacheForUser,
@@ -391,17 +390,12 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
       patch.longitude = n;
     }
   }
+  // 전화번호는 OTP 인증 API만 갱신 — 프로필 PATCH 로 덮어쓰지 않음
   if ("phone" in b) {
-    const v = b.phone;
-    if (v === null || v === "") {
-      patch.phone = null;
-    } else {
-      const normalizedPhone = normalizePhilippinesPhoneNumber(String(v));
-      if (!isValidPhilippinesMobilePhone(normalizedPhone)) {
-        return { ok: false, error: "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567" };
-      }
-      patch.phone = normalizedPhone;
-    }
+    return {
+      ok: false,
+      error: "전화번호는 프로필 저장이 아닌 전화 인증에서 등록·변경해 주세요.",
+    };
   }
   if ("preferred_language" in b) {
     patch.preferred_language = normalizeLanguagePreferenceForStorage(b.preferred_language);

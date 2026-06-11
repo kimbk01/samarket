@@ -11,7 +11,6 @@ import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
 import { ProfileBasicFields } from "./ProfileBasicFields";
 import { ProfileMapLocationBlock } from "./ProfileMapLocationBlock";
-import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PhoneVerificationBox } from "@/components/mypage/profile/PhoneVerificationBox";
 import {
   buildProfileRegionNameForStorage,
@@ -46,7 +45,7 @@ import { ProfileAvatarEditor } from "@/components/my/edit/ui/ProfileAvatarEditor
 import { ProfileReadOnlyInfoCard } from "@/components/my/edit/ui/ProfileReadOnlyInfoCard";
 import { ProfileEditHeader } from "@/components/my/edit/ui/ProfileEditHeader";
 import { ProfileEditBottomSaveBar } from "@/components/my/edit/ui/ProfileEditBottomSaveBar";
-import { PROFILE_EDIT_FIELD_LABEL_CLASS, PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { formatAtUsername } from "@/lib/users/user-label";
 
 export const PROFILE_EDIT_FORM_ID = "dibay-profile-edit-form";
@@ -56,8 +55,10 @@ function validate(
   t: (key: MessageKey, vars?: Record<string, string | number>) => string,
 ): { displayName?: string } {
   const errors: { displayName?: string } = {};
-  if (!p.displayName?.trim()) errors.displayName = t("profile_edit_err_nickname_required");
-  if (p.displayName && p.displayName.length > 20) errors.displayName = t("profile_edit_err_nickname_max");
+  const trimmed = p.displayName?.trim() ?? "";
+  if (!trimmed) errors.displayName = t("profile_edit_err_nickname_required");
+  else if (trimmed.length < 2) errors.displayName = t("profile_edit_err_nickname_min");
+  else if (trimmed.length > 20) errors.displayName = t("profile_edit_err_nickname_max");
   return errors;
 }
 
@@ -89,9 +90,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const [mapFullAddress, setMapFullAddress] = useState("");
   const [addressStreetLine, setAddressStreetLine] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [preferredCountry, setPreferredCountry] = useState("PH");
-  const [errors, setErrors] = useState<{ displayName?: string; phone?: string }>({});
+  const [errors, setErrors] = useState<{ displayName?: string }>({});
   const [addressList, setAddressList] = useState<UserAddressDTO[] | null>(null);
   const [addressListErr, setAddressListErr] = useState(false);
   const [phoneVerificationSettings, setPhoneVerificationSettings] = useState<{
@@ -262,8 +261,6 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
           ? (masterAddr.unitFloorRoom ?? "").trim()
           : (merged.address_detail ?? "").trim(),
     );
-    setPhone(parsePhMobileInput(merged.phone ?? ""));
-    setPreferredCountry(merged.preferred_country ?? "PH");
     setLoading(false);
     void refreshSetupGate();
   }, [pathname, refreshSetupGate]);
@@ -312,10 +309,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     e.preventDefault();
     setMessage(null);
     const err = validate({ displayName: displayName.trim() }, t);
-    const pr = normalizeOptionalPhMobileDb(phone);
-    const nextErr = { ...err, ...(pr.ok ? {} : { phone: pr.error }) };
-    setErrors(nextErr);
-    if (Object.keys(err).length > 0 || !pr.ok) return;
+    setErrors(err);
+    if (Object.keys(err).length > 0) return;
 
     const fa = mapFullAddress.trim();
     if (mapLat == null || mapLng == null || !fa) {
@@ -339,8 +334,6 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       region_name: regionName,
       address_street_line: addressStreetLine.trim() || null,
       address_detail: addressDetail.trim() || null,
-      phone: pr.value,
-      preferred_country: preferredCountry,
     };
     const result = await updateMyProfile(payload);
     setSaving(false);
@@ -414,30 +407,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
           ) : null}
 
           <ProfileEditSection noPadding>
-            <div className="flex flex-col items-center px-4 pb-5 pt-6">
+            <div className="flex flex-col items-center px-4 pb-6 pt-6">
               <ProfileAvatarEditor avatarUrl={avatarUrl} onChangeUrl={setAvatarUrl} />
-              <div className="mt-5 w-full max-w-sm space-y-3">
-                <div>
-                  <label className={PROFILE_EDIT_FIELD_LABEL_CLASS}>{t("profile_edit_nickname_label")}</label>
-                  <input
-                    type="text"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder={t("profile_edit_nickname_placeholder")}
-                    className={PROFILE_EDIT_INPUT_CLASS}
-                    autoComplete="nickname"
-                  />
-                  {errors.displayName ? (
-                    <p className="mt-1 text-[12px] text-red-600">{errors.displayName}</p>
-                  ) : null}
-                </div>
-                <div>
-                  <p className={PROFILE_EDIT_FIELD_LABEL_CLASS}>{t("profile_edit_username_label")}</p>
-                  <p className="mt-1 rounded-ui-rect border border-[#D4E9E2]/80 bg-[#F2F0EB]/60 px-3 py-2.5 text-[15px] font-medium text-[#6F4E37]">
-                    {atUsername || "—"}
-                  </p>
-                </div>
-              </div>
             </div>
           </ProfileEditSection>
 
@@ -445,14 +416,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             <ProfileBasicFields
               displayName={displayName}
               bio={bio}
-              phone={phone}
-              preferredCountry={preferredCountry}
+              atUsername={atUsername}
               onDisplayNameChange={setDisplayName}
               onBioChange={setBio}
-              onPhoneChange={setPhone}
-              onPreferredCountryChange={setPreferredCountry}
               errors={errors}
-              hideDisplayName
             />
           </ProfileEditSection>
 

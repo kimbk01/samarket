@@ -26,10 +26,19 @@ export const PROFILE_EDIT_CARD_CLASS =
 export const PROFILE_EDIT_FIELD_LABEL_CLASS =
   "text-[12px] font-semibold uppercase tracking-wide text-[#6F4E37]";
 
-export const PROFILE_EDIT_INPUT_CLASS =
-  "mt-1 w-full rounded-ui-rect border border-[#D4E9E2] bg-white px-3 py-2.5 text-[15px] font-medium text-[#1E3932] placeholder:text-[#6F4E37]/45 focus:border-[#00704A] focus:outline-none focus:ring-2 focus:ring-[#00704A]/15";
+export const PROFILE_EDIT_FIELD_CONTROL_CLASS =
+  "w-full rounded-ui-rect border border-[#D4E9E2] bg-white px-3 py-2.5 text-[15px] font-medium text-[#1E3932] placeholder:text-[#6F4E37]/45 focus:border-[#00704A] focus:outline-none focus:ring-2 focus:ring-[#00704A]/15";
+
+/** 단독 필드(래퍼 없음) — 상단 여백 포함 */
+export const PROFILE_EDIT_INPUT_CLASS = `mt-1 ${PROFILE_EDIT_FIELD_CONTROL_CLASS}`;
 
 export const PROFILE_EDIT_TEXTAREA_CLASS = `${PROFILE_EDIT_INPUT_CLASS} min-h-[72px] resize-none leading-snug`;
+
+/** 나의 상태 — 1행 시작, 엔터 시 AutoGrowTextarea 로 확장 */
+export const PROFILE_EDIT_STATUS_TEXTAREA_CLASS = `${PROFILE_EDIT_FIELD_CONTROL_CLASS} min-h-[44px] leading-snug`;
+
+export const PROFILE_EDIT_READONLY_VALUE_CLASS =
+  "rounded-ui-rect border border-[#D4E9E2]/80 bg-[#F2F0EB]/60 px-3 py-2.5 text-[15px] font-medium text-[#6F4E37]";
 
 export const PROFILE_EDIT_ROW_DIVIDER_CLASS = "border-t border-[#D4E9E2]/80";
 
