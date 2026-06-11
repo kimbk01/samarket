@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import { hasCustomUserAvatar, resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
@@ -25,7 +26,14 @@ export function SamarketUserAvatar({
   badge = "none",
 }: Props) {
   const customSrc = resolveUserAvatarImageSrc(avatarUrl);
-  const showVerified = badge === "verified" && hasCustomUserAvatar(avatarUrl);
+  const [imageFailed, setImageFailed] = useState(false);
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [customSrc]);
+
+  const showCustomImage = Boolean(customSrc) && !imageFailed;
+  const showVerified = badge === "verified" && hasCustomUserAvatar(avatarUrl) && showCustomImage;
 
   return (
     <span
@@ -33,8 +41,15 @@ export function SamarketUserAvatar({
       style={{ width: sizePx, height: sizePx }}
     >
       <span className={`absolute inset-0 overflow-hidden rounded-full bg-sam-primary-soft ${innerClassName}`}>
-        {customSrc ? (
-          <Image src={customSrc} alt={alt} fill className="object-cover" sizes={`${sizePx}px`} />
+        {showCustomImage ? (
+          <Image
+            src={customSrc!}
+            alt={alt}
+            fill
+            className="object-cover"
+            sizes={`${sizePx}px`}
+            onError={() => setImageFailed(true)}
+          />
         ) : (
           <SamarketDefaultAvatarFace className="h-full w-full" />
         )}

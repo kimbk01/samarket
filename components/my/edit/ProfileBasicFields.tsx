@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
@@ -37,11 +38,14 @@ export function ProfileBasicFields({
 }: ProfileBasicFieldsProps) {
   const { t } = useI18n();
 
-  const countryOptions = [
-    { value: "PH", label: t("settings_country_ph") },
-    { value: "KR", label: t("settings_country_kr") },
-    { value: "US", label: t("settings_country_us") },
-  ];
+  const countryOptions = useMemo(
+    () => [
+      { value: "PH", label: t("settings_country_ph") },
+      { value: "KR", label: t("settings_country_kr") },
+      { value: "US", label: t("settings_country_us") },
+    ],
+    [t],
+  );
 
   return (
     <div>
@@ -86,17 +90,32 @@ export function ProfileBasicFields({
       </ProfileEditFieldRow>
 
       <ProfileEditFieldRow label={t("profile_edit_country_label")}>
-        <select
-          value={preferredCountry}
-          onChange={(e) => onPreferredCountryChange(e.target.value)}
-          className={PROFILE_EDIT_INPUT_CLASS}
+        <div
+          className="flex flex-col gap-2"
+          role="radiogroup"
+          aria-label={t("profile_edit_country_label")}
         >
-          {countryOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          {countryOptions.map((o) => {
+            const active = preferredCountry === o.value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                className={`flex min-h-[44px] w-full items-center justify-between rounded-ui-rect border px-3 py-2.5 text-[15px] font-medium transition-colors ${
+                  active
+                    ? "border-[#00704A] bg-[#E8F3EE] text-[#1E3932]"
+                    : "border-[#D4E9E2] bg-white text-[#6F4E37] active:bg-[#F2F0EB]"
+                }`}
+                onClick={() => onPreferredCountryChange(o.value)}
+              >
+                <span>{o.label}</span>
+                {active ? <span className="font-bold text-[#00704A]">✓</span> : null}
+              </button>
+            );
+          })}
+        </div>
       </ProfileEditFieldRow>
     </div>
   );

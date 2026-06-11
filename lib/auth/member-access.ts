@@ -2,8 +2,9 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
-import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
+import { mergeOAuthAvatarIntoPatch } from "@/lib/auth/refresh-oauth-avatar-if-legacy";
 import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-legacy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
@@ -155,31 +156,6 @@ function pickTrimmed(value: unknown): string | null {
   return trimmed ? trimmed : null;
 }
 
-function readFirstIdentityDataValue(user: User, keys: string[]): string | null {
-  const identities = Array.isArray(user.identities)
-    ? (user.identities as unknown as Array<{ identity_data?: Record<string, unknown> | null }>)
-    : [];
-  for (const identity of identities) {
-    const data = identity.identity_data;
-    if (!data || typeof data !== "object") continue;
-    for (const key of keys) {
-      const value = pickTrimmed(data[key]);
-      if (value) return value;
-    }
-  }
-  return null;
-}
-
-function resolveOAuthAvatarUrl(user: User, meta: Record<string, unknown>): string | null {
-  return (
-    pickTrimmed(meta.picture) ??
-    pickTrimmed(meta.avatar_url) ??
-    pickTrimmed(meta.photo_url) ??
-    pickTrimmed(meta.image) ??
-    readFirstIdentityDataValue(user, ["picture", "avatar_url", "photo_url", "image"])
-  );
-}
-
 export function resolveNicknameSeed(input: {
   nickname?: unknown;
   username?: unknown;
@@ -246,8 +222,7 @@ export async function ensurePendingAuthProfileRow(
   const seed = seedInput ?? extractOAuthProfileSeed(user);
   const email = pickTrimmed(user.email);
   const nicknameCandidate = pickTrimmed(seed.nicknameCandidate);
-  const oauthAvatarRaw = seed.avatarCandidate;
-  const oauthAvatar = withDefaultAvatar(oauthAvatarRaw);
+  const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
   const dbProvider = normalizeProviderForDb(seed.authProvider) ?? "email";
   const nowIso = new Date().toISOString();
 
@@ -282,9 +257,14 @@ export async function ensurePendingAuthProfileRow(
       if (!pickTrimmed(row.nickname as string) && nicknameCandidate) patch.nickname = nicknameCandidate;
       if (!pickTrimmed(row.display_name as string) && nicknameCandidate) patch.display_name = nicknameCandidate;
     }
-    const exAv = pickTrimmed(row.avatar_url as string);
-    if (oauthAvatarRaw && (!exAv || isSamarketDefaultAvatarUrl(exAv))) patch.avatar_url = oauthAvatarRaw;
-    if (!exAv && !oauthAvatarRaw) patch.avatar_url = oauthAvatar;
+    mergeOAuthAvatarIntoPatch(
+      patch,
+      {
+        onboarding_completed_at: pickTrimmed(row.onboarding_completed_at as string),
+        avatar_url: pickTrimmed(row.avatar_url as string),
+      },
+      seed
+    );
     if (row.onboarding_completed_at == null && row.dibay_id_locked !== true) {
       const consent = hasStoreTermsConsent({
         terms_accepted_at: pickTrimmed(row.terms_accepted_at as string),
@@ -368,8 +348,8 @@ export async function ensureAuthProfileRow(
     fallbackId: user.id,
   });
 
-  const oauthAvatarRaw = resolveOAuthAvatarUrl(user, meta);
-  const oauthAvatar = withDefaultAvatar(oauthAvatarRaw);
+  const seed = extractOAuthProfileSeed(user);
+  const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
   const preferredLanguage = parseExplicitAppLanguage(meta.preferred_language);
   const nowIso = new Date().toISOString();
   const isAdminManual = provider === "admin_manual";
@@ -386,7 +366,7 @@ export async function ensureAuthProfileRow(
   const { data: existing } = await sb
     .from("profiles")
     .select(
-      "id, email, display_name, username, nickname, avatar_url, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
+      "id, email, display_name, username, nickname, avatar_url, onboarding_completed_at, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
     )
     .eq("id", user.id)
     .maybeSingle();
@@ -406,7 +386,7 @@ export async function ensureAuthProfileRow(
 
   if (!existing) {
     if (!isAdminManual) {
-      await ensurePendingAuthProfileRow(sb, user);
+      await ensurePendingAuthProfileRow(sb, user, seed);
       return await loadMemberAccessState(sb, user.id, {
         fallbackEmail: email,
         fallbackUsername: username,
@@ -513,9 +493,16 @@ export async function ensureAuthProfileRow(
     if (!pickTrimmed((existing as { preferred_language?: string | null }).preferred_language) && preferredLanguage) {
       patch.preferred_language = preferredLanguage;
     }
-    const exAv = pickTrimmed(existing.avatar_url);
-    if (oauthAvatarRaw && (!exAv || isSamarketDefaultAvatarUrl(exAv))) patch.avatar_url = oauthAvatarRaw;
-    if (!exAv && !oauthAvatarRaw) patch.avatar_url = oauthAvatar;
+    mergeOAuthAvatarIntoPatch(
+      patch,
+      {
+        onboarding_completed_at: pickTrimmed(
+          (existing as { onboarding_completed_at?: string | null }).onboarding_completed_at
+        ),
+        avatar_url: pickTrimmed(existing.avatar_url),
+      },
+      seed
+    );
     if (Object.keys(patch).length > 0) {
       const { error: updateError } = await sb.from("profiles").update(patch).eq("id", user.id);
       if (updateError) {

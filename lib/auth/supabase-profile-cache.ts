@@ -1,5 +1,6 @@
 import type { Profile } from "@/lib/types/profile";
 import type { Session, User } from "@supabase/supabase-js";
+import { extractOAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 
 let cached: Profile | null = null;
@@ -25,37 +26,6 @@ export function patchSupabaseProfileCache(updates: Partial<Profile>): void {
   cached = { ...cached, ...updates };
 }
 
-function pickString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-function readIdentityDataValue(user: User, keys: string[]): string | null {
-  const identities = Array.isArray(user.identities)
-    ? (user.identities as unknown as Array<{ identity_data?: Record<string, unknown> | null }>)
-    : [];
-  for (const identity of identities) {
-    const data = identity.identity_data;
-    if (!data || typeof data !== "object") continue;
-    for (const key of keys) {
-      const value = pickString(data[key]);
-      if (value) return value;
-    }
-  }
-  return null;
-}
-
-function resolveOAuthAvatarUrl(user: User, meta: Record<string, unknown> | undefined): string | null {
-  return (
-    pickString(meta?.avatar_url) ??
-    pickString(meta?.picture) ??
-    pickString(meta?.photo_url) ??
-    pickString(meta?.image) ??
-    readIdentityDataValue(user, ["avatar_url", "picture", "photo_url", "image"])
-  );
-}
-
 /** getUser() 등 세션 없이 User 만 있을 때 — getSession() 경고 회피·동일 메타 규칙 */
 export function userToProfile(user: User | null | undefined): Profile | null {
   if (!user?.id) return null;
@@ -72,12 +42,13 @@ export function userToProfile(user: User | null | undefined): Profile | null {
       : typeof meta?.auth_provider === "string" && meta.auth_provider.trim()
         ? meta.auth_provider.trim()
       : null;
+  const oauthAvatar = extractOAuthProfileSeed(user).avatarCandidate;
   return {
     id: user.id,
     email: user.email ?? "",
     display_name: nick,
     nickname: nick,
-    avatar_url: withDefaultAvatar(resolveOAuthAvatarUrl(user, meta)),
+    avatar_url: withDefaultAvatar(oauthAvatar),
     temperature: 50,
     provider: authProv,
     auth_provider: authProv,

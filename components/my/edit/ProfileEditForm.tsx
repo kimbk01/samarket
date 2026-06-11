@@ -35,6 +35,7 @@ import {
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import {
@@ -248,7 +249,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       setSupabaseProfileCache(profileRowToClientProfile(merged));
     }
     setDisplayName(merged.display_name ?? merged.nickname ?? "");
-    setAvatarUrl(merged.avatar_url ?? null);
+    setAvatarUrl(withDefaultAvatar(merged.avatar_url));
     setBio(merged.bio ?? "");
     setMapLat(merged.latitude ?? null);
     setMapLng(merged.longitude ?? null);
@@ -329,7 +330,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     setSaving(true);
     const payload: ProfileUpdatePayload = {
       display_name: displayName.trim(),
-      avatar_url: avatarUrl ?? null,
+      avatar_url: withDefaultAvatar(avatarUrl),
       bio: bio.trim() || null,
       latitude: mapLat,
       longitude: mapLng,

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { extractOAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
 import type { ProfileRow } from "./types";
 import { withDefaultAvatar } from "./default-avatar";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
@@ -30,24 +31,6 @@ function pickString(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
-}
-
-function readFirstIdentityDataValue(
-  identities: unknown,
-  keys: string[]
-): string | null {
-  const list = Array.isArray(identities)
-    ? (identities as Array<{ identity_data?: Record<string, unknown> | null }>)
-    : [];
-  for (const identity of list) {
-    const data = identity.identity_data;
-    if (!data || typeof data !== "object") continue;
-    for (const key of keys) {
-      const value = pickString(data[key]);
-      if (value) return value;
-    }
-  }
-  return null;
 }
 
 /**
@@ -102,13 +85,7 @@ export async function ensureProfileForUserId(
   const nowIso = new Date().toISOString();
   /** `profiles_status_check` 호환 (`'sns_pending','verified_user','suspended','deleted'`) */
   const dbStatus: "verified_user" | "sns_pending" = isAdminManual ? "verified_user" : "sns_pending";
-  const oauthAvatar = withDefaultAvatar(
-    pickString(meta.picture) ??
-      pickString(meta.avatar_url) ??
-      pickString(meta.photo_url) ??
-      pickString(meta.image) ??
-      readFirstIdentityDataValue(user.identities, ["picture", "avatar_url", "photo_url", "image"])
-  );
+  const oauthAvatar = withDefaultAvatar(extractOAuthProfileSeed(user).avatarCandidate);
 
   const fullPayload: Record<string, unknown> = {
     id: uid,
