@@ -32,6 +32,7 @@ import {
   bindAgoraLocalVideoTrack,
   bindAgoraRemoteVideoTrack,
   clearLocalVideoContainer,
+  reapplyAgoraVideoTrack,
   detachAutoplayPrimingVideo,
   detachPreJoinHtmlVideo,
   primeVideoElementAutoplayFromUserGesture,
@@ -1624,6 +1625,72 @@ export function CommunityMessengerCallClient({
     }
     void bindLocalVideoTrack();
   }, [bindLocalVideoTrack, layoutSwapped, joined, remoteJoined, session?.callKind, session?.id, session?.isMineInitiator, session?.status]);
+
+  /** iPad·태블릿: 주소창·회전 후 스테이지 크기 변화 시 Agora cover 재적용 */
+  useLayoutEffect(() => {
+    if (!session || session.status !== "active" || session.callKind !== "video" || !joined) return;
+    if (typeof ResizeObserver === "undefined") return;
+
+    let ro: ResizeObserver | null = null;
+    let cancelled = false;
+    let attachAttempts = 0;
+    let resizeRafId = 0;
+
+    const reapplyTracks = () => {
+      const swapped = layoutSwappedRef.current;
+      const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
+        callKind: session.callKind,
+        sessionStatus: session.status,
+        joined: joinedRef.current,
+        remoteJoined: remoteJoinedRef.current,
+        isInitiator: session.isMineInitiator,
+      });
+      const localTrack = localTracksRef.current?.videoTrack ?? null;
+      const remoteTrack = remoteVideoTrackRef.current;
+      const lg = largeVideoRef.current;
+      const sm = smallVideoRef.current;
+
+      if (soloLocalFull) {
+        reapplyAgoraVideoTrack(localTrack, lg, { fit: "cover", mirror: true });
+        return;
+      }
+
+      const localEl = swapped ? lg : sm;
+      const remoteEl = swapped ? sm : lg;
+      if (remoteTrack && remoteEl) {
+        reapplyAgoraVideoTrack(remoteTrack, remoteEl, { fit: "cover", mirror: false });
+      }
+      if (localTrack && localEl) {
+        reapplyAgoraVideoTrack(localTrack, localEl, { fit: "cover", mirror: true });
+      }
+    };
+
+    const attach = () => {
+      if (cancelled) return;
+      const observeEl =
+        videoStageRef.current ?? largeVideoRef.current?.parentElement ?? largeVideoRef.current;
+      if (!observeEl) {
+        attachAttempts += 1;
+        if (attachAttempts < 90) requestAnimationFrame(attach);
+        return;
+      }
+      ro = new ResizeObserver(() => {
+        cancelAnimationFrame(resizeRafId);
+        resizeRafId = requestAnimationFrame(() => {
+          resizeRafId = 0;
+          reapplyTracks();
+        });
+      });
+      ro.observe(observeEl);
+    };
+
+    attach();
+    return () => {
+      cancelled = true;
+      ro?.disconnect();
+      cancelAnimationFrame(resizeRafId);
+    };
+  }, [joined, session?.callKind, session?.id, session?.isMineInitiator, session?.status]);
 
   /** Remote upgraded session to video — same call, publish local camera. */
   useEffect(() => {
@@ -3612,7 +3679,7 @@ export function CommunityMessengerCallClient({
     };
     return (
       <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
-        <CallScreen vm={hydrateVm} variant="page" />
+        <CallScreen vm={hydrateVm} variant="overlay" />
       </div>
     );
   }
@@ -4125,7 +4192,7 @@ export function CommunityMessengerCallClient({
 
   return (
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
-      <CallScreen vm={callVm} variant="page" />
+      <CallScreen vm={callVm} variant="overlay" />
       {showCallerInsecureGateOverlay ? (
         <CallerInsecureGateOverlay
           onClose={() => void endCall()}

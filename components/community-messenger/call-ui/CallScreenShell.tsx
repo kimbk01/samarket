@@ -49,7 +49,10 @@ function useCallViewportResize(enabled: boolean, shellRef: RefObject<HTMLDivElem
 
     const sync = () => {
       const vv = window.visualViewport;
-      const visibleHeight = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const layoutHeight = window.innerHeight;
+      const visibleFromVv = vv ? vv.offsetTop + vv.height : layoutHeight;
+      /** iPad Safari: vv·layout 불일치 시 셸이 보이는 영역보다 커져 하단에 배경(녹색)이 비친다 */
+      const visibleHeight = Math.min(layoutHeight, visibleFromVv);
       const heightPx = Math.max(CALL_VIEWPORT_MIN_HEIGHT_PX, Math.round(visibleHeight));
       shell.style.setProperty("--call-viewport-height", `${heightPx}px`);
       shell.style.setProperty("--call-safe-bottom", `${safeBottomPx}px`);

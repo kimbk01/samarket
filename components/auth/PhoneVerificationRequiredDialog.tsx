@@ -48,13 +48,13 @@ export function PhoneVerificationRequiredDialog() {
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex flex-col justify-end bg-black/50 sm:items-center sm:justify-center sm:p-4"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))]"
       role="alertdialog"
       aria-modal="true"
       aria-labelledby="phone-gate-title"
       aria-describedby="phone-gate-desc"
     >
-      <div className="w-full max-w-md rounded-t-[24px] border border-[#d9e5df] bg-white px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-5 shadow-2xl sm:rounded-[24px] sm:p-6">
+      <div className="w-full max-w-md max-h-[min(88dvh,640px)] overflow-y-auto overscroll-y-contain rounded-[24px] border border-[#d9e5df] bg-white px-5 py-5 shadow-2xl sm:p-6">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#006241]/10 text-[#006241]" aria-hidden>
           <span className="text-xl font-bold">P</span>
         </div>

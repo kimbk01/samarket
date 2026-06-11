@@ -43,19 +43,22 @@ export function CallScreen({
   const telegramCallSurface = "bg-[#8B5E2E]";
   const useTelegramSolidShell = isIncomingRinging;
   const useOutgoingVoiceRingShell = isOutgoingVoiceRinging;
-  const shellSurfaceClassName = useStarbucksTheme
-    ? STARBUCKS_CALL_SURFACE
-    : useTelegramSolidShell
-    ? telegramCallSurface
-    : useOutgoingVoiceRingShell
-      ? OUTGOING_VOICE_RING_SURFACE
-      : undefined;
   /**
-   * 발신 영상은 항상 `ConnectedVideoView` 단일 레이어(중복 `CallBackground`·그라데이션 없음).
-   * 원격 연결 후에도 첨부1처럼 카메라/영상 면이 끊기지 않게 한다.
+   * `ConnectedVideoView` 구간(수신 벨 제외)은 `mainVideoSlot`·`largeVideoRef` 단일 마운트.
+   * iPad 등에서 `CallBackground`와 이중 렌더 시 ref/Agora 바인딩이 어긋나 하단 녹색 셸이 비친다.
    */
-  const hideCallBackground =
-    useTelegramSolidShell || isOutgoingVoiceRinging || (vm.mode === "video" && vm.direction === "outgoing");
+  const isIncomingVideoRinging = vm.mode === "video" && isIncomingRinging;
+  const usesConnectedVideoView = vm.mode === "video" && !isIncomingVideoRinging;
+  const hideCallBackground = useTelegramSolidShell || isOutgoingVoiceRinging || usesConnectedVideoView;
+  const shellSurfaceClassName = usesConnectedVideoView
+    ? "bg-black"
+    : useStarbucksTheme
+      ? STARBUCKS_CALL_SURFACE
+      : useTelegramSolidShell
+        ? telegramCallSurface
+        : useOutgoingVoiceRingShell
+          ? OUTGOING_VOICE_RING_SURFACE
+          : undefined;
   /** 발신 영상·음성 벨 — 브라우저 내 `< 뒤로` 헤더 없이 safe-area 만 사용 */
   const showCallHeader =
     !(vm.direction === "incoming" && vm.phase === "ringing") &&
@@ -83,7 +86,9 @@ export function CallScreen({
           showVideo={vm.mode === "video" && Boolean(vm.mainVideoSlot)}
         />
       )}
-      <div className="relative z-[1] flex min-h-0 flex-1 flex-col">
+      <div
+        className={`relative z-[1] flex min-h-0 flex-1 flex-col ${usesConnectedVideoView ? "h-full" : ""}`.trim()}
+      >
         {showCallHeader ? (
           <CallHeader
             onBack={vm.onBack}

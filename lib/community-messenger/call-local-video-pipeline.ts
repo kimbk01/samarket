@@ -146,6 +146,23 @@ export async function bindAgoraRemoteVideoTrack(
   return waitForAgoraVideoInContainer(container, options?.timeoutMs ?? AGORA_PLAY_VERIFY_TIMEOUT_MS);
 }
 
+/** iPad·태블릿 뷰포트 리사이즈 — 컨테이너 재생성 없이 cover 재적용 */
+export function reapplyAgoraVideoTrack(
+  track: ILocalVideoTrack | IRemoteVideoTrack | null,
+  container: HTMLElement | null,
+  options?: BindAgoraVideoPlayOptions
+): void {
+  if (!track || !container) return;
+  try {
+    track.play(container, {
+      fit: options?.fit ?? "cover",
+      mirror: options?.mirror ?? false,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export function clearLocalVideoContainer(container: HTMLElement | null): void {
   if (!container) return;
   container.innerHTML = "";

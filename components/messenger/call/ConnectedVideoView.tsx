@@ -200,10 +200,18 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
   };
 
   return (
-    <div className="relative z-[2] min-h-0 w-full flex-1 overflow-hidden">
+    <div className="relative z-[2] h-full min-h-0 w-full flex-1 basis-0 overflow-hidden">
       {/* 영상 전체 면 — 레이아웃 행으로 나뉘지 않고 뷰포트 높이만큼 채움 */}
-      <div ref={pipBindings?.stageRef} className="absolute inset-0 min-h-0">
-        <div className="absolute inset-0 z-0 min-h-full [&_video]:pointer-events-none [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover">
+      <div
+        ref={(node) => {
+          const stageRef = pipBindings?.stageRef;
+          if (stageRef && "current" in stageRef) {
+            stageRef.current = node;
+          }
+        }}
+        className="absolute inset-0 h-full min-h-0"
+      >
+        <div className="absolute inset-0 z-0 h-full min-h-full bg-black [&_video]:pointer-events-none [&_video]:h-full [&_video]:min-h-full [&_video]:w-full [&_video]:object-cover [&_[id^=agora]]:h-full [&_[id^=agora]]:w-full">
           {vm.mainVideoSlot}
         </div>
 
