@@ -15,8 +15,18 @@ import {
   type AdminUserSortKey,
   type AdminUserSortOrder,
 } from "@/lib/admin-users/admin-user-utils";
-import { getAdminStaffList } from "@/lib/admin-users/mock-admin-staff";
-import { getAdminRole } from "@/lib/admin-permission";
+import { fetchAdminStaffList } from "@/lib/admin-users/admin-staff-api";
+import { fetchAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
+import { useAdminMe } from "@/hooks/useAdminMe";
+import type { AdminStaff } from "@/lib/types/admin-staff";
+import {
+  ADMIN_USERS_PAGE_BG_CLASS,
+  ADMIN_USERS_CARD_CLASS,
+  ADMIN_USERS_PRIMARY_BTN_CLASS,
+  ADMIN_USERS_DANGER_BTN_CLASS,
+  ADMIN_USERS_TAB_ACTIVE_CLASS,
+  ADMIN_USERS_TAB_IDLE_CLASS,
+} from "@/lib/ui/admin-users-starbucks-styles";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -119,6 +129,9 @@ export function AdminUserListPage() {
   const [membersLoading, setMembersLoading] = useState(false);
   const [membersError, setMembersError] = useState<string | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [staffList, setStaffList] = useState<AdminStaff[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const { isSuperAdmin } = useAdminMe();
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const bottomScrollRef = useRef<HTMLDivElement>(null);
@@ -188,9 +201,28 @@ export function AdminUserListPage() {
   }, [adminUserId, membersKey, t]);
 
   useEffect(() => {
+    void fetchAdminMeSnapshot();
+  }, []);
+
+  useEffect(() => {
     if (tab !== "members") return;
     void fetchMembers();
   }, [tab, membersKey, fetchMembers]);
+
+  const fetchStaff = useCallback(async () => {
+    setStaffLoading(true);
+    try {
+      const list = await fetchAdminStaffList();
+      setStaffList(list);
+    } finally {
+      setStaffLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab !== "staff") return;
+    void fetchStaff();
+  }, [tab, staffKey, fetchStaff]);
 
   const users = useMemo(() => membersFromApi ?? [], [membersFromApi]);
   const filtered = useMemo(
@@ -212,8 +244,7 @@ export function AdminUserListPage() {
     };
   }, [filtered.length, users]);
 
-  const staffList = useMemo(() => getAdminStaffList(), [staffKey]);
-  const isMaster = getAdminRole() === "master";
+  const isMaster = isSuperAdmin;
 
   const showMembersTable =
     tab === "members" && !membersError && !membersLoading && filtered.length > 0;
@@ -360,21 +391,21 @@ export function AdminUserListPage() {
   }, [adminUserId, refreshMembers, t]);
 
   return (
-    <div className={`min-w-0 w-full space-y-4 bg-[#f0f2f5] text-[#050505]${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
+    <div className={`${ADMIN_USERS_PAGE_BG_CLASS}${showBottomFixedScroll ? " pb-[4.5rem]" : ""}`}>
       <AdminPageHeader titleKey="admin_page_user_management" />
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex rounded-full border border-[#dadde1] bg-white p-1 shadow-sm">
+        <div className="flex rounded-full border border-[#00704A]/15 bg-white p-1 shadow-sm">
           <button
             type="button"
             onClick={() => setTab("members")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "members" ? "bg-sam-primary text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
+            className={tab === "members" ? ADMIN_USERS_TAB_ACTIVE_CLASS : ADMIN_USERS_TAB_IDLE_CLASS}
           >
             {t("admin_users_tab_members")}
           </button>
           <button
             type="button"
             onClick={() => setTab("staff")}
-            className={`rounded-full px-4 py-2 text-sm font-bold transition ${tab === "staff" ? "bg-sam-primary text-white shadow-sm" : "text-[#65676b] hover:bg-[#f0f2f5] hover:text-[#050505]"}`}
+            className={tab === "staff" ? ADMIN_USERS_TAB_ACTIVE_CLASS : ADMIN_USERS_TAB_IDLE_CLASS}
           >
             {t("admin_users_tab_staff")}
           </button>
@@ -385,7 +416,7 @@ export function AdminUserListPage() {
               <button
                 type="button"
                 onClick={() => setShowCreateMember(true)}
-                className="rounded-full bg-sam-primary px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-sam-primary-hover active:bg-sam-primary-active"
+                className={ADMIN_USERS_PRIMARY_BTN_CLASS}
               >
                 {t("admin_users_manual_create")}
               </button>
@@ -394,7 +425,7 @@ export function AdminUserListPage() {
                   type="button"
                   onClick={handleCleanup}
                   disabled={cleanupLoading}
-                  className="rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] transition hover:bg-[#ffe7e5] disabled:opacity-50"
+                  className={`${ADMIN_USERS_DANGER_BTN_CLASS} disabled:opacity-50`}
                 >
                   {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
                 </button>
@@ -415,8 +446,8 @@ export function AdminUserListPage() {
 
       {tab === "members" && (
         <>
-          <div className="rounded-2xl border border-[#dadde1] bg-white px-4 py-3 text-sm leading-relaxed text-[#65676b] shadow-sm">
-            <p className="font-bold text-[#050505]">{t("admin_users_member_list_title")}</p>
+          <div className={`${ADMIN_USERS_CARD_CLASS} px-4 py-3 text-sm leading-relaxed text-[#6F4E37]`}>
+            <p className="font-bold text-[#1E3932]">{t("admin_users_member_list_title")}</p>
             <p className="mt-1">
               {t("admin_users_member_list_help_a")}
               <code className="rounded bg-[#f0f2f5] px-1.5 py-0.5 text-[#050505]">
@@ -438,7 +469,7 @@ export function AdminUserListPage() {
               {t("admin_users_member_list_help_e")}
             </p>
           </div>
-          <div className="rounded-xl border border-[#d0d7e2] bg-white p-4 font-sans shadow-sm">
+          <div className={`${ADMIN_USERS_CARD_CLASS} p-4 font-sans`}>
             <div className="flex flex-wrap items-end justify-between gap-3 border-b border-[#e9edf3] pb-3">
               <div>
                 <p className="text-xs font-bold tracking-[0.04em] text-[#667085]">{t("admin_users_member_summary_title")}</p>
@@ -526,8 +557,12 @@ export function AdminUserListPage() {
 
       {tab === "staff" && (
         <>
-          {staffList.length === 0 ? (
-            <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
+          {staffLoading ? (
+            <div className={`${ADMIN_USERS_CARD_CLASS} py-12 text-center text-sm font-semibold text-[#6F4E37]`}>
+              {t("admin_users_loading_list")}
+            </div>
+          ) : staffList.length === 0 ? (
+            <div className={`${ADMIN_USERS_CARD_CLASS} py-12 text-center text-sm font-semibold text-[#6F4E37]`}>
               {t("admin_users_staff_empty")}
               {isMaster ? t("admin_users_staff_empty_master_hint") : null}
             </div>

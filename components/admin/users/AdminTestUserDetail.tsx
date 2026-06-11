@@ -1,12 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import { AdminUserPointsSection } from "./AdminUserPointsSection";
+import { AdminUserActionPanel } from "./AdminUserActionPanel";
+import { AdminUserModerationEventsList } from "./AdminUserModerationEventsList";
+import { ADMIN_USERS_PAGE_BG_CLASS } from "@/lib/ui/admin-users-starbucks-styles";
+import type { AdminUser, MemberType } from "@/lib/types/admin-user";
+import type { ModerationStatus } from "@/lib/types/report";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
@@ -24,15 +30,26 @@ export type ApiTestUserRow = {
   phone_verification_status?: string;
   member_status?: string | null;
   verified_member_at?: string | null;
+  member_type?: string | null;
+  status?: string | null;
+  moderation_status?: string;
   created_at: string | null;
 };
 
 const ROLE_LABEL_KEYS: Record<string, MessageKey> = {
   admin: "admin_users_test_role_admin",
   master: "admin_users_test_role_master",
+  super_admin: "admin_users_test_role_master",
   special: "admin_users_test_role_special",
   member: "admin_users_test_role_member",
 };
+
+function deriveMemberType(role: string, memberType?: string | null): MemberType {
+  const r = role.trim().toLowerCase();
+  if (r === "admin" || r === "master" || r === "super_admin") return "admin";
+  if (memberType === "premium" || r === "special") return "premium";
+  return "normal";
+}
 
 function dateLocaleTag(language: AppLanguageCode): string {
   return language === "en" ? "en-US" : "ko-KR";
@@ -49,13 +66,29 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
   const { t, language } = useI18n();
   const dateLocale = dateLocaleTag(language);
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
+  const [actionRefresh, setActionRefresh] = useState(0);
+  const onActionSuccess = useCallback(() => setActionRefresh((n) => n + 1), []);
   const display =
     user.nickname?.trim() || user.display_name?.trim() || user.username || (showMemberUuid ? user.id : "—");
 
   const roleLabelKey = ROLE_LABEL_KEYS[user.role];
+  const actionUser: AdminUser = {
+    id: user.id,
+    nickname: display,
+    memberType: deriveMemberType(user.role, user.member_type),
+    moderationStatus: (user.moderation_status ?? "normal") as ModerationStatus,
+    productCount: 0,
+    soldCount: 0,
+    reviewCount: 0,
+    reportCount: 0,
+    chatCount: 0,
+    joinedAt: user.created_at ?? new Date().toISOString(),
+    profileRole: user.role,
+  };
 
   return (
-    <div className="space-y-4">
+    <div className={`${ADMIN_USERS_PAGE_BG_CLASS} pb-6`}>
+      <div className="space-y-4">
       <AdminPageHeader titleKey="admin_users_detail_test_title" backHref="/admin/users" />
 
       <AdminCard titleKey="admin_users_card_member_account">
@@ -223,6 +256,14 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
         </div>
       </AdminCard>
 
+      <AdminCard titleKey="admin_users_card_moderation_actions">
+        <AdminUserActionPanel user={actionUser} onActionSuccess={onActionSuccess} />
+      </AdminCard>
+
+      <AdminCard titleKey="admin_users_card_moderation_log">
+        <AdminUserModerationEventsList userId={user.id} refreshKey={actionRefresh} />
+      </AdminCard>
+
       <AdminUserPointsSection userId={user.id} />
 
       <AdminCard titleKey="admin_users_card_login_test_guide">
@@ -245,6 +286,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
           <li>{t("admin_users_test_guide_profile_split")}</li>
         </ul>
       </AdminCard>
+      </div>
     </div>
   );
 }

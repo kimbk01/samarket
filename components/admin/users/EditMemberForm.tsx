@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser, MemberType } from "@/lib/types/admin-user";
-import { getAdminRole } from "@/lib/admin-permission";
+import { useAdminMe } from "@/hooks/useAdminMe";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -36,7 +36,7 @@ function inferPhoneValue(u: AdminUser): string {
 export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps) {
   const { t } = useI18n();
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
-  const isMasterUi = getAdminRole() === "master";
+  const { isSuperAdmin: isMasterUi } = useAdminMe();
   const [nickname, setNickname] = useState(user.nickname);
   const [memberType, setMemberType] = useState<MemberType>(user.memberType);
   const [phoneStatus, setPhoneStatus] = useState(() => inferPhoneValue(user));

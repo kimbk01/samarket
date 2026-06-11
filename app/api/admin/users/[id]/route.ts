@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { requireSupabaseEnv } from "@/lib/env/runtime";
-import { normalizeAdminRole } from "@/lib/auth/admin-policy";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { isSuperAdminRole, userHasRecentWarn } from "@/lib/admin/admin-user-server";
+import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
@@ -41,9 +42,9 @@ async function isNicknameTaken(sb: SupabaseClient, userId: string, nickname: str
 
 async function loadActorIsMaster(sb: SupabaseClient, actorId: string): Promise<boolean> {
   const { data: p } = await sb.from("profiles").select("role").eq("id", actorId).maybeSingle();
-  if (normalizeAdminRole((p as { role?: string } | null)?.role) === "master") return true;
+  if (isSuperAdminRole((p as { role?: string } | null)?.role)) return true;
   const { data: t } = await sb.from("test_users").select("role").eq("id", actorId).maybeSingle();
-  return normalizeAdminRole((t as { role?: string } | null)?.role) === "master";
+  return isSuperAdminRole((t as { role?: string } | null)?.role);
 }
 
 function memberTypeToProfileAndTestRole(memberType: MemberType): {
@@ -58,7 +59,7 @@ function memberTypeToProfileAndTestRole(memberType: MemberType): {
       };
     case "premium":
       return {
-        profile: { role: "special", is_admin: false, member_type: "premium", is_special_member: true },
+        profile: { role: "user", is_admin: false, member_type: "premium", is_special_member: true },
         testRole: "special",
       };
     case "admin":
@@ -227,14 +228,13 @@ async function ensureProfileRow(
 
   const tr = String(tu?.role ?? "member").trim().toLowerCase();
   let role: string;
-  if (tr === "master") role = "master";
+  if (tr === "master") role = "super_admin";
   else if (tr === "admin") role = "admin";
-  else if (tr === "special" || tr === "premium") role = "special";
   else role = "user";
 
   const member_type =
-    role === "master" || role === "admin" ? "admin" : role === "special" ? "premium" : "normal";
-  const is_special_member = role === "special";
+    role === "super_admin" || role === "admin" ? "admin" : tr === "special" || tr === "premium" ? "premium" : "normal";
+  const is_special_member = tr === "special" || tr === "premium";
   const phoneRaw = tu?.contact_phone?.trim() || null;
   const nowIso = new Date().toISOString();
   const phone_verification_status = tu ? "verified" : phoneRaw ? "pending" : "unverified";
@@ -251,10 +251,10 @@ async function ensureProfileRow(
     username: usernameRaw,
     nickname,
     role,
-    is_admin: role === "admin" || role === "master",
+    is_admin: isPrivilegedAdminRole(role),
     member_type,
     member_status: tu ? "active" : "pending",
-    manual_account_type: role === "admin" || role === "master" ? "admin" : "operations_member",
+    manual_account_type: isPrivilegedAdminRole(role) ? "admin" : "operations_member",
     is_special_member,
     phone: phoneFields.phone,
     phone_country_code: phoneFields.phone_country_code,
@@ -334,6 +334,10 @@ type AdminUserDetailRow = {
   phone_verified_at: string | null;
   phone_verification_status: string;
   member_status: string | null;
+  member_type: string | null;
+  status: string | null;
+  deleted_at: string | null;
+  moderation_status: string;
   verified_member_at: string | null;
   created_at: string | null;
 };
@@ -346,8 +350,8 @@ export async function GET(
   _req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("users");
+  if (!gate.ok) return gate.response;
 
   const { id } = await context.params;
   const rawId = id?.trim();
@@ -355,19 +359,12 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
 
-  const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
-  if (!supabaseEnv.ok) {
-    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
-  }
-
-  const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
-    auth: { persistSession: false },
-  });
+  const supabase = gate.sb;
   const [{ data: profile, error: profileError }, { data: testUser, error: testUserError }] = await Promise.all([
     supabase
       .from("profiles")
       .select(
-        "id, username, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
+        "id, username, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, member_type, status, deleted_at, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
       )
       .eq("id", rawId)
       .maybeSingle(),
@@ -409,6 +406,18 @@ export async function GET(
     (fromProfileLines.length > 0 ? fromProfileLines.join("\n") : "") ||
     null;
 
+  const profRow = profile as {
+    status?: string | null;
+    deleted_at?: string | null;
+    member_type?: string | null;
+  } | null;
+  const hasWarn = await userHasRecentWarn(supabase, rawId).catch(() => false);
+  const moderationStatus = mapProfileStatusToModeration(
+    profRow?.status,
+    profRow?.deleted_at,
+    hasWarn
+  );
+
   const user: AdminUserDetailRow = {
     id: rawId,
     username: (testUser?.username ?? profile?.username ?? null) as string | null,
@@ -424,6 +433,10 @@ export async function GET(
       (profile?.phone_verification_status as string | null) ??
       (profile?.phone_verified ? "verified" : profile?.phone ? "pending" : "unverified"),
     member_status: (profile?.member_status ?? null) as string | null,
+    member_type: (profile?.member_type ?? null) as string | null,
+    status: (profile?.status ?? null) as string | null,
+    deleted_at: (profile?.deleted_at ?? null) as string | null,
+    moderation_status: moderationStatus,
     verified_member_at: (profile?.verified_member_at ?? null) as string | null,
     created_at: (profile?.created_at ?? testUser?.created_at ?? null) as string | null,
   };
@@ -440,18 +453,13 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("users_edit_membership");
+  if (!gate.ok) return gate.response;
 
   const { id } = await context.params;
   const userId = id?.trim();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
-  }
-
-  const supabaseEnv = requireSupabaseEnv({ requireServiceKey: true });
-  if (!supabaseEnv.ok) {
-    return NextResponse.json({ ok: false, error: supabaseEnv.error }, { status: 500 });
   }
 
   let body: {
@@ -508,9 +516,7 @@ export async function PATCH(
     nextNickname = n;
   }
 
-  const sb = createClient(supabaseEnv.url, supabaseEnv.serviceKey, {
-    auth: { persistSession: false },
-  });
+  const { sb, actor } = gate;
 
   const { data: initialProfile, error: profileError } = await sb
     .from("profiles")
@@ -534,16 +540,16 @@ export async function PATCH(
   }
 
   const targetRole = normalizeAdminRole((profile as { role?: string }).role);
-  const actorIsMaster = await loadActorIsMaster(sb, admin.userId);
+  const actorIsMaster = actor.isSuperAdmin || (await loadActorIsMaster(sb, actor.userId));
 
-  if (targetRole === "master" && !actorIsMaster) {
+  if (targetRole === "super_admin" && !actorIsMaster) {
     return NextResponse.json(
       { ok: false, error: "forbidden_master_target" },
       { status: 403 }
     );
   }
 
-  if (targetRole === "master" && parsedMemberType !== null && parsedMemberType !== "admin") {
+  if (targetRole === "super_admin" && parsedMemberType !== null && parsedMemberType !== "admin") {
     return NextResponse.json(
       { ok: false, error: "forbidden_demote_master", message: "최고 관리자 계정의 구분을 일반·특별로 내릴 수 없습니다." },
       { status: 400 }
@@ -553,7 +559,7 @@ export async function PATCH(
   if (
     parsedMemberType === "admin" &&
     targetRole !== "admin" &&
-    targetRole !== "master" &&
+    targetRole !== "super_admin" &&
     !actorIsMaster
   ) {
     return NextResponse.json(
@@ -574,9 +580,9 @@ export async function PATCH(
     );
   }
 
-  /** 목록에서는 master도 구분=관리자로 보임 — DB role=master 유지( admin으로 덮어쓰지 않음 ) */
+  /** 목록에서는 super_admin도 구분=관리자로 보임 — DB role=super_admin 유지( admin으로 덮어쓰지 않음 ) */
   let memberTypeToApply: MemberType | null = parsedMemberType;
-  if (parsedMemberType === "admin" && targetRole === "master") {
+  if (parsedMemberType === "admin" && targetRole === "super_admin") {
     memberTypeToApply = null;
   }
 

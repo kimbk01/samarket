@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { loadWarnedUserIdSet } from "@/lib/admin/admin-user-server";
+import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-status";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
@@ -26,6 +28,7 @@ type ProfileRow = {
   role: string | null;
   member_type: string | null;
   status: string | null;
+  deleted_at: string | null;
   region_code: string | null;
   region_name: string | null;
   address_street_line: string | null;
@@ -78,17 +81,6 @@ type AuthAdminClient = SupabaseClient & {
     };
   };
 };
-
-function mapProfileStatusToModeration(status: string | null | undefined): AdminUser["moderationStatus"] {
-  const normalized = String(status ?? "").trim().toLowerCase();
-  if (!normalized || normalized === "active" || normalized === "sns_pending" || normalized === "verified_user") {
-    return "normal";
-  }
-  if (normalized === "suspended" || normalized === "blocked") return "suspended";
-  if (normalized === "deleted" || normalized === "banned") return "banned";
-  if (normalized === "warned" || normalized === "warning") return "warned";
-  return "normal";
-}
 
 function pickString(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -278,8 +270,8 @@ async function loadAdminAddressMap(
 }
 
 export async function GET(_req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("users");
+  if (!gate.ok) return gate.response;
   const supabaseEnv = requireSupabaseEnv({ requireAnonKey: true });
   if (!supabaseEnv.ok) {
     return NextResponse.json({ error: supabaseEnv.error }, { status: 500 });
@@ -297,7 +289,7 @@ export async function GET(_req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
 
   const profileSelect =
-    "id, email, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
   const fetchProfiles = async () =>
     supabase
       .from("profiles")
@@ -403,7 +395,13 @@ export async function GET(_req: NextRequest) {
   }
   const authMap = new Map<string, AuthListUser>(authPairs);
 
-  const list: AdminUser[] = ((rows ?? []) as ProfileRow[]).map((r) => {
+  const profileRows = (rows ?? []) as ProfileRow[];
+  const warnedUserIds = await loadWarnedUserIdSet(
+    supabase,
+    profileRows.map((r) => r.id).filter(Boolean)
+  ).catch(() => new Set<string>());
+
+  const list: AdminUser[] = profileRows.map((r) => {
     const testUser = testMap.get(r.id);
     const authUser = authMap.get(r.id) ?? null;
     const authProvider = resolveAuthProvider({ authUser, profile: r, testUser });
@@ -418,7 +416,7 @@ export async function GET(_req: NextRequest) {
     const memberType: MemberType =
       r.role === "admin" || r.role === "master" || r.role === "super_admin"
         ? "admin"
-        : r.member_type === "premium" || r.role === "special"
+        : r.member_type === "premium"
           ? "premium"
           : "normal";
     const fromUserAddress = locationLineFromUserAddress(adminAddressMap.get(r.id));
@@ -457,7 +455,11 @@ export async function GET(_req: NextRequest) {
       memberType,
       profileRole: r.role ?? undefined,
       hasProfile: true,
-      moderationStatus: mapProfileStatusToModeration(r.status),
+      moderationStatus: mapProfileStatusToModeration(
+        r.status,
+        r.deleted_at,
+        warnedUserIds.has(r.id)
+      ),
       location: locationLine,
       pointBalance: Number(r.points ?? 0),
       phoneVerified: r.phone_verified === true,

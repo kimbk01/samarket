@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -10,10 +10,9 @@ export async function PATCH(
   req: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
-
-  const sb = tryCreateSupabaseServiceClient();
+  const gate = await requireAdminPermission("users_edit_membership");
+  if (!gate.ok) return gate.response;
+  const sb = gate.sb ?? tryCreateSupabaseServiceClient();
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_service_unconfigured" }, { status: 503 });
   }

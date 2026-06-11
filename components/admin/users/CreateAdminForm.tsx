@@ -5,15 +5,15 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey, CreateAdminInput } from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
-import { createAdminStaff } from "@/lib/admin-users/mock-admin-staff";
-import { getAdminRole } from "@/lib/admin-permission";
+import { createAdminStaffApi } from "@/lib/admin-users/admin-staff-api";
+import { useAdminMe } from "@/hooks/useAdminMe";
+import { AdminFormSheet } from "@/components/admin/AdminFormSheet";
 import { AdminPermissionToggles } from "./AdminPermissionToggles";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 const ROLE_OPTIONS: { value: AdminRole; labelKey: MessageKey }[] = [
   { value: "operator", labelKey: "admin_users_role_operator" },
   { value: "manager", labelKey: "admin_users_role_manager" },
-  { value: "master", labelKey: "admin_users_role_master" },
 ];
 
 interface CreateAdminFormProps {
@@ -23,6 +23,7 @@ interface CreateAdminFormProps {
 
 export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
   const { t } = useI18n();
+  const { isSuperAdmin } = useAdminMe();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -46,7 +47,7 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (getAdminRole() !== "master") {
+    if (!isSuperAdmin) {
       setError(t("admin_users_err_master_only_create"));
       return;
     }
@@ -75,7 +76,7 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
       role,
       permissions,
     };
-    const result = createAdminStaff(input);
+    const result = await createAdminStaffApi(input);
     setSubmitting(false);
 
     if (result.ok) {
@@ -87,15 +88,31 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
-        <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-5 py-4">
-          <h2 className="text-lg font-semibold text-sam-fg">{t("admin_users_form_create_admin_title")}</h2>
-          <p className="mt-1 sam-text-body-secondary text-sam-muted">
-            {t("admin_users_form_create_admin_hint")}
-          </p>
+    <AdminFormSheet
+      title={t("admin_users_form_create_admin_title")}
+      subtitle={t("admin_users_form_create_admin_hint")}
+      onClose={onClose}
+      footer={
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-ui-rect border border-[#00704A]/25 px-4 py-2 text-[13px] font-semibold text-[#1E3932]"
+          >
+            {t("common_cancel")}
+          </button>
+          <button
+            type="submit"
+            form="create-admin-form"
+            disabled={submitting}
+            className="rounded-ui-rect bg-[#00704A] px-4 py-2 text-[13px] font-semibold text-white disabled:opacity-50"
+          >
+            {submitting ? t("admin_users_creating") : t("admin_users_create")}
+          </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4 p-5">
+      }
+    >
+        <form id="create-admin-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_login_id")}</label>
@@ -160,25 +177,8 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
             />
           </div>
 
-          {error && <p className="sam-text-body-secondary text-red-600">{error}</p>}
-          <div className="flex justify-end gap-2 border-t border-sam-border pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
-            >
-              {t("common_cancel")}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="rounded bg-signature px-4 py-2 sam-text-body text-white hover:bg-signature/90 disabled:opacity-50"
-            >
-              {submitting ? t("admin_users_creating") : t("admin_users_create")}
-            </button>
-          </div>
+          {error && <p className="text-[13px] text-red-600">{error}</p>}
         </form>
-      </div>
-    </div>
+    </AdminFormSheet>
   );
 }

@@ -1,27 +1,147 @@
-import { NextResponse } from "next/server";
-import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { getUserPointBalance } from "@/lib/admin-users/mock-admin-users";
-import { getPointLedgerByUserId } from "@/lib/points/mock-point-ledger";
-import { getPointChargeRequestsByUser } from "@/lib/points/mock-point-charge-requests";
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
+import { appendAuditLog } from "@/lib/audit/append-audit-log";
+import {
+  POINT_CHARGE_REQUEST_ROW_SELECT,
+  POINT_LEDGER_ROW_SELECT,
+} from "@/lib/points/point-query-select";
+import {
+  isMissingPointsTable,
+  normalizeChargeRequest,
+  normalizeLedgerRow,
+} from "@/lib/points/admin-user-points-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/**
- * GET /api/admin/users/[id]/points
- * 관리자: 특정 회원의 포인트 잔액 + 원장 + 충전 신청 내역
- */
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+  const gate = await requireAdminPermission("point");
+  if (!gate.ok) return gate.response;
 
   const { id } = await params;
-  const balance = getUserPointBalance(id);
-  const ledger = getPointLedgerByUserId(id).slice(0, 30);
-  const chargeRequests = getPointChargeRequestsByUser(id);
+  const userId = id?.trim();
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
+  }
 
-  return NextResponse.json({ ok: true, balance, ledger, chargeRequests });
+  const { sb } = gate;
+  const { data: profile } = await sb
+    .from("profiles")
+    .select("nickname, points")
+    .eq("id", userId)
+    .maybeSingle();
+  const userNickname = String((profile as { nickname?: string } | null)?.nickname ?? "");
+  const balance = Math.max(0, Number((profile as { points?: number } | null)?.points ?? 0));
+
+  let ledger: ReturnType<typeof normalizeLedgerRow>[] = [];
+  const ledgerRes = await sb
+    .from("point_ledger")
+    .select(POINT_LEDGER_ROW_SELECT)
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (!ledgerRes.error) {
+    ledger = (ledgerRes.data ?? []).map((row) =>
+      normalizeLedgerRow(row as Record<string, unknown>, userId, userNickname)
+    );
+  } else if (!isMissingPointsTable(ledgerRes.error.message ?? "", "point_ledger")) {
+    return NextResponse.json({ ok: false, error: ledgerRes.error.message }, { status: 500 });
+  }
+
+  let chargeRequests: ReturnType<typeof normalizeChargeRequest>[] = [];
+  const chargeRes = await sb
+    .from("point_charge_requests")
+    .select(POINT_CHARGE_REQUEST_ROW_SELECT)
+    .eq("user_id", userId)
+    .order("requested_at", { ascending: false })
+    .limit(20);
+  if (!chargeRes.error) {
+    chargeRequests = (chargeRes.data ?? []).map((row) =>
+      normalizeChargeRequest(row as Record<string, unknown>, userId, userNickname)
+    );
+  } else if (!isMissingPointsTable(chargeRes.error.message ?? "", "point_charge_requests")) {
+    return NextResponse.json({ ok: false, error: chargeRes.error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, balance, ledger, chargeRequests, source: "supabase" });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse> {
+  const gate = await requireAdminPermission("point");
+  if (!gate.ok) return gate.response;
+
+  const { id } = await params;
+  const userId = id?.trim();
+  if (!userId) {
+    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
+  }
+
+  let body: { delta?: number; reason?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const delta = Number(body.delta);
+  const reason = String(body.reason ?? "").trim();
+  if (!Number.isFinite(delta) || delta === 0) {
+    return NextResponse.json({ ok: false, error: "invalid_delta" }, { status: 400 });
+  }
+  if (!reason) {
+    return NextResponse.json({ ok: false, error: "reason_required" }, { status: 400 });
+  }
+
+  const { sb, actor } = gate;
+  const { data: profile, error: profileErr } = await sb
+    .from("profiles")
+    .select("points, nickname")
+    .eq("id", userId)
+    .maybeSingle();
+  if (profileErr) {
+    return NextResponse.json({ ok: false, error: profileErr.message }, { status: 500 });
+  }
+  if (!profile) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const current = Math.max(0, Number((profile as { points?: number }).points ?? 0));
+  const nextBalance = Math.max(0, current + delta);
+
+  const { error: ledgerErr } = await sb.from("point_ledger").insert({
+    user_id: userId,
+    entry_type: delta > 0 ? "admin_credit" : "admin_debit",
+    amount: delta,
+    balance_after: nextBalance,
+    related_type: "admin_manual",
+    related_id: actor.userId,
+    description: reason.slice(0, 500),
+    actor_type: "admin",
+  });
+  if (ledgerErr) {
+    return NextResponse.json({ ok: false, error: ledgerErr.message }, { status: 500 });
+  }
+
+  const { error: updateErr } = await sb.from("profiles").update({ points: nextBalance }).eq("id", userId);
+  if (updateErr) {
+    return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+  }
+
+  void appendAuditLog(sb, {
+    actor_type: "admin",
+    actor_id: actor.userId,
+    target_type: "user_points",
+    target_id: userId,
+    action: "admin_point_adjust",
+    before_json: { balance: current },
+    after_json: { balance: nextBalance, delta, reason },
+  });
+
+  return NextResponse.json({ ok: true, balance: nextBalance });
 }

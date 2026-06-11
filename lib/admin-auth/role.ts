@@ -6,6 +6,7 @@
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminStaff } from "@/lib/types/admin-staff";
 import { getAdminStaffByLoginId } from "@/lib/admin-users/mock-admin-staff";
+import { peekAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { getCurrentAdminLoginId } from "./storage";
 
 const ROLE_ORDER: AdminRole[] = ["operator", "manager", "master"];
@@ -19,6 +20,9 @@ function roleLevel(role: AdminRole): number {
  * 현재 관리자 역할 (메뉴 노출 기준)
  */
 export function getAdminRole(): AdminRole {
+  const apiMe = peekAdminMeSnapshot();
+  if (apiMe?.uiRole) return apiMe.uiRole;
+
   const loginId = getCurrentAdminLoginId();
   if (loginId) {
     const staff = getAdminStaffByLoginId(loginId);

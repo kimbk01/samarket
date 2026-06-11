@@ -10,6 +10,7 @@ import {
   getCurrentAdminStaff as getStaff,
   getRoleLevel,
 } from "@/lib/admin-auth";
+import { peekAdminMeSnapshot } from "@/lib/admin-auth/admin-me-context";
 import { getCurrentAdminLoginId, setAdminTestLoginAndReload as setAndReload } from "@/lib/admin-auth";
 
 export const getAdminRole = getRole;
@@ -31,10 +32,17 @@ export function filterMenuByRole(
 export const getCurrentAdminStaff = getStaff;
 
 export function canAccessPermission(key: AdminPermissionKey): boolean {
+  const apiMe = peekAdminMeSnapshot();
+  if (apiMe) {
+    if (apiMe.role === "super_admin" || apiMe.uiRole === "master") return true;
+    if (apiMe.permissions.includes(key)) return true;
+    if (key === "users_edit_membership" && apiMe.permissions.includes("users")) return true;
+    return false;
+  }
+
   const staff = getCurrentAdminStaff();
   if (!staff) return true;
   if (staff.permissions.includes(key)) return true;
-  /** 예전 스태프 배열에 키가 없을 때 — 회원관리 권한이면 구분·전화인증 수정도 동일 메뉴에서 허용 */
   if (key === "users_edit_membership" && staff.permissions.includes("users")) {
     return true;
   }
