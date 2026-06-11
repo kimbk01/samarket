@@ -32,7 +32,7 @@ import {
   isProfileSetupPending,
 } from "@/lib/auth/profile-setup-flow";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
-import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
+import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
@@ -102,17 +102,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const [addressNeedsBlock, setAddressNeedsBlock] = useState(false);
   const [setupGateReady, setSetupGateReady] = useState(!setupMode);
 
-  const phoneVerifiedForSetup = useMemo(() => {
-    if (!profile) return false;
-    return hasPhilippinePhoneVerification({
-      role: profile.role ?? null,
-      phone_verified: profile.phone_verified === true,
-      phone_verified_at: profile.phone_verified_at ?? null,
-      provider: profile.provider ?? profile.auth_provider ?? null,
-      auth_provider: profile.auth_provider ?? profile.provider ?? null,
-      email: profile.email ?? null,
-    });
-  }, [profile]);
+  const phoneVerifiedForSetup = useMemo(
+    () => (profile ? isProfileContactVerified(profile) : false),
+    [profile],
+  );
 
   const phoneRequiredForSetup = phoneVerificationSettings?.enabled === true;
   const phoneSatisfiedForSetup = phoneVerifiedForSetup || !phoneRequiredForSetup;
@@ -432,7 +425,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
           </ProfileEditSection>
 
           {showPhoneVerify ? (
-            <ProfileEditSection title={t("my_phone_verify_title")}>
+            <ProfileEditSection title={t("profile_edit_section_phone")}>
               <PhoneVerificationBox
                 compact
                 setupError={phoneSetupError}
@@ -442,7 +435,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                   phone_verified_at: profile.phone_verified_at ?? null,
                   member_status: profile.member_status ?? null,
                   role: profile.role ?? null,
-                  email: profile.email ?? null,
+                  email: profile.auth_login_email ?? profile.email ?? null,
                   provider: profile.provider ?? profile.auth_provider ?? null,
                   auth_provider: profile.auth_provider ?? profile.provider ?? null,
                   settings: phoneVerificationSettings ?? undefined,
