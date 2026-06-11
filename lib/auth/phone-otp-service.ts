@@ -7,7 +7,21 @@ import {
 } from "@/lib/phone/philippines-phone";
 import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
 
-type ServiceResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
+export type PhoneOtpErrorCode =
+  | "phone_duplicate"
+  | "phone_invalid"
+  | "otp_invalid"
+  | "otp_expired"
+  | "otp_required"
+  | "otp_phone_mismatch"
+  | "otp_rate_limited"
+  | "otp_send_failed"
+  | "phone_verify_disabled"
+  | "server_error";
+
+type ServiceResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; code: PhoneOtpErrorCode; message: string };
 
 type VerifyOtpResult = {
   phone: string;
@@ -16,14 +30,26 @@ type VerifyOtpResult = {
   verification_method: "semaphore_local";
 };
 
+function fail(
+  status: number,
+  code: PhoneOtpErrorCode,
+  message: string,
+): ServiceResult<never> {
+  return { ok: false, status, code, message };
+}
+
 function invalidPhoneResult(): ServiceResult<never> {
-  return { ok: false, status: 400, message: "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567" };
+  return fail(
+    400,
+    "phone_invalid",
+    "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567",
+  );
 }
 
 async function ensurePhoneUnique(
   sb: SupabaseClient,
   userId: string,
-  normalizedPhone: string
+  normalizedPhone: string,
 ): Promise<ServiceResult<null>> {
   const { data, error } = await sb
     .from("profiles")
@@ -31,9 +57,9 @@ async function ensurePhoneUnique(
     .eq("phone", normalizedPhone)
     .neq("id", userId)
     .limit(1);
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   if ((data?.length ?? 0) > 0) {
-    return { ok: false, status: 409, message: "이미 다른 계정에서 사용 중인 전화번호입니다." };
+    return fail(409, "phone_duplicate", "이미 다른 계정에서 사용 중인 전화번호입니다.");
   }
   return { ok: true, data: null };
 }
@@ -58,7 +84,7 @@ async function loadProfileOtpState(sb: SupabaseClient, userId: string): Promise<
     .select("phone_verification_requested_at, phone_verification_attempt_count")
     .eq("id", userId)
     .maybeSingle();
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   return { ok: true, data: (data ?? {}) as ProfileOtpState };
 }
 
@@ -99,7 +125,7 @@ async function upsertPhoneOtpChallenge(
   userId: string,
   phone: string,
   otpCodeHash: string,
-  expiresAtIso: string
+  expiresAtIso: string,
 ): Promise<ServiceResult<null>> {
   const { error } = await sb.from("phone_otp_challenges").upsert(
     {
@@ -111,9 +137,9 @@ async function upsertPhoneOtpChallenge(
       verified_at: null,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: "user_id" }
+    { onConflict: "user_id" },
   );
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   return { ok: true, data: null };
 }
 
@@ -123,14 +149,14 @@ async function loadPhoneOtpChallenge(sb: SupabaseClient, userId: string): Promis
     .select("user_id, phone, otp_code_hash, otp_expires_at, attempt_count, verified_at")
     .eq("user_id", userId)
     .maybeSingle();
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   return { ok: true, data: (data as PhoneOtpChallengeRow | null) ?? null };
 }
 
 async function updatePhoneOtpChallengeAttempts(
   sb: SupabaseClient,
   userId: string,
-  nextAttemptCount: number
+  nextAttemptCount: number,
 ): Promise<ServiceResult<null>> {
   const { error } = await sb
     .from("phone_otp_challenges")
@@ -139,7 +165,7 @@ async function updatePhoneOtpChallengeAttempts(
       updated_at: new Date().toISOString(),
     })
     .eq("user_id", userId);
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   return { ok: true, data: null };
 }
 
@@ -152,18 +178,18 @@ async function markPhoneOtpChallengeVerified(sb: SupabaseClient, userId: string)
       updated_at: nowIso,
     })
     .eq("user_id", userId);
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   return { ok: true, data: null };
 }
 
 export async function sendPhoneOtpForUser(
   sb: SupabaseClient,
   userId: string,
-  inputPhone: string
+  inputPhone: string,
 ): Promise<ServiceResult<{ phone: string; settings: AuthPhoneSettings }>> {
   const settings = await loadAuthPhoneSettings();
   if (!settings.enabled) {
-    return { ok: false, status: 403, message: "전화 인증 기능이 현재 비활성화되어 있습니다." };
+    return fail(403, "phone_verify_disabled", "전화 인증 기능이 현재 비활성화되어 있습니다.");
   }
 
   const normalizedPhone = normalizePhilippinesPhoneNumber(inputPhone);
@@ -179,7 +205,7 @@ export async function sendPhoneOtpForUser(
     const elapsedSec = (Date.now() - requestedAtMs) / 1000;
     if (elapsedSec < settings.resend_cooldown_seconds) {
       const left = Math.ceil(settings.resend_cooldown_seconds - elapsedSec);
-      return { ok: false, status: 429, message: `재발송은 ${left}초 후 가능합니다.` };
+      return fail(429, "otp_rate_limited", `재발송은 ${left}초 후 가능합니다.`);
     }
   }
 
@@ -193,7 +219,7 @@ export async function sendPhoneOtpForUser(
   const smsMessage = `[DIBAY] Verification code: ${otpCode}`;
   const smsSent = await sendSemaphoreSms(normalizedPhone, smsMessage);
   if (!smsSent.ok) {
-    return { ok: false, status: 502, message: "인증번호 발송에 실패했습니다." };
+    return fail(502, "otp_send_failed", "인증번호 발송에 실패했습니다.");
   }
 
   const nowIso = new Date().toISOString();
@@ -210,7 +236,7 @@ export async function sendPhoneOtpForUser(
     })
     .eq("id", userId);
   if (profileError) {
-    return { ok: false, status: 500, message: "인증번호 발송에 실패했습니다." };
+    return fail(500, "otp_send_failed", "인증번호 발송에 실패했습니다.");
   }
 
   return { ok: true, data: { phone: normalizedPhone, settings } };
@@ -220,12 +246,12 @@ export async function verifyPhoneOtpForUser(
   sb: SupabaseClient,
   userId: string,
   inputPhone: string,
-  otp: string
+  otp: string,
 ): Promise<ServiceResult<VerifyOtpResult>> {
   const normalizedPhone = normalizePhilippinesPhoneNumber(inputPhone);
   if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
   if (!/^\d{4,8}$/.test(String(otp ?? "").trim())) {
-    return { ok: false, status: 400, message: "인증번호를 확인해 주세요." };
+    return fail(400, "otp_invalid", "인증번호를 확인해 주세요.");
   }
 
   const uniqueCheck = await ensurePhoneUnique(sb, userId, normalizedPhone);
@@ -236,31 +262,39 @@ export async function verifyPhoneOtpForUser(
   const attempted = Math.max(0, Math.floor(Number(otpState.data.phone_verification_attempt_count ?? 0)));
   const settings = await loadAuthPhoneSettings();
   if (attempted >= settings.max_attempts) {
-    return { ok: false, status: 429, message: "인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요." };
+    return fail(
+      429,
+      "otp_rate_limited",
+      "인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요.",
+    );
   }
 
   const challengeResult = await loadPhoneOtpChallenge(sb, userId);
   if (!challengeResult.ok) return challengeResult;
   const challenge = challengeResult.data;
   if (!challenge) {
-    return { ok: false, status: 400, message: "먼저 인증번호를 요청해 주세요." };
+    return fail(400, "otp_required", "먼저 인증번호를 요청해 주세요.");
   }
   if (challenge.phone !== normalizedPhone) {
-    return { ok: false, status: 400, message: "요청한 전화번호와 인증 대상 번호가 다릅니다." };
+    return fail(400, "otp_phone_mismatch", "요청한 전화번호와 인증 대상 번호가 다릅니다.");
   }
   if (new Date(challenge.otp_expires_at).getTime() < Date.now()) {
-    return { ok: false, status: 400, message: "인증번호가 만료되었습니다. 다시 요청해 주세요." };
+    return fail(400, "otp_expired", "인증번호가 만료되었습니다. 다시 요청해 주세요.");
   }
   if (challenge.attempt_count >= settings.max_attempts) {
     await bumpOtpAttemptCount(sb, userId, challenge.attempt_count);
-    return { ok: false, status: 429, message: "인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요." };
+    return fail(
+      429,
+      "otp_rate_limited",
+      "인증 시도 횟수를 초과했습니다. 인증번호를 다시 발송해 주세요.",
+    );
   }
 
   const providedHash = hashOtpCode(normalizedPhone, String(otp).trim());
   if (providedHash !== challenge.otp_code_hash) {
     await updatePhoneOtpChallengeAttempts(sb, userId, challenge.attempt_count + 1);
     await bumpOtpAttemptCount(sb, userId, attempted + 1);
-    return { ok: false, status: 400, message: "인증번호가 올바르지 않습니다." };
+    return fail(400, "otp_invalid", "인증번호가 올바르지 않습니다.");
   }
 
   const nowIso = new Date().toISOString();
@@ -278,7 +312,7 @@ export async function verifyPhoneOtpForUser(
       updated_at: nowIso,
     })
     .eq("id", userId);
-  if (error) return { ok: false, status: 500, message: error.message };
+  if (error) return fail(500, "server_error", error.message);
   const marked = await markPhoneOtpChallengeVerified(sb, userId);
   if (!marked.ok) return marked;
 

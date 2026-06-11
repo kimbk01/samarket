@@ -32,7 +32,10 @@ export async function POST(req: NextRequest) {
     String(body.otp ?? "")
   );
   if (!result.ok) {
-    return NextResponse.json({ ok: false, message: result.message }, { status: result.status });
+    return NextResponse.json(
+      { ok: false, code: result.code, message: result.message },
+      { status: result.status },
+    );
   }
   return NextResponse.json({
     ok: true,

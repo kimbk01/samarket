@@ -199,6 +199,10 @@ export const settingsUiMessages = {
     profile_edit_err_nickname_max: "닉네임은 20자 이내로 입력해 주세요.",
     profile_edit_warn_address_required:
       "주소 관리에서 대표 주소를 등록하거나, 지도로 위치를 지정해 주세요.",
+    profile_setup_banner:
+      "서비스 이용을 위해 대표 주소와 전화 인증을 완료해 주세요.",
+    profile_setup_err_address_required: "대표 주소를 등록해 주세요.",
+    profile_setup_err_phone_required: "전화번호 인증을 완료해 주세요.",
     profile_edit_saved: "저장되었습니다.",
     profile_edit_saved_with_warn: "저장되었습니다. {warn}",
     profile_edit_loading_profile: "프로필을 불러오는 중…",
@@ -270,6 +274,12 @@ export const settingsUiMessages = {
     my_phone_verifying: "확인 중…",
     my_phone_verify_submit: "인증번호 확인",
     my_phone_back_account: "내 계정으로 돌아가기",
+    my_phone_err_duplicate: "이미 다른 계정에서 사용 중인 번호입니다.",
+    my_phone_err_otp_invalid: "인증번호가 올바르지 않습니다.",
+    my_phone_err_otp_expired: "인증번호가 만료되었습니다. 다시 요청해 주세요.",
+    my_phone_err_otp_rate_limited: "잠시 후 다시 시도하거나 인증번호를 재발송해 주세요.",
+    my_phone_err_otp_phone_mismatch: "요청한 번호와 일치하지 않습니다.",
+    my_phone_err_otp_send_first: "먼저 인증번호를 요청해 주세요.",
   },
   en: {
     settings_chat_push: "Chat notifications",
@@ -471,6 +481,10 @@ export const settingsUiMessages = {
     profile_edit_err_nickname_max: "Nickname must be 20 characters or fewer.",
     profile_edit_warn_address_required:
       "Add a default address in Address management or set a location on the map.",
+    profile_setup_banner:
+      "Add a default address and verify your phone number to use the service.",
+    profile_setup_err_address_required: "Add a default address.",
+    profile_setup_err_phone_required: "Complete phone verification.",
     profile_edit_saved: "Saved.",
     profile_edit_saved_with_warn: "Saved. {warn}",
     profile_edit_loading_profile: "Loading profile…",
@@ -542,5 +556,11 @@ export const settingsUiMessages = {
     my_phone_verifying: "Verifying…",
     my_phone_verify_submit: "Verify code",
     my_phone_back_account: "Back to my account",
+    my_phone_err_duplicate: "This number is already used by another account.",
+    my_phone_err_otp_invalid: "The verification code is incorrect.",
+    my_phone_err_otp_expired: "The verification code has expired. Please request a new one.",
+    my_phone_err_otp_rate_limited: "Please wait and try again, or resend the verification code.",
+    my_phone_err_otp_phone_mismatch: "This number does not match the one you requested a code for.",
+    my_phone_err_otp_send_first: "Please request a verification code first.",
   },
 } as const;

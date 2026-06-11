@@ -3,8 +3,8 @@
 /** 로컬 11자리: 09## ### #### */
 export const PH_MOBILE_PLACEHOLDER = "09## ### ####";
 
-/** 국제 표기 예시: +63 956 188 6313 */
-export const PH_MOBILE_PLUS63_PLACEHOLDER = "+63 956 188 6313";
+/** 국제 표기 예시: +63 900 000 0000 */
+export const PH_MOBILE_PLUS63_PLACEHOLDER = "+63 900 000 0000";
 
 /** 매장·주문·프로필 등 동일 */
 export const PH_LOCAL_09_PLACEHOLDER = PH_MOBILE_PLACEHOLDER;

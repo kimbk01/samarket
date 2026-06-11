@@ -7,6 +7,7 @@ import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
@@ -435,6 +436,21 @@ function LoginPageContent() {
           return;
         }
         window.location.assign(authorizeUrl);
+        return;
+      }
+      if (provider === "google") {
+        const googleResult = await withTimeout(
+          startGoogleOAuthSignIn(supabase, callbackUrl),
+          AUTH_REQUEST_TIMEOUT_MS,
+          AUTH_REQUEST_TIMEOUT_SIGNAL
+        );
+        if (!googleResult.ok) {
+          const nextError =
+            googleResult.errorMessage === "missing_authorize_url"
+              ? t("auth_err_oauth_authorize_url_failed")
+              : googleResult.errorMessage || t("auth_err_oauth_start_failed");
+          setError((prev) => (prev === nextError ? prev : nextError));
+        }
         return;
       }
       const { data, error: oauthError } = await withTimeout(

@@ -1,4 +1,5 @@
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { buildProfileSetupHref } from "@/lib/auth/profile-setup-flow";
 import {
   withNextSearchParam,
   sanitizeNextPath,
@@ -13,11 +14,8 @@ import type { OnboardingStatus } from "@/lib/auth/get-onboarding-status";
  *    A. 세션 없음                   → `/login?error=session_missing`
  *    B. 동의 미완료(약관·개인정보) → `/auth/consent?next=...`
  *    C. 닉네임/필수 프로필 미완   → `/onboarding/profile?next=...`
- *    D. 대표 주소 미설정          → `/onboarding/address?next=...`
+ *    D. 대표 주소·전화 미완       → 프로필 수정 setup (`?setup=1&next=...`)
  *    E. 모두 완료                  → `next || POST_LOGIN_PATH(/philife)`
- *
- *  전화번호 인증(스펙 1-D)은 *읽기는 허용*이므로 이 단계에서는 강제하지 않는다.
- *  쓰기 액션 시 별도 게이트(`buildPhoneVerificationHref`) 가 처리한다.
  *
  *  이 함수는 순수 함수다. DB·세션 의존성은 호출 측이 주입한다.
  */
@@ -54,8 +52,8 @@ export function resolvePostLoginRoute({
   if (!status.profileComplete || !status.nicknameComplete) {
     return withNextSearchParam("/onboarding/profile", safeNext);
   }
-  if (!status.addressComplete) {
-    return withNextSearchParam("/onboarding/address", safeNext);
+  if (!status.addressComplete || !status.phoneVerified) {
+    return buildProfileSetupHref({ next: safeNext });
   }
   return sanitizeFreshLoginLandingPath(safeNext) ?? POST_LOGIN_PATH;
 }

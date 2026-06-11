@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
 
   const result = await sendPhoneOtpForUser(sb, auth.userId, String(body.phone ?? ""));
   if (!result.ok) {
-    return NextResponse.json({ ok: false, message: result.message }, { status: result.status });
+    return NextResponse.json(
+      { ok: false, code: result.code, message: result.message },
+      { status: result.status },
+    );
   }
   return NextResponse.json({ ok: true, phone: result.data.phone });
 }

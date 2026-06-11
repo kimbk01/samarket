@@ -825,7 +825,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       ? Boolean(deliveryUserAddressIdForSubmit) && isCheckoutDeliveryGeoReady(resolvedCheckoutGeo)
       : isCheckoutDeliveryGeoReady(resolvedCheckoutGeo);
 
-  /** 장바구니 카드 — `+63 956 188 6313` */
+  /** 장바구니 카드 — `+63 900 000 0000` */
   const formattedPhoneDisplay = useMemo(() => {
     const d = parsePhMobileInput(buyerPhone);
     if (d.length === 0) return "";

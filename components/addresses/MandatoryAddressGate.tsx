@@ -2,34 +2,21 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
-import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import { buildProfileSetupHref, isProfileSetupGateExcludedPath } from "@/lib/auth/profile-setup-flow";
 import { runNowOrScheduleOnStoreOwnerAdmin, OWNER_HUB_SECONDARY_AFTER_MS } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import {
   fetchMandatoryAddressGateDeduped,
   invalidateMandatoryAddressGateClientCache,
 } from "@/lib/addresses/mandatory-address-gate-client";
-import { buildMypageAddressesHrefFromPath, parseSafeInternalReturnTo } from "@/lib/addresses/mypage-addresses-return-to";
-import { writeAddressFlowExitHref } from "@/lib/addresses/mypage-address-flow-exit";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /** 주소 목록이 바뀐 뒤 게이트 재검사 — `AddressManagementClient.load` 등에서 발행 */
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
 
 function isGateExcludedPath(path: string): boolean {
-  if (path === "/address/select" || path.startsWith("/address/select/")) return true;
-  if (path === "/mypage/addresses" || path.startsWith("/mypage/addresses/")) return true;
-  if (path === "/my/addresses" || path.startsWith("/my/addresses/")) return true;
-  if (path === "/mypage/logout" || path.startsWith("/mypage/logout/")) return true;
-  if (path === "/my/logout" || path.startsWith("/my/logout/")) return true;
-  // 온보딩 단계는 별도 화면이 동일한 게이트 검사를 들고 있어 모달이 중복 표시되면 안 된다.
-  if (path === "/onboarding/address" || path.startsWith("/onboarding/address/")) return true;
-  if (path === "/onboarding/profile" || path.startsWith("/onboarding/profile/")) return true;
-  if (path === "/onboarding/username" || path.startsWith("/onboarding/username/")) return true;
-  return false;
+  return isProfileSetupGateExcludedPath(path);
 }
 
 /** 로그인/가입 화면을 떠난 뒤에는 서버 게이트를 다시 맞춤 */
@@ -55,49 +42,66 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
 }
 
 /**
- * 로그인 상태에서 대표 주소(`isDefaultMaster`)가 없으면 나머지 화면을 막고
- * 주소 등록(주소 관리)으로 보냅니다. 주소·지도 플로우 경로는 제외합니다.
+ * 로그인 상태에서 대표 주소(`isDefaultMaster`)가 없으면 프로필 setup 으로 보냅니다.
+ * 주소·프로필 수정 플로우 경로는 제외합니다.
  */
 export function MandatoryAddressGate() {
-  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const deferOverlayForStoresLcp = useStoresHomeOverlayDeferUntilInput();
   const pathRef = useRef(pathname);
   const prevPathForGateRef = useRef<string | null>(null);
+  const redirectTargetRef = useRef<string | null>(null);
   const [blocked, setBlocked] = useState(false);
-  const [fullInteractiveMemberOk, setFullInteractiveMemberOk] = useState(true);
 
-  const applyGateJson = useCallback(async (res: Response) => {
-    if (res.status === 401) {
-      setBlocked(false);
-      setFullInteractiveMemberOk(true);
-      return;
-    }
-    if (!res.ok) {
-      setBlocked(false);
-      setFullInteractiveMemberOk(true);
-      return;
-    }
-    const j = (await res.clone().json()) as {
-      ok?: boolean;
-      authenticated?: boolean;
-      needsBlock?: boolean;
-      fullInteractiveMemberOk?: boolean;
-    };
-    if (!j.ok) {
-      setBlocked(false);
-      setFullInteractiveMemberOk(true);
-      return;
-    }
-    setBlocked(j.authenticated === true && j.needsBlock === true);
-    setFullInteractiveMemberOk(j.fullInteractiveMemberOk !== false);
-  }, []);
+  const maybeRedirectToSetup = useCallback(
+    (needsBlock: boolean) => {
+      if (!needsBlock || deferOverlayForStoresLcp) return;
+      const p = pathRef.current;
+      if (isGateExcludedPath(p)) return;
+      const search = typeof window !== "undefined" ? window.location.search : "";
+      const target = buildProfileSetupHref({ next: `${p.split("?")[0]}${search}` });
+      if (redirectTargetRef.current === target) return;
+      redirectTargetRef.current = target;
+      router.replace(target);
+    },
+    [router, deferOverlayForStoresLcp],
+  );
+
+  const applyGateJson = useCallback(
+    async (res: Response) => {
+      if (res.status === 401) {
+        setBlocked(false);
+        return;
+      }
+      if (!res.ok) {
+        setBlocked(false);
+        return;
+      }
+      const j = (await res.clone().json()) as {
+        ok?: boolean;
+        authenticated?: boolean;
+        needsBlock?: boolean;
+      };
+      if (!j.ok) {
+        setBlocked(false);
+        return;
+      }
+      const needsBlock = j.authenticated === true && j.needsBlock === true;
+      setBlocked(needsBlock);
+      if (!needsBlock) {
+        redirectTargetRef.current = null;
+      }
+      maybeRedirectToSetup(needsBlock);
+    },
+    [maybeRedirectToSetup],
+  );
 
   const runGateFetchNow = useCallback(async () => {
     const p = pathRef.current;
     if (isGateExcludedPath(p)) {
       setBlocked(false);
+      redirectTargetRef.current = null;
       return;
     }
     try {
@@ -116,14 +120,14 @@ export function MandatoryAddressGate() {
   const gateRestoreCoalesceRef = useRef(
     createTrailingCoalescedCallback(() => {
       void runGateFetchNowRef.current();
-    }, 450)
+    }, 450),
   );
 
   const runGateFetch = useCallback(() => {
     runNowOrScheduleOnStoreOwnerAdmin(
       () => runGateFetchNow(),
       OWNER_HUB_SECONDARY_AFTER_MS.addressGate,
-      "address-gate"
+      "address-gate",
     );
   }, [runGateFetchNow]);
 
@@ -134,6 +138,7 @@ export function MandatoryAddressGate() {
 
     if (isGateExcludedPath(next) || isAuthEntryPath(next)) {
       setBlocked(false);
+      redirectTargetRef.current = null;
       prevPathForGateRef.current = next;
       return;
     }
@@ -141,10 +146,13 @@ export function MandatoryAddressGate() {
     prevPathForGateRef.current = next;
 
     if (!shouldRefetchGateOnPathChange(prev, next)) {
+      if (blocked) {
+        maybeRedirectToSetup(true);
+      }
       return;
     }
     void runGateFetch();
-  }, [pathname, runGateFetch]);
+  }, [pathname, runGateFetch, blocked, maybeRedirectToSetup]);
 
   useEffect(() => {
     const onUpdated = () => {
@@ -181,6 +189,7 @@ export function MandatoryAddressGate() {
     } = sb.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_OUT") {
         setBlocked(false);
+        redirectTargetRef.current = null;
         return;
       }
       if (event === "SIGNED_IN") {
@@ -190,61 +199,5 @@ export function MandatoryAddressGate() {
     return () => subscription.unsubscribe();
   }, [runGateFetch]);
 
-  if (!blocked || deferOverlayForStoresLcp) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-[110] flex flex-col justify-end bg-black/50 sm:items-center sm:justify-center sm:p-4"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="mandatory-address-title"
-      aria-describedby="mandatory-address-desc"
-    >
-      <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 shadow-xl sm:rounded-ui-rect sm:p-6">
-        <h2 id="mandatory-address-title" className="sam-text-section-title font-semibold text-ui-fg">
-          {t("addr_ui_gate_title")}
-        </h2>
-        <p id="mandatory-address-desc" className="mt-2 sam-text-body leading-relaxed text-ui-muted">
-          {t("addr_ui_gate_desc")}
-        </p>
-        {!fullInteractiveMemberOk ? (
-          <p className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5 sam-text-body leading-relaxed text-sam-fg">
-            {t("addr_ui_gate_phone_hint")}
-          </p>
-        ) : null}
-        <div className="mt-5 flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              const search = typeof window !== "undefined" ? window.location.search : "";
-              const href = buildMypageAddressesHrefFromPath(pathname, search);
-              writeAddressFlowExitHref(
-                parseSafeInternalReturnTo(`${pathname.split("?")[0]}${search}`)
-              );
-              router.push(href);
-            }}
-            className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white"
-          >
-            {t("addr_ui_gate_add_address")}
-          </button>
-          {!fullInteractiveMemberOk ? (
-            <button
-              type="button"
-              onClick={() =>
-                router.push(
-                  buildPhoneVerificationHref(
-                    `${pathname}${typeof window !== "undefined" ? window.location.search : ""}`
-                  )
-                )
-              }
-              className="w-full rounded-ui-rect border border-sam-primary/35 bg-sam-primary-soft py-3.5 sam-text-body font-semibold text-sam-fg"
-            >
-              {t("addr_ui_gate_phone_verify")}
-            </button>
-          ) : null}
-          <LogoutActionTrigger variant="outlined_button" />
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 }

@@ -1,10 +1,17 @@
-import { Suspense } from "react";
-import { OnboardingAddressClient } from "@/components/onboarding/OnboardingAddressClient";
+import { redirect } from "next/navigation";
+import { buildProfileSetupHref } from "@/lib/auth/profile-setup-flow";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 
-export default function OnboardingAddressPage() {
-  return (
-    <Suspense fallback={null}>
-      <OnboardingAddressClient />
-    </Suspense>
-  );
+function safeNext(input: string | string[] | undefined): string | null {
+  const raw = Array.isArray(input) ? input[0] : input;
+  return sanitizeNextPath(typeof raw === "string" ? raw : null);
+}
+
+export default async function OnboardingAddressPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  redirect(buildProfileSetupHref({ next: safeNext(params.next) }));
 }

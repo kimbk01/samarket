@@ -9,6 +9,8 @@ import {
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
+import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
 
 type VerificationSettings = {
   enabled: boolean;
@@ -20,7 +22,12 @@ type VerificationSettings = {
 type VerifySnapshot = {
   phone: string | null;
   phone_verified: boolean;
+  phone_verified_at?: string | null;
   member_status?: string | null;
+  role?: string | null;
+  email?: string | null;
+  provider?: string | null;
+  auth_provider?: string | null;
   settings?: VerificationSettings;
 };
 
@@ -28,11 +35,13 @@ export function PhoneVerificationBox({
   snapshot,
   onRefreshProfile,
   compact = false,
+  setupError = false,
 }: {
   snapshot: VerifySnapshot;
   onRefreshProfile: () => Promise<void>;
   /** 프로필 수정 — 안내 문구·테두리 최소화 */
   compact?: boolean;
+  setupError?: boolean;
 }) {
   const { t } = useI18n();
   const [phone, setPhone] = useState(snapshot.phone ?? "");
@@ -44,10 +53,19 @@ export function PhoneVerificationBox({
   const [error, setError] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState(0);
 
+  const verified = hasPhilippinePhoneVerification({
+    role: snapshot.role ?? null,
+    phone_verified: snapshot.phone_verified === true,
+    phone_verified_at: snapshot.phone_verified_at ?? null,
+    provider: snapshot.provider ?? snapshot.auth_provider ?? null,
+    auth_provider: snapshot.auth_provider ?? snapshot.provider ?? null,
+    email: snapshot.email ?? null,
+  });
+
   useEffect(() => {
     setPhone(snapshot.phone ?? "");
-    setAllowEdit(!snapshot.phone_verified);
-  }, [snapshot.phone, snapshot.phone_verified]);
+    setAllowEdit(!verified);
+  }, [snapshot.phone, verified]);
 
   const settings = snapshot.settings;
   const cooldownSec = Math.max(1, Number(settings?.resend_cooldown_seconds ?? 60));
@@ -71,9 +89,20 @@ export function PhoneVerificationBox({
         credentials: "include",
         body: JSON.stringify({ phone: normalizedPhone }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string; phone?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        code?: string;
+        message?: string;
+        phone?: string;
+      };
       if (!res.ok || !json.ok) {
-        setError(json.message || t("my_phone_send_otp_failed"));
+        setError(
+          resolvePhoneOtpUiError(
+            { status: res.status, code: json.code, message: json.message },
+            t,
+            "send",
+          ),
+        );
         return;
       }
       setMessage(`${t("my_phone_sent_hint")} (${json.phone ?? normalizedPhone})`);
@@ -102,9 +131,19 @@ export function PhoneVerificationBox({
         credentials: "include",
         body: JSON.stringify({ phone: normalizedPhone, otp: otp.trim() }),
       });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; message?: string };
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        code?: string;
+        message?: string;
+      };
       if (!res.ok || !json.ok) {
-        setError(json.message || t("my_phone_verify_code_failed"));
+        setError(
+          resolvePhoneOtpUiError(
+            { status: res.status, code: json.code, message: json.message },
+            t,
+            "verify",
+          ),
+        );
         return;
       }
       setMessage(t("my_phone_verified_success"));
@@ -136,8 +175,11 @@ export function PhoneVerificationBox({
     );
   }
 
-  const verified = snapshot.phone_verified === true && snapshot.member_status === "active";
-  const shellClass = compact ? "space-y-3" : "space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4";
+  const showSetupShellError = setupError && !verified && !error;
+  const setupShellClass = showSetupShellError ? "rounded-ui-rect border border-red-300 bg-red-50/40 p-3" : "";
+  const shellClass = compact
+    ? `space-y-3${setupShellClass ? ` ${setupShellClass}` : ""}`
+    : `space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`;
   const inputClass = compact ? PROFILE_EDIT_INPUT_CLASS : "sam-input";
   const verifyBtnClass = compact
     ? PROFILE_EDIT_PRIMARY_BTN_CLASS + " px-3 py-2 text-[13px]"
@@ -239,7 +281,12 @@ export function PhoneVerificationBox({
         </>
       )}
 
-      {error ? <p className="text-[13px] text-red-600">{error}</p> : null}
+      {error ? <p className="text-[13px] text-red-600" role="alert">{error}</p> : null}
+      {showSetupShellError ? (
+        <p className="text-[12px] text-red-600" role="alert">
+          {t("profile_setup_err_phone_required")}
+        </p>
+      ) : null}
       {message ? <p className="text-[13px] text-[#00704A]">{message}</p> : null}
     </div>
   );

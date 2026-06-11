@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -20,7 +20,23 @@ import {
 import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
 import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
+import { fetchMeAddressesListSingleFlight, invalidateMeAddressesListClientCache } from "@/lib/addresses/address-list-client-cache";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import {
+  fetchMandatoryAddressGateDeduped,
+  invalidateMandatoryAddressGateClientCache,
+} from "@/lib/addresses/mandatory-address-gate-client";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import {
+  isProfileSetupComplete,
+  isProfileSetupMode,
+  isProfileSetupPending,
+} from "@/lib/auth/profile-setup-flow";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import {
   ProfileEditFormShell,
   ProfileEditSection,
@@ -46,6 +62,14 @@ function validate(
 
 export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const setupMode = isProfileSetupMode(searchParams);
+  const setupNext = useMemo(
+    () => sanitizeNextPath(searchParams?.get("next") ?? null),
+    [searchParams],
+  );
+  const setupExitRef = useRef(false);
   const { t } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -75,10 +99,70 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     guide_text: string;
     resend_cooldown_seconds: number;
   } | null>(null);
+  const [addressNeedsBlock, setAddressNeedsBlock] = useState(false);
+  const [setupGateReady, setSetupGateReady] = useState(!setupMode);
 
-  const load = useCallback(async () => {
+  const phoneVerifiedForSetup = useMemo(() => {
+    if (!profile) return false;
+    return hasPhilippinePhoneVerification({
+      role: profile.role ?? null,
+      phone_verified: profile.phone_verified === true,
+      phone_verified_at: profile.phone_verified_at ?? null,
+      provider: profile.provider ?? profile.auth_provider ?? null,
+      auth_provider: profile.auth_provider ?? profile.provider ?? null,
+      email: profile.email ?? null,
+    });
+  }, [profile]);
+
+  const phoneRequiredForSetup = phoneVerificationSettings?.enabled === true;
+  const phoneSatisfiedForSetup = phoneVerifiedForSetup || !phoneRequiredForSetup;
+
+  const refreshSetupGate = useCallback(async () => {
+    if (!setupMode) {
+      setSetupGateReady(true);
+      return;
+    }
+    try {
+      invalidateMandatoryAddressGateClientCache();
+      const res = await fetchMandatoryAddressGateDeduped({
+        component: "ProfileEditForm",
+        reason: "refreshSetupGate",
+        bypassCache: true,
+      });
+      if (res.status === 401) {
+        setAddressNeedsBlock(false);
+        setSetupGateReady(true);
+        return;
+      }
+      if (!res.ok) {
+        setSetupGateReady(true);
+        return;
+      }
+      const json = (await res.json()) as {
+        ok?: boolean;
+        authenticated?: boolean;
+        needsBlock?: boolean;
+      };
+      if (!json.ok) {
+        setSetupGateReady(true);
+        return;
+      }
+      setAddressNeedsBlock(json.authenticated === true && json.needsBlock === true);
+      setSetupGateReady(true);
+    } catch {
+      setSetupGateReady(true);
+    }
+  }, [setupMode]);
+
+  const load = useCallback(async (opts?: { freshProfile?: boolean; freshAddresses?: boolean }) => {
     setLoading((prev) => (prev ? prev : true));
     setAddressListErr((prev) => (prev ? false : prev));
+    if (opts?.freshProfile) {
+      invalidateMeProfileDedupedCache();
+    }
+    if (opts?.freshAddresses) {
+      invalidateMeAddressesListClientCache();
+    }
     const pick = consumeMapAddressPick();
 
     const addressesPromise = fetchMeAddressesListSingleFlight()
@@ -160,6 +244,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     }
 
     setProfile(merged);
+    if (opts?.freshProfile && merged.id) {
+      setSupabaseProfileCache(profileRowToClientProfile(merged));
+    }
     setDisplayName(merged.display_name ?? merged.nickname ?? "");
     setAvatarUrl(merged.avatar_url ?? null);
     setBio(merged.bio ?? "");
@@ -177,11 +264,48 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     setPhone(parsePhMobileInput(merged.phone ?? ""));
     setPreferredCountry(merged.preferred_country ?? "PH");
     setLoading(false);
-  }, [pathname]);
+    void refreshSetupGate();
+  }, [pathname, refreshSetupGate]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!setupMode) return;
+    const onUpdated = () => {
+      void load({ freshAddresses: true });
+    };
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onUpdated);
+  }, [setupMode, load]);
+
+  const handlePhoneRefreshProfile = useCallback(async () => {
+    invalidateMandatoryAddressGateClientCache();
+    await load({ freshProfile: true });
+  }, [load]);
+
+  useEffect(() => {
+    if (!setupMode || !setupGateReady || setupExitRef.current || !profile) return;
+    if (
+      !isProfileSetupComplete({
+        needsBlock: addressNeedsBlock,
+        phoneVerified: phoneSatisfiedForSetup,
+      })
+    ) {
+      return;
+    }
+    setupExitRef.current = true;
+    router.replace(setupNext ?? POST_LOGIN_PATH);
+  }, [
+    setupMode,
+    setupGateReady,
+    addressNeedsBlock,
+    phoneSatisfiedForSetup,
+    setupNext,
+    router,
+    profile,
+  ]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -252,6 +376,14 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
 
   const atUsername = formatAtUsername(profile.username);
   const showPhoneVerify = phoneVerificationSettings?.enabled === true;
+  const setupCompleteInput = {
+    needsBlock: addressNeedsBlock,
+    phoneVerified: phoneSatisfiedForSetup,
+  };
+  const setupPending =
+    setupMode && setupGateReady && isProfileSetupPending(setupCompleteInput);
+  const addressSetupError = setupPending && addressNeedsBlock;
+  const phoneSetupError = setupPending && phoneRequiredForSetup && !phoneVerifiedForSetup;
 
   return (
     <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
@@ -259,6 +391,14 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
 
       <form id={PROFILE_EDIT_FORM_ID} onSubmit={handleSubmit}>
         <ProfileEditFormShell>
+          {setupPending ? (
+            <div
+              className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2.5 text-[14px] font-medium text-red-700"
+              role="status"
+            >
+              {t("profile_setup_banner")}
+            </div>
+          ) : null}
           {message ? (
             <div
               className={
@@ -316,20 +456,30 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
           </ProfileEditSection>
 
           <ProfileEditSection title={t("profile_edit_section_address")}>
-            <ProfileMapLocationBlock addresses={addressList} listError={addressListErr} />
+            <ProfileMapLocationBlock
+              addresses={addressList}
+              listError={addressListErr}
+              setupError={addressSetupError}
+            />
           </ProfileEditSection>
 
           {showPhoneVerify ? (
             <ProfileEditSection title={t("my_phone_verify_title")}>
               <PhoneVerificationBox
                 compact
+                setupError={phoneSetupError}
                 snapshot={{
                   phone: profile.phone,
                   phone_verified: profile.phone_verified,
+                  phone_verified_at: profile.phone_verified_at ?? null,
                   member_status: profile.member_status ?? null,
+                  role: profile.role ?? null,
+                  email: profile.email ?? null,
+                  provider: profile.provider ?? profile.auth_provider ?? null,
+                  auth_provider: profile.auth_provider ?? profile.provider ?? null,
                   settings: phoneVerificationSettings ?? undefined,
                 }}
-                onRefreshProfile={load}
+                onRefreshProfile={handlePhoneRefreshProfile}
               />
             </ProfileEditSection>
           ) : null}
