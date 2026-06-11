@@ -18,6 +18,7 @@ const FORBIDDEN_PREFIXES = [
   "/signup",
   "/auth/callback",
   "/auth/consent",
+  "/auth/onboarding",
   "/api/",
 ] as const;
 

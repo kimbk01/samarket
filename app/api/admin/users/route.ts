@@ -17,6 +17,10 @@ type ProfileRow = {
   id: string;
   email: string | null;
   username: string | null;
+  dibay_id: string | null;
+  dibay_id_locked: boolean | null;
+  onboarding_status: string | null;
+  onboarding_completed_at: string | null;
   nickname: string | null;
   display_name: string | null;
   role: string | null;
@@ -293,7 +297,7 @@ export async function GET(_req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
 
   const profileSelect =
-    "id, email, username, nickname, display_name, role, member_type, status, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+    "id, email, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
   const fetchProfiles = async () =>
     supabase
       .from("profiles")
@@ -436,6 +440,10 @@ export async function GET(_req: NextRequest) {
       loginUsername: testUser?.username?.trim() || r.username?.trim() || undefined,
       loginIdentifier,
       username: r.username?.trim() || null,
+      dibay_id: r.dibay_id?.trim() || null,
+      dibay_id_locked: r.dibay_id_locked === true,
+      onboarding_status: r.onboarding_status?.trim() || null,
+      onboarding_completed_at: r.onboarding_completed_at ?? null,
       displayName: r.display_name?.trim() || r.nickname?.trim() || null,
       nickname: labelFromDisplayAndUsername(
         (r.display_name ?? r.nickname ?? testUser?.display_name ?? "").trim(),

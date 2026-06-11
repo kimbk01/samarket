@@ -6,19 +6,22 @@ import {
 
 describe("profile-user-search-filter", () => {
   it("strips @ prefix and commas from keyword", () => {
-    expect(normalizeProfileUserSearchKeyword("@samarket")).toBe("samarket");
+    expect(normalizeProfileUserSearchKeyword("@Samarket")).toBe("samarket");
     expect(normalizeProfileUserSearchKeyword("foo,bar")).toBe("foobar");
   });
 
-  it("builds quoted or filter for safe keywords", () => {
+  it("builds dibay_id exact ilike filter with legacy confirmed username", () => {
     expect(buildProfileUserSearchOrFilter("samarket")).toBe(
-      'username.ilike."%samarket%",nickname.ilike."%samarket%",display_name.ilike."%samarket%"'
+      'dibay_id.ilike."samarket",and(username.ilike."samarket",username_confirmed.eq.true)'
+    );
+    expect(buildProfileUserSearchOrFilter("@Samarket")).toBe(
+      'dibay_id.ilike."samarket",and(username.ilike."samarket",username_confirmed.eq.true)'
     );
   });
 
   it("escapes ilike wildcards and quotes", () => {
     expect(buildProfileUserSearchOrFilter('100%_"x"')).toBe(
-      'username.ilike."%100\\\\%\\\\_\\"x\\"%",nickname.ilike."%100\\\\%\\\\_\\"x\\"%",display_name.ilike."%100\\\\%\\\\_\\"x\\"%"'
+      'dibay_id.ilike."100\\\\%\\\\_\\"x\\"",and(username.ilike."100\\\\%\\\\_\\"x\\"",username_confirmed.eq.true)'
     );
   });
 

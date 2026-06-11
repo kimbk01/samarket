@@ -1,15 +1,19 @@
-import { Suspense } from "react";
-import { OnboardingUsernameClient } from "@/components/onboarding/OnboardingUsernameClient";
+import { redirect } from "next/navigation";
 
-/**
- * @username(불변) 설정 단계의 강제 화면.
- * - 페이지는 얇게 유지하고, 실제 저장/중복확인은 클라이언트에서 API로 수행한다.
- */
-export default function OnboardingUsernamePage() {
-  return (
-    <Suspense fallback={null}>
-      <OnboardingUsernameClient />
-    </Suspense>
-  );
+function safeNextQuery(input: string | string[] | undefined): string {
+  const raw = Array.isArray(input) ? input[0] : input;
+  const next = typeof raw === "string" ? raw.trim() : "";
+  if (next.startsWith("/") && !next.startsWith("//")) {
+    return `?next=${encodeURIComponent(next)}`;
+  }
+  return "";
 }
 
+export default async function OnboardingUsernameLegacyRedirectPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = searchParams ? await searchParams : {};
+  redirect(`/auth/onboarding/dibay-id${safeNextQuery(params.next)}`);
+}

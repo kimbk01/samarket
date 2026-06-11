@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
+import { hasStoreTermsConsent, STORE_PRIVACY_VERSION, STORE_TERMS_VERSION } from "@/lib/auth/store-member-policy";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { STORE_PRIVACY_VERSION, STORE_TERMS_VERSION } from "@/lib/auth/store-member-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,11 +50,34 @@ export async function PATCH(req: NextRequest) {
     return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
   }
   const sb = tryCreateSupabaseServiceClient() ?? routeSb;
-  try {
-    await ensureAuthProfileRow(sb, user);
-  } catch {
-    // 이미 프로필이 있거나 최소 row 생성이 다음 update 에서 검증된다.
+
+  const existing = await fetchProfileRowSafe(sb, auth.userId);
+  if (
+    hasStoreTermsConsent({
+      terms_accepted_at: existing?.terms_accepted_at ?? null,
+      terms_version: existing?.terms_version ?? null,
+      privacy_accepted_at: existing?.privacy_accepted_at ?? null,
+      privacy_version: existing?.privacy_version ?? null,
+    })
+  ) {
+    return jsonOk({
+      ok: true,
+      idempotent: true,
+      consent: {
+        termsAcceptedAt: existing?.terms_accepted_at ?? null,
+        termsVersion: existing?.terms_version ?? null,
+        privacyAcceptedAt: existing?.privacy_accepted_at ?? null,
+        privacyVersion: existing?.privacy_version ?? null,
+      },
+    });
   }
+
+  try {
+    await ensurePendingAuthProfileRow(sb, user);
+  } catch {
+    /* 다음 update 에서 검증 */
+  }
+
   const now = new Date().toISOString();
   const { data: updated, error } = await sb
     .from("profiles")
@@ -63,6 +86,7 @@ export async function PATCH(req: NextRequest) {
       terms_version: STORE_TERMS_VERSION,
       privacy_accepted_at: now,
       privacy_version: STORE_PRIVACY_VERSION,
+      onboarding_status: "id_required",
       updated_at: now,
     })
     .eq("id", auth.userId)

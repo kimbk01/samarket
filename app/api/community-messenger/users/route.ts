@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
 import { searchCommunityMessengerUsers } from "@/lib/community-messenger/service";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +20,13 @@ export async function GET(req: NextRequest) {
     code: "community_messenger_users_search_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
+
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_service_role_required" }, { status: 503 });
+  }
+  const signupGate = await requireSignupCompleteForUser(sb, auth.userId);
+  if (!signupGate.ok) return signupGate.response;
 
   const query = req.nextUrl.searchParams.get("q") ?? "";
   const users = await searchCommunityMessengerUsers(auth.userId, query);

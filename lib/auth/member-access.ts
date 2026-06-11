@@ -3,7 +3,7 @@ import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
-import { buildDefaultDibayPublicId } from "@/lib/profile/default-profile";
+import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
   deriveStoreMemberStatus,
@@ -64,6 +64,8 @@ function normalizeProviderForDb(provider: string | null | undefined): string | n
     normalized === "google" ||
     normalized === "kakao" ||
     normalized === "naver" ||
+    normalized === "apple" ||
+    normalized === "facebook" ||
     normalized === "manual" ||
     normalized === "email"
   ) {
@@ -232,6 +234,108 @@ async function resolveUniqueNicknameForInsert(
   return `${base.slice(0, 12)}-${ownerId.slice(0, 6)}`;
 }
 
+/**
+ * OAuth 직후 최소 profiles 행 — dibay_id 자동 부여 금지, 약관·@id는 온보딩에서만.
+ */
+export async function ensurePendingAuthProfileRow(
+  sb: SupabaseClient,
+  user: User,
+  seedInput?: OAuthProfileSeed
+): Promise<void> {
+  const seed = seedInput ?? extractOAuthProfileSeed(user);
+  const email = pickTrimmed(user.email);
+  const nicknameCandidate = pickTrimmed(seed.nicknameCandidate);
+  const oauthAvatarRaw = seed.avatarCandidate;
+  const oauthAvatar = withDefaultAvatar(oauthAvatarRaw);
+  const dbProvider = normalizeProviderForDb(seed.authProvider) ?? "email";
+  const nowIso = new Date().toISOString();
+
+  const { data: existing } = await sb
+    .from("profiles")
+    .select(
+      "id,email,auth_login_email,provider,auth_provider,dibay_id_locked,onboarding_completed_at,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,nickname,display_name,avatar_url"
+    )
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (existing) {
+    const patch: Record<string, unknown> = {};
+    const row = existing as Record<string, unknown>;
+    if (!pickTrimmed(row.email as string) && email) patch.email = email;
+    if (!pickTrimmed(row.auth_login_email as string) && email) patch.auth_login_email = email;
+    if (!pickTrimmed(row.provider as string)) patch.provider = dbProvider;
+    if (!pickTrimmed(row.auth_provider as string)) patch.auth_provider = dbProvider;
+    if (!pickTrimmed(row.nickname as string) && nicknameCandidate) patch.nickname = nicknameCandidate;
+    if (!pickTrimmed(row.display_name as string) && nicknameCandidate) patch.display_name = nicknameCandidate;
+    const exAv = pickTrimmed(row.avatar_url as string);
+    if (oauthAvatarRaw && (!exAv || isSamarketDefaultAvatarUrl(exAv))) patch.avatar_url = oauthAvatarRaw;
+    if (!exAv && !oauthAvatarRaw) patch.avatar_url = oauthAvatar;
+    if (row.onboarding_completed_at == null && row.dibay_id_locked !== true) {
+      const consent = hasStoreTermsConsent({
+        terms_accepted_at: pickTrimmed(row.terms_accepted_at as string),
+        terms_version: pickTrimmed(row.terms_version as string),
+        privacy_accepted_at: pickTrimmed(row.privacy_accepted_at as string),
+        privacy_version: pickTrimmed(row.privacy_version as string),
+      });
+      patch.onboarding_status = consent ? "id_required" : "terms_required";
+    }
+    if (Object.keys(patch).length > 0) {
+      patch.updated_at = nowIso;
+      await sb.from("profiles").update(patch).eq("id", user.id);
+    }
+    return;
+  }
+
+  const fullRow = {
+    id: user.id,
+    email,
+    auth_login_email: email,
+    nickname: nicknameCandidate,
+    display_name: nicknameCandidate,
+    avatar_url: oauthAvatar,
+    provider: dbProvider,
+    auth_provider: dbProvider,
+    dibay_id: null,
+    dibay_id_locked: false,
+    username: null,
+    username_confirmed: false,
+    profile_completed: false,
+    role: "user",
+    is_admin: false,
+    member_type: "normal",
+    status: "sns_pending",
+    member_status: "pending",
+    phone_country_code: "+63",
+    phone_verified: false,
+    phone_verified_at: null,
+    phone_verification_status: "unverified",
+    onboarding_status: "terms_required",
+    updated_at: nowIso,
+  };
+
+  const { error: upsertError } = await sb.from("profiles").upsert(fullRow, { onConflict: "id" });
+  if (upsertError) {
+    const minimalRow = {
+      id: user.id,
+      email,
+      nickname: nicknameCandidate,
+      display_name: nicknameCandidate,
+      avatar_url: oauthAvatar,
+      updated_at: nowIso,
+    };
+    const second = await sb.from("profiles").upsert(minimalRow, { onConflict: "id" });
+    if (second.error) {
+      const idOnly = await sb.from("profiles").upsert({ id: user.id }, { onConflict: "id" });
+      if (idOnly.error) {
+        const verify = await sb.from("profiles").select("id").eq("id", user.id).maybeSingle();
+        if (!verify.data) {
+          throw new Error(upsertError.message ?? "pending_profile_upsert_failed");
+        }
+      }
+    }
+  }
+}
+
 export async function ensureAuthProfileRow(
   sb: SupabaseClient,
   user: User
@@ -241,10 +345,7 @@ export async function ensureAuthProfileRow(
     normalizeProvider(pickTrimmed(user.app_metadata?.provider) ?? pickTrimmed(meta.provider) ?? pickTrimmed(meta.auth_provider)) ??
     "email";
   const email = pickTrimmed(user.email);
-  const username =
-    pickTrimmed(meta.username) ??
-    pickTrimmed(meta.login_id) ??
-    buildDefaultDibayPublicId(user.id);
+  const username = pickTrimmed(meta.username) ?? pickTrimmed(meta.login_id) ?? null;
   const nickname = resolveNicknameSeed({
     nickname: meta.nickname ?? meta.full_name ?? meta.name,
     username,
@@ -289,13 +390,21 @@ export async function ensureAuthProfileRow(
   };
 
   if (!existing) {
-    const publicId = buildDefaultDibayPublicId(user.id);
-    const displaySeed = username || publicId;
+    if (!isAdminManual) {
+      await ensurePendingAuthProfileRow(sb, user);
+      return await loadMemberAccessState(sb, user.id, {
+        fallbackEmail: email,
+        fallbackUsername: username,
+        fallbackNickname: nickname,
+        fallbackProvider: provider,
+      });
+    }
+    const displaySeed = username ?? nickname;
     const seedRow = {
       id: user.id,
       email,
       display_name: displaySeed,
-      username: displaySeed,
+      username: username ?? displaySeed,
       nickname: displaySeed,
       auth_login_email: email,
       provider: dbProvider,
@@ -370,7 +479,9 @@ export async function ensureAuthProfileRow(
     const needsDisplayName = !pickTrimmed((existing as { display_name?: string | null }).display_name) && Boolean(nickname);
     const needsNickname = !pickTrimmed(existing.nickname) && Boolean(nickname);
     if (needsDisplayName) patch.display_name = await ensureUniqueNickname();
-    if (!pickTrimmed(existing.username) && username) patch.username = username;
+    if (!pickTrimmed(existing.username) && username && (existing as { dibay_id_locked?: boolean }).dibay_id_locked !== true) {
+      patch.username = username;
+    }
     if (needsNickname) patch.nickname = await ensureUniqueNickname();
     if (!pickTrimmed((existing as { auth_login_email?: string | null }).auth_login_email) && email) patch.auth_login_email = email;
     if (!pickTrimmed((existing as { provider?: string | null }).provider) && dbProvider) patch.provider = dbProvider;

@@ -8,7 +8,7 @@ import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
-import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect";
+import { DibaySignupGate } from "@/components/auth/DibaySignupGate";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { AddressRequiredSheet } from "@/components/auth/AddressRequiredSheet";
 import { LoginRequiredSheet } from "@/components/auth/LoginRequiredSheet";
@@ -179,7 +179,7 @@ export function MainAppProviderTree({
           <AppWideRuntimePerfHooks />
           <SessionLostRedirect />
           <PostLogoutBfcacheGuard />
-          <AuthComplianceRedirect />
+          <DibaySignupGate />
           <OwnerHubBadgeRuntime />
           <MandatoryAddressGate />
           <LoginRequiredSheet />

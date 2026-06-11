@@ -12,6 +12,7 @@ import {
   shouldAllowUnauthenticatedHtmlRequest,
   shouldBlockUnauthenticatedHtmlRequest,
 } from "@/lib/auth/guest-browse-access-policy";
+import { resolveProxySignupGateRedirect } from "@/lib/auth/proxy-signup-gate";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
@@ -54,6 +55,25 @@ function finalizeOwnerDocResponse(res: NextResponse, pathname: string): NextResp
     res.headers.set("x-sam-owner-path", pathname);
   }
   return preventAuthPageCache(res);
+}
+
+async function maybeRedirectIncompleteSignup(
+  request: NextRequest,
+  supabase: ReturnType<typeof createServerClient>,
+  userId: string,
+  pathname: string
+): Promise<NextResponse | null> {
+  try {
+    const redirectPath = await resolveProxySignupGateRedirect(supabase, userId, pathname);
+    if (!redirectPath) return null;
+    const url = request.nextUrl.clone();
+    const qIdx = redirectPath.indexOf("?");
+    url.pathname = qIdx >= 0 ? redirectPath.slice(0, qIdx) : redirectPath;
+    url.search = qIdx >= 0 ? redirectPath.slice(qIdx + 1) : "";
+    return preventAuthPageCache(NextResponse.redirect(url, 307));
+  } catch {
+    return null;
+  }
 }
 
 /** 미인증 private·회원 전용 URL — `/login` 리다이렉트 대신 404(not-found UI) */
@@ -187,6 +207,13 @@ export async function proxy(request: NextRequest) {
     if (userId) {
       proxyAuthCacheHit = 1;
       proxyAuthMs = devPerfNow() - gu0;
+      const signupRedirect = await maybeRedirectIncompleteSignup(
+        request,
+        supabase,
+        userId,
+        pathname
+      );
+      if (signupRedirect) return signupRedirect;
       if (shouldLogProxyPerf) {
         logDevApiPerf(
           "proxy.ts",
@@ -208,6 +235,13 @@ export async function proxy(request: NextRequest) {
 
     if (userId) {
       setProxyAuthSessionCache(authFp, userId);
+      const signupRedirect = await maybeRedirectIncompleteSignup(
+        request,
+        supabase,
+        userId,
+        pathname
+      );
+      if (signupRedirect) return signupRedirect;
       if (shouldLogProxyPerf) {
         logDevApiPerf(
           "proxy.ts",

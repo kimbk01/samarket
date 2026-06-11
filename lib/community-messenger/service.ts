@@ -259,6 +259,7 @@ type ProfileRow = {
   display_name?: string | null;
   nickname?: string | null;
   username?: string | null;
+  dibay_id?: string | null;
   avatar_url?: string | null;
   bio?: string | null;
 };
@@ -847,6 +848,11 @@ async function filterDirectIncomingRowsForPolicy(
   return out;
 }
 
+export function profileDibaySubtitle(row: ProfileRow | null | undefined): string | undefined {
+  const id = trimText(row?.dibay_id) || trimText(row?.username);
+  return id ? `@${id}` : undefined;
+}
+
 export function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
   const display = trimText(row?.display_name) || trimText(row?.nickname);
   const username = trimText(row?.username);
@@ -1148,7 +1154,7 @@ type FetchProfilesByIdsRowStats = {
 
 /** lite bootstrap first paint — bio 제외·컬럼 최소(관계 쿼리 없음) */
 const BOOTSTRAP_LITE_FIRST_PAINT_PROFILE_SELECT =
-  "id, display_name, nickname, username, avatar_url";
+  "id, display_name, nickname, username, dibay_id, avatar_url";
 
 async function fetchProfilesByIdsBootstrapLiteFirstPaint(
   ids: string[],
@@ -1193,6 +1199,7 @@ async function fetchProfilesByIdsBootstrapLiteFirstPaint(
           display_name: row.display_name ?? null,
           nickname: row.nickname ?? null,
           username: row.username ?? null,
+          dibay_id: row.dibay_id ?? null,
           avatar_url: row.avatar_url ?? null,
           bio: null,
         };
@@ -1257,7 +1264,7 @@ async function fetchProfilesByIds(
       const t0 = Date.now();
       const { data } = await (sb as any)
         .from("profiles")
-        .select("id, display_name, nickname, username, avatar_url, bio")
+        .select("id, display_name, nickname, username, dibay_id, avatar_url, bio")
         .in("id", sortedMissing);
       const fresh = new Map<string, ProfileRow>();
       for (const row of (data ?? []) as ProfileRow[]) {
@@ -1608,7 +1615,7 @@ async function hydrateProfilesWithProfileMap(
     return {
       id,
       label: profileLabel(profile, id),
-      subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
+      subtitle: profileDibaySubtitle(profile),
       bio: trimText(profile?.bio) || null,
       avatarUrl: trimText(profile?.avatar_url) || null,
       following: id === viewerId ? false : relationSets.following.has(id),
@@ -1647,6 +1654,7 @@ function parseBootstrapLiteBundleProfileLabels(raw: unknown): Map<string, Profil
       display_name: (row.display_name as string | null) ?? null,
       nickname: (row.nickname as string | null) ?? null,
       username: (row.username as string | null) ?? null,
+      dibay_id: (row.dibay_id as string | null) ?? null,
       avatar_url: (row.avatar_url as string | null) ?? null,
       bio: null,
     });
@@ -1694,7 +1702,7 @@ export async function hydrateProfilesLabelsOnlyWithMap(
     return {
       id,
       label: profileLabel(profile, id),
-      subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
+      subtitle: profileDibaySubtitle(profile),
       bio: liteFirstPaint ? null : trimText(profile?.bio) || null,
       avatarUrl: trimText(profile?.avatar_url) || null,
       following: false,
@@ -1751,7 +1759,7 @@ export function buildProfilesFromKnownRelations(params: {
     return {
       id,
       label: profileLabel(profile, id),
-      subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
+      subtitle: profileDibaySubtitle(profile),
       bio: trimText(profile?.bio) || null,
       avatarUrl: trimText(profile?.avatar_url) || null,
       following: isViewer ? false : followingIdSet.has(id),

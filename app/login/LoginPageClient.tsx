@@ -10,6 +10,7 @@ import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
 import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
@@ -32,11 +33,24 @@ const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
 const LOGIN_BOOTSTRAP_CACHE_TTL_MS = 30_000;
 
+async function resolvePostAuthDestination(fallback: string): Promise<string> {
+  try {
+    const { status, json } = await fetchSignupStatusDeduped();
+    if (status === 200 && json?.route?.trim()) {
+      return json.route.trim();
+    }
+  } catch {
+    /* fallback */
+  }
+  return fallback;
+}
+
 async function navigateAfterFreshLogin(destination: string): Promise<void> {
   await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
   await ensureAppBoot();
   clearPostLogoutBfcacheGuard();
-  window.location.replace(destination);
+  const target = await resolvePostAuthDestination(destination);
+  window.location.replace(target);
 }
 
 function looksLikeEmailForLogin(identifierRaw: string): boolean {
@@ -224,7 +238,9 @@ function LoginPageContent() {
           data: { session },
         } = await supabase.auth.getSession();
         if (cancelled || !session?.user) return;
-        window.location.assign(postLoginDestination);
+        await ensureAppBoot();
+        const target = await resolvePostAuthDestination(postLoginDestination);
+        if (!cancelled) window.location.assign(target);
       } catch {
         /* 세션 조회 실패 시 로그인 화면 유지 */
       }

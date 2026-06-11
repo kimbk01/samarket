@@ -32,6 +32,7 @@ import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-stora
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messenger/call-logout-teardown";
+import { resetSignupGateSessionFlags } from "@/lib/auth/signup-gate-session";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -112,6 +113,7 @@ function resetAuthClientCaches(): void {
 export function syncSignedOutClientCaches(): void {
   if (typeof window === "undefined") return;
   resetAuthClientCaches();
+  resetSignupGateSessionFlags();
   dispatchTestAuthChanged();
 }
 
@@ -134,6 +136,7 @@ async function runWipeClientSessionState(
   await disconnectSupabaseRealtime();
   resetInMemoryClientStores();
   resetAuthClientCaches();
+  resetSignupGateSessionFlags();
   clearEphemeralLocalStorage();
   clearEphemeralSessionStorage({ setPostLogoutGuard });
   closeAllServiceWorkerNotifications();

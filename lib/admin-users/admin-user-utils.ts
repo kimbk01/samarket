@@ -166,6 +166,7 @@ export function filterAndSortUsers(
       const matchNickname = u.nickname.toLowerCase().includes(q);
       const matchDisplayName = String(u.displayName ?? "").toLowerCase().includes(q);
       const matchUsername = String(u.username ?? "").toLowerCase().includes(q.replace(/^@/, ""));
+      const matchDibayId = String(u.dibay_id ?? "").toLowerCase().includes(q.replace(/^@/, ""));
       const matchEmail = (u.email ?? "").toLowerCase().includes(q);
       const matchId = u.id.toLowerCase().includes(q);
       const matchLogin = (u.loginUsername ?? "").toLowerCase().includes(q);
@@ -176,6 +177,7 @@ export function filterAndSortUsers(
         matchNickname ||
         matchDisplayName ||
         matchUsername ||
+        matchDibayId ||
         matchEmail ||
         matchId ||
         matchLogin ||

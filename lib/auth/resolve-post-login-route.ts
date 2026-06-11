@@ -1,29 +1,42 @@
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { buildProfileSetupHref } from "@/lib/auth/profile-setup-flow";
-import {
-  withNextSearchParam,
-  sanitizeNextPath,
-  sanitizeFreshLoginLandingPath,
-} from "@/lib/auth/safe-next-path";
 import type { OnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import {
+  deriveDibaySignupStatus,
+  resolveDibaySignupRoute,
+} from "@/lib/auth/dibay-signup-status";
+import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 
 /**
- * 로그인 콜백·세션 복원·온보딩 화면 종료 시 다음 라우트를 결정한다 (스펙 1).
+ * 로그인 콜백·세션 복원·온보딩 화면 종료 시 다음 라우트를 결정한다.
  *
- *  분기 (위에서 아래로 평가):
- *    A. 세션 없음                   → `/login?error=session_missing`
- *    B. 동의 미완료(약관·개인정보) → `/auth/consent?next=...`
- *    C. 닉네임/필수 프로필 미완   → `/onboarding/profile?next=...`
- *    D. 대표 주소·전화 미완       → 프로필 수정 setup (`?setup=1&next=...`)
- *    E. 모두 완료                  → `next || POST_LOGIN_PATH(/philife)`
- *
- *  이 함수는 순수 함수다. DB·세션 의존성은 호출 측이 주입한다.
+ * 가입 완료: 약관 + 확정 @id + onboarding_completed_at
+ * 주소·전화는 가입 경로에서 제외.
  */
 export type ResolvePostLoginRouteParams = {
   hasSession: boolean;
   status: OnboardingStatus | null;
   next?: string | null;
 };
+
+function onboardingStatusToDibaySignup(status: OnboardingStatus) {
+  return deriveDibaySignupStatus(
+    {
+      id: status.profileExists ? "user" : null,
+      dibay_id: status.dibayId,
+      dibay_id_locked: status.dibayIdLocked,
+      username: status.username,
+      username_confirmed: status.usernameConfirmed,
+      terms_accepted_at: status.termsAcceptedAt,
+      terms_version: status.termsVersion,
+      privacy_accepted_at: status.privacyAcceptedAt,
+      privacy_version: status.privacyVersion,
+      onboarding_completed_at: status.onboardingCompletedAt,
+      onboarding_status: status.onboardingStatus,
+      role: status.isPrivilegedAdmin ? "admin" : "user",
+    },
+    { hasSession: true }
+  );
+}
 
 export function resolvePostLoginRoute({
   hasSession,
@@ -36,24 +49,5 @@ export function resolvePostLoginRoute({
   if (!status) {
     return sanitizeFreshLoginLandingPath(sanitizeNextPath(next ?? null)) ?? POST_LOGIN_PATH;
   }
-  const safeNext = sanitizeNextPath(next ?? null);
-
-  // 관리자(특권 역할)는 동의/주소 게이트를 건너뛴다 — 운영 동선에서 갑자기 막히지 않도록.
-  if (status.isPrivilegedAdmin) {
-    return sanitizeFreshLoginLandingPath(safeNext) ?? POST_LOGIN_PATH;
-  }
-
-  if (!status.consentComplete) {
-    return withNextSearchParam("/auth/consent", safeNext);
-  }
-  if (!status.usernameComplete) {
-    return withNextSearchParam("/onboarding/username", safeNext);
-  }
-  if (!status.profileComplete || !status.nicknameComplete) {
-    return withNextSearchParam("/onboarding/profile", safeNext);
-  }
-  if (!status.addressComplete || !status.phoneVerified) {
-    return buildProfileSetupHref({ next: safeNext });
-  }
-  return sanitizeFreshLoginLandingPath(safeNext) ?? POST_LOGIN_PATH;
+  return resolveDibaySignupRoute(onboardingStatusToDibaySignup(status), next);
 }

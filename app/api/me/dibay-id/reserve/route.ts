@@ -6,7 +6,6 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** @deprecated — use /api/me/dibay-id/reserve */
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;

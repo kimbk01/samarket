@@ -227,7 +227,9 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3">
         <p className="font-semibold text-[#101828]">{u.displayName ?? u.nickname}</p>
-        <p className="mt-0.5 text-[11px] font-mono text-[#8a8d91]">{u.username ? `@${u.username}` : "-"}</p>
+        <p className="mt-0.5 text-[11px] font-mono text-[#8a8d91]">
+          {(u.dibay_id ?? u.username)?.trim() ? `@${(u.dibay_id ?? u.username)?.trim()}` : "-"}
+        </p>
       </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.email?.trim() || emptyCell}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.phone?.trim() || emptyCell}</td>

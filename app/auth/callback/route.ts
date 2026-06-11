@@ -2,13 +2,16 @@ import type { User } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
+import { extractOAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
+import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { APP_LANGUAGE_COOKIE, parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -40,10 +43,6 @@ export async function GET(req: NextRequest) {
   const cookieRaw = req.cookies.get(SIGNUP_NICKNAME_COOKIE)?.value;
   const localeCookieRaw = req.cookies.get(APP_LANGUAGE_COOKIE)?.value;
 
-  /**
-   * exchangeCodeForSession 이 Set-Cookie 를 쓰므로, 같은 redirect 응답에 붙여야 함.
-   * (마지막에 새 `NextResponse.redirect`를 만들면 세션 쿠키가 유실되어 프록시가 /login 으로 보냄.)
-   */
   let response = NextResponse.redirect(redirectUrl);
   const cookieSecure = cookieSecureFromNextRequest(req);
   const supabase = createServerClient(url, anon, {
@@ -105,6 +104,7 @@ export async function GET(req: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
     const serviceSb = tryCreateSupabaseServiceClient();
+    const writeSb = serviceSb ?? supabase;
     if (user) {
       const baseMeta =
         user.user_metadata && typeof user.user_metadata === "object"
@@ -120,13 +120,19 @@ export async function GET(req: NextRequest) {
         }
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
+      const seed = extractOAuthProfileSeed(mergedUser);
+      if (nick) {
+        seed.nicknameCandidate = nick;
+      }
+
       try {
-        /**
-         * SNS 로그인 회원 식별·중복 방지 단일 진입점:
-         * - profiles 가 있으면 update 만, 없을 때만 1회 insert
-         * - provider+provider_user_id 충돌 시 duplicateWarning 만 표면화 (자동 병합 금지)
-         */
-        const outcome = await ensureUserProfile(serviceSb ?? supabase, mergedUser);
+        await ensurePendingAuthProfileRow(writeSb, mergedUser, seed);
+      } catch {
+        /* 클라이언트 ensure 에 맡김 */
+      }
+
+      try {
+        const outcome = await ensureUserProfile(writeSb, mergedUser);
         if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
           console.warn("[auth/callback] duplicate profile candidate detected", {
             userId: mergedUser.id,
@@ -134,25 +140,22 @@ export async function GET(req: NextRequest) {
           });
         }
       } catch {
-        /* 프로필 보장 실패 시 클라이언트 ensure 에 맡김 */
+        /* provider identity 보강 실패는 로그인을 막지 않음 */
       }
 
-      // 온보딩 상태 단일 조회 → 동의/프로필/주소 분기 결정 (스펙 1)
-      let onboardingTarget: string | null = null;
+      let onboardingTarget = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
       try {
-        const status = await getOnboardingStatus(serviceSb ?? supabase, user.id);
+        const status = await getOnboardingStatus(writeSb, user.id);
         onboardingTarget = resolvePostLoginRoute({
           hasSession: true,
           status,
           next: safeNext,
         });
       } catch {
-        /* 상태 조회 실패 시 기본 next 로 진행 (콜백을 막지 않음) */
+        /* 상태 조회 실패 시 약관 화면으로 — 메인 직행 금지 */
       }
-      if (onboardingTarget) {
-        const onboardingUrl = new URL(onboardingTarget, req.url);
-        response.headers.set("Location", onboardingUrl.toString());
-      }
+      const onboardingUrl = new URL(onboardingTarget, req.url);
+      response.headers.set("Location", onboardingUrl.toString());
 
       const sessionMeta = buildRequestSessionMeta(req);
       await syncActiveSessionForUser(user.id, response, {

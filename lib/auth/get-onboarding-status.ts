@@ -5,34 +5,44 @@ import {
   hasStoreTermsConsent,
 } from "@/lib/auth/store-member-policy";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
+import { deriveDibaySignupStatus, isDibayIdComplete } from "@/lib/auth/dibay-signup-status";
+import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status";
 
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
  *
- * - `profileExists`: profiles 행이 보장됨(`ensureAuthProfileRow` 직후 항상 true)
- * - `nicknameComplete`: profiles.nickname 이 비어있지 않음
- * - `consentComplete`: 이용약관·개인정보 동의가 최신 버전으로 기록됨
- * - `addressComplete`: 대표 주소(`is_default_master`)가 1건 이상 존재
- * - `phoneVerified`: 전화번호 인증 완료(필리핀 정회원 기준)
- * - `profileComplete`: profile + nickname + consent 모두 충족 — onboarding/profile 단계 통과 여부
- *
- * 글쓰기·채팅·거래·주문 등 핵심 액션은 `phoneVerified` 가 true 여야 한다 (스펙 1-D).
+ * 가입 완료( signup ): 약관 + 확정 dibay_id + onboarding_completed_at
+ * 주소·전화: 기능 게이트 전용 (가입 경로 아님)
  */
 export type OnboardingStatus = {
   profileExists: boolean;
   usernameComplete: boolean;
+  dibayIdComplete: boolean;
   nicknameComplete: boolean;
   consentComplete: boolean;
   addressComplete: boolean;
   phoneVerified: boolean;
   profileComplete: boolean;
+  signupComplete: boolean;
   isPrivilegedAdmin: boolean;
+  dibayId: string | null;
+  dibayIdLocked: boolean;
+  username: string | null;
+  usernameConfirmed: boolean;
+  termsAcceptedAt: string | null;
+  termsVersion: string | null;
+  privacyAcceptedAt: string | null;
+  privacyVersion: string | null;
+  onboardingCompletedAt: string | null;
+  onboardingStatus: DibayOnboardingStatusValue | null;
 };
 
 type ProfileRowSubset = {
   id: string | null;
   username: string | null;
   username_confirmed: boolean | null;
+  dibay_id: string | null;
+  dibay_id_locked: boolean | null;
   display_name?: string | null;
   nickname: string | null;
   email: string | null;
@@ -45,6 +55,8 @@ type ProfileRowSubset = {
   terms_version: string | null;
   privacy_accepted_at: string | null;
   privacy_version: string | null;
+  onboarding_completed_at: string | null;
+  onboarding_status: string | null;
 };
 
 function pickTrimmedString(input: unknown): string | null {
@@ -60,7 +72,7 @@ async function loadProfileSubset(
   const { data, error } = await sb
     .from("profiles")
     .select(
-      "id,username,username_confirmed,display_name,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version"
+      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -71,6 +83,8 @@ async function loadProfileSubset(
     id: pickTrimmedString(row.id),
     username: pickTrimmedString(row.username),
     username_confirmed: row.username_confirmed === true,
+    dibay_id: pickTrimmedString(row.dibay_id),
+    dibay_id_locked: row.dibay_id_locked === true,
     display_name: pickTrimmedString(row.display_name),
     nickname: pickTrimmedString(row.nickname),
     email: pickTrimmedString(row.email),
@@ -83,12 +97,13 @@ async function loadProfileSubset(
     terms_version: pickTrimmedString(row.terms_version),
     privacy_accepted_at: pickTrimmedString(row.privacy_accepted_at),
     privacy_version: pickTrimmedString(row.privacy_version),
+    onboarding_completed_at: pickTrimmedString(row.onboarding_completed_at),
+    onboarding_status: pickTrimmedString(row.onboarding_status),
   };
 }
 
 /**
  * 사용자 ID 로 온보딩 상태를 조회한다 (DB 1~2회 조회).
- * - 호출 측은 `tryGetSupabaseForStores`(서비스 키) 또는 RLS 통과한 클라이언트를 넘긴다.
  */
 export async function getOnboardingStatus(
   sb: SupabaseClient,
@@ -96,14 +111,18 @@ export async function getOnboardingStatus(
 ): Promise<OnboardingStatus> {
   const profile = await loadProfileSubset(sb, userId);
   const profileExists = profile?.id !== null && profile?.id !== undefined;
-  const usernameComplete = Boolean(profile?.username && profile.username.length > 0 && profile.username_confirmed === true);
-  const nicknameComplete = Boolean(profile?.display_name && profile.display_name.length > 0);
   const consentComplete = hasStoreTermsConsent({
     terms_accepted_at: profile?.terms_accepted_at ?? null,
     terms_version: profile?.terms_version ?? null,
     privacy_accepted_at: profile?.privacy_accepted_at ?? null,
     privacy_version: profile?.privacy_version ?? null,
   });
+  const dibayIdComplete = isDibayIdComplete(profile ?? undefined);
+  const usernameComplete = dibayIdComplete;
+  const nicknameComplete = Boolean(
+    (profile?.display_name && profile.display_name.length > 0) ||
+      (profile?.nickname && profile.nickname.length > 0)
+  );
   const isPrivilegedAdmin = isPrivilegedAdminRole(profile?.role ?? null);
   const phoneVerified = hasPhilippinePhoneVerification({
     role: profile?.role ?? null,
@@ -121,16 +140,28 @@ export async function getOnboardingStatus(
     addressComplete = false;
   }
 
-  const profileComplete = profileExists && nicknameComplete && consentComplete;
+  const signup = deriveDibaySignupStatus(profile ?? undefined, { hasSession: profileExists });
 
   return {
     profileExists,
     usernameComplete,
+    dibayIdComplete,
     nicknameComplete,
     consentComplete,
     addressComplete,
     phoneVerified,
-    profileComplete,
+    profileComplete: profileExists && nicknameComplete && consentComplete,
+    signupComplete: signup.signupComplete,
     isPrivilegedAdmin,
+    dibayId: profile?.dibay_id ?? null,
+    dibayIdLocked: profile?.dibay_id_locked === true,
+    username: profile?.username ?? null,
+    usernameConfirmed: profile?.username_confirmed === true,
+    termsAcceptedAt: profile?.terms_accepted_at ?? null,
+    termsVersion: profile?.terms_version ?? null,
+    privacyAcceptedAt: profile?.privacy_accepted_at ?? null,
+    privacyVersion: profile?.privacy_version ?? null,
+    onboardingCompletedAt: profile?.onboarding_completed_at ?? null,
+    onboardingStatus: signup.onboardingStatus,
   };
 }

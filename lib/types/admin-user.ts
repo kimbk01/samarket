@@ -23,6 +23,11 @@ export interface AdminUser {
   loginIdentifier?: string;
   /** profiles.username (@아이디, DB에는 @ 없이 저장) */
   username?: string | null;
+  /** profiles.dibay_id — 공개 @id (확정 후 변경 불가) */
+  dibay_id?: string | null;
+  dibay_id_locked?: boolean;
+  onboarding_status?: string | null;
+  onboarding_completed_at?: string | null;
   /** profiles.display_name (닉네임) */
   displayName?: string | null;
   nickname: string;

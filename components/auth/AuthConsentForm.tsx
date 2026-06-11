@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
-import { invalidateAppBootProfileCache } from "@/lib/app-boot/fetch-app-boot-profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { markSignupConsentResolvedSession } from "@/lib/auth/signup-gate-session";
+import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
+import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 
 export function AuthConsentForm() {
   const { t } = useI18n();
@@ -23,15 +25,18 @@ export function AuthConsentForm() {
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
 
   const handleSubmit = async () => {
+    if (inFlightRef.current || submitting) return;
     if (!agreeTerms || !agreePrivacy) {
       const nextError = t("auth_consent_both_required");
       setError((prev) => (prev === nextError ? prev : nextError));
       return;
     }
-    setSubmitting((prev) => (prev ? prev : true));
-    setError((prev) => (prev === null ? prev : null));
+    inFlightRef.current = true;
+    setSubmitting(true);
+    setError(null);
     try {
       const res = await fetch("/api/me/legal-consent", {
         method: "PATCH",
@@ -44,8 +49,8 @@ export function AuthConsentForm() {
         setError(data?.error || t("auth_consent_save_failed"));
         return;
       }
+
       invalidateMeProfileDedupedCache();
-      invalidateAppBootProfileCache();
       try {
         const { status, json } = await fetchMeProfileDeduped();
         const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
@@ -61,14 +66,27 @@ export function AuthConsentForm() {
           });
         }
       } catch {
-        /* 캐시 갱신 실패는 다음 GET 에 위임 */
+        /* 캐시 갱신 실패는 signup-status 로 위임 */
       }
-      router.replace(next);
+
+      markSignupConsentResolvedSession();
+
+      const { status: signupStatus, json: signupJson } = await fetchSignupStatusDeduped();
+      const target =
+        signupStatus === 200 && signupJson?.route?.trim()
+          ? signupJson.route.trim()
+          : next;
+
+      guardedRouterReplace(router, target, {
+        source: "auth-consent-form",
+        reason: "consent_saved",
+      });
     } catch {
       const nextError = t("auth_consent_save_failed");
       setError((prev) => (prev === nextError ? prev : nextError));
     } finally {
-      setSubmitting((prev) => (prev ? false : prev));
+      inFlightRef.current = false;
+      setSubmitting(false);
     }
   };
 

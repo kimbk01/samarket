@@ -19,6 +19,7 @@ import {
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
 } from "@/lib/auth/login-error-i18n";
+import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
@@ -118,7 +119,16 @@ export function AuthModal({ open, detail, onClose }: Props) {
     const consumed = await consumePendingAuthAction(detail?.token);
     onClose();
     if (!consumed && typeof window !== "undefined") {
-      window.location.assign(next);
+      let target = next;
+      try {
+        const { status, json } = await fetchSignupStatusDeduped();
+        if (status === 200 && json?.route?.trim()) {
+          target = json.route.trim();
+        }
+      } catch {
+        /* fallback to next */
+      }
+      window.location.assign(target);
     }
   }, [detail?.token, next, onClose]);
 

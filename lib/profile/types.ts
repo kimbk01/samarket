@@ -16,6 +16,10 @@ export interface ProfileRow {
   email: string | null;
   display_name: string | null;
   username?: string | null;
+  dibay_id?: string | null;
+  dibay_id_locked?: boolean;
+  onboarding_status?: string | null;
+  onboarding_completed_at?: string | null;
   nickname: string | null;
   avatar_url: string | null;
   profile_completed?: boolean;

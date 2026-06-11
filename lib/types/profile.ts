@@ -8,6 +8,10 @@ export interface Profile {
   nickname: string;
   avatar_url: string | null;
   username?: string | null;
+  dibay_id?: string | null;
+  dibay_id_locked?: boolean;
+  onboarding_status?: string | null;
+  onboarding_completed_at?: string | null;
   profile_completed?: boolean;
   role?: string;
   status?: string;

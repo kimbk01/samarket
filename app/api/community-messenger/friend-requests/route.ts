@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
 
   listCommunityMessengerFriendRequests,
@@ -10,9 +12,23 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function gateSignupComplete(userId: string) {
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return {
+      ok: false as const,
+      response: NextResponse.json({ ok: false, error: "supabase_service_role_required" }, { status: 503 }),
+    };
+  }
+  return requireSignupCompleteForUser(sb, userId);
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const signupGate = await gateSignupComplete(auth.userId);
+  if (!signupGate.ok) return signupGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:friend-requests:${getRateLimitKey(req, auth.userId)}`,
@@ -30,6 +46,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  const signupGate = await gateSignupComplete(auth.userId);
+  if (!signupGate.ok) return signupGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:friend-request-send:${getRateLimitKey(req, auth.userId)}`,
