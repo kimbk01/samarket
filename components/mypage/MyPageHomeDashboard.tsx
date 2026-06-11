@@ -32,6 +32,8 @@ import {
 } from "@/components/mypage/myinfo/MyInfoHomeMenuSections";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 import type { AddressDefaultsSnapshot } from "@/lib/addresses/address-defaults-snapshot";
+import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 
 const COLUMN_STACK_CLASS = "flex min-w-0 flex-col gap-3 md:gap-4";
 
@@ -71,8 +73,12 @@ export function MyPageHomeDashboard({
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [logoutSubmitting, setLogoutSubmitting] = useState(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
+  const signupComplete = useMemo(
+    () => isClientSignupComplete(profileRowToClientProfile(profile)),
+    [profile]
+  );
   const representativeAddressPresentation = useRepresentativeAddressPresentation({
-    initialSnapshot: addressDefaultsSnapshot,
+    initialSnapshot: signupComplete ? addressDefaultsSnapshot : null,
   });
   const countsFetchScheduledRef = useRef(false);
   const hasRscStoreOrderCount = typeof homeDashboardCounts?.storeOrderCount === "number";
@@ -138,11 +144,14 @@ export function MyPageHomeDashboard({
     dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
   }, []);
 
-  const profileAddressLine = resolveProfileLocationAddressLines(profile).join(" · ").trim();
-  const addressFallbackLine =
-    representativeAddressPresentation.status === "loading"
+  const profileAddressLine = signupComplete
+    ? resolveProfileLocationAddressLines(profile).join(" · ").trim()
+    : "";
+  const addressFallbackLine = signupComplete
+    ? representativeAddressPresentation.status === "loading"
       ? profileAddressLine || t("mypage_comp_address_loading")
-      : t("mypage_comp_address_empty");
+      : t("mypage_comp_address_empty")
+    : t("mypage_comp_address_empty");
   const displayName = resolveDisplayName(profile) || t("mypage_comp_display_name_empty");
   const atUsername = formatAtUsername(profile.username ?? null);
 
@@ -199,11 +208,12 @@ export function MyPageHomeDashboard({
           displayName={displayName}
           atUsername={atUsername}
           addressPresentation={
-            representativeAddressPresentation.status === "ready"
+            signupComplete && representativeAddressPresentation.status === "ready"
               ? representativeAddressPresentation.presentation
               : null
           }
           addressFallbackLine={
+            signupComplete &&
             representativeAddressPresentation.status === "ready" &&
             !representativeAddressPresentation.presentation
               ? profileAddressLine || addressFallbackLine

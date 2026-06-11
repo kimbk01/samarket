@@ -4,6 +4,7 @@ import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
+import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-legacy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
   deriveStoreMemberStatus,
@@ -265,8 +266,22 @@ export async function ensurePendingAuthProfileRow(
     if (!pickTrimmed(row.auth_login_email as string) && email) patch.auth_login_email = email;
     if (!pickTrimmed(row.provider as string)) patch.provider = dbProvider;
     if (!pickTrimmed(row.auth_provider as string)) patch.auth_provider = dbProvider;
-    if (!pickTrimmed(row.nickname as string) && nicknameCandidate) patch.nickname = nicknameCandidate;
-    if (!pickTrimmed(row.display_name as string) && nicknameCandidate) patch.display_name = nicknameCandidate;
+    const oauthNicknamePatch = buildOAuthNicknamePatch(
+      {
+        onboarding_completed_at: pickTrimmed(row.onboarding_completed_at as string),
+        nickname: pickTrimmed(row.nickname as string),
+        display_name: pickTrimmed(row.display_name as string),
+      },
+      seed
+    );
+    if (oauthNicknamePatch?.nickname) {
+      const unique = await resolveUniqueNicknameForInsert(sb, oauthNicknamePatch.nickname, user.id);
+      patch.nickname = unique;
+      patch.display_name = unique;
+    } else {
+      if (!pickTrimmed(row.nickname as string) && nicknameCandidate) patch.nickname = nicknameCandidate;
+      if (!pickTrimmed(row.display_name as string) && nicknameCandidate) patch.display_name = nicknameCandidate;
+    }
     const exAv = pickTrimmed(row.avatar_url as string);
     if (oauthAvatarRaw && (!exAv || isSamarketDefaultAvatarUrl(exAv))) patch.avatar_url = oauthAvatarRaw;
     if (!exAv && !oauthAvatarRaw) patch.avatar_url = oauthAvatar;

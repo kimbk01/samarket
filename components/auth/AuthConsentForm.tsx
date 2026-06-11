@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
 import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
@@ -14,6 +15,11 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { markSignupConsentResolvedSession } from "@/lib/auth/signup-gate-session";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
+import {
+  DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS,
+  DIBAY_ONBOARDING_NOTICE_CLASS,
+  DIBAY_ONBOARDING_PRIMARY_BTN,
+} from "@/lib/ui/dibay-onboarding-starbucks-styles";
 
 export function AuthConsentForm() {
   const { t } = useI18n();
@@ -91,47 +97,56 @@ export function AuthConsentForm() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-xl rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
-      <h1 className="text-xl font-semibold text-sam-fg">{t("auth_consent_title")}</h1>
-      <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-        {t("auth_consent_intro")}
-      </p>
-
-      <div className="mt-5 space-y-3 rounded-ui-rect border border-sam-border bg-sam-app/60 p-4">
+    <DibayOnboardingOverlayShell
+      step={1}
+      title={t("auth_consent_title")}
+      description={t("auth_consent_intro")}
+      titleId="dibay-onboarding-consent-title"
+      descriptionId="dibay-onboarding-consent-desc"
+    >
+      <div className={DIBAY_ONBOARDING_CHECKBOX_PANEL_CLASS}>
         <label className="flex items-start gap-3">
-          <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} className="mt-1" />
-          <span className="sam-text-body text-sam-fg">
+          <input
+            type="checkbox"
+            checked={agreeTerms}
+            onChange={(e) => setAgreeTerms(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-[#00704A]"
+          />
+          <span className="text-[14px] leading-snug text-[#1E3932]">
             {t("auth_consent_terms_label")}{" "}
-            <Link href="/terms" target="_blank" className="text-signature underline">
+            <Link href="/terms" target="_blank" className="font-medium text-[#00704A] underline">
               {t("auth_consent_terms_link")}
             </Link>
           </span>
         </label>
         <label className="flex items-start gap-3">
-          <input type="checkbox" checked={agreePrivacy} onChange={(e) => setAgreePrivacy(e.target.checked)} className="mt-1" />
-          <span className="sam-text-body text-sam-fg">
+          <input
+            type="checkbox"
+            checked={agreePrivacy}
+            onChange={(e) => setAgreePrivacy(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-[#00704A]"
+          />
+          <span className="text-[14px] leading-snug text-[#1E3932]">
             {t("auth_consent_privacy_label")}{" "}
-            <Link href="/privacy" target="_blank" className="text-signature underline">
+            <Link href="/privacy" target="_blank" className="font-medium text-[#00704A] underline">
               {t("auth_consent_privacy_link")}
             </Link>
           </span>
         </label>
       </div>
 
-      <div className="mt-5 rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-sam-fg">
-        {t("auth_consent_safety_notice")}
-      </div>
+      <div className={`mt-4 ${DIBAY_ONBOARDING_NOTICE_CLASS}`}>{t("auth_consent_safety_notice")}</div>
 
-      {error ? <p className="mt-4 sam-text-body-secondary text-red-600">{error}</p> : null}
+      {error ? <p className="mt-4 text-[13px] text-[#C0392B]">{error}</p> : null}
 
       <button
         type="button"
         onClick={() => void handleSubmit()}
-        disabled={submitting}
-        className="mt-5 w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:opacity-50"
+        disabled={submitting || !agreeTerms || !agreePrivacy}
+        className={`mt-5 ${DIBAY_ONBOARDING_PRIMARY_BTN}`}
       >
         {submitting ? t("auth_consent_submitting") : t("auth_consent_submit")}
       </button>
-    </div>
+    </DibayOnboardingOverlayShell>
   );
 }

@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Check } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
+import { DibayOnboardingOverlayShell } from "@/components/auth/DibayOnboardingOverlayShell";
 import { normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
+import { resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { markSignupCompleteResolvedSession } from "@/lib/auth/signup-gate-session";
@@ -16,7 +18,12 @@ import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
-import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  DIBAY_ONBOARDING_CONSENT_DONE_CLASS,
+  DIBAY_ONBOARDING_INPUT_CLASS,
+  DIBAY_ONBOARDING_PRIMARY_BTN,
+  DIBAY_ONBOARDING_SECONDARY_BTN,
+} from "@/lib/ui/dibay-onboarding-starbucks-styles";
 
 type ReserveResp =
   | { ok: true; available: boolean; normalized: string }
@@ -41,6 +48,18 @@ export function DibayIdOnboardingClient() {
   const inFlightRef = useRef(false);
 
   const normalized = useMemo(() => normalizeDibayIdInput(raw), [raw]);
+
+  const navigateAfterComplete = async () => {
+    const { status, json } = await fetchSignupStatusDeduped();
+    const route =
+      status === 200 && json?.route?.trim()
+        ? json.route.trim()
+        : fallbackTarget;
+    guardedRouterReplace(router, route, {
+      source: "dibay-id-onboarding",
+      reason: "signup_complete",
+    });
+  };
 
   const reserve = async () => {
     if (!normalized) return;
@@ -68,18 +87,6 @@ export function DibayIdOnboardingClient() {
     } finally {
       setChecking(false);
     }
-  };
-
-  const navigateAfterComplete = async () => {
-    const { status, json } = await fetchSignupStatusDeduped();
-    const route =
-      status === 200 && json?.route?.trim()
-        ? json.route.trim()
-        : fallbackTarget;
-    guardedRouterReplace(router, route, {
-      source: "dibay-id-onboarding",
-      reason: "signup_complete",
-    });
   };
 
   const confirm = async (e: React.FormEvent) => {
@@ -138,23 +145,42 @@ export function DibayIdOnboardingClient() {
   useEffect(() => {
     void (async () => {
       const { status, json } = await fetchSignupStatusDeduped();
-      if (status === 200 && json?.signup?.signupComplete) {
+      if (status !== 200 || !json?.signup) return;
+      if (!json.signup.consentComplete) {
+        guardedRouterReplace(router, resolveDibaySignupRoute(json.signup, next), {
+          source: "dibay-id-onboarding",
+          reason: "terms_required",
+        });
+        return;
+      }
+      if (json.signup.signupComplete) {
         await navigateAfterComplete();
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount guard only
   }, []);
 
+  const confirmDisabled = submitting || available !== true;
+
   return (
-    <OnboardingShell
+    <DibayOnboardingOverlayShell
+      step={2}
       title={t("auth_onboarding_username_title")}
       description={t("auth_onboarding_username_desc")}
+      titleId="dibay-onboarding-id-title"
+      descriptionId="dibay-onboarding-id-desc"
+      headerExtra={
+        <div className={DIBAY_ONBOARDING_CONSENT_DONE_CLASS}>
+          <Check className="h-4 w-4 shrink-0" aria-hidden />
+          <span>{t("auth_consent_title")}</span>
+        </div>
+      }
     >
       <form onSubmit={(e) => void confirm(e)} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="sam-text-helper text-sam-muted">{t("auth_onboarding_username_label")}</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[12px] font-semibold text-[#6F4E37]">{t("auth_onboarding_username_label")}</span>
           <div className="flex items-center gap-2">
-            <span className="sam-text-body text-sam-muted">@</span>
+            <span className="text-[15px] font-medium text-[#6F4E37]">@</span>
             <input
               type="text"
               value={raw}
@@ -165,7 +191,7 @@ export function DibayIdOnboardingClient() {
               }}
               maxLength={24}
               disabled={checking || submitting}
-              className={`${Sam.input.base} flex-1`}
+              className={DIBAY_ONBOARDING_INPUT_CLASS}
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
@@ -176,7 +202,7 @@ export function DibayIdOnboardingClient() {
               type="button"
               onClick={() => void reserve()}
               disabled={checking || submitting || !normalized}
-              className={`${Sam.btn.secondary} shrink-0 disabled:opacity-50`}
+              className={DIBAY_ONBOARDING_SECONDARY_BTN}
             >
               {checking ? t("auth_onboarding_username_checking") : t("auth_onboarding_username_check")}
             </button>
@@ -184,25 +210,25 @@ export function DibayIdOnboardingClient() {
         </label>
 
         {available === true && !error ? (
-          <p role="status" className="sam-text-body-secondary text-sam-success">
+          <p role="status" className="text-[13px] font-medium text-[#00704A]">
             {t("auth_onboarding_username_available")}
           </p>
         ) : null}
 
         {error ? (
-          <p role="alert" className="sam-text-body-secondary text-red-600">
+          <p role="alert" className="text-[13px] text-[#C0392B]">
             {error}
           </p>
         ) : null}
 
         <button
           type="submit"
-          disabled={submitting || available !== true}
-          className={`${Sam.btn.primary} mt-2 w-full disabled:opacity-50`}
+          disabled={confirmDisabled}
+          className={`mt-2 ${DIBAY_ONBOARDING_PRIMARY_BTN}`}
         >
           {submitting ? t("auth_consent_submitting") : t("auth_onboarding_confirm")}
         </button>
       </form>
-    </OnboardingShell>
+    </DibayOnboardingOverlayShell>
   );
 }

@@ -131,21 +131,22 @@ export async function GET(req: NextRequest) {
         /* 클라이언트 ensure 에 맡김 */
       }
 
-      try {
-        const outcome = await ensureUserProfile(writeSb, mergedUser);
-        if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
-          console.warn("[auth/callback] duplicate profile candidate detected", {
-            userId: mergedUser.id,
-            candidates: outcome.duplicateCandidates,
-          });
-        }
-      } catch {
-        /* provider identity 보강 실패는 로그인을 막지 않음 */
-      }
-
       let onboardingTarget = withNextSearchParam(DIBAY_SIGNUP_TERMS_PATH, safeNext);
       try {
         const status = await getOnboardingStatus(writeSb, user.id);
+        if (status.signupComplete) {
+          try {
+            const outcome = await ensureUserProfile(writeSb, mergedUser);
+            if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
+              console.warn("[auth/callback] duplicate profile candidate detected", {
+                userId: mergedUser.id,
+                candidates: outcome.duplicateCandidates,
+              });
+            }
+          } catch {
+            /* provider identity 보강 실패는 로그인을 막지 않음 */
+          }
+        }
         onboardingTarget = resolvePostLoginRoute({
           hasSession: true,
           status,

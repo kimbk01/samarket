@@ -40,7 +40,7 @@ export default async function AuthOnboardingDibayIdPage({
   }
   return (
     <Suspense fallback={null}>
-      <div className="min-h-screen bg-background px-4 py-10">
+      <div className="min-h-screen bg-[#F2F0EB]">
         <DibayIdOnboardingClient />
       </div>
     </Suspense>
