@@ -69,10 +69,10 @@ export function MeetingJoinRequestModal({
       <div className={`relative z-50 max-h-[92vh] overflow-y-auto ${COMMUNITY_MODAL_PANEL_CLASS}`}>
         <div className="sticky top-0 flex items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
           <h2 id="join-req-title" className="sam-text-page-title">
-            모임 참여 요청
+            {t("community_join_request_title")}
           </h2>
           <button type="button" onClick={onClose} className="sam-header-action px-2 py-1 sam-text-helper" disabled={busy}>
-            닫기
+            {t("community_join_modal_close")}
           </button>
         </div>
         <div className="space-y-3 px-4 py-4">
@@ -142,7 +142,7 @@ export function MeetingJoinRequestModal({
         </div>
         <div className="sticky bottom-0 flex gap-2 border-t border-sam-border bg-sam-surface px-4 py-3">
           <button type="button" onClick={onClose} className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`} disabled={busy}>
-            취소
+            {t("common_cancel")}
           </button>
           <button
             type="button"

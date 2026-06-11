@@ -41,7 +41,7 @@ export function QuestionForm({
       {needCategory && (
         <div>
           <label htmlFor="q-board-category" className="mb-1 block text-sm font-medium text-sam-fg">
-            카테고리
+            {t("community_board_category_label")}
           </label>
           <select
             id="q-board-category"
@@ -64,7 +64,7 @@ export function QuestionForm({
       </div>
       <div>
         <label htmlFor="q-title" className="block text-sm font-medium text-sam-fg mb-1">
-          질문 제목
+          {t("community_board_question_title_label")}
         </label>
         <input
           id="q-title"
@@ -80,7 +80,7 @@ export function QuestionForm({
       </div>
       <div>
         <label htmlFor="q-content" className="block text-sm font-medium text-sam-fg mb-1">
-          상세 내용
+          {t("community_board_question_content_label")}
         </label>
         <textarea
           id="q-content"
@@ -99,10 +99,10 @@ export function QuestionForm({
           disabled={isSubmitting}
           className="rounded-ui-rect bg-sam-primary px-4 py-2 text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:text-white disabled:opacity-100"
         >
-          {isSubmitting ? "등록 중…" : "질문 등록"}
+          {isSubmitting ? t("community_write_submitting") : t("community_board_question_submit")}
         </button>
         <Link href={cancelHref} className="px-4 py-2 border border-sam-border rounded-ui-rect text-sam-fg hover:bg-sam-app">
-          취소
+          {t("common_cancel")}
         </Link>
       </div>
     </form>

@@ -40,7 +40,7 @@ export function PromoDetailSkin({
         {showLike && <button type="button" className="text-sm text-sam-muted">{t("community_board_like")}</button>}
         {showComments && (
           <a href="#community-post-comments" className="text-sm text-sam-muted hover:text-sam-fg">
-            댓글
+            {t("community_stat_comments_title")}
           </a>
         )}
         {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">{t("community_report")}</button>}

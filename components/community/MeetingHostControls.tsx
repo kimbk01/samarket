@@ -728,7 +728,7 @@ export function MeetingHostControls({
                     onClick={() => void onKick(m.user_id)}
                     className="text-red-700 underline"
                   >
-                    내보내기
+                    {t("community_meeting_kick")}
                   </button>
                   <button
                     type="button"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { Board } from "@/lib/community-board/types";
 
 export type WriteBoardCategoryRow = { id: string; name: string };
@@ -13,6 +14,7 @@ export function useWriteBoardCategory(
   boardCategories: WriteBoardCategoryRow[] | undefined,
   defaultCategoryId: string | null | undefined
 ) {
+  const { t } = useI18n();
   const needCategory = board.category_mode === "board_category" && (boardCategories?.length ?? 0) > 0;
   const [boardCategoryId, setBoardCategoryId] = useState("");
 
@@ -30,8 +32,8 @@ export function useWriteBoardCategory(
 
   function validateCategory(): string | null {
     if (!needCategory) return null;
-    if (!boardCategoryId.trim()) return "카테고리를 선택하세요.";
-    if (!boardCategories!.some((c) => c.id === boardCategoryId)) return "유효하지 않은 카테고리입니다.";
+    if (!boardCategoryId.trim()) return t("community_board_select_category_err");
+    if (!boardCategories!.some((c) => c.id === boardCategoryId)) return t("community_board_invalid_category_err");
     return null;
   }
 

@@ -93,7 +93,7 @@ export function CommunityInlineAdCard() {
               </p>
               <p className="mt-1.5 flex items-center gap-1 text-[12px] font-normal text-[#9CA3AF]">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
-                5.0 · 후기 노출
+                {t("community_ad_rating")}
               </p>
               {ad.postSummary ? (
                 <p className="mt-2 line-clamp-2 rounded-[4px] bg-[#F7F8FA] px-2.5 py-2 text-[13px] font-normal leading-[1.45] text-[#6B7280]">

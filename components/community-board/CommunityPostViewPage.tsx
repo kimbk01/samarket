@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BoardSkinRenderer } from "./BoardSkinRenderer";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
@@ -25,6 +26,7 @@ export function CommunityPostViewPage({
   post,
   boardSlug: _boardSlug,
 }: CommunityPostViewPageProps) {
+  const { t } = useI18n();
   const baseHref = SAMARKET_ROUTES.community.home;
   const showComments = board.policy?.allow_comment !== false;
   const showLike = board.policy?.allow_like !== false;
@@ -40,7 +42,7 @@ export function CommunityPostViewPage({
     <div className="min-h-screen bg-sam-app">
       <div className="bg-sam-surface border-b border-sam-border sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
-          <AppBackButton backHref={baseHref} ariaLabel="목록으로" />
+          <AppBackButton backHref={baseHref} ariaLabel={t("community_back_to_list")} />
           <span className="text-sm text-sam-muted truncate">{board.name}</span>
         </div>
       </div>

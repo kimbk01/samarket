@@ -104,7 +104,9 @@ export function CommunityCommentSection({
     return (
       <section className="border-t border-[#E5E7EB] bg-[#F7F8FA]" id="comments">
         <div className="px-4 py-4">
-          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">{t("community_stat_comments_title")}</h2>
+          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">
+            {t("community_comments_title", { count: n })}
+          </h2>
           <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-4 text-[14px] text-[#6B7280]">
             <span>{lockMessage || t("community_comment_locked")}</span>
           </div>
@@ -118,7 +120,7 @@ export function CommunityCommentSection({
       <div className="px-4 py-4">
         <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold leading-[1.35] text-[#1F2430]">
           <MessageCircle className="h-5 w-5 text-[#6B7280]" strokeWidth={1.8} aria-hidden />
-          댓글 ({n})
+          {t("community_comments_title", { count: n })}
         </h2>
         {composer ? (
           <div
@@ -153,7 +155,7 @@ export function CommunityCommentSection({
               }
               onClick={() => setSortMode((prev) => (prev === "thread" ? prev : "thread"))}
             >
-              등록순
+              {t("community_comment_sort_registered")}
             </button>
             <button
               type="button"
@@ -164,7 +166,7 @@ export function CommunityCommentSection({
               }
               onClick={() => setSortMode((prev) => (prev === "newest" ? prev : "newest"))}
             >
-              최신순
+              {t("community_comment_sort_latest")}
             </button>
           </div>
         </div>

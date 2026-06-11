@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BoardSkinRenderer } from "./BoardSkinRenderer";
 import type { Board, PostListItem } from "@/lib/community-board/types";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
@@ -43,6 +44,7 @@ export function CommunityBoardPage({
   hideBoardDescription = false,
   feedFilterBaseHref = null,
 }: CommunityBoardPageProps) {
+  const { t } = useI18n();
   const baseHref = SAMARKET_ROUTES.community.home;
   const filterBaseHref = (feedFilterBaseHref?.trim() || baseHref) as string;
   const showCategoryFilter = board.category_mode === "board_category";
@@ -59,7 +61,7 @@ export function CommunityBoardPage({
           ) : null}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm text-sam-muted">
-              글 {totalPostCount ?? posts.length}개
+              {t("community_board_post_count", { count: totalPostCount ?? posts.length })}
             </span>
             <div className="flex flex-wrap items-center gap-2">
               <Link
@@ -70,7 +72,7 @@ export function CommunityBoardPage({
                 }
                 className="rounded-ui-rect bg-sam-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-sam-primary-hover active:bg-sam-primary-active"
               >
-                글쓰기
+                {t("common_write")}
               </Link>
             </div>
           </div>
@@ -82,19 +84,19 @@ export function CommunityBoardPage({
                   !topicSlug ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg hover:bg-sam-border-soft"
                 }`}
               >
-                전체
+                {t("community_filter_all")}
               </Link>
-              {localTopics.map((t) => (
+              {localTopics.map((topic) => (
                 <Link
-                  key={t.slug}
-                  href={`${filterBaseHref}?topic=${encodeURIComponent(t.slug)}`}
+                  key={topic.slug}
+                  href={`${filterBaseHref}?topic=${encodeURIComponent(topic.slug)}`}
                   className={`rounded-full px-3 py-1 sam-text-helper font-medium ${
-                    topicSlug === t.slug
+                    topicSlug === topic.slug
                       ? "bg-sky-700 text-white"
                       : "bg-sky-50 text-sky-900 hover:bg-sky-100"
                   }`}
                 >
-                  {t.name}
+                  {topic.name}
                 </Link>
               ))}
             </div>

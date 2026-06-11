@@ -39,7 +39,7 @@ export function GalleryForm({
   }
 
   function addImage() {
-    const url = prompt("이미지 URL 또는 storage_path 입력 (개발용)");
+    const url = prompt(t("community_board_gallery_image_url_prompt"));
     if (url) setImageUrls((prev) => [...prev, url]);
   }
 
@@ -52,7 +52,7 @@ export function GalleryForm({
       {needCategory && (
         <div>
           <label htmlFor="gallery-board-category" className="mb-1 block text-sm font-medium text-sam-fg">
-            카테고리
+            {t("community_board_category_label")}
           </label>
           <select
             id="gallery-board-category"
@@ -96,7 +96,7 @@ export function GalleryForm({
       </div>
       <div>
         <label htmlFor="gallery-title" className="block text-sm font-medium text-sam-fg mb-1">
-          제목
+          {t("community_board_title_label")}
         </label>
         <input
           id="gallery-title"
@@ -112,7 +112,7 @@ export function GalleryForm({
       </div>
       <div>
         <label htmlFor="gallery-content" className="block text-sm font-medium text-sam-fg mb-1">
-          설명
+          {t("community_board_desc_label")}
         </label>
         <textarea
           id="gallery-content"
@@ -130,10 +130,10 @@ export function GalleryForm({
           disabled={isSubmitting}
           className="rounded-ui-rect bg-sam-primary px-4 py-2 text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:text-white disabled:opacity-100"
         >
-          {isSubmitting ? "등록 중…" : "등록"}
+          {isSubmitting ? t("community_write_submitting") : t("community_comment_submit")}
         </button>
         <Link href={cancelHref} className="px-4 py-2 border border-sam-border rounded-ui-rect text-sam-fg hover:bg-sam-app">
-          취소
+          {t("common_cancel")}
         </Link>
       </div>
     </form>

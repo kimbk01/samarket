@@ -48,7 +48,7 @@ export function CommunityForm({
       {needCategory && (
         <div>
           <label htmlFor="board-category" className="mb-1 block text-sm font-medium text-sam-fg">
-            카테고리
+            {t("community_board_category_label")}
           </label>
           <select
             id="board-category"
@@ -69,7 +69,7 @@ export function CommunityForm({
       {communityTopics.length > 0 && (
         <div>
           <label htmlFor="community-topic" className="mb-1 block text-sm font-medium text-sam-fg">
-            주제
+            {t("community_write_topic_label")}
           </label>
           <select
             id="community-topic"
@@ -79,9 +79,9 @@ export function CommunityForm({
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             disabled={isSubmitting}
           >
-            {communityTopics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            {communityTopics.map((topic) => (
+              <option key={topic.id} value={topic.id}>
+                {topic.name}
               </option>
             ))}
           </select>
@@ -89,7 +89,7 @@ export function CommunityForm({
       )}
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-sam-fg mb-1">
-          제목
+          {t("community_board_title_label")}
         </label>
         <input
           id="title"
@@ -105,7 +105,7 @@ export function CommunityForm({
       </div>
       <div>
         <label htmlFor="content" className="block text-sm font-medium text-sam-fg mb-1">
-          내용
+          {t("community_board_content_label")}
         </label>
         <textarea
           id="content"
@@ -124,13 +124,13 @@ export function CommunityForm({
           disabled={isSubmitting}
           className="rounded-ui-rect bg-sam-primary px-4 py-2 text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:text-white disabled:opacity-100"
         >
-          {isSubmitting ? "등록 중…" : "등록"}
+          {isSubmitting ? t("community_write_submitting") : t("community_comment_submit")}
         </button>
         <Link
           href={cancelHref}
           className="px-4 py-2 border border-sam-border rounded-ui-rect text-sam-fg hover:bg-sam-app"
         >
-          취소
+          {t("common_cancel")}
         </Link>
       </div>
     </form>

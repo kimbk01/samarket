@@ -104,7 +104,7 @@ export function CommunityCommentComposerForm({
         className={`h-10 shrink-0 px-4 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
         aria-label={t("community_comment_post_aria")}
       >
-        {t("community_comment_post_aria")}
+        {t("community_comment_post")}
       </button>
     </form>
   );

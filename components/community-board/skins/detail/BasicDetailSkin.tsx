@@ -27,7 +27,7 @@ export function BasicDetailSkin({
       await requireAction("community_report", onReport);
       return;
     }
-    const reason = window.prompt("신고 사유를 짧게 입력해 주세요.");
+    const reason = window.prompt(t("community_report_intro"));
     if (reason == null) return;
     const text = reason.trim();
     if (!text) return;
@@ -75,7 +75,7 @@ export function BasicDetailSkin({
       <footer className="px-4 py-3 border-t border-sam-border-soft flex gap-2">
         {showLike && (
           <button type="button" className="text-sm text-sam-muted hover:text-sam-fg">
-            좋아요
+            {t("community_board_like")}
           </button>
         )}
         {showComments && (
@@ -83,7 +83,7 @@ export function BasicDetailSkin({
             href="#community-post-comments"
             className="text-sm text-sam-muted hover:text-sam-fg"
           >
-            댓글
+            {t("community_stat_comments_title")}
           </a>
         )}
         {showReport && (
@@ -93,7 +93,7 @@ export function BasicDetailSkin({
             onClick={() => void onReport()}
             className="ml-auto text-sm text-sam-muted hover:text-red-600 disabled:opacity-50"
           >
-            {reportBusy ? "처리 중…" : "신고"}
+            {reportBusy ? t("common_processing") : t("community_report")}
           </button>
         )}
       </footer>

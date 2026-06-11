@@ -13,7 +13,7 @@ export function QnaDetailSkin({
   return (
     <article className="bg-sam-surface rounded-ui-rect border border-sam-border overflow-hidden">
       <div className="border-l-4 border-sam-primary bg-sam-primary-soft/50 p-4">
-        <span className="text-xs font-semibold text-sam-primary uppercase">Question</span>
+        <span className="text-xs font-semibold text-sam-primary uppercase">{t("community_badge_question")}</span>
         <h1 className="text-xl font-semibold text-sam-fg mt-1">{post.title}</h1>
         <div className="flex items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}
@@ -38,7 +38,7 @@ export function QnaDetailSkin({
         {showLike && <button type="button" className="text-sm text-sam-muted">{t("community_board_like")}</button>}
         {showComments && (
           <a href="#community-post-comments" className="text-sm text-sam-muted hover:text-sam-fg">
-            댓글
+            {t("community_stat_comments_title")}
           </a>
         )}
         {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">{t("community_report")}</button>}

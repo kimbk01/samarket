@@ -43,7 +43,7 @@ export function PromoForm({
       {needCategory && (
         <div>
           <label htmlFor="promo-board-category" className="mb-1 block text-sm font-medium text-sam-fg">
-            카테고리
+            {t("community_board_category_label")}
           </label>
           <select
             id="promo-board-category"
@@ -77,7 +77,7 @@ export function PromoForm({
       </div>
       <div>
         <label htmlFor="promo-title" className="block text-sm font-medium text-sam-fg mb-1">
-          제목
+          {t("community_board_title_label")}
         </label>
         <input
           id="promo-title"
@@ -93,7 +93,7 @@ export function PromoForm({
       </div>
       <div>
         <label htmlFor="promo-content" className="block text-sm font-medium text-sam-fg mb-1">
-          내용
+          {t("community_board_content_label")}
         </label>
         <textarea
           id="promo-content"
@@ -112,10 +112,10 @@ export function PromoForm({
           disabled={isSubmitting}
           className="px-4 py-2 bg-amber-600 text-white rounded-ui-rect hover:bg-amber-700 disabled:opacity-50"
         >
-          {isSubmitting ? "등록 중…" : "등록"}
+          {isSubmitting ? t("community_write_submitting") : t("community_comment_submit")}
         </button>
         <Link href={cancelHref} className="px-4 py-2 border border-sam-border rounded-ui-rect text-sam-fg hover:bg-sam-app">
-          취소
+          {t("common_cancel")}
         </Link>
       </div>
     </form>
