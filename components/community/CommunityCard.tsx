@@ -28,7 +28,7 @@ function buildNeighborhoodFeedListViewModel(
 ): FeedListCardViewModel {
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at)
+      ? formatTimeAgo(post.created_at, language)
       : "";
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);
@@ -86,6 +86,7 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.summary === next.summary &&
     prev.content === next.content &&
     prev.author_name === next.author_name &&
+    prev.category === next.category &&
     prev.category_label === next.category_label &&
     prev.category_name_en === next.category_name_en &&
     prev.topic_color === next.topic_color &&

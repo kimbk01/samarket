@@ -1,6 +1,7 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 import { useCallback, useEffect, useState } from "react";
 import { philifeMeetingApi } from "@domain/philife/api";
 import {
@@ -17,7 +18,7 @@ type Props = {
 };
 
 export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [events, setEvents] = useState<NeighborhoodMeetingEventDTO[]>(initialEvents);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [filter, setFilter] = useState<string>("all");
@@ -102,7 +103,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
           {events.map((event) => {
             const eventTime =
               event.created_at && !Number.isNaN(Date.parse(event.created_at))
-                ? new Date(event.created_at).toLocaleString("ko-KR")
+                ? formatAppDateTime(event.created_at, language)
                 : "";
             const text = formatMeetingEventDescription(event, t);
             return (

@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -11,6 +12,7 @@ import {
 } from "@/lib/auth/get-current-user";
 import type { CommunityCommentDTO, CommunityPostDetailDTO } from "@/lib/community-feed/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
+import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
 import {
@@ -56,9 +58,15 @@ export function CommunityPostDetailClient({
   }, []);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
+  const topicUILabel = useCommunityTopicUILabel(
+    language,
+    post.topic_name ?? "",
+    post.topic_name_en,
+    post.topic_slug ?? undefined
+  );
   const tier1Title = post.is_meetup
     ? t("community_meeting_label")
-    : post.topic_name?.trim() || t("community_community_label");
+    : topicUILabel.trim() || t("community_community_label");
   const backToFeedHref = (() => {
     const topic = post.topic_slug?.trim();
     if (!post.is_meetup && topic) {
@@ -184,7 +192,7 @@ export function CommunityPostDetailClient({
 
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at)
+      ? formatTimeAgo(post.created_at, language)
       : "";
 
   return (
@@ -196,7 +204,7 @@ export function CommunityPostDetailClient({
               className="rounded-ui-rect px-2 py-0.5 sam-text-xxs font-semibold text-white"
               style={{ backgroundColor: post.topic_color ?? "#64748b" }}
             >
-              {post.topic_name}
+              {topicUILabel}
             </span>
             {post.is_question ? (
               <span className="rounded-ui-rect bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-medium text-amber-900">{t("community_badge_question")}</span>
@@ -249,7 +257,7 @@ export function CommunityPostDetailClient({
               {post.meetup_date ? (
                 <p>
                   {t("community_meetup_datetime")}{" "}
-                  {new Date(post.meetup_date).toLocaleString(language === "en" ? "en-US" : "ko-KR")}
+                  {formatAppDateTime(post.meetup_date, language)}
                 </p>
               ) : null}
               {post.meetup_place ? <p>{t("community_meetup_place")} {post.meetup_place}</p> : null}
@@ -326,7 +334,7 @@ export function CommunityPostDetailClient({
                 <p className="mt-1 sam-text-body text-sam-fg">{c.content}</p>
                 <p className="mt-1 sam-text-xxs text-sam-meta">
                   {c.created_at && !Number.isNaN(Date.parse(c.created_at))
-                    ? formatTimeAgo(c.created_at)
+                    ? formatTimeAgo(c.created_at, language)
                     : ""}
                 </p>
               </li>

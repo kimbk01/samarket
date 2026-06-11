@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { ThumbsUp, MessageCircle } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -10,6 +11,7 @@ import { philifeAppPaths } from "@domain/philife/paths";
 import { normalizeFeedListBodyPreview } from "../feed-list-layouts";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 
 type Props = {
   currentPostId: string;
@@ -17,9 +19,28 @@ type Props = {
 };
 
 export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
-  const { t } = useI18n();
-  const list = posts.filter((p) => p.id !== currentPostId).slice(0, 6);
-  if (list.length === 0) return null;
+  const { t, language } = useI18n();
+  const rows = useMemo(() => {
+    const list = posts.filter((p) => p.id !== currentPostId).slice(0, 6);
+    return list.map((p) => {
+      const url = resolveNeighborhoodFeedListThumbnail(p);
+      const timeLabel =
+        p.created_at && !Number.isNaN(Date.parse(p.created_at))
+          ? formatTimeAgo(p.created_at, language)
+          : "";
+      const preview = normalizeFeedListBodyPreview(
+        p.summary || (p.content && p.content.length < 200 ? p.content : "") || ""
+      );
+      const topicLabel = resolveCommunityTopicUILabel(
+        language,
+        p.category_label,
+        p.category_name_en,
+        p.category
+      );
+      return { post: p, url, timeLabel, preview, topicLabel };
+    });
+  }, [posts, currentPostId, language]);
+  if (rows.length === 0) return null;
 
   return (
     <section className="mt-2 px-4 pb-6">
@@ -27,21 +48,12 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
         <div className="px-4 py-4">
           <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">{t("community_similar_posts")}</h2>
           <ul className="m-0 mt-3 list-none divide-y divide-[#E5E7EB] p-0">
-            {list.map((p) => {
-              const url = resolveNeighborhoodFeedListThumbnail(p);
-              const timeLabel =
-                p.created_at && !Number.isNaN(Date.parse(p.created_at))
-                  ? formatTimeAgo(p.created_at)
-                  : "";
-              const preview = normalizeFeedListBodyPreview(
-                p.summary || (p.content && p.content.length < 200 ? p.content : "") || ""
-              );
-              return (
+            {rows.map(({ post: p, url, timeLabel, preview, topicLabel }) => (
                 <li key={p.id} className="py-3.5 first:pt-0">
                   <Link href={philifeAppPaths.post(p.id)} className="flex min-w-0 gap-2.5 active:opacity-90">
                     <div className="min-w-0 flex-1">
                       <span className="inline-block max-w-full truncate rounded-[4px] bg-[#F7F8FA] px-2 py-0.5 text-[11px] font-medium text-[#6B7280]">
-                        {p.category_label}
+                        {topicLabel}
                       </span>
                       <p className="mt-1 line-clamp-1 text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{p.title || t("community_no_title")}</p>
                       {preview ? (
@@ -77,8 +89,7 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
                     ) : null}
                   </Link>
                 </li>
-              );
-            })}
+            ))}
           </ul>
         </div>
       </div>

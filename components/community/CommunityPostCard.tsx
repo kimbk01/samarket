@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import { formatTimeAgo } from "@/lib/utils/format";
@@ -41,7 +42,7 @@ function buildCommunityFeedListViewModel(
 
   return {
     href: philifeAppPaths.post(post.id),
-    topicLabel: resolveCommunityTopicUILabel(lang, post.topic_name, post.topic_name_en),
+    topicLabel: resolveCommunityTopicUILabel(lang, post.topic_name, post.topic_name_en, post.topic_slug),
     topicColor: post.topic_color,
     title: post.title?.trim() || noTitleLabel,
     summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
@@ -60,7 +61,32 @@ function buildCommunityFeedListViewModel(
   };
 }
 
-export function CommunityPostCard({ post }: { post: CommunityFeedPostDTO }) {
+function isSameCommunityPostCard(prev: CommunityFeedPostDTO, next: CommunityFeedPostDTO): boolean {
+  if (prev === next) return true;
+  return (
+    prev.id === next.id &&
+    prev.feed_list_skin === next.feed_list_skin &&
+    prev.created_at === next.created_at &&
+    prev.title === next.title &&
+    prev.summary === next.summary &&
+    prev.content === next.content &&
+    prev.author_name === next.author_name &&
+    prev.topic_slug === next.topic_slug &&
+    prev.topic_name === next.topic_name &&
+    prev.topic_name_en === next.topic_name_en &&
+    prev.topic_color === next.topic_color &&
+    prev.region_label === next.region_label &&
+    prev.meetup_place === next.meetup_place &&
+    prev.like_count === next.like_count &&
+    prev.comment_count === next.comment_count &&
+    prev.view_count === next.view_count &&
+    prev.is_question === next.is_question &&
+    prev.is_meetup === next.is_meetup &&
+    prev.thumbnail_url === next.thumbnail_url
+  );
+}
+
+export const CommunityPostCard = memo(function CommunityPostCard({ post }: { post: CommunityFeedPostDTO }) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
   const vm = buildCommunityFeedListViewModel(post, t("community_no_title"), language);
@@ -81,4 +107,4 @@ export function CommunityPostCard({ post }: { post: CommunityFeedPostDTO }) {
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
   return <FeedListLayoutCarrotThumbRight vm={vm} />;
-}
+}, (prev, next) => isSameCommunityPostCard(prev.post, next.post));

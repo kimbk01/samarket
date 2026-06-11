@@ -6,9 +6,10 @@ import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { fetchCommunityMyHubPostsDeduped } from "@/lib/community/fetch-community-my-hub-posts-deduped";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 
 export function CommunityMyHubClient({ userId }: { userId: string }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [mine, setMine] = useState<NeighborhoodFeedPostDTO[]>([]);
   const [err, setErr] = useState("");
 
@@ -57,7 +58,14 @@ export function CommunityMyHubClient({ userId }: { userId: string }) {
                 <Link href={philifeAppPaths.post(p.id)} className="sam-text-body font-medium text-sky-800">
                   {p.title}
                 </Link>
-                <p className="sam-text-helper text-sam-muted">{p.category_label}</p>
+                <p className="sam-text-helper text-sam-muted">
+                  {resolveCommunityTopicUILabel(
+                    language,
+                    p.category_label,
+                    p.category_name_en,
+                    p.category
+                  )}
+                </p>
               </li>
             ))
           )}

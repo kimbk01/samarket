@@ -6,6 +6,7 @@ import { isPostSavedLocal, setPostSavedLocal } from "./post-detail-utils";
 import { NeighborFollowButton } from "../NeighborFollowButton";
 import { UserBlockButton } from "../UserBlockButton";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 
 type Props = {
   postId: string;
@@ -24,7 +25,7 @@ export function CommunityPostDetailViewLine({ viewCount }: { viewCount: number }
     <div className="flex items-center gap-1.5 px-4 pt-4 text-[12px] font-normal leading-[1.4] text-[#6B7280]">
       <Eye className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
       <p>
-        {t("community_views_count_line", { count: viewCount.toLocaleString(language === "en" ? "en-US" : "ko-KR") })}
+        {t("community_views_count_line", { count: formatAppNumber(viewCount, language) })}
       </p>
     </div>
   );
@@ -65,7 +66,7 @@ export function CommunityPostDetailStatsActions({
             className="inline-flex min-h-11 min-w-[5.5rem] items-center justify-center gap-1.5 rounded-[4px] border border-[#7360F2] bg-[#F3F0FF] px-4 py-2 text-[14px] font-semibold text-[#7360F2] active:scale-[0.98] disabled:opacity-50"
           >
             <ThumbsUp className="h-4 w-4" strokeWidth={2.2} />
-            {t("community_stat_likes", { count: likeCount.toLocaleString(language === "en" ? "en-US" : "ko-KR") })}
+            {t("community_stat_likes", { count: formatAppNumber(likeCount, language) })}
           </button>
           <button
             type="button"

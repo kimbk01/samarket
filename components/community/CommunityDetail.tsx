@@ -61,6 +61,8 @@ import {
 } from "@/lib/philife/philife-flat-ui-classes";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
+import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 
 function countNeighborhoodCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
   let n = 0;
@@ -142,7 +144,15 @@ export function CommunityDetail({
     setPostUrl(`${window.location.origin}${pathname || ""}`);
   }, [pathname]);
 
-  const tier1Title = meeting ? t("community_meeting_label") : post.category_label?.trim() || t("community_community_label");
+  const postCategoryLabel = useCommunityTopicUILabel(
+    language,
+    post.category_label,
+    post.category_name_en,
+    post.category
+  );
+  const tier1Title = meeting
+    ? t("community_meeting_label")
+    : postCategoryLabel.trim() || t("community_community_label");
   const backToFeedHref =
     !meeting && !post.is_meetup && post.category?.trim()
       ? `${philifeAppPaths.home}?category=${encodeURIComponent(post.category.trim())}`
@@ -560,7 +570,7 @@ export function CommunityDetail({
 
   const authorSubline = meeting
     ? t("community_detail_stats_line", {
-        views: viewCount.toLocaleString(language === "en" ? "en-US" : "ko-KR"),
+        views: formatAppNumber(viewCount, language),
         comments: displayCommentCount,
       })
     : undefined;
@@ -581,7 +591,7 @@ export function CommunityDetail({
         <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} w-full min-w-0`}>
           <div className="max-w-3xl">
           <CommunityPostCategoryRow
-            label={meeting ? t("community_meeting_label") : post.category_label}
+            label={meeting ? t("community_meeting_label") : postCategoryLabel}
             isQuestion={post.is_question && !meeting}
           />
           <CommunityPostDetailAuthorRow

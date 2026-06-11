@@ -6,6 +6,7 @@ import { Link2, Pencil, ThumbsUp, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
+import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { ReplyLGlyph } from "./CommunityCommentComposerForm";
 import {
@@ -57,7 +58,7 @@ export function CommunityCommentItem({
   onSubmitReply,
   commentBusy,
 }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const pathname = usePathname();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(node.content);
@@ -80,8 +81,8 @@ export function CommunityCommentItem({
 
   const timeRel = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
-    return formatTimeAgo(node.created_at);
-  }, [node.created_at]);
+    return formatTimeAgo(node.created_at, language);
+  }, [node.created_at, language]);
   const timeStamp = useMemo(() => formatCommentStamp(node.created_at), [node.created_at]);
 
   useEffect(() => {
@@ -243,7 +244,7 @@ export function CommunityCommentItem({
               >
                 <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.7} fill={node.liked_by_viewer ? "currentColor" : "none"} />
                 {t("community_stat_likes", {
-                  count: Math.max(0, node.like_count || 0).toLocaleString(),
+                  count: formatAppNumber(Math.max(0, node.like_count || 0), language),
                 })}
               </button>
               {me && !isDeleted ? (

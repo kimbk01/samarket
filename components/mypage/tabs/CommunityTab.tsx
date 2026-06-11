@@ -10,11 +10,14 @@ import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 
 type CommunityPostPreview = {
   id: string;
   title: string;
   topic_name?: string | null;
+  topic_name_en?: string | null;
+  topic_slug?: string | null;
   region_label?: string | null;
   created_at?: string | null;
   comment_count?: number;
@@ -101,7 +104,7 @@ export function CommunityTab({ section }: { section: string }) {
 }
 
 function MyCommunityPostsPanel() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [items, setItems] = useState<CommunityPostPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -152,7 +155,14 @@ function MyCommunityPostsPanel() {
               >
                 <p className="sam-text-body font-semibold text-sam-fg">{item.title}</p>
                 <p className="mt-1 sam-text-helper text-sam-muted">
-                  {item.topic_name || t("mypage_comp_community_topic_fallback")} · {item.region_label || t("mypage_comp_community_region_none")} · {t("mypage_comp_community_comments_count", { count: item.comment_count ?? 0 })}
+                  {resolveCommunityTopicUILabel(
+                    language,
+                    item.topic_name ?? "",
+                    item.topic_name_en,
+                    item.topic_slug ?? undefined
+                  ) || t("mypage_comp_community_topic_fallback")}{" "}
+                  · {item.region_label || t("mypage_comp_community_region_none")} ·{" "}
+                  {t("mypage_comp_community_comments_count", { count: item.comment_count ?? 0 })}
                 </p>
               </Link>
             ))}

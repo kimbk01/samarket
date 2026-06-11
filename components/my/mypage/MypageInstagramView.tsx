@@ -22,6 +22,7 @@ import {
   resolveProfileLocationAddressLines,
 } from "@/lib/profile/profile-location";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import { getStoredLanguagePreference } from "@/lib/i18n/language-preference";
 import {
   getUserSettings,
@@ -755,7 +756,13 @@ function BoardSection({
                   <div className="min-w-0">
                     <p className="truncate sam-text-body font-semibold text-foreground">{post.title}</p>
                     <p className="mt-1 sam-text-helper text-[var(--text-muted)]">
-                      {post.topic_name || t("mypage_hub_community_fallback")} ·{" "}
+                      {resolveCommunityTopicUILabel(
+                        language,
+                        post.topic_name ?? "",
+                        post.topic_name_en,
+                        post.topic_slug
+                      ) || t("mypage_hub_community_fallback")}{" "}
+                      ·{" "}
                       {post.region_label || t("mypage_hub_no_region")}
                     </p>
                   </div>

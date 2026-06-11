@@ -12,9 +12,9 @@ type Props = {
 };
 
 export function CommunityPostDetailAuthorRow({ authorName, locationLabel, createdAt, subline }: Props) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const time =
-    createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt) : "";
+    createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, language) : "";
   const initial = (authorName?.trim()?.[0] ?? "?").toUpperCase();
 
   return (
