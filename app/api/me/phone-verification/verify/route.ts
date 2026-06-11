@@ -1,13 +1,12 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import { invalidatePhoneVerifiedPositiveProfile } from "@/lib/auth/phone-verified-positive-cache";
+import { isValidPhoneOtpCodeInput } from "@/lib/auth/phone-otp-contract";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { enforcePhoneVerificationCheckQuota } from "@/lib/security/rate-limit-presets";
 import { verifyPhoneOtpForUser } from "@/lib/auth/phone-otp-service";
-import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
-import { normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { patchProfileDisplayName, syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,38 +31,21 @@ export async function POST(req: NextRequest) {
   const inputPhone = String(body.phone ?? "").trim();
   const code = String(body.code ?? "").trim();
   const displayName = String(body.display_name ?? body.nickname ?? "").trim().slice(0, 20);
-  if (!code || code.length < 4) {
+  if (!isValidPhoneOtpCodeInput(code)) {
     return jsonError("인증번호를 입력해 주세요.", 400);
   }
   const verified = await verifyPhoneOtpForUser(sb, auth.userId, inputPhone, code);
   if (!verified.ok) {
-    return jsonError(verified.message, verified.status);
+    return jsonError(verified.message, { status: verified.status, code: verified.code });
   }
-  const db09 =
-    normalizePhMobileDb(parsePhMobileInput(verified.data.phone)) ??
-    normalizePhMobileDb(parsePhMobileInput(inputPhone));
-  const phoneFields = profilePhoneStorageFieldsFromDb09(db09);
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = {
-    ...(displayName ? { display_name: displayName } : {}),
-    phone: phoneFields.phone,
-    phone_country_code: phoneFields.phone_country_code,
-    phone_number: phoneFields.phone_number,
-    phone_verified: true,
-    phone_verified_at: now,
-    phone_verification_status: "verified",
-    phone_verification_method: verified.data.verification_method,
-    preferred_country: "PH",
-    updated_at: now,
-  };
-  const { error } = await sb.from("profiles").update(patch).eq("id", auth.userId);
-  if (error) {
-    return jsonError(error.message || "phone_verification_verify_failed", 500);
+  const namePatch = await patchProfileDisplayName(sb, auth.userId, displayName);
+  if (!namePatch.ok) {
+    return jsonError(namePatch.message, 500);
   }
-  invalidatePhoneVerifiedPositiveProfile(auth.userId);
+  await syncPhoneVerifiedServerCache(auth.userId);
   return jsonOk({
     verification: {
-      phone: phoneFields.phone ?? verified.data.phone,
+      phone: verified.data.phone,
       phone_verified: true,
       phone_verification_status: "verified",
       nickname: displayName,

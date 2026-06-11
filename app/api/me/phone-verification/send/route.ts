@@ -7,6 +7,7 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { enforcePhoneVerificationSendQuota } from "@/lib/security/rate-limit-presets";
 import { STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
 import { sendPhoneOtpForUser } from "@/lib/auth/phone-otp-service";
+import { patchProfileDisplayName } from "@/lib/auth/phone-otp-server-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,35 +42,22 @@ export async function POST(req: NextRequest) {
   } catch {
     return jsonError("invalid_json", 400);
   }
-  const normalizedPhone = String(body.phone ?? "").trim();
+  const inputPhone = String(body.phone ?? "").trim();
   const displayName = String(body.display_name ?? body.nickname ?? "").trim().slice(0, 20);
   if (!displayName) {
     return jsonError("닉네임을 입력해 주세요.", 400);
   }
-  const result = await sendPhoneOtpForUser(sb, auth.userId, normalizedPhone);
+  const result = await sendPhoneOtpForUser(sb, auth.userId, inputPhone);
   if (!result.ok) {
-    return jsonError(result.message, result.status);
+    return jsonError(result.message, { status: result.status, code: result.code });
   }
-  const phone = result.data.phone;
-  const now = new Date().toISOString();
-  const { error } = await sb.from("profiles").update({
-    display_name: displayName,
-    phone,
-    phone_country_code: "+63",
-    phone_number: phone.replace(/^\+63/, ""),
-    phone_verified: false,
-    phone_verified_at: null,
-    phone_verification_status: "pending",
-    phone_verification_requested_at: now,
-    preferred_country: "PH",
-    updated_at: now,
-  }).eq("id", auth.userId);
-  if (error) {
-    return jsonError(error.message || "phone_verification_send_failed", 500);
+  const namePatch = await patchProfileDisplayName(sb, auth.userId, displayName);
+  if (!namePatch.ok) {
+    return jsonError(namePatch.message, 500);
   }
   return jsonOk({
     verification: {
-      phone,
+      phone: result.data.phone,
       phone_verified: false,
       phone_verification_status: "pending",
       nickname: displayName,

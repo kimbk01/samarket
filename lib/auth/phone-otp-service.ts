@@ -1,10 +1,21 @@
+/**
+ * CONTRACT — 전화 OTP 단일 서비스 경로.
+ * - `phone_otp_challenges` CRUD·OTP 해시·SMS 발송·profiles phone/verified 갱신은 이 파일만.
+ * - API route 는 `phone-otp-server-sync` 로 display_name·gate 캐시만 보조한다.
+ * - 검증: `npm run verify:phone-otp-contract`
+ */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomInt } from "node:crypto";
 import { loadAuthPhoneSettings, type AuthPhoneSettings } from "@/lib/auth/auth-phone-settings";
+import { isValidPhilippinesMobilePhone } from "@/lib/phone/philippines-phone";
+import { isValidPhoneOtpCodeInput } from "@/lib/auth/phone-otp-contract";
+import { findPhoneDuplicateOnOtherProfile } from "@/lib/auth/phone-otp-duplicate-check";
 import {
-  isValidPhilippinesMobilePhone,
-  normalizePhilippinesPhoneNumber,
-} from "@/lib/phone/philippines-phone";
+  philippinesPhoneDb09,
+  philippinesPhoneE164,
+  philippinesPhoneStorageFields,
+  philippinesPhonesMatchForOtp,
+} from "@/lib/auth/phone-otp-phone-canonical";
 import { sendSemaphoreSms } from "@/lib/auth/semaphore-sms";
 
 export type PhoneOtpErrorCode =
@@ -49,19 +60,18 @@ function invalidPhoneResult(): ServiceResult<never> {
 async function ensurePhoneUnique(
   sb: SupabaseClient,
   userId: string,
-  normalizedPhone: string,
+  inputPhone: string,
 ): Promise<ServiceResult<null>> {
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .eq("phone", normalizedPhone)
-    .neq("id", userId)
-    .limit(1);
-  if (error) return fail(500, "server_error", error.message);
-  if ((data?.length ?? 0) > 0) {
-    return fail(409, "phone_duplicate", "이미 다른 계정에서 사용 중인 전화번호입니다.");
+  try {
+    const duplicate = await findPhoneDuplicateOnOtherProfile(sb, userId, inputPhone);
+    if (duplicate) {
+      return fail(409, "phone_duplicate", "이미 다른 계정에서 사용 중인 전화번호입니다.");
+    }
+    return { ok: true, data: null };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "server_error";
+    return fail(500, "server_error", message);
   }
-  return { ok: true, data: null };
 }
 
 type ProfileOtpState = {
@@ -192,10 +202,12 @@ export async function sendPhoneOtpForUser(
     return fail(403, "phone_verify_disabled", "전화 인증 기능이 현재 비활성화되어 있습니다.");
   }
 
-  const normalizedPhone = normalizePhilippinesPhoneNumber(inputPhone);
+  const normalizedPhone = philippinesPhoneE164(inputPhone);
   if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
+  const phoneFields = philippinesPhoneStorageFields(inputPhone);
+  if (!phoneFields.phone) return invalidPhoneResult();
 
-  const uniqueCheck = await ensurePhoneUnique(sb, userId, normalizedPhone);
+  const uniqueCheck = await ensurePhoneUnique(sb, userId, inputPhone);
   if (!uniqueCheck.ok) return uniqueCheck;
 
   const otpState = await loadProfileOtpState(sb, userId);
@@ -226,12 +238,16 @@ export async function sendPhoneOtpForUser(
   const { error: profileError } = await sb
     .from("profiles")
     .update({
-      phone: normalizedPhone,
+      phone: phoneFields.phone,
+      phone_country_code: phoneFields.phone_country_code,
+      phone_number: phoneFields.phone_number,
       phone_verified: false,
       phone_verified_at: null,
+      phone_verification_status: "pending",
       phone_verification_method: "semaphore_local",
       phone_verification_requested_at: nowIso,
       phone_verification_attempt_count: 0,
+      preferred_country: "PH",
       updated_at: nowIso,
     })
     .eq("id", userId);
@@ -239,7 +255,7 @@ export async function sendPhoneOtpForUser(
     return fail(500, "otp_send_failed", "인증번호 발송에 실패했습니다.");
   }
 
-  return { ok: true, data: { phone: normalizedPhone, settings } };
+  return { ok: true, data: { phone: phoneFields.phone ?? normalizedPhone, settings } };
 }
 
 export async function verifyPhoneOtpForUser(
@@ -248,13 +264,15 @@ export async function verifyPhoneOtpForUser(
   inputPhone: string,
   otp: string,
 ): Promise<ServiceResult<VerifyOtpResult>> {
-  const normalizedPhone = normalizePhilippinesPhoneNumber(inputPhone);
+  const normalizedPhone = philippinesPhoneE164(inputPhone);
   if (!isValidPhilippinesMobilePhone(normalizedPhone)) return invalidPhoneResult();
-  if (!/^\d{4,8}$/.test(String(otp ?? "").trim())) {
+  const phoneFields = philippinesPhoneStorageFields(inputPhone);
+  if (!phoneFields.phone) return invalidPhoneResult();
+  if (!isValidPhoneOtpCodeInput(String(otp ?? ""))) {
     return fail(400, "otp_invalid", "인증번호를 확인해 주세요.");
   }
 
-  const uniqueCheck = await ensurePhoneUnique(sb, userId, normalizedPhone);
+  const uniqueCheck = await ensurePhoneUnique(sb, userId, inputPhone);
   if (!uniqueCheck.ok) return uniqueCheck;
 
   const otpState = await loadProfileOtpState(sb, userId);
@@ -275,7 +293,7 @@ export async function verifyPhoneOtpForUser(
   if (!challenge) {
     return fail(400, "otp_required", "먼저 인증번호를 요청해 주세요.");
   }
-  if (challenge.phone !== normalizedPhone) {
+  if (!philippinesPhonesMatchForOtp(challenge.phone, normalizedPhone)) {
     return fail(400, "otp_phone_mismatch", "요청한 전화번호와 인증 대상 번호가 다릅니다.");
   }
   if (new Date(challenge.otp_expires_at).getTime() < Date.now()) {
@@ -290,7 +308,8 @@ export async function verifyPhoneOtpForUser(
     );
   }
 
-  const providedHash = hashOtpCode(normalizedPhone, String(otp).trim());
+  const challengePhoneE164 = philippinesPhoneE164(challenge.phone);
+  const providedHash = hashOtpCode(challengePhoneE164, String(otp).trim());
   if (providedHash !== challenge.otp_code_hash) {
     await updatePhoneOtpChallengeAttempts(sb, userId, challenge.attempt_count + 1);
     await bumpOtpAttemptCount(sb, userId, attempted + 1);
@@ -301,14 +320,18 @@ export async function verifyPhoneOtpForUser(
   const { error } = await sb
     .from("profiles")
     .update({
-      phone: normalizedPhone,
+      phone: phoneFields.phone,
+      phone_country_code: phoneFields.phone_country_code,
+      phone_number: phoneFields.phone_number,
       phone_verified: true,
       phone_verified_at: nowIso,
+      phone_verification_status: "verified",
       member_status: "active",
       verified_member_at: nowIso,
       status: "verified_user",
       phone_verification_method: "semaphore_local",
       phone_verification_attempt_count: 0,
+      preferred_country: "PH",
       updated_at: nowIso,
     })
     .eq("id", userId);
@@ -319,7 +342,7 @@ export async function verifyPhoneOtpForUser(
   return {
     ok: true,
     data: {
-      phone: normalizedPhone,
+      phone: phoneFields.phone ?? philippinesPhoneDb09(inputPhone) ?? normalizedPhone,
       member_status: "active",
       phone_verified: true,
       verification_method: "semaphore_local",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const runtime = "nodejs";
@@ -53,6 +54,7 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ ok: false, error: error.message || "update_failed" }, { status: 500 });
   }
+  await syncPhoneVerifiedServerCache(userId);
 
   return NextResponse.json({ ok: true, action });
 }

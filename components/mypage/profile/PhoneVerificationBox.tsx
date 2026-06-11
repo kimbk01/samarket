@@ -7,8 +7,9 @@ import {
   isValidPhilippinesMobilePhone,
 } from "@/lib/phone/philippines-phone";
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { formatPhMobileDisplayPlus63, normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
 
@@ -72,6 +73,7 @@ export function PhoneVerificationBox({
   const now = Date.now();
   const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const normalizedPhone = useMemo(() => normalizePhilippinesPhoneNumber(phone), [phone]);
+  const phoneForApi = useMemo(() => normalizePhMobileDb(phone) ?? normalizedPhone, [phone, normalizedPhone]);
   const validPhone = isValidPhilippinesMobilePhone(normalizedPhone);
 
   const requestOtp = async () => {
@@ -87,7 +89,7 @@ export function PhoneVerificationBox({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone: normalizedPhone }),
+        body: JSON.stringify({ phone: phoneForApi }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -119,7 +121,7 @@ export function PhoneVerificationBox({
       setError(t("my_phone_rule_invalid"));
       return;
     }
-    if (!/^\d{6}$/.test(otp.trim())) {
+    if (!isValidPhoneOtpCodeInput(otp)) {
       setError(t("my_phone_code_required"));
       return;
     }
@@ -129,7 +131,7 @@ export function PhoneVerificationBox({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ phone: normalizedPhone, otp: otp.trim() }),
+        body: JSON.stringify({ phone: phoneForApi, otp: otp.trim() }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -253,7 +255,7 @@ export function PhoneVerificationBox({
             <input
               type="text"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={PHONE_OTP_CODE_LENGTH}
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D+/g, ""))}
               placeholder={t("my_phone_verify_code_placeholder")}

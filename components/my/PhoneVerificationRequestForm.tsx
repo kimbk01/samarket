@@ -10,6 +10,10 @@ import {
 } from "@/lib/utils/ph-mobile";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
+import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
+import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 type VerificationPayload = {
   phone: string | null;
@@ -80,12 +84,25 @@ export function PhoneVerificationRequestForm() {
         credentials: "include",
         body: JSON.stringify({ display_name: displayName, phone: norm }),
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        verification?: VerificationPayload;
+      } | null;
       if (!res.ok || !data?.ok) {
-        setError(data?.error || t("my_phone_send_failed"));
+        setError(
+          resolvePhoneOtpUiError(
+            { status: res.status, code: data?.code, message: data?.error },
+            t,
+            "send",
+          ),
+        );
         return;
       }
-      setStatus(data.verification as VerificationPayload);
+      if (data.verification) {
+        setStatus(data.verification);
+      }
       setMessage(t("my_phone_sent_hint"));
     } catch {
       setError(t("my_phone_send_otp_failed"));
@@ -100,7 +117,7 @@ export function PhoneVerificationRequestForm() {
       setError(t("my_phone_rule_invalid"));
       return;
     }
-    if (!otpCode.trim()) {
+    if (!isValidPhoneOtpCodeInput(otpCode)) {
       setError(t("my_phone_code_required"));
       return;
     }
@@ -114,11 +131,24 @@ export function PhoneVerificationRequestForm() {
         credentials: "include",
         body: JSON.stringify({ display_name: displayName, phone: norm, code: otpCode.trim() }),
       });
-      const data = await res.json().catch(() => null);
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        verification?: VerificationPayload;
+      } | null;
       if (!res.ok || !data?.ok) {
-        setError(data?.error || t("my_phone_verify_code_failed"));
+        setError(
+          resolvePhoneOtpUiError(
+            { status: res.status, code: data?.code, message: data?.error },
+            t,
+            "verify",
+          ),
+        );
         return;
       }
+      invalidateMeProfileDedupedCache();
+      invalidateMandatoryAddressGateClientCache();
       setStatus(data.verification as VerificationPayload);
       setMessage(t("my_phone_verified_success"));
       setOtpCode("");
@@ -193,7 +223,7 @@ export function PhoneVerificationRequestForm() {
           <input
             type="text"
             inputMode="numeric"
-            maxLength={10}
+            maxLength={PHONE_OTP_CODE_LENGTH}
             value={otpCode}
             onChange={(e) => setOtpCode(e.target.value.replace(/\D+/g, ""))}
             placeholder={t("my_phone_verify_code_placeholder")}
