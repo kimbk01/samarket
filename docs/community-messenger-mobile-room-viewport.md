@@ -81,5 +81,6 @@
 | 2026-05-20 | 배달 주문: 포커스만으로 chrome 접기 제거(키보드 open 시만 compact). vv 셸에서 composer `sticky`·추가 footer px 제거·`--chat-safe-bottom`만 사용. 오너 주문 패널·구매자 주문 시트 닫힘 시 shadow bleed 제거(`shadow-none`·`invisible`) | `CommunityMessengerRoomPhase2AttachmentsAndTrade`, `CommunityMessengerRoomPhase2Composer`, `StoreOrderSellerOrderPanel`, `StoreOrderBuyerRoomSheet`, `samarket-components.css` |
 | 2026-06-08 | 1:1 통화 페이지·전역 수신 오버레이에 통화 전용 `visualViewport` 높이 변수(`--call-viewport-height`) 적용. 방 셸·스크롤·composer 계약은 미변경 | `CallScreenShell`, `CallScreen`, `CommunityMessengerCallClient` |
 | 2026-06-08 | 통화 자식 화면·라우트 로딩의 잔여 `min-h-[100dvh]` 의존 제거. 높이 기준은 부모 `CallScreenShell`의 `--call-viewport-height`로 단일화 | `IncomingCallView`, `OutgoingCallView`, `CommunityMessengerCallRouteLoading` |
+| 2026-06-11 | 통화 오버레이: `resolveLayoutVisibleViewportCssPx`(방과 동일 vv 공식)·셸 실측 `height` 인라인·z-1280(하단 탭 위)·호스트/수신 벨 BottomNav 선제 suppress — 모바일 하단 흰 띠(앱 배경 비침) 구조 수정 | `layout-visible-viewport-px`, `CallScreenShell`, `CommunityMessengerActiveCallHost`, `CallOverlay` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

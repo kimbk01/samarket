@@ -4,6 +4,8 @@ import type { ReactNode, RefObject } from "react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MESSENGER_CALL_GRADIENT_SURFACE } from "@/lib/community-messenger/messenger-call-gradient";
+import { resolveLayoutVisibleViewportCssPx } from "@/lib/ui/layout-visible-viewport-px";
+import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-shell-keyboard";
 
 type Props = {
   /** 전체 화면 오버레이(수신·진행 통화 등) · 채팅방 상단 도킹 */
@@ -21,8 +23,8 @@ export { MESSENGER_CALL_GRADIENT_SURFACE };
 
 const DEFAULT_OVERLAY_SURFACE = MESSENGER_CALL_GRADIENT_SURFACE;
 
-/** 메인 BottomNav(z-30)·메신저 허브 캡슐(z-40)보다 위, WebConnectivityBanner(z-100)보다 아래 */
-const CALL_OVERLAY_PORTAL_Z = "z-[78]";
+/** 메인 BottomNav(`z-index:1200`)·FAB 위 — 전역 모달(1310+) 아래 */
+const CALL_OVERLAY_PORTAL_Z = "z-[1280]";
 const CALL_VIEWPORT_MIN_HEIGHT_PX = 240;
 const CALL_VIEWPORT_CSS_VARS = ["--call-viewport-height", "--call-safe-bottom"] as const;
 
@@ -45,18 +47,18 @@ function useCallViewportResize(enabled: boolean, shellRef: RefObject<HTMLDivElem
 
     let safeBottomPx = readSafeAreaInsetBottomPx();
     let syncRafId = 0;
-    let orientationFallbackId: ReturnType<typeof setTimeout> | null = null;
+    let orientationRafId = 0;
 
     const sync = () => {
-      const vv = window.visualViewport;
-      const layoutHeight = window.innerHeight;
-      const visibleFromVv = vv ? vv.offsetTop + vv.height : layoutHeight;
-      /** iPad Safari: vv·layout 불일치 시 셸이 보이는 영역보다 커져 하단에 배경(녹색)이 비친다 */
-      const visibleHeight = Math.min(layoutHeight, visibleFromVv);
-      const heightPx = Math.max(CALL_VIEWPORT_MIN_HEIGHT_PX, Math.round(visibleHeight));
+      const heightPx = resolveLayoutVisibleViewportCssPx(CALL_VIEWPORT_MIN_HEIGHT_PX);
       shell.style.setProperty("--call-viewport-height", `${heightPx}px`);
       shell.style.setProperty("--call-safe-bottom", `${safeBottomPx}px`);
+      /** `fixed top+height` 만 쓰면 모바일에서 셸 아래 앱 배경이 비친다 — 실측 높이를 인라인으로도 고정 */
+      shell.style.height = `${heightPx}px`;
+      shell.style.minHeight = `${heightPx}px`;
+      shell.style.maxHeight = `${heightPx}px`;
     };
+
     const scheduleSync = () => {
       cancelAnimationFrame(syncRafId);
       syncRafId = requestAnimationFrame(() => {
@@ -64,40 +66,55 @@ function useCallViewportResize(enabled: boolean, shellRef: RefObject<HTMLDivElem
         sync();
       });
     };
+
     const onResize = () => scheduleSync();
     const onOrientation = () => {
-      if (orientationFallbackId != null) clearTimeout(orientationFallbackId);
       const handlePostOrientationResize = () => {
+        cancelAnimationFrame(orientationRafId);
         window.removeEventListener("resize", handlePostOrientationResize);
-        if (orientationFallbackId != null) {
-          clearTimeout(orientationFallbackId);
-          orientationFallbackId = null;
-        }
         safeBottomPx = readSafeAreaInsetBottomPx();
         scheduleSync();
       };
       window.addEventListener("resize", handlePostOrientationResize, { once: true });
-      orientationFallbackId = setTimeout(() => {
+      cancelAnimationFrame(orientationRafId);
+      orientationRafId = window.setTimeout(() => {
         window.removeEventListener("resize", handlePostOrientationResize);
-        orientationFallbackId = null;
         safeBottomPx = readSafeAreaInsetBottomPx();
         scheduleSync();
-      }, 220);
+      }, 200) as unknown as number;
     };
 
     sync();
+    let bootRaf1 = 0;
+    let bootRaf2 = 0;
+    bootRaf1 = requestAnimationFrame(() => {
+      bootRaf2 = requestAnimationFrame(() => {
+        sync();
+      });
+    });
+
     const vv = window.visualViewport;
     vv?.addEventListener("resize", onResize);
     vv?.addEventListener("scroll", onResize);
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onOrientation);
+    const unsubShell = subscribeSamarketShellKeyboardInsets(() => {
+      sync();
+    });
+
     return () => {
       cancelAnimationFrame(syncRafId);
-      if (orientationFallbackId != null) clearTimeout(orientationFallbackId);
+      cancelAnimationFrame(bootRaf1);
+      cancelAnimationFrame(bootRaf2);
+      clearTimeout(orientationRafId);
       vv?.removeEventListener("resize", onResize);
       vv?.removeEventListener("scroll", onResize);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onOrientation);
+      unsubShell();
+      shell.style.height = "";
+      shell.style.minHeight = "";
+      shell.style.maxHeight = "";
       for (const key of CALL_VIEWPORT_CSS_VARS) {
         shell.style.removeProperty(key);
       }
@@ -112,20 +129,20 @@ export function CallScreenShell({
   children,
   className = "",
 }: Props) {
-  /** `useLayoutEffect`로 첫 페인트 전에 body 포털 부착(하단 탭과의 순간 역전 완화) */
+  /** `useLayoutEffect`로 첫 페인트 전에 body 포털 부착 */
   const [portalReady, setPortalReady] = useState(false);
   const shellRef = useRef<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     setPortalReady(true);
   }, []);
-  const viewportResizeEnabled = variant === "overlay" ? portalReady : variant === "page";
+  const viewportResizeEnabled = variant === "overlay" || variant === "page";
   useCallViewportResize(viewportResizeEnabled, shellRef);
 
   const base =
     variant === "overlay"
-      ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col ${surfaceClassName}`
+      ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`
       : variant === "dock-top"
-        ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col pt-[max(14px,calc(env(safe-area-inset-top,0px)+8px))] ${surfaceClassName}`
+        ? `fixed inset-x-0 top-0 ${CALL_OVERLAY_PORTAL_Z} flex max-h-[min(520px,92dvh)] min-h-0 flex-col overflow-hidden pt-[max(14px,calc(env(safe-area-inset-top,0px)+8px))] ${surfaceClassName}`
         : `flex h-[var(--call-viewport-height,100dvh)] max-h-[var(--call-viewport-height,100dvh)] min-h-0 flex-col overflow-hidden ${surfaceClassName}`;
   const shell = (
     <div ref={shellRef} data-messenger-shell data-call-screen-shell className={`${base} ${className}`.trim()}>

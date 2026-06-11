@@ -1,13 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useSyncExternalStore } from "react";
+import { useLayoutEffect, useSyncExternalStore } from "react";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import {
   readActiveDirectVideoCallSessionId,
   readMinimizedCommunityCallSessionId,
 } from "@/lib/community-messenger/direct-call-minimize";
 import { GlobalCallVideoPipHost } from "@/components/layout/providers/GlobalCallVideoPipHost";
+import { pushMessengerCallMainBottomNavSuppressed } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
+
+/** `CallScreenShell` 포털·`CallClient` dynamic import 전에도 하단 탭(z-1200)이 통화 위로 올라오지 않게 */
+const CALL_HOST_FULLSCREEN_Z = "z-[1280]";
 
 const CommunityMessengerCallClient = dynamic(
   () =>
@@ -46,12 +50,20 @@ export function notifyCommunityCallHostSync(): void {
 export function CommunityMessengerActiveCallHost() {
   useSyncExternalStore(subscribeCommunityCallHostSync, readHostedCallSessionId, () => null);
   const hostedSessionId = readHostedCallSessionId();
+  const isMinimizedFlag =
+    hostedSessionId != null && readMinimizedCommunityCallSessionId() === hostedSessionId;
+  const suppressBottomNavForFullscreenHost =
+    hostedSessionId != null && !isMinimizedFlag;
+
+  useLayoutEffect(() => {
+    if (!suppressBottomNavForFullscreenHost) return;
+    return pushMessengerCallMainBottomNavSuppressed();
+  }, [suppressBottomNavForFullscreenHost]);
 
   if (!hostedSessionId) {
     return <GlobalCallVideoPipHost />;
   }
 
-  const isMinimizedFlag = readMinimizedCommunityCallSessionId() === hostedSessionId;
   const presentation = isMinimizedFlag ? "minimized" : "fullscreen";
 
   return (
@@ -61,7 +73,7 @@ export function CommunityMessengerActiveCallHost() {
         className={
           presentation === "minimized"
             ? "fixed h-0 w-0 overflow-hidden opacity-0 pointer-events-none"
-            : "fixed inset-0 z-[78]"
+            : `fixed inset-0 ${CALL_HOST_FULLSCREEN_Z}`
         }
         aria-hidden={presentation === "minimized" ? true : undefined}
       >

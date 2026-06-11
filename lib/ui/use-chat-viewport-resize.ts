@@ -1,11 +1,8 @@
 "use client";
 
 import { useLayoutEffect, type RefObject } from "react";
-import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
-import {
-  readSamarketShellKeyboardBottomInsetCssPx,
-  subscribeSamarketShellKeyboardInsets,
-} from "@/lib/platform/samarket-shell-keyboard";
+import { resolveLayoutVisibleViewportCssPx } from "@/lib/ui/layout-visible-viewport-px";
+import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-shell-keyboard";
 import { MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 
 function readSafeAreaInsetBottomPx(): number {
@@ -90,30 +87,9 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
       applyComposerObserver();
       applyTradeDockObserver();
 
-      const vv = window.visualViewport;
-      const shellInset = readSamarketShellKeyboardBottomInsetCssPx();
-
-      let layoutVisibleCssPx: number;
-      let keyboardCssPx: number;
-
-      if (shellInset != null && shellInset > 0) {
-        keyboardCssPx = shellInset;
-        const inner = window.innerHeight;
-        layoutVisibleCssPx = Math.max(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX, Math.round(inner - shellInset));
-      } else if (vv) {
-        /** iOS: 주소창·비주얼 뷰포트 이동 시 레이아웃 하단은 `offsetTop + height` */
-        const layoutBottomEdge = vv.offsetTop + vv.height;
-        layoutVisibleCssPx = Math.max(
-          MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX,
-          isLikelyIosWebKit() ? Math.ceil(layoutBottomEdge) : Math.round(layoutBottomEdge)
-        );
-        const inner = window.innerHeight;
-        keyboardCssPx = Math.max(0, Math.round(inner - layoutVisibleCssPx));
-      } else {
-        const inner = window.innerHeight;
-        layoutVisibleCssPx = Math.max(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX, Math.round(inner));
-        keyboardCssPx = 0;
-      }
+      const layoutVisibleCssPx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
+      const inner = window.innerHeight;
+      const keyboardCssPx = Math.max(0, Math.round(inner - layoutVisibleCssPx));
 
       const composer = shell.querySelector<HTMLElement>("[data-cm-composer]");
       const composerH = composer?.offsetHeight ?? 0;

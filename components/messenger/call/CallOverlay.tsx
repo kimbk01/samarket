@@ -6,6 +6,7 @@ import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { computeIncomingRingRemainingSeconds } from "@/lib/community-messenger/messenger-call-ring-timeout";
+import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 
 export type CommunityMessengerIncomingCallOverlayProps = {
   session: CommunityMessengerCallSession;
@@ -23,6 +24,7 @@ export type CommunityMessengerIncomingCallOverlayProps = {
 
 /** 앱 루트 단일 전역 수신 오버레이 — `CallScreen` VM 조립만 담당 */
 export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerIncomingCallOverlayProps) {
+  useMessengerCallMainBottomNavSuppress(true);
   const {
     session,
     busyId,
