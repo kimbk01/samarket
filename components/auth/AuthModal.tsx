@@ -20,8 +20,8 @@ import {
   mapSupabaseFetchFailureToMessage,
 } from "@/lib/auth/login-error-i18n";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
+import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
@@ -53,10 +53,11 @@ function mapHttpStatusToResolveErrorCode(status: number): string {
 }
 
 export function AuthModal({ open, detail, onClose }: Props) {
-  const { t, safeT } = useI18n();
+  const { t } = useI18n();
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
   const [oauthBusy, setOauthBusy] = useState<string | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -70,11 +71,13 @@ export function AuthModal({ open, detail, onClose }: Props) {
     return `${window.location.pathname}${window.location.search}`;
   }, [detail?.next]);
 
-  const actionBodyKey = detail?.actionType ? `auth_login_required_body_${detail.actionType}` : "";
-  const body = safeT(actionBodyKey as MessageKey, {
-    fallbackKo: "이 기능은 DIBAY 회원만 사용할 수 있습니다.",
-    fallbackEn: "This feature is available to DIBAY members only.",
-  });
+  useEffect(() => {
+    if (open) return;
+    setShowEmailLogin(false);
+    setError(null);
+    setIdentifier("");
+    setPassword("");
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -280,13 +283,12 @@ export function AuthModal({ open, detail, onClose }: Props) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
-      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#006241]/10 text-[#006241]" aria-hidden>
-        <span className="text-xl font-bold">D</span>
+      <div className="mx-auto flex justify-center" aria-hidden>
+        <DibayAuthLogo size={56} />
       </div>
       <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
         {t("auth_login_required_title")}
       </h2>
-      <p className="mt-2 text-center sam-text-body leading-relaxed text-[#1e3932]/75">{body}</p>
 
       <div className="mt-5 space-y-4">
         <LoginProviderButtons
@@ -294,9 +296,11 @@ export function AuthModal({ open, detail, onClose }: Props) {
           disabled={Boolean(oauthBusy) || loading}
           busyProvider={oauthBusy}
           emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
+          showEmailEntry={passwordEnabled}
+          onEmailLoginClick={() => setShowEmailLogin(true)}
           onSelectProvider={(provider) => void handleOAuthLogin(provider)}
         />
-        {passwordEnabled ? (
+        {passwordEnabled && showEmailLogin ? (
           <PasswordLoginForm
             identifier={identifier}
             password={password}
@@ -304,20 +308,13 @@ export function AuthModal({ open, detail, onClose }: Props) {
             disabled={loading || Boolean(oauthBusy)}
             loading={loading}
             loadingText={passwordLoginStatus}
+            className="mt-4 space-y-4"
             onIdentifierChange={setIdentifier}
             onPasswordChange={setPassword}
             onSubmit={handleEmailSubmit}
           />
         ) : null}
       </div>
-
-      <button
-        type="button"
-        onClick={onClose}
-        className="mt-4 w-full rounded-full border border-[#006241] bg-white px-4 py-3 sam-text-body font-semibold text-[#006241] active:bg-[#f6f6f6]"
-      >
-        {t("auth_login_required_later")}
-      </button>
       </div>
     </AuthGateOverlay>
   );

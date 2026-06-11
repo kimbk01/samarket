@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
@@ -94,6 +95,7 @@ function LoginPageContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
+  const [showEmailLogin, setShowEmailLogin] = useState(false);
 
   const showLoginError = (message: string, withPopup = false) => {
     setError((prev) => (prev === message ? prev : message));
@@ -491,8 +493,10 @@ function LoginPageContent() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
       <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
-        <h1 className="text-center text-lg font-semibold text-sam-fg">{t("auth_login_title")}</h1>
-        <p className="mt-1 text-center sam-text-body-secondary text-sam-muted">{t("auth_login_subtitle")}</p>
+        <div className="mx-auto flex justify-center" aria-hidden>
+          <DibayAuthLogo size={56} />
+        </div>
+        <h1 className="mt-3 text-center text-lg font-semibold text-sam-fg">{t("auth_login_title")}</h1>
         <div className="mt-5">
           <LoginProviderButtons
             providers={providers}
@@ -501,6 +505,8 @@ function LoginPageContent() {
             emptyText={
               providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
             }
+            showEmailEntry={passwordEnabled}
+            onEmailLoginClick={() => setShowEmailLogin(true)}
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
         </div>
@@ -512,25 +518,19 @@ function LoginPageContent() {
             {t("auth_no_login_methods")}
           </p>
         ) : null}
-        {passwordEnabled ? (
-          <>
-            <div className="my-4 flex items-center gap-3 sam-text-helper text-sam-meta">
-              <div className="h-px flex-1 bg-sam-border-soft" />
-              <span>{t("auth_login_divider_id_password")}</span>
-              <div className="h-px flex-1 bg-sam-border-soft" />
-            </div>
-            <PasswordLoginForm
-              identifier={identifier}
-              password={password}
-              error={error}
-              loading={loading}
-              loadingText={passwordLoginStatus}
-              disabled={loading || Boolean(oauthBusy)}
-              onIdentifierChange={setIdentifier}
-              onPasswordChange={setPassword}
-              onSubmit={handleEmailSubmit}
-            />
-          </>
+        {passwordEnabled && showEmailLogin ? (
+          <PasswordLoginForm
+            identifier={identifier}
+            password={password}
+            error={error}
+            loading={loading}
+            loadingText={passwordLoginStatus}
+            disabled={loading || Boolean(oauthBusy)}
+            className="mt-4 space-y-4"
+            onIdentifierChange={setIdentifier}
+            onPasswordChange={setPassword}
+            onSubmit={handleEmailSubmit}
+          />
         ) : error ? (
           <p className="mt-4 sam-text-body-secondary text-red-600">{error}</p>
         ) : null}

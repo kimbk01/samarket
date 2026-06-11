@@ -10,6 +10,7 @@ type Props = {
   disabled?: boolean;
   loading?: boolean;
   loadingText?: string | null;
+  className?: string;
   onIdentifierChange: (value: string) => void;
   onPasswordChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void | Promise<void>;
@@ -22,6 +23,7 @@ export function PasswordLoginForm({
   disabled = false,
   loading = false,
   loadingText = "",
+  className,
   onIdentifierChange,
   onPasswordChange,
   onSubmit,
@@ -48,7 +50,7 @@ export function PasswordLoginForm({
     [password, onPasswordChange]
   );
   return (
-    <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate autoComplete="off">
+    <form onSubmit={onSubmit} className={className ?? "mt-6 space-y-4"} noValidate autoComplete="off">
       <fieldset disabled={disabled} className="space-y-4">
         <div>
           <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("auth_login_identifier")}</label>

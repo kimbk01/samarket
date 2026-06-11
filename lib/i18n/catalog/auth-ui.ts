@@ -12,6 +12,13 @@ export const authUiMessages = {
     auth_login_submit: "로그인",
     auth_provider_busy: "이동 중…",
     auth_provider_continue: "{provider}로 계속하기",
+    auth_login_divider_other_account: "다른 계정으로 계속하기",
+    auth_login_email_dev_aria: "이메일 로그인 (관리자·개발)",
+    auth_provider_continue_kakao: "카카오톡으로 계속하기",
+    auth_provider_continue_naver: "네이버로 계속하기",
+    auth_provider_continue_apple: "Apple로 계속하기",
+    auth_provider_continue_google: "Google로 계속하기",
+    auth_provider_continue_facebook: "Facebook으로 계속하기",
     auth_err_auth_timeout:
       "인증 서버(Supabase) 응답이 지연되거나 없습니다. 인터넷·VPN·방화벽을 확인하고, .env의 URL·anon 키가 대시보드와 일치하는지 확인한 뒤 다시 시도해 주세요.",
     auth_err_identifier_resolve_timeout:
@@ -157,6 +164,13 @@ export const authUiMessages = {
     auth_login_submit: "Sign in",
     auth_provider_busy: "Redirecting…",
     auth_provider_continue: "Continue with {provider}",
+    auth_login_divider_other_account: "Continue with another account",
+    auth_login_email_dev_aria: "Email sign-in (admin/dev)",
+    auth_provider_continue_kakao: "Continue with KakaoTalk",
+    auth_provider_continue_naver: "Continue with Naver",
+    auth_provider_continue_apple: "Continue with Apple",
+    auth_provider_continue_google: "Continue with Google",
+    auth_provider_continue_facebook: "Continue with Facebook",
     auth_err_auth_timeout:
       "The auth server (Supabase) is slow or unreachable. Check your network, VPN, and firewall, verify URL and anon key in .env match the dashboard, then try again.",
     auth_err_identifier_resolve_timeout:
