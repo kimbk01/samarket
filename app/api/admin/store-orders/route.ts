@@ -1,12 +1,14 @@
 /**
  * GET /api/admin/store-orders — 관리자 매장 주문 목록 (서비스 롤)
  * Query: order_id, order_no, store_id, buyer_user_id, payment_status, order_status, limit, include_items=1
+ *
+ * ASO1: `get_admin_store_orders_list_snapshot` RPC 우선 — 미적용 시 legacy multi-query fallback.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
+import { tryLoadAdminStoreOrdersListFromSnapshot } from "@/lib/admin/admin-store-orders-list-snapshot";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
-
   mapStoreOrderToAdminDelivery,
   type StoreOrderItemRow,
   type StoreOrderRow,
@@ -15,16 +17,18 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest) {
-  const admin = await requireAdminApiUser();
-  if (!admin.ok) return admin.response;
+function snapshotHeaders(): Record<string, string> {
+  return {
+    "x-samarket-admin-store-orders-snapshot-path": "1",
+    "x-samarket-admin-store-orders-query-wave-2-ms": "0",
+    "x-samarket-admin-store-orders-rpc-removed": "1",
+  };
+}
 
-  const sb = tryGetSupabaseForStores();
-  if (!sb) {
-    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-
-  const sp = req.nextUrl.searchParams;
+async function loadLegacyAdminStoreOrders(
+  sb: NonNullable<ReturnType<typeof tryGetSupabaseForStores>>,
+  sp: URLSearchParams
+) {
   const orderId = sp.get("order_id")?.trim();
   const orderNo = sp.get("order_no")?.trim();
   const storeIdFilter = sp.get("store_id")?.trim();
@@ -51,8 +55,8 @@ export async function GET(req: NextRequest) {
 
   const { data: orderRows, error } = await q;
   if (error) {
-    console.error("[admin store-orders GET]", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    console.error("[admin store-orders GET legacy]", error);
+    return { ok: false as const, error: error.message };
   }
 
   const list = orderRows ?? [];
@@ -122,8 +126,8 @@ export async function GET(req: NextRequest) {
       .select("id, order_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
       .in("order_id", oids);
     if (iErr) {
-      console.error("[admin store-orders items]", iErr);
-      return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
+      console.error("[admin store-orders items legacy]", iErr);
+      return { ok: false as const, error: iErr.message };
     }
     for (const row of itemRows ?? []) {
       const oid = row.order_id as string;
@@ -162,5 +166,55 @@ export async function GET(req: NextRequest) {
     return { ...base, admin_delivery: mapped };
   });
 
-  return NextResponse.json({ ok: true, orders });
+  return { ok: true as const, orders };
+}
+
+export async function GET(req: NextRequest) {
+  const admin = await requireAdminApiUser();
+  if (!admin.ok) return admin.response;
+
+  const sb = tryGetSupabaseForStores();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+  }
+
+  const sp = req.nextUrl.searchParams;
+  const includeItems = sp.get("include_items") === "1";
+  const limit = Math.min(Math.max(Number(sp.get("limit")) || 500, 1), 2000);
+
+  const snapshot = await tryLoadAdminStoreOrdersListFromSnapshot(sb, {
+    orderId: sp.get("order_id")?.trim() || undefined,
+    orderNo: sp.get("order_no")?.trim() || undefined,
+    storeId: sp.get("store_id")?.trim() || undefined,
+    buyerUserId: sp.get("buyer_user_id")?.trim() || undefined,
+    paymentStatus: sp.get("payment_status")?.trim() || undefined,
+    orderStatus: sp.get("order_status")?.trim() || undefined,
+    limit,
+    includeItems,
+  });
+
+  if (snapshot.ok) {
+    return NextResponse.json(
+      { ok: true, orders: snapshot.orders },
+      { headers: snapshotHeaders() }
+    );
+  }
+
+  if (snapshot.reason !== "rpc_missing") {
+    console.warn("[admin store-orders GET] snapshot fallback", snapshot.reason);
+  }
+
+  const legacy = await loadLegacyAdminStoreOrders(sb, sp);
+  if (!legacy.ok) {
+    return NextResponse.json({ ok: false, error: legacy.error }, { status: 500 });
+  }
+  return NextResponse.json(
+    { ok: true, orders: legacy.orders },
+    {
+      headers: {
+        "x-samarket-admin-store-orders-snapshot-path": "0",
+        "x-samarket-admin-store-orders-snapshot-fallback": snapshot.reason,
+      },
+    }
+  );
 }

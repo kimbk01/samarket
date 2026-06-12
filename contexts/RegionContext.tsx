@@ -16,7 +16,7 @@ import {
   removeUserRegion as removeUserRegionMock,
   setPrimaryUserRegion as setPrimaryUserRegionMock,
 } from "@/lib/regions/user-regions-local-store";
-import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
+import { useRegionViewerUserId } from "@/hooks/useRegionViewerUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -59,7 +59,7 @@ type RegionContextValue = {
 const RegionContext = createContext<RegionContextValue | null>(null);
 
 export function RegionProvider({ children }: { children: React.ReactNode }) {
-  const userId = useRegionMockUserId();
+  const userId = useRegionViewerUserId();
   const profileInvalidateIdleRef = useRef<number | null>(null);
   const [userRegions, setUserRegions] = useState<UserRegion[]>(() => getUserRegions(userId));
   const [currentRegionId, setCurrentRegionId] = useState<string | null>(null);

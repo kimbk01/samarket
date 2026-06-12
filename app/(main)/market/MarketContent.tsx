@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { HomeProductList } from "@/components/home/HomeProductList";
 import type { GetPostsForHomeResult } from "@/lib/posts/getPostsForHome";
 import { warmMainShellData } from "@/lib/app/warm-main-shell-data";
-import { isProductionDeploy } from "@/lib/config/deploy-surface";
 import { recordTradeListMetricOnce } from "@/lib/runtime/trade-list-entry-debug";
 import { resolveTradeSwipeTarget } from "@/lib/trade/swipe/resolve-trade-swipe-target";
 import { useTradeTabs } from "@/lib/trade/tabs/use-trade-tabs";
@@ -67,14 +66,6 @@ function peekOrWarmMarketCategoryFeedFromHref(href: string): void {
   void getPostsByTradeCategoryIds([], options);
 }
 
-const HomeFeedViewExperimental = dynamic(
-  () =>
-    import("@/components/home-feed/HomeFeedViewExperimental").then((m) => ({
-      default: m.HomeFeedViewExperimental,
-    })),
-  { ssr: true, loading: () => null }
-);
-
 function MarketTradeFeedBody({
   initialHomeTradeFeed,
   clientFeedInstantBoot = false,
@@ -83,26 +74,12 @@ function MarketTradeFeedBody({
   /** 탭 push·Suspense 대기 — 첫 페인트 전 홈 피드 캐시 */
   clientFeedInstantBoot?: boolean;
 }) {
-  if (isProductionDeploy()) {
-    return (
-      <HomeProductList
-        initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
-        clientInstantBoot={clientFeedInstantBoot}
-      />
-    );
-  }
-  const experimental =
-    process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_HOME_FEED === "1" ||
-    process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_HOME_FEED === "true";
-  if (!experimental) {
-    return (
-      <HomeProductList
-        initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
-        clientInstantBoot={clientFeedInstantBoot}
-      />
-    );
-  }
-  return <HomeFeedViewExperimental />;
+  return (
+    <HomeProductList
+      initialHomeTradeFeed={initialHomeTradeFeed ?? undefined}
+      clientInstantBoot={clientFeedInstantBoot}
+    />
+  );
 }
 
 export function MarketContent({

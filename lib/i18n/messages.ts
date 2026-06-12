@@ -10,7 +10,6 @@ import { tradeMessages } from "./catalog/trade";
 import { tradeReviewMessages } from "./catalog/trade-review";
 import { postAdsUserMessages } from "./catalog/post-ads-user";
 import { mypageMobileNavMessages } from "./catalog/mypage-mobile-nav";
-import { sharedOrderDemoMessages } from "./catalog/shared-order-demo";
 import { jobsFormMessages } from "./catalog/jobs-form";
 import { priceOffersMessages } from "./catalog/price-offers";
 import { neighborhoodMeetingEventsMessages } from "./catalog/neighborhood-meeting-events";
@@ -67,7 +66,6 @@ export const MESSAGES = {
     ...tradeReviewMessages.ko,
     ...postAdsUserMessages.ko,
     ...mypageMobileNavMessages.ko,
-    ...sharedOrderDemoMessages.ko,
     ...jobsFormMessages.ko,
     ...priceOffersMessages.ko,
     ...neighborhoodMeetingEventsMessages.ko,
@@ -123,7 +121,6 @@ export const MESSAGES = {
     ...tradeReviewMessages.en,
     ...postAdsUserMessages.en,
     ...mypageMobileNavMessages.en,
-    ...sharedOrderDemoMessages.en,
     ...jobsFormMessages.en,
     ...priceOffersMessages.en,
     ...neighborhoodMeetingEventsMessages.en,

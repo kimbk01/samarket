@@ -147,6 +147,9 @@ export const PostCard = memo(function PostCard({
         <Link
           href={detailHref}
           prefetch
+          onPointerDown={() => {
+            void router.prefetch(detailHref);
+          }}
           onPointerEnter={() => {
             void router.prefetch(detailHref);
           }}
