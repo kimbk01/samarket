@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getProductBacklogItems } from "@/lib/product-backlog/mock-product-backlog-items";
+import { getProductBacklogItems } from "@/lib/product-backlog/product-backlog-state";
 import { ProductBacklogCard } from "./ProductBacklogCard";
 import {
   getBacklogStatusLabel,

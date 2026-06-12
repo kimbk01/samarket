@@ -3,8 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { AdProductSelector } from "./AdProductSelector";
-import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import Link from "next/link";
 
 interface PostAdProposalModalProps {
@@ -30,7 +30,7 @@ export function PostAdProposalModal({
   const [step, setStep] = useState<"propose" | "select" | "done">("propose");
   const [adId, setAdId] = useState<string>("");
 
-  const balance = me?.id ? getUserPointBalance(me.id) : 0;
+  const { balance } = useUserPointBalance(me?.id);
 
   if (step === "done") {
     return (

@@ -3,8 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import type { RecentViewedProduct } from "@/lib/types/recommendation";
-import { getProductById } from "@/lib/mock-products";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import {
   POST_LIST_META_LINE_CLASS,
@@ -30,6 +30,13 @@ const SOURCE_LABEL_KEY: Record<
   shop: "ui_recent_source_shop",
 };
 
+type PostPreview = {
+  title: string;
+  price: number;
+  location: string;
+  thumbnail: string;
+};
+
 interface RecentViewedCardProps {
   record: RecentViewedProduct;
 }
@@ -37,10 +44,33 @@ interface RecentViewedCardProps {
 export function RecentViewedCard({ record }: RecentViewedCardProps) {
   const { t } = useI18n();
   const router = useRouter();
-  const product = getProductById(record.productId);
   const sourceLabel = t(SOURCE_LABEL_KEY[record.source]);
+  const [preview, setPreview] = useState<PostPreview | null>(null);
 
-  if (!product) return null;
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/posts/${encodeURIComponent(record.productId)}/detail`, {
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((j: { post?: { title?: string; price?: number | null; region?: string | null; city?: string | null; barangay?: string | null; thumbnail_url?: string | null; images?: string[] | null } }) => {
+        if (cancelled || !j.post) return;
+        const p = j.post;
+        setPreview({
+          title: p.title?.trim() || t("common_content_unavailable"),
+          price: p.price ?? 0,
+          location: [p.region, p.city, p.barangay].filter(Boolean).join(" · "),
+          thumbnail: p.thumbnail_url ?? p.images?.[0] ?? "",
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [record.productId, t]);
+
+  if (!preview) return null;
   const detailHref = `/post/${record.productId}`;
 
   return (
@@ -52,9 +82,9 @@ export function RecentViewedCard({ record }: RecentViewedCardProps) {
       className="flex gap-3 rounded-ui-rect bg-sam-surface p-3"
     >
       <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-        {product.thumbnail ? (
+        {preview.thumbnail ? (
           <img
-            src={product.thumbnail}
+            src={preview.thumbnail}
             alt=""
             className="h-full w-full object-cover"
           />
@@ -65,14 +95,14 @@ export function RecentViewedCard({ record }: RecentViewedCardProps) {
       <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
         <div className="flex min-h-0 flex-1 flex-col justify-between">
           <p className={`${stripPostListBlockTopMargin(POST_LIST_TITLE_CLASS)} shrink-0`}>
-            {product.title}
+            {preview.title}
           </p>
           <p className={`${stripPostListBlockTopMargin(POST_LIST_PRICE_CLASS)} shrink-0`}>
-            {formatPrice(product.price)}
+            {formatPrice(preview.price)}
           </p>
           <div className="flex shrink-0 flex-col">
             <p className={stripPostListBlockTopMargin(POST_LIST_META_TEXT_CLASS)}>
-              {product.location}
+              {preview.location}
             </p>
             <p className={POST_LIST_META_LINE_CLASS}>
               {sourceLabel}

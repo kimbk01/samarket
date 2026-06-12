@@ -111,27 +111,33 @@ CREATE TABLE IF NOT EXISTS ad_logs (
 -- =============================================================================
 
 ALTER TABLE ad_products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ad_products_select_active" ON ad_products;
 CREATE POLICY "ad_products_select_active"
   ON ad_products FOR SELECT
   USING (is_active = true);
 
 ALTER TABLE post_ads ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "post_ads_select_owner_or_admin" ON post_ads;
 CREATE POLICY "post_ads_select_owner_or_admin"
   ON post_ads FOR SELECT
   USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "post_ads_insert_auth" ON post_ads;
 CREATE POLICY "post_ads_insert_auth"
   ON post_ads FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
 ALTER TABLE ad_payment_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ad_payment_requests_select_owner" ON ad_payment_requests;
 CREATE POLICY "ad_payment_requests_select_owner"
   ON ad_payment_requests FOR SELECT
   USING (user_id = auth.uid());
+DROP POLICY IF EXISTS "ad_payment_requests_insert_owner" ON ad_payment_requests;
 CREATE POLICY "ad_payment_requests_insert_owner"
   ON ad_payment_requests FOR INSERT
   WITH CHECK (user_id = auth.uid());
 
 ALTER TABLE ad_logs ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ad_logs_select_owner" ON ad_logs;
 CREATE POLICY "ad_logs_select_owner"
   ON ad_logs FOR SELECT
   USING (
@@ -144,53 +150,87 @@ CREATE POLICY "ad_logs_select_owner"
 -- =============================================================================
 -- 샘플 데이터 INSERT
 -- (개발·스테이징에서만 실행)
+-- id 는 반드시 RFC UUID(hex) 형식이어야 합니다. `adp-00000000-0001` 같은 문자열은 22P02 오류.
 -- =============================================================================
 
--- 광고 상품 3종
+-- 광고 상품 3종 (고정 UUID — supabase/migrations/20260913100000_post_ads_philife.sql 시드와 맞춤)
 INSERT INTO ad_products (id, name, description, board_key, ad_type, duration_days, point_cost, priority_default) VALUES
-  ('adp-00000000-0001', '플라이프 상단고정 3일', '필라이프 피드 상단에 3일간 고정 노출됩니다.', 'plife', 'top_fixed', 3, 10000, 100),
-  ('adp-00000000-0002', '플라이프 상단고정 7일', '필라이프 피드 상단에 7일간 고정 노출됩니다.', 'plife', 'top_fixed', 7, 20000, 100),
-  ('adp-00000000-0003', '플라이프 중간삽입 5일', '필라이프 피드 중간에 5일간 삽입 노출됩니다.',  'plife', 'mid_insert', 5, 12000, 200)
+  ('a0000001-0000-4000-8000-000000000001', '플라이프 상단고정 3일', '필라이프 피드 상단에 3일간 고정 노출됩니다.', 'plife', 'top_fixed', 3, 10000, 100),
+  ('a0000002-0000-4000-8000-000000000002', '플라이프 상단고정 7일', '필라이프 피드 상단에 7일간 고정 노출됩니다.', 'plife', 'top_fixed', 7, 20000, 100),
+  ('a0000003-0000-4000-8000-000000000003', '플라이프 중간삽입 5일', '필라이프 피드 중간에 5일간 삽입 노출됩니다.',  'plife', 'mid_insert', 5, 12000, 200)
 ON CONFLICT (id) DO NOTHING;
 
--- 샘플 광고 게시글 (community_posts가 있다고 가정)
--- INSERT INTO community_posts (id, title, content, ...) VALUES (...);
+-- 아래 샘플 신청·원장·로그는 community_posts / auth.users FK 가 있을 때만 삽입
+DO $$
+DECLARE
+  v_post_id uuid := 'c0000001-0000-4000-8000-000000000001';
+  v_user_id uuid := '00000000-0000-4000-8000-000000000001';
+  v_admin_id uuid := '00000000-0000-4000-8000-000000000099';
+  v_post_ad_id uuid := 'b0000001-0000-4000-8000-000000000001';
+  v_product_id uuid := 'a0000001-0000-4000-8000-000000000001';
+BEGIN
+  IF to_regclass('public.community_posts') IS NULL
+     OR to_regclass('public.post_ads') IS NULL THEN
+    RETURN;
+  END IF;
 
--- 샘플 active 광고 신청
-INSERT INTO post_ads (
-  id, post_id, user_id, ad_product_id, board_key, ad_type,
-  apply_status, payment_method, point_cost, paid_amount,
-  start_at, end_at, priority, is_active,
-  approved_by, approved_at
-) VALUES (
-  'pa-00000000-0001',
-  'ad-post-00000000-0001',  -- community_posts.id
-  '00000000-0000-4000-8000-000000000001',  -- 샘플 광고주 user_id
-  'adp-00000000-0001',
-  'plife', 'top_fixed',
-  'active', 'points', 10000, 10000,
-  now() - interval '1 hour',
-  now() + interval '3 days',
-  100, true,
-  '00000000-0000-4000-8000-000000000099',  -- admin user_id
-  now() - interval '30 minutes'
-) ON CONFLICT (id) DO NOTHING;
+  IF NOT EXISTS (SELECT 1 FROM community_posts WHERE id = v_post_id) THEN
+    RAISE NOTICE 'skip post_ads sample: community_posts % not found', v_post_id;
+    RETURN;
+  END IF;
 
--- point_ledger: 광고 구매 차감 기록
-INSERT INTO point_ledger (
-  user_id, entry_type, amount, balance_after,
-  related_type, related_id, description, actor_type
-) VALUES (
-  '00000000-0000-4000-8000-000000000001',
-  'spend', -10000, 5000,
-  'ad_purchase', 'pa-00000000-0001',
-  '플라이프 상단고정 3일 광고 구매',
-  'user'
-) ON CONFLICT DO NOTHING;
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE id = v_user_id) THEN
+    RAISE NOTICE 'skip post_ads sample: auth.users % not found', v_user_id;
+    RETURN;
+  END IF;
 
--- ad_logs: 승인 로그
-INSERT INTO ad_logs (post_ad_id, actor_id, log_type, payload) VALUES
-  ('pa-00000000-0001', '00000000-0000-4000-8000-000000000099', 'approved', '{"note":"샘플 광고 승인"}');
+  INSERT INTO post_ads (
+    id, post_id, user_id, ad_product_id, board_key, ad_type,
+    apply_status, payment_method, point_cost, paid_amount,
+    start_at, end_at, priority, is_active,
+    approved_by, approved_at
+  ) VALUES (
+    v_post_ad_id,
+    v_post_id,
+    v_user_id,
+    v_product_id,
+    'plife', 'top_fixed',
+    'active', 'points', 10000, 10000,
+    now() - interval '1 hour',
+    now() + interval '3 days',
+    100, true,
+    CASE WHEN EXISTS (SELECT 1 FROM auth.users WHERE id = v_admin_id) THEN v_admin_id ELSE NULL END,
+    now() - interval '30 minutes'
+  )
+  ON CONFLICT (id) DO NOTHING;
+
+  IF to_regclass('public.point_ledger') IS NOT NULL THEN
+    INSERT INTO point_ledger (
+      user_id, entry_type, amount, balance_after,
+      related_type, related_id, description, actor_type
+    )
+    SELECT
+      v_user_id,
+      'spend', -10000, 5000,
+      'ad_purchase', v_post_ad_id::text,
+      '플라이프 상단고정 3일 광고 구매',
+      'user'
+    WHERE NOT EXISTS (
+      SELECT 1 FROM point_ledger pl
+      WHERE pl.related_type = 'ad_purchase' AND pl.related_id = v_post_ad_id::text
+    );
+  END IF;
+
+  IF to_regclass('public.ad_logs') IS NOT NULL THEN
+    INSERT INTO ad_logs (post_ad_id, actor_id, log_type, payload)
+    SELECT v_post_ad_id, v_admin_id, 'approved', '{"note":"샘플 광고 승인"}'::jsonb
+    WHERE EXISTS (SELECT 1 FROM auth.users WHERE id = v_admin_id)
+      AND NOT EXISTS (
+        SELECT 1 FROM ad_logs al
+        WHERE al.post_ad_id = v_post_ad_id AND al.log_type = 'approved'
+      );
+  END IF;
+END $$;
 
 -- =============================================================================
 -- 광고 만료 자동 처리 트리거 (선택)

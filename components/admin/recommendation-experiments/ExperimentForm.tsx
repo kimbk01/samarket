@@ -7,7 +7,7 @@ import type {
   RecommendationSurface,
   TrafficAllocationType,
 } from "@/lib/types/recommendation-experiment";
-import { getFeedVersions } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getFeedVersions } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import {
   recExperimentStatusLabel,
   recSurfaceLabel,

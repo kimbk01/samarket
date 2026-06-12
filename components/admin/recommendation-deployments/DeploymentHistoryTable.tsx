@@ -4,8 +4,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import type { DeploymentStatus } from "@/lib/types/recommendation-deployment";
 

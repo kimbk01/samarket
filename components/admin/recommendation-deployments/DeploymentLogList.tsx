@@ -4,8 +4,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getRecommendationDeploymentLogs } from "@/lib/recommendation-deployments/mock-recommendation-deployment-logs";
-import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
+import { getRecommendationDeploymentLogs } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 const ACTION_LABELS: Record<string, string> = {
   create: "생성",

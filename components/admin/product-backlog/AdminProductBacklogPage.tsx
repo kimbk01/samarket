@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { loadProductBacklogFromServer } from "@/lib/product-backlog/product-backlog-sync-client";
 import { ProductBacklogSummaryCards } from "./ProductBacklogSummaryCards";
 import { ProductFeedbackTable } from "./ProductFeedbackTable";
 import { ProductBacklogBoard } from "./ProductBacklogBoard";
@@ -15,6 +16,11 @@ type TabId = "summary" | "feedback" | "backlog" | "handoff";
 export function AdminProductBacklogPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadProductBacklogFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs = useMemo(
     () =>
@@ -26,6 +32,19 @@ export function AdminProductBacklogPage() {
       ] satisfies { id: TabId; labelKey: MessageKey }[],
     []
   );
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_product_backlog_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

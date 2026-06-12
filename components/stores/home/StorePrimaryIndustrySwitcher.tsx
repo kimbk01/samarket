@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import { STORE_CATEGORY_PILL_SCROLL } from "@/components/stores/store-category-pill-styles";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
@@ -31,7 +30,6 @@ export function StorePrimaryIndustrySwitcher({
   showHomeChip?: boolean;
 }) {
   const { t, language } = useI18n();
-  const industryVersion = useBrowseIndustryDatasetVersion();
   const pathname = usePathname();
   const [taxonomyCats, setTaxonomyCats] = useState<StoreTaxonomyCategory[] | null>(null);
 
@@ -72,7 +70,7 @@ export function StorePrimaryIndustrySwitcher({
         symbol: fb?.symbol ?? "🏷️",
       };
     });
-  }, [taxonomyCats, industryVersion]);
+  }, [taxonomyCats]);
 
   const activeSlug = useMemo(() => {
     const fromProp = embeddedPrimarySlug?.trim().toLowerCase();

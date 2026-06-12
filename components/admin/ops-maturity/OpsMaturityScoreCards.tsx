@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
-import { getLatestOpsMaturityScore } from "@/lib/ops-maturity/mock-ops-maturity-scores";
+import { getLatestOpsMaturityScore } from "@/lib/ops-maturity/ops-maturity-state";
 import { getMaturityScoreComparison } from "@/lib/ops-maturity/ops-maturity-utils";
 import {
   OPS_TOOLS_MATURITY_SCORE_KEYS,

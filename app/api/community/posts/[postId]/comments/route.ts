@@ -25,6 +25,7 @@ import {
 } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 import { bumpNotificationTarget } from "@/lib/notifications/notification-targets";
+import { voidCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -226,7 +227,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         scope: "consumer",
       });
     }
-    return jsonOk({ id: (ins as { id: string }).id });
+    const commentId = (ins as { id: string }).id;
+    voidCommunityPointRewardOnCommentWrite({
+      userId: auth.userId,
+      postId: id,
+      commentId,
+    });
+    return jsonOk({ id: commentId });
   } catch (error) {
     return jsonError(safeErrorMessage(error, "댓글 저장에 실패했습니다."), 500, {
       code: "community_comment_unexpected_error",

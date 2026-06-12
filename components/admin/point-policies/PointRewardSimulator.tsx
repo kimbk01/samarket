@@ -16,7 +16,7 @@ import {
 
 import { useState } from "react";
 import type { PointRewardSimulation } from "@/lib/types/point-policy";
-import { simulatePointReward } from "@/lib/point-policies/point-reward-simulate";
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { BOARD_OPTIONS, USER_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
 
 export function PointRewardSimulator() {
@@ -27,15 +27,16 @@ export function PointRewardSimulator() {
   const [currentPointBalance, setCurrentPointBalance] = useState(100);
   const [result, setResult] = useState<PointRewardSimulation | null>(null);
 
-  const handleSimulate = (e: React.FormEvent) => {
+  const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const sim = simulatePointReward(
-      boardKey,
-      actionType,
-      userType,
-      currentPointBalance
-    );
-    setResult(sim);
+    const res = await adminFetch("/api/admin/point-policies/simulate", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ boardKey, actionType, userType, currentPointBalance }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; result?: PointRewardSimulation };
+    setResult(json.ok ? (json.result ?? null) : null);
   };
 
   return (

@@ -2,8 +2,10 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getBlockedOrFailedTestCases } from "@/lib/qa-board/mock-qa-test-cases";
-import { getQaTestSuiteById } from "@/lib/qa-board/mock-qa-test-suites";
+import {
+  getBlockedOrFailedTestCases,
+  getQaTestSuiteById,
+} from "@/lib/qa-board/qa-board-state";
 import { getDomainLabel, getCaseStatusLabel } from "@/lib/qa-board/qa-board-utils";
 import Link from "next/link";
 

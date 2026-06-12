@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getExperimentMetrics } from "@/lib/recommendation-experiments/mock-experiment-metrics";
-import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getExperimentMetrics } from "@/lib/recommendation-experiments/recommendation-experiment-metrics";
+import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 export function ExperimentComparisonTable() {
   const { t } = useI18n();

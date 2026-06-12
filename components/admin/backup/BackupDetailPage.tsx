@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getBackupSnapshotById } from "@/lib/backup/mock-backup-snapshots";
-import { getBackupItems } from "@/lib/backup/mock-backup-items";
-import { getBackupRestores } from "@/lib/backup/mock-backup-restores";
+import {
+  getBackupSnapshotById,
+  getBackupItems,
+  getBackupRestores,
+} from "@/lib/backup/backup-state";
+import { loadBackupFromServer } from "@/lib/backup/backup-sync-client";
 import {
   BACKUP_RESTORE_STATUS_LABEL_KEYS,
   BACKUP_RESTORE_TYPE_LABEL_KEYS,
@@ -25,9 +28,32 @@ function backupLocale(language: string): string {
 export function BackupDetailPage({ snapshotId }: BackupDetailPageProps) {
   const { t, language } = useI18n();
   const locale = backupLocale(language);
-  const snapshot = useMemo(() => getBackupSnapshotById(snapshotId), [snapshotId]);
-  const items = useMemo(() => getBackupItems(snapshotId), [snapshotId]);
-  const restores = useMemo(() => getBackupRestores({ snapshotId }), [snapshotId]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadBackupFromServer().then(() => setHydrated(true));
+  }, []);
+
+  const snapshot = useMemo(
+    () => (hydrated ? getBackupSnapshotById(snapshotId) : undefined),
+    [hydrated, snapshotId]
+  );
+  const items = useMemo(
+    () => (hydrated ? getBackupItems(snapshotId) : []),
+    [hydrated, snapshotId]
+  );
+  const restores = useMemo(
+    () => (hydrated ? getBackupRestores({ snapshotId }) : []),
+    [hydrated, snapshotId]
+  );
+
+  if (!hydrated) {
+    return (
+      <div className="py-12 text-center sam-text-body text-sam-muted">
+        {t("admin_loading_ops_settings")}
+      </div>
+    );
+  }
 
   if (!snapshot) {
     return (

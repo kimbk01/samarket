@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getAutomationRules } from "@/lib/automation/mock-automation-rules";
+import { getAutomationRules } from "@/lib/automation/automation-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   AUTOMATION_ACTION_LABEL_KEYS,

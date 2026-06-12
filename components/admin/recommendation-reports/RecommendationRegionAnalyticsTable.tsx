@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationRegionAnalytics } from "@/lib/recommendation-reports/mock-recommendation-region-analytics";
+import { getRecommendationRegionAnalytics } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 
 interface RecommendationRegionAnalyticsTableProps {
   reportId: string;

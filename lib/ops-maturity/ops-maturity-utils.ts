@@ -2,8 +2,11 @@
  * 44단계: 성숙도 점수·기간 비교 유틸
  */
 
-import { getLatestOpsMaturityScore, getOpsMaturityScoreByPeriodKey } from "./mock-ops-maturity-scores";
-import { getOpsTeamKpiByPeriod } from "./mock-ops-team-kpis";
+import {
+  getLatestOpsMaturityScore,
+  getOpsMaturityScoreByPeriodKey,
+  getOpsTeamKpiByPeriod,
+} from "./ops-maturity-state";
 import type { OpsMaturityScope } from "@/lib/types/ops-maturity";
 import type { OpsKpiPeriodType } from "@/lib/types/ops-maturity";
 

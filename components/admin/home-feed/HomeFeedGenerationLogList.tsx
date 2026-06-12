@@ -1,7 +1,7 @@
 "use client";
 
 import type { HomeFeedGenerationLog } from "@/lib/types/home-feed";
-import { SECTION_LABELS } from "@/lib/home-feed/mock-home-feed-policies";
+import { SECTION_LABELS } from "@/lib/home-feed/home-feed-labels";
 
 interface HomeFeedGenerationLogListProps {
   logs: HomeFeedGenerationLog[];

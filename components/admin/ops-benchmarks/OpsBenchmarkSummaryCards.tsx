@@ -4,9 +4,9 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getOpsBenchmarkSummary } from "@/lib/ops-benchmarks/mock-ops-benchmark-summary";
-import { getOpsQuarterlyPlanSummary } from "@/lib/ops-benchmarks/mock-ops-quarterly-plan-summary";
-import { getOpsPerformanceReviewSummary } from "@/lib/ops-benchmarks/mock-ops-performance-review-summary";
+import { getOpsBenchmarkSummary } from "@/lib/ops-benchmarks/ops-benchmark-summary";
+import { getOpsQuarterlyPlanSummary } from "@/lib/ops-benchmarks/ops-quarterly-plan-summary";
+import { getOpsPerformanceReviewSummary } from "@/lib/ops-benchmarks/ops-performance-review-summary";
 import Link from "next/link";
 
 export function OpsBenchmarkSummaryCards() {

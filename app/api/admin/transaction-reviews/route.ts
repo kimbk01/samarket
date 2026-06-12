@@ -15,7 +15,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const SELECT_FIELDS =
-  "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
+  "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, is_hidden_by_admin, created_at, positive_tag_keys, negative_tag_keys, review_comment";
 
 export async function POST(req: NextRequest) {
   const admin = await requireAdminApiUser();

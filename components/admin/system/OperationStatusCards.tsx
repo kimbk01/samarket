@@ -2,8 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOperationStatus } from "@/lib/system/mock-operation-status";
-import { getSystemHealth } from "@/lib/system/mock-system-health";
+import { getOperationStatus, getSystemHealth } from "@/lib/system/system-state";
 
 export function OperationStatusCards() {
   const { t } = useI18n();

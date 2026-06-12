@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
-import { getBannerPlacements } from "@/lib/admin-banners/mock-banner-placements";
+import { getBannerPlacements } from "@/lib/admin-banners/banner-placements";
 import {
   ADMIN_BANNER_PLACEMENT_KEYS,
   ADMIN_BANNER_STATUS_KEYS,

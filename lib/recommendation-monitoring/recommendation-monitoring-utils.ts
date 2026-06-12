@@ -5,8 +5,10 @@
 import type { HealthStatus } from "@/lib/types/recommendation-monitoring";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
-import { getActiveFeedVersionBySurface } from "@/lib/recommendation-deployments/mock-active-feed-versions";
-import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
+import {
+  getActiveFeedVersionBySurface,
+  getRecommendationDeployments,
+} from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 

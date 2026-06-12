@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ReportType } from "@/lib/types/recommendation-report";
-import { getRecommendationReports } from "@/lib/recommendation-reports/mock-recommendation-reports";
+import { getRecommendationReports } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import {
   recReportTypeLabel,
   recSurfaceOptionLabel,

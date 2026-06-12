@@ -2,8 +2,10 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
-import { getCarryOverExecutions } from "@/lib/ops-routines/mock-ops-routine-executions";
-import { getOpsRoutineTemplateById } from "@/lib/ops-routines/mock-ops-routine-templates";
+import {
+  getCarryOverExecutions,
+  getOpsRoutineTemplateById,
+} from "@/lib/ops-routines/ops-routines-state";
 import { getCadenceLabel, getPriorityLabel } from "@/lib/ops-routines/ops-routines-utils";
 import Link from "next/link";
 

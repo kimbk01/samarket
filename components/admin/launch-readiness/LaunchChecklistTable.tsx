@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getLaunchReadinessItems } from "@/lib/launch-readiness/mock-launch-readiness-items";
+import { getLaunchReadinessItems } from "@/lib/launch-readiness/launch-readiness-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getPhaseLabel,

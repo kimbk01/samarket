@@ -2,8 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
-import type { ExpireSimulationResult } from "@/lib/points/run-point-expire";
-import { simulatePointExpire, runPointExpire } from "@/lib/points/run-point-expire";
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import type { ExpireSimulationResult } from "@/lib/points/point-expire-db";
 
 interface AdminPointExpireRunPanelProps {
   onRunComplete?: () => void;
@@ -24,21 +24,42 @@ export function AdminPointExpireRunPanel({
   } | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleSimulate = (e: React.FormEvent) => {
+  const handleSimulate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = simulatePointExpire(asOfDate);
-    setSimResult(result ?? null);
+    const res = await adminFetch("/api/admin/point-expire/simulate", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ asOfDate }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      result?: ExpireSimulationResult | null;
+    };
+    setSimResult(json.ok ? (json.result ?? null) : null);
     setRunSummary(null);
   };
 
-  const handleRun = (e: React.FormEvent) => {
+  const handleRun = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { executionIds, totalExpired } = runPointExpire(asOfDate, "admin");
-    setRunSummary({
-      totalExpired,
-      executionCount: executionIds.length,
+    const res = await adminFetch("/api/admin/point-expire/run", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ asOfDate }),
     });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      executionIds?: string[];
+      totalExpired?: number;
+    };
+    if (json.ok) {
+      setRunSummary({
+        totalExpired: json.totalExpired ?? 0,
+        executionCount: (json.executionIds ?? []).length,
+      });
+    }
     setSimResult(null);
     setLoading(false);
     onRunComplete?.();
@@ -82,11 +103,11 @@ export function AdminPointExpireRunPanel({
             {t("admin_points_expire_sim_policy", {
               policy: simResult.policyName,
               items: simResult.items.length,
-              users: simResult.totalByUser.size,
+              users: Object.keys(simResult.totalByUser).length,
             })}
           </p>
           <ul className="mt-2 list-inside list-disc sam-text-body-secondary text-amber-800">
-            {Array.from(simResult.totalByUser.entries()).map(([uid, v]) => (
+            {Object.entries(simResult.totalByUser).map(([uid, v]) => (
               <li key={uid}>
                 {t("admin_points_expire_sim_user_line", {
                   nickname: v.nickname,

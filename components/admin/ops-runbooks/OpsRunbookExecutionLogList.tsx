@@ -6,7 +6,7 @@ import {
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
-import { getOpsRunbookExecutionLogs } from "@/lib/ops-runbooks/mock-ops-runbook-execution-logs";
+import { getOpsRunbookExecutionLogs } from "@/lib/ops-runbooks/ops-runbooks-state";
 
 interface OpsRunbookExecutionLogListProps {
   executionId: string;

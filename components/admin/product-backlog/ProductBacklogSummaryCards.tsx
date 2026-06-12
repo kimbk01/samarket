@@ -3,8 +3,8 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getProductBacklogSummary } from "@/lib/product-backlog/mock-product-backlog-summary";
-import { getProductBacklogItems } from "@/lib/product-backlog/mock-product-backlog-items";
+import { getProductBacklogSummary } from "@/lib/product-backlog/product-backlog-summary";
+import { getProductBacklogItems } from "@/lib/product-backlog/product-backlog-state";
 import {
   getCategoryLabel,
   productBacklogDateLocale,

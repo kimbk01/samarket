@@ -10,8 +10,7 @@ import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
-} from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+} from "@/lib/stores/browse-taxonomy-seed-queries";
 import { storesBrowsePath, storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
@@ -52,7 +51,6 @@ export function StoreCategoryExploreSection({
   const pathname = usePathname() ?? "";
   const isStoresHubRoot = pathname === "/stores" || pathname === "/stores/";
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{
     categories: StoreTaxonomyCategory[];
     topics: StoreTaxonomyTopic[];
@@ -86,7 +84,7 @@ export function StoreCategoryExploreSection({
     // DB taxonomy가 비어있으면 기존(목업) 업종으로 폴백
     if (!taxonomy || taxonomy.categories.length === 0) return listBrowsePrimaryIndustries();
     return taxonomy.categories;
-  }, [taxonomy, industryVersion]);
+  }, [taxonomy]);
   const [pickedSlug, setPickedSlug] = useState<string | null>(null);
 
   const activeSlug = useMemo(() => {
@@ -123,7 +121,7 @@ export function StoreCategoryExploreSection({
     return taxonomy.topics
       .filter((t) => t.store_category_id === catId)
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-  }, [taxonomy, activePrimary, activeSlug, industryVersion]);
+  }, [taxonomy, activePrimary, activeSlug]);
   const isRestaurant = activeSlug === "restaurant";
   const activeCategoryImageUrl = storeTaxonomyUploadedImageUrl(
     (activePrimary as StoreTaxonomyCategory | undefined)?.image_url

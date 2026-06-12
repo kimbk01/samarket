@@ -40,7 +40,6 @@ import { resetMessengerUIStore } from "@/lib/community-messenger/stores/useMesse
 import { resetMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { resetMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { resetMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
-import { resetSharedOrders } from "@/lib/shared-orders/shared-order-store";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { resetAuthExitNavigateGuard } from "@/lib/auth/auth-exit-guard";
 
@@ -105,7 +104,6 @@ function resetInMemoryClientStores(): void {
   clearTradeChatRoomClientCache();
   clearCommerceCartStorage();
   clearUserSettingsClientCache();
-  resetSharedOrders();
   invalidateHomePostsCache();
   clearPendingAuthActions();
   clearLoginBootstrapSnapshot();

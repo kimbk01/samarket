@@ -24,8 +24,7 @@ import { useRegionOptional } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
-import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 import { BrowseSubtopicCollapseSentinel } from "@/components/stores/browse/BrowseSubtopicCollapseSentinel";
 import { StoresBrowsePullRefreshHint } from "@/components/stores/browse/StoresBrowsePullRefreshHint";
 import { StoresBrowsePullRefreshRegister } from "@/components/stores/browse/StoresBrowsePullRefreshRegister";
@@ -169,7 +168,6 @@ export function StoresBrowsePrimaryView({
   }, [primarySlug, searchParams]);
   /** 거리 정책 운영 적용 전까지 기본 browse 목록 요청에는 좌표를 싣지 않는다. */
   const browseDistanceCoordsEnabled = false;
-  const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
   const taxonomy = useBrowseTaxonomySnapshot();
@@ -245,7 +243,7 @@ export function StoresBrowsePrimaryView({
       sortOrder: c.sort_order,
       symbol: fb?.symbol ?? "🏷️",
     };
-  }, [primarySlug, taxonomy, industryVersion]);
+  }, [primarySlug, taxonomy]);
 
   const subs = useBrowseSubIndustries(primarySlug);
 
@@ -631,7 +629,7 @@ export function StoresBrowsePrimaryView({
 
   const otherPrimaries = useMemo(
     () => listBrowsePrimaryIndustries().filter((p) => p.slug.toLowerCase() !== primarySlug.toLowerCase()),
-    [primarySlug, industryVersion]
+    [primarySlug]
   );
 
   const browseListReady = !!primary;
@@ -677,7 +675,7 @@ export function StoresBrowsePrimaryView({
   const browseHeaderTitle = useMemo(() => {
     if (!primary) return "";
     return resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo);
-  }, [primary, language, industryVersion]);
+  }, [primary, language]);
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;

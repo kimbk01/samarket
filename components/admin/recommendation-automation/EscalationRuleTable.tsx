@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationEscalationRules } from "@/lib/recommendation-automation/mock-recommendation-escalation-rules";
+import { getRecommendationEscalationRules } from "@/lib/recommendation-ops/recommendation-ops-state";
 import {
   recAlertSeverityLabel,
   recEscalationChannelLabel,

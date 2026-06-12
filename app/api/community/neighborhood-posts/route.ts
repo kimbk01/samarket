@@ -16,6 +16,7 @@ import { hashMeetingPassword } from "@/lib/neighborhood/meeting-password";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
 import { createMeetingMessengerRoom } from "@/lib/community-messenger/meeting-chat-sync";
+import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -457,6 +458,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: imgErr.message ?? "이미지 저장 실패" }, { status: 500 });
     }
   }
+
+  voidCommunityPointRewardOnPostWrite({
+    userId: auth.userId,
+    postId,
+    isQuestion: rawCat === "question",
+    topicSlug: topicMeta.topicSlug,
+    category: categoryForDb,
+  });
 
   return NextResponse.json({ ok: true, id: postId, meetingId, messengerRoomId });
 }

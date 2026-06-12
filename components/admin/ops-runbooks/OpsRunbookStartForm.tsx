@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { OpsRunbookLinkedType } from "@/lib/types/ops-runbook";
-import { getOpsDocuments } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsDocuments } from "@/lib/ops-docs/ops-docs-state";
 import { startRunbookExecution } from "@/lib/ops-runbooks/ops-runbook-utils";
 import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 import type { MessageKey } from "@/lib/i18n/messages";

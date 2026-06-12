@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
-import { getOpsLearningSummary } from "@/lib/ops-learning/mock-ops-learning-summary";
+import { getOpsLearningSummary } from "@/lib/ops-learning/ops-learning-summary";
 
 export function OpsLearningSummaryCards() {
   const { t } = useI18n();

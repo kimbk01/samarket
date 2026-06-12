@@ -110,8 +110,10 @@ export async function GET(
     const buyerNickname = buyerId ? nickMap.get(buyerId) ?? buyerId.slice(0, 8) : "";
     const roomStatus = roomRow.is_locked ? "archived" : roomRow.is_blocked ? "blocked" : "active";
     const moderationLogs = await fetchModerationLogsForRoom(sbAny, roomId);
+    const adminMemo = String((room as { admin_memo?: string }).admin_memo ?? "");
     return NextResponse.json({
       room,
+      adminMemo,
       participants: participants.data ?? [],
       messages: messages.data ?? [],
       events: events.data ?? [],
@@ -210,16 +212,23 @@ export async function GET(
     : [];
   let roomStatus: "active" | "blocked" | "archived" = "active";
   let linkedReadonly = false;
+  let adminMemo = "";
   if (effectiveChatRoomId) {
     const { data: crFlags } = await sbAny
       .from("chat_rooms")
-      .select("is_locked, is_blocked, is_readonly")
+      .select("is_locked, is_blocked, is_readonly, admin_memo")
       .eq("id", effectiveChatRoomId)
       .maybeSingle();
-    const f = crFlags as { is_locked?: boolean; is_blocked?: boolean; is_readonly?: boolean } | null;
+    const f = crFlags as {
+      is_locked?: boolean;
+      is_blocked?: boolean;
+      is_readonly?: boolean;
+      admin_memo?: string;
+    } | null;
     if (f?.is_locked) roomStatus = "archived";
     else if (f?.is_blocked) roomStatus = "blocked";
     linkedReadonly = f?.is_readonly === true;
+    adminMemo = String(f?.admin_memo ?? "");
   }
   const roomForApi = { ...roomForRes, is_readonly: linkedReadonly };
   return NextResponse.json({
@@ -235,6 +244,7 @@ export async function GET(
     sellerNickname,
     buyerNickname,
     roomStatus,
+    adminMemo,
     messageCount: messagesForRes.length,
     reportCount: reportsForRes.length,
   });

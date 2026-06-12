@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getLaunchWeekKpis } from "@/lib/launch-week/mock-launch-week-kpis";
+import { getLaunchWeekKpis } from "@/lib/launch-week/launch-week-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 
 export function LaunchWeekKpiTable() {

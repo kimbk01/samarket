@@ -8,6 +8,7 @@ import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
 import { jsonError, jsonOk, parseJsonBody, safeErrorMessage } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
+import { voidCommunityPointReclaimOnCommentDelete } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -70,5 +71,6 @@ export async function DELETE(
   if (!out.ok) {
     return jsonError(safeErrorMessage({ message: out.error }, out.error), 400);
   }
+  voidCommunityPointReclaimOnCommentDelete({ commentId: rawC });
   return jsonOk({});
 }

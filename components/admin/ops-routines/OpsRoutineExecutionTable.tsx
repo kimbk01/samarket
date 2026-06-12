@@ -2,8 +2,10 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
-import { getOpsRoutineExecutions } from "@/lib/ops-routines/mock-ops-routine-executions";
-import { getOpsRoutineTemplateById } from "@/lib/ops-routines/mock-ops-routine-templates";
+import {
+  getOpsRoutineExecutions,
+  getOpsRoutineTemplateById,
+} from "@/lib/ops-routines/ops-routines-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getCategoryLabel,

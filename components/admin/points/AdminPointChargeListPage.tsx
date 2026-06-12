@@ -1,15 +1,16 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo, useState } from "react";
-import { getPointChargeRequestsForAdmin } from "@/lib/points/mock-point-charge-requests";
 import {
   filterPointChargeRequests,
   type AdminPointChargeFilters,
 } from "@/lib/points/point-utils";
+import type { PointChargeRequest } from "@/lib/types/point";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminPointChargeFilterBar } from "./AdminPointChargeFilterBar";
 import { AdminPointChargeInlineActions } from "./AdminPointChargeInlineActions";
+import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 
 const DEFAULT_FILTERS: AdminPointChargeFilters = {
   requestStatus: "",
@@ -18,7 +19,38 @@ const DEFAULT_FILTERS: AdminPointChargeFilters = {
 export function AdminPointChargeListPage() {
   const { t } = useI18n();
   const [filters, setFilters] = useState<AdminPointChargeFilters>(DEFAULT_FILTERS);
-  const requests = useMemo(() => getPointChargeRequestsForAdmin(), []);
+  const [requests, setRequests] = useState<PointChargeRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/admin/point-charges", { credentials: "include" });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        requests?: PointChargeRequest[];
+      };
+      if (!res.ok || json.ok === false) {
+        setErr(resolveAdminApiErrorMessage(json.error, t, "admin_points_err_action_failed"));
+        setRequests([]);
+        return;
+      }
+      setRequests(json.requests ?? []);
+    } catch {
+      setErr(t("common_network_error"));
+      setRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
   const filtered = useMemo(
     () => filterPointChargeRequests(requests, filters),
     [requests, filters]
@@ -63,6 +95,12 @@ export function AdminPointChargeListPage() {
         </div>
       )}
 
+      {err ? (
+        <p className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-700">
+          {err}
+        </p>
+      ) : null}
+
       <AdminPointChargeFilterBar filters={filters} onChange={setFilters} />
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
@@ -72,7 +110,11 @@ export function AdminPointChargeListPage() {
           </h2>
         </div>
         <div className="p-4">
-          <AdminPointChargeInlineActions requests={filtered} />
+          {loading ? (
+            <p className="py-10 text-center sam-text-body-secondary text-sam-meta">{t("common_loading")}</p>
+          ) : (
+            <AdminPointChargeInlineActions requests={filtered} onActionSuccess={load} />
+          )}
         </div>
       </div>
     </div>

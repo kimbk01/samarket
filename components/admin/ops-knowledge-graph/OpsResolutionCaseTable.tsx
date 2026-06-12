@@ -7,8 +7,8 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsResolutionCases } from "@/lib/ops-knowledge-graph/mock-ops-resolution-cases";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsResolutionCases } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 export function OpsResolutionCaseTable() {
   const { t } = useI18n();

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getRecommendationAutomationExecutions } from "@/lib/recommendation-automation/mock-recommendation-automation-executions";
+import { getRecommendationAutomationExecutions } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import {
   recAutoActionLabel,
   recSurfaceLabel,

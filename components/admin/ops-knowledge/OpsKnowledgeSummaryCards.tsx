@@ -6,7 +6,7 @@ import {
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
-import { getOpsKnowledgeSummary } from "@/lib/ops-knowledge/mock-ops-knowledge-summary";
+import { getOpsKnowledgeSummary } from "@/lib/ops-knowledge/ops-knowledge-summary";
 
 export function OpsKnowledgeSummaryCards() {
   const { t } = useI18n();

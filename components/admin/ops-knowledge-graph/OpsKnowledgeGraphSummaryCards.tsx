@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsKnowledgeGraphSummary } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-summary";
+import { getOpsKnowledgeGraphSummary } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-summary";
 
 export function OpsKnowledgeGraphSummaryCards() {
   const { t } = useI18n();

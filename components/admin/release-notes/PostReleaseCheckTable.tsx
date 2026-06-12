@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getPostReleaseChecks } from "@/lib/dev-sprints/mock-post-release-checks";
+import { getPostReleaseChecks } from "@/lib/dev-sprints/dev-sprints-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   POST_RELEASE_PHASE_KEYS,

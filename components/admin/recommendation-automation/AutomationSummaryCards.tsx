@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationAutomationSummary } from "@/lib/recommendation-automation/mock-recommendation-automation-summary";
+import { getRecommendationAutomationSummary } from "@/lib/recommendation-automation/recommendation-automation-summary";
 
 export function AutomationSummaryCards() {
   const { t } = useI18n();

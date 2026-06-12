@@ -7,8 +7,8 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import type { OpsKnowledgeGraphEdgeType } from "@/lib/types/ops-knowledge-graph";
-import { getOpsKnowledgeGraphEdges } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-edges";
-import { getOpsKnowledgeGraphNodeById } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-nodes";
+import { getOpsKnowledgeGraphEdges } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
+import { getOpsKnowledgeGraphNodeById } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
 
 interface OpsKnowledgeEdgeTableProps {
   edgeTypeFilter?: OpsKnowledgeGraphEdgeType | "";

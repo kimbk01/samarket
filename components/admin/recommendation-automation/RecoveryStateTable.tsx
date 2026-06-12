@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationRecoveryStates } from "@/lib/recommendation-automation/mock-recommendation-recovery-states";
+import { getRecommendationRecoveryStates } from "@/lib/recommendation-automation/recommendation-recovery-state";
 import {
   recRecoveryModeLabel,
   recSurfaceLabel,

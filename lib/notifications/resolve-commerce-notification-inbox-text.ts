@@ -121,6 +121,12 @@ function commerceTitleKey(kind: string, orderStatus: string): MessageKey | null 
       return "notify_store_point_charge_approved_title";
     case "store_point_charge_rejected":
       return "notify_store_point_charge_rejected_title";
+    case "user_point_charge_approved":
+      return "notify_user_point_charge_approved_title";
+    case "user_point_charge_rejected":
+      return "notify_user_point_charge_rejected_title";
+    case "user_point_charge_on_hold":
+      return "notify_user_point_charge_on_hold_title";
     case "store_point_account_replied":
       return "notify_store_point_account_replied_title";
     default:
@@ -161,6 +167,12 @@ function commerceBodyKey(kind: string, orderStatus: string): MessageKey | null {
       return "notify_store_point_charge_approved_body";
     case "store_point_charge_rejected":
       return "notify_store_point_charge_rejected_body";
+    case "user_point_charge_approved":
+      return "notify_user_point_charge_approved_body";
+    case "user_point_charge_rejected":
+      return "notify_user_point_charge_rejected_body";
+    case "user_point_charge_on_hold":
+      return "notify_user_point_charge_on_hold_body";
     case "store_point_account_replied":
       return "notify_store_point_account_replied_body";
     default:

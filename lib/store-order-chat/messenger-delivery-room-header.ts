@@ -1,5 +1,5 @@
 import type { StoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
-import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-mock/queries";
+import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
 
 /** `stores-browse-build` import 금지 — 클라 헤더 훅이 server-only `next/headers` 그래프를 끌어옴 */
 function normalizeBizTypeSeparators(raw: string): string {

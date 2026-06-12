@@ -2,9 +2,10 @@
  * 42단계: 그래프 노드/엣지 조회, 유사 문서, 랭킹 조합
  */
 
-import { getOpsKnowledgeGraphNodes } from "./mock-ops-knowledge-graph-nodes";
-import { getOpsKnowledgeGraphEdges } from "./mock-ops-knowledge-graph-edges";
-import { getOpsKnowledgeGraphNodeById } from "./mock-ops-knowledge-graph-nodes";
+import {
+  getOpsKnowledgeGraphEdges,
+  getOpsKnowledgeGraphNodeById,
+} from "./ops-knowledge-graph-state";
 
 export function getEdgesForNode(nodeId: string) {
   const out = getOpsKnowledgeGraphEdges({ sourceNodeId: nodeId });

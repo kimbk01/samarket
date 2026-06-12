@@ -4,9 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getPointExpirePolicies } from "@/lib/points/mock-point-expire-policies";
-import { getPointExpireExecutions } from "@/lib/points/mock-point-expire-executions";
-import { getPointExpireLogs } from "@/lib/points/mock-point-expire-logs";
+import { useAdminPointExpireData } from "@/hooks/useAdminPointExpireData";
 import { AdminPointExpirePolicyCard } from "./AdminPointExpirePolicyCard";
 import { AdminPointExpireTable } from "./AdminPointExpireTable";
 import { AdminPointExpireRunPanel } from "./AdminPointExpireRunPanel";
@@ -15,16 +13,11 @@ import { AdminPointExpireLogList } from "./AdminPointExpireLogList";
 export function AdminPointExpirePage() {
   const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
-  const policies = useMemo(() => getPointExpirePolicies(), []);
+  const { policies, executions, logs } = useAdminPointExpireData(refresh);
   const activePolicy = useMemo(
     () => policies.find((p) => p.isActive),
     [policies]
   );
-  const executions = useMemo(
-    () => getPointExpireExecutions(),
-    [refresh]
-  );
-  const logs = useMemo(() => getPointExpireLogs(), [refresh]);
 
   const totalExpired = useMemo(
     () => executions.reduce((s, e) => s + e.expiredPoint, 0),
@@ -37,7 +30,7 @@ export function AdminPointExpirePage() {
 
       {activePolicy ? (
         <AdminCard titleKey="admin_points_expire_card_policy">
-          <AdminPointExpirePolicyCard policy={activePolicy} />
+          <AdminPointExpirePolicyCard policy={activePolicy} onSaved={() => setRefresh((r) => r + 1)} />
         </AdminCard>
       ) : (
         <AdminCard titleKey="admin_points_expire_card_policy">

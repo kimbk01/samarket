@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationMonitoringSummary } from "@/lib/recommendation-monitoring/mock-recommendation-monitoring-summary";
+import { getRecommendationMonitoringSummary } from "@/lib/recommendation-analytics/recommendation-monitoring-summary";
 
 export function HealthSummaryCards() {
   const { t } = useI18n();

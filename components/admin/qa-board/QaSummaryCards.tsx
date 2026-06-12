@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getQaSummary } from "@/lib/qa-board/mock-qa-summary";
+import { getQaSummary } from "@/lib/qa-board/qa-board-summary";
 import { getGoLiveQaLabel } from "@/lib/qa-board/qa-board-utils";
 import Link from "next/link";
 

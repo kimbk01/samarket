@@ -1,14 +1,14 @@
 "use client";
 
-
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { SecuritySummaryCards } from "./SecuritySummaryCards";
 import { SecurityCheckTable } from "./SecurityCheckTable";
 import { SecurityIssueList } from "./SecurityIssueList";
+import { loadSecurityOpsFromServer } from "@/lib/security/security-sync-client";
 
 type TabId = "summary" | "checks" | "issues";
 
@@ -21,6 +21,22 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 export function AdminSecurityPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadSecurityOpsFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_security_k1c4bd70f" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

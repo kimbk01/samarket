@@ -1,33 +1,15 @@
-"use client";
-
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { DetailHeader } from "@/components/layout/sector-header";
+import { redirect } from "next/navigation";
 import { parseSlug } from "@/lib/validate-params";
-import { ShopHomePage } from "@/components/business/ShopHomePage";
 
-export default function ShopSlugRoute() {
-  const { t } = useI18n();
-  const params = useParams();
-  const slug = parseSlug(params.slug);
-
+export default async function ShopSlugRoute({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug: raw } = await params;
+  const slug = parseSlug(raw);
   if (!slug) {
-    return (
-      <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
-        <Link href="/philife" className="text-signature">
-          {t("app_error_go_home_short")}
-        </Link>
-      </div>
-    );
+    redirect("/");
   }
-
-  return (
-    <div className="min-h-screen bg-background">
-      <DetailHeader title={t("ui_finish_shop_title")} backHref="/" preferHistoryBack={false} />
-      <div className="px-4 py-4">
-        <ShopHomePage slug={slug} />
-      </div>
-    </div>
-  );
+  redirect(`/stores/${encodeURIComponent(slug)}`);
 }

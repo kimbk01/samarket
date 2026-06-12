@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsResponseQualityFeedback } from "@/lib/ops-learning/mock-ops-response-quality-feedback";
+import { getOpsResponseQualityFeedback } from "@/lib/ops-learning/ops-learning-state";
 
 export function OpsResponseQualityTable() {
   const { t } = useI18n();

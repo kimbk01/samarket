@@ -1,9 +1,7 @@
 "use client";
 
-
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsBenchmarkCards } from "./OpsBenchmarkCards";
@@ -11,12 +9,18 @@ import { OpsGapAnalysisCards } from "./OpsGapAnalysisCards";
 import { OpsQuarterlyPlanBoard } from "./OpsQuarterlyPlanBoard";
 import { OpsAdminPerformanceReviewTable } from "./OpsAdminPerformanceReviewTable";
 import { OpsBenchmarkSummaryCards } from "./OpsBenchmarkSummaryCards";
+import { loadOpsBenchmarksFromServer } from "@/lib/ops-benchmarks/ops-benchmarks-sync-client";
 
 type TabId = "benchmark" | "quarterly" | "performance" | "gap" | "summary";
 
 export function AdminOpsBenchmarksPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("benchmark");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsBenchmarksFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "benchmark", label: "벤치마크" },
@@ -25,6 +29,19 @@ export function AdminOpsBenchmarksPage() {
     { id: "gap", label: "갭 분석" },
     { id: "summary", label: "요약 카드" },
   ];
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_benchmark_k7cfc1640" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

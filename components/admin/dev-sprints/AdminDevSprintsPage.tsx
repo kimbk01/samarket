@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { loadDevSprintsFromServer } from "@/lib/dev-sprints/dev-sprints-sync-client";
 import { DevSprintSummaryCards } from "./DevSprintSummaryCards";
 import { DevSprintBoard } from "./DevSprintBoard";
 import { DevSprintItemTable } from "./DevSprintItemTable";
@@ -14,6 +15,11 @@ type TabId = "summary" | "board" | "items";
 export function AdminDevSprintsPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadDevSprintsFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs = useMemo(
     () =>
@@ -24,6 +30,17 @@ export function AdminDevSprintsPage() {
       ] satisfies { id: TabId; labelKey: MessageKey }[],
     []
   );
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_dev_sprint_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

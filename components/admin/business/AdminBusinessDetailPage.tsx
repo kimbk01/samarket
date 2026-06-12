@@ -1,14 +1,11 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import type { BusinessProfile } from "@/lib/types/business";
-import {
-  getBusinessProfileById,
-  setBusinessProfileAdminMemo,
-} from "@/lib/business/mock-business-profiles";
-import { getBusinessProfileLogs } from "@/lib/business/mock-business-logs";
+import { useCallback, useEffect, useState } from "react";
+import type { BusinessProfile, BusinessProfileLog, BusinessProfileLogActionType } from "@/lib/types/business";
 import type { BusinessProfileStatus } from "@/lib/types/business";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { mapAdminStoreRowToBusinessProfile } from "@/lib/admin-business/map-admin-store-to-business";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -22,6 +19,16 @@ const STATUS_LABEL_KEYS: Record<BusinessProfileStatus, MessageKey> = {
   rejected: "admin_biz_status_rejected",
 };
 
+function mapAuditAction(action: string): BusinessProfileLogActionType {
+  const a = action.toLowerCase();
+  if (a.includes("approve")) return "approve";
+  if (a.includes("reject")) return "reject";
+  if (a.includes("suspend") || a.includes("pause")) return "pause";
+  if (a.includes("resume")) return "resume";
+  if (a.includes("apply")) return "apply";
+  return "update_profile";
+}
+
 interface AdminBusinessDetailPageProps {
   profileId: string;
 }
@@ -30,9 +37,65 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
   const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [memoInput, setMemoInput] = useState("");
-  const profile = getBusinessProfileById(profileId);
-  const logs = getBusinessProfileLogs(profileId);
+  const [profile, setProfile] = useState<BusinessProfile | null>(null);
+  const [logs, setLogs] = useState<BusinessProfileLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    void fetch(`/api/admin/stores/${encodeURIComponent(profileId)}`, {
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then(
+        (j: {
+          ok?: boolean;
+          store?: StoreRow & Record<string, unknown>;
+          ownerNickname?: string;
+          logs?: Array<{ id: string; actionType: string; adminId: string; note: string; createdAt: string }>;
+        }) => {
+          if (cancelled) return;
+          if (!j.ok || !j.store) {
+            setProfile(null);
+            setLogs([]);
+            return;
+          }
+          setProfile(
+            mapAdminStoreRowToBusinessProfile(j.store, String(j.ownerNickname ?? ""))
+          );
+          setLogs(
+            (j.logs ?? []).map((log) => ({
+              id: log.id,
+              businessProfileId: profileId,
+              actionType: mapAuditAction(log.actionType),
+              adminId: log.adminId,
+              adminNickname: log.adminId.slice(0, 8) || "—",
+              note: log.note,
+              createdAt: log.createdAt,
+            }))
+          );
+        }
+      )
+      .catch(() => {
+        if (!cancelled) {
+          setProfile(null);
+          setLogs([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId, refresh]);
+
+  if (loading) {
+    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+  }
 
   if (!profile) {
     return (
@@ -42,8 +105,18 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
     );
   }
 
-  const handleSaveMemo = () => {
-    setBusinessProfileAdminMemo(profileId, memoInput);
+  const handleSaveMemo = async () => {
+    const res = await fetch(`/api/admin/stores/${encodeURIComponent(profileId)}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_admin_memo", memo: memoInput }),
+    });
+    const j = (await res.json()) as { ok?: boolean; error?: string };
+    if (!res.ok || !j.ok) {
+      alert(j.error ?? t("common_content_unavailable"));
+      return;
+    }
     setMemoInput("");
     refreshDetail();
   };
@@ -92,9 +165,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           </div>
           <div>
             <dt className="text-sam-muted">{t("admin_biz_label_intro")}</dt>
-            <dd className="whitespace-pre-wrap text-sam-fg">
-              {profile.description || "-"}
-            </dd>
+            <dd className="whitespace-pre-wrap text-sam-fg">{profile.description || "-"}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{t("admin_biz_label_contact")}</dt>
@@ -106,11 +177,9 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
             <dt className="text-sam-muted">{t("admin_biz_label_region")}</dt>
             <dd className="space-y-1 text-sam-fg">
               <div>
-                {[profile.region, profile.city].filter((x) => String(x ?? "").trim()).join(" · ") ||
-                  "—"}
+                {[profile.region, profile.city].filter((x) => String(x ?? "").trim()).join(" · ") || "—"}
               </div>
-              {(profile.addressStreetLine ?? "").trim() ||
-              (profile.addressDetail ?? "").trim() ? (
+              {(profile.addressStreetLine ?? "").trim() || (profile.addressDetail ?? "").trim() ? (
                 <>
                   {(profile.addressStreetLine ?? "").trim() ? (
                     <div className="sam-text-body-secondary">{(profile.addressStreetLine ?? "").trim()}</div>
@@ -129,16 +198,14 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           <div>
             <dt className="text-sam-muted">{t("admin_biz_label_stats")}</dt>
             <dd>
-              {profile.productCount} / {profile.reviewCount} / ★
-              {profile.averageRating.toFixed(1)}
+              {profile.productCount} / {profile.reviewCount} / ★{profile.averageRating.toFixed(1)}
             </dd>
           </div>
           <div>
             <dt className="text-sam-muted">{t("admin_biz_label_dates")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
               {new Date(profile.createdAt).toLocaleString("ko-KR")}
-              {profile.approvedAt &&
-                ` / ${new Date(profile.approvedAt).toLocaleString("ko-KR")}`}
+              {profile.approvedAt && ` / ${new Date(profile.approvedAt).toLocaleString("ko-KR")}`}
             </dd>
           </div>
         </dl>
@@ -154,7 +221,7 @@ export function AdminBusinessDetailPage({ profileId }: AdminBusinessDetailPagePr
           />
           <button
             type="button"
-            onClick={handleSaveMemo}
+            onClick={() => void handleSaveMemo()}
             className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
           >
             {t("common_save")}

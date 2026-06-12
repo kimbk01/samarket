@@ -3,8 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getAllReleaseArchiveItems } from "@/lib/release-archive/mock-release-archive-items";
-import { getReleaseArchives, getReleaseArchiveById } from "@/lib/release-archive/mock-release-archives";
+import {
+  getAllReleaseArchiveItems,
+  getReleaseArchives,
+  getReleaseArchiveById,
+} from "@/lib/release-archive/release-archive-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { CHANGE_TYPE_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type {

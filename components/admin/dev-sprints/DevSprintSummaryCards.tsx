@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getDevSprintSummary } from "@/lib/dev-sprints/mock-dev-sprint-summary";
+import { getDevSprintSummary } from "@/lib/dev-sprints/dev-sprint-summary";
 
 export function DevSprintSummaryCards() {
   const { t } = useI18n();

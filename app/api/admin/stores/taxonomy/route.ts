@@ -4,7 +4,7 @@ import { loadStoreTaxonomyRows } from "@/lib/stores/load-store-taxonomy-rows";
 import {
   BROWSE_PRIMARY_INDUSTRIES,
   BROWSE_SUB_INDUSTRIES,
-} from "@/lib/stores/browse-mock/mock-store-categories";
+} from "@/lib/stores/admin-store-taxonomy-seed-catalog";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";

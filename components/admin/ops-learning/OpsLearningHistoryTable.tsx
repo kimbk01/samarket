@@ -9,7 +9,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
-import { getOpsLearningHistories } from "@/lib/ops-learning/mock-ops-learning-histories";
+import { getOpsLearningHistories } from "@/lib/ops-learning/ops-learning-state";
 
 interface OpsLearningHistoryTableProps {
   statusFilter?: OpsLearningStatus | "";

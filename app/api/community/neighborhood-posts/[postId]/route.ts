@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { getNeighborhoodDevSamplePost } from "@/lib/neighborhood/dev-sample-data";
+import { voidCommunityPointReclaimOnPostDelete } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,5 +60,6 @@ export async function DELETE(_req: Request, ctx: Ctx) {
     .eq("id", id)
     .eq("user_id", auth.userId);
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  voidCommunityPointReclaimOnPostDelete({ postId: id });
   return NextResponse.json({ ok: true });
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getPerformanceMetrics } from "@/lib/performance/mock-performance-metrics";
+import { getPerformanceMetrics } from "@/lib/performance/performance-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 
 const SLOW_THRESHOLD_MS = 500;

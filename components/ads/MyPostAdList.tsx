@@ -27,7 +27,7 @@ export function MyPostAdList({
   onRefresh,
 }: {
   ads: AdminPostAdRow[];
-  metaSource?: "supabase" | "memory";
+  metaSource?: "supabase" | "missing_table" | "unavailable";
   onRefresh?: () => void;
 }) {
   const { t } = useI18n();
@@ -69,10 +69,9 @@ export function MyPostAdList({
 
   return (
     <div className="space-y-3">
-      {metaSource === "memory" ? (
+      {metaSource === "missing_table" || metaSource === "unavailable" ? (
         <p className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2 sam-text-xxs text-amber-950">
-          개발용 인메모리 목록입니다. Supabase에 <code className="rounded bg-sam-surface/80 px-1">post_ads</code> 테이블을
-          적용하면 DB와 동기화됩니다.
+          {t("ui_ad_post_db_unavailable")}
         </p>
       ) : null}
       {err ? (

@@ -91,6 +91,10 @@ export const adminPointsNotificationsMessages = {
     admin_points_select: "선택",
     admin_points_done: "처리완료",
     admin_points_err_action_failed: "처리 실패",
+    admin_points_charge_err_table_missing:
+      "point_charge_requests 테이블이 없습니다. Supabase 마이그레이션을 적용해 주세요.",
+    admin_points_charge_err_rpc_missing:
+      "포인트 충전 승인 기능이 아직 배포되지 않았습니다. 마이그레이션을 적용해 주세요.",
     admin_points_action_approve: "승인",
     admin_points_action_reject: "반려",
     admin_points_action_hold: "보류",
@@ -110,6 +114,8 @@ export const adminPointsNotificationsMessages = {
     admin_points_charge_label_payment_method: "결제 방식",
     admin_points_charge_label_depositor: "입금자명",
     admin_points_charge_label_dates: "신청일 / 수정일",
+    admin_points_charge_label_approved_at: "승인일",
+    admin_points_charge_label_processed_at: "처리일",
     admin_points_charge_label_user_memo: "신청자 메모",
     admin_points_charge_card_manual_adjust: "포인트 수동 조정 (placeholder)",
     admin_points_charge_manual_adjust_hint: "특정 사용자 포인트 증감은 원장 화면에서 연결 예정",
@@ -388,6 +394,10 @@ export const adminPointsNotificationsMessages = {
     admin_points_select: "Select",
     admin_points_done: "Completed",
     admin_points_err_action_failed: "Action failed",
+    admin_points_charge_err_table_missing:
+      "The point_charge_requests table is missing. Please apply Supabase migrations.",
+    admin_points_charge_err_rpc_missing:
+      "Point charge approval is not deployed yet. Please apply migrations.",
     admin_points_action_approve: "Approve",
     admin_points_action_reject: "Reject",
     admin_points_action_hold: "Hold",
@@ -407,6 +417,8 @@ export const adminPointsNotificationsMessages = {
     admin_points_charge_label_payment_method: "Payment method",
     admin_points_charge_label_depositor: "Depositor name",
     admin_points_charge_label_dates: "Requested / updated",
+    admin_points_charge_label_approved_at: "Approved at",
+    admin_points_charge_label_processed_at: "Processed at",
     admin_points_charge_label_user_memo: "Applicant memo",
     admin_points_charge_card_manual_adjust: "Manual point adjust (placeholder)",
     admin_points_charge_manual_adjust_hint: "Per-user adjustments will link from the ledger screen.",

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsDocumentSummary } from "@/lib/ops-docs/mock-ops-document-summary";
+import { getOpsDocumentSummary } from "@/lib/ops-docs/ops-docs-summary";
 import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
 
 export function OpsDocumentSummaryCards() {

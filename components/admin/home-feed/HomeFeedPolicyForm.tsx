@@ -11,7 +11,7 @@ import {
   SECTION_LABELS,
   SORT_MODE_LABELS,
   REGION_SCOPE_LABELS,
-} from "@/lib/home-feed/mock-home-feed-policies";
+} from "@/lib/home-feed/home-feed-labels";
 
 interface HomeFeedPolicyFormProps {
   initial: HomeFeedPolicy;

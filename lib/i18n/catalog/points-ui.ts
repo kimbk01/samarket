@@ -65,6 +65,11 @@ export const pointsUiMessages = {
     points_ui_transfer: "이체",
     points_ui_view_all_ledger: "전체 내역 보기",
     points_ui_view_details: "자세히 보기 →",
+    points_ui_new_promotion_order: "포인트 프로모션 신청",
+    points_ui_my_promotion_orders: "내 프로모션 신청 내역",
+    points_ui_no_products: "등록된 거래 상품이 없습니다. 먼저 상품을 등록해 주세요.",
+    points_ui_no_shops: "승인된 매장이 없습니다. 매장 신청·승인 후 이용할 수 있어요.",
+    points_ui_promotion_conflict: "이미 같은 위치에 진행 중인 프로모션이 있습니다.",
   },
   en: {
     points_ui_admin_memo: "Admin memo",
@@ -131,5 +136,10 @@ export const pointsUiMessages = {
     points_ui_transfer: "Transfer",
     points_ui_view_all_ledger: "View full history",
     points_ui_view_details: "View details →",
+    points_ui_new_promotion_order: "Apply for point promotion",
+    points_ui_my_promotion_orders: "My promotion orders",
+    points_ui_no_products: "No listed products yet. Please list a product first.",
+    points_ui_no_shops: "No approved shops yet. Apply for a shop and wait for approval.",
+    points_ui_promotion_conflict: "An active promotion already exists for this placement.",
   },
 } as const;

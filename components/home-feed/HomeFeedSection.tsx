@@ -2,10 +2,9 @@
 
 import { useEffect } from "react";
 import type { HomeFeedSectionResult, HomeFeedItem } from "@/lib/types/home-feed";
-import { SECTION_LABELS } from "@/lib/home-feed/mock-home-feed-policies";
-import { getProductById } from "@/lib/mock-products";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { recordImpression } from "@/lib/recommendation/mock-recommendation-impressions";
+import { SECTION_LABELS } from "@/lib/home-feed/home-feed-labels";
+import { getViewerUserId } from "@/lib/auth/viewer-user-id";
+import { recordImpression } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { HomeFeedCard } from "./HomeFeedCard";
 
@@ -22,7 +21,7 @@ export function HomeFeedSection({ section, surface = "home", onRecommendationCli
       ? section.sectionLabel
       : SECTION_LABELS[sectionKey as keyof typeof SECTION_LABELS] ?? sectionKey;
 
-  const userId = getCurrentUserId();
+  const userId = getViewerUserId();
   useEffect(() => {
     if (surface !== "home" || items.length === 0) return;
     for (const item of items) {
@@ -50,10 +49,7 @@ export function HomeFeedSection({ section, surface = "home", onRecommendationCli
             onClick={() => onRecommendationClick?.(sectionKey, item.targetId)}
             role="presentation"
           >
-            <HomeFeedCard
-              item={item}
-              product={getProductById(item.targetId)}
-            />
+            <HomeFeedCard item={item} />
           </li>
         ))}
       </ul>

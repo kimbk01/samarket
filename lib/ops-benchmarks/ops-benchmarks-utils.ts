@@ -2,7 +2,7 @@
  * 45단계: 벤치마크·분기·기간 유틸
  */
 
-import { getOpsBenchmarks } from "./mock-ops-benchmarks";
+import { getOpsBenchmarks } from "./ops-benchmarks-state";
 import type { OpsBenchmarkScope, OpsBenchmarkDomain } from "@/lib/types/ops-benchmarks";
 
 /** 분기/연도 기준 최신 벤치마크 날짜 */

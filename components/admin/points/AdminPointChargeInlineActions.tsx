@@ -15,18 +15,21 @@ import {
 } from "@/components/admin/points/admin-points-notifications-i18n";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import type { PointChargeRequest } from "@/lib/types/point";
 import { PointChargeBadge } from "@/components/points/PointChargeBadge";
 import Link from "next/link";
+import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 
 interface AdminPointChargeInlineActionsProps {
   requests: PointChargeRequest[];
+  onActionSuccess?: () => void | Promise<void>;
 }
 
-export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInlineActionsProps) {
+export function AdminPointChargeInlineActions({
+  requests,
+  onActionSuccess,
+}: AdminPointChargeInlineActionsProps) {
   const { t } = useI18n();
-  const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [memoInputs, setMemoInputs] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
@@ -38,14 +41,15 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
       const res = await fetch(`/api/admin/point-charges/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ action, adminMemo: memo }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_points_err_action_failed"));
+        setErr(resolveAdminApiErrorMessage(j.error, t, "admin_points_err_action_failed"));
         return;
       }
-      router.refresh();
+      await onActionSuccess?.();
     } finally {
       setBusyId(null);
     }
@@ -142,14 +146,14 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                         onClick={() => void doAction(r.id, "approve", memo)}
                         className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       >
-                        {busy ? "…" : t("admin_points_charge_status_approved")}
+                        {busy ? "…" : t("admin_points_action_approve")}
                       </button>
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(r.id, "reject", memo)}
                         className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
-                      > {t("admin_points_charge_status_rejected")}
+                      > {t("admin_points_action_reject")}
                       </button>
                       {r.requestStatus !== "on_hold" && (
                         <button
@@ -157,7 +161,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                           disabled={busy}
                           onClick={() => void doAction(r.id, "hold", memo)}
                           className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
-                        > {t("admin_points_charge_status_on_hold")}
+                        > {t("admin_points_action_hold")}
                         </button>
                       )}
                     </div>

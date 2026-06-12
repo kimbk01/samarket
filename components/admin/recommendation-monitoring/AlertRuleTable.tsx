@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getRecommendationAlertRules,
   setAlertRuleActive,
-} from "@/lib/recommendation-monitoring/mock-recommendation-alert-rules";
+} from "@/lib/recommendation-ops/recommendation-ops-state";
 import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
 import {
   recAlertChannelLabel,

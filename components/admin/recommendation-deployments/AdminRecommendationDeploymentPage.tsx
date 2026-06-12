@@ -3,7 +3,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ActiveFeedVersionTable } from "./ActiveFeedVersionTable";
@@ -12,6 +12,7 @@ import { DeploymentHistoryTable } from "./DeploymentHistoryTable";
 import { RollbackPolicyForm } from "./RollbackPolicyForm";
 import { ExperimentWinnerTable } from "./ExperimentWinnerTable";
 import { DeploymentLogList } from "./DeploymentLogList";
+import { loadRecommendationExperimentsFromServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 
 type TabId =
   | "active"
@@ -33,6 +34,22 @@ const TABS: { id: TabId; label: string }[] = [
 export function AdminRecommendationDeploymentPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("active");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadRecommendationExperimentsFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_rec_deploy_deploy_13" description="운영 버전·배포·롤백·실험 승자 관리" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

@@ -8,7 +8,11 @@ import {
   toggleServiceCategoryActive,
   toggleServiceSubcategoryActive,
   resetServiceCategories,
-} from "@/lib/admin-settings/mock-service-categories";
+} from "@/lib/admin-settings/service-categories-state";
+import {
+  loadServiceCategoriesFromServer,
+  persistServiceCategoriesToServer,
+} from "@/lib/admin-settings/service-categories-sync-client";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ServiceCategoryTable } from "./ServiceCategoryTable";
 import { SubcategoryTable } from "./SubcategoryTable";
@@ -16,10 +20,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function AdminCategoryManagement() {
   const { t } = useI18n();
-  const [categories, setCategories] = useState<ServiceCategory[]>(() => getServiceCategories());
-  const [subcategories, setSubcategories] = useState<ServiceSubcategory[]>(() =>
-    getServiceSubcategories()
-  );
+  const [hydrated, setHydrated] = useState(false);
+  const [categories, setCategories] = useState<ServiceCategory[]>([]);
+  const [subcategories, setSubcategories] = useState<ServiceSubcategory[]>([]);
   const [parentFilterId, setParentFilterId] = useState<string>("");
 
   const refreshCategories = useCallback(() => {
@@ -33,23 +36,39 @@ export function AdminCategoryManagement() {
   }, [parentFilterId]);
 
   useEffect(() => {
+    void loadServiceCategoriesFromServer().then((res) => {
+      if (res.ok) {
+        refreshCategories();
+        refreshSubcategories();
+      }
+      setHydrated(true);
+    });
+  }, [refreshCategories, refreshSubcategories]);
+
+  useEffect(() => {
+    if (hydrated) refreshSubcategories();
+  }, [parentFilterId, hydrated, refreshSubcategories]);
+
+  const persistAndRefresh = useCallback(async () => {
+    await persistServiceCategoriesToServer();
+    refreshCategories();
     refreshSubcategories();
-  }, [parentFilterId, refreshSubcategories]);
+  }, [refreshCategories, refreshSubcategories]);
 
   const handleCategoryToggle = useCallback(
     (id: string) => {
       toggleServiceCategoryActive(id);
-      refreshCategories();
+      void persistAndRefresh();
     },
-    [refreshCategories]
+    [persistAndRefresh]
   );
 
   const handleSubcategoryToggle = useCallback(
     (id: string) => {
       toggleServiceSubcategoryActive(id);
-      refreshSubcategories();
+      void persistAndRefresh();
     },
-    [refreshSubcategories]
+    [persistAndRefresh]
   );
 
   const handleCategoryEdit = useCallback((_id: string) => {
@@ -61,18 +80,28 @@ export function AdminCategoryManagement() {
   }, []);
 
   const handleSave = useCallback(() => {
-    refreshCategories();
-    refreshSubcategories();
-    alert(t("admin_settings_saved"));
-  }, [refreshCategories, refreshSubcategories, t]);
+    void persistServiceCategoriesToServer().then((res) => {
+      if (res.ok) alert(t("admin_settings_saved"));
+    });
+  }, [t]);
 
   const handleReset = useCallback(() => {
     if (!confirm(t("admin_settings_reset_confirm_categories"))) return;
     resetServiceCategories();
-    setCategories(getServiceCategories());
-    setSubcategories(getServiceSubcategories(parentFilterId || undefined));
-    alert(t("admin_settings_reset_done"));
+    void persistServiceCategoriesToServer().then(() => {
+      setCategories(getServiceCategories());
+      setSubcategories(getServiceSubcategories(parentFilterId || undefined));
+      alert(t("admin_settings_reset_done"));
+    });
   }, [parentFilterId, t]);
+
+  if (!hydrated) {
+    return (
+      <AdminCard>
+        <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+      </AdminCard>
+    );
+  }
 
   return (
     <div className="space-y-6">

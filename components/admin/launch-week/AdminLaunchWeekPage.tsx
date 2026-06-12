@@ -1,11 +1,11 @@
 "use client";
 
-
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { loadLaunchWeekFromServer } from "@/lib/launch-week/launch-week-sync-client";
 import { LaunchWeekSummaryCards } from "./LaunchWeekSummaryCards";
 import { LaunchWeekKpiTable } from "./LaunchWeekKpiTable";
 import { LaunchWeekChecklistTable } from "./LaunchWeekChecklistTable";
@@ -24,6 +24,11 @@ type TabId =
 export function AdminLaunchWeekPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadLaunchWeekFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "overview", labelKey: "admin_launch_week_k14765c91" },
@@ -33,6 +38,19 @@ export function AdminLaunchWeekPage() {
     { id: "daily", labelKey: "admin_launch_week_k01fce460" },
     { id: "blocker", labelKey: "admin_qa_tab_blocker" },
   ];
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_launch_week_open_3" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

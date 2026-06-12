@@ -4,8 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { getDevSprintItems } from "@/lib/dev-sprints/mock-dev-sprint-items";
-import { getDevSprints, getDevSprintById } from "@/lib/dev-sprints/mock-dev-sprints";
+import {
+  getDevSprintItems,
+  getDevSprints,
+  getDevSprintById,
+} from "@/lib/dev-sprints/dev-sprints-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getSprintItemStatusLabel,

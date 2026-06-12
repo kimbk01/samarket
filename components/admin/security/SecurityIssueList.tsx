@@ -4,8 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getSecurityIssues } from "@/lib/security/mock-security-issues";
-import { getSecurityCheckById } from "@/lib/security/mock-security-checks";
+import { getSecurityIssues, getSecurityCheckById } from "@/lib/security/security-state";
 import {
   getIssueSeverityLabel,
   getIssueStatusLabel,

@@ -64,6 +64,7 @@ export type StoreRow = {
   is_visible?: boolean;
   rejected_reason: string | null;
   revision_note?: string | null;
+  admin_internal_memo?: string | null;
   /** GET /api/me/stores 에서만 채워짐 */
   sales_permission?: { allowed_to_sell: boolean; sales_status: string } | null;
   created_at: string;
@@ -119,9 +120,12 @@ export function dbStoreToBusinessProfile(row: StoreRow): BusinessProfile {
     updatedAt: row.updated_at,
     approvedAt: row.approved_at ?? "",
     adminMemo:
-      row.approval_status === "revision_requested"
+      (typeof row.admin_internal_memo === "string" && row.admin_internal_memo.trim()
+        ? row.admin_internal_memo.trim()
+        : undefined) ??
+      (row.approval_status === "revision_requested"
         ? row.revision_note ?? "관리자 보완 요청"
-        : row.rejected_reason ?? undefined,
+        : row.rejected_reason ?? undefined),
   };
 }
 

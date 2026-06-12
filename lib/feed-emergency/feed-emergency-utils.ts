@@ -4,7 +4,6 @@
 
 import type { FeedFallbackModeState } from "@/lib/types/feed-emergency";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getActiveFeedVersionBySurface } from "@/lib/recommendation-deployments/mock-active-feed-versions";
 import {
   addFeedEmergencyLog,
   getFeedEmergencyPolicyBySurface,
@@ -45,10 +44,6 @@ export function getFallbackVersionId(surface: RecommendationSurface): string | n
   const state = getFeedFallbackStateBySurface(surface);
   if (state?.currentMode !== "fallback" && state?.currentMode !== "kill_switch") return null;
   if (state?.fallbackVersionId) return state.fallbackVersionId;
-  if (policy?.fallbackMode === "previous_live_version") {
-    const active = getActiveFeedVersionBySurface(surface);
-    return active?.previousVersionId ?? null;
-  }
   return null;
 }
 
@@ -118,15 +113,9 @@ export function enableFallback(
   adminId = ADMIN_ID,
   adminNickname = ADMIN_NICK
 ): void {
-  const policy = getFeedEmergencyPolicyBySurface(surface);
-  const active = getActiveFeedVersionBySurface(surface);
-  let fallbackVersionId: string | null = null;
-  if (policy?.fallbackMode === "previous_live_version" && active?.previousVersionId)
-    fallbackVersionId = active.previousVersionId;
-
   setFeedFallbackState(surface, {
     currentMode: "fallback",
-    fallbackVersionId,
+    fallbackVersionId: null,
     fallbackReason: reason,
   });
   addFeedEmergencyLog({

@@ -6,8 +6,10 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { FeedFallbackMode } from "@/lib/types/feed-emergency";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getFeedEmergencyPolicies } from "@/lib/feed-emergency/mock-feed-emergency-policies";
-import { saveFeedEmergencyPolicy } from "@/lib/feed-emergency/mock-feed-emergency-policies";
+import {
+  getFeedEmergencyPolicies,
+  saveFeedEmergencyPolicy,
+} from "@/lib/feed-emergency/feed-emergency-state";
 import {
   enableKillSwitch,
   disableKillSwitch,

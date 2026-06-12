@@ -1,12 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseArchiveById } from "@/lib/release-archive/mock-release-archives";
-import { getReleaseArchiveItems } from "@/lib/release-archive/mock-release-archive-items";
-import { getReleaseRegressionIssues } from "@/lib/release-archive/mock-release-regression-issues";
-import { getReleaseLearningNotes } from "@/lib/release-archive/mock-release-learning-notes";
+import {
+  getReleaseArchiveById,
+  getReleaseArchiveItems,
+  getReleaseRegressionIssues,
+  getReleaseLearningNotes,
+} from "@/lib/release-archive/release-archive-state";
+import { loadReleaseArchiveFromServer } from "@/lib/release-archive/release-archive-sync-client";
 import {
   RELEASE_ARCHIVE_STATUS_KEYS,
   CHANGE_TYPE_KEYS,
@@ -21,21 +24,27 @@ export function ReleaseArchiveDetailPage({
   releaseArchiveId,
 }: ReleaseArchiveDetailPageProps) {
   const { t } = useI18n();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadReleaseArchiveFromServer().then(() => setHydrated(true));
+  }, []);
+
   const archive = useMemo(
     () => getReleaseArchiveById(releaseArchiveId),
-    [releaseArchiveId]
+    [releaseArchiveId, hydrated]
   );
   const items = useMemo(
     () => getReleaseArchiveItems(releaseArchiveId),
-    [releaseArchiveId]
+    [releaseArchiveId, hydrated]
   );
   const issues = useMemo(
     () => getReleaseRegressionIssues({ releaseArchiveId }),
-    [releaseArchiveId]
+    [releaseArchiveId, hydrated]
   );
   const learningNotes = useMemo(
     () => getReleaseLearningNotes({ releaseArchiveId }),
-    [releaseArchiveId]
+    [releaseArchiveId, hydrated]
   );
 
   const repeatingCategories = useMemo(() => {
@@ -49,6 +58,14 @@ export function ReleaseArchiveDetailPage({
         .map(([c]) => c)
     );
   }, [issues]);
+
+  if (!hydrated) {
+    return (
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
+        {t("admin_rec_mon_loading_settings")}
+      </div>
+    );
+  }
 
   if (!archive) {
     return (

@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationHealthStatuses } from "@/lib/recommendation-monitoring/mock-recommendation-health-statuses";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getRecommendationHealthStatuses } from "@/lib/recommendation-analytics/recommendation-health-status";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { recHealthLabel, recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 export function SurfaceHealthTable() {

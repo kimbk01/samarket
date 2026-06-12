@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getSlowQueries } from "@/lib/performance/mock-slow-queries";
+import { getSlowQueries } from "@/lib/performance/performance-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 
 export function SlowQueryTable() {

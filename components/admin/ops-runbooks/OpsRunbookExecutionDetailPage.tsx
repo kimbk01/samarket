@@ -10,7 +10,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getOpsRunbookExecutionById } from "@/lib/ops-runbooks/mock-ops-runbook-executions";
+import { getOpsRunbookExecutionById } from "@/lib/ops-runbooks/ops-runbooks-state";
 import { completeRunbookExecution, abortRunbookExecution } from "@/lib/ops-runbooks/ops-runbook-utils";
 import { OpsRunbookStepWorkflow } from "./OpsRunbookStepWorkflow";
 import { OpsRunbookResultForm } from "./OpsRunbookResultForm";

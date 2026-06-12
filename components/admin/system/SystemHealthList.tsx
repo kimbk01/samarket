@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getSystemHealth } from "@/lib/system/mock-system-health";
+import { getSystemHealth } from "@/lib/system/system-state";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { SystemHealthStatus } from "@/lib/types/system";
 

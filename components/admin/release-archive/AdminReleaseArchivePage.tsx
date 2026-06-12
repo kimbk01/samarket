@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { loadReleaseArchiveFromServer } from "@/lib/release-archive/release-archive-sync-client";
 import { ReleaseArchiveSummaryCards } from "./ReleaseArchiveSummaryCards";
 import { ReleaseArchiveTable } from "./ReleaseArchiveTable";
 import { ReleaseChangeHistoryTable } from "./ReleaseChangeHistoryTable";
@@ -24,6 +25,24 @@ const TAB_KEYS: { id: TabId; labelKey: MessageKey }[] = [
 export function AdminReleaseArchivePage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadReleaseArchiveFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_rel_page_archive" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

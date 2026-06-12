@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsActionSummary } from "@/lib/ops-board/mock-ops-action-summary";
+import { getOpsActionSummary } from "@/lib/ops-board/ops-board-action-summary";
 
 export function OpsActionSummaryCards() {
   const { t } = useI18n();

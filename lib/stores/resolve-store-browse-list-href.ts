@@ -1,6 +1,6 @@
 import { STORES_BROWSE_SUB_ALL, storesBrowsePath } from "@/components/stores/browse/stores-browse-paths";
 import { readStoreDetailBrowseOrigin } from "@/lib/dibay/store-detail-browse-origin";
-import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
+import { getBrowsePrimaryBySlug, listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 
 const DEFAULT_PRIMARY_SLUG = "restaurant";
 

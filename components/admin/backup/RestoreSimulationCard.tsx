@@ -2,8 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getBackupSnapshots } from "@/lib/backup/mock-backup-snapshots";
-import { getBackupRestores } from "@/lib/backup/mock-backup-restores";
+import { getBackupSnapshots, getBackupRestores } from "@/lib/backup/backup-state";
 import {
   BACKUP_RESTORE_STATUS_LABEL_KEYS,
   BACKUP_RESTORE_TYPE_LABEL_KEYS,

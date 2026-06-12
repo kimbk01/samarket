@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -8,6 +8,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsDocumentFilterBar, type OpsDocumentFilterState } from "./OpsDocumentFilterBar";
 import { OpsDocumentTable } from "./OpsDocumentTable";
 import { OpsDocumentSummaryCards } from "./OpsDocumentSummaryCards";
+import { loadOpsDocsFromServer } from "@/lib/ops-docs/ops-docs-sync-client";
 
 const INIT_FILTER: OpsDocumentFilterState = {
   search: "",
@@ -22,6 +23,22 @@ export function AdminOpsDocsPage() {
   const [filterState, setFilterState] = useState<OpsDocumentFilterState>(INIT_FILTER);
   const [activeTab, setActiveTab] = useState<"list" | "summary">("list");
   const [refresh, setRefresh] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsDocsFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_doc_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

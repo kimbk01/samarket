@@ -7,7 +7,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 import { setOpsDocumentStatusWithLog, duplicateOpsDocument } from "@/lib/ops-docs/ops-docs-utils";
 import {
   OPS_DOC_TYPE_KEYS,

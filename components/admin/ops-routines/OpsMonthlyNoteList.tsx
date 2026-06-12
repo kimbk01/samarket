@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
-import { getOpsMonthlyNotes } from "@/lib/ops-routines/mock-ops-monthly-notes";
+import { getOpsMonthlyNotes } from "@/lib/ops-routines/ops-routines-state";
 
 export function OpsMonthlyNoteList() {
   const { t } = useI18n();

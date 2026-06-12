@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getDevSprints } from "@/lib/dev-sprints/mock-dev-sprints";
-import { getDevSprintItems } from "@/lib/dev-sprints/mock-dev-sprint-items";
-import { getDevSprintById } from "@/lib/dev-sprints/mock-dev-sprints";
+import {
+  getDevSprints,
+  getDevSprintItems,
+  getDevSprintById,
+} from "@/lib/dev-sprints/dev-sprints-state";
 import { DevSprintItemCard } from "./DevSprintItemCard";
 import { getSprintItemStatusLabel } from "@/lib/dev-sprints/dev-sprint-utils";
 import type { DevSprintItemStatus } from "@/lib/types/dev-sprints";

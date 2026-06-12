@@ -1,21 +1,18 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type {
+  AdApplication,
+  AdApplicationLog,
   AdApplicationStatus,
   AdPaymentMethod,
   AdPaymentStatus,
   AdPlacement,
   AdTargetType,
 } from "@/lib/types/ad-application";
-import {
-  getAdApplicationById,
-  setAdApplicationAdminMemo,
-} from "@/lib/ads/mock-ad-applications";
-import { getAdApplicationLogs } from "@/lib/ads/mock-ad-logs";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminAdActionPanel } from "./AdminAdActionPanel";
@@ -71,11 +68,40 @@ export function AdminAdApplicationDetailPage({
 }: AdminAdApplicationDetailPageProps) {
   const { t, language } = useI18n();
   const dateLocale = dateLocaleTag(language);
-  const [, setRefresh] = useState(0);
+  const [application, setApplication] = useState<AdApplication | null>(null);
+  const [logs, setLogs] = useState<AdApplicationLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [memoInput, setMemoInput] = useState("");
-  const application = getAdApplicationById(applicationId);
-  const logs = getAdApplicationLogs(applicationId);
-  const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
+  const [memoBusy, setMemoBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/ad-applications/${applicationId}`, { cache: "no-store" });
+      if (!res.ok) {
+        setApplication(null);
+        setLogs([]);
+        return;
+      }
+      const j = (await res.json()) as { application?: AdApplication; logs?: AdApplicationLog[] };
+      setApplication(j.application ?? null);
+      setLogs(j.logs ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }, [applicationId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) {
+    return (
+      <div className="py-8 text-center sam-text-body text-sam-muted">
+        {t("common_loading")}
+      </div>
+    );
+  }
 
   if (!application) {
     return (
@@ -85,10 +111,23 @@ export function AdminAdApplicationDetailPage({
     );
   }
 
-  const handleSaveMemo = () => {
-    setAdApplicationAdminMemo(applicationId, memoInput);
-    setMemoInput("");
-    refreshDetail();
+  const handleSaveMemo = async () => {
+    if (memoBusy) return;
+    setMemoBusy(true);
+    try {
+      const res = await fetch(`/api/admin/ad-applications/${applicationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_memo", adminMemo: memoInput }),
+      });
+      const j = (await res.json()) as { ok?: boolean };
+      if (res.ok && j.ok) {
+        setMemoInput("");
+        await load();
+      }
+    } finally {
+      setMemoBusy(false);
+    }
   };
 
   return (
@@ -97,7 +136,7 @@ export function AdminAdApplicationDetailPage({
         titleKey="admin_page_ad_application_detail"
         backHref="/admin/ad-applications"
       />
-      <AdminAdActionPanel application={application} onActionSuccess={refreshDetail} />
+      <AdminAdActionPanel application={application} onActionSuccess={load} />
       <AdminCard titleKey="admin_ads_card_application_info">
         <dl className="grid gap-2 sam-text-body">
           <div>
@@ -113,7 +152,7 @@ export function AdminAdApplicationDetailPage({
           <div>
             <dt className="text-sam-muted">{t("admin_ads_label_plan_duration_amount")}</dt>
             <dd>
-              {application.planName} · {t("admin_ads_duration_days", { days: application.durationDays })} · ₩
+              {application.planName} · {t("admin_ads_duration_days", { days: application.durationDays })} · ₱
               {application.totalPrice.toLocaleString()}
             </dd>
           </div>
@@ -183,8 +222,9 @@ export function AdminAdApplicationDetailPage({
           />
           <button
             type="button"
-            onClick={handleSaveMemo}
-            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
+            disabled={memoBusy}
+            onClick={() => void handleSaveMemo()}
+            className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
           >
             {t("common_save")}
           </button>

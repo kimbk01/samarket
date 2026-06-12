@@ -6,7 +6,7 @@ import type {
   OpsRunbookOutcomeType,
   OpsRunbookSeverityAfter,
 } from "@/lib/types/ops-runbook";
-import { getOpsRunbookResults } from "@/lib/ops-runbooks/mock-ops-runbook-results";
+import { getOpsRunbookResults } from "@/lib/ops-runbooks/ops-runbooks-state";
 import { writeRunbookResult } from "@/lib/ops-runbooks/ops-runbook-utils";
 import type { MessageKey } from "@/lib/i18n/messages";
 import {

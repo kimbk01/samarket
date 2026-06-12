@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getLatestUsageMetric } from "@/lib/usage/mock-usage-metrics";
+import { getLatestUsageMetric } from "@/lib/usage/usage-state";
 
 export function UsageCostCards() {
   const { t } = useI18n();

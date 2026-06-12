@@ -7,7 +7,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo, useState } from "react";
 import type { OpsRoadmapStatus, OpsRoadmapDomain } from "@/lib/types/ops-maturity";
-import { getOpsImprovementRoadmapItems } from "@/lib/ops-maturity/mock-ops-improvement-roadmap-items";
+import { getOpsImprovementRoadmapItems } from "@/lib/ops-maturity/ops-maturity-state";
 import { OpsRoadmapCard } from "./OpsRoadmapCard";
 
 const STATUS_COLUMNS: OpsRoadmapStatus[] = [

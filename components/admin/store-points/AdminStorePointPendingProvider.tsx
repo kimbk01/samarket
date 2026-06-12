@@ -20,13 +20,17 @@ import {
 } from "@/lib/notifications/notification-events";
 
 type Ctx = {
+  /** 매장 포인트 충전 대기 */
   pendingCount: number;
+  /** 사용자 포인트 충전 대기 */
+  userChargePendingCount: number;
   adminBellCount: number;
   refresh: () => Promise<void>;
 };
 
 const AdminStorePointPendingContext = createContext<Ctx>({
   pendingCount: 0,
+  userChargePendingCount: 0,
   adminBellCount: 0,
   refresh: async () => {},
 });
@@ -38,6 +42,7 @@ export function useAdminStorePointPendingCount(): Ctx {
 export function AdminStorePointPendingProvider({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const [pendingCount, setPendingCount] = useState(0);
+  const [userChargePendingCount, setUserChargePendingCount] = useState(0);
   const [adminBellCount, setAdminBellCount] = useState(0);
   const [toast, setToast] = useState(false);
   const toastTimeoutRef = useRef<number | null>(null);
@@ -55,13 +60,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;
           total?: number;
-          by_category?: { charges?: number };
+          by_category?: { charges?: number; store_charges?: number; user_charges?: number };
         };
         return { resOk: res.ok, json };
       });
       if (resOk && json.ok) {
         setAdminBellCount(Math.max(0, Math.floor(Number(json.total) || 0)));
-        setPendingCount(Math.max(0, Math.floor(Number(json.by_category?.charges) || 0)));
+        const storeCharges = Math.max(0, Math.floor(Number(json.by_category?.store_charges) || 0));
+        const userCharges = Math.max(0, Math.floor(Number(json.by_category?.user_charges) || 0));
+        setPendingCount(storeCharges);
+        setUserChargePendingCount(userCharges);
       }
     } catch {
       /* ignore */
@@ -94,8 +102,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     const sb = getSupabaseClient();
     if (!sb) return;
 
-    const onChange = (payload?: { eventType?: string }) => {
-      if (payload?.eventType === "INSERT") {
+    const scheduleRefresh = (showToast: boolean, eventType?: string) => {
+      if (showToast && eventType === "INSERT") {
         if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
         setToast(true);
         toastTimeoutRef.current = window.setTimeout(() => {
@@ -111,11 +119,16 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
     };
 
     const channel = sb
-      .channel("admin-store-point-charges-realtime")
+      .channel("admin-point-charges-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "store_point_charge_requests" },
-        (payload) => onChange({ eventType: payload.eventType })
+        (payload) => scheduleRefresh(true, payload.eventType)
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "point_charge_requests" },
+        () => scheduleRefresh(false)
       )
       .subscribe();
 
@@ -127,8 +140,8 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ pendingCount, adminBellCount, refresh }),
-    [adminBellCount, pendingCount, refresh]
+    () => ({ pendingCount, userChargePendingCount, adminBellCount, refresh }),
+    [adminBellCount, pendingCount, userChargePendingCount, refresh]
   );
 
   return (

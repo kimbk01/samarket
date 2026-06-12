@@ -6,7 +6,7 @@ import {
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
-import { getOpsPatternLogs } from "@/lib/ops-learning/mock-ops-pattern-logs";
+import { getOpsPatternLogs } from "@/lib/ops-learning/ops-learning-state";
 
 interface OpsPatternLogListProps {
   patternId: string;

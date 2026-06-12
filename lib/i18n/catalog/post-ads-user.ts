@@ -16,6 +16,7 @@ export const postAdsUserMessages = {
     post_ad_payment_bank_transfer: "계좌입금",
     post_ad_payment_manual: "수동처리",
     post_ad_list_payment_prefix: "결제:",
+    ui_ad_post_db_unavailable: "광고 신청 데이터를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
   },
   en: {
     post_ad_status_draft: "Draft",
@@ -33,5 +34,6 @@ export const postAdsUserMessages = {
     post_ad_payment_bank_transfer: "Bank transfer",
     post_ad_payment_manual: "Manual",
     post_ad_list_payment_prefix: "Payment:",
+    ui_ad_post_db_unavailable: "Could not load ad requests. Please try again later.",
   },
 };

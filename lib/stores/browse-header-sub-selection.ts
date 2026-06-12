@@ -1,5 +1,5 @@
 import { STORES_BROWSE_SUB_ALL } from "@/components/stores/browse/stores-browse-paths";
-import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
+import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 
 /** 2차 칩 하이라이트 — topic slug 만 (`all`·빈 값은 칩 없음) */
 export function resolveBrowseMatchedSubSlug(

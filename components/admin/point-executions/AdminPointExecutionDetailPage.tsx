@@ -14,12 +14,12 @@ import {
   pointUserTypeLabel,
 } from "@/components/admin/points/admin-points-notifications-i18n";
 
-import { useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getPointRewardExecutionById } from "@/lib/point-executions/mock-point-reward-executions";
-import { getPointRewardLogsByExecutionId } from "@/lib/point-executions/mock-point-reward-logs";
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import type { PointRewardExecution, PointRewardLog } from "@/lib/types/point-execution";
 import {
   POINT_EXECUTION_STATUS_LABELS,
   POINT_REWARD_ACTION_LABELS,
@@ -37,14 +37,43 @@ export function AdminPointExecutionDetailPage({
 }: AdminPointExecutionDetailPageProps) {
   const { t } = useI18n();
 
-  const execution = useMemo(
-    () => getPointRewardExecutionById(executionId),
-    [executionId]
-  );
-  const logs = useMemo(
-    () => getPointRewardLogsByExecutionId(executionId),
-    [executionId]
-  );
+  const [execution, setExecution] = useState<PointRewardExecution | null>(null);
+  const [logs, setLogs] = useState<PointRewardLog[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await adminFetch(`/api/admin/point-executions/${encodeURIComponent(executionId)}`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        execution?: PointRewardExecution;
+        logs?: PointRewardLog[];
+      };
+      if (!cancelled) {
+        setExecution(json.ok ? (json.execution ?? null) : null);
+        setLogs(json.ok ? (json.logs ?? []) : []);
+        setLoaded(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [executionId]);
+
+  if (!loaded) {
+    return (
+      <div className="space-y-4">
+        <AdminPageHeader titleKey="admin_points_exec_page_detail" backHref="/admin/point-executions" />
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
+          {t("admin_points_processing")}
+        </div>
+      </div>
+    );
+  }
 
   if (!execution) {
     return (

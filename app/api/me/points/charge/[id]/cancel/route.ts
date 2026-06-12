@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import {
-
-  cancelPointChargeRequest,
-  getPointChargeRequestById,
-} from "@/lib/points/mock-point-charge-requests";
+import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { isMissingPointsTable } from "@/lib/points/admin-user-points-shared";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,16 +18,35 @@ export async function POST(
   if (!auth.ok) return auth.response;
 
   const { id } = await params;
-  const existing = getPointChargeRequestById(id);
-  if (!existing) {
-    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  const requestId = id?.trim();
+  if (!requestId) {
+    return NextResponse.json({ ok: false, error: "invalid_id" }, { status: 400 });
   }
-  if (existing.userId !== auth.userId) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+
+  const sb = tryCreateSupabaseServiceClient();
+  if (!sb) {
+    return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
-  const result = cancelPointChargeRequest(id);
-  if (!result) {
+
+  const now = new Date().toISOString();
+  const { data: row, error } = await sb
+    .from("point_charge_requests")
+    .update({ request_status: "cancelled", updated_at: now })
+    .eq("id", requestId)
+    .eq("user_id", auth.userId)
+    .in("request_status", ["pending", "waiting_confirm"])
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingPointsTable(error.message ?? "", "point_charge_requests")) {
+      return NextResponse.json({ ok: false, error: "table_missing" }, { status: 503 });
+    }
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+  if (!row) {
     return NextResponse.json({ ok: false, error: "cannot_cancel" }, { status: 400 });
   }
+
   return NextResponse.json({ ok: true });
 }

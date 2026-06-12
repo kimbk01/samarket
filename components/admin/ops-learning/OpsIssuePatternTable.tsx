@@ -10,7 +10,7 @@ import {
 import { useMemo } from "react";
 import Link from "next/link";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
-import { getOpsIssuePatterns } from "@/lib/ops-learning/mock-ops-issue-patterns";
+import { getOpsIssuePatterns } from "@/lib/ops-learning/ops-learning-state";
 
 interface OpsIssuePatternTableProps {
   statusFilter?: OpsLearningStatus | "";

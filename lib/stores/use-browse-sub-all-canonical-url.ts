@@ -4,7 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo } from "react";
 import { storesBrowseAllPath } from "@/components/stores/browse/stores-browse-paths";
 import { shouldCanonicalizeBrowseSubToAll } from "@/lib/stores/browse-header-sub-selection";
-import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
+import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 
 /**
  * browse 진입·새로고침·1차 전환 — `sub` 없음·비정상 → `?sub=all` (목록 1차 전체).

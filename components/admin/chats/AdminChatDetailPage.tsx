@@ -8,7 +8,6 @@ import type {
   AdminChatMessageType,
   ChatModerationLog,
 } from "@/lib/types/admin-chat";
-import { getAdminMemo, setAdminMemo } from "@/lib/admin-chats/mock-admin-chat-rooms";
 import {
   getAdminChatRoomByIdFromDb,
   getReportsByRoomIdFromDb,
@@ -32,6 +31,7 @@ async function fetchAdminChatDetailFromApi(
   messages: AdminChatMessage[];
   reports: RoomReportRow[];
   moderationLogs: ChatModerationLog[];
+  adminMemo: string;
 } | null> {
   const res = await fetch(`/api/admin/chat/rooms/${roomId}`, {
     cache: "no-store",
@@ -155,7 +155,8 @@ async function fetchAdminChatDetailFromApi(
       resolved_by: rr.resolved_by ?? null,
     })
   );
-  return { room, messages, reports, moderationLogs };
+  const adminMemo = typeof data.adminMemo === "string" ? data.adminMemo : "";
+  return { room, messages, reports, moderationLogs, adminMemo };
 }
 
 interface AdminChatDetailPageProps {
@@ -172,6 +173,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
   const [sanctions, setSanctions] = useState<SanctionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [modLogs, setModLogs] = useState<ChatModerationLog[]>([]);
+  const [adminMemo, setAdminMemo] = useState("");
   const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
 
   useEffect(() => {
@@ -185,6 +187,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         setMessages(fromApi.messages);
         setRoomReports(fromApi.reports);
         setModLogs(fromApi.moderationLogs);
+        setAdminMemo(fromApi.adminMemo);
         getSanctionsByUserIdsFromDb([fromApi.room.sellerId, fromApi.room.buyerId]).then(
           (s) => !cancelled && setSanctions(s)
         );
@@ -203,6 +206,7 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
         setMessages(messagesFromDb);
         setRoomReports(reports);
         setModLogs([]);
+        setAdminMemo("");
         getSanctionsByUserIdsFromDb([roomFromDb.sellerId, roomFromDb.buyerId]).then(
           (s) => !cancelled && setSanctions(s)
         );
@@ -243,12 +247,20 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
     );
   }
 
-  const hasMemo = getAdminMemo(roomId);
-
-  const handleSaveMemo = () => {
-    setAdminMemo(roomId, memoInput);
+  const handleSaveMemo = async () => {
+    const res = await fetch(`/api/admin/chat/rooms/${encodeURIComponent(roomId)}/memo`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memo: memoInput }),
+    });
+    const j = (await res.json()) as { ok?: boolean; adminMemo?: string; error?: string };
+    if (!res.ok || !j.ok) {
+      alert(j.error ?? t("admin_chat_action_failed"));
+      return;
+    }
+    setAdminMemo(j.adminMemo ?? memoInput);
     setMemoInput("");
-    refreshDetail();
   };
 
   return (
@@ -324,8 +336,8 @@ export function AdminChatDetailPage({ roomId }: AdminChatDetailPageProps) {
       </AdminCard>
 
       <AdminCard title={t("admin_chat_admin_memo")}>
-        {hasMemo && (
-          <p className="mb-2 sam-text-body-secondary text-sam-fg">{hasMemo}</p>
+        {adminMemo && (
+          <p className="mb-2 sam-text-body-secondary text-sam-fg">{adminMemo}</p>
         )}
         <div className="flex gap-2">
           <input

@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
-import { getOpsOperationalizationStatus } from "@/lib/ops-routines/mock-ops-operationalization-status";
+import { getOpsOperationalizationStatus } from "@/lib/ops-routines/ops-operationalization-status";
 import { getOperationalizationLabel } from "@/lib/ops-routines/ops-routines-utils";
 import Link from "next/link";
 

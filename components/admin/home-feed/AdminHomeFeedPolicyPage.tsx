@@ -1,13 +1,10 @@
 "use client";
 
-
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getHomeFeedPolicies, saveHomeFeedPolicy } from "@/lib/home-feed/mock-home-feed-policies";
-import { getHomeFeedGenerationLogs } from "@/lib/home-feed/mock-home-feed-generation-logs";
+import type { HomeFeedGenerationLog, HomeFeedPolicy } from "@/lib/types/home-feed";
 import { HomeFeedPolicyTable } from "./HomeFeedPolicyTable";
 import { HomeFeedPolicyForm } from "./HomeFeedPolicyForm";
 import { HomeFeedPreview } from "./HomeFeedPreview";
@@ -24,21 +21,50 @@ const TABS: { id: TabId; label: string }[] = [
 export function AdminHomeFeedPolicyPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
-  const [refresh, setRefresh] = useState(0);
+  const [policies, setPolicies] = useState<HomeFeedPolicy[]>([]);
+  const [logs, setLogs] = useState<HomeFeedGenerationLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
-  const policies = useMemo(() => getHomeFeedPolicies(), [refresh]);
-  const logs = useMemo(() => getHomeFeedGenerationLogs(), [refresh]);
-  const editingPolicy = useMemo(
-    () => (editingPolicyId ? policies.find((p) => p.id === editingPolicyId) : null),
-    [editingPolicyId, policies]
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/home-feed-policies", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        bundle?: { policies?: HomeFeedPolicy[]; generationLogs?: HomeFeedGenerationLog[] };
+      };
+      setPolicies(j.bundle?.policies ?? []);
+      setLogs(j.bundle?.generationLogs ?? []);
+    } catch {
+      setPolicies([]);
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleSavePolicy = (values: Partial<NonNullable<typeof editingPolicy>>) => {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const editingPolicy = editingPolicyId ? policies.find((p) => p.id === editingPolicyId) : null;
+
+  const handleSavePolicy = async (values: Partial<HomeFeedPolicy>) => {
     if (!editingPolicy) return;
-    saveHomeFeedPolicy({ ...editingPolicy, ...values });
-    setRefresh((r) => r + 1);
-    setEditingPolicyId(null);
+    const res = await fetch("/api/admin/home-feed-policies", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ policy: { ...editingPolicy, ...values } }),
+    });
+    if (res.ok) {
+      setEditingPolicyId(null);
+      void load();
+    }
   };
 
   return (
@@ -46,53 +72,44 @@ export function AdminHomeFeedPolicyPage() {
       <AdminPageHeader titleKey="admin_home_feed_home_2" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === t.id
+              activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === "policy" && (
+      {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+
+      {activeTab === "policy" && !loading && (
         <AdminCard titleKey="admin_home_feed_active_2">
           {editingPolicy && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <HomeFeedPolicyForm
                 initial={editingPolicy}
-                onSubmit={handleSavePolicy}
+                onSubmit={(v) => void handleSavePolicy(v)}
                 onCancel={() => setEditingPolicyId(null)}
               />
             </div>
           )}
           <HomeFeedPolicyTable
             policies={policies}
-            onEdit={(p) =>
-              setEditingPolicyId(editingPolicyId === p.id ? null : p.id)
-            }
+            onEdit={(p) => setEditingPolicyId(editingPolicyId === p.id ? null : p.id)}
           />
         </AdminCard>
       )}
 
-      {activeTab === "preview" && (
-        <AdminCard titleKey="admin_home_feed_kd9fbb1e3">
-          <HomeFeedPreview refreshKey={refresh} />
-        </AdminCard>
-      )}
-
-      {activeTab === "logs" && (
-        <AdminCard titleKey="admin_home_feed_create_3">
-          <HomeFeedGenerationLogList logs={logs} />
-        </AdminCard>
-      )}
+      {activeTab === "preview" && !loading && <HomeFeedPreview policies={policies} />}
+      {activeTab === "logs" && !loading && <HomeFeedGenerationLogList logs={logs} />}
     </div>
   );
 }

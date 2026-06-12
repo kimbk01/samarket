@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getLaunchWeekIssues } from "@/lib/launch-week/mock-launch-week-issues";
+import { getLaunchWeekIssues } from "@/lib/launch-week/launch-week-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getAreaLabel,

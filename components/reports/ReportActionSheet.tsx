@@ -4,8 +4,6 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { ReportTargetType } from "@/lib/types/report";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { addReport, hasReported } from "@/lib/reports/mock-reports";
 import { submitReportDaangn } from "@/lib/reports/submitReportDaangn";
 import { REPORT_REASONS } from "@/lib/reports/report-utils";
 import { ReportReasonSelector } from "./ReportReasonSelector";
@@ -34,8 +32,6 @@ export function ReportActionSheet({
 }: ReportActionSheetProps) {
   const { t } = useI18n();
   const currentUser = getCurrentUser();
-  const userId = getCurrentUserId();
-  const alreadyReported = hasReported(userId, targetType, targetId);
   const [reasonCode, setReasonCode] = useState("");
   const [reasonLabel, setReasonLabel] = useState("");
   const [detail, setDetail] = useState("");
@@ -50,55 +46,30 @@ export function ReportActionSheet({
     const selected = REPORT_REASONS.find((r) => r.code === reasonCode);
     const reasonText = reasonCode === "other" ? detail : (t(selected?.labelKey ?? "ui_report_reason_other") ?? reasonLabel);
 
-    if (currentUser?.id) {
-      const daangnTargetType =
-        targetType === "chat" ? "chat_room" : (targetType as "user" | "product" | "chat_message");
-      const res = await submitReportDaangn({
-        targetType: daangnTargetType,
-        targetId,
-        roomId: roomId ?? null,
-        productId: productId ?? null,
-        reasonCode,
-        reasonText: reasonText || null,
-      });
+    if (!currentUser?.id) {
       setSubmitting(false);
-      if (res.ok) {
-        onSuccess();
-        onClose();
-        return;
-      }
-      setError(res.error ?? t("ui_report_failed"));
+      setError(t("auth_resource_access_denied"));
       return;
     }
 
-    addReport(
-      userId,
-      targetType,
+    const daangnTargetType =
+      targetType === "chat" ? "chat_room" : (targetType as "user" | "product" | "chat_message");
+    const res = await submitReportDaangn({
+      targetType: daangnTargetType,
       targetId,
-      targetUserId,
+      roomId: roomId ?? null,
+      productId: productId ?? null,
       reasonCode,
-      t(selected?.labelKey ?? "ui_report_reason_other") ?? reasonLabel,
-      detail
-    );
+      reasonText: reasonText || null,
+    });
     setSubmitting(false);
-    onSuccess();
-    onClose();
+    if (res.ok) {
+      onSuccess();
+      onClose();
+      return;
+    }
+    setError(res.error ?? t("ui_report_failed"));
   };
-
-  if (alreadyReported) {
-    return (
-      <div className="p-4">
-        <p className="sam-text-body text-sam-muted">{t("ui_report_already")}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-4 w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
-        >
-          {t("common_close")}
-        </button>
-      </div>
-    );
-  }
 
   return (
     <form onSubmit={handleSubmit} className="p-4">

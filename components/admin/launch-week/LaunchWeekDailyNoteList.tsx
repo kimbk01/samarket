@@ -3,7 +3,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
-import { getLaunchWeekDailyNotes } from "@/lib/launch-week/mock-launch-week-daily-notes";
+import { getLaunchWeekDailyNotes } from "@/lib/launch-week/launch-week-state";
 import type { LaunchWeekDayNumber } from "@/lib/types/launch-week";
 
 export function LaunchWeekDailyNoteList() {

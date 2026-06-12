@@ -1,17 +1,11 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getBoardPointPolicies, saveBoardPointPolicy, setBoardPointPolicyActive } from "@/lib/point-policies/mock-board-point-policies";
-import {
-  getPointProbabilityRulesByPolicyId,
-  savePointProbabilityRule,
-  deletePointProbabilityRule,
-} from "@/lib/point-policies/mock-point-probability-rules";
-import { getPointEventPolicies, savePointEventPolicy, setPointEventPolicyActive } from "@/lib/point-policies/mock-point-event-policies";
-import { getPointPolicyLogs } from "@/lib/point-policies/mock-point-policy-logs";
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { useAdminPointPolicyData } from "@/hooks/useAdminPointPolicyData";
 import { BoardPointPolicyTable } from "./BoardPointPolicyTable";
 import { BoardPointPolicyForm } from "./BoardPointPolicyForm";
 import { PointProbabilityRuleTable } from "./PointProbabilityRuleTable";
@@ -40,28 +34,24 @@ export function AdminPointPolicyPage() {
   const [selectedPolicyId, setSelectedPolicyId] = useState<string | null>(null);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  const policies = useMemo(() => getBoardPointPolicies(), [refresh]);
+  const { policies, eventPolicies, logs, probabilityRules, loadProbabilityRules } =
+    useAdminPointPolicyData(refresh);
   const selectedPolicy = useMemo(
     () => (selectedPolicyId ? policies.find((p) => p.id === selectedPolicyId) : null),
     [policies, selectedPolicyId]
   );
-  const probabilityRules = useMemo(
-    () =>
-      selectedPolicyId
-        ? getPointProbabilityRulesByPolicyId(selectedPolicyId)
-        : [],
-    [selectedPolicyId, refresh]
-  );
-  const eventPolicies = useMemo(() => getPointEventPolicies(), [refresh]);
   const editingEvent = useMemo(
     () => (editingEventId ? eventPolicies.find((p) => p.id === editingEventId) ?? null : null),
     [editingEventId, eventPolicies]
   );
-  const logs = useMemo(() => getPointPolicyLogs(), [refresh]);
+
+  useEffect(() => {
+    if (selectedPolicyId) void loadProbabilityRules(selectedPolicyId);
+  }, [selectedPolicyId, refresh, loadProbabilityRules]);
 
   const refreshAll = useCallback(() => setRefresh((r) => r + 1), []);
 
-  const handleSaveBoardPolicy = (values: Partial<BoardPointPolicy>) => {
+  const handleSaveBoardPolicy = async (values: Partial<BoardPointPolicy>) => {
     const full: Omit<BoardPointPolicy, "id" | "updatedAt"> & { id?: string } = {
       boardKey: values.boardKey ?? "general",
       boardName: values.boardName ?? t("admin_points_board_general"),
@@ -84,24 +74,34 @@ export function AdminPointPolicyPage() {
       ...values,
       id: selectedPolicy?.id,
     } as Omit<BoardPointPolicy, "id" | "updatedAt"> & { id?: string };
-    saveBoardPointPolicy(full);
+    await adminFetch("/api/admin/point-policies/board", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(full),
+    });
     refreshAll();
     setShowBoardForm(false);
     setSelectedPolicyId(null);
   };
 
-  const handleSaveEventPolicy = (values: Partial<PointEventPolicy>) => {
-    savePointEventPolicy({
-      id: editingEventId ?? undefined,
-      title: values.title ?? "",
-      isActive: values.isActive ?? true,
-      startAt: values.startAt ?? "",
-      endAt: values.endAt ?? "",
-      writeMultiplier: values.writeMultiplier ?? 1,
-      commentMultiplier: values.commentMultiplier ?? 1,
-      targetBoards: values.targetBoards ?? [],
-      note: values.note ?? "",
-      ...values,
+  const handleSaveEventPolicy = async (values: Partial<PointEventPolicy>) => {
+    await adminFetch("/api/admin/point-policies/event", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: editingEventId ?? undefined,
+        title: values.title ?? "",
+        isActive: values.isActive ?? true,
+        startAt: values.startAt ?? "",
+        endAt: values.endAt ?? "",
+        writeMultiplier: values.writeMultiplier ?? 1,
+        commentMultiplier: values.commentMultiplier ?? 1,
+        targetBoards: values.targetBoards ?? [],
+        note: values.note ?? "",
+        ...values,
+      }),
     });
     refreshAll();
     setShowEventForm(false);
@@ -161,8 +161,13 @@ export function AdminPointPolicyPage() {
                 setSelectedPolicyId(p.id);
                 setShowBoardForm(true);
               }}
-              onToggleActive={(id, isActive) => {
-                setBoardPointPolicyActive(id, isActive);
+              onToggleActive={async (id, isActive) => {
+                await adminFetch(`/api/admin/point-policies/board/${encodeURIComponent(id)}/active`, {
+                  method: "PATCH",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ isActive }),
+                });
                 refreshAll();
               }}
             />
@@ -204,12 +209,22 @@ export function AdminPointPolicyPage() {
                 ? policies.find((p) => p.id === selectedPolicyId)?.boardName
                 : undefined
             }
-            onSaveRule={(rule) => {
-              savePointProbabilityRule(rule);
+            onSaveRule={async (rule) => {
+              await adminFetch("/api/admin/point-policies/probability", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(rule),
+              });
               refreshAll();
             }}
-            onDeleteRule={(id) => {
-              deletePointProbabilityRule(id);
+            onDeleteRule={async (id) => {
+              await adminFetch("/api/admin/point-policies/probability", {
+                method: "POST",
+                credentials: "include",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ deleteId: id }),
+              });
               refreshAll();
             }}
           />
@@ -248,8 +263,13 @@ export function AdminPointPolicyPage() {
                 setEditingEventId(p.id);
                 setShowEventForm(true);
               }}
-              onToggleActive={(id, isActive) => {
-                setPointEventPolicyActive(id, isActive);
+              onToggleActive={async (id, isActive) => {
+                await adminFetch("/api/admin/point-policies/event", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ setActive: { id, isActive } }),
+                });
                 refreshAll();
               }}
             />

@@ -7,7 +7,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsKnowledgeRecommendationLogs } from "@/lib/ops-knowledge/mock-ops-knowledge-recommendation-logs";
+import { getOpsKnowledgeRecommendationLogs } from "@/lib/ops-knowledge/ops-knowledge-state";
 
 export function OpsKnowledgeRecommendationLogTable() {
   const { t } = useI18n();

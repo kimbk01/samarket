@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getQaIssueLogs } from "@/lib/qa-board/mock-qa-issue-logs";
+import { getQaIssueLogs } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getSeverityLabel,

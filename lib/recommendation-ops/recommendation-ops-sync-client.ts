@@ -9,6 +9,8 @@ import {
   loadRecommendationRuntimeFromServer,
   persistRecommendationRuntimeToServer,
 } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
+import { loadRecommendationExperimentsFromServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
+import { loadRecommendationAnalyticsFromServer } from "@/lib/recommendation-analytics/recommendation-analytics-sync-client";
 
 export { loadRecommendationRuntimeFromServer, persistRecommendationRuntimeToServer };
 
@@ -60,15 +62,19 @@ export async function loadFullRecommendationAdminState(): Promise<{
   opsSource?: "db" | "default";
   runtimeSource?: "db" | "default";
 }> {
-  const [ops, rt] = await Promise.all([
+  const [ops, rt, exp, analytics] = await Promise.all([
     loadRecommendationOpsFromServer(),
     loadRecommendationRuntimeFromServer(),
+    loadRecommendationExperimentsFromServer(),
+    loadRecommendationAnalyticsFromServer(),
   ]);
   const errors: string[] = [];
   if (!ops.ok) errors.push(ops.error ?? "ops_load_failed");
   if (!rt.ok) errors.push(rt.error ?? "runtime_load_failed");
+  if (!exp.ok) errors.push(exp.error ?? "experiments_load_failed");
+  if (!analytics.ok) errors.push(analytics.error ?? "analytics_load_failed");
   return {
-    ok: ops.ok && rt.ok,
+    ok: ops.ok && rt.ok && exp.ok && analytics.ok,
     errors: errors.length ? errors : undefined,
     opsSource: ops.source,
     runtimeSource: rt.source,

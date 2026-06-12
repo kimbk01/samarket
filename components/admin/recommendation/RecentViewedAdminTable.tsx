@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getAllRecentViewedProducts } from "@/lib/recommendation/mock-recent-viewed-products";
+import { getAllRecentViewedProducts } from "@/lib/recommendation/recommendation-recent-viewed-state";
 
 const SOURCE_LABELS: Record<string, string> = {
   home: "홈",

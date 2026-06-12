@@ -1,9 +1,12 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useMemo } from "react";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { getBlockedUsers } from "@/lib/reports/mock-blocked-users";
+import { useEffect, useMemo, useState } from "react";
+import { getViewerUserId } from "@/lib/auth/viewer-user-id";
+import {
+  getBlockedUsers,
+  refreshBlockedUsersFromServer,
+} from "@/lib/reports/user-blocks-client";
 import { BlockedUserCard } from "./BlockedUserCard";
 
 interface BlockedUserListProps {
@@ -13,11 +16,22 @@ interface BlockedUserListProps {
 
 export function BlockedUserList({ refreshKey, onUnblock }: BlockedUserListProps) {
   const { t } = useI18n();
-  const userId = getCurrentUserId();
-  const list = useMemo(
-    () => getBlockedUsers(userId),
-    [userId, refreshKey]
-  );
+  const userId = getViewerUserId();
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!userId) {
+      setLoaded(true);
+      return;
+    }
+    void refreshBlockedUsersFromServer(userId).finally(() => setLoaded(true));
+  }, [userId, refreshKey]);
+
+  const list = useMemo(() => getBlockedUsers(userId), [userId, refreshKey, loaded]);
+
+  if (!loaded) {
+    return <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
+  }
 
   if (list.length === 0) {
     return (

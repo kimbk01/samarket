@@ -11,7 +11,7 @@ import type {
   UserBehaviorProfile,
   PersonalizedFeedLog,
 } from "@/lib/types/personalized-feed";
-import { addPersonalizedFeedLog } from "./mock-personalized-feed-logs";
+import { addPersonalizedFeedLog } from "./personalized-feed-generation-log";
 import {
   personalizedFeedLogNote,
   personalizedFeedReasonLabel,
@@ -201,7 +201,6 @@ export function buildPersonalizedFeedSections(
         finalCount: items.length,
         dedupedCount,
         topReason,
-        createdAt: now,
         note: personalizedFeedLogNote(),
       });
     }

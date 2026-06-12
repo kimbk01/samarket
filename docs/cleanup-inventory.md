@@ -54,7 +54,7 @@
 
 이름은 mock/sample 이지만 현재 화면이나 API 흐름이 아직 의존할 수 있다. 대체 전까지 삭제 금지.
 
-- `lib/ads/mock-ad-data.ts`
+- ~~`lib/ads/mock-ad-*.ts`~~ · ~~`lib/points/mock-point-promotion-orders.ts`~~ (삭제됨 — post_ads·프로모션 DB)
 - `lib/store-owner/mockOrders.ts`
 - `lib/member-orders/mockMemberOrders.ts`
 - `lib/reviews/mock-reviews.ts`
@@ -73,7 +73,7 @@
 - `lib/recommendation/mock-recommendation-analytics-summary.ts`
 - `lib/personalized-feed/mock-user-behavior-profiles.ts`
 - `lib/personalized-feed/mock-recent-views.ts`
-- `lib/exposure/mock-exposure-candidates.ts`
+- ~~`lib/exposure/mock-exposure-*.ts`~~ · ~~`lib/member-benefits/mock-member-benefit-*.ts`~~ (삭제됨 — DB API)
 - `lib/launch-readiness/mock-launch-readiness-summary.ts`
 - `lib/launch-week/mock-launch-week-summary.ts`
 - `lib/dev-sprints/mock-dev-sprint-summary.ts`

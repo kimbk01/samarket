@@ -1,7 +1,7 @@
 "use client";
 
 import type { PersonalizedFeedLog } from "@/lib/types/personalized-feed";
-import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/mock-personalized-feed-policies";
+import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
 
 interface PersonalizedFeedLogListProps {
   logs: PersonalizedFeedLog[];

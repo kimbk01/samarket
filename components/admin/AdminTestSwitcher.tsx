@@ -2,8 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getAdminStaffList } from "@/lib/admin-users/mock-admin-staff";
-import { getRoleLabel } from "@/lib/admin-users/mock-admin-staff";
+import { getRoleLabel } from "@/lib/admin-users/admin-role-labels";
+import type { AdminStaff } from "@/lib/types/admin-staff";
 import {
   getCurrentAdminLoginIdForDisplay,
   setAdminTestLoginAndReload,
@@ -18,14 +18,23 @@ export function AdminTestSwitcher() {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
+  const [staffList, setStaffList] = useState<AdminStaff[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
-  const staffList = getAdminStaffList();
   const displayLoginId = getCurrentAdminLoginIdForDisplay();
 
   useEffect(() => {
     setCurrentId(displayLoginId);
   }, [displayLoginId]);
+
+  useEffect(() => {
+    void fetch("/api/admin/staff", { cache: "no-store", credentials: "include" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; staff?: AdminStaff[] }) => {
+        if (j.ok && Array.isArray(j.staff)) setStaffList(j.staff);
+      })
+      .catch(() => setStaffList([]));
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -37,6 +46,7 @@ export function AdminTestSwitcher() {
 
   const show =
     process.env.NODE_ENV === "development" ||
+    process.env.NODE_ENV === "test" ||
     process.env.NEXT_PUBLIC_ADMIN_TEST_SWITCHER === "true";
 
   if (!show) return null;

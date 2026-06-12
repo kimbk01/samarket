@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getRecommendationAlertEvents,
   acknowledgeAlertEvent,
-} from "@/lib/recommendation-monitoring/mock-recommendation-alert-events";
+} from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import {
   recAlertSeverityLabel,

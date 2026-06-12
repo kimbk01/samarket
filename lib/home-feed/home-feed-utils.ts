@@ -11,10 +11,10 @@ import type {
   HomeFeedGenerationLog,
 } from "@/lib/types/home-feed";
 import type { UserRegionContext } from "@/lib/exposure/exposure-score-utils";
-import { getExposureScorePolicyBySurface } from "@/lib/exposure/mock-exposure-score-policies";
+import { getDefaultExposureScorePolicyBySurface } from "@/lib/exposure/exposure-score-policy-defaults";
 import { computeAndSortCandidates } from "@/lib/exposure/exposure-score-utils";
 import type { ExposureCandidate } from "@/lib/types/exposure";
-import { addHomeFeedGenerationLog } from "./mock-home-feed-generation-logs";
+import { addHomeFeedGenerationLog } from "./home-feed-generation-log";
 
 const excludeStatus = ["hidden", "blinded", "deleted"] as const;
 
@@ -84,7 +84,7 @@ function sortCandidates(
   sortMode: HomeFeedPolicy["sortMode"],
   userRegion: UserRegionContext | null
 ): FeedCandidate[] {
-  const policy = getExposureScorePolicyBySurface("home");
+  const policy = getDefaultExposureScorePolicyBySurface("home");
   if (sortMode === "featured" && policy) {
     const exposure = list.map(feedCandidateToExposureCandidate);
     const sorted = computeAndSortCandidates(exposure, policy, "home", userRegion);

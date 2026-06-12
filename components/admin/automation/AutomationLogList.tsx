@@ -2,8 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getAutomationLogs } from "@/lib/automation/mock-automation-logs";
-import { getAutomationRuleById } from "@/lib/automation/mock-automation-rules";
+import { getAutomationLogs, getAutomationRuleById } from "@/lib/automation/automation-state";
 
 export function AutomationLogList() {
   const { t } = useI18n();

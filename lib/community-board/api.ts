@@ -451,5 +451,24 @@ export async function createPost(payload: PostCreatePayload, authorUserId: strin
     await (sb as any).from("post_images").insert(rows);
   }
 
+  const { voidCommunityPointRewardOnPostWrite } = await import("@/lib/points/community-point-bridge");
+  voidCommunityPointRewardOnPostWrite({
+    userId: authorUserId.trim(),
+    postId: newId,
+    topicSlug: payload.community_topic_id ?? null,
+    category: boardCategoryIdTrim,
+  });
+
+  try {
+    const { ensureCommunityPostIdForAds } = await import(
+      "@/lib/community-feed/ensure-community-post-for-ads"
+    );
+    await ensureCommunityPostIdForAds(sb as never, newId, authorUserId.trim());
+  } catch (mirrorErr) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn("[createPost] community_posts mirror:", mirrorErr);
+    }
+  }
+
   return { id: newId };
 }

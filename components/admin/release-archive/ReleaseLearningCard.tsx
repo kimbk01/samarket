@@ -2,8 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseLearningNotes } from "@/lib/release-archive/mock-release-learning-notes";
-import { getReleaseArchives, getReleaseArchiveById } from "@/lib/release-archive/mock-release-archives";
+import {
+  getReleaseLearningNotes,
+  getReleaseArchives,
+  getReleaseArchiveById,
+} from "@/lib/release-archive/release-archive-state";
 
 interface ReleaseLearningCardProps {
   releaseArchiveId?: string;

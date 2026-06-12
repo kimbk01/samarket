@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { getBlockedChecklistItems } from "@/lib/launch-week/mock-launch-week-checklist-items";
-import { getOpenCriticalIssues } from "@/lib/launch-week/mock-launch-week-issues";
+import {
+  getBlockedChecklistItems,
+  getOpenCriticalIssues,
+} from "@/lib/launch-week/launch-week-state";
 import { getAreaLabel, getPriorityLabel } from "@/lib/launch-week/launch-week-utils";
 import Link from "next/link";
 

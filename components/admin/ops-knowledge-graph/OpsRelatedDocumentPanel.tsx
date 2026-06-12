@@ -3,10 +3,10 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsKnowledgeDocumentRankings } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-document-rankings";
-import { getOpsResolutionCases } from "@/lib/ops-knowledge-graph/mock-ops-resolution-cases";
+import { getOpsKnowledgeDocumentRankings } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
+import { getOpsResolutionCases } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
 import { getTopLinkedDocumentIds } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-utils";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 interface OpsRelatedDocumentPanelProps {
   titleKey?: import("@/lib/i18n/messages").MessageKey;

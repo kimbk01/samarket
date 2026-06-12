@@ -9,6 +9,7 @@ import { useAdminStorePointPendingCount } from "@/components/admin/store-points/
 import { isLeafMenuActive } from "./admin-sidebar-active-path";
 
 const STORE_POINT_CHARGES_MENU_KEY = "store-point-charges-admin";
+const USER_POINT_CHARGES_MENU_KEY = "points-charge";
 
 function isPathActive(path: string | undefined, currentPath: string): boolean {
   if (!path) return false;
@@ -42,10 +43,14 @@ export function AdminSidebarItem({
   onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
-  const { pendingCount } = useAdminStorePointPendingCount();
+  const { pendingCount, userChargePendingCount } = useAdminStorePointPendingCount();
   const hasChildren = item.children && item.children.length > 0;
   const menuBadge =
-    item.key === STORE_POINT_CHARGES_MENU_KEY && pendingCount > 0 ? pendingCount : 0;
+    item.key === STORE_POINT_CHARGES_MENU_KEY && pendingCount > 0
+      ? pendingCount
+      : item.key === USER_POINT_CHARGES_MENU_KEY && userChargePendingCount > 0
+        ? userChargePendingCount
+        : 0;
 
   const isActive = isPathActive(item.path, currentPath);
   const childActive = hasActiveChild(item, currentPath);

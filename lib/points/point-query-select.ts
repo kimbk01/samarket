@@ -4,4 +4,4 @@ export const POINT_LEDGER_ROW_SELECT =
 
 /** point_charge_requests — normalizeChargeRequest 와 정합 */
 export const POINT_CHARGE_REQUEST_ROW_SELECT =
-  "id, user_id, plan_id, plan_name, payment_method, payment_amount, point_amount, request_status, depositor_name, receipt_image_url, requested_at, updated_at, admin_memo, user_memo";
+  "id, user_id, plan_id, plan_name, payment_method, payment_amount, point_amount, request_status, depositor_name, receipt_image_url, requested_at, updated_at, admin_memo, user_memo, approved_at, approved_by, processed_at, processed_by";

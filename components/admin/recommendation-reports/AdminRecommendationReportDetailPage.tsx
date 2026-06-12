@@ -6,7 +6,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getRecommendationReportById } from "@/lib/recommendation-reports/mock-recommendation-reports";
+import { getRecommendationReportById } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import { RecommendationReportKpiCards } from "./RecommendationReportKpiCards";
 import { RecommendationSectionReportTable } from "./RecommendationSectionReportTable";
 import { RecommendationVersionReportTable } from "./RecommendationVersionReportTable";

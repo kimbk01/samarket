@@ -9,10 +9,12 @@ import {
 
 interface PointReclaimPolicyTableProps {
   policies: PointReclaimPolicy[];
+  onToggleActive?: (policy: PointReclaimPolicy) => void;
 }
 
 export function PointReclaimPolicyTable({
   policies,
+  onToggleActive,
 }: PointReclaimPolicyTableProps) {
   const { t } = useI18n();
 
@@ -61,15 +63,29 @@ export function PointReclaimPolicyTable({
                 {p.reclaimPercent}%
               </td>
               <td className="px-3 py-2.5">
-                <span
-                  className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
-                    p.isActive
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-sam-border-soft text-sam-muted"
-                  }`}
-                >
-                  {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
-                </span>
+                {onToggleActive ? (
+                  <button
+                    type="button"
+                    onClick={() => onToggleActive(p)}
+                    className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
+                      p.isActive
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-sam-border-soft text-sam-muted"
+                    }`}
+                  >
+                    {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
+                  </button>
+                ) : (
+                  <span
+                    className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
+                      p.isActive
+                        ? "bg-emerald-50 text-emerald-800"
+                        : "bg-sam-border-soft text-sam-muted"
+                    }`}
+                  >
+                    {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
+                  </span>
+                )}
               </td>
             </tr>
           ))}

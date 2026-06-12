@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getAppSettings } from "@/lib/admin-settings/mock-app-settings";
+import { getAppSettings } from "@/lib/app-settings";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatPrice } from "@/lib/utils/format";

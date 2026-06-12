@@ -3,10 +3,12 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseArchiveSummary } from "@/lib/release-archive/mock-release-archive-summary";
-import { getReleaseArchives } from "@/lib/release-archive/mock-release-archives";
-import { getReleaseArchiveItems } from "@/lib/release-archive/mock-release-archive-items";
-import { getReleaseRegressionIssues } from "@/lib/release-archive/mock-release-regression-issues";
+import { getReleaseArchiveSummary } from "@/lib/release-archive/release-archive-summary";
+import {
+  getReleaseArchives,
+  getReleaseArchiveItems,
+  getReleaseRegressionIssues,
+} from "@/lib/release-archive/release-archive-state";
 export function ReleaseArchiveSummaryCards() {
   const { t } = useI18n();
   const { summary, latestImpact } = useMemo(() => {

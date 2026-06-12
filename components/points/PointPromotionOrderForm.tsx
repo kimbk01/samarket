@@ -4,8 +4,7 @@ import { useState, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointPromotionPlacement } from "@/lib/types/point";
-import { getPointCostForPromotion } from "@/lib/points/mock-point-promotion-orders";
-import { getUserPointBalance } from "@/lib/points/mock-point-ledger";
+import { getPointCostForPromotion } from "@/lib/points/promotion-point-cost";
 
 const PLACEMENTS: PointPromotionPlacement[] = [
   "home_top",
@@ -32,7 +31,8 @@ export interface PointPromotionOrderFormValues {
 }
 
 interface PointPromotionOrderFormProps {
-  userId: string;
+  balance: number;
+  balanceLoading?: boolean;
   productOptions: { id: string; title: string }[];
   shopOptions: { id: string; shopName: string }[];
   onSubmit: (values: PointPromotionOrderFormValues) => void;
@@ -40,7 +40,8 @@ interface PointPromotionOrderFormProps {
 }
 
 export function PointPromotionOrderForm({
-  userId,
+  balance,
+  balanceLoading = false,
   productOptions,
   shopOptions,
   onSubmit,
@@ -52,7 +53,6 @@ export function PointPromotionOrderForm({
   const [placement, setPlacement] = useState<PointPromotionPlacement>("home_top");
   const [durationDays, setDurationDays] = useState(7);
 
-  const balance = getUserPointBalance(userId);
   const cost = useMemo(
     () => getPointCostForPromotion(placement, durationDays),
     [placement, durationDays]
@@ -60,21 +60,26 @@ export function PointPromotionOrderForm({
   const insufficient = balance < cost;
   const submitText = submitLabel ?? t("points_ui_apply_with_points");
 
+  const activeOptions = targetType === "product" ? productOptions : shopOptions;
+  const resolvedTargetId = targetId.trim() || activeOptions[0]?.id || "";
   const targetTitle =
     targetType === "product"
-      ? productOptions.find((p) => p.id === targetId)?.title ?? ""
-      : shopOptions.find((s) => s.id === targetId)?.shopName ?? "";
+      ? productOptions.find((p) => p.id === resolvedTargetId)?.title ?? ""
+      : shopOptions.find((s) => s.id === resolvedTargetId)?.shopName ?? "";
+
+  const canSubmit =
+    !balanceLoading &&
+    Boolean(resolvedTargetId) &&
+    activeOptions.length > 0 &&
+    !insufficient;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (insufficient) return;
+    if (!canSubmit) return;
     onSubmit({
       targetType,
-      targetId: targetId || (targetType === "product" ? productOptions[0]?.id : shopOptions[0]?.id) || "",
-      targetTitle:
-        targetTitle ||
-        (targetType === "product" ? productOptions[0]?.title : shopOptions[0]?.shopName) ||
-        "",
+      targetId: resolvedTargetId,
+      targetTitle,
       placement,
       durationDays,
     });
@@ -104,18 +109,23 @@ export function PointPromotionOrderForm({
           <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             {t("points_ui_select_product")}
           </label>
-          <select
-            value={targetId}
-            onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
-          >
-            <option value="">{t("points_ui_select")}</option>
-            {productOptions.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title}
-              </option>
-            ))}
-          </select>
+          {productOptions.length === 0 ? (
+            <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
+              {t("points_ui_no_products")}
+            </p>
+          ) : (
+            <select
+              value={resolvedTargetId}
+              onChange={(e) => setTargetId(e.target.value)}
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+            >
+              {productOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.title}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
@@ -124,18 +134,23 @@ export function PointPromotionOrderForm({
           <label className="mb-1 block sam-text-body font-medium text-sam-fg">
             {t("points_ui_select_shop")}
           </label>
-          <select
-            value={targetId}
-            onChange={(e) => setTargetId(e.target.value)}
-            className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
-          >
-            <option value="">{t("points_ui_select")}</option>
-            {shopOptions.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.shopName}
-              </option>
-            ))}
-          </select>
+          {shopOptions.length === 0 ? (
+            <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-muted">
+              {t("points_ui_no_shops")}
+            </p>
+          ) : (
+            <select
+              value={resolvedTargetId}
+              onChange={(e) => setTargetId(e.target.value)}
+              className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
+            >
+              {shopOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.shopName}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
@@ -190,7 +205,7 @@ export function PointPromotionOrderForm({
 
       <button
         type="submit"
-        disabled={insufficient}
+        disabled={!canSubmit}
         className="w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white disabled:opacity-50"
       >
         {submitText}

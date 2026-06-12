@@ -8,7 +8,7 @@ import {
   getRecommendationIncidents,
   acknowledgeIncident,
   resolveIncident,
-} from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
+} from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
 import {
   recIncidentStatusLabel,

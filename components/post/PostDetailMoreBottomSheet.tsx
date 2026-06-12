@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { blockUser } from "@/lib/reports/mock-blocked-users";
+import { blockUser } from "@/lib/reports/user-blocks-client";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 
 function IconEyeSlash({ className }: { className?: string }) {
@@ -75,9 +75,10 @@ export function PostDetailMoreBottomSheet({
       void requireAction("community_bookmark", handleHideAuthor);
       return;
     }
-    blockUser(u.id, authorUserId, authorNickname ?? undefined);
-    onClose();
-    window.alert(t("ui_post_user_hidden_alert"));
+    void blockUser(u.id, authorUserId, authorNickname ?? undefined).then(() => {
+      onClose();
+      window.alert(t("ui_post_user_hidden_alert"));
+    });
   };
 
   const handleReport = () => {

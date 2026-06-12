@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsImprovementSummary } from "@/lib/ops-maturity/mock-ops-improvement-summary";
+import { getOpsImprovementSummary } from "@/lib/ops-maturity/ops-improvement-summary";
 
 export function OpsImprovementSummaryCards() {
   const { t } = useI18n();

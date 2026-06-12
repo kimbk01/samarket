@@ -3,9 +3,9 @@
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getRecommendationIncidents } from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
-import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
-import { getRecommendationAlertEvents } from "@/lib/recommendation-monitoring/mock-recommendation-alert-events";
+import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getRecommendationAlertEvents } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 type TimelineItem =

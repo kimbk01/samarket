@@ -1,7 +1,8 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { loadOpsLearningFromServer } from "@/lib/ops-learning/ops-learning-sync-client";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsLearningSummaryCards } from "./OpsLearningSummaryCards";
@@ -22,6 +23,11 @@ export function AdminOpsLearningPage() {
   const [historyStatusFilter, setHistoryStatusFilter] = useState<OpsLearningStatus | "">("");
   const [patternStatusFilter, setPatternStatusFilter] = useState<OpsLearningStatus | "">("");
   const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsLearningFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "history", labelKey: "admin_ops_tools_learning_tab_history" },
@@ -30,6 +36,17 @@ export function AdminOpsLearningPage() {
     { id: "suggestions", labelKey: "admin_ops_tools_learning_tab_suggestions" },
     { id: "patternLogs", labelKey: "admin_ops_tools_learning_tab_logs" },
   ];
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_tools_learning_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

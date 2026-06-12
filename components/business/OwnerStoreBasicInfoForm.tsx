@@ -37,8 +37,7 @@ import {
   OWNER_STORE_PROFILE_SELECT_CLASS,
   OWNER_STORE_STACK_Y_CLASS,
 } from "@/lib/business/owner-store-stack";
-import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-taxonomy-seed-queries";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
@@ -279,12 +278,12 @@ export function OwnerStoreBasicInfoForm({
   const dockActionBarAboveMainBottomNav =
     !hideAppBottomNav && shellFlags.showBottomNav;
 
-  const industryVersion = useBrowseIndustryDatasetVersion();
-  const identityEditable = row.owner_can_edit_store_identity === true;
   const primaryIndustries = useMemo(
     () => listBrowsePrimaryIndustries(),
-    [industryVersion]
+    []
   );
+
+  const identityEditable = row.owner_can_edit_store_identity === true;
 
   const [values, setValues] = useState<BasicValues>(() => rowToBasicValues(row));
   const [regionId, setRegionId] = useState("");

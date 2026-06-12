@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getProductionMigrationTables } from "@/lib/production-migration/mock-production-migration-tables";
+import { getProductionMigrationTables } from "@/lib/production-migration/production-migration-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getDomainLabel,

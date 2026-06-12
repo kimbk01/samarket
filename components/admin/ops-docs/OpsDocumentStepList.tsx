@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsDocumentSteps } from "@/lib/ops-docs/mock-ops-document-steps";
+import { getOpsDocumentSteps } from "@/lib/ops-docs/ops-docs-state";
 import type { OpsDocumentStepLinkedType } from "@/lib/types/ops-docs";
 import { OPS_DOC_STEP_LINK_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 

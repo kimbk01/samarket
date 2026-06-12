@@ -1,4 +1,4 @@
-import type { BrowsePrimaryIndustry } from "@/lib/stores/browse-mock/types";
+import type { BrowsePrimaryIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import {
   resolveStoreTaxonomyImageSrc,
   storeTaxonomyUploadedImageUrl,

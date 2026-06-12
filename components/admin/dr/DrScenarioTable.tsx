@@ -2,9 +2,8 @@
 
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getDrScenarios } from "@/lib/dr/mock-dr-scenarios";
+import { getDrScenarios } from "@/lib/dr/dr-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getScenarioTypeLabel, getDrSeverityLabel } from "@/lib/dr/dr-utils";
 import type { DrScenarioType, DrSeverity } from "@/lib/types/dr";

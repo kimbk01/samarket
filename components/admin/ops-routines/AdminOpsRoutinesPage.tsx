@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -11,6 +11,7 @@ import { OpsRoutineExecutionTable } from "./OpsRoutineExecutionTable";
 import { OpsCarryOverBoard } from "./OpsCarryOverBoard";
 import { OpsMonthlyNoteList } from "./OpsMonthlyNoteList";
 import { OpsOperationalizationStatusCard } from "./OpsOperationalizationStatusCard";
+import { loadOpsRoutinesFromServer } from "@/lib/ops-routines/ops-routines-sync-client";
 
 type TabId =
   | "overview"
@@ -30,6 +31,22 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 export function AdminOpsRoutinesPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsRoutinesFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_tools_routines_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

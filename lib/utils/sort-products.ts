@@ -1,7 +1,7 @@
 import type { Product } from "@/lib/types/product";
 import type { SortKey } from "@/lib/constants/sort";
-import { getExposureScorePolicyBySurface } from "@/lib/exposure/mock-exposure-score-policies";
-import { getCandidatesFromProducts } from "@/lib/exposure/mock-exposure-candidates";
+import { getDefaultExposureScorePolicyBySurface } from "@/lib/exposure/exposure-score-policy-defaults";
+import { getCandidatesFromProducts } from "@/lib/exposure/exposure-candidates-from-products";
 import { computeAndSortCandidates } from "@/lib/exposure/exposure-score-utils";
 import type { UserRegionContext } from "@/lib/exposure/exposure-score-utils";
 
@@ -44,7 +44,7 @@ export function sortProductsByExposure(
   userRegion: UserRegionContext | null
 ): Product[] {
   if (products.length === 0) return [];
-  const policy = getExposureScorePolicyBySurface(surface);
+  const policy = getDefaultExposureScorePolicyBySurface(surface);
   if (!policy) return [...products];
   const candidates = getCandidatesFromProducts(products);
   const sorted = computeAndSortCandidates(

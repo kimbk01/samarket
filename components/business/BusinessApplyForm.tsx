@@ -7,8 +7,7 @@ import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
-} from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+} from "@/lib/stores/browse-taxonomy-seed-queries";
 import { REGIONS } from "@/lib/products/form-options";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -138,7 +137,6 @@ export function BusinessApplyForm({
   const { t, language } = useI18n();
   const router = useRouter();
   const resolvedSubmitLabel = submitLabel ?? t("business_phase7_465");
-  const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
     null
   );
@@ -182,7 +180,7 @@ export function BusinessApplyForm({
         symbol: fb?.symbol ?? "🏷️",
       };
     });
-  }, [taxonomy, industryVersion]);
+  }, [taxonomy]);
   const [values, setValues] = useState<BusinessApplyFormValues>(() => ({
     ...DEFAULT_VALUES,
     ...initialCategorySlugs(),
@@ -296,7 +294,7 @@ export function BusinessApplyForm({
           };
         });
     },
-    [values.categoryPrimarySlug, taxonomy, industryVersion]
+    [values.categoryPrimarySlug, taxonomy]
   );
 
   useEffect(() => {
@@ -318,7 +316,7 @@ export function BusinessApplyForm({
       if (primarySlug === v.categoryPrimarySlug && subSlug === v.categorySubSlug) return v;
       return { ...v, categoryPrimarySlug: primarySlug, categorySubSlug: subSlug };
     });
-  }, [industryVersion, primaries, taxonomy]);
+  }, [primaries, taxonomy]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

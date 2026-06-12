@@ -1,18 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OperationStatusCards } from "./OperationStatusCards";
 import { SystemHealthList } from "./SystemHealthList";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { loadSystemOpsFromServer } from "@/lib/system/system-ops-sync-client";
 
 type TabId = "overview" | "services";
 
 export function AdminSystemPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadSystemOpsFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs = useMemo(
     (): { id: TabId; labelKey: MessageKey }[] => [
@@ -21,6 +27,17 @@ export function AdminSystemPage() {
     ],
     []
   );
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_page_system_stability" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getLaunchWeekSummary } from "@/lib/launch-week/mock-launch-week-summary";
+import { getLaunchWeekSummary } from "@/lib/launch-week/launch-week-summary";
 import { getStabilityLabel } from "@/lib/launch-week/launch-week-utils";
 import Link from "next/link";
 

@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
 import type { OpsKnowledgeGraphNodeType } from "@/lib/types/ops-knowledge-graph";
-import { getOpsKnowledgeGraphNodeById } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-nodes";
+import { getOpsKnowledgeGraphNodeById } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
 import { getEdgesForNode, getConnectedNodes } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-utils";
 import {
   OPS_TOOLS_NODE_TYPE_KEYS,

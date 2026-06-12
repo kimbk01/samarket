@@ -15,7 +15,7 @@ import {
   addUserRegion as addUserRegionMock,
   removeUserRegion as removeUserRegionMock,
   setPrimaryUserRegion as setPrimaryUserRegionMock,
-} from "@/lib/regions/mock-user-regions";
+} from "@/lib/regions/user-regions-local-store";
 import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getCurrentUser } from "@/lib/auth/get-current-user";

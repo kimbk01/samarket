@@ -9,7 +9,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsRunbookExecutions } from "@/lib/ops-runbooks/mock-ops-runbook-executions";
+import { getOpsRunbookExecutions } from "@/lib/ops-runbooks/ops-runbooks-state";
 import type { OpsRunbookExecutionStatus, OpsRunbookLinkedType } from "@/lib/types/ops-runbook";
 
 interface OpsRunbookExecutionTableProps {

@@ -7,8 +7,8 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsKnowledgeRecentViews } from "@/lib/ops-knowledge/mock-ops-knowledge-recent-views";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsKnowledgeRecentViews } from "@/lib/ops-knowledge/ops-knowledge-state";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 export function OpsKnowledgeRecentViewList() {
   const { t } = useI18n();

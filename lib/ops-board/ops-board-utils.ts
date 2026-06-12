@@ -3,8 +3,10 @@
  */
 
 import type { OpsActionSourceType } from "@/lib/types/ops-board";
-import { generateDailyChecklistFromTemplates } from "./mock-ops-daily-checklist-items";
-import { addOpsActionItem } from "./mock-ops-action-items";
+import {
+  addOpsActionItem,
+  generateDailyChecklistFromTemplates,
+} from "@/lib/ops-board/ops-board-state";
 
 const ADMIN_ID = "admin1";
 const ADMIN_NICK = "관리자";

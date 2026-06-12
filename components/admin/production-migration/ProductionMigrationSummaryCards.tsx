@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getProductionMigrationSummary } from "@/lib/production-migration/mock-production-migration-summary";
+import { getProductionMigrationSummary } from "@/lib/production-migration/production-migration-summary";
 import { getGoLiveLabel } from "@/lib/production-migration/production-migration-utils";
 import Link from "next/link";
 

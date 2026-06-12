@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getPostReleaseChecks } from "@/lib/dev-sprints/mock-post-release-checks";
+import { getPostReleaseChecks } from "@/lib/dev-sprints/dev-sprints-state";
 
 export function ReleaseReadinessCard() {
   const { t } = useI18n();

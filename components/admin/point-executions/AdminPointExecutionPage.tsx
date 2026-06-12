@@ -17,10 +17,8 @@ import {
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getPointRewardExecutions } from "@/lib/point-executions/mock-point-reward-executions";
-import { getPointReclaimPolicies } from "@/lib/point-executions/mock-point-reclaim-policies";
-import { getPointRewardLogs } from "@/lib/point-executions/mock-point-reward-logs";
-import { executePointReward } from "@/lib/point-executions/execute-point-reward";
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { useAdminPointExecutionData } from "@/hooks/useAdminPointExecutionData";
 import {
   filterPointRewardExecutions,
   type AdminPointExecutionFilters,
@@ -51,15 +49,13 @@ export function AdminPointExecutionPage() {
   const [filters, setFilters] = useState<AdminPointExecutionFilters>(DEFAULT_FILTERS);
   const [refresh, setRefresh] = useState(0);
 
-  const executions = useMemo(() => getPointRewardExecutions(), [refresh]);
+  const { executions, reclaimPolicies, rewardLogs } = useAdminPointExecutionData(refresh);
   const filteredExecutions = useMemo(
     () => filterPointRewardExecutions(executions, filters),
     [executions, filters]
   );
-  const reclaimPolicies = useMemo(() => getPointReclaimPolicies(), []);
-  const rewardLogs = useMemo(() => getPointRewardLogs(), [refresh]);
 
-  const handleTestExecute = (e: React.FormEvent) => {
+  const handleTestExecute = async (e: React.FormEvent) => {
     e.preventDefault();
     const form = e.target as HTMLFormElement;
     const boardKey = (form.querySelector('[name="boardKey"]') as HTMLSelectElement)?.value ?? "general";
@@ -69,14 +65,19 @@ export function AdminPointExecutionPage() {
     const userId = (form.querySelector('[name="userId"]') as HTMLInputElement)?.value ?? "me";
     const userNickname = (form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? t("admin_points_test_nickname");
     const userType = ((form.querySelector('[name="userType"]') as HTMLSelectElement)?.value ?? "free") as "free" | "premium";
-    executePointReward({
-      boardKey,
-      actionType,
-      targetId,
-      targetType,
-      userId,
-      userNickname,
-      userType,
+    await adminFetch("/api/admin/point-executions/reward", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        boardKey,
+        actionType,
+        targetId,
+        targetType,
+        userId,
+        userNickname,
+        userType,
+      }),
     });
     setRefresh((r) => r + 1);
   };
@@ -174,7 +175,17 @@ export function AdminPointExecutionPage() {
 
       {activeTab === "reclaim" && (
         <AdminCard titleKey="admin_points_exec_card_reclaim">
-          <PointReclaimPolicyTable policies={reclaimPolicies} />
+          <PointReclaimPolicyTable
+            policies={reclaimPolicies}
+            onToggleActive={async (p) => {
+              await adminFetch(`/api/admin/point-executions/reclaim/${p.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ isActive: !p.isActive }),
+              });
+              setRefresh((r) => r + 1);
+            }}
+          />
         </AdminCard>
       )}
 

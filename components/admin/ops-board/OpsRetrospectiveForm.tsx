@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { addOpsRetrospective } from "@/lib/ops-board/mock-ops-retrospectives";
+import { addOpsRetrospective } from "@/lib/ops-board/ops-board-state";
+import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
 import type { OpsSurface } from "@/lib/types/ops-board";
 import { OPS_TOOLS_SURFACE_KEYS } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
@@ -53,6 +54,7 @@ export function OpsRetrospectiveForm({
     setLearnings("");
     setNextActions("");
     setRelatedReportId("");
+    void persistOpsBoardToServer();
     onSaved?.();
   };
 

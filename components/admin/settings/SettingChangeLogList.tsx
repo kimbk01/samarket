@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { SettingChangeLog } from "@/lib/types/admin-settings";
-import { getSettingChangeLogs } from "@/lib/admin-settings/mock-setting-change-logs";
+import { getSettingChangeLogs } from "@/lib/admin-settings/app-settings-client";
 import type { AppSettings } from "@/lib/types/admin-settings";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";

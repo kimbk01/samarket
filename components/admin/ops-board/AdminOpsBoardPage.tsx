@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -11,6 +11,7 @@ import { OpsChecklistTemplateTable } from "./OpsChecklistTemplateTable";
 import { OpsRetrospectiveList } from "./OpsRetrospectiveList";
 import { OpsRetrospectiveForm } from "./OpsRetrospectiveForm";
 import { OpsActionBoard } from "./OpsActionBoard";
+import { loadOpsBoardFromServer } from "@/lib/ops-board/ops-board-sync-client";
 
 type TabId =
   | "summary"
@@ -31,6 +32,25 @@ export function AdminOpsBoardPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
   const [retroRefresh, setRetroRefresh] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsBoardFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader
+          titleKey="admin_ops_tools_board_page_title"
+          descriptionKey="admin_ops_tools_board_page_desc"
+        />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

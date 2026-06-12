@@ -48,7 +48,7 @@ import {
 } from "@/lib/ui/philife-write-fb-ui";
 import type { AdPaymentMethod, AdProduct } from "@/lib/ads/types";
 import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
-import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
+import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -191,7 +191,7 @@ export function PhilifeNeighborhoodWriteForm({
   /** setState 전에 연속 제출이 들어오는 경우(더블 탭 등) 동기적으로 막음 */
   const submitLockRef = useRef(false);
   const me = getCurrentUser();
-  const pointBalance = me?.id ? getUserPointBalance(me.id) : 0;
+  const { balance: pointBalance } = useUserPointBalance(me?.id);
 
   useEffect(() => {
     if (!err) return;

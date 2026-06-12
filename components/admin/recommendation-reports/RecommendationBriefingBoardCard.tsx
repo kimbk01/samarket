@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationBriefingBoard } from "@/lib/recommendation-reports/mock-recommendation-briefing-board";
+import { getRecommendationBriefingBoard } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 
 interface RecommendationBriefingBoardCardProps {
   reportId: string;

@@ -12,7 +12,7 @@ import type {
   FeedSectionOverrideKey,
 } from "@/lib/types/feed-emergency";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getActiveFeedVersionBySurface } from "@/lib/recommendation-deployments/mock-active-feed-versions";
+import type { StableFeedVersion } from "@/lib/types/feed-emergency";
 
 const ADMIN_ID = "admin1";
 const ADMIN_NICK = "관리자";
@@ -83,12 +83,14 @@ export type FeedEmergencyBundleV1 = {
   fallbackStates: FeedFallbackState[];
   sectionOverrides: FeedSectionOverride[];
   logs: FeedEmergencyLog[];
+  stableFeedVersions?: StableFeedVersion[];
 };
 
 const POLICIES: FeedEmergencyPolicy[] = defaultPolicies();
 const STATES: FeedFallbackState[] = defaultFallbackStates();
 const OVERRIDES: FeedSectionOverride[] = [];
 const LOGS: FeedEmergencyLog[] = [];
+const STABLE_VERSIONS: StableFeedVersion[] = [];
 
 const MAX_LOGS = 200;
 
@@ -99,6 +101,7 @@ export function createDefaultFeedEmergencyBundle(): FeedEmergencyBundleV1 {
     fallbackStates: defaultFallbackStates().map((s) => ({ ...s })),
     sectionOverrides: [],
     logs: [],
+    stableFeedVersions: [],
   };
 }
 
@@ -115,6 +118,7 @@ export function importFeedEmergencyBundle(bundle: FeedEmergencyBundleV1): void {
   replaceArray(OVERRIDES, (bundle.sectionOverrides ?? []).map((o) => ({ ...o })));
   const logs = (bundle.logs ?? []).slice(0, MAX_LOGS);
   replaceArray(LOGS, logs.map((l) => ({ ...l })));
+  replaceArray(STABLE_VERSIONS, (bundle.stableFeedVersions ?? []).map((s) => ({ ...s })));
   if (!POLICIES.length) replaceArray(POLICIES, defaultPolicies());
   if (!STATES.length) replaceArray(STATES, defaultFallbackStates());
 }
@@ -126,6 +130,7 @@ export function exportFeedEmergencyBundle(): FeedEmergencyBundleV1 {
     fallbackStates: STATES.map((s) => ({ ...s })),
     sectionOverrides: OVERRIDES.map((o) => ({ ...o })),
     logs: LOGS.map((l) => ({ ...l })),
+    stableFeedVersions: STABLE_VERSIONS.map((s) => ({ ...s })),
   };
 }
 
@@ -160,10 +165,6 @@ export function computeFeedEmergencyPublicSnapshot(
   let fallbackVersionId: string | null = null;
   if (mode === "fallback" || mode === "kill_switch") {
     if (state?.fallbackVersionId) fallbackVersionId = state.fallbackVersionId;
-    else if (policy?.fallbackMode === "previous_live_version") {
-      const active = getActiveFeedVersionBySurface(surface);
-      fallbackVersionId = active?.previousVersionId ?? null;
-    }
   }
   return {
     mode,
@@ -343,6 +344,31 @@ export function addFeedEmergencyLog(input: Omit<FeedEmergencyLog, "id" | "create
 
 export function getFeedEmergencyActionLabel(actionType: FeedEmergencyActionType): string {
   return getFeedEmergencyActionLabelI18n(actionType);
+}
+
+export function getStableFeedVersions(surface?: RecommendationSurface): StableFeedVersion[] {
+  if (surface) return STABLE_VERSIONS.filter((s) => s.surface === surface);
+  return [...STABLE_VERSIONS];
+}
+
+export function addStableFeedVersion(
+  input: Omit<StableFeedVersion, "id" | "markedAt">
+): StableFeedVersion {
+  const now = isoNow();
+  const row: StableFeedVersion = {
+    ...input,
+    id: `sfv-${input.surface}-${Date.now()}`,
+    markedAt: now,
+  };
+  STABLE_VERSIONS.push(row);
+  return row;
+}
+
+export function removeStableFeedVersion(id: string): boolean {
+  const i = STABLE_VERSIONS.findIndex((s) => s.id === id);
+  if (i === -1) return false;
+  STABLE_VERSIONS.splice(i, 1);
+  return true;
 }
 
 export { getFeedSectionOverrideLabel } from "@/lib/feed-emergency/feed-emergency-label-i18n";

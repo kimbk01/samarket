@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsKnowledgeGraphSummaryCards } from "./OpsKnowledgeGraphSummaryCards";
@@ -15,6 +15,7 @@ import { OpsRelatedDocumentPanel } from "./OpsRelatedDocumentPanel";
 import type { OpsKnowledgeGraphNodeType } from "@/lib/types/ops-knowledge-graph";
 import type { OpsKnowledgeGraphEdgeType } from "@/lib/types/ops-knowledge-graph";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { loadOpsKnowledgeGraphWorkspaceFromServer } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-sync-client";
 
 type TabId = "overview" | "similar" | "ranking" | "resolution" | "explore";
 
@@ -24,6 +25,11 @@ export function AdminOpsKnowledgeGraphPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [nodeTypeFilter, setNodeTypeFilter] = useState<OpsKnowledgeGraphNodeType | "">("");
   const [edgeTypeFilter, setEdgeTypeFilter] = useState<OpsKnowledgeGraphEdgeType | "">("");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsKnowledgeGraphWorkspaceFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "overview", labelKey: "admin_ops_tools_kg_tab_overview" },
@@ -32,6 +38,17 @@ export function AdminOpsKnowledgeGraphPage() {
     { id: "resolution", labelKey: "admin_ops_tools_kg_tab_resolution" },
     { id: "explore", labelKey: "admin_ops_tools_kg_tab_explore" },
   ];
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_tools_kg_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

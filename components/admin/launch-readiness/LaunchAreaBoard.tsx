@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getLaunchReadinessAreasList } from "@/lib/launch-readiness/mock-launch-readiness-areas";
+import { getLaunchReadinessAreasList } from "@/lib/launch-readiness/launch-readiness-summary";
 import { LaunchAreaCard } from "./LaunchAreaCard";
 import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
 import { getPhaseLabel } from "@/lib/launch-readiness/launch-readiness-utils";

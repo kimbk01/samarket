@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseRegressionIssues } from "@/lib/release-archive/mock-release-regression-issues";
-import { getReleaseArchives } from "@/lib/release-archive/mock-release-archives";
+import {
+  getReleaseRegressionIssues,
+  getReleaseArchives,
+} from "@/lib/release-archive/release-archive-state";
 import { RegressionIssueCard } from "./RegressionIssueCard";
 import { REGRESSION_STATUS_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type {

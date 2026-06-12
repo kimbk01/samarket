@@ -4,8 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getQaTestSuites } from "@/lib/qa-board/mock-qa-test-suites";
-import { getQaTestCases } from "@/lib/qa-board/mock-qa-test-cases";
+import { getQaTestSuites, getQaTestCases } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { getDomainLabel } from "@/lib/qa-board/qa-board-utils";
 import type { QaTestDomain } from "@/lib/types/qa-board";

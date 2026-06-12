@@ -1,14 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getStableFeedVersions } from "@/lib/feed-emergency/mock-stable-feed-versions";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getStableFeedVersions } from "@/lib/feed-emergency/feed-emergency-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 export function StableFeedVersionTable() {
-  const [refresh, setRefresh] = useState(0);
-
+  const [refresh] = useState(0);
   const stable = useMemo(() => getStableFeedVersions(), [refresh]);
 
   if (stable.length === 0) {
@@ -24,55 +21,27 @@ export function StableFeedVersionTable() {
       <table className="w-full min-w-[560px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              버전
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              안정도
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              평균 CTR
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              평균 전환율
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              등록
-            </th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">surface</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">버전 ID</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">안정도</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">평균 CTR</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">평균 전환율</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">등록</th>
           </tr>
         </thead>
         <tbody>
-          {stable.map((s) => {
-            const version = getFeedVersionById(s.versionId);
-            return (
-              <tr
-                key={s.id}
-                className="border-b border-sam-border-soft hover:bg-sam-app"
-              >
-                <td className="px-3 py-2.5 font-medium text-sam-fg">
-                  {SURFACE_LABELS[s.surface]}
-                </td>
-                <td className="px-3 py-2.5 text-sam-fg">
-                  {version?.versionName ?? s.versionId}
-                </td>
-                <td className="px-3 py-2.5 text-sam-fg">
-                  {(s.stabilityScore * 100).toFixed(1)}%
-                </td>
-                <td className="px-3 py-2.5 text-sam-fg">
-                  {(s.avgCtr * 100).toFixed(2)}%
-                </td>
-                <td className="px-3 py-2.5 text-sam-fg">
-                  {(s.avgConversionRate * 100).toFixed(2)}%
-                </td>
-                <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {new Date(s.markedAt).toLocaleString("ko-KR")}
-                </td>
-              </tr>
-            );
-          })}
+          {stable.map((s) => (
+            <tr key={s.id} className="border-b border-sam-border-soft hover:bg-sam-app">
+              <td className="px-3 py-2.5 font-medium text-sam-fg">{SURFACE_LABELS[s.surface]}</td>
+              <td className="px-3 py-2.5 text-sam-fg">{s.versionId}</td>
+              <td className="px-3 py-2.5 text-sam-fg">{(s.stabilityScore * 100).toFixed(1)}%</td>
+              <td className="px-3 py-2.5 text-sam-fg">{(s.avgCtr * 100).toFixed(2)}%</td>
+              <td className="px-3 py-2.5 text-sam-fg">{(s.avgConversionRate * 100).toFixed(2)}%</td>
+              <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
+                {new Date(s.markedAt).toLocaleString("ko-KR")}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>

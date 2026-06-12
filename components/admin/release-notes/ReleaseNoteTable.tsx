@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseNotes } from "@/lib/dev-sprints/mock-release-notes";
+import { getReleaseNotes } from "@/lib/dev-sprints/dev-sprints-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { RELEASE_NOTE_STATUS_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type { ReleaseNoteStatus } from "@/lib/types/dev-sprints";

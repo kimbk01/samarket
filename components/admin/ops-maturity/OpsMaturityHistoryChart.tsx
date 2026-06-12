@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
-import { getOpsMaturityHistory } from "@/lib/ops-maturity/mock-ops-maturity-history";
+import { getOpsMaturityHistory } from "@/lib/ops-maturity/ops-maturity-history";
 
 /** 성숙도 히스토리 추이 placeholder (표로 대체) */
 export function OpsMaturityHistoryChart() {

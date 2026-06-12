@@ -1,12 +1,13 @@
 "use client";
 
-
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo } from "react";
-import { getDrScenarioById } from "@/lib/dr/mock-dr-scenarios";
-import { getDrScenarioSteps } from "@/lib/dr/mock-dr-scenario-steps";
-import { getDrExecutions } from "@/lib/dr/mock-dr-executions";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getDrScenarioById,
+  getDrScenarioSteps,
+  getDrExecutions,
+} from "@/lib/dr/dr-state";
+import { loadDrOpsFromServer } from "@/lib/dr/dr-sync-client";
 import { getScenarioTypeLabel, getDrSeverityLabel, getExecutionStatusLabel } from "@/lib/dr/dr-utils";
 
 interface DrScenarioDetailPageProps {
@@ -15,18 +16,32 @@ interface DrScenarioDetailPageProps {
 
 export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) {
   const { t } = useI18n();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadDrOpsFromServer().then(() => setHydrated(true));
+  }, []);
+
   const scenario = useMemo(
-    () => getDrScenarioById(scenarioId),
-    [scenarioId]
+    () => (hydrated ? getDrScenarioById(scenarioId) : undefined),
+    [hydrated, scenarioId]
   );
   const steps = useMemo(
-    () => getDrScenarioSteps(scenarioId),
-    [scenarioId]
+    () => (hydrated ? getDrScenarioSteps(scenarioId) : []),
+    [hydrated, scenarioId]
   );
   const executions = useMemo(
-    () => getDrExecutions({ scenarioId }),
-    [scenarioId]
+    () => (hydrated ? getDrExecutions({ scenarioId }) : []),
+    [hydrated, scenarioId]
   );
+
+  if (!hydrated) {
+    return (
+      <div className="py-12 text-center sam-text-body text-sam-muted">
+        {t("admin_loading_ops_settings")}
+      </div>
+    );
+  }
 
   if (!scenario) {
     return (

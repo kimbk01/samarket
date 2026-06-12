@@ -3,8 +3,8 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsActionStatus } from "@/lib/types/ops-board";
-import { getOpsActionItems } from "@/lib/ops-board/mock-ops-action-items";
-import { getOverdueActionItems } from "@/lib/ops-board/mock-ops-action-items";
+import { getOpsActionItems } from "@/lib/ops-board/ops-board-state";
+import { getOverdueActionItems } from "@/lib/ops-board/ops-board-state";
 import { OPS_TOOLS_ACTION_STATUS_KEYS, opsToolsLabel } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { OpsActionCard } from "./OpsActionCard";
 

@@ -20,10 +20,6 @@ vi.mock("@/lib/community-messenger/stores/useCallStore", () => ({
   },
 }));
 
-vi.mock("@/lib/shared-orders/shared-order-store", () => ({
-  resetSharedOrders: vi.fn(),
-}));
-
 vi.mock("@/lib/auth/require-auth-action", () => ({
   clearPendingAuthActions: vi.fn(),
 }));

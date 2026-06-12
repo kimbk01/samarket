@@ -9,11 +9,76 @@ type PatchBody = {
   action?: string;
   reason?: string;
   note?: string;
+  memo?: string;
   /** action === set_owner_identity_editable */
   enabled?: boolean;
   /** action === set_store_name */
   store_name?: string;
 };
+
+export async function GET(
+  _req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  if (!(await isRouteAdmin())) {
+    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+  }
+
+  const { id: storeId } = await context.params;
+  const id = typeof storeId === "string" ? storeId.trim() : "";
+  if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
+
+  const sb = tryGetSupabaseForStores();
+  if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
+
+  const { data: store, error } = await sb
+    .from("stores")
+    .select(
+      "*, store_categories ( name, name_en, slug ), store_topics ( name, name_en, slug )"
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !store) {
+    return NextResponse.json({ ok: false, error: "store_not_found" }, { status: 404 });
+  }
+
+  const ownerId = String((store as { owner_user_id?: string }).owner_user_id ?? "");
+  let ownerNickname = "";
+  if (ownerId) {
+    const { data: prof } = await sb
+      .from("profiles")
+      .select("display_name, nickname, username")
+      .eq("id", ownerId)
+      .maybeSingle();
+    if (prof) {
+      const display = String((prof as { display_name?: string }).display_name ?? (prof as { nickname?: string }).nickname ?? "");
+      const username = String((prof as { username?: string }).username ?? "");
+      ownerNickname = display || username || ownerId.slice(0, 8);
+    }
+  }
+
+  const { data: auditRows } = await sb
+    .from("audit_logs")
+    .select("id, action, actor_id, created_at, after_json")
+    .eq("target_type", "store")
+    .eq("target_id", id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  return NextResponse.json({
+    ok: true,
+    store,
+    ownerNickname,
+    logs: (auditRows ?? []).map((r: Record<string, unknown>) => ({
+      id: String(r.id ?? ""),
+      actionType: String(r.action ?? ""),
+      adminId: String(r.actor_id ?? ""),
+      note: r.after_json ? JSON.stringify(r.after_json).slice(0, 200) : "",
+      createdAt: String(r.created_at ?? ""),
+    })),
+  });
+}
 
 /**
  * 관리자 매장·판매권한 조치
@@ -143,6 +208,18 @@ export async function PATCH(
     if (visErr) {
       console.error("[admin/stores PATCH is_visible]", visErr);
       return NextResponse.json({ ok: false, error: visErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "set_admin_memo") {
+    const memo = String(body.memo ?? body.note ?? "").trim().slice(0, 2000);
+    const { error: memoErr } = await sb.from("stores").update({ admin_internal_memo: memo }).eq("id", id);
+    if (memoErr) {
+      if (/admin_internal_memo|does not exist/i.test(memoErr.message)) {
+        return NextResponse.json({ ok: false, error: "migration_required" }, { status: 503 });
+      }
+      return NextResponse.json({ ok: false, error: memoErr.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

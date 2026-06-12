@@ -5,16 +5,9 @@ import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { Product } from "@/lib/types/product";
 import type { MyProductFilterKey } from "@/lib/products/status-utils";
-import {
-  getMyProducts,
-  updateProductStatus,
-  updateProductSellerListingState,
-  bumpProduct,
-  deleteProduct,
-  CURRENT_USER_ID,
-} from "@/lib/products/my-products-mock";
 import { normalizeSellerListingState, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
 import { MyProductFilter } from "./MyProductFilter";
@@ -38,7 +31,7 @@ function filterByStatus(products: Product[], filter: MyProductFilterKey): Produc
 
 export function MyProductsView() {
   const { t } = useI18n();
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => getCurrentUser()?.id ?? null);
   const [filter, setFilter] = useState<MyProductFilterKey>("all");
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +45,10 @@ export function MyProductsView() {
   const products = filterByStatus(rawProducts, filter);
 
   useEffect(() => {
-    const user = getCurrentUser();
-    setCurrentUserId(user?.id ?? null);
+    const syncUser = () => setCurrentUserId(getCurrentUser()?.id ?? null);
+    syncUser();
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, syncUser);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, syncUser);
   }, []);
 
   const fetchMyPosts = useCallback(async (uid: string) => {
@@ -64,13 +59,8 @@ export function MyProductsView() {
   }, []);
 
   useEffect(() => {
-    if (currentUserId === null) {
-      setLoading(false);
-      setRawProducts(getMyProducts(CURRENT_USER_ID, "all"));
-      return;
-    }
     if (!currentUserId) {
-      setRawProducts(getMyProducts(CURRENT_USER_ID, "all"));
+      setRawProducts([]);
       setLoading(false);
       return;
     }
@@ -81,7 +71,7 @@ export function MyProductsView() {
         if (!cancelled) setRawProducts(list);
       })
       .catch(() => {
-        if (!cancelled) setRawProducts(getMyProducts(currentUserId, "all"));
+        if (!cancelled) setRawProducts([]);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -114,7 +104,7 @@ export function MyProductsView() {
 
   const refresh = useCallback(() => {
     if (!currentUserId) {
-      setRawProducts(getMyProducts(CURRENT_USER_ID, "all"));
+      setRawProducts([]);
       return;
     }
     fetchMyPosts(currentUserId).then(setRawProducts);
@@ -126,11 +116,7 @@ export function MyProductsView() {
 
   const handleStatusChange = useCallback(
     async (productId: string, newStatus: Product["status"]) => {
-      if (!currentUserId) {
-        updateProductStatus(productId, newStatus);
-        refresh();
-        return;
-      }
+      if (!currentUserId) return;
       try {
         const res = await fetch(
           `/api/posts/${encodeURIComponent(productId)}/owner-status`,
@@ -158,20 +144,32 @@ export function MyProductsView() {
     [currentUserId, refresh, t]
   );
 
-  const handleBump = useCallback(
-    (productId: string) => {
-      bumpProduct(productId);
-      refresh();
-    },
-    [refresh]
-  );
+  const handleBump = useCallback(() => {
+    window.alert(t("common_content_unavailable"));
+  }, [t]);
 
   const handleDelete = useCallback(
-    (productId: string) => {
-      deleteProduct(productId);
-      refresh();
+    async (productId: string) => {
+      if (!currentUserId) return;
+      try {
+        const res = await fetch(
+          `/api/posts/${encodeURIComponent(productId)}/owner-delete`,
+          { method: "POST" }
+        );
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+        };
+        if (!res.ok || !data.ok) {
+          window.alert(data.error ?? t("mypage_comp_product_network_change_failed"));
+          return;
+        }
+        refresh();
+      } catch {
+        window.alert(t("mypage_comp_product_network_change_failed"));
+      }
     },
-    [refresh]
+    [currentUserId, refresh, t]
   );
 
   const handleSellerListingStateChange = useCallback(
@@ -199,11 +197,7 @@ export function MyProductsView() {
 
       setSavingListingId(productId);
       try {
-        if (!currentUserId) {
-          updateProductSellerListingState(productId, state);
-          refresh();
-          return;
-        }
+        if (!currentUserId) return;
 
         if (state === "completed") {
           const data = await fetchPostBuyerChats(productId);

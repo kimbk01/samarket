@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationReportVersions } from "@/lib/recommendation-reports/mock-recommendation-report-versions";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getRecommendationReportVersions } from "@/lib/recommendation-analytics/recommendation-analytics-state";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 interface RecommendationVersionReportTableProps {

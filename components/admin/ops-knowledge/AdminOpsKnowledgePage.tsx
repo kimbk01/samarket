@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsKnowledgeSearchBar } from "./OpsKnowledgeSearchBar";
@@ -15,7 +15,13 @@ import { OpsKnowledgeSummaryCards } from "./OpsKnowledgeSummaryCards";
 import { searchOpsKnowledge, logOpsKnowledgeSearch, addRecentView } from "@/lib/ops-knowledge/ops-knowledge-utils";
 import type { OpsKnowledgeSearchFilters } from "@/lib/ops-knowledge/ops-knowledge-utils";
 import type { OpsKnowledgeBaseIndexItem } from "@/lib/types/ops-knowledge";
-import { getOpsKnowledgeBaseIndexItemByDocumentId } from "@/lib/ops-knowledge/mock-ops-knowledge-base-index";
+import { getOpsKnowledgeBaseIndexItemByDocumentId } from "@/lib/ops-knowledge/ops-knowledge-base-index";
+import { loadOpsDocsFromServer } from "@/lib/ops-docs/ops-docs-sync-client";
+import {
+  loadOpsKnowledgeFromServer,
+  persistOpsKnowledgeToServer,
+} from "@/lib/ops-knowledge/ops-knowledge-sync-client";
+import { invalidateOpsKnowledgeIndexCache } from "@/lib/ops-knowledge/ops-knowledge-base-index";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 type TabId = "search" | "recommend" | "recent" | "searchLogs" | "recLogs";
@@ -29,11 +35,20 @@ export function AdminOpsKnowledgePage() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [recommendSourceType, setRecommendSourceType] = useState<"incident" | "deployment" | "rollback" | "fallback" | "kill_switch">("incident");
   const [recommendSourceId, setRecommendSourceId] = useState("");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void Promise.all([loadOpsDocsFromServer(), loadOpsKnowledgeFromServer()]).then(() => {
+      invalidateOpsKnowledgeIndexCache();
+      setHydrated(true);
+    });
+  }, []);
 
   const handleSearch = useCallback(() => {
     const results = searchOpsKnowledge(query, { ...filters, status: "active" });
     setSearchResults(results);
     logOpsKnowledgeSearch(query, filters as Record<string, string>, results.length);
+    void persistOpsKnowledgeToServer();
     setSelectedDocumentId(results[0]?.documentId ?? null);
   }, [query, filters]);
 
@@ -44,7 +59,19 @@ export function AdminOpsKnowledgePage() {
 
   const handleViewDocument = useCallback((documentId: string) => {
     addRecentView(documentId, "search");
+    void persistOpsKnowledgeToServer();
   }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_tools_kb_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "search", labelKey: "admin_ops_tools_kb_tab_search" },

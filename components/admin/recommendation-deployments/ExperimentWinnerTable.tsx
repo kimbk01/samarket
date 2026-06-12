@@ -5,11 +5,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { WinningMetric } from "@/lib/types/recommendation-deployment";
-import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
-import { getExperimentWinnerSummaries } from "@/lib/recommendation-deployments/mock-experiment-winner-summaries";
-import { chooseWinner } from "@/lib/recommendation-deployments/mock-experiment-winner-summaries";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getExperimentWinnerSummaries } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { chooseWinner } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { ASSIGNED_GROUP_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { persistRecommendationExperimentsToServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 
 const WINNING_METRIC_LABELS: Record<WinningMetric, string> = {
   ctr: "CTR 우선",
@@ -35,6 +36,7 @@ export function ExperimentWinnerTable() {
   const handleChooseWinner = (experimentId: string) => {
     setChoosingId(experimentId);
     chooseWinner(experimentId, metric);
+    void persistRecommendationExperimentsToServer();
     setChoosingId(null);
     setRefresh((r) => r + 1);
   };

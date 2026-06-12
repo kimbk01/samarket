@@ -21,7 +21,7 @@ import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import {
   getBrowsePrimaryBySlug,
   getBrowseSubIndustry,
-} from "@/lib/stores/browse-mock/queries";
+} from "@/lib/stores/browse-taxonomy-seed-queries";
 import { refreshOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { formatStoreApprovalStatusI18n } from "@/lib/stores/store-approval-label-ko";
 

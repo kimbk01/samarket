@@ -3,7 +3,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsKnowledgeSearchLogs } from "@/lib/ops-knowledge/mock-ops-knowledge-search-logs";
+import { getOpsKnowledgeSearchLogs } from "@/lib/ops-knowledge/ops-knowledge-state";
 
 export function OpsKnowledgeSearchLogTable() {
   const { t } = useI18n();

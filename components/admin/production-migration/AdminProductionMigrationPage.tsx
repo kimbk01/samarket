@@ -1,9 +1,7 @@
 "use client";
 
-
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ProductionMigrationSummaryCards } from "./ProductionMigrationSummaryCards";
@@ -12,6 +10,7 @@ import { ProductionRlsCheckTable } from "./ProductionRlsCheckTable";
 import { ProductionInfraCheckTable } from "./ProductionInfraCheckTable";
 import { ProductionLaunchCheckTable } from "./ProductionLaunchCheckTable";
 import { ProductionBlockerBoard } from "./ProductionBlockerBoard";
+import { loadProductionMigrationFromServer } from "@/lib/production-migration/production-migration-sync-client";
 
 type TabId =
   | "overview"
@@ -24,6 +23,11 @@ type TabId =
 export function AdminProductionMigrationPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadProductionMigrationFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "overview", label: "Migration 개요" },
@@ -33,6 +37,19 @@ export function AdminProductionMigrationPage() {
     { id: "launch", label: "Cutover 체크리스트" },
     { id: "blocker", label: "Blocker 보드" },
   ];
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_qa_kdcc4b43a" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

@@ -2,6 +2,8 @@ import type { MessageKey } from "@/lib/i18n/messages";
 
 const KNOWN_CODES: Record<string, MessageKey> = {
   rpc_missing: "admin_store_points_rpc_missing",
+  table_missing: "admin_points_charge_err_table_missing",
+  point_charge_rpc_missing: "admin_points_charge_err_rpc_missing",
   not_found_or_already_processed: "admin_api_err_not_found_or_processed",
   already_processed: "admin_api_err_already_processed",
   approve_failed: "admin_api_err_approve_failed",

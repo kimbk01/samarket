@@ -3,8 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { useBrowsePrimaryIndustries } from "@/lib/stores/use-browse-primary-industries";
 import { storesBrowsePrimaryPath } from "./stores-browse-paths";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 import { I18N_COMPACT_SUB_CARD_LABEL } from "@/lib/ui/i18n-compact-label-classes";
@@ -16,8 +15,7 @@ export function StoresIndustryGrid({
   headerTrailing?: ReactNode;
 }) {
   const { t, language } = useI18n();
-  useBrowseIndustryDatasetVersion();
-  const primaries = listBrowsePrimaryIndustries();
+  const primaries = useBrowsePrimaryIndustries();
 
   return (
     <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">

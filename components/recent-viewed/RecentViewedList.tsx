@@ -1,14 +1,23 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useMemo } from "react";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { getRecentViewedProducts } from "@/lib/recommendation/mock-recent-viewed-products";
+import { useEffect, useMemo, useState } from "react";
+import { getViewerUserId } from "@/lib/auth/viewer-user-id";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { getRecentViewedProducts } from "@/lib/recommendation/recommendation-recent-viewed-state";
 import { RecentViewedCard } from "./RecentViewedCard";
 
 export function RecentViewedList() {
   const { t } = useI18n();
-  const userId = getCurrentUserId();
+  const [userId, setUserId] = useState(() => getViewerUserId());
+
+  useEffect(() => {
+    const sync = () => setUserId(getViewerUserId());
+    sync();
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, sync);
+  }, []);
+
   const records = useMemo(
     () => getRecentViewedProducts(userId, 50),
     [userId]

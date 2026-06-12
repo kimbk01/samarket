@@ -60,7 +60,7 @@ export function PointChargeRequestList({
         >
           <p className="font-medium text-sam-fg">{r.planName}</p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            ₩{r.paymentAmount.toLocaleString()} → {r.pointAmount.toLocaleString()}P
+            ₱{r.paymentAmount.toLocaleString()} → {r.pointAmount.toLocaleString()}P
           </p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
             {r.paymentMethod === "gcash" ? "GCash" : t(PAYMENT_KEYS[r.paymentMethod])}

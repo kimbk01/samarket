@@ -3,10 +3,14 @@
  */
 
 import type { OpsDocStatus } from "@/lib/types/ops-docs";
-import { getOpsDocumentById, addOpsDocument, updateOpsDocument } from "./mock-ops-documents";
-import { getOpsDocumentSteps } from "./mock-ops-document-steps";
-import { addOpsDocumentStep } from "./mock-ops-document-steps";
-import { addOpsDocumentLog } from "./mock-ops-document-logs";
+import {
+  getOpsDocumentById,
+  addOpsDocument,
+  updateOpsDocument,
+  getOpsDocumentSteps,
+  addOpsDocumentStep,
+  addOpsDocumentLog,
+} from "./ops-docs-state";
 import type { OpsDocument } from "@/lib/types/ops-docs";
 
 export function slugFromTitle(title: string): string {

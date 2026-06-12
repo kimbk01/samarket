@@ -2,8 +2,9 @@
 
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getRollbackPolicies } from "@/lib/recommendation-deployments/mock-recommendation-rollback-policies";
-import { saveRollbackPolicy } from "@/lib/recommendation-deployments/mock-recommendation-rollback-policies";
+import { getRollbackPolicies } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { saveRollbackPolicy } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { persistRecommendationExperimentsToServer } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 export function RollbackPolicyForm() {
@@ -42,6 +43,7 @@ export function RollbackPolicyForm() {
       compareWindowHours,
       adminMemo,
     });
+    void persistRecommendationExperimentsToServer();
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

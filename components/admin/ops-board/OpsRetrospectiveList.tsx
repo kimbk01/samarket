@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsRetrospectives } from "@/lib/ops-board/mock-ops-retrospectives";
+import { getOpsRetrospectives } from "@/lib/ops-board/ops-board-state";
 import { OPS_TOOLS_SURFACE_KEYS, opsToolsLabel } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }) {

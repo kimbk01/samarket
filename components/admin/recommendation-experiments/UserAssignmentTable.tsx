@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getUserFeedAssignments } from "@/lib/recommendation-experiments/mock-user-feed-assignments";
-import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getUserFeedAssignments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { recAssignedGroupLabel } from "@/components/admin/recommendation-admin-i18n";
 
 export function UserAssignmentTable() {

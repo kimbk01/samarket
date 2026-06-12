@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { AdProductSelector } from "./AdProductSelector";
-import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useUserPointBalance } from "@/hooks/useUserPointBalance";
 
 interface AdApplyButtonProps {
   postId: string;
@@ -25,7 +25,7 @@ export function AdApplyButton({
 
   if (!me?.id) return null;
 
-  const balance = getUserPointBalance(me.id);
+  const { balance } = useUserPointBalance(me.id);
 
   if (successAdId) {
     return (

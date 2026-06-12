@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseArchives } from "@/lib/release-archive/mock-release-archives";
+import { getReleaseArchives } from "@/lib/release-archive/release-archive-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import { RELEASE_ARCHIVE_STATUS_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type { ReleaseArchiveStatus } from "@/lib/types/release-archive";

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationSectionHealth } from "@/lib/recommendation-monitoring/mock-recommendation-section-health";
+import { getRecommendationSectionHealth } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import { recHealthLabel, recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];

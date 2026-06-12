@@ -3,12 +3,14 @@
  */
 
 import type { ReportType, ReportSurface } from "@/lib/types/recommendation-report";
-import { addRecommendationReport } from "./mock-recommendation-reports";
-import { setRecommendationReportKpis } from "./mock-recommendation-report-kpis";
-import { getRecommendationAnalyticsSummary } from "@/lib/recommendation/mock-recommendation-analytics-summary";
-import { getRecommendationAutomationExecutions } from "@/lib/recommendation-automation/mock-recommendation-automation-executions";
-import { getRecommendationIncidents } from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
-import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
+import {
+  addRecommendationReport,
+  setRecommendationReportKpis,
+} from "@/lib/recommendation-analytics/recommendation-analytics-state";
+import { getRecommendationAnalyticsSummary } from "@/lib/recommendation/recommendation-analytics-summary";
+import { getRecommendationAutomationExecutions } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import { getRecommendationDeployments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 export type ReportPeriod =
   | "today"

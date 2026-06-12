@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
-import { getOpsRoutineSummary } from "@/lib/ops-routines/mock-ops-routine-summary";
+import { getOpsRoutineSummary } from "@/lib/ops-routines/ops-routines-summary";
 import Link from "next/link";
 
 export function OpsRoutineSummaryCards() {

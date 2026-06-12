@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import { getBlockedReadinessItems } from "@/lib/launch-readiness/mock-launch-readiness-items";
-import { getLaunchBlockerLogs } from "@/lib/launch-readiness/mock-launch-blocker-logs";
+import {
+  getBlockedReadinessItems,
+  getLaunchBlockerLogs,
+} from "@/lib/launch-readiness/launch-readiness-state";
 import { getAreaLabel, getGateLabel } from "@/lib/launch-readiness/launch-readiness-utils";
 import Link from "next/link";
 

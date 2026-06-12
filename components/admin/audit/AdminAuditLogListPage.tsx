@@ -1,13 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { getAuditLogs } from "@/lib/admin-audit/mock-admin-audit-logs";
-import { getAuditSummary } from "@/lib/admin-audit/mock-audit-summary";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   filterAndSortLogs,
   type AdminAuditFilters,
   type AuditSortKey,
 } from "@/lib/admin-audit/admin-audit-utils";
+import { mapAuditLogRow } from "@/lib/admin-audit/map-audit-log-row";
+import { buildAuditSummaryFromLogs } from "@/lib/admin-audit/build-audit-summary";
+import type { AdminAuditLog } from "@/lib/types/admin-audit";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminAuditSummaryCards } from "./AdminAuditSummaryCards";
@@ -25,12 +26,32 @@ const DEFAULT_FILTERS: AdminAuditFilters = {
 export function AdminAuditLogListPage() {
   const { t } = useI18n();
   const [filters, setFilters] = useState<AdminAuditFilters>(DEFAULT_FILTERS);
-  const logs = useMemo(() => getAuditLogs(), []);
-  const summary = useMemo(() => getAuditSummary(), []);
-  const filtered = useMemo(
-    () => filterAndSortLogs(logs, filters),
-    [logs, filters]
-  );
+  const [logs, setLogs] = useState<AdminAuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/audit-logs?limit=300", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const j = (await res.json()) as { ok?: boolean; logs?: Record<string, unknown>[] };
+      const rows = j.ok && Array.isArray(j.logs) ? j.logs : [];
+      setLogs(rows.map((r) => mapAuditLogRow(r)));
+    } catch {
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const summary = useMemo(() => buildAuditSummaryFromLogs(logs), [logs]);
+  const filtered = useMemo(() => filterAndSortLogs(logs, filters), [logs, filters]);
 
   return (
     <div className="space-y-4">
@@ -55,7 +76,9 @@ export function AdminAuditLogListPage() {
         </button>
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
+      ) : filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           {t("admin_audit_empty_filtered")}
         </div>

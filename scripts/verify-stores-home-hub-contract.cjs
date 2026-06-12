@@ -164,6 +164,16 @@ assertNotIncludes(
 
   quickCategories,
 
+  "browse-industry-merge",
+
+  "home categories must not use localStorage browse industry overrides"
+
+);
+
+assertNotIncludes(
+
+  quickCategories,
+
   "listBrowsePrimaryIndustries(",
 
   "home categories must not call browse mock primary list"

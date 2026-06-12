@@ -7,7 +7,7 @@ import {
   removeRecentSearch,
   clearRecentSearches,
   type RecentSearch,
-} from "@/lib/search/mock-search-data";
+} from "@/lib/search/recent-searches-local";
 
 interface RecentSearchesProps {
   onSelectKeyword: (keyword: string) => void;

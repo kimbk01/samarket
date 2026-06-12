@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getQaTestCases } from "@/lib/qa-board/mock-qa-test-cases";
+import { getQaTestCases } from "@/lib/qa-board/qa-board-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getCaseStatusLabel,

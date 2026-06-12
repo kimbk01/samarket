@@ -31,6 +31,10 @@ export interface PointChargeRequest {
   updatedAt: string;
   adminMemo?: string;
   userMemo?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  processedAt?: string;
+  processedBy?: string;
 }
 
 export interface PointPlan {
@@ -56,6 +60,7 @@ export type PointLedgerEntryType =
 
 export type PointLedgerRelatedType =
   | "point_charge"
+  | "promotion_order"
   | "promoted_item"
   | "ad_application"
   | "admin_manual"

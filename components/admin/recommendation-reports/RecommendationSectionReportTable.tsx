@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationReportSections } from "@/lib/recommendation-reports/mock-recommendation-report-sections";
+import { getRecommendationReportSections } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import type { SectionHealthStatus } from "@/lib/types/recommendation-report";
 import {
   recHealthLabel,

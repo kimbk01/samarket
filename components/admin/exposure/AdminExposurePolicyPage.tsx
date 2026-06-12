@@ -1,14 +1,11 @@
 "use client";
 
-
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getExposureScorePolicies } from "@/lib/exposure/mock-exposure-score-policies";
-import { saveExposureScorePolicy } from "@/lib/exposure/mock-exposure-score-policies";
-import { getExposurePolicyLogs } from "@/lib/exposure/mock-exposure-policy-logs";
+import type { ExposurePolicyLog, ExposureScorePolicy } from "@/lib/types/exposure";
 import { ExposurePolicyTable } from "./ExposurePolicyTable";
 import { ExposurePolicyForm } from "./ExposurePolicyForm";
 import { ExposureSimulator } from "./ExposureSimulator";
@@ -25,24 +22,53 @@ const TABS: { id: TabId; labelKey: MessageKey }[] = [
 export function AdminExposurePolicyPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
-  const [refresh, setRefresh] = useState(0);
+  const [policies, setPolicies] = useState<ExposureScorePolicy[]>([]);
+  const [logs, setLogs] = useState<ExposurePolicyLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
+  const [err, setErr] = useState("");
 
-  const policies = useMemo(
-    () => getExposureScorePolicies(),
-    [refresh]
-  );
-  const logs = useMemo(() => getExposurePolicyLogs(), [refresh]);
-  const editingPolicy = useMemo(
-    () => (editingPolicyId ? policies.find((p) => p.id === editingPolicyId) : null),
-    [editingPolicyId, policies]
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/admin/exposure-policies", { cache: "no-store", credentials: "include" });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        policies?: ExposureScorePolicy[];
+        logs?: ExposurePolicyLog[];
+      };
+      if (j.ok) {
+        setPolicies(j.policies ?? []);
+        setLogs(j.logs ?? []);
+      }
+    } catch {
+      setErr("노출 정책을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleSavePolicy = (values: Partial<typeof editingPolicy>) => {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const editingPolicy = editingPolicyId ? policies.find((p) => p.id === editingPolicyId) : null;
+
+  const handleSavePolicy = async (values: Partial<ExposureScorePolicy>) => {
     if (!editingPolicy) return;
-    saveExposureScorePolicy({ ...editingPolicy, ...values });
-    setRefresh((r) => r + 1);
+    const res = await fetch(`/api/admin/exposure-policies/${encodeURIComponent(editingPolicy.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(values),
+    });
+    if (!res.ok) {
+      setErr("정책 저장에 실패했습니다.");
+      return;
+    }
     setEditingPolicyId(null);
+    await load();
   };
 
   return (
@@ -66,13 +92,16 @@ export function AdminExposurePolicyPage() {
         ))}
       </div>
 
-      {activeTab === "policy" && (
+      {err ? <p className="sam-text-body text-red-600">{err}</p> : null}
+      {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+
+      {activeTab === "policy" && !loading && (
         <AdminCard titleKey="admin_exposure_k6d95f114">
           {editingPolicy && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <ExposurePolicyForm
                 initial={editingPolicy}
-                onSubmit={handleSavePolicy}
+                onSubmit={(v) => void handleSavePolicy(v)}
                 onCancel={() => setEditingPolicyId(null)}
               />
             </div>
@@ -86,11 +115,11 @@ export function AdminExposurePolicyPage() {
 
       {activeTab === "simulate" && (
         <AdminCard titleKey="admin_exposure_k6349265b">
-          <ExposureSimulator onSimulated={() => setRefresh((r) => r + 1)} />
+          <ExposureSimulator onSimulated={() => void load()} />
         </AdminCard>
       )}
 
-      {activeTab === "logs" && (
+      {activeTab === "logs" && !loading && (
         <AdminCard titleKey="admin_exposure_k14bf3e5b">
           <ExposurePolicyLogList logs={logs} />
         </AdminCard>

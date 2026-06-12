@@ -88,7 +88,7 @@ export function AdminAdApplicationTable({
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{a.applicantNickname}</td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {a.planName} / ₩{a.totalPrice.toLocaleString()}
+                {a.planName} / ₱{a.totalPrice.toLocaleString()}
               </td>
               <td className="px-3 py-2.5">
                 <span

@@ -158,7 +158,7 @@ export interface ActiveAdsResponse {
 
 /** GET /api/me/post-ads */
 export type MePostAdsMeta = {
-  source: "supabase" | "memory";
+  source: "supabase" | "missing_table" | "unavailable";
   hint?: string;
 };
 

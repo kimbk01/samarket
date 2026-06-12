@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsChecklistTemplates } from "@/lib/ops-board/mock-ops-checklist-templates";
+import { getOpsChecklistTemplates } from "@/lib/ops-board/ops-board-state";
 import {
   OPS_TOOLS_CHECKLIST_CATEGORY_KEYS,
   OPS_TOOLS_PRIORITY_KEYS,

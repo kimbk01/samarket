@@ -2,8 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsDevHandoffItems } from "@/lib/product-backlog/mock-ops-dev-handoff-items";
-import { getProductBacklogItemById } from "@/lib/product-backlog/mock-product-backlog-items";
+import {
+  getOpsDevHandoffItems,
+  getProductBacklogItemById,
+} from "@/lib/product-backlog/product-backlog-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getHandoffStatusLabel,

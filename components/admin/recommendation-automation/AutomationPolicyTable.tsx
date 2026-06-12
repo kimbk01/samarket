@@ -6,7 +6,7 @@ import type { RecommendationSurface } from "@/lib/types/recommendation";
 import {
   getRecommendationAutomationPolicies,
   saveRecommendationAutomationPolicy,
-} from "@/lib/recommendation-automation/mock-recommendation-automation-policies";
+} from "@/lib/recommendation-ops/recommendation-ops-state";
 import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
 import {
   recFallbackModeLabel,

@@ -1,7 +1,7 @@
 "use client";
 
 import type { MemberType } from "@/lib/types/admin-user";
-import { getMemberVisualConfig } from "@/lib/member-benefits/mock-member-visual-config";
+import { getMemberVisualConfig } from "@/lib/member-benefits/member-visual-config";
 
 interface MemberProfileFrameProps {
   memberType: MemberType;

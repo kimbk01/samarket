@@ -8,6 +8,7 @@ import { AdminCard } from "@/components/admin/AdminCard";
 import { useRouter } from "next/navigation";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { AppLanguageCode } from "@/lib/i18n/config";
+import { resolveAdminApiErrorMessage } from "@/lib/admin/admin-api-error-i18n";
 
 interface AdminUserPointsSectionProps {
   userId: string;
@@ -73,7 +74,7 @@ export function AdminUserPointsSection({ userId }: AdminUserPointsSectionProps) 
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? t("admin_users_action_failed"));
+        setErr(resolveAdminApiErrorMessage(j.error, t, "admin_users_action_failed"));
         return;
       }
       void load();

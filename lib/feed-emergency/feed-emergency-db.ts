@@ -24,6 +24,9 @@ function parseBundle(raw: unknown): FeedEmergencyBundleV1 | null {
       ? (o.sectionOverrides as FeedEmergencyBundleV1["sectionOverrides"])
       : [],
     logs: Array.isArray(o.logs) ? (o.logs as FeedEmergencyBundleV1["logs"]) : [],
+    stableFeedVersions: Array.isArray(o.stableFeedVersions)
+      ? (o.stableFeedVersions as FeedEmergencyBundleV1["stableFeedVersions"])
+      : [],
   };
 }
 

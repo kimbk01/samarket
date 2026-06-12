@@ -1,14 +1,9 @@
 "use client";
 
-
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import type { RecommendationSurface } from "@/lib/types/recommendation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getFeedFallbackStates } from "@/lib/feed-emergency/feed-emergency-state";
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
-import { getActiveFeedVersionBySurface } from "@/lib/recommendation-deployments/mock-active-feed-versions";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 
 const MODE_LABELS: Record<string, string> = {
@@ -19,12 +14,9 @@ const MODE_LABELS: Record<string, string> = {
 
 export function FeedFallbackStateCard() {
   const { t } = useI18n();
-  const [refresh, setRefresh] = useState(0);
+  const [refresh] = useState(0);
 
-  const states = useMemo(
-    () => getFeedFallbackStates(),
-    [refresh]
-  );
+  const states = useMemo(() => getFeedFallbackStates(), [refresh]);
 
   if (states.length === 0) {
     return (
@@ -38,14 +30,6 @@ export function FeedFallbackStateCard() {
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {states.map((s) => {
         const mode = getFeedMode(s.surface);
-        const activeRow = getActiveFeedVersionBySurface(s.surface);
-        const activeVersionId = s.activeVersionId ?? activeRow?.liveVersionId ?? null;
-        const activeVersion = activeVersionId
-          ? getFeedVersionById(activeVersionId)
-          : null;
-        const fallbackVersion = s.fallbackVersionId
-          ? getFeedVersionById(s.fallbackVersionId)
-          : null;
         return (
           <div
             key={s.id}
@@ -58,9 +42,7 @@ export function FeedFallbackStateCard() {
             }`}
           >
             <div className="mb-2 flex items-center justify-between">
-              <span className="font-medium text-sam-fg">
-                {SURFACE_LABELS[s.surface]}
-              </span>
+              <span className="font-medium text-sam-fg">{SURFACE_LABELS[s.surface]}</span>
               <span
                 className={`rounded px-2 py-0.5 sam-text-helper font-medium ${
                   mode === "kill_switch"
@@ -76,16 +58,12 @@ export function FeedFallbackStateCard() {
             <dl className="space-y-1 sam-text-body-secondary">
               <div>
                 <dt className="text-sam-muted">{t("admin_feed_emergency_active_4")}</dt>
-                <dd className="text-sam-fg">
-                  {activeVersion?.versionName ?? activeVersionId ?? "-"}
-                </dd>
+                <dd className="text-sam-fg">{s.activeVersionId ?? "-"}</dd>
               </div>
               {s.fallbackVersionId && (
                 <div>
                   <dt className="text-sam-muted">{t("admin_fallback_version")}</dt>
-                  <dd className="text-sam-fg">
-                    {fallbackVersion?.versionName ?? s.fallbackVersionId}
-                  </dd>
+                  <dd className="text-sam-fg">{s.fallbackVersionId}</dd>
                 </div>
               )}
               {s.fallbackReason && (
@@ -96,9 +74,7 @@ export function FeedFallbackStateCard() {
               )}
               <div>
                 <dt className="text-sam-muted">{t("admin_rec_deploy_k2d2acced")}</dt>
-                <dd className="text-sam-muted">
-                  {new Date(s.updatedAt).toLocaleString("ko-KR")}
-                </dd>
+                <dd className="text-sam-muted">{new Date(s.updatedAt).toLocaleString("ko-KR")}</dd>
               </div>
             </dl>
           </div>

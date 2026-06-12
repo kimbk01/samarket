@@ -7,7 +7,7 @@ import {
   getFeedSectionOverrides,
   SECTION_OVERRIDE_KEYS,
   SECTION_OVERRIDE_LABELS,
-} from "@/lib/feed-emergency/mock-feed-section-overrides";
+} from "@/lib/feed-emergency/feed-emergency-state";
 import { setSectionForcedDisabled } from "@/lib/feed-emergency/feed-emergency-utils";
 import { persistFeedEmergencyToServer } from "@/lib/feed-emergency/feed-emergency-sync-client";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";

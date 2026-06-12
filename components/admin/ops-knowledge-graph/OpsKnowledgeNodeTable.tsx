@@ -8,7 +8,7 @@ import {
 import { useMemo } from "react";
 import Link from "next/link";
 import type { OpsKnowledgeGraphNodeType } from "@/lib/types/ops-knowledge-graph";
-import { getOpsKnowledgeGraphNodes } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-nodes";
+import { getOpsKnowledgeGraphNodes } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
 
 interface OpsKnowledgeNodeTableProps {
   nodeTypeFilter?: OpsKnowledgeGraphNodeType | "";

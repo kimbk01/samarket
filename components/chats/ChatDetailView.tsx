@@ -5,8 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ChatRoom, ChatMessage } from "@/lib/types/chat";
-import { allowMockChatMessageFallback } from "@/lib/config/deploy-surface";
-import { getMessages } from "@/lib/chats/mock-chat-messages";
 import { getMessagesFromDb } from "@/lib/chats/getMessagesFromDb";
 import { sendChatMessage } from "@/lib/chat/sendChatMessage";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
@@ -884,7 +882,7 @@ export function ChatDetailView({
     try {
       return await getMessagesFromDb(room.id, currentUserId);
     } catch {
-      return allowMockChatMessageFallback() ? getMessages(room.id) : [];
+      return [];
     }
   }, [room.id, currentUserId, isChatRoom]);
 
@@ -1201,11 +1199,6 @@ export function ChatDetailView({
         } catch {
           /* ignore */
         }
-      }
-      if (!cancelled) {
-        setMessages((prev) =>
-          prev.length === 0 && allowMockChatMessageFallback() ? getMessages(room.id) : prev
-        );
       }
     })().finally(() => {
       if (!cancelled) setMessagesLoading(false);

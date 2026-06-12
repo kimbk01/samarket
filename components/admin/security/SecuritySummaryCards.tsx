@@ -4,8 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getSecurityChecks } from "@/lib/security/mock-security-checks";
-import { getSecurityIssues } from "@/lib/security/mock-security-issues";
+import { getSecurityChecks, getSecurityIssues } from "@/lib/security/security-state";
 
 export function SecuritySummaryCards() {
   const { t } = useI18n();

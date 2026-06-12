@@ -2,7 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
-import { getOpsRunbookSummary } from "@/lib/ops-runbooks/mock-ops-runbook-summary";
+import { getOpsRunbookSummary } from "@/lib/ops-runbooks/ops-runbook-summary";
 
 export function OpsRunbookSummaryCards() {
   const { t } = useI18n();

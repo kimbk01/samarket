@@ -17,6 +17,7 @@ import {
   safeErrorMessage,
 } from "@/lib/http/api-route";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
+import { voidCommunityPointRewardOnPostWrite } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -195,6 +196,14 @@ export async function POST(req: NextRequest) {
       });
     }
   }
+
+  voidCommunityPointRewardOnPostWrite({
+    userId: auth.userId,
+    postId: newId,
+    isQuestion: is_question,
+    topicSlug,
+    category: categoryForDb,
+  });
 
   return jsonOk({ id: newId });
 }

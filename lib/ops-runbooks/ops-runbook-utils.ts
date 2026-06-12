@@ -3,16 +3,17 @@
  */
 
 import type { OpsRunbookLinkedType } from "@/lib/types/ops-runbook";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
-import { getOpsDocumentSteps } from "@/lib/ops-docs/mock-ops-document-steps";
-import { addOpsRunbookExecution } from "./mock-ops-runbook-executions";
-import { updateOpsRunbookExecution } from "./mock-ops-runbook-executions";
-import { addOpsRunbookExecutionStep } from "./mock-ops-runbook-execution-steps";
-import { updateOpsRunbookExecutionStep } from "./mock-ops-runbook-execution-steps";
-import { getOpsRunbookExecutionSteps } from "./mock-ops-runbook-execution-steps";
-import { addOpsRunbookResult } from "./mock-ops-runbook-results";
-import { addOpsRunbookExecutionLog } from "./mock-ops-runbook-execution-logs";
-import { addOpsActionItem } from "@/lib/ops-board/mock-ops-action-items";
+import { getOpsDocumentById, getOpsDocumentSteps } from "@/lib/ops-docs/ops-docs-state";
+import {
+  addOpsRunbookExecution,
+  updateOpsRunbookExecution,
+  addOpsRunbookExecutionStep,
+  updateOpsRunbookExecutionStep,
+  getOpsRunbookExecutionSteps,
+  addOpsRunbookResult,
+  addOpsRunbookExecutionLog,
+} from "./ops-runbooks-state";
+import { addOpsActionItem } from "@/lib/ops-board/ops-board-state";
 
 /** active 문서만 실행 가능. 문서 단계 복제 후 실행 생성 */
 export function startRunbookExecution(

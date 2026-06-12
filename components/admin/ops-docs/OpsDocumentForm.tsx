@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { OpsDocType, OpsDocCategory } from "@/lib/types/ops-docs";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
-import { addOpsDocument, updateOpsDocument } from "@/lib/ops-docs/mock-ops-documents";
-import { addOpsDocumentLog } from "@/lib/ops-docs/mock-ops-document-logs";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
+import { addOpsDocument, updateOpsDocument } from "@/lib/ops-docs/ops-docs-state";
+import { addOpsDocumentLog } from "@/lib/ops-docs/ops-docs-state";
 import { slugFromTitle } from "@/lib/ops-docs/ops-docs-utils";
+import { persistOpsDocsToServer } from "@/lib/ops-docs/ops-docs-sync-client";
 
 interface OpsDocumentFormProps {
   documentId?: string | null;
@@ -110,6 +111,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         note: t("admin_ops_doc_save_note"),
         createdAt: new Date().toISOString(),
       });
+      void persistOpsDocsToServer();
       router.push(`/admin/ops-docs/${documentId}`);
     } else {
       const doc = addOpsDocument({
@@ -138,6 +140,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         note: "",
         createdAt: doc.createdAt,
       });
+      void persistOpsDocsToServer();
       router.push(`/admin/ops-docs/${doc.id}`);
     }
   };

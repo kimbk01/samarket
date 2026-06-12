@@ -7,12 +7,13 @@ import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getRecommendationAnalyticsSummary } from "@/lib/recommendation/mock-recommendation-analytics-summary";
+import { getRecommendationAnalyticsSummary } from "@/lib/recommendation/recommendation-analytics-summary";
 import { RecommendationSummaryCards } from "./RecommendationSummaryCards";
 import { RecommendationPerformanceTable } from "./RecommendationPerformanceTable";
 import { BehaviorEventTable } from "./BehaviorEventTable";
 import { UserBehaviorInsightTable } from "./UserBehaviorInsightTable";
 import { RecentViewedAdminTable } from "./RecentViewedAdminTable";
+import { loadRecommendationAnalyticsFromServer } from "@/lib/recommendation-analytics/recommendation-analytics-sync-client";
 
 type TabId = "events" | "recent" | "performance" | "insight";
 
@@ -28,12 +29,28 @@ export function AdminRecommendationAnalyticsPage() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab") as TabId | null;
   const [activeTab, setActiveTab] = useState<TabId>("performance");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadRecommendationAnalyticsFromServer().then(() => setHydrated(true));
+  }, []);
 
   useEffect(() => {
     if (tabParam && TABS.some((t) => t.id === tabParam)) setActiveTab(tabParam);
   }, [tabParam]);
 
-  const summaries = useMemo(() => getRecommendationAnalyticsSummary(), []);
+  const summaries = useMemo(() => getRecommendationAnalyticsSummary(), [hydrated]);
+
+  if (!hydrated) {
+    return (
+      <div className="space-y-4">
+        <AdminPageHeader titleKey="admin_rec_analytics_k4f5d75ab" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -6,7 +6,7 @@ import {
   opsToolsLabel,
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo, useState } from "react";
-import { getOpsTeamKpis } from "@/lib/ops-maturity/mock-ops-team-kpis";
+import { getOpsTeamKpis } from "@/lib/ops-maturity/ops-maturity-state";
 import { getKpiComparison } from "@/lib/ops-maturity/ops-maturity-utils";
 import type { OpsKpiPeriodType } from "@/lib/types/ops-maturity";
 

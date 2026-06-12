@@ -12,6 +12,7 @@ export interface TransactionReviewDbRow {
   private_manner_score?: number | null;
   private_tags?: unknown;
   is_anonymous_negative?: boolean | null;
+  is_hidden_by_admin?: boolean | null;
   created_at: string;
   positive_tag_keys?: unknown;
   negative_tag_keys?: unknown;
@@ -56,7 +57,7 @@ export function mapTransactionReviewRowToAdminReview(
     tags: [...privateTags, ...posKeys.map((k) => `+${k}`), ...negKeys.map((k) => `-${k}`)],
     comment,
     createdAt: r.created_at,
-    reviewStatus: "visible",
+    reviewStatus: r.is_hidden_by_admin ? "hidden" : "visible",
     reportCount: 0,
     publicReviewType,
     privateTags: privateTags.length ? privateTags : undefined,

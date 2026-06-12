@@ -1,14 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { AdminBanner } from "@/lib/types/admin-banner";
-import {
-  getBannerForAdminById,
-  setBannerStatus,
-} from "@/lib/admin-banners/mock-admin-banners";
-import { getBannerChangeLogs } from "@/lib/admin-banners/mock-banner-change-logs";
+import type { AdminBanner, BannerChangeLog } from "@/lib/types/admin-banner";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminBannerStatusBadge } from "./AdminBannerStatusBadge";
@@ -22,13 +17,54 @@ interface AdminBannerDetailPageProps {
 
 export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) {
   const { t } = useI18n();
-  const [refresh, setRefresh] = useState(0);
-  const banner = useMemo(
-    () => getBannerForAdminById(bannerId),
-    [bannerId, refresh]
-  );
-  const logs = getBannerChangeLogs(bannerId);
-  const refreshDetail = useCallback(() => setRefresh((r) => r + 1), []);
+  const [banner, setBanner] = useState<AdminBanner | null>(null);
+  const [logs, setLogs] = useState<BannerChangeLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/banners/${bannerId}`, {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        banner?: AdminBanner;
+        logs?: BannerChangeLog[];
+      };
+      if (j.ok && j.banner) {
+        setBanner(j.banner);
+        setLogs(Array.isArray(j.logs) ? j.logs : []);
+      } else {
+        setBanner(null);
+        setLogs([]);
+      }
+    } catch {
+      setBanner(null);
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [bannerId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleStatus = async (status: AdminBanner["status"]) => {
+    const res = await fetch(`/api/admin/banners/${bannerId}`, {
+      method: "PATCH",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    if (res.ok) void load();
+  };
+
+  if (loading) {
+    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+  }
 
   if (!banner) {
     return (
@@ -39,11 +75,6 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
   }
 
   const placementLabel = bannerPlacementLabel(t, banner.placement);
-
-  const handleStatus = (status: AdminBanner["status"]) => {
-    setBannerStatus(bannerId, status);
-    refreshDetail();
-  };
 
   return (
     <div className="space-y-4">
@@ -61,7 +92,7 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
         {(banner.status === "draft" || banner.status === "paused" || banner.status === "hidden") && (
           <button
             type="button"
-            onClick={() => handleStatus("active")}
+            onClick={() => void handleStatus("active")}
             className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100"
           >
             {t("admin_banners_status_active")}
@@ -70,7 +101,7 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
         {banner.status === "active" && (
           <button
             type="button"
-            onClick={() => handleStatus("paused")}
+            onClick={() => void handleStatus("paused")}
             className="rounded border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body text-amber-800 hover:bg-amber-100"
           >
             {t("admin_banners_status_paused")}
@@ -79,7 +110,7 @@ export function AdminBannerDetailPage({ bannerId }: AdminBannerDetailPageProps) 
         {(banner.status === "active" || banner.status === "paused") && (
           <button
             type="button"
-            onClick={() => handleStatus("hidden")}
+            onClick={() => void handleStatus("hidden")}
             className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-700 hover:bg-red-100"
           >
             {t("admin_banners_status_hidden")}

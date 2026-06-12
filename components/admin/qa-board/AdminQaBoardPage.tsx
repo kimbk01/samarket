@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { QA_TAB_KEYS } from "@/components/admin/i18n/admin-qa-label-keys";
+import { loadQaBoardFromServer } from "@/lib/qa-board/qa-board-sync-client";
 import { QaSummaryCards } from "./QaSummaryCards";
 import { QaSuiteTable } from "./QaSuiteTable";
 import { QaTestCaseTable } from "./QaTestCaseTable";
@@ -18,6 +19,11 @@ type TabId = keyof typeof QA_TAB_KEYS;
 export function AdminQaBoardPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadQaBoardFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs = useMemo(
     () =>
@@ -27,6 +33,19 @@ export function AdminQaBoardPage() {
       })),
     []
   );
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_qa_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

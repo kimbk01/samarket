@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useMemo } from "react";
 import type { UserBehaviorEvent, BehaviorEventType } from "@/lib/types/recommendation";
-import { getBehaviorEvents } from "@/lib/recommendation/mock-user-behavior-events";
+import { getBehaviorEvents } from "@/lib/recommendation/recommendation-behavior-state";
 
 const EVENT_LABELS: Record<BehaviorEventType, string> = {
   product_view: "상품 조회",

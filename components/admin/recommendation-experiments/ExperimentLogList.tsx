@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getExperimentLogs } from "@/lib/recommendation-experiments/mock-experiment-logs";
-import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
+import { getExperimentLogs } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getRecommendationExperiments } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import {
   recLogActionLabel,
   recLogNoteLabel,

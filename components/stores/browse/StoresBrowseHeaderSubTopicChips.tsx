@@ -16,8 +16,8 @@ import { storesBrowsePath } from "@/components/stores/browse/stores-browse-paths
 import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { resolveStoreTopicLabel } from "@/lib/i18n/store-browse-label-i18n";
 import type { UserRegion } from "@/lib/regions/types";
-import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-mock/queries";
-import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
+import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
+import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import {
   getBrowseSubChipOptimisticSubServerSnapshot,

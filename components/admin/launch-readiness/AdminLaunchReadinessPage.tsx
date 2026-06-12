@@ -1,9 +1,8 @@
 "use client";
 
-
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { LaunchReadinessSummaryCards } from "./LaunchReadinessSummaryCards";
@@ -11,12 +10,31 @@ import { LaunchChecklistTable } from "./LaunchChecklistTable";
 import { LaunchAreaBoard } from "./LaunchAreaBoard";
 import { LaunchBlockerBoard } from "./LaunchBlockerBoard";
 import { LaunchApprovalTable } from "./LaunchApprovalTable";
+import { loadLaunchReadinessFromServer } from "@/lib/launch-readiness/launch-readiness-sync-client";
 
 type TabId = "overview" | "checklist" | "area" | "blocker" | "approval";
 
 export function AdminLaunchReadinessPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadLaunchReadinessFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_qa_k2ff62175" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_mon_loading_settings")}
+          </p>
+        </AdminCard>
+      </>
+    );
+  }
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "overview", labelKey: "admin_launch_readiness_k97156b94" },

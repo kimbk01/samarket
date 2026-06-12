@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { voidCommunityPointReclaimOnPostAdminRemove } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +67,10 @@ export async function POST(req: NextRequest) {
   const deleted = (data ?? []).map((r: { id: string }) => r.id);
   const deletedSet = new Set(deleted);
   const missing = ids.filter((id) => !deletedSet.has(id));
+
+  for (const postId of deleted) {
+    voidCommunityPointReclaimOnPostAdminRemove({ postId });
+  }
 
   return NextResponse.json({
     ok: true,

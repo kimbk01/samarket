@@ -9,12 +9,15 @@ import type {
   OpsKnowledgeRecommendSourceType,
   OpsKnowledgeRecentViewSourceType,
 } from "@/lib/types/ops-knowledge";
-import { getOpsKnowledgeBaseIndex } from "./mock-ops-knowledge-base-index";
-import { getOpsKnowledgeRecommendations } from "./mock-ops-knowledge-recommendations";
-import { addOpsKnowledgeSearchLog } from "./mock-ops-knowledge-search-logs";
-import { addOpsKnowledgeRecommendationLog } from "./mock-ops-knowledge-recommendation-logs";
-import { setOpsKnowledgeRecommendationLogClicked, findRecommendationLog } from "./mock-ops-knowledge-recommendation-logs";
-import { addOpsKnowledgeRecentView } from "./mock-ops-knowledge-recent-views";
+import { getOpsKnowledgeBaseIndex } from "@/lib/ops-knowledge/ops-knowledge-base-index";
+import { getOpsKnowledgeRecommendations } from "@/lib/ops-knowledge/ops-knowledge-recommendations";
+import {
+  addOpsKnowledgeSearchLog,
+  addOpsKnowledgeRecommendationLog,
+  setOpsKnowledgeRecommendationLogClicked,
+  findRecommendationLog,
+  addOpsKnowledgeRecentView,
+} from "@/lib/ops-knowledge/ops-knowledge-state";
 
 const ADMIN_ID = "admin1";
 const ADMIN_NICK = "관리자";

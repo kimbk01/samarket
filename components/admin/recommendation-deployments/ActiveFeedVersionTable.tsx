@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { getActiveFeedVersions } from "@/lib/recommendation-deployments/mock-active-feed-versions";
+import { getActiveFeedVersions } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import { rollbackSurface } from "@/lib/recommendation-deployments/recommendation-deployment-utils";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import { getFeedVersionById } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 

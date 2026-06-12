@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getLaunchReadinessSummary } from "@/lib/launch-readiness/mock-launch-readiness-summary";
+import { getLaunchReadinessSummary } from "@/lib/launch-readiness/launch-readiness-summary";
 import {
   getGoLiveLabel,
   getAreaLabel,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { getCommunityReportByIdForAdmin } from "@/lib/community-feed/admin-community-reports";
+import { voidCommunityPointReclaimFromReportTarget } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +68,19 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
+  const { data: before, error: beforeErr } = await sb
+    .from("community_reports")
+    .select("status, target_type, target_id")
+    .eq("id", rid)
+    .maybeSingle();
+  if (beforeErr) {
+    return NextResponse.json({ ok: false, error: beforeErr.message }, { status: 500 });
+  }
+  if (!before) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
+
+  const prevStatus = String((before as { status?: string }).status ?? "");
   const done = status === "resolved" || status === "dismissed";
   const { error } = await sb
     .from("community_reports")
@@ -79,6 +93,13 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   if (error) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  }
+
+  if (status === "resolved" && prevStatus !== "resolved") {
+    voidCommunityPointReclaimFromReportTarget({
+      targetType: String((before as { target_type?: string }).target_type ?? ""),
+      targetId: String((before as { target_id?: string }).target_id ?? ""),
+    });
   }
 
   return NextResponse.json({ ok: true });

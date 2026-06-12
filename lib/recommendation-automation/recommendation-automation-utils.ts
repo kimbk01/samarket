@@ -4,14 +4,14 @@
 
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { AutomationActionType } from "@/lib/types/recommendation-automation";
-import { getRecommendationAutomationPolicyBySurface } from "./mock-recommendation-automation-policies";
-import { getRecommendationHealthStatusBySurface } from "@/lib/recommendation-monitoring/mock-recommendation-health-statuses";
-import { getRecommendationIncidents } from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
-import { addRecommendationAutomationExecution } from "./mock-recommendation-automation-executions";
+import { getRecommendationAutomationPolicyBySurface } from "@/lib/recommendation-ops/recommendation-ops-state";
+import { getRecommendationHealthStatusBySurface } from "@/lib/recommendation-analytics/recommendation-health-status";
+import { getRecommendationIncidents } from "@/lib/recommendation-ops/recommendation-runtime-state";
+import { addRecommendationAutomationExecution } from "@/lib/recommendation-ops/recommendation-runtime-state";
 import { getFeedMode } from "@/lib/feed-emergency/feed-emergency-utils";
 import { enableFallback, enableKillSwitch, disableFallback } from "@/lib/feed-emergency/feed-emergency-utils";
 import { rollbackSurface } from "@/lib/recommendation-deployments/recommendation-deployment-utils";
-import { getRecommendationEscalationRules } from "./mock-recommendation-escalation-rules";
+import { getRecommendationEscalationRules } from "@/lib/recommendation-ops/recommendation-ops-state";
 import type { EscalationSeverity, EscalationTriggerType } from "@/lib/types/recommendation-automation";
 
 const SYSTEM_ID = "system";

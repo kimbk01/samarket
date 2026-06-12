@@ -8,7 +8,7 @@ import {
 } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsImprovementSuggestions } from "@/lib/ops-learning/mock-ops-improvement-suggestions";
+import { getOpsImprovementSuggestions } from "@/lib/ops-learning/ops-learning-state";
 import type { OpsSuggestionStatus } from "@/lib/types/ops-learning";
 
 interface OpsImprovementSuggestionTableProps {

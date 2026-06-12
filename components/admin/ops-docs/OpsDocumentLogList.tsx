@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getOpsDocumentLogs } from "@/lib/ops-docs/mock-ops-document-logs";
+import { getOpsDocumentLogs } from "@/lib/ops-docs/ops-docs-state";
 import { OPS_DOC_LOG_ACTION_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getRecommendationReportKpis } from "@/lib/recommendation-reports/mock-recommendation-report-kpis";
+import { getRecommendationReportKpis } from "@/lib/recommendation-analytics/recommendation-analytics-state";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 interface RecommendationReportKpiCardsProps {

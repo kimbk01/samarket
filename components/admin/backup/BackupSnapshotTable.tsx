@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getBackupSnapshots } from "@/lib/backup/mock-backup-snapshots";
+import { getBackupSnapshots } from "@/lib/backup/backup-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   BACKUP_SNAPSHOT_STATUS_LABEL_KEYS,

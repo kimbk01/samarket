@@ -4,8 +4,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OpsRunbookStepStatus } from "@/lib/types/ops-runbook";
-import { getOpsRunbookExecutionSteps } from "@/lib/ops-runbooks/mock-ops-runbook-execution-steps";
-import { updateOpsRunbookExecutionStep } from "@/lib/ops-runbooks/mock-ops-runbook-execution-steps";
+import { getOpsRunbookExecutionSteps } from "@/lib/ops-runbooks/ops-runbooks-state";
+import { updateOpsRunbookExecutionStep } from "@/lib/ops-runbooks/ops-runbooks-state";
 import { setRunbookStepStatus } from "@/lib/ops-runbooks/ops-runbook-utils";
 import type { OpsRunbookStepLinkedType } from "@/lib/types/ops-runbook";
 import {

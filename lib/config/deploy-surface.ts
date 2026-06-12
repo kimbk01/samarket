@@ -51,11 +51,6 @@ export function allowKasamaDevSession(): boolean {
   return allowTestUsersSurface();
 }
 
-/** 채팅 메시지 mock 폴백 — production 금지 */
-export function allowMockChatMessageFallback(): boolean {
-  return !isProductionDeploy();
-}
-
 /** @deprecated 샘플 배달 플로 제거됨 — 항상 false */
 export function allowSampleRestaurantDeliveryFlow(): boolean {
   return false;

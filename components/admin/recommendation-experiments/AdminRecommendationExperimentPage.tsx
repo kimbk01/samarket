@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -9,9 +9,9 @@ import {
   getRecommendationExperiments,
   saveRecommendationExperiment,
   setExperimentStatus,
-} from "@/lib/recommendation-experiments/mock-recommendation-experiments";
-import { addExperimentLog } from "@/lib/recommendation-experiments/mock-experiment-logs";
-import { getFeedVersions, saveFeedVersion } from "@/lib/recommendation-experiments/mock-feed-versions";
+} from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { addExperimentLog } from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { getFeedVersions, saveFeedVersion } from "@/lib/recommendation-experiments/recommendation-experiments-state";
 import type { RecommendationExperiment } from "@/lib/types/recommendation-experiment";
 import type { FeedVersion } from "@/lib/types/recommendation-experiment";
 import { ExperimentTable } from "./ExperimentTable";
@@ -22,6 +22,10 @@ import { UserAssignmentTable } from "./UserAssignmentTable";
 import { ExperimentMetricsCards } from "./ExperimentMetricsCards";
 import { ExperimentComparisonTable } from "./ExperimentComparisonTable";
 import { ExperimentLogList } from "./ExperimentLogList";
+import {
+  loadRecommendationExperimentsFromServer,
+  persistRecommendationExperimentsToServer,
+} from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 
 type TabId = "experiments" | "versions" | "assignments" | "metrics" | "logs";
 
@@ -41,6 +45,15 @@ export function AdminRecommendationExperimentPage() {
     null
   );
   const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadRecommendationExperimentsFromServer().then(() => setHydrated(true));
+  }, []);
+
+  const persist = () => {
+    void persistRecommendationExperimentsToServer();
+  };
 
   const experiments = useMemo(
     () => getRecommendationExperiments(),
@@ -72,6 +85,7 @@ export function AdminRecommendationExperimentPage() {
     );
     setRefresh((r) => r + 1);
     setEditingExperimentId(null);
+    persist();
   };
 
   const handleExperimentStatus = (
@@ -91,11 +105,13 @@ export function AdminRecommendationExperimentPage() {
       noteKey
     );
     setRefresh((r) => r + 1);
+    persist();
   };
 
   const handleChooseWinner = (exp: RecommendationExperiment) => {
     addExperimentLog(exp.id, "choose_winner", "admin_rec_log_note_choose_winner");
     setRefresh((r) => r + 1);
+    persist();
   };
 
   const handleSaveVersion = (values: Partial<FeedVersion>) => {
@@ -103,7 +119,19 @@ export function AdminRecommendationExperimentPage() {
     saveFeedVersion({ ...editingVersion, ...values });
     setRefresh((r) => r + 1);
     setEditingVersionId(null);
+    persist();
   };
+
+  if (!hydrated) {
+    return (
+      <div className="space-y-4">
+        <AdminPageHeader titleKey="admin_rec_exp_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

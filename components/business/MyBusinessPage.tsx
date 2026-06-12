@@ -3,18 +3,11 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import {
-  getBusinessProfileByOwnerUserId,
-  CURRENT_USER_ID,
-} from "@/lib/business/mock-business-profiles";
 import { BUSINESS_PROFILE_STATUS_KEYS } from "@/lib/business/business-owner-ui-labels";
-import { BusinessProfileView } from "./BusinessProfileView";
 import {
   BusinessOperationalChecklistPending,
   BusinessOperationalChecklistRevision,
 } from "./BusinessOperationalChecklist";
-import { BusinessProductList } from "./BusinessProductList";
-import { getBusinessProducts } from "@/lib/business/mock-business-products";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import {
@@ -248,7 +241,6 @@ export function MyBusinessPage({
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
         <p>{t("business_phase7_281")}</p>
-        <MockBusinessFallback />
       </div>
     );
   }
@@ -264,7 +256,6 @@ export function MyBusinessPage({
         >
           {t("business_phase7_466")}
         </button>
-        <MockBusinessFallback />
       </div>
     );
   }
@@ -392,76 +383,5 @@ export function MyBusinessPage({
       initialDashboard={dashboard}
       loadRemote={loadRemote}
     />
-  );
-}
-
-function MockBusinessFallback() {
-  const { t } = useI18n();
-  const profile = getBusinessProfileByOwnerUserId(CURRENT_USER_ID);
-  if (!profile) return null;
-  return (
-    <div className="border-t border-sam-border pt-4">
-      <p className="mb-2 sam-text-helper font-medium text-sam-muted">{t("business_phase7_065")}</p>
-      <MockBusinessBody profile={profile} />
-    </div>
-  );
-}
-
-function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
-  const { t } = useI18n();
-  if (profile.status === "pending") {
-    return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
-        <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_182")}</p>
-        <span className="inline-block rounded bg-amber-100 px-2 py-1 sam-text-body-secondary text-amber-800">
-          {t(BUSINESS_PROFILE_STATUS_KEYS.pending)}
-        </span>
-      </div>
-    );
-  }
-  if (profile.status === "rejected") {
-    return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
-        <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
-        <span className="inline-block rounded bg-red-50 px-2 py-1 sam-text-body-secondary text-red-700">
-          {t(BUSINESS_PROFILE_STATUS_KEYS.rejected)}
-        </span>
-      </div>
-    );
-  }
-  if (profile.status === "paused") {
-    return (
-      <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
-        <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_238")}</p>
-        <span className="inline-block rounded bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
-          {t(BUSINESS_PROFILE_STATUS_KEYS.paused)}
-        </span>
-      </div>
-    );
-  }
-  const products = getBusinessProducts(profile.id);
-  return (
-    <div className={OWNER_STORE_STACK_Y_CLASS}>
-      <BusinessProfileView profile={profile} isOwner />
-      <div className="flex justify-end">
-        <Link
-          href="/stores/owner/edit"
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
-        >
-          {t("biz_title_edit")}
-        </Link>
-      </div>
-      <div>
-        <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">{t("business_phase7_044")}</h2>
-        <BusinessProductList
-          products={products}
-          shopSlug={profile.slug}
-          emptyMessage={t("business_phase7_611")}
-        />
-      </div>
-    </div>
   );
 }

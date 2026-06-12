@@ -1,9 +1,10 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { useState } from "react";
 import type { BlockedUser } from "@/lib/types/report";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { unblockUser } from "@/lib/reports/mock-blocked-users";
+import { getViewerUserId } from "@/lib/auth/viewer-user-id";
+import { unblockUser } from "@/lib/reports/user-blocks-client";
 
 interface BlockedUserCardProps {
   blocked: BlockedUser;
@@ -12,13 +13,21 @@ interface BlockedUserCardProps {
 
 export function BlockedUserCard({ blocked, onUnblock }: BlockedUserCardProps) {
   const { t } = useI18n();
-  const userId = getCurrentUserId();
+  const userId = getViewerUserId();
+  const [busy, setBusy] = useState(false);
 
   const handleUnblock = () => {
-    if (confirm(t("ui_report_unblock_confirm"))) {
-      unblockUser(userId, blocked.blockedUserId);
-      onUnblock();
-    }
+    if (!userId || busy) return;
+    if (!confirm(t("ui_report_unblock_confirm"))) return;
+    void (async () => {
+      setBusy(true);
+      try {
+        await unblockUser(userId, blocked.blockedUserId);
+        onUnblock();
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
 
   return (
@@ -32,6 +41,7 @@ export function BlockedUserCard({ blocked, onUnblock }: BlockedUserCardProps) {
       <button
         type="button"
         onClick={handleUnblock}
+        disabled={busy}
         className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
       >
         {t("ui_report_unblock")}

@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { AppSettings } from "@/lib/types/admin-settings";
-import { getAppSettings, updateSettings, resetSettingsSection } from "@/lib/admin-settings/mock-app-settings";
+import {
+  getAppSettings,
+  loadAppSettingsFromServer,
+  persistAppSettingsToServer,
+  resetAppSettingsSectionOnServer,
+} from "@/lib/admin-settings/app-settings-client";
 import {
   DEFAULT_APP_SETTINGS,
   SECTION_KEYS,
@@ -37,9 +42,12 @@ export function AdminSettingsPage() {
   const [draft, setDraft] = useState<Partial<AppSettings>>({});
   const [activeSection, setActiveSection] = useState<SettingsSectionKey>("general");
   const [logRefreshKey, setLogRefreshKey] = useState(0);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setSettings(getAppSettings());
+    void loadAppSettingsFromServer().then(() => {
+      setSettings(getAppSettings());
+    });
   }, []);
 
   const display = useMemo(
@@ -57,15 +65,18 @@ export function AdminSettingsPage() {
     setDraft((prev) => ({ ...prev, [key]: value }));
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const toSave: Partial<AppSettings> = {};
     sectionKeys.forEach((k) => {
       if (draft[k] === undefined) return;
       // sectionKeys가 keyof AppSettings 유니온이라 인덱스 대입 시 TS 한계
       (toSave as Record<string, string | number | boolean | undefined>)[k] = draft[k];
     });
-    if (Object.keys(toSave).length > 0) {
-      updateSettings(toSave);
+    if (Object.keys(toSave).length === 0) return;
+    setSaving(true);
+    const r = await persistAppSettingsToServer(toSave);
+    setSaving(false);
+    if (r.ok) {
       setSettings(getAppSettings());
       setDraft((prev) => {
         const next = { ...prev };
@@ -76,15 +87,19 @@ export function AdminSettingsPage() {
     }
   }, [sectionKeys, draft]);
 
-  const handleReset = useCallback(() => {
-    resetSettingsSection(sectionKeys);
-    setSettings(getAppSettings());
-    setDraft((prev) => {
-      const next = { ...prev };
-      sectionKeys.forEach((k) => delete next[k]);
-      return next;
-    });
-    setLogRefreshKey((k) => k + 1);
+  const handleReset = useCallback(async () => {
+    setSaving(true);
+    const r = await resetAppSettingsSectionOnServer(sectionKeys);
+    setSaving(false);
+    if (r.ok) {
+      setSettings(getAppSettings());
+      setDraft((prev) => {
+        const next = { ...prev };
+        sectionKeys.forEach((k) => delete next[k]);
+        return next;
+      });
+      setLogRefreshKey((k) => k + 1);
+    }
   }, [sectionKeys]);
 
   return (
@@ -145,7 +160,7 @@ export function AdminSettingsPage() {
           <button
             type="button"
             onClick={handleSave}
-            disabled={!isDirty}
+            disabled={!isDirty || saving}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t("common_save")}

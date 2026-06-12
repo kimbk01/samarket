@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsChecklistItemStatus } from "@/lib/types/ops-board";
-import { getOpsDailyChecklistItems } from "@/lib/ops-board/mock-ops-daily-checklist-items";
-import { updateOpsDailyChecklistItem } from "@/lib/ops-board/mock-ops-daily-checklist-items";
+import { getOpsDailyChecklistItems } from "@/lib/ops-board/ops-board-state";
+import { updateOpsDailyChecklistItem } from "@/lib/ops-board/ops-board-state";
 import { createTodayChecklist } from "@/lib/ops-board/ops-board-utils";
+import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
 import {
   OPS_TOOLS_CHECKLIST_CATEGORY_KEYS,
   OPS_TOOLS_CHECKLIST_STATUS_KEYS,
@@ -31,11 +32,13 @@ export function OpsChecklistTable() {
       status,
       checkedAt: status === "done" ? new Date().toISOString() : null,
     });
+    void persistOpsBoardToServer();
     setRefresh((r) => r + 1);
   };
 
   const handleCreateFromTemplates = () => {
     createTodayChecklist(checklistDate);
+    void persistOpsBoardToServer();
     setRefresh((r) => r + 1);
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -10,12 +10,18 @@ import { OpsTeamKpiTable } from "./OpsTeamKpiTable";
 import { OpsRoadmapBoard } from "./OpsRoadmapBoard";
 import { OpsMaturityHistoryChart } from "./OpsMaturityHistoryChart";
 import { OpsImprovementSummaryCards } from "./OpsImprovementSummaryCards";
+import { loadOpsMaturityFromServer } from "@/lib/ops-maturity/ops-maturity-sync-client";
 
 type TabId = "scores" | "kpi" | "roadmap" | "history" | "summary";
 
 export function AdminOpsMaturityPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("scores");
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsMaturityFromServer().then(() => setHydrated(true));
+  }, []);
 
   const tabs: { id: TabId; labelKey: MessageKey }[] = [
     { id: "scores", labelKey: "admin_ops_tools_maturity_tab_scores" },
@@ -24,6 +30,17 @@ export function AdminOpsMaturityPage() {
     { id: "history", labelKey: "admin_ops_tools_maturity_tab_history" },
     { id: "summary", labelKey: "admin_ops_tools_maturity_tab_summary" },
   ];
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_tools_maturity_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

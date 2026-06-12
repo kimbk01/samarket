@@ -5,10 +5,12 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { getFeedEmergencyLogs } from "@/lib/feed-emergency/mock-feed-emergency-logs";
-import { getFeedEmergencyActionLabel } from "@/lib/feed-emergency/mock-feed-emergency-logs";
+import {
+  getFeedEmergencyActionLabel,
+  getFeedEmergencyLogs,
+  SECTION_OVERRIDE_LABELS,
+} from "@/lib/feed-emergency/feed-emergency-state";
 import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-import { SECTION_OVERRIDE_LABELS } from "@/lib/feed-emergency/mock-feed-section-overrides";
 import type { FeedSectionOverrideKey } from "@/lib/types/feed-emergency";
 
 export function FeedEmergencyLogList() {

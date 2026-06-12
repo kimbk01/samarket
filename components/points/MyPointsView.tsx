@@ -7,7 +7,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { PointLedgerEntry, PointChargeRequest, PointLedgerEntryType } from "@/lib/types/point";
 import { PointChargeBadge } from "./PointChargeBadge";
 import { PointChargeForm } from "./PointChargeForm";
-import { getPointPlans } from "@/lib/points/mock-point-plans";
+import type { PointPlan } from "@/lib/types/point";
 
 type Tab = "balance" | "ledger" | "charges";
 
@@ -32,20 +32,25 @@ export function MyPointsView() {
   const [activeTab, setActiveTab] = useState<Tab>("balance");
   const [showChargeForm, setShowChargeForm] = useState(false);
   const [cancelling, setCancelling] = useState<string | null>(null);
-  const plans = getPointPlans();
+  const [plans, setPlans] = useState<PointPlan[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await runSingleFlight("me:points:get", () => fetch("/api/me/points", { cache: "no-store" }));
-      const j = (await res.clone().json()) as {
+      const [pointsRes, plansRes] = await Promise.all([
+        runSingleFlight("me:points:get", () => fetch("/api/me/points", { cache: "no-store" })),
+        runSingleFlight("me:point-plans:get", () => fetch("/api/me/point-plans", { cache: "no-store" })),
+      ]);
+      const j = (await pointsRes.clone().json()) as {
         balance?: number;
         ledger?: PointLedgerEntry[];
         chargeRequests?: PointChargeRequest[];
       };
+      const plansJson = (await plansRes.json()) as { plans?: PointPlan[] };
       setBalance(j.balance ?? 0);
       setLedger(j.ledger ?? []);
       setCharges(j.chargeRequests ?? []);
+      setPlans(plansJson.plans ?? []);
     } finally {
       setLoading(false);
     }

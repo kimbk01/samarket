@@ -1,19 +1,36 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsRunbookSummaryCards } from "./OpsRunbookSummaryCards";
 import { OpsRunbookExecutionTable } from "./OpsRunbookExecutionTable";
 import type { OpsRunbookExecutionStatus } from "@/lib/types/ops-runbook";
+import { loadOpsRunbookWorkspaceFromServer } from "@/lib/ops-runbooks/ops-runbooks-sync-client";
 
 export function AdminOpsRunbookPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<"list" | "summary">("list");
   const [statusFilter, setStatusFilter] = useState<OpsRunbookExecutionStatus | "">("");
   const [refresh, setRefresh] = useState(0);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadOpsRunbookWorkspaceFromServer().then(() => setHydrated(true));
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <>
+        <AdminPageHeader titleKey="admin_ops_tools_runbook_page_title" />
+        <AdminCard>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_rec_mon_loading_settings")}</p>
+        </AdminCard>
+      </>
+    );
+  }
 
   return (
     <>

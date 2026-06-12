@@ -2,7 +2,13 @@ import type { PointChargeRequest, PointLedgerEntry } from "@/lib/types/point";
 
 export function isMissingPointsTable(message: string, table: string): boolean {
   const lowered = message.toLowerCase();
-  return lowered.includes(table) && lowered.includes("does not exist");
+  const tableLower = table.toLowerCase();
+  if (!lowered.includes(tableLower)) return false;
+  return (
+    lowered.includes("does not exist") ||
+    lowered.includes("schema cache") ||
+    lowered.includes("could not find")
+  );
 }
 
 export function normalizeLedgerRow(
@@ -50,5 +56,9 @@ export function normalizeChargeRequest(
     updatedAt: String(row.updated_at ?? new Date().toISOString()),
     adminMemo: row.admin_memo ? String(row.admin_memo) : undefined,
     userMemo: row.user_memo ? String(row.user_memo) : undefined,
+    approvedAt: row.approved_at ? String(row.approved_at) : undefined,
+    approvedBy: row.approved_by ? String(row.approved_by) : undefined,
+    processedAt: row.processed_at ? String(row.processed_at) : undefined,
+    processedBy: row.processed_by ? String(row.processed_by) : undefined,
   };
 }

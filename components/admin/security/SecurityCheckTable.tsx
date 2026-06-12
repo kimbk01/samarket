@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getSecurityChecks } from "@/lib/security/mock-security-checks";
+import { getSecurityChecks } from "@/lib/security/security-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getCheckTypeLabel,

@@ -1,22 +1,6 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { MyReviewsView } from "@/components/reviews/MyReviewsView";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-
+/** 레거시 `/my/reviews` → 거래 후기 관리(실 DB) */
 export default function MyReviewsPage() {
-  const { t } = useI18n();
-  return (
-    <div className="min-h-screen bg-background">
-      <MySubpageHeader
-        title={t("route_reviews_received_title")}
-        subtitle={t("route_reviews_received_subtitle")}
-        backHref="/mypage"
-        section="trade"
-      />
-      <div className="pt-4">
-        <MyReviewsView />
-      </div>
-    </div>
-  );
+  redirect("/mypage/trade/reviews");
 }

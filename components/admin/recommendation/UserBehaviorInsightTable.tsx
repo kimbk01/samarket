@@ -1,7 +1,7 @@
 "use client";
 
 import type { UserBehaviorInsight } from "@/lib/types/recommendation";
-import { getUserBehaviorInsights } from "@/lib/recommendation/mock-user-behavior-insight";
+import { getUserBehaviorInsights } from "@/lib/recommendation/recommendation-behavior-insight";
 
 export function UserBehaviorInsightTable() {
   const insights = getUserBehaviorInsights();

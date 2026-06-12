@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
-import { getOpsAdminPerformanceReviews } from "@/lib/ops-benchmarks/mock-ops-admin-performance-reviews";
+import { getOpsAdminPerformanceReviews } from "@/lib/ops-benchmarks/ops-benchmarks-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import type { OpsPerformanceReviewStatus } from "@/lib/types/ops-benchmarks";
 

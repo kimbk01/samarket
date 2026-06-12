@@ -4,7 +4,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
-import { getPerformanceMetricsSummary } from "@/lib/performance/mock-performance-metrics";
+import { getPerformanceMetricsSummary } from "@/lib/performance/performance-state";
 
 export function PerformanceSummaryCards() {
   const { t } = useI18n();

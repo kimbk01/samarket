@@ -1,5 +1,8 @@
-import { listBrowsePrimaryIndustries, listBrowseSubIndustries } from "@/lib/stores/browse-mock/queries";
-import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
+import {
+  listBrowsePrimaryIndustries,
+  listBrowseSubIndustries,
+} from "@/lib/stores/browse-taxonomy-seed-queries";
+import type { BrowseSubIndustry } from "@/lib/stores/browse-taxonomy-ui-types";
 import {
   BROWSE_PRIMARY_INDUSTRY_SLUG_ORDER,
   orderBrowsePrimaryIndustries,

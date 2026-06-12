@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback, useEffect, useLayoutEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { getProductsForHome } from "@/lib/mock-products";
+import type { Product } from "@/lib/types/product";
+import { getPostsForHome } from "@/lib/posts/getPostsForHome";
+import { postsToSearchProducts } from "@/lib/search/post-with-meta-to-product";
 import { useRegion } from "@/contexts/RegionContext";
 import {
   filterByKeyword,
@@ -11,16 +13,18 @@ import {
   filterByStatus,
   sortSearchResults,
 } from "@/lib/search/search-utils";
-import { addRecentSearch } from "@/lib/search/mock-search-data";
+import { addRecentSearch } from "@/lib/search/recent-searches-local";
 import { getRegionName } from "@/lib/regions/region-utils";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { logEvent } from "@/lib/recommendation/mock-user-behavior-events";
-import { getBlockedUserIds } from "@/lib/reports/mock-blocked-users";
+import { getViewerUserId } from "@/lib/auth/viewer-user-id";
+import { logEvent } from "@/lib/recommendation/recommendation-behavior-state";
+import {
+  getBlockedUserIds,
+  refreshBlockedUsersFromServer,
+} from "@/lib/reports/user-blocks-client";
 import { SearchInputBar } from "./SearchInputBar";
 import { RecentSearches } from "./RecentSearches";
 import { SearchFilterBar, getDefaultSearchFilters, type SearchFilters } from "./SearchFilterBar";
 import { SearchResultList } from "./SearchResultList";
-import { POPULAR_SEARCHES } from "@/lib/search/mock-search-data";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -31,8 +35,36 @@ export function SearchView() {
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const queryFromUrl = searchParams.get("q") ?? "";
   const { currentRegionName } = useRegion();
-  const currentUserId = getCurrentUserId();
-  const blockedIds = useMemo(() => getBlockedUserIds(currentUserId), [currentUserId]);
+  const currentUserId = getViewerUserId();
+  const [blockedIds, setBlockedIds] = useState<string[]>(() =>
+    currentUserId ? getBlockedUserIds(currentUserId) : []
+  );
+  const [baseProducts, setBaseProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setBlockedIds([]);
+      return;
+    }
+    void refreshBlockedUsersFromServer(currentUserId).then(setBlockedIds);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getPostsForHome({ page: 1, sort: "latest", type: "trade" }).then((result) => {
+      if (cancelled) return;
+      const products = postsToSearchProducts(result.posts ?? []);
+      setBaseProducts(
+        products.filter((p) => {
+          const sellerId = p.sellerId ?? p.seller?.id;
+          return !sellerId || !blockedIds.includes(sellerId);
+        })
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRegionName, blockedIds]);
 
   const [keyword, setKeyword] = useState(queryFromUrl);
   const [filters, setFilters] = useState<SearchFilters>(getDefaultSearchFilters);
@@ -40,14 +72,6 @@ export function SearchView() {
   useEffect(() => {
     setKeyword(queryFromUrl);
   }, [queryFromUrl]);
-
-  const baseProducts = useMemo(() => {
-    const list = getProductsForHome(currentRegionName ?? undefined);
-    return list.filter((p) => {
-      const sellerId = p.sellerId ?? p.seller?.id;
-      return !sellerId || !blockedIds.includes(sellerId);
-    });
-  }, [currentRegionName, blockedIds]);
 
   const filteredAndSorted = useMemo(() => {
     let list = baseProducts;
@@ -87,8 +111,6 @@ export function SearchView() {
   );
 
   const showResults = keyword.trim().length > 0;
-  const showPopular = !showResults;
-
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
@@ -128,29 +150,7 @@ export function SearchView() {
       {showResults ? (
         <SearchResultList products={filteredAndSorted} />
       ) : (
-        <>
-          <RecentSearches onSelectKeyword={handleSelectRecent} />
-          {showPopular && (
-            <section className="px-4 py-3">
-              <p className="sam-text-body-secondary font-medium text-sam-fg">
-                인기 검색어
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {POPULAR_SEARCHES.map((word) => (
-                  <li key={word}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectRecent(word)}
-                      className="rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-                    >
-                      {word}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-        </>
+        <RecentSearches onSelectKeyword={handleSelectRecent} />
       )}
     </div>
   );

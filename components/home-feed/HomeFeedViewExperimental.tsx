@@ -3,13 +3,19 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
-import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
-import { getBlockedUserIds } from "@/lib/reports/mock-blocked-users";
-import { getHomeFeedPolicies } from "@/lib/home-feed/mock-home-feed-policies";
-import { getFeedCandidates } from "@/lib/home-feed/mock-feed-candidates";
+import { getViewerUserId } from "@/lib/auth/viewer-user-id";
+import {
+  getBlockedUserIds,
+  refreshBlockedUsersFromServer,
+} from "@/lib/reports/user-blocks-client";
+import { createDefaultHomeFeedPolicies } from "@/lib/home-feed/home-feed-defaults";
 import { buildHomeFeed } from "@/lib/home-feed/home-feed-utils";
-import { getLiveVersionId } from "@/lib/recommendation-deployments/mock-active-feed-versions";
-import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
+import {
+  getAssignedVersionId,
+  getFeedVersionById,
+  getLiveVersionId,
+} from "@/lib/recommendation-experiments/recommendation-experiments-state";
+import { hydrateRecommendationContextFromPublicApi } from "@/lib/recommendation-experiments/recommendation-experiments-sync-client";
 import {
   getFeedMode,
   getEmergencyNotice,
@@ -17,14 +23,19 @@ import {
   getFallbackVersionId,
 } from "@/lib/feed-emergency/feed-emergency-utils";
 import type { FeedSectionOverrideKey } from "@/lib/types/feed-emergency";
-import { getPersonalizedFeedPolicies } from "@/lib/personalized-feed/mock-personalized-feed-policies";
-import { getUserBehaviorProfile } from "@/lib/personalized-feed/mock-user-behavior-profiles";
-import { getPersonalizedCandidatesFromFeedCandidates } from "@/lib/personalized-feed/mock-personalized-candidates";
+import { createDefaultPersonalizedFeedPolicies } from "@/lib/personalized-feed/personalized-feed-defaults";
+import { createEmptyBehaviorProfile } from "@/lib/personalized-feed/empty-behavior-profile";
+import { getPersonalizedCandidatesFromFeedCandidates } from "@/lib/personalized-feed/personalized-candidates-from-feed";
 import { buildPersonalizedFeedSections } from "@/lib/personalized-feed/personalized-feed-utils";
-import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/mock-personalized-feed-policies";
-import { recordRecommendationClick } from "@/lib/recommendation/mock-recommendation-impressions";
-import { getAssignedVersionId } from "@/lib/recommendation-experiments/mock-user-feed-assignments";
-import { getMemberType } from "@/lib/admin-users/mock-admin-users";
+import { PERSONALIZED_SECTION_LABELS } from "@/lib/personalized-feed/personalized-section-labels";
+import type { FeedCandidate, HomeFeedPolicy } from "@/lib/types/home-feed";
+import type { PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
+import { recordRecommendationClick } from "@/lib/recommendation-analytics/recommendation-analytics-state";
+import type { MemberType } from "@/lib/types/admin-user";
+import {
+  fetchAndCacheMemberType,
+  getMemberType,
+} from "@/lib/admin-users/member-type-client";
 import type { HomeFeedItem } from "@/lib/types/home-feed";
 import { HomeFeedSection } from "./HomeFeedSection";
 import { EmergencyNoticeBar } from "./EmergencyNoticeBar";
@@ -60,11 +71,55 @@ export function HomeFeedViewExperimental() {
     };
   }, [currentRegionName]);
 
-  const currentUserId = getCurrentUserId();
-  const blockedIds = useMemo(
-    () => getBlockedUserIds(currentUserId),
-    [currentUserId]
+  const currentUserId = getViewerUserId();
+  const [blockedIds, setBlockedIds] = useState<string[]>(() =>
+    currentUserId ? getBlockedUserIds(currentUserId) : []
   );
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setBlockedIds([]);
+      return;
+    }
+    void refreshBlockedUsersFromServer(currentUserId).then(setBlockedIds);
+  }, [currentUserId]);
+
+  const [homePolicies, setHomePolicies] = useState<HomeFeedPolicy[]>(() => createDefaultHomeFeedPolicies());
+  const [personalizedPolicies, setPersonalizedPolicies] = useState<PersonalizedFeedPolicy[]>(() =>
+    createDefaultPersonalizedFeedPolicies()
+  );
+  const [feedCandidates, setFeedCandidates] = useState<FeedCandidate[]>([]);
+
+  useEffect(() => {
+    void hydrateRecommendationContextFromPublicApi();
+  }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    Promise.all([
+      fetch("/api/feed/home-policies", { signal: ac.signal }).then((r) => r.json()),
+      fetch("/api/feed/personalized-policies", { signal: ac.signal }).then((r) => r.json()),
+    ])
+      .then(([homeJ, persJ]) => {
+        const hp = (homeJ as { policies?: HomeFeedPolicy[] }).policies;
+        if (Array.isArray(hp) && hp.length) setHomePolicies(hp);
+        const pp = (persJ as { policies?: PersonalizedFeedPolicy[] }).policies;
+        if (Array.isArray(pp) && pp.length) setPersonalizedPolicies(pp);
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
+
+  useEffect(() => {
+    const ac = new AbortController();
+    fetch("/api/feed/candidates", { signal: ac.signal, cache: "no-store" })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; candidates?: FeedCandidate[] }) => {
+        if (j.ok && Array.isArray(j.candidates)) setFeedCandidates(j.candidates);
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, []);
 
   /** 운영 DB(admin_settings) 스냅샷 — 없으면 로컬 상태(getFeedMode 등) 폴백 */
   const [emergencySnap, setEmergencySnap] = useState<{
@@ -107,7 +162,7 @@ export function HomeFeedViewExperimental() {
   }, [emergencySnap]);
 
   const policies = useMemo(() => {
-    const base = getHomeFeedPolicies();
+    const base = homePolicies;
     let merged = base;
 
     if (feedMode === "kill_switch") {
@@ -167,11 +222,11 @@ export function HomeFeedViewExperimental() {
         ? { ...p, isActive: false }
         : p
     );
-  }, [feedMode, disabledSectionSet, emergencySnap?.fallbackVersionId]);
-  const candidates = useMemo(() => {
-    const list = getFeedCandidates(currentRegionName ?? undefined, userRegion);
-    return list.filter((c) => !blockedIds.includes(c.sellerId));
-  }, [currentRegionName, userRegion, blockedIds]);
+  }, [feedMode, disabledSectionSet, emergencySnap?.fallbackVersionId, homePolicies]);
+  const candidates = useMemo(
+    () => feedCandidates.filter((c) => !blockedIds.includes(c.sellerId)),
+    [feedCandidates, blockedIds]
+  );
 
   const homeSections = useMemo(
     () =>
@@ -184,9 +239,8 @@ export function HomeFeedViewExperimental() {
     [policies, candidates, userRegion, currentRegionName, currentUserId]
   );
 
-  const personalizedPolicies = useMemo(() => getPersonalizedFeedPolicies(), []);
   const profile = useMemo(
-    () => getUserBehaviorProfile(currentUserId, currentRegionName ?? undefined),
+    () => createEmptyBehaviorProfile(currentUserId, currentRegionName ?? ""),
     [currentUserId, currentRegionName]
   );
   const personalizedCandidates = useMemo(
@@ -217,12 +271,24 @@ export function HomeFeedViewExperimental() {
     ]
   );
 
+  const [memberType, setMemberType] = useState<MemberType>(() =>
+    currentUserId ? getMemberType(currentUserId) : "normal"
+  );
+
+  useEffect(() => {
+    if (!currentUserId) {
+      setMemberType("normal");
+      return;
+    }
+    void fetchAndCacheMemberType(currentUserId).then(setMemberType);
+  }, [currentUserId]);
+
   useMemo(() => {
     getAssignedVersionId(currentUserId, "home", {
       region: userRegion?.region ?? "",
-      memberType: getMemberType(currentUserId),
+      memberType,
     });
-  }, [currentUserId, userRegion?.region]);
+  }, [currentUserId, userRegion?.region, memberType]);
 
   const personalizedSectionsForFeed = useMemo(
     () =>

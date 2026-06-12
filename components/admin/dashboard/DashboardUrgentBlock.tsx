@@ -5,13 +5,26 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminStorePointPendingCount } from "@/components/admin/store-points/AdminStorePointPendingProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
-const URGENT_LINKS: { id: string; href: string; labelKey: MessageKey; countFromPending?: boolean }[] = [
+type UrgentLink = {
+  id: string;
+  href: string;
+  labelKey: MessageKey;
+  countKey?: "storeCharges" | "userCharges";
+};
+
+const URGENT_LINKS: UrgentLink[] = [
   { id: "reports-pending", href: "/admin/reports", labelKey: "admin_dashboard_urgent_reports_pending" },
   {
-    id: "charges-pending",
+    id: "store-charges-pending",
     href: "/admin/store-point-charges",
     labelKey: "admin_dashboard_urgent_charge_pending",
-    countFromPending: true,
+    countKey: "storeCharges",
+  },
+  {
+    id: "user-charges-pending",
+    href: "/admin/point-charges",
+    labelKey: "admin_dashboard_urgent_user_charge_pending",
+    countKey: "userCharges",
   },
   { id: "blind-review", href: "/admin/reports", labelKey: "admin_dashboard_urgent_blind_review" },
   { id: "feed-incident", href: "/admin/feed-emergency", labelKey: "admin_dashboard_urgent_feed_incident" },
@@ -20,7 +33,12 @@ const URGENT_LINKS: { id: string; href: string; labelKey: MessageKey; countFromP
 
 export function DashboardUrgentBlock() {
   const { t } = useI18n();
-  const { pendingCount } = useAdminStorePointPendingCount();
+  const { pendingCount, userChargePendingCount } = useAdminStorePointPendingCount();
+
+  const counts = {
+    storeCharges: pendingCount,
+    userCharges: userChargePendingCount,
+  };
 
   return (
     <div className="rounded-ui-rect border border-amber-200 bg-amber-50/80 p-4">
@@ -28,8 +46,8 @@ export function DashboardUrgentBlock() {
         {t("admin_dashboard_urgent_title")}
       </h2>
       <ul className="flex flex-wrap gap-2">
-        {URGENT_LINKS.map(({ id, href, labelKey, countFromPending }) => {
-          const count = countFromPending ? pendingCount : 0;
+        {URGENT_LINKS.map(({ id, href, labelKey, countKey }) => {
+          const count = countKey ? counts[countKey] : 0;
           return (
             <li key={id}>
               <Link

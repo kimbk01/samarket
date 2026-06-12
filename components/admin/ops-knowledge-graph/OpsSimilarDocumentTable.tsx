@@ -3,8 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { getOpsSimilarDocumentRecommendations } from "@/lib/ops-knowledge-graph/mock-ops-similar-document-recommendations";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsSimilarDocumentRecommendations } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 interface OpsSimilarDocumentTableProps {
   sourceDocumentId?: string | null;

@@ -1,56 +1,70 @@
 "use client";
 
-
+import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
-import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
-import { getPersonalizedFeedPolicies, savePersonalizedFeedPolicy } from "@/lib/personalized-feed/mock-personalized-feed-policies";
-import { getOrCreateBehaviorProfile } from "@/lib/personalized-feed/mock-user-behavior-profiles";
-import { getPersonalizedFeedLogs } from "@/lib/personalized-feed/mock-personalized-feed-logs";
+import type { PersonalizedFeedLog, PersonalizedFeedPolicy } from "@/lib/types/personalized-feed";
 import { PersonalizedPolicyTable } from "./PersonalizedPolicyTable";
 import { PersonalizedPolicyForm } from "./PersonalizedPolicyForm";
-import { UserBehaviorProfileTable } from "./UserBehaviorProfileTable";
 import { PersonalizedFeedSimulator } from "./PersonalizedFeedSimulator";
 import { PersonalizedFeedLogList } from "./PersonalizedFeedLogList";
 
-type TabId = "policy" | "profile" | "simulate" | "logs";
+type TabId = "policy" | "simulate" | "logs";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "policy", label: "개인화 정책" },
-  { id: "profile", label: "사용자 행동 프로필" },
   { id: "simulate", label: "추천 시뮬레이션" },
   { id: "logs", label: "생성 로그" },
 ];
 
-const MOCK_USER_IDS = ["me"];
-
 export function AdminPersonalizedFeedPage() {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
-  const [refresh, setRefresh] = useState(0);
+  const [policies, setPolicies] = useState<PersonalizedFeedPolicy[]>([]);
+  const [logs, setLogs] = useState<PersonalizedFeedLog[]>([]);
+  const [loading, setLoading] = useState(true);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
-  const policies = useMemo(() => getPersonalizedFeedPolicies(), [refresh]);
-  const profiles = useMemo(
-    () =>
-      MOCK_USER_IDS.map((id) =>
-        getOrCreateBehaviorProfile(id, "마닐라 · Malate · Barangay 1")
-      ),
-    [refresh]
-  );
-  const logs = useMemo(() => getPersonalizedFeedLogs(), [refresh]);
-  const editingPolicy = useMemo(
-    () => (editingPolicyId ? policies.find((p) => p.id === editingPolicyId) : null),
-    [editingPolicyId, policies]
-  );
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/admin/personalized-feed-policies", {
+        cache: "no-store",
+        credentials: "include",
+      });
+      const j = (await res.json()) as {
+        ok?: boolean;
+        bundle?: { policies?: PersonalizedFeedPolicy[]; logs?: PersonalizedFeedLog[] };
+      };
+      setPolicies(j.bundle?.policies ?? []);
+      setLogs(j.bundle?.logs ?? []);
+    } catch {
+      setPolicies([]);
+      setLogs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const handleSavePolicy = (values: Partial<NonNullable<typeof editingPolicy>>) => {
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const editingPolicy = editingPolicyId ? policies.find((p) => p.id === editingPolicyId) : null;
+
+  const handleSavePolicy = async (values: Partial<PersonalizedFeedPolicy>) => {
     if (!editingPolicy) return;
-    savePersonalizedFeedPolicy({ ...editingPolicy, ...values });
-    setRefresh((r) => r + 1);
-    setEditingPolicyId(null);
+    const res = await fetch("/api/admin/personalized-feed-policies", {
+      method: "PUT",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ policy: { ...editingPolicy, ...values } }),
+    });
+    if (res.ok) {
+      setEditingPolicyId(null);
+      void load();
+    }
   };
 
   return (
@@ -58,55 +72,49 @@ export function AdminPersonalizedFeedPage() {
       <AdminPageHeader titleKey="admin_personalized_feed_kba737687" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === t.id
+              activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {activeTab === "policy" && (
+      {loading ? <p className="sam-text-body text-sam-muted">{t("common_loading")}</p> : null}
+
+      {activeTab === "policy" && !loading && (
         <AdminCard titleKey="admin_personalized_feed_k72af229f">
           {editingPolicy && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <PersonalizedPolicyForm
                 initial={editingPolicy}
-                onSubmit={handleSavePolicy}
+                onSubmit={(v) => void handleSavePolicy(v)}
                 onCancel={() => setEditingPolicyId(null)}
               />
             </div>
           )}
           <PersonalizedPolicyTable
             policies={policies}
-            onEdit={(p) =>
-              setEditingPolicyId(editingPolicyId === p.id ? null : p.id)
-            }
+            onEdit={(p) => setEditingPolicyId(editingPolicyId === p.id ? null : p.id)}
           />
         </AdminCard>
       )}
 
-      {activeTab === "profile" && (
-        <AdminCard titleKey="admin_personalized_feed_kaf4e0ed1">
-          <UserBehaviorProfileTable profiles={profiles} />
-        </AdminCard>
-      )}
-
-      {activeTab === "simulate" && (
+      {activeTab === "simulate" && !loading && (
         <AdminCard titleKey="admin_personalized_feed_k42182c5c">
-          <PersonalizedFeedSimulator />
+          <PersonalizedFeedSimulator policies={policies} />
         </AdminCard>
       )}
 
-      {activeTab === "logs" && (
+      {activeTab === "logs" && !loading && (
         <AdminCard titleKey="admin_personalized_feed_create_4">
           <PersonalizedFeedLogList logs={logs} />
         </AdminCard>

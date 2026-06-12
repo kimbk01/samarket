@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsDocumentFilterState } from "./OpsDocumentFilterBar";
-import { getOpsDocuments } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsDocuments } from "@/lib/ops-docs/ops-docs-state";
 import {
   OPS_DOC_TYPE_KEYS,
   OPS_DOC_STATUS_KEYS,

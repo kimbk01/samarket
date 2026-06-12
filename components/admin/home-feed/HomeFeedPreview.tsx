@@ -1,12 +1,10 @@
 "use client";
 
-
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useMemo } from "react";
-import { getHomeFeedPolicies } from "@/lib/home-feed/mock-home-feed-policies";
-import { getFeedCandidates } from "@/lib/home-feed/mock-feed-candidates";
 import { buildHomeFeed } from "@/lib/home-feed/home-feed-utils";
-import { SECTION_LABELS } from "@/lib/home-feed/mock-home-feed-policies";
+import { SECTION_LABELS } from "@/lib/home-feed/home-feed-labels";
+import type { FeedCandidate, HomeFeedPolicy } from "@/lib/types/home-feed";
 import type { UserRegionContext } from "@/lib/exposure/exposure-score-utils";
 
 const MOCK_PREVIEW_REGION: UserRegionContext = {
@@ -17,16 +15,25 @@ const MOCK_PREVIEW_REGION: UserRegionContext = {
 const MOCK_PREVIEW_REGION_LABEL = "마닐라 · Malate · Barangay 1";
 
 interface HomeFeedPreviewProps {
-  refreshKey?: number;
+  policies: HomeFeedPolicy[];
 }
 
-export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
+export function HomeFeedPreview({ policies }: HomeFeedPreviewProps) {
   const { t } = useI18n();
-  const policies = useMemo(() => getHomeFeedPolicies(), [refreshKey]);
-  const candidates = useMemo(
-    () => getFeedCandidates(MOCK_PREVIEW_REGION_LABEL, MOCK_PREVIEW_REGION),
-    [refreshKey]
-  );
+  const [candidates, setCandidates] = useState<FeedCandidate[]>([]);
+
+  useEffect(() => {
+    void fetch("/api/admin/home-feed-policies/candidates", {
+      cache: "no-store",
+      credentials: "include",
+    })
+      .then((r) => r.json())
+      .then((j: { ok?: boolean; candidates?: FeedCandidate[] }) => {
+        setCandidates(j.ok && Array.isArray(j.candidates) ? j.candidates : []);
+      })
+      .catch(() => setCandidates([]));
+  }, []);
+
   const sections = useMemo(
     () =>
       buildHomeFeed(policies, candidates, {
@@ -34,7 +41,7 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
         userRegionLabel: MOCK_PREVIEW_REGION_LABEL,
         writeLog: false,
       }),
-    [policies, candidates, refreshKey]
+    [policies, candidates]
   );
 
   const totalItems = sections.reduce((sum, s) => sum + s.items.length, 0);
@@ -47,29 +54,34 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <p className="sam-text-body text-sam-muted">
-        지역: {MOCK_PREVIEW_REGION_LABEL} · 총 {totalItems}건
-      </p>
-      <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        {sections.map((sec) => (
-          <div key={sec.sectionKey} className="border-b border-sam-border-soft pb-4 last:border-0">
-            <h3 className="mb-2 sam-text-body font-semibold text-sam-fg">
-              {SECTION_LABELS[sec.sectionKey]} ({sec.items.length}건)
-            </h3>
-            <ul className="space-y-1 sam-text-body-secondary text-sam-fg">
-              {sec.items.slice(0, 5).map((item) => (
-                <li key={item.id}>
-                  {item.title} · {item.reasonLabel} (점수: {item.score})
-                </li>
-              ))}
-              {sec.items.length > 5 && (
-                <li className="text-sam-muted">{t("admin_more_items")} {sec.items.length - 5}{t("admin_more_items_suffix")}</li>
-              )}
-            </ul>
-          </div>
-        ))}
-      </div>
+    <div className="space-y-6">
+      {sections.map((section) => (
+        <div key={section.sectionKey} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+          <h3 className="mb-3 sam-text-body font-semibold text-sam-fg">
+            {SECTION_LABELS[section.sectionKey]} ({section.items.length})
+          </h3>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {section.items.map((item) => (
+              <li
+                key={item.id}
+                className="flex gap-3 rounded border border-sam-border-soft p-2 sam-text-body-secondary"
+              >
+                {item.thumbnail ? (
+                  <img src={item.thumbnail} alt="" className="h-12 w-12 rounded object-cover" />
+                ) : (
+                  <div className="h-12 w-12 rounded bg-sam-surface-muted" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-sam-fg">{item.title}</p>
+                  <p className="text-sam-muted">
+                    ₱{item.price.toLocaleString()} · {item.reasonLabel}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </div>
   );
 }

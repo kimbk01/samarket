@@ -14,7 +14,7 @@ export const CHAT_ROOM_PARTICIPANT_API_SELECT =
  * 스키마에 없는 컬럼이 있으면 PostgREST 오류 → 마이그레이션으로 맞춤.
  */
 export const CHAT_ROOM_ADMIN_DETAIL_SELECT =
-  "id, room_type, item_id, context_type, seller_id, buyer_id, initiator_id, peer_id, related_post_id, related_group_id, related_business_id, meeting_id, request_status, trade_status, last_message_id, last_message_at, last_message_preview, is_blocked, blocked_by, blocked_at, is_locked, locked_by, locked_at, created_at, updated_at, reopened_at";
+  "id, room_type, item_id, context_type, seller_id, buyer_id, initiator_id, peer_id, related_post_id, related_group_id, related_business_id, meeting_id, request_status, trade_status, last_message_id, last_message_at, last_message_preview, is_blocked, blocked_by, blocked_at, is_locked, locked_by, locked_at, admin_memo, created_at, updated_at, reopened_at";
 
 /** 관리자 채팅 이벤트 로그 */
 export const CHAT_EVENT_LOGS_ADMIN_SELECT =

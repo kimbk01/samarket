@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getProductFeedbackItems } from "@/lib/product-backlog/mock-product-feedback-items";
+import { getProductFeedbackItems } from "@/lib/product-backlog/product-backlog-state";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
   getSourceLabel,

@@ -16,8 +16,7 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useDeliveryHomeHeaderAddress } from "@/hooks/use-delivery-home-header-address";
 import { resolveDeliveryHomeHeaderButtonLabel } from "@/lib/addresses/delivery-home-header-label";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
-import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-mock/queries";
-import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
+import { getBrowsePrimaryBySlug } from "@/lib/stores/browse-taxonomy-seed-queries";
 import {
   getBrowsePrimaryTabOptimisticSlugServerSnapshot,
   getBrowsePrimaryTabOptimisticSlugSnapshot,
@@ -106,7 +105,6 @@ export function StoresBrowseHeaderChrome() {
   const menuActivePrimarySlug =
     resolveBrowsePrimaryTabActiveSlug(browsePrimarySlug || null, optimisticPrimary) ?? browsePrimarySlug;
   const extras = useMainTier1ExtrasOptional()?.extras;
-  const industryVersion = useBrowseIndustryDatasetVersion();
   const address = useDeliveryHomeHeaderAddress();
   const [searchOpen, setSearchOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
@@ -138,7 +136,7 @@ export function StoresBrowseHeaderChrome() {
     const fromExtras = extras?.tier1?.titleText?.trim();
     if (fromExtras) return fromExtras;
     return safeT("navigation_delivery");
-  }, [extras?.tier1?.titleText, menuActivePrimarySlug, primaries, language, safeT, industryVersion]);
+  }, [extras?.tier1?.titleText, menuActivePrimarySlug, primaries, language, safeT]);
 
   return (
     <>

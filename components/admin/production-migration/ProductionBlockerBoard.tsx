@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { getBlockedMigrationTables } from "@/lib/production-migration/mock-production-migration-tables";
-import { getBlockedLaunchChecks } from "@/lib/production-migration/mock-production-launch-checks";
-import { getProductionInfraChecks } from "@/lib/production-migration/mock-production-infra-checks";
+import {
+  getBlockedMigrationTables,
+  getBlockedLaunchChecks,
+  getProductionInfraChecks,
+} from "@/lib/production-migration/production-migration-state";
 import {
   getDomainLabel,
   getTableStatusLabel,

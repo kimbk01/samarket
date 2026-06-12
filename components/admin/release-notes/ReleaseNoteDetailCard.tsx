@@ -1,10 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getReleaseNoteById } from "@/lib/dev-sprints/mock-release-notes";
-import { getReleaseNoteItems } from "@/lib/dev-sprints/mock-release-note-items";
+import {
+  getReleaseNoteById,
+  getReleaseNoteItems,
+} from "@/lib/dev-sprints/dev-sprints-state";
+import { loadDevSprintsFromServer } from "@/lib/dev-sprints/dev-sprints-sync-client";
 import {
   RELEASE_NOTE_STATUS_KEYS,
   RELEASE_NOTE_ITEM_TYPE_KEYS,
@@ -16,14 +19,28 @@ interface ReleaseNoteDetailCardProps {
 
 export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardProps) {
   const { t } = useI18n();
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    void loadDevSprintsFromServer().then(() => setHydrated(true));
+  }, []);
+
   const note = useMemo(
-    () => getReleaseNoteById(releaseNoteId),
-    [releaseNoteId]
+    () => (hydrated ? getReleaseNoteById(releaseNoteId) : undefined),
+    [hydrated, releaseNoteId]
   );
   const items = useMemo(
-    () => getReleaseNoteItems(releaseNoteId),
-    [releaseNoteId]
+    () => (hydrated ? getReleaseNoteItems(releaseNoteId) : []),
+    [hydrated, releaseNoteId]
   );
+
+  if (!hydrated) {
+    return (
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
+        {t("admin_rec_mon_loading_settings")}
+      </div>
+    );
+  }
 
   if (!note) {
     return (

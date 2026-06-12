@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsActionItem } from "@/lib/types/ops-board";
-import { updateOpsActionItem } from "@/lib/ops-board/mock-ops-action-items";
+import { updateOpsActionItem } from "@/lib/ops-board/ops-board-state";
+import { persistOpsBoardToServer } from "@/lib/ops-board/ops-board-sync-client";
 import {
   OPS_TOOLS_ACTION_SOURCE_KEYS,
   OPS_TOOLS_ACTION_STATUS_KEYS,
@@ -25,6 +26,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
 
   const handleStatusChange = (status: OpsActionItem["status"]) => {
     updateOpsActionItem(item.id, { status });
+    void persistOpsBoardToServer();
     onUpdate?.();
   };
 

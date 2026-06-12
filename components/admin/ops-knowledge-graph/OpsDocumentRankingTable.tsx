@@ -3,8 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
-import { getOpsKnowledgeDocumentRankings } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-document-rankings";
-import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
+import { getOpsKnowledgeDocumentRankings } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-state";
+import { getOpsDocumentById } from "@/lib/ops-docs/ops-docs-state";
 
 export function OpsDocumentRankingTable() {
   const { t } = useI18n();

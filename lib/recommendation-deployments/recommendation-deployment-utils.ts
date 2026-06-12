@@ -3,10 +3,13 @@
  */
 
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import { setLiveVersion, rollbackToPrevious } from "./mock-active-feed-versions";
-import { addRecommendationDeployment } from "./mock-recommendation-deployments";
-import { addRecommendationDeploymentLog } from "./mock-recommendation-deployment-logs";
-import { getActiveFeedVersionBySurface } from "./mock-active-feed-versions";
+import {
+  addRecommendationDeployment,
+  addRecommendationDeploymentLog,
+  getActiveFeedVersionBySurface,
+  rollbackToPrevious,
+  setLiveVersion,
+} from "@/lib/recommendation-experiments/recommendation-experiments-state";
 
 const ADMIN_ID = "admin1";
 const ADMIN_NICKNAME = "관리자";
