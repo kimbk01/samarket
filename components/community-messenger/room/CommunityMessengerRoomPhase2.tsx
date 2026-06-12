@@ -20,7 +20,8 @@ import { scheduleCmRoomPass1ToPass2, scheduleCmRoomPass2IdleExpand } from "@/lib
 import { hasCmRoomTimelineSeedFromPhase1 } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { bumpCmRoomPhase2DeferredEffect } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 import { noteR2M9Stage } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
-import { CommunityMessengerRoomPass1ComposerShell } from "@/components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell";
+import { CommunityMessengerRoomPass1StableShell } from "@/components/community-messenger/room/CommunityMessengerRoomPass1StableShell";
+import { hasCmRoomStableShellPainted } from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
 
 const CommunityMessengerRoomClientPhase2Body = dynamic(
   () => import("@/components/community-messenger/room/CommunityMessengerRoomClientPhase2Body"),
@@ -103,6 +104,18 @@ export function CommunityMessengerRoomClientPhase2() {
                 keyboardOverlapSuppressed={keyboardOverlapSuppressed}
                 messengerKeyboardChromeOpen={messengerKeyboardChromeOpen}
               />
+            ) : entryPass >= 1 && roomId && !hasCmRoomStableShellPainted(roomId) ? (
+              <CommunityMessengerRoomPass1StableShell
+                roomId={roomId}
+                narrowViewport={isNarrowViewport}
+                composerEntryVisible
+              />
+            ) : entryPass >= 1 && roomId ? (
+              <div
+                className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
+                aria-hidden
+                data-cm-room-body-deferred=""
+              />
             ) : (
               <div
                 className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
@@ -110,11 +123,6 @@ export function CommunityMessengerRoomClientPhase2() {
                 data-cm-room-body-deferred=""
               />
             )}
-            {entryPass >= 1 && !phase2BodyReady ? (
-              <div className="shrink-0" data-cm-room>
-                <CommunityMessengerRoomPass1ComposerShell composerEntryVisible />
-              </div>
-            ) : null}
           </div>
         </div>
       </MessengerRoomMobileViewportProvider>

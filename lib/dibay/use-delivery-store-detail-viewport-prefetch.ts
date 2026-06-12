@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef } from "react";
 import { deliveryStoreDetailPrefetch } from "@/lib/dibay/delivery-store-detail-prefetch";
 import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
+import { isStoresBrowseHubPath } from "@/lib/dibay/delivery-store-detail-prewarm-lifecycle";
 
 const VIEWPORT_ROOT_MARGIN = "480px 0px";
 const VIEWPORT_THRESHOLD = 0.01;
@@ -45,6 +46,7 @@ export function useDeliveryStoreDetailViewportPrefetch(
         (entries) => {
           const entry = entries[0];
           if (!entry?.isIntersecting || prefetchedInViewRef.current) return;
+          if (typeof window !== "undefined" && !isStoresBrowseHubPath(window.location.pathname)) return;
           prefetchedInViewRef.current = true;
           deliveryStoreDetailPrewarmAll(s);
           deliveryStoreDetailPrefetch(router, s, "viewport");

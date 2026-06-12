@@ -1,7 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useRef } from "react";
-import { enqueueRoomPrefetch } from "@/lib/community-messenger/room-prefetch-queue";
+import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
 import {
   isTradeVisibleRoomRealtimeReportingEnabled,
   reportTradeRoomListIntersection,
@@ -18,12 +19,16 @@ export const MESSENGER_ROOM_LIST_PREFETCH_ROOT_MARGIN_PX = 240;
 export function useMessengerRoomListPrefetchRefCallback(
   roomId: string,
   enabled: boolean,
-  priorityScore = 0
+  priorityScore = 0,
+  href?: string | null
 ) {
+  const router = useRouter();
   const roomIdRef = useRef(roomId);
   const priorityRef = useRef(priorityScore);
+  const hrefRef = useRef(href ?? "");
   roomIdRef.current = roomId;
   priorityRef.current = priorityScore;
+  hrefRef.current = href ?? `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
   const ioCleanupRef = useRef<(() => void) | null>(null);
 
   return useCallback(
@@ -42,7 +47,15 @@ export function useMessengerRoomListPrefetchRefCallback(
             }
             if (!intersecting) continue;
             if (typeof document !== "undefined" && document.visibilityState !== "visible") continue;
-            enqueueRoomPrefetch(roomIdRef.current, priorityRef.current);
+            const rid = roomIdRef.current;
+            const h = hrefRef.current || `/community-messenger/rooms/${encodeURIComponent(rid)}`;
+            armMessengerRoomRoutePrefetch({
+              roomId: rid,
+              href: h,
+              router,
+              source: "intersection",
+              priorityScore: priorityRef.current,
+            });
           }
         },
         {
@@ -56,6 +69,6 @@ export function useMessengerRoomListPrefetchRefCallback(
         io.disconnect();
       };
     },
-    [enabled, roomId, priorityScore]
+    [enabled, href, roomId, priorityScore, router]
   );
 }

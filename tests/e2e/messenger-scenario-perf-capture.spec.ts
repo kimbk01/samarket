@@ -1,6 +1,9 @@
 /**
  * 메신저 실사용 시나리오 perf 스냅샷 — `E2E_TEST_USERNAME` / `E2E_TEST_PASSWORD` + 방 1개 이상 필요.
  *
+ * PASS0 pre-route shell 타임라인(BN12-C): `tests/e2e/messenger-pass0-timeline-capture.spec.ts`
+ * 준비: `node scripts/prepare-cm-pass0-e2e.mjs`
+ *
  * PLAYWRIGHT_NO_WEBSERVER=1 E2E_TEST_USERNAME=… E2E_TEST_PASSWORD=… \
  *   npx playwright test tests/e2e/messenger-scenario-perf-capture.spec.ts
  */

@@ -1,9 +1,9 @@
 "use client";
 
 import {
-  useMessageNotificationBridge,
+  useCmParticipantsHubSync,
   type MessageNotificationBridgePlayback,
-} from "@/lib/community-messenger/notifications/use-message-notification-bridge";
+} from "@/lib/community-messenger/notifications/use-cm-participants-hub-sync";
 
 export function GlobalCommunityMessengerUnreadSound({
   enabled = true,
@@ -12,7 +12,7 @@ export function GlobalCommunityMessengerUnreadSound({
   enabled?: boolean;
   playback?: MessageNotificationBridgePlayback;
 }) {
-  useMessageNotificationBridge(enabled, playback);
+  useCmParticipantsHubSync(enabled, playback);
 
   return null;
 }

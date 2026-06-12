@@ -8,6 +8,7 @@ import {
 } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { scheduleCmRoomPass0ToPass1 } from "@/lib/community-messenger/room/cm-room-pass-scheduler";
 import { isCmPreRouteShellOverlayActiveForRoom } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import { noteCmRoomEntryShellFirstPaint } from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
 import { shouldBlockCmRoomStrictEffectReRun } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
 type CommunityMessengerRoomPass0ShellProps = {
@@ -43,6 +44,7 @@ export const CommunityMessengerRoomPass0Shell = memo(function CommunityMessenger
         emitCmRoomPass0ShellLog(roomId);
       }
       measureCmPassRenderCommit(0, renderStartRef.current);
+      noteCmRoomEntryShellFirstPaint(roomId);
     }
     return scheduleCmRoomPass0ToPass1(advanceOnce);
   }, [advanceOnce, roomId]);

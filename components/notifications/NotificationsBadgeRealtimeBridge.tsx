@@ -1,9 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { useSupabaseNotificationsRealtime } from "@/hooks/useSupabaseNotificationsRealtime";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
-import { refreshAllSurfaceNotificationUnreadStores } from "@/lib/notifications/notification-unread-badge-store";
+import {
+  refreshActiveSurfaceNotificationUnreadStores,
+  reconcileTier1BellSurfacePolling,
+} from "@/lib/notifications/notification-unread-badge-store";
 import { routeNotificationInsertSound } from "@/lib/notifications/notification-sound-gate";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
@@ -21,7 +25,12 @@ const NOTIFICATIONS_RT_HUB_DEDUPE_MS = 5_000;
  * INSERT 시 인앱 알림음은 동일 채널에서 처리(별도 Realtime 구독 없음).
  */
 export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?: boolean }) {
+  const pathname = usePathname();
   const coalescedBadgeBumpRef = useRef<ReturnType<typeof createTrailingCoalescedCallback> | null>(null);
+
+  useEffect(() => {
+    reconcileTier1BellSurfacePolling(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     coalescedBadgeBumpRef.current = createTrailingCoalescedCallback(() => {
@@ -37,7 +46,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
 
   const bump = useCallback(({ eventType }: { eventType: string }) => {
     if (eventType === "INSERT") {
-      refreshAllSurfaceNotificationUnreadStores(true);
+      refreshActiveSurfaceNotificationUnreadStores(pathname, true);
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
       }
@@ -55,7 +64,7 @@ export function NotificationsBadgeRealtimeBridge({ enabled = true }: { enabled?:
         dedupeMs: NOTIFICATIONS_RT_HUB_DEDUPE_MS,
       });
     }
-  }, []);
+  }, [pathname]);
 
   const onInsertSound = useCallback((row: Record<string, unknown>) => {
     if (isOwnerStoreCommerceNotificationRow({ meta: row.meta })) {

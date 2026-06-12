@@ -5,11 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
-import {
-  enqueueRoomPrefetch,
-  messengerRoomPrefetchPriorityScore,
-} from "@/lib/community-messenger/room-prefetch-queue";
-import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
+import { armMessengerRoomRoutePrefetch } from "@/lib/community-messenger/room/arm-messenger-room-route-prefetch";
 import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
 import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
 import {
@@ -18,18 +15,8 @@ import {
   messengerRoomListSourceFromPathname,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
-import {
-  noteMessengerRoomRoutePrefetchArmed,
-  noteR2M10RoomPageChunkLoaded,
-} from "@/lib/community-messenger/room/cm-room-r2-m10-route-transition";
-import {
-  noteR2M11DChunkImportDone,
-  noteR2M11DRoomPrefetchStart,
-  noteR2M11DRouterPrefetchCalled,
-} from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
-import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
@@ -211,7 +198,17 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     () => messengerRoomPrefetchPriorityScore(room.lastMessageAt),
     [room.lastMessageAt]
   );
-  const prefetchAttach = useMessengerRoomListPrefetchRefCallback(room.id, true, roomPrefetchPriority);
+  const roomHref = useMemo(
+    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource, roomReturnHref),
+    [room.id, fromEntryOrigin, roomListSource, roomReturnHref]
+  );
+  const prefetchAttach = useMessengerRoomListPrefetchRefCallback(
+    room.id,
+    true,
+    roomPrefetchPriority,
+    roomHref
+  );
+  const hoverPrefetchOnceRef = useRef(false);
   const setMainRowRef = useCallback(
     (node: HTMLDivElement | null) => {
       rowRef.current = node;
@@ -397,22 +394,15 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           ? t("cm_ui_archived")
           : null;
 
-  const roomHref = useMemo(
-    () => communityMessengerRoomHref(room.id, fromEntryOrigin, roomListSource, roomReturnHref),
-    [room.id, fromEntryOrigin, roomListSource, roomReturnHref]
-  );
-
   const kickRoomNavPrefetchOnPointerDown = useCallback(() => {
-    noteR2M11DRoomPrefetchStart(room.id, roomHref, "pointerdown");
-    primeMessengerRoomEntrySnapshot({ viewerUserId, room });
-    enqueueRoomPrefetch(room.id, roomPrefetchPriority);
-    void prefetchCommunityMessengerRoomSnapshot(room.id);
-    noteMessengerRoomRoutePrefetchArmed(roomHref);
-    void router.prefetch(roomHref);
-    noteR2M11DRouterPrefetchCalled(room.id, roomHref);
-    void import("@/components/community-messenger/CommunityMessengerRoomClient").then(() => {
-      noteR2M10RoomPageChunkLoaded();
-      noteR2M11DChunkImportDone(room.id);
+    armMessengerRoomRoutePrefetch({
+      roomId: room.id,
+      href: roomHref,
+      router,
+      source: "pointerdown",
+      priorityScore: roomPrefetchPriority,
+      viewerUserId,
+      roomForPrime: room,
     });
     if (listVisual === "trade" && tradeRowModel?.postId) {
       prefetchTradePostThumbnailIfNeeded(tradeRowModel.postId);
@@ -421,6 +411,18 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       prefetchStoreProfileThumbnailIfNeeded(deliveryRowModel.storeId);
     }
   }, [deliveryRowModel?.storeId, listVisual, room, roomHref, roomPrefetchPriority, router, tradeRowModel?.postId, viewerUserId]);
+
+  const kickRoomNavPrefetchOnPointerEnter = useCallback(() => {
+    if (hoverPrefetchOnceRef.current) return;
+    hoverPrefetchOnceRef.current = true;
+    armMessengerRoomRoutePrefetch({
+      roomId: room.id,
+      href: roomHref,
+      router,
+      source: "pointerenter",
+      priorityScore: roomPrefetchPriority,
+    });
+  }, [room.id, roomHref, roomPrefetchPriority, router]);
 
   const navigateToCommunityRoom = useCallback(
     (rid: string) => {
@@ -900,6 +902,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         role="button"
         tabIndex={0}
         {...bind}
+        onPointerEnter={kickRoomNavPrefetchOnPointerEnter}
         onPointerDown={(e) => {
           kickRoomNavPrefetchOnPointerDown();
           bind.onPointerDown(e);
@@ -928,6 +931,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
         ref={prefetchAttach}
         prefetch={false}
         href={roomHref}
+        onPointerEnter={kickRoomNavPrefetchOnPointerEnter}
         onPointerDown={() => {
           kickRoomNavPrefetchOnPointerDown();
         }}
@@ -969,6 +973,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           transition: isDragging ? "none" : "transform 0.2s ease-out",
           willChange: isDragging ? "transform" : undefined,
         }}
+        onPointerEnter={kickRoomNavPrefetchOnPointerEnter}
         onPointerDown={(e) => {
           if (!compact && e.button === 0) bind.onPointerDown(e);
           onPointerDown(e);

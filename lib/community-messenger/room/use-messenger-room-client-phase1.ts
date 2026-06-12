@@ -117,6 +117,10 @@ import {
   resetCmRoomR7FirstRowCommitInstrumentation,
 } from "@/lib/community-messenger/room/cm-room-r7-first-row-commit-instrumentation";
 import { beginCmRoomEntryPriorityMode, endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import {
+  isCmRoomEntryShellFirstPass,
+  subscribeCmRoomEntryShellFirstPass,
+} from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
@@ -236,7 +240,9 @@ export function useMessengerRoomClientPhase1({
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "useMessengerRoomClientPhase1_init_ms");
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "phase1_start_ms");
   const phase1PerfTrack = beginTradePhase1Breakdown();
-  const phase1EntryLightPass = isTradePhase1EntryLightPass();
+  const [, bumpShellFirstPass] = useState(0);
+  useEffect(() => subscribeCmRoomEntryShellFirstPass(() => bumpShellFirstPass((n) => n + 1)), []);
+  const phase1EntryLightPass = isTradePhase1EntryLightPass() || isCmRoomEntryShellFirstPass();
   const fromPropViewer = typeof initialViewerUserId === "string" ? initialViewerUserId.trim() : "";
   const fromServerViewer = initialServerSnapshot?.viewerUserId?.trim() ?? "";
   const initialViewerId = fromPropViewer || fromServerViewer;
@@ -360,6 +366,7 @@ export function useMessengerRoomClientPhase1({
   }, [initialServerSnapshot, roomId]);
 
   useEffect(() => {
+    if (isCmRoomEntryShellFirstPass()) return;
     const id = streamRoomId.trim();
     if (!id) return;
     clearMessengerRealtimeLocalUnreadForRoom(id);
@@ -367,16 +374,28 @@ export function useMessengerRoomClientPhase1({
     return () => {
       setMessengerRealtimeFocusedRoomId(null);
     };
-  }, [streamRoomId]);
+  }, [streamRoomId, phase1EntryLightPass]);
 
   const [roomMessages, setRoomMessages] = useState<Array<CommunityMessengerMessage & { pending?: boolean }>>(() => {
     const base = (initialSnapshotResolved?.messages as Array<CommunityMessengerMessage & { pending?: boolean }>) ?? [];
     const rid = roomId.trim();
-    if (!rid) return base;
+    if (!rid || isCmRoomEntryShellFirstPass()) return base;
     const live = getMessengerRealtimeRoomMessages(rid);
     if (live.length <= base.length) return base;
     return mergeRoomMessages(base, live);
   });
+
+  useEffect(() => {
+    if (isCmRoomEntryShellFirstPass()) return;
+    const rid = roomId.trim();
+    if (!rid) return;
+    const live = getMessengerRealtimeRoomMessages(rid);
+    if (live.length <= 0) return;
+    setRoomMessages((prev) => {
+      if (live.length <= prev.length) return prev;
+      return mergeRoomMessages(prev, live);
+    });
+  }, [roomId, phase1EntryLightPass]);
 
   useLayoutEffect(() => {
     const rid = roomId.trim();
@@ -424,10 +443,11 @@ export function useMessengerRoomClientPhase1({
   }
 
   useEffect(() => {
+    if (isCmRoomEntryShellFirstPass()) return;
     const s = snapshot ?? initialServerSnapshot ?? null;
     if (s?.clientShellPlaceholder) return;
     seedMessengerRealtimeFromRoomSnapshot(s);
-  }, [initialServerSnapshot, snapshot]);
+  }, [initialServerSnapshot, snapshot, phase1EntryLightPass]);
 
   useEffect(() => {
     if (!snapshot) return;
@@ -436,12 +456,13 @@ export function useMessengerRoomClientPhase1({
   }, [snapshot]);
 
   useEffect(() => {
+    if (isCmRoomEntryShellFirstPass()) return;
     const id = String(roomId ?? "").trim();
     setActiveMessengerRealtimeRoom(id || null);
     return () => {
       setActiveMessengerRealtimeRoom(null);
     };
-  }, [roomId]);
+  }, [roomId, phase1EntryLightPass]);
 
   useEffect(() => {
     const viewerId = snapshotRef.current?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
@@ -1473,6 +1494,10 @@ export function useMessengerRoomClientPhase1({
     if (!snapshot) {
       if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
       return [];
+    }
+    if (phase1EntryLightPass) {
+      if (phase1PerfTrack) noteTradePhase1MemoWorkMs((typeof performance !== "undefined" ? performance.now() : 0) - tMemo0);
+      return snapshot.members;
     }
     const baseIds = new Set(snapshot.members.map((m) => m.id));
     const extra = pagedRoomMembers.filter((m) => !baseIds.has(m.id));

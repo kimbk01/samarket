@@ -16,6 +16,11 @@ import {
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { isBottomNavTabActive } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
+import {
+  abortStoresBrowseAmbientPrewarm,
+  isStoresBrowseHubPath,
+  isStoresSurfacePath,
+} from "@/lib/dibay/delivery-store-detail-prewarm-lifecycle";
 import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
 import {
   navPerfMarkBottomNavClickStart,
@@ -126,6 +131,10 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
   const pushAxis = computeMainBottomNavPushAxis(args.pathname, args.href);
   const targetPath = pathFromHref(args.href);
   const fromPath = normalizeMainBottomNavRoutePath(args.pathname);
+  const normalizedTargetPath = normalizeMainBottomNavRoutePath(targetPath);
+  if (isStoresBrowseHubPath(fromPath) && !isStoresSurfacePath(normalizedTargetPath)) {
+    abortStoresBrowseAmbientPrewarm("bottom_nav_route_commit");
+  }
   const crossGroup = Boolean(pushAxis && isCrossMainShellRouteGroup(fromPath, targetPath));
   setMainShellPushAxisIntent(pushAxis, targetPath);
 
@@ -190,7 +199,7 @@ async function commitMainBottomNavRouteNavigateAsync(
     const runPrewarm = () => {
       try {
         if (args.onPrewarm) args.onPrewarm();
-        else prewarmBottomNavTapTargetClientCache(args.href);
+        else prewarmBottomNavTapTargetClientCache(args.href, { source: "route_commit" });
       } catch {
         /* noop */
       }

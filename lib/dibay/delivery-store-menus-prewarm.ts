@@ -6,6 +6,11 @@
  */
 
 import { fetchStoreMenusDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  isAbortError,
+  resolveStoresBrowseAmbientPrewarmSignal,
+  shouldStartStoresBrowseAmbientPrewarm,
+} from "@/lib/dibay/delivery-store-detail-prewarm-lifecycle";
 
 const prewarmStarted = new Set<string>();
 
@@ -17,11 +22,14 @@ function slugKey(slug: string): string {
 export function deliveryStoreMenusPrewarm(slug: string, opts?: { force?: boolean }): void {
   const s = slugKey(slug);
   if (!s || typeof window === "undefined") return;
+  if (!shouldStartStoresBrowseAmbientPrewarm(opts)) return;
   if (!opts?.force && prewarmStarted.has(s)) return;
   prewarmStarted.add(s);
 
-  void fetchStoreMenusDeduped(s).catch(() => {
+  const signal = resolveStoresBrowseAmbientPrewarmSignal(opts);
+  void fetchStoreMenusDeduped(s, { signal }).catch((error) => {
     prewarmStarted.delete(s);
+    if (isAbortError(error)) return;
   });
 }
 

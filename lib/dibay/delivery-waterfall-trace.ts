@@ -11,12 +11,18 @@ export function logDeliveryFetchTrace(args: {
   api: string;
   component: string;
   reason: string;
+  pathname?: string;
+  aborted?: boolean;
 }): void {
   if (!isDev) return;
   console.debug("[delivery-fetch-trace]", {
     api: args.api,
     component: args.component,
     reason: args.reason,
+    pathname:
+      args.pathname ??
+      (typeof window !== "undefined" ? window.location.pathname : ""),
+    aborted: args.aborted ?? false,
     ts: Date.now(),
   });
 }

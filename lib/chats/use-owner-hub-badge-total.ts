@@ -73,20 +73,23 @@ function tabUnreadFromBreakdown(
  */
 export function useOwnerHubBadgeTabUnreadCount(icon: BottomNavIconKey): number {
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
+  const hasOwnerStoreRef = useRef(hasOwnerStore);
+  hasOwnerStoreRef.current = hasOwnerStore;
   const readTabUnread = useCallback(
-    () => tabUnreadFromBreakdown(icon, getOwnerHubBadgeSnapshot(), hasOwnerStore),
-    [icon, hasOwnerStore]
+    () => tabUnreadFromBreakdown(icon, getOwnerHubBadgeSnapshot(), hasOwnerStoreRef.current),
+    [icon]
   );
   const raw = useSyncExternalStore(subscribeOwnerHubBadge, readTabUnread, () => 0);
   const lastBumpRef = useRef<{ icon: BottomNavIconKey; n: number } | null>(null);
+  const traceComponent = `useOwnerHubBadgeTabUnreadCount:${icon}`;
   useEffect(() => {
     const lb = lastBumpRef.current;
     if (lb && lb.icon === icon && lb.n === raw) return;
     bumpMessengerRenderPerf("messenger_badge_compute");
-    bumpRerenderTrace("useOwnerHubBadgeTabUnreadCount", [icon, String(raw)]);
+    bumpRerenderTrace(traceComponent, [String(raw)]);
     logHubBadgeRenderTrace([icon, String(raw)]);
     lastBumpRef.current = { icon, n: raw };
-  }, [icon, raw]);
+  }, [icon, raw, traceComponent]);
   return raw;
 }
 

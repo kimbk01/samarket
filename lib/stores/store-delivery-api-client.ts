@@ -229,24 +229,41 @@ export function peekStoreNoticesPublicCache(slug: string): StoreApiJsonResponse 
   return peekSlugPublicCache(storeNoticesPublicCache, slug);
 }
 
+function deliveryFetchTracePathname(): string {
+  return typeof window !== "undefined" ? window.location.pathname : "";
+}
+
 /** GET /api/stores/:slug/summary — 매장 메타만 (메뉴 없음) */
-export async function fetchStoreSummaryDeduped(slug: string): Promise<StoreApiJsonResponse> {
+export async function fetchStoreSummaryDeduped(
+  slug: string,
+  opts?: { signal?: AbortSignal }
+): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);
   if (!s) return { status: 400, json: { ok: false } };
+  if (opts?.signal?.aborted) return Promise.reject(abortError());
   const cached = storeSummaryPublicCache.get(s);
   if (cached && cached.expiresAt > Date.now()) {
     return { status: cached.value.status, json: cached.value.json };
   }
   return runSingleFlight(`stores:api:summary:${s}`, async () => {
+    if (opts?.signal?.aborted) throw abortError();
     const inFlightCached = storeSummaryPublicCache.get(s);
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
-    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/summary`, { cache: "no-store" });
+    const res = await withAbortSignal(
+      fetch(`/api/stores/${encodeURIComponent(s)}/summary`, {
+        cache: "no-store",
+        signal: opts?.signal,
+      }),
+      opts?.signal
+    );
+    if (opts?.signal?.aborted) throw abortError();
     logDeliveryFetchTrace({
       api: `/api/stores/${s}/summary`,
       component: "store-delivery-api-client",
       reason: "fetchStoreSummaryDeduped_network",
+      pathname: deliveryFetchTracePathname(),
     });
     const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
@@ -262,11 +279,12 @@ export async function fetchStoreSummaryDeduped(slug: string): Promise<StoreApiJs
 /** GET /api/stores/:slug/menus — 메뉴 목록 (options_json 제외) */
 export async function fetchStoreMenusDeduped(
   slug: string,
-  opts?: { fetchPath?: string }
+  opts?: { fetchPath?: string; signal?: AbortSignal }
 ): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);
   const fetchPath = opts?.fetchPath ?? "fetchStoreMenusDeduped";
   if (!s) return { status: 400, json: { ok: false } };
+  if (opts?.signal?.aborted) return Promise.reject(abortError());
   const cached = storeMenusPublicCache.get(s);
   if (cached && cached.expiresAt > Date.now()) {
     beginMenusColdFillClientSession(s, fetchPath);
@@ -274,6 +292,7 @@ export async function fetchStoreMenusDeduped(
     return { status: cached.value.status, json: cached.value.json };
   }
   return runSingleFlight(`stores:api:menus:${s}`, async () => {
+    if (opts?.signal?.aborted) throw abortError();
     const inFlightCached = storeMenusPublicCache.get(s);
     if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
       beginMenusColdFillClientSession(s, fetchPath);
@@ -281,11 +300,19 @@ export async function fetchStoreMenusDeduped(
       return { status: inFlightCached.value.status, json: inFlightCached.value.json };
     }
     beginMenusColdFillClientSession(s, fetchPath);
-    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/menus`, { cache: "no-store" });
+    const res = await withAbortSignal(
+      fetch(`/api/stores/${encodeURIComponent(s)}/menus`, {
+        cache: "no-store",
+        signal: opts?.signal,
+      }),
+      opts?.signal
+    );
+    if (opts?.signal?.aborted) throw abortError();
     logDeliveryFetchTrace({
       api: `/api/stores/${s}/menus`,
       component: "store-delivery-api-client",
       reason: "fetchStoreMenusDeduped_network",
+      pathname: deliveryFetchTracePathname(),
     });
     markMenusColdFillFetchHeaders(s);
     const text = await res.text();

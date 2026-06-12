@@ -7,6 +7,7 @@ import {
   resolveMessagingGlobalChromeFromPath,
   type MessagingGlobalChromePolicy,
 } from "@/lib/layout/messaging-global-chrome-policy";
+import { reconcileTier1BellSurfacePolling } from "@/lib/notifications/notification-unread-badge-store";
 import { STORES_HOME_IDLE_DEFER_MS } from "@/lib/stores/stores-home-perf-marks";
 
 const NotificationSoundPrime = dynamic(
@@ -52,6 +53,10 @@ export function MessagingGlobalChrome({ regionBarInLayout }: { regionBarInLayout
   const pathBase = (pathname ?? "").split("?")[0] ?? "";
   const isStoresHubRoot = pathBase === "/stores" || pathBase === "/stores/";
   const [storesHubDeferredChrome, setStoresHubDeferredChrome] = useState(!isStoresHubRoot);
+
+  useEffect(() => {
+    reconcileTier1BellSurfacePolling(pathname);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isStoresHubRoot) {

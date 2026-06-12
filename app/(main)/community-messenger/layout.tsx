@@ -4,6 +4,7 @@ import "@/app/delivery-chat-room.css";
 import { CommunityMessengerGuestGate } from "@/components/community-messenger/CommunityMessengerGuestGate";
 import { CommunityMessengerMediaPreflight } from "@/components/community-messenger/CommunityMessengerMediaPreflight";
 import { CommunityMessengerRoomClientPrefetch } from "@/components/community-messenger/CommunityMessengerRoomClientPrefetch";
+import { CommunityMessengerRoomRouteChunkWarmHubVisible } from "@/components/community-messenger/CommunityMessengerRoomRouteChunkWarmHubVisible";
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
 import { CommunityMessengerPresenceRuntimeChrome } from "@/components/layout/providers/CommunityMessengerPresenceRuntimeChrome";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
@@ -14,6 +15,7 @@ export default function CommunityMessengerLayout({ children }: { children: React
       <CommunityMessengerPresenceRuntimeChrome />
       <MessengerBootstrapEarlyWarm />
       <CommunityMessengerRoomClientPrefetch />
+      <CommunityMessengerRoomRouteChunkWarmHubVisible />
       <CommunityMessengerMediaPreflight />
       <MessengerSnackbarHost />
       <div className="sam-domain-shell sam-messenger-vt-root">

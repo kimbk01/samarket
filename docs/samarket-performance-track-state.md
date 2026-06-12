@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-06-10 (MP-AUDIT-14 prod 재실측·PARITY-MASTER-5·마스터 0→5) |
+| Last updated | 2026-06-12 (BN13·BN14 **마감**) |
 | Owner | (선택) |
 
 ---
@@ -1877,7 +1877,136 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 
 ## 다음 후보 1개 (헌장 [8] 순서)
 
-**다음 라운드(라운드 T) 후보 1개:** `GET /api/community-messenger/rooms/[roomId]/bootstrap`의 `room_silent` 경로(로그 **2.4~2.8s**)에서 **minimal 부트스트랩 쿼리 왕복(rooms/participants/profile hydrate) 1축**을 분리·축소하는 구조 개선 1건.
+**다음 라운드 후보 1개:** (미정) — BN13·BN14 마감 후 별도 트랙 선정 (RoomOpening gate/lazy **보류 유지**).
+
+**종료 트랙:** **BN14-direct-room-cold 1~3차** — 2026-06-12 마감 (아래 §BN14 마감).
+
+**완료:** **BN14-direct-room-cold 3차 prep** — prod streaming 검증 (§BN14-3-prep).
+
+**완료:** **BN14-direct-room-cold 2차** — server inline shell (§BN14-2차).
+
+**완료:** **BN14-direct-room-cold 1차** — S4 분해 (§BN14-1차).
+
+### BN14-direct-room-cold 1차 (2026-06-12)
+
+| 항목 | 내용 |
+|------|------|
+| harness | `milestone_poll_v6_bn14` · `s4DirectColdBreakdown` · `bn14` probe marks |
+| S4 blank (1회) | **2351ms** (pathRoom 443 → routeEntryShell 2794) |
+
+**2.3s blank 구성 (v6 실측)**
+| 구간 | relMs | 비고 |
+|------|-------|------|
+| document/pathRoom | ~443 | HTML 응답 ~391 |
+| layout.js·page.js·loading.js **network end** | ~552–677 | **다운로드는 빠름** |
+| segment_layout_module_eval (probe) | ~125* | *이전 시나리오 warm 잔여 가능 |
+| deferred chunk import | 1436→1670 | PageClientEntry dynamic |
+| segment_layout_mount·shell DOM (probe) | ~1731 | perf 기준 |
+| **SegmentShellLayout webpack chunk end** | **~2795** | **주 병목** |
+| routeEntryShell DOM (wall poll) | 2794 | blank=2351 |
+
+**pathRoom 직후 shell 미표시 이유:** persistence host 가 `SegmentShellLayout` **별도 webpack chunk** 안에 있음 — `layout.js`(677ms) 이후 chunk download+parse+hydrate(~2.1s) 필요.
+
+**r2m11d:** prefetch 0건 정상 · **r2m13:** direct 진입 시 `cm_layout_idle` 만( room segment layout 마운트 후).
+
+**BN14-2 후보:** layout.js 에 **경량 shell inline**(SegmentShellLayout chunk 의존 제거) · mypage→room **비전역** conditional warm(제품 판단) · Deferred/bootstrap **유지**(이미 후행).
+
+### BN14-direct-room-cold 2차 (2026-06-12)
+
+| 항목 | 내용 |
+|------|------|
+| 구현 | `[roomId]/layout` **pure server** inline shell · milestone bridge → loading/page client · GuestGate room 경로 checking 시 children 유지 |
+| S4 blank (E2E 1회) | **2338ms** (`pathRoomToSegmentShellHostMs` **2338** — 목표 500ms **미달**) |
+| S1/S2/S3 blank | **293 / 0 / 523ms** (forward nav 회귀 없음 — S3 일시 523) |
+| 1차 대비 | `segmentShellLayoutChunk` **null**(구 chunk 제거) · shell DOM 시각은 여전히 ~2.3s — **상위 client provider·RSC slot 적용**이 병목 |
+| BN14-3 | first-byte shell — `MainAppProviders` 바깥 route group 또는 static shell flush (제품 판단) |
+
+### BN14-direct-room-cold 3차 prep — prod streaming 검증 (2026-06-12)
+
+| 항목 | dev (3회) | prod `next start` (3회) |
+|------|-----------|-------------------------|
+| `pathRoomToSegmentShellHostMs` | 2634 / 3547 / 4956 (중앙 **3547**) | 618 / 611 / 553 (중앙 **611**) |
+| blank (routeEntryShell) | 동일 | **~600ms band** |
+| `inlineShellInHtmlOutsideScripts` | **false** 3/3 | **false** 3/3 |
+| `probeDomHasInlineShellAtDcl` | **false** 3/3 | **false** 3/3 |
+| GuestGate spinner @ end | false (member) | false (member) |
+
+**판정:** inline shell 마커는 **RSC flight `<script>` payload** 에만 있고 **first HTML live DOM·script 제외 본문에는 없음**. shell DOM 은 **client hydrate 이후** 적용. dev blank ~3.5s 는 **dev streaming/HMR·chunk cold** 성격 — prod 에서 ~600ms. **route group 없이** prod 500ms 근접; first-byte DOM shell 은 provider boundary 밖 없이는 **불가**.
+
+**GuestGate BN14-2 변경:** **유지** — bootstrap `requireAuthenticatedUserId` 게이트·guest 패널 동일; room checking 시 skeleton 만 선행.
+
+**측정:** `npm run measure:cm-s4-direct-cold:dev|prod` · `tests/e2e/messenger-pass0-s4-direct-cold.spec.ts`
+
+---
+
+## BN14 마감 (2026-06-12) — direct-room-cold 1~3차
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | **종료** — prod S4 direct cold **~600ms band accept** |
+| 목표 | `pathRoomToSegmentShellHostMs` &lt; 500ms (prod) — **중앙 611ms · 약 100ms 미달** |
+| 제품 판정 | **accept** — route group / `MainAppProviders` 밖 shell 이동은 구조 영향 과대로 **미진행** |
+| GuestGate (BN14-2) | **유지** — bootstrap `requireAuthenticatedUserId` · guest 패널 동일 · 보안 회귀 없음 |
+| BN12-B2 | `CommunityMessengerRoomOpeningOverlayHost` gate/lazy **보류 유지** |
+
+### 측정 기준 분리 (필수)
+
+| 환경 | 용도 | S4 direct cold 판정 |
+|------|------|---------------------|
+| **dev** (`npm run dev`) | 분해·디버그·harness 검증만 | **제품 기준 아님** — HMR/streaming/chunk cold로 2.6~5.0s 흔함 |
+| **prod** (`npm run build` + `next start`) | **제품 체감 기준** | **553~618ms band** — 마감 실측 채택 |
+
+명령: `npm run measure:cm-s4-direct-cold:prod` (`PLAYWRIGHT_BASE_URL=http://localhost:3001` · `E2E_SNAPSHOT_DIAG_ROOM_ID` 필요)
+
+### prod S4 direct cold 마감 실측 (3회 · 2026-06-12)
+
+harness: `milestone_poll_v6_bn14_s4_only` · origin `http://localhost:3001`
+
+| run | pathRoom | segmentShellHost | blank (routeEntryShell) | `pathRoomToSegmentShellHostMs` |
+|-----|----------|------------------|-------------------------|--------------------------------|
+| 1 | 373 | 991 | 618 | **618** |
+| 2 | 387 | 998 | 611 | **611** |
+| 3 | 283 | 836* | 553 | **553** |
+
+\*run3 segmentShellHost milestone poll 836ms 구간 — derived blank 553ms 기준.
+
+| 집계 | 값 |
+|------|-----|
+| **중앙값** | **611ms** |
+| **최악** | **618ms** |
+| **최선** | **553ms** |
+
+**htmlFlush (prod 3/3 공통):** `inlineShellInHtmlOutsideScripts` **false** · `probeDomHasInlineShellAtDcl` **false** — inline shell 은 RSC flight payload, live DOM 은 client hydrate 이후.
+
+### BN14 누적 성과
+
+1. **1차:** SegmentShellLayout chunk 가 S4 주 병목 (~2.8s) — document/RSC·layout.js network 는 빠름.
+2. **2차:** pure server `[roomId]/layout` inline shell · chunk 의존 제거 · BN13 forward nav 회귀 없음.
+3. **3차 prep:** dev vs prod 분리 — prod **~600ms** accept, dev ~3.5s 는 환경 이슈.
+
+### 제품 승인 필요 후보 (이번 트랙에서 미진행)
+
+| 후보 | 사유 |
+|------|------|
+| route group + provider boundary **밖** first-byte DOM shell | first HTML live DOM shell 불가 구조 — 500ms hard gate 시에만 검토 |
+| `MainAppProviders` / 앱 셸 전역 preload | 금지·범위 외 |
+| BN12-B2 RoomOpening gate/lazy | HIGH risk · 별도 보류 |
+
+**종료 트랙:** **BN13-room-entry + BN13-room-rsc 1~5차** — 2026-06-12 마감 (아래 §BN13 마감).
+
+**다음 라운드 후보 (택2):** **BN13** — `IncomingCallOverlay` **HIGH risk 보류** 유지, 다른 안 전한 성능 후보 탐색.
+
+**완료(라운드 BN12-C):** PASS0 E2E seed·타임라인 검증 환경 — 아래 BN12-C 절.
+
+**완료(라운드 BN12-B2):** `CommunityMessengerRoomOpeningOverlayHost` PASS0 분석 **완료 · 구현 보류** — 아래 BN12-B2 절.
+
+**완료(라운드 BN12-B1):** `GlobalIncomingFriendRequestHost` `/mypage`·`/philife` idle defer — 아래 BN12-B1 절.
+
+**완료(라운드 BN12-B):** CM chunk early load **분석만** — FriendRequest·RoomOpening·IncomingCall 각각 독립 gate 후보 정리.
+
+**완료(라운드 BN12-A):** `use-message-notification-bridge` → `useCmParticipantsHubSync`(static core) + `cm-participant-unread-full-effects`(dynamic full) — 아래 BN12-A 절.
+
+**보류(별도 트랙):** `GET /api/community-messenger/rooms/[roomId]/bootstrap` `room_silent` minimal 쿼리 왕복 축소(기존 라운드 T 후보).
 
 ---
 
@@ -1946,3 +2075,373 @@ SAMARKET_BASE_URL=https://dibaY.vercel.app SAMARKET_PROD_PERF_MEASURE=1 npm run 
 | 하단 5탭 실제 브라우저 방향/blank 확인 | — | — | — | 방향 단일 + 하얀 화면 미노출 |
 
 **판정:** **코드 완료 · 체감 측정 보류** — 축 불일치 원인은 코드·검증으로 제거했다. 실제 브라우저 3회 확인 전까지 체크시트 `[x]` 는 열지 않는다.
+
+---
+
+## 이번 라운드 (하단 셸·배민: 라운드 BN9 — Tier1 종 surface pathname poll 단일화)
+
+| 항목 | 내용 |
+|------|------|
+| 마스터 순서 | **1** 셸·탭 + **3** 배민 `/stores` + **5** 횡단 배지 |
+| 원인 1개 | Tier1 알림 unread store 가 pathname 과 무관하게 75s poll·Realtime INSERT 시 **전 surface** refresh — `/stores` 체류 중 `bottom_nav_chat` poll·hub badge dev trace 누적·main thread 경합 |
+| 측정/검증 명령 | `npx vitest run lib/notifications/__tests__/notification-unread-badge-store.test.ts`, `npx tsc --noEmit`; 브라우저: `/community-messenger` → `/stores` 3회 — `[polling-trace]` 에 `bottom_nav_chat` **0건** |
+| 수정 파일 | `lib/notifications/notification-unread-badge-store.ts`, `components/notifications/NotificationsBadgeRealtimeBridge.tsx`, `components/layout/providers/MessagingGlobalChrome.tsx`, `lib/chats/use-owner-hub-badge-total.ts` |
+| 이번 조치 | `reconcileTier1BellSurfacePolling(pathname)` — active surface 만 poll·fetch; INSERT refresh 는 active surface only; hub badge 탭 trace 키를 `icon` 별 분리·`hasOwnerStoreRef` 로 useSyncExternalStore getter 안정화 |
+| 검증 결과 | vitest 4/4 PASS · tsc PASS · 브라우저 Chrome 3회 + Edge 1회 PASS |
+
+### 라운드 BN9 — 브라우저 3회 측정 (2026-06-12)
+
+| 구간 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| `/stores` 체류 12s `bottom_nav_chat` poll/fetch | 0 | 0 | 0 | **0건** |
+| `/stores` 체류 12s `bottom_nav_delivery` fetch | 1 | 1 | 1 | delivery만 |
+| CM→`/stores` 전환 직후 chat poll | disarm only | disarm only | disarm only | 신규 chat poll 없음 |
+
+**브라우저 실측 근거 (BN9):** Playwright + Chrome 3회 · Edge 1회 · `/community-messenger` → `/stores` 후 `/stores` **12초 체류** — `bottom_nav_chat` poll/fetch **0건**; `bottom_nav_delivery` fetch **1건/회차** 유지; `[polling-trace]` chat `cleanup: true` · delivery `cleanup: false`.
+
+**판정:** **성공 · 브라우저 3회 PASS**
+
+---
+
+## 이번 라운드 (배민·셸: 라운드 BN10 — `/stores` 메신저 ambient prewarm quiet)
+
+| 항목 | 내용 |
+|------|------|
+| 마스터 순서 | **1** 셸 E축 quiet + **3** 배민 `/stores` |
+| 원인 1개 | 배달 허브 `/stores` 에서 chat 탭 hover/pointerdown 이 `prewarmBottomNavMessengerTab` → CM bootstrap 청크·`layout.css` preload·`cm-longtask` 경합 |
+| 측정/검증 | `vitest run lib/main-menu/__tests__/bottom-nav-tap-prewarm-data.test.ts` PASS · `tsc` PASS · 브라우저 Chrome 3회 + Edge 1회 |
+| 수정 파일 | `lib/main-menu/bottom-nav-tap-prewarm-data.ts`, `lib/main-menu/main-bottom-nav-route-commit.ts`, `components/layout/BottomNav.tsx` |
+| 이번 조치 | `shouldDeferMessengerPrewarmOnDeliverySurface` — delivery surface 에서 `pointer_intent`/`idle` 메신저 warm skip · `route_commit`/`boot` 만 허용 |
+| 검증 결과 | vitest 3/3 PASS · tsc PASS · 브라우저 Chrome 3회 + Edge 1회 PASS |
+
+### 라운드 BN10 — 브라우저 3회 측정 (2026-06-12)
+
+| 구간 | Run1 | Run2 | Run3 | Edge R1 | 목표 |
+|------|------|------|------|---------|------|
+| chat hover/pointerdown CM bootstrap | 0 | 0 | 0 | 0 | **0건** |
+| chat hover/pointerdown `layout.css` preload | 0 | 0 | 0 | 0 | **0건** |
+| chat hover/pointerdown `[cm-longtask]` | 0 | 0 | 0 | 0 | **0건** |
+| chat click → 메신저 URL (ms) | 374 | 86 | 85 | 369 | 정상 진입 |
+
+**브라우저 실측 근거 (BN10):** chat 탭 **hover/pointerdown만** — CM bootstrap · `layout.css` preload · `[cm-longtask]` **0건**; URL `/stores` 유지. chat **click(route commit)** 후 메신저 진입 정상 — Chrome **85~374ms** · Edge **369ms**; 클릭 후 CM warm/bootstrap 발생은 **의도된 route_commit prewarm**.
+
+**판정:** **성공 · 브라우저 3회 PASS**
+
+---
+
+## 라운드 BN11-A — CM 체류 중 delivery-fetch 원인 분석 (2026-06-12)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **성공 · 분석 완료** (코드 수정 없음) |
+| 원인 1개 | `/stores` browse 카드 **viewport ambient prewarm**(`deliveryStoreDetailPrewarmAll` → menus/summary) in-flight 가 chat 탭 전환 **후** 완료·`[delivery-fetch-trace]` 노출. CM Order chat enrich 직접 호출 **아님**. `[shell-fetch-trace] pathname: /stores` 는 logger stale 아님 — emit 시점 pathname 정확 |
+| 측정/검증 | Flow A `/stores`→chat vs Flow B 직접 CM — Playwright · `[delivery-fetch-trace]` · `/api/stores/*/menus\|summary` |
+| 판정 | **가설 1 확정** · 가설 2·3 기각 · BN9/BN10 회귀 아님 |
+
+---
+
+## 이번 라운드 (배민·셸: 라운드 BN11-B — `/stores` 이탈 시 ambient store prewarm abort)
+
+| 항목 | 내용 |
+|------|------|
+| 마스터 순서 | **1** 셸 E축 + **3** 배민 `/stores` |
+| 원인 1개 | BN11-A — `/stores` browse ambient prewarm(menus/summary) in-flight 가 CM 진입 후에도 네트워크·dev trace 잔여 |
+| 측정/검증 명령 | `npx vitest run lib/dibay/__tests__/delivery-store-detail-prewarm-lifecycle.test.ts lib/main-menu/__tests__/main-bottom-nav-route-commit.test.ts`, `npx tsc --noEmit`; 브라우저: `/stores` scroll→chat · 직접 CM — CM 체류 중 menus/summary **0건** |
+| 수정 파일 | `lib/dibay/delivery-store-detail-prewarm-lifecycle.ts`, `lib/stores/store-delivery-api-client.ts`, `lib/dibay/delivery-store-*-prewarm.ts`, `lib/dibay/use-delivery-store-detail-viewport-prefetch.ts`, `lib/dibay/delivery-waterfall-trace.ts`, `lib/main-menu/main-bottom-nav-route-commit.ts` |
+| 이번 조치 | `/stores` browse ambient prewarm 에 **AbortSignal** · `/stores`→non-stores **route commit** 시 in-flight menus/summary **abort** + single-flight 정리 · **viewport pathname 가드** · **`force: true` 상세 진입 prewarm 유지** · `[delivery-fetch-trace]` **pathname** 추가 |
+| 검증 결과 | vitest lifecycle 5/5 + route-commit abort 2건 **18/18 PASS** · `tsc` PASS · 브라우저 PASS |
+
+### 라운드 BN11-B — 브라우저 확인 (2026-06-12)
+
+| 구간 | 결과 | 목표 |
+|------|------|------|
+| `/stores` browse 체류 중 viewport prewarm | 정상 동작 | prewarm 유지 |
+| `/stores` scroll → chat 빠른 전환 · CM 체류 `[delivery-fetch-trace]` menus/summary | **0건** | **0건** |
+| `/stores` scroll → chat · CM 체류 `/api/stores/*/menus\|summary` network | **0건** | **0건** |
+| 직접 `/community-messenger?section=chats&from=delivery` menus/summary | **0건** | **0건** |
+| `/stores` → `/stores/[slug]` bottom-nav · ambient abort | **생략** (상세 prewarm 유지) | force 경로 보존 |
+| BN9/BN10 영향 | **없음** | poll·hover warm 변경 없음 |
+
+**요약:** `/stores` browse ambient prewarm AbortSignal · route commit 이탈 abort · `force:true` 상세 prewarm 유지 · 직접 CM·빠른 chat 전환 후 CM 체류 delivery-fetch 0건 · CM bootstrap/warm·Realtime 3종·bottom_nav poll **미변경**.
+
+**판정:** **성공 · 구현 완료 · 브라우저 확인 PASS**
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN12-A — participants bridge static/dynamic graph 분리)
+
+| 항목 | 내용 |
+|------|------|
+| 마스터 순서 | **1** 셸 E축 + **2** 메신저 unread/call 전역 |
+| 원인 1개 | `use-message-notification-bridge` 정적 import 가 room-bootstrap·forward-nav·call/banner store 를 root(`MainShellMessengerParticipantBridge`) 에 묶어 `/mypage`·`/stores` cold parse 부담 |
+| 측정/검증 명령 | `npx vitest run lib/community-messenger/notifications/__tests__/use-cm-participants-hub-sync.test.ts lib/community-messenger/notifications/__tests__/cm-participant-unread-full-effects.test.ts`, `npx tsc --noEmit`; Chrome Playwright — `/mypage`·`/stores`·`/philife`·`/community-messenger` |
+| 수정 파일 | `use-cm-participants-hub-sync.ts`, `cm-participant-unread-full-effects.ts`, `cm-participant-hub-sync-lazy.ts`, `cm-participant-notification-types.ts`, `GlobalCommunityMessengerUnreadSound.tsx`, `use-message-notification-bridge.ts`(re-export) |
+| 이번 조치 | static core: participants RT + badge optimistic + `cm.room.bump` + bus · dynamic full: sound/banner/desktop/nav · event-path lazy: `room-snapshot-cache`·`community-messenger-room-forward-navigation` · overlay/call recovery/bootstrap **미변경** |
+| 검증 결과 | vitest 4/4 PASS · tsc PASS · 브라우저 실측 PASS |
+
+### 라운드 BN12-A — 브라우저 실측 (2026-06-12)
+
+| route | CM bootstrap API | unread-sound RT | incoming-call RT | full-effects chunk cold |
+|-------|------------------|-----------------|------------------|-------------------------|
+| `/mypage` | **0** | SUBSCRIBED | SUBSCRIBED | **미로드** (hub_sync_only) |
+| `/stores` | **0** | SUBSCRIBED | SUBSCRIBED | **미로드** |
+| `/philife` | **0** | SUBSCRIBED | SUBSCRIBED | **미로드** |
+| `/community-messenger?section=chats&from=delivery` | critical **1** | SUBSCRIBED | SUBSCRIBED | CM graph 정상 |
+
+**요약:** bridge 2단 분리 · 비-CM bootstrap 0건 · Realtime 3종(unread-sound·incoming-call·notifications-rt 경로) 유지 · full effects chunk hub_sync_only cold 미로드 · CM 진입 bootstrap 정상 · BN9~BN11-B·overlay/call recovery **미변경**.
+
+**판정:** **성공 · 구현 완료 · 실측 PASS**
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN12-B1 — GlobalIncomingFriendRequestHost idle defer)
+
+| 항목 | 내용 |
+|------|------|
+| 마스터 순서 | **1** 셸 E축 + **2** 메신저 unread/call 전역 |
+| 원인 1개 | `GlobalIncomingFriendRequestHost` dynamic chunk 가 `/mypage`·`/philife` cold hydrate 직후 JSX tree inclusion 으로 early load |
+| 측정/검증 명령 | `npx vitest run lib/layout/__tests__/global-incoming-friend-request-host-mount-policy.test.ts`, `npx tsc --noEmit`; Chrome Playwright 3회(`/mypage`·`/philife`) + Edge 1회 — dedicated chunk URL·CFR RT·notifications-rt |
+| 수정 파일 | `global-incoming-friend-request-host-mount-policy.ts`, `MainAppProviderTree.tsx`(`GlobalIncomingFriendRequestHostMountGate`), mount-policy vitest |
+| 이번 조치 | `/mypage`·`/philife` 만 `requestIdleCallback`(timeout 5000ms) idle defer · `/community-messenger`·social surface·`/market` 즉시 mount · `/stores` storesHub layout gate **유지** · IncomingCallOverlay·RoomOpeningOverlayHost·bridge static core **미변경** |
+| 검증 결과 | vitest 2/2 PASS · tsc PASS · Chrome 3회 + Edge 1회 실측 PASS |
+
+### 라운드 BN12-B1 — 브라우저 실측 (2026-06-12)
+
+| route | cold FR dedicated chunk | idle FR chunk + CFR RT | notifications-rt |
+|-------|-------------------------|------------------------|------------------|
+| `/mypage` (Chrome ×3) | **미로드** | **로드** · `messenger:incoming-fr-cfr` SUBSCRIBED | SUBSCRIBED (FriendRequest gate 독립) |
+| `/philife` (Chrome ×3, Edge ×1) | **미로드** | **로드** · CFR SUBSCRIBED | SUBSCRIBED |
+| `/stores` | **미로드** (idle에도 FR chunk 없음) | host 미마운트 · CFR RT 없음 | SUBSCRIBED |
+| `/community-messenger` | defer 제외 | 즉시 mount 경로 · CFR SUBSCRIBED | SUBSCRIBED |
+| `/market` | defer 제외 | 즉시 mount · CFR SUBSCRIBED | SUBSCRIBED |
+
+**요약:** FriendRequest host `/mypage`·`/philife` idle defer · `/stores` 미마운트 유지 · notifications-rt·unread-sound·incoming-call Realtime 3종 유지 · IncomingCallOverlay·RoomOpeningOverlayHost chunk/RT **영향 없음** · BN9~BN12-A **미변경**.
+
+**판정:** **성공 · 구현 완료 · 브라우저 실측 PASS**
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN12-B2 — CommunityMessengerRoomOpeningOverlayHost PASS0 분석)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **분석 완료 · 구현 보류** |
+| 원인 1개 | `CommunityMessengerRoomOpeningOverlayHost` 는 **PASS0 방 진입 UX 계약**(`shell-after-route` 금지 · `data-cm-pre-route-shell` · `overlay_visible_ms` &lt;80ms)과 직결. `ConditionalAppShell` 무조건 lazy mount 로 chunk 는 shell hydrate 시 early load 되나, cold @800ms 에는 host chunk **미로드** 가능. host gate 시 `beginCmPreRouteRoomOpeningOverlay` 는 store 만 갱신하는데 overlay DOM 이 없고 `shouldSkipInRoutePass0ForPreRouteOverlay` 가 in-route PASS0 까지 skip 하는 **double-skip race** 가능. |
+| 측정/검증 | 코드 경로 분석 + Chrome Playwright chunk 타이밍(부분). **E2E 방 클릭 end-to-end PASS0 타임라인 미완** — headless bootstrap 401·채팅 0건. |
+| 구현 보류 이유 | RoomOpening gate/lazy 는 **성능보다 UX 계약 우선**. E2E seed + PASS0 타임라인 실측 전 **구현 금지**. |
+| 영향 범위 | IncomingCallOverlay · FriendRequestHost · Realtime 3종 · BN9~BN12-B1 **미변경** |
+
+### 라운드 BN12-B2 — 시나리오별 PASS0 (코드·부분 실측)
+
+| 시나리오 | `beginCmPreRouteRoomOpeningOverlay` | pre-route overlay | in-route PASS0 |
+|---------|----------------------------------|-----------------|----------------|
+| CM 리스트·home nav·unread full-effects forward nav | **YES** (`runCommunityMessengerRoomForwardNavigation`) | host warm 시 **YES** | **SKIP** (pre-route active 시) |
+| 배너·인박스·deeplink `router.push` | **NO** | **NO** | **YES** (in-route fallback) |
+| `/mypage`·`/stores` cold → 즉시 CM → 방 | forward nav **YES** | cold @800ms host **미로드** → **race** | skip 조건 충족 시 **double-skip** |
+
+### 라운드 BN12-B2 — host chunk cold load (Playwright, 2026-06-12)
+
+| surface | @800ms | 첫 chunk load (perf.startTime) |
+|---------|--------|----------------------------|
+| `/mypage` | **미로드** | ~1629ms |
+| `/stores` | **미로드** | ~1727ms |
+| `/community-messenger` | **미로드** | ~2688ms |
+
+**요약:** forward nav 경로는 PASS0 계약 필수 · cold fast tap 에서 host 미로드 window 존재 · unconditional gate 는 **HIGH risk** (double-skip).
+
+### 라운드 BN12-B2 — 구현 전 최소 조건 (기록만)
+
+1. **`shouldSkipInRoutePass0ForPreRouteOverlay` 조건 보강** — `shellVisibleAt` 또는 `overlayMounted` 확인 없이 skip **금지**.
+2. **host import 선행** — `beginCmPreRouteRoomOpeningOverlay` 시 dynamic import 또는 **pointerdown prefetch** (`MessengerChatListItem` — RoomClient 와 병행).
+3. **E2E 검증** — `tests/e2e/messenger-scenario-perf-capture.spec.ts` 확장: `[cm-pre-route-shell] overlay_visible_ms` · cold @800ms vs warm · mypage→CM fast tap.
+4. **환경** — `node scripts/apply-seed-and-trade-room.mjs` · `E2E_SNAPSHOT_DIAG_ROOM_ID` (→ BN12-C).
+
+**판정:** **분석 완료 · 구현 보류** — gate/lazy 후보는 **MEDIUM~HIGH risk**; BN12-C(E2E seed) 선행 권장.
+
+**다음 1순위:** **BN12-C 실측 실행** → JSON 확보 후 **BN12-B2 구현 판정** (또는 **BN13** IncomingCallOverlay HIGH risk 보류·타 후보).
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN12-C — PASS0 E2E probe 수정·실측 v3)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **측정·조사 완료** (최적화 구현 없음) |
+| 목표 | E2E probe 누락 수정 · PASS0 0건 계약 조사 · pathRoom→roomShell 병목 세분화 |
+| 원인 1개 | 구 probe가 `domFlags`만 읽고 live DOM·console·R2-M10 미수집 → `roomDomSeen=false`·PASS0 0건 오판 |
+| 측정/검증 명령 | `npm run test:e2e:messenger-pass0-timeline` (`harness: milestone_poll_v3`, dev 기동 필수) |
+| 수정 파일 | `tests/e2e/helpers/messenger-pass0-measurement-probe.ts`(신규), `messenger-pass0-timeline-capture.ts`, `messenger-pass0-timeline-capture.spec.ts`, 본 문서 |
+| 이번 조치 | rAF DOM scanner · 16ms wall-clock poll · `[cm-pre-route-shell]`·`[R2-M10-ROUTE]`·network·`getAppWidePhaseLastMs` · derived blank/interactive · **RoomOpening host 미변경** |
+| 영향 범위 | 제품 UX·Realtime·IncomingCall·FriendRequest **미변경** |
+
+### 라운드 BN12-C — 실측 요약 (2026-06-12, `milestone_poll_v3`)
+
+| 시나리오 | pathRoom | roomShell | blank | interactive | preRoute DOM | `[cm-pre-route-shell]` |
+|----------|----------|-----------|-------|-------------|--------------|------------------------|
+| S1 cold | 5207* | 5804 | 597 | 1653 | false | overlay_visible_ms **6** |
+| S2 mypage cold | 797 | 1408 | **611** | 641 | false | overlay_visible_ms **4** |
+| S3 warm | 856 | 1522 | **666** | 1020 | false | overlay_visible_ms **5** |
+| S4 direct | 351 | 2945 | **2594** | 2941 | false | 없음(forward nav 없음) |
+
+\*S1 pathRoom 5.2s — 첫 시나리오 cold RSC outlier; S2/S3가 forward nav 대표값.
+
+**S2 `getAppWidePhaseLastMs` 분해 (pathRoom→roomShell 611ms):** `route_module_request` **774ms** · `client_chunk_request` **351ms**(771→1122) · `r2m11_suspense_fallback_visible` **1084ms** · `page_mount_start` **1141ms** → `data-cm-room` **1408ms** (shell paint **~267ms**).
+
+**PASS0 overlay 계약 조사:** forward nav에서 `[cm-pre-route-shell]` **4–6ms** 기록됨(DOM poll 0건). `CommunityMessengerRoomOpeningOverlayHost` `useEffect`: pathname 미커밋 시 `phase=overlay` → **`reset()`** race로 overlay 수명이 sub-frame·handoff(180ms) 이내. `route_transition_started_ms`/`route_mounted_ms` null — overlay가 route mount 전 소거. **BN12-B2 gate/lazy 보류 유지** (600ms blank 커버 불가).
+
+**pathRoom→roomShell 병목 TOP3 (S2/S3 수치):**
+1. Room **RSC document + client chunk** (~777ms + ~351ms)
+2. **Suspense fallback** 구간 (~1084ms 노출, release ~1385ms)
+3. **page mount → shell 첫 paint** (~1141→1408ms, **~267ms**)
+
+**판정:** 병목은 RoomOpening host **이전이 아님** — room route RSC/hydration/Phase2/deferred body. **다음 구현:** BN13-room-entry (측정 확정 후 별도 라운드).
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN13-room-entry 1차 — shell 선행 paint)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **1차 구현 완료** (RSC 대수술 없음) |
+| 목표 | S2/S3 forward nav pathRoom→roomShell blank **611–666ms** 축소 |
+| 조치 | segment `loading.tsx`·dynamic import fallback에 **RouteEntryShell** · Pass0 skip 시 **Pass1StableShell** · Phase1 **shell-first-pass** 경량·realtime seed 지연 |
+| 금지 준수 | RoomOpening host · Realtime 동작 · IncomingCall/FriendRequest · i18n/UI · 메시지 로직 **미변경** |
+
+### BN13 — PASS0 v3 전/후 (2026-06-12)
+
+| 시나리오 | blank before→after | roomShell before→after | interactive before→after |
+|----------|-------------------|------------------------|--------------------------|
+| S2 forward | **611→301ms (−310)** | 1408→1022ms | 641→1061ms |
+| S3 warm | **666→301ms (−365)** | 1522→1211ms | 1020→1048ms |
+| S1 cold | 597→550ms | 5804→2733ms* | 1653→857ms |
+| S4 direct | 2594→2387ms (별도 트랙) | 2945→2834ms | 2941→2720ms |
+
+\*S1 pathRoom·tap 컨텍스트 차이 — forward nav 대표는 S2/S3.
+
+**shell-first-pass 지연:** live realtime merge · `seedMessengerRealtimeFromRoomSnapshot` · focused room/unread · members display merge · (기존 trade light pass) message normalize/invite memos.
+
+**판정:** forward nav **blank ~50% 개선** 달성. 잔여 **~301ms**·S4 direct는 **BN13-room-rsc** 후보.
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN13-room-rsc 2차 — prefetch·shell·RSC 분해)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **2차 완료** (RSC payload 대수술 없음) |
+| 조치 | IO·hover route prefetch · PageClientEntry shell 백드롭+chunk preload · E2E v4 RSC/chunk/r2m11d 분해 |
+| RSC blocking 조사 | `rooms/[roomId]/page.tsx` **동기 wall만** — room DB/auth/metadata **없음** · `(main)/layout` bottom nav·menu만 await |
+
+### BN13-room-rsc — PASS0 v4 (2026-06-12)
+
+| 시나리오 | blank (1차→2차) | routeEntryShellBlank | pathRoom | route module | client chunk |
+|----------|-----------------|----------------------|----------|--------------|--------------|
+| S2 forward | 301→**288ms** | 288ms | 1062ms | ~1010ms | ~267ms |
+| S3 warm | 301→308ms | 308ms | 1246ms | ~1214ms | ~361ms |
+| S4 direct | 2387→2677ms* | **2677ms** | 495ms | ~1214ms | ~361ms |
+
+\*S4 — `r2m11d` prefetch **0건**(direct goto); 병목은 pathRoom(495ms) 이후 **page client entry hydrate→RouteEntryShell(3172ms)** 구간.
+
+`harness: milestone_poll_v4` · `routeEntryShellBlankMs` · `resourceTimingMs` · `r2m11dPrefetchSession`
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN13-room-rsc 3차 — shell 단일화·entry 경량화)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **3차 완료** |
+| 조치 | `StableEntryShell` 단일화 · PageClientEntry minimal+Deferred chunk · Phase2 중복 shell 생략 · Phase2 dynamic · Pass1Composer lazy |
+| shell paint 전 지연 | BootstrapGate·probe·preload → `PageClientEntryDeferred` dynamic chunk; `CommunityMessengerRoomClientPhase2` Inner dynamic; `Pass1ComposerShell` entry variant 미로드 |
+
+### BN13-room-rsc — PASS0 v4 (3차 실측 2026-06-12)
+
+| 시나리오 | blank (2차→3차) | routeEntry=pass1 (동시 paint) | pathRoom | 비고 |
+|----------|-----------------|-------------------------------|----------|------|
+| S1 cold | —→**0ms** | 동시 | 2494 | segment shell 선행 |
+| S2 forward | 288→397ms* | **1237=1237** | 840 | *run 분산 |
+| S3 warm | 308→**284ms** | **1456=1456** | 1172 | 단일 shell |
+| S4 direct | 2677→2404ms | **2836=2836** | 432 | cold chunk ~2632ms, prefetch 0건 |
+
+**판정:** S3 blank **−24ms** · routeEntry/pass1 **동시 마일스톤** 달성. S4 ~−270ms(측정만·전역 preload 없음). S2 run 분산 — 구조 개선은 segment shell 선행 paint(S1 blank 0)로 확인.
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN13-room-rsc 4차 — segment shell persistence)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **4차 완료** |
+| 조치 | `rooms/[roomId]/layout` persistence host · loading shell 제거 · PageClientEntry sync 3종 · CM 한정 `preloadCommunityMessengerRoomRouteEntryChunks` |
+| 전역 preload | **미적용** — `(main)/community-messenger/layout` 기존 prefetch 확장 + list `armMessengerRoomRoutePrefetch` 만 |
+
+### BN13-room-rsc — PASS0 v4 (4차 실측 2회 2026-06-12)
+
+| 시나리오 | blank run1 | blank run2 | 중앙값 | 최악 |
+|----------|------------|------------|--------|------|
+| S2 forward | 600 | **297** | ~449* | 600 |
+| S3 warm | 304 | 309 | **307** | 309 |
+| S4 direct | 2403 | 2463 | ~2433 | 2463 |
+
+\*S2 run1 layout chunk cold outlier — run2 **297ms**(3차 397ms 대비 개선).
+
+**S4:** prefetch 0건 유지 · blank ~2.4s · `roomClientChunk` cold — 원인 동일.
+
+---
+
+## 이번 라운드 (셸·메신저: 라운드 BN13-room-rsc 5차 — CM 한정 chunk warm)
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 상태 | **5차 완료** |
+| 조치 | `cm-room-route-chunk-warm` · `cm_hub_visible`+`cm_layout_idle` 선행 · list IO/pointerenter 세션 merge · E2E `r2m13RouteChunkWarm` |
+| 전역 preload | **미적용** — `community-messenger/layout` + list prefetch 만 |
+
+### BN13-room-rsc — PASS0 v4 (5차 실측 2회 2026-06-12)
+
+| 시나리오 | blank run1* | blank run2 | 중앙값 | 최악 |
+|----------|-------------|------------|--------|------|
+| S2 forward | 287 | 306 | **297** | 306 |
+| S3 warm | — | 303 | **303** | 303 |
+| S4 direct | 7748† | 2702 | ~2702 | 7748† |
+
+\*run1 S1/S3 flaky navigation 제외. †S4 outlier = E2E 세션 오염·dev cold.
+
+**S2 cold outlier:** 4차 run1 **600ms** → 5차 **306ms 최악**(run2) · run1 **287ms**.
+
+**r2m13 sources (S2 run2):** `cm_layout_idle` → `cm_hub_visible` → `list_io` → `pointerenter` → `pointerdown`.
+
+---
+
+## BN13 마감 (2026-06-12) — room-entry + room-rsc 1~5차
+
+| 항목 | 내용 |
+|------|------|
+| 상태 | **종료** — forward nav blank 목표 달성 |
+| E2E harness | `milestone_poll_v5` — 시나리오별 r2m11d/r2m13 reset · `waitForURL` · `r2m13RouteChunkWarmAtTap` |
+| 검증 | E2E **3/3 PASS** (v5) · vitest 11/11 · tsc PASS |
+
+### PASS0 v5 마감 실측 (3회 blank ms)
+
+| 시나리오 | run1 | run2 | run3 | **중앙값** | **최악** | BN13 1차 전 |
+|----------|------|------|------|-----------|---------|-------------|
+| S1 forward | 300 | 313 | 309 | **309** | 313 | ~611 |
+| S2 forward | 302 | 307 | 303 | **303** | 307 | ~666 |
+| S3 warm | 309 | 414* | 318 | **318** | 414 | ~666 |
+| S4 direct | 2266 | 2358 | 2537 | **2358** | 2537 | ~2387 |
+
+\*S3 run2 dev 분산 outlier — harness/회귀 아님(v5 3회 중 1회).
+
+**판정**
+- S1/S2/S3 forward nav blank **~300ms band 확정** (1차 대비 **~50%↓**).
+- S2 cold outlier(4차 600ms) → v5 최악 **307ms**.
+- S4 **BN14-direct-room-cold** 별도 트랙 — r2m11d prefetch 0건 · blank ~2.3–2.5s · page client cold hydrate.
+
+**r2m13 오염 (v5)**
+- 시나리오 간 reset 후 S4 `r2m13RouteChunkWarmAtTap: null` — **오염 없음**.
+- S4 종료 시 sources `cm_layout_idle` 만(room segment 진입) — S1~S3 list source **누적 없음**.
+
+**run3 flaky (구 harness) 원인**
+- **harness** — 시나리오 간 session 미reset · navigation `waitForURL` 없음 → S1 pathname 잔류·chrome-error.
+- **회귀 아님** — v5 보강 후 3회 연속 PASS.
+

@@ -1,97 +1,49 @@
 "use client";
 
-
-
+import dynamic from "next/dynamic";
+import { useLayoutEffect } from "react";
 import { notFound, useParams } from "next/navigation";
+import { noteBn14DirectColdMark } from "@/lib/community-messenger/room/cm-room-bn14-direct-cold-probe";
+import { runCmRoomLayoutShellClientBridge } from "@/lib/community-messenger/room/cm-room-layout-shell-client-bridge";
+import { MessengerRoomBn14DirectColdDomProbe } from "@/components/community-messenger/room/MessengerRoomBn14DirectColdDomProbe";
 
-import { CommunityMessengerRoomBootstrapGate } from "@/components/community-messenger/room/CommunityMessengerRoomBootstrapGate";
-
-import { MessengerRoomE2eSnapshotDiagTradeOverlay } from "@/components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay";
-
-import { MessengerRoomPageClientEntryProbe } from "@/components/community-messenger/room/MessengerRoomPageClientEntryProbe";
-
-import { MessengerRoomR2M9SuspenseProbe } from "@/components/community-messenger/room/MessengerRoomR2M9SuspenseProbe";
-import { MessengerRoomR2M11BFlightProbe } from "@/components/community-messenger/room/MessengerRoomR2M11BFlightProbe";
-import { MessengerRoomR2M11DPrefetchFlightProbe } from "@/components/community-messenger/room/MessengerRoomR2M11DPrefetchFlightProbe";
-
-import { MessengerRoomRouteEntryMountProbe } from "@/components/community-messenger/room/MessengerRoomRouteEntryMountProbe";
-
-import {
-
-  isMessengerRoomE2eDiagEnabledClient,
-
-  peekMessengerRoomViewerUserIdClient,
-
-} from "@/lib/community-messenger/room/peek-messenger-room-viewer-user-id-client";
-
-
-
-/**
-
- * R2-M10B — room route shell 은 client-first.
-
- * R2-M11 — `useSearchParams` 제거(phase1 이 URLSearchParams 동치 읽기). page Suspense 없음.
-
- */
-
-export function CommunityMessengerRoomPageClientEntry() {
-
-  const params = useParams();
-
-  const rid = String(params?.roomId ?? "").trim();
-
-  if (!rid) {
-
-    notFound();
-
-  }
-
-
-
-  const viewerUserId = peekMessengerRoomViewerUserIdClient();
-
-  const e2eRoomTrace = isMessengerRoomE2eDiagEnabledClient();
-
-
-
-  return (
-
-    <>
-
-      {e2eRoomTrace ? (
-
-        <script
-
-          type="application/json"
-
-          id="samarket-room-snapshot-diag"
-
-          suppressHydrationWarning
-
-          dangerouslySetInnerHTML={{ __html: "{}" }}
-
-        />
-
-      ) : null}
-
-      {e2eRoomTrace ? <MessengerRoomE2eSnapshotDiagTradeOverlay canonicalRoomId={rid} /> : null}
-
-      <MessengerRoomR2M11BFlightProbe />
-      <MessengerRoomR2M11DPrefetchFlightProbe />
-      <MessengerRoomR2M9SuspenseProbe roomId={rid} />
-
-      <MessengerRoomPageClientEntryProbe />
-
-      <MessengerRoomRouteEntryMountProbe stage="page" />
-
-      <CommunityMessengerRoomBootstrapGate
-        roomId={rid}
-        initialViewerUserId={viewerUserId ?? undefined}
-      />
-
-    </>
-
-  );
-
+if (typeof window !== "undefined") {
+  noteBn14DirectColdMark("page_client_entry_module_eval");
 }
 
+const CommunityMessengerRoomPageClientEntryDeferred = dynamic(
+  () => {
+    noteBn14DirectColdMark("deferred_chunk_import_start");
+    return import("@/components/community-messenger/room/CommunityMessengerRoomPageClientEntryDeferred").then(
+      (m) => {
+        noteBn14DirectColdMark("deferred_chunk_import_done");
+        return m.CommunityMessengerRoomPageClientEntryDeferred;
+      }
+    );
+  },
+  { ssr: false, loading: () => null }
+);
+
+/**
+ * R2-M10B — room route shell 은 `[roomId]/layout` persistence host 가 담당.
+ * BN13-rsc 4차 — sync import 최소(deferred chunk 만).
+ */
+export function CommunityMessengerRoomPageClientEntry() {
+  const rid = String(useParams()?.roomId ?? "").trim();
+
+  useLayoutEffect(() => {
+    noteBn14DirectColdMark("page_client_entry_mount");
+    if (rid) runCmRoomLayoutShellClientBridge(rid);
+  }, [rid]);
+
+  if (!rid) {
+    notFound();
+  }
+
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <MessengerRoomBn14DirectColdDomProbe />
+      <CommunityMessengerRoomPageClientEntryDeferred roomId={rid} />
+    </div>
+  );
+}

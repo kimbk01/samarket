@@ -7,6 +7,10 @@
 
 import { fetchStoreSummaryDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
+  resolveStoresBrowseAmbientPrewarmSignal,
+  shouldStartStoresBrowseAmbientPrewarm,
+} from "@/lib/dibay/delivery-store-detail-prewarm-lifecycle";
+import {
   deliveryPerfTraceEnabled,
   deliveryPerfTraceLog,
   DELIVERY_PERF_TAG_SUMMARY_PREWARM_COMPLETE,
@@ -47,6 +51,7 @@ export function deliveryStoreSummaryPrewarmArmFromSlowReadyRoute(): void {
 
 export function deliveryStoreSummaryPrewarmMaybe(slug: string, source: string): void {
   if (!deliveryStoreSummaryPrewarmIsArmed()) return;
+  if (!shouldStartStoresBrowseAmbientPrewarm()) return;
   const s = slug.trim();
   if (!s) return;
   const now = Date.now();
@@ -67,7 +72,7 @@ export function deliveryStoreSummaryPrewarmMaybe(slug: string, source: string): 
     });
   }
 
-  void fetchStoreSummaryDeduped(s)
+  void fetchStoreSummaryDeduped(s, { signal: resolveStoresBrowseAmbientPrewarmSignal() })
     .then(() => {
       const durationMs = Math.max(0, Date.now() - started);
       if (deliveryPerfTraceEnabled()) {

@@ -13,9 +13,26 @@ import { logFetchTrace, logPollingTrace } from "@/lib/dibay/network-fetch-storm-
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 
 import {
+  resolveTier1BellSurfaceFromPathname,
   resolveTier1BellUnreadFetchUrl,
   type Tier1BellBadgeSurface,
 } from "@/lib/notifications/resolve-tier1-bell-surface";
+
+/** pathname 기준 Tier1 종 surface — 비활성 surface 75s poll 금지 (배민·카톡 셸 경합 축소) */
+let pathnameActiveBellSurface: Tier1BellBadgeSurface | null = null;
+
+type NotificationUnreadPollingSurface = Tier1BellBadgeSurface | "bottom_nav_legacy";
+
+function isBottomNavLegacyPollingActive(): boolean {
+  return pathnameActiveBellSurface === "bottom_nav_my";
+}
+
+function isPollingActiveForSurface(surface: NotificationUnreadPollingSurface | null): boolean {
+  if (surface == null) return true;
+  if (pathnameActiveBellSurface == null) return true;
+  if (surface === "bottom_nav_legacy") return isBottomNavLegacyPollingActive();
+  return surface === pathnameActiveBellSurface;
+}
 
 /** Realtime UPDATE burst(읽음 일괄 등) — trailing 1회만 unread fetch */
 const NOTIFICATION_EVENT_FETCH_COALESCE_MS = 1_200;
@@ -26,7 +43,10 @@ const NOTIFICATION_VISIBILITY_FETCH_COALESCE_MS = 900;
 /** cold boot — visibility/pageshow/KASAMA force refresh 겹침 억제 */
 export const NOTIFICATION_BOOT_SUPPRESS_MS = 3_000;
 
-function createNotificationUnreadBadgeStore(fetchUrl: string) {
+function createNotificationUnreadBadgeStore(
+  fetchUrl: string,
+  pollingSurface: NotificationUnreadPollingSurface | null = null
+) {
   let snap: number | null = null;
   const listeners = new Set<() => void>();
 
@@ -43,6 +63,25 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   /** Strict Mode remount 시 pendingStopTimer 취소만 되고 removeEventListener 가 실행되지 않아 리스너·interval 이 중복 쌓이는 것 방지 */
   let listenersArmed = false;
   let unauthorizedPaused = false;
+
+  function isPollingActive(): boolean {
+    return isPollingActiveForSurface(pollingSurface);
+  }
+
+  function syncPollingSurfacePolicy(): void {
+    if (!isPollingActive()) {
+      disarmPoll();
+      return;
+    }
+    if (
+      subscriberCount > 0 &&
+      listenersArmed &&
+      (typeof document === "undefined" || document.visibilityState === "visible") &&
+      !unauthorizedPaused
+    ) {
+      armPoll();
+    }
+  }
 
   const coalescedEventFetch = createTrailingCoalescedCallback(
     () => void doFetch(false),
@@ -86,6 +125,16 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
 
   function doFetch(force = false): Promise<void> {
     if (!force && unauthorizedPaused) {
+      return Promise.resolve();
+    }
+    if (!force && !isPollingActive()) {
+      logNetworkLoopGuardBlocked({
+        endpoint: fetchUrl,
+        caller: "notification-unread-badge-store",
+        reason: "inactive_bell_surface",
+        ttl_hit: true,
+        interval_id: pollInterval,
+      });
       return Promise.resolve();
     }
     const now = Date.now();
@@ -185,6 +234,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
 
   function armPoll() {
     if (isDevSafeMode()) return;
+    if (!isPollingActive()) return;
     if (pollInterval != null) return;
     if (unauthorizedPaused) return;
     const createdAt = Date.now();
@@ -237,6 +287,10 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   }
 
   function scheduleBootFetch(): void {
+    if (!isPollingActive()) {
+      syncPollingSurfacePolicy();
+      return;
+    }
     if (bootInitialFetchScheduled) {
       if (snap == null) void doFetch(false);
       return;
@@ -291,6 +345,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
     getServerSnapshot: () => null as number | null,
     reconcile,
     refresh,
+    syncPollingSurfacePolicy,
     pauseAndClear() {
       setSnap(null);
       unauthorizedPaused = false;
@@ -303,7 +358,16 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   };
 }
 
-const surfaceBadgeStores = new Map<string, ReturnType<typeof createNotificationUnreadBadgeStore>>();
+const surfaceBadgeStores = new Map<
+  string,
+  ReturnType<typeof createNotificationUnreadBadgeStore>
+>();
+
+const registeredBadgeStores = new Set<ReturnType<typeof createNotificationUnreadBadgeStore>>();
+
+function registerBadgeStore(store: ReturnType<typeof createNotificationUnreadBadgeStore>): void {
+  registeredBadgeStores.add(store);
+}
 
 function surfaceStoreKey(surface: Tier1BellBadgeSurface, storeId?: string | null): string {
   const sid = storeId?.trim() || "";
@@ -318,8 +382,9 @@ export function getSurfaceNotificationUnreadStore(
   const key = surfaceStoreKey(surface, storeId);
   let store = surfaceBadgeStores.get(key);
   if (!store) {
-    store = createNotificationUnreadBadgeStore(resolveTier1BellUnreadFetchUrl(surface, storeId));
+    store = createNotificationUnreadBadgeStore(resolveTier1BellUnreadFetchUrl(surface, storeId), surface);
     surfaceBadgeStores.set(key, store);
+    registerBadgeStore(store);
   }
   return store;
 }
@@ -328,22 +393,59 @@ export function getSurfaceNotificationUnreadStore(
 export const myGeneralNotificationUnreadStore = getSurfaceNotificationUnreadStore("tier1_inbox_bell");
 
 /** 하단 네비 「내정보」탭 — 구매자 매장주문(배송 중 등) 알림 미읽음은 제외 */
-export const myBottomNavNotificationUnreadStore = createNotificationUnreadBadgeStore(
-  "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_buyer_store_commerce=1&exclude_chat_message=1"
-);
+export const myBottomNavNotificationUnreadStore = (() => {
+  const store = createNotificationUnreadBadgeStore(
+    "/api/me/notifications?unread_count_only=1&exclude_owner_store_commerce=1&exclude_buyer_store_commerce=1&exclude_chat_message=1",
+    "bottom_nav_legacy"
+  );
+  registerBadgeStore(store);
+  return store;
+})();
 
-/** 매장 사업자 전용 매장주문 인백스 — owner_commerce_inbox surface (storeId 없음 = 전체) */
+/**
+ * pathname → Tier1 종 surface 단일 poll·refresh (배민 `/stores` 에서 `bottom_nav_chat` poll 차단).
+ * `MessagingGlobalChrome` 등 셸에서 pathname 변경마다 1회 호출.
+ */
+export function reconcileTier1BellSurfacePolling(pathname: string | null | undefined): void {
+  pathnameActiveBellSurface = resolveTier1BellSurfaceFromPathname(pathname);
+  for (const store of registeredBadgeStores) {
+    store.syncPollingSurfacePolicy();
+  }
+}
+
+/** Realtime INSERT 등 — **현재 pathname surface** + 하단탭 legacy(해당 시)만 갱신 */
+export function refreshActiveSurfaceNotificationUnreadStores(
+  pathname: string | null | undefined,
+  force = false
+): void {
+  if (typeof window === "undefined") return;
+  const surface = resolveTier1BellSurfaceFromPathname(pathname);
+  void getSurfaceNotificationUnreadStore(surface).refresh(force);
+  if (surface === "bottom_nav_my") {
+    void myBottomNavNotificationUnreadStore.refresh(force);
+  }
+}
+
+/** @deprecated Realtime bridge — pathname 기준 active surface 만 refresh */
+export function refreshAllSurfaceNotificationUnreadStores(force = false): void {
+  if (typeof window === "undefined") return;
+  refreshActiveSurfaceNotificationUnreadStores(window.location.pathname, force);
+}
+
+/** 매장 사업자 전용 매장주문 인박스 — owner_commerce_inbox surface (storeId 없음 = 전체) */
 export const ownerCommerceNotificationUnreadStore = getSurfaceNotificationUnreadStore(
   "owner_commerce_inbox"
 );
 
-/** Realtime INSERT 등 — 마운트된 surface store + 하단탭 legacy store 일괄 갱신 */
-export function refreshAllSurfaceNotificationUnreadStores(force = false): void {
-  if (typeof window === "undefined") return;
-  void myBottomNavNotificationUnreadStore.refresh(force);
-  for (const store of surfaceBadgeStores.values()) {
-    void store.refresh(force);
-  }
+/** vitest — pathname·surface poll 허용 여부 (전역 reconcile 부작용 없음) */
+export function notificationUnreadPollingActiveForPath(
+  pathname: string | null | undefined,
+  surface: NotificationUnreadPollingSurface | null
+): boolean {
+  const active = resolveTier1BellSurfaceFromPathname(pathname);
+  if (surface == null) return true;
+  if (surface === "bottom_nav_legacy") return active === "bottom_nav_my";
+  return surface === active;
 }
 
 /** 로그아웃·계정 전환 — unread badge 폴링·캐시 초기화 */

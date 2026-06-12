@@ -7,7 +7,7 @@
 import { readR2M11BPhasesSnapshot } from "@/lib/community-messenger/room/cm-room-r2-m11b-breakdown";
 import { samarketRuntimeDebugEnabled, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 
-export type R2M11DPrefetchSource = "pointerdown" | "intersection" | "post_push" | "chunk_import";
+export type R2M11DPrefetchSource = "pointerdown" | "intersection" | "pointerenter" | "post_push" | "chunk_import";
 
 type RoomPrefetchSession = {
   roomId: string;
@@ -131,6 +131,17 @@ export function noteR2M11DRoomPrefetchStart(
   const at = perfNow();
   inflightPrefetchStart = at;
   const prior = visitCount(id);
+  const existing = readSession(id);
+  if (existing) {
+    if (!existing.sources.includes(source)) {
+      existing.sources.push(source);
+    }
+    if (existing.prefetch_start_ms <= 0 || at < existing.prefetch_start_ms) {
+      existing.prefetch_start_ms = at;
+    }
+    writeSession(existing);
+    return;
+  }
   const session: RoomPrefetchSession = {
     roomId: id,
     href: h,

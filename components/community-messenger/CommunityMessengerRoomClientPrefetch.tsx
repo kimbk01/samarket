@@ -1,12 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
+import { warmCommunityMessengerRoomRouteChunks } from "@/lib/community-messenger/room/cm-room-route-chunk-warm";
 import { scheduleWhenBrowserIdle, cancelScheduledWhenBrowserIdle } from "@/lib/ui/network-policy";
 
-/** 방 클라이언트 동적 청크 — 목록·탭 탭 직전에도 호출 가능 */
+/** @deprecated — use warmCommunityMessengerRoomRouteChunks */
 export function preloadCommunityMessengerRoomClientChunk(): void {
-  if (typeof window === "undefined") return;
-  void import("@/components/community-messenger/CommunityMessengerRoomClient");
+  warmCommunityMessengerRoomRouteChunks("cm_layout_idle", { layoutOnly: false });
+}
+
+/** room page client entry + inner + layout — CM 세그먼트 한정 warm (앱 셸 전역 아님) */
+export function preloadCommunityMessengerRoomRouteEntryChunks(): void {
+  warmCommunityMessengerRoomRouteChunks("cm_layout_idle");
 }
 
 /**
@@ -16,9 +21,12 @@ export function preloadCommunityMessengerRoomClientChunk(): void {
 export function CommunityMessengerRoomClientPrefetch() {
   useEffect(() => {
     if (typeof window === "undefined") return;
+    queueMicrotask(() => {
+      warmCommunityMessengerRoomRouteChunks("cm_layout_idle", { layoutOnly: true });
+    });
     const idleId = scheduleWhenBrowserIdle(() => {
-      preloadCommunityMessengerRoomClientChunk();
-    }, 120);
+      warmCommunityMessengerRoomRouteChunks("cm_layout_idle");
+    }, 50);
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, []);
   return null;

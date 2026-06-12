@@ -13,7 +13,17 @@ vi.mock("@/lib/navigation/main-shell-push-session", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/dibay/delivery-store-detail-prewarm-lifecycle", () => ({
+  abortStoresBrowseAmbientPrewarm: vi.fn(),
+  isStoresBrowseHubPath: (path: string | null | undefined) => (path ?? "").replace(/\/+$/, "") === "/stores",
+  isStoresSurfacePath: (path: string | null | undefined) => {
+    const p = (path ?? "").replace(/\/+$/, "") || "/";
+    return p === "/stores" || p.startsWith("/stores/");
+  },
+}));
+
 import { armMainShellPushEnterSession } from "@/lib/navigation/main-shell-push-session";
+import { abortStoresBrowseAmbientPrewarm } from "@/lib/dibay/delivery-store-detail-prewarm-lifecycle";
 
 describe("shouldMainBottomNavRouteScrollOnly", () => {
   it("메신저 delivery-chats → 인박스 홈 — scroll_only 아님(이동)", () => {
@@ -194,6 +204,40 @@ describe("commitMainBottomNavRoute", () => {
       "bottom-nav",
       expect.objectContaining({ mainShellCrossGroupPush: true, mainShellPushAxis: "rtl" })
     );
+  });
+
+  it("/stores → community-messenger — ambient store detail prewarm abort", () => {
+    vi.mocked(abortStoresBrowseAmbientPrewarm).mockClear();
+    commitMainBottomNavRoute({
+      pathname: "/stores",
+      currentSearch: "",
+      href: "/community-messenger?section=chats&from=delivery",
+      tabId: "delivery-order-chat",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace: vi.fn(),
+      skipPerfMark: true,
+    });
+    expect(abortStoresBrowseAmbientPrewarm).toHaveBeenCalledWith("bottom_nav_route_commit");
+  });
+
+  it("/stores → /stores/aa11 — ambient prewarm abort 생략", () => {
+    vi.mocked(abortStoresBrowseAmbientPrewarm).mockClear();
+    commitMainBottomNavRoute({
+      pathname: "/stores",
+      currentSearch: "",
+      href: "/stores/aa11",
+      tabId: "stores",
+      beginMenuNavigation: vi.fn(),
+      onNavigationIntent: vi.fn(),
+      guardBeforeNavigate: () => true,
+      push: vi.fn(),
+      replace: vi.fn(),
+      skipPerfMark: true,
+    });
+    expect(abortStoresBrowseAmbientPrewarm).not.toHaveBeenCalled();
   });
 });
 

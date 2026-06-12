@@ -1278,7 +1278,7 @@ export function BottomNav({
           if (commitOpts.onPrewarm) {
             commitOpts.onPrewarm();
           } else {
-            prewarmBottomNavTapTargetClientCache(commitOpts.href);
+            prewarmBottomNavTapTargetClientCache(commitOpts.href, { source: "route_commit" });
           }
         } catch {
           /* noop */

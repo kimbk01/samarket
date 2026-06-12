@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/StoreCommerceCartRuntimeBoundary";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -39,6 +39,10 @@ import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissio
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
+import {
+  GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
+  shouldIdleDeferGlobalIncomingFriendRequestHost,
+} from "@/lib/layout/global-incoming-friend-request-host-mount-policy";
 
 const GlobalIncomingFriendRequestHost = dynamic(
   () =>
@@ -72,6 +76,36 @@ const TradeChatEntryCreatingOverlayLazy = dynamic(
 );
 
 const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
+
+/**
+ * BN12-B1 — `/mypage`·`/philife` cold 에만 FriendRequest host chunk idle defer.
+ * notifications-rt(`MessagingGlobalChrome`)·stores hub layout gate 는 변경하지 않는다.
+ */
+function GlobalIncomingFriendRequestHostMountGate({ storesHubLite }: { storesHubLite: boolean }) {
+  const pathname = usePathname();
+  const idleDeferPath = !storesHubLite && shouldIdleDeferGlobalIncomingFriendRequestHost(pathname);
+  const [mountHost, setMountHost] = useState(() => !idleDeferPath);
+
+  useEffect(() => {
+    if (storesHubLite) return;
+    if (!shouldIdleDeferGlobalIncomingFriendRequestHost(pathname)) {
+      setMountHost(true);
+      return;
+    }
+    if (mountHost) return;
+    if (typeof requestIdleCallback === "function") {
+      const id = requestIdleCallback(() => setMountHost(true), {
+        timeout: GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
+      });
+      return () => cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(() => setMountHost(true), 0);
+    return () => window.clearTimeout(t);
+  }, [pathname, storesHubLite, mountHost]);
+
+  if (storesHubLite || !mountHost) return null;
+  return <GlobalIncomingFriendRequestHost enabled />;
+}
 
 function AppWideRuntimePerfHooks() {
   const bootstrapRafRef = useRef<{ a: number; b: number }>({ a: 0, b: 0 });
@@ -191,7 +225,7 @@ export function MainAppProviderTree({
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <IncomingCallOverlayChunkBoundary>
-                {!storesHubLite ? <GlobalIncomingFriendRequestHost enabled /> : null}
+                <GlobalIncomingFriendRequestHostMountGate storesHubLite={storesHubLite} />
               </IncomingCallOverlayChunkBoundary>
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>

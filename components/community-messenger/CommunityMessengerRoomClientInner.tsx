@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useEffect, useLayoutEffect, useMemo } from "react";
 import {
@@ -18,8 +19,15 @@ import { MessengerRoomClientPhase1Context } from "@/lib/community-messenger/room
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
 import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { MessengerRoomPhase1TimelineHeavyHost } from "@/components/community-messenger/room/MessengerRoomPhase1TimelineHeavyHost";
+
+const CommunityMessengerRoomClientPhase2 = dynamic(
+  () =>
+    import("@/components/community-messenger/room/CommunityMessengerRoomPhase2").then(
+      (m) => m.CommunityMessengerRoomClientPhase2
+    ),
+  { ssr: false, loading: () => null }
+);
 import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { noteR2M9Stage } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
 import { noteTradeChatRoomInnerChunkEval } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
@@ -38,6 +46,7 @@ import {
 import { tryEmitR2M11CAfterM11BPhase } from "@/lib/community-messenger/room/cm-room-r2-m11c-breakdown";
 import { shouldRunMessengerListRoutePrefetch } from "@/lib/runtime/next-js-dev-client";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
+import { beginCmRoomEntryShellFirstPass } from "@/lib/community-messenger/room/cm-room-entry-shell-first-pass";
 
 let communityMessengerListRoutesPrefetched = false;
 
@@ -55,9 +64,12 @@ export function CommunityMessengerRoomClientInner(props: {
   initialViewerUserId?: string | null;
 }) {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_client_component_mount_ms");
+  const phase1BoundaryRoomId = props.roomId?.trim() ?? "";
+  if (phase1BoundaryRoomId) {
+    beginCmRoomEntryShellFirstPass(phase1BoundaryRoomId);
+  }
   noteR2M9Stage("inner_first_render");
   noteR2M9Stage("phase1_hook_start");
-  const phase1BoundaryRoomId = props.roomId?.trim() ?? "";
   if (phase1BoundaryRoomId) {
     noteR2M11BPhase1BoundaryMount(phase1BoundaryRoomId);
   }
