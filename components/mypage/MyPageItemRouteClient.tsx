@@ -1,6 +1,5 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { MyPageData } from "@/lib/my/types";
@@ -8,7 +7,7 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
+import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 export function MyPageItemRouteClient({
@@ -23,8 +22,8 @@ export function MyPageItemRouteClient({
   itemLabelKey: MessageKey;
 }) {
   const { t } = useI18n();
-  const pathname = usePathname() ?? "/mypage";
   const membership = useClientMembershipState("mypage-item-route");
+  const hubEnabled = membership.status === "member";
   const itemLabel = t(itemLabelKey);
   const {
     data,
@@ -33,7 +32,7 @@ export function MyPageItemRouteClient({
     ownerHubStoreId,
     addressDefaults,
     neighborhoodFromLife,
-  } = useMypageHubModel(initialMyPageData ?? undefined);
+  } = useMypageHubModel(initialMyPageData ?? undefined, { enabled: hubEnabled });
   /* Mobile stack routes have no AccountTab home grid; badges only on desktop ?tab=account&section=home. */
   const favoriteBadge = null;
   const notificationBadge = null;
@@ -56,12 +55,8 @@ export function MyPageItemRouteClient({
 
   if (membership.status === "guest") {
     return (
-      <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <GuestLoginRequiredPanel
-          actionType="profile_edit"
-          next={pathname}
-          messageKey="mypage_comp_login_required"
-        />
+      <MyPageStackShell title={itemLabel} backHref="/mypage">
+        <MypageGuestSubrouteRedirect />
       </MyPageStackShell>
     );
   }

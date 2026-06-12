@@ -29,8 +29,7 @@ import {
 } from "@/lib/runtime/dibay-myinfo-perf";
 import { guardedRouterReplace, logNetworkLoopGuardReplace } from "@/lib/dev/network-loop-guard";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
-import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
+import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDashboard";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 function resolveLegacyMyPageRedirectTarget(args: {
@@ -64,10 +63,12 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
   const recoveryTriggeredRef = useRef(false);
   const ensureRetriedRef = useRef(false);
-  const guestAuthPromptedRef = useRef(false);
 
   const membership = useClientMembershipState("mypage-root");
-  const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
+  const hubEnabled = membership.status === "member";
+  const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined, {
+    enabled: hubEnabled,
+  });
 
   useEffect(() => {
     if (!pathname) return;
@@ -166,29 +167,6 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     }
   }, [loading, data]);
 
-  useEffect(() => {
-    if (membership.status !== "guest") return;
-    if (guestAuthPromptedRef.current) return;
-    guestAuthPromptedRef.current = true;
-    openLoginRequiredSheet({
-      actionType: "profile_edit",
-      next: pathname || "/mypage",
-    });
-  }, [membership.status, pathname]);
-
-  const guestLoginShell = (
-    <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
-      <MyPageHeader backFallbackHref="/philife" />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} px-4 pt-4`}>
-        <GuestLoginRequiredPanel
-          actionType="profile_edit"
-          next={pathname || "/mypage"}
-          messageKey="mypage_comp_login_required"
-        />
-      </div>
-    </div>
-  );
-
   if (membership.status === "checking") {
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
@@ -202,8 +180,16 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     );
   }
 
+  /** 비회원 — 허브 레이아웃만. 진입 시 AuthModal 자동 오픈 금지(메뉴·CTA 탭 시만). */
   if (membership.status === "guest") {
-    return guestLoginShell;
+    return (
+      <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+        <MyPageHeader backFallbackHref="/philife" />
+        <div className={`${APP_MAIN_COLUMN_CLASS} min-h-0 min-w-0 ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+          <MyPageGuestHomeDashboard />
+        </div>
+      </div>
+    );
   }
 
   if (loading) {

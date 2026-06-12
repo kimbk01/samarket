@@ -108,7 +108,16 @@ function primeProfileDedupeFromRow(profile: ProfileRow | null | undefined): void
   primeMeProfileDedupedFromKnownProfile(profile);
 }
 
-export function useMypageHubModel(initialMyPageData: MyPageData | null | undefined) {
+export type UseMypageHubModelOptions = {
+  /** false — 비회원·membership 확인 중: `getMyPageData` 등 허브 fetch 생략 */
+  enabled?: boolean;
+};
+
+export function useMypageHubModel(
+  initialMyPageData: MyPageData | null | undefined,
+  options: UseMypageHubModelOptions = {},
+) {
+  const enabled = options.enabled !== false;
   const sessionEnvelope =
     initialMyPageData === undefined ? peekMypageSessionEnvelope() : null;
   const sessionCached = sessionEnvelope?.data ?? null;
@@ -221,12 +230,16 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   }, [initialMyPageData?.profile?.id, boot?.profile?.id]);
 
   useEffect(() => {
+    if (!enabled) {
+      initialLoadRequestedRef.current = false;
+      return;
+    }
     if (initialMyPageData !== undefined) return;
     if (initialLoadRequestedRef.current) return;
     initialLoadRequestedRef.current = true;
     if (boot?.profile) return;
     void load();
-  }, [load, initialMyPageData, boot?.profile]);
+  }, [enabled, load, initialMyPageData, boot?.profile]);
 
   useLayoutEffect(() => {
     const snap = initialMyPageData?.addressDefaultsSnapshot;
@@ -282,7 +295,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
   }, [loadAddressDefaults]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!enabled || typeof window === "undefined") return;
     const onProfileUpdated = () => {
       void load({ silent: true, force: true });
       void loadAddressDefaultsRef.current({ force: true });
@@ -296,7 +309,7 @@ export function useMypageHubModel(initialMyPageData: MyPageData | null | undefin
       window.removeEventListener(PROFILE_UPDATED_EVENT, onProfileUpdated);
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     };
-  }, [load]);
+  }, [enabled, load]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

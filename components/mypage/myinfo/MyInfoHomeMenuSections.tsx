@@ -18,7 +18,8 @@ function renderAccountItem(
   item: MypageHomeMenuItemConfig,
   index: number,
   addressesMenuHref: string,
-  safeT: (key: MessageKey) => string
+  safeT: (key: MessageKey) => string,
+  onItemPress?: (href: string) => void,
 ) {
   if (item.kind === "language-toggle") {
     return (
@@ -37,6 +38,7 @@ function renderAccountItem(
         href={addressesMenuHref}
         title={safeT(item.titleKey)}
         icon={renderMypageHomeMenuIcon(item.icon)}
+        onPress={onItemPress ? () => onItemPress(addressesMenuHref) : undefined}
       />
     );
   }
@@ -47,11 +49,12 @@ function renderAccountItem(
       href={item.href}
       title={safeT(item.titleKey)}
       icon={renderMypageHomeMenuIcon(item.icon)}
+      onPress={onItemPress ? () => onItemPress(item.href) : undefined}
     />
   );
 }
 
-export function MyInfoStoreMenuSection() {
+export function MyInfoStoreMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
@@ -62,22 +65,31 @@ export function MyInfoStoreMenuSection() {
           href={item.href}
           title={safeT(item.titleKey)}
           icon={renderMypageHomeMenuIcon(item.icon)}
+          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
         />
       ))}
     </MyInfoMenuSection>
   );
 }
 
-export function MyInfoAccountMenuSection({ addressesMenuHref }: { addressesMenuHref: string }) {
+export function MyInfoAccountMenuSection({
+  addressesMenuHref,
+  onItemPress,
+}: {
+  addressesMenuHref: string;
+  onItemPress?: (href: string) => void;
+}) {
   const { safeT } = useI18n();
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_account_menu")}>
-      {MYPAGE_HOME_ACCOUNT_ITEMS.map((item, index) => renderAccountItem(item, index, addressesMenuHref, safeT))}
+      {MYPAGE_HOME_ACCOUNT_ITEMS.map((item, index) =>
+        renderAccountItem(item, index, addressesMenuHref, safeT, onItemPress),
+      )}
     </MyInfoMenuSection>
   );
 }
 
-export function MyInfoSupportMenuSection() {
+export function MyInfoSupportMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
     <MyInfoMenuSection title={safeT("mypage_comp_section_support")}>
@@ -88,13 +100,14 @@ export function MyInfoSupportMenuSection() {
           href={item.href}
           title={safeT(item.titleKey)}
           icon={renderMypageHomeMenuIcon(item.icon)}
+          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
         />
       ))}
     </MyInfoMenuSection>
   );
 }
 
-export function MyInfoServiceMenuSection() {
+export function MyInfoServiceMenuSection({ onItemPress }: { onItemPress?: (href: string) => void } = {}) {
   const { safeT } = useI18n();
   return (
     <MyInfoMenuSection title={safeT("settings_section_service")}>
@@ -106,6 +119,7 @@ export function MyInfoServiceMenuSection() {
           title={safeT(item.titleKey)}
           icon={renderMypageHomeMenuIcon(item.icon)}
           tone={item.tone ?? "default"}
+          onPress={onItemPress ? () => onItemPress(item.href) : undefined}
         />
       ))}
     </MyInfoMenuSection>
