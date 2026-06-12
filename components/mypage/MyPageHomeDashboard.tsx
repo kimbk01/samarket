@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
-import { logoutDiBaYAppSession } from "@/lib/auth/logout";
+import {
+  navigateAfterAuthExitOnce,
+  runAuthLogoutExit,
+} from "@/lib/auth/auth-exit-coordinator";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF, buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
@@ -303,18 +306,17 @@ export function MyPageHomeDashboard({
           const safety = window.setTimeout(() => {
             setLogoutSubmitting(false);
             setLogoutOpen(false);
-            window.location.replace("/");
+            navigateAfterAuthExitOnce("logout");
           }, 6_000);
           try {
-            const result = await logoutDiBaYAppSession();
+            const result = await runAuthLogoutExit();
             window.clearTimeout(safety);
             setLogoutSubmitting(false);
             if (!result.ok) {
-              setLogoutError(result.message);
+              setLogoutError(result.message ?? t("auth_logout_err_failed"));
               return;
             }
             setLogoutOpen(false);
-            window.location.replace("/");
           } catch (e) {
             window.clearTimeout(safety);
             setLogoutSubmitting(false);

@@ -16,6 +16,7 @@ import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
+import { isAccountDependentPath, sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
 
 type RouterLike = {
   push: (href: string) => void;
@@ -24,7 +25,11 @@ type RouterLike = {
 
 function currentHrefFallback(): string {
   if (typeof window === "undefined") return POST_LOGIN_PATH;
-  return `${window.location.pathname}${window.location.search}`;
+  const href = `${window.location.pathname}${window.location.search}`;
+  if (isAccountDependentPath(window.location.pathname)) {
+    return POST_LOGIN_PATH;
+  }
+  return sanitizeLoginNextPath(href) ?? POST_LOGIN_PATH;
 }
 
 /**

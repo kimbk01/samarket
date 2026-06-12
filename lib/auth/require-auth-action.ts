@@ -8,6 +8,8 @@ import {
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
 import { requestPermission } from "@/lib/permissions/device-permission-manager";
+import { sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 
 export type RequireAuthActionType =
   | "community_write"
@@ -59,6 +61,10 @@ type PendingAction = () => void | Promise<void>;
 
 const pendingActions = new Map<string, PendingAction>();
 
+export function clearPendingAuthActions(): void {
+  pendingActions.clear();
+}
+
 const ACTION_REQUIRES_PHONE = new Set<RequireAuthActionType>([
   "trade_create_item",
   "trade_favorite",
@@ -72,8 +78,9 @@ const ACTION_REQUIRES_ADDRESS = new Set<RequireAuthActionType>([
 ]);
 
 function currentHrefFallback(): string {
-  if (typeof window === "undefined") return "/";
-  return `${window.location.pathname}${window.location.search}`;
+  if (typeof window === "undefined") return POST_LOGIN_PATH;
+  const href = `${window.location.pathname}${window.location.search}`;
+  return sanitizeLoginNextPath(href) ?? POST_LOGIN_PATH;
 }
 
 function createPendingToken(): string {
@@ -89,7 +96,10 @@ function dispatchLoginRequired(detail: LoginRequiredDetail): void {
 }
 
 export function openLoginRequiredSheet(detail: LoginRequiredDetail): void {
-  dispatchLoginRequired(detail);
+  const next = detail.next?.trim()
+    ? sanitizeLoginNextPath(detail.next) ?? undefined
+    : undefined;
+  dispatchLoginRequired({ ...detail, next });
 }
 
 export function dismissLoginRequiredSheet(): void {

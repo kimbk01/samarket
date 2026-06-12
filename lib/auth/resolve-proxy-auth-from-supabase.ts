@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 
 export type ProxyAuthResolveResult = {
   userId: string | null;
   /** true — 네트워크/일시 오류로 user 미확정 (HTML fail-open) */
   transientError: boolean;
+  /** true — 세션 만료·토큰 무효 등 확정적 인증 종료 */
+  terminalAuthFailure: boolean;
 };
 
 /**
@@ -19,7 +22,7 @@ export async function resolveProxyAuthFromSupabase(
         ? String((data.claims as { sub?: unknown }).sub ?? "").trim()
         : "";
     if (!error && sub) {
-      return { userId: sub, transientError: false };
+      return { userId: sub, transientError: false, terminalAuthFailure: false };
     }
   } catch {
     /* getClaims 실패 → getUser */
@@ -31,13 +34,18 @@ export async function resolveProxyAuthFromSupabase(
       error,
     } = await supabase.auth.getUser();
     if (user?.id) {
-      return { userId: user.id, transientError: false };
+      return { userId: user.id, transientError: false, terminalAuthFailure: false };
     }
     if (!error) {
-      return { userId: null, transientError: false };
+      return { userId: null, transientError: false, terminalAuthFailure: false };
     }
-    return { userId: null, transientError: true };
+    const terminal = shouldClearProfileCacheOnGetUserFailure(user, error);
+    return {
+      userId: null,
+      transientError: !terminal,
+      terminalAuthFailure: terminal,
+    };
   } catch {
-    return { userId: null, transientError: true };
+    return { userId: null, transientError: true, terminalAuthFailure: false };
   }
 }

@@ -65,3 +65,7 @@ export const useMessengerPresenceStore = create<PresenceState>((set) => ({
       return { byUserId: merged };
     }),
 }));
+
+export function resetMessengerPresenceStore(): void {
+  useMessengerPresenceStore.setState({ byUserId: {} });
+}

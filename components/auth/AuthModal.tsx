@@ -20,6 +20,10 @@ import {
   mapSupabaseFetchFailureToMessage,
 } from "@/lib/auth/login-error-i18n";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
+import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
+import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { sanitizeFreshLoginLandingPath } from "@/lib/auth/safe-next-path";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
@@ -119,16 +123,19 @@ export function AuthModal({ open, detail, onClose }: Props) {
     const consumed = await consumePendingAuthAction(detail?.token);
     onClose();
     if (!consumed && typeof window !== "undefined") {
-      let target = next;
+      await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
+      await ensureAppBoot();
+      clearPostLogoutBfcacheGuard();
+      let target = sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
       try {
         const { status, json } = await fetchSignupStatusDeduped();
         if (status === 200 && json?.route?.trim()) {
-          target = json.route.trim();
+          target = sanitizeFreshLoginLandingPath(json.route.trim()) ?? POST_LOGIN_PATH;
         }
       } catch {
         /* fallback to next */
       }
-      window.location.assign(target);
+      window.location.replace(target);
     }
   }, [detail?.token, next, onClose]);
 

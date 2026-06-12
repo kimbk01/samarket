@@ -80,6 +80,7 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
 
   if (pathname === "/community-messenger" || pathname.startsWith("/community-messenger/")) {
     if (pathname.startsWith("/community-messenger/calls/")) return false;
+    if (pathname.startsWith("/community-messenger/rooms/")) return false;
     return true;
   }
 
@@ -88,6 +89,7 @@ export function isGuestPublicBrowsePath(pathname: string): boolean {
 
 /** 비회원 직접 진입 시 차단(로그인 링크 금지) — notFound·접근 불가 UI */
 export function isAuthRequiredPrivatePath(pathname: string): boolean {
+  if (pathname.startsWith("/community-messenger/rooms/")) return true;
   if (pathname.startsWith("/community-messenger/calls/")) return true;
   if (pathname === "/chat" || pathname.startsWith("/chat/")) return true;
   if (pathname === "/chats" || pathname.startsWith("/chats/")) return true;

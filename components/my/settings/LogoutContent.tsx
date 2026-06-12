@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { LogoutConfirmModal } from "@/components/auth/LogoutConfirmModal";
-import { logoutDiBaYAppSession } from "@/lib/auth/logout";
+import {
+  navigateAfterAuthExitOnce,
+  runAuthLogoutExit,
+} from "@/lib/auth/auth-exit-coordinator";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 type LogoutActionTriggerProps = {
@@ -19,19 +21,9 @@ export function LogoutActionTrigger({
   label = "로그아웃",
   autoOpen = false,
 }: LogoutActionTriggerProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const navigateAfterLogout = () => {
-    if (typeof window !== "undefined") {
-      window.location.replace("/");
-      return;
-    }
-    router.replace("/");
-    router.refresh();
-  };
 
   const handleLogout = async () => {
     setSubmitting((prev) => (prev ? prev : true));
@@ -40,21 +32,20 @@ export function LogoutActionTrigger({
     const safetyForceNavigate = window.setTimeout(() => {
       setSubmitting((prev) => (prev ? false : prev));
       setOpen((prev) => (prev ? false : prev));
-      navigateAfterLogout();
+      navigateAfterAuthExitOnce("logout");
     }, 6_000);
 
     try {
-      const result = await logoutDiBaYAppSession();
+      const result = await runAuthLogoutExit();
       window.clearTimeout(safetyForceNavigate);
       setSubmitting((prev) => (prev ? false : prev));
 
       if (!result.ok) {
-        setError(result.message);
+        setError(result.message ?? "로그아웃 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.");
         return;
       }
 
       setOpen((prev) => (prev ? false : prev));
-      navigateAfterLogout();
     } catch (e) {
       window.clearTimeout(safetyForceNavigate);
       setSubmitting((prev) => (prev ? false : prev));

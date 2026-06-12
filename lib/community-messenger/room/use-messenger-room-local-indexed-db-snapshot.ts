@@ -11,6 +11,7 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
  */
 export function useMessengerRoomLocalIndexedDbSnapshot({
   roomId,
+  viewerUserId,
   snapshotRef,
   snapshot,
   setSnapshot,
@@ -19,6 +20,7 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
   setRoomReadyForRealtime,
 }: {
   roomId: string;
+  viewerUserId: string | null | undefined;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   snapshot: CommunityMessengerRoomSnapshot | null;
   setSnapshot: Dispatch<SetStateAction<CommunityMessengerRoomSnapshot | null>>;
@@ -34,14 +36,15 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
   useEffect(() => {
     if (snapshotRef.current && !snapshotRef.current.clientShellPlaceholder) return;
     const id = String(roomId ?? "").trim();
-    if (!id) return;
+    const viewer = String(viewerUserId ?? "").trim();
+    if (!id || !viewer) return;
     let cancelled = false;
     void (async () => {
       if (!localCacheReadStartRecordedRef.current) {
         localCacheReadStartRecordedRef.current = true;
         recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_start_ms");
       }
-      const local = await getLocalRoomSnapshot(id);
+      const local = await getLocalRoomSnapshot(id, viewer);
       if (!localCacheReadEndRecordedRef.current) {
         localCacheReadEndRecordedRef.current = true;
         recordRouteEntryElapsedMetric("messenger_room_entry", "phase1_local_cache_read_end_ms");
@@ -57,7 +60,7 @@ export function useMessengerRoomLocalIndexedDbSnapshot({
     return () => {
       cancelled = true;
     };
-  }, [roomId]);
+  }, [roomId, viewerUserId]);
 
   // 스냅샷이 갱신될 때 로컬에 persist (best-effort, LRU/TTL/상한은 DB 레이어에서 처리)
   useEffect(() => {

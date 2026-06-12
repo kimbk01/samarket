@@ -8,6 +8,7 @@ import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
+import { AuthSessionBoundary } from "@/components/auth/AuthSessionBoundary";
 import { DibaySignupGate } from "@/components/auth/DibaySignupGate";
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { AddressRequiredSheet } from "@/components/auth/AddressRequiredSheet";
@@ -202,14 +203,14 @@ export function MainAppProviderTree({
                             <MainTier1ChromeProvider>
                               {storesHubLite ? (
                                 <MainAppConditionalShell initialMainBottomNavItems={initialMainBottomNavItems ?? null}>
-                                  {children}
+                                  <AuthSessionBoundary>{children}</AuthSessionBoundary>
                                 </MainAppConditionalShell>
                               ) : (
                                 <TradePresenceActivityProvider>
                                   <MainAppConditionalShell
                                     initialMainBottomNavItems={initialMainBottomNavItems ?? null}
                                   >
-                                    {children}
+                                    <AuthSessionBoundary>{children}</AuthSessionBoundary>
                                   </MainAppConditionalShell>
                                   <TradeChatEntryCreatingOverlayLazy />
                                   <PhilifeWriteBottomSheetLazy />

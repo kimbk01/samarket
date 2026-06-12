@@ -3,7 +3,6 @@
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
-import { logoutDiBaYAppSession } from "@/lib/auth/logout";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { isAppBootReady, peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
@@ -12,6 +11,12 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
+import { isTerminalAuthSessionCode } from "@/lib/auth/is-terminal-auth-session-failure";
+import {
+  runAuthLogoutExit,
+  runAuthSessionExpiredExit,
+} from "@/lib/auth/auth-exit-coordinator";
 
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
 /** 라우트 전환 직후 쿠키·RSC 타이밍 레이스로 `/api/auth/session` 이 일시 401일 수 있음 — 즉시 검사하지 않음 */
@@ -47,10 +52,8 @@ function isCommunityMessengerCallShellPath(path: string): boolean {
 }
 
 /**
- * 로그인/가입/OAuth 직후 세션 정합만 가볍게 확인한다.
- * - **자동 로그아웃·`/login` 강제 이동은 하지 않는다** — 의도적 세션 종료는 설정의 확인 모달 또는 세션 교체 안내의 확인만 사용 (`logoutDiBaYAppSession`).
- * - 뒤로가기 bfcache·탭 복귀마다 `/api/auth/session` 을 때리지 않는다(오탐·통화 중 끊김 방지).
- * - 실제 미인증은 `proxy.ts`·전체 네비게이션 시 서버가 처리.
+ * 세션 정합 확인 — 터미널 401·세션 교체 시 정리 후 safe redirect.
+ * 일시 401(레이스·네트워크)은 refresh·재시도 후에도 account-dependent 경로에서만 강제 정리.
  */
 export function SessionLostRedirect() {
   const { t } = useI18n();
@@ -61,13 +64,12 @@ export function SessionLostRedirect() {
   const [sessionReplacedOpen, setSessionReplacedOpen] = useState(false);
 
   const finalizeForcedLogout = useCallback(async () => {
-    const result = await logoutDiBaYAppSession();
-    if (result.ok) {
-      setSessionReplacedOpen((prev) => (prev ? false : prev));
-      if (typeof window !== "undefined") {
-        window.location.replace("/");
-      }
-    }
+    await runAuthLogoutExit();
+    setSessionReplacedOpen((prev) => (prev ? false : prev));
+  }, []);
+
+  const finalizeSessionExpired = useCallback(async () => {
+    await runAuthSessionExpiredExit();
   }, []);
 
   const check = useCallback(async (force = false) => {
@@ -104,17 +106,32 @@ export function SessionLostRedirect() {
               return;
             }
 
+            if (isTerminalAuthSessionCode(code)) {
+              await finalizeSessionExpired();
+              return;
+            }
+
             if (attempt < SESSION_UNAUTH_MAX_ATTEMPTS - 1) {
               const sb = getSupabaseClient();
               try {
-                if (sb) await runBrowserAuthRefreshDeduped(sb, "session_lost_redirect");
+                if (sb) {
+                  const refreshed = await runBrowserAuthRefreshDeduped(sb, "session_lost_redirect");
+                  const refreshErr = refreshed.error as { code?: string; message?: string } | null;
+                  if (refreshErr && isTerminalAuthSessionCode(String(refreshErr.code ?? refreshErr.message ?? ""))) {
+                    await finalizeSessionExpired();
+                    return;
+                  }
+                }
               } catch {
                 /* ignore */
               }
               await new Promise((r) => setTimeout(r, 280 + attempt * 120));
               continue;
             }
-            /** 여기까지 401이면 네트워크·레이스·부하 가능성이 큼 — `signOut`·로그인 강제 이동 금지 */
+
+            if (isAccountDependentPath(path)) {
+              await finalizeSessionExpired();
+            }
             return;
           }
         } catch {
@@ -122,7 +139,7 @@ export function SessionLostRedirect() {
         }
       })()
     );
-  }, []);
+  }, [finalizeSessionExpired]);
 
   useLayoutEffect(() => {
     pathnameRef.current = pathname;

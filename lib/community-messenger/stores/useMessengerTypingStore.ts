@@ -61,3 +61,7 @@ export const useMessengerTypingStore = create<TypingState>((set) => ({
       return { byRoomId: next };
     }),
 }));
+
+export function resetMessengerTypingStore(): void {
+  useMessengerTypingStore.setState({ byRoomId: {} });
+}

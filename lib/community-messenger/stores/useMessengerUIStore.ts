@@ -69,3 +69,32 @@ export const useMessengerUIStore = create<MessengerUIState>((set) => ({
   selectFriend: (selectedFriendId) => set({ selectedFriendId }),
   setComposerFocused: (composerFocused) => set({ composerFocused }),
 }));
+
+const MESSENGER_UI_INITIAL: Pick<
+  MessengerUIState,
+  | "activeSection"
+  | "activeChatFilter"
+  | "isSearchOpen"
+  | "isAlertOpen"
+  | "isSettingsOpen"
+  | "isAddFriendOpen"
+  | "isNewChatOpen"
+  | "selectedRoomId"
+  | "selectedFriendId"
+  | "composerFocused"
+> = {
+  activeSection: "chats",
+  activeChatFilter: "all",
+  isSearchOpen: false,
+  isAlertOpen: false,
+  isSettingsOpen: false,
+  isAddFriendOpen: false,
+  isNewChatOpen: false,
+  selectedRoomId: null,
+  selectedFriendId: null,
+  composerFocused: false,
+};
+
+export function resetMessengerUIStore(): void {
+  useMessengerUIStore.setState(MESSENGER_UI_INITIAL);
+}

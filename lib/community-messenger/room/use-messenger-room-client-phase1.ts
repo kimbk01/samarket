@@ -916,6 +916,11 @@ export function useMessengerRoomClientPhase1({
 
   useMessengerRoomLocalIndexedDbSnapshot({
     roomId,
+    viewerUserId:
+      snapshot?.viewerUserId?.trim() ||
+      initialServerSnapshot?.viewerUserId?.trim() ||
+      initialViewerId?.trim() ||
+      null,
     snapshotRef,
     snapshot,
     setSnapshot,

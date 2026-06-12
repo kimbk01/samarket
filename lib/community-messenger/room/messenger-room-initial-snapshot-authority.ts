@@ -46,13 +46,8 @@ export function pickAuthoritativeMessengerRoomSnapshot(
     server && !server.clientShellPlaceholder ? server : null;
 
   const viewer = input.viewerUserId.trim();
-  let cached: CommunityMessengerRoomSnapshot | null = null;
-  if (viewer) {
-    cached = peekRoomSnapshot(rid, viewer);
-  } else {
-    cached = peekRoomSnapshot(rid);
-  }
-  const hot = viewer ? peekHotRoomSnapshot(rid, viewer) : peekHotRoomSnapshot(rid);
+  const cached = viewer ? peekRoomSnapshot(rid, viewer) : null;
+  const hot = viewer ? peekHotRoomSnapshot(rid, viewer) : null;
 
   const richest = pickRichestRoomSnapshot(serverUsable, cached, hot);
   if (richest) return richest;

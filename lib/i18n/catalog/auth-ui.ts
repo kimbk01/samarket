@@ -144,6 +144,8 @@ export const authUiMessages = {
       "필리핀 내 거래·동네·배달을 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해 주세요. 동네 글쓰기·거래 글쓰기·커뮤니티 메신저 채팅을 하시려면 주소 등록 후 마이페이지에서 전화번호 인증까지 완료해 주세요.",
     auth_onboarding_address_done: "주소 설정이 완료되었습니다. 바로 이동합니다…",
     auth_session_replaced: "동일 아이디가 다른 기기에서 접속 중입니다.",
+    auth_session_expired_notice: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
+    auth_login_required_notice: "로그인이 필요한 화면입니다. 로그인해 주세요.",
     auth_logout_err_failed: "로그아웃 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
     auth_logout_err_server_slow: "서버 로그아웃 응답이 지연되어 백그라운드에서 정리합니다.",
     auth_logout_err_server_unreachable:
@@ -295,6 +297,8 @@ export const authUiMessages = {
       "Add one primary address on the map to use local trade, neighborhood, and delivery features. For posting, trading, and messenger chat, complete address setup and phone verification in My page.",
     auth_onboarding_address_done: "Address saved. Redirecting…",
     auth_session_replaced: "This account is active on another device.",
+    auth_session_expired_notice: "Your session has expired. Please sign in again.",
+    auth_login_required_notice: "This page requires sign-in. Please log in.",
     auth_logout_err_failed: "Sign-out failed. Please try again shortly.",
     auth_logout_err_server_slow: "Server sign-out is slow; cleanup continues in the background.",
     auth_logout_err_server_unreachable:

@@ -29,10 +29,10 @@ describe("guest-browse-access-policy", () => {
     "/mypage/community-posts",
     "/community-messenger",
     "/community-messenger/trade-chats",
-    "/community-messenger/rooms/room-1",
   ];
 
   const privatePaths = [
+    "/community-messenger/rooms/room-1",
     "/group-chat/room-1",
     "/orders/store/order-1/chat",
     "/mypage/store-orders/order-1/chat",

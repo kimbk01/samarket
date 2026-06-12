@@ -1,3 +1,5 @@
+import { shouldDenyFreshLoginLanding } from "@/lib/auth/auth-route-classification";
+
 /**
  * 로그인 흐름의 `next` 경로 안전 검증.
  *
@@ -94,33 +96,9 @@ export function buildLoginPath(next?: string | null): string {
   return withNextSearchParam("/login", next);
 }
 
-/** 신규 로그인·계정 전환 후 deep link 복원 금지 — 탭 루트·허브만 허용 */
-const FRESH_LOGIN_DENIED_PREFIXES = [
-  "/community-messenger/rooms/",
-  "/community-messenger/calls/",
-  "/chats/",
-  "/group-chat/",
-  "/orders/store/",
-  "/mypage/store-orders/",
-  "/stores/owner/orders/",
-  "/mypage/trade/chat/",
-  "/post/",
-  "/products/",
-] as const;
-
 function pathnameOnly(pathWithOptionalSearch: string): string {
   const qIdx = pathWithOptionalSearch.indexOf("?");
   return qIdx >= 0 ? pathWithOptionalSearch.slice(0, qIdx) : pathWithOptionalSearch;
-}
-
-function isFreshLoginDeniedPath(pathname: string): boolean {
-  const normalized = pathname.replace(/\/+$/, "") || "/";
-  for (const prefix of FRESH_LOGIN_DENIED_PREFIXES) {
-    if (normalized === prefix.slice(0, -1) || normalized.startsWith(prefix)) {
-      return true;
-    }
-  }
-  return false;
 }
 
 /**
@@ -131,7 +109,7 @@ export function sanitizeFreshLoginLandingPath(input: string | null | undefined):
   const safe = sanitizeNextPath(input);
   if (!safe) return null;
   const pathname = pathnameOnly(safe);
-  if (isFreshLoginDeniedPath(pathname)) return null;
+  if (shouldDenyFreshLoginLanding(pathname)) return null;
   return safe;
 }
 

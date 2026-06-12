@@ -63,9 +63,14 @@ async function pruneRooms(db: IDBDatabase): Promise<void> {
   }
 }
 
-export async function getLocalRoomSnapshot(roomId: string): Promise<CommunityMessengerRoomSnapshot | null> {
+export async function getLocalRoomSnapshot(
+  roomId: string,
+  viewerUserId?: string | null
+): Promise<CommunityMessengerRoomSnapshot | null> {
   const id = String(roomId ?? "").trim();
   if (!id) return null;
+  const viewer = (viewerUserId ?? "").trim();
+  if (!viewer) return null;
   try {
     const db = await getDb();
     const row = await idbGet<RoomRow>(db, STORE_ROOMS, id);
@@ -75,9 +80,13 @@ export async function getLocalRoomSnapshot(roomId: string): Promise<CommunityMes
       await idbDel(db, STORE_ROOMS, id);
       return null;
     }
+    const snap = row.snapshot ?? null;
+    if (!snap || String(snap.viewerUserId ?? "").trim() !== viewer) {
+      return null;
+    }
     // touch (best-effort)
     void idbPut(db, STORE_ROOMS, { ...row, lastAccessAt: nowMs });
-    return row.snapshot ?? null;
+    return snap;
   } catch {
     return null;
   }
@@ -109,5 +118,18 @@ export async function invalidateLocalRoomSnapshot(roomId: string): Promise<void>
   } catch {
     // ignore
   }
+}
+
+/** 로그아웃·계정 전환 — IndexedDB room snapshot DB 전체 삭제 */
+export async function clearAllLocalRoomSnapshots(): Promise<void> {
+  dbPromise = null;
+  lastPruneAt = 0;
+  if (typeof indexedDB === "undefined") return;
+  await new Promise<void>((resolve) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => resolve();
+    req.onblocked = () => resolve();
+  });
 }
 

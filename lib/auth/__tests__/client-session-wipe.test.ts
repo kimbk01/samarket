@@ -20,6 +20,26 @@ vi.mock("@/lib/community-messenger/stores/useCallStore", () => ({
   },
 }));
 
+vi.mock("@/lib/shared-orders/shared-order-store", () => ({
+  resetSharedOrders: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/require-auth-action", () => ({
+  clearPendingAuthActions: vi.fn(),
+}));
+
+vi.mock("@/lib/posts/getPostsForHome", () => ({
+  invalidateHomePostsCache: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/login-bootstrap-cache", () => ({
+  clearLoginBootstrapSnapshot: vi.fn(),
+}));
+
+vi.mock("@/lib/community-messenger/local-store/roomSnapshotDb", () => ({
+  clearAllLocalRoomSnapshots: vi.fn().mockResolvedValue(undefined),
+}));
+
 function createStorage(): Storage {
   const map = new Map<string, string>();
   return {

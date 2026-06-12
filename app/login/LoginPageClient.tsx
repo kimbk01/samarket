@@ -12,6 +12,10 @@ import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
+import {
+  readLoginBootstrapSnapshot,
+  writeLoginBootstrapSnapshot,
+} from "@/lib/auth/login-bootstrap-cache";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -31,8 +35,6 @@ import {
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
-const LOGIN_BOOTSTRAP_CACHE_TTL_MS = 30_000;
-
 async function resolvePostAuthDestination(fallback: string): Promise<string> {
   try {
     const { status, json } = await fetchSignupStatusDeduped();
@@ -56,21 +58,6 @@ async function navigateAfterFreshLogin(destination: string): Promise<void> {
 function looksLikeEmailForLogin(identifierRaw: string): boolean {
   const s = identifierRaw.trim();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
-}
-
-type LoginBootstrapSnapshot = {
-  providers: AuthProviderPublic[];
-  providersError: string | null;
-  passwordEnabled: boolean;
-  cachedAt: number;
-};
-
-let loginBootstrapSnapshot: LoginBootstrapSnapshot | null = null;
-
-function readLoginBootstrapSnapshot(): LoginBootstrapSnapshot | null {
-  if (!loginBootstrapSnapshot) return null;
-  if (Date.now() - loginBootstrapSnapshot.cachedAt > LOGIN_BOOTSTRAP_CACHE_TTL_MS) return null;
-  return loginBootstrapSnapshot;
 }
 
 function mapHttpStatusToResolveErrorCode(status: number): string {
@@ -120,6 +107,21 @@ function LoginPageContent() {
     if (typeof window === "undefined") return;
     if (window.location.search.length === 0) return;
     const params = new URLSearchParams(window.location.search);
+    const loginReason = params.get("reason")?.trim() ?? "";
+    if (loginReason === "session_expired") {
+      const message = t("auth_session_expired_notice");
+      setError((prev) => (prev === message ? prev : message));
+      window.alert(message);
+      router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
+      return;
+    }
+    if (loginReason === "auth_required") {
+      const message = t("auth_login_required_notice");
+      setError((prev) => (prev === message ? prev : message));
+      window.alert(message);
+      router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
+      return;
+    }
     const authError = params.get("auth_error")?.trim() ?? "";
     const authErrorDetail = params.get("auth_error_detail")?.trim() ?? "";
     // 스펙 1-A: 콜백/가드가 `?error=session_missing` 을 보낼 수 있다. 동일하게 사용자에게 알린다.
@@ -210,12 +212,12 @@ function LoginPageContent() {
         });
         setProvidersError((prev) => (prev === nextProvidersError ? prev : nextProvidersError));
         setPasswordEnabled((prev) => (prev === nextPasswordEnabled ? prev : nextPasswordEnabled));
-        loginBootstrapSnapshot = {
+        writeLoginBootstrapSnapshot({
           providers: nextProviders,
           providersError: nextProvidersError,
           passwordEnabled: nextPasswordEnabled,
           cachedAt: Date.now(),
-        };
+        });
         setProvidersLoading((prev) => (prev ? false : prev));
       }
     })();

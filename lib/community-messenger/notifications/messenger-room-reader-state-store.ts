@@ -78,3 +78,7 @@ export const useMessengerRoomReaderStateStore = create<State>((set, get) => ({
   },
   getScrollPositionForPolicy: (roomId) => get().byRoom[roomId.trim()]?.scrollPosition ?? null,
 }));
+
+export function resetMessengerRoomReaderStateStore(): void {
+  useMessengerRoomReaderStateStore.setState({ byRoom: {} });
+}

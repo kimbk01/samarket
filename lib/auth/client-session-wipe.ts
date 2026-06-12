@@ -27,12 +27,22 @@ import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-clie
 import { pauseAndClearAllNotificationUnreadBadgeStores } from "@/lib/notifications/notification-unread-badge-store";
 import { closeAllServiceWorkerNotifications } from "@/lib/push/push-manager";
 import { clearUserSettingsClientCache } from "@/lib/settings/user-settings-store";
-import { resetSharedOrderChat } from "@/lib/shared-order-chat/shared-chat-store";
 import { clearCommerceCartStorage } from "@/lib/stores/store-commerce-cart-storage";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messenger/call-logout-teardown";
 import { resetSignupGateSessionFlags } from "@/lib/auth/signup-gate-session";
+import { clearPendingAuthActions } from "@/lib/auth/require-auth-action";
+import { clearLoginBootstrapSnapshot } from "@/lib/auth/login-bootstrap-cache";
+import { CLIENT_INSTANCE_PERSISTENT_KEYS } from "@/lib/auth/client-instance-id";
+import { clearAllLocalRoomSnapshots } from "@/lib/community-messenger/local-store/roomSnapshotDb";
+import { resetMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
+import { resetMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
+import { resetMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
+import { resetMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import { resetSharedOrders } from "@/lib/shared-orders/shared-order-store";
+import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
+import { resetAuthExitNavigateGuard } from "@/lib/auth/auth-exit-guard";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -46,6 +56,7 @@ let explicitLogoutWipeAt = 0;
 const LOCAL_STORAGE_KEEP_KEYS = new Set<string>([
   APP_LANGUAGE_STORAGE_KEY,
   APP_LANGUAGE_DEVICE_SEEDED_KEY,
+  ...CLIENT_INSTANCE_PERSISTENT_KEYS,
 ]);
 
 function clearEphemeralLocalStorage(): void {
@@ -85,12 +96,19 @@ function resetInMemoryClientStores(): void {
     /* ignore */
   }
   resetMessengerNotificationStore();
+  resetMessengerUIStore();
+  resetMessengerPresenceStore();
+  resetMessengerTypingStore();
+  resetMessengerRoomReaderStateStore();
   pauseAndClearAllNotificationUnreadBadgeStores();
   clearAllRoomSnapshotCaches();
   clearTradeChatRoomClientCache();
   clearCommerceCartStorage();
   clearUserSettingsClientCache();
-  resetSharedOrderChat();
+  resetSharedOrders();
+  invalidateHomePostsCache();
+  clearPendingAuthActions();
+  clearLoginBootstrapSnapshot();
 }
 
 function resetAddressClientCaches(): void {
@@ -135,6 +153,7 @@ async function runWipeClientSessionState(
   );
   await disconnectSupabaseRealtime();
   resetInMemoryClientStores();
+  await clearAllLocalRoomSnapshots();
   resetAuthClientCaches();
   resetSignupGateSessionFlags();
   clearEphemeralLocalStorage();
@@ -181,4 +200,5 @@ export function clearPostLogoutBfcacheGuard(): void {
   } catch {
     /* ignore */
   }
+  resetAuthExitNavigateGuard();
 }

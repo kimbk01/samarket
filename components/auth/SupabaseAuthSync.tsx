@@ -20,6 +20,9 @@ import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
+import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instance-id";
+import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
+import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
 
 let lastKnownAuthUserId: string | null = null;
 
@@ -61,8 +64,16 @@ function handleAuthenticatedSession(
   event: string,
   userId: string
 ): void {
-  if (lastKnownAuthUserId && lastKnownAuthUserId !== userId) {
+  const accountMismatch =
+    (lastKnownAuthUserId && lastKnownAuthUserId !== userId) || detectAuthUserMismatch(userId);
+
+  if (accountMismatch) {
     void wipeClientSessionState("account_switched", { setPostLogoutGuard: true }).then(() => {
+      bindAuthUserId(userId);
+      if (typeof window !== "undefined" && isAccountDependentPath(window.location.pathname)) {
+        void runAuthAccountSwitchExit();
+        return;
+      }
       void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
     });
     lastKnownAuthUserId = userId;
@@ -70,6 +81,7 @@ function handleAuthenticatedSession(
   }
 
   lastKnownAuthUserId = userId;
+  bindAuthUserId(userId);
 
   if (event === "SIGNED_IN") {
     void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));

@@ -76,11 +76,12 @@ async function maybeRedirectIncompleteSignup(
   }
 }
 
-/** 미인증 private·회원 전용 URL — `/login` 리다이렉트 대신 404(not-found UI) */
-function respondGuestBlocked(request: NextRequest): NextResponse {
+/** 미인증 private·회원 전용 URL — 로그인으로 replace (히스토리 오염 방지) */
+function respondGuestBlocked(request: NextRequest, reason: "auth_required" | "session_expired"): NextResponse {
   const url = request.nextUrl.clone();
-  url.pathname = "/__guest_private_blocked__";
-  return preventAuthPageCache(NextResponse.rewrite(url));
+  url.pathname = "/login";
+  url.search = `?reason=${reason}`;
+  return preventAuthPageCache(NextResponse.redirect(url, 307));
 }
 
 function respondServerMisconfigured(message: string): NextResponse {
@@ -154,7 +155,7 @@ export async function proxy(request: NextRequest) {
 
   if (!requestHasSupabaseAuthCookies(request)) {
     if (shouldBlockUnauthenticatedHtmlRequest(pathname)) {
-      const blocked = respondGuestBlocked(request);
+      const blocked = respondGuestBlocked(request, "auth_required");
       if (/^\/stores\/[^/]+\/cart\/?$/.test(pathname)) {
         blocked.headers.set("x-samarket-cart-auth-required", "1");
       }
@@ -255,6 +256,20 @@ export async function proxy(request: NextRequest) {
       return finalizeOwnerDocResponse(response, pathname);
     }
 
+    if (resolved.terminalAuthFailure) {
+      if (shouldLogProxyPerf) {
+        logDevApiPerf(
+          "proxy.ts",
+          {
+            auth_session_ms: Math.round(proxyAuthMs),
+            total_route_ms: Math.round(devPerfNow() - tProxy0),
+          },
+          { pathname, session_expired_redirect: 1, auth_cache_hit: proxyAuthCacheHit }
+        );
+      }
+      return respondGuestBlocked(request, "session_expired");
+    }
+
     if (!resolved.transientError) {
       if (shouldLogProxyPerf) {
         logDevApiPerf(
@@ -266,7 +281,7 @@ export async function proxy(request: NextRequest) {
           { pathname, guest_blocked: 1, auth_cache_hit: proxyAuthCacheHit }
         );
       }
-      return respondGuestBlocked(request);
+      return respondGuestBlocked(request, "auth_required");
     }
 
     if (shouldLogProxyPerf) {

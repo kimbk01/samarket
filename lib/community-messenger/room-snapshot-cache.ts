@@ -140,47 +140,24 @@ export function primeHotRoomSnapshot(roomId: string, snapshot: CommunityMessenge
 export function peekHotRoomSnapshot(roomId: string, viewerUserId?: string | null): CommunityMessengerRoomSnapshot | null {
   const r = roomId.trim();
   if (!r) return null;
-  if (typeof viewerUserId === "string" && viewerUserId.trim()) {
-    return hotEntries.get(cacheKey(r, viewerUserId.trim())) ?? null;
-  }
-  const suffix = `:${r}`;
-  let found: CommunityMessengerRoomSnapshot | null = null;
-  for (const [k, snap] of hotEntries) {
-    if (!k.endsWith(suffix)) continue;
-    found = snap;
-    break;
-  }
-  return found;
+  const viewer = typeof viewerUserId === "string" ? viewerUserId.trim() : "";
+  if (!viewer) return null;
+  return hotEntries.get(cacheKey(r, viewer)) ?? null;
 }
 
 /**
- * @param viewerUserId 현재 로그인 사용자 id. 생략·빈 문자열이면 동일 `roomId` 로 끝나는 캐시 중 **가장 최근** 항목을 반환(프리패치 히트용).
+ * @param viewerUserId 현재 로그인 사용자 id — 필수(계정 격리).
  */
 export function peekRoomSnapshot(roomId: string, viewerUserId?: string | null): CommunityMessengerRoomSnapshot | null {
   const r = roomId.trim();
   if (!r) return null;
-  if (typeof viewerUserId === "string" && viewerUserId.trim()) {
-    const k = cacheKey(r, viewerUserId.trim());
-    const row = entries.get(k);
-    if (!row) return null;
-    touchLruEntry(k);
-    return row.snapshot;
-  }
-  const suffix = `:${r}`;
-  let bestKey: string | null = null;
-  let best: { snapshot: CommunityMessengerRoomSnapshot; at: number } | null = null;
-  for (const [k, row] of entries) {
-    if (!k.endsWith(suffix)) continue;
-    if (!best || row.at > best.at) {
-      best = row;
-      bestKey = k;
-    }
-  }
-  if (bestKey && best) {
-    touchLruEntry(bestKey);
-    return best.snapshot;
-  }
-  return null;
+  const viewer = typeof viewerUserId === "string" ? viewerUserId.trim() : "";
+  if (!viewer) return null;
+  const k = cacheKey(r, viewer);
+  const row = entries.get(k);
+  if (!row) return null;
+  touchLruEntry(k);
+  return row.snapshot;
 }
 
 export function isRoomSnapshotFresh(roomId: string, viewerUserId?: string | null): boolean {

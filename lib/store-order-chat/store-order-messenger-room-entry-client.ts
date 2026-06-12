@@ -308,7 +308,8 @@ export async function prepareStoreOrderMessengerRoomEntryByRoomId(
     : "";
 
   /** 목록·prefetch 캐시에 주문 메타가 있으면 bootstrap 생략 → ensure 1왕복(full history) */
-  const cachedPeek = peekRoomSnapshot(rid);
+  const viewerId = (opts?.viewerUserId ?? "").trim();
+  const cachedPeek = viewerId ? peekRoomSnapshot(rid, viewerId) : null;
   const cachedOrderId = cachedPeek ? storeOrderIdFromSnapshot(cachedPeek) : "";
   if (cachedOrderId && cachedPeek) {
     const ensuredFromCache = await ensureStoreOrderChatFromSnapshot(cachedPeek);

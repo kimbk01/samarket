@@ -38,7 +38,8 @@ export function resolveInstantStoreOrderMessengerEntrySnapshot(params: {
     return buildClientShellPlaceholderSnapshot(rid, params.viewerUserId);
   }
 
-  const peek = peekRoomSnapshot(rid);
+  const viewer = (params.viewerUserId ?? "").trim();
+  const peek = viewer ? peekRoomSnapshot(rid, viewer) : null;
   if (peek && !peek.clientShellPlaceholder) {
     return peek;
   }
