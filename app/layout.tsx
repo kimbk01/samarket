@@ -8,6 +8,12 @@ import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
+import {
+  DIBAY_APP_ICON_180_PATH,
+  DIBAY_APP_ICON_512_PATH,
+  DIBAY_FAVICON_PATH,
+  dibayBrandAssetUrl,
+} from "@/lib/brand/brand-asset-paths";
 import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
@@ -27,10 +33,20 @@ export const metadata: Metadata = {
   applicationName: APP_PRODUCT_DISPLAY_NAME,
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
-      { url: "/icon", type: "image/png", sizes: "512x512" },
+      { url: dibayBrandAssetUrl(DIBAY_FAVICON_PATH), sizes: "any" },
+      {
+        url: dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH),
+        type: "image/png",
+        sizes: "512x512",
+      },
     ],
-    apple: [{ url: "/apple-icon", type: "image/png", sizes: "180x180" }],
+    apple: [
+      {
+        url: dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH),
+        type: "image/png",
+        sizes: "180x180",
+      },
+    ],
   },
   appleWebApp: {
     capable: true,

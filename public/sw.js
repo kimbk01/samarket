@@ -17,7 +17,13 @@ self.addEventListener("message", function (event) {
 });
 
 self.addEventListener("push", function (event) {
-  let payload = { title: "dibaY", body: "", url: "/", icon: "/icon", tag: "kasama-push" };
+  let payload = {
+    title: "dibaY",
+    body: "",
+    url: "/",
+    icon: "/images/brand/dibay-app-icon.png?v=20260612",
+    tag: "kasama-push",
+  };
   try {
     if (event.data) {
       const j = event.data.json();
@@ -29,7 +35,10 @@ self.addEventListener("push", function (event) {
   const title = typeof payload.title === "string" ? payload.title : "dibaY";
   const body = typeof payload.body === "string" ? payload.body : "";
   const url = typeof payload.url === "string" && payload.url ? payload.url : "/";
-  const icon = typeof payload.icon === "string" && payload.icon ? payload.icon : "/icon";
+  const icon =
+    typeof payload.icon === "string" && payload.icon
+      ? payload.icon
+      : "/images/brand/dibay-app-icon.png?v=20260612";
   let tag = typeof payload.tag === "string" && payload.tag ? payload.tag : "kasama-push";
 
   const sessionId = typeof payload.sessionId === "string" && payload.sessionId ? payload.sessionId : null;

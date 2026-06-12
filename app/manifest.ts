@@ -1,4 +1,9 @@
 import type { MetadataRoute } from "next";
+import {
+  DIBAY_APP_ICON_180_PATH,
+  DIBAY_APP_ICON_512_PATH,
+  dibayBrandAssetUrl,
+} from "@/lib/brand/brand-asset-paths";
 
 /**
  * 설치형 PWA(홈 화면 추가) — Android Chrome·일부 iOS Safari.
@@ -18,13 +23,13 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "ko",
     icons: [
       {
-        src: "/icon",
+        src: dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH),
         sizes: "512x512",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/apple-icon",
+        src: dibayBrandAssetUrl(DIBAY_APP_ICON_180_PATH),
         sizes: "180x180",
         type: "image/png",
         purpose: "any",

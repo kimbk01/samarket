@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { DIBAY_APP_ICON_512_PATH, dibayBrandAssetUrl } from "@/lib/brand/brand-asset-paths";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { shouldSendWebPushForUser } from "@/lib/notifications/web-push-user-settings-gate";
@@ -17,7 +18,8 @@ type PushRow = {
 
 function buildPayload(out: NotificationSideEffectPayloadOut): string {
   const origin = getSiteOrigin();
-  const icon = origin ? `${origin}/icon` : "/icon";
+  const iconPath = dibayBrandAssetUrl(DIBAY_APP_ICON_512_PATH);
+  const icon = origin ? `${origin}${iconPath}` : iconPath;
   const url = out.link_url_absolute ?? (origin ? `${origin}/` : "/");
   const tag = `kasama-${out.user_id.slice(0, 8)}-${out.occurred_at}`;
   const body: Record<string, unknown> = {
