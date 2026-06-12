@@ -1,6 +1,7 @@
 "use client";
 
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
+import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache, userToProfile } from "@/lib/auth/supabase-profile-cache";
@@ -66,9 +67,35 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   }
 
   const cached = peekAppBootProfileFetchCached();
-  const { status, json } = cached ?? (await fetchAppBootProfileMinimal());
+  let status = cached?.status;
+  let json = cached?.json;
+
+  if (!cached) {
+    const fetched = await fetchAppBootProfileMinimal();
+    status = fetched.status;
+    json = fetched.json;
+  }
+
   if (isStale()) return;
-  if (status === 401 || status === 403) {
+
+  if (status === 401) {
+    const recovery = await recoverFrom401Once("app_boot_profile");
+    if (recovery.recovered) {
+      const retry = await fetchAppBootProfileMinimal();
+      status = retry.status;
+      json = retry.json;
+    } else if (recovery.terminal) {
+      setAppBootAnonymous();
+      recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+      return;
+    } else {
+      setAppBootLoading();
+      recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+      return;
+    }
+  }
+
+  if (status === 403) {
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;

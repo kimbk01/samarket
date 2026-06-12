@@ -19,9 +19,9 @@ export type SessionConflictMeta = {
 
 export const DEFAULT_AUTH_DUPLICATE_LOGIN_POLICY: AuthDuplicateLoginPolicy = {
   id: "default",
-  compare_same_login_id: true,
-  compare_same_device: true,
-  compare_same_browser: true,
+  compare_same_login_id: false,
+  compare_same_device: false,
+  compare_same_browser: false,
   compare_same_ip: false,
 };
 

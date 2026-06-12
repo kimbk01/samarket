@@ -111,3 +111,12 @@ export async function runBrowserAuthRefreshDeduped(sb: SupabaseClient, source: s
   refreshInflight = p;
   return p;
 }
+
+/** vitest reset */
+export function resetAuthRefreshTelemetryForTests(): void {
+  refreshInflight = null;
+  refreshInflightCount = 0;
+  refreshInflightPeak = 0;
+  lastAuthRefreshEndedAt = null;
+  lastAuthSessionSignalAt = null;
+}

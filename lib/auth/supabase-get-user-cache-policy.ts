@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { isAuthError } from "@supabase/auth-js";
+import { DIBAY_TERMINAL_AUTH_CODES } from "@/lib/auth/dibay-session-policy";
 
 /**
  * Supabase `auth.getUser()` 가 사용자 없음을 돌려줄 때, 클라이언트 프로필 캐시를 비울지 판별한다.
@@ -11,7 +12,8 @@ export function shouldClearProfileCacheOnGetUserFailure(
   error: { message?: string; status?: number; code?: string } | null | undefined
 ): boolean {
   if (user?.id) return false;
-  if (!error) return true;
+  /** user 없음 + error 없음 — 로딩·일시 공백 가능. aggressive cache clear 금지 */
+  if (!error) return false;
 
   const status = typeof error.status === "number" ? error.status : undefined;
   if (status === 429) return false;
@@ -40,7 +42,16 @@ export function shouldClearProfileCacheOnGetUserFailure(
     return false;
   }
 
-  if (status === 401 || status === 403) return true;
+  if (status === 403) {
+    const codeLower = code;
+    if (codeLower && DIBAY_TERMINAL_AUTH_CODES.has(codeLower)) return true;
+    return false;
+  }
+
+  if (status === 401) {
+    if (code && DIBAY_TERMINAL_AUTH_CODES.has(code.toLowerCase())) return true;
+    return false;
+  }
 
   const terminalCodes = new Set([
     "bad_jwt",

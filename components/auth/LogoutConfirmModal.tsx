@@ -11,6 +11,8 @@ type LogoutConfirmModalProps = {
   open: boolean;
   submitting: boolean;
   error: string | null;
+  title?: string;
+  body?: string;
   onCancel: () => void;
   onConfirm: () => void;
 };
@@ -22,6 +24,8 @@ export function LogoutConfirmModal({
   open,
   submitting,
   error,
+  title,
+  body,
   onCancel,
   onConfirm,
 }: LogoutConfirmModalProps) {
@@ -38,10 +42,10 @@ export function LogoutConfirmModal({
     >
       <div className={`w-full max-w-sm p-5 ${MYPAGE_HOME_CARD_CLASS}`}>
         <p id="logout-confirm-title" className="text-[17px] font-bold leading-tight text-[#1E3932]">
-          {t("auth_logout_confirm_title")}
+          {title ?? t("auth_logout_confirm_title")}
         </p>
         <p id="logout-confirm-desc" className="mt-2 text-[14px] leading-snug text-[#6F4E37]">
-          {t("auth_logout_confirm_body")}
+          {body ?? t("auth_logout_confirm_body")}
         </p>
         {error ? <p className="mt-3 text-[13px] text-[#C0392B]">{error}</p> : null}
         <div className="mt-4 flex gap-2">

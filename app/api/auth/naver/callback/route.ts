@@ -157,7 +157,6 @@ export async function GET(req: NextRequest) {
     response.cookies.set(NAVER_OAUTH_STATE_COOKIE, "", { path: "/", maxAge: 0 });
     const sessionMeta = buildRequestSessionMeta(req);
     await syncActiveSessionForUser(signedUser.id, response, {
-      rotate: true,
       sessionMeta,
       loginIdentifier: profile.email,
       request: req,

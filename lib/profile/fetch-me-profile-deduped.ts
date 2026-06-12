@@ -4,6 +4,7 @@
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
+import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
 import type { ProfileRow } from "@/lib/profile/types";
 
 export type MeProfileGetResult = {
@@ -89,6 +90,47 @@ function profileFetchHeaders(clientCallSource: string | undefined, extra: Record
   };
 }
 
+async function fetchMeProfileNetwork(clientCallSource?: string): Promise<Response> {
+  recordBootVerifyFetch("/api/me/profile?mode=full", clientCallSource ?? "profile_full");
+  logShellFetchTrace({
+    api: "/api/me/profile",
+    component: clientCallSource ?? "fetch-me-profile-deduped",
+    reason: "fetchMeProfileFullBackground_network",
+  });
+  return fetch("/api/me/profile?mode=full", {
+    credentials: "include",
+    cache: "no-store",
+    headers: profileFetchHeaders(clientCallSource, {
+      "x-samarket-first-paint-blocking": "0",
+      "x-samarket-surface": "background",
+    }),
+  });
+}
+
+async function parseMeProfileResponse(res: Response): Promise<MeProfileGetResult> {
+  const json: unknown = await res.clone().json().catch(() => ({}));
+  return { status: res.status, json };
+}
+
+async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise<MeProfileGetResult> {
+  let res = await fetchMeProfileNetwork(clientCallSource);
+
+  if (res.status === 401) {
+    const recovery = await recoverFrom401Once("me_profile_full");
+    if (recovery.recovered) {
+      res = await fetchMeProfileNetwork(clientCallSource);
+    } else if (!recovery.terminal) {
+      return parseMeProfileResponse(res);
+    }
+  }
+
+  const result = await parseMeProfileResponse(res);
+  if (res.ok || res.status === 401 || res.status === 403) {
+    cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
+  }
+  return result;
+}
+
 /** Surface/Detail — full profile (boot 이후 background·on-demand). */
 export function fetchMeProfileDeduped(clientCallSource?: string): Promise<MeProfileGetResult> {
   return fetchMeProfileFullBackground(clientCallSource);
@@ -105,27 +147,5 @@ export function fetchMeProfileFullBackground(clientCallSource?: string): Promise
     cachedFull = { value: primed, expiresAt: now + TTL_MS };
     return Promise.resolve(primed);
   }
-  return runSingleFlight(FLIGHT_KEY_FULL, () => {
-    recordBootVerifyFetch("/api/me/profile?mode=full", clientCallSource ?? "profile_full");
-    logShellFetchTrace({
-      api: "/api/me/profile",
-      component: clientCallSource ?? "fetch-me-profile-deduped",
-      reason: "fetchMeProfileFullBackground_network",
-    });
-    return fetch("/api/me/profile?mode=full", {
-      credentials: "include",
-      cache: "no-store",
-      headers: profileFetchHeaders(clientCallSource, {
-        "x-samarket-first-paint-blocking": "0",
-        "x-samarket-surface": "background",
-      }),
-    });
-  }).then(async (res): Promise<MeProfileGetResult> => {
-    const json: unknown = await res.clone().json().catch(() => ({}));
-    const result: MeProfileGetResult = { status: res.status, json };
-    if (res.ok || res.status === 401 || res.status === 403) {
-      cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
-    }
-    return result;
-  });
+  return runSingleFlight(FLIGHT_KEY_FULL, () => fetchMeProfileWith401Recovery(clientCallSource));
 }

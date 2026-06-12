@@ -28,6 +28,11 @@ export function getSupabaseClient(): SupabaseClient | null {
         sameSite: "lax",
         secure,
       },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+      },
     });
     const sb = client;
     /**

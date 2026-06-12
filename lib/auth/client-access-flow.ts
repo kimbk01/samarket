@@ -1,6 +1,5 @@
 "use client";
 
-import { SESSION_REPLACED_CODE, SESSION_REPLACED_MESSAGE } from "@/lib/auth/active-session-shared";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import type { Profile } from "@/lib/types/profile";
@@ -62,11 +61,6 @@ export function isLoginRequiredError(error: string | null | undefined): boolean 
 }
 
 export { isPhoneVerificationRequiredError };
-
-export function isSessionReplacedError(error: string | null | undefined): boolean {
-  const msg = String(error ?? "");
-  return msg.includes(SESSION_REPLACED_CODE) || msg.includes(SESSION_REPLACED_MESSAGE);
-}
 
 export function redirectForBlockedAction(
   router: RouterLike,

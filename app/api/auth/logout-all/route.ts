@@ -1,8 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { clearActiveSessionCookie, readActiveSessionIdCookie } from "@/lib/auth/active-session";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
-import { requireAuth } from "@/lib/auth/server-guards";
-import { invalidateUserSessionRegistry } from "@/lib/auth/user-session-registry";
+import { getCurrentProfile, requireAuth } from "@/lib/auth/server-guards";
+import { invalidateAllUserSessionRegistry } from "@/lib/auth/user-session-registry";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -10,24 +10,13 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 현재 기기 로그아웃 — user_sessions 현재 row 만 invalidate.
- * Supabase global signOut 금지 (다른 기기 세션 유지).
+ * 모든 기기 로그아웃 — registry 전체 revoke + Supabase global signOut.
  */
 export async function POST(request: NextRequest) {
   const cookieSecure = cookieSecureFromNextRequest(request);
   const routeSb = await createSupabaseRouteHandlerClient();
   if (!routeSb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
-  }
-
-  const {
-    data: { user },
-    error: userError,
-  } = await routeSb.auth.getUser();
-  if (userError || !user?.id) {
-    const response = NextResponse.json({ ok: true, already_logged_out: true });
-    await clearActiveSessionCookie(response, cookieSecure);
-    return response;
   }
 
   const auth = await requireAuth();
@@ -40,18 +29,37 @@ export async function POST(request: NextRequest) {
   const sb = tryCreateSupabaseServiceClient();
   const currentSessionId = await readActiveSessionIdCookie();
 
-  if (sb && currentSessionId) {
+  if (sb) {
     try {
-      await invalidateUserSessionRegistry(sb, auth.userId, currentSessionId, "user_logout");
+      await invalidateAllUserSessionRegistry(sb, auth.userId, "global_signout");
+      const profile = await getCurrentProfile(auth.userId);
+      const activeSessionId = (profile?.active_session_id ?? "").trim();
+      if (activeSessionId) {
+        await sb
+          .from("profiles")
+          .update({
+            active_session_id: null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", auth.userId);
+      }
     } catch (error) {
       return NextResponse.json(
         {
           ok: false,
-          error: error instanceof Error ? error.message : "logout_session_cleanup_failed",
+          error: error instanceof Error ? error.message : "logout_all_cleanup_failed",
         },
         { status: 500 }
       );
     }
+  } else if (currentSessionId) {
+    /* degraded */
+  }
+
+  try {
+    await routeSb.auth.signOut({ scope: "global" });
+  } catch {
+    /* client may have already global signOut */
   }
 
   const response = NextResponse.json({ ok: true });

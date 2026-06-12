@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import type { Profile } from "@/lib/types/profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -8,6 +8,7 @@ import {
   type ClientMembershipResolution,
 } from "@/lib/auth/resolve-client-profile-session";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { ensureSessionHealthy } from "@/lib/auth/dibay-session-manager";
 
 export type ClientMembershipState =
   | { status: "checking" }
@@ -24,6 +25,7 @@ let storeSnapshot: MembershipStoreSnapshot = {
   revision: 0,
 };
 let inflight: Promise<ClientMembershipState> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
 
 function membershipFromCache(): ClientMembershipState {
@@ -50,8 +52,25 @@ async function resolveMembershipState(source: string): Promise<ClientMembershipS
   const cached = getCurrentUser();
   if (cached?.id) return { status: "member", profile: cached };
 
+  const health = await ensureSessionHealthy(`membership:${source}`);
+  if (health.phase === "loading") {
+    return { status: "checking" };
+  }
+  if (health.ok === false && health.terminal) {
+    return { status: "guest" };
+  }
+
   const resolved: ClientMembershipResolution = await resolveClientMembership(source);
   return resolved;
+}
+
+function scheduleMembershipRetry(source: string, delayMs: number): void {
+  if (retryTimer) return;
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    inflight = null;
+    ensureMembershipResolved(source);
+  }, delayMs);
 }
 
 function ensureMembershipResolved(source: string): void {
@@ -67,11 +86,15 @@ function ensureMembershipResolved(source: string): void {
   inflight = resolveMembershipState(source)
     .then((next) => {
       publish(next);
+      if (next.status === "checking") {
+        scheduleMembershipRetry(source, 1_200);
+      }
       return next;
     })
     .catch(() => {
-      publish({ status: "guest" });
-      return { status: "guest" } as const;
+      publish({ status: "checking" });
+      scheduleMembershipRetry(source, 1_500);
+      return { status: "checking" } as const;
     })
     .finally(() => {
       inflight = null;
@@ -80,6 +103,10 @@ function ensureMembershipResolved(source: string): void {
 
 function resetMembershipStoreForAuthChange(source: string): void {
   inflight = null;
+  if (retryTimer) {
+    clearTimeout(retryTimer);
+    retryTimer = null;
+  }
   const cached = getCurrentUser();
   if (cached?.id) {
     publish({ status: "member", profile: cached });
@@ -98,10 +125,6 @@ function bindGlobalAuthListener(): void {
   });
 }
 
-/**
- * 화면 게스트/회원 분기 — 캐시만으로 비회원 판정하지 않는다.
- * 동일 탭 다중 구독자는 단일 store·단일 resolve 비행을 공유한다.
- */
 export function useClientMembershipState(source: string): ClientMembershipState {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 

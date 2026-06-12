@@ -160,7 +160,6 @@ export async function GET(req: NextRequest) {
 
       const sessionMeta = buildRequestSessionMeta(req);
       await syncActiveSessionForUser(user.id, response, {
-        rotate: true,
         sessionMeta,
         loginIdentifier: user.email?.trim().toLowerCase() ?? null,
         request: req,

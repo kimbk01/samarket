@@ -74,6 +74,9 @@ export const authUiMessages = {
     auth_logout_confirm_body: "로그아웃하면 다시 이용하려면 로그인이 필요합니다.",
     auth_logout_submit: "로그아웃",
     auth_logout_submitting: "로그아웃 중…",
+    auth_logout_all_label: "모든 기기에서 로그아웃",
+    auth_logout_all_confirm_title: "모든 기기에서 로그아웃하시겠습니까?",
+    auth_logout_all_confirm_body: "연결된 모든 기기에서 로그아웃됩니다. 다시 이용하려면 로그인이 필요합니다.",
     auth_phone_gate_title: "전화번호 인증이 필요합니다",
     auth_phone_gate_requirement: "전화번호 인증 후 이용할 수 있습니다.",
     auth_phone_gate_body:
@@ -143,7 +146,6 @@ export const authUiMessages = {
     auth_onboarding_address_desc:
       "필리핀 내 거래·동네·배달을 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해 주세요. 동네 글쓰기·거래 글쓰기·커뮤니티 메신저 채팅을 하시려면 주소 등록 후 마이페이지에서 전화번호 인증까지 완료해 주세요.",
     auth_onboarding_address_done: "주소 설정이 완료되었습니다. 바로 이동합니다…",
-    auth_session_replaced: "동일 아이디가 다른 기기에서 접속 중입니다.",
     auth_session_expired_notice: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
     auth_login_required_notice: "로그인이 필요한 화면입니다. 로그인해 주세요.",
     auth_logout_err_failed: "로그아웃 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.",
@@ -227,6 +229,9 @@ export const authUiMessages = {
     auth_logout_confirm_body: "You will need to sign in again to continue using the app.",
     auth_logout_submit: "Sign out",
     auth_logout_submitting: "Signing out…",
+    auth_logout_all_label: "Sign out on all devices",
+    auth_logout_all_confirm_title: "Sign out on all devices?",
+    auth_logout_all_confirm_body: "You will be signed out on every device. Sign in again to continue.",
     auth_phone_gate_title: "Phone verification required",
     auth_phone_gate_requirement: "Available after phone verification.",
     auth_phone_gate_body:
@@ -296,7 +301,6 @@ export const authUiMessages = {
     auth_onboarding_address_desc:
       "Add one primary address on the map to use local trade, neighborhood, and delivery features. For posting, trading, and messenger chat, complete address setup and phone verification in My page.",
     auth_onboarding_address_done: "Address saved. Redirecting…",
-    auth_session_replaced: "This account is active on another device.",
     auth_session_expired_notice: "Your session has expired. Please sign in again.",
     auth_login_required_notice: "This page requires sign-in. Please log in.",
     auth_logout_err_failed: "Sign-out failed. Please try again shortly.",

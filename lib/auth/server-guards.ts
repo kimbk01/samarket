@@ -6,7 +6,6 @@ import {
 } from "@/lib/auth/cookie-secure-flag";
 import {
   readActiveSessionIdCookie,
-  sessionReplacedResponse,
   setActiveSessionCookie,
   createActiveSessionId,
 } from "@/lib/auth/active-session";
@@ -26,6 +25,7 @@ import {
   invalidateUserSessionRegistry,
   syncUserSessionRegistry,
   validateUserSessionRegistryCached,
+  ensureUserSessionRegistryRow,
 } from "@/lib/auth/user-session-registry";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { jsonError } from "@/lib/http/api-route";
@@ -70,28 +70,24 @@ export async function validateActiveSession(
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
   }
-  const activeSessionId = (profile.active_session_id ?? "").trim();
   const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
   if (!sessionId) {
     return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
   }
   const sb = tryCreateSupabaseServiceClient();
   if (sb) {
-    const { ok: registryOk } = await validateUserSessionRegistryCached(sb, userId, sessionId);
+    let { ok: registryOk } = await validateUserSessionRegistryCached(sb, userId, sessionId);
     if (!registryOk) {
-      if (activeSessionId && activeSessionId !== sessionId) {
-        return { ok: false, response: sessionReplacedResponse(), profile };
+      const ensured = await ensureUserSessionRegistryRow(sb, userId, sessionId);
+      if (ensured) {
+        registryOk = true;
       }
-      // registry 기준으로는 유효 세션이 아님. 동일한 active_session_id라도 통과시키지 않는다.
+    }
+    if (!registryOk) {
       return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
     }
-  } else {
-    if (activeSessionId && activeSessionId !== sessionId) {
-      return { ok: false, response: sessionReplacedResponse(), profile };
-    }
-    if (!activeSessionId && !sessionId) {
-      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
-    }
+  } else if (!sessionId) {
+    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), profile };
   }
   return { ok: true, profile };
 }
@@ -193,44 +189,19 @@ export async function validateActiveSessionLight(
     ).trim();
 
     if (!registryResult.registryOk) {
-      if (activeSessionId && activeSessionId !== sessionId) {
+      const ensured = await ensureUserSessionRegistryRow(sb, userId, sessionId);
+      if (!ensured) {
         breakdown.auth_db_round_trips = dbTrips;
         breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-        return { ok: false, response: sessionReplacedResponse(), breakdown };
+        return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
       }
-      breakdown.auth_db_round_trips = dbTrips;
-      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
     }
   } else {
-    const profile0 = devPerfNow();
-    const { data: pr, error } = await sbRead
-      .from("profiles")
-      .select("active_session_id")
-      .eq("id", userId)
-      .maybeSingle();
-    breakdown.auth_profile_sync_ms = Math.round(devPerfNow() - profile0);
-    dbTrips += 1;
-    if (error || !pr) {
-      breakdown.auth_db_round_trips = dbTrips;
-      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-      return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
-    }
-    activeSessionId = String((pr as { active_session_id?: string | null }).active_session_id ?? "").trim();
-
-    if (activeSessionId && activeSessionId !== sessionId) {
-      breakdown.auth_db_round_trips = dbTrips;
-      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-      return { ok: false, response: sessionReplacedResponse(), breakdown };
-    }
-    if (!activeSessionId && !sessionId) {
-      breakdown.auth_db_round_trips = dbTrips;
-      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
-      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
-    }
+    breakdown.auth_profile_sync_ms = 0;
+    dbTrips = 0;
   }
 
-  setAuthLightSessionSnapshot(userId, sessionId, activeSessionId);
+  setAuthLightSessionSnapshot(userId, sessionId, activeSessionId || sessionId);
   breakdown.auth_db_round_trips = dbTrips;
   breakdown.auth_validate_ms = Math.max(breakdown.auth_profile_sync_ms, breakdown.auth_registry_ms);
   breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
@@ -376,14 +347,17 @@ export async function syncActiveSessionForUser(
 
   const cookieSessionId = (await readActiveSessionIdCookie())?.trim() || null;
   const profileSessionId = (profile.active_session_id ?? "").trim() || null;
+  const deviceNow = options?.sessionMeta?.deviceInfo?.trim() || null;
+  const deviceDb = (profile.last_device_info ?? "").trim() || null;
+  const sameDevice = (deviceNow ?? "") === (deviceDb ?? "");
   let nextSessionId: string;
 
   if (options?.rotate === true) {
     nextSessionId = createActiveSessionId();
   } else if (cookieSessionId) {
     nextSessionId = cookieSessionId;
-  } else if (profileSessionId) {
-    // Cookie만 유실된 경우 DB 세션을 재사용해 즉시 복구한다.
+  } else if (profileSessionId && (sameDevice || !deviceDb)) {
+    // Cookie만 유실된 동일 기기(또는 device 미기록) — DB 세션 재사용. 타 기기 fresh login 은 새 id.
     nextSessionId = profileSessionId;
   } else {
     nextSessionId = createActiveSessionId();
@@ -401,9 +375,6 @@ export async function syncActiveSessionForUser(
   /** 두 스로틀 중 긴 쪽 — 단일 `last_login_at` 만 있으므로 동일 세션·기기에서는 둘 다 이 간격 안이면 생략 */
   const combinedThrottleSec = Math.max(profileThrottleSec, registryThrottleSec);
 
-  const deviceNow = options?.sessionMeta?.deviceInfo?.trim() || null;
-  const deviceDb = (profile.last_device_info ?? "").trim() || null;
-  const sameDevice = (deviceNow ?? "") === (deviceDb ?? "");
   const lastLoginRaw = profile.last_login_at;
   const lastLoginMs =
     typeof lastLoginRaw === "string" && lastLoginRaw.trim() ? Date.parse(lastLoginRaw) : Number.NaN;

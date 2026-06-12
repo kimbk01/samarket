@@ -42,7 +42,7 @@ export async function validateUserSessionRegistry(
 ): Promise<boolean> {
   const { data, error } = await sb
     .from("user_sessions")
-    .select("active")
+    .select("active, invalidation_reason")
     .eq("user_id", userId)
     .eq("session_id", sessionId)
     .maybeSingle();
@@ -51,7 +51,47 @@ export async function validateUserSessionRegistry(
     return false;
   }
   if (!data) return false;
-  return data.active === true;
+  if (data.active !== true) {
+    const reason = String((data as { invalidation_reason?: string | null }).invalidation_reason ?? "");
+    if (reason && ["user_logout", "admin_revoke", "global_signout", "account_deleted"].includes(reason)) {
+      return false;
+    }
+    return false;
+  }
+  return true;
+}
+
+/** Supabase 세션은 유효한데 registry row 가 없을 때 lazy 등록 (다중 기기·쿠키 복구) */
+export async function ensureUserSessionRegistryRow(
+  sb: SupabaseClient<any>,
+  userId: string,
+  sessionId: string,
+  options?: {
+    deviceInfo?: string | null;
+    loginIdentifier?: string | null;
+    deviceKey?: string | null;
+    browserKey?: string | null;
+    ipAddress?: string | null;
+  }
+): Promise<boolean> {
+  const sid = String(sessionId ?? "").trim();
+  if (!sid) return false;
+  const ok = await validateUserSessionRegistry(sb, userId, sid);
+  if (ok) return true;
+  try {
+    await syncUserSessionRegistry(sb, userId, {
+      nextSessionId: sid,
+      deviceInfo: options?.deviceInfo ?? null,
+      loginIdentifier: options?.loginIdentifier ?? null,
+      deviceKey: options?.deviceKey ?? null,
+      browserKey: options?.browserKey ?? null,
+      ipAddress: options?.ipAddress ?? null,
+    });
+    invalidateUserSessionRegistryValidateCache(userId);
+    return validateUserSessionRegistry(sb, userId, sid);
+  } catch {
+    return false;
+  }
 }
 
 type UserSessionRegistryRow = {
@@ -177,5 +217,28 @@ export async function invalidateUserSessionRegistry(
     .eq("session_id", normalizedSessionId);
   if (error && !isUserSessionSchemaError(error)) {
     throw new Error(error.message || "session_registry_invalidate_failed");
+  }
+}
+
+/** 모든 기기 로그아웃 — active session 전부 revoke */
+export async function invalidateAllUserSessionRegistry(
+  sb: SupabaseClient<any>,
+  userId: string,
+  reason: string
+): Promise<void> {
+  invalidateUserSessionRegistryValidateCache(userId);
+  const now = new Date().toISOString();
+  const { error } = await sb
+    .from("user_sessions")
+    .update({
+      active: false,
+      invalidated_at: now,
+      invalidation_reason: reason,
+      last_seen_at: now,
+    })
+    .eq("user_id", userId)
+    .eq("active", true);
+  if (error && !isUserSessionSchemaError(error)) {
+    throw new Error(error.message || "session_registry_invalidate_all_failed");
   }
 }

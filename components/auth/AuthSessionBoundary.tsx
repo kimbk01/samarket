@@ -6,9 +6,11 @@ import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import {
   isAuthExitNavigateStarted,
   runAuthAccountSwitchExit,
+  runAuthRequiredExit,
   runAuthSessionExpiredExit,
 } from "@/lib/auth/auth-exit-coordinator";
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
+import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -18,7 +20,7 @@ type Props = {
 
 /**
  * account-dependent 경로 — membership resolve 완료 전까지 private UI 렌더 금지.
- * 캐시 비어 있어도 세션 API 로 회원 여부를 확인한 뒤에만 redirect 한다.
+ * guest 는 auth_required, corrupt 만 session_expired.
  */
 export function AuthSessionBoundary({ children }: Props) {
   const { t } = useI18n();
@@ -39,8 +41,13 @@ export function AuthSessionBoundary({ children }: Props) {
     if (membership.status === "checking") return;
     if (isAuthExitNavigateStarted()) return;
 
-    if (membership.status === "guest") {
+    if (getSessionPhase() === "corrupt") {
       void runAuthSessionExpiredExit();
+      return;
+    }
+
+    if (membership.status === "guest") {
+      void runAuthRequiredExit();
       return;
     }
 

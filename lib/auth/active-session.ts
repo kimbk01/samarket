@@ -1,11 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { jsonError } from "@/lib/http/api-route";
 import {
   ACTIVE_SESSION_COOKIE,
-  SESSION_REPLACED_CODE,
-  SESSION_REPLACED_MESSAGE,
 } from "@/lib/auth/active-session-shared";
 import { cookieSecureFromNextHeaders } from "@/lib/auth/cookie-secure-flag";
 
@@ -55,8 +52,4 @@ export async function clearActiveSessionCookie(
     maxAge: 0,
   });
   return response;
-}
-
-export function sessionReplacedResponse() {
-  return jsonError(SESSION_REPLACED_MESSAGE, { status: 401, code: SESSION_REPLACED_CODE });
 }

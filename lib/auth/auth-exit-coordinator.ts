@@ -1,6 +1,9 @@
 "use client";
 
-import { logoutDiBaYAppSession } from "@/lib/auth/logout";
+import {
+  forceClearDiBaYCorruptSession,
+  logoutDiBaYAppSession,
+} from "@/lib/auth/logout";
 import {
   isAuthExitNavigateStarted,
   markAuthExitNavigateStarted,
@@ -21,14 +24,11 @@ export function navigateAfterAuthExitOnce(reason: AuthExitReason): void {
   navigateAfterAuthExit(reason);
 }
 
-/**
- * 세션 만료·강제 로그아웃 — wipe+replace 단일 비행.
- * SessionLostRedirect·AuthSessionBoundary 등에서 공유.
- */
+/** refresh token terminal — corrupt session only */
 export async function runAuthSessionExpiredExit(): Promise<{ ok: boolean }> {
   return runSingleFlight(`${AUTH_EXIT_FLIGHT_PREFIX}session_expired`, async () => {
     if (isAuthExitNavigateStarted()) return { ok: true };
-    const result = await logoutDiBaYAppSession();
+    const result = await forceClearDiBaYCorruptSession();
     if (result.ok) {
       navigateAfterAuthExitOnce("session_expired");
       return { ok: true };
@@ -46,6 +46,14 @@ export async function runAuthLogoutExit(): Promise<{ ok: boolean; message?: stri
       return { ok: true };
     }
     return { ok: false, message: result.ok === false ? result.message : null };
+  });
+}
+
+/** 미로그인·guest — 만료 문구 없이 auth_required */
+export async function runAuthRequiredExit(): Promise<void> {
+  return runSingleFlight(`${AUTH_EXIT_FLIGHT_PREFIX}auth_required`, async () => {
+    if (isAuthExitNavigateStarted()) return;
+    navigateAfterAuthExitOnce("auth_required");
   });
 }
 

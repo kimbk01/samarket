@@ -20,9 +20,11 @@ import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
-import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instance-id";
+import { bindAuthUserId, detectAuthUserMismatch, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import { wipeUserScopedStorage } from "@/lib/auth/client-session-wipe";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
+import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 
 let lastKnownAuthUserId: string | null = null;
 
@@ -68,7 +70,9 @@ function handleAuthenticatedSession(
     (lastKnownAuthUserId && lastKnownAuthUserId !== userId) || detectAuthUserMismatch(userId);
 
   if (accountMismatch) {
+    const previousUserId = getBoundAuthUserId();
     void wipeClientSessionState("account_switched", { setPostLogoutGuard: true }).then(() => {
+      if (previousUserId) wipeUserScopedStorage(previousUserId);
       bindAuthUserId(userId);
       if (typeof window !== "undefined" && isAccountDependentPath(window.location.pathname)) {
         void runAuthAccountSwitchExit();
@@ -96,16 +100,15 @@ function handleAuthenticatedSession(
  */
 export function SupabaseAuthSync() {
   useEffect(() => {
+    const unbindSessionManager = bindDibaySessionManagerAuthListener();
     const sb = getSupabaseClient();
-    if (!sb) return;
+    if (!sb) return unbindSessionManager;
 
     const onBootReady = () => applySupabaseProfileCacheFromBoot(sb);
     window.addEventListener(APP_BOOT_READY_EVENT, onBootReady);
     void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
 
-    const {
-      data: { subscription },
-    } = sb.auth.onAuthStateChange((event, session) => {
+    const unsubAuthEvents = subscribeDibayAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         lastKnownAuthUserId = null;
         if (shouldSkipSignedOutEventWipe()) {
@@ -129,16 +132,15 @@ export function SupabaseAuthSync() {
         return;
       }
 
-      if (!session?.user?.id) {
-        return;
+      if (event === "SIGNED_IN" && session?.user?.id) {
+        handleAuthenticatedSession(sb, event, session.user.id);
       }
-
-      handleAuthenticatedSession(sb, event, session.user.id);
     });
 
     return () => {
-      subscription.unsubscribe();
+      unsubAuthEvents();
       window.removeEventListener(APP_BOOT_READY_EVENT, onBootReady);
+      unbindSessionManager();
     };
   }, []);
 

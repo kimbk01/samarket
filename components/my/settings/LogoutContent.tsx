@@ -6,6 +6,8 @@ import {
   navigateAfterAuthExitOnce,
   runAuthLogoutExit,
 } from "@/lib/auth/auth-exit-coordinator";
+import { logoutDiBaYAllDevices } from "@/lib/auth/logout";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 type LogoutActionTriggerProps = {
@@ -92,6 +94,59 @@ export function LogoutActionTrigger({
   );
 }
 
+function LogoutAllDevicesTrigger() {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleLogoutAll = async () => {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const result = await logoutDiBaYAllDevices();
+      setSubmitting(false);
+      if (!result.ok) {
+        setError(result.message ?? t("auth_logout_err_failed"));
+        return;
+      }
+      setOpen(false);
+      navigateAfterAuthExitOnce("logout");
+    } catch (e) {
+      setSubmitting(false);
+      setError(e instanceof Error ? e.message : t("auth_logout_err_failed"));
+    }
+  };
+
+  return (
+    <>
+      <MyPageMobileMenuRow
+        title={t("auth_logout_all_label")}
+        tone="danger"
+        surface="grouped"
+        onClick={() => {
+          setError(null);
+          setOpen(true);
+        }}
+      />
+      <LogoutConfirmModal
+        open={open}
+        submitting={submitting}
+        error={error}
+        title={t("auth_logout_all_confirm_title")}
+        body={t("auth_logout_all_confirm_body")}
+        onCancel={() => setOpen(false)}
+        onConfirm={handleLogoutAll}
+      />
+    </>
+  );
+}
+
 export function LogoutContent() {
-  return <LogoutActionTrigger />;
+  return (
+    <div className="space-y-0">
+      <LogoutActionTrigger variant="menu_row" />
+      <LogoutAllDevicesTrigger />
+    </div>
+  );
 }

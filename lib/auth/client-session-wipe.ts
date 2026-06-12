@@ -16,10 +16,6 @@ import { useCallStore } from "@/lib/community-messenger/stores/useCallStore";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
-import {
-  APP_LANGUAGE_DEVICE_SEEDED_KEY,
-  APP_LANGUAGE_STORAGE_KEY,
-} from "@/lib/i18n/config";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import { invalidateMeAddressesListClientCache } from "@/lib/addresses/address-list-client-cache";
@@ -34,7 +30,12 @@ import { teardownCommunityMessengerCallOnAuthExit } from "@/lib/community-messen
 import { resetSignupGateSessionFlags } from "@/lib/auth/signup-gate-session";
 import { clearPendingAuthActions } from "@/lib/auth/require-auth-action";
 import { clearLoginBootstrapSnapshot } from "@/lib/auth/login-bootstrap-cache";
-import { CLIENT_INSTANCE_PERSISTENT_KEYS } from "@/lib/auth/client-instance-id";
+import { CLIENT_INSTANCE_PERSISTENT_KEYS, clearBoundAuthUserId, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
+import {
+  DIBAY_DEVICE_PERSISTENT_STORAGE_KEYS,
+  isDibayDevicePersistentKey,
+  listUserScopedStorageKeysForUser,
+} from "@/lib/auth/dibay-session-policy";
 import { clearAllLocalRoomSnapshots } from "@/lib/community-messenger/local-store/roomSnapshotDb";
 import { resetMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { resetMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
@@ -53,26 +54,49 @@ const EXPLICIT_LOGOUT_WIPE_SKIP_MS = 3_000;
 let explicitLogoutWipeAt = 0;
 
 const LOCAL_STORAGE_KEEP_KEYS = new Set<string>([
-  APP_LANGUAGE_STORAGE_KEY,
-  APP_LANGUAGE_DEVICE_SEEDED_KEY,
+  ...DIBAY_DEVICE_PERSISTENT_STORAGE_KEYS,
   ...CLIENT_INSTANCE_PERSISTENT_KEYS,
 ]);
 
-function clearEphemeralLocalStorage(): void {
+function clearEphemeralLocalStorage(options?: { exceptUserId?: string | null }): void {
   if (typeof window === "undefined") return;
   try {
     const keysToRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
-      if (!key || LOCAL_STORAGE_KEEP_KEYS.has(key)) continue;
+      if (!key || LOCAL_STORAGE_KEEP_KEYS.has(key) || isDibayDevicePersistentKey(key)) continue;
       keysToRemove.push(key);
     }
     for (const key of keysToRemove) {
       localStorage.removeItem(key);
     }
+    const exceptUserId = String(options?.exceptUserId ?? "").trim();
+    if (exceptUserId) {
+      for (const key of listUserScopedStorageKeysForUser(exceptUserId, localStorage)) {
+        if (!LOCAL_STORAGE_KEEP_KEYS.has(key)) localStorage.removeItem(key);
+      }
+    }
   } catch {
     /* private mode · quota */
   }
+}
+
+/** account switch — 이전 user id scoped key 만 삭제 */
+export function wipeUserScopedStorage(previousUserId: string): void {
+  if (typeof window === "undefined") return;
+  const uid = String(previousUserId ?? "").trim();
+  if (!uid) return;
+  try {
+    for (const key of listUserScopedStorageKeysForUser(uid, localStorage)) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function wipeAllExceptDevicePrefs(): void {
+  clearEphemeralLocalStorage();
 }
 
 function clearEphemeralSessionStorage(options: { setPostLogoutGuard: boolean }): void {
@@ -146,6 +170,7 @@ async function runWipeClientSessionState(
   reason: ClientSessionWipeReason,
   setPostLogoutGuard: boolean
 ): Promise<void> {
+  const previousUserId = getBoundAuthUserId();
   await teardownCommunityMessengerCallOnAuthExit(
     reason === "account_switched" ? "account_switch" : "logout"
   );
@@ -154,7 +179,12 @@ async function runWipeClientSessionState(
   await clearAllLocalRoomSnapshots();
   resetAuthClientCaches();
   resetSignupGateSessionFlags();
-  clearEphemeralLocalStorage();
+  if (reason === "account_switched" && previousUserId) {
+    wipeUserScopedStorage(previousUserId);
+  } else {
+    clearEphemeralLocalStorage();
+  }
+  clearBoundAuthUserId();
   clearEphemeralSessionStorage({ setPostLogoutGuard });
   closeAllServiceWorkerNotifications();
   dispatchTestAuthChanged();

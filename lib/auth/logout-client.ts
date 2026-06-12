@@ -1,26 +1,22 @@
 /**
- * 클라이언트 로그아웃 저수준 구현 (쿠키·캐시·Supabase local signOut + 서버 logout 백그라운드).
- * 제품 코드는 `@/lib/auth/logout` 의 `logoutDiBaYAppSession` 만 호출할 것.
+ * 클라이언트 로그아웃 — DIBAY 3종 정책.
+ * @see docs/dibay-session-policy.md
  */
 
-import { wipeClientSessionState, markExplicitLogoutWipeDone, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
+import {
+  wipeClientSessionState,
+  markExplicitLogoutWipeDone,
+} from "@/lib/auth/client-session-wipe";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
-/**
- * 로그아웃은 서버 응답을 기다리느라 UI가 멈추면 안 된다.
- * - 클라이언트 캐시·Supabase 로컬 세션을 먼저 비워 **즉시 로그아웃 상태**로 만든다.
- * - 서버 측 active_session_id·user_sessions 레지스트리 정리는
- *   `keepalive: true` 로 백그라운드에 던져 페이지 전환 후에도 끝나게 한다.
- */
-
 export type LogoutResult =
   | { ok: true; serverWarning?: string | null }
   | { ok: false; message: string };
 
-const SUPABASE_LOCAL_SIGNOUT_TIMEOUT_MS = 1_500;
+const SUPABASE_SIGNOUT_TIMEOUT_MS = 1_500;
 const SERVER_LOGOUT_TIMEOUT_MS = 5_000;
 
 function logoutT(key: MessageKey): string {
@@ -44,9 +40,33 @@ async function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 
   }
 }
 
-async function reportServerLogoutInBackground(): Promise<string | null> {
+async function localSupabaseSignOut(): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  await raceWithTimeout(
+    supabase.auth
+      .signOut({ scope: "local" })
+      .then(() => undefined)
+      .catch(() => undefined),
+    SUPABASE_SIGNOUT_TIMEOUT_MS
+  );
+}
+
+async function globalSupabaseSignOut(): Promise<void> {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+  await raceWithTimeout(
+    supabase.auth
+      .signOut({ scope: "global" })
+      .then(() => undefined)
+      .catch(() => undefined),
+    SUPABASE_SIGNOUT_TIMEOUT_MS
+  );
+}
+
+async function reportServerLogoutInBackground(path: "/api/auth/logout" | "/api/auth/logout-all"): Promise<string | null> {
   try {
-    const res = await fetchWithTimeout("/api/auth/logout", {
+    const res = await fetchWithTimeout(path, {
       method: "POST",
       credentials: "include",
       keepalive: true,
@@ -61,45 +81,60 @@ async function reportServerLogoutInBackground(): Promise<string | null> {
     return null;
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      return "서버 로그아웃 응답이 지연되어 백그라운드에서 정리합니다.";
+      return logoutT("auth_logout_err_server_slow");
     }
-    return "서버 로그아웃 응답을 받지 못했습니다. 다음 로그인 시 자동으로 정리됩니다.";
+    return logoutT("auth_logout_err_server_unreachable");
   }
 }
 
-export async function performClientLogout(): Promise<LogoutResult> {
+/** 현재 기기만 — local signOut + registry current session */
+export async function logoutCurrentDevice(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
-    return {
-      ok: false,
-      message: logoutT("auth_logout_err_browser_only"),
-    };
+    return { ok: false, message: logoutT("auth_logout_err_browser_only") };
   }
 
   await wipeClientSessionState("user_logout");
   markExplicitLogoutWipeDone();
-  // DIBAY 언어 정책: wipe allowlist — samarket_app_language·device seed 유지.
+  await localSupabaseSignOut();
 
-  const supabase = getSupabaseClient();
-  if (supabase) {
-    /**
-     * `scope: "local"` 은 Supabase 서버 호출 없이 브라우저의
-     * sb-*-auth-token 쿠키와 로컬 세션 저장소만 비운다.
-     * 글로벌 signOut 은 서버 측 logout API 가 백그라운드에서 처리한다.
-     */
-    await raceWithTimeout(
-      supabase.auth
-        .signOut({ scope: "local" })
-        .then(() => undefined)
-        .catch(() => undefined),
-      SUPABASE_LOCAL_SIGNOUT_TIMEOUT_MS
-    );
-  }
-
-  // Server-side registry/session cookie cleanup는 page 이탈 후에도 끝나도록
-  // keepalive 로 백그라운드 송출. 결과는 UI 흐름을 막지 않는다.
-  void reportServerLogoutInBackground().catch(() => {
-    /* best-effort: 로컬은 이미 로그아웃됨 */
+  void reportServerLogoutInBackground("/api/auth/logout").catch(() => {
+    /* best-effort */
   });
 
   return { ok: true, serverWarning: null };
+}
+
+/** 모든 기기 — global signOut + 전체 registry revoke */
+export async function logoutAllDevices(): Promise<LogoutResult> {
+  if (typeof window === "undefined") {
+    return { ok: false, message: logoutT("auth_logout_err_browser_only") };
+  }
+
+  await wipeClientSessionState("user_logout");
+  markExplicitLogoutWipeDone();
+  await globalSupabaseSignOut();
+
+  void reportServerLogoutInBackground("/api/auth/logout-all").catch(() => {
+    /* best-effort */
+  });
+
+  return { ok: true, serverWarning: null };
+}
+
+/** refresh token 무효·corrupt — local wipe only (서버 호출 없음) */
+export async function forceClearCorruptSession(): Promise<LogoutResult> {
+  if (typeof window === "undefined") {
+    return { ok: false, message: logoutT("auth_logout_err_browser_only") };
+  }
+
+  await wipeClientSessionState("user_logout");
+  markExplicitLogoutWipeDone();
+  await localSupabaseSignOut();
+
+  return { ok: true, serverWarning: null };
+}
+
+/** @deprecated `logoutCurrentDevice` 사용 */
+export async function performClientLogout(): Promise<LogoutResult> {
+  return logoutCurrentDevice();
 }
