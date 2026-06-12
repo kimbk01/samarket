@@ -1,3 +1,7 @@
+"use client";
+
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { ADMIN_QUERY_TTL_FAST_MS } from "@/lib/admin/admin-query-ttl";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type AdminDeliveryOperationAlertsResult = {
@@ -14,9 +18,12 @@ export function fetchAdminDeliveryOperationAlertsDeduped(
     event_status: eventStatus,
     assignment,
   });
+  const url = `/api/admin/delivery-operation-alerts?${qs.toString()}`;
   return runSingleFlight(key, () =>
-    fetch(`/api/admin/delivery-operation-alerts?${qs.toString()}`, {
+    adminFetch(url, {
       cache: "no-store",
+      dedupeKey: key,
+      cacheTtlMs: ADMIN_QUERY_TTL_FAST_MS,
     })
   ).then(async (res): Promise<AdminDeliveryOperationAlertsResult> => {
     if (!res.ok) return { status: res.status, json: null };

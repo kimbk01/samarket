@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
+import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
+import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
@@ -79,16 +80,6 @@ export function AdminTradeFlowPage() {
   const [revertingId, setRevertingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const user = getCurrentUser();
-    const uid = user?.id?.trim() ?? "";
-    if (!uid || !isAdminUser(user)) {
-      setError(t("admin_trade_flow_admin_test_login"));
-      setSessions([]);
-      setLogs([]);
-      setReviews([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -99,7 +90,7 @@ export function AdminTradeFlowPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? t("admin_trade_completion_fetch_failed"));
+        setError(resolveAdminHttpErrorMessage(res, data, t, "admin_trade_completion_fetch_failed"));
         setSessions([]);
         setLogs([]);
         setReviews([]);
@@ -124,9 +115,6 @@ export function AdminTradeFlowPage() {
 
   const revertTrade = useCallback(
     async (roomId: string) => {
-      const user = getCurrentUser();
-      const uid = user?.id?.trim() ?? "";
-      if (!uid || !isAdminUser(user)) return;
       if (
         !window.confirm(t("admin_trade_flow_revert_confirm"))
       ) {
@@ -134,6 +122,7 @@ export function AdminTradeFlowPage() {
       }
       setRevertingId(roomId);
       setError(null);
+      logAdminMutation("trade-flow:revert", "start", { roomId });
       try {
         const res = await fetch("/api/admin/trade-flow/revert", {
           method: "POST",
@@ -142,11 +131,14 @@ export function AdminTradeFlowPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
-          setError((data as { error?: string }).error ?? t("admin_trade_flow_revert_failed"));
+          logAdminMutation("trade-flow:revert", "fail", { roomId, status: res.status });
+          setError(resolveAdminHttpErrorMessage(res, data, t, "admin_trade_flow_revert_failed"));
           return;
         }
+        logAdminMutation("trade-flow:revert", "success", { roomId });
         await load();
       } catch {
+        logAdminMutation("trade-flow:revert", "fail", { roomId });
         setError(t("common_network_error"));
       } finally {
         setRevertingId(null);

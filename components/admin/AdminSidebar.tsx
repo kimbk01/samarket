@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   adminMenu,
@@ -12,13 +11,24 @@ import {
 } from "@/components/admin/admin-menu";
 import { AdminSidebarGroup } from "@/components/admin/sidebar/AdminSidebarGroup";
 import { AdminSidebarItem } from "@/components/admin/sidebar/AdminSidebarItem";
+import { useAdminShell } from "@/components/admin/AdminShellContext";
 import { getAdminRole } from "@/lib/admin-permission";
+import type { AdminRole } from "@/lib/admin-menu-config";
 
-/** 기존 AdminRole → AdminMenuRole 매핑. 추후 로그인 role 연동 시 여기만 수정. */
-function toMenuRole(role: "operator" | "manager" | "master"): AdminMenuRole {
+/** AdminRole → AdminMenuRole 매핑 */
+function toMenuRole(role: AdminRole): AdminMenuRole {
   if (role === "manager") return "admin";
   if (role === "operator") return "operator";
   return "master";
+}
+
+function resolveSidebarMenuRole(
+  uiRole: AdminRole | undefined,
+  adminMeLoading: boolean
+): AdminMenuRole {
+  if (uiRole) return toMenuRole(uiRole);
+  if (adminMeLoading) return "operator";
+  return toMenuRole(getAdminRole());
 }
 
 export function AdminSidebar({
@@ -34,9 +44,12 @@ export function AdminSidebar({
   onClose?: () => void;
 }) {
   const { t } = useI18n();
-  const pathname = usePathname();
-  const currentPath = pathname ?? "";
-  const role = toMenuRole(getAdminRole());
+  const { adminMe, adminMeLoading, effectiveNavPath, setPendingNavPath } = useAdminShell();
+  const currentPath = effectiveNavPath;
+  const role = useMemo(
+    () => resolveSidebarMenuRole(adminMe?.uiRole, adminMeLoading),
+    [adminMe?.uiRole, adminMeLoading]
+  );
   const menu = useMemo(() => filterMenuByRole(adminMenu, role), [role]);
 
   const asideClass = [
@@ -55,7 +68,10 @@ export function AdminSidebar({
             href="/admin"
             prefetch={false}
             className="admin-sidebar__brand sam-text-section-title"
-            onClick={() => onClose?.()}
+            onClick={() => {
+              setPendingNavPath("/admin");
+              onClose?.();
+            }}
           >
             {t("admin_brand")}
           </Link>
@@ -68,6 +84,7 @@ export function AdminSidebar({
                 item={item as AdminMenuItem & { children: AdminMenuItem[] }}
                 currentPath={currentPath}
                 onClose={onClose}
+                onNavigate={setPendingNavPath}
               />
             ) : (
               <AdminSidebarItem
@@ -77,6 +94,7 @@ export function AdminSidebar({
                 depth={0}
                 pathsScope={item.path ? [item.path] : undefined}
                 onClose={onClose}
+                onNavigate={setPendingNavPath}
               />
             )
           )}

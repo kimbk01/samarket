@@ -2,8 +2,6 @@
 
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { isAdminUser } from "@/lib/auth/get-current-user";
 import { getAdminChatRoomsFromDb } from "@/lib/admin-chats/getAdminChatRoomsFromDb";
 import {
   fetchAdminChatRoomsApi,
@@ -144,22 +142,19 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const user = getCurrentUser();
 
     const load = async () => {
       let fromProductChats: AdminChatRoom[] = [];
       let fromChatRooms: AdminChatRoom[] = [];
-      const admin = isAdminUser(user);
-      const emptyRooms = Promise.resolve([] as AdminChatRoom[]);
 
       if (mode === "trade") {
         [fromProductChats, fromChatRooms] = await Promise.all([
-          admin ? fetchAdminChatRoomsApi().catch(() => []) : emptyRooms,
+          fetchAdminChatRoomsApi().catch(() => []),
           fetchAdminChatRoomsListApi({ roomType: "item_trade" }).catch(() => []),
         ]);
       } else if (mode === "reported") {
         [fromProductChats, fromChatRooms] = await Promise.all([
-          admin ? fetchAdminChatRoomsApi().catch(() => []) : emptyRooms,
+          fetchAdminChatRoomsApi().catch(() => []),
           fetchAdminChatRoomsListApi({ hasReport: true }).catch(() => []),
         ]);
         fromProductChats = fromProductChats.filter((r) => (r.reportCount ?? 0) > 0);
@@ -167,7 +162,7 @@ export function AdminChatListPage({ mode = "all" }: AdminChatListPageProps) {
         fromChatRooms = [];
       } else {
         [fromProductChats, fromChatRooms] = await Promise.all([
-          admin ? fetchAdminChatRoomsApi().catch(() => []) : emptyRooms,
+          fetchAdminChatRoomsApi().catch(() => []),
           fetchAdminChatRoomsListApi().catch(() => []),
         ]);
       }

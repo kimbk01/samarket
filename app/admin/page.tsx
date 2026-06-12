@@ -1,10 +1,10 @@
 import { AdminDashboardPage } from "@/components/admin/dashboard/AdminDashboardPage";
 import { getCachedAdminDashboardPayloadForDevSafe } from "@/lib/admin-dashboard/build-admin-dashboard-payload-dev-cache";
-import { getOptionalAdminUserId } from "@/lib/admin/require-admin-api";
+import { getOptionalAdminUserIdCached } from "@/lib/admin/get-optional-admin-user-id-cached";
 
 export default async function AdminPage() {
   let initialDashboardPayload = null;
-  const adminId = await getOptionalAdminUserId();
+  const adminId = await getOptionalAdminUserIdCached();
   if (adminId) {
     try {
       initialDashboardPayload = await getCachedAdminDashboardPayloadForDevSafe(adminId);

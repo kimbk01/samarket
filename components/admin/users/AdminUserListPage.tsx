@@ -29,7 +29,10 @@ import {
 } from "@/lib/ui/admin-users-starbucks-styles";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { adminFetch, invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { invalidateAdminQueryCache } from "@/lib/admin/admin-query-cache";
+import { ADMIN_QUERY_TTL_MS } from "@/lib/admin/admin-query-ttl";
+import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminUserFilterBar } from "./AdminUserFilterBar";
 import { AdminUserTable } from "./AdminUserTable";
@@ -38,6 +41,7 @@ import { CreateAdminForm } from "./CreateAdminForm";
 import { EditAdminForm } from "./EditAdminForm";
 import { CreateMemberForm } from "./CreateMemberForm";
 import { EditMemberForm } from "./EditMemberForm";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAuthProvider, AdminUser } from "@/lib/types/admin-user";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
@@ -125,12 +129,7 @@ export function AdminUserListPage() {
   const [editingMember, setEditingMember] = useState<AdminUser | null>(null);
   const [staffKey, setStaffKey] = useState(0);
   const [membersKey, setMembersKey] = useState(0);
-  const [membersFromApi, setMembersFromApi] = useState<AdminUser[] | null>(null);
-  const [membersLoading, setMembersLoading] = useState(false);
-  const [membersError, setMembersError] = useState<string | null>(null);
   const [cleanupLoading, setCleanupLoading] = useState(false);
-  const [staffList, setStaffList] = useState<AdminStaff[]>([]);
-  const [staffLoading, setStaffLoading] = useState(false);
   const { isSuperAdmin } = useAdminMe();
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const tableScrollRef = useRef<HTMLDivElement>(null);
@@ -152,77 +151,88 @@ export function AdminUserListPage() {
     return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
   }, []);
 
-  /**
-   * 회원 목록 조회 — 권한 검증은 서버(`requireAdminApiUser`)가 한다.
-   * 클라이언트의 `adminUserId` 가 비어 있어도(쿠키만 있고 프로필 캐시 미하이드레이션 상태) 호출을 막지 않는다.
-   * 401·403 응답은 분명히 표면화하고, 200 이면 목록을 노출한다.
-   */
-  const fetchMembers = useCallback(async () => {
-    setMembersLoading(true);
-    setMembersError(null);
-    try {
-      const flightKey = `admin-users:list:${adminUserId || "anon"}:${membersKey}`;
-      const res = await runSingleFlight(flightKey, () =>
-        fetch("/api/admin/users", { credentials: "include", cache: "no-store" })
-      );
-      const data = (await res.clone().json().catch(() => ({}))) as {
-        users?: AdminUser[];
-        error?: string;
-        code?: string;
-      };
-      if (res.status === 401) {
-        setMembersFromApi([]);
-        setMembersError(t("admin_users_error_login_required"));
-        return;
+  const membersQueryKey = `admin:users:list:${membersKey}`;
+
+  const {
+    data: membersFromApi,
+    error: membersErrorCode,
+    loading: membersLoading,
+  } = useAdminQuery<AdminUser[]>({
+    queryKey: membersQueryKey,
+    enabled: tab === "members",
+    ttlMs: ADMIN_QUERY_TTL_MS,
+    fetcher: async () => {
+      try {
+        const res = await adminFetch("/api/admin/users", {
+          credentials: "include",
+          cache: "no-store",
+          dedupeKey: membersQueryKey,
+          cacheTtlMs: ADMIN_QUERY_TTL_MS,
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          users?: AdminUser[];
+          error?: string;
+          code?: string;
+        };
+        if (res.status === 401) throw new Error("admin_users_error_login_required");
+        if (res.status === 403) throw new Error("admin_users_error_admin_only");
+        if (!res.ok) {
+          if (data.code === "supabase_service_unconfigured") {
+            throw new Error("admin_users_error_service_role_missing");
+          }
+          throw new Error("admin_users_error_fetch_failed");
+        }
+        return data.users ?? [];
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith("admin_")) throw err;
+        throw new Error("admin_users_error_network");
       }
-      if (res.status === 403) {
-        setMembersFromApi([]);
-        setMembersError(data.error || t("admin_users_error_admin_only"));
-        return;
+    },
+  });
+
+  const resolveAdminUsersQueryError = useCallback(
+    (code: string | null) => {
+      if (!code) return null;
+      if (code.startsWith("admin_") || code.startsWith("common_")) {
+        return t(code as MessageKey);
       }
-      if (!res.ok) {
-        setMembersFromApi([]);
-        setMembersError(
-          data.error ||
-            (data.code === "supabase_service_unconfigured"
-              ? t("admin_users_error_service_role_missing")
-              : t("admin_users_error_fetch_failed"))
-        );
-        return;
+      return code;
+    },
+    [t]
+  );
+
+  const {
+    data: staffFromQuery,
+    loading: staffLoading,
+    error: staffErrorCode,
+  } = useAdminQuery<AdminStaff[]>({
+    queryKey: `admin:staff:list:${staffKey}`,
+    enabled: tab === "staff",
+    ttlMs: ADMIN_QUERY_TTL_MS,
+    fetcher: async () => {
+      try {
+        return await fetchAdminStaffList();
+      } catch {
+        throw new Error("admin_users_error_network");
       }
-      const list = data.users ?? [];
-      setMembersFromApi(list);
-    } catch {
-      setMembersFromApi([]);
-      setMembersError(t("admin_users_error_network"));
-    } finally {
-      setMembersLoading(false);
-    }
-  }, [adminUserId, membersKey, t]);
+    },
+  });
+
+  const staffList = staffFromQuery ?? [];
+
+  const membersError = useMemo(
+    () => resolveAdminUsersQueryError(membersErrorCode),
+    [membersErrorCode, resolveAdminUsersQueryError]
+  );
+
+  const staffError = useMemo(
+    () => resolveAdminUsersQueryError(staffErrorCode),
+    [staffErrorCode, resolveAdminUsersQueryError]
+  );
 
   useEffect(() => {
     void fetchAdminMeSnapshot();
   }, []);
-
-  useEffect(() => {
-    if (tab !== "members") return;
-    void fetchMembers();
-  }, [tab, membersKey, fetchMembers]);
-
-  const fetchStaff = useCallback(async () => {
-    setStaffLoading(true);
-    try {
-      const list = await fetchAdminStaffList();
-      setStaffList(list);
-    } finally {
-      setStaffLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (tab !== "staff") return;
-    void fetchStaff();
-  }, [tab, staffKey, fetchStaff]);
 
   const users = useMemo(() => membersFromApi ?? [], [membersFromApi]);
   const filtered = useMemo(
@@ -326,8 +336,15 @@ export function AdminUserListPage() {
     if (tableEl && bottomEl) bottomEl.scrollLeft = tableEl.scrollLeft;
   }, [showBottomFixedScroll, measureTableScroll, tableScrollWidth]);
 
-  const refreshStaff = useCallback(() => setStaffKey((k) => k + 1), []);
-  const refreshMembers = useCallback(() => setMembersKey((k) => k + 1), []);
+  const refreshStaff = useCallback(() => {
+    invalidateAdminQueryCache("admin:staff:list:");
+    setStaffKey((k) => k + 1);
+  }, []);
+  const refreshMembers = useCallback(() => {
+    invalidateAdminFetchCache("admin:users");
+    invalidateAdminQueryCache("admin:users:list:");
+    setMembersKey((k) => k + 1);
+  }, []);
 
   const replaceSortQuery = useCallback(
     (sortKey: AdminUserSortKey, sortOrder: AdminUserSortOrder) => {
@@ -532,7 +549,7 @@ export function AdminUserListPage() {
                 {t("admin_users_retry")}
               </button>
             </div>
-          ) : membersLoading ? (
+          ) : membersLoading && users.length === 0 ? (
             <div className="rounded-2xl border border-[#dadde1] bg-white py-12 text-center text-sm font-semibold text-[#65676b] shadow-sm">
               {t("admin_users_loading_list")}
             </div>
@@ -557,7 +574,19 @@ export function AdminUserListPage() {
 
       {tab === "staff" && (
         <>
-          {staffLoading ? (
+          {staffError ? (
+            <div className="rounded-2xl border border-[#fad2cf] bg-white px-4 py-6 text-center text-sm text-[#b42318] shadow-sm">
+              <p className="font-bold">{t("admin_users_list_error_title")}</p>
+              <p className="mt-1">{staffError}</p>
+              <button
+                type="button"
+                onClick={refreshStaff}
+                className="mt-4 rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] hover:bg-[#ffe7e5]"
+              >
+                {t("admin_users_retry")}
+              </button>
+            </div>
+          ) : staffLoading && staffList.length === 0 ? (
             <div className={`${ADMIN_USERS_CARD_CLASS} py-12 text-center text-sm font-semibold text-[#6F4E37]`}>
               {t("admin_users_loading_list")}
             </div>

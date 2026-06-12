@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { isAdminUser } from "@/lib/auth/get-current-user";
+import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
+import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function OpsTradePolicyPanel() {
@@ -14,25 +14,23 @@ export function OpsTradePolicyPanel() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const me = getCurrentUser();
-    const u = me?.id?.trim();
-    if (!u || !isAdminUser(me)) {
-      setLoading((prev) => (prev ? false : prev));
-      return;
-    }
-    setLoading((prev) => (prev ? prev : true));
-    setMsg((prev) => (prev === null ? prev : null));
+    setLoading(true);
+    setMsg(null);
     try {
       const res = await fetch("/api/admin/ops-trade-policy");
       const data = await res.json().catch(() => ({}));
-      if (res.ok && typeof data.buyerAutoConfirmDays === "number") {
+      if (!res.ok) {
+        setMsg(resolveAdminHttpErrorMessage(res, data, t, "admin_settings_trade_load_failed"));
+        return;
+      }
+      if (typeof data.buyerAutoConfirmDays === "number") {
         setAutoDays(data.buyerAutoConfirmDays);
         setReviewDays(data.buyerReviewDeadlineDays ?? 14);
       }
     } catch {
-      setMsg(t("admin_settings_trade_load_failed"));
+      setMsg(t("common_network_error"));
     } finally {
-      setLoading((prev) => (prev ? false : prev));
+      setLoading(false);
     }
   }, [t]);
 
@@ -41,10 +39,10 @@ export function OpsTradePolicyPanel() {
   }, [load]);
 
   const save = async () => {
-    const u = getCurrentUser()?.id?.trim();
-    if (!u) return;
-    setSaving((prev) => (prev ? prev : true));
-    setMsg((prev) => (prev === null ? prev : null));
+    if (saving) return;
+    setSaving(true);
+    setMsg(null);
+    logAdminMutation("ops-trade-policy:save", "start");
     try {
       const res = await fetch("/api/admin/ops-trade-policy", {
         method: "PUT",
@@ -56,14 +54,17 @@ export function OpsTradePolicyPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        setMsg((data as { error?: string }).error ?? t("admin_settings_notif_save_failed"));
+        logAdminMutation("ops-trade-policy:save", "fail", { status: res.status });
+        setMsg(resolveAdminHttpErrorMessage(res, data, t, "admin_settings_notif_save_failed"));
         return;
       }
+      logAdminMutation("ops-trade-policy:save", "success");
       setMsg(t("admin_settings_trade_saved"));
     } catch {
-      setMsg(t("common_network_error_generic"));
+      logAdminMutation("ops-trade-policy:save", "fail");
+      setMsg(t("common_network_error"));
     } finally {
-      setSaving((prev) => (prev ? false : prev));
+      setSaving(false);
     }
   };
 

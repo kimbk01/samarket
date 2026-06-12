@@ -16,16 +16,31 @@ export function useAdminMe() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    const next = await fetchAdminMeSnapshot();
-    setSnapshot(next);
-    setLoading(false);
-    return next;
+    try {
+      const next = await fetchAdminMeSnapshot({ force: true });
+      setSnapshot(next);
+      return next;
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
     if (peekAdminMeSnapshot()) return;
-    void refresh();
-  }, [refresh]);
+    let cancelled = false;
+    void (async () => {
+      setLoading(true);
+      try {
+        const next = await fetchAdminMeSnapshot();
+        if (!cancelled) setSnapshot(next);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isSuperAdmin = isSuperAdminFromSnapshot(snapshot);
   const uiRole: AdminRole = snapshot?.uiRole ?? "operator";

@@ -15,10 +15,12 @@ export function AdminSidebarGroup({
   item,
   currentPath,
   onClose,
+  onNavigate,
 }: {
   item: AdminMenuItem & { children: AdminMenuItem[] };
   currentPath: string;
   onClose?: () => void;
+  onNavigate?: (path: string) => void;
 }) {
   const { t, tt } = useI18n();
   const status = getMenuStatus(item);
@@ -60,6 +62,7 @@ export function AdminSidebarGroup({
               depth={0}
               pathsScope={pathsScope}
               onClose={onClose}
+              onNavigate={onNavigate}
             />
           ))}
         </div>

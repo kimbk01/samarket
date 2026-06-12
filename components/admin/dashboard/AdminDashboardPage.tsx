@@ -61,7 +61,11 @@ export function AdminDashboardPage({
     if (!serverSeeded) {
       load({ showLoading: true });
     }
-    const id = window.setInterval(() => load({ showLoading: false }), 30_000);
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        load({ showLoading: false });
+      }
+    }, 30_000);
     return () => window.clearInterval(id);
   }, [load, serverSeeded]);
 

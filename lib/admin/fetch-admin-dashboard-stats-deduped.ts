@@ -1,6 +1,10 @@
+"use client";
+
 /**
  * 관리자 대시보드 집계 — Strict Mode 이중 마운트·빠른 재진입 시 중복 fetch 합류.
  */
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
+import { ADMIN_QUERY_TTL_SHORT_MS } from "@/lib/admin/admin-query-ttl";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export type AdminDashboardStatsResult = {
@@ -10,7 +14,11 @@ export type AdminDashboardStatsResult = {
 
 export function fetchAdminDashboardStatsDeduped(): Promise<AdminDashboardStatsResult> {
   return runSingleFlight("admin:stats:dashboard", () =>
-    fetch("/api/admin/stats/dashboard", { cache: "no-store" })
+    adminFetch("/api/admin/stats/dashboard", {
+      cache: "no-store",
+      dedupeKey: "admin:stats:dashboard",
+      cacheTtlMs: ADMIN_QUERY_TTL_SHORT_MS,
+    })
   ).then(async (res): Promise<AdminDashboardStatsResult> => {
     if (!res.ok) {
       return { status: res.status, json: null };

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
+import { resolveAdminHttpErrorMessage } from "@/lib/admin/resolve-admin-http-error";
+import { logAdminMutation } from "@/lib/admin/admin-perf-logger";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
@@ -29,14 +30,6 @@ export function AdminTradeCompletionPage() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const user = getCurrentUser();
-    const uid = user?.id?.trim() ?? "";
-    if (!uid || !isAdminUser(user)) {
-      setError(t("admin_trade_completion_admin_login_required"));
-      setItems([]);
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
@@ -47,7 +40,7 @@ export function AdminTradeCompletionPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError((data as { error?: string }).error ?? t("admin_trade_completion_fetch_failed"));
+        setError(resolveAdminHttpErrorMessage(res, data, t, "admin_trade_completion_fetch_failed"));
         setItems([]);
         return;
       }
@@ -65,12 +58,10 @@ export function AdminTradeCompletionPage() {
   }, [load]);
 
   const confirmBuyer = async (roomId: string) => {
-    const user = getCurrentUser();
-    const uid = user?.id?.trim() ?? "";
-    if (!uid) return;
     if (!window.confirm(t("admin_trade_completion_admin_confirm_question"))) return;
     setBusyId(roomId);
     setError(null);
+    logAdminMutation("trade-completion:confirm-buyer", "start", { roomId });
     try {
       const res = await fetch("/api/admin/trade-flow/confirm-buyer", {
         method: "POST",
@@ -79,11 +70,14 @@ export function AdminTradeCompletionPage() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        setError((data as { error?: string }).error ?? t("admin_trade_completion_process_failed"));
+        logAdminMutation("trade-completion:confirm-buyer", "fail", { roomId, status: res.status });
+        setError(resolveAdminHttpErrorMessage(res, data, t, "admin_trade_completion_process_failed"));
         return;
       }
+      logAdminMutation("trade-completion:confirm-buyer", "success", { roomId });
       await load();
     } catch {
+      logAdminMutation("trade-completion:confirm-buyer", "fail", { roomId });
       setError(t("common_network_error"));
     } finally {
       setBusyId(null);

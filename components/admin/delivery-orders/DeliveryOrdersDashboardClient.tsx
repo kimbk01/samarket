@@ -14,64 +14,56 @@ import { DeliveryOrdersKpiCards } from "./DeliveryOrdersKpiCards";
 import { DeliveryOrdersProgressPanel } from "./DeliveryOrdersProgressPanel";
 import { OrderFilterBar } from "./OrderFilterBar";
 import { OrderTable } from "./OrderTable";
+import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { ADMIN_QUERY_TTL_FAST_MS } from "@/lib/admin/admin-query-ttl";
 import { fetchAdminStoreOrdersListDeduped } from "@/lib/admin/fetch-admin-store-orders-deduped";
+import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function DeliveryOrdersDashboardClient() {
   const { t } = useI18n();
   const [filters, setFilters] = useState<OrderListFilters>(defaultOrderListFilters);
-  const [dbOrders, setDbOrders] = useState<AdminDeliveryOrder[]>([]);
-  const [dbLoading, setDbLoading] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [listHiddenIds, setListHiddenIds] = useState<Set<string>>(() => new Set());
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
 
-  const loadDbOrders = useCallback(async () => {
-    setDbLoading(true);
-    setDbError(null);
-    try {
-      const { status, json: jRaw } = await fetchAdminStoreOrdersListDeduped();
-      const j = jRaw as {
-        ok?: boolean;
-        error?: string;
-        orders?: { admin_delivery?: AdminDeliveryOrder }[];
-      };
-      if (status < 200 || status >= 300 || j?.ok === false) {
-        setDbOrders([]);
-        setDbError(typeof j?.error === "string" ? j.error : `HTTP ${status}`);
-        return;
+  const {
+    data: dbOrdersData,
+    loading: dbLoading,
+    refreshing: dbRefreshing,
+    error: dbQueryError,
+    revalidate: revalidateDbOrders,
+    mutate: mutateDbOrders,
+  } = useAdminQuery<AdminDeliveryOrder[]>({
+    queryKey: "admin:delivery-dashboard:store-orders-500",
+    ttlMs: ADMIN_QUERY_TTL_FAST_MS,
+    pollIntervalMs: 15_000,
+    fetcher: async () => {
+      try {
+        const { status, json: jRaw } = await fetchAdminStoreOrdersListDeduped();
+        const j = jRaw as {
+          ok?: boolean;
+          error?: string;
+          orders?: { admin_delivery?: AdminDeliveryOrder }[];
+        };
+        if (status < 200 || status >= 300 || j?.ok === false) {
+          throw new Error(typeof j?.error === "string" ? j.error : `HTTP ${status}`);
+        }
+        const list = Array.isArray(j.orders) ? j.orders : [];
+        return list
+          .map((x) => x?.admin_delivery)
+          .filter((x): x is AdminDeliveryOrder => x != null && typeof x.id === "string");
+      } catch (err) {
+        if (err instanceof Error) throw err;
+        throw new Error("network_error");
       }
-      const list = Array.isArray(j.orders) ? j.orders : [];
-      const mapped = list
-        .map((x) => x?.admin_delivery)
-        .filter((x): x is AdminDeliveryOrder => x != null && typeof x.id === "string");
-      setDbOrders(mapped);
-    } catch {
-      setDbOrders([]);
-      setDbError("network_error");
-    } finally {
-      setDbLoading(false);
-    }
-  }, []);
+    },
+  });
 
-  useEffect(() => {
-    void loadDbOrders();
-  }, [loadDbOrders]);
-
-  useEffect(() => {
-    const refetchIfVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      void loadDbOrders();
-    };
-    document.addEventListener("visibilitychange", refetchIfVisible);
-    const id = window.setInterval(refetchIfVisible, 15_000);
-    return () => {
-      document.removeEventListener("visibilitychange", refetchIfVisible);
-      clearInterval(id);
-    };
-  }, [loadDbOrders]);
+  const dbOrders = dbOrdersData ?? [];
+  const dbError =
+    dbQueryError === "network_error" ? t("common_network_error") : dbQueryError;
 
   const filteredRows = useMemo(
     () => dbOrders.filter((o) => adminDeliveryOrderMatchesFilters(o, filters)),
@@ -172,7 +164,8 @@ export function DeliveryOrdersDashboardClient() {
       }
       const deleted: string[] = Array.isArray(data.deleted) ? data.deleted : [];
       const deletedSet = new Set(deleted);
-      setDbOrders((prev) => prev.filter((o) => !deletedSet.has(o.id)));
+      mutateDbOrders((prev) => (prev ?? []).filter((o) => !deletedSet.has(o.id)));
+      invalidateAdminFetchCache("admin:store-orders:");
       setListHiddenIds((prev) => {
         const next = new Set(prev);
         deleted.forEach((id) => next.delete(id));
@@ -200,12 +193,13 @@ export function DeliveryOrdersDashboardClient() {
       } else {
         setActionMessage(t("admin_do_msg_delete_ok", { count: deleted.length }));
       }
+      await revalidateDbOrders({ force: true });
     } catch {
       setActionMessage(t("admin_do_msg_delete_network"));
     } finally {
       setActionBusy(false);
     }
-  }, [selectedIds, t]);
+  }, [mutateDbOrders, revalidateDbOrders, selectedIds, t]);
 
   const sub = [
     { href: "/admin/stores/orders", label: t("admin_do_nav_order_list") },
@@ -256,11 +250,11 @@ export function DeliveryOrdersDashboardClient() {
       <div className="mb-3">
         <button
           type="button"
-          onClick={() => void loadDbOrders()}
-          disabled={dbLoading}
+          onClick={() => void revalidateDbOrders({ force: true })}
+          disabled={dbRefreshing}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {dbLoading ? t("admin_do_common_list_refreshing") : t("admin_do_common_list_refresh")}
+          {dbRefreshing ? t("admin_do_common_list_refreshing") : t("admin_do_common_list_refresh")}
         </button>
       </div>
 
@@ -325,7 +319,7 @@ export function DeliveryOrdersDashboardClient() {
             filtered: filteredRows.length,
             visible: visibleRows.length,
           })}
-          {dbLoading ? t("admin_do_dashboard_stats_refreshing") : ""}
+          {dbRefreshing ? t("admin_do_dashboard_stats_refreshing") : ""}
         </p>
         {!dbLoading && (filteredRows.length > 0 || dbOrders.length > 0) ? (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">

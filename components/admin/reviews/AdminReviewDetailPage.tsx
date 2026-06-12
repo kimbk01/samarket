@@ -11,7 +11,7 @@ import {
   REVIEW_PUBLIC_TYPE_KEYS,
   REVIEW_ROLE_KEYS,
 } from "@/components/admin/i18n/admin-review-label-keys";
-import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
+import { AdminReviewFetchError } from "@/lib/admin-reviews/fetch-admin-transaction-reviews";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminReviewStatusBadge } from "./AdminReviewStatusBadge";
@@ -32,18 +32,22 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
   const refreshDetail = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const user = getCurrentUser();
-    const uid = user?.id?.trim() ?? "";
-    if (!uid || !isAdminUser(user)) {
+    try {
+      const data = await fetchAdminTransactionReviewOne(reviewId);
+      setReview(data ?? null);
+    } catch (err) {
       setReview(null);
-      setLoadError("관리자만 조회할 수 있습니다.");
+      if (err instanceof AdminReviewFetchError) {
+        if (err.status === 401) setLoadError(t("common_login_required"));
+        else if (err.status === 403) setLoadError(t("admin_api_err_forbidden"));
+        else setLoadError(t("common_error"));
+      } else {
+        setLoadError(t("common_error"));
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-    const data = await fetchAdminTransactionReviewOne(reviewId);
-    setReview(data ?? null);
-    setLoading(false);
-  }, [reviewId]);
+  }, [reviewId, t]);
 
   useEffect(() => {
     refreshDetail();
@@ -52,7 +56,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
   if (loading && !review) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -68,7 +72,7 @@ export function AdminReviewDetailPage({ reviewId }: AdminReviewDetailPageProps) 
   if (!review) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        리뷰를 찾을 수 없습니다.
+        {t("admin_api_err_not_found")}
       </div>
     );
   }

@@ -31,12 +31,15 @@ export function AdminSidebarItem({
   pathsScope,
   /** 모바일 overlay 닫기 — 링크 클릭 시 호출 */
   onClose,
+  /** 메뉴 클릭 직후 active 하이라이트 */
+  onNavigate,
 }: {
   item: AdminMenuItem;
   currentPath: string;
   depth?: number;
   pathsScope?: string[];
   onClose?: () => void;
+  onNavigate?: (path: string) => void;
 }) {
   const { tt, t } = useI18n();
   const { pendingCount } = useAdminStorePointPendingCount();
@@ -131,6 +134,7 @@ export function AdminSidebarItem({
                 depth={depth + 1}
                 pathsScope={pathsScope}
                 onClose={onClose}
+                onNavigate={onNavigate}
               />
             ))}
           </div>
@@ -170,7 +174,10 @@ export function AdminSidebarItem({
         href={item.path}
         prefetch={false}
         className={`${linkClass} flex items-center justify-between gap-2`}
-        onClick={() => onClose?.()}
+        onClick={() => {
+          onNavigate?.(item.path!);
+          onClose?.();
+        }}
       >
         <span className="truncate">{displayTitle}</span>
         {badge}

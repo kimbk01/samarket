@@ -10,7 +10,7 @@ import {
   filterAndSortReviews,
   type AdminReviewFilters,
 } from "@/lib/admin-reviews/admin-review-utils";
-import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
+import { AdminReviewFetchError } from "@/lib/admin-reviews/fetch-admin-transaction-reviews";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminReviewFilterBar } from "./AdminReviewFilterBar";
 import { AdminReviewTable } from "./AdminReviewTable";
@@ -33,18 +33,22 @@ export function AdminReviewListPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
-    const user = getCurrentUser();
-    const uid = user?.id?.trim() ?? "";
-    if (!uid || !isAdminUser(user)) {
+    try {
+      const list = await fetchAdminTransactionReviewsList();
+      setReviews(list);
+    } catch (err) {
       setReviews([]);
-      setLoadError("관리자 로그인이 필요합니다.");
+      if (err instanceof AdminReviewFetchError) {
+        if (err.status === 401) setLoadError(t("common_login_required"));
+        else if (err.status === 403) setLoadError(t("admin_api_err_forbidden"));
+        else setLoadError(t("common_error"));
+      } else {
+        setLoadError(t("common_error"));
+      }
+    } finally {
       setLoading(false);
-      return;
     }
-    const list = await fetchAdminTransactionReviewsList();
-    setReviews(list);
-    setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();

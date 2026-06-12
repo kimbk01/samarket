@@ -1,12 +1,8 @@
-import { cache } from "react";
 import { AdminShell } from "@/components/admin/AdminShell";
 import { AdminGuard } from "@/components/admin/AdminGuard";
 import { AdminAccessDeniedPanel } from "@/components/admin/AdminAccessDeniedPanel";
-import { getOptionalAdminUserId } from "@/lib/admin/require-admin-api";
+import { getOptionalAdminUserIdCached } from "@/lib/admin/get-optional-admin-user-id-cached";
 import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
-
-/** 동일 RSC 요청 안에서 하위 `app/admin/**` 가 `getOptionalAdminUserId` 를 중복 호출해도 한 번만 검증 */
-const getOptionalAdminUserIdForLayout = cache(getOptionalAdminUserId);
 
 /** 빌드(SSG) 시 Supabase 조회가 60s+ 걸려 타임아웃 나는 일 방지 — 요청 시 렌더만 */
 export const dynamic = "force-dynamic";
@@ -21,7 +17,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   if (isAdminRequireAuthEnabled()) {
-    const adminId = await getOptionalAdminUserIdForLayout();
+    const adminId = await getOptionalAdminUserIdCached();
     if (!adminId) {
       return (
         <div className="min-h-screen bg-sam-surface-muted">

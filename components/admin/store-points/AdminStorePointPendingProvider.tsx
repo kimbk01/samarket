@@ -12,6 +12,7 @@ import {
 } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { adminFetch } from "@/lib/admin/admin-fetch-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   KASAMA_NOTIFICATIONS_UPDATED,
@@ -45,9 +46,11 @@ export function AdminStorePointPendingProvider({ children }: { children: ReactNo
   const refresh = useCallback(async () => {
     try {
       const { resOk, json } = await runSingleFlight("admin:bell:summary-json", async () => {
-        const res = await fetch("/api/admin/admin-bell", {
+        const res = await adminFetch("/api/admin/admin-bell", {
           credentials: "include",
           cache: "no-store",
+          dedupeKey: "admin:bell:summary-json",
+          cacheTtlMs: 5_000,
         });
         const json = (await res.json().catch(() => ({}))) as {
           ok?: boolean;

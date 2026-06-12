@@ -5,7 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { invalidateAdminFetchCache } from "@/lib/admin/admin-fetch-client";
+import { ADMIN_QUERY_TTL_FAST_MS } from "@/lib/admin/admin-query-ttl";
 import { fetchAdminStoreOrdersQueryDeduped } from "@/lib/admin/fetch-admin-store-orders-query-deduped";
+import { useAdminQuery } from "@/hooks/useAdminQuery";
 import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -107,8 +110,6 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
     orderNo: (initialFilters?.orderNo ?? "").trim(),
     orderStatus: (initialFilters?.orderStatus ?? "").trim(),
   };
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
@@ -127,13 +128,6 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
     [t]
   );
 
-  const errorText = useMemo(() => {
-    if (!error) return null;
-    if (error === "forbidden") return t("admin_audit_err_no_permission");
-    if (error === "network_error") return t("common_network_error");
-    return error;
-  }, [error, t]);
-
   const syncDescParts = useMemo(() => {
     const linkLabel = t("admin_stores_orders_sync_link");
     const desc = t("admin_stores_orders_sync_desc");
@@ -145,48 +139,50 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
     };
   }, [t]);
 
-  const fetchWith = useCallback(async (f: OrderFilters) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const qs = buildOrdersQueryString(f);
-      const { status, json: raw } = await fetchAdminStoreOrdersQueryDeduped(qs);
-      const json = raw as { ok?: boolean; error?: string; orders?: Row[] };
-      if (status === 403) {
-        setError("forbidden");
-        setRows([]);
-        return;
-      }
-      if (!json?.ok) {
-        setError(typeof json?.error === "string" ? json.error : "load_failed");
-        setRows([]);
-        return;
-      }
-      setRows(json.orders ?? []);
-    } catch {
-      setError("network_error");
-      setRows([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const ordersQueryKey = useMemo(
+    () => `admin:store-orders:${buildOrdersQueryString(applied) || "_"}`,
+    [applied]
+  );
 
-  useEffect(() => {
-    void fetchWith(applied);
-  }, [applied, fetchWith]);
+  const {
+    data: rowsData,
+    loading,
+    refreshing,
+    error: ordersQueryError,
+    revalidate: revalidateOrders,
+    mutate: mutateOrders,
+  } = useAdminQuery<Row[]>({
+    queryKey: ordersQueryKey,
+    ttlMs: ADMIN_QUERY_TTL_FAST_MS,
+    pollIntervalMs: 30_000,
+    fetcher: async () => {
+      try {
+        const qs = buildOrdersQueryString(applied);
+        const { status, json: raw } = await fetchAdminStoreOrdersQueryDeduped(qs);
+        const json = raw as { ok?: boolean; error?: string; orders?: Row[] };
+        if (status === 403) throw new Error("forbidden");
+        if (!json?.ok) {
+          throw new Error(typeof json?.error === "string" ? json.error : "load_failed");
+        }
+        return json.orders ?? [];
+      } catch (err) {
+        if (err instanceof Error && (err.message === "forbidden" || err.message === "load_failed")) {
+          throw err;
+        }
+        throw new Error("network_error");
+      }
+    },
+  });
 
-  useEffect(() => {
-    const refetchIfVisible = () => {
-      if (document.visibilityState !== "visible") return;
-      void fetchWith(applied);
-    };
-    document.addEventListener("visibilitychange", refetchIfVisible);
-    const interval = window.setInterval(refetchIfVisible, 30_000);
-    return () => {
-      document.removeEventListener("visibilitychange", refetchIfVisible);
-      window.clearInterval(interval);
-    };
-  }, [applied, fetchWith]);
+  const rows = rowsData ?? [];
+
+  const errorText = useMemo(() => {
+    const code = error ?? ordersQueryError;
+    if (!code) return null;
+    if (code === "forbidden") return t("admin_audit_err_no_permission");
+    if (code === "network_error") return t("common_network_error");
+    return code;
+  }, [error, ordersQueryError, t]);
 
   const urlOrderId = searchParams.get("order_id")?.trim() ?? "";
   useEffect(() => {
@@ -206,8 +202,9 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
   }, [draft, pathname, router]);
 
   const refreshList = useCallback(() => {
-    void fetchWith(applied);
-  }, [applied, fetchWith]);
+    invalidateAdminFetchCache("admin:store-orders:");
+    void revalidateOrders({ force: true });
+  }, [revalidateOrders]);
 
   const toggleSelect = useCallback((id: string, checked: boolean) => {
     setSelectedIds((prev) => {
@@ -262,7 +259,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         deleted.forEach((id) => next.delete(id));
         return next;
       });
-      setRows((prev) => prev.filter((r) => !deletedSet.has(r.id)));
+      mutateOrders((prev) => (prev ?? []).filter((r) => !deletedSet.has(r.id)));
       if (data.errors?.length) {
         setActionMessage(
           deleted.length > 0
@@ -275,13 +272,14 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       } else {
         setActionMessage(t("admin_stores_orders_deleted_count", { count: deleted.length }));
       }
-      await fetchWith(applied);
+      invalidateAdminFetchCache("admin:store-orders:");
+      await revalidateOrders({ force: true });
     } catch {
       setActionMessage(t("common_network_error"));
     } finally {
       setBulkBusy(false);
     }
-  }, [applied, fetchWith, selectedIds, t]);
+  }, [mutateOrders, revalidateOrders, selectedIds, t]);
 
   const approveRefund = useCallback(
     async (id: string) => {
@@ -298,14 +296,15 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           setError(json?.error ?? "approve_refund_failed");
           return;
         }
-        await fetchWith(applied);
+        invalidateAdminFetchCache("admin:store-orders:");
+        await revalidateOrders({ force: true });
       } catch {
         setError("network_error");
       } finally {
         setBusyId(null);
       }
     },
-    [applied, fetchWith, t]
+    [revalidateOrders, t]
   );
 
   const allRowsSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
@@ -392,7 +391,11 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           onClick={() => applyFilters()}
           disabled={loading}
         >
-          {loading ? t("admin_stores_orders_querying") : t("admin_audit_query_btn")}
+          {loading && rows.length === 0
+            ? t("admin_stores_orders_querying")
+            : refreshing
+              ? t("admin_do_common_list_refreshing")
+              : t("admin_audit_query_btn")}
         </button>
         <button
           type="button"
@@ -447,7 +450,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         </div>
       ) : null}
 
-      {loading ? (
+      {loading && rows.length === 0 ? (
         <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-sam-muted">{t("admin_stores_orders_empty")}</p>
