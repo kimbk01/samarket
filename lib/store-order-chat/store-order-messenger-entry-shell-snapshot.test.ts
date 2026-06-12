@@ -44,6 +44,7 @@ describe("resolveInstantStoreOrderMessengerEntrySnapshot", () => {
     primeRoomSnapshot("room-peek", peeked);
     const snap = resolveInstantStoreOrderMessengerEntrySnapshot({
       roomId: "room-peek",
+      viewerUserId: "u1",
       contextMeta: { v: 1, kind: "delivery", headline: "fallback", storeOrderId: "o2" },
     });
     expect(snap.clientShellPlaceholder).toBeUndefined();
