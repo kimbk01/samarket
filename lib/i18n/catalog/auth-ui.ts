@@ -14,6 +14,7 @@ export const authUiMessages = {
     auth_oauth_redirecting_label: "이동 중…",
     auth_oauth_launch_title: "로그인 계속",
     auth_oauth_launch_preparing: "로그인 준비 중…",
+    auth_oauth_launch_bridge_preparing: "앱 연결 준비 중…",
     auth_oauth_launch_body: "아래 버튼을 눌러 로그인 창을 열어 주세요.",
     auth_oauth_launch_back: "돌아가기",
     auth_provider_continue: "{provider}로 계속하기",
@@ -74,6 +75,8 @@ export const authUiMessages = {
       "앱 로그인 연결 정보를 확인하지 못했습니다. 앱을 다시 실행한 뒤 로그인해 주세요.",
     auth_err_native_oauth_redirect_invalid:
       "앱 로그인을 준비하지 못했습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
+    auth_err_oauth_bridge_not_ready:
+      "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
     auth_err_oauth_browser_plugin_unavailable:
       "앱 로그인 창을 열 수 없습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
     auth_err_oauth_custom_tabs_required:
@@ -189,6 +192,7 @@ export const authUiMessages = {
     auth_oauth_redirecting_label: "Redirecting…",
     auth_oauth_launch_title: "Continue sign-in",
     auth_oauth_launch_preparing: "Preparing sign-in…",
+    auth_oauth_launch_bridge_preparing: "Connecting to the app…",
     auth_oauth_launch_body: "Tap the button below to open the sign-in window.",
     auth_oauth_launch_back: "Go back",
     auth_provider_continue: "Continue with {provider}",
@@ -248,6 +252,8 @@ export const authUiMessages = {
       "Could not verify app sign-in redirect. Restart the app and try signing in again.",
     auth_err_native_oauth_redirect_invalid:
       "Could not prepare app sign-in. Fully close the app and open it again.",
+    auth_err_oauth_bridge_not_ready:
+      "App sign-in is not connected yet. Fully close the app and open it again.",
     auth_err_oauth_browser_plugin_unavailable:
       "Could not open the sign-in window. Reinstall the app to the latest version and try again.",
     auth_err_oauth_custom_tabs_required:

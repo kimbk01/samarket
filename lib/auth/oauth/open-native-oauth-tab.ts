@@ -2,7 +2,11 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { getCapacitorNativeDiagnostics } from "@/lib/platform/capacitor-native";
+import {
+  getCapacitorNativeDiagnostics,
+  isCapacitorBridgeReady,
+  waitForCapacitorBridgeReady,
+} from "@/lib/platform/capacitor-native";
 
 export type NativeOAuthLaunchMethod = "custom_tabs" | "action_view";
 
@@ -20,9 +24,13 @@ export type NativeOAuthDevErrorCode =
   | "custom_tabs_failed"
   | "action_view_failed"
   | "activity_not_found"
+  | "capacitor_bridge_not_ready"
   | "unknown_native_error";
 
-export type NativeOAuthOpenErrorCode = "oauth_launcher_unavailable" | "oauth_tab_open_failed";
+export type NativeOAuthOpenErrorCode =
+  | "oauth_launcher_unavailable"
+  | "oauth_tab_open_failed"
+  | "oauth_bridge_not_ready";
 
 export type NativeOAuthOpenError = Error & {
   devCode: NativeOAuthDevErrorCode;
@@ -30,6 +38,8 @@ export type NativeOAuthOpenError = Error & {
 };
 
 const NativeOAuthLauncher = registerPlugin<NativeOAuthLauncherPlugin>("NativeOAuthLauncher");
+
+const BRIDGE_READY_TIMEOUT_MS = 3_000;
 
 function nativeOAuthOpenError(
   userCode: NativeOAuthOpenErrorCode,
@@ -56,6 +66,9 @@ function normalizeCapacitorRejectCode(raw: unknown): string {
 }
 
 export function mapNativeOAuthOpenErrorToMessageKey(code: string): MessageKey {
+  if (code === "oauth_bridge_not_ready") {
+    return "auth_err_oauth_bridge_not_ready";
+  }
   if (code === "oauth_launcher_unavailable" || code === "oauth_tab_unavailable") {
     return "auth_err_oauth_browser_plugin_unavailable";
   }
@@ -80,6 +93,7 @@ function mapRejectToDevCode(rejectText: string): NativeOAuthDevErrorCode {
     || normalized.includes("not implemented")
     || normalized.includes("plugin is not implemented")
     || normalized.includes("plugin not found")
+    || normalized.includes("implementation unavailable")
   ) {
     return "plugin_not_implemented";
   }
@@ -96,10 +110,35 @@ function mapRejectToDevCode(rejectText: string): NativeOAuthDevErrorCode {
 }
 
 function mapRejectToUserCode(devCode: NativeOAuthDevErrorCode): NativeOAuthOpenErrorCode {
+  if (devCode === "capacitor_bridge_not_ready") {
+    return "oauth_bridge_not_ready";
+  }
   if (devCode === "plugin_not_implemented" || devCode === "activity_not_found") {
     return "oauth_launcher_unavailable";
   }
   return "oauth_tab_open_failed";
+}
+
+async function ensureCapacitorBridgeReadyForOpen(): Promise<void> {
+  const diagnosticsBeforeWait = getCapacitorNativeDiagnostics();
+  console.error("[oauth] bridge_wait_start", diagnosticsBeforeWait);
+
+  if (isCapacitorBridgeReady()) {
+    console.error("[oauth] bridge_ready_immediate", diagnosticsBeforeWait);
+    return;
+  }
+
+  const ready = await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
+  const diagnosticsAfterWait = getCapacitorNativeDiagnostics();
+  console.error("[oauth] bridge_wait_result", { ready, diagnostics: diagnosticsAfterWait });
+
+  if (!ready || !isCapacitorBridgeReady()) {
+    throw nativeOAuthOpenError(
+      "oauth_bridge_not_ready",
+      "capacitor_bridge_not_ready",
+      "Capacitor native bridge is not ready.",
+    );
+  }
 }
 
 /**
@@ -107,9 +146,11 @@ function mapRejectToUserCode(devCode: NativeOAuthDevErrorCode): NativeOAuthOpenE
  */
 export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunchResult> {
   const trimmed = url.trim();
+  const diagnostics = getCapacitorNativeDiagnostics();
   console.error("[oauth] before_open", {
     urlLen: trimmed.length,
-    diagnostics: getCapacitorNativeDiagnostics(),
+    openAttempt: true,
+    diagnostics,
   });
 
   if (!trimmed) {
@@ -121,6 +162,13 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
     );
   }
 
+  try {
+    await ensureCapacitorBridgeReadyForOpen();
+  } catch (err) {
+    console.error("[oauth] open_throw", err);
+    throw err;
+  }
+
   const pluginAvailable = Capacitor.isPluginAvailable("NativeOAuthLauncher");
   if (pluginAvailable) {
     console.error("[oauth] plugin_available", { plugin: "NativeOAuthLauncher" });
@@ -128,7 +176,7 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
     console.error("[oauth] plugin_unavailable", { plugin: "NativeOAuthLauncher" });
   }
 
-  console.error("[oauth] before_native_launcher");
+  console.error("[oauth] before_native_launcher", getCapacitorNativeDiagnostics());
 
   try {
     const result = await NativeOAuthLauncher.open({ url: trimmed });

@@ -6,6 +6,29 @@ const launcherOpen = vi.fn(async (): Promise<NativeOAuthLaunchResult> => ({
   method: "action_view",
 }));
 
+vi.mock("@/lib/platform/capacitor-native", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/platform/capacitor-native")>();
+  return {
+    ...actual,
+    getCapacitorNativeDiagnostics: vi.fn(() => ({
+      hasCapacitor: true,
+      isNativePlatform: true,
+      platform: "android",
+      hasAndroidBridge: true,
+      hasNativeOAuthLauncherPluginHeader: true,
+      hasCapacitorNativePromise: true,
+      bridgeReady: true,
+      oauthNativeLaunchAvailable: true,
+      dibayAppPlatformMarker: "android",
+      locationHref: "https://samarket.vercel.app/auth/oauth/launch",
+      detectedNative: true,
+      oauthLaunchShell: true,
+    })),
+    isCapacitorBridgeReady: vi.fn(() => true),
+    waitForCapacitorBridgeReady: vi.fn(async () => true),
+  };
+});
+
 vi.mock("@capacitor/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@capacitor/core")>();
   return {
@@ -19,17 +42,33 @@ vi.mock("@capacitor/core", async (importOriginal) => {
 });
 
 describe("openNativeOAuthTab", () => {
-  afterEach(() => {
+  afterEach(async () => {
     launcherOpen.mockClear();
     launcherOpen.mockResolvedValue({ opened: true, method: "action_view" });
+    const capacitorNative = await import("@/lib/platform/capacitor-native");
+    vi.mocked(capacitorNative.isCapacitorBridgeReady).mockReturnValue(true);
+    vi.mocked(capacitorNative.waitForCapacitorBridgeReady).mockResolvedValue(true);
     vi.resetModules();
   });
 
-  it("calls NativeOAuthLauncher.open on native", async () => {
+  it("calls NativeOAuthLauncher.open on native after bridge is ready", async () => {
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
     const result = await openNativeOAuthTab("https://supabase.example/auth");
     expect(launcherOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth" });
     expect(result).toEqual({ opened: true, method: "action_view" });
+  });
+
+  it("throws bridge_not_ready without calling plugin open", async () => {
+    const capacitorNative = await import("@/lib/platform/capacitor-native");
+    vi.mocked(capacitorNative.isCapacitorBridgeReady).mockReturnValue(false);
+    vi.mocked(capacitorNative.waitForCapacitorBridgeReady).mockResolvedValue(false);
+
+    const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
+    await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
+      name: "oauth_bridge_not_ready",
+      devCode: "capacitor_bridge_not_ready",
+    });
+    expect(launcherOpen).not.toHaveBeenCalled();
   });
 
   it("throws when plugin rejects", async () => {

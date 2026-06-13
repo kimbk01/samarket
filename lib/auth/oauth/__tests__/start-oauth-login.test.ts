@@ -6,7 +6,7 @@ let marker: string | null = "android";
 vi.mock("@/lib/platform/capacitor-native", () => ({
   DIBAY_APP_MARKER_PARAM: "dibay_app",
   ensureCapacitorNativeMarkerOnBoot: vi.fn(),
-  isCapacitorNativePlatform: () => native,
+  isOAuthNativeLaunchShell: () => native,
   readDibayAppPlatformMarker: () => marker,
 }));
 

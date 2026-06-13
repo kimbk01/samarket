@@ -21,15 +21,30 @@ import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
-  isCapacitorNativePlatform,
+  isCapacitorBridgeReady,
+  isOAuthNativeLaunchShell,
+  waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH = new Set<OAuthProvider>(["google", "kakao", "apple"]);
 export const OAUTH_BACKGROUND_WAIT_MS = 5_000;
+const BRIDGE_READY_TIMEOUT_MS = 3_000;
 
 function parseProvider(value: string | null): OAuthProvider | null {
   const normalized = value?.trim().toLowerCase() ?? "";
   return SUPABASE_OAUTH.has(normalized as OAuthProvider) ? (normalized as OAuthProvider) : null;
+}
+
+function formatBridgeDiagnosticsForDev(): string {
+  const diagnostics = getCapacitorNativeDiagnostics();
+  return [
+    `hasAndroidBridge=${diagnostics.hasAndroidBridge}`,
+    `platform=${diagnostics.platform ?? "null"}`,
+    `pluginHeader=${diagnostics.hasNativeOAuthLauncherPluginHeader}`,
+    `dibay_app=${diagnostics.dibayAppPlatformMarker ?? "null"}`,
+    `href=${diagnostics.locationHref ?? "null"}`,
+    `bridgeReady=${diagnostics.bridgeReady}`,
+  ].join(" | ");
 }
 
 function waitForAppBackground(timeoutMs: number): Promise<void> {
@@ -72,6 +87,7 @@ export function NativeOAuthLaunchClient() {
   const [authorizeUrl, setAuthorizeUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
+  const [bridgeReady, setBridgeReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devError, setDevError] = useState<string | null>(null);
   const openStartedRef = useRef(false);
@@ -79,7 +95,7 @@ export function NativeOAuthLaunchClient() {
   useEffect(() => {
     ensureCapacitorNativeMarkerOnBoot();
     console.error("[oauth] launch_client_mount", getCapacitorNativeDiagnostics());
-    if (!isCapacitorNativePlatform()) {
+    if (!isOAuthNativeLaunchShell()) {
       console.error("[oauth] launch_client_not_native_redirect");
       router.replace("/login");
       return;
@@ -123,7 +139,38 @@ export function NativeOAuthLaunchClient() {
   }, [next, provider, router, safeT, t]);
 
   useEffect(() => {
-    if (!isCapacitorNativePlatform()) return;
+    if (!isOAuthNativeLaunchShell()) return;
+
+    let cancelled = false;
+    void (async () => {
+      console.error("[oauth] launch_bridge_wait_start", getCapacitorNativeDiagnostics());
+      const ready = isCapacitorBridgeReady()
+        || await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
+      if (cancelled) return;
+
+      setBridgeReady(ready);
+      console.error("[oauth] launch_bridge_wait_result", {
+        ready,
+        diagnostics: getCapacitorNativeDiagnostics(),
+      });
+
+      if (!ready) {
+        dispatchOAuthPendingClear("oauth_launch_bridge_timeout");
+        setError(safeT("auth_err_oauth_bridge_not_ready", {
+          fallbackKo: "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
+          fallbackEn: "App sign-in is not connected yet. Fully close the app and open it again.",
+        }));
+        setDevError(formatBridgeDiagnosticsForDev());
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [safeT]);
+
+  useEffect(() => {
+    if (!isOAuthNativeLaunchShell()) return;
     const listener = App.addListener("appStateChange", ({ isActive }) => {
       if (isActive) setOpening(false);
     });
@@ -147,7 +194,27 @@ export function NativeOAuthLaunchClient() {
   );
 
   const runNativeOAuthOpen = useCallback(async (url: string) => {
-    console.error("[oauth] launch_before_open", { urlLen: url.length });
+    console.error("[oauth] launch_before_open", {
+      urlLen: url.length,
+      bridgeReady,
+      diagnostics: getCapacitorNativeDiagnostics(),
+    });
+
+    if (!bridgeReady) {
+      const readyNow = isCapacitorBridgeReady()
+        || await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
+      setBridgeReady(readyNow);
+      if (!readyNow) {
+        dispatchOAuthPendingClear("oauth_launch_bridge_timeout");
+        setError(safeT("auth_err_oauth_bridge_not_ready", {
+          fallbackKo: "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
+          fallbackEn: "App sign-in is not connected yet. Fully close the app and open it again.",
+        }));
+        setDevError(formatBridgeDiagnosticsForDev());
+        return;
+      }
+    }
+
     setOpening(true);
     setError(null);
     setDevError(null);
@@ -160,21 +227,21 @@ export function NativeOAuthLaunchClient() {
       console.error("[oauth] launch_open_throw", err);
       dispatchOAuthPendingClear("oauth_launch_open_failed");
       setError(resolveOpenErrorMessage(err));
-      setDevError(formatNativeOAuthDevError(err));
+      setDevError(formatNativeOAuthDevError(err) ?? formatBridgeDiagnosticsForDev());
       setOpening(false);
     }
-  }, [resolveOpenErrorMessage]);
+  }, [bridgeReady, resolveOpenErrorMessage, safeT]);
 
   useEffect(() => {
-    if (!authorizeUrl || loading || opening || openStartedRef.current) return;
+    if (!authorizeUrl || loading || opening || !bridgeReady || openStartedRef.current) return;
     openStartedRef.current = true;
-    console.error("[oauth] launch_auto_open_start");
+    console.error("[oauth] launch_auto_open_start", getCapacitorNativeDiagnostics());
     void runNativeOAuthOpen(authorizeUrl);
-  }, [authorizeUrl, loading, opening, runNativeOAuthOpen]);
+  }, [authorizeUrl, bridgeReady, loading, opening, runNativeOAuthOpen]);
 
   const handleOpenBrowser = useCallback(() => {
     if (!authorizeUrl || opening) return;
-    console.error("[oauth] launch_manual_open_click");
+    console.error("[oauth] launch_manual_open_click", getCapacitorNativeDiagnostics());
     openStartedRef.current = true;
     void runNativeOAuthOpen(authorizeUrl);
   }, [authorizeUrl, opening, runNativeOAuthOpen]);
@@ -225,15 +292,20 @@ export function NativeOAuthLaunchClient() {
                 fallbackKo: "로그인 준비 중…",
                 fallbackEn: "Preparing sign-in…",
               })
-            : safeT("auth_oauth_launch_body", {
-                fallbackKo: "아래 버튼을 눌러 로그인 창을 열어 주세요.",
-                fallbackEn: "Tap the button below to open the sign-in window.",
-              })}
+            : !bridgeReady
+              ? safeT("auth_oauth_launch_bridge_preparing", {
+                  fallbackKo: "앱 연결 준비 중…",
+                  fallbackEn: "Connecting to the app…",
+                })
+              : safeT("auth_oauth_launch_body", {
+                  fallbackKo: "아래 버튼을 눌러 로그인 창을 열어 주세요.",
+                  fallbackEn: "Tap the button below to open the sign-in window.",
+                })}
         </p>
 
         <button
           type="button"
-          disabled={loading || opening || !authorizeUrl}
+          disabled={loading || opening || !authorizeUrl || !bridgeReady}
           className={`${OAUTH_LOGIN_PRIMARY_BUTTON_BASE} ${style?.buttonClassName ?? ""}`}
           onClick={handleOpenBrowser}
         >

@@ -2,8 +2,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getCapacitorNativeDiagnostics,
   ensureCapacitorNativeMarkerOnBoot,
+  isCapacitorBridgeReady,
   isCapacitorNativePlatform,
+  isOAuthNativeLaunchAvailable,
+  isOAuthNativeLaunchShell,
   shouldRegisterCapacitorOAuthReturnListener,
+  waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 
 describe("capacitor-native", () => {
@@ -11,7 +15,7 @@ describe("capacitor-native", () => {
     vi.unstubAllGlobals();
   });
 
-  it("detects Android app marker from current URL and persists it", () => {
+  it("does not treat dibay_app marker alone as native platform", () => {
     const storage = new Map<string, string>();
     let cookie = "";
     vi.stubGlobal("window", {
@@ -32,12 +36,13 @@ describe("capacitor-native", () => {
       },
     });
 
-    expect(isCapacitorNativePlatform()).toBe(true);
+    expect(isCapacitorNativePlatform()).toBe(false);
+    expect(isOAuthNativeLaunchShell()).toBe(true);
     expect(storage.get("dibay_app")).toBe("android");
     expect(cookie).toContain("dibay_app=android");
   });
 
-  it("detects persisted Android app marker from sessionStorage", () => {
+  it("treats dibay_app marker alone as OAuth launch shell", () => {
     vi.stubGlobal("window", {
       location: { href: "https://samarket.vercel.app/login" },
       sessionStorage: {
@@ -46,10 +51,11 @@ describe("capacitor-native", () => {
     });
     vi.stubGlobal("document", { cookie: "" });
 
-    expect(isCapacitorNativePlatform()).toBe(true);
+    expect(isCapacitorNativePlatform()).toBe(false);
+    expect(isOAuthNativeLaunchShell()).toBe(true);
   });
 
-  it("detects persisted Android app marker from cookie", () => {
+  it("detects persisted Android app marker from cookie for launch shell", () => {
     vi.stubGlobal("window", {
       location: { href: "https://samarket.vercel.app/login" },
       sessionStorage: {
@@ -58,10 +64,11 @@ describe("capacitor-native", () => {
     });
     vi.stubGlobal("document", { cookie: "other=1; dibay_app=android" });
 
-    expect(isCapacitorNativePlatform()).toBe(true);
+    expect(isCapacitorNativePlatform()).toBe(false);
+    expect(isOAuthNativeLaunchShell()).toBe(true);
   });
 
-  it("detects iOS app marker for future native OAuth return support", () => {
+  it("detects iOS app marker for launch shell", () => {
     vi.stubGlobal("window", {
       location: { href: "https://samarket.vercel.app/login?dibay_app=ios" },
       sessionStorage: {
@@ -71,7 +78,8 @@ describe("capacitor-native", () => {
     });
     vi.stubGlobal("document", { cookie: "" });
 
-    expect(isCapacitorNativePlatform()).toBe(true);
+    expect(isCapacitorNativePlatform()).toBe(false);
+    expect(isOAuthNativeLaunchShell()).toBe(true);
   });
 
   it("ensureCapacitorNativeMarkerOnBoot persists marker from getPlatform android", () => {
@@ -104,6 +112,7 @@ describe("capacitor-native", () => {
   it("returns false on plain web", () => {
     vi.stubGlobal("window", {});
     expect(isCapacitorNativePlatform()).toBe(false);
+    expect(isOAuthNativeLaunchShell()).toBe(false);
     expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(false);
   });
 
@@ -126,21 +135,53 @@ describe("capacitor-native", () => {
       androidBridge: {},
     });
     expect(isCapacitorNativePlatform()).toBe(true);
+    expect(isCapacitorBridgeReady()).toBe(true);
     expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(true);
+  });
+
+  it("detects OAuth launch availability from plugin headers", () => {
+    vi.stubGlobal("window", {
+      Capacitor: {
+        getPlatform: () => "web",
+        PluginHeaders: [{ name: "NativeOAuthLauncher", methods: [{ name: "open", rtype: "promise" }] }],
+      },
+    });
+    expect(isOAuthNativeLaunchAvailable()).toBe(true);
+    expect(isCapacitorBridgeReady()).toBe(false);
+  });
+
+  it("returns immediately when androidBridge is already present", async () => {
+    vi.stubGlobal("window", {
+      location: { href: "https://samarket.vercel.app/auth/oauth/launch" },
+      androidBridge: {},
+    });
+
+    await expect(waitForCapacitorBridgeReady({ timeoutMs: 100, intervalMs: 10 })).resolves.toBe(true);
   });
 
   it("exposes diagnostics snapshot", () => {
     vi.stubGlobal("window", {
+      location: { href: "https://samarket.vercel.app/auth/oauth/launch" },
       androidBridge: {},
-      Capacitor: { isNativePlatform: () => true, getPlatform: () => "android" },
+      Capacitor: {
+        isNativePlatform: () => true,
+        getPlatform: () => "android",
+        nativePromise: () => Promise.resolve(),
+        PluginHeaders: [{ name: "NativeOAuthLauncher", methods: [{ name: "open", rtype: "promise" }] }],
+      },
     });
     expect(getCapacitorNativeDiagnostics()).toMatchObject({
       hasCapacitor: true,
       isNativePlatform: true,
       platform: "android",
       hasAndroidBridge: true,
+      hasNativeOAuthLauncherPluginHeader: true,
+      hasCapacitorNativePromise: true,
+      bridgeReady: true,
+      oauthNativeLaunchAvailable: true,
       dibayAppPlatformMarker: null,
       detectedNative: true,
+      oauthLaunchShell: true,
     });
   });
 

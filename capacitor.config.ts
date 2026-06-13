@@ -36,6 +36,9 @@ function withNativeAppMarker(url: string, platform: "android" | "ios"): string {
 const dibayAppPlatform =
   process.env.CAPACITOR_DIBAY_APP?.trim().toLowerCase() === "ios" ? "ios" : "android";
 
+const useLegacyAndroidBridge =
+  process.env.CAPACITOR_ANDROID_USE_LEGACY_BRIDGE?.trim() === "1";
+
 const config: CapacitorConfig = {
   appId: "com.dibay.app",
   appName: "DIBAY",
@@ -44,6 +47,13 @@ const config: CapacitorConfig = {
     url: withNativeAppMarker(serverUrl, dibayAppPlatform),
     cleartext: serverUrl.startsWith("http://"),
   },
+  ...(useLegacyAndroidBridge
+    ? {
+        android: {
+          useLegacyBridge: true,
+        },
+      }
+    : {}),
 };
 
 export default config;

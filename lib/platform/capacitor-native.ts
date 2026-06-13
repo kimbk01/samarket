@@ -1,11 +1,23 @@
+type CapacitorPluginHeader = {
+  name: string;
+  methods?: Array<{ name: string; rtype?: string }>;
+};
+
 type CapacitorGlobal = {
   isNativePlatform?: () => boolean;
   getPlatform?: () => string;
+  nativePromise?: (pluginName: string, methodName: string, options?: unknown) => Promise<unknown>;
+  PluginHeaders?: CapacitorPluginHeader[];
 };
 
 type WindowWithCapacitor = Window & {
   Capacitor?: CapacitorGlobal;
   androidBridge?: unknown;
+  webkit?: {
+    messageHandlers?: {
+      bridge?: unknown;
+    };
+  };
 };
 
 export type DibayAppPlatform = "android" | "ios";
@@ -14,7 +26,12 @@ export const DIBAY_APP_MARKER_PARAM = "dibay_app";
 export const DIBAY_APP_MARKER_STORAGE_KEY = "dibay_app";
 export const DIBAY_APP_MARKER_COOKIE_NAME = "dibay_app";
 
+export const NATIVE_OAUTH_LAUNCHER_PLUGIN_ID = "NativeOAuthLauncher";
+
 const DIBAY_APP_PLATFORM_VALUES = new Set<DibayAppPlatform>(["android", "ios"]);
+
+const DEFAULT_BRIDGE_READY_TIMEOUT_MS = 3_000;
+const DEFAULT_BRIDGE_READY_INTERVAL_MS = 50;
 
 function readWindowWithCapacitor(): WindowWithCapacitor | undefined {
   if (typeof window === "undefined") return undefined;
@@ -94,7 +111,6 @@ function resolveCapacitorPlatformMarker(): DibayAppPlatform | null {
     return platform;
   }
   if (cap?.isNativePlatform?.() === true) {
-    // isNativePlatform only — UA/platform hint when getPlatform is delayed
     if (typeof navigator !== "undefined" && /android/i.test(navigator.userAgent)) {
       return "android";
     }
@@ -125,13 +141,94 @@ export function ensureCapacitorNativeMarkerOnBoot(): DibayAppPlatform | null {
   return null;
 }
 
+export function hasAndroidBridge(): boolean {
+  return Boolean(readWindowWithCapacitor()?.androidBridge);
+}
+
+export function hasIosCapacitorBridge(): boolean {
+  return Boolean(readWindowWithCapacitor()?.webkit?.messageHandlers?.bridge);
+}
+
+export function hasNativeOAuthLauncherPluginHeader(): boolean {
+  const headers = readWindowWithCapacitor()?.Capacitor?.PluginHeaders;
+  if (!Array.isArray(headers)) return false;
+  return headers.some((header) => header.name === NATIVE_OAUTH_LAUNCHER_PLUGIN_ID);
+}
+
+export function hasCapacitorNativePromise(): boolean {
+  const cap = readWindowWithCapacitor()?.Capacitor;
+  return typeof cap?.nativePromise === "function";
+}
+
+/**
+ * Capacitor JS → native 메시지 경로(androidBridge / iOS bridge)가 실제로 붙었는지.
+ * implementation unavailable 은 postToNative 미설정 시 발생하므로 open 직전에 이 조건을 본다.
+ */
+export function isCapacitorBridgeReady(): boolean {
+  return hasAndroidBridge() || hasIosCapacitorBridge();
+}
+
+/**
+ * OAuth launch 실행 가능 여부 — dibay_app marker 단독으로는 true 가 되지 않는다.
+ */
+export function isOAuthNativeLaunchAvailable(): boolean {
+  if (isCapacitorBridgeReady()) return true;
+
+  const win = readWindowWithCapacitor();
+  const platform = win?.Capacitor?.getPlatform?.()?.trim().toLowerCase();
+  if (platform === "android" && hasCapacitorNativePromise() && hasNativeOAuthLauncherPluginHeader()) {
+    return true;
+  }
+
+  return hasNativeOAuthLauncherPluginHeader();
+}
+
+/**
+ * 앱 WebView 셸 안에서 OAuth launch 페이지로 진입할 수 있는지 (라우팅용).
+ * marker 만 있어도 launch 페이지 진입은 허용하고, open 은 bridge ready 후에만 실행한다.
+ */
+export function isOAuthNativeLaunchShell(): boolean {
+  if (readDibayAppPlatformMarker()) return true;
+  return isCapacitorNativePlatform();
+}
+
+export type WaitForCapacitorBridgeReadyOptions = {
+  timeoutMs?: number;
+  intervalMs?: number;
+};
+
+export async function waitForCapacitorBridgeReady(
+  options: WaitForCapacitorBridgeReadyOptions = {},
+): Promise<boolean> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_BRIDGE_READY_TIMEOUT_MS;
+  const intervalMs = options.intervalMs ?? DEFAULT_BRIDGE_READY_INTERVAL_MS;
+  const deadline = Date.now() + timeoutMs;
+
+  if (isCapacitorBridgeReady()) return true;
+
+  while (Date.now() < deadline) {
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, intervalMs);
+    });
+    if (isCapacitorBridgeReady()) return true;
+  }
+
+  return false;
+}
+
 export type CapacitorNativeDiagnostics = {
   hasCapacitor: boolean;
   isNativePlatform: boolean | null;
   platform: string | null;
   hasAndroidBridge: boolean;
+  hasNativeOAuthLauncherPluginHeader: boolean;
+  hasCapacitorNativePromise: boolean;
+  bridgeReady: boolean;
+  oauthNativeLaunchAvailable: boolean;
   dibayAppPlatformMarker: DibayAppPlatform | null;
+  locationHref: string | null;
   detectedNative: boolean;
+  oauthLaunchShell: boolean;
 };
 
 /** Logcat / Chrome Inspect 용 Capacitor native 감지 스냅샷 */
@@ -141,31 +238,35 @@ export function getCapacitorNativeDiagnostics(): CapacitorNativeDiagnostics {
   const isNativePlatform =
     typeof cap?.isNativePlatform === "function" ? cap.isNativePlatform() : null;
   const platform = typeof cap?.getPlatform === "function" ? cap.getPlatform() : null;
-  const hasAndroidBridge = Boolean(win?.androidBridge);
+  const hasAndroidBridgeValue = hasAndroidBridge();
   const appPlatformMarker = readDibayAppPlatformMarker();
   return {
     hasCapacitor: Boolean(cap),
     isNativePlatform,
     platform,
-    hasAndroidBridge,
+    hasAndroidBridge: hasAndroidBridgeValue,
+    hasNativeOAuthLauncherPluginHeader: hasNativeOAuthLauncherPluginHeader(),
+    hasCapacitorNativePromise: hasCapacitorNativePromise(),
+    bridgeReady: isCapacitorBridgeReady(),
+    oauthNativeLaunchAvailable: isOAuthNativeLaunchAvailable(),
     dibayAppPlatformMarker: appPlatformMarker,
+    locationHref: typeof window !== "undefined" ? window.location.href : null,
     detectedNative: isCapacitorNativePlatform(),
+    oauthLaunchShell: isOAuthNativeLaunchShell(),
   };
 }
 
 /**
  * Capacitor Android/iOS WebView 셸에서 실행 중인지.
- * 원격 server.url WebView 에서 isNativePlatform() 만으로 놓치는 경우를 보강한다.
+ * dibay_app marker 단독으로는 true 가 되지 않는다 (OAuth false-positive 방지).
  */
 export function isCapacitorNativePlatform(): boolean {
   const win = readWindowWithCapacitor();
   if (!win) return false;
 
-  if (readDibayAppPlatformMarker()) return true;
+  if (win.androidBridge) return true;
 
   const cap = win.Capacitor;
-
-  if (win.androidBridge) return true;
 
   const platform = cap?.getPlatform?.();
   if (platform === "android" || platform === "ios") return true;
@@ -184,15 +285,15 @@ export function shouldRegisterCapacitorOAuthReturnListener(): boolean {
   const win = readWindowWithCapacitor();
   if (!win) return false;
 
-  // Capacitor bridge 주입 직전/직후: androidBridge 또는 Capacitor 객체만 있는 경우 재시도 대상
   if (win.androidBridge) return true;
   if (win.Capacitor) {
     const platform = win.Capacitor.getPlatform?.();
     if (platform === "web") return false;
     if (platform === "android" || platform === "ios") return true;
-    // platform 아직 미설정 — Capacitor 객체 존재 시 리스너 등록 시도
     return true;
   }
+
+  if (readDibayAppPlatformMarker()) return true;
 
   return false;
 }

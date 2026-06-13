@@ -139,8 +139,28 @@ if (
   failures.push("open-native-oauth-tab.ts must not use anchor or Browser fallback helpers");
 }
 
+if (!openNativeTab.includes("waitForCapacitorBridgeReady")) {
+  failures.push("open-native-oauth-tab.ts must wait for Capacitor bridge before NativeOAuthLauncher.open");
+}
+
+if (!openNativeTab.includes("oauth_bridge_not_ready")) {
+  failures.push("open-native-oauth-tab.ts must block open with oauth_bridge_not_ready when bridge is unavailable");
+}
+
 if (!launchClient.includes("openNativeOAuthTab")) {
   failures.push("NativeOAuthLaunchClient must use openNativeOAuthTab");
+}
+
+if (!launchClient.includes("waitForCapacitorBridgeReady")) {
+  failures.push("NativeOAuthLaunchClient must wait for Capacitor bridge before auto open");
+}
+
+if (!launchClient.includes("isOAuthNativeLaunchShell")) {
+  failures.push("NativeOAuthLaunchClient must use isOAuthNativeLaunchShell for native launch shell detection");
+}
+
+if (!read("lib/platform/capacitor-native.ts").includes("isOAuthNativeLaunchShell")) {
+  failures.push("capacitor-native.ts must expose isOAuthNativeLaunchShell");
 }
 
 if (launchClient.includes('from "@capacitor/browser"')) {

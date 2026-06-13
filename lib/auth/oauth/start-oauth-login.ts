@@ -4,7 +4,7 @@ import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import {
   DIBAY_APP_MARKER_PARAM,
   ensureCapacitorNativeMarkerOnBoot,
-  isCapacitorNativePlatform,
+  isOAuthNativeLaunchShell,
   readDibayAppPlatformMarker,
 } from "@/lib/platform/capacitor-native";
 
@@ -122,7 +122,7 @@ export function startOAuthLogin(input: { provider: OAuthProvider; next?: string 
 
   ensureCapacitorNativeMarkerOnBoot();
 
-  if (isCapacitorNativePlatform()) {
+  if (isOAuthNativeLaunchShell()) {
     const launchPath = buildNativeOAuthLaunchPath(provider, next);
     console.error("[oauth] start_oauth_login_native", { provider, launchPath });
     window.location.assign(launchPath);
