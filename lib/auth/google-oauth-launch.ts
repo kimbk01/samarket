@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logOAuthAuthorizeUrl } from "@/lib/auth/oauth-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 /**
@@ -87,6 +88,7 @@ export async function startGoogleOAuthSignIn(
     if (!authorizeUrl) {
       return { ok: false, errorMessage: "missing_authorize_url" };
     }
+    logOAuthAuthorizeUrl(authorizeUrl);
     launchGoogleOAuthAuthorizeUrl(authorizeUrl);
     return { ok: true, launched: true };
   }

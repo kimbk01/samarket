@@ -6,6 +6,7 @@ import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { logOAuthAuthorizeUrl, logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
 import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { withNextSearchParam } from "@/lib/auth/safe-next-path";
@@ -237,6 +238,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
           return;
         }
         const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next);
+        logOAuthSignInStart(provider, callbackUrl);
         if (provider === "google") {
           const googleResult = await withTimeout(
             startGoogleOAuthSignIn(supabase, callbackUrl),
@@ -273,6 +275,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
           setError(t("auth_err_oauth_authorize_url_failed"));
           return;
         }
+        logOAuthAuthorizeUrl(authorizeUrl);
         window.location.assign(authorizeUrl);
       } catch (err) {
         if (err instanceof Error && err.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {

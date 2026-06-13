@@ -34,11 +34,24 @@ describe("buildOAuthRedirectUrl", () => {
     expect(buildOAuthRedirectUrl("https://samarket.vercel.app")).toBe("dibay://auth/callback");
   });
 
+  it("returns dibay deep link when androidBridge is present", () => {
+    vi.stubGlobal("window", {
+      androidBridge: {},
+      Capacitor: { isNativePlatform: () => false, getPlatform: () => "web" },
+    });
+    expect(buildOAuthRedirectUrl("https://samarket.vercel.app")).toBe("dibay://auth/callback");
+  });
+
+  it("returns dibay deep link when getPlatform is android", () => {
+    vi.stubGlobal("window", {
+      Capacitor: { isNativePlatform: () => false, getPlatform: () => "android" },
+    });
+    expect(buildOAuthRedirectUrl("https://samarket.vercel.app")).toBe("dibay://auth/callback");
+  });
+
   it("preserves next on native deep link", () => {
     vi.stubGlobal("window", {
-      Capacitor: {
-        isNativePlatform: () => true,
-      },
+      Capacitor: { isNativePlatform: () => true, getPlatform: () => "android" },
     });
     expect(buildOAuthRedirectUrl("https://samarket.vercel.app", "/philife")).toBe(
       "dibay://auth/callback?next=%2Fphilife",

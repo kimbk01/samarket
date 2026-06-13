@@ -29,6 +29,16 @@ describe("capacitor-oauth-return", () => {
     );
   });
 
+  it("forwards code state and next query params without loss", () => {
+    const result = buildWebOAuthCallbackUrlFromNativeReturn(
+      "dibay://auth/callback?code=abc&state=xyz&next=%2Fmarket",
+      "https://samarket.vercel.app",
+    );
+    expect(result).toBe(
+      "https://samarket.vercel.app/auth/callback?code=abc&state=xyz&next=%2Fmarket",
+    );
+  });
+
   it("returns null for unrelated deep links", () => {
     expect(
       buildWebOAuthCallbackUrlFromNativeReturn("https://example.com/auth/callback", "https://samarket.vercel.app"),

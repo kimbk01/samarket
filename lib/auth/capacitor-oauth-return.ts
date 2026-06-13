@@ -1,3 +1,5 @@
+import { logAppUrlOpenEvent } from "@/lib/auth/oauth-flow-log";
+
 /** Capacitor Android/iOS OAuth 복귀 deep link (Supabase redirectTo) */
 export const NATIVE_OAUTH_CALLBACK_URL = "dibay://auth/callback";
 
@@ -57,6 +59,7 @@ export function handleCapacitorOAuthReturnUrl(nativeUrl: string): boolean {
     nativeUrl,
     window.location.origin,
   );
+  logAppUrlOpenEvent(nativeUrl, webCallbackUrl);
   if (!webCallbackUrl) return false;
 
   window.location.replace(webCallbackUrl);

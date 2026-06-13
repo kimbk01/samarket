@@ -8,6 +8,7 @@ import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
 import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { logOAuthAuthorizeUrl, logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
 import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
@@ -426,6 +427,7 @@ function LoginPageContent() {
       }
       // 콜백이 다시 사용할 next 를 redirectTo 에 함께 부착한다.
       const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next ?? null);
+      logOAuthSignInStart(provider, callbackUrl);
       if (provider === "kakao") {
         const { data, error: oauthError } = await withTimeout(
           supabase.auth.signInWithOAuth({
@@ -455,6 +457,7 @@ function LoginPageContent() {
           setError((prev) => (prev === nextError ? prev : nextError));
           return;
         }
+        logOAuthAuthorizeUrl(authorizeUrl);
         window.location.assign(authorizeUrl);
         return;
       }
@@ -495,6 +498,7 @@ function LoginPageContent() {
         setError((prev) => (prev === nextError ? prev : nextError));
         return;
       }
+      logOAuthAuthorizeUrl(authorizeUrl);
       window.location.assign(authorizeUrl);
     } catch (e) {
       if (e instanceof Error && e.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
