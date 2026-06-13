@@ -6,12 +6,22 @@ import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
 import { isOAuthLoginStartSupported, startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
 import { endOAuthFlow, isOAuthInFlightPath, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
-import { shouldUseNativeAppleOAuth } from "@/lib/auth/native/native-apple-auth-contract";
 import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
-import { startNativeAppleLogin } from "@/lib/auth/native/start-native-apple-login.client";
-import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
+import { NativeKakaoAuthError } from "@/lib/auth/native/native-kakao-auth-plugin";
+import {
+  NativeProviderLoginError,
+  startNativeProviderLogin,
+} from "@/lib/auth/native/start-native-provider-login.client";
+import {
+  resolveNativeBlockedProviderErrorCode,
+  resolveOAuthNativeRoutingDecision,
+} from "@/lib/auth/oauth/oauth-native-routing";
+import {
+  ensureCapacitorNativeMarkerOnBoot,
+  isCapacitorNativePlatform,
+  isOAuthNativeLaunchShell,
+} from "@/lib/platform/capacitor-native";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
@@ -67,8 +77,26 @@ export function setOAuthPendingForTests(provider: OAuthProvider | null): void {
   setSharedPending(provider);
 }
 
+function isNativeAppOAuthShell(): boolean {
+  return isCapacitorNativePlatform() || isOAuthNativeLaunchShell();
+}
+
 function isNaverProvider(provider: OAuthProvider): boolean {
   return provider === "naver";
+}
+
+function isNativeProviderCancelError(err: unknown): boolean {
+  if (err instanceof NativeKakaoAuthError && err.code === "user_cancelled") return true;
+  if (err instanceof NativeAppleAuthError && err.code === "user_cancelled") return true;
+  return false;
+}
+
+function resolveNativeProviderLoginErrorCode(err: unknown): string {
+  if (err instanceof NativeProviderLoginError) return err.code;
+  if (err instanceof NativeKakaoAuthError) return err.code;
+  if (err instanceof NativeAppleAuthError) return err.code;
+  if (err instanceof Error) return err.name || err.message || "oauth_start_failed";
+  return "oauth_start_failed";
 }
 
 function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
@@ -93,6 +121,14 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
     return t("auth_err_oauth_start_failed");
   }
   if (code === "apple_native_unavailable") return t("auth_err_oauth_start_failed");
+  if (code === "kakao_native_exchange_not_ready") return t("auth_err_kakao_native_not_ready");
+  if (code === "kakao_native_verify_failed") return t("auth_err_kakao_native_verify_failed");
+  if (code === "kakao_native_account_conflict") return t("auth_err_kakao_native_account_conflict");
+  if (code === "kakao_native_config_error" || code === "kakao_native_token_missing") {
+    return t("auth_err_oauth_start_failed");
+  }
+  if (code === "kakao_native_unavailable") return t("auth_err_oauth_start_failed");
+  if (code === "native_provider_not_implemented") return t("auth_err_native_provider_not_implemented");
   return t("auth_err_oauth_start_failed");
 }
 
@@ -198,18 +234,29 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         return;
       }
 
-      if (shouldUseNativeAppleOAuth(provider, isNativeAppleLoginAvailable())) {
-        void startNativeAppleLogin({ next })
+      const routing = resolveOAuthNativeRoutingDecision({
+        provider,
+        isNativeAppShell: isNativeAppOAuthShell(),
+      });
+
+      if (routing.action === "native_provider_login") {
+        void startNativeProviderLogin({ provider, next })
           .catch((err) => {
-            if (err instanceof NativeAppleAuthError && err.code === "user_cancelled") {
+            if (isNativeProviderCancelError(err)) {
               releaseOAuthFlowOnUserCancel();
               clearPending();
               return;
             }
             clearPending();
-            const code = err instanceof Error ? err.name || err.message : "oauth_start_failed";
+            const code = resolveNativeProviderLoginErrorCode(err);
             if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
           });
+        return;
+      }
+
+      if (routing.action === "native_blocked") {
+        clearPending();
+        if (mountedRef.current) setError(mapOAuthErrorToMessage(routing.errorCode, t));
         return;
       }
 

@@ -4,6 +4,7 @@ import {
   buildNativeAppleExchangeRequest,
   type NativeAppleAuthErrorCode,
 } from "@/lib/auth/native/native-apple-auth-contract";
+import type { NativeExchangeResponse } from "@/lib/auth/native/native-provider-contract";
 import { invokeNativeAppleSignIn, NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
 import {
   endOAuthFlow,
@@ -13,28 +14,20 @@ import {
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
 
-export type NativeAppleExchangeResponse =
-  | {
-      ok: true;
-      provider?: string;
-      redirectTo?: string;
-      signupComplete?: boolean;
-      sessionEstablished?: boolean;
-    }
-  | { ok: false; errorCode?: string; message?: string };
+export type NativeAppleExchangeResponse = NativeExchangeResponse;
 
 function mapExchangeErrorToNativeAppleError(
   exchange: Extract<NativeAppleExchangeResponse, { ok: false }>,
   httpStatus?: number,
 ): NativeAppleAuthError {
   const code = String(exchange.errorCode ?? "").trim();
-  if (code === "native_exchange_not_implemented" || httpStatus === 501) {
+  if (code === "native_exchange_not_implemented" || code === "native_provider_not_implemented" || httpStatus === 501) {
     return new NativeAppleAuthError(
       "apple_native_exchange_not_ready",
       exchange.message ?? "Apple native exchange is not ready",
     );
   }
-  if (code === "provider_account_conflict") {
+  if (code === "provider_account_conflict" || code === "native_exchange_account_conflict") {
     return new NativeAppleAuthError(
       "apple_native_account_conflict",
       exchange.message ?? "Apple account conflict",
@@ -53,7 +46,12 @@ function mapExchangeErrorToNativeAppleError(
       exchange.message ?? "Apple login verification failed",
     );
   }
-  if (code === "native_token_missing" || code === "malformed_token" || code === "invalid_json") {
+  if (
+    code === "native_token_missing"
+    || code === "native_exchange_bad_request"
+    || code === "malformed_token"
+    || code === "invalid_json"
+  ) {
     return new NativeAppleAuthError(
       "apple_native_token_invalid",
       exchange.message ?? "Apple login token is invalid",
@@ -68,12 +66,17 @@ function mapExchangeErrorToNativeAppleError(
  */
 export async function postNativeAppleExchange(
   body: ReturnType<typeof buildNativeAppleExchangeRequest>,
+  options?: { next?: string | null },
 ): Promise<NativeAppleExchangeResponse> {
+  const payload: Record<string, unknown> = { ...body };
+  if (options?.next?.trim()) {
+    payload.next = options.next.trim();
+  }
   const res = await fetch("/api/auth/native/exchange", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
+    body: JSON.stringify(payload),
   });
   const json = (await res.json().catch(() => null)) as NativeAppleExchangeResponse | null;
   if (!json || typeof json !== "object") {
@@ -134,7 +137,7 @@ export async function startNativeAppleLogin(input?: { next?: string | null }): P
     });
 
     const exchangeBody = buildNativeAppleExchangeRequest(signInResult);
-    const exchange = await postNativeAppleExchange(exchangeBody);
+    const exchange = await postNativeAppleExchange(exchangeBody, { next: input?.next ?? null });
 
     if (!exchange.ok) {
       throw mapExchangeErrorToNativeAppleError(exchange);

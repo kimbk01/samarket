@@ -93,6 +93,14 @@ export const authUiMessages = {
       "이 Apple 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
     auth_err_apple_native_invalid_audience:
       "Apple 로그인 앱 설정이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.",
+    auth_err_kakao_native_not_ready:
+      "카카오 로그인 준비 중입니다. 잠시 후 다시 시도해 주세요.",
+    auth_err_kakao_native_verify_failed:
+      "카카오 로그인 확인에 실패했습니다. 다시 시도해 주세요.",
+    auth_err_kakao_native_account_conflict:
+      "이 카카오 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
+    auth_err_native_provider_not_implemented:
+      "앱에서는 아직 이 로그인 방식을 지원하지 않습니다. 다른 방법으로 로그인해 주세요.",
     auth_supabase_fail_dns:
       "Supabase 주소를 DNS에서 찾을 수 없습니다. .env.local의 NEXT_PUBLIC_SUPABASE_URL이 Supabase 대시보드(Settings → API → Project URL)와 한 글자까지 같은지 확인하세요. 프로젝트를 새로 만들었거나 삭제했다면 URL 전체를 다시 붙여 넣어야 합니다. (잘못된 참조(ref)이면 *.supabase.co 호스트가 존재하지 않습니다.)",
     auth_supabase_fail_timeout:
@@ -278,6 +286,14 @@ export const authUiMessages = {
       "This Apple account conflicts with another sign-in method. Please contact support.",
     auth_err_apple_native_invalid_audience:
       "Apple sign-in app configuration is invalid. Please try again shortly.",
+    auth_err_kakao_native_not_ready:
+      "Kakao sign-in is not ready yet. Please try again shortly.",
+    auth_err_kakao_native_verify_failed:
+      "Kakao sign-in verification failed. Please try again.",
+    auth_err_kakao_native_account_conflict:
+      "This Kakao account conflicts with another profile. Please contact support.",
+    auth_err_native_provider_not_implemented:
+      "This sign-in method is not available in the app yet. Please use another method.",
     auth_supabase_fail_dns:
       "Supabase host could not be resolved. Make sure NEXT_PUBLIC_SUPABASE_URL in .env.local exactly matches Project URL in the Supabase dashboard.",
     auth_supabase_fail_timeout:

@@ -55,7 +55,7 @@
 | 현재 | UI/DB 설정만, start **미연결** |
 | P2 선택 | Supabase Facebook provider 연결 **또는** UI에서 영구 비활성 |
 
-## 서버 API 스케치 (P2)
+## 서버 API (STEP 2 — adapter 공통화)
 
 ```
 POST /api/auth/native/exchange
@@ -63,24 +63,29 @@ Content-Type: application/json
 Cache-Control: no-store
 
 {
-  "provider": "apple" | "kakao",
+  "provider": "apple" | "kakao" | "google" | "facebook",
+  "token"?: string,
   "idToken"?: string,
   "accessToken"?: string,
   "authorizationCode"?: string,
-  "nonce"?: string
+  "nonce"?: string,
+  "userIdentifier"?: string
 }
 
-→ provider verify
-→ ensureUserProfile
-→ syncActiveSessionForUser
-→ { ok: true, redirectTo: "/auth/onboarding/..." | POST_LOGIN_PATH }
+→ NativeProviderAdapter.validateInput (400 native_exchange_bad_request)
+→ stub provider: 501 native_provider_not_implemented
+→ Apple: verify + establishSession
+→ ensureUserProfile + syncActiveSessionForUser
+→ { ok: true, signupComplete, redirectTo, sessionEstablished: true }
 ```
 
-구현 진입점: [`app/api/auth/native/exchange/route.ts`](../app/api/auth/native/exchange/route.ts), [`lib/auth/native/native-token-exchange.server.ts`](../lib/auth/native/native-token-exchange.server.ts)
+**Naver 제외** — `/api/auth/naver/*` 유지.
+
+구현: [`native-provider-adapter.server.ts`](../lib/auth/native/native-provider-adapter.server.ts), [`native-exchange-types.server.ts`](../lib/auth/native/native-exchange-types.server.ts)
 
 ## iOS 프로젝트
 
-현재 `ios/` **부재** — Apple native는 Capacitor iOS add 후 진행.
+`ios/App/App.xcodeproj` — Apple Native shell (STEP 1). Kakao/Google/Facebook native SDK는 **미포함**.
 
 ## 관련
 

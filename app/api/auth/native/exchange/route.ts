@@ -1,11 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
-import { parseNativeAppleExchangeBody } from "@/lib/auth/native/native-apple-auth-contract";
+import { parseNativeExchangeRequest } from "@/lib/auth/native/native-exchange-contract.server";
+import { invalidNativeExchangeProvider, nativeExchangeBadRequest } from "@/lib/auth/native/native-exchange-errors.server";
 import {
   createNativeExchangeContext,
   exchangeNativeProviderToken,
-  normalizeNativeExchangeProvider,
 } from "@/lib/auth/native/native-token-exchange.server";
 
 export const runtime = "nodejs";
@@ -39,20 +39,20 @@ export async function POST(req: NextRequest) {
   try {
     body = (await req.json()) as Record<string, unknown>;
   } catch {
-    return noStoreJson({ ok: false, errorCode: "invalid_json" }, 400);
+    return noStoreJson({ ok: false, errorCode: "native_exchange_bad_request", message: "Invalid JSON" }, 400);
   }
 
-  const provider = normalizeNativeExchangeProvider(body.provider);
-  if (!provider) {
-    return noStoreJson({ ok: false, errorCode: "invalid_provider" }, 400);
-  }
-
-  const appleBody = provider === "apple" ? parseNativeAppleExchangeBody(body) : null;
-  if (provider === "apple" && !appleBody) {
-    return noStoreJson({ ok: false, errorCode: "native_token_missing" }, 400);
+  const parsed = parseNativeExchangeRequest(body);
+  if (!parsed) {
+    const failure = invalidNativeExchangeProvider();
+    return noStoreJson(
+      { ok: false, errorCode: failure.errorCode, message: failure.message },
+      failure.status,
+    );
   }
 
   const safeNext = typeof body.next === "string" ? body.next : null;
+  const exchangeInput = { ...parsed, next: safeNext };
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -81,26 +81,19 @@ export async function POST(req: NextRequest) {
   let response = noStoreJson({ ok: false, errorCode: "pending" }, 500);
   const context = createNativeExchangeContext(req, response, routeSb);
 
-  const result = await exchangeNativeProviderToken(
-    {
-      provider,
-      idToken: appleBody?.identityToken ?? (typeof body.idToken === "string" ? body.idToken : null),
-      identityToken: appleBody?.identityToken ?? null,
-      accessToken: typeof body.accessToken === "string" ? body.accessToken : null,
-      authorizationCode:
-        appleBody?.authorizationCode
-        ?? (typeof body.authorizationCode === "string" ? body.authorizationCode : null),
-      nonce: appleBody?.nonce ?? (typeof body.nonce === "string" ? body.nonce : null),
-      userIdentifier: appleBody?.userIdentifier ?? (typeof body.userIdentifier === "string" ? body.userIdentifier : null),
-      next: safeNext,
-    },
-    context,
-  );
+  const result = await exchangeNativeProviderToken(exchangeInput, context);
 
   if (!result.ok) {
     return noStoreJson(
       { ok: false, errorCode: result.errorCode, message: result.message },
       result.status,
+    );
+  }
+
+  if (result.sessionEstablished !== true) {
+    return noStoreJson(
+      nativeExchangeBadRequest("Native exchange success must include sessionEstablished=true"),
+      500,
     );
   }
 
@@ -110,7 +103,11 @@ export async function POST(req: NextRequest) {
       provider: result.provider,
       signupComplete: result.signupComplete,
       redirectTo: result.redirectTo,
-      sessionEstablished: result.sessionEstablished,
+      sessionEstablished: true,
+      userId: result.userId,
+      isNewUser: result.isNewUser,
+      needsProfileCompletion: result.needsProfileCompletion,
+      needsTermsAgreement: result.needsTermsAgreement,
     },
     200,
   );

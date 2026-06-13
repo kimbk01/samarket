@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- resValue 로 build.gradle 에서 주입 — kakao.xml placeholder -->
+</resources>

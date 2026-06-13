@@ -17,7 +17,9 @@
 
 ### P2 (현재)
 
-→ [dibay-auth-roadmap.md](./dibay-auth-roadmap.md) STEP 1 Apple Native SDK부터
+→ [dibay-auth-roadmap.md](./dibay-auth-roadmap.md) **STEP 2 native exchange adapter 공통화 완료** · STEP 3 Kakao Native SDK
+
+Native exchange (`POST /api/auth/native/exchange`)는 **apple · kakao · google · facebook** 만 대상이다. **Naver 제외** — `/api/auth/naver/*` 유지.
 
 ---
 ## A. 로그아웃해야 하는 경우

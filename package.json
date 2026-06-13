@@ -105,6 +105,7 @@
     "verify:dibay-duplicate-login-policy": "node scripts/verify-dibay-duplicate-login-policy.mjs",
     "verify:native-oauth-redirect-contract": "node scripts/verify-native-oauth-redirect-contract.mjs",
     "verify:ios-apple-native-contract": "node scripts/verify-ios-apple-native-contract.mjs",
+    "verify:kakao-native-contract": "node scripts/verify-kakao-native-contract.mjs",
     "verify:auth-session-contract": "node scripts/verify-auth-session-contract.mjs",
     "qa:native-oauth-device": "node scripts/print-native-oauth-device-qa.mjs",
     "check": "npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npx tsc --noEmit && npm run lint && npm run test && npm run build && npm run check:bundle",

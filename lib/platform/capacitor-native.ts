@@ -28,6 +28,7 @@ export const DIBAY_APP_MARKER_COOKIE_NAME = "dibay_app";
 
 export const NATIVE_OAUTH_LAUNCHER_PLUGIN_ID = "NativeOAuthLauncher";
 export const NATIVE_APPLE_AUTH_PLUGIN_ID = "NativeAppleAuth";
+export const NATIVE_KAKAO_AUTH_PLUGIN_ID = "NativeKakaoAuth";
 
 const DIBAY_APP_PLATFORM_VALUES = new Set<DibayAppPlatform>(["android", "ios"]);
 
@@ -162,6 +163,24 @@ export function hasNativeAppleAuthPluginHeader(): boolean {
   return headers.some((header) => header.name === NATIVE_APPLE_AUTH_PLUGIN_ID);
 }
 
+export function hasNativeKakaoAuthPluginHeader(): boolean {
+  const headers = readWindowWithCapacitor()?.Capacitor?.PluginHeaders;
+  if (!Array.isArray(headers)) return false;
+  return headers.some((header) => header.name === NATIVE_KAKAO_AUTH_PLUGIN_ID);
+}
+
+/**
+ * Android/iOS Capacitor — NativeKakaoAuth plugin (Kakao SDK).
+ * Web → false (Web OAuth 유지).
+ */
+export function isNativeKakaoLoginAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const platform = readWindowWithCapacitor()?.Capacitor?.getPlatform?.()?.trim().toLowerCase();
+  if (platform !== "android" && platform !== "ios") return false;
+  if (isCapacitorBridgeReady()) return true;
+  return hasNativeKakaoAuthPluginHeader();
+}
+
 /**
  * iOS Capacitor — NativeAppleAuth plugin (AuthenticationServices).
  * Android / web → false (Apple Web OAuth 유지).
@@ -242,7 +261,9 @@ export type CapacitorNativeDiagnostics = {
   hasAndroidBridge: boolean;
   hasNativeOAuthLauncherPluginHeader: boolean;
   hasNativeAppleAuthPluginHeader: boolean;
+  hasNativeKakaoAuthPluginHeader: boolean;
   nativeAppleLoginAvailable: boolean;
+  nativeKakaoLoginAvailable: boolean;
   hasCapacitorNativePromise: boolean;
   bridgeReady: boolean;
   oauthNativeLaunchAvailable: boolean;
@@ -268,7 +289,9 @@ export function getCapacitorNativeDiagnostics(): CapacitorNativeDiagnostics {
     hasAndroidBridge: hasAndroidBridgeValue,
     hasNativeOAuthLauncherPluginHeader: hasNativeOAuthLauncherPluginHeader(),
     hasNativeAppleAuthPluginHeader: hasNativeAppleAuthPluginHeader(),
+    hasNativeKakaoAuthPluginHeader: hasNativeKakaoAuthPluginHeader(),
     nativeAppleLoginAvailable: isNativeAppleLoginAvailable(),
+    nativeKakaoLoginAvailable: isNativeKakaoLoginAvailable(),
     hasCapacitorNativePromise: hasCapacitorNativePromise(),
     bridgeReady: isCapacitorBridgeReady(),
     oauthNativeLaunchAvailable: isOAuthNativeLaunchAvailable(),

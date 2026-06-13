@@ -1,5 +1,7 @@
 import UIKit
 import Capacitor
+import KakaoSDKAuth
+import KakaoSDKCommon
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,7 +9,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        if let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String {
+            let trimmed = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                KakaoSDK.initSDK(appKey: trimmed)
+            }
+        }
         return true
     }
 
@@ -34,8 +41,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        // Called when the app was launched with a url. Feel free to add additional processing here,
-        // but if you want the App API to support tracking app url opens, make sure to keep this call
+        // KakaoTalk + Kakao account(SDK) oauth — kakao{NATIVE_APP_KEY}://oauth
+        if url.scheme?.hasPrefix("kakao") == true {
+            if AuthController.handleOpenUrl(url: url) {
+                return true
+            }
+        }
         return ApplicationDelegateProxy.shared.application(app, open: url, options: options)
     }
 

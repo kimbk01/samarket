@@ -1,0 +1,2 @@
+// Copy to Kakao.local.xcconfig (same directory) and set your Kakao Developers Native app key.
+KAKAO_NATIVE_APP_KEY = YOUR_KAKAO_NATIVE_APP_KEY

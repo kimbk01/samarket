@@ -1,2 +1,1 @@
 #include "App/App/kakao.xcconfig"
-CAPACITOR_DEBUG = true

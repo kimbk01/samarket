@@ -1,0 +1,3 @@
+// Kakao Native App Key — copy Kakao.local.xcconfig.example → Kakao.local.xcconfig (gitignored)
+#include? "Kakao.local.xcconfig"
+KAKAO_NATIVE_APP_KEY = $(inherited)

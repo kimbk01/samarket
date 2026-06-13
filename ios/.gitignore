@@ -11,3 +11,6 @@ capacitor-cordova-ios-plugins
 # Generated Config files
 App/App/capacitor.config.json
 App/App/config.xml
+
+# Kakao Native app key (local only)
+App/App/Kakao.local.xcconfig

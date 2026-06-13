@@ -2,11 +2,10 @@ import { createHash } from "node:crypto";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
 import {
-  buildAppleNativeAuthEmail,
-  isAppleNativeExchangeSessionEnabled,
-  isApplePrivateRelayEmail,
-} from "@/lib/auth/native/apple-auth-env.server";
-import type { AppleVerifiedIdentityToken } from "@/lib/auth/native/apple-token-verify.server";
+  buildKakaoNativeAuthEmail,
+  isKakaoNativeExchangeSessionEnabled,
+} from "@/lib/auth/native/kakao-auth-env.server";
+import type { KakaoVerifiedIdentity } from "@/lib/auth/native/kakao-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
@@ -17,23 +16,23 @@ import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 
-export function buildAppleSupabasePassword(sub: string): string {
+export function buildKakaoSupabasePassword(kakaoUserId: string): string {
   const seed =
-    process.env.APPLE_NATIVE_PASSWORD_SEED?.trim()
+    process.env.KAKAO_NATIVE_PASSWORD_SEED?.trim()
     || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()
-    || "dibay-apple-native";
-  const digest = createHash("sha256").update(`${seed}:apple:${sub}`).digest("base64url");
-  return `Ap#${digest.slice(0, 48)}!`;
+    || "dibay-kakao-native";
+  const digest = createHash("sha256").update(`${seed}:kakao:${kakaoUserId}`).digest("base64url");
+  return `Kk#${digest.slice(0, 48)}!`;
 }
 
-export type AppleNativeSessionContext = {
+export type KakaoNativeSessionContext = {
   adminSb: SupabaseClient;
   routeSb: SupabaseClient;
   request: NextRequest;
   response: NextResponse;
 };
 
-export type AppleNativeSessionResult =
+export type KakaoNativeSessionResult =
   | {
       ok: true;
       userId: string;
@@ -51,57 +50,48 @@ export type AppleNativeSessionResult =
       status: number;
     };
 
-async function findProfileIdByAppleSub(
+async function findProfileIdByKakaoUserId(
   adminSb: SupabaseClient,
-  sub: string,
+  kakaoUserId: string,
 ): Promise<string | null> {
   const { data, error } = await adminSb
     .from("profiles")
     .select("id")
-    .eq("provider", "apple")
-    .eq("provider_user_id", sub)
+    .eq("provider", "kakao")
+    .eq("provider_user_id", kakaoUserId)
     .maybeSingle();
   if (error || !data) return null;
   return typeof (data as { id?: unknown }).id === "string" ? (data as { id: string }).id : null;
 }
 
-function buildAppleUserMetadata(
-  verified: AppleVerifiedIdentityToken,
-  userIdentifier?: string | null,
-): Record<string, unknown> {
+function buildKakaoUserMetadata(verified: KakaoVerifiedIdentity): Record<string, unknown> {
   const metadata: Record<string, unknown> = {
-    provider: "apple",
-    apple_sub: verified.sub,
+    provider: "kakao",
+    kakao_id: verified.kakaoUserId,
   };
-  const uid = String(userIdentifier ?? "").trim();
-  if (uid) metadata.apple_user_identifier = uid;
-  if (verified.email && !verified.isPrivateRelayEmail) {
-    metadata.email = verified.email;
+  if (verified.nickname) metadata.nickname = verified.nickname;
+  if (verified.profileImageUrl) metadata.avatar_url = verified.profileImageUrl;
+  /** email 단독 병합 금지 — metadata 힌트만, auth email 은 synthetic */
+  if (verified.email && verified.hasEmailFromProfile) {
+    metadata.kakao_email_hint = verified.email;
   }
   return metadata;
 }
 
-function resolveAuthEmailForAppleUser(verified: AppleVerifiedIdentityToken): string {
-  /** email 병합 금지 — Auth email 은 sub 기반 synthetic 고정 */
-  return buildAppleNativeAuthEmail(verified.sub);
+function resolveAuthEmailForKakaoUser(kakaoUserId: string): string {
+  return buildKakaoNativeAuthEmail(kakaoUserId);
 }
 
-function resolveProfileEmailHint(verified: AppleVerifiedIdentityToken): string | null {
-  if (!verified.email || verified.isPrivateRelayEmail) return null;
-  return verified.email;
-}
-
-async function upsertAppleAuthUser(
+async function upsertKakaoAuthUser(
   adminSb: SupabaseClient,
   args: {
     existingUserId: string | null;
-    verified: AppleVerifiedIdentityToken;
-    userIdentifier?: string | null;
+    verified: KakaoVerifiedIdentity;
   },
-): Promise<{ userId: string; isNewUser: boolean } | AppleNativeSessionResult> {
-  const authEmail = resolveAuthEmailForAppleUser(args.verified);
-  const password = buildAppleSupabasePassword(args.verified.sub);
-  const metadata = buildAppleUserMetadata(args.verified, args.userIdentifier);
+): Promise<{ userId: string; isNewUser: boolean } | KakaoNativeSessionResult> {
+  const authEmail = resolveAuthEmailForKakaoUser(args.verified.kakaoUserId);
+  const password = buildKakaoSupabasePassword(args.verified.kakaoUserId);
+  const metadata = buildKakaoUserMetadata(args.verified);
 
   if (args.existingUserId) {
     const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(
@@ -111,7 +101,7 @@ async function upsertAppleAuthUser(
       return {
         ok: false,
         errorCode: "provider_account_conflict",
-        message: "Apple account profile exists but auth user is missing",
+        message: "Kakao account profile exists but auth user is missing",
         status: 409,
       };
     }
@@ -125,7 +115,7 @@ async function upsertAppleAuthUser(
       return {
         ok: false,
         errorCode: "provider_account_conflict",
-        message: updateError.message || "Failed to update Apple auth user",
+        message: updateError.message || "Failed to update Kakao auth user",
         status: 409,
       };
     }
@@ -142,47 +132,46 @@ async function upsertAppleAuthUser(
     return {
       ok: false,
       errorCode: "provider_account_conflict",
-      message: createError?.message || "Failed to create Apple auth user",
+      message: createError?.message || "Failed to create Kakao auth user",
       status: 409,
     };
   }
   return { userId: created.user.id, isNewUser: true };
 }
 
-async function persistAppleProfileIdentity(
+async function persistKakaoProfileIdentity(
   adminSb: SupabaseClient,
   userId: string,
-  verified: AppleVerifiedIdentityToken,
+  verified: KakaoVerifiedIdentity,
 ): Promise<void> {
   const patch: Record<string, unknown> = {
-    provider: "apple",
-    auth_provider: "apple",
-    provider_user_id: verified.sub,
+    provider: "kakao",
+    auth_provider: "kakao",
+    provider_user_id: verified.kakaoUserId,
     updated_at: new Date().toISOString(),
   };
-  const profileEmail = resolveProfileEmailHint(verified);
-  if (profileEmail) {
-    patch.auth_login_email = profileEmail;
+  if (verified.email && verified.hasEmailFromProfile) {
+    patch.auth_login_email = verified.email;
   }
   await adminSb.from("profiles").update(patch).eq("id", userId).then(() => undefined, () => undefined);
 }
 
-function syntheticUserForEnsure(userId: string, verified: AppleVerifiedIdentityToken): User {
-  const authEmail = resolveAuthEmailForAppleUser(verified);
+function syntheticUserForEnsure(userId: string, verified: KakaoVerifiedIdentity): User {
+  const authEmail = resolveAuthEmailForKakaoUser(verified.kakaoUserId);
   return {
     id: userId,
     email: authEmail,
-    app_metadata: { provider: "apple" },
-    user_metadata: buildAppleUserMetadata(verified),
+    app_metadata: { provider: "kakao" },
+    user_metadata: buildKakaoUserMetadata(verified),
     aud: "authenticated",
     created_at: new Date().toISOString(),
     identities: [
       {
-        id: verified.sub,
+        id: verified.kakaoUserId,
         user_id: userId,
-        provider: "apple",
-        identity_id: verified.sub,
-        identity_data: { sub: verified.sub, provider: "apple" },
+        provider: "kakao",
+        identity_id: verified.kakaoUserId,
+        identity_data: { sub: verified.kakaoUserId, provider: "kakao" },
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         last_sign_in_at: new Date().toISOString(),
@@ -191,51 +180,35 @@ function syntheticUserForEnsure(userId: string, verified: AppleVerifiedIdentityT
   } as unknown as User;
 }
 
-/**
- * Supabase session — Admin API user upsert + route handler signInWithPassword (Naver 패턴).
- * signInWithIdToken 은 현재 @supabase/auth-js 에 없음.
- */
-export async function establishAppleNativeSession(
-  ctx: AppleNativeSessionContext,
+export async function establishKakaoNativeSession(
+  ctx: KakaoNativeSessionContext,
   input: {
-    verified: AppleVerifiedIdentityToken;
-    userIdentifier?: string | null;
+    verified: KakaoVerifiedIdentity;
     next?: string | null;
   },
-): Promise<AppleNativeSessionResult> {
-  if (!isAppleNativeExchangeSessionEnabled()) {
+): Promise<KakaoNativeSessionResult> {
+  if (!isKakaoNativeExchangeSessionEnabled()) {
     return {
       ok: false,
-      errorCode: "native_exchange_not_implemented",
-      message: "Apple native session exchange is disabled — set AUTH_APPLE_NATIVE_EXCHANGE_ENABLED=true",
-      status: 501,
+      errorCode: "kakao_native_exchange_disabled",
+      message: "Kakao native session exchange is disabled — set AUTH_KAKAO_NATIVE_EXCHANGE_ENABLED=true",
+      status: 503,
     };
   }
 
-  const sub = input.verified.sub;
-  const userIdentifier = String(input.userIdentifier ?? "").trim();
-  if (userIdentifier && userIdentifier !== sub) {
-    return {
-      ok: false,
-      errorCode: "apple_token_verify_failed",
-      message: "Apple user identifier does not match verified token sub",
-      status: 401,
-    };
-  }
-
+  const kakaoUserId = input.verified.kakaoUserId;
   const safeNext = sanitizeNextPath(input.next ?? null);
-  const existingProfileId = await findProfileIdByAppleSub(ctx.adminSb, sub);
+  const existingProfileId = await findProfileIdByKakaoUserId(ctx.adminSb, kakaoUserId);
 
-  const upsert = await upsertAppleAuthUser(ctx.adminSb, {
+  const upsert = await upsertKakaoAuthUser(ctx.adminSb, {
     existingUserId: existingProfileId,
     verified: input.verified,
-    userIdentifier,
   });
   if ("ok" in upsert) return upsert;
 
-  const { userId, isNewUser } = upsert as { userId: string; isNewUser: boolean };
-  const authEmail = resolveAuthEmailForAppleUser(input.verified);
-  const password = buildAppleSupabasePassword(sub);
+  const { userId, isNewUser } = upsert;
+  const authEmail = resolveAuthEmailForKakaoUser(kakaoUserId);
+  const password = buildKakaoSupabasePassword(kakaoUserId);
 
   const { data: signInData, error: signInError } = await ctx.routeSb.auth.signInWithPassword({
     email: authEmail,
@@ -244,9 +217,9 @@ export async function establishAppleNativeSession(
   if (signInError || !signInData.user) {
     return {
       ok: false,
-      errorCode: "native_exchange_not_implemented",
-      message: signInError?.message || "Apple native Supabase session creation failed",
-      status: 501,
+      errorCode: "kakao_native_session_failed",
+      message: signInError?.message || "Kakao native Supabase session creation failed",
+      status: 500,
     };
   }
 
@@ -255,10 +228,10 @@ export async function establishAppleNativeSession(
 
   try {
     await ensurePendingAuthProfileRow(ctx.adminSb, syntheticUser, {
-      authProvider: "apple",
-      nicknameCandidate: null,
-      avatarCandidate: null,
-      emailInternal: resolveProfileEmailHint(input.verified),
+      authProvider: "kakao",
+      nicknameCandidate: input.verified.nickname ?? null,
+      avatarCandidate: input.verified.profileImageUrl ?? null,
+      emailInternal: input.verified.hasEmailFromProfile ? input.verified.email ?? null : null,
     });
   } catch {
     /* 클라 ensure 폴백 */
@@ -271,13 +244,13 @@ export async function establishAppleNativeSession(
       return {
         ok: false,
         errorCode: "provider_account_conflict",
-        message: "Apple provider_user_id conflicts with another profile",
+        message: "Kakao provider_user_id conflicts with another profile",
         status: 409,
       };
     }
   }
 
-  await persistAppleProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
+  await persistKakaoProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
 
   let redirectTo = safeNext ?? POST_LOGIN_PATH;
   let signupComplete = false;

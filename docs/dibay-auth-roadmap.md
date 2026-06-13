@@ -8,7 +8,7 @@
 - **한 번에 하나의 STEP만** 진행한다. 완료 후 다음 STEP으로 넘어간다.
 - **순서를 건너뛰지 않는다.**
 - **추측 금지** — 실제 코드·실측 기준으로만 판정한다.
-- **Apple 완료 전 Kakao 작업 금지.**
+- **Native Auth 완료 provider 없음** — Apple 실기기 QA 전 완료 선언 금지.
 
 ## 최종 목표
 
@@ -34,32 +34,28 @@ P1 수동 QA 체크표(참고): [auth-p1-manual-qa-checklist.md](./auth-p1-manua
 
 | Provider | 현재 | Native SDK |
 |----------|------|------------|
-| **Google** | Web OAuth + Custom Tab · **동작 중** | 미도입 (STEP 4 검토) |
-| **Apple** | Web OAuth + **iOS Native SDK (STEP 1~2)** | **STEP 2.6~2.7** 실기기 QA · Vercel 배포 |
-| **Kakao** | Web OAuth | **미구현** → STEP 3 (Apple 완료 후) |
-| **Naver** | route assign + capacitor-return bridge | launch 통일 → STEP 5 |
-| **Native exchange** | `POST /api/auth/native/exchange` — **Apple verify+session** (env enable) · Kakao **501** | STEP 2.7 배포 후 실기기 QA |
+| **Google** | Web OAuth + Custom Tab · **동작 중** | Custom Tab 유지 (native exchange **501 stub**) |
+| **Apple** | iOS Native SDK shell + **Apple adapter** | 서버 구현 유지 · **실기기 QA 미완** |
+| **Kakao** | Web OAuth (web) · **Native SDK (Android/iOS app)** | **STEP 3 구현** · 실기기 QA 필요 | adapter verify+session |
+| **Facebook** | UI 숨김 · start 미연결 | native exchange **501 stub** |
+| **Naver** | route assign + capacitor-return | **native exchange 제외** |
+| **Native exchange** | provider adapter 공통화 (STEP 2 **완료**) | Apple만 verify+session · 나머지 501 |
 
-> Native SDK 로그인 **완료 아님** — Vercel 배포 + env + iPhone session 확인 전까지 완료 선언 금지.
+> **Native SDK 로그인 완료 provider 없음** — Apple 포함 실기기·운영 QA 전까지 완료 선언 금지.
 
 ---
 
 ## P2 진행 순서 (현재 작업)
 
 ```
-STEP 1  Apple Native SDK
-   ↓
-STEP 2  /api/auth/native/exchange (apple)
-   ↓
-STEP 3  Kakao Native SDK
-   ↓
-STEP 4  Google Native SDK 검토
-   ↓
-STEP 5  Naver 통합
-   ↓
-STEP 6  iOS 프로젝트 · 실기기 QA
-   ↓
-배민·당근·요기요·카카오톡 수준 Auth
+STEP 1  Apple Native SDK shell          ✅
+STEP 2  native exchange adapter 공통화   ✅ (본 STEP)
+STEP 3  Kakao Native SDK               ← 진행 중 (실기기 QA)
+STEP 4  Google — Custom Tab 유지 검토
+STEP 5  Facebook SDK + start 연결
+STEP 6  Apple 실기기 QA
+STEP 7  Naver launch 통일
+STEP 8  전 provider 통합 QA
 ```
 
 ---

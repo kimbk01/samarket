@@ -1,0 +1,2 @@
+# Kakao Native App Key — copy to android/local.properties (gitignored)
+KAKAO_NATIVE_APP_KEY=YOUR_KAKAO_NATIVE_APP_KEY

@@ -15,6 +15,7 @@ public class MainActivity extends BridgeActivity {
     // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.
     registerPlugin(BrowserPlugin.class);
     registerPlugin(NativeOAuthLauncherPlugin.class);
+    registerPlugin(NativeKakaoAuthPlugin.class);
     super.onCreate(savedInstanceState);
     logOAuthIntent(getIntent());
   }
