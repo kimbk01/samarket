@@ -6,6 +6,7 @@ import type {
   NativeKakaoSignInResult,
 } from "@/lib/auth/native/native-kakao-auth-contract";
 import {
+  extractNativeKakaoPluginRejectRaw,
   mapNativeKakaoPluginError,
   NATIVE_KAKAO_AUTH_PLUGIN_ID,
 } from "@/lib/auth/native/native-kakao-auth-contract";
@@ -82,12 +83,7 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
     });
     return normalizePluginSignInResult(raw);
   } catch (error) {
-    const pluginCode =
-      error && typeof error === "object" && "code" in error
-        ? String((error as { code?: string }).code ?? "")
-        : error instanceof Error
-          ? error.message
-          : String(error);
+    const pluginCode = extractNativeKakaoPluginRejectRaw(error);
     if (pluginCode === "user_cancelled") {
       console.error("[oauth] kakao_native_cancelled");
     } else if (pluginCode === "kakao_native_token_missing") {

@@ -97,6 +97,8 @@ export const authUiMessages = {
       "Apple 로그인은 iOS 앱에서만 이용할 수 있습니다. Android에서는 카카오·이메일 등 다른 방법으로 로그인해 주세요.",
     auth_err_kakao_native_config_error:
       "카카오 앱 로그인 설정이 완료되지 않았습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
+    auth_err_kakao_native_key_hash_required:
+      "카카오톡 앱 연동 설정이 필요합니다. Kakao Developers에 Android 패키지(com.dibay.app)와 키 해시를 등록한 뒤 다시 시도해 주세요.",
     auth_err_kakao_native_unavailable:
       "카카오 앱 로그인을 사용할 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_kakao_native_not_ready:
@@ -296,6 +298,8 @@ export const authUiMessages = {
       "Apple sign-in is only available in the iOS app. On Android, please use Kakao, email, or another sign-in method.",
     auth_err_kakao_native_config_error:
       "Kakao app sign-in is not configured yet. Reinstall the latest app build and try again.",
+    auth_err_kakao_native_key_hash_required:
+      "KakaoTalk app linking is required. Register Android package com.dibay.app and your key hash in Kakao Developers, then try again.",
     auth_err_kakao_native_unavailable:
       "Kakao app sign-in is unavailable. Update to the latest app build and try again.",
     auth_err_kakao_native_not_ready:

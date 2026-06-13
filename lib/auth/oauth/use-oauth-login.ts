@@ -127,6 +127,7 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "kakao_native_config_error" || code === "kakao_native_token_missing") {
     return t("auth_err_kakao_native_config_error");
   }
+  if (code === "kakao_native_key_hash_required") return t("auth_err_kakao_native_key_hash_required");
   if (code === "kakao_native_unavailable") return t("auth_err_kakao_native_unavailable");
   if (code === "native_provider_not_implemented") return t("auth_err_native_provider_not_implemented");
   return t("auth_err_oauth_start_failed");

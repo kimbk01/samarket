@@ -52,7 +52,13 @@ public class NativeKakaoAuthPlugin extends Plugin {
         call.reject("user_cancelled", "User cancelled Kakao sign-in");
       } else {
         logEvent("kakao_native_config_error", error.getMessage());
-        call.reject("kakao_native_config_error", error.getMessage());
+        String message = error.getMessage() != null ? String.valueOf(error.getMessage()) : "";
+        String lower = message.toLowerCase();
+        if (lower.contains("kakaotalk is installed") || lower.contains("keyhash") || lower.contains("key hash")) {
+          call.reject("kakao_native_key_hash_required", message);
+        } else {
+          call.reject("kakao_native_config_error", message);
+        }
       }
       return Unit.INSTANCE;
     }
