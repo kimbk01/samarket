@@ -181,7 +181,12 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
   try {
     const result = await NativeOAuthLauncher.open({ url: trimmed });
     console.error("[oauth] after_native_launcher", result);
-    console.error("[oauth] after_open", { method: result?.method, opened: result?.opened });
+    console.error("[oauth] after_open", {
+      method: result?.method,
+      opened: result?.opened,
+      externalBrowserExpected: true,
+      successCriteria: "dibay://auth/callback app return + session exchange",
+    });
 
     if (result?.opened && (result.method === "custom_tabs" || result.method === "action_view")) {
       return result;

@@ -210,6 +210,30 @@ if (startOAuthLogin.includes("/auth/oauth/native-launch")) {
   failures.push("Native OAuth must not use legacy native-launch pages");
 }
 
+if (!oauthReturnListener.includes("callback_app_url_open")) {
+  failures.push("OAuthReturnListener must log oauth callback_app_url_open for Logcat tracing");
+}
+
+if (!oauthReturnListener.includes("callback_listener_attached")) {
+  failures.push("OAuthReturnListener must log callback_listener_attached when appUrlOpen listener is ready");
+}
+
+if (!oauthReturnListener.includes("callback_navigate")) {
+  failures.push("OAuthReturnListener must log callback_navigate before /auth/callback replace");
+}
+
+if (!read("components/auth/SupabaseAuthSync.tsx").includes("[oauth] exchange_success")) {
+  failures.push("SupabaseAuthSync must log oauth exchange_success on SIGNED_IN");
+}
+
+if (!mainActivity.includes("DIBAY_OAuth")) {
+  failures.push("MainActivity must log dibay://auth callback intents for Logcat");
+}
+
+if (!nativeLauncherPlugin.includes("oauth_external_launch")) {
+  failures.push("NativeOAuthLauncherPlugin must log oauth_external_launch (Chrome/Custom Tab is expected UX)");
+}
+
 if (!oauthReturnListener.includes("Browser.close")) {
   failures.push("components/auth/OAuthReturnListener.tsx must call Browser.close on appUrlOpen success path");
 }

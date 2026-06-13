@@ -134,6 +134,10 @@ export function SupabaseAuthSync() {
       }
 
       if (event === "SIGNED_IN" && session?.user?.id) {
+        console.error("[oauth] exchange_success", {
+          userId: session.user.id,
+          provider: session.user.app_metadata?.provider ?? null,
+        });
         dispatchOAuthPendingClear("exchange_success");
         handleAuthenticatedSession(sb, event, session.user.id);
       }

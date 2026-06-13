@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
+import {
+  logOAuthNativeEvent,
+  parseOAuthNativeCallbackLogPayload,
+} from "@/lib/auth/oauth/oauth-native-callback-log";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
-import { shouldRegisterCapacitorOAuthReturnListener } from "@/lib/platform/capacitor-native";
+import {
+  shouldRegisterCapacitorOAuthReturnListener,
+  waitForCapacitorBridgeReady,
+} from "@/lib/platform/capacitor-native";
 
 const OAUTH_RETURN_LISTENER_RETRY_MS = 150;
-const OAUTH_RETURN_LISTENER_MAX_ATTEMPTS = 24;
+const OAUTH_RETURN_LISTENER_MAX_ATTEMPTS = 60;
+const OAUTH_RETURN_BRIDGE_WAIT_MS = 5_000;
 const NATIVE_CALLBACK_ORIGIN = "dibay://auth";
 
 function sleep(ms: number): Promise<void> {
@@ -39,12 +47,36 @@ async function closeOAuthBrowser(): Promise<void> {
 }
 
 async function handleAppUrlOpen(url: string, markHandled: (key: string) => boolean): Promise<void> {
-  if (!url.startsWith(NATIVE_CALLBACK_ORIGIN)) return;
+  const payload = parseOAuthNativeCallbackLogPayload(url);
+  if (!url.startsWith(NATIVE_CALLBACK_ORIGIN)) {
+    logOAuthNativeEvent("callback_ignored", { reason: "non_dibay_scheme", urlPrefix: url.slice(0, 32) });
+    return;
+  }
+
+  logOAuthNativeEvent("callback_app_url_open", {
+    payload,
+    nativeUrlLen: url.length,
+  });
+
   const webCallbackUrl = buildWebOAuthCallbackUrlFromNativeReturn(url);
-  if (!webCallbackUrl) return;
-  if (!markHandled(webCallbackUrl)) return;
+  if (!webCallbackUrl) {
+    logOAuthNativeEvent("callback_ignored", { reason: "invalid_callback_path", payload });
+    return;
+  }
+  if (!markHandled(webCallbackUrl)) {
+    logOAuthNativeEvent("callback_ignored", { reason: "duplicate", webCallbackUrl });
+    return;
+  }
+
+  logOAuthNativeEvent("callback_bridge", {
+    webCallbackUrl,
+    payload,
+  });
+
   dispatchOAuthPendingClear("app_url_open");
   await closeOAuthBrowser();
+
+  logOAuthNativeEvent("callback_navigate", { webCallbackUrl });
   window.location.replace(webCallbackUrl);
 }
 
@@ -72,18 +104,24 @@ export function OAuthReturnListener() {
       try {
         ({ App } = await import("@capacitor/app"));
       } catch {
+        logOAuthNativeEvent("callback_listener_attach_failed", { reason: "app_plugin_import" });
         return false;
       }
       if (cancelled) return false;
 
       const launch = await App.getLaunchUrl();
       if (launch?.url) {
+        logOAuthNativeEvent("callback_launch_url", {
+          urlLen: launch.url.length,
+          payload: parseOAuthNativeCallbackLogPayload(launch.url),
+        });
         void handleAppUrlOpen(launch.url, markHandled);
       }
 
       const listener = await App.addListener("appUrlOpen", (event) => {
         void handleAppUrlOpen(event.url, markHandled);
       });
+      logOAuthNativeEvent("callback_listener_attached");
       removeAppUrlOpen = () => {
         void listener.remove();
       };
@@ -110,6 +148,8 @@ export function OAuthReturnListener() {
     };
 
     void (async () => {
+      await waitForCapacitorBridgeReady({ timeoutMs: OAUTH_RETURN_BRIDGE_WAIT_MS });
+
       for (let attempt = 0; attempt < OAUTH_RETURN_LISTENER_MAX_ATTEMPTS && !cancelled; attempt += 1) {
         if (await attachListener()) {
           return;
@@ -117,7 +157,9 @@ export function OAuthReturnListener() {
         await sleep(OAUTH_RETURN_LISTENER_RETRY_MS);
       }
 
-      return;
+      logOAuthNativeEvent("callback_listener_attach_exhausted", {
+        attempts: OAUTH_RETURN_LISTENER_MAX_ATTEMPTS,
+      });
     })();
 
     return () => {

@@ -68,6 +68,7 @@ public class NativeOAuthLauncherPlugin extends Plugin {
       browserIntent.addCategory(Intent.CATEGORY_BROWSABLE);
       activity.startActivity(browserIntent);
       Log.i(TAG, "action_view_success");
+      Log.i(TAG, "oauth_external_launch method=action_view (return via dibay://auth/callback)");
       JSObject result = new JSObject();
       result.put("opened", true);
       result.put("method", "action_view");
@@ -89,6 +90,7 @@ public class NativeOAuthLauncherPlugin extends Plugin {
       tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
       tabsIntent.launchUrl(activity, uri);
       Log.i(TAG, "custom_tabs_success");
+      Log.i(TAG, "oauth_external_launch method=custom_tabs (return via dibay://auth/callback)");
       JSObject result = new JSObject();
       result.put("opened", true);
       result.put("method", "custom_tabs");

@@ -172,7 +172,10 @@ export function NativeOAuthLaunchClient() {
   useEffect(() => {
     if (!isOAuthNativeLaunchShell()) return;
     const listener = App.addListener("appStateChange", ({ isActive }) => {
-      if (isActive) setOpening(false);
+      if (isActive) {
+        console.error("[oauth] launch_app_foreground", getCapacitorNativeDiagnostics());
+      }
+      setOpening(false);
     });
     return () => {
       void listener.then((handle) => handle.remove());

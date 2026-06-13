@@ -45,13 +45,17 @@ oauth|appUrlOpen|authCallback
 
 ## Native OAuth 시작 흐름 (fetch-then-open)
 
-Capacitor 앱은 **PKCE 쿠키가 WebView에 있어야** `/auth/callback` code exchange가 성공합니다. Custom Tab에 start URL만 열면 PKCE가 분리되어 실패합니다.
+Capacitor 앱은 **PKCE 쿠키가 WebView에 있어야** `/auth/callback` code exchange가 성공합니다. Custom Tab/Chrome에 start URL만 열면 PKCE가 분리되어 실패합니다.
+
+**A안 UX (기본):** Google OAuth는 WebView 내부가 아니라 **Chrome/Custom Tab**에서 진행하는 것이 정상입니다.  
+성공 기준은 Chrome 전환 여부가 아니라 **`dibay://auth/callback` 앱 복귀 + DIBAY 세션 생성**입니다.
 
 1. 로그인 버튼 → `useOAuthLogin` → `setOAuthPending`
 2. WebView `GET /api/auth/oauth/start?provider=...&launch=native` (`Accept: application/json`, `credentials: include`)
-3. 서버 `signInWithOAuth({ skipBrowserRedirect: true })` → JSON `{ authorizeUrl }` + PKCE `Set-Cookie`
-4. WebView `Browser.open(authorizeUrl)` → Custom Tab provider UI
-5. provider → `dibay://auth/callback?code=...` → `appUrlOpen` → HTTPS `/auth/callback` 브릿지 → exchange
+3. 서버 `signInWithOAuth({ skipBrowserRedirect: true })` → JSON `{ authorizeUrl, redirectTo }` + PKCE `Set-Cookie`
+4. `redirectTo` = `dibay://auth/callback?provider=...` (native)
+5. `NativeOAuthLauncher.open(authorizeUrl)` → Chrome/Custom Tab provider UI
+6. provider → `dibay://auth/callback?code=...` → `appUrlOpen` / `DIBAY_OAuth intent_received` → HTTPS `/auth/callback` 브릿지 → exchange
 
 웹/PWA는 동일 start route를 **302**로 provider authorize URL에 리다이렉트합니다 (`location.assign`).
 
@@ -75,13 +79,14 @@ OAuth 시작 직후:
 ### PASS
 
 - `redirectTo` = `dibay://auth/callback?provider=...`
-- `redirect_to` = `dibay://auth/callback?provider=...` (동일 scheme)
-- `appUrlOpen` 이 `dibay://auth/callback?...` 수신
-- `[authCallback] exchange_success` 출력
+- Chrome/Custom Tab 열림 (**외부 Chrome 전환은 A안에서 정상**)
+- Logcat/WebView: `[oauth] native_start_ok` · `redirectTo=dibay://auth/callback...`
+- Logcat/WebView: `[oauth] callback_app_url_open` 또는 `DIBAY_OAuth intent_received`
+- Logcat/WebView: `[oauth] callback_bridge` → `[oauth] callback_navigate`
+- `[oauth] exchange_success` 출력
 - 앱 내부 로그인 상태 (프로필·보호 화면 접근)
-- Chrome/Custom Tab에 `samarket.vercel.app` 로그인 완료 화면 **잔류 없음**
-- 앱 완전 종료 후 재실행 → 로그인 유지
-- 로그아웃 후 guest, OAuth 찌꺼기 없음
+- `/mypage` 또는 `next` 경로 이동
+- pending OAuth 상태 삭제
 
 ### FAIL
 

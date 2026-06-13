@@ -104,6 +104,11 @@ export async function fetchNativeOAuthAuthorizeUrl(
       json?.ok === false ? json.message : "OAuth 시작 URL을 만들지 못했습니다.",
     );
   }
+  console.error("[oauth] native_start_ok", {
+    provider: json.provider,
+    redirectTo: json.redirectTo,
+    authorizeUrlLen: json.authorizeUrl.trim().length,
+  });
   return json.authorizeUrl.trim();
 }
 
