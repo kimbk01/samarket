@@ -19,7 +19,7 @@ describe("/api/auth/oauth/start", () => {
     signInWithOAuth.mockReset();
   });
 
-  it("returns JSON authorizeUrl for native launch", async () => {
+  it("redirects with dibay callback for native app marker query", async () => {
     signInWithOAuth.mockResolvedValue({
       data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=google" },
       error: null,
@@ -27,22 +27,39 @@ describe("/api/auth/oauth/start", () => {
     const { GET } = await import("@/app/api/auth/oauth/start/route");
 
     const res = await GET(
-      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=google&launch=native&next=%2Fmarket"),
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=google&dibay_app=android&next=%2Fmarket"),
     );
-    const body = await res.json();
 
-    expect(res.status).toBe(200);
-    expect(body).toEqual({
-      ok: true,
-      authorizeUrl: "https://proj.supabase.co/auth/v1/authorize?provider=google",
-      provider: "google",
-      redirectTo: "dibay://auth/callback?provider=google&next=%2Fmarket",
-    });
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(
+      "https://proj.supabase.co/auth/v1/authorize?provider=google",
+    );
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(signInWithOAuth).toHaveBeenCalledWith({
       provider: "google",
       options: {
         redirectTo: "dibay://auth/callback?provider=google&next=%2Fmarket",
+        skipBrowserRedirect: true,
+      },
+    });
+  });
+
+  it("redirects with dibay callback when dibay_app cookie is present", async () => {
+    signInWithOAuth.mockResolvedValue({
+      data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=apple" },
+      error: null,
+    });
+    const { GET } = await import("@/app/api/auth/oauth/start/route");
+
+    const req = new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=apple");
+    req.cookies.set("dibay_app", "android");
+    const res = await GET(req);
+
+    expect(res.status).toBe(307);
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: "apple",
+      options: {
+        redirectTo: "dibay://auth/callback?provider=apple",
         skipBrowserRedirect: true,
       },
     });
@@ -81,7 +98,7 @@ describe("/api/auth/oauth/start", () => {
     const { GET } = await import("@/app/api/auth/oauth/start/route");
 
     await GET(
-      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=kakao&launch=native"),
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=kakao&dibay_app=android"),
     );
 
     expect(signInWithOAuth).toHaveBeenCalledWith({
@@ -98,7 +115,7 @@ describe("/api/auth/oauth/start", () => {
     const { GET } = await import("@/app/api/auth/oauth/start/route");
 
     const res = await GET(
-      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=facebook&launch=native"),
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=facebook&dibay_app=android"),
     );
     const body = await res.json();
 

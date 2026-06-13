@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
+import { isNativeAppOAuthRequest } from "@/lib/auth/oauth/resolve-native-oauth-request.server";
 import {
   normalizeSupabaseOAuthProvider,
   runSupabaseOAuthStart,
@@ -8,11 +9,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function wantsNativeJsonResponse(req: NextRequest): boolean {
-  const launch = req.nextUrl.searchParams.get("launch")?.trim().toLowerCase();
-  return launch === "native";
-}
 
 function withNoStore(response: NextResponse): NextResponse {
   response.headers.set("Cache-Control", "no-store");
@@ -32,7 +28,7 @@ function copyCookies(from: NextResponse, to: NextResponse): NextResponse {
 
 export async function GET(req: NextRequest) {
   const provider = normalizeSupabaseOAuthProvider(req.nextUrl.searchParams.get("provider"));
-  const native = wantsNativeJsonResponse(req);
+  const native = isNativeAppOAuthRequest(req);
   const safeNext = req.nextUrl.searchParams.get("next");
 
   if (!provider) {
@@ -59,18 +55,6 @@ export async function GET(req: NextRequest) {
 
   if (!result.ok) {
     return jsonError(result.errorCode, result.message, result.status);
-  }
-
-  if (native) {
-    return withNoStore(copyCookies(
-      cookieCarrier,
-      NextResponse.json({
-        ok: true,
-        authorizeUrl: result.authorizeUrl,
-        provider: result.provider,
-        redirectTo: result.redirectTo,
-      }),
-    ));
   }
 
   return withNoStore(copyCookies(cookieCarrier, NextResponse.redirect(result.authorizeUrl)));

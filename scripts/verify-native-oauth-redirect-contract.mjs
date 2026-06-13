@@ -16,9 +16,10 @@ function read(relPath) {
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
+const startRoute = read("app/api/auth/oauth/start/route.ts");
+const resolveNative = read("lib/auth/oauth/resolve-native-oauth-request.server.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
-const startRoute = read("app/api/auth/oauth/start/route.ts");
 const supabaseStart = read("lib/auth/oauth/supabase-oauth-start.server.ts");
 
 if (!manifest.includes('android:scheme="dibay"')) {
@@ -42,6 +43,22 @@ if (!startRoute.includes("runSupabaseOAuthStart")) {
   failures.push("app/api/auth/oauth/start/route.ts must use shared runSupabaseOAuthStart");
 }
 
+if (!startRoute.includes("isNativeAppOAuthRequest")) {
+  failures.push("app/api/auth/oauth/start/route.ts must detect native app via dibay_app marker");
+}
+
+if (!startRoute.includes("NextResponse.redirect(result.authorizeUrl)")) {
+  failures.push("app/api/auth/oauth/start/route.ts must redirect WebView to authorizeUrl (302)");
+}
+
+if (startRoute.includes('launch === "native"')) {
+  failures.push("app/api/auth/oauth/start/route.ts must not use launch=native JSON branch");
+}
+
+if (!resolveNative.includes("dibay_app")) {
+  failures.push("resolve-native-oauth-request.server.ts must read dibay_app marker");
+}
+
 if (!layout.includes("OAuthReturnListener")) {
   failures.push("app/layout.tsx must mount OAuthReturnListener");
 }
@@ -53,32 +70,24 @@ if (!mainActivity.includes("registerPlugin(BrowserPlugin.class)")) {
   failures.push("MainActivity must register BrowserPlugin");
 }
 
-if (!startOAuthLogin.includes("@capacitor/browser")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must use @capacitor/browser for native OAuth");
+if (!startOAuthLogin.includes("window.location.assign")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate WebView to start API");
 }
 
-if (!startOAuthLogin.includes("Browser.open")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must call Browser.open for native OAuth");
+if (startOAuthLogin.includes('path.searchParams.set("launch", "native")')) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must not use launch=native fetch flow");
 }
 
-if (!startOAuthLogin.includes("openNativeOAuthBrowserSync")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must support sync Browser.open for user gesture");
+if (startOAuthLogin.includes("Browser.open")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must not open OAuth with Browser.open");
 }
 
-if (!startOAuthLogin.includes("prefetchNativeOAuthAuthorizeUrl")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must prefetch native authorizeUrl before tap");
+if (startOAuthLogin.includes("prefetchNativeOAuthAuthorizeUrl")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must not prefetch for Custom Tab");
 }
 
 if (startOAuthLogin.includes("DibayOAuth")) {
   failures.push("lib/auth/oauth/start-oauth-login.ts must not use custom DibayOAuth plugin");
-}
-
-if (!startOAuthLogin.includes('path.searchParams.set("launch", "native")')) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must request native JSON launch");
-}
-
-if (!startOAuthLogin.includes('credentials: "include"')) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must fetch with credentials: include");
 }
 
 if (startOAuthLogin.includes("/auth/oauth/native-launch")) {

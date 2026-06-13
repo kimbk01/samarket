@@ -4,17 +4,9 @@ import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from "
 import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
-import {
-  openNativeOAuthBrowserSync,
-  prefetchNativeOAuthAuthorizeUrl,
-  preloadOAuthBrowser,
-  readPrefetchedNativeOAuthAuthorizeUrl,
-  startOAuthLogin,
-} from "@/lib/auth/oauth/start-oauth-login";
+import { startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-
-const SUPABASE_OAUTH_PROVIDERS: OAuthProvider[] = ["google", "kakao", "apple"];
+import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
@@ -111,14 +103,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, []);
 
   useEffect(() => {
-    if (!isCapacitorNativePlatform()) return;
-    preloadOAuthBrowser();
-    for (const provider of SUPABASE_OAUTH_PROVIDERS) {
-      prefetchNativeOAuthAuthorizeUrl(provider, next);
-    }
-  }, [next]);
-
-  useEffect(() => {
     pendingProviderRef.current = pendingOAuthProvider;
   }, [pendingOAuthProvider]);
 
@@ -152,7 +136,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, [clearPending, pendingOAuthProvider]);
 
   const startOAuthProvider = useCallback(
-    async (provider: OAuthProvider) => {
+    (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
 
       flushSync(() => {
@@ -172,15 +156,8 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         return;
       }
 
-      if (isCapacitorNativePlatform() && !isNaverProvider(provider)) {
-        const prefetchedUrl = readPrefetchedNativeOAuthAuthorizeUrl(provider, next);
-        if (prefetchedUrl && openNativeOAuthBrowserSync(prefetchedUrl)) {
-          return;
-        }
-      }
-
       try {
-        await startOAuthLogin({ provider, next });
+        startOAuthLogin({ provider, next });
       } catch (err) {
         clearPending();
         const code = err instanceof Error ? err.name || err.message : "oauth_start_failed";
