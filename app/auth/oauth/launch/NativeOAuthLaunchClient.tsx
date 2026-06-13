@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Browser } from "@capacitor/browser";
+import { App } from "@capacitor/app";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getOAuthLoginContinueLabelKey,
@@ -11,10 +11,12 @@ import {
   OAuthLoginProviderIcon,
 } from "@/components/auth/OAuthLoginProviderVisuals";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
+import { openNativeOAuthTab } from "@/lib/auth/oauth/open-native-oauth-tab";
 import { fetchNativeOAuthAuthorizeUrl } from "@/lib/auth/oauth/start-oauth-login";
 import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH = new Set<OAuthProvider>(["google", "kakao", "apple"]);
+const OAUTH_TAB_OPEN_TIMEOUT_MS = 12_000;
 
 function parseProvider(value: string | null): OAuthProvider | null {
   const normalized = value?.trim().toLowerCase() ?? "";
@@ -77,15 +79,45 @@ export function NativeOAuthLaunchClient() {
     };
   }, [next, provider, router, safeT, t]);
 
+  useEffect(() => {
+    if (!isCapacitorNativePlatform()) return;
+    const listener = App.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) setOpening(false);
+    });
+    return () => {
+      void listener.then((handle) => handle.remove());
+    };
+  }, []);
+
   const handleOpenBrowser = useCallback(() => {
     if (!authorizeUrl || opening) return;
     setOpening(true);
     setError(null);
-    void Browser.open({ url: authorizeUrl })
-      .catch(() => {
-        setError(t("auth_err_oauth_browser_open_failed"));
+
+    let timeoutId: number | undefined;
+    void (async () => {
+      try {
+        await Promise.race([
+          openNativeOAuthTab(authorizeUrl),
+          new Promise<never>((_, reject) => {
+            timeoutId = window.setTimeout(
+              () => reject(new Error("browser_open_timeout")),
+              OAUTH_TAB_OPEN_TIMEOUT_MS,
+            );
+          }),
+        ]);
+      } catch (err) {
+        const code = err instanceof Error ? err.message : "browser_open_rejected";
+        if (code === "browser_open_timeout") {
+          setError(t("auth_err_oauth_browser_open_failed"));
+        } else {
+          setError(t("auth_err_oauth_browser_open_failed"));
+        }
         setOpening(false);
-      });
+      } finally {
+        if (timeoutId != null) window.clearTimeout(timeoutId);
+      }
+    })();
   }, [authorizeUrl, opening, t]);
 
   const handleBack = useCallback(() => {

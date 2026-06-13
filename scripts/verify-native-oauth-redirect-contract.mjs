@@ -15,8 +15,11 @@ function read(relPath) {
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+const oauthTabPlugin = read("android/app/src/main/java/com/dibay/app/OAuthTabPlugin.java");
+const appBuildGradle = read("android/app/build.gradle");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
 const launchClient = read("app/auth/oauth/launch/NativeOAuthLaunchClient.tsx");
+const openNativeTab = read("lib/auth/oauth/open-native-oauth-tab.ts");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
 const resolveNative = read("lib/auth/oauth/resolve-native-oauth-request.server.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
@@ -79,8 +82,28 @@ if (startOAuthLogin.includes("Browser.open")) {
   failures.push("lib/auth/oauth/start-oauth-login.ts must not call Browser.open directly");
 }
 
-if (!launchClient.includes("Browser.open")) {
-  failures.push("NativeOAuthLaunchClient must open authorizeUrl in Custom Tab on user tap");
+if (!mainActivity.includes("registerPlugin(OAuthTabPlugin.class)")) {
+  failures.push("MainActivity must register OAuthTabPlugin for direct Custom Tabs");
+}
+
+if (!oauthTabPlugin.includes("CustomTabsIntent")) {
+  failures.push("OAuthTabPlugin must open OAuth with CustomTabsIntent");
+}
+
+if (!appBuildGradle.includes("androidx.browser:browser")) {
+  failures.push("android/app/build.gradle must depend on androidx.browser for OAuthTabPlugin");
+}
+
+if (!openNativeTab.includes('registerPlugin<OAuthTabPlugin>("OAuthTab")')) {
+  failures.push("open-native-oauth-tab.ts must call OAuthTab Capacitor plugin");
+}
+
+if (!launchClient.includes("openNativeOAuthTab")) {
+  failures.push("NativeOAuthLaunchClient must use openNativeOAuthTab");
+}
+
+if (launchClient.includes('from "@capacitor/browser"')) {
+  failures.push("NativeOAuthLaunchClient must not import Browser directly");
 }
 
 if (!launchClient.includes("fetchNativeOAuthAuthorizeUrl")) {
