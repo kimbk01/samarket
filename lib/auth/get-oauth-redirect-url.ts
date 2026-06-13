@@ -7,24 +7,35 @@ import {
   readDibayAppPlatformMarker,
 } from "@/lib/platform/capacitor-native";
 
+export type CreateOAuthRedirectToInput = {
+  origin: string;
+  provider: OAuthProvider;
+  next?: string | null;
+};
+
 /**
- * OAuth signInWithOAuth 의 `redirectTo` 를 만든다.
- * - 웹: 동일 출처의 `/auth/callback` (Supabase Site URL whitelist 와 일치).
- * - Capacitor 네이티브: `dibay://auth/callback` — 외부 브라우저 OAuth 후 앱 복귀.
- * - `provider` 는 callback/bridge 가 provider별 후처리를 분기할 수 있게 항상 보존한다.
- * - `next` 는 탭 루트만 callback 으로 전달(deep link 복원 금지).
+ * OAuth signInWithOAuth 의 `redirectTo` 단일 진입점.
+ * - 웹/PWA: `{origin}/auth/callback?provider=...`
+ * - Capacitor Android/iOS: `dibay://auth/callback?provider=...`
+ * - `provider` / `next` 파라미터는 callback·bridge 후처리용으로 항상 보존.
  */
-export function buildOAuthRedirectUrl(
-  origin: string,
-  provider: OAuthProvider,
-  next?: string | null
-): string {
+export function createOAuthRedirectTo(input: CreateOAuthRedirectToInput): string {
+  const { origin, provider, next } = input;
   const base = isCapacitorNativePlatform()
     ? NATIVE_OAUTH_CALLBACK_URL
     : `${origin.replace(/\/$/, "")}/auth/callback`;
   const withProvider = new URL(base);
   withProvider.searchParams.set("provider", provider);
   return withFreshLoginNextSearchParam(withProvider.toString(), next);
+}
+
+/** @deprecated createOAuthRedirectTo 사용 — 기존 호출부 호환 alias */
+export function buildOAuthRedirectUrl(
+  origin: string,
+  provider: OAuthProvider,
+  next?: string | null,
+): string {
+  return createOAuthRedirectTo({ origin, provider, next });
 }
 
 export function buildNaverOAuthStartPath(next?: string | null): string {

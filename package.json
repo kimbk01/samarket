@@ -103,6 +103,8 @@
     "verify:ci-stability": "node scripts/verify-ci-stability.mjs",
     "verify:dibay-rename": "node scripts/verify-dibay-rename.mjs",
     "verify:dibay-duplicate-login-policy": "node scripts/verify-dibay-duplicate-login-policy.mjs",
+    "verify:native-oauth-redirect-contract": "node scripts/verify-native-oauth-redirect-contract.mjs",
+    "qa:native-oauth-device": "node scripts/print-native-oauth-device-qa.mjs",
     "check": "npm run verify:bundle-budget-baseline && npm run verify:routes && npm run verify:app-boot-consent-contract && npm run verify:trade-hot-path-contract && npm run verify:store-cart-sheet-contract && npm run verify:store-payment-cod-label-contract && npm run verify:store-cart-hooks-contract && npm run verify:thumbnail-contract && npm run verify:stores-home-hub-contract && npx tsc --noEmit && npm run lint && npm run test && npm run build && npm run check:bundle",
     "ci": "npm run check",
     "check:supabase-dns": "node scripts/check-supabase-dns.mjs",
@@ -162,6 +164,7 @@
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",

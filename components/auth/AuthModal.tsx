@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { buildNaverOAuthStartPath, buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { buildNaverOAuthStartPath, createOAuthRedirectTo } from "@/lib/auth/get-oauth-redirect-url";
 import { logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
 import { startSupabaseOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -14,6 +14,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import {
   AUTH_REQUEST_TIMEOUT_SIGNAL,
+  mapOAuthSignInErrorMessage,
   mapPasswordLoginErrorMessage,
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
@@ -23,6 +24,7 @@ import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeFreshLoginLandingPath } from "@/lib/auth/safe-next-path";
+import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
@@ -230,12 +232,17 @@ export function AuthModal({ open, detail, onClose }: Props) {
           window.location.assign(buildNaverOAuthStartPath(next));
           return;
         }
+        ensureCapacitorNativeMarkerOnBoot();
         const supabase = getSupabaseClient();
         if (!supabase) {
           setError(t("auth_err_supabase_unconfigured"));
           return;
         }
-        const callbackUrl = buildOAuthRedirectUrl(window.location.origin, provider, next);
+        const callbackUrl = createOAuthRedirectTo({
+          origin: window.location.origin,
+          provider,
+          next,
+        });
         logOAuthSignInStart(provider, callbackUrl);
         const oauthResult = await withTimeout(
           startSupabaseOAuthSignIn(supabase, provider, callbackUrl),
@@ -244,9 +251,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
         );
         if (!oauthResult.ok) {
           setError(
-            oauthResult.errorMessage === "missing_authorize_url"
-              ? t("auth_err_oauth_authorize_url_failed")
-              : oauthResult.errorMessage || t("auth_err_oauth_start_failed"),
+            mapOAuthSignInErrorMessage(oauthResult.errorMessage, oauthResult.errorCode, t),
           );
         }
       } catch (err) {

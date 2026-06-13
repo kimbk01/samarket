@@ -49,11 +49,11 @@ export function CapacitorOAuthReturnListener() {
 
       const launch = await App.getLaunchUrl();
       if (launch?.url) {
-        handleCapacitorOAuthReturnUrl(launch.url);
+        void handleCapacitorOAuthReturnUrl(launch.url);
       }
 
       const listener = await App.addListener("appUrlOpen", (event) => {
-        handleCapacitorOAuthReturnUrl(event.url);
+        void handleCapacitorOAuthReturnUrl(event.url);
       });
       removeAppUrlOpen = () => {
         void listener.remove();

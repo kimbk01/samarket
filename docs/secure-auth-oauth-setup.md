@@ -8,8 +8,29 @@
 3. `Redirect URLs`:
    - `https://dibaY.vercel.app/**`
    - `http://localhost:3000/**`
+   - `dibay://auth/callback` (Capacitor Android/iOS OAuth 앱 복귀)
+   - `dibay://**` (native deep link wildcard)
 
-dibaY는 Supabase Auth OAuth 단일 구조입니다. OAuth 완료 후 앱은 `/auth/callback` 으로 복귀합니다.
+dibaY는 Supabase Auth OAuth 단일 구조입니다.
+
+- **웹/PWA**: OAuth 완료 후 `{origin}/auth/callback` 으로 복귀합니다.
+- **Capacitor Android/iOS**: OAuth `redirectTo` 는 `dibay://auth/callback` 입니다. provider 인증 후 Supabase가 이 scheme으로 redirect 하면 앱이 deep link를 수신하고, WebView 내부에서 HTTPS `/auth/callback` 으로 브릿지해 세션을 교환합니다.
+
+**주의**: `dibay://` scheme은 Site URL이 아니라 **Redirect URLs** 목록에 추가해야 합니다. whitelist에 없으면 Supabase가 Site URL(`https://samarket.vercel.app`)로 폴백해 Chrome 웹에 로그인 상태가 남을 수 있습니다.
+
+### Redirect URLs 권장 최종 목록 (운영)
+
+| 항목 | 값 | 비고 |
+|------|-----|------|
+| Site URL | `https://samarket.vercel.app` | 유지 |
+| 웹 wildcard | `https://samarket.vercel.app/**` | 필수 |
+| 로컬 | `http://localhost:3000/**` | 개발 |
+| native exact | `dibay://auth/callback` | 필수 — 코드가 사용하는 redirect |
+| native wildcard | `dibay://**` | **권장** — 운영 안정성·향후 deep link 확장 |
+
+현재 코드는 `dibay://auth/callback?provider=...` 만 사용하므로 exact만으로도 동작하지만, **`dibay://**` 추가를 권장**합니다. 중복 URL(`.../auth/callback`, `dibay://auth/callback/**`)은 무해합니다.
+
+실기기 QA: [docs/native-oauth-device-qa.md](./native-oauth-device-qa.md)
 
 ## Google
 

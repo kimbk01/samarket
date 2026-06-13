@@ -6,7 +6,7 @@ import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { buildNaverOAuthStartPath, buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { buildNaverOAuthStartPath, createOAuthRedirectTo } from "@/lib/auth/get-oauth-redirect-url";
 import { logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
 import { startSupabaseOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -18,6 +18,8 @@ import {
 } from "@/lib/auth/login-bootstrap-cache";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
+import { logNativeOAuthCallbackExchangeFailed } from "@/lib/auth/native-oauth-callback-trace";
+import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -28,6 +30,7 @@ import {
   AUTH_IDENTIFIER_RESOLVE_TIMEOUT_SIGNAL,
   AUTH_REQUEST_TIMEOUT_SIGNAL,
   mapAuthErrorMessage,
+  mapOAuthSignInErrorMessage,
   mapPasswordLoginErrorMessage,
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
@@ -128,6 +131,9 @@ function LoginPageContent() {
     const errorCode = params.get("error")?.trim() ?? "";
     const code = authError || errorCode;
     if (!code) return;
+    if (authError === "callback_failed" || authError === "missing_code") {
+      logNativeOAuthCallbackExchangeFailed(authErrorDetail || code);
+    }
     const message = mapAuthErrorMessage(code, authErrorDetail, t);
     setError((prev) => (prev === message ? prev : message));
     if (typeof window !== "undefined") window.alert(message);
@@ -417,6 +423,7 @@ function LoginPageContent() {
         window.location.assign(buildNaverOAuthStartPath(next ?? null));
         return;
       }
+      ensureCapacitorNativeMarkerOnBoot();
       const supabase = getSupabaseClient();
       if (!supabase) {
         const nextError = t("auth_err_supabase_unconfigured");
@@ -424,7 +431,11 @@ function LoginPageContent() {
         return;
       }
       // 콜백이 다시 사용할 next 를 redirectTo 에 함께 부착한다.
-      const callbackUrl = buildOAuthRedirectUrl(window.location.origin, provider, next ?? null);
+      const callbackUrl = createOAuthRedirectTo({
+        origin: window.location.origin,
+        provider,
+        next: next ?? null,
+      });
       logOAuthSignInStart(provider, callbackUrl);
       const oauthResult = await withTimeout(
         startSupabaseOAuthSignIn(supabase, provider, callbackUrl),
@@ -432,10 +443,11 @@ function LoginPageContent() {
         AUTH_REQUEST_TIMEOUT_SIGNAL
       );
       if (!oauthResult.ok) {
-        const nextError =
-          oauthResult.errorMessage === "missing_authorize_url"
-            ? t("auth_err_oauth_authorize_url_failed")
-            : oauthResult.errorMessage || t("auth_err_oauth_start_failed");
+        const nextError = mapOAuthSignInErrorMessage(
+          oauthResult.errorMessage,
+          oauthResult.errorCode,
+          t,
+        );
         setError((prev) => (prev === nextError ? prev : nextError));
       }
     } catch (e) {

@@ -1,65 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
-import { logOAuthAuthorizeUrl } from "@/lib/auth/oauth-flow-log";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-
-/**
- * Google OAuth `disallowed_useragent` 는 WebView·SNS 인앱 브라우저 등
- * 임베디드 UA 에서 authorize URL 을 열 때 발생한다.
- */
-export function isEmbeddedOAuthUserAgent(userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""): boolean {
-  if (!userAgent) return false;
-
-  if (isCapacitorNativePlatform()) return true;
-
-  if (typeof window !== "undefined" && (window as Window & { ReactNativeWebView?: unknown }).ReactNativeWebView) {
-    return true;
-  }
-
-  if (/FBAN|FBAV|Instagram|Line\/|KAKAOTALK|Twitter|Snapchat|LinkedInApp|GSA\/|DuckDuckGo/i.test(userAgent)) {
-    return true;
-  }
-
-  if (/; wv\)|\bWebView\b/i.test(userAgent)) return true;
-
-  const iPadOs13Plus =
-    typeof navigator !== "undefined" &&
-    navigator.platform === "MacIntel" &&
-    navigator.maxTouchPoints > 1;
-  const iosDevice = /iPad|iPhone|iPod/i.test(userAgent) || iPadOs13Plus;
-  if (iosDevice && !/Safari|CriOS|FxiOS|EdgiOS/i.test(userAgent)) return true;
-
-  return false;
-}
-
-/**
- * Google authorize URL 을 시스템·기본 브라우저로 탈출시키려 시도한다.
- * 실패 시에도 top-level navigation 으로 폴백한다.
- */
-export function launchGoogleOAuthAuthorizeUrl(url: string): void {
-  const authorizeUrl = url.trim();
-  if (!authorizeUrl || typeof window === "undefined") return;
-
-  if (isEmbeddedOAuthUserAgent()) {
-    const anchor = document.createElement("a");
-    anchor.href = authorizeUrl;
-    anchor.target = "_blank";
-    anchor.rel = "noopener noreferrer";
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-
-    const opened = window.open(authorizeUrl, "_blank", "noopener,noreferrer");
-    if (opened) return;
-  }
-
-  window.location.replace(authorizeUrl);
-}
+import { launchOAuthAuthorizeUrl } from "@/lib/auth/oauth-authorize-launch";
+import {
+  assertNativeAuthorizeRedirectToPresent,
+  assertNativeOAuthRedirectExpected,
+  detectRedirectToMismatch,
+} from "@/lib/auth/oauth-redirect-contract";
+import {
+  extractRedirectToFromAuthorizeUrl,
+  logOAuthAuthorizeUrl,
+  logOAuthRedirectMismatch,
+  logOAuthRedirectToMissing,
+} from "@/lib/auth/oauth-flow-log";
 
 export type OAuthSignInResult =
   | { ok: true; launched: true }
-  | { ok: false; errorMessage: string };
+  | { ok: false; errorMessage: string; errorCode?: string };
 
 type SupabaseOAuthProvider = Exclude<OAuthProvider, "naver">;
 
@@ -76,28 +32,25 @@ function buildOAuthProviderOptions(provider: SupabaseOAuthProvider): {
   return {};
 }
 
-function launchOAuthAuthorizeUrl(provider: SupabaseOAuthProvider, url: string): void {
-  const authorizeUrl = url.trim();
-  if (!authorizeUrl || typeof window === "undefined") return;
-
-  if (provider === "google") {
-    launchGoogleOAuthAuthorizeUrl(authorizeUrl);
-    return;
-  }
-
-  window.location.assign(authorizeUrl);
-}
-
 /**
  * Supabase OAuth provider 공통 시작.
  * - 모든 provider 가 같은 redirectTo 계약(provider/next 포함)을 사용한다.
- * - Google 임베디드 UA 는 authorize URL 수신 후 외부 브라우저 탈출을 유지한다.
+ * - native redirect 검증 FAIL 시 launch 중단.
  */
 export async function startSupabaseOAuthSignIn(
   supabase: SupabaseClient,
   provider: SupabaseOAuthProvider,
   callbackUrl: string,
 ): Promise<OAuthSignInResult> {
+  const nativeRedirectCheck = assertNativeOAuthRedirectExpected(callbackUrl);
+  if (!nativeRedirectCheck.ok) {
+    return {
+      ok: false,
+      errorMessage: "native_oauth_redirect_invalid",
+      errorCode: nativeRedirectCheck.reason ?? "native_https_redirect",
+    };
+  }
+
   const providerOptions = buildOAuthProviderOptions(provider);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -117,8 +70,31 @@ export async function startSupabaseOAuthSignIn(
   if (!authorizeUrl) {
     return { ok: false, errorMessage: "missing_authorize_url" };
   }
-  logOAuthAuthorizeUrl(authorizeUrl);
-  launchOAuthAuthorizeUrl(provider, authorizeUrl);
+
+  const extractedRedirectTo = extractRedirectToFromAuthorizeUrl(authorizeUrl);
+  logOAuthAuthorizeUrl(authorizeUrl, provider);
+
+  const redirectToPresent = assertNativeAuthorizeRedirectToPresent(extractedRedirectTo);
+  if (!redirectToPresent.ok) {
+    logOAuthRedirectToMissing(provider, authorizeUrl);
+    return {
+      ok: false,
+      errorMessage: "oauth_redirect_missing",
+      errorCode: redirectToPresent.reason ?? "redirect_to_missing",
+    };
+  }
+
+  const mismatch = detectRedirectToMismatch(callbackUrl, extractedRedirectTo);
+  if (mismatch.mismatch) {
+    logOAuthRedirectMismatch(callbackUrl, extractedRedirectTo, mismatch.reason);
+    return {
+      ok: false,
+      errorMessage: "oauth_redirect_mismatch",
+      errorCode: mismatch.reason ?? "supabase_whitelist_fallback",
+    };
+  }
+
+  await launchOAuthAuthorizeUrl(provider, authorizeUrl);
 
   return { ok: true, launched: true };
 }
@@ -129,3 +105,6 @@ export function startGoogleOAuthSignIn(
 ): Promise<OAuthSignInResult> {
   return startSupabaseOAuthSignIn(supabase, "google", callbackUrl);
 }
+
+// Re-export for existing imports
+export { isEmbeddedOAuthUserAgent, launchGoogleOAuthAuthorizeUrl } from "@/lib/auth/oauth-authorize-launch";

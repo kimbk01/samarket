@@ -86,6 +86,45 @@ export function readDibayAppPlatformMarker(): DibayAppPlatform | null {
   return readDibayAppMarkerFromCurrentUrl() || readPersistedDibayAppMarker();
 }
 
+function resolveCapacitorPlatformMarker(): DibayAppPlatform | null {
+  const win = readWindowWithCapacitor();
+  const cap = win?.Capacitor;
+  const platform = cap?.getPlatform?.()?.trim().toLowerCase();
+  if (platform === "android" || platform === "ios") {
+    return platform;
+  }
+  if (cap?.isNativePlatform?.() === true) {
+    // isNativePlatform only — UA/platform hint when getPlatform is delayed
+    if (typeof navigator !== "undefined" && /android/i.test(navigator.userAgent)) {
+      return "android";
+    }
+    if (typeof navigator !== "undefined" && /iPad|iPhone|iPod/i.test(navigator.userAgent)) {
+      return "ios";
+    }
+  }
+  return null;
+}
+
+/**
+ * 앱 부팅·OAuth 시작 직전에 dibay_app marker를 eager persist 한다.
+ * Capacitor API 우선, URL query·sessionStorage·cookie 순으로 보강.
+ */
+export function ensureCapacitorNativeMarkerOnBoot(): DibayAppPlatform | null {
+  const fromUrl = readDibayAppMarkerFromCurrentUrl();
+  if (fromUrl) return fromUrl;
+
+  const persisted = readPersistedDibayAppMarker();
+  if (persisted) return persisted;
+
+  const fromCapacitor = resolveCapacitorPlatformMarker();
+  if (fromCapacitor) {
+    persistDibayAppMarker(fromCapacitor);
+    return fromCapacitor;
+  }
+
+  return null;
+}
+
 export type CapacitorNativeDiagnostics = {
   hasCapacitor: boolean;
   isNativePlatform: boolean | null;

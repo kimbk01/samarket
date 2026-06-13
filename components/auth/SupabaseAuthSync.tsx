@@ -25,6 +25,7 @@ import { wipeUserScopedStorage } from "@/lib/auth/client-session-wipe";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
 import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
+import { logNativeOAuthCallbackExchangeSuccess } from "@/lib/auth/native-oauth-callback-trace";
 
 let lastKnownAuthUserId: string | null = null;
 
@@ -133,6 +134,7 @@ export function SupabaseAuthSync() {
       }
 
       if (event === "SIGNED_IN" && session?.user?.id) {
+        logNativeOAuthCallbackExchangeSuccess();
         handleAuthenticatedSession(sb, event, session.user.id);
       }
     });

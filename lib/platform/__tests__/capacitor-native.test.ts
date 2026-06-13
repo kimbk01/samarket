@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getCapacitorNativeDiagnostics,
+  ensureCapacitorNativeMarkerOnBoot,
   isCapacitorNativePlatform,
   shouldRegisterCapacitorOAuthReturnListener,
 } from "@/lib/platform/capacitor-native";
@@ -71,6 +72,33 @@ describe("capacitor-native", () => {
     vi.stubGlobal("document", { cookie: "" });
 
     expect(isCapacitorNativePlatform()).toBe(true);
+  });
+
+  it("ensureCapacitorNativeMarkerOnBoot persists marker from getPlatform android", () => {
+    const storage = new Map<string, string>();
+    let cookie = "";
+    vi.stubGlobal("window", {
+      location: { href: "https://samarket.vercel.app/market" },
+      sessionStorage: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          storage.set(key, value);
+        },
+      },
+      Capacitor: { isNativePlatform: () => true, getPlatform: () => "android" },
+    });
+    vi.stubGlobal("document", {
+      get cookie() {
+        return cookie;
+      },
+      set cookie(value: string) {
+        cookie = value;
+      },
+    });
+
+    expect(ensureCapacitorNativeMarkerOnBoot()).toBe("android");
+    expect(isCapacitorNativePlatform()).toBe(true);
+    expect(storage.get("dibay_app")).toBe("android");
   });
 
   it("returns false on plain web", () => {

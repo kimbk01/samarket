@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildNaverOAuthStartPath, buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { buildNaverOAuthStartPath, buildOAuthRedirectUrl, createOAuthRedirectTo } from "@/lib/auth/get-oauth-redirect-url";
 
 describe("buildOAuthRedirectUrl", () => {
   afterEach(() => {
@@ -76,6 +76,12 @@ describe("buildOAuthRedirectUrl", () => {
     });
     expect(buildOAuthRedirectUrl("https://samarket.vercel.app", "naver", "/philife")).toBe(
       "dibay://auth/callback?provider=naver&next=%2Fphilife",
+    );
+  });
+
+  it("createOAuthRedirectTo matches buildOAuthRedirectUrl on web", () => {
+    expect(createOAuthRedirectTo({ origin: "https://samarket.vercel.app", provider: "google" })).toBe(
+      buildOAuthRedirectUrl("https://samarket.vercel.app", "google"),
     );
   });
 

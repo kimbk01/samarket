@@ -7,9 +7,12 @@
 - Supabase Auth provider `apple` enabled with iOS/App Store review build redirect URL
 
 ## Redirect URLs
-- `${NEXT_PUBLIC_SITE_URL}/auth/callback`
-- local development origin callback
-- iOS webview / app deep-link callback if used in the native shell
+- `${NEXT_PUBLIC_SITE_URL}/**` (예: `https://samarket.vercel.app/**`)
+- `http://localhost:3000/**`
+- `dibay://auth/callback` (필수 — native OAuth 앱 복귀)
+- `dibay://**` (권장 — 운영 안정성)
+- Site URL은 production HTTPS 도메인 유지
+- 실기기 QA: [native-oauth-device-qa.md](./native-oauth-device-qa.md)
 
 ## Twilio Verify
 - `TWILIO_ACCOUNT_SID`

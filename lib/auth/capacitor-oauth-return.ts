@@ -1,4 +1,6 @@
-import { logAppUrlOpenEvent } from "@/lib/auth/oauth-flow-log";
+import { closeOAuthBrowserAfterReturn } from "@/lib/auth/close-oauth-browser";
+import { markNativeOAuthCallbackExchangePending } from "@/lib/auth/native-oauth-callback-trace";
+import { logAppUrlOpenEvent, logAppUrlOpenBridgeFailed } from "@/lib/auth/oauth-flow-log";
 
 /** Capacitor Android/iOS OAuth 복귀 deep link (Supabase redirectTo) */
 export const NATIVE_OAUTH_CALLBACK_URL = "dibay://auth/callback";
@@ -17,6 +19,15 @@ function isNativeOAuthCallbackUrl(url: string): boolean {
     );
   } catch {
     return trimmed.startsWith(NATIVE_OAUTH_CALLBACK_PREFIX);
+  }
+}
+
+function readProviderFromNativeUrl(nativeUrl: string): string | null {
+  try {
+    const provider = new URL(nativeUrl.trim()).searchParams.get("provider")?.trim();
+    return provider || null;
+  } catch {
+    return null;
   }
 }
 
@@ -49,10 +60,10 @@ export function buildWebOAuthCallbackUrlFromNativeReturn(
 }
 
 /**
- * 네이티브 OAuth deep link 를 수신하면 WebView 를 HTTPS 콜백으로 이동시킨다.
+ * 네이티브 OAuth deep link 를 수신하면 Custom Tab 닫기 시도 후 WebView HTTPS 콜백으로 이동.
  * @returns 처리했으면 true
  */
-export function handleCapacitorOAuthReturnUrl(nativeUrl: string): boolean {
+export async function handleCapacitorOAuthReturnUrl(nativeUrl: string): Promise<boolean> {
   if (typeof window === "undefined") return false;
 
   const webCallbackUrl = buildWebOAuthCallbackUrlFromNativeReturn(
@@ -60,8 +71,13 @@ export function handleCapacitorOAuthReturnUrl(nativeUrl: string): boolean {
     window.location.origin,
   );
   logAppUrlOpenEvent(nativeUrl, webCallbackUrl);
-  if (!webCallbackUrl) return false;
+  if (!webCallbackUrl) {
+    logAppUrlOpenBridgeFailed(nativeUrl);
+    return false;
+  }
 
+  await closeOAuthBrowserAfterReturn();
+  markNativeOAuthCallbackExchangePending(readProviderFromNativeUrl(nativeUrl));
   window.location.replace(webCallbackUrl);
   return true;
 }

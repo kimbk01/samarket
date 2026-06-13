@@ -50,6 +50,26 @@ export function mapAuthErrorMessage(code: string, detail: string | undefined, t:
   return t("auth_err_login_failed_code", { code });
 }
 
+export function mapOAuthSignInErrorMessage(
+  errorMessage: string,
+  errorCode: string | undefined,
+  t: TranslateFn,
+): string {
+  const message = String(errorMessage ?? "").trim();
+  if (message === "missing_authorize_url") return t("auth_err_oauth_authorize_url_failed");
+  if (message === "oauth_redirect_mismatch" || errorCode === "supabase_whitelist_fallback") {
+    return t("auth_err_oauth_redirect_mismatch");
+  }
+  if (message === "oauth_redirect_missing" || errorCode === "redirect_to_missing") {
+    return t("auth_err_oauth_redirect_missing");
+  }
+  if (message === "native_oauth_redirect_invalid" || errorCode === "native_https_redirect") {
+    return t("auth_err_native_oauth_redirect_invalid");
+  }
+  if (message) return message;
+  return t("auth_err_oauth_start_failed");
+}
+
 export function mapSupabaseFetchFailureToMessage(
   failure: SupabaseFetchFailureDescription,
   t: TranslateFn
