@@ -2,6 +2,10 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import {
+  NATIVE_OAUTH_LAUNCH_OPEN_PATH,
+  NATIVE_OAUTH_LAUNCH_URL_COOKIE,
+} from "@/lib/auth/oauth/native-oauth-launch.constants";
+import {
   normalizeSupabaseOAuthProvider,
   runSupabaseOAuthStart,
 } from "@/lib/auth/oauth/supabase-oauth-start.server";
@@ -12,11 +16,6 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-import {
-  NATIVE_OAUTH_LAUNCH_OPEN_PATH,
-  NATIVE_OAUTH_LAUNCH_URL_COOKIE,
-} from "@/lib/auth/oauth/native-oauth-launch.constants";
 
 function readParam(req: NextRequest, key: string): string | null {
   return req.nextUrl.searchParams.get(key)?.trim() || null;
@@ -50,6 +49,7 @@ export async function GET(req: NextRequest) {
   }
 
   const openUrl = new URL(NATIVE_OAUTH_LAUNCH_OPEN_PATH, req.url);
+  openUrl.searchParams.set("provider", provider);
   const redirectResponse = NextResponse.redirect(openUrl);
   const result = await runSupabaseOAuthStart({
     provider,

@@ -10,7 +10,6 @@ import {
 } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "apple"]);
-export const OAUTH_BROWSER_OPEN_TIMEOUT_MS = 8_000;
 
 type StartOAuthLoginInput = {
   provider: OAuthProvider;

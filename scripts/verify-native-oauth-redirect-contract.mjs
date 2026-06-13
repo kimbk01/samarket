@@ -67,8 +67,12 @@ if (!nativeLaunchOpenPage.includes("NativeOAuthLaunchClient")) {
   failures.push("app/auth/oauth/native-launch/open/page.tsx must render NativeOAuthLaunchClient");
 }
 
-if (!nativeLaunchClient.includes("Browser.open({ url: authorizeUrl })")) {
-  failures.push("NativeOAuthLaunchClient must Browser.open the authorizeUrl");
+if (!nativeLaunchClient.includes("openNativeOAuthBrowser")) {
+  failures.push("NativeOAuthLaunchClient must call openNativeOAuthBrowser");
+}
+
+if (!read("lib/auth/oauth/open-native-oauth-browser.ts").includes("Browser.open({ url })")) {
+  failures.push("open-native-oauth-browser must try Browser.open first");
 }
 
 if (startOAuthLogin.includes("Browser.open({ url: startPath")) {
