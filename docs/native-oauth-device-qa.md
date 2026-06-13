@@ -53,9 +53,9 @@ Capacitor 앱은 **PKCE 쿠키가 WebView에 있어야** `/auth/callback` code e
 1. 로그인 버튼 → `useOAuthLogin` → `setOAuthPending`
 2. WebView `GET /api/auth/oauth/start?provider=...&launch=native` (`Accept: application/json`, `credentials: include`)
 3. 서버 `signInWithOAuth({ skipBrowserRedirect: true })` → JSON `{ authorizeUrl, redirectTo }` + PKCE `Set-Cookie`
-4. `redirectTo` = `dibay://auth/callback?provider=...` (native)
+4. `redirectTo` = `https://samarket.vercel.app/auth/oauth/capacitor-return?provider=...` (native — Custom Tab용 https 브릿지)
 5. `NativeOAuthLauncher.open(authorizeUrl)` → Chrome/Custom Tab provider UI
-6. provider → `dibay://auth/callback?code=...` → `appUrlOpen` / `DIBAY_OAuth intent_received` → HTTPS `/auth/callback` 브릿지 → exchange
+6. provider → Supabase → `capacitor-return?code=...` → JS `dibay://auth/callback?code=...` → `appUrlOpen` / `DIBAY_OAuth intent_received` → HTTPS `/auth/callback` 브릿지 → exchange
 
 웹/PWA는 동일 start route를 **302**로 provider authorize URL에 리다이렉트합니다 (`location.assign`).
 
@@ -65,7 +65,7 @@ OAuth 시작 직후:
 
 - WebView fetch: `/api/auth/oauth/start?provider=...&launch=native`
 - 응답: `{ ok: true, authorizeUrl, provider, redirectTo }`
-- `redirectTo`: `dibay://auth/callback?provider=...`
+- `redirectTo`: `https://samarket.vercel.app/auth/oauth/capacitor-return?provider=...`
 - 2초 안에 Custom Tab 표시
 
 앱 복귀:
@@ -78,10 +78,11 @@ OAuth 시작 직후:
 
 ### PASS
 
-- `redirectTo` = `dibay://auth/callback?provider=...`
+- `redirectTo` = `https://samarket.vercel.app/auth/oauth/capacitor-return?provider=...`
 - Logcat: `custom_tabs_service_connected` · `custom_tabs_launch package=...` · `oauth_external_launch method=custom_tabs`
 - **전체 Chrome 앱 전환은 FAIL** (`action_view` 로그가 있으면 구 APK)
-- Logcat/WebView: `[oauth] native_start_ok` · `redirectTo=dibay://auth/callback...`
+- Logcat/WebView: `[oauth] native_start_ok` · `redirectTo=https://samarket.vercel.app/auth/oauth/capacitor-return...`
+- Custom Tab: `[oauth] capacitor_return_bridge` (https → dibay:// 핸드오프)
 - Logcat/WebView: `[oauth] callback_app_url_open` 또는 `DIBAY_OAuth intent_received`
 - Logcat/WebView: `[oauth] callback_bridge` → `[oauth] callback_navigate`
 - `[oauth] exchange_success` 출력

@@ -36,7 +36,7 @@ describe("/api/auth/oauth/start", () => {
       ok: true,
       authorizeUrl: "https://proj.supabase.co/auth/v1/authorize?provider=google",
       provider: "google",
-      redirectTo: "dibay://auth/callback?provider=google&next=%2Fmarket",
+      redirectTo: "https://samarket.vercel.app/auth/oauth/capacitor-return?provider=google&next=%2Fmarket",
     });
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(res.cookies.get("dibay_app")?.value).toBe("android");
@@ -55,11 +55,13 @@ describe("/api/auth/oauth/start", () => {
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(body.redirectTo).toBe("dibay://auth/callback?provider=google&next=%2Fmypage");
+    expect(body.redirectTo).toBe(
+      "https://samarket.vercel.app/auth/oauth/capacitor-return?provider=google&next=%2Fmypage",
+    );
     expect(signInWithOAuth).toHaveBeenCalledWith({
       provider: "google",
       options: {
-        redirectTo: "dibay://auth/callback?provider=google&next=%2Fmypage",
+        redirectTo: "https://samarket.vercel.app/auth/oauth/capacitor-return?provider=google&next=%2Fmypage",
         skipBrowserRedirect: true,
       },
     });
@@ -119,7 +121,7 @@ describe("/api/auth/oauth/start", () => {
     expect(signInWithOAuth).toHaveBeenCalledWith({
       provider: "kakao",
       options: {
-        redirectTo: "dibay://auth/callback?provider=kakao",
+        redirectTo: "https://samarket.vercel.app/auth/oauth/capacitor-return?provider=kakao",
         skipBrowserRedirect: true,
         queryParams: { scope: "profile_nickname profile_image" },
       },

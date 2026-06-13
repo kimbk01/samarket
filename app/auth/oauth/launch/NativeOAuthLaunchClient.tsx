@@ -138,8 +138,8 @@ export function NativeOAuthLaunchClient() {
             setDevError(formatBridgeDiagnosticsForDev());
           } else if (code === "oauth_native_redirect_mismatch") {
             setError(safeT("auth_err_oauth_start_failed", {
-              fallbackKo: "앱 로그인 주소가 올바르지 않습니다. Supabase Redirect URLs에 dibay://auth/callback 을 등록했는지 확인해 주세요.",
-              fallbackEn: "App sign-in redirect is misconfigured. Check Supabase Redirect URLs include dibay://auth/callback.",
+              fallbackKo: "앱 로그인 주소가 올바르지 않습니다. Supabase Redirect URLs에 https://samarket.vercel.app/** 가 등록되어 있는지 확인해 주세요.",
+              fallbackEn: "App sign-in redirect is misconfigured. Check Supabase Redirect URLs include https://samarket.vercel.app/**.",
             }));
           } else {
             setError(t("auth_err_oauth_start_failed"));

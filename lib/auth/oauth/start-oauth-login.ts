@@ -1,6 +1,7 @@
 "use client";
 
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
+import { isNativeOAuthSupabaseRedirectUrl } from "@/lib/auth/oauth/native-oauth-redirect";
 import {
   DIBAY_APP_MARKER_PARAM,
   ensureCapacitorNativeMarkerOnBoot,
@@ -120,11 +121,11 @@ export async function fetchNativeOAuthAuthorizeUrl(
   }
 
   const redirectTo = json.redirectTo?.trim() ?? "";
-  if (!redirectTo.startsWith("dibay://")) {
+  if (!isNativeOAuthSupabaseRedirectUrl(redirectTo)) {
     console.error("[oauth] native_start_redirect_mismatch", { redirectTo, startPath });
     throw startError(
       "oauth_native_redirect_mismatch",
-      "Native OAuth redirectTo must use dibay://auth/callback.",
+      "Native OAuth redirectTo must use /auth/oauth/capacitor-return on samarket.vercel.app.",
     );
   }
 
@@ -138,7 +139,7 @@ export async function fetchNativeOAuthAuthorizeUrl(
 }
 
 /**
- * Native: modal tap → launch page → user tap → Custom Tab → dibay://auth/callback
+ * Native: modal tap → launch page → Custom Tab → https capacitor-return → dibay://auth/callback
  * Web: start API 302
  */
 export function startOAuthLogin(input: { provider: OAuthProvider; next?: string | null }): void {

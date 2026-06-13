@@ -14,7 +14,7 @@
 dibaY는 Supabase Auth OAuth 단일 구조입니다.
 
 - **웹/PWA**: OAuth 완료 후 `{origin}/auth/callback` 으로 복귀합니다.
-- **Capacitor Android/iOS**: OAuth `redirectTo` 는 `dibay://auth/callback` 입니다. provider 인증 후 Supabase가 이 scheme으로 redirect 하면 앱이 deep link를 수신하고, WebView 내부에서 HTTPS `/auth/callback` 으로 브릿지해 세션을 교환합니다.
+- **Capacitor Android/iOS**: Supabase `redirectTo` 는 `https://samarket.vercel.app/auth/oauth/capacitor-return` 입니다. Custom Tab이 이 https 페이지를 연 뒤 JS가 `dibay://auth/callback` 으로 앱을 깨우고, WebView 내부에서 HTTPS `/auth/callback` 으로 브릿지해 세션을 교환합니다.
 
 **주의**: `dibay://` scheme은 Site URL이 아니라 **Redirect URLs** 목록에 추가해야 합니다. whitelist에 없으면 Supabase가 Site URL(`https://samarket.vercel.app`)로 폴백해 Chrome 웹에 로그인 상태가 남을 수 있습니다.
 
@@ -25,10 +25,11 @@ dibaY는 Supabase Auth OAuth 단일 구조입니다.
 | Site URL | `https://samarket.vercel.app` | 유지 |
 | 웹 wildcard | `https://samarket.vercel.app/**` | 필수 |
 | 로컬 | `http://localhost:3000/**` | 개발 |
-| native exact | `dibay://auth/callback` | 필수 — 코드가 사용하는 redirect |
-| native wildcard | `dibay://**` | **권장** — 운영 안정성·향후 deep link 확장 |
+| native exact | `dibay://auth/callback` | 권장 — 브릿지 페이지가 최종 앱 복귀에 사용 |
+| native wildcard | `dibay://**` | 권장 |
+| native https bridge | `https://samarket.vercel.app/auth/oauth/capacitor-return` | **필수** — Supabase redirectTo (웹 wildcard `/**` 로 포함됨) |
 
-현재 코드는 `dibay://auth/callback?provider=...` 만 사용하므로 exact만으로도 동작하지만, **`dibay://**` 추가를 권장**합니다. 중복 URL(`.../auth/callback`, `dibay://auth/callback/**`)은 무해합니다.
+Supabase `redirectTo` 는 **https capacitor-return** 을 사용합니다. Samsung 등 기기에서 Custom Tab이 `dibay://` 직접 핸드오프를 하지 않는 경우가 많아, 이 페이지가 `code` 를 포함한 query를 `dibay://auth/callback` 으로 넘깁니다.
 
 실기기 QA: [docs/native-oauth-device-qa.md](./native-oauth-device-qa.md)
 
@@ -49,7 +50,7 @@ PKCE verifier는 **WebView 쿠키**에 저장되어야 `/auth/callback` exchange
 1. 버튼 클릭 → WebView `fetch('/api/auth/oauth/start?provider=...&launch=native', { credentials: 'include', headers: { Accept: 'application/json' } })`
 2. 서버 → **200** `{ ok: true, authorizeUrl }` + PKCE `Set-Cookie` (WebView)
 3. WebView → `Browser.open(authorizeUrl)` (Custom Tab)
-4. provider → `dibay://auth/callback?code=...` → `OAuthReturnListener` (`appUrlOpen`) → HTTPS `/auth/callback` 브릿지 → exchange
+4. provider → Supabase → `https://samarket.vercel.app/auth/oauth/capacitor-return?code=...` (Custom Tab) → JS `dibay://auth/callback?code=...` → `OAuthReturnListener` (`appUrlOpen`) → HTTPS `/auth/callback` 브릿지 → exchange
 
 관련 코드:
 

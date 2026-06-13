@@ -1,9 +1,18 @@
 import { createServerClient } from "@supabase/ssr";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import {
+  NATIVE_OAUTH_CAPACITOR_RETURN_PATH,
+  NATIVE_OAUTH_CALLBACK_URL,
+  WEB_OAUTH_CALLBACK_ORIGIN,
+} from "@/lib/auth/oauth/native-oauth-redirect";
+
+export {
+  NATIVE_OAUTH_CALLBACK_URL,
+  NATIVE_OAUTH_CAPACITOR_RETURN_PATH,
+  WEB_OAUTH_CALLBACK_ORIGIN,
+} from "@/lib/auth/oauth/native-oauth-redirect";
 
 export const SUPABASE_OAUTH_PROVIDER_SET = new Set(["google", "kakao", "apple"]);
-export const NATIVE_OAUTH_CALLBACK_URL = "dibay://auth/callback";
-export const WEB_OAUTH_CALLBACK_ORIGIN = "https://samarket.vercel.app";
 const KAKAO_SCOPE = "profile_nickname profile_image";
 
 export type SupabaseOAuthProvider = "google" | "kakao" | "apple";
@@ -44,7 +53,7 @@ export function buildOAuthRedirectTo(
   next: string | null,
 ): string {
   const callback = native
-    ? new URL(NATIVE_OAUTH_CALLBACK_URL)
+    ? new URL(NATIVE_OAUTH_CAPACITOR_RETURN_PATH, WEB_OAUTH_CALLBACK_ORIGIN)
     : new URL("/auth/callback", WEB_OAUTH_CALLBACK_ORIGIN);
   callback.searchParams.set("provider", provider);
   if (next) {

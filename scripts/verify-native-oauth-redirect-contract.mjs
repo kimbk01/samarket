@@ -45,8 +45,12 @@ if (!manifest.includes("android.permission.INTERNET")) {
   failures.push("AndroidManifest must declare INTERNET permission");
 }
 
-if (!supabaseStart.includes("dibay://auth/callback")) {
-  failures.push("lib/auth/oauth/supabase-oauth-start.server.ts must use dibay://auth/callback for native redirectTo");
+if (!supabaseStart.includes("NATIVE_OAUTH_CAPACITOR_RETURN_PATH")) {
+  failures.push("lib/auth/oauth/supabase-oauth-start.server.ts must use /auth/oauth/capacitor-return for native Supabase redirectTo");
+}
+
+if (!read("app/auth/oauth/capacitor-return/page.tsx").includes("capacitor_return_bridge")) {
+  failures.push("app/auth/oauth/capacitor-return/page.tsx must bridge https return to dibay://auth/callback");
 }
 
 if (/url:\s*withNativeAppMarker/.test(capacitorConfig)) {
@@ -104,8 +108,8 @@ if (!mainActivity.includes("registerPlugin(BrowserPlugin.class)")) {
   failures.push("MainActivity must register BrowserPlugin");
 }
 
-if (!read("lib/auth/oauth/start-oauth-login.ts").includes('redirectTo.startsWith("dibay://")')) {
-  failures.push("start-oauth-login.ts must reject native OAuth when redirectTo is not dibay://");
+if (!read("lib/auth/oauth/start-oauth-login.ts").includes("isNativeOAuthSupabaseRedirectUrl")) {
+  failures.push("start-oauth-login.ts must reject native OAuth when redirectTo is not /auth/oauth/capacitor-return");
 }
 
 if (!startOAuthLogin.includes("/auth/oauth/launch")) {
