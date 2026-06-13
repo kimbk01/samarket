@@ -48,6 +48,7 @@ import {
   invalidateAuthExitClientCaches,
 } from "@/lib/auth/invalidate-auth-exit-client-caches";
 import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-kakao-auth-plugin";
+import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -182,6 +183,7 @@ async function runWipeClientSessionState(
 ): Promise<void> {
   if (reason === "user_logout" || reason === "account_switched") {
     await revokeNativeKakaoSessionIfAvailable();
+    await revokeNativeGoogleSessionIfAvailable();
   }
   const previousUserId = getBoundAuthUserId();
   await teardownCommunityMessengerCallOnAuthExit(

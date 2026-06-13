@@ -124,25 +124,32 @@ public class NativeGoogleAuthPlugin extends Plugin {
   }
 
   private GoogleSignInAccount resolveSignInAccountFromResult(Intent data, ApiException[] parseErrorOut) {
-    if (data != null) {
-      try {
-        return GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException.class);
-      } catch (ApiException error) {
-        if (parseErrorOut != null && parseErrorOut.length > 0) {
-          parseErrorOut[0] = error;
-        }
-        logEvent("google_native_intent_parse_failed " + error.getStatusCode() + " " + error.getMessage());
-        if (error.getStatusCode() == 10) {
-          logEvent("google_native_developer_error register com.dibay.app + app SHA-1 in Google Cloud Console Android OAuth client");
-        }
+    if (data == null) {
+      return null;
+    }
+    try {
+      return GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException.class);
+    } catch (ApiException error) {
+      if (parseErrorOut != null && parseErrorOut.length > 0) {
+        parseErrorOut[0] = error;
+      }
+      logEvent("google_native_intent_parse_failed " + error.getStatusCode() + " " + error.getMessage());
+      if (error.getStatusCode() == 10) {
+        logEvent("google_native_developer_error register com.dibay.app + app SHA-1 in Google Cloud Console Android OAuth client");
       }
     }
-    GoogleSignInAccount last = GoogleSignIn.getLastSignedInAccount(getContext());
-    if (last != null && last.getIdToken() != null && !last.getIdToken().trim().isEmpty()) {
-      logEvent("google_native_last_signed_in_account");
-      return last;
-    }
     return null;
+  }
+
+  /**
+   * Google Sign-In 계정 선택 UI — 앱에 연결된 Google 계정 캐시를 지운 뒤 Intent 실행.
+   * @see https://developers.google.com/identity/sign-in/android/disconnect
+   * "To sign in again, the user must choose their account again."
+   */
+  private void launchGoogleAccountPicker(PluginCall call) {
+    logEvent("google_native_account_picker_launch");
+    Intent signInIntent = googleSignInClient.getSignInIntent();
+    startActivityForResult(call, signInIntent, "googleSignInResult");
   }
 
   private String resolveGoogleSignInConfigErrorMessage(ApiException error) {
@@ -230,8 +237,16 @@ public class NativeGoogleAuthPlugin extends Plugin {
     pendingCall = call;
     markExchangePending(call);
     logEvent("google_native_started");
-    Intent signInIntent = googleSignInClient.getSignInIntent();
-    startActivityForResult(call, signInIntent, "googleSignInResult");
+    googleSignInClient
+      .signOut()
+      .addOnCompleteListener(task -> {
+        if (!task.isSuccessful()) {
+          logEvent("google_native_signout_before_picker_failed");
+        } else {
+          logEvent("google_native_signout_before_picker_ok");
+        }
+        launchGoogleAccountPicker(call);
+      });
   }
 
   @PluginMethod

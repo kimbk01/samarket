@@ -1,6 +1,11 @@
 /**
  * P2 STEP 3 — Google Native Login client contract (Android).
  *
+ * ACCOUNT PICKER (Google official):
+ * - Native plugin calls GoogleSignInClient.signOut() before getSignInIntent()
+ * - Do NOT fall back to getLastSignedInAccount on sign-in result (bypasses chooser)
+ * - App logout must call NativeGoogleAuth.signOut() (see client-session-wipe)
+ *
  * SECURITY (DO NOT):
  * - trust idToken on client for session creation
  * - merge accounts by email alone

@@ -27,6 +27,18 @@ if (!androidPlugin.includes("NativeGoogleAuth")) {
 if (!androidPlugin.includes("requestIdToken")) {
   failures.push("NativeGoogleAuthPlugin.java must requestIdToken for server verify");
 }
+if (!androidPlugin.includes("google_native_signout_before_picker_ok")) {
+  failures.push("NativeGoogleAuthPlugin signIn must signOut before account picker (Google official account chooser)");
+}
+if (!androidPlugin.includes("launchGoogleAccountPicker")) {
+  failures.push("NativeGoogleAuthPlugin must launch account picker via dedicated helper after signOut");
+}
+if (androidPlugin.includes("getLastSignedInAccount")) {
+  failures.push("NativeGoogleAuthPlugin must not use getLastSignedInAccount fallback (bypasses account chooser)");
+}
+if (!read("lib/auth/client-session-wipe.ts").includes("revokeNativeGoogleSessionIfAvailable")) {
+  failures.push("client-session-wipe must revoke Native Google session on logout");
+}
 if (!androidPlugin.includes("PREF_PENDING_ID_TOKEN")) {
   failures.push("NativeGoogleAuthPlugin.java must persist deferred id token for process restart recovery");
 }

@@ -2,7 +2,24 @@
 
 ## 목표 UX
 
-Google 로그인 → **Chrome/Custom Tab 없음** → Google 계정 선택 → `POST /api/auth/native/exchange` → `sessionEstablished=true`
+Google 로그인 → **Chrome/Custom Tab 없음** → **Google 계정 선택(이메일·다른 계정)** → `POST /api/auth/native/exchange` → `sessionEstablished=true`
+
+### 계정 선택 UI (Google 공식)
+
+Android Google Sign-In SDK는 앱에 **마지막으로 연결된 Google 계정을 캐시**한다.  
+매 로그인마다 계정 선택·다른 아이디 선택 UI를 띄우려면 Google 문서대로:
+
+1. **`GoogleSignInClient.signOut()`** — 앱과 Google 계정 연결만 해제 (기기 Google 로그아웃 아님)
+2. **`getSignInIntent()`** — 계정 선택 UI 표시
+
+> "To sign in again, the user must choose their account again."  
+> — [Signing Out Users (Google for Developers)](https://developers.google.com/identity/sign-in/android/disconnect)
+
+디바이 앱 로그아웃 시에도 `NativeGoogleAuth.signOut()` 을 호출해 다음 Google 로그인에서 chooser 가 뜨게 한다.
+
+**금지:** `getLastSignedInAccount()` 로 Intent 결과 없이 자동 로그인 — 계정 선택 UI를 건너뜀.
+
+Logcat: `google_native_signout_before_picker_ok` → `google_native_account_picker_launch`
 
 ## 재구현 불필요
 
