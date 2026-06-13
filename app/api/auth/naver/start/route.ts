@@ -5,15 +5,18 @@ import {
   NAVER_OAUTH_STATE_COOKIE,
 } from "@/lib/auth/naver-oauth";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
-import { NATIVE_OAUTH_CALLBACK_URL } from "@/lib/auth/oauth/config";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
-import { isNativeAppRequest } from "@/lib/auth/oauth/platform-request";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const NATIVE_OAUTH_CALLBACK_URL = "dibay://auth/callback";
+
 function isNativeAppRequestForNaver(req: NextRequest): boolean {
-  return isNativeAppRequest(req);
+  const marker = req.nextUrl.searchParams.get("dibay_app")?.trim().toLowerCase();
+  if (marker === "android" || marker === "ios") return true;
+  const cookieMarker = req.cookies.get("dibay_app")?.value?.trim().toLowerCase();
+  return cookieMarker === "android" || cookieMarker === "ios";
 }
 
 function buildNaverRedirectUri(req: NextRequest, safeNext: string | null): string {

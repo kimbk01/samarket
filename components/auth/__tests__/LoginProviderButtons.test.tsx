@@ -24,11 +24,21 @@ const googleProvider: AuthProviderPublic = {
   sort_order: 1,
 };
 
+const kakaoProvider: AuthProviderPublic = {
+  id: "2",
+  provider: "kakao",
+  enabled: true,
+  client_id: "x",
+  redirect_uri: "https://example.com",
+  scope: "",
+  sort_order: 2,
+};
+
 describe("LoginProviderButtons pending OAuth UI", () => {
   it("shows redirecting label and aria-busy for pending provider only", () => {
     const html = renderToStaticMarkup(
       <LoginProviderButtons
-        providers={[googleProvider]}
+        providers={[googleProvider, kakaoProvider]}
         pendingOAuthProvider="google"
         onSelectProvider={() => undefined}
       />,
@@ -36,6 +46,8 @@ describe("LoginProviderButtons pending OAuth UI", () => {
     expect(html).toContain("Redirecting…");
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('data-provider="google"');
+    expect(html).toContain('data-provider="kakao"');
+    expect(html).toContain("disabled");
   });
 
   it("does not show redirecting when no provider is pending", () => {

@@ -15,10 +15,7 @@ import {
 } from "@/lib/auth/login-bootstrap-cache";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
-import { clearOAuthPending } from "@/lib/auth/oauth/pending";
-import { logAuthCallbackExchangeFailed } from "@/lib/auth/oauth/log";
-import { mapOAuthStartError } from "@/lib/auth/oauth/errors";
-import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
+import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -131,17 +128,10 @@ function LoginPageContent() {
     const errorCode = params.get("error")?.trim() ?? "";
     const code = authError || errorCode;
     if (!code) return;
-    clearOAuthPending("exchange_failed");
-    if (authError === "callback_failed" || authError === "missing_code") {
-      logAuthCallbackExchangeFailed(authErrorDetail || code);
-    }
+    dispatchOAuthPendingClear("exchange_failed");
     const message =
-      code.startsWith("oauth_") ||
-      code === "native_oauth_redirect_invalid" ||
-      code === "invalid_provider" ||
-      code === "supabase_unconfigured" ||
-      code === "missing_authorize_url"
-        ? mapOAuthStartError(code, t)
+      code === "oauth_start_failed" || code === "missing_authorize_url"
+        ? t("auth_err_oauth_start_failed")
         : mapAuthErrorMessage(code, authErrorDetail, t);
     setError((prev) => (prev === message ? prev : message));
     if (typeof window !== "undefined") window.alert(message);

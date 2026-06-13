@@ -14,8 +14,8 @@ function read(relPath) {
 }
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
-const returnBridge = read("lib/auth/oauth/return-bridge.ts");
-const oauthConfig = read("lib/auth/oauth/config.ts");
+const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
+const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
 
@@ -32,13 +32,8 @@ if (!manifest.includes('android:launchMode="singleTask"')) {
   failures.push("AndroidManifest MainActivity should use launchMode=\"singleTask\"");
 }
 
-const nativeUrlMatch = oauthConfig.match(
-  /export const NATIVE_OAUTH_CALLBACK_URL = "(dibay:\/\/auth\/callback)"/,
-);
-if (!nativeUrlMatch) {
-  failures.push("NATIVE_OAUTH_CALLBACK_URL constant not found in lib/auth/oauth/config.ts");
-} else if (nativeUrlMatch[1] !== "dibay://auth/callback") {
-  failures.push(`NATIVE_OAUTH_CALLBACK_URL expected dibay://auth/callback, got ${nativeUrlMatch[1]}`);
+if (!startRoute.includes("dibay://auth/callback")) {
+  failures.push("app/api/auth/oauth/start/route.ts must use dibay://auth/callback for native redirectTo");
 }
 
 if (!layout.includes("OAuthReturnListener")) {
@@ -48,16 +43,24 @@ if (!layout.includes("CapacitorNativeMarkerBootstrap")) {
   failures.push("app/layout.tsx must mount CapacitorNativeMarkerBootstrap");
 }
 
-if (!read("lib/auth/oauth/redirect-to.ts").includes("buildOAuthRedirectTo")) {
-  failures.push("lib/auth/oauth/redirect-to.ts must export buildOAuthRedirectTo");
+if (!startOAuthLogin.includes("credentials: \"include\"")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must fetch with credentials: include");
 }
 
-if (!returnBridge.includes("Browser.close")) {
-  failures.push("lib/auth/oauth/return-bridge.ts must call Browser.close on appUrlOpen success path");
+if (!startOAuthLogin.includes("Browser.open({ url: json.authorizeUrl.trim() })")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must open the returned authorizeUrl");
 }
 
-if (!read("lib/auth/oauth/log.ts").includes("[authCallback] exchange_success")) {
-  failures.push("lib/auth/oauth/log.ts must log [authCallback] exchange_success");
+if (startOAuthLogin.includes("Browser.open({ url: startPath")) {
+  failures.push("Native OAuth must not Browser.open the start endpoint");
+}
+
+if (!oauthReturnListener.includes("Browser.close")) {
+  failures.push("components/auth/OAuthReturnListener.tsx must call Browser.close on appUrlOpen success path");
+}
+
+if (!oauthReturnListener.includes("window.location.replace(webCallbackUrl)")) {
+  failures.push("components/auth/OAuthReturnListener.tsx must replace to /auth/callback after appUrlOpen");
 }
 
 if (startRoute.includes("legacy_oauth_start_disabled")) {
