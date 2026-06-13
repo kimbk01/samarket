@@ -123,9 +123,13 @@ export function startOAuthLogin(input: { provider: OAuthProvider; next?: string 
   ensureCapacitorNativeMarkerOnBoot();
 
   if (isCapacitorNativePlatform()) {
-    window.location.assign(buildNativeOAuthLaunchPath(provider, next));
+    const launchPath = buildNativeOAuthLaunchPath(provider, next);
+    console.error("[oauth] start_oauth_login_native", { provider, launchPath });
+    window.location.assign(launchPath);
     return;
   }
+
+  console.error("[oauth] start_oauth_login_web", { provider });
 
   window.location.assign(buildWebStartPath(provider, next));
 }

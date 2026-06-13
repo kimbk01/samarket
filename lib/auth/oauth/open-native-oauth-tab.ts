@@ -1,8 +1,8 @@
 "use client";
 
-import { registerPlugin } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { MessageKey } from "@/lib/i18n/messages";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { getCapacitorNativeDiagnostics } from "@/lib/platform/capacitor-native";
 
 export type NativeOAuthLaunchMethod = "custom_tabs" | "action_view";
 
@@ -102,16 +102,18 @@ function mapRejectToUserCode(devCode: NativeOAuthDevErrorCode): NativeOAuthOpenE
   return "oauth_tab_open_failed";
 }
 
-function logNativeOAuthLaunchMethod(method: NativeOAuthLaunchMethod): void {
-  console.info("[oauth] native_launcher_open", { method });
-}
-
 /**
- * Native OAuth launcher — NativeOAuthLauncher.open (ACTION_VIEW → Custom Tab).
+ * Native OAuth launcher — NativeOAuthLauncher.open 단일 경로.
  */
 export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunchResult> {
   const trimmed = url.trim();
+  console.error("[oauth] before_open", {
+    urlLen: trimmed.length,
+    diagnostics: getCapacitorNativeDiagnostics(),
+  });
+
   if (!trimmed) {
+    console.error("[oauth] open_throw", "empty_url");
     throw nativeOAuthOpenError(
       "oauth_tab_open_failed",
       "unknown_native_error",
@@ -119,26 +121,32 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
     );
   }
 
-  if (!isCapacitorNativePlatform()) {
-    throw nativeOAuthOpenError(
-      "oauth_launcher_unavailable",
-      "plugin_not_implemented",
-      "NativeOAuthLauncher is only available on native platforms.",
-    );
+  const pluginAvailable = Capacitor.isPluginAvailable("NativeOAuthLauncher");
+  if (pluginAvailable) {
+    console.error("[oauth] plugin_available", { plugin: "NativeOAuthLauncher" });
+  } else {
+    console.error("[oauth] plugin_unavailable", { plugin: "NativeOAuthLauncher" });
   }
+
+  console.error("[oauth] before_native_launcher");
 
   try {
     const result = await NativeOAuthLauncher.open({ url: trimmed });
+    console.error("[oauth] after_native_launcher", result);
+    console.error("[oauth] after_open", { method: result?.method, opened: result?.opened });
+
     if (result?.opened && (result.method === "custom_tabs" || result.method === "action_view")) {
-      logNativeOAuthLaunchMethod(result.method);
       return result;
     }
+
+    console.error("[oauth] open_throw", "invalid_native_launcher_result");
     throw nativeOAuthOpenError(
       "oauth_tab_open_failed",
       "unknown_native_error",
       "NativeOAuthLauncher returned invalid result.",
     );
   } catch (err) {
+    console.error("[oauth] open_throw", err);
     if (err instanceof Error && "devCode" in err) {
       throw err;
     }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { App } from "@capacitor/app";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -18,7 +18,11 @@ import {
 } from "@/lib/auth/oauth/open-native-oauth-tab";
 import { fetchNativeOAuthAuthorizeUrl } from "@/lib/auth/oauth/start-oauth-login";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
-import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import {
+  ensureCapacitorNativeMarkerOnBoot,
+  getCapacitorNativeDiagnostics,
+  isCapacitorNativePlatform,
+} from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH = new Set<OAuthProvider>(["google", "kakao", "apple"]);
 export const OAUTH_BACKGROUND_WAIT_MS = 5_000;
@@ -70,10 +74,13 @@ export function NativeOAuthLaunchClient() {
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [devError, setDevError] = useState<string | null>(null);
+  const openStartedRef = useRef(false);
 
   useEffect(() => {
     ensureCapacitorNativeMarkerOnBoot();
+    console.error("[oauth] launch_client_mount", getCapacitorNativeDiagnostics());
     if (!isCapacitorNativePlatform()) {
+      console.error("[oauth] launch_client_not_native_redirect");
       router.replace("/login");
       return;
     }
@@ -91,9 +98,12 @@ export function NativeOAuthLaunchClient() {
       setLoading(true);
       setError(null);
       try {
+        console.error("[oauth] launch_fetch_authorize_start", { provider });
         const url = await fetchNativeOAuthAuthorizeUrl(provider, next);
+        console.error("[oauth] launch_fetch_authorize_ok", { urlLen: url.length });
         if (!cancelled) setAuthorizeUrl(url);
       } catch (err) {
+        console.error("[oauth] launch_fetch_authorize_throw", err);
         if (!cancelled) {
           const code = err instanceof Error ? err.name : "oauth_start_failed";
           if (code === "oauth_start_timeout") {
@@ -136,25 +146,38 @@ export function NativeOAuthLaunchClient() {
     [t],
   );
 
-  const handleOpenBrowser = useCallback(() => {
-    if (!authorizeUrl || opening) return;
+  const runNativeOAuthOpen = useCallback(async (url: string) => {
+    console.error("[oauth] launch_before_open", { urlLen: url.length });
     setOpening(true);
     setError(null);
     setDevError(null);
 
-    void (async () => {
-      try {
-        const launchResult = await openNativeOAuthTab(authorizeUrl);
-        console.info("[oauth] launch_page_opened", { method: launchResult.method });
-        await waitForAppBackground(OAUTH_BACKGROUND_WAIT_MS);
-      } catch (err) {
-        dispatchOAuthPendingClear("oauth_launch_open_failed");
-        setError(resolveOpenErrorMessage(err));
-        setDevError(formatNativeOAuthDevError(err));
-        setOpening(false);
-      }
-    })();
-  }, [authorizeUrl, opening, resolveOpenErrorMessage]);
+    try {
+      const launchResult = await openNativeOAuthTab(url);
+      console.error("[oauth] launch_after_open", { method: launchResult.method });
+      await waitForAppBackground(OAUTH_BACKGROUND_WAIT_MS);
+    } catch (err) {
+      console.error("[oauth] launch_open_throw", err);
+      dispatchOAuthPendingClear("oauth_launch_open_failed");
+      setError(resolveOpenErrorMessage(err));
+      setDevError(formatNativeOAuthDevError(err));
+      setOpening(false);
+    }
+  }, [resolveOpenErrorMessage]);
+
+  useEffect(() => {
+    if (!authorizeUrl || loading || opening || openStartedRef.current) return;
+    openStartedRef.current = true;
+    console.error("[oauth] launch_auto_open_start");
+    void runNativeOAuthOpen(authorizeUrl);
+  }, [authorizeUrl, loading, opening, runNativeOAuthOpen]);
+
+  const handleOpenBrowser = useCallback(() => {
+    if (!authorizeUrl || opening) return;
+    console.error("[oauth] launch_manual_open_click");
+    openStartedRef.current = true;
+    void runNativeOAuthOpen(authorizeUrl);
+  }, [authorizeUrl, opening, runNativeOAuthOpen]);
 
   const handleBack = useCallback(() => {
     dispatchOAuthPendingClear("oauth_launch_back");
