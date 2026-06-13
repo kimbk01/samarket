@@ -3,7 +3,7 @@ import type { NativeOAuthLaunchResult } from "@/lib/auth/oauth/open-native-oauth
 
 const launcherOpen = vi.fn(async (): Promise<NativeOAuthLaunchResult> => ({
   opened: true,
-  method: "action_view",
+  method: "custom_tabs",
 }));
 
 vi.mock("@/lib/platform/capacitor-native", async (importOriginal) => {
@@ -44,7 +44,7 @@ vi.mock("@capacitor/core", async (importOriginal) => {
 describe("openNativeOAuthTab", () => {
   afterEach(async () => {
     launcherOpen.mockClear();
-    launcherOpen.mockResolvedValue({ opened: true, method: "action_view" });
+    launcherOpen.mockResolvedValue({ opened: true, method: "custom_tabs" });
     const capacitorNative = await import("@/lib/platform/capacitor-native");
     vi.mocked(capacitorNative.isCapacitorBridgeReady).mockReturnValue(true);
     vi.mocked(capacitorNative.waitForCapacitorBridgeReady).mockResolvedValue(true);
@@ -55,7 +55,7 @@ describe("openNativeOAuthTab", () => {
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
     const result = await openNativeOAuthTab("https://supabase.example/auth");
     expect(launcherOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth" });
-    expect(result).toEqual({ opened: true, method: "action_view" });
+    expect(result).toEqual({ opened: true, method: "custom_tabs" });
   });
 
   it("throws bridge_not_ready without calling plugin open", async () => {
@@ -72,11 +72,11 @@ describe("openNativeOAuthTab", () => {
   });
 
   it("throws when plugin rejects", async () => {
-    launcherOpen.mockRejectedValueOnce(new Error("browser_open_failed"));
+    launcherOpen.mockRejectedValueOnce(new Error("custom_tabs_unavailable"));
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
     await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
-      name: "oauth_tab_open_failed",
-      devCode: "action_view_failed",
+      name: "oauth_custom_tabs_unavailable",
+      devCode: "custom_tabs_failed",
     });
   });
 

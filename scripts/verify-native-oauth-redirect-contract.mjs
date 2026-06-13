@@ -16,6 +16,7 @@ function read(relPath) {
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
 const nativeLauncherPlugin = read("android/app/src/main/java/com/dibay/app/NativeOAuthLauncherPlugin.java");
+const oauthCustomTabsLauncher = read("android/app/src/main/java/com/dibay/app/OAuthCustomTabsLauncher.java");
 const appBuildGradle = read("android/app/build.gradle");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
 const launchClient = read("app/auth/oauth/launch/NativeOAuthLaunchClient.tsx");
@@ -118,21 +119,32 @@ if (!registerBeforeSuper) {
   failures.push("MainActivity must register NativeOAuthLauncherPlugin before super.onCreate()");
 }
 
-if (!nativeLauncherPlugin.includes("CustomTabsIntent")) {
-  failures.push("NativeOAuthLauncherPlugin must try CustomTabsIntent for in-app OAuth");
+if (!oauthCustomTabsLauncher.includes("CustomTabsIntent")) {
+  failures.push("OAuthCustomTabsLauncher must open OAuth via CustomTabsIntent");
 }
 
-const customTabsBeforeActionView = /tryCustomTabs\([\s\S]*tryActionView\(/m.test(nativeLauncherPlugin);
-if (!customTabsBeforeActionView) {
-  failures.push("NativeOAuthLauncherPlugin must try CustomTabs before ACTION_VIEW fallback");
+if (!nativeLauncherPlugin.includes("OAuthCustomTabsLauncher")) {
+  failures.push("NativeOAuthLauncherPlugin must delegate to OAuthCustomTabsLauncher (Capacitor Browser parity)");
 }
 
-if (!nativeLauncherPlugin.includes("Intent.ACTION_VIEW")) {
-  failures.push("NativeOAuthLauncherPlugin must keep ACTION_VIEW as external browser fallback");
+if (!oauthCustomTabsLauncher.includes("CustomTabsClient.bindCustomTabsService")) {
+  failures.push("OAuthCustomTabsLauncher must bind Custom Tabs service before launch (Capacitor Browser parity)");
 }
 
-if (!nativeLauncherPlugin.includes("action_view_start")) {
-  failures.push("NativeOAuthLauncherPlugin must log action_view_start");
+if (!oauthCustomTabsLauncher.includes("CustomTabsClient.getPackageName")) {
+  failures.push("OAuthCustomTabsLauncher must resolve Custom Tabs provider package explicitly");
+}
+
+if (!oauthCustomTabsLauncher.includes("EXTRA_REFERRER")) {
+  failures.push("OAuthCustomTabsLauncher must set EXTRA_REFERRER for in-app Custom Tab task affinity");
+}
+
+if (nativeLauncherPlugin.includes("Intent.ACTION_VIEW")) {
+  failures.push("NativeOAuthLauncherPlugin must not use ACTION_VIEW — it opens full Chrome app, not in-app Custom Tab");
+}
+
+if (!nativeLauncherPlugin.includes("custom_tabs_unavailable")) {
+  failures.push("NativeOAuthLauncherPlugin must reject with custom_tabs_unavailable when Custom Tabs cannot launch");
 }
 
 if (!nativeLauncherPlugin.includes("NativeOAuthLauncher.open_called")) {
@@ -143,8 +155,8 @@ if (!nativeLauncherPlugin.includes('"method", "custom_tabs"')) {
   failures.push("NativeOAuthLauncherPlugin must resolve custom_tabs method on success");
 }
 
-if (!nativeLauncherPlugin.includes('"method", "action_view"')) {
-  failures.push("NativeOAuthLauncherPlugin must resolve action_view method on fallback success");
+if (nativeLauncherPlugin.includes('"method", "action_view"')) {
+  failures.push("NativeOAuthLauncherPlugin must not resolve action_view — full Chrome fallback is removed");
 }
 
 if (!appBuildGradle.includes("androidx.browser:browser")) {

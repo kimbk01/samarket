@@ -47,8 +47,8 @@ oauth|appUrlOpen|authCallback
 
 Capacitor 앱은 **PKCE 쿠키가 WebView에 있어야** `/auth/callback` code exchange가 성공합니다. Custom Tab/Chrome에 start URL만 열면 PKCE가 분리되어 실패합니다.
 
-**A안 UX (기본):** Google OAuth는 WebView 내부가 아니라 **Chrome/Custom Tab**에서 진행하는 것이 정상입니다.  
-성공 기준은 Chrome 전환 여부가 아니라 **`dibay://auth/callback` 앱 복귀 + DIBAY 세션 생성**입니다.
+**A안 UX (기본):** Google OAuth는 embedded WebView 금지. **앱 태스크 안 Custom Tab**(Chrome 엔진·상단 툴바)이 정상입니다.  
+전체 Chrome 앱 전환(`ACTION_VIEW`)은 사용하지 않습니다. `OAuthCustomTabsLauncher`는 Capacitor `Browser.java` 와 동일하게 서비스 bind·session·provider 패키지를 사용합니다.
 
 1. 로그인 버튼 → `useOAuthLogin` → `setOAuthPending`
 2. WebView `GET /api/auth/oauth/start?provider=...&launch=native` (`Accept: application/json`, `credentials: include`)
@@ -79,7 +79,8 @@ OAuth 시작 직후:
 ### PASS
 
 - `redirectTo` = `dibay://auth/callback?provider=...`
-- Chrome/Custom Tab 열림 (**외부 Chrome 전환은 A안에서 정상**)
+- Logcat: `custom_tabs_service_connected` · `custom_tabs_launch package=...` · `oauth_external_launch method=custom_tabs`
+- **전체 Chrome 앱 전환은 FAIL** (`action_view` 로그가 있으면 구 APK)
 - Logcat/WebView: `[oauth] native_start_ok` · `redirectTo=dibay://auth/callback...`
 - Logcat/WebView: `[oauth] callback_app_url_open` 또는 `DIBAY_OAuth intent_received`
 - Logcat/WebView: `[oauth] callback_bridge` → `[oauth] callback_navigate`

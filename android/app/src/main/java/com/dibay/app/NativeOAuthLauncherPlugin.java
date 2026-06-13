@@ -1,11 +1,8 @@
 package com.dibay.app;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
-import android.content.Intent;
 import android.net.Uri;
 import android.util.Log;
-import androidx.browser.customtabs.CustomTabsIntent;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -13,13 +10,37 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 /**
- * Native OAuth launcher — Custom Tab 우선, ACTION_VIEW 2차 fallback.
- * ACTION_VIEW 는 전체 Chrome 앱으로 넘어가므로 OAuth 기본 경로로 쓰지 않는다.
+ * Native OAuth launcher — Capacitor Browser 와 동일한 Custom Tabs (bind·session·package).
+ * Google OAuth 는 embedded WebView 금지. ACTION_VIEW(전체 Chrome 앱) fallback 은 사용하지 않는다.
  */
 @CapacitorPlugin(name = "NativeOAuthLauncher")
 public class NativeOAuthLauncherPlugin extends Plugin {
 
   private static final String TAG = "NativeOAuthLauncher";
+
+  private OAuthCustomTabsLauncher customTabsLauncher;
+
+  @Override
+  public void load() {
+    customTabsLauncher = new OAuthCustomTabsLauncher(getContext());
+  }
+
+  @Override
+  protected void handleOnResume() {
+    if (customTabsLauncher != null) {
+      boolean bound = customTabsLauncher.bindService();
+      if (!bound) {
+        Log.w(TAG, "custom_tabs_bind_failed_on_resume");
+      }
+    }
+  }
+
+  @Override
+  protected void handleOnPause() {
+    if (customTabsLauncher != null) {
+      customTabsLauncher.unbindService();
+    }
+  }
 
   @PluginMethod
   public void open(PluginCall call) {
@@ -49,59 +70,27 @@ public class NativeOAuthLauncherPlugin extends Plugin {
       return;
     }
 
-    if (tryCustomTabs(activity, uri, call)) {
+    if (customTabsLauncher == null) {
+      Log.e(TAG, "custom_tabs_launcher_uninitialized");
+      call.reject("custom_tabs_unavailable");
       return;
     }
 
-    if (tryActionView(activity, uri, call)) {
-      return;
-    }
-
-    Log.e(TAG, "browser_open_failed");
-    call.reject("browser_open_failed");
-  }
-
-  private boolean tryActionView(Activity activity, Uri uri, PluginCall call) {
-    Log.i(TAG, "action_view_start");
-    try {
-      Intent browserIntent = new Intent(Intent.ACTION_VIEW, uri);
-      browserIntent.addCategory(Intent.CATEGORY_BROWSABLE);
-      activity.startActivity(browserIntent);
-      Log.i(TAG, "action_view_success");
-      Log.i(TAG, "oauth_external_launch method=action_view (return via dibay://auth/callback)");
-      JSObject result = new JSObject();
-      result.put("opened", true);
-      result.put("method", "action_view");
-      call.resolve(result);
-      return true;
-    } catch (ActivityNotFoundException error) {
-      Log.e(TAG, "action_view_failed", error);
-      return false;
-    } catch (Exception error) {
-      Log.e(TAG, "action_view_failed", error);
-      return false;
-    }
-  }
-
-  private boolean tryCustomTabs(Activity activity, Uri uri, PluginCall call) {
     Log.i(TAG, "custom_tabs_start");
     try {
-      CustomTabsIntent tabsIntent = new CustomTabsIntent.Builder().build();
-      tabsIntent.intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
-      tabsIntent.launchUrl(activity, uri);
+      customTabsLauncher.open(activity, uri);
       Log.i(TAG, "custom_tabs_success");
       Log.i(TAG, "oauth_external_launch method=custom_tabs (return via dibay://auth/callback)");
       JSObject result = new JSObject();
       result.put("opened", true);
       result.put("method", "custom_tabs");
       call.resolve(result);
-      return true;
-    } catch (ActivityNotFoundException error) {
+    } catch (OAuthCustomTabsLauncher.CustomTabsLaunchException error) {
       Log.e(TAG, "custom_tabs_failed", error);
-      return false;
+      call.reject("custom_tabs_unavailable");
     } catch (Exception error) {
       Log.e(TAG, "custom_tabs_failed", error);
-      return false;
+      call.reject("custom_tabs_unavailable");
     }
   }
 }

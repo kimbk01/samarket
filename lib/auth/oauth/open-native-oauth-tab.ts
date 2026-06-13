@@ -8,7 +8,7 @@ import {
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 
-export type NativeOAuthLaunchMethod = "custom_tabs" | "action_view";
+export type NativeOAuthLaunchMethod = "custom_tabs";
 
 export type NativeOAuthLaunchResult = {
   opened: boolean;
@@ -22,7 +22,6 @@ export type NativeOAuthLauncherPlugin = {
 export type NativeOAuthDevErrorCode =
   | "plugin_not_implemented"
   | "custom_tabs_failed"
-  | "action_view_failed"
   | "activity_not_found"
   | "capacitor_bridge_not_ready"
   | "unknown_native_error";
@@ -30,7 +29,8 @@ export type NativeOAuthDevErrorCode =
 export type NativeOAuthOpenErrorCode =
   | "oauth_launcher_unavailable"
   | "oauth_tab_open_failed"
-  | "oauth_bridge_not_ready";
+  | "oauth_bridge_not_ready"
+  | "oauth_custom_tabs_unavailable";
 
 export type NativeOAuthOpenError = Error & {
   devCode: NativeOAuthDevErrorCode;
@@ -69,6 +69,9 @@ export function mapNativeOAuthOpenErrorToMessageKey(code: string): MessageKey {
   if (code === "oauth_bridge_not_ready") {
     return "auth_err_oauth_bridge_not_ready";
   }
+  if (code === "oauth_custom_tabs_unavailable") {
+    return "auth_err_oauth_custom_tabs_required";
+  }
   if (code === "oauth_launcher_unavailable" || code === "oauth_tab_unavailable") {
     return "auth_err_oauth_browser_plugin_unavailable";
   }
@@ -100,10 +103,7 @@ function mapRejectToDevCode(rejectText: string): NativeOAuthDevErrorCode {
   if (normalized.includes("activity_not_found") || normalized.includes("no_activity")) {
     return "activity_not_found";
   }
-  if (normalized.includes("browser_open_failed")) {
-    return "action_view_failed";
-  }
-  if (normalized.includes("custom_tabs")) {
+  if (normalized.includes("custom_tabs_unavailable") || normalized.includes("custom_tabs")) {
     return "custom_tabs_failed";
   }
   return "unknown_native_error";
@@ -112,6 +112,9 @@ function mapRejectToDevCode(rejectText: string): NativeOAuthDevErrorCode {
 function mapRejectToUserCode(devCode: NativeOAuthDevErrorCode): NativeOAuthOpenErrorCode {
   if (devCode === "capacitor_bridge_not_ready") {
     return "oauth_bridge_not_ready";
+  }
+  if (devCode === "custom_tabs_failed") {
+    return "oauth_custom_tabs_unavailable";
   }
   if (devCode === "plugin_not_implemented" || devCode === "activity_not_found") {
     return "oauth_launcher_unavailable";
@@ -188,7 +191,7 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
       successCriteria: "dibay://auth/callback app return + session exchange",
     });
 
-    if (result?.opened && (result.method === "custom_tabs" || result.method === "action_view")) {
+    if (result?.opened && result.method === "custom_tabs") {
       return result;
     }
 
