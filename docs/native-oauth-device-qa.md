@@ -43,16 +43,29 @@ oauth|appUrlOpen|authCallback
 
 또는 Chrome Remote Debugging → WebView console (Capacitor Inspect)
 
+## Native OAuth 시작 흐름 (fetch-then-open)
+
+Capacitor 앱은 **PKCE 쿠키가 WebView에 있어야** `/auth/callback` code exchange가 성공합니다. Custom Tab에 start URL만 열면 PKCE가 분리되어 실패합니다.
+
+1. 로그인 버튼 → `useOAuthLogin` → `setOAuthPending`
+2. WebView `GET /api/auth/oauth/start?provider=...&launch=native` (`Accept: application/json`, `credentials: include`)
+3. 서버 `signInWithOAuth({ skipBrowserRedirect: true })` → JSON `{ authorizeUrl }` + PKCE `Set-Cookie`
+4. WebView `Browser.open(authorizeUrl)` → Custom Tab provider UI
+5. provider → `dibay://auth/callback?code=...` → `appUrlOpen` → HTTPS `/auth/callback` 브릿지 → exchange
+
+웹/PWA는 동일 start route를 **302**로 provider authorize URL에 리다이렉트합니다 (`location.assign`).
+
 ### 필수 로그 (provider별)
 
-OAuth 시작 직후:
+OAuth 시작 직후 (서버 + 클라):
 
 ```
+[oauth] start_request { provider, redirectTo: "dibay://auth/callback?provider=...", isNative: true }
 [oauth] provider { value: "google" | "kakao" | "apple" }
-[oauth] isNative { value: true, ... }
-[oauth] redirectTo { value: "dibay://auth/callback?provider=..." }
 [oauth] redirect_to { value: "dibay://auth/callback?provider=..." }
 [oauth] authorizeHost { value: "<project>.supabase.co" }
+[oauth] browser_open_start { url: "https://<project>.supabase.co/auth/v1/authorize?..." }
+[oauth] browser_open_ok
 ```
 
 앱 복귀:
@@ -87,6 +100,8 @@ OAuth 시작 직후:
 | `redirectTo` dibay + `redirect_to` https | Supabase Redirect URLs |
 | 둘 다 https | native 감지 실패 |
 | `redirect_to` null + launch 중단 | authorize URL 이상 — `[oauth] redirect_to_missing` |
+| `[oauth] browser_open_failed` | Custom Tab 미오픈 — Browser plugin / 기기 정책 |
+| `fetch` start 실패 | 네트워크·서버 start route — `[oauth] start_request` 없음 |
 | `appUrlOpen` 없음 | AndroidManifest / APK 구버전 |
 | `appUrlOpen` O, `exchange_failed` | callback / code exchange |
 | Custom Tab만 로그인됨 | `browser_close_failed` — 앱은 PASS 가능, UX 점검 |

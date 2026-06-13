@@ -1,9 +1,4 @@
-import {
-  getCapacitorNativeDiagnostics,
-  isCapacitorNativePlatform,
-  readDibayAppPlatformMarker,
-} from "@/lib/platform/capacitor-native";
-import type { OAuthRedirectMismatchReason } from "@/lib/auth/oauth-redirect-contract";
+import type { OAuthRedirectMismatchReason } from "@/lib/auth/oauth/redirect-contract";
 
 function safeConsoleInfo(label: string, payload?: Record<string, unknown>): void {
   if (typeof console === "undefined") return;
@@ -14,21 +9,6 @@ function safeConsoleInfo(label: string, payload?: Record<string, unknown>): void
   console.info(label);
 }
 
-/** OAuth 시작 직전 — provider / redirectTo / native 감지 스냅샷 */
-export function logOAuthSignInStart(provider: string, redirectTo: string): void {
-  safeConsoleInfo("[oauth] provider", { value: provider });
-  const diagnostics = getCapacitorNativeDiagnostics();
-  safeConsoleInfo("[oauth] isNative", {
-    value: isCapacitorNativePlatform(),
-    ...diagnostics,
-  });
-  safeConsoleInfo("[oauth] redirectTo", { value: redirectTo });
-  safeConsoleInfo("[oauth] platformMarker", {
-    value: readDibayAppPlatformMarker(),
-  });
-}
-
-/** Supabase authorize URL 에서 redirect_to 추출 (디코드) */
 export function extractRedirectToFromAuthorizeUrl(authorizeUrl: string): string | null {
   const trimmed = authorizeUrl.trim();
   if (!trimmed) return null;
@@ -56,23 +36,20 @@ export function extractAuthorizeHost(authorizeUrl: string): string | null {
   }
 }
 
+export function logOAuthStartRequest(provider: string, redirectTo: string, isNative: boolean): void {
+  safeConsoleInfo("[oauth] start_request", { provider, redirectTo, isNative });
+}
+
 export function logOAuthAuthorizeUrl(authorizeUrl: string, provider?: string): void {
   const trimmed = authorizeUrl.trim();
   if (!trimmed) return;
-  const redirectTo = extractRedirectToFromAuthorizeUrl(trimmed);
-  const authorizeHost = extractAuthorizeHost(trimmed);
   if (provider) {
     safeConsoleInfo("[oauth] provider", { value: provider });
   }
-  safeConsoleInfo("[oauth] redirect_to", { value: redirectTo });
-  safeConsoleInfo("[oauth] authorizeHost", { value: authorizeHost });
-}
-
-export function logOAuthRedirectToMissing(provider: string, authorizeUrl: string): void {
-  safeConsoleInfo("[oauth] redirect_to_missing", {
-    provider,
-    authorizeHost: extractAuthorizeHost(authorizeUrl),
+  safeConsoleInfo("[oauth] redirect_to", {
+    value: extractRedirectToFromAuthorizeUrl(trimmed),
   });
+  safeConsoleInfo("[oauth] authorizeHost", { value: extractAuthorizeHost(trimmed) });
 }
 
 export function logOAuthRedirectMismatch(
@@ -84,6 +61,13 @@ export function logOAuthRedirectMismatch(
     requested: requestedRedirectTo,
     authorizeRedirectTo,
     reason,
+  });
+}
+
+export function logOAuthRedirectToMissing(provider: string, authorizeUrl: string): void {
+  safeConsoleInfo("[oauth] redirect_to_missing", {
+    provider,
+    authorizeHost: extractAuthorizeHost(authorizeUrl),
   });
 }
 
@@ -123,10 +107,13 @@ export function logOAuthLaunchNavigation(url: string): void {
   safeConsoleInfo("[oauth] launch_navigation", { url: url.trim() });
 }
 
-export function logOAuthLaunchSurfaceConfirmed(source: string): void {
-  safeConsoleInfo("[oauth] launch_surface_confirmed", { source });
+export function logAuthCallbackExchangeSuccess(provider?: string | null): void {
+  safeConsoleInfo("[authCallback] exchange_success", { provider: provider ?? null });
 }
 
-export function logOAuthLaunchSurfaceMissing(timeoutMs: number): void {
-  safeConsoleInfo("[oauth] launch_surface_missing", { timeoutMs });
+export function logAuthCallbackExchangeFailed(reason?: string, provider?: string | null): void {
+  safeConsoleInfo("[authCallback] exchange_failed", {
+    provider: provider ?? null,
+    reason: reason?.trim() || "unknown",
+  });
 }

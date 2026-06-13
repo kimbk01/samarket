@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { handleCapacitorOAuthReturnUrl } from "@/lib/auth/capacitor-oauth-return";
-import { notifyOAuthAppUrlOpenReceived } from "@/lib/auth/oauth-pending-lifecycle";
-import { logAppUrlOpenMounted } from "@/lib/auth/oauth-flow-log";
+import { handleOAuthReturnUrl } from "@/lib/auth/oauth/return-bridge";
+import { logAppUrlOpenMounted } from "@/lib/auth/oauth/log";
+import { notifyOAuthAppUrlOpenReceived } from "@/lib/auth/oauth/pending";
+import { ensureOAuthPendingListeners } from "@/lib/auth/oauth/pending";
 import {
   getCapacitorNativeDiagnostics,
   shouldRegisterCapacitorOAuthReturnListener,
@@ -19,14 +20,12 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Capacitor Android/iOS: OAuth 완료 후 `dibay://auth/callback` deep link 수신 →
- * WebView HTTPS `/auth/callback` 브릿지 (서버 세션 교환 재사용).
- *
- * 원격 server.url WebView 에서 Capacitor bridge 주입이 늦을 수 있어 짧게 재시도한다.
- * 웹 브라우저(Capacitor 없음)에서는 import 실패/미등록으로 조용히 종료한다.
+ * Capacitor Android/iOS: OAuth 완료 후 `dibay://auth/callback` → WebView `/auth/callback` 브릿지.
  */
-export function CapacitorOAuthReturnListener() {
+export function OAuthReturnListener() {
   useEffect(() => {
+    ensureOAuthPendingListeners();
+
     let removeAppUrlOpen: (() => void) | undefined;
     let cancelled = false;
 
@@ -51,12 +50,12 @@ export function CapacitorOAuthReturnListener() {
       const launch = await App.getLaunchUrl();
       if (launch?.url) {
         notifyOAuthAppUrlOpenReceived(launch.url);
-        void handleCapacitorOAuthReturnUrl(launch.url);
+        void handleOAuthReturnUrl(launch.url);
       }
 
       const listener = await App.addListener("appUrlOpen", (event) => {
         notifyOAuthAppUrlOpenReceived(event.url);
-        void handleCapacitorOAuthReturnUrl(event.url);
+        void handleOAuthReturnUrl(event.url);
       });
       removeAppUrlOpen = () => {
         void listener.remove();

@@ -32,6 +32,34 @@ dibaY는 Supabase Auth OAuth 단일 구조입니다.
 
 실기기 QA: [docs/native-oauth-device-qa.md](./native-oauth-device-qa.md)
 
+## OAuth 시작·복귀 (Google / Kakao / Apple)
+
+Supabase OAuth(Google·Kakao·Apple)는 **서버 주도 start** + 단일 클라이언트 hook(`useOAuthLogin`)으로 동작합니다. Naver·비밀번호 로그인은 별도 경로를 유지합니다.
+
+### Web / PWA
+
+1. 버튼 클릭 → `window.location.assign('/api/auth/oauth/start?provider=...')`
+2. 서버 `signInWithOAuth({ skipBrowserRedirect: true })` → **302** provider authorize URL (+ PKCE cookies)
+3. provider → `{origin}/auth/callback?code=...` → `exchangeCodeForSession`
+
+### Capacitor Native (Android / iOS)
+
+PKCE verifier는 **WebView 쿠키**에 저장되어야 `/auth/callback` exchange가 성공합니다. Custom Tab에 start URL만 열면 PKCE가 분리됩니다.
+
+1. 버튼 클릭 → WebView `fetch('/api/auth/oauth/start?provider=...&launch=native', { credentials: 'include', headers: { Accept: 'application/json' } })`
+2. 서버 → **200** `{ ok: true, authorizeUrl }` + PKCE `Set-Cookie` (WebView)
+3. WebView → `Browser.open(authorizeUrl)` (Custom Tab)
+4. provider → `dibay://auth/callback?code=...` → `OAuthReturnListener` (`appUrlOpen`) → HTTPS `/auth/callback` 브릿지 → exchange
+
+관련 코드:
+
+- Start API: `app/api/auth/oauth/start/route.ts`
+- 클라이언트: `lib/auth/oauth/start.ts`, `lib/auth/oauth/use-oauth-login.ts`
+- 복귀: `lib/auth/oauth/return-bridge.ts`, `components/auth/OAuthReturnListener.tsx`
+- Callback (유지): `app/auth/callback/route.ts`
+
+Logcat 필터: `oauth|appUrlOpen|authCallback` — [native-oauth-device-qa.md](./native-oauth-device-qa.md)
+
 ## Google
 
 1. Google Cloud Console에서 OAuth Client를 생성합니다.
@@ -84,10 +112,7 @@ Supabase가 표시하는 callback URL을 Naver Developers의 callback URL에 등
 
 ## App-side Notes
 
-- Google: `provider: "google"`
-- Kakao: `provider: "kakao"`
-- Naver: `provider: "naver"`
-- Apple: `provider: "apple"`
-- Facebook: `provider: "facebook"`
+- Google / Kakao / Apple: `GET /api/auth/oauth/start?provider=...` (native: `launch=native` + fetch-then-`Browser.open`)
+- Naver: `GET /api/auth/naver/start?next=...` (별도 custom provider)
 - OAuth callback path: `/auth/callback` (legacy `/api/auth/oauth/callback` is redirect-only)
 - 로그인 완료 후 서버가 `profiles.active_session_id` 와 httpOnly 쿠키를 함께 갱신합니다.

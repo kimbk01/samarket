@@ -1,5 +1,4 @@
-import { NATIVE_OAUTH_CALLBACK_URL } from "@/lib/auth/capacitor-oauth-return";
-import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { NATIVE_OAUTH_CALLBACK_URL } from "@/lib/auth/oauth/config";
 
 export type OAuthRedirectMismatchReason =
   | "native_https_redirect"
@@ -38,35 +37,28 @@ function isHttpsRedirect(url: string): boolean {
   }
 }
 
-/**
- * native 환경에서 redirectTo 가 dibay scheme 인지 검증한다.
- * native인데 HTTPS redirect면 launch 전 FAIL-fast 대상.
- */
-export function assertNativeOAuthRedirectExpected(redirectTo: string): {
+export function assertNativeOAuthRedirectExpected(
+  redirectTo: string,
+  isNative: boolean,
+): {
   ok: boolean;
   reason: OAuthRedirectMismatchReason;
-  isNative: boolean;
 } {
-  const isNative = isCapacitorNativePlatform();
   if (!isNative) {
-    return { ok: true, reason: null, isNative: false };
+    return { ok: true, reason: null };
   }
 
   if (isNativeSchemeRedirect(redirectTo)) {
-    return { ok: true, reason: null, isNative: true };
+    return { ok: true, reason: null };
   }
 
   if (isHttpsRedirect(redirectTo)) {
-    return { ok: false, reason: "native_https_redirect", isNative: true };
+    return { ok: false, reason: "native_https_redirect" };
   }
 
-  return { ok: false, reason: "native_https_redirect", isNative: true };
+  return { ok: false, reason: "native_https_redirect" };
 }
 
-/**
- * 요청한 redirectTo 와 Supabase authorize URL 내부 redirect_to 가 일치하는지 검증.
- * native에서 dibay 요청 + authorize URL이 https → Supabase whitelist 폴백.
- */
 export function detectRedirectToMismatch(
   requestedRedirectTo: string,
   authorizeRedirectTo: string | null,
@@ -103,15 +95,14 @@ export function isNativeOAuthCallbackUrl(url: string): boolean {
   return normalized === nativeBase;
 }
 
-/**
- * native 환경에서 Supabase authorize URL 의 redirect_to 가 반드시 있어야 한다.
- * web/PWA 는 기존 흐름 유지(검사 스킵).
- */
-export function assertNativeAuthorizeRedirectToPresent(authorizeRedirectTo: string | null): {
+export function assertNativeAuthorizeRedirectToPresent(
+  authorizeRedirectTo: string | null,
+  isNative: boolean,
+): {
   ok: boolean;
   reason: OAuthRedirectMismatchReason;
 } {
-  if (!isCapacitorNativePlatform()) {
+  if (!isNative) {
     return { ok: true, reason: null };
   }
 

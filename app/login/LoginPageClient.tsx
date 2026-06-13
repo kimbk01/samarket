@@ -1,15 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { buildNaverOAuthStartPath, createOAuthRedirectTo } from "@/lib/auth/get-oauth-redirect-url";
-import { logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
-import { startSupabaseOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
@@ -19,14 +15,10 @@ import {
 } from "@/lib/auth/login-bootstrap-cache";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
-import { logNativeOAuthCallbackExchangeFailed } from "@/lib/auth/native-oauth-callback-trace";
-import {
-  clearOAuthPending,
-  confirmOAuthPendingLaunched,
-  setOAuthPending,
-} from "@/lib/auth/oauth-pending-lifecycle";
-import { useOAuthPendingProvider } from "@/lib/auth/use-oauth-pending-provider";
-import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
+import { clearOAuthPending } from "@/lib/auth/oauth/pending";
+import { logAuthCallbackExchangeFailed } from "@/lib/auth/oauth/log";
+import { mapOAuthStartError } from "@/lib/auth/oauth/errors";
+import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -37,7 +29,6 @@ import {
   AUTH_IDENTIFIER_RESOLVE_TIMEOUT_SIGNAL,
   AUTH_REQUEST_TIMEOUT_SIGNAL,
   mapAuthErrorMessage,
-  mapOAuthSignInErrorMessage,
   mapPasswordLoginErrorMessage,
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
@@ -100,7 +91,9 @@ function LoginPageContent() {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
-  const pendingOAuthProvider = useOAuthPendingProvider();
+  const { pendingOAuthProvider, oauthError, startOAuthProvider } = useOAuthLogin({
+    next: next ?? null,
+  });
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -140,9 +133,16 @@ function LoginPageContent() {
     if (!code) return;
     clearOAuthPending("exchange_failed");
     if (authError === "callback_failed" || authError === "missing_code") {
-      logNativeOAuthCallbackExchangeFailed(authErrorDetail || code);
+      logAuthCallbackExchangeFailed(authErrorDetail || code);
     }
-    const message = mapAuthErrorMessage(code, authErrorDetail, t);
+    const message =
+      code.startsWith("oauth_") ||
+      code === "native_oauth_redirect_invalid" ||
+      code === "invalid_provider" ||
+      code === "supabase_unconfigured" ||
+      code === "missing_authorize_url"
+        ? mapOAuthStartError(code, t)
+        : mapAuthErrorMessage(code, authErrorDetail, t);
     setError((prev) => (prev === message ? prev : message));
     if (typeof window !== "undefined") window.alert(message);
     // `auth_error`/`error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
@@ -423,60 +423,11 @@ function LoginPageContent() {
     }
   };
 
-  const handleOAuthLogin = async (provider: OAuthProvider) => {
-    if (pendingOAuthProvider) return;
-
-    flushSync(() => {
-      ensureCapacitorNativeMarkerOnBoot();
-      setError((prev) => (prev === "" ? prev : ""));
-      setOAuthPending(provider);
-    });
-
-    try {
-      if (provider === "naver") {
-        window.location.assign(buildNaverOAuthStartPath(next ?? null));
-        confirmOAuthPendingLaunched();
-        return;
-      }
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        const nextError = t("auth_err_supabase_unconfigured");
-        setError((prev) => (prev === nextError ? prev : nextError));
-        clearOAuthPending("launch_failed");
-        return;
-      }
-      const callbackUrl = createOAuthRedirectTo({
-        origin: window.location.origin,
-        provider,
-        next: next ?? null,
-      });
-      logOAuthSignInStart(provider, callbackUrl);
-      const oauthResult = await withTimeout(
-        startSupabaseOAuthSignIn(supabase, provider, callbackUrl),
-        AUTH_REQUEST_TIMEOUT_MS,
-        AUTH_REQUEST_TIMEOUT_SIGNAL
-      );
-      if (!oauthResult.ok) {
-        const nextError = mapOAuthSignInErrorMessage(
-          oauthResult.errorMessage,
-          oauthResult.errorCode,
-          t,
-        );
-        setError((prev) => (prev === nextError ? prev : nextError));
-        clearOAuthPending("launch_failed");
-        return;
-      }
-      confirmOAuthPendingLaunched();
-    } catch (e) {
-      if (e instanceof Error && e.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
-        setError((prev) => (prev === t("auth_err_auth_timeout") ? prev : t("auth_err_auth_timeout")));
-      } else {
-        const nextError = mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(e), t);
-        setError((prev) => (prev === nextError ? prev : nextError));
-      }
-      clearOAuthPending("launch_failed");
-    }
+  const handleOAuthLogin = (provider: OAuthProvider) => {
+    void startOAuthProvider(provider);
   };
+
+  const displayError = error || oauthError || "";
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
@@ -510,7 +461,7 @@ function LoginPageContent() {
           <PasswordLoginForm
             identifier={identifier}
             password={password}
-            error={error}
+            error={displayError}
             loading={loading}
             loadingText={passwordLoginStatus}
             disabled={loading || pendingOAuthProvider != null}
@@ -519,8 +470,8 @@ function LoginPageContent() {
             onPasswordChange={setPassword}
             onSubmit={handleEmailSubmit}
           />
-        ) : error ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{error}</p>
+        ) : displayError ? (
+          <p className="mt-4 sam-text-body-secondary text-red-600">{displayError}</p>
         ) : null}
       </div>
     </div>

@@ -1,5 +1,6 @@
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { SupabaseFetchFailureDescription } from "@/lib/supabase/describe-supabase-fetch-failure";
+import { mapOAuthSignInErrorMessage as mapOAuthSignInErrorMessageFromOAuth } from "@/lib/auth/oauth/errors";
 
 /** `withTimeout` / `rejectAfter` 식별용 — UI 문구는 `auth_err_auth_timeout` */
 export const AUTH_REQUEST_TIMEOUT_SIGNAL = "@@samarket_auth_request_timeout@@";
@@ -55,28 +56,7 @@ export function mapOAuthSignInErrorMessage(
   errorCode: string | undefined,
   t: TranslateFn,
 ): string {
-  const message = String(errorMessage ?? "").trim();
-  if (message === "missing_authorize_url") return t("auth_err_oauth_authorize_url_failed");
-  if (message === "oauth_redirect_mismatch" || errorCode === "supabase_whitelist_fallback") {
-    return t("auth_err_oauth_redirect_mismatch");
-  }
-  if (message === "oauth_redirect_missing" || errorCode === "redirect_to_missing") {
-    return t("auth_err_oauth_redirect_missing");
-  }
-  if (message === "native_oauth_redirect_invalid" || errorCode === "native_https_redirect") {
-    return t("auth_err_native_oauth_redirect_invalid");
-  }
-  if (message === "oauth_launch_failed" || errorCode === "browser_plugin_unavailable") {
-    return t("auth_err_oauth_browser_plugin_unavailable");
-  }
-  if (errorCode === "browser_open_rejected" || errorCode === "browser_surface_not_opened") {
-    return t("auth_err_oauth_browser_open_failed");
-  }
-  if (errorCode === "navigation_failed") {
-    return t("auth_err_oauth_launch_navigation_failed");
-  }
-  if (message) return message;
-  return t("auth_err_oauth_start_failed");
+  return mapOAuthSignInErrorMessageFromOAuth(errorMessage, errorCode, t);
 }
 
 export function mapSupabaseFetchFailureToMessage(

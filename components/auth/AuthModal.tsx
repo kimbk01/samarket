@@ -1,21 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { flushSync } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { buildNaverOAuthStartPath, createOAuthRedirectTo } from "@/lib/auth/get-oauth-redirect-url";
-import { logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
-import { startSupabaseOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
 import {
   AUTH_REQUEST_TIMEOUT_SIGNAL,
-  mapOAuthSignInErrorMessage,
   mapPasswordLoginErrorMessage,
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
@@ -25,13 +20,7 @@ import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeFreshLoginLandingPath } from "@/lib/auth/safe-next-path";
-import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
-import {
-  clearOAuthPending,
-  confirmOAuthPendingLaunched,
-  setOAuthPending,
-} from "@/lib/auth/oauth-pending-lifecycle";
-import { useOAuthPendingProvider } from "@/lib/auth/use-oauth-pending-provider";
+import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
@@ -71,7 +60,6 @@ export function AuthModal({ open, detail, onClose }: Props) {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
-  const pendingOAuthProvider = useOAuthPendingProvider();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -84,14 +72,21 @@ export function AuthModal({ open, detail, onClose }: Props) {
     return `${window.location.pathname}${window.location.search}`;
   }, [detail?.next]);
 
+  const {
+    pendingOAuthProvider,
+    oauthError,
+    startOAuthProvider,
+    resetOAuthOnClose,
+  } = useOAuthLogin({ next });
+
   useEffect(() => {
     if (open) return;
     setShowEmailLogin(false);
     setError(null);
     setIdentifier("");
     setPassword("");
-    clearOAuthPending("manual");
-  }, [open]);
+    resetOAuthOnClose();
+  }, [open, resetOAuthOnClose]);
 
   useEffect(() => {
     if (!open) return;
@@ -232,57 +227,13 @@ export function AuthModal({ open, detail, onClose }: Props) {
   );
 
   const handleOAuthLogin = useCallback(
-    async (provider: OAuthProvider) => {
-      if (pendingOAuthProvider) return;
-
-      flushSync(() => {
-        ensureCapacitorNativeMarkerOnBoot();
-        setError(null);
-        setOAuthPending(provider);
-      });
-
-      try {
-        if (provider === "naver") {
-          window.location.assign(buildNaverOAuthStartPath(next));
-          confirmOAuthPendingLaunched();
-          return;
-        }
-        const supabase = getSupabaseClient();
-        if (!supabase) {
-          setError(t("auth_err_supabase_unconfigured"));
-          clearOAuthPending("launch_failed");
-          return;
-        }
-        const callbackUrl = createOAuthRedirectTo({
-          origin: window.location.origin,
-          provider,
-          next,
-        });
-        logOAuthSignInStart(provider, callbackUrl);
-        const oauthResult = await withTimeout(
-          startSupabaseOAuthSignIn(supabase, provider, callbackUrl),
-          AUTH_REQUEST_TIMEOUT_MS,
-          AUTH_REQUEST_TIMEOUT_SIGNAL,
-        );
-        if (!oauthResult.ok) {
-          setError(
-            mapOAuthSignInErrorMessage(oauthResult.errorMessage, oauthResult.errorCode, t),
-          );
-          clearOAuthPending("launch_failed");
-          return;
-        }
-        confirmOAuthPendingLaunched();
-      } catch (err) {
-        if (err instanceof Error && err.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
-          setError(t("auth_err_auth_timeout"));
-        } else {
-          setError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(err), t));
-        }
-        clearOAuthPending("launch_failed");
-      }
+    (provider: OAuthProvider) => {
+      void startOAuthProvider(provider);
     },
-    [next, pendingOAuthProvider, t],
+    [startOAuthProvider],
   );
+
+  const displayError = error ?? oauthError;
 
   return (
     <AuthGateOverlay open={open} onClose={onClose} labelledBy="dibay-auth-modal-title">
@@ -318,7 +269,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
           <PasswordLoginForm
             identifier={identifier}
             password={password}
-            error={error}
+            error={displayError}
             disabled={loading || pendingOAuthProvider != null}
             loading={loading}
             loadingText={passwordLoginStatus}

@@ -1,4 +1,8 @@
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
+import {
+  OAUTH_FOREGROUND_CLEAR_DELAY_MS,
+  OAUTH_PENDING_RETURN_TIMEOUT_NATIVE_MS,
+} from "@/lib/auth/oauth/config";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 export type OAuthPendingClearReason =
@@ -9,14 +13,6 @@ export type OAuthPendingClearReason =
   | "timeout"
   | "launch_failed"
   | "manual";
-
-/** Native Custom Tab 복귀 대기 — appUrlOpen 없을 때 해제 */
-export const OAUTH_PENDING_RETURN_TIMEOUT_NATIVE_MS = 60_000;
-/** Web OAuth 복귀 대기 */
-export const OAUTH_PENDING_RETURN_TIMEOUT_WEB_MS = 30_000;
-
-/** appUrlOpen 과 visibilitychange visible 경쟁 완화 */
-const OAUTH_FOREGROUND_CLEAR_DELAY_MS = 300;
 
 const CLEAR_LOG_LABELS: Record<OAuthPendingClearReason, string> = {
   app_url_open: "[oauth] pending_clear_app_url_open",
@@ -74,17 +70,12 @@ function clearForegroundClearTimeout(): void {
   }
 }
 
-function readReturnTimeoutMs(): number {
-  return isCapacitorNativePlatform()
-    ? OAUTH_PENDING_RETURN_TIMEOUT_NATIVE_MS
-    : OAUTH_PENDING_RETURN_TIMEOUT_WEB_MS;
-}
-
 function armReturnTimeout(): void {
+  if (!isCapacitorNativePlatform()) return;
   clearReturnTimeout();
   returnTimeoutId = setTimeout(() => {
     clearOAuthPending("timeout");
-  }, readReturnTimeoutMs());
+  }, OAUTH_PENDING_RETURN_TIMEOUT_NATIVE_MS);
 }
 
 function handleVisibilityChange(): void {
@@ -100,14 +91,14 @@ function handleVisibilityChange(): void {
   }, OAUTH_FOREGROUND_CLEAR_DELAY_MS);
 }
 
-export function ensureOAuthPendingLifecycleListeners(): void {
+export function ensureOAuthPendingListeners(): void {
   if (listenersRegistered || typeof document === "undefined") return;
   listenersRegistered = true;
   document.addEventListener("visibilitychange", handleVisibilityChange);
 }
 
 export function subscribeOAuthPending(onStoreChange: () => void): () => void {
-  ensureOAuthPendingLifecycleListeners();
+  ensureOAuthPendingListeners();
   subscribers.add(onStoreChange);
   return () => {
     subscribers.delete(onStoreChange);
@@ -118,11 +109,6 @@ export function getOAuthPendingProvider(): OAuthProvider | null {
   return snapshot.provider;
 }
 
-export function getOAuthPendingSnapshot(): PendingSnapshot {
-  return snapshot;
-}
-
-/** OAuth 버튼 클릭 직후 — UI pending 표시 (launch 전) */
 export function setOAuthPending(provider: OAuthProvider): void {
   clearReturnTimeout();
   clearForegroundClearTimeout();
@@ -135,7 +121,6 @@ export function setOAuthPending(provider: OAuthProvider): void {
   emitChange();
 }
 
-/** authorize URL launch 성공 후 — appUrlOpen/취소/timeout 대기 */
 export function confirmOAuthPendingLaunched(): void {
   if (!snapshot.provider) return;
   snapshot = {
@@ -147,17 +132,13 @@ export function confirmOAuthPendingLaunched(): void {
   emitChange();
 }
 
-/** Capacitor appUrlOpen (또는 cold-start getLaunchUrl) 수신 */
 export function notifyOAuthAppUrlOpenReceived(url?: string): void {
   if (!snapshot.provider) return;
-  snapshot = {
-    ...snapshot,
-    sawAppUrlOpen: true,
-  };
+  const provider = snapshot.provider;
   clearForegroundClearTimeout();
   clearReturnTimeout();
   safeConsoleInfo(CLEAR_LOG_LABELS.app_url_open, {
-    provider: snapshot.provider,
+    provider,
     url: url?.trim() || null,
   });
   snapshot = {
@@ -183,8 +164,7 @@ export function clearOAuthPending(reason: OAuthPendingClearReason): void {
   emitChange();
 }
 
-/** 테스트·모달 닫기 등 — 전역 pending 초기화 */
-export function resetOAuthPendingLifecycleForTests(): void {
+export function resetOAuthPendingForTests(): void {
   clearReturnTimeout();
   clearForegroundClearTimeout();
   listenersRegistered = false;
