@@ -144,8 +144,10 @@
     "generate:vapid": "node scripts/generate-vapid-keys.cjs",
     "generate:apple-client-secret": "node scripts/generate-apple-client-secret.mjs",
     "cap:sync": "npx cap sync",
+    "cap:add:android": "npx cap add android",
+    "cap:sync:android": "npx cap sync android",
     "cap:open:android": "npx cap open android",
-    "cap:open:ios": "npx cap open ios",
+    "cap:assets:android": "npx capacitor-assets generate --android",
     "sql:copy:community-feed-daangn": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260321120000_community_feed_daangn.sql",
     "sql:copy:dangnae": "node scripts/copy-sql-clipboard.mjs supabase/scripts/paste-dangnae-community-sample.sql",
     "sql:copy:meetings": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260326120000_neighborhood_community.sql",
@@ -159,6 +161,7 @@
     "apply:r2-d1-delivery-schema": "node scripts/apply-r2-d1-delivery-schema-catchup.mjs"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
@@ -181,6 +184,8 @@
     "zustand": "^5.0.12"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.3.0",
     "@capacitor/core": "^8.3.0",
     "@next/bundle-analyzer": "^16.2.4",

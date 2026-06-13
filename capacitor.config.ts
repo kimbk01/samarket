@@ -10,22 +10,25 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * 키보드·세이프영역: 웹은 `visualViewport` 기반이지만, 앱에서 inset 을 직접 줄 수 있으면
  * `lib/platform/samarket-shell-keyboard.ts` 의 `window.samarketShell` 계약을 구현해 주면
  * 채팅·메신저 레이아웃이 동일 코드로 네이티브 정밀도에 맞춰진다.
+ *
+ * OAuth Android/iOS 복귀 deep link: `dibay://auth/callback` (AndroidManifest intent-filter).
+ * `androidScheme` 은 WebView 내부 scheme 용이며 OAuth deep link 와 별개다.
  */
+const DEFAULT_CAPACITOR_SERVER_URL = "https://samarket.vercel.app";
+
 const serverUrl =
-  process.env.CAPACITOR_SERVER_URL?.trim() || process.env.NEXT_PUBLIC_SITE_URL?.trim() || "";
+  process.env.CAPACITOR_SERVER_URL?.trim() ||
+  process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+  DEFAULT_CAPACITOR_SERVER_URL;
 
 const config: CapacitorConfig = {
-  appId: "io.samarket.app",
-  appName: "dibaY",
+  appId: "com.dibay.app",
+  appName: "DIBAY",
   webDir: "capacitor-www",
-  ...(serverUrl
-    ? {
-        server: {
-          url: serverUrl.replace(/\/$/, ""),
-          cleartext: serverUrl.startsWith("http://"),
-        },
-      }
-    : {}),
+  server: {
+    url: serverUrl.replace(/\/$/, ""),
+    cleartext: serverUrl.startsWith("http://"),
+  },
 };
 
 export default config;

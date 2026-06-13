@@ -1,8 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-type CapacitorGlobal = {
-  isNativePlatform?: () => boolean;
-};
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 /**
  * Google OAuth `disallowed_useragent` 는 WebView·SNS 인앱 브라우저 등
@@ -11,10 +8,7 @@ type CapacitorGlobal = {
 export function isEmbeddedOAuthUserAgent(userAgent = typeof navigator !== "undefined" ? navigator.userAgent : ""): boolean {
   if (!userAgent) return false;
 
-  const capacitor = (typeof window !== "undefined"
-    ? (window as Window & { Capacitor?: CapacitorGlobal }).Capacitor
-    : undefined) as CapacitorGlobal | undefined;
-  if (capacitor?.isNativePlatform?.() === true) return true;
+  if (isCapacitorNativePlatform()) return true;
 
   if (typeof window !== "undefined" && (window as Window & { ReactNativeWebView?: unknown }).ReactNativeWebView) {
     return true;

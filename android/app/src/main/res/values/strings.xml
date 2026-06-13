@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DIBAY</string>
+    <string name="title_activity_main">DIBAY</string>
+    <string name="package_name">com.dibay.app</string>
+    <string name="custom_url_scheme">com.dibay.app</string>
+</resources>
