@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
@@ -93,7 +94,8 @@ function LoginPageContent() {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
-  const [oauthBusy, setOauthBusy] = useState<string | null>(null);
+  const [pendingOAuthProvider, setPendingOAuthProvider] = useState<OAuthProvider | null>(null);
+  const pendingOAuthProviderRef = useRef<OAuthProvider | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -416,11 +418,19 @@ function LoginPageContent() {
   };
 
   const handleOAuthLogin = async (provider: OAuthProvider) => {
-    setError((prev) => (prev === "" ? prev : ""));
-    setOauthBusy((prev) => (prev === provider ? prev : provider));
+    if (pendingOAuthProviderRef.current) return;
+
+    pendingOAuthProviderRef.current = provider;
+    flushSync(() => {
+      setError((prev) => (prev === "" ? prev : ""));
+      setPendingOAuthProvider(provider);
+    });
+
+    let keepPending = false;
     try {
       if (provider === "naver") {
         window.location.assign(buildNaverOAuthStartPath(next ?? null));
+        keepPending = true;
         return;
       }
       ensureCapacitorNativeMarkerOnBoot();
@@ -430,7 +440,6 @@ function LoginPageContent() {
         setError((prev) => (prev === nextError ? prev : nextError));
         return;
       }
-      // 콜백이 다시 사용할 next 를 redirectTo 에 함께 부착한다.
       const callbackUrl = createOAuthRedirectTo({
         origin: window.location.origin,
         provider,
@@ -449,7 +458,9 @@ function LoginPageContent() {
           t,
         );
         setError((prev) => (prev === nextError ? prev : nextError));
+        return;
       }
+      keepPending = true;
     } catch (e) {
       if (e instanceof Error && e.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
         setError((prev) => (prev === t("auth_err_auth_timeout") ? prev : t("auth_err_auth_timeout")));
@@ -458,7 +469,10 @@ function LoginPageContent() {
         setError((prev) => (prev === nextError ? prev : nextError));
       }
     } finally {
-      setOauthBusy((prev) => (prev === null ? prev : null));
+      if (!keepPending) {
+        pendingOAuthProviderRef.current = null;
+        setPendingOAuthProvider(null);
+      }
     }
   };
 
@@ -472,8 +486,8 @@ function LoginPageContent() {
         <div className="mt-5">
           <LoginProviderButtons
             providers={providers}
-            disabled={Boolean(oauthBusy) || loading}
-            busyProvider={oauthBusy}
+            disabled={loading}
+            pendingOAuthProvider={pendingOAuthProvider}
             emptyText={
               providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")
             }
@@ -497,7 +511,7 @@ function LoginPageContent() {
             error={error}
             loading={loading}
             loadingText={passwordLoginStatus}
-            disabled={loading || Boolean(oauthBusy)}
+            disabled={loading || pendingOAuthProvider != null}
             className="mt-4 space-y-4"
             onIdentifierChange={setIdentifier}
             onPasswordChange={setPassword}

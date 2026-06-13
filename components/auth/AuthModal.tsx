@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
@@ -64,7 +65,8 @@ export function AuthModal({ open, detail, onClose }: Props) {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
-  const [oauthBusy, setOauthBusy] = useState<string | null>(null);
+  const [pendingOAuthProvider, setPendingOAuthProvider] = useState<OAuthProvider | null>(null);
+  const pendingOAuthProviderRef = useRef<OAuthProvider | null>(null);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,8 @@ export function AuthModal({ open, detail, onClose }: Props) {
     setError(null);
     setIdentifier("");
     setPassword("");
+    pendingOAuthProviderRef.current = null;
+    setPendingOAuthProvider(null);
   }, [open]);
 
   useEffect(() => {
@@ -225,11 +229,19 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const handleOAuthLogin = useCallback(
     async (provider: OAuthProvider) => {
-      setError(null);
-      setOauthBusy(provider);
+      if (pendingOAuthProviderRef.current) return;
+
+      pendingOAuthProviderRef.current = provider;
+      flushSync(() => {
+        setError(null);
+        setPendingOAuthProvider(provider);
+      });
+
+      let keepPending = false;
       try {
         if (provider === "naver") {
           window.location.assign(buildNaverOAuthStartPath(next));
+          keepPending = true;
           return;
         }
         ensureCapacitorNativeMarkerOnBoot();
@@ -253,7 +265,9 @@ export function AuthModal({ open, detail, onClose }: Props) {
           setError(
             mapOAuthSignInErrorMessage(oauthResult.errorMessage, oauthResult.errorCode, t),
           );
+          return;
         }
+        keepPending = true;
       } catch (err) {
         if (err instanceof Error && err.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
           setError(t("auth_err_auth_timeout"));
@@ -261,7 +275,10 @@ export function AuthModal({ open, detail, onClose }: Props) {
           setError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(err), t));
         }
       } finally {
-        setOauthBusy(null);
+        if (!keepPending) {
+          pendingOAuthProviderRef.current = null;
+          setPendingOAuthProvider(null);
+        }
       }
     },
     [next, t],
@@ -290,8 +307,8 @@ export function AuthModal({ open, detail, onClose }: Props) {
       <div className="mt-5 space-y-4">
         <LoginProviderButtons
           providers={providers}
-          disabled={Boolean(oauthBusy) || loading}
-          busyProvider={oauthBusy}
+          disabled={loading}
+          pendingOAuthProvider={pendingOAuthProvider}
           emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
           showEmailEntry={passwordEnabled}
           onEmailLoginClick={() => setShowEmailLogin(true)}
@@ -302,7 +319,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
             identifier={identifier}
             password={password}
             error={error}
-            disabled={loading || Boolean(oauthBusy)}
+            disabled={loading || pendingOAuthProvider != null}
             loading={loading}
             loadingText={passwordLoginStatus}
             className="mt-4 space-y-4"
