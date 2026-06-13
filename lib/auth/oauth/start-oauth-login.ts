@@ -1,6 +1,8 @@
 "use client";
 
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
+import { NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS, NATIVE_OAUTH_LAUNCH_PATH, NATIVE_OAUTH_START_FETCH_TIMEOUT_MS, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
+import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { isNativeOAuthSupabaseRedirectUrl } from "@/lib/auth/oauth/native-oauth-redirect";
 import {
   DIBAY_APP_MARKER_PARAM,
@@ -12,10 +14,19 @@ import {
 } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "apple"]);
-export const OAUTH_START_FETCH_TIMEOUT_MS = 10_000;
-export const NATIVE_OAUTH_LAUNCH_PATH = "/auth/oauth/launch";
-export const NATIVE_OAUTH_REDIRECT_PREFIX = "dibay://auth/callback";
-const BRIDGE_READY_BEFORE_START_MS = 5_000;
+
+export { NATIVE_OAUTH_LAUNCH_PATH, NATIVE_OAUTH_START_FETCH_TIMEOUT_MS };
+
+/** UI 노출 — Facebook(start 미연결) 제외 */
+export function isOAuthLoginStartSupported(provider: OAuthProvider): boolean {
+  if (provider === "facebook") return false;
+  return (
+    provider === "google"
+    || provider === "kakao"
+    || provider === "apple"
+    || provider === "naver"
+  );
+}
 
 type OAuthStartResponse =
   | { ok: true; authorizeUrl: string; provider: string; redirectTo: string }
@@ -67,12 +78,6 @@ function startError(code: string, message?: string): Error {
   return err;
 }
 
-/** OAuthReturnListener Browser.close warm-up */
-export function preloadOAuthBrowser(): void {
-  if (typeof window === "undefined") return;
-  void import("@capacitor/browser").then(({ Browser }) => Browser.close().catch(() => undefined));
-}
-
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -99,7 +104,7 @@ export async function fetchNativeOAuthAuthorizeUrl(
   ensureCapacitorNativeMarkerOnBoot();
 
   if (!isCapacitorBridgeReady()) {
-    const ready = await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_BEFORE_START_MS });
+    const ready = await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
     if (!ready) {
       throw startError("oauth_bridge_not_ready", "Capacitor native bridge is not ready.");
     }
@@ -111,7 +116,7 @@ export async function fetchNativeOAuthAuthorizeUrl(
     method: "GET",
     credentials: "include",
     headers: { Accept: "application/json" },
-  }, OAUTH_START_FETCH_TIMEOUT_MS);
+  }, NATIVE_OAUTH_START_FETCH_TIMEOUT_MS);
   const json = (await res.json().catch(() => null)) as OAuthStartResponse | null;
   if (!res.ok || !json?.ok || !json.authorizeUrl?.trim()) {
     throw startError(
@@ -122,14 +127,14 @@ export async function fetchNativeOAuthAuthorizeUrl(
 
   const redirectTo = json.redirectTo?.trim() ?? "";
   if (!isNativeOAuthSupabaseRedirectUrl(redirectTo)) {
-    console.error("[oauth] native_start_redirect_mismatch", { redirectTo, startPath });
+    logOAuthNativeEvent("native_start_redirect_mismatch", { redirectTo, startPath });
     throw startError(
       "oauth_native_redirect_mismatch",
       "Native OAuth redirectTo must use /auth/oauth/capacitor-return on samarket.vercel.app.",
     );
   }
 
-  console.error("[oauth] native_start_ok", {
+  logOAuthNativeEvent("native_start_ok", {
     provider: json.provider,
     redirectTo,
     authorizeUrlLen: json.authorizeUrl.trim().length,
@@ -139,7 +144,7 @@ export async function fetchNativeOAuthAuthorizeUrl(
 }
 
 /**
- * Native: modal tap → launch page → Custom Tab → https capacitor-return → dibay://auth/callback
+ * Native: launch page → Custom Tab → https capacitor-return → dibay://auth/callback
  * Web: start API 302
  */
 export function startOAuthLogin(input: { provider: OAuthProvider; next?: string | null }): void {
@@ -147,20 +152,28 @@ export function startOAuthLogin(input: { provider: OAuthProvider; next?: string 
   if (!isSupabaseOAuthProvider(provider)) {
     throw startError("invalid_provider", "지원하지 않는 OAuth provider입니다.");
   }
-  if (typeof window === "undefined") {
-    throw startError("navigation_failed", "브라우저 환경에서만 OAuth를 시작할 수 있습니다.");
+  const flow = tryBeginOAuthFlow(provider);
+  if (!flow.ok) {
+    throw startError("oauth_flow_in_flight", "OAuth가 이미 진행 중입니다.");
   }
+  try {
+    if (typeof window === "undefined") {
+      throw startError("navigation_failed", "브라우저 환경에서만 OAuth를 시작할 수 있습니다.");
+    }
 
-  ensureCapacitorNativeMarkerOnBoot();
+    ensureCapacitorNativeMarkerOnBoot();
 
-  if (isOAuthNativeLaunchShell()) {
-    const launchPath = buildNativeOAuthLaunchPath(provider, next);
-    console.error("[oauth] start_oauth_login_native", { provider, launchPath });
-    window.location.assign(launchPath);
-    return;
+    if (isOAuthNativeLaunchShell()) {
+      const launchPath = buildNativeOAuthLaunchPath(provider, next);
+      logOAuthNativeEvent("start_oauth_login_native", { provider, launchPath });
+      window.location.assign(launchPath);
+      return;
+    }
+
+    logOAuthNativeEvent("start_oauth_login_web", { provider });
+    window.location.assign(buildWebStartPath(provider, next));
+  } catch (error) {
+    flow.release();
+    throw error;
   }
-
-  console.error("[oauth] start_oauth_login_web", { provider });
-
-  window.location.assign(buildWebStartPath(provider, next));
 }

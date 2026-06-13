@@ -33,12 +33,26 @@ Android Studio → Open `android/` → Run on device
 - [ ] `@capacitor/browser` 포함 확인 (cap sync 로그)
 - [ ] AndroidManifest `dibay://auth/callback` intent-filter 유지
 
+## A-plan 기준 (PASS 로그 — `NATIVE_OAUTH_PASS_LOG_EVENTS`)
+
+코드 단일 정의: `lib/auth/oauth/native-oauth-contract.ts`
+
+| 순서 | 이벤트 | 의미 |
+|------|--------|------|
+| 1 | `native_start_ok` | redirectTo = https capacitor-return |
+| 2 | `capacitor_return_bridge` | Custom Tab https → dibay:// |
+| 3 | `callback_app_url_open` | 앱 deep link 수신 |
+| 4 | `callback_navigate` | WebView `/auth/callback` 이동 |
+| 5 | `exchange_success` | Supabase 세션 확정 |
+
+**Chrome Custom Tab UI는 PASS 조건이 아님.** FAIL은 `dibay://` 복귀·세션 exchange 실패.
+
 ## Logcat 설정
 
 Android Studio → Logcat → 필터:
 
 ```
-oauth|appUrlOpen|authCallback
+oauth|DIBAY_OAuth|NativeOAuthLauncher
 ```
 
 또는 Chrome Remote Debugging → WebView console (Capacitor Inspect)
@@ -116,6 +130,13 @@ OAuth 시작 직후:
 APK 빌드: ___________  
 Vercel 배포: ___________
 
+## Naver native 선택 A(P0)
+
+- 현재 Naver는 Google/Kakao/Apple과 같은 `/auth/oauth/launch` Custom Tab fetch flow가 아니다.
+- start는 기존 `window.location.assign('/api/auth/naver/start')` 경로를 유지한다.
+- native 요청일 때 Naver `redirect_uri`만 `https://samarket.vercel.app/auth/oauth/capacitor-return?provider=naver` 로 맞춘다.
+- launch page 통일은 P1에서 별도 구현한다.
+
 ## Provider별 참고
 
 ### Google
@@ -140,9 +161,25 @@ Vercel 배포: ___________
 - [ ] Chrome/Custom Tab 열리지 않음
 - [ ] 재로그인 시 이전 세션 간섭 없음
 
+## Auth 시나리오 매핑 (§10)
+
+| 시나리오 | 자동 테스트 | Device QA |
+|----------|-------------|-----------|
+| 신규/기존 Google·Kakao·Apple | `native-oauth-contract`, callback route | A-plan PASS 로그 |
+| Naver native | `naver/start` route assign + capacitor-return redirect | **선택 A(P0)**: start는 web route assign 유지, redirect bridge만 통일 |
+| 회원가입 중 앱 종료 | `dibay-signup-status` unit | 약관/@id gate 재진입 |
+| 로그아웃 후 뒤로가기 | `auth-session-isolation` E2E | bfcache guard |
+| 로그아웃 후 private URL | E2E + proxy | guest redirect |
+| A→B 계정 전환 | `auth-session-isolation-contract` | 이전 채팅/주문 미노출 |
+| OAuth callback 중복 | `OAuthReturnListener` test | double tap |
+| Apple/Kakao 취소 | P2 native error mapping | 조용히 닫기 |
+| Native SDK exchange | `native-token-exchange` (501 stub) | P2 device |
+
 ## 관련 문서
 
 - [secure-auth-oauth-setup.md](./secure-auth-oauth-setup.md)
+- [auth-provider-matrix.md](./auth-provider-matrix.md)
+- [auth-session-contract](../scripts/verify-auth-session-contract.mjs) — `npm run verify:auth-session-contract`
 - [store-review-auth-setup-checklist.md](./store-review-auth-setup-checklist.md)
 
 ## npm

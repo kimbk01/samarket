@@ -2,6 +2,8 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS } from "@/lib/auth/oauth/native-oauth-contract";
+import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import {
   getCapacitorNativeDiagnostics,
   isCapacitorBridgeReady,
@@ -39,8 +41,6 @@ export type NativeOAuthOpenError = Error & {
 
 const NativeOAuthLauncher = registerPlugin<NativeOAuthLauncherPlugin>("NativeOAuthLauncher");
 
-const BRIDGE_READY_TIMEOUT_MS = 3_000;
-
 function nativeOAuthOpenError(
   userCode: NativeOAuthOpenErrorCode,
   devCode: NativeOAuthDevErrorCode,
@@ -72,7 +72,7 @@ export function mapNativeOAuthOpenErrorToMessageKey(code: string): MessageKey {
   if (code === "oauth_custom_tabs_unavailable") {
     return "auth_err_oauth_custom_tabs_required";
   }
-  if (code === "oauth_launcher_unavailable" || code === "oauth_tab_unavailable") {
+  if (code === "oauth_launcher_unavailable") {
     return "auth_err_oauth_browser_plugin_unavailable";
   }
   return "auth_err_oauth_browser_open_failed";
@@ -123,17 +123,17 @@ function mapRejectToUserCode(devCode: NativeOAuthDevErrorCode): NativeOAuthOpenE
 }
 
 async function ensureCapacitorBridgeReadyForOpen(): Promise<void> {
-  const diagnosticsBeforeWait = getCapacitorNativeDiagnostics();
-  console.error("[oauth] bridge_wait_start", diagnosticsBeforeWait);
-
   if (isCapacitorBridgeReady()) {
-    console.error("[oauth] bridge_ready_immediate", diagnosticsBeforeWait);
+    logOAuthNativeEvent("bridge_wait_result", { ready: true, immediate: true });
     return;
   }
 
-  const ready = await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
-  const diagnosticsAfterWait = getCapacitorNativeDiagnostics();
-  console.error("[oauth] bridge_wait_result", { ready, diagnostics: diagnosticsAfterWait });
+  const ready = await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
+  logOAuthNativeEvent("bridge_wait_result", {
+    ready,
+    immediate: false,
+    diagnostics: getCapacitorNativeDiagnostics(),
+  });
 
   if (!ready || !isCapacitorBridgeReady()) {
     throw nativeOAuthOpenError(
@@ -144,20 +144,10 @@ async function ensureCapacitorBridgeReadyForOpen(): Promise<void> {
   }
 }
 
-/**
- * Native OAuth launcher — NativeOAuthLauncher.open 단일 경로.
- */
+/** Native OAuth launcher — NativeOAuthLauncher.open 단일 경로 (Custom Tab only). */
 export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunchResult> {
   const trimmed = url.trim();
-  const diagnostics = getCapacitorNativeDiagnostics();
-  console.error("[oauth] before_open", {
-    urlLen: trimmed.length,
-    openAttempt: true,
-    diagnostics,
-  });
-
   if (!trimmed) {
-    console.error("[oauth] open_throw", "empty_url");
     throw nativeOAuthOpenError(
       "oauth_tab_open_failed",
       "unknown_native_error",
@@ -165,49 +155,33 @@ export async function openNativeOAuthTab(url: string): Promise<NativeOAuthLaunch
     );
   }
 
-  try {
-    await ensureCapacitorBridgeReadyForOpen();
-  } catch (err) {
-    console.error("[oauth] open_throw", err);
-    throw err;
-  }
+  logOAuthNativeEvent("before_open", {
+    urlLen: trimmed.length,
+    diagnostics: getCapacitorNativeDiagnostics(),
+  });
 
-  const pluginAvailable = Capacitor.isPluginAvailable("NativeOAuthLauncher");
-  if (pluginAvailable) {
-    console.error("[oauth] plugin_available", { plugin: "NativeOAuthLauncher" });
-  } else {
-    console.error("[oauth] plugin_unavailable", { plugin: "NativeOAuthLauncher" });
-  }
-
-  console.error("[oauth] before_native_launcher", getCapacitorNativeDiagnostics());
+  await ensureCapacitorBridgeReadyForOpen();
 
   try {
     const result = await NativeOAuthLauncher.open({ url: trimmed });
-    console.error("[oauth] after_native_launcher", result);
-    console.error("[oauth] after_open", {
-      method: result?.method,
-      opened: result?.opened,
-      externalBrowserExpected: true,
-      successCriteria: "dibay://auth/callback app return + session exchange",
-    });
-
     if (result?.opened && result.method === "custom_tabs") {
+      logOAuthNativeEvent("after_open", { method: result.method, opened: result.opened });
       return result;
     }
 
-    console.error("[oauth] open_throw", "invalid_native_launcher_result");
     throw nativeOAuthOpenError(
       "oauth_tab_open_failed",
       "unknown_native_error",
       "NativeOAuthLauncher returned invalid result.",
     );
   } catch (err) {
-    console.error("[oauth] open_throw", err);
     if (err instanceof Error && "devCode" in err) {
+      logOAuthNativeEvent("open_throw", { code: err.name, devCode: (err as NativeOAuthOpenError).devCode });
       throw err;
     }
     const rejectText = normalizeCapacitorRejectCode(err);
     const devCode = mapRejectToDevCode(rejectText);
+    logOAuthNativeEvent("open_throw", { devCode, rejectText });
     throw nativeOAuthOpenError(
       mapRejectToUserCode(devCode),
       devCode,

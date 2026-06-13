@@ -146,6 +146,29 @@ async function tryUiLogin(page: Page, candidate: { id: string; pass: string }): 
   return sessionProbeOk(page, origin);
 }
 
+function e2eSecondLoginCandidates(opts?: { username?: string; password?: string }): Array<{ id: string; pass: string }> | null {
+  const envUser = opts?.username ?? process.env.E2E_TEST_USERNAME_B?.trim();
+  const envPass = opts?.password ?? process.env.E2E_TEST_PASSWORD_B ?? process.env.E2E_TEST_PASSWORD ?? "1234";
+  if (!envUser) return null;
+  const emails = envUser.includes("@")
+    ? [envUser]
+    : [`${envUser}@manual.local`, `${envUser}@samarket.local`, envUser];
+  return [...new Set(emails)].map((id) => ({ id, pass: envPass }));
+}
+
+async function fetchE2eProfileLabel(page: Page, origin: string): Promise<string | null> {
+  const res = await page.request.get(`${origin}/api/me/profile`).catch(() => null);
+  if (!res?.ok()) return null;
+  const json = (await res.json().catch(() => null)) as
+    | { profile?: { display_name?: string | null; nickname?: string | null } }
+    | null;
+  const label =
+    json?.profile?.display_name?.trim() ||
+    json?.profile?.nickname?.trim() ||
+    null;
+  return label && label.length > 0 ? label : null;
+}
+
 /** storageState · Supabase 쿠키 · UI 로그인 순으로 세션 확보 */
 export async function ensureE2eUserSession(
   page: Page,
@@ -170,6 +193,36 @@ export async function ensureE2eUserSession(
       `또는 PLAYWRIGHT_STORAGE_STATE 를 설정하세요. alert=${String(alertText).slice(0, 200)} url=${page.url()}`
   );
 }
+
+/** 두 번째 테스트 계정(B) — E2E_TEST_USERNAME_B 미설정 시 null */
+export function resolveE2eSecondLoginCandidates(
+  opts?: { username?: string; password?: string }
+): Array<{ id: string; pass: string }> | null {
+  return e2eSecondLoginCandidates(opts);
+}
+
+export async function ensureE2eSecondUserSession(
+  page: Page,
+  opts?: { username?: string; password?: string }
+): Promise<void> {
+  const candidates = e2eSecondLoginCandidates(opts);
+  if (!candidates?.length) {
+    throw new Error("[E2E] E2E_TEST_USERNAME_B 가 설정되지 않았습니다.");
+  }
+  await page.context().clearCookies();
+  if (await tryInjectSupabaseSessionCookies(page, {
+    username: opts?.username ?? process.env.E2E_TEST_USERNAME_B?.trim(),
+    password: opts?.password ?? process.env.E2E_TEST_PASSWORD_B ?? process.env.E2E_TEST_PASSWORD,
+  })) {
+    return;
+  }
+  for (const candidate of candidates) {
+    if (await tryUiLogin(page, candidate)) return;
+  }
+  throw new Error("[E2E] B 계정 로그인 실패 — E2E_TEST_USERNAME_B·E2E_TEST_PASSWORD_B 확인");
+}
+
+export { fetchE2eProfileLabel };
 
 /**
  * origin 헬스체크 + (page 가 있으면) 세션 확보.

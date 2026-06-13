@@ -36,6 +36,16 @@ vi.mock("@/lib/community-messenger/local-store/roomSnapshotDb", () => ({
   clearAllLocalRoomSnapshots: vi.fn().mockResolvedValue(undefined),
 }));
 
+const clearBrowserCacheStorageBestEffort = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/auth/invalidate-auth-exit-client-caches", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/invalidate-auth-exit-client-caches")>();
+  return {
+    ...actual,
+    clearBrowserCacheStorageBestEffort,
+  };
+});
+
 function createStorage(): Storage {
   const map = new Map<string, string>();
   return {
@@ -60,6 +70,7 @@ describe("wipeClientSessionState storage allowlist", () => {
 
   beforeEach(() => {
     vi.resetModules();
+    clearBrowserCacheStorageBestEffort.mockClear();
     local = createStorage();
     session = createStorage();
     vi.stubGlobal("window", {
@@ -88,6 +99,7 @@ describe("wipeClientSessionState storage allowlist", () => {
     expect(local.getItem(APP_LANGUAGE_DEVICE_SEEDED_KEY)).toBe("1");
     expect(local.getItem("kasama_store_commerce_cart_v1")).toBeNull();
     expect(local.getItem("samarket:trade-write-form-local:cat1")).toBeNull();
+    expect(clearBrowserCacheStorageBestEffort).not.toHaveBeenCalled();
   });
 
   it("sets post logout bfcache guard on user_logout", async () => {
@@ -96,6 +108,7 @@ describe("wipeClientSessionState storage allowlist", () => {
     );
     await wipeClientSessionState("user_logout");
     expect(session.getItem(POST_LOGOUT_BFCACHE_GUARD_KEY)).toBe("1");
+    expect(clearBrowserCacheStorageBestEffort).toHaveBeenCalledTimes(1);
   });
 
   it("coalesces concurrent wipe calls via single-flight", async () => {
@@ -120,6 +133,21 @@ describe("wipeClientSessionState storage allowlist", () => {
 
     expect(vi.mocked(invalidateAppBootAll)).toHaveBeenCalled();
     expect(local.getItem("kasama_store_commerce_cart_v1")).toBe("{}");
+  });
+
+  it("clears ephemeral keys on account_switched same as user_logout", async () => {
+    const { wipeClientSessionState } = await import("@/lib/auth/client-session-wipe");
+    local.setItem("dibay:user-a:scroll", "1");
+    local.setItem("samarket:trade-write-form-local:cat1", "{}");
+    local.setItem("kasama_store_commerce_cart_v1", "{}");
+
+    await wipeClientSessionState("account_switched", { setPostLogoutGuard: true });
+
+    expect(local.getItem("dibay:user-a:scroll")).toBeNull();
+    expect(local.getItem("samarket:trade-write-form-local:cat1")).toBeNull();
+    expect(local.getItem("kasama_store_commerce_cart_v1")).toBeNull();
+    expect(local.getItem(APP_LANGUAGE_STORAGE_KEY)).toBe("ko");
+    expect(clearBrowserCacheStorageBestEffort).toHaveBeenCalledTimes(1);
   });
 
   it("shouldSkipSignedOutEventWipe after markExplicitLogoutWipeDone", async () => {

@@ -5,13 +5,17 @@ import {
   hasStoreTermsConsent,
 } from "@/lib/auth/store-member-policy";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import { deriveDibaySignupStatus, isDibayIdComplete } from "@/lib/auth/dibay-signup-status";
+import {
+  deriveDibaySignupStatus,
+  isDibayIdComplete,
+  isDibayProfileComplete,
+} from "@/lib/auth/dibay-signup-status";
 import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status";
 
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
  *
- * 가입 완료( signup ): 약관 + 확정 dibay_id + onboarding_completed_at
+ * 가입 완료( signup ): 약관 + 확정 dibay_id + 필수 프로필
  * 주소·전화: 기능 게이트 전용 (가입 경로 아님)
  */
 export type OnboardingStatus = {
@@ -35,6 +39,8 @@ export type OnboardingStatus = {
   privacyVersion: string | null;
   onboardingCompletedAt: string | null;
   onboardingStatus: DibayOnboardingStatusValue | null;
+  displayName: string | null;
+  avatarUrl: string | null;
 };
 
 type ProfileRowSubset = {
@@ -44,6 +50,7 @@ type ProfileRowSubset = {
   dibay_id: string | null;
   dibay_id_locked: boolean | null;
   display_name?: string | null;
+  avatar_url?: string | null;
   nickname: string | null;
   email: string | null;
   role: string | null;
@@ -72,7 +79,7 @@ async function loadProfileSubset(
   const { data, error } = await sb
     .from("profiles")
     .select(
-      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status"
+      "id,username,username_confirmed,dibay_id,dibay_id_locked,display_name,avatar_url,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version,onboarding_completed_at,onboarding_status"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -86,6 +93,7 @@ async function loadProfileSubset(
     dibay_id: pickTrimmedString(row.dibay_id),
     dibay_id_locked: row.dibay_id_locked === true,
     display_name: pickTrimmedString(row.display_name),
+    avatar_url: pickTrimmedString(row.avatar_url),
     nickname: pickTrimmedString(row.nickname),
     email: pickTrimmedString(row.email),
     role: pickTrimmedString(row.role),
@@ -150,7 +158,7 @@ export async function getOnboardingStatus(
     consentComplete,
     addressComplete,
     phoneVerified,
-    profileComplete: profileExists && nicknameComplete && consentComplete,
+    profileComplete: profileExists && isDibayProfileComplete(profile ?? undefined),
     signupComplete: signup.signupComplete,
     isPrivilegedAdmin,
     dibayId: profile?.dibay_id ?? null,
@@ -163,5 +171,7 @@ export async function getOnboardingStatus(
     privacyVersion: profile?.privacy_version ?? null,
     onboardingCompletedAt: profile?.onboarding_completed_at ?? null,
     onboardingStatus: signup.onboardingStatus,
+    displayName: profile?.display_name ?? null,
+    avatarUrl: profile?.avatar_url ?? null,
   };
 }

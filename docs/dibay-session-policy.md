@@ -1,10 +1,25 @@
 # DIBAY 세션·로그아웃 정책
 
+**P2 진행 순서:** [dibay-auth-roadmap.md](./dibay-auth-roadmap.md) STEP 1~6 (P0/P1 재작업 금지)
+
 카카오톡/배민/당근형: **사용자가 명시적으로 로그아웃하지 않는 한** refresh 가능한 세션을 유지한다.
 
 코드 단일 정의: [`lib/auth/dibay-session-policy.ts`](../lib/auth/dibay-session-policy.ts)  
 클라이언트 진입점: [`lib/auth/dibay-session-manager.ts`](../lib/auth/dibay-session-manager.ts)
 
+## P0 · P1 — 완료 (재작업 금지)
+
+| 항목 | 결과 | 근거 |
+|------|------|------|
+| P0 Auth 정책 (wipe · mutex · contract) | **완료** | `verify:auth-session-contract` |
+| signupComplete gate | **PASS** | `deriveDibaySignupStatus` = client gate |
+| 로그아웃 E2E · A→B E2E | **PASS** | `auth-session-isolation.spec.ts` |
+
+### P2 (현재)
+
+→ [dibay-auth-roadmap.md](./dibay-auth-roadmap.md) STEP 1 Apple Native SDK부터
+
+---
 ## A. 로그아웃해야 하는 경우
 
 - 사용자가 로그아웃 버튼 클릭 (`logoutCurrentDevice`)
@@ -38,7 +53,8 @@
 
 ## E. 같은 기기 · 다른 아이디
 
-- user id 변경 시 이전 `dibay:{oldUserId}:*` 전체 삭제 + in-memory wipe
+- user id 변경 시 **전체 ephemeral localStorage** 삭제 + in-memory wipe (`account_switched` = `user_logout` 와 동일 storage 정책)
+- 이전 `dibay:{oldUserId}:*` 포함 — device prefs(언어·client_instance_id)만 유지
 - 이전 사용자 deep link 복원 금지 → role별 홈
 - 타 사용자 room/order 접근: 403/404, auto logout 금지
 
@@ -72,3 +88,19 @@
 ## Account switch 청소 도메인
 
 `DIBAY_ACCOUNT_SWITCH_WIPE_DOMAINS` — profile_cache, app_boot, messenger_bootstrap, room_snapshots, commerce_cart, trade_drafts, unread_badges, last_route_restore, owner_admin_selection, pending_auth_actions, login_bootstrap, address_defaults, user_settings
+
+## E2E · contract 검증
+
+```bash
+npm run verify:auth-session-contract
+PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test tests/e2e/auth-session-isolation.spec.ts
+PLAYWRIGHT_NO_WEBSERVER=1 npx playwright test tests/e2e/dibay-session-policy.spec.ts
+```
+
+A→B 계정전환: `E2E_TEST_USERNAME_B` 필수 — 미설정 시 SKIP (PASS 아님). 실행 **Flaky** — fresh dev warm-up 후 단독 run 권장.
+
+## 관련 문서
+
+- [dibay-auth-roadmap.md](./dibay-auth-roadmap.md)
+- [auth-p1-manual-qa-checklist.md](./auth-p1-manual-qa-checklist.md)
+- [auth-provider-matrix.md](./auth-provider-matrix.md)

@@ -27,6 +27,7 @@ export const DIBAY_APP_MARKER_STORAGE_KEY = "dibay_app";
 export const DIBAY_APP_MARKER_COOKIE_NAME = "dibay_app";
 
 export const NATIVE_OAUTH_LAUNCHER_PLUGIN_ID = "NativeOAuthLauncher";
+export const NATIVE_APPLE_AUTH_PLUGIN_ID = "NativeAppleAuth";
 
 const DIBAY_APP_PLATFORM_VALUES = new Set<DibayAppPlatform>(["android", "ios"]);
 
@@ -155,6 +156,24 @@ export function hasNativeOAuthLauncherPluginHeader(): boolean {
   return headers.some((header) => header.name === NATIVE_OAUTH_LAUNCHER_PLUGIN_ID);
 }
 
+export function hasNativeAppleAuthPluginHeader(): boolean {
+  const headers = readWindowWithCapacitor()?.Capacitor?.PluginHeaders;
+  if (!Array.isArray(headers)) return false;
+  return headers.some((header) => header.name === NATIVE_APPLE_AUTH_PLUGIN_ID);
+}
+
+/**
+ * iOS Capacitor — NativeAppleAuth plugin (AuthenticationServices).
+ * Android / web → false (Apple Web OAuth 유지).
+ */
+export function isNativeAppleLoginAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  const platform = readWindowWithCapacitor()?.Capacitor?.getPlatform?.()?.trim().toLowerCase();
+  if (platform !== "ios") return false;
+  if (isCapacitorBridgeReady()) return true;
+  return hasNativeAppleAuthPluginHeader();
+}
+
 export function hasCapacitorNativePromise(): boolean {
   const cap = readWindowWithCapacitor()?.Capacitor;
   return typeof cap?.nativePromise === "function";
@@ -222,6 +241,8 @@ export type CapacitorNativeDiagnostics = {
   platform: string | null;
   hasAndroidBridge: boolean;
   hasNativeOAuthLauncherPluginHeader: boolean;
+  hasNativeAppleAuthPluginHeader: boolean;
+  nativeAppleLoginAvailable: boolean;
   hasCapacitorNativePromise: boolean;
   bridgeReady: boolean;
   oauthNativeLaunchAvailable: boolean;
@@ -246,6 +267,8 @@ export function getCapacitorNativeDiagnostics(): CapacitorNativeDiagnostics {
     platform,
     hasAndroidBridge: hasAndroidBridgeValue,
     hasNativeOAuthLauncherPluginHeader: hasNativeOAuthLauncherPluginHeader(),
+    hasNativeAppleAuthPluginHeader: hasNativeAppleAuthPluginHeader(),
+    nativeAppleLoginAvailable: isNativeAppleLoginAvailable(),
     hasCapacitorNativePromise: hasCapacitorNativePromise(),
     bridgeReady: isCapacitorBridgeReady(),
     oauthNativeLaunchAvailable: isOAuthNativeLaunchAvailable(),

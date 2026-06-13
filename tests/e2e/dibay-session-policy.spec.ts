@@ -4,6 +4,7 @@
  * 실행: `npm run dev` 후 `npx playwright test tests/e2e/dibay-session-policy.spec.ts`
  */
 import { expect, test } from "@playwright/test";
+import { assertLogoutViaUiSucceeded } from "./helpers/auth-logout-e2e";
 import {
   assertPlaywrightOriginReachable,
   ensureE2eUserSession,
@@ -41,7 +42,7 @@ test.describe("dibay session policy", () => {
   test("unauthenticated private URL uses auth_required not session_expired only", async ({ page, request }) => {
     await assertPlaywrightOriginReachable(request);
     const origin = playwrightOriginFromEnv();
-    await page.goto(`${origin}/mypage/settings`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${origin}/mypage/store-orders`, { waitUntil: "domcontentloaded" });
     expect(page.url()).toMatch(/\/login/);
     expect(page.url()).toMatch(/reason=(auth_required|session_expired)/);
   });
@@ -54,18 +55,12 @@ test.describe("dibay session policy", () => {
       test.skip(true, "E2E login unavailable");
       return;
     }
-    const origin = playwrightOriginFromEnv();
-    await gotoWithRetry(page, `${origin}/my/logout`);
-    const logoutBtn = page.getByRole("button", { name: /로그아웃|sign out/i }).first();
-    if (await logoutBtn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-      await logoutBtn.click();
-    }
-    await page.waitForURL((url) => url.pathname === "/" || url.pathname === "/login", { timeout: 25_000 });
+    await assertLogoutViaUiSucceeded(page, { path: "/my/logout" });
     const bound = await page.evaluate(() => window.localStorage.getItem("dibay:auth_bound_user_id"));
     expect(bound).toBeNull();
   });
 
-  test("settings shows logout all devices menu row when logged in", async ({ page, request }) => {
+  test("logout page auto-opens confirm modal", async ({ page, request }) => {
     await assertPlaywrightOriginReachable(request);
     try {
       await ensureE2eUserSession(page);
@@ -74,7 +69,8 @@ test.describe("dibay session policy", () => {
       return;
     }
     const origin = playwrightOriginFromEnv();
-    await gotoWithRetry(page, `${origin}/my/logout`);
-    await expect(page.getByText(/모든 기기|all devices/i).first()).toBeVisible({ timeout: 10_000 });
+    await gotoWithRetry(page, `${origin}/mypage/logout`);
+    await expect(page.getByRole("dialog")).toBeVisible({ timeout: 10_000 });
+    await expect(page.locator('[data-testid="auth_logout_submit"]')).toBeVisible({ timeout: 5_000 });
   });
 });

@@ -12,6 +12,11 @@ import {
 } from "@/components/auth/OAuthLoginProviderVisuals";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import {
+  NATIVE_OAUTH_BACKGROUND_DETECT_MS,
+  NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS,
+} from "@/lib/auth/oauth/native-oauth-contract";
+import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import {
   formatNativeOAuthDevError,
   mapNativeOAuthOpenErrorToMessageKey,
   openNativeOAuthTab,
@@ -27,8 +32,8 @@ import {
 } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH = new Set<OAuthProvider>(["google", "kakao", "apple"]);
-export const OAUTH_BACKGROUND_WAIT_MS = 5_000;
-const BRIDGE_READY_TIMEOUT_MS = 3_000;
+
+export { NATIVE_OAUTH_BACKGROUND_DETECT_MS as OAUTH_BACKGROUND_WAIT_MS };
 
 function parseProvider(value: string | null): OAuthProvider | null {
   const normalized = value?.trim().toLowerCase() ?? "";
@@ -61,7 +66,7 @@ function waitForAppBackground(timeoutMs: number): Promise<void> {
     };
 
     const timeoutId = window.setTimeout(() => {
-      finish(() => reject(new Error("oauth_tab_not_opened")));
+      finish(() => reject(new Error("oauth_background_detect_timeout")));
     }, timeoutMs);
 
     void App.addListener("appStateChange", ({ isActive }) => {
@@ -94,9 +99,10 @@ export function NativeOAuthLaunchClient() {
 
   useEffect(() => {
     ensureCapacitorNativeMarkerOnBoot();
-    console.error("[oauth] launch_client_mount", getCapacitorNativeDiagnostics());
+    logOAuthNativeEvent("launch_client_mount", getCapacitorNativeDiagnostics());
+
     if (!isOAuthNativeLaunchShell()) {
-      console.error("[oauth] launch_client_not_native_redirect");
+      logOAuthNativeEvent("launch_client_not_native_redirect");
       router.replace("/login");
       return;
     }
@@ -114,18 +120,21 @@ export function NativeOAuthLaunchClient() {
       setLoading(true);
       setError(null);
       try {
-        console.error("[oauth] launch_fetch_authorize_start", { provider });
         const ready = isCapacitorBridgeReady()
-          || await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
+          || await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
         if (!ready) {
           throw new Error("oauth_bridge_not_ready");
         }
+        if (cancelled) return;
         setBridgeReady(true);
+
         const url = await fetchNativeOAuthAuthorizeUrl(provider, next);
-        console.error("[oauth] launch_fetch_authorize_ok", { urlLen: url.length });
+        logOAuthNativeEvent("launch_fetch_authorize_ok", { urlLen: url.length });
         if (!cancelled) setAuthorizeUrl(url);
       } catch (err) {
-        console.error("[oauth] launch_fetch_authorize_throw", err);
+        logOAuthNativeEvent("launch_fetch_authorize_throw", {
+          code: err instanceof Error ? err.name : "oauth_start_failed",
+        });
         if (!cancelled) {
           const code = err instanceof Error ? err.name : "oauth_start_failed";
           if (code === "oauth_start_timeout") {
@@ -157,42 +166,10 @@ export function NativeOAuthLaunchClient() {
 
   useEffect(() => {
     if (!isOAuthNativeLaunchShell()) return;
-
-    let cancelled = false;
-    void (async () => {
-      console.error("[oauth] launch_bridge_wait_start", getCapacitorNativeDiagnostics());
-      const ready = isCapacitorBridgeReady()
-        || await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
-      if (cancelled) return;
-
-      setBridgeReady(ready);
-      console.error("[oauth] launch_bridge_wait_result", {
-        ready,
-        diagnostics: getCapacitorNativeDiagnostics(),
-      });
-
-      if (!ready) {
-        dispatchOAuthPendingClear("oauth_launch_bridge_timeout");
-        setError(safeT("auth_err_oauth_bridge_not_ready", {
-          fallbackKo: "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
-          fallbackEn: "App sign-in is not connected yet. Fully close the app and open it again.",
-        }));
-        setDevError(formatBridgeDiagnosticsForDev());
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [safeT]);
-
-  useEffect(() => {
-    if (!isOAuthNativeLaunchShell()) return;
     const listener = App.addListener("appStateChange", ({ isActive }) => {
       if (isActive) {
-        console.error("[oauth] launch_app_foreground", getCapacitorNativeDiagnostics());
+        setOpening(false);
       }
-      setOpening(false);
     });
     return () => {
       void listener.then((handle) => handle.remove());
@@ -202,9 +179,6 @@ export function NativeOAuthLaunchClient() {
   const resolveOpenErrorMessage = useCallback(
     (err: unknown): string => {
       if (err instanceof Error) {
-        if (err.message === "oauth_tab_not_opened") {
-          return t("auth_err_oauth_browser_open_failed");
-        }
         const code = err.name || "oauth_tab_open_failed";
         return t(mapNativeOAuthOpenErrorToMessageKey(code));
       }
@@ -214,15 +188,9 @@ export function NativeOAuthLaunchClient() {
   );
 
   const runNativeOAuthOpen = useCallback(async (url: string) => {
-    console.error("[oauth] launch_before_open", {
-      urlLen: url.length,
-      bridgeReady,
-      diagnostics: getCapacitorNativeDiagnostics(),
-    });
-
     if (!bridgeReady) {
       const readyNow = isCapacitorBridgeReady()
-        || await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
+        || await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
       setBridgeReady(readyNow);
       if (!readyNow) {
         dispatchOAuthPendingClear("oauth_launch_bridge_timeout");
@@ -241,10 +209,18 @@ export function NativeOAuthLaunchClient() {
 
     try {
       const launchResult = await openNativeOAuthTab(url);
-      console.error("[oauth] launch_after_open", { method: launchResult.method });
-      await waitForAppBackground(OAUTH_BACKGROUND_WAIT_MS);
+      logOAuthNativeEvent("launch_after_open", { method: launchResult.method });
+      try {
+        await waitForAppBackground(NATIVE_OAUTH_BACKGROUND_DETECT_MS);
+      } catch {
+        logOAuthNativeEvent("launch_background_detect_timeout", {
+          note: "Custom Tab may still be open; callback is authoritative.",
+        });
+      }
     } catch (err) {
-      console.error("[oauth] launch_open_throw", err);
+      logOAuthNativeEvent("launch_open_throw", {
+        code: err instanceof Error ? err.name : "oauth_tab_open_failed",
+      });
       dispatchOAuthPendingClear("oauth_launch_open_failed");
       setError(resolveOpenErrorMessage(err));
       setDevError(formatNativeOAuthDevError(err) ?? formatBridgeDiagnosticsForDev());
@@ -255,13 +231,12 @@ export function NativeOAuthLaunchClient() {
   useEffect(() => {
     if (!authorizeUrl || loading || opening || !bridgeReady || openStartedRef.current) return;
     openStartedRef.current = true;
-    console.error("[oauth] launch_auto_open_start", getCapacitorNativeDiagnostics());
+    logOAuthNativeEvent("launch_auto_open_start", getCapacitorNativeDiagnostics());
     void runNativeOAuthOpen(authorizeUrl);
   }, [authorizeUrl, bridgeReady, loading, opening, runNativeOAuthOpen]);
 
   const handleOpenBrowser = useCallback(() => {
     if (!authorizeUrl || opening) return;
-    console.error("[oauth] launch_manual_open_click", getCapacitorNativeDiagnostics());
     openStartedRef.current = true;
     void runNativeOAuthOpen(authorizeUrl);
   }, [authorizeUrl, opening, runNativeOAuthOpen]);

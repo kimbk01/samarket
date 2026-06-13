@@ -4,13 +4,15 @@ import {
   buildNaverState,
   NAVER_OAUTH_STATE_COOKIE,
 } from "@/lib/auth/naver-oauth";
+import {
+  NATIVE_OAUTH_CAPACITOR_RETURN_PATH,
+  WEB_OAUTH_CALLBACK_ORIGIN,
+} from "@/lib/auth/oauth/native-oauth-redirect";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const NATIVE_OAUTH_CALLBACK_URL = "dibay://auth/callback";
 
 function isNativeAppRequestForNaver(req: NextRequest): boolean {
   const marker = req.nextUrl.searchParams.get("dibay_app")?.trim().toLowerCase();
@@ -19,14 +21,13 @@ function isNativeAppRequestForNaver(req: NextRequest): boolean {
   return cookieMarker === "android" || cookieMarker === "ios";
 }
 
-function buildNaverRedirectUri(req: NextRequest, safeNext: string | null): string {
+function buildNaverRedirectUri(req: NextRequest): string {
   if (!isNativeAppRequestForNaver(req)) {
     return new URL("/api/auth/naver/callback", req.url).toString();
   }
 
-  const callback = new URL(NATIVE_OAUTH_CALLBACK_URL);
+  const callback = new URL(NATIVE_OAUTH_CAPACITOR_RETURN_PATH, WEB_OAUTH_CALLBACK_ORIGIN);
   callback.searchParams.set("provider", "naver");
-  if (safeNext) callback.searchParams.set("next", safeNext);
   return callback.toString();
 }
 
@@ -37,7 +38,7 @@ export async function GET(req: NextRequest) {
   }
   const safeNext = sanitizeNextPath(req.nextUrl.searchParams.get("next"));
   const state = buildNaverState(safeNext ?? null);
-  const callbackUrl = buildNaverRedirectUri(req, safeNext);
+  const callbackUrl = buildNaverRedirectUri(req);
   const authorizeUrl = buildNaverAuthorizeUrl({
     clientId,
     redirectUri: callbackUrl,

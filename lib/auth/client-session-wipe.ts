@@ -43,6 +43,10 @@ import { resetMessengerTypingStore } from "@/lib/community-messenger/stores/useM
 import { resetMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import { invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import { resetAuthExitNavigateGuard } from "@/lib/auth/auth-exit-guard";
+import {
+  clearBrowserCacheStorageBestEffort,
+  invalidateAuthExitClientCaches,
+} from "@/lib/auth/invalidate-auth-exit-client-caches";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -139,7 +143,7 @@ function resetAddressClientCaches(): void {
   invalidateClientMembershipResolveFlight();
 }
 
-function resetAuthClientCaches(): void {
+function resetAuthClientCaches(previousUserId?: string | null): void {
   invalidateAppBootAll();
   setSupabaseProfileCache(null);
   invalidateMeProfileDedupedCache();
@@ -147,6 +151,11 @@ function resetAuthClientCaches(): void {
   clearBootstrapCache();
   resetAddressClientCaches();
   resetMessengerNotificationSurfacesAfterSignOut();
+  invalidateAuthExitClientCaches(previousUserId);
+}
+
+function shouldClearBrowserCacheStorage(reason: ClientSessionWipeReason): boolean {
+  return reason === "user_logout" || reason === "account_switched";
 }
 
 /** cold boot·세션 없음 INITIAL_SESSION — storage/realtime wipe 없이 auth·boot 캐시만 정리 */
@@ -177,19 +186,16 @@ async function runWipeClientSessionState(
   await disconnectSupabaseRealtime();
   resetInMemoryClientStores();
   await clearAllLocalRoomSnapshots();
-  resetAuthClientCaches();
+  resetAuthClientCaches(previousUserId);
   resetSignupGateSessionFlags();
-  if (reason === "account_switched" && previousUserId) {
-    wipeUserScopedStorage(previousUserId);
-  } else {
-    clearEphemeralLocalStorage();
-  }
+  clearEphemeralLocalStorage();
   clearBoundAuthUserId();
   clearEphemeralSessionStorage({ setPostLogoutGuard });
   closeAllServiceWorkerNotifications();
+  if (shouldClearBrowserCacheStorage(reason)) {
+    void clearBrowserCacheStorageBestEffort();
+  }
   dispatchTestAuthChanged();
-
-  void reason;
 }
 
 async function disconnectSupabaseRealtime(): Promise<void> {

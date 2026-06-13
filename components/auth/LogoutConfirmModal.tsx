@@ -59,6 +59,7 @@ export function LogoutConfirmModal({
           </button>
           <button
             type="button"
+            data-testid="auth_logout_submit"
             onClick={() => void onConfirm()}
             disabled={submitting}
             className={`${MYPAGE_HOME_GHOST_BTN_CLASS} font-semibold text-[#C0392B] hover:text-[#C0392B] disabled:opacity-50`}

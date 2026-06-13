@@ -19,7 +19,7 @@ export function isNativeOAuthJsonLaunch(req: NextRequest): boolean {
 }
 
 /**
- * redirectTo=dibay://auth/callback 선택 — dibay_app marker 또는 launch=native.
+ * redirectTo=https://.../auth/oauth/capacitor-return — dibay_app marker 또는 launch=native.
  */
 export function shouldUseNativeOAuthRedirect(req: NextRequest): boolean {
   return isNativeAppOAuthRequest(req) || isNativeOAuthJsonLaunch(req);

@@ -85,6 +85,14 @@ export const authUiMessages = {
       "로그인 창 열기에 실패했습니다. 다시 시도해 주세요.",
     auth_err_oauth_launch_navigation_failed:
       "로그인 페이지로 이동하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.",
+    auth_err_apple_native_not_ready:
+      "Apple 로그인 준비 중입니다. 잠시 후 다시 시도해 주세요.",
+    auth_err_apple_native_verify_failed:
+      "Apple 로그인 확인에 실패했습니다. 다시 시도해 주세요.",
+    auth_err_apple_native_account_conflict:
+      "이 Apple 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
+    auth_err_apple_native_invalid_audience:
+      "Apple 로그인 앱 설정이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.",
     auth_supabase_fail_dns:
       "Supabase 주소를 DNS에서 찾을 수 없습니다. .env.local의 NEXT_PUBLIC_SUPABASE_URL이 Supabase 대시보드(Settings → API → Project URL)와 한 글자까지 같은지 확인하세요. 프로젝트를 새로 만들었거나 삭제했다면 URL 전체를 다시 붙여 넣어야 합니다. (잘못된 참조(ref)이면 *.supabase.co 호스트가 존재하지 않습니다.)",
     auth_supabase_fail_timeout:
@@ -262,6 +270,14 @@ export const authUiMessages = {
       "Could not open the sign-in window. Please try again.",
     auth_err_oauth_launch_navigation_failed:
       "Could not open the sign-in page. Check your network and try again.",
+    auth_err_apple_native_not_ready:
+      "Apple sign-in is being set up. Please try again shortly.",
+    auth_err_apple_native_verify_failed:
+      "Apple sign-in verification failed. Please try again.",
+    auth_err_apple_native_account_conflict:
+      "This Apple account conflicts with another sign-in method. Please contact support.",
+    auth_err_apple_native_invalid_audience:
+      "Apple sign-in app configuration is invalid. Please try again shortly.",
     auth_supabase_fail_dns:
       "Supabase host could not be resolved. Make sure NEXT_PUBLIC_SUPABASE_URL in .env.local exactly matches Project URL in the Supabase dashboard.",
     auth_supabase_fail_timeout:

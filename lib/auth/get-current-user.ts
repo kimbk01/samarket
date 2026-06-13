@@ -89,4 +89,10 @@ export function getSyncViewerUserIdForClient(): string | undefined {
   return id || undefined;
 }
 
+/** 로그아웃·계정 전환 wipe — 이전 userId TTL 캐시 잔존 방지 */
+export function invalidateCurrentUserIdCache(): void {
+  currentUserIdCache = null;
+  currentUserIdPromise = null;
+}
+
 export const isAdminUser = checkAdminUser;

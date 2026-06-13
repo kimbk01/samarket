@@ -20,12 +20,12 @@ import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
-import { bindAuthUserId, detectAuthUserMismatch, getBoundAuthUserId } from "@/lib/auth/client-instance-id";
-import { wipeUserScopedStorage } from "@/lib/auth/client-session-wipe";
+import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instance-id";
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
 import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
+import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 
 let lastKnownAuthUserId: string | null = null;
 
@@ -71,9 +71,7 @@ function handleAuthenticatedSession(
     (lastKnownAuthUserId && lastKnownAuthUserId !== userId) || detectAuthUserMismatch(userId);
 
   if (accountMismatch) {
-    const previousUserId = getBoundAuthUserId();
     void wipeClientSessionState("account_switched", { setPostLogoutGuard: true }).then(() => {
-      if (previousUserId) wipeUserScopedStorage(previousUserId);
       bindAuthUserId(userId);
       if (typeof window !== "undefined" && isAccountDependentPath(window.location.pathname)) {
         void runAuthAccountSwitchExit();
@@ -134,7 +132,7 @@ export function SupabaseAuthSync() {
       }
 
       if (event === "SIGNED_IN" && session?.user?.id) {
-        console.error("[oauth] exchange_success", {
+        logOAuthNativeEvent("exchange_success", {
           userId: session.user.id,
           provider: session.user.app_metadata?.provider ?? null,
         });

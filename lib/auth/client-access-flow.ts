@@ -8,8 +8,8 @@ import {
 } from "@/lib/auth/member-access";
 import { openPhoneVerificationRequiredDialog } from "@/lib/auth/phone-verification-gate-client";
 import { isPhoneVerificationRequiredError } from "@/lib/auth/phone-verification-required-detect";
-import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
-import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { isClientSignupComplete, profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
+import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
@@ -55,6 +55,19 @@ export function buildDibayIdHref(next?: string): string {
   return `/auth/onboarding/dibay-id?next=${encodeURIComponent(target)}`;
 }
 
+export function buildProfileSetupHrefForNext(next?: string): string {
+  const target = next?.trim() || currentHrefFallback();
+  return `/mypage/section/account/profile/edit?setup=1&next=${encodeURIComponent(target)}`;
+}
+
+export function resolveClientSignupGateHref(
+  user: Profile,
+  next?: string
+): string {
+  const status = deriveDibaySignupStatus(profileToDibaySignupInput(user), { hasSession: true });
+  return resolveDibaySignupRoute(status, next?.trim() || currentHrefFallback());
+}
+
 export function isLoginRequiredError(error: string | null | undefined): boolean {
   const msg = String(error ?? "").toLowerCase();
   return msg.includes("로그인이 필요") || msg.includes("unauthorized");
@@ -87,17 +100,8 @@ export function ensureClientAccessOrRedirect(
     openLoginRequiredSheet({ actionType: "profile_edit", next: next?.trim() || currentHrefFallback() });
     return false;
   }
-  if (!hasStoreTermsConsent(user)) {
-    const href = buildConsentHref(next);
-    if (typeof router.replace === "function") {
-      router.replace(href);
-    } else {
-      router.push(href);
-    }
-    return false;
-  }
   if (!isClientSignupComplete(user)) {
-    const href = buildDibayIdHref(next);
+    const href = resolveClientSignupGateHref(user, next);
     if (typeof router.replace === "function") {
       router.replace(href);
     } else {

@@ -25,6 +25,8 @@ function baseStatus(overrides: Partial<OnboardingStatus> = {}): OnboardingStatus
     privacyVersion: null,
     onboardingCompletedAt: null,
     onboardingStatus: "terms_required",
+    displayName: null,
+    avatarUrl: null,
     ...overrides,
   };
 }
@@ -70,6 +72,8 @@ describe("resolvePostLoginRoute", () => {
           dibayIdLocked: true,
           username: "boss_market",
           usernameConfirmed: true,
+          displayName: "Boss Market",
+          avatarUrl: "https://img.example/avatar.png",
           termsAcceptedAt: "2026-01-01",
           termsVersion: STORE_TERMS_VERSION,
           privacyAcceptedAt: "2026-01-01",

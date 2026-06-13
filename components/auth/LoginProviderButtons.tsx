@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { sortAuthProviders } from "@/lib/auth/auth-providers";
+import { isOAuthLoginStartSupported } from "@/lib/auth/oauth/start-oauth-login";
 import {
   getOAuthLoginContinueLabelKey,
   getOAuthLoginPrimaryStyle,
@@ -35,18 +36,11 @@ function splitLoginProviders(providers: AuthProviderPublic[]) {
   const secondary: AuthProviderPublic[] = [];
 
   for (const row of sorted) {
-    if (row.provider === "facebook") {
-      secondary.push(row);
-    } else if (isPrimaryProvider(row.provider)) {
+    if (isPrimaryProvider(row.provider)) {
       primary.push(row);
     } else {
-      primary.push(row);
+      secondary.push(row);
     }
-  }
-
-  const facebookOnly = primary.length === 0 && secondary.length > 0;
-  if (facebookOnly) {
-    return { primary: secondary, secondary: [] as AuthProviderPublic[] };
   }
 
   return { primary, secondary };
@@ -117,14 +111,21 @@ export function LoginProviderButtons({
   onSelectProvider,
 }: Props) {
   const { t } = useI18n();
+  const visibleProviders = useMemo(
+    () => providers.filter((row) => isOAuthLoginStartSupported(row.provider)),
+    [providers]
+  );
 
-  const { primary, secondary } = useMemo(() => splitLoginProviders(providers), [providers]);
+  const { primary, secondary } = useMemo(
+    () => splitLoginProviders(visibleProviders),
+    [visibleProviders],
+  );
 
   const handleProviderClick = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       if (pendingOAuthProvider) return;
       const raw = e.currentTarget.dataset.provider?.trim() ?? "";
-      if (raw === "google" || raw === "kakao" || raw === "naver" || raw === "apple" || raw === "facebook") {
+      if (raw === "google" || raw === "kakao" || raw === "naver" || raw === "apple") {
         onSelectProvider(raw);
       }
     },
@@ -135,7 +136,7 @@ export function LoginProviderButtons({
   const redirectingLabel = t("auth_oauth_redirecting_label");
   const oauthInFlight = pendingOAuthProvider != null;
 
-  if (providers.length === 0) {
+  if (visibleProviders.length === 0 && !showEmailEntry) {
     return emptyText ? <p className="sam-text-body-secondary text-sam-muted">{emptyText}</p> : null;
   }
 

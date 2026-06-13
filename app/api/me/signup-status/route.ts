@@ -27,6 +27,8 @@ export async function GET() {
         dibay_id_locked: onboarding.dibayIdLocked,
         username: onboarding.username,
         username_confirmed: onboarding.usernameConfirmed,
+        display_name: onboarding.displayName,
+        avatar_url: onboarding.avatarUrl,
         terms_accepted_at: onboarding.termsAcceptedAt,
         terms_version: onboarding.termsVersion,
         privacy_accepted_at: onboarding.privacyAcceptedAt,

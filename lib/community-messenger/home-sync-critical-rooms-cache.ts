@@ -1,7 +1,7 @@
 import {
   clearHomeSyncSnapshotInvalidation,
   peekHomeSyncSnapshotInvalidated,
-} from "@/lib/community-messenger/home-sync-snapshot-cache";
+} from "@/lib/community-messenger/home-sync-snapshot-invalidation-registry";
 
 /** home-sync critical `fetchMyRoomsPayload` 스냅샷 — service 내부 `MessengerRoomsPayload` 와 동형 */
 export type HomeSyncCriticalRoomsPayload = {

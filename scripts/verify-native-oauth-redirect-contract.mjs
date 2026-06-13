@@ -49,8 +49,28 @@ if (!supabaseStart.includes("NATIVE_OAUTH_CAPACITOR_RETURN_PATH")) {
   failures.push("lib/auth/oauth/supabase-oauth-start.server.ts must use /auth/oauth/capacitor-return for native Supabase redirectTo");
 }
 
-if (!read("app/auth/oauth/capacitor-return/page.tsx").includes("capacitor_return_bridge")) {
-  failures.push("app/auth/oauth/capacitor-return/page.tsx must bridge https return to dibay://auth/callback");
+const nativeOAuthContract = read("lib/auth/oauth/native-oauth-contract.ts");
+const capacitorReturnPage = read("app/auth/oauth/capacitor-return/page.tsx");
+const capacitorBootstrap = read("components/platform/CapacitorNativeMarkerBootstrap.tsx");
+
+if (!nativeOAuthContract.includes("NATIVE_OAUTH_PASS_LOG_EVENTS")) {
+  failures.push("native-oauth-contract.ts must define NATIVE_OAUTH_PASS_LOG_EVENTS baseline");
+}
+
+if (!nativeOAuthContract.includes("shouldBridgeCapacitorReturnToApp")) {
+  failures.push("native-oauth-contract.ts must validate capacitor-return bridge params");
+}
+
+if (!capacitorReturnPage.includes("buildValidatedNativeAppCallbackUrl")) {
+  failures.push("capacitor-return/page.tsx must validate code/error before dibay:// bridge");
+}
+
+if (capacitorBootstrap.includes("preloadOAuthBrowser")) {
+  failures.push("CapacitorNativeMarkerBootstrap must not preload @capacitor/browser (legacy Browser.open era)");
+}
+
+if (startOAuthLogin.includes("preloadOAuthBrowser")) {
+  failures.push("start-oauth-login.ts must not preload @capacitor/browser");
 }
 
 if (/url:\s*withNativeAppMarker/.test(capacitorConfig)) {
@@ -82,7 +102,7 @@ if (!startRoute.includes("isNativeAppOAuthRequest")) {
 }
 
 if (!startRoute.includes("shouldUseNativeOAuthRedirect")) {
-  failures.push("app/api/auth/oauth/start/route.ts must use shouldUseNativeOAuthRedirect for dibay:// redirectTo");
+  failures.push("app/api/auth/oauth/start/route.ts must use shouldUseNativeOAuthRedirect for native capacitor-return redirectTo");
 }
 
 if (!startRoute.includes("isNativeOAuthJsonLaunch")) {
@@ -112,7 +132,7 @@ if (!read("lib/auth/oauth/start-oauth-login.ts").includes("isNativeOAuthSupabase
   failures.push("start-oauth-login.ts must reject native OAuth when redirectTo is not /auth/oauth/capacitor-return");
 }
 
-if (!startOAuthLogin.includes("/auth/oauth/launch")) {
+if (!startOAuthLogin.includes("NATIVE_OAUTH_LAUNCH_PATH")) {
   failures.push("lib/auth/oauth/start-oauth-login.ts must navigate native flow to /auth/oauth/launch");
 }
 
@@ -246,7 +266,7 @@ if (!oauthReturnListener.includes("callback_navigate")) {
   failures.push("OAuthReturnListener must log callback_navigate before /auth/callback replace");
 }
 
-if (!read("components/auth/SupabaseAuthSync.tsx").includes("[oauth] exchange_success")) {
+if (!read("components/auth/SupabaseAuthSync.tsx").includes('logOAuthNativeEvent("exchange_success"')) {
   failures.push("SupabaseAuthSync must log oauth exchange_success on SIGNED_IN");
 }
 
@@ -258,8 +278,8 @@ if (!nativeLauncherPlugin.includes("oauth_external_launch")) {
   failures.push("NativeOAuthLauncherPlugin must log oauth_external_launch (Chrome/Custom Tab is expected UX)");
 }
 
-if (!oauthReturnListener.includes("Browser.close")) {
-  failures.push("components/auth/OAuthReturnListener.tsx must call Browser.close on appUrlOpen success path");
+if (oauthReturnListener.includes("browserFinished")) {
+  failures.push("OAuthReturnListener must not use browserFinished — Custom Tab path uses appUrlOpen only");
 }
 
 if (!oauthReturnListener.includes("window.location.replace(webCallbackUrl)")) {
@@ -270,7 +290,11 @@ if (startRoute.includes("legacy_oauth_start_disabled")) {
   failures.push("app/api/auth/oauth/start/route.ts must not return legacy_oauth_start_disabled");
 }
 
-if (!read("docs/native-oauth-device-qa.md").includes("oauth|appUrlOpen|authCallback")) {
+if (!read("docs/native-oauth-device-qa.md").includes("NATIVE_OAUTH_PASS_LOG_EVENTS")) {
+  failures.push("docs/native-oauth-device-qa.md must document A-plan PASS log baseline");
+}
+
+if (!read("docs/native-oauth-device-qa.md").includes("oauth|DIBAY_OAuth|NativeOAuthLauncher")) {
   failures.push("docs/native-oauth-device-qa.md must document Logcat filter");
 }
 

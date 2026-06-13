@@ -9,7 +9,7 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 /**
  * 로그인 콜백·세션 복원·온보딩 화면 종료 시 다음 라우트를 결정한다.
  *
- * 가입 완료: 약관 + 확정 @id + onboarding_completed_at
+ * 가입 완료: 약관 + 확정 @id + 필수 프로필
  * 주소·전화는 가입 경로에서 제외.
  */
 export type ResolvePostLoginRouteParams = {
@@ -26,6 +26,8 @@ function onboardingStatusToDibaySignup(status: OnboardingStatus) {
       dibay_id_locked: status.dibayIdLocked,
       username: status.username,
       username_confirmed: status.usernameConfirmed,
+      display_name: status.displayName,
+      avatar_url: status.avatarUrl,
       terms_accepted_at: status.termsAcceptedAt,
       terms_version: status.termsVersion,
       privacy_accepted_at: status.privacyAcceptedAt,

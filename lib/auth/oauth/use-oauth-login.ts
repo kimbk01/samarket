@@ -4,7 +4,12 @@ import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from "
 import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
-import { startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
+import { isOAuthLoginStartSupported, startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
+import { endOAuthFlow, isOAuthInFlightPath, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
+import { shouldUseNativeAppleOAuth } from "@/lib/auth/native/native-apple-auth-contract";
+import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
+import { startNativeAppleLogin } from "@/lib/auth/native/start-native-apple-login.client";
+import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 
@@ -67,25 +72,39 @@ function isNaverProvider(provider: OAuthProvider): boolean {
 }
 
 function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
+  if (code === "oauth_flow_in_flight") return t("auth_err_oauth_start_failed");
   if (code === "invalid_provider") return t("auth_err_invalid_provider");
   if (code === "supabase_unconfigured") return t("auth_err_supabase_unconfigured");
-  if (code === "browser_plugin_unavailable" || code === "oauth_tab_unavailable" || code === "oauth_launcher_unavailable") {
+  if (code === "oauth_launcher_unavailable") {
     return t("auth_err_oauth_browser_plugin_unavailable");
   }
-  if (
-    code === "browser_open_rejected"
-    || code === "browser_open_timeout"
-    || code === "oauth_tab_open_failed"
-    || code === "oauth_tab_not_opened"
-  ) {
+  if (code === "oauth_tab_open_failed" || code === "oauth_custom_tabs_unavailable") {
     return t("auth_err_oauth_browser_open_failed");
   }
+  if (code === "oauth_bridge_not_ready") return t("auth_err_oauth_bridge_not_ready");
   if (code === "oauth_start_timeout") return t("auth_err_auth_timeout");
   if (code === "navigation_failed") return t("auth_err_oauth_launch_navigation_failed");
+  if (code === "user_cancelled") return t("auth_err_oauth_start_failed");
+  if (code === "apple_native_exchange_not_ready") return t("auth_err_apple_native_not_ready");
+  if (code === "apple_native_verify_failed") return t("auth_err_apple_native_verify_failed");
+  if (code === "apple_native_account_conflict") return t("auth_err_apple_native_account_conflict");
+  if (code === "apple_native_invalid_audience") return t("auth_err_apple_native_invalid_audience");
+  if (code === "apple_native_config_error" || code === "apple_native_token_missing") {
+    return t("auth_err_oauth_start_failed");
+  }
+  if (code === "apple_native_unavailable") return t("auth_err_oauth_start_failed");
   return t("auth_err_oauth_start_failed");
 }
 
 export function dispatchOAuthPendingClear(reason: string): void {
+  endOAuthFlow();
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(OAUTH_PENDING_CLEAR_EVENT, { detail: { reason } }));
+}
+
+/** login 복귀·OAuth 취소 — in-flight lock 즉시 해제 */
+export function releaseOAuthFlowAfterUserCancel(reason = "user_cancel"): void {
+  releaseOAuthFlowOnUserCancel();
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(OAUTH_PENDING_CLEAR_EVENT, { detail: { reason } }));
 }
@@ -114,6 +133,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, [pendingOAuthProvider]);
 
   const clearPending = useCallback(() => {
+    endOAuthFlow();
     pendingProviderRef.current = null;
     setSharedPending(null);
   }, []);
@@ -129,22 +149,31 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       pendingProviderRef.current = nextProvider;
       setSharedPending(nextProvider);
     };
-    const handleVisible = () => {
-      if (document.visibilityState === "visible") clearPending();
-    };
     window.addEventListener(OAUTH_PENDING_CLEAR_EVENT, handleClear);
-    document.addEventListener("visibilitychange", handleVisible);
+
+    const maybeReleaseOnForegroundReturn = () => {
+      if (document.visibilityState !== "visible") return;
+      const path = window.location.pathname;
+      if (isOAuthInFlightPath(path)) return;
+      if (path === "/login" || path === "/signup" || path.startsWith("/login/")) {
+        clearPending();
+      }
+    };
+    document.addEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
+    window.addEventListener("pageshow", maybeReleaseOnForegroundReturn);
 
     return () => {
       window.clearTimeout(timeoutId);
       window.removeEventListener(OAUTH_PENDING_CLEAR_EVENT, handleClear);
-      document.removeEventListener("visibilitychange", handleVisible);
+      document.removeEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
+      window.removeEventListener("pageshow", maybeReleaseOnForegroundReturn);
     };
   }, [clearPending, pendingOAuthProvider]);
 
   const startOAuthProvider = useCallback(
     (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
+      if (!isOAuthLoginStartSupported(provider)) return;
 
       flushSync(() => {
         ensureCapacitorNativeMarkerOnBoot();
@@ -154,12 +183,33 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       });
 
       if (isNaverProvider(provider)) {
+        const flow = tryBeginOAuthFlow(provider);
+        if (!flow.ok) {
+          clearPending();
+          return;
+        }
         try {
           window.location.assign(buildNaverOAuthStartPath(next));
         } catch {
+          flow.release();
           clearPending();
           if (mountedRef.current) setError(mapOAuthErrorToMessage("navigation_failed", t));
         }
+        return;
+      }
+
+      if (shouldUseNativeAppleOAuth(provider, isNativeAppleLoginAvailable())) {
+        void startNativeAppleLogin({ next })
+          .catch((err) => {
+            if (err instanceof NativeAppleAuthError && err.code === "user_cancelled") {
+              releaseOAuthFlowOnUserCancel();
+              clearPending();
+              return;
+            }
+            clearPending();
+            const code = err instanceof Error ? err.name || err.message : "oauth_start_failed";
+            if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
+          });
         return;
       }
 

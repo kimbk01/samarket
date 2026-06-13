@@ -48,18 +48,20 @@ Supabase OAuth(Google·Kakao·Apple)는 **서버 주도 start** + 단일 클라�
 PKCE verifier는 **WebView 쿠키**에 저장되어야 `/auth/callback` exchange가 성공합니다. Custom Tab에 start URL만 열면 PKCE가 분리됩니다.
 
 1. 버튼 클릭 → WebView `fetch('/api/auth/oauth/start?provider=...&launch=native', { credentials: 'include', headers: { Accept: 'application/json' } })`
-2. 서버 → **200** `{ ok: true, authorizeUrl }` + PKCE `Set-Cookie` (WebView)
-3. WebView → `Browser.open(authorizeUrl)` (Custom Tab)
+2. 서버 → **200** `{ ok: true, authorizeUrl, redirectTo }` + PKCE `Set-Cookie` (WebView)
+3. WebView → `NativeOAuthLauncher.open(authorizeUrl)` (Custom Tab)
 4. provider → Supabase → `https://samarket.vercel.app/auth/oauth/capacitor-return?code=...` (Custom Tab) → JS `dibay://auth/callback?code=...` → `OAuthReturnListener` (`appUrlOpen`) → HTTPS `/auth/callback` 브릿지 → exchange
 
 관련 코드:
 
 - Start API: `app/api/auth/oauth/start/route.ts`
-- 클라이언트: `lib/auth/oauth/start.ts`, `lib/auth/oauth/use-oauth-login.ts`
-- 복귀: `lib/auth/oauth/return-bridge.ts`, `components/auth/OAuthReturnListener.tsx`
+- 클라이언트: `lib/auth/oauth/start-oauth-login.ts`, `lib/auth/oauth/use-oauth-login.ts`
+- Launch: `app/auth/oauth/launch/NativeOAuthLaunchClient.tsx`, `lib/auth/oauth/open-native-oauth-tab.ts`
+- 복귀: `app/auth/oauth/capacitor-return/page.tsx`, `components/auth/OAuthReturnListener.tsx`
 - Callback (유지): `app/auth/callback/route.ts`
+- 계약: `lib/auth/oauth/native-oauth-contract.ts`
 
-Logcat 필터: `oauth|appUrlOpen|authCallback` — [native-oauth-device-qa.md](./native-oauth-device-qa.md)
+Logcat 필터: `oauth|DIBAY_OAuth|NativeOAuthLauncher` — [native-oauth-device-qa.md](./native-oauth-device-qa.md)
 
 ## Google
 
@@ -80,25 +82,18 @@ Logcat 필터: `oauth|appUrlOpen|authCallback` — [native-oauth-device-qa.md](.
 
 ## Naver
 
-이 구현은 `custom:naver` provider를 사용합니다.
+**코드 기준: Supabase custom OIDC가 아니라 server OAuth2** (`/api/auth/naver/start` → `/api/auth/naver/callback`).
 
-### 권장: Supabase Custom OAuth/OIDC Provider
+1. Naver Developers에서 애플리케이션 생성
+2. Callback URL:
+   - **Web**: `{origin}/api/auth/naver/callback`
+   - **Native (Capacitor)**: `https://samarket.vercel.app/auth/oauth/capacitor-return?provider=naver` (Google/Kakao/Apple과 동일 https bridge)
+3. Client ID / Secret → Vercel env `NAVER_OAUTH_CLIENT_ID`, `NAVER_OAUTH_CLIENT_SECRET`
+4. Native 복귀: capacitor-return → `dibay://auth/callback?provider=naver&code=...` → `/auth/callback` → `/api/auth/naver/callback`
 
-1. Supabase Dashboard -> `Authentication` -> `Providers`
-2. `New Provider` 생성
-3. identifier를 반드시 `custom:naver` 로 설정
-4. Naver가 OIDC discovery를 지원하는 환경이면 `OIDC` 방식 사용
-5. OIDC가 어렵거나 discovery가 맞지 않으면 `OAuth2` custom provider로 수동 endpoint 입력
+## Facebook
 
-필수 항목:
-- Authorization endpoint
-- Token endpoint
-- Userinfo endpoint
-- Client ID
-- Client Secret
-- Scope: `name email profile_image`
-
-Supabase가 표시하는 callback URL을 Naver Developers의 callback URL에 등록합니다.
+**미연결** — Admin에서 enable 해도 start API 없음. UI는 `isOAuthLoginStartSupported` 로 버튼 숨김. P2에서 Supabase Facebook provider 연결 또는 영구 비활성 결정.
 
 ## Vercel Environment Variables
 
@@ -113,7 +108,11 @@ Supabase가 표시하는 callback URL을 Naver Developers의 callback URL에 등
 
 ## App-side Notes
 
-- Google / Kakao / Apple: `GET /api/auth/oauth/start?provider=...` (native: `launch=native` + fetch-then-`Browser.open`)
-- Naver: `GET /api/auth/naver/start?next=...` (별도 custom provider)
+- Google / Kakao / Apple: `GET /api/auth/oauth/start?provider=...` (native: `launch=native` + fetch-then-`NativeOAuthLauncher` Custom Tab)
+- Naver: `GET /api/auth/naver/start?next=...` (native: https capacitor-return bridge + `provider=naver`)
+- Native SDK exchange (P2): `POST /api/auth/native/exchange` — Apple/Kakao idToken 서버 검증
 - OAuth callback path: `/auth/callback` (legacy `/api/auth/oauth/callback` is redirect-only)
+- OAuth in-flight mutex: `lib/auth/oauth/native-oauth-contract.ts` (`tryBeginOAuthFlow`)
+- 로그아웃·계정전환 wipe: `lib/auth/client-session-wipe.ts` + `verify:auth-session-contract`
+- Provider matrix: [docs/auth-provider-matrix.md](./auth-provider-matrix.md)
 - 로그인 완료 후 서버가 `profiles.active_session_id` 와 httpOnly 쿠키를 함께 갱신합니다.
