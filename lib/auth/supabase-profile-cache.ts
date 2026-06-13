@@ -5,12 +5,25 @@ import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 
 let cached: Profile | null = null;
 
+/** `client-session-wipe` POST_LOGOUT_BFCACHE_GUARD_KEY 와 동일 — 순환 import 방지 */
+const POST_LOGOUT_PROFILE_GUARD_KEY = "samarket:post_logout_guard";
+
+export function isPostLogoutProfileRehydrateBlocked(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(POST_LOGOUT_PROFILE_GUARD_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 브라우저 탭 전용 — Node(SSR·Route Handler·동시 요청)에서는 모듈 전역이
  * 요청 간에 공유되어 다른 클라이언트 세션이 섞일 수 있으므로 서버에서는 비활성.
  */
 export function setSupabaseProfileCache(profile: Profile | null): void {
   if (typeof window === "undefined") return;
+  if (profile !== null && isPostLogoutProfileRehydrateBlocked()) return;
   cached = profile;
 }
 

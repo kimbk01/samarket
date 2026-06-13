@@ -6,10 +6,11 @@
  */
 
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { wipeClientSessionState } from "@/lib/auth/client-session-wipe";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 import { isTerminalAuthCode, type DibaySessionPhase } from "@/lib/auth/dibay-session-policy";
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
-import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
+import { clearAuthSessionClientCache, fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
@@ -103,6 +104,56 @@ function terminalFromAuthError(error: { code?: string; message?: string; status?
   return shouldClearProfileCacheOnGetUserFailure(null, error);
 }
 
+type RegistryValidationResult =
+  | { ok: true }
+  | { ok: false; ghost: true }
+  | { ok: false; ghost: false; phase: "loading" };
+
+async function validateRegistryMatchesSupabaseSession(source: string): Promise<RegistryValidationResult> {
+  try {
+    const res = await fetchAuthSessionNoStore(`ensureHealthy:${source}`);
+    if (res.ok) return { ok: true };
+    if (res.status === 401) return { ok: false, ghost: true };
+    if (res.status >= 500 || res.status === 429) {
+      return { ok: false, ghost: false, phase: "loading" };
+    }
+    return { ok: false, ghost: true };
+  } catch {
+    return { ok: false, ghost: false, phase: "loading" };
+  }
+}
+
+async function reconcileGhostSupabaseSession(source: string): Promise<void> {
+  clearAuthSessionClientCache();
+  const sb = getSupabaseClient();
+  if (sb) {
+    await sb.auth.signOut({ scope: "local" }).catch(() => undefined);
+  }
+  await wipeClientSessionState("user_logout", { setPostLogoutGuard: false });
+  postAuthBc({ type: "signed_out" });
+  void source;
+}
+
+async function confirmAuthenticatedWithRegistry(
+  source: string
+): Promise<
+  | { ok: true; phase: "authenticated" }
+  | { ok: false; phase: DibaySessionPhase; terminal: boolean }
+> {
+  const registry = await validateRegistryMatchesSupabaseSession(source);
+  if (registry.ok) {
+    setSessionPhase("authenticated");
+    return { ok: true, phase: "authenticated" };
+  }
+  if (registry.ghost) {
+    await reconcileGhostSupabaseSession(source);
+    setSessionPhase("guest");
+    return { ok: false, phase: "guest", terminal: false };
+  }
+  setSessionPhase("loading");
+  return { ok: false, phase: "loading", terminal: false };
+}
+
 export type EnsureSessionHealthyResult =
   | { ok: true; phase: "authenticated" }
   | { ok: false; phase: DibaySessionPhase; terminal: boolean };
@@ -128,8 +179,7 @@ export async function ensureSessionHealthy(source: string): Promise<EnsureSessio
 
     const { data: sessionData } = await sb.auth.getSession();
     if (sessionData.session?.user?.id) {
-      setSessionPhase("authenticated");
-      return { ok: true, phase: "authenticated" };
+      return confirmAuthenticatedWithRegistry(source);
     }
 
     if (!remoteRefreshLock) {
@@ -142,8 +192,7 @@ export async function ensureSessionHealthy(source: string): Promise<EnsureSessio
           return { ok: false, phase: "corrupt", terminal: true };
         }
         if (refreshed.data.session?.user?.id) {
-          setSessionPhase("authenticated");
-          return { ok: true, phase: "authenticated" };
+          return confirmAuthenticatedWithRegistry(source);
         }
       } finally {
         postAuthBc({ type: "refresh_done" });
@@ -152,8 +201,7 @@ export async function ensureSessionHealthy(source: string): Promise<EnsureSessio
 
     const { data: { user }, error: userErr } = await dedupeSupabaseAuthGetUser(sb);
     if (user?.id) {
-      setSessionPhase("authenticated");
-      return { ok: true, phase: "authenticated" };
+      return confirmAuthenticatedWithRegistry(source);
     }
     if (terminalFromAuthError(userErr)) {
       setSessionPhase("corrupt");
@@ -230,10 +278,7 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   const { data: { subscription } } = sb.auth.onAuthStateChange(dispatchAuthStateChange);
   authSubscription = subscription;
 
-  void sb.auth.getSession().then(({ data: { session } }) => {
-    if (session?.user?.id) setSessionPhase("authenticated");
-    else setSessionPhase("guest");
-  });
+  void ensureSessionHealthy("bindAuthListener");
 
   return () => {
     subscription.unsubscribe();

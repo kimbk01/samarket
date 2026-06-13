@@ -16,7 +16,7 @@ export type LogoutResult =
   | { ok: true; serverWarning?: string | null }
   | { ok: false; message: string };
 
-const SUPABASE_SIGNOUT_TIMEOUT_MS = 1_500;
+const SUPABASE_SIGNOUT_TIMEOUT_MS = 5_000;
 const SERVER_LOGOUT_TIMEOUT_MS = 5_000;
 
 function logoutT(key: MessageKey): string {
@@ -40,31 +40,38 @@ async function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | 
   }
 }
 
-async function localSupabaseSignOut(): Promise<void> {
+function logLogoutResult(scope: "current_device" | "all_devices" | "corrupt", detail: Record<string, unknown>): void {
+  if (typeof console === "undefined") return;
+  console.info("[auth:logout]", { scope, ...detail });
+}
+
+async function localSupabaseSignOut(): Promise<boolean> {
   const supabase = getSupabaseClient();
-  if (!supabase) return;
-  await raceWithTimeout(
+  if (!supabase) return true;
+  const result = await raceWithTimeout(
     supabase.auth
       .signOut({ scope: "local" })
-      .then(() => undefined)
-      .catch(() => undefined),
+      .then(() => true)
+      .catch(() => false),
     SUPABASE_SIGNOUT_TIMEOUT_MS
   );
+  return result === true;
 }
 
-async function globalSupabaseSignOut(): Promise<void> {
+async function globalSupabaseSignOut(): Promise<boolean> {
   const supabase = getSupabaseClient();
-  if (!supabase) return;
-  await raceWithTimeout(
+  if (!supabase) return true;
+  const result = await raceWithTimeout(
     supabase.auth
       .signOut({ scope: "global" })
-      .then(() => undefined)
-      .catch(() => undefined),
+      .then(() => true)
+      .catch(() => false),
     SUPABASE_SIGNOUT_TIMEOUT_MS
   );
+  return result === true;
 }
 
-async function reportServerLogoutInBackground(path: "/api/auth/logout" | "/api/auth/logout-all"): Promise<string | null> {
+async function reportServerLogout(path: "/api/auth/logout" | "/api/auth/logout-all"): Promise<string | null> {
   try {
     const res = await fetchWithTimeout(path, {
       method: "POST",
@@ -95,13 +102,17 @@ export async function logoutCurrentDevice(): Promise<LogoutResult> {
 
   await wipeClientSessionState("user_logout");
   markExplicitLogoutWipeDone();
-  await localSupabaseSignOut();
 
-  void reportServerLogoutInBackground("/api/auth/logout").catch(() => {
-    /* best-effort */
+  const localSignOutOk = await localSupabaseSignOut();
+  const serverWarning = await reportServerLogout("/api/auth/logout");
+
+  logLogoutResult("current_device", {
+    localSignOutOk,
+    serverWarning,
+    wipeDone: true,
   });
 
-  return { ok: true, serverWarning: null };
+  return { ok: true, serverWarning };
 }
 
 /** 모든 기기 — global signOut + 전체 registry revoke */
@@ -112,13 +123,17 @@ export async function logoutAllDevices(): Promise<LogoutResult> {
 
   await wipeClientSessionState("user_logout");
   markExplicitLogoutWipeDone();
-  await globalSupabaseSignOut();
 
-  void reportServerLogoutInBackground("/api/auth/logout-all").catch(() => {
-    /* best-effort */
+  const localSignOutOk = await globalSupabaseSignOut();
+  const serverWarning = await reportServerLogout("/api/auth/logout-all");
+
+  logLogoutResult("all_devices", {
+    localSignOutOk,
+    serverWarning,
+    wipeDone: true,
   });
 
-  return { ok: true, serverWarning: null };
+  return { ok: true, serverWarning };
 }
 
 /** refresh token 무효·corrupt — local wipe only (서버 호출 없음) */
@@ -129,7 +144,13 @@ export async function forceClearCorruptSession(): Promise<LogoutResult> {
 
   await wipeClientSessionState("user_logout");
   markExplicitLogoutWipeDone();
-  await localSupabaseSignOut();
+  const localSignOutOk = await localSupabaseSignOut();
+
+  logLogoutResult("corrupt", {
+    localSignOutOk,
+    serverWarning: null,
+    wipeDone: true,
+  });
 
   return { ok: true, serverWarning: null };
 }
