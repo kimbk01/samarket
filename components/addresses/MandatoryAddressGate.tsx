@@ -3,6 +3,7 @@
 import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildProfileSetupHref, isProfileSetupGateExcludedPath } from "@/lib/auth/profile-setup-flow";
+import { isProfileSetupDeferredForSession, clearProfileSetupDeferForSession } from "@/lib/auth/profile-setup-defer.client";
 import { runNowOrScheduleOnStoreOwnerAdmin, OWNER_HUB_SECONDARY_AFTER_MS } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
 import {
@@ -57,6 +58,7 @@ export function MandatoryAddressGate() {
   const maybeRedirectToSetup = useCallback(
     (needsBlock: boolean) => {
       if (!needsBlock || deferOverlayForStoresLcp) return;
+      if (isProfileSetupDeferredForSession()) return;
       const p = pathRef.current;
       if (isGateExcludedPath(p)) return;
       const search = typeof window !== "undefined" ? window.location.search : "";
@@ -146,7 +148,7 @@ export function MandatoryAddressGate() {
     prevPathForGateRef.current = next;
 
     if (!shouldRefetchGateOnPathChange(prev, next)) {
-      if (blocked) {
+      if (blocked && !isProfileSetupDeferredForSession()) {
         maybeRedirectToSetup(true);
       }
       return;
@@ -190,6 +192,7 @@ export function MandatoryAddressGate() {
       if (event === "SIGNED_OUT") {
         setBlocked(false);
         redirectTargetRef.current = null;
+        clearProfileSetupDeferForSession();
         return;
       }
       if (event === "SIGNED_IN") {

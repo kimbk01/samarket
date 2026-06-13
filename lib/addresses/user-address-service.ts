@@ -211,10 +211,36 @@ export async function isMandatoryAddressGateSatisfied(
     .eq("is_active", true);
 
   if (e2) throw new Error(e2.message);
-  if ((count ?? 0) === 0) return false;
+  if ((count ?? 0) > 0) {
+    const list = await listUserAddresses(sb, userId);
+    return list.some((x) => x.isDefaultMaster);
+  }
 
-  const list = await listUserAddresses(sb, userId);
-  return list.some((x) => x.isDefaultMaster);
+  /**
+   * 레거시·프로필 수정만 한 회원 — `profiles` 좌표/주소는 있으나 `user_addresses` 대표 행이 없을 수 있다.
+   * setup 게이트·MandatoryAddressGate 가 영구 루프에 빠지지 않도록 프로필 geo 로 완화한다.
+   */
+  const { data: profile, error: e3 } = await sb
+    .from("profiles")
+    .select("latitude,longitude,full_address")
+    .eq("id", userId)
+    .maybeSingle();
+  if (e3) throw new Error(e3.message);
+  return isProfileGeoAddressFallbackSatisfied(profile as Record<string, unknown> | null);
+}
+
+export function isProfileGeoAddressFallbackSatisfied(
+  profile: Record<string, unknown> | null | undefined,
+): boolean {
+  if (!profile) return false;
+  const fullAddress = String(profile.full_address ?? "").trim();
+  if (!fullAddress) return false;
+  const rawLat = profile.latitude;
+  const rawLng = profile.longitude;
+  if (rawLat == null || rawLng == null) return false;
+  const lat = typeof rawLat === "number" ? rawLat : Number(rawLat);
+  const lng = typeof rawLng === "number" ? rawLng : Number(rawLng);
+  return Number.isFinite(lat) && Number.isFinite(lng);
 }
 
 export async function getUserAddressDefaults(

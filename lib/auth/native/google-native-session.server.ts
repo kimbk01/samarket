@@ -3,6 +3,7 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
 import {
   buildGoogleNativeAuthEmail,
+  GOOGLE_NATIVE_AUTH_EMAIL_DOMAIN,
   isGoogleNativeExchangeSessionEnabled,
 } from "@/lib/auth/native/google-auth-env.server";
 import type { GoogleVerifiedIdentity } from "@/lib/auth/native/google-token-verify.server";
@@ -99,19 +100,47 @@ async function findAuthUserIdByGoogleSub(
   return null;
 }
 
+async function findProfileIdByVerifiedGoogleEmail(
+  adminSb: SupabaseClient,
+  verified: GoogleVerifiedIdentity,
+): Promise<string | null> {
+  if (!verified.emailVerified || !verified.email?.trim()) return null;
+  const email = verified.email.trim().toLowerCase();
+  if (email.endsWith(`@${GOOGLE_NATIVE_AUTH_EMAIL_DOMAIN}`)) return null;
+
+  const { data, error } = await adminSb
+    .from("profiles")
+    .select("id")
+    .eq("provider", "google")
+    .or(`email.eq.${email},auth_login_email.eq.${email}`)
+    .limit(1);
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+  const row = data[0] as { id?: unknown };
+  return typeof row.id === "string" ? row.id : null;
+}
+
 async function resolveExistingGoogleUserId(
   adminSb: SupabaseClient,
-  googleUserId: string,
+  verified: GoogleVerifiedIdentity,
 ): Promise<string | null> {
+  const googleUserId = verified.googleUserId;
+
   const fromProfile = await findProfileIdByGoogleUserId(adminSb, googleUserId);
   if (fromProfile) return fromProfile;
 
-  /** 이전 Native 시도가 synthetic auth user 만 남긴 경우 — createUser 중복 방지 */
+  /** Web Google OAuth 가입자 — verified Gmail 과 profiles 매칭 (sub 컬럼만으로 못 찾을 때) */
+  const fromVerifiedEmail = await findProfileIdByVerifiedGoogleEmail(adminSb, verified);
+  if (fromVerifiedEmail) return fromVerifiedEmail;
+
+  const fromAuthIdentity = await findAuthUserIdByGoogleSub(adminSb, googleUserId);
+  if (fromAuthIdentity) return fromAuthIdentity;
+
+  /** 마지막 수단 — 이전 Native 시도 orphan synthetic auth user (createUser 중복 방지) */
   const syntheticEmail = resolveAuthEmailForGoogleUser(googleUserId);
   const fromSyntheticAuth = await findAuthUserByEmail(adminSb, syntheticEmail);
   if (fromSyntheticAuth?.id) return fromSyntheticAuth.id;
 
-  return findAuthUserIdByGoogleSub(adminSb, googleUserId);
+  return null;
 }
 
 async function updateGoogleAuthUserById(
@@ -263,7 +292,7 @@ export async function establishGoogleNativeSession(
 
   const googleUserId = input.verified.googleUserId;
   const safeNext = sanitizeNextPath(input.next ?? null);
-  const existingUserId = await resolveExistingGoogleUserId(ctx.adminSb, googleUserId);
+  const existingUserId = await resolveExistingGoogleUserId(ctx.adminSb, input.verified);
 
   const upsert = await upsertGoogleAuthUser(ctx.adminSb, {
     existingUserId: existingUserId,
@@ -291,6 +320,8 @@ export async function establishGoogleNativeSession(
   const signedUser = signInData.user;
   const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);
 
+  await persistGoogleProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
+
   try {
     await ensurePendingAuthProfileRow(ctx.adminSb, syntheticUser, {
       authProvider: "google",
@@ -314,8 +345,6 @@ export async function establishGoogleNativeSession(
       };
     }
   }
-
-  await persistGoogleProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
 
   let redirectTo = safeNext ?? POST_LOGIN_PATH;
   let signupComplete = false;

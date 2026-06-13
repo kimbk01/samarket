@@ -7,6 +7,7 @@
 import { invalidateAuthLightSessionSnapshotCache } from "@/lib/auth/auth-light-session-snapshot-cache";
 import { invalidateCurrentUserIdCache } from "@/lib/auth/get-current-user";
 import { invalidateMandatoryAddressGateClientCache } from "@/lib/addresses/mandatory-address-gate-client";
+import { clearProfileSetupDeferForSession } from "@/lib/auth/profile-setup-defer.client";
 import { invalidateMainBottomNavDedupedCache } from "@/lib/app/fetch-main-bottom-nav-deduped";
 import { invalidateMessengerIceServerCache } from "@/lib/call/ice-servers";
 import { resetHomeSyncSnapshotInvalidationRegistry } from "@/lib/community-messenger/home-sync-snapshot-invalidation-registry";
@@ -41,6 +42,7 @@ export function invalidateAuthExitClientCaches(previousUserId?: string | null): 
   invalidateAuthLightSessionSnapshotCache(previousUserId ?? undefined);
   invalidateAllTradeFeedClientCache();
   invalidateMandatoryAddressGateClientCache();
+  clearProfileSetupDeferForSession();
   invalidateOwnerStoreOwnershipCache(previousUserId ?? undefined);
   invalidateMessengerIceServerCache();
 }

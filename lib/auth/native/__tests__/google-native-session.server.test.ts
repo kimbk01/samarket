@@ -60,6 +60,9 @@ function buildAdminSb(options: {
               error: null,
             }),
           }),
+          or: () => ({
+            limit: async () => ({ data: [], error: null }),
+          }),
         }),
       }),
       update: () => ({ eq: async () => ({ error: null }) }),
@@ -147,5 +150,91 @@ describe("google-native-session.server", () => {
       }),
     );
     expect(signInWithPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("prefers existing web Google profile by verified email over synthetic orphan auth user", async () => {
+    const googleUserId = "107373086399795697553";
+    const webProfileId = "1a3179f4-9e9b-4b11-98b2-e124932c58bd";
+    const orphanId = "08224de9-953e-4219-8ead-f30d7201dafb";
+    const verifiedEmail = "bkim4pact@gmail.com";
+
+    const from = vi.fn((table: string) => {
+      if (table !== "profiles") {
+        return { update: () => ({ eq: async () => ({ error: null }) }) };
+      }
+      return {
+        select: () => ({
+          eq: (col: string, val: unknown) => {
+            if (col === "provider" && val === "google") {
+              return {
+                eq: () => ({
+                  limit: async () => ({ data: [], error: null }),
+                }),
+                or: () => ({
+                  limit: async () => ({ data: [{ id: webProfileId }], error: null }),
+                }),
+              };
+            }
+            return {
+              eq: () => ({ limit: async () => ({ data: [], error: null }) }),
+              or: async () => ({ data: [], error: null }),
+            };
+          },
+        }),
+        update: () => ({ eq: async () => ({ error: null }) }),
+      };
+    });
+
+    findAuthUserByEmail.mockResolvedValue({ id: orphanId, email: `google.${googleUserId}@google.native.dibay.internal` });
+
+    const adminSb = {
+      auth: {
+        admin: {
+          createUser: vi.fn(),
+          updateUserById: vi.fn(async () => ({ error: null })),
+          getUserById: vi.fn(async (id: string) => ({
+            data: { user: { id, email: verifiedEmail } },
+            error: null,
+          })),
+          listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+        },
+      },
+      from,
+    } as unknown as SupabaseClient;
+
+    const signInWithPassword = vi.fn(async () => ({
+      data: { user: { id: webProfileId, email: verifiedEmail } },
+      error: null,
+    }));
+    const routeSb = { auth: { signInWithPassword } } as unknown as SupabaseClient;
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      {
+        verified: {
+          googleUserId,
+          audience: "229866850463-test.apps.googleusercontent.com",
+          email: verifiedEmail,
+          emailVerified: true,
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(adminSb.auth.admin.updateUserById).toHaveBeenCalledWith(
+      webProfileId,
+      expect.objectContaining({
+        password: buildGoogleSupabasePassword(googleUserId),
+      }),
+    );
+    expect(adminSb.auth.admin.updateUserById).not.toHaveBeenCalledWith(
+      orphanId,
+      expect.anything(),
+    );
   });
 });

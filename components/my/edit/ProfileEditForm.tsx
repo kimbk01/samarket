@@ -31,6 +31,10 @@ import {
   isProfileSetupMode,
   isProfileSetupPending,
 } from "@/lib/auth/profile-setup-flow";
+import {
+  clearProfileSetupDeferForSession,
+  deferProfileSetupForSession,
+} from "@/lib/auth/profile-setup-defer.client";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
@@ -45,6 +49,7 @@ import { ProfileAvatarEditor } from "@/components/my/edit/ui/ProfileAvatarEditor
 import { ProfileReadOnlyInfoCard } from "@/components/my/edit/ui/ProfileReadOnlyInfoCard";
 import { ProfileEditHeader } from "@/components/my/edit/ui/ProfileEditHeader";
 import { ProfileEditBottomSaveBar } from "@/components/my/edit/ui/ProfileEditBottomSaveBar";
+import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { formatAtUsername } from "@/lib/users/user-label";
 
@@ -276,6 +281,13 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     await load({ freshProfile: true });
   }, [load]);
 
+  const handleSetupDismiss = useCallback(() => {
+    deferProfileSetupForSession();
+    invalidateMandatoryAddressGateClientCache();
+    // next가 /mypage/... 이면 게이트에 즉시 재진입 — 취소는 항상 홈
+    router.replace(POST_LOGIN_PATH);
+  }, [router]);
+
   useEffect(() => {
     if (!setupMode || !setupGateReady || setupExitRef.current || !profile) return;
     if (
@@ -286,6 +298,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     ) {
       return;
     }
+    clearProfileSetupDeferForSession();
     setupExitRef.current = true;
     router.replace(setupNext ?? POST_LOGIN_PATH);
   }, [
@@ -346,7 +359,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   if (loading) {
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
-        <ProfileEditHeader backHref={backHref} />
+        <ProfileEditHeader backHref={backHref} onSetupBack={setupMode ? handleSetupDismiss : undefined} />
         <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("profile_edit_loading_profile")}</div>
       </div>
     );
@@ -355,7 +368,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   if (!profile) {
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
-        <ProfileEditHeader backHref={backHref} />
+        <ProfileEditHeader backHref={backHref} onSetupBack={setupMode ? handleSetupDismiss : undefined} />
         <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("auth_resource_access_denied")}</div>
       </div>
     );
@@ -374,7 +387,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
 
   return (
     <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
-      <ProfileEditHeader backHref={backHref} />
+      <ProfileEditHeader backHref={backHref} onSetupBack={setupMode ? handleSetupDismiss : undefined} />
 
       <form id={PROFILE_EDIT_FORM_ID} onSubmit={handleSubmit}>
         <ProfileEditFormShell>
@@ -383,7 +396,13 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
               className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2.5 text-[14px] font-medium text-red-700"
               role="status"
             >
-              {t("profile_setup_banner")}
+              <p>{t("profile_setup_banner")}</p>
+              <div className="mt-3">
+                <LogoutActionTrigger
+                  variant="outlined_button"
+                  label={t("mypage_hub_logout")}
+                />
+              </div>
             </div>
           ) : null}
           {message ? (
@@ -451,7 +470,12 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         </ProfileEditFormShell>
       </form>
 
-      <ProfileEditBottomSaveBar formId={PROFILE_EDIT_FORM_ID} backHref={backHref} saving={saving} />
+      <ProfileEditBottomSaveBar
+        formId={PROFILE_EDIT_FORM_ID}
+        backHref={backHref}
+        saving={saving}
+        onCancel={setupMode ? handleSetupDismiss : undefined}
+      />
     </div>
   );
 }
