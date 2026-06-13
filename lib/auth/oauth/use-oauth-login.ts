@@ -6,7 +6,7 @@ import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
 import { startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
@@ -136,18 +136,14 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, [clearPending, pendingOAuthProvider]);
 
   const startOAuthProvider = useCallback(
-    (provider: OAuthProvider) => {
+    async (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
-
-      const nativeLaunch = isCapacitorNativePlatform() && !isNaverProvider(provider);
 
       flushSync(() => {
         ensureCapacitorNativeMarkerOnBoot();
         if (mountedRef.current) setError(null);
-        if (!nativeLaunch) {
-          pendingProviderRef.current = provider;
-          setSharedPending(provider);
-        }
+        pendingProviderRef.current = provider;
+        setSharedPending(provider);
       });
 
       if (isNaverProvider(provider)) {
@@ -161,7 +157,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       }
 
       try {
-        startOAuthLogin({ provider, next });
+        await startOAuthLogin({ provider, next });
       } catch (err) {
         clearPending();
         const code = err instanceof Error ? err.name || err.message : "oauth_start_failed";

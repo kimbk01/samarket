@@ -14,9 +14,9 @@ function read(relPath) {
 }
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
+const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+const dibayOAuthPlugin = read("android/app/src/main/java/com/dibay/app/DibayOAuthPlugin.java");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
-const nativeLaunchRoute = read("app/auth/oauth/native-launch/route.ts");
-const nativeLaunchHtml = read("lib/auth/oauth/native-oauth-launch-html.server.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
@@ -50,32 +50,32 @@ if (!layout.includes("CapacitorNativeMarkerBootstrap")) {
   failures.push("app/layout.tsx must mount CapacitorNativeMarkerBootstrap");
 }
 
-if (!startOAuthLogin.includes("NATIVE_OAUTH_LAUNCH_PATH")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate native OAuth to NATIVE_OAUTH_LAUNCH_PATH");
+if (!mainActivity.includes("registerPlugin(DibayOAuthPlugin.class)")) {
+  failures.push("MainActivity must register DibayOAuthPlugin");
 }
 
-if (startOAuthLogin.includes("fetchWithTimeout") || startOAuthLogin.includes("Browser.open({ url: json.authorizeUrl")) {
-  failures.push("Native OAuth client must not fetch-then-open; use native-launch route instead");
+if (!dibayOAuthPlugin.includes('@CapacitorPlugin(name = "DibayOAuth")')) {
+  failures.push("DibayOAuthPlugin must expose Capacitor plugin name DibayOAuth");
 }
 
-if (!nativeLaunchRoute.includes("runSupabaseOAuthStart")) {
-  failures.push("app/auth/oauth/native-launch/route.ts must run Supabase OAuth start server-side");
+if (!dibayOAuthPlugin.includes("CustomTabsIntent")) {
+  failures.push("DibayOAuthPlugin must open OAuth with Android Custom Tabs");
 }
 
-if (!nativeLaunchRoute.includes("buildNativeOAuthLaunchHtml")) {
-  failures.push("app/auth/oauth/native-launch/route.ts must return native launch HTML");
+if (!startOAuthLogin.includes('path.searchParams.set("launch", "native")')) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must request native JSON launch");
 }
 
-if (nativeLaunchRoute.includes("NATIVE_OAUTH_LAUNCH_OPEN_PATH")) {
-  failures.push("Native OAuth must not redirect to /open; use single HTML launch route");
+if (!startOAuthLogin.includes('credentials: "include"')) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must fetch with credentials: include");
 }
 
-if (!nativeLaunchHtml.includes("registerPlugin(\"Browser\")")) {
-  failures.push("native-oauth-launch-html must register Capacitor Browser plugin on the HTML page");
+if (!startOAuthLogin.includes('registerPlugin?.("DibayOAuth")')) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must call DibayOAuth native bridge");
 }
 
-if (startOAuthLogin.includes("Browser.open({ url: startPath")) {
-  failures.push("Native OAuth must not Browser.open the start endpoint");
+if (startOAuthLogin.includes("/auth/oauth/native-launch")) {
+  failures.push("Native OAuth must not use intermediate native-launch pages");
 }
 
 if (!oauthReturnListener.includes("Browser.close")) {
