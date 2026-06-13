@@ -1,10 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
-import {
-  NATIVE_OAUTH_LAUNCH_OPEN_PATH,
-  NATIVE_OAUTH_LAUNCH_URL_COOKIE,
-} from "@/lib/auth/oauth/native-oauth-launch.constants";
+import { buildNativeOAuthLaunchHtml } from "@/lib/auth/oauth/native-oauth-launch-html.server";
+import { isNativeOAuthLaunchProvider } from "@/lib/auth/oauth/native-oauth-launch.constants";
 import {
   normalizeSupabaseOAuthProvider,
   runSupabaseOAuthStart,
@@ -33,12 +31,19 @@ function withNoStore(response: NextResponse): NextResponse {
   return response;
 }
 
+function copyCookies(from: NextResponse, to: NextResponse): NextResponse {
+  for (const cookie of from.cookies.getAll()) {
+    to.cookies.set(cookie.name, cookie.value);
+  }
+  return to;
+}
+
 export async function GET(req: NextRequest) {
   const provider = normalizeSupabaseOAuthProvider(readParam(req, "provider"));
   const next = readParam(req, "next");
   const native = isNativeAppLaunch(req);
 
-  if (!provider) {
+  if (!provider || !isNativeOAuthLaunchProvider(provider)) {
     return withNoStore(NextResponse.redirect(new URL("/login?error=invalid_provider", req.url)));
   }
 
@@ -48,9 +53,7 @@ export async function GET(req: NextRequest) {
     return withNoStore(NextResponse.redirect(new URL(`/api/auth/oauth/start?${query.toString()}`, req.url)));
   }
 
-  const openUrl = new URL(NATIVE_OAUTH_LAUNCH_OPEN_PATH, req.url);
-  openUrl.searchParams.set("provider", provider);
-  const redirectResponse = NextResponse.redirect(openUrl);
+  const cookieCarrier = NextResponse.json({ ok: true });
   const result = await runSupabaseOAuthStart({
     provider,
     native: true,
@@ -62,7 +65,7 @@ export async function GET(req: NextRequest) {
       },
       setAll(cookiesToSet) {
         for (const { name, value, options } of cookiesToSet) {
-          redirectResponse.cookies.set(name, value, options);
+          cookieCarrier.cookies.set(name, value, options);
         }
       },
     },
@@ -74,13 +77,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  redirectResponse.cookies.set(NATIVE_OAUTH_LAUNCH_URL_COOKIE, result.authorizeUrl, {
-    path: NATIVE_OAUTH_LAUNCH_OPEN_PATH,
-    maxAge: 120,
-    httpOnly: true,
-    sameSite: "lax",
-    secure: cookieSecureFromNextRequest(req),
-  });
-
-  return withNoStore(redirectResponse);
+  return withNoStore(copyCookies(
+    cookieCarrier,
+    new NextResponse(buildNativeOAuthLaunchHtml({
+      authorizeUrl: result.authorizeUrl,
+      provider,
+    }), {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }),
+  ));
 }

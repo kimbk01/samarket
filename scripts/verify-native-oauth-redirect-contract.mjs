@@ -16,8 +16,7 @@ function read(relPath) {
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
 const nativeLaunchRoute = read("app/auth/oauth/native-launch/route.ts");
-const nativeLaunchOpenPage = read("app/auth/oauth/native-launch/open/page.tsx");
-const nativeLaunchClient = read("app/auth/oauth/native-launch/NativeOAuthLaunchClient.tsx");
+const nativeLaunchHtml = read("lib/auth/oauth/native-oauth-launch-html.server.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
@@ -56,23 +55,23 @@ if (!startOAuthLogin.includes("NATIVE_OAUTH_LAUNCH_PATH")) {
 }
 
 if (startOAuthLogin.includes("fetchWithTimeout") || startOAuthLogin.includes("Browser.open({ url: json.authorizeUrl")) {
-  failures.push("Native OAuth client must not fetch-then-open; use native-launch page instead");
+  failures.push("Native OAuth client must not fetch-then-open; use native-launch route instead");
 }
 
 if (!nativeLaunchRoute.includes("runSupabaseOAuthStart")) {
   failures.push("app/auth/oauth/native-launch/route.ts must run Supabase OAuth start server-side");
 }
 
-if (!nativeLaunchOpenPage.includes("NativeOAuthLaunchClient")) {
-  failures.push("app/auth/oauth/native-launch/open/page.tsx must render NativeOAuthLaunchClient");
+if (!nativeLaunchRoute.includes("buildNativeOAuthLaunchHtml")) {
+  failures.push("app/auth/oauth/native-launch/route.ts must return native launch HTML");
 }
 
-if (!nativeLaunchClient.includes("openNativeOAuthBrowser")) {
-  failures.push("NativeOAuthLaunchClient must call openNativeOAuthBrowser");
+if (nativeLaunchRoute.includes("NATIVE_OAUTH_LAUNCH_OPEN_PATH")) {
+  failures.push("Native OAuth must not redirect to /open; use single HTML launch route");
 }
 
-if (!read("lib/auth/oauth/open-native-oauth-browser.ts").includes("Browser.open({ url })")) {
-  failures.push("open-native-oauth-browser must try Browser.open first");
+if (!nativeLaunchHtml.includes("Plugins.Browser")) {
+  failures.push("native-oauth-launch-html must open OAuth via Capacitor Browser plugin");
 }
 
 if (startOAuthLogin.includes("Browser.open({ url: startPath")) {

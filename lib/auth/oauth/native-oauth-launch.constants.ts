@@ -1,3 +1,9 @@
 export const NATIVE_OAUTH_LAUNCH_PATH = "/auth/oauth/native-launch";
-export const NATIVE_OAUTH_LAUNCH_OPEN_PATH = "/auth/oauth/native-launch/open";
-export const NATIVE_OAUTH_LAUNCH_URL_COOKIE = "dibay_oauth_launch_url";
+
+export type NativeOAuthLaunchProvider = "google" | "kakao" | "apple";
+
+export function isNativeOAuthLaunchProvider(
+  value: string | null | undefined,
+): value is NativeOAuthLaunchProvider {
+  return value === "google" || value === "kakao" || value === "apple";
+}
