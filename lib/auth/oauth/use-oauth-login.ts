@@ -4,9 +4,17 @@ import { useCallback, useEffect, useRef, useSyncExternalStore, useState } from "
 import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
-import { startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
+import {
+  openNativeOAuthBrowserSync,
+  prefetchNativeOAuthAuthorizeUrl,
+  preloadOAuthBrowser,
+  readPrefetchedNativeOAuthAuthorizeUrl,
+  startOAuthLogin,
+} from "@/lib/auth/oauth/start-oauth-login";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
+import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+
+const SUPABASE_OAUTH_PROVIDERS: OAuthProvider[] = ["google", "kakao", "apple"];
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
@@ -103,6 +111,14 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, []);
 
   useEffect(() => {
+    if (!isCapacitorNativePlatform()) return;
+    preloadOAuthBrowser();
+    for (const provider of SUPABASE_OAUTH_PROVIDERS) {
+      prefetchNativeOAuthAuthorizeUrl(provider, next);
+    }
+  }, [next]);
+
+  useEffect(() => {
     pendingProviderRef.current = pendingOAuthProvider;
   }, [pendingOAuthProvider]);
 
@@ -154,6 +170,13 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           if (mountedRef.current) setError(mapOAuthErrorToMessage("navigation_failed", t));
         }
         return;
+      }
+
+      if (isCapacitorNativePlatform() && !isNaverProvider(provider)) {
+        const prefetchedUrl = readPrefetchedNativeOAuthAuthorizeUrl(provider, next);
+        if (prefetchedUrl && openNativeOAuthBrowserSync(prefetchedUrl)) {
+          return;
+        }
       }
 
       try {

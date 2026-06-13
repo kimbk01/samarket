@@ -1,16 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const open = vi.fn();
+const browserOpen = vi.fn();
 let native = true;
 let marker: string | null = "android";
 
-const capacitorMock = {
-  isPluginAvailable: vi.fn((name: string) => name === "DibayOAuth"),
-  registerPlugin: vi.fn((name: string) => {
-    if (name !== "DibayOAuth") throw new Error("unknown_plugin");
-    return { open };
-  }),
-};
+vi.mock("@capacitor/browser", () => ({
+  Browser: {
+    open: (...args: unknown[]) => browserOpen(...args),
+  },
+}));
 
 vi.mock("@/lib/platform/capacitor-native", () => ({
   DIBAY_APP_MARKER_PARAM: "dibay_app",
@@ -20,17 +18,17 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
 }));
 
 describe("startOAuthLogin", () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
-    open.mockReset();
-    capacitorMock.isPluginAvailable.mockClear();
-    capacitorMock.registerPlugin.mockClear();
+    browserOpen.mockReset();
     native = true;
     marker = "android";
+    const mod = await import("@/lib/auth/oauth/start-oauth-login");
+    mod.resetNativeOAuthStateForTests();
   });
 
-  it("fetches the native start endpoint and opens the authorizeUrl with DibayOAuth", async () => {
+  it("fetches the native start endpoint and opens the authorizeUrl with Browser", async () => {
     const assign = vi.fn();
     const fetchMock = vi.fn(async () =>
       new Response(
@@ -45,14 +43,15 @@ describe("startOAuthLogin", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("window", {
-      Capacitor: capacitorMock,
       location: { origin: "https://samarket.vercel.app", assign },
       setTimeout,
       clearTimeout,
     });
 
-    const { startOAuthLogin } = await import("@/lib/auth/oauth/start-oauth-login");
-    await startOAuthLogin({ provider: "google", next: "/market" });
+    const mod = await import("@/lib/auth/oauth/start-oauth-login");
+    mod.preloadOAuthBrowser();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await mod.startOAuthLogin({ provider: "google", next: "/market" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/oauth/start?provider=google&next=%2Fmarket&launch=native&dibay_app=android",
@@ -62,9 +61,40 @@ describe("startOAuthLogin", () => {
         signal: expect.any(AbortSignal),
       }),
     );
-    expect(capacitorMock.registerPlugin).toHaveBeenCalledWith("DibayOAuth");
-    expect(open).toHaveBeenCalledWith({ url: "https://supabase.example/auth/v1/authorize" });
+    expect(browserOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth/v1/authorize" });
     expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("opens prefetched authorizeUrl without waiting for fetch on tap", async () => {
+    const assign = vi.fn();
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          ok: true,
+          authorizeUrl: "https://supabase.example/auth/v1/authorize?prefetched=1",
+          provider: "google",
+          redirectTo: "dibay://auth/callback?provider=google",
+        }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("window", {
+      location: { origin: "https://samarket.vercel.app", assign },
+      setTimeout,
+      clearTimeout,
+    });
+
+    const mod = await import("@/lib/auth/oauth/start-oauth-login");
+    mod.preloadOAuthBrowser();
+    mod.prefetchNativeOAuthAuthorizeUrl("google", "/market");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fetchMock.mockClear();
+
+    await mod.startOAuthLogin({ provider: "google", next: "/market" });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(browserOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth/v1/authorize?prefetched=1" });
   });
 
   it("uses web start API navigation for non-native web flow", async () => {
@@ -78,24 +108,9 @@ describe("startOAuthLogin", () => {
     expect(assign).toHaveBeenCalledWith("/api/auth/oauth/start?provider=kakao");
   });
 
-  it("throws clear error when native bridge is unavailable", async () => {
-    capacitorMock.isPluginAvailable.mockReturnValueOnce(false);
-    vi.stubGlobal("fetch", vi.fn(async () =>
-      new Response(JSON.stringify({ ok: true, authorizeUrl: "https://supabase.example/auth" }), {
-        status: 200,
-      }),
-    ));
-    vi.stubGlobal("window", {
-      Capacitor: capacitorMock,
-      location: { origin: "https://samarket.vercel.app", assign: vi.fn() },
-      setTimeout,
-      clearTimeout,
-    });
-
-    const { startOAuthLogin } = await import("@/lib/auth/oauth/start-oauth-login");
-    await expect(startOAuthLogin({ provider: "apple" })).rejects.toMatchObject({
-      name: "browser_plugin_unavailable",
-    });
+  it("returns false from sync open when Browser plugin is not preloaded", async () => {
+    const mod = await import("@/lib/auth/oauth/start-oauth-login");
+    expect(mod.openNativeOAuthBrowserSync("https://supabase.example/auth")).toBe(false);
   });
 
   it("throws for unsupported providers", async () => {

@@ -15,7 +15,6 @@ function read(relPath) {
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-const dibayOAuthPlugin = read("android/app/src/main/java/com/dibay/app/DibayOAuthPlugin.java");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
@@ -50,16 +49,28 @@ if (!layout.includes("CapacitorNativeMarkerBootstrap")) {
   failures.push("app/layout.tsx must mount CapacitorNativeMarkerBootstrap");
 }
 
-if (!mainActivity.includes("registerPlugin(DibayOAuthPlugin.class)")) {
-  failures.push("MainActivity must register DibayOAuthPlugin");
+if (!mainActivity.includes("registerPlugin(BrowserPlugin.class)")) {
+  failures.push("MainActivity must register BrowserPlugin");
 }
 
-if (!dibayOAuthPlugin.includes('@CapacitorPlugin(name = "DibayOAuth")')) {
-  failures.push("DibayOAuthPlugin must expose Capacitor plugin name DibayOAuth");
+if (!startOAuthLogin.includes("@capacitor/browser")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must use @capacitor/browser for native OAuth");
 }
 
-if (!dibayOAuthPlugin.includes("CustomTabsIntent")) {
-  failures.push("DibayOAuthPlugin must open OAuth with Android Custom Tabs");
+if (!startOAuthLogin.includes("Browser.open")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must call Browser.open for native OAuth");
+}
+
+if (!startOAuthLogin.includes("openNativeOAuthBrowserSync")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must support sync Browser.open for user gesture");
+}
+
+if (!startOAuthLogin.includes("prefetchNativeOAuthAuthorizeUrl")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must prefetch native authorizeUrl before tap");
+}
+
+if (startOAuthLogin.includes("DibayOAuth")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must not use custom DibayOAuth plugin");
 }
 
 if (!startOAuthLogin.includes('path.searchParams.set("launch", "native")')) {
@@ -68,10 +79,6 @@ if (!startOAuthLogin.includes('path.searchParams.set("launch", "native")')) {
 
 if (!startOAuthLogin.includes('credentials: "include"')) {
   failures.push("lib/auth/oauth/start-oauth-login.ts must fetch with credentials: include");
-}
-
-if (!startOAuthLogin.includes('registerPlugin?.("DibayOAuth")')) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must call DibayOAuth native bridge");
 }
 
 if (startOAuthLogin.includes("/auth/oauth/native-launch")) {

@@ -1,5 +1,6 @@
 "use client";
 
+import type { BrowserPlugin } from "@capacitor/browser";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import {
   DIBAY_APP_MARKER_PARAM,
@@ -10,20 +11,7 @@ import {
 
 const SUPABASE_OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "apple"]);
 export const OAUTH_START_FETCH_TIMEOUT_MS = 10_000;
-
-type DibayOAuthPlugin = {
-  open: (options: { url: string }) => Promise<void>;
-};
-
-type WindowWithCapacitorPlugin = Window & {
-  Capacitor?: {
-    Plugins?: {
-      DibayOAuth?: DibayOAuthPlugin;
-    };
-    registerPlugin?: (pluginName: string) => DibayOAuthPlugin;
-    isPluginAvailable?: (pluginName: string) => boolean;
-  };
-};
+const NATIVE_AUTHORIZE_URL_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type StartOAuthLoginInput = {
   provider: OAuthProvider;
@@ -34,8 +22,22 @@ type OAuthStartResponse =
   | { ok: true; authorizeUrl: string; provider: string; redirectTo: string }
   | { ok: false; errorCode?: string; message?: string };
 
+type CachedAuthorizeUrl = {
+  url: string;
+  fetchedAt: number;
+};
+
+let browserPlugin: BrowserPlugin | null = null;
+let browserPluginReady: Promise<boolean> | null = null;
+const authorizeUrlCache = new Map<string, CachedAuthorizeUrl>();
+const authorizeUrlInflight = new Map<string, Promise<string | null>>();
+
 function isSupabaseOAuthProvider(provider: OAuthProvider): boolean {
   return SUPABASE_OAUTH_PROVIDERS.has(provider);
+}
+
+function buildPrefetchKey(provider: OAuthProvider, next?: string | null): string {
+  return `${provider}:${next?.trim() ?? ""}`;
 }
 
 function buildStartPath(provider: OAuthProvider, native: boolean, next?: string | null): string {
@@ -60,15 +62,80 @@ function startError(code: string, message?: string): Error {
   return err;
 }
 
-/** Capacitor native OAuth bridge를 앱 부팅 시 미리 등록한다. */
+function readCachedAuthorizeUrl(provider: OAuthProvider, next?: string | null): string | null {
+  const cached = authorizeUrlCache.get(buildPrefetchKey(provider, next));
+  if (!cached) return null;
+  if (Date.now() - cached.fetchedAt > NATIVE_AUTHORIZE_URL_CACHE_TTL_MS) {
+    authorizeUrlCache.delete(buildPrefetchKey(provider, next));
+    return null;
+  }
+  return cached.url;
+}
+
+function storeCachedAuthorizeUrl(provider: OAuthProvider, next: string | null | undefined, url: string): void {
+  authorizeUrlCache.set(buildPrefetchKey(provider, next), { url, fetchedAt: Date.now() });
+}
+
+async function ensureOAuthBrowserReady(): Promise<boolean> {
+  if (browserPlugin) return true;
+  if (!browserPluginReady) {
+    browserPluginReady = import("@capacitor/browser")
+      .then(({ Browser }) => {
+        browserPlugin = Browser;
+        return true;
+      })
+      .catch(() => false);
+  }
+  return browserPluginReady;
+}
+
+/** Capacitor Browser 플러그인을 앱 부팅 시 미리 로드한다. */
 export function preloadOAuthBrowser(): void {
   if (typeof window === "undefined") return;
-  try {
-    const cap = (window as WindowWithCapacitorPlugin).Capacitor;
-    cap?.registerPlugin?.("DibayOAuth");
-  } catch {
-    // Native bridge may not be ready yet; startOAuthLogin retries at click time.
-  }
+  void ensureOAuthBrowserReady();
+}
+
+export function prefetchNativeOAuthAuthorizeUrl(provider: OAuthProvider, next?: string | null): void {
+  if (typeof window === "undefined") return;
+  if (!isCapacitorNativePlatform() || !isSupabaseOAuthProvider(provider)) return;
+
+  const key = buildPrefetchKey(provider, next);
+  if (authorizeUrlInflight.has(key) || readCachedAuthorizeUrl(provider, next)) return;
+
+  const inflight = fetchNativeAuthorizeUrl(provider, next)
+    .then((url) => {
+      if (url) storeCachedAuthorizeUrl(provider, next, url);
+      return url;
+    })
+    .finally(() => {
+      authorizeUrlInflight.delete(key);
+    });
+  authorizeUrlInflight.set(key, inflight);
+}
+
+/**
+ * 탭 제스처 체인 안에서 Browser.open 을 호출한다.
+ * fetch await 이후에는 Android Custom Tab 이 열리지 않을 수 있어 prefetch + sync open 을 사용한다.
+ */
+export function openNativeOAuthBrowserSync(url: string): boolean {
+  if (!url.trim()) return false;
+  if (!browserPlugin) return false;
+  void browserPlugin.open({ url: url.trim() });
+  return true;
+}
+
+export function readPrefetchedNativeOAuthAuthorizeUrl(
+  provider: OAuthProvider,
+  next?: string | null,
+): string | null {
+  return readCachedAuthorizeUrl(provider, next);
+}
+
+export function resetNativeOAuthStateForTests(): void {
+  browserPlugin = null;
+  browserPluginReady = null;
+  authorizeUrlCache.clear();
+  authorizeUrlInflight.clear();
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
@@ -86,25 +153,27 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-function getNativeOAuthPlugin(): DibayOAuthPlugin | null {
-  const cap = (window as WindowWithCapacitorPlugin).Capacitor;
-  if (!cap) return null;
-  if (cap.isPluginAvailable?.("DibayOAuth") === false) return null;
-  if (cap.Plugins?.DibayOAuth) return cap.Plugins.DibayOAuth;
-  try {
-    return cap.registerPlugin?.("DibayOAuth") ?? null;
-  } catch {
+async function fetchNativeAuthorizeUrl(provider: OAuthProvider, next?: string | null): Promise<string | null> {
+  const startPath = buildStartPath(provider, true, next);
+  const res = await fetchWithTimeout(startPath, {
+    method: "GET",
+    credentials: "include",
+    headers: { Accept: "application/json" },
+  }, OAUTH_START_FETCH_TIMEOUT_MS);
+  const json = (await res.json().catch(() => null)) as OAuthStartResponse | null;
+  if (!res.ok || !json?.ok || !json.authorizeUrl?.trim()) {
     return null;
   }
+  return json.authorizeUrl.trim();
 }
 
 async function openNativeOAuth(url: string): Promise<void> {
-  const plugin = getNativeOAuthPlugin();
-  if (!plugin?.open) {
-    throw startError("browser_plugin_unavailable", "앱 로그인 브릿지를 사용할 수 없습니다.");
+  const ready = await ensureOAuthBrowserReady();
+  if (!ready || !browserPlugin) {
+    throw startError("browser_plugin_unavailable", "OAuth Browser 플러그인을 사용할 수 없습니다.");
   }
   try {
-    await plugin.open({ url });
+    await browserPlugin.open({ url });
   } catch {
     throw startError("browser_open_rejected", "OAuth 브라우저를 열지 못했습니다.");
   }
@@ -124,19 +193,27 @@ export async function startOAuthLogin(input: StartOAuthLoginInput): Promise<void
   const startPath = buildStartPath(provider, native, next);
 
   if (native) {
-    const res = await fetchWithTimeout(startPath, {
-      method: "GET",
-      credentials: "include",
-      headers: { Accept: "application/json" },
-    }, OAUTH_START_FETCH_TIMEOUT_MS);
-    const json = (await res.json().catch(() => null)) as OAuthStartResponse | null;
-    if (!res.ok || !json?.ok || !json.authorizeUrl?.trim()) {
-      throw startError(
-        json?.ok === false ? json.errorCode || "oauth_start_failed" : "oauth_start_failed",
-        json?.ok === false ? json.message : "OAuth 시작 URL을 만들지 못했습니다.",
-      );
+    const cached = readCachedAuthorizeUrl(provider, next);
+    if (cached && openNativeOAuthBrowserSync(cached)) {
+      return;
     }
-    await openNativeOAuth(json.authorizeUrl.trim());
+
+    await ensureOAuthBrowserReady();
+    const prefetched = authorizeUrlInflight.get(buildPrefetchKey(provider, next));
+    const authorizeUrl = cached
+      ?? (prefetched ? await prefetched : null)
+      ?? await fetchNativeAuthorizeUrl(provider, next);
+
+    if (!authorizeUrl) {
+      throw startError("oauth_start_failed", "OAuth 시작 URL을 만들지 못했습니다.");
+    }
+    storeCachedAuthorizeUrl(provider, next, authorizeUrl);
+
+    if (openNativeOAuthBrowserSync(authorizeUrl)) {
+      return;
+    }
+
+    await openNativeOAuth(authorizeUrl);
     return;
   }
 
