@@ -15,7 +15,7 @@ function read(relPath) {
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
-const oauthTabPlugin = read("android/app/src/main/java/com/dibay/app/OAuthTabPlugin.java");
+const nativeLauncherPlugin = read("android/app/src/main/java/com/dibay/app/NativeOAuthLauncherPlugin.java");
 const appBuildGradle = read("android/app/build.gradle");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
 const launchClient = read("app/auth/oauth/launch/NativeOAuthLaunchClient.tsx");
@@ -37,6 +37,9 @@ if (!manifest.includes('android:pathPrefix="/callback"')) {
 }
 if (!manifest.includes('android:launchMode="singleTask"')) {
   failures.push("AndroidManifest MainActivity should use launchMode=\"singleTask\"");
+}
+if (!manifest.includes("android.permission.INTERNET")) {
+  failures.push("AndroidManifest must declare INTERNET permission");
 }
 
 if (!supabaseStart.includes("dibay://auth/callback")) {
@@ -82,20 +85,47 @@ if (startOAuthLogin.includes("Browser.open")) {
   failures.push("lib/auth/oauth/start-oauth-login.ts must not call Browser.open directly");
 }
 
-if (!mainActivity.includes("registerPlugin(OAuthTabPlugin.class)")) {
-  failures.push("MainActivity must register OAuthTabPlugin for direct Custom Tabs");
+if (!mainActivity.includes("registerPlugin(NativeOAuthLauncherPlugin.class)")) {
+  failures.push("MainActivity must register NativeOAuthLauncherPlugin");
 }
 
-if (!oauthTabPlugin.includes("CustomTabsIntent")) {
-  failures.push("OAuthTabPlugin must open OAuth with CustomTabsIntent");
+const registerBeforeSuper = /registerPlugin\(NativeOAuthLauncherPlugin\.class\)[\s\S]*super\.onCreate\(/m.test(
+  mainActivity,
+);
+if (!registerBeforeSuper) {
+  failures.push("MainActivity must register NativeOAuthLauncherPlugin before super.onCreate()");
+}
+
+if (!nativeLauncherPlugin.includes("CustomTabsIntent")) {
+  failures.push("NativeOAuthLauncherPlugin must try CustomTabsIntent as fallback");
+}
+
+if (!nativeLauncherPlugin.includes("Intent.ACTION_VIEW")) {
+  failures.push("NativeOAuthLauncherPlugin must try ACTION_VIEW external browser first");
+}
+
+if (!nativeLauncherPlugin.includes("action_view_start")) {
+  failures.push("NativeOAuthLauncherPlugin must log action_view_start");
+}
+
+if (!nativeLauncherPlugin.includes("NativeOAuthLauncher.open_called")) {
+  failures.push("NativeOAuthLauncherPlugin must log NativeOAuthLauncher.open_called");
+}
+
+if (!nativeLauncherPlugin.includes('"method", "custom_tabs"')) {
+  failures.push("NativeOAuthLauncherPlugin must resolve custom_tabs method on success");
+}
+
+if (!nativeLauncherPlugin.includes('"method", "action_view"')) {
+  failures.push("NativeOAuthLauncherPlugin must resolve action_view method on fallback success");
 }
 
 if (!appBuildGradle.includes("androidx.browser:browser")) {
-  failures.push("android/app/build.gradle must depend on androidx.browser for OAuthTabPlugin");
+  failures.push("android/app/build.gradle must depend on androidx.browser for NativeOAuthLauncherPlugin");
 }
 
-if (!openNativeTab.includes('registerPlugin<OAuthTabPlugin>("OAuthTab")')) {
-  failures.push("open-native-oauth-tab.ts must call OAuthTab Capacitor plugin");
+if (!openNativeTab.includes('registerPlugin<NativeOAuthLauncherPlugin>("NativeOAuthLauncher")')) {
+  failures.push("open-native-oauth-tab.ts must call NativeOAuthLauncher Capacitor plugin");
 }
 
 if (openNativeTab.includes("@capacitor/browser") || openNativeTab.includes("Browser.open")) {
@@ -109,14 +139,6 @@ if (
   failures.push("open-native-oauth-tab.ts must not use anchor or Browser fallback helpers");
 }
 
-if (oauthTabPlugin.includes("Intent.ACTION_VIEW")) {
-  failures.push("OAuthTabPlugin must not fall back to ACTION_VIEW external browser");
-}
-
-if (!oauthTabPlugin.includes("custom_tabs_unavailable")) {
-  failures.push("OAuthTabPlugin must reject with custom_tabs_unavailable when Custom Tabs are unavailable");
-}
-
 if (!launchClient.includes("openNativeOAuthTab")) {
   failures.push("NativeOAuthLaunchClient must use openNativeOAuthTab");
 }
@@ -127,6 +149,14 @@ if (launchClient.includes('from "@capacitor/browser"')) {
 
 if (!launchClient.includes("fetchNativeOAuthAuthorizeUrl")) {
   failures.push("NativeOAuthLaunchClient must fetch PKCE start URL before opening Custom Tab");
+}
+
+if (!launchClient.includes("formatNativeOAuthDevError")) {
+  failures.push("NativeOAuthLaunchClient must show native OAuth dev error detail on failure");
+}
+
+if (!launchClient.includes("dispatchOAuthPendingClear")) {
+  failures.push("NativeOAuthLaunchClient must clear OAuth pending on launch open failure");
 }
 
 if (startOAuthLogin.includes("/auth/oauth/native-launch")) {

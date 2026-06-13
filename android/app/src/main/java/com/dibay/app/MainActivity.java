@@ -7,8 +7,9 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
   @Override
   public void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
+    // Capacitor: registerPlugin must run before super.onCreate or plugins stay UNIMPLEMENTED.
     registerPlugin(BrowserPlugin.class);
-    registerPlugin(OAuthTabPlugin.class);
+    registerPlugin(NativeOAuthLauncherPlugin.class);
+    super.onCreate(savedInstanceState);
   }
 }

@@ -1,74 +1,76 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { NativeOAuthLaunchResult } from "@/lib/auth/oauth/open-native-oauth-tab";
 
-const oauthTabOpen = vi.fn(async () => undefined);
+const launcherOpen = vi.fn(async (): Promise<NativeOAuthLaunchResult> => ({
+  opened: true,
+  method: "custom_tabs",
+}));
 
 vi.mock("@capacitor/core", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@capacitor/core")>();
   return {
     ...actual,
-    registerPlugin: vi.fn(() => ({ open: oauthTabOpen })),
+    registerPlugin: vi.fn(() => ({ open: launcherOpen })),
   };
 });
 
 describe("openNativeOAuthTab", () => {
   afterEach(() => {
-    oauthTabOpen.mockClear();
-    oauthTabOpen.mockResolvedValue(undefined);
+    launcherOpen.mockClear();
+    launcherOpen.mockResolvedValue({ opened: true, method: "custom_tabs" });
     vi.resetModules();
   });
 
-  it("uses OAuthTab plugin on native", async () => {
+  it("uses NativeOAuthLauncher plugin on native", async () => {
     vi.doMock("@/lib/platform/capacitor-native", () => ({
       isCapacitorNativePlatform: () => true,
     }));
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
-    await openNativeOAuthTab("https://supabase.example/auth");
-    expect(oauthTabOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth" });
+    const result = await openNativeOAuthTab("https://supabase.example/auth");
+    expect(launcherOpen).toHaveBeenCalledWith({ url: "https://supabase.example/auth" });
+    expect(result).toEqual({ opened: true, method: "custom_tabs" });
   });
 
-  it("throws oauth_tab_unavailable on non-native", async () => {
+  it("returns action_view method from plugin", async () => {
+    launcherOpen.mockResolvedValueOnce({ opened: true, method: "action_view" });
+    vi.doMock("@/lib/platform/capacitor-native", () => ({
+      isCapacitorNativePlatform: () => true,
+    }));
+    const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
+    const result = await openNativeOAuthTab("https://supabase.example/auth");
+    expect(result.method).toBe("action_view");
+  });
+
+  it("throws plugin_not_implemented on non-native", async () => {
     vi.doMock("@/lib/platform/capacitor-native", () => ({
       isCapacitorNativePlatform: () => false,
     }));
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
     await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
-      name: "oauth_tab_unavailable",
+      name: "oauth_launcher_unavailable",
+      devCode: "plugin_not_implemented",
     });
-    expect(oauthTabOpen).not.toHaveBeenCalled();
+    expect(launcherOpen).not.toHaveBeenCalled();
   });
 
-  it("throws custom_tabs_unavailable when plugin rejects", async () => {
-    oauthTabOpen.mockRejectedValueOnce(new Error("custom_tabs_unavailable"));
-    vi.doMock("@/lib/platform/capacitor-native", () => ({
-      isCapacitorNativePlatform: () => true,
-    }));
-    const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
-    await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
-      name: "custom_tabs_unavailable",
-    });
-  });
-
-  it("throws oauth_tab_open_failed for generic plugin reject", async () => {
-    oauthTabOpen.mockRejectedValueOnce(new Error("browser_open_failed"));
+  it("throws action_view_failed when plugin rejects", async () => {
+    launcherOpen.mockRejectedValueOnce(new Error("browser_open_failed"));
     vi.doMock("@/lib/platform/capacitor-native", () => ({
       isCapacitorNativePlatform: () => true,
     }));
     const { openNativeOAuthTab } = await import("@/lib/auth/oauth/open-native-oauth-tab");
     await expect(openNativeOAuthTab("https://supabase.example/auth")).rejects.toMatchObject({
       name: "oauth_tab_open_failed",
+      devCode: "action_view_failed",
     });
   });
 
-  it("maps error codes to i18n keys", async () => {
-    const { mapNativeOAuthOpenErrorToMessageKey } = await import("@/lib/auth/oauth/open-native-oauth-tab");
-    expect(mapNativeOAuthOpenErrorToMessageKey("oauth_tab_unavailable")).toBe(
-      "auth_err_oauth_browser_plugin_unavailable",
-    );
-    expect(mapNativeOAuthOpenErrorToMessageKey("custom_tabs_unavailable")).toBe(
-      "auth_err_oauth_custom_tabs_required",
-    );
-    expect(mapNativeOAuthOpenErrorToMessageKey("oauth_tab_open_failed")).toBe(
-      "auth_err_oauth_browser_open_failed",
-    );
+  it("formats dev error for display", async () => {
+    const { formatNativeOAuthDevError } = await import("@/lib/auth/oauth/open-native-oauth-tab");
+    const err = Object.assign(new Error("not implemented"), {
+      devCode: "plugin_not_implemented",
+      rawDetail: "NativeOAuthLauncher plugin is not implemented on android",
+    });
+    expect(formatNativeOAuthDevError(err)).toContain("plugin_not_implemented");
   });
 });

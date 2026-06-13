@@ -45,6 +45,8 @@
         <intent>
             <action android:name="android.support.customtabs.action.CustomTabsService" />
         </intent>
+        <package android:name="com.android.chrome" />
+        <package android:name="com.google.android.apps.chrome" />
     </queries>
 
     <!-- Permissions -->

@@ -12,10 +12,12 @@ import {
 } from "@/components/auth/OAuthLoginProviderVisuals";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import {
+  formatNativeOAuthDevError,
   mapNativeOAuthOpenErrorToMessageKey,
   openNativeOAuthTab,
 } from "@/lib/auth/oauth/open-native-oauth-tab";
 import { fetchNativeOAuthAuthorizeUrl } from "@/lib/auth/oauth/start-oauth-login";
+import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
 import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH = new Set<OAuthProvider>(["google", "kakao", "apple"]);
@@ -67,6 +69,7 @@ export function NativeOAuthLaunchClient() {
   const [loading, setLoading] = useState(true);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [devError, setDevError] = useState<string | null>(null);
 
   useEffect(() => {
     ensureCapacitorNativeMarkerOnBoot();
@@ -137,19 +140,24 @@ export function NativeOAuthLaunchClient() {
     if (!authorizeUrl || opening) return;
     setOpening(true);
     setError(null);
+    setDevError(null);
 
     void (async () => {
       try {
-        await openNativeOAuthTab(authorizeUrl);
+        const launchResult = await openNativeOAuthTab(authorizeUrl);
+        console.info("[oauth] launch_page_opened", { method: launchResult.method });
         await waitForAppBackground(OAUTH_BACKGROUND_WAIT_MS);
       } catch (err) {
+        dispatchOAuthPendingClear("oauth_launch_open_failed");
         setError(resolveOpenErrorMessage(err));
+        setDevError(formatNativeOAuthDevError(err));
         setOpening(false);
       }
     })();
   }, [authorizeUrl, opening, resolveOpenErrorMessage]);
 
   const handleBack = useCallback(() => {
+    dispatchOAuthPendingClear("oauth_launch_back");
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
       return;
@@ -213,6 +221,7 @@ export function NativeOAuthLaunchClient() {
         </button>
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {devError ? <p className="text-xs text-sam-muted break-all">{devError}</p> : null}
 
         <button type="button" className="text-sm text-sam-muted underline" onClick={handleBack}>
           {backLabel}
