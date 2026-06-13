@@ -10,6 +10,7 @@ import {
   NATIVE_KAKAO_AUTH_PLUGIN_ID,
 } from "@/lib/auth/native/native-kakao-auth-contract";
 import {
+  isCapacitorBridgeReady,
   isCapacitorNativePlatform,
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
@@ -27,9 +28,18 @@ export type NativeKakaoAuthPlugin = {
   signOut(): Promise<void>;
 };
 
-const NativeKakaoAuth = registerPlugin<NativeKakaoAuthPlugin>(NATIVE_KAKAO_AUTH_PLUGIN_ID, {
-  web: () => import("@/lib/auth/native/native-kakao-auth-plugin.web").then((m) => new m.NativeKakaoAuthWeb()),
-});
+const NativeKakaoAuth = registerPlugin<NativeKakaoAuthPlugin>(NATIVE_KAKAO_AUTH_PLUGIN_ID);
+
+function invokeNativeKakaoSignInViaBridge(): Promise<NativeKakaoAuthPluginSignInResult> {
+  const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
+    Capacitor?: { nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown> };
+  };
+  const nativePromise = cap?.Capacitor?.nativePromise;
+  if (typeof nativePromise === "function" && isCapacitorBridgeReady()) {
+    return nativePromise(NATIVE_KAKAO_AUTH_PLUGIN_ID, "signIn", {}) as Promise<NativeKakaoAuthPluginSignInResult>;
+  }
+  return NativeKakaoAuth.signIn();
+}
 
 export class NativeKakaoAuthError extends Error {
   readonly code: NativeKakaoAuthErrorCode;
@@ -65,7 +75,7 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
       platform: Capacitor.getPlatform(),
       shellPlatform: resolveCapacitorShellPlatform(),
     });
-    const raw = await NativeKakaoAuth.signIn();
+    const raw = await invokeNativeKakaoSignInViaBridge();
     console.error("[oauth] kakao_native_success", {
       hasAccessToken: Boolean(raw.accessToken),
       hasUserId: Boolean(raw.userId),

@@ -85,6 +85,12 @@ public class NativeKakaoAuthPlugin extends Plugin {
     return Unit.INSTANCE;
   };
 
+  @Override
+  public void load() {
+    super.load();
+    logEvent("NativeKakaoAuth_plugin_loaded", "");
+  }
+
   @PluginMethod
   public void signIn(PluginCall call) {
     logEvent("NativeKakaoAuth.signIn called", "");
