@@ -4,13 +4,17 @@ import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import {
   DIBAY_APP_MARKER_PARAM,
   ensureCapacitorNativeMarkerOnBoot,
+  isCapacitorBridgeReady,
   isOAuthNativeLaunchShell,
   readDibayAppPlatformMarker,
+  waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "apple"]);
 export const OAUTH_START_FETCH_TIMEOUT_MS = 10_000;
 export const NATIVE_OAUTH_LAUNCH_PATH = "/auth/oauth/launch";
+export const NATIVE_OAUTH_REDIRECT_PREFIX = "dibay://auth/callback";
+const BRIDGE_READY_BEFORE_START_MS = 5_000;
 
 type OAuthStartResponse =
   | { ok: true; authorizeUrl: string; provider: string; redirectTo: string }
@@ -90,7 +94,17 @@ export async function fetchNativeOAuthAuthorizeUrl(
   if (!isSupabaseOAuthProvider(provider)) {
     throw startError("invalid_provider", "지원하지 않는 OAuth provider입니다.");
   }
+
   ensureCapacitorNativeMarkerOnBoot();
+
+  if (!isCapacitorBridgeReady()) {
+    const ready = await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_BEFORE_START_MS });
+    if (!ready) {
+      throw startError("oauth_bridge_not_ready", "Capacitor native bridge is not ready.");
+    }
+    ensureCapacitorNativeMarkerOnBoot();
+  }
+
   const startPath = buildNativeStartPath(provider, next);
   const res = await fetchWithTimeout(startPath, {
     method: "GET",
@@ -104,10 +118,21 @@ export async function fetchNativeOAuthAuthorizeUrl(
       json?.ok === false ? json.message : "OAuth 시작 URL을 만들지 못했습니다.",
     );
   }
+
+  const redirectTo = json.redirectTo?.trim() ?? "";
+  if (!redirectTo.startsWith("dibay://")) {
+    console.error("[oauth] native_start_redirect_mismatch", { redirectTo, startPath });
+    throw startError(
+      "oauth_native_redirect_mismatch",
+      "Native OAuth redirectTo must use dibay://auth/callback.",
+    );
+  }
+
   console.error("[oauth] native_start_ok", {
     provider: json.provider,
-    redirectTo: json.redirectTo,
+    redirectTo,
     authorizeUrlLen: json.authorizeUrl.trim().length,
+    dibayAppMarker: readDibayAppPlatformMarker(),
   });
   return json.authorizeUrl.trim();
 }

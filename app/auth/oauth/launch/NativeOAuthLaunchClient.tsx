@@ -115,6 +115,12 @@ export function NativeOAuthLaunchClient() {
       setError(null);
       try {
         console.error("[oauth] launch_fetch_authorize_start", { provider });
+        const ready = isCapacitorBridgeReady()
+          || await waitForCapacitorBridgeReady({ timeoutMs: BRIDGE_READY_TIMEOUT_MS });
+        if (!ready) {
+          throw new Error("oauth_bridge_not_ready");
+        }
+        setBridgeReady(true);
         const url = await fetchNativeOAuthAuthorizeUrl(provider, next);
         console.error("[oauth] launch_fetch_authorize_ok", { urlLen: url.length });
         if (!cancelled) setAuthorizeUrl(url);
@@ -124,6 +130,17 @@ export function NativeOAuthLaunchClient() {
           const code = err instanceof Error ? err.name : "oauth_start_failed";
           if (code === "oauth_start_timeout") {
             setError(t("auth_err_auth_timeout"));
+          } else if (code === "oauth_bridge_not_ready") {
+            setError(safeT("auth_err_oauth_bridge_not_ready", {
+              fallbackKo: "앱 로그인 연결이 준비되지 않았습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
+              fallbackEn: "App sign-in is not connected yet. Fully close the app and open it again.",
+            }));
+            setDevError(formatBridgeDiagnosticsForDev());
+          } else if (code === "oauth_native_redirect_mismatch") {
+            setError(safeT("auth_err_oauth_start_failed", {
+              fallbackKo: "앱 로그인 주소가 올바르지 않습니다. Supabase Redirect URLs에 dibay://auth/callback 을 등록했는지 확인해 주세요.",
+              fallbackEn: "App sign-in redirect is misconfigured. Check Supabase Redirect URLs include dibay://auth/callback.",
+            }));
           } else {
             setError(t("auth_err_oauth_start_failed"));
           }

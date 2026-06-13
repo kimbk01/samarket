@@ -12,8 +12,19 @@ export function normalizeNativeAppPlatform(value: string | null | undefined): "a
 }
 
 /**
- * Capacitor Android/iOS — dibay_app query 또는 cookie 로 redirectTo=dibay://auth/callback 을 선택한다.
+ * Capacitor Android/iOS — dibay_app query/cookie 또는 launch=native(JSON Custom Tab fetch).
  */
+export function isNativeOAuthJsonLaunch(req: NextRequest): boolean {
+  return req.nextUrl.searchParams.get("launch")?.trim().toLowerCase() === "native";
+}
+
+/**
+ * redirectTo=dibay://auth/callback 선택 — dibay_app marker 또는 launch=native.
+ */
+export function shouldUseNativeOAuthRedirect(req: NextRequest): boolean {
+  return isNativeAppOAuthRequest(req) || isNativeOAuthJsonLaunch(req);
+}
+
 export function isNativeAppOAuthRequest(req: NextRequest): boolean {
   const fromQuery = normalizeNativeAppPlatform(req.nextUrl.searchParams.get(DIBAY_APP_MARKER_PARAM));
   if (fromQuery) return true;

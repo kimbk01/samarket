@@ -42,6 +42,29 @@ describe("/api/auth/oauth/start", () => {
     expect(res.cookies.get("dibay_app")?.value).toBe("android");
   });
 
+  it("returns JSON with dibay redirect for launch=native without dibay_app marker", async () => {
+    signInWithOAuth.mockResolvedValue({
+      data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=google" },
+      error: null,
+    });
+    const { GET } = await import("@/app/api/auth/oauth/start/route");
+
+    const res = await GET(
+      new NextRequest("https://samarket.vercel.app/api/auth/oauth/start?provider=google&launch=native&next=%2Fmypage"),
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.redirectTo).toBe("dibay://auth/callback?provider=google&next=%2Fmypage");
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: "google",
+      options: {
+        redirectTo: "dibay://auth/callback?provider=google&next=%2Fmypage",
+        skipBrowserRedirect: true,
+      },
+    });
+  });
+
   it("blocks native WebView 302 without launch=native", async () => {
     signInWithOAuth.mockResolvedValue({
       data: { url: "https://proj.supabase.co/auth/v1/authorize?provider=google" },

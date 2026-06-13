@@ -77,7 +77,11 @@ if (!startRoute.includes("isNativeAppOAuthRequest")) {
   failures.push("app/api/auth/oauth/start/route.ts must detect native app via dibay_app marker");
 }
 
-if (!startRoute.includes('launch === "native"')) {
+if (!startRoute.includes("shouldUseNativeOAuthRedirect")) {
+  failures.push("app/api/auth/oauth/start/route.ts must use shouldUseNativeOAuthRedirect for dibay:// redirectTo");
+}
+
+if (!startRoute.includes("isNativeOAuthJsonLaunch")) {
   failures.push("app/api/auth/oauth/start/route.ts must support launch=native JSON for Custom Tab flow");
 }
 
@@ -98,6 +102,10 @@ if (!layout.includes("CapacitorNativeMarkerBootstrap")) {
 
 if (!mainActivity.includes("registerPlugin(BrowserPlugin.class)")) {
   failures.push("MainActivity must register BrowserPlugin");
+}
+
+if (!read("lib/auth/oauth/start-oauth-login.ts").includes('redirectTo.startsWith("dibay://")')) {
+  failures.push("start-oauth-login.ts must reject native OAuth when redirectTo is not dibay://");
 }
 
 if (!startOAuthLogin.includes("/auth/oauth/launch")) {
