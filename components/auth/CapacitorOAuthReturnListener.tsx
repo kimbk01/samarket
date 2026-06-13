@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { handleCapacitorOAuthReturnUrl } from "@/lib/auth/capacitor-oauth-return";
+import { notifyOAuthAppUrlOpenReceived } from "@/lib/auth/oauth-pending-lifecycle";
 import { logAppUrlOpenMounted } from "@/lib/auth/oauth-flow-log";
 import {
   getCapacitorNativeDiagnostics,
@@ -49,10 +50,12 @@ export function CapacitorOAuthReturnListener() {
 
       const launch = await App.getLaunchUrl();
       if (launch?.url) {
+        notifyOAuthAppUrlOpenReceived(launch.url);
         void handleCapacitorOAuthReturnUrl(launch.url);
       }
 
       const listener = await App.addListener("appUrlOpen", (event) => {
+        notifyOAuthAppUrlOpenReceived(event.url);
         void handleCapacitorOAuthReturnUrl(event.url);
       });
       removeAppUrlOpen = () => {

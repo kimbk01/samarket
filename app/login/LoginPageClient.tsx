@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
@@ -20,6 +20,12 @@ import {
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { logNativeOAuthCallbackExchangeFailed } from "@/lib/auth/native-oauth-callback-trace";
+import {
+  clearOAuthPending,
+  confirmOAuthPendingLaunched,
+  setOAuthPending,
+} from "@/lib/auth/oauth-pending-lifecycle";
+import { useOAuthPendingProvider } from "@/lib/auth/use-oauth-pending-provider";
 import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
@@ -94,8 +100,7 @@ function LoginPageContent() {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
-  const [pendingOAuthProvider, setPendingOAuthProvider] = useState<OAuthProvider | null>(null);
-  const pendingOAuthProviderRef = useRef<OAuthProvider | null>(null);
+  const pendingOAuthProvider = useOAuthPendingProvider();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -133,6 +138,7 @@ function LoginPageContent() {
     const errorCode = params.get("error")?.trim() ?? "";
     const code = authError || errorCode;
     if (!code) return;
+    clearOAuthPending("exchange_failed");
     if (authError === "callback_failed" || authError === "missing_code") {
       logNativeOAuthCallbackExchangeFailed(authErrorDetail || code);
     }
@@ -418,26 +424,25 @@ function LoginPageContent() {
   };
 
   const handleOAuthLogin = async (provider: OAuthProvider) => {
-    if (pendingOAuthProviderRef.current) return;
+    if (pendingOAuthProvider) return;
 
-    pendingOAuthProviderRef.current = provider;
     flushSync(() => {
+      ensureCapacitorNativeMarkerOnBoot();
       setError((prev) => (prev === "" ? prev : ""));
-      setPendingOAuthProvider(provider);
+      setOAuthPending(provider);
     });
 
-    let keepPending = false;
     try {
       if (provider === "naver") {
         window.location.assign(buildNaverOAuthStartPath(next ?? null));
-        keepPending = true;
+        confirmOAuthPendingLaunched();
         return;
       }
-      ensureCapacitorNativeMarkerOnBoot();
       const supabase = getSupabaseClient();
       if (!supabase) {
         const nextError = t("auth_err_supabase_unconfigured");
         setError((prev) => (prev === nextError ? prev : nextError));
+        clearOAuthPending("launch_failed");
         return;
       }
       const callbackUrl = createOAuthRedirectTo({
@@ -458,9 +463,10 @@ function LoginPageContent() {
           t,
         );
         setError((prev) => (prev === nextError ? prev : nextError));
+        clearOAuthPending("launch_failed");
         return;
       }
-      keepPending = true;
+      confirmOAuthPendingLaunched();
     } catch (e) {
       if (e instanceof Error && e.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
         setError((prev) => (prev === t("auth_err_auth_timeout") ? prev : t("auth_err_auth_timeout")));
@@ -468,11 +474,7 @@ function LoginPageContent() {
         const nextError = mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(e), t);
         setError((prev) => (prev === nextError ? prev : nextError));
       }
-    } finally {
-      if (!keepPending) {
-        pendingOAuthProviderRef.current = null;
-        setPendingOAuthProvider(null);
-      }
+      clearOAuthPending("launch_failed");
     }
   };
 

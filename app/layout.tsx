@@ -3,6 +3,7 @@ import { Noto_Sans_KR } from "next/font/google";
 import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { CapacitorOAuthReturnListener } from "@/components/auth/CapacitorOAuthReturnListener";
+import { OAuthPendingLifecycleBootstrap } from "@/components/auth/OAuthPendingLifecycleBootstrap";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
@@ -112,6 +113,7 @@ export default async function RootLayout({
             <SupabaseAuthSync />
             <CapacitorNativeMarkerBootstrap />
             <CapacitorOAuthReturnListener />
+            <OAuthPendingLifecycleBootstrap />
             <CallIncomingChrome />
             <MainShellMessengerParticipantBridge regionBarInLayout={true} />
             {children}

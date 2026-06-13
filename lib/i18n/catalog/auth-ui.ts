@@ -70,6 +70,12 @@ export const authUiMessages = {
       "앱 로그인 연결 정보를 확인하지 못했습니다. 앱을 다시 실행한 뒤 로그인해 주세요.",
     auth_err_native_oauth_redirect_invalid:
       "앱 로그인을 준비하지 못했습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
+    auth_err_oauth_browser_plugin_unavailable:
+      "앱 로그인 창을 열 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
+    auth_err_oauth_browser_open_failed:
+      "로그인 창을 열지 못했습니다. 잠시 후 다시 시도하거나 앱을 재시작해 주세요.",
+    auth_err_oauth_launch_navigation_failed:
+      "로그인 페이지로 이동하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.",
     auth_supabase_fail_dns:
       "Supabase 주소를 DNS에서 찾을 수 없습니다. .env.local의 NEXT_PUBLIC_SUPABASE_URL이 Supabase 대시보드(Settings → API → Project URL)와 한 글자까지 같은지 확인하세요. 프로젝트를 새로 만들었거나 삭제했다면 URL 전체를 다시 붙여 넣어야 합니다. (잘못된 참조(ref)이면 *.supabase.co 호스트가 존재하지 않습니다.)",
     auth_supabase_fail_timeout:
@@ -232,6 +238,12 @@ export const authUiMessages = {
       "Could not verify app sign-in redirect. Restart the app and try signing in again.",
     auth_err_native_oauth_redirect_invalid:
       "Could not prepare app sign-in. Fully close the app and open it again.",
+    auth_err_oauth_browser_plugin_unavailable:
+      "Could not open the sign-in window. Update the app to the latest version and try again.",
+    auth_err_oauth_browser_open_failed:
+      "Could not open the sign-in window. Try again shortly or restart the app.",
+    auth_err_oauth_launch_navigation_failed:
+      "Could not open the sign-in page. Check your network and try again.",
     auth_supabase_fail_dns:
       "Supabase host could not be resolved. Make sure NEXT_PUBLIC_SUPABASE_URL in .env.local exactly matches Project URL in the Supabase dashboard.",
     auth_supabase_fail_timeout:

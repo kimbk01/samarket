@@ -94,7 +94,14 @@ export async function startSupabaseOAuthSignIn(
     };
   }
 
-  await launchOAuthAuthorizeUrl(provider, authorizeUrl);
+  const launchResult = await launchOAuthAuthorizeUrl(provider, authorizeUrl);
+  if (!launchResult.ok) {
+    return {
+      ok: false,
+      errorMessage: "oauth_launch_failed",
+      errorCode: launchResult.reason,
+    };
+  }
 
   return { ok: true, launched: true };
 }

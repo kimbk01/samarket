@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
@@ -26,6 +26,12 @@ import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeFreshLoginLandingPath } from "@/lib/auth/safe-next-path";
 import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
+import {
+  clearOAuthPending,
+  confirmOAuthPendingLaunched,
+  setOAuthPending,
+} from "@/lib/auth/oauth-pending-lifecycle";
+import { useOAuthPendingProvider } from "@/lib/auth/use-oauth-pending-provider";
 import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
@@ -65,8 +71,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
-  const [pendingOAuthProvider, setPendingOAuthProvider] = useState<OAuthProvider | null>(null);
-  const pendingOAuthProviderRef = useRef<OAuthProvider | null>(null);
+  const pendingOAuthProvider = useOAuthPendingProvider();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -85,8 +90,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
     setError(null);
     setIdentifier("");
     setPassword("");
-    pendingOAuthProviderRef.current = null;
-    setPendingOAuthProvider(null);
+    clearOAuthPending("manual");
   }, [open]);
 
   useEffect(() => {
@@ -229,25 +233,24 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const handleOAuthLogin = useCallback(
     async (provider: OAuthProvider) => {
-      if (pendingOAuthProviderRef.current) return;
+      if (pendingOAuthProvider) return;
 
-      pendingOAuthProviderRef.current = provider;
       flushSync(() => {
+        ensureCapacitorNativeMarkerOnBoot();
         setError(null);
-        setPendingOAuthProvider(provider);
+        setOAuthPending(provider);
       });
 
-      let keepPending = false;
       try {
         if (provider === "naver") {
           window.location.assign(buildNaverOAuthStartPath(next));
-          keepPending = true;
+          confirmOAuthPendingLaunched();
           return;
         }
-        ensureCapacitorNativeMarkerOnBoot();
         const supabase = getSupabaseClient();
         if (!supabase) {
           setError(t("auth_err_supabase_unconfigured"));
+          clearOAuthPending("launch_failed");
           return;
         }
         const callbackUrl = createOAuthRedirectTo({
@@ -265,23 +268,20 @@ export function AuthModal({ open, detail, onClose }: Props) {
           setError(
             mapOAuthSignInErrorMessage(oauthResult.errorMessage, oauthResult.errorCode, t),
           );
+          clearOAuthPending("launch_failed");
           return;
         }
-        keepPending = true;
+        confirmOAuthPendingLaunched();
       } catch (err) {
         if (err instanceof Error && err.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
           setError(t("auth_err_auth_timeout"));
         } else {
           setError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(err), t));
         }
-      } finally {
-        if (!keepPending) {
-          pendingOAuthProviderRef.current = null;
-          setPendingOAuthProvider(null);
-        }
+        clearOAuthPending("launch_failed");
       }
     },
-    [next, t],
+    [next, pendingOAuthProvider, t],
   );
 
   return (

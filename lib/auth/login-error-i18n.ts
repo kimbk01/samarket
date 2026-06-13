@@ -66,6 +66,15 @@ export function mapOAuthSignInErrorMessage(
   if (message === "native_oauth_redirect_invalid" || errorCode === "native_https_redirect") {
     return t("auth_err_native_oauth_redirect_invalid");
   }
+  if (message === "oauth_launch_failed" || errorCode === "browser_plugin_unavailable") {
+    return t("auth_err_oauth_browser_plugin_unavailable");
+  }
+  if (errorCode === "browser_open_rejected" || errorCode === "browser_surface_not_opened") {
+    return t("auth_err_oauth_browser_open_failed");
+  }
+  if (errorCode === "navigation_failed") {
+    return t("auth_err_oauth_launch_navigation_failed");
+  }
   if (message) return message;
   return t("auth_err_oauth_start_failed");
 }

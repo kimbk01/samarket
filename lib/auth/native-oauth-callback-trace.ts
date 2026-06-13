@@ -1,3 +1,5 @@
+import { clearOAuthPending } from "@/lib/auth/oauth-pending-lifecycle";
+
 const NATIVE_OAUTH_CALLBACK_PENDING_KEY = "dibay_native_oauth_callback_pending";
 const NATIVE_OAUTH_CALLBACK_PROVIDER_KEY = "dibay_native_oauth_callback_provider";
 
@@ -57,6 +59,7 @@ export function markNativeOAuthCallbackExchangePending(provider?: string | null)
 }
 
 export function logNativeOAuthCallbackExchangeSuccess(): void {
+  clearOAuthPending("exchange_success");
   if (!consumePendingExchange()) return;
   const provider = readPendingProvider();
   clearPendingExchange();
@@ -65,6 +68,7 @@ export function logNativeOAuthCallbackExchangeSuccess(): void {
 
 /** /login auth_error 등 — exchange 실패 */
 export function logNativeOAuthCallbackExchangeFailed(reason?: string): void {
+  clearOAuthPending("exchange_failed");
   if (!consumePendingExchange()) return;
   const provider = readPendingProvider();
   clearPendingExchange();

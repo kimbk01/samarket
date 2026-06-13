@@ -1,7 +1,24 @@
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { waitForOAuthLaunchSurfaceAck } from "@/lib/auth/oauth-launch-surface";
+import {
+  logOAuthBrowserOpenFailed,
+  logOAuthBrowserOpenStart,
+  logOAuthBrowserOpenSuccess,
+  logOAuthLaunchNavigation,
+} from "@/lib/auth/oauth-flow-log";
 
 type SupabaseOAuthProvider = Exclude<OAuthProvider, "naver">;
+
+export type OAuthAuthorizeLaunchFailureReason =
+  | "browser_plugin_unavailable"
+  | "browser_open_rejected"
+  | "browser_surface_not_opened"
+  | "navigation_failed";
+
+export type OAuthAuthorizeLaunchResult =
+  | { ok: true }
+  | { ok: false; reason: OAuthAuthorizeLaunchFailureReason };
 
 /**
  * Google OAuth `disallowed_useragent` 는 WebView·SNS 인앱 브라우저 등
@@ -35,79 +52,82 @@ export function isEmbeddedOAuthUserAgent(
 }
 
 /**
- * Web embedded UA 에서 Google authorize URL 을 외부 브라우저로 탈출.
+ * Web OAuth — top-level navigation (async Supabase 호출 후에도 popup blocker 영향 없음).
  */
-export function launchGoogleOAuthAuthorizeUrl(url: string): void {
-  const authorizeUrl = url.trim();
-  if (!authorizeUrl || typeof window === "undefined") return;
-
-  if (isEmbeddedOAuthUserAgent()) {
-    const anchor = document.createElement("a");
-    anchor.href = authorizeUrl;
-    anchor.target = "_blank";
-    anchor.rel = "noopener noreferrer";
-    anchor.style.display = "none";
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
-
-    const opened = window.open(authorizeUrl, "_blank", "noopener,noreferrer");
-    if (opened) return;
+export function launchWebOAuthNavigation(authorizeUrl: string): OAuthAuthorizeLaunchResult {
+  const url = authorizeUrl.trim();
+  if (!url || typeof window === "undefined") {
+    return { ok: false, reason: "navigation_failed" };
   }
 
-  window.location.replace(authorizeUrl);
-}
-
-async function launchNativeOAuthAuthorizeUrl(authorizeUrl: string): Promise<boolean> {
   try {
-    const { Browser } = await import("@capacitor/browser");
-    await Browser.open({ url: authorizeUrl });
-    return true;
+    logOAuthLaunchNavigation(url);
+    window.location.assign(url);
+    return { ok: true };
   } catch {
-    return false;
-  }
-}
-
-function launchExternalBrowserFallback(authorizeUrl: string): void {
-  const anchor = document.createElement("a");
-  anchor.href = authorizeUrl;
-  anchor.target = "_blank";
-  anchor.rel = "noopener noreferrer";
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  document.body.removeChild(anchor);
-
-  const opened = window.open(authorizeUrl, "_blank", "noopener,noreferrer");
-  if (!opened) {
-    window.location.assign(authorizeUrl);
+    return { ok: false, reason: "navigation_failed" };
   }
 }
 
 /**
+ * @deprecated launchWebOAuthNavigation — async OAuth 후에도 동작하는 top-level navigation.
+ */
+export function launchGoogleOAuthAuthorizeUrl(url: string): OAuthAuthorizeLaunchResult {
+  return launchWebOAuthNavigation(url);
+}
+
+async function launchNativeOAuthAuthorizeUrl(authorizeUrl: string): Promise<OAuthAuthorizeLaunchResult> {
+  let Browser: typeof import("@capacitor/browser").Browser;
+  try {
+    ({ Browser } = await import("@capacitor/browser"));
+  } catch {
+    logOAuthBrowserOpenFailed("browser_plugin_unavailable");
+    return { ok: false, reason: "browser_plugin_unavailable" };
+  }
+
+  logOAuthBrowserOpenStart(authorizeUrl);
+  try {
+    await Browser.open({ url: authorizeUrl });
+    logOAuthBrowserOpenSuccess();
+  } catch (err) {
+    logOAuthBrowserOpenFailed("browser_open_rejected", err);
+    return { ok: false, reason: "browser_open_rejected" };
+  }
+
+  const surfaceOpened = await waitForOAuthLaunchSurfaceAck();
+  if (!surfaceOpened) {
+    try {
+      await Browser.close();
+    } catch {
+      // ignore — tab may never have opened
+    }
+    return { ok: false, reason: "browser_surface_not_opened" };
+  }
+
+  return { ok: true };
+}
+
+/**
  * Supabase OAuth authorize URL launch — provider·환경별 정책.
- * - native: Custom Tab (@capacitor/browser) — Google/Kakao/Apple 공통
- * - web embedded Google: 외부 브라우저 탈출
- * - web 일반: top-level navigation
+ * - native: Custom Tab (@capacitor/browser) + surface open 검증
+ * - web: top-level navigation (window.open/popup 사용 안 함 — async 후 차단 방지)
  */
 export async function launchOAuthAuthorizeUrl(
   provider: SupabaseOAuthProvider,
   url: string,
-): Promise<void> {
+): Promise<OAuthAuthorizeLaunchResult> {
   const authorizeUrl = url.trim();
-  if (!authorizeUrl || typeof window === "undefined") return;
+  if (!authorizeUrl || typeof window === "undefined") {
+    return { ok: false, reason: "navigation_failed" };
+  }
 
   if (isCapacitorNativePlatform()) {
-    const opened = await launchNativeOAuthAuthorizeUrl(authorizeUrl);
-    if (opened) return;
-    launchExternalBrowserFallback(authorizeUrl);
-    return;
+    return launchNativeOAuthAuthorizeUrl(authorizeUrl);
   }
 
-  if (provider === "google") {
-    launchGoogleOAuthAuthorizeUrl(authorizeUrl);
-    return;
+  if (provider === "google" || isEmbeddedOAuthUserAgent()) {
+    return launchWebOAuthNavigation(authorizeUrl);
   }
 
-  window.location.assign(authorizeUrl);
+  return launchWebOAuthNavigation(authorizeUrl);
 }

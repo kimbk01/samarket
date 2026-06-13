@@ -103,3 +103,30 @@ export function logAppUrlOpenBridgeFailed(url: string): void {
 export function logAppUrlOpenBrowserClose(ok: boolean): void {
   safeConsoleInfo(ok ? "[appUrlOpen] browser_close_ok" : "[appUrlOpen] browser_close_failed");
 }
+
+export function logOAuthBrowserOpenStart(url: string): void {
+  safeConsoleInfo("[oauth] browser_open_start", { url: url.trim() });
+}
+
+export function logOAuthBrowserOpenSuccess(): void {
+  safeConsoleInfo("[oauth] browser_open_ok");
+}
+
+export function logOAuthBrowserOpenFailed(reason: string, err?: unknown): void {
+  safeConsoleInfo("[oauth] browser_open_failed", {
+    reason,
+    message: err instanceof Error ? err.message : String(err ?? ""),
+  });
+}
+
+export function logOAuthLaunchNavigation(url: string): void {
+  safeConsoleInfo("[oauth] launch_navigation", { url: url.trim() });
+}
+
+export function logOAuthLaunchSurfaceConfirmed(source: string): void {
+  safeConsoleInfo("[oauth] launch_surface_confirmed", { source });
+}
+
+export function logOAuthLaunchSurfaceMissing(timeoutMs: number): void {
+  safeConsoleInfo("[oauth] launch_surface_missing", { timeoutMs });
+}
