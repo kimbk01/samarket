@@ -15,7 +15,8 @@ function read(relPath) {
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
-const nativeLaunchPage = read("app/auth/oauth/native-launch/page.tsx");
+const nativeLaunchRoute = read("app/auth/oauth/native-launch/route.ts");
+const nativeLaunchOpenPage = read("app/auth/oauth/native-launch/open/page.tsx");
 const nativeLaunchClient = read("app/auth/oauth/native-launch/NativeOAuthLaunchClient.tsx");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
@@ -50,16 +51,20 @@ if (!layout.includes("CapacitorNativeMarkerBootstrap")) {
   failures.push("app/layout.tsx must mount CapacitorNativeMarkerBootstrap");
 }
 
-if (!startOAuthLogin.includes("/auth/oauth/native-launch")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate native OAuth to /auth/oauth/native-launch");
+if (!startOAuthLogin.includes("NATIVE_OAUTH_LAUNCH_PATH")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate native OAuth to NATIVE_OAUTH_LAUNCH_PATH");
 }
 
 if (startOAuthLogin.includes("fetchWithTimeout") || startOAuthLogin.includes("Browser.open({ url: json.authorizeUrl")) {
   failures.push("Native OAuth client must not fetch-then-open; use native-launch page instead");
 }
 
-if (!nativeLaunchPage.includes("runSupabaseOAuthStart")) {
-  failures.push("app/auth/oauth/native-launch/page.tsx must run Supabase OAuth start server-side");
+if (!nativeLaunchRoute.includes("runSupabaseOAuthStart")) {
+  failures.push("app/auth/oauth/native-launch/route.ts must run Supabase OAuth start server-side");
+}
+
+if (!nativeLaunchOpenPage.includes("NativeOAuthLaunchClient")) {
+  failures.push("app/auth/oauth/native-launch/open/page.tsx must render NativeOAuthLaunchClient");
 }
 
 if (!nativeLaunchClient.includes("Browser.open({ url: authorizeUrl })")) {

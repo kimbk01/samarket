@@ -1,6 +1,7 @@
 "use client";
 
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
+import { NATIVE_OAUTH_LAUNCH_PATH } from "@/lib/auth/oauth/native-oauth-launch.constants";
 import {
   DIBAY_APP_MARKER_PARAM,
   ensureCapacitorNativeMarkerOnBoot,
@@ -10,7 +11,6 @@ import {
 
 const SUPABASE_OAUTH_PROVIDERS = new Set<OAuthProvider>(["google", "kakao", "apple"]);
 export const OAUTH_BROWSER_OPEN_TIMEOUT_MS = 8_000;
-export const NATIVE_OAUTH_LAUNCH_PATH = "/auth/oauth/native-launch";
 
 type StartOAuthLoginInput = {
   provider: OAuthProvider;
