@@ -25,6 +25,8 @@ const resolveNative = read("lib/auth/oauth/resolve-native-oauth-request.server.t
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
 const supabaseStart = read("lib/auth/oauth/supabase-oauth-start.server.ts");
+const capacitorConfig = read("capacitor.config.ts");
+const capacitorConfigJson = read("android/app/src/main/assets/capacitor.config.json");
 
 if (!manifest.includes('android:scheme="dibay"')) {
   failures.push("AndroidManifest missing android:scheme=\"dibay\"");
@@ -44,6 +46,26 @@ if (!manifest.includes("android.permission.INTERNET")) {
 
 if (!supabaseStart.includes("dibay://auth/callback")) {
   failures.push("lib/auth/oauth/supabase-oauth-start.server.ts must use dibay://auth/callback for native redirectTo");
+}
+
+if (/url:\s*withNativeAppMarker/.test(capacitorConfig)) {
+  failures.push("capacitor.config.ts must not apply withNativeAppMarker to server.url (breaks Web Message Listener allowedOriginRules)");
+}
+
+if (!capacitorConfig.includes("normalizeCapacitorServerUrl")) {
+  failures.push("capacitor.config.ts must normalize server.url to origin-only via normalizeCapacitorServerUrl");
+}
+
+try {
+  const parsedCapConfig = JSON.parse(capacitorConfigJson);
+  const capacitorServerUrl = String(parsedCapConfig?.server?.url ?? "");
+  if (!capacitorServerUrl || capacitorServerUrl.includes("?") || capacitorServerUrl.includes("dibay_app")) {
+    failures.push(
+      "android/app/src/main/assets/capacitor.config.json server.url must be origin-only (no dibay_app query); run npm run cap:sync:android",
+    );
+  }
+} catch {
+  failures.push("android/app/src/main/assets/capacitor.config.json must be valid JSON");
 }
 
 if (!startRoute.includes("runSupabaseOAuthStart")) {

@@ -13,6 +13,11 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *
  * OAuth Android/iOS 복귀 deep link: `dibay://auth/callback` (AndroidManifest intent-filter).
  * `androidScheme` 은 WebView 내부 scheme 용이며 OAuth deep link 와 별개다.
+ *
+ * `server.url` 은 origin 만 사용한다 (query 금지).
+ * `?dibay_app=android` 를 server.url 에 붙이면 Android Web Message Listener
+ * `allowedOriginRules` 가 실제 페이지 origin 과 불일치해 `window.androidBridge` 가 노출되지 않는다.
+ * dibay_app marker 는 `ensureCapacitorNativeMarkerOnBoot()` · OAuth navigation query 로 분리한다.
  */
 const DEFAULT_CAPACITOR_SERVER_URL = "https://samarket.vercel.app";
 
@@ -21,20 +26,18 @@ const serverUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
   DEFAULT_CAPACITOR_SERVER_URL;
 
-function withNativeAppMarker(url: string, platform: "android" | "ios"): string {
+/** Capacitor server.url — query·hash 제거 (Web Message Listener origin 규칙과 일치) */
+export function normalizeCapacitorServerUrl(url: string): string {
   const trimmed = url.trim().replace(/\/$/, "");
   try {
     const parsed = new URL(trimmed);
-    parsed.searchParams.set("dibay_app", platform);
-    return parsed.toString().replace(/\/(?=\?)/, "");
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
   } catch {
-    const separator = trimmed.includes("?") ? "&" : "?";
-    return `${trimmed}${separator}dibay_app=${platform}`;
+    return trimmed.split("?")[0].split("#")[0];
   }
 }
-
-const dibayAppPlatform =
-  process.env.CAPACITOR_DIBAY_APP?.trim().toLowerCase() === "ios" ? "ios" : "android";
 
 const useLegacyAndroidBridge =
   process.env.CAPACITOR_ANDROID_USE_LEGACY_BRIDGE?.trim() === "1";
@@ -44,7 +47,7 @@ const config: CapacitorConfig = {
   appName: "DIBAY",
   webDir: "capacitor-www",
   server: {
-    url: withNativeAppMarker(serverUrl, dibayAppPlatform),
+    url: normalizeCapacitorServerUrl(serverUrl),
     cleartext: serverUrl.startsWith("http://"),
   },
   ...(useLegacyAndroidBridge
