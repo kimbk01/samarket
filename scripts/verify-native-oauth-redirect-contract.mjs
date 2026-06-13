@@ -119,11 +119,16 @@ if (!registerBeforeSuper) {
 }
 
 if (!nativeLauncherPlugin.includes("CustomTabsIntent")) {
-  failures.push("NativeOAuthLauncherPlugin must try CustomTabsIntent as fallback");
+  failures.push("NativeOAuthLauncherPlugin must try CustomTabsIntent for in-app OAuth");
+}
+
+const customTabsBeforeActionView = /tryCustomTabs\([\s\S]*tryActionView\(/m.test(nativeLauncherPlugin);
+if (!customTabsBeforeActionView) {
+  failures.push("NativeOAuthLauncherPlugin must try CustomTabs before ACTION_VIEW fallback");
 }
 
 if (!nativeLauncherPlugin.includes("Intent.ACTION_VIEW")) {
-  failures.push("NativeOAuthLauncherPlugin must try ACTION_VIEW external browser first");
+  failures.push("NativeOAuthLauncherPlugin must keep ACTION_VIEW as external browser fallback");
 }
 
 if (!nativeLauncherPlugin.includes("action_view_start")) {

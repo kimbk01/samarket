@@ -13,8 +13,8 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 
 /**
- * Native OAuth launcher — ACTION_VIEW 우선, Custom Tab 2차 (안정화 전 임시).
- * @capacitor/browser BrowserControllerActivity 경로는 일부 기기에서 hang 될 수 있어 분리한다.
+ * Native OAuth launcher — Custom Tab 우선, ACTION_VIEW 2차 fallback.
+ * ACTION_VIEW 는 전체 Chrome 앱으로 넘어가므로 OAuth 기본 경로로 쓰지 않는다.
  */
 @CapacitorPlugin(name = "NativeOAuthLauncher")
 public class NativeOAuthLauncherPlugin extends Plugin {
@@ -49,15 +49,15 @@ public class NativeOAuthLauncherPlugin extends Plugin {
       return;
     }
 
-    if (tryActionView(activity, uri, call)) {
-      return;
-    }
-
     if (tryCustomTabs(activity, uri, call)) {
       return;
     }
 
-    Log.e(TAG, "action_view_failed");
+    if (tryActionView(activity, uri, call)) {
+      return;
+    }
+
+    Log.e(TAG, "browser_open_failed");
     call.reject("browser_open_failed");
   }
 
