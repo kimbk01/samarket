@@ -38,6 +38,7 @@ import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBa
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
+import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
 import {
   GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
@@ -110,6 +111,7 @@ function GlobalIncomingFriendRequestHostMountGate({ storesHubLite }: { storesHub
 function AppWideRuntimePerfHooks() {
   const bootstrapRafRef = useRef<{ a: number; b: number }>({ a: 0, b: 0 });
   useEffect(() => {
+    registerGoogleNativeRecoverBootstrap();
     bumpAppWidePerf("app_bootstrap_start");
     const t0 = performance.now();
     bootstrapRafRef.current.a = requestAnimationFrame(() => {

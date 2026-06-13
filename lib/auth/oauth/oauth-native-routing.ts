@@ -7,6 +7,8 @@ import {
   isNativeAppleLoginAvailable,
   isNativeGoogleLoginAvailable,
   isNativeKakaoLoginAvailable,
+  resolveCapacitorShellPlatform,
+  type DibayAppPlatform,
 } from "@/lib/platform/capacitor-native";
 
 export type OAuthNativeRoutingDecision =
@@ -36,9 +38,12 @@ export function resolveOAuthNativeRoutingDecision(input: {
   provider: OAuthProvider;
   isNativeAppShell: boolean;
   isNativeProviderAvailable?: (provider: NativeExchangeProvider) => boolean;
+  /** unit test · routing override — 기본값은 resolveCapacitorShellPlatform() */
+  shellPlatform?: DibayAppPlatform | null;
 }): OAuthNativeRoutingDecision {
   const { provider, isNativeAppShell } = input;
   const checkAvailable = input.isNativeProviderAvailable ?? isNativeProviderLoginAvailableForRouting;
+  const shellPlatform = input.shellPlatform ?? resolveCapacitorShellPlatform();
 
   if (provider === "naver") {
     return { action: "naver_web_start" };
@@ -50,6 +55,10 @@ export function resolveOAuthNativeRoutingDecision(input: {
       && checkAvailable(provider)
     ) {
       return { action: "native_provider_login" };
+    }
+    /** iOS — Google Native SDK 미구현. Custom Tab Web OAuth 허용 (Android 는 Native SDK 전용). */
+    if (provider === "google" && shellPlatform === "ios") {
+      return { action: "web_oauth_start" };
     }
     return {
       action: "native_blocked",

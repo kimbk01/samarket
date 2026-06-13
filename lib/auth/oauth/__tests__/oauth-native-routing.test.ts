@@ -18,17 +18,29 @@ describe("oauth-native-routing", () => {
     ).toEqual({ action: "web_oauth_start" });
   });
 
-  it("blocks google on native app when SDK unavailable", () => {
+  it("blocks google on native Android app when SDK unavailable", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "google",
         isNativeAppShell: true,
+        shellPlatform: "android",
         isNativeProviderAvailable: () => false,
       }),
     ).toEqual({
       action: "native_blocked",
       errorCode: "google_native_unavailable",
     });
+  });
+
+  it("falls back to web OAuth for google on iOS native shell", () => {
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "google",
+        isNativeAppShell: true,
+        shellPlatform: "ios",
+        isNativeProviderAvailable: () => false,
+      }),
+    ).toEqual({ action: "web_oauth_start" });
   });
 
   it("routes google to native provider login when SDK available", () => {

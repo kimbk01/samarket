@@ -27,11 +27,14 @@ if (!androidPlugin.includes("NativeGoogleAuth")) {
 if (!androidPlugin.includes("requestIdToken")) {
   failures.push("NativeGoogleAuthPlugin.java must requestIdToken for server verify");
 }
-if (!androidPlugin.includes("googleSignInResult")) {
-  failures.push("NativeGoogleAuthPlugin.java must handle googleSignInResult ActivityCallback");
+if (!androidPlugin.includes("PREF_PENDING_ID_TOKEN")) {
+  failures.push("NativeGoogleAuthPlugin.java must persist deferred id token for process restart recovery");
 }
-if (!androidPlugin.includes("handleOnDestroy")) {
-  failures.push("NativeGoogleAuthPlugin.java must reject pending signIn on handleOnDestroy");
+if (!androidPlugin.includes("recoverSignInIfPending")) {
+  failures.push("NativeGoogleAuthPlugin.java must implement recoverSignInIfPending for process restart recovery");
+}
+if (androidPlugin.includes("rejectPendingCall(\"google_native_unavailable\", \"Activity destroyed")) {
+  failures.push("NativeGoogleAuthPlugin must not reject signIn on handleOnDestroy (breaks Google account UI return)");
 }
 if (!mainActivity.includes("NativeGoogleAuthPlugin")) {
   failures.push("MainActivity must register NativeGoogleAuthPlugin");

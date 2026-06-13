@@ -5,7 +5,11 @@ import {
   type NativeGoogleAuthErrorCode,
 } from "@/lib/auth/native/native-google-auth-contract";
 import type { NativeExchangeResponse } from "@/lib/auth/native/native-provider-contract";
-import { invokeNativeGoogleSignIn, NativeGoogleAuthError } from "@/lib/auth/native/native-google-auth-plugin";
+import {
+  invokeNativeGoogleRecoverSignInIfPending,
+  invokeNativeGoogleSignIn,
+  NativeGoogleAuthError,
+} from "@/lib/auth/native/native-google-auth-plugin";
 import {
   endOAuthFlow,
   releaseOAuthFlowOnUserCancel,
@@ -16,6 +20,8 @@ import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
 
 export type NativeGoogleExchangeResponse = NativeExchangeResponse;
+
+let googleNativeRecoverInFlight = false;
 
 function mapExchangeErrorToNativeGoogleError(
   exchange: Extract<NativeGoogleExchangeResponse, { ok: false }>,
@@ -93,6 +99,38 @@ export async function postNativeGoogleExchange(
   return json;
 }
 
+async function completeNativeGoogleSession(input: {
+  signInResult: { idToken: string };
+  next?: string | null;
+  recovered?: boolean;
+}): Promise<void> {
+  const exchangeBody = buildNativeGoogleExchangeRequest({
+    provider: "google",
+    idToken: input.signInResult.idToken,
+  });
+  const exchange = await postNativeGoogleExchange(exchangeBody, { next: input.next ?? null });
+
+  if (!exchange.ok) {
+    console.error("[oauth] google_native_exchange_failed", {
+      errorCode: exchange.errorCode,
+      message: exchange.message,
+      recovered: input.recovered ?? false,
+    });
+    throw mapExchangeErrorToNativeGoogleError(exchange);
+  }
+
+  logOAuthNativeEvent("google_native_exchange_ok", {
+    signupComplete: exchange.signupComplete ?? null,
+    redirectTo: exchange.redirectTo ?? null,
+    recovered: input.recovered ?? false,
+  });
+  endOAuthFlow("google");
+  clearStoredLoginRequiredDetail();
+  if (exchange.redirectTo?.trim()) {
+    window.location.replace(exchange.redirectTo.trim());
+  }
+}
+
 export function isNativeGoogleLoginStartError(code: string): code is NativeGoogleAuthErrorCode {
   return (
     code === "user_cancelled"
@@ -107,8 +145,40 @@ export function isNativeGoogleLoginStartError(code: string): code is NativeGoogl
 }
 
 /**
+ * Google 계정 UI 복귀·프로세스 재시작 후 native pending 이 남아 있으면 silentSignIn 으로 exchange 를 이어간다.
+ */
+export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
+  if (!isNativeGoogleLoginAvailable() || googleNativeRecoverInFlight) return false;
+
+  googleNativeRecoverInFlight = true;
+  try {
+    const recovered = await invokeNativeGoogleRecoverSignInIfPending();
+    if (!recovered) return false;
+
+    const flow = tryBeginOAuthFlow("google");
+    if (!flow.ok) return false;
+
+    try {
+      logOAuthNativeEvent("google_native_recover_started", { next: recovered.next ?? null });
+      await completeNativeGoogleSession({
+        signInResult: recovered,
+        next: recovered.next ?? null,
+        recovered: true,
+      });
+      return true;
+    } catch (error) {
+      flow.release();
+      endOAuthFlow("google");
+      console.error("[oauth] google_native_recover_exchange_failed", error);
+      return false;
+    }
+  } finally {
+    googleNativeRecoverInFlight = false;
+  }
+}
+
+/**
  * Android Capacitor — Google Sign-In via NativeGoogleAuth plugin.
- * Web / iOS: caller must use Web OAuth or other provider.
  */
 export async function startNativeGoogleLogin(input?: { next?: string | null }): Promise<void> {
   if (!isNativeGoogleLoginAvailable()) {
@@ -124,28 +194,18 @@ export async function startNativeGoogleLogin(input?: { next?: string | null }): 
 
   try {
     logOAuthNativeEvent("google_native_started", { next: input?.next ?? null });
-    const signInResult = await invokeNativeGoogleSignIn();
+    const signInResult = await invokeNativeGoogleSignIn({ next: input?.next ?? null });
     logOAuthNativeEvent("google_native_success", {
       hasIdToken: Boolean(signInResult.idToken),
       hasUserId: Boolean(signInResult.userId),
+      recovered: Boolean(signInResult.recovered),
     });
 
-    const exchangeBody = buildNativeGoogleExchangeRequest(signInResult);
-    const exchange = await postNativeGoogleExchange(exchangeBody, { next: input?.next ?? null });
-
-    if (!exchange.ok) {
-      throw mapExchangeErrorToNativeGoogleError(exchange);
-    }
-
-    logOAuthNativeEvent("google_native_exchange_ok", {
-      signupComplete: exchange.signupComplete ?? null,
-      redirectTo: exchange.redirectTo ?? null,
+    await completeNativeGoogleSession({
+      signInResult,
+      next: signInResult.next ?? input?.next ?? null,
+      recovered: signInResult.recovered,
     });
-    endOAuthFlow("google");
-    clearStoredLoginRequiredDetail();
-    if (exchange.redirectTo?.trim()) {
-      window.location.replace(exchange.redirectTo.trim());
-    }
   } catch (error) {
     if (error instanceof NativeGoogleAuthError && error.code === "user_cancelled") {
       releaseOAuthFlowOnUserCancel();

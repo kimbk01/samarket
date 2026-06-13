@@ -87,11 +87,20 @@ export function mapNativeGooglePluginError(raw: string | undefined | null): Nati
   if (code === "user_cancelled" || code === "canceled" || code === "cancelled") {
     return "user_cancelled";
   }
-  if (code === "google_native_config_error" || code === "not_configured") {
+  if (
+    code === "google_native_config_error"
+    || code === "not_configured"
+    || code.includes("unimplemented")
+    || code.includes("not implemented")
+    || code.includes("plugin")
+  ) {
     return "google_native_config_error";
   }
   if (code === "google_native_token_missing" || code === "token_missing") {
     return "google_native_token_missing";
+  }
+  if (code === "google_native_unavailable" || code === "google_native_in_flight") {
+    return "google_native_unavailable";
   }
   return "google_native_unavailable";
 }

@@ -5,11 +5,12 @@ import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
 import { isOAuthLoginStartSupported, startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
-import { endOAuthFlow, isOAuthInFlightPath, isOAuthFlowInFlight, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
+import { endOAuthFlow, isOAuthInFlightPath, isOAuthFlowInFlight, NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
 import { handoffOAuthLoginShell, restoreOAuthLoginShellAfterFailure } from "@/lib/auth/oauth/oauth-login-shell.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
 import { NativeGoogleAuthError } from "@/lib/auth/native/native-google-auth-plugin";
+import { recoverNativeGoogleLoginIfPending } from "@/lib/auth/native/start-native-google-login.client";
 import { NativeKakaoAuthError } from "@/lib/auth/native/native-kakao-auth-plugin";
 import {
   NativeProviderLoginError,
@@ -21,8 +22,10 @@ import {
 } from "@/lib/auth/oauth/oauth-native-routing";
 import {
   ensureCapacitorNativeMarkerOnBoot,
+  getCapacitorNativeDiagnostics,
   isCapacitorNativePlatform,
   isOAuthNativeLaunchShell,
+  waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -202,6 +205,15 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
     const maybeReleaseOnForegroundReturn = () => {
       if (document.visibilityState !== "visible") return;
+
+      void waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS })
+        .then((ready) => {
+          if (ready) return recoverNativeGoogleLoginIfPending();
+          return false;
+        })
+        .catch(() => undefined);
+
+      if (isOAuthFlowInFlight()) return;
       const path = window.location.pathname;
       if (isOAuthInFlightPath(path)) return;
       if (path === "/login" || path === "/signup" || path.startsWith("/login/")) {
@@ -218,6 +230,16 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       window.removeEventListener("pageshow", maybeReleaseOnForegroundReturn);
     };
   }, [clearPending, pendingOAuthProvider]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    void waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS })
+      .then((ready) => {
+        if (ready) return recoverNativeGoogleLoginIfPending();
+        return false;
+      })
+      .catch(() => undefined);
+  }, []);
 
   const handleOAuthStartFailure = useCallback(
     (err: unknown, options?: { restoreSheet?: boolean }) => {
@@ -249,53 +271,64 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         setSharedPending(provider);
       });
 
-      if (isNaverProvider(provider)) {
-        handoffOAuthLoginShell();
-        const flow = tryBeginOAuthFlow(provider);
-        if (!flow.ok) {
-          clearPending();
-          if (mountedRef.current) setError(mapOAuthErrorToMessage("oauth_flow_in_flight", t));
+      const runProviderStart = async () => {
+        if (isNaverProvider(provider)) {
+          handoffOAuthLoginShell();
+          const flow = tryBeginOAuthFlow(provider);
+          if (!flow.ok) {
+            clearPending();
+            if (mountedRef.current) setError(mapOAuthErrorToMessage("oauth_flow_in_flight", t));
+            return;
+          }
+          try {
+            window.location.assign(buildNaverOAuthStartPath(next));
+          } catch {
+            flow.release();
+            handleOAuthStartFailure(new Error("navigation_failed"));
+          }
           return;
         }
-        try {
-          window.location.assign(buildNaverOAuthStartPath(next));
-        } catch {
-          flow.release();
-          handleOAuthStartFailure(new Error("navigation_failed"));
+
+        if (isNativeAppOAuthShell()) {
+          await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
         }
-        return;
-      }
 
-      const routing = resolveOAuthNativeRoutingDecision({
-        provider,
-        isNativeAppShell: isNativeAppOAuthShell(),
-      });
+        const routing = resolveOAuthNativeRoutingDecision({
+          provider,
+          isNativeAppShell: isNativeAppOAuthShell(),
+        });
 
-      if (routing.action === "native_provider_login") {
+        if (routing.action === "native_provider_login") {
+          handoffOAuthLoginShell();
+          void startNativeProviderLogin({ provider, next })
+            .then(() => {
+              clearPending();
+              clearStoredLoginRequiredDetail();
+            })
+            .catch((err) => {
+              handleOAuthStartFailure(err);
+            });
+          return;
+        }
+
+        if (routing.action === "native_blocked") {
+          clearPending();
+          if (provider === "google") {
+            console.error("[oauth] google_native_blocked", getCapacitorNativeDiagnostics());
+          }
+          if (mountedRef.current) setError(mapOAuthErrorToMessage(routing.errorCode, t));
+          return;
+        }
+
         handoffOAuthLoginShell();
-        void startNativeProviderLogin({ provider, next })
-          .then(() => {
-            clearPending();
-            clearStoredLoginRequiredDetail();
-          })
-          .catch((err) => {
-            handleOAuthStartFailure(err);
-          });
-        return;
-      }
+        try {
+          startOAuthLogin({ provider, next });
+        } catch (err) {
+          handleOAuthStartFailure(err);
+        }
+      };
 
-      if (routing.action === "native_blocked") {
-        clearPending();
-        if (mountedRef.current) setError(mapOAuthErrorToMessage(routing.errorCode, t));
-        return;
-      }
-
-      handoffOAuthLoginShell();
-      try {
-        startOAuthLogin({ provider, next });
-      } catch (err) {
-        handleOAuthStartFailure(err);
-      }
+      void runProviderStart();
     },
     [clearPending, handleOAuthStartFailure, next, t],
   );

@@ -18,7 +18,16 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeKakaoAuthPlugin.class);
     registerPlugin(NativeGoogleAuthPlugin.class);
     super.onCreate(savedInstanceState);
+    logNativeAuthBootState();
     logOAuthIntent(getIntent());
+  }
+
+  private void logNativeAuthBootState() {
+    String googleWebClientId = getString(R.string.google_web_client_id).trim();
+    Log.i("DIBAY_Google", "google_native_boot configured=" + !googleWebClientId.isEmpty());
+    if (googleWebClientId.isEmpty()) {
+      Log.w("DIBAY_Google", "google_native_boot_missing set GOOGLE_WEB_CLIENT_ID in android/local.properties then Rebuild");
+    }
   }
 
   @Override

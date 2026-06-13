@@ -216,9 +216,16 @@ export function hasNativeGoogleAuthPluginHeader(): boolean {
  */
 export function isNativeGoogleLoginAvailable(): boolean {
   if (typeof window === "undefined") return false;
-  if (resolveCapacitorShellPlatform() !== "android") return false;
+  const shellPlatform = resolveCapacitorShellPlatform();
+  if (shellPlatform !== "android") return false;
   if (hasNativeGoogleAuthPluginHeader()) return true;
-  return isCapacitorBridgeReady();
+  if (isCapacitorBridgeReady()) return true;
+  const cap = readWindowWithCapacitor()?.Capacitor;
+  const platform = cap?.getPlatform?.()?.trim().toLowerCase();
+  if (platform === "android" && hasCapacitorNativePromise() && hasNativeGoogleAuthPluginHeader()) {
+    return true;
+  }
+  return isCapacitorNativePlatform() && shellPlatform === "android";
 }
 
 export function hasCapacitorNativePromise(): boolean {

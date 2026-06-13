@@ -108,7 +108,7 @@ export const authUiMessages = {
     auth_err_kakao_native_account_conflict:
       "이 카카오 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
     auth_err_google_native_config_error:
-      "Google 앱 로그인 설정이 완료되지 않았습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
+      "Google 앱 로그인 설정이 완료되지 않았습니다. Android Studio에서 앱을 다시 빌드·설치하고 GOOGLE_WEB_CLIENT_ID를 확인한 뒤 시도해 주세요.",
     auth_err_google_native_unavailable:
       "Google 앱 로그인을 사용할 수 없습니다. Android 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_google_native_not_ready:
@@ -319,7 +319,7 @@ export const authUiMessages = {
     auth_err_kakao_native_account_conflict:
       "This Kakao account conflicts with another profile. Please contact support.",
     auth_err_google_native_config_error:
-      "Google app sign-in is not configured yet. Reinstall the latest app build and try again.",
+      "Google app sign-in is not configured yet. Rebuild and reinstall the Android app, then verify GOOGLE_WEB_CLIENT_ID.",
     auth_err_google_native_unavailable:
       "Google app sign-in is unavailable on this device. Update the Android app and try again.",
     auth_err_google_native_not_ready:
