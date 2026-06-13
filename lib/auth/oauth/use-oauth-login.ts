@@ -69,8 +69,16 @@ function isNaverProvider(provider: OAuthProvider): boolean {
 function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
   if (code === "invalid_provider") return t("auth_err_invalid_provider");
   if (code === "supabase_unconfigured") return t("auth_err_supabase_unconfigured");
-  if (code === "browser_plugin_unavailable") return t("auth_err_oauth_browser_plugin_unavailable");
-  if (code === "browser_open_rejected" || code === "browser_open_timeout") {
+  if (code === "browser_plugin_unavailable" || code === "oauth_tab_unavailable") {
+    return t("auth_err_oauth_browser_plugin_unavailable");
+  }
+  if (code === "custom_tabs_unavailable") return t("auth_err_oauth_custom_tabs_required");
+  if (
+    code === "browser_open_rejected"
+    || code === "browser_open_timeout"
+    || code === "oauth_tab_open_failed"
+    || code === "oauth_tab_not_opened"
+  ) {
     return t("auth_err_oauth_browser_open_failed");
   }
   if (code === "oauth_start_timeout") return t("auth_err_auth_timeout");

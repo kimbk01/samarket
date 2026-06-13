@@ -68,10 +68,6 @@ export function preloadOAuthBrowser(): void {
   void import("@capacitor/browser").then(({ Browser }) => Browser.close().catch(() => undefined));
 }
 
-export function prefetchNativeOAuthAuthorizeUrl(_provider: OAuthProvider, _next?: string | null): void {
-  // Launch page performs fetch; keep API for bootstrap compatibility.
-}
-
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
@@ -132,8 +128,4 @@ export function startOAuthLogin(input: { provider: OAuthProvider; next?: string 
   }
 
   window.location.assign(buildWebStartPath(provider, next));
-}
-
-export function resetNativeOAuthStateForTests(): void {
-  // no-op — launch page holds ephemeral state locally
 }

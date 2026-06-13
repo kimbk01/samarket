@@ -75,9 +75,11 @@ export const authUiMessages = {
     auth_err_native_oauth_redirect_invalid:
       "앱 로그인을 준비하지 못했습니다. 앱을 완전히 종료한 뒤 다시 실행해 주세요.",
     auth_err_oauth_browser_plugin_unavailable:
-      "앱 로그인 창을 열 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
+      "앱 로그인 창을 열 수 없습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
+    auth_err_oauth_custom_tabs_required:
+      "기기에 Chrome 또는 Custom Tabs 지원 브라우저가 필요합니다.",
     auth_err_oauth_browser_open_failed:
-      "로그인 창을 열지 못했습니다. 잠시 후 다시 시도하거나 앱을 재시작해 주세요.",
+      "로그인 창 열기에 실패했습니다. 다시 시도해 주세요.",
     auth_err_oauth_launch_navigation_failed:
       "로그인 페이지로 이동하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.",
     auth_supabase_fail_dns:
@@ -247,9 +249,11 @@ export const authUiMessages = {
     auth_err_native_oauth_redirect_invalid:
       "Could not prepare app sign-in. Fully close the app and open it again.",
     auth_err_oauth_browser_plugin_unavailable:
-      "Could not open the sign-in window. Update the app to the latest version and try again.",
+      "Could not open the sign-in window. Reinstall the app to the latest version and try again.",
+    auth_err_oauth_custom_tabs_required:
+      "Chrome or a browser that supports Custom Tabs is required on this device.",
     auth_err_oauth_browser_open_failed:
-      "Could not open the sign-in window. Try again shortly or restart the app.",
+      "Could not open the sign-in window. Please try again.",
     auth_err_oauth_launch_navigation_failed:
       "Could not open the sign-in page. Check your network and try again.",
     auth_supabase_fail_dns:

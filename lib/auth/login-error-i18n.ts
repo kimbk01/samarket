@@ -59,8 +59,13 @@ export function mapOAuthSignInErrorMessage(
   if (code === "invalid_provider") return t("auth_err_invalid_provider");
   if (code === "supabase_unconfigured") return t("auth_err_supabase_unconfigured");
   if (code === "missing_authorize_url") return t("auth_err_oauth_authorize_url_failed");
-  if (code === "browser_plugin_unavailable") return t("auth_err_oauth_browser_plugin_unavailable");
-  if (code === "browser_open_rejected") return t("auth_err_oauth_browser_open_failed");
+  if (code === "browser_plugin_unavailable" || code === "oauth_tab_unavailable") {
+    return t("auth_err_oauth_browser_plugin_unavailable");
+  }
+  if (code === "custom_tabs_unavailable") return t("auth_err_oauth_custom_tabs_required");
+  if (code === "browser_open_rejected" || code === "oauth_tab_open_failed") {
+    return t("auth_err_oauth_browser_open_failed");
+  }
   if (code === "navigation_failed") return t("auth_err_oauth_launch_navigation_failed");
   return t("auth_err_oauth_start_failed");
 }

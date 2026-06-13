@@ -98,6 +98,25 @@ if (!openNativeTab.includes('registerPlugin<OAuthTabPlugin>("OAuthTab")')) {
   failures.push("open-native-oauth-tab.ts must call OAuthTab Capacitor plugin");
 }
 
+if (openNativeTab.includes("@capacitor/browser") || openNativeTab.includes("Browser.open")) {
+  failures.push("open-native-oauth-tab.ts must not use @capacitor/browser Browser.open for OAuth start");
+}
+
+if (
+  openNativeTab.includes("openWithAnchor")
+  || openNativeTab.includes("openWithCapacitorBrowser")
+) {
+  failures.push("open-native-oauth-tab.ts must not use anchor or Browser fallback helpers");
+}
+
+if (oauthTabPlugin.includes("Intent.ACTION_VIEW")) {
+  failures.push("OAuthTabPlugin must not fall back to ACTION_VIEW external browser");
+}
+
+if (!oauthTabPlugin.includes("custom_tabs_unavailable")) {
+  failures.push("OAuthTabPlugin must reject with custom_tabs_unavailable when Custom Tabs are unavailable");
+}
+
 if (!launchClient.includes("openNativeOAuthTab")) {
   failures.push("NativeOAuthLaunchClient must use openNativeOAuthTab");
 }

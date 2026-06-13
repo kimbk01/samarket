@@ -11,16 +11,46 @@ import {
   OAuthLoginProviderIcon,
 } from "@/components/auth/OAuthLoginProviderVisuals";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
-import { openNativeOAuthTab } from "@/lib/auth/oauth/open-native-oauth-tab";
+import {
+  mapNativeOAuthOpenErrorToMessageKey,
+  openNativeOAuthTab,
+} from "@/lib/auth/oauth/open-native-oauth-tab";
 import { fetchNativeOAuthAuthorizeUrl } from "@/lib/auth/oauth/start-oauth-login";
 import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 const SUPABASE_OAUTH = new Set<OAuthProvider>(["google", "kakao", "apple"]);
-const OAUTH_TAB_OPEN_TIMEOUT_MS = 12_000;
+export const OAUTH_BACKGROUND_WAIT_MS = 5_000;
 
 function parseProvider(value: string | null): OAuthProvider | null {
   const normalized = value?.trim().toLowerCase() ?? "";
   return SUPABASE_OAUTH.has(normalized as OAuthProvider) ? (normalized as OAuthProvider) : null;
+}
+
+function waitForAppBackground(timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let listenerHandle: { remove: () => Promise<void> } | null = null;
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeoutId);
+      void listenerHandle?.remove();
+      fn();
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      finish(() => reject(new Error("oauth_tab_not_opened")));
+    }, timeoutMs);
+
+    void App.addListener("appStateChange", ({ isActive }) => {
+      if (!isActive) {
+        finish(resolve);
+      }
+    }).then((handle) => {
+      listenerHandle = handle;
+    });
+  });
 }
 
 export function NativeOAuthLaunchClient() {
@@ -89,36 +119,35 @@ export function NativeOAuthLaunchClient() {
     };
   }, []);
 
+  const resolveOpenErrorMessage = useCallback(
+    (err: unknown): string => {
+      if (err instanceof Error) {
+        if (err.message === "oauth_tab_not_opened") {
+          return t("auth_err_oauth_browser_open_failed");
+        }
+        const code = err.name || "oauth_tab_open_failed";
+        return t(mapNativeOAuthOpenErrorToMessageKey(code));
+      }
+      return t("auth_err_oauth_browser_open_failed");
+    },
+    [t],
+  );
+
   const handleOpenBrowser = useCallback(() => {
     if (!authorizeUrl || opening) return;
     setOpening(true);
     setError(null);
 
-    let timeoutId: number | undefined;
     void (async () => {
       try {
-        await Promise.race([
-          openNativeOAuthTab(authorizeUrl),
-          new Promise<never>((_, reject) => {
-            timeoutId = window.setTimeout(
-              () => reject(new Error("browser_open_timeout")),
-              OAUTH_TAB_OPEN_TIMEOUT_MS,
-            );
-          }),
-        ]);
+        await openNativeOAuthTab(authorizeUrl);
+        await waitForAppBackground(OAUTH_BACKGROUND_WAIT_MS);
       } catch (err) {
-        const code = err instanceof Error ? err.message : "browser_open_rejected";
-        if (code === "browser_open_timeout") {
-          setError(t("auth_err_oauth_browser_open_failed"));
-        } else {
-          setError(t("auth_err_oauth_browser_open_failed"));
-        }
+        setError(resolveOpenErrorMessage(err));
         setOpening(false);
-      } finally {
-        if (timeoutId != null) window.clearTimeout(timeoutId);
       }
     })();
-  }, [authorizeUrl, opening, t]);
+  }, [authorizeUrl, opening, resolveOpenErrorMessage]);
 
   const handleBack = useCallback(() => {
     if (typeof window !== "undefined" && window.history.length > 1) {

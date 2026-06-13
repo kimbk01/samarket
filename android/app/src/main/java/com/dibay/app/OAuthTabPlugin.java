@@ -45,14 +45,7 @@ public class OAuthTabPlugin extends Plugin {
       tabsIntent.launchUrl(activity, uri);
       call.resolve();
     } catch (ActivityNotFoundException customTabsError) {
-      try {
-        Intent browserIntent = new Intent(Intent.ACTION_VIEW, uri);
-        browserIntent.addCategory(Intent.CATEGORY_BROWSABLE);
-        activity.startActivity(browserIntent);
-        call.resolve();
-      } catch (Exception browserError) {
-        call.reject("browser_open_failed");
-      }
+      call.reject("custom_tabs_unavailable");
     } catch (Exception error) {
       call.reject("browser_open_failed");
     }
