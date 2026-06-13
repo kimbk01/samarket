@@ -47,16 +47,16 @@ if (!startRoute.includes("isNativeAppOAuthRequest")) {
   failures.push("app/api/auth/oauth/start/route.ts must detect native app via dibay_app marker");
 }
 
-if (!startRoute.includes("NextResponse.redirect(result.authorizeUrl)")) {
-  failures.push("app/api/auth/oauth/start/route.ts must redirect WebView to authorizeUrl (302)");
+if (!startRoute.includes('launch === "native"')) {
+  failures.push("app/api/auth/oauth/start/route.ts must support launch=native JSON for Custom Tab flow");
 }
 
-if (startRoute.includes('launch === "native"')) {
-  failures.push("app/api/auth/oauth/start/route.ts must not use launch=native JSON branch");
+if (!startRoute.includes("native_launch_requires_json")) {
+  failures.push("app/api/auth/oauth/start/route.ts must block native WebView 302 to provider");
 }
 
-if (!resolveNative.includes("dibay_app")) {
-  failures.push("resolve-native-oauth-request.server.ts must read dibay_app marker");
+if (!resolveNative.includes("persistNativeAppMarkerCookie")) {
+  failures.push("resolve-native-oauth-request.server.ts must persist dibay_app cookie");
 }
 
 if (!layout.includes("OAuthReturnListener")) {
@@ -70,20 +70,20 @@ if (!mainActivity.includes("registerPlugin(BrowserPlugin.class)")) {
   failures.push("MainActivity must register BrowserPlugin");
 }
 
-if (!startOAuthLogin.includes("window.location.assign")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate WebView to start API");
+if (!startOAuthLogin.includes("@capacitor/browser")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must use @capacitor/browser Custom Tab");
 }
 
-if (startOAuthLogin.includes('path.searchParams.set("launch", "native")')) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must not use launch=native fetch flow");
+if (!startOAuthLogin.includes("Browser.open")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must open authorizeUrl in Custom Tab");
 }
 
-if (startOAuthLogin.includes("Browser.open")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must not open OAuth with Browser.open");
+if (!startOAuthLogin.includes("prefetchNativeOAuthAuthorizeUrl")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must prefetch authorizeUrl before tap");
 }
 
-if (startOAuthLogin.includes("prefetchNativeOAuthAuthorizeUrl")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must not prefetch for Custom Tab");
+if (!startOAuthLogin.includes("openPrefetchedNativeOAuthFromUserGesture")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must open prefetched URL from user gesture");
 }
 
 if (startOAuthLogin.includes("DibayOAuth")) {
