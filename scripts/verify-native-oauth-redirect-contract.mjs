@@ -16,6 +16,7 @@ function read(relPath) {
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const mainActivity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
+const launchClient = read("app/auth/oauth/launch/NativeOAuthLaunchClient.tsx");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
 const resolveNative = read("lib/auth/oauth/resolve-native-oauth-request.server.ts");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
@@ -70,28 +71,24 @@ if (!mainActivity.includes("registerPlugin(BrowserPlugin.class)")) {
   failures.push("MainActivity must register BrowserPlugin");
 }
 
-if (!startOAuthLogin.includes("@capacitor/browser")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must use @capacitor/browser Custom Tab");
+if (!startOAuthLogin.includes("/auth/oauth/launch")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate native flow to /auth/oauth/launch");
 }
 
-if (!startOAuthLogin.includes("Browser.open")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must open authorizeUrl in Custom Tab");
+if (startOAuthLogin.includes("Browser.open")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must not call Browser.open directly");
 }
 
-if (!startOAuthLogin.includes("prefetchNativeOAuthAuthorizeUrl")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must prefetch authorizeUrl before tap");
+if (!launchClient.includes("Browser.open")) {
+  failures.push("NativeOAuthLaunchClient must open authorizeUrl in Custom Tab on user tap");
 }
 
-if (!startOAuthLogin.includes("openPrefetchedNativeOAuthFromUserGesture")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must open prefetched URL from user gesture");
-}
-
-if (startOAuthLogin.includes("DibayOAuth")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must not use custom DibayOAuth plugin");
+if (!launchClient.includes("fetchNativeOAuthAuthorizeUrl")) {
+  failures.push("NativeOAuthLaunchClient must fetch PKCE start URL before opening Custom Tab");
 }
 
 if (startOAuthLogin.includes("/auth/oauth/native-launch")) {
-  failures.push("Native OAuth must not use intermediate native-launch pages");
+  failures.push("Native OAuth must not use legacy native-launch pages");
 }
 
 if (!oauthReturnListener.includes("Browser.close")) {
