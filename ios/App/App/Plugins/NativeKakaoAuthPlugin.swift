@@ -34,6 +34,14 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     call.reject(code, message)
   }
 
+  private func isValidKakaoAppKey(_ raw: String) -> Bool {
+    let key = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    if key.isEmpty { return false }
+    if key.hasPrefix("$(") { return false }
+    if key.contains("YOUR_KAKAO") { return false }
+    return true
+  }
+
   private func resolvePending(_ result: JSObject) {
     guard let call = pendingCall else { return }
     pendingCall = nil
@@ -50,14 +58,16 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     guard let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String,
-      !appKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      isValidKakaoAppKey(appKey)
     else {
+      logEvent("kakao_native_config_error", "KAKAO_NATIVE_APP_KEY missing or placeholder")
       call.reject("kakao_native_config_error", "KAKAO_NATIVE_APP_KEY is not configured")
       return
     }
 
+    let trimmedKey = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
     if !KakaoSDK.isInitialized() {
-      KakaoSDK.initSDK(appKey: appKey.trimmingCharacters(in: .whitespacesAndNewlines))
+      KakaoSDK.initSDK(appKey: trimmedKey)
     }
 
     pendingCall = call

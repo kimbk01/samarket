@@ -44,6 +44,12 @@ yarn-error.log*
 _env.local
 _env*.local
 
+# Kakao Native App Key — local iOS build only (never commit)
+ios/App/App/Kakao.local.xcconfig
+
+# Android SDK path + local secrets (never commit)
+android/local.properties
+
 # vercel
 .vercel
 

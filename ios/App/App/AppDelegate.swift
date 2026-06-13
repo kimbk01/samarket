@@ -11,7 +11,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         if let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String {
             let trimmed = appKey.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty {
+            let isPlaceholder = trimmed.isEmpty || trimmed.hasPrefix("$(") || trimmed.contains("YOUR_KAKAO")
+            if !isPlaceholder {
                 KakaoSDK.initSDK(appKey: trimmed)
             }
         }

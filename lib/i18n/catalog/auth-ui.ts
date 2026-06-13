@@ -93,6 +93,12 @@ export const authUiMessages = {
       "이 Apple 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
     auth_err_apple_native_invalid_audience:
       "Apple 로그인 앱 설정이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.",
+    auth_err_apple_native_unavailable:
+      "Apple 로그인은 iOS 앱에서만 이용할 수 있습니다. Android에서는 카카오·이메일 등 다른 방법으로 로그인해 주세요.",
+    auth_err_kakao_native_config_error:
+      "카카오 앱 로그인 설정이 완료되지 않았습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
+    auth_err_kakao_native_unavailable:
+      "카카오 앱 로그인을 사용할 수 없습니다. 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
     auth_err_kakao_native_not_ready:
       "카카오 로그인 준비 중입니다. 잠시 후 다시 시도해 주세요.",
     auth_err_kakao_native_verify_failed:
@@ -286,6 +292,12 @@ export const authUiMessages = {
       "This Apple account conflicts with another sign-in method. Please contact support.",
     auth_err_apple_native_invalid_audience:
       "Apple sign-in app configuration is invalid. Please try again shortly.",
+    auth_err_apple_native_unavailable:
+      "Apple sign-in is only available in the iOS app. On Android, please use Kakao, email, or another sign-in method.",
+    auth_err_kakao_native_config_error:
+      "Kakao app sign-in is not configured yet. Reinstall the latest app build and try again.",
+    auth_err_kakao_native_unavailable:
+      "Kakao app sign-in is unavailable. Update to the latest app build and try again.",
     auth_err_kakao_native_not_ready:
       "Kakao sign-in is not ready yet. Please try again shortly.",
     auth_err_kakao_native_verify_failed:

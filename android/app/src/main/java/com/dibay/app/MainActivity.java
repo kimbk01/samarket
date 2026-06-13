@@ -9,6 +9,7 @@ import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
+  private static final String KAKAO_TAG = "DIBAY_Kakao";
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -17,7 +18,22 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeOAuthLauncherPlugin.class);
     registerPlugin(NativeKakaoAuthPlugin.class);
     super.onCreate(savedInstanceState);
+    logKakaoBuildDiagnostics();
     logOAuthIntent(getIntent());
+  }
+
+  private void logKakaoBuildDiagnostics() {
+    try {
+      String appKey = getString(R.string.kakao_native_app_key).trim();
+      String scheme = getString(R.string.kakao_login_scheme).trim();
+      Log.i(
+        KAKAO_TAG,
+        "MainActivity_onCreate kakao_key_len=" + appKey.length() + " kakao_scheme=" + (scheme.isEmpty() ? "(empty)" : scheme)
+      );
+      Log.i(KAKAO_TAG, "MainActivity_plugins_registered NativeKakaoAuth=yes NativeOAuthLauncher=yes");
+    } catch (Exception error) {
+      Log.e(KAKAO_TAG, "MainActivity_kakao_diagnostics_failed", error);
+    }
   }
 
   @Override

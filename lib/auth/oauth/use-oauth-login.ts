@@ -120,14 +120,14 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "apple_native_config_error" || code === "apple_native_token_missing") {
     return t("auth_err_oauth_start_failed");
   }
-  if (code === "apple_native_unavailable") return t("auth_err_oauth_start_failed");
+  if (code === "apple_native_unavailable") return t("auth_err_apple_native_unavailable");
   if (code === "kakao_native_exchange_not_ready") return t("auth_err_kakao_native_not_ready");
   if (code === "kakao_native_verify_failed") return t("auth_err_kakao_native_verify_failed");
   if (code === "kakao_native_account_conflict") return t("auth_err_kakao_native_account_conflict");
   if (code === "kakao_native_config_error" || code === "kakao_native_token_missing") {
-    return t("auth_err_oauth_start_failed");
+    return t("auth_err_kakao_native_config_error");
   }
-  if (code === "kakao_native_unavailable") return t("auth_err_oauth_start_failed");
+  if (code === "kakao_native_unavailable") return t("auth_err_kakao_native_unavailable");
   if (code === "native_provider_not_implemented") return t("auth_err_native_provider_not_implemented");
   return t("auth_err_oauth_start_failed");
 }
@@ -249,6 +249,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
             }
             clearPending();
             const code = resolveNativeProviderLoginErrorCode(err);
+            console.error("[oauth] native_provider_login_failed", { provider, code, err });
             if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
           });
         return;

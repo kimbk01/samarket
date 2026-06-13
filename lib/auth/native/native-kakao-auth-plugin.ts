@@ -9,6 +9,10 @@ import {
   mapNativeKakaoPluginError,
   NATIVE_KAKAO_AUTH_PLUGIN_ID,
 } from "@/lib/auth/native/native-kakao-auth-contract";
+import {
+  isCapacitorNativePlatform,
+  resolveCapacitorShellPlatform,
+} from "@/lib/platform/capacitor-native";
 
 export type NativeKakaoAuthPluginSignInResult = {
   provider: "kakao";
@@ -52,12 +56,15 @@ function normalizePluginSignInResult(raw: NativeKakaoAuthPluginSignInResult): Na
 }
 
 export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isCapacitorNativePlatform()) {
     throw new NativeKakaoAuthError("kakao_native_unavailable", "Native Kakao login requires Android/iOS app shell");
   }
 
   try {
-    console.error("[oauth] kakao_native_started", { platform: Capacitor.getPlatform() });
+    console.error("[oauth] kakao_native_started", {
+      platform: Capacitor.getPlatform(),
+      shellPlatform: resolveCapacitorShellPlatform(),
+    });
     const raw = await NativeKakaoAuth.signIn();
     console.error("[oauth] kakao_native_success", {
       hasAccessToken: Boolean(raw.accessToken),
@@ -77,6 +84,7 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
       console.error("[oauth] kakao_native_token_missing");
     }
     const mapped = mapNativeKakaoPluginError(pluginCode);
+    console.error("[oauth] kakao_native_failed", { pluginCode, mapped });
     if (mapped === "user_cancelled") {
       throw new NativeKakaoAuthError("user_cancelled");
     }
@@ -85,7 +93,7 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
 }
 
 export async function revokeNativeKakaoSessionIfAvailable(): Promise<void> {
-  if (!Capacitor.isNativePlatform()) return;
+  if (!isCapacitorNativePlatform()) return;
   try {
     await NativeKakaoAuth.signOut();
     console.error("[oauth] kakao_native_signout_ok");

@@ -4,8 +4,10 @@ import {
   ensureCapacitorNativeMarkerOnBoot,
   isCapacitorBridgeReady,
   isCapacitorNativePlatform,
+  isNativeKakaoLoginAvailable,
   isOAuthNativeLaunchAvailable,
   isOAuthNativeLaunchShell,
+  resolveCapacitorShellPlatform,
   shouldRegisterCapacitorOAuthReturnListener,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
@@ -190,5 +192,28 @@ describe("capacitor-native", () => {
       Capacitor: { isNativePlatform: () => false, getPlatform: () => "web" },
     });
     expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(false);
+  });
+
+  it("requires NativeKakaoAuth plugin header when PluginHeaders is populated", () => {
+    vi.stubGlobal("window", {
+      androidBridge: {},
+      Capacitor: {
+        getPlatform: () => "web",
+        PluginHeaders: [{ name: "NativeOAuthLauncher", methods: [{ name: "open", rtype: "promise" }] }],
+      },
+    });
+    expect(isNativeKakaoLoginAvailable()).toBe(true);
+  });
+
+  it("enables native kakao when getPlatform is web but androidBridge is present", () => {
+    vi.stubGlobal("window", {
+      androidBridge: {},
+      Capacitor: {
+        getPlatform: () => "web",
+        PluginHeaders: [{ name: "NativeKakaoAuth", methods: [{ name: "signIn", rtype: "promise" }] }],
+      },
+    });
+    expect(isNativeKakaoLoginAvailable()).toBe(true);
+    expect(resolveCapacitorShellPlatform()).toBe("android");
   });
 });

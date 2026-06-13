@@ -106,12 +106,22 @@ export function readDibayAppPlatformMarker(): DibayAppPlatform | null {
 }
 
 function resolveCapacitorPlatformMarker(): DibayAppPlatform | null {
+  return resolveCapacitorShellPlatform();
+}
+
+/**
+ * Remote server.url WebView — getPlatform() 이 "web" 이더라도 androidBridge·marker 로 shell 판별.
+ * Native Kakao/Apple SDK 가용성은 isCapacitorNativePlatform() 과 동일 기준을 쓴다.
+ */
+export function resolveCapacitorShellPlatform(): DibayAppPlatform | null {
   const win = readWindowWithCapacitor();
   const cap = win?.Capacitor;
   const platform = cap?.getPlatform?.()?.trim().toLowerCase();
   if (platform === "android" || platform === "ios") {
     return platform;
   }
+  if (win?.androidBridge) return "android";
+  if (win?.webkit?.messageHandlers?.bridge) return "ios";
   if (cap?.isNativePlatform?.() === true) {
     if (typeof navigator !== "undefined" && /android/i.test(navigator.userAgent)) {
       return "android";
@@ -120,7 +130,7 @@ function resolveCapacitorPlatformMarker(): DibayAppPlatform | null {
       return "ios";
     }
   }
-  return null;
+  return readDibayAppPlatformMarker();
 }
 
 /**
@@ -175,10 +185,10 @@ export function hasNativeKakaoAuthPluginHeader(): boolean {
  */
 export function isNativeKakaoLoginAvailable(): boolean {
   if (typeof window === "undefined") return false;
-  const platform = readWindowWithCapacitor()?.Capacitor?.getPlatform?.()?.trim().toLowerCase();
+  const platform = resolveCapacitorShellPlatform();
   if (platform !== "android" && platform !== "ios") return false;
-  if (isCapacitorBridgeReady()) return true;
-  return hasNativeKakaoAuthPluginHeader();
+  if (hasNativeKakaoAuthPluginHeader()) return true;
+  return isCapacitorBridgeReady();
 }
 
 /**
@@ -187,10 +197,9 @@ export function isNativeKakaoLoginAvailable(): boolean {
  */
 export function isNativeAppleLoginAvailable(): boolean {
   if (typeof window === "undefined") return false;
-  const platform = readWindowWithCapacitor()?.Capacitor?.getPlatform?.()?.trim().toLowerCase();
-  if (platform !== "ios") return false;
-  if (isCapacitorBridgeReady()) return true;
-  return hasNativeAppleAuthPluginHeader();
+  if (resolveCapacitorShellPlatform() !== "ios") return false;
+  if (hasNativeAppleAuthPluginHeader()) return true;
+  return isCapacitorBridgeReady();
 }
 
 export function hasCapacitorNativePromise(): boolean {

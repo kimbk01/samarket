@@ -23,6 +23,8 @@ import {
 } from "@/lib/auth/oauth/open-native-oauth-tab";
 import { fetchNativeOAuthAuthorizeUrl } from "@/lib/auth/oauth/start-oauth-login";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
+import { resolveOAuthNativeRoutingDecision } from "@/lib/auth/oauth/oauth-native-routing";
+import { shouldBlockLegacyOAuthOnNativeApp } from "@/lib/auth/native/native-provider-contract";
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
@@ -112,6 +114,21 @@ export function NativeOAuthLaunchClient() {
         fallbackEn: "This sign-in method is not supported.",
       }));
       setLoading(false);
+      return;
+    }
+
+    if (shouldBlockLegacyOAuthOnNativeApp(provider, true)) {
+      const routing = resolveOAuthNativeRoutingDecision({
+        provider,
+        isNativeAppShell: true,
+      });
+      logOAuthNativeEvent("launch_client_native_provider_blocked", {
+        provider,
+        action: routing.action,
+        errorCode: routing.action === "native_blocked" ? routing.errorCode : null,
+      });
+      dispatchOAuthPendingClear("launch_legacy_oauth_blocked");
+      router.replace("/login");
       return;
     }
 

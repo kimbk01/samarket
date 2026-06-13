@@ -56,6 +56,13 @@ export function mapNativeKakaoPluginError(raw: string | undefined | null): Nativ
   if (code === "kakao_native_token_missing" || code === "token_missing") {
     return "kakao_native_token_missing";
   }
+  if (
+    code === "kakao_native_unavailable"
+    || code.includes("unimplemented")
+    || code.includes("not implemented")
+  ) {
+    return "kakao_native_unavailable";
+  }
   return "kakao_native_unavailable";
 }
 
