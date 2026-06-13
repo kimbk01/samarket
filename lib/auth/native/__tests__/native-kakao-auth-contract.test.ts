@@ -31,4 +31,8 @@ describe("native-kakao-auth-contract", () => {
       mapNativeKakaoPluginError("KakaoTalk is installed but not connected to this application."),
     ).toBe("kakao_native_key_hash_required");
   });
+
+  it("maps in-flight plugin reject to kakao_native_unavailable", () => {
+    expect(mapNativeKakaoPluginError("kakao_native_in_flight")).toBe("kakao_native_unavailable");
+  });
 });

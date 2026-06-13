@@ -18,17 +18,30 @@ describe("oauth-native-routing", () => {
     ).toEqual({ action: "web_oauth_start" });
   });
 
-  it("blocks google and facebook on native app without Custom Tab fallback", () => {
+  it("blocks google on native app when SDK unavailable", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "google",
         isNativeAppShell: true,
+        isNativeProviderAvailable: () => false,
       }),
     ).toEqual({
       action: "native_blocked",
-      errorCode: "native_provider_not_implemented",
+      errorCode: "google_native_unavailable",
     });
+  });
 
+  it("routes google to native provider login when SDK available", () => {
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "google",
+        isNativeAppShell: true,
+        isNativeProviderAvailable: () => true,
+      }),
+    ).toEqual({ action: "native_provider_login" });
+  });
+
+  it("blocks facebook on native app without Custom Tab fallback", () => {
     expect(
       resolveOAuthNativeRoutingDecision({
         provider: "facebook",

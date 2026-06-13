@@ -10,6 +10,8 @@ const verifyAppleIdentityToken = vi.fn();
 const establishAppleNativeSession = vi.fn();
 const verifyKakaoNativeCredential = vi.fn();
 const establishKakaoNativeSession = vi.fn();
+const verifyGoogleIdToken = vi.fn();
+const establishGoogleNativeSession = vi.fn();
 
 vi.mock("@/lib/auth/native/apple-token-verify.server", () => ({
   verifyAppleIdentityToken: (...args: unknown[]) => verifyAppleIdentityToken(...args),
@@ -51,12 +53,34 @@ vi.mock("@/lib/auth/native/kakao-native-session.server", () => ({
   establishKakaoNativeSession: (...args: unknown[]) => establishKakaoNativeSession(...args),
 }));
 
+vi.mock("@/lib/auth/native/google-token-verify.server", () => ({
+  verifyGoogleIdToken: (...args: unknown[]) => verifyGoogleIdToken(...args),
+  GoogleTokenVerifyError: class GoogleTokenVerifyError extends Error {
+    code: string;
+    constructor(code: string, message: string) {
+      super(message);
+      this.code = code;
+    }
+  },
+  mapGoogleVerifyErrorToHttp: (error: { code: string; message: string }) => ({
+    errorCode: error.code === "google_token_missing" ? "native_exchange_bad_request" : "native_exchange_verify_failed",
+    status: error.code === "google_token_missing" ? 400 : 401,
+    message: error.message,
+  }),
+}));
+
+vi.mock("@/lib/auth/native/google-native-session.server", () => ({
+  establishGoogleNativeSession: (...args: unknown[]) => establishGoogleNativeSession(...args),
+}));
+
 describe("native-token-exchange.server", () => {
   beforeEach(() => {
     verifyAppleIdentityToken.mockReset();
     establishAppleNativeSession.mockReset();
     verifyKakaoNativeCredential.mockReset();
     establishKakaoNativeSession.mockReset();
+    verifyGoogleIdToken.mockReset();
+    establishGoogleNativeSession.mockReset();
   });
 
   afterEach(() => {
@@ -138,14 +162,46 @@ describe("native-token-exchange.server", () => {
     expect(verifyKakaoNativeCredential).toHaveBeenCalled();
   });
 
-  it("returns 501 for google when idToken present", async () => {
-    const result = await exchangeNativeProviderToken({
-      provider: "google",
-      idToken: "google-jwt",
+  it("registers google adapter as implemented", () => {
+    expect(getNativeProviderAdapter("google").stub).toBe(false);
+  });
+
+  it("returns success with sessionEstablished for google when verify and session succeed", async () => {
+    verifyGoogleIdToken.mockResolvedValue({
+      googleUserId: "google-sub-1",
+      audience: "web-client.apps.googleusercontent.com",
+      email: "user@example.com",
+      emailVerified: true,
+      name: "User",
+      picture: null,
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errorCode).toBe("native_provider_not_implemented");
+    establishGoogleNativeSession.mockResolvedValue({
+      ok: true,
+      userId: "user-google",
+      redirectTo: "/market",
+      signupComplete: true,
+      sessionEstablished: true,
+      isNewUser: false,
+      needsProfileCompletion: false,
+      needsTermsAgreement: false,
+    });
+
+    const result = await exchangeNativeProviderToken(
+      { provider: "google", idToken: "google-jwt" },
+      {
+        adminSb: {} as never,
+        routeSb: {} as never,
+        request: {} as never,
+        response: {} as never,
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.provider).toBe("google");
+      expect(result.sessionEstablished).toBe(true);
     }
+    expect(verifyGoogleIdToken).toHaveBeenCalled();
+    expect(establishGoogleNativeSession).toHaveBeenCalled();
   });
 });

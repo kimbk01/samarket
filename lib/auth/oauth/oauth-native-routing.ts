@@ -5,6 +5,7 @@ import {
 } from "@/lib/auth/native/native-provider-contract";
 import {
   isNativeAppleLoginAvailable,
+  isNativeGoogleLoginAvailable,
   isNativeKakaoLoginAvailable,
 } from "@/lib/platform/capacitor-native";
 
@@ -19,11 +20,13 @@ export function isNativeProviderLoginAvailableForRouting(
 ): boolean {
   if (provider === "kakao") return isNativeKakaoLoginAvailable();
   if (provider === "apple") return isNativeAppleLoginAvailable();
+  if (provider === "google") return isNativeGoogleLoginAvailable();
   return false;
 }
 
 export function resolveNativeBlockedProviderErrorCode(provider: OAuthProvider): string {
-  if (provider === "google" || provider === "facebook") return "native_provider_not_implemented";
+  if (provider === "facebook") return "native_provider_not_implemented";
+  if (provider === "google") return "google_native_unavailable";
   if (provider === "kakao") return "kakao_native_unavailable";
   if (provider === "apple") return "apple_native_unavailable";
   return "oauth_start_failed";
@@ -43,7 +46,7 @@ export function resolveOAuthNativeRoutingDecision(input: {
 
   if (shouldBlockLegacyOAuthOnNativeApp(provider, isNativeAppShell)) {
     if (
-      (provider === "kakao" || provider === "apple")
+      (provider === "kakao" || provider === "apple" || provider === "google")
       && checkAvailable(provider)
     ) {
       return { action: "native_provider_login" };

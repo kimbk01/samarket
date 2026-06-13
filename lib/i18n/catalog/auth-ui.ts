@@ -107,6 +107,16 @@ export const authUiMessages = {
       "카카오 로그인 확인에 실패했습니다. 다시 시도해 주세요.",
     auth_err_kakao_native_account_conflict:
       "이 카카오 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
+    auth_err_google_native_config_error:
+      "Google 앱 로그인 설정이 완료되지 않았습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
+    auth_err_google_native_unavailable:
+      "Google 앱 로그인을 사용할 수 없습니다. Android 앱을 최신 버전으로 업데이트한 뒤 다시 시도해 주세요.",
+    auth_err_google_native_not_ready:
+      "Google 로그인 준비 중입니다. 잠시 후 다시 시도해 주세요.",
+    auth_err_google_native_verify_failed:
+      "Google 로그인 확인에 실패했습니다. 다시 시도해 주세요.",
+    auth_err_google_native_account_conflict:
+      "이 Google 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
     auth_err_native_provider_not_implemented:
       "앱에서는 아직 이 로그인 방식을 지원하지 않습니다. 다른 방법으로 로그인해 주세요.",
     auth_supabase_fail_dns:
@@ -308,6 +318,16 @@ export const authUiMessages = {
       "Kakao sign-in verification failed. Please try again.",
     auth_err_kakao_native_account_conflict:
       "This Kakao account conflicts with another profile. Please contact support.",
+    auth_err_google_native_config_error:
+      "Google app sign-in is not configured yet. Reinstall the latest app build and try again.",
+    auth_err_google_native_unavailable:
+      "Google app sign-in is unavailable on this device. Update the Android app and try again.",
+    auth_err_google_native_not_ready:
+      "Google sign-in is not ready yet. Please try again shortly.",
+    auth_err_google_native_verify_failed:
+      "Google sign-in verification failed. Please try again.",
+    auth_err_google_native_account_conflict:
+      "This Google account conflicts with another profile. Please contact support.",
     auth_err_native_provider_not_implemented:
       "This sign-in method is not available in the app yet. Please use another method.",
     auth_supabase_fail_dns:

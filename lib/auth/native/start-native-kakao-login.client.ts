@@ -12,6 +12,7 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeKakaoLoginAvailable } from "@/lib/platform/capacitor-native";
 
 export type NativeKakaoExchangeResponse = NativeExchangeResponse;
@@ -92,6 +93,7 @@ export function isNativeKakaoLoginStartError(code: string): code is NativeKakaoA
   return (
     code === "user_cancelled"
     || code === "kakao_native_config_error"
+    || code === "kakao_native_key_hash_required"
     || code === "kakao_native_token_missing"
     || code === "kakao_native_unavailable"
     || code === "kakao_native_exchange_not_ready"
@@ -137,8 +139,9 @@ export async function startNativeKakaoLogin(input?: { next?: string | null }): P
       redirectTo: exchange.redirectTo ?? null,
     });
     endOAuthFlow("kakao");
+    clearStoredLoginRequiredDetail();
     if (exchange.redirectTo?.trim()) {
-      window.location.assign(exchange.redirectTo.trim());
+      window.location.replace(exchange.redirectTo.trim());
     }
   } catch (error) {
     if (error instanceof NativeKakaoAuthError && error.code === "user_cancelled") {

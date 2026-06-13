@@ -7,9 +7,11 @@ import {
   type NativeExchangeProvider,
 } from "@/lib/auth/native/native-provider-contract";
 import { startNativeAppleLogin } from "@/lib/auth/native/start-native-apple-login.client";
+import { startNativeGoogleLogin } from "@/lib/auth/native/start-native-google-login.client";
 import { startNativeKakaoLogin } from "@/lib/auth/native/start-native-kakao-login.client";
 import {
   isNativeAppleLoginAvailable,
+  isNativeGoogleLoginAvailable,
   isNativeKakaoLoginAvailable,
 } from "@/lib/platform/capacitor-native";
 
@@ -33,6 +35,7 @@ export class NativeProviderLoginError extends Error {
 export function isNativeProviderLoginAvailable(provider: NativeExchangeProvider): boolean {
   if (provider === "kakao") return isNativeKakaoLoginAvailable();
   if (provider === "apple") return isNativeAppleLoginAvailable();
+  if (provider === "google") return isNativeGoogleLoginAvailable();
   return false;
 }
 
@@ -40,9 +43,15 @@ function toNativeExchangeProvider(provider: OAuthProvider | NativeExchangeProvid
   return normalizeNativeExchangeProvider(provider);
 }
 
+function resolveUnavailableErrorCode(provider: NativeExchangeProvider): string {
+  if (provider === "kakao") return "kakao_native_unavailable";
+  if (provider === "apple") return "apple_native_unavailable";
+  return "google_native_unavailable";
+}
+
 /**
  * Native SDK login — Chrome / Custom Tab / startOAuthLogin fallback 금지.
- * Google/Facebook → native_provider_not_implemented (STEP D/F 전).
+ * Facebook → native_provider_not_implemented (STEP F 전).
  */
 export async function startNativeProviderLogin(input: StartNativeProviderLoginInput): Promise<void> {
   const provider = toNativeExchangeProvider(input.provider);
@@ -61,12 +70,16 @@ export async function startNativeProviderLogin(input: StartNativeProviderLoginIn
   }
 
   if (!isNativeProviderLoginAvailable(provider)) {
-    const code = provider === "kakao" ? "kakao_native_unavailable" : "apple_native_unavailable";
-    throw new NativeProviderLoginError(code, provider);
+    throw new NativeProviderLoginError(resolveUnavailableErrorCode(provider), provider);
   }
 
   if (provider === "kakao") {
     await startNativeKakaoLogin({ next: input.next ?? null });
+    return;
+  }
+
+  if (provider === "google") {
+    await startNativeGoogleLogin({ next: input.next ?? null });
     return;
   }
 

@@ -5,6 +5,13 @@ import {
   verifyAppleIdentityToken,
 } from "@/lib/auth/native/apple-token-verify.server";
 import { establishAppleNativeSession } from "@/lib/auth/native/apple-native-session.server";
+import { establishGoogleNativeSession } from "@/lib/auth/native/google-native-session.server";
+import {
+  GoogleTokenVerifyError,
+  mapGoogleVerifyErrorToHttp,
+  verifyGoogleIdToken,
+  type GoogleVerifiedIdentity,
+} from "@/lib/auth/native/google-token-verify.server";
 import { establishKakaoNativeSession } from "@/lib/auth/native/kakao-native-session.server";
 import {
   KakaoTokenVerifyError,
@@ -227,7 +234,92 @@ export const kakaoNativeProviderAdapter: NativeProviderAdapter = {
   },
 };
 
-function createStubAdapter(provider: Exclude<NativeExchangeProvider, "apple" | "kakao">): NativeProviderAdapter {
+function toVerifiedGoogleIdentity(verified: GoogleVerifiedIdentity): VerifiedNativeIdentity {
+  return {
+    provider: "google",
+    providerUserId: verified.googleUserId,
+    email: verified.email,
+    emailVerified: verified.emailVerified,
+    displayName: verified.name,
+    avatarUrl: verified.picture,
+    rawClaims: { googleVerified: verified },
+  };
+}
+
+export const googleNativeProviderAdapter: NativeProviderAdapter = {
+  provider: "google",
+  stub: false,
+
+  validateInput(input) {
+    return validateRequiredCredential(input);
+  },
+
+  async verify(input) {
+    const idToken = resolveNativeExchangeCredential(input);
+    if (!idToken) {
+      return nativeExchangeBadRequest(missingCredentialMessage("google"));
+    }
+
+    try {
+      const verified = await verifyGoogleIdToken({ idToken });
+      return toVerifiedGoogleIdentity(verified);
+    } catch (error) {
+      if (error instanceof GoogleTokenVerifyError) {
+        const mapped = mapGoogleVerifyErrorToHttp(error);
+        return {
+          ok: false,
+          errorCode: mapped.errorCode,
+          message: mapped.message,
+          status: mapped.status,
+        };
+      }
+      return {
+        ok: false,
+        errorCode: "native_exchange_verify_failed",
+        message: "Google id token verification failed",
+        status: 401,
+      };
+    }
+  },
+
+  async establishSession(identity, context, input) {
+    const googleVerified = identity.rawClaims?.googleVerified as GoogleVerifiedIdentity | undefined;
+    if (!googleVerified) {
+      return nativeExchangeSessionUnavailable("Google verified identity payload is missing");
+    }
+
+    const session = await establishGoogleNativeSession(context, {
+      verified: googleVerified,
+      next: input.next,
+    });
+
+    if (!session.ok) {
+      if (session.errorCode === "provider_account_conflict") {
+        return {
+          ok: false,
+          errorCode: "native_exchange_account_conflict",
+          message: session.message,
+          status: 409,
+        };
+      }
+      return session;
+    }
+
+    return {
+      ok: true,
+      provider: "google",
+      userId: session.userId,
+      redirectTo: session.redirectTo,
+      signupComplete: session.signupComplete,
+      sessionEstablished: true,
+      isNewUser: session.isNewUser,
+      needsProfileCompletion: session.needsProfileCompletion,
+      needsTermsAgreement: session.needsTermsAgreement,
+    };
+  },
+};
+
+function createStubAdapter(provider: Exclude<NativeExchangeProvider, "apple" | "kakao" | "google">): NativeProviderAdapter {
   return {
     provider,
     stub: true,
@@ -243,7 +335,6 @@ function createStubAdapter(provider: Exclude<NativeExchangeProvider, "apple" | "
   };
 }
 
-export const googleNativeProviderAdapter = createStubAdapter("google");
 export const facebookNativeProviderAdapter = createStubAdapter("facebook");
 
 const ADAPTER_BY_PROVIDER: Record<NativeExchangeProvider, NativeProviderAdapter> = {

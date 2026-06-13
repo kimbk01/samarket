@@ -2,7 +2,16 @@
 
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import type { NativeAppleAuthErrorCode, NativeAppleSignInResult } from "@/lib/auth/native/native-apple-auth-contract";
-import { mapNativeApplePluginError, NATIVE_APPLE_AUTH_PLUGIN_ID } from "@/lib/auth/native/native-apple-auth-contract";
+import {
+  extractNativeApplePluginRejectRaw,
+  mapNativeApplePluginError,
+  NATIVE_APPLE_AUTH_PLUGIN_ID,
+} from "@/lib/auth/native/native-apple-auth-contract";
+import {
+  isCapacitorBridgeReady,
+  isCapacitorNativePlatform,
+  resolveCapacitorShellPlatform,
+} from "@/lib/platform/capacitor-native";
 
 export type NativeAppleAuthPluginSignInResult = {
   provider: "apple";
@@ -21,6 +30,20 @@ export type NativeAppleAuthPlugin = {
 const NativeAppleAuth = registerPlugin<NativeAppleAuthPlugin>(NATIVE_APPLE_AUTH_PLUGIN_ID, {
   web: () => import("@/lib/auth/native/native-apple-auth-plugin.web").then((m) => new m.NativeAppleAuthWeb()),
 });
+
+function invokeNativeAppleSignInViaBridge(
+  opts?: { nonce?: string },
+): Promise<NativeAppleAuthPluginSignInResult> {
+  const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
+    Capacitor?: { nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown> };
+  };
+  const nativePromise = cap?.Capacitor?.nativePromise;
+  const options = opts?.nonce ? { nonce: opts.nonce } : {};
+  if (typeof nativePromise === "function" && isCapacitorBridgeReady()) {
+    return nativePromise(NATIVE_APPLE_AUTH_PLUGIN_ID, "signIn", options) as Promise<NativeAppleAuthPluginSignInResult>;
+  }
+  return NativeAppleAuth.signIn(opts?.nonce ? { nonce: opts.nonce } : undefined);
+}
 
 export class NativeAppleAuthError extends Error {
   readonly code: NativeAppleAuthErrorCode;
@@ -49,31 +72,30 @@ function normalizePluginSignInResult(raw: NativeAppleAuthPluginSignInResult): Na
 }
 
 export async function invokeNativeAppleSignIn(opts?: { nonce?: string }): Promise<NativeAppleSignInResult> {
-  if (!Capacitor.isNativePlatform()) {
+  if (!isCapacitorNativePlatform()) {
     throw new NativeAppleAuthError("apple_native_unavailable", "Native Apple Sign In requires iOS app shell");
   }
 
   try {
-    console.error("[oauth] apple_native_started", { platform: Capacitor.getPlatform() });
-    const raw = await NativeAppleAuth.signIn(opts?.nonce ? { nonce: opts.nonce } : undefined);
+    console.error("[oauth] apple_native_started", {
+      platform: Capacitor.getPlatform(),
+      shellPlatform: resolveCapacitorShellPlatform(),
+    });
+    const raw = await invokeNativeAppleSignInViaBridge(opts);
     console.error("[oauth] apple_native_success", {
       hasIdentityToken: Boolean(raw.identityToken),
       hasUserIdentifier: Boolean(raw.userIdentifier),
     });
     return normalizePluginSignInResult(raw);
   } catch (error) {
-    const pluginCode =
-      error && typeof error === "object" && "code" in error
-        ? String((error as { code?: string }).code ?? "")
-        : error instanceof Error
-          ? error.message
-          : String(error);
+    const pluginCode = extractNativeApplePluginRejectRaw(error);
     if (pluginCode === "user_cancelled") {
       console.error("[oauth] apple_native_cancelled");
     } else if (pluginCode === "apple_native_token_missing") {
       console.error("[oauth] apple_native_token_missing");
     }
     const mapped = mapNativeApplePluginError(pluginCode);
+    console.error("[oauth] apple_native_failed", { pluginCode, mapped });
     if (mapped === "user_cancelled") {
       throw new NativeAppleAuthError("user_cancelled");
     }

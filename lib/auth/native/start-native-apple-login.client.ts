@@ -12,6 +12,7 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
 
 export type NativeAppleExchangeResponse = NativeExchangeResponse;
@@ -148,8 +149,9 @@ export async function startNativeAppleLogin(input?: { next?: string | null }): P
       redirectTo: exchange.redirectTo ?? null,
     });
     endOAuthFlow("apple");
+    clearStoredLoginRequiredDetail();
     if (exchange.redirectTo?.trim()) {
-      window.location.assign(exchange.redirectTo.trim());
+      window.location.replace(exchange.redirectTo.trim());
     }
   } catch (error) {
     if (error instanceof NativeAppleAuthError && error.code === "user_cancelled") {

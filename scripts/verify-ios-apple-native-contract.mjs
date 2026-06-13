@@ -89,6 +89,12 @@ const jsPlugin = read("lib/auth/native/native-apple-auth-plugin.ts");
 if (!jsPlugin.includes("apple_native_started")) {
   failures.push("native-apple-auth-plugin.ts must log apple_native_started");
 }
+if (!jsPlugin.includes("nativePromise")) {
+  failures.push("native-apple-auth-plugin.ts must use Capacitor.nativePromise bridge path for remote WebView");
+}
+if (!jsPlugin.includes("isCapacitorNativePlatform")) {
+  failures.push("native-apple-auth-plugin.ts must use isCapacitorNativePlatform instead of Capacitor.isNativePlatform only");
+}
 
 if (failures.length > 0) {
   console.error("verify:ios-apple-native-contract FAIL\n");

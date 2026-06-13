@@ -65,8 +65,8 @@ export type NativeExchangeFailureResponse = {
 
 export type NativeExchangeResponse = NativeExchangeSuccessResponse | NativeExchangeFailureResponse;
 
-/** STEP C+ Kakao · Apple — Google/Facebook 는 exchange stub */
-export const NATIVE_SDK_IMPLEMENTED_PROVIDERS = ["kakao", "apple"] as const;
+/** STEP C+ Kakao · Apple · Google(Android) — Facebook 는 exchange stub */
+export const NATIVE_SDK_IMPLEMENTED_PROVIDERS = ["kakao", "apple", "google"] as const;
 
 export type NativeSdkImplementedProvider = (typeof NATIVE_SDK_IMPLEMENTED_PROVIDERS)[number];
 
@@ -84,7 +84,7 @@ export function normalizeNativeExchangeProvider(raw: unknown): NativeExchangePro
 export function isNativeSdkImplementedProvider(
   provider: NativeExchangeProvider,
 ): provider is NativeSdkImplementedProvider {
-  return provider === "kakao" || provider === "apple";
+  return provider === "kakao" || provider === "apple" || provider === "google";
 }
 
 export type NativeExchangeGateInput = {

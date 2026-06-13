@@ -17,7 +17,6 @@ public class DibayApplication extends Application {
     }
     try {
       KakaoSdk.init(this, appKey);
-      Log.i(TAG, "kakao_sdk_initialized");
     } catch (Exception error) {
       Log.e(TAG, "kakao_sdk_init_failed", error);
     }

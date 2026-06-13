@@ -12,10 +12,11 @@ describe("native-provider-contract", () => {
     expect(normalizeNativeExchangeProvider("naver")).toBeNull();
   });
 
-  it("marks kakao and apple as SDK implemented", () => {
+  it("marks kakao, apple, and google as SDK implemented", () => {
     expect(isNativeSdkImplementedProvider("kakao")).toBe(true);
     expect(isNativeSdkImplementedProvider("apple")).toBe(true);
-    expect(isNativeSdkImplementedProvider("google")).toBe(false);
+    expect(isNativeSdkImplementedProvider("google")).toBe(true);
+    expect(isNativeSdkImplementedProvider("facebook")).toBe(false);
   });
 
   it("derives onboarding gate flags", () => {

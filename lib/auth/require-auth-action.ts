@@ -61,6 +61,17 @@ type PendingAction = () => void | Promise<void>;
 
 const pendingActions = new Map<string, PendingAction>();
 
+/** OAuth handoff 직후 시트 재오픈 — openLoginRequiredSheet 시 저장 */
+let lastLoginRequiredDetail: LoginRequiredDetail | null = null;
+
+export function clearStoredLoginRequiredDetail(): void {
+  lastLoginRequiredDetail = null;
+}
+
+export function getStoredLoginRequiredDetailForTests(): LoginRequiredDetail | null {
+  return lastLoginRequiredDetail;
+}
+
 export function clearPendingAuthActions(): void {
   pendingActions.clear();
 }
@@ -99,12 +110,20 @@ export function openLoginRequiredSheet(detail: LoginRequiredDetail): void {
   const next = detail.next?.trim()
     ? sanitizeLoginNextPath(detail.next) ?? undefined
     : undefined;
-  dispatchLoginRequired({ ...detail, next });
+  const normalized = { ...detail, next };
+  lastLoginRequiredDetail = normalized;
+  dispatchLoginRequired(normalized);
 }
 
 export function dismissLoginRequiredSheet(): void {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new CustomEvent(DIBAY_LOGIN_REQUIRED_DISMISS_EVENT));
+}
+
+/** OAuth 실패 시 직전 로그인 시트 복원 (actionType·token·next 유지) */
+export function reopenLoginRequiredSheet(): void {
+  if (!lastLoginRequiredDetail) return;
+  dispatchLoginRequired(lastLoginRequiredDetail);
 }
 
 export function openAddressRequiredSheet(detail: AddressRequiredDetail): void {

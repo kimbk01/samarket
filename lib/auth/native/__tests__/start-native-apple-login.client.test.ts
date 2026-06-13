@@ -24,6 +24,13 @@ vi.mock("@/lib/auth/oauth/oauth-native-callback-log", () => ({
   logOAuthNativeEvent: vi.fn(),
 }));
 
+function mockWindowLocationReplace(replace = vi.fn()) {
+  vi.stubGlobal("window", {
+    location: { replace, href: "http://localhost/" },
+  });
+  return replace;
+}
+
 describe("start-native-apple-login.client", () => {
   beforeEach(() => {
     resetOAuthFlowForTests();
@@ -79,11 +86,10 @@ describe("start-native-apple-login.client", () => {
   });
 
   it("does not create session on 501 — no redirect", async () => {
-    const assign = vi.fn();
-    vi.stubGlobal("location", { assign });
+    const replace = mockWindowLocationReplace();
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
     await expect(startNativeAppleLogin()).rejects.toBeTruthy();
-    expect(assign).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("redirects on successful exchange with sessionEstablished", async () => {
@@ -99,11 +105,10 @@ describe("start-native-apple-login.client", () => {
         }),
       }),
     );
-    const assign = vi.fn();
-    vi.stubGlobal("window", { location: { assign } });
+    const replace = mockWindowLocationReplace();
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
     await startNativeAppleLogin();
-    expect(assign).toHaveBeenCalledWith("/signup/terms");
+    expect(replace).toHaveBeenCalledWith("/signup/terms");
     expect(isOAuthFlowInFlight()).toBe(false);
   });
 

@@ -5,8 +5,11 @@ import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
 import { isOAuthLoginStartSupported, startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
-import { endOAuthFlow, isOAuthInFlightPath, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
+import { endOAuthFlow, isOAuthInFlightPath, isOAuthFlowInFlight, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
+import { handoffOAuthLoginShell, restoreOAuthLoginShellAfterFailure } from "@/lib/auth/oauth/oauth-login-shell.client";
+import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
+import { NativeGoogleAuthError } from "@/lib/auth/native/native-google-auth-plugin";
 import { NativeKakaoAuthError } from "@/lib/auth/native/native-kakao-auth-plugin";
 import {
   NativeProviderLoginError,
@@ -88,6 +91,7 @@ function isNaverProvider(provider: OAuthProvider): boolean {
 function isNativeProviderCancelError(err: unknown): boolean {
   if (err instanceof NativeKakaoAuthError && err.code === "user_cancelled") return true;
   if (err instanceof NativeAppleAuthError && err.code === "user_cancelled") return true;
+  if (err instanceof NativeGoogleAuthError && err.code === "user_cancelled") return true;
   return false;
 }
 
@@ -95,6 +99,7 @@ function resolveNativeProviderLoginErrorCode(err: unknown): string {
   if (err instanceof NativeProviderLoginError) return err.code;
   if (err instanceof NativeKakaoAuthError) return err.code;
   if (err instanceof NativeAppleAuthError) return err.code;
+  if (err instanceof NativeGoogleAuthError) return err.code;
   if (err instanceof Error) return err.name || err.message || "oauth_start_failed";
   return "oauth_start_failed";
 }
@@ -129,6 +134,13 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   }
   if (code === "kakao_native_key_hash_required") return t("auth_err_kakao_native_key_hash_required");
   if (code === "kakao_native_unavailable") return t("auth_err_kakao_native_unavailable");
+  if (code === "google_native_exchange_not_ready") return t("auth_err_google_native_not_ready");
+  if (code === "google_native_verify_failed") return t("auth_err_google_native_verify_failed");
+  if (code === "google_native_account_conflict") return t("auth_err_google_native_account_conflict");
+  if (code === "google_native_config_error" || code === "google_native_token_missing") {
+    return t("auth_err_google_native_config_error");
+  }
+  if (code === "google_native_unavailable") return t("auth_err_google_native_unavailable");
   if (code === "native_provider_not_implemented") return t("auth_err_native_provider_not_implemented");
   return t("auth_err_oauth_start_failed");
 }
@@ -207,6 +219,24 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     };
   }, [clearPending, pendingOAuthProvider]);
 
+  const handleOAuthStartFailure = useCallback(
+    (err: unknown, options?: { restoreSheet?: boolean }) => {
+      if (isNativeProviderCancelError(err)) {
+        releaseOAuthFlowOnUserCancel();
+        clearPending();
+        return;
+      }
+      clearPending();
+      if (options?.restoreSheet !== false) {
+        restoreOAuthLoginShellAfterFailure();
+      }
+      const code = resolveNativeProviderLoginErrorCode(err);
+      console.error("[oauth] oauth_start_failed", { code, err });
+      if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
+    },
+    [clearPending, t],
+  );
+
   const startOAuthProvider = useCallback(
     (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
@@ -220,17 +250,18 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       });
 
       if (isNaverProvider(provider)) {
+        handoffOAuthLoginShell();
         const flow = tryBeginOAuthFlow(provider);
         if (!flow.ok) {
           clearPending();
+          if (mountedRef.current) setError(mapOAuthErrorToMessage("oauth_flow_in_flight", t));
           return;
         }
         try {
           window.location.assign(buildNaverOAuthStartPath(next));
         } catch {
           flow.release();
-          clearPending();
-          if (mountedRef.current) setError(mapOAuthErrorToMessage("navigation_failed", t));
+          handleOAuthStartFailure(new Error("navigation_failed"));
         }
         return;
       }
@@ -241,17 +272,14 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       });
 
       if (routing.action === "native_provider_login") {
+        handoffOAuthLoginShell();
         void startNativeProviderLogin({ provider, next })
-          .catch((err) => {
-            if (isNativeProviderCancelError(err)) {
-              releaseOAuthFlowOnUserCancel();
-              clearPending();
-              return;
-            }
+          .then(() => {
             clearPending();
-            const code = resolveNativeProviderLoginErrorCode(err);
-            console.error("[oauth] native_provider_login_failed", { provider, code, err });
-            if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
+            clearStoredLoginRequiredDetail();
+          })
+          .catch((err) => {
+            handleOAuthStartFailure(err);
           });
         return;
       }
@@ -262,15 +290,14 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         return;
       }
 
+      handoffOAuthLoginShell();
       try {
         startOAuthLogin({ provider, next });
       } catch (err) {
-        clearPending();
-        const code = err instanceof Error ? err.name || err.message : "oauth_start_failed";
-        if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
+        handleOAuthStartFailure(err);
       }
     },
-    [clearPending, next, t],
+    [clearPending, handleOAuthStartFailure, next, t],
   );
 
   const clearOAuthError = useCallback(() => {
@@ -278,6 +305,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, []);
 
   const resetOAuthOnClose = useCallback(() => {
+    if (isOAuthFlowInFlight() || pendingProviderRef.current != null) return;
     clearPending();
     if (mountedRef.current) setError(null);
   }, [clearPending]);

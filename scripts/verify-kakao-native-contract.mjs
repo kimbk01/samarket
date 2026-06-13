@@ -35,11 +35,20 @@ if (!androidPlugin.includes("loginWithKakaoTalk")) {
 if (!androidPlugin.includes("loginWithKakaoAccount")) {
   failures.push("NativeKakaoAuthPlugin.java must use loginWithKakaoAccount");
 }
+if (!androidPlugin.includes("kakao_native_talk_fallback_account")) {
+  failures.push("NativeKakaoAuthPlugin.java must fallback to loginWithKakaoAccount when talk login fails");
+}
+if (!androidPlugin.includes("handleOnDestroy")) {
+  failures.push("NativeKakaoAuthPlugin.java must reject pending signIn on handleOnDestroy");
+}
 if (!androidPlugin.includes("NativeKakaoAuth")) {
   failures.push("Android plugin name must be NativeKakaoAuth");
 }
 if (!iosPlugin.includes("loginWithKakaoTalk")) {
   failures.push("NativeKakaoAuthPlugin.swift must use loginWithKakaoTalk");
+}
+if (!iosPlugin.includes("kakao_native_talk_fallback_account")) {
+  failures.push("NativeKakaoAuthPlugin.swift must fallback to loginWithKakaoAccount when talk login fails");
 }
 if (!iosPlugin.includes("jsName = \"NativeKakaoAuth\"")) {
   failures.push("iOS plugin jsName must be NativeKakaoAuth");

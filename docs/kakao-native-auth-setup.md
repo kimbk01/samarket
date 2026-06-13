@@ -23,7 +23,8 @@ Native app key는 **서버 env에 넣지 않음** — Android Gradle / iOS Info.
 3. `android/local.properties.example` → `local.properties` 복사 후 key 설정
 4. Gradle `resValue`: `kakao_login_scheme` = **`kakao{NATIVE_APP_KEY}`** (key 없으면 빈 scheme → plugin `kakao_native_config_error`)
 5. `DibayApplication` — `KakaoSdk.init`
-6. `NativeKakaoAuthPlugin` — `loginWithKakaoTalk` → `loginWithKakaoAccount`
+6. `NativeKakaoAuthPlugin` — `loginWithKakaoTalk` → (talk 실패·취소 제외) `loginWithKakaoAccount` 자동 전환
+7. `AuthCodeHandlerActivity` — `android:launchMode="singleTask"`
 
 Key hash 생성 (debug):
 ```bash
@@ -66,3 +67,24 @@ npx cap sync ios
 | `native_exchange_verify_failed` | Kakao token invalid / REST 401 |
 
 배포: Vercel에 최신 `/api/auth/native/exchange` + service role 필요. WebView는 `samarket.vercel.app` 원격 로드.
+
+## Android talk 로그인 실패 (2026-06 실제 사례)
+
+| 항목 | 내용 |
+|------|------|
+| **증상** | `KakaoTalk is installed but not connected to Kakao Developers` → UI `kakao_native_key_hash_required` |
+| **오해** | 키 해시 미등록 — Logcat `Utility.getKeyHash` 와 콘솔 값은 **일치**했음 |
+| **실제 원인** | **코드 버그** — talk 실패 시 `loginWithKakaoAccount` fallback 미구현. 카카오 공식 샘플은 talk 실패(취소 제외) 시 account 경로 재시도 |
+| **수정** | `NativeKakaoAuthPlugin` (Android/iOS) talk → account 자동 전환 |
+| **iOS** | 동일 패턴 적용. iOS는 key hash 대신 **Bundle ID**(`com.dibay.app`) 등록 — Kakao Developers DIBAY iOS 플랫폼 키 |
+
+talk만 실패하고 account로 성공하면 Logcat: `kakao_native_talk_fallback_account` → `kakao_native_account_login` → `kakao_native_success`.
+
+## 안정성 (double-check)
+
+| 항목 | Android | iOS |
+|------|---------|-----|
+| talk → account fallback | ✅ | ✅ |
+| `pendingCall` — me()/exchange 완료까지 유지 | ✅ | ✅ |
+| Activity destroy / plugin deinit 시 reject | `handleOnDestroy` | `deinit` |
+| 중복 signIn | `kakao_native_in_flight` | 동일 |

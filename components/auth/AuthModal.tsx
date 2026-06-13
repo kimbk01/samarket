@@ -21,7 +21,7 @@ import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeFreshLoginLandingPath } from "@/lib/auth/safe-next-path";
 import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
-import { consumePendingAuthAction, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
+import { consumePendingAuthAction, clearStoredLoginRequiredDetail, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 
@@ -125,6 +125,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const finishAuthenticated = useCallback(async () => {
     const consumed = await consumePendingAuthAction(detail?.token);
+    clearStoredLoginRequiredDetail();
     onClose();
     if (!consumed && typeof window !== "undefined") {
       await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
