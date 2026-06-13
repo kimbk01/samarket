@@ -15,6 +15,9 @@ function read(relPath) {
 
 const androidPlugin = read("android/app/src/main/java/com/dibay/app/NativeGoogleAuthPlugin.java");
 const jsPlugin = read("lib/auth/native/native-google-auth-plugin.ts");
+const googleStart = read("lib/auth/native/start-native-google-login.client.ts");
+const googleRecoverBootstrap = read("lib/auth/native/google-native-recover-bootstrap.client.ts");
+const postExchange = read("lib/auth/native/post-native-exchange.client.ts");
 const useOAuth = read("lib/auth/oauth/use-oauth-login.ts");
 const adapter = read("lib/auth/native/native-provider-adapter.server.ts");
 const googleEnv = read("lib/auth/native/google-auth-env.server.ts");
@@ -35,6 +38,9 @@ if (!androidPlugin.includes("launchGoogleAccountPicker")) {
 }
 if (androidPlugin.includes("getLastSignedInAccount")) {
   failures.push("NativeGoogleAuthPlugin must not use getLastSignedInAccount fallback (bypasses account chooser)");
+}
+if (!androidPlugin.includes("clearExchangePending()")) {
+  failures.push("NativeGoogleAuthPlugin recover failure must clearExchangePending");
 }
 if (!read("lib/auth/client-session-wipe.ts").includes("revokeNativeGoogleSessionIfAvailable")) {
   failures.push("client-session-wipe must revoke Native Google session on logout");
@@ -60,8 +66,17 @@ if (!androidGradle.includes("google_web_client_id")) {
 if (!jsPlugin.includes("nativePromise")) {
   failures.push("native-google-auth-plugin.ts must use Capacitor.nativePromise bridge path");
 }
-if (!jsPlugin.includes("google_native_started")) {
-  failures.push("native-google-auth-plugin.ts must log google_native_started");
+if (!googleStart.includes("logOAuthNativeEvent(\"google_native_started\"")) {
+  failures.push("start-native-google-login.client.ts must log google_native_started");
+}
+if (!googleRecoverBootstrap.includes("recoverNativeGoogleLoginIfPending")) {
+  failures.push("google-native-recover-bootstrap must be sole app-wide Google recover entry");
+}
+if (useOAuth.includes("recoverNativeGoogleLoginIfPending")) {
+  failures.push("use-oauth-login must not duplicate Google recover (bootstrap owns recover)");
+}
+if (!postExchange.includes("postNativeProviderExchange")) {
+  failures.push("post-native-exchange.client.ts must define shared postNativeProviderExchange");
 }
 if (!useOAuth.includes("startNativeProviderLogin")) {
   failures.push("use-oauth-login.ts must route native Google via startNativeProviderLogin");

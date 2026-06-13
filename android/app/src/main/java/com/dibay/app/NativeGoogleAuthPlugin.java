@@ -274,6 +274,7 @@ public class NativeGoogleAuthPlugin extends Plugin {
           GoogleSignInAccount account = task.getResult(ApiException.class);
           resolveAccountToCall(call, account, true);
         } catch (ApiException error) {
+          clearExchangePending();
           logEvent("google_native_recover_failed " + error.getStatusCode() + " " + error.getMessage());
           call.reject("google_native_token_missing", error.getMessage());
         }

@@ -1,10 +1,8 @@
 "use client";
 
-import { Capacitor, registerPlugin } from "@capacitor/core";
-import type {
-  NativeKakaoAuthErrorCode,
-  NativeKakaoSignInResult,
-} from "@/lib/auth/native/native-kakao-auth-contract";
+import { registerPlugin } from "@capacitor/core";
+import type { NativeKakaoAuthErrorCode } from "@/lib/auth/native/native-kakao-auth-contract";
+import type { NativeKakaoSignInResult } from "@/lib/auth/native/native-kakao-auth-contract";
 import {
   extractNativeKakaoPluginRejectRaw,
   mapNativeKakaoPluginError,
@@ -13,7 +11,6 @@ import {
 import {
   isCapacitorBridgeReady,
   isCapacitorNativePlatform,
-  resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
 
 export type NativeKakaoAuthPluginSignInResult = {
@@ -31,15 +28,21 @@ export type NativeKakaoAuthPlugin = {
 
 const NativeKakaoAuth = registerPlugin<NativeKakaoAuthPlugin>(NATIVE_KAKAO_AUTH_PLUGIN_ID);
 
-function invokeNativeKakaoSignInViaBridge(): Promise<NativeKakaoAuthPluginSignInResult> {
+function invokeNativeKakaoPlugin<T>(method: string): Promise<T> {
   const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
-    Capacitor?: { nativePromise?: (plugin: string, method: string, options?: unknown) => Promise<unknown> };
+    Capacitor?: { nativePromise?: (plugin: string, methodName: string, options?: unknown) => Promise<unknown> };
   };
   const nativePromise = cap?.Capacitor?.nativePromise;
   if (typeof nativePromise === "function" && isCapacitorBridgeReady()) {
-    return nativePromise(NATIVE_KAKAO_AUTH_PLUGIN_ID, "signIn", {}) as Promise<NativeKakaoAuthPluginSignInResult>;
+    return nativePromise(NATIVE_KAKAO_AUTH_PLUGIN_ID, method, {}) as Promise<T>;
   }
-  return NativeKakaoAuth.signIn();
+  if (method === "signIn") {
+    return NativeKakaoAuth.signIn() as Promise<T>;
+  }
+  if (method === "signOut") {
+    return NativeKakaoAuth.signOut() as Promise<T>;
+  }
+  throw new Error("Native Kakao auth bridge unavailable");
 }
 
 export class NativeKakaoAuthError extends Error {
@@ -72,25 +75,11 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
   }
 
   try {
-    console.error("[oauth] kakao_native_started", {
-      platform: Capacitor.getPlatform(),
-      shellPlatform: resolveCapacitorShellPlatform(),
-    });
-    const raw = await invokeNativeKakaoSignInViaBridge();
-    console.error("[oauth] kakao_native_success", {
-      hasAccessToken: Boolean(raw.accessToken),
-      hasUserId: Boolean(raw.userId),
-    });
+    const raw = await invokeNativeKakaoPlugin<NativeKakaoAuthPluginSignInResult>("signIn");
     return normalizePluginSignInResult(raw);
   } catch (error) {
     const pluginCode = extractNativeKakaoPluginRejectRaw(error);
-    if (pluginCode === "user_cancelled") {
-      console.error("[oauth] kakao_native_cancelled");
-    } else if (pluginCode === "kakao_native_token_missing") {
-      console.error("[oauth] kakao_native_token_missing");
-    }
     const mapped = mapNativeKakaoPluginError(pluginCode);
-    console.error("[oauth] kakao_native_failed", { pluginCode, mapped });
     if (mapped === "user_cancelled") {
       throw new NativeKakaoAuthError("user_cancelled");
     }
@@ -101,11 +90,8 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
 export async function revokeNativeKakaoSessionIfAvailable(): Promise<void> {
   if (!isCapacitorNativePlatform()) return;
   try {
-    await NativeKakaoAuth.signOut();
-    console.error("[oauth] kakao_native_signout_ok");
+    await invokeNativeKakaoPlugin<void>("signOut");
   } catch {
-    console.error("[oauth] kakao_native_signout_failed");
+    /* ignore — best effort */
   }
 }
-
-export { NativeKakaoAuth };

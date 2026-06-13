@@ -103,6 +103,13 @@ public class NativeKakaoAuthPlugin extends Plugin {
 
     UserApiClient.getInstance().me((user, meError) -> {
       if (pendingCall != call) {
+        if (call != null) {
+          call.reject("kakao_native_unavailable", "Kakao sign-in session changed");
+        }
+        return Unit.INSTANCE;
+      }
+      if (meError != null) {
+        rejectPendingCall("kakao_native_config_error", meError.getMessage() != null ? meError.getMessage() : "Kakao profile fetch failed");
         return Unit.INSTANCE;
       }
       if (user != null && user.getId() != null) {

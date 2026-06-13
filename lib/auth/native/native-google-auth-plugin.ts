@@ -1,10 +1,7 @@
 "use client";
 
-import { Capacitor, registerPlugin } from "@capacitor/core";
-import type {
-  NativeGoogleAuthErrorCode,
-  NativeGoogleSignInResult,
-} from "@/lib/auth/native/native-google-auth-contract";
+import { registerPlugin } from "@capacitor/core";
+import type { NativeGoogleAuthErrorCode, NativeGoogleSignInResult } from "@/lib/auth/native/native-google-auth-contract";
 import {
   extractNativeGooglePluginRejectRaw,
   mapNativeGooglePluginError,
@@ -13,7 +10,6 @@ import {
 import {
   isCapacitorBridgeReady,
   isNativeGoogleLoginAvailable,
-  resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
 
 export type NativeGoogleAuthPluginSignInResult = {
@@ -50,6 +46,9 @@ function invokeNativeGooglePlugin<T>(
   if (method === "recoverSignInIfPending") {
     return NativeGoogleAuth.recoverSignInIfPending() as Promise<T>;
   }
+  if (method === "signOut") {
+    return NativeGoogleAuth.signOut() as Promise<T>;
+  }
   throw new Error("Native Google auth bridge unavailable");
 }
 
@@ -78,13 +77,7 @@ function normalizePluginSignInResult(raw: NativeGoogleAuthPluginSignInResult): N
 
 function handleNativeGooglePluginError(error: unknown): never {
   const pluginCode = extractNativeGooglePluginRejectRaw(error);
-  if (pluginCode === "user_cancelled") {
-    console.error("[oauth] google_native_cancelled");
-  } else if (pluginCode === "google_native_token_missing") {
-    console.error("[oauth] google_native_token_missing");
-  }
   const mapped = mapNativeGooglePluginError(pluginCode);
-  console.error("[oauth] google_native_failed", { pluginCode, mapped });
   if (mapped === "user_cancelled") {
     throw new NativeGoogleAuthError("user_cancelled");
   }
@@ -99,18 +92,8 @@ export async function invokeNativeGoogleSignIn(input?: {
   }
 
   try {
-    console.error("[oauth] google_native_started", {
-      platform: Capacitor.getPlatform(),
-      shellPlatform: resolveCapacitorShellPlatform(),
-      next: input?.next ?? null,
-    });
     const raw = await invokeNativeGooglePlugin<NativeGoogleAuthPluginSignInResult>("signIn", {
       next: input?.next ?? null,
-    });
-    console.error("[oauth] google_native_success", {
-      hasIdToken: Boolean(raw.idToken),
-      hasUserId: Boolean(raw.userId),
-      recovered: Boolean(raw.recovered),
     });
     return {
       ...normalizePluginSignInResult(raw),
@@ -132,17 +115,12 @@ export async function invokeNativeGoogleRecoverSignInIfPending(): Promise<
     if (!raw.recovered) {
       return null;
     }
-    console.error("[oauth] google_native_recover_success", {
-      hasIdToken: Boolean(raw.idToken),
-    });
     return {
       ...normalizePluginSignInResult(raw),
       recovered: true,
       next: raw.next ?? null,
     };
-  } catch (error) {
-    const pluginCode = extractNativeGooglePluginRejectRaw(error);
-    console.error("[oauth] google_native_recover_failed", { pluginCode });
+  } catch {
     return null;
   }
 }
@@ -150,11 +128,8 @@ export async function invokeNativeGoogleRecoverSignInIfPending(): Promise<
 export async function revokeNativeGoogleSessionIfAvailable(): Promise<void> {
   if (!isNativeGoogleLoginAvailable()) return;
   try {
-    await NativeGoogleAuth.signOut();
-    console.error("[oauth] google_native_signout_ok");
+    await invokeNativeGooglePlugin<void>("signOut", {});
   } catch {
-    console.error("[oauth] google_native_signout_failed");
+    /* ignore — best effort */
   }
 }
-
-export { NativeGoogleAuth };

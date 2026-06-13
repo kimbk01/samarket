@@ -45,23 +45,6 @@ export function buildNativeGoogleExchangeRequest(
   };
 }
 
-export function parseNativeGoogleExchangeBody(
-  body: Record<string, unknown>,
-): NativeGoogleExchangeRequest | null {
-  const provider = String(body.provider ?? "").trim().toLowerCase();
-  if (provider !== "google") return null;
-
-  const idToken = readNonEmptyString(body.idToken ?? body.token);
-  if (!idToken) return null;
-
-  return { provider: "google", idToken };
-}
-
-function readNonEmptyString(value: unknown): string | null {
-  const s = String(value ?? "").trim();
-  return s.length > 0 ? s : null;
-}
-
 export function extractNativeGooglePluginRejectRaw(error: unknown): string {
   if (error && typeof error === "object") {
     const record = error as Record<string, unknown>;
@@ -72,19 +55,6 @@ export function extractNativeGooglePluginRejectRaw(error: unknown): string {
   }
   if (error instanceof Error) return error.message;
   return String(error ?? "");
-}
-
-export function isNativeGoogleAuthErrorCode(code: string): code is NativeGoogleAuthErrorCode {
-  return (
-    code === "user_cancelled"
-    || code === "google_native_config_error"
-    || code === "google_native_token_missing"
-    || code === "google_native_unavailable"
-    || code === "google_native_exchange_not_ready"
-    || code === "google_native_verify_failed"
-    || code === "google_native_account_conflict"
-    || code === "google_native_token_invalid"
-  );
 }
 
 export function mapNativeGooglePluginError(raw: string | undefined | null): NativeGoogleAuthErrorCode {

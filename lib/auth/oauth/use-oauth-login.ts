@@ -10,7 +10,6 @@ import { handoffOAuthLoginShell, restoreOAuthLoginShellAfterFailure } from "@/li
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
 import { NativeGoogleAuthError } from "@/lib/auth/native/native-google-auth-plugin";
-import { recoverNativeGoogleLoginIfPending } from "@/lib/auth/native/start-native-google-login.client";
 import { NativeKakaoAuthError } from "@/lib/auth/native/native-kakao-auth-plugin";
 import {
   NativeProviderLoginError,
@@ -205,14 +204,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
     const maybeReleaseOnForegroundReturn = () => {
       if (document.visibilityState !== "visible") return;
-
-      void waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS })
-        .then((ready) => {
-          if (ready) return recoverNativeGoogleLoginIfPending();
-          return false;
-        })
-        .catch(() => undefined);
-
       if (isOAuthFlowInFlight()) return;
       const path = window.location.pathname;
       if (isOAuthInFlightPath(path)) return;
@@ -230,16 +221,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       window.removeEventListener("pageshow", maybeReleaseOnForegroundReturn);
     };
   }, [clearPending, pendingOAuthProvider]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    void waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS })
-      .then((ready) => {
-        if (ready) return recoverNativeGoogleLoginIfPending();
-        return false;
-      })
-      .catch(() => undefined);
-  }, []);
 
   const handleOAuthStartFailure = useCallback(
     (err: unknown, options?: { restoreSheet?: boolean }) => {

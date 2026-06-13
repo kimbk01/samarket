@@ -22,6 +22,8 @@ const iosPlugin = exists("ios/App/App/Plugins/NativeKakaoAuthPlugin.swift")
   ? read("ios/App/App/Plugins/NativeKakaoAuthPlugin.swift")
   : "";
 const jsPlugin = read("lib/auth/native/native-kakao-auth-plugin.ts");
+const kakaoStart = read("lib/auth/native/start-native-kakao-login.client.ts");
+const postExchange = read("lib/auth/native/post-native-exchange.client.ts");
 const useOAuth = read("lib/auth/oauth/use-oauth-login.ts");
 const adapter = read("lib/auth/native/native-provider-adapter.server.ts");
 const kakaoEnv = read("lib/auth/native/kakao-auth-env.server.ts");
@@ -53,8 +55,17 @@ if (!iosPlugin.includes("kakao_native_talk_fallback_account")) {
 if (!iosPlugin.includes("jsName = \"NativeKakaoAuth\"")) {
   failures.push("iOS plugin jsName must be NativeKakaoAuth");
 }
-if (!jsPlugin.includes("kakao_native_started")) {
-  failures.push("native-kakao-auth-plugin.ts must log kakao_native_started");
+if (!jsPlugin.includes("nativePromise") && !jsPlugin.includes("invokeNativeKakaoPlugin")) {
+  failures.push("native-kakao-auth-plugin.ts must use Capacitor.nativePromise bridge path");
+}
+if (!kakaoStart.includes("logOAuthNativeEvent(\"kakao_native_started\"")) {
+  failures.push("start-native-kakao-login.client.ts must log kakao_native_started");
+}
+if (!read("lib/auth/client-session-wipe.ts").includes("revokeNativeKakaoSessionIfAvailable")) {
+  failures.push("client-session-wipe must revoke Native Kakao session on logout");
+}
+if (!postExchange.includes("postNativeProviderExchange")) {
+  failures.push("post-native-exchange.client.ts must define shared postNativeProviderExchange");
 }
 if (!useOAuth.includes("startNativeProviderLogin")) {
   failures.push("use-oauth-login.ts must route native Kakao via startNativeProviderLogin");
@@ -91,6 +102,9 @@ if (!adapter.includes("verifyKakaoNativeCredential")) {
 }
 if (!androidPlugin.includes("kakao_native_in_flight")) {
   failures.push("NativeKakaoAuthPlugin.java must reject double-tap signIn");
+}
+if (!androidPlugin.includes("Kakao sign-in session changed")) {
+  failures.push("NativeKakaoAuthPlugin me() must reject stale PluginCall when pendingCall changed");
 }
 
 if (failures.length > 0) {
