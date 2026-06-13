@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { isDibaySignupGateExcludedPath } from "@/lib/auth/dibay-signup-status";
 import {
   buildProfileSetupHref,
   isProfileSetupComplete,
@@ -44,5 +45,10 @@ describe("profile-setup-flow", () => {
     expect(isProfileSetupGateExcludedPath("/address/select")).toBe(true);
     expect(isProfileSetupGateExcludedPath("/onboarding/address")).toBe(true);
     expect(isProfileSetupGateExcludedPath("/philife")).toBe(false);
+  });
+
+  it("isDibaySignupGateExcludedPath includes profile setup edit path", () => {
+    expect(isDibaySignupGateExcludedPath("/mypage/section/account/profile/edit")).toBe(true);
+    expect(isDibaySignupGateExcludedPath("/mypage/section/account")).toBe(false);
   });
 });

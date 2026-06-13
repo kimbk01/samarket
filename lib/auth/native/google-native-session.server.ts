@@ -14,6 +14,7 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
+import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 
 export function buildGoogleSupabasePassword(googleUserId: string): string {
@@ -59,9 +60,95 @@ async function findProfileIdByGoogleUserId(
     .select("id")
     .eq("provider", "google")
     .eq("provider_user_id", googleUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return typeof (data as { id?: unknown }).id === "string" ? (data as { id: string }).id : null;
+    .limit(1);
+  if (error || !Array.isArray(data) || data.length === 0) return null;
+  const row = data[0] as { id?: unknown };
+  return typeof row.id === "string" ? row.id : null;
+}
+
+/** Supabase Web Google OAuth — profiles.provider_user_id 없이 auth.identities 만 있는 경우 */
+async function findAuthUserIdByGoogleSub(
+  adminSb: SupabaseClient,
+  googleUserId: string,
+): Promise<string | null> {
+  const sub = String(googleUserId ?? "").trim();
+  if (!sub) return null;
+  const perPage = 200;
+  for (let page = 1; page <= 20; page += 1) {
+    const { data, error } = await adminSb.auth.admin.listUsers({ page, perPage });
+    if (error) return null;
+    const users = Array.isArray(data?.users) ? data.users : [];
+    for (const user of users) {
+      const identities = Array.isArray(user.identities) ? user.identities : [];
+      for (const identity of identities) {
+        const provider = String((identity as { provider?: unknown }).provider ?? "").toLowerCase();
+        if (provider !== "google") continue;
+        const providerId = String((identity as { provider_id?: unknown }).provider_id ?? "").trim();
+        const identityData = (identity as { identity_data?: Record<string, unknown> | null }).identity_data;
+        const subFromData =
+          identityData && typeof identityData === "object"
+            ? String(identityData.sub ?? identityData.provider_id ?? "").trim()
+            : "";
+        if (providerId === sub || subFromData === sub) {
+          return user.id;
+        }
+      }
+    }
+    if (users.length < perPage) break;
+  }
+  return null;
+}
+
+async function resolveExistingGoogleUserId(
+  adminSb: SupabaseClient,
+  googleUserId: string,
+): Promise<string | null> {
+  const fromProfile = await findProfileIdByGoogleUserId(adminSb, googleUserId);
+  if (fromProfile) return fromProfile;
+
+  /** 이전 Native 시도가 synthetic auth user 만 남긴 경우 — createUser 중복 방지 */
+  const syntheticEmail = resolveAuthEmailForGoogleUser(googleUserId);
+  const fromSyntheticAuth = await findAuthUserByEmail(adminSb, syntheticEmail);
+  if (fromSyntheticAuth?.id) return fromSyntheticAuth.id;
+
+  return findAuthUserIdByGoogleSub(adminSb, googleUserId);
+}
+
+async function updateGoogleAuthUserById(
+  adminSb: SupabaseClient,
+  userId: string,
+  args: {
+    verified: GoogleVerifiedIdentity;
+  },
+): Promise<{ userId: string; isNewUser: boolean } | GoogleNativeSessionResult> {
+  const authEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
+  const password = buildGoogleSupabasePassword(args.verified.googleUserId);
+  const metadata = buildGoogleUserMetadata(args.verified);
+
+  const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(userId);
+  if (getUserError || !existingUserData.user) {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message: "Google account profile exists but auth user is missing",
+      status: 409,
+    };
+  }
+  const { error: updateError } = await adminSb.auth.admin.updateUserById(userId, {
+    password,
+    email: authEmail,
+    email_confirm: true,
+    user_metadata: metadata,
+  });
+  if (updateError) {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message: updateError.message || "Failed to update Google auth user",
+      status: 409,
+    };
+  }
+  return { userId, isNewUser: false };
 }
 
 function buildGoogleUserMetadata(verified: GoogleVerifiedIdentity): Record<string, unknown> {
@@ -93,32 +180,7 @@ async function upsertGoogleAuthUser(
   const metadata = buildGoogleUserMetadata(args.verified);
 
   if (args.existingUserId) {
-    const { data: existingUserData, error: getUserError } = await adminSb.auth.admin.getUserById(
-      args.existingUserId,
-    );
-    if (getUserError || !existingUserData.user) {
-      return {
-        ok: false,
-        errorCode: "provider_account_conflict",
-        message: "Google account profile exists but auth user is missing",
-        status: 409,
-      };
-    }
-    const { error: updateError } = await adminSb.auth.admin.updateUserById(args.existingUserId, {
-      password,
-      email: authEmail,
-      email_confirm: true,
-      user_metadata: metadata,
-    });
-    if (updateError) {
-      return {
-        ok: false,
-        errorCode: "provider_account_conflict",
-        message: updateError.message || "Failed to update Google auth user",
-        status: 409,
-      };
-    }
-    return { userId: args.existingUserId, isNewUser: false };
+    return updateGoogleAuthUserById(adminSb, args.existingUserId, { verified: args.verified });
   }
 
   const { data: created, error: createError } = await adminSb.auth.admin.createUser({
@@ -128,6 +190,10 @@ async function upsertGoogleAuthUser(
     user_metadata: metadata,
   });
   if (createError || !created.user) {
+    const recovered = await findAuthUserByEmail(adminSb, authEmail);
+    if (recovered?.id) {
+      return updateGoogleAuthUserById(adminSb, recovered.id, { verified: args.verified });
+    }
     return {
       ok: false,
       errorCode: "provider_account_conflict",
@@ -197,10 +263,10 @@ export async function establishGoogleNativeSession(
 
   const googleUserId = input.verified.googleUserId;
   const safeNext = sanitizeNextPath(input.next ?? null);
-  const existingProfileId = await findProfileIdByGoogleUserId(ctx.adminSb, googleUserId);
+  const existingUserId = await resolveExistingGoogleUserId(ctx.adminSb, googleUserId);
 
   const upsert = await upsertGoogleAuthUser(ctx.adminSb, {
-    existingUserId: existingProfileId,
+    existingUserId: existingUserId,
     verified: input.verified,
   });
   if ("ok" in upsert) return upsert;

@@ -38,18 +38,50 @@ public class NativeGoogleAuthPlugin extends Plugin {
   private GoogleSignInClient googleSignInClient;
   private PluginCall pendingCall;
 
+  private String readDefaultWebClientIdFromGoogleServices() {
+    int resId = getContext().getResources().getIdentifier("default_web_client_id", "string", getContext().getPackageName());
+    if (resId == 0) {
+      return "";
+    }
+    String value = getContext().getString(resId);
+    return value != null ? value.trim() : "";
+  }
+
+  /** google-services.json default_web_client_id 우선 — local.properties 오타(868/866 등) 방지 */
+  private String resolveWebClientIdForSignIn() {
+    String fromGoogleServices = readDefaultWebClientIdFromGoogleServices();
+    String fromGradle = getContext().getString(R.string.google_web_client_id);
+    fromGradle = fromGradle != null ? fromGradle.trim() : "";
+
+    if (!fromGoogleServices.isEmpty()) {
+      if (!fromGradle.isEmpty() && !fromGoogleServices.equals(fromGradle)) {
+        logEvent("google_native_web_client_mismatch using google_services_json default_web_client_id");
+      } else {
+        logEvent("google_native_web_client_source=google_services_json");
+      }
+      return fromGoogleServices;
+    }
+    if (!fromGradle.isEmpty()) {
+      logEvent("google_native_web_client_source=local_properties");
+      return fromGradle;
+    }
+    return "";
+  }
+
   @Override
   public void load() {
-    String webClientId = getContext().getString(R.string.google_web_client_id);
-    if (webClientId == null || webClientId.trim().isEmpty()) {
-      Log.w(TAG, "google_native_config_missing GOOGLE_WEB_CLIENT_ID not set");
+    String webClientId = resolveWebClientIdForSignIn();
+    if (webClientId.isEmpty()) {
+      Log.w(TAG, "google_native_config_missing add google-services.json or GOOGLE_WEB_CLIENT_ID in android/local.properties");
       return;
     }
     GoogleSignInOptions options = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-      .requestIdToken(webClientId.trim())
+      .requestIdToken(webClientId)
       .requestEmail()
       .build();
     googleSignInClient = GoogleSignIn.getClient(getContext(), options);
+    int prefixLen = Math.min(24, webClientId.length());
+    logEvent("google_native_client_prefix=" + webClientId.substring(0, prefixLen));
   }
 
   private SharedPreferences authPrefs() {
@@ -91,12 +123,18 @@ public class NativeGoogleAuthPlugin extends Plugin {
     logEvent("google_native_deferred_token_saved");
   }
 
-  private GoogleSignInAccount resolveSignInAccountFromResult(Intent data) {
+  private GoogleSignInAccount resolveSignInAccountFromResult(Intent data, ApiException[] parseErrorOut) {
     if (data != null) {
       try {
         return GoogleSignIn.getSignedInAccountFromIntent(data).getResult(ApiException.class);
       } catch (ApiException error) {
+        if (parseErrorOut != null && parseErrorOut.length > 0) {
+          parseErrorOut[0] = error;
+        }
         logEvent("google_native_intent_parse_failed " + error.getStatusCode() + " " + error.getMessage());
+        if (error.getStatusCode() == 10) {
+          logEvent("google_native_developer_error register com.dibay.app + app SHA-1 in Google Cloud Console Android OAuth client");
+        }
       }
     }
     GoogleSignInAccount last = GoogleSignIn.getLastSignedInAccount(getContext());
@@ -105,6 +143,19 @@ public class NativeGoogleAuthPlugin extends Plugin {
       return last;
     }
     return null;
+  }
+
+  private String resolveGoogleSignInConfigErrorMessage(ApiException error) {
+    if (error != null && error.getStatusCode() == 10) {
+      return "Google DEVELOPER_ERROR(10): Android OAuth client SHA-1 or package name mismatch. Logcat google_native_app_sha1 value must match Google Cloud Console.";
+    }
+    if (error != null && error.getStatusCode() == 12500) {
+      return "Google Sign-In is unavailable on this device.";
+    }
+    if (error != null && error.getMessage() != null && !error.getMessage().trim().isEmpty()) {
+      return error.getMessage();
+    }
+    return "Google sign in failed";
   }
 
   private void resolveDeferredTokenToCall(PluginCall call) {
@@ -223,7 +274,8 @@ public class NativeGoogleAuthPlugin extends Plugin {
     pendingCall = null;
 
     boolean exchangePending = authPrefs().getBoolean(PREF_EXCHANGE_PENDING, false);
-    GoogleSignInAccount account = resolveSignInAccountFromResult(result.getData());
+    ApiException[] parseErrorOut = new ApiException[1];
+    GoogleSignInAccount account = resolveSignInAccountFromResult(result.getData(), parseErrorOut);
 
     if (account != null && exchangePending) {
       if (activeCall != null) {
@@ -237,6 +289,16 @@ public class NativeGoogleAuthPlugin extends Plugin {
 
     if (activeCall == null) {
       logEvent("google_native_result_no_call");
+      return;
+    }
+
+    if (parseErrorOut[0] != null && account == null) {
+      logEvent("google_native_failed " + parseErrorOut[0].getStatusCode());
+      clearExchangePending();
+      activeCall.reject(
+        "google_native_config_error",
+        resolveGoogleSignInConfigErrorMessage(parseErrorOut[0])
+      );
       return;
     }
 

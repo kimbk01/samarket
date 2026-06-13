@@ -11,9 +11,13 @@ import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 const SIGNUP_GATE_PROFILE_SELECT =
   "id, dibay_id, dibay_id_locked, username, username_confirmed, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, onboarding_completed_at, onboarding_status, role";
 
+function normalizeGatePathname(pathname: string): string {
+  return (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+}
+
 /**
  * 인증 쿠키는 있으나 가입 미완료 사용자가 private HTML 경로에 접근할 때 온보딩으로 보낸다.
- * 공개 browse·인증 플로우 경로는 제외한다.
+ * 공개 browse·인증 플로우·프로필 setup 경로는 제외한다.
  */
 export async function resolveProxySignupGateRedirect(
   sb: SupabaseClient,
@@ -33,5 +37,10 @@ export async function resolveProxySignupGateRedirect(
   const signup = deriveDibaySignupStatus(data, { hasSession: true });
   if (isDibaySignupComplete(signup)) return null;
 
-  return resolveDibaySignupRoute(signup, sanitizeNextPath(pathname));
+  const redirectPath = resolveDibaySignupRoute(signup, sanitizeNextPath(pathname));
+  const targetPathname = normalizeGatePathname(redirectPath);
+  const currentPathname = normalizeGatePathname(pathname);
+  if (targetPathname === currentPathname) return null;
+
+  return redirectPath;
 }

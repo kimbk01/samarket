@@ -1,2 +1,7 @@
-# Kakao Native App Key — copy to android/local.properties (gitignored)
+# Copy to android/local.properties (gitignored)
 KAKAO_NATIVE_APP_KEY=YOUR_KAKAO_NATIVE_APP_KEY
+
+# Google Sign-In requestIdToken — DIBAY Google Login (Web application) Client ID
+# Must match Vercel AUTH_GOOGLE_NATIVE_WEB_CLIENT_ID exactly (229866850463-llmb... NOT Android s690...)
+# Recommended: use Firebase google-services.json instead — see docs/google-native-auth-setup.md
+GOOGLE_WEB_CLIENT_ID=YOUR_WEB_CLIENT_ID.apps.googleusercontent.com
