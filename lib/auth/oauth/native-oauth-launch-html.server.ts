@@ -112,14 +112,27 @@ export function buildNativeOAuthLaunchHtml(input: {
         });
       }
 
+      function getBrowserPlugin() {
+        var cap = window.Capacitor;
+        if (!cap) return null;
+        if (cap.Plugins && cap.Plugins.Browser) return cap.Plugins.Browser;
+        if (typeof cap.registerPlugin === "function") {
+          try {
+            return cap.registerPlugin("Browser");
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      }
+
       async function openOAuthBrowser() {
         if (opening) return;
         opening = true;
         openBtn.disabled = true;
         setError("");
         try {
-          var cap = window.Capacitor;
-          var browser = cap && cap.Plugins && cap.Plugins.Browser;
+          var browser = getBrowserPlugin();
           if (browser && typeof browser.open === "function") {
             await browser.open({ url: authorizeUrl });
             if (await waitForBackground()) return;
@@ -127,11 +140,10 @@ export function buildNativeOAuthLaunchHtml(input: {
           if (openFallback()) {
             if (await waitForBackground()) return;
           }
-          setError("로그인 창을 열지 못했습니다. 다시 시도해 주세요.");
+          setError("로그인 창을 열지 못했습니다. 앱을 재시작한 뒤 다시 시도해 주세요.");
         } catch (e) {
-          if (!openFallback()) {
-            setError("로그인 창을 열지 못했습니다. 다시 시도해 주세요.");
-          }
+          if (openFallback() && (await waitForBackground())) return;
+          setError("로그인 창을 열지 못했습니다. 다시 시도해 주세요.");
         } finally {
           opening = false;
           openBtn.disabled = false;

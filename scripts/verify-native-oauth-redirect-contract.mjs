@@ -70,8 +70,8 @@ if (nativeLaunchRoute.includes("NATIVE_OAUTH_LAUNCH_OPEN_PATH")) {
   failures.push("Native OAuth must not redirect to /open; use single HTML launch route");
 }
 
-if (!nativeLaunchHtml.includes("Plugins.Browser")) {
-  failures.push("native-oauth-launch-html must open OAuth via Capacitor Browser plugin");
+if (!nativeLaunchHtml.includes("registerPlugin(\"Browser\")")) {
+  failures.push("native-oauth-launch-html must register Capacitor Browser plugin on the HTML page");
 }
 
 if (startOAuthLogin.includes("Browser.open({ url: startPath")) {

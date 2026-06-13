@@ -9,6 +9,7 @@ describe("buildNativeOAuthLaunchHtml", () => {
     });
 
     expect(html).toContain("Google로 계속하기");
+    expect(html).toContain("registerPlugin(\"Browser\")");
     expect(html).toContain("Plugins.Browser");
     expect(html).toContain("https://supabase.example/auth/v1/authorize?provider=google");
     expect(html).not.toContain("/auth/oauth/native-launch/open");
