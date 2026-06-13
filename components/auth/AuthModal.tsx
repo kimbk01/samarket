@@ -5,11 +5,9 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
-import { logOAuthAuthorizeUrl, logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
-import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
-import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
-import { withNextSearchParam } from "@/lib/auth/safe-next-path";
+import { buildNaverOAuthStartPath, buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
+import { startSupabaseOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -229,7 +227,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
       setOauthBusy(provider);
       try {
         if (provider === "naver") {
-          window.location.assign(withNextSearchParam("/api/auth/naver/start", next));
+          window.location.assign(buildNaverOAuthStartPath(next));
           return;
         }
         const supabase = getSupabaseClient();
@@ -237,46 +235,20 @@ export function AuthModal({ open, detail, onClose }: Props) {
           setError(t("auth_err_supabase_unconfigured"));
           return;
         }
-        const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next);
+        const callbackUrl = buildOAuthRedirectUrl(window.location.origin, provider, next);
         logOAuthSignInStart(provider, callbackUrl);
-        if (provider === "google") {
-          const googleResult = await withTimeout(
-            startGoogleOAuthSignIn(supabase, callbackUrl),
-            AUTH_REQUEST_TIMEOUT_MS,
-            AUTH_REQUEST_TIMEOUT_SIGNAL,
-          );
-          if (!googleResult.ok) {
-            setError(
-              googleResult.errorMessage === "missing_authorize_url"
-                ? t("auth_err_oauth_authorize_url_failed")
-                : googleResult.errorMessage || t("auth_err_oauth_start_failed"),
-            );
-          }
-          return;
-        }
-        const { data, error: oauthError } = await withTimeout(
-          supabase.auth.signInWithOAuth({
-            provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
-            options: {
-              redirectTo: callbackUrl,
-              skipBrowserRedirect: true,
-              ...(provider === "kakao" ? { queryParams: { scope: "profile_nickname profile_image" } } : {}),
-            },
-          }),
+        const oauthResult = await withTimeout(
+          startSupabaseOAuthSignIn(supabase, provider, callbackUrl),
           AUTH_REQUEST_TIMEOUT_MS,
           AUTH_REQUEST_TIMEOUT_SIGNAL,
         );
-        if (oauthError) {
-          setError(oauthError.message || t("auth_err_oauth_start_failed"));
-          return;
+        if (!oauthResult.ok) {
+          setError(
+            oauthResult.errorMessage === "missing_authorize_url"
+              ? t("auth_err_oauth_authorize_url_failed")
+              : oauthResult.errorMessage || t("auth_err_oauth_start_failed"),
+          );
         }
-        const authorizeUrl = data?.url?.trim() ?? "";
-        if (!authorizeUrl) {
-          setError(t("auth_err_oauth_authorize_url_failed"));
-          return;
-        }
-        logOAuthAuthorizeUrl(authorizeUrl);
-        window.location.assign(authorizeUrl);
       } catch (err) {
         if (err instanceof Error && err.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
           setError(t("auth_err_auth_timeout"));

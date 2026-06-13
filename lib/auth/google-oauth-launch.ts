@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { logOAuthAuthorizeUrl } from "@/lib/auth/oauth-flow-log";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
@@ -56,26 +57,55 @@ export function launchGoogleOAuthAuthorizeUrl(url: string): void {
   window.location.replace(authorizeUrl);
 }
 
-export type GoogleOAuthSignInResult =
+export type OAuthSignInResult =
   | { ok: true; launched: true }
   | { ok: false; errorMessage: string };
 
+type SupabaseOAuthProvider = Exclude<OAuthProvider, "naver">;
+
+function buildOAuthProviderOptions(provider: SupabaseOAuthProvider): {
+  queryParams?: Record<string, string>;
+} {
+  if (provider === "kakao") {
+    return {
+      // Supabase Kakao default scopes include account_email.
+      // Force override with queryParams to avoid requesting email on non-business apps.
+      queryParams: { scope: "profile_nickname profile_image" },
+    };
+  }
+  return {};
+}
+
+function launchOAuthAuthorizeUrl(provider: SupabaseOAuthProvider, url: string): void {
+  const authorizeUrl = url.trim();
+  if (!authorizeUrl || typeof window === "undefined") return;
+
+  if (provider === "google") {
+    launchGoogleOAuthAuthorizeUrl(authorizeUrl);
+    return;
+  }
+
+  window.location.assign(authorizeUrl);
+}
+
 /**
- * Google provider 전용 Supabase OAuth 시작.
- * - 일반 브라우저: `skipBrowserRedirect` 없이 SDK top-level redirect
- * - 임베디드 UA: authorize URL 수신 후 외부 브라우저 탈출
+ * Supabase OAuth provider 공통 시작.
+ * - 모든 provider 가 같은 redirectTo 계약(provider/next 포함)을 사용한다.
+ * - Google 임베디드 UA 는 authorize URL 수신 후 외부 브라우저 탈출을 유지한다.
  */
-export async function startGoogleOAuthSignIn(
+export async function startSupabaseOAuthSignIn(
   supabase: SupabaseClient,
+  provider: SupabaseOAuthProvider,
   callbackUrl: string,
-): Promise<GoogleOAuthSignInResult> {
-  const embedded = isEmbeddedOAuthUserAgent();
+): Promise<OAuthSignInResult> {
+  const providerOptions = buildOAuthProviderOptions(provider);
 
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
+    provider,
     options: {
       redirectTo: callbackUrl,
-      ...(embedded ? { skipBrowserRedirect: true } : {}),
+      skipBrowserRedirect: true,
+      ...providerOptions,
     },
   });
 
@@ -83,15 +113,19 @@ export async function startGoogleOAuthSignIn(
     return { ok: false, errorMessage: error.message };
   }
 
-  if (embedded) {
-    const authorizeUrl = data?.url?.trim() ?? "";
-    if (!authorizeUrl) {
-      return { ok: false, errorMessage: "missing_authorize_url" };
-    }
-    logOAuthAuthorizeUrl(authorizeUrl);
-    launchGoogleOAuthAuthorizeUrl(authorizeUrl);
-    return { ok: true, launched: true };
+  const authorizeUrl = data?.url?.trim() ?? "";
+  if (!authorizeUrl) {
+    return { ok: false, errorMessage: "missing_authorize_url" };
   }
+  logOAuthAuthorizeUrl(authorizeUrl);
+  launchOAuthAuthorizeUrl(provider, authorizeUrl);
 
   return { ok: true, launched: true };
+}
+
+export function startGoogleOAuthSignIn(
+  supabase: SupabaseClient,
+  callbackUrl: string,
+): Promise<OAuthSignInResult> {
+  return startSupabaseOAuthSignIn(supabase, "google", callbackUrl);
 }

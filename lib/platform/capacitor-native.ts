@@ -8,13 +8,82 @@ type WindowWithCapacitor = Window & {
   androidBridge?: unknown;
 };
 
+export type DibayAppPlatform = "android" | "ios";
+
+export const DIBAY_APP_MARKER_PARAM = "dibay_app";
+export const DIBAY_APP_MARKER_STORAGE_KEY = "dibay_app";
+export const DIBAY_APP_MARKER_COOKIE_NAME = "dibay_app";
+
+const DIBAY_APP_PLATFORM_VALUES = new Set<DibayAppPlatform>(["android", "ios"]);
+
 function readWindowWithCapacitor(): WindowWithCapacitor | undefined {
   if (typeof window === "undefined") return undefined;
   return window as WindowWithCapacitor;
 }
 
-function readCapacitorGlobal(): CapacitorGlobal | undefined {
-  return readWindowWithCapacitor()?.Capacitor;
+function normalizeDibayAppPlatform(value: string | null | undefined): DibayAppPlatform | null {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (DIBAY_APP_PLATFORM_VALUES.has(normalized as DibayAppPlatform)) {
+    return normalized as DibayAppPlatform;
+  }
+  return null;
+}
+
+function persistDibayAppMarker(platform: DibayAppPlatform): void {
+  try {
+    window.sessionStorage?.setItem(DIBAY_APP_MARKER_STORAGE_KEY, platform);
+  } catch {
+    // Storage may be blocked; cookie still gives same-route persistence.
+  }
+
+  try {
+    document.cookie = `${DIBAY_APP_MARKER_COOKIE_NAME}=${platform}; path=/; max-age=2592000; samesite=lax`;
+  } catch {
+    // Cookie writes can fail in restricted WebViews; marker detection remains best-effort.
+  }
+}
+
+function readDibayAppMarkerFromCurrentUrl(): DibayAppPlatform | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const params = new URL(window.location.href).searchParams;
+    const platform = normalizeDibayAppPlatform(params.get(DIBAY_APP_MARKER_PARAM));
+    if (!platform) return null;
+    persistDibayAppMarker(platform);
+    return platform;
+  } catch {
+    return null;
+  }
+}
+
+function readPersistedDibayAppMarker(): DibayAppPlatform | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const platform = normalizeDibayAppPlatform(
+      window.sessionStorage?.getItem(DIBAY_APP_MARKER_STORAGE_KEY)
+    );
+    if (platform) {
+      return platform;
+    }
+  } catch {
+    // Ignore storage access failures and fall through to cookie.
+  }
+
+  try {
+    const marker = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(`${DIBAY_APP_MARKER_COOKIE_NAME}=`));
+    if (!marker) return null;
+    return normalizeDibayAppPlatform(decodeURIComponent(marker.split("=").slice(1).join("=")));
+  } catch {
+    return null;
+  }
+}
+
+export function readDibayAppPlatformMarker(): DibayAppPlatform | null {
+  return readDibayAppMarkerFromCurrentUrl() || readPersistedDibayAppMarker();
 }
 
 export type CapacitorNativeDiagnostics = {
@@ -22,6 +91,7 @@ export type CapacitorNativeDiagnostics = {
   isNativePlatform: boolean | null;
   platform: string | null;
   hasAndroidBridge: boolean;
+  dibayAppPlatformMarker: DibayAppPlatform | null;
   detectedNative: boolean;
 };
 
@@ -33,11 +103,13 @@ export function getCapacitorNativeDiagnostics(): CapacitorNativeDiagnostics {
     typeof cap?.isNativePlatform === "function" ? cap.isNativePlatform() : null;
   const platform = typeof cap?.getPlatform === "function" ? cap.getPlatform() : null;
   const hasAndroidBridge = Boolean(win?.androidBridge);
+  const appPlatformMarker = readDibayAppPlatformMarker();
   return {
     hasCapacitor: Boolean(cap),
     isNativePlatform,
     platform,
     hasAndroidBridge,
+    dibayAppPlatformMarker: appPlatformMarker,
     detectedNative: isCapacitorNativePlatform(),
   };
 }
@@ -50,13 +122,16 @@ export function isCapacitorNativePlatform(): boolean {
   const win = readWindowWithCapacitor();
   if (!win) return false;
 
+  if (readDibayAppPlatformMarker()) return true;
+
   const cap = win.Capacitor;
-  if (cap?.isNativePlatform?.() === true) return true;
+
+  if (win.androidBridge) return true;
 
   const platform = cap?.getPlatform?.();
   if (platform === "android" || platform === "ios") return true;
 
-  if (win.androidBridge) return true;
+  if (cap?.isNativePlatform?.() === true) return true;
 
   return false;
 }

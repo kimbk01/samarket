@@ -21,12 +21,24 @@ const serverUrl =
   process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
   DEFAULT_CAPACITOR_SERVER_URL;
 
+function withAndroidAppMarker(url: string): string {
+  const trimmed = url.trim().replace(/\/$/, "");
+  try {
+    const parsed = new URL(trimmed);
+    parsed.searchParams.set("dibay_app", "android");
+    return parsed.toString().replace(/\/(?=\?)/, "");
+  } catch {
+    const separator = trimmed.includes("?") ? "&" : "?";
+    return `${trimmed}${separator}dibay_app=android`;
+  }
+}
+
 const config: CapacitorConfig = {
   appId: "com.dibay.app",
   appName: "DIBAY",
   webDir: "capacitor-www",
   server: {
-    url: serverUrl.replace(/\/$/, ""),
+    url: withAndroidAppMarker(serverUrl),
     cleartext: serverUrl.startsWith("http://"),
   },
 };

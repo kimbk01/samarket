@@ -31,11 +31,11 @@ describe("capacitor-oauth-return", () => {
 
   it("forwards code state and next query params without loss", () => {
     const result = buildWebOAuthCallbackUrlFromNativeReturn(
-      "dibay://auth/callback?code=abc&state=xyz&next=%2Fmarket",
+      "dibay://auth/callback?code=abc&state=xyz&next=%2Fmarket&provider=google",
       "https://samarket.vercel.app",
     );
     expect(result).toBe(
-      "https://samarket.vercel.app/auth/callback?code=abc&state=xyz&next=%2Fmarket",
+      "https://samarket.vercel.app/auth/callback?code=abc&state=xyz&next=%2Fmarket&provider=google",
     );
   });
 

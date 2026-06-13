@@ -6,10 +6,9 @@ import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
-import { mapProviderToSupabaseOAuth } from "@/lib/auth/login-settings";
-import { buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
-import { logOAuthAuthorizeUrl, logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
-import { startGoogleOAuthSignIn } from "@/lib/auth/google-oauth-launch";
+import { buildNaverOAuthStartPath, buildOAuthRedirectUrl } from "@/lib/auth/get-oauth-redirect-url";
+import { logOAuthSignInStart } from "@/lib/auth/oauth-flow-log";
+import { startSupabaseOAuthSignIn } from "@/lib/auth/google-oauth-launch";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
 import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
@@ -415,8 +414,7 @@ function LoginPageContent() {
     setOauthBusy((prev) => (prev === provider ? prev : provider));
     try {
       if (provider === "naver") {
-        const startUrl = withNextSearchParam("/api/auth/naver/start", next ?? null);
-        window.location.assign(startUrl);
+        window.location.assign(buildNaverOAuthStartPath(next ?? null));
         return;
       }
       const supabase = getSupabaseClient();
@@ -426,80 +424,20 @@ function LoginPageContent() {
         return;
       }
       // 콜백이 다시 사용할 next 를 redirectTo 에 함께 부착한다.
-      const callbackUrl = buildOAuthRedirectUrl(window.location.origin, next ?? null);
+      const callbackUrl = buildOAuthRedirectUrl(window.location.origin, provider, next ?? null);
       logOAuthSignInStart(provider, callbackUrl);
-      if (provider === "kakao") {
-        const { data, error: oauthError } = await withTimeout(
-          supabase.auth.signInWithOAuth({
-            provider: "kakao",
-            options: {
-              // Supabase Kakao default scopes include account_email.
-              // Force override with queryParams to avoid requesting email on non-business apps.
-              queryParams: {
-                scope: "profile_nickname profile_image",
-              },
-              // redirectTo 가 없으면 Supabase 는 현재 페이지(/login)로 ?code= 를 돌려보내 코드 교환이 일어나지 않는다.
-              // 반드시 /auth/callback 으로 명시하고 next 도 함께 보존한다.
-              redirectTo: callbackUrl,
-              skipBrowserRedirect: true,
-            },
-          }),
-          AUTH_REQUEST_TIMEOUT_MS,
-          AUTH_REQUEST_TIMEOUT_SIGNAL
-        );
-        if (oauthError) {
-          setError((prev) => (prev === oauthError.message ? prev : oauthError.message));
-          return;
-        }
-        const authorizeUrl = data?.url?.trim() ?? "";
-        if (!authorizeUrl) {
-          const nextError = t("auth_err_kakao_start_url_failed");
-          setError((prev) => (prev === nextError ? prev : nextError));
-          return;
-        }
-        logOAuthAuthorizeUrl(authorizeUrl);
-        window.location.assign(authorizeUrl);
-        return;
-      }
-      if (provider === "google") {
-        const googleResult = await withTimeout(
-          startGoogleOAuthSignIn(supabase, callbackUrl),
-          AUTH_REQUEST_TIMEOUT_MS,
-          AUTH_REQUEST_TIMEOUT_SIGNAL
-        );
-        if (!googleResult.ok) {
-          const nextError =
-            googleResult.errorMessage === "missing_authorize_url"
-              ? t("auth_err_oauth_authorize_url_failed")
-              : googleResult.errorMessage || t("auth_err_oauth_start_failed");
-          setError((prev) => (prev === nextError ? prev : nextError));
-        }
-        return;
-      }
-      const { data, error: oauthError } = await withTimeout(
-        supabase.auth.signInWithOAuth({
-          provider: mapProviderToSupabaseOAuth(provider) as Parameters<typeof supabase.auth.signInWithOAuth>[0]["provider"],
-          options: {
-            redirectTo: callbackUrl,
-            skipBrowserRedirect: true,
-          },
-        }),
+      const oauthResult = await withTimeout(
+        startSupabaseOAuthSignIn(supabase, provider, callbackUrl),
         AUTH_REQUEST_TIMEOUT_MS,
         AUTH_REQUEST_TIMEOUT_SIGNAL
       );
-      if (oauthError) {
-        const nextError = oauthError.message || t("auth_err_oauth_start_failed");
+      if (!oauthResult.ok) {
+        const nextError =
+          oauthResult.errorMessage === "missing_authorize_url"
+            ? t("auth_err_oauth_authorize_url_failed")
+            : oauthResult.errorMessage || t("auth_err_oauth_start_failed");
         setError((prev) => (prev === nextError ? prev : nextError));
-        return;
       }
-      const authorizeUrl = data?.url?.trim() ?? "";
-      if (!authorizeUrl) {
-        const nextError = t("auth_err_oauth_authorize_url_failed");
-        setError((prev) => (prev === nextError ? prev : nextError));
-        return;
-      }
-      logOAuthAuthorizeUrl(authorizeUrl);
-      window.location.assign(authorizeUrl);
     } catch (e) {
       if (e instanceof Error && e.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
         setError((prev) => (prev === t("auth_err_auth_timeout") ? prev : t("auth_err_auth_timeout")));

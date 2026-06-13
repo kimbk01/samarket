@@ -19,7 +19,21 @@ export const dynamic = "force-dynamic";
 
 const SIGNUP_NICKNAME_COOKIE = "samarket_signup_nickname";
 
+function buildProviderCallbackRedirect(req: NextRequest): NextResponse | null {
+  const provider = String(req.nextUrl.searchParams.get("provider") ?? "").trim().toLowerCase();
+  if (provider !== "naver") return null;
+
+  const callbackUrl = new URL("/api/auth/naver/callback", req.url);
+  for (const [key, value] of req.nextUrl.searchParams.entries()) {
+    callbackUrl.searchParams.set(key, value);
+  }
+  return NextResponse.redirect(callbackUrl);
+}
+
 export async function GET(req: NextRequest) {
+  const providerCallbackRedirect = buildProviderCallbackRedirect(req);
+  if (providerCallbackRedirect) return providerCallbackRedirect;
+
   const code = req.nextUrl.searchParams.get("code");
   const safeNext = sanitizeNextPath(req.nextUrl.searchParams.get("next"));
   const oauthError = req.nextUrl.searchParams.get("error");
