@@ -15,9 +15,12 @@ function read(relPath) {
 
 const manifest = read("android/app/src/main/AndroidManifest.xml");
 const startOAuthLogin = read("lib/auth/oauth/start-oauth-login.ts");
+const nativeLaunchPage = read("app/auth/oauth/native-launch/page.tsx");
+const nativeLaunchClient = read("app/auth/oauth/native-launch/NativeOAuthLaunchClient.tsx");
 const oauthReturnListener = read("components/auth/OAuthReturnListener.tsx");
 const layout = read("app/layout.tsx");
 const startRoute = read("app/api/auth/oauth/start/route.ts");
+const supabaseStart = read("lib/auth/oauth/supabase-oauth-start.server.ts");
 
 if (!manifest.includes('android:scheme="dibay"')) {
   failures.push("AndroidManifest missing android:scheme=\"dibay\"");
@@ -32,8 +35,12 @@ if (!manifest.includes('android:launchMode="singleTask"')) {
   failures.push("AndroidManifest MainActivity should use launchMode=\"singleTask\"");
 }
 
-if (!startRoute.includes("dibay://auth/callback")) {
-  failures.push("app/api/auth/oauth/start/route.ts must use dibay://auth/callback for native redirectTo");
+if (!supabaseStart.includes("dibay://auth/callback")) {
+  failures.push("lib/auth/oauth/supabase-oauth-start.server.ts must use dibay://auth/callback for native redirectTo");
+}
+
+if (!startRoute.includes("runSupabaseOAuthStart")) {
+  failures.push("app/api/auth/oauth/start/route.ts must use shared runSupabaseOAuthStart");
 }
 
 if (!layout.includes("OAuthReturnListener")) {
@@ -43,12 +50,20 @@ if (!layout.includes("CapacitorNativeMarkerBootstrap")) {
   failures.push("app/layout.tsx must mount CapacitorNativeMarkerBootstrap");
 }
 
-if (!startOAuthLogin.includes("credentials: \"include\"")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must fetch with credentials: include");
+if (!startOAuthLogin.includes("/auth/oauth/native-launch")) {
+  failures.push("lib/auth/oauth/start-oauth-login.ts must navigate native OAuth to /auth/oauth/native-launch");
 }
 
-if (!startOAuthLogin.includes("Browser.open({ url: json.authorizeUrl.trim() })")) {
-  failures.push("lib/auth/oauth/start-oauth-login.ts must open the returned authorizeUrl");
+if (startOAuthLogin.includes("fetchWithTimeout") || startOAuthLogin.includes("Browser.open({ url: json.authorizeUrl")) {
+  failures.push("Native OAuth client must not fetch-then-open; use native-launch page instead");
+}
+
+if (!nativeLaunchPage.includes("runSupabaseOAuthStart")) {
+  failures.push("app/auth/oauth/native-launch/page.tsx must run Supabase OAuth start server-side");
+}
+
+if (!nativeLaunchClient.includes("Browser.open({ url: authorizeUrl })")) {
+  failures.push("NativeOAuthLaunchClient must Browser.open the authorizeUrl");
 }
 
 if (startOAuthLogin.includes("Browser.open({ url: startPath")) {

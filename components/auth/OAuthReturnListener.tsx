@@ -87,6 +87,25 @@ export function OAuthReturnListener() {
       removeAppUrlOpen = () => {
         void listener.remove();
       };
+
+      let removeBrowserFinished: (() => void) | undefined;
+      try {
+        const { Browser } = await import("@capacitor/browser");
+        const browserFinishedListener = await Browser.addListener("browserFinished", () => {
+          dispatchOAuthPendingClear("browser_finished");
+        });
+        removeBrowserFinished = () => {
+          void browserFinishedListener.remove();
+        };
+      } catch {
+        // Browser plugin unavailable — appUrlOpen bridge remains authoritative.
+      }
+
+      const previousRemove = removeAppUrlOpen;
+      removeAppUrlOpen = () => {
+        previousRemove?.();
+        removeBrowserFinished?.();
+      };
       return true;
     };
 

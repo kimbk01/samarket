@@ -265,6 +265,9 @@ export function AuthModal({ open, detail, onClose }: Props) {
           onEmailLoginClick={() => setShowEmailLogin(true)}
           onSelectProvider={(provider) => void handleOAuthLogin(provider)}
         />
+        {!showEmailLogin && displayError ? (
+          <p className="sam-text-body-secondary text-center text-red-600">{displayError}</p>
+        ) : null}
         {passwordEnabled && showEmailLogin ? (
           <PasswordLoginForm
             identifier={identifier}

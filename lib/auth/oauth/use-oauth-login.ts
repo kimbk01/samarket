@@ -6,7 +6,7 @@ import type { OAuthProvider } from "@/lib/auth/auth-providers";
 import { buildNaverOAuthStartPath } from "@/lib/auth/get-oauth-redirect-url";
 import { startOAuthLogin } from "@/lib/auth/oauth/start-oauth-login";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
+import { ensureCapacitorNativeMarkerOnBoot, isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
@@ -70,7 +70,10 @@ function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]
   if (code === "invalid_provider") return t("auth_err_invalid_provider");
   if (code === "supabase_unconfigured") return t("auth_err_supabase_unconfigured");
   if (code === "browser_plugin_unavailable") return t("auth_err_oauth_browser_plugin_unavailable");
-  if (code === "browser_open_rejected") return t("auth_err_oauth_browser_open_failed");
+  if (code === "browser_open_rejected" || code === "browser_open_timeout") {
+    return t("auth_err_oauth_browser_open_failed");
+  }
+  if (code === "oauth_start_timeout") return t("auth_err_auth_timeout");
   if (code === "navigation_failed") return t("auth_err_oauth_launch_navigation_failed");
   return t("auth_err_oauth_start_failed");
 }
@@ -133,14 +136,18 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   }, [clearPending, pendingOAuthProvider]);
 
   const startOAuthProvider = useCallback(
-    async (provider: OAuthProvider) => {
+    (provider: OAuthProvider) => {
       if (pendingProviderRef.current) return;
+
+      const nativeLaunch = isCapacitorNativePlatform() && !isNaverProvider(provider);
 
       flushSync(() => {
         ensureCapacitorNativeMarkerOnBoot();
         if (mountedRef.current) setError(null);
-        pendingProviderRef.current = provider;
-        setSharedPending(provider);
+        if (!nativeLaunch) {
+          pendingProviderRef.current = provider;
+          setSharedPending(provider);
+        }
       });
 
       if (isNaverProvider(provider)) {
@@ -154,7 +161,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       }
 
       try {
-        await startOAuthLogin({ provider, next });
+        startOAuthLogin({ provider, next });
       } catch (err) {
         clearPending();
         const code = err instanceof Error ? err.name || err.message : "oauth_start_failed";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { preloadOAuthBrowser } from "@/lib/auth/oauth/start-oauth-login";
 import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-native";
 
 /**
@@ -10,6 +11,7 @@ import { ensureCapacitorNativeMarkerOnBoot } from "@/lib/platform/capacitor-nati
 export function CapacitorNativeMarkerBootstrap() {
   useEffect(() => {
     ensureCapacitorNativeMarkerOnBoot();
+    preloadOAuthBrowser();
   }, []);
 
   return null;
