@@ -9,11 +9,17 @@ import {
   PROFILE_EDIT_ROW_DIVIDER_CLASS,
 } from "@/lib/ui/profile-edit-starbucks-styles";
 import { SECTOR_HEADER_CONTENT_TOP_PAD_CLASS } from "@/lib/ui/sector-header-classes";
+import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 export function ProfileEditFormShell({ children }: { children: ReactNode }) {
+  const keyboardInset = useMobileKeyboardInset();
+
   return (
     <div
-      className={`${PROFILE_EDIT_BODY_CLASS} ${PROFILE_EDIT_HEADER_BODY_OFFSET_CLASS} ${SECTOR_HEADER_CONTENT_TOP_PAD_CLASS} space-y-3 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]`}
+      className={`${PROFILE_EDIT_BODY_CLASS} ${PROFILE_EDIT_HEADER_BODY_OFFSET_CLASS} ${SECTOR_HEADER_CONTENT_TOP_PAD_CLASS} space-y-3`}
+      style={{
+        paddingBottom: `calc(5.5rem + env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+      }}
     >
       {children}
     </div>

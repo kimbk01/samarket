@@ -7,8 +7,6 @@ import { normalizeDibayIdInput } from "@/lib/auth/dibay-id-policy";
 import { formatAtUsername } from "@/lib/users/user-label";
 import {
   OWNER_STORE_PROFILE_CONTROL_CLASS,
-  OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS,
-  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
 } from "@/lib/business/owner-store-stack";
 
 type ReserveResp =
@@ -24,7 +22,7 @@ type ProfileDibayIdSectionProps = {
   dibayIdLocked: boolean;
   username: string | null;
   highlighted?: boolean;
-  onConfirmed: () => void | Promise<void>;
+  onConfirmed: (confirmedDibayId: string) => void | Promise<void>;
 };
 
 export function ProfileDibayIdSection({
@@ -73,9 +71,20 @@ export function ProfileDibayIdSection({
     }
   };
 
-  const confirm = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const scrollInputAboveKeyboard = () => {
+    window.setTimeout(() => {
+      document
+        .getElementById("profile-dibay-id")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 120);
+  };
+
+  const confirm = async () => {
     if (inFlightRef.current || submitting || !normalized) return;
+    if (available !== true) {
+      setError(t("profile_edit_dibay_id_err_check_failed"));
+      return;
+    }
     inFlightRef.current = true;
     setSubmitting(true);
     setError(null);
@@ -98,7 +107,7 @@ export function ProfileDibayIdSection({
         }
         return;
       }
-      await onConfirmed();
+      await onConfirmed(json.dibay_id);
     } catch {
       setError(t("profile_edit_dibay_id_err_confirm_network"));
     } finally {
@@ -114,19 +123,16 @@ export function ProfileDibayIdSection({
   if (dibayIdLocked && lockedId) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id">
-        <p className="text-[14px] text-[#6F4E37]">{t("profile_edit_dibay_id_locked_hint")}</p>
         <p className="mt-1 text-[16px] font-semibold text-[#1E3932]">{lockedId}</p>
+        <p className="mt-1 text-[13px] text-[#6F4E37]">{t("profile_edit_dibay_id_locked_hint")}</p>
       </div>
     );
   }
 
   return (
     <div className={wrapClass} data-profile-field="dibay_id">
-      <form onSubmit={confirm} className="space-y-3">
-        <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-          <label htmlFor="profile-dibay-id" className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
-            {t("profile_edit_dibay_id_label")}
-          </label>
+      <div className="space-y-3">
+        <div>
           <input
             id="profile-dibay-id"
             type="text"
@@ -138,6 +144,7 @@ export function ProfileDibayIdSection({
               setAvailable(null);
               setError(null);
             }}
+            onFocus={scrollInputAboveKeyboard}
             placeholder={safeT("profile_edit_dibay_id_placeholder", {
               fallbackKo: "예) dibay_user",
               fallbackEn: "e.g. dibay_user",
@@ -167,14 +174,15 @@ export function ProfileDibayIdSection({
             {checking ? t("profile_edit_dibay_id_checking") : t("profile_edit_dibay_id_check_btn")}
           </button>
           <button
-            type="submit"
+            type="button"
             disabled={!normalized || available !== true || submitting}
+            onClick={() => void confirm()}
             className="rounded-full bg-[#00704A] px-4 py-2 text-[14px] font-semibold text-white disabled:opacity-50"
           >
             {submitting ? t("profile_edit_saving") : t("profile_edit_dibay_id_confirm_btn")}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

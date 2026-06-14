@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
 
 export function ProfileEditBottomSaveBar({
   formId,
@@ -17,9 +18,15 @@ export function ProfileEditBottomSaveBar({
   onCancel?: () => void;
 }) {
   const { t } = useI18n();
+  const keyboardInset = useMobileKeyboardInset();
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-[#00704A]/12 bg-[#F2F0EB]/95 pb-[env(safe-area-inset-bottom,0px)] backdrop-blur-md supports-[backdrop-filter]:bg-[#F2F0EB]/88">
+    <div
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-30 border-t border-[#00704A]/12 bg-[#F2F0EB]/95 backdrop-blur-md supports-[backdrop-filter]:bg-[#F2F0EB]/88"
+      style={{
+        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${keyboardInset}px)`,
+      }}
+    >
       <div className="pointer-events-auto mx-auto flex w-full max-w-[768px] gap-2 px-4 py-3">
         {onCancel ? (
           <button

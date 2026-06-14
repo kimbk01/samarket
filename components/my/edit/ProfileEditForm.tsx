@@ -52,8 +52,6 @@ import { ProfileEditHeader } from "@/components/my/edit/ui/ProfileEditHeader";
 import { ProfileEditBottomSaveBar } from "@/components/my/edit/ui/ProfileEditBottomSaveBar";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
-import { ProfileDibayIdSection } from "@/components/my/edit/ProfileDibayIdSection";
-import { formatAtUsername } from "@/lib/users/user-label";
 
 export const PROFILE_EDIT_FORM_ID = "dibay-profile-edit-form";
 
@@ -309,25 +307,26 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     router.replace(POST_LOGIN_PATH);
   }, [router]);
 
-  const tryNavigateAfterRequirementSave = useCallback(async () => {
+  const tryNavigateAfterRequirementSave = useCallback(async (profileOverride?: ProfileRow | null) => {
     if (!setupNext) return;
+    const currentProfile = profileOverride ?? profile;
     if (requiredSlugs.size === 0) {
       router.replace(setupNext);
       return;
     }
     let ready = true;
     if (requiredSlugs.has("nickname")) {
-      ready = hasValidDisplayName({ display_name: displayName, nickname: profile?.nickname });
+      ready = hasValidDisplayName({ display_name: displayName, nickname: currentProfile?.nickname });
     }
-    if (ready && requiredSlugs.has("phone") && profile) {
-      ready = isProfileContactVerified(profile);
+    if (ready && requiredSlugs.has("phone") && currentProfile) {
+      ready = isProfileContactVerified(currentProfile);
     }
-    if (ready && requiredSlugs.has("dibay_id") && profile) {
+    if (ready && requiredSlugs.has("dibay_id") && currentProfile) {
       ready = isDibayIdComplete({
-        dibay_id: profile.dibay_id,
-        dibay_id_locked: profile.dibay_id_locked,
-        username: profile.username,
-        username_confirmed: profile.dibay_id_locked === true ? true : null,
+        dibay_id: currentProfile.dibay_id,
+        dibay_id_locked: currentProfile.dibay_id_locked,
+        username: currentProfile.username,
+        username_confirmed: currentProfile.dibay_id_locked === true ? true : null,
       });
     }
     if (ready && requiredSlugs.has("address")) {
@@ -346,6 +345,31 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     }
     if (ready) router.replace(setupNext);
   }, [router, setupNext, requiredSlugs, displayName, profile]);
+
+  const handleDibayIdConfirmed = useCallback(
+    async (confirmedDibayId: string) => {
+      const normalized = confirmedDibayId.trim().toLowerCase();
+      if (!normalized) return;
+      const nextProfile: ProfileRow | null = profile
+        ? {
+            ...profile,
+            dibay_id: normalized,
+            dibay_id_locked: true,
+            username: normalized,
+            onboarding_status: "completed",
+            onboarding_completed_at: profile.onboarding_completed_at ?? new Date().toISOString(),
+          }
+        : null;
+      if (nextProfile) setProfile(nextProfile);
+      invalidateMeProfileDedupedCache();
+      if (nextProfile) {
+        setSupabaseProfileCache(profileRowToClientProfile(nextProfile));
+      }
+      await load({ freshProfile: true });
+      await tryNavigateAfterRequirementSave(nextProfile);
+    },
+    [load, profile, tryNavigateAfterRequirementSave],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -418,8 +442,13 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     );
   }
 
-  const atUsername = formatAtUsername(profile.username);
   const dibayIdLocked = profile.dibay_id_locked === true;
+  const usernameComplete = isDibayIdComplete({
+    dibay_id: profile.dibay_id,
+    dibay_id_locked: profile.dibay_id_locked,
+    username: profile.username,
+    username_confirmed: profile.dibay_id_locked === true ? true : null,
+  });
   const sectionHighlight = (slug: string) =>
     isRequiredSlug(slug) ? "rounded-ui-rect ring-2 ring-[#00704A]/40" : undefined;
   const showPhoneVerify = phoneVerificationSettings?.enabled === true;
@@ -479,28 +508,17 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
               <ProfileBasicFields
                 displayName={displayName}
                 bio={bio}
-                atUsername={atUsername}
+                dibayId={profile.dibay_id ?? null}
+                dibayIdLocked={dibayIdLocked}
+                username={profile.username ?? profile.dibay_id ?? null}
+                usernameComplete={usernameComplete}
+                usernameHighlighted={isRequiredSlug("dibay_id")}
                 onDisplayNameChange={setDisplayName}
                 onBioChange={setBio}
+                onDibayIdConfirmed={handleDibayIdConfirmed}
                 errors={errors}
               />
             </div>
-          </ProfileEditSection>
-
-          <ProfileEditSection
-            title={t("profile_edit_dibay_id_section_title")}
-            className={sectionHighlight("dibay_id")}
-          >
-            <ProfileDibayIdSection
-              dibayId={profile.dibay_id ?? null}
-              dibayIdLocked={dibayIdLocked}
-              username={profile.username ?? profile.dibay_id ?? null}
-              highlighted={isRequiredSlug("dibay_id")}
-              onConfirmed={async () => {
-                await load({ freshProfile: true });
-                await tryNavigateAfterRequirementSave();
-              }}
-            />
           </ProfileEditSection>
 
           <ProfileEditSection
