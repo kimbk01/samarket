@@ -2401,6 +2401,14 @@ export function CommunityMessengerCallClient({
     })();
   }, [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, scheduleSilentRefresh, session, t]);
 
+  useEffect(() => {
+    if (requestedAction !== "reject") return;
+    if (!session) return;
+    if (session.isMineInitiator) return;
+    if (session.status !== "ringing") return;
+    void rejectIncoming();
+  }, [rejectIncoming, requestedAction, session?.id, session?.isMineInitiator, session?.status]);
+
   const endCall = useCallback(async () => {
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;

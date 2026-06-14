@@ -37,10 +37,19 @@ public final class IncomingCallNotificationBuilder {
 
   public static void showIncomingCall(Context context, String sessionId, String title, String body, String deepLinkUrl) {
     ensureChannel(context);
+    String baseUrl = deepLinkUrl != null && !deepLinkUrl.isEmpty() ? deepLinkUrl : "dibay://call/" + sessionId;
     Intent launch = new Intent(context, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
-    launch.setData(Uri.parse(deepLinkUrl != null && !deepLinkUrl.isEmpty() ? deepLinkUrl : "dibay://call/" + sessionId));
+    launch.setData(Uri.parse(baseUrl));
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    Intent accept = new Intent(context, MainActivity.class);
+    accept.setAction(Intent.ACTION_VIEW);
+    accept.setData(Uri.parse(appendQueryParam(baseUrl, "action", "accept")));
+    accept.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    Intent reject = new Intent(context, MainActivity.class);
+    reject.setAction(Intent.ACTION_VIEW);
+    reject.setData(Uri.parse(appendQueryParam(baseUrl, "action", "reject")));
+    reject.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -48,6 +57,8 @@ public final class IncomingCallNotificationBuilder {
     }
     PendingIntent fullScreen = PendingIntent.getActivity(context, sessionId.hashCode(), launch, flags);
     PendingIntent content = PendingIntent.getActivity(context, sessionId.hashCode() + 1, launch, flags);
+    PendingIntent acceptIntent = PendingIntent.getActivity(context, sessionId.hashCode() + 2, accept, flags);
+    PendingIntent rejectIntent = PendingIntent.getActivity(context, sessionId.hashCode() + 3, reject, flags);
     String safeTitle = title != null && !title.isEmpty() ? title : "수신 통화";
     String safeBody = body != null ? body : "";
 
@@ -63,11 +74,13 @@ public final class IncomingCallNotificationBuilder {
             .setAutoCancel(false)
             .setContentIntent(content)
             .setFullScreenIntent(fullScreen, true)
+            .addAction(R.mipmap.ic_launcher, "거절", rejectIntent)
+            .addAction(R.mipmap.ic_launcher, "수락", acceptIntent)
             .setDefaults(Notification.DEFAULT_ALL);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Person caller = new Person.Builder().setName(safeBody.isEmpty() ? safeTitle : safeBody).build();
-      builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, content, fullScreen));
+      builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, rejectIntent, acceptIntent));
     }
 
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
@@ -80,5 +93,10 @@ public final class IncomingCallNotificationBuilder {
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null || sessionId == null) return;
     nm.cancel(INCOMING_CALL_NOTIFICATION_ID + Math.abs(sessionId.hashCode() % 1000));
+  }
+
+  private static String appendQueryParam(String url, String key, String value) {
+    Uri uri = Uri.parse(url);
+    return uri.buildUpon().appendQueryParameter(key, value).build().toString();
   }
 }

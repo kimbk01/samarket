@@ -17,8 +17,13 @@ import java.security.MessageDigest;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
+  private static volatile boolean appVisible = false;
 
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
+
+  public static boolean isAppVisibleForIncomingCall() {
+    return appVisible;
+  }
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -38,13 +43,21 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onStart() {
     super.onStart();
+    appVisible = true;
     attachDibayWebChromeClient();
   }
 
   @Override
   public void onResume() {
     super.onResume();
+    appVisible = true;
     attachDibayWebChromeClient();
+  }
+
+  @Override
+  public void onStop() {
+    appVisible = false;
+    super.onStop();
   }
 
   private void attachDibayWebChromeClient() {

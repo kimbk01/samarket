@@ -70,6 +70,10 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
 
     boolean isIncomingCall = "1".equals(data.get("dibay_call")) || "incoming_call".equals(callPushKind);
     if (isIncomingCall && sessionId != null) {
+      if (MainActivity.isAppVisibleForIncomingCall()) {
+        Log.i(TAG, "incoming_call_app_visible_delegate_to_web sessionId=" + sessionId);
+        return;
+      }
       String url = data.get("url");
       if (url == null || url.isEmpty()) {
         url = "dibay://call/" + sessionId;

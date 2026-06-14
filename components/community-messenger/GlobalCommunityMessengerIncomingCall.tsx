@@ -1590,12 +1590,37 @@ export function GlobalCommunityMessengerIncomingCall() {
         return;
       }
 
-      /** 1:1 — 전체 통화 화면으로 먼저 이동한 뒤 CallClient 가 accept PATCH + Agora join 처리 */
-      stopCommunityMessengerCallTone();
-      primeCommunityMessengerCallNavigationSeed(session.id, session);
-      router.replace(
-        `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`
-      );
+      setBusyId(`accept:${session.id}`);
+      void (async () => {
+        try {
+          const patchJson = await patchCommunityMessengerCallSession(
+            session.id,
+            "accept",
+            undefined,
+            {
+              sessionStatus: session.status,
+              isInitiator: session.isMineInitiator,
+              endedReason: session.endedReason ?? null,
+            }
+          );
+          if (!patchJson.ok || !patchJson.session) {
+            await refresh(true, { bypassDevSafeIncomingThrottle: true });
+            showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
+            return;
+          }
+          cmCallFlow("incoming_accepted", { sessionId: session.id });
+          dismissedIncomingSessionsAtRef.current.set(session.id, Date.now());
+          setSessions((prev) => prev.filter((item) => item.id !== session.id));
+          stopCommunityMessengerCallTone();
+          markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
+          suppressMissedSoundRef.current.add(session.id);
+          primeCommunityMessengerCallNavigationSeed(session.id, patchJson.session);
+          router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}`);
+          void refresh(true, { bypassDevSafeIncomingThrottle: true });
+        } finally {
+          setBusyId(null);
+        }
+      })();
     },
     [busyId, refresh, router]
   );
@@ -1620,7 +1645,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
         startedAt={visibleSession.startedAt ?? null}
         busyReject={busyId === `reject:${visibleSession.id}`}
-        busyAccept={false}
+        busyAccept={busyId === `accept:${visibleSession.id}`}
         onExpand={() => openIncomingCallFullScreen(visibleSession)}
         onReject={() => void rejectCall(visibleSession.id)}
         onAccept={() => acceptCall(visibleSession)}
