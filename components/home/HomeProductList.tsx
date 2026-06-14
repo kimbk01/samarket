@@ -188,7 +188,10 @@ export function HomeProductList({
     }
   }, [tradeState]);
 
-  const pullRefreshRouteKey = resolveTradeMarketPullRefreshRouteKey(pathname);
+  const pullRefreshRouteKey = useMemo(
+    () => resolveTradeMarketPullRefreshRouteKey(pathname, searchParams),
+    [pathname, searchParams]
+  );
 
   const onPullRefresh = useCallback(async () => {
     invalidateHomePostsCache({ notifyListReload: false });

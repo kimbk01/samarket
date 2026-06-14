@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildTradeMarketPullRefreshRouteKeyFromSegment,
   isTradeMarketPullRefreshSurface,
+  normalizeTradeMarketPullRefreshQuery,
   resolveTradeMarketPullRefreshRouteKey,
 } from "@/lib/trade/trade-market-pull-refresh-surface";
 
@@ -18,11 +19,28 @@ describe("isTradeMarketPullRefreshSurface", () => {
   });
 });
 
+describe("normalizeTradeMarketPullRefreshQuery", () => {
+  it("keeps topic and sort only", () => {
+    expect(normalizeTradeMarketPullRefreshQuery("topic=phones&fs=popular&noise=1")).toBe(
+      "fs=popular&topic=phones"
+    );
+  });
+});
+
 describe("resolveTradeMarketPullRefreshRouteKey", () => {
   it("maps home and slug paths", () => {
     expect(resolveTradeMarketPullRefreshRouteKey("/market")).toBe("/market");
     expect(resolveTradeMarketPullRefreshRouteKey("/market/vehicle")).toBe("/market/vehicle");
     expect(resolveTradeMarketPullRefreshRouteKey("/market/%EC%B0%A8%EB%9F%89")).toBe("/market/차량");
+  });
+
+  it("includes topic query for per-feed PTR handlers", () => {
+    expect(
+      resolveTradeMarketPullRefreshRouteKey("/market/abc-uuid", new URLSearchParams({ topic: "phones" }))
+    ).toBe("/market/abc-uuid?topic=phones");
+    expect(
+      resolveTradeMarketPullRefreshRouteKey("/market", new URLSearchParams({ tradeState: "active" }))
+    ).toBe("/market?tradeState=active");
   });
 
   it("returns null for unsupported paths", () => {

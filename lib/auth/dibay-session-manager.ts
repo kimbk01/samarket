@@ -14,6 +14,16 @@ import { clearAuthSessionClientCache, fetchAuthSessionNoStore } from "@/lib/auth
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
+import {
+  clearGuestAuthState,
+  establishGuestAuthState,
+  exposeGuestAuthStateProbeForDev,
+  isGuestAuthEstablished,
+  logGuestFetchSkipped,
+  noteGuest401,
+  resetGuestAuthStateForTests,
+} from "@/lib/auth/guest-auth-state";
+import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 
 const AUTH_BC_NAME = "dibay:auth";
 const ENSURE_HEALTH_FLIGHT = "dibay:ensure-session-healthy";
@@ -81,7 +91,10 @@ function getAuthBroadcastChannel(): BroadcastChannel | null {
       if (!msg || typeof msg !== "object") return;
       if (msg.type === "refresh_lock") remoteRefreshLock = true;
       if (msg.type === "refresh_done") remoteRefreshLock = false;
-      if (msg.type === "signed_out") setSessionPhase("guest");
+      if (msg.type === "signed_out") {
+        setSessionPhase("guest");
+        establishGuestAuthState("auth_bc:signed_out");
+      }
     };
     return authBc;
   } catch {
@@ -142,11 +155,13 @@ async function confirmAuthenticatedWithRegistry(
 > {
   const registry = await validateRegistryMatchesSupabaseSession(source);
   if (registry.ok) {
+    clearGuestAuthState();
     setSessionPhase("authenticated");
     return { ok: true, phase: "authenticated" };
   }
   if (registry.ghost) {
     await reconcileGhostSupabaseSession(source);
+    noteGuest401(`ensureHealthy:ghost:${source}`);
     setSessionPhase("guest");
     return { ok: false, phase: "guest", terminal: false };
   }
@@ -162,17 +177,37 @@ export type EnsureSessionHealthyResult =
  * refreshSession 1회 → getUser 1회 → /api/auth/session 확인.
  * terminal 확인 전 hard logout 금지.
  */
+function markGuestFromSessionCheck(source: string, from401: boolean): EnsureSessionHealthyResult {
+  if (from401) {
+    noteGuest401(`ensureHealthy:${source}`);
+  } else {
+    establishGuestAuthState(`ensureHealthy:${source}`);
+  }
+  setSessionPhase("guest");
+  return { ok: false, phase: "guest", terminal: false };
+}
+
 export async function ensureSessionHealthy(source: string): Promise<EnsureSessionHealthyResult> {
   if (typeof window === "undefined") {
+    establishGuestAuthState("ensureHealthy:ssr");
     setSessionPhase("guest");
     return { ok: false, phase: "guest", terminal: false };
   }
 
-  return runSingleFlight(`${ENSURE_HEALTH_FLIGHT}:${source}`, async () => {
+  if (isGuestAuthEstablished() && sessionPhase === "guest") {
+    logGuestFetchSkipped("ensureSessionHealthy", source);
+    return { ok: false, phase: "guest", terminal: false };
+  }
+
+  return runSingleFlight(ENSURE_HEALTH_FLIGHT, async () => {
+    if (isGuestAuthEstablished() && sessionPhase === "guest") {
+      logGuestFetchSkipped("ensureSessionHealthy", source);
+      return { ok: false, phase: "guest", terminal: false };
+    }
+
     const sb = getSupabaseClient();
     if (!sb) {
-      setSessionPhase("guest");
-      return { ok: false, phase: "guest", terminal: false };
+      return markGuestFromSessionCheck(source, false);
     }
 
     setSessionPhase("loading");
@@ -211,6 +246,7 @@ export async function ensureSessionHealthy(source: string): Promise<EnsureSessio
     try {
       const res = await fetchAuthSessionNoStore(source);
       if (res.ok) {
+        clearGuestAuthState();
         setSessionPhase("authenticated");
         return { ok: true, phase: "authenticated" };
       }
@@ -230,16 +266,14 @@ export async function ensureSessionHealthy(source: string): Promise<EnsureSessio
           setSessionPhase("corrupt");
           return { ok: false, phase: "corrupt", terminal: true };
         }
-        setSessionPhase("guest");
-        return { ok: false, phase: "guest", terminal: false };
+        return markGuestFromSessionCheck(source, true);
       }
     } catch {
       setSessionPhase("loading");
       return { ok: false, phase: "loading", terminal: false };
     }
 
-    setSessionPhase("guest");
-    return { ok: false, phase: "guest", terminal: false };
+    return markGuestFromSessionCheck(source, false);
   });
 }
 
@@ -250,10 +284,12 @@ export async function handleApi401(source: string): Promise<EnsureSessionHealthy
 function handleAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
   if (event === "SIGNED_OUT" || (!session?.user?.id && event === "INITIAL_SESSION")) {
     setSessionPhase("guest");
+    establishGuestAuthState(`auth_event:${event}`);
     postAuthBc({ type: "signed_out" });
     return;
   }
   if (session?.user?.id) {
+    clearGuestAuthState();
     setSessionPhase("authenticated");
   }
 }
@@ -268,8 +304,11 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   }
 
   getAuthBroadcastChannel();
+  exposeGuestAuthStateProbeForDev();
+  exposeResetAuthStateForDev();
   const sb = getSupabaseClient();
   if (!sb) {
+    establishGuestAuthState("bindAuthListener:no_client");
     setSessionPhase("guest");
     return () => {};
   }
@@ -290,6 +329,7 @@ export function bindDibaySessionManagerAuthListener(): () => void {
 /** 테스트·dev reset */
 export function resetDibaySessionManagerForTests(): void {
   sessionPhase = "loading";
+  resetGuestAuthStateForTests();
   authListenerBound = false;
   authSubscription = null;
   authEventHandlers.clear();

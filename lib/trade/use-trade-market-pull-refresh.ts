@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   getMainAppScrollRootCached,
   getMainAppScrollTop,
@@ -36,6 +36,8 @@ function isVerticalPullDown(dy: number, dx: number): boolean {
  */
 export function useTradeMarketPullRefresh(enabled: boolean): void {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchKey = searchParams.toString();
   const pullRef = useRef(0);
   const trackingRef = useRef(false);
   const pullingRef = useRef(false);
@@ -126,7 +128,7 @@ export function useTradeMarketPullRefresh(enabled: boolean): void {
 
       if (pulled >= TRADE_MARKET_PULL_REFRESH_THRESHOLD_PX) {
         pullRef.current = 0;
-        void runTradeMarketPullRefresh(pulled, pathname);
+        void runTradeMarketPullRefresh(pulled, pathname, searchParams);
         return;
       }
       resetPull();
@@ -183,5 +185,5 @@ export function useTradeMarketPullRefresh(enabled: boolean): void {
         patchTradeMarketPullRefresh({ refreshing: false, pullPx: 0 });
       }
     };
-  }, [enabled, pathname]);
+  }, [enabled, pathname, searchKey]);
 }

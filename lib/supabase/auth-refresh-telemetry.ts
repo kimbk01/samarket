@@ -3,6 +3,7 @@
  * Supabase refresh token rotation 은 **동일 토큰으로 동시 refresh 시** `Already Used` 가 난다.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { isGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
 
 type RefreshResult = Awaited<ReturnType<SupabaseClient["auth"]["refreshSession"]>>;
 
@@ -58,6 +59,10 @@ export function getAuthRefreshInflightPeak(): number {
  * (auto-refresh 와의 완전 직렬화는 SDK 내부 한계가 있으나, 수동 `refreshSession` 경합은 제거)
  */
 export async function runBrowserAuthRefreshDeduped(sb: SupabaseClient, source: string): Promise<RefreshResult> {
+  if (isGuestAuthEstablished()) {
+    logGuestFetchSkipped("auth_refresh", source);
+    return { data: { session: null, user: null }, error: null };
+  }
   if (refreshInflight) {
     logJson("[auth_refresh_start]", {
       source,

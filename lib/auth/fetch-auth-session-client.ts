@@ -1,4 +1,9 @@
 import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
+import {
+  isGuestAuthEstablished,
+  logGuestFetchSkipped,
+  noteGuest401,
+} from "@/lib/auth/guest-auth-state";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   bumpAppWidePerf,
@@ -34,6 +39,19 @@ export function clearAuthSessionClientCache(): void {
  * (레이아웃·게이트·리다이렉트·로그인 직후 동기화 등이 같은 틱에 겹칠 때 대기 시간·부하 감소)
  */
 export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Response> {
+  if (isGuestAuthEstablished()) {
+    logGuestFetchSkipped("GET:/api/auth/session", clientCallSource ?? "fetchAuthSessionNoStore");
+    return Promise.resolve(
+      new Response(JSON.stringify({ ok: false, authenticated: false }), {
+        status: 401,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "x-samarket-guest-auth-skip": "1",
+          ...(clientCallSource ? { "x-samarket-client-call-source": clientCallSource } : {}),
+        },
+      })
+    );
+  }
   if (peekAuthSessionClientCacheHit()) {
     bumpAppWidePerf("auth_session_resolve_success");
     recordAppWidePhaseLastMs("auth_session_resolve_ms", 0);
@@ -81,6 +99,11 @@ export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Resp
           });
           await new Promise((r) => setTimeout(r, SESSION_401_RETRY_MS));
           continue;
+        }
+        if (res.status === 401) {
+          noteGuest401(clientCallSource ?? "fetchAuthSessionNoStore", {
+            url: "/api/auth/session",
+          });
         }
         bumpAppWidePerf("auth_session_resolve_success");
         recordAppWidePhaseLastMs("auth_session_resolve_ms", Math.round(performance.now() - t0));

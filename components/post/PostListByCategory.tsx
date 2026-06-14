@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
@@ -27,6 +27,7 @@ const ReportReasonModal = dynamic(
   { loading: () => null }
 );
 import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/posts/trade-feed-key";
+import { tradeMarketPath } from "@/lib/categories/tradeMarketPath";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
@@ -83,6 +84,7 @@ export function PostListByCategory({
 }: PostListByCategoryProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -275,7 +277,10 @@ export function PostListByCategory({
   const postsRef = useRef(posts);
   postsRef.current = posts;
 
-  const pullRefreshRouteKey = resolveTradeMarketPullRefreshRouteKey(pathname);
+  const pullRefreshRouteKey = useMemo(() => {
+    const marketSurfacePath = category ? tradeMarketPath(category) : pathname;
+    return resolveTradeMarketPullRefreshRouteKey(marketSurfacePath, searchParams);
+  }, [category, pathname, searchParams]);
 
   const onPullRefresh = useCallback(async () => {
     invalidateHomePostsCache({ notifyListReload: false });

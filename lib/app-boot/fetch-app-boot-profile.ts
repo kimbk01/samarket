@@ -2,6 +2,7 @@
  * App Boot Layer — `GET /api/me/profile?lite=1` 단일 비행 (서버 `profileSelectMode: lite`).
  */
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { isGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
 import type { MeProfileGetResult } from "@/lib/profile/fetch-me-profile-deduped";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
@@ -27,6 +28,15 @@ export function isAppBootProfileCacheFresh(): boolean {
 
 export function fetchAppBootProfileMinimal(): Promise<MeProfileGetResult> {
   const now = Date.now();
+  if (isGuestAuthEstablished()) {
+    logGuestFetchSkipped("GET:/api/me/profile?lite=1", "fetchAppBootProfileMinimal");
+    const guestResult: MeProfileGetResult = { status: 401, json: { ok: false, authenticated: false } };
+    if (cached && cached.expiresAt > now && cached.value.status === 401) {
+      return Promise.resolve(cached.value);
+    }
+    cached = { value: guestResult, expiresAt: now + BOOT_MINIMAL_TTL_MS };
+    return Promise.resolve(guestResult);
+  }
   if (cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }

@@ -5,6 +5,11 @@ import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-fligh
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
+import {
+  isGuestAuthEstablished,
+  logGuestFetchSkipped,
+  noteGuest401,
+} from "@/lib/auth/guest-auth-state";
 import type { ProfileRow } from "@/lib/profile/types";
 
 export type MeProfileGetResult = {
@@ -112,13 +117,31 @@ async function parseMeProfileResponse(res: Response): Promise<MeProfileGetResult
   return { status: res.status, json };
 }
 
+const GUEST_PROFILE_401: MeProfileGetResult = {
+  status: 401,
+  json: { ok: false, authenticated: false },
+};
+
+function guestMeProfileResult(clientCallSource?: string): MeProfileGetResult {
+  logGuestFetchSkipped("me_profile_full", clientCallSource ?? "fetch-me-profile-deduped");
+  return GUEST_PROFILE_401;
+}
+
 async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise<MeProfileGetResult> {
+  if (isGuestAuthEstablished()) {
+    return guestMeProfileResult(clientCallSource);
+  }
+
   let res = await fetchMeProfileNetwork(clientCallSource);
 
   if (res.status === 401) {
     const recovery = await recoverFrom401Once("me_profile_full");
     if (recovery.recovered) {
       res = await fetchMeProfileNetwork(clientCallSource);
+    } else if (recovery.phase === "guest" || isGuestAuthEstablished()) {
+      const result = await parseMeProfileResponse(res);
+      cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
+      return result;
     } else if (!recovery.terminal) {
       return parseMeProfileResponse(res);
     }
@@ -126,6 +149,9 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
 
   const result = await parseMeProfileResponse(res);
   if (res.ok || res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
+      noteGuest401(clientCallSource ?? "me_profile_full", { url: "/api/me/profile?mode=full" });
+    }
     cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
   }
   return result;
@@ -138,6 +164,12 @@ export function fetchMeProfileDeduped(clientCallSource?: string): Promise<MeProf
 
 export function fetchMeProfileFullBackground(clientCallSource?: string): Promise<MeProfileGetResult> {
   const now = Date.now();
+  if (isGuestAuthEstablished()) {
+    if (cachedFull && cachedFull.expiresAt > now && cachedFull.value.status === 401) {
+      return Promise.resolve(cachedFull.value);
+    }
+    return Promise.resolve(guestMeProfileResult(clientCallSource));
+  }
   if (cachedFull && cachedFull.expiresAt > now) {
     return Promise.resolve(cachedFull.value);
   }

@@ -2,6 +2,7 @@
 
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
+import { establishGuestAuthState, isGuestAuthEstablished, clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache, userToProfile } from "@/lib/auth/supabase-profile-cache";
@@ -61,6 +62,7 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   } = await dedupeSupabaseAuthGetUser(sb);
   if (isStale()) return;
   if (!user || error) {
+    establishGuestAuthState("app_boot_no_supabase_user");
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;
@@ -88,6 +90,10 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
       setAppBootAnonymous();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
       return;
+    } else if (recovery.phase === "guest" || isGuestAuthEstablished()) {
+      setAppBootAnonymous();
+      recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
+      return;
     } else {
       setAppBootLoading();
       recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
@@ -104,6 +110,7 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   const data = json as { ok?: boolean; profile?: ProfileRow } | null;
   if (status === 200 && data?.ok && data.profile) {
     if (isStale()) return;
+    clearGuestAuthState();
     primeMeProfileDedupedFromBoot({ status, json });
     setAppBootProfile(data.profile);
     const clientProfile = profileRowToClientProfile(data.profile);

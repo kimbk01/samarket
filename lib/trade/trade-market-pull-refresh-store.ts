@@ -75,9 +75,10 @@ export function addTradeMarketPullRefreshHandler(
 
 export async function runTradeMarketPullRefresh(
   releasePullPx: number,
-  pathname: string | null | undefined
+  pathname: string | null | undefined,
+  search?: string | URLSearchParams | null
 ): Promise<void> {
-  const routeKey = resolveTradeMarketPullRefreshRouteKey(pathname);
+  const routeKey = resolveTradeMarketPullRefreshRouteKey(pathname, search);
   const handler = routeKey ? refreshHandlers.get(routeKey) : undefined;
   if (!handler || snapshot.refreshing) return;
   preflightMainHubPtrRefresh();

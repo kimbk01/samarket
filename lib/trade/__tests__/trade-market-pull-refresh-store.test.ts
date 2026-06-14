@@ -35,9 +35,12 @@ describe("runTradeMarketPullRefresh", () => {
     const home = vi.fn(async () => {});
     const vehicle = vi.fn(async () => {});
     const unregHome = addTradeMarketPullRefreshHandler("/market", home);
-    const unregVehicle = addTradeMarketPullRefreshHandler("/market/vehicle", vehicle);
+    const unregVehicle = addTradeMarketPullRefreshHandler(
+      "/market/vehicle?topic=phones",
+      vehicle
+    );
 
-    await runTradeMarketPullRefresh(60, "/market/vehicle");
+    await runTradeMarketPullRefresh(60, "/market/vehicle", new URLSearchParams({ topic: "phones" }));
 
     expect(home).not.toHaveBeenCalled();
     expect(vehicle).toHaveBeenCalledTimes(1);

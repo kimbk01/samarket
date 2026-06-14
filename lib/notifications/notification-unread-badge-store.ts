@@ -11,6 +11,7 @@ import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { logNetworkLoopGuard, logNetworkLoopGuardBlocked } from "@/lib/dev/network-loop-guard";
 import { logFetchTrace, logPollingTrace } from "@/lib/dibay/network-fetch-storm-trace";
 import { createTrailingCoalescedCallback } from "@/lib/http/coalesce-trailing-callback";
+import { isGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
 
 import {
   resolveTier1BellSurfaceFromPathname,
@@ -124,6 +125,15 @@ function createNotificationUnreadBadgeStore(
   }
 
   function doFetch(force = false): Promise<void> {
+    if (!force && (unauthorizedPaused || isGuestAuthEstablished())) {
+      if (isGuestAuthEstablished()) {
+        logGuestFetchSkipped("notification_badge", fetchUrl);
+      }
+      setSnap(null);
+      unauthorizedPaused = true;
+      disarmPoll();
+      return Promise.resolve();
+    }
     if (!force && unauthorizedPaused) {
       return Promise.resolve();
     }
