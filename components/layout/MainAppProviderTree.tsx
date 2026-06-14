@@ -33,8 +33,6 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
-import { NativePushRegistration } from "@/components/push/NativePushRegistration";
-import { NativeBadgeSync } from "@/components/push/NativeBadgeSync";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
@@ -73,6 +71,16 @@ const TradeChatEntryCreatingOverlayLazy = dynamic(
     import("@/components/chats/TradeChatEntryCreatingOverlay").then(
       (mod) => mod.TradeChatEntryCreatingOverlay
     ),
+  { ssr: false }
+);
+
+/** Native push/badge — 메신저·전역 번들에서 분리 (async chunk). */
+const NativePushRegistrationLazy = dynamic(
+  () => import("@/components/push/NativePushRegistration").then((mod) => mod.NativePushRegistration),
+  { ssr: false }
+);
+const NativeBadgeSyncLazy = dynamic(
+  () => import("@/components/push/NativeBadgeSync").then((mod) => mod.NativeBadgeSync),
   { ssr: false }
 );
 
@@ -221,8 +229,8 @@ export function MainAppProviderTree({
           <LoginRequiredSheet />
           <MissingProfileInfoModal />
           <DiBaYNotificationOnboardingGate />
-          <NativePushRegistration />
-          <NativeBadgeSync />
+          <NativePushRegistrationLazy />
+          <NativeBadgeSyncLazy />
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>

@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-06-10",
-  "recordedFrom": "npm run check:bundle:update-baseline",
+  "recordedAt": "2026-06-15",
+  "recordedFrom": "npm run check:bundle:update-baseline — native push registration (MainAppProviderTree lazy chunks)",
   "metrics": {
-    "total_client_js_kb": 16631,
-    "messenger_home_js_kb": 3580,
-    "messenger_room_js_kb": 3598,
-    "messenger_call_js_kb": 5173
+    "total_client_js_kb": 15489,
+    "messenger_home_js_kb": 3791,
+    "messenger_room_js_kb": 3798,
+    "messenger_call_js_kb": 5388
   },
   "growth_slack_kb": {
     "total_client_js": 500,
