@@ -1,24 +1,21 @@
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { buildWebPushJsonPayload } from "@/lib/push/dispatch/build-web-push-json-payload";
+import {
+  getFcmEnvDiagnostics,
+  isFcmConfigured,
+} from "@/lib/push/dispatch/read-fcm-service-account";
 import type { DispatchPushOptions, PushTarget, SendPushResult } from "@/lib/push/dispatch/push-payload-types";
 
-function parseFcmServiceAccount(): Record<string, unknown> | null {
-  const raw = process.env.FCM_SERVICE_ACCOUNT_JSON?.trim();
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
-export function isFcmConfigured(): boolean {
-  return Boolean(parseFcmServiceAccount());
-}
+export {
+  fcmConfigSource,
+  getFcmEnvDiagnostics,
+  isFcmConfigured,
+  logFcmEnvDiagnostics,
+} from "@/lib/push/dispatch/read-fcm-service-account";
 
 /**
- * FCM HTTP v1 send — requires FCM_SERVICE_ACCOUNT_JSON.
- * Implemented in PR-2 with firebase-admin; returns skipped until configured.
+ * FCM HTTP v1 send — requires FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_JSON_BASE64.
+ * fcm_not_configured 는 sendFcmMessageV1 → getFirebaseApp() 경로에서만 반환 (early gate 없음).
  */
 export async function sendFcmToTarget(
   target: PushTarget,
@@ -27,9 +24,6 @@ export async function sendFcmToTarget(
 ): Promise<SendPushResult> {
   if (target.push_provider !== "fcm") {
     return { status: "skipped", provider_response: { reason: "wrong_provider" } };
-  }
-  if (!isFcmConfigured()) {
-    return { status: "skipped", provider_response: { reason: "fcm_not_configured" } };
   }
 
   try {
@@ -42,6 +36,14 @@ export async function sendFcmToTarget(
       body: out.body ?? "",
       isCall: payload.is_call,
     });
+    if (result.status === "skipped" && result.provider_response?.reason === "fcm_not_configured") {
+      const diag = getFcmEnvDiagnostics();
+      console.warn("[sendFcmToTarget] fcm_not_configured", {
+        base64_env_trimmed_length: diag.base64_env_trimmed_length,
+        json_env_trimmed_length: diag.json_env_trimmed_length,
+        isFcmConfigured: isFcmConfigured(),
+      });
+    }
     return result;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

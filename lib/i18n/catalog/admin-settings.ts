@@ -298,6 +298,7 @@ export const adminSettingsMessages = {
     admin_push_test_busy: "발송 중…",
     admin_push_test_sent: "테스트 푸시를 요청했습니다. 아래 로그를 확인하세요.",
     admin_push_test_failed: "테스트 푸시 발송에 실패했습니다.",
+    admin_push_test_no_deliveries: "발송 로그가 생성되지 않았습니다. 서버 설정을 확인하세요.",
   },
   en: {
     admin_settings_notifications_domain_title: "Alerts & sounds (by domain)",
@@ -596,6 +597,7 @@ export const adminSettingsMessages = {
     admin_push_test_busy: "Sending…",
     admin_push_test_sent: "Test push requested. Check the log below.",
     admin_push_test_failed: "Test push failed.",
+    admin_push_test_no_deliveries: "No delivery log was created. Check server configuration.",
   },
   
 } as const;

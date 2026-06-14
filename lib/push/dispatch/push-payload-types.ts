@@ -30,6 +30,24 @@ export type DispatchPushOptions = {
   call_push_kind?: "incoming_call" | "missed_call" | "call_canceled";
   /** Skip user settings gate (system/cancel dismiss only) */
   skip_settings_gate?: boolean;
+  /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
+  force_dispatch?: boolean;
+};
+
+export type DispatchDeliveryAudit = {
+  id: string | null;
+  status: DeliveryStatus;
+  event_type: string;
+  device_id: string | null;
+  push_provider?: string | null;
+  provider_response?: Record<string, unknown> | null;
+};
+
+export type DispatchPushResult = {
+  ok: boolean;
+  targets_found: number;
+  deliveries: DispatchDeliveryAudit[];
+  skipped_reason?: string;
 };
 
 export type SendPushResult = {

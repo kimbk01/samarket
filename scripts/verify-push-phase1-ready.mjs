@@ -71,9 +71,9 @@ if (!fs.existsSync(gsPath)) {
 // 2. Env keys
 const env = loadEnvLocal();
 const required = [
-  ["FCM_SERVICE_ACCOUNT_JSON", "Firebase service account JSON (single line or base64)"],
   ["PUSH_DISPATCH_ENABLED", "Must be 1 for native dispatch gate"],
 ];
+const fcmEnvKeys = ["FCM_SERVICE_ACCOUNT_JSON", "FCM_SERVICE_ACCOUNT_JSON_BASE64"];
 const optionalIos = [
   "APNS_KEY_P8",
   "APNS_KEY_ID",
@@ -97,6 +97,13 @@ for (const [key, hint] of required) {
   }
 }
 
+const hasFcmEnv = fcmEnvKeys.some((key) => envSet(env, key));
+if (!hasFcmEnv) {
+  fail("FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_JSON_BASE64 not set");
+} else {
+  pass("FCM service account env present");
+}
+
 let iosReady = 0;
 for (const key of optionalIos) {
   if (envSet(env, key)) iosReady += 1;
@@ -110,17 +117,20 @@ if (iosReady === optionalIos.length) {
 }
 
 // 3. FCM JSON parse smoke (no secret output)
-if (envSet(env, "FCM_SERVICE_ACCOUNT_JSON")) {
-  const raw = (env.FCM_SERVICE_ACCOUNT_JSON ?? process.env.FCM_SERVICE_ACCOUNT_JSON ?? "").trim();
+const fcmRaw = fcmEnvKeys
+  .map((key) => (env[key] ?? process.env[key] ?? "").trim())
+  .find(Boolean);
+if (fcmRaw) {
+  const raw = fcmRaw;
   try {
     const parsed = JSON.parse(raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));
     if (!parsed.client_email || !parsed.private_key) {
-      fail("FCM_SERVICE_ACCOUNT_JSON missing client_email or private_key");
+      fail("FCM service account JSON missing client_email or private_key");
     } else {
-      pass("FCM_SERVICE_ACCOUNT_JSON parses as service account");
+      pass("FCM service account JSON parses as service account");
     }
   } catch {
-    fail("FCM_SERVICE_ACCOUNT_JSON is not valid JSON or base64 JSON");
+    fail("FCM service account env is not valid JSON or base64 JSON");
   }
 }
 

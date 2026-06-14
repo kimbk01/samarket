@@ -1,30 +1,75 @@
-import type { App, ServiceAccount } from "firebase-admin/app";
+import type { App } from "firebase-admin/app";
 import type { SendPushResult } from "@/lib/push/dispatch/push-payload-types";
+import {
+  fcmConfigSource,
+  getFcmEnvDiagnostics,
+  logFcmEnvDiagnostics,
+  parseFcmServiceAccount,
+} from "@/lib/push/dispatch/read-fcm-service-account";
 
 let firebaseApp: App | null = null;
 let firebaseAppPromise: Promise<App | null> | null = null;
+let firebaseAppInitLogged = false;
+
+/**
+ * 첫 Vercel 요청에서 firebase-admin singleton 생성·로그.
+ * admin test 등에서 dispatch 전에 호출 가능.
+ */
+export async function ensureFirebaseAdminApp(): Promise<App | null> {
+  return getFirebaseApp();
+}
+
+export function isFirebaseAdminAppReady(): boolean {
+  return firebaseApp !== null;
+}
 
 async function getFirebaseApp(): Promise<App | null> {
   if (firebaseApp) return firebaseApp;
   if (firebaseAppPromise) return firebaseAppPromise;
 
   firebaseAppPromise = (async () => {
-    const raw = process.env.FCM_SERVICE_ACCOUNT_JSON?.trim();
-    if (!raw) return null;
+    logFcmEnvDiagnostics("firebase-admin-init");
+
+    const credential = parseFcmServiceAccount();
+    if (!credential) {
+      const diag = getFcmEnvDiagnostics();
+      console.warn("[fcm-sender-impl] init skipped — fcm_not_configured", {
+        source: fcmConfigSource(),
+        base64_env_trimmed_length: diag.base64_env_trimmed_length,
+        json_env_trimmed_length: diag.json_env_trimmed_length,
+      });
+      return null;
+    }
+
     try {
-      const credential = JSON.parse(raw) as Record<string, unknown>;
       const { initializeApp, cert, getApps } = await import("firebase-admin/app");
       const existing = getApps();
       if (existing.length > 0) {
         firebaseApp = existing[0]!;
+        if (!firebaseAppInitLogged) {
+          console.info("FCM_ADMIN_INITIALIZED", {
+            mode: "reuse",
+            app_name: firebaseApp.name,
+            source: fcmConfigSource(),
+          });
+          firebaseAppInitLogged = true;
+        }
         return firebaseApp;
       }
-      firebaseApp = initializeApp({
-        credential: cert(credential as ServiceAccount),
+
+      firebaseApp = initializeApp({ credential: cert(credential) });
+      console.info("FCM_ADMIN_INITIALIZED", {
+        mode: "created",
+        app_name: firebaseApp.name,
+        source: fcmConfigSource(),
       });
+      firebaseAppInitLogged = true;
       return firebaseApp;
     } catch (e) {
-      console.error("[fcm-sender-impl] init", e);
+      console.error("FCM_ADMIN_INITIALIZED init failed", {
+        source: fcmConfigSource(),
+        error: e instanceof Error ? e.message : String(e),
+      });
       return null;
     } finally {
       firebaseAppPromise = null;
@@ -52,7 +97,16 @@ export async function sendFcmMessageV1(input: {
 }): Promise<SendPushResult> {
   const app = await getFirebaseApp();
   if (!app) {
-    return { status: "skipped", provider_response: { reason: "fcm_not_configured" } };
+    const diag = getFcmEnvDiagnostics();
+    return {
+      status: "skipped",
+      provider_response: {
+        reason: "fcm_not_configured",
+        source: fcmConfigSource(),
+        base64_env_trimmed_length: diag.base64_env_trimmed_length,
+        json_env_trimmed_length: diag.json_env_trimmed_length,
+      },
+    };
   }
 
   try {
@@ -62,18 +116,21 @@ export async function sendFcmMessageV1(input: {
     const isCancel = dataPayload.call_push_kind === "call_canceled";
 
     if (input.isCall && isCancel) {
-      await messaging.send({
+      const messageId = await messaging.send({
         token: input.token,
         data: dataPayload,
         android: {
           priority: "high",
         },
       });
-      return { status: "sent", provider_response: { provider: "fcm", kind: "call_cancel_data" } };
+      return {
+        status: "sent",
+        provider_response: { provider: "fcm", kind: "call_cancel_data", message_id: messageId },
+      };
     }
 
     if (input.isCall) {
-      await messaging.send({
+      const messageId = await messaging.send({
         token: input.token,
         data: {
           ...dataPayload,
@@ -91,10 +148,13 @@ export async function sendFcmMessageV1(input: {
           },
         },
       });
-      return { status: "sent", provider_response: { provider: "fcm", kind: "call_high_priority" } };
+      return {
+        status: "sent",
+        provider_response: { provider: "fcm", kind: "call_high_priority", message_id: messageId },
+      };
     }
 
-    await messaging.send({
+    const messageId = await messaging.send({
       token: input.token,
       notification: {
         title: input.title,
@@ -108,7 +168,10 @@ export async function sendFcmMessageV1(input: {
         },
       },
     });
-    return { status: "sent", provider_response: { provider: "fcm", kind: "alert" } };
+    return {
+      status: "sent",
+      provider_response: { provider: "fcm", kind: "alert", message_id: messageId },
+    };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };
     const code = String(err?.code ?? "");
@@ -119,7 +182,7 @@ export async function sendFcmMessageV1(input: {
     return {
       status: "failed",
       error_message: err?.message ?? String(e),
-      provider_response: { provider: "fcm", invalid_token: invalid, code },
+      provider_response: { provider: "fcm", invalid_token: invalid, code: code || "unknown" },
     };
   }
 }

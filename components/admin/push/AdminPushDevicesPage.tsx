@@ -78,6 +78,7 @@ export function AdminPushDevicesPage() {
     if (!uid) return;
     setTestBusy(true);
     setTestResult(null);
+    setErr(null);
     try {
       const res = await fetch("/api/admin/push/test", {
         method: "POST",
@@ -87,11 +88,18 @@ export function AdminPushDevicesPage() {
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
-        setTestResult(t("admin_push_test_failed"));
+        if (j?.error === "no_deliveries_recorded") {
+          setTestResult(t("admin_push_test_no_deliveries"));
+        } else {
+          setTestResult(t("admin_push_test_failed"));
+        }
+        if (Array.isArray(j?.deliveries)) {
+          setDeliveries(j.deliveries);
+        }
         return;
       }
       setTestResult(t("admin_push_test_sent"));
-      setDeliveries((prev) => [...(j.deliveries ?? []), ...prev].slice(0, 50));
+      setDeliveries(Array.isArray(j.deliveries) ? j.deliveries : []);
     } catch {
       setTestResult(t("admin_push_test_failed"));
     } finally {
