@@ -12,11 +12,21 @@ export function resolveNativeProviderLoginErrorCode(err: unknown): string {
   return "oauth_start_failed";
 }
 
+function safeNativeAuthFailureReason(
+  err: NativeAppleAuthError | NativeKakaoAuthError | NativeGoogleAuthError,
+): string {
+  const message = err.message?.trim() || "";
+  if (!message || /id_token|access_token|identitytoken=/i.test(message)) {
+    return err.code;
+  }
+  return message;
+}
+
 /** token/code/id_token/access_token/raw body 미포함 — code·reason만. */
 export function summarizeOAuthStartFailure(err: unknown): { code: string; reason: string } {
   const code = resolveNativeProviderLoginErrorCode(err);
   if (err instanceof NativeAppleAuthError || err instanceof NativeKakaoAuthError || err instanceof NativeGoogleAuthError) {
-    return { code, reason: code };
+    return { code, reason: safeNativeAuthFailureReason(err) };
   }
   if (err instanceof NativeProviderLoginError) {
     return { code, reason: err.message || code };

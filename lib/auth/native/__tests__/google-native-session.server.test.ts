@@ -38,6 +38,100 @@ vi.mock("@/lib/profile/ensure-profile-for-user-id", () => ({
 
 type ProfileLookupRow = { id: string; status?: string; deleted_at?: string | null };
 
+type IdentityRow = {
+  id: string;
+  user_id: string;
+  provider: string;
+  provider_user_id: string;
+  email?: string | null;
+  email_is_private_relay?: boolean;
+};
+
+function identityMaybeSingleChain(row: IdentityRow | null) {
+  return {
+    maybeSingle: async () => ({ data: row, error: null }),
+  };
+}
+
+function identityFromMock(rows: IdentityRow[] = []) {
+  function filterByEmail(email: unknown, excludeProvider?: unknown) {
+    return rows.filter((row) => {
+      if (String(row.email ?? "").toLowerCase() !== String(email).toLowerCase()) return false;
+      if (row.email_is_private_relay === true) return false;
+      if (excludeProvider && row.provider === excludeProvider) return false;
+      return true;
+    });
+  }
+
+  return {
+    select: () => ({
+      eq: (col: string, val: unknown) => {
+        if (col === "email") {
+          const filtered = filterByEmail(val);
+          const result = { data: filtered, error: null };
+          return {
+            eq: (_col2: string, _val2: unknown) => ({
+              neq: (_col3: string, provider: unknown) => ({
+                then(onFulfilled: (v: typeof result) => void) {
+                  onFulfilled({ data: filterByEmail(val, provider), error: null });
+                },
+              }),
+              then(onFulfilled: (v: typeof result) => void) {
+                onFulfilled(result);
+              },
+            }),
+          };
+        }
+
+        const chain = {
+          eq: (col2: string, val2: unknown) => {
+            const match =
+              rows.find(
+                (row) =>
+                  (col !== "provider" || row.provider === val)
+                  && (col2 !== "provider_user_id" || row.provider_user_id === val2)
+                  && (col !== "user_id" || row.user_id === val)
+                  && (col2 !== "provider" || row.provider === val2),
+              ) ?? null;
+            return identityMaybeSingleChain(match);
+          },
+          order: async () => ({ data: rows, error: null }),
+          maybeSingle: async () => ({ data: null, error: null }),
+        };
+        Object.defineProperty(chain, "then", {
+          value(onFulfilled: (v: unknown) => void) {
+            const filtered = rows.filter((row) => {
+              if (col === "user_id" && row.user_id !== val) return false;
+              return true;
+            });
+            onFulfilled({ data: filtered, error: null });
+          },
+        });
+        return chain;
+      },
+      order: async () => ({ data: rows, error: null }),
+    }),
+    insert: () => ({
+      select: () => ({
+        single: async () => ({
+          data: rows[0] ?? {
+            id: "identity-new",
+            user_id: "new-user-id",
+            provider: "google",
+            provider_user_id: "gid",
+          },
+          error: null,
+        }),
+      }),
+    }),
+    delete: () => ({
+      eq: () => ({
+        eq: async () => ({ error: null, count: 1 }),
+      }),
+    }),
+  };
+}
+
 function profileMaybeSingleChain(row: ProfileLookupRow | null) {
   return {
     maybeSingle: async () => ({ data: row, error: null }),
@@ -64,6 +158,7 @@ function buildAdminSb(options: {
   profileId?: string | null;
   createUserError?: string | null;
   recoveredAuthUserId?: string | null;
+  identities?: IdentityRow[];
 }) {
   const updateUserById = vi.fn(async () => ({ error: null }));
   const getUserById = vi.fn(async (id: string) => ({
@@ -75,6 +170,9 @@ function buildAdminSb(options: {
     error: options.createUserError ? { message: options.createUserError } : null,
   }));
   const from = vi.fn((table: string) => {
+    if (table === "user_auth_identities") {
+      return identityFromMock(options.identities ?? []);
+    }
     if (table !== "profiles") {
       return {
         update: () => ({ eq: async () => ({ error: null }) }),
@@ -112,6 +210,7 @@ function buildAdminSb(options: {
         createUser,
         updateUserById,
         getUserById,
+        deleteUser: vi.fn(async () => ({ error: null })),
         listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
       },
     },
@@ -175,7 +274,7 @@ describe("google-native-session.server", () => {
     );
 
     expect(result.ok).toBe(true);
-    expect(adminSb.__mocks.createUser).not.toHaveBeenCalled();
+    expect(adminSb.__mocks.createUser).toHaveBeenCalledTimes(1);
     expect(adminSb.__mocks.updateUserById).toHaveBeenCalledWith(
       orphanId,
       expect.objectContaining({
@@ -187,101 +286,28 @@ describe("google-native-session.server", () => {
     expect(ensureProfileForUserId).toHaveBeenCalledWith(adminSb, orphanId);
   });
 
-  it("prefers existing web Google profile by verified email over synthetic orphan auth user", async () => {
+  it("returns email_conflict when verified Gmail matches another provider identity", async () => {
     const googleUserId = "107373086399795697553";
     const webProfileId = "1a3179f4-9e9b-4b11-98b2-e124932c58bd";
-    const orphanId = "08224de9-953e-4219-8ead-f30d7201dafb";
     const verifiedEmail = "bkim4pact@gmail.com";
-
-    const from = vi.fn((table: string) => {
-      if (table !== "profiles") {
-        return { update: () => ({ eq: async () => ({ error: null }) }) };
-      }
-      return {
-        select: () => ({
-          eq: (col: string, val: unknown) => {
-            if (col === "id") {
-              return {
-                maybeSingle: async () => ({
-                  data: val === webProfileId
-                    ? {
-                        id: webProfileId,
-                        status: "sns_pending",
-                        email: verifiedEmail,
-                        auth_login_email: verifiedEmail,
-                        provider: "email",
-                        auth_provider: "email",
-                      }
-                    : null,
-                  error: null,
-                }),
-                in: async () => ({
-                  data: [{ id: webProfileId, provider: "email", auth_provider: "email" }],
-                  error: null,
-                }),
-              };
-            }
-            if (col === "provider" && val === "google") {
-              return {
-                ...profilesEqChain(null),
-                or: () => ({
-                  limit: async () => ({ data: [{ id: webProfileId }], error: null }),
-                }),
-              };
-            }
-            return profilesEqChain(null);
-          },
-          ilike: () => ({
-            limit: async () => ({
-              data: [{ id: webProfileId, status: "sns_pending", deleted_at: null }],
-              error: null,
-            }),
-          }),
-          in: (col: string, ids: string[]) => ({
-            limit: async () => ({
-              data: ids.map((id) => ({
-                id,
-                provider: id === webProfileId ? "email" : "google",
-                auth_provider: id === webProfileId ? "email" : "google",
-              })),
-              error: null,
-            }),
-          }),
-        }),
-        update: () => ({ eq: async () => ({ error: null }) }),
-      };
-    });
-
-    findAuthUserByEmail.mockResolvedValue({ id: orphanId, email: `google.${googleUserId}@google.native.dibay.internal` });
-
-    const adminSb = {
-      auth: {
-        admin: {
-          createUser: vi.fn(),
-          updateUserById: vi.fn(async () => ({ error: null })),
-          getUserById: vi.fn(async (id: string) => ({
-            data: { user: { id, email: verifiedEmail } },
-            error: null,
-          })),
-          listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
-          deleteUser: vi.fn(async () => ({ error: null })),
+    const adminSb = buildAdminSb({
+      profileId: null,
+      identities: [
+        {
+          id: "id-email",
+          user_id: webProfileId,
+          provider: "kakao",
+          provider_user_id: "kakao-existing",
+          email: verifiedEmail,
+          email_is_private_relay: false,
         },
-      },
-      from,
-    } as unknown as SupabaseClient;
-
-    const signInWithPassword = vi.fn(async () => ({
-      data: { user: { id: webProfileId, email: verifiedEmail } },
-      error: null,
-    }));
-    const routeSb = { auth: { signInWithPassword } } as unknown as SupabaseClient;
-
-    ensureProfileForUserId.mockResolvedValue({ id: webProfileId });
+      ],
+    });
 
     const result = await establishGoogleNativeSession(
       {
         adminSb,
-        routeSb,
+        routeSb: { auth: { signInWithPassword: vi.fn() } } as unknown as SupabaseClient,
         request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
         response: {} as never,
       },
@@ -295,88 +321,36 @@ describe("google-native-session.server", () => {
       },
     );
 
-    expect(result.ok).toBe(true);
-    expect(ensureProfileForUserId).toHaveBeenCalledWith(adminSb, webProfileId);
-    expect(adminSb.auth.admin.updateUserById).toHaveBeenCalledWith(
-      webProfileId,
-      expect.objectContaining({
-        password: buildGoogleSupabasePassword(googleUserId),
-      }),
-    );
-    expect(adminSb.auth.admin.updateUserById).toHaveBeenCalledWith(
-      webProfileId,
-      expect.not.objectContaining({
-        email: `google.${googleUserId}@google.native.dibay.internal`,
-      }),
-    );
-    expect(signInWithPassword).toHaveBeenCalledWith({
-      email: verifiedEmail,
-      password: buildGoogleSupabasePassword(googleUserId),
-    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errorCode).toBe("provider_email_conflict");
+      expect(result.conflict?.existingUserId).toBe(webProfileId);
+    }
   });
 
-  it("fails exchange when the same Gmail maps to ambiguous profiles", async () => {
+  it("fails exchange when the same Gmail maps to multiple linked identities", async () => {
     const googleUserId = "107373086399795697553";
-    const from = vi.fn((table: string) => {
-      if (table !== "profiles") {
-        return { update: () => ({ eq: async () => ({ error: null }) }) };
-      }
-      return {
-        select: () => ({
-          eq: (col: string, val: unknown) => {
-            if (col === "provider" && val === "google") {
-              return {
-                eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
-                or: () => ({ limit: async () => ({ data: [], error: null }) }),
-              };
-            }
-            return {
-              maybeSingle: async () => ({ data: null, error: null }),
-              limit: async () => ({ data: [], error: null }),
-              in: async (_c: string, ids: string[]) => ({
-                data: ids.map((id) => ({
-                  id,
-                  provider: id === "dup-a" ? "email" : "naver",
-                  auth_provider: id === "dup-a" ? "email" : "naver",
-                })),
-                error: null,
-              }),
-            };
-          },
-          ilike: () => ({
-            limit: async () => ({
-              data: [
-                { id: "dup-a", status: "sns_pending", deleted_at: null },
-                { id: "dup-b", status: "sns_pending", deleted_at: null },
-              ],
-              error: null,
-            }),
-          }),
-          in: (col: string, ids: string[]) => ({
-            limit: async () => ({
-              data: ids.map((id) => ({
-                id,
-                provider: id === "dup-a" ? "email" : "naver",
-                auth_provider: id === "dup-a" ? "email" : "naver",
-              })),
-              error: null,
-            }),
-          }),
-        }),
-      };
-    });
-
-    const adminSb = {
-      auth: {
-        admin: {
-          createUser: vi.fn(),
-          updateUserById: vi.fn(),
-          getUserById: vi.fn(),
-          listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+    const adminSb = buildAdminSb({
+      profileId: null,
+      identities: [
+        {
+          id: "id-a",
+          user_id: "dup-a",
+          provider: "kakao",
+          provider_user_id: "kakao-1",
+          email: "imobong88@gmail.com",
+          email_is_private_relay: false,
         },
-      },
-      from,
-    } as unknown as SupabaseClient;
+        {
+          id: "id-b",
+          user_id: "dup-b",
+          provider: "naver",
+          provider_user_id: "naver-1",
+          email: "imobong88@gmail.com",
+          email_is_private_relay: false,
+        },
+      ],
+    });
 
     findAuthUserByEmail.mockResolvedValue(null);
 

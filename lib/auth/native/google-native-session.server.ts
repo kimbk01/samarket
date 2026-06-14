@@ -7,7 +7,12 @@ import {
 } from "@/lib/auth/native/google-auth-env.server";
 import type { GoogleVerifiedIdentity } from "@/lib/auth/native/google-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
-import { resolveGoogleNativeExistingUserId } from "@/lib/auth/native/resolve-google-native-existing-user.server";
+import {
+  buildGoogleProviderCandidate,
+  ensureProviderAuthIdentityRow,
+  resolveNativeProviderSessionPrelude,
+} from "@/lib/auth/provider-identity/native-session-bridge.server";
+import type { ProviderEmailConflictDetail } from "@/lib/auth/provider-identity/types";
 import {
   isGoogleNativeSyntheticAuthEmail,
   reclaimGoogleNativeSyntheticAuthOrphan,
@@ -58,6 +63,7 @@ export type GoogleNativeSessionResult =
       errorCode: string;
       message: string;
       status: number;
+      conflict?: ProviderEmailConflictDetail & { stashToken: string };
     };
 
 async function updateGoogleAuthUserById(
@@ -227,17 +233,18 @@ export async function establishGoogleNativeSession(
 
   const googleUserId = input.verified.googleUserId;
   const safeNext = sanitizeNextPath(input.next ?? null);
-  const resolvedExisting = await resolveGoogleNativeExistingUserId(ctx.adminSb, input.verified);
-  if (resolvedExisting.status === "ambiguous_email") {
+  const candidate = buildGoogleProviderCandidate(input.verified);
+  const prelude = await resolveNativeProviderSessionPrelude(ctx.adminSb, candidate);
+  if (!prelude.ok) {
     return {
       ok: false,
-      errorCode: "provider_account_conflict",
-      message:
-        "동일 Gmail로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.",
-      status: 409,
+      errorCode: prelude.errorCode,
+      message: prelude.message,
+      status: prelude.status,
+      conflict: prelude.conflict,
     };
   }
-  const existingUserId = resolvedExisting.status === "found" ? resolvedExisting.userId : null;
+  const existingUserId = prelude.existingUserId;
 
   const upsert = await upsertGoogleAuthUser(ctx.adminSb, {
     existingUserId: existingUserId,
@@ -264,12 +271,30 @@ export async function establishGoogleNativeSession(
   const signedUser = signInData.user;
 
   if (userId !== signedUser.id) {
-    return {
-      ok: false,
-      errorCode: "provider_account_conflict",
-      message: "Google session user does not match the linked account",
-      status: 409,
-    };
+    const verifiedGmailForMismatch =
+      input.verified.emailVerified && input.verified.email?.trim()
+        ? input.verified.email.trim().toLowerCase()
+        : null;
+    if (verifiedGmailForMismatch) {
+      const authByEmail = await findAuthUserByEmail(ctx.adminSb, verifiedGmailForMismatch);
+      if (authByEmail?.id === signedUser.id) {
+        /* profiles 매칭 id 와 auth.users Gmail 보유 id 가 어긋난 경우 — 세션 user 기준으로 진행 */
+      } else {
+        return {
+          ok: false,
+          errorCode: "provider_account_conflict",
+          message: "Google session user does not match the linked account",
+          status: 409,
+        };
+      }
+    } else {
+      return {
+        ok: false,
+        errorCode: "provider_account_conflict",
+        message: "Google session user does not match the linked account",
+        status: 409,
+      };
+    }
   }
 
   const withdrawalState = await revokeSessionForWithdrawnMember(
@@ -325,6 +350,17 @@ export async function establishGoogleNativeSession(
   }
 
   await persistGoogleProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
+
+  try {
+    await ensureProviderAuthIdentityRow(ctx.adminSb, signedUser.id, candidate);
+  } catch {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message: "Google provider_user_id conflicts with another profile",
+      status: 409,
+    };
+  }
 
   const ensuredProfile = await ensureProfileForUserId(ctx.adminSb, signedUser.id);
   if (!ensuredProfile?.id) {

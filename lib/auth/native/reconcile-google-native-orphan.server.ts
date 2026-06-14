@@ -61,7 +61,13 @@ async function deleteGoogleNativeOrphanAuthUser(
   adminSb: SupabaseClient,
   orphanUserId: string,
 ): Promise<void> {
-  await adminSb.auth.admin.deleteUser(orphanUserId).catch(() => undefined);
+  const { error } = await adminSb.auth.admin.deleteUser(orphanUserId);
+  if (!error) return;
+
+  const tombstoneEmail = `orphan.${orphanUserId.replace(/-/g, "")}.${Date.now()}@google.native.dibay.internal`;
+  await adminSb.auth.admin
+    .updateUserById(orphanUserId, { email: tombstoneEmail, email_confirm: true })
+    .catch(() => undefined);
 }
 
 /**

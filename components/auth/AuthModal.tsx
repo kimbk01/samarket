@@ -21,6 +21,7 @@ import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.clien
 import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import type { LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
+import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
@@ -304,6 +305,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
           onCancel={cancelOAuthPanel}
         />
       ) : null}
+      <AuthProviderEmailConflictHost />
     </>
   );
 }

@@ -18,6 +18,7 @@ export type NativeAppleAuthErrorCode =
   | "apple_native_exchange_not_ready"
   | "apple_native_verify_failed"
   | "apple_native_account_conflict"
+  | "apple_native_email_conflict"
   | "apple_native_token_invalid"
   | "apple_native_invalid_audience";
 

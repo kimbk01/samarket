@@ -22,6 +22,7 @@ export type NativeGoogleAuthErrorCode =
   | "google_native_exchange_not_ready"
   | "google_native_verify_failed"
   | "google_native_account_conflict"
+  | "google_native_email_conflict"
   | "google_native_token_invalid";
 
 export type NativeGoogleSignInResult = {

@@ -58,6 +58,47 @@ function validateRequiredCredential(
   return null;
 }
 
+function mapNativeSessionFailure(
+  session: {
+    ok: false;
+    errorCode: string;
+    message: string;
+    status: number;
+    conflict?: {
+      email: string;
+      attemptedProvider: string;
+      existingProviders: string[];
+      existingUserId: string;
+      stashToken: string;
+    };
+  },
+): NativeExchangeFailure {
+  if (session.errorCode === "provider_email_conflict" && session.conflict) {
+    return {
+      ok: false,
+      errorCode: "provider_email_conflict",
+      message: session.message,
+      status: session.status,
+      conflict: {
+        email: session.conflict.email,
+        attemptedProvider: session.conflict.attemptedProvider,
+        existingProviders: session.conflict.existingProviders,
+        existingUserId: session.conflict.existingUserId,
+        stashToken: session.conflict.stashToken,
+      },
+    };
+  }
+  if (session.errorCode === "provider_account_conflict") {
+    return {
+      ok: false,
+      errorCode: "native_exchange_account_conflict",
+      message: session.message,
+      status: session.status,
+    };
+  }
+  return session;
+}
+
 function toVerifiedAppleIdentity(
   verified: AppleVerifiedIdentityToken,
   userIdentifier?: string | null,
@@ -126,15 +167,7 @@ export const appleNativeProviderAdapter: NativeProviderAdapter = {
     });
 
     if (!session.ok) {
-      if (session.errorCode === "provider_account_conflict") {
-        return {
-          ok: false,
-          errorCode: "native_exchange_account_conflict",
-          message: session.message,
-          status: 409,
-        };
-      }
-      return session;
+      return mapNativeSessionFailure(session);
     }
 
     return {
@@ -209,15 +242,7 @@ export const kakaoNativeProviderAdapter: NativeProviderAdapter = {
     });
 
     if (!session.ok) {
-      if (session.errorCode === "provider_account_conflict") {
-        return {
-          ok: false,
-          errorCode: "native_exchange_account_conflict",
-          message: session.message,
-          status: 409,
-        };
-      }
-      return session;
+      return mapNativeSessionFailure(session);
     }
 
     return {
@@ -294,15 +319,7 @@ export const googleNativeProviderAdapter: NativeProviderAdapter = {
     });
 
     if (!session.ok) {
-      if (session.errorCode === "provider_account_conflict") {
-        return {
-          ok: false,
-          errorCode: "native_exchange_account_conflict",
-          message: session.message,
-          status: 409,
-        };
-      }
-      return session;
+      return mapNativeSessionFailure(session);
     }
 
     return {

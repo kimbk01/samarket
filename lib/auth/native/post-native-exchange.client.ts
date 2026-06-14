@@ -46,6 +46,13 @@ export function mapNativeExchangeFailure(
         ?? (provider === "google" ? "Google native exchange is not ready" : "Kakao native exchange is not ready"),
     } as MappedNativeExchangeFailure;
   }
+  if (raw === "provider_email_conflict") {
+    return {
+      provider,
+      code: `${provider}_native_email_conflict`,
+      message: exchange.message ?? "Email already registered with another sign-in method",
+    } as MappedNativeExchangeFailure;
+  }
   if (raw === "provider_account_conflict" || raw === "native_exchange_account_conflict") {
     return {
       provider,
@@ -123,11 +130,15 @@ export async function postNativeProviderExchange(
     return { ok: false, errorCode: "invalid_response", message: "Invalid native exchange response" };
   }
   if (!json.ok) {
-    return {
+    const failure: Extract<NativeExchangeResponse, { ok: false }> = {
       ok: false,
       errorCode: json.errorCode ?? (res.status === 501 ? "native_provider_not_implemented" : "exchange_failed"),
       message: json.message,
     };
+    if (json.conflict) {
+      failure.conflict = json.conflict;
+    }
+    return failure;
   }
   if (json.sessionEstablished !== true) {
     return {

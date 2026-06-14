@@ -107,6 +107,7 @@
     "verify:ios-apple-native-contract": "node scripts/verify-ios-apple-native-contract.mjs",
     "verify:kakao-native-contract": "node scripts/verify-kakao-native-contract.mjs",
     "verify:google-native-contract": "node scripts/verify-google-native-contract.mjs",
+    "verify:auth-provider-linking-contract": "node scripts/verify-auth-provider-linking-contract.mjs",
     "verify:android-device-permissions-contract": "node scripts/verify-android-device-permissions-contract.mjs",
     "verify:ios-kakao-key-config": "node scripts/verify-ios-kakao-key-config.mjs",
     "verify:auth-session-contract": "node scripts/verify-auth-session-contract.mjs",

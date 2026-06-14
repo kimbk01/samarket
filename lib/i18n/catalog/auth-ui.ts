@@ -119,6 +119,15 @@ export const authUiMessages = {
       "Google 로그인 확인에 실패했습니다. 다시 시도해 주세요.",
     auth_err_google_native_account_conflict:
       "이 Google 계정은 다른 가입 정보와 충돌합니다. 고객센터에 문의해 주세요.",
+    auth_provider_email_conflict_title: "이미 가입된 이메일입니다",
+    auth_provider_email_conflict_body:
+      "이 이메일은 이미 {existingProvider} 계정으로 DIBAY에 가입되어 있습니다. 보안을 위해 자동으로 합치지 않습니다. 기존 방식으로 로그인한 뒤 {attemptedProvider}을(를) 연결할 수 있습니다.",
+    auth_provider_email_conflict_login_existing: "{provider}으로 로그인",
+    auth_provider_email_conflict_continue_other: "다른 계정으로 계속",
+    auth_provider_email_conflict_support: "고객센터 문의",
+    auth_provider_link_success_toast: "이제 {provider}로도 로그인할 수 있습니다.",
+    auth_provider_link_blocked_toast: "보안을 위해 기존 로그인 확인이 필요합니다.",
+    auth_provider_last_unlink_blocked_toast: "최소 1개의 로그인 방법은 유지해야 합니다.",
     auth_err_native_provider_not_implemented:
       "앱에서는 아직 이 로그인 방식을 지원하지 않습니다. 다른 방법으로 로그인해 주세요.",
     auth_supabase_fail_dns:
@@ -332,6 +341,15 @@ export const authUiMessages = {
       "Google sign-in verification failed. Please try again.",
     auth_err_google_native_account_conflict:
       "This Google account conflicts with another profile. Please contact support.",
+    auth_provider_email_conflict_title: "This email is already registered",
+    auth_provider_email_conflict_body:
+      "This email is already registered on DIBAY with {existingProvider}. For security, we do not merge accounts automatically. Sign in with your existing method, then you can link {attemptedProvider}.",
+    auth_provider_email_conflict_login_existing: "Sign in with {provider}",
+    auth_provider_email_conflict_continue_other: "Continue with another account",
+    auth_provider_email_conflict_support: "Contact support",
+    auth_provider_link_success_toast: "You can now sign in with {provider} too.",
+    auth_provider_link_blocked_toast: "Please verify your existing sign-in method for security.",
+    auth_provider_last_unlink_blocked_toast: "You must keep at least one sign-in method.",
     auth_err_native_provider_not_implemented:
       "This sign-in method is not available in the app yet. Please use another method.",
     auth_supabase_fail_dns:

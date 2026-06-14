@@ -84,10 +84,15 @@ export async function POST(req: NextRequest) {
   const result = await exchangeNativeProviderToken(exchangeInput, context);
 
   if (!result.ok) {
-    return noStoreJson(
-      { ok: false, errorCode: result.errorCode, message: result.message },
-      result.status,
-    );
+    const body: Record<string, unknown> = {
+      ok: false,
+      errorCode: result.errorCode,
+      message: result.message,
+    };
+    if (result.conflict) {
+      body.conflict = result.conflict;
+    }
+    return noStoreJson(body, result.status);
   }
 
   if (result.sessionEstablished !== true) {

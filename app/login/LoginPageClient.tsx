@@ -14,6 +14,9 @@ import {
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
+import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
+import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
+import type { StoredAuthProvider } from "@/lib/auth/provider-identity/types";
 import { OAuthProviderLoginPanel } from "@/components/auth/OAuthProviderLoginPanel";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
@@ -119,9 +122,28 @@ function LoginPageContent() {
     }
     const authError = params.get("auth_error")?.trim() ?? "";
     const authErrorDetail = params.get("auth_error_detail")?.trim() ?? "";
-    // 스펙 1-A: 콜백/가드가 `?error=session_missing` 을 보낼 수 있다. 동일하게 사용자에게 알린다.
     const errorCode = params.get("error")?.trim() ?? "";
     const code = authError || errorCode;
+
+    const stash = params.get("auth_stash")?.trim() ?? "";
+    const conflictEmail = params.get("auth_conflict_email")?.trim() ?? "";
+    const attempted = params.get("auth_conflict_attempted")?.trim() ?? "";
+    const existingRaw = params.get("auth_conflict_existing")?.trim() ?? "";
+    if (stash && conflictEmail && attempted) {
+      const existingProviders = existingRaw
+        .split(",")
+        .map((p) => p.trim())
+        .filter(Boolean) as StoredAuthProvider[];
+      openProviderEmailConflictFromRedirect({
+        email: conflictEmail,
+        attemptedProvider: attempted as "google" | "kakao" | "apple",
+        existingProviders,
+        stashToken: stash,
+      });
+      router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
+      return;
+    }
+
     if (!code) return;
     dispatchOAuthPendingClear("exchange_failed");
     const message =
@@ -474,6 +496,7 @@ function LoginPageContent() {
           onCancel={cancelOAuthPanel}
         />
       ) : null}
+      <AuthProviderEmailConflictHost />
     </>
   );
 }

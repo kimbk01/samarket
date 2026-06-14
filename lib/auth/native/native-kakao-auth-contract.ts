@@ -18,6 +18,7 @@ export type NativeKakaoAuthErrorCode =
   | "kakao_native_exchange_not_ready"
   | "kakao_native_verify_failed"
   | "kakao_native_account_conflict"
+  | "kakao_native_email_conflict"
   | "kakao_native_token_invalid";
 
 export type NativeKakaoSignInResult = {

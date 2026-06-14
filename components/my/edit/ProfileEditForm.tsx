@@ -279,6 +279,10 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   }, [pathname, refreshSetupGate]);
 
   useEffect(() => {
+    void load();
+  }, [load]);
+
+  useEffect(() => {
     if (requiredSlugs.size === 0 || loading) return;
     const slug = [...requiredSlugs][0];
     const el = document.querySelector(`[data-profile-field="${slug}"]`);

@@ -19,6 +19,7 @@ import {
   readPreferredSpeakerSinkId,
   writePreferredSpeakerSinkId,
 } from "@/lib/permissions/speaker-output-preference";
+import { LinkedLoginProvidersContent } from "@/components/my/settings/LinkedLoginProvidersContent";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 const PERMISSION_KINDS: readonly DevicePermissionKind[] = [
@@ -273,6 +274,11 @@ export function DevicePermissionsSettingsContent() {
 
   return (
     <div className="space-y-6">
+      <section className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
+        <h3 className={`${Sam.text.cardTitle} text-sam-fg`}>{t("mypage_linked_login_providers_title")}</h3>
+        <LinkedLoginProvidersContent />
+      </section>
+
       <p className={`${Sam.text.bodySecondary} text-sam-muted`}>{t("settings_device_intro")}</p>
 
       {hint ? (

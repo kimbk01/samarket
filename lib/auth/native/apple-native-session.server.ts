@@ -8,7 +8,12 @@ import {
 } from "@/lib/auth/native/apple-auth-env.server";
 import type { AppleVerifiedIdentityToken } from "@/lib/auth/native/apple-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
-import { findActiveProfileIdByProviderUserId } from "@/lib/auth/active-profile-lookup";
+import {
+  buildAppleProviderCandidate,
+  ensureProviderAuthIdentityRow,
+  resolveNativeProviderSessionPrelude,
+} from "@/lib/auth/provider-identity/native-session-bridge.server";
+import type { ProviderEmailConflictDetail } from "@/lib/auth/provider-identity/types";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
@@ -52,14 +57,8 @@ export type AppleNativeSessionResult =
       errorCode: string;
       message: string;
       status: number;
+      conflict?: ProviderEmailConflictDetail & { stashToken: string };
     };
-
-async function findProfileIdByAppleSub(
-  adminSb: SupabaseClient,
-  sub: string,
-): Promise<string | null> {
-  return findActiveProfileIdByProviderUserId(adminSb, "apple", sub);
-}
 
 function buildAppleUserMetadata(
   verified: AppleVerifiedIdentityToken,
@@ -228,7 +227,18 @@ export async function establishAppleNativeSession(
   }
 
   const safeNext = sanitizeNextPath(input.next ?? null);
-  const existingProfileId = await findProfileIdByAppleSub(ctx.adminSb, sub);
+  const candidate = buildAppleProviderCandidate(input.verified, userIdentifier);
+  const prelude = await resolveNativeProviderSessionPrelude(ctx.adminSb, candidate);
+  if (!prelude.ok) {
+    return {
+      ok: false,
+      errorCode: prelude.errorCode,
+      message: prelude.message,
+      status: prelude.status,
+      conflict: prelude.conflict,
+    };
+  }
+  const existingProfileId = prelude.existingUserId;
 
   const upsert = await upsertAppleAuthUser(ctx.adminSb, {
     existingUserId: existingProfileId,
@@ -298,6 +308,17 @@ export async function establishAppleNativeSession(
   }
 
   await persistAppleProfileIdentity(ctx.adminSb, signedUser.id, input.verified);
+
+  try {
+    await ensureProviderAuthIdentityRow(ctx.adminSb, signedUser.id, candidate);
+  } catch {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message: "Apple provider_user_id conflicts with another profile",
+      status: 409,
+    };
+  }
 
   let redirectTo = safeNext ?? POST_LOGIN_PATH;
   let signupComplete = false;

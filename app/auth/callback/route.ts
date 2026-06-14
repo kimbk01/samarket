@@ -14,6 +14,10 @@ import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path
 import { APP_LANGUAGE_COOKIE, parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
+import {
+  enforceWebOAuthProviderPolicy,
+  persistOAuthProviderIdentity,
+} from "@/lib/auth/provider-identity/web-oauth-policy.server";
 
 export const dynamic = "force-dynamic";
 
@@ -151,10 +155,34 @@ export async function GET(req: NextRequest) {
         return response;
       }
 
+      const providerPolicy = await enforceWebOAuthProviderPolicy(writeSb, mergedUser);
+      if (!providerPolicy.ok) {
+        await supabase.auth.signOut();
+        loginUrl.searchParams.set("auth_error", providerPolicy.errorCode);
+        loginUrl.searchParams.set("auth_error_detail", providerPolicy.message.slice(0, 300));
+        if (providerPolicy.conflict) {
+          loginUrl.searchParams.set("auth_stash", providerPolicy.conflict.stashToken);
+          loginUrl.searchParams.set("auth_conflict_email", providerPolicy.conflict.email);
+          loginUrl.searchParams.set(
+            "auth_conflict_attempted",
+            providerPolicy.conflict.attemptedProvider,
+          );
+          loginUrl.searchParams.set(
+            "auth_conflict_existing",
+            providerPolicy.conflict.existingProviders.join(","),
+          );
+        }
+        response = NextResponse.redirect(loginUrl);
+        return response;
+      }
+
       try {
         await upsertOAuthProfileFromUser(writeSb, mergedUser, {
           nicknameOverride: nick || null,
         });
+        if (providerPolicy.candidate) {
+          await persistOAuthProviderIdentity(writeSb, mergedUser.id, providerPolicy.candidate);
+        }
       } catch {
         /* 클라이언트 ensure 에 맡김 */
       }

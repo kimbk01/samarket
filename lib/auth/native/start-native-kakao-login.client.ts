@@ -13,12 +13,17 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeKakaoLoginAvailable } from "@/lib/platform/capacitor-native";
 
 export type NativeKakaoExchangeResponse = NativeExchangeResponse;
 
 function throwNativeKakaoExchangeError(exchange: Extract<NativeKakaoExchangeResponse, { ok: false }>): never {
+  if (openProviderEmailConflictFromExchange(exchange)) {
+    endOAuthFlow("kakao");
+    throw new NativeKakaoAuthError("kakao_native_email_conflict", exchange.message);
+  }
   const mapped = mapNativeExchangeFailure("kakao", exchange);
   throw new NativeKakaoAuthError(mapped.code, mapped.message);
 }

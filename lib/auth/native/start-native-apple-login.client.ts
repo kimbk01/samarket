@@ -12,6 +12,7 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeAppleLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -84,11 +85,13 @@ export async function postNativeAppleExchange(
     return { ok: false, errorCode: "invalid_response", message: "Invalid native exchange response" };
   }
   if (!json.ok) {
-    return {
+    const failure: Extract<NativeAppleExchangeResponse, { ok: false }> = {
       ok: false,
       errorCode: json.errorCode ?? (res.status === 501 ? "native_exchange_not_implemented" : "exchange_failed"),
       message: json.message,
     };
+    if (json.conflict) failure.conflict = json.conflict;
+    return failure;
   }
   if (json.sessionEstablished !== true) {
     return {
@@ -109,6 +112,7 @@ export function isNativeAppleLoginStartError(code: string): code is NativeAppleA
     || code === "apple_native_exchange_not_ready"
     || code === "apple_native_verify_failed"
     || code === "apple_native_account_conflict"
+    || code === "apple_native_email_conflict"
     || code === "apple_native_token_invalid"
   );
 }
@@ -143,6 +147,10 @@ export async function startNativeAppleLogin(input?: {
     const exchange = await postNativeAppleExchange(exchangeBody, { next: input?.next ?? null });
 
     if (!exchange.ok) {
+      if (openProviderEmailConflictFromExchange(exchange)) {
+        endOAuthFlow("apple");
+        throw new NativeAppleAuthError("apple_native_email_conflict", exchange.message);
+      }
       throw mapExchangeErrorToNativeAppleError(exchange);
     }
 

@@ -105,11 +105,14 @@ if (!read("lib/auth/native/start-native-provider-login.client.ts").includes("sta
 if (adapter.includes('createStubAdapter("google")')) {
   failures.push("googleNativeProviderAdapter must not be a stub");
 }
-if (!googleResolve.includes("ambiguous")) {
-  failures.push("resolve-google-native-existing-user must reject ambiguous Gmail profile matches");
+if (!googleSession.includes("resolveNativeProviderSessionPrelude")) {
+  failures.push("google-native-session must use resolveNativeProviderSessionPrelude for provider identity policy");
 }
-if (!googleSession.includes("resolveGoogleNativeExistingUserId")) {
-  failures.push("google-native-session must use resolveGoogleNativeExistingUserId for existing vs new distinction");
+if (!read("lib/auth/provider-identity/native-session-bridge.server.ts").includes("provider_email_conflict")) {
+  failures.push("native-session-bridge must surface provider_email_conflict without auto email merge");
+}
+if (googleSession.includes("resolveGoogleNativeExistingUserId(")) {
+  failures.push("google-native-session must not call legacy resolveGoogleNativeExistingUserId");
 }
 if (!googleStart.includes("finishClientAuthLogin")) {
   failures.push("start-native-google-login recover path must call finishClientAuthLogin");

@@ -61,6 +61,13 @@ export type NativeExchangeFailureResponse = {
   ok: false;
   errorCode: string;
   message?: string;
+  conflict?: {
+    email: string;
+    attemptedProvider: string;
+    existingProviders: string[];
+    existingUserId: string;
+    stashToken: string;
+  };
 };
 
 export type NativeExchangeResponse = NativeExchangeSuccessResponse | NativeExchangeFailureResponse;

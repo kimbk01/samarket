@@ -121,6 +121,31 @@ describe("resolve-google-native-existing-user", () => {
     expect(lookup).toEqual({ status: "found", profileId });
   });
 
+  it("prefers canonical profile when the same Gmail also has reclaimable google orphan rows", async () => {
+    const canonicalProfileId = "profile-im2pact";
+    const orphanProfileId = "profile-orphan-email-dup";
+    const adminSb = buildProfilesSupabaseMock([
+      {
+        id: orphanProfileId,
+        provider: "google",
+        auth_provider: "google",
+        provider_user_id: "sub-orphan",
+        status: "sns_pending",
+      } as ProfileRow & { provider_user_id: string },
+      { id: canonicalProfileId, provider: "email", auth_provider: "email", status: "active" },
+    ]);
+    findAuthUserByEmail.mockResolvedValue({ id: canonicalProfileId, email: "im2pact@gmail.com" });
+
+    const lookup = await lookupProfileIdByVerifiedGoogleEmail(adminSb, {
+      googleUserId: "sub-im2pact",
+      audience: "aud",
+      email: "im2pact@gmail.com",
+      emailVerified: true,
+    });
+
+    expect(lookup).toEqual({ status: "found", profileId: canonicalProfileId });
+  });
+
   it("returns ambiguous when the same Gmail maps to multiple profiles without a unique google tag", async () => {
     const adminSb = buildProfilesSupabaseMock([
       { id: "profile-a", provider: "email", auth_provider: "email" },

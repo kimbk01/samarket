@@ -83,6 +83,28 @@ export async function lookupProfileIdByVerifiedGoogleEmail(
     return { status: "found", profileId: candidateIds[0] ?? "" };
   }
 
+  const detailedCandidates = await Promise.all(
+    candidateIds.map(async (id) => ({
+      id,
+      row: await loadProfileOrphanRow(adminSb, id),
+    })),
+  );
+  const canonicalCandidates = detailedCandidates.filter(
+    ({ id, row }) => !isGoogleNativeOrphanProfileRow(row, id),
+  );
+  if (canonicalCandidates.length === 1) {
+    return { status: "found", profileId: canonicalCandidates[0]?.id ?? "" };
+  }
+
+  const authByEmail = await findAuthUserByEmail(adminSb, email);
+  const authHolderId = String(authByEmail?.id ?? "").trim();
+  if (authHolderId) {
+    const authHolder = detailedCandidates.find((candidate) => candidate.id === authHolderId);
+    if (authHolder && !isGoogleNativeOrphanProfileRow(authHolder.row, authHolderId)) {
+      return { status: "found", profileId: authHolderId };
+    }
+  }
+
   const { data } = await adminSb
     .from("profiles")
     .select("id, provider, auth_provider")
@@ -123,7 +145,9 @@ export async function lookupProfileIdByVerifiedGoogleEmail(
     };
   }
 
-  return { status: "ambiguous", candidateIds };
+  return { status: "ambiguous", candidateIds: canonicalCandidates.length > 1
+    ? canonicalCandidates.map((candidate) => candidate.id)
+    : candidateIds };
 }
 
 /** Supabase Web Google OAuth — profiles.provider_user_id 없이 auth.identities 만 있는 경우 */

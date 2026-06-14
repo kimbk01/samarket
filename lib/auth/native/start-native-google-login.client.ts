@@ -18,6 +18,7 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { openProviderEmailConflictFromExchange } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
@@ -27,6 +28,10 @@ export type NativeGoogleExchangeResponse = NativeExchangeResponse;
 let googleNativeRecoverInFlight = false;
 
 function throwNativeGoogleExchangeError(exchange: Extract<NativeGoogleExchangeResponse, { ok: false }>): never {
+  if (openProviderEmailConflictFromExchange(exchange)) {
+    endOAuthFlow("google");
+    throw new NativeGoogleAuthError("google_native_email_conflict", exchange.message);
+  }
   const mapped = mapNativeExchangeFailure("google", exchange);
   throw new NativeGoogleAuthError(mapped.code, mapped.message);
 }
