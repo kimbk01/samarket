@@ -89,6 +89,13 @@ export function mapNativeExchangeFailure(
         ?? "This account was withdrawn. Please contact support or sign up again.",
     } as MappedNativeExchangeFailure;
   }
+  if (raw === "profile_ensure_failed") {
+    return {
+      provider,
+      code: `${provider}_native_unavailable`,
+      message: exchange.message ?? "Profile sync failed after login",
+    } as MappedNativeExchangeFailure;
+  }
   return {
     provider,
     code: `${provider}_native_unavailable`,

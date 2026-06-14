@@ -18,6 +18,7 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
+import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -33,6 +34,19 @@ function throwNativeGoogleExchangeError(exchange: Extract<NativeGoogleExchangeRe
 async function abortGoogleNativeRecoverPending(reason: string): Promise<void> {
   logOAuthNativeEvent("google_native_recover_aborted", { reason });
   await revokeNativeGoogleSessionIfAvailable();
+}
+
+function finishNativeGoogleRecoverNavigation(redirectTo: string | null | undefined): void {
+  const target = redirectTo?.trim() || POST_LOGIN_PATH;
+  window.location.replace(target);
+}
+
+/**
+ * Google 계정 UI 복귀 시 startNativeGoogleLogin 의 OAuth lock 이 아직 잡혀 있을 수 있다.
+ * 같은 provider(google) in-flight 는 “복구가 원래 시도를 마무리하는 것”이므로 abort 하지 않는다.
+ */
+export function shouldAbortGoogleNativeRecoverForOAuthLock(inFlightProvider: string): boolean {
+  return inFlightProvider !== "google";
 }
 
 async function completeNativeGoogleSession(input: {
@@ -78,24 +92,26 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
     if (!recovered) return false;
 
     const flow = tryBeginOAuthFlow("google");
-    if (!flow.ok) {
+    const releaseFlow = flow.ok ? flow.release : null;
+    if (!flow.ok && shouldAbortGoogleNativeRecoverForOAuthLock(flow.inFlightProvider)) {
       await abortGoogleNativeRecoverPending("oauth_flow_in_flight");
       return false;
     }
 
     try {
-      logOAuthNativeEvent("google_native_recover_started", { next: recovered.next ?? null });
+      logOAuthNativeEvent("google_native_recover_started", {
+        next: recovered.next ?? null,
+        completingInFlightGoogleFlow: !flow.ok,
+      });
       const result = await completeNativeGoogleSession({
         signInResult: recovered,
         next: recovered.next ?? null,
         recovered: true,
       });
-      if (result.redirectTo?.trim()) {
-        window.location.replace(result.redirectTo.trim());
-      }
+      finishNativeGoogleRecoverNavigation(result.redirectTo);
       return true;
     } catch (error) {
-      flow.release();
+      releaseFlow?.();
       endOAuthFlow("google");
       await abortGoogleNativeRecoverPending("recover_exchange_failed");
       logOAuthNativeEvent("google_native_recover_exchange_failed", {

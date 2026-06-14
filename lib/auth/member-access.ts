@@ -223,6 +223,8 @@ export async function ensurePendingAuthProfileRow(
 ): Promise<void> {
   const seed = seedInput ?? extractOAuthProfileSeed(user);
   const email = pickTrimmed(user.email);
+  /** Native OAuth — verified Gmail 등 실제 로그인 이메일 (synthetic auth email 과 분리) */
+  const authLoginEmail = pickTrimmed(seed.emailInternal) ?? email;
   const nicknameCandidate = pickTrimmed(seed.nicknameCandidate);
   const seedDisplayName = resolveOAuthSeedDisplayName(nicknameCandidate);
   const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
@@ -240,8 +242,8 @@ export async function ensurePendingAuthProfileRow(
   if (existing) {
     const patch: Record<string, unknown> = {};
     const row = existing as Record<string, unknown>;
-    if (!pickTrimmed(row.email as string) && email) patch.email = email;
-    if (!pickTrimmed(row.auth_login_email as string) && email) patch.auth_login_email = email;
+    if (!pickTrimmed(row.email as string) && authLoginEmail) patch.email = authLoginEmail;
+    if (!pickTrimmed(row.auth_login_email as string) && authLoginEmail) patch.auth_login_email = authLoginEmail;
     if (!pickTrimmed(row.provider as string)) patch.provider = dbProvider;
     if (!pickTrimmed(row.auth_provider as string)) patch.auth_provider = dbProvider;
     const oauthNicknamePatch = buildOAuthNicknamePatch(
@@ -286,8 +288,8 @@ export async function ensurePendingAuthProfileRow(
 
   const fullRow = {
     id: user.id,
-    email,
-    auth_login_email: email,
+    email: authLoginEmail,
+    auth_login_email: authLoginEmail,
     nickname: seedDisplayName,
     display_name: seedDisplayName,
     avatar_url: oauthAvatar,

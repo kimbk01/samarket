@@ -2,6 +2,8 @@
 
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { primeClientAuthSessionFromSupabase } from "@/lib/auth/auth-session-immediate.client";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import {
   clearPostLogoutBfcacheGuard,
   invalidateGuestCachesForFreshLogin,
@@ -13,6 +15,7 @@ import {
   consumePendingAuthAction,
 } from "@/lib/auth/require-auth-action";
 import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 
 type RouterLike = {
   replace: (href: string) => void;
@@ -59,6 +62,19 @@ async function resolveLoginTarget(input: {
   return fallback;
 }
 
+/** Native/Web OAuth 직후 — JWT 캐시만 있고 profiles API 가 아직 비어 보이는 레이스 완화 */
+async function primeClientProfileRowAfterLogin(): Promise<void> {
+  try {
+    const { status, json } = await fetchMeProfileDeduped();
+    const payload = json as { ok?: boolean; profile?: Record<string, unknown> | null } | null;
+    if (status >= 200 && status < 300 && payload?.ok && payload.profile && typeof payload.profile.id === "string") {
+      setSupabaseProfileCache(profileRowToClientProfile(payload.profile as never));
+    }
+  } catch {
+    /* redirect 는 계속 */
+  }
+}
+
 export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): Promise<void> {
   const { redirectTo, pendingToken, next, onCloseModal, router } = input;
 
@@ -82,6 +98,7 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
   clearPostLogoutBfcacheGuard();
 
   await primeClientAuthSessionFromSupabase();
+  await primeClientProfileRowAfterLogin();
 
   const target = await resolveLoginTarget({ redirectTo, next });
 

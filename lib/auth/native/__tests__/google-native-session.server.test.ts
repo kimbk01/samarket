@@ -8,6 +8,7 @@ import {
 const findAuthUserByEmail = vi.fn();
 const ensureUserProfile = vi.fn();
 const ensurePendingAuthProfileRow = vi.fn();
+const ensureProfileForUserId = vi.fn();
 const getOnboardingStatus = vi.fn();
 const syncActiveSessionForUser = vi.fn();
 
@@ -29,6 +30,10 @@ vi.mock("@/lib/auth/get-onboarding-status", () => ({
 
 vi.mock("@/lib/auth/server-guards", () => ({
   syncActiveSessionForUser: (...args: unknown[]) => syncActiveSessionForUser(...args),
+}));
+
+vi.mock("@/lib/profile/ensure-profile-for-user-id", () => ({
+  ensureProfileForUserId: (...args: unknown[]) => ensureProfileForUserId(...args),
 }));
 
 function buildAdminSb(options: {
@@ -53,16 +58,41 @@ function buildAdminSb(options: {
     }
     return {
       select: () => ({
-        eq: () => ({
-          eq: () => ({
-            limit: async () => ({
-              data: options.profileId ? [{ id: options.profileId }] : [],
-              error: null,
+        eq: (col: string, val: unknown) => {
+          if (col === "id") {
+            return {
+              maybeSingle: async () => ({ data: null, error: null }),
+              in: async () => ({ data: [], error: null }),
+            };
+          }
+          if (col === "provider" && val === "google") {
+            return {
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: options.profileId ? { id: options.profileId, status: "sns_pending", deleted_at: null } : null,
+                  error: null,
+                }),
+                limit: async () => ({
+                  data: options.profileId ? [{ id: options.profileId }] : [],
+                  error: null,
+                }),
+              }),
+              or: () => ({
+                limit: async () => ({ data: [], error: null }),
+              }),
+            };
+          }
+          return {
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+              limit: async () => ({ data: [], error: null }),
             }),
-          }),
-          or: () => ({
-            limit: async () => ({ data: [], error: null }),
-          }),
+            or: async () => ({ data: [], error: null }),
+            in: async () => ({ data: [], error: null }),
+          };
+        },
+        ilike: () => ({
+          limit: async () => ({ data: [], error: null }),
         }),
       }),
       update: () => ({ eq: async () => ({ error: null }) }),
@@ -100,6 +130,7 @@ describe("google-native-session.server", () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
     ensurePendingAuthProfileRow.mockResolvedValue(undefined);
     ensureUserProfile.mockResolvedValue({ profile: { id: "08224de9-953e-4219-8ead-f30d7201dafb" }, linked: true });
+    ensureProfileForUserId.mockResolvedValue({ id: "08224de9-953e-4219-8ead-f30d7201dafb" });
     getOnboardingStatus.mockResolvedValue({
       signupComplete: false,
       consentComplete: false,
@@ -150,6 +181,7 @@ describe("google-native-session.server", () => {
       }),
     );
     expect(signInWithPassword).toHaveBeenCalledTimes(1);
+    expect(ensureProfileForUserId).toHaveBeenCalledWith(adminSb, orphanId);
   });
 
   it("prefers existing web Google profile by verified email over synthetic orphan auth user", async () => {
@@ -165,9 +197,16 @@ describe("google-native-session.server", () => {
       return {
         select: () => ({
           eq: (col: string, val: unknown) => {
+            if (col === "id") {
+              return {
+                maybeSingle: async () => ({ data: null, error: null }),
+                in: async () => ({ data: [{ id: webProfileId, provider: "email", auth_provider: "email" }], error: null }),
+              };
+            }
             if (col === "provider" && val === "google") {
               return {
                 eq: () => ({
+                  maybeSingle: async () => ({ data: null, error: null }),
                   limit: async () => ({ data: [], error: null }),
                 }),
                 or: () => ({
@@ -175,9 +214,21 @@ describe("google-native-session.server", () => {
                 }),
               };
             }
+            if (col === "id") {
+              return {
+                in: async () => ({ data: [{ id: webProfileId, provider: "email", auth_provider: "email" }], error: null }),
+                maybeSingle: async () => ({ data: null, error: null }),
+              };
+            }
             return {
-              eq: () => ({ limit: async () => ({ data: [], error: null }) }),
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+                limit: async () => ({ data: [], error: null }),
+              }),
               or: async () => ({ data: [], error: null }),
+              ilike: () => ({
+                limit: async () => ({ data: [{ id: webProfileId }], error: null }),
+              }),
             };
           },
         }),
@@ -208,6 +259,8 @@ describe("google-native-session.server", () => {
     }));
     const routeSb = { auth: { signInWithPassword } } as unknown as SupabaseClient;
 
+    ensureProfileForUserId.mockResolvedValue({ id: webProfileId });
+
     const result = await establishGoogleNativeSession(
       {
         adminSb,
@@ -226,6 +279,7 @@ describe("google-native-session.server", () => {
     );
 
     expect(result.ok).toBe(true);
+    expect(ensureProfileForUserId).toHaveBeenCalledWith(adminSb, webProfileId);
     expect(adminSb.auth.admin.updateUserById).toHaveBeenCalledWith(
       webProfileId,
       expect.objectContaining({
@@ -236,5 +290,38 @@ describe("google-native-session.server", () => {
       orphanId,
       expect.anything(),
     );
+  });
+
+  it("fails exchange when profiles row cannot be ensured", async () => {
+    const googleUserId = "107373086399795697553";
+    const adminSb = buildAdminSb({ profileId: null });
+    const signInWithPassword = vi.fn(async () => ({
+      data: { user: { id: "new-user-id", email: `google.${googleUserId}@google.native.dibay.internal` } },
+      error: null,
+    }));
+    const routeSb = { auth: { signInWithPassword } } as unknown as SupabaseClient;
+    ensureProfileForUserId.mockResolvedValue(null);
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      {
+        verified: {
+          googleUserId,
+          audience: "229866850463-test.apps.googleusercontent.com",
+          email: null,
+          emailVerified: false,
+        },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errorCode).toBe("profile_ensure_failed");
+    }
   });
 });
