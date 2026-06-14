@@ -24,6 +24,7 @@ import {
 } from "@/lib/trade/trade-chat-entry-journey-perf";
 import { noteTradeChatRoomBootstrapDoneForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
 /** blocking 첫 입장과 동일한 쿼리 — 메시지·멤버 시드 포함 */
 export function communityMessengerRoomBlockingBootstrapQuery(): string {
@@ -43,7 +44,11 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
   const viewerUserId = (opts?.viewerUserId ?? getCurrentUser()?.id ?? "").trim();
   if (!opts?.bustCache && viewerUserId) {
     const cached = peekRoomSnapshot(rid, viewerUserId);
-    if (cached && isRoomSnapshotFresh(rid, viewerUserId)) {
+    if (
+      cached &&
+      isMessengerRoomBootstrapReadySnapshot(cached) &&
+      isRoomSnapshotFresh(rid, viewerUserId)
+    ) {
       if (readTradeChatEntryMark()) {
         recordCmRoomBootstrapCacheHit(1);
       }
@@ -97,7 +102,7 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
     return parsed;
   });
 
-  if (snap) {
+  if (snap && isMessengerRoomBootstrapReadySnapshot(snap)) {
     primeRoomSnapshot(rid, snap);
   }
   return snap;

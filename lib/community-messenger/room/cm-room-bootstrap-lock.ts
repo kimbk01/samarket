@@ -2,6 +2,7 @@
 
 import type { CmBootstrapTier } from "@/lib/community-messenger/room/cm-bootstrap-orchestration";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS } from "@/lib/community-messenger/room/cm-bootstrap-constants";
 import {
   getRoomSnapshotCacheAgeMs,
@@ -92,6 +93,8 @@ export function isHardForegroundRefresh(input: {
     r.includes("debounced_retry") ||
     r.includes("bootstrap_error") ||
     r.includes("empty_timeline_recover") ||
+    r.includes("placeholder_stuck_recover") ||
+    r.includes("blocking_bootstrap_retry") ||
     r.includes("read_patch_force")
   ) {
     return true;
@@ -118,13 +121,13 @@ export function resolveForegroundReentryReuse(input: {
 
   if (st.lastSnapshot && st.lastSuccessAt > 0 && snapshotMatchesRoom(st.lastSnapshot, id)) {
     const ageMs = now - st.lastSuccessAt;
-    if (ageMs <= CM_FOREGROUND_BOOTSTRAP_REUSE_MS) {
+    if (ageMs <= CM_FOREGROUND_BOOTSTRAP_REUSE_MS && isMessengerRoomBootstrapReadySnapshot(st.lastSnapshot)) {
       return { snap: st.lastSnapshot, snapshotAgeMs: ageMs, source: "lock" };
     }
   }
 
   const peek = input.peekSnapshot ?? null;
-  if (!peek || !snapshotMatchesRoom(peek, id)) return null;
+  if (!peek || !snapshotMatchesRoom(peek, id) || !isMessengerRoomBootstrapReadySnapshot(peek)) return null;
   const cacheAgeMs = getRoomSnapshotCacheAgeMs(id, input.viewerUserId);
   if (cacheAgeMs == null || cacheAgeMs > CM_FOREGROUND_BOOTSTRAP_REUSE_MS) return null;
   if (
@@ -268,7 +271,7 @@ export function evaluateCmRoomForegroundBootstrap(input: {
 
   if (input.hasLocalSnapshot || input.hasPrefetchSnapshot) {
     const reuse = input.peekSnapshot ?? st.lastSnapshot;
-    if (reuse && !hardRefresh && snapshotMatchesRoom(reuse, id)) {
+    if (reuse && !hardRefresh && snapshotMatchesRoom(reuse, id) && isMessengerRoomBootstrapReadySnapshot(reuse)) {
       const cacheAge = getRoomSnapshotCacheAgeMs(id, input.viewerUserId ?? null);
       if (cacheAge != null && cacheAge <= CM_FOREGROUND_BOOTSTRAP_REUSE_MS) {
         return logSkip("local_or_prefetch_snapshot_sufficient", reuse, cacheAge);

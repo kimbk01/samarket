@@ -6,6 +6,13 @@ function messageCount(snap: CommunityMessengerRoomSnapshot | null | undefined): 
   return snap?.messages?.length ?? 0;
 }
 
+/** BootstrapGate·IndexedDB·foreground lock 재사용 가능한 실스냅샷(클라 셸 placeholder 제외) */
+export function isMessengerRoomBootstrapReadySnapshot(
+  snap: CommunityMessengerRoomSnapshot | null | undefined
+): snap is CommunityMessengerRoomSnapshot {
+  return Boolean(snap && !snap.clientShellPlaceholder);
+}
+
 /** 메시지 시드가 가장 풍부한 스냅샷 — 동일 개수면 `server` 우선 */
 function pickRichestRoomSnapshot(
   server: CommunityMessengerRoomSnapshot | null,
@@ -56,7 +63,7 @@ export function pickAuthoritativeMessengerRoomSnapshot(
     const live = getMessengerRealtimeRoomMessages(rid);
     if (live.length > 0) {
       const seeded = peekRoomSnapshot(rid, viewer) ?? hot;
-      if (seeded) return seeded;
+      if (seeded && isMessengerRoomBootstrapReadySnapshot(seeded)) return seeded;
     }
   }
 

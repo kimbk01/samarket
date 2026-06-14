@@ -53,7 +53,10 @@ import {
 } from "@/lib/community-messenger/types";
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { buildClientShellPlaceholderSnapshot } from "@/lib/community-messenger/room/client-shell-placeholder-snapshot";
-import { pickAuthoritativeMessengerRoomSnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import {
+  isMessengerRoomBootstrapReadySnapshot,
+  pickAuthoritativeMessengerRoomSnapshot,
+} from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import {
   peekRoomSnapshot,
   primeHotRoomSnapshot,
@@ -265,9 +268,12 @@ export function useMessengerRoomClientPhase1({
   const autoHandledSessionRef = useRef<string | null>(null);
   const autoAcceptInFlightRef = useRef<string | null>(null);
   const pendingMessageIdRef = useRef(0);
-  const loadedRef = useRef(
-    Boolean(peekRoomSnapshot(roomId, initialViewerId || undefined) ?? initialServerSnapshot)
-  );
+  const loadedRef = useRef((() => {
+    const cached = peekRoomSnapshot(roomId, initialViewerId || undefined);
+    if (isMessengerRoomBootstrapReadySnapshot(cached)) return true;
+    if (isMessengerRoomBootstrapReadySnapshot(initialServerSnapshot)) return true;
+    return false;
+  })());
   /** RSC가 `membersDeferred` 부트스트랩을 내렸으면 사일런트 갱신 시 전원 멤버 프로필을 다시 끌어오지 않음 */
   const deferredMemberBootstrapRef = useRef(Boolean(initialServerSnapshot?.membersDeferred));
   const silentRoomRefreshBusyRef = useRef(false);
@@ -957,6 +963,24 @@ export function useMessengerRoomClientPhase1({
     loadedRef,
     setRoomReadyForRealtime,
   });
+
+  /** 셸 placeholder 고착 시 blocking bootstrap 재시도 — gate skip·네트워크 실패 등 2차 방어 */
+  useEffect(() => {
+    if (!snapshot?.clientShellPlaceholder) return;
+    const rid = roomId.trim();
+    if (!rid || typeof window === "undefined") return;
+    const recoverTimer = window.setTimeout(() => {
+      if (!snapshotRef.current?.clientShellPlaceholder) return;
+      void refresh(false, {
+        triggerReason: "placeholder_stuck_recover",
+        forceForegroundBlock: true,
+        forceSilentNetwork: true,
+      });
+    }, 2400);
+    return () => {
+      window.clearTimeout(recoverTimer);
+    };
+  }, [roomId, refresh, snapshot?.clientShellPlaceholder]);
 
   useEffect(() => {
     const snap = snapshot;

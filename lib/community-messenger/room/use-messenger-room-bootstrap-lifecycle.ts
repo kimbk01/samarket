@@ -6,6 +6,7 @@ import {
   peekRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_FOREGROUND_BOOTSTRAP_REUSE_MS } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { cmStrictEffectRunProbe } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
@@ -25,7 +26,7 @@ type Args = {
 
 /**
  * 방 페이지: 시드 스냅샷(hot/peek/RSC)이 있으면 첫 페인트는 시드로 유지하고, 보강이 필요하면 silent refresh(멤버 지연은 즉시, trade/full 보강만 100~300ms).
- * 시드 없으면 차단 부트스트랩을 **즉시** 호출한다. `useMessengerRoomClientPhase1` 의 네트워크 정책을 한 곳에 둔다.
+ * `clientShellPlaceholder` 셸만 있으면 차단 부트스트랩을 **즉시** 호출한다. `useMessengerRoomClientPhase1` 의 네트워크 정책을 한 곳에 둔다.
  */
 export function useMessengerRoomBootstrapLifecycle({
   roomId,
@@ -36,13 +37,18 @@ export function useMessengerRoomBootstrapLifecycle({
 }: Args): void {
   useEffect(() => {
     cmStrictEffectRunProbe("useMessengerRoomBootstrapLifecycle", roomId);
-    // Local-first / server-seeded 방은 Realtime 을 가능한 빨리 연다.
-    // (초기 HTTP 부트스트랩 완료까지 기다리면 체감 진입이 느려진다.)
     const viewerGuess = initialServerSnapshot?.viewerUserId?.trim() ?? "";
     const warmFromCache = peekRoomSnapshot(roomId, viewerGuess || undefined) ?? null;
-    const warmSnapshot = initialServerSnapshot ?? warmFromCache;
+    const seededSnapshot = isMessengerRoomBootstrapReadySnapshot(initialServerSnapshot)
+      ? initialServerSnapshot
+      : null;
+    const warmSnapshot =
+      seededSnapshot ??
+      (isMessengerRoomBootstrapReadySnapshot(warmFromCache) ? warmFromCache : null);
+
     setRoomReadyForRealtime(Boolean(warmSnapshot) || loadedRef.current);
-    if (initialServerSnapshot) {
+
+    if (seededSnapshot) {
       loadedRef.current = true;
       setRoomReadyForRealtime(true);
       /**
@@ -50,12 +56,15 @@ export function useMessengerRoomBootstrapLifecycle({
        * - `bootstrapEnrichmentPending`: full 보강 — 100~300ms 뒤 1회 silent
        */
       const needsDeferredEnrichment =
-        initialServerSnapshot.membersDeferred === true ||
-        initialServerSnapshot.bootstrapEnrichmentPending === true;
+        seededSnapshot.membersDeferred === true ||
+        seededSnapshot.bootstrapEnrichmentPending === true;
       if (!needsDeferredEnrichment) {
         return;
       }
-      if (initialServerSnapshot.bootstrapEnrichmentPending === true) {
+      if (seededSnapshot.membersDeferred === true && !isDevSafeMode()) {
+        void refresh(true, { triggerReason: "members_deferred" });
+      }
+      if (seededSnapshot.bootstrapEnrichmentPending === true) {
         if (isDevSafeMode()) {
           return;
         }
@@ -70,17 +79,33 @@ export function useMessengerRoomBootstrapLifecycle({
           if (t !== 0) clearTimeout(t);
         };
       }
-      if (initialServerSnapshot.membersDeferred === true) {
+      if (seededSnapshot.membersDeferred === true) {
         if (!isDevSafeMode()) {
-          void refresh(true, { triggerReason: "members_deferred" });
+          /** silent_delta 멤버 보강 뒤 activeCall·trade full enrich — 통화 배너·수신 UI 지연 완화 */
+          const enrichDelayMs = 160 + Math.floor(Math.random() * 81);
+          const enrichTimer =
+            typeof window !== "undefined"
+              ? window.setTimeout(() => {
+                  void refresh(true, {
+                    triggerReason: "bootstrap_enrichment_pending",
+                    forceSilentNetwork: true,
+                  });
+                }, enrichDelayMs)
+              : 0;
+          return () => {
+            if (enrichTimer !== 0) clearTimeout(enrichTimer);
+          };
         }
       }
       return;
     }
+
     const cacheFresh =
-      Boolean(warmFromCache) &&
+      Boolean(warmSnapshot) &&
       isRoomSnapshotFreshWithin(roomId, CM_FOREGROUND_BOOTSTRAP_REUSE_MS, viewerGuess || null);
-    /** 재진입(5s 캐시): foreground block 생략 — refresh 내부 lock·zero-fetch */
+    /** placeholder 셸: HTTP bootstrap 과 병렬로 Realtime 을 먼저 연다 */
+    setRoomReadyForRealtime(true);
+    /** placeholder 셸·캐시 미스: blocking fetch. 재진입(5s 캐시)만 foreground block 생략 */
     void refresh(false, {
       triggerReason: cacheFresh ? "lifecycle_reentry" : "lifecycle_blocking_first",
       forceForegroundBlock: !cacheFresh,

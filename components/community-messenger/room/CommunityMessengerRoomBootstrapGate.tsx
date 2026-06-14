@@ -11,6 +11,7 @@ import { peekMessengerRoomViewerUserIdClient } from "@/lib/community-messenger/r
 import { resolveInstantStoreOrderMessengerEntrySnapshot } from "@/lib/store-order-chat/store-order-messenger-entry-shell-snapshot";
 import { prepareStoreOrderMessengerRoomEntryByRoomId } from "@/lib/store-order-chat/store-order-messenger-room-entry-client";
 import { inferInstantStoreOrderMessengerMyRole } from "@/lib/store-order-chat/infer-store-order-messenger-instant-role";
+import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
 function buildInstantEntrySnapshot(
   roomId: string,
@@ -62,7 +63,10 @@ export function CommunityMessengerRoomBootstrapGate({
     const rid = roomId.trim();
     if (!rid) return;
     setEntryError(null);
-    setHydratedSnapshot(buildInstantEntrySnapshot(rid, viewerUserId, cmCtx, searchParams));
+    setHydratedSnapshot((prev) => {
+      if (isMessengerRoomBootstrapReadySnapshot(prev)) return prev;
+      return buildInstantEntrySnapshot(rid, viewerUserId, cmCtx, searchParams);
+    });
   }, [roomId, viewerUserId, cmCtx, searchParams]);
 
   useEffect(() => {

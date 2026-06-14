@@ -15,6 +15,7 @@ import {
   wasRoomPrefetchRecentlySuccessful,
 } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
 const TTL_MS = 60_000;
 /** 방 스냅샷 메인 캐시 — LRU 상한 50 (접근 시 순서 bump, TTL 60s 유지) */
@@ -85,6 +86,7 @@ function touchLruEntry(key: string): void {
 }
 
 export function primeRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot) {
+  if (!isMessengerRoomBootstrapReadySnapshot(snapshot)) return;
   const k = cacheKey(roomId, snapshot.viewerUserId);
   entries.delete(k);
   entries.set(k, { snapshot, at: Date.now() });
@@ -131,6 +133,7 @@ function patchHotMap(
 
 /** 방 이탈·갱신 시 마지막 스냅샷을 보관 — 재입장 시 RSC·consume 전에 첫 프레임에 사용 */
 export function primeHotRoomSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot): void {
+  if (!isMessengerRoomBootstrapReadySnapshot(snapshot)) return;
   const k = cacheKey(roomId, snapshot.viewerUserId);
   if (hotEntries.has(k)) hotEntries.delete(k);
   hotEntries.set(k, snapshot);
@@ -142,7 +145,14 @@ export function peekHotRoomSnapshot(roomId: string, viewerUserId?: string | null
   if (!r) return null;
   const viewer = typeof viewerUserId === "string" ? viewerUserId.trim() : "";
   if (!viewer) return null;
-  return hotEntries.get(cacheKey(r, viewer)) ?? null;
+  const k = cacheKey(r, viewer);
+  const row = hotEntries.get(k);
+  if (!row) return null;
+  if (!isMessengerRoomBootstrapReadySnapshot(row)) {
+    hotEntries.delete(k);
+    return null;
+  }
+  return row;
 }
 
 /**
@@ -156,6 +166,10 @@ export function peekRoomSnapshot(roomId: string, viewerUserId?: string | null): 
   const k = cacheKey(r, viewer);
   const row = entries.get(k);
   if (!row) return null;
+  if (!isMessengerRoomBootstrapReadySnapshot(row.snapshot)) {
+    entries.delete(k);
+    return null;
+  }
   touchLruEntry(k);
   return row.snapshot;
 }
@@ -194,11 +208,17 @@ export function isRoomSnapshotFreshWithin(
   if (!r || maxAgeMs <= 0) return false;
   if (typeof viewerUserId === "string" && viewerUserId.trim()) {
     const row = entries.get(cacheKey(r, viewerUserId.trim()));
-    return !!row && Date.now() - row.at <= maxAgeMs;
+    return !!row && isMessengerRoomBootstrapReadySnapshot(row.snapshot) && Date.now() - row.at <= maxAgeMs;
   }
   const suffix = `:${r}`;
   for (const [k, row] of entries) {
-    if (k.endsWith(suffix) && Date.now() - row.at <= maxAgeMs) return true;
+    if (
+      k.endsWith(suffix) &&
+      isMessengerRoomBootstrapReadySnapshot(row.snapshot) &&
+      Date.now() - row.at <= maxAgeMs
+    ) {
+      return true;
+    }
   }
   return false;
 }
@@ -325,7 +345,10 @@ export function consumeRoomSnapshot(roomId: string, viewerUserId?: string | null
   if (typeof viewerUserId === "string" && viewerUserId.trim()) {
     const k = cacheKey(r, viewerUserId.trim());
     const row = entries.get(k);
-    if (!row) return null;
+    if (!row || !isMessengerRoomBootstrapReadySnapshot(row.snapshot)) {
+      if (row) entries.delete(k);
+      return null;
+    }
     entries.delete(k);
     return row.snapshot;
   }
@@ -333,7 +356,10 @@ export function consumeRoomSnapshot(roomId: string, viewerUserId?: string | null
   for (const k of Array.from(entries.keys())) {
     if (!k.endsWith(suffix)) continue;
     const row = entries.get(k);
-    if (!row) continue;
+    if (!row || !isMessengerRoomBootstrapReadySnapshot(row.snapshot)) {
+      if (row) entries.delete(k);
+      continue;
+    }
     entries.delete(k);
     return row.snapshot;
   }

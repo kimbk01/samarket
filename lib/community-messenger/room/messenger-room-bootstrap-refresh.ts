@@ -57,10 +57,10 @@ import {
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cmCallIncomingTraceMaybeRoomBootstrap } from "@/lib/community-messenger/cm-call-debug";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
-import {
-  mergeCommunityMessengerForegroundBootstrapIntoSnapshot,
+import { mergeCommunityMessengerForegroundBootstrapIntoSnapshot,
   roomBootstrapTimelineFingerprint,
 } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
+import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
@@ -272,11 +272,10 @@ export function createMessengerRoomBootstrapRefresh(
     if (roomRes.ok && snap) {
       if (silent && bootstrapTierHdr === "silent_delta") {
         setSnapshot((prev) => {
-          if (prev) return mergeCommunityMessengerSilentDeltaIntoSnapshot(prev, snap);
-          if (typeof console !== "undefined") {
-            console.warn("[cm-room-bootstrap] silent_delta applied without prior snapshot");
+          if (!prev || prev.clientShellPlaceholder) {
+            return prev;
           }
-          return snap;
+          return mergeCommunityMessengerSilentDeltaIntoSnapshot(prev, snap);
         });
       } else {
         setSnapshot((prev) => {
@@ -420,7 +419,7 @@ export function createMessengerRoomBootstrapRefresh(
       opts?.forceForegroundBlock === true || opts?.triggerReason === "lifecycle_blocking_first";
     let shouldBlock = !silent && (forceForegroundBlock || (!loadedRef.current && !primed));
     try {
-      if (primed) {
+      if (primed && isMessengerRoomBootstrapReadySnapshot(primed)) {
         setSnapshot(primed);
         const cachedSeedHit = applyPrimedTimelineSeed(primed, setRoomMessages);
         setLoading(false);
@@ -502,7 +501,7 @@ export function createMessengerRoomBootstrapRefresh(
           }
           const reuseAfterPrefetch =
             peekRoomSnapshot(roomId, viewerIdForCache) ?? peekRoomSnapshot(roomId, null);
-          if (reuseAfterPrefetch) {
+          if (reuseAfterPrefetch && isMessengerRoomBootstrapReadySnapshot(reuseAfterPrefetch)) {
             setSnapshot(reuseAfterPrefetch);
             applyPrimedTimelineSeed(reuseAfterPrefetch, setRoomMessages);
             setLoading(false);
@@ -564,25 +563,30 @@ export function createMessengerRoomBootstrapRefresh(
           viewerUserId: viewerIdForCache,
         });
         if (fg.action === "skip") {
-          if (fg.reuseSnapshot) {
+          if (fg.reuseSnapshot && isMessengerRoomBootstrapReadySnapshot(fg.reuseSnapshot)) {
             setSnapshot(fg.reuseSnapshot);
             applyPrimedTimelineSeed(fg.reuseSnapshot, setRoomMessages);
             setLoading(false);
             touchCmRoomForegroundLockFromSnapshot(roomId, fg.reuseSnapshot);
+            logCmRoomReentryZeroFetchWithRegression({
+              roomId,
+              used_cached_snapshot: true,
+              foreground_fetch_skipped: true,
+              silent_fetch_scheduled: false,
+              silent_fetch_skipped: shouldSkipSilentBootstrap(roomId, false).skip,
+              snapshot_age_ms: getRoomSnapshotCacheAgeMs(roomId, viewerIdForCache),
+            });
+            loadedRef.current = true;
+            setRoomReadyForRealtime(true);
+            finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+            return;
           }
-          logCmRoomReentryZeroFetchWithRegression({
-            roomId,
-            used_cached_snapshot: Boolean(fg.reuseSnapshot),
-            foreground_fetch_skipped: true,
-            silent_fetch_scheduled: false,
-            silent_fetch_skipped: shouldSkipSilentBootstrap(roomId, false).skip,
-            snapshot_age_ms: getRoomSnapshotCacheAgeMs(roomId, viewerIdForCache),
-          });
-          loadedRef.current = true;
-          setRoomReadyForRealtime(true);
-          finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
-          return;
-        }
+          /** placeholder·빈 reuse — zero-fetch 금지, blocking fetch 로 이어진다 */
+          reqSrc = "room_client_block";
+          bootstrapQueryWithSrc = BLOCKING_FIRST_BOOTSTRAP_Q;
+          shouldBlock = true;
+          markCmRoomForegroundBootstrapInflight(roomId, "room_client_block");
+        } else {
         reqSrc = fg.reqSrc;
         bootstrapQueryWithSrc = fg.reqSrc === "room_client_block" ? BLOCKING_FIRST_BOOTSTRAP_Q : INSTANT_LEGACY_Q;
         shouldBlock = fg.reqSrc === "room_client_block";
@@ -594,6 +598,7 @@ export function createMessengerRoomBootstrapRefresh(
           });
         }
         markCmRoomForegroundBootstrapInflight(roomId, fg.reqSrc);
+        }
       } else {
         reqSrc = "room_silent";
         /** 사일런트: `silent_delta` — 방·내 참가자 포인터만; 프로필·통화·presence·trade enrich 없음. 거래 카드는 `fetchChatRoomDetailApi` 등으로 후속. */
@@ -672,22 +677,24 @@ export function createMessengerRoomBootstrapRefresh(
         }
         if (gate.skippedReason === "stale_reuse" && gate.staleEntry) {
           const stale = gate.staleEntry;
-          applyBootstrapFlightResult({
-            roomRes: new Response(null, { status: 200 }),
-            snap: stale.snap,
-            clientTimings: {
-              clientInnerSumMs: 0,
-              client_fetch_ms: 0,
-              client_json_parse_ms: 0,
-              snapshot_parse_ms: 0,
-            },
-            silent,
-            shouldBlock,
-            bootstrapQueryWithSrc,
-            reqSrc,
-            bootstrapTierHdr: stale.bootstrapTierHdr,
-            tBoot: typeof performance !== "undefined" ? performance.now() : Date.now(),
-          });
+          if (isMessengerRoomBootstrapReadySnapshot(stale.snap)) {
+            applyBootstrapFlightResult({
+              roomRes: new Response(null, { status: 200 }),
+              snap: stale.snap,
+              clientTimings: {
+                clientInnerSumMs: 0,
+                client_fetch_ms: 0,
+                client_json_parse_ms: 0,
+                snapshot_parse_ms: 0,
+              },
+              silent,
+              shouldBlock,
+              bootstrapQueryWithSrc,
+              reqSrc,
+              bootstrapTierHdr: stale.bootstrapTierHdr,
+              tBoot: typeof performance !== "undefined" ? performance.now() : Date.now(),
+            });
+          }
         } else if (gate.skippedReason === "inflight_join") {
           const inflight = getSingleFlightPromise<BootstrapFlightResult>(flightKey);
           if (inflight) {
@@ -721,7 +728,28 @@ export function createMessengerRoomBootstrapRefresh(
         finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {
           void refresh(true, { triggerReason: "silent_refresh_round_again" });
         });
-        loadedRef.current = true;
+        const peekReady = isMessengerRoomBootstrapReadySnapshot(
+          peekRoomSnapshot(roomId, viewerIdForCache)
+        );
+        if (
+          !silent &&
+          shouldBlock &&
+          !peekReady &&
+          gate.skippedReason !== "debounced"
+        ) {
+          scheduleCmBootstrapDebounceRetry({
+            roomId,
+            tier,
+            delayMs: 120,
+            run: () => {
+              void refresh(false, {
+                triggerReason: "blocking_bootstrap_retry",
+                forceForegroundBlock: true,
+              });
+            },
+          });
+        }
+        loadedRef.current = peekReady || !shouldBlock;
         if (shouldBlock) setLoading(false);
         setRoomReadyForRealtime(true);
         return;
@@ -760,6 +788,16 @@ export function createMessengerRoomBootstrapRefresh(
           skipped_reason: "room_lock_busy",
         });
         finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+        const peekNow = peekRoomSnapshot(roomId, viewerIdForCache);
+        if (!isMessengerRoomBootstrapReadySnapshot(peekNow) && typeof window !== "undefined") {
+          window.setTimeout(() => {
+            void refresh(silent, {
+              ...opts,
+              triggerReason: opts?.triggerReason ?? "room_lock_busy_retry",
+              forceForegroundBlock: !silent && !loadedRef.current,
+            });
+          }, 80);
+        }
         return;
       }
       let flightResult: BootstrapFlightResult;
