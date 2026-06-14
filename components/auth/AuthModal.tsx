@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
+import { OAuthProviderLoginPanel } from "@/components/auth/OAuthProviderLoginPanel";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -15,13 +17,9 @@ import {
   mapPasswordResolveErrorCodeToMessage,
   mapSupabaseFetchFailureToMessage,
 } from "@/lib/auth/login-error-i18n";
-import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
-import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
-import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
-import { consumePendingAuthAction, clearStoredLoginRequiredDetail, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
+import type { LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 
@@ -56,6 +54,7 @@ function mapHttpStatusToResolveErrorCode(status: number): string {
 
 export function AuthModal({ open, detail, onClose }: Props) {
   const { t } = useI18n();
+  const router = useRouter();
   const [providers, setProviders] = useState<AuthProviderPublic[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
@@ -72,12 +71,33 @@ export function AuthModal({ open, detail, onClose }: Props) {
     return `${window.location.pathname}${window.location.search}`;
   }, [detail?.next]);
 
+  const handleAuthSuccess = useCallback(
+    async (input: { redirectTo?: string | null }) => {
+      await finishClientAuthLogin({
+        redirectTo: input.redirectTo,
+        pendingToken: detail?.token,
+        next,
+        onCloseModal: onClose,
+        router,
+      });
+    },
+    [detail?.token, next, onClose, router],
+  );
+
   const {
     pendingOAuthProvider,
+    oauthPanelPhase,
+    oauthPanelStatus,
     oauthError,
     startOAuthProvider,
+    cancelOAuthPanel,
     resetOAuthOnClose,
-  } = useOAuthLogin({ next });
+  } = useOAuthLogin({
+    next,
+    pendingToken: detail?.token,
+    onModalClose: onClose,
+    onAuthSuccess: handleAuthSuccess,
+  });
 
   useEffect(() => {
     if (open) return;
@@ -124,26 +144,13 @@ export function AuthModal({ open, detail, onClose }: Props) {
   }, [open]);
 
   const finishAuthenticated = useCallback(async () => {
-    const consumed = await consumePendingAuthAction(detail?.token);
-    clearStoredLoginRequiredDetail();
-    onClose();
-    if (!consumed && typeof window !== "undefined") {
-      await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
-      await ensureAppBoot();
-      clearPostLogoutBfcacheGuard();
-      const handoffNext = sanitizeNextPath(next) ?? undefined;
-      let target = sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
-      try {
-        const { status, json } = await fetchSignupStatusDeduped(handoffNext);
-        if (status === 200 && json?.route?.trim()) {
-          target = sanitizeFreshLoginLandingPath(json.route.trim()) ?? POST_LOGIN_PATH;
-        }
-      } catch {
-        /* fallback to next */
-      }
-      window.location.replace(target);
-    }
-  }, [detail?.token, next, onClose]);
+    await finishClientAuthLogin({
+      pendingToken: detail?.token,
+      next,
+      onCloseModal: onClose,
+      router,
+    });
+  }, [detail?.token, next, onClose, router]);
 
   const handleEmailSubmit = useCallback(
     async (e: FormEvent) => {
@@ -238,54 +245,65 @@ export function AuthModal({ open, detail, onClose }: Props) {
   const displayError = error ?? oauthError;
 
   return (
-    <AuthGateOverlay open={open} onClose={onClose} labelledBy="dibay-auth-modal-title">
-      <div className="relative">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-[#1e3932]/60 hover:bg-[#f6f6f6] hover:text-[#1e3932]"
-          aria-label={t("common_close")}
-        >
-          <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
-      <div className="mx-auto flex justify-center" aria-hidden>
-        <DibayAuthLogo size={56} />
-      </div>
-      <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
-        {t("auth_login_required_title")}
-      </h2>
+    <>
+      <AuthGateOverlay open={open} onClose={onClose} labelledBy="dibay-auth-modal-title">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-full text-[#1e3932]/60 hover:bg-[#f6f6f6] hover:text-[#1e3932]"
+            aria-label={t("common_close")}
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="mx-auto flex justify-center" aria-hidden>
+            <DibayAuthLogo size={56} />
+          </div>
+          <h2 id="dibay-auth-modal-title" className="mt-3 text-center text-lg font-semibold text-[#1e3932]">
+            {t("auth_login_title")}
+          </h2>
 
-      <div className="mt-5 space-y-4">
-        <LoginProviderButtons
-          providers={providers}
-          disabled={loading}
-          pendingOAuthProvider={pendingOAuthProvider}
-          emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
-          showEmailEntry={passwordEnabled}
-          onEmailLoginClick={() => setShowEmailLogin(true)}
-          onSelectProvider={(provider) => void handleOAuthLogin(provider)}
+          <div className="mt-5 space-y-4">
+            <LoginProviderButtons
+              providers={providers}
+              disabled={loading}
+              pendingOAuthProvider={pendingOAuthProvider}
+              emptyText={providersLoading ? t("auth_sns_providers_loading") : t("auth_sns_providers_none")}
+              showEmailEntry={passwordEnabled}
+              onEmailLoginClick={() => setShowEmailLogin(true)}
+              onSelectProvider={(provider) => void handleOAuthLogin(provider)}
+            />
+            {!showEmailLogin && displayError ? (
+              <p className="sam-text-body-secondary text-center text-red-600">{displayError}</p>
+            ) : null}
+            {passwordEnabled && showEmailLogin ? (
+              <PasswordLoginForm
+                identifier={identifier}
+                password={password}
+                error={displayError}
+                disabled={loading || pendingOAuthProvider != null}
+                loading={loading}
+                loadingText={passwordLoginStatus}
+                className="mt-4 space-y-4"
+                onIdentifierChange={setIdentifier}
+                onPasswordChange={setPassword}
+                onSubmit={handleEmailSubmit}
+              />
+            ) : null}
+          </div>
+        </div>
+      </AuthGateOverlay>
+      {pendingOAuthProvider ? (
+        <OAuthProviderLoginPanel
+          provider={pendingOAuthProvider}
+          phase={oauthPanelPhase}
+          status={oauthPanelStatus}
+          error={oauthError}
+          onCancel={cancelOAuthPanel}
         />
-        {!showEmailLogin && displayError ? (
-          <p className="sam-text-body-secondary text-center text-red-600">{displayError}</p>
-        ) : null}
-        {passwordEnabled && showEmailLogin ? (
-          <PasswordLoginForm
-            identifier={identifier}
-            password={password}
-            error={displayError}
-            disabled={loading || pendingOAuthProvider != null}
-            loading={loading}
-            loadingText={passwordLoginStatus}
-            className="mt-4 space-y-4"
-            onIdentifierChange={setIdentifier}
-            onPasswordChange={setPassword}
-            onSubmit={handleEmailSubmit}
-          />
-        ) : null}
-      </div>
-      </div>
-    </AuthGateOverlay>
+      ) : null}
+    </>
   );
 }

@@ -1,21 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DibayAuthLogo } from "@/components/auth/DibayAuthLogo";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
-import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
 import {
   readLoginBootstrapSnapshot,
   writeLoginBootstrapSnapshot,
 } from "@/lib/auth/login-bootstrap-cache";
-import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
+import { OAuthProviderLoginPanel } from "@/components/auth/OAuthProviderLoginPanel";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -33,25 +32,6 @@ import {
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
-async function resolvePostAuthDestination(fallback: string, handoffNext?: string | null): Promise<string> {
-  try {
-    const { status, json } = await fetchSignupStatusDeduped(handoffNext ?? fallback);
-    if (status === 200 && json?.route?.trim()) {
-      return json.route.trim();
-    }
-  } catch {
-    /* fallback */
-  }
-  return fallback;
-}
-
-async function navigateAfterFreshLogin(destination: string, handoffNext?: string | null): Promise<void> {
-  await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
-  await ensureAppBoot();
-  clearPostLogoutBfcacheGuard();
-  const target = await resolvePostAuthDestination(destination, handoffNext ?? destination);
-  window.location.replace(target);
-}
 
 function looksLikeEmailForLogin(identifierRaw: string): boolean {
   const s = identifierRaw.trim();
@@ -88,8 +68,26 @@ function LoginPageContent() {
   const [providersLoading, setProvidersLoading] = useState(true);
   const [providersError, setProvidersError] = useState<string | null>(null);
   const [passwordEnabled, setPasswordEnabled] = useState(true);
-  const { pendingOAuthProvider, oauthError, startOAuthProvider } = useOAuthLogin({
+  const handleAuthSuccess = useCallback(
+    async (input: { redirectTo?: string | null }) => {
+      await finishClientAuthLogin({
+        redirectTo: input.redirectTo,
+        next: next ?? null,
+        router,
+      });
+    },
+    [next, router],
+  );
+  const {
+    pendingOAuthProvider,
+    oauthPanelPhase,
+    oauthPanelStatus,
+    oauthError,
+    startOAuthProvider,
+    cancelOAuthPanel,
+  } = useOAuthLogin({
     next: next ?? null,
+    onAuthSuccess: handleAuthSuccess,
   });
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -98,9 +96,8 @@ function LoginPageContent() {
   const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
   const [showEmailLogin, setShowEmailLogin] = useState(false);
 
-  const showLoginError = (message: string, withPopup = false) => {
+  const showLoginError = (message: string) => {
     setError((prev) => (prev === message ? prev : message));
-    if (withPopup && typeof window !== "undefined") window.alert(message);
   };
 
   useEffect(() => {
@@ -111,14 +108,12 @@ function LoginPageContent() {
     if (loginReason === "session_expired") {
       const message = t("auth_session_expired_notice");
       setError((prev) => (prev === message ? prev : message));
-      window.alert(message);
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
     if (loginReason === "auth_required") {
       const message = t("auth_login_required_notice");
       setError((prev) => (prev === message ? prev : message));
-      window.alert(message);
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
@@ -134,7 +129,6 @@ function LoginPageContent() {
         ? t("auth_err_oauth_start_failed")
         : mapAuthErrorMessage(code, authErrorDetail, t);
     setError((prev) => (prev === message ? prev : message));
-    if (typeof window !== "undefined") window.alert(message);
     // `auth_error`/`error` 만 정리하고 `next` 는 보존해 다음 시도에도 원래 경로로 복귀하게 한다.
     const cleanHref = withNextSearchParam("/login", next ?? null);
     router.replace(cleanHref, { scroll: false });
@@ -244,9 +238,11 @@ function LoginPageContent() {
           data: { session },
         } = await supabase.auth.getSession();
         if (cancelled || !session?.user) return;
-        await ensureAppBoot();
-        const target = await resolvePostAuthDestination(postLoginDestination, next);
-        if (!cancelled) window.location.assign(target);
+        await finishClientAuthLogin({
+          redirectTo: postLoginDestination,
+          next: next ?? null,
+          router,
+        });
       } catch {
         /* 세션 조회 실패 시 로그인 화면 유지 */
       }
@@ -254,7 +250,7 @@ function LoginPageContent() {
     return () => {
       cancelled = true;
     };
-  }, [postLoginDestination]);
+  }, [next, postLoginDestination, router]);
 
   const oauthEnabled = providers.length > 0;
 
@@ -274,15 +270,15 @@ function LoginPageContent() {
     try {
       const supabase = getSupabaseClient();
       if (!supabase) {
-        showLoginError(t("auth_err_supabase_unconfigured"), true);
+        showLoginError(t("auth_err_supabase_unconfigured"));
         return;
       }
       if (!identifier.trim()) {
-        showLoginError(t("auth_err_identifier_required"), true);
+        showLoginError(t("auth_err_identifier_required"));
         return;
       }
       if (!password) {
-        showLoginError(t("auth_err_password_required"), true);
+        showLoginError(t("auth_err_password_required"));
         return;
       }
 
@@ -314,7 +310,7 @@ function LoginPageContent() {
             const codeFromStatus = mapHttpStatusToResolveErrorCode(resolveRes.status);
             const code = codeFromBody || codeFromStatus;
             const nextError = mapPasswordResolveErrorCodeToMessage(code, fallbackError, t);
-            showLoginError(nextError, true);
+            showLoginError(nextError);
             return;
           }
           signInEmail = String(resolveJson?.identifier ?? "").trim().toLowerCase();
@@ -323,13 +319,13 @@ function LoginPageContent() {
             resolveError instanceof DOMException && resolveError.name === "AbortError"
               ? t("auth_err_identifier_resolve_timeout")
               : t("auth_err_login_identifier_lookup_failed");
-          showLoginError(nextError, true);
+          showLoginError(nextError);
           return;
         }
       }
 
       if (!signInEmail) {
-        showLoginError(t("auth_err_enter_email_or_id_short"), true);
+        showLoginError(t("auth_err_enter_email_or_id_short"));
         return;
       }
 
@@ -343,10 +339,10 @@ function LoginPageContent() {
         );
       } catch (signInError) {
         if (signInError instanceof Error && signInError.message === AUTH_REQUEST_TIMEOUT_SIGNAL) {
-          showLoginError(t("auth_err_auth_timeout"), true);
+          showLoginError(t("auth_err_auth_timeout"));
           return;
         }
-        showLoginError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(signInError), t), true);
+        showLoginError(mapSupabaseFetchFailureToMessage(describeSupabaseFetchFailure(signInError), t));
         return;
       }
 
@@ -363,13 +359,13 @@ function LoginPageContent() {
             ? t("auth_err_wrong_password_email")
             : t("auth_err_wrong_password");
         }
-        showLoginError(message, true);
+        showLoginError(message);
         return;
       }
 
       const session = signInResult.data.session;
       if (!session) {
-        showLoginError(t("auth_err_session_not_persisted"), true);
+        showLoginError(t("auth_err_session_not_persisted"));
         return;
       }
 
@@ -390,7 +386,10 @@ function LoginPageContent() {
         Math.round(performance.now() - loginUntilNavT0)
       );
       leaveLoginShellIntact = true;
-      await navigateAfterFreshLogin(postLoginDestination, next);
+      await finishClientAuthLogin({
+        next: next ?? null,
+        router,
+      });
       return;
     } catch (unexpected) {
       /**
@@ -401,7 +400,7 @@ function LoginPageContent() {
         unexpected instanceof Error && unexpected.message
           ? t("auth_err_login_unexpected", { message: unexpected.message })
           : t("auth_err_login_unknown");
-      showLoginError(message, true);
+      showLoginError(message);
       if (typeof console !== "undefined") {
         console.error("[samarket:login] unexpected handleEmailSubmit failure", unexpected);
       }
@@ -420,7 +419,8 @@ function LoginPageContent() {
   const displayError = error || oauthError || "";
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
+    <>
+      <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-4 py-10">
       <div className="w-full max-w-sm rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-sm">
         <div className="mx-auto flex justify-center" aria-hidden>
           <DibayAuthLogo size={56} />
@@ -464,7 +464,17 @@ function LoginPageContent() {
           <p className="mt-4 sam-text-body-secondary text-red-600">{displayError}</p>
         ) : null}
       </div>
-    </div>
+      </div>
+      {pendingOAuthProvider ? (
+        <OAuthProviderLoginPanel
+          provider={pendingOAuthProvider}
+          phase={oauthPanelPhase}
+          status={oauthPanelStatus}
+          error={oauthError}
+          onCancel={cancelOAuthPanel}
+        />
+      ) : null}
+    </>
   );
 }
 

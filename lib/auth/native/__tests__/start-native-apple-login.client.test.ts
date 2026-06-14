@@ -108,8 +108,9 @@ describe("start-native-apple-login.client", () => {
     const replace = mockWindowLocationReplace();
     const { logOAuthNativeEvent } = await import("@/lib/auth/oauth/oauth-native-callback-log");
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
-    await startNativeAppleLogin();
-    expect(replace).toHaveBeenCalledWith("/signup/terms");
+    const result = await startNativeAppleLogin();
+    expect(result.redirectTo).toBe("/signup/terms");
+    expect(replace).not.toHaveBeenCalled();
     expect(isOAuthFlowInFlight()).toBe(false);
 
     const exchangeSuccessCalls = vi

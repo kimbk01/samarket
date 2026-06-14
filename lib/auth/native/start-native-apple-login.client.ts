@@ -117,7 +117,9 @@ export function isNativeAppleLoginStartError(code: string): code is NativeAppleA
  * iOS Capacitor — AuthenticationServices via NativeAppleAuth plugin.
  * Web / Android: caller must use Web OAuth (`startOAuthLogin`).
  */
-export async function startNativeAppleLogin(input?: { next?: string | null }): Promise<void> {
+export async function startNativeAppleLogin(input?: {
+  next?: string | null;
+}): Promise<{ redirectTo: string | null }> {
   if (!isNativeAppleLoginAvailable()) {
     throw new NativeAppleAuthError("apple_native_unavailable");
   }
@@ -150,9 +152,7 @@ export async function startNativeAppleLogin(input?: { next?: string | null }): P
     });
     endOAuthFlow("apple");
     clearStoredLoginRequiredDetail();
-    if (exchange.redirectTo?.trim()) {
-      window.location.replace(exchange.redirectTo.trim());
-    }
+    return { redirectTo: exchange.redirectTo?.trim() ?? null };
   } catch (error) {
     if (error instanceof NativeAppleAuthError && error.code === "user_cancelled") {
       releaseOAuthFlowOnUserCancel();

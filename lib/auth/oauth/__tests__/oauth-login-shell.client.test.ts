@@ -47,20 +47,26 @@ describe("oauth login shell handoff", () => {
     });
   });
 
-  it("handoff dismisses sheet without clearing stored detail", () => {
+  it("handoff does not dismiss login sheet (in-app OAuth panel)", () => {
     const dispatchEvent = vi.fn();
     vi.stubGlobal("window", { dispatchEvent, CustomEvent });
 
     openLoginRequiredSheet({ actionType: "messenger_open", next: "/community-messenger" });
     handoffOAuthLoginShell();
 
-    expect(dispatchEvent).toHaveBeenCalledTimes(2);
-    expect((dispatchEvent.mock.calls[1]?.[0] as CustomEvent).type).toBe(DIBAY_LOGIN_REQUIRED_DISMISS_EVENT);
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
+    expect((dispatchEvent.mock.calls[0]?.[0] as CustomEvent).type).toBe(DIBAY_LOGIN_REQUIRED_EVENT);
     expect(getStoredLoginRequiredDetailForTests()?.actionType).toBe("messenger_open");
+  });
 
+  it("restore after failure is no-op (AuthModal stays open)", () => {
+    const dispatchEvent = vi.fn();
+    vi.stubGlobal("window", { dispatchEvent, CustomEvent });
+
+    openLoginRequiredSheet({ actionType: "profile_edit" });
     restoreOAuthLoginShellAfterFailure();
-    expect(dispatchEvent).toHaveBeenCalledTimes(3);
-    expect((dispatchEvent.mock.calls[2]?.[0] as CustomEvent).type).toBe(DIBAY_LOGIN_REQUIRED_EVENT);
+
+    expect(dispatchEvent).toHaveBeenCalledTimes(1);
   });
 
   it("dismiss alone does not clear stored detail", () => {
@@ -71,5 +77,6 @@ describe("oauth login shell handoff", () => {
     dismissLoginRequiredSheet();
 
     expect(getStoredLoginRequiredDetailForTests()?.actionType).toBe("profile_edit");
+    expect((dispatchEvent.mock.calls[1]?.[0] as CustomEvent).type).toBe(DIBAY_LOGIN_REQUIRED_DISMISS_EVENT);
   });
 });

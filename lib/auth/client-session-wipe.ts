@@ -177,6 +177,17 @@ export function shouldSkipSignedOutEventWipe(): boolean {
   return Date.now() - explicitLogoutWipeAt < EXPLICIT_LOGOUT_WIPE_SKIP_MS;
 }
 
+/** fresh login 직후 — guest/anonymous boot 캐시만 정리 (프로필 캐시는 primeClientAuthSessionFromSupabase 가 설정) */
+export function invalidateGuestCachesForFreshLogin(): void {
+  if (typeof window === "undefined") return;
+  invalidateAppBootAll();
+  invalidateMeProfileDedupedCache();
+  invalidateClientMembershipResolveFlight();
+  clearAuthSessionClientCache();
+  resetSignupGateSessionFlags();
+  dispatchTestAuthChanged();
+}
+
 async function runWipeClientSessionState(
   reason: ClientSessionWipeReason,
   setPostLogoutGuard: boolean

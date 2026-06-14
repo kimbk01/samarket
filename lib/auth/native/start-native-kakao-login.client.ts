@@ -27,7 +27,9 @@ function throwNativeKakaoExchangeError(exchange: Extract<NativeKakaoExchangeResp
  * Android/iOS Capacitor — Kakao SDK via NativeKakaoAuth plugin.
  * Web: caller must use Web OAuth (`startOAuthLogin`).
  */
-export async function startNativeKakaoLogin(input?: { next?: string | null }): Promise<void> {
+export async function startNativeKakaoLogin(input?: {
+  next?: string | null;
+}): Promise<{ redirectTo: string | null }> {
   if (!isNativeKakaoLoginAvailable()) {
     throw new NativeKakaoAuthError("kakao_native_unavailable");
   }
@@ -60,9 +62,7 @@ export async function startNativeKakaoLogin(input?: { next?: string | null }): P
     });
     endOAuthFlow("kakao");
     clearStoredLoginRequiredDetail();
-    if (exchange.redirectTo?.trim()) {
-      window.location.replace(exchange.redirectTo.trim());
-    }
+    return { redirectTo: exchange.redirectTo?.trim() ?? null };
   } catch (error) {
     if (error instanceof NativeKakaoAuthError && error.code === "user_cancelled") {
       releaseOAuthFlowOnUserCancel();

@@ -1,0 +1,51 @@
+/**
+ * OAuth provider login — bottom sheet 440ms (main shell slide 와 동일).
+ */
+.auth-oauth-panel-host {
+  --auth-oauth-panel-ms: 440ms;
+  --auth-oauth-panel-easing: cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
+.auth-oauth-panel-backdrop {
+  opacity: 0;
+  transition: opacity var(--auth-oauth-panel-ms) var(--auth-oauth-panel-easing);
+}
+
+.auth-oauth-panel-backdrop--entered {
+  opacity: 1;
+}
+
+.auth-oauth-panel-backdrop--exiting {
+  opacity: 0;
+}
+
+.auth-oauth-panel-sheet {
+  transform: translate3d(0, 100%, 0);
+  will-change: transform;
+  touch-action: manipulation;
+}
+
+.auth-oauth-panel-sheet--entering,
+.auth-oauth-panel-sheet--entered {
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--auth-oauth-panel-ms) var(--auth-oauth-panel-easing);
+}
+
+.auth-oauth-panel-sheet--exiting {
+  transform: translate3d(0, 100%, 0);
+  transition: transform var(--auth-oauth-panel-ms) var(--auth-oauth-panel-easing);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-oauth-panel-backdrop,
+  .auth-oauth-panel-sheet--entering,
+  .auth-oauth-panel-sheet--entered,
+  .auth-oauth-panel-sheet--exiting {
+    transition: none;
+  }
+
+  .auth-oauth-panel-sheet--entering,
+  .auth-oauth-panel-sheet--entered {
+    transform: translate3d(0, 0, 0);
+  }
+}

@@ -1,16 +1,13 @@
 "use client";
 
-import {
-  dismissLoginRequiredSheet,
-  reopenLoginRequiredSheet,
-} from "@/lib/auth/require-auth-action";
-
-/** Custom Tab / Native SDK / Naver 등 외부 handoff 직전 — 로그인 시트 즉시 닫기 */
+/**
+ * OAuth handoff — AuthModal 을 닫지 않고 in-app provider panel 을 사용한다.
+ */
 export function handoffOAuthLoginShell(): void {
-  dismissLoginRequiredSheet();
+  /* no-op: login shell stays open under OAuth provider panel */
 }
 
-/** OAuth 시작 실패(취소 제외) — 직전 로그인 시트·pending action 컨텍스트 복원 */
+/** OAuth 실패 시 — AuthModal 이 이미 열려 있으므로 reopen 불필요 */
 export function restoreOAuthLoginShellAfterFailure(): void {
-  reopenLoginRequiredSheet();
+  /* no-op */
 }

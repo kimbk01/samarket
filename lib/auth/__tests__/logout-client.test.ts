@@ -2,8 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const wipeMock = vi.fn();
 const markExplicitMock = vi.fn();
+const applyImmediateMock = vi.fn();
 const signOutMock = vi.fn();
 const fetchWithTimeoutMock = vi.fn();
+
+vi.mock("@/lib/auth/auth-session-immediate.client", () => ({
+  applyImmediateLogoutClientState: () => applyImmediateMock(),
+}));
 
 vi.mock("@/lib/auth/client-session-wipe", () => ({
   wipeClientSessionState: (...args: unknown[]) => wipeMock(...args),
@@ -28,6 +33,7 @@ describe("logout-client", () => {
     vi.stubGlobal("window", {} as Window & typeof globalThis);
     wipeMock.mockReset();
     markExplicitMock.mockReset();
+    applyImmediateMock.mockReset();
     signOutMock.mockReset();
     fetchWithTimeoutMock.mockReset();
     wipeMock.mockResolvedValue(undefined);
@@ -37,6 +43,7 @@ describe("logout-client", () => {
       json: async () => ({ ok: true }),
     });
     vi.spyOn(console, "info").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -44,14 +51,17 @@ describe("logout-client", () => {
     vi.restoreAllMocks();
   });
 
-  it("awaits server logout after local wipe and signOut", async () => {
+  it("returns immediately after guest UI apply and schedules background cleanup", async () => {
     const order: string[] = [];
-    wipeMock.mockImplementation(async () => {
-      order.push("wipe");
+    applyImmediateMock.mockImplementation(() => {
+      order.push("immediate");
     });
     signOutMock.mockImplementation(async () => {
       order.push("signOut");
       return { error: null };
+    });
+    wipeMock.mockImplementation(async () => {
+      order.push("wipe");
     });
     fetchWithTimeoutMock.mockImplementation(async () => {
       order.push("server");
@@ -62,22 +72,25 @@ describe("logout-client", () => {
     const result = await mod.logoutCurrentDevice();
 
     expect(result.ok).toBe(true);
-    expect(order).toEqual(["wipe", "signOut", "server"]);
-    expect(fetchWithTimeoutMock).toHaveBeenCalledWith("/api/auth/logout", expect.objectContaining({ method: "POST" }));
+    expect(order[0]).toBe("immediate");
+    expect(markExplicitMock).toHaveBeenCalledTimes(1);
+    expect(applyImmediateMock).toHaveBeenCalledTimes(1);
+
+    await vi.waitFor(() => {
+      expect(order).toEqual(["immediate", "signOut", "wipe", "server"]);
+    });
   });
 
-  it("still wipes when local signOut fails", async () => {
+  it("still schedules background cleanup when local signOut fails", async () => {
     signOutMock.mockRejectedValue(new Error("signout_fail"));
-    fetchWithTimeoutMock.mockResolvedValue({
-      ok: true,
-      json: async () => ({ ok: true }),
-    });
 
     const mod = await import("@/lib/auth/logout-client");
     const result = await mod.logoutCurrentDevice();
 
     expect(result.ok).toBe(true);
-    expect(wipeMock).toHaveBeenCalledWith("user_logout");
-    expect(fetchWithTimeoutMock).toHaveBeenCalled();
+    expect(applyImmediateMock).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(wipeMock).toHaveBeenCalledWith("user_logout");
+    });
   });
 });

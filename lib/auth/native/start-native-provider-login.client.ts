@@ -49,11 +49,17 @@ function resolveUnavailableErrorCode(provider: NativeExchangeProvider): string {
   return "google_native_unavailable";
 }
 
+export type NativeProviderLoginSuccess = {
+  redirectTo: string | null;
+};
+
 /**
  * Native SDK login — Chrome / Custom Tab / startOAuthLogin fallback 금지.
  * Facebook → native_provider_not_implemented (STEP F 전).
  */
-export async function startNativeProviderLogin(input: StartNativeProviderLoginInput): Promise<void> {
+export async function startNativeProviderLogin(
+  input: StartNativeProviderLoginInput,
+): Promise<NativeProviderLoginSuccess> {
   const provider = toNativeExchangeProvider(input.provider);
   if (!provider) {
     const err = new Error("Unsupported native provider");
@@ -74,14 +80,12 @@ export async function startNativeProviderLogin(input: StartNativeProviderLoginIn
   }
 
   if (provider === "kakao") {
-    await startNativeKakaoLogin({ next: input.next ?? null });
-    return;
+    return startNativeKakaoLogin({ next: input.next ?? null });
   }
 
   if (provider === "google") {
-    await startNativeGoogleLogin({ next: input.next ?? null });
-    return;
+    return startNativeGoogleLogin({ next: input.next ?? null });
   }
 
-  await startNativeAppleLogin({ next: input.next ?? null });
+  return startNativeAppleLogin({ next: input.next ?? null });
 }

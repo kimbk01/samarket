@@ -16,12 +16,12 @@ import {
 export type { LogoutResult } from "@/lib/auth/logout-client";
 
 export async function logoutDiBaYAppSession(): Promise<LogoutResult> {
-  await disconnectWebPushSubscriptionsForLogout();
+  void disconnectWebPushSubscriptionsForLogout();
   return logoutCurrentDevice();
 }
 
 export async function logoutDiBaYAllDevices(): Promise<LogoutResult> {
-  await disconnectWebPushSubscriptionsForLogout();
+  void disconnectWebPushSubscriptionsForLogout();
   return logoutAllDevices();
 }
 

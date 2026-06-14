@@ -7,6 +7,7 @@ import {
   type StoreFavoriteChangedDetail,
 } from "@/lib/stores/store-favorite-events";
 import { fetchStoreFavoriteMutation } from "@/lib/stores/store-delivery-api-client";
+import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 
 /**
  * 목록 카드용 찜 — 초기 상태는 요청 없이 아웃라인만; 탭 시 토글(401 시 안내).
@@ -33,7 +34,11 @@ export function StoreCardFavoriteIcon({
         const method = on ? "DELETE" : "POST";
         const { status, json } = await fetchStoreFavoriteMutation(decoded, method);
         if (status === 401) {
-          window.alert(t("store_favorite_login_required"));
+          const handoffNext =
+            typeof window !== "undefined"
+              ? `${window.location.pathname}${window.location.search}`
+              : undefined;
+          openLoginRequiredSheet({ actionType: "trade_favorite", next: handoffNext });
           return;
         }
         const j = json as { ok?: boolean; favorited?: boolean; favorite_count?: unknown };

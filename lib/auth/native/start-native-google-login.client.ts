@@ -39,7 +39,7 @@ async function completeNativeGoogleSession(input: {
   signInResult: { idToken: string };
   next?: string | null;
   recovered?: boolean;
-}): Promise<void> {
+}): Promise<{ redirectTo: string | null }> {
   const exchangeBody = buildNativeGoogleExchangeRequest({
     provider: "google",
     idToken: input.signInResult.idToken,
@@ -62,9 +62,7 @@ async function completeNativeGoogleSession(input: {
   });
   endOAuthFlow("google");
   clearStoredLoginRequiredDetail();
-  if (exchange.redirectTo?.trim()) {
-    window.location.replace(exchange.redirectTo.trim());
-  }
+  return { redirectTo: exchange.redirectTo?.trim() ?? null };
 }
 
 /**
@@ -87,11 +85,14 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
 
     try {
       logOAuthNativeEvent("google_native_recover_started", { next: recovered.next ?? null });
-      await completeNativeGoogleSession({
+      const result = await completeNativeGoogleSession({
         signInResult: recovered,
         next: recovered.next ?? null,
         recovered: true,
       });
+      if (result.redirectTo?.trim()) {
+        window.location.replace(result.redirectTo.trim());
+      }
       return true;
     } catch (error) {
       flow.release();
@@ -110,7 +111,9 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
 /**
  * Android Capacitor — Google Sign-In via NativeGoogleAuth plugin.
  */
-export async function startNativeGoogleLogin(input?: { next?: string | null }): Promise<void> {
+export async function startNativeGoogleLogin(input?: {
+  next?: string | null;
+}): Promise<{ redirectTo: string | null }> {
   if (!isNativeGoogleLoginAvailable()) {
     throw new NativeGoogleAuthError("google_native_unavailable");
   }
@@ -131,7 +134,7 @@ export async function startNativeGoogleLogin(input?: { next?: string | null }): 
       recovered: Boolean(signInResult.recovered),
     });
 
-    await completeNativeGoogleSession({
+    return completeNativeGoogleSession({
       signInResult,
       next: signInResult.next ?? input?.next ?? null,
       recovered: signInResult.recovered,
