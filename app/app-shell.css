@@ -5,7 +5,7 @@
  * - Android · iOS 분기 없이 동일 토큰을 사용한다.
  * - 동적 뷰포트는 `100dvh` 우선, 미지원 브라우저는 `100vh` fallback.
  * - safe-area 는 `env(safe-area-inset-*)` 만 사용 — `-webkit-fill-available` 도입 금지.
- * - 메신저 방은 별도 계약(`useChatViewportResize` · `--chat-viewport-height`).
+ * - 메신저 방은 `app/chat-viewport-shell.css` · `use-chat-viewport-shell-insets.ts` (flex 100dvh + safe-area).
  *   여기 토큰을 **읽기만** 하고 덮어쓰지 않는다.
  *
  * 기존 호환:

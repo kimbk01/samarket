@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { noteCmRoomPhase2HydratedModuleEval } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";
 
 noteCmRoomPhase2HydratedModuleEval();
@@ -9,7 +9,14 @@ import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/t
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { useMessengerTradeKeyboardChrome } from "@/lib/ui/use-messenger-trade-keyboard-chrome";
-import { useChatViewportResize } from "@/lib/ui/use-chat-viewport-resize";
+import { useChatViewportShellInsets } from "@/lib/ui/use-chat-viewport-shell-insets";
+import {
+  resolveChatViewportShellClassNames,
+  resolveChatViewportShellPlatform,
+  type ChatViewportShellLayoutMode,
+} from "@/lib/ui/chat-viewport-shell-platform";
+import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
+import { useBuyerOrderChatSlideHost } from "@/components/mypage/BuyerOrderChatSlideHostContext";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { useMessengerRoomPhase2Controller } from "@/lib/community-messenger/room/phase2";
 import { MessengerRoomPhase2ViewProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
@@ -245,7 +252,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     if (hydrationPass < 3) return;
     notifyCmTradeDockLayoutChange("phase2_trade_dock_mounted");
   }, [hydrationPass, roomIdStable]);
-  useChatViewportResize({ enabled: narrowViewport && chatShellMounted, shellRef: rootRef });
+
   const phase2EnterRecordedRef = useRef(false);
   const roomStateCommitRecordedRef = useRef(false);
   const messagesStateCommitRecordedRef = useRef(false);
@@ -314,6 +321,26 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const storeOrderDeliveryRoomEnabled = view.showMessengerStoreOrderDock && view.storeOrderIdForDock.length > 0;
   /** 배달 kind 방 — summary/direct_key 포함, composer 입력 라인(pill)·footer 구분선. */
   const isDeliveryKindRoom = isCommunityMessengerStoreOrderDeliveryRoom(view.snapshot.room);
+  const ownerSlideHost = useOwnerOrderChatSlideHost();
+  const buyerSlideHost = useBuyerOrderChatSlideHost();
+  const shellLayoutMode: ChatViewportShellLayoutMode =
+    ownerSlideHost || buyerSlideHost ? "embedded" : narrowViewport ? "narrow" : "wide";
+  const shellGeometryClass = useMemo(
+    () =>
+      resolveChatViewportShellClassNames({
+        layoutMode: shellLayoutMode,
+        platform: resolveChatViewportShellPlatform(),
+      }),
+    [shellLayoutMode]
+  );
+
+  useChatViewportShellInsets({
+    enabled: chatShellMounted,
+    shellRef: rootRef,
+    layoutMode: shellLayoutMode,
+    observeComposerHeight: true,
+  });
+
   const storeOrderDeliveryIsOwnerApi =
     deliveryViewerRole === "seller" && view.storeIdForDock.length > 0;
   const headerView = useMemo(
@@ -534,16 +561,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
           data-delivery-viewer-role={deliveryViewerRole ?? undefined}
-          className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${isDeliveryKindRoom ? " delivery-ui" : ""}`}
-          style={
-            narrowViewport
-              ? ({
-                  height: "var(--chat-viewport-height, 100dvh)",
-                  maxHeight: "var(--chat-viewport-height, 100dvh)",
-                  minHeight: 0,
-                } satisfies CSSProperties)
-              : undefined
-          }
+          className={`${shellGeometryClass} flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${isDeliveryKindRoom ? " delivery-ui" : ""}`}
         >
           <MessengerRoomPhase2HeaderProvider value={headerView}>
             <CommunityMessengerRoomPhase2Header />

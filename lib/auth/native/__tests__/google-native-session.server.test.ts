@@ -36,6 +36,30 @@ vi.mock("@/lib/profile/ensure-profile-for-user-id", () => ({
   ensureProfileForUserId: (...args: unknown[]) => ensureProfileForUserId(...args),
 }));
 
+type ProfileLookupRow = { id: string; status?: string; deleted_at?: string | null };
+
+function profileMaybeSingleChain(row: ProfileLookupRow | null) {
+  return {
+    maybeSingle: async () => ({ data: row, error: null }),
+    limit: async () => ({ data: row ? [row] : [], error: null }),
+  };
+}
+
+function profilesEqChain(row: ProfileLookupRow | null) {
+  return {
+    eq: () => profileMaybeSingleChain(row),
+    maybeSingle: async () => ({ data: row, error: null }),
+    limit: async () => ({ data: row ? [row] : [], error: null }),
+    in: async () => ({ data: row ? [row] : [], error: null }),
+    or: () => ({
+      limit: async () => ({ data: row ? [{ id: row.id }] : [], error: null }),
+    }),
+    ilike: () => ({
+      limit: async () => ({ data: row ? [{ id: row.id }] : [], error: null }),
+    }),
+  };
+}
+
 function buildAdminSb(options: {
   profileId?: string | null;
   createUserError?: string | null;
@@ -60,36 +84,15 @@ function buildAdminSb(options: {
       select: () => ({
         eq: (col: string, val: unknown) => {
           if (col === "id") {
-            return {
-              maybeSingle: async () => ({ data: null, error: null }),
-              in: async () => ({ data: [], error: null }),
-            };
+            return profilesEqChain(null);
           }
           if (col === "provider" && val === "google") {
-            return {
-              eq: () => ({
-                maybeSingle: async () => ({
-                  data: options.profileId ? { id: options.profileId, status: "sns_pending", deleted_at: null } : null,
-                  error: null,
-                }),
-                limit: async () => ({
-                  data: options.profileId ? [{ id: options.profileId }] : [],
-                  error: null,
-                }),
-              }),
-              or: () => ({
-                limit: async () => ({ data: [], error: null }),
-              }),
-            };
+            const row = options.profileId
+              ? { id: options.profileId, status: "sns_pending", deleted_at: null }
+              : null;
+            return profilesEqChain(row);
           }
-          return {
-            eq: () => ({
-              maybeSingle: async () => ({ data: null, error: null }),
-              limit: async () => ({ data: [], error: null }),
-            }),
-            or: async () => ({ data: [], error: null }),
-            in: async () => ({ data: [], error: null }),
-          };
+          return profilesEqChain(null);
         },
         ilike: () => ({
           limit: async () => ({ data: [], error: null }),
@@ -199,33 +202,23 @@ describe("google-native-session.server", () => {
           eq: (col: string, val: unknown) => {
             if (col === "id") {
               return {
-                maybeSingle: async () => ({ data: null, error: null }),
-                in: async () => ({ data: [{ id: webProfileId, provider: "email", auth_provider: "email" }], error: null }),
+                ...profilesEqChain(null),
+                in: async () => ({
+                  data: [{ id: webProfileId, provider: "email", auth_provider: "email" }],
+                  error: null,
+                }),
               };
             }
             if (col === "provider" && val === "google") {
               return {
-                eq: () => ({
-                  maybeSingle: async () => ({ data: null, error: null }),
-                  limit: async () => ({ data: [], error: null }),
-                }),
+                ...profilesEqChain(null),
                 or: () => ({
                   limit: async () => ({ data: [{ id: webProfileId }], error: null }),
                 }),
               };
             }
-            if (col === "id") {
-              return {
-                in: async () => ({ data: [{ id: webProfileId, provider: "email", auth_provider: "email" }], error: null }),
-                maybeSingle: async () => ({ data: null, error: null }),
-              };
-            }
             return {
-              eq: () => ({
-                maybeSingle: async () => ({ data: null, error: null }),
-                limit: async () => ({ data: [], error: null }),
-              }),
-              or: async () => ({ data: [], error: null }),
+              ...profilesEqChain(null),
               ilike: () => ({
                 limit: async () => ({ data: [{ id: webProfileId }], error: null }),
               }),

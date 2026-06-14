@@ -46,15 +46,7 @@ import {
 import { useMessengerRoomPhase2ComposerView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-composer-context";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
-import { useMobileKeyboardInset } from "@/lib/ui/use-mobile-keyboard-inset";
-import {
-  MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
-  MESSENGER_COMPOSER_FOOTER_PADDING_IOS_SLACK_PX,
-  MESSENGER_COMPOSER_KEYBOARD_INSET_IOS_EXTRA_PX,
-  MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX,
-} from "@/lib/ui/messenger-chat-viewport-tuning";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
-import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
 import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
@@ -93,6 +85,7 @@ import {
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
+import { ChatComposer } from "@/components/chat/ChatComposer";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import {
   communityMessengerRoomIsConfirmedTrade,
@@ -383,40 +376,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   }, [draft, vm]);
 
   const { keyboardOverlapSuppressed, messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
-  const keyboardInsetPx = useMobileKeyboardInset({
-    enabled: composerHeavyEnabled,
-    disableOverlapEstimate: keyboardOverlapSuppressed,
-  });
   const isNarrowViewport = useMatchMaxWidthMd();
-  /** 일반·그룹·오픈 포함 — 키보드 크롬 시 입력 줄 높이·여백 통일 */
-  const messengerComposerDense = Boolean(
-    isNarrowViewport && messengerKeyboardChromeOpen && !vm.voiceRecording
-  );
-  /**
-   * - visualViewport 셸을 쓰면 겹침 추정을 끄고 safe-area + 기본 여백만.
-   * - 그 외: 키보드 가림이 있으면 inset, 없으면 홈 인디케이터용 10px.
-   * - iOS + 메신저 키보드 크롬: vv·innerHeight 미세 어긋남 보정용 slack.
-   */
-  const iosMessengerSlack =
-    isLikelyIosWebKit() &&
-    keyboardOverlapSuppressed &&
-    messengerComposerDense &&
-    keyboardInsetPx <= 0;
-  const deliveryComposerBottomExtraPx =
-    !vm.voiceRecording ? MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX : 0;
-  const footerExtraBottomPx =
-    keyboardInsetPx > 0
-      ? keyboardInsetPx +
-        (isLikelyIosWebKit() && messengerComposerDense ? MESSENGER_COMPOSER_KEYBOARD_INSET_IOS_EXTRA_PX : 0) +
-        deliveryComposerBottomExtraPx
-      : iosMessengerSlack
-        ? MESSENGER_COMPOSER_FOOTER_PADDING_IOS_SLACK_PX + deliveryComposerBottomExtraPx
-        : MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX + deliveryComposerBottomExtraPx;
-  /** vv 셸이 높이·safe-bottom 을 이미 맞춤 — sticky·추가 px 패딩은 키보드 시 composer 점프 원인 */
-  const composerAnchoredByShell = keyboardOverlapSuppressed;
-  const footerPaddingBottom = composerAnchoredByShell
-    ? `calc(env(safe-area-inset-bottom, 0px) + max(var(--chat-safe-bottom, 0px), ${deliveryComposerBottomExtraPx || MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX}px))`
-    : `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`;
   const composerFooterInner = (
     <>
         {editingMessage && !vm.voiceRecording ? (
@@ -593,18 +553,9 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     </>
   );
 
-  const composerFooterClass = `z-[5] shrink-0 w-full max-w-full px-2 pt-0 shadow-none transition-[background-color] duration-200 ${
-    composerAnchoredByShell ? "shrink-0" : "sticky bottom-0"
-  } delivery-ui border-t border-[#e8e8e8] bg-white`;
-
   return (
-    <footer
-      data-cm-composer
-      data-cm-line-composer-footer
-      className={composerFooterClass}
-      style={{ paddingBottom: footerPaddingBottom }}
-    >
+    <ChatComposer className="delivery-ui z-[5] w-full max-w-full shadow-none transition-[background-color] duration-200">
       {composerFooterInner}
-    </footer>
+    </ChatComposer>
   );
 });

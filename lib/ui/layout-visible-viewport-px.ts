@@ -6,7 +6,7 @@ import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
  * `visualViewport`(+ iOS `offsetTop`)·네이티브 shell inset 을 조합한 보이는 세로(px).
  *
  * @see docs/community-messenger-mobile-room-viewport.md
- * @see lib/ui/use-chat-viewport-resize.ts
+ * @see lib/ui/use-chat-viewport-shell-insets.ts
  */
 export function resolveLayoutVisibleViewportCssPx(minHeightPx: number): number {
   if (typeof window === "undefined") return minHeightPx;

@@ -3,6 +3,7 @@
 import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getMessengerRoomActionErrorMessage } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
+import { ChatComposer } from "@/components/chat/ChatComposer";
 import { MessengerComposerSector } from "@/components/community-messenger/line-ui";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
@@ -22,10 +23,6 @@ import {
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomUiStore } from "@/lib/community-messenger/stores/messenger-room-ui-store";
-import {
-  MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX,
-  MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX,
-} from "@/lib/ui/messenger-chat-viewport-tuning";
 import {
   emitR2M9ProfileSummary,
   noteR2M9DomTreeBeforeComposer,
@@ -167,17 +164,10 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
       ? t("cm_ui_read_only_room")
       : t("cm_ui_message");
 
-  const footerBottomPx = MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX + MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX;
-
   return (
-    <footer
-      data-cm-composer
-      data-cm-line-composer-footer
+    <ChatComposer
       data-cm-pass1-composer-shell
-      className="delivery-ui sticky bottom-0 z-[5] shrink-0 border-t border-[#e8e8e8] bg-white px-2 pt-0"
-      style={{
-        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerBottomPx}px)`,
-      }}
+      className="delivery-ui z-[5]"
     >
       <MessengerComposerSector
         draft={draft}
@@ -225,6 +215,6 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
         }}
         t={t}
       />
-    </footer>
+    </ChatComposer>
   );
 });

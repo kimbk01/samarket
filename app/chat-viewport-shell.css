@@ -1,0 +1,109 @@
+/**
+ * DIBAY 채팅방 헤더·composer 공통 geometry — direct / trade / delivery 단일.
+ * safe-area는 셸 padding, header/composer는 flex shrink-0.
+ */
+
+[data-cm-room].chat-viewport-shell {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: calc(
+    env(safe-area-inset-bottom, 0px) + var(--chat-shell-keyboard-offset, 0px)
+  );
+}
+
+[data-cm-room].chat-viewport-shell.chat-viewport-shell--embedded {
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  padding-top: 0;
+}
+
+[data-cm-room].chat-viewport-shell.chat-viewport-shell--narrow {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+
+[data-cm-room].chat-viewport-shell.chat-viewport-shell--ios {
+  -webkit-overflow-scrolling: touch;
+}
+
+[data-cm-room].chat-viewport-shell.chat-viewport-shell--android {
+  min-height: 0;
+}
+
+@supports not (height: 100dvh) {
+  [data-cm-room].chat-viewport-shell.chat-viewport-shell--narrow {
+    height: 100vh;
+    min-height: 100vh;
+  }
+}
+
+.chat-header {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: 56px;
+  min-height: 56px;
+  max-height: 56px;
+  padding: 0 12px;
+  gap: 8px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--cm-room-header-bg, #ffffff);
+  overflow: hidden;
+}
+
+.chat-header__row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  gap: 8px;
+}
+
+.chat-composer {
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  max-height: 160px;
+  padding: 8px 10px;
+  gap: 8px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--cm-room-page-bg, #ffffff);
+}
+
+.chat-composer__row {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+
+@media (min-width: 768px) {
+  .chat-header {
+    height: 60px;
+    min-height: 60px;
+    max-height: 60px;
+    padding: 0 16px;
+  }
+
+  .chat-composer {
+    min-height: 60px;
+    padding: 10px 16px;
+  }
+}

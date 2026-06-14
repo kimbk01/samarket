@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ChatHeader } from "@/components/chat/ChatHeader";
 
 /** 커뮤니티 메신저·거래 채팅 공통 상단 바 높이 — 56px 고정. 아이콘 크기는 자식 책임. */
 export const MESSENGER_CHAT_HEADER_SECTOR_HEIGHT_CLASS =
@@ -12,14 +13,7 @@ type Props = {
   className?: string;
 };
 
-/** 채팅방 등 상단 고정 헤더 — 섹터 56px 고정 + 내부 행 세로 중앙. */
+/** 채팅방 상단 헤더 — ChatHeader 위임(sticky 제거, safe-area는 셸 padding). */
 export function MessengerHeader({ children, className = "" }: Props) {
-  return (
-    <header
-      data-cm-messenger-line-header
-      className={`sticky top-0 z-10 flex overflow-hidden border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-0 ${MESSENGER_CHAT_HEADER_SECTOR_HEIGHT_CLASS} ${className}`.trim()}
-    >
-      <div className={`${MESSENGER_CHAT_HEADER_ROW_CLASS} h-full gap-1.5`}>{children}</div>
-    </header>
-  );
+  return <ChatHeader className={className}>{children}</ChatHeader>;
 }

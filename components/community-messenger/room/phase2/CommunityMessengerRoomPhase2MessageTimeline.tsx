@@ -1796,13 +1796,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         data-cm-line-timeline
         data-cm-message-viewport=""
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
-        style={{
-          scrollPaddingBottom: hasTradeDock
-            ? "var(--cm-timeline-trade-anchor-padding, 6px)"
-            : hasStoreOrderDock
-              ? "0px"
-              : "var(--chat-composer-height, 0px)",
-        }}
+        style={
+          hasTradeDock
+            ? { scrollPaddingBottom: "var(--cm-timeline-trade-anchor-padding, 6px)" }
+            : undefined
+        }
         onScroll={scheduleScroll}
       >
         <main

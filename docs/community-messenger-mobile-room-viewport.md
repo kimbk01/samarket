@@ -32,20 +32,20 @@
 |----------|------|------|
 | 기기별 보정값 (픽셀·ms·임계) | `lib/ui/messenger-chat-viewport-tuning.ts` | 셸 최소 높이, stick 임계, composer footer, 키보드 크롬 히스테리시스 등 — **여기만 수정해 미세 튜닝** |
 | 루트 viewport 메타 | `app/layout.tsx` `export const viewport` | `interactiveWidget: "resizes-content"` — Android Chrome 키보드 시 레이아웃 뷰포트 축소 |
-| 셸 CSS 변수·측정 | `lib/ui/use-chat-viewport-resize.ts` | `--chat-viewport-height`, `--chat-keyboard-height`, `--chat-composer-height`, `--chat-safe-bottom`; vv·shell inset·composer `ResizeObserver`; `scheduleSync`로 vv 폭주 완화 |
-| Phase2 셸 마운트 | `components/community-messenger/room/CommunityMessengerRoomPhase2.tsx` | 콜백 ref + `chatShellMounted` — **ref 미부착인 채 훅만 도는 것** 방지; 좁은 화면에서 `height/maxHeight: var(--chat-viewport-height, 100dvh)` |
+| 셸 CSS·플랫폼 insets | `app/chat-viewport-shell.css`, `lib/ui/chat-viewport-shell-platform.ts`, `lib/ui/use-chat-viewport-shell-insets.ts` | `100dvh`+safe-area flex 셸, keyboard overlay(`--chat-shell-keyboard-offset`), composer 높이(`--chat-composer-height`) |
+| Phase2 셸 마운트 | `components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx` | `chat-viewport-shell` narrow/embedded/wide, 콜백 ref + `chatShellMounted`, `useChatViewportShellInsets` |
 | 스크롤 앵커 | `lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts` | `lastScrollGeomRef` + `stickToBottomRef`; **ResizeObserver** + **visualViewport** + **window resize/orientation** → 동일 `restoreScrollAfterChromeChange` (rAF 합침) |
-| 입력 패딩·키보드 크롬 UI | `CommunityMessengerRoomPhase2Composer.tsx`, `useMessengerTradeKeyboardChrome`, `useMobileKeyboardInset` | 셸이 vv 맞출 때 `disableOverlapEstimate` 로 이중 inset 방지 |
-| 가상 리스트 | `useMessengerRoomClientPhase1` 내부 `useVirtualizer` | 별도 훅 파일 제거됨 — **훅 순서**는 `useMessengerRoomDerivedMessageLists` → `useVirtualizer` → `useMessengerRoomReaderScrollBottom` 유지 |
-| 타임라인 스크롤 박스 | `CommunityMessengerRoomPhase2MessageTimeline.tsx` | `scrollPaddingBottom: var(--chat-composer-height, 0px)` |
+| 입력·키보드 크롬 UI | `CommunityMessengerRoomPhase2Composer.tsx`, `useMessengerTradeKeyboardChrome` | `ChatComposer` flex footer; 거래 도크 compact 등 — composer padding JS inset **금지** |
+| 가상 리스트 | `useMessengerRoomClientPhase1` 내부 `useVirtualizer` | **훅 순서**는 `useMessengerRoomDerivedMessageLists` → `useVirtualizer` → `useMessengerRoomReaderScrollBottom` 유지 |
+| 타임라인 스크롤 박스 | `CommunityMessengerRoomPhase2MessageTimeline.tsx` | trade dock 만 `scrollPaddingBottom`; composer 겹침 padding **금지** |
 
 ---
 
 ## 4. 이벤트가 겹쳐 보일 때 (중복이 아님)
 
-- **`useChatViewportResize`**: 셸 **높이·키보드·composer 변수** 갱신.
+- **`useChatViewportShellInsets`**: 셸 **keyboard overlay padding**·**composer 높이 변수** 갱신.
 - **`useMessengerRoomReaderScrollBottom`**: 타임라인 **scrollTop 보존/하단 고정**.
-- **`useMessengerTradeKeyboardChrome`**: **거래 도크 UI 밀도** 등 — 셸 높이와 책임 분리.
+- **`useMessengerTradeKeyboardChrome`**: **거래 도크 UI 밀도** 등 — 셸 레이아웃과 책임 분리.
 
 같은 `visualViewport` / `window` 이벤트를 여러 군데에서 구독하는 것은 **의도적**이며, 각 레이어에서 rAF·단일 스케줄로 **폭주만 막는다.**
 
@@ -55,11 +55,11 @@
 
 코드 변경 전 위 표의 파일을 열고 다음을 확인한다.
 
-- [ ] `useChatViewportResize` **cleanup**에서 `syncRafId`, **부트 이중 rAF**(`bootRaf1`/`bootRaf2`), 리스너, **CSS 변수 removeProperty** 모두 처리되는가?
-- [ ] Phase2에서 **`narrowViewport && chatShellMounted`** 일 때만 뷰포트 훅을 켜는가? (콜백 ref 제거 시 **첫 프레임 미구독** 회귀)
+- [ ] `useChatViewportShellInsets` **cleanup**에서 rAF 취소·`--chat-shell-keyboard-offset`·`--chat-composer-height` removeProperty·리스너 해제가 있는가?
+- [ ] Phase2에서 **`chatShellMounted`** 일 때만 셸 insets 훅을 켜는가? (콜백 ref 미부착 시 첫 프레임 미구독 회귀)
 - [ ] 스크롤 훅에서 **RO + vv + window resize/orientation** 중 하나를 빼면 **어느 플랫폼이 깨지는지** 문서 §3 표 또는 코드 주석에 남길 것.
 - [ ] `useMessengerRoomClientPhase1` 안 **훅 순서**를 바꾸지 않는가? (`useVirtualizer` ↔ `useMessengerRoomReaderScrollBottom` 순서 깨지면 React invalid hooks)
-- [ ] **임시**로 `window.scrollTo` / body 스크롤 의존 / `100vh` 단독 셸 높이를 넣지 않는가?
+- [ ] **임시**로 `window.scrollTo` / body 스크롤 의존 / composer `sticky`+이중 safe-area padding 을 넣지 않는가?
 
 ---
 
@@ -82,5 +82,8 @@
 | 2026-06-08 | 1:1 통화 페이지·전역 수신 오버레이에 통화 전용 `visualViewport` 높이 변수(`--call-viewport-height`) 적용. 방 셸·스크롤·composer 계약은 미변경 | `CallScreenShell`, `CallScreen`, `CommunityMessengerCallClient` |
 | 2026-06-08 | 통화 자식 화면·라우트 로딩의 잔여 `min-h-[100dvh]` 의존 제거. 높이 기준은 부모 `CallScreenShell`의 `--call-viewport-height`로 단일화 | `IncomingCallView`, `OutgoingCallView`, `CommunityMessengerCallRouteLoading` |
 | 2026-06-11 | 통화 오버레이: `resolveLayoutVisibleViewportCssPx`(방과 동일 vv 공식)·셸 실측 `height` 인라인·z-1280(하단 탭 위)·호스트/수신 벨 BottomNav 선제 suppress — 모바일 하단 흰 띠(앱 배경 비침) 구조 수정 | `layout-visible-viewport-px`, `CallScreenShell`, `CommunityMessengerActiveCallHost`, `CallOverlay` |
+| 2026-06-14 | 채팅 헤더·composer 전용 재구성: 셸 `chat-viewport-shell` + safe-area padding + narrow `100dvh`; `useChatViewportResize` 높이 JS 제거(composer 높이 ResizeObserver만); header `sticky`·composer 이중 safe-area/keyboard padding 제거; Android `adjustResize` | `app/chat-viewport-shell.css`, `components/chat/*`, `messenger-header.tsx`, `CommunityMessengerRoomPhase2Composer`, `CommunityMessengerRoomClientPhase2Body`, `AndroidManifest.xml` |
+| 2026-06-14 | 기기별 보완: `chat-viewport-shell-platform`·`useChatViewportShellInsets`(overlay 시 셸 `--chat-shell-keyboard-offset`만); embedded 슬라이드 패널 `padding-top:0`; iOS/Android 플랫폼 클래스 | `lib/ui/chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomClientPhase2Body` |
+| 2026-06-14 | 정리: 레거시 `use-chat-viewport-resize.ts` 제거, composer 높이·keyboard insets 단일 훅 통합, ShellChromeFrame `data-cm-room` 고정, keyboard 이중 padding 가드 | `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomShellChromeFrame.tsx` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

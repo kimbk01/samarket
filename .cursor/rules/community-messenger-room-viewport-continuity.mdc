@@ -3,7 +3,9 @@ description: 커뮤니티 메신저 방 모바일 뷰포트·스크롤 수정 �
 alwaysApply: false
 globs:
   - lib/ui/messenger-chat-viewport-tuning.ts
-  - lib/ui/use-chat-viewport-resize.ts
+  - lib/ui/chat-viewport-shell-platform.ts
+  - lib/ui/use-chat-viewport-shell-insets.ts
+  - app/chat-viewport-shell.css
   - lib/community-messenger/room/use-messenger-room-reader-scroll-bottom.ts
   - components/community-messenger/room/CommunityMessengerRoomPhase2.tsx
   - components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx
@@ -20,7 +22,7 @@ globs:
 
 ## 금지·주의
 
-- 셸 높이를 **`100vh` / `innerHeight` 단독**으로만 맞추지 않는다 — 문서 §1 목표.
+- 셸 높이를 **`100vh` 단독**(fallback 제외) 또는 **`innerHeight` 단독**으로만 맞추지 않는다 — narrow 는 `100dvh`+safe-area.
 - **`useMessengerRoomClientPhase1`** 에서 **커스텀 훅 호출 순서**를 바꾸지 않는다 — `useVirtualizer` · `useMessengerRoomReaderScrollBottom` 순서 깨짐 시 invalid hooks.
 - 스크롤 보정을 **폴링·임시 `window.scrollTo`만**으로 대체하지 않는다 (근본 수정 규칙과 병행 시 구조적 원인을 남긴다).
 

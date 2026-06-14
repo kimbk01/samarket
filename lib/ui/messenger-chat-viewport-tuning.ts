@@ -62,3 +62,9 @@ export const MESSENGER_KEYBOARD_IOS_BLUR_REMEASURE_MS = 280;
 
 /** iOS 포커스 직후 추가 재측정(ms) */
 export const MESSENGER_KEYBOARD_IOS_FOCUS_REMEASURE_EXTRA_MS = [100, 260] as const;
+
+/**
+ * 셸 keyboard overlay fallback — adjustResize·resizes-content 미동작 WebView.
+ * composer 가 아닌 [data-cm-room].chat-viewport-shell padding-bottom 에만 적용.
+ */
+export const CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX = 24;
