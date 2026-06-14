@@ -16,7 +16,7 @@ import {
   buildProductChatImageContent,
   normalizeIncomingImageUrlList,
 } from "@/lib/chats/chat-image-bundle";
-import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { notifyTradeChatInAppForRecipients } from "@/lib/notifications/trade-chat-inapp-notify";
 import { parseRoomId } from "@/lib/validate-params";
 import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
@@ -167,23 +167,16 @@ export async function POST(
   }
 
   const otherId = isSeller ? room.buyer_id : room.seller_id;
-  await Promise.all([
-    sbAny.from("product_chats").update(updates).eq("id", roomId),
-    (async () => {
-      try {
-        await sbAny.from("notifications").insert({
-          user_id: otherId,
-          notification_type: "chat",
-          title: "새 메시지",
-          body: preview,
-          link_url: tradeChatNotificationHref(roomId, "product_chat"),
-          is_read: false,
-        });
-      } catch {
-        /* ignore: notifications.user_id FK 등으로 실패 가능 */
-      }
-    })(),
-  ]);
+  await sbAny.from("product_chats").update(updates).eq("id", roomId);
+
+  if (otherId) {
+    void notifyTradeChatInAppForRecipients(sbAny, {
+      roomId,
+      senderUserId: userId,
+      preview,
+      recipientUserIds: [otherId],
+    }).catch(() => {});
+  }
 
   if (postId) {
     void syncPostInquiryNegotiatingFromItemTradeChats(sbAny, postId).catch(() => {});

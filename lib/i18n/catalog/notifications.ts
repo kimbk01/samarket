@@ -173,6 +173,11 @@ export const notificationMessages = {
     notify_kind_user_point: "내 포인트",
     notify_store_point_account_replied_title: "입금 계좌 안내",
     notify_store_point_account_replied_body: "매장 포인트 충전 입금 계좌 안내가 등록되었습니다. 확인 후 입금 신청해 주세요.",
+    notify_community_comment_title: "새 댓글",
+    notify_community_comment_body: "{name}님이 댓글을 남겼습니다.",
+    notify_community_reply_title: "새 답글",
+    notify_community_like_title: "좋아요",
+    notify_community_like_body: "{name}님이 게시글을 좋아합니다.",
   },
   en: {
     notify_chat_new_message_title: "New message",
@@ -348,6 +353,11 @@ export const notificationMessages = {
     notify_kind_user_point: "My points",
     notify_store_point_account_replied_title: "Deposit account details",
     notify_store_point_account_replied_body: "Deposit account details for store points are ready. Review and submit your top-up.",
+    notify_community_comment_title: "New comment",
+    notify_community_comment_body: "{name} left a comment.",
+    notify_community_reply_title: "New reply",
+    notify_community_like_title: "Like",
+    notify_community_like_body: "{name} liked your post.",
   },
   
 } as const;

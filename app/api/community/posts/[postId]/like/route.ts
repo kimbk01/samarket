@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
+import { notifyCommunityPostLikeReceived } from "@/lib/notifications/community-social-inapp-notify";
 import {
 
   getNeighborhoodDevSamplePost,
@@ -27,6 +28,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
       return NextResponse.json({ ok: true, liked: next.liked, like_count: next.like_count, fallback: "dev_samples" });
     }
     const sb = getSupabaseServer();
+    const { data: postRow } = await sb
+      .from("community_posts")
+      .select("user_id")
+      .eq("id", id)
+      .maybeSingle();
+    const postAuthorId = String((postRow as { user_id?: string } | null)?.user_id ?? "").trim();
+
     const { data: ex } = await sb
       .from("community_post_likes")
       .select("id")
@@ -43,6 +51,15 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
       .from("community_post_likes")
       .select("id", { count: "exact", head: true })
       .eq("post_id", id);
+
+    if (liked && postAuthorId) {
+      void notifyCommunityPostLikeReceived(sb, {
+        postId: id,
+        postAuthorUserId: postAuthorId,
+        likerUserId: auth.userId,
+      }).catch(() => {});
+    }
+
     return NextResponse.json({
       ok: true,
       liked,

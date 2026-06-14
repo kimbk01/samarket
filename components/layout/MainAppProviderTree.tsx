@@ -33,6 +33,8 @@ import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
+import { NativePushRegistration } from "@/components/push/NativePushRegistration";
+import { NativeBadgeSync } from "@/components/push/NativeBadgeSync";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
@@ -219,6 +221,8 @@ export function MainAppProviderTree({
           <LoginRequiredSheet />
           <MissingProfileInfoModal />
           <DiBaYNotificationOnboardingGate />
+          <NativePushRegistration />
+          <NativeBadgeSync />
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>

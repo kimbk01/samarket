@@ -32,7 +32,7 @@ public class MainActivity extends BridgeActivity {
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
     attachDibayWebChromeClient();
     logNativeAuthBootState();
-    logOAuthIntent(getIntent());
+    handleDeepLinkIntent(getIntent());
   }
 
   @Override
@@ -131,7 +131,68 @@ public class MainActivity extends BridgeActivity {
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
-    logOAuthIntent(intent);
+    handleDeepLinkIntent(intent);
+  }
+
+  private void handleDeepLinkIntent(Intent intent) {
+    if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) {
+      return;
+    }
+    Uri data = intent.getData();
+    if (data == null || !"dibay".equals(data.getScheme())) {
+      return;
+    }
+    if ("auth".equals(data.getHost())) {
+      Log.i(TAG, "intent_received path=" + data.getPath() + " hasCode=" + (data.getQueryParameter("code") != null));
+      return;
+    }
+    String appPath = mapDibayDeepLinkToAppPath(data);
+    if (appPath == null || appPath.isEmpty()) {
+      return;
+    }
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String jsPath = appPath.replace("\\", "\\\\").replace("'", "\\'");
+    webView.post(
+        () -> webView.evaluateJavascript("window.location.assign('" + jsPath + "');", null));
+    Log.i(TAG, "deep_link_navigate path=" + appPath);
+  }
+
+  private static String mapDibayDeepLinkToAppPath(Uri data) {
+    String host = data.getHost();
+    if (host == null) return null;
+    java.util.List<String> segments = data.getPathSegments();
+    switch (host) {
+      case "chat":
+        if (!segments.isEmpty()) {
+          return "/community-messenger/rooms/" + android.net.Uri.encode(segments.get(0));
+        }
+        return null;
+      case "trade":
+        if (segments.size() >= 2 && "chat".equals(segments.get(0))) {
+          return "/chats/" + android.net.Uri.encode(segments.get(1));
+        }
+        return null;
+      case "orders":
+        if (!segments.isEmpty()) {
+          return "/orders/store/" + android.net.Uri.encode(segments.get(0));
+        }
+        return null;
+      case "community":
+        if (segments.size() >= 2 && "post".equals(segments.get(0))) {
+          return "/philife/posts/" + android.net.Uri.encode(segments.get(1));
+        }
+        return null;
+      case "call":
+        if (!segments.isEmpty()) {
+          return "/community-messenger/calls/" + android.net.Uri.encode(segments.get(0));
+        }
+        return null;
+      default:
+        return null;
+    }
   }
 
   private void logOAuthIntent(Intent intent) {

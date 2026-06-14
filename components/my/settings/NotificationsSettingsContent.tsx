@@ -16,6 +16,7 @@ import {
 } from "@/lib/me/fetch-me-notification-settings-client";
 import { SettingsSection } from "./SettingsSection";
 import { WebPushSettingsRow } from "./WebPushSettingsRow";
+import { NativePushSettingsRow } from "./NativePushSettingsRow";
 
 export function NotificationsSettingsContent() {
   const { t } = useI18n();
@@ -235,6 +236,7 @@ export function NotificationsSettingsContent() {
           </div>
         </div>
         <WebPushSettingsRow pushEnabled={settings.push_enabled !== false} />
+        <NativePushSettingsRow pushEnabled={settings.push_enabled !== false} />
         {!commerceEmailLoaded ? (
           <div className="border-b border-sam-border-soft px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">

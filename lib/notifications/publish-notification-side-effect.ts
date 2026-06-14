@@ -4,7 +4,7 @@
  * - NOTIFICATION_WEBHOOK_URL → JSON POST (워커·n8n·자체 서비스 등)
  * - SLACK_NOTIFICATIONS_WEBHOOK_URL / DISCORD_NOTIFICATIONS_WEBHOOK_URL → 짧은 텍스트 알림
  * - Resend (NOTIFICATION_EMAIL_ENABLED=1 + RESEND_API_KEY) — `sb` 넘길 때만, `send-notification-email-resend.ts`
- * - Web Push (WEB_PUSH_ENABLED=1 + VAPID 키) — `try-web-push-notification-side-effect.ts`
+ * - Push dispatch (PUSH_DISPATCH_ENABLED=1 or WEB_PUSH_ENABLED=1) — Web/FCM/APNS/VoIP via `dispatch-push-for-user.ts`
  *
  * 호출부는 `void` 로 붙여 두어 본 플로우를 막지 않습니다. 내부 실패는 로그만 남깁니다.
  */
@@ -12,7 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSiteOrigin } from "@/lib/env/runtime";
 import { abortSignalForTimeout } from "@/lib/http/abort-signal-timeout";
 import { trySendNotificationEmailResend } from "@/lib/notifications/send-notification-email-resend";
-import { trySendWebPushForNotification } from "@/lib/push/try-web-push-notification-side-effect";
+import { trySendPushForNotification } from "@/lib/push/try-web-push-notification-side-effect";
 import { parseSafeWebhookUrl } from "@/lib/security/safe-webhook-url";
 
 export type NotificationSideEffectPayload = {
@@ -160,8 +160,8 @@ export async function publishNotificationSideEffect(
   }
 
   try {
-    await trySendWebPushForNotification(out);
+    await trySendPushForNotification(out);
   } catch (e) {
-    console.error("[publishNotificationSideEffect] Web Push", e);
+    console.error("[publishNotificationSideEffect] Push dispatch", e);
   }
 }

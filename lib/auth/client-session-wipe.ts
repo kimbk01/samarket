@@ -50,6 +50,8 @@ import {
 import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-kakao-auth-plugin";
 import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
+import { disconnectNativeDevicesOnAccountSwitch } from "@/lib/push/disconnect-native-devices-for-logout-client";
+import { clearNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
 
 export type ClientSessionWipeReason = "user_logout" | "account_switched" | "pre_login_bootstrap";
 
@@ -197,6 +199,12 @@ async function runWipeClientSessionState(
   if (reason === "user_logout" || reason === "account_switched") {
     await revokeNativeKakaoSessionIfAvailable();
     await revokeNativeGoogleSessionIfAvailable();
+  }
+  if (reason === "account_switched") {
+    void disconnectNativeDevicesOnAccountSwitch();
+  }
+  if (reason === "user_logout" || reason === "account_switched") {
+    void clearNativeBadgeCount();
   }
   const previousUserId = getBoundAuthUserId();
   await teardownCommunityMessengerCallOnAuthExit(

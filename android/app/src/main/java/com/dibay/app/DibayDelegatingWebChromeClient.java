@@ -47,6 +47,11 @@ public final class DibayDelegatingWebChromeClient extends WebChromeClient {
 
   @Override
   public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+    String msg = consoleMessage.message();
+    if (msg != null && msg.contains("DIBAY_PUSH_REGISTER")) {
+      int level = msg.contains("_FAIL") ? android.util.Log.ERROR : android.util.Log.INFO;
+      android.util.Log.println(level, "DIBAY_PUSH_REGISTER", msg);
+    }
     if (delegate != null) return delegate.onConsoleMessage(consoleMessage);
     return super.onConsoleMessage(consoleMessage);
   }

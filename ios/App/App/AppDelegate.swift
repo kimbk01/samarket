@@ -16,6 +16,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
                 KakaoSDK.initSDK(appKey: trimmed)
             }
         }
+        VoIPPushRegistry.shared.start()
         return true
     }
 

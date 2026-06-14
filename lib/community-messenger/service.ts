@@ -194,6 +194,7 @@ import {
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerMissedCall } from "@/lib/push/send-community-messenger-missed-call-push";
+import { sendWebPushForCommunityMessengerCallCanceled } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
 import {
   loadMarkReadParticipantRowWithSnapshotCache,
@@ -17545,6 +17546,18 @@ export async function updateCommunityMessengerCallSession(input: {
               roomId: roomIdM,
               initiatorUserId: initM,
               recipientUserId: recipM,
+            }).catch(() => {});
+          }
+        }
+        if (
+          next.nextStatus === "cancelled" &&
+          (updated.session_mode ?? "direct") === "direct"
+        ) {
+          const recipC = trimText(updated.recipient_user_id ?? "");
+          if (recipC) {
+            void sendWebPushForCommunityMessengerCallCanceled({
+              recipientUserId: recipC,
+              sessionId: updated.id,
             }).catch(() => {});
           }
         }

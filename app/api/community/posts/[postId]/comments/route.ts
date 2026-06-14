@@ -27,6 +27,7 @@ import {
 } from "@/lib/http/api-route";
 import { logServerPerf } from "@/lib/performance/samarket-perf";
 import { bumpNotificationTarget } from "@/lib/notifications/notification-targets";
+import { notifyCommunityPostCommentReceived } from "@/lib/notifications/community-social-inapp-notify";
 import { voidCommunityPointRewardOnCommentWrite } from "@/lib/points/community-point-bridge";
 
 export const runtime = "nodejs";
@@ -239,6 +240,15 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       });
     }
     const postAuthorId = String(prow.user_id ?? "").trim();
+    let parentCommentAuthorId: string | null = null;
+    if (parentId) {
+      const { data: parentRow } = await sb
+        .from("community_comments")
+        .select("user_id")
+        .eq("id", parentId)
+        .maybeSingle();
+      parentCommentAuthorId = String((parentRow as { user_id?: string } | null)?.user_id ?? "").trim() || null;
+    }
     if (postAuthorId && postAuthorId !== auth.userId) {
       void bumpNotificationTarget(sb, {
         userId: postAuthorId,
@@ -247,6 +257,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         scope: "consumer",
       });
     }
+    void notifyCommunityPostCommentReceived(sb, {
+      postId: id,
+      postAuthorUserId: postAuthorId,
+      commenterUserId: auth.userId,
+      commentPreview: content,
+      parentCommentAuthorUserId: parentCommentAuthorId,
+    }).catch(() => {});
     const commentId = (ins as { id: string }).id;
     voidCommunityPointRewardOnCommentWrite({
       userId: auth.userId,
