@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getCapacitorNativeDiagnostics,
   ensureCapacitorNativeMarkerOnBoot,
+  hasLikelyIosCapacitorShell,
   isCapacitorBridgeReady,
   isCapacitorNativePlatform,
   isNativeKakaoLoginAvailable,
   isOAuthNativeLaunchAvailable,
   isOAuthNativeLaunchShell,
   resolveCapacitorShellPlatform,
+  resolveOAuthRoutingShellPlatform,
   shouldRegisterCapacitorOAuthReturnListener,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
@@ -149,6 +151,24 @@ describe("capacitor-native", () => {
     expect(isCapacitorNativePlatform()).toBe(true);
     expect(isCapacitorBridgeReady()).toBe(true);
     expect(resolveCapacitorShellPlatform()).toBe("ios");
+  });
+
+  it("promotes resolveOAuthRoutingShellPlatform to ios when WebKit bridge exists but shell is null", () => {
+    vi.stubGlobal("window", {
+      Capacitor: { getPlatform: () => "web" },
+      webkit: { messageHandlers: { bridge: {} } },
+    });
+    expect(resolveCapacitorShellPlatform()).toBe("ios");
+    expect(hasLikelyIosCapacitorShell()).toBe(true);
+    expect(resolveOAuthRoutingShellPlatform()).toBe("ios");
+  });
+
+  it("hasLikelyIosCapacitorShell is false on plain web without bridge", () => {
+    vi.stubGlobal("window", {
+      Capacitor: { getPlatform: () => "web" },
+    });
+    expect(hasLikelyIosCapacitorShell()).toBe(false);
+    expect(resolveOAuthRoutingShellPlatform()).toBe(null);
   });
 
   it("detects OAuth launch availability from plugin headers", () => {

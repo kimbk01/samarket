@@ -15,7 +15,7 @@ const TEST_AUD = "com.dibay.app";
 const TEST_SUB = "001234.apple-sub-abc";
 
 describe("apple-token-verify.server", () => {
-  let signToken: (claims: Record<string, unknown>, options?: { expiresInSec?: number }) => Promise<string>;
+  let signToken: (claims: Record<string, unknown>, options?: { expiresInSec?: number; aud?: string }) => Promise<string>;
 
   beforeAll(async () => {
     process.env.AUTH_APPLE_NATIVE_CLIENT_ID = TEST_AUD;
@@ -27,10 +27,11 @@ describe("apple-token-verify.server", () => {
     signToken = async (claims, options) => {
       const now = Math.floor(Date.now() / 1000);
       const expiresInSec = options?.expiresInSec ?? 600;
+      const aud = options?.aud ?? TEST_AUD;
       return new SignJWT(claims)
         .setProtectedHeader({ alg: "RS256", kid: "test-kid" })
         .setIssuer("https://appleid.apple.com")
-        .setAudience(TEST_AUD)
+        .setAudience(aud)
         .setSubject(TEST_SUB)
         .setIssuedAt(now)
         .setExpirationTime(now + expiresInSec)
@@ -65,10 +66,28 @@ describe("apple-token-verify.server", () => {
     delete process.env.AUTH_APPLE_NATIVE_CLIENT_ID;
     process.env.AUTH_APPLE_NATIVE_AUDIENCES = "com.other.app";
     await expect(verifyAppleIdentityToken({ identityToken: token })).rejects.toMatchObject({
-      code: "apple_token_verify_failed",
+      code: "apple_aud_not_allowed",
     });
     process.env.AUTH_APPLE_NATIVE_CLIENT_ID = TEST_AUD;
     process.env.AUTH_APPLE_NATIVE_AUDIENCES = TEST_AUD;
+  });
+
+  it("rejects Web OAuth Services ID aud com.dibay.login2 for Native exchange", async () => {
+    process.env.AUTH_APPLE_NATIVE_CLIENT_ID = TEST_AUD;
+    process.env.AUTH_APPLE_WEB_CLIENT_ID = "com.dibay.login2";
+    const webAudToken = await signToken({}, { aud: "com.dibay.login2" });
+
+    await expect(verifyAppleIdentityToken({ identityToken: webAudToken })).rejects.toMatchObject({
+      code: "apple_aud_not_allowed",
+    });
+  });
+
+  it("accepts Native aud com.dibay.app even when AUTH_APPLE_WEB_CLIENT_ID is set", async () => {
+    process.env.AUTH_APPLE_NATIVE_CLIENT_ID = TEST_AUD;
+    process.env.AUTH_APPLE_WEB_CLIENT_ID = "com.dibay.login2";
+    const token = await signToken({});
+    const verified = await verifyAppleIdentityToken({ identityToken: token });
+    expect(verified.aud).toBe(TEST_AUD);
   });
 
   it("returns 401 for expired token", async () => {

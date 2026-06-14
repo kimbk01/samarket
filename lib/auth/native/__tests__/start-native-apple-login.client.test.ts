@@ -106,10 +106,46 @@ describe("start-native-apple-login.client", () => {
       }),
     );
     const replace = mockWindowLocationReplace();
+    const { logOAuthNativeEvent } = await import("@/lib/auth/oauth/oauth-native-callback-log");
     const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
     await startNativeAppleLogin();
     expect(replace).toHaveBeenCalledWith("/signup/terms");
     expect(isOAuthFlowInFlight()).toBe(false);
+
+    const exchangeSuccessCalls = vi
+      .mocked(logOAuthNativeEvent)
+      .mock.calls.filter(([event]) => event === "apple_native_exchange_success");
+    expect(exchangeSuccessCalls).toHaveLength(1);
+    const exchangeOkCalls = vi
+      .mocked(logOAuthNativeEvent)
+      .mock.calls.filter(([event]) => event === "apple_native_exchange_ok");
+    expect(exchangeOkCalls).toHaveLength(0);
+  });
+
+  it("logs apple_native_started and apple_native_success once each on happy path start", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        json: async () => ({
+          ok: true,
+          provider: "apple",
+          signupComplete: false,
+          redirectTo: "/market",
+          sessionEstablished: true,
+        }),
+      }),
+    );
+    mockWindowLocationReplace();
+    const { logOAuthNativeEvent } = await import("@/lib/auth/oauth/oauth-native-callback-log");
+    const { startNativeAppleLogin } = await import("@/lib/auth/native/start-native-apple-login.client");
+    await startNativeAppleLogin();
+
+    expect(
+      vi.mocked(logOAuthNativeEvent).mock.calls.filter(([event]) => event === "apple_native_started"),
+    ).toHaveLength(1);
+    expect(
+      vi.mocked(logOAuthNativeEvent).mock.calls.filter(([event]) => event === "apple_native_success"),
+    ).toHaveLength(1);
   });
 
   it("maps 401 verify failure to apple_native_verify_failed", async () => {

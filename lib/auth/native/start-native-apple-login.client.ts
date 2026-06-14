@@ -62,7 +62,7 @@ function mapExchangeErrorToNativeAppleError(
 }
 
 /**
- * P2 STEP 1: Apple SDK token → exchange API (501 until STEP 2 verify).
+ * Native Apple SDK token → server verify → Supabase session (POST /api/auth/native/exchange).
  * NEVER creates Supabase session on client.
  */
 export async function postNativeAppleExchange(
@@ -145,10 +145,6 @@ export async function startNativeAppleLogin(input?: { next?: string | null }): P
     }
 
     logOAuthNativeEvent("apple_native_exchange_success", {
-      signupComplete: exchange.signupComplete ?? null,
-      redirectTo: exchange.redirectTo ?? null,
-    });
-    logOAuthNativeEvent("apple_native_exchange_ok", {
       signupComplete: exchange.signupComplete ?? null,
       redirectTo: exchange.redirectTo ?? null,
     });

@@ -28,16 +28,14 @@ export function isAppleNativeExchangeSessionEnabled(): boolean {
 }
 
 /**
- * identityToken JWT `aud` 허용 목록.
- * 우선순위: AUTH_APPLE_NATIVE_AUDIENCES(쉼표 구분) → 개별 client id env → bundle fallback.
+ * Native Apple SDK identityToken JWT `aud` 허용 목록.
+ * Bundle ID(com.dibay.app)만 — Web OAuth Services ID(com.dibay.login2)는 포함하지 않는다.
  */
 export function resolveAppleNativeAllowedAudiences(): string[] {
   const explicit = readEnvList(process.env.AUTH_APPLE_NATIVE_AUDIENCES);
   const candidates = [
     ...explicit,
     process.env.AUTH_APPLE_NATIVE_CLIENT_ID?.trim(),
-    process.env.AUTH_APPLE_WEB_CLIENT_ID?.trim(),
-    process.env.APPLE_CLIENT_ID?.trim(),
     process.env.APPLE_NATIVE_BUNDLE_ID?.trim(),
   ].filter(Boolean) as string[];
 

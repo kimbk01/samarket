@@ -155,10 +155,14 @@ export async function verifyAppleIdentityToken(input: {
     };
   } catch (error) {
     if (error instanceof AppleTokenVerifyError) throw error;
+    const message = error instanceof Error ? error.message : "";
+    if (/unexpected "aud" claim|audience/i.test(message)) {
+      throw new AppleTokenVerifyError("apple_aud_not_allowed", "Apple identity token aud is not allowed");
+    }
     void predecoded;
     throw new AppleTokenVerifyError(
       "apple_token_verify_failed",
-      error instanceof Error ? error.message : "Apple identity token verification failed",
+      message || "Apple identity token verification failed",
     );
   }
 }

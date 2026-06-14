@@ -1,16 +1,16 @@
 "use client";
 
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { registerPlugin } from "@capacitor/core";
 import type { NativeAppleAuthErrorCode, NativeAppleSignInResult } from "@/lib/auth/native/native-apple-auth-contract";
 import {
   extractNativeApplePluginRejectRaw,
   mapNativeApplePluginError,
   NATIVE_APPLE_AUTH_PLUGIN_ID,
 } from "@/lib/auth/native/native-apple-auth-contract";
+import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import {
   isCapacitorBridgeReady,
   isCapacitorNativePlatform,
-  resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
 
 export type NativeAppleAuthPluginSignInResult = {
@@ -77,28 +77,19 @@ export async function invokeNativeAppleSignIn(opts?: { nonce?: string }): Promis
   }
 
   try {
-    console.error("[oauth] apple_native_started", {
-      platform: Capacitor.getPlatform(),
-      shellPlatform: resolveCapacitorShellPlatform(),
-    });
     const raw = await invokeNativeAppleSignInViaBridge(opts);
-    console.error("[oauth] apple_native_success", {
-      hasIdentityToken: Boolean(raw.identityToken),
-      hasUserIdentifier: Boolean(raw.userIdentifier),
-    });
     return normalizePluginSignInResult(raw);
   } catch (error) {
     const pluginCode = extractNativeApplePluginRejectRaw(error);
-    if (pluginCode === "user_cancelled") {
-      console.error("[oauth] apple_native_cancelled");
-    } else if (pluginCode === "apple_native_token_missing") {
-      console.error("[oauth] apple_native_token_missing");
-    }
     const mapped = mapNativeApplePluginError(pluginCode);
-    console.error("[oauth] apple_native_failed", { pluginCode, mapped });
     if (mapped === "user_cancelled") {
+      logOAuthNativeEvent("apple_native_cancelled", { provider: "apple" });
       throw new NativeAppleAuthError("user_cancelled");
     }
+    if (mapped === "apple_native_token_missing") {
+      logOAuthNativeEvent("apple_native_token_missing", { provider: "apple" });
+    }
+    logOAuthNativeEvent("apple_native_failed", { provider: "apple", code: mapped, pluginCode: pluginCode || mapped });
     throw new NativeAppleAuthError(mapped, pluginCode || mapped);
   }
 }

@@ -101,7 +101,6 @@ export function NativeOAuthLaunchClient() {
 
   useEffect(() => {
     ensureCapacitorNativeMarkerOnBoot();
-    logOAuthNativeEvent("launch_client_mount", getCapacitorNativeDiagnostics());
 
     if (!isOAuthNativeLaunchShell()) {
       logOAuthNativeEvent("launch_client_not_native_redirect");
@@ -123,7 +122,7 @@ export function NativeOAuthLaunchClient() {
         isNativeAppShell: true,
       });
       if (routing.action !== "web_oauth_start") {
-        logOAuthNativeEvent("launch_client_native_provider_blocked", {
+        logOAuthNativeEvent("oauth_launch_blocked", {
           provider,
           action: routing.action,
           errorCode: routing.action === "native_blocked" ? routing.errorCode : null,
@@ -133,6 +132,8 @@ export function NativeOAuthLaunchClient() {
         return;
       }
     }
+
+    logOAuthNativeEvent("oauth_launch_started", { provider });
 
     let cancelled = false;
     void (async () => {

@@ -163,6 +163,25 @@ export function hasIosCapacitorBridge(): boolean {
   return Boolean(readWindowWithCapacitor()?.webkit?.messageHandlers?.bridge);
 }
 
+/**
+ * iOS Capacitor shell 후보 — resolveCapacitorShellPlatform() null 이어도 WebKit bridge·ios marker 로 판별.
+ * Android bridge 와 동시에 true 가 되지 않도록 androidBridge 는 제외한다.
+ */
+export function hasLikelyIosCapacitorShell(): boolean {
+  if (readDibayAppPlatformMarker() === "ios") return true;
+  if (hasIosCapacitorBridge() && !hasAndroidBridge()) return true;
+  const platform = readWindowWithCapacitor()?.Capacitor?.getPlatform?.()?.trim().toLowerCase();
+  return platform === "ios";
+}
+
+/** OAuth routing — shellPlatform null 타이밍에 iOS WebKit bridge 를 ios 로 승격. */
+export function resolveOAuthRoutingShellPlatform(): DibayAppPlatform | null {
+  const resolved = resolveCapacitorShellPlatform();
+  if (resolved) return resolved;
+  if (hasLikelyIosCapacitorShell()) return "ios";
+  return null;
+}
+
 export function hasNativeOAuthLauncherPluginHeader(): boolean {
   const headers = readWindowWithCapacitor()?.Capacitor?.PluginHeaders;
   if (!Array.isArray(headers)) return false;

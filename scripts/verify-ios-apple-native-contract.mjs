@@ -86,8 +86,24 @@ if (!pluginSwift.includes('jsName = "NativeAppleAuth"')) {
 }
 
 const jsPlugin = read("lib/auth/native/native-apple-auth-plugin.ts");
-if (!jsPlugin.includes("apple_native_started")) {
-  failures.push("native-apple-auth-plugin.ts must log apple_native_started");
+const appleLoginClient = read("lib/auth/native/start-native-apple-login.client.ts");
+const appleAuthEnv = read("lib/auth/native/apple-auth-env.server.ts");
+
+if (!appleLoginClient.includes('logOAuthNativeEvent("apple_native_started"')) {
+  failures.push("start-native-apple-login.client.ts must log apple_native_started via logOAuthNativeEvent");
+}
+if (!appleLoginClient.includes('logOAuthNativeEvent("apple_native_exchange_success"')) {
+  failures.push("start-native-apple-login.client.ts must log apple_native_exchange_success");
+}
+if (appleLoginClient.includes("apple_native_exchange_ok")) {
+  failures.push("start-native-apple-login.client.ts must not log duplicate apple_native_exchange_ok");
+}
+if (appleAuthEnv.includes("AUTH_APPLE_WEB_CLIENT_ID") && appleAuthEnv.includes("resolveAppleNativeAllowedAudiences")) {
+  if (/AUTH_APPLE_WEB_CLIENT_ID|APPLE_CLIENT_ID/.test(
+    appleAuthEnv.slice(appleAuthEnv.indexOf("resolveAppleNativeAllowedAudiences")),
+  )) {
+    failures.push("resolveAppleNativeAllowedAudiences must not include AUTH_APPLE_WEB_CLIENT_ID or APPLE_CLIENT_ID");
+  }
 }
 if (!jsPlugin.includes("nativePromise")) {
   failures.push("native-apple-auth-plugin.ts must use Capacitor.nativePromise bridge path for remote WebView");

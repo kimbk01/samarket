@@ -8,25 +8,24 @@ import { isOAuthLoginStartSupported, startOAuthLogin } from "@/lib/auth/oauth/st
 import { endOAuthFlow, isOAuthInFlightPath, isOAuthFlowInFlight, NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS, releaseOAuthFlowOnUserCancel, tryBeginOAuthFlow } from "@/lib/auth/oauth/native-oauth-contract";
 import { handoffOAuthLoginShell, restoreOAuthLoginShellAfterFailure } from "@/lib/auth/oauth/oauth-login-shell.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
-import { NativeAppleAuthError } from "@/lib/auth/native/native-apple-auth-plugin";
-import { NativeGoogleAuthError } from "@/lib/auth/native/native-google-auth-plugin";
-import { NativeKakaoAuthError } from "@/lib/auth/native/native-kakao-auth-plugin";
 import {
-  NativeProviderLoginError,
   startNativeProviderLogin,
 } from "@/lib/auth/native/start-native-provider-login.client";
 import {
-  resolveAppleWebOAuthFallbackReason,
-  resolveNativeBlockedProviderErrorCode,
-  resolveOAuthNativeRoutingDecision,
-} from "@/lib/auth/oauth/oauth-native-routing";
+  resolveOAuthProviderRoutingSnapshot,
+  shouldBlockAppleWebOAuthSafetyNet,
+  shouldWaitCapacitorBridgeBeforeOAuthRouting,
+} from "@/lib/auth/oauth/oauth-provider-routing.client";
+import {
+  isNativeProviderCancelError,
+  resolveNativeProviderLoginErrorCode,
+  summarizeOAuthStartFailure,
+} from "@/lib/auth/oauth/oauth-start-error.client";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
-  isCapacitorNativePlatform,
-  isOAuthNativeLaunchShell,
-  resolveCapacitorShellPlatform,
+  resolveOAuthRoutingShellPlatform,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -85,49 +84,19 @@ export function setOAuthPendingForTests(provider: OAuthProvider | null): void {
   setSharedPending(provider);
 }
 
-function isNativeAppOAuthShell(): boolean {
-  return isCapacitorNativePlatform() || isOAuthNativeLaunchShell();
-}
-
 function logAppleLoginPressed(): void {
   const diagnostics = getCapacitorNativeDiagnostics();
   logOAuthNativeEvent("apple_login_pressed", {
-    shellPlatform: resolveCapacitorShellPlatform(),
+    provider: "apple",
+    shellPlatform: resolveOAuthRoutingShellPlatform(),
     bridgeReady: diagnostics.bridgeReady,
     nativeAppleLoginAvailable: diagnostics.nativeAppleLoginAvailable,
     hasNativeAppleAuthPluginHeader: diagnostics.hasNativeAppleAuthPluginHeader,
-    detectedNative: diagnostics.detectedNative,
-    oauthLaunchShell: diagnostics.oauthLaunchShell,
-    dibayAppPlatformMarker: diagnostics.dibayAppPlatformMarker,
-    platform: diagnostics.platform,
-    locationHref: diagnostics.locationHref,
   });
-}
-
-function shouldWaitCapacitorBridgeBeforeOAuthRouting(provider: OAuthProvider): boolean {
-  if (isNativeAppOAuthShell()) return true;
-  if (provider === "apple" && resolveCapacitorShellPlatform() === "ios") return true;
-  return false;
 }
 
 function isNaverProvider(provider: OAuthProvider): boolean {
   return provider === "naver";
-}
-
-function isNativeProviderCancelError(err: unknown): boolean {
-  if (err instanceof NativeKakaoAuthError && err.code === "user_cancelled") return true;
-  if (err instanceof NativeAppleAuthError && err.code === "user_cancelled") return true;
-  if (err instanceof NativeGoogleAuthError && err.code === "user_cancelled") return true;
-  return false;
-}
-
-function resolveNativeProviderLoginErrorCode(err: unknown): string {
-  if (err instanceof NativeProviderLoginError) return err.code;
-  if (err instanceof NativeKakaoAuthError) return err.code;
-  if (err instanceof NativeAppleAuthError) return err.code;
-  if (err instanceof NativeGoogleAuthError) return err.code;
-  if (err instanceof Error) return err.name || err.message || "oauth_start_failed";
-  return "oauth_start_failed";
 }
 
 function mapOAuthErrorToMessage(code: string, t: ReturnType<typeof useI18n>["t"]): string {
@@ -258,7 +227,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         restoreOAuthLoginShellAfterFailure();
       }
       const code = resolveNativeProviderLoginErrorCode(err);
-      console.error("[oauth] oauth_start_failed", { code, err });
+      console.error("[oauth] oauth_start_failed", summarizeOAuthStartFailure(err));
       if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
     },
     [clearPending, t],
@@ -303,34 +272,22 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           logAppleLoginPressed();
         }
 
-        const isNativeShell = isNativeAppOAuthShell();
-        const shellPlatform = resolveCapacitorShellPlatform();
-        const routing = resolveOAuthNativeRoutingDecision({
-          provider,
-          isNativeAppShell: isNativeShell,
-          shellPlatform,
-        });
+        const routingSnapshot = resolveOAuthProviderRoutingSnapshot(provider);
+        const { isNativeShell, shellPlatform, routing, appleWebOAuthFallbackReason } = routingSnapshot;
 
         if (provider === "apple") {
           logOAuthNativeEvent("apple_login_routing", {
+            provider: "apple",
+            shellPlatform,
             action: routing.action,
-            isNativeShell,
-            shellPlatform,
-            ...getCapacitorNativeDiagnostics(),
+            reason: appleWebOAuthFallbackReason,
           });
-          const fallbackReason = resolveAppleWebOAuthFallbackReason({
-            provider,
-            shellPlatform,
-            isNativeAppShell: isNativeShell,
-            routingAction: routing.action,
-          });
-          if (fallbackReason) {
+          if (appleWebOAuthFallbackReason) {
             logOAuthNativeEvent("apple_web_oauth_fallback_reason", {
-              reason: fallbackReason,
-              routingAction: routing.action,
+              provider: "apple",
               shellPlatform,
-              isNativeShell,
-              ...getCapacitorNativeDiagnostics(),
+              action: routing.action,
+              reason: appleWebOAuthFallbackReason,
             });
           }
         }
@@ -355,18 +312,26 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           }
           if (provider === "apple") {
             logOAuthNativeEvent("apple_native_blocked", {
+              provider: "apple",
+              shellPlatform,
+              action: routing.action,
               errorCode: routing.errorCode,
-              webOAuthFallbackReason: routing.webOAuthFallbackReason ?? null,
-              ...getCapacitorNativeDiagnostics(),
+              reason: routing.webOAuthFallbackReason ?? null,
             });
           }
           if (mountedRef.current) setError(mapOAuthErrorToMessage(routing.errorCode, t));
           return;
         }
 
-        if (provider === "apple" && shellPlatform === "ios") {
+        if (shouldBlockAppleWebOAuthSafetyNet(shellPlatform, routing.action)) {
           clearPending();
-          logOAuthNativeEvent("apple_web_oauth_blocked_on_ios", getCapacitorNativeDiagnostics());
+          logOAuthNativeEvent("apple_native_blocked", {
+            provider: "apple",
+            shellPlatform,
+            action: routing.action,
+            errorCode: "apple_native_unavailable",
+            reason: "shell_not_detected_before_routing",
+          });
           if (mountedRef.current) setError(mapOAuthErrorToMessage("apple_native_unavailable", t));
           return;
         }
