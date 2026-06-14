@@ -180,7 +180,15 @@ export const COMMUNITY_FEED_LIST_THUMB_BOX_CLASS =
   "relative h-[72px] w-[72px] shrink-0 self-start overflow-hidden rounded-[4px] sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]";
 
 /** 리스트: 72~88px 정사각형 고정(세로형 원본도 object-cover, 메타행과 겹침 방지) */
-function ListThumb({ url, totalImages }: { url: string; totalImages: number }) {
+function ListThumb({
+  url,
+  totalImages,
+  priority = false,
+}: {
+  url: string;
+  totalImages: number;
+  priority?: boolean;
+}) {
   const { t } = useI18n();
   const showMore = totalImages > 1;
   return (
@@ -190,6 +198,7 @@ function ListThumb({ url, totalImages }: { url: string; totalImages: number }) {
         fill
         roundedClassName="rounded-[4px]"
         className="bg-[#F7F8FA]"
+        priority={priority}
       />
       {showMore ? (
         <span
@@ -279,7 +288,13 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
 
 const placeInMetaForVm = (vm: FeedListCardViewModel) => Boolean((vm.placeLine ?? "").trim());
 
-export function FeedListLayoutCarrotThumbRight({ vm }: { vm: FeedListCardViewModel }) {
+export function FeedListLayoutCarrotThumbRight({
+  vm,
+  priorityThumb = false,
+}: {
+  vm: FeedListCardViewModel;
+  priorityThumb?: boolean;
+}) {
   const url = vm.thumbnailUrl;
   return (
     <CardShell href={vm.href}>
@@ -290,7 +305,9 @@ export function FeedListLayoutCarrotThumbRight({ vm }: { vm: FeedListCardViewMod
           vm={vm}
           firstHashtag={null}
           placeInMeta={placeInMetaForVm(vm)}
-          trailingAside={url ? <ListThumb url={url} totalImages={vm.imageCount} /> : null}
+          trailingAside={
+            url ? <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} /> : null
+          }
         />
       </div>
     </CardShell>
@@ -298,7 +315,13 @@ export function FeedListLayoutCarrotThumbRight({ vm }: { vm: FeedListCardViewMod
 }
 
 /** 스킨 `compact_media_left`: 썸네일을 **텍스트 열 앞**에(당근 좌·우 톤, 좌·우는 스킨으로만 갈림) */
-export function FeedListLayoutCarrotThumbLeft({ vm }: { vm: FeedListCardViewModel }) {
+export function FeedListLayoutCarrotThumbLeft({
+  vm,
+  priorityThumb = false,
+}: {
+  vm: FeedListCardViewModel;
+  priorityThumb?: boolean;
+}) {
   const url = vm.thumbnailUrl;
   if (!url) {
     return (
@@ -318,7 +341,7 @@ export function FeedListLayoutCarrotThumbLeft({ vm }: { vm: FeedListCardViewMode
       <div className="min-h-[5.5rem] w-full min-w-0 sm:min-h-[5.75rem]">
         <ListCategoryPillRow vm={vm} />
         <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
-          <ListThumb url={url} totalImages={vm.imageCount} />
+          <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
           <div className="flex min-w-0 flex-1 flex-col">
             <ListTitleOnly title={vm.title} />
             <ListBodyPreview text={vm.summary} />
@@ -344,7 +367,15 @@ export function FeedListLayoutTextOnly({ vm }: { vm: FeedListCardViewModel }) {
   );
 }
 
-export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewModel; thumbColumn: FeedListThumbColumn }) {
+export function FeedListLayoutPlace({
+  vm,
+  thumbColumn,
+  priorityThumb = false,
+}: {
+  vm: FeedListCardViewModel;
+  thumbColumn: FeedListThumbColumn;
+  priorityThumb?: boolean;
+}) {
   const place = (vm.placeLine ?? "").trim();
   const url = vm.thumbnailUrl;
   const pinM = Boolean(place);
@@ -354,7 +385,7 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
       <CardShell href={vm.href}>
         <div>
           <div className="flex min-w-0 items-start gap-2.5 sm:min-h-[5.75rem] sm:gap-3">
-            <ListThumb url={url} totalImages={vm.imageCount} />
+            <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
             <div className="min-w-0 flex-1">
               <ListCategoryPillRow vm={vm} />
               <ListTitleOnly title={vm.title} />
@@ -374,7 +405,9 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
             vm={vm}
             firstHashtag={null}
             placeInMeta={pinM}
-            trailingAside={<ListThumb url={url} totalImages={vm.imageCount} />}
+            trailingAside={
+              <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
+            }
           />
         </div>
       </CardShell>
@@ -389,7 +422,15 @@ export function FeedListLayoutPlace({ vm, thumbColumn }: { vm: FeedListCardViewM
   );
 }
 
-export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewModel; thumbColumn: FeedListThumbColumn }) {
+export function FeedListLayoutTags({
+  vm,
+  thumbColumn,
+  priorityThumb = false,
+}: {
+  vm: FeedListCardViewModel;
+  thumbColumn: FeedListThumbColumn;
+  priorityThumb?: boolean;
+}) {
   const tags = vm.hashtagTags;
   const one = tags.length > 0 ? tags[0]! : null;
   const url = vm.thumbnailUrl;
@@ -400,7 +441,7 @@ export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewMo
       <CardShell href={vm.href}>
         <div>
           <div className="flex min-w-0 items-start gap-2.5 sm:min-h-[5.75rem] sm:gap-3">
-            <ListThumb url={url} totalImages={vm.imageCount} />
+            <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
             <div className="min-w-0 flex-1">
               <ListCategoryPillRow vm={vm} />
               <ListTitleOnly title={vm.title} />
@@ -421,7 +462,9 @@ export function FeedListLayoutTags({ vm, thumbColumn }: { vm: FeedListCardViewMo
             vm={vm}
             firstHashtag={one}
             placeInMeta={pinM}
-            trailingAside={<ListThumb url={url} totalImages={vm.imageCount} />}
+            trailingAside={
+              <ListThumb url={url} totalImages={vm.imageCount} priority={priorityThumb} />
+            }
           />
         </div>
       </CardShell>

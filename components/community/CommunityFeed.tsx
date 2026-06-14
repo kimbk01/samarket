@@ -1516,9 +1516,9 @@ export function CommunityFeed({
         ) : (
           <>
             <ul ref={listRootRef} className={`${PHILIFE_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
-              {postsForList.map((p) => (
+              {postsForList.map((p, index) => (
                 <li key={p.id} className="list-none">
-                  <CommunityCard post={p} />
+                  <CommunityCard post={p} priorityThumb={index < 4} />
                 </li>
               ))}
             </ul>

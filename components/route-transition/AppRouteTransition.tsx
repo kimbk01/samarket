@@ -55,7 +55,7 @@ const PUSH_SURFACE_CLASSES = [
 ] as const;
 
 const MAX_PENDING_PUSH_HOLD_MS = 12_000;
-const PUSH_HANDOFF_OVERLAY_MS = 1_200;
+const PUSH_HANDOFF_NON_MESSENGER_FALLBACK_MS = 1_200;
 
 /** `beginMenuNavigation` 직후 dual-panel(440ms) — RSC 전 경량 셸을 들어오는 패널로 유지 */
 const MAIN_SHELL_DUAL_PANEL_INTENT_SOURCES = new Set(["bottom-nav", "trade-primary"]);
@@ -309,11 +309,7 @@ export function AppRouteTransition({
     const timer = window.setTimeout(() => {
       if (!pushTargetReached(pathname, pushSession.targetPath)) return;
       if (pushSession.entering) {
-        setPushHandoff({
-          node: pushSession.entering,
-          startedAt: performance.now(),
-          targetPath: pushSession.targetPath,
-        });
+        beginPushHandoffIfNeeded(pushSession.entering, pushSession.targetPath);
       }
       pushSessionActiveRef.current = false;
       setPushSession(null);
@@ -330,11 +326,7 @@ export function AppRouteTransition({
     const remaining = Math.max(40, durationMs + 64 - elapsed);
     const timer = window.setTimeout(() => {
       if (pushSession.entering) {
-        setPushHandoff({
-          node: pushSession.entering,
-          startedAt: performance.now(),
-          targetPath: pushSession.targetPath,
-        });
+        beginPushHandoffIfNeeded(pushSession.entering, pushSession.targetPath);
       }
       pushSessionActiveRef.current = false;
       setPushSession(null);
@@ -356,11 +348,7 @@ export function AppRouteTransition({
   const finishPushSession = () => {
     if (!pushTargetReached(pathname, pushSession?.targetPath)) return;
     if (pushSession?.entering) {
-      setPushHandoff({
-        node: pushSession.entering,
-        startedAt: performance.now(),
-        targetPath: pushSession.targetPath,
-      });
+      beginPushHandoffIfNeeded(pushSession.entering, pushSession.targetPath);
     }
     pushSessionActiveRef.current = false;
     setPushSession(null);
@@ -372,6 +360,17 @@ export function AppRouteTransition({
     return key === "/community-messenger" || key.startsWith("/community-messenger/");
   }
 
+  /** 슬라이드 종료 후 overlay — RSC 미도착 시에만 pending 패널 유지, 도착 즉시 children 노출 */
+  function beginPushHandoffIfNeeded(entering: ReactNode, targetPath: string | undefined) {
+    if (isMessengerHandoffTarget(targetPath) || !pushTargetReached(pathname, targetPath)) {
+      setPushHandoff({
+        node: entering,
+        startedAt: performance.now(),
+        targetPath,
+      });
+    }
+  }
+
   useLayoutEffect(() => {
     if (!pushHandoff) return;
 
@@ -381,7 +380,11 @@ export function AppRouteTransition({
     };
 
     if (!isMessengerHandoffTarget(pushHandoff.targetPath)) {
-      const timer = window.setTimeout(clearHandoff, PUSH_HANDOFF_OVERLAY_MS);
+      if (pushTargetReached(pathname, pushHandoff.targetPath)) {
+        clearHandoff();
+        return;
+      }
+      const timer = window.setTimeout(clearHandoff, PUSH_HANDOFF_NON_MESSENGER_FALLBACK_MS);
       return () => window.clearTimeout(timer);
     }
 
@@ -398,7 +401,7 @@ export function AppRouteTransition({
       }
       void import("@/lib/community-messenger/bootstrap-cache").then(({ peekBootstrapCache }) => {
         if (cancelled) return;
-        if (peekBootstrapCache() && elapsed >= PUSH_HANDOFF_OVERLAY_MS) {
+        if (peekBootstrapCache()) {
           clearHandoff();
           return;
         }
@@ -406,16 +409,15 @@ export function AppRouteTransition({
       });
     };
 
-    const minTimer = window.setTimeout(schedulePoll, PUSH_HANDOFF_OVERLAY_MS);
+    schedulePoll();
     const maxTimer = window.setTimeout(clearHandoff, maxHoldMs);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(minTimer);
       window.clearTimeout(maxTimer);
       if (pollTimer != null) window.clearTimeout(pollTimer);
     };
-  }, [pushHandoff]);
+  }, [pushHandoff, pathname]);
 
   const hostClass = [contentStretchClass, "relative isolate"].filter(Boolean).join(" ");
 

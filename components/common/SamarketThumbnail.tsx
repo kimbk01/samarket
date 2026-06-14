@@ -1,8 +1,13 @@
 "use client";
 
 import type { ReactNode, Ref } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { buildStoreProductThumbnailFetchUrl } from "@/lib/media/store-product-image-transform";
+import {
+  isThumbnailUrlLoaded,
+  markThumbnailUrlLoaded,
+  probeBrowserCachedImageComplete,
+} from "@/lib/media/thumbnail-loaded-url-memory";
 
 export const SAMARKET_THUMBNAIL_FALLBACK_SRC =
   "/images/common/store-product-fallback.svg";
@@ -54,14 +59,25 @@ export function SamarketThumbnail({
   }, [fetchDisplayPx, fallbackSrc, src]);
   const normalizedSrc = resolvedSrc || fallbackSrc;
   const [currentSrc, setCurrentSrc] = useState(normalizedSrc);
-  const [loaded, setLoaded] = useState(false);
+  const [loaded, setLoaded] = useState(
+    () => priority || isThumbnailUrlLoaded(normalizedSrc) || probeBrowserCachedImageComplete(normalizedSrc)
+  );
   const [fallbackFailed, setFallbackFailed] = useState(false);
 
   useEffect(() => {
     setCurrentSrc(normalizedSrc);
-    setLoaded(false);
+    setLoaded(
+      priority || isThumbnailUrlLoaded(normalizedSrc) || probeBrowserCachedImageComplete(normalizedSrc)
+    );
     setFallbackFailed(false);
-  }, [normalizedSrc]);
+  }, [normalizedSrc, priority]);
+
+  useLayoutEffect(() => {
+    if (loaded) return;
+    if (probeBrowserCachedImageComplete(currentSrc)) {
+      setLoaded(true);
+    }
+  }, [currentSrc, loaded]);
 
   const showFallbackNode = fallbackFailed || (!currentSrc && fallbackNode);
 
@@ -91,6 +107,7 @@ export function SamarketThumbnail({
             objectPosition: "center center",
           }}
           onLoad={() => {
+            markThumbnailUrlLoaded(currentSrc);
             setLoaded(true);
             onImageLoad?.();
           }}

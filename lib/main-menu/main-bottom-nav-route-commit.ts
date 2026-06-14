@@ -93,21 +93,6 @@ export type MainBottomNavRouteCommitResult = "scroll_only" | "blocked" | "naviga
 /** 연속 탭 — 이전 async 커밋이 replace/push 하지 않도록 세대 카운터 */
 let mainBottomNavRouteCommitGeneration = 0;
 
-function waitForMainShellPushPaint(axis: ReturnType<typeof computeMainBottomNavPushAxis>): Promise<void> | null {
-  if (!axis || typeof window === "undefined") return null;
-  if (typeof window.requestAnimationFrame !== "function") return null;
-  const pushHost =
-    typeof document !== "undefined" ?
-      document.querySelector(".main-shell-push-host, [data-main-shell-push-surface]")
-    : null;
-  if (!pushHost || pushHost.nodeType !== 1) return null;
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => resolve());
-    });
-  });
-}
-
 /**
  * CONTRACT — 하단 탭·배달 홈·다이얼 칩 **단일 이동 커밋**.
  * DO NOT: Link 기본 navigation·overlay 직접 push·tab.href 직접 push — 모두 여기 또는 resolver 경유.
@@ -154,17 +139,10 @@ export function commitMainBottomNavRoute(args: MainBottomNavRouteCommitArgs): Ma
 
 async function commitMainBottomNavRouteNavigateAsync(
   args: MainBottomNavRouteCommitArgs,
-  pushAxis: ReturnType<typeof computeMainBottomNavPushAxis>,
-  crossGroup: boolean
+  _pushAxis: ReturnType<typeof computeMainBottomNavPushAxis>,
+  _crossGroup: boolean
 ): Promise<void> {
   const generation = ++mainBottomNavRouteCommitGeneration;
-
-  if (!crossGroup) {
-    const pushPaintWait = waitForMainShellPushPaint(pushAxis);
-    if (pushPaintWait) {
-      await pushPaintWait;
-    }
-  }
 
   if (args.persistMessengerOriginFromHref) {
     try {

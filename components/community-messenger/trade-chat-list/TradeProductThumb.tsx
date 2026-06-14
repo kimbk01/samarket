@@ -88,7 +88,7 @@ export function TradeProductThumb({ src, postId }: Props) {
       size={56}
       roundedClassName="rounded-[10px]"
       className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
-      priority={Boolean(cachedUrl)}
+      priority={Boolean(displayUrl)}
       fallbackSrc=""
       fallbackNode={<span className="sam-text-xxs font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
         거래

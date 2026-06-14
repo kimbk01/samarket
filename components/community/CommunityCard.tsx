@@ -103,7 +103,13 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
   );
 }
 
-export const CommunityCard = memo(function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
+export const CommunityCard = memo(function CommunityCard({
+  post,
+  priorityThumb = false,
+}: {
+  post: NeighborhoodFeedPostDTO;
+  priorityThumb?: boolean;
+}) {
   const { t, language } = useI18n();
   const skin = post.feed_list_skin;
   const vm = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language);
@@ -115,15 +121,19 @@ export const CommunityCard = memo(function CommunityCard({ post }: { post: Neigh
     return <FeedListLayoutTextOnly vm={vm} />;
   }
   if (skin === "location_pin") {
-    return <FeedListLayoutPlace vm={vm} thumbColumn={hasThumb ? "right" : "none"} />;
+    return (
+      <FeedListLayoutPlace vm={vm} thumbColumn={hasThumb ? "right" : "none"} priorityThumb={priorityThumb} />
+    );
   }
   if (skin === "hashtags_below") {
-    return <FeedListLayoutTags vm={vm} thumbColumn={hasThumb ? "right" : "none"} />;
+    return (
+      <FeedListLayoutTags vm={vm} thumbColumn={hasThumb ? "right" : "none"} priorityThumb={priorityThumb} />
+    );
   }
   if (skin === "compact_media_left") {
     if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
-    return <FeedListLayoutCarrotThumbLeft vm={vm} />;
+    return <FeedListLayoutCarrotThumbLeft vm={vm} priorityThumb={priorityThumb} />;
   }
   if (!hasThumb) return <FeedListLayoutTextOnly vm={vm} />;
-  return <FeedListLayoutCarrotThumbRight vm={vm} />;
+  return <FeedListLayoutCarrotThumbRight vm={vm} priorityThumb={priorityThumb} />;
 }, (prev, next) => isSameCommunityCardPost(prev.post, next.post));

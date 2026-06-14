@@ -49,6 +49,8 @@ interface PostCardProps {
   onMenuAction?: (postId: string, action: PostListMenuAction) => void;
   /** 홈 첫 렌더 계측용 첫 카드 */
   isFirstCard?: boolean;
+  /** 목록 상단 — lazy 대신 eager·high fetch priority */
+  priorityThumb?: boolean;
   /** 찜 목록 등 — 카드 하단 보조 액션 */
   footer?: ReactNode;
 }
@@ -60,6 +62,7 @@ export const PostCard = memo(function PostCard({
   onFavoriteChange,
   onMenuAction,
   isFirstCard = false,
+  priorityThumb = false,
   footer,
 }: PostCardProps) {
   const { t } = useI18n();
@@ -173,6 +176,7 @@ export const PostCard = memo(function PostCard({
                 roundedClassName="rounded-none"
                 className="bg-sam-surface-muted"
                 fallbackSrc=""
+                priority={isFirstCard || priorityThumb}
                 imageRef={isFirstCard ? imageRef : undefined}
                 onImageLoad={() => {
                   if (!isFirstCard) return;

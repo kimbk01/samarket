@@ -97,6 +97,7 @@ export function StoreProfileThumb({ src, storeId, storeName }: Props) {
       className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
       fallbackSrc=""
       fallbackNode={<StoreInitialFallback storeName={storeName} />}
+      priority={Boolean(displayUrl)}
       onImageError={() => setFailed(true)}
     />
   );

@@ -77,6 +77,8 @@ import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-na
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
 import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { probeMainBottomNavRiskyNavigation } from "@/lib/navigation/main-bottom-nav-risky-navigation";
 import { usePhilifeWriteSheetOptional } from "@/contexts/PhilifeWriteSheetContext";
@@ -1348,6 +1350,13 @@ export function BottomNav({
         });
         if (!guardBeforeNavigate(targetHref)) return false;
         if (!targetHref.includes("/community-messenger")) return true;
+        /**
+         * messenger_open 은 profile gate 없음(toProfileActionType → null).
+         * 로그인·가입완료 사용자는 표준 commit(beginMenuNavigation·dual-panel·pending) 경로.
+         * 미로그인만 requireAuthAction — 이전 router.push 단독 경로는 pending 패널·슬라이드 미참여 병목.
+         */
+        const cached = getCurrentUser();
+        if (cached?.id && isClientSignupComplete(cached)) return true;
         void requireAuthAction(
           "messenger_open",
           () => {

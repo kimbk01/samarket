@@ -120,10 +120,10 @@ export function HomeProductList({
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const listMeasureRef = useRef<HTMLUListElement | null>(null);
   /** 시드·세션·메모리 캐시 히트면 첫 페인트부터 전체 행을 그림(8장+rAF 펼침은 콜드 네트워크 경로만) */
-  const initialHasFullSeed = Boolean(hydrationSeed?.posts?.length);
+  const initialHasFullSeed = Boolean(initialBoot?.posts?.length);
   const initialVisibleExpansionDoneRef = useRef(initialHasFullSeed);
   const [visibleCount, setVisibleCount] = useState(() => {
-    const initialCount = hydrationSeed?.posts.length ?? 0;
+    const initialCount = initialBoot?.posts.length ?? 0;
     if (initialCount <= 0) return 0;
     if (initialHasFullSeed) return initialCount;
     return Math.min(initialCount, INITIAL_VISIBLE_CARD_COUNT);
@@ -445,6 +445,7 @@ export function HomeProductList({
               <PostCard
                 post={post}
                 isFirstCard={index === 0}
+                priorityThumb={index < 8}
                 isFavorite={favoriteMap[post.id]}
                 onFavoriteChange={handleFavoriteChange}
                 onMenuAction={handleMenuAction}

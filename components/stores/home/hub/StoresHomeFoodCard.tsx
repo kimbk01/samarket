@@ -49,8 +49,8 @@ function StoresHomeFoodCardInner({
             className="absolute inset-0"
             imageClassName="h-full w-full object-cover"
             roundedClassName="rounded-none"
-            loading="lazy"
-            priority={false}
+            loading={markStoreCardPerf ? "eager" : "lazy"}
+            priority={markStoreCardPerf && Boolean(imageUrl)}
           />
         : (
           <div className="flex h-full items-center justify-center text-[11px] text-[color:var(--delivery-text-muted)]">
