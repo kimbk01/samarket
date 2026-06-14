@@ -114,6 +114,16 @@ function parseFriendRequestStatusRow(
   };
 }
 
+/** 알림 INSERT(`friend_accepted`)와 CFR UPDATE(`friend_status_changed`)가 동시에 오면 동일 키로 1회만 처리 */
+export function friendRequestNotificationDedupeKey(ev: FriendRequestNotificationEvent): string {
+  if (ev.kind === "friend_accepted") return `friend_outcome:${ev.requestId}:accepted`;
+  if (ev.kind === "friend_rejected") return `friend_outcome:${ev.requestId}:rejected`;
+  if (ev.kind === "friend_status_changed") {
+    return `friend_outcome:${ev.requestId}:${ev.status}`;
+  }
+  return `${ev.kind}:${ev.requestId}`;
+}
+
 export function useFriendRequestNotificationRealtime(
   userId: string | null,
   enabled: boolean,
@@ -134,14 +144,8 @@ export function useFriendRequestNotificationRealtime(
 
     let cancelled = false;
 
-    const dedupeKeyForEvent = (ev: FriendRequestNotificationEvent): string => {
-      if (ev.kind === "friend_accepted") return `friend_notif:${ev.requestId}:accepted`;
-      if (ev.kind === "friend_rejected") return `friend_notif:${ev.requestId}:rejected`;
-      if (ev.kind === "friend_status_changed") {
-        return `friend_cfr:${ev.requestId}:${ev.status}`;
-      }
-      return `${ev.kind}:${ev.requestId}`;
-    };
+    const dedupeKeyForEvent = (ev: FriendRequestNotificationEvent): string =>
+      friendRequestNotificationDedupeKey(ev);
 
     const emitDeduped = (ev: FriendRequestNotificationEvent) => {
       const dedupeKey = dedupeKeyForEvent(ev);

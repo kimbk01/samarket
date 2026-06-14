@@ -33,6 +33,10 @@ import {
   type CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
+import {
+  compareMessengerFriendsForHomeList,
+  partitionMessengerFriendsByNew,
+} from "@/lib/community-messenger/messenger-new-friend-window";
 
 export type { MessengerFriendState, MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
@@ -312,6 +316,14 @@ export function useCommunityMessengerHomeState({
     setFriendSortEpochMs(Date.now());
   }, [data?.friends]);
 
+  /** 신규 친구 24시간 구간 — 친구 탭 체류 중에도 epoch 갱신으로 섹션 이동 */
+  useEffect(() => {
+    if (mainSection !== "friends") return;
+    setFriendSortEpochMs(Date.now());
+    const id = window.setInterval(() => setFriendSortEpochMs(Date.now()), 60_000);
+    return () => window.clearInterval(id);
+  }, [mainSection]);
+
   const hiddenFriendIdsStableRef = useRef<Set<string>>(new Set());
   const hiddenFriendIds = useMemo(() => {
     const next = new Set((data?.hidden ?? []).map((friend) => friend.id));
@@ -340,31 +352,18 @@ export function useCommunityMessengerHomeState({
     return map;
   }, [data?.chats]);
 
-  /** 카카오톡 친구 탭과 유사: 최근 맺은 친구(기본 7일)는 상단·최근 수락 순, 이후 이름순 */
+  /** 최근 맺은 친구(기본 24시간)는 상단·최근 수락 순, 이후 이름순 */
   const sortedFriends = useMemo(() => {
-    const NEW_FRIEND_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
     const now = friendSortEpochMs;
-    const isNewFriend = (friend: CommunityMessengerProfileLite) => {
-      const raw = friend.friendshipAcceptedAt;
-      if (!raw) return false;
-      const t = new Date(raw).getTime();
-      if (!Number.isFinite(t)) return false;
-      return now - t <= NEW_FRIEND_WINDOW_MS;
-    };
     return [...(data?.friends ?? [])]
       .filter((friend) => !hiddenFriendIds.has(friend.id))
-      .sort((a, b) => {
-        const newA = isNewFriend(a) ? 1 : 0;
-        const newB = isNewFriend(b) ? 1 : 0;
-        if (newA !== newB) return newB - newA;
-        if (newA && newB) {
-          const ta = new Date(a.friendshipAcceptedAt ?? 0).getTime();
-          const tb = new Date(b.friendshipAcceptedAt ?? 0).getTime();
-          if (ta !== tb) return tb - ta;
-        }
-        return a.label.localeCompare(b.label, "ko");
-      });
+      .sort((a, b) => compareMessengerFriendsForHomeList(a, b, now));
   }, [data?.friends, friendSortEpochMs, hiddenFriendIds]);
+
+  const { newFriends, regularFriends } = useMemo(
+    () => partitionMessengerFriendsByNew(sortedFriends, friendSortEpochMs),
+    [sortedFriends, friendSortEpochMs]
+  );
 
   const friendStateModelStableRef = useRef<MessengerFriendStateModel>(
     buildMessengerFriendStateModel(null, new Map())
@@ -596,6 +595,9 @@ export function useCommunityMessengerHomeState({
   return {
     favoriteFriendIds,
     sortedFriends,
+    friendSortEpochMs,
+    newFriends,
+    regularFriends,
     sortedCalls,
     filteredDiscoverableGroups,
     unifiedRooms,

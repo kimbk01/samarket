@@ -8,8 +8,28 @@ import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-loca
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import {
+  adminAuthProviderLabel,
+  resolveAdminAuthProvider,
+  type AdminAuthListUser,
+} from "@/lib/admin-users/resolve-admin-auth-provider";
+import {
+  resolveAdminDisplayEmail,
+  resolveAdminLoginIdentifier,
+  resolveAdminProviderUserId,
+  type AdminLinkedIdentity,
+} from "@/lib/admin-users/resolve-admin-user-display";
+import {
+  buildAuthUserMap,
+  linkedProvidersFromIdentities,
+  loadAllAuthAdminUsers,
+  loadLinkedIdentitiesMapChunked,
+  loadTestUsersByIdsChunked,
+  resolveProfileLessAdminNickname,
+} from "@/lib/admin-users/admin-users-list-server";
+import { chunkIds, CHAT_ROOM_ID_IN_CHUNK_SIZE } from "@/lib/chats/chat-list-limits";
 import type { AdminUser } from "@/lib/types/admin-user";
-import type { AdminAuthProvider, MemberType } from "@/lib/types/admin-user";
+import type { MemberType } from "@/lib/types/admin-user";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
@@ -42,6 +62,8 @@ type ProfileRow = {
   verified_member_at: string | null;
   provider: string | null;
   auth_provider: string | null;
+  auth_login_email: string | null;
+  provider_user_id: string | null;
   last_login_at: string | null;
   created_at: string | null;
 };
@@ -56,20 +78,7 @@ type TestUserRow = {
   created_at: string | null;
 };
 
-type AuthListUser = {
-  id?: string | null;
-  email?: string | null;
-  created_at?: string | null;
-  last_sign_in_at?: string | null;
-  app_metadata?: Record<string, unknown> | null;
-  user_metadata?: Record<string, unknown> | null;
-  identities?: Array<{
-    id?: string | null;
-    provider?: string | null;
-    identity_data?: Record<string, unknown> | null;
-    user_id?: string | null;
-  }> | null;
-};
+type AuthListUser = AdminAuthListUser;
 
 type AuthAdminClient = SupabaseClient & {
   auth: SupabaseClient["auth"] & {
@@ -81,111 +90,6 @@ type AuthAdminClient = SupabaseClient & {
     };
   };
 };
-
-function pickString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-function normalizeProvider(input: unknown): AdminAuthProvider | null {
-  const raw = String(input ?? "").trim().toLowerCase();
-  if (!raw) return null;
-  if (raw === "custom:naver") return "naver";
-  if (raw === "manual" || raw === "manual_admin" || raw === "manual_admin_backfill" || raw === "admin_manual") {
-    return "manual";
-  }
-  if (
-    raw === "google" ||
-    raw === "kakao" ||
-    raw === "naver" ||
-    raw === "apple" ||
-    raw === "facebook" ||
-    raw === "email"
-  ) {
-    return raw;
-  }
-  return null;
-}
-
-function providerLabel(provider: AdminAuthProvider): string {
-  if (provider === "google") return "Google";
-  if (provider === "kakao") return "Kakao";
-  if (provider === "naver") return "Naver";
-  if (provider === "apple") return "Apple";
-  if (provider === "facebook") return "Facebook";
-  if (provider === "manual") return "Manual";
-  if (provider === "email") return "Email";
-  return "Unknown";
-}
-
-function primaryIdentity(user: AuthListUser | null | undefined) {
-  const identities = Array.isArray(user?.identities) ? user?.identities ?? [] : [];
-  return identities.find((identity) => normalizeProvider(identity.provider)) ?? identities[0] ?? null;
-}
-
-function resolveAuthProvider(input: {
-  authUser?: AuthListUser | null;
-  profile?: Pick<ProfileRow, "provider" | "auth_provider"> | null;
-  testUser?: TestUserRow | null;
-}): AdminAuthProvider {
-  const identity = primaryIdentity(input.authUser);
-  return (
-    normalizeProvider(identity?.provider) ??
-    normalizeProvider(input.authUser?.app_metadata?.provider) ??
-    normalizeProvider(input.authUser?.user_metadata?.provider) ??
-    normalizeProvider(input.authUser?.user_metadata?.auth_provider) ??
-    normalizeProvider(input.profile?.provider) ??
-    normalizeProvider(input.profile?.auth_provider) ??
-    (input.testUser ? "manual" : null) ??
-    (pickString(input.authUser?.email) || pickString(input.profile?.provider) ? "email" : "unknown")
-  );
-}
-
-function resolveProviderUserId(authUser: AuthListUser | null | undefined): string | null {
-  const identity = primaryIdentity(authUser);
-  const data = identity?.identity_data;
-  return (
-    pickString(data?.sub) ??
-    pickString(data?.provider_id) ??
-    pickString(data?.id) ??
-    pickString(identity?.id) ??
-    pickString(identity?.user_id)
-  );
-}
-
-function resolveIdentityEmail(authUser: AuthListUser | null | undefined): string | null {
-  const identity = primaryIdentity(authUser);
-  const data = identity?.identity_data;
-  return pickString(data?.email);
-}
-
-function resolveLoginIdentifier(input: {
-  provider: AdminAuthProvider;
-  authUser?: AuthListUser | null;
-  profile?: Pick<ProfileRow, "email" | "username"> | null;
-  testUser?: TestUserRow | null;
-  providerUserId?: string | null;
-}): string {
-  if (input.provider === "manual") {
-    return (
-      pickString(input.testUser?.username) ??
-      pickString(input.profile?.username) ??
-      pickString(input.authUser?.email) ??
-      "이메일 없음"
-    );
-  }
-  if (input.provider === "email") {
-    return pickString(input.authUser?.email) ?? pickString(input.profile?.email) ?? pickString(input.profile?.username) ?? "이메일 없음";
-  }
-  return (
-    pickString(input.authUser?.email) ??
-    resolveIdentityEmail(input.authUser) ??
-    pickString(input.profile?.email) ??
-    input.providerUserId ??
-    "이메일 없음"
-  );
-}
 
 /** 목록 셀용: 수동 입력 멀티라인 중 첫 줄(보통 동네·ZIP) */
 function firstLineOfMultiline(text: string | null | undefined): string {
@@ -247,26 +151,156 @@ async function loadAdminAddressMap(
   userIds: string[]
 ): Promise<Map<string, UserAddressDTO>> {
   const out = new Map<string, UserAddressDTO>();
-  if (userIds.length === 0) return out;
-  const { data: rows, error } = await sb
-    .from("user_addresses")
-    .select(ADDRESS_SELECT)
-    .in("user_id", userIds)
-    .eq("is_active", true);
-  if (error || !Array.isArray(rows)) return out;
+  const uniqueIds = [...new Set(userIds.map((id) => String(id).trim()).filter(Boolean))];
+  if (uniqueIds.length === 0) return out;
+
+  const chunks = chunkIds(uniqueIds, CHAT_ROOM_ID_IN_CHUNK_SIZE);
+  const results = await Promise.all(
+    chunks.map((chunk) =>
+      sb.from("user_addresses").select(ADDRESS_SELECT).in("user_id", chunk).eq("is_active", true),
+    ),
+  );
+
   const grouped = new Map<string, UserAddressDTO[]>();
-  for (const row of rows) {
-    const dto = rowToUserAddressDTO(row as Record<string, unknown>);
-    if (!dto.userId) continue;
-    const arr = grouped.get(dto.userId);
-    if (arr) arr.push(dto);
-    else grouped.set(dto.userId, [dto]);
+  for (const { data: rows, error } of results) {
+    if (error || !Array.isArray(rows)) continue;
+    for (const row of rows) {
+      const dto = rowToUserAddressDTO(row as Record<string, unknown>);
+      if (!dto.userId) continue;
+      const arr = grouped.get(dto.userId);
+      if (arr) arr.push(dto);
+      else grouped.set(dto.userId, [dto]);
+    }
   }
   for (const [uid, arr] of grouped.entries()) {
     const best = pickAdminLocationAddressForUser(arr);
     if (best) out.set(uid, best);
   }
   return out;
+}
+
+function mapProfileRowToAdminUser(input: {
+  row: ProfileRow;
+  testUser?: TestUserRow;
+  authUser: AuthListUser | null;
+  linkedIdentities: AdminLinkedIdentity[] | null;
+  adminAddressMap: Map<string, UserAddressDTO>;
+  warnedUserIds: Set<string>;
+}): AdminUser {
+  const { row: r, testUser, authUser, linkedIdentities, adminAddressMap, warnedUserIds } = input;
+  const authProvider = resolveAdminAuthProvider({
+    authUser,
+    profile: r,
+    isManualTestUser: Boolean(testUser),
+    linkedProviders: linkedProvidersFromIdentities(linkedIdentities ?? undefined),
+  });
+  const providerUserId = resolveAdminProviderUserId({
+    provider: authProvider,
+    authUser,
+    profile: r,
+    linkedIdentities,
+  });
+  const loginIdentifier = resolveAdminLoginIdentifier({
+    provider: authProvider,
+    authUser,
+    profile: r,
+    testUser,
+    linkedIdentities,
+    providerUserId,
+  });
+  const displayEmail = resolveAdminDisplayEmail({
+    authUser,
+    profile: r,
+    linkedIdentities,
+    provider: authProvider,
+  });
+  const memberType: MemberType =
+    r.role === "admin" || r.role === "master" || r.role === "super_admin"
+      ? "admin"
+      : r.member_type === "premium"
+        ? "premium"
+        : "normal";
+  const fromUserAddress = locationLineFromUserAddress(adminAddressMap.get(r.id));
+  const fromProfile = resolveProfileLocationAddressOneLine({
+    region_code: r.region_code,
+    region_name: r.region_name,
+    address_street_line: r.address_street_line,
+    address_detail: r.address_detail,
+  }).trim();
+  const fromTestLine = firstLineOfMultiline(testUser?.contact_address);
+  const locationLine =
+    fromUserAddress ||
+    fromProfile ||
+    fromTestLine ||
+    (r.region_name ?? "").trim() ||
+    undefined;
+
+  return {
+    id: r.id,
+    loginUsername: testUser?.username?.trim() || r.username?.trim() || undefined,
+    loginIdentifier,
+    username: r.username?.trim() || null,
+    dibay_id: r.dibay_id?.trim() || null,
+    dibay_id_locked: r.dibay_id_locked === true,
+    onboarding_status: r.onboarding_status?.trim() || null,
+    onboarding_completed_at: r.onboarding_completed_at ?? null,
+    displayName: r.display_name?.trim() || r.nickname?.trim() || null,
+    nickname:
+      labelFromDisplayAndUsername(
+        (r.display_name ?? r.nickname ?? testUser?.display_name ?? "").trim(),
+        (r.username ?? "").trim(),
+      ) ||
+      r.display_name?.trim() ||
+      r.nickname?.trim() ||
+      testUser?.display_name?.trim() ||
+      r.username?.trim() ||
+      r.id,
+    email: displayEmail,
+    authProvider,
+    providerLabel: adminAuthProviderLabel(authProvider),
+    providerUserId: providerUserId ?? undefined,
+    phone: r.phone?.trim() || testUser?.contact_phone?.trim() || undefined,
+    memberType,
+    profileRole: r.role ?? undefined,
+    hasProfile: true,
+    moderationStatus: mapProfileStatusToModeration(r.status, r.deleted_at, warnedUserIds.has(r.id)),
+    location: locationLine,
+    pointBalance: Number(r.points ?? 0),
+    phoneVerified: r.phone_verified === true,
+    phoneVerifiedAt: r.phone_verified_at ?? undefined,
+    verificationStatus: r.phone_verification_status ?? undefined,
+    memberStatus: r.member_status ?? undefined,
+    verifiedMemberAt: r.verified_member_at ?? undefined,
+    productCount: 0,
+    soldCount: 0,
+    reviewCount: 0,
+    reportCount: 0,
+    chatCount: 0,
+    joinedAt: r.created_at ?? new Date().toISOString(),
+    lastSignInAt: authUser?.last_sign_in_at ?? r.last_login_at ?? undefined,
+    lastActiveAt: authUser?.last_sign_in_at ?? r.last_login_at ?? undefined,
+  };
+}
+
+function fallbackAdminUserFromProfileRow(row: ProfileRow): AdminUser {
+  return {
+    id: row.id,
+    loginIdentifier: row.id,
+    nickname: row.nickname?.trim() || row.display_name?.trim() || row.id,
+    username: row.username?.trim() || null,
+    authProvider: "unknown",
+    providerLabel: adminAuthProviderLabel("unknown"),
+    memberType: "normal",
+    hasProfile: true,
+    moderationStatus: "normal",
+    phoneVerified: false,
+    productCount: 0,
+    soldCount: 0,
+    reviewCount: 0,
+    reportCount: 0,
+    chatCount: 0,
+    joinedAt: row.created_at ?? new Date().toISOString(),
+  };
 }
 
 export async function GET(_req: NextRequest) {
@@ -289,93 +323,74 @@ export async function GET(_req: NextRequest) {
   const supabase = createClient(supabaseEnv.url, supabaseEnv.serviceKey, { auth: { persistSession: false } });
 
   const profileSelect =
+    "id, email, auth_login_email, provider_user_id, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
+  const profileSelectLegacy =
     "id, email, username, dibay_id, dibay_id_locked, onboarding_status, onboarding_completed_at, nickname, display_name, role, member_type, status, deleted_at, member_status, region_code, region_name, address_street_line, address_detail, points, phone, phone_verified, phone_verified_at, phone_verification_status, verified_member_at, provider, auth_provider, last_login_at, created_at";
-  const fetchProfiles = async () =>
-    supabase
+
+  const fetchProfiles = async () => {
+    const primary = await supabase
       .from("profiles")
       .select(profileSelect)
       .order("created_at", { ascending: false });
-
-  const { data: rows, error } = await fetchProfiles();
-
-  /**
-   * 관리자 목록 GET은 "조회 전용"으로 유지한다.
-   * (목록 진입 경로에서 프로필 보정 write를 수행하지 않음)
-   * profiles 누락 사용자는 auth-only 엔트리로 가시화해 운영자가 즉시 식별 가능하게 한다.
-   */
-  const serviceSb = supabase as AuthAdminClient;
-  let authOnlyEntries: AuthListUser[] = [];
-  const authUsers: AuthListUser[] = [];
-  if (!error) {
-    const existingIds = new Set<string>(
-      ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter((id) => typeof id === "string" && id.length > 0)
-    );
-    /**
-     * 회원수는 `auth.users` 기준이므로 전체 페이지를 끝까지 로드한다.
-     * (`perPage` 200 은 GoTrue 기본 상한, 안전 상한 5000 명까지 순회.)
-     */
-    try {
-      const seen = new Set<string>();
-      for (let page = 1; page <= 25; page += 1) {
-        const result = await serviceSb.auth.admin.listUsers({ page, perPage: 200 });
-        const batch = Array.isArray(result?.data?.users) ? result.data.users : [];
-        if (batch.length === 0) break;
-        let added = 0;
-        for (const u of batch) {
-          const id = String(u?.id ?? "").trim();
-          if (!id || seen.has(id)) continue;
-          seen.add(id);
-          authUsers.push(u);
-          added += 1;
-        }
-        if (added === 0) break;
-        if (batch.length < 200) break;
-      }
-      authOnlyEntries = authUsers.filter((u) => {
-        const id = String(u?.id ?? "").trim();
-        return id.length > 0 && !existingIds.has(id);
-      });
-    } catch {
-      // auth.admin 조회 실패 시 기존 profiles 결과를 그대로 사용.
+    if (!primary.error) return primary;
+    const message = String(primary.error.message ?? "").toLowerCase();
+    if (
+      message.includes("auth_login_email")
+      || message.includes("provider_user_id")
+      || message.includes("column")
+    ) {
+      return supabase
+        .from("profiles")
+        .select(profileSelectLegacy)
+        .order("created_at", { ascending: false });
     }
-  }
+    return primary;
+  };
+
+  try {
+  const serviceSb = supabase as AuthAdminClient;
+  const [{ data: rows, error }, authUsers] = await Promise.all([
+    fetchProfiles(),
+    loadAllAuthAdminUsers(serviceSb).catch(() => [] as AuthListUser[]),
+  ]);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const profileIds = ((rows ?? []) as ProfileRow[]).map((row) => row.id).filter(Boolean);
-  const ids = new Set(profileIds);
+  const profileRows = (rows ?? []) as ProfileRow[];
+  const existingIds = new Set<string>(
+    profileRows.map((row) => row.id).filter((id) => typeof id === "string" && id.length > 0),
+  );
+  const authOnlyEntries = authUsers.filter((u) => {
+    const id = String(u?.id ?? "").trim();
+    return id.length > 0 && !existingIds.has(id);
+  });
 
-  /**
-   * 신규 주소 관리(`user_addresses`) — 사용자가 실제로 등록한 주소를 한 번에 가져와 매핑.
-   * 어드민 목록의 "지역" 셀은 우선 마스터/생활 기본 주소 한 줄을 사용한다.
-   */
+  const profileIds = profileRows.map((row) => row.id).filter(Boolean);
+  const ids = new Set(profileIds);
   const authOnlyIdSet = authOnlyEntries
     .map((u) => String(u?.id ?? "").trim())
     .filter(Boolean);
   const allUserIdsForAddress = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
-  const adminAddressMap = await loadAdminAddressMap(supabase, allUserIdsForAddress);
+  const allUserIdsForProviders = Array.from(new Set([...profileIds, ...authOnlyIdSet]));
 
-  /**
-   * `test_users` 전체 스캔/전송 방지:
-   * - profiles에 매칭되는 row만 우선 조회
-   * - legacy(프로필 없는 테스트 유저)는 "최근 N개"만 보조로 붙인다(관리자 화면 목록에 충분).
-   */
-  const { data: matchedTestRows } =
-    profileIds.length > 0
-      ? await supabase
-          .from("test_users")
-          .select("id, username, display_name, role, contact_phone, contact_address, created_at")
-          .in("id", profileIds)
-      : { data: [] as TestUserRow[] };
+  const [adminAddressMap, linkedIdentitiesMap, warnedUserIds, matchedTestRows, recentTestResult] =
+    await Promise.all([
+      loadAdminAddressMap(supabase, allUserIdsForAddress),
+      loadLinkedIdentitiesMapChunked(supabase, allUserIdsForProviders).catch(
+        () => new Map<string, AdminLinkedIdentity[]>(),
+      ),
+      loadWarnedUserIdSet(supabase, profileIds).catch(() => new Set<string>()),
+      loadTestUsersByIdsChunked(supabase, profileIds).catch(() => [] as TestUserRow[]),
+      supabase
+        .from("test_users")
+        .select("id, username, display_name, role, contact_phone, contact_address, created_at")
+        .order("created_at", { ascending: false })
+        .limit(250),
+    ]);
 
-  const legacyTestUsersQuery = supabase
-    .from("test_users")
-    .select("id, username, display_name, role, contact_phone, contact_address, created_at")
-    .order("created_at", { ascending: false })
-    .limit(250);
-  const { data: recentTestRows } = await legacyTestUsersQuery;
+  const recentTestRows = recentTestResult.data;
 
   const testRowsById = new Map<string, TestUserRow>();
   for (const row of (matchedTestRows ?? []) as TestUserRow[]) {
@@ -388,94 +403,21 @@ export async function GET(_req: NextRequest) {
   const testMap = new Map<string, TestUserRow>(
     ((testRows ?? []) as TestUserRow[]).map((row) => [row.id, row])
   );
-  const authPairs: Array<[string, AuthListUser]> = [];
-  for (const user of authUsers) {
-    const id = String(user.id ?? "").trim();
-    if (id) authPairs.push([id, user]);
-  }
-  const authMap = new Map<string, AuthListUser>(authPairs);
-
-  const profileRows = (rows ?? []) as ProfileRow[];
-  const warnedUserIds = await loadWarnedUserIdSet(
-    supabase,
-    profileRows.map((r) => r.id).filter(Boolean)
-  ).catch(() => new Set<string>());
+  const authMap = buildAuthUserMap(authUsers);
 
   const list: AdminUser[] = profileRows.map((r) => {
-    const testUser = testMap.get(r.id);
-    const authUser = authMap.get(r.id) ?? null;
-    const authProvider = resolveAuthProvider({ authUser, profile: r, testUser });
-    const providerUserId = resolveProviderUserId(authUser);
-    const loginIdentifier = resolveLoginIdentifier({
-      provider: authProvider,
-      authUser,
-      profile: r,
-      testUser,
-      providerUserId,
-    });
-    const memberType: MemberType =
-      r.role === "admin" || r.role === "master" || r.role === "super_admin"
-        ? "admin"
-        : r.member_type === "premium"
-          ? "premium"
-          : "normal";
-    const fromUserAddress = locationLineFromUserAddress(adminAddressMap.get(r.id));
-    const fromProfile = resolveProfileLocationAddressOneLine({
-      region_code: r.region_code,
-      region_name: r.region_name,
-      address_street_line: r.address_street_line,
-      address_detail: r.address_detail,
-    }).trim();
-    const fromTestLine = firstLineOfMultiline(testUser?.contact_address);
-    const locationLine =
-      fromUserAddress ||
-      fromProfile ||
-      fromTestLine ||
-      (r.region_name ?? "").trim() ||
-      undefined;
-    return {
-      id: r.id,
-      loginUsername: testUser?.username?.trim() || r.username?.trim() || undefined,
-      loginIdentifier,
-      username: r.username?.trim() || null,
-      dibay_id: r.dibay_id?.trim() || null,
-      dibay_id_locked: r.dibay_id_locked === true,
-      onboarding_status: r.onboarding_status?.trim() || null,
-      onboarding_completed_at: r.onboarding_completed_at ?? null,
-      displayName: r.display_name?.trim() || r.nickname?.trim() || null,
-      nickname: labelFromDisplayAndUsername(
-        (r.display_name ?? r.nickname ?? testUser?.display_name ?? "").trim(),
-        (r.username ?? "").trim()
-      ) || (r.display_name?.trim() || r.nickname?.trim() || testUser?.display_name?.trim() || r.username?.trim() || r.id),
-      email: pickString(authUser?.email) ?? r.email ?? undefined,
-      authProvider,
-      providerLabel: providerLabel(authProvider),
-      providerUserId: providerUserId ?? undefined,
-      phone: r.phone?.trim() || testUser?.contact_phone?.trim() || undefined,
-      memberType,
-      profileRole: r.role ?? undefined,
-      hasProfile: true,
-      moderationStatus: mapProfileStatusToModeration(
-        r.status,
-        r.deleted_at,
-        warnedUserIds.has(r.id)
-      ),
-      location: locationLine,
-      pointBalance: Number(r.points ?? 0),
-      phoneVerified: r.phone_verified === true,
-      phoneVerifiedAt: r.phone_verified_at ?? undefined,
-      verificationStatus: r.phone_verification_status ?? undefined,
-      memberStatus: r.member_status ?? undefined,
-      verifiedMemberAt: r.verified_member_at ?? undefined,
-      productCount: 0,
-      soldCount: 0,
-      reviewCount: 0,
-      reportCount: 0,
-      chatCount: 0,
-      joinedAt: r.created_at ?? new Date().toISOString(),
-      lastSignInAt: authUser?.last_sign_in_at ?? r.last_login_at ?? undefined,
-      lastActiveAt: authUser?.last_sign_in_at ?? r.last_login_at ?? undefined,
-    };
+    try {
+      return mapProfileRowToAdminUser({
+        row: r,
+        testUser: testMap.get(r.id),
+        authUser: authMap.get(r.id) ?? null,
+        linkedIdentities: linkedIdentitiesMap.get(r.id) ?? null,
+        adminAddressMap,
+        warnedUserIds,
+      });
+    } catch {
+      return fallbackAdminUserFromProfileRow(r);
+    }
   });
 
   const legacyTestUsers: AdminUser[] = ((testRows ?? []) as TestUserRow[])
@@ -523,62 +465,87 @@ export async function GET(_req: NextRequest) {
    * 관리자에게 "프로필 누락 상태" 그대로 노출한다.
    * 시각적으로 가입은 됐는데 동기화가 실패한 상태가 즉시 보이도록 hasProfile=false 로 둔다.
    */
-  const profileLessAuthUsers: AdminUser[] = authOnlyEntries.map((u) => {
-    const id = String(u.id ?? "").trim();
-    const email = typeof u.email === "string" ? u.email.trim() : "";
-    const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-    const appMeta = (u.app_metadata ?? {}) as Record<string, unknown>;
-    const provider =
-      (typeof appMeta.provider === "string" && appMeta.provider.trim()) ||
-      (typeof meta.provider === "string" && meta.provider.trim()) ||
-      "email";
-    const authProvider = normalizeProvider(provider) ?? "email";
-    const providerUserId = resolveProviderUserId(u);
-    const loginIdentifier = resolveLoginIdentifier({
-      provider: authProvider,
-      authUser: u,
-      profile: null,
-      testUser: null,
-      providerUserId,
-    });
-    const nicknameMeta =
-      (typeof meta.nickname === "string" && meta.nickname.trim()) ||
-      (typeof meta.full_name === "string" && meta.full_name.trim()) ||
-      (typeof meta.name === "string" && meta.name.trim()) ||
-      "";
-    const fallbackName =
-      nicknameMeta || (email ? email.split("@")[0] : "") || id.slice(0, 8) || "user";
-    return {
-      id,
-      loginUsername: undefined,
-      loginIdentifier,
-      username: null,
-      displayName: nicknameMeta || null,
-      nickname: fallbackName,
-      email: email || undefined,
-      authProvider,
-      providerLabel: providerLabel(authProvider),
-      providerUserId: providerUserId ?? undefined,
-      memberType: "normal",
-      profileRole: provider,
-      hasProfile: false,
-      moderationStatus: "warned",
-      location: locationLineFromUserAddress(adminAddressMap.get(id)) || undefined,
-      pointBalance: 0,
-      phoneVerified: false,
-      phoneVerifiedAt: undefined,
-      verificationStatus: "unverified",
-      memberStatus: "pending",
-      verifiedMemberAt: undefined,
-      productCount: 0,
-      soldCount: 0,
-      reviewCount: 0,
-      reportCount: 0,
-      chatCount: 0,
-      joinedAt: typeof u.created_at === "string" && u.created_at ? u.created_at : new Date().toISOString(),
-      lastSignInAt: typeof u.last_sign_in_at === "string" && u.last_sign_in_at ? u.last_sign_in_at : undefined,
-      lastActiveAt: typeof u.last_sign_in_at === "string" && u.last_sign_in_at ? u.last_sign_in_at : undefined,
-    };
+  const profileLessAuthUsers: AdminUser[] = authOnlyEntries.flatMap((u) => {
+    try {
+      const id = String(u.id ?? "").trim();
+      if (!id) return [];
+      const email = typeof u.email === "string" ? u.email.trim() : "";
+      const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+      const linkedIdentities = linkedIdentitiesMap.get(id) ?? null;
+      const authProvider = resolveAdminAuthProvider({
+        authUser: u,
+        profile: null,
+        linkedProviders: linkedProvidersFromIdentities(linkedIdentities ?? undefined),
+      });
+      const providerUserId = resolveAdminProviderUserId({
+        provider: authProvider,
+        authUser: u,
+        profile: null,
+        linkedIdentities,
+      });
+      const loginIdentifier = resolveAdminLoginIdentifier({
+        provider: authProvider,
+        authUser: u,
+        profile: null,
+        testUser: null,
+        linkedIdentities,
+        providerUserId,
+      });
+      const displayEmail = resolveAdminDisplayEmail({
+        authUser: u,
+        profile: null,
+        linkedIdentities,
+        provider: authProvider,
+      });
+      const nicknameMeta =
+        (typeof meta.nickname === "string" && meta.nickname.trim()) ||
+        (typeof meta.full_name === "string" && meta.full_name.trim()) ||
+        (typeof meta.name === "string" && meta.name.trim()) ||
+        "";
+      const fallbackName = resolveProfileLessAdminNickname({
+        userMetadata: meta,
+        authEmail: email,
+        loginIdentifier,
+        userId: id,
+      });
+      return [
+        {
+          id,
+          loginUsername: undefined,
+          loginIdentifier,
+          username: null,
+          displayName: nicknameMeta || null,
+          nickname: fallbackName,
+          email: displayEmail,
+          authProvider,
+          providerLabel: adminAuthProviderLabel(authProvider),
+          providerUserId: providerUserId ?? undefined,
+          memberType: "normal" as MemberType,
+          profileRole:
+            (typeof meta.provider === "string" && meta.provider.trim()) ||
+            authProvider,
+          hasProfile: false,
+          moderationStatus: "warned" as const,
+          location: locationLineFromUserAddress(adminAddressMap.get(id)) || undefined,
+          pointBalance: 0,
+          phoneVerified: false,
+          phoneVerifiedAt: undefined,
+          verificationStatus: "unverified",
+          memberStatus: "pending",
+          verifiedMemberAt: undefined,
+          productCount: 0,
+          soldCount: 0,
+          reviewCount: 0,
+          reportCount: 0,
+          chatCount: 0,
+          joinedAt: typeof u.created_at === "string" && u.created_at ? u.created_at : new Date().toISOString(),
+          lastSignInAt: typeof u.last_sign_in_at === "string" && u.last_sign_in_at ? u.last_sign_in_at : undefined,
+          lastActiveAt: typeof u.last_sign_in_at === "string" && u.last_sign_in_at ? u.last_sign_in_at : undefined,
+        },
+      ];
+    } catch {
+      return [];
+    }
   });
 
   /**
@@ -618,4 +585,15 @@ export async function GET(_req: NextRequest) {
       providerCounts,
     },
   });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "admin_users_list_failed";
+    return NextResponse.json(
+      {
+        error: "회원 목록을 구성하는 중 오류가 발생했습니다.",
+        code: "admin_users_list_failed",
+        detail: message,
+      },
+      { status: 500 },
+    );
+  }
 }

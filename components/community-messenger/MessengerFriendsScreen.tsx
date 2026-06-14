@@ -4,6 +4,7 @@ import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
+import { partitionMessengerFriendsByNew } from "@/lib/community-messenger/messenger-new-friend-window";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerFriendsMyProfileStrip } from "@/components/community-messenger/MessengerFriendsMyProfileStrip";
 import { MessengerLineFriendRow } from "@/components/community-messenger/MessengerLineFriendRow";
@@ -13,6 +14,8 @@ import type { MessengerFriendStateModel } from "@/lib/community-messenger/messen
 type Props = {
   me: CommunityMessengerProfileLite | null;
   sortedFriends: CommunityMessengerProfileLite[];
+  /** 신규 친구 24시간 구간 partition 기준 시각 — hook `friendSortEpochMs` 와 동기화 */
+  friendListEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   busyId: string | null;
   onOpenPrivacySummary: () => void;
@@ -41,6 +44,7 @@ type Props = {
 export function MessengerFriendsScreen({
   me,
   sortedFriends,
+  friendListEpochMs,
   friendStateModel,
   busyId,
   onOpenPrivacySummary,
@@ -94,15 +98,20 @@ export function MessengerFriendsScreen({
   const quickProfile =
     quickMenuUserId == null ? null : sortedFriends.find((f) => f.id === quickMenuUserId) ?? null;
 
+  const { newFriends, regularFriends } = useMemo(
+    () => partitionMessengerFriendsByNew(sortedFriends, friendListEpochMs),
+    [sortedFriends, friendListEpochMs]
+  );
+
   const { favoriteFriends, normalFriends } = useMemo(() => {
     const favorite: CommunityMessengerProfileLite[] = [];
     const normal: CommunityMessengerProfileLite[] = [];
-    for (const friend of sortedFriends) {
+    for (const friend of regularFriends) {
       if (friend.isFavoriteFriend) favorite.push(friend);
       else normal.push(friend);
     }
     return { favoriteFriends: favorite, normalFriends: normal };
-  }, [sortedFriends]);
+  }, [regularFriends]);
 
   const renderFriendSection = (
     title: string,
@@ -161,11 +170,20 @@ export function MessengerFriendsScreen({
       >
         <MessengerFriendsMyProfileStrip me={me} />
 
+        {newFriends.length > 0
+          ? renderFriendSection(t("cm_ui_new_friends_section"), newFriends, "var(--messenger-primary)", {
+              topDivider: false,
+            })
+          : null}
         {favoriteFriends.length > 0
-          ? renderFriendSection(t("cm_ui_favorite"), favoriteFriends, "var(--messenger-primary)", { topDivider: false })
+          ? renderFriendSection(t("cm_ui_favorite"), favoriteFriends, "var(--messenger-primary)", {
+              topDivider: newFriends.length === 0,
+            })
           : null}
         {normalFriends.length > 0
-          ? renderFriendSection(t("nav_messenger_friend"), normalFriends, undefined, { topDivider: favoriteFriends.length > 0 })
+          ? renderFriendSection(t("nav_messenger_friend"), normalFriends, undefined, {
+              topDivider: newFriends.length > 0 || favoriteFriends.length > 0,
+            })
           : null}
         {sortedFriends.length === 0 ? (
           <div

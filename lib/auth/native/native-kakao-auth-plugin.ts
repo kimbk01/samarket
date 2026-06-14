@@ -79,7 +79,13 @@ export async function invokeNativeKakaoSignIn(): Promise<NativeKakaoSignInResult
     return normalizePluginSignInResult(raw);
   } catch (error) {
     const pluginCode = extractNativeKakaoPluginRejectRaw(error);
-    const mapped = mapNativeKakaoPluginError(pluginCode);
+    const pluginMessage =
+      error && typeof error === "object"
+        ? String((error as Record<string, unknown>).message ?? "").trim()
+        : "";
+    const mapped = mapNativeKakaoPluginError(
+      pluginMessage ? `${pluginCode} ${pluginMessage}` : pluginCode,
+    );
     if (mapped === "user_cancelled") {
       throw new NativeKakaoAuthError("user_cancelled");
     }

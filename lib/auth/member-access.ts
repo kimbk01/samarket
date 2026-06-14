@@ -4,6 +4,7 @@ import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { extractOAuthProfileSeed, type OAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
+import { pickContactEmailForProfile } from "@/lib/auth/synthetic-auth-email";
 import { mergeOAuthAvatarIntoPatch } from "@/lib/auth/refresh-oauth-avatar-if-legacy";
 import { buildOAuthNicknamePatch } from "@/lib/auth/refresh-oauth-nickname-if-legacy";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
@@ -222,9 +223,7 @@ export async function ensurePendingAuthProfileRow(
   seedInput?: OAuthProfileSeed
 ): Promise<void> {
   const seed = seedInput ?? extractOAuthProfileSeed(user);
-  const email = pickTrimmed(user.email);
-  /** Native OAuth — verified Gmail 등 실제 로그인 이메일 (synthetic auth email 과 분리) */
-  const authLoginEmail = pickTrimmed(seed.emailInternal) ?? email;
+  const authLoginEmail = pickContactEmailForProfile(seed.emailInternal, user.email);
   const nicknameCandidate = pickTrimmed(seed.nicknameCandidate);
   const seedDisplayName = resolveOAuthSeedDisplayName(nicknameCandidate);
   const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
@@ -317,7 +316,7 @@ export async function ensurePendingAuthProfileRow(
   if (upsertError) {
     const minimalRow = {
       id: user.id,
-      email,
+      email: authLoginEmail,
       nickname: seedDisplayName,
       display_name: seedDisplayName,
       avatar_url: oauthAvatar,

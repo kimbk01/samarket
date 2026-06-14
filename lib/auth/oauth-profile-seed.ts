@@ -1,5 +1,6 @@
 import type { User } from "@supabase/supabase-js";
 import { normalizeStoreAuthProvider } from "@/lib/auth/store-member-policy";
+import { isDibaySyntheticAuthEmail } from "@/lib/auth/synthetic-auth-email";
 
 export type OAuthProfileSeed = {
   authProvider: string;
@@ -81,6 +82,18 @@ function resolveAvatarCandidate(user: User, provider: string): string | null {
   );
 }
 
+function resolveEmailInternal(user: User, provider: string): string | null {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+  const hinted =
+    pickStr(meta.google_email_hint) ??
+    pickStr(meta.kakao_email_hint) ??
+    (provider === "apple" ? pickStr(meta.email) : null);
+  if (hinted && !isDibaySyntheticAuthEmail(hinted)) return hinted.toLowerCase();
+  const raw = pickStr(user.email);
+  if (raw && !isDibaySyntheticAuthEmail(raw)) return raw.toLowerCase();
+  return null;
+}
+
 /** Google / Kakao / Apple — provider별 메타만 정규화, 온보딩 플로우는 공통 */
 export function extractOAuthProfileSeed(user: User): OAuthProfileSeed {
   const authProvider = resolveProvider(user);
@@ -88,6 +101,6 @@ export function extractOAuthProfileSeed(user: User): OAuthProfileSeed {
     authProvider,
     nicknameCandidate: resolveNicknameCandidate(user, authProvider),
     avatarCandidate: resolveAvatarCandidate(user, authProvider),
-    emailInternal: pickStr(user.email),
+    emailInternal: resolveEmailInternal(user, authProvider),
   };
 }

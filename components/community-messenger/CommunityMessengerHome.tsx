@@ -93,6 +93,11 @@ import {
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
+  applyFriendRequestOutcomeToHomeState,
+  type ApplyFriendRequestOutcomeResult,
+  type FriendRequestOutcomeStatus,
+} from "@/lib/community-messenger/apply-friend-request-outcome-to-home";
+import {
   communityMessengerFriendRequestFailureMessage,
   messengerFriendRequestBusyId,
   parseOptimisticOutgoingFriendRequestId,
@@ -1602,149 +1607,99 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         // 수신 팝업 스토어는 `GlobalIncomingFriendRequestHost`·알림 브리지·여기 부트스트랩이 함께 맞춘다.
         return;
       }
-      if (ev.kind === "friend_accepted" || ev.kind === "friend_rejected") {
-        // 발신자 쪽: 보낸 요청 상태 즉시 반영 + (수락 시) 친구 즉시 추가
-        const peerId = ev.addresseeUserId?.trim?.() ? ev.addresseeUserId.trim() : "";
-        setData((prev) => {
-          if (!prev) return prev;
-          const meId = prev.me?.id ?? "";
-          const nextRequests = (prev.requests ?? []).filter((r) => {
-            if (r.id === ev.requestId) return false;
-            if (
-              peerId &&
-              r.status === "pending" &&
-              r.direction === "outgoing" &&
-              meId &&
-              r.requesterId === meId &&
-              r.addresseeId === peerId
-            ) {
-              return false;
-            }
-            return true;
-          });
-          let next: typeof prev = { ...prev, requests: nextRequests };
-          if (ev.kind === "friend_accepted" && peerId) {
-            const exists = (prev.friends ?? []).some((f) => f.id === peerId);
-            if (!exists) {
-              const nowIso = new Date().toISOString();
-              const nextFriend: CommunityMessengerProfileLite = {
-                id: peerId,
-                label: ev.addresseeLabel || t("cm_ui_friend_label"),
-                subtitle: "",
-                bio: null,
-                avatarUrl: null,
-                following: false,
-                blocked: false,
-                isFriend: true,
-                isFavoriteFriend: false,
-                isHiddenFriend: false,
-                friendshipAcceptedAt: nowIso,
-              };
-              const nextFriends = [...(prev.friends ?? []), nextFriend];
-              next = { ...next, friends: nextFriends, tabs: { ...prev.tabs, friends: nextFriends.length } };
-            }
-          }
-          return next;
-        });
-        if (peerId) {
-          setSearchResults((prev) => prev.map((p) => (p.id === peerId ? { ...p, isFriend: ev.kind === "friend_accepted" } : p)));
-          setFriendSheet((prev) =>
-            prev?.profile.id === peerId ? { ...prev, profile: { ...prev.profile, isFriend: ev.kind === "friend_accepted" } } : prev
-          );
+      if (
+        ev.kind === "friend_accepted" ||
+        ev.kind === "friend_rejected" ||
+        ev.kind === "friend_status_changed"
+      ) {
+        if (!data?.me?.id) return;
+        const meId = data.me.id;
+        let status: FriendRequestOutcomeStatus;
+        let requesterUserId: string;
+        let addresseeUserId: string;
+        let peerId: string;
+        let peerLabel: string | undefined;
+        let acceptedAt: string | undefined;
+
+        if (ev.kind === "friend_status_changed") {
+          if (ev.status === "pending") return;
+          status = ev.status;
+          requesterUserId = ev.requesterUserId;
+          addresseeUserId = ev.addresseeUserId;
+          peerId =
+            ev.requesterUserId === meId
+              ? ev.addresseeUserId
+              : ev.addresseeUserId === meId
+                ? ev.requesterUserId
+                : "";
+          acceptedAt = status === "accepted" ? ev.createdAt : undefined;
+        } else {
+          status = ev.kind === "friend_accepted" ? "accepted" : "rejected";
+          requesterUserId = meId;
+          addresseeUserId = ev.addresseeUserId;
+          peerId = ev.addresseeUserId.trim();
+          peerLabel = ev.addresseeLabel;
         }
-        if (ev.kind === "friend_accepted") {
+
+        const applied: { outcome: ApplyFriendRequestOutcomeResult | null } = { outcome: null };
+        setData((prev) => {
+          applied.outcome = applyFriendRequestOutcomeToHomeState(prev, {
+            meId,
+            requesterUserId,
+            addresseeUserId,
+            requestId: ev.requestId,
+            status,
+            peerId,
+            peerLabel,
+            acceptedAt,
+            peerFallbackLabel: t("cm_ui_peer_fallback"),
+          });
+          if (!applied.outcome) return prev;
+          return applied.outcome.bootstrap;
+        });
+        if (!applied.outcome) return;
+        const appliedOutcome = applied.outcome;
+
+        useIncomingFriendRequestPopupStore.getState().dismissIncomingIfRequestId(ev.requestId);
+
+        if (peerId && status === "accepted") {
+          setSearchResults((prev) => prev.map((p) => (p.id === peerId ? { ...p, isFriend: true } : p)));
+          setFriendSheet((prev) => {
+            if (!prev || prev.profile.id !== peerId) return prev;
+            return { mode: "profile", profile: { ...prev.profile, isFriend: true } };
+          });
+        }
+
+        if (appliedOutcome.shouldShowAcceptSnackbar) {
           showMessengerSnackbar(
-            t("cm_ui_friend_request_accepted_snackbar", { name: ev.addresseeLabel || t("cm_ui_peer_fallback") }),
+            t("cm_ui_friend_request_accepted_snackbar", {
+              name: appliedOutcome.resolvedPeerLabel || t("cm_ui_peer_fallback"),
+            }),
             { variant: "success" }
           );
-        } else {
-          const rejectMsg = t("cm_ui_friend_request_rejected_snackbar", {
-            name: ev.addresseeLabel || t("cm_ui_peer_fallback"),
-          });
-          if (peerId) {
-            setFriendAddCooldownUntilByPeer((prev) => ({
-              ...prev,
-              [peerId]: Date.now() + MESSENGER_FRIEND_REJECT_COOLDOWN_MS,
-            }));
-          }
-          showMessengerSnackbar(rejectMsg, { variant: "error" });
         }
-        void refresh(true);
+        if (appliedOutcome.shouldShowRejectSnackbar && peerId) {
+          setFriendAddCooldownUntilByPeer((prev) => ({
+            ...prev,
+            [peerId]: Date.now() + MESSENGER_FRIEND_REJECT_COOLDOWN_MS,
+          }));
+          showMessengerSnackbar(
+            t("cm_ui_friend_request_rejected_snackbar", {
+              name: appliedOutcome.resolvedPeerLabel || t("cm_ui_peer_fallback"),
+            }),
+            { variant: "error" }
+          );
+        }
+        if (appliedOutcome.shouldNavigateFriendsTab) {
+          onPrimarySectionChange("friends");
+        }
+        if (appliedOutcome.shouldRefreshBootstrap) {
+          void refresh(true);
+        }
         return;
       }
-      if (ev.kind === "friend_status_changed") {
-        if (ev.status === "pending") return;
-        const meId = data.me.id;
-        const peerId =
-          ev.requesterUserId === meId
-            ? ev.addresseeUserId
-            : ev.addresseeUserId === meId
-              ? ev.requesterUserId
-              : "";
-        setData((prev) => {
-          if (!prev) return prev;
-          const nextRequests = (prev.requests ?? []).filter((r) => {
-            if (r.id === ev.requestId) return false;
-            if (
-              peerId &&
-              r.status === "pending" &&
-              ((r.requesterId === meId && r.addresseeId === peerId) ||
-                (r.requesterId === peerId && r.addresseeId === meId))
-            ) {
-              return false;
-            }
-            return true;
-          });
-          let next: typeof prev = { ...prev, requests: nextRequests };
-          if (ev.status === "accepted" && peerId) {
-            const exists = (prev.friends ?? []).some((f) => f.id === peerId);
-            if (!exists) {
-              const nowIso = ev.createdAt || new Date().toISOString();
-              const nextFriend: CommunityMessengerProfileLite = {
-                id: peerId,
-                label: t("cm_ui_friend_label"),
-                subtitle: "",
-                bio: null,
-                avatarUrl: null,
-                following: false,
-                blocked: false,
-                isFriend: true,
-                isFavoriteFriend: false,
-                isHiddenFriend: false,
-                friendshipAcceptedAt: nowIso,
-              };
-              const nextFriends = [...(prev.friends ?? []), nextFriend];
-              next = { ...next, friends: nextFriends, tabs: { ...prev.tabs, friends: nextFriends.length } };
-            }
-          }
-          return next;
-        });
-        useIncomingFriendRequestPopupStore.getState().dismissIncomingIfRequestId(ev.requestId);
-        if (peerId) {
-          setSearchResults((prev) =>
-            prev.map((p) =>
-              p.id === peerId
-                ? { ...p, isFriend: ev.status === "accepted" ? true : p.isFriend }
-                : p
-            )
-          );
-          setFriendSheet((prev) =>
-            prev?.profile.id === peerId
-              ? { ...prev, profile: { ...prev.profile, isFriend: ev.status === "accepted" ? true : prev.profile.isFriend } }
-              : prev
-          );
-        }
-        if (ev.status === "cancelled") {
-          void refresh(true);
-        } else if (
-          (ev.status === "accepted" || ev.status === "rejected") &&
-          meId === ev.requesterUserId
-        ) {
-          void refresh(true);
-        }
-      }
     },
-    [data?.me?.id, refresh, setData, t]
+    [data?.me?.id, onPrimarySectionChange, refresh, setData, t]
   );
 
   useFriendRequestNotificationRealtime(
@@ -2119,6 +2074,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const {
     favoriteFriendIds,
     sortedFriends,
+    friendSortEpochMs,
     sortedCalls,
     filteredDiscoverableGroups,
     baseChatListItems,
@@ -3197,6 +3153,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setOpenedSwipeItemId={setOpenedSwipeItemId}
         setSelectedArchiveSection={setSelectedArchiveSection}
         sortedFriends={sortedFriends}
+        friendSortEpochMs={friendSortEpochMs}
         friendStateModel={friendStateModel}
         busyId={busyId}
         onOpenFriendsPrivacySummary={onOpenFriendsPrivacySummaryStable}

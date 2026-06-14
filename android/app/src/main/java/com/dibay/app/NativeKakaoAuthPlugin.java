@@ -126,7 +126,7 @@ public class NativeKakaoAuthPlugin extends Plugin {
 
   @Override
   protected void handleOnDestroy() {
-    rejectPendingCall("kakao_native_unavailable", "Activity destroyed during Kakao sign-in");
+    // DO NOT reject or clear pendingCall — Kakao SDK may complete after Activity recreate.
     super.handleOnDestroy();
   }
 

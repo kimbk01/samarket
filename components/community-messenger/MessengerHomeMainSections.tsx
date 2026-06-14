@@ -45,6 +45,7 @@ type Props = {
   me: CommunityMessengerProfileLite | null;
   viewerUserId?: string | null;
   sortedFriends: CommunityMessengerProfileLite[];
+  friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   busyId: string | null;
   onOpenFriendsPrivacySummary: () => void;
@@ -110,6 +111,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   me,
   viewerUserId = null,
   sortedFriends,
+  friendSortEpochMs,
   friendStateModel,
   busyId,
   onOpenFriendsPrivacySummary,
@@ -170,6 +172,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           <MessengerFriendsScreen
             me={me}
             sortedFriends={sortedFriends}
+            friendListEpochMs={friendSortEpochMs}
             friendStateModel={friendStateModel}
             busyId={busyId}
             onOpenPrivacySummary={onOpenFriendsPrivacySummary}

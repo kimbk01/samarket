@@ -40,8 +40,14 @@ if (!androidPlugin.includes("loginWithKakaoAccount")) {
 if (!androidPlugin.includes("kakao_native_talk_fallback_account")) {
   failures.push("NativeKakaoAuthPlugin.java must fallback to loginWithKakaoAccount when talk login fails");
 }
+if (androidPlugin.includes('rejectPendingCall("kakao_native_unavailable", "Activity destroyed')) {
+  failures.push("NativeKakaoAuthPlugin.java must NOT reject signIn on handleOnDestroy (breaks Kakao return/cancel UX)");
+}
 if (!androidPlugin.includes("handleOnDestroy")) {
-  failures.push("NativeKakaoAuthPlugin.java must reject pending signIn on handleOnDestroy");
+  failures.push("NativeKakaoAuthPlugin.java must override handleOnDestroy without rejecting pending signIn");
+}
+if (iosPlugin.includes('rejectPending(code: "kakao_native_unavailable", message: "Kakao sign-in interrupted")')) {
+  failures.push("NativeKakaoAuthPlugin.swift must NOT reject pending signIn on deinit (breaks Kakao return/cancel UX)");
 }
 if (!androidPlugin.includes("NativeKakaoAuth")) {
   failures.push("Android plugin name must be NativeKakaoAuth");

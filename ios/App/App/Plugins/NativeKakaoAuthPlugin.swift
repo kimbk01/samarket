@@ -22,10 +22,6 @@ public class NativeKakaoAuthPlugin: CAPPlugin, CAPBridgedPlugin {
 
   private var pendingCall: CAPPluginCall?
 
-  deinit {
-    rejectPending(code: "kakao_native_unavailable", message: "Kakao sign-in interrupted")
-  }
-
   private func logEvent(_ event: String) {
     os_log("%{public}@", log: Self.log, type: .info, event)
   }

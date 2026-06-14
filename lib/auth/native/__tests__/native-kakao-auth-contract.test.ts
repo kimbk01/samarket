@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildNativeKakaoExchangeRequest,
+  isNativeKakaoLifecycleInterruption,
   mapNativeKakaoPluginError,
   shouldUseNativeKakaoOAuth,
 } from "@/lib/auth/native/native-kakao-auth-contract";
@@ -34,5 +35,14 @@ describe("native-kakao-auth-contract", () => {
 
   it("maps in-flight plugin reject to kakao_native_unavailable", () => {
     expect(mapNativeKakaoPluginError("kakao_native_in_flight")).toBe("kakao_native_unavailable");
+  });
+
+  it("maps Activity destroy and plugin interrupt to user_cancelled", () => {
+    expect(
+      mapNativeKakaoPluginError("kakao_native_unavailable Activity destroyed during Kakao sign-in"),
+    ).toBe("user_cancelled");
+    expect(mapNativeKakaoPluginError("Kakao sign-in interrupted")).toBe("user_cancelled");
+    expect(mapNativeKakaoPluginError("Kakao sign-in session changed")).toBe("user_cancelled");
+    expect(isNativeKakaoLifecycleInterruption("user_cancelled")).toBe(true);
   });
 });

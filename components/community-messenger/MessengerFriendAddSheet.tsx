@@ -261,9 +261,6 @@ export function MessengerFriendAddSheet({
                   className="w-full rounded-ui-rect border border-transparent bg-[color:var(--messenger-primary-soft)] px-2 py-2 text-[14px] font-normal leading-[1.5] outline-none transition-[border,box-shadow] placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
                   style={{ color: "var(--messenger-text)" }}
                 />
-                <p className="mt-1.5 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-                  @아이디로만 검색됩니다. (닉네임 검색 불가)
-                </p>
                 <button
                   type="button"
                   onClick={() => void onSearchUsers()}

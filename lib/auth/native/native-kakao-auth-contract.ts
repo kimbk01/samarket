@@ -59,8 +59,23 @@ export function extractNativeKakaoPluginRejectRaw(error: unknown): string {
   return String(error ?? "");
 }
 
+/** Kakao UI 전환·Activity recreate 중 오탐 unavailable — 사용자 취소와 동일하게 조용히 처리 */
+export function isNativeKakaoLifecycleInterruption(raw: string | undefined | null): boolean {
+  const text = String(raw ?? "").trim().toLowerCase();
+  if (!text) return false;
+  return (
+    text.includes("activity destroyed")
+    || text.includes("sign-in interrupted")
+    || text.includes("session changed")
+    || text.includes("cancel")
+  );
+}
+
 export function mapNativeKakaoPluginError(raw: string | undefined | null): NativeKakaoAuthErrorCode {
   const code = String(raw ?? "").trim().toLowerCase();
+  if (isNativeKakaoLifecycleInterruption(code)) {
+    return "user_cancelled";
+  }
   if (code === "user_cancelled" || code === "canceled" || code === "cancelled") {
     return "user_cancelled";
   }

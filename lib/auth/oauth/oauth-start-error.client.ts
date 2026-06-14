@@ -37,10 +37,20 @@ export function summarizeOAuthStartFailure(err: unknown): { code: string; reason
   return { code, reason: code };
 }
 
+function isNativeOAuthLifecycleInterruption(err: NativeKakaoAuthError | NativeAppleAuthError | NativeGoogleAuthError): boolean {
+  if (err.code === "user_cancelled") return true;
+  const detail = `${err.code} ${err.message ?? ""}`.toLowerCase();
+  return (
+    detail.includes("activity destroyed")
+    || detail.includes("sign-in interrupted")
+    || detail.includes("session changed")
+  );
+}
+
 export function isNativeProviderCancelError(err: unknown): boolean {
-  if (err instanceof NativeKakaoAuthError && err.code === "user_cancelled") return true;
-  if (err instanceof NativeAppleAuthError && err.code === "user_cancelled") return true;
-  if (err instanceof NativeGoogleAuthError && err.code === "user_cancelled") return true;
+  if (err instanceof NativeKakaoAuthError && isNativeOAuthLifecycleInterruption(err)) return true;
+  if (err instanceof NativeAppleAuthError && isNativeOAuthLifecycleInterruption(err)) return true;
+  if (err instanceof NativeGoogleAuthError && isNativeOAuthLifecycleInterruption(err)) return true;
   return false;
 }
 
