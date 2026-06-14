@@ -1185,10 +1185,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       };
       void (async () => {
         const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok && kind === "video") {
-          showMessengerSnackbar(t("nav_messenger_permission_retry_camera_mic"), { variant: "error" });
-          releaseDialGuard();
-          return;
+        if (!primeResult.ok) {
+          if (primeResult.code === "denied" || kind === "video") {
+            showMessengerSnackbar(
+              kind === "video"
+                ? t("nav_messenger_permission_retry_camera_mic")
+                : t("nav_messenger_permission_retry_mic"),
+              { variant: "error" },
+            );
+            releaseDialGuard();
+            return;
+          }
         }
         pushDial();
       })();

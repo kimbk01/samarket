@@ -8,12 +8,17 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.WebChromeClient;
+import android.webkit.WebView;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
+import com.getcapacitor.Bridge;
 import com.getcapacitor.BridgeActivity;
 import java.security.MessageDigest;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
+
+  private DibayWebViewPermissionDelegate webViewPermissionDelegate;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -22,9 +27,46 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeOAuthLauncherPlugin.class);
     registerPlugin(NativeKakaoAuthPlugin.class);
     registerPlugin(NativeGoogleAuthPlugin.class);
+    registerPlugin(NativeDevicePermissionsPlugin.class);
     super.onCreate(savedInstanceState);
+    webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
+    attachDibayWebChromeClient();
     logNativeAuthBootState();
     logOAuthIntent(getIntent());
+  }
+
+  @Override
+  protected void onStart() {
+    super.onStart();
+    attachDibayWebChromeClient();
+  }
+
+  @Override
+  protected void onResume() {
+    super.onResume();
+    attachDibayWebChromeClient();
+  }
+
+  private void attachDibayWebChromeClient() {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    WebChromeClient existing = webView.getWebChromeClient();
+    if (existing instanceof DibayDelegatingWebChromeClient) return;
+    webView.setWebChromeClient(new DibayDelegatingWebChromeClient(existing, webViewPermissionDelegate));
+    Log.i("DIBAY_WebPerm", "delegating_web_chrome_client_attached");
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    if (NativeDevicePermissionsPlugin.handleCallMediaPermissionsResult(requestCode, permissions, grantResults)) {
+      return;
+    }
+    if (webViewPermissionDelegate != null && webViewPermissionDelegate.onRequestPermissionsResult(requestCode, permissions, grantResults)) {
+      return;
+    }
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
   }
 
   private void logNativeAuthBootState() {

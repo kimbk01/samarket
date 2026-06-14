@@ -106,8 +106,17 @@ export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCal
   };
 }
 
+import {
+  openAndroidNativeAppSettings,
+  shouldUseAndroidNativeDevicePermissionBridge,
+} from "@/lib/permissions/native-device-permissions-plugin";
+
 export function openCommunityMessengerPermissionSettings(): boolean {
   if (typeof window === "undefined") return false;
+  if (shouldUseAndroidNativeDevicePermissionBridge()) {
+    void openAndroidNativeAppSettings();
+    return true;
+  }
   const ua = window.navigator.userAgent.toLowerCase();
   const origin = window.location.origin;
 

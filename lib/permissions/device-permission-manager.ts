@@ -15,6 +15,13 @@ import type {
   DevicePermissionKind,
 } from "@/lib/permissions/device-permission-kind";
 import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
+import {
+  ensureAndroidNativeRuntimePermissions,
+  resolveAndroidNativePermissionBrowserState,
+} from "@/lib/permissions/android-native-device-permissions";
+import {
+  shouldUseAndroidNativeDevicePermissionBridge,
+} from "@/lib/permissions/native-device-permissions-plugin";
 import { applyPreferredSinkToHtmlAudioElement } from "@/lib/permissions/speaker-output-preference";
 import {
   DIBAY_MIC_ABORT_MESSAGE_DEFERRED,
@@ -242,22 +249,32 @@ export function queryNotificationPermission(): BrowserPermissionState {
 export async function refreshPermissionState(kind: DevicePermissionKind): Promise<BrowserPermissionState> {
   if (typeof window === "undefined") return "unknown";
 
+  const nativeAndroid = await resolveAndroidNativePermissionBrowserState(kind);
+  if (nativeAndroid === "granted" || nativeAndroid === "denied") {
+    setCachedPermissionState(kind, nativeAndroid);
+    return nativeAndroid;
+  }
+
   if (kind === "location") {
     const st = await queryGeolocationPermission();
-    setCachedPermissionState("location", st);
-    return st;
+    const merged = nativeAndroid ?? st;
+    setCachedPermissionState("location", merged);
+    return merged;
   }
 
   if (kind === "microphone" || kind === "camera") {
     const perms = await queryCommunityMessengerMediaPermissions();
     const st = (kind === "microphone" ? perms.microphone : perms.camera) ?? "unknown";
-    setCachedPermissionState(kind, st);
-    return st;
+    const merged =
+      st === "unknown" || st === "prompt" ? (nativeAndroid ?? st) : st;
+    setCachedPermissionState(kind, merged);
+    return merged;
   }
 
   const st = queryNotificationPermission();
-  setCachedPermissionState("notification", st);
-  return st;
+  const merged = st === "prompt" && nativeAndroid ? nativeAndroid : st;
+  setCachedPermissionState("notification", merged);
+  return merged;
 }
 
 export function refreshSpeakerOutputState(): BrowserPermissionState {
@@ -389,15 +406,28 @@ async function ensureDevicePermissionsWithDiBaYGate(
     return { ok: false, reason: "no_api" };
   }
 
+  const deviceKinds = kinds.filter(
+    (k): k is DevicePermissionKind => k === "location" || k === "camera" || k === "microphone" || k === "notification",
+  );
+
+  const finalizeWithNativeAndroid = async (): Promise<DevicePermissionEnsureResult> => {
+    if (!shouldUseAndroidNativeDevicePermissionBridge() || deviceKinds.length === 0) {
+      return { ok: true };
+    }
+    const nativeResult = await ensureAndroidNativeRuntimePermissions(deviceKinds);
+    if (nativeResult === "denied") return { ok: false, reason: "denied" };
+    return { ok: true };
+  };
+
   const states = await Promise.all(kinds.map((kind) => refreshPermissionState(kind)));
   if (states.some((state) => state === "denied")) {
     return { ok: false, reason: "denied" };
   }
   if (states.every((state) => state === "granted")) {
-    return { ok: true };
+    return finalizeWithNativeAndroid();
   }
   if (options?.featureKey && isPermissionFeatureCompleted(options.featureKey)) {
-    return { ok: true };
+    return finalizeWithNativeAndroid();
   }
 
   const explicitRetry = !!options?.explicitRetry || isCallMediaFeatureKey(options?.featureKey);
@@ -416,7 +446,7 @@ async function ensureDevicePermissionsWithDiBaYGate(
     }
   }
 
-  return { ok: true };
+  return finalizeWithNativeAndroid();
 }
 
 /**

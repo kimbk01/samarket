@@ -19,6 +19,7 @@ import {
 } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
+import { ensureAndroidNativeCallMediaPermissions } from "@/lib/permissions/android-native-device-permissions";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   closePrimedWebAudioCallToneContext,
@@ -195,6 +196,10 @@ export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
   assertCommunityMessengerWebRtcSecureContext();
+  const androidMedia = await ensureAndroidNativeCallMediaPermissions(kind);
+  if (androidMedia === "denied") {
+    throw new DOMException("Microphone permission denied", "NotAllowedError");
+  }
   const primed = consumePrimedCommunityMessengerDevicePermission(kind);
   if (primed) {
     const audioMedia = primed.getAudioTracks().find((t) => t.readyState === "live") ?? null;
