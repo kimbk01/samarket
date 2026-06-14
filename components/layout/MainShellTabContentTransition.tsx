@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 import { AppRouteTransition } from "@/components/route-transition/AppRouteTransition";
 import { TradeMarketTabPushEnterPanel } from "@/components/market/TradeMarketTabPushEnterPanel";
@@ -11,6 +11,7 @@ import { MyContent } from "@/app/(main)/my/MyContent";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
+import { MAIN_SHELL_ROUTE_TRANSITION_MS } from "@/components/route-transition/route-transition-config";
 
 type Props = {
   children: React.ReactNode;
@@ -25,7 +26,12 @@ function isMarketMenuIntentPath(pathname: string | null | undefined): boolean {
   return p === "/market" || p.startsWith("/market/");
 }
 
-function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
+function StableMainTabEnterPanel() {
+  return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-sam-app" aria-hidden />;
+}
+
+function DeferredMainTabEnterPanel({ href }: { href: string }) {
+  const [ready, setReady] = useState(false);
   const { pathname, search } = useMemo(() => {
     try {
       const u = new URL(href, "https://samarket.local");
@@ -38,9 +44,13 @@ function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
     }
   }, [href]);
 
-  if (isMarketMenuIntentPath(pathname)) {
-    return <TradeMarketTabPushEnterPanel href={href} />;
-  }
+  useEffect(() => {
+    setReady(false);
+    const timer = window.setTimeout(() => setReady(true), MAIN_SHELL_ROUTE_TRANSITION_MS + 80);
+    return () => window.clearTimeout(timer);
+  }, [href]);
+
+  if (!ready) return <StableMainTabEnterPanel />;
 
   if (pathname === "/philife") {
     return (
@@ -83,6 +93,33 @@ function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
         <MyContent />
       </Suspense>
     );
+  }
+
+  return <StableMainTabEnterPanel />;
+}
+
+function MainBottomNavPendingEnterPanel({ href }: { href: string }) {
+  const pathname = useMemo(() => {
+    try {
+      const u = new URL(href, "https://samarket.local");
+      return u.pathname.replace(/\/+$/, "") || "/";
+    } catch {
+      return "";
+    }
+  }, [href]);
+
+  if (isMarketMenuIntentPath(pathname)) {
+    return <TradeMarketTabPushEnterPanel href={href} />;
+  }
+
+  if (
+    pathname === "/philife" ||
+    pathname === "/stores" ||
+    pathname === "/community-messenger" ||
+    pathname === "/mypage" ||
+    pathname === "/my"
+  ) {
+    return <DeferredMainTabEnterPanel href={href} />;
   }
 
   return <div className="min-h-screen bg-sam-app" aria-hidden />;

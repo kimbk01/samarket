@@ -25,6 +25,26 @@ allprojects {
     }
 }
 
+/**
+ * Kotlin stdlib duplicate-class guard (capacitor-cordova-android-plugins:checkDebugAndroidTestDuplicateClasses).
+ *
+ * dependencyInsight (debugAndroidTestRuntimeClasspath):
+ * - androidx.appcompat / lifecycle → kotlin-stdlib:1.8.22 (JDK7/8 APIs merged into main stdlib)
+ * - kotlinx-coroutines-android:1.6.4 (via lifecycle-common:2.6.2) → kotlin-stdlib-jdk8:1.6.21 → kotlin-stdlib-jdk7:1.6.21
+ *
+ * Mixing kotlin-stdlib 1.8.22 with legacy jdk7/jdk8 1.6.x jars duplicates kotlin.io.path.*, kotlin.jdk7.*, etc.
+ * Force the full stdlib family to kotlinVersion (variables.gradle) so jdk7/jdk8 resolve to empty 1.8.22 stubs.
+ */
+subprojects {
+    configurations.configureEach {
+        resolutionStrategy {
+            force "org.jetbrains.kotlin:kotlin-stdlib:${rootProject.ext.kotlinVersion}"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${rootProject.ext.kotlinVersion}"
+            force "org.jetbrains.kotlin:kotlin-stdlib-jdk8:${rootProject.ext.kotlinVersion}"
+        }
+    }
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
