@@ -120,7 +120,7 @@ export type MessengerComposerSectorProps = {
 };
 
 /**
- * 메신저 하단 입력 섹터 — 배달 채팅 composer 레이아웃 단일 소스 (60px · 회색 pill · 녹색 전송).
+ * 메신저 하단 입력 섹터 — compact composer 레이아웃 단일 소스 (44px row · 회색 pill · 녹색 전송).
  */
 export function MessengerComposerSector({
   draft,

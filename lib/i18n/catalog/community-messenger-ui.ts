@@ -665,8 +665,11 @@ export const communityMessengerUiMessages = {
     cm_ui_peer_fallback: "상대",
     cm_ui_chat_peer_fallback: "대화 상대",
     cm_ui_friend_request_accepted_snackbar: "{name}님이 친구 요청을 수락했습니다.",
+    cm_ui_friend_accept_complete_title: "친구 승인 완료",
     cm_ui_friend_accept_success_snackbar:
       "친구로 추가되었습니다. 친구 목록에서 메시지를 시작할 수 있습니다.",
+    cm_ui_check_friends_list: "친구 목록 확인",
+    cm_ui_friend_already_friend_status: "친구 상태입니다",
     cm_ui_friend_merged_incoming_snackbar: "상대가 보낸 요청을 수락하여 친구가 되었습니다.",
     cm_ui_friend_request_respond_failed:
       "친구 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
@@ -1511,8 +1514,11 @@ export const communityMessengerUiMessages = {
     cm_ui_peer_fallback: "Contact",
     cm_ui_chat_peer_fallback: "Chat partner",
     cm_ui_friend_request_accepted_snackbar: "{name} accepted your friend request.",
+    cm_ui_friend_accept_complete_title: "Friend approved",
     cm_ui_friend_accept_success_snackbar:
       "Added as a friend. You can start a message from your friends list.",
+    cm_ui_check_friends_list: "View friends list",
+    cm_ui_friend_already_friend_status: "Already friends",
     cm_ui_friend_merged_incoming_snackbar: "You accepted their request and are now friends.",
     cm_ui_friend_request_respond_failed:
       "Could not process the friend request. Please try again.",

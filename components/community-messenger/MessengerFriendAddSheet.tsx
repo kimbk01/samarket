@@ -395,9 +395,14 @@ function SearchResultRow({
       </button>
       <div className="flex shrink-0 items-center justify-end gap-1">
         {cta.kind === "friend" || user.isFriend ? (
-          <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-            {t(MessengerFriendAddCtaLabelKeys.friend)}
-          </span>
+          <div className="flex max-w-[7.5rem] flex-col items-end text-right">
+            <span className="sam-text-helper font-semibold" style={{ color: "var(--messenger-text)" }}>
+              {t(MessengerFriendAddCtaLabelKeys.friend)}
+            </span>
+            <span className="sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+              {t("cm_ui_friend_already_friend_status")}
+            </span>
+          </div>
         ) : cta.kind === "blocked" ? (
           <span className="max-w-[5.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
             {t(MessengerFriendAddCtaLabelKeys.unavailable)}

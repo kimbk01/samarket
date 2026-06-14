@@ -19,7 +19,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   hasUsablePrimedCommunityMessengerDeviceStream,
   primeCommunityMessengerDevicePermissionFromUserGesture,
@@ -577,7 +576,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       setCmCallLatencyContext({ role: "initiator", callKind: kind, roomId: rid });
       rememberCallNavigationReturnPath();
-      /** 세션 POST 는 다음 화면 effect — 여기서 priming 하지 않으면 Web Audio 가 제스처 밖에서 resume 되어 경고·잔음이 난다 */
+      /** 세션 POST·미디어 프라임은 통화 화면 effect — 발신 CTA 는 즉시 화면 전환만 담당한다. */
       unlockCommunityMessengerCallPlaybackFromUserGesture();
       cmCallLatencyInfo("outgoing_route_push_start", {
         roomId: rid,
@@ -587,28 +586,14 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      const releaseDialGuard = () => {
-        window.setTimeout(() => {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }, 0);
-      };
-      const pushDial = () => {
-        router.push(dialHref);
-        releaseDialGuard();
-      };
-      void (async () => {
-        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok && kind === "video") {
-          showMessengerSnackbar(t("nav_messenger_permission_retry_camera_mic"), { variant: "error" });
-          releaseDialGuard();
-          return;
-        }
-        pushDial();
-      })();
+      router.push(dialHref);
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+      }, 0);
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title]
   );
 
   useEffect(() => {
@@ -1681,28 +1666,14 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer });
-      const releaseDialGuard = () => {
-        window.setTimeout(() => {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }, 0);
-      };
-      const pushDial = () => {
-        router.push(dialHref);
-        releaseDialGuard();
-      };
-      void (async () => {
-        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok && kind === "video") {
-          showMessengerSnackbar(t("nav_messenger_permission_retry_camera_mic"), { variant: "error" });
-          releaseDialGuard();
-          return;
-        }
-        pushDial();
-      })();
+      router.push(dialHref);
+      window.setTimeout(() => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+      }, 0);
       return true;
     },
-    [router, t]
+    [router]
   );
 
   const removeGroupMember = useCallback(

@@ -85,5 +85,6 @@
 | 2026-06-14 | 채팅 헤더·composer 전용 재구성: 셸 `chat-viewport-shell` + safe-area padding + narrow `100dvh`; `useChatViewportResize` 높이 JS 제거(composer 높이 ResizeObserver만); header `sticky`·composer 이중 safe-area/keyboard padding 제거; Android `adjustResize` | `app/chat-viewport-shell.css`, `components/chat/*`, `messenger-header.tsx`, `CommunityMessengerRoomPhase2Composer`, `CommunityMessengerRoomClientPhase2Body`, `AndroidManifest.xml` |
 | 2026-06-14 | 기기별 보완: `chat-viewport-shell-platform`·`useChatViewportShellInsets`(overlay 시 셸 `--chat-shell-keyboard-offset`만); embedded 슬라이드 패널 `padding-top:0`; iOS/Android 플랫폼 클래스 | `lib/ui/chat-viewport-shell-platform.ts`, `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomClientPhase2Body` |
 | 2026-06-14 | 정리: 레거시 `use-chat-viewport-resize.ts` 제거, composer 높이·keyboard insets 단일 훅 통합, ShellChromeFrame `data-cm-room` 고정, keyboard 이중 padding 가드 | `use-chat-viewport-shell-insets.ts`, `CommunityMessengerRoomShellChromeFrame.tsx` |
+| 2026-06-15 | 모바일 composer 체감 높이를 52px 기준으로 축소하고, `+` 첨부 메뉴를 dim 없는 80% 중앙 카드로 조정. 셸 safe-area·scroll anchor 계약은 유지 | `messenger-chat-viewport-tuning`, `chat-viewport-shell.css`, `CommunityMessengerRoomPhase2RoomSheets` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

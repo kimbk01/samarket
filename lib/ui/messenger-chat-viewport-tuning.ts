@@ -23,12 +23,12 @@ export const MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX = 10;
 export const MESSENGER_DELIVERY_COMPOSER_FOOTER_EXTRA_PX = 14;
 
 /** 배달·주문 채팅 입력 한 줄(+ / pill / 전송) 섹터 높이(px) — safe-area 제외 */
-export const MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_PX = 60;
+export const MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_PX = 44;
 
 export const MESSENGER_DELIVERY_COMPOSER_SECTOR_HEIGHT_CLASS =
-  "box-border h-[60px] min-h-[60px] max-h-[60px]";
+  "box-border h-[44px] min-h-[44px] max-h-[44px]";
 
-/** 60px 섹터 안 — + / pill / 전송 세로 중앙(`items-center`) */
+/** compact 섹터 안 — + / pill / 전송 세로 중앙(`items-center`) */
 export const MESSENGER_DELIVERY_COMPOSER_ROW_CLASS =
   "flex h-full w-full min-h-0 items-center gap-1.5";
 

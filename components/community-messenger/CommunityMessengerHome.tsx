@@ -634,6 +634,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const [friendAddCooldownUntilByPeer, setFriendAddCooldownUntilByPeer] = useState<Record<string, number>>({});
   const [friendAddCooldownClock, setFriendAddCooldownClock] = useState(() => Date.now());
   const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
+  const [friendAcceptCompleteDialog, setFriendAcceptCompleteDialog] = useState<{
+    message: string;
+  } | null>(null);
   const [friendUserSearchAttempted, setFriendUserSearchAttempted] = useState(false);
   const [friendSheet, setFriendSheet] = useState<FriendSheetState | null>(null);
   const friendSearchRef = useRef<HTMLInputElement | null>(null);
@@ -1564,8 +1567,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           }
           void refresh(true);
           if (action === "accept") {
-            showMessengerSnackbar(t("cm_ui_friend_accept_success_snackbar"), { variant: "success" });
-            onPrimarySectionChange("friends");
+            setFriendAcceptCompleteDialog({ message: t("cm_ui_friend_accept_success_snackbar") });
           }
         } else {
           // 실패 시: 즉시성보다 정확성이 우선이므로 silent refresh로 복구
@@ -1575,7 +1577,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         setBusyId(null);
       }
     },
-    [data?.me?.id, data?.requests, onPrimarySectionChange, refresh, setData, t]
+    [data?.me?.id, data?.requests, refresh, setData, t]
   );
 
   const onFriendRequestNotif = useCallback(
@@ -1671,12 +1673,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         }
 
         if (appliedOutcome.shouldShowAcceptSnackbar) {
-          showMessengerSnackbar(
-            t("cm_ui_friend_request_accepted_snackbar", {
+          setFriendAcceptCompleteDialog({
+            message: t("cm_ui_friend_request_accepted_snackbar", {
               name: appliedOutcome.resolvedPeerLabel || t("cm_ui_peer_fallback"),
             }),
-            { variant: "success" }
-          );
+          });
         }
         if (appliedOutcome.shouldShowRejectSnackbar && peerId) {
           setFriendAddCooldownUntilByPeer((prev) => ({
@@ -1689,9 +1690,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             }),
             { variant: "error" }
           );
-        }
-        if (appliedOutcome.shouldNavigateFriendsTab) {
-          onPrimarySectionChange("friends");
         }
         if (appliedOutcome.shouldRefreshBootstrap) {
           void refresh(true);
@@ -2326,6 +2324,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     },
     [openOutgoingCallConfirm]
   );
+  const completeFriendAcceptDialog = useCallback(() => {
+    setFriendAcceptCompleteDialog(null);
+    setFriendManagerOpen(false);
+    setFriendSheet(null);
+    closeHomeOverlay("requests");
+    onPrimarySectionChange("friends");
+    void hydrateMessengerFriends();
+  }, [closeHomeOverlay, hydrateMessengerFriends, onPrimarySectionChange]);
   const searchKeywordNormalized = roomSearchKeyword.trim().toLowerCase();
   const searchFriendMatches = useMemo(() => {
     if (!searchKeywordNormalized) return [];
@@ -3209,6 +3215,44 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             if (startDirectCall(next.peerUserId, next.kind, next.peerLabel)) setOutgoingCallConfirm(null);
           }}
         />
+      ) : null}
+
+      {friendAcceptCompleteDialog ? (
+        <div
+          className="fixed inset-0 z-[82] flex items-center justify-center px-5"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="messenger-friend-accept-complete-title"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/30"
+            aria-label={t("nav_close")}
+            onClick={completeFriendAcceptDialog}
+          />
+          <div className="relative z-10 w-full max-w-[320px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-[0_16px_48px_rgba(15,23,42,0.22)]">
+            <div className="px-5 pb-5 pt-6 text-center">
+              <h2
+                id="messenger-friend-accept-complete-title"
+                className="sam-text-body-lg font-bold tracking-tight text-sam-fg"
+              >
+                {t("cm_ui_friend_accept_complete_title")}
+              </h2>
+              <p className="mt-2 sam-text-body leading-[1.55] text-sam-muted">
+                {friendAcceptCompleteDialog.message}
+              </p>
+            </div>
+            <div className="border-t border-sam-border px-4 pb-4 pt-3">
+              <button
+                type="button"
+                onClick={completeFriendAcceptDialog}
+                className="w-full rounded-ui-rect bg-sam-primary px-4 py-3 sam-text-body font-semibold text-white active:opacity-90"
+              >
+                {t("cm_ui_check_friends_list")}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {friendSheet?.mode === "profile" && friendProfileForSheet ? (
