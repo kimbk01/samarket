@@ -8,10 +8,15 @@ import {
   readActiveSessionIdCookie,
   setActiveSessionCookie,
   createActiveSessionId,
+  clearActiveSessionCookie,
 } from "@/lib/auth/active-session";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
-import { hasPhilippinePhoneVerification, STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
+import {
+  hasPhilippinePhoneVerification,
+  isDeletedStoreMember,
+  STORE_PHONE_GATE_MESSAGE,
+} from "@/lib/auth/store-member-policy";
 import {
   emptyAuthHotPathBreakdown,
   logAuthHotPathBreakdown,
@@ -69,6 +74,16 @@ export async function validateActiveSession(
   const profile = await getCurrentProfile(userId);
   if (!profile) {
     return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
+  }
+  if (isDeletedStoreMember(profile)) {
+    return {
+      ok: false,
+      response: jsonError("탈퇴한 계정입니다. 다시 이용하려면 새로 가입해 주세요.", 403, {
+        authenticated: false,
+        code: "account_withdrawn",
+      }),
+      profile,
+    };
   }
   const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
   if (!sessionId) {
@@ -149,7 +164,7 @@ export async function validateActiveSessionLight(
         const profile0 = devPerfNow();
         const { data: pr, error } = await sbRead
           .from("profiles")
-          .select("active_session_id")
+          .select("active_session_id, status, deleted_at")
           .eq("id", userId)
           .maybeSingle();
         return {
@@ -183,6 +198,22 @@ export async function validateActiveSessionLight(
       breakdown.auth_db_round_trips = dbTrips;
       breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
       return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
+    }
+    if (
+      isDeletedStoreMember(
+        profileResult.pr as { status?: string | null; deleted_at?: string | null }
+      )
+    ) {
+      breakdown.auth_db_round_trips = dbTrips;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      return {
+        ok: false,
+        response: jsonError("탈퇴한 계정입니다. 다시 이용하려면 새로 가입해 주세요.", 403, {
+          authenticated: false,
+          code: "account_withdrawn",
+        }),
+        breakdown,
+      };
     }
     activeSessionId = String(
       (profileResult.pr as { active_session_id?: string | null }).active_session_id ?? ""
@@ -342,6 +373,20 @@ export async function syncActiveSessionForUser(
       tel.sync_profile_write_skipped_reason = "no_profile_row";
       tel.sync_registry_write_skipped_reason = "no_profile_row";
     }
+    return { sessionId: null, profile: null };
+  }
+
+  if (isDeletedStoreMember(profile)) {
+    if (tel) {
+      tel.sync_touch_reason = "withdrawn_member";
+      tel.sync_profiles_update_skipped = 1;
+      tel.sync_registry_sync_skipped = 1;
+      tel.sync_profile_write_skipped_reason = "withdrawn_member";
+      tel.sync_registry_write_skipped_reason = "withdrawn_member";
+    }
+    await clearActiveSessionCookie(response, options?.request
+      ? cookieSecureFromNextRequest(options.request)
+      : undefined);
     return { sessionId: null, profile: null };
   }
 

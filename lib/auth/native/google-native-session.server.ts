@@ -8,7 +8,10 @@ import {
 } from "@/lib/auth/native/google-auth-env.server";
 import type { GoogleVerifiedIdentity } from "@/lib/auth/native/google-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
+import { findActiveProfileIdByProviderUserId } from "@/lib/auth/active-profile-lookup";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
+import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
+import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -56,15 +59,7 @@ async function findProfileIdByGoogleUserId(
   adminSb: SupabaseClient,
   googleUserId: string,
 ): Promise<string | null> {
-  const { data, error } = await adminSb
-    .from("profiles")
-    .select("id")
-    .eq("provider", "google")
-    .eq("provider_user_id", googleUserId)
-    .limit(1);
-  if (error || !Array.isArray(data) || data.length === 0) return null;
-  const row = data[0] as { id?: unknown };
-  return typeof row.id === "string" ? row.id : null;
+  return findActiveProfileIdByProviderUserId(adminSb, "google", googleUserId);
 }
 
 /** Supabase Web Google OAuth — profiles.provider_user_id 없이 auth.identities 만 있는 경우 */
@@ -110,12 +105,14 @@ async function findProfileIdByVerifiedGoogleEmail(
 
   const { data, error } = await adminSb
     .from("profiles")
-    .select("id")
+    .select("id, status, deleted_at")
     .eq("provider", "google")
     .or(`email.eq.${email},auth_login_email.eq.${email}`)
-    .limit(1);
+    .limit(5);
   if (error || !Array.isArray(data) || data.length === 0) return null;
-  const row = data[0] as { id?: unknown };
+  const active = data.find((row) => !isDeletedStoreMember(row as { status?: string; deleted_at?: string | null }));
+  if (!active) return null;
+  const row = active as { id?: unknown };
   return typeof row.id === "string" ? row.id : null;
 }
 
@@ -318,6 +315,22 @@ export async function establishGoogleNativeSession(
   }
 
   const signedUser = signInData.user;
+
+  const withdrawalState = await revokeSessionForWithdrawnMember(
+    ctx.routeSb,
+    ctx.response,
+    signedUser.id,
+    ctx.adminSb,
+  );
+  if (withdrawalState === "withdrawn") {
+    return {
+      ok: false,
+      errorCode: "account_withdrawn",
+      message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
+      status: 403,
+    };
+  }
+
   const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);
 
   await persistGoogleProfileIdentity(ctx.adminSb, signedUser.id, input.verified);

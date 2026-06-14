@@ -7,7 +7,10 @@ import {
 } from "@/lib/auth/native/kakao-auth-env.server";
 import type { KakaoVerifiedIdentity } from "@/lib/auth/native/kakao-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
+import { findActiveProfileIdByProviderUserId } from "@/lib/auth/active-profile-lookup";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
+import { findAuthUserByEmail } from "@/lib/auth/naver-oauth";
+import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -54,14 +57,7 @@ async function findProfileIdByKakaoUserId(
   adminSb: SupabaseClient,
   kakaoUserId: string,
 ): Promise<string | null> {
-  const { data, error } = await adminSb
-    .from("profiles")
-    .select("id")
-    .eq("provider", "kakao")
-    .eq("provider_user_id", kakaoUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return typeof (data as { id?: unknown }).id === "string" ? (data as { id: string }).id : null;
+  return findActiveProfileIdByProviderUserId(adminSb, "kakao", kakaoUserId);
 }
 
 function buildKakaoUserMetadata(verified: KakaoVerifiedIdentity): Record<string, unknown> {
@@ -129,6 +125,13 @@ async function upsertKakaoAuthUser(
     user_metadata: metadata,
   });
   if (createError || !created.user) {
+    const recovered = await findAuthUserByEmail(adminSb, authEmail);
+    if (recovered?.id) {
+      return upsertKakaoAuthUser(adminSb, {
+        existingUserId: recovered.id,
+        verified: args.verified,
+      });
+    }
     return {
       ok: false,
       errorCode: "provider_account_conflict",
@@ -224,6 +227,22 @@ export async function establishKakaoNativeSession(
   }
 
   const signedUser = signInData.user;
+
+  const withdrawalState = await revokeSessionForWithdrawnMember(
+    ctx.routeSb,
+    ctx.response,
+    signedUser.id,
+    ctx.adminSb,
+  );
+  if (withdrawalState === "withdrawn") {
+    return {
+      ok: false,
+      errorCode: "account_withdrawn",
+      message: "탈퇴한 계정입니다. 동일 계정으로 다시 이용하려면 관리자에게 문의해 주세요.",
+      status: 403,
+    };
+  }
+
   const syntheticUser = syntheticUserForEnsure(signedUser.id, input.verified);
 
   try {

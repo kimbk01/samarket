@@ -1,6 +1,11 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import {
+  findActiveProfileIdsByEmail,
+  findActiveProfileIdsByProviderPair,
+} from "@/lib/auth/active-profile-lookup";
 import type { ProfileRow } from "@/lib/profile/types";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 /**
@@ -185,38 +190,14 @@ async function findCandidateIdsByProviderPair(
   provider: string | null,
   providerUserId: string | null
 ): Promise<string[]> {
-  if (!provider || !providerUserId) return [];
-  /**
-   * `profiles.provider_user_id` 마이그레이션이 적용된 환경에서만 매칭된다.
-   * 컬럼이 없거나 권한 부족이면 silent fail → 빈 배열 (호출 측에서 email 폴백).
-   */
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .eq("provider", provider)
-    .eq("provider_user_id", providerUserId)
-    .limit(5);
-  if (error || !Array.isArray(data)) return [];
-  return data
-    .map((row) => (typeof (row as { id?: unknown }).id === "string" ? (row as { id: string }).id : ""))
-    .filter(Boolean);
+  return findActiveProfileIdsByProviderPair(sb, provider, providerUserId);
 }
 
 async function findCandidateIdsByEmail(
   sb: SupabaseClient,
   email: string | null
 ): Promise<string[]> {
-  const e = pickStr(email)?.toLowerCase();
-  if (!e) return [];
-  const { data, error } = await sb
-    .from("profiles")
-    .select("id")
-    .ilike("email", e)
-    .limit(5);
-  if (error || !Array.isArray(data)) return [];
-  return data
-    .map((row) => (typeof (row as { id?: unknown }).id === "string" ? (row as { id: string }).id : ""))
-    .filter(Boolean);
+  return findActiveProfileIdsByEmail(sb, email);
 }
 
 /** provider·provider_user_id·auth_provider 가 이미 auth identity 와 동일하면 PATCH 불필요 */
@@ -405,6 +386,32 @@ async function ensureUserProfileCore(
   }
   if (metrics) {
     metrics.ensure_profile_existing_check_ms += Math.round(devPerfNow() - tExisting0);
+  }
+
+  if (existingId) {
+    const withdrawnCheckRow: ProfileRow | null =
+      options?.existingProfileRow?.id === user.id
+        ? options.existingProfileRow
+        : null;
+    if (withdrawnCheckRow && isDeletedStoreMember(withdrawnCheckRow)) {
+      if (metrics) {
+        metrics.ensure_profile_result = "skipped";
+      }
+      return { profile: { id: user.id }, created: false, linked: false };
+    }
+    if (!withdrawnCheckRow) {
+      const { data: statusRow } = await sb
+        .from("profiles")
+        .select("id, status, deleted_at")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (isDeletedStoreMember(statusRow as ProfileRow | null)) {
+        if (metrics) {
+          metrics.ensure_profile_result = "skipped";
+        }
+        return { profile: { id: user.id }, created: false, linked: false };
+      }
+    }
   }
 
   /** GET /api/me/profile: 이미 정상 행을 읽었으면 duplicate·heavy ensure 생략 */

@@ -1,13 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission, requireSuperAdmin } from "@/lib/admin/require-admin-permission";
+import {
+  buildWithdrawProfilePatch,
+  clearLegacyAuthBanForWithdraw,
+  fetchAuthUserPurgeBlockers,
+  moderationActionForDeleteMode,
+  normalizeAdminUserDeleteMode,
+  purgeAuthUserById,
+  type AdminUserDeleteMode,
+} from "@/lib/admin/admin-user-deletion";
+import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { insertModerationEvent, invalidateAllUserSessions, isSuperAdminRole } from "@/lib/admin/admin-user-server";
 import { normalizeAdminRole } from "@/lib/auth/admin-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const DELETED_NICKNAME = "탈퇴회원";
 
 export async function POST(
   req: NextRequest,
@@ -26,9 +34,9 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
   }
 
-  const mode = String(body.mode ?? "").trim().toLowerCase();
+  const mode = normalizeAdminUserDeleteMode(body.mode);
   const reason = String(body.reason ?? "").trim();
-  if (mode !== "soft" && mode !== "hard") {
+  if (!mode) {
     return NextResponse.json({ ok: false, error: "invalid_mode" }, { status: 400 });
   }
   if (!reason) {
@@ -36,7 +44,7 @@ export async function POST(
   }
 
   const gate =
-    mode === "hard"
+    mode === "purge"
       ? await requireSuperAdmin()
       : await requireAdminPermission("users");
   if (!gate.ok) return gate.response;
@@ -65,59 +73,67 @@ export async function POST(
 
   const nickname = String((targetProfile as { nickname?: string }).nickname ?? "").trim();
   const confirmNickname = String(body.confirmNickname ?? "").trim();
-  if (confirmNickname && confirmNickname !== nickname) {
-    return NextResponse.json({ ok: false, error: "confirm_nickname_mismatch" }, { status: 400 });
+  if (mode === "purge") {
+    if (!confirmNickname) {
+      return NextResponse.json({ ok: false, error: "confirm_nickname_required" }, { status: 400 });
+    }
+    if (confirmNickname !== nickname) {
+      return NextResponse.json({ ok: false, error: "confirm_nickname_mismatch" }, { status: 400 });
+    }
   }
 
   const fromStatus = String((targetProfile as { status?: string }).status ?? "");
   const now = new Date().toISOString();
-  const action = mode === "hard" ? "hard_delete" : "soft_delete";
+  const moderationAction = moderationActionForDeleteMode(mode);
 
-  const softPatch = {
-    status: "deleted",
-    deleted_at: now,
-    deletion_requested_at: now,
-  };
-
-  const hardPatch = {
-    ...softPatch,
-    nickname: DELETED_NICKNAME,
-    display_name: DELETED_NICKNAME,
-    email: null,
-    auth_login_email: null,
-    phone: null,
-    phone_number: null,
-    phone_country_code: null,
-    phone_verified: false,
-    phone_verified_at: null,
-    avatar_url: null,
-    active_session_id: null,
-  };
-
-  const { error: updateErr } = await sb
-    .from("profiles")
-    .update(mode === "hard" ? hardPatch : softPatch)
-    .eq("id", userId);
-  if (updateErr) {
-    return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+  if (mode === "purge") {
+    const blockers = await fetchAuthUserPurgeBlockers(sb, userId);
+    if (!blockers.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "purge_blocked",
+          blockers: blockers.blockers,
+          message:
+            blockers.blockers.length > 0
+              ? `DB 영구 삭제를 막는 연결 데이터가 있습니다: ${blockers.blockers.join(", ")}`
+              : "DB 영구 삭제 사전 검사에 실패했습니다.",
+        },
+        { status: 409 }
+      );
+    }
   }
 
-  await insertModerationEvent(sb, {
-    userId,
-    actorId: actor.userId,
-    action,
-    fromStatus,
-    toStatus: "deleted",
-    reason,
-  });
+  const alreadyWithdrawn = isDeletedStoreMember(targetProfile as { status?: string; deleted_at?: string | null });
 
-  await invalidateAllUserSessions(sb, userId, `account_${mode}_delete`);
+  if (mode === "withdraw") {
+    if (!alreadyWithdrawn) {
+      const { error: updateErr } = await sb
+        .from("profiles")
+        .update(buildWithdrawProfilePatch(now))
+        .eq("id", userId);
+      if (updateErr) {
+        return NextResponse.json({ ok: false, error: updateErr.message }, { status: 500 });
+      }
+    }
+    await clearLegacyAuthBanForWithdraw(sb, userId);
+  }
 
   try {
-    await sb.auth.admin.updateUserById(userId, { ban_duration: "876000h" } as never);
-  } catch {
-    /* best-effort */
+    await insertModerationEvent(sb, {
+      userId,
+      actorId: actor.userId,
+      action: moderationAction,
+      fromStatus,
+      toStatus: mode === "purge" ? "purged" : "deleted",
+      reason,
+    });
+  } catch (eventErr) {
+    const message = eventErr instanceof Error ? eventErr.message : "moderation_event_failed";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
+
+  await invalidateAllUserSessions(sb, userId, "account_deleted");
 
   await sb
     .from("account_deletion_requests")
@@ -136,10 +152,24 @@ export async function POST(
     actor_id: actor.userId,
     target_type: "user",
     target_id: userId,
-    action: `user_${mode}_delete`,
+    action: mode === "purge" ? "user_purge" : "user_withdraw",
     before_json: { status: fromStatus, nickname },
-    after_json: { status: "deleted", mode },
+    after_json: { mode, purged: mode === "purge" },
   });
 
-  return NextResponse.json({ ok: true, mode });
+  if (mode === "purge") {
+    const purged = await purgeAuthUserById(sb, userId);
+    if (!purged.ok) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "auth_user_delete_failed",
+          message: purged.error,
+        },
+        { status: 500 }
+      );
+    }
+  }
+
+  return NextResponse.json({ ok: true, mode: mode satisfies AdminUserDeleteMode });
 }

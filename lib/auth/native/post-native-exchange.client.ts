@@ -80,6 +80,15 @@ export function mapNativeExchangeFailure(
         ?? (provider === "google" ? "Google login token is invalid" : "Kakao login token is invalid"),
     } as MappedNativeExchangeFailure;
   }
+  if (raw === "account_withdrawn") {
+    return {
+      provider,
+      code: `${provider}_native_unavailable`,
+      message:
+        exchange.message
+        ?? "This account was withdrawn. Please contact support or sign up again.",
+    } as MappedNativeExchangeFailure;
+  }
   return {
     provider,
     code: `${provider}_native_unavailable`,

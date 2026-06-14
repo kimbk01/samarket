@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { invalidateAuthLightSessionSnapshotCache } from "@/lib/auth/auth-light-session-snapshot-cache";
 import { normalizeAdminRole, isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
@@ -11,6 +12,7 @@ export const MODERATION_ACTIONS = [
   "restore",
   "soft_delete",
   "hard_delete",
+  "purge",
 ] as const;
 
 export type ModerationAction = (typeof MODERATION_ACTIONS)[number];
@@ -174,9 +176,10 @@ export async function invalidateAllUserSessions(
   if (error && !error.message?.includes("user_sessions")) {
     console.error("[invalidateAllUserSessions]", error.message);
   }
+  invalidateAuthLightSessionSnapshotCache(userId);
 }
 
-export async function insertModerationEvent(
+async function insertModerationEventRow(
   sb: SupabaseClient,
   row: {
     userId: string;
@@ -186,7 +189,7 @@ export async function insertModerationEvent(
     toStatus: string | null;
     reason: string;
   }
-): Promise<string | null> {
+): Promise<{ id: string | null; error: { message: string } | null }> {
   const { data, error } = await sb
     .from("user_moderation_events")
     .insert({
@@ -200,12 +203,48 @@ export async function insertModerationEvent(
     .select("id")
     .maybeSingle();
   if (error) {
-    if (error.message?.includes("user_moderation_events") && error.message.includes("does not exist")) {
+    return { id: null, error: { message: error.message } };
+  }
+  return { id: (data as { id?: string } | null)?.id ?? null, error: null };
+}
+
+export async function insertModerationEvent(
+  sb: SupabaseClient,
+  row: {
+    userId: string;
+    actorId: string;
+    action: ModerationAction;
+    fromStatus: string | null;
+    toStatus: string | null;
+    reason: string;
+  }
+): Promise<string | null> {
+  const first = await insertModerationEventRow(sb, row);
+  if (!first.error) return first.id;
+
+  const message = first.error.message;
+  if (message.includes("user_moderation_events") && message.includes("does not exist")) {
+    return null;
+  }
+
+  /** 마이그레이션 `20260614210000` 적용 전 — purge → hard_delete 로 기록 */
+  if (
+    row.action === "purge" &&
+    (message.includes("user_moderation_events_action_check") ||
+      message.includes("violates check constraint"))
+  ) {
+    const fallback = await insertModerationEventRow(sb, { ...row, action: "hard_delete" });
+    if (!fallback.error) return fallback.id;
+    if (
+      fallback.error.message.includes("user_moderation_events") &&
+      fallback.error.message.includes("does not exist")
+    ) {
       return null;
     }
-    throw new Error(error.message);
+    throw new Error(fallback.error.message);
   }
-  return (data as { id?: string } | null)?.id ?? null;
+
+  throw new Error(message);
 }
 
 export async function userHasRecentWarn(

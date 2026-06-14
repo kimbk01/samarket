@@ -21,6 +21,7 @@ const STATUS_LABEL_KEYS: Record<string, MessageKey> = {
   banned: "admin_users_mod_status_banned",
   verified_user: "admin_users_mod_status_normal",
   deleted: "admin_users_mod_status_banned",
+  purged: "admin_users_mod_status_banned",
 };
 
 const ACTION_LABEL_KEYS: Record<string, MessageKey> = {
@@ -30,6 +31,7 @@ const ACTION_LABEL_KEYS: Record<string, MessageKey> = {
   restore: "admin_users_mod_action_restore",
   soft_delete: "admin_users_mod_action_soft_delete",
   hard_delete: "admin_users_mod_action_hard_delete",
+  purge: "admin_users_mod_action_purge",
 };
 
 function dateLocaleTag(language: AppLanguageCode): string {

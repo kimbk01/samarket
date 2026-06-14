@@ -13,6 +13,7 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -128,6 +129,22 @@ export async function GET(req: NextRequest) {
     }
 
     const signedUser = signInData.user;
+
+    const withdrawnProbe = buildLoginErrorRedirect(req, {
+      next: safeNext,
+      code: "account_withdrawn",
+      detail: "withdrawn_member_cannot_sign_in",
+    });
+    const withdrawalState = await revokeSessionForWithdrawnMember(
+      routeSb,
+      withdrawnProbe,
+      signedUser.id,
+      adminSb,
+    );
+    if (withdrawalState === "withdrawn") {
+      return withdrawnProbe;
+    }
+
     await ensureUserProfile(adminSb, signedUser).catch(() => null);
     await adminSb
       .from("profiles")

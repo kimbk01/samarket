@@ -13,6 +13,7 @@ import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { sanitizeNextPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { APP_LANGUAGE_COOKIE, parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 
 export const dynamic = "force-dynamic";
 
@@ -133,6 +134,22 @@ export async function GET(req: NextRequest) {
         }
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
+
+      const withdrawalState = await revokeSessionForWithdrawnMember(
+        supabase,
+        response,
+        user.id,
+        writeSb,
+      );
+      if (withdrawalState === "withdrawn") {
+        loginUrl.searchParams.set("auth_error", "account_withdrawn");
+        loginUrl.searchParams.set(
+          "auth_error_detail",
+          "withdrawn_member_cannot_sign_in",
+        );
+        response = NextResponse.redirect(loginUrl);
+        return response;
+      }
 
       try {
         await upsertOAuthProfileFromUser(writeSb, mergedUser, {

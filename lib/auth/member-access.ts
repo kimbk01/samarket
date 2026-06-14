@@ -11,6 +11,7 @@ import {
   deriveStoreMemberStatus,
   hasPhilippinePhoneVerification,
   hasStoreTermsConsent,
+  isDeletedStoreMember,
   normalizeStoreAuthProvider,
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
@@ -368,10 +369,19 @@ export async function ensureAuthProfileRow(
   const { data: existing } = await sb
     .from("profiles")
     .select(
-      "id, email, display_name, username, nickname, avatar_url, onboarding_completed_at, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version"
+      "id, email, display_name, username, nickname, avatar_url, onboarding_completed_at, role, is_admin, member_type, status, member_status, phone, phone_country_code, phone_number, phone_verified, phone_verified_at, phone_verification_status, auth_login_email, provider, auth_provider, terms_accepted_at, terms_version, privacy_accepted_at, privacy_version, deleted_at"
     )
     .eq("id", user.id)
     .maybeSingle();
+
+  if (existing && isDeletedStoreMember(existing as { status?: string; deleted_at?: string | null })) {
+    return await loadMemberAccessState(sb, user.id, {
+      fallbackEmail: email,
+      fallbackUsername: username,
+      fallbackNickname: nickname,
+      fallbackProvider: provider,
+    });
+  }
 
   /**
    * 닉네임 unique 보장은 비싸므로 **실제로 닉네임을 기록할 때만** 평가한다.

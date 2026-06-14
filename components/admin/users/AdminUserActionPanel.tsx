@@ -10,6 +10,8 @@ interface AdminUserActionPanelProps {
   onActionSuccess: () => void;
 }
 
+type AdminDeleteMode = "withdraw" | "purge";
+
 async function postModeration(
   userId: string,
   action: string,
@@ -30,7 +32,7 @@ async function postModeration(
 
 async function postDelete(
   userId: string,
-  mode: "soft" | "hard",
+  mode: AdminDeleteMode,
   reason: string,
   confirmNickname?: string
 ): Promise<{ ok: boolean; error?: string }> {
@@ -68,7 +70,7 @@ export function AdminUserActionPanel({ user, onActionSuccess }: AdminUserActionP
     else alert(result.error ?? t("admin_users_action_failed"));
   };
 
-  const runDelete = async (mode: "soft" | "hard") => {
+  const runDelete = async (mode: AdminDeleteMode) => {
     const reason = window.prompt(
       safeT("admin_users_delete_reason_prompt", {
         fallbackKo: "삭제 사유를 입력해 주세요.",
@@ -78,7 +80,7 @@ export function AdminUserActionPanel({ user, onActionSuccess }: AdminUserActionP
     if (!reason?.trim()) return;
 
     let confirmNickname: string | undefined;
-    if (mode === "hard") {
+    if (mode === "purge") {
       const typed = window.prompt(
         safeT("admin_users_delete_confirm_nickname_prompt", {
           fallbackKo: `확인을 위해 닉네임「${user.nickname}」을 입력해 주세요.`,
@@ -89,7 +91,21 @@ export function AdminUserActionPanel({ user, onActionSuccess }: AdminUserActionP
       confirmNickname = typed.trim();
     }
 
-    setLoading(mode === "hard" ? "hard_delete" : "soft_delete");
+    if (
+      mode === "purge" &&
+      !window.confirm(
+        safeT("admin_users_action_purge_confirm", {
+          fallbackKo:
+            "auth.users·profiles·연결 identity까지 DB에서 영구 삭제합니다. 같은 OAuth로 신규 가입 테스트가 가능합니다. 계속할까요?",
+          fallbackEn:
+            "This permanently deletes auth.users, profiles, and linked identities from the database. The same OAuth account can sign up again as a new user. Continue?",
+        })
+      )
+    ) {
+      return;
+    }
+
+    setLoading(mode === "purge" ? "purge" : "withdraw");
     const result = await postDelete(user.id, mode, reason.trim(), confirmNickname);
     setLoading(null);
     if (result.ok) onActionSuccess();
@@ -250,32 +266,40 @@ export function AdminUserActionPanel({ user, onActionSuccess }: AdminUserActionP
             fallbackEn: "Account deletion",
           })}
         </p>
+        <p className="text-[11px] leading-relaxed text-[#6F4E37]/90">
+          {safeT("admin_users_delete_section_hint", {
+            fallbackKo:
+              "일반 삭제는 탈퇴 처리(개인정보 익명화)입니다. DB 영구 삭제는 auth.users까지 제거하며 OAuth 재가입 테스트에 사용합니다.",
+            fallbackEn:
+              "Withdraw anonymizes the member record. Permanent DB delete removes auth.users so the same OAuth account can sign up again.",
+          })}
+        </p>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             disabled={loading !== null}
-            onClick={() => void runDelete("soft")}
+            onClick={() => void runDelete("withdraw")}
             className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] font-semibold text-amber-800 hover:bg-amber-100 disabled:opacity-50"
           >
-            {loading === "soft_delete"
+            {loading === "withdraw"
               ? t("admin_users_action_processing")
-              : safeT("admin_users_action_soft_delete", {
-                  fallbackKo: "소프트 삭제",
-                  fallbackEn: "Soft delete",
+              : safeT("admin_users_action_withdraw_delete", {
+                  fallbackKo: "일반 삭제(탈퇴)",
+                  fallbackEn: "Withdraw (anonymize)",
                 })}
           </button>
           {isSuperAdmin && (
             <button
               type="button"
               disabled={loading !== null}
-              onClick={() => void runDelete("hard")}
+              onClick={() => void runDelete("purge")}
               className="rounded-ui-rect border border-red-300 bg-red-50 px-3 py-2 text-[13px] font-semibold text-red-800 hover:bg-red-100 disabled:opacity-50"
             >
-              {loading === "hard_delete"
+              {loading === "purge"
                 ? t("admin_users_action_processing")
-                : safeT("admin_users_action_hard_delete", {
-                    fallbackKo: "하드 삭제(익명화)",
-                    fallbackEn: "Hard delete (anonymize)",
+                : safeT("admin_users_action_purge_delete", {
+                    fallbackKo: "DB 영구 삭제",
+                    fallbackEn: "Permanent DB delete",
                   })}
             </button>
           )}

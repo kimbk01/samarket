@@ -56,6 +56,8 @@ export const authUiMessages = {
     auth_err_user_upsert_failed: "회원 가입 처리에 실패했습니다. 다시 시도해 주세요.",
     auth_err_supabase_service_unconfigured: "서버 인증 설정이 누락되었습니다. 관리자에게 문의해 주세요.",
     auth_err_session_missing: "세션이 만료되었거나 확인되지 않아 다시 로그인해 주세요.",
+    auth_err_account_withdrawn:
+      "탈퇴 처리된 계정입니다. 같은 소셜 계정으로 다시 이용하려면 관리자에게 문의하거나 새로 가입해 주세요.",
     auth_err_login_failed_code: "로그인 처리 실패({code}). 다시 시도해 주세요.",
     auth_err_supabase_unconfigured: "Supabase 설정이 없습니다.",
     auth_err_password_required: "비밀번호를 입력해 주세요.",
@@ -267,6 +269,8 @@ export const authUiMessages = {
     auth_err_user_upsert_failed: "Account setup failed. Please try again.",
     auth_err_supabase_service_unconfigured: "Server auth is not configured. Please contact support.",
     auth_err_session_missing: "Your session expired or is invalid. Please sign in again.",
+    auth_err_account_withdrawn:
+      "This account was withdrawn. To use the same social account again, contact support or sign up again.",
     auth_err_login_failed_code: "Sign-in failed ({code}). Please try again.",
     auth_err_supabase_unconfigured: "Supabase is not configured.",
     auth_err_password_required: "Enter your password.",
