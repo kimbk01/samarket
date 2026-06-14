@@ -35,8 +35,9 @@ async function getFirebaseApp(): Promise<App | null> {
       const diag = getFcmEnvDiagnostics();
       console.warn("[fcm-sender-impl] init skipped — fcm_not_configured", {
         source: fcmConfigSource(),
-        base64_env_trimmed_length: diag.base64_env_trimmed_length,
-        json_env_trimmed_length: diag.json_env_trimmed_length,
+        has_project_id: diag.has_project_id,
+        has_client_email: diag.has_client_email,
+        private_key_length: diag.private_key_length,
       });
       return null;
     }
@@ -103,8 +104,9 @@ export async function sendFcmMessageV1(input: {
       provider_response: {
         reason: "fcm_not_configured",
         source: fcmConfigSource(),
-        base64_env_trimmed_length: diag.base64_env_trimmed_length,
-        json_env_trimmed_length: diag.json_env_trimmed_length,
+        has_project_id: diag.has_project_id,
+        has_client_email: diag.has_client_email,
+        private_key_length: diag.private_key_length,
       },
     };
   }

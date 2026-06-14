@@ -1,13 +1,12 @@
 import type { ServiceAccount } from "firebase-admin/app";
 
-export type FcmConfigSource = "base64_env" | "json_env" | "none";
+export type FcmConfigSource = "split_env" | "json_env" | "base64_env" | "none";
 
 export type FcmEnvDiagnostics = {
   source: FcmConfigSource;
-  base64_env_length: number;
-  json_env_length: number;
-  base64_env_trimmed_length: number;
-  json_env_trimmed_length: number;
+  has_project_id: boolean;
+  has_client_email: boolean;
+  private_key_length: number;
   configured: boolean;
 };
 
@@ -18,20 +17,53 @@ export function resetFcmServiceAccountCacheForTests(): void {
   cachedServiceAccount = undefined;
 }
 
+function readSplitEnvServiceAccount(): ServiceAccount | null {
+  const projectId = process.env.FCM_PROJECT_ID?.trim() ?? "";
+  const clientEmail = process.env.FCM_CLIENT_EMAIL?.trim() ?? "";
+  const privateKeyRaw = process.env.FCM_PRIVATE_KEY?.trim() ?? "";
+  if (!projectId && !clientEmail && !privateKeyRaw) return null;
+  const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return { projectId, clientEmail, privateKey };
+}
+
+function normalizeServiceAccountJson(parsed: Record<string, unknown>): ServiceAccount | null {
+  const projectId =
+    typeof parsed.project_id === "string"
+      ? parsed.project_id
+      : typeof parsed.projectId === "string"
+        ? parsed.projectId
+        : "";
+  const clientEmail =
+    typeof parsed.client_email === "string"
+      ? parsed.client_email
+      : typeof parsed.clientEmail === "string"
+        ? parsed.clientEmail
+        : "";
+  const privateKeyRaw =
+    typeof parsed.private_key === "string"
+      ? parsed.private_key
+      : typeof parsed.privateKey === "string"
+        ? parsed.privateKey
+        : "";
+  const privateKey = privateKeyRaw.replace(/\\n/g, "\n");
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return { projectId, clientEmail, privateKey };
+}
+
 /** Vercel runtime — secret 값 없이 env 존재·길이만 노출 */
 export function getFcmEnvDiagnostics(): FcmEnvDiagnostics {
-  const base64Raw = process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64 ?? "";
-  const jsonRaw = process.env.FCM_SERVICE_ACCOUNT_JSON ?? "";
-  const base64Trimmed = base64Raw.trim();
-  const jsonTrimmed = jsonRaw.trim();
+  const projectId = process.env.FCM_PROJECT_ID?.trim() ?? "";
+  const clientEmail = process.env.FCM_CLIENT_EMAIL?.trim() ?? "";
+  const privateKey = (process.env.FCM_PRIVATE_KEY?.trim() ?? "").replace(/\\n/g, "\n");
   const source = fcmConfigSource();
+  const configured = source === "none" ? false : parseFcmServiceAccount() !== null;
   return {
     source,
-    base64_env_length: base64Raw.length,
-    json_env_length: jsonRaw.length,
-    base64_env_trimmed_length: base64Trimmed.length,
-    json_env_trimmed_length: jsonTrimmed.length,
-    configured: isFcmConfigured(),
+    has_project_id: Boolean(projectId),
+    has_client_email: Boolean(clientEmail),
+    private_key_length: privateKey.length,
+    configured,
   };
 }
 
@@ -40,60 +72,70 @@ export function logFcmEnvDiagnostics(context?: string): FcmEnvDiagnostics {
   console.info("FCM_CONFIG_FOUND", {
     context: context ?? "fcm-env",
     source: diag.source,
-    base64_env_length: diag.base64_env_length,
-    json_env_length: diag.json_env_length,
-    base64_env_trimmed_length: diag.base64_env_trimmed_length,
-    json_env_trimmed_length: diag.json_env_trimmed_length,
+    has_project_id: diag.has_project_id,
+    has_client_email: diag.has_client_email,
+    private_key_length: diag.private_key_length,
     configured: diag.configured,
     vercel: process.env.VERCEL === "1",
   });
-  if (diag.base64_env_trimmed_length === 0 && diag.json_env_trimmed_length === 0) {
-    console.warn("FCM_CONFIG_FOUND env empty — FCM_SERVICE_ACCOUNT_JSON_BASE64 / FCM_SERVICE_ACCOUNT_JSON not set on runtime");
+  if (diag.source === "none") {
+    console.warn("FCM_CONFIG_FOUND env empty — FCM_PROJECT_ID / FCM_CLIENT_EMAIL / FCM_PRIVATE_KEY not set on runtime");
   }
   return diag;
 }
 
 /** FCM service account JSON — plain JSON, inline base64, or FCM_SERVICE_ACCOUNT_JSON_BASE64. */
 export function readFcmServiceAccountJsonRaw(): string | null {
-  const base64Env = process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim();
-  if (base64Env) {
+  const raw = process.env.FCM_SERVICE_ACCOUNT_JSON?.trim();
+  if (raw) {
+    if (raw.startsWith("{")) return raw;
+
     try {
-      const decoded = Buffer.from(base64Env, "base64").toString("utf8");
+      const decoded = Buffer.from(raw, "base64").toString("utf8");
       console.info("FCM_BASE64_DECODE_OK", {
-        source: "FCM_SERVICE_ACCOUNT_JSON_BASE64",
-        encoded_length: base64Env.length,
+        source: "FCM_SERVICE_ACCOUNT_JSON",
+        encoded_length: raw.length,
         decoded_length: decoded.length,
       });
       return decoded;
-    } catch (e) {
-      console.error("FCM_BASE64_DECODE_OK decode failed", {
-        encoded_length: base64Env.length,
-        error: e instanceof Error ? e.message : String(e),
-      });
-      return null;
+    } catch {
+      return raw;
     }
   }
 
-  const raw = process.env.FCM_SERVICE_ACCOUNT_JSON?.trim();
-  if (!raw) return null;
-
-  if (raw.startsWith("{")) return raw;
-
+  const base64Env = process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim();
+  if (!base64Env) return null;
   try {
-    const decoded = Buffer.from(raw, "base64").toString("utf8");
+    const decoded = Buffer.from(base64Env, "base64").toString("utf8");
     console.info("FCM_BASE64_DECODE_OK", {
-      source: "FCM_SERVICE_ACCOUNT_JSON",
-      encoded_length: raw.length,
+      source: "FCM_SERVICE_ACCOUNT_JSON_BASE64",
+      encoded_length: base64Env.length,
       decoded_length: decoded.length,
     });
     return decoded;
-  } catch {
-    return raw;
+  } catch (e) {
+    console.error("FCM_BASE64_DECODE_OK decode failed", {
+      encoded_length: base64Env.length,
+      error: e instanceof Error ? e.message : String(e),
+    });
+    return null;
   }
 }
 
 export function parseFcmServiceAccount(): ServiceAccount | null {
   if (cachedServiceAccount !== undefined) return cachedServiceAccount;
+
+  const splitEnv = readSplitEnvServiceAccount();
+  if (splitEnv) {
+    console.info("FCM_JSON_PARSE_OK", {
+      source: "split_env",
+      has_project_id: true,
+      has_client_email: true,
+      private_key_length: splitEnv.privateKey?.length ?? 0,
+    });
+    cachedServiceAccount = splitEnv;
+    return cachedServiceAccount;
+  }
 
   const raw = readFcmServiceAccountJsonRaw();
   if (!raw) {
@@ -102,7 +144,8 @@ export function parseFcmServiceAccount(): ServiceAccount | null {
   }
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    if (typeof parsed.client_email !== "string" || typeof parsed.private_key !== "string") {
+    const normalized = normalizeServiceAccountJson(parsed);
+    if (!normalized) {
       console.error("FCM_JSON_PARSE_OK missing client_email or private_key", {
         has_client_email: typeof parsed.client_email === "string",
         has_private_key: typeof parsed.private_key === "string",
@@ -110,13 +153,13 @@ export function parseFcmServiceAccount(): ServiceAccount | null {
       cachedServiceAccount = null;
       return null;
     }
-    const emailPrefix = parsed.client_email.slice(0, Math.min(24, parsed.client_email.length));
     console.info("FCM_JSON_PARSE_OK", {
-      client_email_prefix: emailPrefix,
-      private_key_length: parsed.private_key.length,
-      project_id: typeof parsed.project_id === "string" ? parsed.project_id : null,
+      source: fcmConfigSource(),
+      has_project_id: Boolean(normalized.projectId),
+      has_client_email: Boolean(normalized.clientEmail),
+      private_key_length: normalized.privateKey?.length ?? 0,
     });
-    cachedServiceAccount = parsed as ServiceAccount;
+    cachedServiceAccount = normalized;
     return cachedServiceAccount;
   } catch (e) {
     console.error("FCM_JSON_PARSE_OK parse failed", {
@@ -133,7 +176,14 @@ export function isFcmConfigured(): boolean {
 }
 
 export function fcmConfigSource(): FcmConfigSource {
-  if (process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim()) return "base64_env";
+  if (
+    process.env.FCM_PROJECT_ID?.trim() ||
+    process.env.FCM_CLIENT_EMAIL?.trim() ||
+    process.env.FCM_PRIVATE_KEY?.trim()
+  ) {
+    return "split_env";
+  }
   if (process.env.FCM_SERVICE_ACCOUNT_JSON?.trim()) return "json_env";
+  if (process.env.FCM_SERVICE_ACCOUNT_JSON_BASE64?.trim()) return "base64_env";
   return "none";
 }

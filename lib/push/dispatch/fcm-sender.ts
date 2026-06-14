@@ -39,8 +39,10 @@ export async function sendFcmToTarget(
     if (result.status === "skipped" && result.provider_response?.reason === "fcm_not_configured") {
       const diag = getFcmEnvDiagnostics();
       console.warn("[sendFcmToTarget] fcm_not_configured", {
-        base64_env_trimmed_length: diag.base64_env_trimmed_length,
-        json_env_trimmed_length: diag.json_env_trimmed_length,
+        source: diag.source,
+        has_project_id: diag.has_project_id,
+        has_client_email: diag.has_client_email,
+        private_key_length: diag.private_key_length,
         isFcmConfigured: isFcmConfigured(),
       });
     }

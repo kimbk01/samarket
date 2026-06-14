@@ -73,7 +73,8 @@ const env = loadEnvLocal();
 const required = [
   ["PUSH_DISPATCH_ENABLED", "Must be 1 for native dispatch gate"],
 ];
-const fcmEnvKeys = ["FCM_SERVICE_ACCOUNT_JSON", "FCM_SERVICE_ACCOUNT_JSON_BASE64"];
+const splitFcmEnvKeys = ["FCM_PROJECT_ID", "FCM_CLIENT_EMAIL", "FCM_PRIVATE_KEY"];
+const legacyFcmEnvKeys = ["FCM_SERVICE_ACCOUNT_JSON", "FCM_SERVICE_ACCOUNT_JSON_BASE64"];
 const optionalIos = [
   "APNS_KEY_P8",
   "APNS_KEY_ID",
@@ -97,11 +98,12 @@ for (const [key, hint] of required) {
   }
 }
 
-const hasFcmEnv = fcmEnvKeys.some((key) => envSet(env, key));
-if (!hasFcmEnv) {
-  fail("FCM_SERVICE_ACCOUNT_JSON or FCM_SERVICE_ACCOUNT_JSON_BASE64 not set");
+const hasSplitFcmEnv = splitFcmEnvKeys.every((key) => envSet(env, key));
+const hasLegacyFcmEnv = legacyFcmEnvKeys.some((key) => envSet(env, key));
+if (!hasSplitFcmEnv && !hasLegacyFcmEnv) {
+  fail("FCM_PROJECT_ID / FCM_CLIENT_EMAIL / FCM_PRIVATE_KEY not set (legacy JSON env also absent)");
 } else {
-  pass("FCM service account env present");
+  pass(hasSplitFcmEnv ? "FCM split env present" : "legacy FCM service account env present");
 }
 
 let iosReady = 0;
@@ -117,10 +119,19 @@ if (iosReady === optionalIos.length) {
 }
 
 // 3. FCM JSON parse smoke (no secret output)
-const fcmRaw = fcmEnvKeys
+const fcmRaw = legacyFcmEnvKeys
   .map((key) => (env[key] ?? process.env[key] ?? "").trim())
   .find(Boolean);
-if (fcmRaw) {
+if (hasSplitFcmEnv) {
+  const projectId = (env.FCM_PROJECT_ID ?? process.env.FCM_PROJECT_ID ?? "").trim();
+  const clientEmail = (env.FCM_CLIENT_EMAIL ?? process.env.FCM_CLIENT_EMAIL ?? "").trim();
+  const privateKey = (env.FCM_PRIVATE_KEY ?? process.env.FCM_PRIVATE_KEY ?? "").trim().replace(/\\n/g, "\n");
+  if (!projectId || !clientEmail || !privateKey) {
+    fail("FCM split env missing project id, client email, or private key");
+  } else {
+    pass("FCM split env parses as service account");
+  }
+} else if (fcmRaw) {
   const raw = fcmRaw;
   try {
     const parsed = JSON.parse(raw.startsWith("{") ? raw : Buffer.from(raw, "base64").toString("utf8"));

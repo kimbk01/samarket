@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
   });
 
   const recentDeliveries = await loadRecentDeliveries(userId);
+  const fcmEnv = getFcmEnvDiagnostics();
 
   if (recentDeliveries.length === 0) {
     return NextResponse.json(
@@ -113,9 +114,33 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const latest = recentDeliveries[0];
+  const latestResponse = latest?.provider_response ?? {};
+  if (
+    latest?.status === "skipped" &&
+    latestResponse.reason === "fcm_not_configured" &&
+    latestResponse.source === "none"
+  ) {
+    console.error("[admin/push/test] FAIL — FCM env source none", {
+      user_id: userId,
+      fcm_env: fcmEnv,
+    });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "fcm_env_missing",
+        dispatch: dispatchResult,
+        deliveries: recentDeliveries,
+        fcm_env: fcmEnv,
+      },
+      { status: 503 }
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     dispatch: dispatchResult,
     deliveries: recentDeliveries,
+    fcm_env: fcmEnv,
   });
 }
