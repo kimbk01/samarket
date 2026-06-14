@@ -3,17 +3,18 @@ import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { NextRequest, NextResponse } from "next/server";
 import {
   buildGoogleNativeAuthEmail,
-  GOOGLE_NATIVE_AUTH_EMAIL_DOMAIN,
   isGoogleNativeExchangeSessionEnabled,
 } from "@/lib/auth/native/google-auth-env.server";
 import type { GoogleVerifiedIdentity } from "@/lib/auth/native/google-token-verify.server";
 import { deriveNativeExchangeGateFlags } from "@/lib/auth/native/native-provider-contract";
+import { resolveGoogleNativeExistingUserId } from "@/lib/auth/native/resolve-google-native-existing-user.server";
 import {
-  findActiveProfileIdByProviderUserId,
-  findActiveProfileIdsByEmail,
-} from "@/lib/auth/active-profile-lookup";
+  isGoogleNativeSyntheticAuthEmail,
+  reclaimGoogleNativeSyntheticAuthOrphan,
+  reconcileGoogleNativeProviderProfileConflict,
+  resolveGoogleNativeSignInEmail,
+} from "@/lib/auth/native/reconcile-google-native-orphan.server";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
-import { isDeletedStoreMember } from "@/lib/auth/store-member-policy";
 import { revokeSessionForWithdrawnMember } from "@/lib/auth/withdrawn-account-guard";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
@@ -59,133 +60,14 @@ export type GoogleNativeSessionResult =
       status: number;
     };
 
-async function findProfileIdByGoogleUserId(
-  adminSb: SupabaseClient,
-  googleUserId: string,
-): Promise<string | null> {
-  return findActiveProfileIdByProviderUserId(adminSb, "google", googleUserId);
-}
-
-/** Supabase Web Google OAuth — profiles.provider_user_id 없이 auth.identities 만 있는 경우 */
-async function findAuthUserIdByGoogleSub(
-  adminSb: SupabaseClient,
-  googleUserId: string,
-): Promise<string | null> {
-  const sub = String(googleUserId ?? "").trim();
-  if (!sub) return null;
-  const perPage = 200;
-  for (let page = 1; page <= 20; page += 1) {
-    const { data, error } = await adminSb.auth.admin.listUsers({ page, perPage });
-    if (error) return null;
-    const users = Array.isArray(data?.users) ? data.users : [];
-    for (const user of users) {
-      const identities = Array.isArray(user.identities) ? user.identities : [];
-      for (const identity of identities) {
-        const provider = String((identity as { provider?: unknown }).provider ?? "").toLowerCase();
-        if (provider !== "google") continue;
-        const providerId = String((identity as { provider_id?: unknown }).provider_id ?? "").trim();
-        const identityData = (identity as { identity_data?: Record<string, unknown> | null }).identity_data;
-        const subFromData =
-          identityData && typeof identityData === "object"
-            ? String(identityData.sub ?? identityData.provider_id ?? "").trim()
-            : "";
-        if (providerId === sub || subFromData === sub) {
-          return user.id;
-        }
-      }
-    }
-    if (users.length < perPage) break;
-  }
-  return null;
-}
-
-async function findProfileIdByGoogleProviderEmail(
-  adminSb: SupabaseClient,
-  email: string,
-): Promise<string | null> {
-  const { data, error } = await adminSb
-    .from("profiles")
-    .select("id, status, deleted_at")
-    .eq("provider", "google")
-    .or(`email.eq.${email},auth_login_email.eq.${email}`)
-    .limit(5);
-  if (error || !Array.isArray(data) || data.length === 0) return null;
-  const active = data.find((row) => !isDeletedStoreMember(row as { status?: string; deleted_at?: string | null }));
-  if (!active) return null;
-  const row = active as { id?: unknown };
-  return typeof row.id === "string" ? row.id : null;
-}
-
-/** Web Google OAuth — provider=google 행 우선, 없으면 Gmail 로 등록된 모든 활성 profiles 매칭 */
-async function findProfileIdByVerifiedGoogleEmail(
-  adminSb: SupabaseClient,
-  verified: GoogleVerifiedIdentity,
-): Promise<string | null> {
-  if (!verified.emailVerified || !verified.email?.trim()) return null;
-  const email = verified.email.trim().toLowerCase();
-  if (email.endsWith(`@${GOOGLE_NATIVE_AUTH_EMAIL_DOMAIN}`)) return null;
-
-  const fromGoogleProvider = await findProfileIdByGoogleProviderEmail(adminSb, email);
-  if (fromGoogleProvider) return fromGoogleProvider;
-
-  const candidateIds = await findActiveProfileIdsByEmail(adminSb, email);
-  if (candidateIds.length === 0) return null;
-  if (candidateIds.length === 1) return candidateIds[0] ?? null;
-
-  const { data } = await adminSb
-    .from("profiles")
-    .select("id, provider, auth_provider")
-    .in("id", candidateIds)
-    .limit(10);
-  const rows = Array.isArray(data) ? data : [];
-  const googleRow = rows.find((row) => {
-    const provider = String((row as { provider?: unknown }).provider ?? "").toLowerCase();
-    const authProvider = String((row as { auth_provider?: unknown }).auth_provider ?? "").toLowerCase();
-    return provider === "google" || authProvider === "google";
-  });
-  const googleId = (googleRow as { id?: unknown } | undefined)?.id;
-  if (typeof googleId === "string" && googleId) return googleId;
-  return candidateIds[0] ?? null;
-}
-
-async function resolveExistingGoogleUserId(
-  adminSb: SupabaseClient,
-  verified: GoogleVerifiedIdentity,
-): Promise<string | null> {
-  const googleUserId = verified.googleUserId;
-
-  const fromProfile = await findProfileIdByGoogleUserId(adminSb, googleUserId);
-  if (fromProfile) return fromProfile;
-
-  /** Web Google OAuth 가입자 — verified Gmail 과 profiles 매칭 (sub 컬럼만으로 못 찾을 때) */
-  const fromVerifiedEmail = await findProfileIdByVerifiedGoogleEmail(adminSb, verified);
-  if (fromVerifiedEmail) return fromVerifiedEmail;
-
-  const fromAuthIdentity = await findAuthUserIdByGoogleSub(adminSb, googleUserId);
-  if (fromAuthIdentity) return fromAuthIdentity;
-
-  /** Supabase Web Google OAuth — auth.users.email 이 실제 Gmail 인 경우 */
-  if (verified.emailVerified && verified.email?.trim()) {
-    const fromVerifiedAuthEmail = await findAuthUserByEmail(adminSb, verified.email.trim().toLowerCase());
-    if (fromVerifiedAuthEmail?.id) return fromVerifiedAuthEmail.id;
-  }
-
-  /** 마지막 수단 — 이전 Native 시도 orphan synthetic auth user (createUser 중복 방지) */
-  const syntheticEmail = resolveAuthEmailForGoogleUser(googleUserId);
-  const fromSyntheticAuth = await findAuthUserByEmail(adminSb, syntheticEmail);
-  if (fromSyntheticAuth?.id) return fromSyntheticAuth.id;
-
-  return null;
-}
-
 async function updateGoogleAuthUserById(
   adminSb: SupabaseClient,
   userId: string,
   args: {
     verified: GoogleVerifiedIdentity;
   },
-): Promise<{ userId: string; isNewUser: boolean } | GoogleNativeSessionResult> {
-  const authEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
+): Promise<{ userId: string; isNewUser: boolean; signInEmail: string } | GoogleNativeSessionResult> {
+  const syntheticEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
   const password = buildGoogleSupabasePassword(args.verified.googleUserId);
   const metadata = buildGoogleUserMetadata(args.verified);
 
@@ -198,12 +80,25 @@ async function updateGoogleAuthUserById(
       status: 409,
     };
   }
-  const { error: updateError } = await adminSb.auth.admin.updateUserById(userId, {
+
+  const existingEmail = String(existingUserData.user.email ?? "").trim();
+  await reclaimGoogleNativeSyntheticAuthOrphan(adminSb, userId, args.verified.googleUserId);
+
+  const updatePayload: {
+    password: string;
+    email_confirm: boolean;
+    user_metadata: Record<string, unknown>;
+    email?: string;
+  } = {
     password,
-    email: authEmail,
     email_confirm: true,
     user_metadata: metadata,
-  });
+  };
+  if (!existingEmail || isGoogleNativeSyntheticAuthEmail(existingEmail)) {
+    updatePayload.email = syntheticEmail;
+  }
+
+  const { error: updateError } = await adminSb.auth.admin.updateUserById(userId, updatePayload);
   if (updateError) {
     return {
       ok: false,
@@ -212,7 +107,10 @@ async function updateGoogleAuthUserById(
       status: 409,
     };
   }
-  return { userId, isNewUser: false };
+
+  const { data: refreshedUserData } = await adminSb.auth.admin.getUserById(userId);
+  const signInEmail = resolveGoogleNativeSignInEmail(refreshedUserData?.user?.email, args.verified.googleUserId);
+  return { userId, isNewUser: false, signInEmail };
 }
 
 function buildGoogleUserMetadata(verified: GoogleVerifiedIdentity): Record<string, unknown> {
@@ -238,7 +136,7 @@ async function upsertGoogleAuthUser(
     existingUserId: string | null;
     verified: GoogleVerifiedIdentity;
   },
-): Promise<{ userId: string; isNewUser: boolean } | GoogleNativeSessionResult> {
+): Promise<{ userId: string; isNewUser: boolean; signInEmail: string } | GoogleNativeSessionResult> {
   const authEmail = resolveAuthEmailForGoogleUser(args.verified.googleUserId);
   const password = buildGoogleSupabasePassword(args.verified.googleUserId);
   const metadata = buildGoogleUserMetadata(args.verified);
@@ -246,6 +144,8 @@ async function upsertGoogleAuthUser(
   if (args.existingUserId) {
     return updateGoogleAuthUserById(adminSb, args.existingUserId, { verified: args.verified });
   }
+
+  await reclaimGoogleNativeSyntheticAuthOrphan(adminSb, "", args.verified.googleUserId);
 
   const { data: created, error: createError } = await adminSb.auth.admin.createUser({
     email: authEmail,
@@ -265,7 +165,7 @@ async function upsertGoogleAuthUser(
       status: 409,
     };
   }
-  return { userId: created.user.id, isNewUser: true };
+  return { userId: created.user.id, isNewUser: true, signInEmail: authEmail };
 }
 
 async function persistGoogleProfileIdentity(
@@ -327,7 +227,17 @@ export async function establishGoogleNativeSession(
 
   const googleUserId = input.verified.googleUserId;
   const safeNext = sanitizeNextPath(input.next ?? null);
-  const existingUserId = await resolveExistingGoogleUserId(ctx.adminSb, input.verified);
+  const resolvedExisting = await resolveGoogleNativeExistingUserId(ctx.adminSb, input.verified);
+  if (resolvedExisting.status === "ambiguous_email") {
+    return {
+      ok: false,
+      errorCode: "provider_account_conflict",
+      message:
+        "동일 Gmail로 등록된 계정이 여러 개 있습니다. 고객센터에 문의해 주세요.",
+      status: 409,
+    };
+  }
+  const existingUserId = resolvedExisting.status === "found" ? resolvedExisting.userId : null;
 
   const upsert = await upsertGoogleAuthUser(ctx.adminSb, {
     existingUserId: existingUserId,
@@ -335,12 +245,11 @@ export async function establishGoogleNativeSession(
   });
   if ("ok" in upsert) return upsert;
 
-  const { userId, isNewUser } = upsert;
-  const authEmail = resolveAuthEmailForGoogleUser(googleUserId);
+  const { userId, isNewUser, signInEmail } = upsert;
   const password = buildGoogleSupabasePassword(googleUserId);
 
   const { data: signInData, error: signInError } = await ctx.routeSb.auth.signInWithPassword({
-    email: authEmail,
+    email: signInEmail,
     password,
   });
   if (signInError || !signInData.user) {
@@ -395,6 +304,13 @@ export async function establishGoogleNativeSession(
     /* 클라 ensure 폴백 */
   }
 
+  await reconcileGoogleNativeProviderProfileConflict(
+    ctx.adminSb,
+    signedUser.id,
+    googleUserId,
+    verifiedGmail,
+  );
+
   const profileOutcome = await ensureUserProfile(ctx.adminSb, syntheticUser).catch(() => null);
   if (profileOutcome?.duplicateWarning) {
     const conflictByProvider = profileOutcome.duplicateCandidates?.some((id) => id !== signedUser.id);
@@ -446,6 +362,7 @@ export async function establishGoogleNativeSession(
   }
 
   const sessionMeta = buildRequestSessionMeta(ctx.request);
+  const authEmail = resolveAuthEmailForGoogleUser(googleUserId);
   await syncActiveSessionForUser(signedUser.id, ctx.response, {
     sessionMeta,
     loginIdentifier: verifiedGmail ?? authEmail,

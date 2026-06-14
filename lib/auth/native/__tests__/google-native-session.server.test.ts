@@ -202,7 +202,19 @@ describe("google-native-session.server", () => {
           eq: (col: string, val: unknown) => {
             if (col === "id") {
               return {
-                ...profilesEqChain(null),
+                maybeSingle: async () => ({
+                  data: val === webProfileId
+                    ? {
+                        id: webProfileId,
+                        status: "sns_pending",
+                        email: verifiedEmail,
+                        auth_login_email: verifiedEmail,
+                        provider: "email",
+                        auth_provider: "email",
+                      }
+                    : null,
+                  error: null,
+                }),
                 in: async () => ({
                   data: [{ id: webProfileId, provider: "email", auth_provider: "email" }],
                   error: null,
@@ -217,13 +229,24 @@ describe("google-native-session.server", () => {
                 }),
               };
             }
-            return {
-              ...profilesEqChain(null),
-              ilike: () => ({
-                limit: async () => ({ data: [{ id: webProfileId }], error: null }),
-              }),
-            };
+            return profilesEqChain(null);
           },
+          ilike: () => ({
+            limit: async () => ({
+              data: [{ id: webProfileId, status: "sns_pending", deleted_at: null }],
+              error: null,
+            }),
+          }),
+          in: (col: string, ids: string[]) => ({
+            limit: async () => ({
+              data: ids.map((id) => ({
+                id,
+                provider: id === webProfileId ? "email" : "google",
+                auth_provider: id === webProfileId ? "email" : "google",
+              })),
+              error: null,
+            }),
+          }),
         }),
         update: () => ({ eq: async () => ({ error: null }) }),
       };
@@ -241,6 +264,7 @@ describe("google-native-session.server", () => {
             error: null,
           })),
           listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+          deleteUser: vi.fn(async () => ({ error: null })),
         },
       },
       from,
@@ -279,10 +303,104 @@ describe("google-native-session.server", () => {
         password: buildGoogleSupabasePassword(googleUserId),
       }),
     );
-    expect(adminSb.auth.admin.updateUserById).not.toHaveBeenCalledWith(
-      orphanId,
-      expect.anything(),
+    expect(adminSb.auth.admin.updateUserById).toHaveBeenCalledWith(
+      webProfileId,
+      expect.not.objectContaining({
+        email: `google.${googleUserId}@google.native.dibay.internal`,
+      }),
     );
+    expect(signInWithPassword).toHaveBeenCalledWith({
+      email: verifiedEmail,
+      password: buildGoogleSupabasePassword(googleUserId),
+    });
+  });
+
+  it("fails exchange when the same Gmail maps to ambiguous profiles", async () => {
+    const googleUserId = "107373086399795697553";
+    const from = vi.fn((table: string) => {
+      if (table !== "profiles") {
+        return { update: () => ({ eq: async () => ({ error: null }) }) };
+      }
+      return {
+        select: () => ({
+          eq: (col: string, val: unknown) => {
+            if (col === "provider" && val === "google") {
+              return {
+                eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }),
+                or: () => ({ limit: async () => ({ data: [], error: null }) }),
+              };
+            }
+            return {
+              maybeSingle: async () => ({ data: null, error: null }),
+              limit: async () => ({ data: [], error: null }),
+              in: async (_c: string, ids: string[]) => ({
+                data: ids.map((id) => ({
+                  id,
+                  provider: id === "dup-a" ? "email" : "naver",
+                  auth_provider: id === "dup-a" ? "email" : "naver",
+                })),
+                error: null,
+              }),
+            };
+          },
+          ilike: () => ({
+            limit: async () => ({
+              data: [
+                { id: "dup-a", status: "sns_pending", deleted_at: null },
+                { id: "dup-b", status: "sns_pending", deleted_at: null },
+              ],
+              error: null,
+            }),
+          }),
+          in: (col: string, ids: string[]) => ({
+            limit: async () => ({
+              data: ids.map((id) => ({
+                id,
+                provider: id === "dup-a" ? "email" : "naver",
+                auth_provider: id === "dup-a" ? "email" : "naver",
+              })),
+              error: null,
+            }),
+          }),
+        }),
+      };
+    });
+
+    const adminSb = {
+      auth: {
+        admin: {
+          createUser: vi.fn(),
+          updateUserById: vi.fn(),
+          getUserById: vi.fn(),
+          listUsers: vi.fn(async () => ({ data: { users: [] }, error: null })),
+        },
+      },
+      from,
+    } as unknown as SupabaseClient;
+
+    findAuthUserByEmail.mockResolvedValue(null);
+
+    const result = await establishGoogleNativeSession(
+      {
+        adminSb,
+        routeSb: { auth: { signInWithPassword: vi.fn() } } as unknown as SupabaseClient,
+        request: new Request("https://samarket.vercel.app/api/auth/native/exchange") as never,
+        response: {} as never,
+      },
+      {
+        verified: {
+          googleUserId,
+          audience: "229866850463-test.apps.googleusercontent.com",
+          email: "imobong88@gmail.com",
+          emailVerified: true,
+        },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errorCode).toBe("provider_account_conflict");
+    }
   });
 
   it("fails exchange when profiles row cannot be ensured", async () => {

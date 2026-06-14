@@ -41,6 +41,7 @@ import {
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
+  isNativeGoogleLoginAvailable,
   resolveOAuthRoutingShellPlatform,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
@@ -296,6 +297,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     const maybeReleaseOnForegroundReturn = () => {
       if (document.visibilityState !== "visible") return;
       if (isOAuthFlowInFlight()) return;
+      if (pendingProviderRef.current === "google" && isNativeGoogleLoginAvailable()) return;
       const path = window.location.pathname;
       if (isOAuthInFlightPath(path)) return;
       if (path === "/login" || path === "/signup" || path.startsWith("/login/")) {

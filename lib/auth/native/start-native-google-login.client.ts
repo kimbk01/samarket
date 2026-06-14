@@ -18,7 +18,7 @@ import {
   tryBeginOAuthFlow,
 } from "@/lib/auth/oauth/native-oauth-contract";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
-import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
 import { clearStoredLoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { isNativeGoogleLoginAvailable } from "@/lib/platform/capacitor-native";
 
@@ -36,9 +36,11 @@ async function abortGoogleNativeRecoverPending(reason: string): Promise<void> {
   await revokeNativeGoogleSessionIfAvailable();
 }
 
-function finishNativeGoogleRecoverNavigation(redirectTo: string | null | undefined): void {
-  const target = redirectTo?.trim() || POST_LOGIN_PATH;
-  window.location.replace(target);
+async function finishNativeGoogleRecoverNavigation(
+  redirectTo: string | null | undefined,
+  next?: string | null,
+): Promise<void> {
+  await finishClientAuthLogin({ redirectTo, next: next ?? null });
 }
 
 /**
@@ -108,7 +110,7 @@ export async function recoverNativeGoogleLoginIfPending(): Promise<boolean> {
         next: recovered.next ?? null,
         recovered: true,
       });
-      finishNativeGoogleRecoverNavigation(result.redirectTo);
+      await finishNativeGoogleRecoverNavigation(result.redirectTo, recovered.next ?? null);
       return true;
     } catch (error) {
       releaseFlow?.();

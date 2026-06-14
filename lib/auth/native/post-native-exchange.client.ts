@@ -1,5 +1,6 @@
 "use client";
 
+import { syncClientSessionAfterNativeExchange } from "@/lib/auth/native/sync-client-session-after-native-exchange.client";
 import type { NativeKakaoAuthErrorCode } from "@/lib/auth/native/native-kakao-auth-contract";
 import type { NativeGoogleAuthErrorCode } from "@/lib/auth/native/native-google-auth-contract";
 import type { NativeExchangeResponse } from "@/lib/auth/native/native-provider-contract";
@@ -135,5 +136,6 @@ export async function postNativeProviderExchange(
       message: "Native exchange succeeded without session",
     };
   }
+  await syncClientSessionAfterNativeExchange();
   return json;
 }

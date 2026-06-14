@@ -274,9 +274,13 @@ public class NativeGoogleAuthPlugin extends Plugin {
           GoogleSignInAccount account = task.getResult(ApiException.class);
           resolveAccountToCall(call, account, true);
         } catch (ApiException error) {
-          clearExchangePending();
-          logEvent("google_native_recover_failed " + error.getStatusCode() + " " + error.getMessage());
-          call.reject("google_native_token_missing", error.getMessage());
+          // Activity result may still arrive — do NOT clearExchangePending here.
+          logEvent(
+            "google_native_recover_silent_pending " + error.getStatusCode() + " " + error.getMessage()
+          );
+          JSObject ret = new JSObject();
+          ret.put("recovered", false);
+          call.resolve(ret);
         }
       });
   }
@@ -293,9 +297,13 @@ public class NativeGoogleAuthPlugin extends Plugin {
     ApiException[] parseErrorOut = new ApiException[1];
     GoogleSignInAccount account = resolveSignInAccountFromResult(result.getData(), parseErrorOut);
 
-    if (account != null && exchangePending) {
+    if (account != null) {
+      if (!exchangePending) {
+        logEvent("google_native_result_late_rearm_pending");
+        authPrefs().edit().putBoolean(PREF_EXCHANGE_PENDING, true).apply();
+      }
       if (activeCall != null) {
-        resolveAccountToCall(activeCall, account, false);
+        resolveAccountToCall(activeCall, account, !exchangePending);
       } else {
         saveDeferredSignInResult(account);
         logEvent("google_native_deferred_to_recover");

@@ -47,6 +47,7 @@ import {
   clearBrowserCacheStorageBestEffort,
   invalidateAuthExitClientCaches,
 } from "@/lib/auth/invalidate-auth-exit-client-caches";
+import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { revokeNativeKakaoSessionIfAvailable } from "@/lib/auth/native/native-kakao-auth-plugin";
 import { revokeNativeGoogleSessionIfAvailable } from "@/lib/auth/native/native-google-auth-plugin";
 
@@ -180,6 +181,7 @@ export function shouldSkipSignedOutEventWipe(): boolean {
 /** fresh login 직후 — guest/anonymous boot 캐시만 정리 (프로필 캐시는 primeClientAuthSessionFromSupabase 가 설정) */
 export function invalidateGuestCachesForFreshLogin(): void {
   if (typeof window === "undefined") return;
+  clearGuestAuthState();
   invalidateAppBootAll();
   invalidateMeProfileDedupedCache();
   invalidateClientMembershipResolveFlight();

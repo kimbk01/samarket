@@ -28,11 +28,20 @@ export function parseOAuthNativeCallbackLogPayload(nativeUrl: string): OAuthNati
   }
 }
 
+function formatOAuthNativeLogDetail(detail: Record<string, unknown>): string {
+  try {
+    return JSON.stringify(detail);
+  } catch {
+    return String(detail);
+  }
+}
+
 /** Logcat / Chrome Inspect — oauth 필터용 구조화 로그 */
 export function logOAuthNativeEvent(event: string, detail: Record<string, unknown> = {}): void {
+  const payload = formatOAuthNativeLogDetail(detail);
   if (event === "callback_listener_attach_exhausted") {
-    console.warn(`[oauth] ${event}`, detail);
+    console.warn(`[oauth] ${event} ${payload}`);
     return;
   }
-  console.error(`[oauth] ${event}`, detail);
+  console.error(`[oauth] ${event} ${payload}`);
 }

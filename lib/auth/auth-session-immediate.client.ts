@@ -9,7 +9,11 @@ import {
   sessionToProfile,
   setSupabaseProfileCache,
 } from "@/lib/auth/supabase-profile-cache";
+import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
+import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { getSupabaseClient } from "@/lib/supabase/client";
+
+const PRIME_SESSION_READY_MS = 1_500;
 
 /**
  * Supabase 세션 쿠키가 이미 있을 때 — 프로필 캐시·헤더를 즉시 로그인 상태로 맞춘다.
@@ -17,12 +21,21 @@ import { getSupabaseClient } from "@/lib/supabase/client";
  */
 export async function primeClientAuthSessionFromSupabase(): Promise<boolean> {
   if (typeof window === "undefined") return false;
+  clearGuestAuthState();
   const sb = getSupabaseClient();
   if (!sb) return false;
 
-  const {
+  await awaitClientSupabaseSessionReady(PRIME_SESSION_READY_MS);
+
+  let {
     data: { session },
   } = await sb.auth.getSession().catch(() => ({ data: { session: null } }));
+  if (!session?.user?.id) {
+    await sb.auth.refreshSession().catch(() => undefined);
+    ({
+      data: { session },
+    } = await sb.auth.getSession().catch(() => ({ data: { session: null } })));
+  }
   const profile = sessionToProfile(session);
   if (!profile?.id) return false;
 

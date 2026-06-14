@@ -41,12 +41,19 @@ describe("auth-session-immediate.client", () => {
 
   it("primeClientAuthSessionFromSupabase hydrates profile cache from session", async () => {
     vi.stubGlobal("window", {});
+    vi.doMock("@/lib/auth/await-client-supabase-session-ready", () => ({
+      awaitClientSupabaseSessionReady: vi.fn(async () => undefined),
+    }));
+    vi.doMock("@/lib/auth/guest-auth-state", () => ({
+      clearGuestAuthState: vi.fn(),
+    }));
     vi.doMock("@/lib/supabase/client", () => ({
       getSupabaseClient: () => ({
         auth: {
           getSession: async () => ({
             data: { session: { user: { id: "user-1", email: "a@test.local" } } },
           }),
+          refreshSession: async () => ({ data: { session: null }, error: null }),
         },
       }),
     }));

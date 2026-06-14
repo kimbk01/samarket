@@ -76,16 +76,18 @@ public final class DibayWebViewPermissionDelegate {
   public boolean onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
     if (requestCode != REQUEST_CODE_WEBVIEW_PERMISSIONS) return false;
 
-    boolean allGranted = grantResults != null && grantResults.length > 0;
-    if (allGranted) {
+    final boolean allGranted;
+    if (grantResults == null || grantResults.length == 0) {
+      allGranted = false;
+    } else {
+      boolean ok = true;
       for (int result : grantResults) {
         if (result != PackageManager.PERMISSION_GRANTED) {
-          allGranted = false;
+          ok = false;
           break;
         }
       }
-    } else {
-      allGranted = false;
+      allGranted = ok;
     }
 
     PermissionRequest mediaRequest = pendingPermissionRequest;
