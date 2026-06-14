@@ -6,7 +6,7 @@
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
-import { sendWebPushNotificationsForUser } from "@/lib/push/send-web-push-for-user";
+import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 
 function absolutizeLink(link: string | null | undefined): string | null {
   if (link == null || !String(link).trim()) return null;
@@ -40,5 +40,11 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
     occurred_at: new Date().toISOString(),
   };
 
-  await sendWebPushNotificationsForUser(out);
+  await dispatchPushForUser(out, {
+    event_type: "call_ringing",
+    target_type: "call_session",
+    target_id: sessionId,
+    call_push_kind: "incoming_call",
+    skip_settings_gate: true,
+  });
 }

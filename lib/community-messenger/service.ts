@@ -16776,22 +16776,22 @@ export async function startCommunityMessengerCallSession(input: {
         payload: { call_kind: input.callKind, session_mode: isGroupRoom ? "group" : "direct" },
       });
       if (!isGroupRoom && peerUserId) {
-        void (async () => {
-          try {
-            const pol = await getMessengerCallAdminPolicyCached();
-            if (pol.suppress_incoming_local_notifications) return;
-            const profileMap = await fetchProfilesByIds([input.userId]);
-            const callerLabel = profileLabel(profileMap.get(input.userId), input.userId);
-            await sendWebPushForCommunityMessengerIncomingCall({
-              recipientUserId: peerUserId,
-              sessionId: inserted.id,
-              callKind: input.callKind,
-              callerDisplayName: callerLabel,
-            });
-          } catch {
-            /* Web Push 실패는 통화 발신 성공과 분리 */
-          }
-        })();
+        try {
+          const profileMap = await fetchProfilesByIds([input.userId]);
+          const callerLabel = profileLabel(profileMap.get(input.userId), input.userId);
+          await sendWebPushForCommunityMessengerIncomingCall({
+            recipientUserId: peerUserId,
+            sessionId: inserted.id,
+            callKind: input.callKind,
+            callerDisplayName: callerLabel,
+          });
+        } catch (e) {
+          console.error("[startCommunityMessengerCallSession] incoming call push failed", {
+            sessionId: inserted.id,
+            recipientUserId: peerUserId,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
       }
       const syntheticParticipantRows: CallSessionParticipantRow[] = participantRows
         .filter((row): row is typeof row & { user_id: string } => typeof row.user_id === "string" && row.user_id.length > 0)

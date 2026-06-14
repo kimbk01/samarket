@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
 
 /**
  * High-priority incoming call notification — FullScreenIntent + CATEGORY_CALL.
@@ -47,12 +48,14 @@ public final class IncomingCallNotificationBuilder {
     }
     PendingIntent fullScreen = PendingIntent.getActivity(context, sessionId.hashCode(), launch, flags);
     PendingIntent content = PendingIntent.getActivity(context, sessionId.hashCode() + 1, launch, flags);
+    String safeTitle = title != null && !title.isEmpty() ? title : "수신 통화";
+    String safeBody = body != null ? body : "";
 
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title != null && !title.isEmpty() ? title : "수신 통화")
-            .setContentText(body != null ? body : "")
+            .setContentTitle(safeTitle)
+            .setContentText(safeBody)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -61,6 +64,11 @@ public final class IncomingCallNotificationBuilder {
             .setContentIntent(content)
             .setFullScreenIntent(fullScreen, true)
             .setDefaults(Notification.DEFAULT_ALL);
+
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      Person caller = new Person.Builder().setName(safeBody.isEmpty() ? safeTitle : safeBody).build();
+      builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, content, fullScreen));
+    }
 
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
