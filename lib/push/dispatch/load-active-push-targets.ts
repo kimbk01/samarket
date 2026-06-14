@@ -45,13 +45,20 @@ export async function loadActivePushTargets(svc: SupabaseClient, userId: string)
     .from("user_devices")
     .select("id, platform, device_id, push_token, push_provider")
     .eq("user_id", uid)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("updated_at", { ascending: false });
 
   if (!deviceErr && deviceRows?.length) {
+    const seenDeviceIds = new Set<string>();
     for (const row of deviceRows as UserDeviceRow[]) {
       const provider = normalizeProvider(row.push_provider);
       const token = String(row.push_token ?? "").trim();
       if (!provider || !token) continue;
+      const deviceKey = String(row.device_id ?? "").trim();
+      if (deviceKey) {
+        if (seenDeviceIds.has(deviceKey)) continue;
+        seenDeviceIds.add(deviceKey);
+      }
       targets.push({
         id: row.id,
         source: "user_devices",

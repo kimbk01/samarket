@@ -32,7 +32,7 @@ public class MainActivity extends BridgeActivity {
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
     attachDibayWebChromeClient();
     logNativeAuthBootState();
-    handleDeepLinkIntent(getIntent());
+    handleNotificationLaunchIntent(getIntent());
   }
 
   @Override
@@ -131,25 +131,100 @@ public class MainActivity extends BridgeActivity {
   public void onNewIntent(Intent intent) {
     super.onNewIntent(intent);
     setIntent(intent);
-    handleDeepLinkIntent(intent);
+    handleNotificationLaunchIntent(intent);
   }
 
-  private void handleDeepLinkIntent(Intent intent) {
-    if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) {
+  /** FCM 알림 탭(extras·https) + dibay:// 딥링크 → WebView 라우팅 */
+  private void handleNotificationLaunchIntent(Intent intent) {
+    if (intent == null) return;
+
+    String appPath = resolveAppPathFromPushExtras(intent.getExtras());
+    if (appPath != null && !appPath.isEmpty()) {
+      navigateWebViewToAppPath(appPath);
+      return;
+    }
+
+    if (!Intent.ACTION_VIEW.equals(intent.getAction())) {
       return;
     }
     Uri data = intent.getData();
-    if (data == null || !"dibay".equals(data.getScheme())) {
+    if (data == null) return;
+
+    if ("dibay".equals(data.getScheme())) {
+      if ("auth".equals(data.getHost())) {
+        Log.i(TAG, "intent_received path=" + data.getPath() + " hasCode=" + (data.getQueryParameter("code") != null));
+        return;
+      }
+      appPath = mapDibayDeepLinkToAppPath(data);
+      if (appPath != null && !appPath.isEmpty()) {
+        navigateWebViewToAppPath(appPath);
+      }
       return;
     }
-    if ("auth".equals(data.getHost())) {
-      Log.i(TAG, "intent_received path=" + data.getPath() + " hasCode=" + (data.getQueryParameter("code") != null));
-      return;
+
+    if ("https".equals(data.getScheme()) || "http".equals(data.getScheme())) {
+      appPath = mapHttpsDeepLinkToAppPath(data);
+      if (appPath != null && !appPath.isEmpty()) {
+        navigateWebViewToAppPath(appPath);
+      }
     }
-    String appPath = mapDibayDeepLinkToAppPath(data);
-    if (appPath == null || appPath.isEmpty()) {
-      return;
+  }
+
+  private static String resolveAppPathFromPushExtras(Bundle extras) {
+    if (extras == null) return null;
+
+    String url = firstNonEmpty(
+        extras.getString("url"),
+        extras.getString("link_url"),
+        extras.getString("link_url_absolute"));
+    if (url != null && url.startsWith("/")) {
+      return url;
     }
+    String fromUrl = mapHttpsDeepLinkToAppPath(url != null ? Uri.parse(url) : null);
+    if (fromUrl != null && !fromUrl.isEmpty()) {
+      return fromUrl;
+    }
+
+    String roomId = firstNonEmpty(extras.getString("roomId"), extras.getString("room_id"));
+    if (roomId != null && !roomId.isEmpty()) {
+      return "/community-messenger/rooms/" + Uri.encode(roomId);
+    }
+
+    String sessionId = firstNonEmpty(extras.getString("sessionId"), extras.getString("session_id"));
+    if (sessionId != null && !sessionId.isEmpty()) {
+      return "/community-messenger/calls/" + Uri.encode(sessionId);
+    }
+    return null;
+  }
+
+  private static String firstNonEmpty(String... values) {
+    if (values == null) return null;
+    for (String value : values) {
+      if (value != null && !value.trim().isEmpty()) {
+        return value.trim();
+      }
+    }
+    return null;
+  }
+
+  private static String mapHttpsDeepLinkToAppPath(Uri data) {
+    if (data == null) return null;
+    String scheme = data.getScheme();
+    if (scheme == null || (!"https".equals(scheme) && !"http".equals(scheme))) {
+      return null;
+    }
+    String path = data.getPath();
+    if (path == null || path.isEmpty() || "/".equals(path)) {
+      return null;
+    }
+    if (path.startsWith("/")) {
+      return path;
+    }
+    return "/" + path;
+  }
+
+  private void navigateWebViewToAppPath(String appPath) {
+    if (appPath == null || appPath.isEmpty()) return;
     Bridge bridge = getBridge();
     if (bridge == null) return;
     WebView webView = bridge.getWebView();

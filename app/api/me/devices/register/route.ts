@@ -80,6 +80,13 @@ export async function POST(req: NextRequest) {
     .eq("device_id", deviceId)
     .neq("user_id", auth.userId);
 
+  await svc
+    .from("user_devices")
+    .update({ is_active: false, updated_at: now })
+    .eq("user_id", auth.userId)
+    .eq("device_id", deviceId)
+    .neq("push_token", pushToken);
+
   const { error: wipeErr } = await svc
     .from("user_devices")
     .delete()

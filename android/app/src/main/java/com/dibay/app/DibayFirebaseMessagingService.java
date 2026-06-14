@@ -64,6 +64,11 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     String url = data.get("url");
+    String roomId = data.get("roomId");
+    if (roomId == null) roomId = data.get("room_id");
+    if ((url == null || url.isEmpty()) && roomId != null && !roomId.isEmpty()) {
+      url = "dibay://chat/" + roomId;
+    }
     showMessageNotification(title, body, url);
   }
 
@@ -89,6 +94,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     launch.setAction(Intent.ACTION_VIEW);
     if (url != null && !url.isEmpty()) {
       launch.setData(Uri.parse(url));
+    } else {
+      launch.setAction(Intent.ACTION_MAIN);
     }
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
 
