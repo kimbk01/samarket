@@ -122,14 +122,16 @@ export function NativeOAuthLaunchClient() {
         provider,
         isNativeAppShell: true,
       });
-      logOAuthNativeEvent("launch_client_native_provider_blocked", {
-        provider,
-        action: routing.action,
-        errorCode: routing.action === "native_blocked" ? routing.errorCode : null,
-      });
-      dispatchOAuthPendingClear("launch_legacy_oauth_blocked");
-      router.replace("/login");
-      return;
+      if (routing.action !== "web_oauth_start") {
+        logOAuthNativeEvent("launch_client_native_provider_blocked", {
+          provider,
+          action: routing.action,
+          errorCode: routing.action === "native_blocked" ? routing.errorCode : null,
+        });
+        dispatchOAuthPendingClear("launch_legacy_oauth_blocked");
+        router.replace("/login");
+        return;
+      }
     }
 
     let cancelled = false;

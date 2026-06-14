@@ -144,6 +144,10 @@ export async function startNativeAppleLogin(input?: { next?: string | null }): P
       throw mapExchangeErrorToNativeAppleError(exchange);
     }
 
+    logOAuthNativeEvent("apple_native_exchange_success", {
+      signupComplete: exchange.signupComplete ?? null,
+      redirectTo: exchange.redirectTo ?? null,
+    });
     logOAuthNativeEvent("apple_native_exchange_ok", {
       signupComplete: exchange.signupComplete ?? null,
       redirectTo: exchange.redirectTo ?? null,

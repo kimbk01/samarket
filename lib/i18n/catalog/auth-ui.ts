@@ -94,7 +94,7 @@ export const authUiMessages = {
     auth_err_apple_native_invalid_audience:
       "Apple 로그인 앱 설정이 올바르지 않습니다. 잠시 후 다시 시도해 주세요.",
     auth_err_apple_native_unavailable:
-      "Apple 로그인은 iOS 앱에서만 이용할 수 있습니다. Android에서는 카카오·이메일 등 다른 방법으로 로그인해 주세요.",
+      "Apple Native 로그인을 사용할 수 없습니다. 앱 업데이트 또는 iOS 설정 확인이 필요합니다.",
     auth_err_kakao_native_config_error:
       "카카오 앱 로그인 설정이 완료되지 않았습니다. 앱을 최신 버전으로 다시 설치한 뒤 시도해 주세요.",
     auth_err_kakao_native_key_hash_required:
@@ -305,7 +305,7 @@ export const authUiMessages = {
     auth_err_apple_native_invalid_audience:
       "Apple sign-in app configuration is invalid. Please try again shortly.",
     auth_err_apple_native_unavailable:
-      "Apple sign-in is only available in the iOS app. On Android, please use Kakao, email, or another sign-in method.",
+      "Apple native sign-in is unavailable. Update the app or check iOS settings, then try again.",
     auth_err_kakao_native_config_error:
       "Kakao app sign-in is not configured yet. Reinstall the latest app build and try again.",
     auth_err_kakao_native_key_hash_required:

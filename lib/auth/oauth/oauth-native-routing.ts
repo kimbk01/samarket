@@ -14,8 +14,34 @@ import {
 export type OAuthNativeRoutingDecision =
   | { action: "naver_web_start" }
   | { action: "native_provider_login" }
-  | { action: "native_blocked"; errorCode: string }
-  | { action: "web_oauth_start" };
+  | { action: "native_blocked"; errorCode: string; webOAuthFallbackReason?: string }
+  | { action: "web_oauth_start"; webOAuthFallbackReason?: string };
+
+export type AppleWebOAuthFallbackReason =
+  | "browser_or_non_ios_shell"
+  | "android_apple_web_oauth_by_design"
+  | "apple_native_plugin_unavailable_on_ios"
+  | "shell_not_detected_before_routing";
+
+export function resolveAppleWebOAuthFallbackReason(input: {
+  provider: OAuthProvider;
+  shellPlatform: DibayAppPlatform | null;
+  isNativeAppShell: boolean;
+  routingAction: OAuthNativeRoutingDecision["action"];
+}): AppleWebOAuthFallbackReason | null {
+  if (input.provider !== "apple") return null;
+  if (input.routingAction === "native_provider_login") return null;
+  if (input.routingAction === "native_blocked") {
+    if (input.shellPlatform === "ios") return "apple_native_plugin_unavailable_on_ios";
+    return null;
+  }
+  if (input.routingAction === "web_oauth_start") {
+    if (input.shellPlatform === "ios") return "shell_not_detected_before_routing";
+    if (input.shellPlatform === "android") return "android_apple_web_oauth_by_design";
+    return "browser_or_non_ios_shell";
+  }
+  return null;
+}
 
 export function isNativeProviderLoginAvailableForRouting(
   provider: NativeExchangeProvider,
@@ -49,6 +75,31 @@ export function resolveOAuthNativeRoutingDecision(input: {
     return { action: "naver_web_start" };
   }
 
+  /**
+   * iOS Capacitor — Apple 은 AuthenticationServices 전용.
+   * shellPlatform=ios 이면 isNativeAppShell false 여도 Web OAuth(Chrome/Safari) 금지.
+   */
+  if (provider === "apple" && shellPlatform === "ios") {
+    if (checkAvailable("apple")) {
+      return { action: "native_provider_login" };
+    }
+    return {
+      action: "native_blocked",
+      errorCode: "apple_native_unavailable",
+      webOAuthFallbackReason: "apple_native_plugin_unavailable_on_ios",
+    };
+  }
+
+  /**
+   * Android Capacitor — Apple Native SDK 없음. Supabase Web OAuth / Custom Tab 허용.
+   */
+  if (provider === "apple" && shellPlatform === "android") {
+    return {
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "android_apple_web_oauth_by_design",
+    };
+  }
+
   if (shouldBlockLegacyOAuthOnNativeApp(provider, isNativeAppShell)) {
     if (
       (provider === "kakao" || provider === "apple" || provider === "google")
@@ -66,5 +117,9 @@ export function resolveOAuthNativeRoutingDecision(input: {
     };
   }
 
-  return { action: "web_oauth_start" };
+  return {
+    action: "web_oauth_start",
+    webOAuthFallbackReason:
+      provider === "apple" ? "browser_or_non_ios_shell" : undefined,
+  };
 }

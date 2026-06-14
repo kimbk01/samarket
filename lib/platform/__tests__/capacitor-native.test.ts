@@ -141,6 +141,16 @@ describe("capacitor-native", () => {
     expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(true);
   });
 
+  it("detects iOS webkit bridge when getPlatform is web", () => {
+    vi.stubGlobal("window", {
+      Capacitor: { isNativePlatform: () => false, getPlatform: () => "web" },
+      webkit: { messageHandlers: { bridge: {} } },
+    });
+    expect(isCapacitorNativePlatform()).toBe(true);
+    expect(isCapacitorBridgeReady()).toBe(true);
+    expect(resolveCapacitorShellPlatform()).toBe("ios");
+  });
+
   it("detects OAuth launch availability from plugin headers", () => {
     vi.stubGlobal("window", {
       Capacitor: {

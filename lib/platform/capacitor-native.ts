@@ -351,6 +351,9 @@ export function isCapacitorNativePlatform(): boolean {
 
   if (win.androidBridge) return true;
 
+  /** remote server.url WebView — getPlatform() 이 "web" 이더라도 iOS bridge 로 shell 판별 */
+  if (hasIosCapacitorBridge()) return true;
+
   const cap = win.Capacitor;
 
   const platform = cap?.getPlatform?.();

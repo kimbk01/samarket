@@ -16,6 +16,17 @@ describe("oauth-native-routing", () => {
         isNativeAppShell: false,
       }),
     ).toEqual({ action: "web_oauth_start" });
+
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "apple",
+        isNativeAppShell: false,
+        shellPlatform: null,
+      }),
+    ).toEqual({
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "browser_or_non_ios_shell",
+    });
   });
 
   it("blocks google on native Android app when SDK unavailable", () => {
@@ -93,6 +104,46 @@ describe("oauth-native-routing", () => {
     ).toEqual({
       action: "native_blocked",
       errorCode: "kakao_native_unavailable",
+    });
+  });
+
+  it("routes apple to native on iOS shell platform even when isNativeAppShell is false", () => {
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "apple",
+        isNativeAppShell: false,
+        shellPlatform: "ios",
+        isNativeProviderAvailable: () => true,
+      }),
+    ).toEqual({ action: "native_provider_login" });
+  });
+
+  it("blocks apple on iOS shell platform when SDK unavailable — no web oauth", () => {
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "apple",
+        isNativeAppShell: false,
+        shellPlatform: "ios",
+        isNativeProviderAvailable: () => false,
+      }),
+    ).toEqual({
+      action: "native_blocked",
+      errorCode: "apple_native_unavailable",
+      webOAuthFallbackReason: "apple_native_plugin_unavailable_on_ios",
+    });
+  });
+
+  it("falls back to web OAuth for apple on Android native shell", () => {
+    expect(
+      resolveOAuthNativeRoutingDecision({
+        provider: "apple",
+        isNativeAppShell: true,
+        shellPlatform: "android",
+        isNativeProviderAvailable: () => false,
+      }),
+    ).toEqual({
+      action: "web_oauth_start",
+      webOAuthFallbackReason: "android_apple_web_oauth_by_design",
     });
   });
 

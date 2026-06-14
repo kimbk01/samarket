@@ -16,14 +16,17 @@ import {
   startNativeProviderLogin,
 } from "@/lib/auth/native/start-native-provider-login.client";
 import {
+  resolveAppleWebOAuthFallbackReason,
   resolveNativeBlockedProviderErrorCode,
   resolveOAuthNativeRoutingDecision,
 } from "@/lib/auth/oauth/oauth-native-routing";
+import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
   isCapacitorNativePlatform,
   isOAuthNativeLaunchShell,
+  resolveCapacitorShellPlatform,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -84,6 +87,27 @@ export function setOAuthPendingForTests(provider: OAuthProvider | null): void {
 
 function isNativeAppOAuthShell(): boolean {
   return isCapacitorNativePlatform() || isOAuthNativeLaunchShell();
+}
+
+function logAppleLoginPressed(): void {
+  const diagnostics = getCapacitorNativeDiagnostics();
+  logOAuthNativeEvent("apple_login_pressed", {
+    shellPlatform: resolveCapacitorShellPlatform(),
+    bridgeReady: diagnostics.bridgeReady,
+    nativeAppleLoginAvailable: diagnostics.nativeAppleLoginAvailable,
+    hasNativeAppleAuthPluginHeader: diagnostics.hasNativeAppleAuthPluginHeader,
+    detectedNative: diagnostics.detectedNative,
+    oauthLaunchShell: diagnostics.oauthLaunchShell,
+    dibayAppPlatformMarker: diagnostics.dibayAppPlatformMarker,
+    platform: diagnostics.platform,
+    locationHref: diagnostics.locationHref,
+  });
+}
+
+function shouldWaitCapacitorBridgeBeforeOAuthRouting(provider: OAuthProvider): boolean {
+  if (isNativeAppOAuthShell()) return true;
+  if (provider === "apple" && resolveCapacitorShellPlatform() === "ios") return true;
+  return false;
 }
 
 function isNaverProvider(provider: OAuthProvider): boolean {
@@ -270,14 +294,46 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           return;
         }
 
-        if (isNativeAppOAuthShell()) {
+        if (shouldWaitCapacitorBridgeBeforeOAuthRouting(provider)) {
           await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
+          ensureCapacitorNativeMarkerOnBoot();
         }
 
+        if (provider === "apple") {
+          logAppleLoginPressed();
+        }
+
+        const isNativeShell = isNativeAppOAuthShell();
+        const shellPlatform = resolveCapacitorShellPlatform();
         const routing = resolveOAuthNativeRoutingDecision({
           provider,
-          isNativeAppShell: isNativeAppOAuthShell(),
+          isNativeAppShell: isNativeShell,
+          shellPlatform,
         });
+
+        if (provider === "apple") {
+          logOAuthNativeEvent("apple_login_routing", {
+            action: routing.action,
+            isNativeShell,
+            shellPlatform,
+            ...getCapacitorNativeDiagnostics(),
+          });
+          const fallbackReason = resolveAppleWebOAuthFallbackReason({
+            provider,
+            shellPlatform,
+            isNativeAppShell: isNativeShell,
+            routingAction: routing.action,
+          });
+          if (fallbackReason) {
+            logOAuthNativeEvent("apple_web_oauth_fallback_reason", {
+              reason: fallbackReason,
+              routingAction: routing.action,
+              shellPlatform,
+              isNativeShell,
+              ...getCapacitorNativeDiagnostics(),
+            });
+          }
+        }
 
         if (routing.action === "native_provider_login") {
           handoffOAuthLoginShell();
@@ -297,7 +353,21 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
           if (provider === "google") {
             console.error("[oauth] google_native_blocked", getCapacitorNativeDiagnostics());
           }
+          if (provider === "apple") {
+            logOAuthNativeEvent("apple_native_blocked", {
+              errorCode: routing.errorCode,
+              webOAuthFallbackReason: routing.webOAuthFallbackReason ?? null,
+              ...getCapacitorNativeDiagnostics(),
+            });
+          }
           if (mountedRef.current) setError(mapOAuthErrorToMessage(routing.errorCode, t));
+          return;
+        }
+
+        if (provider === "apple" && shellPlatform === "ios") {
+          clearPending();
+          logOAuthNativeEvent("apple_web_oauth_blocked_on_ios", getCapacitorNativeDiagnostics());
+          if (mountedRef.current) setError(mapOAuthErrorToMessage("apple_native_unavailable", t));
           return;
         }
 
