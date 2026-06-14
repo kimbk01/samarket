@@ -133,7 +133,7 @@ export function LoginProviderButtons({
   );
 
   const showDivider = primary.length > 0 && (secondary.length > 0 || showEmailEntry);
-  const redirectingLabel = t("auth_oauth_redirecting_label");
+  const redirectingLabel = t("auth_oauth_signing_in_label");
   const oauthInFlight = pendingOAuthProvider != null;
 
   if (visibleProviders.length === 0 && !showEmailEntry) {

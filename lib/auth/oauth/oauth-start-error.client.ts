@@ -43,3 +43,11 @@ export function isNativeProviderCancelError(err: unknown): boolean {
   if (err instanceof NativeGoogleAuthError && err.code === "user_cancelled") return true;
   return false;
 }
+
+/** conflict 모달이 이미 열린 경우 — generic OAuth 에러 문구 중복 표시 금지 */
+export function isNativeProviderEmailConflictError(err: unknown): boolean {
+  if (err instanceof NativeGoogleAuthError && err.code === "google_native_email_conflict") return true;
+  if (err instanceof NativeKakaoAuthError && err.code === "kakao_native_email_conflict") return true;
+  if (err instanceof NativeAppleAuthError && err.code === "apple_native_email_conflict") return true;
+  return false;
+}

@@ -17,7 +17,7 @@ import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-o
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
 import { openProviderEmailConflictFromRedirect } from "@/lib/auth/provider-identity/provider-email-conflict.client";
 import type { StoredAuthProvider } from "@/lib/auth/provider-identity/types";
-import { OAuthProviderLoginPanel } from "@/components/auth/OAuthProviderLoginPanel";
+import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
 import { recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { describeSupabaseFetchFailure } from "@/lib/supabase/describe-supabase-fetch-failure";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -83,11 +83,9 @@ function LoginPageContent() {
   );
   const {
     pendingOAuthProvider,
-    oauthPanelPhase,
-    oauthPanelStatus,
+    oauthInlineStatus,
     oauthError,
     startOAuthProvider,
-    cancelOAuthPanel,
   } = useOAuthLogin({
     next: next ?? null,
     onAuthSuccess: handleAuthSuccess,
@@ -140,6 +138,7 @@ function LoginPageContent() {
         existingProviders,
         stashToken: stash,
       });
+      dispatchOAuthPendingClear("provider_email_conflict");
       router.replace(withNextSearchParam("/login", next ?? null), { scroll: false });
       return;
     }
@@ -460,6 +459,7 @@ function LoginPageContent() {
             onEmailLoginClick={() => setShowEmailLogin(true)}
             onSelectProvider={(provider) => void handleOAuthLogin(provider)}
           />
+          <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
         </div>
         {providersError ? (
           <p className="mt-4 sam-text-body-secondary text-red-600">{providersError}</p>
@@ -487,15 +487,6 @@ function LoginPageContent() {
         ) : null}
       </div>
       </div>
-      {pendingOAuthProvider ? (
-        <OAuthProviderLoginPanel
-          provider={pendingOAuthProvider}
-          phase={oauthPanelPhase}
-          status={oauthPanelStatus}
-          error={oauthError}
-          onCancel={cancelOAuthPanel}
-        />
-      ) : null}
       <AuthProviderEmailConflictHost />
     </>
   );

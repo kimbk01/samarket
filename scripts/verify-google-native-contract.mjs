@@ -97,7 +97,7 @@ if (!useOAuth.includes("startNativeProviderLogin")) {
   failures.push("use-oauth-login.ts must route native Google via startNativeProviderLogin");
 }
 if (!useOAuth.includes("isNativeGoogleLoginAvailable")) {
-  failures.push("use-oauth-login must guard Google native pending panel from premature foreground clear");
+  failures.push("use-oauth-login must guard Google native pending from premature foreground clear");
 }
 if (!read("lib/auth/native/start-native-provider-login.client.ts").includes("startNativeGoogleLogin")) {
   failures.push("start-native-provider-login.client.ts must delegate google to startNativeGoogleLogin");

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { LoginProviderButtons } from "@/components/auth/LoginProviderButtons";
-import { OAuthProviderLoginPanel } from "@/components/auth/OAuthProviderLoginPanel";
+import { OAuthInlineLoginHint } from "@/components/auth/OAuthInlineLoginHint";
 import { PasswordLoginForm } from "@/components/auth/PasswordLoginForm";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -87,11 +87,9 @@ export function AuthModal({ open, detail, onClose }: Props) {
 
   const {
     pendingOAuthProvider,
-    oauthPanelPhase,
-    oauthPanelStatus,
+    oauthInlineStatus,
     oauthError,
     startOAuthProvider,
-    cancelOAuthPanel,
     resetOAuthOnClose,
   } = useOAuthLogin({
     next,
@@ -276,6 +274,7 @@ export function AuthModal({ open, detail, onClose }: Props) {
               onEmailLoginClick={() => setShowEmailLogin(true)}
               onSelectProvider={(provider) => void handleOAuthLogin(provider)}
             />
+            <OAuthInlineLoginHint status={oauthInlineStatus} />
             {!showEmailLogin && displayError ? (
               <p className="sam-text-body-secondary text-center text-red-600">{displayError}</p>
             ) : null}
@@ -296,15 +295,6 @@ export function AuthModal({ open, detail, onClose }: Props) {
           </div>
         </div>
       </AuthGateOverlay>
-      {pendingOAuthProvider ? (
-        <OAuthProviderLoginPanel
-          provider={pendingOAuthProvider}
-          phase={oauthPanelPhase}
-          status={oauthPanelStatus}
-          error={oauthError}
-          onCancel={cancelOAuthPanel}
-        />
-      ) : null}
       <AuthProviderEmailConflictHost />
     </>
   );

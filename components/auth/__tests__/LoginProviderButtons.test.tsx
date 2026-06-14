@@ -6,7 +6,7 @@ import type { AuthProviderPublic } from "@/lib/auth/auth-providers";
 vi.mock("@/components/i18n/AppLanguageProvider", () => ({
   useI18n: () => ({
     t: (key: string) => {
-      if (key === "auth_oauth_redirecting_label") return "Redirecting…";
+      if (key === "auth_oauth_signing_in_label") return "Signing in…";
       if (key === "auth_provider_continue_google") return "Continue with Google";
       if (key === "auth_provider_continue_kakao") return "Continue with Kakao";
       return key;
@@ -43,7 +43,7 @@ describe("LoginProviderButtons pending OAuth UI", () => {
         onSelectProvider={() => undefined}
       />,
     );
-    expect(html).toContain("Redirecting…");
+    expect(html).toContain("Signing in…");
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('data-provider="google"');
     expect(html).toContain('data-provider="kakao"');
@@ -59,6 +59,6 @@ describe("LoginProviderButtons pending OAuth UI", () => {
       />,
     );
     expect(html).toContain("Continue with Google");
-    expect(html).not.toContain("Redirecting…");
+    expect(html).not.toContain("Signing in…");
   });
 });

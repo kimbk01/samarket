@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * CONTRACT — OAuth login UX (배민·당근 스타일 인라인)
+ * - 전체화면 OAuth 로그인 패널·패널 exit 애니메이션 금지
+ * - pendingOAuthProvider = 버튼 로딩만, oauthInlineStatus = 1줄 안내
+ * - email conflict 시 generic 에러 문구 중복 표시 금지 (isNativeProviderEmailConflictError)
+ */
+
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import type { OAuthProvider } from "@/lib/auth/auth-providers";
@@ -28,16 +35,12 @@ import {
 } from "@/lib/auth/oauth/oauth-provider-routing.client";
 import {
   isNativeProviderCancelError,
+  isNativeProviderEmailConflictError,
   resolveNativeProviderLoginErrorCode,
   summarizeOAuthStartFailure,
 } from "@/lib/auth/oauth/oauth-start-error.client";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 import { openNativeOAuthTab } from "@/lib/auth/oauth/open-native-oauth-tab";
-import {
-  type OAuthPanelPhase,
-  type OAuthPanelStatus,
-  waitOAuthPanelTransitionMs,
-} from "@/lib/auth/oauth/oauth-provider-panel.client";
 import {
   ensureCapacitorNativeMarkerOnBoot,
   getCapacitorNativeDiagnostics,
@@ -49,6 +52,8 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export const OAUTH_PENDING_CLEAR_EVENT = "dibay:oauth-pending-clear";
 export const OAUTH_PENDING_TIMEOUT_MS = 30_000;
+
+export type OAuthInlineStatus = "idle" | "preparing" | "opening" | "awaiting_return";
 
 let sharedPendingProvider: OAuthProvider | null = null;
 const pendingSubscribers = new Set<() => void>();
@@ -204,11 +209,10 @@ async function waitForAppBackground(timeoutMs: number): Promise<void> {
 }
 
 export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
-  const { next = null, pendingToken = null, onAuthSuccess } = options;
+  const { next = null, onAuthSuccess } = options;
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
-  const [oauthPanelPhase, setOauthPanelPhase] = useState<OAuthPanelPhase>("idle");
-  const [oauthPanelStatus, setOauthPanelStatus] = useState<OAuthPanelStatus>("idle");
+  const [oauthInlineStatus, setOauthInlineStatus] = useState<OAuthInlineStatus>("idle");
   const pendingOAuthProvider = useSyncExternalStore(
     subscribePending,
     getPendingSnapshot,
@@ -216,7 +220,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
   );
   const mountedRef = useRef(false);
   const pendingProviderRef = useRef<OAuthProvider | null>(pendingOAuthProvider);
-  const panelExitPromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -229,53 +232,29 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
     pendingProviderRef.current = pendingOAuthProvider;
   }, [pendingOAuthProvider]);
 
-  useEffect(() => {
-    if (!pendingOAuthProvider) {
-      setOauthPanelPhase("idle");
-      setOauthPanelStatus("idle");
-      return;
-    }
-    setOauthPanelPhase("entering");
-    const id = requestAnimationFrame(() => setOauthPanelPhase("entered"));
-    return () => cancelAnimationFrame(id);
-  }, [pendingOAuthProvider]);
+  const resetInlineState = useCallback(() => {
+    setOauthInlineStatus("idle");
+  }, []);
 
   const clearPending = useCallback(() => {
     endOAuthFlow();
     pendingProviderRef.current = null;
     setSharedPending(null);
-  }, []);
-
-  const runOAuthPanelExit = useCallback((): Promise<void> => {
-    if (panelExitPromiseRef.current) return panelExitPromiseRef.current;
-    if (oauthPanelPhase === "idle" && !pendingProviderRef.current) {
-      return Promise.resolve();
-    }
-    const promise = (async () => {
-      setOauthPanelPhase("exiting");
-      await waitOAuthPanelTransitionMs();
-      setOauthPanelPhase("idle");
-      setOauthPanelStatus("idle");
-      panelExitPromiseRef.current = null;
-    })();
-    panelExitPromiseRef.current = promise;
-    return promise;
-  }, [oauthPanelPhase]);
+    resetInlineState();
+  }, [resetInlineState]);
 
   const completeAuthSuccess = useCallback(
     async (redirectTo: string | null) => {
       clearStoredLoginRequiredDetail();
-      const panelExitPromise = runOAuthPanelExit();
       try {
         if (onAuthSuccess) {
           await onAuthSuccess({ redirectTo });
         }
       } finally {
-        await panelExitPromise;
         clearPending();
       }
     },
-    [clearPending, onAuthSuccess, runOAuthPanelExit],
+    [clearPending, onAuthSuccess],
   );
 
   useEffect(() => {
@@ -289,7 +268,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       pendingProviderRef.current = nextProvider;
       setSharedPending(nextProvider);
       if (!nextProvider) {
-        void runOAuthPanelExit();
+        resetInlineState();
       }
     };
     window.addEventListener(OAUTH_PENDING_CLEAR_EVENT, handleClear);
@@ -301,7 +280,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       const path = window.location.pathname;
       if (isOAuthInFlightPath(path)) return;
       if (path === "/login" || path === "/signup" || path.startsWith("/login/")) {
-        void runOAuthPanelExit().then(() => clearPending());
+        clearPending();
       }
     };
     document.addEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
@@ -313,23 +292,23 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       document.removeEventListener("visibilitychange", maybeReleaseOnForegroundReturn);
       window.removeEventListener("pageshow", maybeReleaseOnForegroundReturn);
     };
-  }, [clearPending, pendingOAuthProvider, runOAuthPanelExit]);
+  }, [clearPending, pendingOAuthProvider, resetInlineState]);
 
   const handleOAuthStartFailure = useCallback(
     async (err: unknown) => {
-      if (isNativeProviderCancelError(err)) {
-        releaseOAuthFlowOnUserCancel();
-        await runOAuthPanelExit();
+      if (isNativeProviderCancelError(err) || isNativeProviderEmailConflictError(err)) {
+        if (isNativeProviderCancelError(err)) {
+          releaseOAuthFlowOnUserCancel();
+        }
         clearPending();
         return;
       }
-      await runOAuthPanelExit();
       clearPending();
       const code = resolveNativeProviderLoginErrorCode(err);
       console.error("[oauth] oauth_start_failed", summarizeOAuthStartFailure(err));
       if (mountedRef.current) setError(mapOAuthErrorToMessage(code, t));
     },
-    [clearPending, runOAuthPanelExit, t],
+    [clearPending, t],
   );
 
   const runCapacitorCustomTabOAuth = useCallback(
@@ -339,16 +318,16 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         throw new Error("oauth_flow_in_flight");
       }
       try {
-        setOauthPanelStatus("preparing");
+        setOauthInlineStatus("preparing");
         const authorizeUrl = await fetchNativeOAuthAuthorizeUrl(provider, handoffNext);
-        setOauthPanelStatus("opening");
+        setOauthInlineStatus("opening");
         await openNativeOAuthTab(authorizeUrl);
         try {
           await waitForAppBackground(NATIVE_OAUTH_BACKGROUND_DETECT_MS);
         } catch {
-          logOAuthNativeEvent("oauth_panel_background_detect_timeout", { provider });
+          logOAuthNativeEvent("oauth_inline_background_detect_timeout", { provider });
         }
-        setOauthPanelStatus("awaiting_return");
+        setOauthInlineStatus("awaiting_return");
       } catch (err) {
         flow.release();
         throw err;
@@ -367,14 +346,13 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         if (mountedRef.current) setError(null);
         pendingProviderRef.current = provider;
         setSharedPending(provider);
-        setOauthPanelStatus("preparing");
+        setOauthInlineStatus("preparing");
       });
 
       const runProviderStart = async () => {
         if (isNaverProvider(provider)) {
           const flow = tryBeginOAuthFlow(provider);
           if (!flow.ok) {
-            await runOAuthPanelExit();
             clearPending();
             if (mountedRef.current) setError(mapOAuthErrorToMessage("oauth_flow_in_flight", t));
             return;
@@ -389,7 +367,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         if (shouldWaitCapacitorBridgeBeforeOAuthRouting(provider)) {
-          setOauthPanelStatus("preparing");
+          setOauthInlineStatus("preparing");
           await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_BRIDGE_READY_TIMEOUT_MS });
           ensureCapacitorNativeMarkerOnBoot();
         }
@@ -399,7 +377,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         const routingSnapshot = resolveOAuthProviderRoutingSnapshot(provider);
-        const { isNativeShell, shellPlatform, routing, appleWebOAuthFallbackReason } = routingSnapshot;
+        const { shellPlatform, routing, appleWebOAuthFallbackReason } = routingSnapshot;
 
         if (provider === "apple") {
           logOAuthNativeEvent("apple_login_routing", {
@@ -419,7 +397,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         if (routing.action === "native_provider_login") {
-          setOauthPanelStatus("opening");
+          setOauthInlineStatus("opening");
           try {
             const result = await startNativeProviderLogin({ provider, next });
             await completeAuthSuccess(result.redirectTo);
@@ -430,7 +408,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         if (routing.action === "native_blocked") {
-          await runOAuthPanelExit();
           clearPending();
           if (provider === "google") {
             console.error("[oauth] google_native_blocked", getCapacitorNativeDiagnostics());
@@ -449,7 +426,6 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         if (shouldBlockAppleWebOAuthSafetyNet(shellPlatform, routing.action)) {
-          await runOAuthPanelExit();
           clearPending();
           logOAuthNativeEvent("apple_native_blocked", {
             provider: "apple",
@@ -472,7 +448,7 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
         }
 
         try {
-          setOauthPanelStatus("opening");
+          setOauthInlineStatus("opening");
           startOAuthLogin({ provider, next });
         } catch (err) {
           await handleOAuthStartFailure(err);
@@ -487,15 +463,9 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
       handleOAuthStartFailure,
       next,
       runCapacitorCustomTabOAuth,
-      runOAuthPanelExit,
       t,
     ],
   );
-
-  const cancelOAuthPanel = useCallback(() => {
-    releaseOAuthFlowAfterUserCancel("panel_cancel");
-    void runOAuthPanelExit().then(() => clearPending());
-  }, [clearPending, runOAuthPanelExit]);
 
   const clearOAuthError = useCallback(() => {
     if (mountedRef.current) setError(null);
@@ -509,11 +479,9 @@ export function useOAuthLogin(options: UseOAuthLoginOptions = {}) {
 
   return {
     pendingOAuthProvider,
-    oauthPanelPhase,
-    oauthPanelStatus,
+    oauthInlineStatus,
     oauthError: error,
     startOAuthProvider,
-    cancelOAuthPanel,
     clearOAuthError,
     resetOAuthOnClose,
   };

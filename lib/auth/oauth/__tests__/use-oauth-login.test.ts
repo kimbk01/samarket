@@ -6,7 +6,10 @@ import {
   OAUTH_PENDING_TIMEOUT_MS,
   resolveOAuthPendingAfterClear,
   setOAuthPendingForTests,
+  type OAuthInlineStatus,
 } from "@/lib/auth/oauth/use-oauth-login";
+
+const INLINE_STATUSES: OAuthInlineStatus[] = ["idle", "preparing", "opening", "awaiting_return"];
 
 describe("useOAuthLogin pending helpers", () => {
   afterEach(() => {
@@ -41,5 +44,9 @@ describe("useOAuthLogin pending helpers", () => {
     expect(getOAuthPendingSnapshotForTests()).toBe("google");
     setOAuthPendingForTests(null);
     expect(getOAuthPendingSnapshotForTests()).toBeNull();
+  });
+
+  it("defines inline OAuth status values for login-screen hints", () => {
+    expect(INLINE_STATUSES).toEqual(["idle", "preparing", "opening", "awaiting_return"]);
   });
 });

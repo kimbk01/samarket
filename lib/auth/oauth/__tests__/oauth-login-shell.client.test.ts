@@ -47,7 +47,7 @@ describe("oauth login shell handoff", () => {
     });
   });
 
-  it("handoff does not dismiss login sheet (in-app OAuth panel)", () => {
+  it("handoff does not dismiss login sheet (in-app OAuth inline)", () => {
     const dispatchEvent = vi.fn();
     vi.stubGlobal("window", { dispatchEvent, CustomEvent });
 
