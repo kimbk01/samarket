@@ -12,7 +12,7 @@ import { invalidateMainBottomNavDedupedCache } from "@/lib/app/fetch-main-bottom
 import { invalidateMessengerIceServerCache } from "@/lib/call/ice-servers";
 import { resetHomeSyncSnapshotInvalidationRegistry } from "@/lib/community-messenger/home-sync-snapshot-invalidation-registry";
 import { invalidateFavoriteCountClientCache } from "@/lib/favorites/getMyFavoriteCount";
-import { invalidateMeNotificationsListDedupedCache } from "@/lib/me/fetch-me-notifications-deduped";
+import { pauseMeNotificationsListDedupedAfterAuthExit } from "@/lib/me/fetch-me-notifications-deduped";
 import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
 import { invalidateAllTradeFeedClientCache } from "@/lib/posts/trade-feed-client-cache";
 import { invalidateOwnerHubDashboardOrdersCache } from "@/lib/stores/owner-hub-dashboard-orders-cache";
@@ -34,7 +34,7 @@ export function invalidateAuthExitClientCaches(previousUserId?: string | null): 
   invalidateCurrentUserIdCache();
   invalidateMeStoresListDedupedCache();
   invalidateMainBottomNavDedupedCache();
-  invalidateMeNotificationsListDedupedCache();
+  pauseMeNotificationsListDedupedAfterAuthExit();
   invalidateFavoriteCountClientCache();
   invalidateOwnerHubDashboardOrdersCache();
   invalidateOwnerHubOrderCountsCache();

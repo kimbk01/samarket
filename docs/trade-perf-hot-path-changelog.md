@@ -252,6 +252,7 @@ run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON
 | 2026-06-14 | 하단 5탭·거래 목록 | **원인:** 440ms 슬라이드 후 **비메신저 handoff 1200ms 고정** + `HomeProductList` clientInstantBoot 시 `initialHasFullSeed` 미반영·썸네일 lazy — 탭 선택 후 본문·썸네일이 늦게 구현됨. **개선:** 슬라이드 440/250ms **유지**, pathname 도착 시 handoff 즉시 해제·RSC 미도착만 pending 유지; `initialBoot` 전체 행·상단 4장 `priorityThumb`. 메신저 bootstrap handoff 불변 | `AppRouteTransition.tsx`, `HomeProductList.tsx`, `PostCard.tsx` | `verify:trade-primary-tab-transition`, `tsc` | 비메신저 1200ms handoff 고정 복귀·슬라이드 duration 축소 금지 |
 | 2026-06-14 | 하단 5탭·리스트 썸네일 | **근본:** (1) 메신저 탭 `guardNav` 가 commit·pending 패널 우회 (2) same-group router 전 2×rAF (3) push handoff remount 시 썸네일 pulse (4) 도메인별 lazy·priority 미설정. **개선:** 로그인 메신저 표준 commit·router 즉시·handoff bootstrap 즉시 해제·`thumbnail-loaded-url-memory`·philife/trade/messenger/stores above-fold priority. 슬라이드 440/250ms 불변 | `BottomNav.tsx`, `main-bottom-nav-route-commit.ts`, `AppRouteTransition.tsx`, `SamarketThumbnail.tsx`, `thumbnail-loaded-url-memory.ts`, `CommunityCard.tsx`, `feed-list-layouts.tsx`, `TradeProductThumb.tsx`, `StoreProfileThumb.tsx`, `StoresHomeFoodCard.tsx` | `verify:trade-primary-tab-transition`, `tsc` | 메신저 commit 우회·same-group 2×rAF router 지연 복귀 금지 |
 | 2026-06-14 | 하단 5탭 전환 **실측 PASS 마감** | **측정:** `aaaa@manual.local`·`samarket:debug:navPerf=1`·Playwright `scripts/measure-bottom-nav-tab-verification.mjs` — 홈→거래→커뮤니티→배달→메신저→홈 × cold-1/warm-1/warm-2. **PASS:** (1) 비메신저 same-group handoff `@1200ms`/`@1600ms` 전 구간 false·`handoffSpans=0` (2) 메신저 `beginMenuNavigation` intent_sync **3/3**·`intentCommitMs=0~1` (3) warm 거래/커뮤니티/배달 `thumbPulseCount=0` (4) sync commit `intentCommitMs=0` — router.push 전 rAF/timer 대기 없음. **한계:** `clickToIntentMs` 는 `navPerfMarkBottomNavClickStart` 가 async navigate 직전에 찍혀 과대; `routeSettledMs` 는 dev RSC compile 영향( warm same-group ~2.5–5.5s ); 메신저는 pathname vs `?from=&section=` query mismatch 로 `routeSettledMs` null 가능. **범위 밖 TODO:** 배달 `(main)↔(stores)` cross-group full remount — 추후 stores same-group shell 통합 또는 stores push shell/keep-alive | `docs/trade-perf-hot-path-changelog.md`(본 절), `scripts/measure-bottom-nav-tab-verification.mjs` | `verify:trade-primary-tab-transition`, `npx tsc --noEmit`, Playwright 실측 | 비메신저 1200ms handoff 복귀·메신저 commit 우회·warm pulse 재표시 복귀 금지 |
+| 2026-06-14 | **비로그인 401 네트워크 정리 PASS** | **개선:** `messenger-call-sound-config`·`fetch-me-notifications-deduped` — session gate · 401 retry 제거 · `unauthorizedUntil`/`authExitPaused` · logout pause. **실측 PASS:** guest `/stores`+탭시도+82s poll — sound-config **0** · list deduped **0** · 대상 API **401 0**; login cold — sound **200×1+** · list **200×3**. **INCOMPLETE:** headless 5탭 왕복 UI 자동화. **범위 밖 TODO:** badge unread 200 다회 · Console `me_profile_full`/`auth/session`/oauth — `docs/dibay-guest-401-network-cleanup.md` | `messenger-call-sound-config-client.ts`, `fetch-me-notifications-deduped.ts`, `resolve-client-authenticated-user-id-for-fetch.ts`, `invalidate-auth-exit-client-caches.ts`, `PhilifeHeaderNotificationInbox.tsx`, `MyNotificationsView.tsx`, `docs/dibay-guest-401-network-cleanup.md` | `npx tsc --noEmit`, vitest sound-config·notifications-deduped (10/10), Playwright guest/login 분리 context | session gate·401 backoff 제거 시 guest 401·poll 재발 — 본 문서 TODO 표 참고 |
 
 ---
 
@@ -285,5 +286,19 @@ run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON
 | **관측** | `/philife`→`/stores`·메신저 진입: `beginMenuNavigation` ✅ · `routeSettledMs` null · handoff/pushViewport 미관측 |
 | **이번 수정과의 관계** | handoff 1200ms·메신저 commit·썸네일 memory 와 **독립** — 별도 트랙 |
 | **추후 후보** | (1) stores 를 same-group shell 로 통합 (2) stores 전용 push shell / keep-alive 전략 설계 |
+
+---
+
+## 비로그인 401 네트워크 정리 (2026-06-14 PASS)
+
+**전문:** [dibay-guest-401-network-cleanup.md](./dibay-guest-401-network-cleanup.md)
+
+| 항목 | guest 실측 | login 실측 |
+|------|------------|------------|
+| `messenger-call-sound-config` | request **0** | **200×1+** |
+| `me/notifications` list deduped | request **0** | **200×3** |
+| 대상 API HTTP 401 | **0** | **0** |
+| 하단 5탭 Playwright | **INCOMPLETE** (API 합산 PASS) | — |
+| Console 401 잔류 | **TODO** (me_profile · auth/session · oauth) | — |
 
 ---

@@ -2,9 +2,12 @@
  * 내 알림 목록 — 동시 요청 합류(runSingleFlight) + 짧은 TTL로 재진입·폴링 부하 완화.
  * 읽음 처리 직후 등은 `{ force: true }` 또는 `invalidateMeNotificationsListDedupedCache()` 로 최신화.
  */
+import { resolveClientAuthenticatedUserIdForFetch } from "@/lib/auth/resolve-client-authenticated-user-id-for-fetch";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { forgetSingleFlightsWhere, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 20_000;
+const UNAUTHORIZED_BACKOFF_MS = 30_000;
 
 export type MeNotificationsListResult = {
   status: number;
@@ -23,7 +26,45 @@ export type InboxPushKindFilter =
 
 const ttlCache = new Map<string, { expiresAt: number; value: MeNotificationsListResult }>();
 
+/** 세션 없음·401 backoff 시 네트워크 없이 반환 — 호출부 401 분기와 동일 */
+export const ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED: MeNotificationsListResult = {
+  status: 401,
+  json: { ok: false, notifications: [] },
+};
+
+/** 로그아웃·계정 전환 직후 — invalidate 와 별도로 fetch 차단 유지 */
+let authExitPaused = false;
+/** 서버 401 직후 `force` 포함 재시도 억제 */
+let unauthorizedUntil = 0;
+
+function isFetchBlocked(now = Date.now()): boolean {
+  if (authExitPaused) return true;
+  return unauthorizedUntil > now;
+}
+
+function markUnauthorizedBackoff(now = Date.now()): void {
+  unauthorizedUntil = now + UNAUTHORIZED_BACKOFF_MS;
+}
+
+function clearAuthFetchBlocksIfSession(userId: string | null): void {
+  if (!userId) return;
+  authExitPaused = false;
+  unauthorizedUntil = 0;
+}
+
+function cacheUnauthenticatedResult(url: string, now = Date.now()): MeNotificationsListResult {
+  ttlCache.set(url, { value: ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED, expiresAt: now + TTL_MS });
+  return ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED;
+}
+
 export function invalidateMeNotificationsListDedupedCache(): void {
+  ttlCache.clear();
+  forgetSingleFlightsWhere((k) => k.startsWith("me:notifications:list:"));
+}
+
+/** 로그아웃·계정 전환 — TTL 삭제 + 비로그인 즉시 401 네트워크 방지 */
+export function pauseMeNotificationsListDedupedAfterAuthExit(): void {
+  authExitPaused = true;
   ttlCache.clear();
   forgetSingleFlightsWhere((k) => k.startsWith("me:notifications:list:"));
 }
@@ -76,18 +117,44 @@ export function fetchMeNotificationsListDeduped(
   if (!force && cached && cached.expiresAt > now) {
     return Promise.resolve(cached.value);
   }
+  clearAuthFetchBlocksIfSession(getSyncViewerUserIdForClient() ?? null);
+  if (isFetchBlocked(now)) {
+    return Promise.resolve(cached?.value ?? ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED);
+  }
   if (force) {
     ttlCache.delete(url);
     forgetSingleFlightsWhere((k) => k === flightKey);
   }
-  return runSingleFlight(flightKey, () =>
-    fetch(url, { credentials: "include", cache: "no-store" })
-  ).then(async (res): Promise<MeNotificationsListResult> => {
+  return runSingleFlight(flightKey, async () => {
+    const userId = await resolveClientAuthenticatedUserIdForFetch();
+    clearAuthFetchBlocksIfSession(userId);
+    if (!userId) {
+      return cacheUnauthenticatedResult(url, Date.now());
+    }
+    if (isFetchBlocked()) {
+      return ttlCache.get(url)?.value ?? ME_NOTIFICATIONS_EMPTY_UNAUTHENTICATED;
+    }
+
+    const res = await fetch(url, { credentials: "include", cache: "no-store" });
     const json: unknown = await res.clone().json().catch(() => ({}));
     const result = { status: res.status, json };
-    if (res.ok || res.status === 401 || res.status === 503) {
+    if (res.status === 401) {
+      markUnauthorizedBackoff();
+      authExitPaused = false;
+      ttlCache.set(url, { value: result, expiresAt: Date.now() + TTL_MS });
+      return result;
+    }
+    if (res.ok || res.status === 503) {
       ttlCache.set(url, { value: result, expiresAt: Date.now() + TTL_MS });
     }
     return result;
   });
+}
+
+/** vitest — 모듈 singleton 초기화 */
+export function resetMeNotificationsListDedupedClientForTests(): void {
+  ttlCache.clear();
+  forgetSingleFlightsWhere((k) => k.startsWith("me:notifications:list:"));
+  authExitPaused = false;
+  unauthorizedUntil = 0;
 }

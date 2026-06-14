@@ -32,6 +32,8 @@ import { createPortal } from "react-dom";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { getCurrentUserIdForDb, getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+
 import { NotificationDeleteConfirmDialog } from "@/components/notifications/NotificationDeleteConfirmDialog";
 
 import { NotificationInboxByDateSections } from "@/components/notifications/NotificationInboxByDateSections";
@@ -596,9 +598,11 @@ export function PhilifeHeaderNotificationInbox({
     if (deferInboxListPrefetch) return;
 
     const cancel = scheduleStartupApiDeferred("philife-tier1-inbox-prefetch", () => {
-
-      void loadInbox(false, { silent: true });
-
+      void (async () => {
+        const uid = getSyncViewerUserIdForClient() ?? (await getCurrentUserIdForDb());
+        if (!uid) return;
+        void loadInbox(false, { silent: true });
+      })();
     }, { delayMs: 0 });
 
     return cancel;

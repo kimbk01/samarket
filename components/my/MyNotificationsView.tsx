@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -69,6 +70,7 @@ export function MyNotificationsView() {
     ],
     [t]
   );
+  const [pollEnabled, setPollEnabled] = useState(false);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +114,7 @@ export function MyNotificationsView() {
         });
         const j = raw as { ok?: boolean; error?: string; notifications?: Row[]; has_more?: boolean };
         if (status === 401) {
+          setPollEnabled(false);
           setError("login_required");
           rowsLengthRef.current = 0;
           setRows((prev) => (prev.length === 0 ? prev : []));
@@ -135,6 +138,7 @@ export function MyNotificationsView() {
         });
         setHasMore(j?.has_more === true);
         setError(null);
+        setPollEnabled(true);
       } catch {
         if (!silent && !append) {
           setError("network_error");
@@ -173,6 +177,7 @@ export function MyNotificationsView() {
   }, [load]);
 
   useEffect(() => {
+    if (!pollEnabled) return;
     let id: ReturnType<typeof setInterval> | undefined;
 
     const tick = () => {
@@ -188,6 +193,7 @@ export function MyNotificationsView() {
 
     const onVis = () => {
       if (document.visibilityState === "visible") {
+        if (!getSyncViewerUserIdForClient()) return;
         void load(true, true, false, 0);
         arm();
       } else if (id != null) {
@@ -202,9 +208,15 @@ export function MyNotificationsView() {
       document.removeEventListener("visibilitychange", onVis);
       if (id != null) clearInterval(id);
     };
-  }, [load]);
+  }, [load, pollEnabled]);
 
-  useRefetchOnPageShowRestore(() => void load(true, true, false, 0), { enableVisibilityRefetch: false });
+  useRefetchOnPageShowRestore(
+    () => {
+      if (!getSyncViewerUserIdForClient()) return;
+      void load(true, true, false, 0);
+    },
+    { enableVisibilityRefetch: false }
+  );
 
   const loadMore = useCallback(() => {
     if (!hasMore || loadMoreBusy) return;

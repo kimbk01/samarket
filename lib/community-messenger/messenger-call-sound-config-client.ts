@@ -1,8 +1,10 @@
-import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
+import { resolveClientAuthenticatedUserIdForFetch } from "@/lib/auth/resolve-client-authenticated-user-id-for-fetch";
+import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
+import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 
 const AUTH_READY_WAIT_MS = 400;
-const AUTH_401_RETRY_MS = 180;
+const UNAUTHORIZED_BACKOFF_MS = 30_000;
 
 export type MessengerCallSoundConfig = {
   voice_incoming_enabled: boolean;
@@ -28,11 +30,59 @@ export type MessengerCallSoundConfig = {
   suppress_incoming_local_notifications: boolean;
 };
 
+/** 세션 없음·401 backoff — API 기본값과 동일한 로컬 폴백 */
+export function createDefaultMessengerCallSoundConfig(): MessengerCallSoundConfig {
+  return {
+    voice_incoming_enabled: true,
+    voice_incoming_sound_url: null,
+    voice_outgoing_ringback_enabled: true,
+    voice_outgoing_ringback_url: null,
+    video_incoming_enabled: true,
+    video_incoming_sound_url: null,
+    video_outgoing_ringback_enabled: true,
+    video_outgoing_ringback_url: null,
+    missed_notification_enabled: true,
+    missed_notification_sound_url: null,
+    call_end_enabled: true,
+    call_end_sound_url: null,
+    use_custom_sounds: true,
+    default_fallback_sound_url: null,
+    incoming_ring_timeout_seconds: DEFAULT_INCOMING_RING_TIMEOUT_SECONDS,
+    incoming_ringtone_volume: 0.72,
+    busy_auto_reject_enabled: false,
+    repeated_call_cooldown_seconds: 0,
+    suppress_incoming_local_notifications: false,
+  };
+}
+
 /** `undefined` = 아직 성공 응답 전, `null` = 행 없음/설정 없음(재시도 안 함) */
 let loadedConfig: MessengerCallSoundConfig | null | undefined;
 let inflight: Promise<MessengerCallSoundConfig | null> | null = null;
 /** `invalidate` 또는 진행 중인 구버전 fetch 완료 시 캐시에 쓰지 않도록 함 */
 let loadGeneration = 0;
+/** 401·세션 없음 직후 `force` 포함 네트워크 재시도 억제 */
+let unauthorizedUntil = 0;
+
+function defaultMessengerCallSoundConfig(): MessengerCallSoundConfig {
+  return createDefaultMessengerCallSoundConfig();
+}
+
+function isUnauthorizedBackoffActive(now = Date.now()): boolean {
+  return unauthorizedUntil > now;
+}
+
+function markUnauthorizedBackoff(now = Date.now()): void {
+  unauthorizedUntil = now + UNAUTHORIZED_BACKOFF_MS;
+}
+
+function clearUnauthorizedBackoffIfSession(userId: string | null): void {
+  if (userId) unauthorizedUntil = 0;
+}
+
+function resolveLocalFallbackConfig(): MessengerCallSoundConfig {
+  if (loadedConfig !== undefined && loadedConfig !== null) return loadedConfig;
+  return defaultMessengerCallSoundConfig();
+}
 
 export function getMessengerCallSoundConfigCache(): MessengerCallSoundConfig | null {
   return loadedConfig !== undefined ? loadedConfig : null;
@@ -48,23 +98,40 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
   if (!force && loadedConfig !== undefined) {
     return loadedConfig;
   }
+  clearUnauthorizedBackoffIfSession(getSyncViewerUserIdForClient() ?? null);
+  if (isUnauthorizedBackoffActive()) {
+    return resolveLocalFallbackConfig();
+  }
 
   const genAtStart = loadGeneration;
   inflight = (async () => {
     try {
-      await awaitClientSupabaseSessionReady(AUTH_READY_WAIT_MS);
-      let res = await fetch("/api/app/messenger-call-sound-config", {
+      const userId = await resolveClientAuthenticatedUserIdForFetch(AUTH_READY_WAIT_MS);
+      clearUnauthorizedBackoffIfSession(userId);
+      if (!userId) {
+        const fallback = defaultMessengerCallSoundConfig();
+        if (genAtStart === loadGeneration) {
+          loadedConfig = fallback;
+        }
+        return fallback;
+      }
+      if (isUnauthorizedBackoffActive()) {
+        return resolveLocalFallbackConfig();
+      }
+
+      const res = await fetch("/api/app/messenger-call-sound-config", {
         credentials: "include",
         cache: "no-store",
       });
       if (res.status === 401) {
-        await new Promise((r) => setTimeout(r, AUTH_401_RETRY_MS));
-        await awaitClientSupabaseSessionReady(AUTH_READY_WAIT_MS);
-        res = await fetch("/api/app/messenger-call-sound-config", {
-          credentials: "include",
-          cache: "no-store",
-        });
+        markUnauthorizedBackoff();
+        const fallback = defaultMessengerCallSoundConfig();
+        if (genAtStart === loadGeneration) {
+          loadedConfig = fallback;
+        }
+        return fallback;
       }
+
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         config?: MessengerCallSoundConfig | null;
@@ -89,6 +156,14 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
 export function invalidateMessengerCallSoundConfigCache(): void {
   loadedConfig = undefined;
   loadGeneration++;
+}
+
+/** vitest — 모듈 singleton 초기화 */
+export function resetMessengerCallSoundConfigClientForTests(): void {
+  loadedConfig = undefined;
+  inflight = null;
+  loadGeneration = 0;
+  unauthorizedUntil = 0;
 }
 
 /** 관리자 커스텀 URL (없거나 비활성 시 null → 합성/기본으로 폴백) */
