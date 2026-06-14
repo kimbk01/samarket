@@ -15,11 +15,13 @@ import com.google.firebase.messaging.RemoteMessage;
 import java.util.Map;
 
 /**
- * FCM 수신 — 채팅/주문 알림 + 수신 통화(Full Screen).
+ * FCM 수신 — data-only 페이로드 → 채팅 알림(제목·본문) + 수신 통화(Full Screen).
+ * notification 블록 없이 data-only 로 보내야 background/killed 에서도 onMessageReceived 가 호출된다.
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  static final String MESSAGES_CHANNEL_ID = "dibay_messages";
+  /** v2: HIGH importance — 구 채널(dibay_messages)은 DEFAULT 로 고정될 수 있음 */
+  static final String MESSAGES_CHANNEL_ID = "dibay_messages_v2";
 
   @Override
   public void onMessageReceived(RemoteMessage message) {
@@ -27,7 +29,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (data == null || data.isEmpty()) {
       RemoteMessage.Notification n = message.getNotification();
       if (n != null) {
-        showMessageNotification(n.getTitle(), n.getBody(), null);
+        showMessageNotification(n.getTitle(), n.getBody(), null, null);
       }
       return;
     }
@@ -43,9 +45,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
-    boolean isCall = "1".equals(data.get("dibay_call")) || "incoming_call".equals(callPushKind);
-    String title = data.get("title");
-    String body = data.get("body");
+    String title = firstNonEmpty(data.get("title"));
+    String body = firstNonEmpty(data.get("body"));
     if (title == null && message.getNotification() != null) {
       title = message.getNotification().getTitle();
     }
@@ -53,7 +54,22 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       body = message.getNotification().getBody();
     }
 
-    if (isCall && sessionId != null) {
+    if ("missed_call".equals(callPushKind)) {
+      if (sessionId != null) {
+        IncomingCallNotificationBuilder.dismissIncomingCall(this, sessionId);
+      }
+      String url = resolveMessageDeepLink(data);
+      showMessageNotification(
+          title != null ? title : "부재중 통화",
+          body != null ? body : "",
+          url,
+          data.get("tag"));
+      Log.i(TAG, "missed_call sessionId=" + sessionId);
+      return;
+    }
+
+    boolean isIncomingCall = "1".equals(data.get("dibay_call")) || "incoming_call".equals(callPushKind);
+    if (isIncomingCall && sessionId != null) {
       String url = data.get("url");
       if (url == null || url.isEmpty()) {
         url = "dibay://call/" + sessionId;
@@ -63,18 +79,29 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
-    String url = data.get("url");
-    String roomId = data.get("roomId");
-    if (roomId == null) roomId = data.get("room_id");
-    if ((url == null || url.isEmpty()) && roomId != null && !roomId.isEmpty()) {
-      url = "dibay://chat/" + roomId;
-    }
-    showMessageNotification(title, body, url);
+    showMessageNotification(title, body, resolveMessageDeepLink(data), data.get("tag"));
   }
 
   @Override
   public void onNewToken(String token) {
     Log.i(TAG, "token_refresh length=" + (token != null ? token.length() : 0));
+  }
+
+  private static String firstNonEmpty(String value) {
+    if (value == null) return null;
+    String trimmed = value.trim();
+    return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private static String resolveMessageDeepLink(Map<String, String> data) {
+    String url = data.get("url");
+    if (url != null && !url.isEmpty()) return url;
+    String roomId = data.get("roomId");
+    if (roomId == null) roomId = data.get("room_id");
+    if (roomId != null && !roomId.isEmpty()) {
+      return "dibay://chat/" + roomId;
+    }
+    return null;
   }
 
   private void ensureMessagesChannel() {
@@ -83,12 +110,14 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (nm == null) return;
     if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
     NotificationChannel channel =
-        new NotificationChannel(MESSAGES_CHANNEL_ID, "알림", NotificationManager.IMPORTANCE_DEFAULT);
+        new NotificationChannel(MESSAGES_CHANNEL_ID, "메시지 알림", NotificationManager.IMPORTANCE_HIGH);
     channel.setDescription("채팅·주문·커뮤니티 알림");
+    channel.enableVibration(true);
+    channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);
   }
 
-  private void showMessageNotification(String title, String body, String url) {
+  private void showMessageNotification(String title, String body, String url, String tag) {
     ensureMessagesChannel();
     Intent launch = new Intent(this, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
@@ -103,21 +132,28 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
       flags |= PendingIntent.FLAG_IMMUTABLE;
     }
-    PendingIntent pi = PendingIntent.getActivity(this, (int) System.currentTimeMillis(), launch, flags);
+    int requestCode = tag != null ? tag.hashCode() : (int) (System.currentTimeMillis() % Integer.MAX_VALUE);
+    PendingIntent pi = PendingIntent.getActivity(this, requestCode, launch, flags);
 
-    Notification notification =
+    String safeTitle = title != null && !title.isEmpty() ? title : "DIBAY";
+    String safeBody = body != null ? body : "";
+
+    NotificationCompat.Builder builder =
         new NotificationCompat.Builder(this, MESSAGES_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title != null && !title.isEmpty() ? title : "DIBAY")
-            .setContentText(body != null ? body : "")
+            .setContentTitle(safeTitle)
+            .setContentText(safeBody)
+            .setStyle(new NotificationCompat.BigTextStyle().bigText(safeBody))
             .setAutoCancel(true)
             .setContentIntent(pi)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .build();
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(Notification.DEFAULT_ALL);
 
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
-      nm.notify((int) (System.currentTimeMillis() % Integer.MAX_VALUE), notification);
+      nm.notify(requestCode, builder.build());
+      Log.i(TAG, "message_notification title=" + safeTitle);
     }
   }
 }

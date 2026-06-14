@@ -117,6 +117,13 @@ export async function sendFcmMessageV1(input: {
     const dataPayload = stringifyData(input.data);
     const isCancel = dataPayload.call_push_kind === "call_canceled";
 
+    /** Android: data-only → DibayFirebaseMessagingService.onMessageReceived (background/killed 포함). */
+    const dataWithCopy = stringifyData({
+      ...input.data,
+      title: input.title,
+      body: input.body,
+    });
+
     if (input.isCall && isCancel) {
       const messageId = await messaging.send({
         token: input.token,
@@ -134,45 +141,34 @@ export async function sendFcmMessageV1(input: {
     if (input.isCall) {
       const messageId = await messaging.send({
         token: input.token,
-        data: {
-          ...dataPayload,
+        data: stringifyData({
+          ...input.data,
           dibay_call: "1",
-        },
+          call_push_kind: "incoming_call",
+          title: input.title,
+          body: input.body,
+        }),
         android: {
           priority: "high",
           ttl: 60_000,
-          notification: {
-            title: input.title,
-            body: input.body,
-            channelId: "dibay_calls",
-            priority: "max" as const,
-            visibility: "public" as const,
-          },
         },
       });
       return {
         status: "sent",
-        provider_response: { provider: "fcm", kind: "call_high_priority", message_id: messageId },
+        provider_response: { provider: "fcm", kind: "call_data_only", message_id: messageId },
       };
     }
 
     const messageId = await messaging.send({
       token: input.token,
-      notification: {
-        title: input.title,
-        body: input.body,
-      },
-      data: dataPayload,
+      data: dataWithCopy,
       android: {
         priority: "high",
-        notification: {
-          channelId: "dibay_messages",
-        },
       },
     });
     return {
       status: "sent",
-      provider_response: { provider: "fcm", kind: "alert", message_id: messageId },
+      provider_response: { provider: "fcm", kind: "alert_data_only", message_id: messageId },
     };
   } catch (e: unknown) {
     const err = e as { code?: string; message?: string };

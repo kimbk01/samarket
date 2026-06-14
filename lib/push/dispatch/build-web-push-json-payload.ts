@@ -71,9 +71,11 @@ export function buildWebPushJsonPayload(
     body.body = "";
   }
 
+  const isIncomingCall = body.call_push_kind === "incoming_call";
+
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) {
-    return { json: s, data: body, is_call: Boolean(body.call_push_kind) };
+    return { json: s, data: body, is_call: isIncomingCall };
   }
   const trim: Record<string, unknown> = {
     ...body,
@@ -82,7 +84,7 @@ export function buildWebPushJsonPayload(
   };
   s = JSON.stringify(trim);
   if (s.length <= MAX_BYTES) {
-    return { json: s, data: trim, is_call: Boolean(trim.call_push_kind) };
+    return { json: s, data: trim, is_call: trim.call_push_kind === "incoming_call" };
   }
   const minimal = {
     title: String(out.title).slice(0, 40),
@@ -93,5 +95,9 @@ export function buildWebPushJsonPayload(
     notification_type: out.notification_type,
     ...(opts?.call_push_kind ? { call_push_kind: opts.call_push_kind } : {}),
   };
-  return { json: JSON.stringify(minimal), data: minimal, is_call: Boolean(opts?.call_push_kind) };
+  return {
+    json: JSON.stringify(minimal),
+    data: minimal,
+    is_call: opts?.call_push_kind === "incoming_call",
+  };
 }

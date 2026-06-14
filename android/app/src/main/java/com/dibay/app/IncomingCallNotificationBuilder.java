@@ -14,7 +14,7 @@ import androidx.core.app.NotificationCompat;
  * High-priority incoming call notification — FullScreenIntent + CATEGORY_CALL.
  */
 public final class IncomingCallNotificationBuilder {
-  public static final String CHANNEL_ID = "dibay_calls";
+  public static final String CHANNEL_ID = "dibay_calls_v2";
   private static final int INCOMING_CALL_NOTIFICATION_ID = 91001;
 
   private IncomingCallNotificationBuilder() {}
@@ -26,10 +26,11 @@ public final class IncomingCallNotificationBuilder {
     NotificationChannel existing = nm.getNotificationChannel(CHANNEL_ID);
     if (existing != null) return;
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "통화", NotificationManager.IMPORTANCE_HIGH);
+        new NotificationChannel(CHANNEL_ID, "수신 통화", NotificationManager.IMPORTANCE_HIGH);
     channel.setDescription("수신 음성·영상 통화");
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+    channel.setBypassDnd(true);
     nm.createNotificationChannel(channel);
   }
 
@@ -58,7 +59,8 @@ public final class IncomingCallNotificationBuilder {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(content)
-            .setFullScreenIntent(fullScreen, true);
+            .setFullScreenIntent(fullScreen, true)
+            .setDefaults(Notification.DEFAULT_ALL);
 
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
