@@ -275,7 +275,12 @@ public class MainActivity extends BridgeActivity {
         return null;
       case "call":
         if (!segments.isEmpty()) {
-          return "/community-messenger/calls/" + android.net.Uri.encode(segments.get(0));
+          String path = "/community-messenger/calls/" + android.net.Uri.encode(segments.get(0));
+          String action = data.getQueryParameter("action");
+          if (action != null && !action.trim().isEmpty()) {
+            path += "?action=" + android.net.Uri.encode(action.trim());
+          }
+          return path;
         }
         return null;
       default:

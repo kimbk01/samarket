@@ -74,13 +74,15 @@ public final class IncomingCallNotificationBuilder {
             .setAutoCancel(false)
             .setContentIntent(content)
             .setFullScreenIntent(fullScreen, true)
-            .addAction(R.mipmap.ic_launcher, "거절", rejectIntent)
-            .addAction(R.mipmap.ic_launcher, "수락", acceptIntent)
             .setDefaults(Notification.DEFAULT_ALL);
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Person caller = new Person.Builder().setName(safeBody.isEmpty() ? safeTitle : safeBody).build();
       builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, rejectIntent, acceptIntent));
+    } else {
+      builder
+          .addAction(R.mipmap.ic_launcher, "거절", rejectIntent)
+          .addAction(R.mipmap.ic_launcher, "수락", acceptIntent);
     }
 
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
