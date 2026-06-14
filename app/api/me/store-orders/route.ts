@@ -6,7 +6,8 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { notifyStoreOwnerNewOrder } from "@/lib/notifications/notify-store-commerce";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { parseModifierWireFromBody } from "@/lib/stores/product-line-options";
@@ -246,10 +247,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const access = await assertVerifiedMemberForAction(sb as any, buyerId);
-  if (!access.ok) {
-    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
-  }
+  const access = await requireSignupCompleteForUser(sb as import("@supabase/supabase-js").SupabaseClient, buyerId);
+  if (!access.ok) return access.response;
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    buyerId,
+    "delivery_order"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   let body: PostBody;
   try {

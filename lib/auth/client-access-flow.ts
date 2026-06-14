@@ -3,10 +3,6 @@
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { buildLoginPath } from "@/lib/auth/safe-next-path";
 import type { Profile } from "@/lib/types/profile";
-import {
-  bypassesPhilippinePhoneVerificationGate,
-} from "@/lib/auth/member-access";
-import { openPhoneVerificationRequiredDialog } from "@/lib/auth/phone-verification-gate-client";
 import { isPhoneVerificationRequiredError } from "@/lib/auth/phone-verification-required-detect";
 import { isClientSignupComplete, profileToDibaySignupInput } from "@/lib/auth/client-signup-gate";
 import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
@@ -34,7 +30,6 @@ function currentHrefFallback(): string {
 /**
  * 클라이언트에서 로그인 페이지로 보낼 때.
  * `next` 는 `sanitizeNextPath` 검증 후 안전한 내부 경로일 때만 부착된다.
- * (외부·`/login`·`/auth/callback` 등은 자동으로 떨어져 무한 루프를 막는다.)
  */
 export function buildLoginHref(next?: string): string {
   return buildLoginPath(next);
@@ -42,7 +37,7 @@ export function buildLoginHref(next?: string): string {
 
 export function buildPhoneVerificationHref(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/section/account/profile/edit?next=${encodeURIComponent(target)}`;
+  return `/mypage/section/account/profile/edit?required=phone&next=${encodeURIComponent(target)}`;
 }
 
 export function buildConsentHref(next?: string): string {
@@ -52,12 +47,12 @@ export function buildConsentHref(next?: string): string {
 
 export function buildDibayIdHref(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/auth/onboarding/dibay-id?next=${encodeURIComponent(target)}`;
+  return `/mypage/section/account/profile/edit?required=dibay_id&next=${encodeURIComponent(target)}`;
 }
 
 export function buildProfileSetupHrefForNext(next?: string): string {
   const target = next?.trim() || currentHrefFallback();
-  return `/mypage/section/account/profile/edit?setup=1&next=${encodeURIComponent(target)}`;
+  return `/mypage/section/account/profile/edit?next=${encodeURIComponent(target)}`;
 }
 
 export function resolveClientSignupGateHref(
@@ -84,13 +79,12 @@ export function redirectForBlockedAction(
     openLoginRequiredSheet({ actionType: "messenger_open", next: next?.trim() || currentHrefFallback() });
     return true;
   }
-  if (isPhoneVerificationRequiredError(error)) {
-    openPhoneVerificationRequiredDialog({ next });
-    return true;
-  }
   return false;
 }
 
+/**
+ * 로그인 + 약관 동의만 확인. @id·프로필·전화·주소는 requireAuthAction / requireProfileCompletion.
+ */
 export function ensureClientAccessOrRedirect(
   router: RouterLike,
   user: Profile | null | undefined,
@@ -109,29 +103,11 @@ export function ensureClientAccessOrRedirect(
     }
     return false;
   }
-  const phoneVerified = user.phone_verified === true || Boolean(user.phone_verified_at);
-  if (!phoneVerified) {
-    if (
-      !bypassesPhilippinePhoneVerificationGate({
-        role: user.role,
-        phone_verified: false,
-        phone_verified_at: user.phone_verified_at ?? null,
-        auth_provider: user.provider ?? user.auth_provider,
-        provider: user.provider ?? user.auth_provider,
-        email: user.email,
-      })
-    ) {
-      openPhoneVerificationRequiredDialog({
-        next: next?.trim() || currentHrefFallback(),
-      });
-      return false;
-    }
-  }
   return true;
 }
 
 /**
- * 프로필 캐시가 비어 있어도(동기화 레이스·일시 `getUser` 실패) 쿠키 세션이 살아 있으면 `/api/me/profile` 로 복구한 뒤 게이트를 통과시킨다.
+ * 프로필 캐시가 비어 있어도 쿠키 세션이 살아 있으면 `/api/me/profile` 로 복구한 뒤 게이트를 통과시킨다.
  */
 export async function ensureClientAccessOrRedirectAsync(
   router: RouterLike,
@@ -146,7 +122,7 @@ export async function ensureClientAccessOrRedirectAsync(
         setSupabaseProfileCache(user);
       }
     } catch {
-      /* 세션 없음·네트워크 — 아래에서 동일 확인 대화상자 */
+      /* 세션 없음·네트워크 */
     }
   }
   return ensureClientAccessOrRedirect(router, user, next);

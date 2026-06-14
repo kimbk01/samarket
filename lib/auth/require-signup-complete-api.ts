@@ -7,7 +7,8 @@ export type SignupCompleteGateResult =
   | { ok: false; response: NextResponse };
 
 /**
- * mutation API — DIBAY 가입 완료(약관 + 확정 @id) 전 403.
+ * mutation API — DIBAY 약관·개인정보 동의 미완 시 403.
+ * @id·프로필·주소는 기능별 profile-requirements gate.
  */
 export async function requireSignupCompleteForUser(
   sb: SupabaseClient,

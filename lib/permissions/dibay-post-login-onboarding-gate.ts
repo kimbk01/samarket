@@ -1,7 +1,7 @@
 /**
  * 로그인 후 온보딩 오버레이(알림·통화 미디어) 공통 진입 조건.
+ * 주소는 기능별 requireProfileCompletion — 알림·미디어 프롬프트를 막지 않는다.
  */
-import { readMandatoryAddressGateNeedsBlock } from "@/lib/addresses/mandatory-address-gate-client";
 import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 
 export function isPostLoginOnboardingAuthExcludedPath(path: string): boolean {
@@ -28,7 +28,7 @@ export function canAttemptPostLoginOnboardingGate(pathname: string, deferStoresH
 }
 
 export async function isPostLoginOnboardingBlockedByAddressGate(): Promise<boolean> {
-  return readMandatoryAddressGateNeedsBlock();
+  return false;
 }
 
 export function schedulePostLoginOnboardingOpen(run: () => void): void {

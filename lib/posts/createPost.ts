@@ -6,28 +6,22 @@
  */
 import type { CreatePostPayload, CreatePostResponse } from "./types";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
+import { handleProfileIncompleteApiResponse } from "@/lib/profile/handle-profile-incomplete-api-response";
 
-/** `TradeWriteForm` 등에서 업로드와 겹쳐 `userId`·전화 게이트를 미리 통과시킨 경우 중복 네트워크 생략 */
+/** `TradeWriteForm` 등에서 업로드와 겹쳐 `userId` 를 미리 확보한 경우 중복 세션 조회 생략 */
 export type CreatePostAuthPreflight = {
   userId: string;
-  phoneGatePassed: true;
+  /** @deprecated 서버 `/api/posts/create` 가 actionType 별 프로필 gate 를 검증 */
+  phoneGatePassed?: true;
 };
 
 export async function createPost(
   payload: CreatePostPayload,
   authPreflight?: CreatePostAuthPreflight
 ): Promise<CreatePostResponse> {
-  if (authPreflight?.phoneGatePassed && authPreflight.userId) {
-    /* 서버 API가 세션·전화 게이트를 재검증 — 클라이언트 preflight는 UX용 중복 생략만 */
-  } else {
-    const [uid, gate] = await Promise.all([getCurrentUserIdForDb(), assertPhoneAllowsPostWrite()]);
-    if (!uid) {
-      return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
-    }
-    if (!gate.ok) {
-      return { ok: false, error: gate.error };
-    }
+  const userId = authPreflight?.userId ?? (await getCurrentUserIdForDb());
+  if (!userId) {
+    return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
   }
 
   const title = payload.title?.trim() ?? "";
@@ -42,8 +36,14 @@ export async function createPost(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string };
+    const data = (await res.json().catch(() => ({}))) as Parameters<
+      typeof handleProfileIncompleteApiResponse
+    >[0] & { ok?: boolean; id?: string; error?: string };
     if (!res.ok || !data.ok) {
+      const profileHandled = handleProfileIncompleteApiResponse(data);
+      if (profileHandled.handled) {
+        return { ok: false, error: profileHandled.error };
+      }
       return {
         ok: false,
         error: typeof data.error === "string" ? data.error : "저장에 실패했습니다.",

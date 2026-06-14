@@ -33,9 +33,9 @@ import {
 
 const AUTH_REQUEST_TIMEOUT_MS = 25_000;
 const LOGIN_IDENTIFIER_RESOLVE_TIMEOUT_MS = 10_000;
-async function resolvePostAuthDestination(fallback: string): Promise<string> {
+async function resolvePostAuthDestination(fallback: string, handoffNext?: string | null): Promise<string> {
   try {
-    const { status, json } = await fetchSignupStatusDeduped();
+    const { status, json } = await fetchSignupStatusDeduped(handoffNext ?? fallback);
     if (status === 200 && json?.route?.trim()) {
       return json.route.trim();
     }
@@ -45,11 +45,11 @@ async function resolvePostAuthDestination(fallback: string): Promise<string> {
   return fallback;
 }
 
-async function navigateAfterFreshLogin(destination: string): Promise<void> {
+async function navigateAfterFreshLogin(destination: string, handoffNext?: string | null): Promise<void> {
   await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
   await ensureAppBoot();
   clearPostLogoutBfcacheGuard();
-  const target = await resolvePostAuthDestination(destination);
+  const target = await resolvePostAuthDestination(destination, handoffNext ?? destination);
   window.location.replace(target);
 }
 
@@ -245,7 +245,7 @@ function LoginPageContent() {
         } = await supabase.auth.getSession();
         if (cancelled || !session?.user) return;
         await ensureAppBoot();
-        const target = await resolvePostAuthDestination(postLoginDestination);
+        const target = await resolvePostAuthDestination(postLoginDestination, next);
         if (!cancelled) window.location.assign(target);
       } catch {
         /* 세션 조회 실패 시 로그인 화면 유지 */
@@ -390,7 +390,7 @@ function LoginPageContent() {
         Math.round(performance.now() - loginUntilNavT0)
       );
       leaveLoginShellIntact = true;
-      await navigateAfterFreshLogin(postLoginDestination);
+      await navigateAfterFreshLogin(postLoginDestination, next);
       return;
     } catch (unexpected) {
       /**

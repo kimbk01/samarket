@@ -14,6 +14,7 @@ import {
   normalizeStoreAuthProvider,
   STORE_PHONE_GATE_MESSAGE,
 } from "@/lib/auth/store-member-policy";
+import { resolveOAuthSeedDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { isVerifiedMember } from "@/lib/auth/member-status";
 
 export type MemberAccessState = {
@@ -222,6 +223,7 @@ export async function ensurePendingAuthProfileRow(
   const seed = seedInput ?? extractOAuthProfileSeed(user);
   const email = pickTrimmed(user.email);
   const nicknameCandidate = pickTrimmed(seed.nicknameCandidate);
+  const seedDisplayName = resolveOAuthSeedDisplayName(nicknameCandidate);
   const oauthAvatar = withDefaultAvatar(seed.avatarCandidate);
   const dbProvider = normalizeProviderForDb(seed.authProvider) ?? "email";
   const nowIso = new Date().toISOString();
@@ -254,8 +256,8 @@ export async function ensurePendingAuthProfileRow(
       patch.nickname = unique;
       patch.display_name = unique;
     } else {
-      if (!pickTrimmed(row.nickname as string) && nicknameCandidate) patch.nickname = nicknameCandidate;
-      if (!pickTrimmed(row.display_name as string) && nicknameCandidate) patch.display_name = nicknameCandidate;
+      if (!pickTrimmed(row.nickname as string)) patch.nickname = seedDisplayName;
+      if (!pickTrimmed(row.display_name as string)) patch.display_name = seedDisplayName;
     }
     mergeOAuthAvatarIntoPatch(
       patch,
@@ -272,7 +274,7 @@ export async function ensurePendingAuthProfileRow(
         privacy_accepted_at: pickTrimmed(row.privacy_accepted_at as string),
         privacy_version: pickTrimmed(row.privacy_version as string),
       });
-      patch.onboarding_status = consent ? "id_required" : "terms_required";
+      patch.onboarding_status = consent ? "oauth_authenticated" : "terms_required";
     }
     if (Object.keys(patch).length > 0) {
       patch.updated_at = nowIso;
@@ -285,8 +287,8 @@ export async function ensurePendingAuthProfileRow(
     id: user.id,
     email,
     auth_login_email: email,
-    nickname: nicknameCandidate,
-    display_name: nicknameCandidate,
+    nickname: seedDisplayName,
+    display_name: seedDisplayName,
     avatar_url: oauthAvatar,
     provider: dbProvider,
     auth_provider: dbProvider,
@@ -313,8 +315,8 @@ export async function ensurePendingAuthProfileRow(
     const minimalRow = {
       id: user.id,
       email,
-      nickname: nicknameCandidate,
-      display_name: nicknameCandidate,
+      nickname: seedDisplayName,
+      display_name: seedDisplayName,
       avatar_url: oauthAvatar,
       updated_at: nowIso,
     };

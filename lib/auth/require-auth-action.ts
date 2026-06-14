@@ -3,13 +3,12 @@
 import type { Profile } from "@/lib/types/profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { resolveClientProfileFromSession } from "@/lib/auth/resolve-client-profile-session";
-import {
-  clientHasVerifiedContactForInteractive,
-  openPhoneVerificationRequiredDialog,
-} from "@/lib/auth/phone-verification-gate-client";
+import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
 import { requestPermission } from "@/lib/permissions/device-permission-manager";
 import { sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
+import { toProfileActionType } from "@/lib/profile/profile-requirements";
+import { requireProfileCompletionClient } from "@/lib/profile/require-profile-completion.client";
 
 export type RequireAuthActionType =
   | "community_write"
@@ -23,6 +22,7 @@ export type RequireAuthActionType =
   | "trade_buy"
   | "trade_chat"
   | "messenger_open"
+  | "messenger_new_chat"
   | "friend_add"
   | "friend_chat"
   | "voice_call"
@@ -37,7 +37,9 @@ export type RequireAuthActionType =
 
 export type RequireAuthActionOptions = {
   next?: string;
+  /** @deprecated profile-requirements 매트릭스 사용 */
   requirePhone?: boolean;
+  /** @deprecated profile-requirements 매트릭스 사용 */
   requireAddress?: boolean;
 };
 
@@ -47,15 +49,8 @@ export type LoginRequiredDetail = {
   token?: string;
 };
 
-export type AddressRequiredDetail = {
-  actionType: RequireAuthActionType;
-  next?: string;
-  token?: string;
-};
-
 export const DIBAY_LOGIN_REQUIRED_EVENT = "dibay:login-required" as const;
 export const DIBAY_LOGIN_REQUIRED_DISMISS_EVENT = "dibay:login-required-dismiss" as const;
-export const DIBAY_ADDRESS_REQUIRED_EVENT = "dibay:address-required" as const;
 
 type PendingAction = () => void | Promise<void>;
 
@@ -76,17 +71,10 @@ export function clearPendingAuthActions(): void {
   pendingActions.clear();
 }
 
-const ACTION_REQUIRES_PHONE = new Set<RequireAuthActionType>([
-  "trade_create_item",
-  "trade_favorite",
-  "trade_report",
-  "trade_buy",
-  "trade_chat",
-]);
-
-const ACTION_REQUIRES_ADDRESS = new Set<RequireAuthActionType>([
-  "delivery_order",
-]);
+function buildConsentHrefForAction(next?: string): string {
+  const target = next?.trim() || currentHrefFallback();
+  return `/auth/onboarding/terms?next=${encodeURIComponent(target)}`;
+}
 
 function currentHrefFallback(): string {
   if (typeof window === "undefined") return POST_LOGIN_PATH;
@@ -126,11 +114,6 @@ export function reopenLoginRequiredSheet(): void {
   dispatchLoginRequired(lastLoginRequiredDetail);
 }
 
-export function openAddressRequiredSheet(detail: AddressRequiredDetail): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent<AddressRequiredDetail>(DIBAY_ADDRESS_REQUIRED_EVENT, { detail }));
-}
-
 export async function consumePendingAuthAction(token: string | null | undefined): Promise<boolean> {
   const normalized = String(token ?? "").trim();
   if (!normalized) return false;
@@ -141,21 +124,17 @@ export async function consumePendingAuthAction(token: string | null | undefined)
   return true;
 }
 
+/** 모달 취소·나중에 — pending action 폐기 (재실행 없음) */
+export function dismissPendingAuthAction(token?: string | null): void {
+  const normalized = String(token ?? "").trim();
+  if (!normalized) return;
+  pendingActions.delete(normalized);
+}
+
 async function resolveClientProfile(): Promise<Profile | null> {
   const cached = getCurrentUser();
   if (cached?.id) return cached;
   return resolveClientProfileFromSession("requireAuthAction");
-}
-
-async function hasDefaultAddress(): Promise<boolean> {
-  const res = await fetch("/api/me/mandatory-address-gate", {
-    credentials: "include",
-    cache: "no-store",
-  });
-  const json = (await res.json().catch(() => null)) as
-    | { ok?: boolean; authenticated?: boolean; needsBlock?: boolean }
-    | null;
-  return res.ok && json?.ok === true && json.authenticated === true && json.needsBlock !== true;
 }
 
 function permissionFeatureKey(actionType: RequireAuthActionType) {
@@ -203,20 +182,22 @@ export async function requireAuthAction(
     return false;
   }
 
-  const needsPhone = options.requirePhone === true || ACTION_REQUIRES_PHONE.has(actionType);
-  if (needsPhone && !clientHasVerifiedContactForInteractive(profile)) {
-    openPhoneVerificationRequiredDialog({ next });
+  if (!isClientSignupComplete(profile)) {
+    if (typeof window !== "undefined") {
+      window.location.assign(buildConsentHrefForAction(next));
+    }
     return false;
   }
 
-  const needsAddress = options.requireAddress === true || ACTION_REQUIRES_ADDRESS.has(actionType);
-  if (needsAddress && !(await hasDefaultAddress())) {
+  const profileActionType = toProfileActionType(actionType);
+  if (profileActionType) {
     const token = createPendingToken();
     pendingActions.set(token, async () => {
       await requireAuthAction(actionType, nextAction, options);
     });
-    openAddressRequiredSheet({ actionType, next, token });
-    return false;
+    const ok = await requireProfileCompletionClient(profile, profileActionType, { next, token });
+    if (!ok) return false;
+    pendingActions.delete(token);
   }
 
   if (!(await ensureDevicePermissions(actionType))) return false;

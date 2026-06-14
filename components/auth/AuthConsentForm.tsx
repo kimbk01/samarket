@@ -77,7 +77,7 @@ export function AuthConsentForm() {
 
       markSignupConsentResolvedSession();
 
-      const { status: signupStatus, json: signupJson } = await fetchSignupStatusDeduped();
+      const { status: signupStatus, json: signupJson } = await fetchSignupStatusDeduped(next);
       const target =
         signupStatus === 200 && signupJson?.route?.trim()
           ? signupJson.route.trim()

@@ -1,6 +1,8 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   countUserCommunityPostsToday,
@@ -40,8 +42,6 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
 
   let body: {
     locationKey?: string;
@@ -128,6 +128,19 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
+
+  const termsGate = await requireSignupCompleteForUser(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId
+  );
+  if (!termsGate.ok) return termsGate.response;
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "community_write"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   const isMeetup = rawCat === "meetup";
   const locInput = coalesceNeighborhoodLocationInput(locationKey, {

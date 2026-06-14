@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { validateActiveSession } from "@/lib/auth/server-guards";
+import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -52,8 +55,26 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
+
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return jsonError("server_config", 503);
+  }
+
+  const signupGate = await requireSignupCompleteForUser(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId
+  );
+  if (!signupGate.ok) return signupGate.response;
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "messenger_new_chat"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   const createRateLimit = await enforceRateLimit({
     key: `community-messenger:room-create:${getRateLimitKey(req, auth.userId)}`,

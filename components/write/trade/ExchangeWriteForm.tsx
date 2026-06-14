@@ -54,6 +54,7 @@ import {
 } from "@/lib/posts/jobs-exchange-write-draft-signal";
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -650,12 +651,13 @@ export function ExchangeWriteForm({
       if (!validate()) return;
       setSubmitting(true);
       try {
-        if (
-          !(await ensureClientAccessOrRedirectAsync(
-            router,
-            pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`)
-          ))
-        ) {
+        const pathFallback =
+          pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`);
+        if (editPostId) {
+          if (!(await ensureClientAccessOrRedirectAsync(router, pathFallback))) {
+            return;
+          }
+        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
           return;
         }
         const user = getCurrentUser();

@@ -76,11 +76,6 @@ import { MAIN_BOTTOM_NAV_TAB_ICONS, MainBottomNavHomeIcon } from "@/components/m
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import { isMainBottomNavUnifiedInboxTabId } from "@/lib/community-messenger/messenger-entry-origin";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import {
-  clientHasVerifiedContactForInteractive,
-  openPhoneVerificationRequiredDialog,
-} from "@/lib/auth/phone-verification-gate-client";
 import { dismissLoginRequiredSheet, requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { probeMainBottomNavRiskyNavigation } from "@/lib/navigation/main-bottom-nav-risky-navigation";
@@ -1353,19 +1348,13 @@ export function BottomNav({
         });
         if (!guardBeforeNavigate(targetHref)) return false;
         if (!targetHref.includes("/community-messenger")) return true;
-        const user = getCurrentUser();
-        if (!user?.id) {
-          void requireAuthAction(
-            "messenger_open",
-            () => {
-              router.push(targetHref);
-            },
-            { next: targetHref },
-          );
-          return false;
-        }
-        if (clientHasVerifiedContactForInteractive(user)) return true;
-        openPhoneVerificationRequiredDialog({ next: targetHref });
+        void requireAuthAction(
+          "messenger_open",
+          () => {
+            router.push(targetHref);
+          },
+          { next: targetHref },
+        );
         return false;
       };
       const closeSwitcherOnNav = undefined;

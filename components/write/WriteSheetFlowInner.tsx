@@ -12,7 +12,7 @@ import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
 import { getUnifiedWriteHref } from "@/lib/categories/getCategoryHref";
 import { type CategoryWithSettings } from "@/lib/types/category";
-import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
@@ -29,7 +29,7 @@ export type WriteSheetFlowInnerProps = {
   categoryKey: string;
   /** tradeSheet: 부모가 `categoryKey`를 갱신 — 피드 URL은 그대로 */
   onTradeSheetCategoryChange?: (next: string) => void;
-  /** `ensureClientAccessOrRedirectAsync` 용 */
+  /** `requireAuthAction` 용 복귀 경로 */
   pathnameForAuth: string;
   onUserRequestClose: () => void;
   onSuccessNavigate: (category: CategoryWithSettings, postId: string) => void;
@@ -103,17 +103,22 @@ export function WriteSheetFlowInner({
         setFormStatus("idle");
         return;
       }
-      if (!(await ensureClientAccessOrRedirectAsync(router, pathnameForAuth || "/write"))) {
-        setSelectedCategory(null);
-        setFormStatus("redirecting");
-        return;
-      }
       const v = value.trim();
       const n = normalizeMarketSlugParam(v);
       const fromList = categories.find(
         (c) => c.id === v || c.id === n || (c.slug && (c.slug === v || c.slug === n))
       );
       if (fromList) {
+        const profileAction =
+          fromList.type === "community" ? "community_write" : "trade_create_item";
+        const profileOk = await requireAuthAction(profileAction, async () => {}, {
+          next: pathnameForAuth || "/write",
+        });
+        if (!profileOk) {
+          setSelectedCategory(null);
+          setFormStatus("redirecting");
+          return;
+        }
         if (fromList.settings && !fromList.settings.can_write) {
           setSelectedCategory(fromList);
           setFormStatus("no_write");
@@ -131,6 +136,15 @@ export function WriteSheetFlowInner({
           setFormStatus("not_found");
           return;
         }
+        const profileAction = c.type === "community" ? "community_write" : "trade_create_item";
+        const profileOk = await requireAuthAction(profileAction, async () => {}, {
+          next: pathnameForAuth || "/write",
+        });
+        if (!profileOk) {
+          setSelectedCategory(null);
+          setFormStatus("redirecting");
+          return;
+        }
         if (c.settings && !c.settings.can_write) {
           setSelectedCategory(c);
           setFormStatus("no_write");
@@ -143,7 +157,7 @@ export function WriteSheetFlowInner({
         setFormStatus("not_found");
       }
     },
-    [router, pathnameForAuth, categories]
+    [pathnameForAuth, categories]
   );
 
   useEffect(() => {

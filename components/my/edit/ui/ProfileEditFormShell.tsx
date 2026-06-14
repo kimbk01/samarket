@@ -25,13 +25,15 @@ export function ProfileEditSection({
   title,
   children,
   noPadding = false,
+  className,
 }: {
   title?: string;
   children: ReactNode;
   noPadding?: boolean;
+  className?: string;
 }) {
   return (
-    <section className={PROFILE_EDIT_CARD_CLASS}>
+    <section className={[PROFILE_EDIT_CARD_CLASS, className].filter(Boolean).join(" ")}>
       {title?.trim() ? (
         <div className="border-b border-[#D4E9E2]/80 px-4 py-2.5">
           <h2 className={PROFILE_EDIT_FIELD_LABEL_CLASS}>{title}</h2>

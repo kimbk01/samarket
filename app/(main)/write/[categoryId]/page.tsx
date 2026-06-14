@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { TradeCategoryWriteForm } from "@/components/write/trade/TradeCategoryWriteForm";
 import { CommunityWriteForm } from "@/components/write/community/CommunityWriteForm";
 import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
@@ -22,7 +23,7 @@ export default function WriteByCategoryPage() {
   const categoryId = rawId === "exchang" ? "exchange" : rawId;
 
   const [category, setCategory] = useState<CategoryWithSettings | null>(null);
-  const [status, setStatus] = useState<"loading" | "found" | "not_found" | "no_write">("loading");
+  const [status, setStatus] = useState<"loading" | "redirecting" | "found" | "not_found" | "no_write">("loading");
 
   useEffect(() => {
     if (rawId === "exchang") {
@@ -49,6 +50,16 @@ export default function WriteByCategoryPage() {
     if (!c) {
       setStatus("not_found");
       return;
+    }
+    const nextPath = pathname || `/write/${categoryId}`;
+    const profileAction =
+      c.type === "community" ? "community_write" : c.type === "trade" ? "trade_create_item" : null;
+    if (profileAction) {
+      const profileOk = await requireAuthAction(profileAction, async () => {}, { next: nextPath });
+      if (!profileOk) {
+        setStatus("redirecting");
+        return;
+      }
     }
     // settings가 있으면 can_write 반영, 없으면 글쓰기 허용
     if (c.settings && !c.settings.can_write) {
@@ -85,10 +96,10 @@ export default function WriteByCategoryPage() {
     );
   }
 
-  if (status === "loading") {
+  if (status === "loading" || status === "redirecting") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-        불러오는 중…
+        {status === "redirecting" ? t("ui_write_auth_checking") : "불러오는 중…"}
       </div>
     );
   }

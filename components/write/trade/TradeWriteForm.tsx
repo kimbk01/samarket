@@ -115,7 +115,6 @@ function buildTradeMeta(
   return {};
 }
 import { createPost } from "@/lib/posts/createPost";
-import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
 import { updateTradePostFromCreatePayload } from "@/lib/posts/updateTradePost";
 import type { OwnerEditPostSnapshot, TradePolicyClient } from "@/lib/posts/owner-edit-post-snapshot";
 import { hydrateTradeWriteFormFromSnapshot } from "@/lib/posts/apply-owner-snapshot-to-trade-write-form";
@@ -123,6 +122,7 @@ import { normalizeTradeChatCallPolicy, type TradeChatCallPolicy } from "@/lib/tr
 import { uploadPostImages } from "@/lib/posts/uploadPostImages";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -1156,12 +1156,13 @@ export function TradeWriteForm({
       if (!validate()) return;
       setSubmitting(true);
       try {
-        if (
-          !(await ensureClientAccessOrRedirectAsync(
-            router,
-            pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`)
-          ))
-        ) {
+        const pathFallback =
+          pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`);
+        if (editPostId) {
+          if (!(await ensureClientAccessOrRedirectAsync(router, pathFallback))) {
+            return;
+          }
+        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathFallback }))) {
           return;
         }
         const user = getCurrentUser();
@@ -1185,19 +1186,11 @@ export function TradeWriteForm({
         } else {
           const uploadPromise =
             files.length > 0 && user?.id ? uploadPostImages(files, user.id) : Promise.resolve<string[]>([]);
-          const [uploaded, preflightUserId, phoneGate] = await Promise.all([
+          const [uploaded, preflightUserId] = await Promise.all([
             uploadPromise,
             getCurrentUserIdForDb(),
-            assertPhoneAllowsPostWrite(),
           ]);
           uploadedFileResults = uploaded;
-          if (!phoneGate.ok) {
-            const next =
-              pathname || (editPostId ? `/products/${editPostId}/edit` : `/write/${category.slug}`);
-            if (redirectForBlockedAction(router, phoneGate.error, next)) return;
-            setErrors({ submit: phoneGate.error });
-            return;
-          }
           if (!preflightUserId) {
             setErrors({ submit: t("trade_write_err_login") });
             return;

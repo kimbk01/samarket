@@ -4,4 +4,4 @@
  *   이 경로로 통일한다 (스펙: 1·E, 2, 6, 7, 9).
  * - 미인증 시 `/login` 은 `?next=` 가 검증된 경우에만 부착된다 (`safe-next-path.ts`).
  */
-export const POST_LOGIN_PATH = "/philife" as const;
+export const POST_LOGIN_PATH = "/" as const;

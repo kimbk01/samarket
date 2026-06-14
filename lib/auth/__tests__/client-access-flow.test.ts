@@ -10,10 +10,6 @@ vi.mock("@/lib/auth/require-auth-action", () => ({
   openLoginRequiredSheet: vi.fn(),
 }));
 
-vi.mock("@/lib/auth/phone-verification-gate-client", () => ({
-  openPhoneVerificationRequiredDialog: vi.fn(),
-}));
-
 const consented = {
   terms_accepted_at: "2026-01-01T00:00:00.000Z",
   terms_version: STORE_TERMS_VERSION,
@@ -40,24 +36,31 @@ describe("client-access-flow signup gate", () => {
     expect(href.startsWith("/auth/onboarding/terms")).toBe(true);
   });
 
-  it("routes profile-incomplete user to profile setup", () => {
+  it("allows consented user through without profile setup redirect", () => {
     const href = resolveClientSignupGateHref(
       baseProfile({
         ...consented,
-        dibay_id: "boss_market",
-        dibay_id_locked: true,
-        display_name: "Boss",
       }),
       "/philife"
     );
-    expect(href).toContain("/mypage/section/account/profile/edit");
-    expect(href).toContain("setup=1");
+    expect(href).toBe("/philife");
   });
 
-  it("redirects incomplete user via router.replace", () => {
+  it("redirects incomplete consent user via router.replace", () => {
     const replace = vi.fn();
     const ok = ensureClientAccessOrRedirect({ push: vi.fn(), replace }, baseProfile(), "/philife");
     expect(ok).toBe(false);
     expect(replace).toHaveBeenCalledWith(expect.stringContaining("/auth/onboarding/terms"));
+  });
+
+  it("allows consented user through ensureClientAccessOrRedirect", () => {
+    const replace = vi.fn();
+    const ok = ensureClientAccessOrRedirect(
+      { push: vi.fn(), replace },
+      baseProfile({ ...consented }),
+      "/philife"
+    );
+    expect(ok).toBe(true);
+    expect(replace).not.toHaveBeenCalled();
   });
 });

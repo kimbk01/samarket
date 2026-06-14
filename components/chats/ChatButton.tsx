@@ -4,7 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { ensureClientAccessOrRedirectAsync } from "@/lib/auth/client-access-flow";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   openCreateTradeChat,
   openExistingTradeChat,
@@ -64,8 +64,7 @@ export function ChatButton({
   }, [existingRoomId, existingRoomSource, existingMessengerRoomId, productId, router]);
 
   const handleClick = () => {
-    void (async () => {
-      if (!(await ensureClientAccessOrRedirectAsync(router))) return;
+    void requireAuthAction("trade_chat", async () => {
       if (hasExisting) {
         openExistingTradeChat(router, {
           productId,
@@ -76,7 +75,7 @@ export function ChatButton({
         return;
       }
       openCreateTradeChat(router, { productId, composePreview });
-    })();
+    });
   };
 
   return (

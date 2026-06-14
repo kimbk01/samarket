@@ -19,7 +19,7 @@ import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client"
 import { wipeClientSessionState, clearPostLogoutBfcacheGuard } from "@/lib/auth/client-session-wipe";
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
-import { sanitizeFreshLoginLandingPath } from "@/lib/auth/safe-next-path";
+import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { consumePendingAuthAction, clearStoredLoginRequiredDetail, type LoginRequiredDetail } from "@/lib/auth/require-auth-action";
 import { AuthGateOverlay } from "@/components/auth/AuthGateOverlay";
@@ -131,9 +131,10 @@ export function AuthModal({ open, detail, onClose }: Props) {
       await wipeClientSessionState("pre_login_bootstrap", { setPostLogoutGuard: false });
       await ensureAppBoot();
       clearPostLogoutBfcacheGuard();
+      const handoffNext = sanitizeNextPath(next) ?? undefined;
       let target = sanitizeFreshLoginLandingPath(next) ?? POST_LOGIN_PATH;
       try {
-        const { status, json } = await fetchSignupStatusDeduped();
+        const { status, json } = await fetchSignupStatusDeduped(handoffNext);
         if (status === 200 && json?.route?.trim()) {
           target = sanitizeFreshLoginLandingPath(json.route.trim()) ?? POST_LOGIN_PATH;
         }

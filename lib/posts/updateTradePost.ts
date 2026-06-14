@@ -3,7 +3,6 @@
 import type { CreatePostPayload } from "./types";
 import type { TradeJobColumnPayload } from "@/lib/posts/trade-job-db-fields";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
-import { assertPhoneAllowsPostWrite } from "@/lib/posts/phone-gate-for-post-write";
 
 export type UpdateTradePostResponse = { ok: true } | { ok: false; error: string };
 
@@ -28,12 +27,9 @@ type TradeUpdateBody = {
  * 본인 trade 글 수정 — 서버 API에서 거래 라이프사이클·핵심 필드 검증.
  */
 export async function updateTradePost(postId: string, body: TradeUpdateBody): Promise<UpdateTradePostResponse> {
-  const [userId, gate] = await Promise.all([getCurrentUserIdForDb(), assertPhoneAllowsPostWrite()]);
+  const userId = await getCurrentUserIdForDb();
   if (!userId) {
     return { ok: false, error: "로그인이 필요합니다. Supabase 로그인 후 다시 시도해 주세요." };
-  }
-  if (!gate.ok) {
-    return { ok: false, error: gate.error };
   }
 
   const title = body.title?.trim() ?? "";

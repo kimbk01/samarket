@@ -25,16 +25,17 @@ import {
   fetchMandatoryAddressGateDeduped,
   invalidateMandatoryAddressGateClientCache,
 } from "@/lib/addresses/mandatory-address-gate-client";
+import { isDibayIdComplete } from "@/lib/auth/dibay-signup-status";
+import { hasValidDisplayName } from "@/lib/auth/post-login-profile-policy";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import {
-  isProfileSetupComplete,
   isProfileSetupMode,
   isProfileSetupPending,
 } from "@/lib/auth/profile-setup-flow";
 import {
-  clearProfileSetupDeferForSession,
   deferProfileSetupForSession,
 } from "@/lib/auth/profile-setup-defer.client";
+import { normalizeRequiredSlugFromUrl } from "@/lib/profile/profile-requirements";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
@@ -51,6 +52,7 @@ import { ProfileEditHeader } from "@/components/my/edit/ui/ProfileEditHeader";
 import { ProfileEditBottomSaveBar } from "@/components/my/edit/ui/ProfileEditBottomSaveBar";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { ProfileDibayIdSection } from "@/components/my/edit/ProfileDibayIdSection";
 import { formatAtUsername } from "@/lib/users/user-label";
 
 export const PROFILE_EDIT_FORM_ID = "dibay-profile-edit-form";
@@ -73,9 +75,22 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const searchParams = useSearchParams();
   const setupMode = isProfileSetupMode(searchParams);
   const setupNext = useMemo(
-    () => sanitizeNextPath(searchParams?.get("next") ?? null),
+    () =>
+      sanitizeNextPath(
+        searchParams?.get("returnTo") ?? searchParams?.get("next") ?? null,
+      ),
     [searchParams],
   );
+  const requiredSlugs = useMemo(() => {
+    const raw = searchParams?.get("required") ?? "";
+    return new Set(
+      raw
+        .split(",")
+        .map((s) => normalizeRequiredSlugFromUrl(s))
+        .filter(Boolean),
+    );
+  }, [searchParams]);
+  const isRequiredSlug = useCallback((slug: string) => requiredSlugs.has(slug), [requiredSlugs]);
   const setupExitRef = useRef(false);
   const { t } = useI18n();
   const { refreshProfileLocation } = useRegion();
@@ -264,8 +279,11 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   }, [pathname, refreshSetupGate]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (requiredSlugs.size === 0 || loading) return;
+    const slug = [...requiredSlugs][0];
+    const el = document.querySelector(`[data-profile-field="${slug}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [requiredSlugs, loading]);
 
   useEffect(() => {
     if (!setupMode) return;
@@ -284,32 +302,46 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const handleSetupDismiss = useCallback(() => {
     deferProfileSetupForSession();
     invalidateMandatoryAddressGateClientCache();
-    // next가 /mypage/... 이면 게이트에 즉시 재진입 — 취소는 항상 홈
     router.replace(POST_LOGIN_PATH);
   }, [router]);
 
-  useEffect(() => {
-    if (!setupMode || !setupGateReady || setupExitRef.current || !profile) return;
-    if (
-      !isProfileSetupComplete({
-        needsBlock: addressNeedsBlock,
-        phoneVerified: phoneSatisfiedForSetup,
-      })
-    ) {
+  const tryNavigateAfterRequirementSave = useCallback(async () => {
+    if (!setupNext) return;
+    if (requiredSlugs.size === 0) {
+      router.replace(setupNext);
       return;
     }
-    clearProfileSetupDeferForSession();
-    setupExitRef.current = true;
-    router.replace(setupNext ?? POST_LOGIN_PATH);
-  }, [
-    setupMode,
-    setupGateReady,
-    addressNeedsBlock,
-    phoneSatisfiedForSetup,
-    setupNext,
-    router,
-    profile,
-  ]);
+    let ready = true;
+    if (requiredSlugs.has("nickname")) {
+      ready = hasValidDisplayName({ display_name: displayName, nickname: profile?.nickname });
+    }
+    if (ready && requiredSlugs.has("phone") && profile) {
+      ready = isProfileContactVerified(profile);
+    }
+    if (ready && requiredSlugs.has("dibay_id") && profile) {
+      ready = isDibayIdComplete({
+        dibay_id: profile.dibay_id,
+        dibay_id_locked: profile.dibay_id_locked,
+        username: profile.username,
+        username_confirmed: profile.dibay_id_locked === true ? true : null,
+      });
+    }
+    if (ready && requiredSlugs.has("address")) {
+      invalidateMandatoryAddressGateClientCache();
+      const res = await fetchMandatoryAddressGateDeduped({
+        component: "ProfileEditForm",
+        reason: "tryNavigateAfterRequirementSave",
+        bypassCache: true,
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { needsBlock?: boolean; authenticated?: boolean };
+        ready = json.authenticated === true && json.needsBlock !== true;
+      } else {
+        ready = false;
+      }
+    }
+    if (ready) router.replace(setupNext);
+  }, [router, setupNext, requiredSlugs, displayName, profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -319,28 +351,33 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     if (Object.keys(err).length > 0) return;
 
     const fa = mapFullAddress.trim();
-    if (mapLat == null || mapLng == null || !fa) {
+    const hasMap = mapLat != null && mapLng != null && Boolean(fa);
+
+    if (setupMode && addressNeedsBlock && !hasMap) {
       setMessage({ type: "error", text: t("profile_edit_warn_address_required") });
       return;
     }
 
-    const matched = matchRegionCityFromFullAddress(fa);
-    const regionCode = matched ? encodeProfileAppLocationStorage(matched.regionId, matched.cityId) : null;
-    const regionName = matched ? buildProfileRegionNameForStorage(matched.regionId, matched.cityId) : null;
-
-    setSaving(true);
     const payload: ProfileUpdatePayload = {
       display_name: displayName.trim(),
       avatar_url: withDefaultAvatar(avatarUrl),
       bio: bio.trim() || null,
-      latitude: mapLat,
-      longitude: mapLng,
-      full_address: fa,
-      region_code: regionCode,
-      region_name: regionName,
-      address_street_line: addressStreetLine.trim() || null,
-      address_detail: addressDetail.trim() || null,
     };
+
+    if (hasMap) {
+      const matched = matchRegionCityFromFullAddress(fa);
+      const regionCode = matched ? encodeProfileAppLocationStorage(matched.regionId, matched.cityId) : null;
+      const regionName = matched ? buildProfileRegionNameForStorage(matched.regionId, matched.cityId) : null;
+      payload.latitude = mapLat;
+      payload.longitude = mapLng;
+      payload.full_address = fa;
+      payload.region_code = regionCode;
+      payload.region_name = regionName;
+      payload.address_street_line = addressStreetLine.trim() || null;
+      payload.address_detail = addressDetail.trim() || null;
+    }
+
+    setSaving(true);
     const result = await updateMyProfile(payload);
     setSaving(false);
     if (result.ok) {
@@ -351,6 +388,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       });
       await load();
       void refreshProfileLocation();
+      if (setupNext) {
+        await tryNavigateAfterRequirementSave();
+      }
     } else {
       setMessage({ type: "error", text: result.error });
     }
@@ -375,6 +415,9 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   }
 
   const atUsername = formatAtUsername(profile.username);
+  const dibayIdLocked = profile.dibay_id_locked === true;
+  const sectionHighlight = (slug: string) =>
+    isRequiredSlug(slug) ? "rounded-ui-rect ring-2 ring-[#00704A]/40" : undefined;
   const showPhoneVerify = phoneVerificationSettings?.enabled === true;
   const setupCompleteInput = {
     needsBlock: addressNeedsBlock,
@@ -424,28 +467,58 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             </div>
           </ProfileEditSection>
 
-          <ProfileEditSection title={t("profile_edit_section_basic")}>
-            <ProfileBasicFields
-              displayName={displayName}
-              bio={bio}
-              atUsername={atUsername}
-              onDisplayNameChange={setDisplayName}
-              onBioChange={setBio}
-              errors={errors}
+          <ProfileEditSection
+            title={t("profile_edit_section_basic")}
+            className={sectionHighlight("nickname")}
+          >
+            <div data-profile-field="nickname">
+              <ProfileBasicFields
+                displayName={displayName}
+                bio={bio}
+                atUsername={atUsername}
+                onDisplayNameChange={setDisplayName}
+                onBioChange={setBio}
+                errors={errors}
+              />
+            </div>
+          </ProfileEditSection>
+
+          <ProfileEditSection
+            title={t("profile_edit_dibay_id_section_title")}
+            className={sectionHighlight("dibay_id")}
+          >
+            <ProfileDibayIdSection
+              dibayId={profile.dibay_id ?? null}
+              dibayIdLocked={dibayIdLocked}
+              username={profile.username ?? profile.dibay_id ?? null}
+              highlighted={isRequiredSlug("dibay_id")}
+              onConfirmed={async () => {
+                await load({ freshProfile: true });
+                await tryNavigateAfterRequirementSave();
+              }}
             />
           </ProfileEditSection>
 
-          <ProfileEditSection title={t("profile_edit_section_address")}>
-            <ProfileMapLocationBlock
-              addresses={addressList}
-              listError={addressListErr}
-              setupError={addressSetupError}
-            />
+          <ProfileEditSection
+            title={t("profile_edit_section_address")}
+            className={sectionHighlight("address")}
+          >
+            <div data-profile-field="address">
+              <ProfileMapLocationBlock
+                addresses={addressList}
+                listError={addressListErr}
+                setupError={addressSetupError}
+              />
+            </div>
           </ProfileEditSection>
 
           {showPhoneVerify ? (
-            <ProfileEditSection title={t("profile_edit_section_phone")}>
-              <PhoneVerificationBox
+            <ProfileEditSection
+              title={t("profile_edit_section_phone")}
+              className={sectionHighlight("phone")}
+            >
+              <div data-profile-field="phone">
+                <PhoneVerificationBox
                 compact
                 setupError={phoneSetupError}
                 snapshot={{
@@ -459,8 +532,12 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                   auth_provider: profile.auth_provider ?? profile.provider ?? null,
                   settings: phoneVerificationSettings ?? undefined,
                 }}
-                onRefreshProfile={handlePhoneRefreshProfile}
+                onRefreshProfile={async () => {
+                  await handlePhoneRefreshProfile();
+                  await tryNavigateAfterRequirementSave();
+                }}
               />
+              </div>
             </ProfileEditSection>
           ) : null}
 

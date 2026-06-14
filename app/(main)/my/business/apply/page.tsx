@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   BusinessApplyForm,
   type BusinessApplyFormValues,
@@ -30,12 +31,17 @@ const HAS_ANY_STORE = true;
 export default function BusinessApplyRoute() {
   const { t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname() ?? "/my/business/apply";
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [profileSeed, setProfileSeed] = useState<BusinessApplyProfileSeed | null>(null);
   const [existingStore, setExistingStore] = useState<any | null>(null);
   const [existingLoading, setExistingLoading] = useState(true);
   const [computedStoreSlug, setComputedStoreSlug] = useState<string>("");
+
+  useEffect(() => {
+    void requireAuthAction("owner_dashboard", () => {}, { next: pathname });
+  }, [pathname]);
 
   useEffect(() => {
     let cancelled = false;

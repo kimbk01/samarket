@@ -9,8 +9,8 @@ import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 /**
  * 로그인 콜백·세션 복원·온보딩 화면 종료 시 다음 라우트를 결정한다.
  *
- * 가입 완료: 약관 + 확정 @id + 필수 프로필
- * 주소·전화는 가입 경로에서 제외.
+ * 가입 완료(signupComplete): 약관·개인정보 동의만 (법적 최소).
+ * @id·프로필·주소·전화는 기능별 requireProfileCompletion gate.
  */
 export type ResolvePostLoginRouteParams = {
   hasSession: boolean;

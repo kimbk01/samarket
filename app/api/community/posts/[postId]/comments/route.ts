@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session-require";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   findBannedWord,
@@ -102,8 +104,26 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
+
+  let sb: ReturnType<typeof getSupabaseServer>;
+  try {
+    sb = getSupabaseServer();
+  } catch {
+    return jsonError("server_config", 500);
+  }
+
+  const signupGate = await requireSignupCompleteForUser(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId
+  );
+  if (!signupGate.ok) return signupGate.response;
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "community_comment"
+  );
+  if (!profileGate.ok) return profileGate.response;
 
   const rateLimit = await enforceRateLimit({
     key: `community-comment:create:${getRateLimitKey(req, auth.userId)}`,
@@ -152,7 +172,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
         return jsonOk({ id: inserted.id, fallback: "dev_samples" });
       }
     }
-    const sb = getSupabaseServer();
+    const sbAny = sb;
 
     if (ops.min_comment_interval_sec > 0) {
       const lastAt = await getLatestCommentTimeForUser(auth.userId);

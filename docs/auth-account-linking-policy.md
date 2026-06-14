@@ -44,14 +44,14 @@ DB·서버 코드 기준. 자동 병합 **금지** — 운영자 수동 처리.
 
 [`deriveDibaySignupStatus`](../lib/auth/dibay-signup-status.ts):
 
-- 약관 (`terms` + `privacy`, version `2026-04-store-review`)
-- 확정 DIBAY ID (`dibay_id_locked`, auto `dibay_*` 제외)
-- 필수 프로필 (`display_name`, `avatar_url`)
+- **약관·개인정보 동의** (`terms` + `privacy`, version `2026-04-store-review`) — 법적 최소, post-login gate 유일 조건
+- 확정 DIBAY ID (`dibay_id_locked`) — **기능 gate** (친구 추가 등), signupComplete 아님
+- `display_name` / `avatar_url` — **기능 gate** (글쓰기 등), signupComplete 아님
 - `onboarding_completed_at`은 `legacyCompleted` 내부 신호일 뿐, 동의 미완료 상태의 gate 통과 기준이 아니다
 
-**SNS OAuth만으로 가입 완료 아님** — Supabase session은 OAuth 직후 생성되나 mutation API는 [`requireSignupCompleteForUser`](../lib/auth/require-signup-complete-api.ts) 로 403.
+**SNS OAuth 직후** Supabase session 생성 → 약관만 완료하면 앱 진입. mutation API는 [`requireSignupCompleteForUser`](../lib/auth/require-signup-complete-api.ts) 로 **약관 미동의** 403.
 
-주소·전화·avatar는 **가입 gate 아님** — 기능 gate ([`profile-setup-flow.ts`](../lib/auth/profile-setup-flow.ts)).
+@id·프로필·주소·전화는 [`requireProfileCompletion`](../lib/profile/require-profile-completion.ts) 기능 gate.
 
 ## 진단 SQL
 

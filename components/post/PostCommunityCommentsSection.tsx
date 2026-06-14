@@ -8,6 +8,7 @@ import { createCommunityCommentReport } from "@/lib/reports/createCommunityComme
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
+import { handleProfileIncompleteApiResponse } from "@/lib/profile/handle-profile-incomplete-api-response";
 
 type CommentRow = {
   id: string;
@@ -93,12 +94,9 @@ export function PostCommunityCommentsSection({
     return { roots: nextRoots, repliesByParent: nextRepliesByParent };
   }, [comments]);
 
-  const onSubmitComment = async () => {
+  const submitCommentBody = async () => {
     const actorId = currentUserId ?? (await getCurrentUserIdForDb())?.trim() ?? null;
-    if (!actorId) {
-      await requireAction("community_comment", onSubmitComment);
-      return;
-    }
+    if (!actorId) return;
     const text = draft.trim();
     if (!text) return;
     setSubmitting((prev) => (prev ? prev : true));
@@ -128,6 +126,11 @@ export function PostCommunityCommentsSection({
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
         setComments((prev) => prev.filter((comment) => comment.id !== tempId));
+        const profileHandled = handleProfileIncompleteApiResponse(data);
+        if (profileHandled.handled) {
+          setError(profileHandled.error);
+          return;
+        }
         setError(data.error ?? "등록에 실패했습니다.");
         return;
       }
@@ -138,6 +141,21 @@ export function PostCommunityCommentsSection({
     } finally {
       setSubmitting((prev) => (prev ? false : prev));
     }
+  };
+
+  const onSubmitComment = async () => {
+    const actorId = currentUserId ?? (await getCurrentUserIdForDb())?.trim() ?? null;
+    if (!actorId) {
+      await requireAction("community_comment", onSubmitComment);
+      return;
+    }
+    const text = draft.trim();
+    if (!text) return;
+    const next =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : undefined;
+    await requireAction("community_comment", submitCommentBody, { next });
   };
 
   const onReportComment = async (commentId: string) => {

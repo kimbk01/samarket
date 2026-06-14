@@ -16,16 +16,16 @@ export function resolveAuthExitHref(reason: AuthExitReason): string {
     const q = reason === "session_expired" ? "session_expired" : "auth_required";
     return `/login?reason=${q}`;
   }
+  if (reason === "logout") {
+    return "/login?reason=logout";
+  }
   if (reason === "account_switch" && isAccountDependentPath(path)) {
     return POST_LOGIN_PATH;
   }
-  if (reason === "logout" && isAccountDependentPath(path)) {
-    return "/";
-  }
   if (isAuthEntryPath(path)) {
-    return "/";
+    return "/login?reason=logout";
   }
-  return "/";
+  return "/login?reason=logout";
 }
 
 /** router.push 금지 — hard replace 만 (`navigateAfterAuthExitOnce` 가 중복 호출 방지) */

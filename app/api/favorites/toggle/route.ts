@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { enforceFavoriteToggleQuota } from "@/lib/security/rate-limit-presets";
 import { invalidatePostFavoriteServerCachesForViewer } from "@/lib/posts/invalidate-post-favorite-server-caches";
@@ -43,11 +44,6 @@ export async function POST(req: NextRequest) {
   const userId = auth.userId;
   const session = await validateActiveSession(userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(userId);
-  if (!phone.ok) return phone.response;
-
-  const favRl = await enforceFavoriteToggleQuota(userId);
-  if (!favRl.ok) return favRl.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -58,6 +54,14 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
+
+  const signupGate = await requireSignupCompleteForUser(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    userId
+  );
+  if (!signupGate.ok) return signupGate.response;
+
+  const favRl = await enforceFavoriteToggleQuota(userId);
 
   let body: { postId?: string };
   try {

@@ -52,6 +52,7 @@ import {
 import { consumeTradeWriteRestoreAfterAddressFlag, setTradeWriteRestoreAfterAddressFlag } from "@/lib/posts/trade-write-address-return-flag";
 import { discardTradeWriteStashedDraft } from "@/lib/posts/trade-write-exit-cleanup";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   ensureClientAccessOrRedirectAsync,
   redirectForBlockedAction,
@@ -1125,7 +1126,11 @@ export function JobsWriteForm({
         const pathFallback = editPostId
           ? `/products/${editPostId}/edit`
           : `/write/${category.slug}`;
-        if (!(await ensureClientAccessOrRedirectAsync(router, pathname || pathFallback))) {
+        if (editPostId) {
+          if (!(await ensureClientAccessOrRedirectAsync(router, pathname || pathFallback))) {
+            return;
+          }
+        } else if (!(await requireAuthAction("trade_create_item", async () => {}, { next: pathname || pathFallback }))) {
           return;
         }
         const user = getCurrentUser();

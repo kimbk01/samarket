@@ -86,7 +86,7 @@ export async function PATCH(req: NextRequest) {
       terms_version: STORE_TERMS_VERSION,
       privacy_accepted_at: now,
       privacy_version: STORE_PRIVACY_VERSION,
-      onboarding_status: "id_required",
+      onboarding_status: "oauth_authenticated",
       updated_at: now,
     })
     .eq("id", auth.userId)

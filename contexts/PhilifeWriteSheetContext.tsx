@@ -11,11 +11,6 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import {
-  clientHasVerifiedContactForInteractive,
-  openPhoneVerificationRequiredDialog,
-} from "@/lib/auth/phone-verification-gate-client";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
 
 type PhilifeWriteSheetContextValue = {
@@ -55,11 +50,6 @@ export function PhilifeWriteSheetProvider({ children }: { children: React.ReactN
       void requireAuthAction(
         "community_write",
         () => {
-          const user = getCurrentUser();
-          if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
-            openPhoneVerificationRequiredDialog({ next });
-            return;
-          }
           setInitialCategory((category ?? "").trim());
           setOpenEpoch((e) => e + 1);
           setBlockingDraft(false);

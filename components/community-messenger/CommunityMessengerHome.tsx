@@ -36,6 +36,7 @@ import {
 } from "@/components/community-messenger/community-messenger-home-lazy-sheets";
 import { samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import {
   resolveImportantRoomHighlightReason,
   type MessengerNotificationCenterItem,
@@ -1261,6 +1262,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const requestFriend = useCallback(
     async (targetUserId: string) => {
+      await requireAuthAction("friend_add", async () => {
       setBusyId(messengerFriendRequestBusyId(targetUserId));
       const nowIso = new Date().toISOString();
       const vid = data?.me?.id ?? "";
@@ -1407,6 +1409,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       } finally {
         setBusyId(null);
       }
+      });
     },
     [
       data?.me?.id,

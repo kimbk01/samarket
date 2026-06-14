@@ -5,8 +5,7 @@ import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { DIBAY_SIGNUP_TERMS_PATH } from "@/lib/auth/dibay-signup-status";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
-import { ensurePendingAuthProfileRow } from "@/lib/auth/member-access";
-import { extractOAuthProfileSeed } from "@/lib/auth/oauth-profile-seed";
+import { upsertOAuthProfileFromUser } from "@/lib/auth/oauth-profile-upsert";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
@@ -134,13 +133,11 @@ export async function GET(req: NextRequest) {
         }
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
-      const seed = extractOAuthProfileSeed(mergedUser);
-      if (nick) {
-        seed.nicknameCandidate = nick;
-      }
 
       try {
-        await ensurePendingAuthProfileRow(writeSb, mergedUser, seed);
+        await upsertOAuthProfileFromUser(writeSb, mergedUser, {
+          nicknameOverride: nick || null,
+        });
       } catch {
         /* 클라이언트 ensure 에 맡김 */
       }

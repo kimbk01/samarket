@@ -10,10 +10,8 @@ import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { PostLogoutBfcacheGuard } from "@/components/auth/PostLogoutBfcacheGuard";
 import { AuthSessionBoundary } from "@/components/auth/AuthSessionBoundary";
 import { DibaySignupGate } from "@/components/auth/DibaySignupGate";
-import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
-import { AddressRequiredSheet } from "@/components/auth/AddressRequiredSheet";
 import { LoginRequiredSheet } from "@/components/auth/LoginRequiredSheet";
-import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerificationRequiredDialog";
+import { MissingProfileInfoModal } from "@/components/profile/MissingProfileInfoModal";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
@@ -218,10 +216,8 @@ export function MainAppProviderTree({
           <PostLogoutBfcacheGuard />
           <DibaySignupGate />
           <OwnerHubBadgeRuntime />
-          <MandatoryAddressGate />
           <LoginRequiredSheet />
-          <AddressRequiredSheet />
-          <PhoneVerificationRequiredDialog />
+          <MissingProfileInfoModal />
           <DiBaYNotificationOnboardingGate />
           <DevicePermissionUiHost />
           <FavoriteProvider>

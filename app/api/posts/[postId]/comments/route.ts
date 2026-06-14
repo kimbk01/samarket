@@ -4,7 +4,9 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import { validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { fetchPartnerDisplayFieldsMap } from "@/lib/chats/fetch-partner-display";
@@ -58,8 +60,6 @@ export async function POST(
   if (!auth.ok) return auth.response;
   const session = await validateActiveSession(auth.userId);
   if (!session.ok) return session.response;
-  const phone = await requirePhoneVerified(auth.userId);
-  if (!phone.ok) return phone.response;
 
   let sb: ReturnType<typeof getSupabaseServer>;
   try {
@@ -67,6 +67,20 @@ export async function POST(
   } catch {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
   }
+
+  const signupGate = await requireSignupCompleteForUser(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId
+  );
+  if (!signupGate.ok) return signupGate.response;
+
+  const profileGate = await requireProfileFieldsForAction(
+    sb as import("@supabase/supabase-js").SupabaseClient,
+    auth.userId,
+    "community_comment"
+  );
+  if (!profileGate.ok) return profileGate.response;
+
   const { postId } = await params;
   const id = typeof postId === "string" ? postId.trim() : "";
   if (!id) return NextResponse.json({ ok: false, error: "postId 필요" }, { status: 400 });

@@ -33,7 +33,7 @@ describe("client-signup-gate", () => {
     expect(isClientSignupComplete(user)).toBe(false);
   });
 
-  it("returns false when onboarding_completed_at is set but avatar is missing", () => {
+  it("returns true when consent is complete even if avatar is missing", () => {
     const user = baseProfile({
       ...consented,
       onboarding_completed_at: "2026-02-01T00:00:00.000Z",
@@ -42,10 +42,10 @@ describe("client-signup-gate", () => {
       display_name: "Boss",
       avatar_url: null,
     });
-    expect(isClientSignupComplete(user)).toBe(false);
+    expect(isClientSignupComplete(user)).toBe(true);
   });
 
-  it("returns false when consent and dibay id are complete but profile is incomplete", () => {
+  it("returns true when consent is complete even if dibay id and profile fields are incomplete", () => {
     const user = baseProfile({
       ...consented,
       dibay_id: "boss_market",
@@ -53,10 +53,10 @@ describe("client-signup-gate", () => {
       display_name: "Boss",
       avatar_url: null,
     });
-    expect(isClientSignupComplete(user)).toBe(false);
+    expect(isClientSignupComplete(user)).toBe(true);
   });
 
-  it("returns true only when consent, dibay id, and profile are complete", () => {
+  it("returns true when consent is complete regardless of profile extras", () => {
     const user = baseProfile({
       ...consented,
       dibay_id: "boss_market",

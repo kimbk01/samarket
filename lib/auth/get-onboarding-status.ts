@@ -15,8 +15,8 @@ import type { DibayOnboardingStatusValue } from "@/lib/auth/dibay-signup-status"
 /**
  * SAMarket 사용자 온보딩 상태 — 콜백·게이트·라우팅 분기에 공통으로 사용한다.
  *
- * 가입 완료( signup ): 약관 + 확정 dibay_id + 필수 프로필
- * 주소·전화: 기능 게이트 전용 (가입 경로 아님)
+ * 가입 완료( signup ): 약관·개인정보 동의만 (법적 최소)
+ * @id·프로필·주소·전화: 기능별 requireProfileCompletion gate
  */
 export type OnboardingStatus = {
   profileExists: boolean;

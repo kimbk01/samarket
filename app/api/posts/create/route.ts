@@ -10,6 +10,9 @@ export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
+import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
+import type { ProfileActionType } from "@/lib/profile/profile-requirements";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { buildCreatePostInsertRow } from "@/lib/posts/build-create-post-insert-row";
 import type { CreatePostPayload, PostType } from "@/lib/posts/types";
@@ -102,9 +105,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "서버 설정이 필요합니다." }, { status: 500 });
   }
 
-  const access = await assertVerifiedMemberForAction(sb as import("@supabase/supabase-js").SupabaseClient, userId);
-  if (!access.ok) {
-    return NextResponse.json({ ok: false, error: access.error }, { status: access.status });
+  const access = await requireSignupCompleteForUser(sb as import("@supabase/supabase-js").SupabaseClient, userId);
+  if (!access.ok) return access.response;
+
+  let profileAction: ProfileActionType | null = null;
+  if (parsed.type === "trade") profileAction = "trade_create_item";
+  else if (parsed.type === "community") profileAction = "community_write";
+
+  if (profileAction) {
+    const profileGate = await requireProfileFieldsForAction(
+      sb as import("@supabase/supabase-js").SupabaseClient,
+      userId,
+      profileAction
+    );
+    if (!profileGate.ok) return profileGate.response;
+  } else {
+    const memberGate = await assertVerifiedMemberForAction(
+      sb as import("@supabase/supabase-js").SupabaseClient,
+      userId
+    );
+    if (!memberGate.ok) {
+      return NextResponse.json({ ok: false, error: memberGate.error }, { status: memberGate.status });
+    }
   }
 
   const row = buildCreatePostInsertRow(parsed, userId);

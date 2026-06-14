@@ -42,21 +42,39 @@ describe("resolvePostLoginRoute", () => {
     ).toBe("/auth/onboarding/terms?next=%2Fphilife");
   });
 
-  it("routes to dibay-id after consent", () => {
+  it("routes to home after consent — no dibay-id or profile setup gate", () => {
     expect(
       resolvePostLoginRoute({
         hasSession: true,
         status: baseStatus({
           consentComplete: true,
+          signupComplete: true,
           termsAcceptedAt: "2026-01-01",
           termsVersion: STORE_TERMS_VERSION,
           privacyAcceptedAt: "2026-01-01",
           privacyVersion: STORE_PRIVACY_VERSION,
-          onboardingStatus: "id_required",
+          onboardingStatus: "oauth_authenticated",
         }),
         next: "/philife",
       })
-    ).toBe("/auth/onboarding/dibay-id?next=%2Fphilife");
+    ).toBe("/philife");
+  });
+
+  it("defaults to / when next is absent after consent", () => {
+    expect(
+      resolvePostLoginRoute({
+        hasSession: true,
+        status: baseStatus({
+          consentComplete: true,
+          signupComplete: true,
+          termsAcceptedAt: "2026-01-01",
+          termsVersion: STORE_TERMS_VERSION,
+          privacyAcceptedAt: "2026-01-01",
+          privacyVersion: STORE_PRIVACY_VERSION,
+          onboardingStatus: "oauth_authenticated",
+        }),
+      })
+    ).toBe("/");
   });
 
   it("does not block on address or phone", () => {

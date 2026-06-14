@@ -27,27 +27,24 @@ describe("dibay-signup-status", () => {
   it("terms_required before consent", () => {
     const status = deriveDibaySignupStatus({ id: "u1" }, { hasSession: true });
     expect(status.phase).toBe("terms_required");
+    expect(status.signupComplete).toBe(false);
     expect(resolveDibaySignupRoute(status)).toBe("/auth/onboarding/terms");
   });
 
-  it("id_required after consent without dibay_id", () => {
+  it("signupComplete after consent only — no dibay-id redirect", () => {
     const status = deriveDibaySignupStatus({ id: "u1", ...consented }, { hasSession: true });
-    expect(status.phase).toBe("id_required");
-    expect(resolveDibaySignupRoute(status, "/philife")).toBe(
-      "/auth/onboarding/dibay-id?next=%2Fphilife"
-    );
+    expect(status.phase).toBe("completed");
+    expect(status.signupComplete).toBe(true);
+    expect(status.dibayIdComplete).toBe(false);
+    expect(status.profileComplete).toBe(false);
+    expect(resolveDibaySignupRoute(status, "/philife")).toBe("/philife");
   });
 
-  it("completed when onboarding_completed_at set", () => {
+  it("completed when consent given even without dibay id or profile", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
         ...consented,
-        dibay_id: "boss_market",
-        dibay_id_locked: true,
-        username_confirmed: true,
-        display_name: "Boss Market",
-        avatar_url: "https://img.example/avatar.png",
         onboarding_completed_at: "2026-02-01T00:00:00.000Z",
       },
       { hasSession: true }
@@ -56,7 +53,7 @@ describe("dibay-signup-status", () => {
     expect(resolveDibaySignupRoute(status, "/philife")).toBe("/philife");
   });
 
-  it("routes to profile setup when profile is incomplete after consent and dibay id", () => {
+  it("tracks dibayIdComplete and profileComplete without blocking signup", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -67,14 +64,14 @@ describe("dibay-signup-status", () => {
       },
       { hasSession: true }
     );
-    expect(status.phase).toBe("profile_ready");
-    expect(status.signupComplete).toBe(false);
-    expect(resolveDibaySignupRoute(status, "/philife")).toBe(
-      "/mypage/section/account/profile/edit?setup=1&next=%2Fphilife"
-    );
+    expect(status.phase).toBe("completed");
+    expect(status.signupComplete).toBe(true);
+    expect(status.dibayIdComplete).toBe(true);
+    expect(status.profileComplete).toBe(false);
+    expect(resolveDibaySignupRoute(status, "/philife")).toBe("/philife");
   });
 
-  it("does not complete signup with dibay_id only when consent is missing", () => {
+  it("does not complete signup without consent even with full profile", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -90,10 +87,9 @@ describe("dibay-signup-status", () => {
     expect(status.dibayIdComplete).toBe(true);
     expect(status.profileComplete).toBe(true);
     expect(status.signupComplete).toBe(false);
-    expect(status.legacyCompleted).toBe(false);
   });
 
-  it("does not complete signup from onboarding_completed_at when consent is missing", () => {
+  it("legacy onboarding_completed_at does not bypass consent", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -110,22 +106,7 @@ describe("dibay-signup-status", () => {
     expect(status.signupComplete).toBe(false);
   });
 
-  it("does not complete signup without confirmed dibay id", () => {
-    const status = deriveDibaySignupStatus(
-      {
-        id: "u1",
-        ...consented,
-        display_name: "Boss Market",
-        avatar_url: "https://img.example/avatar.png",
-      },
-      { hasSession: true }
-    );
-    expect(status.consentComplete).toBe(true);
-    expect(status.dibayIdComplete).toBe(false);
-    expect(status.signupComplete).toBe(false);
-  });
-
-  it("completes signup only when consent, dibay id, and profile are complete", () => {
+  it("completes signup when consent is given", () => {
     const status = deriveDibaySignupStatus(
       {
         id: "u1",
@@ -139,12 +120,10 @@ describe("dibay-signup-status", () => {
       { hasSession: true }
     );
     expect(status.consentComplete).toBe(true);
-    expect(status.dibayIdComplete).toBe(true);
-    expect(status.profileComplete).toBe(true);
     expect(status.signupComplete).toBe(true);
   });
 
-  it("keeps fresh SNS session as signup incomplete before gates", () => {
+  it("keeps fresh SNS session as signup incomplete before consent", () => {
     const status = deriveDibaySignupStatus({ id: "u1" }, { hasSession: true });
     expect(status.phase).toBe("terms_required");
     expect(status.signupComplete).toBe(false);

@@ -40,11 +40,7 @@ import {
 import { resolveHomeHubDialEmphasizedTabId } from "@/lib/delivery/delivery-domain-dial-emphasis";
 import { prewarmDeliveryDomainDialTargets } from "@/lib/delivery/prewarm-delivery-domain-dial";
 import { useRegionOptional } from "@/contexts/RegionContext";
-import { getCurrentUser } from "@/lib/auth/get-current-user";
-import {
-  clientHasVerifiedContactForInteractive,
-  openPhoneVerificationRequiredDialog,
-} from "@/lib/auth/phone-verification-gate-client";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
@@ -288,11 +284,36 @@ export function DeliveryDomainSwitcherOverlay({
     (tab: BottomNavItemConfig) => {
       const href = resolveHref(tab);
       if (href.includes("/community-messenger")) {
-        const user = getCurrentUser();
-        if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
-          openPhoneVerificationRequiredDialog({ next: href });
-          return;
-        }
+        void requireAuthAction(
+          "messenger_open",
+          () => {
+            const navClickT0 = performance.now();
+            markBottomNavRouteIntentForBackgroundWarm();
+            navPerfMarkBottomNavClickStart(navClickT0);
+            runDeliveryDialItemNavigation({
+              tab,
+              pathname,
+              currentSearch: navSearch,
+              onClose,
+              guardBeforeNavigate,
+              beginMenuNavigation,
+              onNavigationIntent,
+              push: (h) => router.push(h),
+              replace: (h) => router.replace(h),
+              goBusinessHubOrModal,
+              shouldInterceptBusinessHubHref,
+              prefetch: (h) => {
+                try {
+                  router.prefetch(h);
+                } catch {
+                  /* ignore */
+                }
+              },
+            });
+          },
+          { next: href },
+        );
+        return;
       }
       const navClickT0 = performance.now();
       markBottomNavRouteIntentForBackgroundWarm();

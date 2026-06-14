@@ -1,6 +1,8 @@
+import { NextRequest } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { deriveDibaySignupStatus, resolveDibaySignupRoute } from "@/lib/auth/dibay-signup-status";
 import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
+import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -8,9 +10,11 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserIdStrict();
   if (!auth.ok) return auth.response;
+
+  const safeNext = sanitizeNextPath(req.nextUrl.searchParams.get("next"));
 
   const routeSb = await createSupabaseRouteHandlerClient();
   const readSb = tryCreateSupabaseServiceClient() ?? routeSb;
@@ -41,7 +45,7 @@ export async function GET() {
     );
     return jsonOk({
       signup,
-      route: resolveDibaySignupRoute(signup, null),
+      route: resolveDibaySignupRoute(signup, safeNext),
     });
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : "signup_status_failed", 500);

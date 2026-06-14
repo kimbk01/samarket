@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
+import { requireProfileFieldsForAction } from "@/lib/profile/require-profile-completion.server";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import {
@@ -12,7 +13,7 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function gateSignupComplete(userId: string) {
+async function gateFriendAddProfile(userId: string) {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     return {
@@ -20,14 +21,16 @@ async function gateSignupComplete(userId: string) {
       response: NextResponse.json({ ok: false, error: "supabase_service_role_required" }, { status: 503 }),
     };
   }
-  return requireSignupCompleteForUser(sb, userId);
+  const termsGate = await requireSignupCompleteForUser(sb, userId);
+  if (!termsGate.ok) return termsGate;
+  return requireProfileFieldsForAction(sb, userId, "messenger_add_friend");
 }
 
 export async function GET(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const signupGate = await gateSignupComplete(auth.userId);
+  const signupGate = await gateFriendAddProfile(auth.userId);
   if (!signupGate.ok) return signupGate.response;
 
   const rateLimit = await enforceRateLimit({
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
 
-  const signupGate = await gateSignupComplete(auth.userId);
+  const signupGate = await gateFriendAddProfile(auth.userId);
   if (!signupGate.ok) return signupGate.response;
 
   const rateLimit = await enforceRateLimit({

@@ -50,6 +50,7 @@ import {
   pickMessengerApiErrorField,
 } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/room/messenger-room-auth-blocked-redirect";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
@@ -1625,26 +1626,36 @@ export function useMessengerRoomPhase2Controller() {
 
   const startDirectChatWithMember = useCallback(
     async (peerUserId: string) => {
-      setBusy(`member-chat:${peerUserId}`);
-      try {
-        const res = await fetch("/api/community-messenger/rooms", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomType: "direct", peerUserId }),
-        });
-        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
-        if (!res.ok || !json.ok || !json.roomId) {
-          if (redirectIfMessengerAuthBlocked(res, json)) return;
-          showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-          return;
-        }
-        setMemberActionTarget(null);
-        router.push(`/community-messenger/rooms/${encodeURIComponent(String(json.roomId))}`);
-      } finally {
-        setBusy(null);
-      }
+      const next =
+        typeof window !== "undefined"
+          ? `${pathname ?? ""}${window.location.search}`
+          : pathname ?? undefined;
+      await requireAuthAction(
+        "messenger_new_chat",
+        async () => {
+          setBusy(`member-chat:${peerUserId}`);
+          try {
+            const res = await fetch("/api/community-messenger/rooms", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ roomType: "direct", peerUserId }),
+            });
+            const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
+            if (!res.ok || !json.ok || !json.roomId) {
+              if (redirectIfMessengerAuthBlocked(res, json)) return;
+              showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+              return;
+            }
+            setMemberActionTarget(null);
+            router.push(`/community-messenger/rooms/${encodeURIComponent(String(json.roomId))}`);
+          } finally {
+            setBusy(null);
+          }
+        },
+        { next },
+      );
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, router]
+    [getRoomActionErrorMessage, pathname, redirectIfMessengerAuthBlocked, router],
   );
 
   /** 발신 — 멤버 시트 등. 즉시 `/calls/outgoing` → 세션 생성 후 `/calls/:id`. */
