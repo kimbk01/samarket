@@ -7,6 +7,7 @@ import { pathFromHref } from "@/lib/navigation/main-shell-push-session";
 import { setMainShellPushAxisIntent } from "@/lib/navigation/main-shell-push-axis-intent-ref";
 import { prewarmBottomNavMarketTab } from "@/lib/main-menu/bottom-nav-tap-prewarm-trade";
 import { computeTradePrimaryPushAxis } from "@/lib/trade/tabs/compute-trade-primary-push-axis";
+import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 
 export type CommitTradePrimaryTabRouteArgs = {
   href: string;
@@ -44,6 +45,8 @@ export function commitTradePrimaryTabRoute(
   const pushAxis = computeTradePrimaryPushAxis(args.fromTabIndex, args.toTabIndex);
   const targetPath = pathFromHref(args.href);
   setMainShellPushAxisIntent(pushAxis, targetPath);
+
+  scrollAppShellToTop();
 
   args.beginMenuNavigation(args.href, "trade-primary", {
     mainShellPushAxis: pushAxis,

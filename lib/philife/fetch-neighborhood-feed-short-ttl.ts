@@ -5,7 +5,11 @@
  * `runSingleFlight` in-flight + 완료 후 짧은 TTL 동안 네트워크 fetch 재사용.
  */
 
-import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import {
+  forgetSingleFlightsWhere,
+  getSingleFlightPromise,
+  runSingleFlight,
+} from "@/lib/http/run-single-flight";
 import { samarketFeedTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 
 const CLIENT_TTL_MS = 1200;
@@ -133,4 +137,10 @@ export async function fetchNeighborhoodFeedShortTtl(url: string, init?: RequestI
   });
 
   return new Response(boxed.bodyText, { status: boxed.status, headers: headersFromPairs(boxed.headersSerialized) });
+}
+
+/** PTR·강제 새로고침 — 완료 TTL·진행 중 single-flight 제거(다음 fetch는 네트워크) */
+export function invalidateNeighborhoodFeedClientShortTtl(): void {
+  completed.clear();
+  forgetSingleFlightsWhere((k) => typeof k === "string" && k.startsWith(flightPrefix));
 }

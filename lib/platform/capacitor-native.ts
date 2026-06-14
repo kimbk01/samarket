@@ -385,6 +385,7 @@ export function isCapacitorNativePlatform(): boolean {
 
 /**
  * appUrlOpen 리스너 등록 후보 — 웹 브라우저에서는 false, Capacitor 셸(감지 지연 포함)은 true.
+ * dibay_app marker 단독으로는 true 가 되지 않는다 (localhost 쿠키 false-positive 방지).
  */
 export function shouldRegisterCapacitorOAuthReturnListener(): boolean {
   if (isCapacitorNativePlatform()) return true;
@@ -400,7 +401,28 @@ export function shouldRegisterCapacitorOAuthReturnListener(): boolean {
     return true;
   }
 
-  if (readDibayAppPlatformMarker()) return true;
-
   return false;
+}
+
+/**
+ * OAuthReturnListener attach 재시도 — plain web(localhost)에서는 false.
+ * WebView 부팅 중 bridge 지연만 짧게 재시도한다.
+ */
+export function shouldRetryCapacitorOAuthReturnListenerAttach(): boolean {
+  if (shouldRegisterCapacitorOAuthReturnListener()) return true;
+
+  const win = readWindowWithCapacitor();
+  if (!win) return false;
+
+  const marker = readDibayAppPlatformMarker();
+  if (!marker) return false;
+
+  const platform = win.Capacitor?.getPlatform?.();
+  if (platform === "web") return false;
+
+  return (
+    isOAuthNativeLaunchShell() ||
+    Boolean(win.androidBridge) ||
+    hasLikelyIosCapacitorShell()
+  );
 }

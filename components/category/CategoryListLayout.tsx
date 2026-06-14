@@ -16,6 +16,7 @@ import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRegisterCategoryListStickyHeader } from "@/contexts/CategoryListHeaderContext";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
 import type { TradeCategoryServerSeed } from "@/lib/market/trade-category-server-seed";
 import { buildMarketBootstrapQueryKey } from "@/lib/market/build-market-bootstrap-query-key";
 import { peekTradeMarketClientShell } from "@/lib/market/peek-trade-market-client-shell";
@@ -314,13 +315,8 @@ export function CategoryListLayout({
     /** 거래 마켓: 전면 문구·중앙 로딩은 탭 덮어쓰기 애니메이션을 가림 → 배경만 유지 */
     if (expectedType === "trade") {
       return (
-        <div className="min-h-screen bg-sam-app" aria-busy="true">
-          <div className={`${APP_MAIN_GUTTER_X_CLASS} pt-0 pb-4`}>
-            <div
-              className="min-h-[min(42vh,360px)] rounded-sam-md bg-sam-surface-muted/35"
-              aria-hidden
-            />
-          </div>
+        <div className="flex min-h-screen items-center justify-center bg-sam-app" aria-busy="true">
+          <TradeFeedBufferingSpinner />
         </div>
       );
     }

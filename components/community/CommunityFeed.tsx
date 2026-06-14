@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 import {
   fetchPhilifeNeighborhoodTopicOptions,
+  invalidatePhilifeNeighborhoodTopicOptionsCache,
   peekPhilifeNeighborhoodTopicOptionsFromCache,
   seedPhilifeNeighborhoodTopicOptionsCache,
 } from "@/lib/philife/fetch-neighborhood-topic-options-client";
@@ -31,12 +32,17 @@ import {
   PHILIFE_TOPIC_TAB_SUBJECT_IDLE,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
+import { PhilifePullRefreshHint } from "@/components/philife/PhilifePullRefreshHint";
+import { PhilifePullRefreshRegister } from "@/components/philife/PhilifePullRefreshRegister";
+import { usePhilifePullRefresh } from "@/lib/philife/use-philife-pull-refresh";
+import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
+import { invalidateNeighborhoodFeedClientShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { CommunityCard } from "./CommunityCard";
 import { AdPostCard } from "@/components/ads/AdPostCard";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
-import { readPhilifeFeedCache, writePhilifeFeedCache } from "@/lib/community/philife-feed-session-cache";
+import { readPhilifeFeedCache, writePhilifeFeedCache, clearPhilifeFeedCacheEntry } from "@/lib/community/philife-feed-session-cache";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import type { PhilifeGlobalFeedInitialRsc } from "@/lib/philife/resolve-philife-global-feed-initial-rsc";
@@ -879,6 +885,34 @@ export function CommunityFeed({
     };
   }, [category, neighborOnly, viewerSig, recSortKey, fetchPage, initialGlobalFeedRsc]);
 
+  const ptrDomain = useMainHubPtrDomain();
+  usePhilifePullRefresh(ptrDomain === "philife");
+
+  const onPhilifePullRefresh = useCallback(async () => {
+    clearPhilifeFeedCacheEntry(
+      PHILIFE_GLOBAL_FEED_SESSION_KEY,
+      category,
+      neighborOnly,
+      viewerSig,
+      recSortKey
+    );
+    invalidateNeighborhoodFeedClientShortTtl();
+    invalidatePhilifeNeighborhoodTopicOptionsCache();
+    feedSessionRef.current += 1;
+    const session = feedSessionRef.current;
+    const topicRefresh = fetchPhilifeNeighborhoodTopicOptions()
+      .then((j) => {
+        const { chips: next, showNeighborOnlyStrip: strip } =
+          buildFeedChipsFromPhilifeTopicOptionsJson(j);
+        setShowNeighborOnlyStrip(strip);
+        setChips(next);
+      })
+      .catch(() => {
+        /* topic chips refresh optional */
+      });
+    await Promise.all([fetchPage(0, false, session, false), topicRefresh]);
+  }, [category, neighborOnly, viewerSig, recSortKey, fetchPage]);
+
   // 상단 광고: 피드·주제 칩 이후 유휴 시 로드 (첫 페인트·메인 fetch와 경합 완화)
   useEffect(() => {
     let cancelled = false;
@@ -1291,11 +1325,13 @@ export function CommunityFeed({
 
   return (
     <div className={PHILIFE_PAGE_ROOT_CLASS}>
+      <PhilifePullRefreshRegister onRefresh={onPhilifePullRefresh} />
       <MySubpageHeader
         registerMainTier1={false}
         hideCtaStrip
         stickyBelow={
           <>
+            <PhilifePullRefreshHint />
             <div className="min-w-0 overflow-x-hidden bg-sam-surface">
               <div className={APP_MAIN_HEADER_INNER_CLASS}>
                 <div

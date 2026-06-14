@@ -1,7 +1,7 @@
 "use client";
 
 import { philifeNeighborhoodTopicOptionsUrl } from "@domain/philife/api";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
 
 export type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighborhood-topic-options-contract";
@@ -72,6 +72,12 @@ export function fetchPhilifeNeighborhoodTopicOptionsForWrite(): Promise<PhilifeN
  */
 export function warmPhilifeNeighborhoodTopicOptions(): void {
   void fetchPhilifeNeighborhoodTopicOptions().catch(() => {});
+}
+
+/** PTR·강제 새로고침 — 20s 클라 TTL·진행 중 single-flight 제거 */
+export function invalidatePhilifeNeighborhoodTopicOptionsCache(): void {
+  topicOptionsCache = null;
+  forgetSingleFlight(PHILIFE_NEIGHBORHOOD_TOPIC_OPTIONS_FLIGHT);
 }
 
 /** TTL 안의 캐시 — 동기 읽기(경로 전환 직후 2단 탭 깜빡임 방지). */

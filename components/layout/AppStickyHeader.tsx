@@ -18,6 +18,8 @@ import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyManagedCtaStrip } from "@/components/my/MyManagedCtaStrip";
 import { isDeliveryConsumerPath } from "@/lib/design/delivery-chrome";
 import { RegionBar } from "./RegionBar";
+import { TradeMarketPullRefreshHint } from "@/components/trade/TradeMarketPullRefreshHint";
+import { TradeMarketPullRefreshHost } from "@/components/trade/TradeMarketPullRefreshHost";
 
 /**
  * 전역 스티키 헤더 스택 — **메인 1단**(`RegionBar`) + (거래 화면일 때) TRADE 메뉴·2단 카테고리.
@@ -75,6 +77,8 @@ export function AppStickyHeader() {
             {stickyBelow}
             {isTradeMenuSurface ? (
               <>
+                <TradeMarketPullRefreshHost />
+                <TradeMarketPullRefreshHint />
                 <TradePrimaryTabs embed embedInAppHeader />
                 {tradeSecondaryTabs}
               </>

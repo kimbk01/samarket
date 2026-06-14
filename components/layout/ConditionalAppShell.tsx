@@ -6,6 +6,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
+import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useTradeWriteSheetOptional } from "@/contexts/TradeWriteSheetContext";
 import { BottomNavScrollChromeProvider } from "@/lib/layout/bottom-nav-scroll-chrome-context";
@@ -147,6 +148,7 @@ export function ConditionalAppShell({
     () => false
   );
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
+  const { pendingMenuIntent, isPendingMenuBlockingContent } = useLatestMenuNavigation();
   const { isOpen: philifeWriteSheetOpen } = usePhilifeWriteSheet();
   const tradeWriteSheet = useTradeWriteSheetOptional();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
@@ -195,8 +197,28 @@ export function ConditionalAppShell({
   const browseScrollChromeHidden = useBrowseScrollChromeHidden(
     Boolean(bottomNavScrollHideEnabled && isBrowseRoute)
   );
+  const bottomNavScrollRouteKey = useMemo(() => {
+    if (
+      isPendingMenuBlockingContent &&
+      pendingMenuIntent &&
+      (pendingMenuIntent.source === "trade-primary" ||
+        pendingMenuIntent.source === "trade-topic" ||
+        pendingMenuIntent.source === "category-chip" ||
+        pendingMenuIntent.source === "bottom-nav")
+    ) {
+      const search = pendingMenuIntent.search ? `?${pendingMenuIntent.search}` : "";
+      return `${pendingMenuIntent.pathname}${search}`;
+    }
+    return `${pathNoQuery}?${routeSearch}`;
+  }, [
+    pathNoQuery,
+    routeSearch,
+    isPendingMenuBlockingContent,
+    pendingMenuIntent,
+  ]);
   const defaultBottomNavHiddenByScroll = useBottomNavScrollHide(
-    Boolean(bottomNavScrollHideEnabled && !isBrowseRoute)
+    Boolean(bottomNavScrollHideEnabled && !isBrowseRoute),
+    bottomNavScrollRouteKey
   );
   const bottomNavHiddenByScroll = isBrowseRoute ? browseScrollChromeHidden : defaultBottomNavHiddenByScroll;
   const heroMenuSurface = f.isStoreOrderHeroMenuSurface;

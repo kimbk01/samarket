@@ -11,6 +11,7 @@ import {
   resolveCapacitorShellPlatform,
   resolveOAuthRoutingShellPlatform,
   shouldRegisterCapacitorOAuthReturnListener,
+  shouldRetryCapacitorOAuthReturnListenerAttach,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 
@@ -113,11 +114,39 @@ describe("capacitor-native", () => {
     expect(storage.get("dibay_app")).toBe("android");
   });
 
+  it("does not register OAuth return listener on dibay_app marker alone", () => {
+    vi.stubGlobal("window", {
+      location: { href: "https://samarket.vercel.app/market" },
+      sessionStorage: {
+        getItem: (key: string) => (key === "dibay_app" ? "android" : null),
+      },
+      Capacitor: { isNativePlatform: () => false, getPlatform: () => "web" },
+    });
+    vi.stubGlobal("document", { cookie: "dibay_app=android" });
+
+    expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(false);
+    expect(shouldRetryCapacitorOAuthReturnListenerAttach()).toBe(false);
+  });
+
+  it("retries OAuth listener attach only when native shell is likely", () => {
+    vi.stubGlobal("window", {
+      location: { href: "https://samarket.vercel.app/auth/oauth/launch" },
+      sessionStorage: {
+        getItem: (key: string) => (key === "dibay_app" ? "android" : null),
+      },
+    });
+    vi.stubGlobal("document", { cookie: "" });
+
+    expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(false);
+    expect(shouldRetryCapacitorOAuthReturnListenerAttach()).toBe(true);
+  });
+
   it("returns false on plain web", () => {
     vi.stubGlobal("window", {});
     expect(isCapacitorNativePlatform()).toBe(false);
     expect(isOAuthNativeLaunchShell()).toBe(false);
     expect(shouldRegisterCapacitorOAuthReturnListener()).toBe(false);
+    expect(shouldRetryCapacitorOAuthReturnListenerAttach()).toBe(false);
   });
 
   it("detects Capacitor.isNativePlatform()", () => {

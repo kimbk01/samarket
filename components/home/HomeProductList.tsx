@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PostCard } from "@/components/post/PostCard";
 import { HiddenPostCard } from "@/components/post/HiddenPostCard";
@@ -10,6 +10,7 @@ import { NotInterestedCard } from "@/components/post/NotInterestedCard";
 import type { PostListMenuAction } from "@/components/post/PostListMenuBottomSheet";
 import {
   getPostsForHome,
+  invalidateHomePostsCache,
   peekCachedPostsForHome,
   peekRecentHomePostsFallback,
   primeHomePostsCache,
@@ -34,6 +35,9 @@ import {
   sampleTradeMemoryHeapUsedMb,
 } from "@/lib/trade/trade-c2c-perf-metrics";
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
+import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,
@@ -86,6 +90,7 @@ export function HomeProductList({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
   const homePostListOptions = useMemo<GetPostsForHomeOptions>(
@@ -182,6 +187,19 @@ export function HomeProductList({
       }
     }
   }, [tradeState]);
+
+  const pullRefreshRouteKey = resolveTradeMarketPullRefreshRouteKey(pathname);
+
+  const onPullRefresh = useCallback(async () => {
+    invalidateHomePostsCache({ notifyListReload: false });
+    allowRscHomeListSeedRef.current = false;
+    await load();
+  }, [load]);
+
+  const tradePullRefreshRegister =
+    pullRefreshRouteKey != null ? (
+      <TradeMarketPullRefreshRegister routeKey={pullRefreshRouteKey} onRefresh={onPullRefresh} />
+    ) : null;
 
   /**
    * 클라이언트에서만 메모리·sessionStorage 캐시를 병합한다.
@@ -406,30 +424,40 @@ export function HomeProductList({
 
   if (showLoading) {
     return (
-      <div className={rootClass}>
-        <NonSkeletonLoadingState />
-      </div>
+      <>
+        {tradePullRefreshRegister}
+        <div className={rootClass}>
+          <NonSkeletonLoadingState />
+        </div>
+      </>
     );
   }
 
   if (showError) {
     return (
-      <div className={rootClass}>
-        <ErrorState onRetry={handleRetry} />
-      </div>
+      <>
+        {tradePullRefreshRegister}
+        <div className={rootClass}>
+          <ErrorState onRetry={handleRetry} />
+        </div>
+      </>
     );
   }
 
   if (showEmpty) {
     return (
-      <div className={rootClass}>
-        <EmptyState />
-      </div>
+      <>
+        {tradePullRefreshRegister}
+        <div className={rootClass}>
+          <EmptyState />
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      {tradePullRefreshRegister}
       <ul ref={listMeasureRef} className={`${rootClass} ${listClass}`}>
         {visiblePosts.map((post, index) =>
           notInterestedPostIds.has(post.id) ? (
@@ -473,13 +501,13 @@ export function HomeProductList({
 }
 
 function NonSkeletonLoadingState() {
-  const { t } = useI18n();
   return (
     <div
-      className="min-h-[min(42vh,360px)] bg-sam-app"
+      className="flex min-h-[min(42vh,360px)] items-center justify-center bg-sam-app"
       aria-busy="true"
-      aria-label={t("trade_013")}
-    />
+    >
+      <TradeFeedBufferingSpinner />
+    </div>
   );
 }
 

@@ -218,19 +218,28 @@ export function primeHomePostsCache(
 /** `HomeProductList`·`PostListByCategory` 가 네트워크로 다시 채우도록 구독 */
 export const TRADE_POST_LIST_CACHE_INVALIDATED = "samarket:trade-post-list-cache-invalidated:v1" as const;
 
+export type InvalidateHomePostsCacheOptions = {
+  /**
+   * false — `TRADE_POST_LIST_CACHE_INVALIDATED` 미발행.
+   * PTR 등 핸들러가 직접 `await load()` 할 때 이벤트·핸들러 이중 `load()` 방지.
+   */
+  notifyListReload?: boolean;
+};
+
 /**
  * 글 등록/수정 직후 거래 목록이 즉시 갱신되도록 캐시를 비운다.
  * - 홈 `/market` — in-memory + sessionStorage(`samarket:home-posts:v1:*`)
  * - 카테고리 `/market/…` — trade 피드 클라이언트 캐시(`trade-feed-client-cache`)
  * - 이미 마운트된 목록은 커스텀 이벤트로 `load()` 재실행
  */
-export function invalidateHomePostsCache(): void {
+export function invalidateHomePostsCache(options?: InvalidateHomePostsCacheOptions): void {
+  const notifyListReload = options?.notifyListReload !== false;
   forgetSingleFlightsWhere((k) => typeof k === "string" && k.startsWith("home-posts-fetch:"));
   homePostsInvalidationGeneration += 1;
   homePostsCache.clear();
   invalidateAllTradeFeedClientCache();
   if (!canUseSessionStorage()) {
-    dispatchTradePostListCacheInvalidated();
+    if (notifyListReload) dispatchTradePostListCacheInvalidated();
     return;
   }
   try {
@@ -263,7 +272,7 @@ export function invalidateHomePostsCache(): void {
       /* ignore */
     }
   }
-  dispatchTradePostListCacheInvalidated();
+  if (notifyListReload) dispatchTradePostListCacheInvalidated();
 }
 
 function dispatchTradePostListCacheInvalidated(): void {

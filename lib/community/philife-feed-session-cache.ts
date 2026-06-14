@@ -89,6 +89,28 @@ export function isPhilifeFeedCacheFresh(
   }
 }
 
+/** PTR·강제 새로고침 — 현재 쿼리 세션 캐시 제거 */
+export function clearPhilifeFeedCacheEntry(
+  locationKey: string,
+  category: string,
+  neighborOnly: boolean,
+  viewerSig: string,
+  sortKey = ""
+): void {
+  if (typeof window === "undefined" || !locationKey) return;
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const all = JSON.parse(raw) as StoredShape;
+    const id = cacheId(locationKey, category, neighborOnly, viewerSig, sortKey);
+    if (!(id in all)) return;
+    delete all[id];
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+  } catch {
+    /* quota / private mode */
+  }
+}
+
 export function writePhilifeFeedCache(
   locationKey: string,
   category: string,

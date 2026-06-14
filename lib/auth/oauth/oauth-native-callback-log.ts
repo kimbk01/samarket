@@ -30,5 +30,9 @@ export function parseOAuthNativeCallbackLogPayload(nativeUrl: string): OAuthNati
 
 /** Logcat / Chrome Inspect — oauth 필터용 구조화 로그 */
 export function logOAuthNativeEvent(event: string, detail: Record<string, unknown> = {}): void {
+  if (event === "callback_listener_attach_exhausted") {
+    console.warn(`[oauth] ${event}`, detail);
+    return;
+  }
   console.error(`[oauth] ${event}`, detail);
 }

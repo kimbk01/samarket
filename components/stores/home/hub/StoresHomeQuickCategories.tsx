@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -28,6 +28,7 @@ import {
   subscribeStoresHomeCategoryChrome,
 } from "@/lib/stores/stores-home-category-chrome-store";
 import { useStoresHomePullRefresh } from "@/lib/stores/use-stores-home-pull-refresh";
+import { useMainHubPtrDomain } from "@/lib/layout/use-main-hub-ptr-domain";
 import { addStoresHomePullRefreshHandler } from "@/lib/stores/stores-home-pull-refresh-store";
 
 const RESTAURANT_SLUG = "restaurant";
@@ -46,9 +47,6 @@ function sortPrimariesRestaurantFirst<T extends { slug: string; sort_order?: num
   return sorted;
 }
 
-function isStoresHomePath(path: string): boolean {
-  return path === "/stores" || path === "/stores/";
-}
 
 function resolveSubsForPrimary(
   taxonomy: StoresHomeTaxonomyState | null,
@@ -71,8 +69,8 @@ export function StoresHomeQuickCategories() {
   const { t, language } = useI18n();
   const router = useRouter();
   const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
-  const pathname = usePathname() ?? "";
-  const isStoresHubRoot = isStoresHomePath(pathname);
+  const activePtrDomain = useMainHubPtrDomain();
+  const isStoresHubRoot = activePtrDomain === "stores";
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const subCategoryInView = useSyncExternalStore(
     subscribeStoresHomeCategoryChrome,

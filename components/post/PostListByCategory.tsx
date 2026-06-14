@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   getPostsByTradeCategoryIds,
@@ -10,7 +10,7 @@ import {
   type GetPostsByCategoryOptions,
   type PostSort,
 } from "@/lib/posts/getPostsByCategory";
-import { TRADE_POST_LIST_CACHE_INVALIDATED } from "@/lib/posts/getPostsForHome";
+import { TRADE_POST_LIST_CACHE_INVALIDATED, invalidateHomePostsCache } from "@/lib/posts/getPostsForHome";
 import type { JobListingKindFilter } from "@/lib/jobs/matches-job-listing-kind";
 import { getFavoriteStatusForPosts } from "@/lib/favorites/getFavoriteStatusForPosts";
 import { POST_FAVORITE_CHANGED_EVENT } from "@/lib/favorites/post-favorite-events";
@@ -30,6 +30,9 @@ import { computeTradeFeedKey, computeTradeFeedKeyForMarketParent } from "@/lib/p
 import { TRADE_FEED_LIST_WRAP_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { recordTradeListMetric } from "@/lib/runtime/trade-list-entry-debug";
 import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
+import { TradeFeedBufferingSpinner } from "@/components/trade/TradeFeedBufferingSpinner";
+import { TradeMarketPullRefreshRegister } from "@/components/trade/TradeMarketPullRefreshRegister";
+import { resolveTradeMarketPullRefreshRouteKey } from "@/lib/trade/trade-market-pull-refresh-surface";
 
 const ROUTE_PREFETCH_TS_MAX_KEYS = 120;
 
@@ -79,6 +82,7 @@ export function PostListByCategory({
   initialTradeFeed = null,
 }: PostListByCategoryProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const effectiveIds = useMemo(() => {
     if (tradeFeedServerResolution) return [categoryId];
     if (filterCategoryIds && filterCategoryIds.length > 0) return filterCategoryIds;
@@ -271,6 +275,22 @@ export function PostListByCategory({
   const postsRef = useRef(posts);
   postsRef.current = posts;
 
+  const pullRefreshRouteKey = resolveTradeMarketPullRefreshRouteKey(pathname);
+
+  const onPullRefresh = useCallback(async () => {
+    invalidateHomePostsCache({ notifyListReload: false });
+    allowRscBootstrapFeedRef.current = false;
+    listFeedEpochRef.current += 1;
+    favoriteFetchEpochRef.current += 1;
+    setPage(1);
+    await load(1);
+  }, [load]);
+
+  const tradePullRefreshRegister =
+    pullRefreshRouteKey != null ? (
+      <TradeMarketPullRefreshRegister routeKey={pullRefreshRouteKey} onRefresh={onPullRefresh} />
+    ) : null;
+
   /**
    * 마켓 카테고리 리스트→상세: 상단 10건 `/post/:id` prefetch (제거·약화 시 회귀).
    * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
@@ -351,6 +371,13 @@ export function PostListByCategory({
         cancelled = true;
       };
     }
+
+    setLoading(true);
+    setPosts([]);
+    setHasMore(false);
+    setHiddenPostIds(new Set());
+    setNotInterestedPostIds(new Set());
+    setFavoriteMap({});
 
     queueMicrotask(() => {
       if (cancelled || epoch !== listFeedEpochRef.current) return;
@@ -490,18 +517,24 @@ export function PostListByCategory({
 
   if (loading && posts.length === 0) {
     return (
-      <div className="py-8 text-center text-[14px] text-sam-muted">
-        불러오는 중…
-      </div>
+      <>
+        {tradePullRefreshRegister}
+        <div className="flex min-h-[min(36vh,320px)] items-center justify-center py-8" aria-busy="true">
+          <TradeFeedBufferingSpinner />
+        </div>
+      </>
     );
   }
 
   if (posts.length === 0) {
     return (
-      <CategoryEmptyState
-        message="아직 등록된 글이 없어요."
-        subMessage="첫 글을 올려보세요."
-      />
+      <>
+        {tradePullRefreshRegister}
+        <CategoryEmptyState
+          message="아직 등록된 글이 없어요."
+          subMessage="첫 글을 올려보세요."
+        />
+      </>
     );
   }
 
@@ -509,6 +542,7 @@ export function PostListByCategory({
 
   return (
     <>
+      {tradePullRefreshRegister}
       <ul ref={listRootRef} className={`min-w-0 w-full max-w-full ${TRADE_FEED_LIST_WRAP_CLASS}`}>
         {posts.map((post) =>
           notInterestedPostIds.has(post.id) ? (
@@ -533,14 +567,19 @@ export function PostListByCategory({
         )}
       </ul>
       {hasMore ? (
-        <button
-          type="button"
-          onClick={loadMore}
-          disabled={loading}
-          className="mt-3 w-full py-3 text-[14px] text-sam-muted disabled:opacity-50"
-        >
-          {loading ? "불러오는 중…" : "더보기"}
-        </button>
+        <div className="mt-3 flex w-full items-center justify-center py-3">
+          {loading ? (
+            <TradeFeedBufferingSpinner />
+          ) : (
+            <button
+              type="button"
+              onClick={loadMore}
+              className="text-[14px] text-sam-muted"
+            >
+              더보기
+            </button>
+          )}
+        </div>
       ) : null}
 
       {toast ? (

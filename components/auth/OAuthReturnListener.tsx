@@ -9,6 +9,7 @@ import { NATIVE_OAUTH_RETURN_LISTENER_BRIDGE_MS } from "@/lib/auth/oauth/native-
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
 import {
   shouldRegisterCapacitorOAuthReturnListener,
+  shouldRetryCapacitorOAuthReturnListenerAttach,
   waitForCapacitorBridgeReady,
 } from "@/lib/platform/capacitor-native";
 
@@ -116,18 +117,27 @@ export function OAuthReturnListener() {
     };
 
     void (async () => {
+      if (!shouldRetryCapacitorOAuthReturnListenerAttach()) {
+        return;
+      }
+
       await waitForCapacitorBridgeReady({ timeoutMs: NATIVE_OAUTH_RETURN_LISTENER_BRIDGE_MS });
 
       for (let attempt = 0; attempt < OAUTH_RETURN_LISTENER_MAX_ATTEMPTS && !cancelled; attempt += 1) {
         if (await attachListener()) {
           return;
         }
+        if (!shouldRetryCapacitorOAuthReturnListenerAttach()) {
+          return;
+        }
         await sleep(OAUTH_RETURN_LISTENER_RETRY_MS);
       }
 
-      logOAuthNativeEvent("callback_listener_attach_exhausted", {
-        attempts: OAUTH_RETURN_LISTENER_MAX_ATTEMPTS,
-      });
+      if (!cancelled && shouldRegisterCapacitorOAuthReturnListener()) {
+        logOAuthNativeEvent("callback_listener_attach_exhausted", {
+          attempts: OAUTH_RETURN_LISTENER_MAX_ATTEMPTS,
+        });
+      }
     })();
 
     return () => {
