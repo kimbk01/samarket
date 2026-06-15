@@ -1,9 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { usePathname } from "next/navigation";
 import { CallProvider } from "@/app/_providers/CallProvider";
-import { resolveSuppressIncomingCallOverlay } from "@/lib/layout/conditional-app-shell-flags";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/CallActiveSessionRecoveryHost";
@@ -22,18 +20,17 @@ const IncomingCallOverlay = dynamic(
  * `useCommunityCallSurface` 소비처는 현재 수신 통화 UI뿐이라 전역 트리에서 분리해도 동일.
  */
 export function CallIncomingChrome() {
-  const pathname = usePathname();
-  const suppressOverlay = resolveSuppressIncomingCallOverlay(pathname);
-
   return (
     <CallProvider>
       <CallActiveSessionRecoveryHost />
       <CommunityMessengerActiveCallHost />
-      {suppressOverlay ? null : (
-        <IncomingCallOverlayChunkBoundary>
-          <IncomingCallOverlay />
-        </IncomingCallOverlayChunkBoundary>
-      )}
+      {/*
+       * 전역 수신 호스트는 항상 마운트 — `/calls/:id` 에서도 벨·dedup·cleanup·타임아웃만 담당하고
+       * UI 는 `GlobalCommunityMessengerIncomingCall` 내부 `hideGlobalIncomingOverlay` 로 숨긴다.
+       */}
+      <IncomingCallOverlayChunkBoundary>
+        <IncomingCallOverlay />
+      </IncomingCallOverlayChunkBoundary>
     </CallProvider>
   );
 }

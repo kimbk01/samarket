@@ -76,6 +76,19 @@ import {
   stopCommunityMessengerCallTone,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
+import {
+  isIncomingCallAcceptInFlight,
+  releaseIncomingCallAccept,
+  releaseIncomingCallReject,
+  tryClaimIncomingCallAccept,
+  tryClaimIncomingCallReject,
+} from "@/lib/community-messenger/incoming-call-action-guard";
+import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
+import {
+  shouldPreserveIncomingRingtoneOnCallRoute,
+  stopCallRingtone,
+} from "@/lib/community-messenger/call-ringtone-controller";
 import {
   cmCallAudioCleanup,
   cmCallFlow,
@@ -869,7 +882,9 @@ export function CommunityMessengerCallClient({
       heldStream: heldPreJoinVideoPreviewRef.current,
     });
 
-    stopCommunityMessengerCallTone();
+    if (!shouldPreserveIncomingRingtoneOnCallRoute(sessionId)) {
+      stopCallRingtone("call_client_session_route", sessionId);
+    }
     setCalleeVideoConnectingShell(false);
     wasCallSessionRingingRef.current = false;
     if (!preservePreview) {
@@ -2156,6 +2171,10 @@ export function CommunityMessengerCallClient({
     if (directCallPatchInFlightRef.current) return null;
     if (isTerminalCallSessionStatus(s.status)) return null;
     if (!s.isMineInitiator) {
+      if (!isIncomingCallAcceptInFlight(s.id) && !tryClaimIncomingCallAccept(s.id)) {
+        return null;
+      }
+      logCallFlow("call_accept_pressed", { sessionId: s.id, source: "call_client" });
       setCalleeVideoConnectingShell(true);
     }
     directCallPatchInFlightRef.current = true;
@@ -2173,7 +2192,7 @@ export function CommunityMessengerCallClient({
         ? primeVideoCallMediaFromUserGesture({ explicitRetry: true })
         : primeVoiceCallMediaFromUserGesture();
     try {
-      stopCommunityMessengerCallTone();
+      stopCallRingtone("accept_patch_start", s.id);
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2209,6 +2228,7 @@ export function CommunityMessengerCallClient({
         directCallPatchInFlightRef.current = false;
         return null;
       }
+      logCallFlow("call_accept_sent", { sessionId: s.id });
       const patchMs = Math.round(perfNow() - acceptT0);
       messengerMonitorCallFlowPhase(s.id, "flow_call_accept_patch", patchMs, { media: s.callKind, role: "callee" });
       logClientPerf("messenger-call.accept", {
@@ -2224,6 +2244,7 @@ export function CommunityMessengerCallClient({
       });
       const acceptedSession = json.session;
       setSession(acceptedSession);
+      runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
       if (acceptedSession.status === "active") {
         void mediaPrimePromise.then((primeResult) => {
           if (primeResult.ok && acceptedSession.callKind === "video") {
@@ -2245,8 +2266,11 @@ export function CommunityMessengerCallClient({
     } finally {
       setBusy(null);
       directCallPatchInFlightRef.current = false;
+      if (!s.isMineInitiator) {
+        releaseIncomingCallAccept(s.id);
+      }
     }
-  }, []);
+  }, [t]);
 
   const handleRetryMediaAndJoin = useCallback(() => {
     const s = sessionRef.current;
@@ -2317,9 +2341,12 @@ export function CommunityMessengerCallClient({
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;
     if (directCallPatchInFlightRef.current) return;
+    logCallFlow("call_reject_pressed", { sessionId: session.id, source: "call_client" });
+    if (!tryClaimIncomingCallReject(session.id)) return;
     directCallPatchInFlightRef.current = true;
+    logCallFlow("call_cleanup_start", { sessionId: session.id, reason: "reject" });
     stopCommunityMessengerCallFeedback();
-    stopCommunityMessengerCallTone();
+    stopCallRingtone("reject_pressed", session.id);
     cmCallAudioCleanup("reject_click_feedback_stopped_before_patch", { sessionId: session.id });
     setBusy("reject");
     const sid = session.id;
@@ -2386,6 +2413,7 @@ export function CommunityMessengerCallClient({
           scheduleSilentRefresh("terminal");
           return;
         }
+        logCallFlow("call_reject_sent", { sessionId: sid });
         if (json.session && isTerminalCallSessionStatus(json.session.status)) {
           callTerminalLocalPinRef.current = {
             sessionId: sid,
@@ -2397,6 +2425,8 @@ export function CommunityMessengerCallClient({
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
+        releaseIncomingCallReject(sid);
+        logCallFlow("call_cleanup_done", { sessionId: sid, reason: "reject" });
       }
     })();
   }, [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, scheduleSilentRefresh, session, t]);
@@ -3335,6 +3365,9 @@ export function CommunityMessengerCallClient({
     }
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
     if (shouldAutoAccept && !autoAcceptRef.current) {
+      if (!isIncomingCallAcceptInFlight(s.id) && !tryClaimIncomingCallAccept(s.id)) {
+        return;
+      }
       autoAcceptRef.current = true;
       void acceptIncoming().finally(() => {
         autoAcceptRef.current = false;
