@@ -418,15 +418,18 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
     peerUserId: string | null;
     kind: CommunityMessengerCallKind;
   },
-  navigate: (href: string) => void
+  navigate: (href: string) => void,
+  options?: { skipMediaPrime?: boolean }
 ): Promise<OutgoingCallSessionBootstrapResult> {
   /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
-  const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
-  if (!primeResult.ok) {
-    stopCommunityMessengerCallTone();
-    return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
+  if (!options?.skipMediaPrime) {
+    const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
+    if (!primeResult.ok) {
+      stopCommunityMessengerCallTone();
+      return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
+    }
   }
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();

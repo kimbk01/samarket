@@ -70,6 +70,7 @@ import {
   shouldUseIncomingCallBrowserNotification,
   type IncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface";
+import { readNativeCalleeAcceptSessionIdFromLocation } from "@/lib/community-messenger/native-callee-accept-entry";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
 import {
   callIncomingTerminalQueryFromEvent,
@@ -1389,8 +1390,15 @@ export function GlobalCommunityMessengerIncomingCall() {
    * 전용 통화 라우트(`/calls/*`)에서는 풀페이지 `CallClient` 만 쓴다.
    * 전역 수신 오버레이를 겹쳐 띄우면 수락 직후 「벨 화면 + 통화 화면」이 동시에 보인다.
    */
+  const [nativeAcceptInFlightSessionId, setNativeAcceptInFlightSessionId] = useState<string | null>(
+    () => readNativeCalleeAcceptSessionIdFromLocation()
+  );
+  useLayoutEffect(() => {
+    setNativeAcceptInFlightSessionId(readNativeCalleeAcceptSessionIdFromLocation());
+  }, [pathname]);
   const hideGlobalIncomingOverlay =
-    typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/");
+    (typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/")) ||
+    nativeAcceptInFlightSessionId != null;
   /** 오버레이는 `ringing` 직통 수신만 — active·ended 등은 목록 정렬과 무관하게 표시하지 않음 */
   const viewerLiveSessionId = useMemo(() => {
     const uid = userId?.trim();
@@ -1428,7 +1436,12 @@ export function GlobalCommunityMessengerIncomingCall() {
   const { isLeader: incomingTabLeader } = useIncomingCallTabLeader(Boolean(userId));
   /** 수신 링 UI — room bootstrap·GET 보강을 기다리지 않음(배너 설정과 무관하게 직통 ringing 은 표시). */
   const visibleSession =
-    hideGlobalIncomingOverlay || !incomingTabLeader ? null : firstRingingCalleeSession;
+    hideGlobalIncomingOverlay ||
+    !incomingTabLeader ||
+    (nativeAcceptInFlightSessionId != null &&
+      firstRingingCalleeSession?.id === nativeAcceptInFlightSessionId)
+      ? null
+      : firstRingingCalleeSession;
   const visibleSessionId = visibleSession?.id ?? null;
   const incomingSurface: IncomingCallSurface | null = visibleSession
     ? resolveIncomingCallSurface({

@@ -14,7 +14,7 @@ export async function waitForActiveCallSessionAfterNativeAccept(input: {
     const session = input.readSession();
     if (session?.status === "active") return session;
     await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, delayMs);
+      setTimeout(resolve, delayMs);
     });
   }
   return input.readSession()?.status === "active" ? input.readSession() : null;
