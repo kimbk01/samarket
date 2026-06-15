@@ -95,6 +95,8 @@ import {
   isTerminalIncomingCallStatus,
 } from "@/lib/community-messenger/call-incoming-terminal";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import {
   getIncomingCallPollIntervalMs,
@@ -1305,6 +1307,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (session.isMineInitiator) continue;
       if (!session.recipientUserId || !messengerUserIdsEqual(session.recipientUserId, userId)) continue;
       if (incomingCallBrowserNotifiedIdsRef.current.has(session.id)) continue;
+      if (isCapacitorNativePlatform()) continue;
       if (
         !shouldUseIncomingCallBrowserNotification({
           visibilityState: incomingVisibilityState,
@@ -1427,10 +1430,37 @@ export function GlobalCommunityMessengerIncomingCall() {
         callKind: visibleSession.callKind,
       })
     : null;
-  const renderIncomingBanner = Boolean(visibleSession && incomingSurface === "top-banner");
+  const renderIncomingBanner = Boolean(
+    visibleSession && incomingSurface === "top-banner" && !isCapacitorNativePlatform()
+  );
   const nativeIncomingSession =
     visibleSession && shouldRenderInternalIncomingCallUi(incomingSurface) ? visibleSession : null;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
+  const nativeAutoNavigatedSessionRef = useRef<string | null>(null);
+
+  /** DiBay 네이티브 앱 — 수신 시 상단 배너 대신 전용 통화 전체 화면으로 즉시 진입 */
+  useEffect(() => {
+    if (!visibleSession) {
+      nativeAutoNavigatedSessionRef.current = null;
+      return;
+    }
+    if (!isCapacitorNativePlatform()) return;
+    if (hideGlobalIncomingOverlay) return;
+    const sid = visibleSession.id;
+    if (nativeAutoNavigatedSessionRef.current === sid) return;
+    const callPath = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+    const currentPath = typeof pathname === "string" ? pathname.split(/[?#]/, 1)[0] : "";
+    if (currentPath === callPath) {
+      nativeAutoNavigatedSessionRef.current = sid;
+      return;
+    }
+    nativeAutoNavigatedSessionRef.current = sid;
+    rememberCallNavigationReturnPath();
+    primeCommunityMessengerCallNavigationSeed(sid, visibleSession);
+    logCallFlow("call_navigate_to_call_screen", { sessionId: sid, source: "native_auto_fullscreen" });
+    router.replace(callPath);
+  }, [hideGlobalIncomingOverlay, pathname, router, visibleSession]);
+
   useLayoutEffect(() => {
     if (!visibleSessionId || !visibleSession || incomingSurface === "system-notification") return;
     const hasMinimal =
@@ -1539,6 +1569,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     logCallFlow("call_cleanup_start", { sessionId, reason: "reject" });
     suppressMissedSoundRef.current.add(sessionId);
     stopCallRingtone("reject_pressed", sessionId);
+    dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     activeIncomingCallIdsRef.current.delete(sessionId);
     const session = sessions.find((item) => item.id === sessionId) ?? null;
     dismissedIncomingSessionsAtRef.current.set(sessionId, Date.now());

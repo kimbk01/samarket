@@ -31,7 +31,7 @@ function remainingSeconds(startedAt: string | null | undefined, timeoutSeconds: 
 
 /** Foreground 수신 통화 — 카카오톡/텔레그램식 compact 상단 배너. */
 export function IncomingCallBanner(props: IncomingCallBannerProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const {
     sessionId,
     peerLabel,
@@ -55,7 +55,6 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
     return () => window.clearInterval(id);
   }, [ringTimeoutSeconds, sessionId, startedAt]);
 
-  const kindLine = callKind === "video" ? t("cm_ui_incoming_video_ringing") : t("cm_ui_incoming_voice_ringing");
   const Icon = callKind === "video" ? Video : Phone;
 
   return (
@@ -87,8 +86,16 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           <div className="min-w-0">
             <p className="truncate sam-text-body font-semibold leading-tight text-white">{peerLabel}</p>
             <p className="mt-0.5 truncate sam-text-helper font-medium text-white/78">
-              {kindLine}
-              {remainSec != null ? ` ${t("cm_ui_ring_remaining_seconds", { count: remainSec })}` : ""}
+              {callKind === "video"
+                ? safeT("cm_ui_dibay_video_call_brand", {
+                    fallbackKo: "DiBay 영상 통화",
+                    fallbackEn: "DiBay video call",
+                  })
+                : safeT("cm_ui_dibay_voice_call_brand", {
+                    fallbackKo: "DiBay 음성 통화",
+                    fallbackEn: "DiBay voice call",
+                  })}
+              {remainSec != null ? ` · ${t("cm_ui_ring_remaining_seconds", { count: remainSec })}` : ""}
             </p>
           </div>
         </button>

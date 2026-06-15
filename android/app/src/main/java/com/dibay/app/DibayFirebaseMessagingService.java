@@ -74,11 +74,9 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
         Log.i(TAG, "incoming_call_app_visible_delegate_to_web sessionId=" + sessionId);
         return;
       }
-      String url = data.get("url");
-      if (url == null || url.isEmpty()) {
-        url = "dibay://call/" + sessionId;
-      }
-      IncomingCallNotificationBuilder.showIncomingCall(this, sessionId, title, body, url);
+      /** https URL 은 MainActivity 에서 query(action=accept) 가 유실될 수 있어 dibay 스킴만 사용 */
+      String dibayCallUrl = "dibay://call/" + sessionId;
+      IncomingCallNotificationBuilder.showIncomingCall(this, sessionId, title, body, dibayCallUrl);
       Log.i(TAG, "incoming_call sessionId=" + sessionId);
       return;
     }

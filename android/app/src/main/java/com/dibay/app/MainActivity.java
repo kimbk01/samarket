@@ -7,7 +7,10 @@ import android.content.pm.Signature;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
+import android.view.WindowManager;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
@@ -20,6 +23,8 @@ public class MainActivity extends BridgeActivity {
   private static volatile boolean appVisible = false;
 
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
+  private String pendingAppPath = null;
+  private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
     return appVisible;
@@ -33,6 +38,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeKakaoAuthPlugin.class);
     registerPlugin(NativeGoogleAuthPlugin.class);
     registerPlugin(NativeDevicePermissionsPlugin.class);
+    registerPlugin(NativeIncomingCallPlugin.class);
     super.onCreate(savedInstanceState);
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
     attachDibayWebChromeClient();
@@ -52,6 +58,7 @@ public class MainActivity extends BridgeActivity {
     super.onResume();
     appVisible = true;
     attachDibayWebChromeClient();
+    flushPendingAppPathIfAny();
   }
 
   @Override
@@ -150,10 +157,12 @@ public class MainActivity extends BridgeActivity {
   /** FCM 알림 탭(extras·https) + dibay:// 딥링크 → WebView 라우팅 */
   private void handleNotificationLaunchIntent(Intent intent) {
     if (intent == null) return;
+    dismissIncomingCallNotificationFromIntent(intent);
+    applyIncomingCallWakeFlags(intent);
 
     String appPath = resolveAppPathFromPushExtras(intent.getExtras());
     if (appPath != null && !appPath.isEmpty()) {
-      navigateWebViewToAppPath(appPath);
+      queueNavigateWebViewToAppPath(appPath);
       return;
     }
 
@@ -170,7 +179,7 @@ public class MainActivity extends BridgeActivity {
       }
       appPath = mapDibayDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
-        navigateWebViewToAppPath(appPath);
+        queueNavigateWebViewToAppPath(appPath);
       }
       return;
     }
@@ -178,9 +187,38 @@ public class MainActivity extends BridgeActivity {
     if ("https".equals(data.getScheme()) || "http".equals(data.getScheme())) {
       appPath = mapHttpsDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
-        navigateWebViewToAppPath(appPath);
+        queueNavigateWebViewToAppPath(appPath);
       }
     }
+  }
+
+  private void applyIncomingCallWakeFlags(Intent intent) {
+    Uri data = intent.getData();
+    if (data == null || !"dibay".equals(data.getScheme()) || !"call".equals(data.getHost())) {
+      return;
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true);
+      setTurnScreenOn(true);
+    } else {
+      getWindow()
+          .addFlags(
+              WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                  | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+                  | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+  }
+
+  private void dismissIncomingCallNotificationFromIntent(Intent intent) {
+    Uri data = intent.getData();
+    if (data == null || !"dibay".equals(data.getScheme()) || !"call".equals(data.getHost())) {
+      return;
+    }
+    java.util.List<String> segments = data.getPathSegments();
+    if (segments.isEmpty()) return;
+    String sessionId = segments.get(0);
+    if (sessionId == null || sessionId.trim().isEmpty()) return;
+    IncomingCallNotificationBuilder.dismissIncomingCall(this, sessionId.trim());
   }
 
   private static String resolveAppPathFromPushExtras(Bundle extras) {
@@ -205,7 +243,12 @@ public class MainActivity extends BridgeActivity {
 
     String sessionId = firstNonEmpty(extras.getString("sessionId"), extras.getString("session_id"));
     if (sessionId != null && !sessionId.isEmpty()) {
-      return "/community-messenger/calls/" + Uri.encode(sessionId);
+      String action = firstNonEmpty(extras.getString("action"));
+      String path = "/community-messenger/calls/" + Uri.encode(sessionId);
+      if (action != null) {
+        path += "?action=" + Uri.encode(action);
+      }
+      return path;
     }
     return null;
   }
@@ -230,22 +273,50 @@ public class MainActivity extends BridgeActivity {
     if (path == null || path.isEmpty() || "/".equals(path)) {
       return null;
     }
-    if (path.startsWith("/")) {
-      return path;
+    if (!path.startsWith("/")) {
+      path = "/" + path;
     }
-    return "/" + path;
+    return appendEncodedQuery(path, data.getEncodedQuery());
   }
 
-  private void navigateWebViewToAppPath(String appPath) {
+  private static String appendEncodedQuery(String path, String encodedQuery) {
+    if (encodedQuery == null || encodedQuery.isEmpty()) return path;
+    return path + "?" + encodedQuery;
+  }
+
+  private void queueNavigateWebViewToAppPath(String appPath) {
     if (appPath == null || appPath.isEmpty()) return;
+    pendingAppPath = appPath;
+    flushPendingAppPathIfAny();
+  }
+
+  private void flushPendingAppPathIfAny() {
+    if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
+    final String appPath = pendingAppPath;
+    mainHandler.post(
+        () -> {
+          if (!navigateWebViewToAppPathNow(appPath)) {
+            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath), 120);
+            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath), 450);
+            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath), 900);
+          }
+        });
+  }
+
+  private boolean navigateWebViewToAppPathNow(String appPath) {
+    if (appPath == null || appPath.isEmpty()) return false;
     Bridge bridge = getBridge();
-    if (bridge == null) return;
+    if (bridge == null) return false;
     WebView webView = bridge.getWebView();
-    if (webView == null) return;
+    if (webView == null) return false;
     final String jsPath = appPath.replace("\\", "\\\\").replace("'", "\\'");
     webView.post(
-        () -> webView.evaluateJavascript("window.location.assign('" + jsPath + "');", null));
+        () ->
+            webView.evaluateJavascript(
+                "window.location.assign('" + jsPath + "');", null));
+    pendingAppPath = null;
     Log.i(TAG, "deep_link_navigate path=" + appPath);
+    return true;
   }
 
   private static String mapDibayDeepLinkToAppPath(Uri data) {

@@ -35,28 +35,33 @@ export function buildDibayDeepLink(kind: DibayDeepLinkKind, id: string): string 
 export function resolveDibayDeepLinkToAppPath(deepLink: string): string | null {
   const trimmed = deepLink.trim();
   if (!trimmed.startsWith(SCHEME)) return null;
-  const rest = trimmed.slice(SCHEME.length);
+  const queryIndex = trimmed.indexOf("?");
+  const withoutQuery = queryIndex >= 0 ? trimmed.slice(0, queryIndex) : trimmed;
+  const query = queryIndex >= 0 ? trimmed.slice(queryIndex) : "";
+  const rest = withoutQuery.slice(SCHEME.length);
   const [head, ...tailParts] = rest.split("/").filter(Boolean);
   const tail = tailParts.map((p) => decodeURIComponent(p)).join("/");
 
   switch (head) {
     case "chat":
-      return tail ? `/community-messenger/rooms/${encodeURIComponent(tail)}` : null;
+      return tail ? `/community-messenger/rooms/${encodeURIComponent(tail)}${query}` : null;
     case "trade": {
       if (tailParts[0] === "chat" && tailParts[1]) {
-        return `/chats/${encodeURIComponent(decodeURIComponent(tailParts[1]))}`;
+        return `/chats/${encodeURIComponent(decodeURIComponent(tailParts[1]))}${query}`;
       }
       return null;
     }
     case "orders":
-      return tail ? `/orders/store/${encodeURIComponent(tail)}` : null;
+      return tail ? `/orders/store/${encodeURIComponent(tail)}${query}` : null;
     case "community":
       if (tailParts[0] === "post" && tailParts[1]) {
-        return `/philife/posts/${encodeURIComponent(decodeURIComponent(tailParts[1]))}`;
+        return `/philife/posts/${encodeURIComponent(decodeURIComponent(tailParts[1]))}${query}`;
       }
       return null;
-    case "call":
-      return tail ? `/community-messenger/calls/${encodeURIComponent(tail)}` : null;
+    case "call": {
+      const sessionId = tailParts[0] ? decodeURIComponent(tailParts[0]) : "";
+      return sessionId ? `/community-messenger/calls/${encodeURIComponent(sessionId)}${query}` : null;
+    }
     case "auth":
       return "/auth/callback";
     default:

@@ -1,9 +1,10 @@
 "use client";
 
-import { Check, Phone, Video, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CallScreenViewModel } from "./call-ui.types";
 import { CallAvatar } from "./CallAvatar";
+import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 
 /** 수신 벨 — DiBaY 1:1 전용 스타벅스 그린 톤, 중앙 아바타·큰 터치 간격. */
 export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
@@ -13,9 +14,6 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
   const decline = vm.primaryActions.find((a) => a.icon === "decline" || a.tone === "danger") ?? null;
 
   const peerName = vm.peerLabel.trim() || "?";
-  const appCallLine =
-    vm.mode === "video" ? t("cm_ui_samarket_video_call_brand") : t("cm_ui_samarket_voice_call_brand");
-  const CallKindIcon = vm.mode === "video" ? Video : Phone;
 
   return (
     <div
@@ -27,17 +25,7 @@ export function IncomingCallView({ vm }: { vm: CallScreenViewModel }) {
     >
       <div className="flex min-h-0 w-full max-w-md flex-1 flex-col items-center self-center">
         <div className="flex w-full shrink-0 flex-col items-center pt-[max(42px,8dvh)]">
-          <div className={`flex max-w-full items-center justify-center gap-2 ${isStarbucks ? "text-[#F1F8F4]" : "text-white"}`}>
-            <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-                isStarbucks ? "bg-[#D4E9E2]/16 text-[#F1F8F4] ring-1 ring-[#D4E9E2]/20" : "bg-white/10 text-white"
-              }`}
-              aria-hidden
-            >
-              <CallKindIcon size={18} strokeWidth={2} />
-            </span>
-            <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">{appCallLine}…</span>
-          </div>
+          <IncomingCallBrandHeader mode={vm.mode} visualTheme={vm.visualTheme} />
         </div>
 
         <div className="flex min-h-0 w-full flex-1 flex-col items-center justify-center px-2 py-4">

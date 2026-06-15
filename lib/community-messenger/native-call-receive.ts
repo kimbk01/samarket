@@ -75,7 +75,7 @@ export function buildCommunityMessengerNativeIncomingCallPayload(
     acceptUrl:
       session.sessionMode === "group"
         ? `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`
-        : `/community-messenger/calls/${encodeURIComponent(session.id)}`,
+        : `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`,
     rejectUrl: `/api/community-messenger/calls/sessions/${encodeURIComponent(session.id)}`,
     fallbackUrl: `/community-messenger/calls/${encodeURIComponent(session.id)}`,
   };

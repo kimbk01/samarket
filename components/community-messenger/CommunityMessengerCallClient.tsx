@@ -168,6 +168,7 @@ import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { fetchMessengerCallSoundConfig, getMessengerCallSoundConfigCache } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
+import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { registerCommunityMessengerCallRuntime, resetCommunityMessengerCallRuntimeSurface, syncCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { peekMessengerBootstrapCritical, peekMessengerBootstrapFull } from "@/lib/community-messenger/bootstrap-cache";
 import { useCallVideoPipGesture } from "@/lib/community-messenger/use-call-video-pip-gesture";
@@ -597,6 +598,7 @@ export function CommunityMessengerCallClient({
   const joinedRef = useRef(false);
   const joiningRef = useRef(false);
   const autoAcceptRef = useRef(false);
+  const autoRejectRef = useRef(false);
   const prefetchedConnectionRef = useRef<CommunityMessengerManagedCallConnection | null>(null);
   const initialSessionRef = useRef(initialSession);
   initialSessionRef.current = initialSession;
@@ -2235,6 +2237,7 @@ export function CommunityMessengerCallClient({
     }
     try {
       stopCallRingtone("accept_patch_start", s.id);
+      dismissAllIncomingCallNotificationsFireAndForget(s.id);
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -2347,6 +2350,7 @@ export function CommunityMessengerCallClient({
     logCallFlow("call_cleanup_start", { sessionId: session.id, reason: "reject" });
     stopCommunityMessengerCallFeedback();
     stopCallRingtone("reject_pressed", session.id);
+    dismissAllIncomingCallNotificationsFireAndForget(session.id);
     cmCallAudioCleanup("reject_click_feedback_stopped_before_patch", { sessionId: session.id });
     setBusy("reject");
     const sid = session.id;
@@ -2439,11 +2443,21 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (requestedAction !== "reject") return;
-    if (!session) return;
-    if (session.isMineInitiator) return;
-    if (session.status !== "ringing") return;
-    void rejectIncoming();
-  }, [rejectIncoming, requestedAction, session?.id, session?.isMineInitiator, session?.status]);
+    const s = sessionRef.current;
+    if (!s || s.id !== sessionId) return;
+    if (s.isMineInitiator) return;
+    if (s.status !== "ringing") {
+      if (isTerminalCallSessionStatus(s.status)) {
+        dismissAllIncomingCallNotificationsFireAndForget(s.id);
+      }
+      return;
+    }
+    if (autoRejectRef.current) return;
+    autoRejectRef.current = true;
+    void rejectIncoming().finally(() => {
+      autoRejectRef.current = false;
+    });
+  }, [rejectIncoming, requestedAction, session?.id, session?.isMineInitiator, session?.status, sessionId]);
 
   const endCall = useCallback(async () => {
     if (!session) return;

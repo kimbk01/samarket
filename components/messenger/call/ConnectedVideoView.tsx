@@ -6,6 +6,7 @@ import type { CallScreenViewModel } from "./call-ui.types";
 import { CallActionBar } from "./CallActionBar";
 import { CallAvatar } from "./CallAvatar";
 import { CallStatusText } from "./CallStatusText";
+import { IncomingCallBrandHeader } from "./IncomingCallBrandHeader";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -331,6 +332,9 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         {incomingVideoRingHero ? (
           <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[min(26dvh,200px)] pt-[min(18dvh,140px)]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
+              <div className="mb-6 w-full pt-[max(8px,calc(env(safe-area-inset-top)+4px))]">
+                <IncomingCallBrandHeader mode="video" visualTheme={vm.visualTheme} />
+              </div>
               <CallAvatar label={vm.peerLabel} avatarUrl={vm.peerAvatarUrl} pulse theme={vm.visualTheme} />
               <h2
                 className={`mt-6 text-center text-[clamp(1.35rem,5.5vw,2rem)] font-bold leading-tight tracking-tight ${
