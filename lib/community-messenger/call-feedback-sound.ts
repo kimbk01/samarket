@@ -13,6 +13,7 @@ import {
   resolveMessengerCallToneUrl,
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { cmCallAudioCleanup, cmCallLatencyInfo } from "@/lib/community-messenger/cm-call-debug";
+import { logCallTerminal } from "@/lib/community-messenger/call-terminal-audit";
 import { closePrimedWebAudioCallToneContext } from "@/lib/community-messenger/call-tone-web-audio";
 
 type CallToneMode = "incoming" | "outgoing";
@@ -73,6 +74,7 @@ function stopActiveMessengerRingtoneLoop(): void {
  * Agora 통화 트랙과 동시에 재생되면 안 되므로 수락·조인 직전·종료 시 반드시 호출한다.
  */
 export function stopCommunityMessengerCallTone(): void {
+  logCallTerminal("stop_tone", { source: "stopCommunityMessengerCallTone" });
   cmCallAudioCleanup("stopCommunityMessengerCallTone", {});
   stopActiveMessengerRingtoneLoop();
 }

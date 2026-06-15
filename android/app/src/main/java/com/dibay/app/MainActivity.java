@@ -23,6 +23,7 @@ import java.security.MessageDigest;
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
   private static final String ROUTE_PREFS = "dibay_push_route";
+  private static final String CALL_ROUTE_PREFS = "dibay_call_pending_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
   public static final String PENDING_PATH_KEY = "pending_path";
   public static final String PENDING_NOTIFICATION_ID_KEY = "pending_notification_id";
@@ -34,6 +35,7 @@ public class MainActivity extends BridgeActivity {
   private static final int[] PENDING_ROUTE_RETRY_DELAYS_MS = {120, 450, 900, 2_000, 4_000};
   private static final int[] ACCEPT_ROUTE_RETRY_DELAYS_MS = {0, 50, 120, 450, 900};
   private static volatile boolean appVisible = false;
+  private static volatile MainActivity activeInstance = null;
 
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
   private String pendingAppPath = null;
@@ -44,6 +46,83 @@ public class MainActivity extends BridgeActivity {
 
   public static boolean isAppVisibleForIncomingCall() {
     return appVisible;
+  }
+
+  /** FCM foreground — WebView call-v3 event (incoming_call must not be dropped). */
+  public static void deliverCallV3IncomingCallEvent(
+      android.content.Context context, IncomingCallPayload payload) {
+    MainActivity act = activeInstance;
+    if (act == null || payload == null || !payload.isValid()) return;
+    act.mainHandler.post(() -> act.injectCallV3IncomingEvent(payload));
+  }
+
+  private void injectCallV3IncomingEvent(IncomingCallPayload payload) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String callId = safeJs(payload.callId);
+    final String roomId = safeJs(payload.roomId);
+    final String callerId = safeJs(payload.callerId);
+    final String callerName = safeJs(payload.callerName);
+    final String avatar = safeJs(payload.callerAvatarUrl);
+    final String callType = safeJs(payload.callType);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-v3-event',{detail:{type:'incoming_call',sessionId:'"
+            + callId
+            + "',roomId:'"
+            + roomId
+            + "',callerId:'"
+            + callerId
+            + "',callerName:'"
+            + callerName
+            + "',callerAvatarUrl:'"
+            + avatar
+            + "',callKind:'"
+            + callType
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i(ROUTE_LOG_TAG, "[call-v3] foreground_incoming_event callId=" + payload.callId);
+  }
+
+  private static String safeJs(String value) {
+    if (value == null) return "";
+    return value.replace("\\", "\\\\").replace("'", "\\'");
+  }
+
+  public static void clearPersistedCallPendingRoute(android.content.Context context) {
+    if (context == null) return;
+    context
+        .getSharedPreferences(CALL_ROUTE_PREFS, android.content.Context.MODE_PRIVATE)
+        .edit()
+        .remove(PENDING_PATH_KEY)
+        .remove(PENDING_AT_KEY)
+        .apply();
+  }
+
+  public static android.os.Bundle readPersistedCallPendingRoute(android.content.Context context) {
+    android.os.Bundle out = new android.os.Bundle();
+    if (context == null) return out;
+    SharedPreferences prefs =
+        context.getSharedPreferences(CALL_ROUTE_PREFS, android.content.Context.MODE_PRIVATE);
+    long at = prefs.getLong(PENDING_AT_KEY, 0L);
+    if (at <= 0L || System.currentTimeMillis() - at > PENDING_ROUTE_TTL_MS) {
+      clearPersistedCallPendingRoute(context);
+      return out;
+    }
+    String path = prefs.getString(PENDING_PATH_KEY, null);
+    if (path == null || path.trim().isEmpty()) return out;
+    out.putString(PENDING_PATH_KEY, path.trim());
+    out.putLong(PENDING_AT_KEY, at);
+    return out;
+  }
+
+  private void persistCallPendingRoute(String appPath) {
+    getSharedPreferences(CALL_ROUTE_PREFS, MODE_PRIVATE)
+        .edit()
+        .putString(PENDING_PATH_KEY, appPath)
+        .putLong(PENDING_AT_KEY, System.currentTimeMillis())
+        .apply();
   }
 
   /** PushRouteListener consumed the persisted route — drop native backup. */
@@ -99,6 +178,7 @@ public class MainActivity extends BridgeActivity {
   public void onStart() {
     super.onStart();
     appVisible = true;
+    activeInstance = this;
     attachDibayWebChromeClient();
   }
 
@@ -106,6 +186,7 @@ public class MainActivity extends BridgeActivity {
   public void onResume() {
     super.onResume();
     appVisible = true;
+    activeInstance = this;
     attachDibayWebChromeClient();
     flushPendingAppPathIfAny();
   }
@@ -113,6 +194,7 @@ public class MainActivity extends BridgeActivity {
   @Override
   public void onStop() {
     appVisible = false;
+    if (activeInstance == this) activeInstance = null;
     super.onStop();
   }
 
@@ -555,8 +637,15 @@ public class MainActivity extends BridgeActivity {
                 + at
                 + "}));}catch(e){}"
             : "";
+    final boolean callRoute = appPath.startsWith("/community-messenger/calls/");
+    final String storageKey = callRoute ? "dibay_call_pending_route" : "dibay_pending_push_route";
+    if (callRoute) {
+      persistCallPendingRoute(appPath);
+    }
     final String js =
-        "(function(){try{sessionStorage.setItem('dibay_pending_push_route',JSON.stringify({path:'"
+        "(function(){try{sessionStorage.setItem('"
+            + storageKey
+            + "',JSON.stringify({path:'"
             + jsPath
             + "',notificationId:'"
             + jsNotificationId
@@ -564,7 +653,9 @@ public class MainActivity extends BridgeActivity {
             + at
             + "}));"
             + acceptPendingJs
-            + "}catch(e){}window.dispatchEvent(new CustomEvent('dibay:push-route',{detail:{path:'"
+            + "}catch(e){}window.dispatchEvent(new CustomEvent('"
+            + (callRoute ? "dibay:call-v3-route" : "dibay:push-route")
+            + "',{detail:{path:'"
             + jsPath
             + "',notificationId:'"
             + jsNotificationId

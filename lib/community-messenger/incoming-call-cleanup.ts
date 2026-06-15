@@ -1,4 +1,5 @@
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
+import { logCallTerminal } from "@/lib/community-messenger/call-terminal-audit";
 import {
   releaseIncomingCallAccept,
   releaseIncomingCallReject,
@@ -16,6 +17,12 @@ export type IncomingCallCleanupArgs = {
 export function runIncomingCallCleanup(args: IncomingCallCleanupArgs): void {
   const sessionId = args.sessionId.trim();
   if (!sessionId) return;
+
+  logCallTerminal("cleanup_start", {
+    sessionId,
+    reason: args.reason,
+    source: "runIncomingCallCleanup",
+  });
 
   logCallFlow("call_cleanup_start", { sessionId, reason: args.reason });
 

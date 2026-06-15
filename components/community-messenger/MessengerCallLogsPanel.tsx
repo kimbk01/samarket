@@ -17,8 +17,9 @@ import {
   resolveCallLogStatusMessageKey,
   shouldShowCallLogDuration,
 } from "@/lib/community-messenger/call-log-row-copy";
-import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
 import { executeOutgoingRedialFromTerminal } from "@/lib/community-messenger/outgoing-redial-handoff";
+import { logRedialPath } from "@/lib/community-messenger/legacy-call-debug";
+import { startOutgoingCallUnified } from "@/lib/call-v3/call-v3-outgoing-entry";
 import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
@@ -33,6 +34,8 @@ type Props = {
   entryOrigin?: string | null;
   /** missed_call 알림 딥링크 — 해당 통화 기록 하이라이트 */
   highlightCallId?: string | null;
+  /** 부재중 알림 — 특정 방 통화 기록만 표시 */
+  filterRoomId?: string | null;
 };
 
 function CallLogRow({
@@ -81,19 +84,21 @@ function CallLogRow({
   const handleRedial = useCallback(
     (event: MouseEvent | PointerEvent) => {
       event.stopPropagation();
+      logRedialPath("replay_button_click", { source: "call_logs_panel", kind: redialKind });
       if (!canRedial || redialingRef.current) return;
       redialingRef.current = true;
       setRedialing(true);
       void (async () => {
         try {
-          const result = await executeOutgoingRedialFromTerminal({
+          const result = await startOutgoingCallUnified({
             roomId: call.roomId?.trim() ?? null,
             peerUserId: call.peerUserId?.trim() ?? null,
+            peerLabel: name,
             kind: redialKind,
-            navigate: (href) => router.replace(href),
+            router,
           });
           if (!result.ok) {
-            showMessengerSnackbar(result.userMessage, { variant: "error" });
+            showMessengerSnackbar(result.userMessage ?? t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
           }
         } catch {
           showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
@@ -184,6 +189,7 @@ export function MessengerCallLogsPanel({
   callsHydrating = false,
   entryOrigin = null,
   highlightCallId = null,
+  filterRoomId = null,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -192,6 +198,10 @@ export function MessengerCallLogsPanel({
   const [error, setError] = useState<string | null>(null);
   const fallbackFetchedRef = useRef(false);
   const normalizedHighlightId = highlightCallId?.trim() ?? "";
+  const normalizedFilterRoomId = filterRoomId?.trim() ?? "";
+  const visibleCalls = normalizedFilterRoomId
+    ? calls.filter((c) => (c.roomId?.trim() ?? "") === normalizedFilterRoomId)
+    : calls;
 
   useEffect(() => {
     setCalls(normalizeCommunityMessengerCallLogs(seedCalls));
@@ -244,7 +254,7 @@ export function MessengerCallLogsPanel({
     if (!node) return;
     node.scrollIntoView({ block: "center", behavior: "smooth" });
     console.info("[missed-call] highlighted_in_history", { callId: normalizedHighlightId });
-  }, [calls, loading, normalizedHighlightId]);
+  }, [visibleCalls, loading, normalizedHighlightId]);
 
   const onRowNavigate = useCallback(
     (call: CommunityMessengerCallLog) => {
@@ -261,10 +271,10 @@ export function MessengerCallLogsPanel({
     [router, entryOrigin]
   );
 
-  if (error && calls.length === 0) {
+  if (error && visibleCalls.length === 0) {
     return <p className="py-10 text-center sam-text-body text-red-600">{error}</p>;
   }
-  if (calls.length === 0) {
+  if (visibleCalls.length === 0) {
     if (loading) {
       return (
         <ul
@@ -279,7 +289,7 @@ export function MessengerCallLogsPanel({
 
   return (
     <ul className="divide-y divide-sam-border" aria-label={t("cm_ui_call_logs_title")}>
-      {calls.map((call) => {
+      {visibleCalls.map((call) => {
         const sid = call.sessionId?.trim() ?? call.id?.trim() ?? "";
         const highlighted = Boolean(normalizedHighlightId && sid === normalizedHighlightId);
         return (

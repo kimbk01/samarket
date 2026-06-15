@@ -1,5 +1,7 @@
 "use client";
 
+import { logCallTerminal } from "@/lib/community-messenger/call-terminal-audit";
+
 /** 동일 세션·action 터미널 PATCH 중복 방지 (pagehide·logout·end 경합) */
 const inflightUntilMs = new Map<string, number>();
 const TERMINAL_PATCH_DEDUPE_MS = 8_000;
@@ -13,6 +15,11 @@ export function claimCallTerminalPatch(sessionId: string, action: string): boole
   const until = inflightUntilMs.get(key) ?? 0;
   if (until > now) return false;
   inflightUntilMs.set(key, now + TERMINAL_PATCH_DEDUPE_MS);
+  logCallTerminal("terminal_detected", {
+    sessionId: sid,
+    reason: act,
+    source: "claimCallTerminalPatch",
+  });
   if (inflightUntilMs.size > 200) {
     for (const [k, u] of inflightUntilMs) {
       if (u <= now) inflightUntilMs.delete(k);

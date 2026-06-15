@@ -9,12 +9,14 @@ import {
 } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
+  readRedialAuditPreviousSessionIdFromPath,
   type OutgoingCallSessionBootstrapResult,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { suspendPrimedCommunityMessengerDeviceStreamIdleRelease } from "@/lib/community-messenger/call-permission";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
+import { logRedialAudit, logRedialPath } from "@/lib/community-messenger/legacy-call-debug";
 
 const HANDOFF_KEY = "cm_outgoing_redial_handoff";
 const HANDOFF_TTL_MS = 20_000;
@@ -83,6 +85,11 @@ export async function executeOutgoingRedialFromTerminal(input: {
   cleanupAgora?: () => Promise<void>;
   navigate: (href: string) => void;
 }): Promise<OutgoingCallSessionBootstrapResult> {
+  logRedialPath("executeOutgoingRedialFromTerminal_enter", {
+    kind: input.kind,
+    roomId: input.roomId,
+    peerUserId: input.peerUserId,
+  });
   const cleanupAgora = input.cleanupAgora ?? (async () => {});
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
@@ -93,6 +100,13 @@ export async function executeOutgoingRedialFromTerminal(input: {
     stopCommunityMessengerCallTone();
     return { ok: false, userMessage: redialBlockedMessage(input.kind) };
   }
+
+  const previousSessionId = readRedialAuditPreviousSessionIdFromPath();
+  logRedialAudit("redial_start", {
+    previousSessionId,
+    roomId: input.roomId,
+    kind: input.kind,
+  });
 
   beginOutgoingRedialHandoff();
   try {
@@ -106,6 +120,13 @@ export async function executeOutgoingRedialFromTerminal(input: {
       input.navigate,
       { skipMediaPrime: true }
     );
+    if (result.ok) {
+      logRedialAudit("redial_result", {
+        previousSessionId,
+        newSessionId: result.session?.id,
+        same: previousSessionId === result.session?.id,
+      });
+    }
     if (!result.ok) {
       endOutgoingRedialHandoff();
     }

@@ -22,7 +22,6 @@ import {
 import {
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
-import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   ensureOutgoingCallMediaPermission,
   getCallMediaPermissionBlockedMessageKey,
@@ -61,6 +60,9 @@ import {
   buildCommunityMessengerOutgoingDialHref,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { executeOutgoingRedialFromTerminal } from "@/lib/community-messenger/outgoing-redial-handoff";
+import { logRedialPath } from "@/lib/community-messenger/legacy-call-debug";
+import { startOutgoingCallUnified } from "@/lib/call-v3/call-v3-outgoing-entry";
 import { cmCallLatencyInfo, cmCallLatencyMarkClick, setCmCallLatencyContext } from "@/lib/community-messenger/cm-call-debug";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
@@ -548,7 +550,7 @@ export function useMessengerRoomPhase2Controller() {
     [router]
   );
 
-  /** 발신 — roomManaged. preflight 후 `/calls/outgoing` 으로 이동 */
+  /** 발신 — roomManaged. preflight 후 새 세션 POST + `/calls/:id` 이동 */
   const startManagedDirectCall = useCallback(
     (kind: "voice" | "video"): boolean => {
       if (roomUnavailable || isGroupRoom) return false;
@@ -558,7 +560,12 @@ export function useMessengerRoomPhase2Controller() {
 
       setManagedDirectCallError(null);
       const existingSession = snapshot?.activeCall;
-      if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
+      if (
+        existingSession &&
+        existingSession.sessionMode === "direct" &&
+        existingSession.isMineInitiator &&
+        (existingSession.status === "ringing" || existingSession.status === "active")
+      ) {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         unlockCommunityMessengerCallPlaybackFromUserGesture();
@@ -567,6 +574,7 @@ export function useMessengerRoomPhase2Controller() {
       }
 
       const rid = roomId.trim();
+      const peerUserId = snapshot?.room.peerUserId?.trim() ?? null;
       const peerLabel = snapshot?.room.title?.trim();
       cmCallLatencyMarkClick({
         surface: "room_managed",
@@ -584,23 +592,32 @@ export function useMessengerRoomPhase2Controller() {
         peerLabel: peerLabel ?? null,
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
-      const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      void primeOutgoingCallMediaBeforeNavigate(kind).then((primeResult) => {
-        if (!primeResult.ok) {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
-          return;
+      logRedialPath("replay_button_click", { source: "room_managed_direct_call", kind });
+      void startOutgoingCallUnified({
+        kind,
+        roomId: rid || null,
+        peerUserId,
+        peerLabel: peerLabel ?? undefined,
+        router,
+      }).then((result) => {
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+        if (!result.ok) {
+          showMessengerSnackbar(result.userMessage ?? translateCmUi("cm_ui_network_error_could_not_start_call"), { variant: "error" });
         }
-        router.push(dialHref);
-        window.setTimeout(() => {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }, 0);
       });
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
+    [
+      isGroupRoom,
+      openDirectCallPage,
+      roomId,
+      roomUnavailable,
+      router,
+      snapshot?.activeCall,
+      snapshot?.room.peerUserId,
+      snapshot?.room.title,
+    ]
   );
 
   useEffect(() => {
@@ -1747,12 +1764,37 @@ export function useMessengerRoomPhase2Controller() {
       await startGroupCall(kind);
       return;
     }
-    const ok = startManagedDirectCall(kind);
-    if (ok) {
+    logRedialPath("replay_button_click", { source: "call_stub_confirm", kind });
+    setOutgoingDialLocked(true);
+    try {
+      const result = await startOutgoingCallUnified({
+        roomId: roomId.trim() || null,
+        peerUserId: snapshot?.room.peerUserId?.trim() ?? null,
+        peerLabel: snapshot?.room.title?.trim(),
+        kind,
+        router,
+      });
       pendingStubCallKindRef.current = null;
       setCallStubOutgoingConfirm(null);
+      if (!result.ok) {
+        showMessengerSnackbar(result.userMessage ?? translateCmUi("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+      }
+    } catch {
+      pendingStubCallKindRef.current = null;
+      setCallStubOutgoingConfirm(null);
+      showMessengerSnackbar(translateCmUi("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+    } finally {
+      setOutgoingDialLocked(false);
     }
-  }, [isGroupRoom, roomUnavailable, startGroupCall, startManagedDirectCall]);
+  }, [
+    isGroupRoom,
+    roomId,
+    roomUnavailable,
+    router,
+    snapshot?.room.peerUserId,
+    startGroupCall,
+    translateCmUi,
+  ]);
 
   useEffect(() => {
     if (!messageActionItem && !callStubSheet) return;

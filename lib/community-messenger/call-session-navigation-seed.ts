@@ -7,6 +7,7 @@ import {
   stopCommunityMessengerCallTone,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { logRedialAudit, logRedialPath } from "@/lib/community-messenger/legacy-call-debug";
 import {
   cmCallFlow,
   cmCallIncomingTraceBindSession,
@@ -33,6 +34,19 @@ export const COMMUNITY_MESSENGER_TEMP_CALL_PREFIX = "tmp_" as const;
 
 export function isCommunityMessengerTempCallSessionId(sessionId: string): boolean {
   return sessionId.trim().startsWith(COMMUNITY_MESSENGER_TEMP_CALL_PREFIX);
+}
+
+/** 임시 진단 — 재다이얼 시 URL 의 이전 sessionId (tmp_* 제외) */
+export function readRedialAuditPreviousSessionIdFromPath(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
+    const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
+    if (!raw || isCommunityMessengerTempCallSessionId(raw)) return null;
+    return raw;
+  } catch {
+    return null;
+  }
 }
 
 export function createCommunityMessengerTempCallSessionId(): string {
@@ -404,6 +418,16 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
     });
   }
   cmCallLatency("session_post_complete", { sessionId: json.session.id, roomId });
+  const previousSessionId = readRedialAuditPreviousSessionIdFromPath();
+  logRedialAudit("call_post_response", {
+    roomId,
+    kind: args.kind,
+    dialIntent: args.dialIntent,
+    sessionId: json.session?.id,
+    status: json.session?.status,
+    previousSessionId,
+    isSameSession: previousSessionId === json.session?.id,
+  });
   return { ok: true, session: json.session, roomId };
 }
 
@@ -421,6 +445,12 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   navigate: (href: string) => void,
   options?: { skipMediaPrime?: boolean }
 ): Promise<OutgoingCallSessionBootstrapResult> {
+  logRedialPath("bootstrap_enter", {
+    kind: input.kind,
+    roomId: input.roomId,
+    peerUserId: input.peerUserId,
+    skipMediaPrime: options?.skipMediaPrime ?? false,
+  });
   /** 첫 `await` 전에만 유효한 사용자 활성화 — 링백·GUM 프라임·자동재생 정책 대응 */
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);

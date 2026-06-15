@@ -15,6 +15,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type SetStateAction,
 } from "react";
 import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
 
@@ -183,6 +184,14 @@ import {
   AGORA_RECONNECT_MAX_MS,
 } from "@/lib/community-messenger/call-agora-reconnect-policy";
 import { claimCallTerminalPatch } from "@/lib/community-messenger/call-terminal-patch-dedupe";
+import { logCallTerminal } from "@/lib/community-messenger/call-terminal-audit";
+import {
+  logAcceptAudit,
+  logAcceptAuditBlocked,
+  logAgoraAudit,
+  logCallClientEndCall,
+  logCallClientEndClickBlocked,
+} from "@/lib/community-messenger/legacy-call-debug";
 import {
   CM_VIDEO_UPGRADE_REQUEST,
   CM_VIDEO_UPGRADE_RESPONSE,
@@ -286,13 +295,139 @@ function readRealtimeSessionStatus(
     : null;
 }
 
+const CALLEE_INVITE_HANGUP_ACCEPT_GRACE_MS = 2000;
+
+type ActiveCalleeTerminalRefreshGuardContext = {
+  lastAcceptedAtMs: number;
+  isJoined: boolean;
+  isRemoteJoined: boolean;
+  localTerminalIntent?: boolean;
+};
+
+type ActiveCalleeTerminalRefreshGuardOpts = {
+  guard?: ActiveCalleeTerminalRefreshGuardContext | null;
+  source?: string;
+  senderId?: string | null;
+};
+
+function isIntentionalCallTerminalStatus(
+  status: CommunityMessengerCallSession["status"]
+): boolean {
+  return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
+}
+
+function isServerTerminalAfterAnswer(
+  prev: CommunityMessengerCallSession,
+  next: CommunityMessengerCallSession
+): boolean {
+  const answeredMs = prev.answeredAt ? Date.parse(prev.answeredAt) : NaN;
+  const endedMs = next.endedAt ? Date.parse(next.endedAt) : NaN;
+  if (!Number.isFinite(answeredMs) || !Number.isFinite(endedMs)) return false;
+  return endedMs >= answeredMs - 500;
+}
+
+function isExplicitRemoteSessionTerminalReason(
+  reason: string | null,
+  terminalStatus: CommunityMessengerCallSession["status"]
+): boolean {
+  if (terminalStatus === "missed") return true;
+  if (!reason) return false;
+  const normalized = reason.toLowerCase();
+  return (
+    normalized === "remote_end" ||
+    normalized === "ended_by_peer" ||
+    normalized === "rejected_by_peer" ||
+    normalized === "reject" ||
+    normalized === "rejected" ||
+    normalized === "end" ||
+    normalized === "ended" ||
+    normalized === "cancel" ||
+    normalized === "cancelled" ||
+    normalized === "ring_timeout" ||
+    normalized === "incoming_ring_timeout" ||
+    normalized === "missed"
+  );
+}
+
+function shouldBlockCalleeActiveTerminalRefresh(
+  prev: CommunityMessengerCallSession,
+  next: CommunityMessengerCallSession,
+  guard: ActiveCalleeTerminalRefreshGuardContext | null | undefined,
+  senderId?: string | null
+): boolean {
+  if (prev.status !== "active" || !isTerminalCallSessionStatus(next.status)) return false;
+  if (prev.isMineInitiator) return false;
+  if (guard?.localTerminalIntent) return false;
+  if (isServerTerminalAfterAnswer(prev, next)) return false;
+
+  const inAcceptGrace =
+    (guard?.lastAcceptedAtMs ?? 0) > 0 &&
+    Date.now() - guard!.lastAcceptedAtMs < CALLEE_INVITE_HANGUP_ACCEPT_GRACE_MS;
+
+  if (inAcceptGrace) {
+    if (isExplicitRemoteSessionTerminalReason(next.endedReason ?? null, next.status)) return false;
+    if (senderId?.trim()) return false;
+    return true;
+  }
+
+  if (guard?.isJoined || guard?.isRemoteJoined) {
+    const answeredMs = prev.answeredAt ? Date.parse(prev.answeredAt) : NaN;
+    const endedMs = next.endedAt ? Date.parse(next.endedAt) : NaN;
+    if (!Number.isFinite(endedMs)) return true;
+    if (Number.isFinite(answeredMs) && endedMs < answeredMs) return true;
+  }
+
+  return false;
+}
+
+function logCallClientIgnoreRefreshTerminal(extra: {
+  source: string;
+  sessionId: string | null;
+  prevStatus: string | null;
+  nextStatus: string | null;
+  reason: string | null;
+  senderId: string | null;
+  note: string;
+}): void {
+  console.warn("[call-client] ignore_refresh_terminal", extra);
+}
+
+function applyActiveCalleeTerminalRefreshGuard(
+  prev: CommunityMessengerCallSession | null,
+  next: CommunityMessengerCallSession | null,
+  opts?: ActiveCalleeTerminalRefreshGuardOpts
+): CommunityMessengerCallSession | null {
+  if (!prev || !next || prev.id !== next.id) return next;
+  if (
+    shouldBlockCalleeActiveTerminalRefresh(
+      prev,
+      next,
+      opts?.guard,
+      opts?.senderId
+    )
+  ) {
+    logCallClientIgnoreRefreshTerminal({
+      source: opts?.source ?? "refresh_guard",
+      sessionId: next.id,
+      prevStatus: prev.status,
+      nextStatus: next.status,
+      reason: next.endedReason ?? next.status,
+      senderId: opts?.senderId?.trim() || null,
+      note: "active_requires_explicit_remote_terminal",
+    });
+    return prev;
+  }
+  return next;
+}
+
 /**
  * silent GET 이 DB·캐시 지연으로 ringing/active 를 돌려주면 터미널 UI 가 다시 "통화 중" 으로 깜빡인다.
  * `callTerminalLocalPinRef` 와 함께 이중 방어.
  */
 function pickCallSessionSnapshotAfterFetch(
   prev: CommunityMessengerCallSession | null,
-  next: CommunityMessengerCallSession | null
+  next: CommunityMessengerCallSession | null,
+  opts?: ActiveCalleeTerminalRefreshGuardOpts
 ): CommunityMessengerCallSession | null {
   if (!next) return next;
   /** 상대 수락 직후 발신 탭이 오래된 ringing GET 을 들고 있어도 active 로 즉시 덮음 */
@@ -307,7 +442,7 @@ function pickCallSessionSnapshotAfterFetch(
   ) {
     return prev;
   }
-  return next;
+  return applyActiveCalleeTerminalRefreshGuard(prev, next, opts);
 }
 
 /**
@@ -317,7 +452,8 @@ function pickCallSessionSnapshotAfterFetch(
 function mergeRealtimeSessionRowIntoSnapshot(
   prev: CommunityMessengerCallSession | null,
   row: Record<string, unknown> | null,
-  targetSessionId: string
+  targetSessionId: string,
+  opts?: ActiveCalleeTerminalRefreshGuardOpts
 ): CommunityMessengerCallSession | null {
   if (!prev || !row) return prev;
   const rowId = typeof row.id === "string" ? row.id.trim() : "";
@@ -373,7 +509,18 @@ function mergeRealtimeSessionRowIntoSnapshot(
   if (merged.status === "active" && prev.status !== "active") {
     return merged;
   }
-  return sessionsMeaningfullyEqual(prev, merged) ? prev : merged;
+  const senderId =
+    typeof row.from_user_id === "string"
+      ? row.from_user_id.trim()
+      : typeof row.sender_id === "string"
+        ? row.sender_id.trim()
+        : null;
+  const guarded = applyActiveCalleeTerminalRefreshGuard(prev, merged, {
+    ...opts,
+    senderId: opts?.senderId ?? senderId,
+    source: opts?.source ?? "realtime_postgres_merge",
+  });
+  return sessionsMeaningfullyEqual(prev, guarded) ? prev : guarded;
 }
 
 function mapHangupReasonToTerminalStatus(
@@ -471,6 +618,189 @@ function HydrateOutgoingVideoPreview({
   );
 }
 
+/** 임시 진단 — 수락·Agora·endCall 로그는 legacy-call-debug 로 격리 */
+
+function logAcceptAuditBlockedForSession(
+  sessionId: string,
+  blockedReason: string,
+  extra: Record<string, unknown> = {}
+): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  logAcceptAuditBlocked(blockedReason, { sessionId: sid, ...extra });
+}
+
+function buildAgoraJoinParamsLog(
+  connection: CommunityMessengerManagedCallConnection,
+  sessionId: string,
+  callKind: CommunityMessengerCallKind
+): Record<string, unknown> {
+  const uid = connection.uid;
+  return {
+    sessionId,
+    channelName: connection.channelName,
+    uid,
+    uidType: typeof uid,
+    tokenExists: Boolean(connection.token),
+    appIdExists: Boolean(connection.appId?.trim()),
+    callKind,
+  };
+}
+
+/** 임시 진단 — cleanupClient / status 전환 (기능 변경 없음) */
+function logCallClientCleanupCalled(extra: {
+  sessionId?: string | null;
+  status?: string | null;
+  previousStatus?: string | null;
+  reason?: string | null;
+  source?: string | null;
+  action?: string | null;
+  isAccepted?: boolean;
+  isJoined?: boolean;
+  hasRemoteTrack?: boolean;
+}): void {
+  const pathname =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : undefined;
+  console.warn("[call-client] cleanupClient_called", { pathname, ...extra });
+}
+
+function logCallClientStatusTransition(extra: {
+  sessionId?: string | null;
+  from: string | null;
+  to: string | null;
+  source: string;
+}): void {
+  const pathname =
+    typeof window !== "undefined"
+      ? `${window.location.pathname}${window.location.search}`
+      : undefined;
+  console.warn("[call-client] status_transition", { pathname, ...extra });
+}
+
+type CallClientEndCallSource =
+  | "ui_click:end"
+  | "onBack"
+  | "onClose"
+  | "peer_left_timer"
+  | "network_loss"
+  | "unknown";
+
+const CALLEE_ACCEPT_END_CLICKTHROUGH_GUARD_MS = 1500;
+
+function isCalleeAcceptEndUiBlocked(args: {
+  isInitiator: boolean;
+  acceptAction: string | null;
+  isCalleeAcceptRoute: boolean;
+  sessionStatus: CommunityMessengerCallSession["status"] | null | undefined;
+  joined: boolean;
+  busy: string | null;
+  lastAcceptedAtMs: number;
+  now?: number;
+}): boolean {
+  if (args.isInitiator) return false;
+  const now = args.now ?? Date.now();
+  if (args.busy === "accept" || args.busy === "join") return true;
+  if (
+    args.lastAcceptedAtMs > 0 &&
+    now - args.lastAcceptedAtMs < CALLEE_ACCEPT_END_CLICKTHROUGH_GUARD_MS &&
+    (args.sessionStatus === "ringing" || args.sessionStatus === "active")
+  ) {
+    return true;
+  }
+  const onAcceptRoute = args.acceptAction === "accept" || args.isCalleeAcceptRoute;
+  if (
+    onAcceptRoute &&
+    !args.joined &&
+    (args.sessionStatus === "ringing" || args.sessionStatus === "active")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function shouldBlockCalleeEndCallAcceptClickthrough(args: {
+  source: CallClientEndCallSource;
+  isInitiator: boolean;
+  sessionStatus: CommunityMessengerCallSession["status"] | null | undefined;
+  joined: boolean;
+  acceptAction: string | null;
+  isCalleeAcceptRoute: boolean;
+  lastAcceptedAtMs: number;
+  busy?: string | null;
+  now?: number;
+}): boolean {
+  if (args.source !== "ui_click:end") return false;
+  return isCalleeAcceptEndUiBlocked({
+    isInitiator: args.isInitiator,
+    acceptAction: args.acceptAction,
+    isCalleeAcceptRoute: args.isCalleeAcceptRoute,
+    sessionStatus: args.sessionStatus,
+    joined: args.joined,
+    busy: args.busy ?? null,
+    lastAcceptedAtMs: args.lastAcceptedAtMs,
+    now: args.now,
+  });
+}
+
+function readInviteBroadcastHangupReason(payload: Record<string, unknown>): string | null {
+  for (const key of ["reason", "terminalStatus", "status"] as const) {
+    const v = payload[key];
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed) return trimmed;
+    }
+  }
+  return null;
+}
+
+function readInviteBroadcastHangupSenderId(payload: Record<string, unknown>): string {
+  if (typeof payload.senderId === "string") return payload.senderId.trim();
+  if (typeof payload.fromUserId === "string") return payload.fromUserId.trim();
+  return "";
+}
+
+function isExplicitRemoteInviteHangupReason(reason: string | null): boolean {
+  if (!reason) return false;
+  const normalized = reason.toLowerCase();
+  return normalized === "remote_end" || normalized === "reject" || normalized === "rejected";
+}
+
+function isExplicitRemoteBusTerminalReason(reason: string | null): boolean {
+  if (!reason) return false;
+  const normalized = reason.toLowerCase();
+  return (
+    normalized === "remote_end" ||
+    normalized === "ended_by_peer" ||
+    normalized === "rejected_by_peer" ||
+    normalized === "reject" ||
+    normalized === "rejected"
+  );
+}
+
+function logCallClientIgnoreBusTerminal(extra: {
+  reason: string | null;
+  sessionId: string | null;
+  activeSessionId: string | null;
+  senderId: string | null;
+  status: string | null;
+  note: string;
+}): void {
+  console.warn("[call-client] ignore_bus_terminal", extra);
+}
+
+function logCallClientEndCallCalled(extra: {
+  sessionId?: string | null;
+  status?: string | null;
+  source: CallClientEndCallSource;
+  action?: string | null;
+  isJoined?: boolean;
+  hasRemoteTrack?: boolean;
+}): void {
+  logCallClientEndCall(extra);
+}
+
 export function CommunityMessengerCallClient({
   sessionId,
   initialSession = null,
@@ -517,7 +847,41 @@ export function CommunityMessengerCallClient({
     }
     return hydrateCommunityMessengerCallClientSession(sessionId, initialSession);
   });
-  const [session, setSession] = useState<CommunityMessengerCallSession | null>(initialCallHydration.session);
+  const [session, setSessionState] = useState<CommunityMessengerCallSession | null>(initialCallHydration.session);
+  const sessionStatusPrevRef = useRef<CommunityMessengerCallSession["status"] | null>(
+    initialCallHydration.session?.status ?? null
+  );
+  const setSession = useCallback(
+    (
+      action: SetStateAction<CommunityMessengerCallSession | null>,
+      source = "setSession_untagged"
+    ) => {
+      setSessionState((prev) => {
+        const next = typeof action === "function" ? action(prev) : action;
+        const prevStatus = prev?.status ?? null;
+        const nextStatus = next?.status ?? null;
+        if (prevStatus !== nextStatus) {
+          logCallClientStatusTransition({
+            sessionId: next?.id ?? prev?.id ?? null,
+            from: prevStatus,
+            to: nextStatus,
+            source,
+          });
+          if (nextStatus && isTerminalCallSessionStatus(nextStatus)) {
+            logCallTerminal("terminal_detected", {
+              sessionId: next?.id ?? prev?.id ?? null,
+              status: nextStatus,
+              reason: next?.endedReason ?? `from_${prevStatus ?? "none"}`,
+              source,
+            });
+          }
+          if (nextStatus) sessionStatusPrevRef.current = nextStatus;
+        }
+        return next;
+      });
+    },
+    []
+  );
   const [loading, setLoading] = useState(() => initialCallHydration.loading);
   const [busy, setBusy] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -563,7 +927,7 @@ export function CommunityMessengerCallClient({
   const networkReconnectTimerRef = useRef<number | null>(null);
   const networkReconnectFailTimerRef = useRef<number | null>(null);
   const elapsedSecondsRef = useRef(0);
-  const endCallRef = useRef<() => Promise<void>>(async () => {});
+  const endCallRef = useRef<(source?: CallClientEndCallSource) => Promise<void>>(async () => {});
   const peerLeftEndTimerRef = useRef<number | null>(null);
   const terminalDismissTimerRef = useRef<number | null>(null);
   const agoraNetworkHooksRef = useRef({
@@ -606,6 +970,9 @@ export function CommunityMessengerCallClient({
   const joinedRef = useRef(false);
   const joiningRef = useRef(false);
   const autoAcceptRef = useRef(false);
+  const lastAcceptedAtRef = useRef(0);
+  /** 본인 종료(endCall) 직후 authoritative GET 이 stale active 로 되돌리지 않게 한다 */
+  const localUserTerminalIntentRef = useRef(false);
   const prefetchedConnectionRef = useRef<CommunityMessengerManagedCallConnection | null>(null);
   const prefetchedConnectionSessionIdRef = useRef<string | null>(null);
   const initialSessionRef = useRef(initialSession);
@@ -686,7 +1053,10 @@ export function CommunityMessengerCallClient({
       if (ev.type !== "cm.call.session_terminal") return;
       const cur = sessionRef.current;
       if (!cur) return;
-      const sidOk = Boolean(ev.sessionId && ev.sessionId === cur.id);
+      const evSessionId = ev.sessionId?.trim() ?? "";
+      const activeSessionId = cur.id?.trim() ?? "";
+      const terminalReason = typeof ev.status === "string" ? ev.status.trim() : null;
+      const sidOk = Boolean(evSessionId && evSessionId === activeSessionId);
       const evRid = ev.roomId?.trim();
       const evIni = ev.initiatorUserId?.trim();
       const triple =
@@ -695,10 +1065,46 @@ export function CommunityMessengerCallClient({
         messengerUserIdsEqual(cur.roomId, evRid) &&
         messengerUserIdsEqual(cur.initiatorUserId, evIni) &&
         cur.callKind === ev.callKind;
-      if (!sidOk && !triple) return;
+      if (cur.status === "active") {
+        if (!evSessionId || evSessionId !== activeSessionId) {
+          logCallClientIgnoreBusTerminal({
+            reason: terminalReason,
+            sessionId: evSessionId || null,
+            activeSessionId: activeSessionId || null,
+            senderId: null,
+            status: cur.status,
+            note: "session_id_mismatch",
+          });
+          return;
+        }
+        if (
+          !cur.isMineInitiator &&
+          lastAcceptedAtRef.current > 0 &&
+          Date.now() - lastAcceptedAtRef.current < CALLEE_INVITE_HANGUP_ACCEPT_GRACE_MS &&
+          !isExplicitRemoteBusTerminalReason(terminalReason)
+        ) {
+          logCallClientIgnoreBusTerminal({
+            reason: terminalReason,
+            sessionId: evSessionId,
+            activeSessionId,
+            senderId: null,
+            status: cur.status,
+            note: "accept_grace",
+          });
+          return;
+        }
+      } else if (!sidOk && !triple) {
+        return;
+      }
       const wasRinging = cur.status === "ringing";
       const terminalStatus = readRealtimeSessionStatus(ev.status);
       if (terminalStatus && isTerminalCallSessionStatus(terminalStatus)) {
+        logCallTerminal("terminal_detected", {
+          sessionId: cur.id,
+          status: terminalStatus,
+          reason: ev.status ?? "bus_session_terminal",
+          source: "bus_cm_call_session_terminal",
+        });
         appendTerminalCallHistory(cur, terminalStatus);
         const snapshot: CommunityMessengerCallSession = {
           ...cur,
@@ -710,7 +1116,7 @@ export function CommunityMessengerCallClient({
           until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
           snapshot,
         };
-        setSession(snapshot);
+        setSession(snapshot, "bus_session_terminal");
         pinTerminalCallLocalSurfaceDismiss(cur.id);
         dismissAllIncomingCallNotificationsFireAndForget(cur.id);
         joiningRef.current = false;
@@ -778,7 +1184,7 @@ export function CommunityMessengerCallClient({
         if (!prev || prev.id !== sessionId) return prev;
         if (prev.initiatorUserId === user.id) return prev;
         return { ...prev, initiatorUserId: user.id };
-      });
+      }, "temp_session_initiator_patch");
     });
   }, [sessionId]);
 
@@ -823,7 +1229,20 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     cmCallLatencyInfo("call_client_mount", { sessionId });
-  }, [sessionId]);
+    logAcceptAudit("call_page_mounted", {
+      sessionId,
+      action: searchParams.get("action"),
+      nativeAccept: nativeAcceptAlreadyPatched,
+      pathname,
+    });
+    if (searchParams.get("action") === "accept") {
+      logAcceptAudit("action_accept_detected", {
+        sessionId,
+        source: "url_query",
+        isCalleeAcceptRoute,
+      });
+    }
+  }, [sessionId, searchParams, nativeAcceptAlreadyPatched, pathname, isCalleeAcceptRoute]);
 
   useEffect(() => {
     if (!session) return;
@@ -989,6 +1408,7 @@ export function CommunityMessengerCallClient({
     hadRemoteVideoForLayoutRef.current = false;
     refreshSilentInFlightRef.current = null;
     refreshTerminalSilentInFlightRef.current = null;
+    lastAcceptedAtRef.current = 0;
   }, [sessionId]);
 
   useEffect(() => {
@@ -1034,7 +1454,7 @@ export function CommunityMessengerCallClient({
     ensureCallNavigationSeedMemoryMatchesRoute(sessionId);
     const seeded = consumeCommunityMessengerCallNavigationSeed(sessionId);
     if (seeded) {
-      setSession(seeded);
+      setSession(seeded, "call_navigation_seed");
       setLoading(false);
     }
   }, [sessionId]);
@@ -1144,9 +1564,17 @@ export function CommunityMessengerCallClient({
             callTerminalLocalPinRef.current = null;
           }
           setSession((prev) => {
-            const resolved = pickCallSessionSnapshotAfterFetch(prev, nextSession);
+            const resolved = pickCallSessionSnapshotAfterFetch(prev, nextSession, {
+              guard: {
+                lastAcceptedAtMs: lastAcceptedAtRef.current,
+                isJoined: joinedRef.current,
+                isRemoteJoined: remoteJoinedRef.current,
+                localTerminalIntent: localUserTerminalIntentRef.current,
+              },
+              source: "refreshSession_silent_get",
+            });
             return sessionsMeaningfullyEqual(prev, resolved) ? prev : resolved;
-          });
+          }, "refreshSession_silent_get");
           if (!nextSession && !silent) {
             setErrorMessage(t("cm_ui_call_disconnected"));
           }
@@ -1254,7 +1682,7 @@ export function CommunityMessengerCallClient({
         if (res.skipped) return;
         if (res.ok && res.session) {
           beginRingingCallDismiss(c2.roomId);
-          setSession(res.session);
+          setSession(res.session, "active_call_poll");
         } else if (!res.ok) {
           scheduleSilentRefresh("terminal");
         }
@@ -1295,8 +1723,27 @@ export function CommunityMessengerCallClient({
 
   const cleanupClient = useCallback(async (
     domAudioNuclear = false,
-    cleanupSessionId = sessionRef.current?.id ?? sessionId
+    cleanupSessionId = sessionRef.current?.id ?? sessionId,
+    callSource = "cleanupClient_direct"
   ) => {
+    const action = searchParams.get("action");
+    logCallClientCleanupCalled({
+      sessionId: cleanupSessionId,
+      status: sessionRef.current?.status ?? null,
+      previousStatus: sessionStatusPrevRef.current,
+      reason: domAudioNuclear ? "dom_audio_nuclear" : "default",
+      source: callSource,
+      action,
+      isAccepted: action === "accept" || nativeAcceptAlreadyPatched,
+      isJoined: joinedRef.current,
+      hasRemoteTrack: Boolean(remoteAudioTrackRef.current || remoteVideoTrackRef.current),
+    });
+    logCallTerminal("cleanup_start", {
+      sessionId: cleanupSessionId,
+      reason: domAudioNuclear ? "dom_audio_nuclear" : "default",
+      status: sessionRef.current?.status ?? null,
+      source: "cleanupClient",
+    });
     if (agoraMediaCleanupInFlightRef.current) {
       await agoraMediaCleanupInFlightRef.current;
       return;
@@ -1381,13 +1828,20 @@ export function CommunityMessengerCallClient({
     } finally {
       agoraMediaCleanupInFlightRef.current = null;
     }
-  }, [clearPeerLeftEndTimer, sessionId]);
+  }, [clearPeerLeftEndTimer, nativeAcceptAlreadyPatched, searchParams, sessionId]);
 
   const disposeCallMedia = useCallback(
-    async (opts?: { domAudioNuclear?: boolean }) => {
+    async (opts?: { domAudioNuclear?: boolean; source?: string }) => {
       const domAudioNuclear = Boolean(opts?.domAudioNuclear);
+      const disposeSource = opts?.source ?? "disposeCallMedia";
+      const sid = sessionRef.current?.id ?? sessionId;
+      logCallTerminal("cleanup_start", {
+        sessionId: sid,
+        reason: domAudioNuclear ? "dom_audio_nuclear" : "default",
+        status: sessionRef.current?.status ?? null,
+        source: disposeSource,
+      });
       cmCallAudioCleanup("disposeCallMedia_start", { sessionId: sessionRef.current?.id ?? null });
-      const sid = sessionRef.current?.id;
       if (sid) {
         const taken = takeDetachedCommunityCallCleanup(sid);
         if (taken) {
@@ -1395,7 +1849,7 @@ export function CommunityMessengerCallClient({
           return;
         }
       }
-      await cleanupClient(domAudioNuclear, sid ?? sessionId);
+      await cleanupClient(domAudioNuclear, sid ?? sessionId, disposeSource);
       console.info("[cm-call-state] call_ended_cleanup_done", {
         sessionId: sessionRef.current?.id ?? sessionId,
         domAudioNuclear,
@@ -1409,7 +1863,7 @@ export function CommunityMessengerCallClient({
       sessionId,
       session: sessionRef.current,
       cleanupMedia: async () => {
-        await disposeCallMedia({ domAudioNuclear: true });
+        await disposeCallMedia({ domAudioNuclear: true, source: "call_runtime_register" });
       },
       patchTerminalBestEffort: async (_reason) => {
         const s = sessionRef.current;
@@ -1474,21 +1928,37 @@ export function CommunityMessengerCallClient({
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
     if (terminalImmediateCleanupOnceRef.current === session.id) return;
     terminalImmediateCleanupOnceRef.current = session.id;
+    logCallTerminal("terminal_detected", {
+      sessionId: session.id,
+      status: session.status,
+      reason: session.endedReason ?? "terminal_immediate_cleanup",
+      source: "terminal_immediate_cleanup_effect",
+    });
+    logCallTerminal("cleanup_start", {
+      sessionId: session.id,
+      status: session.status,
+      reason: session.endedReason ?? "terminal_immediate_cleanup",
+      source: "terminal_immediate_cleanup_effect",
+    });
     cmCallAudioCleanup("terminal_session_cleanup_immediate", { status: session.status, sessionId: session.id });
     joiningRef.current = false;
     const er = session.endedReason;
     if (!er || !isMessengerCallClientFailureReason(er)) {
       setErrorMessage(null);
     }
-    void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+    void disposeCallMedia({ domAudioNuclear: true, source: "terminal_immediate_cleanup_effect" }).catch(() => {});
   }, [disposeCallMedia, session]);
 
   useEffect(() => {
     return () => {
+      logCallTerminal("cleanup_start", {
+        sessionId,
+        source: "call_client_route_unmount",
+      });
       cmCallAudioCleanup("call_client_route_unmount", { sessionId });
       joiningRef.current = false;
       if (shouldSkipCallClientUnmountDispose(sessionId)) return;
-      void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
+      void disposeCallMedia({ domAudioNuclear: false, source: "call_client_route_unmount" }).catch(() => {});
     };
   }, [disposeCallMedia, sessionId]);
 
@@ -1501,11 +1971,16 @@ export function CommunityMessengerCallClient({
           durationSeconds: elapsedSecondsRef.current,
         });
       }
+      logCallTerminal("cleanup_start", {
+        sessionId: s?.id ?? sessionId,
+        status: s?.status ?? null,
+        source: "pagehide",
+      });
       stopCommunityMessengerCallTone();
       stopCommunityMessengerCallFeedback();
       /** active+joined 통화는 iOS 탭 전환·주소창에도 Agora 유지 — pagehide 즉시 dispose 금지 */
       if (s?.status === "active" && joinedRef.current) return;
-      void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
+      void disposeCallMedia({ domAudioNuclear: false, source: "pagehide" }).catch(() => {});
     };
     window.addEventListener("pagehide", onPageLeave);
     window.addEventListener("beforeunload", onPageLeave);
@@ -1519,12 +1994,24 @@ export function CommunityMessengerCallClient({
     if (!isCommunityMessengerAgoraAppConfigured()) {
       throw new Error(t("cm_ui_call_provider_not_connected"));
     }
+    logAgoraAudit("token_request_start", { sessionId });
     const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`, {
       cache: "no-store",
     });
     const json = (await res.json().catch(() => ({}))) as TokenResponse;
     if (!res.ok || !json.ok || !json.connection) {
       const error = json.error ?? "call_provider_not_configured";
+      logAgoraAudit("token_request_failed", {
+        sessionId,
+        httpStatus: res.status,
+        error,
+      });
+      logAgoraAudit("join_failed", {
+        sessionId,
+        phase: "token_request",
+        httpStatus: res.status,
+        error,
+      });
       if (error === "call_provider_not_configured") {
         throw new Error(t("cm_ui_call_provider_not_connected"));
       }
@@ -1533,6 +2020,15 @@ export function CommunityMessengerCallClient({
       }
       throw new Error(t("cm_ui_call_connection_load_failed"));
     }
+    logAgoraAudit("token_request_done", {
+      sessionId,
+      channelName: json.connection.channelName,
+      uid: json.connection.uid,
+      uidType: typeof json.connection.uid,
+      tokenExists: Boolean(json.connection.token),
+      appIdExists: Boolean(json.connection.appId?.trim()),
+      callKind: json.connection.callKind,
+    });
     return json.connection;
   }, [sessionId, t]);
 
@@ -1926,12 +2422,24 @@ export function CommunityMessengerCallClient({
   const joinCall = useCallback(
     async (targetSession: CommunityMessengerCallSession) => {
       if (joinedRef.current || joiningRef.current) return;
-      if (isTerminalCallSessionStatus(targetSession.status)) return;
+      if (isTerminalCallSessionStatus(targetSession.status)) {
+        logAcceptAuditBlockedForSession(targetSession.id, "agora_join_not_started", {
+          reason: "terminal_status",
+          status: targetSession.status,
+        });
+        return;
+      }
       /**
        * ringing·그 외 비-active 에서는 Agora·로컬 트랙·채널 조인 금지.
        * (링톤만 허용 — `call-feedback-sound` / 전역 벨)
        */
-      if (targetSession.status !== "active") return;
+      if (targetSession.status !== "active") {
+        logAcceptAuditBlockedForSession(targetSession.id, "agora_join_not_started", {
+          reason: "session_not_active",
+          status: targetSession.status,
+        });
+        return;
+      }
       /** 통화 화면은 유지(ringing) — 즉시 PATCH 종료하면 발신 진입·종료 버튼이 깨진다. 안내만 하고 Agora 조인은 생략 */
       if (isCommunityMessengerMediaBlockedByInsecureOrigin()) {
         autoJoinBlockedRef.current = true;
@@ -1948,6 +2456,11 @@ export function CommunityMessengerCallClient({
       setBusy("join");
       setErrorMessage(null);
       const joinT0 = perfNow();
+      logAcceptAudit("agora_join_start", {
+        sessionId: targetSession.id,
+        callKind: targetSession.callKind,
+        role: targetSession.isMineInitiator ? "initiator" : "recipient",
+      });
 
       const runJoinAttempt = async (): Promise<void> => {
         /** 링 루프와 Agora 로컬/원격 오디오가 겹치지 않게 조인 직전에 동기 중단 */
@@ -1970,6 +2483,11 @@ export function CommunityMessengerCallClient({
               ? prefetchedConnectionRef.current
               : null;
           if (cached) {
+            logAgoraAudit("token_request_done", {
+              sessionId: targetSession.id,
+              source: "prefetch_cache",
+              ...buildAgoraJoinParamsLog(cached, targetSession.id, targetSession.callKind),
+            });
             return Promise.resolve(cached);
           }
           return fetchConnection().then((connection) => {
@@ -1994,10 +2512,35 @@ export function CommunityMessengerCallClient({
         const client = createCommunityMessengerAgoraClient();
         mediaOwnerSessionIdRef.current = targetSession.id;
         clientRef.current = client;
+        client.on("user-joined", (user) => {
+          logAgoraAudit("peer_joined", {
+            sessionId: targetSession.id,
+            peerUid: user.uid,
+            peerUidType: typeof user.uid,
+          });
+        });
         client.on("user-published", async (user: IAgoraRTCRemoteUser, mediaType) => {
+          logAgoraAudit("remote_track_published", {
+            sessionId: targetSession.id,
+            peerUid: user.uid,
+            peerUidType: typeof user.uid,
+            mediaType,
+          });
           try {
             await client.subscribe(user, mediaType);
+            logAgoraAudit("remote_track_subscribed", {
+              sessionId: targetSession.id,
+              peerUid: user.uid,
+              mediaType,
+            });
           } catch (subErr) {
+            logAgoraAudit("join_failed", {
+              sessionId: targetSession.id,
+              phase: "remote_track_subscribe",
+              mediaType,
+              peerUid: user.uid,
+              error: subErr instanceof Error ? subErr.message : String(subErr),
+            });
             console.warn("[community-messenger-call] remote subscribe failed", subErr);
             return;
           }
@@ -2075,7 +2618,7 @@ export function CommunityMessengerCallClient({
               ) {
                 return;
               }
-              void endCallRef.current();
+              void endCallRef.current("peer_left_timer");
             }, AGORA_PEER_LEFT_END_GRACE_MS);
             return;
           }
@@ -2153,6 +2696,11 @@ export function CommunityMessengerCallClient({
           }
         }
 
+        logAgoraAudit("join_params", buildAgoraJoinParamsLog(connection, targetSession.id, targetSession.callKind));
+        logAgoraAudit("join_start", {
+          sessionId: targetSession.id,
+          callKind: targetSession.callKind,
+        });
         await joinCommunityMessengerAgoraChannel({
           client,
           appId: connection.appId,
@@ -2189,7 +2737,17 @@ export function CommunityMessengerCallClient({
         if (isVideoCall && !localVideoBoundDuringJoin) {
           void bindLocalVideoTrack();
         }
+        logAgoraAudit("join_done", {
+          sessionId: targetSession.id,
+          callKind: targetSession.callKind,
+          role: targetSession.isMineInitiator ? "initiator" : "recipient",
+        });
         cmCallLatencyInfo("agora_join_done", {
+          sessionId: targetSession.id,
+          callKind: targetSession.callKind,
+          role: targetSession.isMineInitiator ? "initiator" : "recipient",
+        });
+        logAcceptAudit("agora_join_done", {
           sessionId: targetSession.id,
           callKind: targetSession.callKind,
           role: targetSession.isMineInitiator ? "initiator" : "recipient",
@@ -2208,7 +2766,7 @@ export function CommunityMessengerCallClient({
             break;
           } catch (attemptError) {
             joinErrors.push(attemptError);
-            await cleanupClient();
+            await cleanupClient(false, sessionRef.current?.id ?? sessionId, "joinCall_retry_attempt");
             const retryable = isAgoraJoinRetryableError(attemptError);
             if (!retryable || attempt >= maxJoinAttempts - 1) {
               throw attemptError;
@@ -2220,7 +2778,7 @@ export function CommunityMessengerCallClient({
         }
       } catch (error) {
         autoJoinBlockedRef.current = false;
-        await cleanupClient();
+        await cleanupClient(false, sessionRef.current?.id ?? sessionId, "joinCall_catch");
         const cur = sessionRef.current;
         if (
           cur &&
@@ -2244,6 +2802,19 @@ export function CommunityMessengerCallClient({
             sessionId: targetSession.id.slice(-8),
             reason,
             attempts: joinErrors.length,
+          });
+          const lastJoinErr = joinErrors[joinErrors.length - 1];
+          logAgoraAudit("join_failed", {
+            sessionId: targetSession.id,
+            phase: "join_call",
+            reason,
+            attempts: joinErrors.length,
+            lastError:
+              lastJoinErr instanceof Error ? lastJoinErr.message : String(lastJoinErr ?? error),
+          });
+          logAcceptAuditBlockedForSession(targetSession.id, "agora_join_not_started", {
+            reason: "join_failed",
+            detail: reason,
           });
         }
       } finally {
@@ -2320,6 +2891,11 @@ export function CommunityMessengerCallClient({
     callFlowAcceptStartRef.current = acceptT0;
     setBusy("accept");
     setErrorMessage(null);
+    logAcceptAudit("accept_patch_start", {
+      sessionId: s.id,
+      nativeAcceptAlreadyPatched,
+      status: s.status,
+    });
 
     try {
       /** Android 잠금/알림 수락 — native PATCH 선행, 권한·카메라 프라임 후 Agora 조인만 */
@@ -2330,7 +2906,8 @@ export function CommunityMessengerCallClient({
           readSession: () => sessionRef.current,
         });
         if (active) {
-          setSession(active);
+          lastAcceptedAtRef.current = Date.now();
+          setSession(active, "acceptIncoming_native_active");
           console.info("[cm-call-state] native_accept_skip_web_patch", {
             sessionId: s.id.slice(-8),
             role: "callee",
@@ -2388,9 +2965,15 @@ export function CommunityMessengerCallClient({
                 ? t("cm_ui_call_session_not_found")
                 : t("cm_ui_call_accept_failed");
         setErrorMessage(msg);
+        logAcceptAuditBlockedForSession(s.id, "accept_patch_failed", { code, httpStatus: res.status });
         callFlowAcceptStartRef.current = null;
         return null;
       }
+      logAcceptAudit("accept_patch_done", {
+        sessionId: s.id,
+        status: json.session.status,
+        nativeAcceptAlreadyPatched,
+      });
       const patchMs = Math.round(perfNow() - acceptT0);
       messengerMonitorCallFlowPhase(s.id, "flow_call_accept_patch", patchMs, { media: s.callKind, role: "callee" });
       logClientPerf("messenger-call.accept", {
@@ -2405,7 +2988,8 @@ export function CommunityMessengerCallClient({
         callKind: s.callKind,
       });
       const acceptedSession = json.session;
-      setSession(acceptedSession);
+      lastAcceptedAtRef.current = Date.now();
+      setSession(acceptedSession, "acceptIncoming_patch_done");
       postCommunityMessengerCallIncomingConsumedBusEvent(s.id);
       if (acceptedSession.status === "active" && !joinedRef.current && !joiningRef.current) {
         await joinCall(acceptedSession);
@@ -2476,7 +3060,7 @@ export function CommunityMessengerCallClient({
           snapshot,
         };
         appendTerminalCallHistory(snapshot, snapshot.status);
-        setSession(snapshot);
+        setSession(snapshot, "applyTerminalSessionAfterPatch");
       }
       joiningRef.current = false;
       setJoined(false);
@@ -2507,7 +3091,7 @@ export function CommunityMessengerCallClient({
         const snap: CommunityMessengerCallSession = { ...prev, status: "rejected", endedAt: endedAtIso };
         callTerminalLocalPinRef.current = { sessionId: sid, until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS, snapshot: snap };
         appendTerminalCallHistory(prev, "rejected", { hangupReason: "reject" });
-        setSession(snap);
+        setSession(snap, "rejectIncoming_optimistic");
         pinTerminalCallLocalSurfaceDismiss(sid);
       }
     }
@@ -2515,7 +3099,7 @@ export function CommunityMessengerCallClient({
     setJoined(false);
     joinedRef.current = false;
     setRemoteJoined(false);
-    void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+    void disposeCallMedia({ domAudioNuclear: true, source: "rejectIncoming" }).catch(() => {});
 
     void (async () => {
       try {
@@ -2556,7 +3140,7 @@ export function CommunityMessengerCallClient({
               ? t("cm_ui_call_reject_already_handled")
               : t("cm_ui_call_reject_failed")
           );
-          await disposeCallMedia({ domAudioNuclear: true });
+          await disposeCallMedia({ domAudioNuclear: true, source: "rejectIncoming_patch_failed" });
           scheduleSilentRefresh("terminal");
           return;
         }
@@ -2566,7 +3150,7 @@ export function CommunityMessengerCallClient({
             until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
             snapshot: json.session,
           };
-          setSession(json.session);
+          setSession(json.session, "rejectIncoming_patch_response");
         }
       } finally {
         setBusy(null);
@@ -2575,11 +3159,44 @@ export function CommunityMessengerCallClient({
     })();
   }, [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, scheduleSilentRefresh, session, t]);
 
-  const endCall = useCallback(async () => {
+  const endCall = useCallback(async (source: CallClientEndCallSource = "unknown") => {
+    const cur = sessionRef.current ?? session;
+    const acceptAction = searchParams.get("action");
+    logCallClientEndCallCalled({
+      sessionId: cur?.id ?? null,
+      status: cur?.status ?? null,
+      source,
+      action: acceptAction,
+      isJoined: joinedRef.current,
+      hasRemoteTrack: Boolean(remoteAudioTrackRef.current || remoteVideoTrackRef.current),
+    });
+    if (
+      shouldBlockCalleeEndCallAcceptClickthrough({
+        source,
+        isInitiator: Boolean(cur?.isMineInitiator),
+        sessionStatus: cur?.status ?? null,
+        joined: joinedRef.current,
+        acceptAction,
+        isCalleeAcceptRoute,
+        lastAcceptedAtMs: lastAcceptedAtRef.current,
+        busy,
+      })
+    ) {
+      logCallClientEndClickBlocked({
+        reason: "accept_clickthrough_guard",
+        sessionId: cur?.id ?? null,
+        status: cur?.status ?? null,
+        action: acceptAction,
+        source,
+        busy,
+      });
+      return;
+    }
     if (!session) return;
     if (isTerminalCallSessionStatus(session.status)) return;
     if (directCallPatchInFlightRef.current) return;
     directCallPatchInFlightRef.current = true;
+    localUserTerminalIntentRef.current = true;
     stopCommunityMessengerCallFeedback();
     stopCommunityMessengerCallTone();
     dismissAllIncomingCallNotificationsFireAndForget(session.id);
@@ -2624,7 +3241,7 @@ export function CommunityMessengerCallClient({
           snapshot: snap,
         };
         appendTerminalCallHistory(prev, optimisticEnd, { hangupReason });
-        setSession(snap);
+        setSession(snap, "endCall_optimistic");
         pinTerminalCallLocalSurfaceDismiss(sid);
       }
     }
@@ -2632,7 +3249,7 @@ export function CommunityMessengerCallClient({
     setJoined(false);
     joinedRef.current = false;
     setRemoteJoined(false);
-    void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+    void disposeCallMedia({ domAudioNuclear: true, source: "endCall" }).catch(() => {});
 
     void (async () => {
       try {
@@ -2673,7 +3290,7 @@ export function CommunityMessengerCallClient({
               ? t("cm_ui_call_end_already_ended")
               : t("cm_ui_call_end_failed")
           );
-          await disposeCallMedia({ domAudioNuclear: true });
+          await disposeCallMedia({ domAudioNuclear: true, source: "endCall_patch_failed" });
           scheduleSilentRefresh("terminal");
           return;
         }
@@ -2683,6 +3300,7 @@ export function CommunityMessengerCallClient({
       } finally {
         setBusy(null);
         directCallPatchInFlightRef.current = false;
+        localUserTerminalIntentRef.current = false;
       }
     })();
   }, [
@@ -2692,7 +3310,10 @@ export function CommunityMessengerCallClient({
     disposeCallMedia,
     elapsedSeconds,
     scheduleSilentRefresh,
+    searchParams,
     session,
+    busy,
+    isCalleeAcceptRoute,
     t,
   ]);
 
@@ -2740,7 +3361,7 @@ export function CommunityMessengerCallClient({
       clearTimers();
       setAgoraReconnecting(false);
       setErrorMessage(t("cm_ui_network_connection_ended"));
-      void endCallRef.current();
+      void endCallRef.current("network_loss");
     };
 
     agoraNetworkHooksRef.current = {
@@ -2830,7 +3451,7 @@ export function CommunityMessengerCallClient({
         /* optional */
       }
       setCameraSwitchSupported(isCommunityMessengerCameraSwitchSupported(videoTrack));
-      setSession(json.session);
+      setSession(json.session, "video_upgrade_active_publish");
       setSpeakerEnabled(true);
       markCommunityMessengerMediaTrustedOnce(json.session.callKind);
       void bindLocalVideoTrack();
@@ -2976,7 +3597,7 @@ export function CommunityMessengerCallClient({
           );
           return;
         }
-        setSession(json.session);
+        setSession(json.session, "video_upgrade_patch_response");
         setSpeakerEnabled(true);
         showMessengerSnackbar(t("cm_ui_switched_to_video_snackbar"));
       } finally {
@@ -3060,7 +3681,7 @@ export function CommunityMessengerCallClient({
         );
         return;
       }
-      setSession(json.session);
+      setSession(json.session, "voice_downgrade_patch_response");
       setCamOff(false);
       setLayoutSwapped(false);
       autoVideoPublishAttemptedRef.current = null;
@@ -3102,9 +3723,17 @@ export function CommunityMessengerCallClient({
           initiator: fromServer.isMineInitiator,
         });
         setSession((prev) => {
-          const resolved = pickCallSessionSnapshotAfterFetch(prev, fromServer);
+          const resolved = pickCallSessionSnapshotAfterFetch(prev, fromServer, {
+            guard: {
+              lastAcceptedAtMs: lastAcceptedAtRef.current,
+              isJoined: joinedRef.current,
+              isRemoteJoined: remoteJoinedRef.current,
+              localTerminalIntent: localUserTerminalIntentRef.current,
+            },
+            source: "bootstrap_rsc_seed",
+          });
           return sessionsMeaningfullyEqual(prev, resolved) ? prev : resolved;
-        });
+        }, "bootstrap_rsc_seed");
         setLoading(false);
         /* 토큰은 아래 prefetch useEffect 한 경로만 호출 — bootstrap 과 중복 /token 요청 방지 */
         scheduleSilentRefresh("ui");
@@ -3140,9 +3769,17 @@ export function CommunityMessengerCallClient({
           });
         }
         setSession((prev) => {
-          const resolved = pickCallSessionSnapshotAfterFetch(prev, nextSession);
+          const resolved = pickCallSessionSnapshotAfterFetch(prev, nextSession, {
+            guard: {
+              lastAcceptedAtMs: lastAcceptedAtRef.current,
+              isJoined: joinedRef.current,
+              isRemoteJoined: remoteJoinedRef.current,
+              localTerminalIntent: localUserTerminalIntentRef.current,
+            },
+            source: "bootstrap_fetch",
+          });
           return sessionsMeaningfullyEqual(prev, resolved) ? prev : resolved;
-        });
+        }, "bootstrap_fetch");
         if (!nextSession) {
           setErrorMessage(t("cm_ui_call_session_missing"));
         }
@@ -3155,7 +3792,11 @@ export function CommunityMessengerCallClient({
     void bootstrap();
     return () => {
       cancelled = true;
-      void disposeCallMedia({ domAudioNuclear: false });
+      logCallTerminal("cleanup_start", {
+        sessionId,
+        source: "bootstrap_effect_unmount",
+      });
+      void disposeCallMedia({ domAudioNuclear: false, source: "bootstrap_effect_unmount" });
     };
   }, [disposeCallMedia, refreshSession, sessionId]);
 
@@ -3195,7 +3836,15 @@ export function CommunityMessengerCallClient({
               null;
             if (row) {
               setSession((prev) => {
-                const merged = mergeRealtimeSessionRowIntoSnapshot(prev, row, sessionId);
+                const merged = mergeRealtimeSessionRowIntoSnapshot(prev, row, sessionId, {
+                  guard: {
+                    lastAcceptedAtMs: lastAcceptedAtRef.current,
+                    isJoined: joinedRef.current,
+                    isRemoteJoined: remoteJoinedRef.current,
+                    localTerminalIntent: localUserTerminalIntentRef.current,
+                  },
+                  source: "realtime_postgres_merge",
+                });
                 if (
                   prev?.status === "ringing" &&
                   merged &&
@@ -3205,7 +3854,7 @@ export function CommunityMessengerCallClient({
                   beginRingingCallDismiss(merged.roomId);
                 }
                 return merged;
-              });
+              }, "realtime_postgres_merge");
               const rt = readRealtimeSessionStatus(row.status);
               if (rt === "active") {
                 setErrorMessage(null);
@@ -3236,6 +3885,11 @@ export function CommunityMessengerCallClient({
               return;
             }
             if (status && isTerminalCallSessionStatus(status)) {
+              logCallTerminal("terminal_detected", {
+                sessionId,
+                status,
+                source: "realtime_postgres",
+              });
               stopCommunityMessengerCallTone();
               if (sessionRealtimeDebounceRef.current) {
                 clearTimeout(sessionRealtimeDebounceRef.current);
@@ -3308,6 +3962,12 @@ export function CommunityMessengerCallClient({
             const nextStatus = resolveHangupTerminalStatusForSnapshot(active, payloadObj?.reason);
             const endedAtIso = new Date().toISOString();
             const hangupReason = typeof payloadObj?.reason === "string" ? payloadObj.reason.trim() : null;
+            logCallTerminal("terminal_detected", {
+              sessionId,
+              status: nextStatus,
+              reason: hangupReason ?? "hangup_signal",
+              source: "realtime_hangup_signal",
+            });
             const snapshot: CommunityMessengerCallSession = {
               ...active,
               status: nextStatus,
@@ -3319,13 +3979,13 @@ export function CommunityMessengerCallClient({
               snapshot,
             };
             appendTerminalCallHistory(active, nextStatus, { hangupReason });
-            setSession(snapshot);
+            setSession(snapshot, "realtime_hangup_signal");
             joiningRef.current = false;
             setJoined(false);
             joinedRef.current = false;
             setRemoteJoined(false);
             stopCommunityMessengerCallTone();
-            void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+            void disposeCallMedia({ domAudioNuclear: true, source: "realtime_hangup_signal" }).catch(() => {});
             if (!wasRinging) {
               scheduleActiveCallRemoteEndDismiss(active.roomId, sessionId);
             }
@@ -3355,10 +4015,67 @@ export function CommunityMessengerCallClient({
       },
       onHangup: (payload) => {
         if (cancelled) return;
-        const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
-        if (!sid || sid !== sessionId) return;
+        const payloadObj =
+          typeof payload === "object" && payload !== null ? (payload as Record<string, unknown>) : {};
+        const payloadSessionId =
+          typeof payloadObj.sessionId === "string" ? payloadObj.sessionId.trim() : "";
         const active = sessionRef.current;
-        if (!active || active.id !== sessionId || isTerminalCallSessionStatus(active.status)) return;
+        const activeSessionId = active?.id?.trim() ?? "";
+        const hangupReason = readInviteBroadcastHangupReason(payloadObj);
+        const senderId = readInviteBroadcastHangupSenderId(payloadObj);
+        const pathname =
+          typeof window !== "undefined"
+            ? `${window.location.pathname}${window.location.search}`
+            : undefined;
+        console.warn("[call-client] hangup_payload_received", {
+          pathname,
+          payloadSessionId: payloadSessionId || null,
+          activeSessionId: activeSessionId || null,
+          routeSessionId: sessionId,
+          status: active?.status ?? null,
+          reason: hangupReason,
+          senderId: senderId || null,
+          currentUserId: myUserId,
+        });
+        if (!active || isTerminalCallSessionStatus(active.status)) return;
+        if (senderId && messengerUserIdsEqual(senderId, myUserId)) {
+          console.warn("[call-client] ignore_hangup_from_self", {
+            sessionId: activeSessionId,
+            senderId,
+            currentUserId: myUserId,
+            reason: hangupReason,
+          });
+          return;
+        }
+        if (!payloadSessionId || payloadSessionId !== activeSessionId) {
+          console.warn("[call-client] ignore_hangup_for_other_session", {
+            incomingSessionId: payloadSessionId || null,
+            activeSessionId,
+            routeSessionId: sessionId,
+            roomId: typeof payloadObj.roomId === "string" ? payloadObj.roomId.trim() : null,
+            initiatorUserId:
+              typeof payloadObj.initiatorUserId === "string" ? payloadObj.initiatorUserId.trim() : null,
+            callKind:
+              payloadObj.callKind === "video" || payloadObj.callKind === "voice" ? payloadObj.callKind : null,
+            reason: hangupReason,
+          });
+          return;
+        }
+        if (
+          !active.isMineInitiator &&
+          lastAcceptedAtRef.current > 0 &&
+          Date.now() - lastAcceptedAtRef.current < CALLEE_INVITE_HANGUP_ACCEPT_GRACE_MS &&
+          !isExplicitRemoteInviteHangupReason(hangupReason)
+        ) {
+          console.warn("[call-client] ignore_hangup_during_accept_grace", {
+            sessionId: activeSessionId,
+            status: active.status,
+            reason: hangupReason,
+            senderId: senderId || null,
+            msSinceAccept: Date.now() - lastAcceptedAtRef.current,
+          });
+          return;
+        }
         const wasRinging = active.status === "ringing";
         if (wasRinging) {
           beginRingingCallDismiss(active.roomId);
@@ -3375,6 +4092,12 @@ export function CommunityMessengerCallClient({
         } else {
           optimisticStatus = "ended";
         }
+        logCallTerminal("terminal_detected", {
+          sessionId,
+          status: optimisticStatus,
+          reason: "invite_broadcast_hangup",
+          source: "invite_broadcast_hangup",
+        });
         const nowIso = new Date().toISOString();
         const snapshot: CommunityMessengerCallSession = {
           ...active,
@@ -3391,13 +4114,13 @@ export function CommunityMessengerCallClient({
           hangupReason:
             optimisticStatus === "rejected" ? "reject" : optimisticStatus === "cancelled" ? "cancel" : "end",
         });
-        setSession(snapshot);
+        setSession(snapshot, "invite_broadcast_hangup");
         joiningRef.current = false;
         setJoined(false);
         joinedRef.current = false;
         setRemoteJoined(false);
         stopCommunityMessengerCallTone();
-        void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+        void disposeCallMedia({ domAudioNuclear: true, source: "invite_broadcast_hangup" }).catch(() => {});
         if (!wasRinging) {
           scheduleActiveCallRemoteEndDismiss(active.roomId, sessionId);
         }
@@ -3536,6 +4259,11 @@ export function CommunityMessengerCallClient({
       !s.isMineInitiator &&
       (s.status === "ringing" || (s.status === "active" && !joinedRef.current));
     if (shouldAutoAccept && !autoAcceptRef.current) {
+      logAcceptAudit("action_accept_detected", {
+        sessionId: s.id,
+        source: "auto_accept_effect",
+        status: s.status,
+      });
       autoAcceptRef.current = true;
       void (async () => {
         const cur = sessionRef.current;
@@ -3681,7 +4409,7 @@ export function CommunityMessengerCallClient({
     minimizeCommunityCallToPip({
       sessionId: s.id,
       roomId: s.roomId,
-      cleanup: () => disposeCallMedia(),
+      cleanup: () => disposeCallMedia({ source: "minimized_detach_cleanup" }),
     });
     notifyCommunityCallHostSync();
     syncCommunityMessengerCallRuntimeSurface({ presentation: "minimized" });
@@ -4084,6 +4812,7 @@ export function CommunityMessengerCallClient({
   };
 
   const startOutgoingAgain = (kind: "voice" | "video") => {
+    console.warn("[redial-path] replay_button_click", { source: "call_client_terminal_retry", kind });
     autoJoinBlockedRef.current = false;
     joiningRef.current = false;
     joinedRef.current = false;
@@ -4099,7 +4828,7 @@ export function CommunityMessengerCallClient({
       kind,
       roomId: session.roomId,
       peerUserId: session.peerUserId ?? null,
-      cleanupAgora: () => cleanupClient(false, sessionRef.current?.id ?? sessionId),
+      cleanupAgora: () => cleanupClient(false, sessionRef.current?.id ?? sessionId, "redial_handoff_cleanupAgora"),
       navigate: (href) => router.replace(href),
     }).then((result) => {
       if (!result.ok) {
@@ -4179,7 +4908,7 @@ export function CommunityMessengerCallClient({
         icon: "end",
         tone: "danger",
         disabled: busy === "end",
-        onClick: () => void endCall(),
+        onClick: () => void endCall("ui_click:end"),
       }
     );
   } else if (!session.isMineInitiator && effectiveDirectPhase === "ringing" && !suppressCalleeIncomingRingingUi) {
@@ -4203,11 +4932,44 @@ export function CommunityMessengerCallClient({
     );
   } else if (videoCall) {
     const mediaReady = joined;
+    const acceptActionParam = searchParams.get("action");
+    const calleeAcceptEndClickBlocked = isCalleeAcceptEndUiBlocked({
+      isInitiator: session.isMineInitiator,
+      acceptAction: acceptActionParam,
+      isCalleeAcceptRoute,
+      sessionStatus: session.status,
+      joined,
+      busy,
+      lastAcceptedAtMs: lastAcceptedAtRef.current,
+    });
+    const handleEndButtonClick = () => {
+      if (!session.isMineInitiator) {
+        const blocked =
+          calleeAcceptEndClickBlocked ||
+          directCallPatchInFlightRef.current ||
+          autoAcceptRef.current ||
+          joiningRef.current;
+        if (blocked) {
+          logCallClientEndClickBlocked({
+            reason: "accept_clickthrough_guard",
+            sessionId: session.id,
+            status: session.status,
+            action: acceptActionParam,
+            source: "ui_click:end",
+            busy,
+          });
+          return;
+        }
+      }
+      void endCall("ui_click:end");
+    };
     /** PiP↔메인 교환은 PiP 제스처(탭) 전용 — 명시 버튼 없음 */
     const incomingCalleePreRemote =
       !session.isMineInitiator &&
-      (effectiveDirectPhase === "connecting" || effectiveDirectPhase === "ringing") &&
-      !remoteJoined;
+      !remoteJoined &&
+      (effectiveDirectPhase === "connecting" ||
+        effectiveDirectPhase === "ringing" ||
+        effectiveDirectPhase === "connected");
     if (incomingCalleePreRemote) {
       if (mediaReady && cameraSwitchSupported) {
         primaryActions.push({
@@ -4240,8 +5002,8 @@ export function CommunityMessengerCallClient({
           label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
           icon: "end",
           tone: "danger",
-          disabled: busy === "end",
-          onClick: () => void endCall(),
+          disabled: busy === "end" || calleeAcceptEndClickBlocked,
+          onClick: handleEndButtonClick,
         }
       );
     } else {
@@ -4274,12 +5036,43 @@ export function CommunityMessengerCallClient({
           label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
           icon: "end",
           tone: "danger",
-          disabled: busy === "end",
-          onClick: () => void endCall(),
+          disabled: busy === "end" || (!session.isMineInitiator && calleeAcceptEndClickBlocked),
+          onClick: handleEndButtonClick,
         }
       );
     }
   } else {
+    const acceptActionParam = searchParams.get("action");
+    const calleeAcceptEndClickBlocked = isCalleeAcceptEndUiBlocked({
+      isInitiator: session.isMineInitiator,
+      acceptAction: acceptActionParam,
+      isCalleeAcceptRoute,
+      sessionStatus: session.status,
+      joined,
+      busy,
+      lastAcceptedAtMs: lastAcceptedAtRef.current,
+    });
+    const handleVoiceEndButtonClick = () => {
+      if (!session.isMineInitiator) {
+        const blocked =
+          calleeAcceptEndClickBlocked ||
+          directCallPatchInFlightRef.current ||
+          autoAcceptRef.current ||
+          joiningRef.current;
+        if (blocked) {
+          logCallClientEndClickBlocked({
+            reason: "accept_clickthrough_guard",
+            sessionId: session.id,
+            status: session.status,
+            action: acceptActionParam,
+            source: "ui_click:end",
+            busy,
+          });
+          return;
+        }
+      }
+      void endCall("ui_click:end");
+    };
     primaryActions.push(
       {
         id: "speaker",
@@ -4315,8 +5108,8 @@ export function CommunityMessengerCallClient({
         label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
-        disabled: busy === "end",
-        onClick: () => void endCall(),
+        disabled: busy === "end" || (!session.isMineInitiator && calleeAcceptEndClickBlocked),
+        onClick: handleVoiceEndButtonClick,
       }
     );
   }
@@ -4482,7 +5275,7 @@ export function CommunityMessengerCallClient({
     },
     onBack:
       videoCall && session.isMineInitiator && (callScreenPhase === "ringing" || callScreenPhase === "connecting")
-        ? () => void endCall()
+        ? () => void endCall("onBack")
         : null,
     hideOutgoingVideoBrandRow: Boolean(
       videoCall &&
@@ -4564,7 +5357,7 @@ export function CommunityMessengerCallClient({
       <CallScreen vm={callVm} variant="overlay" />
       {showCallerInsecureGateOverlay ? (
         <CallerInsecureGateOverlay
-          onClose={() => void endCall()}
+          onClose={() => void endCall("onClose")}
           closeBusy={busy === "end"}
         />
       ) : null}

@@ -41,6 +41,7 @@ import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debu
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
+import { logAcceptAudit } from "@/lib/community-messenger/legacy-call-debug";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
 import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-call-tab-leader";
@@ -1636,6 +1637,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   const acceptCall = useCallback(
     (session: CommunityMessengerCallSession) => {
       if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
+      logAcceptAudit("accept_click", {
+        sessionId: session.id,
+        roomId: session.roomId,
+        sessionMode: session.sessionMode,
+      });
       rememberCallNavigationReturnPath();
 
       if (session.sessionMode === "group") {
@@ -1664,6 +1670,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             stopCommunityMessengerCallTone();
             markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
             suppressMissedSoundRef.current.add(session.id);
+            logAcceptAudit("accept_route_start", { sessionId: session.id, url: groupUrl });
             router.replace(groupUrl);
             void refresh(true, { bypassDevSafeIncomingThrottle: true });
           } finally {
@@ -1683,9 +1690,9 @@ export function GlobalCommunityMessengerIncomingCall() {
       postCommunityMessengerCallIncomingConsumedBusEvent(session.id);
       primeCommunityMessengerCallNavigationSeed(session.id, session);
       markNativeCalleeAcceptPending(session.id);
-      router.replace(
-        `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`
-      );
+      const acceptUrl = `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`;
+      logAcceptAudit("accept_route_start", { sessionId: session.id, url: acceptUrl });
+      router.replace(acceptUrl);
     },
     [busyId, refresh, router]
   );
