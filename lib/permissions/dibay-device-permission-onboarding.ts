@@ -31,6 +31,21 @@ export async function resolveDibayDevicePermissionOnboarding(
   return { shouldShow: false, state: synced };
 }
 
+/** 로그인·가입 직후 온보딩 source — sessionStorage 마커가 있으면 우선 */
+export function resolveCallMediaOnboardingSource(): DibayDevicePermissionSource {
+  if (typeof window === "undefined") return "app_entry";
+  try {
+    const raw = window.sessionStorage.getItem("dibay.call_media.pending_source")?.trim();
+    if (raw === "signup_complete" || raw === "first_login") {
+      window.sessionStorage.removeItem("dibay.call_media.pending_source");
+      return raw;
+    }
+  } catch {
+    /* private mode */
+  }
+  return "app_entry";
+}
+
 export function readDibayDevicePermissionOnboardingState(): DibayDevicePermissionState {
   return getDibayDevicePermissionState();
 }

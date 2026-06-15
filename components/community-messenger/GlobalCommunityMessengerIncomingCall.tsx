@@ -88,6 +88,7 @@ import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-m
 import {
   callIncomingTerminalQueryFromEvent,
   filterRemoveIncomingSessionsMatchingTerminal,
+  hasIncomingCallSessionMatchingTerminal,
   type CallIncomingTerminalQuery,
   isDirectRingingCalleeForSound,
   isRingingIncomingOverlayCandidate,
@@ -109,7 +110,10 @@ import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  postCommunityMessengerBusEvent,
+  postCommunityMessengerCallSessionTerminalBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
 import {
   getCommunityMessengerIncomingCallBridgeStatus,
   syncCommunityMessengerNativeIncomingCall,
@@ -977,8 +981,22 @@ export function GlobalCommunityMessengerIncomingCall() {
             : typeof merged.terminalStatus === "string"
               ? merged.terminalStatus
               : "cancelled";
+        const terminalQuery = callIncomingTerminalQueryFromEvent({
+          sessionId: typeof merged.sessionId === "string" ? merged.sessionId : sid || null,
+          tmpSessionId: typeof merged.tmpSessionId === "string" ? merged.tmpSessionId : tmpFromPayload || null,
+          roomId: typeof merged.roomId === "string" ? merged.roomId : roomId || null,
+          initiatorUserId: typeof merged.initiatorUserId === "string" ? merged.initiatorUserId : null,
+          callKind:
+            merged.callKind === "video" || merged.callKind === "voice" ? merged.callKind : null,
+        });
+        const hadLocalMatch = hasIncomingCallSessionMatchingTerminal(
+          sessionsRef.current,
+          { ...terminalQuery, status: st }
+        );
         handleCallTerminalEvent({ ...merged, status: st }, "broadcast_hangup");
-        void refreshRef.current(true, { incomingTerminalListSync: true });
+        if (!hadLocalMatch) {
+          void refreshRef.current(true, { incomingTerminalListSync: true });
+        }
       },
     });
     return () => {
@@ -1526,6 +1544,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     dismissedIncomingSessionsAtRef.current.set(sessionId, Date.now());
     setSessions((prev) => prev.filter((item) => item.id !== sessionId));
     setBusyId(`reject:${sessionId}`);
+    postCommunityMessengerCallSessionTerminalBusEvent({
+      sessionId,
+      roomId: session?.roomId ?? undefined,
+      initiatorUserId: session?.initiatorUserId ?? undefined,
+      callKind: session?.callKind ?? undefined,
+      status: "rejected",
+    });
     if (session?.sessionMode === "direct") {
       appendLocalCallChatMessageFromTerminalSession({
         roomId: session.roomId,
@@ -1542,7 +1567,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     try {
       if (session?.peerUserId?.trim()) {
-        /** PATCH·DB 반영보다 먼저 — 발신 탭이 `cm_invite_hangup` 으로 즉시 새로고침 */
+        /** PATCH·DB 반영보다 먼저 — 발신 탭이 `cm_invite_terminal` 로 즉시 종료 */
         void notifyCommunityMessengerCallInviteHangupBestEffort(session.peerUserId.trim(), sessionId, {
           roomId: session.roomId,
           initiatorUserId: session.initiatorUserId,
@@ -1551,15 +1576,11 @@ export function GlobalCommunityMessengerIncomingCall() {
         });
       }
       if (session?.peerUserId) {
-        try {
-          await postCommunityMessengerCallHangupSignal({
-            sessionId,
-            toUserId: session.peerUserId,
-            reason: "reject",
-          });
-        } catch {
-          /* hangup 실패 시에도 PATCH 로 세션 종료 */
-        }
+        void postCommunityMessengerCallHangupSignal({
+          sessionId,
+          toUserId: session.peerUserId,
+          reason: "reject",
+        }).catch(() => {});
       }
       const patchJson = await patchCommunityMessengerCallSession(
         sessionId,
@@ -1588,7 +1609,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       logCallFlow("call_reject_sent", { sessionId });
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
-      await refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
+      void refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
     } finally {
       setBusyId(null);
       releaseIncomingCallReject(sessionId);
@@ -1664,6 +1685,11 @@ export function GlobalCommunityMessengerIncomingCall() {
           showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
           return;
         }
+        /**
+         * 직통 수락은 전역 배너가 PATCH 하지 않고 전용 통화 화면이 담당한다.
+         * 라우팅 전에 guard 를 비워 새 통화 페이지가 같은 세션을 직접 claim 하게 한다.
+         */
+        releaseIncomingCallAccept(session.id);
         router.replace(callUrl);
       })();
     },

@@ -1,14 +1,10 @@
-import {
-  markCommunityMessengerMediaTrustedOnce,
-  storePrimedCommunityMessengerDeviceStream,
-} from "@/lib/community-messenger/call-permission";
-import { readDiBaYCallMediaPromptState } from "@/lib/community-messenger/call-media-onboarding-storage";
+import { markCommunityMessengerMediaTrustedOnce } from "@/lib/community-messenger/call-permission";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
   queryCommunityMessengerMediaPermissions,
   type CommunityMessengerMediaPermissionSnapshot,
 } from "@/lib/community-messenger/media-permissions-query";
-import { acquireVideoCallStreamWithDiBaYGate } from "@/lib/permissions/device-permission-manager";
+import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
 
 export type { CommunityMessengerMediaPermissionSnapshot };
 export { queryCommunityMessengerMediaPermissions };
@@ -81,78 +77,40 @@ export type CommunityMessengerPreflightResult =
   | { ok: false; code: "insecure_context" | "no_mediadevices" | "denied" | "gum_failed" };
 
 export type CommunityMessengerEntryMediaPreflightOptions = {
-  /**
-   * false(기본): Permissions API 상 `prompt` 이거나 미지원(null)일 때 **시스템 권한 창을 띄우지 않음**
-   * (카카오·라인처럼 메인 진입만으로 마이크/카메라를 반복 요청하지 않음).
-   * true: 첫 탭·클릭 등 **사용자 제스처 이후** 재시도할 때만 GUM 시도.
-   */
+  /** @deprecated 통화 권한은 DiBaYCallMediaOnboardingGate 에서만 요청 — 진입 시 check-only */
   allowPermissionPrompt?: boolean;
 };
 
 /**
- * 메신저 진입 시: 이미 허용된 권한이면 조용히 장치 ID만 확보.
- * 아직 결정 전(`prompt`)이면 **호출부가 allowPermissionPrompt: true 인 경우에만** GUM(라인/카카오톡과 같이 첫 의도 시 한 번).
+ * 메신저 진입 시 check-only — 중앙 call_media store 가 granted 일 때만 장치 목록을 갱신한다.
+ * GUM·OS 권한 프롬프트는 호출하지 않는다 (온보딩 게이트 전용).
  */
 export async function runCommunityMessengerEntryMediaPreflight(
-  opts?: CommunityMessengerEntryMediaPreflightOptions
+  _opts?: CommunityMessengerEntryMediaPreflightOptions
 ): Promise<CommunityMessengerPreflightResult> {
-  const allowPrompt = opts?.allowPermissionPrompt === true;
-  if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices?.enumerateDevices) {
     return { ok: false, code: "no_mediadevices" };
   }
   if (!isCommunityMessengerMediaSecureContext()) {
     return { ok: false, code: "insecure_context" };
   }
 
-  const perms = await queryCommunityMessengerMediaPermissions();
-  if (perms.microphone === "denied" || perms.camera === "denied") {
-    return { ok: false, code: "denied" };
-  }
-
-  const micGranted = perms.microphone === "granted";
-  const camGranted = perms.camera === "granted";
-
-  const tryAcquireVideo = async (
-    explicitRetry: boolean,
-    opts?: { retainPrimedStream?: boolean }
-  ): Promise<boolean> => {
-    try {
-      const stream = await acquireVideoCallStreamWithDiBaYGate({ explicitRetry });
-      persistDeviceIdsFromMediaStream(stream);
-      const hasLiveVideo = stream.getVideoTracks().some((t) => t.readyState === "live");
-      if (opts?.retainPrimedStream && hasLiveVideo && typeof window !== "undefined") {
-        storePrimedCommunityMessengerDeviceStream("video", stream);
-        markCommunityMessengerMediaTrustedOnce("voice");
-        markCommunityMessengerMediaTrustedOnce("video");
-      } else {
-        stream.getTracks().forEach((t) => t.stop());
-      }
-      await refreshPreferredCommunityMessengerDevicesFromEnumerate();
-      return true;
-    } catch {
-      return false;
+  if (!isCallMediaGrantedSync("video")) {
+    const perms = await queryCommunityMessengerMediaPermissions();
+    if (perms.microphone === "denied" || perms.camera === "denied") {
+      return { ok: false, code: "denied" };
     }
-  };
-
-  const onboardingAccepted = readDiBaYCallMediaPromptState() === "accepted";
-
-  /** 이미 mic+cam granted — 프롬프트 없이 조용히 장치 ID 확보 (온보딩 완료 후에도 동일) */
-  if (micGranted && camGranted && !allowPrompt) {
-    if (await tryAcquireVideo(false)) return { ok: true };
     return { ok: false, code: "gum_failed" };
   }
 
-  if (!allowPrompt) {
+  try {
+    await refreshPreferredCommunityMessengerDevicesFromEnumerate();
+    markCommunityMessengerMediaTrustedOnce("voice");
+    markCommunityMessengerMediaTrustedOnce("video");
+    return { ok: true };
+  } catch {
     return { ok: false, code: "gum_failed" };
   }
-
-  /** 제스처 경로 — primed stream 유지해 발신 CTA 즉시성 확보. 온보딩 accepted 는 위 silent 만 */
-  if (onboardingAccepted) {
-    return { ok: false, code: "gum_failed" };
-  }
-
-  if (await tryAcquireVideo(true, { retainPrimedStream: true })) return { ok: true };
-  return { ok: false, code: "gum_failed" };
 }
 
 /** 통화 프라임·Agora 트랙용 MediaStreamConstraints */

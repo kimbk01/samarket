@@ -115,7 +115,7 @@ export async function publishCommunityMessengerCallInviteHangup(
   const name = communityMessengerCallInviteChannelName(args.recipientUserId);
   const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
   try {
-    await waitForChannelSubscribed(ch, 3500);
+    await waitForChannelSubscribed(ch, 800);
     const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
     const ini = typeof args.initiatorUserId === "string" ? args.initiatorUserId.trim() : "";
     const ck = args.callKind === "video" || args.callKind === "voice" ? args.callKind : "";
@@ -157,7 +157,7 @@ export async function publishCommunityMessengerCallInviteTerminal(
   const name = communityMessengerCallInviteChannelName(args.recipientUserId);
   const ch = sb.channel(name, { config: { broadcast: { ack: false } } });
   try {
-    await waitForChannelSubscribed(ch, 3500);
+    await waitForChannelSubscribed(ch, 800);
     const roomId = typeof args.roomId === "string" ? args.roomId.trim() : "";
     const ini = typeof args.initiatorUserId === "string" ? args.initiatorUserId.trim() : "";
     const ck = args.callKind === "video" || args.callKind === "voice" ? args.callKind : "";
@@ -231,6 +231,7 @@ export async function notifyCommunityMessengerCallInviteHangupBestEffort(
   const sb = getSupabaseClient();
   if (!sb) return;
   try {
+    /** `cm_invite_terminal` 단일 전송 — 구독자는 hangup·terminal 동일 핸들러. 직렬 이중 subscribe 대기 제거. */
     await publishCommunityMessengerCallInviteTerminal(sb, {
       recipientUserId: to,
       sessionId: sid,
@@ -239,15 +240,6 @@ export async function notifyCommunityMessengerCallInviteHangupBestEffort(
       callKind: options?.callKind ?? undefined,
       tmpSessionId: options?.tmpSessionId ?? undefined,
       status: options?.terminalStatus ?? "cancelled",
-    });
-    await publishCommunityMessengerCallInviteHangup(sb, {
-      recipientUserId: to,
-      sessionId: sid,
-      roomId: options?.roomId,
-      initiatorUserId: options?.initiatorUserId,
-      callKind: options?.callKind ?? undefined,
-      terminalStatus: options?.terminalStatus,
-      tmpSessionId: options?.tmpSessionId,
     });
   } catch {
     /* best-effort */

@@ -13,8 +13,9 @@ import {
 import {
   recordDiBaYOnboardingDecision,
 } from "@/lib/permissions/device-permission-manager";
-import { resolveDibayDevicePermissionOnboarding } from "@/lib/permissions/dibay-device-permission-onboarding";
+import { resolveDibayDevicePermissionOnboarding, resolveCallMediaOnboardingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
 import { requestInitialDevicePermissions, type DibayDevicePermissionSource } from "@/lib/permissions/dibay-device-permission-store";
+import { invalidateCallMediaPermissionCheckCache } from "@/lib/community-messenger/call-media-permission-preflight";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /**
@@ -25,7 +26,7 @@ export function DiBaYCallMediaOnboardingGate() {
   const pathname = usePathname() ?? "";
   const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const [open, setOpen] = useState(false);
-  const [source, setSource] = useState<DibayDevicePermissionSource>("app_entry");
+  const [source, setSource] = useState<DibayDevicePermissionSource>(() => resolveCallMediaOnboardingSource());
   const [requesting, setRequesting] = useState(false);
   const shownRef = useRef(false);
 
@@ -37,7 +38,7 @@ export function DiBaYCallMediaOnboardingGate() {
     const run = () => {
       void isPostLoginOnboardingBlockedByAddressGate().then((needsBlock) => {
         if (needsBlock) return;
-        void resolveDibayDevicePermissionOnboarding("app_entry").then((decision) => {
+        void resolveDibayDevicePermissionOnboarding(resolveCallMediaOnboardingSource()).then((decision) => {
           if (!decision.shouldShow) {
             if (decision.state.camera === "granted" && decision.state.microphone === "granted") {
               recordDiBaYOnboardingDecision("call_media", "accepted");
@@ -88,6 +89,7 @@ export function DiBaYCallMediaOnboardingGate() {
         return;
       }
       recordDiBaYOnboardingDecision("call_media", "accepted");
+      invalidateCallMediaPermissionCheckCache();
       setOpen(false);
     }).finally(() => {
       setRequesting(false);

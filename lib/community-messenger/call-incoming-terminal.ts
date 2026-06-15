@@ -58,7 +58,9 @@ export function callIncomingTerminalQueryFromEvent(input: CallTerminalEventInput
 
 /**
  * 터미널 이벤트 키로 수신 세션 한 건이 대상인지.
- * 순서: (1) sessionId ↔ id / tmpSessionId 교차 (2) tmpSessionId ↔ id / tmpSessionId (3) room+initiator+callKind
+ * 순서: (1) sessionId ↔ id / tmpSessionId 교차 (2) tmpSessionId ↔ id / tmpSessionId
+ * (3) room+initiator+callKind — **sessionId·tmpSessionId 가 이벤트에 있으면 (3) 으로 내려가지 않음**
+ * (재통화 시 1회차 종료 이벤트가 2회차 ringing 세션을 지우는 레이스 방지)
  */
 export function matchIncomingCallSessionToTerminalQuery(
   s: CommunityMessengerCallSession,
@@ -79,11 +81,13 @@ export function matchIncomingCallSessionToTerminalQuery(
     if (sTmp && sTmp === qSid) {
       return { match: true, matchedBy: "session_cross_tmp" };
     }
+    return { match: false, matchedBy: "" };
   }
   if (qTmp) {
     if (s.id === qTmp || (sTmp && sTmp === qTmp)) {
       return { match: true, matchedBy: "tmpSessionId" };
     }
+    return { match: false, matchedBy: "" };
   }
   const r = trimU(q.roomId);
   const i = trimU(q.initiatorUserId);
@@ -98,6 +102,13 @@ export function matchIncomingCallSessionToTerminalQuery(
     }
   }
   return { match: false, matchedBy: "" };
+}
+
+export function hasIncomingCallSessionMatchingTerminal(
+  sessions: CommunityMessengerCallSession[],
+  q: CallIncomingTerminalQuery
+): boolean {
+  return sessions.some((s) => matchIncomingCallSessionToTerminalQuery(s, q).match);
 }
 
 export function filterRemoveIncomingSessionsMatchingTerminal(

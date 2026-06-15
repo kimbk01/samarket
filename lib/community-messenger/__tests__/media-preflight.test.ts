@@ -4,46 +4,27 @@ vi.mock("@/lib/community-messenger/media-permissions-query", () => ({
   queryCommunityMessengerMediaPermissions: vi.fn(),
 }));
 
-const storePrimedMock = vi.hoisted(() => vi.fn());
+const markTrustedMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/community-messenger/call-permission", () => ({
-  markCommunityMessengerMediaTrustedOnce: vi.fn(),
-  storePrimedCommunityMessengerDeviceStream: storePrimedMock,
+  markCommunityMessengerMediaTrustedOnce: markTrustedMock,
 }));
 
-vi.mock("@/lib/community-messenger/call-media-onboarding-storage", () => ({
-  readDiBaYCallMediaPromptState: vi.fn(() => null),
-}));
+const isCallMediaGrantedSyncMock = vi.hoisted(() => vi.fn(() => false));
 
-function fakePreflightStream(): MediaStream {
-  const audio = {
-    kind: "audio",
-    readyState: "live",
-    stop: vi.fn(),
-    getSettings: () => ({}),
-  } as unknown as MediaStreamTrack;
-  const video = {
-    kind: "video",
-    readyState: "live",
-    stop: vi.fn(),
-    getSettings: () => ({}),
-  } as unknown as MediaStreamTrack;
-  return {
-    getTracks: () => [audio, video],
-    getAudioTracks: () => [audio],
-    getVideoTracks: () => [video],
-  } as unknown as MediaStream;
-}
-
-vi.mock("@/lib/permissions/device-permission-manager", () => ({
-  acquireVideoCallStreamWithDiBaYGate: vi.fn(() => Promise.resolve(fakePreflightStream())),
+vi.mock("@/lib/permissions/dibay-device-permission-store", () => ({
+  isCallMediaGrantedSync: isCallMediaGrantedSyncMock,
 }));
 
 describe("runCommunityMessengerEntryMediaPreflight", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    isCallMediaGrantedSyncMock.mockReturnValue(false);
     vi.stubGlobal("navigator", {
-      mediaDevices: { getUserMedia: vi.fn() },
+      mediaDevices: {
+        getUserMedia: vi.fn(),
+        enumerateDevices: vi.fn(() => Promise.resolve([])),
+      },
     } as unknown as Navigator);
     vi.stubGlobal("window", { isSecureContext: true, location: { hostname: "localhost" } });
   });
@@ -53,73 +34,53 @@ describe("runCommunityMessengerEntryMediaPreflight", () => {
     vi.resetModules();
   });
 
-  it("uses silent video acquire when mic and cam are already granted", async () => {
+  it("refreshes device list when call_media store is granted without GUM", async () => {
+    isCallMediaGrantedSyncMock.mockReturnValue(true);
+
+    const { runCommunityMessengerEntryMediaPreflight } = await import(
+      "@/lib/community-messenger/media-preflight"
+    );
+    const result = await runCommunityMessengerEntryMediaPreflight();
+    expect(result.ok).toBe(true);
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+    expect(navigator.mediaDevices.enumerateDevices).toHaveBeenCalled();
+    expect(markTrustedMock).toHaveBeenCalledWith("voice");
+    expect(markTrustedMock).toHaveBeenCalledWith("video");
+  });
+
+  it("returns gum_failed when store is not granted and does not request media", async () => {
     const { queryCommunityMessengerMediaPermissions } = await import(
       "@/lib/community-messenger/media-permissions-query"
     );
-    const { acquireVideoCallStreamWithDiBaYGate } = await import(
-      "@/lib/permissions/device-permission-manager"
+    vi.mocked(queryCommunityMessengerMediaPermissions).mockResolvedValue({
+      microphone: "prompt",
+      camera: "prompt",
+    });
+
+    const { runCommunityMessengerEntryMediaPreflight } = await import(
+      "@/lib/community-messenger/media-preflight"
+    );
+    const result = await runCommunityMessengerEntryMediaPreflight();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("gum_failed");
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  });
+
+  it("returns denied when browser permissions are denied", async () => {
+    const { queryCommunityMessengerMediaPermissions } = await import(
+      "@/lib/community-messenger/media-permissions-query"
     );
     vi.mocked(queryCommunityMessengerMediaPermissions).mockResolvedValue({
-      microphone: "granted",
+      microphone: "denied",
       camera: "granted",
     });
 
     const { runCommunityMessengerEntryMediaPreflight } = await import(
       "@/lib/community-messenger/media-preflight"
     );
-    const result = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: false });
-    expect(result.ok).toBe(true);
-    expect(acquireVideoCallStreamWithDiBaYGate).toHaveBeenCalledWith({ explicitRetry: false });
-  });
-
-  it("requires gesture path when permissions are not granted", async () => {
-    const { queryCommunityMessengerMediaPermissions } = await import(
-      "@/lib/community-messenger/media-permissions-query"
-    );
-    vi.mocked(queryCommunityMessengerMediaPermissions).mockResolvedValue({
-      microphone: "prompt",
-      camera: "prompt",
-    });
-
-    const { runCommunityMessengerEntryMediaPreflight } = await import(
-      "@/lib/community-messenger/media-preflight"
-    );
-    const silent = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: false });
-    expect(silent.ok).toBe(false);
-    if (!silent.ok) expect(silent.code).toBe("gum_failed");
-
-    const { acquireVideoCallStreamWithDiBaYGate } = await import(
-      "@/lib/permissions/device-permission-manager"
-    );
-    const gesture = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: true });
-    expect(gesture.ok).toBe(true);
-    expect(acquireVideoCallStreamWithDiBaYGate).toHaveBeenCalledWith({ explicitRetry: true });
-    expect(storePrimedMock).toHaveBeenCalled();
-  });
-
-  it("skips gesture GUM when call media onboarding was already accepted", async () => {
-    const { readDiBaYCallMediaPromptState } = await import(
-      "@/lib/community-messenger/call-media-onboarding-storage"
-    );
-    const { queryCommunityMessengerMediaPermissions } = await import(
-      "@/lib/community-messenger/media-permissions-query"
-    );
-    const { acquireVideoCallStreamWithDiBaYGate } = await import(
-      "@/lib/permissions/device-permission-manager"
-    );
-    vi.mocked(readDiBaYCallMediaPromptState).mockReturnValue("accepted");
-    vi.mocked(queryCommunityMessengerMediaPermissions).mockResolvedValue({
-      microphone: "prompt",
-      camera: "prompt",
-    });
-
-    const { runCommunityMessengerEntryMediaPreflight } = await import(
-      "@/lib/community-messenger/media-preflight"
-    );
-    const gesture = await runCommunityMessengerEntryMediaPreflight({ allowPermissionPrompt: true });
-    expect(gesture.ok).toBe(false);
-    if (!gesture.ok) expect(gesture.code).toBe("gum_failed");
-    expect(acquireVideoCallStreamWithDiBaYGate).not.toHaveBeenCalled();
+    const result = await runCommunityMessengerEntryMediaPreflight();
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("denied");
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
   });
 });

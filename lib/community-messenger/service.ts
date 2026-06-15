@@ -16776,22 +16776,24 @@ export async function startCommunityMessengerCallSession(input: {
         payload: { call_kind: input.callKind, session_mode: isGroupRoom ? "group" : "direct" },
       });
       if (!isGroupRoom && peerUserId) {
-        try {
-          const profileMap = await fetchProfilesByIds([input.userId]);
-          const callerLabel = profileLabel(profileMap.get(input.userId), input.userId);
-          await sendWebPushForCommunityMessengerIncomingCall({
-            recipientUserId: peerUserId,
-            sessionId: inserted.id,
-            callKind: input.callKind,
-            callerDisplayName: callerLabel,
-          });
-        } catch (e) {
-          console.error("[startCommunityMessengerCallSession] incoming call push failed", {
-            sessionId: inserted.id,
-            recipientUserId: peerUserId,
-            message: e instanceof Error ? e.message : String(e),
-          });
-        }
+        void (async () => {
+          try {
+            const profileMap = await fetchProfilesByIds([input.userId]);
+            const callerLabel = profileLabel(profileMap.get(input.userId), input.userId);
+            await sendWebPushForCommunityMessengerIncomingCall({
+              recipientUserId: peerUserId,
+              sessionId: inserted.id,
+              callKind: input.callKind,
+              callerDisplayName: callerLabel,
+            });
+          } catch (e) {
+            console.error("[startCommunityMessengerCallSession] incoming call push failed", {
+              sessionId: inserted.id,
+              recipientUserId: peerUserId,
+              message: e instanceof Error ? e.message : String(e),
+            });
+          }
+        })();
       }
       const syntheticParticipantRows: CallSessionParticipantRow[] = participantRows
         .filter((row): row is typeof row & { user_id: string } => typeof row.user_id === "string" && row.user_id.length > 0)
@@ -17518,14 +17520,11 @@ export async function updateCommunityMessengerCallSession(input: {
           "labels_only"
         );
         invalidateActiveCallSessionByUserRoomCacheForRoom(mapped.roomId);
-        if (isTerminalCallSessionStatus(mapped.status)) {
-          const { data: existingLog } = await (sb as any)
-            .from("community_messenger_call_logs")
-            .select("id")
-            .eq("session_id", sessionId)
-            .maybeSingle();
-          if (!existingLog) await finalizeLog(session, mapped);
-          else await ensureTerminalCallStub(session, mapped);
+        if (isTerminalCallSessionStatus(next.nextStatus)) {
+          const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
+            ? updated.recipient_user_id
+            : updated.initiator_user_id;
+          void publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
         }
         await appendCommunityMessengerCallSessionEvent(sb, {
           sessionId,
@@ -17561,11 +17560,14 @@ export async function updateCommunityMessengerCallSession(input: {
             }).catch(() => {});
           }
         }
-        if (isTerminalCallSessionStatus(next.nextStatus)) {
-          const peerUserId = messengerUserIdsEqual(updated.initiator_user_id, input.userId)
-            ? updated.recipient_user_id
-            : updated.initiator_user_id;
-          await publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
+        if (isTerminalCallSessionStatus(mapped.status)) {
+          const { data: existingLog } = await (sb as any)
+            .from("community_messenger_call_logs")
+            .select("id")
+            .eq("session_id", sessionId)
+            .maybeSingle();
+          if (!existingLog) void finalizeLog(session, mapped);
+          else void ensureTerminalCallStub(session, mapped);
         }
         return { ok: true, session: mapped };
       }
@@ -17703,14 +17705,14 @@ export async function updateCommunityMessengerCallSession(input: {
     "labels_only"
   );
   if (isTerminalCallSessionStatus(mapped.status)) {
-    if (!dev.calls.some((item) => item.sessionId === sessionId)) await finalizeLog(session, mapped);
-    else await ensureTerminalCallStub(session, mapped);
+    if (!dev.calls.some((item) => item.sessionId === sessionId)) void finalizeLog(session, mapped);
+    else void ensureTerminalCallStub(session, mapped);
   }
   if (isTerminalCallSessionStatus(next.nextStatus)) {
     const peerUserId = messengerUserIdsEqual(session.initiatorUserId, input.userId)
       ? session.recipientUserId
       : session.initiatorUserId;
-    await publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
+    void publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
   }
   return { ok: true, session: mapped };
 }

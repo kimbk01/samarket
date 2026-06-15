@@ -33,7 +33,7 @@ export async function sendWebPushForCommunityMessengerMissedCall(input: {
   if (!sessionId || !roomId || !a || !b) return;
   if (messengerUserIdsEqual(a, b)) return;
 
-  const link_url = "/community-messenger/calls/logs";
+  const link_url = `/community-messenger/rooms/${encodeURIComponent(roomId)}?focus=call_history`;
   const occurred_at = new Date().toISOString();
 
   const build = (user_id: string): NotificationSideEffectPayloadOut => ({

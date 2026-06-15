@@ -131,6 +131,29 @@ export function syncMessengerHomeAfterOutboundSend(args: {
   });
 }
 
+/** 로컬 취소·거절·종료 직후 다른 탭 `/calls` UI 를 Realtime 대기 없이 닫는다 */
+export function postCommunityMessengerCallSessionTerminalBusEvent(args: {
+  sessionId?: string;
+  tmpSessionId?: string | null;
+  roomId?: string | null;
+  initiatorUserId?: string | null;
+  callKind?: "voice" | "video" | null;
+  status: string;
+}): void {
+  const status = args.status.trim();
+  if (!status) return;
+  postCommunityMessengerBusEvent({
+    type: "cm.call.session_terminal",
+    sessionId: args.sessionId,
+    tmpSessionId: args.tmpSessionId ?? undefined,
+    roomId: args.roomId ?? undefined,
+    initiatorUserId: args.initiatorUserId ?? undefined,
+    callKind: args.callKind ?? undefined,
+    status,
+    at: Date.now(),
+  });
+}
+
 export function postCommunityMessengerBusEvent(ev: MessengerBusEvent): void {
   const ch = getChannel();
   if (!ch) return;

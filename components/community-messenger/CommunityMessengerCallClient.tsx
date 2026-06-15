@@ -63,7 +63,6 @@ import {
   getCommunityMessengerMediaErrorMessage,
   isAgoraJoinRetryableError,
   isCommunityMessengerMediaBlockedByInsecureOrigin,
-  isCommunityMessengerNonRetryableCallErrorMessage,
 } from "@/lib/community-messenger/media-errors";
 import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
 import type {
@@ -139,7 +138,11 @@ import {
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
-import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { matchIncomingCallSessionToTerminalQuery } from "@/lib/community-messenger/call-incoming-terminal";
+import {
+  onCommunityMessengerBusEvent,
+  postCommunityMessengerCallSessionTerminalBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
   logCommunityMessengerCallSessionPatchDev,
@@ -197,12 +200,33 @@ import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
+const MAX_MOBILE_CALL_ACTIONS = 4;
 
 type SessionResponse = { ok?: boolean; session?: CommunityMessengerCallSession; error?: string };
 type TokenResponse = { ok?: boolean; connection?: CommunityMessengerManagedCallConnection; error?: string };
 
 function isTerminalCallSessionStatus(status: CommunityMessengerCallSession["status"]): boolean {
   return status === "ended" || status === "cancelled" || status === "rejected" || status === "missed";
+}
+
+function fitCallActionsForMobile(
+  primaryActions: CallActionItem[],
+  secondaryActions: CallActionItem[]
+): { primaryActions: CallActionItem[]; secondaryActions: CallActionItem[] } {
+  const secondaryVisible = secondaryActions.slice(0, MAX_MOBILE_CALL_ACTIONS);
+  const primarySlots = MAX_MOBILE_CALL_ACTIONS - secondaryVisible.length;
+  if (primarySlots <= 0) {
+    return { primaryActions: [], secondaryActions: secondaryVisible };
+  }
+  const primaryVisible = primaryActions.slice(0, primarySlots);
+  const endAction = primaryActions.find((item) => item.icon === "end");
+  if (endAction && primaryVisible.length > 0 && !primaryVisible.some((item) => item.id === endAction.id)) {
+    primaryVisible[primaryVisible.length - 1] = endAction;
+  }
+  return {
+    primaryActions: primaryVisible,
+    secondaryActions: secondaryVisible,
+  };
 }
 
 /**
@@ -637,16 +661,15 @@ export function CommunityMessengerCallClient({
       if (ev.type !== "cm.call.session_terminal") return;
       const cur = sessionRef.current;
       if (!cur) return;
-      const sidOk = Boolean(ev.sessionId && ev.sessionId === cur.id);
-      const evRid = ev.roomId?.trim();
-      const evIni = ev.initiatorUserId?.trim();
-      const triple =
-        Boolean(evRid && evIni) &&
-        (ev.callKind === "voice" || ev.callKind === "video") &&
-        messengerUserIdsEqual(cur.roomId, evRid) &&
-        messengerUserIdsEqual(cur.initiatorUserId, evIni) &&
-        cur.callKind === ev.callKind;
-      if (!sidOk && !triple) return;
+      const { match: terminalAppliesToCurrentSession } = matchIncomingCallSessionToTerminalQuery(cur, {
+        sessionId: ev.sessionId ?? null,
+        tmpSessionId: ev.tmpSessionId ?? null,
+        roomId: ev.roomId ?? null,
+        initiatorUserId: ev.initiatorUserId ?? null,
+        callKind: ev.callKind ?? null,
+        status: ev.status,
+      });
+      if (!terminalAppliesToCurrentSession) return;
       const wasRinging = cur.status === "ringing";
       const terminalStatus = readRealtimeSessionStatus(ev.status);
       if (terminalStatus && isTerminalCallSessionStatus(terminalStatus)) {
@@ -2147,10 +2170,7 @@ export function CommunityMessengerCallClient({
           setErrorMessage(null);
           scheduleSilentRefresh("terminal");
         } else {
-          /**
-           * 수락 직후 조인 실패 — 세션을 즉시 end 하지 않음(발신 측 자동 끊김 방지).
-           * 사용자 제스처 재시도(`handleRetryMediaAndJoin`)로 미디어·Agora 재조인.
-           */
+          /** 수락 직후 조인 실패 — 세션을 즉시 end 하지 않고 상태 문구만 갱신한다. */
           const reason = classifyMessengerCallJoinFailure(error, targetSession.callKind);
           if (reason === "failed_permission") {
             setCallPermissionBlocked(true);
@@ -2284,44 +2304,6 @@ export function CommunityMessengerCallClient({
     }
   }, [t]);
 
-  const handleRetryMediaAndJoin = useCallback(() => {
-    const s = sessionRef.current;
-    if (!s) return;
-    autoVideoPublishAttemptedRef.current = null;
-    autoJoinBlockedRef.current = false;
-    setLocalVideoPlayBlocked(false);
-    setErrorMessage(null);
-    void (async () => {
-      try {
-        const permission = await ensureCallCanUseMedia(s.callKind);
-        if (!permission.ok) {
-          setCallPermissionBlocked(true);
-          setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(s.callKind)));
-          openCommunityMessengerPermissionSettings();
-          return;
-        }
-        setCallPermissionBlocked(false);
-        if (s.isMineInitiator) {
-          if (s.status === "active") {
-            markCommunityMessengerMediaTrustedOnce(s.callKind);
-            await joinCall(s);
-          }
-          return;
-        }
-        if (s.status === "ringing") {
-          await acceptIncoming();
-          return;
-        }
-        if (s.status === "active") {
-          markCommunityMessengerMediaTrustedOnce(s.callKind);
-        }
-        await joinCall(s);
-      } catch (err) {
-        setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
-      }
-    })();
-  }, [acceptIncoming, joinCall, t]);
-
   const applyTerminalSessionAfterPatch = useCallback(
     (
       json: SessionResponse,
@@ -2387,6 +2369,14 @@ export function CommunityMessengerCallClient({
     joinedRef.current = false;
     setRemoteJoined(false);
     void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+    postCommunityMessengerCallSessionTerminalBusEvent({
+      sessionId: sid,
+      tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
+      roomId: roomIdR,
+      initiatorUserId: session.initiatorUserId,
+      callKind: session.callKind,
+      status: "rejected",
+    });
 
     void (async () => {
       try {
@@ -2398,11 +2388,9 @@ export function CommunityMessengerCallClient({
             terminalStatus: "rejected",
             tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
           });
-          try {
-            await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" });
-          } catch {
-            /* PATCH 로 세션 종료 — 시그널은 best-effort */
-          }
+          void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: "reject" }).catch(
+            () => {}
+          );
         }
         const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
           method: "PATCH",
@@ -2507,6 +2495,14 @@ export function CommunityMessengerCallClient({
     joinedRef.current = false;
     setRemoteJoined(false);
     void disposeCallMedia({ domAudioNuclear: true }).catch(() => {});
+    postCommunityMessengerCallSessionTerminalBusEvent({
+      sessionId: sid,
+      tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
+      roomId: roomId,
+      initiatorUserId: session.initiatorUserId,
+      callKind: session.callKind,
+      status: optimisticEnd,
+    });
 
     void (async () => {
       try {
@@ -2518,11 +2514,9 @@ export function CommunityMessengerCallClient({
             terminalStatus: optimisticEnd,
             tmpSessionId: isCommunityMessengerTempCallSessionId(sid) ? sid : undefined,
           });
-          try {
-            await postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason });
-          } catch {
-            /* PATCH 가 최종 상태 — hangup 은 상대 클라 빠른 갱신용 */
-          }
+          void postCommunityMessengerCallHangupSignal({ sessionId: sid, toUserId: peer, reason: hangupReason }).catch(
+            () => {}
+          );
         }
         const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
           method: "PATCH",
@@ -3618,8 +3612,10 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     if (session?.callKind !== "video") return;
-    if (localVideoReady || localVideoPlayBlocked || errorMessage) return;
-    if (session.status !== "active" && !(session.isMineInitiator && session.status === "ringing")) return;
+    if (localVideoReady || localVideoPlayBlocked || errorMessage || callPermissionBlocked) return;
+    /** 링 단계는 Agora 조인 전 — 카메라 준비 타임아웃을 걸지 않는다 */
+    if (!joined || session.status !== "active") return;
+    if (busy === "join") return;
     const timer = window.setTimeout(() => {
       if (localVideoReadyRef.current) return;
       console.warn("[call-permission] camera_prepare_timeout", {
@@ -3629,15 +3625,17 @@ export function CommunityMessengerCallClient({
       setLocalVideoPlayBlocked(true);
       setCallPermissionBlocked(true);
       setErrorMessage(t("cm_ui_camera_prepare_timeout_settings"));
-    }, 1000);
+    }, 12_000);
     return () => window.clearTimeout(timer);
   }, [
+    busy,
+    callPermissionBlocked,
     errorMessage,
+    joined,
     localVideoPlayBlocked,
     localVideoReady,
     session?.callKind,
     session?.id,
-    session?.isMineInitiator,
     session?.status,
     t,
   ]);
@@ -3887,7 +3885,7 @@ export function CommunityMessengerCallClient({
         onClick: () => void endCall(),
       }
     );
-  } else if (!session.isMineInitiator && effectiveDirectPhase === "ringing") {
+  } else if (!session.isMineInitiator && callScreenPhase === "ringing") {
     primaryActions.push(
       {
         id: "reject",
@@ -3911,7 +3909,7 @@ export function CommunityMessengerCallClient({
     /** PiP↔메인 교환은 PiP 제스처(탭) 전용 — 명시 버튼 없음 */
     const incomingCalleePreRemote =
       !session.isMineInitiator &&
-      (effectiveDirectPhase === "connecting" || effectiveDirectPhase === "ringing") &&
+      (callScreenPhase === "connecting" || callScreenPhase === "reconnecting") &&
       !remoteJoined;
     if (incomingCalleePreRemote) {
       if (mediaReady && cameraSwitchSupported) {
@@ -4069,25 +4067,6 @@ export function CommunityMessengerCallClient({
     });
   }
 
-  const showRetryMediaAction =
-    !permissionBlockedUi &&
-    (errorMessage && !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage)) &&
-    !incomingVideoUpgradeRequest &&
-    directPhase !== "ended" &&
-    directPhase !== "declined" &&
-    directPhase !== "missed" &&
-    directPhase !== "failed" &&
-    !joinAttemptInFlight &&
-    !(effectiveDirectPhase === "connecting" && !joined && !errorMessage);
-  if (showRetryMediaAction) {
-    secondaryActions.push({
-      id: "retry-media",
-      label: t("common_retry"),
-      icon: "retry",
-      onClick: handleRetryMediaAndJoin,
-    });
-  }
-
   if (
     !suppressTerminalView &&
     (directPhase === "ended" || directPhase === "declined" || directPhase === "missed" || directPhase === "failed")
@@ -4184,6 +4163,7 @@ export function CommunityMessengerCallClient({
     localVideoReady,
   });
 
+  const visibleActions = fitCallActionsForMobile(primaryActions, secondaryActions);
   const callVm: CallScreenViewModel = {
     visualTheme: "starbucks",
     mode: videoCall ? "video" : "voice",
@@ -4219,8 +4199,8 @@ export function CommunityMessengerCallClient({
           ? !(remoteJoined && remoteVideoReady)
           : callScreenPhase === "ringing" || callScreenPhase === "connecting")
     ),
-    primaryActions,
-    secondaryActions,
+    primaryActions: visibleActions.primaryActions,
+    secondaryActions: visibleActions.secondaryActions,
     mainVideoSlot: videoCall ? (
       <div className="absolute inset-0 min-h-0 bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
         <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
