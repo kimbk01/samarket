@@ -20,8 +20,8 @@ import java.util.Map;
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  /** v2: HIGH importance — 구 채널(dibay_messages)은 DEFAULT 로 고정될 수 있음 */
-  static final String MESSAGES_CHANNEL_ID = "dibay_messages_v2";
+  /** Chat messages only — incoming/missed calls use separate channels. */
+  static final String MESSAGES_CHANNEL_ID = "dibay_chat_messages_v1";
 
   @Override
   public void onMessageReceived(RemoteMessage message) {
@@ -83,10 +83,14 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   }
 
   private void handleIncomingCall(Map<String, String> data, String title, String body, boolean appVisible) {
-    String callId = FcmPayloadResolver.resolveCallId(data);
-    if (callId == null) return;
+    IncomingCallPayload payload = FcmPayloadResolver.resolveIncomingCallPayload(data, title, body);
+    if (!payload.isValid()) {
+      Log.w(TAG, "[call-push] payload_invalid reason=" + payload.invalidReason);
+      return;
+    }
+    String callId = payload.callId;
 
-    Log.i(TAG, "[incoming-call-native] fcm_received callId=" + callId);
+    Log.i(TAG, "[call-push] incoming_call_received callId=" + callId + " roomId=" + payload.roomId);
 
     if (FcmPayloadResolver.isExpired(data)) {
       Log.i(TAG, "[incoming-call-native] expired_ignored callId=" + callId);
@@ -109,9 +113,25 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             + " appVisible="
             + appVisible);
 
-    String callType = firstNonEmpty(data.get("callType"), data.get("kind"));
-    String expiresAt = firstNonEmpty(data.get("expiresAt"), data.get("expires_at"));
-    IncomingCallNotificationBuilder.showIncomingCall(this, callId, title, body, null, callType, expiresAt);
+    IncomingCallNotificationBuilder.showIncomingCall(this, payload);
+    IncomingCallActionCoordinator.scheduleMissedTimeout(this, payload);
+
+    boolean keyguardLocked = DibayKeyguardHelper.isKeyguardLocked(this);
+    boolean interactive = DibayKeyguardHelper.isInteractive(this);
+    if (keyguardLocked || !interactive) {
+      Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(this, payload);
+      if (incomingUi != null) {
+        startActivity(incomingUi);
+        Log.i(
+            TAG,
+            "[call-ui] incoming_activity_direct_launch callId="
+                + callId
+                + " keyguardLocked="
+                + keyguardLocked
+                + " interactive="
+                + interactive);
+      }
+    }
   }
 
   private void handleMissedCall(Map<String, String> data, String title, String body, boolean appVisible) {
@@ -124,7 +144,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
     String routeUrl = FcmPayloadResolver.resolveRouteUrl(data);
-    MissedCallNotificationHelper.show(this, title, body, routeUrl, callId, data.get("tag"));
+    String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
+    MissedCallNotificationHelper.show(this, title, body, routeUrl, callId, roomId, data.get("tag"));
   }
 
   @Override
@@ -146,8 +167,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (nm == null) return;
     if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
     NotificationChannel channel =
-        new NotificationChannel(MESSAGES_CHANNEL_ID, "메시지 알림", NotificationManager.IMPORTANCE_HIGH);
-    channel.setDescription("채팅·주문·커뮤니티 알림");
+        new NotificationChannel(MESSAGES_CHANNEL_ID, "채팅 메시지", NotificationManager.IMPORTANCE_HIGH);
+    channel.setDescription("채팅 메시지 알림");
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
     nm.createNotificationChannel(channel);

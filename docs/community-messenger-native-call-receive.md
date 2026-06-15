@@ -1,37 +1,71 @@
-# Community Messenger Native-Like Incoming Call
+# Community Messenger Native Incoming Call
 
 ## Goal
-Provide strong in-app web incoming call UX now, while keeping a stable bridge contract for wrapper apps that need background and lock-screen parity.
+Provide native lock-screen/background incoming call UX for DIBAY calls. Web call screens remain the in-app call surface, but Android/iOS native call UI owns the first receive affordance when the app is outside foreground.
 
 ## Layers
-- Web layer: `GlobalCommunityMessengerIncomingCall` renders the full-screen receive UI, accepts/rejects calls, and falls back to the normal call page.
-- Bridge layer: `lib/community-messenger/native-call-receive.ts` publishes the current ringing session to either:
-  - `window.communityMessengerNativeIncomingCallBridge.postIncomingCall(payload)`
-  - `window.ReactNativeWebView.postMessage(...)`
+- Android FCM layer: `DibayFirebaseMessagingService` treats `type=incoming_call` separately from chat messages.
+- Android native UI: `IncomingCallNotificationBuilder` + `IncomingCallActivity` show CALL-category full-screen / heads-up UI with answer and reject actions.
+- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId and routes accepted calls to `/community-messenger/calls/{callId}?action=accept`.
+- Web layer: `GlobalCommunityMessengerIncomingCall` remains foreground in-app receive UI and consumes the same call session state.
+- iOS layer: `VoIPPushRegistry` + `CallKitProvider` are the PushKit/CallKit skeleton. `DibayVoipCallPlugin` exposes registration and explicit CallKit end hooks to JS.
 
 ## Payload
-The bridge payload intentionally mirrors the current session contract and API routes:
+Android incoming FCM payload must include:
 
 ```ts
-type CommunityMessengerNativeIncomingCallPayload = {
-  sessionId: string;
+type IncomingCallFcmPayload = {
+  type: "incoming_call";
+  callId: string; // or sessionId/session_id
   roomId: string;
-  peerUserId: string | null;
-  peerLabel: string;
-  callKind: "voice" | "video";
-  startedAt: string;
-  acceptUrl: string;
-  rejectUrl: string;
-  fallbackUrl: string;
+  callerId: string;
+  callerName: string;
+  callerAvatarUrl?: string;
+  callType: "audio" | "video";
+  expiresAt?: string;
 };
 ```
 
-## Wrapper Expectations
-- Show lock-screen or background incoming UI when the app shell is suspended.
-- Deep-link to `acceptUrl` or `fallbackUrl` when the user answers.
-- Call the existing session PATCH/signaling routes unchanged.
-- Clear local native notifications when the web layer emits a clear event.
+Invalid payloads are logged as `[call-push] payload_invalid` and are not downgraded to a chat notification.
 
-## Why This Split
-- Browsers cannot guarantee KakaoTalk-level receive parity from a normal tab.
-- The current split keeps backend signaling stable and lets web/app wrappers evolve independently.
+## Routes
+
+- Incoming answer: `/community-messenger/calls/{callId}?action=accept`
+- Missed call notification: `/community-messenger/rooms/{roomId}?focus=call-history&callId={callId}`
+- Chat message notification: `/community-messenger/rooms/{roomId}`
+
+These routes must not be mixed.
+
+## Server State Machine
+
+Native and web actions use the same server state machine via:
+
+- `POST /api/community-messenger/calls/{id}/accept`
+- `POST /api/community-messenger/calls/{id}/reject`
+- `POST /api/community-messenger/calls/{id}/missed`
+- `POST /api/community-messenger/calls/{id}/end`
+- Existing compatibility: `PATCH /api/community-messenger/calls/sessions/{id}`
+
+Rules:
+
+- `ringing -> active` only for recipient accept.
+- `ringing -> rejected` only for recipient reject.
+- `ringing -> missed` only while still ringing.
+- `active -> missed` is never allowed.
+- Duplicate native actions are single-flighted by callId before reaching the server.
+
+## iOS Skeleton
+
+Current files:
+
+- `ios/App/App/Push/VoIPPushRegistry.swift`
+- `ios/App/App/Push/CallKitProvider.swift`
+- `ios/App/App/Push/DibayPushTokenBridge.swift`
+- `ios/App/App/Plugins/DibayVoipCallPlugin.swift`
+
+Production work still required:
+
+- Apple VoIP services certificate/token auth setup.
+- Server-side VoIP APNs sender for `incoming_call` and cancellation.
+- CallKit answer/reject/end callbacks must POST accept/reject/end before or alongside WebView routing.
+- Timeout/missed sync must mirror Android `missed` state.

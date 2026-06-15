@@ -216,7 +216,9 @@ public class MainActivity extends BridgeActivity {
       }
       String type = intent.getExtras() != null ? intent.getExtras().getString("type") : null;
       if ("missed_call".equals(type)) {
-        Log.i("DIBAY_MISSED_CALL", "[missed-call] notification_tap_to_history path=" + appPath);
+        Log.i("DIBAY_MISSED_CALL", "[call-route] missed_notification_opened path=" + appPath);
+      } else if ("chat_message".equals(type)) {
+        Log.i(ROUTE_LOG_TAG, "[call-route] chat_notification_opened path=" + appPath);
       }
       Log.i(ROUTE_LOG_TAG, "[push-route] route_resolved path=" + appPath);
       queueNavigateWebViewToAppPath(appPath, notificationId);
@@ -236,6 +238,9 @@ public class MainActivity extends BridgeActivity {
       }
       appPath = mapDibayDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
+        if ("call".equals(data.getHost()) && "accept".equals(data.getQueryParameter("action"))) {
+          Log.i(ROUTE_LOG_TAG, "[call-route] incoming_accept_opened path=" + appPath);
+        }
         Log.i(ROUTE_LOG_TAG, "[push-route] route_resolved path=" + appPath);
         queueNavigateWebViewToAppPath(appPath, null);
       }
@@ -314,14 +319,20 @@ public class MainActivity extends BridgeActivity {
 
     String type = firstNonEmpty(extras.getString("type"));
     String callId = firstNonEmpty(extras.getString("callId"), extras.getString("sessionId"), extras.getString("session_id"));
+    String roomId = firstNonEmpty(extras.getString("roomId"), extras.getString("room_id"));
     if ("missed_call".equals(type) && callId != null) {
+      if (roomId != null) {
+        return "/community-messenger/rooms/"
+            + Uri.encode(roomId)
+            + "?focus=call-history&callId="
+            + Uri.encode(callId);
+      }
       return "/community-messenger/calls/logs?callId=" + Uri.encode(callId);
     }
     if ("incoming_call".equals(type) && callId != null) {
-      return "/community-messenger/calls/" + Uri.encode(callId);
+      return "/community-messenger/calls/" + Uri.encode(callId) + "?action=accept";
     }
 
-    String roomId = firstNonEmpty(extras.getString("roomId"), extras.getString("room_id"));
     if ("chat_message".equals(type) && roomId != null) {
       return "/community-messenger/rooms/" + Uri.encode(roomId);
     }

@@ -4,13 +4,16 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.Settings;
 import android.util.Log;
+import androidx.core.content.ContextCompat;
 import androidx.core.app.NotificationCompat;
 
 /**
@@ -21,7 +24,7 @@ import androidx.core.app.NotificationCompat;
  */
 public final class IncomingCallNotificationBuilder {
   /** Production channel — do not rename (OS channel settings are sticky). */
-  public static final String CHANNEL_ID = "dibay_calls_v2";
+  public static final String CHANNEL_ID = "dibay_incoming_calls_v2";
   /** Spec alias — same channel as {@link #CHANNEL_ID}. */
   public static final String CHANNEL_ID_ALIAS = "dibay_incoming_calls";
   public static final int INCOMING_CALL_NOTIFICATION_BASE_ID = 91001;
@@ -52,6 +55,12 @@ public final class IncomingCallNotificationBuilder {
     nm.createNotificationChannel(channel);
   }
 
+  public static boolean canPostNotifications(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true;
+    return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+        == PackageManager.PERMISSION_GRANTED;
+  }
+
   /** @deprecated FSI not used — kept for NativeDevicePermissions plugin compatibility. */
   public static boolean canPostFullScreenIntent(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
@@ -77,6 +86,22 @@ public final class IncomingCallNotificationBuilder {
     showIncomingCall(context, sessionId, title, body, deepLinkUrl, null, null);
   }
 
+  public static void showIncomingCall(Context context, IncomingCallPayload payload) {
+    if (payload == null || !payload.isValid()) return;
+    showIncomingCall(
+        context,
+        payload.callId,
+        payload.title,
+        payload.body,
+        null,
+        payload.callType,
+        payload.expiresAt,
+        payload.roomId,
+        payload.callerId,
+        payload.callerName,
+        payload.callerAvatarUrl);
+  }
+
   public static void showIncomingCall(
       Context context,
       String sessionId,
@@ -85,15 +110,40 @@ public final class IncomingCallNotificationBuilder {
       String deepLinkUrl,
       String callType,
       String expiresAt) {
+    showIncomingCall(context, sessionId, title, body, deepLinkUrl, callType, expiresAt, null, null, null, null);
+  }
+
+  public static void showIncomingCall(
+      Context context,
+      String sessionId,
+      String title,
+      String body,
+      String deepLinkUrl,
+      String callType,
+      String expiresAt,
+      String roomId,
+      String callerId,
+      String callerNameFromPayload,
+      String callerAvatarUrl) {
     ensureChannel(context);
     if (sessionId == null || sessionId.trim().isEmpty()) return;
     String sid = sessionId.trim();
-
-    if (!canPostFullScreenIntent(context)) {
-      Log.w(TAG, "[incoming-call-native] fsi_not_granted sessionId=" + sid);
+    boolean firstIncoming = IncomingCallActionCoordinator.registerIncoming(sid);
+    if (!firstIncoming && IncomingCallActionCoordinator.isCompleted(sid)) {
+      return;
     }
 
-    String callerName = resolveCallerDisplayName(title, body);
+    boolean notificationAllowed = canPostNotifications(context);
+    if (!notificationAllowed) {
+      Log.w(TAG, "[call-push] post_notifications_denied callId=" + sid);
+    }
+    boolean fsiAllowed = canPostFullScreenIntent(context);
+    Log.i(TAG, fsiAllowed ? "[call-push] full_screen_allowed callId=" + sid : "[call-push] full_screen_denied callId=" + sid);
+
+    String callerName =
+        callerNameFromPayload != null && !callerNameFromPayload.trim().isEmpty()
+            ? callerNameFromPayload.trim()
+            : resolveCallerDisplayName(title, body);
     String callKindLabel = resolveCallKindLabel(title, body, callType);
 
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -101,10 +151,22 @@ public final class IncomingCallNotificationBuilder {
       flags |= PendingIntent.FLAG_IMMUTABLE;
     }
 
-    Intent accept = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
-    PendingIntent acceptPi = PendingIntent.getActivity(context, sid.hashCode() + 2, accept, flags);
+    Intent accept = new Intent(context, IncomingCallDeclineReceiver.class);
+    accept.setAction(IncomingCallDeclineReceiver.ACTION_ACCEPT);
+    accept.putExtra(IncomingCallDeclineReceiver.EXTRA_CALL_ID, sid);
+    PendingIntent acceptPi = PendingIntent.getBroadcast(context, sid.hashCode() + 2, accept, flags);
 
-    Intent content = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
+    Intent content = new Intent(context, IncomingCallActivity.class);
+    content.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
+    content.putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, callerName);
+    content.putExtra(IncomingCallActivity.EXTRA_TITLE, title);
+    content.putExtra(IncomingCallActivity.EXTRA_BODY, body);
+    content.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType);
+    content.putExtra(IncomingCallActivity.EXTRA_EXPIRES_AT, expiresAt);
+    content.putExtra(IncomingCallActivity.EXTRA_ROOM_ID, roomId);
+    content.putExtra(IncomingCallActivity.EXTRA_CALLER_ID, callerId);
+    content.putExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR_URL, callerAvatarUrl);
+    content.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
 
     Intent fullScreen = new Intent(context, IncomingCallActivity.class);
@@ -114,7 +176,10 @@ public final class IncomingCallNotificationBuilder {
     fullScreen.putExtra(IncomingCallActivity.EXTRA_BODY, body);
     fullScreen.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType);
     fullScreen.putExtra(IncomingCallActivity.EXTRA_EXPIRES_AT, expiresAt);
-    fullScreen.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_ROOM_ID, roomId);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALLER_ID, callerId);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR_URL, callerAvatarUrl);
+    fullScreen.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     PendingIntent fullScreenPi =
         PendingIntent.getActivity(context, sid.hashCode() + 4, fullScreen, flags);
 
@@ -136,16 +201,19 @@ public final class IncomingCallNotificationBuilder {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(contentPi)
-            .setFullScreenIntent(fullScreenPi, true)
             .setDefaults(Notification.DEFAULT_ALL)
             .addAction(R.mipmap.ic_launcher, "거절", declinePi)
             .addAction(R.mipmap.ic_launcher, "수락", acceptPi);
+    boolean lockScreenBridge = DibayKeyguardHelper.isKeyguardLocked(context) || !DibayKeyguardHelper.isInteractive(context);
+    if (firstIncoming && (fsiAllowed || lockScreenBridge)) {
+      builder.setFullScreenIntent(fullScreenPi, true);
+    }
 
     int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(notificationId, builder.build());
-      Log.i(TAG, "[incoming-call-native] messenger_notification_posted sessionId=" + sid);
+      Log.i(TAG, "[call-notification] incoming_posted callId=" + sid + " first=" + firstIncoming);
     }
   }
 

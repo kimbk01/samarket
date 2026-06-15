@@ -48,7 +48,7 @@ describe("buildWebPushJsonPayload", () => {
     expect(payload.is_call).toBe(true);
   });
 
-  it("adds missed_call logs url", () => {
+  it("adds missed_call room focus url when room_id present", () => {
     const payload = buildWebPushJsonPayload(
       baseOut({
         notification_type: "community_messenger_missed_call",
@@ -66,7 +66,9 @@ describe("buildWebPushJsonPayload", () => {
 
     expect(payload.data.type).toBe("missed_call");
     expect(payload.data.call_push_kind).toBe("missed_call");
-    expect(payload.data.url).toBe("/community-messenger/calls/logs?callId=sess-2");
+    expect(payload.data.url).toBe(
+      "/community-messenger/rooms/room-2?focus=call-history&callId=sess-2"
+    );
     expect(payload.is_call).toBe(false);
   });
 

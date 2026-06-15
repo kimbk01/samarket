@@ -120,7 +120,10 @@ export function buildFcmDataFields(
         const callKind = meta ? trimText(meta.kind ?? meta.call_kind ?? meta.callKind) : "";
         if (callerId) fields.callerId = callerId;
         if (callerName) fields.callerName = callerName;
-        if (callerAvatar) fields.callerAvatar = callerAvatar;
+        if (callerAvatar) {
+          fields.callerAvatar = callerAvatar;
+          fields.callerAvatarUrl = callerAvatar;
+        }
         if (startedAt) fields.startedAt = startedAt;
         if (expiresAt) fields.expiresAt = expiresAt;
         if (callKind) {
@@ -135,11 +138,15 @@ export function buildFcmDataFields(
       const sessionId = trimText(base.sessionId) || (meta ? trimText(meta.session_id ?? meta.sessionId) : "");
       if (sessionId) {
         appendCallFields(fields, meta, sessionId);
-        fields.url = `/community-messenger/calls/logs?callId=${encodeURIComponent(sessionId)}`;
+        const roomId = meta ? trimText(meta.room_id ?? meta.roomId) : "";
+        fields.url = roomId
+          ? `/community-messenger/rooms/${encodeURIComponent(roomId)}?focus=call-history&callId=${encodeURIComponent(sessionId)}`
+          : `/community-messenger/calls/logs?callId=${encodeURIComponent(sessionId)}`;
         fields.call_push_kind = opts?.call_push_kind ?? "missed_call";
         const callerId = meta ? trimText(meta.caller_id ?? meta.callerId) : "";
         const callerName = meta ? trimText(meta.caller_name ?? meta.callerName) : "";
         const missedAt = meta ? trimText(meta.missed_at ?? meta.missedAt) : out.occurred_at;
+        if (roomId) fields.roomId = roomId;
         if (callerId) fields.callerId = callerId;
         if (callerName) fields.callerName = callerName;
         if (missedAt) fields.missedAt = missedAt;

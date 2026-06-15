@@ -13,12 +13,18 @@ import androidx.core.app.NotificationCompat;
 /** Missed call notification — tap opens call logs, no redial action. */
 public final class MissedCallNotificationHelper {
   private static final String TAG = "DIBAY_MISSED_CALL";
+  public static final String CHANNEL_ID = "dibay_missed_calls_v1";
 
   private MissedCallNotificationHelper() {}
 
   public static void show(
       Context context, String title, String body, String routeUrl, String callId, String tag) {
-    DibayFirebaseMessagingService.ensureMessagesChannelStatic(context);
+    show(context, title, body, routeUrl, callId, null, tag);
+  }
+
+  public static void show(
+      Context context, String title, String body, String routeUrl, String callId, String roomId, String tag) {
+    ensureChannel(context);
     Intent launch = new Intent(context, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
     launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -27,6 +33,7 @@ public final class MissedCallNotificationHelper {
     }
     launch.putExtra("type", "missed_call");
     if (callId != null) launch.putExtra("callId", callId);
+    if (roomId != null) launch.putExtra("roomId", roomId);
     String notificationId = tag != null ? tag : (callId != null ? "missed:" + callId : null);
     if (notificationId != null) launch.putExtra("notificationId", notificationId);
 
@@ -41,7 +48,7 @@ public final class MissedCallNotificationHelper {
     String safeBody = body != null ? body : "";
 
     NotificationCompat.Builder builder =
-        new NotificationCompat.Builder(context, DibayFirebaseMessagingService.MESSAGES_CHANNEL_ID)
+        new NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(safeTitle)
             .setContentText(safeBody)
@@ -56,7 +63,19 @@ public final class MissedCallNotificationHelper {
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(requestCode, builder.build());
-      Log.i(TAG, "[missed-call] notification_created callId=" + callId);
+      Log.i(TAG, "[call-notification] missed_posted callId=" + callId);
     }
+  }
+
+  static void ensureChannel(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
+    if (nm == null || nm.getNotificationChannel(CHANNEL_ID) != null) return;
+    NotificationChannel channel =
+        new NotificationChannel(CHANNEL_ID, "부재중 통화", NotificationManager.IMPORTANCE_DEFAULT);
+    channel.setDescription("부재중 통화 알림");
+    channel.enableVibration(true);
+    channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+    nm.createNotificationChannel(channel);
   }
 }

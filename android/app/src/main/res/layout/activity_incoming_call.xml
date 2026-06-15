@@ -3,55 +3,78 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#111827"
-    android:gravity="center"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:paddingStart="24dp"
+    android:paddingTop="48dp"
+    android:paddingEnd="24dp"
+    android:paddingBottom="32dp">
 
-    <TextView
-        android:id="@+id/incoming_call_title"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:textColor="#FFFFFF"
-        android:textSize="16sp" />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical">
 
-    <TextView
-        android:id="@+id/incoming_call_caller_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:textColor="#FFFFFF"
-        android:textSize="28sp"
-        android:textStyle="bold" />
+        <TextView
+            android:id="@+id/incoming_call_kind"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#9CA3AF"
+            android:textSize="15sp" />
 
-    <TextView
-        android:id="@+id/incoming_call_kind"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textColor="#D1D5DB"
-        android:textSize="16sp" />
+        <TextView
+            android:id="@+id/incoming_call_caller_name"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/incoming_call_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:textColor="#D1D5DB"
+            android:textSize="16sp"
+            android:visibility="gone" />
+    </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="40dp"
         android:gravity="center"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingTop="8dp">
 
         <Button
             android:id="@+id/incoming_call_decline"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="거절" />
+            android:backgroundTint="#EF4444"
+            android:text="거절"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
 
         <Button
             android:id="@+id/incoming_call_accept"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_height="56dp"
             android:layout_marginStart="8dp"
             android:layout_weight="1"
-            android:text="수락" />
+            android:backgroundTint="#22C55E"
+            android:text="수락"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="17sp"
+            android:textStyle="bold" />
     </LinearLayout>
 </LinearLayout>

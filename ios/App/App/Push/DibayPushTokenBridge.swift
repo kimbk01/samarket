@@ -17,7 +17,18 @@ enum DibayPushTokenBridge {
 
   static func openCallDeepLink(sessionId: String) {
     let escaped = sessionId.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
-    evaluateJs("window.location.assign('/community-messenger/calls/\(escaped)');")
+    evaluateJs("""
+      window.dispatchEvent(new CustomEvent('dibay:voip-call-action', { detail: { sessionId: '\(escaped)', action: 'accept' } }));
+      window.location.assign('/community-messenger/calls/\(escaped)?action=accept');
+    """)
+  }
+
+  static func postCallAction(sessionId: String, action: String) {
+    let escapedSession = sessionId.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+    let escapedAction = action.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "'", with: "\\'")
+    evaluateJs("""
+      window.dispatchEvent(new CustomEvent('dibay:voip-call-action', { detail: { sessionId: '\(escapedSession)', action: '\(escapedAction)' } }));
+    """)
   }
 
   private static func evaluateJs(_ script: String) {

@@ -26,6 +26,21 @@ public final class CallSessionPatchHelper {
     }
     HttpURLConnection conn = null;
     try {
+      String normalizedAction = action != null ? action.trim() : "";
+      if ("accept".equals(normalizedAction)
+          || "reject".equals(normalizedAction)
+          || "missed".equals(normalizedAction)
+          || "end".equals(normalizedAction)) {
+        URL actionUrl =
+            new URL(
+                origin
+                    + "/api/community-messenger/calls/"
+                    + java.net.URLEncoder.encode(sessionId.trim(), "UTF-8")
+                    + "/"
+                    + normalizedAction);
+        boolean actionOk = postJson(context, origin, actionUrl, "{}");
+        if (actionOk) return true;
+      }
       URL url =
           new URL(
               origin
@@ -57,6 +72,39 @@ public final class CallSessionPatchHelper {
       return ok;
     } catch (Exception e) {
       Log.w(TAG, "[call-flow] patch_failed message=" + e.getMessage());
+      return false;
+    } finally {
+      if (conn != null) conn.disconnect();
+    }
+  }
+
+  private static boolean postJson(Context context, String origin, URL url, String jsonBody) {
+    HttpURLConnection conn = null;
+    try {
+      conn = (HttpURLConnection) url.openConnection();
+      conn.setRequestMethod("POST");
+      conn.setConnectTimeout(12_000);
+      conn.setReadTimeout(12_000);
+      conn.setDoOutput(true);
+      conn.setRequestProperty("Content-Type", "application/json");
+      conn.setRequestProperty("Accept", "application/json");
+      String cookie = CookieManager.getInstance().getCookie(origin);
+      if (cookie != null && !cookie.isEmpty()) {
+        conn.setRequestProperty("Cookie", cookie);
+      }
+      byte[] body = jsonBody.getBytes(StandardCharsets.UTF_8);
+      conn.setFixedLengthStreamingMode(body.length);
+      try (OutputStream os = conn.getOutputStream()) {
+        os.write(body);
+      }
+      int status = conn.getResponseCode();
+      boolean ok = status >= 200 && status < 300;
+      if (!ok) {
+        Log.w(TAG, "[call-flow] post_action_failed status=" + status + " body=" + readStream(conn.getErrorStream()));
+      }
+      return ok;
+    } catch (Exception e) {
+      Log.w(TAG, "[call-flow] post_action_failed message=" + e.getMessage());
       return false;
     } finally {
       if (conn != null) conn.disconnect();

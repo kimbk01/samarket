@@ -39,6 +39,45 @@ public final class FcmPayloadResolver {
     return firstNonEmpty(data.get("sessionId"), data.get("session_id"));
   }
 
+  public static IncomingCallPayload resolveIncomingCallPayload(
+      Map<String, String> data, String title, String body) {
+    if (data == null) return IncomingCallPayload.invalid("no_data");
+    String callId = resolveCallId(data);
+    String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
+    String callerId = firstNonEmpty(data.get("callerId"), data.get("caller_id"));
+    String callerName =
+        firstNonEmpty(data.get("callerName"), data.get("caller_name"), data.get("title"), title);
+    String callerAvatarUrl =
+        firstNonEmpty(
+            data.get("callerAvatarUrl"),
+            data.get("caller_avatar_url"),
+            data.get("callerAvatar"),
+            data.get("caller_avatar"));
+    String rawCallType =
+        firstNonEmpty(data.get("callType"), data.get("call_type"), data.get("kind"), data.get("callKind"), data.get("call_kind"));
+    String callType = normalizeCallType(rawCallType);
+    String expiresAt = firstNonEmpty(data.get("expiresAt"), data.get("expires_at"));
+    String invalid = null;
+    if (callId == null) invalid = "missing_call_id";
+    else if (roomId == null) invalid = "missing_room_id";
+    else if (callerId == null) invalid = "missing_caller_id";
+    else if (callType == null) invalid = "missing_call_type";
+    if (invalid != null) {
+      return IncomingCallPayload.invalid(invalid);
+    }
+    return new IncomingCallPayload(
+        callId,
+        roomId,
+        callerId,
+        callerName != null ? callerName : "수신 통화",
+        callerAvatarUrl,
+        callType,
+        expiresAt,
+        title,
+        body,
+        null);
+  }
+
   public static boolean isExpired(Map<String, String> data) {
     if (data == null) return false;
     String expiresAt = firstNonEmpty(data.get("expiresAt"), data.get("expires_at"));
@@ -69,6 +108,13 @@ public final class FcmPayloadResolver {
     switch (type) {
       case "missed_call": {
         String callId = resolveCallId(data);
+        String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
+        if (callId != null && roomId != null) {
+          return "/community-messenger/rooms/"
+              + android.net.Uri.encode(roomId)
+              + "?focus=call-history&callId="
+              + android.net.Uri.encode(callId);
+        }
         if (callId != null) {
           return "/community-messenger/calls/logs?callId=" + android.net.Uri.encode(callId);
         }
@@ -111,6 +157,19 @@ public final class FcmPayloadResolver {
     return null;
   }
 
+  public static String resolveMissedCallRoute(String callId, String roomId) {
+    String cid = callId != null ? callId.trim() : "";
+    String rid = roomId != null ? roomId.trim() : "";
+    if (!cid.isEmpty() && !rid.isEmpty()) {
+      return "/community-messenger/rooms/"
+          + android.net.Uri.encode(rid)
+          + "?focus=call-history&callId="
+          + android.net.Uri.encode(cid);
+    }
+    if (!cid.isEmpty()) return "/community-messenger/calls/logs?callId=" + android.net.Uri.encode(cid);
+    return null;
+  }
+
   public static boolean isStandardRouteType(String type) {
     return "chat_message".equals(type)
         || "trade_message".equals(type)
@@ -124,5 +183,56 @@ public final class FcmPayloadResolver {
       if (value != null && !value.trim().isEmpty()) return value.trim();
     }
     return null;
+  }
+
+  private static String normalizeCallType(String value) {
+    String v = value != null ? value.trim().toLowerCase(Locale.US) : "";
+    if ("video".equals(v)) return "video";
+    if ("audio".equals(v) || "voice".equals(v)) return "audio";
+    return null;
+  }
+}
+
+final class IncomingCallPayload {
+  final String callId;
+  final String roomId;
+  final String callerId;
+  final String callerName;
+  final String callerAvatarUrl;
+  final String callType;
+  final String expiresAt;
+  final String title;
+  final String body;
+  final String invalidReason;
+
+  IncomingCallPayload(
+      String callId,
+      String roomId,
+      String callerId,
+      String callerName,
+      String callerAvatarUrl,
+      String callType,
+      String expiresAt,
+      String title,
+      String body,
+      String invalidReason) {
+    this.callId = callId;
+    this.roomId = roomId;
+    this.callerId = callerId;
+    this.callerName = callerName;
+    this.callerAvatarUrl = callerAvatarUrl;
+    this.callType = callType;
+    this.expiresAt = expiresAt;
+    this.title = title;
+    this.body = body;
+    this.invalidReason = invalidReason;
+  }
+
+  static IncomingCallPayload invalid(String reason) {
+    return new IncomingCallPayload(null, null, null, null, null, null, null, null, null, reason);
+  }
+
+  boolean isValid() {
+    return invalidReason == null && callId != null && roomId != null && callerId != null && callType != null;
   }
 }

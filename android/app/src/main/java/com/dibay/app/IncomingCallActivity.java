@@ -1,9 +1,10 @@
 package com.dibay.app;
 
-import android.app.KeyguardManager;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -18,12 +19,18 @@ public class IncomingCallActivity extends AppCompatActivity {
   public static final String EXTRA_BODY = "body";
   public static final String EXTRA_CALL_TYPE = "callType";
   public static final String EXTRA_EXPIRES_AT = "expiresAt";
+  public static final String EXTRA_ROOM_ID = "roomId";
+  public static final String EXTRA_CALLER_ID = "callerId";
+  public static final String EXTRA_CALLER_AVATAR_URL = "callerAvatarUrl";
   public static final String ACTION_ACCEPT = "com.dibay.app.action.INCOMING_CALL_ACCEPT";
   public static final String ACTION_DECLINE = "com.dibay.app.action.INCOMING_CALL_DECLINE";
 
   private static final String TAG = "DIBAY_INCOMING_CALL";
+  private static final long DEFAULT_RING_TIMEOUT_MS = 30_000L;
   private String callId;
   private boolean finished;
+  private IncomingCallPayload payload;
+  private final Handler handler = new Handler(Looper.getMainLooper());
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -36,8 +43,6 @@ public class IncomingCallActivity extends AppCompatActivity {
       finishSafely();
       return;
     }
-    requestDismissKeyguardIfNeeded();
-
     String expiresAt = firstNonEmpty(getIntent().getStringExtra(EXTRA_EXPIRES_AT));
     if (expiresAt != null) {
       java.util.HashMap<String, String> probe = new java.util.HashMap<>();
@@ -49,12 +54,27 @@ public class IncomingCallActivity extends AppCompatActivity {
       }
     }
 
-    Log.i(TAG, "[incoming-call-native] activity_opened callId=" + callId);
+    Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
 
     String callerName = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_NAME));
     String title = firstNonEmpty(getIntent().getStringExtra(EXTRA_TITLE));
     String body = firstNonEmpty(getIntent().getStringExtra(EXTRA_BODY));
     String callType = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_TYPE));
+    String roomId = firstNonEmpty(getIntent().getStringExtra(EXTRA_ROOM_ID));
+    String callerId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_ID));
+    String callerAvatarUrl = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_AVATAR_URL));
+    payload =
+        new IncomingCallPayload(
+            callId,
+            roomId,
+            callerId,
+            callerName != null ? callerName : "수신 통화",
+            callerAvatarUrl,
+            callType != null ? ("video".equalsIgnoreCase(callType) ? "video" : "audio") : "audio",
+            expiresAt,
+            title,
+            body,
+            null);
 
     TextView titleView = findViewById(R.id.incoming_call_title);
     TextView callerView = findViewById(R.id.incoming_call_caller_name);
@@ -78,6 +98,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     acceptBtn.setOnClickListener(v -> handleAccept());
     declineBtn.setOnClickListener(v -> handleDecline());
+    scheduleActivityTimeout();
   }
 
   @Override
@@ -94,35 +115,16 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void handleAccept() {
     if (finished) return;
-    if (!IncomingCallActionCoordinator.tryBegin(callId, "accept")) {
-      finishSafely();
-      return;
-    }
-    Log.i(TAG, "[incoming-call-native] answer_clicked callId=" + callId);
-    cleanupNotification();
-    startActivity(IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(this, callId));
-    IncomingCallActionCoordinator.end(callId, "accept");
+    Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
+    IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
     finishSafely();
   }
 
   private void handleDecline() {
     if (finished) return;
-    if (!IncomingCallActionCoordinator.tryBegin(callId, "reject")) {
-      finishSafely();
-      return;
-    }
-    Log.i(TAG, "[incoming-call-native] decline_clicked callId=" + callId);
-    Log.i(TAG, "[call-flow] cleanup_start callId=" + callId);
-    cleanupNotification();
-    new Thread(() -> {
-      CallSessionPatchHelper.patch(getApplicationContext(), callId, "reject");
-      runOnUiThread(
-          () -> {
-            IncomingCallActionCoordinator.end(callId, "reject");
-            Log.i(TAG, "[call-flow] cleanup_done callId=" + callId);
-            finishSafely();
-          });
-    }).start();
+    Log.i(TAG, "[call-ui] reject_clicked callId=" + callId + " source=activity");
+    IncomingCallActionCoordinator.handleReject(getApplicationContext(), callId);
+    finishSafely();
   }
 
   private void cleanupNotification() {
@@ -152,20 +154,7 @@ public class IncomingCallActivity extends AppCompatActivity {
                   | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
-  }
-
-  private void requestDismissKeyguardIfNeeded() {
-    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-    KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
-    if (keyguardManager == null || !keyguardManager.isKeyguardLocked()) return;
-    keyguardManager.requestDismissKeyguard(
-        this,
-        new KeyguardManager.KeyguardDismissCallback() {
-          @Override
-          public void onDismissError() {
-            Log.w(TAG, "[incoming-call-native] keyguard_dismiss_error callId=" + callId);
-          }
-        });
+    getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
   }
 
   private static String resolveCallKindLabel(String callType, String title, String body) {
@@ -180,5 +169,35 @@ public class IncomingCallActivity extends AppCompatActivity {
     if (value == null) return null;
     String trimmed = value.trim();
     return trimmed.isEmpty() ? null : trimmed;
+  }
+
+  private void scheduleActivityTimeout() {
+    if (payload == null) return;
+    handler.postDelayed(
+        () -> {
+          if (finished) return;
+          IncomingCallActionCoordinator.handleMissedTimeout(getApplicationContext(), payload);
+          finishSafely();
+        },
+        resolveActivityTimeoutDelayMs(payload.expiresAt));
+  }
+
+  private static long resolveActivityTimeoutDelayMs(String expiresAt) {
+    if (expiresAt == null || expiresAt.trim().isEmpty()) return DEFAULT_RING_TIMEOUT_MS;
+    try {
+      long expiresMs;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        expiresMs = java.time.Instant.parse(expiresAt.trim()).toEpochMilli();
+      } else {
+        java.text.SimpleDateFormat iso =
+            new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
+        iso.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+        String normalized = expiresAt.contains(".") ? expiresAt : expiresAt.replace("Z", ".000Z");
+        expiresMs = iso.parse(normalized).getTime();
+      }
+      return Math.max(1_000L, Math.min(DEFAULT_RING_TIMEOUT_MS, expiresMs - System.currentTimeMillis()));
+    } catch (Exception e) {
+      return DEFAULT_RING_TIMEOUT_MS;
+    }
   }
 }

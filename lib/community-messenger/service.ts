@@ -17627,6 +17627,23 @@ export async function updateCommunityMessengerCallSession(input: {
           await ensureTerminalCallStub(session, mapped);
           return { ok: true, session: mapped };
         }
+        if (
+          input.action === "missed" &&
+          isTerminalCallSessionStatus(session.status) &&
+          (messengerUserIdsEqual(session.initiator_user_id, input.userId) ||
+            messengerUserIdsEqual(session.recipient_user_id, input.userId))
+        ) {
+          const mapped = await mapCallSession(
+            input.userId,
+            session,
+            undefined,
+            undefined,
+            undefined,
+            "labels_only"
+          );
+          await ensureTerminalCallStub(session, mapped);
+          return { ok: true, session: mapped };
+        }
         return { ok: false, error: "bad_action" };
       }
       const alreadyActiveRecipient =

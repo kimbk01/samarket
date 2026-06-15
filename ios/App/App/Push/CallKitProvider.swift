@@ -57,6 +57,7 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
   func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
     action.fulfill()
     if let sessionId = callUuidBySessionId.first(where: { $0.value == action.callUUID })?.key {
+      DibayPushTokenBridge.postCallAction(sessionId: sessionId, action: "reject_or_end")
       callUuidBySessionId.removeValue(forKey: sessionId)
     }
   }
