@@ -242,6 +242,21 @@ export async function syncDevicePermissionState(): Promise<DibayDevicePermission
   return checkDevicePermissions();
 }
 
+/**
+ * 온보딩 「나중에」— OS 권한 팝업 없이 1회 시도 완료로 기록(재표시 금지).
+ * 통화 시점에는 check-only → 설정 안내.
+ */
+export function markInitialDevicePermissionsDeferred(
+  source: DibayDevicePermissionSource,
+): DibayDevicePermissionState {
+  const prev = getDibayDevicePermissionState();
+  if (prev.requestedAt != null) return prev;
+  const requestedAt = Date.now();
+  const next = mergeState({ requestedAt, source });
+  logDevicePermission("denied", { source, deferred: true });
+  return next;
+}
+
 export async function requestInitialDevicePermissions(
   source: DibayDevicePermissionSource,
 ): Promise<DibayDevicePermissionState> {

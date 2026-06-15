@@ -4,7 +4,6 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { readDiBaYNotificationPromptState } from "@/lib/notifications/dibay-notification-prompt-storage";
 import {
   canAttemptPostLoginOnboardingGate,
   isPostLoginOnboardingBlockedByAddressGate,
@@ -14,7 +13,11 @@ import {
   recordDiBaYOnboardingDecision,
 } from "@/lib/permissions/device-permission-manager";
 import { resolveDibayDevicePermissionOnboarding, resolveCallMediaOnboardingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
-import { requestInitialDevicePermissions, type DibayDevicePermissionSource } from "@/lib/permissions/dibay-device-permission-store";
+import {
+  markInitialDevicePermissionsDeferred,
+  requestInitialDevicePermissions,
+  type DibayDevicePermissionSource,
+} from "@/lib/permissions/dibay-device-permission-store";
 import { invalidateCallMediaPermissionCheckCache } from "@/lib/community-messenger/call-media-permission-preflight";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
@@ -32,7 +35,6 @@ export function DiBaYCallMediaOnboardingGate() {
 
   const tryOpen = useCallback(() => {
     if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
-    if (readDiBaYNotificationPromptState() == null) return;
     if (shownRef.current) return;
 
     const run = () => {
@@ -70,7 +72,9 @@ export function DiBaYCallMediaOnboardingGate() {
   }, [tryOpen]);
 
   const onLater = () => {
+    markInitialDevicePermissionsDeferred(source);
     recordDiBaYOnboardingDecision("call_media", "declined");
+    invalidateCallMediaPermissionCheckCache();
     setOpen(false);
   };
 

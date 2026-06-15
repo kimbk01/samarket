@@ -18,6 +18,7 @@ import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
+import { markCallMediaOnboardingPendingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
 import {
   DIBAY_ONBOARDING_CONSENT_DONE_CLASS,
   DIBAY_ONBOARDING_INPUT_CLASS,
@@ -50,6 +51,7 @@ export function DibayIdOnboardingClient() {
   const normalized = useMemo(() => normalizeDibayIdInput(raw), [raw]);
 
   const navigateAfterComplete = async () => {
+    markCallMediaOnboardingPendingSource("signup_complete");
     const { status, json } = await fetchSignupStatusDeduped();
     const route =
       status === 200 && json?.route?.trim()

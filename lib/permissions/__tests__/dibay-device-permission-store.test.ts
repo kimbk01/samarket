@@ -123,4 +123,15 @@ describe("dibay-device-permission-store", () => {
     expect(state.camera).toBe("denied");
     expect(state.microphone).toBe("denied");
   });
+
+  it("markInitialDevicePermissionsDeferred records one-time skip without GUM", async () => {
+    const { markInitialDevicePermissionsDeferred, hasRequestedInitialDevicePermissions, getDibayDevicePermissionState } =
+      await import("@/lib/permissions/dibay-device-permission-store");
+    const state = markInitialDevicePermissionsDeferred("first_login");
+    expect(hasRequestedInitialDevicePermissions()).toBe(true);
+    expect(state.requestedAt).toEqual(expect.any(Number));
+    expect(state.source).toBe("first_login");
+    expect(getDibayDevicePermissionState().camera).toBe("unknown");
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
+  });
 });

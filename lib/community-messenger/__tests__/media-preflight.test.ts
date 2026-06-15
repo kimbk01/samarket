@@ -4,12 +4,6 @@ vi.mock("@/lib/community-messenger/media-permissions-query", () => ({
   queryCommunityMessengerMediaPermissions: vi.fn(),
 }));
 
-const markTrustedMock = vi.hoisted(() => vi.fn());
-
-vi.mock("@/lib/community-messenger/call-permission", () => ({
-  markCommunityMessengerMediaTrustedOnce: markTrustedMock,
-}));
-
 const isCallMediaGrantedSyncMock = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock("@/lib/permissions/dibay-device-permission-store", () => ({
@@ -44,8 +38,6 @@ describe("runCommunityMessengerEntryMediaPreflight", () => {
     expect(result.ok).toBe(true);
     expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
     expect(navigator.mediaDevices.enumerateDevices).toHaveBeenCalled();
-    expect(markTrustedMock).toHaveBeenCalledWith("voice");
-    expect(markTrustedMock).toHaveBeenCalledWith("video");
   });
 
   it("returns gum_failed when store is not granted and does not request media", async () => {

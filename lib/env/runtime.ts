@@ -86,12 +86,18 @@ export function requireSupabaseEnv(
   };
 }
 
+import { DIBAY_PRODUCTION_SITE_ORIGIN } from "@/lib/platform/capacitor-server-url";
+
 export function getSiteOrigin(): string | null {
   const explicit = readEnv("NEXT_PUBLIC_SITE_URL")?.replace(/\/$/, "");
   if (explicit) return explicit;
 
   const vercel = readEnv("VERCEL_URL");
   if (vercel) return `https://${vercel.replace(/^https?:\/\//, "")}`;
+
+  /** Vercel production — APK·FCM 절대 URL 과 capacitor server.url 과 동일 origin */
+  const vercelEnv = (readEnv("VERCEL_ENV") ?? readEnv("NEXT_PUBLIC_VERCEL_ENV") ?? "").toLowerCase();
+  if (vercelEnv === "production") return DIBAY_PRODUCTION_SITE_ORIGIN;
 
   return null;
 }

@@ -1,4 +1,9 @@
 # Copy to android/local.properties (gitignored)
+#
+# After changing CAPACITOR_SERVER_URL / Vercel domain:
+#   npm run cap:sync:vercel
+# Then Android Studio → Rebuild APK (native only; web UI updates come from Vercel deploy).
+#
 KAKAO_NATIVE_APP_KEY=YOUR_KAKAO_NATIVE_APP_KEY
 
 # Google Sign-In requestIdToken — DIBAY Google Login (Web application) Client ID

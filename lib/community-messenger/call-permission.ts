@@ -1,6 +1,5 @@
 import {
   inferCommunityMessengerMediaGrantedFromDeviceLabels,
-  isCommunityMessengerMediaBrowserGrantedSync,
 } from "@/lib/community-messenger/media-permissions-query";
 import {
   isPermissionFeatureCompleted,
@@ -8,6 +7,7 @@ import {
 } from "@/lib/permissions/device-permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { ensureCallCanUseMedia, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
+import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -24,14 +24,10 @@ export function hasCommunityMessengerMediaTrustedMark(kind: CommunityMessengerCa
   return isPermissionFeatureCompleted(featureKeyForCallKind(kind));
 }
 
-/** trusted · live primed · Permissions API granted(캐시) — 동기 단일 진실 소스 */
+/** 중앙 call_media store + (통화 중) primed stream 만 — legacy trusted·Permissions 캐시 제외 */
 export function isCommunityMessengerCallMediaReadySync(kind: CommunityMessengerCallKind): boolean {
   if (typeof window === "undefined") return false;
-  return (
-    hasUsablePrimedCommunityMessengerDeviceStream(kind) ||
-    hasCommunityMessengerMediaTrustedMark(kind) ||
-    isCommunityMessengerMediaBrowserGrantedSync(kind)
-  );
+  return hasUsablePrimedCommunityMessengerDeviceStream(kind) || isCallMediaGrantedSync(kind);
 }
 
 function markTrustedIfBrowserGranted(

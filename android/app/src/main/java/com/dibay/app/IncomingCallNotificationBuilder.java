@@ -106,9 +106,6 @@ public final class IncomingCallNotificationBuilder {
     intent.setAction(Intent.ACTION_VIEW);
     intent.setData(Uri.parse(dibayUrl));
     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-      intent.addFlags(Intent.FLAG_ACTIVITY_SHOW_WHEN_LOCKED | Intent.FLAG_ACTIVITY_TURN_SCREEN_ON);
-    }
     return intent;
   }
 

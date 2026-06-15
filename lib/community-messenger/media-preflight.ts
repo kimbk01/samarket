@@ -1,4 +1,3 @@
-import { markCommunityMessengerMediaTrustedOnce } from "@/lib/community-messenger/call-permission";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
   queryCommunityMessengerMediaPermissions,
@@ -105,8 +104,6 @@ export async function runCommunityMessengerEntryMediaPreflight(
 
   try {
     await refreshPreferredCommunityMessengerDevicesFromEnumerate();
-    markCommunityMessengerMediaTrustedOnce("voice");
-    markCommunityMessengerMediaTrustedOnce("video");
     return { ok: true };
   } catch {
     return { ok: false, code: "gum_failed" };

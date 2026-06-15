@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/require-auth-action";
 import { sanitizeFreshLoginLandingPath, sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+import { markCallMediaOnboardingPendingSource } from "@/lib/permissions/dibay-device-permission-onboarding";
 
 type RouterLike = {
   replace: (href: string) => void;
@@ -99,6 +100,7 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
 
   await primeClientAuthSessionFromSupabase();
   await primeClientProfileRowAfterLogin();
+  markCallMediaOnboardingPendingSource("first_login");
 
   const target = await resolveLoginTarget({ redirectTo, next });
 

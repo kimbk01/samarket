@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import {
-  markCommunityMessengerMediaTrustedOnce,
-} from "@/lib/community-messenger/call-permission";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
 import { ensureCommunityMessengerAppAudioContext } from "@/lib/community-messenger/cm-app-audio-context";
 import { warmMessengerIceServers } from "@/lib/call/ice-servers";
@@ -40,8 +37,6 @@ export function CommunityMessengerMediaPreflight() {
     const t = window.setTimeout(() => {
       void runCommunityMessengerEntryMediaPreflight().then((r) => {
         if (!r.ok) return;
-        markCommunityMessengerMediaTrustedOnce("voice");
-        markCommunityMessengerMediaTrustedOnce("video");
         try {
           window.sessionStorage.setItem(SESSION_PREFLIGHT_OK_KEY, "1");
         } catch {

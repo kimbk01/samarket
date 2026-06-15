@@ -1,0 +1,114 @@
+#!/usr/bin/env node
+/**
+ * Capacitor Android/iOS 셸을 Vercel(또는 CAPACITOR_SERVER_URL) origin 과 동기화.
+ *
+ * Usage:
+ *   npm run cap:sync:vercel
+ *   CAPACITOR_SERVER_URL=https://samarket.vercel.app npm run cap:sync:vercel
+ *   npm run cap:sync:vercel -- --ios
+ */
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function loadEnvFile(relPath) {
+  const abs = path.join(ROOT, relPath);
+  if (!fs.existsSync(abs)) return;
+  for (const line of fs.readFileSync(abs, "utf8").split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || t.startsWith("#")) continue;
+    const i = t.indexOf("=");
+    if (i < 1) continue;
+    const k = t.slice(0, i).trim();
+    let v = t.slice(i + 1).trim();
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'"))) {
+      v = v.slice(1, -1);
+    }
+    if (!process.env[k]) process.env[k] = v;
+  }
+}
+
+function normalizeCapacitorServerUrl(url) {
+  const trimmed = url.trim().replace(/\/$/, "");
+  try {
+    const parsed = new URL(trimmed);
+    parsed.search = "";
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    return trimmed.split("?")[0].split("#")[0];
+  }
+}
+
+function resolveServerUrl() {
+  const raw =
+    process.env.CAPACITOR_SERVER_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    "https://samarket.vercel.app";
+  return normalizeCapacitorServerUrl(raw);
+}
+
+function readCapacitorJson(relPath) {
+  const abs = path.join(ROOT, relPath);
+  if (!fs.existsSync(abs)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(abs, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+loadEnvFile(".env.local");
+loadEnvFile(".env.vercel.production");
+
+const includeIos = process.argv.includes("--ios");
+const serverUrl = resolveServerUrl();
+process.env.CAPACITOR_SERVER_URL = serverUrl;
+
+console.log(`[capacitor-vercel] server.url=${serverUrl}`);
+
+const ping = await fetch(serverUrl, { method: "HEAD", redirect: "follow" }).catch(() => null);
+if (!ping || !ping.ok) {
+  console.warn(
+    `[capacitor-vercel] WARN: ${serverUrl} HEAD failed (${ping?.status ?? "network"}) — sync continues; check Vercel deploy`,
+  );
+} else {
+  console.log(`[capacitor-vercel] Vercel reachable (${ping.status})`);
+}
+
+const targets = includeIos ? ["android", "ios"] : ["android"];
+for (const platform of targets) {
+  console.log(`[capacitor-vercel] npx cap sync ${platform}`);
+  const result = spawnSync("npx", ["cap", "sync", platform], {
+    cwd: ROOT,
+    stdio: "inherit",
+    env: process.env,
+  });
+  if (result.status !== 0) {
+    process.exit(result.status ?? 1);
+  }
+}
+
+const androidJson = readCapacitorJson("android/app/src/main/assets/capacitor.config.json");
+const androidUrl = androidJson?.server?.url ?? "";
+if (androidUrl !== serverUrl) {
+  console.error(
+    `[capacitor-vercel] FAIL: android assets url mismatch expected=${serverUrl} got=${androidUrl || "(missing)"}`,
+  );
+  process.exit(1);
+}
+
+if (includeIos) {
+  const iosJson = readCapacitorJson("ios/App/App/capacitor.config.json");
+  const iosUrl = iosJson?.server?.url ?? "";
+  if (iosUrl !== serverUrl) {
+    console.error(`[capacitor-vercel] FAIL: ios assets url mismatch expected=${serverUrl} got=${iosUrl || "(missing)"}`);
+    process.exit(1);
+  }
+}
+
+console.log("[capacitor-vercel] PASS — native capacitor.config.json matches server.url");
+console.log("[capacitor-vercel] Android Studio: open android/ → Build APK (web changes on Vercel need no APK rebuild)");

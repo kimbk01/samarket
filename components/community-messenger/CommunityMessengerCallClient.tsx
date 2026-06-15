@@ -25,8 +25,11 @@ import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messeng
 async function loadCommunityMessengerCallProvider() {
   return import("@/lib/community-messenger/call-provider/client");
 }
-import { ensureVideoPermission } from "@/lib/call/permission-manager";
-import { primeVideoCallMediaFromUserGesture, primeVoiceCallMediaFromUserGesture } from "@/lib/community-messenger/call-media-bootstrap";
+import {
+  ensureCallCanUseMedia,
+  resolveCallMediaPermissionBlockedMessage,
+} from "@/lib/community-messenger/call-media-permission-preflight";
+import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
 import {
   attachPreJoinHtmlVideo,
   bindAgoraLocalVideoTrack,
@@ -1873,6 +1876,12 @@ export function CommunityMessengerCallClient({
         setErrorMessage(getCommunityMessengerInsecureOriginMediaHint());
         return;
       }
+      const joinPreflight = await ensureCallCanUseMedia(targetSession.callKind);
+      if (!joinPreflight.ok) {
+        autoJoinBlockedRef.current = true;
+        setErrorMessage(resolveCallMediaPermissionBlockedMessage(targetSession.callKind));
+        return;
+      }
       joiningRef.current = true;
       setBusy("join");
       setErrorMessage(null);
@@ -2174,6 +2183,14 @@ export function CommunityMessengerCallClient({
     if (!s) return null;
     if (directCallPatchInFlightRef.current) return null;
     if (isTerminalCallSessionStatus(s.status)) return null;
+
+    const permission = await ensureCallCanUseMedia(s.callKind);
+    if (!permission.ok) {
+      setErrorMessage(resolveCallMediaPermissionBlockedMessage(s.callKind));
+      setCalleeVideoConnectingShell(false);
+      return null;
+    }
+
     if (!s.isMineInitiator) {
       setCalleeVideoConnectingShell(true);
     }
@@ -2187,10 +2204,6 @@ export function CommunityMessengerCallClient({
       const primedPeek = peekPrimedCommunityMessengerDeviceStream("video");
       if (primedPeek) primeVideoElementAutoplayFromUserGesture(primedPeek);
     }
-    const mediaPrimePromise =
-      s.callKind === "video"
-        ? primeVideoCallMediaFromUserGesture({ explicitRetry: true })
-        : primeVoiceCallMediaFromUserGesture();
     try {
       stopCommunityMessengerCallTone();
       dismissAllIncomingCallNotificationsFireAndForget(s.id);
@@ -2244,15 +2257,9 @@ export function CommunityMessengerCallClient({
       });
       const acceptedSession = json.session;
       setSession(acceptedSession);
-      if (acceptedSession.status === "active") {
-        void mediaPrimePromise.then((primeResult) => {
-          if (primeResult.ok && acceptedSession.callKind === "video") {
-            const peek = peekPrimedCommunityMessengerDeviceStream("video");
-            if (peek) primeVideoElementAutoplayFromUserGesture(peek);
-          }
-        }).catch(() => {
-          /* 조인 시도에서 실제 미디어 오류 표시 */
-        });
+      if (acceptedSession.status === "active" && acceptedSession.callKind === "video") {
+        const peek = peekPrimedCommunityMessengerDeviceStream("video");
+        if (peek) primeVideoElementAutoplayFromUserGesture(peek);
       }
       return acceptedSession;
     } catch (e) {
@@ -2277,10 +2284,13 @@ export function CommunityMessengerCallClient({
     setErrorMessage(null);
     void (async () => {
       try {
+        const permission = await ensureCallCanUseMedia(s.callKind);
+        if (!permission.ok) {
+          setErrorMessage(resolveCallMediaPermissionBlockedMessage(s.callKind));
+          return;
+        }
         if (s.isMineInitiator) {
           if (s.status === "active") {
-            await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
-            markCommunityMessengerMediaTrustedOnce(s.callKind);
             await joinCall(s);
           }
           return;
@@ -2290,10 +2300,8 @@ export function CommunityMessengerCallClient({
           return;
         }
         if (s.status === "active") {
-          await primeCommunityMessengerDevicePermissionFromUserGesture(s.callKind);
-          markCommunityMessengerMediaTrustedOnce(s.callKind);
+          await joinCall(s);
         }
-        await joinCall(s);
       } catch (err) {
         setErrorMessage(getCommunityMessengerMediaErrorMessage(err, s.callKind));
       }
@@ -2614,15 +2622,9 @@ export function CommunityMessengerCallClient({
     setPendingVideoUpgradeRequest(false);
     setIncomingVideoUpgradeRequest(false);
     try {
-      const perm = await ensureVideoPermission();
-      if (!perm.ok) {
-        setErrorMessage(
-          perm.code === "denied"
-            ? t("cm_ui_camera_mic_denied_site_settings")
-            : perm.code === "insecure_context"
-              ? getCommunityMessengerInsecureOriginMediaHint()
-              : t("cm_ui_browser_camera_unavailable")
-        );
+      const preflight = await ensureCallCanUseMedia("video");
+      if (!preflight.ok) {
+        setErrorMessage(resolveCallMediaPermissionBlockedMessage("video"));
         return false;
       }
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
@@ -3588,6 +3590,29 @@ export function CommunityMessengerCallClient({
       detachPreJoinHtmlVideo(el);
     };
   }, [localVideoReady, preJoinVideoPreviewStream]);
+
+  /** granted 인데 로컬 비디오가 1s 이상 안 뜨면 준비중 루프 종료 → 설정 안내 */
+  useEffect(() => {
+    if (session?.callKind !== "video") return;
+    if (localVideoReady || preJoinVideoPreviewStream) return;
+    if (!isCallMediaGrantedSync("video")) return;
+    if (session && isTerminalCallSessionStatus(session.status)) return;
+
+    const timer = window.setTimeout(() => {
+      if (localVideoReadyRef.current) return;
+      const cur = sessionRef.current;
+      if (!cur || cur.callKind !== "video" || isTerminalCallSessionStatus(cur.status)) return;
+      console.info("[call-permission] camera_prepare_timeout", {
+        sessionId: cur.id,
+        joined: joinedRef.current,
+      });
+      setErrorMessage(t("cm_ui_camera_prepare_timeout_settings"));
+      setCalleeVideoConnectingShell(false);
+      openCommunityMessengerPermissionSettings();
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [localVideoReady, preJoinVideoPreviewStream, session?.callKind, session?.id, session?.status, t]);
 
   useEffect(() => {
     if (!localVideoReady) return;
