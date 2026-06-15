@@ -79,6 +79,12 @@ export type MessengerBusEvent =
       at: number;
     }
   | {
+      /** 수신 통화 수락·알림 수락 — Global 수신 목록에서 ringing 세션 제거 */
+      type: "cm.call.incoming_consumed";
+      sessionId: string;
+      at: number;
+    }
+  | {
       /** 서버 Realtime broadcast `read_ack` — peer 읽음 커서(안읽음/1 제거) */
       type: "cm.room.peer_read_ack";
       roomId: string;
@@ -154,6 +160,17 @@ export function postCommunityMessengerCallSessionTerminalBusEvent(args: {
   });
 }
 
+/** 수신 통화가 수락되어 Global ringing 목록에서 제거되어야 할 때 */
+export function postCommunityMessengerCallIncomingConsumedBusEvent(sessionId: string): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  postCommunityMessengerBusEvent({
+    type: "cm.call.incoming_consumed",
+    sessionId: sid,
+    at: Date.now(),
+  });
+}
+
 export function postCommunityMessengerBusEvent(ev: MessengerBusEvent): void {
   const ch = getChannel();
   if (!ch) return;
@@ -174,6 +191,11 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
     if (!d || typeof d !== "object") return;
     if (d.type === "cm.call.session_terminal") {
       if (typeof d.status !== "string" || !d.status.trim()) return;
+      handler(d as MessengerBusEvent);
+      return;
+    }
+    if (d.type === "cm.call.incoming_consumed") {
+      if (typeof d.sessionId !== "string" || !d.sessionId.trim()) return;
       handler(d as MessengerBusEvent);
       return;
     }

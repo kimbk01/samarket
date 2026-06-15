@@ -23,7 +23,7 @@ export async function POST(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  let body: { callKind?: "voice" | "video" };
+  let body: { callKind?: "voice" | "video"; dialIntent?: "fresh" | "recover" };
   try {
     body = await req.json();
   } catch {
@@ -43,6 +43,7 @@ export async function POST(
     userId: auth.userId,
     roomId: canon.canonicalRoomId,
     callKind: body.callKind,
+    dialIntent: body.dialIntent === "fresh" ? "fresh" : undefined,
   });
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

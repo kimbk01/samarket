@@ -1,5 +1,6 @@
 package com.dibay.app;
 
+import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
@@ -202,6 +203,7 @@ public class MainActivity extends BridgeActivity {
     if (intent == null) return;
     dismissIncomingCallNotificationFromIntent(intent);
     applyIncomingCallWakeFlags(intent);
+    requestDismissKeyguardForCallIntent(intent);
 
     String notificationId = intent.getExtras() != null ? intent.getExtras().getString("notificationId") : null;
     Log.i(ROUTE_LOG_TAG, "[push-route] notification_tap_received notificationId=" + notificationId);
@@ -263,6 +265,24 @@ public class MainActivity extends BridgeActivity {
                   | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
+  }
+
+  private void requestDismissKeyguardForCallIntent(Intent intent) {
+    Uri data = intent != null ? intent.getData() : null;
+    if (data == null || !"dibay".equals(data.getScheme()) || !"call".equals(data.getHost())) {
+      return;
+    }
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
+    if (keyguardManager == null || !keyguardManager.isKeyguardLocked()) return;
+    keyguardManager.requestDismissKeyguard(
+        this,
+        new KeyguardManager.KeyguardDismissCallback() {
+          @Override
+          public void onDismissError() {
+            Log.w(ROUTE_LOG_TAG, "[push-route] keyguard_dismiss_error");
+          }
+        });
   }
 
   private void dismissIncomingCallNotificationFromIntent(Intent intent) {

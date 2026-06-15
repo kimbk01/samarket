@@ -69,7 +69,6 @@ export function PushRouteListener() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
   const sessionPhaseRef = useRef(getSessionPhase());
-  const deliveredPathsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => subscribeSessionPhase((phase) => {
     sessionPhaseRef.current = phase;
@@ -81,10 +80,6 @@ export function PushRouteListener() {
     const navigate = (rawPath: string, notificationId?: string) => {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
-      if (deliveredPathsRef.current.has(path)) {
-        console.info("[push-route] duplicate_ignored", { path, reason: "delivered_latch" });
-        return;
-      }
       if (shouldIgnoreNotification(notificationId)) return;
 
       const now = Date.now();
@@ -107,7 +102,6 @@ export function PushRouteListener() {
       } else {
         router.push(path);
       }
-      deliveredPathsRef.current.add(path);
       clearPendingPushRoute();
       void clearNativePersistedPendingPushRoute();
       console.info("[push-route] webview_route_delivered", { path });

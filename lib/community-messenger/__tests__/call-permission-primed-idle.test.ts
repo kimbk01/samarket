@@ -84,7 +84,7 @@ describe("primed device stream idle release", () => {
     expect(hasCommunityMessengerMediaTrustedMark("video")).toBe(true);
   });
 
-  it("deprecated prime wrapper only checks permission and does not create a primed stream", async () => {
+  it("prime wrapper stores a video stream when permission is granted", async () => {
     const {
       peekPrimedCommunityMessengerDeviceStream,
       primeCommunityMessengerDevicePermissionFromUserGesture,
@@ -92,6 +92,6 @@ describe("primed device stream idle release", () => {
 
     await primeCommunityMessengerDevicePermissionFromUserGesture("video");
     expect(ensureCallCanUseMediaMock).toHaveBeenCalledWith("video");
-    expect(peekPrimedCommunityMessengerDeviceStream("video")).toBeNull();
+    expect(peekPrimedCommunityMessengerDeviceStream("video")).not.toBeNull();
   });
 });

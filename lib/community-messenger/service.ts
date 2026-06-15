@@ -712,6 +712,44 @@ async function getUserLiveDirectCallSessionId(
   return id || null;
 }
 
+/** 방 단위 live(ringing|active) direct 세션 — fresh 발신 전 정리·검증용 */
+async function getLiveDirectCallSessionIdInRoom(sb: SupabaseLike, roomId: string): Promise<string | null> {
+  const rid = trimText(roomId);
+  if (!rid) return null;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id")
+    .eq("room_id", rid)
+    .eq("session_mode", "direct")
+    .in("status", ["ringing", "active"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const id = trimText((data as { id?: string } | null)?.id ?? "");
+  return id || null;
+}
+
+/** 다른 방에서 진행 중인 live direct 세션 — fresh 재발신은 동일 방 terminate 후 허용 */
+async function userHasLiveDirectCallSessionOutsideRoom(
+  sb: SupabaseLike,
+  userId: string,
+  roomId: string
+): Promise<boolean> {
+  const u = trimText(userId);
+  const rid = trimText(roomId);
+  if (!u || !rid) return false;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id")
+    .eq("session_mode", "direct")
+    .neq("room_id", rid)
+    .or(`initiator_user_id.eq.${u},recipient_user_id.eq.${u}`)
+    .in("status", ["ringing", "active"])
+    .limit(1)
+    .maybeSingle();
+  return Boolean(trimText((data as { id?: string } | null)?.id ?? ""));
+}
+
 /** 앱 부팅·새로고침 — 본인 active 1:1 통화 복구용 */
 export async function getActiveDirectCallSessionForUser(
   userId: string
@@ -16601,10 +16639,92 @@ async function resolveRoomContextForCallSessionStart(
   };
 }
 
+async function sendIncomingCallPushBestEffort(input: {
+  recipientUserId: string;
+  sessionId: string;
+  roomId: string;
+  callerId: string;
+  callKind: CommunityMessengerCallKind;
+  startedAt: string;
+}): Promise<void> {
+  const recipient = trimText(input.recipientUserId);
+  const sessionId = trimText(input.sessionId);
+  const roomId = trimText(input.roomId);
+  const callerId = trimText(input.callerId);
+  if (!recipient || !sessionId || !roomId || !callerId) return;
+  const profileMap = await fetchProfilesByIds([callerId]);
+  const callerProfile = profileMap.get(callerId);
+  const callerLabel = profileLabel(callerProfile, callerId);
+  await sendWebPushForCommunityMessengerIncomingCall({
+    recipientUserId: recipient,
+    sessionId,
+    roomId,
+    callerId,
+    callKind: input.callKind,
+    callerDisplayName: callerLabel,
+    callerAvatar: callerProfile?.avatar_url ?? null,
+    startedAt: input.startedAt,
+  });
+}
+
+async function terminateLiveDirectCallSessionsInRoom(
+  sb: SupabaseLike,
+  actorUserId: string,
+  roomId: string
+): Promise<void> {
+  const rid = trimText(roomId);
+  const uid = trimText(actorUserId);
+  if (!rid || !uid) return;
+  const { data } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select("id, status, initiator_user_id")
+    .eq("room_id", rid)
+    .eq("session_mode", "direct")
+    .in("status", ["ringing", "active"]);
+  const rows = (data ?? []) as Array<{ id?: string; status?: string; initiator_user_id?: string }>;
+  for (const row of rows) {
+    const sid = trimText(row.id ?? "");
+    if (!sid) continue;
+    const status = trimText(row.status ?? "");
+    const action =
+      status === "active"
+        ? "end"
+        : messengerUserIdsEqual(row.initiator_user_id, uid)
+          ? "cancel"
+          : "reject";
+    await updateCommunityMessengerCallSession({ userId: uid, sessionId: sid, action }).catch(() => {});
+  }
+}
+
+function maybeResendIncomingCallPushForReusedSession(
+  session: CommunityMessengerCallSession,
+  peerUserId: string | null,
+  callerUserId: string
+): void {
+  if (session.sessionMode !== "direct" || session.status !== "ringing") return;
+  const recipient = trimText(peerUserId ?? session.recipientUserId ?? "");
+  if (!recipient) return;
+  void sendIncomingCallPushBestEffort({
+    recipientUserId: recipient,
+    sessionId: session.id,
+    roomId: session.roomId,
+    callerId: callerUserId,
+    callKind: session.callKind,
+    startedAt: session.startedAt,
+  }).catch((e) => {
+    console.error("[startCommunityMessengerCallSession] incoming call push resend failed", {
+      sessionId: session.id,
+      recipientUserId: recipient,
+      message: e instanceof Error ? e.message : String(e),
+    });
+  });
+}
+
 export async function startCommunityMessengerCallSession(input: {
   userId: string;
   roomId: string;
   callKind: CommunityMessengerCallKind;
+  dialIntent?: "fresh" | "recover";
 }): Promise<{
   ok: boolean;
   session?: CommunityMessengerCallSession;
@@ -16614,6 +16734,8 @@ export async function startCommunityMessengerCallSession(input: {
 }> {
   const roomId = trimText(input.roomId);
   if (!roomId) return { ok: false, error: "room_required" };
+
+  const dialFresh = input.dialIntent === "fresh";
 
   const recordTimings = process.env.NODE_ENV === "development";
   const timing: Record<string, number> = {};
@@ -16632,7 +16754,12 @@ export async function startCommunityMessengerCallSession(input: {
     if (snapshot.room.roomStatus !== "active" || snapshot.room.isReadonly) {
       return { ok: false, error: "room_unavailable" };
     }
-    if (snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
+    if (!dialFresh && snapshot.activeCall && !isTerminalCallSessionStatus(snapshot.activeCall.status)) {
+      maybeResendIncomingCallPushForReusedSession(
+        snapshot.activeCall,
+        snapshot.room.peerUserId ?? null,
+        input.userId
+      );
       return { ok: true, session: snapshot.activeCall };
     }
     isGroupRoom = isCommunityMessengerGroupRoomType(snapshot.room.roomType);
@@ -16647,7 +16774,12 @@ export async function startCommunityMessengerCallSession(input: {
     if (resolved.roomStatus !== "active" || resolved.isReadonly) {
       return { ok: false, error: "room_unavailable" };
     }
-    if (resolved.activeCall && !isTerminalCallSessionStatus(resolved.activeCall.status)) {
+    if (!dialFresh && resolved.activeCall && !isTerminalCallSessionStatus(resolved.activeCall.status)) {
+      maybeResendIncomingCallPushForReusedSession(
+        resolved.activeCall,
+        resolved.peerUserId,
+        input.userId
+      );
       return { ok: true, session: resolved.activeCall };
     }
     peerUserId = resolved.peerUserId;
@@ -16660,6 +16792,14 @@ export async function startCommunityMessengerCallSession(input: {
 
   const sb = getSupabaseOrNull();
   const tGateStart = performance.now();
+  if (!isGroupRoom && sb && dialFresh) {
+    await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
+    invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
+    if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
+      await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
+      invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
+    }
+  }
   if (!isGroupRoom && sb) {
     const callGate = await assertMessengerRoomAllowsCommunicationFeature({
       supabase: sb,
@@ -16675,14 +16815,26 @@ export async function startCommunityMessengerCallSession(input: {
   const startedAt = nowIso();
   if (sb) {
     if (!isGroupRoom) {
-      const callerBusy = await userHasLiveDirectCallSession(sb, input.userId);
-      if (callerBusy) {
-        return { ok: false, error: "peer_busy" };
-      }
-      if (peerUserId) {
-        const peerBusy = await userHasLiveDirectCallSession(sb, peerUserId);
-        if (peerBusy) {
+      if (dialFresh) {
+        if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
+          return { ok: false, error: "call_session_start_failed" };
+        }
+        if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
           return { ok: false, error: "peer_busy" };
+        }
+        if (peerUserId && (await userHasLiveDirectCallSessionOutsideRoom(sb, peerUserId, roomId))) {
+          return { ok: false, error: "peer_busy" };
+        }
+      } else {
+        const callerBusy = await userHasLiveDirectCallSession(sb, input.userId);
+        if (callerBusy) {
+          return { ok: false, error: "peer_busy" };
+        }
+        if (peerUserId) {
+          const peerBusy = await userHasLiveDirectCallSession(sb, peerUserId);
+          if (peerBusy) {
+            return { ok: false, error: "peer_busy" };
+          }
         }
       }
     }
@@ -16776,29 +16928,20 @@ export async function startCommunityMessengerCallSession(input: {
         payload: { call_kind: input.callKind, session_mode: isGroupRoom ? "group" : "direct" },
       });
       if (!isGroupRoom && peerUserId) {
-        void (async () => {
-          try {
-            const profileMap = await fetchProfilesByIds([input.userId]);
-            const callerProfile = profileMap.get(input.userId);
-            const callerLabel = profileLabel(callerProfile, input.userId);
-            await sendWebPushForCommunityMessengerIncomingCall({
-              recipientUserId: peerUserId,
-              sessionId: inserted.id,
-              roomId,
-              callerId: input.userId,
-              callKind: input.callKind,
-              callerDisplayName: callerLabel,
-              callerAvatar: callerProfile?.avatar_url ?? null,
-              startedAt,
-            });
-          } catch (e) {
-            console.error("[startCommunityMessengerCallSession] incoming call push failed", {
-              sessionId: inserted.id,
-              recipientUserId: peerUserId,
-              message: e instanceof Error ? e.message : String(e),
-            });
-          }
-        })();
+        void sendIncomingCallPushBestEffort({
+          recipientUserId: peerUserId,
+          sessionId: inserted.id,
+          roomId,
+          callerId: input.userId,
+          callKind: input.callKind,
+          startedAt,
+        }).catch((e) => {
+          console.error("[startCommunityMessengerCallSession] incoming call push failed", {
+            sessionId: inserted.id,
+            recipientUserId: peerUserId,
+            message: e instanceof Error ? e.message : String(e),
+          });
+        });
       }
       const syntheticParticipantRows: CallSessionParticipantRow[] = participantRows
         .filter((row): row is typeof row & { user_id: string } => typeof row.user_id === "string" && row.user_id.length > 0)
@@ -16832,6 +16975,9 @@ export async function startCommunityMessengerCallSession(input: {
     if (error && isUniqueViolationError(error)) {
       const existing = await getActiveCallSessionForRoom(input.userId, roomId);
       if (existing) {
+        if (dialFresh) {
+          maybeResendIncomingCallPushForReusedSession(existing, peerUserId, input.userId);
+        }
         return { ok: true, session: existing };
       }
     }
@@ -16844,7 +16990,7 @@ export async function startCommunityMessengerCallSession(input: {
     snapshot = await getCommunityMessengerRoomSnapshot(input.userId, roomId);
   }
 
-  const existingDevLive = await getActiveCallSessionForRoom(input.userId, roomId);
+  const existingDevLive = dialFresh ? null : await getActiveCallSessionForRoom(input.userId, roomId);
   if (existingDevLive) {
     return { ok: true, session: existingDevLive };
   }

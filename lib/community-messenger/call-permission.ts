@@ -7,6 +7,7 @@ import {
 } from "@/lib/permissions/device-permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { ensureCallCanUseMedia, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
+import { acquirePrimedCommunityMessengerStream } from "@/lib/call/permission-manager";
 import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
@@ -249,7 +250,7 @@ export function storePrimedCommunityMessengerDeviceStream(
 }
 
 /**
- * @deprecated 통화 시점에는 권한 요청/프라임 금지. 기존 호출 보호용 check-only 래퍼.
+ * 사용자 제스처 시 영상 GUM 프라임 — 발신 미리보기·Agora 조인용.
  */
 export async function primeCommunityMessengerDevicePermissionFromUserGesture(
   kind: CommunityMessengerCallKind
@@ -257,6 +258,10 @@ export async function primeCommunityMessengerDevicePermissionFromUserGesture(
   const result = await ensureCallCanUseMedia(kind);
   if (!result.ok) {
     throw new DOMException("Media permission unavailable", "NotAllowedError");
+  }
+  if (kind === "video") {
+    const stream = await acquirePrimedCommunityMessengerStream("video");
+    storePrimedStream("video", stream);
   }
 }
 

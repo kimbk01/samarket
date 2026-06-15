@@ -7,7 +7,7 @@
 | 상태 | 동작 |
 |------|------|
 | 앱 열림 (foreground) | 전역 수신 오버레이 + 벨 — **시스템 FCM 알림 생략** (웹 위임) |
-| 백그라운드 / killed | FCM `type=incoming_call` (legacy `call_push_kind` 병행) → `IncomingCallActivity` + Full Screen |
+| 백그라운드 / killed | FCM `type=incoming_call` → **일반 high-priority 알림**(발신자·음성/영상 통화) → 탭/수락 시 `MainActivity` → `/community-messenger/calls/{callId}?action=accept` |
 
 - FCM data: `callId`/`sessionId`, `expiresAt`, `callerName`, `callType`, `url=/community-messenger/calls/{callId}`
 - 만료(`expiresAt`) 지난 payload → 네이티브 UI 미표시 (`expired_ignored`)
@@ -46,6 +46,6 @@
 - 푸시 페이로드 조립: `lib/push/dispatch/build-web-push-json-payload.ts`
 - 수신 통화 발송: `lib/push/send-community-messenger-incoming-call-push.ts`
 - 부재중 발송: `lib/push/send-community-messenger-missed-call-push.ts`
-- Android 수신: `DibayFirebaseMessagingService`, `IncomingCallActivity`, `IncomingCallNotificationBuilder`
+- Android 수신: `DibayFirebaseMessagingService`, `IncomingCallNotificationBuilder`, `IncomingCallDeclineReceiver`
 - 라우팅: `MainActivity` → `dibay:push-route` → `PushRouteListener`
 - SW (웹/PWA): `public/sw.js` — 네이티브 Android 경로와 별도, 변경 최소화

@@ -94,7 +94,11 @@ import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
-import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  onCommunityMessengerBusEvent,
+  postCommunityMessengerBusEvent,
+  postCommunityMessengerCallIncomingConsumedBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
 import {
   getCommunityMessengerIncomingCallBridgeStatus,
   syncCommunityMessengerNativeIncomingCall,
@@ -635,6 +639,39 @@ export function GlobalCommunityMessengerIncomingCall() {
       return afterHard;
     });
   }, []);
+
+  const clearIncomingSessionLocal = useCallback((sessionId: string) => {
+    const sid = sessionId.trim();
+    if (!sid) return;
+    markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
+    dismissedIncomingSessionsAtRef.current.set(sid, Date.now());
+    suppressMissedSoundRef.current.add(sid);
+    stopCommunityMessengerCallTone();
+    dismissAllIncomingCallNotificationsFireAndForget(sid);
+    setSessions((prev) => prev.filter((s) => s.id !== sid));
+  }, []);
+
+  useEffect(() => {
+    return onCommunityMessengerBusEvent((ev) => {
+      if (ev.type === "cm.call.session_terminal") {
+        handleCallTerminalEvent(
+          {
+            sessionId: ev.sessionId,
+            tmpSessionId: ev.tmpSessionId,
+            roomId: ev.roomId,
+            initiatorUserId: ev.initiatorUserId,
+            callKind: ev.callKind,
+            status: ev.status,
+          },
+          "bus_terminal"
+        );
+        return;
+      }
+      if (ev.type === "cm.call.incoming_consumed") {
+        clearIncomingSessionLocal(ev.sessionId);
+      }
+    });
+  }, [clearIncomingSessionLocal, handleCallTerminalEvent]);
 
   /** 폴링·가시성 핸들러에서 최신 `refresh`/`queueVisibilityRefreshBurst` 를 쓰되, effect 의존 배열은 `[userId]` 만 둔다(길이 불변·React 19 런타임 검증 통과). */
   const refreshRef = useRef(refresh);
@@ -1598,6 +1635,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       /** 1:1 — 전체 통화 화면으로 먼저 이동한 뒤 CallClient 가 accept PATCH + Agora join 처리 */
       stopCommunityMessengerCallTone();
       dismissAllIncomingCallNotificationsFireAndForget(session.id);
+      dismissedIncomingSessionsAtRef.current.set(session.id, Date.now());
+      markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
+      suppressMissedSoundRef.current.add(session.id);
+      setSessions((prev) => prev.filter((item) => item.id !== session.id));
+      postCommunityMessengerCallIncomingConsumedBusEvent(session.id);
       primeCommunityMessengerCallNavigationSeed(session.id, session);
       router.replace(
         `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`

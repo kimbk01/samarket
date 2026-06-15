@@ -217,6 +217,7 @@ export async function bootstrapCommunityMessengerOutgoingCallSession(args: {
   roomId: string | null;
   peerUserId: string | null;
   kind: CommunityMessengerCallKind;
+  dialIntent?: "fresh" | "recover";
 }): Promise<OutgoingCallSessionBootstrapResult> {
   const flightKey = `${args.roomId?.trim() ?? ""}|${args.peerUserId?.trim() ?? ""}|${args.kind}`;
   return runSingleFlight(`cm:outgoing-bootstrap:${flightKey}`, () =>
@@ -229,6 +230,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
   roomId: string | null;
   peerUserId: string | null;
   kind: CommunityMessengerCallKind;
+  dialIntent?: "fresh" | "recover";
 }): Promise<OutgoingCallSessionBootstrapResult> {
   let roomId = args.roomId?.trim() ?? "";
 
@@ -324,7 +326,10 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
     outgoingCallFetchInit({
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callKind: args.kind }),
+      body: JSON.stringify({
+        callKind: args.kind,
+        ...(args.dialIntent ? { dialIntent: args.dialIntent } : {}),
+      }),
       signal: args.signal,
     })
   );
@@ -426,7 +431,7 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
-  const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
+  const result = await bootstrapCommunityMessengerOutgoingCallSession({ ...input, dialIntent: "fresh" });
   if (!result.ok) {
     stopCommunityMessengerCallTone();
     return result;
@@ -483,7 +488,7 @@ export async function startOutgoingCallSessionAndOpen(
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }
-  const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
+  const result = await bootstrapCommunityMessengerOutgoingCallSession({ ...input, dialIntent: "fresh" });
   if (!result.ok) {
     stopCommunityMessengerCallTone();
     return result;

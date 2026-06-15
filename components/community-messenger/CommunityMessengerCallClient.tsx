@@ -46,7 +46,6 @@ import {
   openCommunityMessengerPermissionSettings,
   hasUsablePrimedCommunityMessengerDeviceStream,
   peekPrimedCommunityMessengerDeviceStream,
-  primeCommunityMessengerDevicePermissionFromUserGesture,
   resumePrimedCommunityMessengerDeviceStreamIdleRelease,
   suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
 } from "@/lib/community-messenger/call-permission";
@@ -124,7 +123,11 @@ import {
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
-import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import {
+  onCommunityMessengerBusEvent,
+  postCommunityMessengerCallIncomingConsumedBusEvent,
+  postCommunityMessengerCallSessionTerminalBusEvent,
+} from "@/lib/community-messenger/multi-tab-bus";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import {
   logCommunityMessengerCallSessionPatchDev,
@@ -754,7 +757,12 @@ export function CommunityMessengerCallClient({
     if (!roomId && !peerUserId) return;
     let alive = true;
     void (async () => {
-      const result = await bootstrapCommunityMessengerOutgoingCallSession({ roomId, peerUserId, kind });
+      const result = await bootstrapCommunityMessengerOutgoingCallSession({
+        roomId,
+        peerUserId,
+        kind,
+        dialIntent: "fresh",
+      });
       if (!alive) return;
       if (!result.ok) {
         setErrorMessage(result.userMessage);
@@ -2257,6 +2265,7 @@ export function CommunityMessengerCallClient({
       });
       const acceptedSession = json.session;
       setSession(acceptedSession);
+      postCommunityMessengerCallIncomingConsumedBusEvent(s.id);
       if (acceptedSession.status === "active" && acceptedSession.callKind === "video") {
         const peek = peekPrimedCommunityMessengerDeviceStream("video");
         if (peek) primeVideoElementAutoplayFromUserGesture(peek);
@@ -2462,6 +2471,13 @@ export function CommunityMessengerCallClient({
     if (ringingDismiss) {
       beginRingingCallDismiss(roomId);
     }
+    postCommunityMessengerCallSessionTerminalBusEvent({
+      sessionId: sid,
+      roomId,
+      initiatorUserId: session.initiatorUserId,
+      callKind: session.callKind,
+      status: optimisticEnd,
+    });
     {
       const prev = sessionRef.current;
       if (prev?.id === sid) {

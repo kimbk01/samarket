@@ -11,7 +11,6 @@ import {
   logPushRegisterFail,
   logPushRegisterMountContext,
 } from "@/lib/push/native/native-push-register-log";
-import { promptAndroidFullScreenIntentSettingsIfNeeded } from "@/lib/push/native/check-android-full-screen-intent";
 
 const MAX_USER_ID_WAIT_ATTEMPTS = 8;
 const MAX_REGISTER_ATTEMPTS = 3;
@@ -77,7 +76,6 @@ export function NativePushRegistration() {
 
       if (result.ok) {
         attemptedUserIdRef.current = userId;
-        void promptAndroidFullScreenIntentSettingsIfNeeded();
         return;
       }
 
