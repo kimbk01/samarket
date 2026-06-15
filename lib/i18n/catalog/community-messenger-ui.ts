@@ -615,6 +615,10 @@ export const communityMessengerUiMessages = {
     cm_ui_call_cancelled: "통화가 취소되었습니다",
     cm_ui_mic_camera_permission_required: "마이크·카메라 권한이 필요합니다",
     cm_ui_mic_permission_required: "마이크 권한이 필요합니다",
+    cm_ui_call_permission_settings_video:
+      "카메라/마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
+    cm_ui_call_permission_settings_voice:
+      "마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
     cm_ui_gate_grant_camera_mic_hint:
       "아래 버튼에서 마이크·카메라 권한을 허용해야 실제 통화 연결이 진행됩니다.",
     cm_ui_gate_grant_mic_via_controls_hint:
@@ -640,6 +644,8 @@ export const communityMessengerUiMessages = {
       "카메라/마이크 권한을 허용하지 못했습니다. 통화 화면에서 마이크·카메라를 허용해 주세요.",
     cm_ui_call_accept_permission_voice_failed:
       "마이크 권한을 허용하지 못했습니다. 통화 화면에서 마이크를 허용해 주세요.",
+    cm_ui_camera_prepare_timeout_settings:
+      "카메라 준비가 지연되고 있습니다. 카메라/마이크 권한을 설정에서 허용해 주세요.",
     cm_ui_call_session_action_failed: "통화 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     cm_ui_call_session_reject_failed: "거절 처리에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.",
     cm_ui_incoming_call_list_failed: "수신 통화 목록을 불러오지 못했습니다.",
@@ -1464,6 +1470,10 @@ export const communityMessengerUiMessages = {
     cm_ui_call_cancelled: "Call cancelled",
     cm_ui_mic_camera_permission_required: "Microphone and camera access required",
     cm_ui_mic_permission_required: "Microphone access required",
+    cm_ui_call_permission_settings_video:
+      "Camera/microphone access is turned off. Allow it in settings.",
+    cm_ui_call_permission_settings_voice:
+      "Microphone access is turned off. Allow it in settings.",
     cm_ui_gate_grant_camera_mic_hint:
       "Allow microphone and camera using the buttons below to continue the call.",
     cm_ui_gate_grant_mic_via_controls_hint:
@@ -1489,6 +1499,8 @@ export const communityMessengerUiMessages = {
       "Could not allow camera/microphone. Allow them on the call screen.",
     cm_ui_call_accept_permission_voice_failed:
       "Could not allow the microphone. Allow it on the call screen.",
+    cm_ui_camera_prepare_timeout_settings:
+      "Camera setup is taking too long. Allow camera/microphone access in settings.",
     cm_ui_call_session_action_failed: "Could not update call status. Please try again shortly.",
     cm_ui_call_session_reject_failed: "Could not decline the call. Check your network and try again.",
     cm_ui_incoming_call_list_failed: "Could not load incoming calls.",

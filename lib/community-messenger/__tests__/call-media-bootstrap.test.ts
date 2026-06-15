@@ -49,9 +49,17 @@ vi.mock("@/lib/community-messenger/call-local-video-pipeline", () => ({
   primeVideoElementAutoplayFromUserGesture: primeVideoAutoplayMock,
 }));
 
+const ensureCallCanUseMediaMock = vi.hoisted(() => vi.fn<() => Promise<unknown>>(() => Promise.resolve({ ok: true, state: {} })));
+
+vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
+  ensureCallCanUseMedia: ensureCallCanUseMediaMock,
+}));
+
 describe("call-media-bootstrap", () => {
   beforeEach(() => {
     permissionMockState.completed.clear();
+    ensureCallCanUseMediaMock.mockReset();
+    ensureCallCanUseMediaMock.mockResolvedValue({ ok: true, state: {} });
     primeVideoAutoplayMock.mockClear();
     vi.stubGlobal("navigator", {
       mediaDevices: { getUserMedia: vi.fn() },
@@ -117,15 +125,17 @@ describe("call-media-bootstrap", () => {
     expect(isVideoCallMediaReady()).toBe(true);
   });
 
-  it("uses explicitRetry for outgoing video navigate prime", async () => {
+  it("uses check-only preflight for outgoing video navigate", async () => {
     const { acquireVideoCallStreamWithDiBaYGate } = await import(
       "@/lib/permissions/device-permission-manager"
     );
     const { primeOutgoingCallMediaBeforeNavigate } = await import(
       "@/lib/community-messenger/call-media-bootstrap"
     );
-    await primeOutgoingCallMediaBeforeNavigate("video");
-    expect(acquireVideoCallStreamWithDiBaYGate).toHaveBeenCalledWith({ explicitRetry: true });
+    const result = await primeOutgoingCallMediaBeforeNavigate("video");
+    expect(result.ok).toBe(true);
+    expect(ensureCallCanUseMediaMock).toHaveBeenCalledWith("video");
+    expect(acquireVideoCallStreamWithDiBaYGate).not.toHaveBeenCalled();
   });
 
   it("does not discard usable video primed stream on re-prime", async () => {
@@ -157,26 +167,31 @@ describe("call-media-bootstrap", () => {
     expect(primeVideoAutoplayMock).toHaveBeenCalledTimes(1);
   });
 
-  it("suspends primed idle release after successful video prime", async () => {
+  it("does not open media while checking outgoing video permission", async () => {
     vi.useFakeTimers();
     const { primeOutgoingCallMediaBeforeNavigate } = await import(
       "@/lib/community-messenger/call-media-bootstrap"
     );
-    const {
-      peekPrimedCommunityMessengerDeviceStream,
-      resumePrimedCommunityMessengerDeviceStreamIdleRelease,
-    } = await import("@/lib/community-messenger/call-permission");
 
     const result = await primeOutgoingCallMediaBeforeNavigate("video");
     expect(result.ok).toBe(true);
-    const stream = peekPrimedCommunityMessengerDeviceStream("video");
-    const videoTrack = stream!.getVideoTracks()[0] as MediaStreamTrack & { stop: ReturnType<typeof vi.fn> };
-
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
     vi.advanceTimersByTime(120_000);
-    expect(videoTrack.stop).not.toHaveBeenCalled();
-
-    resumePrimedCommunityMessengerDeviceStreamIdleRelease(0);
-    vi.advanceTimersByTime(5_000);
     vi.useRealTimers();
+  });
+
+  it("blocks outgoing navigate when check-only preflight fails", async () => {
+    ensureCallCanUseMediaMock.mockResolvedValueOnce({
+      ok: false,
+      reason: "permission_denied",
+      state: {},
+    });
+    const { primeOutgoingCallMediaBeforeNavigate } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    const result = await primeOutgoingCallMediaBeforeNavigate("voice");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("denied");
+    expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
   });
 });

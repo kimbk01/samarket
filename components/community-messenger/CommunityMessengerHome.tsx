@@ -79,6 +79,7 @@ import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-mes
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
@@ -1218,16 +1219,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       void (async () => {
         const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
         if (!primeResult.ok) {
-          if (primeResult.code === "denied" || kind === "video") {
-            showMessengerSnackbar(
-              kind === "video"
-                ? t("nav_messenger_permission_retry_camera_mic")
-                : t("nav_messenger_permission_retry_mic"),
-              { variant: "error" },
-            );
-            releaseDialGuard();
-            return;
-          }
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
+          releaseDialGuard();
+          return;
         }
         pushDial();
       })();

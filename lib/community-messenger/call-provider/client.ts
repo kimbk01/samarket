@@ -7,19 +7,17 @@ import AgoraRTC, {
   type IRemoteAudioTrack,
   type IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
-import { createFallbackAudioOnlyMediaStream, getCommunityMessengerUserMedia } from "@/lib/call/permission-manager";
+import { createFallbackAudioOnlyMediaStream } from "@/lib/call/permission-manager";
 import {
   consumePrimedCommunityMessengerDevicePermission,
-  resolveCommunityMessengerCallMediaReady,
 } from "@/lib/community-messenger/call-permission";
 import {
-  buildCommunityMessengerMediaStreamConstraints,
   readPreferredCommunityMessengerDeviceIds,
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
-import { ensureAndroidNativeCallMediaPermissions } from "@/lib/permissions/android-native-device-permissions";
+import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   closePrimedWebAudioCallToneContext,
@@ -178,26 +176,18 @@ async function agoraLocalTracksFromMediaStream(
 }
 
 async function createCommunityMessengerAgoraLocalTracksFromTrustedGum(
-  kind: CommunityMessengerCallKind
+  _kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks | null> {
-  if (!(await resolveCommunityMessengerCallMediaReady(kind))) return null;
-  try {
-    const featureKey = kind === "video" ? "messenger_video_call" : "messenger_voice_call";
-    const stream = await getCommunityMessengerUserMedia(buildCommunityMessengerMediaStreamConstraints(kind), {
-      featureKey,
-    });
-    return await agoraLocalTracksFromMediaStream(stream, kind);
-  } catch {
-    return null;
-  }
+  /** 통화 중 GUM 금지 — Agora SDK 트랙 생성만 사용 */
+  return null;
 }
 
 export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
   assertCommunityMessengerWebRtcSecureContext();
-  const androidMedia = await ensureAndroidNativeCallMediaPermissions(kind);
-  if (androidMedia === "denied") {
+  const preflight = await ensureCallCanUseMedia(kind);
+  if (!preflight.ok) {
     throw new DOMException("Microphone permission denied", "NotAllowedError");
   }
   const primed = consumePrimedCommunityMessengerDevicePermission(kind);
@@ -271,6 +261,10 @@ export async function createCommunityMessengerAgoraLocalTracks(
 /** Voice call in progress: add camera track only (keep existing mic publish). */
 export async function createCommunityMessengerAgoraVideoTrackOnly(): Promise<ILocalVideoTrack> {
   assertCommunityMessengerWebRtcSecureContext();
+  const preflight = await ensureCallCanUseMedia("video");
+  if (!preflight.ok) {
+    throw new DOMException("Camera permission denied", "NotAllowedError");
+  }
   return createAgoraCamWithPreferredDevice();
 }
 

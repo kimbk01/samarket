@@ -20,10 +20,13 @@ import {
   useState,
 } from "react";
 import {
-  hasUsablePrimedCommunityMessengerDeviceStream,
-  primeCommunityMessengerDevicePermissionFromUserGesture,
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
+import {
+  ensureCallCanUseMedia,
+  getCallMediaPermissionBlockedMessageKey,
+  isCallMediaGrantedForKindSync,
+} from "@/lib/community-messenger/call-media-permission-preflight";
 import {
   startCommunityMessengerCallTone,
   type CallToneController,
@@ -502,20 +505,21 @@ export function useMessengerRoomPhase2Controller() {
   }, [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, streamRoomId, snapshot]);
 
   const openCallPermissionHelp = useCallback(() => {
+    const kind = callPanel?.kind ?? "voice";
     if (openCommunityMessengerPermissionSettings()) return;
-    showMessengerSnackbar(
-      callPanel?.kind === "video"
-        ? t("nav_messenger_permission_browser_camera_mic")
-        : t("nav_messenger_permission_browser_mic")
-    );
+    showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
   }, [callPanel?.kind, t]);
 
   const retryCallDevicePermission = useCallback(() => {
     const kind = callPanel?.kind;
     if (!kind) return;
-    void primeCommunityMessengerDevicePermissionFromUserGesture(kind)
-      .then(async () => {
-        await call.prepareDevices();
+    void ensureCallCanUseMedia(kind)
+      .then(async (permission) => {
+        if (!permission.ok) {
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
+          openCommunityMessengerPermissionSettings();
+          return;
+        }
         if (callPanel?.mode === "dialing" && !callPanel.sessionId) {
           await call.startOutgoingCall(kind);
           return;
@@ -525,12 +529,7 @@ export function useMessengerRoomPhase2Controller() {
         }
       })
       .catch(() => {
-        showMessengerSnackbar(
-          kind === "video"
-            ? t("nav_messenger_permission_retry_camera_mic")
-            : t("nav_messenger_permission_retry_mic"),
-          { variant: "error" }
-        );
+        showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
       });
   }, [call, callPanel, t]);
 
@@ -548,7 +547,7 @@ export function useMessengerRoomPhase2Controller() {
     [router]
   );
 
-  /** 발신 — roomManaged. 즉시 `/calls/outgoing` 으로 이동해 준비 UI 표시 후 세션 POST (`OutgoingDialPageClient`). */
+  /** 발신 — roomManaged. preflight 후 `/calls/outgoing` 으로 이동 */
   const startManagedDirectCall = useCallback(
     (kind: "voice" | "video"): boolean => {
       if (roomUnavailable || isGroupRoom) return false;
@@ -576,7 +575,6 @@ export function useMessengerRoomPhase2Controller() {
       });
       setCmCallLatencyContext({ role: "initiator", callKind: kind, roomId: rid });
       rememberCallNavigationReturnPath();
-      /** 세션 POST·미디어 프라임은 통화 화면 effect — 발신 CTA 는 즉시 화면 전환만 담당한다. */
       unlockCommunityMessengerCallPlaybackFromUserGesture();
       cmCallLatencyInfo("outgoing_route_push_start", {
         roomId: rid,
@@ -586,14 +584,22 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      router.push(dialHref);
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-        setOutgoingDialLocked(false);
-      }, 0);
+      void ensureCallCanUseMedia(kind).then((permission) => {
+        if (!permission.ok) {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
+          return;
+        }
+        router.push(dialHref);
+        window.setTimeout(() => {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+        }, 0);
+      });
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
   );
 
   useEffect(() => {
@@ -1928,9 +1934,14 @@ export function useMessengerRoomPhase2Controller() {
           activeCall.participants.some((participant) => participant.isMe && participant.status === "invited")
         : activeCall.status === "ringing";
     if (!shouldAutoAccept) return;
-    /* URL 자동 수락은 useEffect 라서 브라우저가 사용자 제스처로 보지 않는다.
-     * 전역 배너에서 프라임된 스트림이 있을 때만 자동으로 이어가고, 없으면 방 안 「수락」 한 번 필요. */
-    if (!hasUsablePrimedCommunityMessengerDeviceStream(activeCall.callKind)) return;
+    if (!isCallMediaGrantedForKindSync(activeCall.callKind)) {
+      void ensureCallCanUseMedia(activeCall.callKind).then((permission) => {
+        if (!permission.ok) {
+          setGroupCallAutoAcceptNotice(t(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
+        }
+      });
+      return;
+    }
 
     const sessionKey = activeCall.id;
     autoAcceptInFlightRef.current = sessionKey;
@@ -1948,7 +1959,7 @@ export function useMessengerRoomPhase2Controller() {
         }
       }
     })();
-  }, [callActionFromUrl, handleAcceptIncomingCall, isGroupRoom, roomId, router, sessionIdFromUrl, snapshot?.activeCall]);
+  }, [callActionFromUrl, handleAcceptIncomingCall, isGroupRoom, roomId, router, sessionIdFromUrl, snapshot?.activeCall, t]);
 
   useEffect(() => {
     if (call.panel || call.errorMessage) {

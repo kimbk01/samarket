@@ -4,14 +4,6 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import {
-  isVideoCallMediaReady,
-  primeVideoCallMediaFromOnboardingClick,
-} from "@/lib/community-messenger/call-media-bootstrap";
-import {
-  readDiBaYCallMediaPromptState,
-  shouldOfferCallMediaPrePrompt,
-} from "@/lib/community-messenger/call-media-onboarding-storage";
 import { readDiBaYNotificationPromptState } from "@/lib/notifications/dibay-notification-prompt-storage";
 import {
   canAttemptPostLoginOnboardingGate,
@@ -20,8 +12,9 @@ import {
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import {
   recordDiBaYOnboardingDecision,
-  syncDiBaYOnboardingFromBrowserPermission,
 } from "@/lib/permissions/device-permission-manager";
+import { resolveDibayDevicePermissionOnboarding } from "@/lib/permissions/dibay-device-permission-onboarding";
+import { requestInitialDevicePermissions, type DibayDevicePermissionSource } from "@/lib/permissions/dibay-device-permission-store";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
 /**
@@ -32,25 +25,30 @@ export function DiBaYCallMediaOnboardingGate() {
   const pathname = usePathname() ?? "";
   const deferStoresHomeLcp = useStoresHomeOverlayDeferUntilInput();
   const [open, setOpen] = useState(false);
+  const [source, setSource] = useState<DibayDevicePermissionSource>("app_entry");
+  const [requesting, setRequesting] = useState(false);
   const shownRef = useRef(false);
 
   const tryOpen = useCallback(() => {
     if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
-    if (!shouldOfferCallMediaPrePrompt()) return;
-    if (isVideoCallMediaReady()) {
-      syncDiBaYOnboardingFromBrowserPermission("call_media");
-      return;
-    }
     if (readDiBaYNotificationPromptState() == null) return;
     if (shownRef.current) return;
-    if (readDiBaYCallMediaPromptState() != null) return;
 
     const run = () => {
-      if (!shouldOfferCallMediaPrePrompt() || isVideoCallMediaReady()) return;
       void isPostLoginOnboardingBlockedByAddressGate().then((needsBlock) => {
         if (needsBlock) return;
-        shownRef.current = true;
-        setOpen(true);
+        void resolveDibayDevicePermissionOnboarding("app_entry").then((decision) => {
+          if (!decision.shouldShow) {
+            if (decision.state.camera === "granted" && decision.state.microphone === "granted") {
+              recordDiBaYOnboardingDecision("call_media", "accepted");
+            }
+            return;
+          }
+          shownRef.current = true;
+          console.info("[device-permission] onboarding_show", { source: decision.source });
+          setSource(decision.source);
+          setOpen(true);
+        });
       });
     };
     schedulePostLoginOnboardingOpen(run);
@@ -76,16 +74,23 @@ export function DiBaYCallMediaOnboardingGate() {
   };
 
   const onAccept = () => {
-    setOpen(false);
-    void primeVideoCallMediaFromOnboardingClick().then((result) => {
-      if (!result.ok) {
+    if (requesting) return;
+    setRequesting(true);
+    void requestInitialDevicePermissions(source).then((state) => {
+      if (state.camera !== "granted" || state.microphone !== "granted") {
         recordDiBaYOnboardingDecision(
           "call_media",
-          result.code === "denied" ? "browser_denied" : "declined",
+          state.camera === "blocked" || state.microphone === "blocked" || state.camera === "denied" || state.microphone === "denied"
+            ? "browser_denied"
+            : "declined",
         );
+        setOpen(false);
         return;
       }
       recordDiBaYOnboardingDecision("call_media", "accepted");
+      setOpen(false);
+    }).finally(() => {
+      setRequesting(false);
     });
   };
 
@@ -100,13 +105,14 @@ export function DiBaYCallMediaOnboardingGate() {
     >
       <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
         <p id="dibay-call-media-onboard-title" className="sam-text-body font-semibold text-sam-fg">
-          {t("dibay_call_media_prompt_title")}
+          {t("dibay_call_media_initial_title")}
         </p>
-        <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("dibay_call_media_prompt_body")}</p>
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("dibay_call_media_initial_body")}</p>
         <div className="mt-5 flex gap-3">
           <button
             type="button"
             onClick={onLater}
+            disabled={requesting}
             className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg"
           >
             {t("dibay_call_media_later")}
@@ -114,9 +120,10 @@ export function DiBaYCallMediaOnboardingGate() {
           <button
             type="button"
             onClick={onAccept}
-            className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white"
+            disabled={requesting}
+            className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white disabled:opacity-60"
           >
-            {t("dibay_call_media_accept")}
+            {requesting ? t("cm_ui_check_permission") : t("dibay_call_media_initial_accept")}
           </button>
         </div>
       </div>

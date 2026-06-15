@@ -79,13 +79,29 @@ export function getCommunityMessengerInsecureOriginMediaHint(): string {
 /** @deprecated 호환 — 런타임 언어 반영은 `getCommunityMessengerInsecureOriginMediaHint()` */
 export const COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT = mediaMessage("ko", MEDIA_MESSAGE_KEYS.insecureHint);
 
-/** 환경·설정 문제로 「다시 시도」가 의미 없는 통화 오류 문구 */
+const PERMISSION_NON_RETRY_MESSAGE_KEYS = [
+  "cm_ui_call_permission_settings_video",
+  "cm_ui_call_permission_settings_voice",
+  "cm_ui_camera_prepare_timeout_settings",
+  "cm_ui_call_failed_permission_detail_video",
+  "cm_ui_call_failed_permission_detail_voice",
+  "cm_ui_mic_camera_permission_required",
+  "cm_ui_mic_permission_required",
+  "nav_messenger_permission_retry_camera_mic",
+  "nav_messenger_permission_retry_mic",
+] as const satisfies readonly MessageKey[];
+
+/** 환경·권한 문제로 「다시 시도」가 의미 없는 통화 오류 문구 */
 export function isCommunityMessengerNonRetryableCallErrorMessage(message: string | null | undefined): boolean {
   if (!message) return false;
-  return (
+  const lang = getRuntimeAppLanguage();
+  if (
     matchesMediaMessageKey(message, MEDIA_MESSAGE_KEYS.httpsRequired) ||
     matchesMediaMessageKey(message, MEDIA_MESSAGE_KEYS.agoraSetup)
-  );
+  ) {
+    return true;
+  }
+  return PERMISSION_NON_RETRY_MESSAGE_KEYS.some((key) => translate(lang, key) === message);
 }
 
 /** Agora join·publish 단계에서 네트워크·토큰 일시 오류 등 재시도할 만한 경우 */

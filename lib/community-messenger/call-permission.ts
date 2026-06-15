@@ -7,6 +7,7 @@ import {
   markPermissionFeatureCompleted,
 } from "@/lib/permissions/device-permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { ensureCallCanUseMedia, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -106,38 +107,8 @@ export function getCommunityMessengerPermissionGuide(kind: CommunityMessengerCal
   };
 }
 
-import {
-  openAndroidNativeAppSettings,
-  shouldUseAndroidNativeDevicePermissionBridge,
-} from "@/lib/permissions/native-device-permissions-plugin";
-
 export function openCommunityMessengerPermissionSettings(): boolean {
-  if (typeof window === "undefined") return false;
-  if (shouldUseAndroidNativeDevicePermissionBridge()) {
-    void openAndroidNativeAppSettings();
-    return true;
-  }
-  const ua = window.navigator.userAgent.toLowerCase();
-  const origin = window.location.origin;
-
-  try {
-    if (ua.includes("edg/")) {
-      window.open(`edge://settings/content/siteDetails?site=${encodeURIComponent(origin)}`, "_blank", "noopener,noreferrer");
-      return true;
-    }
-    if (ua.includes("chrome") || ua.includes("whale") || ua.includes("opr/")) {
-      window.open(`chrome://settings/content/siteDetails?site=${encodeURIComponent(origin)}`, "_blank", "noopener,noreferrer");
-      return true;
-    }
-    if (ua.includes("firefox")) {
-      window.open("about:preferences#privacy", "_blank", "noopener,noreferrer");
-      return true;
-    }
-  } catch {
-    return false;
-  }
-
-  return false;
+  return openCallMediaPermissionSettings();
 }
 
 function clearPrimedDeviceStreamTimeout() {
@@ -282,28 +253,15 @@ export function storePrimedCommunityMessengerDeviceStream(
 }
 
 /**
- * 전역 수신 배너에서 클릭으로 프라임한 뒤 방으로 이동하면, 자동 수락이 `useEffect`에서
- * 돌아 사용자 제스처가 없다. 이 경우 다시 `getUserMedia`를 호출하면 Chrome 등에서
- * NotAllowedError가 난다. 같은 종류의 프라임 스트림이 살아 있으면 덮어쓰지 않는다.
- *
- * 버튼 `onClick` 에서는 **`primeCommunityMessengerDevicePermissionFromUserGesture`** 를 쓴다.
- * `async` 핸들러에서 다른 `await` 뒤에 이 함수를 호출하면, 맥 크롬 등에서 제스처가 끊겨
- * `getUserMedia` 가 NotAllowedError 로 실패할 수 있다.
+ * @deprecated 통화 시점에는 권한 요청/프라임 금지. 기존 호출 보호용 check-only 래퍼.
  */
-export function primeCommunityMessengerDevicePermissionFromUserGesture(
+export async function primeCommunityMessengerDevicePermissionFromUserGesture(
   kind: CommunityMessengerCallKind
 ): Promise<void> {
-  return import("@/lib/community-messenger/call-media-bootstrap").then((m) => {
-    const run =
-      kind === "video"
-        ? m.primeVideoCallMediaFromUserGesture()
-        : m.primeVoiceCallMediaFromUserGesture();
-    return run.then((result) => {
-      if (!result.ok) {
-        throw new DOMException("Media prime failed", "NotAllowedError");
-      }
-    });
-  });
+  const result = await ensureCallCanUseMedia(kind);
+  if (!result.ok) {
+    throw new DOMException("Media permission unavailable", "NotAllowedError");
+  }
 }
 
 export async function primeCommunityMessengerDevicePermission(kind: CommunityMessengerCallKind): Promise<void> {

@@ -32,10 +32,18 @@ vi.mock("@/lib/permissions/device-permission-manager", () => ({
   isPermissionFeatureCompleted: vi.fn((featureKey: string) => permissionMockState.completed.has(featureKey)),
 }));
 
+const ensureCallCanUseMediaMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ ok: true, state: {} })));
+
+vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
+  ensureCallCanUseMedia: ensureCallCanUseMediaMock,
+}));
+
 describe("primed device stream idle release", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     permissionMockState.completed.clear();
+    ensureCallCanUseMediaMock.mockReset();
+    ensureCallCanUseMediaMock.mockResolvedValue({ ok: true, state: {} });
     vi.stubGlobal("navigator", {
       mediaDevices: { getUserMedia: vi.fn() },
     } as unknown as Navigator);
@@ -76,26 +84,14 @@ describe("primed device stream idle release", () => {
     expect(hasCommunityMessengerMediaTrustedMark("video")).toBe(true);
   });
 
-  it("does not stop tracks while suspended during live call", async () => {
+  it("deprecated prime wrapper only checks permission and does not create a primed stream", async () => {
     const {
       peekPrimedCommunityMessengerDeviceStream,
       primeCommunityMessengerDevicePermissionFromUserGesture,
-      resumePrimedCommunityMessengerDeviceStreamIdleRelease,
-      suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
     } = await import("@/lib/community-messenger/call-permission");
 
     await primeCommunityMessengerDevicePermissionFromUserGesture("video");
-    const stream = peekPrimedCommunityMessengerDeviceStream("video");
-    expect(stream).not.toBeNull();
-    const videoTrack = stream!.getVideoTracks()[0] as MediaStreamTrack & { stop: ReturnType<typeof vi.fn> };
-
-    suspendPrimedCommunityMessengerDeviceStreamIdleRelease();
-    vi.advanceTimersByTime(120_000);
-    expect(videoTrack.stop).not.toHaveBeenCalled();
-    expect(peekPrimedCommunityMessengerDeviceStream("video")).toBe(stream);
-
-    resumePrimedCommunityMessengerDeviceStreamIdleRelease(1_000);
-    vi.advanceTimersByTime(1_500);
-    expect(videoTrack.stop).toHaveBeenCalled();
+    expect(ensureCallCanUseMediaMock).toHaveBeenCalledWith("video");
+    expect(peekPrimedCommunityMessengerDeviceStream("video")).toBeNull();
   });
 });

@@ -2,7 +2,8 @@
 
 import { useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { primeOutgoingCallMediaBeforeNavigate, isCallMediaReadyForKind } from "@/lib/community-messenger/call-media-bootstrap";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
   buildCommunityMessengerInstantOutgoingCallHref,
 } from "@/lib/community-messenger/call-session-navigation-seed";
@@ -52,13 +53,9 @@ export function CommunityMessengerOutgoingDialPageClient() {
         peerUserId: p.peerUserId || undefined,
         peerLabel: p.peerLabelRaw || undefined,
       });
-      if (p.kind === "video" && isCallMediaReadyForKind("video")) {
-        router.replace(href);
-        return;
-      }
       const primeResult = await primeOutgoingCallMediaBeforeNavigate(p.kind);
-      if (!primeResult.ok && p.kind === "video") {
-        setError(t("nav_messenger_permission_retry_camera_mic"));
+      if (!primeResult.ok) {
+        setError(t(getCallMediaPermissionBlockedMessageKey(p.kind)));
         return;
       }
       router.replace(href);

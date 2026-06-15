@@ -4,7 +4,7 @@ import type { Profile } from "@/lib/types/profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { resolveClientProfileFromSession } from "@/lib/auth/resolve-client-profile-session";
 import { isClientSignupComplete } from "@/lib/auth/client-signup-gate";
-import { requestPermission } from "@/lib/permissions/device-permission-manager";
+import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
 import { sanitizeLoginNextPath } from "@/lib/auth/auth-route-classification";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { toProfileActionType } from "@/lib/profile/profile-requirements";
@@ -137,31 +137,12 @@ async function resolveClientProfile(): Promise<Profile | null> {
   return resolveClientProfileFromSession("requireAuthAction");
 }
 
-function permissionFeatureKey(actionType: RequireAuthActionType) {
-  if (actionType === "voice_call") return "messenger_voice_call" as const;
-  if (actionType === "video_call") return "messenger_video_call" as const;
-  return undefined;
-}
-
 async function ensureDevicePermissions(actionType: RequireAuthActionType): Promise<boolean> {
   if (actionType === "voice_call") {
-    const mic = await requestPermission("microphone", {
-      explicitRetry: true,
-      featureKey: permissionFeatureKey(actionType),
-    });
-    return mic.result.ok === true;
+    return (await ensureCallCanUseMedia("voice")).ok;
   }
   if (actionType === "video_call") {
-    const mic = await requestPermission("microphone", {
-      explicitRetry: true,
-      featureKey: permissionFeatureKey(actionType),
-    });
-    if (mic.result.ok !== true) return false;
-    const camera = await requestPermission("camera", {
-      explicitRetry: true,
-      featureKey: permissionFeatureKey(actionType),
-    });
-    return camera.result.ok === true;
+    return (await ensureCallCanUseMedia("video")).ok;
   }
   return true;
 }

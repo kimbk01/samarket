@@ -24,7 +24,7 @@ import {
   DIBAY_MIC_ABORT_MESSAGE_DEFERRED,
   DIBAY_MIC_ABORT_MESSAGE_LATER,
 } from "@/lib/permissions/dibay-mic-gate-messages";
-import { ensureAndroidNativeCallMediaPermissions } from "@/lib/permissions/android-native-device-permissions";
+import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
 
 export type CallMediaPrimeResult =
   | { ok: true }
@@ -203,12 +203,9 @@ export async function primeVoiceCallMediaFromUserGesture(_opts?: {
 export async function primeOutgoingCallMediaBeforeNavigate(
   kind: CommunityMessengerCallKind
 ): Promise<CallMediaPrimeResult> {
-  const androidMedia = await ensureAndroidNativeCallMediaPermissions(kind);
-  if (androidMedia === "denied") {
+  const preflight = await ensureCallCanUseMedia(kind);
+  if (!preflight.ok) {
     return { ok: false, code: "denied" };
   }
-  if (kind === "video") {
-    return primeVideoCallMediaFromUserGesture({ explicitRetry: true });
-  }
-  return primeVoiceCallMediaFromUserGesture({ explicitRetry: true });
+  return { ok: true };
 }

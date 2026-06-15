@@ -6,6 +6,7 @@ import type { CommunityMessengerCallParticipant } from "@/lib/community-messenge
 import type { CommunityMessengerGroupCallHandle } from "@/lib/community-messenger/use-community-messenger-group-call";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { getCommunityMessengerPermissionGuide } from "@/lib/community-messenger/call-permission";
+import { isCallMediaPermissionBlockedUiMessage } from "@/lib/community-messenger/call-media-permission-preflight";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { useMessengerCallMainBottomNavSuppress } from "@/lib/layout/messenger-call-main-bottom-nav-suppress";
@@ -229,6 +230,7 @@ export function GroupRoomCallOverlay({
           ];
 
   const secondaryActions: CallActionItem[] = [];
+  const permissionBlockedUi = isCallMediaPermissionBlockedUiMessage(groupCall.errorMessage);
   if (groupCall.connectionBadge?.tone === "poor") {
     secondaryActions.push({
       id: "retry",
@@ -238,12 +240,12 @@ export function GroupRoomCallOverlay({
       onClick: () => void groupCall.retryConnection(),
     });
   }
-  if (permissionGuide && !hasLocal && sessionPanel.mode !== "incoming") {
+  if (permissionBlockedUi && sessionPanel.mode !== "incoming") {
     secondaryActions.push({
-      id: "permission",
-      label: permissionGuide.retryLabel ?? t("cm_ui_check_permission"),
-      icon: "accept",
-      onClick: () => void onRetryCallDevicePermission(),
+      id: "open-settings",
+      label: t("cm_ui_open_settings"),
+      icon: "settings",
+      onClick: () => onOpenCallPermissionHelp(),
     });
   }
 

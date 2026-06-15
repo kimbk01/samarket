@@ -14,17 +14,8 @@ import {
   refreshPreferredCommunityMessengerDevicesFromEnumerate,
 } from "@/lib/community-messenger/media-preflight";
 import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
-import {
-  acquireSimpleMicStreamWithDiBaYGate,
-  ensureCameraWithDiBaYGate,
-  ensureMicrophoneWithDiBaYGate,
-  ensureMicrophoneCameraWithDiBaYGate,
-  markPermissionFeatureCompleted,
-} from "@/lib/permissions/device-permission-manager";
-import {
-  DIBAY_MIC_ABORT_MESSAGE_DEFERRED,
-  DIBAY_MIC_ABORT_MESSAGE_LATER,
-} from "@/lib/permissions/dibay-mic-gate-messages";
+import { markPermissionFeatureCompleted } from "@/lib/permissions/device-permission-manager";
+import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
 
 export type CallMediaPermissionErrorCode = "insecure_context" | "no_mediadevices" | "denied" | "failed";
 
@@ -63,29 +54,9 @@ function stopAndClearCache(): void {
   sessionCache = null;
 }
 
-function constraintsRequestsLiveAudio(constraints: MediaStreamConstraints): boolean {
-  const a = constraints.audio;
-  return a === true || (typeof a === "object" && a !== null);
-}
-
-function constraintsRequestsLiveVideo(constraints: MediaStreamConstraints): boolean {
-  const v = constraints.video;
-  return v === true || (typeof v === "object" && v !== null);
-}
-
 /**
- * 기본 마이크만(`audio: true`, 비디오 미요청/명시 false`)일 때 DiBaY 게이트+GUM 단일 모듈로 통합.
- * `deviceId` 등 오디오 제약이 있거나 영상을 요청하면 기존 분기(게이트 후 해당 constraints 로 GUM).
- */
-function shouldUseAcquireSimpleMicPath(constraints: MediaStreamConstraints): boolean {
-  if (constraints.audio !== true) return false;
-  const v = constraints.video;
-  if (v === true || (typeof v === "object" && v !== null)) return false;
-  return v === false || typeof v === "undefined";
-}
-
-/**
- * DiBaY 마이크 게이트·장치 ID 저장 포함 — 클라이언트는 raw `getUserMedia` 대신 이 함수만 사용.
+ * 통화 미디어 생성 단일 경로.
+ * 권한 요청은 하지 않고, 호출 전 check-only preflight가 granted를 확인해야 한다.
  */
 export async function getCommunityMessengerUserMedia(
   constraints: MediaStreamConstraints,
@@ -105,48 +76,14 @@ async function invokeGetUserMedia(
     throw new DOMException("getUserMedia unavailable", "NotSupportedError");
   }
 
-  const callFeature =
-    options?.featureKey === "messenger_video_call" || options?.featureKey === "messenger_voice_call";
-  const gateOpts = {
-    featureKey: options?.featureKey,
-    explicitRetry: callFeature,
-  };
-
-  if (shouldUseAcquireSimpleMicPath(constraints)) {
-    const stream = await acquireSimpleMicStreamWithDiBaYGate(gateOpts);
-    persistDeviceIdsFromMediaStream(stream);
-    void refreshPreferredCommunityMessengerDevicesFromEnumerate();
-    return stream;
-  }
-
-  const needsAudio = constraintsRequestsLiveAudio(constraints);
-  const needsVideo = constraintsRequestsLiveVideo(constraints);
-
-  if (needsAudio || needsVideo) {
-    const gate = needsAudio && needsVideo
-      ? await ensureMicrophoneCameraWithDiBaYGate(gateOpts)
-      : needsAudio
-        ? await ensureMicrophoneWithDiBaYGate(gateOpts)
-        : await ensureCameraWithDiBaYGate(gateOpts);
-    if (!gate.ok) {
-      if (gate.reason === "denied") {
-        throw new DOMException("Microphone permission denied", "NotAllowedError");
-      }
-      if (gate.reason === "no_api") {
-        throw new DOMException("getUserMedia unavailable", "NotSupportedError");
-      }
-      if (gate.reason === "insecure") {
-        throw new DOMException("insecure context", "SecurityError");
-      }
-      if (gate.reason === "later") {
-        throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_LATER, "AbortError");
-      }
-      if (gate.reason === "deferred") {
-        throw new DOMException(DIBAY_MIC_ABORT_MESSAGE_DEFERRED, "AbortError");
-      }
-      throw new DOMException("Media permission request aborted", "AbortError");
+  if (options?.featureKey === "messenger_video_call" || options?.featureKey === "messenger_voice_call") {
+    const kind = options.featureKey === "messenger_video_call" ? "video" : "voice";
+    const preflight = await ensureCallCanUseMedia(kind);
+    if (!preflight.ok) {
+      throw new DOMException("Call media permission denied", "NotAllowedError");
     }
   }
+
   const stream = await navigator.mediaDevices.getUserMedia(constraints);
   persistDeviceIdsFromMediaStream(stream);
   void refreshPreferredCommunityMessengerDevicesFromEnumerate();

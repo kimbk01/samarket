@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
@@ -51,8 +52,8 @@ export function TradeChatCallHeaderButtons(props: {
       setBusy(true);
       try {
         const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok && kind === "video") {
-          onErrorMessage(t("nav_messenger_permission_retry_camera_mic"));
+        if (!primeResult.ok) {
+          onErrorMessage(t(getCallMediaPermissionBlockedMessageKey(kind)));
           return;
         }
         let messengerRoomId = cmRid;

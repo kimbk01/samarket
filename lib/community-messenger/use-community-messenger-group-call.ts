@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  consumePrimedCommunityMessengerDevicePermission,
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
 import { migrateCommunityMessengerMediaSessionKey } from "@/lib/call/permission-manager";
@@ -18,6 +17,10 @@ import {
   stopCommunityMessengerCallTone,
 } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
+import {
+  ensureCallCanUseMedia,
+  getCallMediaPermissionBlockedMessageKey,
+} from "@/lib/community-messenger/call-media-permission-preflight";
 import {
   fetchMessengerCallSoundConfig,
   getMessengerCallSoundConfigCache,
@@ -382,9 +385,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
     void (async () => {
       try {
         stopCommunityMessengerCallTone();
-        const primed = consumePrimedCommunityMessengerDevicePermission(callKind);
-        if (primed) {
-          for (const t of primed.getTracks()) t.stop();
+        const permission = await ensureCallCanUseMedia(callKind);
+        if (!permission.ok) {
+          setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(callKind)));
+          return;
         }
         const connection = await fetchGroupAgoraConnection(sessionId);
         if (cancelled || !mountedRef.current) return;
@@ -485,8 +489,13 @@ export function useCommunityMessengerGroupCall(args: Props) {
       setErrorMessage(null);
       setEndedPanel(null);
       sessionDialStartRef.current = Date.now();
-      setPanel({ kind, mode: "dialing", sessionId: null, peerLabel: args.roomLabel });
       try {
+        const permission = await ensureCallCanUseMedia(kind);
+        if (!permission.ok) {
+          setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(kind)));
+          return;
+        }
+        setPanel({ kind, mode: "dialing", sessionId: null, peerLabel: args.roomLabel });
         const res = await fetch(`/api/community-messenger/rooms/${encodeURIComponent(args.roomId)}/calls`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -531,6 +540,11 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("call-accept");
     setErrorMessage(null);
     try {
+      const permission = await ensureCallCanUseMedia(activeCall.callKind);
+      if (!permission.ok) {
+        setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
+        return false;
+      }
       const acceptRes = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(activeCall.id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -690,9 +704,10 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("device-prepare");
     setErrorMessage(null);
     try {
-      const primed = consumePrimedCommunityMessengerDevicePermission(kind);
-      if (primed) {
-        for (const t of primed.getTracks()) t.stop();
+      const permission = await ensureCallCanUseMedia(kind);
+      if (!permission.ok) {
+        setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(kind)));
+        return;
       }
       setHasLocalMedia(true);
     } catch (error) {

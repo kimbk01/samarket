@@ -191,14 +191,14 @@ export type OutgoingCallSessionBootstrapResult =
 function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
   const lang = getRuntimeAppLanguage();
   if (kind === "video") {
-    return safeTranslate(lang, "nav_messenger_permission_retry_camera_mic", {
-      fallbackKo: "카메라·마이크 권한을 허용한 뒤 다시 시도해 주세요.",
-      fallbackEn: "Allow camera and microphone, then try again.",
+    return safeTranslate(lang, "cm_ui_call_permission_settings_video", {
+      fallbackKo: "카메라/마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
+      fallbackEn: "Camera/microphone access is turned off. Allow it in settings.",
     });
   }
-  return safeTranslate(lang, "nav_messenger_permission_retry_mic", {
-    fallbackKo: "마이크 권한을 허용한 뒤 다시 시도해 주세요.",
-    fallbackEn: "Allow microphone, then try again.",
+  return safeTranslate(lang, "cm_ui_call_permission_settings_voice", {
+    fallbackKo: "마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
+    fallbackEn: "Microphone access is turned off. Allow it in settings.",
   });
 }
 
@@ -419,7 +419,7 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
-  if (!primeResult.ok && input.kind === "video") {
+  if (!primeResult.ok) {
     stopCommunityMessengerCallTone();
     return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
   }
@@ -476,7 +476,7 @@ export async function startOutgoingCallSessionAndOpen(
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   const primeResult = await primeOutgoingCallMediaBeforeNavigate(input.kind);
-  if (!primeResult.ok && input.kind === "video") {
+  if (!primeResult.ok) {
     stopCommunityMessengerCallTone();
     return { ok: false, userMessage: outgoingCallMediaPrimeFailureMessage(input.kind) };
   }

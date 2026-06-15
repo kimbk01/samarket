@@ -38,6 +38,10 @@ import {
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
+  ensureCallCanUseMedia,
+  getCallMediaPermissionBlockedMessageKey,
+} from "@/lib/community-messenger/call-media-permission-preflight";
+import {
   COMMUNITY_MESSENGER_PREFERENCE_EVENT,
   isCommunityMessengerIncomingCallBannerEnabled,
   isCommunityMessengerIncomingCallSoundEnabled,
@@ -1606,6 +1610,14 @@ export function GlobalCommunityMessengerIncomingCall() {
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
           try {
+            const permission = await ensureCallCanUseMedia(session.callKind);
+            if (!permission.ok) {
+              releaseIncomingCallAccept(session.id);
+              showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {
+                variant: "error",
+              });
+              return;
+            }
             const patchJson = await patchCommunityMessengerCallSession(
               session.id,
               "accept",
@@ -1644,9 +1656,18 @@ export function GlobalCommunityMessengerIncomingCall() {
       primeCommunityMessengerCallNavigationSeed(session.id, session);
       const callUrl = `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`;
       logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "global_accept" });
-      router.replace(callUrl);
+      void (async () => {
+        const permission = await ensureCallCanUseMedia(session.callKind);
+        if (!permission.ok) {
+          releaseIncomingCallAccept(session.id);
+          setBusyId(null);
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
+          return;
+        }
+        router.replace(callUrl);
+      })();
     },
-    [busyId, refresh, router]
+    [busyId, refresh, router, t]
   );
 
   const openIncomingCallFullScreen = (session: CommunityMessengerCallSession) => {
