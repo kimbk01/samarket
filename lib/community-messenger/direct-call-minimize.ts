@@ -105,7 +105,7 @@ export function writeActiveDirectVideoCallSession(sessionId: string): void {
   writeActiveDirectCallSession(sessionId);
 }
 
-/** active 1:1 통화(음성·영상) — 다른 화면으로 나갔을 때 ActiveCallHost 가 CallClient 를 상주 */
+/** active direct 영상통화 — 다른 화면으로 나갔을 때 ActiveCallHost 가 CallClient 를 상주 (PiP·minimize 동일 키) */
 export function writeActiveDirectCallSession(sessionId: string): void {
   if (typeof sessionStorage === "undefined") return;
   try {
@@ -119,7 +119,7 @@ export function readActiveDirectCallSessionId(): string | null {
   return readActiveDirectVideoCallSessionId();
 }
 
-/** 통화 라우트 unmount 시 Agora 를 host 로 넘겨 미디어를 유지한다 (PiP·음성 동일). */
+/** 통화 라우트 unmount 시 Agora 를 host 로 넘겨 미디어를 유지한다 (명시적 minimize·PiP 전용). */
 export function transferActiveCommunityCallToHost(args: {
   sessionId: string;
   cleanup: DetachedCleanup;
@@ -171,7 +171,7 @@ export function isCommunityMessengerDedicatedCallSessionPath(
   }
 }
 
-/** ActiveCallHost 가 CallClient 를 상주시키는 세션인지 (active 음성·영상·minimized PiP) */
+/** ActiveCallHost 가 CallClient 를 상주시키는 세션인지 (active 영상·minimized PiP) */
 export function isCallSessionHostedByActiveCallHost(sessionId: string): boolean {
   const sid = sessionId.trim();
   if (!sid) return false;

@@ -21,6 +21,7 @@ import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-
 import {
   releaseIncomingCallAccept,
   releaseIncomingCallReject,
+  resetIncomingCallActionGuards,
   tryClaimIncomingCallAccept,
   tryClaimIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-action-guard";
@@ -296,6 +297,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const prevRingingIdsRef = useRef<Set<string>>(new Set());
   /** 홈·목록 등 전역 표면: `incoming_ring_timeout_seconds` 데드라인에 맞춰 `PATCH missed` (전용 `/calls/*` 는 CallClient 와 중복 방지로 여기서 스킵) */
   const ringMissedScheduleRef = useRef<Map<string, { deadline: number; timerId: number }>>(new Map());
+  /** 네이티브 자동 `/calls` 진입 — 동일 세션 중복 replace 방지 */
+  const nativeAutoNavigatedSessionRef = useRef<string | null>(null);
 
   const viewerUserIdRef = useRef<string | null>(null);
   viewerUserIdRef.current = userId;
@@ -573,7 +576,12 @@ export function GlobalCommunityMessengerIncomingCall() {
       clearIncomingMissedTimer(ringMissedScheduleRef, tmpSessionId);
     }
     stopCallRingtone("terminal_event", sessionId || tmpSessionId || undefined);
-    if (sessionId) activeIncomingCallIdsRef.current.delete(sessionId);
+    if (sessionId) {
+      activeIncomingCallIdsRef.current.delete(sessionId);
+      resetIncomingCallActionGuards(sessionId);
+      incomingUiSurfaceLoggedRef.current.delete(sessionId);
+      nativeAutoNavigatedSessionRef.current = null;
+    }
     if (tmpSessionId) activeIncomingCallIdsRef.current.delete(tmpSessionId);
 
     setSessions((prev) => {
@@ -1385,13 +1393,14 @@ export function GlobalCommunityMessengerIncomingCall() {
    */
   const hideGlobalIncomingOverlay =
     typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/");
-  /** 오버레이는 `ringing` 직통 수신만 — active·ended 등은 목록 정렬과 무관하게 표시하지 않음 */
+  /** 오버레이는 `ringing` 직통 수신만 — `active` 만 다른 라이브 통화로 본다 (stale `ringing` 이 연속 수신·벨을 막지 않게). */
   const viewerLiveSessionId = useMemo(() => {
     const uid = userId?.trim();
     if (!uid) return null;
     for (const s of sessions) {
       if (s.sessionMode !== "direct") continue;
-      if (s.status !== "ringing" && s.status !== "active") continue;
+      if (s.status !== "active") continue;
+      if (s.endedAt || s.cancelledAt) continue;
       const isParty =
         messengerUserIdsEqual(s.initiatorUserId, uid) ||
         (s.recipientUserId != null && messengerUserIdsEqual(s.recipientUserId, uid));
@@ -1399,6 +1408,9 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     return null;
   }, [sessions, userId]);
+
+  const inMessengerRoom =
+    typeof pathname === "string" && pathname.startsWith("/community-messenger/rooms/");
 
   const firstRingingCalleeSession = useMemo(() => {
     const uid = userId?.trim();
@@ -1432,8 +1444,8 @@ export function GlobalCommunityMessengerIncomingCall() {
       })
     : null;
   /**
-   * 네이티브: 배너 대신 전역 수신 오버레이(채팅·홈 유지).
-   * 웹: `full-screen` surface 또는 네이티브와 동일하게 `top-banner` → 오버레이 승격.
+   * 네이티브 채팅방: 전역 수신 오버레이(채팅 유지).
+   * 네이티브 그 외·웹: 배너 또는 full-screen surface.
    */
   const renderIncomingFullScreenOverlay = Boolean(
     visibleSession &&
@@ -1441,7 +1453,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       minimizedSessionId !== visibleSession.id &&
       shouldRenderInternalIncomingCallUi(incomingSurface) &&
       (incomingSurface === "full-screen" ||
-        (isCapacitorNativePlatform() && incomingSurface === "top-banner"))
+        (isCapacitorNativePlatform() && incomingSurface === "top-banner" && inMessengerRoom))
   );
   const renderIncomingBanner = Boolean(
     visibleSession && incomingSurface === "top-banner" && !isCapacitorNativePlatform()
@@ -1449,6 +1461,33 @@ export function GlobalCommunityMessengerIncomingCall() {
   const nativeIncomingSession =
     visibleSession && shouldRenderInternalIncomingCallUi(incomingSurface) ? visibleSession : null;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
+
+  /**
+   * DiBay 네이티브 — 채팅방이 아닐 때 전용 통화 화면으로 즉시 진입(벨·수락 경로 복구).
+   * 채팅방 안에서는 오버레이로 채팅 bootstrap 을 끊지 않는다.
+   */
+  useEffect(() => {
+    if (!visibleSession) {
+      nativeAutoNavigatedSessionRef.current = null;
+      return;
+    }
+    if (!isCapacitorNativePlatform()) return;
+    if (hideGlobalIncomingOverlay) return;
+    if (inMessengerRoom) return;
+    const sid = visibleSession.id;
+    if (nativeAutoNavigatedSessionRef.current === sid) return;
+    const callPath = `/community-messenger/calls/${encodeURIComponent(sid)}`;
+    const currentPath = typeof pathname === "string" ? pathname.split(/[?#]/, 1)[0] : "";
+    if (currentPath === callPath) {
+      nativeAutoNavigatedSessionRef.current = sid;
+      return;
+    }
+    nativeAutoNavigatedSessionRef.current = sid;
+    rememberCallNavigationReturnPath();
+    primeCommunityMessengerCallNavigationSeed(sid, visibleSession);
+    logCallFlow("call_navigate_to_call_screen", { sessionId: sid, source: "native_auto_fullscreen" });
+    router.replace(callPath);
+  }, [hideGlobalIncomingOverlay, inMessengerRoom, pathname, router, visibleSession]);
 
   /** 수신 오버레이·알림 딥링크 진입 시 CallClient 첫 페인트용 시드 */
   useLayoutEffect(() => {
@@ -1650,13 +1689,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     (session: CommunityMessengerCallSession) => {
       logCallFlow("call_accept_pressed", { sessionId: session.id });
       if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
-      if (!tryClaimIncomingCallAccept(session.id)) return;
 
       rememberCallNavigationReturnPath();
       unlockCommunityMessengerCallPlaybackFromUserGesture();
-      setBusyId(`accept:${session.id}`);
 
       if (session.sessionMode === "group") {
+        if (!tryClaimIncomingCallAccept(session.id)) return;
+        setBusyId(`accept:${session.id}`);
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
           try {
@@ -1703,23 +1742,18 @@ export function GlobalCommunityMessengerIncomingCall() {
         return;
       }
 
+      /** 1:1 — 전체 통화 화면으로 먼저 이동, CallClient 가 accept PATCH + Agora join (6/10) */
       primeCommunityMessengerCallNavigationSeed(session.id, session);
-      const callUrl = `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`;
       logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "global_accept" });
       void (async () => {
         const permission = await ensureCallCanUseMedia(session.callKind);
         if (!permission.ok) {
-          releaseIncomingCallAccept(session.id);
-          setBusyId(null);
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {
+            variant: "error",
+          });
           return;
         }
-        /**
-         * 직통 수락은 전역 배너가 PATCH 하지 않고 전용 통화 화면이 담당한다.
-         * 라우팅 전에 guard 를 비워 새 통화 페이지가 같은 세션을 직접 claim 하게 한다.
-         */
-        releaseIncomingCallAccept(session.id);
-        router.replace(callUrl);
+        router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`);
       })();
     },
     [busyId, refresh, router, t]
@@ -1764,7 +1798,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
         startedAt={visibleSession.startedAt ?? null}
         busyReject={busyId === `reject:${visibleSession.id}`}
-        busyAccept={busyId === `accept:${visibleSession.id}`}
+        busyAccept={false}
         onExpand={() => openIncomingCallFullScreen(visibleSession)}
         onReject={() => void rejectCall(visibleSession.id)}
         onAccept={() => acceptCall(visibleSession)}

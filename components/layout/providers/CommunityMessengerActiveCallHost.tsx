@@ -45,7 +45,7 @@ export function notifyCommunityCallHostSync(): void {
 }
 
 /**
- * active·minimized direct 음성·영상 통화 CallClient 단일 상주.
+ * active·minimized direct 영상 통화 CallClient 단일 상주 (음성은 전용 `/calls` 라우트 유지).
  */
 export function CommunityMessengerActiveCallHost() {
   useSyncExternalStore(subscribeCommunityCallHostSync, readHostedCallSessionId, () => null);
