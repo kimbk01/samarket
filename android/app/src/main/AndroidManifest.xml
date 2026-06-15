@@ -101,9 +101,7 @@
             android:exported="false"
             android:launchMode="singleTask"
             android:noHistory="true"
-            android:showWhenLocked="true"
-            android:theme="@style/AppTheme.IncomingCall"
-            android:turnScreenOn="true" />
+            android:theme="@style/AppTheme.IncomingCall" />
 
         <receiver
             android:name=".IncomingCallDeclineReceiver"
