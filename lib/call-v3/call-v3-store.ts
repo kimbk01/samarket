@@ -102,7 +102,6 @@ async function runEffects(
             const after = transitionCallStateAfterPatchOk(store.ctx);
             useCallV3Store.setState({ ctx: after.ctx });
             await runEffects(after.effects, after.ctx, router, () => useCallV3Store.getState().dispatch);
-            dispatch({ type: "CALL_CLEANUP_DONE" });
           }
         } finally {
           patchInFlight = false;

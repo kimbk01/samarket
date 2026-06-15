@@ -83,4 +83,30 @@ describe("call-v3-state-machine", () => {
     expect(r.ctx.state).toBe("outgoing");
     expect(r.ctx.kind).toBe("video");
   });
+
+  it("fresh dial from ended terminal", () => {
+    const ended: CallV3Context = {
+      ...baseOutgoing,
+      state: "ended",
+      sessionId: "sess-old",
+    };
+    const r = transitionCallState(ended, {
+      type: "CALL_DIAL_START",
+      payload: { roomId: "room-1", callKind: "voice", peerUserId: "peer-1" },
+    });
+    expect(r.ctx.state).toBe("outgoing");
+    expect(r.ctx.sessionId).toBeNull();
+    expect(r.ctx.roomId).toBe("room-1");
+  });
+
+  it("CALL_DIAL_FAILED reverts outgoing without session to ended", () => {
+    const dialing: CallV3Context = {
+      ...baseOutgoing,
+      state: "outgoing",
+      sessionId: null,
+    };
+    const r = transitionCallState(dialing, { type: "CALL_DIAL_FAILED" });
+    expect(r.ctx.state).toBe("ended");
+    expect(r.effects.some((e) => e.type === "STOP_RING")).toBe(true);
+  });
 });

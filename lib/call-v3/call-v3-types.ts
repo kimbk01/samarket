@@ -22,6 +22,7 @@ export type CallV3EventType =
   | "CALL_INCOMING"
   | "CALL_DIAL_START"
   | "CALL_CREATED"
+  | "CALL_DIAL_FAILED"
   | "CALL_ACCEPT_CLICK"
   | "CALL_ACCEPTED"
   | "CALL_JOIN_START"
@@ -68,6 +69,7 @@ export type CallV3Event =
   | { type: "CALL_INCOMING"; payload: CallV3IncomingPayload }
   | { type: "CALL_DIAL_START"; payload: CallV3DialStartPayload }
   | { type: "CALL_CREATED"; payload: CallV3CreatedPayload }
+  | { type: "CALL_DIAL_FAILED" }
   | { type: "CALL_ACCEPT_CLICK" }
   | { type: "CALL_ACCEPTED"; payload?: { session?: CommunityMessengerCallSession | null } }
   | { type: "CALL_JOIN_START" }

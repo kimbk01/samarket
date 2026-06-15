@@ -49,8 +49,7 @@ public class MainActivity extends BridgeActivity {
   }
 
   /** FCM foreground — WebView call-v3 event (incoming_call must not be dropped). */
-  public static void deliverCallV3IncomingCallEvent(
-      android.content.Context context, IncomingCallPayload payload) {
+  static void deliverCallV3IncomingCallEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
     if (act == null || payload == null || !payload.isValid()) return;
     act.mainHandler.post(() -> act.injectCallV3IncomingEvent(payload));
@@ -772,14 +771,4 @@ public class MainActivity extends BridgeActivity {
     }
   }
 
-  private void logOAuthIntent(Intent intent) {
-    if (intent == null || !Intent.ACTION_VIEW.equals(intent.getAction())) {
-      return;
-    }
-    Uri data = intent.getData();
-    if (data == null || !"dibay".equals(data.getScheme()) || !"auth".equals(data.getHost())) {
-      return;
-    }
-    Log.i(TAG, "intent_received path=" + data.getPath() + " hasCode=" + (data.getQueryParameter("code") != null));
-  }
 }

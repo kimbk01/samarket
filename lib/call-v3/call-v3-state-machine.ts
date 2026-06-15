@@ -91,7 +91,7 @@ export function transitionCallState(ctx: CallV3Context, event: CallV3Event): Cal
     }
     return {
       ctx: { ...ctx, state: "ending", terminalConsumed: true },
-      effects: [...terminalEffects(ctx, "end"), { type: "NAVIGATE_BACK" }],
+      effects: terminalEffects(ctx, "end"),
     };
   }
 
@@ -147,6 +147,16 @@ export function transitionCallState(ctx: CallV3Context, event: CallV3Event): Cal
           { type: "NAVIGATE_TO_CALL" },
           { type: "START_MISSED_TIMER" },
         ],
+      };
+    }
+
+    case "CALL_DIAL_FAILED": {
+      if (ctx.state !== "outgoing" || ctx.sessionId) {
+        return { ctx, effects: [], ignored: true };
+      }
+      return {
+        ctx: { ...ctx, state: "ended" },
+        effects: [{ type: "STOP_RING" }],
       };
     }
 
@@ -222,7 +232,7 @@ export function transitionCallState(ctx: CallV3Context, event: CallV3Event): Cal
             : "end";
       return {
         ctx: { ...ctx, state: "ending", terminalConsumed: true },
-        effects: [...terminalEffects(ctx, patch), { type: "NAVIGATE_BACK" }],
+        effects: terminalEffects(ctx, patch),
       };
     }
 
@@ -232,11 +242,7 @@ export function transitionCallState(ctx: CallV3Context, event: CallV3Event): Cal
       }
       return {
         ctx: { ...ctx, state: "rejected", terminalConsumed: true },
-        effects: [
-          ...terminalEffects(ctx, "reject"),
-          { type: "CLEANUP_MEDIA" },
-          { type: "NAVIGATE_BACK" },
-        ],
+        effects: [...terminalEffects(ctx, "reject"), { type: "CLEANUP_MEDIA" }],
       };
 
     case "CALL_TIMEOUT":
@@ -248,11 +254,7 @@ export function transitionCallState(ctx: CallV3Context, event: CallV3Event): Cal
       const patch = ctx.role === "caller" ? "cancel" : "missed";
       return {
         ctx: { ...ctx, state: nextState, terminalConsumed: true },
-        effects: [
-          ...terminalEffects(ctx, patch),
-          { type: "CLEANUP_MEDIA" },
-          { type: "NAVIGATE_BACK" },
-        ],
+        effects: [...terminalEffects(ctx, patch), { type: "CLEANUP_MEDIA" }],
       };
     }
 

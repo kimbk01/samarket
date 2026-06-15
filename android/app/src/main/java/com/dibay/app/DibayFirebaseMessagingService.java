@@ -100,7 +100,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
 
     if (DibayKeyguardHelper.shouldDelegateIncomingCallToWeb(appVisible, this)) {
       Log.i(TAG, "incoming_call_foreground_call_v3_event callId=" + callId);
-      MainActivity.deliverCallV3IncomingCallEvent(this, payload);
+      MainActivity.deliverCallV3IncomingCallEvent(payload);
       return;
     }
 

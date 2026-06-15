@@ -19,6 +19,7 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { logCallV3 } from "@/lib/call-v3/call-v3-log";
 
 let rememberedReturnPath: string | null = null;
 
@@ -45,6 +46,8 @@ export async function startFreshOutgoingCall(input: {
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   rememberCallV3ReturnPath();
 
+  logCallV3("CALL_DIAL_START", { roomId, callKind: input.callKind });
+
   dispatchCallV3StoreEvent({
     type: "CALL_DIAL_START",
     payload: {
@@ -58,12 +61,14 @@ export async function startFreshOutgoingCall(input: {
 
   const created = await callV3CreateSession({ roomId, callKind: input.callKind });
   if (!created.ok || !created.session?.id) {
-    dispatchCallV3StoreEvent({ type: "CALL_CLEANUP_DONE" });
+    dispatchCallV3StoreEvent({ type: "CALL_DIAL_FAILED" });
     const msg = created.userMessage ?? "통화를 시작할 수 없습니다.";
+    logCallV3("redial_failed", { roomId, callKind: input.callKind, message: msg });
     showMessengerSnackbar(msg);
     return { ok: false, userMessage: msg };
   }
 
+  logCallV3("CALL_CREATED", { sessionId: created.session.id, roomId });
   dispatchCallV3StoreEvent({ type: "CALL_CREATED", payload: { session: created.session } });
   const href = buildCallV3SessionHref(created.session.id);
   input.router.push(href);
