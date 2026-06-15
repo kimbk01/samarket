@@ -3,11 +3,6 @@ import {
   clearAllCommunityCallLocalSessionFlags,
   isCallSessionHostedByActiveCallHost,
   isCommunityMessengerDedicatedCallSessionPath,
-  readActiveDirectCallSessionId,
-  readActiveDirectVideoCallSessionId,
-  shouldSkipCallClientUnmountDispose,
-  transferActiveCommunityCallToHost,
-  writeActiveDirectCallSession,
   writeActiveDirectVideoCallSession,
   writeMinimizedCommunityCallSession,
 } from "@/lib/community-messenger/direct-call-minimize";
@@ -69,18 +64,5 @@ describe("direct-call-minimize host ownership", () => {
     clearAllCommunityCallLocalSessionFlags();
     writeMinimizedCommunityCallSession("s3");
     expect(isCallSessionHostedByActiveCallHost("s3")).toBe(true);
-  });
-
-  it("transferActiveCommunityCallToHost registers host session and detach skip", () => {
-    const cleanup = vi.fn(async () => {});
-    transferActiveCommunityCallToHost({ sessionId: "voice-1", cleanup });
-    expect(readActiveDirectCallSessionId()).toBe("voice-1");
-    expect(isCallSessionHostedByActiveCallHost("voice-1")).toBe(true);
-    expect(shouldSkipCallClientUnmountDispose("voice-1")).toBe(true);
-  });
-
-  it("writeActiveDirectCallSession aliases legacy video key", () => {
-    writeActiveDirectCallSession("s-voice");
-    expect(readActiveDirectVideoCallSessionId()).toBe("s-voice");
   });
 });
