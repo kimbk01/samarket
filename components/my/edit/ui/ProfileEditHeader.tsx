@@ -13,11 +13,11 @@ import {
 /** 고정 1단 헤더 — 표준 섹터 52px·상하 중앙, 저장은 하단 바 */
 export function ProfileEditHeader({
   backHref,
-  onSetupBack,
+  onBack,
 }: {
   backHref: string;
-  /** setup=1 강제 화면 — 뒤로가기도 게이트 defer 후 next 로 이동 */
-  onSetupBack?: () => void;
+  /** 뒤로가기 — dirty 가드·setup defer 등 (true 반환 시 기본 이동 차단) */
+  onBack?: () => void;
 }) {
   const { t } = useI18n();
 
@@ -34,8 +34,8 @@ export function ProfileEditHeader({
                 backHref={backHref}
                 preferHistoryBack
                 interceptBack={() => {
-                  if (!onSetupBack) return false;
-                  onSetupBack();
+                  if (!onBack) return false;
+                  onBack();
                   return true;
                 }}
                 ariaLabel={t("nav_back")}

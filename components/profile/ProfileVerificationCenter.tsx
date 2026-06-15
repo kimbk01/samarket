@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
-import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
+import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import {
   refreshPermissionState,
   requestPermission,
@@ -35,13 +36,18 @@ function permissionToStatus(state: BrowserPermissionState): VerificationStatus {
   return "pending";
 }
 
-function maskPhone(phone: string | null | undefined): string {
-  const raw = String(phone ?? "").trim();
+function maskPhone(profile: ProfileRow): string {
+  const formatted = formatProfilePhoneForDisplay({
+    phone: profile.phone ?? null,
+    phone_country_code: profile.phone_country_code ?? null,
+    phone_number: profile.phone_number ?? null,
+  });
+  const raw = formatted || String(profile.phone ?? "").trim();
   if (!raw) return "";
   const digits = raw.replace(/\D/g, "");
   if (digits.length < 4) return raw;
   const tail = digits.slice(-4);
-  return raw.startsWith("+") ? `${raw.slice(0, 3)} **** ${tail}` : `****-${tail}`;
+  return raw.startsWith("+") ? `${raw.slice(0, 7)} **** ${tail}` : `****-${tail}`;
 }
 
 export function ProfileVerificationCenter({ profile }: Props) {
@@ -56,13 +62,7 @@ export function ProfileVerificationCenter({ profile }: Props) {
   });
   const [busy, setBusy] = useState<string | null>(null);
 
-  const phoneDone = hasFormalMemberContactVerification({
-    phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
-    phone_verified_at: profile.phone_verified_at,
-    provider: profile.provider ?? profile.auth_provider,
-    auth_provider: profile.provider ?? profile.auth_provider,
-    email: profile.email,
-  });
+  const phoneDone = isProfileContactVerified(profile);
 
   const defaultAddress = defaults?.master ?? defaults?.delivery ?? null;
 
@@ -91,10 +91,10 @@ export function ProfileVerificationCenter({ profile }: Props) {
   }, [loadPermissions]);
 
   const phoneLine = useMemo(() => {
-    const masked = maskPhone(profile.phone ?? profile.phone_number ?? null);
+    const masked = maskPhone(profile);
     if (!masked) return phoneDone ? t("profile_verification_phone_done") : t("profile_verification_phone_needed");
     return phoneDone ? `${t("profile_verification_phone_done")} · ${masked}` : t("profile_verification_phone_needed");
-  }, [phoneDone, profile.phone, profile.phone_number, t]);
+  }, [phoneDone, profile, t]);
 
   const requestDevicePermission = useCallback(
     async (kind: DevicePermissionKind) => {

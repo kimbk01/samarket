@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminPermission } from "@/lib/admin/require-admin-permission";
 import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import {
+  buildPhoneVerifiedMemberPatch,
+  buildPhoneVerificationResetPatch,
+  loadProfilePhoneRowSlice,
+} from "@/lib/profile/admin-phone-verification-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,23 +36,11 @@ export async function PATCH(
   }
 
   const action = String(body.action ?? "approve").trim();
+  const phoneRow = action !== "reset" ? await loadProfilePhoneRowSlice(sb, userId) : null;
   const patch =
     action === "reset"
-      ? {
-          phone_verified: false,
-          phone_verification_status: "unverified",
-          phone_verified_at: null,
-          member_status: "pending",
-          verified_member_at: null,
-        }
-      : {
-          phone_verified: true,
-          phone_verification_status: "verified",
-          phone_verified_at: new Date().toISOString(),
-          phone_verification_method: "admin_manual",
-          member_status: "active",
-          verified_member_at: new Date().toISOString(),
-        };
+      ? buildPhoneVerificationResetPatch()
+      : buildPhoneVerifiedMemberPatch({ method: "admin_manual", phoneRow });
 
   const { error } = await sb.from("profiles").update(patch).eq("id", userId);
   if (error) {

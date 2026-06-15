@@ -8,8 +8,8 @@ import {
   isProfileContactVerified,
   resolveProfileLoginEmail,
 } from "@/lib/profile/profile-contact-verification-ui";
+import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import type { ProfileRow } from "@/lib/profile/types";
-import { formatPhMobileDisplayPlus63, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 
 const VERIFIED_VALUE_CLASS = "text-[#00704A]";
 const UNVERIFIED_VALUE_CLASS = "text-red-700";
@@ -75,8 +75,8 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
   const authProvider = resolveProfileAuthProvider(profile);
   const showAuthProviderBadge = loginEmail !== "—";
 
-  const verifiedLabel = safeT("profile_edit_status_verified", {
-    fallbackKo: "인증",
+  const verifiedLabel = safeT("my_phone_status_verified", {
+    fallbackKo: "인증 완료",
     fallbackEn: "Verified",
   });
   const phoneVerificationLabel = safeT("profile_edit_phone_verification_label", {
@@ -95,7 +95,7 @@ export function ProfileReadonlyFields({ profile }: { profile: ProfileRow }) {
   const phonePending = !contactVerified && profile.phone_verification_status === "pending";
   const phoneStatus = contactVerified ? verifiedLabel : phonePending ? pendingLabel : unverifiedLabel;
 
-  const verifiedPhoneDisplay = formatPhMobileDisplayPlus63(parsePhMobileInput(profile.phone ?? ""));
+  const verifiedPhoneDisplay = formatProfilePhoneForDisplay(profile);
 
   return (
     <div className="divide-y divide-[#D4E9E2]/80">

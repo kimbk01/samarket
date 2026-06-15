@@ -10,7 +10,8 @@ import {
   MYPAGE_PROFILE_EDIT_HREF,
   buildMypageItemHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
+import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -34,11 +35,21 @@ export function AccountTab({
   storeAttentionSummary,
 }: Props & { section: string }) {
   const { t } = useI18n();
-  const contactFormal = hasFormalMemberContactVerification({
-    phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
-    auth_provider: profile.provider ?? profile.auth_provider,
-    email: profile.email,
+  const contactVerified = isProfileContactVerified({
+    role: profile.role ?? null,
+    phone_verified: profile.phone_verified,
+    phone_verified_at: profile.phone_verified_at ?? null,
+    provider: profile.provider ?? profile.auth_provider ?? null,
+    auth_provider: profile.auth_provider ?? profile.provider ?? null,
+    email: profile.auth_login_email ?? profile.email ?? null,
+    auth_login_email: profile.auth_login_email ?? profile.email ?? null,
   });
+  const displayPhone =
+    formatProfilePhoneForDisplay({
+      phone: profile.phone ?? null,
+      phone_country_code: profile.phone_country_code ?? null,
+      phone_number: profile.phone_number ?? null,
+    }) || profile.phone?.trim() || t("mypage_comp_account_phone_unregistered");
 
   if (section === "profile") {
     return (
@@ -55,8 +66,8 @@ export function AccountTab({
             <p className="sam-text-helper text-sam-muted">{profile.email ?? t("mypage_comp_account_email_missing_detail")}</p>
             <p className="sam-text-helper text-sam-muted">
               {t("mypage_comp_account_contact_line", {
-                phone: profile.phone?.trim() || t("mypage_comp_account_phone_unregistered"),
-                status: contactFormal ? t("my_phone_status_verified") : t("my_phone_status_unverified"),
+                phone: displayPhone,
+                status: contactVerified ? t("my_phone_status_verified") : t("my_phone_status_unverified"),
               })}
             </p>
             <div className="pt-1">
@@ -152,7 +163,7 @@ export function AccountTab({
           <p className="sam-text-helper text-sam-muted">
             {t("mypage_comp_account_contact_line", {
               phone: profile.phone?.trim() || t("mypage_comp_account_phone_unregistered"),
-              status: contactFormal ? t("my_phone_status_verified") : t("my_phone_status_unverified"),
+              status: contactVerified ? t("my_phone_status_verified") : t("my_phone_status_unverified"),
             })}
           </p>
           <div className="pt-1">

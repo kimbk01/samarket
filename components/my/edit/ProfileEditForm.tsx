@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
@@ -52,20 +51,19 @@ import { ProfileEditHeader } from "@/components/my/edit/ui/ProfileEditHeader";
 import { ProfileEditBottomSaveBar } from "@/components/my/edit/ui/ProfileEditBottomSaveBar";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { PROFILE_EDIT_PAGE_BG_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
+import {
+  buildProfileEditIncompleteBody,
+  captureProfileEditFormSnapshot,
+  computeProfileEditFieldComplete,
+  isProfileEditFormDirty,
+  listIncompleteProfileEditFields,
+  type ProfileEditFieldKey,
+  type ProfileEditFormSnapshot,
+  validateOptionalNickname,
+} from "@/lib/profile/profile-edit-form-helpers";
 
 export const PROFILE_EDIT_FORM_ID = "dibay-profile-edit-form";
-
-function validate(
-  p: { displayName: string },
-  t: (key: MessageKey, vars?: Record<string, string | number>) => string,
-): { displayName?: string } {
-  const errors: { displayName?: string } = {};
-  const trimmed = p.displayName?.trim() ?? "";
-  if (!trimmed) errors.displayName = t("profile_edit_err_nickname_required");
-  else if (trimmed.length < 2) errors.displayName = t("profile_edit_err_nickname_min");
-  else if (trimmed.length > 20) errors.displayName = t("profile_edit_err_nickname_max");
-  return errors;
-}
 
 export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string }) {
   const pathname = usePathname();
@@ -89,7 +87,6 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     );
   }, [searchParams]);
   const isRequiredSlug = useCallback((slug: string) => requiredSlugs.has(slug), [requiredSlugs]);
-  const setupExitRef = useRef(false);
   const { t } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
@@ -119,6 +116,11 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   } | null>(null);
   const [addressNeedsBlock, setAddressNeedsBlock] = useState(false);
   const [setupGateReady, setSetupGateReady] = useState(!setupMode);
+  const [baselineSnapshot, setBaselineSnapshot] = useState<ProfileEditFormSnapshot | null>(null);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [incompleteConfirmOpen, setIncompleteConfirmOpen] = useState(false);
+  const [pendingIncompleteFields, setPendingIncompleteFields] = useState<ProfileEditFieldKey[]>([]);
+  const leaveAfterDiscardRef = useRef<"back" | "setup_dismiss">("back");
 
   const phoneVerifiedForSetup = useMemo(
     () => (profile ? isProfileContactVerified(profile) : false),
@@ -258,9 +260,12 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     if (opts?.freshProfile && merged.id) {
       setSupabaseProfileCache(profileRowToClientProfile(merged));
     }
-    setDisplayName(merged.display_name ?? merged.nickname ?? "");
-    setAvatarUrl(withDefaultAvatar(merged.avatar_url));
-    setBio(merged.bio ?? "");
+    const nextDisplayName = merged.display_name ?? merged.nickname ?? "";
+    setDisplayName(nextDisplayName);
+    const nextAvatarUrl = withDefaultAvatar(merged.avatar_url);
+    setAvatarUrl(nextAvatarUrl);
+    const nextBio = merged.bio ?? "";
+    setBio(nextBio);
     setMapLat(merged.latitude ?? null);
     setMapLng(merged.longitude ?? null);
     setMapFullAddress((merged.full_address ?? "").trim());
@@ -271,6 +276,13 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         : masterAddr
           ? (masterAddr.unitFloorRoom ?? "").trim()
           : (merged.address_detail ?? "").trim(),
+    );
+    setBaselineSnapshot(
+      captureProfileEditFormSnapshot({
+        displayName: nextDisplayName,
+        bio: nextBio,
+        avatarUrl: nextAvatarUrl,
+      }),
     );
     setLoading(false);
     void refreshSetupGate();
@@ -306,6 +318,66 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     invalidateMandatoryAddressGateClientCache();
     router.replace(POST_LOGIN_PATH);
   }, [router]);
+
+  const currentSnapshot = useMemo(
+    () => captureProfileEditFormSnapshot({ displayName, bio, avatarUrl }),
+    [displayName, bio, avatarUrl],
+  );
+  const isDirty = isProfileEditFormDirty(baselineSnapshot, currentSnapshot);
+
+  const executeLeave = useCallback(() => {
+    if (leaveAfterDiscardRef.current === "setup_dismiss") {
+      handleSetupDismiss();
+      return;
+    }
+    router.push(backHref);
+  }, [backHref, handleSetupDismiss, router]);
+
+  const requestLeave = useCallback(
+    (mode: "back" | "setup_dismiss") => {
+      leaveAfterDiscardRef.current = mode;
+      if (isDirty) {
+        setLeaveConfirmOpen(true);
+        return;
+      }
+      executeLeave();
+    },
+    [executeLeave, isDirty],
+  );
+
+  const handleLeaveDiscard = useCallback(() => {
+    setLeaveConfirmOpen(false);
+    executeLeave();
+  }, [executeLeave]);
+
+  const incompleteFieldLabels = useMemo(
+    (): Record<ProfileEditFieldKey, string> => ({
+      nickname: t("profile_edit_incomplete_label_nickname"),
+      phone: t("profile_edit_incomplete_label_phone"),
+      address: t("profile_edit_incomplete_label_address"),
+      dibay_id: t("profile_edit_incomplete_label_dibay_id"),
+    }),
+    [t],
+  );
+
+  const showPhoneVerify = phoneVerificationSettings?.enabled === true;
+
+  const fieldComplete = useMemo(() => {
+    if (!profile) {
+      return {
+        nickname: true,
+        phone: true,
+        address: true,
+        dibay_id: true,
+      };
+    }
+    return computeProfileEditFieldComplete({
+      profile,
+      displayName,
+      addressList,
+      phoneVerificationEnabled: showPhoneVerify,
+    });
+  }, [profile, displayName, addressList, showPhoneVerify]);
 
   const tryNavigateAfterRequirementSave = useCallback(async (profileOverride?: ProfileRow | null) => {
     if (!setupNext) return;
@@ -374,23 +446,25 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    const err = validate({ displayName: displayName.trim() }, t);
+    const err = validateOptionalNickname(displayName, {
+      min: t("profile_edit_err_nickname_min"),
+      max: t("profile_edit_err_nickname_max"),
+    });
     setErrors(err);
     if (Object.keys(err).length > 0) return;
 
+    const trimmedName = displayName.trim();
     const fa = mapFullAddress.trim();
     const hasMap = mapLat != null && mapLng != null && Boolean(fa);
 
-    if (setupMode && addressNeedsBlock && !hasMap) {
-      setMessage({ type: "error", text: t("profile_edit_warn_address_required") });
-      return;
-    }
-
     const payload: ProfileUpdatePayload = {
-      display_name: displayName.trim(),
       avatar_url: withDefaultAvatar(avatarUrl),
       bio: bio.trim() || null,
     };
+
+    if (trimmedName.length >= 2) {
+      payload.display_name = trimmedName;
+    }
 
     if (hasMap) {
       const matched = matchRegionCityFromFullAddress(fa);
@@ -414,10 +488,27 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         type: "ok",
         text: warn ? t("profile_edit_saved_with_warn", { warn }) : t("profile_edit_saved"),
       });
+      setBaselineSnapshot(currentSnapshot);
       await load();
       void refreshProfileLocation();
-      if (setupNext) {
-        await tryNavigateAfterRequirementSave();
+
+      const [freshProfile, freshAddrPack] = await Promise.all([
+        getMyProfile(),
+        fetchMeAddressesListSingleFlight().catch(() => ({ ok: false as const, rows: [] as UserAddressDTO[] })),
+      ]);
+      const freshRows = freshAddrPack.ok ? freshAddrPack.rows : addressList ?? [];
+      const completeAfterSave = computeProfileEditFieldComplete({
+        profile: freshProfile ?? profile!,
+        displayName: trimmedName,
+        addressList: freshRows,
+        phoneVerificationEnabled: showPhoneVerify,
+      });
+      const missing = listIncompleteProfileEditFields(completeAfterSave, showPhoneVerify);
+      if (missing.length > 0) {
+        setPendingIncompleteFields(missing);
+        setIncompleteConfirmOpen(true);
+      } else if (setupNext) {
+        await tryNavigateAfterRequirementSave(freshProfile ?? profile);
       }
     } else {
       setMessage({ type: "error", text: result.error });
@@ -427,7 +518,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   if (loading) {
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
-        <ProfileEditHeader backHref={backHref} onSetupBack={setupMode ? handleSetupDismiss : undefined} />
+        <ProfileEditHeader backHref={backHref} />
         <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("profile_edit_loading_profile")}</div>
       </div>
     );
@@ -436,7 +527,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   if (!profile) {
     return (
       <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
-        <ProfileEditHeader backHref={backHref} onSetupBack={setupMode ? handleSetupDismiss : undefined} />
+        <ProfileEditHeader backHref={backHref} />
         <div className="py-16 text-center text-[15px] text-[#6F4E37]">{t("auth_resource_access_denied")}</div>
       </div>
     );
@@ -451,7 +542,6 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   });
   const sectionHighlight = (slug: string) =>
     isRequiredSlug(slug) ? "rounded-ui-rect ring-2 ring-[#00704A]/40" : undefined;
-  const showPhoneVerify = phoneVerificationSettings?.enabled === true;
   const setupCompleteInput = {
     needsBlock: addressNeedsBlock,
     phoneVerified: phoneSatisfiedForSetup,
@@ -461,9 +551,60 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
   const addressSetupError = setupPending && addressNeedsBlock;
   const phoneSetupError = setupPending && phoneRequiredForSetup && !phoneVerifiedForSetup;
 
+  const incompleteBodyDetail = buildProfileEditIncompleteBody(
+    pendingIncompleteFields,
+    incompleteFieldLabels,
+  );
+
   return (
     <div className={PROFILE_EDIT_PAGE_BG_CLASS}>
-      <ProfileEditHeader backHref={backHref} onSetupBack={setupMode ? handleSetupDismiss : undefined} />
+      <MobileConfirmBottomSheet
+        open={leaveConfirmOpen}
+        onCancel={() => setLeaveConfirmOpen(false)}
+        title={t("profile_edit_leave_title")}
+        description={t("profile_edit_leave_body")}
+        cancelLabel={t("profile_edit_leave_stay")}
+        confirmLabel={t("profile_edit_leave_discard")}
+        confirmTone="danger"
+        onConfirm={handleLeaveDiscard}
+        zIndexClass="z-[70]"
+        ariaLabel={t("profile_edit_leave_aria")}
+        interactionMode="blocking"
+      />
+      <MobileConfirmBottomSheet
+        open={incompleteConfirmOpen}
+        onCancel={() => {
+          setIncompleteConfirmOpen(false);
+          setPendingIncompleteFields([]);
+        }}
+        title={t("profile_edit_save_incomplete_title")}
+        description={
+          incompleteBodyDetail
+            ? `${t("profile_edit_save_incomplete_body")}\n${incompleteBodyDetail}`
+            : t("profile_edit_save_incomplete_body")
+        }
+        cancelLabel={t("profile_edit_save_incomplete_later")}
+        confirmLabel={t("profile_edit_save_incomplete_stay")}
+        confirmTone="primary"
+        onConfirm={() => {
+          setIncompleteConfirmOpen(false);
+          setPendingIncompleteFields([]);
+          const slug = pendingIncompleteFields[0];
+          if (slug) {
+            document.querySelector(`[data-profile-field="${slug}"]`)?.scrollIntoView({
+              behavior: "smooth",
+              block: "start",
+            });
+          }
+        }}
+        zIndexClass="z-[70]"
+        ariaLabel={t("profile_edit_save_incomplete_aria")}
+        interactionMode="blocking"
+      />
+      <ProfileEditHeader
+        backHref={backHref}
+        onBack={() => requestLeave(setupMode ? "setup_dismiss" : "back")}
+      />
 
       <form id={PROFILE_EDIT_FORM_ID} onSubmit={handleSubmit}>
         <ProfileEditFormShell>
@@ -513,6 +654,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                 username={profile.username ?? profile.dibay_id ?? null}
                 usernameComplete={usernameComplete}
                 usernameHighlighted={isRequiredSlug("dibay_id")}
+                nicknameComplete={fieldComplete.nickname}
+                dibayIdComplete={fieldComplete.dibay_id}
                 onDisplayNameChange={setDisplayName}
                 onBioChange={setBio}
                 onDibayIdConfirmed={handleDibayIdConfirmed}
@@ -530,6 +673,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                 addresses={addressList}
                 listError={addressListErr}
                 setupError={addressSetupError}
+                fieldIncomplete={!fieldComplete.address}
               />
             </div>
           </ProfileEditSection>
@@ -543,8 +687,11 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                 <PhoneVerificationBox
                 compact
                 setupError={phoneSetupError}
+                fieldIncomplete={!fieldComplete.phone}
                 snapshot={{
                   phone: profile.phone,
+                  phone_country_code: profile.phone_country_code ?? null,
+                  phone_number: profile.phone_number ?? null,
                   phone_verified: profile.phone_verified,
                   phone_verified_at: profile.phone_verified_at ?? null,
                   member_status: profile.member_status ?? null,
@@ -573,7 +720,7 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         formId={PROFILE_EDIT_FORM_ID}
         backHref={backHref}
         saving={saving}
-        onCancel={setupMode ? handleSetupDismiss : undefined}
+        onCancel={() => requestLeave(setupMode ? "setup_dismiss" : "back")}
       />
     </div>
   );

@@ -8,6 +8,9 @@ import { formatAtUsername } from "@/lib/users/user-label";
 import {
   OWNER_STORE_PROFILE_CONTROL_CLASS,
 } from "@/lib/business/owner-store-stack";
+import {
+  PROFILE_EDIT_FIELD_INCOMPLETE_CLASS,
+} from "@/lib/ui/profile-edit-starbucks-styles";
 
 type ReserveResp =
   | { ok: true; available: boolean; normalized: string }
@@ -22,6 +25,7 @@ type ProfileDibayIdSectionProps = {
   dibayIdLocked: boolean;
   username: string | null;
   highlighted?: boolean;
+  fieldComplete?: boolean;
   onConfirmed: (confirmedDibayId: string) => void | Promise<void>;
 };
 
@@ -30,6 +34,7 @@ export function ProfileDibayIdSection({
   dibayIdLocked,
   username,
   highlighted = false,
+  fieldComplete = true,
   onConfirmed,
 }: ProfileDibayIdSectionProps) {
   const { t, safeT } = useI18n();
@@ -120,6 +125,10 @@ export function ProfileDibayIdSection({
     ? "rounded-ui-rect ring-2 ring-[#00704A]/40 p-3 -m-1"
     : "";
 
+  const inputClass = fieldComplete
+    ? OWNER_STORE_PROFILE_CONTROL_CLASS
+    : `${OWNER_STORE_PROFILE_CONTROL_CLASS} ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}`;
+
   if (dibayIdLocked && lockedId) {
     return (
       <div className={wrapClass} data-profile-field="dibay_id">
@@ -146,10 +155,10 @@ export function ProfileDibayIdSection({
             }}
             onFocus={scrollInputAboveKeyboard}
             placeholder={safeT("profile_edit_dibay_id_placeholder", {
-              fallbackKo: "예) dibay_user",
-              fallbackEn: "e.g. dibay_user",
+              fallbackKo: "아이디를 입력해 주세요",
+              fallbackEn: "Enter your username",
             })}
-            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+            className={inputClass}
           />
           <p className="mt-1 text-[13px] text-[#6F4E37]">{t("profile_edit_dibay_id_helper")}</p>
         </div>

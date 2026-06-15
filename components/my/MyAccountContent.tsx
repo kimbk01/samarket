@@ -9,7 +9,8 @@ import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registr
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { requireAuthAction } from "@/lib/auth/require-auth-action";
-import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { isProfileContactVerified } from "@/lib/profile/profile-contact-verification-ui";
+import { formatProfilePhoneForDisplay } from "@/lib/profile/admin-phone-verification-sync";
 import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { ProfileVerificationCenter } from "@/components/profile/ProfileVerificationCenter";
@@ -64,13 +65,13 @@ export function MyAccountContent() {
 
   const displayNickname = resolveDisplayName(profile) || t("account_nickname");
   const atUsername = formatAtUsername(profile.username ?? null);
-  const contactFormal = hasFormalMemberContactVerification({
-    phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
-    phone_verified_at: profile.phone_verified_at,
-    provider: profile.provider ?? profile.auth_provider,
-    auth_provider: profile.provider ?? profile.auth_provider,
-    email: profile.email,
-  });
+  const displayPhone =
+    formatProfilePhoneForDisplay({
+      phone: profile.phone ?? null,
+      phone_country_code: profile.phone_country_code ?? null,
+      phone_number: profile.phone_number ?? null,
+    }) || profile.phone?.trim() || t("account_missing_phone");
+  const contactVerified = isProfileContactVerified(profile);
   const storeMemberStatus = deriveStoreMemberStatus(profile);
   const consentDone = hasStoreTermsConsent(profile);
   const profileCompleted = profile.profile_completed === true;
@@ -115,7 +116,7 @@ export function MyAccountContent() {
           </div>
           <div>
             <dt className="text-sam-muted">{t("account_phone")}</dt>
-            <dd className="mt-0.5 text-sam-fg">{profile.phone ?? t("account_missing_phone")}</dd>
+            <dd className="mt-0.5 text-sam-fg">{displayPhone}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{t("account_realname")}</dt>
@@ -130,8 +131,8 @@ export function MyAccountContent() {
           <div>
             <dt className="text-sam-muted">{t("account_phone_verification")}</dt>
             <dd className="mt-0.5 text-sam-fg">
-              {contactFormal
-                ? t("account_verified")
+              {contactVerified
+                ? t("my_phone_status_verified")
                 : phoneVerificationStatus === "pending"
                   ? t("account_pending")
                   : t("account_unverified")}
@@ -144,7 +145,7 @@ export function MyAccountContent() {
             </dd>
           </div>
         </dl>
-        {!contactFormal ? (
+        {!contactVerified ? (
           <Link
             href="/my/account/phone-verification"
             className="mt-4 block rounded-ui-rect border border-signature/20 bg-signature/5 px-4 py-3 text-center sam-text-body font-semibold text-signature"

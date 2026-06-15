@@ -38,19 +38,21 @@ describe("profile-contact-verification-ui", () => {
         auth_provider: "google",
         email: "user@example.com",
         auth_login_email: "user@example.com",
-      })
+      }),
     ).toBe(false);
+  });
 
+  it("isProfileContactVerified treats admin-approved phone_verified as verified", () => {
     expect(
       isProfileContactVerified({
         role: "user",
         phone_verified: true,
-        phone_verified_at: null,
+        phone_verified_at: "2026-06-15T00:00:00.000Z",
         provider: "google",
         auth_provider: "google",
         email: "user@example.com",
         auth_login_email: "user@example.com",
-      })
+      }),
     ).toBe(true);
   });
 });

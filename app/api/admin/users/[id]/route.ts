@@ -7,7 +7,14 @@ import { mapProfileStatusToModeration } from "@/lib/admin-users/moderation-statu
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
-import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+import {
+  profilePhoneStorageFieldsFromDb09,
+} from "@/lib/profile/resolve-profile-phone";
+import { syncPhoneVerifiedServerCache } from "@/lib/auth/phone-otp-server-sync";
+import {
+  buildPhoneVerifiedMemberPatch,
+  loadProfilePhoneRowSlice,
+} from "@/lib/profile/admin-phone-verification-sync";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
 export const runtime = "nodejs";
@@ -293,6 +300,7 @@ function phoneStatusToPatch(status: (typeof PHONE_VERIFICATION_STATUSES)[number]
         member_status: "active",
         verified_member_at: new Date().toISOString(),
         status: "verified_user",
+        preferred_country: "PH",
       };
     case "pending":
       return {
@@ -595,7 +603,12 @@ export async function PATCH(
     Object.assign(patch, memberTypeToProfileAndTestRole(memberTypeToApply).profile);
   }
   if (phoneStatus !== null) {
-    Object.assign(patch, phoneStatusToPatch(phoneStatus));
+    if (phoneStatus === "verified") {
+      const phoneRow = await loadProfilePhoneRowSlice(sb, userId);
+      Object.assign(patch, buildPhoneVerifiedMemberPatch({ method: "admin_manual", phoneRow }));
+    } else {
+      Object.assign(patch, phoneStatusToPatch(phoneStatus));
+    }
   }
   if (nextNickname !== null) {
     if (await isNicknameTaken(sb, userId, nextNickname)) {
@@ -608,6 +621,10 @@ export async function PATCH(
   const { error: updateError } = await sb.from("profiles").update(patch).eq("id", userId);
   if (updateError) {
     return NextResponse.json({ ok: false, error: mapProfileUpdateError(updateError.message || "update_failed") }, { status: 500 });
+  }
+
+  if (phoneStatus !== null) {
+    await syncPhoneVerifiedServerCache(userId);
   }
 
   if (memberTypeToApply !== null || nextNickname !== null) {

@@ -8,10 +8,11 @@ import {
 } from "@/lib/phone/philippines-phone";
 import { PH_MOBILE_PLUS63_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatPhMobileDisplayPlus63, normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
-import { PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
+import { PROFILE_EDIT_FIELD_INCOMPLETE_CLASS, PROFILE_EDIT_INPUT_CLASS, PROFILE_EDIT_PRIMARY_BTN_CLASS } from "@/lib/ui/profile-edit-starbucks-styles";
 import { isValidPhoneOtpCodeInput, PHONE_OTP_CODE_LENGTH } from "@/lib/auth/phone-otp-contract";
 import { resolvePhoneOtpUiError } from "@/lib/auth/phone-otp-client-errors";
 import { hasPhilippinePhoneVerification } from "@/lib/auth/store-member-policy";
+import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 
 type VerificationSettings = {
   enabled: boolean;
@@ -22,6 +23,8 @@ type VerificationSettings = {
 
 type VerifySnapshot = {
   phone: string | null;
+  phone_country_code?: string | null;
+  phone_number?: string | null;
   phone_verified: boolean;
   phone_verified_at?: string | null;
   member_status?: string | null;
@@ -32,17 +35,27 @@ type VerifySnapshot = {
   settings?: VerificationSettings;
 };
 
+function resolveSnapshotPhoneDb09(snapshot: VerifySnapshot): string | null {
+  return resolveProfilePhoneDb09({
+    phone: snapshot.phone,
+    phone_country_code: snapshot.phone_country_code,
+    phone_number: snapshot.phone_number,
+  });
+}
+
 export function PhoneVerificationBox({
   snapshot,
   onRefreshProfile,
   compact = false,
   setupError = false,
+  fieldIncomplete = false,
 }: {
   snapshot: VerifySnapshot;
   onRefreshProfile: () => Promise<void>;
   /** 프로필 수정 — 안내 문구·테두리 최소화 */
   compact?: boolean;
   setupError?: boolean;
+  fieldIncomplete?: boolean;
 }) {
   const { t } = useI18n();
   const [phone, setPhone] = useState(snapshot.phone ?? "");
@@ -54,6 +67,8 @@ export function PhoneVerificationBox({
   const [error, setError] = useState<string | null>(null);
   const [cooldownUntil, setCooldownUntil] = useState(0);
 
+  const resolvedSnapshotPhone = useMemo(() => resolveSnapshotPhoneDb09(snapshot), [snapshot]);
+
   const verified = hasPhilippinePhoneVerification({
     role: snapshot.role ?? null,
     phone_verified: snapshot.phone_verified === true,
@@ -64,16 +79,24 @@ export function PhoneVerificationBox({
   });
 
   useEffect(() => {
-    setPhone(snapshot.phone ?? "");
+    setPhone(resolvedSnapshotPhone ?? "");
     setAllowEdit(!verified);
-  }, [snapshot.phone, verified]);
+  }, [resolvedSnapshotPhone, verified]);
 
   const settings = snapshot.settings;
   const cooldownSec = Math.max(1, Number(settings?.resend_cooldown_seconds ?? 60));
   const now = Date.now();
   const cooldownLeft = Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
   const normalizedPhone = useMemo(() => normalizePhilippinesPhoneNumber(phone), [phone]);
-  const phoneForApi = useMemo(() => normalizePhMobileDb(phone) ?? normalizedPhone, [phone, normalizedPhone]);
+  const phoneForApi = useMemo(() => {
+    const db = normalizePhMobileDb(phone);
+    if (db) return db;
+    const e164 = normalizedPhone;
+    if (isValidPhilippinesMobilePhone(e164)) {
+      return normalizePhMobileDb(parsePhMobileInput(e164)) ?? e164;
+    }
+    return e164;
+  }, [phone, normalizedPhone]);
   const validPhone = isValidPhilippinesMobilePhone(normalizedPhone);
 
   const requestOtp = async () => {
@@ -182,7 +205,10 @@ export function PhoneVerificationBox({
   const shellClass = compact
     ? `space-y-3${setupShellClass ? ` ${setupShellClass}` : ""}`
     : `space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4${setupShellClass ? ` ${setupShellClass}` : ""}`;
-  const inputClass = compact ? PROFILE_EDIT_INPUT_CLASS : "sam-input";
+  const showFieldIncomplete = fieldIncomplete && !verified;
+  const inputClass = compact
+    ? `${PROFILE_EDIT_INPUT_CLASS}${showFieldIncomplete ? ` ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}` : ""}`
+    : `sam-input${showFieldIncomplete ? ` ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}` : ""}`;
   const verifyBtnClass = compact
     ? PROFILE_EDIT_PRIMARY_BTN_CLASS + " px-3 py-2 text-[13px]"
     : "rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white disabled:opacity-50";
@@ -190,7 +216,11 @@ export function PhoneVerificationBox({
     ? "rounded-ui-rect border border-[#00704A]/25 px-3 py-2 text-[13px] font-semibold text-[#00704A] disabled:opacity-50"
     : "rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body font-medium text-sam-fg disabled:opacity-50";
 
-  const displayPhone = formatPhMobileDisplayPlus63(parsePhMobileInput(phone)) || phone;
+  const verifiedDisplayPhone =
+    formatPhMobileDisplayPlus63(resolvedSnapshotPhone ?? "") ||
+    formatPhMobileDisplayPlus63(snapshot.phone ?? "") ||
+    snapshot.phone ||
+    "—";
 
   return (
     <div className={shellClass}>
@@ -216,7 +246,7 @@ export function PhoneVerificationBox({
               {t("my_phone_status_verified")}
             </p>
             <p className={compact ? "text-[14px] text-[#1E3932]" : "sam-text-body-secondary text-emerald-700"}>
-              {formatPhMobileDisplayPlus63(snapshot.phone ?? "") || snapshot.phone || "—"}
+              {verifiedDisplayPhone}
             </p>
           </div>
           <button
@@ -237,7 +267,7 @@ export function PhoneVerificationBox({
             <input
               type="tel"
               inputMode="tel"
-              value={displayPhone}
+              value={formatPhMobileDisplayPlus63(parsePhMobileInput(phone)) || phone}
               onChange={(e) => setPhone(parsePhMobileInput(e.target.value))}
               placeholder={PH_MOBILE_PLUS63_PLACEHOLDER}
               className={inputClass}

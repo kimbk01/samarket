@@ -29,6 +29,13 @@ export const PROFILE_EDIT_FIELD_LABEL_CLASS =
 export const PROFILE_EDIT_FIELD_CONTROL_CLASS =
   "w-full rounded-ui-rect border border-[#D4E9E2] bg-white px-3 py-2.5 text-[15px] font-medium text-[#1E3932] placeholder:text-[#6F4E37]/45 focus:border-[#00704A] focus:outline-none focus:ring-2 focus:ring-[#00704A]/15";
 
+/** 필수 항목 미완료 — 빨간 외곽선 (완료 시 기본 border 로 복귀) */
+export const PROFILE_EDIT_FIELD_INCOMPLETE_CLASS =
+  "border-red-400 focus:border-red-500 focus:ring-red-200/80";
+
+export const PROFILE_EDIT_ADDRESS_INCOMPLETE_CLASS =
+  "border-red-400 bg-red-50/40 text-red-700";
+
 /** 단독 필드(래퍼 없음) — 상단 여백 포함 */
 export const PROFILE_EDIT_INPUT_CLASS = `mt-1 ${PROFILE_EDIT_FIELD_CONTROL_CLASS}`;
 

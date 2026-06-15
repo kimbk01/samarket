@@ -4,6 +4,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AutoGrowTextarea } from "@/components/write/shared/AutoGrowTextarea";
 import {
   PROFILE_EDIT_FIELD_CONTROL_CLASS,
+  PROFILE_EDIT_FIELD_INCOMPLETE_CLASS,
   PROFILE_EDIT_STATUS_TEXTAREA_CLASS,
 } from "@/lib/ui/profile-edit-starbucks-styles";
 import { ProfileDibayIdSection } from "@/components/my/edit/ProfileDibayIdSection";
@@ -19,10 +20,18 @@ export interface ProfileBasicFieldsProps {
   username: string | null;
   usernameComplete: boolean;
   usernameHighlighted?: boolean;
+  nicknameComplete?: boolean;
+  dibayIdComplete?: boolean;
   onDisplayNameChange: (v: string) => void;
   onBioChange: (v: string) => void;
   onDibayIdConfirmed: (confirmedDibayId: string) => void | Promise<void>;
   errors?: { displayName?: string };
+}
+
+function fieldControlClass(complete: boolean): string {
+  return complete
+    ? PROFILE_EDIT_FIELD_CONTROL_CLASS
+    : `${PROFILE_EDIT_FIELD_CONTROL_CLASS} ${PROFILE_EDIT_FIELD_INCOMPLETE_CLASS}`;
 }
 
 export function ProfileBasicFields({
@@ -33,6 +42,8 @@ export function ProfileBasicFields({
   username,
   usernameComplete,
   usernameHighlighted = false,
+  nicknameComplete = true,
+  dibayIdComplete = true,
   onDisplayNameChange,
   onBioChange,
   onDibayIdConfirmed,
@@ -53,7 +64,7 @@ export function ProfileBasicFields({
           value={displayName}
           onChange={(e) => onDisplayNameChange(e.target.value)}
           placeholder={t("profile_edit_nickname_placeholder")}
-          className={PROFILE_EDIT_FIELD_CONTROL_CLASS}
+          className={fieldControlClass(nicknameComplete)}
           autoComplete="nickname"
           maxLength={20}
         />
@@ -63,16 +74,12 @@ export function ProfileBasicFields({
       </ProfileEditFieldRow>
 
       <ProfileEditFieldRow label={t("profile_edit_username_label")}>
-        {!usernameComplete ? (
-          <p className="mb-2 text-[13px] font-semibold text-red-600" role="status">
-            {t("profile_edit_username_missing")}
-          </p>
-        ) : null}
         <ProfileDibayIdSection
           dibayId={dibayId}
           dibayIdLocked={dibayIdLocked}
           username={username}
           highlighted={usernameHighlighted}
+          fieldComplete={dibayIdComplete}
           onConfirmed={onDibayIdConfirmed}
         />
       </ProfileEditFieldRow>
