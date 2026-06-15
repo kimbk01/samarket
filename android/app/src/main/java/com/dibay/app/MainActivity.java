@@ -29,6 +29,7 @@ public class MainActivity extends BridgeActivity {
   public static final String PENDING_AT_KEY = "pending_at";
   private static final String LAST_ACCEPT_CALL_ID_KEY = "last_accept_call_id";
   private static final String LAST_ACCEPT_CALL_AT_KEY = "last_accept_call_at";
+  private static final long PENDING_ROUTE_TTL_MS = 60_000L;
   private static final long ACCEPT_ROUTE_DEDUP_MS = 8_000L;
   private static final int[] PENDING_ROUTE_RETRY_DELAYS_MS = {120, 450, 900, 2_000, 4_000};
   private static volatile boolean appVisible = false;

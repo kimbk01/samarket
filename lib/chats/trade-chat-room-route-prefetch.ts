@@ -20,9 +20,14 @@ import {
 import {
   noteTradeChatEntryJourneyMilestone,
 } from "@/lib/trade/trade-chat-entry-journey-perf";
+import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 
 const PREFETCH_HREF_TTL_MS = 60_000;
 const RSC_FLIGHT_WAIT_CAP_MS = 12_000;
+/** compose 「이동 중」 셸 — 스냅샷 GET 상한(무한 대기 금지) */
+const TRADE_MESSENGER_SNAPSHOT_PREFETCH_CAP_MS_COMPOSE = 6_000;
+/** 기존 방 탭 — 캐시 미스 시 짧게 합류(목록 forward nav 와 유사) */
+const TRADE_MESSENGER_SNAPSHOT_PREFETCH_CAP_MS_EXISTING = 1_400;
 const PENDING_PREFETCH_KEY = "samarket:trade.pendingRoomRoutePrefetch" as const;
 
 const prefetchedHrefUntil = new Map<string, number>();
@@ -212,3 +217,43 @@ export function tryConsumeScheduledTradeHubRoomRoutePrefetch(
   if (!pending) return;
   void prefetchTradeHubRoomRouteBeforeNavigate(router, pending.dest, pending.roomId);
 }
+
+/**
+ * 거래 채팅 → 메신저 방 진입 직전 스냅샷 캐시 시드.
+ * `clientShellPlaceholder` 구간(버퍼링 스피너)을 줄이기 위해 compose·기존 방 탭에서 사용.
+ */
+export async function prefetchTradeMessengerRoomSnapshotWithCap(
+  roomId: string,
+  opts?: { capMs?: number; journey?: boolean }
+): Promise<boolean> {
+  const id = roomId.trim();
+  if (!id) return false;
+  const capMs = opts?.capMs ?? TRADE_MESSENGER_SNAPSHOT_PREFETCH_CAP_MS_COMPOSE;
+  const track = opts?.journey !== false && Boolean(readTradeChatEntryMark());
+  if (track) {
+    noteTradeChatEntryJourneyMilestone("room_snapshot_prefetch_start");
+  }
+  const wallT0 = Date.now();
+  let ok = false;
+  try {
+    ok = await Promise.race([
+      prefetchCommunityMessengerRoomSnapshot(id),
+      new Promise<false>((resolve) => {
+        window.setTimeout(() => resolve(false), capMs);
+      }),
+    ]);
+  } catch {
+    ok = false;
+  }
+  if (track) {
+    noteTradeChatEntryJourneyMilestone("room_snapshot_prefetch_done");
+    recordTradeC2CMetricMs("room_snapshot_prefetch_wall_ms", Math.max(0, Date.now() - wallT0));
+    recordTradeC2CMetricMs("room_snapshot_prefetch_hit", ok ? 1 : 0);
+  }
+  return ok;
+}
+
+export const tradeMessengerSnapshotPrefetchCapMs = {
+  compose: TRADE_MESSENGER_SNAPSHOT_PREFETCH_CAP_MS_COMPOSE,
+  existing: TRADE_MESSENGER_SNAPSHOT_PREFETCH_CAP_MS_EXISTING,
+} as const;

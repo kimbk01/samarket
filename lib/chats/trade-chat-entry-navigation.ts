@@ -17,7 +17,11 @@ import {
   tradeHubChatRoomHref,
 } from "@/lib/chats/surfaces/trade-chat-surface";
 import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
-import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { isRoomSnapshotFresh, prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  prefetchTradeMessengerRoomSnapshotWithCap,
+  tradeMessengerSnapshotPrefetchCapMs,
+} from "@/lib/chats/trade-chat-room-route-prefetch";
 import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
 import { setTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
 
@@ -41,6 +45,8 @@ export function openExistingTradeChat(
   const roomId = input.roomId.trim();
   if (!roomId) return;
   const navRoomId = input.messengerRoomId?.trim() || roomId;
+  const cmId = input.messengerRoomId?.trim();
+  const dest = tradeHubChatRoomHref(navRoomId, input.sourceHint ?? null);
   startTradeChatEntryMark({
     mode: "existing",
     productId: input.productId,
@@ -48,10 +54,15 @@ export function openExistingTradeChat(
     sourceHint: input.sourceHint ?? null,
   });
   warmChatRoomEntryById(roomId, input.sourceHint ?? null);
-  if (input.messengerRoomId?.trim()) {
-    void prefetchCommunityMessengerRoomSnapshot(input.messengerRoomId.trim());
-  }
-  router.push(tradeHubChatRoomHref(navRoomId, input.sourceHint ?? null));
+  void router.prefetch(dest);
+  void (async () => {
+    if (cmId && !isRoomSnapshotFresh(cmId)) {
+      await prefetchTradeMessengerRoomSnapshotWithCap(cmId, {
+        capMs: tradeMessengerSnapshotPrefetchCapMs.existing,
+      });
+    }
+    router.push(dest);
+  })();
 }
 
 /**

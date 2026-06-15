@@ -55,6 +55,8 @@ export type TradeC2CPerfMetricKey =
   | "room_prefetch_done_ms"
   | "room_prefetch_wall_ms"
   | "room_prefetch_hit"
+  | "room_snapshot_prefetch_wall_ms"
+  | "room_snapshot_prefetch_hit"
   | "resolve_done_to_prefetch_start_ms"
   | "prefetch_done_to_router_replace_ms"
   | "cm_room_bootstrap_fetch_ms"

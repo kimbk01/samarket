@@ -2,7 +2,7 @@
 
 /**
  * 신규 거래 채팅: 상품 상세는 여기로만 온다 — `openCreateTradeChat` 가 방 생성을 기다리지 않음.
- * resolve 전에 상품 shell 즉시 표시 → 백그라운드 room 확정 후 메신저 방으로 replace.
+ * resolve 전에 상품 shell 즉시 표시 → room 확정 후 메신저 스냅샷·RSC prefetch 병렬 await → replace.
  * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
  */
 
@@ -20,11 +20,14 @@ import {
 import { patchTradeChatEntryMark, readTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 import { emitTradeChatRoomResolved } from "@/lib/chats/trade-chat-room-resolved-event";
 import { warmChatRoomEntryById } from "@/lib/chats/prewarm-chat-room-route";
-import { prefetchTradeHubRoomRouteBeforeNavigate, tryConsumeScheduledTradeHubRoomRoutePrefetch } from "@/lib/chats/trade-chat-room-route-prefetch";
+import {
+  prefetchTradeHubRoomRouteBeforeNavigate,
+  prefetchTradeMessengerRoomSnapshotWithCap,
+  tryConsumeScheduledTradeHubRoomRoutePrefetch,
+} from "@/lib/chats/trade-chat-room-route-prefetch";
 import { prefetchTradeChatRoomClientChunks } from "@/lib/trade/prefetch-trade-chat-room-client-chunks";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import { requestMessengerHomeListMergeFromHomeSummary } from "@/lib/community-messenger/request-messenger-home-list-merge-from-summary";
-import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import { readTradeChatComposePreview } from "@/lib/chats/trade-chat-compose-preview-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -109,11 +112,11 @@ export function TradeChatComposeClient({
         prefetchTradeChatRoomClientChunks();
         warmChatRoomEntryById(result.roomId, result.roomSource);
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
-        if (result.messengerRoomId?.trim()) {
-          void prefetchCommunityMessengerRoomSnapshot(result.messengerRoomId.trim());
-        }
         const dest = tradeHubChatRoomHref(navRoomId, result.roomSource);
-        await prefetchTradeHubRoomRouteBeforeNavigate(router, dest, navRoomId);
+        await Promise.all([
+          prefetchTradeHubRoomRouteBeforeNavigate(router, dest, navRoomId),
+          prefetchTradeMessengerRoomSnapshotWithCap(navRoomId),
+        ]);
         const mark = patchTradeChatEntryMark({
           roomId: result.roomId,
           sourceHint: result.roomSource,

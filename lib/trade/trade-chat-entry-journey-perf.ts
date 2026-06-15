@@ -17,6 +17,8 @@ export type TradeChatEntryJourneyMilestone =
   | "resolve_fetch_done"
   | "room_prefetch_start"
   | "room_prefetch_done"
+  | "room_snapshot_prefetch_start"
+  | "room_snapshot_prefetch_done"
   | "router_replace_called"
   | "room_page_mounted"
   | "room_rsc_flight_done"
