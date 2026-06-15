@@ -77,3 +77,28 @@ public final class CallSessionPatchHelper {
     }
   }
 }
+
+/** Reads Capacitor `server.url` from packaged assets. */
+final class DibayServerOrigin {
+  private DibayServerOrigin() {}
+
+  static String resolve(Context context) {
+    if (context == null) return null;
+    try (InputStream in = context.getAssets().open("capacitor.config.json");
+        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+      StringBuilder sb = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        sb.append(line);
+      }
+      org.json.JSONObject root = new org.json.JSONObject(sb.toString());
+      org.json.JSONObject server = root.optJSONObject("server");
+      if (server == null) return null;
+      String url = server.optString("url", "").trim();
+      if (url.endsWith("/")) return url.substring(0, url.length() - 1);
+      return url.isEmpty() ? null : url;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+}
