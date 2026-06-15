@@ -106,7 +106,8 @@ import {
   minimizeCommunityCallToPip,
   shouldSkipCallClientUnmountDispose,
   clearMinimizedCommunityCallSessionFlags,
-  writeActiveDirectVideoCallSession,
+  transferActiveCommunityCallToHost,
+  writeActiveDirectCallSession,
   clearAllCommunityCallLocalSessionFlags,
   isCommunityMessengerDedicatedCallSessionPath,
 } from "@/lib/community-messenger/direct-call-minimize";
@@ -1454,6 +1455,20 @@ export function CommunityMessengerCallClient({
       cmCallAudioCleanup("call_client_route_unmount", { sessionId });
       joiningRef.current = false;
       if (shouldSkipCallClientUnmountDispose(sessionId)) return;
+      const s = sessionRef.current;
+      if (
+        s?.id === sessionId &&
+        s.sessionMode === "direct" &&
+        s.status === "active" &&
+        joinedRef.current
+      ) {
+        transferActiveCommunityCallToHost({
+          sessionId: s.id,
+          cleanup: () => disposeCallMedia({ domAudioNuclear: false }),
+        });
+        notifyCommunityCallHostSync();
+        return;
+      }
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
   }, [disposeCallMedia, sessionId]);
@@ -2440,6 +2455,105 @@ export function CommunityMessengerCallClient({
       }
     })();
   }, [appendTerminalCallHistory, beginRingingCallDismiss, disposeCallMedia, scheduleSilentRefresh, session, t]);
+
+  /** FCM·알림 딥링크 등 — 세션 fetch 전에도 수신 거절/수락이 동작해야 함 */
+  const hydrateRejectIncomingCall = useCallback(async () => {
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
+    if (!tryClaimIncomingCallReject(sessionId)) return;
+    logCallFlow("call_reject_pressed", { sessionId, source: "call_client_hydrate" });
+    setBusy("reject");
+    stopCallRingtone("reject_pressed", sessionId);
+    dismissAllIncomingCallNotificationsFireAndForget(sessionId);
+    try {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject" }),
+      });
+      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      if (!res.ok || !json.ok) {
+        setErrorMessage(t("cm_ui_call_reject_failed"));
+        return;
+      }
+      logCallFlow("call_reject_sent", { sessionId });
+      runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
+      navigateBackFromCommunityMessengerCall(router, null);
+    } finally {
+      releaseIncomingCallReject(sessionId);
+      setBusy(null);
+    }
+  }, [router, sessionId, t]);
+
+  const hydrateAcceptIncomingCall = useCallback(async () => {
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
+    if (!tryClaimIncomingCallAccept(sessionId)) return;
+    logCallFlow("call_accept_pressed", { sessionId, source: "call_client_hydrate" });
+    setBusy("accept");
+    setCalleeVideoConnectingShell(true);
+    unlockCommunityMessengerCallPlaybackFromUserGesture();
+    const hydrateKind = searchParams.get("kind") === "video" ? "video" : "voice";
+    const permission = await ensureCallCanUseMedia(hydrateKind);
+    if (!permission.ok) {
+      releaseIncomingCallAccept(sessionId);
+      setCalleeVideoConnectingShell(false);
+      setBusy(null);
+      setCallPermissionBlocked(true);
+      setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(hydrateKind)));
+      return;
+    }
+    try {
+      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+        cache: "no-store",
+      });
+      const json = (await res.json().catch(() => ({}))) as SessionResponse;
+      const loaded = res.ok && json.ok && json.session ? json.session : null;
+      if (!loaded) {
+        setErrorMessage(t("cm_ui_call_session_missing"));
+        setCalleeVideoConnectingShell(false);
+        return;
+      }
+      if (loaded.isMineInitiator || loaded.status !== "ringing") {
+        setSession(loaded);
+        setLoading(false);
+        setCalleeVideoConnectingShell(false);
+        return;
+      }
+      setSession(loaded);
+      sessionRef.current = loaded;
+      setLoading(false);
+      await acceptIncoming();
+    } catch {
+      setCalleeVideoConnectingShell(false);
+      setErrorMessage(t("cm_ui_call_accept_failed"));
+    } finally {
+      setBusy(null);
+    }
+  }, [acceptIncoming, searchParams, sessionId, t]);
+
+  const autoHydrateActionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!loading || session) return;
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
+    if (searchParams.get("kind")) return;
+    if (requestedAction !== "accept" && requestedAction !== "reject") return;
+    const key = `${sessionId}:${requestedAction}`;
+    if (autoHydrateActionRef.current === key) return;
+    autoHydrateActionRef.current = key;
+    if (requestedAction === "reject") {
+      void hydrateRejectIncomingCall();
+      return;
+    }
+    void hydrateAcceptIncomingCall();
+  }, [
+    hydrateAcceptIncomingCall,
+    hydrateRejectIncomingCall,
+    loading,
+    requestedAction,
+    searchParams,
+    session,
+    sessionId,
+  ]);
 
   useEffect(() => {
     if (requestedAction !== "reject") return;
@@ -3492,15 +3606,15 @@ export function CommunityMessengerCallClient({
 
   /**
    * 전용 `/calls/:id` 라우트는 페이지 CallClient 가 단일 소유 — host `writeActive` 시 이중 마운트·Agora 충돌.
-   * 다른 화면으로 나간 뒤 host 상주(minimize·PiP)할 때만 active 플래그를 쓴다.
+   * 다른 화면으로 나간 뒤 host 상주(minimize·PiP·음성 포함)할 때 active 플래그를 쓴다.
    */
   useEffect(() => {
     const s = sessionRef.current;
-    if (!s?.id || s.callKind !== "video" || !joinedRef.current || s.status !== "active") return;
+    if (!s?.id || !joinedRef.current || s.status !== "active" || s.sessionMode !== "direct") return;
     if (isCommunityMessengerDedicatedCallSessionPath(pathname, s.id)) return;
-    writeActiveDirectVideoCallSession(s.id);
+    writeActiveDirectCallSession(s.id);
     notifyCommunityCallHostSync();
-  }, [joined, pathname, session?.callKind, session?.id, session?.status]);
+  }, [joined, pathname, session?.id, session?.sessionMode, session?.status]);
 
   /** 조건부 return 위에 두어야 함 — 그 아래에서 훅을 호출하면 렌더마다 훅 개수가 달라져 런타임 오류가 난다. */
   const closeTerminalView = useCallback(() => {
@@ -3691,7 +3805,7 @@ export function CommunityMessengerCallClient({
     const livePresentation =
       presentation === "minimized"
         ? "minimized"
-        : joined && session?.callKind === "video" && session.status === "active"
+        : joined && session?.status === "active"
           ? "fullscreen"
           : "idle";
     syncCommunityMessengerCallRuntimeSurface({
@@ -3715,9 +3829,68 @@ export function CommunityMessengerCallClient({
   ]);
 
   if (loading && !session) {
-    /** 시드 없이 진입한 짧은 구간 — 보라 플레이스홀더(`RouteLoading`)는 실제 통화 UI 와 겹쳐 보여 동일 껍데기로만 표시 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
     const hydrateKind = searchParams.get("kind") === "video" ? "video" : "voice";
+    const isIncomingCalleeHydrate =
+      !isCommunityMessengerTempCallSessionId(sessionId) && !searchParams.get("kind");
+
+    if (isIncomingCalleeHydrate) {
+      const incomingHydrateVm: CallScreenViewModel = {
+        visualTheme: "starbucks",
+        mode: hydrateKind,
+        direction: "incoming",
+        phase: requestedAction === "accept" || busy === "accept" ? "connecting" : "ringing",
+        peerLabel: t("cm_ui_call_label"),
+        peerAvatarUrl: null,
+        statusText:
+          hydrateKind === "video" ? t("cm_ui_incoming_video_ringing") : t("cm_ui_incoming_voice_ringing"),
+        subStatusText: t("cm_ui_call_loading_session"),
+        topLabel: null,
+        onTopLabelClick: null,
+        footerNote: null,
+        connectionLabel: null,
+        connectedAt: null,
+        endedAt: null,
+        endedDurationSeconds: null,
+        mediaState: {
+          micEnabled: true,
+          speakerEnabled: true,
+          cameraEnabled: false,
+          localVideoMinimized: true,
+        },
+        onBack: dismissHydrate,
+        primaryActions: [
+          {
+            id: "reject",
+            label: busy === "reject" ? t("cm_ui_rejecting") : t("cm_ui_reject"),
+            icon: "decline",
+            tone: "danger",
+            disabled: busy === "reject" || busy === "accept",
+            onClick: () => void hydrateRejectIncomingCall(),
+          },
+          {
+            id: "accept",
+            label: busy === "accept" ? t("cm_ui_connecting") : t("cm_ui_accept"),
+            icon: "accept",
+            tone: "accept",
+            disabled: busy === "accept" || busy === "reject",
+            onClick: () => void hydrateAcceptIncomingCall(),
+          },
+        ],
+        showRemoteVideo: false,
+        showLocalVideo: false,
+        videoPipLayout: null,
+        participantsSummary: null,
+        autoCloseMs: null,
+      };
+      return (
+        <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <CallScreen vm={incomingHydrateVm} variant="overlay" />
+        </div>
+      );
+    }
+
+    /** 시드 없이 진입한 짧은 구간 — 발신 tmp_·kind 쿼리 전용 */
     const hydrateVm: CallScreenViewModel = {
       visualTheme: "starbucks",
       mode: hydrateKind,

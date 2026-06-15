@@ -55,6 +55,7 @@ import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messeng
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
+import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
@@ -1430,36 +1431,31 @@ export function GlobalCommunityMessengerIncomingCall() {
         callKind: visibleSession.callKind,
       })
     : null;
+  /**
+   * 네이티브: 배너 대신 전역 수신 오버레이(채팅·홈 유지).
+   * 웹: `full-screen` surface 또는 네이티브와 동일하게 `top-banner` → 오버레이 승격.
+   */
+  const renderIncomingFullScreenOverlay = Boolean(
+    visibleSession &&
+      !hideGlobalIncomingOverlay &&
+      minimizedSessionId !== visibleSession.id &&
+      shouldRenderInternalIncomingCallUi(incomingSurface) &&
+      (incomingSurface === "full-screen" ||
+        (isCapacitorNativePlatform() && incomingSurface === "top-banner"))
+  );
   const renderIncomingBanner = Boolean(
     visibleSession && incomingSurface === "top-banner" && !isCapacitorNativePlatform()
   );
   const nativeIncomingSession =
     visibleSession && shouldRenderInternalIncomingCallUi(incomingSurface) ? visibleSession : null;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
-  const nativeAutoNavigatedSessionRef = useRef<string | null>(null);
 
-  /** DiBay 네이티브 앱 — 수신 시 상단 배너 대신 전용 통화 전체 화면으로 즉시 진입 */
-  useEffect(() => {
-    if (!visibleSession) {
-      nativeAutoNavigatedSessionRef.current = null;
-      return;
-    }
-    if (!isCapacitorNativePlatform()) return;
-    if (hideGlobalIncomingOverlay) return;
-    const sid = visibleSession.id;
-    if (nativeAutoNavigatedSessionRef.current === sid) return;
-    const callPath = `/community-messenger/calls/${encodeURIComponent(sid)}`;
-    const currentPath = typeof pathname === "string" ? pathname.split(/[?#]/, 1)[0] : "";
-    if (currentPath === callPath) {
-      nativeAutoNavigatedSessionRef.current = sid;
-      return;
-    }
-    nativeAutoNavigatedSessionRef.current = sid;
-    rememberCallNavigationReturnPath();
-    primeCommunityMessengerCallNavigationSeed(sid, visibleSession);
-    logCallFlow("call_navigate_to_call_screen", { sessionId: sid, source: "native_auto_fullscreen" });
-    router.replace(callPath);
-  }, [hideGlobalIncomingOverlay, pathname, router, visibleSession]);
+  /** 수신 오버레이·알림 딥링크 진입 시 CallClient 첫 페인트용 시드 */
+  useLayoutEffect(() => {
+    if (!visibleSession || hideGlobalIncomingOverlay) return;
+    if (!renderIncomingFullScreenOverlay && !renderIncomingBanner) return;
+    primeCommunityMessengerCallNavigationSeed(visibleSession.id, visibleSession);
+  }, [hideGlobalIncomingOverlay, renderIncomingBanner, renderIncomingFullScreenOverlay, visibleSession]);
 
   useLayoutEffect(() => {
     if (!visibleSessionId || !visibleSession || incomingSurface === "system-notification") return;
@@ -1557,7 +1553,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     syncCommunityMessengerNativeIncomingCall(nativeIncomingSession);
     return () => {
-      if (nativeIncomingSession) syncCommunityMessengerNativeIncomingCall({ ...nativeIncomingSession, status: "missed" });
+      if (nativeIncomingSession) {
+        syncCommunityMessengerNativeIncomingCall(null);
+      }
     };
   }, [nativeIncomingSession]);
 
@@ -1734,6 +1732,24 @@ export function GlobalCommunityMessengerIncomingCall() {
     logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "global_expand" });
     router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}`);
   };
+
+  if (visibleSession && renderIncomingFullScreenOverlay) {
+    return (
+      <CommunityMessengerIncomingCallOverlay
+        session={visibleSession}
+        busyId={busyId}
+        sessionActionError={null}
+        incomingListError={incomingListError}
+        ringTimeoutSeconds={
+          getMessengerCallSoundConfigCache()?.incoming_ring_timeout_seconds ??
+          DEFAULT_INCOMING_RING_TIMEOUT_SECONDS
+        }
+        onMinimize={() => setMinimizedSessionId(visibleSession.id)}
+        onReject={(sessionId) => void rejectCall(sessionId)}
+        onAccept={(s) => acceptCall(s)}
+      />
+    );
+  }
 
   if (visibleSession && renderIncomingBanner) {
     return (
