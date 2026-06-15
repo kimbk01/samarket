@@ -26,6 +26,14 @@ public final class IncomingCallIntentHelper {
     return intent;
   }
 
+  public static Intent buildMainActivityLauncherIntent(Context context) {
+    Intent launch = new Intent(context, MainActivity.class);
+    launch.setAction(Intent.ACTION_MAIN);
+    launch.addCategory(Intent.CATEGORY_LAUNCHER);
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    return launch;
+  }
+
   public static Intent buildMainActivityCallAcceptIntent(Context context, String callId) {
     String sessionId = callId != null ? callId.trim() : "";
     Intent launch = new Intent(context, MainActivity.class);

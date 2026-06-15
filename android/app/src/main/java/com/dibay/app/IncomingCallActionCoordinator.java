@@ -18,6 +18,10 @@ public final class IncomingCallActionCoordinator {
   private static final ConcurrentHashMap<String, Long> ACTIVE_INCOMING = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, String> COMPLETED_ACTIONS = new ConcurrentHashMap<>();
 
+  private static final long ACCEPT_LAUNCH_DEDUP_MS = 8_000L;
+  private static volatile String lastAcceptLaunchCallId = null;
+  private static volatile long lastAcceptLaunchAt = 0L;
+
   private IncomingCallActionCoordinator() {}
 
   public static boolean registerIncoming(String callId) {
@@ -84,6 +88,10 @@ public final class IncomingCallActionCoordinator {
               if (ok) Log.i(CALL_TAG, "[call-state] accept_success callId=" + sid);
               else Log.w(CALL_TAG, "[call-state] accept_failed_open_route callId=" + sid);
               complete(sid, "accept");
+              if (!shouldLaunchAcceptRoute(sid)) {
+                Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
+                return;
+              }
               Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
               Log.i(CALL_TAG, "[call-route] incoming_accept_opened callId=" + sid);
               context.getApplicationContext().startActivity(launch);
@@ -138,6 +146,20 @@ public final class IncomingCallActionCoordinator {
                   "missed:" + payload.callId);
             })
         .start();
+  }
+
+  private static boolean shouldLaunchAcceptRoute(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    long now = System.currentTimeMillis();
+    synchronized (IncomingCallActionCoordinator.class) {
+      if (sid.equals(lastAcceptLaunchCallId) && now - lastAcceptLaunchAt < ACCEPT_LAUNCH_DEDUP_MS) {
+        return false;
+      }
+      lastAcceptLaunchCallId = sid;
+      lastAcceptLaunchAt = now;
+      return true;
+    }
   }
 
   private static void cleanupExpired() {

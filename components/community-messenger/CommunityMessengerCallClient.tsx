@@ -396,7 +396,13 @@ function resolveHangupTerminalStatusForSnapshot(
   return "ended";
 }
 
-function HydrateOutgoingVideoPreview({ loadingLabel }: { loadingLabel: string }) {
+function HydrateOutgoingVideoPreview({
+  loadingLabel,
+  blockedLabel,
+}: {
+  loadingLabel: string;
+  blockedLabel?: string | null;
+}) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(() => {
     if (typeof window === "undefined") return null;
@@ -444,9 +450,11 @@ function HydrateOutgoingVideoPreview({ loadingLabel }: { loadingLabel: string })
     );
   }
 
+  const placeholderLabel = blockedLabel?.trim() || loadingLabel;
+
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-[#003D29]">
-      <span className="sam-text-body-secondary text-[#D4E9E2]/58">{loadingLabel}</span>
+    <div className="absolute inset-0 flex items-center justify-center bg-[#003D29] px-6 text-center">
+      <span className="sam-text-body-secondary text-[#D4E9E2]/58">{placeholderLabel}</span>
     </div>
   );
 }
@@ -3725,7 +3733,6 @@ export function CommunityMessengerCallClient({
     if (!session.isMineInitiator) return;
     if (session.status !== "ringing" && session.status !== "active") return;
     if (localVideoReady || preJoinVideoPreviewStream) return;
-    if (!isCallMediaGrantedSync("video")) return;
     if (preJoinVideoPrimeAttemptedSessionRef.current === session.id) return;
 
     const stalePeek = peekPrimedCommunityMessengerDeviceStream("video");
@@ -3749,7 +3756,12 @@ export function CommunityMessengerCallClient({
           discardPrimedCommunityMessengerDevicePermission();
         }
         const preflight = await ensureCallCanUseMedia("video");
-        if (!preflight.ok || cancelled) return;
+        if (!preflight.ok || cancelled) {
+          if (!cancelled) {
+            setErrorMessage(t("cm_ui_call_permission_required_before_video"));
+          }
+          return;
+        }
         const stream = await acquirePrimedCommunityMessengerStream("video");
         if (cancelled) {
           for (const track of stream.getTracks()) track.stop();
@@ -3781,6 +3793,7 @@ export function CommunityMessengerCallClient({
     session?.id,
     session?.isMineInitiator,
     session?.status,
+    t,
   ]);
 
   useLayoutEffect(() => {
@@ -3891,6 +3904,45 @@ export function CommunityMessengerCallClient({
     videoPipGesture,
   ]);
 
+  if (loading && !session && nativeAcceptRequested) {
+    const connectingVm: CallScreenViewModel = {
+      visualTheme: "starbucks",
+      mode: "voice",
+      direction: "incoming",
+      phase: "connecting",
+      peerLabel: t("cm_ui_call_label"),
+      peerAvatarUrl: null,
+      statusText: t("cm_ui_connecting"),
+      subStatusText: null,
+      topLabel: null,
+      onTopLabelClick: null,
+      footerNote: null,
+      connectionLabel: null,
+      connectedAt: null,
+      endedAt: null,
+      endedDurationSeconds: null,
+      mediaState: {
+        micEnabled: true,
+        speakerEnabled: true,
+        cameraEnabled: false,
+        localVideoMinimized: true,
+      },
+      onBack: () => navigateBackFromCommunityMessengerCall(router, null),
+      hideOutgoingVideoBrandRow: true,
+      primaryActions: [],
+      showRemoteVideo: false,
+      showLocalVideo: false,
+      videoPipLayout: null,
+      participantsSummary: null,
+      autoCloseMs: null,
+    };
+    return (
+      <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
+        <CallScreen vm={connectingVm} variant="overlay" />
+      </div>
+    );
+  }
+
   if (loading && !session) {
     /** 시드 없이 진입한 짧은 구간 — 보라 플레이스홀더(`RouteLoading`)는 실제 통화 UI 와 겹쳐 보여 동일 껍데기로만 표시 */
     const dismissHydrate = () => navigateBackFromCommunityMessengerCall(router, null);
@@ -3931,7 +3983,10 @@ export function CommunityMessengerCallClient({
       ],
       mainVideoSlot:
         hydrateKind === "video" ? (
-          <HydrateOutgoingVideoPreview loadingLabel={t("common_loading")} />
+          <HydrateOutgoingVideoPreview
+            loadingLabel={t("cm_ui_outgoing_video_dialing")}
+            blockedLabel={errorMessage}
+          />
         ) : undefined,
       showRemoteVideo: false,
       showLocalVideo: false,
@@ -4037,7 +4092,7 @@ export function CommunityMessengerCallClient({
     const skipRetryForInsecure =
       session.status === "ended" && session.endedReason === "failed_insecure_context";
     const skipRetryForCalleeReject = session.status === "rejected";
-    if (!skipRetryForInsecure && !skipRetryForCalleeReject) {
+    if (!skipRetryForInsecure && !skipRetryForCalleeReject && session.isMineInitiator) {
       primaryActions.push({
         id: "retry-call",
         label: t("common_retry"),
@@ -4082,7 +4137,7 @@ export function CommunityMessengerCallClient({
         onClick: () => void endCall(),
       }
     );
-  } else if (!session.isMineInitiator && effectiveDirectPhase === "ringing") {
+  } else if (!session.isMineInitiator && effectiveDirectPhase === "ringing" && !nativeAcceptRequested) {
     primaryActions.push(
       {
         id: "reject",
@@ -4244,6 +4299,7 @@ export function CommunityMessengerCallClient({
 
   const joinAttemptInFlight = busy === "join" || busy === "accept";
   const showRetryMediaAction =
+    session.isMineInitiator &&
     (localVideoPlayBlocked ||
       (errorMessage && !isCommunityMessengerNonRetryableCallErrorMessage(errorMessage))) &&
     !incomingVideoUpgradeRequest &&

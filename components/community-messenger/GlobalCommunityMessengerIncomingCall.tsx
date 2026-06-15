@@ -1694,7 +1694,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         startedAt={visibleSession.startedAt ?? null}
         busyReject={busyId === `reject:${visibleSession.id}`}
         busyAccept={false}
-        onExpand={() => openIncomingCallFullScreen(visibleSession)}
+        onExpand={() => acceptCall(visibleSession)}
         onReject={() => void rejectCall(visibleSession.id)}
         onAccept={() => acceptCall(visibleSession)}
       />
@@ -1719,7 +1719,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   void refresh(true);
                 }}
               >
-                {MESSENGER_CALL_USER_MSG.incomingListRetry}
+                {MESSENGER_CALL_USER_MSG.incomingListReload}
               </button>
               <button
                 type="button"

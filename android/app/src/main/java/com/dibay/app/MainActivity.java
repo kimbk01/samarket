@@ -27,7 +27,9 @@ public class MainActivity extends BridgeActivity {
   public static final String PENDING_PATH_KEY = "pending_path";
   public static final String PENDING_NOTIFICATION_ID_KEY = "pending_notification_id";
   public static final String PENDING_AT_KEY = "pending_at";
-  private static final long PENDING_ROUTE_TTL_MS = 60_000L;
+  private static final String LAST_ACCEPT_CALL_ID_KEY = "last_accept_call_id";
+  private static final String LAST_ACCEPT_CALL_AT_KEY = "last_accept_call_at";
+  private static final long ACCEPT_ROUTE_DEDUP_MS = 8_000L;
   private static final int[] PENDING_ROUTE_RETRY_DELAYS_MS = {120, 450, 900, 2_000, 4_000};
   private static volatile boolean appVisible = false;
 
@@ -239,6 +241,12 @@ public class MainActivity extends BridgeActivity {
       appPath = mapDibayDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
         if ("call".equals(data.getHost()) && "accept".equals(data.getQueryParameter("action"))) {
+          java.util.List<String> segments = data.getPathSegments();
+          String callId = segments.isEmpty() ? null : segments.get(0);
+          if (isDuplicateCallAcceptRoute(callId)) {
+            Log.i(ROUTE_LOG_TAG, "[call-route] incoming_accept_route_deduped callId=" + callId);
+            return;
+          }
           Log.i(ROUTE_LOG_TAG, "[call-route] incoming_accept_opened path=" + appPath);
         }
         Log.i(ROUTE_LOG_TAG, "[push-route] route_resolved path=" + appPath);
@@ -363,6 +371,20 @@ public class MainActivity extends BridgeActivity {
       return path;
     }
     return null;
+  }
+
+  private boolean isDuplicateCallAcceptRoute(String callId) {
+    if (callId == null || callId.trim().isEmpty()) return false;
+    String sid = callId.trim();
+    SharedPreferences prefs = getSharedPreferences(ROUTE_PREFS, MODE_PRIVATE);
+    String lastId = prefs.getString(LAST_ACCEPT_CALL_ID_KEY, null);
+    long lastAt = prefs.getLong(LAST_ACCEPT_CALL_AT_KEY, 0L);
+    long now = System.currentTimeMillis();
+    if (sid.equals(lastId) && now - lastAt < ACCEPT_ROUTE_DEDUP_MS) {
+      return true;
+    }
+    prefs.edit().putString(LAST_ACCEPT_CALL_ID_KEY, sid).putLong(LAST_ACCEPT_CALL_AT_KEY, now).apply();
+    return false;
   }
 
   private boolean isDuplicateRouteNotification(String notificationId) {

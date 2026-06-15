@@ -17,10 +17,10 @@ import androidx.core.content.ContextCompat;
 import androidx.core.app.NotificationCompat;
 
 /**
- * Messenger-style incoming call notification.
+ * Messenger-style incoming call notification — system call category with accept/decline actions.
  *
- * <p>CallStyle/RingingService 는 쓰지 않는다. 단, 잠금 화면에서는 Android 가 일반 알림을 화면 위로
- * 올려주지 않으므로 full-screen bridge Activity 만 사용해 수락 route 로 넘긴다.
+ * <p>Do not open {@link IncomingCallActivity} from content tap; foreground receive uses web
+ * {@code IncomingCallBanner} only.
  */
 public final class IncomingCallNotificationBuilder {
   /** Production channel — do not rename (OS channel settings are sticky). */
@@ -137,8 +137,6 @@ public final class IncomingCallNotificationBuilder {
     if (!notificationAllowed) {
       Log.w(TAG, "[call-push] post_notifications_denied callId=" + sid);
     }
-    boolean fsiAllowed = canPostFullScreenIntent(context);
-    Log.i(TAG, fsiAllowed ? "[call-push] full_screen_allowed callId=" + sid : "[call-push] full_screen_denied callId=" + sid);
 
     String callerName =
         callerNameFromPayload != null && !callerNameFromPayload.trim().isEmpty()
@@ -156,32 +154,8 @@ public final class IncomingCallNotificationBuilder {
     accept.putExtra(IncomingCallDeclineReceiver.EXTRA_CALL_ID, sid);
     PendingIntent acceptPi = PendingIntent.getBroadcast(context, sid.hashCode() + 2, accept, flags);
 
-    Intent content = new Intent(context, IncomingCallActivity.class);
-    content.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
-    content.putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, callerName);
-    content.putExtra(IncomingCallActivity.EXTRA_TITLE, title);
-    content.putExtra(IncomingCallActivity.EXTRA_BODY, body);
-    content.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType);
-    content.putExtra(IncomingCallActivity.EXTRA_EXPIRES_AT, expiresAt);
-    content.putExtra(IncomingCallActivity.EXTRA_ROOM_ID, roomId);
-    content.putExtra(IncomingCallActivity.EXTRA_CALLER_ID, callerId);
-    content.putExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR_URL, callerAvatarUrl);
-    content.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    Intent content = IncomingCallIntentHelper.buildMainActivityLauncherIntent(context);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
-
-    Intent fullScreen = new Intent(context, IncomingCallActivity.class);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, callerName);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_TITLE, title);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_BODY, body);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_EXPIRES_AT, expiresAt);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_ROOM_ID, roomId);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALLER_ID, callerId);
-    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR_URL, callerAvatarUrl);
-    fullScreen.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    PendingIntent fullScreenPi =
-        PendingIntent.getActivity(context, sid.hashCode() + 4, fullScreen, flags);
 
     Intent decline = new Intent(context, IncomingCallDeclineReceiver.class);
     decline.setAction(IncomingCallDeclineReceiver.ACTION_DECLINE);
@@ -204,10 +178,6 @@ public final class IncomingCallNotificationBuilder {
             .setDefaults(Notification.DEFAULT_ALL)
             .addAction(R.mipmap.ic_launcher, "거절", declinePi)
             .addAction(R.mipmap.ic_launcher, "수락", acceptPi);
-    boolean lockScreenBridge = DibayKeyguardHelper.isKeyguardLocked(context) || !DibayKeyguardHelper.isInteractive(context);
-    if (firstIncoming && (fsiAllowed || lockScreenBridge)) {
-      builder.setFullScreenIntent(fullScreenPi, true);
-    }
 
     int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
