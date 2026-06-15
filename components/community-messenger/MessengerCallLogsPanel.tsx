@@ -18,6 +18,7 @@ import {
   shouldShowCallLogDuration,
 } from "@/lib/community-messenger/call-log-row-copy";
 import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { executeOutgoingRedialFromTerminal } from "@/lib/community-messenger/outgoing-redial-handoff";
 import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
@@ -85,14 +86,12 @@ function CallLogRow({
       setRedialing(true);
       void (async () => {
         try {
-          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
-            {
-              roomId: call.roomId?.trim() ?? null,
-              peerUserId: call.peerUserId?.trim() ?? null,
-              kind: redialKind,
-            },
-            (href) => router.push(href)
-          );
+          const result = await executeOutgoingRedialFromTerminal({
+            roomId: call.roomId?.trim() ?? null,
+            peerUserId: call.peerUserId?.trim() ?? null,
+            kind: redialKind,
+            navigate: (href) => router.replace(href),
+          });
           if (!result.ok) {
             showMessengerSnackbar(result.userMessage, { variant: "error" });
           }

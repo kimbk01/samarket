@@ -27,8 +27,11 @@ async function loadCommunityMessengerCallProvider() {
 }
 import { waitForActiveCallSessionAfterNativeAccept } from "@/lib/community-messenger/native-call-accept-join";
 import {
+  clearNativeCalleeAcceptPending,
   isAnyCalleeAcceptRoute,
+  isNativeCalleeAcceptPendingForSession,
   isNativeCalleeAcceptRoute,
+  markNativeCalleeAcceptPending,
   readNativeCalleeAcceptRouteParams,
   shouldDeferCalleeGenericAutoJoin,
   shouldSuppressCalleeIncomingRingingUi,
@@ -917,11 +920,13 @@ export function CommunityMessengerCallClient({
   useEffect(() => {
     if (joined) {
       endOutgoingRedialHandoff();
+      clearNativeCalleeAcceptPending(sessionId);
     }
-  }, [joined]);
+  }, [joined, sessionId]);
 
   useLayoutEffect(() => {
     if (!isNativeCalleeAccept) return;
+    markNativeCalleeAcceptPending(sessionId);
     stopCommunityMessengerCallTone();
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     postCommunityMessengerCallIncomingConsumedBusEvent(sessionId);
@@ -3455,6 +3460,7 @@ export function CommunityMessengerCallClient({
         joining: joiningRef.current,
         acceptRoute,
         busyAcceptOrJoin: busy === "accept" || busy === "join",
+        sessionId: s.id,
       })
     ) {
       return;
@@ -3497,11 +3503,15 @@ export function CommunityMessengerCallClient({
       session.status === "ended" &&
       Boolean(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
     if (failureRequiresDismiss || callDismissInFlightRef.current || terminalDismissTimerRef.current != null) return;
+    if (isOutgoingRedialHandoffActive()) return;
+    if (isCalleeAcceptRoute || isNativeCalleeAccept) return;
     terminalDismissTimerRef.current = window.setTimeout(() => {
       terminalDismissTimerRef.current = null;
       if (callDismissInFlightRef.current) return;
+      if (isOutgoingRedialHandoffActive()) return;
       const cur = sessionRef.current;
       if (!cur || !isTerminalCallSessionStatus(cur.status)) return;
+      if (isAnyCalleeAcceptRoute(acceptRoute) || isNativeCalleeAcceptPendingForSession(cur.id)) return;
       callDismissInFlightRef.current = true;
       navigateBackFromCommunityMessengerCall(router, cur.roomId);
     }, 1000);
@@ -3511,7 +3521,7 @@ export function CommunityMessengerCallClient({
         terminalDismissTimerRef.current = null;
       }
     };
-  }, [connectedAtTs, router, session?.endedReason, session?.id, session?.status, terminalClosedAt]);
+  }, [acceptRoute, connectedAtTs, isCalleeAcceptRoute, isNativeCalleeAccept, router, session?.endedReason, session?.id, session?.status, terminalClosedAt]);
 
   useEffect(() => {
     const s = sessionRef.current;
@@ -3746,6 +3756,20 @@ export function CommunityMessengerCallClient({
     session?.isMineInitiator,
     session?.status,
   ]);
+
+  /** 발신 영상 — bootstrap/redial 프라임 스트림을 첫 페인트 전에 붙여 ‘카메라 연결중’ 체감 지연을 줄인다 */
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") return;
+    const s = session;
+    if (s?.callKind !== "video" || !s.isMineInitiator) return;
+    if (s.status !== "ringing" && s.status !== "active") return;
+    if (localVideoReadyRef.current) return;
+    const peek = peekPrimedCommunityMessengerDeviceStream("video");
+    if (!peek || !hasLiveCommunityMessengerVideoPreviewStream(peek)) return;
+    heldPreJoinVideoPreviewRef.current = peek;
+    primeVideoElementAutoplayFromUserGesture(peek);
+    setPreJoinVideoPrimeNonce((prev) => prev + 1);
+  }, [session?.callKind, session?.id, session?.isMineInitiator, session?.status]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -4045,6 +4069,7 @@ export function CommunityMessengerCallClient({
     joined,
     acceptRoute,
     busyAcceptOrJoin: busy === "accept" || busy === "join",
+    sessionId: session.id,
   });
   const callScreenPhase: CallPhase =
     agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
@@ -4065,6 +4090,11 @@ export function CommunityMessengerCallClient({
     setJoined(false);
     preJoinVideoPrimeAttemptedSessionRef.current = null;
     setErrorMessage(null);
+    if (terminalDismissTimerRef.current != null) {
+      window.clearTimeout(terminalDismissTimerRef.current);
+      terminalDismissTimerRef.current = null;
+    }
+    callDismissInFlightRef.current = false;
     void executeOutgoingRedialFromTerminal({
       kind,
       roomId: session.roomId,

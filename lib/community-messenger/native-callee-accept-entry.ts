@@ -2,6 +2,9 @@
  * 수신 수락(`?action=accept`) — 벨 UI·generic auto-join 과 충돌하지 않게 하는 단일 계약.
  */
 
+const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
+const NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS = 60_000;
+
 export type NativeCalleeAcceptRouteParams = {
   action: string | null;
   nativeAccept: string | null;
@@ -24,15 +27,69 @@ export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): b
   return params.action === "accept";
 }
 
+/** 네이티브 수락 직후 WebView 라우트 주입 전 — 벨 UI 선제 억제 */
+export function markNativeCalleeAcceptPending(sessionId: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  const sid = sessionId.trim();
+  if (!sid) return;
+  try {
+    sessionStorage.setItem(
+      NATIVE_CALLEE_ACCEPT_PENDING_KEY,
+      JSON.stringify({ sessionId: sid, at: Date.now() })
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+export function readNativeCalleeAcceptPendingSessionId(now = Date.now()): string | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(NATIVE_CALLEE_ACCEPT_PENDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { sessionId?: string; at?: number };
+    const sid = parsed.sessionId?.trim();
+    if (!sid) return null;
+    const at = typeof parsed.at === "number" && Number.isFinite(parsed.at) ? parsed.at : 0;
+    if (at > 0 && now - at > NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS) {
+      clearNativeCalleeAcceptPending();
+      return null;
+    }
+    return sid;
+  } catch {
+    return null;
+  }
+}
+
+export function clearNativeCalleeAcceptPending(sessionId?: string): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    if (sessionId?.trim()) {
+      const pending = readNativeCalleeAcceptPendingSessionId();
+      if (pending && pending !== sessionId.trim()) return;
+    }
+    sessionStorage.removeItem(NATIVE_CALLEE_ACCEPT_PENDING_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function isNativeCalleeAcceptPendingForSession(sessionId: string): boolean {
+  const pending = readNativeCalleeAcceptPendingSessionId();
+  return pending != null && pending === sessionId.trim();
+}
+
 /** 수락 직후 IncomingCallView(벨)·수락/거절 버튼 숨김 → connecting 단일 화면 */
 export function shouldSuppressCalleeIncomingRingingUi(input: {
   isCallee: boolean;
   joined: boolean;
   acceptRoute: NativeCalleeAcceptRouteParams;
   busyAcceptOrJoin: boolean;
+  sessionId?: string | null;
 }): boolean {
   if (!input.isCallee || input.joined) return false;
   if (isAnyCalleeAcceptRoute(input.acceptRoute)) return true;
+  if (input.sessionId && isNativeCalleeAcceptPendingForSession(input.sessionId)) return true;
   if (input.busyAcceptOrJoin) return true;
   return false;
 }
@@ -44,9 +101,11 @@ export function shouldDeferCalleeGenericAutoJoin(input: {
   joining: boolean;
   acceptRoute: NativeCalleeAcceptRouteParams;
   busyAcceptOrJoin: boolean;
+  sessionId?: string | null;
 }): boolean {
   if (!input.isCallee || input.joined || input.joining) return false;
   if (isAnyCalleeAcceptRoute(input.acceptRoute)) return true;
+  if (input.sessionId && isNativeCalleeAcceptPendingForSession(input.sessionId)) return true;
   if (input.busyAcceptOrJoin) return true;
   return false;
 }

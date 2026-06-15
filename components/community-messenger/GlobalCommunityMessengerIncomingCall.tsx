@@ -70,7 +70,10 @@ import {
   shouldUseIncomingCallBrowserNotification,
   type IncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface";
-import { readNativeCalleeAcceptSessionIdFromLocation } from "@/lib/community-messenger/native-callee-accept-entry";
+import {
+  markNativeCalleeAcceptPending,
+  readNativeCalleeAcceptSessionIdFromLocation,
+} from "@/lib/community-messenger/native-callee-accept-entry";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
 import {
   callIncomingTerminalQueryFromEvent,
@@ -1679,6 +1682,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       setSessions((prev) => prev.filter((item) => item.id !== session.id));
       postCommunityMessengerCallIncomingConsumedBusEvent(session.id);
       primeCommunityMessengerCallNavigationSeed(session.id, session);
+      markNativeCalleeAcceptPending(session.id);
       router.replace(
         `/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`
       );

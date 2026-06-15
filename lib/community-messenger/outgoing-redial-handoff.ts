@@ -75,13 +75,15 @@ export function endOutgoingRedialHandoff(): void {
  * 3) Agora cleanup
  * 4) 새 세션 POST + 라우트 (프라임 생략)
  */
+/** 통화 종료·기록·스텁 등 모든 재발신의 단일 진입점. Agora 정리는 종료 화면에서만 넘긴다. */
 export async function executeOutgoingRedialFromTerminal(input: {
   kind: CommunityMessengerCallKind;
   roomId: string | null;
   peerUserId: string | null;
-  cleanupAgora: () => Promise<void>;
+  cleanupAgora?: () => Promise<void>;
   navigate: (href: string) => void;
 }): Promise<OutgoingCallSessionBootstrapResult> {
+  const cleanupAgora = input.cleanupAgora ?? (async () => {});
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
   prepareCommunityMessengerOutgoingRedial(input.kind);
@@ -94,7 +96,7 @@ export async function executeOutgoingRedialFromTerminal(input: {
 
   beginOutgoingRedialHandoff();
   try {
-    await input.cleanupAgora();
+    await cleanupAgora();
     const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
       {
         roomId: input.roomId,

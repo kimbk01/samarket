@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
+import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { isAuthRequiredPushRoute } from "@/lib/push/resolve-push-route-from-fcm-data";
@@ -20,6 +21,16 @@ import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
 const NOTIFICATION_DEDUPE_KEY = "dibay_push_route_notification_ids";
+
+function readCalleeAcceptSessionIdFromPath(path: string): string | null {
+  const match = path.match(/^\/community-messenger\/calls\/([^/?#]+)/);
+  const id = match?.[1] ? decodeURIComponent(match[1]).trim() : "";
+  return id || null;
+}
+
+function isCalleeAcceptPushRoute(path: string): boolean {
+  return path.includes("action=accept") || path.includes("callAction=accept");
+}
 
 type PushRouteDetail = {
   path?: string;
@@ -74,7 +85,7 @@ export function PushRouteListener() {
     sessionPhaseRef.current = phase;
   }), []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!isCapacitorNativePlatform()) return;
 
     const navigate = (rawPath: string, notificationId?: string) => {
@@ -98,6 +109,12 @@ export function PushRouteListener() {
       }
 
       if (shouldReplaceRoute(path)) {
+        if (isCalleeAcceptPushRoute(path)) {
+          const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
+          if (acceptSessionId) {
+            markNativeCalleeAcceptPending(acceptSessionId);
+          }
+        }
         router.replace(path);
       } else {
         router.push(path);
