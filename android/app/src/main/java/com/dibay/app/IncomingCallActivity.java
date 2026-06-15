@@ -1,7 +1,7 @@
 package com.dibay.app;
 
+import android.app.KeyguardManager;
 import android.content.Intent;
-import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -36,6 +36,7 @@ public class IncomingCallActivity extends AppCompatActivity {
       finishSafely();
       return;
     }
+    requestDismissKeyguardIfNeeded();
 
     String expiresAt = firstNonEmpty(getIntent().getStringExtra(EXTRA_EXPIRES_AT));
     if (expiresAt != null) {
@@ -99,11 +100,7 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
     Log.i(TAG, "[incoming-call-native] answer_clicked callId=" + callId);
     cleanupNotification();
-    Intent launch = new Intent(this, MainActivity.class);
-    launch.setAction(Intent.ACTION_VIEW);
-    launch.setData(Uri.parse("dibay://call/" + Uri.encode(callId) + "?action=accept"));
-    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    startActivity(launch);
+    startActivity(IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(this, callId));
     IncomingCallActionCoordinator.end(callId, "accept");
     finishSafely();
   }
@@ -155,6 +152,20 @@ public class IncomingCallActivity extends AppCompatActivity {
                   | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
+  }
+
+  private void requestDismissKeyguardIfNeeded() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+    KeyguardManager keyguardManager = getSystemService(KeyguardManager.class);
+    if (keyguardManager == null || !keyguardManager.isKeyguardLocked()) return;
+    keyguardManager.requestDismissKeyguard(
+        this,
+        new KeyguardManager.KeyguardDismissCallback() {
+          @Override
+          public void onDismissError() {
+            Log.w(TAG, "[incoming-call-native] keyguard_dismiss_error callId=" + callId);
+          }
+        });
   }
 
   private static String resolveCallKindLabel(String callType, String title, String body) {

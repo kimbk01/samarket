@@ -23,15 +23,54 @@ public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
   private static final String ROUTE_PREFS = "dibay_push_route";
   private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
+  public static final String PENDING_PATH_KEY = "pending_path";
+  public static final String PENDING_NOTIFICATION_ID_KEY = "pending_notification_id";
+  public static final String PENDING_AT_KEY = "pending_at";
+  private static final long PENDING_ROUTE_TTL_MS = 60_000L;
+  private static final int[] PENDING_ROUTE_RETRY_DELAYS_MS = {120, 450, 900, 2_000, 4_000};
   private static volatile boolean appVisible = false;
 
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
   private String pendingAppPath = null;
   private String pendingNotificationId = null;
+  private volatile boolean routeInjectedForCurrentPending = false;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
     return appVisible;
+  }
+
+  /** PushRouteListener consumed the persisted route — drop native backup. */
+  public static void clearPersistedPendingPushRoute(android.content.Context context) {
+    if (context == null) return;
+    context
+        .getSharedPreferences(ROUTE_PREFS, android.content.Context.MODE_PRIVATE)
+        .edit()
+        .remove(PENDING_PATH_KEY)
+        .remove(PENDING_NOTIFICATION_ID_KEY)
+        .remove(PENDING_AT_KEY)
+        .apply();
+  }
+
+  /** JS mount fallback when sessionStorage inject missed — SharedPreferences backup. */
+  public static android.os.Bundle readPersistedPendingPushRoute(android.content.Context context) {
+    android.os.Bundle out = new android.os.Bundle();
+    if (context == null) return out;
+    SharedPreferences prefs = context.getSharedPreferences(ROUTE_PREFS, android.content.Context.MODE_PRIVATE);
+    long at = prefs.getLong(PENDING_AT_KEY, 0L);
+    if (at <= 0L || System.currentTimeMillis() - at > PENDING_ROUTE_TTL_MS) {
+      clearPersistedPendingPushRoute(context);
+      return out;
+    }
+    String path = prefs.getString(PENDING_PATH_KEY, null);
+    if (path == null || path.trim().isEmpty()) return out;
+    out.putString(PENDING_PATH_KEY, path.trim());
+    String notificationId = prefs.getString(PENDING_NOTIFICATION_ID_KEY, null);
+    if (notificationId != null && !notificationId.isEmpty()) {
+      out.putString(PENDING_NOTIFICATION_ID_KEY, notificationId);
+    }
+    out.putLong(PENDING_AT_KEY, at);
+    return out;
   }
 
   @Override
@@ -195,6 +234,7 @@ public class MainActivity extends BridgeActivity {
       }
       appPath = mapDibayDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
+        Log.i(ROUTE_LOG_TAG, "[push-route] route_resolved path=" + appPath);
         queueNavigateWebViewToAppPath(appPath, null);
       }
       return;
@@ -338,29 +378,66 @@ public class MainActivity extends BridgeActivity {
     return path + "?" + encodedQuery;
   }
 
+  private void persistPendingRoute(String appPath, String notificationId) {
+    getSharedPreferences(ROUTE_PREFS, MODE_PRIVATE)
+        .edit()
+        .putString(PENDING_PATH_KEY, appPath)
+        .putString(PENDING_NOTIFICATION_ID_KEY, notificationId != null ? notificationId : "")
+        .putLong(PENDING_AT_KEY, System.currentTimeMillis())
+        .apply();
+  }
+
+  private void restorePendingRouteFromPrefsIfNeeded() {
+    if (routeInjectedForCurrentPending) return;
+    if (pendingAppPath != null && !pendingAppPath.isEmpty()) return;
+    SharedPreferences prefs = getSharedPreferences(ROUTE_PREFS, MODE_PRIVATE);
+    long at = prefs.getLong(PENDING_AT_KEY, 0L);
+    if (at <= 0L || System.currentTimeMillis() - at > PENDING_ROUTE_TTL_MS) {
+      clearPersistedPendingPushRoute(this);
+      return;
+    }
+    String path = prefs.getString(PENDING_PATH_KEY, null);
+    if (path == null || path.trim().isEmpty()) return;
+    pendingAppPath = path.trim();
+    String notificationId = prefs.getString(PENDING_NOTIFICATION_ID_KEY, null);
+    pendingNotificationId = notificationId != null && !notificationId.isEmpty() ? notificationId : null;
+  }
+
   private void queueNavigateWebViewToAppPath(String appPath, String notificationId) {
     if (appPath == null || appPath.isEmpty()) return;
+    routeInjectedForCurrentPending = false;
     pendingAppPath = appPath;
     pendingNotificationId = notificationId;
+    persistPendingRoute(appPath, notificationId);
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_saved path=" + appPath);
     flushPendingAppPathIfAny();
   }
 
   private void flushPendingAppPathIfAny() {
+    if (routeInjectedForCurrentPending) return;
+    restorePendingRouteFromPrefsIfNeeded();
     if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
     final String appPath = pendingAppPath;
     final String notificationId = pendingNotificationId;
     mainHandler.post(
         () -> {
-          if (!navigateWebViewToAppPathNow(appPath, notificationId)) {
-            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath, notificationId), 120);
-            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath, notificationId), 450);
-            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath, notificationId), 900);
+          if (routeInjectedForCurrentPending) return;
+          if (navigateWebViewToAppPathNow(appPath, notificationId)) {
+            return;
+          }
+          for (int delayMs : PENDING_ROUTE_RETRY_DELAYS_MS) {
+            mainHandler.postDelayed(
+                () -> {
+                  if (routeInjectedForCurrentPending) return;
+                  navigateWebViewToAppPathNow(appPath, notificationId);
+                },
+                delayMs);
           }
         });
   }
 
   private boolean navigateWebViewToAppPathNow(String appPath, String notificationId) {
+    if (routeInjectedForCurrentPending) return true;
     if (appPath == null || appPath.isEmpty()) return false;
     Bridge bridge = getBridge();
     if (bridge == null) return false;
@@ -371,13 +448,21 @@ public class MainActivity extends BridgeActivity {
         notificationId != null
             ? notificationId.replace("\\", "\\\\").replace("'", "\\'")
             : "";
+    final long at = System.currentTimeMillis();
     final String js =
-        "window.dispatchEvent(new CustomEvent('dibay:push-route',{detail:{path:'"
+        "(function(){try{sessionStorage.setItem('dibay_pending_push_route',JSON.stringify({path:'"
             + jsPath
             + "',notificationId:'"
             + jsNotificationId
-            + "'}}));";
+            + "',at:"
+            + at
+            + "}));}catch(e){}window.dispatchEvent(new CustomEvent('dibay:push-route',{detail:{path:'"
+            + jsPath
+            + "',notificationId:'"
+            + jsNotificationId
+            + "'}}));})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
+    routeInjectedForCurrentPending = true;
     pendingAppPath = null;
     pendingNotificationId = null;
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);

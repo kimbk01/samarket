@@ -22,7 +22,7 @@ export async function resolveAndroidNativePermissionBrowserState(
 }
 
 /**
- * DiBaY 게이트 통과 직후 — OS 런타임 권한 다이얼로그 (카톡·배민형: 앱 안내 → OS 팝업).
+ * OS 런타임 권한 다이얼로그 — 온보딩·DiBaY 게이트 통과 직후 바로 요청.
  * @returns granted | denied | skipped(웹·iOS)
  */
 export async function ensureAndroidNativeRuntimePermission(

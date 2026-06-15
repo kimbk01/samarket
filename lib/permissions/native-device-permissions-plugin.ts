@@ -21,6 +21,8 @@ export type NativeDevicePermissionsPlugin = {
     callKind: CommunityMessengerCallKind;
   }): Promise<{ callKind: CommunityMessengerCallKind; state: NativeDevicePermissionJsState }>;
   openAppSettings(): Promise<{ opened: boolean }>;
+  checkFullScreenIntent(): Promise<{ granted: boolean }>;
+  openFullScreenIntentSettings(): Promise<{ opened: boolean }>;
 };
 
 const NativeDevicePermissions = registerPlugin<NativeDevicePermissionsPlugin>(

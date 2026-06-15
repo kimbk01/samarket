@@ -7,6 +7,15 @@ import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { isAuthRequiredPushRoute } from "@/lib/push/resolve-push-route-from-fcm-data";
+import {
+  clearPendingPushRoute,
+  readPendingPushRoute,
+} from "@/lib/push/pending-push-route";
+import {
+  clearNativePersistedPendingPushRoute,
+  readNativePersistedPendingPushRoute,
+} from "@/lib/push/native/push-route-native-bridge";
+import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -60,6 +69,7 @@ export function PushRouteListener() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
   const sessionPhaseRef = useRef(getSessionPhase());
+  const deliveredPathsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => subscribeSessionPhase((phase) => {
     sessionPhaseRef.current = phase;
@@ -71,6 +81,10 @@ export function PushRouteListener() {
     const navigate = (rawPath: string, notificationId?: string) => {
       const path = rawPath.trim();
       if (!path.startsWith("/")) return;
+      if (deliveredPathsRef.current.has(path)) {
+        console.info("[push-route] duplicate_ignored", { path, reason: "delivered_latch" });
+        return;
+      }
       if (shouldIgnoreNotification(notificationId)) return;
 
       const now = Date.now();
@@ -88,9 +102,32 @@ export function PushRouteListener() {
         return;
       }
 
-      router.push(path);
+      if (shouldReplaceRoute(path)) {
+        router.replace(path);
+      } else {
+        router.push(path);
+      }
+      deliveredPathsRef.current.add(path);
+      clearPendingPushRoute();
+      void clearNativePersistedPendingPushRoute();
       console.info("[push-route] webview_route_delivered", { path });
     };
+
+    const consumePendingRoutes = async () => {
+      const sessionPending = readPendingPushRoute();
+      if (sessionPending) {
+        console.info("[push-route] pending_route_replayed", { path: sessionPending.path, source: "session" });
+        navigate(sessionPending.path, sessionPending.notificationId ?? undefined);
+        return;
+      }
+      const nativePending = await readNativePersistedPendingPushRoute();
+      if (nativePending) {
+        console.info("[push-route] pending_route_replayed", { path: nativePending.path, source: "native" });
+        navigate(nativePending.path, nativePending.notificationId ?? undefined);
+      }
+    };
+
+    void consumePendingRoutes();
 
     const onPushRoute = (event: Event) => {
       const detail = (event as CustomEvent<PushRouteDetail>).detail;

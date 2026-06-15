@@ -96,6 +96,11 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".IncomingCallRingingService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
+
         <activity
             android:name=".IncomingCallActivity"
             android:exported="false"

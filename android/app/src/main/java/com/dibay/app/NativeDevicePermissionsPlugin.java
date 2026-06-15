@@ -1,6 +1,7 @@
 package com.dibay.app;
 
 import android.Manifest;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -172,6 +173,36 @@ public class NativeDevicePermissionsPlugin extends Plugin {
       call.resolve(result);
     } catch (Exception error) {
       call.reject("open_settings_failed", error);
+    }
+  }
+
+  @PluginMethod
+  public void checkFullScreenIntent(PluginCall call) {
+    JSObject result = new JSObject();
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      result.put("granted", true);
+      call.resolve(result);
+      return;
+    }
+    NotificationManager nm = getContext().getSystemService(NotificationManager.class);
+    result.put("granted", nm != null && nm.canUseFullScreenIntent());
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void openFullScreenIntentSettings(PluginCall call) {
+    JSObject result = new JSObject();
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      result.put("opened", false);
+      call.resolve(result);
+      return;
+    }
+    try {
+      IncomingCallNotificationBuilder.openFullScreenIntentSettings(getContext());
+      result.put("opened", true);
+      call.resolve(result);
+    } catch (Exception error) {
+      call.reject("open_fsi_settings_failed", error);
     }
   }
 

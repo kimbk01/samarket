@@ -23,9 +23,11 @@ public final class IncomingCallNotificationBuilder {
   public static final String CHANNEL_ID = "dibay_calls_v2";
   /** Spec alias — same channel as {@link #CHANNEL_ID}. */
   public static final String CHANNEL_ID_ALIAS = "dibay_incoming_calls";
+  public static final int INCOMING_CALL_NOTIFICATION_BASE_ID = 91001;
   private static final String TAG = "DIBAY_INCOMING_CALL";
-  private static final int INCOMING_CALL_NOTIFICATION_ID = 91001;
   private static volatile String activeIncomingCallId;
+  private static volatile Notification foregroundNotification;
+  private static volatile int foregroundNotificationId = INCOMING_CALL_NOTIFICATION_BASE_ID;
 
   private IncomingCallNotificationBuilder() {}
 
@@ -51,6 +53,24 @@ public final class IncomingCallNotificationBuilder {
               .build());
     }
     nm.createNotificationChannel(channel);
+  }
+
+  public static boolean canPostFullScreenIntent(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
+    return nm != null && nm.canUseFullScreenIntent();
+  }
+
+  public static void openFullScreenIntentSettings(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return;
+    try {
+      Intent intent = new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT);
+      intent.setData(Uri.fromParts("package", context.getPackageName(), null));
+      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      context.startActivity(intent);
+    } catch (Exception error) {
+      Log.w(TAG, "[incoming-call-native] fsi_settings_open_failed " + error.getMessage());
+    }
   }
 
   public static void showIncomingCall(
@@ -82,7 +102,7 @@ public final class IncomingCallNotificationBuilder {
 
     Intent fullScreen = buildIncomingActivityIntent(context, sessionId, callerName, title, body, callType, expiresAt, null);
     Intent content = buildIncomingActivityIntent(context, sessionId, callerName, title, body, callType, expiresAt, null);
-    Intent accept = buildIncomingActivityIntent(context, sessionId, callerName, title, body, callType, expiresAt, IncomingCallActivity.ACTION_ACCEPT);
+    Intent accept = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sessionId);
     Intent reject = buildIncomingActivityIntent(context, sessionId, callerName, title, body, callType, expiresAt, IncomingCallActivity.ACTION_DECLINE);
 
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
@@ -95,6 +115,10 @@ public final class IncomingCallNotificationBuilder {
     PendingIntent rejectIntent = PendingIntent.getActivity(context, sessionId.hashCode() + 3, reject, flags);
 
     String callKindLabel = resolveCallKindLabel(title, body, callType);
+    boolean fsiAllowed = canPostFullScreenIntent(context);
+    if (!fsiAllowed) {
+      Log.w(TAG, "[incoming-call-native] full_screen_intent_not_allowed sessionId=" + sessionId);
+    }
 
     NotificationCompat.Builder builder =
         new NotificationCompat.Builder(context, CHANNEL_ID)
@@ -107,8 +131,11 @@ public final class IncomingCallNotificationBuilder {
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(contentPi)
-            .setFullScreenIntent(fullScreenPi, true)
             .setDefaults(Notification.DEFAULT_VIBRATE);
+
+    if (fsiAllowed) {
+      builder.setFullScreenIntent(fullScreenPi, true);
+    }
 
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       Person caller = new Person.Builder().setName(callerName).build();
@@ -119,20 +146,38 @@ public final class IncomingCallNotificationBuilder {
           .addAction(R.mipmap.ic_launcher, "수락", acceptIntent);
     }
 
+    int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sessionId.hashCode() % 1000);
+    Notification built = builder.build();
+    foregroundNotification = built;
+    foregroundNotificationId = notificationId;
+
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
-      nm.notify(INCOMING_CALL_NOTIFICATION_ID + Math.abs(sessionId.hashCode() % 1000), builder.build());
+      nm.notify(notificationId, built);
       Log.i(TAG, "[incoming-call-native] full_screen_notification_posted sessionId=" + sessionId);
+      IncomingCallRingingService.start(context.getApplicationContext(), notificationId);
     }
+  }
+
+  public static Notification consumeForegroundNotification() {
+    Notification notification = foregroundNotification;
+    return notification;
+  }
+
+  public static void clearForegroundNotification() {
+    foregroundNotification = null;
+    foregroundNotificationId = INCOMING_CALL_NOTIFICATION_BASE_ID;
   }
 
   public static void dismissIncomingCall(Context context, String sessionId) {
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null || sessionId == null) return;
-    nm.cancel(INCOMING_CALL_NOTIFICATION_ID + Math.abs(sessionId.hashCode() % 1000));
+    nm.cancel(INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sessionId.hashCode() % 1000));
     if (sessionId.equals(activeIncomingCallId)) {
       activeIncomingCallId = null;
     }
+    clearForegroundNotification();
+    IncomingCallRingingService.stop(context.getApplicationContext());
   }
 
   public static void clearActiveIncomingCallId(String sessionId) {
