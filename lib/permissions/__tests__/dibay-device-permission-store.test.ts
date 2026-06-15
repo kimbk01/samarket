@@ -6,8 +6,8 @@ const mediaPermissionState = vi.hoisted(() => ({
 }));
 
 const nativePermissionMock = vi.hoisted(() => ({
-  request: vi.fn(() => Promise.resolve(null)),
-  check: vi.fn(() => Promise.resolve(null)),
+  request: vi.fn<() => Promise<"granted" | "denied" | null>>(() => Promise.resolve(null)),
+  check: vi.fn<() => Promise<"granted" | "denied" | null>>(() => Promise.resolve(null)),
 }));
 
 vi.mock("@/lib/auth/get-current-user", () => ({
@@ -122,6 +122,33 @@ describe("dibay-device-permission-store", () => {
     const state = await checkDevicePermissions();
     expect(state.camera).toBe("denied");
     expect(state.microphone).toBe("denied");
+  });
+
+  it("keeps granted when android native reports granted despite webview prompt", async () => {
+    const nativePlugin = await import("@/lib/permissions/native-device-permissions-plugin");
+    vi.mocked(nativePlugin.shouldUseAndroidNativeDevicePermissionBridge).mockReturnValue(true);
+    nativePermissionMock.check.mockImplementation(() => Promise.resolve("granted"));
+    const { requestInitialDevicePermissions, checkDevicePermissions } = await import(
+      "@/lib/permissions/dibay-device-permission-store"
+    );
+    await requestInitialDevicePermissions("app_entry");
+    mediaPermissionState.camera = "prompt";
+    mediaPermissionState.microphone = "prompt";
+    const state = await checkDevicePermissions();
+    expect(state.camera).toBe("granted");
+    expect(state.microphone).toBe("granted");
+  });
+
+  it("falls back to browser when native bridge returns prompt", async () => {
+    const nativePlugin = await import("@/lib/permissions/native-device-permissions-plugin");
+    vi.mocked(nativePlugin.shouldUseAndroidNativeDevicePermissionBridge).mockReturnValue(true);
+    nativePermissionMock.check.mockImplementation(() => Promise.resolve(null));
+    mediaPermissionState.camera = "granted";
+    mediaPermissionState.microphone = "granted";
+    const { checkDevicePermissions } = await import("@/lib/permissions/dibay-device-permission-store");
+    const state = await checkDevicePermissions();
+    expect(state.camera).toBe("granted");
+    expect(state.microphone).toBe("granted");
   });
 
   it("markInitialDevicePermissionsDeferred records one-time skip without GUM", async () => {

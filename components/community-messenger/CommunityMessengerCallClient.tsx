@@ -3591,7 +3591,7 @@ export function CommunityMessengerCallClient({
     };
   }, [localVideoReady, preJoinVideoPreviewStream]);
 
-  /** granted 인데 로컬 비디오가 1s 이상 안 뜨면 준비중 루프 종료 → 설정 안내 */
+  /** granted 인데 로컬 비디오가 오래 안 뜨면 준비중 종료 — 설정은 사용자가 직접 열도록(자동 이동 금지) */
   useEffect(() => {
     if (session?.callKind !== "video") return;
     if (localVideoReady || preJoinVideoPreviewStream) return;
@@ -3608,8 +3608,7 @@ export function CommunityMessengerCallClient({
       });
       setErrorMessage(t("cm_ui_camera_prepare_timeout_settings"));
       setCalleeVideoConnectingShell(false);
-      openCommunityMessengerPermissionSettings();
-    }, 1000);
+    }, 5000);
 
     return () => window.clearTimeout(timer);
   }, [localVideoReady, preJoinVideoPreviewStream, session?.callKind, session?.id, session?.status, t]);

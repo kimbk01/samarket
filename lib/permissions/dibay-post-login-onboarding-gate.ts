@@ -40,7 +40,7 @@ export function schedulePostLoginOnboardingOpen(run: () => void): void {
   }
 }
 
-/** 알림 온보딩 모달이 닫히거나 스킵된 뒤 — 통화 mic/cam 온보딩이 이어지도록 알림 */
+/** @deprecated 통합 DiBaYDevicePermissionOnboardingGate 사용 — settled 이벤트는 하위 호환용 */
 export const DIBAY_NOTIFICATION_ONBOARDING_SETTLED_EVENT = "dibay:notification-onboarding-settled";
 
 export function notifyNotificationOnboardingSettled(): void {
@@ -48,7 +48,7 @@ export function notifyNotificationOnboardingSettled(): void {
   window.dispatchEvent(new CustomEvent(DIBAY_NOTIFICATION_ONBOARDING_SETTLED_EVENT));
 }
 
-/** 알림 프리프롬프트가 아직 남아 있고 OS 권한이 미결정이면 통화 온보딩을 뒤로 미룬다 */
+/** @deprecated 통합 온보딩 게이트가 순서를 내부에서 처리 */
 export function shouldDeferCallMediaOnboardingForNotification(): boolean {
   if (typeof window === "undefined") return false;
   if (!("Notification" in window)) return false;

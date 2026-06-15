@@ -166,11 +166,20 @@ function mergeState(patch: Partial<DibayDevicePermissionState>): DibayDevicePerm
   return next;
 }
 
-function toDibayStatus(state: PermissionState | null): DibayDevicePermissionStatus {
+function toDibayStatus(
+  state: PermissionState | null,
+  prev: DibayDevicePermissionStatus,
+): DibayDevicePermissionStatus {
   if (state === "granted") return "granted";
   if (state === "denied") return "denied";
-  /** 온보딩 1회 요청 후에도 prompt — 통화 중 GUM 팝업 유발 방지를 denied 로 취급 */
-  if (state === "prompt" && hasRequestedInitialDevicePermissions()) return "denied";
+  /**
+   * 온보딩 1회 요청 후 WebView Permissions API 가 prompt 인 경우 — 통화 중 GUM 팝업 유발 방지.
+   * Android 네이티브 셸에서는 OS 허용·store granted 가 WebView prompt 와 어긋날 수 있어 granted 유지.
+   */
+  if (state === "prompt" && hasRequestedInitialDevicePermissions()) {
+    if (shouldUseAndroidNativeDevicePermissionBridge() && prev === "granted") return "granted";
+    return "denied";
+  }
   return "unknown";
 }
 
@@ -192,7 +201,18 @@ async function checkNativeStatus(kind: "camera" | "microphone"): Promise<DibayDe
   const state = await checkAndroidNativeDevicePermission(kind);
   if (state === "granted") return "granted";
   if (state === "denied") return "denied";
-  return "unknown";
+  /** prompt·브릿지 미준비 — WebView Permissions API·store 로 폴백(null) */
+  return null;
+}
+
+function mergeDevicePermissionStatus(
+  native: DibayDevicePermissionStatus | null,
+  browser: PermissionState | null,
+  prev: DibayDevicePermissionStatus,
+): DibayDevicePermissionStatus {
+  if (native === "granted") return "granted";
+  if (native === "denied") return "denied";
+  return toDibayStatus(browser, prev);
 }
 
 async function requestNativeInitialPermissions(): Promise<{ camera: DibayDevicePermissionStatus | null; microphone: DibayDevicePermissionStatus | null }> {
@@ -227,8 +247,8 @@ export async function checkDevicePermissions(): Promise<DibayDevicePermissionSta
     checkNativeStatus("camera"),
   ]);
   const prev = getDibayDevicePermissionState();
-  const microphone = nativeMic ?? toDibayStatus(browser.microphone);
-  const camera = nativeCam ?? toDibayStatus(browser.camera);
+  const microphone = mergeDevicePermissionStatus(nativeMic, browser.microphone, prev.microphone);
+  const camera = mergeDevicePermissionStatus(nativeCam, browser.camera, prev.camera);
   const next = mergeState({
     microphone,
     camera,
@@ -255,6 +275,72 @@ export function markInitialDevicePermissionsDeferred(
   const next = mergeState({ requestedAt, source });
   logDevicePermission("denied", { source, deferred: true });
   return next;
+}
+
+async function requestOnboardingSingleDevicePermission(
+  kind: "camera" | "microphone",
+  source: DibayDevicePermissionSource,
+): Promise<DibayDevicePermissionState> {
+  const prev = getDibayDevicePermissionState();
+  const requestedAt = prev.requestedAt ?? Date.now();
+  logDevicePermission("request_start", { source, kind });
+  mergeState({ requestedAt, source });
+
+  const nativeResult = await requestAndroidNativeDevicePermission(kind);
+  let status: DibayDevicePermissionStatus | null =
+    nativeResult === "granted" ? "granted" : nativeResult === "denied" ? "denied" : null;
+
+  if (status !== "granted" && status !== "denied") {
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      status = "blocked";
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia(
+          kind === "camera" ? { video: true } : { audio: true },
+        );
+        persistDeviceIdsFromInitialStream(stream);
+        stream.getTracks().forEach((track) => track.stop());
+        void refreshPreferredDevicesFromEnumerate();
+        status = "granted";
+      } catch (error) {
+        const alreadyRequested = getDibayDevicePermissionState().requestedAt != null;
+        const blocked = error instanceof DOMException && error.name === "NotAllowedError" && alreadyRequested;
+        status = blocked ? "blocked" : "denied";
+      }
+    }
+  }
+
+  const patch =
+    kind === "camera"
+      ? { camera: status ?? "unknown" }
+      : { microphone: status ?? "unknown" };
+  const next = mergeState(patch);
+  const granted = next.camera === "granted" && next.microphone === "granted";
+  if (granted) {
+    mergeState({ grantedAt: Date.now() });
+  }
+  syncLegacyCache(getDibayDevicePermissionState());
+  logDevicePermission("request_result", {
+    source,
+    kind,
+    camera: getDibayDevicePermissionState().camera,
+    microphone: getDibayDevicePermissionState().microphone,
+  });
+  return getDibayDevicePermissionState();
+}
+
+/** 통합 온보딩 — 카메라 단계 */
+export async function requestOnboardingCameraPermission(
+  source: DibayDevicePermissionSource,
+): Promise<DibayDevicePermissionState> {
+  return requestOnboardingSingleDevicePermission("camera", source);
+}
+
+/** 통합 온보딩 — 마이크 단계 */
+export async function requestOnboardingMicrophonePermission(
+  source: DibayDevicePermissionSource,
+): Promise<DibayDevicePermissionState> {
+  return requestOnboardingSingleDevicePermission("microphone", source);
 }
 
 export async function requestInitialDevicePermissions(

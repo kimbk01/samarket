@@ -32,8 +32,7 @@ import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
-import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
-import { DiBaYCallMediaOnboardingGate } from "@/components/community-messenger/DiBaYCallMediaOnboardingGate";
+import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
@@ -229,8 +228,7 @@ export function MainAppProviderTree({
           <OwnerHubBadgeRuntime />
           <LoginRequiredSheet />
           <MissingProfileInfoModal />
-          <DiBaYNotificationOnboardingGate />
-          <DiBaYCallMediaOnboardingGate />
+          <DiBaYDevicePermissionOnboardingGate />
           <NativePushRegistrationLazy />
           <NativeBadgeSyncLazy />
           <DevicePermissionUiHost />
