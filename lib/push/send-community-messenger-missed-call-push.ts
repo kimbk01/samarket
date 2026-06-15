@@ -5,7 +5,7 @@
 
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
-import { sendWebPushNotificationsForUser } from "@/lib/push/send-web-push-for-user";
+import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 
 function absolutizeLink(link: string | null | undefined): string | null {
@@ -25,28 +25,50 @@ export async function sendWebPushForCommunityMessengerMissedCall(input: {
   recipientUserId: string;
   sessionId: string;
   roomId: string;
+  initiatorDisplayName?: string;
+  recipientDisplayName?: string;
 }): Promise<void> {
   const sessionId = input.sessionId.trim();
   const roomId = input.roomId.trim();
-  const a = input.initiatorUserId.trim();
-  const b = input.recipientUserId.trim();
-  if (!sessionId || !roomId || !a || !b) return;
-  if (messengerUserIdsEqual(a, b)) return;
+  const initiatorId = input.initiatorUserId.trim();
+  const recipientId = input.recipientUserId.trim();
+  if (!sessionId || !roomId || !initiatorId || !recipientId) return;
+  if (messengerUserIdsEqual(initiatorId, recipientId)) return;
 
-  const link_url = `/community-messenger/rooms/${encodeURIComponent(roomId)}?focus=call_history`;
   const occurred_at = new Date().toISOString();
+  const link_url = `/community-messenger/calls/logs?callId=${encodeURIComponent(sessionId)}`;
 
-  const build = (user_id: string): NotificationSideEffectPayloadOut => ({
+  const build = (
+    user_id: string,
+    callerId: string,
+    callerName: string
+  ): NotificationSideEffectPayloadOut => ({
     user_id,
     notification_type: "community_messenger_missed_call",
     title: "부재중 통화",
-    body: "",
+    body: callerName ? `${callerName}님의 부재중 통화` : "",
     link_url,
-    meta: { session_id: sessionId, room_id: roomId },
+    meta: {
+      session_id: sessionId,
+      room_id: roomId,
+      caller_id: callerId,
+      caller_name: callerName,
+      missed_at: occurred_at,
+    },
     link_url_absolute: absolutizeLink(link_url),
     occurred_at,
   });
 
-  await sendWebPushNotificationsForUser(build(a));
-  await sendWebPushNotificationsForUser(build(b));
+  await dispatchPushForUser(build(initiatorId, recipientId, input.recipientDisplayName?.trim() || ""), {
+    event_type: "missed_call",
+    target_type: "call_session",
+    target_id: sessionId,
+    call_push_kind: "missed_call",
+  });
+  await dispatchPushForUser(build(recipientId, initiatorId, input.initiatorDisplayName?.trim() || ""), {
+    event_type: "missed_call",
+    target_type: "call_session",
+    target_id: sessionId,
+    call_push_kind: "missed_call",
+  });
 }

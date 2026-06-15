@@ -30,14 +30,18 @@ type Props = {
   callsHydrating?: boolean;
   /** 방 진입 시 `?from=` 유지 */
   entryOrigin?: string | null;
+  /** missed_call 알림 딥링크 — 해당 통화 기록 하이라이트 */
+  highlightCallId?: string | null;
 };
 
 function CallLogRow({
   call,
   onNavigate,
+  highlighted,
 }: {
   call: CommunityMessengerCallLog;
   onNavigate: (call: CommunityMessengerCallLog) => void;
+  highlighted?: boolean;
 }) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -104,7 +108,7 @@ function CallLogRow({
   );
 
   return (
-    <li>
+    <li data-call-log-id={call.sessionId ?? call.id} data-highlight={highlighted ? "true" : undefined}>
       <div
         role={canNavigate ? "button" : undefined}
         tabIndex={canNavigate ? 0 : undefined}
@@ -118,7 +122,7 @@ function CallLogRow({
         }}
         className={`w-full text-left transition active:bg-sam-surface-muted ${
           canNavigate ? "cursor-pointer" : "cursor-default"
-        }`}
+        }${highlighted ? " bg-sam-surface-muted ring-1 ring-inset ring-sam-border" : ""}`}
       >
         <MessengerListRow
           centerWithAvatar
@@ -180,6 +184,7 @@ export function MessengerCallLogsPanel({
   seedCalls = [],
   callsHydrating = false,
   entryOrigin = null,
+  highlightCallId = null,
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
@@ -187,6 +192,7 @@ export function MessengerCallLogsPanel({
   const [loading, setLoading] = useState(callsHydrating);
   const [error, setError] = useState<string | null>(null);
   const fallbackFetchedRef = useRef(false);
+  const normalizedHighlightId = highlightCallId?.trim() ?? "";
 
   useEffect(() => {
     setCalls(normalizeCommunityMessengerCallLogs(seedCalls));
@@ -227,6 +233,20 @@ export function MessengerCallLogsPanel({
     };
   }, [callsHydrating, t]);
 
+  useEffect(() => {
+    if (!normalizedHighlightId || loading) return;
+    const matched = calls.some(
+      (call) => (call.sessionId?.trim() ?? call.id?.trim() ?? "") === normalizedHighlightId
+    );
+    if (!matched) return;
+    const node = document.querySelector<HTMLElement>(
+      `[data-call-log-id="${CSS.escape(normalizedHighlightId)}"]`
+    );
+    if (!node) return;
+    node.scrollIntoView({ block: "center", behavior: "smooth" });
+    console.info("[missed-call] highlighted_in_history", { callId: normalizedHighlightId });
+  }, [calls, loading, normalizedHighlightId]);
+
   const onRowNavigate = useCallback(
     (call: CommunityMessengerCallLog) => {
       const roomId = call.roomId?.trim();
@@ -260,9 +280,18 @@ export function MessengerCallLogsPanel({
 
   return (
     <ul className="divide-y divide-sam-border" aria-label={t("cm_ui_call_logs_title")}>
-      {calls.map((call) => (
-        <CallLogRow key={call.id} call={call} onNavigate={onRowNavigate} />
-      ))}
+      {calls.map((call) => {
+        const sid = call.sessionId?.trim() ?? call.id?.trim() ?? "";
+        const highlighted = Boolean(normalizedHighlightId && sid === normalizedHighlightId);
+        return (
+          <CallLogRow
+            key={call.id}
+            call={call}
+            onNavigate={onRowNavigate}
+            highlighted={highlighted}
+          />
+        );
+      })}
     </ul>
   );
 }

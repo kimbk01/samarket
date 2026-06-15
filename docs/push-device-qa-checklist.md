@@ -44,10 +44,35 @@
 2. B로 전환 → A `user_devices` is_active=false (동일 device_id)
 3. B push만 수신
 
+## Android FCM 상태별 (2026-06)
+
+| 앱 상태 | chat_message | incoming_call | missed_call |
+|---------|--------------|---------------|-------------|
+| foreground | 인앱만 (시스템 알림 X) | 웹 overlay (시스템 알림 X) | 인앱 센터 (시스템 알림 X) |
+| background | 시스템 알림 + tap route | Full Screen → `IncomingCallActivity` | 시스템 알림 → logs?callId |
+| killed | data-only 시스템 알림 | Full Screen 시도 | 시스템 알림 |
+| locked | 알림 표시 | Activity wake + lockscreen UI | 알림 tap → logs |
+
+## Android FCM QA (추가)
+
+1. FCM token 등록 유지 (`user_devices`)
+2. `chat_message` background tap → `/community-messenger/rooms/{roomId}`
+3. killed 상태 tap → 앱 시작 후 route 이동 (`PushRouteListener`)
+4. locked `incoming_call` → 화면 켜짐 (`IncomingCallActivity`)
+5. accept → PATCH 1회 (`?action=accept`)
+6. decline → native reject PATCH 1회
+7. `expiresAt` 지난 incoming → UI 미표시
+8. `missed_call` tap → `/community-messenger/calls/logs?callId=`
+9. missed 알림에 다시 걸기 action 없음
+10. foreground chat 시스템 알림 중복 없음
+11. Android 12+ CallStyle — broadcast trampoline 없음 (Activity 직접 PendingIntent)
+12. Android 13+ `POST_NOTIFICATIONS` 유지
+13. `google-services.json` / `public/sw.js` diff 0
+
 ## Android logcat
 
 ```bash
-adb logcat -s FirebaseMessaging DibayFirebaseMessagingService
+adb logcat -s DIBAY_FCM DIBAY_INCOMING_CALL DIBAY_PUSH_ROUTE DIBAY_CALL_FLOW DIBAY_MISSED_CALL
 ```
 
 ## iOS Console

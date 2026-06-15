@@ -29,18 +29,19 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (data == null || data.isEmpty()) {
       RemoteMessage.Notification n = message.getNotification();
       if (n != null) {
-        showMessageNotification(n.getTitle(), n.getBody(), null, null);
+        showMessageNotification(n.getTitle(), n.getBody(), null, null, null, null);
       }
       return;
     }
 
-    String callPushKind = data.get("call_push_kind");
-    String sessionId = data.get("sessionId");
-    if (sessionId == null) sessionId = data.get("session_id");
+    Log.i(TAG, "[fcm] message_received");
+    String type = FcmPayloadResolver.resolveType(data);
+    Log.i(TAG, "[fcm] data_type_detected type=" + type);
 
-    if ("call_canceled".equals(callPushKind)) {
-      if (sessionId != null) {
-        IncomingCallNotificationBuilder.dismissIncomingCall(this, sessionId);
+    if ("call_canceled".equals(type) || "call_canceled".equals(data.get("call_push_kind"))) {
+      String callId = FcmPayloadResolver.resolveCallId(data);
+      if (callId != null) {
+        IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
       }
       return;
     }
@@ -54,61 +55,84 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       body = message.getNotification().getBody();
     }
 
-    if ("missed_call".equals(callPushKind)) {
-      if (sessionId != null) {
-        IncomingCallNotificationBuilder.dismissIncomingCall(this, sessionId);
-      }
-      String url = resolveMessageDeepLink(data);
-      showMessageNotification(
-          title != null ? title : "부재중 통화",
-          body != null ? body : "",
-          url,
-          data.get("tag"));
-      Log.i(TAG, "missed_call sessionId=" + sessionId);
+    boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
+
+    if ("incoming_call".equals(type)) {
+      handleIncomingCall(data, title, body, appVisible);
       return;
     }
 
-    boolean isIncomingCall = "1".equals(data.get("dibay_call")) || "incoming_call".equals(callPushKind);
-    if (isIncomingCall && sessionId != null) {
-      if (MainActivity.isAppVisibleForIncomingCall()) {
-        Log.i(TAG, "incoming_call_app_visible_delegate_to_web sessionId=" + sessionId);
+    if ("missed_call".equals(type)) {
+      handleMissedCall(data, title, body, appVisible);
+      return;
+    }
+
+    if (FcmPayloadResolver.isStandardRouteType(type) || "unknown".equals(type)) {
+      if (appVisible && FcmPayloadResolver.isStandardRouteType(type)) {
+        Log.i(TAG, "[fcm] foreground_skip_system_notification type=" + type);
         return;
       }
-      /** https URL 은 MainActivity 에서 query(action=accept) 가 유실될 수 있어 dibay 스킴만 사용 */
-      String dibayCallUrl = "dibay://call/" + sessionId;
-      IncomingCallNotificationBuilder.showIncomingCall(this, sessionId, title, body, dibayCallUrl);
-      Log.i(TAG, "incoming_call sessionId=" + sessionId);
+      String routeUrl = FcmPayloadResolver.resolveRouteUrl(data);
+      showMessageNotification(title, body, routeUrl, data.get("tag"), data.get("notificationId"), type);
       return;
     }
 
-    showMessageNotification(title, body, resolveMessageDeepLink(data), data.get("tag"));
+    Log.i(TAG, "[fcm] unknown_type_fallback type=" + type);
+    if (appVisible) return;
+    showMessageNotification(title, body, FcmPayloadResolver.resolveRouteUrl(data), data.get("tag"), data.get("notificationId"), type);
+  }
+
+  private void handleIncomingCall(Map<String, String> data, String title, String body, boolean appVisible) {
+    String callId = FcmPayloadResolver.resolveCallId(data);
+    if (callId == null) return;
+
+    Log.i(TAG, "[incoming-call-native] fcm_received callId=" + callId);
+
+    if (FcmPayloadResolver.isExpired(data)) {
+      Log.i(TAG, "[incoming-call-native] expired_ignored callId=" + callId);
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+      return;
+    }
+
+    if (appVisible) {
+      Log.i(TAG, "incoming_call_app_visible_delegate_to_web callId=" + callId);
+      return;
+    }
+
+    String callType = firstNonEmpty(data.get("callType"), data.get("kind"));
+    String expiresAt = firstNonEmpty(data.get("expiresAt"), data.get("expires_at"));
+    IncomingCallNotificationBuilder.showIncomingCall(this, callId, title, body, null, callType, expiresAt);
+  }
+
+  private void handleMissedCall(Map<String, String> data, String title, String body, boolean appVisible) {
+    String callId = FcmPayloadResolver.resolveCallId(data);
+    if (callId != null) {
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+    }
+    if (appVisible) {
+      Log.i(TAG, "[fcm] foreground_skip_system_notification type=missed_call");
+      return;
+    }
+    String routeUrl = FcmPayloadResolver.resolveRouteUrl(data);
+    MissedCallNotificationHelper.show(this, title, body, routeUrl, callId, data.get("tag"));
   }
 
   @Override
   public void onNewToken(String token) {
-    Log.i(TAG, "token_refresh length=" + (token != null ? token.length() : 0));
+    Log.i(TAG, "[fcm] token_refresh length=" + (token != null ? token.length() : 0));
   }
 
-  private static String firstNonEmpty(String value) {
-    if (value == null) return null;
-    String trimmed = value.trim();
-    return trimmed.isEmpty() ? null : trimmed;
-  }
-
-  private static String resolveMessageDeepLink(Map<String, String> data) {
-    String url = data.get("url");
-    if (url != null && !url.isEmpty()) return url;
-    String roomId = data.get("roomId");
-    if (roomId == null) roomId = data.get("room_id");
-    if (roomId != null && !roomId.isEmpty()) {
-      return "dibay://chat/" + roomId;
+  private static String firstNonEmpty(String... values) {
+    if (values == null) return null;
+    for (String value : values) {
+      if (value != null && !value.trim().isEmpty()) return value.trim();
     }
     return null;
   }
 
-  private void ensureMessagesChannel() {
+  static void ensureMessagesChannelStatic(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
-    NotificationManager nm = getSystemService(NotificationManager.class);
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
     if (nm == null) return;
     if (nm.getNotificationChannel(MESSAGES_CHANNEL_ID) != null) return;
     NotificationChannel channel =
@@ -119,16 +143,27 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     nm.createNotificationChannel(channel);
   }
 
-  private void showMessageNotification(String title, String body, String url, String tag) {
+  private void ensureMessagesChannel() {
+    ensureMessagesChannelStatic(this);
+  }
+
+  private void showMessageNotification(
+      String title, String body, String url, String tag, String notificationId, String type) {
     ensureMessagesChannel();
     Intent launch = new Intent(this, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
+    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     if (url != null && !url.isEmpty()) {
-      launch.setData(Uri.parse(url));
+      if (url.startsWith("/")) {
+        launch.putExtra("url", url);
+      } else {
+        launch.setData(Uri.parse(url));
+      }
     } else {
       launch.setAction(Intent.ACTION_MAIN);
     }
-    launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    if (type != null) launch.putExtra("type", type);
+    if (notificationId != null) launch.putExtra("notificationId", notificationId);
 
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

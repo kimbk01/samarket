@@ -6,6 +6,7 @@
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 
 function absolutizeLink(link: string | null | undefined): string | null {
@@ -17,25 +18,50 @@ function absolutizeLink(link: string | null | undefined): string | null {
   return s.startsWith("/") ? `${base}${s}` : `${base}/${s}`;
 }
 
+function computeExpiresAtIso(startedAt: string): string {
+  const startMs = new Date(startedAt).getTime();
+  const baseMs = Number.isFinite(startMs) ? startMs : Date.now();
+  return new Date(baseMs + DEFAULT_INCOMING_RING_TIMEOUT_SECONDS * 1000).toISOString();
+}
+
 export async function sendWebPushForCommunityMessengerIncomingCall(input: {
   recipientUserId: string;
   sessionId: string;
+  roomId: string;
+  callerId: string;
   callKind: CommunityMessengerCallKind;
   callerDisplayName: string;
+  callerAvatar?: string | null;
+  startedAt: string;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
-  if (!recipient || !sessionId) return;
+  const roomId = input.roomId.trim();
+  const callerId = input.callerId.trim();
+  const startedAt = input.startedAt.trim();
+  if (!recipient || !sessionId || !roomId || !callerId) return;
 
   const link_url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
   const isVideo = input.callKind === "video";
+  const callerAvatar = input.callerAvatar?.trim() || null;
+  const expiresAt = computeExpiresAtIso(startedAt || new Date().toISOString());
+
   const out: NotificationSideEffectPayloadOut = {
     user_id: recipient,
     notification_type: "community_messenger_incoming_call",
     title: isVideo ? "영상 통화" : "음성 통화",
     body: `${input.callerDisplayName}님의 전화`,
     link_url,
-    meta: { session_id: sessionId, kind: input.callKind },
+    meta: {
+      session_id: sessionId,
+      room_id: roomId,
+      caller_id: callerId,
+      caller_name: input.callerDisplayName,
+      ...(callerAvatar ? { caller_avatar: callerAvatar } : {}),
+      kind: input.callKind,
+      started_at: startedAt || new Date().toISOString(),
+      expires_at: expiresAt,
+    },
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: new Date().toISOString(),
   };

@@ -16779,12 +16779,17 @@ export async function startCommunityMessengerCallSession(input: {
         void (async () => {
           try {
             const profileMap = await fetchProfilesByIds([input.userId]);
-            const callerLabel = profileLabel(profileMap.get(input.userId), input.userId);
+            const callerProfile = profileMap.get(input.userId);
+            const callerLabel = profileLabel(callerProfile, input.userId);
             await sendWebPushForCommunityMessengerIncomingCall({
               recipientUserId: peerUserId,
               sessionId: inserted.id,
+              roomId,
+              callerId: input.userId,
               callKind: input.callKind,
               callerDisplayName: callerLabel,
+              callerAvatar: callerProfile?.avatar_url ?? null,
+              startedAt,
             });
           } catch (e) {
             console.error("[startCommunityMessengerCallSession] incoming call push failed", {
@@ -17540,12 +17545,26 @@ export async function updateCommunityMessengerCallSession(input: {
           const initM = trimText(updated.initiator_user_id ?? "");
           const recipM = trimText(updated.recipient_user_id ?? "");
           if (roomIdM && initM && recipM) {
-            void sendWebPushForCommunityMessengerMissedCall({
-              sessionId: updated.id,
-              roomId: roomIdM,
-              initiatorUserId: initM,
-              recipientUserId: recipM,
-            }).catch(() => {});
+            void (async () => {
+              try {
+                const profileMap = await fetchProfilesByIds([initM, recipM]);
+                await sendWebPushForCommunityMessengerMissedCall({
+                  sessionId: updated.id,
+                  roomId: roomIdM,
+                  initiatorUserId: initM,
+                  recipientUserId: recipM,
+                  initiatorDisplayName: profileLabel(profileMap.get(initM), initM),
+                  recipientDisplayName: profileLabel(profileMap.get(recipM), recipM),
+                });
+              } catch {
+                await sendWebPushForCommunityMessengerMissedCall({
+                  sessionId: updated.id,
+                  roomId: roomIdM,
+                  initiatorUserId: initM,
+                  recipientUserId: recipM,
+                });
+              }
+            })().catch(() => {});
           }
         }
         if (

@@ -1,6 +1,7 @@
 package com.dibay.app;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
@@ -20,10 +21,13 @@ import java.security.MessageDigest;
 
 public class MainActivity extends BridgeActivity {
   private static final String TAG = "DIBAY_OAuth";
+  private static final String ROUTE_PREFS = "dibay_push_route";
+  private static final String ROUTE_LOG_TAG = "DIBAY_PUSH_ROUTE";
   private static volatile boolean appVisible = false;
 
   private DibayWebViewPermissionDelegate webViewPermissionDelegate;
   private String pendingAppPath = null;
+  private String pendingNotificationId = null;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
@@ -160,9 +164,21 @@ public class MainActivity extends BridgeActivity {
     dismissIncomingCallNotificationFromIntent(intent);
     applyIncomingCallWakeFlags(intent);
 
+    String notificationId = intent.getExtras() != null ? intent.getExtras().getString("notificationId") : null;
+    Log.i(ROUTE_LOG_TAG, "[push-route] notification_tap_received notificationId=" + notificationId);
+
     String appPath = resolveAppPathFromPushExtras(intent.getExtras());
     if (appPath != null && !appPath.isEmpty()) {
-      queueNavigateWebViewToAppPath(appPath);
+      if (isDuplicateRouteNotification(notificationId)) {
+        Log.i(ROUTE_LOG_TAG, "[push-route] duplicate_ignored notificationId=" + notificationId);
+        return;
+      }
+      String type = intent.getExtras() != null ? intent.getExtras().getString("type") : null;
+      if ("missed_call".equals(type)) {
+        Log.i("DIBAY_MISSED_CALL", "[missed-call] notification_tap_to_history path=" + appPath);
+      }
+      Log.i(ROUTE_LOG_TAG, "[push-route] route_resolved path=" + appPath);
+      queueNavigateWebViewToAppPath(appPath, notificationId);
       return;
     }
 
@@ -179,7 +195,7 @@ public class MainActivity extends BridgeActivity {
       }
       appPath = mapDibayDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
-        queueNavigateWebViewToAppPath(appPath);
+        queueNavigateWebViewToAppPath(appPath, null);
       }
       return;
     }
@@ -187,7 +203,7 @@ public class MainActivity extends BridgeActivity {
     if ("https".equals(data.getScheme()) || "http".equals(data.getScheme())) {
       appPath = mapHttpsDeepLinkToAppPath(data);
       if (appPath != null && !appPath.isEmpty()) {
-        queueNavigateWebViewToAppPath(appPath);
+        queueNavigateWebViewToAppPath(appPath, null);
       }
     }
   }
@@ -236,21 +252,59 @@ public class MainActivity extends BridgeActivity {
       return fromUrl;
     }
 
+    String type = firstNonEmpty(extras.getString("type"));
+    String callId = firstNonEmpty(extras.getString("callId"), extras.getString("sessionId"), extras.getString("session_id"));
+    if ("missed_call".equals(type) && callId != null) {
+      return "/community-messenger/calls/logs?callId=" + Uri.encode(callId);
+    }
+    if ("incoming_call".equals(type) && callId != null) {
+      return "/community-messenger/calls/" + Uri.encode(callId);
+    }
+
     String roomId = firstNonEmpty(extras.getString("roomId"), extras.getString("room_id"));
+    if ("chat_message".equals(type) && roomId != null) {
+      return "/community-messenger/rooms/" + Uri.encode(roomId);
+    }
+    if ("trade_message".equals(type) && roomId != null) {
+      return "/chats/" + Uri.encode(roomId);
+    }
+
+    String orderId = firstNonEmpty(extras.getString("orderId"), extras.getString("order_id"));
+    if ("delivery_order".equals(type) && orderId != null) {
+      return "/orders/store/" + Uri.encode(orderId);
+    }
+
+    String postId = firstNonEmpty(extras.getString("postId"), extras.getString("post_id"));
+    if ("community_comment".equals(type) && postId != null) {
+      return "/philife/posts/" + Uri.encode(postId);
+    }
+
     if (roomId != null && !roomId.isEmpty()) {
       return "/community-messenger/rooms/" + Uri.encode(roomId);
     }
 
-    String sessionId = firstNonEmpty(extras.getString("sessionId"), extras.getString("session_id"));
-    if (sessionId != null && !sessionId.isEmpty()) {
+    if (callId != null && !callId.isEmpty()) {
       String action = firstNonEmpty(extras.getString("action"));
-      String path = "/community-messenger/calls/" + Uri.encode(sessionId);
+      String path = "/community-messenger/calls/" + Uri.encode(callId);
       if (action != null) {
         path += "?action=" + Uri.encode(action);
       }
       return path;
     }
     return null;
+  }
+
+  private boolean isDuplicateRouteNotification(String notificationId) {
+    if (notificationId == null || notificationId.trim().isEmpty()) return false;
+    SharedPreferences prefs = getSharedPreferences(ROUTE_PREFS, MODE_PRIVATE);
+    String lastId = prefs.getString("last_notification_id", null);
+    long lastAt = prefs.getLong("last_notification_at", 0L);
+    long now = System.currentTimeMillis();
+    if (notificationId.equals(lastId) && now - lastAt < 60_000L) {
+      return true;
+    }
+    prefs.edit().putString("last_notification_id", notificationId).putLong("last_notification_at", now).apply();
+    return false;
   }
 
   private static String firstNonEmpty(String... values) {
@@ -284,38 +338,49 @@ public class MainActivity extends BridgeActivity {
     return path + "?" + encodedQuery;
   }
 
-  private void queueNavigateWebViewToAppPath(String appPath) {
+  private void queueNavigateWebViewToAppPath(String appPath, String notificationId) {
     if (appPath == null || appPath.isEmpty()) return;
     pendingAppPath = appPath;
+    pendingNotificationId = notificationId;
+    Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_saved path=" + appPath);
     flushPendingAppPathIfAny();
   }
 
   private void flushPendingAppPathIfAny() {
     if (pendingAppPath == null || pendingAppPath.isEmpty()) return;
     final String appPath = pendingAppPath;
+    final String notificationId = pendingNotificationId;
     mainHandler.post(
         () -> {
-          if (!navigateWebViewToAppPathNow(appPath)) {
-            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath), 120);
-            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath), 450);
-            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath), 900);
+          if (!navigateWebViewToAppPathNow(appPath, notificationId)) {
+            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath, notificationId), 120);
+            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath, notificationId), 450);
+            mainHandler.postDelayed(() -> navigateWebViewToAppPathNow(appPath, notificationId), 900);
           }
         });
   }
 
-  private boolean navigateWebViewToAppPathNow(String appPath) {
+  private boolean navigateWebViewToAppPathNow(String appPath, String notificationId) {
     if (appPath == null || appPath.isEmpty()) return false;
     Bridge bridge = getBridge();
     if (bridge == null) return false;
     WebView webView = bridge.getWebView();
     if (webView == null) return false;
     final String jsPath = appPath.replace("\\", "\\\\").replace("'", "\\'");
-    webView.post(
-        () ->
-            webView.evaluateJavascript(
-                "window.location.assign('" + jsPath + "');", null));
+    final String jsNotificationId =
+        notificationId != null
+            ? notificationId.replace("\\", "\\\\").replace("'", "\\'")
+            : "";
+    final String js =
+        "window.dispatchEvent(new CustomEvent('dibay:push-route',{detail:{path:'"
+            + jsPath
+            + "',notificationId:'"
+            + jsNotificationId
+            + "'}}));";
+    webView.post(() -> webView.evaluateJavascript(js, null));
     pendingAppPath = null;
-    Log.i(TAG, "deep_link_navigate path=" + appPath);
+    pendingNotificationId = null;
+    Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
     return true;
   }
 

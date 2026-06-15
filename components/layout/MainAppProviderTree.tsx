@@ -79,6 +79,10 @@ const NativePushRegistrationLazy = dynamic(
   () => import("@/components/push/NativePushRegistration").then((mod) => mod.NativePushRegistration),
   { ssr: false }
 );
+const PushRouteListenerLazy = dynamic(
+  () => import("@/components/push/PushRouteListener").then((mod) => mod.PushRouteListener),
+  { ssr: false }
+);
 const NativeBadgeSyncLazy = dynamic(
   () => import("@/components/push/NativeBadgeSync").then((mod) => mod.NativeBadgeSync),
   { ssr: false }
@@ -230,6 +234,7 @@ export function MainAppProviderTree({
           <MissingProfileInfoModal />
           <DiBaYDevicePermissionOnboardingGate />
           <NativePushRegistrationLazy />
+          <PushRouteListenerLazy />
           <NativeBadgeSyncLazy />
           <DevicePermissionUiHost />
           <FavoriteProvider>
