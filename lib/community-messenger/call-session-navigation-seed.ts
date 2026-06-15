@@ -191,14 +191,14 @@ export type OutgoingCallSessionBootstrapResult =
 function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
   const lang = getRuntimeAppLanguage();
   if (kind === "video") {
-    return safeTranslate(lang, "cm_ui_call_permission_settings_video", {
-      fallbackKo: "카메라/마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
-      fallbackEn: "Camera/microphone access is turned off. Allow it in settings.",
+    return safeTranslate(lang, "cm_ui_call_permission_required_before_video", {
+      fallbackKo: "카메라·마이크 허용 후 영상통화가 가능합니다. 권한을 허용해 주세요.",
+      fallbackEn: "Allow camera and microphone to start a video call.",
     });
   }
-  return safeTranslate(lang, "cm_ui_call_permission_settings_voice", {
-    fallbackKo: "마이크 권한이 꺼져 있습니다. 설정에서 허용해 주세요.",
-    fallbackEn: "Microphone access is turned off. Allow it in settings.",
+  return safeTranslate(lang, "cm_ui_call_permission_required_before_voice", {
+    fallbackKo: "마이크 허용 후 음성통화가 가능합니다. 권한을 허용해 주세요.",
+    fallbackEn: "Allow microphone access to start a voice call.",
   });
 }
 

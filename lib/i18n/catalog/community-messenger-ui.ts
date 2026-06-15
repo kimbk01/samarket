@@ -649,6 +649,11 @@ export const communityMessengerUiMessages = {
     cm_ui_call_session_action_failed: "통화 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     cm_ui_call_session_reject_failed: "거절 처리에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.",
     cm_ui_incoming_call_list_failed: "수신 통화 목록을 불러오지 못했습니다.",
+    cm_ui_incoming_call_list_reload: "목록 새로고침",
+    cm_ui_call_permission_required_before_video:
+      "카메라·마이크 허용 후 영상통화가 가능합니다. 권한을 허용해 주세요.",
+    cm_ui_call_permission_required_before_voice:
+      "마이크 허용 후 음성통화가 가능합니다. 권한을 허용해 주세요.",
     cm_ui_network_or_server_unreachable: "네트워크 또는 서버 응답을 확인할 수 없습니다.",
     cm_ui_call_signal_poll_unstable:
       "통화 신호 연결이 불안정합니다. 잠시만 기다리거나 통화를 종료한 뒤 다시 시도해 주세요.",
@@ -1506,6 +1511,11 @@ export const communityMessengerUiMessages = {
     cm_ui_call_session_action_failed: "Could not update call status. Please try again shortly.",
     cm_ui_call_session_reject_failed: "Could not decline the call. Check your network and try again.",
     cm_ui_incoming_call_list_failed: "Could not load incoming calls.",
+    cm_ui_incoming_call_list_reload: "Refresh list",
+    cm_ui_call_permission_required_before_video:
+      "Allow camera and microphone to start a video call.",
+    cm_ui_call_permission_required_before_voice:
+      "Allow microphone access to start a voice call.",
     cm_ui_network_or_server_unreachable: "Could not verify the network or server response.",
     cm_ui_call_signal_poll_unstable:
       "Call signaling is unstable. Wait a moment or end the call and try again.",
