@@ -463,6 +463,14 @@ public class MainActivity extends BridgeActivity {
     if (bridge == null) return false;
     WebView webView = bridge.getWebView();
     if (webView == null) return false;
+    if (appPath.startsWith("/community-messenger/calls/") && loadCallRouteDirectly(webView, appPath)) {
+      routeInjectedForCurrentPending = true;
+      pendingAppPath = null;
+      pendingNotificationId = null;
+      clearPersistedPendingPushRoute(this);
+      Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_loaded path=" + appPath);
+      return true;
+    }
     final String jsPath = appPath.replace("\\", "\\\\").replace("'", "\\'");
     final String jsNotificationId =
         notificationId != null
@@ -487,6 +495,23 @@ public class MainActivity extends BridgeActivity {
     pendingNotificationId = null;
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
     return true;
+  }
+
+  private boolean loadCallRouteDirectly(WebView webView, String appPath) {
+    String currentUrl = webView.getUrl();
+    if (currentUrl == null || currentUrl.trim().isEmpty()) return false;
+    try {
+      Uri current = Uri.parse(currentUrl);
+      String scheme = current.getScheme();
+      String authority = current.getAuthority();
+      if (scheme == null || authority == null) return false;
+      String target = scheme + "://" + authority + appPath;
+      webView.post(() -> webView.loadUrl(target));
+      return true;
+    } catch (Exception error) {
+      Log.w(ROUTE_LOG_TAG, "[push-route] webview_call_route_load_failed " + error.getMessage());
+      return false;
+    }
   }
 
   private static String mapDibayDeepLinkToAppPath(Uri data) {

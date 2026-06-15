@@ -47,8 +47,10 @@ import {
   hasUsablePrimedCommunityMessengerDeviceStream,
   peekPrimedCommunityMessengerDeviceStream,
   resumePrimedCommunityMessengerDeviceStreamIdleRelease,
+  storePrimedCommunityMessengerDeviceStream,
   suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
 } from "@/lib/community-messenger/call-permission";
+import { acquirePrimedCommunityMessengerStream } from "@/lib/call/permission-manager";
 import {
   shouldMountLocalVideoPipShell,
   shouldRetainPrimedDeviceStreamForVideoPreview,
@@ -498,6 +500,7 @@ export function CommunityMessengerCallClient({
   const [terminalClosedAt, setTerminalClosedAt] = useState<number | null>(null);
   const [endedDurationSeconds, setEndedDurationSeconds] = useState<number | null>(null);
   const [localVideoReady, setLocalVideoReady] = useState(false);
+  const [preJoinVideoPrimeNonce, setPreJoinVideoPrimeNonce] = useState(0);
   const [localVideoPlayBlocked, setLocalVideoPlayBlocked] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
   const [layoutSwapped, setLayoutSwapped] = useState(false);
@@ -554,6 +557,7 @@ export function CommunityMessengerCallClient({
    * `peek` 가 null 이 되어도 동일 MediaStream 트랙은 살아 있음.
    */
   const heldPreJoinVideoPreviewRef = useRef<MediaStream | null>(null);
+  const preJoinVideoPrimeAttemptedSessionRef = useRef<string | null>(null);
   const prevCallRouteSessionIdRef = useRef<string | null>(null);
   const cmCallVideoLogOnceRef = useRef({
     localReady: false,
@@ -3586,7 +3590,56 @@ export function CommunityMessengerCallClient({
   }, [
     joined,
     localVideoReady,
+    preJoinVideoPrimeNonce,
     session,
+    session?.callKind,
+    session?.id,
+    session?.isMineInitiator,
+    session?.status,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (session?.callKind !== "video") return;
+    if (!session.isMineInitiator) return;
+    if (session.status !== "ringing" && session.status !== "active") return;
+    if (localVideoReady || preJoinVideoPreviewStream) return;
+    if (hasUsablePrimedCommunityMessengerDeviceStream("video")) return;
+    if (!isCallMediaGrantedSync("video")) return;
+    if (preJoinVideoPrimeAttemptedSessionRef.current === session.id) return;
+
+    preJoinVideoPrimeAttemptedSessionRef.current = session.id;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const preflight = await ensureCallCanUseMedia("video");
+        if (!preflight.ok || cancelled) return;
+        const stream = await acquirePrimedCommunityMessengerStream("video");
+        if (cancelled) {
+          for (const track of stream.getTracks()) track.stop();
+          return;
+        }
+        storePrimedCommunityMessengerDeviceStream("video", stream);
+        heldPreJoinVideoPreviewRef.current = stream;
+        setPreJoinVideoPrimeNonce((prev) => prev + 1);
+        console.info("[call-permission] outgoing_video_prejoin_reprimed", {
+          sessionId: session.id,
+          status: session.status,
+        });
+      } catch (error) {
+        console.warn("[call-permission] outgoing_video_prejoin_reprime_failed", {
+          sessionId: session.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    localVideoReady,
+    preJoinVideoPreviewStream,
     session?.callKind,
     session?.id,
     session?.isMineInitiator,

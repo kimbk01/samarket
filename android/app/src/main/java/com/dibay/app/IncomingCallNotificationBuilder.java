@@ -14,8 +14,10 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 
 /**
- * Messenger-style incoming call notification — high-priority banner with accept/decline actions.
- * Single web route via MainActivity (no CallStyle / FullScreenIntent / native call UI).
+ * Messenger-style incoming call notification.
+ *
+ * <p>CallStyle/RingingService 는 쓰지 않는다. 단, 잠금 화면에서는 Android 가 일반 알림을 화면 위로
+ * 올려주지 않으므로 full-screen bridge Activity 만 사용해 수락 route 로 넘긴다.
  */
 public final class IncomingCallNotificationBuilder {
   /** Production channel — do not rename (OS channel settings are sticky). */
@@ -101,6 +103,17 @@ public final class IncomingCallNotificationBuilder {
     Intent content = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
 
+    Intent fullScreen = new Intent(context, IncomingCallActivity.class);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALLER_NAME, callerName);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_TITLE, title);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_BODY, body);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_CALL_TYPE, callType);
+    fullScreen.putExtra(IncomingCallActivity.EXTRA_EXPIRES_AT, expiresAt);
+    fullScreen.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+    PendingIntent fullScreenPi =
+        PendingIntent.getActivity(context, sid.hashCode() + 4, fullScreen, flags);
+
     Intent decline = new Intent(context, IncomingCallDeclineReceiver.class);
     decline.setAction(IncomingCallDeclineReceiver.ACTION_DECLINE);
     decline.putExtra(IncomingCallDeclineReceiver.EXTRA_CALL_ID, sid);
@@ -113,11 +126,13 @@ public final class IncomingCallNotificationBuilder {
             .setContentTitle(callerName)
             .setContentText(callKindLabel)
             .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setPriority(NotificationCompat.PRIORITY_MAX)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setAutoCancel(false)
             .setContentIntent(contentPi)
+            .setFullScreenIntent(fullScreenPi, true)
             .setDefaults(Notification.DEFAULT_ALL)
             .addAction(R.mipmap.ic_launcher, "거절", declinePi)
             .addAction(R.mipmap.ic_launcher, "수락", acceptPi);

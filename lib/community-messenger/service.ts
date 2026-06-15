@@ -16696,6 +16696,24 @@ async function terminateLiveDirectCallSessionsInRoom(
   }
 }
 
+function waitCommunityMessengerCallSessionStart(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitLiveDirectCallSessionClearedInRoom(
+  sb: SupabaseLike,
+  roomId: string,
+  attempts = 4
+): Promise<boolean> {
+  for (let i = 0; i < attempts; i += 1) {
+    if (!(await getLiveDirectCallSessionIdInRoom(sb, roomId))) return true;
+    await waitCommunityMessengerCallSessionStart(120 + i * 80);
+  }
+  return !(await getLiveDirectCallSessionIdInRoom(sb, roomId));
+}
+
 function maybeResendIncomingCallPushForReusedSession(
   session: CommunityMessengerCallSession,
   peerUserId: string | null,
@@ -16795,9 +16813,10 @@ export async function startCommunityMessengerCallSession(input: {
   if (!isGroupRoom && sb && dialFresh) {
     await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
     invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
-    if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
+    if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId))) {
       await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
       invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
+      await waitLiveDirectCallSessionClearedInRoom(sb, roomId, 2);
     }
   }
   if (!isGroupRoom && sb) {
@@ -16817,6 +16836,11 @@ export async function startCommunityMessengerCallSession(input: {
     if (!isGroupRoom) {
       if (dialFresh) {
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
+          const reused = await getActiveCallSessionForRoom(input.userId, roomId);
+          if (reused) {
+            maybeResendIncomingCallPushForReusedSession(reused, peerUserId, input.userId);
+            return { ok: true, session: reused };
+          }
           return { ok: false, error: "call_session_start_failed" };
         }
         if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
