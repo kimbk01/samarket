@@ -313,9 +313,16 @@ export function mergeFriendRequestsKeepStaleOutgoingForBootstrap(
   const server = serverList ?? [];
   const meId = base.me?.id?.trim();
   if (!meId) return server;
+  const friendPeerIds = new Set(
+    (base.friends ?? [])
+      .map((f) => String(f.id ?? "").trim())
+      .filter(Boolean)
+  );
   const prev = base.requests ?? [];
   const extra = prev.filter((r) => {
     if (r.status !== "pending" || r.direction !== "outgoing" || r.requesterId !== meId) return false;
+    const peerId = String(r.addresseeId ?? "").trim();
+    if (peerId && friendPeerIds.has(peerId)) return false;
     return !server.some((s) => {
       if (String(s.id) === String(r.id)) return true;
       return (

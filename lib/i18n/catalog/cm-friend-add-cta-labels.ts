@@ -22,6 +22,10 @@ export const cmFriendAddCtaLabelsMessages = {
     cm_friend_sheet_empty_suggested: "추천이 없습니다.",
     cm_friend_sheet_open_profile: "보기",
     cm_friend_sheet_processing: "처리 중…",
+    cm_friend_friends_tab_sent_waiting: "수락 대기 중",
+    cm_friend_friends_tab_rejected_section: "거절됨",
+    cm_friend_friends_tab_rejected_status: "친구 요청이 거절되었습니다",
+    cm_friend_friends_tab_rejected_cooldown: "거절됨 · {duration} 후 재요청 가능",
   },
   en: {
     cm_friend_cta_add: "Add friend",
@@ -45,5 +49,9 @@ export const cmFriendAddCtaLabelsMessages = {
     cm_friend_sheet_empty_suggested: "No suggestions.",
     cm_friend_sheet_open_profile: "View",
     cm_friend_sheet_processing: "Processing…",
+    cm_friend_friends_tab_sent_waiting: "Waiting for acceptance",
+    cm_friend_friends_tab_rejected_section: "Declined",
+    cm_friend_friends_tab_rejected_status: "Your friend request was declined",
+    cm_friend_friends_tab_rejected_cooldown: "Declined · try again in {duration}",
   },
 };

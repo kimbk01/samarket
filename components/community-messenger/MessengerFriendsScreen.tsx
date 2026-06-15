@@ -8,7 +8,10 @@ import { partitionMessengerFriendsByNew } from "@/lib/community-messenger/messen
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerFriendsMyProfileStrip } from "@/components/community-messenger/MessengerFriendsMyProfileStrip";
 import { MessengerLineFriendRow } from "@/components/community-messenger/MessengerLineFriendRow";
-import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite, CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import type { MessengerFriendRejectedPeerEntry } from "@/lib/community-messenger/partition-messenger-friend-requests";
+import { partitionPendingMessengerFriendRequests } from "@/lib/community-messenger/partition-messenger-friend-requests";
+import { MessengerFriendsTabRequestSections } from "@/components/community-messenger/MessengerFriendsTabRequestSections";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
 type Props = {
@@ -39,6 +42,10 @@ type Props = {
   onResetTransientUi: MessengerResetTransientUiFn;
   messengerOverlayGeneration: number;
   friendQuickMenuBlocksTabSwipeRef: MutableRefObject<boolean>;
+  friendRequests: CommunityMessengerFriendRequest[];
+  rejectedPeerEntries: MessengerFriendRejectedPeerEntry[];
+  friendRequestCooldownNowMs: number;
+  onRespondFriendRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
 };
 
 export function MessengerFriendsScreen({
@@ -68,9 +75,18 @@ export function MessengerFriendsScreen({
   onResetTransientUi,
   messengerOverlayGeneration,
   friendQuickMenuBlocksTabSwipeRef,
+  friendRequests,
+  rejectedPeerEntries,
+  friendRequestCooldownNowMs,
+  onRespondFriendRequest,
 }: Props) {
   const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
+
+  const { received: receivedPending, sent: sentPending } = useMemo(
+    () => partitionPendingMessengerFriendRequests(friendRequests),
+    [friendRequests]
+  );
 
   useLayoutEffect(() => {
     friendQuickMenuBlocksTabSwipeRef.current = quickMenuUserId != null;
@@ -169,6 +185,15 @@ export function MessengerFriendsScreen({
         }}
       >
         <MessengerFriendsMyProfileStrip me={me} />
+
+        <MessengerFriendsTabRequestSections
+          received={receivedPending}
+          sent={sentPending}
+          rejectedPeers={rejectedPeerEntries}
+          busyId={busyId}
+          cooldownNowMs={friendRequestCooldownNowMs}
+          onRespondRequest={onRespondFriendRequest}
+        />
 
         {newFriends.length > 0
           ? renderFriendSection(t("cm_ui_new_friends_section"), newFriends, "var(--messenger-primary)", {

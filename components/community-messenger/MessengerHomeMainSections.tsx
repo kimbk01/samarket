@@ -19,7 +19,8 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog, CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import type { MessengerFriendRejectedPeerEntry } from "@/lib/community-messenger/partition-messenger-friend-requests";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerPillarSummary,
@@ -81,6 +82,7 @@ type Props = {
   onCreateGroup: () => void;
   onCreateOpenGroup: () => void;
   incomingRequestCount: number;
+  receivedFriendRequestCount: number;
   /** 인박스 상단 「거래 채팅」/「배달 채팅」 묶음 행. pillar 모드에선 null. */
   pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
   /** 인박스로 들어올 때 받은 `?from=...` — 묶음 행이 서브 라우트로 보낼 때 보존. */
@@ -91,6 +93,10 @@ type Props = {
   callsHydrating?: boolean;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
+  friendRequests: CommunityMessengerFriendRequest[];
+  rejectedPeerEntries: MessengerFriendRejectedPeerEntry[];
+  friendRequestCooldownNowMs: number;
+  onRespondFriendRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
@@ -143,6 +149,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onCreateGroup,
   onCreateOpenGroup,
   incomingRequestCount,
+  receivedFriendRequestCount,
   pillarSummaries = null,
   entryOriginQuery = null,
   chatListVisual = "default",
@@ -150,6 +157,10 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   callsHydrating = false,
   showSectionTabs = false,
   onPrimarySectionChange,
+  friendRequests,
+  rejectedPeerEntries,
+  friendRequestCooldownNowMs,
+  onRespondFriendRequest,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
 
@@ -160,6 +171,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           mainSection={mainSection}
           onPrimarySectionChange={onPrimarySectionChange}
           incomingRequestCount={incomingRequestCount}
+          receivedFriendRequestCount={receivedFriendRequestCount}
         />
       ) : null}
       <div
@@ -196,6 +208,10 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onResetTransientUi={onResetTransientUi}
             messengerOverlayGeneration={messengerOverlayGeneration}
             friendQuickMenuBlocksTabSwipeRef={friendQuickMenuBlocksTabSwipeRef}
+            friendRequests={friendRequests}
+            rejectedPeerEntries={rejectedPeerEntries}
+            friendRequestCooldownNowMs={friendRequestCooldownNowMs}
+            onRespondFriendRequest={onRespondFriendRequest}
           />
         ) : null}
 

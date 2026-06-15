@@ -38,7 +38,10 @@ function sectionTabPillClass(active: boolean): string {
 type Props = {
   mainSection: MessengerMainSection;
   onPrimarySectionChange: (next: MessengerMainSection) => void;
+  /** 보관함 탭 — pending 전체 */
   incomingRequestCount?: number;
+  /** 친구목록 탭 — 받은 pending 만 */
+  receivedFriendRequestCount?: number;
 };
 
 /**
@@ -49,6 +52,7 @@ export function MessengerHomeSectionTabs({
   mainSection,
   onPrimarySectionChange,
   incomingRequestCount = 0,
+  receivedFriendRequestCount = 0,
 }: Props) {
   const { t } = useI18n();
 
@@ -67,7 +71,13 @@ export function MessengerHomeSectionTabs({
         >
           {TABS.map((tab) => {
             const active = mainSection === tab.section;
-            const showBadge = tab.id === "archive" && incomingRequestCount > 0;
+            const badgeCount =
+              tab.id === "friends"
+                ? receivedFriendRequestCount
+                : tab.id === "archive"
+                  ? incomingRequestCount
+                  : 0;
+            const showBadge = badgeCount > 0;
 
             return (
               <button
@@ -86,7 +96,7 @@ export function MessengerHomeSectionTabs({
                     className="pointer-events-none absolute -right-1 -top-1 z-[1] inline-flex h-4 min-w-4 items-center justify-center rounded-full border-[1.5px] border-sam-surface bg-[#e53935] px-0.5 text-[9px] font-bold leading-none text-white"
                     aria-hidden
                   >
-                    {incomingRequestCount > 99 ? "99+" : incomingRequestCount}
+                    {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 ) : null}
               </button>

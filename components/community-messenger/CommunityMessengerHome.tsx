@@ -106,6 +106,12 @@ import {
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import { MESSENGER_FRIEND_REJECT_COOLDOWN_MS } from "@/lib/community-messenger/messenger-latency-config";
 import {
+  buildMessengerFriendRejectedPeerEntries,
+  countAllPendingMessengerFriendRequests,
+  countReceivedPendingMessengerFriendRequests,
+  hasActiveMessengerFriendRejectCooldown,
+} from "@/lib/community-messenger/partition-messenger-friend-requests";
+import {
   mergeCommunityMessengerProfileFromBootstrap,
   resolveMessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
@@ -632,6 +638,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   );
   const [friendManagerOpen, setFriendManagerOpen] = useState(false);
   const [friendAddCooldownUntilByPeer, setFriendAddCooldownUntilByPeer] = useState<Record<string, number>>({});
+  const [friendRejectedPeerLabels, setFriendRejectedPeerLabels] = useState<Record<string, string>>({});
   const [friendAddCooldownClock, setFriendAddCooldownClock] = useState(() => Date.now());
   const [friendAddTab, setFriendAddTab] = useState<MessengerFriendAddTab>("id");
   const [friendAcceptCompleteDialog, setFriendAcceptCompleteDialog] = useState<{
@@ -893,13 +900,26 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     data,
   });
   const backupInputRef = useRef<HTMLInputElement | null>(null);
-  /** 받은·보낸 pending 모두 알림 벨·알림 센터에서 한 번에 볼 수 있게 집계 */
+  /** 보관함·FAB — pending 전체(받은+보낸) */
   const incomingRequestCount = useMemo(
-    () =>
-      (data?.requests ?? []).filter(
-        (r) => r.status === "pending" && (r.direction === "incoming" || r.direction === "outgoing")
-      ).length,
+    () => countAllPendingMessengerFriendRequests(data?.requests),
     [data?.requests]
+  );
+  /** 친구 탭 배지 — 받은 pending 만 */
+  const receivedFriendRequestCount = useMemo(
+    () => countReceivedPendingMessengerFriendRequests(data?.requests),
+    [data?.requests]
+  );
+  const messengerFriendRequests = data?.requests ?? [];
+  const rejectedPeerEntries = useMemo(
+    () =>
+      buildMessengerFriendRejectedPeerEntries({
+        cooldownUntilByPeerId: friendAddCooldownUntilByPeer,
+        labelsByPeerId: friendRejectedPeerLabels,
+        nowMs: friendAddCooldownClock,
+        fallbackLabel: t("cm_ui_peer_fallback"),
+      }),
+    [friendAddCooldownClock, friendAddCooldownUntilByPeer, friendRejectedPeerLabels, t]
   );
   const friendProfileForSheet = useMemo(() => {
     if (!friendSheet || friendSheet.mode !== "profile") return null;
@@ -969,7 +989,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, [friendManagerOpen]);
 
   useEffect(() => {
-    if (!friendManagerOpen) return;
+    const shouldTick =
+      friendManagerOpen ||
+      mainSection === "friends" ||
+      hasActiveMessengerFriendRejectCooldown(friendAddCooldownUntilByPeer);
+    if (!shouldTick) return;
     setFriendAddCooldownClock(Date.now());
     const id = window.setInterval(() => {
       const now = Date.now();
@@ -987,7 +1011,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       });
     }, 1000);
     return () => window.clearInterval(id);
-  }, [friendManagerOpen]);
+  }, [friendManagerOpen, mainSection, friendAddCooldownUntilByPeer]);
 
   useEffect(() => {
     if (friendManagerOpen) return;
@@ -1410,6 +1434,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         const msg = communityMessengerFriendRequestFailureMessage(result);
         if (!result.ok && result.error === "reject_cooldown_active" && typeof result.retryAfterMs === "number") {
           const retryMs = result.retryAfterMs;
+          const peerLabel = searchResults.find((u) => u.id === targetUserId)?.label ?? t("cm_ui_peer_fallback");
+          setFriendRejectedPeerLabels((prev) => ({ ...prev, [targetUserId]: peerLabel }));
           setFriendAddCooldownUntilByPeer((prev) => ({
             ...prev,
             [targetUserId]: Date.now() + retryMs,
@@ -1580,6 +1606,13 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     [data?.me?.id, data?.requests, refresh, setData, t]
   );
 
+  const onRespondFriendRequestStable = useCallback(
+    (requestId: string, action: "accept" | "reject" | "cancel") => {
+      void respondRequest(requestId, action);
+    },
+    [respondRequest]
+  );
+
   const onFriendRequestNotif = useCallback(
     (ev: FriendRequestNotificationEvent) => {
       if (!data?.me?.id) return;
@@ -1680,13 +1713,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           });
         }
         if (appliedOutcome.shouldShowRejectSnackbar && peerId) {
+          const resolvedLabel = appliedOutcome.resolvedPeerLabel || t("cm_ui_peer_fallback");
+          setFriendRejectedPeerLabels((prev) => ({ ...prev, [peerId]: resolvedLabel }));
           setFriendAddCooldownUntilByPeer((prev) => ({
             ...prev,
             [peerId]: Date.now() + MESSENGER_FRIEND_REJECT_COOLDOWN_MS,
           }));
           showMessengerSnackbar(
             t("cm_ui_friend_request_rejected_snackbar", {
-              name: appliedOutcome.resolvedPeerLabel || t("cm_ui_peer_fallback"),
+              name: resolvedLabel,
             }),
             { variant: "error" }
           );
@@ -3191,6 +3226,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         onCreateGroupStable={onCreateGroupStable}
         onCreateOpenGroupStable={onCreateOpenGroupStable}
         incomingRequestCount={incomingRequestCount}
+        receivedFriendRequestCount={receivedFriendRequestCount}
         pageError={pageError}
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
@@ -3201,6 +3237,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         callsHydrating={Boolean(data?.deferredCallLog)}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
+        friendRequests={messengerFriendRequests}
+        rejectedPeerEntries={rejectedPeerEntries}
+        friendRequestCooldownNowMs={friendAddCooldownClock}
+        onRespondFriendRequest={onRespondFriendRequestStable}
       />
 
       {outgoingCallConfirm ? (

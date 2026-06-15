@@ -29,7 +29,9 @@ import type {
   CommunityMessengerCallLog,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
+  CommunityMessengerFriendRequest,
 } from "@/lib/community-messenger/types";
+import type { MessengerFriendRejectedPeerEntry } from "@/lib/community-messenger/partition-messenger-friend-requests";
 import {
   communityMessengerRoomSummaryListsDisplayEqual,
   messengerStringSetsEqual,
@@ -107,6 +109,7 @@ type Props = {
   onCreateGroupStable: () => void;
   onCreateOpenGroupStable: () => void;
   incomingRequestCount: number;
+  receivedFriendRequestCount: number;
   pageError: string | null;
   loginRequiredText: string;
   retryText: string;
@@ -119,6 +122,10 @@ type Props = {
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
   showSectionTabs?: boolean;
+  friendRequests: CommunityMessengerFriendRequest[];
+  rejectedPeerEntries: MessengerFriendRejectedPeerEntry[];
+  friendRequestCooldownNowMs: number;
+  onRespondFriendRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
 };
 
 function messengerPillarSummaryDisplayEqual(a: MessengerPillarSummary, b: MessengerPillarSummary): boolean {
@@ -160,6 +167,9 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   if (prev.chatInboxFilter !== next.chatInboxFilter) reasons.push("chatInboxFilter");
   if (prev.chatKindFilter !== next.chatKindFilter) reasons.push("chatKindFilter");
   if (prev.incomingRequestCount !== next.incomingRequestCount) reasons.push("incomingRequestCount");
+  if (prev.receivedFriendRequestCount !== next.receivedFriendRequestCount) {
+    reasons.push("receivedFriendRequestCount");
+  }
   if (prev.pageError !== next.pageError) reasons.push("pageError");
   if (prev.loginRequiredText !== next.loginRequiredText) reasons.push("loginRequiredText");
   if (prev.retryText !== next.retryText) reasons.push("retryText");
@@ -186,6 +196,7 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
     !communityMessengerRoomSummaryListsDisplayEqual(prev.data.chats, next.data.chats) ||
     !communityMessengerRoomSummaryListsDisplayEqual(prev.data.groups, next.data.groups) ||
     !profileArraysReferenceEqual(prev.data.friends, next.data.friends) ||
+    prev.data.requests !== next.data.requests ||
     prev.data.calls !== next.data.calls ||
     prev.data.deferredCallLog !== next.data.deferredCallLog
   ) {
@@ -207,6 +218,12 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
       }
     }
   }
+  if (prev.friendRequestCooldownNowMs !== next.friendRequestCooldownNowMs) {
+    reasons.push("friendRequestCooldownNowMs");
+  }
+  if (prev.friendRequests !== next.friendRequests) reasons.push("friendRequests");
+  if (prev.rejectedPeerEntries !== next.rejectedPeerEntries) reasons.push("rejectedPeerEntries");
+  if (prev.onRespondFriendRequest !== next.onRespondFriendRequest) reasons.push("onRespondFriendRequest");
   if (prev.onPrimarySectionChange !== next.onPrimarySectionChange) reasons.push("onPrimarySectionChange");
   if (prev.resetMessengerTransientUi !== next.resetMessengerTransientUi) reasons.push("resetMessengerTransientUi");
   if (prev.notifyMessengerListScroll !== next.notifyMessengerListScroll) reasons.push("notifyMessengerListScroll");
@@ -440,6 +457,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               onCreateGroup={props.onCreateGroupStable}
               onCreateOpenGroup={props.onCreateOpenGroupStable}
               incomingRequestCount={props.incomingRequestCount}
+              receivedFriendRequestCount={props.receivedFriendRequestCount}
               pillarSummaries={props.pillarSummaries ?? null}
               entryOriginQuery={props.entryOriginQuery ?? null}
               chatListVisual={props.chatListVisual ?? "default"}
@@ -447,6 +465,10 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               callsHydrating={props.callsHydrating ?? false}
               showSectionTabs={props.showSectionTabs}
               onPrimarySectionChange={props.onPrimarySectionChange}
+              friendRequests={props.friendRequests}
+              rejectedPeerEntries={props.rejectedPeerEntries}
+              friendRequestCooldownNowMs={props.friendRequestCooldownNowMs}
+              onRespondFriendRequest={props.onRespondFriendRequest}
             />
           </div>
         ) : null}
