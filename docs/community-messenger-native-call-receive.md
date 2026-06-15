@@ -1,14 +1,29 @@
 # Community Messenger Native Incoming Call
 
 ## Goal
-Provide native lock-screen/background incoming call UX for DIBAY calls. Web call screens remain the in-app call surface, but Android/iOS native call UI owns the first receive affordance when the app is outside foreground.
+Provide native lock-screen/background incoming call UX for DIBAY calls. Web call screens remain the in-app call surface; **foreground** receive uses `IncomingCallBanner` only. **Lock/background** receive uses Android system call notification actions (accept/decline).
 
 ## Layers
 - Android FCM layer: `DibayFirebaseMessagingService` treats `type=incoming_call` separately from chat messages.
-- Android native UI: `IncomingCallNotificationBuilder` + `IncomingCallActivity` show CALL-category full-screen / heads-up UI with answer and reject actions.
+- Android native UI: `IncomingCallNotificationBuilder` posts CALL-category notification with **accept/decline action buttons** only (no default full-screen Activity).
 - Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId and routes accepted calls to `/community-messenger/calls/{callId}?action=accept`.
-- Web layer: `GlobalCommunityMessengerIncomingCall` remains foreground in-app receive UI and consumes the same call session state.
-- iOS layer: `VoIPPushRegistry` + `CallKitProvider` are the PushKit/CallKit skeleton. `DibayVoipCallPlugin` exposes registration and explicit CallKit end hooks to JS.
+- Web layer: `GlobalCommunityMessengerIncomingCall` + `IncomingCallBanner` for **foreground in-app** receive only.
+- iOS layer: `VoIPPushRegistry` + `CallKitProvider` skeleton. `DibayVoipCallPlugin` exposes registration and explicit CallKit end hooks to JS.
+
+## UX policy
+
+| State | UI |
+|-------|-----|
+| App foreground (unlocked) | `IncomingCallBanner` top-banner via web — **not** native full-screen Activity |
+| Lock / screen off / app background | System call notification with **수락/거절** actions |
+| After accept (any entry) | `/community-messenger/calls/{callId}?action=accept` → connecting/call screen (skip bell UI) |
+
+## DO NOT (regression guards)
+
+1. **Do not** add `windowShowWhenLocked`, `showWhenLocked`, `turnScreenOn`, etc. to `styles.xml` or `AndroidManifest` — AppCompat linking fails. Use `IncomingCallActivity.applyWakeFlags()` only when Activity is explicitly launched (fallback).
+2. **Do not** set notification `contentIntent` to `IncomingCallActivity` — content tap opens app (`MainActivity` launcher) for banner; accept uses broadcast action only.
+3. **Do not** call `startActivity(IncomingCallActivity)` from FCM on every incoming push — lock receive = notification actions only.
+4. **Do not** use React `IncomingCallBanner` as lock-screen UI — WebView is unavailable when app is background/killed.
 
 ## Payload
 Android incoming FCM payload must include:
@@ -53,6 +68,7 @@ Rules:
 - `ringing -> missed` only while still ringing.
 - `active -> missed` is never allowed.
 - Duplicate native actions are single-flighted by callId before reaching the server.
+- **Reject must not trigger missed** — `COMPLETED_ACTIONS` blocks missed timeout after reject/accept.
 
 ## iOS Skeleton
 
@@ -69,3 +85,13 @@ Production work still required:
 - Server-side VoIP APNs sender for `incoming_call` and cancellation.
 - CallKit answer/reject/end callbacks must POST accept/reject/end before or alongside WebView routing.
 - Timeout/missed sync must mirror Android `missed` state.
+
+## QA logcat
+
+```bash
+adb logcat -s DIBAY_FCM DIBAY_INCOMING_CALL DIBAY_PUSH_ROUTE
+```
+
+Expected on accept: `[call-state] accept_start` → `accept_success` → `[call-route] incoming_accept_opened`
+
+Must not appear on lock receive: `incoming_activity_direct_launch`, `incoming_activity_shown` (unless explicit fallback).
