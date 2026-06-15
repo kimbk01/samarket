@@ -49,6 +49,7 @@ import {
   resumePrimedCommunityMessengerDeviceStreamIdleRelease,
   storePrimedCommunityMessengerDeviceStream,
   suspendPrimedCommunityMessengerDeviceStreamIdleRelease,
+  discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
 import { acquirePrimedCommunityMessengerStream } from "@/lib/call/permission-manager";
 import {
@@ -79,6 +80,7 @@ import {
   stopCommunityMessengerCallFeedback,
   stopCommunityMessengerCallTone,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
+  primeOutgoingRingbackWebAudioFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
 import {
   cmCallAudioCleanup,
@@ -578,6 +580,7 @@ export function CommunityMessengerCallClient({
   const joiningRef = useRef(false);
   const autoAcceptRef = useRef(false);
   const prefetchedConnectionRef = useRef<CommunityMessengerManagedCallConnection | null>(null);
+  const prefetchedConnectionSessionIdRef = useRef<string | null>(null);
   const initialSessionRef = useRef(initialSession);
   initialSessionRef.current = initialSession;
   const sessionRef = useRef(session);
@@ -1305,6 +1308,9 @@ export function CommunityMessengerCallClient({
         setLocalVideoPlayBlocked(false);
         setRemoteVideoReady(false);
         heldPreJoinVideoPreviewRef.current = null;
+        discardPrimedCommunityMessengerDevicePermission();
+        resumePrimedCommunityMessengerDeviceStreamIdleRelease();
+        detachAutoplayPrimingVideo();
         if (ringPreviewVideoRef.current) {
           try {
             ringPreviewVideoRef.current.srcObject = null;
@@ -1503,6 +1509,10 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     prefetchedConnectionRef.current = null;
+    prefetchedConnectionSessionIdRef.current = null;
+  }, [sessionId]);
+
+  useEffect(() => {
     if (!session) return;
     if (isCommunityMessengerTempCallSessionId(sessionId)) return;
     if (session.sessionMode !== "direct") return;
@@ -1510,19 +1520,30 @@ export function CommunityMessengerCallClient({
     if (!isCommunityMessengerAgoraAppConfigured()) {
       return;
     }
+    if (
+      prefetchedConnectionRef.current &&
+      prefetchedConnectionSessionIdRef.current === sessionId
+    ) {
+      return;
+    }
+    const prefetchForSessionId = sessionId;
     let cancelled = false;
     void loadCommunityMessengerCallProvider().catch(() => {});
     void fetchConnection()
       .then((connection) => {
-        if (!cancelled) prefetchedConnectionRef.current = connection;
+        if (cancelled || prefetchForSessionId !== sessionId) return;
+        prefetchedConnectionRef.current = connection;
+        prefetchedConnectionSessionIdRef.current = prefetchForSessionId;
       })
       .catch(() => {
-        if (!cancelled) prefetchedConnectionRef.current = null;
+        if (cancelled || prefetchForSessionId !== sessionId) return;
+        prefetchedConnectionRef.current = null;
+        prefetchedConnectionSessionIdRef.current = null;
       });
     return () => {
       cancelled = true;
     };
-  }, [fetchConnection, session?.id, session?.sessionMode, session?.status]);
+  }, [fetchConnection, session?.id, session?.sessionMode, session?.status, sessionId]);
 
   const bindLocalVideoTrack = useCallback(async (): Promise<boolean> => {
     const videoTrack = localTracksRef.current?.videoTrack ?? null;
@@ -1914,9 +1935,23 @@ export function CommunityMessengerCallClient({
           callKind: targetSession.callKind,
           role: targetSession.isMineInitiator ? "initiator" : "recipient",
         });
-        /** 수락 직후 조인 — 링 단계 prefetch 토큰 대신 항상 최신 connection */
-        prefetchedConnectionRef.current = null;
-        const connectionPromise = fetchConnection();
+        const resolveConnection = (): Promise<CommunityMessengerManagedCallConnection> => {
+          const cached =
+            prefetchedConnectionSessionIdRef.current === targetSession.id
+              ? prefetchedConnectionRef.current
+              : null;
+          if (cached) {
+            return Promise.resolve(cached);
+          }
+          return fetchConnection().then((connection) => {
+            if (sessionRef.current?.id === targetSession.id) {
+              prefetchedConnectionRef.current = connection;
+              prefetchedConnectionSessionIdRef.current = targetSession.id;
+            }
+            return connection;
+          });
+        };
+        const connectionPromise = resolveConnection();
         const [provider, connection] = await Promise.all([
           loadCommunityMessengerCallProvider(),
           connectionPromise,
@@ -2212,18 +2247,61 @@ export function CommunityMessengerCallClient({
     setBusy("accept");
     setErrorMessage(null);
     unlockCommunityMessengerCallPlaybackFromUserGesture();
-    if (s.callKind === "video") {
+    stopCommunityMessengerCallTone();
+    dismissAllIncomingCallNotificationsFireAndForget(s.id);
+
+    const gumPrimePromise = (async () => {
+      if (s.callKind !== "video") return;
       const primedPeek = peekPrimedCommunityMessengerDeviceStream("video");
-      if (primedPeek) primeVideoElementAutoplayFromUserGesture(primedPeek);
-    }
+      if (primedPeek && hasLiveCommunityMessengerVideoPreviewStream(primedPeek)) {
+        primeVideoElementAutoplayFromUserGesture(primedPeek);
+        heldPreJoinVideoPreviewRef.current = primedPeek;
+        return;
+      }
+      try {
+        const stream = await acquirePrimedCommunityMessengerStream("video");
+        storePrimedCommunityMessengerDeviceStream("video", stream);
+        heldPreJoinVideoPreviewRef.current = stream;
+        primeVideoElementAutoplayFromUserGesture(stream);
+      } catch (error) {
+        console.warn("[call-permission] callee_accept_gum_prime_failed", {
+          sessionId: s.id,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      }
+    })();
+
+    const tokenPrefetchPromise = (async () => {
+      if (!isCommunityMessengerAgoraAppConfigured()) return null;
+      if (
+        prefetchedConnectionSessionIdRef.current === s.id &&
+        prefetchedConnectionRef.current
+      ) {
+        return prefetchedConnectionRef.current;
+      }
+      try {
+        void loadCommunityMessengerCallProvider().catch(() => {});
+        const connection = await fetchConnection();
+        if (sessionRef.current?.id === s.id) {
+          prefetchedConnectionRef.current = connection;
+          prefetchedConnectionSessionIdRef.current = s.id;
+        }
+        return connection;
+      } catch {
+        return null;
+      }
+    })();
+
     try {
-      stopCommunityMessengerCallTone();
-      dismissAllIncomingCallNotificationsFireAndForget(s.id);
-      const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "accept" }),
-      });
+      const res = await Promise.all([
+        fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "accept" }),
+        }),
+        gumPrimePromise,
+        tokenPrefetchPromise,
+      ]).then(([patchRes]) => patchRes);
       const json = (await res.json().catch(() => ({}))) as SessionResponse & { error?: string };
       logCommunityMessengerCallSessionPatchDev({
         sessionId: s.id,
@@ -2286,7 +2364,7 @@ export function CommunityMessengerCallClient({
       setBusy(null);
       directCallPatchInFlightRef.current = false;
     }
-  }, []);
+  }, [fetchConnection, t]);
 
   const handleRetryMediaAndJoin = useCallback(() => {
     const s = sessionRef.current;
@@ -3289,6 +3367,8 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     autoJoinBlockedRef.current = false;
+    heldPreJoinVideoPreviewRef.current = null;
+    preJoinVideoPrimeAttemptedSessionRef.current = null;
   }, [sessionId]);
 
   useEffect(() => {
@@ -3382,7 +3462,29 @@ export function CommunityMessengerCallClient({
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
     if (shouldAutoAccept && !autoAcceptRef.current) {
       autoAcceptRef.current = true;
-      void acceptIncoming().finally(() => {
+      void (async () => {
+        const cur = sessionRef.current;
+        if (cur?.callKind === "video") {
+          const peek = peekPrimedCommunityMessengerDeviceStream("video");
+          if (!peek || !hasLiveCommunityMessengerVideoPreviewStream(peek)) {
+            const perm = await ensureCallCanUseMedia("video");
+            if (perm.ok) {
+              try {
+                const stream = await acquirePrimedCommunityMessengerStream("video");
+                storePrimedCommunityMessengerDeviceStream("video", stream);
+                heldPreJoinVideoPreviewRef.current = stream;
+                primeVideoElementAutoplayFromUserGesture(stream);
+              } catch {
+                /* acceptIncoming 병렬 GUM 재시도 */
+              }
+            }
+          } else {
+            primeVideoElementAutoplayFromUserGesture(peek);
+            heldPreJoinVideoPreviewRef.current = peek;
+          }
+        }
+        await acceptIncoming();
+      })().finally(() => {
         autoAcceptRef.current = false;
       });
       return;
@@ -3604,14 +3706,29 @@ export function CommunityMessengerCallClient({
     if (!session.isMineInitiator) return;
     if (session.status !== "ringing" && session.status !== "active") return;
     if (localVideoReady || preJoinVideoPreviewStream) return;
-    if (hasUsablePrimedCommunityMessengerDeviceStream("video")) return;
     if (!isCallMediaGrantedSync("video")) return;
     if (preJoinVideoPrimeAttemptedSessionRef.current === session.id) return;
+
+    const stalePeek = peekPrimedCommunityMessengerDeviceStream("video");
+    if (stalePeek && hasLiveCommunityMessengerVideoPreviewStream(stalePeek)) {
+      heldPreJoinVideoPreviewRef.current = stalePeek;
+      primeVideoElementAutoplayFromUserGesture(stalePeek);
+      setPreJoinVideoPrimeNonce((prev) => prev + 1);
+      preJoinVideoPrimeAttemptedSessionRef.current = session.id;
+      console.info("[call-permission] outgoing_video_prejoin_reused", {
+        sessionId: session.id,
+        status: session.status,
+      });
+      return;
+    }
 
     preJoinVideoPrimeAttemptedSessionRef.current = session.id;
     let cancelled = false;
     void (async () => {
       try {
+        if (stalePeek && !hasLiveCommunityMessengerVideoPreviewStream(stalePeek)) {
+          discardPrimedCommunityMessengerDevicePermission();
+        }
         const preflight = await ensureCallCanUseMedia("video");
         if (!preflight.ok || cancelled) return;
         const stream = await acquirePrimedCommunityMessengerStream("video");
@@ -3621,6 +3738,7 @@ export function CommunityMessengerCallClient({
         }
         storePrimedCommunityMessengerDeviceStream("video", stream);
         heldPreJoinVideoPreviewRef.current = stream;
+        primeVideoElementAutoplayFromUserGesture(stream);
         setPreJoinVideoPrimeNonce((prev) => prev + 1);
         console.info("[call-permission] outgoing_video_prejoin_reprimed", {
           sessionId: session.id,
@@ -3850,6 +3968,12 @@ export function CommunityMessengerCallClient({
   };
 
   const startOutgoingAgain = (kind: "voice" | "video") => {
+    unlockCommunityMessengerCallPlaybackFromUserGesture();
+    primeOutgoingRingbackWebAudioFromUserGesture(kind);
+    discardPrimedCommunityMessengerDevicePermission();
+    resumePrimedCommunityMessengerDeviceStreamIdleRelease();
+    detachAutoplayPrimingVideo();
+    heldPreJoinVideoPreviewRef.current = null;
     void (async () => {
       try {
         const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(

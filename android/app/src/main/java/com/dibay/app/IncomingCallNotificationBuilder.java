@@ -89,6 +89,10 @@ public final class IncomingCallNotificationBuilder {
     if (sessionId == null || sessionId.trim().isEmpty()) return;
     String sid = sessionId.trim();
 
+    if (!canPostFullScreenIntent(context)) {
+      Log.w(TAG, "[incoming-call-native] fsi_not_granted sessionId=" + sid);
+    }
+
     String callerName = resolveCallerDisplayName(title, body);
     String callKindLabel = resolveCallKindLabel(title, body, callType);
 

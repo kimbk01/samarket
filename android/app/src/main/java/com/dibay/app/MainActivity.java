@@ -498,20 +498,32 @@ public class MainActivity extends BridgeActivity {
   }
 
   private boolean loadCallRouteDirectly(WebView webView, String appPath) {
+    if (appPath == null || appPath.isEmpty()) return false;
+    String target = null;
     String currentUrl = webView.getUrl();
-    if (currentUrl == null || currentUrl.trim().isEmpty()) return false;
-    try {
-      Uri current = Uri.parse(currentUrl);
-      String scheme = current.getScheme();
-      String authority = current.getAuthority();
-      if (scheme == null || authority == null) return false;
-      String target = scheme + "://" + authority + appPath;
-      webView.post(() -> webView.loadUrl(target));
-      return true;
-    } catch (Exception error) {
-      Log.w(ROUTE_LOG_TAG, "[push-route] webview_call_route_load_failed " + error.getMessage());
-      return false;
+    if (currentUrl != null && !currentUrl.trim().isEmpty()) {
+      try {
+        Uri current = Uri.parse(currentUrl);
+        String scheme = current.getScheme();
+        String authority = current.getAuthority();
+        if (scheme != null && authority != null) {
+          target = scheme + "://" + authority + appPath;
+        }
+      } catch (Exception error) {
+        Log.w(ROUTE_LOG_TAG, "[push-route] webview_call_route_parse_failed " + error.getMessage());
+      }
     }
+    if (target == null) {
+      String origin = DibayServerOrigin.resolve(this);
+      if (origin != null && !origin.isEmpty()) {
+        target = origin + appPath;
+        Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_origin_fallback path=" + appPath);
+      }
+    }
+    if (target == null) return false;
+    final String loadTarget = target;
+    webView.post(() -> webView.loadUrl(loadTarget));
+    return true;
   }
 
   private static String mapDibayDeepLinkToAppPath(Uri data) {

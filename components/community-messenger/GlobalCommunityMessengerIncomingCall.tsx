@@ -47,6 +47,7 @@ import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-cal
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { showIncomingCallBrowserNotification } from "@/lib/call/call-notification";
 import { requestCloseMessengerCallNotifications } from "@/lib/push/push-manager";
+import { promptAndroidFullScreenIntentSettingsIfNeeded } from "@/lib/push/native/check-android-full-screen-intent";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import {
   cmCallFlow,
@@ -174,6 +175,20 @@ function filterIncomingSessionsRespectingHardClear(
   const now = Date.now();
   pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId);
   return list.filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
+}
+
+/** 다른 방의 라이브 통화만 busy — 같은 방 재발신·stale active 는 새 ringing 을 막지 않음 */
+function otherLiveSessionIdForIncomingBusyPolicy(
+  incoming: CommunityMessengerCallSession,
+  liveSessionId: string | null | undefined,
+  allSessions: CommunityMessengerCallSession[]
+): string | null {
+  const other = liveSessionId?.trim();
+  if (!other || other === incoming.id) return null;
+  const live = allSessions.find((item) => item.id === other);
+  if (!live) return null;
+  if (live.roomId === incoming.roomId) return null;
+  return other;
 }
 
 function markIncomingCallHardClearedSession(hardClearedAtBySessionId: Map<string, number>, sessionId: string) {
@@ -1382,7 +1397,9 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!uid) return null;
     for (const s of sessions) {
       if (s.sessionMode !== "direct") continue;
+      if (isTerminalIncomingCallStatus(s.status)) continue;
       if (s.status !== "ringing" && s.status !== "active") continue;
+      if (s.endedAt || s.cancelledAt) continue;
       const isParty =
         messengerUserIdsEqual(s.initiatorUserId, uid) ||
         (s.recipientUserId != null && messengerUserIdsEqual(s.recipientUserId, uid));
@@ -1400,7 +1417,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
       const busy = evaluateIncomingCallBusyPolicy({
         incoming: s,
-        otherLiveSessionId: viewerLiveSessionId,
+        otherLiveSessionId: otherLiveSessionIdForIncomingBusyPolicy(s, viewerLiveSessionId, sessions),
       });
       if (busy.shouldAutoReject) continue;
       return s;
@@ -1497,7 +1514,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (s.status !== "ringing") continue;
       if (s.id === viewerLiveSessionId) continue;
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
-      const busy = evaluateIncomingCallBusyPolicy({ incoming: s, otherLiveSessionId: viewerLiveSessionId });
+      const busy = evaluateIncomingCallBusyPolicy({
+        incoming: s,
+        otherLiveSessionId: otherLiveSessionIdForIncomingBusyPolicy(s, viewerLiveSessionId, sessions),
+      });
       if (!busy.shouldAutoReject) continue;
       void patchCommunityMessengerCallSession(s.id, "reject", undefined, {
         sessionStatus: s.status,
@@ -1515,6 +1535,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
     };
   }, [nativeIncomingSession]);
+
+  useEffect(() => {
+    if (!visibleSessionId) return;
+    void promptAndroidFullScreenIntentSettingsIfNeeded();
+  }, [visibleSessionId]);
 
   const rejectCall = useCallback(async (sessionId: string) => {
     if (busyId === `reject:${sessionId}` || busyId === `accept:${sessionId}`) return;

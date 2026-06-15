@@ -10,7 +10,6 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import org.json.JSONObject;
 
 /** Native PATCH for call session actions — uses WebView session cookies. */
 public final class CallSessionPatchHelper {
@@ -75,30 +74,6 @@ public final class CallSessionPatchHelper {
       return sb.toString();
     } catch (Exception e) {
       return "";
-    }
-  }
-}
-
-/** Reads Capacitor `server.url` from packaged assets. */
-final class DibayServerOrigin {
-  private DibayServerOrigin() {}
-
-  static String resolve(Context context) {
-    try (InputStream in = context.getAssets().open("capacitor.config.json");
-        BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-      StringBuilder sb = new StringBuilder();
-      String line;
-      while ((line = reader.readLine()) != null) {
-        sb.append(line);
-      }
-      JSONObject root = new JSONObject(sb.toString());
-      JSONObject server = root.optJSONObject("server");
-      if (server == null) return null;
-      String url = server.optString("url", "").trim();
-      if (url.endsWith("/")) return url.substring(0, url.length() - 1);
-      return url.isEmpty() ? null : url;
-    } catch (Exception e) {
-      return null;
     }
   }
 }

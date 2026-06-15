@@ -94,10 +94,20 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
-    if (appVisible) {
+    if (DibayKeyguardHelper.shouldDelegateIncomingCallToWeb(appVisible, this)) {
       Log.i(TAG, "incoming_call_app_visible_delegate_to_web callId=" + callId);
       return;
     }
+
+    Log.i(
+        TAG,
+        "incoming_call_native_notification"
+            + " callId="
+            + callId
+            + " keyguardLocked="
+            + DibayKeyguardHelper.isKeyguardLocked(this)
+            + " appVisible="
+            + appVisible);
 
     String callType = firstNonEmpty(data.get("callType"), data.get("kind"));
     String expiresAt = firstNonEmpty(data.get("expiresAt"), data.get("expires_at"));
