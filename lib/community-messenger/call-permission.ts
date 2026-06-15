@@ -6,7 +6,7 @@ import {
   markPermissionFeatureCompleted,
 } from "@/lib/permissions/device-permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
-import { ensureCallCanUseMedia, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
+import { ensureOutgoingCallMediaPermission, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
 import { acquirePrimedCommunityMessengerStream } from "@/lib/call/permission-manager";
 import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
@@ -255,7 +255,7 @@ export function storePrimedCommunityMessengerDeviceStream(
 export async function primeCommunityMessengerDevicePermissionFromUserGesture(
   kind: CommunityMessengerCallKind
 ): Promise<void> {
-  const result = await ensureCallCanUseMedia(kind);
+  const result = await ensureOutgoingCallMediaPermission(kind);
   if (!result.ok) {
     throw new DOMException("Media permission unavailable", "NotAllowedError");
   }

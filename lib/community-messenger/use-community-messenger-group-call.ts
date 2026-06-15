@@ -18,7 +18,7 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import {
-  ensureCallCanUseMedia,
+  ensureOutgoingCallMediaPermission,
   getCallMediaPermissionBlockedMessageKey,
 } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
@@ -385,7 +385,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     void (async () => {
       try {
         stopCommunityMessengerCallTone();
-        const permission = await ensureCallCanUseMedia(callKind);
+        const permission = await ensureOutgoingCallMediaPermission(callKind);
         if (!permission.ok) {
           setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(callKind)));
           return;
@@ -490,7 +490,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       setEndedPanel(null);
       sessionDialStartRef.current = Date.now();
       try {
-        const permission = await ensureCallCanUseMedia(kind);
+        const permission = await ensureOutgoingCallMediaPermission(kind);
         if (!permission.ok) {
           setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(kind)));
           return;
@@ -540,7 +540,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("call-accept");
     setErrorMessage(null);
     try {
-      const permission = await ensureCallCanUseMedia(activeCall.callKind);
+      const permission = await ensureOutgoingCallMediaPermission(activeCall.callKind);
       if (!permission.ok) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
         return false;
@@ -704,7 +704,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("device-prepare");
     setErrorMessage(null);
     try {
-      const permission = await ensureCallCanUseMedia(kind);
+      const permission = await ensureOutgoingCallMediaPermission(kind);
       if (!permission.ok) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(kind)));
         return;

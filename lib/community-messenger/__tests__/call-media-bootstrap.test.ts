@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const ensureCallCanUseMediaMock = vi.hoisted(() =>
+const ensureOutgoingCallMediaPermissionMock = vi.hoisted(() =>
   vi.fn(() => Promise.resolve({ ok: true as const, state: {} }))
 );
 
@@ -15,9 +15,13 @@ const acquirePrimedMock = vi.hoisted(() =>
 );
 
 const storePrimedMock = vi.hoisted(() => vi.fn());
+const hasUsablePrimedMock = vi.hoisted(() => vi.fn(() => false));
+const shouldDiscardPrimedMock = vi.hoisted(() => vi.fn(() => false));
+const discardPrimedMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
-  ensureCallCanUseMedia: ensureCallCanUseMediaMock,
+  ensureOutgoingCallMediaPermission: ensureOutgoingCallMediaPermissionMock,
+  invalidateCallMediaPermissionCheckCache: vi.fn(),
 }));
 
 vi.mock("@/lib/call/permission-manager", () => ({
@@ -27,12 +31,16 @@ vi.mock("@/lib/call/permission-manager", () => ({
 vi.mock("@/lib/community-messenger/call-permission", () => ({
   isCommunityMessengerCallMediaReadySync: vi.fn(() => false),
   storePrimedCommunityMessengerDeviceStream: storePrimedMock,
+  hasUsablePrimedCommunityMessengerDeviceStream: hasUsablePrimedMock,
+  shouldDiscardPrimedBeforeCommunityMessengerPrime: shouldDiscardPrimedMock,
+  discardPrimedCommunityMessengerDevicePermission: discardPrimedMock,
 }));
 
 describe("primeOutgoingCallMediaBeforeNavigate", () => {
   beforeEach(() => {
-    ensureCallCanUseMediaMock.mockReset();
-    ensureCallCanUseMediaMock.mockResolvedValue({ ok: true, state: {} });
+    ensureOutgoingCallMediaPermissionMock.mockReset();
+    ensureOutgoingCallMediaPermissionMock.mockResolvedValue({ ok: true, state: {} });
+    hasUsablePrimedMock.mockReturnValue(false);
     acquirePrimedMock.mockClear();
     storePrimedMock.mockClear();
   });
@@ -47,6 +55,18 @@ describe("primeOutgoingCallMediaBeforeNavigate", () => {
     expect(storePrimedMock).toHaveBeenCalledWith("video", expect.any(Object));
   });
 
+  it("skips GUM when a usable primed video stream already exists", async () => {
+    hasUsablePrimedMock.mockReturnValue(true);
+
+    const { primeOutgoingCallMediaBeforeNavigate } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    const result = await primeOutgoingCallMediaBeforeNavigate("video");
+    expect(result).toEqual({ ok: true });
+    expect(acquirePrimedMock).not.toHaveBeenCalled();
+    expect(storePrimedMock).not.toHaveBeenCalled();
+  });
+
   it("skips GUM for voice when permission check passes", async () => {
     const { primeOutgoingCallMediaBeforeNavigate } = await import(
       "@/lib/community-messenger/call-media-bootstrap"
@@ -54,5 +74,34 @@ describe("primeOutgoingCallMediaBeforeNavigate", () => {
     const result = await primeOutgoingCallMediaBeforeNavigate("voice");
     expect(result).toEqual({ ok: true });
     expect(acquirePrimedMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("prepareCommunityMessengerOutgoingRedial", () => {
+  beforeEach(() => {
+    hasUsablePrimedMock.mockReturnValue(false);
+    shouldDiscardPrimedMock.mockReturnValue(true);
+    discardPrimedMock.mockClear();
+  });
+
+  it("invalidates cache and discards only stale primed streams", async () => {
+    const { invalidateCallMediaPermissionCheckCache } = await import(
+      "@/lib/community-messenger/call-media-permission-preflight"
+    );
+    const { prepareCommunityMessengerOutgoingRedial } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    prepareCommunityMessengerOutgoingRedial("video");
+    expect(invalidateCallMediaPermissionCheckCache).toHaveBeenCalled();
+    expect(discardPrimedMock).toHaveBeenCalled();
+  });
+
+  it("keeps usable primed streams on redial", async () => {
+    hasUsablePrimedMock.mockReturnValue(true);
+    const { prepareCommunityMessengerOutgoingRedial } = await import(
+      "@/lib/community-messenger/call-media-bootstrap"
+    );
+    prepareCommunityMessengerOutgoingRedial("video");
+    expect(discardPrimedMock).not.toHaveBeenCalled();
   });
 });

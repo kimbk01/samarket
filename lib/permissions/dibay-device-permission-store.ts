@@ -1,7 +1,7 @@
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
 import { checkAndroidNativeDevicePermission, openAndroidNativeAppSettings, requestAndroidNativeDevicePermission, shouldUseAndroidNativeDevicePermissionBridge } from "@/lib/permissions/native-device-permissions-plugin";
-import { setCachedPermissionState } from "@/lib/permissions/device-permission-manager";
+import { setCachedPermissionState, markPermissionFeatureCompleted } from "@/lib/permissions/device-permission-manager";
 
 export type DibayDevicePermissionStatus = "unknown" | "granted" | "denied" | "blocked";
 
@@ -260,6 +260,64 @@ export async function checkDevicePermissions(): Promise<DibayDevicePermissionSta
 
 export async function syncDevicePermissionState(): Promise<DibayDevicePermissionState> {
   return checkDevicePermissions();
+}
+
+/**
+ * Android OS 런타임 권한 결과를 call_media store 에 반영한다.
+ * WebView Permissions API·localStorage 와 OS 설정 불일치 보정(통화 발신·재다이얼).
+ */
+export async function syncCallMediaPermissionFromNativeOs(): Promise<DibayDevicePermissionState> {
+  const prev = getDibayDevicePermissionState();
+  const [nativeMic, nativeCam] = await Promise.all([
+    checkNativeStatus("microphone"),
+    checkNativeStatus("camera"),
+  ]);
+  const microphone =
+    nativeMic === "granted" ? "granted" : nativeMic === "denied" ? "denied" : prev.microphone;
+  const camera =
+    nativeCam === "granted" ? "granted" : nativeCam === "denied" ? "denied" : prev.camera;
+  const grantedPair = microphone === "granted" && camera === "granted";
+  const next = mergeState({
+    microphone,
+    camera,
+    grantedAt: grantedPair ? (prev.grantedAt ?? Date.now()) : prev.grantedAt,
+  });
+  syncLegacyCache(next);
+  if (microphone === "granted") {
+    markPermissionFeatureCompleted("messenger_voice_call");
+  }
+  if (grantedPair) {
+    markPermissionFeatureCompleted("messenger_video_call");
+  }
+  logDevicePermission("native_os_sync", {
+    microphone: next.microphone,
+    camera: next.camera,
+  });
+  return next;
+}
+
+/** `requestCallMediaPermissions` 등 OS 일괄 허용 직후 — 재조회 없이 store 를 granted 로 맞춘다 */
+export function applyOutgoingNativeOsGrantToCallMediaStore(
+  kind: "voice" | "video",
+): DibayDevicePermissionState {
+  const prev = getDibayDevicePermissionState();
+  const next = mergeState({
+    microphone: "granted",
+    camera: kind === "video" ? "granted" : prev.camera,
+    grantedAt: Date.now(),
+    requestedAt: prev.requestedAt ?? Date.now(),
+  });
+  syncLegacyCache(next);
+  markPermissionFeatureCompleted("messenger_voice_call");
+  if (kind === "video") {
+    markPermissionFeatureCompleted("messenger_video_call");
+  }
+  logDevicePermission("native_os_grant_applied", {
+    kind,
+    microphone: next.microphone,
+    camera: next.camera,
+  });
+  return next;
 }
 
 /**

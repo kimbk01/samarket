@@ -30,8 +30,8 @@ describe("deep-link-routes", () => {
     expect(resolveDibayDeepLinkToAppPath("dibay://call/sess-1")).toBe(
       "/community-messenger/calls/sess-1"
     );
-    expect(resolveDibayDeepLinkToAppPath("dibay://call/sess-1?action=accept")).toBe(
-      "/community-messenger/calls/sess-1?action=accept"
+    expect(resolveDibayDeepLinkToAppPath("dibay://call/sess-1?action=accept&nativeAccept=1")).toBe(
+      "/community-messenger/calls/sess-1?action=accept&nativeAccept=1"
     );
   });
 

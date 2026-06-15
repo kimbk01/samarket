@@ -38,6 +38,7 @@ public class MainActivity extends BridgeActivity {
   private String pendingAppPath = null;
   private String pendingNotificationId = null;
   private volatile boolean routeInjectedForCurrentPending = false;
+  private volatile boolean dibayWebChromeClientAttached = false;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
@@ -119,9 +120,15 @@ public class MainActivity extends BridgeActivity {
     if (bridge == null) return;
     WebView webView = bridge.getWebView();
     if (webView == null) return;
-    WebChromeClient existing = webView.getWebChromeClient();
-    if (existing instanceof DibayDelegatingWebChromeClient) return;
+    WebChromeClient existing = null;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      existing = webView.getWebChromeClient();
+      if (existing instanceof DibayDelegatingWebChromeClient) return;
+    } else if (dibayWebChromeClientAttached) {
+      return;
+    }
     webView.setWebChromeClient(new DibayDelegatingWebChromeClient(existing, webViewPermissionDelegate));
+    dibayWebChromeClientAttached = true;
     Log.i("DIBAY_WebPerm", "delegating_web_chrome_client_attached");
   }
 
@@ -588,11 +595,7 @@ public class MainActivity extends BridgeActivity {
       case "call":
         if (!segments.isEmpty()) {
           String path = "/community-messenger/calls/" + android.net.Uri.encode(segments.get(0));
-          String action = data.getQueryParameter("action");
-          if (action != null && !action.trim().isEmpty()) {
-            path += "?action=" + android.net.Uri.encode(action.trim());
-          }
-          return path;
+          return appendEncodedQuery(path, data.getEncodedQuery());
         }
         return null;
       default:

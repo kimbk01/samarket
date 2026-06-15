@@ -115,6 +115,25 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
 
     IncomingCallNotificationBuilder.showIncomingCall(this, payload);
     IncomingCallActionCoordinator.scheduleMissedTimeout(this, payload);
+
+    boolean keyguardLocked = DibayKeyguardHelper.isKeyguardLocked(this);
+    boolean interactive = DibayKeyguardHelper.isInteractive(this);
+    boolean lockBridge = keyguardLocked || !interactive;
+    if (lockBridge && !IncomingCallNotificationBuilder.canPostFullScreenIntent(this)) {
+      Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(this, payload);
+      if (incomingUi != null) {
+        incomingUi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        startActivity(incomingUi);
+        Log.i(
+            TAG,
+            "[call-ui] incoming_activity_direct_launch callId="
+                + callId
+                + " fsi_fallback=true keyguardLocked="
+                + keyguardLocked
+                + " interactive="
+                + interactive);
+      }
+    }
   }
 
   private void handleMissedCall(Map<String, String> data, String title, String body, boolean appVisible) {

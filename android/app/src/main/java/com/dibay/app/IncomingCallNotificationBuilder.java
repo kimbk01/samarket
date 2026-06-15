@@ -19,8 +19,8 @@ import androidx.core.app.NotificationCompat;
 /**
  * Messenger-style incoming call notification — system call category with accept/decline actions.
  *
- * <p>Do not open {@link IncomingCallActivity} from content tap; foreground receive uses web
- * {@code IncomingCallBanner} only.
+ * <p>Foreground receive uses web {@code IncomingCallBanner}. Lock/screen-off uses notification actions
+ * plus optional full-screen intent bridge ({@link IncomingCallActivity}) — not content tap.
  */
 public final class IncomingCallNotificationBuilder {
   /** Production channel — do not rename (OS channel settings are sticky). */
@@ -61,14 +61,14 @@ public final class IncomingCallNotificationBuilder {
         == PackageManager.PERMISSION_GRANTED;
   }
 
-  /** @deprecated FSI not used — kept for NativeDevicePermissions plugin compatibility. */
+  /** Android 14+ full-screen intent permission — required for lock-screen incoming bridge. */
   public static boolean canPostFullScreenIntent(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return true;
     NotificationManager nm = context.getSystemService(NotificationManager.class);
     return nm != null && nm.canUseFullScreenIntent();
   }
 
-  /** @deprecated FSI not used — kept for NativeDevicePermissions plugin compatibility. */
+  /** Opens system settings when {@link #canPostFullScreenIntent} is false (Android 14+). */
   public static void openFullScreenIntentSettings(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return;
     try {
@@ -137,6 +137,17 @@ public final class IncomingCallNotificationBuilder {
     if (!notificationAllowed) {
       Log.w(TAG, "[call-push] post_notifications_denied callId=" + sid);
     }
+    boolean lockScreenBridge =
+        DibayKeyguardHelper.isKeyguardLocked(context) || !DibayKeyguardHelper.isInteractive(context);
+    boolean fsiAllowed = canPostFullScreenIntent(context);
+    Log.i(
+        TAG,
+        "[call-push] lock_bridge="
+            + lockScreenBridge
+            + " fsiAllowed="
+            + fsiAllowed
+            + " callId="
+            + sid);
 
     String callerName =
         callerNameFromPayload != null && !callerNameFromPayload.trim().isEmpty()
@@ -156,6 +167,24 @@ public final class IncomingCallNotificationBuilder {
 
     Intent content = IncomingCallIntentHelper.buildMainActivityLauncherIntent(context);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
+
+    IncomingCallPayload fsiPayload =
+        new IncomingCallPayload(
+            sid,
+            roomId,
+            callerId,
+            callerName,
+            callerAvatarUrl,
+            callType != null && "video".equalsIgnoreCase(callType) ? "video" : "audio",
+            expiresAt,
+            title,
+            body,
+            null);
+    Intent fullScreen = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
+    PendingIntent fullScreenPi = null;
+    if (fullScreen != null) {
+      fullScreenPi = PendingIntent.getActivity(context, sid.hashCode() + 4, fullScreen, flags);
+    }
 
     Intent decline = new Intent(context, IncomingCallDeclineReceiver.class);
     decline.setAction(IncomingCallDeclineReceiver.ACTION_DECLINE);
@@ -178,6 +207,12 @@ public final class IncomingCallNotificationBuilder {
             .setDefaults(Notification.DEFAULT_ALL)
             .addAction(R.mipmap.ic_launcher, "거절", declinePi)
             .addAction(R.mipmap.ic_launcher, "수락", acceptPi);
+    if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
+      builder.setFullScreenIntent(fullScreenPi, true);
+      Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
+    } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
+      Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
+    }
 
     int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);

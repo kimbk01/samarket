@@ -15,7 +15,7 @@ import {
 } from "@/lib/community-messenger/media-preflight";
 import { queryCommunityMessengerMediaPermissions } from "@/lib/community-messenger/media-permissions-query";
 import { markPermissionFeatureCompleted } from "@/lib/permissions/device-permission-manager";
-import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
+import { ensureOutgoingCallMediaPermission } from "@/lib/community-messenger/call-media-permission-preflight";
 
 export type CallMediaPermissionErrorCode = "insecure_context" | "no_mediadevices" | "denied" | "failed";
 
@@ -78,7 +78,7 @@ async function invokeGetUserMedia(
 
   if (options?.featureKey === "messenger_video_call" || options?.featureKey === "messenger_voice_call") {
     const kind = options.featureKey === "messenger_video_call" ? "video" : "voice";
-    const preflight = await ensureCallCanUseMedia(kind);
+    const preflight = await ensureOutgoingCallMediaPermission(kind);
     if (!preflight.ok) {
       throw new DOMException("Call media permission denied", "NotAllowedError");
     }

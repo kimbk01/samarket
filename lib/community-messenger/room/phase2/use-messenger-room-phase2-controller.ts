@@ -23,7 +23,7 @@ import {
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
 import {
-  ensureCallCanUseMedia,
+  ensureOutgoingCallMediaPermission,
   getCallMediaPermissionBlockedMessageKey,
   isCallMediaGrantedForKindSync,
 } from "@/lib/community-messenger/call-media-permission-preflight";
@@ -513,7 +513,7 @@ export function useMessengerRoomPhase2Controller() {
   const retryCallDevicePermission = useCallback(() => {
     const kind = callPanel?.kind;
     if (!kind) return;
-    void ensureCallCanUseMedia(kind)
+    void ensureOutgoingCallMediaPermission(kind)
       .then(async (permission) => {
         if (!permission.ok) {
           showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
@@ -584,7 +584,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      void ensureCallCanUseMedia(kind).then((permission) => {
+      void ensureOutgoingCallMediaPermission(kind).then((permission) => {
         if (!permission.ok) {
           outgoingDialSyncGuardRef.current = false;
           setOutgoingDialLocked(false);
@@ -1935,7 +1935,7 @@ export function useMessengerRoomPhase2Controller() {
         : activeCall.status === "ringing";
     if (!shouldAutoAccept) return;
     if (!isCallMediaGrantedForKindSync(activeCall.callKind)) {
-      void ensureCallCanUseMedia(activeCall.callKind).then((permission) => {
+      void ensureOutgoingCallMediaPermission(activeCall.callKind).then((permission) => {
         if (!permission.ok) {
           setGroupCallAutoAcceptNotice(t(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
         }

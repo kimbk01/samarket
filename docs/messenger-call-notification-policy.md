@@ -12,7 +12,7 @@
 - FCM data: `callId`/`sessionId`, `roomId`, `callerId`, `callerName`, `callerAvatarUrl`, `expiresAt`, `callType`, `url=/community-messenger/calls/{callId}`
 - 필수 필드 누락 payload 는 일반 채팅 알림으로 fallback 하지 않고 `[call-push] payload_invalid` 로 폐기한다.
 - 만료(`expiresAt`) 지난 payload → 네이티브 UI 미표시 (`expired_ignored`)
-- 수락: native single-flight → `POST /api/community-messenger/calls/{callId}/accept` → `dibay://call/{callId}?action=accept`
+- 수락: native single-flight → `POST /api/community-messenger/calls/{callId}/accept` → `dibay://call/{callId}?action=accept&nativeAccept=1` (웹은 PATCH 생략·join만)
 - 거절: native single-flight → `POST /api/community-messenger/calls/{callId}/reject`
 - 미응답: `expiresAt` 또는 30초 timeout → native single-flight → `POST /api/community-messenger/calls/{callId}/missed` → 부재중 알림
 

@@ -15,14 +15,14 @@ Provide native lock-screen/background incoming call UX for DIBAY calls. Web call
 | State | UI |
 |-------|-----|
 | App foreground (unlocked) | `IncomingCallBanner` top-banner via web — **not** native full-screen Activity |
-| Lock / screen off / app background | System call notification with **수락/거절** actions |
+| Lock / screen off / app background | System call notification with **수락/거절** actions; **lock/screen-off** also posts full-screen intent bridge (`IncomingCallActivity` wake UI) |
 | After accept (any entry) | `/community-messenger/calls/{callId}?action=accept` → connecting/call screen (skip bell UI) |
 
 ## DO NOT (regression guards)
 
 1. **Do not** add `windowShowWhenLocked`, `showWhenLocked`, `turnScreenOn`, etc. to `styles.xml` or `AndroidManifest` — AppCompat linking fails. Use `IncomingCallActivity.applyWakeFlags()` only when Activity is explicitly launched (fallback).
-2. **Do not** set notification `contentIntent` to `IncomingCallActivity` — content tap opens app (`MainActivity` launcher) for banner; accept uses broadcast action only.
-3. **Do not** call `startActivity(IncomingCallActivity)` from FCM on every incoming push — lock receive = notification actions only.
+2. **Do not** set notification `contentIntent` to `IncomingCallActivity` — content tap opens app (`MainActivity` launcher) for banner; accept uses broadcast action only. Full-screen intent to `IncomingCallActivity` is **lock/screen-off bridge only**.
+3. **Do not** call `startActivity(IncomingCallActivity)` from FCM when app is **foreground+unlocked** (web banner). Lock/screen-off: notification + FSI; **FSI denied(API 34+)** 시에만 `incoming_activity_direct_launch` fallback.
 4. **Do not** use React `IncomingCallBanner` as lock-screen UI — WebView is unavailable when app is background/killed.
 
 ## Payload
@@ -94,4 +94,6 @@ adb logcat -s DIBAY_FCM DIBAY_INCOMING_CALL DIBAY_PUSH_ROUTE
 
 Expected on accept: `[call-state] accept_start` → `accept_success` → `[call-route] incoming_accept_opened`
 
-Must not appear on lock receive: `incoming_activity_direct_launch`, `incoming_activity_shown` (unless explicit fallback).
+Must not appear on lock receive: `incoming_activity_direct_launch` (FCM duplicate launch).
+
+May appear on lock/screen-off via FSI bridge: `[call-ui] incoming_activity_shown`, `[call-notification] fsi_attached`.

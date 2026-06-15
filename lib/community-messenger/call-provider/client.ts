@@ -17,7 +17,7 @@ import {
 } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
-import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
+import { ensureOutgoingCallMediaPermission } from "@/lib/community-messenger/call-media-permission-preflight";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   closePrimedWebAudioCallToneContext,
@@ -186,7 +186,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
   assertCommunityMessengerWebRtcSecureContext();
-  const preflight = await ensureCallCanUseMedia(kind);
+  const preflight = await ensureOutgoingCallMediaPermission(kind);
   if (!preflight.ok) {
     throw new DOMException("Microphone permission denied", "NotAllowedError");
   }
@@ -261,7 +261,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
 /** Voice call in progress: add camera track only (keep existing mic publish). */
 export async function createCommunityMessengerAgoraVideoTrackOnly(): Promise<ILocalVideoTrack> {
   assertCommunityMessengerWebRtcSecureContext();
-  const preflight = await ensureCallCanUseMedia("video");
+  const preflight = await ensureOutgoingCallMediaPermission("video");
   if (!preflight.ok) {
     throw new DOMException("Camera permission denied", "NotAllowedError");
   }

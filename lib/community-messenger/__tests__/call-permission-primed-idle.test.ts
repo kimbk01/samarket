@@ -32,18 +32,18 @@ vi.mock("@/lib/permissions/device-permission-manager", () => ({
   isPermissionFeatureCompleted: vi.fn((featureKey: string) => permissionMockState.completed.has(featureKey)),
 }));
 
-const ensureCallCanUseMediaMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ ok: true, state: {} })));
+const ensureOutgoingCallMediaPermissionMock = vi.hoisted(() => vi.fn(() => Promise.resolve({ ok: true, state: {} })));
 
 vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
-  ensureCallCanUseMedia: ensureCallCanUseMediaMock,
+  ensureOutgoingCallMediaPermission: ensureOutgoingCallMediaPermissionMock,
 }));
 
 describe("primed device stream idle release", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     permissionMockState.completed.clear();
-    ensureCallCanUseMediaMock.mockReset();
-    ensureCallCanUseMediaMock.mockResolvedValue({ ok: true, state: {} });
+    ensureOutgoingCallMediaPermissionMock.mockReset();
+    ensureOutgoingCallMediaPermissionMock.mockResolvedValue({ ok: true, state: {} });
     vi.stubGlobal("navigator", {
       mediaDevices: { getUserMedia: vi.fn() },
     } as unknown as Navigator);
@@ -91,7 +91,7 @@ describe("primed device stream idle release", () => {
     } = await import("@/lib/community-messenger/call-permission");
 
     await primeCommunityMessengerDevicePermissionFromUserGesture("video");
-    expect(ensureCallCanUseMediaMock).toHaveBeenCalledWith("video");
+    expect(ensureOutgoingCallMediaPermissionMock).toHaveBeenCalledWith("video");
     expect(peekPrimedCommunityMessengerDeviceStream("video")).not.toBeNull();
   });
 });

@@ -3,10 +3,21 @@ import {
   checkDevicePermissions,
   isCallMediaGrantedSync,
   openDevicePermissionSettings,
+  syncCallMediaPermissionFromNativeOs,
+  applyOutgoingNativeOsGrantToCallMediaStore,
   type DibayDevicePermissionState,
 } from "@/lib/permissions/dibay-device-permission-store";
+import { ensureAndroidNativeCallMediaPermissions } from "@/lib/permissions/android-native-device-permissions";
+import { shouldUseAndroidNativeDevicePermissionBridge } from "@/lib/permissions/native-device-permissions-plugin";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
+
+/**
+ * 통화 미디어 권한 — 단일 계약
+ *
+ * - `ensureCallCanUseMedia` — 조회만(OS→store 동기화, 팝업 없음). 수동 UI·그룹 passive 판정.
+ * - `ensureOutgoingCallMediaPermission` — 발신·수락·조인·재다이얼(사용자 제스처). Android OS 확인·요청 후 store 반영.
+ */
 
 export type CallMediaPermissionPreflightResult =
   | { ok: true; state: DibayDevicePermissionState }
@@ -68,9 +79,14 @@ async function resolveDevicePermissionStateForCall(): Promise<DibayDevicePermiss
   return inflightPermissionCheck;
 }
 
+/** 조회만 — Android 는 OS→store 동기화 후 판정(팝업 없음) */
 export async function ensureCallCanUseMedia(
   kind: CommunityMessengerCallKind,
 ): Promise<CallMediaPermissionPreflightResult> {
+  if (shouldUseAndroidNativeDevicePermissionBridge()) {
+    await syncCallMediaPermissionFromNativeOs();
+    invalidateCallMediaPermissionCheckCache();
+  }
   logCallPermission("check_only_start", { kind });
   const state = await resolveDevicePermissionStateForCall();
   logCallPermission("check_only_result", {
@@ -90,6 +106,41 @@ export async function ensureCallCanUseMedia(
     microphone: state.microphone,
   });
   return { ok: false, reason, state };
+}
+
+/** 사용자 제스처 통화 — Android OS 권한 1회 확인·요청 → store granted 반영 */
+export async function ensureOutgoingCallMediaPermission(
+  kind: CommunityMessengerCallKind,
+): Promise<CallMediaPermissionPreflightResult> {
+  if (shouldUseAndroidNativeDevicePermissionBridge()) {
+    logCallPermission("outgoing_native_os_first", { kind });
+    const os = await ensureAndroidNativeCallMediaPermissions(kind);
+    logCallPermission("outgoing_native_os_result", { kind, os });
+    if (os === "granted") {
+      invalidateCallMediaPermissionCheckCache();
+      const state = applyOutgoingNativeOsGrantToCallMediaStore(kind);
+      logCallPermission("outgoing_native_os_granted", {
+        kind,
+        camera: state.camera,
+        microphone: state.microphone,
+      });
+      return { ok: true, state };
+    }
+    if (os === "denied") {
+      invalidateCallMediaPermissionCheckCache();
+      const state = await syncCallMediaPermissionFromNativeOs();
+      const reason = blockedReason(kind, state);
+      logCallPermission("call_blocked_by_permission", {
+        kind,
+        reason,
+        camera: state.camera,
+        microphone: state.microphone,
+        source: "native_os_denied",
+      });
+      return { ok: false, reason, state };
+    }
+  }
+  return ensureCallCanUseMedia(kind);
 }
 
 export function openCallMediaPermissionSettings(): boolean {

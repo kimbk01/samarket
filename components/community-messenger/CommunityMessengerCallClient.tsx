@@ -25,8 +25,9 @@ import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messeng
 async function loadCommunityMessengerCallProvider() {
   return import("@/lib/community-messenger/call-provider/client");
 }
+import { waitForActiveCallSessionAfterNativeAccept } from "@/lib/community-messenger/native-call-accept-join";
 import {
-  ensureCallCanUseMedia,
+  ensureOutgoingCallMediaPermission,
   resolveCallMediaPermissionBlockedMessage,
 } from "@/lib/community-messenger/call-media-permission-preflight";
 import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
@@ -110,6 +111,7 @@ import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/cal
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { prepareCommunityMessengerOutgoingRedial } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   bootstrapCommunityMessengerOutgoingCallAndNavigate,
   bootstrapCommunityMessengerOutgoingCallSession,
@@ -378,10 +380,7 @@ function mapHangupReasonToTerminalStatus(
  */
 function initiatorCanAutoJoinWithMedia(kind: CommunityMessengerCallKind): boolean {
   if (hasUsablePrimedCommunityMessengerDeviceStream(kind)) return true;
-  if (kind === "voice") {
-    return isCommunityMessengerCallMediaReadySync("voice");
-  }
-  return false;
+  return isCommunityMessengerCallMediaReadySync(kind);
 }
 
 function resolveHangupTerminalStatusForSnapshot(
@@ -476,6 +475,8 @@ export function CommunityMessengerCallClient({
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
   const nativeAcceptRequested = requestedAction === "accept";
+  /** Android notification/lock accept — native PATCH 선행, 웹 PATCH 생략 */
+  const nativeAcceptAlreadyPatched = searchParams.get("nativeAccept") === "1";
   const [initialCallHydration] = useState(() => {
     if (initialSession != null) {
       return { session: initialSession, loading: false };
@@ -900,7 +901,9 @@ export function CommunityMessengerCallClient({
    * 수락 PATCH 응답 전 `finally` 에서 `setBusy(null)` 되는 한 틱에 phase 가 다시 `ringing` 으로 떨어져
    * IncomingCallView ↔ 연결 풀스크린이 교차하는 것을 막는다(ref 만 쓰면 리렌더가 없어 동일 버그 유지).
    */
-  const [calleeVideoConnectingShell, setCalleeVideoConnectingShell] = useState(() => nativeAcceptRequested);
+  const [calleeVideoConnectingShell, setCalleeVideoConnectingShell] = useState(
+    () => nativeAcceptRequested || nativeAcceptAlreadyPatched,
+  );
   /** 발신: `ringing` → 그 외 로 바뀔 때(상대 거절·취소 등) 벨·연결음이 잠시 남지 않게 */
   const wasCallSessionRingingRef = useRef(false);
 
@@ -916,7 +919,7 @@ export function CommunityMessengerCallClient({
     });
 
     stopCommunityMessengerCallTone();
-    setCalleeVideoConnectingShell(nativeAcceptRequested);
+    setCalleeVideoConnectingShell(nativeAcceptRequested || nativeAcceptAlreadyPatched);
     wasCallSessionRingingRef.current = false;
     if (!preservePreview) {
       heldPreJoinVideoPreviewRef.current = null;
@@ -938,15 +941,15 @@ export function CommunityMessengerCallClient({
     }
     if (largeVideoRef.current) largeVideoRef.current.innerHTML = "";
     if (smallVideoRef.current) smallVideoRef.current.innerHTML = "";
-  }, [nativeAcceptRequested, sessionId]);
+  }, [nativeAcceptAlreadyPatched, nativeAcceptRequested, sessionId]);
 
   useLayoutEffect(() => {
-    if (!nativeAcceptRequested) return;
+    if (!nativeAcceptRequested && !nativeAcceptAlreadyPatched) return;
     const s = session;
     if (s && s.id === sessionId && !s.isMineInitiator && (s.status === "ringing" || s.status === "active")) {
       setCalleeVideoConnectingShell(true);
     }
-  }, [nativeAcceptRequested, sessionId, session?.id, session?.isMineInitiator, session?.status, session]);
+  }, [nativeAcceptAlreadyPatched, nativeAcceptRequested, sessionId, session?.id, session?.isMineInitiator, session?.status, session]);
 
   useEffect(() => {
     if (!session) return;
@@ -1918,7 +1921,7 @@ export function CommunityMessengerCallClient({
         setErrorMessage(getCommunityMessengerInsecureOriginMediaHint());
         return;
       }
-      const joinPreflight = await ensureCallCanUseMedia(targetSession.callKind);
+      const joinPreflight = await ensureOutgoingCallMediaPermission(targetSession.callKind);
       if (!joinPreflight.ok) {
         autoJoinBlockedRef.current = true;
         setErrorMessage(resolveCallMediaPermissionBlockedMessage(targetSession.callKind));
@@ -2248,7 +2251,7 @@ export function CommunityMessengerCallClient({
       return sessionRef.current;
     }
 
-    const permission = await ensureCallCanUseMedia(s.callKind);
+    const permission = await ensureOutgoingCallMediaPermission(s.callKind);
     if (!permission.ok) {
       setErrorMessage(resolveCallMediaPermissionBlockedMessage(s.callKind));
       setCalleeVideoConnectingShell(false);
@@ -2309,7 +2312,36 @@ export function CommunityMessengerCallClient({
       }
     })();
 
+    const tryJoinAfterNativeAcceptPatch = async (): Promise<CommunityMessengerCallSession | null> => {
+      await Promise.all([gumPrimePromise, tokenPrefetchPromise]);
+      const active = await waitForActiveCallSessionAfterNativeAccept({
+        refreshSession: (silent) => refreshSession(Boolean(silent)),
+        readSession: () => sessionRef.current,
+      });
+      if (!active) return null;
+      setSession(active);
+      postCommunityMessengerCallIncomingConsumedBusEvent(s.id);
+      console.info("[cm-call-state] native_accept_skip_web_patch", {
+        sessionId: s.id.slice(-8),
+        role: "callee",
+        callKind: s.callKind,
+      });
+      if (!joinedRef.current && !joiningRef.current) {
+        await joinCall(active);
+      }
+      return active;
+    };
+
     try {
+      if (!s.isMineInitiator && nativeAcceptAlreadyPatched) {
+        const joinedAfterNative = await tryJoinAfterNativeAcceptPatch();
+        if (joinedAfterNative) return joinedAfterNative;
+        console.warn("[cm-call-state] native_accept_web_patch_fallback", {
+          sessionId: s.id.slice(-8),
+          status: sessionRef.current?.status ?? null,
+        });
+      }
+
       const res = await Promise.all([
         fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(s.id)}`, {
           method: "PATCH",
@@ -2381,7 +2413,7 @@ export function CommunityMessengerCallClient({
       setBusy(null);
       directCallPatchInFlightRef.current = false;
     }
-  }, [fetchConnection, joinCall, t]);
+  }, [fetchConnection, joinCall, nativeAcceptAlreadyPatched, refreshSession, t]);
 
   const handleRetryMediaAndJoin = useCallback(() => {
     const s = sessionRef.current;
@@ -2392,7 +2424,7 @@ export function CommunityMessengerCallClient({
     setErrorMessage(null);
     void (async () => {
       try {
-        const permission = await ensureCallCanUseMedia(s.callKind);
+        const permission = await ensureOutgoingCallMediaPermission(s.callKind);
         if (!permission.ok) {
           setErrorMessage(resolveCallMediaPermissionBlockedMessage(s.callKind));
           return;
@@ -2737,7 +2769,7 @@ export function CommunityMessengerCallClient({
     setPendingVideoUpgradeRequest(false);
     setIncomingVideoUpgradeRequest(false);
     try {
-      const preflight = await ensureCallCanUseMedia("video");
+      const preflight = await ensureOutgoingCallMediaPermission("video");
       if (!preflight.ok) {
         setErrorMessage(resolveCallMediaPermissionBlockedMessage("video"));
         return false;
@@ -3485,30 +3517,12 @@ export function CommunityMessengerCallClient({
       void (async () => {
         const cur = sessionRef.current;
         if (!cur || cur.isMineInitiator) return;
+        setCalleeVideoConnectingShell(true);
         if (cur.status === "active") {
           if (!joinedRef.current && !joiningRef.current) {
             await joinCall(cur);
           }
           return;
-        }
-        if (cur?.callKind === "video") {
-          const peek = peekPrimedCommunityMessengerDeviceStream("video");
-          if (!peek || !hasLiveCommunityMessengerVideoPreviewStream(peek)) {
-            const perm = await ensureCallCanUseMedia("video");
-            if (perm.ok) {
-              try {
-                const stream = await acquirePrimedCommunityMessengerStream("video");
-                storePrimedCommunityMessengerDeviceStream("video", stream);
-                heldPreJoinVideoPreviewRef.current = stream;
-                primeVideoElementAutoplayFromUserGesture(stream);
-              } catch {
-                /* acceptIncoming 병렬 GUM 재시도 */
-              }
-            }
-          } else {
-            primeVideoElementAutoplayFromUserGesture(peek);
-            heldPreJoinVideoPreviewRef.current = peek;
-          }
         }
         await acceptIncoming();
       })().finally(() => {
@@ -3755,7 +3769,7 @@ export function CommunityMessengerCallClient({
         if (stalePeek && !hasLiveCommunityMessengerVideoPreviewStream(stalePeek)) {
           discardPrimedCommunityMessengerDevicePermission();
         }
-        const preflight = await ensureCallCanUseMedia("video");
+        const preflight = await ensureOutgoingCallMediaPermission("video");
         if (!preflight.ok || cancelled) {
           if (!cancelled) {
             setErrorMessage(t("cm_ui_call_permission_required_before_video"));
@@ -3904,7 +3918,7 @@ export function CommunityMessengerCallClient({
     videoPipGesture,
   ]);
 
-  if (loading && !session && nativeAcceptRequested) {
+  if (loading && !session && (nativeAcceptRequested || nativeAcceptAlreadyPatched)) {
     const connectingVm: CallScreenViewModel = {
       visualTheme: "starbucks",
       mode: "voice",
@@ -4028,7 +4042,10 @@ export function CommunityMessengerCallClient({
   const calleeAcceptBridgeLayout =
     !session.isMineInitiator &&
     (session.status === "ringing" || (nativeAcceptRequested && session.status === "active" && !joined)) &&
-    (nativeAcceptRequested || busy === "accept" || calleeVideoConnectingShell);
+    (nativeAcceptRequested ||
+      nativeAcceptAlreadyPatched ||
+      busy === "accept" ||
+      calleeVideoConnectingShell);
   const callScreenPhase: CallPhase =
     agoraReconnecting && (effectiveDirectPhase === "connected" || effectiveDirectPhase === "connecting")
       ? "reconnecting"
@@ -4044,12 +4061,25 @@ export function CommunityMessengerCallClient({
   const startOutgoingAgain = (kind: "voice" | "video") => {
     unlockCommunityMessengerCallPlaybackFromUserGesture();
     primeOutgoingRingbackWebAudioFromUserGesture(kind);
-    discardPrimedCommunityMessengerDevicePermission();
+    prepareCommunityMessengerOutgoingRedial(kind);
+    const keepVideoPreview =
+      kind === "video" &&
+      (hasLiveCommunityMessengerVideoPreviewStream(heldPreJoinVideoPreviewRef.current) ||
+        hasUsablePrimedCommunityMessengerDeviceStream("video"));
+    if (!keepVideoPreview) {
+      heldPreJoinVideoPreviewRef.current = null;
+      detachAutoplayPrimingVideo();
+    }
     resumePrimedCommunityMessengerDeviceStreamIdleRelease();
-    detachAutoplayPrimingVideo();
-    heldPreJoinVideoPreviewRef.current = null;
+    autoJoinBlockedRef.current = false;
+    joiningRef.current = false;
+    joinedRef.current = false;
+    setJoined(false);
+    preJoinVideoPrimeAttemptedSessionRef.current = null;
+    setErrorMessage(null);
     void (async () => {
       try {
+        await cleanupClient();
         const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
           { roomId: session.roomId, peerUserId: session.peerUserId ?? null, kind },
           (href) => router.replace(href)
