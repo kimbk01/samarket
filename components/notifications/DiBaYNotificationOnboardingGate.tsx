@@ -9,6 +9,7 @@ import { shouldOfferDiBaYNotificationPrePrompt } from "@/lib/notifications/dibay
 import {
   canAttemptPostLoginOnboardingGate,
   isPostLoginOnboardingBlockedByAddressGate,
+  notifyNotificationOnboardingSettled,
   schedulePostLoginOnboardingOpen,
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import {
@@ -41,11 +42,15 @@ export function DiBaYNotificationOnboardingGate() {
     if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
     if (!shouldOfferDiBaYNotificationPrePrompt()) return;
     if (shownRef.current) return;
-    if (!("Notification" in window)) return;
+    if (!("Notification" in window)) {
+      notifyNotificationOnboardingSettled();
+      return;
+    }
 
     const perm = Notification.permission;
     if (perm === "granted" || perm === "denied") {
       syncDiBaYOnboardingFromBrowserPermission("notification");
+      notifyNotificationOnboardingSettled();
       return;
     }
 
@@ -77,12 +82,14 @@ export function DiBaYNotificationOnboardingGate() {
   const onLater = () => {
     recordDiBaYOnboardingDecision("notification", "declined");
     setOpen(false);
+    notifyNotificationOnboardingSettled();
   };
 
   const onAccept = () => {
     if (typeof window === "undefined" || !("Notification" in window)) {
       recordDiBaYOnboardingDecision("notification", "declined");
       setOpen(false);
+      notifyNotificationOnboardingSettled();
       return;
     }
 
@@ -91,11 +98,13 @@ export function DiBaYNotificationOnboardingGate() {
       recordDiBaYOnboardingDecision("notification", "accepted");
       setOpen(false);
       schedulePushRegistration();
+      notifyNotificationOnboardingSettled();
       return;
     }
     if (existing === "denied") {
       recordDiBaYOnboardingDecision("notification", "browser_denied");
       setOpen(false);
+      notifyNotificationOnboardingSettled();
       return;
     }
 
@@ -107,6 +116,7 @@ export function DiBaYNotificationOnboardingGate() {
       if (permission === "granted") {
         schedulePushRegistration();
       }
+      notifyNotificationOnboardingSettled();
     });
   };
 

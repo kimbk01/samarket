@@ -6,8 +6,10 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   canAttemptPostLoginOnboardingGate,
+  DIBAY_NOTIFICATION_ONBOARDING_SETTLED_EVENT,
   isPostLoginOnboardingBlockedByAddressGate,
   schedulePostLoginOnboardingOpen,
+  shouldDeferCallMediaOnboardingForNotification,
 } from "@/lib/permissions/dibay-post-login-onboarding-gate";
 import {
   recordDiBaYOnboardingDecision,
@@ -35,6 +37,7 @@ export function DiBaYCallMediaOnboardingGate() {
 
   const tryOpen = useCallback(() => {
     if (!canAttemptPostLoginOnboardingGate(pathname, deferStoresHomeLcp)) return;
+    if (shouldDeferCallMediaOnboardingForNotification()) return;
     if (shownRef.current) return;
 
     const run = () => {
@@ -58,7 +61,15 @@ export function DiBaYCallMediaOnboardingGate() {
   }, [deferStoresHomeLcp, pathname]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => tryOpen(), 400);
+    const onNotificationSettled = () => {
+      window.setTimeout(() => tryOpen(), 120);
+    };
+    window.addEventListener(DIBAY_NOTIFICATION_ONBOARDING_SETTLED_EVENT, onNotificationSettled);
+    return () => window.removeEventListener(DIBAY_NOTIFICATION_ONBOARDING_SETTLED_EVENT, onNotificationSettled);
+  }, [tryOpen]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => tryOpen(), 500);
     return () => window.clearTimeout(timer);
   }, [tryOpen]);
 
@@ -104,7 +115,7 @@ export function DiBaYCallMediaOnboardingGate() {
 
   return (
     <div
-      className="fixed inset-0 z-[124] flex items-center justify-center bg-black/45 px-4"
+      className="fixed inset-0 z-[126] flex items-center justify-center bg-black/45 px-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="dibay-call-media-onboard-title"
