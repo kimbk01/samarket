@@ -160,9 +160,9 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
     vm.direction === "incoming" &&
     (vm.phase === "ringing" || vm.phase === "connecting");
   const actionBarPaddingBottom = liftIncomingRingingActions
-    ? "pb-[max(1.25rem,calc(env(safe-area-inset-bottom,0px)+min(5.75rem,22dvh)))]"
+    ? "pb-[max(18px,calc(env(safe-area-inset-bottom,0px)+18px))]"
     : "pb-[max(14px,calc(env(safe-area-inset-bottom,0px)+8px))]";
-  const actionBarPaddingTop = liftIncomingRingingActions ? "pt-10" : "pt-12";
+  const actionBarPaddingTop = liftIncomingRingingActions ? "pt-14" : "pt-12";
 
   const pipAllowPointer = shouldAllowPipPointerInteraction({
     pipShellMounted,
@@ -330,7 +330,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         ) : null}
 
         {incomingVideoRingHero ? (
-          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[min(26dvh,200px)] pt-[min(18dvh,140px)]">
+          <div className="pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center px-6 pb-[clamp(128px,18dvh,172px)] pt-[max(72px,calc(env(safe-area-inset-top)+64px))]">
             <div className="flex w-full max-w-md flex-col items-center text-center">
               <div className="mb-6 w-full pt-[max(8px,calc(env(safe-area-inset-top)+4px))]">
                 <IncomingCallBrandHeader mode="video" visualTheme={vm.visualTheme} />

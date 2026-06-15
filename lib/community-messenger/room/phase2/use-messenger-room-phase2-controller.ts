@@ -22,6 +22,7 @@ import {
 import {
   openCommunityMessengerPermissionSettings,
 } from "@/lib/community-messenger/call-permission";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   ensureOutgoingCallMediaPermission,
   getCallMediaPermissionBlockedMessageKey,
@@ -584,8 +585,8 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      void ensureOutgoingCallMediaPermission(kind).then((permission) => {
-        if (!permission.ok) {
+      void primeOutgoingCallMediaBeforeNavigate(kind).then((primeResult) => {
+        if (!primeResult.ok) {
           outgoingDialSyncGuardRef.current = false;
           setOutgoingDialLocked(false);
           showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });

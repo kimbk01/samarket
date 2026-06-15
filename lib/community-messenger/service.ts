@@ -16696,6 +16696,23 @@ async function terminateLiveDirectCallSessionsInRoom(
   }
 }
 
+async function forceEndLiveDirectCallSessionsInRoom(sb: SupabaseLike, roomId: string): Promise<void> {
+  const rid = trimText(roomId);
+  if (!rid) return;
+  const now = nowIso();
+  await (sb as any)
+    .from("community_messenger_call_sessions")
+    .update({
+      status: "ended",
+      ended_at: now,
+      ended_reason: "redial_replaced",
+      updated_at: now,
+    })
+    .eq("room_id", rid)
+    .eq("session_mode", "direct")
+    .in("status", ["ringing", "active"]);
+}
+
 function waitCommunityMessengerCallSessionStart(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -16816,7 +16833,11 @@ export async function startCommunityMessengerCallSession(input: {
     if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId))) {
       await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
       invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
-      await waitLiveDirectCallSessionClearedInRoom(sb, roomId, 2);
+      if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId, 2))) {
+        await forceEndLiveDirectCallSessionsInRoom(sb, roomId);
+        invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
+        await waitLiveDirectCallSessionClearedInRoom(sb, roomId, 2);
+      }
     }
   }
   if (!isGroupRoom && sb) {
@@ -16836,11 +16857,13 @@ export async function startCommunityMessengerCallSession(input: {
     if (!isGroupRoom) {
       if (dialFresh) {
         if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
-          const reused = await getActiveCallSessionForRoom(input.userId, roomId);
-          if (reused) {
-            maybeResendIncomingCallPushForReusedSession(reused, peerUserId, input.userId);
-            return { ok: true, session: reused };
+          await forceEndLiveDirectCallSessionsInRoom(sb, roomId);
+          invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
+          if (!(await waitLiveDirectCallSessionClearedInRoom(sb, roomId, 2))) {
+            return { ok: false, error: "call_session_start_failed" };
           }
+        }
+        if (await getLiveDirectCallSessionIdInRoom(sb, roomId)) {
           return { ok: false, error: "call_session_start_failed" };
         }
         if (await userHasLiveDirectCallSessionOutsideRoom(sb, input.userId, roomId)) {
