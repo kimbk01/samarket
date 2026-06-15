@@ -36,13 +36,15 @@ describe("profile-edit-form-helpers", () => {
     ).toBe(true);
   });
 
-  it("listIncompleteProfileEditFields skips phone when verification disabled", () => {
+  it("listIncompleteProfileEditFields includes phone when not verified", () => {
     expect(
-      listIncompleteProfileEditFields(
-        { nickname: false, phone: false, address: false, dibay_id: true },
-        false,
-      ),
-    ).toEqual(["nickname", "address"]);
+      listIncompleteProfileEditFields({
+        nickname: false,
+        phone: false,
+        address: false,
+        dibay_id: true,
+      }),
+    ).toEqual(["nickname", "phone", "address"]);
   });
 
   it("buildProfileEditIncompleteBody joins labels", () => {

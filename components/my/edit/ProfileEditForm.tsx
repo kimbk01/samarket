@@ -360,7 +360,16 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
     [t],
   );
 
-  const showPhoneVerify = phoneVerificationSettings?.enabled === true;
+  const phoneVerificationSettingsForBox = useMemo(
+    () =>
+      phoneVerificationSettings ?? {
+        enabled: false,
+        provider: "semaphore" as const,
+        guide_text: "",
+        resend_cooldown_seconds: 60,
+      },
+    [phoneVerificationSettings],
+  );
 
   const fieldComplete = useMemo(() => {
     if (!profile) {
@@ -375,9 +384,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
       profile,
       displayName,
       addressList,
-      phoneVerificationEnabled: showPhoneVerify,
     });
-  }, [profile, displayName, addressList, showPhoneVerify]);
+  }, [profile, displayName, addressList]);
 
   const tryNavigateAfterRequirementSave = useCallback(async (profileOverride?: ProfileRow | null) => {
     if (!setupNext) return;
@@ -501,9 +509,8 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
         profile: freshProfile ?? profile!,
         displayName: trimmedName,
         addressList: freshRows,
-        phoneVerificationEnabled: showPhoneVerify,
       });
-      const missing = listIncompleteProfileEditFields(completeAfterSave, showPhoneVerify);
+      const missing = listIncompleteProfileEditFields(completeAfterSave);
       if (missing.length > 0) {
         setPendingIncompleteFields(missing);
         setIncompleteConfirmOpen(true);
@@ -678,13 +685,12 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
             </div>
           </ProfileEditSection>
 
-          {showPhoneVerify ? (
-            <ProfileEditSection
-              title={t("profile_edit_section_phone")}
-              className={sectionHighlight("phone")}
-            >
-              <div data-profile-field="phone">
-                <PhoneVerificationBox
+          <ProfileEditSection
+            title={t("profile_edit_section_phone")}
+            className={sectionHighlight("phone")}
+          >
+            <div data-profile-field="phone">
+              <PhoneVerificationBox
                 compact
                 setupError={phoneSetupError}
                 fieldIncomplete={!fieldComplete.phone}
@@ -694,21 +700,21 @@ export function ProfileEditForm({ backHref = "/mypage" }: { backHref?: string })
                   phone_number: profile.phone_number ?? null,
                   phone_verified: profile.phone_verified,
                   phone_verified_at: profile.phone_verified_at ?? null,
+                  phone_verification_status: profile.phone_verification_status ?? null,
                   member_status: profile.member_status ?? null,
                   role: profile.role ?? null,
                   email: profile.auth_login_email ?? profile.email ?? null,
                   provider: profile.provider ?? profile.auth_provider ?? null,
                   auth_provider: profile.auth_provider ?? profile.provider ?? null,
-                  settings: phoneVerificationSettings ?? undefined,
+                  settings: phoneVerificationSettingsForBox,
                 }}
                 onRefreshProfile={async () => {
                   await handlePhoneRefreshProfile();
                   await tryNavigateAfterRequirementSave();
                 }}
               />
-              </div>
-            </ProfileEditSection>
-          ) : null}
+            </div>
+          </ProfileEditSection>
 
           <ProfileEditSection title={t("profile_edit_section_readonly")}>
             <ProfileReadOnlyInfoCard profile={profile} />

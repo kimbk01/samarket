@@ -27,6 +27,7 @@ type VerifySnapshot = {
   phone_number?: string | null;
   phone_verified: boolean;
   phone_verified_at?: string | null;
+  phone_verification_status?: string | null;
   member_status?: string | null;
   role?: string | null;
   email?: string | null;
@@ -224,14 +225,20 @@ export function PhoneVerificationBox({
 
   return (
     <div className={shellClass}>
-      {!compact ? (
+      {compact ? (
+        <p className="text-[13px] text-[#6F4E37]">
+          {verified
+            ? t("my_phone_verified_success")
+            : settings.guide_text || t("profile_edit_section_phone_desc")}
+        </p>
+      ) : (
         <div>
           <p className="sam-text-body font-semibold text-sam-fg">{t("my_phone_verify_title")}</p>
           <p className="mt-1 sam-text-body-secondary text-sam-muted">
             {settings.guide_text || t("my_phone_intro_required")}
           </p>
         </div>
-      ) : null}
+      )}
 
       {verified && !allowEdit ? (
         <div

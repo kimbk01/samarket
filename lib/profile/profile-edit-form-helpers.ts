@@ -38,9 +38,8 @@ export function computeProfileEditFieldComplete(input: {
   profile: ProfileRow;
   displayName: string;
   addressList: UserAddressDTO[] | null;
-  phoneVerificationEnabled: boolean;
 }): ProfileEditFieldComplete {
-  const { profile, displayName, addressList, phoneVerificationEnabled } = input;
+  const { profile, displayName, addressList } = input;
   const usernameComplete = isDibayIdComplete({
     dibay_id: profile.dibay_id,
     dibay_id_locked: profile.dibay_id_locked,
@@ -53,19 +52,17 @@ export function computeProfileEditFieldComplete(input: {
       display_name: displayName,
       nickname: profile.nickname,
     }),
-    phone: phoneVerificationEnabled ? isProfileContactVerified(profile) : true,
+    /** OTP·관리자 승인 동일 — 설정 enabled 와 무관하게 인증 여부만 본다 */
+    phone: isProfileContactVerified(profile),
     address: Boolean(pickRepresentativeAddress(addressList)),
     dibay_id: usernameComplete,
   };
 }
 
-export function listIncompleteProfileEditFields(
-  complete: ProfileEditFieldComplete,
-  phoneVerificationEnabled: boolean,
-): ProfileEditFieldKey[] {
+export function listIncompleteProfileEditFields(complete: ProfileEditFieldComplete): ProfileEditFieldKey[] {
   const keys: ProfileEditFieldKey[] = [];
   if (!complete.nickname) keys.push("nickname");
-  if (phoneVerificationEnabled && !complete.phone) keys.push("phone");
+  if (!complete.phone) keys.push("phone");
   if (!complete.address) keys.push("address");
   if (!complete.dibay_id) keys.push("dibay_id");
   return keys;
