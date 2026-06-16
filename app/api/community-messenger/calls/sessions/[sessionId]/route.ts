@@ -102,5 +102,13 @@ export async function PATCH(
     clientEndedReason:
       typeof body.clientEndedReason === "string" ? body.clientEndedReason : undefined,
   });
+  if (!result.ok) {
+    console.error("[call-session-patch] failed", {
+      sessionId,
+      action: body.action,
+      userId: auth.userId,
+      error: result.error,
+    });
+  }
   return NextResponse.json(result, { status: result.ok ? 200 : 400 });
 }

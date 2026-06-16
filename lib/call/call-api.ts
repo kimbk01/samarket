@@ -40,7 +40,16 @@ async function patchCallSession(
     session?: CommunityMessengerCallSession;
     error?: string;
   };
-  return { ...json, ok: Boolean(res.ok && json.ok) };
+  const ok = Boolean(res.ok && json.ok);
+  if (!ok) {
+    console.error("[call-patch] failed", {
+      sessionId,
+      action,
+      status: res.status,
+      error: json.error,
+    });
+  }
+  return { ...json, ok };
 }
 
 async function postCallHangupSignal(input: {
@@ -68,7 +77,7 @@ async function startRoomCall(input: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ callKind: input.callKind }),
+    body: JSON.stringify({ callKind: input.callKind, dialIntent: "fresh" }),
   });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
