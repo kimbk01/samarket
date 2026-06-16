@@ -2337,6 +2337,29 @@ export function CommunityMessengerCallClient({
     if (directCallPatchInFlightRef.current) return null;
     if (isTerminalCallSessionStatus(s.status)) return null;
     if (!s.isMineInitiator) {
+      /**
+       * 단일 파이프라인 정책:
+       * `/calls/:id?action=accept(&nativeAccept=1)` 로 들어온 경우 accept PATCH 는 이미 완료된 상태다.
+       * (Web gateway 또는 Native coordinator). CallClient 는 PATCH 를 재실행하지 않는다.
+       */
+      if (requestedActionRef.current === "accept") {
+        logDibayCall("accept_success", { sessionId: s.id, source: "call_client_accept_route" });
+        setCalleeVideoConnectingShell(true);
+        setBusy("accept");
+        dibayIncomingLaneStopRing("accept_route_entered", s.id);
+        dismissAllIncomingCallNotificationsFireAndForget(s.id);
+        try {
+          const refreshed = await refreshSession(true);
+          if (refreshed?.status === "active") {
+            clearNativeCalleeAcceptPending(s.id);
+            runIncomingCallCleanup({ sessionId: s.id, reason: "accept_route_active", stopRingtone: false });
+          }
+          return refreshed;
+        } finally {
+          setBusy(null);
+          releaseIncomingCallAccept(s.id);
+        }
+      }
       if (!isIncomingCallAcceptInFlight(s.id) && !tryClaimIncomingCallAccept(s.id)) {
         return null;
       }
@@ -2656,9 +2679,13 @@ export function CommunityMessengerCallClient({
       setSession(loaded);
       sessionRef.current = loaded;
       setLoading(false);
-      if (nativeAcceptRoute) {
-        logDibayCall("accept_success", { sessionId, source: "native_accept_hydrate" });
-        dibayIncomingLaneStopRing("hydrate_native_accept", sessionId);
+      /**
+       * 단일 파이프라인: `action=accept` 는 이미 PATCH 완료를 의미.
+       * hydrate 경로에서도 CallClient 가 accept PATCH 를 재실행하지 않는다.
+       */
+      if (requestedAction === "accept") {
+        logDibayCall("accept_success", { sessionId, source: "call_client_hydrate_accept_route" });
+        dibayIncomingLaneStopRing("hydrate_accept_route", sessionId);
         dismissAllIncomingCallNotificationsFireAndForget(sessionId);
         await refreshSession(true);
         return;
@@ -2697,6 +2724,20 @@ export function CommunityMessengerCallClient({
     session,
     sessionId,
   ]);
+
+  /**
+   * 수락 전 자동 `/calls/:id` 진입 차단 (정책: 수신 UI는 Global 배너에서만).
+   * callee ringing 에서 `action=accept` 없이 들어오면 즉시 뒤로 돌린다.
+   */
+  useEffect(() => {
+    const s = sessionRef.current;
+    if (!s) return;
+    if (s.isMineInitiator) return;
+    if (s.status !== "ringing") return;
+    if (requestedAction === "accept") return;
+    if (busyRef.current === "accept" || calleeVideoConnectingShellRef.current) return;
+    navigateBackFromCommunityMessengerCall(router, s.roomId);
+  }, [requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);
 
   useEffect(() => {
     if (requestedAction !== "reject") return;

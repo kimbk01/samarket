@@ -43,6 +43,8 @@ export function DibayFcmCallRouteHost() {
   useLayoutEffect(() => {
     if (!isCapacitorNativePlatform()) return;
 
+    let mounted = true;
+
     const navigate = (rawPath: string) => {
       const path = rawPath.trim();
       if (!path.startsWith("/community-messenger/calls/")) return;
@@ -92,6 +94,7 @@ export function DibayFcmCallRouteHost() {
         return;
       }
       const nativePending = await readNativePersistedCallPendingRoute();
+      if (!mounted) return;
       if (nativePending) {
         console.info("[call-route] pending_route_replayed", { path: nativePending.path, source: "native" });
         navigate(nativePending.path);
@@ -99,6 +102,11 @@ export function DibayFcmCallRouteHost() {
     };
 
     void consumePendingRoutes();
+
+    const maybeConsumeOnResume = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void consumePendingRoutes();
+    };
 
     const offTerminal = onCommunityMessengerBusEvent((ev) => {
       if (ev.type !== "cm.call.session_terminal") return;
@@ -115,9 +123,14 @@ export function DibayFcmCallRouteHost() {
     };
 
     window.addEventListener("dibay:call-route", onCallRoute);
+    window.addEventListener("focus", maybeConsumeOnResume);
+    document.addEventListener("visibilitychange", maybeConsumeOnResume);
     return () => {
+      mounted = false;
       offTerminal();
       window.removeEventListener("dibay:call-route", onCallRoute);
+      window.removeEventListener("focus", maybeConsumeOnResume);
+      document.removeEventListener("visibilitychange", maybeConsumeOnResume);
     };
   }, [router]);
 

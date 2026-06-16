@@ -33,15 +33,21 @@ export function resolveIncomingCallSurface(args: ResolveIncomingCallSurfaceArgs)
   const visibilityState = args.visibilityState ?? "visible";
   const sessionStatus = args.sessionStatus?.trim().toLowerCase() ?? "";
 
-  if (isCallRoute || args.acceptInProgress || args.activeSessionRecovery) {
-    return "full-screen";
-  }
-
-  if (sessionStatus === "active") {
-    return "full-screen";
+  /**
+   * 수신 UI 단일화 정책:
+   * - `/calls/:id` 는 CallClient 전용(수신 배너/오버레이 금지)
+   * - foreground `ringing` 만 상단 배너
+   * - 그 외는 네이티브/알림 담당
+   */
+  if (isCallRoute) {
+    return "system-notification";
   }
 
   if (visibilityState !== "visible" || args.isAppForeground === false) {
+    return "system-notification";
+  }
+
+  if (args.acceptInProgress || args.activeSessionRecovery || sessionStatus === "active") {
     return "system-notification";
   }
 
@@ -53,7 +59,7 @@ export function resolveIncomingCallSurface(args: ResolveIncomingCallSurfaceArgs)
 }
 
 export function shouldRenderInternalIncomingCallUi(surface: IncomingCallSurface | null | undefined): boolean {
-  return surface === "top-banner" || surface === "full-screen";
+  return surface === "top-banner";
 }
 
 /** foreground in-app UI가 있으면 Web Notification 은 중복 표시하지 않는다. */

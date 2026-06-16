@@ -41,10 +41,10 @@ describe("incoming-call-surface", () => {
         isAppForeground: true,
         sessionStatus: "ringing",
       })
-    ).toBe("full-screen");
+    ).toBe("system-notification");
   });
 
-  it("uses full screen while accepting or recovering an active session", () => {
+  it("does not mount Global incoming UI while accepting or recovering an active session", () => {
     expect(
       resolveIncomingCallSurface({
         visibilityState: "visible",
@@ -53,7 +53,7 @@ describe("incoming-call-surface", () => {
         sessionStatus: "ringing",
         acceptInProgress: true,
       })
-    ).toBe("full-screen");
+    ).toBe("system-notification");
 
     expect(
       resolveIncomingCallSurface({
@@ -63,7 +63,7 @@ describe("incoming-call-surface", () => {
         sessionStatus: "active",
         activeSessionRecovery: true,
       })
-    ).toBe("full-screen");
+    ).toBe("system-notification");
   });
 
   it("does not render an internal banner when the document is hidden", () => {
@@ -90,7 +90,7 @@ describe("incoming-call-surface", () => {
     expect(new Set(surfaces)).toEqual(new Set(["top-banner"]));
   });
 
-  it("routes accept-in-progress to full-screen before navigation completes", () => {
+  it("keeps internal UI limited to top-banner only", () => {
     expect(
       resolveIncomingCallSurface({
         visibilityState: "visible",
@@ -99,8 +99,7 @@ describe("incoming-call-surface", () => {
         sessionStatus: "ringing",
         acceptInProgress: true,
       })
-    ).toBe("full-screen");
-    expect(shouldRenderInternalIncomingCallUi("full-screen")).toBe(true);
+    ).toBe("system-notification");
     expect(shouldRenderInternalIncomingCallUi("top-banner")).toBe(true);
     expect(shouldRenderInternalIncomingCallUi("system-notification")).toBe(false);
   });

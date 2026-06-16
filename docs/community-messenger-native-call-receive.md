@@ -16,8 +16,8 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 
 ## Layers
 - Android FCM layer: `DibayFirebaseMessagingService` treats `type=incoming_call` separately from chat messages.
-- Android native UI: `IncomingCallNotificationBuilder` posts CALL-category notification with **accept/decline action buttons** only (no default full-screen Activity).
-- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId and routes accepted calls to `/community-messenger/calls/{callId}?action=accept`.
+- Android native UI: `IncomingCallNotificationBuilder` posts CALL-category notification. **Accept** uses an Activity trampoline to bypass Android background `startActivity` restrictions.
+- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId and routes accepted calls to `/community-messenger/calls/{callId}?action=accept&nativeAccept=1`.
 - Web layer: `GlobalCommunityMessengerIncomingCall` + `IncomingCallBanner` for **foreground in-app** receive only.
 - iOS layer: `VoIPPushRegistry` + `CallKitProvider` skeleton. `DibayVoipCallPlugin` exposes registration and explicit CallKit end hooks to JS.
 
@@ -27,12 +27,12 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 |-------|-----|
 | App foreground (unlocked) | `IncomingCallBanner` top-banner via web — **not** native full-screen Activity |
 | Lock / screen off / app background | System call notification with **수락/거절** actions; **lock/screen-off** also posts full-screen intent bridge (`IncomingCallActivity` wake UI) |
-| After accept (any entry) | `/community-messenger/calls/{callId}?action=accept` → connecting/call screen (skip bell UI) |
+| After accept (any entry) | `/community-messenger/calls/{callId}?action=accept&nativeAccept=1` → connecting/call screen (skip ringing UI, accept PATCH already done) |
 
 ## DO NOT (regression guards)
 
 1. **Do not** add `windowShowWhenLocked`, `showWhenLocked`, `turnScreenOn`, etc. to `styles.xml` or `AndroidManifest` — AppCompat linking fails. Use `IncomingCallActivity.applyWakeFlags()` only when Activity is explicitly launched (fallback).
-2. **Do not** set notification `contentIntent` to `IncomingCallActivity` — content tap opens app (`MainActivity` launcher) for banner; accept uses broadcast action only. Full-screen intent to `IncomingCallActivity` is **lock/screen-off bridge only**.
+2. **Do not** set notification `contentIntent` to `IncomingCallActivity` as an accept route — content tap is not accept. Accept must follow the single pipeline: PATCH accept → `/calls/:id?action=accept&nativeAccept=1`.
 3. **Do not** call `startActivity(IncomingCallActivity)` from FCM when app is **foreground+unlocked** (web banner). Lock/screen-off: notification + FSI; **FSI denied(API 34+)** 시에만 `incoming_activity_direct_launch` fallback.
 4. **Do not** use React `IncomingCallBanner` as lock-screen UI — WebView is unavailable when app is background/killed.
 
@@ -56,7 +56,7 @@ Invalid payloads are logged as `[call-push] payload_invalid` and are not downgra
 
 ## Routes
 
-- Incoming answer: `/community-messenger/calls/{callId}?action=accept`
+- Incoming answer: `/community-messenger/calls/{callId}?action=accept&nativeAccept=1`
 - Missed call notification: `/community-messenger/rooms/{roomId}?focus=call-history&callId={callId}`
 - Chat message notification: `/community-messenger/rooms/{roomId}`
 
