@@ -7,7 +7,7 @@ import AgoraRTC, {
   type IRemoteAudioTrack,
   type IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
-import { createFallbackAudioOnlyMediaStream } from "@/lib/community-messenger/call-media-stream";
+import { createFallbackAudioOnlyMediaStream } from "@/lib/call/permission-manager";
 import {
   consumePrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
@@ -17,8 +17,7 @@ import {
 } from "@/lib/community-messenger/media-preflight";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
-import { ensureOutgoingCallMediaPermission } from "@/lib/community-messenger/call-media-permission-preflight";
-import { logCall } from "@/lib/call/call-log";
+import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   closePrimedWebAudioCallToneContext,
@@ -187,7 +186,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
   kind: CommunityMessengerCallKind
 ): Promise<CommunityMessengerAgoraLocalTracks> {
   assertCommunityMessengerWebRtcSecureContext();
-  const preflight = await ensureOutgoingCallMediaPermission(kind);
+  const preflight = await ensureCallCanUseMedia(kind);
   if (!preflight.ok) {
     throw new DOMException("Microphone permission denied", "NotAllowedError");
   }
@@ -262,7 +261,7 @@ export async function createCommunityMessengerAgoraLocalTracks(
 /** Voice call in progress: add camera track only (keep existing mic publish). */
 export async function createCommunityMessengerAgoraVideoTrackOnly(): Promise<ILocalVideoTrack> {
   assertCommunityMessengerWebRtcSecureContext();
-  const preflight = await ensureOutgoingCallMediaPermission("video");
+  const preflight = await ensureCallCanUseMedia("video");
   if (!preflight.ok) {
     throw new DOMException("Camera permission denied", "NotAllowedError");
   }
@@ -491,15 +490,9 @@ export async function cleanupCommunityMessengerAgoraCallResources(input: {
   closePrimedWebAudioCallToneContext();
 
   if (client) {
-    logCall("agora", "leave_start", { source: "cleanupCommunityMessengerAgoraCallResources" });
     try {
       await client.leave();
-      logCall("agora", "leave_done", { source: "cleanupCommunityMessengerAgoraCallResources" });
     } catch {
-      logCall("agora", "leave_done", {
-        source: "cleanupCommunityMessengerAgoraCallResources",
-        reason: "leave_error",
-      });
       /* */
     }
     try {

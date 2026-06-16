@@ -16,8 +16,6 @@ export function CommunityMessengerCallLogsClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromUrl = parseMessengerEntryOrigin(searchParams.get("from"));
-  const highlightCallId = searchParams.get("callId");
-  const filterRoomId = searchParams.get("roomId");
   const inboxHref = messengerInboxHrefWithOrigin(fromUrl ?? readStoredMessengerEntryOrigin());
 
   return (
@@ -36,12 +34,7 @@ export function CommunityMessengerCallLogsClient() {
       />
 
       <main className="flex-1 px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
-        <MessengerCallLogsPanel
-          callsHydrating
-          entryOrigin={fromUrl ?? readStoredMessengerEntryOrigin()}
-          highlightCallId={highlightCallId}
-          filterRoomId={filterRoomId}
-        />
+        <MessengerCallLogsPanel callsHydrating entryOrigin={fromUrl ?? readStoredMessengerEntryOrigin()} />
       </main>
     </div>
   );

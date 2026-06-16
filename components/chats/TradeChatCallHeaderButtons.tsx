@@ -5,13 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
-import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
+import {
+  unlockCommunityMessengerCallPlaybackFromUserGesture,
+} from "@/lib/community-messenger/call-feedback-sound";
 import {
   cmCallLatencyInfo,
   cmCallLatencyMarkClick,
   setCmCallLatencyContext,
 } from "@/lib/community-messenger/cm-call-debug";
-import { rememberCallReturnPath, startFreshOutgoingCall } from "@/lib/call/call-navigation";
+import {
+  buildCommunityMessengerOutgoingDialHref,
+  rememberCallNavigationReturnPath,
+} from "@/lib/community-messenger/call-session-navigation-seed";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   tradeChatCallPolicyAllowsVideo,
@@ -27,7 +32,9 @@ type CallKind = "voice" | "video";
  */
 export function TradeChatCallHeaderButtons(props: {
   policy: TradeChatCallPolicy;
+  /** `product_chats.id` 또는 브리지에 넘길 거래 스레드 식별자 */
   productChatRoomId: string;
+  /** 서버가 이미 연결한 메신저 직통방이면 브리지 왕복 생략 */
   communityMessengerRoomId?: string | null;
   onErrorMessage: (message: string) => void;
 }) {
@@ -84,27 +91,20 @@ export function TradeChatCallHeaderButtons(props: {
           }
           messengerRoomId = json.roomId.trim();
         }
-        rememberCallReturnPath();
+        rememberCallNavigationReturnPath();
         cmCallLatencyInfo("outgoing_route_push_start", {
           roomId: messengerRoomId,
           callKind: kind,
           role: "initiator",
         });
-        const result = await startFreshOutgoingCall({
-          roomId: messengerRoomId,
-          callKind: kind,
-          router,
-        });
-        if (!result.ok) {
-          onErrorMessage(result.userMessage ?? t("chats_trade_call_network_error"));
-        }
+        router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: messengerRoomId }));
       } catch {
         onErrorMessage(t("chats_trade_call_network_error"));
       } finally {
         setBusy(false);
       }
     },
-    [busy, communityMessengerRoomId, onErrorMessage, pathname, productChatRoomId, router, t]
+    [busy, communityMessengerRoomId, onErrorMessage, pathname, productChatRoomId, router]
   );
 
   if (!tradeChatCallPolicyAllowsVoice(policy)) return null;

@@ -1,14 +1,13 @@
 import {
   inferCommunityMessengerMediaGrantedFromDeviceLabels,
+  isCommunityMessengerMediaBrowserGrantedSync,
 } from "@/lib/community-messenger/media-permissions-query";
 import {
   isPermissionFeatureCompleted,
   markPermissionFeatureCompleted,
 } from "@/lib/permissions/device-permission-manager";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
-import { ensureOutgoingCallMediaPermission, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
-import { acquirePrimedCommunityMessengerStream } from "@/lib/community-messenger/call-media-stream";
-import { isCallMediaGrantedSync } from "@/lib/permissions/dibay-device-permission-store";
+import { ensureCallCanUseMedia, openCallMediaPermissionSettings } from "@/lib/community-messenger/call-media-permission-preflight";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import type { MessageKey } from "@/lib/i18n/messages";
@@ -25,10 +24,14 @@ export function hasCommunityMessengerMediaTrustedMark(kind: CommunityMessengerCa
   return isPermissionFeatureCompleted(featureKeyForCallKind(kind));
 }
 
-/** 중앙 call_media store + (통화 중) primed stream 만 — legacy trusted·Permissions 캐시 제외 */
+/** trusted · live primed · Permissions API granted(캐시) — 동기 단일 진실 소스 */
 export function isCommunityMessengerCallMediaReadySync(kind: CommunityMessengerCallKind): boolean {
   if (typeof window === "undefined") return false;
-  return hasUsablePrimedCommunityMessengerDeviceStream(kind) || isCallMediaGrantedSync(kind);
+  return (
+    hasUsablePrimedCommunityMessengerDeviceStream(kind) ||
+    hasCommunityMessengerMediaTrustedMark(kind) ||
+    isCommunityMessengerMediaBrowserGrantedSync(kind)
+  );
 }
 
 function markTrustedIfBrowserGranted(
@@ -250,18 +253,14 @@ export function storePrimedCommunityMessengerDeviceStream(
 }
 
 /**
- * 사용자 제스처 시 영상 GUM 프라임 — 발신 미리보기·Agora 조인용.
+ * @deprecated 통화 시점에는 권한 요청/프라임 금지. 기존 호출 보호용 check-only 래퍼.
  */
 export async function primeCommunityMessengerDevicePermissionFromUserGesture(
   kind: CommunityMessengerCallKind
 ): Promise<void> {
-  const result = await ensureOutgoingCallMediaPermission(kind);
+  const result = await ensureCallCanUseMedia(kind);
   if (!result.ok) {
     throw new DOMException("Media permission unavailable", "NotAllowedError");
-  }
-  if (kind === "video") {
-    const stream = await acquirePrimedCommunityMessengerStream("video");
-    storePrimedStream("video", stream);
   }
 }
 

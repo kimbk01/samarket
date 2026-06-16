@@ -9,7 +9,7 @@ const KEYS = {
   sessionActionFailed: "cm_ui_call_session_action_failed",
   sessionRejectFailed: "cm_ui_call_session_reject_failed",
   incomingListFailed: "cm_ui_incoming_call_list_failed",
-  incomingListReload: "cm_ui_incoming_call_list_reload",
+  incomingListRetry: "common_retry",
   networkOrServer: "cm_ui_network_or_server_unreachable",
   signalPollUnstable: "cm_ui_call_signal_poll_unstable",
   groupRingEndFailed: "cm_ui_group_ring_end_failed",
@@ -32,8 +32,8 @@ export const MESSENGER_CALL_USER_MSG = {
   get incomingListFailed() {
     return tr(KEYS.incomingListFailed);
   },
-  get incomingListReload() {
-    return tr(KEYS.incomingListReload);
+  get incomingListRetry() {
+    return tr(KEYS.incomingListRetry);
   },
   get networkOrServer() {
     return tr(KEYS.networkOrServer);

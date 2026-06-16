@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
-import { migrateCommunityMessengerMediaSessionKey } from "@/lib/community-messenger/call-media-stream";
+import { migrateCommunityMessengerMediaSessionKey } from "@/lib/call/permission-manager";
 import {
   CommunityMessengerGroupAgoraSession,
   fetchGroupAgoraConnection,
@@ -18,7 +18,7 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import { getCommunityMessengerMediaErrorMessage } from "@/lib/community-messenger/media-errors";
 import {
-  ensureOutgoingCallMediaPermission,
+  ensureCallCanUseMedia,
   getCallMediaPermissionBlockedMessageKey,
 } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
@@ -31,7 +31,7 @@ import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-cal
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import { isTerminalIncomingCallStatus } from "@/lib/community-messenger/call-busy-policy";
+import { isTerminalIncomingCallStatus } from "@/lib/community-messenger/call-incoming-terminal";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallParticipant,
@@ -385,7 +385,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     void (async () => {
       try {
         stopCommunityMessengerCallTone();
-        const permission = await ensureOutgoingCallMediaPermission(callKind);
+        const permission = await ensureCallCanUseMedia(callKind);
         if (!permission.ok) {
           setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(callKind)));
           return;
@@ -490,7 +490,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       setEndedPanel(null);
       sessionDialStartRef.current = Date.now();
       try {
-        const permission = await ensureOutgoingCallMediaPermission(kind);
+        const permission = await ensureCallCanUseMedia(kind);
         if (!permission.ok) {
           setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(kind)));
           return;
@@ -540,7 +540,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("call-accept");
     setErrorMessage(null);
     try {
-      const permission = await ensureOutgoingCallMediaPermission(activeCall.callKind);
+      const permission = await ensureCallCanUseMedia(activeCall.callKind);
       if (!permission.ok) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(activeCall.callKind)));
         return false;
@@ -704,7 +704,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
     setBusy("device-prepare");
     setErrorMessage(null);
     try {
-      const permission = await ensureOutgoingCallMediaPermission(kind);
+      const permission = await ensureCallCanUseMedia(kind);
       if (!permission.ok) {
         setErrorMessage(cmTr(getCallMediaPermissionBlockedMessageKey(kind)));
         return;

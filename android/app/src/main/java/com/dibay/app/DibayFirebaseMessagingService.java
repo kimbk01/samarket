@@ -37,11 +37,16 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     Log.i(TAG, "[fcm] message_received");
     String type = FcmPayloadResolver.resolveType(data);
     Log.i(TAG, "[fcm] data_type_detected type=" + type);
+    boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
 
     if ("call_canceled".equals(type) || "call_canceled".equals(data.get("call_push_kind"))) {
       String callId = FcmPayloadResolver.resolveCallId(data);
       if (callId != null) {
         IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+        if (appVisible) {
+          Log.i(TAG, "[call-native] call_canceled_foreground_event callId=" + callId);
+          MainActivity.deliverCallCanceledEvent(callId);
+        }
       }
       return;
     }
@@ -54,8 +59,6 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (body == null && message.getNotification() != null) {
       body = message.getNotification().getBody();
     }
-
-    boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
 
     if ("incoming_call".equals(type)) {
       handleIncomingCall(data, title, body, appVisible);

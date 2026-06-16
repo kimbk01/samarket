@@ -73,7 +73,6 @@ function stopActiveMessengerRingtoneLoop(): void {
  * Agora 통화 트랙과 동시에 재생되면 안 되므로 수락·조인 직전·종료 시 반드시 호출한다.
  */
 export function stopCommunityMessengerCallTone(): void {
-  /* stop tone */
   cmCallAudioCleanup("stopCommunityMessengerCallTone", {});
   stopActiveMessengerRingtoneLoop();
 }

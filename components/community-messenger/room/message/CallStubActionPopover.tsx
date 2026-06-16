@@ -149,7 +149,6 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
             label={t("cm_ui_redial")}
             disabled={roomUnavailable || redialDisabled}
             onClick={() => {
-              console.warn("[redial-path] replay_button_click", { source: "call_stub_popover", kind });
               onClose();
               props.onRedial(kind);
             }}

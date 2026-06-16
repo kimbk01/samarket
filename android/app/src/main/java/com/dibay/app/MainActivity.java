@@ -55,6 +55,13 @@ public class MainActivity extends BridgeActivity {
     act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
   }
 
+  /** FCM foreground — 발신 취소를 WebView call runtime 에 전달 */
+  static void deliverCallCanceledEvent(String callId) {
+    MainActivity act = activeInstance;
+    if (act == null || callId == null || callId.trim().isEmpty()) return;
+    act.mainHandler.post(() -> act.injectCallCanceledEvent(callId.trim()));
+  }
+
   private void injectCallIncomingEvent(IncomingCallPayload payload) {
     Bridge bridge = getBridge();
     if (bridge == null) return;
@@ -82,6 +89,20 @@ public class MainActivity extends BridgeActivity {
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
+  }
+
+  private void injectCallCanceledEvent(String callId) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
+            + safeCallId
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_canceled_event callId=" + callId);
   }
 
   private static String safeJs(String value) {

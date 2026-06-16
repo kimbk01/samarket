@@ -1,16 +1,6 @@
-import {
-  discardPrimedCommunityMessengerDevicePermission,
-  hasUsablePrimedCommunityMessengerDeviceStream,
-  isCommunityMessengerCallMediaReadySync,
-  shouldDiscardPrimedBeforeCommunityMessengerPrime,
-  storePrimedCommunityMessengerDeviceStream,
-} from "@/lib/community-messenger/call-permission";
+import { isCommunityMessengerCallMediaReadySync } from "@/lib/community-messenger/call-permission";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
-import {
-  ensureOutgoingCallMediaPermission,
-  invalidateCallMediaPermissionCheckCache,
-} from "@/lib/community-messenger/call-media-permission-preflight";
-import { acquirePrimedCommunityMessengerStream } from "@/lib/community-messenger/call-media-stream";
+import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
 
 export type CallMediaPrimeResult =
   | { ok: true }
@@ -54,33 +44,13 @@ export async function primeVoiceCallMediaFromUserGesture(_opts?: {
   return primeOutgoingCallMediaBeforeNavigate("voice");
 }
 
-/** 재다이얼 직전 — 죽은 primed 만 정리하고 권한 캐시를 비운다(usable 은 유지). */
-export function prepareCommunityMessengerOutgoingRedial(kind: CommunityMessengerCallKind): void {
-  invalidateCallMediaPermissionCheckCache();
-  if (hasUsablePrimedCommunityMessengerDeviceStream(kind)) return;
-  if (shouldDiscardPrimedBeforeCommunityMessengerPrime(kind)) {
-    discardPrimedCommunityMessengerDevicePermission();
-  }
-}
-
-/** 모든 발신 CTA — 권한 확인 후 영상은 GUM 프라임(사용자 제스처 스택에서 호출) */
+/** 모든 발신 CTA — check-only, 권한 미허용 시 navigate·start API 금지 */
 export async function primeOutgoingCallMediaBeforeNavigate(
   kind: CommunityMessengerCallKind
 ): Promise<CallMediaPrimeResult> {
-  const preflight = await ensureOutgoingCallMediaPermission(kind);
+  const preflight = await ensureCallCanUseMedia(kind);
   if (!preflight.ok) {
     return { ok: false, code: "denied" };
-  }
-  if (kind === "video") {
-    if (hasUsablePrimedCommunityMessengerDeviceStream("video")) {
-      return { ok: true };
-    }
-    try {
-      const stream = await acquirePrimedCommunityMessengerStream("video");
-      storePrimedCommunityMessengerDeviceStream("video", stream);
-    } catch {
-      return { ok: false, code: "failed" };
-    }
   }
   return { ok: true };
 }

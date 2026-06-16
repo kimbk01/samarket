@@ -88,7 +88,10 @@ import {
   cmCallLatencyMarkClick,
   setCmCallLatencyContext,
 } from "@/lib/community-messenger/cm-call-debug";
-import { rememberCallReturnPath, startFreshOutgoingCall } from "@/lib/call/call-navigation";
+import {
+  buildCommunityMessengerOutgoingDialHref,
+  rememberCallNavigationReturnPath,
+} from "@/lib/community-messenger/call-session-navigation-seed";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   applyFriendRequestOutcomeToHomeState,
@@ -1194,7 +1197,12 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         callKind: kind,
         role: "initiator",
       });
-      rememberCallReturnPath();
+      rememberCallNavigationReturnPath();
+      const dialHref = buildCommunityMessengerOutgoingDialHref(
+        roomId
+          ? { kind, roomId, peerLabel: pl || undefined }
+          : { kind, peerUserId: peer, peerLabel: pl || undefined }
+      );
       const releaseDialGuard = () => {
         if (typeof window !== "undefined") {
           window.setTimeout(() => {
@@ -1204,6 +1212,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           outgoingDialSyncGuardRef.current = false;
         }
       };
+      const pushDial = () => {
+        router.push(dialHref);
+        releaseDialGuard();
+      };
       void (async () => {
         const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
         if (!primeResult.ok) {
@@ -1211,33 +1223,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           releaseDialGuard();
           return;
         }
-        let resolvedRoomId = roomId;
-        if (!resolvedRoomId) {
-          const res = await fetch("/api/community-messenger/rooms/direct", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ peerUserId: peer }),
-          });
-          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string };
-          if (!res.ok || !json.ok || !json.roomId?.trim()) {
-            showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
-            releaseDialGuard();
-            return;
-          }
-          resolvedRoomId = json.roomId.trim();
-        }
-        const result = await startFreshOutgoingCall({
-          roomId: resolvedRoomId,
-          callKind: kind,
-          peerUserId: peer,
-          peerLabel: pl || undefined,
-          router,
-        });
-        releaseDialGuard();
-        if (!result.ok) {
-          showMessengerSnackbar(result.userMessage ?? t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
-        }
+        pushDial();
       })();
       return true;
     },
