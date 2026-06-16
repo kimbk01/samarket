@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { computeIncomingRingRemainingSeconds } from "@/lib/community-messenger/messenger-call-ring-timeout";
+import { MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS } from "@/lib/community-messenger/incoming-call-surface";
 
 function peerInitial(label: string): string {
   const t = label.trim();
@@ -59,7 +60,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
 
   return (
     <div
-      className="pointer-events-auto fixed inset-x-0 top-[max(8px,env(safe-area-inset-top))] z-[60] px-3 sm:left-auto sm:right-4 sm:w-[min(520px,calc(100vw-2rem))]"
+      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,env(safe-area-inset-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} px-3 sm:left-auto sm:right-4 sm:w-[min(520px,calc(100vw-2rem))]`}
       role="dialog"
       aria-label={t("cm_ui_incoming_call_dialog")}
     >

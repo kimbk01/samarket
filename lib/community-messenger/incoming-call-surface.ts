@@ -2,6 +2,9 @@ export type IncomingCallSurface = "top-banner" | "system-notification";
 
 export type IncomingCallSurfaceDeviceKind = "mobile" | "tablet" | "desktop";
 
+/** `CallScreenShell` overlay portal (`z-[1280]`) 위 — foreground 수신 배너 전용 */
+export const MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS = "z-[1290]";
+
 const DEDICATED_CALL_ROUTE_SESSION_RE = /^\/community-messenger\/calls\/([^/?#]+)$/;
 
 export type ResolveIncomingCallSurfaceArgs = {

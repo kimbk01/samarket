@@ -1745,6 +1745,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const firstRingingCalleeSession = useMemo(() => {
     const uid = userId?.trim();
     if (!uid) return null;
+    const candidates: CommunityMessengerCallSession[] = [];
     for (const s of sessions) {
       if (s.status !== "ringing") continue;
       if (s.endedAt || s.cancelledAt) continue;
@@ -1758,9 +1759,13 @@ export function GlobalCommunityMessengerIncomingCall() {
         }),
       });
       if (busy.shouldAutoReject) continue;
-      return s;
+      candidates.push(s);
     }
-    return null;
+    if (candidates.length === 0) return null;
+    for (const s of candidates) {
+      if (!shouldHideGlobalIncomingOverlayForSession(pathname, s.id)) return s;
+    }
+    return candidates[0];
   }, [pathname, sessions, userId, viewerLiveSessionId]);
 
   const { isLeader: incomingTabLeaderRaw } = useIncomingCallTabLeader(Boolean(userId));

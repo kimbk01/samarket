@@ -4,6 +4,7 @@ import {
   isCommunityMessengerCallSurfacePath,
   resolveIncomingCallSurface,
   resolveOverlayBusyLiveSessionId,
+  MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS,
   shouldHideGlobalIncomingOverlayForSession,
   shouldRenderInternalIncomingCallUi,
   shouldUseIncomingCallBrowserNotification,
@@ -68,6 +69,10 @@ describe("incoming-call-surface", () => {
         incomingSessionId: "session-2",
       })
     ).toBe("top-banner");
+  });
+
+  it("keeps foreground incoming banner above dedicated call overlay portal", () => {
+    expect(MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS).toBe("z-[1290]");
   });
 
   it("does not treat stale live session on previous call route as busy for new incoming", () => {
