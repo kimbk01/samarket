@@ -26,6 +26,7 @@ import {
   sealFcmTerminalEvent,
 } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { filterSessionsRespectingTerminalLatch } from "@/lib/community-messenger/call-events/session-merge-guard";
+import { resolveIncomingConsumedBusSealReason } from "@/lib/community-messenger/call-events/incoming-consumed-bus-guard";
 import { canShowIncoming } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
@@ -344,12 +345,18 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (ev.type !== "cm.call.incoming_consumed") return;
       const sid = ev.sessionId?.trim();
       if (!sid) return;
-      dibayIncomingLaneStopRing("incoming_consumed_bus", sid);
-      activeIncomingCallIdsRef.current.delete(sid);
-      dismissedIncomingSessionsAtRef.current.set(sid, Date.now());
-      markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
+      const hard = hardClearedIncomingSessionsAtRef.current;
+      const sealReason = resolveIncomingConsumedBusSealReason(ev.reason);
       suppressMissedSoundRef.current.add(sid);
       clearIncomingMissedTimer(ringMissedScheduleRef, sid);
+      activeIncomingCallIdsRef.current.delete(sid);
+      if (sealReason) {
+        sealIncomingCallTerminal(sid, sealReason, hard, "incoming_consumed_bus");
+      } else {
+        dismissedIncomingSessionsAtRef.current.set(sid, Date.now());
+        dibayIncomingLaneStopRing("incoming_consumed_bus_dismiss", sid);
+        markIncomingCallHardClearedSession(hard, sid);
+      }
       setSessions((prev) => prev.filter((s) => s.id !== sid));
       setMinimizedSessionId((m) => (m === sid ? null : m));
       setBusyId((b) => (b === `accept:${sid}` || b === `reject:${sid}` ? null : b));

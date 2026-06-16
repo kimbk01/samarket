@@ -72,6 +72,18 @@ describe("incoming-call SSOT contract", () => {
     );
   });
 
+  it("Global Phase6 separates incoming_consumed bus seal vs dismiss-only", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("resolveIncomingConsumedBusSealReason");
+    expect(global).toContain('sealIncomingCallTerminal(sid, sealReason, hard, "incoming_consumed_bus")');
+    expect(global).toContain("incoming_consumed_bus_dismiss");
+    const branches = global.match(/if \(sealReason\) \{([\s\S]*?)\} else \{([\s\S]*?)\}/);
+    expect(branches).toBeTruthy();
+    expect(branches![1]).toContain("sealIncomingCallTerminal");
+    expect(branches![1]).not.toContain("dismissedIncomingSessionsAtRef");
+    expect(branches![2]).toContain("dismissedIncomingSessionsAtRef");
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');
