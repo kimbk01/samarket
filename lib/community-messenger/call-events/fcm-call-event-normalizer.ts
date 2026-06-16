@@ -6,6 +6,8 @@ import {
   type CallTerminalTombstoneContext,
   isCallTerminal,
 } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
+import type { CallConsumedReason } from "@/lib/community-messenger/incoming-call/tombstone";
+import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
 
 export type FcmTerminalKind = "cancelled" | "ended" | "rejected" | "missed";
 
@@ -60,7 +62,76 @@ export type RawFcmCallPayload = {
   call_push_kind?: string | null;
   callId?: string | null;
   sessionId?: string | null;
+  /** Native `call_terminal` inject — maps to terminal kind */
+  status?: string | null;
 };
+
+export type NormalizedFcmTerminalDispatch = {
+  callId: string;
+  terminalKind: FcmTerminalKind;
+  fcmType: string;
+  bridgeSource: "call_terminal" | "call_canceled";
+};
+
+function mapSessionStatusToTerminalKind(status: string): FcmTerminalKind {
+  const s = status.trim().toLowerCase();
+  if (s === "rejected") return "rejected";
+  if (s === "missed") return "missed";
+  if (s === "ended") return "ended";
+  return "cancelled";
+}
+
+export function fcmTerminalKindToConsumedReason(kind: FcmTerminalKind): CallConsumedReason {
+  switch (kind) {
+    case "rejected":
+      return "declined";
+    case "missed":
+      return "missed";
+    case "ended":
+      return "ended";
+    case "cancelled":
+    default:
+      return "cancelled";
+  }
+}
+
+export function fcmTerminalKindToSessionStatus(kind: FcmTerminalKind): string {
+  if (kind === "rejected") return "rejected";
+  if (kind === "missed") return "missed";
+  if (kind === "ended") return "ended";
+  return "cancelled";
+}
+
+/** `dibay:call-event` detail → normalized FCM event (no tombstone gate on terminal). */
+export function normalizeDibayBridgeCallEvent(detail: {
+  type?: string | null;
+  sessionId?: string | null;
+  status?: string | null;
+}): NormalizedFcmCallEvent {
+  const type = (detail.type ?? "").trim();
+  return normalizeFcmCallEvent(
+    {
+      type,
+      sessionId: detail.sessionId,
+      status: detail.status,
+    },
+    { hardClearedAt: new Map() }
+  );
+}
+
+/** normalizeFcmCallEvent(terminal) → sealIncomingCallTerminal */
+export function sealFcmTerminalEvent(
+  normalized: Extract<NormalizedFcmCallEvent, { action: "terminal" }>,
+  hardClearedAt: Map<string, number>,
+  source: string
+): string {
+  return sealIncomingCallTerminal(
+    normalized.callId,
+    fcmTerminalKindToConsumedReason(normalized.terminalKind),
+    hardClearedAt,
+    source
+  );
+}
 
 export function resolveFcmCallId(payload: RawFcmCallPayload): string {
   return (payload.callId ?? payload.sessionId ?? "").trim();
@@ -90,6 +161,16 @@ export function normalizeFcmCallEvent(
       terminalKind,
       fcmType,
       callPushKind,
+    };
+  }
+
+  if (fcmType === "call_terminal") {
+    const status = (payload.status ?? "cancelled").trim().toLowerCase() || "cancelled";
+    return {
+      action: "terminal",
+      callId,
+      terminalKind: mapSessionStatusToTerminalKind(status),
+      fcmType,
     };
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFcmCallEvent, resolveIncomingCallWake } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
+import { normalizeFcmCallEvent, resolveIncomingCallWake, sealFcmTerminalEvent } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { latchCallTerminal } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 
 describe("fcm-call-event-normalizer", () => {
@@ -44,6 +44,30 @@ describe("fcm-call-event-normalizer", () => {
       reason: "terminal_tombstone",
       fcmType: "incoming_call",
     });
+  });
+
+  it("call_terminal native inject maps to terminal action", () => {
+    const hard = new Map<string, number>();
+    const result = normalizeFcmCallEvent(
+      { type: "call_terminal", sessionId: "fcm-native-term-1", status: "ended" },
+      { hardClearedAt: hard }
+    );
+    expect(result.action).toBe("terminal");
+    if (result.action === "terminal") {
+      expect(result.terminalKind).toBe("ended");
+      expect(result.callId).toBe("fcm-native-term-1");
+    }
+  });
+
+  it("sealFcmTerminalEvent delegates to sealIncomingCallTerminal", () => {
+    const hard = new Map<string, number>();
+    const sid = sealFcmTerminalEvent(
+      { action: "terminal", callId: "fcm-seal-1", terminalKind: "cancelled", fcmType: "call_canceled" },
+      hard,
+      "fcm_cancel_wake"
+    );
+    expect(sid).toBe("fcm-seal-1");
+    expect(hard.get("fcm-seal-1")).toBeTypeOf("number");
   });
 
   it("resolveIncomingCallWake blocks tombstone then native consumed", async () => {

@@ -21,7 +21,9 @@ import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-mess
 import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
 import {
   buildCallTombstoneContext,
+  fcmTerminalKindToSessionStatus,
   resolveIncomingCallWake,
+  sealFcmTerminalEvent,
 } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { filterSessionsRespectingTerminalLatch } from "@/lib/community-messenger/call-events/session-merge-guard";
 import { canShowIncoming } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
@@ -591,7 +593,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [refresh]);
 
   /** 브로드캐스트·Realtime·signal 공통 — 터미널만 처리, 프리뷰·실세션을 sessionId / tmp / room+발신자+종류로 매칭 후 제거 */
-  const handleCallTerminalEvent = useCallback((raw: Record<string, unknown>, sourceTag: string) => {
+  const handleCallTerminalEvent = useCallback(
+    (raw: Record<string, unknown>, sourceTag: string, opts?: { skipSeal?: boolean }) => {
     const sessionId = typeof raw.sessionId === "string" ? raw.sessionId.trim() : "";
     const tmpSessionId = typeof raw.tmpSessionId === "string" ? raw.tmpSessionId.trim() : "";
     const roomId = typeof raw.roomId === "string" ? raw.roomId.trim() : "";
@@ -610,7 +613,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
 
     const terminalSid = sessionId || tmpSessionId || "";
-    if (terminalSid) {
+    if (!opts?.skipSeal && terminalSid) {
       sealIncomingCallTerminal(
         terminalSid,
         mapTerminalStatusToConsumedReason(statusNorm),
@@ -1317,8 +1320,16 @@ export function GlobalCommunityMessengerIncomingCall() {
           bumpIncomingListFastSync();
         })();
       },
-      onTerminal: ({ sessionId, status }) => {
-        const sid = sessionId.trim();
+      onFcmTerminal: ({ callId, terminalKind, bridgeSource }) => {
+        const sid = callId.trim();
+        if (!sid) return;
+        const sourceTag = bridgeSource === "call_canceled" ? "fcm_cancel_wake" : "fcm_terminal_wake";
+        sealFcmTerminalEvent(
+          { action: "terminal", callId: sid, terminalKind, fcmType: bridgeSource },
+          hardClearedIncomingSessionsAtRef.current,
+          sourceTag
+        );
+        const status = fcmTerminalKindToSessionStatus(terminalKind);
         const rowMatch = sessionsRef.current.find(
           (s) => s.id === sid || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sid)
         );
@@ -1330,29 +1341,11 @@ export function GlobalCommunityMessengerIncomingCall() {
                 roomId: rowMatch.roomId,
                 initiatorUserId: rowMatch.initiatorUserId,
                 callKind: rowMatch.callKind,
-                status: status ?? "cancelled",
+                status,
               }
-            : { sessionId: sid, status: status ?? "cancelled" },
-          "fcm_terminal_wake"
-        );
-        void refreshRef.current(true, { incomingTerminalListSync: true });
-      },
-      onCanceled: (sessionId) => {
-        const rowMatch = sessionsRef.current.find(
-          (s) => s.id === sessionId || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sessionId)
-        );
-        handleCallTerminalEvent(
-          rowMatch
-            ? {
-                sessionId: rowMatch.id,
-                tmpSessionId: rowMatch.tmpSessionId ?? undefined,
-                roomId: rowMatch.roomId,
-                initiatorUserId: rowMatch.initiatorUserId,
-                callKind: rowMatch.callKind,
-                status: "cancelled",
-              }
-            : { sessionId, status: "cancelled" },
-          "fcm_cancel_wake"
+            : { sessionId: sid, status },
+          sourceTag,
+          { skipSeal: true }
         );
         void refreshRef.current(true, { incomingTerminalListSync: true });
       },

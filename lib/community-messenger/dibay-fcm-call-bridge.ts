@@ -1,6 +1,10 @@
 "use client";
 
 import {
+  normalizeDibayBridgeCallEvent,
+  type NormalizedFcmTerminalDispatch,
+} from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
+import {
   clearCallPendingRoute,
   DIBAY_CALL_PENDING_ROUTE_KEY,
   readCallPendingRoute,
@@ -9,6 +13,7 @@ import {
 
 /** Android FCM → legacy 통화 수신 경로 어댑터 (OAuth/chat pending key 와 분리) */
 export { DIBAY_CALL_PENDING_ROUTE_KEY };
+export type { NormalizedFcmTerminalDispatch };
 
 export type DibayFcmIncomingWakeDetail = {
   sessionId?: string;
@@ -20,8 +25,8 @@ export type DibayFcmIncomingWakeDetail = {
 
 type DibayFcmCallBridgeHandlers = {
   onIncomingWake: (detail: DibayFcmIncomingWakeDetail) => void;
-  onCanceled: (sessionId: string) => void;
-  onTerminal?: (detail: { sessionId: string; status?: string }) => void;
+  /** FCM terminal — `call_terminal` · `call_canceled` 단일 경로 */
+  onFcmTerminal: (detail: NormalizedFcmTerminalDispatch) => void;
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
@@ -34,6 +39,21 @@ export function readDibayCallPendingRoute(): string | null {
 
 export function clearDibayCallPendingRoute(): void {
   clearCallPendingRoute();
+}
+
+function dispatchFcmTerminal(
+  detail: { type?: string; sessionId?: string; status?: string },
+  bridgeSource: NormalizedFcmTerminalDispatch["bridgeSource"],
+  handlers: DibayFcmCallBridgeHandlers
+): void {
+  const normalized = normalizeDibayBridgeCallEvent(detail);
+  if (normalized.action !== "terminal") return;
+  handlers.onFcmTerminal({
+    callId: normalized.callId,
+    terminalKind: normalized.terminalKind,
+    fcmType: normalized.fcmType,
+    bridgeSource,
+  });
 }
 
 /** `dibay:call-event` · `dibay:call-route` → legacy incoming wake / cancel / pending route */
@@ -70,15 +90,11 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
       return;
     }
     if (detail.type === "call_terminal") {
-      const sessionId = detail.sessionId?.trim();
-      if (sessionId) {
-        handlers.onTerminal?.({ sessionId, status: detail.status?.trim() || "cancelled" });
-      }
+      dispatchFcmTerminal(detail, "call_terminal", handlers);
       return;
     }
     if (detail.type === "call_canceled") {
-      const sessionId = detail.sessionId?.trim();
-      if (sessionId) handlers.onCanceled(sessionId);
+      dispatchFcmTerminal(detail, "call_canceled", handlers);
     }
   };
 

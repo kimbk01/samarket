@@ -112,10 +112,11 @@ describe("incoming-call policy contracts", () => {
     expect(global).toContain('ev.type !== "cm.call.session_terminal"');
     expect(global).toContain("bus_session_terminal");
     expect(global).toContain("communityMessengerIncomingSessionFromFcmWake");
-    expect(global).toContain("onTerminal:");
+    expect(global).toContain("onFcmTerminal:");
     const bridge = read("lib/community-messenger/dibay-fcm-call-bridge.ts");
     expect(bridge).toContain("call_terminal");
-    expect(bridge).toContain("callerId");
+    expect(bridge).toContain("onFcmTerminal");
+    expect(bridge).toContain("dispatchFcmTerminal");
   });
 
   it("terminal call end navigates to call_logs section", () => {

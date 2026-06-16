@@ -53,6 +53,15 @@ describe("incoming-call SSOT contract", () => {
     );
   });
 
+  it("Global Phase4 routes FCM terminal through sealFcmTerminalEvent", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("onFcmTerminal:");
+    expect(global).toContain("sealFcmTerminalEvent");
+    expect(global).toContain("skipSeal: true");
+    expect(global).not.toContain("onCanceled:");
+    expect(global).not.toContain("onTerminal:");
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');
