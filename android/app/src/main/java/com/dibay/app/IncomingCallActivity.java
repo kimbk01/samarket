@@ -3,8 +3,6 @@ package com.dibay.app;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.WindowManager;
 import android.widget.Button;
@@ -26,11 +24,8 @@ public class IncomingCallActivity extends AppCompatActivity {
   public static final String ACTION_DECLINE = "com.dibay.app.action.INCOMING_CALL_DECLINE";
 
   private static final String TAG = "DIBAY_INCOMING_CALL";
-  private static final long DEFAULT_RING_TIMEOUT_MS = 30_000L;
   private String callId;
   private boolean finished;
-  private IncomingCallPayload payload;
-  private final Handler handler = new Handler(Looper.getMainLooper());
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -55,26 +50,13 @@ public class IncomingCallActivity extends AppCompatActivity {
     }
 
     Log.i(TAG, "[call-ui] incoming_activity_shown callId=" + callId);
+    DibayCallLog.once("incoming_activity_created", callId, "source=activity");
+    DibayCallLog.once("incoming_render", callId, "source=activity");
 
     String callerName = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_NAME));
     String title = firstNonEmpty(getIntent().getStringExtra(EXTRA_TITLE));
     String body = firstNonEmpty(getIntent().getStringExtra(EXTRA_BODY));
     String callType = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_TYPE));
-    String roomId = firstNonEmpty(getIntent().getStringExtra(EXTRA_ROOM_ID));
-    String callerId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_ID));
-    String callerAvatarUrl = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_AVATAR_URL));
-    payload =
-        new IncomingCallPayload(
-            callId,
-            roomId,
-            callerId,
-            callerName != null ? callerName : "수신 통화",
-            callerAvatarUrl,
-            callType != null ? ("video".equalsIgnoreCase(callType) ? "video" : "audio") : "audio",
-            expiresAt,
-            title,
-            body,
-            null);
 
     TextView titleView = findViewById(R.id.incoming_call_title);
     TextView callerView = findViewById(R.id.incoming_call_caller_name);
@@ -98,7 +80,6 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     acceptBtn.setOnClickListener(v -> handleAccept());
     declineBtn.setOnClickListener(v -> handleDecline());
-    scheduleActivityTimeout();
   }
 
   @Override
@@ -115,6 +96,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void handleAccept() {
     if (finished) return;
+    DibayCallLog.once("accept_click", callId, "source=activity");
     Log.i(TAG, "[call-ui] answer_clicked callId=" + callId + " source=activity");
     IncomingCallActionCoordinator.handleAccept(getApplicationContext(), callId);
     finishSafely();
@@ -122,6 +104,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
   private void handleDecline() {
     if (finished) return;
+    DibayCallLog.once("call_end", callId, "source=activity_reject");
     Log.i(TAG, "[call-ui] reject_clicked callId=" + callId + " source=activity");
     IncomingCallActionCoordinator.handleReject(getApplicationContext(), callId);
     finishSafely();
@@ -140,6 +123,7 @@ public class IncomingCallActivity extends AppCompatActivity {
   private void finishSafely() {
     if (finished) return;
     finished = true;
+    DibayCallLog.once("activity_finish", callId);
     finish();
   }
 
@@ -171,33 +155,4 @@ public class IncomingCallActivity extends AppCompatActivity {
     return trimmed.isEmpty() ? null : trimmed;
   }
 
-  private void scheduleActivityTimeout() {
-    if (payload == null) return;
-    handler.postDelayed(
-        () -> {
-          if (finished) return;
-          IncomingCallActionCoordinator.handleMissedTimeout(getApplicationContext(), payload);
-          finishSafely();
-        },
-        resolveActivityTimeoutDelayMs(payload.expiresAt));
-  }
-
-  private static long resolveActivityTimeoutDelayMs(String expiresAt) {
-    if (expiresAt == null || expiresAt.trim().isEmpty()) return DEFAULT_RING_TIMEOUT_MS;
-    try {
-      long expiresMs;
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        expiresMs = java.time.Instant.parse(expiresAt.trim()).toEpochMilli();
-      } else {
-        java.text.SimpleDateFormat iso =
-            new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US);
-        iso.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
-        String normalized = expiresAt.contains(".") ? expiresAt : expiresAt.replace("Z", ".000Z");
-        expiresMs = iso.parse(normalized).getTime();
-      }
-      return Math.max(1_000L, Math.min(DEFAULT_RING_TIMEOUT_MS, expiresMs - System.currentTimeMillis()));
-    } catch (Exception e) {
-      return DEFAULT_RING_TIMEOUT_MS;
-    }
-  }
 }

@@ -4,6 +4,12 @@
  */
 
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
+import {
+  completeDibayCallAction,
+  endDibayCallAction,
+  type DibayCallOrchestratorAction,
+  tryBeginDibayCallAction,
+} from "@/lib/community-messenger/call-orchestrator";
 
 /** `patchCommunityMessengerCallSession` · 세션 PATCH fetch 직후 개발 전용 디버그에만 사용 */
 export type CommunityMessengerCallSessionPatchDebugContext = {
@@ -57,12 +63,24 @@ export type PatchCommunityCallSessionAction =
   | "upgrade_to_video"
   | "downgrade_to_voice";
 
+const ORCHESTRATED_PATCH_ACTIONS: Partial<Record<PatchCommunityCallSessionAction, DibayCallOrchestratorAction>> = {
+  accept: "accept",
+  reject: "reject",
+  cancel: "cancel",
+  end: "end",
+  missed: "missed",
+};
+
 export async function patchCommunityMessengerCallSession(
   sessionId: string,
   action: PatchCommunityCallSessionAction,
   init?: { durationSeconds?: number; clientEndedReason?: string },
   debugContext?: CommunityMessengerCallSessionPatchDebugContext
 ): Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }> {
+  const orchestratedAction = ORCHESTRATED_PATCH_ACTIONS[action] ?? null;
+  if (orchestratedAction && !tryBeginDibayCallAction(sessionId, orchestratedAction)) {
+    return { ok: false, error: "duplicate_action" };
+  }
   if (process.env.NODE_ENV === "development" && typeof performance !== "undefined") {
     console.debug("[cm-call-audio-cleanup]", {
       step: "patch_fetch_start",
@@ -71,31 +89,41 @@ export async function patchCommunityMessengerCallSession(
       t: performance.now(),
     });
   }
-  const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({
+  try {
+    const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({
+        action,
+        ...(init?.durationSeconds != null ? { durationSeconds: init.durationSeconds } : {}),
+        ...(init?.clientEndedReason != null && init.clientEndedReason !== ""
+          ? { clientEndedReason: init.clientEndedReason }
+          : {}),
+      }),
+    });
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      session?: CommunityMessengerCallSession;
+      error?: string;
+    };
+    logCommunityMessengerCallSessionPatchDev({
+      sessionId,
       action,
-      ...(init?.durationSeconds != null ? { durationSeconds: init.durationSeconds } : {}),
-      ...(init?.clientEndedReason != null && init.clientEndedReason !== ""
-        ? { clientEndedReason: init.clientEndedReason }
-        : {}),
-    }),
-  });
-  const json = (await res.json().catch(() => ({}))) as {
-    ok?: boolean;
-    session?: CommunityMessengerCallSession;
-    error?: string;
-  };
-  logCommunityMessengerCallSessionPatchDev({
-    sessionId,
-    action,
-    responseStatus: res.status,
-    responseBody: json,
-    context: debugContext,
-  });
-  return { ...json, ok: Boolean(res.ok && json.ok) };
+      responseStatus: res.status,
+      responseBody: json,
+      context: debugContext,
+    });
+    const ok = Boolean(res.ok && json.ok);
+    if (orchestratedAction) {
+      if (ok) completeDibayCallAction(sessionId, orchestratedAction);
+      else endDibayCallAction(sessionId, orchestratedAction);
+    }
+    return { ...json, ok };
+  } catch (error) {
+    if (orchestratedAction) endDibayCallAction(sessionId, orchestratedAction);
+    throw error;
+  }
 }
 
 export async function postCommunityMessengerCallHangupSignal(input: {

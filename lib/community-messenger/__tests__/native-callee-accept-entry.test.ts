@@ -8,7 +8,35 @@ import {
   shouldSuppressCalleeIncomingRingingUi,
 } from "@/lib/community-messenger/native-callee-accept-entry";
 
+function installMemorySessionStorage() {
+  const store = new Map<string, string>();
+  const api: Storage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(String(key), String(value));
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+    key: (index: number) => [...store.keys()][index] ?? null,
+    get length() {
+      return store.size;
+    },
+  } as unknown as Storage;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (globalThis as any).sessionStorage = api;
+  return () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete (globalThis as any).sessionStorage;
+  };
+}
+
 describe("native-callee-accept-entry", () => {
+  const cleanup = installMemorySessionStorage();
+
   it("detects native accept route", () => {
     expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1" })).toBe(true);
     expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null })).toBe(false);
@@ -81,5 +109,10 @@ describe("native-callee-accept-entry", () => {
         busyAcceptOrJoin: false,
       })
     ).toBe(false);
+  });
+
+  it("cleans up test sessionStorage", () => {
+    cleanup();
+    expect(true).toBe(true);
   });
 });

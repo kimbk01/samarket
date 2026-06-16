@@ -93,6 +93,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
     String callId = payload.callId;
 
+    DibayCallLog.once("push_received", callId, "roomId=" + payload.roomId);
     Log.i(TAG, "[call-push] incoming_call_received callId=" + callId + " roomId=" + payload.roomId);
 
     if (FcmPayloadResolver.isExpired(data)) {
@@ -123,8 +124,9 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     boolean keyguardLocked = DibayKeyguardHelper.isKeyguardLocked(this);
     boolean interactive = DibayKeyguardHelper.isInteractive(this);
     boolean lockBridge = keyguardLocked || !interactive;
-    // FSI 허용 여부와 무관하게 잠금·슬립에서는 전용 Activity를 직접 띄운다(벨만 울리고 UI 없음 방지).
-    if (lockBridge) {
+    boolean fsiAllowed = IncomingCallNotificationBuilder.canPostFullScreenIntent(this);
+    // 잠금·슬립에서는 FSI를 단일 진입점으로 두고, 권한이 막힌 경우에만 직접 Activity로 보강한다.
+    if (lockBridge && !fsiAllowed) {
       Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(this, payload);
       if (incomingUi != null) {
         incomingUi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -138,7 +140,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
                 + " interactive="
                 + interactive
                 + " fsiAllowed="
-                + IncomingCallNotificationBuilder.canPostFullScreenIntent(this));
+                + fsiAllowed);
       }
     }
   }

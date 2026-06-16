@@ -14,8 +14,12 @@ function fakeLiveStream(): MediaStream {
   } as unknown as MediaStream;
 }
 
+const acquirePrimedCommunityMessengerStreamMock = vi.hoisted(() =>
+  vi.fn(() => Promise.resolve(fakeLiveStream()))
+);
+
 vi.mock("@/lib/community-messenger/call-media-stream", () => ({
-  acquirePrimedCommunityMessengerStream: vi.fn(() => Promise.resolve(fakeLiveStream())),
+  acquirePrimedCommunityMessengerStream: acquirePrimedCommunityMessengerStreamMock,
   assertCallMediaNotPersistentlyDenied: vi.fn(() => Promise.resolve()),
 }));
 
@@ -36,6 +40,8 @@ const ensureOutgoingCallMediaPermissionMock = vi.hoisted(() => vi.fn(() => Promi
 
 vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
   ensureOutgoingCallMediaPermission: ensureOutgoingCallMediaPermissionMock,
+  // call-permission imports ensureCallCanUseMedia in some paths; keep mock shape compatible
+  ensureCallCanUseMedia: ensureOutgoingCallMediaPermissionMock,
 }));
 
 describe("primed device stream idle release", () => {
@@ -84,7 +90,7 @@ describe("primed device stream idle release", () => {
     expect(hasCommunityMessengerMediaTrustedMark("video")).toBe(true);
   });
 
-  it("prime wrapper stores a video stream when permission is granted", async () => {
+  it("prime wrapper does not store a video stream (check-only)", async () => {
     const {
       peekPrimedCommunityMessengerDeviceStream,
       primeCommunityMessengerDevicePermissionFromUserGesture,
@@ -92,6 +98,7 @@ describe("primed device stream idle release", () => {
 
     await primeCommunityMessengerDevicePermissionFromUserGesture("video");
     expect(ensureOutgoingCallMediaPermissionMock).toHaveBeenCalledWith("video");
-    expect(peekPrimedCommunityMessengerDeviceStream("video")).not.toBeNull();
+    expect(acquirePrimedCommunityMessengerStreamMock).not.toHaveBeenCalled();
+    expect(peekPrimedCommunityMessengerDeviceStream("video")).toBeNull();
   });
 });

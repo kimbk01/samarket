@@ -165,9 +165,6 @@ public final class IncomingCallNotificationBuilder {
     accept.putExtra(IncomingCallDeclineReceiver.EXTRA_CALL_ID, sid);
     PendingIntent acceptPi = PendingIntent.getBroadcast(context, sid.hashCode() + 2, accept, flags);
 
-    Intent content = IncomingCallIntentHelper.buildMainActivityLauncherIntent(context);
-    PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
-
     IncomingCallPayload fsiPayload =
         new IncomingCallPayload(
             sid,
@@ -180,6 +177,12 @@ public final class IncomingCallNotificationBuilder {
             title,
             body,
             null);
+    Intent content = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
+    if (content == null) {
+      content = IncomingCallIntentHelper.buildMainActivityLauncherIntent(context);
+    }
+    PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
+
     Intent fullScreen = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
     PendingIntent fullScreenPi = null;
     if (fullScreen != null) {
@@ -218,6 +221,7 @@ public final class IncomingCallNotificationBuilder {
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(notificationId, builder.build());
+      DibayCallLog.once("notification_created", sid, "source=notification");
       Log.i(TAG, "[call-notification] incoming_posted callId=" + sid + " first=" + firstIncoming);
     }
   }
@@ -225,7 +229,10 @@ public final class IncomingCallNotificationBuilder {
   public static void dismissIncomingCall(Context context, String sessionId) {
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null || sessionId == null) return;
-    nm.cancel(INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sessionId.hashCode() % 1000));
+    String sid = sessionId.trim();
+    if (sid.isEmpty()) return;
+    nm.cancel(INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000));
+    DibayCallLog.once("notification_cancel", sid);
   }
 
   public static void clearActiveIncomingCallId(String sessionId) {

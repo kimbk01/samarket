@@ -13,6 +13,11 @@ import {
   clearNativePersistedCallPendingRoute,
   readNativePersistedCallPendingRoute,
 } from "@/lib/push/native/push-route-native-bridge";
+import {
+  extractDibayCallSessionIdFromPath,
+  logDibayCall,
+  shouldAllowDibayCallRoute,
+} from "@/lib/community-messenger/call-orchestrator";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -39,6 +44,16 @@ export function DibayFcmCallRouteHost() {
       if (!path.startsWith("/community-messenger/calls/")) return;
 
       const now = Date.now();
+      if (!shouldAllowDibayCallRoute(path, now)) {
+        clearDibayCallPendingRoute();
+        void clearNativePersistedCallPendingRoute();
+        logDibayCall("state_end", {
+          path,
+          sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
+          source: "stale_call_route_blocked",
+        });
+        return;
+      }
       const last = lastRouteRef.current;
       if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS) {
         console.info("[call-route] duplicate_ignored", { path });

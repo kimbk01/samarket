@@ -80,13 +80,20 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "accept")) return;
+    DibayCallLog.once("accept_start", sid, "source=native");
     Log.i(CALL_TAG, "[call-state] accept_start callId=" + sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {
               boolean ok = CallSessionPatchHelper.patch(context.getApplicationContext(), sid, "accept");
-              if (ok) Log.i(CALL_TAG, "[call-state] accept_success callId=" + sid);
-              else Log.w(CALL_TAG, "[call-state] accept_failed_open_route callId=" + sid);
+              if (ok) {
+                DibayCallLog.once("accept_success", sid, "source=native");
+                Log.i(CALL_TAG, "[call-state] accept_success callId=" + sid);
+              } else {
+                Log.w(CALL_TAG, "[call-state] accept_failed_no_route callId=" + sid);
+                end(sid, "accept");
+                return;
+              }
               complete(sid, "accept");
               if (!shouldLaunchAcceptRoute(sid)) {
                 Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
@@ -103,6 +110,7 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
+    DibayCallLog.once("call_end", sid, "source=native_reject");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {
@@ -129,6 +137,7 @@ public final class IncomingCallActionCoordinator {
     String sid = payload.callId.trim();
     if (COMPLETED_ACTIONS.containsKey(sid)) return;
     if (!tryBegin(sid, "missed")) return;
+    DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(

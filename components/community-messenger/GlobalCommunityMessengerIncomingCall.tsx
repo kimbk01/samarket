@@ -18,7 +18,10 @@ import {
   stopCallRingtone,
 } from "@/lib/community-messenger/call-ringtone-controller";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
-import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
+import {
+  clearNativeCalleeAcceptPending,
+  markNativeCalleeAcceptPending,
+} from "@/lib/community-messenger/native-callee-accept-entry";
 import {
   releaseIncomingCallAccept,
   releaseIncomingCallReject,
@@ -100,6 +103,7 @@ import {
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
+import { clearNativePersistedCallPendingRoute } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import {
   getIncomingCallPollIntervalMs,
@@ -132,7 +136,11 @@ import {
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { mergeIncomingCallSessionsAfterFetch } from "@/lib/community-messenger/incoming-call-sessions-merge";
-import { installDibayFcmCallBridge } from "@/lib/community-messenger/dibay-fcm-call-bridge";
+import {
+  clearDibayCallPendingRoute,
+  installDibayFcmCallBridge,
+} from "@/lib/community-messenger/dibay-fcm-call-bridge";
+import { logDibayCall, markDibayCallTerminal } from "@/lib/community-messenger/call-orchestrator";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -657,6 +665,10 @@ export function GlobalCommunityMessengerIncomingCall() {
     const q: CallIncomingTerminalQuery = { ...baseQuery, status: statusNorm };
 
     if (sessionId) {
+      markDibayCallTerminal(sessionId);
+      clearNativeCalleeAcceptPending(sessionId);
+      clearDibayCallPendingRoute();
+      void clearNativePersistedCallPendingRoute();
       markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
       suppressMissedSoundRef.current.add(sessionId);
       clearIncomingMissedTimer(ringMissedScheduleRef, sessionId);
@@ -1153,7 +1165,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     return installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
         const sid = detail.sessionId?.trim();
-        if (sid && incomingCallSoundEnabledRef.current) {
+        const visible = typeof document === "undefined" || document.visibilityState === "visible";
+        if (sid && incomingCallSoundEnabledRef.current && visible) {
           unlockCommunityMessengerCallPlaybackFromUserGesture();
           playIncomingCallRingtone(sid, detail.callKind ?? "voice");
           activeIncomingCallIdsRef.current.add(sid);
@@ -1633,6 +1646,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     cmCallIncomingTracePatch(visibleSessionId, { receiver_incoming_ui_open_ms: Date.now() });
     cmCallIncomingTraceRegisterRingingRoom(visibleSessionId, visibleSession.roomId);
     cmCallFlow("incoming_received", { sessionId: visibleSessionId });
+    logDibayCall("incoming_render", { sessionId: visibleSessionId, surface: incomingSurface });
     cmCallIncomingTraceLogTable(visibleSessionId);
   }, [incomingSurface, visibleSession, visibleSessionId]);
   useEffect(() => {
