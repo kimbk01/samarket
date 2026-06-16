@@ -61,4 +61,16 @@ public class NativeIncomingCallPlugin extends Plugin {
     result.put("at", bundle.getLong(MainActivity.PENDING_AT_KEY, System.currentTimeMillis()));
     call.resolve(result);
   }
+
+  @PluginMethod
+  public void markCallConsumed(PluginCall call) {
+    String sessionId = call.getString("sessionId", "").trim();
+    String reason = call.getString("reason", "consumed");
+    if (!sessionId.isEmpty()) {
+      DibayCallConsumedStore.mark(getContext(), sessionId, reason);
+      DibayForegroundRingtone.stop(sessionId);
+      IncomingCallNotificationBuilder.dismissIncomingCall(getContext(), sessionId);
+    }
+    call.resolve();
+  }
 }

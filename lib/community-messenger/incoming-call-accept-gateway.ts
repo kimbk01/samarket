@@ -1,10 +1,12 @@
 "use client";
 
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
-import { runCallAcceptGuard } from "@/lib/call/actions/call-accept-guard";
-import { fetchCommunityMessengerCallSessionByIdClient } from "@/lib/community-messenger/call-http-actions";
+import { ensureCallMediaForUserGesture } from "@/lib/community-messenger/call-media-permission-preflight";
+import { patchCommunityMessengerCallSession, fetchCommunityMessengerCallSessionByIdClient } from "@/lib/community-messenger/call-http-actions";
 import {
+  releaseIncomingCallAccept,
   releaseIncomingCallReject,
+  tryClaimIncomingCallAccept,
   tryClaimIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
@@ -14,7 +16,7 @@ import {
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
-import { dibayCallSealTerminal, dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
+import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import {
   isDibayCallConsumed,
@@ -23,7 +25,6 @@ import {
   type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
-import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
 
 export type IncomingCallGatewayRouter = {
   replace: (href: string) => void;
@@ -60,7 +61,7 @@ export type RunIncomingCallRejectArgs = {
 function buildActiveCallAcceptHref(sessionId: string, hrefOverride?: string | null): string {
   const override = hrefOverride?.trim();
   if (override) return override;
-  return `/community-messenger/calls/${encodeURIComponent(sessionId)}?action=accept&nativePrep=1&mode=active`;
+  return `/community-messenger/calls/${encodeURIComponent(sessionId)}?action=accept&nativeAccept=1&mode=active`;
 }
 
 /**
@@ -177,11 +178,12 @@ export async function acceptIncomingCallOnce(args: RunIncomingCallAcceptArgs): P
 }
 
 /**
- * 단일 수신 수락 게이트웨이 — call-accept-guard 위임.
+ * 단일 수신 수락 게이트웨이.
  *
  * 계약:
- * - PATCH accept 는 call-accept-guard 에서만 1회.
- * - `nativePrep=1` 은 native FGS 정리 완료 — CallClient PATCH 재실행 금지.
+ * - PATCH accept 는 여기서만 1회.
+ * - router.replace 는 replaceActiveIncomingCallRoute 에서만.
+ * - `nativeAccept=1` 은 PATCH 완료 의미 — CallClient 는 재실행 금지.
  */
 export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Promise<{
   ok: boolean;
@@ -192,7 +194,16 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
   const sid = s.id.trim();
   if (!sid) return { ok: false, sessionId: "", reason: "exception" };
 
+  logDibayCall("incoming_accept_click", { sessionId: sid, callId: sid, source: args.source });
+
   if (isDibayCallConsumed(sid)) {
+    logDibayCall("accept_skip_duplicate", {
+      sessionId: sid,
+      callId: sid,
+      reason: "consumed",
+      source: args.source,
+    });
+    logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: args.source });
     return { ok: false, sessionId: sid, reason: "already_consumed" };
   }
 
@@ -200,39 +211,65 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
   rememberCallNavigationReturnPath();
   primeCommunityMessengerCallNavigationSeed(sid, s);
 
-  const hrefOverride =
-    args.hrefOverride ??
-    `/community-messenger/calls/${encodeURIComponent(sid)}?action=accept&nativePrep=1&mode=active`;
+  if (!tryClaimIncomingCallAccept(sid)) {
+    logDibayCall("accept_failed", {
+      sessionId: sid,
+      callId: sid,
+      source: args.source,
+      reason: "duplicate_accept_blocked",
+    });
+    logDibayCall("accept_skip_duplicate", {
+      sessionId: sid,
+      callId: sid,
+      reason: "duplicate_accept_blocked",
+      source: args.source,
+    });
+    return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
+  }
 
-  const result = await runCallAcceptGuard({
-    session: s,
-    router: args.router,
-    source: args.source,
-    hrefOverride,
-    promptOnDenied: true,
-    runNativePrep: true,
-    openRoute: true,
-  });
+  try {
+    logDibayCall("accept_start", { sessionId: sid, callId: sid, source: args.source });
+    setDibayCallSessionPhase(sid, "accepting");
 
-  if (result.ok) {
+    const permission = await ensureCallMediaForUserGesture(s.callKind);
+    if (!permission.ok) {
+      setDibayCallSessionPhase(sid, "incoming");
+      logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "permission_denied" });
+      return { ok: false, sessionId: sid, reason: "permission_denied" };
+    }
+
+    const patched = await patchCommunityMessengerCallSession(
+      sid,
+      "accept",
+      undefined,
+      {
+        sessionStatus: s.status,
+        isInitiator: s.isMineInitiator,
+        endedReason: s.endedReason ?? null,
+      }
+    );
+    if (!patched.ok || !patched.session) {
+      setDibayCallSessionPhase(sid, "incoming");
+      logDibayCall("accept_failed", { sessionId: sid, callId: sid, source: args.source, reason: "patch_failed" });
+      return { ok: false, sessionId: sid, reason: "patch_failed" };
+    }
+
     if (args.markNativeAcceptPending ?? true) {
       markNativeCalleeAcceptPending(sid);
     }
+
     applyIncomingCallConsumedSideEffects(sid, "accepted", args.source);
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
+
+    replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
     return { ok: true, sessionId: sid };
+  } catch {
+    setDibayCallSessionPhase(sid, "incoming");
+    logDibayCall("call_route_open_failed", { sessionId: sid, callId: sid, source: args.source });
+    return { ok: false, sessionId: sid, reason: "exception" };
+  } finally {
+    releaseIncomingCallAccept(sid);
   }
-
-  const reason =
-    result.reason === "permission_denied"
-      ? "permission_denied"
-      : result.reason === "patch_failed"
-        ? "patch_failed"
-        : result.reason === "duplicate_accept_blocked"
-          ? "duplicate_accept_blocked"
-          : "exception";
-
-  return { ok: false, sessionId: sid, reason };
 }
 
 export async function runIncomingCallReject(args: RunIncomingCallRejectArgs): Promise<{
@@ -253,7 +290,6 @@ export async function runIncomingCallReject(args: RunIncomingCallRejectArgs): Pr
     dismissAllIncomingCallNotificationsFireAndForget(sid);
     const patched = await patchCommunityMessengerCallSession(sid, "reject");
     if (!patched.ok) return { ok: false, sessionId: sid, reason: "patch_failed" };
-    dibayCallSealTerminal(sid);
     applyIncomingCallConsumedSideEffects(sid, "declined", args.source);
     return { ok: true, sessionId: sid };
   } catch {

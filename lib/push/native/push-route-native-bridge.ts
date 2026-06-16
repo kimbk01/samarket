@@ -17,6 +17,7 @@ export type NativeIncomingCallPlugin = {
     path?: string;
     at?: number;
   }>;
+  markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
 };
 
 let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;

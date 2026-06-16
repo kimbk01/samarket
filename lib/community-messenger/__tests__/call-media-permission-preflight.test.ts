@@ -1,49 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import type { CallPermissionCheckResult } from "@/lib/call/permissions/call-permission-types";
 
-const permissionState = vi.hoisted(() => ({
-  camera: "granted" as PermissionState | null,
-  microphone: "granted" as PermissionState | null,
-}));
+const gateCheckMock = vi.hoisted(() =>
+  vi.fn<(kind: CommunityMessengerCallKind) => Promise<CallPermissionCheckResult>>()
+);
 
-vi.mock("@/lib/auth/get-current-user", () => ({
-  getSyncViewerUserIdForClient: vi.fn(() => "user-1"),
-}));
+function buildCheck(overrides: Partial<CallPermissionCheckResult> = {}): CallPermissionCheckResult {
+  return {
+    storeState: "unknown",
+    os: { microphone: "granted", camera: "granted" },
+    effectiveState: "granted_audio_video",
+    microphoneGranted: true,
+    cameraGranted: true,
+    canVoice: true,
+    canVideo: true,
+    canFallbackToVoice: false,
+    isPermanentlyDenied: false,
+    ...overrides,
+  };
+}
 
-vi.mock("@/lib/community-messenger/media-permissions-query", () => ({
-  queryCommunityMessengerMediaPermissions: vi.fn(() =>
-    Promise.resolve({
-      camera: permissionState.camera,
-      microphone: permissionState.microphone,
-    })
-  ),
-}));
-
-vi.mock("@/lib/permissions/native-device-permissions-plugin", () => ({
-  checkAndroidNativeDevicePermission: vi.fn(() => Promise.resolve(null)),
-  openAndroidNativeAppSettings: vi.fn(() => Promise.resolve(false)),
-  requestAndroidNativeDevicePermission: vi.fn(() => Promise.resolve(null)),
-  shouldUseAndroidNativeDevicePermissionBridge: vi.fn(() => false),
-}));
-
-vi.mock("@/lib/permissions/device-permission-manager", () => ({
-  setCachedPermissionState: vi.fn(),
+vi.mock("@/lib/call/permissions/call-permission-gate", () => ({
+  callPermissionGate: {
+    check: gateCheckMock,
+    prompt: vi.fn(),
+    requireForOutgoing: vi.fn(),
+    requireForIncoming: vi.fn(),
+  },
 }));
 
 describe("call-media-permission-preflight", () => {
   beforeEach(() => {
     vi.resetModules();
-    permissionState.camera = "granted";
-    permissionState.microphone = "granted";
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: vi.fn(() => null),
-        setItem: vi.fn(),
-        removeItem: vi.fn(),
-      },
-      navigator: { userAgent: "test" },
-      location: { origin: "https://example.test" },
-    });
-    vi.stubGlobal("crypto", { randomUUID: () => "device-1" });
+    gateCheckMock.mockReset();
+    gateCheckMock.mockResolvedValue(buildCheck());
     vi.stubGlobal("navigator", {
       mediaDevices: {
         getUserMedia: vi.fn(),
@@ -55,11 +46,20 @@ describe("call-media-permission-preflight", () => {
     const { ensureCallCanUseMedia } = await import("@/lib/community-messenger/call-media-permission-preflight");
     const result = await ensureCallCanUseMedia("video");
     expect(result.ok).toBe(true);
+    expect(gateCheckMock).toHaveBeenCalledWith("video");
     expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
   });
 
   it("blocks voice before media creation when microphone is denied", async () => {
-    permissionState.microphone = "denied";
+    gateCheckMock.mockResolvedValue(
+      buildCheck({
+        os: { microphone: "denied", camera: "granted" },
+        microphoneGranted: false,
+        canVoice: false,
+        canVideo: false,
+        effectiveState: "denied_once",
+      })
+    );
     const { ensureCallCanUseMedia } = await import("@/lib/community-messenger/call-media-permission-preflight");
     const result = await ensureCallCanUseMedia("voice");
     expect(result.ok).toBe(false);
@@ -68,7 +68,14 @@ describe("call-media-permission-preflight", () => {
   });
 
   it("blocks video when camera is still unknown", async () => {
-    permissionState.camera = null;
+    gateCheckMock.mockResolvedValue(
+      buildCheck({
+        os: { microphone: "granted", camera: "unknown" },
+        cameraGranted: false,
+        canVideo: false,
+        effectiveState: "unknown",
+      })
+    );
     const { ensureCallCanUseMedia } = await import("@/lib/community-messenger/call-media-permission-preflight");
     const result = await ensureCallCanUseMedia("video");
     expect(result.ok).toBe(false);
@@ -76,24 +83,22 @@ describe("call-media-permission-preflight", () => {
     expect(navigator.mediaDevices.getUserMedia).not.toHaveBeenCalled();
   });
 
-  it("single-flights concurrent permission checks", async () => {
-    const { queryCommunityMessengerMediaPermissions } = await import(
-      "@/lib/community-messenger/media-permissions-query"
-    );
-    vi.mocked(queryCommunityMessengerMediaPermissions).mockClear();
+  it("delegates concurrent checks to callPermissionGate per kind", async () => {
     let release!: () => void;
     const gate = new Promise<void>((resolve) => {
       release = resolve;
     });
-    vi.mocked(queryCommunityMessengerMediaPermissions).mockImplementationOnce(async () => {
+    gateCheckMock.mockImplementation(async (kind: "voice" | "video") => {
       await gate;
-      return { camera: "granted", microphone: "granted" };
+      return buildCheck({ canVoice: true, canVideo: kind === "video" });
     });
     const { ensureCallCanUseMedia } = await import("@/lib/community-messenger/call-media-permission-preflight");
     const voice = ensureCallCanUseMedia("voice");
     const video = ensureCallCanUseMedia("video");
     release();
     await Promise.all([voice, video]);
-    expect(queryCommunityMessengerMediaPermissions).toHaveBeenCalledTimes(1);
+    expect(gateCheckMock).toHaveBeenCalledTimes(2);
+    expect(gateCheckMock).toHaveBeenCalledWith("voice");
+    expect(gateCheckMock).toHaveBeenCalledWith("video");
   });
 });

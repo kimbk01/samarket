@@ -22,7 +22,6 @@ import {
   logDibayCall,
 } from "@/lib/community-messenger/call-orchestrator";
 import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
-import { shouldOpenCallRoute } from "@/lib/call/routing/call-route-latch";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -36,8 +35,8 @@ function isCalleeAcceptCallRoute(path: string): boolean {
   return path.includes("action=accept") || path.includes("callAction=accept");
 }
 
-function isNativePrepCompleteRoute(path: string): boolean {
-  return path.includes("nativePrep=1") || path.includes("nativeAccept=1");
+function isNativeAcceptPatchCompleteRoute(path: string): boolean {
+  return path.includes("nativeAccept=1");
 }
 
 function resolveNativeAcceptSource(path: string): "native_notification_accept" | "native_activity_accept" {
@@ -59,13 +58,13 @@ export function DibayFcmCallRouteHost() {
       if (!path.startsWith("/community-messenger/calls/")) return;
 
       const now = Date.now();
-      if (!dibayRouteLaneAllow(path) || !shouldOpenCallRoute(path)) {
+      if (!dibayRouteLaneAllow(path)) {
         clearDibayCallPendingRoute();
         void clearNativePersistedCallPendingRoute();
         logDibayCall("state_end", {
           path,
           sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
-          source: !shouldOpenCallRoute(path) ? "route_latch_rejected" : "stale_call_route_blocked",
+          source: "stale_call_route_blocked",
         });
         return;
       }
@@ -83,7 +82,7 @@ export function DibayFcmCallRouteHost() {
         if (acceptSessionId) {
           clearDibayCallPendingRoute();
           void clearNativePersistedCallPendingRoute();
-          if (isNativePrepCompleteRoute(path)) {
+          if (isNativeAcceptPatchCompleteRoute(path)) {
             router.replace(path);
             console.info("[call-route] webview_route_delivered", { path, via: "accept_route_active" });
             return;

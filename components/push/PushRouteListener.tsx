@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
-import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
+import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { resolveDibayDeepLinkToAppPath } from "@/lib/platform/deep-link-routes";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { isAuthRequiredPushRoute } from "@/lib/push/resolve-push-route-from-fcm-data";
@@ -30,6 +30,14 @@ function readCalleeAcceptSessionIdFromPath(path: string): string | null {
 
 function isCalleeAcceptPushRoute(path: string): boolean {
   return path.includes("action=accept") || path.includes("callAction=accept");
+}
+
+function isNativeAcceptPatchCompleteRoute(path: string): boolean {
+  return path.includes("nativeAccept=1");
+}
+
+function isCallRoute(path: string): boolean {
+  return path.startsWith("/community-messenger/calls/");
 }
 
 type PushRouteDetail = {
@@ -75,6 +83,7 @@ function shouldIgnoreNotification(notificationId: string | undefined): boolean {
 
 /**
  * Native FCM notification tap / dibay deep link → Next.js router navigation.
+ * Call accept routes delegate to single accept gateway (no PATCH-less replace).
  */
 export function PushRouteListener() {
   const router = useRouter();
@@ -108,13 +117,31 @@ export function PushRouteListener() {
         return;
       }
 
-      if (shouldReplaceRoute(path)) {
-        if (isCalleeAcceptPushRoute(path)) {
-          const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
-          if (acceptSessionId) {
-            markNativeCalleeAcceptPending(acceptSessionId);
+      if (isCallRoute(path) && isCalleeAcceptPushRoute(path)) {
+        const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
+        if (acceptSessionId) {
+          if (isNativeAcceptPatchCompleteRoute(path)) {
+            router.replace(path);
+            console.info("[push-route] webview_route_delivered", { path, via: "accept_route_active" });
+          } else {
+            void runNativePendingAcceptCall(router, acceptSessionId, "native_notification_accept").then(
+              (result) => {
+                console.info("[push-route] native_pending_accept_done", {
+                  sessionId: acceptSessionId,
+                  ok: result.ok,
+                  reason: result.reason,
+                });
+              }
+            );
+            console.info("[push-route] webview_route_delivered", { path, via: "native_pending_accept" });
           }
+          clearPendingPushRoute();
+          void clearNativePersistedPendingPushRoute();
+          return;
         }
+      }
+
+      if (shouldReplaceRoute(path)) {
         router.replace(path);
       } else {
         router.push(path);

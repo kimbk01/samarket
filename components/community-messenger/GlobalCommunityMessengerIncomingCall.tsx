@@ -23,11 +23,7 @@ import {
   clearNativeCalleeAcceptPending,
 } from "@/lib/community-messenger/native-callee-accept-entry";
 import {
-  releaseIncomingCallAccept,
-  releaseIncomingCallReject,
   resetIncomingCallActionGuards,
-  tryClaimIncomingCallAccept,
-  tryClaimIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import {
@@ -105,6 +101,7 @@ import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/nat
 import { clearNativePersistedCallPendingRoute } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
 import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
@@ -1108,6 +1105,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       const d = ev.data as { type?: unknown; sessionId?: unknown } | null;
       if (!d) return;
       if (d.type === "samarket_messenger_incoming_call_wake") {
+        const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
+        if (sid && isDibayCallConsumed(sid)) {
+          logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: "sw_wake" });
+          return;
+        }
         bumpIncomingListFastSync();
         return;
       }
@@ -1144,7 +1146,6 @@ export function GlobalCommunityMessengerIncomingCall() {
         const sid = detail.sessionId?.trim();
         if (sid && isDibayCallConsumed(sid)) {
           logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: "fcm_wake" });
-          bumpIncomingListFastSync();
           return;
         }
         if (sid) {
@@ -1691,9 +1692,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   const rejectCall = useCallback(async (sessionId: string) => {
     logCallFlow("call_reject_pressed", { sessionId });
     if (busyId === `reject:${sessionId}` || busyId === `accept:${sessionId}`) return;
-    if (!tryClaimIncomingCallReject(sessionId)) return;
 
     logCallFlow("call_cleanup_start", { sessionId, reason: "reject" });
+    markCallConsumed(sessionId, "declined");
     suppressMissedSoundRef.current.add(sessionId);
     dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
@@ -1742,9 +1743,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
       const patchResult = await runIncomingCallReject({ sessionId, source: "incoming_banner_reject" });
       if (!patchResult.ok) {
-        dismissedIncomingSessionsAtRef.current.delete(sessionId);
         showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionRejectFailed, { variant: "error" });
-        await refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
         return;
       }
       logCallFlow("call_reject_sent", { sessionId });
@@ -1752,10 +1751,21 @@ export function GlobalCommunityMessengerIncomingCall() {
       void refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
     } finally {
       setBusyId(null);
-      releaseIncomingCallReject(sessionId);
       logCallFlow("call_cleanup_done", { sessionId, reason: "reject" });
     }
   }, [busyId, refresh, sessions]);
+
+  const expandIncomingCall = useCallback(
+    (session: CommunityMessengerCallSession) => {
+      if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
+      if (isDibayCallConsumed(session.id)) return;
+      logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_expand" });
+      rememberCallNavigationReturnPath();
+      primeCommunityMessengerCallNavigationSeed(session.id, session);
+      router.push(buildIncomingCallPreviewHref(session.id));
+    },
+    [busyId, router]
+  );
 
   const acceptCall = useCallback(
     (session: CommunityMessengerCallSession) => {
@@ -1766,7 +1776,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       unlockCommunityMessengerCallPlaybackFromUserGesture();
 
       if (session.sessionMode === "group") {
-        if (!tryClaimIncomingCallAccept(session.id)) return;
         setBusyId(`accept:${session.id}`);
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
@@ -1799,7 +1808,6 @@ export function GlobalCommunityMessengerIncomingCall() {
             void refresh(true, { bypassDevSafeIncomingThrottle: true });
           } finally {
             setBusyId(null);
-            releaseIncomingCallAccept(session.id);
           }
         })();
         return;
@@ -1849,7 +1857,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         startedAt={visibleSession.startedAt ?? null}
         busyReject={busyId === `reject:${visibleSession.id}`}
         busyAccept={busyId === `accept:${visibleSession.id}`}
-        onExpand={() => acceptCall(visibleSession)}
+        onExpand={() => expandIncomingCall(visibleSession)}
         onReject={() => void rejectCall(visibleSession.id)}
         onAccept={() => acceptCall(visibleSession)}
       />

@@ -30,5 +30,13 @@ describe("incoming-call native contract", () => {
     const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
     expect(src).toContain("notification_accept_activity_open");
   });
+
+  it("native plugin exposes markCallConsumed for Web consumed bridge", () => {
+    const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
+    expect(plugin).toContain("markCallConsumed");
+    expect(plugin).toContain("DibayCallConsumedStore.mark");
+    const store = read("android/app/src/main/java/com/dibay/app/DibayCallConsumedStore.java");
+    expect(store).toContain("isConsumed");
+  });
 });
 

@@ -88,6 +88,10 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
+    if (DibayCallConsumedStore.isConsumed(this, payload.callId)) {
+      Log.i(ROUTE_LOG_TAG, "[call-native] incoming_ignored_consumed callId=" + payload.callId);
+      return;
+    }
     DibayForegroundRingtone.start(this, payload.callId);
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }

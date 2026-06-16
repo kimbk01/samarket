@@ -92,6 +92,7 @@ import {
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { isIncomingCallPreviewRoute } from "@/lib/community-messenger/incoming-call-preview-route";
 import { isDibayCallConsumed, markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import {
   dibayCallSealTerminal,
@@ -503,6 +504,7 @@ export function CommunityMessengerCallClient({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
+  const incomingPreviewRoute = isIncomingCallPreviewRoute(searchParams);
   const nativeAcceptRoute = isNativeCalleeAcceptRoute(readNativeCalleeAcceptRouteParams(searchParams));
   const [initialCallHydration] = useState(() => {
     if (initialSession != null) {
@@ -2232,23 +2234,14 @@ export function CommunityMessengerCallClient({
         }
 
         logDibayCall("agora_join_start", { sessionId: targetSession.id, callKind: targetSession.callKind });
-        const { joinCommunityMessengerAgoraChannelOnce } = await import("@/lib/call/actions/agora-join-guard");
-        const { startCallHeartbeatWatchdog } = await import("@/lib/call/native/call-heartbeat-watchdog");
-        const joinResult = await joinCommunityMessengerAgoraChannelOnce(
-          targetSession.id,
-          {
-            client,
-            appId: connection.appId,
-            channelName: connection.channelName,
-            token: connection.token,
-            uid: connection.uid,
-          },
-          { callKind: targetSession.callKind },
-        );
-        if (!joinResult.ok) {
-          throw new Error(`agora_join_blocked:${joinResult.reason}`);
-        }
-        startCallHeartbeatWatchdog(targetSession.id);
+        await joinCommunityMessengerAgoraChannel({
+          client,
+          appId: connection.appId,
+          channelName: connection.channelName,
+          token: connection.token,
+          uid: connection.uid,
+        });
+        logDibayCall("agora_join_success", { sessionId: targetSession.id, callKind: targetSession.callKind });
         if (isVideoCall) {
           try {
             const c = client as IAgoraRTCClient & { enableDualStream?: () => Promise<void> };
@@ -2762,9 +2755,10 @@ export function CommunityMessengerCallClient({
     if (s.isMineInitiator) return;
     if (s.status !== "ringing") return;
     if (requestedAction === "accept") return;
+    if (incomingPreviewRoute) return;
     if (busyRef.current === "accept" || calleeVideoConnectingShellRef.current) return;
     navigateBackFromCommunityMessengerCall(router, s.roomId);
-  }, [requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);
+  }, [incomingPreviewRoute, requestedAction, router, session?.id, session?.isMineInitiator, session?.roomId, session?.status]);
 
   useEffect(() => {
     if (requestedAction !== "reject") return;
@@ -2935,15 +2929,13 @@ export function CommunityMessengerCallClient({
           return;
         }
         const provider = await loadCommunityMessengerCallProvider();
-        const { joinCommunityMessengerAgoraChannelOnce } = await import("@/lib/call/actions/agora-join-guard");
-        const joinResult = await joinCommunityMessengerAgoraChannelOnce(s.id, {
+        await provider.joinCommunityMessengerAgoraChannel({
           client,
           appId: connection.appId,
           channelName: connection.channelName,
           token: connection.token,
           uid: connection.uid,
-        }, { callKind: s.callKind });
-        if (!joinResult.ok) return;
+        });
         setAgoraReconnecting(false);
         clearTimers();
       } catch {

@@ -1,5 +1,6 @@
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import { syncDibayCallConsumedToNative } from "@/lib/push/native/dibay-call-consumed-native-bridge";
 
 export const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
 export const INCOMING_REMOTE_HARD_CLEAR_KEEP_MS = 120_000;
@@ -93,6 +94,7 @@ export function markCallConsumed(
   consumedByCallId.set(sid, { reason, at: now });
   phaseByCallId.set(sid, { phase: "consumed", reason, at: now });
   logDibayCall("incoming_consumed", { sessionId: sid, callId: sid, reason, source: "mark_call_consumed" });
+  syncDibayCallConsumedToNative(sid, reason);
 }
 
 export function isDibayCallConsumed(callId: string | null | undefined, now = Date.now()): boolean {

@@ -47,6 +47,8 @@ describe("incoming-call policy contracts", () => {
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
     expect(src).toContain("수락 전 자동 `/calls/:id` 진입 차단");
     expect(src).toContain("navigateBackFromCommunityMessengerCall");
+    expect(src).toContain("incomingPreviewRoute");
+    expect(src).toContain("isIncomingCallPreviewRoute");
   });
 
   it("CallClient does not re-run accept PATCH on nativeAccept=1 route", () => {
@@ -59,6 +61,33 @@ describe("incoming-call policy contracts", () => {
     const src = read("components/layout/providers/DibayFcmCallRouteHost.tsx");
     expect(src).toContain("visibilitychange");
     expect(src).toContain("maybeConsumeOnResume");
+  });
+
+  it("banner expand opens preview route without accept PATCH", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("expandIncomingCall");
+    expect(global).toContain("buildIncomingCallPreviewHref");
+    expect(global).toContain('onExpand={() => expandIncomingCall(visibleSession)}');
+    expect(global).not.toMatch(/onExpand=\{[^}]*acceptCall/);
+  });
+
+  it("PushRouteListener delegates callee accept to runNativePendingAcceptCall", () => {
+    const src = read("components/push/PushRouteListener.tsx");
+    expect(src).toContain("runNativePendingAcceptCall");
+    expect(src).not.toContain("markNativeCalleeAcceptPending");
+  });
+
+  it("MainActivity skips foreground ringtone for consumed callId", () => {
+    const src = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(src).toContain("DibayCallConsumedStore.isConsumed");
+    expect(src).toContain("incoming_ignored_consumed");
+  });
+
+  it("markCallConsumed syncs to native consumed store", () => {
+    const state = read("lib/community-messenger/incoming-call-state.ts");
+    expect(state).toContain("syncDibayCallConsumedToNative");
+    const bridge = read("lib/push/native/dibay-call-consumed-native-bridge.ts");
+    expect(bridge).toContain("markCallConsumed");
   });
 });
 

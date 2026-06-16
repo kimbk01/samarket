@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   claimCallRouteLatch,
   releaseCallRouteLatch,
@@ -38,6 +38,22 @@ describe("call-route-latch", () => {
 });
 
 describe("pending-call-route", () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal("sessionStorage", {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+    });
+    vi.resetModules();
+  });
+
   it("writes and reads pending route from sessionStorage", async () => {
     const { writeCallPendingRoute, readCallPendingRoute, clearCallPendingRoute } = await import(
       "@/lib/call/routing/pending-call-route"
