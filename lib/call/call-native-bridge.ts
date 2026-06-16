@@ -21,7 +21,7 @@ export function handleCallNativeBridgeEvent(detail: CallNativeBridgeDetail): voi
       payload: {
         sessionId: detail.sessionId,
         roomId: detail.roomId,
-        callKind: detail.callKind ?? "voice",
+        callKind: detail.callKind === "video" ? "video" : "voice",
         peerUserId: detail.callerId?.trim() || "",
         peerLabel: detail.callerName?.trim() || "",
         peerAvatarUrl: detail.callerAvatarUrl ?? null,

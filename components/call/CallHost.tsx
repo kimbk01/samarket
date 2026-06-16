@@ -7,6 +7,7 @@ import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { IncomingCallSurface } from "@/components/call/IncomingCallSurface";
 import { MissedCallToast } from "@/components/call/MissedCallToast";
+import { callGetSession } from "@/lib/call/call-api";
 import {
   dispatchCallEvent,
   parseCallRemoteEndFromSignal,
@@ -17,7 +18,6 @@ import { subscribeCallContext, useCallStore } from "@/lib/call/call-store";
 import { readCallPendingRoute, clearCallPendingRoute, writeCallPendingRoute } from "@/lib/call/call-pending-route";
 import { installCallNativeEventListener, installCallRouteListener } from "@/lib/call/call-native-bridge";
 import { logCall } from "@/lib/call/call-log";
-import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 const INCOMING_CALL_REALTIME_SCOPE = "community_messenger_incoming_call";
 
@@ -73,9 +73,16 @@ export function CallHost() {
               filter: `recipient_user_id=eq.${userId}`,
             },
             (payload) => {
-              const row = payload.new as CommunityMessengerCallSession | null;
-              if (!row || row.status !== "ringing" || row.isMineInitiator) return;
-              dispatchCallEvent({ type: "CALL_INCOMING", payload: sessionToIncomingPayload(row) });
+              const row = payload.new as Record<string, unknown> | null;
+              const sessionId = typeof row?.id === "string" ? row.id.trim() : "";
+              const status = typeof row?.status === "string" ? row.status.trim() : "";
+              if (!sessionId || status !== "ringing") return;
+              void callGetSession(sessionId).then((res) => {
+                if (!res.ok || !res.session || res.session.status !== "ringing" || res.session.isMineInitiator) {
+                  return;
+                }
+                dispatchCallEvent({ type: "CALL_INCOMING", payload: sessionToIncomingPayload(res.session) });
+              });
             }
           )
           .on(
