@@ -93,7 +93,7 @@
 | accept route | `dibay_call_pending_route` (OAuth/chat `pending_route` 와 분리) |
 
 Foreground: WebView `dibay:call-event`  
-Background/lock: `IncomingCallNotificationBuilder` + `IncomingCallActivity` (기존 정책 유지)
+Background/lock: `IncomingCallNotificationBuilder` + **항상** `IncomingCallActivity` (FSI 보조, 벨만 울림 방지)
 
 ---
 
@@ -117,3 +117,6 @@ npx vitest run lib/community-messenger/__tests__/call-incoming-terminal.test.ts 
 | 날짜 | 내용 |
 |------|------|
 | 2026-06-16 | Legacy 복구 후 안정화 문서 신설 — FCM 즉시 벨, dismiss 레이스, 종료 auto-close 600ms, visibility page-leave |
+| 2026-06-16 | `DibayFcmCallRouteHost` — `dibay:call-route` 이벤트·native SharedPreferences 백업 소비(수락 후 화면 사라짐 수정) |
+| 2026-06-16 | Android 잠금/슬립 — FSI 여부와 무관 `IncomingCallActivity` 직접 실행 |
+| 2026-06-16 | `ensureCallMediaForUserGesture` — 수락/발신 시 OS·GUM 권한 요청; 영상 발신 GUM 프라임 |

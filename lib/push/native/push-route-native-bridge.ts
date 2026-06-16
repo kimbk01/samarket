@@ -7,9 +7,14 @@ import { PENDING_PUSH_ROUTE_TTL_MS } from "@/lib/push/pending-push-route";
 export type NativeIncomingCallPlugin = {
   dismissNotification(options: { sessionId: string }): Promise<void>;
   clearPendingPushRoute(): Promise<void>;
+  clearPendingCallRoute(): Promise<void>;
   getPendingPushRoute(): Promise<{
     path?: string;
     notificationId?: string;
+    at?: number;
+  }>;
+  getPendingCallRoute(): Promise<{
+    path?: string;
     at?: number;
   }>;
 };
@@ -60,6 +65,36 @@ export async function clearNativePersistedPendingPushRoute(): Promise<void> {
   if (!plugin) return;
   try {
     await plugin.clearPendingPushRoute();
+  } catch {
+    /* best-effort */
+  }
+}
+
+export async function readNativePersistedCallPendingRoute(
+  now = Date.now(),
+): Promise<PendingPushRoute | null> {
+  const plugin = await getNativeIncomingCallPlugin();
+  if (!plugin?.getPendingCallRoute) return null;
+  try {
+    const result = await plugin.getPendingCallRoute();
+    const path = result.path?.trim() ?? "";
+    if (!path.startsWith("/community-messenger/calls/")) return null;
+    const at = typeof result.at === "number" && Number.isFinite(result.at) ? result.at : now;
+    if (now - at > PENDING_PUSH_ROUTE_TTL_MS) {
+      await plugin.clearPendingCallRoute?.();
+      return null;
+    }
+    return { path, notificationId: null, at };
+  } catch {
+    return null;
+  }
+}
+
+export async function clearNativePersistedCallPendingRoute(): Promise<void> {
+  const plugin = await getNativeIncomingCallPlugin();
+  if (!plugin?.clearPendingCallRoute) return;
+  try {
+    await plugin.clearPendingCallRoute();
   } catch {
     /* best-effort */
   }

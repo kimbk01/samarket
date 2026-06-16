@@ -123,19 +123,22 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     boolean keyguardLocked = DibayKeyguardHelper.isKeyguardLocked(this);
     boolean interactive = DibayKeyguardHelper.isInteractive(this);
     boolean lockBridge = keyguardLocked || !interactive;
-    if (lockBridge && !IncomingCallNotificationBuilder.canPostFullScreenIntent(this)) {
+    // FSI 허용 여부와 무관하게 잠금·슬립에서는 전용 Activity를 직접 띄운다(벨만 울리고 UI 없음 방지).
+    if (lockBridge) {
       Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(this, payload);
       if (incomingUi != null) {
         incomingUi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(incomingUi);
         Log.i(
             TAG,
-            "[call-ui] incoming_activity_direct_launch callId="
+            "[call-ui] incoming_activity_lock_launch callId="
                 + callId
-                + " fsi_fallback=true keyguardLocked="
+                + " keyguardLocked="
                 + keyguardLocked
                 + " interactive="
-                + interactive);
+                + interactive
+                + " fsiAllowed="
+                + IncomingCallNotificationBuilder.canPostFullScreenIntent(this));
       }
     }
   }

@@ -1,6 +1,14 @@
 import { isCommunityMessengerCallMediaReadySync } from "@/lib/community-messenger/call-permission";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
-import { ensureCallCanUseMedia } from "@/lib/community-messenger/call-media-permission-preflight";
+import {
+  ensureCallMediaForUserGesture,
+} from "@/lib/community-messenger/call-media-permission-preflight";
+import { buildCommunityMessengerMediaStreamConstraints } from "@/lib/community-messenger/media-preflight";
+import { getCommunityMessengerUserMedia } from "@/lib/community-messenger/call-media-stream";
+import {
+  peekPrimedCommunityMessengerDeviceStream,
+  storePrimedCommunityMessengerDeviceStream,
+} from "@/lib/community-messenger/call-permission";
 
 export type CallMediaPrimeResult =
   | { ok: true }
@@ -44,13 +52,26 @@ export async function primeVoiceCallMediaFromUserGesture(_opts?: {
   return primeOutgoingCallMediaBeforeNavigate("voice");
 }
 
-/** 모든 발신 CTA — check-only, 권한 미허용 시 navigate·start API 금지 */
+/** 발신 CTA — 권한 요청(필요 시) + 영상은 사용자 제스처에서 GUM 프라임 */
 export async function primeOutgoingCallMediaBeforeNavigate(
   kind: CommunityMessengerCallKind
 ): Promise<CallMediaPrimeResult> {
-  const preflight = await ensureCallCanUseMedia(kind);
+  const preflight = await ensureCallMediaForUserGesture(kind);
   if (!preflight.ok) {
     return { ok: false, code: "denied" };
   }
+
+  if (kind === "video" && !peekPrimedCommunityMessengerDeviceStream("video")) {
+    try {
+      const constraints = buildCommunityMessengerMediaStreamConstraints("video");
+      const stream = await getCommunityMessengerUserMedia(constraints, {
+        featureKey: "messenger_video_call",
+      });
+      storePrimedCommunityMessengerDeviceStream("video", stream);
+    } catch {
+      return { ok: false, code: "failed" };
+    }
+  }
+
   return { ok: true };
 }

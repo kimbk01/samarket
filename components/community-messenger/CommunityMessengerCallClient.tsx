@@ -44,6 +44,7 @@ import {
 } from "@/lib/community-messenger/call-permission";
 import {
   ensureCallCanUseMedia,
+  ensureCallMediaForUserGesture,
   getCallMediaPermissionBlockedMessageKey,
   invalidateCallMediaPermissionCheckCache,
   isCallMediaPermissionBlockedUiMessage,
@@ -649,6 +650,12 @@ export function CommunityMessengerCallClient({
       if (!active) return;
       const wasRinging = opts?.wasRinging === true || active.status === "ringing";
       if (!wasRinging) return;
+      console.info("[call-flow] call_client_terminal_close", {
+        sessionId: active.id,
+        roomId: roomId ?? active.roomId ?? null,
+        status: active.status,
+        closeReason: "ringing_dismiss",
+      });
       pinTerminalCallLocalSurfaceDismiss(active.id);
       callDismissInFlightRef.current = true;
       setRingingDismissUiLatch(true);
@@ -2312,7 +2319,7 @@ export function CommunityMessengerCallClient({
       logCallFlow("call_accept_pressed", { sessionId: s.id, source: "call_client" });
       setCalleeVideoConnectingShell(true);
     }
-    const permission = await ensureCallCanUseMedia(s.callKind);
+    const permission = await ensureCallMediaForUserGesture(s.callKind);
     if (!permission.ok) {
       setCallPermissionBlocked(true);
       setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(s.callKind)));
@@ -2584,7 +2591,7 @@ export function CommunityMessengerCallClient({
         setErrorMessage(t("cm_ui_call_session_missing"));
         return;
       }
-      const permission = await ensureCallCanUseMedia(loaded.callKind);
+      const permission = await ensureCallMediaForUserGesture(loaded.callKind);
       if (!permission.ok) {
         setCallPermissionBlocked(true);
         setErrorMessage(t(getCallMediaPermissionBlockedMessageKey(loaded.callKind)));
@@ -2862,7 +2869,7 @@ export function CommunityMessengerCallClient({
     setPendingVideoUpgradeRequest(false);
     setIncomingVideoUpgradeRequest(false);
     try {
-      const perm = await ensureCallCanUseMedia("video");
+      const perm = await ensureCallMediaForUserGesture("video");
       if (!perm.ok) {
         setErrorMessage(t(getCallMediaPermissionBlockedMessageKey("video")));
         return false;
@@ -3694,6 +3701,13 @@ export function CommunityMessengerCallClient({
 
   /** 조건부 return 위에 두어야 함 — 그 아래에서 훅을 호출하면 렌더마다 훅 개수가 달라져 런타임 오류가 난다. */
   const closeTerminalView = useCallback(() => {
+    const s = sessionRef.current;
+    console.info("[call-flow] call_client_terminal_close", {
+      sessionId: s?.id ?? sessionId,
+      roomId: s?.roomId ?? null,
+      status: s?.status ?? null,
+      closeReason: "auto_close_terminal",
+    });
     navigateBackFromCommunityMessengerCall(router, sessionRef.current?.roomId);
   }, [router]);
 

@@ -139,15 +139,41 @@ export function navigateBackFromCommunityMessengerCall(
   roomIdFallback: string | null | undefined
 ): void {
   const back = takeCallNavigationReturnPath();
+  const currentPath =
+    typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : null;
+  console.info("[call-flow] call_return_path_read", {
+    returnPath: back,
+    roomIdFallback: roomIdFallback?.trim() || null,
+    currentPath,
+  });
   if (back) {
+    console.info("[call-flow] call_return_navigation_decision", {
+      target: back,
+      reason: "return_path",
+      hasReturnPath: true,
+      hasRoomIdFallback: Boolean(roomIdFallback?.trim()),
+    });
     router.replace(back);
     return;
   }
   const room = roomIdFallback?.trim();
   if (room) {
-    router.replace(`/community-messenger/rooms/${encodeURIComponent(room)}`);
+    const target = `/community-messenger/rooms/${encodeURIComponent(room)}`;
+    console.info("[call-flow] call_return_navigation_decision", {
+      target,
+      reason: "room_fallback",
+      hasReturnPath: false,
+      hasRoomIdFallback: true,
+    });
+    router.replace(target);
     return;
   }
+  console.info("[call-flow] call_return_navigation_decision", {
+    target: "/community-messenger?section=chats",
+    reason: "messenger_fallback",
+    hasReturnPath: false,
+    hasRoomIdFallback: false,
+  });
   router.replace("/community-messenger?section=chats");
 }
 

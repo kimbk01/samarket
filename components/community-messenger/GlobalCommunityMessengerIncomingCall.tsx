@@ -40,7 +40,7 @@ import {
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
-  ensureCallCanUseMedia,
+  ensureCallMediaForUserGesture,
   getCallMediaPermissionBlockedMessageKey,
 } from "@/lib/community-messenger/call-media-permission-preflight";
 import {
@@ -138,6 +138,9 @@ const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
 const INCOMING_CALL_REALTIME_SCOPE = "community-messenger-incoming-call";
 const INCOMING_CALL_REALTIME_SILENT_AFTER_MS = 12_000;
+const INCOMING_CALL_POLL_FALLBACK_VISIBLE_MS = 2_500;
+const INCOMING_CALL_POLL_LOG_MIN_GAP_MS = 10_000;
+const INCOMING_CALL_POLL_ERROR_LOG_MIN_GAP_MS = 15_000;
 
 /** 사용자가 거절한 세션을 merge·Realtime 이 다시 살리지 못하게 함 */
 const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
@@ -152,6 +155,8 @@ type IncomingCallsRefreshOpts = {
   incomingTerminalListSync?: boolean;
   /** dev-safe: 수신 목록 GET 장주기 스로틀 무시 — 거절/수락 실패 후 정합 등 */
   bypassDevSafeIncomingThrottle?: boolean;
+  /** WS/broadcast 미수신 fallback — 주기적 HTTP polling tick */
+  source?: "poll" | "realtime" | "burst" | "manual";
 };
 
 function pruneDismissedIncomingSessionIds(dismissedAtBySessionId: Map<string, number>) {
@@ -199,6 +204,12 @@ function filterIncomingSessionsRespectingHardClear(
 function markIncomingCallHardClearedSession(hardClearedAtBySessionId: Map<string, number>, sessionId: string) {
   const sid = sessionId.trim();
   if (!sid) return;
+  console.info("[call-flow] incoming_hard_clear_marked", {
+    sessionId: sid,
+    callId: sid,
+    roomId: null,
+    reason: "hard_clear",
+  });
   hardClearedAtBySessionId.set(sid, Date.now());
 }
 
@@ -276,6 +287,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const lastBurstAtRef = useRef(0);
   const pendingBurstTimerRef = useRef<number | null>(null);
   const realtimeDebounceTimerRef = useRef<number | null>(null);
+  const lastIncomingPollLogAtRef = useRef(0);
+  const lastIncomingPollErrorLogAtRef = useRef(0);
   /** Broadcast·SW·Realtime INSERT 가 같은 틱에 겹칠 때 수신 GET 을 한 번으로 합치는 꼬리 타이머 */
   const incomingListFastSyncTrailRef = useRef<number | null>(null);
   /** 직전 폴링까지 수신 목록에 있던 ringing 세션 id (directOnly — 전부 ringing) */
@@ -407,6 +420,18 @@ export function GlobalCommunityMessengerIncomingCall() {
         forgetSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY);
       }
       try {
+        if (opts?.source === "poll") {
+          const gap = now - lastIncomingPollLogAtRef.current;
+          if (gap >= INCOMING_CALL_POLL_LOG_MIN_GAP_MS) {
+            lastIncomingPollLogAtRef.current = now;
+            console.info("[call-flow] incoming_poll_start", {
+              pathname: pathnameRef.current ?? null,
+              realtimeOk: incomingRealtimeOkRef.current,
+              visibility: readIncomingCallVisibilityState(),
+              directRinging: ringingDirectCalleeRef.current,
+            });
+          }
+        }
         const res = await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, () =>
           fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
             cache: "no-store",
@@ -424,6 +449,50 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
         if (res.ok && json.ok) {
           const serverList = json.sessions ?? [];
+          if (opts?.source === "poll" && serverList.length > 0) {
+            const hard = hardClearedIncomingSessionsAtRef.current;
+            const dismissed = dismissedIncomingSessionsAtRef.current;
+            for (const s of serverList.slice(0, 3)) {
+              const sid = s.id?.trim() ?? "";
+              if (!sid) continue;
+              const hardAt = hard.get(sid) ?? null;
+              const dismissedAt = dismissed.get(sid) ?? null;
+              console.info("[call-flow] incoming_merge_candidate_after_terminal", {
+                sessionId: sid,
+                callId: sid,
+                roomId: s.roomId ?? null,
+                status: s.status ?? null,
+                blockedByHardClear: hardAt != null,
+                blockedByDismissed: dismissedAt != null,
+                ageMs:
+                  hardAt != null
+                    ? Math.max(0, now - hardAt)
+                    : dismissedAt != null
+                      ? Math.max(0, now - dismissedAt)
+                      : null,
+              });
+            }
+          }
+          if (opts?.source === "poll") {
+            if (serverList.length > 0) {
+              const prev = prevIncomingRingingIdsRef.current;
+              const nextIds = new Set(serverList.map((s) => s.id));
+              const hasNew = [...nextIds].some((id) => !prev.has(id));
+              prevIncomingRingingIdsRef.current = nextIds;
+              console.info("[call-flow] incoming_poll_hit", {
+                count: serverList.length,
+                hasNew,
+              });
+              if (hasNew) {
+                console.info("[call-flow] incoming_poll_overlay_open", {
+                  sessionId: serverList[0]?.id,
+                });
+              }
+            } else {
+              prevIncomingRingingIdsRef.current = new Set();
+              console.info("[call-flow] incoming_poll_empty");
+            }
+          }
           setSessions((prev) =>
             mergeIncomingCallSessionsAfterFetch(
               viewerUserIdRef.current,
@@ -444,6 +513,16 @@ export function GlobalCommunityMessengerIncomingCall() {
         /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
       } catch {
         setIncomingListError(`${MESSENGER_CALL_USER_MSG.incomingListFailed} ${MESSENGER_CALL_USER_MSG.networkOrServer}`);
+        if (opts?.source === "poll") {
+          const now = Date.now();
+          const gap = now - lastIncomingPollErrorLogAtRef.current;
+          if (gap >= INCOMING_CALL_POLL_ERROR_LOG_MIN_GAP_MS) {
+            lastIncomingPollErrorLogAtRef.current = now;
+            console.info("[call-flow] incoming_poll_error_limited", {
+              pathname: pathnameRef.current ?? null,
+            });
+          }
+        }
       } finally {
         lastRefreshAtRef.current = Date.now();
       }
@@ -470,13 +549,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     const runBurst = () => {
       lastBurstAtRef.current = Date.now();
       pendingBurstTimerRef.current = null;
-      void refresh(true);
+      void refresh(true, { source: "burst" });
       for (const timerId of refreshTimerIdsRef.current) {
         window.clearTimeout(timerId);
       }
       refreshTimerIdsRef.current = [
         window.setTimeout(() => {
-          void refresh(true);
+          void refresh(true, { source: "burst" });
         }, MESSENGER_INCOMING_CALL_VISIBILITY_RETRY_MS),
       ];
     };
@@ -497,7 +576,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     realtimeDebounceTimerRef.current = window.setTimeout(() => {
       realtimeDebounceTimerRef.current = null;
-      void refresh(true);
+      void refresh(true, { source: "realtime" });
     }, MESSENGER_INCOMING_CALL_REALTIME_DEBOUNCE_MS);
   }, [refresh]);
 
@@ -519,6 +598,14 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!isTerminalIncomingCallStatus(statusNorm)) {
       return;
     }
+
+    console.info("[call-flow] terminal_event_received", {
+      sessionId: sessionId || null,
+      callId: sessionId || null,
+      roomId: roomId || null,
+      status: statusNorm,
+      source: sourceTag,
+    });
 
     const answeredAtRaw =
       typeof raw.answeredAt === "string"
@@ -825,13 +912,13 @@ export function GlobalCommunityMessengerIncomingCall() {
    * (기존 다중 setTimeout 은 postgres INSERT·Broadcast·폴링과 겹쳐 동일 세션에 대한 GET 폭주·429 유발)
    */
   const bumpIncomingListFastSync = useCallback(() => {
-    void refreshRef.current(true);
+    void refreshRef.current(true, { source: "manual" });
     if (incomingListFastSyncTrailRef.current != null) {
       window.clearTimeout(incomingListFastSyncTrailRef.current);
     }
     incomingListFastSyncTrailRef.current = window.setTimeout(() => {
       incomingListFastSyncTrailRef.current = null;
-      void refreshRef.current(true);
+      void refreshRef.current(true, { source: "manual" });
     }, MESSENGER_INCOMING_CALL_WAKE_TRAIL_MS);
   }, []);
 
@@ -865,7 +952,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       const ms = allowNetworkPoll
         ? ringingDirectCalleeRef.current
           ? MESSENGER_INCOMING_CALL_POLL_DURING_RING_MS
-          : getIncomingCallPollIntervalMs(INCOMING_CALL_TIER, false)
+          : INCOMING_CALL_POLL_FALLBACK_VISIBLE_MS
         : !isIncomingCallWindowForeground() && ringingDirectCalleeRef.current
           ? MESSENGER_INCOMING_CALL_POLL_WHEN_HIDDEN_MS
           : INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS;
@@ -879,7 +966,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             realtimeOk: incomingRealtimeOkRef.current,
           })
         ) {
-          void refreshRef.current(true);
+          void refreshRef.current(true, { source: "poll" });
         }
         schedulePoll();
       }, ms);
@@ -1736,7 +1823,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
           try {
-            const permission = await ensureCallCanUseMedia(session.callKind);
+            const permission = await ensureCallMediaForUserGesture(session.callKind);
             if (!permission.ok) {
               releaseIncomingCallAccept(session.id);
               showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {
@@ -1787,7 +1874,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "global_accept" });
       void (async () => {
         try {
-          const permission = await ensureCallCanUseMedia(session.callKind);
+          const permission = await ensureCallMediaForUserGesture(session.callKind);
           if (!permission.ok) {
             releaseIncomingCallAccept(session.id);
             showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {

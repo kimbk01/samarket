@@ -5,6 +5,10 @@ import {
   openDevicePermissionSettings,
   type DibayDevicePermissionState,
 } from "@/lib/permissions/dibay-device-permission-store";
+import {
+  requestAndroidNativeCallMediaPermissions,
+  shouldUseAndroidNativeDevicePermissionBridge,
+} from "@/lib/permissions/native-device-permissions-plugin";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
 
@@ -90,6 +94,58 @@ export async function ensureCallCanUseMedia(
     microphone: state.microphone,
   });
   return { ok: false, reason, state };
+}
+
+/**
+ * 사용자 제스처(발신·수락) 시점 — check 후 미허용이면 Android OS 팝업·WebView GUM으로 1회 요청 후 재검사.
+ * check-only `ensureCallCanUseMedia` 와 달리 실제 권한 요청을 수행한다.
+ */
+export async function ensureCallMediaForUserGesture(
+  kind: CommunityMessengerCallKind,
+): Promise<CallMediaPermissionPreflightResult> {
+  let result = await ensureCallCanUseMedia(kind);
+  if (result.ok) return result;
+
+  logCallPermission("request_start", { kind, reason: result.reason });
+
+  if (shouldUseAndroidNativeDevicePermissionBridge()) {
+    const nativeState = await requestAndroidNativeCallMediaPermissions(kind);
+    invalidateCallMediaPermissionCheckCache();
+    logCallPermission("native_request_result", { kind, nativeState });
+    if (nativeState === "granted") {
+      result = await ensureCallCanUseMedia(kind);
+      if (result.ok) return result;
+    }
+  }
+
+  if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+    try {
+      const constraints =
+        kind === "video" ? ({ audio: true, video: true } as MediaStreamConstraints) : ({ audio: true } as MediaStreamConstraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      stream.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+      invalidateCallMediaPermissionCheckCache();
+      await checkDevicePermissions();
+      result = await ensureCallCanUseMedia(kind);
+      if (result.ok) {
+        logCallPermission("gum_request_granted", { kind });
+        return result;
+      }
+    } catch (error) {
+      logCallPermission("gum_request_failed", {
+        kind,
+        name: error instanceof DOMException ? error.name : "unknown",
+      });
+    }
+  }
+
+  return result;
 }
 
 /** @deprecated 런타임 별칭 — `ensureCallCanUseMedia` 와 동일 */
