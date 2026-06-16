@@ -17,7 +17,9 @@ import com.dibay.app.CallSessionPatchHelper;
 import com.dibay.app.DibayCallLog;
 import com.dibay.app.DibayCallPushLog;
 import com.dibay.app.DibayIncomingCallNativeStore;
+import com.dibay.app.IncomingCallIntentHelper;
 import com.dibay.app.IncomingCallNotificationBuilder;
+import com.dibay.app.MainActivity;
 import com.dibay.app.R;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,10 +41,12 @@ public class CallForegroundService extends Service {
   private static final AtomicReference<String> ACTIVE_CALL_ID = new AtomicReference<>(null);
   private static final AtomicReference<String> FOREGROUND_STARTED_FOR = new AtomicReference<>(null);
   private static final AtomicReference<String> RINGING_FOREGROUND_FOR = new AtomicReference<>(null);
+  private static final AtomicReference<String> ACTIVE_CALL_KIND = new AtomicReference<>("voice");
 
   private Handler heartbeatHandler;
   private Runnable heartbeatWatchdogRunnable;
   private long lastHeartbeatAtMs;
+  private volatile boolean taskRemovedKeepAlive;
 
   public static String getActiveCallId() {
     String id = ACTIVE_CALL_ID.get();
@@ -60,6 +64,7 @@ public class CallForegroundService extends Service {
       return;
     }
     ACTIVE_CALL_ID.set(sid);
+    ACTIVE_CALL_KIND.set(callKind != null ? callKind : "voice");
     Intent intent = new Intent(context, CallForegroundService.class);
     intent.setAction(ACTION_START);
     intent.putExtra(EXTRA_CALL_ID, sid);
@@ -79,6 +84,8 @@ public class CallForegroundService extends Service {
       DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true reused=true");
       return;
     }
+    ACTIVE_CALL_ID.set(sid);
+    ACTIVE_CALL_KIND.set(callKind != null ? callKind : "voice");
     Intent intent = new Intent(context, CallForegroundService.class);
     intent.setAction(ACTION_START_RINGING);
     intent.putExtra(EXTRA_CALL_ID, sid);
@@ -179,16 +186,8 @@ public class CallForegroundService extends Service {
 
     ensureChannel();
     String kind = intent.getStringExtra(EXTRA_CALL_KIND);
-    String label = "video".equalsIgnoreCase(kind) ? "영상 통화" : "음성 통화";
-    Notification notification =
-        new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("DIBAY 통화")
-            .setContentText(label + " 진행 중")
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build();
+    ACTIVE_CALL_KIND.set(kind != null ? kind : "voice");
+    Notification notification = buildOngoingCallNotification(sid, kind);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -204,6 +203,7 @@ public class CallForegroundService extends Service {
     FOREGROUND_STARTED_FOR.set(sid);
     lastHeartbeatAtMs = System.currentTimeMillis();
     scheduleHeartbeatWatchdog();
+    DibayCallLog.once("foreground_service_started", sid, "source=fgs");
     DibayCallLog.once("call_service_start", sid, "source=fgs");
     return START_STICKY;
   }
@@ -211,9 +211,34 @@ public class CallForegroundService extends Service {
   @Override
   public void onTaskRemoved(Intent rootIntent) {
     String sid = ACTIVE_CALL_ID.get();
+    taskRemovedKeepAlive = sid != null && !sid.isEmpty();
     DibayCallLog.once("app_swipe_detected", sid != null ? sid : "unknown", "source=fgs");
-    Log.i(TAG, "[DIBAY_CALL] app_swipe_detected callId=" + sid);
-    endCallAndStop(sid, "app_swipe");
+    DibayCallLog.once("task_removed_keep_foreground_service", sid != null ? sid : "unknown", "source=fgs");
+    Log.i(TAG, "[DIBAY_CALL] task_removed_keep_foreground_service callId=" + sid);
+    if (sid != null && !sid.isEmpty()) {
+      String kind = ACTIVE_CALL_KIND.get();
+      boolean ringingOnly = sid.equals(RINGING_FOREGROUND_FOR.get()) && !sid.equals(FOREGROUND_STARTED_FOR.get());
+      Notification notification =
+          ringingOnly ? buildRingingCallNotification(sid, kind) : buildOngoingCallNotification(sid, kind);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
+        if (!ringingOnly && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+          type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+        }
+        if (!ringingOnly && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+          type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+        }
+        startForeground(NOTIFICATION_ID, notification, type);
+      } else {
+        startForeground(NOTIFICATION_ID, notification);
+      }
+      String appPath =
+          "/community-messenger/calls/"
+              + android.net.Uri.encode(sid)
+              + (ringingOnly ? "?action=accept&nativeAccept=1&source=native_resume" : "?source=native_resume");
+      MainActivity.persistCallPendingRoute(getApplicationContext(), appPath, null, 0L);
+      DibayCallPushLog.info("pending_route_saved", sid, "path=" + appPath);
+    }
     super.onTaskRemoved(rootIntent);
   }
 
@@ -223,10 +248,76 @@ public class CallForegroundService extends Service {
     String sid = ACTIVE_CALL_ID.getAndSet(null);
     FOREGROUND_STARTED_FOR.set(null);
     RINGING_FOREGROUND_FOR.set(null);
+    ACTIVE_CALL_KIND.set("voice");
+    taskRemovedKeepAlive = false;
     if (sid != null) {
+      DibayCallLog.once("foreground_service_stopped", sid, "source=onDestroy");
       DibayCallLog.once("call_service_stop", sid, "source=onDestroy");
     }
     super.onDestroy();
+  }
+
+  private Notification buildRingingCallNotification(String callId, String kind) {
+    String sid = callId != null ? callId.trim() : "";
+    String label = "video".equalsIgnoreCase(kind) ? "영상 통화 수신 중" : "음성 통화 수신 중";
+    int pendingFlags =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            : PendingIntent.FLAG_UPDATE_CURRENT;
+    PendingIntent contentIntent =
+        PendingIntent.getActivity(
+            this,
+            NOTIFICATION_ID + 2,
+            IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(this, sid),
+            pendingFlags);
+    PendingIntent endIntent =
+        PendingIntent.getService(
+            this,
+            NOTIFICATION_ID + 3,
+            IncomingCallIntentHelper.buildCallForegroundEndIntent(this, sid, "notification_reject"),
+            pendingFlags);
+    return new NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle("DIBAY 통화")
+        .setContentText(label)
+        .setOngoing(true)
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setPriority(NotificationCompat.PRIORITY_HIGH)
+        .setContentIntent(contentIntent)
+        .addAction(android.R.drawable.ic_menu_call, "수락", contentIntent)
+        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "거절", endIntent)
+        .build();
+  }
+
+  private Notification buildOngoingCallNotification(String callId, String kind) {
+    String sid = callId != null ? callId.trim() : "";
+    String label = "video".equalsIgnoreCase(kind) ? "영상 통화" : "음성 통화";
+    int pendingFlags =
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+            ? PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            : PendingIntent.FLAG_UPDATE_CURRENT;
+    PendingIntent contentIntent =
+        PendingIntent.getActivity(
+            this,
+            NOTIFICATION_ID,
+            IncomingCallIntentHelper.buildMainActivityCallResumeIntent(this, sid),
+            pendingFlags);
+    PendingIntent endIntent =
+        PendingIntent.getService(
+            this,
+            NOTIFICATION_ID + 1,
+            IncomingCallIntentHelper.buildCallForegroundEndIntent(this, sid, "notification_end"),
+            pendingFlags);
+    return new NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher)
+        .setContentTitle("DIBAY 통화")
+        .setContentText(label + " 진행 중 · 탭하여 복귀")
+        .setOngoing(true)
+        .setCategory(NotificationCompat.CATEGORY_CALL)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .setContentIntent(contentIntent)
+        .addAction(android.R.drawable.ic_menu_close_clear_cancel, "종료", endIntent)
+        .build();
   }
 
   private void scheduleHeartbeatWatchdog() {
@@ -236,6 +327,11 @@ public class CallForegroundService extends Service {
         () -> {
           long elapsed = System.currentTimeMillis() - lastHeartbeatAtMs;
           if (elapsed >= HEARTBEAT_TIMEOUT_MS - 500L) {
+            if (taskRemovedKeepAlive) {
+              long delay = Math.max(HEARTBEAT_TIMEOUT_MS - elapsed, 5_000L);
+              heartbeatHandler.postDelayed(heartbeatWatchdogRunnable, delay);
+              return;
+            }
             String sid = ACTIVE_CALL_ID.get();
             DibayCallLog.once(
                 "call_heartbeat_timeout",
@@ -260,6 +356,7 @@ public class CallForegroundService extends Service {
 
   private void endCallAndStop(String callId, String reason) {
     cancelHeartbeatWatchdog();
+    taskRemovedKeepAlive = false;
     final String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : ACTIVE_CALL_ID.get();
     if (sid != null && !sid.isEmpty()) {
       IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
@@ -277,12 +374,14 @@ public class CallForegroundService extends Service {
     ACTIVE_CALL_ID.set(null);
     FOREGROUND_STARTED_FOR.set(null);
     RINGING_FOREGROUND_FOR.set(null);
+    ACTIVE_CALL_KIND.set("voice");
     if (sid != null) {
       DibayIncomingCallNativeStore.clear(this, sid, reason);
     }
     stopForeground(true);
     stopSelf();
     if (sid != null) {
+      DibayCallLog.once("foreground_service_stopped", sid, "reason=" + reason);
       DibayCallLog.once("call_service_stop", sid, "reason=" + reason);
     }
   }
@@ -293,17 +392,10 @@ public class CallForegroundService extends Service {
       return;
     }
     String sid = callId.trim();
+    ACTIVE_CALL_ID.set(sid);
+    ACTIVE_CALL_KIND.set(kind != null ? kind : "voice");
     ensureChannel();
-    String label = "video".equalsIgnoreCase(kind) ? "영상 통화 수신 중" : "음성 통화 수신 중";
-    Notification notification =
-        new NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("DIBAY 통화")
-            .setContentText(label)
-            .setOngoing(true)
-            .setCategory(NotificationCompat.CATEGORY_CALL)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build();
+    Notification notification = buildRingingCallNotification(sid, kind);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       startForeground(
           NOTIFICATION_ID,
@@ -314,6 +406,7 @@ public class CallForegroundService extends Service {
     }
     RINGING_FOREGROUND_FOR.set(sid);
     DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true phase=ringing");
+    DibayCallLog.once("foreground_service_started", sid, "phase=ringing");
   }
 
   private void stopRingingForeground(String callId, String reason) {
@@ -325,6 +418,7 @@ public class CallForegroundService extends Service {
     stopSelf();
     DibayCallPushLog.info(
         "foreground_service_stopped_ringing", sid, "reason=" + (reason != null ? reason : "unknown"));
+    DibayCallLog.once("foreground_service_stopped", sid, "reason=" + (reason != null ? reason : "ringing_end"));
   }
 
   private void ensureChannel() {

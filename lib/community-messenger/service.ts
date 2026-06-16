@@ -750,8 +750,26 @@ async function userHasLiveDirectCallSessionOutsideRoom(
   return Boolean(trimText((data as { id?: string } | null)?.id ?? ""));
 }
 
-/** 앱 부팅·새로고침 — 본인 active 1:1 통화 복구용 */
-export async function getActiveDirectCallSessionForUser(
+async function loadDirectCallSessionRowById(
+  sb: SupabaseLike,
+  userId: string,
+  sessionId: string
+): Promise<CommunityMessengerCallSession | null> {
+  const sid = trimText(sessionId);
+  if (!sid) return null;
+  const { data: row } = await (sb as any)
+    .from("community_messenger_call_sessions")
+    .select(
+      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+    )
+    .eq("id", sid)
+    .maybeSingle();
+  if (!row) return null;
+  return mapCallSession(userId, row as CallSessionRow);
+}
+
+/** 앱 부팅·새로고침 — 본인 live(ringing|active) 1:1 통화 복구용 */
+export async function getLiveDirectCallSessionForUser(
   userId: string
 ): Promise<CommunityMessengerCallSession | null> {
   const uid = trimText(userId);
@@ -762,23 +780,24 @@ export async function getActiveDirectCallSessionForUser(
     const row = dev.callSessions.find(
       (s) =>
         s.sessionMode === "direct" &&
-        s.status === "active" &&
+        (s.status === "ringing" || s.status === "active") &&
         (messengerUserIdsEqual(s.initiatorUserId, uid) ||
           (s.recipientUserId != null && messengerUserIdsEqual(s.recipientUserId, uid)))
     );
     return row ? await mapCallSession(uid, row) : null;
   }
-  const sessionId = await getUserLiveDirectCallSessionId(sb, uid, "active");
+  const sessionId = await getUserLiveDirectCallSessionId(sb, uid, "live");
   if (!sessionId) return null;
-  const { data: row } = await (sb as any)
-    .from("community_messenger_call_sessions")
-    .select(
-      "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
-    )
-    .eq("id", sessionId)
-    .maybeSingle();
-  if (!row) return null;
-  return mapCallSession(uid, row as CallSessionRow);
+  return loadDirectCallSessionRowById(sb, uid, sessionId);
+}
+
+/** active-only subset — 기존 호출부 호환 */
+export async function getActiveDirectCallSessionForUser(
+  userId: string
+): Promise<CommunityMessengerCallSession | null> {
+  const live = await getLiveDirectCallSessionForUser(userId);
+  if (!live || live.status !== "active") return null;
+  return live;
 }
 
 async function appendCommunityMessengerCallSessionEvent(
@@ -16767,6 +16786,7 @@ export async function startCommunityMessengerCallSession(input: {
   ok: boolean;
   session?: CommunityMessengerCallSession;
   error?: string;
+  reused?: boolean;
   /** 개발 전용 — 클라 `[cm-call-latency] db_insert_or_rpc_done` 분해용 */
   _callStartTimingsMs?: Record<string, number>;
 }> {
@@ -16798,7 +16818,7 @@ export async function startCommunityMessengerCallSession(input: {
         snapshot.room.peerUserId ?? null,
         input.userId
       );
-      return { ok: true, session: snapshot.activeCall };
+      return { ok: true, session: snapshot.activeCall, reused: true };
     }
     isGroupRoom = isCommunityMessengerGroupRoomType(snapshot.room.roomType);
     peerUserId = isGroupRoom
@@ -16818,7 +16838,7 @@ export async function startCommunityMessengerCallSession(input: {
         resolved.peerUserId,
         input.userId
       );
-      return { ok: true, session: resolved.activeCall };
+      return { ok: true, session: resolved.activeCall, reused: true };
     }
     peerUserId = resolved.peerUserId;
     isGroupRoom = false;
@@ -16829,6 +16849,15 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
+  if (!isGroupRoom && sb) {
+    const callerLiveId = await getUserLiveDirectCallSessionId(sb, input.userId, "live");
+    if (callerLiveId) {
+      const existingCallerSession = await loadDirectCallSessionRowById(sb, input.userId, callerLiveId);
+      if (existingCallerSession && !isTerminalCallSessionStatus(existingCallerSession.status)) {
+        return { ok: true, session: existingCallerSession, reused: true };
+      }
+    }
+  }
   const tGateStart = performance.now();
   if (!isGroupRoom && sb && dialFresh) {
     await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
@@ -17028,7 +17057,7 @@ export async function startCommunityMessengerCallSession(input: {
         if (dialFresh) {
           maybeResendIncomingCallPushForReusedSession(existing, peerUserId, input.userId);
         }
-        return { ok: true, session: existing };
+        return { ok: true, session: existing, reused: true };
       }
     }
     if (!isMissingTableError(error)) {
@@ -17042,7 +17071,7 @@ export async function startCommunityMessengerCallSession(input: {
 
   const existingDevLive = dialFresh ? null : await getActiveCallSessionForRoom(input.userId, roomId);
   if (existingDevLive) {
-    return { ok: true, session: existingDevLive };
+    return { ok: true, session: existingDevLive, reused: true };
   }
 
   if (!snapshot) {

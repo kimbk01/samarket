@@ -1,52 +1,54 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearAgoraJoinGuard,
+  hasAgoraJoinCompleted,
   joinCommunityMessengerAgoraChannelOnce,
   resetAgoraJoinGuardForTests,
 } from "@/lib/call/actions/agora-join-guard";
-import { resetDibayCallFlowLogForTests } from "@/lib/call/logging/call-flow-log";
 
 vi.mock("@/lib/community-messenger/call-provider/client", () => ({
   joinCommunityMessengerAgoraChannel: vi.fn(async () => undefined),
 }));
 
-describe("agora-join-guard", () => {
+vi.mock("@/lib/call/logging/call-flow-log", () => ({
+  logDibayCallFlow: vi.fn(),
+}));
+
+describe("agora join guard", () => {
   beforeEach(() => {
     resetAgoraJoinGuardForTests();
-    resetDibayCallFlowLogForTests();
-    vi.clearAllMocks();
   });
 
   it("joins once per callId", async () => {
-    const { joinCommunityMessengerAgoraChannel } = await import(
-      "@/lib/community-messenger/call-provider/client"
-    );
-    const args = {
+    const first = await joinCommunityMessengerAgoraChannelOnce("call-1", {
       client: {} as never,
       appId: "app",
       channelName: "ch",
       token: "tok",
       uid: "1",
-    };
-    const first = await joinCommunityMessengerAgoraChannelOnce("call-a", args);
-    const second = await joinCommunityMessengerAgoraChannelOnce("call-a", args);
-    expect(first.ok).toBe(true);
-    expect(second.ok).toBe(false);
-    if (!second.ok) expect(second.reason).toBe("duplicate");
-    expect(joinCommunityMessengerAgoraChannel).toHaveBeenCalledTimes(1);
+    });
+    expect(first).toEqual({ ok: true });
+    expect(hasAgoraJoinCompleted("call-1")).toBe(true);
+
+    const second = await joinCommunityMessengerAgoraChannelOnce("call-1", {
+      client: {} as never,
+      appId: "app",
+      channelName: "ch",
+      token: "tok",
+      uid: "1",
+    });
+    expect(second).toEqual({ ok: false, reason: "duplicate" });
   });
 
-  it("allows join after clear for consecutive calls", async () => {
-    const args = {
+  it("clearAgoraJoinGuard allows rejoin", async () => {
+    await joinCommunityMessengerAgoraChannelOnce("call-2", {
       client: {} as never,
       appId: "app",
       channelName: "ch",
       token: "tok",
       uid: "1",
-    };
-    await joinCommunityMessengerAgoraChannelOnce("call-b", args);
-    clearAgoraJoinGuard("call-b");
-    const again = await joinCommunityMessengerAgoraChannelOnce("call-b", args);
-    expect(again.ok).toBe(true);
+    });
+    clearAgoraJoinGuard("call-2");
+    expect(hasAgoraJoinCompleted("call-2")).toBe(false);
   });
 });

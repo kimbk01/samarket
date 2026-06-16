@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOk } from "@/lib/http/api-route";
-import { getActiveDirectCallSessionForUser } from "@/lib/community-messenger/service";
+import { getLiveDirectCallSessionForUser } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,6 +20,6 @@ export async function GET(request: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const session = await getActiveDirectCallSessionForUser(auth.userId);
+  const session = await getLiveDirectCallSessionForUser(auth.userId);
   return jsonOk({ session });
 }

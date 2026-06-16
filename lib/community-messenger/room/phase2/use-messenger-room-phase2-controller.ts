@@ -62,6 +62,10 @@ import {
   buildCommunityMessengerOutgoingDialHref,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  guardInstantOutgoingCallStart,
+  navigateBlockedOutgoingCall,
+} from "@/lib/call/outgoing-call-start-guard";
 import { cmCallLatencyInfo, cmCallLatencyMarkClick, setCmCallLatencyContext } from "@/lib/community-messenger/cm-call-debug";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
@@ -554,6 +558,15 @@ export function useMessengerRoomPhase2Controller() {
     (kind: "voice" | "video"): boolean => {
       if (roomUnavailable || isGroupRoom) return false;
       if (outgoingDialSyncGuardRef.current) return false;
+      const guard = guardInstantOutgoingCallStart({
+        roomId: roomId.trim(),
+        kind,
+      });
+      if (!guard.ok) {
+        if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
+        else showMessengerSnackbar(guard.userMessage, { variant: "error" });
+        return false;
+      }
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
 
@@ -1663,6 +1676,15 @@ export function useMessengerRoomPhase2Controller() {
   const startDirectCallWithMember = useCallback(
     (peerUserId: string, kind: "voice" | "video", peerLabelHint?: string): boolean => {
       if (outgoingDialSyncGuardRef.current) return false;
+      const guard = guardInstantOutgoingCallStart({
+        peerUserId,
+        kind,
+      });
+      if (!guard.ok) {
+        if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
+        else showMessengerSnackbar(guard.userMessage, { variant: "error" });
+        return false;
+      }
       outgoingDialSyncGuardRef.current = true;
       setOutgoingDialLocked(true);
 

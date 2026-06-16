@@ -7,6 +7,7 @@ import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/
 import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/CallActiveSessionRecoveryHost";
 import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { DibayFcmCallRouteHost } from "@/components/layout/providers/DibayFcmCallRouteHost";
+import { DibayVoipCallBridgeHost } from "@/lib/push/native/dibay-voip-call-bridge";
 
 const IncomingCallOverlay = dynamic(
   () =>
@@ -24,6 +25,7 @@ export function CallIncomingChrome() {
   return (
     <CallProvider>
       <DibayFcmCallRouteHost />
+      <DibayVoipCallBridgeHost />
       <CallActiveSessionRecoveryHost />
       <CommunityMessengerActiveCallHost />
       {/*

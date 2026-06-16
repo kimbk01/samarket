@@ -22,7 +22,7 @@ describe("call-end-guard swipe", () => {
     vi.clearAllMocks();
   });
 
-  it("sends end patch on app swipe", async () => {
+  it("still supports explicit swipe end patch when invoked", async () => {
     const { patchCommunityMessengerCallSession } = await import("@/lib/call/call-actions");
     await runCallEndGuardFromAppSwipe("call-swipe-1", "app_swipe");
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledWith(

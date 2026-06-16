@@ -84,6 +84,9 @@ export async function readNativeActiveCallId(): Promise<string | null> {
   return id || null;
 }
 
+/** Contract alias — same as readNativeActiveCallId */
+export const getActiveCall = readNativeActiveCallId;
+
 export async function pingNativeCallHeartbeat(callId: string): Promise<boolean> {
   const sid = callId.trim();
   if (!sid) return false;
@@ -96,5 +99,6 @@ export const nativeCallService = {
   startCall: startNativeCallService,
   endCall: endNativeCallService,
   getActiveCallId: readNativeActiveCallId,
+  getActiveCall: readNativeActiveCallId,
   heartbeat: pingNativeCallHeartbeat,
 };

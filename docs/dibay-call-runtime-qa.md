@@ -56,9 +56,11 @@ JS·Native 모두 prefix **`[DIBAY_CALL]`** 로 통일.
 
 | 기대 로그 | 비고 |
 |-----------|------|
-| `app_swipe_detected` | FGS `onTaskRemoved` |
-| `call_end_sent_to_peer` | native PATCH end |
-| 상대방 | 통화 **즉시** 종료 |
+| `task_removed_keep_foreground_service` | FGS `onTaskRemoved` — **통화 임의 종료 금지** |
+| ongoing notification 유지 | tap → `notification_resume_route` |
+| notification End | `foreground_service_stopped` + PATCH end |
+
+**구 behavior (역행):** swipe → `call_end_sent_to_peer` 즉시 종료 — P0에서 제거됨.
 
 ---
 

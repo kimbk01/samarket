@@ -28,6 +28,7 @@ import {
 } from "@/lib/permissions/dibay-device-permission-store";
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
 import { requestNativeNotificationPermissionIfNeeded } from "@/lib/push/native/check-native-notification-permission";
+import { promptAndroidFullScreenIntentSettingsIfNeeded } from "@/lib/push/native/check-android-full-screen-intent";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
 import { useStoresHomeOverlayDeferUntilInput } from "@/lib/stores/use-stores-home-overlay-defer-until-input";
 
@@ -185,6 +186,7 @@ export function DiBaYDevicePermissionOnboardingGate() {
           const step = steps[stepIndex];
           if (step === "notification") {
             await runNotificationOsPermissionStep();
+            void promptAndroidFullScreenIntentSettingsIfNeeded();
             continue;
           }
 

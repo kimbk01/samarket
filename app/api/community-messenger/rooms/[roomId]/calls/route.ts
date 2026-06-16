@@ -45,5 +45,22 @@ export async function POST(
     callKind: body.callKind,
     dialIntent: body.dialIntent === "fresh" ? "fresh" : undefined,
   });
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  if (!result.ok) {
+    return NextResponse.json(result, { status: 400 });
+  }
+  const session = result.session;
+  if (!session?.id) {
+    return NextResponse.json({ ok: false, error: "session_missing" }, { status: 500 });
+  }
+  return NextResponse.json(
+    {
+      ok: true,
+      reused: result.reused === true,
+      callId: session.id,
+      status: session.status,
+      session,
+      ...(result._callStartTimingsMs ? { _callStartTimingsMs: result._callStartTimingsMs } : {}),
+    },
+    { status: 200 },
+  );
 }

@@ -92,6 +92,10 @@ import {
   buildCommunityMessengerOutgoingDialHref,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  guardInstantOutgoingCallStart,
+  navigateBlockedOutgoingCall,
+} from "@/lib/call/outgoing-call-start-guard";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import {
   applyFriendRequestOutcomeToHomeState,
@@ -1174,6 +1178,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const startDirectCall = useCallback(
     (peerUserId: string, kind: "voice" | "video", peerLabelForDial?: string | null): boolean => {
       if (outgoingDialSyncGuardRef.current) return false;
+      const guard = guardInstantOutgoingCallStart({
+        peerUserId,
+        kind,
+      });
+      if (!guard.ok) {
+        if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
+        else showMessengerSnackbar(guard.userMessage, { variant: "error" });
+        return false;
+      }
       outgoingDialSyncGuardRef.current = true;
       setActionError(null);
       cmCallLatencyMarkClick({ surface: "messenger_home", callKind: kind });

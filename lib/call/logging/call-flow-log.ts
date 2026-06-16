@@ -39,7 +39,17 @@ export type DibayCallFlowStep =
   | "ring_stop"
   | "connected"
   | "join_fail"
-  | "state_end";
+  | "state_end"
+  | "active_session_create"
+  | "active_session_resume_from_native"
+  | "task_removed_keep_foreground_service"
+  | "notification_resume_route"
+  | "call_history_start_lock_acquired"
+  | "call_history_start_lock_reused"
+  | "call_history_start_blocked_active_call"
+  | "active_session_hard_clear"
+  | "foreground_service_started"
+  | "foreground_service_stopped";
 
 const emittedSteps = new Set<string>();
 

@@ -5,7 +5,7 @@
  * 폴링·`runSingleFlight` 키: `docs/messenger-realtime-policy.md`
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -172,6 +172,7 @@ import {
   installDibayFcmCallBridge,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import { getActiveCallSessionCallId, subscribeActiveCallSession } from "@/lib/call/active-call-session";
 import {
   filterIncomingSessionsRespectingConsumed,
   filterIncomingSessionsRespectingDismissed,
@@ -1756,6 +1757,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     return null;
   }, [sessions, userId]);
 
+  const clientLiveCallSessionId = useSyncExternalStore(
+    subscribeActiveCallSession,
+    getActiveCallSessionCallId,
+    () => null,
+  );
+  const effectiveViewerLiveSessionId = viewerLiveSessionId ?? clientLiveCallSessionId;
+
   const inMessengerRoom =
     typeof pathname === "string" && pathname.startsWith("/community-messenger/rooms/");
 
@@ -1773,7 +1781,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         sessions,
         pathname,
         viewerUserId: userId,
-        viewerLiveSessionId,
+        viewerLiveSessionId: effectiveViewerLiveSessionId,
         tombstone: buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
         incomingTabLeader,
         visibilityState: incomingVisibilityState,
@@ -1790,7 +1798,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       pathname,
       sessions,
       userId,
-      viewerLiveSessionId,
+      effectiveViewerLiveSessionId,
     ]
   );
 
@@ -1850,7 +1858,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       incomingVisibilityState,
       isCapacitorNative: isCapacitorNativePlatform(),
       sessions,
-      viewerLiveSessionId,
+      viewerLiveSessionId: effectiveViewerLiveSessionId,
       firstRingingCalleeSession:
         foregroundPresentation.selectedRingingSessionId != null
           ? sessions.find((s) => s.id === foregroundPresentation.selectedRingingSessionId) ??
@@ -1952,19 +1960,19 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     const uid = userId?.trim();
-    if (!uid || !viewerLiveSessionId) return;
+    if (!uid || !effectiveViewerLiveSessionId) return;
     const hard = hardClearedIncomingSessionsAtRef.current;
     const tombstone = buildCallTombstoneContext(hard);
     const autoRejectIds: string[] = [];
     for (const s of sessions) {
       if (s.status !== "ringing") continue;
-      if (s.id === viewerLiveSessionId) continue;
+      if (s.id === effectiveViewerLiveSessionId) continue;
       if (activeIncomingCallIdsRef.current.has(s.id)) continue;
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
       const busy = evaluateIncomingCallBusyPolicy({
         incoming: s,
         otherLiveSessionId: resolveOverlayBusyLiveSessionId({
-          viewerLiveSessionId,
+          viewerLiveSessionId: effectiveViewerLiveSessionId,
           pathname,
           incomingSessionId: s.id,
         }),
@@ -1991,7 +1999,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       }).then(() => refresh(true, { incomingTerminalListSync: true }));
     }
     setSessions((prev) => prev.filter((item) => !rejected.has(item.id)));
-  }, [pathname, refresh, sessions, userId, viewerLiveSessionId]);
+  }, [effectiveViewerLiveSessionId, pathname, refresh, sessions, userId]);
 
   useEffect(() => {
     syncCommunityMessengerNativeIncomingCall(nativeIncomingSession);

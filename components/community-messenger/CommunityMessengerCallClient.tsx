@@ -99,6 +99,16 @@ import {
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
 import {
+  hardClearActiveCallSession,
+  patchActiveCallSessionPhase,
+  setActiveCallSession,
+} from "@/lib/call/active-call-session";
+import { releaseCallActionLock } from "@/lib/call/call-action-lock";
+import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
+import { joinCommunityMessengerAgoraChannelOnce } from "@/lib/call/actions/agora-join-guard";
+import { startCallHeartbeatWatchdog, stopCallHeartbeatWatchdog } from "@/lib/call/native/call-heartbeat-watchdog";
+import { startNativeCallService } from "@/lib/call/native/native-call-service";
+import {
   cmCallAudioCleanup,
   cmCallFlow,
   cmCallLatencyInfo,
@@ -1521,6 +1531,39 @@ export function CommunityMessengerCallClient({
   }, [session?.callKind, session?.id, session?.status]);
 
   useEffect(() => {
+    const s = session;
+    if (!s?.id) return;
+    if (isTerminalCallSessionStatus(s.status)) {
+      stopCallHeartbeatWatchdog(s.id);
+      void hardClearActiveCallSession(s.id, s.status);
+      releaseCallActionLock("terminal");
+      return;
+    }
+    const phase = mapSessionStatusToActiveCallPhase(s, joined);
+    if (phase === "idle") {
+      stopCallHeartbeatWatchdog(s.id);
+      return;
+    }
+    setActiveCallSession(
+      {
+        callId: s.id,
+        roomId: s.roomId,
+        peerUserId: s.peerUserId,
+        role: s.isMineInitiator ? "caller" : "callee",
+        mediaType: s.callKind,
+        phase,
+      },
+      "call_client",
+    );
+    if (phase === "active" && joined) {
+      void startNativeCallService(s.id, { callKind: s.callKind, phase: "active" });
+      startCallHeartbeatWatchdog(s.id);
+    } else {
+      stopCallHeartbeatWatchdog(s.id);
+    }
+  }, [joined, session]);
+
+  useEffect(() => {
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
     if (terminalImmediateCleanupOnceRef.current === session.id) return;
     terminalImmediateCleanupOnceRef.current = session.id;
@@ -2256,13 +2299,23 @@ export function CommunityMessengerCallClient({
         }
 
         logDibayCall("agora_join_start", { sessionId: targetSession.id, callKind: targetSession.callKind });
-        await joinCommunityMessengerAgoraChannel({
-          client,
-          appId: connection.appId,
-          channelName: connection.channelName,
-          token: connection.token,
-          uid: connection.uid,
-        });
+        const joinResult = await joinCommunityMessengerAgoraChannelOnce(
+          targetSession.id,
+          {
+            client,
+            appId: connection.appId,
+            channelName: connection.channelName,
+            token: connection.token,
+            uid: connection.uid ?? "0",
+          },
+          { callKind: targetSession.callKind },
+        );
+        if (!joinResult.ok && joinResult.reason === "in_flight") {
+          throw new Error("agora_join_in_flight");
+        }
+        if (!joinResult.ok && joinResult.reason !== "duplicate") {
+          throw new Error("agora_join_blocked");
+        }
         logDibayCall("agora_join_success", { sessionId: targetSession.id, callKind: targetSession.callKind });
         if (isVideoCall) {
           try {
@@ -2812,6 +2865,7 @@ export function CommunityMessengerCallClient({
     const roomId = session.roomId;
     const sid = session.id;
     const peer = session.peerUserId?.trim();
+    patchActiveCallSessionPhase(sid, "ending", "call_client_end");
     dibayCallSealTerminal(sid);
     const patchAction: "cancel" | "reject" | "end" =
       session.status === "ringing"
@@ -2951,13 +3005,18 @@ export function CommunityMessengerCallClient({
           return;
         }
         const provider = await loadCommunityMessengerCallProvider();
-        await provider.joinCommunityMessengerAgoraChannel({
-          client,
-          appId: connection.appId,
-          channelName: connection.channelName,
-          token: connection.token,
-          uid: connection.uid,
-        });
+        const joinResult = await joinCommunityMessengerAgoraChannelOnce(
+          s.id,
+          {
+            client,
+            appId: connection.appId,
+            channelName: connection.channelName,
+            token: connection.token,
+            uid: connection.uid ?? "0",
+          },
+          { callKind: s.callKind },
+        );
+        if (!joinResult.ok && joinResult.reason !== "duplicate") return;
         setAgoraReconnecting(false);
         clearTimers();
       } catch {

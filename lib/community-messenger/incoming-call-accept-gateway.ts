@@ -15,6 +15,8 @@ import {
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
+import { getActiveCallSessionCallId, setActiveCallSession } from "@/lib/call/active-call-session";
+import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
@@ -196,6 +198,17 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
 
   logDibayCall("incoming_accept_click", { sessionId: sid, callId: sid, source: args.source });
 
+  const liveCallId = getActiveCallSessionCallId();
+  if (liveCallId && liveCallId !== sid) {
+    logDibayCall("call_history_start_blocked_active_call", {
+      sessionId: sid,
+      callId: sid,
+      existingCallId: liveCallId,
+      source: args.source,
+    });
+    return { ok: false, sessionId: sid, reason: "duplicate_accept_blocked" };
+  }
+
   /** PATCH·권한 대기 전 OS 벨 즉시 중지 (reject 와 동일 — 로그: accept 후 native ring_stop 누락) */
   dibayIncomingLaneStopRing("accept_pressed_immediate", sid);
   dismissAllIncomingCallNotificationsFireAndForget(sid);
@@ -264,6 +277,22 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
 
     applyIncomingCallConsumedSideEffects(sid, "accepted", args.source);
     logDibayCall("accept_success", { sessionId: sid, callId: sid, source: args.source });
+
+    const updated = patched.session;
+    const phase = mapSessionStatusToActiveCallPhase(updated, false);
+    if (phase !== "idle") {
+      setActiveCallSession(
+        {
+          callId: updated.id,
+          roomId: updated.roomId,
+          peerUserId: updated.peerUserId,
+          role: "callee",
+          mediaType: updated.callKind,
+          phase,
+        },
+        "incoming_accept",
+      );
+    }
 
     replaceActiveIncomingCallRoute(args.router, sid, args.hrefOverride, args.source);
     return { ok: true, sessionId: sid };

@@ -1,0 +1,98 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  getActiveCallSessionCallId,
+  hardClearActiveCallSession,
+  resetActiveCallSessionForTests,
+  setActiveCallSession,
+} from "@/lib/call/active-call-session";
+import {
+  acquireCallActionLock,
+  isOutgoingCallStartBlocked,
+  releaseCallActionLock,
+  resetCallActionLockForTests,
+} from "@/lib/call/call-action-lock";
+
+vi.mock("@/lib/community-messenger/call-orchestrator", () => ({
+  logDibayCall: vi.fn(),
+  sealDibayCallTerminalSurface: vi.fn(),
+}));
+
+vi.mock("@/lib/call/native/native-call-service", () => ({
+  endNativeCallService: vi.fn(async () => true),
+}));
+
+vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
+  stopCommunityMessengerCallTone: vi.fn(),
+}));
+
+vi.mock("@/lib/call/native/call-heartbeat-watchdog", () => ({
+  stopCallHeartbeatWatchdog: vi.fn(),
+}));
+
+describe("active-call-session SSOT", () => {
+  beforeEach(() => {
+    resetActiveCallSessionForTests();
+    resetCallActionLockForTests();
+  });
+
+  it("keeps a single live callId", () => {
+    setActiveCallSession({
+      callId: "call-1",
+      roomId: "room-1",
+      peerUserId: "peer-1",
+      role: "caller",
+      mediaType: "voice",
+      phase: "dialing",
+    });
+    expect(getActiveCallSessionCallId()).toBe("call-1");
+  });
+
+  it("hard clears terminal session", async () => {
+    setActiveCallSession({
+      callId: "call-2",
+      roomId: "room-1",
+      peerUserId: null,
+      role: "caller",
+      mediaType: "voice",
+      phase: "active",
+    });
+    await hardClearActiveCallSession("call-2", "ended");
+    expect(getActiveCallSessionCallId()).toBeNull();
+  });
+});
+
+describe("call-action-lock", () => {
+  beforeEach(() => {
+    resetActiveCallSessionForTests();
+    resetCallActionLockForTests();
+  });
+
+  it("blocks second acquire while lock is held", () => {
+    const first = acquireCallActionLock({ roomId: "room-a", mediaType: "voice" });
+    expect(first.ok).toBe(true);
+    const second = acquireCallActionLock({ roomId: "room-b", mediaType: "voice" });
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.reason).toBe("lock_held");
+  });
+
+  it("blocks outgoing when active session exists", () => {
+    setActiveCallSession({
+      callId: "live-1",
+      roomId: "room-1",
+      peerUserId: null,
+      role: "caller",
+      mediaType: "voice",
+      phase: "ringing",
+    });
+    expect(isOutgoingCallStartBlocked()).toBe(true);
+    const result = acquireCallActionLock({ roomId: "room-2", mediaType: "voice" });
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("active_call");
+  });
+
+  it("releases lock after failure path", () => {
+    acquireCallActionLock({ roomId: "room-a", mediaType: "voice" });
+    releaseCallActionLock("create_failed");
+    expect(isOutgoingCallStartBlocked()).toBe(false);
+  });
+});

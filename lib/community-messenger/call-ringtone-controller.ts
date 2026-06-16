@@ -5,6 +5,7 @@ import {
   unlockCommunityMessengerCallPlaybackFromUserGesture,
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
 import { shouldAllowIncomingRingtone } from "@/lib/community-messenger/incoming-call-state";
 
@@ -36,6 +37,12 @@ export function playIncomingCallRingtone(sessionId: string, callKind: CommunityM
   if (typeof window === "undefined") return;
   const sid = sessionId.trim();
   if (!sid) return;
+
+  const liveCallId = getActiveCallSessionCallId();
+  if (liveCallId && liveCallId !== sid) {
+    logCallFlow("call_ringtone_aborted", { sessionId: sid, kind: "active_call_ssot_other" });
+    return;
+  }
 
   if (activeMode === "incoming" && activeSessionId === sid && activeTone) {
     logCallFlow("call_incoming_deduped", { sessionId: sid, kind: "ringtone_active" });
@@ -79,6 +86,12 @@ export async function playOutgoingCallRingtone(
   sessionId: string,
   callKind: CommunityMessengerCallKind
 ): Promise<CallToneController> {
+  const sid = sessionId.trim();
+  const liveCallId = getActiveCallSessionCallId();
+  if (liveCallId && liveCallId !== sid) {
+    logCallFlow("call_ringtone_aborted", { sessionId: sid, kind: "active_call_ssot_other" });
+    return { stop: () => {} };
+  }
   stopCallRingtoneInternal("outgoing_replace");
   const tone = await startCommunityMessengerCallTone("outgoing", { callKind });
   activeSessionId = sessionId.trim() || null;

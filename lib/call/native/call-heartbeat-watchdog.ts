@@ -44,6 +44,14 @@ function scheduleTimeout(handle: WatchdogHandle): void {
     void (async () => {
       const elapsed = Date.now() - handle.lastPingAt;
       if (elapsed < CALL_HEARTBEAT_TIMEOUT_MS - 500) return;
+      if (isCapacitorNativePlatform()) {
+        const nativeId = (await nativeCallService.getActiveCallId())?.trim();
+        if (nativeId && nativeId === handle.callId) {
+          handle.lastPingAt = Date.now();
+          scheduleTimeout(handle);
+          return;
+        }
+      }
       logDibayCallFlow("call_heartbeat_timeout", {
         sessionId: handle.callId,
         callId: handle.callId,

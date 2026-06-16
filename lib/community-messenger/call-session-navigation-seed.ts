@@ -20,6 +20,16 @@ import {
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
+import {
+  acquireCallActionLock,
+  bindCallActionLockCallId,
+  releaseCallActionLock,
+} from "@/lib/call/call-action-lock";
+import {
+  setActiveCallSession,
+} from "@/lib/call/active-call-session";
+import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
+import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
@@ -225,8 +235,8 @@ export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMess
 }
 
 export type OutgoingCallSessionBootstrapResult =
-  | { ok: true; session: CommunityMessengerCallSession; roomId: string }
-  | { ok: false; userMessage: string };
+  | { ok: true; session: CommunityMessengerCallSession; roomId: string; reused?: boolean }
+  | { ok: false; userMessage: string; blockedCallId?: string };
 
 function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
   const lang = getRuntimeAppLanguage();
@@ -270,6 +280,44 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
   peerUserId: string | null;
   kind: CommunityMessengerCallKind;
 }): Promise<OutgoingCallSessionBootstrapResult> {
+  const lock = acquireCallActionLock({
+    roomId: args.roomId,
+    peerUserId: args.peerUserId,
+    mediaType: args.kind,
+  });
+  if (!lock.ok) {
+    if (lock.reason === "active_call") {
+      const msg = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_already_in_progress", {
+        fallbackKo: "현재 통화가 진행 중입니다.",
+        fallbackEn: "A call is already in progress.",
+      });
+      return { ok: false, userMessage: msg, blockedCallId: lock.existingCallId };
+    }
+    const msg = safeTranslate(getRuntimeAppLanguage(), "cm_ui_call_start_in_progress", {
+      fallbackKo: "통화 연결 중입니다. 잠시만 기다려 주세요.",
+      fallbackEn: "Connecting a call. Please wait.",
+    });
+    return { ok: false, userMessage: msg };
+  }
+
+  try {
+    return await runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(args);
+  } catch (e) {
+    releaseCallActionLock("bootstrap_error");
+    throw e;
+  }
+}
+
+async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(args: {
+  signal?: AbortSignal;
+  roomId: string | null;
+  peerUserId: string | null;
+  kind: CommunityMessengerCallKind;
+}): Promise<OutgoingCallSessionBootstrapResult> {
+  const fail = (userMessage: string, reason = "bootstrap_failed"): OutgoingCallSessionBootstrapResult => {
+    releaseCallActionLock(reason);
+    return { ok: false, userMessage };
+  };
   let roomId = args.roomId?.trim() ?? "";
 
   cmCallLatencyInfo("bootstrap_start", {
@@ -317,21 +365,18 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
       code?: string;
     };
     if (res.status === 401) {
-      return { ok: false, userMessage: "로그인이 필요합니다." };
+      return fail("로그인이 필요합니다.");
     }
     if (isPhoneVerificationRequiredApiPayload(json)) {
-      return { ok: false, userMessage: String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE };
+      return fail(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE);
     }
     if (res.status === 403) {
       const err = String(json.error ?? "").trim();
-      return { ok: false, userMessage: err || "요청을 처리할 수 없습니다." };
+      return fail(err || "요청을 처리할 수 없습니다.");
     }
     if (!res.ok || !json.ok || !json.roomId) {
       const err = String(json.error ?? "").trim();
-      return {
-        ok: false,
-        userMessage: err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
-      };
+      return fail(err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
     }
     roomId = String(json.roomId);
     cmCallLatencyInfo("ensure_room_done", {
@@ -344,7 +389,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
   }
 
   if (!roomId) {
-    return { ok: false, userMessage: "방 정보가 없어 통화를 시작할 수 없습니다." };
+    return fail("방 정보가 없어 통화를 시작할 수 없습니다.");
   }
 
   cmCallLatencyInfo("create_call_session_post_start", {
@@ -372,15 +417,19 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
     ok?: boolean;
     error?: string;
     code?: string;
+    reused?: boolean;
+    callId?: string;
+    status?: string;
     session?: CommunityMessengerCallSession;
     _callStartTimingsMs?: Record<string, number>;
   };
-  if (!res.ok || !json.ok || !json.session?.id) {
+  const resolvedSessionId = json.callId?.trim() || json.session?.id?.trim() || "";
+  if (!res.ok || !json.ok || !resolvedSessionId || !json.session?.id) {
     if (isPhoneVerificationRequiredApiPayload(json)) {
-      return { ok: false, userMessage: String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE };
+      return fail(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE, "create_failed");
     }
     if (json.error === "group_call_not_supported_yet") {
-      return { ok: false, userMessage: "그룹 통화 실연결은 다음 단계에서 지원합니다." };
+      return fail("그룹 통화 실연결은 다음 단계에서 지원합니다.", "create_failed");
     }
     if (json.error === "peer_busy") {
       const viewerId = getSyncViewerUserIdForClient()?.trim();
@@ -393,21 +442,21 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
         });
       }
       cmCallFlow("outgoing_peer_busy", { roomId, callKind: args.kind, peerUserId: args.peerUserId?.trim() });
-      return { ok: false, userMessage: "상대방이 현재 통화중입니다." };
+      return fail("상대방이 현재 통화중입니다.", "create_failed");
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
-      return { ok: false, userMessage: "이 대화방에서는 지금 통화를 시작할 수 없습니다." };
+      return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");
     }
     if (json.error === "trade_chat_calls_disabled") {
-      return { ok: false, userMessage: "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다." };
+      return fail("이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다.", "create_failed");
     }
     if (json.error === "trade_chat_video_not_allowed") {
-      return { ok: false, userMessage: "이 글에서는 음성 통화만 허용되어 있습니다." };
+      return fail("이 글에서는 음성 통화만 허용되어 있습니다.", "create_failed");
     }
     if (json.error === "trade_chat_call_friend_required_after_complete") {
-      return { ok: false, userMessage: "통화를 원하면 친구를 요청하세요." };
+      return fail("통화를 원하면 친구를 요청하세요.", "create_failed");
     }
-    return { ok: false, userMessage: "통화를 시작할 수 없습니다." };
+    return fail("통화를 시작할 수 없습니다.", "create_failed");
   }
   const clientPostMs =
     typeof performance !== "undefined" ? Math.round(performance.now() - postT0) : undefined;
@@ -439,7 +488,29 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
     });
   }
   cmCallLatency("session_post_complete", { sessionId: json.session.id, roomId });
-  return { ok: true, session: json.session, roomId };
+  bindCallActionLockCallId(json.session.id);
+  if (json.reused) {
+    logDibayCall("call_history_start_lock_reused", {
+      sessionId: json.session.id,
+      callId: json.session.id,
+      roomId,
+    });
+  }
+  const phase = mapSessionStatusToActiveCallPhase(json.session, false);
+  if (phase !== "idle") {
+    setActiveCallSession(
+      {
+        callId: json.session.id,
+        roomId: json.session.roomId,
+        peerUserId: json.session.peerUserId,
+        role: "caller",
+        mediaType: json.session.callKind,
+        phase,
+      },
+      json.reused ? "server_reused" : "outgoing_bootstrap",
+    );
+  }
+  return { ok: true, session: json.session, roomId, reused: json.reused === true };
 }
 
 /**
@@ -469,6 +540,9 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
   const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
   if (!result.ok) {
     stopCommunityMessengerCallTone();
+    if (result.blockedCallId) {
+      navigate(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
+    }
     return result;
   }
   primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
@@ -526,6 +600,9 @@ export async function startOutgoingCallSessionAndOpen(
   const result = await bootstrapCommunityMessengerOutgoingCallSession(input);
   if (!result.ok) {
     stopCommunityMessengerCallTone();
+    if (result.blockedCallId) {
+      router.push(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
+    }
     return result;
   }
   primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);

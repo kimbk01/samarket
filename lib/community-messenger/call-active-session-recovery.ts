@@ -28,8 +28,10 @@ export function isTerminalCallRecoveryStatus(status: string | null | undefined):
   return TERMINAL_RECOVERY_STATUSES.has(st);
 }
 
+const LIVE_RECOVERY_STATUSES = new Set(["ringing", "active"]);
+
 /**
- * active 1:1 세션만 복구 대상 session id 반환. 그 외 null.
+ * live(ringing|active) 1:1 세션만 복구 대상 session id 반환. 그 외 null.
  */
 export function resolveActiveCallRecoveryTarget(
   session: ActiveCallRecoverySession | null | undefined,
@@ -39,7 +41,7 @@ export function resolveActiveCallRecoveryTarget(
   const sid = session?.id?.trim();
   if (!sid) return null;
   const status = session?.status?.trim().toLowerCase() ?? "";
-  if (status !== "active") return null;
+  if (!LIVE_RECOVERY_STATUSES.has(status)) return null;
   if (isTerminalCallRecoveryStatus(status)) return null;
   if (session?.sessionMode && session.sessionMode !== "direct") return null;
   return sid;

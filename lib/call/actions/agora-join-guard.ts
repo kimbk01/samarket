@@ -1,10 +1,16 @@
 "use client";
 
+import type { IAgoraRTCClient } from "agora-rtc-sdk-ng";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { logDibayCallFlow } from "@/lib/call/logging/call-flow-log";
-import { joinCommunityMessengerAgoraChannel } from "@/lib/community-messenger/call-provider/client";
 
-type JoinArgs = Parameters<typeof joinCommunityMessengerAgoraChannel>[0];
+type JoinArgs = {
+  client: IAgoraRTCClient;
+  appId: string;
+  channelName: string;
+  token: string | null;
+  uid: string;
+};
 
 const joinedCallIds = new Set<string>();
 const joinFlights = new Map<string, Promise<void>>();
@@ -60,6 +66,7 @@ export async function joinCommunityMessengerAgoraChannelOnce(
   logDibayCallFlow("agora_join_start", { sessionId: sid, callId: sid, callKind: meta?.callKind });
 
   const flight = (async () => {
+    const { joinCommunityMessengerAgoraChannel } = await import("@/lib/community-messenger/call-provider/client");
     await joinCommunityMessengerAgoraChannel(args);
     joinedCallIds.add(sid);
     logDibayCallFlow("agora_join_success", { sessionId: sid, callId: sid, callKind: meta?.callKind });

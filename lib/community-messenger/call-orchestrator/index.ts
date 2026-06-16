@@ -70,7 +70,17 @@ export type DibayCallLogStep =
   | "reject_patch_start"
   | "reject_patch_done"
   | "reject_patch_failed"
-  | "terminal_event_received";
+  | "terminal_event_received"
+  | "active_session_create"
+  | "active_session_resume_from_native"
+  | "task_removed_keep_foreground_service"
+  | "notification_resume_route"
+  | "call_history_start_lock_acquired"
+  | "call_history_start_lock_reused"
+  | "call_history_start_blocked_active_call"
+  | "active_session_hard_clear"
+  | "foreground_service_started"
+  | "foreground_service_stopped";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;

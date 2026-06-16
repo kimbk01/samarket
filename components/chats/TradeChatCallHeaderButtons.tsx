@@ -17,6 +17,11 @@ import {
   buildCommunityMessengerOutgoingDialHref,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import {
+  guardInstantOutgoingCallStart,
+  navigateBlockedOutgoingCall,
+} from "@/lib/call/outgoing-call-start-guard";
+import { useOutgoingCallBlocked } from "@/lib/call/use-outgoing-call-blocked";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   tradeChatCallPolicyAllowsVideo,
@@ -43,12 +48,22 @@ export function TradeChatCallHeaderButtons(props: {
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [busy, setBusy] = useState(false);
+  const { blocked: outgoingBlocked } = useOutgoingCallBlocked();
 
   const startCall = useCallback(
     async (kind: CallKind) => {
       const pcRid = productChatRoomId.trim();
       const cmRid = communityMessengerRoomId?.trim() ?? "";
-      if ((!pcRid && !cmRid) || busy) return;
+      if ((!pcRid && !cmRid) || busy || outgoingBlocked) return;
+      const guard = guardInstantOutgoingCallStart({
+        roomId: cmRid || undefined,
+        kind,
+      });
+      if (!guard.ok) {
+        if (guard.blockedCallId) navigateBlockedOutgoingCall(router, guard.blockedCallId);
+        else onErrorMessage(guard.userMessage);
+        return;
+      }
       setBusy(true);
       try {
         const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
@@ -104,7 +119,7 @@ export function TradeChatCallHeaderButtons(props: {
         setBusy(false);
       }
     },
-    [busy, communityMessengerRoomId, onErrorMessage, pathname, productChatRoomId, router]
+    [busy, communityMessengerRoomId, onErrorMessage, outgoingBlocked, pathname, productChatRoomId, router]
   );
 
   if (!tradeChatCallPolicyAllowsVoice(policy)) return null;
@@ -113,7 +128,7 @@ export function TradeChatCallHeaderButtons(props: {
     <div className="flex shrink-0 items-center gap-0.5 pr-0.5">
       <button
         type="button"
-        disabled={busy}
+        disabled={busy || outgoingBlocked}
         onClick={() => {
           cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "voice" });
           setCmCallLatencyContext({ role: "initiator", callKind: "voice" });
@@ -128,7 +143,7 @@ export function TradeChatCallHeaderButtons(props: {
       {tradeChatCallPolicyAllowsVideo(policy) ? (
         <button
           type="button"
-          disabled={busy}
+          disabled={busy || outgoingBlocked}
           onClick={() => {
             cmCallLatencyMarkClick({ surface: "trade_chat_header", callKind: "video" });
             setCmCallLatencyContext({ role: "initiator", callKind: "video" });

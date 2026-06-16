@@ -37,6 +37,11 @@ final class CallKitProvider: NSObject, CXProviderDelegate {
     callUuidBySessionId.removeValue(forKey: uuidString)
   }
 
+  /** NativeCallService contract — in-memory CallKit map */
+  func getActiveCallSessionId() -> String? {
+    callUuidBySessionId.keys.first
+  }
+
   private func uuidFromSession(sessionId: String) -> UUID {
     if let existing = callUuidBySessionId[sessionId] { return existing }
     if let u = UUID(uuidString: sessionId) { return u }

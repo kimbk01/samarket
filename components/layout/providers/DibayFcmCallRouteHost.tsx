@@ -68,6 +68,14 @@ export function DibayFcmCallRouteHost() {
         });
         return;
       }
+      if (path.includes("source=native_resume")) {
+        logDibayCall("notification_resume_route", {
+          sessionId: extractDibayCallSessionIdFromPath(path) ?? undefined,
+          callId: extractDibayCallSessionIdFromPath(path) ?? undefined,
+          path,
+          source: "native_resume",
+        });
+      }
       const last = lastRouteRef.current;
       if (last && last.path === path && now - last.at < ROUTE_DEDUPE_MS) {
         console.info("[call-route] duplicate_ignored", { path });

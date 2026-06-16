@@ -5,7 +5,17 @@ import { usePathname, useRouter } from "next/navigation";
 import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import {
+  hardClearActiveCallSession,
+  readActiveCallSessionSnapshot,
+  resumeActiveCallSessionFromNative,
+  subscribeActiveCallSession,
+} from "@/lib/call/active-call-session";
+import { mapSessionStatusToActiveCallPhase } from "@/lib/call/map-session-to-active-call";
+import { readNativeActiveCallId } from "@/lib/call/native/native-call-service";
+import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import {
   fetchActiveDirectCallSessionForRecovery,
+  isTerminalCallRecoveryStatus,
   resolveActiveCallRecoveryTarget,
   shouldSkipActiveCallRecoveryRouting,
   writeActiveCallRecoveryLock,
@@ -14,13 +24,30 @@ import {
   readActiveDirectVideoCallSessionId,
   readMinimizedCommunityCallSessionId,
 } from "@/lib/community-messenger/direct-call-minimize";
+import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const MAX_RECOVERY_ATTEMPTS = 2;
 
+async function fetchCallSessionForResume(callId: string): Promise<CommunityMessengerCallSession | null> {
+  const sid = callId.trim();
+  if (!sid) return null;
+  const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    session?: CommunityMessengerCallSession | null;
+  };
+  if (!json.ok || !json.session?.id) return null;
+  return json.session;
+}
+
 /**
- * 새로고침·재실행 시 본인 active 1:1 통화가 있으면 전용 통화 화면으로 복구한다.
- * auth 준비 전 누락 방지 — 최대 2회 시도(Sync user → getUser / auth 이벤트).
+ * 새로고침·재실행·native active call 시 live 1:1 통화 화면 복구.
  */
 export function CallActiveSessionRecoveryHost() {
   const router = useRouter();
@@ -39,6 +66,25 @@ export function CallActiveSessionRecoveryHost() {
     if (typeof window === "undefined") return;
 
     let cancelled = false;
+
+    const routeToCall = (targetSid: string, source: string) => {
+      if (shouldSkipActiveCallRecoveryRouting(targetSid)) {
+        routedRef.current = true;
+        return;
+      }
+      writeActiveCallRecoveryLock(targetSid);
+      routedRef.current = true;
+      const href = `/community-messenger/calls/${encodeURIComponent(targetSid)}`;
+      if (source.includes("native")) {
+        logDibayCall("notification_resume_route", {
+          sessionId: targetSid,
+          callId: targetSid,
+          path: href,
+          source,
+        });
+      }
+      router.replace(href);
+    };
 
     const tryRecovery = async (reason: "initial" | "auth_ready"): Promise<void> => {
       if (cancelled || routedRef.current || inFlightRef.current) return;
@@ -60,20 +106,55 @@ export function CallActiveSessionRecoveryHost() {
       attemptCountRef.current += 1;
       inFlightRef.current = true;
       try {
+        if (isCapacitorNativePlatform()) {
+          const nativeCallId = (await readNativeActiveCallId())?.trim();
+          if (nativeCallId && !cancelled && !routedRef.current) {
+            const nativeSession = await fetchCallSessionForResume(nativeCallId);
+            const nativeStatus = nativeSession?.status?.trim().toLowerCase() ?? "";
+            if (nativeSession && !isTerminalCallRecoveryStatus(nativeStatus)) {
+              const phase = mapSessionStatusToActiveCallPhase(nativeSession, nativeStatus === "active");
+              if (phase !== "idle") {
+                resumeActiveCallSessionFromNative({
+                  callId: nativeSession.id,
+                  roomId: nativeSession.roomId,
+                  peerUserId: nativeSession.peerUserId,
+                  role: nativeSession.isMineInitiator ? "caller" : "callee",
+                  mediaType: nativeSession.callKind,
+                  phase,
+                });
+              }
+              routeToCall(nativeSession.id, "native_resume");
+              return;
+            }
+            if (nativeStatus && isTerminalCallRecoveryStatus(nativeStatus)) {
+              await hardClearActiveCallSession(nativeCallId, "native_stale_terminal");
+            }
+          }
+        }
+
         const session = await fetchActiveDirectCallSessionForRecovery();
         if (cancelled || routedRef.current) return;
 
         const targetSid = resolveActiveCallRecoveryTarget(session, pathname);
-        if (!targetSid) return;
-
-        if (shouldSkipActiveCallRecoveryRouting(targetSid)) {
-          routedRef.current = true;
+        if (!targetSid) {
+          const existing = readActiveCallSessionSnapshot();
+          if (existing && !pathname.startsWith("/community-messenger/calls/")) {
+            await hardClearActiveCallSession(existing.callId, "recovery_no_live_session");
+          }
           return;
         }
 
-        writeActiveCallRecoveryLock(targetSid);
-        routedRef.current = true;
-        router.replace(`/community-messenger/calls/${encodeURIComponent(targetSid)}`);
+        if (session && !isTerminalCallRecoveryStatus(session.status ?? "")) {
+          const full = await fetchCallSessionForResume(targetSid);
+          if (full) {
+            const phase = mapSessionStatusToActiveCallPhase(full, full.status === "active");
+            if (phase !== "idle") {
+              setActiveFromServer(full, phase);
+            }
+          }
+        }
+
+        routeToCall(targetSid, "server_active_recovery");
       } catch {
         /* ignore */
       } finally {
@@ -106,8 +187,13 @@ export function CallActiveSessionRecoveryHost() {
       }
     }, 1_200);
 
+    const offSession = subscribeActiveCallSession(() => {
+      /* rerender hook for future UI — recovery is pathname driven */
+    });
+
     return () => {
       cancelled = true;
+      offSession();
       window.clearTimeout(retryTimer);
       window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthReady);
       authSub?.data.subscription.unsubscribe();
@@ -115,4 +201,21 @@ export function CallActiveSessionRecoveryHost() {
   }, [pathname, router]);
 
   return null;
+}
+
+function setActiveFromServer(
+  session: CommunityMessengerCallSession,
+  phase: Exclude<import("@/lib/call/active-call-session").ActiveCallSessionPhase, "idle">,
+): void {
+  resumeActiveCallSessionFromNative(
+    {
+      callId: session.id,
+      roomId: session.roomId,
+      peerUserId: session.peerUserId,
+      role: session.isMineInitiator ? "caller" : "callee",
+      mediaType: session.callKind,
+      phase,
+    },
+    "server_recovery",
+  );
 }

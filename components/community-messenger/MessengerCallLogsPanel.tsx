@@ -2,8 +2,16 @@
 
 import { Phone, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore, useState, type MouseEvent, type PointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  isOutgoingCallStartBlocked,
+  subscribeCallActionLock,
+} from "@/lib/call/call-action-lock";
+import {
+  getActiveCallSessionCallId,
+  subscribeActiveCallSession,
+} from "@/lib/call/active-call-session";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
@@ -32,12 +40,22 @@ type Props = {
   entryOrigin?: string | null;
 };
 
+function useCallHistoryRedialBlocked(): boolean {
+  useSyncExternalStore(subscribeActiveCallSession, () => isOutgoingCallStartBlocked(), () => false);
+  useSyncExternalStore(subscribeCallActionLock, () => isOutgoingCallStartBlocked(), () => false);
+  return isOutgoingCallStartBlocked();
+}
+
 function CallLogRow({
   call,
   onNavigate,
+  globalRedialBlocked,
+  activeCallId,
 }: {
   call: CommunityMessengerCallLog;
   onNavigate: (call: CommunityMessengerCallLog) => void;
+  globalRedialBlocked: boolean;
+  activeCallId: string | null;
 }) {
   const { t, safeT, language } = useI18n();
   const router = useRouter();
@@ -76,7 +94,7 @@ function CallLogRow({
   const handleRedial = useCallback(
     (event: MouseEvent | PointerEvent) => {
       event.stopPropagation();
-      if (!canRedial || redialingRef.current) return;
+      if (!canRedial || redialingRef.current || globalRedialBlocked) return;
       redialingRef.current = true;
       setRedialing(true);
       void (async () => {
@@ -100,8 +118,10 @@ function CallLogRow({
         }
       })();
     },
-    [call.peerUserId, call.roomId, canRedial, redialKind, router, t]
+    [call.peerUserId, call.roomId, canRedial, globalRedialBlocked, redialKind, router, t]
   );
+
+  const rowBlocked = globalRedialBlocked && !redialing;
 
   return (
     <li>
@@ -143,13 +163,14 @@ function CallLogRow({
               {canRedial ? (
                 <button
                   type="button"
-                  disabled={redialing}
+                  disabled={rowBlocked || redialing}
+                  aria-busy={redialing}
                   aria-label={redialAriaLabel}
                   onPointerDown={(event) => event.stopPropagation()}
                   onClick={handleRedial}
                   className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg transition hover:bg-sam-surface-muted disabled:opacity-50"
                 >
-                  <RedialIcon className="h-5 w-5" aria-hidden />
+                  <RedialIcon className={`h-5 w-5 ${redialing ? "animate-pulse" : ""}`} aria-hidden />
                 </button>
               ) : null}
             </div>
@@ -183,6 +204,12 @@ export function MessengerCallLogsPanel({
 }: Props) {
   const { t } = useI18n();
   const router = useRouter();
+  const globalRedialBlocked = useCallHistoryRedialBlocked();
+  const activeCallId = useSyncExternalStore(
+    subscribeActiveCallSession,
+    getActiveCallSessionCallId,
+    () => null,
+  );
   const [calls, setCalls] = useState<CommunityMessengerCallLog[]>(seedCalls);
   const [loading, setLoading] = useState(callsHydrating);
   const [error, setError] = useState<string | null>(null);
@@ -261,7 +288,13 @@ export function MessengerCallLogsPanel({
   return (
     <ul className="divide-y divide-sam-border" aria-label={t("cm_ui_call_logs_title")}>
       {calls.map((call) => (
-        <CallLogRow key={call.id} call={call} onNavigate={onRowNavigate} />
+        <CallLogRow
+          key={call.id}
+          call={call}
+          onNavigate={onRowNavigate}
+          globalRedialBlocked={globalRedialBlocked}
+          activeCallId={activeCallId}
+        />
       ))}
     </ul>
   );
