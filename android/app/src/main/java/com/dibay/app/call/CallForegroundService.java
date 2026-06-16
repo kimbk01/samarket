@@ -139,6 +139,20 @@ public class CallForegroundService extends Service {
 
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
+    try {
+      return handleStartCommand(intent);
+    } catch (Throwable fatal) {
+      Log.e(TAG, "[DIBAY_CALL] fgs_onStartCommand_fatal", fatal);
+      DibayCallLog.once(
+          "foreground_service_start_failed",
+          ACTIVE_CALL_ID.get() != null ? ACTIVE_CALL_ID.get() : "unknown",
+          "err=fatal:" + fatal.getClass().getSimpleName());
+      stopSelf();
+      return START_NOT_STICKY;
+    }
+  }
+
+  private int handleStartCommand(Intent intent) {
     if (intent == null) {
       // START_STICKY 재시작 시 intent null — startForeground 미호출이면 5초 내 프로세스 kill
       stopSelf();
@@ -392,7 +406,9 @@ public class CallForegroundService extends Service {
     ensureChannel();
     Notification notification = buildRingingCallNotification(sid, kind);
     if (!promoteToForeground(
-        sid, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)) {
+        sid,
+        notification,
+        android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)) {
       stopSelf();
       return;
     }
@@ -414,24 +430,82 @@ public class CallForegroundService extends Service {
   }
 
   private int resolveActiveForegroundServiceType() {
-    int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-      if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-          == PackageManager.PERMISSION_GRANTED) {
-        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-      }
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+      return 0;
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-      if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-          == PackageManager.PERMISSION_GRANTED) {
-        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-      }
+    int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && hasRecordAudioPermission()) {
+      type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && hasCameraPermission()) {
+      type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
     }
     return type;
   }
 
-  /** API 34+ phoneCall FGS — SecurityException 시 phoneCall-only 재시도, 실패 시 false */
-  private boolean promoteToForeground(String callId, Notification notification, int type) {
+  private boolean hasRecordAudioPermission() {
+    return ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+        == PackageManager.PERMISSION_GRANTED;
+  }
+
+  private boolean hasCameraPermission() {
+    return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+        == PackageManager.PERMISSION_GRANTED;
+  }
+
+  private boolean hasManageOwnCallsPermission() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      return true;
+    }
+    return ContextCompat.checkSelfPermission(this, Manifest.permission.MANAGE_OWN_CALLS)
+        == PackageManager.PERMISSION_GRANTED;
+  }
+
+  /** API 34+ — phoneCall → mic-only → shortService 순 fallback. 실패해도 프로세스 크래시 금지 */
+  private boolean promoteToForeground(String callId, Notification notification, int preferredType) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+      return promoteToForegroundOnce(callId, notification, 0);
+    }
+
+    java.util.LinkedHashSet<Integer> attempts = new java.util.LinkedHashSet<>();
+    if (preferredType != 0) attempts.add(preferredType);
+    if (hasManageOwnCallsPermission()) {
+      attempts.add(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
+    }
+    if (hasRecordAudioPermission()) {
+      attempts.add(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      attempts.add(android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SHORT_SERVICE);
+    }
+
+    String lastErr = "unknown";
+    for (int type : attempts) {
+      if (promoteToForegroundOnce(callId, notification, type)) {
+        if (type != preferredType && type != 0) {
+          DibayCallLog.once(
+              "foreground_service_start_degraded",
+              callId,
+              "preferred="
+                  + preferredType
+                  + " used="
+                  + type
+                  + " manageOwnCalls="
+                  + hasManageOwnCallsPermission());
+        }
+        return true;
+      }
+      lastErr = "type_" + type;
+    }
+
+    DibayCallLog.once(
+        "foreground_service_start_failed",
+        callId != null ? callId : "unknown",
+        "err=" + lastErr + " manageOwnCalls=" + hasManageOwnCallsPermission());
+    return false;
+  }
+
+  private boolean promoteToForegroundOnce(String callId, Notification notification, int type) {
     try {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
         startForeground(NOTIFICATION_ID, notification, type);
@@ -439,26 +513,16 @@ public class CallForegroundService extends Service {
         startForeground(NOTIFICATION_ID, notification);
       }
       return true;
-    } catch (Exception primary) {
-      Log.w(TAG, "[DIBAY_CALL] foreground_service_start_failed callId=" + callId, primary);
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-          && type != android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL) {
-        try {
-          startForeground(
-              NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
-          DibayCallLog.once(
-              "foreground_service_start_degraded",
-              callId,
-              "reason=" + primary.getClass().getSimpleName());
-          return true;
-        } catch (Exception fallback) {
-          Log.e(TAG, "[DIBAY_CALL] foreground_service_start_failed_fallback callId=" + callId, fallback);
-        }
-      }
-      DibayCallLog.once(
-          "foreground_service_start_failed",
-          callId != null ? callId : "unknown",
-          "err=" + primary.getClass().getSimpleName());
+    } catch (Exception e) {
+      Log.w(
+          TAG,
+          "[DIBAY_CALL] foreground_service_start_failed callId="
+              + callId
+              + " type="
+              + type
+              + " manageOwnCalls="
+              + hasManageOwnCallsPermission(),
+          e);
       return false;
     }
   }
