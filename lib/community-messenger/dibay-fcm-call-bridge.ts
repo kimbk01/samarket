@@ -3,8 +3,14 @@
 /** Android FCM → legacy 통화 수신 경로 어댑터 (OAuth/chat pending key 와 분리) */
 export const DIBAY_CALL_PENDING_ROUTE_KEY = "dibay_call_pending_route";
 
+export type DibayFcmIncomingWakeDetail = {
+  sessionId?: string;
+  callKind?: "voice" | "video";
+  roomId?: string;
+};
+
 type DibayFcmCallBridgeHandlers = {
-  onIncomingWake: () => void;
+  onIncomingWake: (detail: DibayFcmIncomingWakeDetail) => void;
   onCanceled: (sessionId: string) => void;
 };
 
@@ -43,10 +49,18 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
   if (typeof window === "undefined") return () => {};
 
   const onCallEvent = (ev: Event) => {
-    const detail = (ev as CustomEvent).detail as { type?: string; sessionId?: string } | undefined;
+    const detail = (ev as CustomEvent).detail as
+      | { type?: string; sessionId?: string; callKind?: string; roomId?: string }
+      | undefined;
     if (!detail) return;
     if (detail.type === "incoming_call") {
-      handlers.onIncomingWake();
+      const callKind =
+        detail.callKind === "video" ? "video" : detail.callKind === "voice" ? "voice" : undefined;
+      handlers.onIncomingWake({
+        sessionId: detail.sessionId?.trim() || undefined,
+        callKind,
+        roomId: detail.roomId?.trim() || undefined,
+      });
       return;
     }
     if (detail.type === "call_canceled") {

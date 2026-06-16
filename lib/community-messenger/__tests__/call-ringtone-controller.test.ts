@@ -29,6 +29,11 @@ describe("call-ringtone-controller", () => {
     expect(getActiveIncomingRingtoneSessionId()).toBe("session-a");
   });
 
+  it("preserves ringtone while incoming start is still in flight", () => {
+    playIncomingCallRingtone("session-a", "voice");
+    expect(shouldPreserveIncomingRingtoneOnCallRoute("session-a")).toBe(true);
+  });
+
   it("preserves ringtone when navigating to the same call route", async () => {
     playIncomingCallRingtone("session-a", "voice");
     await vi.waitFor(() => {

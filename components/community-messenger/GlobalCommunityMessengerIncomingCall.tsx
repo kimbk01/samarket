@@ -260,6 +260,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [minimizedSessionId, setMinimizedSessionId] = useState<string | null>(null);
   const [incomingCallSoundEnabled, setIncomingCallSoundEnabled] = useState(true);
+  const incomingCallSoundEnabledRef = useRef(true);
+  incomingCallSoundEnabledRef.current = incomingCallSoundEnabled;
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
   const [incomingRealtimeOk, setIncomingRealtimeOk] = useState(false);
   const [incomingVisibilityState, setIncomingVisibilityState] = useState<
@@ -1061,7 +1063,15 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   useEffect(() => {
     return installDibayFcmCallBridge({
-      onIncomingWake: () => bumpIncomingListFastSync(),
+      onIncomingWake: (detail) => {
+        const sid = detail.sessionId?.trim();
+        if (sid && incomingCallSoundEnabledRef.current) {
+          unlockCommunityMessengerCallPlaybackFromUserGesture();
+          playIncomingCallRingtone(sid, detail.callKind ?? "voice");
+          activeIncomingCallIdsRef.current.add(sid);
+        }
+        bumpIncomingListFastSync();
+      },
       onCanceled: (sessionId) => {
         const rowMatch = sessionsRef.current.find(
           (s) => s.id === sessionId || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sessionId)

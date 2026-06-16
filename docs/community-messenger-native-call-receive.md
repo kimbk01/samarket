@@ -3,6 +3,17 @@
 ## Goal
 Provide native lock-screen/background incoming call UX for DIBAY calls. Web call screens remain the in-app call surface; **foreground** receive uses `IncomingCallBanner` only. **Lock/background** receive uses Android system call notification actions (accept/decline).
 
+## Web FCM bridge (foreground)
+
+When the app is foreground and WebView is alive, `MainActivity` injects:
+
+- `dibay:call-event` — `{ type: "incoming_call" | "call_canceled", sessionId, callKind?, ... }`
+- `dibay:call-route` — pending path for accept deep link (`dibay_call_pending_route` in sessionStorage)
+
+Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommunityMessengerIncomingCall`.
+
+**DO NOT** mix `dibay_call_pending_route` with OAuth/chat `pending_route` keys.
+
 ## Layers
 - Android FCM layer: `DibayFirebaseMessagingService` treats `type=incoming_call` separately from chat messages.
 - Android native UI: `IncomingCallNotificationBuilder` posts CALL-category notification with **accept/decline action buttons** only (no default full-screen Activity).

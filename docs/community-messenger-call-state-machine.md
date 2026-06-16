@@ -1,5 +1,7 @@
 # Community 메신저 통화 상태 머신 (코드 정렬안)
 
+**운영·안정화 기준 (Legacy)**: [`dibay-call-legacy-stability.md`](./dibay-call-legacy-stability.md) — 진입 호스트, 종료 복귀, FCM, QA.
+
 **범위**: 기존 `community_messenger_call_sessions` 원장 + 감사(`community_messenger_call_events`)—**1:1·그룹 미디어는 Agora SFU** (`call-provider`). 레거시 `community_messenger_call_signals`는 direct 터미널 hangup 등 제한적.  
 **금지**: 새 테이블 생성, unread/badge/bootstrap/prefetch/message list 변경은 본 문서 범위 밖.
 

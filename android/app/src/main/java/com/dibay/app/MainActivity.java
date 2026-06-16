@@ -48,14 +48,14 @@ public class MainActivity extends BridgeActivity {
     return appVisible;
   }
 
-  /** FCM foreground — WebView call event (incoming_call must not be dropped). */
+  /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
   static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
     if (act == null || payload == null || !payload.isValid()) return;
     act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
   }
 
-  /** FCM foreground — 발신 취소를 WebView call runtime 에 전달 */
+  /** FCM foreground — 발신 취소를 WebView legacy call bridge 에 전달 */
   static void deliverCallCanceledEvent(String callId) {
     MainActivity act = activeInstance;
     if (act == null || callId == null || callId.trim().isEmpty()) return;

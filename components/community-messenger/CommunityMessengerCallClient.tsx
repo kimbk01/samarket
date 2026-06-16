@@ -90,6 +90,7 @@ import {
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
+  playIncomingCallRingtone,
   shouldPreserveIncomingRingtoneOnCallRoute,
   stopCallRingtone,
 } from "@/lib/community-messenger/call-ringtone-controller";
@@ -615,6 +616,7 @@ export function CommunityMessengerCallClient({
   } | null>(null);
   /** 벨 거절·취소·원격 hangup 직후 `EndedCallView` 대신 ringing UI 유지 후 즉시 복귀 */
   const callDismissInFlightRef = useRef(false);
+  const [ringingDismissUiLatch, setRingingDismissUiLatch] = useState(false);
   const appendTerminalCallHistory = useCallback(
     (
       source: CommunityMessengerCallSession,
@@ -640,12 +642,15 @@ export function CommunityMessengerCallClient({
   );
 
   const beginRingingCallDismiss = useCallback(
-    (roomId: string | null | undefined) => {
+    (roomId: string | null | undefined, opts?: { wasRinging?: boolean }) => {
       if (callDismissInFlightRef.current) return;
       const active = sessionRef.current;
-      if (!active || active.status !== "ringing") return;
+      if (!active) return;
+      const wasRinging = opts?.wasRinging === true || active.status === "ringing";
+      if (!wasRinging) return;
       pinTerminalCallLocalSurfaceDismiss(active.id);
       callDismissInFlightRef.current = true;
+      setRingingDismissUiLatch(true);
       navigateBackFromCommunityMessengerCall(router, roomId ?? active.roomId);
     },
     [router]
@@ -653,8 +658,10 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     callDismissInFlightRef.current = false;
+    setRingingDismissUiLatch(false);
     return () => {
       callDismissInFlightRef.current = false;
+      setRingingDismissUiLatch(false);
     };
   }, [sessionId]);
 
@@ -674,6 +681,9 @@ export function CommunityMessengerCallClient({
       if (!terminalAppliesToCurrentSession) return;
       const wasRinging = cur.status === "ringing";
       const terminalStatus = readRealtimeSessionStatus(ev.status);
+      if (wasRinging) {
+        beginRingingCallDismiss(cur.roomId, { wasRinging: true });
+      }
       if (terminalStatus && isTerminalCallSessionStatus(terminalStatus)) {
         appendTerminalCallHistory(cur, terminalStatus);
         const snapshot: CommunityMessengerCallSession = {
@@ -694,9 +704,6 @@ export function CommunityMessengerCallClient({
         setRemoteJoined(false);
         stopCommunityMessengerCallTone();
         stopCommunityMessengerCallFeedback();
-      }
-      if (wasRinging) {
-        beginRingingCallDismiss(cur.roomId);
       }
     });
     return off;
@@ -1042,7 +1049,7 @@ export function CommunityMessengerCallClient({
     }
   }, [session?.id, session?.status]);
 
-  /** 발신 대기 링백(수신 벨은 전역 수신 배너에서 재생해 중복 방지) */
+  /** 발신 대기 링백 — 수신 벨은 전역·수신 CallClient 에서 재생 */
   useEffect(() => {
     if (!session) return;
     if (!session.isMineInitiator) return;
@@ -1067,6 +1074,29 @@ export function CommunityMessengerCallClient({
       tone?.stop();
     };
   }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined]);
+
+  /**
+   * 네이티브 자동 진입 등으로 전역 벨이 끊긴 뒤에도 수신 전용 화면에서 벨을 보장한다.
+   */
+  useEffect(() => {
+    if (!session) return;
+    if (session.isMineInitiator) return;
+    if (session.status !== "ringing") return;
+    if (joined) return;
+    unlockCommunityMessengerCallPlaybackFromUserGesture();
+    playIncomingCallRingtone(session.id, session.callKind);
+  }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined]);
+
+  /** 수락 전 터미널(취소·거절·부재) — 세션 GET/Realtime 이 먼저 닫혀도 화면을 즉시 복귀 */
+  useEffect(() => {
+    const s = sessionRef.current;
+    if (!s || s.isMineInitiator) return;
+    if (joinedRef.current || joiningRef.current) return;
+    if (s.status === "ringing" || s.status === "active") return;
+    if (!isTerminalCallSessionStatus(s.status)) return;
+    if (callDismissInFlightRef.current) return;
+    beginRingingCallDismiss(s.roomId, { wasRinging: true });
+  }, [beginRingingCallDismiss, session?.id, session?.status, session?.isMineInitiator]);
 
   const refreshSession = useCallback(
     async (
@@ -1459,7 +1489,11 @@ export function CommunityMessengerCallClient({
   }, [disposeCallMedia, sessionId]);
 
   useEffect(() => {
-    const onPageLeave = () => {
+    let lastPageLeaveAt = 0;
+    const runPageLeave = () => {
+      const now = Date.now();
+      if (now - lastPageLeaveAt < 400) return;
+      lastPageLeaveAt = now;
       const s = sessionRef.current;
       if (s?.status === "ringing") {
         bestEffortKeepaliveCallSessionTeardown({
@@ -1473,11 +1507,16 @@ export function CommunityMessengerCallClient({
       if (s?.status === "active" && joinedRef.current) return;
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
-    window.addEventListener("pagehide", onPageLeave);
-    window.addEventListener("beforeunload", onPageLeave);
+    const onVisibilityHidden = () => {
+      if (document.visibilityState === "hidden") runPageLeave();
+    };
+    window.addEventListener("pagehide", runPageLeave);
+    window.addEventListener("beforeunload", runPageLeave);
+    document.addEventListener("visibilitychange", onVisibilityHidden);
     return () => {
-      window.removeEventListener("pagehide", onPageLeave);
-      window.removeEventListener("beforeunload", onPageLeave);
+      window.removeEventListener("pagehide", runPageLeave);
+      window.removeEventListener("beforeunload", runPageLeave);
+      document.removeEventListener("visibilitychange", onVisibilityHidden);
     };
   }, [disposeCallMedia]);
 
@@ -3467,6 +3506,7 @@ export function CommunityMessengerCallClient({
       session.status === "ended" &&
       Boolean(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
     if (failureRequiresDismiss || callDismissInFlightRef.current || terminalDismissTimerRef.current != null) return;
+    const dismissDelayMs = 600;
     terminalDismissTimerRef.current = window.setTimeout(() => {
       terminalDismissTimerRef.current = null;
       if (callDismissInFlightRef.current) return;
@@ -3474,7 +3514,7 @@ export function CommunityMessengerCallClient({
       if (!cur || !isTerminalCallSessionStatus(cur.status)) return;
       callDismissInFlightRef.current = true;
       navigateBackFromCommunityMessengerCall(router, cur.roomId);
-    }, 1000);
+    }, dismissDelayMs);
     return () => {
       if (terminalDismissTimerRef.current != null) {
         window.clearTimeout(terminalDismissTimerRef.current);
@@ -3901,7 +3941,7 @@ export function CommunityMessengerCallClient({
 
   const videoCall = session.callKind === "video";
   const directPhase = resolveDirectCallPhase(session.status, joined, remoteJoined);
-  const suppressTerminalView = callDismissInFlightRef.current;
+  const suppressTerminalView = callDismissInFlightRef.current || ringingDismissUiLatch;
   const effectiveDirectPhase: CallPhase =
     suppressTerminalView && isTerminalCallSessionStatus(session.status) ? "ringing" : directPhase;
   /**
@@ -4368,13 +4408,13 @@ export function CommunityMessengerCallClient({
      * 터미널 요약을 잠시 보여준 뒤 복귀 — `failed_*` 도 일정 시간 후 닫힘(닫기 버튼은 그대로).
      * 벨 거절·취소는 `suppressTerminalView` 로 요약 화면·자동 닫기 없이 즉시 복귀.
      */
-    autoCloseMs:
-      suppressTerminalView
-        ? null
-        : directPhase === "ended" ||
-            directPhase === "declined" ||
-            directPhase === "missed" ||
-            directPhase === "failed"
+    autoCloseMs: suppressTerminalView
+      ? null
+      : directPhase === "ended"
+        ? terminalFailureRequiresUserDismiss
+          ? 2000
+          : 600
+        : directPhase === "declined" || directPhase === "missed" || directPhase === "failed"
           ? terminalFailureRequiresUserDismiss
             ? 2000
             : 1000

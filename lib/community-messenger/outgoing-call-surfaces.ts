@@ -7,6 +7,7 @@
  * - `roomManaged` — 열린 채팅방·멤버 시트 등: `buildCommunityMessengerOutgoingDialHref`(임시 `tmp_*`) 로 즉시 `/calls/:sessionId` → 백그라운드 POST 후 실제 id 로 replace.
  *
  * - `friendRowQuickPopup` — 친구 행 **⋮** 앵커 팝업(`MessengerFriendRowQuickPopup` → `CommunityMessengerHome.startDirectCall`)
+ * - `callLogsRedial` — 통화 기록 패널 (`MessengerCallLogsPanel` → `bootstrapCommunityMessengerOutgoingCallAndNavigate`)
  *
  * 수신 전용(발신 아님): `GlobalCommunityMessengerIncomingCall`
  *

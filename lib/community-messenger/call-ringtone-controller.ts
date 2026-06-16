@@ -21,6 +21,7 @@ export function getActiveIncomingRingtoneSessionId(): string | null {
 export function shouldPreserveIncomingRingtoneOnCallRoute(sessionId: string): boolean {
   const sid = sessionId.trim();
   if (!sid) return false;
+  if (incomingStartInFlight === sid) return true;
   return activeMode === "incoming" && activeSessionId === sid && activeTone != null;
 }
 
