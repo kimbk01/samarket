@@ -79,9 +79,10 @@ export type MessengerBusEvent =
       at: number;
     }
   | {
-      /** 수신 통화 수락·알림 수락 — Global 수신 목록에서 ringing 세션 제거 */
+      /** 수신 통화 consumed — Global 수신 목록에서 ringing 세션 제거 */
       type: "cm.call.incoming_consumed";
       sessionId: string;
+      reason?: string;
       at: number;
     }
   | {
@@ -160,13 +161,17 @@ export function postCommunityMessengerCallSessionTerminalBusEvent(args: {
   });
 }
 
-/** 수신 통화가 수락되어 Global ringing 목록에서 제거되어야 할 때 */
-export function postCommunityMessengerCallIncomingConsumedBusEvent(sessionId: string): void {
+/** 수신 통화가 consumed 되어 Global ringing 목록에서 제거되어야 할 때 */
+export function postCommunityMessengerCallIncomingConsumedBusEvent(
+  sessionId: string,
+  reason?: string
+): void {
   const sid = sessionId.trim();
   if (!sid) return;
   postCommunityMessengerBusEvent({
     type: "cm.call.incoming_consumed",
     sessionId: sid,
+    reason: reason?.trim() || undefined,
     at: Date.now(),
   });
 }

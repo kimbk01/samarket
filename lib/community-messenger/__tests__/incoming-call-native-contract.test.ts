@@ -20,5 +20,15 @@ describe("incoming-call native contract", () => {
     expect(src).toContain("ACTION_DECLINE");
     expect(src).toContain("handleReject");
   });
+
+  it("native pending route consumption is logged", () => {
+    const src = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(src).toContain("pending_route_consumed");
+  });
+
+  it("notification accept activity open is logged", () => {
+    const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(src).toContain("notification_accept_activity_open");
+  });
 });
 

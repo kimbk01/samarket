@@ -1,4 +1,5 @@
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
+import { isDibayCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 /** Realtime·GET 보강 전 Broadcast `invite_preview` 유지 (취소는 hardClear·dismiss로 제거) */
@@ -38,11 +39,13 @@ export function mergeIncomingCallSessionsAfterFetch(
 
   if (!viewerUserId) {
     return serverList
+      .filter((s) => !isDibayCallConsumed(s.id, now))
       .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
       .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
   }
 
   const serverFiltered = serverList
+    .filter((s) => !isDibayCallConsumed(s.id, now))
     .filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now))
     .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
   const serverIds = new Set(serverFiltered.map((s) => s.id));
@@ -51,6 +54,7 @@ export function mergeIncomingCallSessionsAfterFetch(
     .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
 
   const optimisticExtras = previousFiltered.filter((s) => {
+    if (isDibayCallConsumed(s.id, now)) return false;
     if (serverIds.has(s.id)) return false;
     if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;
     if (!messengerUserIdsEqual(s.recipientUserId, viewerUserId)) return false;

@@ -70,6 +70,7 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     String action = getIntent().getAction();
     if (ACTION_ACCEPT.equals(action)) {
+      Log.i(TAG, "[call-ui] notification_accept_activity_open callId=" + callId);
       handleAccept();
       return;
     }

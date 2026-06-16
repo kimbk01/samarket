@@ -686,6 +686,7 @@ public class MainActivity extends BridgeActivity {
     routeInjectedForCurrentPending = true;
     pendingAppPath = null;
     pendingNotificationId = null;
+    Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_consumed path=" + appPath);
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
     return true;
   }

@@ -2,6 +2,13 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/community-messenger/call-http-actions", () => ({
   patchCommunityMessengerCallSession: vi.fn(async () => ({ ok: true, session: { id: "s1" } })),
+  fetchCommunityMessengerCallSessionByIdClient: vi.fn(async (id: string) => ({
+    id,
+    callKind: "voice",
+    status: "ringing",
+    isMineInitiator: false,
+    endedReason: null,
+  })),
 }));
 
 vi.mock("@/lib/community-messenger/incoming-call-action-guard", () => ({
@@ -36,6 +43,10 @@ vi.mock("@/lib/community-messenger/native-callee-accept-entry", () => ({
   markNativeCalleeAcceptPending: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/multi-tab-bus", () => ({
+  postCommunityMessengerCallIncomingConsumedBusEvent: vi.fn(),
+}));
+
 vi.mock("@/lib/community-messenger/call-orchestrator", async (importOriginal) => {
   const mod = await importOriginal<typeof import("@/lib/community-messenger/call-orchestrator")>();
   return {
@@ -46,11 +57,18 @@ vi.mock("@/lib/community-messenger/call-orchestrator", async (importOriginal) =>
 
 import { patchCommunityMessengerCallSession } from "@/lib/community-messenger/call-http-actions";
 import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-call-action-guard";
-import { runIncomingCallAccept } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import { isDibayCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
+import {
+  acceptIncomingCallOnce,
+  runIncomingCallAccept,
+  runNativePendingAcceptCall,
+} from "@/lib/community-messenger/incoming-call-accept-gateway";
 
 describe("incoming-call-accept-gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetDibayCallSessionState();
   });
 
   it("PATCH accept is executed once per invocation (single gateway)", async () => {
@@ -65,7 +83,34 @@ describe("incoming-call-accept-gateway", () => {
 
     await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
-    expect(router.replace).toHaveBeenCalledWith("/community-messenger/calls/s1?action=accept&nativeAccept=1");
+    expect(router.replace).toHaveBeenCalledWith(
+      "/community-messenger/calls/s1?action=accept&nativeAccept=1&mode=active"
+    );
+    expect(isDibayCallConsumed("s1")).toBe(true);
+    expect(postCommunityMessengerCallIncomingConsumedBusEvent).toHaveBeenCalledWith("s1", "accepted");
+  });
+
+  it("acceptIncomingCallOnce delegates to gateway", async () => {
+    const router = { replace: vi.fn() };
+    const session = {
+      id: "s2",
+      callKind: "voice",
+      status: "ringing",
+      isMineInitiator: false,
+      endedReason: null,
+    } as any;
+    const res = await acceptIncomingCallOnce({ session, router, source: "incoming_banner_accept" });
+    expect(res.ok).toBe(true);
+    expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("runNativePendingAcceptCall fetches session then PATCHes once via gateway", async () => {
+    const router = { replace: vi.fn() };
+    const res = await runNativePendingAcceptCall(router, "s3", "native_notification_accept");
+    expect(res.ok).toBe(true);
+    expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
+    expect(router.replace).toHaveBeenCalledTimes(1);
+    expect(isDibayCallConsumed("s3")).toBe(true);
   });
 
   it("duplicate_accept_blocked returns ok=false and does not patch", async () => {
@@ -79,4 +124,3 @@ describe("incoming-call-accept-gateway", () => {
     expect(router.replace).toHaveBeenCalledTimes(0);
   });
 });
-

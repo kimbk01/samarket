@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   INCOMING_INVITE_PREVIEW_KEEP_MS,
   mergeIncomingCallSessionsAfterFetch,
 } from "@/lib/community-messenger/incoming-call-sessions-merge";
+import { markCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 function session(
@@ -30,6 +31,10 @@ function session(
 }
 
 describe("mergeIncomingCallSessionsAfterFetch", () => {
+  beforeEach(() => {
+    resetDibayCallSessionState();
+  });
+
   it("keeps invite_preview until server list includes session or TTL", () => {
     const preview = session({
       id: "s-preview",
@@ -69,6 +74,17 @@ describe("mergeIncomingCallSessionsAfterFetch", () => {
     });
     const hard = new Map([["s-preview", Date.now()]]);
     const merged = mergeIncomingCallSessionsAfterFetch("callee", [], [preview], new Map(), hard);
+    expect(merged).toHaveLength(0);
+  });
+
+  it("does not revive consumed ringing sessions from poll merge", () => {
+    markCallConsumed("s-consumed", "accepted");
+    const ringing = session({
+      id: "s-consumed",
+      status: "ringing",
+      recipientUserId: "callee",
+    });
+    const merged = mergeIncomingCallSessionsAfterFetch("callee", [ringing], [], new Map(), new Map());
     expect(merged).toHaveLength(0);
   });
 

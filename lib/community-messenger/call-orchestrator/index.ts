@@ -55,7 +55,13 @@ export type DibayCallLogStep =
   | "timeout"
   | "ring_start"
   | "ring_stop"
-  | "ring_timeout";
+  | "ring_timeout"
+  | "incoming_received"
+  | "incoming_consumed"
+  | "incoming_ignored_consumed"
+  | "accept_skip_duplicate"
+  | "accept_pending_web"
+  | "active_route_replace";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;

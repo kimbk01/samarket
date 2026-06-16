@@ -104,7 +104,7 @@ import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { clearNativePersistedCallPendingRoute } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
-import { runIncomingCallAccept, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import {
   getIncomingCallPollIntervalMs,
   MESSENGER_INCOMING_CALL_BURST_MIN_GAP_MS,
@@ -120,6 +120,7 @@ import {
   subscribeCommunityMessengerCallInviteBroadcast,
 } from "@/lib/community-messenger/call-invite-realtime-broadcast";
 import {
+  onCommunityMessengerBusEvent,
   postCommunityMessengerBusEvent,
   postCommunityMessengerCallSessionTerminalBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
@@ -146,11 +147,15 @@ import {
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import {
+  filterIncomingSessionsRespectingConsumed,
   filterIncomingSessionsRespectingDismissed,
   filterIncomingSessionsRespectingHardClear,
+  isDibayCallConsumed,
   isIncomingSessionHardCleared,
+  markCallConsumed,
   pruneHardClearedIncomingSessionIds,
   INCOMING_REMOTE_HARD_CLEAR_KEEP_MS,
+  type CallConsumedReason,
 } from "@/lib/community-messenger/incoming-call-state";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
@@ -175,6 +180,15 @@ type IncomingCallsRefreshOpts = {
   /** WS/broadcast 미수신 fallback — 주기적 HTTP polling tick */
   source?: "poll" | "realtime" | "burst" | "manual";
 };
+
+function mapTerminalStatusToConsumedReason(status: string): CallConsumedReason {
+  const s = status.trim().toLowerCase();
+  if (s === "rejected") return "declined";
+  if (s === "missed") return "missed";
+  if (s === "ended") return "ended";
+  if (s === "cancelled") return "cancelled";
+  return "ended";
+}
 
 function markIncomingCallHardClearedSession(hardClearedAtBySessionId: Map<string, number>, sessionId: string) {
   const sid = sessionId.trim();
@@ -315,6 +329,24 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
+    return onCommunityMessengerBusEvent((ev) => {
+      if (ev.type !== "cm.call.incoming_consumed") return;
+      const sid = ev.sessionId?.trim();
+      if (!sid) return;
+      dibayIncomingLaneStopRing("incoming_consumed_bus", sid);
+      activeIncomingCallIdsRef.current.delete(sid);
+      dismissedIncomingSessionsAtRef.current.set(sid, Date.now());
+      markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
+      suppressMissedSoundRef.current.add(sid);
+      clearIncomingMissedTimer(ringMissedScheduleRef, sid);
+      setSessions((prev) => prev.filter((s) => s.id !== sid));
+      setMinimizedSessionId((m) => (m === sid ? null : m));
+      setBusyId((b) => (b === `accept:${sid}` || b === `reject:${sid}` ? null : b));
+    });
+  }, [userId]);
+
+  useEffect(() => {
     const now = Date.now();
     for (const s of sessions) {
       if (s.status !== "ringing" || s.sessionMode !== "direct") continue;
@@ -439,12 +471,14 @@ export function GlobalCommunityMessengerIncomingCall() {
             }
           }
           setSessions((prev) =>
-            mergeIncomingCallSessionsAfterFetch(
-              viewerUserIdRef.current,
-              serverList,
-              prev,
-              dismissedIncomingSessionsAtRef.current,
-              hardClearedIncomingSessionsAtRef.current
+            filterIncomingSessionsRespectingConsumed(
+              mergeIncomingCallSessionsAfterFetch(
+                viewerUserIdRef.current,
+                serverList,
+                prev,
+                dismissedIncomingSessionsAtRef.current,
+                hardClearedIncomingSessionsAtRef.current
+              )
             )
           );
           setIncomingListError(null);
@@ -604,6 +638,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (sessionId) {
       dibayCallSealTerminal(sessionId);
       clearNativeCalleeAcceptPending(sessionId);
+      markCallConsumed(sessionId, mapTerminalStatusToConsumedReason(statusNorm));
       markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
       suppressMissedSoundRef.current.add(sessionId);
       clearIncomingMissedTimer(ringMissedScheduleRef, sessionId);
@@ -703,7 +738,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
       });
 
-      return afterHard;
+      return filterIncomingSessionsRespectingConsumed(afterHard);
     });
   }, []);
 
@@ -806,6 +841,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         ).then(() => {
           dibayIncomingLaneStopRing("missed_timeout", sid);
           activeIncomingCallIdsRef.current.delete(sid);
+          markCallConsumed(sid, "missed");
           logCallFlow("call_cleanup_done", { sessionId: sid, reason: "missed_timeout" });
           void refresh(true, { incomingTerminalListSync: true });
         });
@@ -979,7 +1015,12 @@ export function GlobalCommunityMessengerIncomingCall() {
         const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
         const now = Date.now();
         pruneHardClearedIncomingSessionIds(hardClearedIncomingSessionsAtRef.current);
-        if (sid && isIncomingSessionHardCleared(sid, hardClearedIncomingSessionsAtRef.current, now)) return;
+        if (sid && (isIncomingSessionHardCleared(sid, hardClearedIncomingSessionsAtRef.current, now) || isDibayCallConsumed(sid, now))) {
+          if (isDibayCallConsumed(sid, now)) {
+            logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: "broadcast_ring" });
+          }
+          return;
+        }
         if (sid) {
           cmCallIncomingTraceMergeFromStorage(sid);
           cmCallIncomingTracePatch(sid, { receiver_signal_received_ms: now }, { onlyIfUnset: true });
@@ -992,9 +1033,11 @@ export function GlobalCommunityMessengerIncomingCall() {
               next,
               dismissedIncomingSessionsAtRef.current
             );
-            return filterIncomingSessionsRespectingHardClear(
-              afterDismissed,
-              hardClearedIncomingSessionsAtRef.current
+            return filterIncomingSessionsRespectingConsumed(
+              filterIncomingSessionsRespectingHardClear(
+                afterDismissed,
+                hardClearedIncomingSessionsAtRef.current
+              )
             );
           });
         }
@@ -1099,9 +1142,17 @@ export function GlobalCommunityMessengerIncomingCall() {
     return installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
         const sid = detail.sessionId?.trim();
+        if (sid && isDibayCallConsumed(sid)) {
+          logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: "fcm_wake" });
+          bumpIncomingListFastSync();
+          return;
+        }
+        if (sid) {
+          logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
+        }
         if (sid && incomingCallSoundEnabledRef.current) {
           unlockCommunityMessengerCallPlaybackFromUserGesture();
-          dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice");
+          dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice", "fcm_wake");
           activeIncomingCallIdsRef.current.add(sid);
         }
         bumpIncomingListFastSync();
@@ -1213,9 +1264,11 @@ export function GlobalCommunityMessengerIncomingCall() {
                   merged,
                   dismissedIncomingSessionsAtRef.current
                 );
-                return filterIncomingSessionsRespectingHardClear(
-                  afterDismissed,
-                  hardClearedIncomingSessionsAtRef.current
+                return filterIncomingSessionsRespectingConsumed(
+                  filterIncomingSessionsRespectingHardClear(
+                    afterDismissed,
+                    hardClearedIncomingSessionsAtRef.current
+                  )
                 );
               });
               const newRow = p.new ?? null;
@@ -1226,6 +1279,11 @@ export function GlobalCommunityMessengerIncomingCall() {
                   suppressMissedSoundRef.current.add(sid);
                   markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
                   activeIncomingCallIdsRef.current.delete(sid);
+                  if (nextStatus === "active") {
+                    markCallConsumed(sid, "accepted");
+                  } else if (isTerminalIncomingCallStatus(nextStatus)) {
+                    markCallConsumed(sid, mapTerminalStatusToConsumedReason(nextStatus));
+                  }
                 }
                 /* 터미널 전이라도 링 종료면 즉시 벨·WebAudio 정지(취소 후 연결음 잔류 방지) */
                 dibayIncomingLaneStopRing("realtime_left_ringing", sid || undefined);
@@ -1569,14 +1627,16 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (!incomingCallSoundEnabled) return;
 
     const sid = s.id.trim();
+    if (isDibayCallConsumed(sid)) return;
     if (!activeIncomingCallIdsRef.current.has(sid)) {
       activeIncomingCallIdsRef.current.add(sid);
       logCallFlow("call_incoming_received", { sessionId: sid, source: "direct_ringing", callKind: s.callKind });
+      logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "direct_ringing" });
     } else {
       logCallFlow("call_incoming_deduped", { sessionId: sid, source: "direct_ringing_ring" });
     }
     unlockCommunityMessengerCallPlaybackFromUserGesture();
-    dibayIncomingLaneStartRing(sid, s.callKind);
+    dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing");
   }, [
     directRingingCalleeSession?.id,
     directRingingCalleeSession?.status,
@@ -1711,7 +1771,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
           try {
-            const result = await runIncomingCallAccept({
+            const result = await acceptIncomingCallOnce({
               session,
               router,
               source: "incoming_banner_accept",
@@ -1749,13 +1809,23 @@ export function GlobalCommunityMessengerIncomingCall() {
       setBusyId(`accept:${session.id}`);
       void (async () => {
         try {
-          const result = await runIncomingCallAccept({
+          const result = await acceptIncomingCallOnce({
             session,
             router,
             source: "incoming_banner_accept",
           });
-          if (!result.ok && result.reason === "permission_denied") {
+          if (result.ok) {
+            dismissedIncomingSessionsAtRef.current.set(session.id, Date.now());
+            setSessions((prev) => prev.filter((item) => item.id !== session.id));
+            activeIncomingCallIdsRef.current.delete(session.id);
+            markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
+            suppressMissedSoundRef.current.add(session.id);
+            logCallFlow("call_cleanup_done", { sessionId: session.id, reason: "accept_1to1" });
+          } else if (result.reason === "permission_denied") {
             showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
+          } else if (result.reason === "patch_failed") {
+            await refresh(true, { bypassDevSafeIncomingThrottle: true });
+            showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
           }
         } finally {
           setBusyId(null);

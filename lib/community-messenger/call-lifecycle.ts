@@ -22,14 +22,28 @@ import {
   shouldAllowDibayCallRoute,
 } from "@/lib/community-messenger/call-orchestrator";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import {
+  setDibayCallSessionPhase,
+  shouldAllowIncomingRingtone,
+} from "@/lib/community-messenger/incoming-call-state";
+import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 
-/** INCOMING 레인 — 수신 벨 시작 */
+/** INCOMING 레인 — 수신 벨 시작 (phase === incoming 일 때만) */
 export function dibayIncomingLaneStartRing(
   sessionId: string,
-  callKind: CommunityMessengerCallKind
+  callKind: CommunityMessengerCallKind,
+  source = "incoming_lane"
 ): void {
+  const sid = sessionId.trim();
+  if (!sid) return;
+  if (!shouldAllowIncomingRingtone(sid)) {
+    logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source });
+    return;
+  }
+  setDibayCallSessionPhase(sid, "incoming");
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  playIncomingCallRingtone(sessionId, callKind);
+  playIncomingCallRingtone(sid, callKind);
+  logDibayCall("ring_start", { sessionId: sid, callId: sid, callKind, source });
 }
 
 /** INCOMING 레인 — 수신 벨 중지 */

@@ -80,31 +80,19 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "accept")) return;
-    DibayCallLog.once("accept_start", sid, "source=native");
-    Log.i(CALL_TAG, "[call-state] accept_start callId=" + sid);
+    DibayCallLog.once("accept_start", sid, "source=native_pending_web");
+    Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
     DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
-    new Thread(
-            () -> {
-              boolean ok = CallSessionPatchHelper.patch(context.getApplicationContext(), sid, "accept");
-              if (ok) {
-                DibayCallLog.once("accept_success", sid, "source=native");
-                Log.i(CALL_TAG, "[call-state] accept_success callId=" + sid);
-              } else {
-                Log.w(CALL_TAG, "[call-state] accept_failed_no_route callId=" + sid);
-                end(sid, "accept");
-                return;
-              }
-              complete(sid, "accept");
-              if (!shouldLaunchAcceptRoute(sid)) {
-                Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
-                return;
-              }
-              Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
-              Log.i(CALL_TAG, "[call-route] incoming_accept_opened callId=" + sid);
-              context.getApplicationContext().startActivity(launch);
-            })
-        .start();
+    if (!shouldLaunchAcceptRoute(sid)) {
+      Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
+      end(sid, "accept");
+      return;
+    }
+    Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
+    Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
+    context.getApplicationContext().startActivity(launch);
+    end(sid, "accept");
   }
 
   public static void handleReject(Context context, String callId) {

@@ -98,6 +98,23 @@ export async function patchCommunityMessengerCallSession(
   return { ...json, ok: Boolean(res.ok && json.ok) };
 }
 
+/** Native pending accept · gateway PATCH 전 세션 hydrate */
+export async function fetchCommunityMessengerCallSessionByIdClient(
+  sessionId: string
+): Promise<CommunityMessengerCallSession | null> {
+  const sid = sessionId.trim();
+  if (!sid) return null;
+  const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sid)}`, {
+    credentials: "include",
+  });
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    session?: CommunityMessengerCallSession;
+  };
+  return json.session ?? null;
+}
+
 export async function postCommunityMessengerCallHangupSignal(input: {
   sessionId: string;
   toUserId: string;

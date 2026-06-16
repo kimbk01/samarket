@@ -6,7 +6,6 @@ import {
   clearDibayCallPendingRoute,
   readDibayCallPendingRoute,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
-import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
@@ -22,6 +21,7 @@ import {
   extractDibayCallSessionIdFromPath,
   logDibayCall,
 } from "@/lib/community-messenger/call-orchestrator";
+import { runNativePendingAcceptCall } from "@/lib/community-messenger/incoming-call-accept-gateway";
 
 const ROUTE_DEDUPE_MS = 2_000;
 
@@ -35,7 +35,15 @@ function isCalleeAcceptCallRoute(path: string): boolean {
   return path.includes("action=accept") || path.includes("callAction=accept");
 }
 
-/** Android native accept/route → legacy call page 진입 */
+function isNativeAcceptPatchCompleteRoute(path: string): boolean {
+  return path.includes("nativeAccept=1");
+}
+
+function resolveNativeAcceptSource(path: string): "native_notification_accept" | "native_activity_accept" {
+  return path.includes("source=activity") ? "native_activity_accept" : "native_notification_accept";
+}
+
+/** Android native accept/route → 단일 accept gateway (replace 는 gateway 만) */
 export function DibayFcmCallRouteHost() {
   const router = useRouter();
   const lastRouteRef = useRef<{ path: string; at: number } | null>(null);
@@ -72,7 +80,24 @@ export function DibayFcmCallRouteHost() {
       if (isCalleeAcceptCallRoute(path)) {
         const acceptSessionId = readCalleeAcceptSessionIdFromPath(path);
         if (acceptSessionId) {
-          markNativeCalleeAcceptPending(acceptSessionId);
+          clearDibayCallPendingRoute();
+          void clearNativePersistedCallPendingRoute();
+          if (isNativeAcceptPatchCompleteRoute(path)) {
+            router.replace(path);
+            console.info("[call-route] webview_route_delivered", { path, via: "accept_route_active" });
+            return;
+          }
+          void runNativePendingAcceptCall(router, acceptSessionId, resolveNativeAcceptSource(path)).then(
+            (result) => {
+              console.info("[call-route] native_pending_accept_done", {
+                sessionId: acceptSessionId,
+                ok: result.ok,
+                reason: result.reason,
+              });
+            }
+          );
+          console.info("[call-route] webview_route_delivered", { path, via: "native_pending_accept" });
+          return;
         }
       }
 

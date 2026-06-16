@@ -91,6 +91,8 @@ import {
   tryClaimIncomingCallReject,
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
+import { applyIncomingCallConsumedSideEffects } from "@/lib/community-messenger/incoming-call-accept-gateway";
+import { isDibayCallConsumed, markCallConsumed } from "@/lib/community-messenger/incoming-call-state";
 import {
   dibayCallSealTerminal,
   dibayIncomingLaneStopRing,
@@ -1499,6 +1501,16 @@ export function CommunityMessengerCallClient({
     if (terminalImmediateCleanupOnceRef.current === session.id) return;
     terminalImmediateCleanupOnceRef.current = session.id;
     dibayCallSealTerminal(session.id);
+    const consumedReason =
+      session.status === "rejected"
+        ? "declined"
+        : session.status === "missed"
+          ? "missed"
+          : session.status === "cancelled"
+            ? "cancelled"
+            : "ended";
+    markCallConsumed(session.id, consumedReason);
+    logDibayCall("cleanup_done", { sessionId: session.id, callId: session.id, reason: consumedReason });
     logDibayCall("state_end", { sessionId: session.id, status: session.status, source: "call_client_terminal" });
     cmCallAudioCleanup("terminal_session_cleanup_immediate", { status: session.status, sessionId: session.id });
     joiningRef.current = false;
@@ -2343,6 +2355,9 @@ export function CommunityMessengerCallClient({
        * (Web gateway 또는 Native coordinator). CallClient 는 PATCH 를 재실행하지 않는다.
        */
       if (requestedActionRef.current === "accept") {
+        if (!isDibayCallConsumed(s.id)) {
+          applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_accept_route");
+        }
         logDibayCall("accept_success", { sessionId: s.id, source: "call_client_accept_route" });
         setCalleeVideoConnectingShell(true);
         setBusy("accept");
@@ -2371,6 +2386,9 @@ export function CommunityMessengerCallClient({
         return s;
       }
       if (nativeAcceptRoute && s.status === "ringing") {
+        if (!isDibayCallConsumed(s.id)) {
+          applyIncomingCallConsumedSideEffects(s.id, "accepted", "native_accept_route");
+        }
         logDibayCall("accept_success", { sessionId: s.id, source: "native_accept_route" });
         setCalleeVideoConnectingShell(true);
         setBusy("accept");
@@ -2784,6 +2802,11 @@ export function CommunityMessengerCallClient({
         : patchAction === "reject"
           ? "rejected"
           : "ended";
+    markCallConsumed(
+      sid,
+      optimisticEnd === "rejected" ? "declined" : optimisticEnd === "cancelled" ? "cancelled" : "ended"
+    );
+    logDibayCall("cleanup_done", { sessionId: sid, callId: sid, reason: optimisticEnd });
     const endedAtIso = new Date().toISOString();
     const ringingDismiss = session.status === "ringing";
     if (ringingDismiss) {
