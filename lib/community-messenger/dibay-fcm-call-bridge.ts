@@ -27,6 +27,8 @@ type DibayFcmCallBridgeHandlers = {
   onIncomingWake: (detail: DibayFcmIncomingWakeDetail) => void;
   /** FCM terminal — `call_terminal` · `call_canceled` 단일 경로 */
   onFcmTerminal: (detail: NormalizedFcmTerminalDispatch) => void;
+  /** Android native foreground incoming pill visibility */
+  onForegroundIncomingUi?: (detail: { sessionId: string; visible: boolean }) => void;
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
@@ -70,9 +72,18 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
           callerId?: string;
           callerName?: string;
           status?: string;
+          visible?: boolean;
         }
       | undefined;
     if (!detail) return;
+    if (detail.type === "foreground_incoming_ui") {
+      const sessionId = detail.sessionId?.trim() ?? "";
+      handlers.onForegroundIncomingUi?.({
+        sessionId,
+        visible: detail.visible !== false,
+      });
+      return;
+    }
     if (detail.type === "incoming_call") {
       const callKind =
         detail.callKind === "video"

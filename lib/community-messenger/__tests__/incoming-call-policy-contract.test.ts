@@ -99,7 +99,7 @@ describe("incoming-call policy contracts", () => {
 
   it("foreground FCM wake does not start a second WebAudio ringtone", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(src).toContain("Foreground FCM 은 Android `IncomingCallRingOwner`");
+    expect(src).toContain("buildForegroundIncomingWakeOptimisticSession");
     expect(src).not.toContain('dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice", "fcm_wake")');
   });
 
@@ -114,7 +114,8 @@ describe("incoming-call policy contracts", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain('ev.type !== "cm.call.session_terminal"');
     expect(global).toContain("bus_session_terminal");
-    expect(global).toContain("communityMessengerIncomingSessionFromFcmWake");
+    expect(global).toContain("buildForegroundIncomingWakeOptimisticSession");
+    expect(global).toContain("mergeForegroundIncomingWakeSession");
     expect(global).toContain("onFcmTerminal:");
     const bridge = read("lib/community-messenger/dibay-fcm-call-bridge.ts");
     expect(bridge).toContain("call_terminal");

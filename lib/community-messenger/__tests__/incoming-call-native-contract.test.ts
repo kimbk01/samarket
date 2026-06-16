@@ -37,6 +37,7 @@ describe("incoming-call native contract", () => {
     expect(plugin).toContain("isCallConsumed");
     expect(plugin).toContain("listConsumedCallIds");
     expect(plugin).toContain("drainPendingTerminalEvents");
+    expect(plugin).toContain("getForegroundIncomingCallId");
     expect(plugin).toContain("DibayCallConsumedStore.mark");
     const store = read("android/app/src/main/java/com/dibay/app/DibayCallConsumedStore.java");
     expect(store).toContain("isConsumed");
@@ -92,6 +93,15 @@ describe("incoming-call native contract", () => {
     expect(src).toContain("buildMainActivityCallAcceptIntent");
   });
 
+  it("FCM foreground unlocked launches native pill instead of web-only delegate", () => {
+    const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
+    expect(fcm).toContain("incoming_call_foreground_native_ui");
+    expect(fcm).toContain("IncomingCallForegroundUiLauncher.showUi");
+    expect(fcm).toContain("isForegroundUnlockedInteractive");
+    const manifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(manifest).toContain("ForegroundIncomingCallActivity");
+  });
+
   it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
     const handler = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
     expect(handler).toContain("dismissIncomingCall");
@@ -139,6 +149,13 @@ describe("incoming-call native contract", () => {
     expect(read("android/app/src/test/java/com/dibay/app/DibayFirebaseMessagingServiceTerminalTest.java")).toContain(
       "call_canceled"
     );
+  });
+
+  it("Global defers Android foreground banner to native pill with fallback", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("preferNativeAndroidForegroundIncoming");
+    expect(global).toContain("nativeForegroundIncomingCallId");
+    expect(global).toContain("onForegroundIncomingUi");
   });
 
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {

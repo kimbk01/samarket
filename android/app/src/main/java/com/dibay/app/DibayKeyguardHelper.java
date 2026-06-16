@@ -23,10 +23,16 @@ public final class DibayKeyguardHelper {
   }
 
   /**
-   * Foreground unlocked interactive — Global web banner can show; skip duplicate native FSI.
-   * Keyguard locked or background/hidden — always post native incoming notification + FSI.
+   * Foreground unlocked interactive — native in-app pill is primary; Web banner is fallback only.
+   * Keyguard locked or background — native notification + lock IncomingCallActivity.
    */
-  public static boolean shouldDelegateIncomingCallToWeb(boolean appVisible, Context context) {
+  public static boolean isForegroundUnlockedInteractive(boolean appVisible, Context context) {
     return appVisible && !isKeyguardLocked(context) && isInteractive(context);
+  }
+
+  /** @deprecated Use {@link #isForegroundUnlockedInteractive} — Web delegate removed for incoming UI. */
+  @Deprecated
+  public static boolean shouldDelegateIncomingCallToWeb(boolean appVisible, Context context) {
+    return isForegroundUnlockedInteractive(appVisible, context);
   }
 }

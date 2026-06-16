@@ -130,4 +130,14 @@ public class NativeIncomingCallPlugin extends Plugin {
     result.put("items", items);
     call.resolve(result);
   }
+
+  @PluginMethod
+  public void getForegroundIncomingCallId(PluginCall call) {
+    JSObject result = new JSObject();
+    String callId = ForegroundIncomingCallRegistry.getActiveCallId();
+    if (callId != null && !callId.isEmpty()) {
+      result.put("callId", callId);
+    }
+    call.resolve(result);
+  }
 }

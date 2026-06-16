@@ -34,6 +34,12 @@ export type ForegroundIncomingPresenterInput = {
   incomingTabLeader: boolean;
   visibilityState?: "visible" | "hidden" | "prerender" | "unloaded" | null;
   isAppForeground?: boolean;
+  /** FCM/native foreground wake 로 등록된 callId — stale ringing 보다 우선 */
+  foregroundWakeSessionIds?: ReadonlySet<string> | null;
+  /** Android Capacitor — 앱 안 foreground 수신은 Native pill 1차 */
+  preferNativeAndroidForegroundIncoming?: boolean;
+  /** Native {@link ForegroundIncomingCallActivity} 가 표시 중인 callId */
+  nativeForegroundIncomingCallId?: string | null;
 };
 
 function emptyDecision(reason: string): ForegroundIncomingPresenterDecision {
@@ -74,13 +80,24 @@ function collectBusyFilteredRingingCandidates(
 
 function pickPreferredRingingCandidate(
   candidates: CommunityMessengerCallSession[],
-  pathname: string | null | undefined
+  pathname: string | null | undefined,
+  foregroundWakeSessionIds?: ReadonlySet<string> | null
 ): CommunityMessengerCallSession | null {
   if (candidates.length === 0) return null;
-  for (const s of candidates) {
+
+  const sorted = [...candidates].sort((a, b) => {
+    const aWake = foregroundWakeSessionIds?.has(a.id) ? 1 : 0;
+    const bWake = foregroundWakeSessionIds?.has(b.id) ? 1 : 0;
+    if (bWake !== aWake) return bWake - aWake;
+    const at = Date.parse(a.startedAt ?? "") || 0;
+    const bt = Date.parse(b.startedAt ?? "") || 0;
+    return bt - at;
+  });
+
+  for (const s of sorted) {
     if (!shouldHideGlobalIncomingOverlayForSession(pathname, s.id)) return s;
   }
-  return candidates[0] ?? null;
+  return sorted[0] ?? null;
 }
 
 /**
@@ -127,7 +144,11 @@ export function resolveForegroundIncomingPresentation(
     return emptyDecision("no_ringing_candidate");
   }
 
-  const session = pickPreferredRingingCandidate(candidates, pathname);
+  const session = pickPreferredRingingCandidate(
+    candidates,
+    pathname,
+    input.foregroundWakeSessionIds
+  );
   if (!session) return emptyDecision("no_ringing_candidate");
 
   const selectedRingingSessionId = session.id;
@@ -174,6 +195,24 @@ export function resolveForegroundIncomingPresentation(
       shouldRender: false,
       selectedRingingSessionId,
     };
+  }
+
+  if (input.preferNativeAndroidForegroundIncoming && isAppForeground) {
+    const nativeActive = input.nativeForegroundIncomingCallId?.trim() ?? "";
+    if (nativeActive) {
+      return {
+        sessionId: session.id,
+        session,
+        surface: "none",
+        reason:
+          nativeActive === session.id
+            ? "native_foreground_primary"
+            : `native_foreground_other_call:${nativeActive}`,
+        shouldRender: false,
+        selectedRingingSessionId,
+      };
+    }
+    // nativeActive 없음 → Native UI 실패 시 Web banner fallback 허용
   }
 
   return {

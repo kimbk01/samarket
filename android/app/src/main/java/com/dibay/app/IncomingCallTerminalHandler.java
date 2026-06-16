@@ -35,6 +35,7 @@ public final class IncomingCallTerminalHandler {
     MainActivity.clearNativeCalleeAcceptPending(app);
 
     broadcastFinishIncomingActivity(app, sid);
+    ForegroundIncomingCallRegistry.clear(sid);
 
     String webStatus = mapWebTerminalStatus(kind);
     if ("cancelled".equals(kind) || "canceled".equals(kind)) {
@@ -83,6 +84,13 @@ public final class IncomingCallTerminalHandler {
     intent.setPackage(context.getPackageName());
     intent.putExtra(IncomingCallActivity.EXTRA_CALL_ID, callId);
     context.sendBroadcast(intent);
+  }
+
+  /** Dismiss lock-screen and in-app foreground incoming UI for callId. */
+  public static void finishIncomingUiOnly(Context context, String callId) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    broadcastFinishIncomingActivity(context, callId.trim());
+    ForegroundIncomingCallRegistry.clear(callId.trim());
   }
 
   private static String mapConsumedReason(String kind) {

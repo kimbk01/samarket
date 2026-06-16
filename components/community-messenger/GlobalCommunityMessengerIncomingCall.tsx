@@ -78,6 +78,10 @@ import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debu
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { ForegroundIncomingCallHost } from "@/components/community-messenger/ForegroundIncomingCallHost";
 import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call/foreground-incoming-presenter";
+import {
+  buildForegroundIncomingWakeOptimisticSession,
+  mergeForegroundIncomingWakeSession,
+} from "@/lib/community-messenger/incoming-call/foreground-incoming-wake";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
@@ -100,7 +104,6 @@ import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
   applyIncomingCallSessionsRealtimeEvent,
   communityMessengerIncomingSessionFromInviteBroadcast,
-  communityMessengerIncomingSessionFromFcmWake,
 } from "@/lib/community-messenger/incoming-call-realtime-preview";
 import {
   resolveOverlayBusyLiveSessionId,
@@ -124,6 +127,7 @@ import {
   hydrateDibayCallConsumedFromNative,
   isCallConsumedIncludingNative,
 } from "@/lib/push/native/dibay-call-consumed-native-bridge";
+import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { acceptIncomingCallOnce, runIncomingCallReject } from "@/lib/community-messenger/incoming-call-accept-gateway";
 import { buildIncomingCallPreviewHref } from "@/lib/community-messenger/incoming-call-preview-route";
@@ -242,6 +246,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   const incomingCallSoundEnabledRef = useRef(true);
   incomingCallSoundEnabledRef.current = incomingCallSoundEnabled;
   const [incomingCallBannerEnabled, setIncomingCallBannerEnabled] = useState(true);
+  const [nativeForegroundIncomingCallId, setNativeForegroundIncomingCallId] = useState<string | null>(
+    null
+  );
   const [incomingRealtimeOk, setIncomingRealtimeOk] = useState(false);
   const [incomingVisibilityState, setIncomingVisibilityState] = useState<
     "visible" | "hidden" | "prerender" | "unloaded"
@@ -1210,46 +1217,50 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (d.type === "samarket_messenger_incoming_call_wake") {
         const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
         void (async () => {
-          const wake = await resolveIncomingCallWake(
-            sid,
-            buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
-            isCallConsumedIncludingNative
-          );
+          const hard = hardClearedIncomingSessionsAtRef.current;
+          const tombstone = buildCallTombstoneContext(hard);
+          const uid = viewerUserIdRef.current?.trim();
+          const roomId =
+            typeof (d as { roomId?: unknown }).roomId === "string" ? (d as { roomId: string }).roomId.trim() : "";
+          const callerId =
+            typeof (d as { callerId?: unknown }).callerId === "string"
+              ? (d as { callerId: string }).callerId.trim()
+              : "";
+          const callerName =
+            typeof (d as { callerName?: unknown }).callerName === "string"
+              ? (d as { callerName: string }).callerName.trim()
+              : "";
+          const callKindRaw =
+            typeof (d as { callKind?: unknown }).callKind === "string" ? (d as { callKind: string }).callKind : "";
+          const callKind =
+            callKindRaw === "video" ? "video" : callKindRaw === "voice" || callKindRaw === "audio" ? "voice" : undefined;
+
+          if (sid) activeIncomingCallIdsRef.current.add(sid);
+          if (uid && sid) {
+            const optimistic = buildForegroundIncomingWakeOptimisticSession(
+              uid,
+              { sessionId: sid, roomId, callKind, callerId, callerName },
+              hard
+            );
+            if (optimistic) {
+              setSessions((prev) => mergeForegroundIncomingWakeSession(prev, optimistic));
+            }
+          }
+
+          const wake = await resolveIncomingCallWake(sid, tombstone, isCallConsumedIncludingNative);
           if (!wake.proceed) {
             if (wake.reason === "terminal_tombstone") {
               stopIncomingCallRing("sw_wake_tombstone", sid);
+            }
+            if (sid) {
+              activeIncomingCallIdsRef.current.delete(sid);
+              setSessions((prev) => prev.filter((s) => s.id !== sid));
             }
             return;
           }
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "sw_wake" });
           }
-          const uid = viewerUserIdRef.current?.trim();
-          const roomId = typeof (d as { roomId?: unknown }).roomId === "string" ? (d as { roomId: string }).roomId.trim() : "";
-          const callerId =
-            typeof (d as { callerId?: unknown }).callerId === "string" ? (d as { callerId: string }).callerId.trim() : "";
-          const callerName =
-            typeof (d as { callerName?: unknown }).callerName === "string"
-              ? (d as { callerName: string }).callerName.trim()
-              : "";
-          const callKindRaw = typeof (d as { callKind?: unknown }).callKind === "string" ? (d as { callKind: string }).callKind : "";
-          const callKind = callKindRaw === "video" ? "video" : callKindRaw === "voice" || callKindRaw === "audio" ? "voice" : undefined;
-          if (uid && sid && roomId && callerId && callKind) {
-            const optimistic = communityMessengerIncomingSessionFromFcmWake(uid, {
-              sessionId: sid,
-              roomId,
-              callKind,
-              callerId,
-              callerName,
-            });
-            if (optimistic) {
-              setSessions((prev) => {
-                const filtered = prev.filter((s) => s.id !== optimistic.id);
-                return [optimistic, ...filtered];
-              });
-            }
-          }
-          if (sid) activeIncomingCallIdsRef.current.add(sid);
           bumpIncomingListFastSync();
         })();
         return;
@@ -1288,45 +1299,50 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [bumpIncomingListFastSync, handleCallTerminalEvent]);
 
   useEffect(() => {
+    if (!isCapacitorNativePlatform()) return;
+    void getNativeIncomingCallPlugin().then((plugin) => {
+      if (!plugin) return;
+      void plugin.getForegroundIncomingCallId().then((res) => {
+        const id = res.callId?.trim();
+        if (id) setNativeForegroundIncomingCallId(id);
+      });
+    });
+  }, []);
+
+  useEffect(() => {
     return installDibayFcmCallBridge({
+      onForegroundIncomingUi: ({ sessionId, visible }) => {
+        setNativeForegroundIncomingCallId(visible && sessionId.trim() ? sessionId.trim() : null);
+      },
       onIncomingWake: (detail) => {
         void (async () => {
           const sid = detail.sessionId?.trim() ?? "";
-          const wake = await resolveIncomingCallWake(
-            sid,
-            buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
-            isCallConsumedIncludingNative
-          );
+          const hard = hardClearedIncomingSessionsAtRef.current;
+          const tombstone = buildCallTombstoneContext(hard);
+          const uid = viewerUserIdRef.current?.trim();
+
+          if (sid) activeIncomingCallIdsRef.current.add(sid);
+          if (uid && sid) {
+            const optimistic = buildForegroundIncomingWakeOptimisticSession(uid, detail, hard);
+            if (optimistic) {
+              setSessions((prev) => mergeForegroundIncomingWakeSession(prev, optimistic));
+            }
+          }
+
+          const wake = await resolveIncomingCallWake(sid, tombstone, isCallConsumedIncludingNative);
           if (!wake.proceed) {
             if (wake.reason === "terminal_tombstone") {
               stopIncomingCallRing("fcm_wake_tombstone", sid);
+            }
+            if (sid) {
+              activeIncomingCallIdsRef.current.delete(sid);
+              setSessions((prev) => prev.filter((s) => s.id !== sid));
             }
             return;
           }
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
           }
-          const uid = viewerUserIdRef.current?.trim();
-          if (uid && sid && detail.roomId && detail.callerId && detail.callKind) {
-            const optimistic = communityMessengerIncomingSessionFromFcmWake(uid, {
-              sessionId: sid,
-              roomId: detail.roomId,
-              callKind: detail.callKind,
-              callerId: detail.callerId,
-              callerName: detail.callerName,
-            });
-            if (optimistic) {
-              setSessions((prev) => {
-                const filtered = prev.filter((s) => s.id !== optimistic.id);
-                return [optimistic, ...filtered];
-              });
-            }
-          }
-          /**
-           * Foreground FCM 은 Android `IncomingCallRingOwner` 가 OS 벨을 담당한다.
-           * WebAudio 벨은 시작하지 않는다.
-           */
-          if (sid) activeIncomingCallIdsRef.current.add(sid);
           bumpIncomingListFastSync();
         })();
       },
@@ -1742,6 +1758,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   const { isLeader: incomingTabLeaderRaw } = useIncomingCallTabLeader(Boolean(userId));
   const incomingTabLeader = isCapacitorNativePlatform() ? true : incomingTabLeaderRaw;
 
+  const foregroundWakeSessionIds = useMemo(
+    () => new Set(activeIncomingCallIdsRef.current),
+    [sessions]
+  );
+
   const foregroundPresentation = useMemo(
     () =>
       resolveForegroundIncomingPresentation({
@@ -1753,8 +1774,20 @@ export function GlobalCommunityMessengerIncomingCall() {
         incomingTabLeader,
         visibilityState: incomingVisibilityState,
         isAppForeground: incomingVisibilityState === "visible",
+        foregroundWakeSessionIds,
+        preferNativeAndroidForegroundIncoming: isCapacitorNativePlatform(),
+        nativeForegroundIncomingCallId,
       }),
-    [incomingTabLeader, incomingVisibilityState, pathname, sessions, userId, viewerLiveSessionId]
+    [
+      foregroundWakeSessionIds,
+      incomingTabLeader,
+      incomingVisibilityState,
+      nativeForegroundIncomingCallId,
+      pathname,
+      sessions,
+      userId,
+      viewerLiveSessionId,
+    ]
   );
 
   const bannerSession = foregroundPresentation.shouldRender ? foregroundPresentation.session : null;
@@ -1901,6 +1934,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     );
     for (const id of [...activeIncomingCallIdsRef.current]) {
       if (!ringingIds.has(id)) {
+        const row = sessions.find((item) => item.id === id);
+        if (!row) continue;
         activeIncomingCallIdsRef.current.delete(id);
       }
     }
@@ -1920,6 +1955,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     for (const s of sessions) {
       if (s.status !== "ringing") continue;
       if (s.id === viewerLiveSessionId) continue;
+      if (activeIncomingCallIdsRef.current.has(s.id)) continue;
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
       const busy = evaluateIncomingCallBusyPolicy({
         incoming: s,

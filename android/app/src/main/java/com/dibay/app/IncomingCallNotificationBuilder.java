@@ -19,8 +19,8 @@ import androidx.core.app.NotificationCompat;
 /**
  * Messenger-style incoming call notification — system call category with accept/decline actions.
  *
- * <p>Foreground receive uses web {@code IncomingCallBanner}. Lock/screen-off uses notification actions
- * plus optional full-screen intent bridge ({@link IncomingCallActivity}) — not content tap.
+ * <p>Foreground unlocked uses {@link ForegroundIncomingCallActivity} pill. Lock/screen-off uses
+ * notification actions plus optional full-screen intent bridge ({@link IncomingCallActivity}).
  */
 public final class IncomingCallNotificationBuilder {
   /** Production channel — do not rename (OS channel settings are sticky). */

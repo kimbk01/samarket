@@ -167,6 +167,67 @@ describe("foreground-incoming-presenter", () => {
     expect(MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS).toBe("z-[1290]");
   });
 
+  it("prefers foreground wake session over stale ringing on same call route", () => {
+    const stale = ringingSession("call-a");
+    const incoming = ringingSession("call-b", {
+      startedAt: new Date(Date.now() + 5000).toISOString(),
+    });
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [stale, incoming],
+      pathname: "/community-messenger/calls/call-a",
+      viewerUserId: "self",
+      viewerLiveSessionId: "call-a",
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
+      foregroundWakeSessionIds: new Set(["call-b"]),
+      preferNativeAndroidForegroundIncoming: false,
+    });
+
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.sessionId).toBe("call-b");
+    expect(decision.reason).toBe("ok");
+  });
+
+  it("suppresses web banner when native Android foreground pill is active", () => {
+    const incoming = ringingSession("call-1");
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/community-messenger",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
+      preferNativeAndroidForegroundIncoming: true,
+      nativeForegroundIncomingCallId: "call-1",
+    });
+
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("native_foreground_primary");
+  });
+
+  it("allows web banner fallback when native foreground pill is absent on Android", () => {
+    const incoming = ringingSession("call-1");
+    const decision = resolveForegroundIncomingPresentation({
+      sessions: [incoming],
+      pathname: "/community-messenger",
+      viewerUserId: "self",
+      viewerLiveSessionId: null,
+      tombstone,
+      incomingTabLeader: true,
+      visibilityState: "visible",
+      isAppForeground: true,
+      preferNativeAndroidForegroundIncoming: true,
+      nativeForegroundIncomingCallId: null,
+    });
+
+    expect(decision.shouldRender).toBe(true);
+    expect(decision.reason).toBe("ok");
+  });
+
   it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {
     const src = readFileSync(
       join(process.cwd(), "components/community-messenger/ForegroundIncomingCallHost.tsx"),

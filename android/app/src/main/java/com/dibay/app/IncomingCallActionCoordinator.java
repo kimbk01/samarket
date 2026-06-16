@@ -124,10 +124,12 @@ public final class IncomingCallActionCoordinator {
     DibayCallConsumedStore.mark(context, sid, "declined");
     IncomingCallRingOwner.stop(context, sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
+    IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_start callId=" + sid);
+    final Context app = context.getApplicationContext();
     new Thread(
             () -> {
-              boolean ok = CallSessionPatchHelper.patch(context.getApplicationContext(), sid, "reject");
+              boolean ok = CallSessionPatchHelper.patch(app, sid, "reject");
               if (ok) {
                 Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_done callId=" + sid);
                 Log.i(CALL_TAG, "[call-state] reject_success callId=" + sid);
@@ -136,6 +138,8 @@ public final class IncomingCallActionCoordinator {
                 Log.w("DIBAY_CALL", "[DIBAY_CALL] reject_patch_failed callId=" + sid);
                 complete(sid, "reject");
               }
+              new Handler(Looper.getMainLooper())
+                  .post(() -> MainActivity.deliverCallTerminalEvent(app, sid, "rejected"));
             })
         .start();
   }

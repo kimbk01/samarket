@@ -55,6 +55,18 @@ public class MainActivity extends BridgeActivity {
     return appVisible;
   }
 
+  static MainActivity getActiveInstance() {
+    return activeInstance;
+  }
+
+  /** Foreground native pill visibility — Web banner fallback gate. */
+  public static void notifyForegroundIncomingUiState(String callId, boolean visible) {
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    final String sid = callId != null ? callId.trim() : "";
+    act.mainHandler.post(() -> act.injectForegroundIncomingUiEvent(sid, visible));
+  }
+
   /** FCM foreground — WebView legacy call bridge (incoming_call / call_canceled) */
   static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
@@ -178,6 +190,22 @@ public class MainActivity extends BridgeActivity {
     IncomingCallRingOwner.start(this, payload.callId);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event");
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
+  }
+
+  private void injectForegroundIncomingUiEvent(String callId, boolean visible) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'foreground_incoming_ui',sessionId:'"
+            + safeCallId
+            + "',visible:"
+            + (visible ? "true" : "false")
+            + "}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] foreground_incoming_ui callId=" + callId + " visible=" + visible);
   }
 
   private void injectCallTerminalEvent(String callId, String status) {

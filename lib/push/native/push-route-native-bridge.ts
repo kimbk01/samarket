@@ -29,6 +29,7 @@ export type NativeIncomingCallPlugin = {
   drainPendingTerminalEvents(): Promise<{
     items: Array<{ sessionId: string; status?: string; at?: number }>;
   }>;
+  getForegroundIncomingCallId(): Promise<{ callId?: string | null }>;
 };
 
 let pluginPromise: Promise<{ plugin: NativeIncomingCallPlugin } | null> | null = null;

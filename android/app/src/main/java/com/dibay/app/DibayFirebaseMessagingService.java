@@ -104,9 +104,11 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
-    if (DibayKeyguardHelper.shouldDelegateIncomingCallToWeb(appVisible, this)) {
-      Log.i(TAG, "[call-native] incoming_call_foreground_event callId=" + callId);
+    if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, this)) {
+      Log.i(TAG, "[call-native] incoming_call_foreground_native_ui callId=" + callId);
       MainActivity.deliverCallIncomingEvent(payload);
+      IncomingCallForegroundUiLauncher.showUi(this, payload);
+      IncomingCallActionCoordinator.scheduleMissedTimeout(this, payload);
       return;
     }
 
