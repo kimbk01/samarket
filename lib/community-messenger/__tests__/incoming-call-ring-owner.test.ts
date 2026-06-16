@@ -61,4 +61,23 @@ describe("incoming-call ring-owner", () => {
     vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
     vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
   });
+
+  it("Android Capacitor ring owner does not start WebAudio", () => {
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue("android");
+    const hard = new Map<string, number>();
+    syncIncomingCallRing({ sessionId: "c-android", callKind: "voice", hardClearedAt: hard, source: "test" });
+    expect(startCommunityMessengerCallTone).not.toHaveBeenCalled();
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
+  });
+
+  it("Browser ring owner does not invoke native ring stop on start", async () => {
+    const hard = new Map<string, number>();
+    syncIncomingCallRing({ sessionId: "c-browser", callKind: "voice", hardClearedAt: hard, source: "test" });
+    await vi.waitFor(() => {
+      expect(startCommunityMessengerCallTone).toHaveBeenCalled();
+    });
+    expect(stopNativeIncomingRingtoneFireAndForget).not.toHaveBeenCalled();
+  });
 });
