@@ -20,7 +20,7 @@ export type NativeIncomingCallPlugin = {
   markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
 };
 
-let pluginPromise: Promise<NativeIncomingCallPlugin | null> | null = null;
+let pluginPromise: Promise<{ plugin: NativeIncomingCallPlugin } | null> | null = null;
 
 export async function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin | null> {
   if (!isCapacitorNativePlatform()) return null;
@@ -28,13 +28,18 @@ export async function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallP
     pluginPromise = (async () => {
       try {
         const { registerPlugin } = await import("@capacitor/core");
-        return registerPlugin<NativeIncomingCallPlugin>("NativeIncomingCall");
+        /**
+         * Capacitor plugin proxy traps arbitrary properties, including `then`.
+         * Returning it directly from a Promise makes JS treat it as a thenable and calls
+         * `NativeIncomingCall.then()`. Wrap it so Promise resolution never touches the proxy.
+         */
+        return { plugin: registerPlugin<NativeIncomingCallPlugin>("NativeIncomingCall") };
       } catch {
         return null;
       }
     })();
   }
-  return pluginPromise;
+  return (await pluginPromise)?.plugin ?? null;
 }
 
 export async function readNativePersistedPendingPushRoute(

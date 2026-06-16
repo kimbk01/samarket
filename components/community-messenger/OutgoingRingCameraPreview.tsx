@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   attachPreJoinHtmlVideo,
   detachPreJoinHtmlVideo,
@@ -20,10 +20,12 @@ type OutgoingRingCameraPreviewProps = {
  */
 export function OutgoingRingCameraPreview({ stream }: OutgoingRingCameraPreviewProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [ready, setReady] = useState(false);
 
   useLayoutEffect(() => {
     const el = videoRef.current;
     if (!el) return;
+    setReady(false);
     const active =
       stream && hasLiveCommunityMessengerVideoPreviewStream(stream)
         ? stream
@@ -33,8 +35,12 @@ export function OutgoingRingCameraPreview({ stream }: OutgoingRingCameraPreviewP
       return;
     }
     primeVideoElementAutoplayFromUserGesture(active);
-    void attachPreJoinHtmlVideo(el, active);
+    let cancelled = false;
+    void attachPreJoinHtmlVideo(el, active).then((ok) => {
+      if (!cancelled) setReady(ok);
+    });
     return () => {
+      cancelled = true;
       detachPreJoinHtmlVideo(el);
     };
   }, [stream]);
@@ -42,7 +48,9 @@ export function OutgoingRingCameraPreview({ stream }: OutgoingRingCameraPreviewP
   return (
     <video
       ref={videoRef}
-      className="absolute inset-0 z-[3] h-full w-full object-cover"
+      className={`absolute inset-0 z-[3] h-full w-full object-cover transition-opacity duration-100 ${
+        ready ? "opacity-100" : "opacity-0"
+      }`}
       muted
       playsInline
       autoPlay

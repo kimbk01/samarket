@@ -541,6 +541,7 @@ export function CommunityMessengerCallClient({
   const [terminalClosedAt, setTerminalClosedAt] = useState<number | null>(null);
   const [endedDurationSeconds, setEndedDurationSeconds] = useState<number | null>(null);
   const [localVideoReady, setLocalVideoReady] = useState(false);
+  const [preJoinVideoElementReady, setPreJoinVideoElementReady] = useState(false);
   const [localVideoPlayBlocked, setLocalVideoPlayBlocked] = useState(false);
   const [callPermissionBlocked, setCallPermissionBlocked] = useState(false);
   const [remoteVideoReady, setRemoteVideoReady] = useState(false);
@@ -2353,10 +2354,10 @@ export function CommunityMessengerCallClient({
     if (!s.isMineInitiator) {
       /**
        * 단일 파이프라인 정책:
-       * `/calls/:id?action=accept(&nativeAccept=1)` 로 들어온 경우 accept PATCH 는 이미 완료된 상태다.
-       * (Web gateway 또는 Native coordinator). CallClient 는 PATCH 를 재실행하지 않는다.
+       * `nativeAccept=1` 은 gateway PATCH 완료 후 active route 로 들어온 상태다.
+       * 일반 `action=accept` 는 아직 PATCH 가 필요할 수 있으므로 아래 gateway 경로로 계속 내려간다.
        */
-      if (requestedActionRef.current === "accept") {
+      if (nativeAcceptRoute && requestedActionRef.current === "accept") {
         if (!isDibayCallConsumed(s.id)) {
           applyIncomingCallConsumedSideEffects(s.id, "accepted", "call_client_accept_route");
         }
@@ -2700,10 +2701,10 @@ export function CommunityMessengerCallClient({
       sessionRef.current = loaded;
       setLoading(false);
       /**
-       * 단일 파이프라인: `action=accept` 는 이미 PATCH 완료를 의미.
-       * hydrate 경로에서도 CallClient 가 accept PATCH 를 재실행하지 않는다.
+       * `nativeAccept=1` 만 PATCH 완료 의미다.
+       * 일반 `action=accept` 는 acceptIncoming() 으로 내려가 gateway PATCH 를 1회 실행한다.
        */
-      if (requestedAction === "accept") {
+      if (requestedAction === "accept" && nativeAcceptRoute) {
         logDibayCall("accept_success", { sessionId, source: "call_client_hydrate_accept_route" });
         dibayIncomingLaneStopRing("hydrate_accept_route", sessionId);
         dismissAllIncomingCallNotificationsFireAndForget(sessionId);
@@ -2718,7 +2719,7 @@ export function CommunityMessengerCallClient({
       releaseIncomingCallAccept(sessionId);
       setBusy(null);
     }
-  }, [acceptIncoming, nativeAcceptRoute, refreshSession, sessionId, t]);
+  }, [acceptIncoming, nativeAcceptRoute, refreshSession, requestedAction, sessionId, t]);
 
   const autoHydrateActionRef = useRef<string | null>(null);
 
@@ -3938,13 +3939,19 @@ export function CommunityMessengerCallClient({
 
   useLayoutEffect(() => {
     if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream || localVideoReady) {
+      setPreJoinVideoElementReady(false);
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
       return;
     }
     const el = ringPreviewVideoRef.current;
     if (!el) return;
-    void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream);
+    setPreJoinVideoElementReady(false);
+    let cancelled = false;
+    void attachPreJoinHtmlVideo(el, preJoinVideoPreviewStream).then((ok) => {
+      if (!cancelled) setPreJoinVideoElementReady(ok);
+    });
     return () => {
+      cancelled = true;
       if (!localVideoReady) return;
       detachPreJoinHtmlVideo(el);
     };
@@ -4562,15 +4569,20 @@ export function CommunityMessengerCallClient({
         ) : preJoinVideoPreviewStream && !localVideoReady ? (
           <video
             ref={ringPreviewVideoRef}
-            className="absolute inset-0 z-[2] h-full w-full object-cover"
+            className={`absolute inset-0 z-[2] h-full w-full object-cover transition-opacity duration-100 ${
+              preJoinVideoElementReady ? "opacity-100" : "opacity-0"
+            }`}
             muted
             playsInline
             autoPlay
+            controls={false}
+            disablePictureInPicture
+            disableRemotePlayback
           />
         ) : null}
         {(session.isMineInitiator || (calleeAcceptBridgeLayout && videoCall)) &&
         !localVideoReady &&
-        !preJoinVideoPreviewStream &&
+        (!preJoinVideoPreviewStream || !preJoinVideoElementReady) &&
         !showOutgoingRingCameraPreview &&
         !permissionBlockedUi ? (
           <div

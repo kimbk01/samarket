@@ -96,6 +96,12 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     DibayCallLog.once("push_received", callId, "roomId=" + payload.roomId);
     Log.i(TAG, "[call-push] incoming_call_received callId=" + callId + " roomId=" + payload.roomId);
 
+    if (DibayCallConsumedStore.isConsumed(this, callId)) {
+      Log.i(TAG, "[call-native] incoming_ignored_consumed callId=" + callId);
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
+      return;
+    }
+
     if (FcmPayloadResolver.isExpired(data)) {
       Log.i(TAG, "[incoming-call-native] expired_ignored callId=" + callId);
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);

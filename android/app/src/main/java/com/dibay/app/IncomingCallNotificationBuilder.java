@@ -128,8 +128,8 @@ public final class IncomingCallNotificationBuilder {
     ensureChannel(context);
     if (sessionId == null || sessionId.trim().isEmpty()) return;
     String sid = sessionId.trim();
-    boolean firstIncoming = IncomingCallActionCoordinator.registerIncoming(sid);
-    if (!firstIncoming && IncomingCallActionCoordinator.isCompleted(sid)) {
+    boolean firstIncoming = IncomingCallActionCoordinator.registerIncoming(context, sid);
+    if (!firstIncoming) {
       return;
     }
 

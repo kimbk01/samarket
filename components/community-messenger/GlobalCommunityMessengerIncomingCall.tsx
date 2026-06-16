@@ -1151,11 +1151,12 @@ export function GlobalCommunityMessengerIncomingCall() {
         if (sid) {
           logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
         }
-        if (sid && incomingCallSoundEnabledRef.current) {
-          unlockCommunityMessengerCallPlaybackFromUserGesture();
-          dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice", "fcm_wake");
-          activeIncomingCallIdsRef.current.add(sid);
-        }
+        /**
+         * Foreground FCM 은 Android `DibayForegroundRingtone` 이 OS 벨을 담당한다.
+         * 여기서 WebAudio 벨까지 시작하면 같은 callId 가 두 번 오는 느낌이 난다.
+         * Web 은 UI/목록 동기화만 맡고, stop/consumed 는 기존 공통 경로로 양쪽 모두 정리한다.
+         */
+        if (sid) activeIncomingCallIdsRef.current.add(sid);
         bumpIncomingListFastSync();
       },
       onCanceled: (sessionId) => {

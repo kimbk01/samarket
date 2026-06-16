@@ -67,6 +67,14 @@ public class MainActivity extends BridgeActivity {
     if (bridge == null) return;
     WebView webView = bridge.getWebView();
     if (webView == null) return;
+    if (DibayCallConsumedStore.isConsumed(this, payload.callId)) {
+      Log.i(ROUTE_LOG_TAG, "[call-native] incoming_ignored_consumed callId=" + payload.callId);
+      return;
+    }
+    if (!IncomingCallActionCoordinator.registerIncoming(this, payload.callId)) {
+      Log.i(ROUTE_LOG_TAG, "[call-native] incoming_duplicate_ignored callId=" + payload.callId);
+      return;
+    }
     final String callId = safeJs(payload.callId);
     final String roomId = safeJs(payload.roomId);
     final String callerId = safeJs(payload.callerId);
@@ -88,10 +96,6 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    if (DibayCallConsumedStore.isConsumed(this, payload.callId)) {
-      Log.i(ROUTE_LOG_TAG, "[call-native] incoming_ignored_consumed callId=" + payload.callId);
-      return;
-    }
     DibayForegroundRingtone.start(this, payload.callId);
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }

@@ -53,8 +53,9 @@ describe("incoming-call policy contracts", () => {
 
   it("CallClient does not re-run accept PATCH on nativeAccept=1 route", () => {
     const src = read("components/community-messenger/CommunityMessengerCallClient.tsx");
-    expect(src).toContain("requestedActionRef.current === \"accept\"");
-    expect(src).toContain("PATCH 를 재실행하지 않는다");
+    expect(src).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
+    expect(src).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
+    expect(src).toContain("일반 `action=accept` 는 아직 PATCH 가 필요");
   });
 
   it("RouteHost consumes pending call route on resume", () => {
@@ -88,6 +89,19 @@ describe("incoming-call policy contracts", () => {
     expect(state).toContain("syncDibayCallConsumedToNative");
     const bridge = read("lib/push/native/dibay-call-consumed-native-bridge.ts");
     expect(bridge).toContain("markCallConsumed");
+  });
+
+  it("foreground FCM wake does not start a second WebAudio ringtone", () => {
+    const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(src).toContain("Foreground FCM 은 Android `DibayForegroundRingtone`");
+    expect(src).not.toContain('dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice", "fcm_wake")');
+  });
+
+  it("video prejoin element is hidden until MediaStream is attached", () => {
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("preJoinVideoElementReady ? \"opacity-100\" : \"opacity-0\"");
+    const preview = read("components/community-messenger/OutgoingRingCameraPreview.tsx");
+    expect(preview).toContain("ready ? \"opacity-100\" : \"opacity-0\"");
   });
 });
 

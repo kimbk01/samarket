@@ -24,10 +24,14 @@ public final class IncomingCallActionCoordinator {
 
   private IncomingCallActionCoordinator() {}
 
-  public static boolean registerIncoming(String callId) {
+  public static boolean registerIncoming(Context context, String callId) {
     if (callId == null || callId.trim().isEmpty()) return false;
     cleanupExpired();
     String sid = callId.trim();
+    if (DibayCallConsumedStore.isConsumed(context, sid)) {
+      Log.i(TAG, "[call-flow] consumed_incoming_blocked callId=" + sid);
+      return false;
+    }
     if (COMPLETED_ACTIONS.containsKey(sid)) {
       Log.i(TAG, "[call-flow] duplicate_completed_incoming_blocked callId=" + sid);
       return false;
@@ -82,6 +86,7 @@ public final class IncomingCallActionCoordinator {
     if (!tryBegin(sid, "accept")) return;
     DibayCallLog.once("accept_start", sid, "source=native_pending_web");
     Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
+    DibayCallConsumedStore.mark(context, sid, "accepted");
     DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     if (!shouldLaunchAcceptRoute(sid)) {
@@ -100,6 +105,7 @@ public final class IncomingCallActionCoordinator {
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
     DibayCallLog.once("call_end", sid, "source=native_reject");
+    DibayCallConsumedStore.mark(context, sid, "declined");
     DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
@@ -129,6 +135,7 @@ public final class IncomingCallActionCoordinator {
     if (!tryBegin(sid, "missed")) return;
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
+    DibayCallConsumedStore.mark(context, sid, "missed");
     DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
