@@ -113,6 +113,18 @@ export function CallScreen({ sessionId }: Props) {
   }, [sessionId, searchParams]);
 
   useEffect(() => {
+    const live =
+      ctx.sessionId === sessionId &&
+      (ctx.state === "outgoing" || ctx.state === "connecting" || ctx.state === "accepting");
+    if (!live) return;
+    void refreshCallSessionAuthoritative(sessionId);
+    const pollId = window.setInterval(() => {
+      void refreshCallSessionAuthoritative(sessionId);
+    }, 2_000);
+    return () => window.clearInterval(pollId);
+  }, [ctx.sessionId, ctx.state, sessionId]);
+
+  useEffect(() => {
     if (ctx.kind !== "video" || ctx.role !== "caller" || ctx.state !== "outgoing") return;
     if (previewStartedRef.current) return;
     previewStartedRef.current = true;

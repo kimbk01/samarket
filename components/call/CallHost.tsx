@@ -12,6 +12,7 @@ import {
   dispatchCallEvent,
   parseCallRemoteEndFromSignal,
   refreshCallIncomingFromHttp,
+  refreshCallSessionAuthoritative,
   sessionToIncomingPayload,
 } from "@/lib/call/call-events";
 import { subscribeCallContext, useCallStore } from "@/lib/call/call-store";
@@ -83,6 +84,22 @@ export function CallHost() {
                 }
                 dispatchCallEvent({ type: "CALL_INCOMING", payload: sessionToIncomingPayload(res.session) });
               });
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "UPDATE",
+              schema: "public",
+              table: "community_messenger_call_sessions",
+              filter: `initiator_user_id=eq.${userId}`,
+            },
+            (payload) => {
+              const row = payload.new as Record<string, unknown> | null;
+              const sessionId = typeof row?.id === "string" ? row.id.trim() : "";
+              if (!sessionId) return;
+              logCall("runtime", "initiator_session_update", { sessionId, status: row?.status });
+              void refreshCallSessionAuthoritative(sessionId);
             }
           )
           .on(
