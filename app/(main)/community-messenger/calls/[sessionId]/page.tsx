@@ -1,13 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
-import { isCallV3Enabled } from "@/lib/call-v3/call-v3-feature-flag";
+import { isCallV3Enabled, logCallV3FeatureFlag } from "@/lib/call-v3/call-v3-feature-flag";
+import { logCallV3 } from "@/lib/call-v3/call-v3-log";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 
 const DibayCallScreen = dynamic(
@@ -28,12 +29,28 @@ export default function CommunityMessengerCallPage() {
     () => (sessionId ? isCallSessionHostedByActiveCallHost(sessionId) : false),
     () => false
   );
+  const v3Enabled = isCallV3Enabled();
+
+  useEffect(() => {
+    logCallV3FeatureFlag("CommunityMessengerCallPage");
+    if (!sessionId) return;
+    if (v3Enabled) {
+      logCallV3("page_mounted", { screen: "DibayCallScreen", sessionId });
+      logCallV3("legacy_blocked_when_v3_enabled", { surface: "CommunityMessengerCallPage", sessionId });
+      return;
+    }
+    logCallV3("page_mounted", {
+      screen: hostOwnsSession ? "null_host_owns" : "CommunityMessengerCallClient",
+      sessionId,
+      hostOwnsSession,
+    });
+  }, [hostOwnsSession, sessionId, v3Enabled]);
 
   if (!sessionId) {
     return <CommunityMessengerCallRouteLoading />;
   }
 
-  if (isCallV3Enabled()) {
+  if (v3Enabled) {
     return <DibayCallScreen sessionId={sessionId} />;
   }
 

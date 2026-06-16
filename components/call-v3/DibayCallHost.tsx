@@ -16,6 +16,8 @@ import {
 } from "@/lib/call-v3/call-v3-events";
 import { subscribeCallV3Context, useCallV3Store } from "@/lib/call-v3/call-v3-store";
 import { readCallV3PendingRoute, clearCallV3PendingRoute } from "@/lib/call-v3/call-v3-pending-route";
+import { logCallV3FeatureFlag } from "@/lib/call-v3/call-v3-feature-flag";
+import { logCallV3 } from "@/lib/call-v3/call-v3-log";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 const INCOMING_CALL_REALTIME_SCOPE = "community_messenger_incoming_call_v3";
@@ -29,6 +31,8 @@ export function DibayCallHost() {
   );
 
   useEffect(() => {
+    logCallV3FeatureFlag("DibayCallHost");
+    logCallV3("host_mounted", { host: "DibayCallHost" });
     useCallV3Store.getState().setRouter(router);
   }, [router]);
 

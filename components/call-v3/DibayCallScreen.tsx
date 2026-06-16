@@ -24,6 +24,7 @@ import { subscribeCallV3Context, useCallV3Store } from "@/lib/call-v3/call-v3-st
 import { navigateBackFromCallV3, rememberCallV3ReturnPath } from "@/lib/call-v3/call-v3-navigation";
 import { startOutgoingCallUnified } from "@/lib/call-v3/call-v3-outgoing-entry";
 import { logCallV3 } from "@/lib/call-v3/call-v3-log";
+import { logCallV3FeatureFlag } from "@/lib/call-v3/call-v3-feature-flag";
 import { isCallV3TerminalState, type CallV3Context } from "@/lib/call-v3/call-v3-types";
 import {
   isMessengerCallClientFailureReason,
@@ -95,9 +96,11 @@ export function DibayCallScreen({ sessionId }: Props) {
   const [redialError, setRedialError] = useState<string | null>(null);
 
   useEffect(() => {
+    logCallV3FeatureFlag("DibayCallScreen");
+    logCallV3("page_mounted", { screen: "DibayCallScreen", sessionId });
     useCallV3Store.getState().setRouter(router);
     rememberCallV3ReturnPath();
-  }, [router]);
+  }, [router, sessionId]);
 
   useEffect(() => {
     previewStartedRef.current = false;
