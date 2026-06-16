@@ -38,6 +38,7 @@ public class MainActivity extends BridgeActivity {
   private static final long ACCEPT_ROUTE_DEDUP_MS = 8_000L;
   private static final int[] PENDING_ROUTE_RETRY_DELAYS_MS = {120, 450, 900, 2_000, 4_000};
   private static final int[] ACCEPT_ROUTE_RETRY_DELAYS_MS = {0, 50, 120, 450, 900};
+  private static final int[] PENDING_TERMINAL_RETRY_DELAYS_MS = {120, 450, 900, 2_000};
   private static volatile boolean appVisible = false;
   private static volatile MainActivity activeInstance = null;
 
@@ -63,15 +64,59 @@ public class MainActivity extends BridgeActivity {
 
   /** FCM foreground — 발신 취소를 WebView legacy call bridge 에 전달 */
   static void deliverCallCanceledEvent(String callId) {
-    deliverCallTerminalEvent(callId, "cancelled");
+    deliverCallTerminalEvent(null, callId, "cancelled");
   }
 
-  /** Terminal/cancel — WebView legacy call bridge (foreground only when alive). */
-  static void deliverCallTerminalEvent(String callId, String status) {
-    MainActivity act = activeInstance;
-    if (act == null || callId == null || callId.trim().isEmpty()) return;
+  /** Terminal/cancel — WebView bridge; queues when WebView unavailable. */
+  static void deliverCallTerminalEvent(android.content.Context context, String callId, String status) {
+    if (callId == null || callId.trim().isEmpty()) return;
     String st = status != null ? status.trim().toLowerCase() : "cancelled";
-    act.mainHandler.post(() -> act.injectCallTerminalEvent(callId.trim(), st));
+    String sid = callId.trim();
+    MainActivity act = activeInstance;
+    if (act == null) {
+      if (context != null) {
+        DibayCallTerminalPendingQueue.enqueue(context.getApplicationContext(), sid, st);
+      }
+      return;
+    }
+    act.mainHandler.post(() -> act.deliverCallTerminalEventToWebView(sid, st));
+  }
+
+  private boolean canDeliverCallEventToWebView() {
+    Bridge bridge = getBridge();
+    return bridge != null && bridge.getWebView() != null;
+  }
+
+  private void deliverCallTerminalEventToWebView(String callId, String status) {
+    if (canDeliverCallEventToWebView()) {
+      injectCallTerminalEvent(callId, status);
+      DibayCallTerminalPendingQueue.ack(getApplicationContext(), callId);
+      return;
+    }
+    DibayCallTerminalPendingQueue.enqueue(getApplicationContext(), callId, status);
+  }
+
+  private void flushPendingTerminalEventsToWebView() {
+    java.util.List<DibayCallTerminalPendingQueue.Entry> pending =
+        DibayCallTerminalPendingQueue.snapshot(getApplicationContext());
+    if (pending.isEmpty()) return;
+    for (DibayCallTerminalPendingQueue.Entry entry : pending) {
+      if (canDeliverCallEventToWebView()) {
+        injectCallTerminalEvent(entry.callId, entry.status);
+        DibayCallTerminalPendingQueue.ack(getApplicationContext(), entry.callId);
+        Log.i("DIBAY_CALL", "[DIBAY_CALL] terminal_drained callId=" + entry.callId + " status=" + entry.status);
+      }
+    }
+  }
+
+  private void scheduleFlushPendingTerminalEvents() {
+    mainHandler.post(
+        () -> {
+          flushPendingTerminalEventsToWebView();
+          for (int delayMs : PENDING_TERMINAL_RETRY_DELAYS_MS) {
+            mainHandler.postDelayed(this::flushPendingTerminalEventsToWebView, delayMs);
+          }
+        });
   }
 
   public static void clearNativeCalleeAcceptPending(android.content.Context context) {
@@ -273,6 +318,7 @@ public class MainActivity extends BridgeActivity {
     activeInstance = this;
     attachDibayWebChromeClient();
     flushPendingAppPathIfAny();
+    scheduleFlushPendingTerminalEvents();
   }
 
   @Override

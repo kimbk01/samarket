@@ -18,6 +18,15 @@ export type NativeIncomingCallPlugin = {
     at?: number;
   }>;
   markCallConsumed(options: { sessionId: string; reason?: string }): Promise<void>;
+  isCallConsumed(options: {
+    sessionId: string;
+  }): Promise<{ consumed: boolean; reason?: string }>;
+  listConsumedCallIds(): Promise<{
+    items: Array<{ sessionId: string; reason?: string; at?: number }>;
+  }>;
+  drainPendingTerminalEvents(): Promise<{
+    items: Array<{ sessionId: string; status?: string; at?: number }>;
+  }>;
 };
 
 let pluginPromise: Promise<{ plugin: NativeIncomingCallPlugin } | null> | null = null;

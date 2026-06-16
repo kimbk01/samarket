@@ -40,7 +40,7 @@ public final class IncomingCallTerminalHandler {
     if ("cancelled".equals(kind) || "canceled".equals(kind)) {
       Log.i(TAG, "[DIBAY_CALL] call_canceled_native_handled callId=" + sid + " source=" + source);
     }
-    MainActivity.deliverCallTerminalEvent(sid, webStatus);
+    MainActivity.deliverCallTerminalEvent(app, sid, webStatus);
 
     Log.i(TAG, "[DIBAY_CALL] terminal_handler_done callId=" + sid + " kind=" + kind);
   }

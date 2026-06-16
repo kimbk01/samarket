@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 import {
   isDibayCallConsumed,
   markCallConsumed,
+  markCallConsumedFromNativeHydrate,
   resetDibayCallSessionState,
   shouldAllowIncomingRingtone,
 } from "@/lib/community-messenger/incoming-call-state";
@@ -19,6 +20,13 @@ describe("incoming-call-state consumed SSOT", () => {
 
   it("allows ringtone before consumed", () => {
     expect(shouldAllowIncomingRingtone("call-2")).toBe(true);
+  });
+
+  it("native hydrate does not duplicate consumed entries", () => {
+    markCallConsumedFromNativeHydrate("call-hydrate", "cancelled");
+    expect(isDibayCallConsumed("call-hydrate")).toBe(true);
+    markCallConsumedFromNativeHydrate("call-hydrate", "ended");
+    expect(shouldAllowIncomingRingtone("call-hydrate")).toBe(false);
   });
 
   it("blocks re-incoming after decline/missed/ended", () => {

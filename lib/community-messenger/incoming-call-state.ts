@@ -97,6 +97,20 @@ export function markCallConsumed(
   syncDibayCallConsumedToNative(sid, reason);
 }
 
+/** Native tombstone hydrate — does not write back to native store (avoids loop). */
+export function markCallConsumedFromNativeHydrate(
+  callId: string | null | undefined,
+  reason: CallConsumedReason,
+  now = Date.now()
+): void {
+  const sid = normalizeCallId(callId);
+  if (!sid) return;
+  if (consumedByCallId.has(sid)) return;
+  consumedByCallId.set(sid, { reason, at: now });
+  phaseByCallId.set(sid, { phase: "consumed", reason, at: now });
+  logDibayCall("incoming_consumed", { sessionId: sid, callId: sid, reason, source: "native_hydrate" });
+}
+
 export function isDibayCallConsumed(callId: string | null | undefined, now = Date.now()): boolean {
   pruneConsumedRuntime(now);
   const sid = normalizeCallId(callId);

@@ -3,7 +3,8 @@ package com.dibay.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
-import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /** Web consumed SSOT mirror — native ringtone / late FCM guard (120s TTL). */
@@ -35,6 +36,46 @@ public final class DibayCallConsumedStore {
     String sid = callId.trim();
     long at = prefs(context).getLong(KEY_PREFIX + sid, 0L);
     return at > 0L && now - at <= TTL_MS;
+  }
+
+  public static String consumedReason(Context context, String callId) {
+    if (!isConsumed(context, callId)) return null;
+    String sid = callId.trim();
+    return prefs(context).getString(KEY_PREFIX + sid + ":reason", "consumed");
+  }
+
+  public static final class ConsumedEntry {
+    public final String callId;
+    public final String reason;
+    public final long at;
+
+    ConsumedEntry(String callId, String reason, long at) {
+      this.callId = callId;
+      this.reason = reason;
+      this.at = at;
+    }
+  }
+
+  /** Non-expired consumed callIds for Web hydrate on resume. */
+  public static List<ConsumedEntry> listConsumed(Context context) {
+    if (context == null) return new ArrayList<>();
+    long now = System.currentTimeMillis();
+    prune(context, now);
+    SharedPreferences p = prefs(context);
+    List<ConsumedEntry> out = new ArrayList<>();
+    for (Map.Entry<String, ?> entry : p.getAll().entrySet()) {
+      String key = entry.getKey();
+      if (!key.startsWith(KEY_PREFIX) || key.endsWith(":reason")) continue;
+      Object val = entry.getValue();
+      if (!(val instanceof Long)) continue;
+      long at = (Long) val;
+      if (now - at > TTL_MS) continue;
+      String sid = key.substring(KEY_PREFIX.length());
+      if (sid.isEmpty()) continue;
+      String reason = p.getString(KEY_PREFIX + sid + ":reason", "consumed");
+      out.add(new ConsumedEntry(sid, reason != null ? reason : "consumed", at));
+    }
+    return out;
   }
 
   private static void prune(Context context, long now) {

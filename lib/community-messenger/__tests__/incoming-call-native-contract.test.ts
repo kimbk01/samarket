@@ -34,9 +34,13 @@ describe("incoming-call native contract", () => {
   it("native plugin exposes markCallConsumed for Web consumed bridge", () => {
     const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
     expect(plugin).toContain("markCallConsumed");
+    expect(plugin).toContain("isCallConsumed");
+    expect(plugin).toContain("listConsumedCallIds");
+    expect(plugin).toContain("drainPendingTerminalEvents");
     expect(plugin).toContain("DibayCallConsumedStore.mark");
     const store = read("android/app/src/main/java/com/dibay/app/DibayCallConsumedStore.java");
     expect(store).toContain("isConsumed");
+    expect(store).toContain("listConsumed");
   });
 
   it("native incoming paths block consumed callId before UI or ringtone", () => {

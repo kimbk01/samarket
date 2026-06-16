@@ -27,6 +27,16 @@ import {
   shouldAllowIncomingRingtone,
 } from "@/lib/community-messenger/incoming-call-state";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import {
+  isCapacitorNativePlatform,
+  resolveCapacitorShellPlatform,
+} from "@/lib/platform/capacitor-native";
+
+/** Android Capacitor — native DibayForegroundRingtone owns incoming ring; WebAudio 금지. */
+export function shouldUseWebIncomingRingtone(): boolean {
+  if (!isCapacitorNativePlatform()) return true;
+  return resolveCapacitorShellPlatform() !== "android";
+}
 
 /** INCOMING 레인 — 수신 벨 시작 (phase === incoming 일 때만) */
 export function dibayIncomingLaneStartRing(
@@ -41,6 +51,10 @@ export function dibayIncomingLaneStartRing(
     return;
   }
   setDibayCallSessionPhase(sid, "incoming");
+  if (!shouldUseWebIncomingRingtone()) {
+    logDibayCall("ring_start_skipped_native_owner", { sessionId: sid, callId: sid, callKind, source });
+    return;
+  }
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   playIncomingCallRingtone(sid, callKind);
   logDibayCall("ring_start", { sessionId: sid, callId: sid, callKind, source });

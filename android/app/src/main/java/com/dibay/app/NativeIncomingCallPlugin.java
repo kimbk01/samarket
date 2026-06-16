@@ -1,5 +1,6 @@
 package com.dibay.app;
 
+import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -72,5 +73,54 @@ public class NativeIncomingCallPlugin extends Plugin {
       IncomingCallNotificationBuilder.dismissIncomingCall(getContext(), sessionId);
     }
     call.resolve();
+  }
+
+  @PluginMethod
+  public void isCallConsumed(PluginCall call) {
+    String sessionId = call.getString("sessionId", "").trim();
+    JSObject result = new JSObject();
+    if (sessionId.isEmpty()) {
+      result.put("consumed", false);
+      call.resolve(result);
+      return;
+    }
+    boolean consumed = DibayCallConsumedStore.isConsumed(getContext(), sessionId);
+    result.put("consumed", consumed);
+    if (consumed) {
+      String reason = DibayCallConsumedStore.consumedReason(getContext(), sessionId);
+      if (reason != null) result.put("reason", reason);
+    }
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void listConsumedCallIds(PluginCall call) {
+    JSArray items = new JSArray();
+    for (DibayCallConsumedStore.ConsumedEntry entry : DibayCallConsumedStore.listConsumed(getContext())) {
+      JSObject row = new JSObject();
+      row.put("sessionId", entry.callId);
+      row.put("reason", entry.reason);
+      row.put("at", entry.at);
+      items.put(row);
+    }
+    JSObject result = new JSObject();
+    result.put("items", items);
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void drainPendingTerminalEvents(PluginCall call) {
+    JSArray items = new JSArray();
+    for (DibayCallTerminalPendingQueue.Entry entry :
+        DibayCallTerminalPendingQueue.drain(getContext())) {
+      JSObject row = new JSObject();
+      row.put("sessionId", entry.callId);
+      row.put("status", entry.status);
+      row.put("at", entry.at);
+      items.put(row);
+    }
+    JSObject result = new JSObject();
+    result.put("items", items);
+    call.resolve(result);
   }
 }
