@@ -32,6 +32,10 @@ import {
 import { filterSessionsRespectingTerminalLatch } from "@/lib/community-messenger/call-events/session-merge-guard";
 import { resolveIncomingConsumedBusSealReason } from "@/lib/community-messenger/call-events/incoming-consumed-bus-guard";
 import { canShowIncoming } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
+import {
+  buildIncomingPresenterDecisionPayload,
+  logIncomingPresenterDecision,
+} from "@/lib/community-messenger/incoming-call/incoming-presenter-decision-log";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
   clearNativeCalleeAcceptPending,
@@ -1817,6 +1821,56 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     return null;
   }, [sessions, userId]);
+
+  const incomingPresenterDecisionLogKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const payload = buildIncomingPresenterDecisionPayload({
+      pathname,
+      userId,
+      incomingTabLeader,
+      incomingTabLeaderRaw,
+      incomingVisibilityState,
+      isCapacitorNative: isCapacitorNativePlatform(),
+      sessions,
+      viewerLiveSessionId,
+      firstRingingCalleeSession,
+      directRingingCalleeSession,
+      visibleSession,
+      incomingSurface,
+      renderIncomingBanner,
+      hardClearedAt: hardClearedIncomingSessionsAtRef.current,
+    });
+    const hasRinging = payload.ringingSessionIds.length > 0;
+    const onCallRoute =
+      typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/");
+    if (!hasRinging && !onCallRoute) return;
+
+    const logKey = JSON.stringify({
+      callId: payload.callId,
+      pathname: payload.pathname,
+      visibleSessionId: payload.visibleSessionId,
+      renderIncomingBanner: payload.renderIncomingBanner,
+      incomingSurface: payload.incomingSurface,
+      reason: payload.reason,
+      ringingSessionIds: payload.ringingSessionIds,
+    });
+    if (incomingPresenterDecisionLogKeyRef.current === logKey) return;
+    incomingPresenterDecisionLogKeyRef.current = logKey;
+    logIncomingPresenterDecision(payload);
+  }, [
+    directRingingCalleeSession,
+    firstRingingCalleeSession,
+    incomingSurface,
+    incomingTabLeader,
+    incomingTabLeaderRaw,
+    incomingVisibilityState,
+    pathname,
+    renderIncomingBanner,
+    sessions,
+    userId,
+    viewerLiveSessionId,
+    visibleSession,
+  ]);
 
   useEffect(() => {
     if (!incomingTabLeader || !incomingCallSoundEnabled) {
