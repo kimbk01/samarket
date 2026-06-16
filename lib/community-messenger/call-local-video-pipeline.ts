@@ -67,6 +67,13 @@ export async function attachPreJoinHtmlVideo(
   stream: MediaStream | null
 ): Promise<boolean> {
   if (!el || !stream) return false;
+  el.controls = false;
+  el.muted = true;
+  el.autoplay = true;
+  el.playsInline = true;
+  el.setAttribute("playsinline", "true");
+  el.setAttribute("webkit-playsinline", "true");
+  primeVideoElementAutoplayFromUserGesture(stream);
   return bindMediaStreamToElement(el, stream, { muted: true });
 }
 

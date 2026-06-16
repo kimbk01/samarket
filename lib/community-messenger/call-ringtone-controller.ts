@@ -6,7 +6,6 @@ import {
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
-import { startWebAudioCallTone } from "@/lib/community-messenger/call-tone-web-audio";
 
 type RingtoneMode = "incoming" | "outgoing";
 
@@ -45,28 +44,6 @@ export function playIncomingCallRingtone(sessionId: string, callKind: CommunityM
   }
 
   unlockCommunityMessengerCallPlaybackFromUserGesture();
-  const webKind: "voice" | "video" = callKind === "video" ? "video" : "voice";
-  const webTone = startWebAudioCallTone("incoming", webKind);
-  if (webTone) {
-    incomingStartInFlight = null;
-    stopCallRingtoneInternal("incoming_replace");
-    activeSessionId = sid;
-    activeMode = "incoming";
-    const stopController: CallToneController = {
-      stop: () => {
-        webTone.stop();
-        if (activeTone === stopController) {
-          activeTone = null;
-          activeSessionId = null;
-          activeMode = null;
-        }
-      },
-    };
-    activeTone = stopController;
-    logCallFlow("call_ringtone_start", { sessionId: sid, callKind, mode: "incoming", engine: "web_audio_sync" });
-    return;
-  }
-
   incomingStartInFlight = sid;
   void startCommunityMessengerCallTone("incoming", { callKind }).then((tone) => {
     incomingStartInFlight = null;

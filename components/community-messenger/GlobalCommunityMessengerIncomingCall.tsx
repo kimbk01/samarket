@@ -1164,8 +1164,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     return installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
         const sid = detail.sessionId?.trim();
-        const visible = typeof document === "undefined" || document.visibilityState === "visible";
-        if (sid && incomingCallSoundEnabledRef.current && visible) {
+        if (sid && incomingCallSoundEnabledRef.current) {
           unlockCommunityMessengerCallPlaybackFromUserGesture();
           dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice");
           activeIncomingCallIdsRef.current.add(sid);

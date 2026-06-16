@@ -2,6 +2,7 @@ import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallSessionStatus,
 } from "@/lib/community-messenger/types";
+import { shouldShowOutgoingRingCameraPreview } from "@/lib/community-messenger/call-prejoin-video-preview";
 
 const TERMINAL: CommunityMessengerCallSessionStatus[] = ["ended", "cancelled", "rejected", "missed"];
 
@@ -25,6 +26,15 @@ export function shouldUseSoloLocalFullVideoLayout(args: {
 }): boolean {
   if (args.callKind !== "video") return false;
   if (TERMINAL.includes(args.sessionStatus)) return false;
+  if (
+    shouldShowOutgoingRingCameraPreview({
+      callKind: args.callKind,
+      sessionStatus: args.sessionStatus,
+      isInitiator: Boolean(args.isInitiator),
+    })
+  ) {
+    return false;
+  }
   if (args.sessionStatus === "ringing") return true;
   if (args.isInitiator && !args.remoteJoined) return true;
   return args.sessionStatus === "active" && !args.joined;

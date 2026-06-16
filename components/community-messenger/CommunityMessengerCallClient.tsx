@@ -92,9 +92,6 @@ import {
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
-  shouldPreserveIncomingRingtoneOnCallRoute,
-} from "@/lib/community-messenger/call-ringtone-controller";
-import {
   dibayCallSealTerminal,
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
@@ -206,6 +203,7 @@ import {
   hasLiveCommunityMessengerVideoPreviewStream,
   resolvePreJoinVideoPreviewStream,
   shouldPreserveHeldPreJoinVideoOnSessionRouteChange,
+  shouldShowOutgoingRingCameraPreview,
 } from "@/lib/community-messenger/call-prejoin-video-preview";
 import {
   isCommunityMessengerCameraSwitchSupported,
@@ -214,6 +212,7 @@ import {
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { VideoOff } from "lucide-react";
 import { SamarketUserAvatarThumb } from "@/components/profile/SamarketUserAvatarThumb";
+import { OutgoingRingCameraPreview } from "@/components/community-messenger/OutgoingRingCameraPreview";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 const MAX_MOBILE_CALL_ACTIONS = 4;
@@ -933,9 +932,6 @@ export function CommunityMessengerCallClient({
       heldStream: heldPreJoinVideoPreviewRef.current,
     });
 
-    if (!shouldPreserveIncomingRingtoneOnCallRoute(sessionId)) {
-      dibayIncomingLaneStopRing("call_client_session_route", sessionId);
-    }
     setCalleeVideoConnectingShell(false);
     wasCallSessionRingingRef.current = false;
     if (!preservePreview) {
@@ -1638,6 +1634,20 @@ export function CommunityMessengerCallClient({
     const videoTrack = localTracksRef.current?.videoTrack ?? null;
     const swapped = layoutSwappedRef.current;
     const s = sessionRef.current;
+    if (
+      s &&
+      shouldShowOutgoingRingCameraPreview({
+        callKind: s.callKind,
+        sessionStatus: s.status,
+        isInitiator: s.isMineInitiator,
+      })
+    ) {
+      clearLocalVideoContainer(smallVideoRef.current);
+      clearLocalVideoContainer(largeVideoRef.current);
+      setLocalVideoReady(false);
+      setLocalVideoPlayBlocked(false);
+      return false;
+    }
     /** 링·조인 전·발신 상대 미수신 전 풀화면 로컬 */
     const soloLocalFull = shouldUseSoloLocalFullVideoLayout({
       callKind: s?.callKind ?? "voice",
@@ -3850,8 +3860,17 @@ export function CommunityMessengerCallClient({
     session?.status,
   ]);
 
+  const showOutgoingRingCameraPreview = useMemo(() => {
+    if (!session) return false;
+    return shouldShowOutgoingRingCameraPreview({
+      callKind: session.callKind,
+      sessionStatus: session.status,
+      isInitiator: session.isMineInitiator,
+    });
+  }, [session?.callKind, session?.isMineInitiator, session?.status]);
+
   useLayoutEffect(() => {
-    if (!preJoinVideoPreviewStream || localVideoReady) {
+    if (showOutgoingRingCameraPreview || !preJoinVideoPreviewStream || localVideoReady) {
       detachPreJoinHtmlVideo(ringPreviewVideoRef.current);
       return;
     }
@@ -3862,7 +3881,7 @@ export function CommunityMessengerCallClient({
       if (!localVideoReady) return;
       detachPreJoinHtmlVideo(el);
     };
-  }, [localVideoReady, preJoinVideoPreviewStream]);
+  }, [localVideoReady, preJoinVideoPreviewStream, showOutgoingRingCameraPreview]);
 
   useEffect(() => {
     if (!localVideoReady) return;
@@ -4471,7 +4490,9 @@ export function CommunityMessengerCallClient({
     mainVideoSlot: videoCall ? (
       <div className="absolute inset-0 min-h-0 bg-[#003D29] [&_video]:pointer-events-none [&_video]:h-full [&_video]:w-full [&_video]:min-h-0 [&_video]:object-cover">
         <div ref={largeVideoRef} className="absolute inset-0 z-[1] h-full min-h-0 w-full" />
-        {preJoinVideoPreviewStream && !localVideoReady ? (
+        {showOutgoingRingCameraPreview ? (
+          <OutgoingRingCameraPreview stream={preJoinVideoPreviewStream} />
+        ) : preJoinVideoPreviewStream && !localVideoReady ? (
           <video
             ref={ringPreviewVideoRef}
             className="absolute inset-0 z-[2] h-full w-full object-cover"
@@ -4483,6 +4504,7 @@ export function CommunityMessengerCallClient({
         {(session.isMineInitiator || (calleeAcceptBridgeLayout && videoCall)) &&
         !localVideoReady &&
         !preJoinVideoPreviewStream &&
+        !showOutgoingRingCameraPreview &&
         !permissionBlockedUi ? (
           <div
             className="absolute inset-0 z-[2] flex items-center justify-center bg-[#003D29] pointer-events-none"

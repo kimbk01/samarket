@@ -1,5 +1,6 @@
-import type { CommunityMessengerCallSession, CommunityMessengerCallSessionStatus } from "@/lib/community-messenger/types";
+import type { CommunityMessengerCallKind, CommunityMessengerCallSession, CommunityMessengerCallSessionStatus } from "@/lib/community-messenger/types";
 import { isCommunityMessengerTempCallSessionId } from "@/lib/community-messenger/call-session-navigation-seed";
+import { peekPrimedCommunityMessengerDeviceStream } from "@/lib/community-messenger/call-permission";
 
 const TERMINAL: CommunityMessengerCallSessionStatus[] = ["ended", "cancelled", "rejected", "missed"];
 
@@ -7,7 +8,7 @@ function isTerminal(status: CommunityMessengerCallSessionStatus): boolean {
   return TERMINAL.includes(status);
 }
 
-export function hasLiveCommunityMessengerVideoPreviewStream(stream: MediaStream | null): boolean {
+export function hasLiveCommunityMessengerVideoPreviewStream(stream: MediaStream | null): stream is MediaStream {
   if (!stream) return false;
   const tracks = stream.getVideoTracks();
   return tracks.length > 0 && tracks.some((t) => t.readyState === "live");
@@ -53,4 +54,16 @@ export function resolvePreJoinVideoPreviewStream(args: {
   const tracks = held.getVideoTracks();
   if (!tracks.length || tracks.every((t) => t.readyState !== "live")) return null;
   return held;
+}
+
+/** 발신 ringing — Agora 대신 HTML 카메라 미리보기만 쓴다 */
+export function shouldShowOutgoingRingCameraPreview(args: {
+  callKind: CommunityMessengerCallKind;
+  sessionStatus: CommunityMessengerCallSessionStatus;
+  isInitiator: boolean;
+}): boolean {
+  if (args.callKind !== "video" || args.sessionStatus !== "ringing" || !args.isInitiator) {
+    return false;
+  }
+  return hasLiveCommunityMessengerVideoPreviewStream(peekPrimedCommunityMessengerDeviceStream("video"));
 }
