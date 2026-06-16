@@ -1,11 +1,11 @@
 {
-  "recordedAt": "2026-06-15",
-  "recordedFrom": "npm run check:bundle:update-baseline — native push registration (MainAppProviderTree lazy chunks)",
+  "recordedAt": "2026-06-16",
+  "recordedFrom": "npm run check:bundle:update-baseline",
   "metrics": {
-    "total_client_js_kb": 15489,
-    "messenger_home_js_kb": 3791,
-    "messenger_room_js_kb": 3798,
-    "messenger_call_js_kb": 5388
+    "total_client_js_kb": 17064,
+    "messenger_home_js_kb": 3819,
+    "messenger_room_js_kb": 3825,
+    "messenger_call_js_kb": 5430
   },
   "growth_slack_kb": {
     "total_client_js": 500,
@@ -15,47 +15,47 @@
   },
   "top_chunks": [
     {
-      "path": ".next/static/chunks/2611123f0ead6b34.js",
-      "kb": 1480
+      "path": ".next/static/chunks/f9f37f4821f11132.js",
+      "kb": 1520
     },
     {
-      "path": ".next/static/chunks/46e6f0ea88d45b98.js",
-      "kb": 1472
+      "path": ".next/static/chunks/1bfa2bfef2750cd3.js",
+      "kb": 1473
     },
     {
-      "path": ".next/static/chunks/c79c9e7026f1e14e.js",
-      "kb": 1472
+      "path": ".next/static/chunks/d187946c093e332d.js",
+      "kb": 1473
     },
     {
-      "path": ".next/static/chunks/3a64edbea30759a5.js",
-      "kb": 322
+      "path": ".next/static/chunks/9dd40ae27b463662.js",
+      "kb": 324
     },
     {
-      "path": ".next/static/chunks/ee58dea5a23d8411.js",
+      "path": ".next/static/chunks/1aa36d7fb03915d7.js",
+      "kb": 244
+    },
+    {
+      "path": ".next/static/chunks/b18f67f901cc594d.js",
+      "kb": 230
+    },
+    {
+      "path": ".next/static/chunks/00a68db08414d08c.js",
       "kb": 219
     },
     {
-      "path": ".next/static/chunks/6eca12dae7fa35b7.js",
+      "path": ".next/static/chunks/7f44ff797ab6103c.js",
       "kb": 204
-    },
-    {
-      "path": ".next/static/chunks/a6aae2ae336372b1.js",
-      "kb": 203
-    },
-    {
-      "path": ".next/static/chunks/1ab542611bc3b5f2.js",
-      "kb": 194
     },
     {
       "path": ".next/static/chunks/9f5ce8b8f91b3575.js",
       "kb": 167
     },
     {
-      "path": ".next/static/chunks/d83f73a6dfd8ca51.js",
+      "path": ".next/static/chunks/0e15c351f49ecb97.js",
       "kb": 160
     },
     {
-      "path": ".next/static/chunks/e84d7ad23a588d72.js",
+      "path": ".next/static/chunks/54d1884f9e0085cb.js",
       "kb": 160
     },
     {
