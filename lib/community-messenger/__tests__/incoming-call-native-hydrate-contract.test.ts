@@ -62,18 +62,26 @@ describe("incoming-call ring ownership contract", () => {
     expect(lifecycle).toContain("ring_start_skipped_native_owner");
     expect(lifecycle).toContain('resolveCapacitorShellPlatform() !== "android"');
   });
+
+  it("dibayIncomingLaneStopRing stops native Android ringtone", () => {
+    const lifecycle = read("lib/community-messenger/call-lifecycle.ts");
+    expect(lifecycle).toContain("stopNativeIncomingRingtoneFireAndForget");
+    const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
+    expect(plugin).toContain("stopIncomingRingtone");
+    expect(plugin).toContain("DibayForegroundRingtone.stop");
+  });
 });
 
 describe("incoming-call direct_ringing cleanup regression", () => {
-  it("direct_ringing effect stops ring on cleanup and respects tab leader", () => {
+  it("direct_ringing effect respects tab leader and does not use cleanup restart", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     const idx = global.indexOf('dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing")');
     expect(idx).toBeGreaterThan(-1);
     const blockStart = global.lastIndexOf("useEffect(() => {", idx);
-    const slice = global.slice(blockStart, idx + 400);
-    expect(slice).toContain('dibayIncomingLaneStopRing("direct_ringing_cleanup"');
+    const slice = global.slice(blockStart, idx + 200);
     expect(slice).toContain("if (!incomingTabLeader) return");
-    expect(slice).toContain("incomingTabLeader");
+    expect(slice).toContain("isIncomingSessionHardCleared");
+    expect(slice).not.toContain('dibayIncomingLaneStopRing("direct_ringing_cleanup"');
   });
 });
 

@@ -6,6 +6,7 @@ import {
   type CallToneController,
 } from "@/lib/community-messenger/call-feedback-sound";
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
+import { shouldAllowIncomingRingtone } from "@/lib/community-messenger/incoming-call-state";
 
 type RingtoneMode = "incoming" | "outgoing";
 
@@ -13,6 +14,8 @@ let activeSessionId: string | null = null;
 let activeMode: RingtoneMode | null = null;
 let activeTone: CallToneController | null = null;
 let incomingStartInFlight: string | null = null;
+/** stop 이후 늦게 도착한 startCommunityMessengerCallTone Promise 가 벨을 다시 켜지지 않게 함 */
+let incomingPlayGeneration = 0;
 
 export function getActiveIncomingRingtoneSessionId(): string | null {
   return activeMode === "incoming" ? activeSessionId : null;
@@ -45,8 +48,19 @@ export function playIncomingCallRingtone(sessionId: string, callKind: CommunityM
 
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   incomingStartInFlight = sid;
+  const playGen = incomingPlayGeneration;
   void startCommunityMessengerCallTone("incoming", { callKind }).then((tone) => {
     incomingStartInFlight = null;
+    if (playGen !== incomingPlayGeneration) {
+      tone.stop();
+      logCallFlow("call_ringtone_aborted", { sessionId: sid, kind: "stale_generation" });
+      return;
+    }
+    if (!shouldAllowIncomingRingtone(sid)) {
+      tone.stop();
+      logCallFlow("call_ringtone_aborted", { sessionId: sid, kind: "consumed" });
+      return;
+    }
     if (activeMode === "incoming" && activeSessionId === sid && activeTone) {
       tone.stop();
       logCallFlow("call_incoming_deduped", { sessionId: sid, kind: "ringtone_race" });
@@ -78,7 +92,8 @@ export function stopCallRingtone(reason: string, sessionId?: string | null): voi
   if (sid && activeSessionId && activeSessionId !== sid && activeMode === "incoming") {
     return;
   }
-  if (!activeTone && !activeSessionId) return;
+  incomingPlayGeneration += 1;
+  if (!activeTone && !activeSessionId && !incomingStartInFlight) return;
   logCallFlow("call_ringtone_stop", {
     sessionId: activeSessionId ?? sid ?? undefined,
     mode: activeMode ?? undefined,

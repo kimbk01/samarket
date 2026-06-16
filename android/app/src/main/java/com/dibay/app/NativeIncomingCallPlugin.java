@@ -64,6 +64,13 @@ public class NativeIncomingCallPlugin extends Plugin {
   }
 
   @PluginMethod
+  public void stopIncomingRingtone(PluginCall call) {
+    String sessionId = call.getString("sessionId", "").trim();
+    DibayForegroundRingtone.stop(sessionId.isEmpty() ? null : sessionId);
+    call.resolve();
+  }
+
+  @PluginMethod
   public void markCallConsumed(PluginCall call) {
     String sessionId = call.getString("sessionId", "").trim();
     String reason = call.getString("reason", "consumed");

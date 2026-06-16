@@ -603,6 +603,9 @@ export function GlobalCommunityMessengerIncomingCall() {
       return;
     }
 
+    const terminalSid = sessionId || tmpSessionId || "";
+    dibayIncomingLaneStopRing("terminal_event", terminalSid || undefined);
+
     console.info("[call-flow] terminal_event_received", {
       sessionId: sessionId || null,
       callId: sessionId || null,
@@ -673,7 +676,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       suppressMissedSoundRef.current.add(tmpSessionId);
       clearIncomingMissedTimer(ringMissedScheduleRef, tmpSessionId);
     }
-    dibayIncomingLaneStopRing("terminal_event", sessionId || tmpSessionId || undefined);
     if (sessionId) {
       activeIncomingCallIdsRef.current.delete(sessionId);
       resetIncomingCallActionGuards(sessionId);
@@ -1776,6 +1778,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
     const sid = s.id.trim();
     if (isDibayCallConsumed(sid)) return;
+    if (isIncomingSessionHardCleared(sid, hardClearedIncomingSessionsAtRef.current, Date.now())) return;
     if (!activeIncomingCallIdsRef.current.has(sid)) {
       activeIncomingCallIdsRef.current.add(sid);
       logCallFlow("call_incoming_received", { sessionId: sid, source: "direct_ringing", callKind: s.callKind });
@@ -1784,9 +1787,6 @@ export function GlobalCommunityMessengerIncomingCall() {
       logCallFlow("call_incoming_deduped", { sessionId: sid, source: "direct_ringing_ring" });
     }
     dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing");
-    return () => {
-      dibayIncomingLaneStopRing("direct_ringing_cleanup", sid);
-    };
   }, [
     directRingingCalleeSession?.id,
     directRingingCalleeSession?.status,

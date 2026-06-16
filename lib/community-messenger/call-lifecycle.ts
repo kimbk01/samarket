@@ -31,6 +31,7 @@ import {
   isCapacitorNativePlatform,
   resolveCapacitorShellPlatform,
 } from "@/lib/platform/capacitor-native";
+import { stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
 
 /** Android Capacitor — native DibayForegroundRingtone owns incoming ring; WebAudio 금지. */
 export function shouldUseWebIncomingRingtone(): boolean {
@@ -63,6 +64,9 @@ export function dibayIncomingLaneStartRing(
 /** INCOMING 레인 — 수신 벨 중지 */
 export function dibayIncomingLaneStopRing(reason: string, sessionId?: string | null): void {
   stopCallRingtone(reason, sessionId);
+  if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android") {
+    stopNativeIncomingRingtoneFireAndForget(sessionId);
+  }
 }
 
 /** 모든 레인 — 통화 종료 확정 (terminal latch + pending route 삭제) */

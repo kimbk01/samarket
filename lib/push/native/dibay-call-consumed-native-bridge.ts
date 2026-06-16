@@ -46,6 +46,20 @@ export function syncDibayCallConsumedToNative(
   })();
 }
 
+/** Terminal/stop — Android native OS ringtone 즉시 중지 (Web stop 과 병행). */
+export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | null): void {
+  void (async () => {
+    const plugin = await getNativeIncomingCallPlugin();
+    if (!plugin?.stopIncomingRingtone) return;
+    const sid = sessionId?.trim() ?? "";
+    try {
+      await plugin.stopIncomingRingtone(sid ? { sessionId: sid } : {});
+    } catch {
+      /* best-effort */
+    }
+  })();
+}
+
 /** Native tombstone → Web in-memory consumed (no native re-sync). */
 export async function hydrateDibayCallConsumedFromNative(): Promise<number> {
   const plugin = await getNativeIncomingCallPlugin();

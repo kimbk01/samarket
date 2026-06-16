@@ -48,6 +48,19 @@ describe("call-ringtone-controller", () => {
     expect(shouldPreserveIncomingRingtoneOnCallRoute("session-b")).toBe(false);
   });
 
+  it("aborts in-flight incoming tone after terminal stop", async () => {
+    vi.mocked(startCommunityMessengerCallTone).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ stop: vi.fn() }), 0);
+        })
+    );
+    playIncomingCallRingtone("session-late", "voice");
+    stopCallRingtone("terminal_event", "session-late");
+    await new Promise((r) => setTimeout(r, 5));
+    expect(getActiveIncomingRingtoneSessionId()).toBeNull();
+  });
+
   it("stops active incoming ringtone for matching session", async () => {
     playIncomingCallRingtone("session-a", "voice");
     await vi.waitFor(() => {
