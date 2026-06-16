@@ -1,9 +1,16 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CallPermissionModal } from "@/components/call/CallPermissionModal";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { invalidateCallMediaPermissionCheckCache } from "@/lib/community-messenger/call-media-permission-preflight";
+import { callPermissionGate } from "@/lib/call/permissions/call-permission-gate";
+import {
+  markCallPermissionOnboardingShown,
+  writeCallPermissionStoreState,
+} from "@/lib/call/permissions/call-permission-store";
+import { openNativeCallPermissionSettings } from "@/lib/call/native/native-call-permissions";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import {
   canAttemptPostLoginOnboardingGate,
@@ -13,13 +20,10 @@ import {
 import {
   resolveDibayUnifiedOnboardingPlan,
   type DibayUnifiedOnboardingPlan,
-  type DibayUnifiedOnboardingStep,
 } from "@/lib/permissions/dibay-unified-device-onboarding";
 import {
   checkDevicePermissions,
   markInitialDevicePermissionsDeferred,
-  requestOnboardingCameraPermission,
-  requestOnboardingMicrophonePermission,
   type DibayDevicePermissionSource,
 } from "@/lib/permissions/dibay-device-permission-store";
 import { recordDiBaYOnboardingDecision } from "@/lib/permissions/device-permission-manager";
@@ -33,10 +37,6 @@ function schedulePushRegistration(): void {
       console.info("[DiBaYDevicePermissionOnboarding] push register", reg);
     }
   });
-}
-
-function isLastWizardStep(stepIndex: number, steps: DibayUnifiedOnboardingStep[]): boolean {
-  return stepIndex + 1 >= steps.length;
 }
 
 async function runNotificationOsPermissionStep(): Promise<void> {
@@ -86,7 +86,7 @@ async function runNotificationOsPermissionStep(): Promise<void> {
 }
 
 /**
- * 로그인 후 1회 — 알림 → 카메라 → 마이크 순으로 OS 권한 다이얼로그만 순차 요청 (커스텀 사전 안내 없음).
+ * 로그인 후 1회 — 알림 OS 권한 후 CallPermissionModal 로 통화 권한 안내 (강제 차단 없음).
  */
 export function DiBaYDevicePermissionOnboardingGate() {
   const pathname = usePathname() ?? "";
@@ -95,6 +95,8 @@ export function DiBaYDevicePermissionOnboardingGate() {
   const runningRef = useRef(false);
   const mountedRef = useRef(true);
   const callMediaGrantedAtOpenRef = useRef(false);
+  const [showCallPermissionModal, setShowCallPermissionModal] = useState(false);
+  const pendingMediaSourceRef = useRef<DibayDevicePermissionSource | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -123,78 +125,47 @@ export function DiBaYDevicePermissionOnboardingGate() {
     invalidateCallMediaPermissionCheckCache();
   }, []);
 
-  const deferCallMediaOnboarding = useCallback(
+  const runCallMediaModalStep = useCallback(
     (source: DibayDevicePermissionSource) => {
-      markInitialDevicePermissionsDeferred(source);
+      pendingMediaSourceRef.current = source;
+      markCallPermissionOnboardingShown();
+      setShowCallPermissionModal(true);
+    },
+    [],
+  );
+
+  const handleCallPermissionConfirm = useCallback(async () => {
+    setShowCallPermissionModal(false);
+    const source = pendingMediaSourceRef.current;
+    try {
+      await callPermissionGate.prompt("video", "onboarding");
+      const check = await callPermissionGate.check("video");
+      if (check.canVideo || check.canVoice) {
+        finishCallMediaFlow("accepted");
+      } else {
+        writeCallPermissionStoreState(check.effectiveState === "denied_permanently" ? "denied_permanently" : "denied_once");
+        if (source) markInitialDevicePermissionsDeferred(source);
+        finishCallMediaFlow("declined");
+      }
+    } catch {
+      writeCallPermissionStoreState("denied_once");
+      if (source) markInitialDevicePermissionsDeferred(source);
       finishCallMediaFlow("declined");
-    },
-    [finishCallMediaFlow],
-  );
+    } finally {
+      pendingMediaSourceRef.current = null;
+      runningRef.current = false;
+    }
+  }, [finishCallMediaFlow]);
 
-  const runCameraOsPermissionStep = useCallback(
-    async (
-      source: DibayDevicePermissionSource,
-      stepIndex: number,
-      steps: DibayUnifiedOnboardingStep[],
-    ): Promise<boolean> => {
-      try {
-        const state = await requestOnboardingCameraPermission(source);
-        if (!mountedRef.current) return false;
-
-        const isLast = isLastWizardStep(stepIndex, steps);
-        if (state.camera !== "granted") {
-          if (isLast) {
-            markInitialDevicePermissionsDeferred(source);
-            finishCallMediaFlow(
-              state.camera === "blocked" || state.camera === "denied" ? "browser_denied" : "declined",
-            );
-            return false;
-          }
-          return true;
-        }
-
-        if (isLast) {
-          if (state.microphone === "granted") {
-            finishCallMediaFlow("accepted");
-          } else {
-            markInitialDevicePermissionsDeferred(source);
-            finishCallMediaFlow("declined");
-          }
-          return false;
-        }
-        return true;
-      } catch {
-        if (!mountedRef.current) return false;
-        if (isLastWizardStep(stepIndex, steps)) {
-          deferCallMediaOnboarding(source);
-        }
-        return isLastWizardStep(stepIndex, steps) ? false : true;
-      }
-    },
-    [deferCallMediaOnboarding, finishCallMediaFlow],
-  );
-
-  const runMicrophoneOsPermissionStep = useCallback(
-    async (source: DibayDevicePermissionSource): Promise<void> => {
-      try {
-        const state = await requestOnboardingMicrophonePermission(source);
-        if (!mountedRef.current) return;
-
-        if (state.camera === "granted" && state.microphone === "granted") {
-          finishCallMediaFlow("accepted");
-          return;
-        }
-        markInitialDevicePermissionsDeferred(source);
-        finishCallMediaFlow(
-          state.microphone === "blocked" || state.microphone === "denied" ? "browser_denied" : "declined",
-        );
-      } catch {
-        if (!mountedRef.current) return;
-        deferCallMediaOnboarding(source);
-      }
-    },
-    [deferCallMediaOnboarding, finishCallMediaFlow],
-  );
+  const handleCallPermissionDecline = useCallback(() => {
+    setShowCallPermissionModal(false);
+    const source = pendingMediaSourceRef.current;
+    writeCallPermissionStoreState("denied_once");
+    if (source) markInitialDevicePermissionsDeferred(source);
+    finishCallMediaFlow("declined");
+    pendingMediaSourceRef.current = null;
+    runningRef.current = false;
+  }, [finishCallMediaFlow]);
 
   const runOsPermissionSequence = useCallback(
     async (plan: DibayUnifiedOnboardingPlan) => {
@@ -217,14 +188,8 @@ export function DiBaYDevicePermissionOnboardingGate() {
             continue;
           }
 
-          if (step === "camera") {
-            const shouldContinue = await runCameraOsPermissionStep(source, stepIndex, steps);
-            if (!shouldContinue) return;
-            continue;
-          }
-
-          if (step === "microphone") {
-            await runMicrophoneOsPermissionStep(source);
+          if (step === "camera" || step === "microphone") {
+            runCallMediaModalStep(source);
             return;
           }
         }
@@ -233,10 +198,12 @@ export function DiBaYDevicePermissionOnboardingGate() {
           syncCallMediaDecisionIfGranted();
         }
       } finally {
-        runningRef.current = false;
+        if (!pendingMediaSourceRef.current) {
+          runningRef.current = false;
+        }
       }
     },
-    [runCameraOsPermissionStep, runMicrophoneOsPermissionStep, syncCallMediaDecisionIfGranted],
+    [runCallMediaModalStep, syncCallMediaDecisionIfGranted],
   );
 
   const tryOpen = useCallback(() => {
@@ -287,5 +254,12 @@ export function DiBaYDevicePermissionOnboardingGate() {
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [tryOpen]);
 
-  return null;
+  return showCallPermissionModal ? (
+    <CallPermissionModal
+      mode="onboarding"
+      onConfirm={() => void handleCallPermissionConfirm()}
+      onDecline={handleCallPermissionDecline}
+      onOpenSettings={() => void openNativeCallPermissionSettings()}
+    />
+  ) : null;
 }

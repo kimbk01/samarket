@@ -189,6 +189,8 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeGoogleAuthPlugin.class);
     registerPlugin(NativeDevicePermissionsPlugin.class);
     registerPlugin(NativeIncomingCallPlugin.class);
+    registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
+    registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     super.onCreate(savedInstanceState);
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
     attachDibayWebChromeClient();
@@ -239,6 +241,9 @@ public class MainActivity extends BridgeActivity {
 
   @Override
   public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    if (com.dibay.app.call.CallPermissionPlugin.handleCallMediaPermissionsResult(requestCode, permissions, grantResults)) {
+      return;
+    }
     if (NativeDevicePermissionsPlugin.handleCallMediaPermissionsResult(requestCode, permissions, grantResults)) {
       return;
     }

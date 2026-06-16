@@ -21,7 +21,18 @@ public final class DibayCallLog {
     String normalizedStep = step.trim();
     String key = sid + ":" + normalizedStep;
     if (EMITTED.putIfAbsent(key, true) != null) return;
+    emit(normalizedStep, sid, extra);
+  }
+
+  /** Heartbeat 등 반복 로그 — callId 단위 dedup 없음 */
+  public static void always(String step, String callId, String extra) {
+    if (step == null || step.trim().isEmpty()) return;
+    if (callId == null || callId.trim().isEmpty()) return;
+    emit(step.trim(), callId.trim(), extra);
+  }
+
+  private static void emit(String step, String sid, String extra) {
     String suffix = extra != null && !extra.trim().isEmpty() ? " " + extra.trim() : "";
-    Log.i(TAG, "[DIBAY_CALL] " + normalizedStep + " callId=" + sid + suffix);
+    Log.i(TAG, "[DIBAY_CALL] " + step + " callId=" + sid + suffix);
   }
 }

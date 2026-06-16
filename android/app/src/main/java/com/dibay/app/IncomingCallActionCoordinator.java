@@ -80,19 +80,12 @@ public final class IncomingCallActionCoordinator {
     if (context == null || callId == null || callId.trim().isEmpty()) return;
     String sid = callId.trim();
     if (!tryBegin(sid, "accept")) return;
-    DibayCallLog.once("accept_start", sid, "source=native_pending_web");
+    DibayCallLog.once("accept_click", sid, "source=native");
     Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
     DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
-    if (!shouldLaunchAcceptRoute(sid)) {
-      Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
-      end(sid, "accept");
-      return;
-    }
-    Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
-    Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
-    context.getApplicationContext().startActivity(launch);
     end(sid, "accept");
+    com.dibay.app.call.CallActivityRouter.launchWebAcceptRoute(context.getApplicationContext(), sid);
   }
 
   public static void handleReject(Context context, String callId) {

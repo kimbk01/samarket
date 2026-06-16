@@ -1,5 +1,7 @@
 /**
  * 수신 수락(`?action=accept`) — 벨 UI·generic auto-join 과 충돌하지 않게 하는 단일 계약.
+ *
+ * nativePrep=1 — native FGS/알림 정리 완료, Web PATCH 단일 실행.
  */
 
 const NATIVE_CALLEE_ACCEPT_PENDING_KEY = "cm_native_callee_accept_pending";
@@ -7,7 +9,9 @@ const NATIVE_CALLEE_ACCEPT_PENDING_TTL_MS = 60_000;
 
 export type NativeCalleeAcceptRouteParams = {
   action: string | null;
+  /** @deprecated nativePrep 사용 */
   nativeAccept: string | null;
+  nativePrep: string | null;
 };
 
 export function readNativeCalleeAcceptRouteParams(
@@ -16,18 +20,25 @@ export function readNativeCalleeAcceptRouteParams(
   return {
     action: searchParams.get("action"),
     nativeAccept: searchParams.get("nativeAccept"),
+    nativePrep: searchParams.get("nativePrep"),
   };
 }
 
+/** native prep 완료 — Web PATCH 는 call-accept-guard 단일 */
+export function isNativeCalleePrepRoute(params: NativeCalleeAcceptRouteParams): boolean {
+  return params.action === "accept" && (params.nativePrep === "1" || params.nativeAccept === "1");
+}
+
+/** @deprecated isNativeCalleePrepRoute */
 export function isNativeCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
-  return params.action === "accept" && params.nativeAccept === "1";
+  return isNativeCalleePrepRoute(params);
 }
 
 export function isAnyCalleeAcceptRoute(params: NativeCalleeAcceptRouteParams): boolean {
   return params.action === "accept";
 }
 
-/** 네이티브 수락 직후 WebView 라우트 주입 전 — 벨 UI 선제 억제 */
+/** 수락 직후 IncomingCallView(벨)·수락/거절 버튼 숨김 → connecting 단일 화면 */
 export function markNativeCalleeAcceptPending(sessionId: string): void {
   if (typeof sessionStorage === "undefined") return;
   const sid = sessionId.trim();
@@ -79,7 +90,6 @@ export function isNativeCalleeAcceptPendingForSession(sessionId: string): boolea
   return pending != null && pending === sessionId.trim();
 }
 
-/** 수락 직후 IncomingCallView(벨)·수락/거절 버튼 숨김 → connecting 단일 화면 */
 export function shouldSuppressCalleeIncomingRingingUi(input: {
   isCallee: boolean;
   joined: boolean;
@@ -94,7 +104,6 @@ export function shouldSuppressCalleeIncomingRingingUi(input: {
   return false;
 }
 
-/** 수락 플로우가 generic active auto-join 과 경쟁하지 않게 */
 export function shouldDeferCalleeGenericAutoJoin(input: {
   isCallee: boolean;
   joined: boolean;
@@ -113,7 +122,7 @@ export function shouldDeferCalleeGenericAutoJoin(input: {
 export function readNativeCalleeAcceptSessionIdFromLocation(): string | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
-  if (!isNativeCalleeAcceptRoute({ action: params.get("action"), nativeAccept: params.get("nativeAccept") })) {
+  if (!isNativeCalleePrepRoute({ action: params.get("action"), nativeAccept: params.get("nativeAccept"), nativePrep: params.get("nativePrep") })) {
     return null;
   }
   const match = window.location.pathname.match(/^\/community-messenger\/calls\/([^/?#]+)/);

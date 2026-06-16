@@ -1,7 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/call/call-actions", () => ({
+  patchCommunityMessengerCallSession: vi.fn(async (_id: string) => ({
+    ok: true,
+    session: { id: "s1", status: "active" },
+  })),
+}));
+
 vi.mock("@/lib/community-messenger/call-http-actions", () => ({
-  patchCommunityMessengerCallSession: vi.fn(async () => ({ ok: true, session: { id: "s1" } })),
   fetchCommunityMessengerCallSessionByIdClient: vi.fn(async (id: string) => ({
     id,
     callKind: "voice",
@@ -11,15 +17,32 @@ vi.mock("@/lib/community-messenger/call-http-actions", () => ({
   })),
 }));
 
+vi.mock("@/lib/call/actions/call-accept-guard", () => ({
+  runCallAcceptGuard: vi.fn(async (input: {
+    session: { id: string };
+    router: { replace: (href: string) => void };
+    hrefOverride?: string;
+  }) => {
+    const { patchCommunityMessengerCallSession } = await import("@/lib/call/call-actions");
+    await patchCommunityMessengerCallSession(input.session.id, "accept");
+    const href =
+      input.hrefOverride ??
+      `/community-messenger/calls/${encodeURIComponent(input.session.id)}?action=accept&nativePrep=1&mode=active`;
+    input.router.replace(href);
+    return {
+      ok: true,
+      sessionId: input.session.id,
+      session: { ...input.session, status: "active" },
+      permission: { ok: true },
+    };
+  }),
+}));
+
 vi.mock("@/lib/community-messenger/incoming-call-action-guard", () => ({
   tryClaimIncomingCallAccept: vi.fn(() => true),
   releaseIncomingCallAccept: vi.fn(),
   tryClaimIncomingCallReject: vi.fn(() => true),
   releaseIncomingCallReject: vi.fn(),
-}));
-
-vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
-  ensureCallMediaForUserGesture: vi.fn(async () => ({ ok: true, state: { camera: "granted", microphone: "granted" } })),
 }));
 
 vi.mock("@/lib/community-messenger/call-session-navigation-seed", () => ({
@@ -55,7 +78,8 @@ vi.mock("@/lib/community-messenger/call-orchestrator", async (importOriginal) =>
   };
 });
 
-import { patchCommunityMessengerCallSession } from "@/lib/community-messenger/call-http-actions";
+import { patchCommunityMessengerCallSession } from "@/lib/call/call-actions";
+import { runCallAcceptGuard } from "@/lib/call/actions/call-accept-guard";
 import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-call-action-guard";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { isDibayCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
@@ -82,9 +106,10 @@ describe("incoming-call-accept-gateway", () => {
     } as any;
 
     await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });
+    expect(runCallAcceptGuard).toHaveBeenCalledTimes(1);
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledTimes(1);
     expect(router.replace).toHaveBeenCalledWith(
-      "/community-messenger/calls/s1?action=accept&nativeAccept=1&mode=active"
+      "/community-messenger/calls/s1?action=accept&nativePrep=1&mode=active",
     );
     expect(isDibayCallConsumed("s1")).toBe(true);
     expect(postCommunityMessengerCallIncomingConsumedBusEvent).toHaveBeenCalledWith("s1", "accepted");
@@ -114,7 +139,11 @@ describe("incoming-call-accept-gateway", () => {
   });
 
   it("duplicate_accept_blocked returns ok=false and does not patch", async () => {
-    (tryClaimIncomingCallAccept as any).mockReturnValueOnce(false);
+    vi.mocked(runCallAcceptGuard).mockResolvedValueOnce({
+      ok: false,
+      sessionId: "s1",
+      reason: "duplicate_accept_blocked",
+    });
     const router = { replace: vi.fn() };
     const session = { id: "s1", callKind: "voice", status: "ringing", isMineInitiator: false } as any;
     const res = await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });

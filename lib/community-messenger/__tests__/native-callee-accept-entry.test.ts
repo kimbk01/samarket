@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clearNativeCalleeAcceptPending,
   isNativeCalleeAcceptRoute,
+  isNativeCalleePrepRoute,
   markNativeCalleeAcceptPending,
   readNativeCalleeAcceptPendingSessionId,
   shouldDeferCalleeGenericAutoJoin,
@@ -38,8 +39,9 @@ describe("native-callee-accept-entry", () => {
   const cleanup = installMemorySessionStorage();
 
   it("detects native accept route", () => {
-    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1" })).toBe(true);
-    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null })).toBe(false);
+    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: "1", nativePrep: null })).toBe(true);
+    expect(isNativeCalleePrepRoute({ action: "accept", nativeAccept: null, nativePrep: "1" })).toBe(true);
+    expect(isNativeCalleeAcceptRoute({ action: "accept", nativeAccept: null, nativePrep: null })).toBe(false);
   });
 
   it("tracks native accept pending before route params hydrate", () => {
@@ -49,7 +51,7 @@ describe("native-callee-accept-entry", () => {
       shouldSuppressCalleeIncomingRingingUi({
         isCallee: true,
         joined: false,
-        acceptRoute: { action: null, nativeAccept: null },
+        acceptRoute: { action: null, nativeAccept: null, nativePrep: null },
         busyAcceptOrJoin: false,
         sessionId: "sess-pending",
       })
@@ -63,7 +65,7 @@ describe("native-callee-accept-entry", () => {
       shouldSuppressCalleeIncomingRingingUi({
         isCallee: true,
         joined: false,
-        acceptRoute: { action: "accept", nativeAccept: "1" },
+        acceptRoute: { action: "accept", nativeAccept: "1", nativePrep: null },
         busyAcceptOrJoin: false,
       })
     ).toBe(true);
@@ -71,7 +73,7 @@ describe("native-callee-accept-entry", () => {
       shouldSuppressCalleeIncomingRingingUi({
         isCallee: true,
         joined: true,
-        acceptRoute: { action: "accept", nativeAccept: "1" },
+        acceptRoute: { action: "accept", nativeAccept: "1", nativePrep: null },
         busyAcceptOrJoin: false,
       })
     ).toBe(false);
@@ -83,7 +85,7 @@ describe("native-callee-accept-entry", () => {
         isCallee: true,
         joined: false,
         joining: false,
-        acceptRoute: { action: "accept", nativeAccept: "1" },
+        acceptRoute: { action: "accept", nativeAccept: "1", nativePrep: null },
         busyAcceptOrJoin: false,
         sessionId: "sess-1",
       })
@@ -94,7 +96,7 @@ describe("native-callee-accept-entry", () => {
         isCallee: true,
         joined: false,
         joining: false,
-        acceptRoute: { action: null, nativeAccept: null },
+        acceptRoute: { action: null, nativeAccept: null, nativePrep: null },
         busyAcceptOrJoin: false,
         sessionId: "sess-2",
       })
@@ -105,7 +107,7 @@ describe("native-callee-accept-entry", () => {
         isCallee: true,
         joined: false,
         joining: false,
-        acceptRoute: { action: null, nativeAccept: null },
+        acceptRoute: { action: null, nativeAccept: null, nativePrep: null },
         busyAcceptOrJoin: false,
       })
     ).toBe(false);

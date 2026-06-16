@@ -1,14 +1,10 @@
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { callPermissionGate } from "@/lib/call/permissions/call-permission-gate";
 import {
-  checkDevicePermissions,
   isCallMediaGrantedSync,
   openDevicePermissionSettings,
   type DibayDevicePermissionState,
 } from "@/lib/permissions/dibay-device-permission-store";
-import {
-  requestAndroidNativeCallMediaPermissions,
-  shouldUseAndroidNativeDevicePermissionBridge,
-} from "@/lib/permissions/native-device-permissions-plugin";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
 
@@ -20,25 +16,20 @@ export type CallMediaPermissionPreflightResult =
       state: DibayDevicePermissionState;
     };
 
-const PREFLIGHT_CACHE_TTL_MS = 1200;
-
-let inflightPermissionCheck: Promise<DibayDevicePermissionState> | null = null;
-let cachedPermissionState: DibayDevicePermissionState | null = null;
-let cachedPermissionStateAt = 0;
-
-function logCallPermission(event: string, payload?: Record<string, unknown>): void {
-  console.info(`[call-permission] ${event}`, payload ?? {});
-}
-
-function hasRequiredMediaPermission(kind: CommunityMessengerCallKind, state: DibayDevicePermissionState): boolean {
-  if (state.microphone !== "granted") return false;
-  if (kind === "video" && state.camera !== "granted") return false;
-  return true;
+function mapGateOsToDeviceState(check: Awaited<ReturnType<typeof callPermissionGate.check>>): DibayDevicePermissionState {
+  return {
+    microphone:
+      check.os.microphone === "granted" ? "granted" : check.os.microphone === "denied" ? "denied" : "unknown",
+    camera: check.os.camera === "granted" ? "granted" : check.os.camera === "denied" ? "denied" : "unknown",
+    requestedAt: null,
+    grantedAt: check.canVoice || check.canVideo ? Date.now() : null,
+    source: null,
+  };
 }
 
 function blockedReason(
   kind: CommunityMessengerCallKind,
-  state: DibayDevicePermissionState
+  state: DibayDevicePermissionState,
 ): Exclude<CallMediaPermissionPreflightResult, { ok: true }>["reason"] {
   const statuses = kind === "video" ? [state.microphone, state.camera] : [state.microphone];
   if (statuses.includes("blocked")) return "permission_blocked";
@@ -46,59 +37,24 @@ function blockedReason(
   return "permission_unknown";
 }
 
-/** 설정 복귀·온보딩 완료 직후 — 짧은 TTL 캐시 무효화 */
+/** 설정 복귀·온보딩 완료 직후 — gate 캐시 무효화 훅 */
 export function invalidateCallMediaPermissionCheckCache(): void {
-  cachedPermissionState = null;
-  cachedPermissionStateAt = 0;
-  inflightPermissionCheck = null;
-}
-
-async function resolveDevicePermissionStateForCall(): Promise<DibayDevicePermissionState> {
-  const now = Date.now();
-  if (cachedPermissionState && now - cachedPermissionStateAt < PREFLIGHT_CACHE_TTL_MS) {
-    return cachedPermissionState;
-  }
-  if (!inflightPermissionCheck) {
-    inflightPermissionCheck = checkDevicePermissions()
-      .then((state) => {
-        cachedPermissionState = state;
-        cachedPermissionStateAt = Date.now();
-        return state;
-      })
-      .finally(() => {
-        inflightPermissionCheck = null;
-      });
-  }
-  return inflightPermissionCheck;
+  /* call-permission-gate 는 OS check 우선 — 별도 TTL 캐시 없음 */
 }
 
 export async function ensureCallCanUseMedia(
   kind: CommunityMessengerCallKind,
 ): Promise<CallMediaPermissionPreflightResult> {
-  logCallPermission("check_only_start", { kind });
-  const state = await resolveDevicePermissionStateForCall();
-  logCallPermission("check_only_result", {
-    kind,
-    camera: state.camera,
-    microphone: state.microphone,
-  });
-  if (hasRequiredMediaPermission(kind, state)) {
-    logCallPermission("call_allowed", { kind });
+  const check = await callPermissionGate.check(kind);
+  const state = mapGateOsToDeviceState(check);
+  if (kind === "video" ? check.canVideo : check.canVoice) {
     return { ok: true, state };
   }
-  const reason = blockedReason(kind, state);
-  logCallPermission("call_blocked_by_permission", {
-    kind,
-    reason,
-    camera: state.camera,
-    microphone: state.microphone,
-  });
-  return { ok: false, reason, state };
+  return { ok: false, reason: blockedReason(kind, state), state };
 }
 
 /**
- * 사용자 제스처(발신·수락) 시점 — check 후 미허용이면 Android OS 팝업·WebView GUM으로 1회 요청 후 재검사.
- * check-only `ensureCallCanUseMedia` 와 달리 실제 권한 요청을 수행한다.
+ * 사용자 제스처(발신·수락) 시점 — gate.prompt 후 재검사 (GUM probe 없음).
  */
 export async function ensureCallMediaForUserGesture(
   kind: CommunityMessengerCallKind,
@@ -106,45 +62,9 @@ export async function ensureCallMediaForUserGesture(
   let result = await ensureCallCanUseMedia(kind);
   if (result.ok) return result;
 
-  logCallPermission("request_start", { kind, reason: result.reason });
-
-  if (shouldUseAndroidNativeDevicePermissionBridge()) {
-    const nativeState = await requestAndroidNativeCallMediaPermissions(kind);
-    invalidateCallMediaPermissionCheckCache();
-    logCallPermission("native_request_result", { kind, nativeState });
-    if (nativeState === "granted") {
-      result = await ensureCallCanUseMedia(kind);
-      if (result.ok) return result;
-    }
-  }
-
-  if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
-    try {
-      const constraints =
-        kind === "video" ? ({ audio: true, video: true } as MediaStreamConstraints) : ({ audio: true } as MediaStreamConstraints);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      stream.getTracks().forEach((track) => {
-        try {
-          track.stop();
-        } catch {
-          /* ignore */
-        }
-      });
-      invalidateCallMediaPermissionCheckCache();
-      await checkDevicePermissions();
-      result = await ensureCallCanUseMedia(kind);
-      if (result.ok) {
-        logCallPermission("gum_request_granted", { kind });
-        return result;
-      }
-    } catch (error) {
-      logCallPermission("gum_request_failed", {
-        kind,
-        name: error instanceof DOMException ? error.name : "unknown",
-      });
-    }
-  }
-
+  await callPermissionGate.prompt(kind, "incoming");
+  invalidateCallMediaPermissionCheckCache();
+  result = await ensureCallCanUseMedia(kind);
   return result;
 }
 

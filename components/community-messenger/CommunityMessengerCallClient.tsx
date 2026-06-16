@@ -2232,14 +2232,23 @@ export function CommunityMessengerCallClient({
         }
 
         logDibayCall("agora_join_start", { sessionId: targetSession.id, callKind: targetSession.callKind });
-        await joinCommunityMessengerAgoraChannel({
-          client,
-          appId: connection.appId,
-          channelName: connection.channelName,
-          token: connection.token,
-          uid: connection.uid,
-        });
-        logDibayCall("agora_join_success", { sessionId: targetSession.id, callKind: targetSession.callKind });
+        const { joinCommunityMessengerAgoraChannelOnce } = await import("@/lib/call/actions/agora-join-guard");
+        const { startCallHeartbeatWatchdog } = await import("@/lib/call/native/call-heartbeat-watchdog");
+        const joinResult = await joinCommunityMessengerAgoraChannelOnce(
+          targetSession.id,
+          {
+            client,
+            appId: connection.appId,
+            channelName: connection.channelName,
+            token: connection.token,
+            uid: connection.uid,
+          },
+          { callKind: targetSession.callKind },
+        );
+        if (!joinResult.ok) {
+          throw new Error(`agora_join_blocked:${joinResult.reason}`);
+        }
+        startCallHeartbeatWatchdog(targetSession.id);
         if (isVideoCall) {
           try {
             const c = client as IAgoraRTCClient & { enableDualStream?: () => Promise<void> };
@@ -2926,13 +2935,15 @@ export function CommunityMessengerCallClient({
           return;
         }
         const provider = await loadCommunityMessengerCallProvider();
-        await provider.joinCommunityMessengerAgoraChannel({
+        const { joinCommunityMessengerAgoraChannelOnce } = await import("@/lib/call/actions/agora-join-guard");
+        const joinResult = await joinCommunityMessengerAgoraChannelOnce(s.id, {
           client,
           appId: connection.appId,
           channelName: connection.channelName,
           token: connection.token,
           uid: connection.uid,
-        });
+        }, { callKind: s.callKind });
+        if (!joinResult.ok) return;
         setAgoraReconnecting(false);
         clearTimers();
       } catch {

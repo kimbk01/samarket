@@ -1,7 +1,14 @@
 "use client";
 
+import {
+  clearCallPendingRoute,
+  DIBAY_CALL_PENDING_ROUTE_KEY,
+  readCallPendingRoute,
+  writeCallPendingRoute,
+} from "@/lib/call/routing/pending-call-route";
+
 /** Android FCM → legacy 통화 수신 경로 어댑터 (OAuth/chat pending key 와 분리) */
-export const DIBAY_CALL_PENDING_ROUTE_KEY = "dibay_call_pending_route";
+export { DIBAY_CALL_PENDING_ROUTE_KEY };
 
 export type DibayFcmIncomingWakeDetail = {
   sessionId?: string;
@@ -15,33 +22,15 @@ type DibayFcmCallBridgeHandlers = {
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
-  if (typeof window === "undefined") return;
-  const trimmed = path.trim();
-  if (!trimmed.startsWith("/")) return;
-  sessionStorage.setItem(DIBAY_CALL_PENDING_ROUTE_KEY, JSON.stringify({ path: trimmed, at: Date.now() }));
+  writeCallPendingRoute(path);
 }
 
 export function readDibayCallPendingRoute(): string | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = sessionStorage.getItem(DIBAY_CALL_PENDING_ROUTE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { path?: string; at?: number };
-    const path = parsed.path?.trim();
-    if (!path?.startsWith("/")) return null;
-    if (parsed.at != null && Date.now() - parsed.at > 60_000) {
-      sessionStorage.removeItem(DIBAY_CALL_PENDING_ROUTE_KEY);
-      return null;
-    }
-    return path;
-  } catch {
-    return null;
-  }
+  return readCallPendingRoute()?.path ?? null;
 }
 
 export function clearDibayCallPendingRoute(): void {
-  if (typeof window === "undefined") return;
-  sessionStorage.removeItem(DIBAY_CALL_PENDING_ROUTE_KEY);
+  clearCallPendingRoute();
 }
 
 /** `dibay:call-event` · `dibay:call-route` → legacy incoming wake / cancel / pending route */

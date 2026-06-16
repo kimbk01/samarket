@@ -654,6 +654,19 @@ export const communityMessengerUiMessages = {
       "카메라·마이크 허용 후 영상통화가 가능합니다. 권한을 허용해 주세요.",
     cm_ui_call_permission_required_before_voice:
       "마이크 허용 후 음성통화가 가능합니다. 권한을 허용해 주세요.",
+    call_permission_modal_title: "통화 권한 안내",
+    call_permission_modal_onboarding_title: "통화 기능을 위해 권한이 필요합니다",
+    call_permission_modal_camera_title: "카메라 권한이 필요합니다",
+    call_permission_modal_body_voice: "음성통화를 위해 마이크 권한이 필요합니다.",
+    call_permission_modal_body_video: "영상통화를 위해 마이크와 카메라 권한이 필요합니다.",
+    call_permission_modal_onboarding_body:
+      "통화 기능을 위해 카메라와 마이크 권한이 필요합니다. 허용하지 않아도 앱은 계속 사용할 수 있습니다.",
+    call_permission_modal_camera_body:
+      "영상통화를 위해 카메라 권한이 필요합니다. 음성통화로 전환할 수도 있습니다.",
+    call_permission_modal_confirm: "권한 허용",
+    call_permission_modal_later: "나중에",
+    call_permission_modal_open_settings: "설정에서 허용",
+    call_permission_modal_switch_voice: "음성통화로 전환",
     cm_ui_network_or_server_unreachable: "네트워크 또는 서버 응답을 확인할 수 없습니다.",
     cm_ui_call_signal_poll_unstable:
       "통화 신호 연결이 불안정합니다. 잠시만 기다리거나 통화를 종료한 뒤 다시 시도해 주세요.",
@@ -1516,6 +1529,19 @@ export const communityMessengerUiMessages = {
       "Allow camera and microphone to start a video call.",
     cm_ui_call_permission_required_before_voice:
       "Allow microphone access to start a voice call.",
+    call_permission_modal_title: "Call permissions",
+    call_permission_modal_onboarding_title: "Permissions needed for calls",
+    call_permission_modal_camera_title: "Camera permission required",
+    call_permission_modal_body_voice: "Microphone access is required for voice calls.",
+    call_permission_modal_body_video: "Microphone and camera access are required for video calls.",
+    call_permission_modal_onboarding_body:
+      "Camera and microphone access are needed for calls. You can keep using the app without granting them now.",
+    call_permission_modal_camera_body:
+      "Camera access is required for video calls. You can switch to a voice call instead.",
+    call_permission_modal_confirm: "Allow access",
+    call_permission_modal_later: "Not now",
+    call_permission_modal_open_settings: "Open settings",
+    call_permission_modal_switch_voice: "Switch to voice call",
     cm_ui_network_or_server_unreachable: "Could not verify the network or server response.",
     cm_ui_call_signal_poll_unstable:
       "Call signaling is unstable. Wait a moment or end the call and try again.",
