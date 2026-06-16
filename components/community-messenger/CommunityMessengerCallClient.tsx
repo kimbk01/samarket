@@ -18,8 +18,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { CommunityMessengerAgoraLocalTracks } from "@/lib/community-messenger/call-provider/client";
-import { isCallV3Enabled, getCallV3FeatureFlagSnapshot } from "@/lib/call-v3/call-v3-feature-flag";
-import { logCallV3 } from "@/lib/call-v3/call-v3-log";
+import { isCallV3Enabled } from "@/lib/call-v3/call-v3-feature-flag";
 
 /**
  * Agora 번들은 수 MB — 정적 import 시 통화 페이지 첫 페인트·파싱이 지연된다.
@@ -813,16 +812,16 @@ export function CommunityMessengerCallClient({
   initialSession?: CommunityMessengerCallSession | null;
   presentation?: "fullscreen" | "minimized";
 }) {
-  const { t } = useI18n();
-  useEffect(() => {
-    if (!isCallV3Enabled()) return;
-    logCallV3("legacy_blocked_when_v3_enabled", {
+  if (isCallV3Enabled()) {
+    console.error("[call-v3] legacy_blocked_when_v3_enabled", {
       surface: "CommunityMessengerCallClient",
       sessionId,
       presentation,
-      flag: getCallV3FeatureFlagSnapshot(),
     });
-  }, [presentation, sessionId]);
+    return null;
+  }
+
+  const { t } = useI18n();
   useMessengerCallMainBottomNavSuppress(presentation !== "minimized");
   const router = useRouter();
   const pathname = usePathname();

@@ -9,6 +9,7 @@ import { CallActiveSessionRecoveryHost } from "@/components/layout/providers/Cal
 import { CommunityMessengerActiveCallHost } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallV3Enabled, logCallV3FeatureFlag } from "@/lib/call-v3/call-v3-feature-flag";
 import { logCallV3 } from "@/lib/call-v3/call-v3-log";
+import { useCallV3ClientReady } from "@/lib/call-v3/use-call-v3-client-ready";
 
 const IncomingCallOverlay = dynamic(
   () =>
@@ -27,9 +28,11 @@ const DibayCallHost = dynamic(
  * 수신 통화 오버레이 — call-v3 ON 시 DibayCallHost, OFF 시 레거시 GlobalIncoming.
  */
 export function CallIncomingChrome() {
-  const v3Enabled = isCallV3Enabled();
+  const clientReady = useCallV3ClientReady();
+  const v3Enabled = clientReady && isCallV3Enabled();
 
   useEffect(() => {
+    if (!clientReady) return;
     logCallV3FeatureFlag("CallIncomingChrome");
     if (v3Enabled) {
       logCallV3("host_mounted", { host: "DibayCallHost" });
@@ -40,7 +43,11 @@ export function CallIncomingChrome() {
         surfaces: ["CallActiveSessionRecoveryHost", "CommunityMessengerActiveCallHost", "IncomingCallOverlay"],
       });
     }
-  }, [v3Enabled]);
+  }, [clientReady, v3Enabled]);
+
+  if (!clientReady) {
+    return <CallProvider>{null}</CallProvider>;
+  }
 
   if (v3Enabled) {
     return (

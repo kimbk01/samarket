@@ -9,6 +9,7 @@ import { subscribeCommunityCallHostSync } from "@/components/layout/providers/Co
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
 import { isCallV3Enabled, logCallV3FeatureFlag } from "@/lib/call-v3/call-v3-feature-flag";
 import { logCallV3 } from "@/lib/call-v3/call-v3-log";
+import { useCallV3ClientReady } from "@/lib/call-v3/use-call-v3-client-ready";
 import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 
 const DibayCallScreen = dynamic(
@@ -29,9 +30,11 @@ export default function CommunityMessengerCallPage() {
     () => (sessionId ? isCallSessionHostedByActiveCallHost(sessionId) : false),
     () => false
   );
-  const v3Enabled = isCallV3Enabled();
+  const clientReady = useCallV3ClientReady();
+  const v3Enabled = clientReady && isCallV3Enabled();
 
   useEffect(() => {
+    if (!clientReady) return;
     logCallV3FeatureFlag("CommunityMessengerCallPage");
     if (!sessionId) return;
     if (v3Enabled) {
@@ -44,9 +47,9 @@ export default function CommunityMessengerCallPage() {
       sessionId,
       hostOwnsSession,
     });
-  }, [hostOwnsSession, sessionId, v3Enabled]);
+  }, [clientReady, hostOwnsSession, sessionId, v3Enabled]);
 
-  if (!sessionId) {
+  if (!sessionId || !clientReady) {
     return <CommunityMessengerCallRouteLoading />;
   }
 

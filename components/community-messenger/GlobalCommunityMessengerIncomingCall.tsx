@@ -42,6 +42,7 @@ import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messen
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { logAcceptAudit } from "@/lib/community-messenger/legacy-call-debug";
+import { isCallV3Enabled } from "@/lib/call-v3/call-v3-feature-flag";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
 import { useIncomingCallTabLeader } from "@/lib/community-messenger/incoming-call-tab-leader";
@@ -245,6 +246,13 @@ function shouldRunIncomingCallBackupHttpRequest(args: {
 }
 
 export function GlobalCommunityMessengerIncomingCall() {
+  if (isCallV3Enabled()) {
+    console.error("[call-v3] legacy_blocked_when_v3_enabled", {
+      surface: "GlobalCommunityMessengerIncomingCall",
+    });
+    return null;
+  }
+
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
