@@ -26,6 +26,10 @@ export function isIncomingCallAcceptInFlight(sessionId: string): boolean {
   return acceptInFlight.has(sid(sessionId));
 }
 
+export function isIncomingCallRejectInFlight(sessionId: string): boolean {
+  return rejectInFlight.has(sid(sessionId));
+}
+
 export function tryClaimIncomingCallReject(sessionId: string): boolean {
   const id = sid(sessionId);
   if (!id || acceptInFlight.has(id) || rejectInFlight.has(id)) return false;

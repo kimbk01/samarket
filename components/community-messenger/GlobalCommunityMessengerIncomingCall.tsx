@@ -18,6 +18,7 @@ import {
   stopCallRingtone,
 } from "@/lib/community-messenger/call-ringtone-controller";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
+import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
 import {
   releaseIncomingCallAccept,
   releaseIncomingCallReject,
@@ -1779,17 +1780,27 @@ export function GlobalCommunityMessengerIncomingCall() {
       }
 
       /** 1:1 — 전체 통화 화면으로 먼저 이동, CallClient 가 accept PATCH + Agora join (6/10) */
+      if (!tryClaimIncomingCallAccept(session.id)) return;
+      setBusyId(`accept:${session.id}`);
+      markNativeCalleeAcceptPending(session.id);
       primeCommunityMessengerCallNavigationSeed(session.id, session);
       logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "global_accept" });
       void (async () => {
-        const permission = await ensureCallCanUseMedia(session.callKind);
-        if (!permission.ok) {
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {
-            variant: "error",
-          });
-          return;
+        try {
+          const permission = await ensureCallCanUseMedia(session.callKind);
+          if (!permission.ok) {
+            releaseIncomingCallAccept(session.id);
+            showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {
+              variant: "error",
+            });
+            return;
+          }
+          router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`);
+        } catch {
+          releaseIncomingCallAccept(session.id);
+        } finally {
+          setBusyId(null);
         }
-        router.replace(`/community-messenger/calls/${encodeURIComponent(session.id)}?action=accept`);
       })();
     },
     [busyId, refresh, router, t]

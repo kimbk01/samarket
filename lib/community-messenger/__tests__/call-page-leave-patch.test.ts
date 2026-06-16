@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   bestEffortKeepaliveCallSessionTeardown,
   terminalPatchAction,
+  shouldSkipRingingCallSessionPageLeaveTeardown,
 } from "@/lib/community-messenger/call-page-leave-patch";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
@@ -68,5 +69,33 @@ describe("bestEffortKeepaliveCallSessionTeardown", () => {
       durationSeconds: 0,
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("shouldSkipRingingCallSessionPageLeaveTeardown", () => {
+  const base = {
+    sessionId: "s1",
+    acceptInFlight: false,
+    rejectInFlight: false,
+    directPatchInFlight: false,
+    joining: false,
+    requestedActionAccept: false,
+    busyAcceptOrJoin: false,
+    calleeConnectingShell: false,
+    nativeAcceptPending: false,
+  };
+
+  it("skips when accept is in flight", () => {
+    expect(shouldSkipRingingCallSessionPageLeaveTeardown({ ...base, acceptInFlight: true })).toBe(true);
+  });
+
+  it("skips when callee accept route is pending", () => {
+    expect(
+      shouldSkipRingingCallSessionPageLeaveTeardown({ ...base, requestedActionAccept: true })
+    ).toBe(true);
+  });
+
+  it("allows teardown when idle ringing callee", () => {
+    expect(shouldSkipRingingCallSessionPageLeaveTeardown(base)).toBe(false);
   });
 });

@@ -63,3 +63,23 @@ export function bestEffortKeepaliveCallSessionTeardown(args: {
 }
 
 export { terminalPatchAction };
+
+/** 수락·연결 중 pagehide/visibility 가 callee ringing reject PATCH 를 쏘지 않게 */
+export function shouldSkipRingingCallSessionPageLeaveTeardown(input: {
+  sessionId: string;
+  acceptInFlight: boolean;
+  rejectInFlight: boolean;
+  directPatchInFlight: boolean;
+  joining: boolean;
+  requestedActionAccept: boolean;
+  busyAcceptOrJoin: boolean;
+  calleeConnectingShell: boolean;
+  nativeAcceptPending: boolean;
+}): boolean {
+  if (!input.sessionId.trim()) return true;
+  if (input.acceptInFlight || input.rejectInFlight) return true;
+  if (input.directPatchInFlight || input.joining) return true;
+  if (input.requestedActionAccept || input.busyAcceptOrJoin) return true;
+  if (input.calleeConnectingShell || input.nativeAcceptPending) return true;
+  return false;
+}

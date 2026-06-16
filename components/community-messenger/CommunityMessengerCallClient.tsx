@@ -83,6 +83,7 @@ import {
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
 import {
   isIncomingCallAcceptInFlight,
+  isIncomingCallRejectInFlight,
   releaseIncomingCallAccept,
   releaseIncomingCallReject,
   tryClaimIncomingCallAccept,
@@ -187,7 +188,8 @@ import {
   publishVideoUpgradeResponse,
   subscribeVideoUpgradeBroadcast,
 } from "@/lib/community-messenger/call-video-upgrade-broadcast";
-import { bestEffortKeepaliveCallSessionTeardown } from "@/lib/community-messenger/call-page-leave-patch";
+import { bestEffortKeepaliveCallSessionTeardown, shouldSkipRingingCallSessionPageLeaveTeardown } from "@/lib/community-messenger/call-page-leave-patch";
+import { clearNativeCalleeAcceptPending, isNativeCalleeAcceptPendingForSession } from "@/lib/community-messenger/native-callee-accept-entry";
 import {
   hasLiveCommunityMessengerVideoPreviewStream,
   resolvePreJoinVideoPreviewStream,
@@ -559,7 +561,6 @@ export function CommunityMessengerCallClient({
   const elapsedSecondsRef = useRef(0);
   const endCallRef = useRef<() => Promise<void>>(async () => {});
   const peerLeftEndTimerRef = useRef<number | null>(null);
-  const terminalDismissTimerRef = useRef<number | null>(null);
   const agoraNetworkHooksRef = useRef({
     clearTimers: () => {},
     scheduleRecovery: () => {},
@@ -741,10 +742,6 @@ export function CommunityMessengerCallClient({
     remoteAudioFirstFrameLoggedRef.current = false;
     remoteUserJoinedLoggedRef.current = false;
     terminalImmediateCleanupOnceRef.current = null;
-    if (terminalDismissTimerRef.current != null) {
-      window.clearTimeout(terminalDismissTimerRef.current);
-      terminalDismissTimerRef.current = null;
-    }
   }, [sessionId]);
 
   /** 임시 발신 세션 — initiator UUID 를 동기 세션에서 채워 PATCH·폴링 단계 안전 */
@@ -895,6 +892,12 @@ export function CommunityMessengerCallClient({
    * IncomingCallView ↔ 연결 풀스크린이 교차하는 것을 막는다(ref 만 쓰면 리렌더가 없어 동일 버그 유지).
    */
   const [calleeVideoConnectingShell, setCalleeVideoConnectingShell] = useState(false);
+  const calleeVideoConnectingShellRef = useRef(false);
+  calleeVideoConnectingShellRef.current = calleeVideoConnectingShell;
+  const requestedActionRef = useRef<string | null>(requestedAction);
+  requestedActionRef.current = requestedAction;
+  const busyRef = useRef<string | null>(busy);
+  busyRef.current = busy;
   /** 발신: `ringing` → 그 외 로 바뀔 때(상대 거절·취소 등) 벨·연결음이 잠시 남지 않게 */
   const wasCallSessionRingingRef = useRef(false);
 
@@ -1095,6 +1098,19 @@ export function CommunityMessengerCallClient({
     if (s.status === "ringing" || s.status === "active") return;
     if (!isTerminalCallSessionStatus(s.status)) return;
     if (callDismissInFlightRef.current) return;
+    const sid = s.id.trim();
+    if (
+      isIncomingCallAcceptInFlight(sid) ||
+      isIncomingCallRejectInFlight(sid) ||
+      directCallPatchInFlightRef.current ||
+      requestedActionRef.current === "accept" ||
+      busyRef.current === "accept" ||
+      busyRef.current === "join" ||
+      calleeVideoConnectingShellRef.current ||
+      isNativeCalleeAcceptPendingForSession(sid)
+    ) {
+      return;
+    }
     beginRingingCallDismiss(s.roomId, { wasRinging: true });
   }, [beginRingingCallDismiss, session?.id, session?.status, session?.isMineInitiator]);
 
@@ -1490,16 +1506,35 @@ export function CommunityMessengerCallClient({
 
   useEffect(() => {
     let lastPageLeaveAt = 0;
-    const runPageLeave = () => {
+    const maybeRingingTeardown = (s: CommunityMessengerCallSession) => {
+      const sid = s.id.trim();
+      if (
+        shouldSkipRingingCallSessionPageLeaveTeardown({
+          sessionId: sid,
+          acceptInFlight: isIncomingCallAcceptInFlight(sid),
+          rejectInFlight: isIncomingCallRejectInFlight(sid),
+          directPatchInFlight: directCallPatchInFlightRef.current,
+          joining: joiningRef.current,
+          requestedActionAccept: requestedActionRef.current === "accept",
+          busyAcceptOrJoin: busyRef.current === "accept" || busyRef.current === "join",
+          calleeConnectingShell: calleeVideoConnectingShellRef.current,
+          nativeAcceptPending: isNativeCalleeAcceptPendingForSession(sid),
+        })
+      ) {
+        return;
+      }
+      bestEffortKeepaliveCallSessionTeardown({
+        session: s,
+        durationSeconds: elapsedSecondsRef.current,
+      });
+    };
+    const runPageUnloadLeave = () => {
       const now = Date.now();
       if (now - lastPageLeaveAt < 400) return;
       lastPageLeaveAt = now;
       const s = sessionRef.current;
       if (s?.status === "ringing") {
-        bestEffortKeepaliveCallSessionTeardown({
-          session: s,
-          durationSeconds: elapsedSecondsRef.current,
-        });
+        maybeRingingTeardown(s);
       }
       stopCommunityMessengerCallTone();
       stopCommunityMessengerCallFeedback();
@@ -1508,14 +1543,31 @@ export function CommunityMessengerCallClient({
       void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
     const onVisibilityHidden = () => {
-      if (document.visibilityState === "hidden") runPageLeave();
+      if (document.visibilityState !== "hidden") return;
+      stopCommunityMessengerCallTone();
+      stopCommunityMessengerCallFeedback();
+      const s = sessionRef.current;
+      if (s?.status === "active" && joinedRef.current) return;
+      if (
+        s &&
+        (isIncomingCallAcceptInFlight(s.id) ||
+          directCallPatchInFlightRef.current ||
+          joiningRef.current ||
+          requestedActionRef.current === "accept" ||
+          busyRef.current === "accept" ||
+          busyRef.current === "join" ||
+          calleeVideoConnectingShellRef.current)
+      ) {
+        return;
+      }
+      void disposeCallMedia({ domAudioNuclear: false }).catch(() => {});
     };
-    window.addEventListener("pagehide", runPageLeave);
-    window.addEventListener("beforeunload", runPageLeave);
+    window.addEventListener("pagehide", runPageUnloadLeave);
+    window.addEventListener("beforeunload", runPageUnloadLeave);
     document.addEventListener("visibilitychange", onVisibilityHidden);
     return () => {
-      window.removeEventListener("pagehide", runPageLeave);
-      window.removeEventListener("beforeunload", runPageLeave);
+      window.removeEventListener("pagehide", runPageUnloadLeave);
+      window.removeEventListener("beforeunload", runPageUnloadLeave);
       document.removeEventListener("visibilitychange", onVisibilityHidden);
     };
   }, [disposeCallMedia]);
@@ -2335,6 +2387,7 @@ export function CommunityMessengerCallClient({
       });
       const acceptedSession = json.session;
       setSession(acceptedSession);
+      clearNativeCalleeAcceptPending(s.id);
       runIncomingCallCleanup({ sessionId: s.id, reason: "accept_ok", stopRingtone: false });
       return acceptedSession;
     } catch (e) {
@@ -3502,26 +3555,7 @@ export function CommunityMessengerCallClient({
       );
       pinTerminalCallLocalSurfaceDismiss(session.id);
     }
-    const failureRequiresDismiss =
-      session.status === "ended" &&
-      Boolean(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
-    if (failureRequiresDismiss || callDismissInFlightRef.current || terminalDismissTimerRef.current != null) return;
-    const dismissDelayMs = 600;
-    terminalDismissTimerRef.current = window.setTimeout(() => {
-      terminalDismissTimerRef.current = null;
-      if (callDismissInFlightRef.current) return;
-      const cur = sessionRef.current;
-      if (!cur || !isTerminalCallSessionStatus(cur.status)) return;
-      callDismissInFlightRef.current = true;
-      navigateBackFromCommunityMessengerCall(router, cur.roomId);
-    }, dismissDelayMs);
-    return () => {
-      if (terminalDismissTimerRef.current != null) {
-        window.clearTimeout(terminalDismissTimerRef.current);
-        terminalDismissTimerRef.current = null;
-      }
-    };
-  }, [connectedAtTs, router, session?.endedReason, session?.id, session?.status, terminalClosedAt]);
+  }, [connectedAtTs, session?.endedAt, session?.id, session?.status, terminalClosedAt]);
 
   useEffect(() => {
     const s = sessionRef.current;
@@ -3533,6 +3567,7 @@ export function CommunityMessengerCallClient({
     }
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
     if (shouldAutoAccept && !autoAcceptRef.current) {
+      if (directCallPatchInFlightRef.current) return;
       if (!isIncomingCallAcceptInFlight(s.id) && !tryClaimIncomingCallAccept(s.id)) {
         return;
       }
