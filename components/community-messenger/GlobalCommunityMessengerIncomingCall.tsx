@@ -15,9 +15,11 @@ import {
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
 import {
   dibayCallSealTerminal,
-  dibayIncomingLaneStartRing,
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
+import { syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
+import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
+import { isIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/tombstone";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
   clearNativeCalleeAcceptPending,
@@ -411,7 +413,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const refresh = useCallback(async (force = false, opts?: IncomingCallsRefreshOpts) => {
     const exec = async () => {
       if (isCapacitorNativePlatform()) {
-        await hydrateDibayCallConsumedFromNative();
+        await hydrateDibayCallConsumedFromNative(hardClearedIncomingSessionsAtRef.current);
       }
       const now = Date.now();
       const bypassCooldown = force || Boolean(opts?.incomingTerminalListSync);
@@ -604,7 +606,16 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
 
     const terminalSid = sessionId || tmpSessionId || "";
-    dibayIncomingLaneStopRing("terminal_event", terminalSid || undefined);
+    if (sessionId) {
+      sealIncomingCallTerminal(
+        sessionId,
+        mapTerminalStatusToConsumedReason(statusNorm),
+        hardClearedIncomingSessionsAtRef.current,
+        sourceTag
+      );
+    } else if (terminalSid) {
+      dibayIncomingLaneStopRing("terminal_event", terminalSid);
+    }
 
     console.info("[call-flow] terminal_event_received", {
       sessionId: sessionId || null,
@@ -666,8 +677,6 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (sessionId) {
       dibayCallSealTerminal(sessionId);
       clearNativeCalleeAcceptPending(sessionId);
-      markCallConsumed(sessionId, mapTerminalStatusToConsumedReason(statusNorm));
-      markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
       suppressMissedSoundRef.current.add(sessionId);
       clearIncomingMissedTimer(ringMissedScheduleRef, sessionId);
     }
@@ -935,7 +944,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   /** Native tombstone hydrate + pending terminal queue drain (mount/resume). */
   const syncNativeIncomingCallState = useCallback(async () => {
-    await hydrateDibayCallConsumedFromNative();
+    await hydrateDibayCallConsumedFromNative(hardClearedIncomingSessionsAtRef.current);
     const pending = await drainPendingTerminalEventsFromNative();
     for (const item of pending) {
       const rowMatch = sessionsRef.current.find(
@@ -1279,7 +1288,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             }
           }
           /**
-           * Foreground FCM 은 Android `DibayForegroundRingtone` 이 OS 벨을 담당한다.
+           * Foreground FCM 은 Android `IncomingCallRingOwner` 가 OS 벨을 담당한다.
            * WebAudio 벨은 시작하지 않는다.
            */
           if (sid) activeIncomingCallIdsRef.current.add(sid);
@@ -1771,14 +1780,20 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [sessions, userId]);
 
   useEffect(() => {
-    if (!incomingTabLeader) return;
+    if (!incomingTabLeader || !incomingCallSoundEnabled) {
+      syncIncomingCallRing(null);
+      return;
+    }
     const s = directRingingCalleeSession;
-    if (!s || s.status !== "ringing") return;
-    if (!incomingCallSoundEnabled) return;
-
+    if (!s || s.status !== "ringing") {
+      syncIncomingCallRing(null);
+      return;
+    }
     const sid = s.id.trim();
-    if (isDibayCallConsumed(sid)) return;
-    if (isIncomingSessionHardCleared(sid, hardClearedIncomingSessionsAtRef.current, Date.now())) return;
+    if (isIncomingCallTerminal(sid, hardClearedIncomingSessionsAtRef.current)) {
+      syncIncomingCallRing(null);
+      return;
+    }
     if (!activeIncomingCallIdsRef.current.has(sid)) {
       activeIncomingCallIdsRef.current.add(sid);
       logCallFlow("call_incoming_received", { sessionId: sid, source: "direct_ringing", callKind: s.callKind });
@@ -1786,7 +1801,12 @@ export function GlobalCommunityMessengerIncomingCall() {
     } else {
       logCallFlow("call_incoming_deduped", { sessionId: sid, source: "direct_ringing_ring" });
     }
-    dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing");
+    syncIncomingCallRing({
+      sessionId: sid,
+      callKind: s.callKind,
+      hardClearedAt: hardClearedIncomingSessionsAtRef.current,
+      source: "direct_ringing",
+    });
   }, [
     directRingingCalleeSession?.id,
     directRingingCalleeSession?.status,

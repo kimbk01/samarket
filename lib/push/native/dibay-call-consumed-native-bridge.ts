@@ -1,10 +1,8 @@
 "use client";
 
 import type { CallConsumedReason } from "@/lib/community-messenger/incoming-call-state";
-import {
-  isDibayCallConsumed,
-  markCallConsumedFromNativeHydrate,
-} from "@/lib/community-messenger/incoming-call-state";
+import { isDibayCallConsumed, markCallConsumedFromNativeHydrate } from "@/lib/community-messenger/incoming-call-state";
+import { hydrateIncomingCallTerminalFromNative } from "@/lib/community-messenger/incoming-call/tombstone";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
 
@@ -61,7 +59,9 @@ export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | nul
 }
 
 /** Native tombstone → Web in-memory consumed (no native re-sync). */
-export async function hydrateDibayCallConsumedFromNative(): Promise<number> {
+export async function hydrateDibayCallConsumedFromNative(
+  hardClearedAt?: Map<string, number>
+): Promise<number> {
   const plugin = await getNativeIncomingCallPlugin();
   if (!plugin?.listConsumedCallIds) return 0;
   try {
@@ -71,7 +71,12 @@ export async function hydrateDibayCallConsumedFromNative(): Promise<number> {
       const sid = item.sessionId?.trim();
       if (!sid) continue;
       if (isDibayCallConsumed(sid)) continue;
-      markCallConsumedFromNativeHydrate(sid, mapNativeConsumedReason(item.reason));
+      const reason = mapNativeConsumedReason(item.reason);
+      if (hardClearedAt) {
+        hydrateIncomingCallTerminalFromNative(sid, reason, hardClearedAt);
+      } else {
+        markCallConsumedFromNativeHydrate(sid, reason);
+      }
       count += 1;
     }
     if (count > 0) {

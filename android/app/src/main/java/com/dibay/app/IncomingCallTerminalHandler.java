@@ -25,7 +25,7 @@ public final class IncomingCallTerminalHandler {
     IncomingCallNotificationBuilder.dismissIncomingCall(app, sid);
     DibayCallConsumedStore.mark(app, sid, consumedReason);
     Log.i(TAG, "[DIBAY_CALL] terminal_tombstone_mark callId=" + sid + " reason=" + consumedReason);
-    DibayForegroundRingtone.stop(sid);
+    IncomingCallRingOwner.stop(app, sid);
     Log.i(TAG, "[DIBAY_CALL] ring_stop callId=" + sid + " source=terminal_handler");
 
     IncomingCallActionCoordinator.complete(sid, kind);

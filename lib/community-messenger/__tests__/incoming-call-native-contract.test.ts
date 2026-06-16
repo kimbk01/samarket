@@ -96,7 +96,7 @@ describe("incoming-call native contract", () => {
     const handler = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
     expect(handler).toContain("dismissIncomingCall");
     expect(handler).toContain("DibayCallConsumedStore.mark");
-    expect(handler).toContain("DibayForegroundRingtone.stop");
+    expect(handler).toContain("IncomingCallRingOwner.stop");
     expect(handler).toContain("broadcastFinishIncomingActivity");
     expect(handler).toContain("deliverCallTerminalEvent");
 

@@ -96,7 +96,7 @@ describe("incoming-call policy contracts", () => {
 
   it("foreground FCM wake does not start a second WebAudio ringtone", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(src).toContain("Foreground FCM 은 Android `DibayForegroundRingtone`");
+    expect(src).toContain("Foreground FCM 은 Android `IncomingCallRingOwner`");
     expect(src).not.toContain('dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice", "fcm_wake")');
   });
 

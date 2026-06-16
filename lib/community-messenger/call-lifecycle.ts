@@ -1,80 +1,32 @@
 "use client";
 
 /**
- * DIBAY 통화 — 3 레인 (역할 겹치지 않음)
- *
- * | 레인 | 담당 컴포넌트 | 할 일 | 하지 말 것 |
- * |------|---------------|-------|------------|
- * | INCOMING | GlobalCommunityMessengerIncomingCall | 수신 목록·벨·배너 | Agora·라우트 replay |
- * | ACTIVE | CommunityMessengerCallClient | 미디어·조인·종료 PATCH | 수신 벨·글로벌 오버레이 |
- * | ROUTE | DibayFcmCallRouteHost | pending path → router | 벨·세션 fetch |
- *
- * 종료·stale route·벨 stop/start 는 이 모듈 API 만 사용한다.
+ * INCOMING 레인 얇은 래퍼 — 실제 벨 소유는 incoming-call/ring-owner.ts
  */
-
-import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
-import {
-  playIncomingCallRingtone,
-  stopCallRingtone,
-} from "@/lib/community-messenger/call-ringtone-controller";
-import {
-  sealDibayCallTerminalSurface,
-  shouldAllowDibayCallRoute,
-} from "@/lib/community-messenger/call-orchestrator";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import {
-  setDibayCallSessionPhase,
-  shouldAllowIncomingRingtone,
-} from "@/lib/community-messenger/incoming-call-state";
-import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
-import {
-  isCapacitorNativePlatform,
-  resolveCapacitorShellPlatform,
-} from "@/lib/platform/capacitor-native";
-import { stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
+  stopIncomingCallRing,
+  syncIncomingCallRing,
+} from "@/lib/community-messenger/incoming-call/ring-owner";
+import { sealDibayCallTerminalSurface, shouldAllowDibayCallRoute } from "@/lib/community-messenger/call-orchestrator";
 
-/** Android Capacitor — native DibayForegroundRingtone owns incoming ring; WebAudio 금지. */
-export function shouldUseWebIncomingRingtone(): boolean {
-  if (!isCapacitorNativePlatform()) return true;
-  return resolveCapacitorShellPlatform() !== "android";
-}
-
-/** INCOMING 레인 — 수신 벨 시작 (phase === incoming 일 때만) */
 export function dibayIncomingLaneStartRing(
   sessionId: string,
   callKind: CommunityMessengerCallKind,
-  source = "incoming_lane"
+  source = "incoming_lane",
+  hardClearedAt: Map<string, number> = new Map()
 ): void {
-  const sid = sessionId.trim();
-  if (!sid) return;
-  if (!shouldAllowIncomingRingtone(sid)) {
-    logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source });
-    return;
-  }
-  setDibayCallSessionPhase(sid, "incoming");
-  if (!shouldUseWebIncomingRingtone()) {
-    logDibayCall("ring_start_skipped_native_owner", { sessionId: sid, callId: sid, callKind, source });
-    return;
-  }
-  unlockCommunityMessengerCallPlaybackFromUserGesture();
-  playIncomingCallRingtone(sid, callKind);
-  logDibayCall("ring_start", { sessionId: sid, callId: sid, callKind, source });
+  syncIncomingCallRing({ sessionId, callKind, hardClearedAt, source });
 }
 
-/** INCOMING 레인 — 수신 벨 중지 */
 export function dibayIncomingLaneStopRing(reason: string, sessionId?: string | null): void {
-  stopCallRingtone(reason, sessionId);
-  if (isCapacitorNativePlatform() && resolveCapacitorShellPlatform() === "android") {
-    stopNativeIncomingRingtoneFireAndForget(sessionId);
-  }
+  stopIncomingCallRing(reason, sessionId);
 }
 
-/** 모든 레인 — 통화 종료 확정 (terminal latch + pending route 삭제) */
 export function dibayCallSealTerminal(sessionId: string | null | undefined): void {
   sealDibayCallTerminalSurface(sessionId);
 }
 
-/** ROUTE 레인 — 종료된 세션으로의 deep link 차단 */
 export function dibayRouteLaneAllow(path: string): boolean {
   return shouldAllowDibayCallRoute(path);
 }

@@ -171,7 +171,7 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    DibayForegroundRingtone.start(this, payload.callId);
+    IncomingCallRingOwner.start(this, payload.callId);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event");
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }
@@ -192,7 +192,7 @@ public class MainActivity extends BridgeActivity {
             + safeCallId
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    DibayForegroundRingtone.stop(callId);
+    IncomingCallRingOwner.stop(this, callId);
     hideCallRouteLoadingOverlay();
     Log.i("DIBAY_CALL", "[DIBAY_CALL] terminal_received callId=" + callId + " status=" + status + " source=webview_inject");
   }
@@ -208,7 +208,7 @@ public class MainActivity extends BridgeActivity {
             + safeCallId
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    DibayForegroundRingtone.stop(callId);
+    IncomingCallRingOwner.stop(this, callId);
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_canceled_event callId=" + callId);
   }
 

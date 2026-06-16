@@ -57,31 +57,29 @@ describe("incoming-call native hydrate contract", () => {
 
 describe("incoming-call ring ownership contract", () => {
   it("Android Capacitor skips WebAudio incoming ring (native owner)", () => {
-    const lifecycle = read("lib/community-messenger/call-lifecycle.ts");
-    expect(lifecycle).toContain("shouldUseWebIncomingRingtone");
-    expect(lifecycle).toContain("ring_start_skipped_native_owner");
-    expect(lifecycle).toContain('resolveCapacitorShellPlatform() !== "android"');
+    const ringOwner = read("lib/community-messenger/incoming-call/ring-owner.ts");
+    expect(ringOwner).toContain("ring_start_skipped_native_owner");
+    expect(ringOwner).toContain('resolveCapacitorShellPlatform() === "android"');
+    expect(ringOwner).toContain("stopNativeIncomingRingtoneFireAndForget");
   });
 
-  it("dibayIncomingLaneStopRing stops native Android ringtone", () => {
-    const lifecycle = read("lib/community-messenger/call-lifecycle.ts");
-    expect(lifecycle).toContain("stopNativeIncomingRingtoneFireAndForget");
-    const plugin = read("android/app/src/main/java/com/dibay/app/NativeIncomingCallPlugin.java");
-    expect(plugin).toContain("stopIncomingRingtone");
-    expect(plugin).toContain("DibayForegroundRingtone.stop");
+  it("IncomingCallRingOwner centralizes native foreground ring start/stop", () => {
+    const owner = read("android/app/src/main/java/com/dibay/app/IncomingCallRingOwner.java");
+    expect(owner).toContain("DibayCallConsumedStore.isConsumed");
+    expect(owner).toContain("ring_deduped");
+    const activity = read("android/app/src/main/java/com/dibay/app/MainActivity.java");
+    expect(activity).toContain("IncomingCallRingOwner.start");
+    expect(activity).not.toContain("DibayForegroundRingtone.start");
   });
 });
 
 describe("incoming-call direct_ringing cleanup regression", () => {
-  it("direct_ringing effect respects tab leader and does not use cleanup restart", () => {
+  it("direct_ringing uses syncIncomingCallRing with tombstone (no cleanup restart)", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    const idx = global.indexOf('dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing")');
-    expect(idx).toBeGreaterThan(-1);
-    const blockStart = global.lastIndexOf("useEffect(() => {", idx);
-    const slice = global.slice(blockStart, idx + 200);
-    expect(slice).toContain("if (!incomingTabLeader) return");
-    expect(slice).toContain("isIncomingSessionHardCleared");
-    expect(slice).not.toContain('dibayIncomingLaneStopRing("direct_ringing_cleanup"');
+    expect(global).toContain("syncIncomingCallRing");
+    expect(global).toContain("isIncomingCallTerminal");
+    expect(global).not.toContain('dibayIncomingLaneStopRing("direct_ringing_cleanup"');
+    expect(global).not.toContain('dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing")');
   });
 });
 
@@ -95,6 +93,6 @@ describe("stale ringing blocked after native tombstone", () => {
 
   it("incoming GET refresh hydrates native consumed on Capacitor", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("await hydrateDibayCallConsumedFromNative()");
+    expect(global).toContain("hydrateDibayCallConsumedFromNative(hardClearedIncomingSessionsAtRef.current)");
   });
 });

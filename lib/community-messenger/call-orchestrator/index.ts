@@ -61,6 +61,7 @@ export type DibayCallLogStep =
   | "incoming_consumed"
   | "native_consumed_hydrate"
   | "incoming_ignored_consumed"
+  | "terminal_received"
   | "accept_skip_duplicate"
   | "accept_pending_web"
   | "active_route_replace"

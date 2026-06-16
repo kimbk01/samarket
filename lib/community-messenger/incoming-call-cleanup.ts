@@ -5,6 +5,7 @@ import {
   resetIncomingCallActionGuards,
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
+import { resetIncomingCallRingOwner } from "@/lib/community-messenger/incoming-call/ring-owner";
 
 export type IncomingCallCleanupArgs = {
   sessionId: string;
@@ -34,6 +35,7 @@ export function resetAllIncomingCallRuntime(sessionId?: string): void {
     return;
   }
   dibayIncomingLaneStopRing("reset_all");
+  resetIncomingCallRingOwner();
   resetIncomingCallActionGuards();
   logCallFlow("call_cleanup_done", { reason: "reset_all" });
 }

@@ -87,7 +87,7 @@ public final class IncomingCallActionCoordinator {
     DibayCallLog.once("accept_start", sid, "source=native_pending_web");
     Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "accepted");
-    DibayForegroundRingtone.stop(sid);
+    IncomingCallRingOwner.stop(context, sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     if (!shouldLaunchAcceptRoute(sid)) {
       Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
@@ -122,7 +122,7 @@ public final class IncomingCallActionCoordinator {
     if (!tryBegin(sid, "reject")) return;
     DibayCallLog.once("call_end", sid, "source=native_reject");
     DibayCallConsumedStore.mark(context, sid, "declined");
-    DibayForegroundRingtone.stop(sid);
+    IncomingCallRingOwner.stop(context, sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_start callId=" + sid);
     new Thread(
@@ -155,7 +155,7 @@ public final class IncomingCallActionCoordinator {
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "missed");
-    DibayForegroundRingtone.stop(sid);
+    IncomingCallRingOwner.stop(context, sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {
