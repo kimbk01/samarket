@@ -1883,18 +1883,36 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     const uid = userId?.trim();
     if (!uid || !viewerLiveSessionId) return;
+    const hard = hardClearedIncomingSessionsAtRef.current;
+    const tombstone = buildCallTombstoneContext(hard);
+    const autoRejectIds: string[] = [];
     for (const s of sessions) {
       if (s.status !== "ringing") continue;
       if (s.id === viewerLiveSessionId) continue;
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
       const busy = evaluateIncomingCallBusyPolicy({ incoming: s, otherLiveSessionId: viewerLiveSessionId });
       if (!busy.shouldAutoReject) continue;
-      void patchCommunityMessengerCallSession(s.id, "reject", undefined, {
+      const sid = s.id.trim();
+      if (!sid || !canShowIncoming(sid, tombstone)) continue;
+      autoRejectIds.push(sid);
+    }
+    if (autoRejectIds.length === 0) return;
+
+    const rejected = new Set(autoRejectIds);
+    for (const sid of autoRejectIds) {
+      const s = sessions.find((item) => item.id === sid);
+      if (!s) continue;
+      sealIncomingCallTerminal(sid, "declined", hard, "busy_auto_reject");
+      suppressMissedSoundRef.current.add(sid);
+      dismissAllIncomingCallNotificationsFireAndForget(sid);
+      activeIncomingCallIdsRef.current.delete(sid);
+      void patchCommunityMessengerCallSession(sid, "reject", undefined, {
         sessionStatus: s.status,
         isInitiator: s.isMineInitiator,
         endedReason: s.endedReason ?? null,
       }).then(() => refresh(true, { incomingTerminalListSync: true }));
     }
+    setSessions((prev) => prev.filter((item) => !rejected.has(item.id)));
   }, [refresh, sessions, userId, viewerLiveSessionId]);
 
   useEffect(() => {
