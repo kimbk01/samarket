@@ -53,6 +53,27 @@ export function shouldHideGlobalIncomingOverlayForSession(
   return routeCallId === incomingId;
 }
 
+/**
+ * Foreground Global 배너·busy_auto_reject 용 live 세션 id.
+ * `/calls/:oldId` 화면에 머문 채 다른 callId 가 ringing 이면 stale `active` 가 새 수신을 막지 않게 한다.
+ */
+export function resolveOverlayBusyLiveSessionId(args: {
+  viewerLiveSessionId: string | null | undefined;
+  pathname: string | null | undefined;
+  incomingSessionId: string;
+}): string | null {
+  const live = args.viewerLiveSessionId?.trim() || null;
+  const incomingId = args.incomingSessionId.trim();
+  if (!live) return null;
+  if (incomingId && live === incomingId) return null;
+
+  const routeCallId = extractCommunityMessengerCallRouteSessionId(args.pathname);
+  if (routeCallId && incomingId && routeCallId !== incomingId && live === routeCallId) {
+    return null;
+  }
+  return live;
+}
+
 function isDedicatedCallRouteForIncomingSession(
   pathname: string,
   incomingSessionId?: string | null

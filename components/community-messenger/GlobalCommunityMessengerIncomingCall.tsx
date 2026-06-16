@@ -31,7 +31,10 @@ import {
 } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { filterSessionsRespectingTerminalLatch } from "@/lib/community-messenger/call-events/session-merge-guard";
 import { resolveIncomingConsumedBusSealReason } from "@/lib/community-messenger/call-events/incoming-consumed-bus-guard";
-import { canShowIncoming } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
+import {
+  canShowIncoming,
+  isCallTerminal,
+} from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 import {
   buildIncomingPresenterDecisionPayload,
   logIncomingPresenterDecision,
@@ -100,6 +103,7 @@ import {
 } from "@/lib/community-messenger/incoming-call-realtime-preview";
 import {
   resolveIncomingCallSurface,
+  resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
   shouldRenderInternalIncomingCallUi,
   shouldUseIncomingCallBrowserNotification,
@@ -1721,10 +1725,12 @@ export function GlobalCommunityMessengerIncomingCall() {
   const viewerLiveSessionId = useMemo(() => {
     const uid = userId?.trim();
     if (!uid) return null;
+    const tombstone = buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current);
     for (const s of sessions) {
       if (s.sessionMode !== "direct") continue;
       if (s.status !== "active") continue;
       if (s.endedAt || s.cancelledAt) continue;
+      if (isCallTerminal(s.id, tombstone)) continue;
       const isParty =
         messengerUserIdsEqual(s.initiatorUserId, uid) ||
         (s.recipientUserId != null && messengerUserIdsEqual(s.recipientUserId, uid));
@@ -1745,13 +1751,17 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
       const busy = evaluateIncomingCallBusyPolicy({
         incoming: s,
-        otherLiveSessionId: viewerLiveSessionId,
+        otherLiveSessionId: resolveOverlayBusyLiveSessionId({
+          viewerLiveSessionId,
+          pathname,
+          incomingSessionId: s.id,
+        }),
       });
       if (busy.shouldAutoReject) continue;
       return s;
     }
     return null;
-  }, [sessions, userId, viewerLiveSessionId]);
+  }, [pathname, sessions, userId, viewerLiveSessionId]);
 
   const { isLeader: incomingTabLeaderRaw } = useIncomingCallTabLeader(Boolean(userId));
   const incomingTabLeader = isCapacitorNativePlatform() ? true : incomingTabLeaderRaw;
@@ -1936,7 +1946,14 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (s.status !== "ringing") continue;
       if (s.id === viewerLiveSessionId) continue;
       if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
-      const busy = evaluateIncomingCallBusyPolicy({ incoming: s, otherLiveSessionId: viewerLiveSessionId });
+      const busy = evaluateIncomingCallBusyPolicy({
+        incoming: s,
+        otherLiveSessionId: resolveOverlayBusyLiveSessionId({
+          viewerLiveSessionId,
+          pathname,
+          incomingSessionId: s.id,
+        }),
+      });
       if (!busy.shouldAutoReject) continue;
       const sid = s.id.trim();
       if (!sid || !canShowIncoming(sid, tombstone)) continue;
@@ -1959,7 +1976,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       }).then(() => refresh(true, { incomingTerminalListSync: true }));
     }
     setSessions((prev) => prev.filter((item) => !rejected.has(item.id)));
-  }, [refresh, sessions, userId, viewerLiveSessionId]);
+  }, [pathname, refresh, sessions, userId, viewerLiveSessionId]);
 
   useEffect(() => {
     syncCommunityMessengerNativeIncomingCall(nativeIncomingSession);

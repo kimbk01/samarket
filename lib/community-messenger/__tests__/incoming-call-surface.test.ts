@@ -3,6 +3,7 @@ import {
   extractCommunityMessengerCallRouteSessionId,
   isCommunityMessengerCallSurfacePath,
   resolveIncomingCallSurface,
+  resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
   shouldRenderInternalIncomingCallUi,
   shouldUseIncomingCallBrowserNotification,
@@ -67,6 +68,23 @@ describe("incoming-call-surface", () => {
         incomingSessionId: "session-2",
       })
     ).toBe("top-banner");
+  });
+
+  it("does not treat stale live session on previous call route as busy for new incoming", () => {
+    expect(
+      resolveOverlayBusyLiveSessionId({
+        viewerLiveSessionId: "session-1",
+        pathname: "/community-messenger/calls/session-1",
+        incomingSessionId: "session-2",
+      })
+    ).toBeNull();
+    expect(
+      resolveOverlayBusyLiveSessionId({
+        viewerLiveSessionId: "session-1",
+        pathname: "/community-messenger",
+        incomingSessionId: "session-2",
+      })
+    ).toBe("session-1");
   });
 
   it("keeps messenger home incoming banner unchanged", () => {

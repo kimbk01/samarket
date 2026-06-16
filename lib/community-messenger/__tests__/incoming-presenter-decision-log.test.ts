@@ -22,10 +22,10 @@ function ringingSession(id: string): CommunityMessengerCallSession {
 }
 
 describe("incoming-presenter-decision-log", () => {
-  it("reports busy_auto_reject reason when live session blocks overlay candidate", () => {
+  it("reports busy_auto_reject reason when live session blocks overlay on non-call route", () => {
     const incoming = ringingSession("call-2");
     const payload = buildIncomingPresenterDecisionPayload({
-      pathname: "/community-messenger/calls/call-1",
+      pathname: "/community-messenger",
       userId: "self",
       incomingTabLeader: true,
       incomingTabLeaderRaw: true,
@@ -51,5 +51,34 @@ describe("incoming-presenter-decision-log", () => {
     expect(payload.viewerLiveSessionId).toBe("call-1");
     expect(payload.sessionsCount).toBe(2);
     expect(payload.reason).toContain("busy_auto_reject");
+  });
+
+  it("does not busy-reject new incoming on previous dedicated call route", () => {
+    const incoming = ringingSession("call-2");
+    const payload = buildIncomingPresenterDecisionPayload({
+      pathname: "/community-messenger/calls/call-1",
+      userId: "self",
+      incomingTabLeader: true,
+      incomingTabLeaderRaw: true,
+      incomingVisibilityState: "visible",
+      isCapacitorNative: true,
+      sessions: [
+        {
+          ...ringingSession("call-1"),
+          status: "active",
+        },
+        incoming,
+      ],
+      viewerLiveSessionId: "call-1",
+      firstRingingCalleeSession: incoming,
+      directRingingCalleeSession: incoming,
+      visibleSession: incoming,
+      incomingSurface: "top-banner",
+      renderIncomingBanner: true,
+      hardClearedAt: new Map(),
+    });
+
+    expect(payload.busyPolicyShouldAutoReject).toBe(false);
+    expect(payload.reason).toBe("ok");
   });
 });

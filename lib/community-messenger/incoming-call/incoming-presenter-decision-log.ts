@@ -10,6 +10,7 @@ import { isRingingIncomingOverlayCandidate } from "@/lib/community-messenger/cal
 import {
   extractCommunityMessengerCallRouteSessionId,
   isCommunityMessengerCallSurfacePath,
+  resolveOverlayBusyLiveSessionId,
   shouldHideGlobalIncomingOverlayForSession,
   type IncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface";
@@ -62,7 +63,8 @@ export type IncomingPresenterDecisionPayload = {
 function diagnoseFirstRingingCalleeNull(
   sessions: CommunityMessengerCallSession[],
   uid: string,
-  viewerLiveSessionId: string | null
+  viewerLiveSessionId: string | null,
+  pathname: string | null | undefined
 ): string {
   const ringing = sessions.filter(
     (s) => s.status === "ringing" && !s.endedAt && !s.cancelledAt
@@ -75,7 +77,11 @@ function diagnoseFirstRingingCalleeNull(
     }
     const busy = evaluateIncomingCallBusyPolicy({
       incoming: s,
-      otherLiveSessionId: viewerLiveSessionId,
+      otherLiveSessionId: resolveOverlayBusyLiveSessionId({
+        viewerLiveSessionId,
+        pathname,
+        incomingSessionId: s.id,
+      }),
     });
     if (busy.shouldAutoReject) {
       return `busy_auto_reject:${s.id}:liveSession=${viewerLiveSessionId ?? "null"}`;
@@ -112,7 +118,12 @@ export function buildIncomingPresenterDecisionPayload(
   const uid = input.userId?.trim() ?? "";
   const firstRingingSkipDetail =
     !input.firstRingingCalleeSession && uid
-      ? diagnoseFirstRingingCalleeNull(input.sessions, uid, input.viewerLiveSessionId)
+      ? diagnoseFirstRingingCalleeNull(
+          input.sessions,
+          uid,
+          input.viewerLiveSessionId,
+          pathname
+        )
       : null;
 
   const busyPolicyTargetSession =
@@ -123,7 +134,11 @@ export function buildIncomingPresenterDecisionPayload(
   const busyPolicyShouldAutoReject = busyPolicyTargetSession
     ? evaluateIncomingCallBusyPolicy({
         incoming: busyPolicyTargetSession,
-        otherLiveSessionId: input.viewerLiveSessionId,
+        otherLiveSessionId: resolveOverlayBusyLiveSessionId({
+          viewerLiveSessionId: input.viewerLiveSessionId,
+          pathname,
+          incomingSessionId: busyPolicyTargetSession.id,
+        }),
       }).shouldAutoReject
     : null;
 
