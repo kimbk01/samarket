@@ -1230,6 +1230,10 @@ export function GlobalCommunityMessengerIncomingCall() {
             typeof (d as { callerName?: unknown }).callerName === "string"
               ? (d as { callerName: string }).callerName.trim()
               : "";
+          const callerAvatarUrl =
+            typeof (d as { callerAvatarUrl?: unknown }).callerAvatarUrl === "string"
+              ? (d as { callerAvatarUrl: string }).callerAvatarUrl.trim()
+              : undefined;
           const callKindRaw =
             typeof (d as { callKind?: unknown }).callKind === "string" ? (d as { callKind: string }).callKind : "";
           const callKind =
@@ -1239,7 +1243,7 @@ export function GlobalCommunityMessengerIncomingCall() {
           if (uid && sid) {
             const optimistic = buildForegroundIncomingWakeOptimisticSession(
               uid,
-              { sessionId: sid, roomId, callKind, callerId, callerName },
+              { sessionId: sid, roomId, callKind, callerId, callerName, callerAvatarUrl },
               hard
             );
             if (optimistic) {

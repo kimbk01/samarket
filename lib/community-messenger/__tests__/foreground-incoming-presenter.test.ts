@@ -209,7 +209,7 @@ describe("foreground-incoming-presenter", () => {
     expect(decision.reason).toBe("native_foreground_primary");
   });
 
-  it("allows web banner fallback when native foreground pill is absent on Android", () => {
+  it("always suppresses web banner on Android foreground (native pill is sole surface)", () => {
     const incoming = ringingSession("call-1");
     const decision = resolveForegroundIncomingPresentation({
       sessions: [incoming],
@@ -224,8 +224,8 @@ describe("foreground-incoming-presenter", () => {
       nativeForegroundIncomingCallId: null,
     });
 
-    expect(decision.shouldRender).toBe(true);
-    expect(decision.reason).toBe("ok");
+    expect(decision.shouldRender).toBe(false);
+    expect(decision.reason).toBe("native_foreground_primary");
   });
 
   it("ForegroundIncomingCallHost uses body portal and banner z layer", () => {

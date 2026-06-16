@@ -151,20 +151,48 @@ describe("incoming-call native contract", () => {
     );
   });
 
-  it("Global defers Android foreground banner to native pill with fallback", () => {
+  it("Global defers Android foreground banner to native pill only", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("preferNativeAndroidForegroundIncoming");
     expect(global).toContain("nativeForegroundIncomingCallId");
     expect(global).toContain("onForegroundIncomingUi");
   });
 
-  it("notification uses DIBAY incoming action icons and copy helper", () => {
+  it("notification posts immediately then enriches avatar async", () => {
+    const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+    expect(notification).toContain("incoming_posted_immediate");
+    expect(notification).toContain("incoming_avatar_enriched");
+    expect(notification.indexOf("incoming_posted_immediate")).toBeLessThan(
+      notification.indexOf("incoming_avatar_enriched")
+    );
+  });
+
+  it("notification uses DIBAY CallStyle, brand color, and system action icons in layouts", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("IncomingCallUiCopy");
-    expect(notification).toContain("ic_dibay_incoming_reject");
-    expect(notification).toContain("ic_dibay_incoming_accept");
+    expect(notification).toContain("NotificationCompat.CallStyle.forIncomingCall");
+    expect(notification).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("dibay_incoming_primary");
     expect(read("android/app/src/main/res/values/colors.xml")).toContain("#006241");
+    const pill = read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml");
+    expect(pill).toContain("@android:drawable/sym_action_call");
+    expect(pill).toContain("@android:drawable/ic_menu_close_clear_cancel");
+    expect(pill).not.toContain("android:text=\"@string/dibay_incoming_accept\"");
+    expect(pill).not.toContain("ic_dibay_incoming_accept");
+  });
+
+  it("caller display strips legacy @id suffix in IncomingCallUiCopy", () => {
+    const copy = read("android/app/src/main/java/com/dibay/app/IncomingCallUiCopy.java");
+    expect(copy).toContain("sanitizeNickname");
+    expect(copy).toContain("indexOf(\" (@\")");
+  });
+
+  it("avatar URLs are absolutized before native HTTP load", () => {
+    const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallAvatarUrl.java");
+    expect(helper).toContain("resolveAbsolute");
+    expect(read("android/app/src/main/java/com/dibay/app/IncomingCallAvatarHelper.java")).toContain(
+      "IncomingCallAvatarUrl.resolveAbsolute"
+    );
   });
 
   it("lock fullscreen applies bottom safe area for navigation bar", () => {

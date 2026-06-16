@@ -8,13 +8,18 @@ import android.Manifest;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
-import androidx.core.content.ContextCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.Person;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.IconCompat;
 
 /**
  * Messenger-style incoming call notification — system call category with accept/decline actions.
@@ -29,6 +34,7 @@ public final class IncomingCallNotificationBuilder {
   public static final String CHANNEL_ID_ALIAS = "dibay_incoming_calls";
   public static final int INCOMING_CALL_NOTIFICATION_BASE_ID = 91001;
   private static final String TAG = "DIBAY_INCOMING_CALL";
+  private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
   private IncomingCallNotificationBuilder() {}
 
@@ -149,6 +155,87 @@ public final class IncomingCallNotificationBuilder {
             + " callId="
             + sid);
 
+    final Context app = context.getApplicationContext();
+    final int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
+
+    Notification immediate =
+        buildIncomingNotification(
+            app,
+            sid,
+            title,
+            body,
+            callType,
+            expiresAt,
+            roomId,
+            callerId,
+            callerNameFromPayload,
+            callerAvatarUrl,
+            null,
+            null,
+            lockScreenBridge,
+            fsiAllowed,
+            firstIncoming);
+    NotificationManager nm = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
+    if (nm != null) {
+      nm.notify(notificationId, immediate);
+      DibayCallLog.once("notification_created", sid, "source=notification");
+      Log.i(TAG, "[call-notification] incoming_posted_immediate callId=" + sid + " first=" + firstIncoming);
+    }
+
+    String avatarUrl = callerAvatarUrl != null ? callerAvatarUrl.trim() : "";
+    if (avatarUrl.isEmpty()) return;
+
+    new Thread(
+            () -> {
+              IconCompat callerIcon = IncomingCallAvatarHelper.loadIconCompat(callerAvatarUrl);
+              Bitmap callerBitmap = IncomingCallAvatarHelper.loadBitmapBlocking(callerAvatarUrl);
+              if (callerIcon == null && callerBitmap == null) return;
+              Notification enriched =
+                  buildIncomingNotification(
+                      app,
+                      sid,
+                      title,
+                      body,
+                      callType,
+                      expiresAt,
+                      roomId,
+                      callerId,
+                      callerNameFromPayload,
+                      callerAvatarUrl,
+                      callerIcon,
+                      callerBitmap,
+                      lockScreenBridge,
+                      fsiAllowed,
+                      firstIncoming);
+              MAIN.post(
+                  () -> {
+                    NotificationManager enrichNm =
+                        (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
+                    if (enrichNm != null) {
+                      enrichNm.notify(notificationId, enriched);
+                      Log.i(TAG, "[call-notification] incoming_avatar_enriched callId=" + sid);
+                    }
+                  });
+            })
+        .start();
+  }
+
+  private static Notification buildIncomingNotification(
+      Context context,
+      String sid,
+      String title,
+      String body,
+      String callType,
+      String expiresAt,
+      String roomId,
+      String callerId,
+      String callerNameFromPayload,
+      String callerAvatarUrl,
+      IconCompat callerIcon,
+      Bitmap callerBitmap,
+      boolean lockScreenBridge,
+      boolean fsiAllowed,
+      boolean firstIncoming) {
     String callerName = IncomingCallUiCopy.callerDisplayName(callerNameFromPayload, title, body);
     String callKindLabel = IncomingCallUiCopy.statusBrandLabel(context, callType, title, body);
     String rejectLabel = IncomingCallUiCopy.rejectLabel(context);
@@ -202,7 +289,6 @@ public final class IncomingCallNotificationBuilder {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(callerName)
             .setContentText(callKindLabel)
-            .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -210,22 +296,43 @@ public final class IncomingCallNotificationBuilder {
             .setAutoCancel(false)
             .setContentIntent(contentPi)
             .setDefaults(Notification.DEFAULT_ALL)
-            .addAction(R.drawable.ic_dibay_incoming_reject, rejectLabel, declinePi)
-            .addAction(R.drawable.ic_dibay_incoming_accept, acceptLabel, acceptPi);
-    if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
-      builder.setFullScreenIntent(fullScreenPi, true);
-      Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
-    } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
-      Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
+            .setColor(ContextCompat.getColor(context, R.color.dibay_incoming_primary))
+            .setColorized(true);
+
+    if (callerBitmap != null) {
+      builder.setLargeIcon(callerBitmap);
     }
 
-    int notificationId = INCOMING_CALL_NOTIFICATION_BASE_ID + Math.abs(sid.hashCode() % 1000);
-    NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-    if (nm != null) {
-      nm.notify(notificationId, builder.build());
-      DibayCallLog.once("notification_created", sid, "source=notification");
-      Log.i(TAG, "[call-notification] incoming_posted callId=" + sid + " first=" + firstIncoming);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      Person.Builder personBuilder = new Person.Builder().setName(callerName).setImportant(true);
+      if (callerIcon != null) {
+        personBuilder.setIcon(callerIcon);
+      }
+      Person caller = personBuilder.build();
+      builder.setStyle(NotificationCompat.CallStyle.forIncomingCall(caller, declinePi, acceptPi));
+      builder.setFullScreenIntent(null, false);
+      if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
+        builder.setFullScreenIntent(fullScreenPi, true);
+        Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
+      } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
+        Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
+      }
+    } else {
+      builder
+          .setStyle(new NotificationCompat.BigTextStyle().bigText(callKindLabel))
+          .addAction(
+              new NotificationCompat.Action.Builder(0, rejectLabel, declinePi).build())
+          .addAction(
+              new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
+      if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
+        builder.setFullScreenIntent(fullScreenPi, true);
+        Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
+      } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
+        Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
+      }
     }
+
+    return builder.build();
   }
 
   public static void dismissIncomingCall(Context context, String sessionId) {

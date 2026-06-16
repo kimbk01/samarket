@@ -43,7 +43,8 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
 
   const link_url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
   const isVideo = input.callKind === "video";
-  const callerAvatar = input.callerAvatar?.trim() || null;
+  const callerAvatarRaw = input.callerAvatar?.trim() || null;
+  const callerAvatar = absolutizeLink(callerAvatarRaw);
   const expiresAt = computeExpiresAtIso(startedAt || new Date().toISOString());
 
   const out: NotificationSideEffectPayloadOut = {

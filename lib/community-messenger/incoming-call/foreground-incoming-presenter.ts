@@ -198,21 +198,14 @@ export function resolveForegroundIncomingPresentation(
   }
 
   if (input.preferNativeAndroidForegroundIncoming && isAppForeground) {
-    const nativeActive = input.nativeForegroundIncomingCallId?.trim() ?? "";
-    if (nativeActive) {
-      return {
-        sessionId: session.id,
-        session,
-        surface: "none",
-        reason:
-          nativeActive === session.id
-            ? "native_foreground_primary"
-            : `native_foreground_other_call:${nativeActive}`,
-        shouldRender: false,
-        selectedRingingSessionId,
-      };
-    }
-    // nativeActive 없음 → Native UI 실패 시 Web banner fallback 허용
+    return {
+      sessionId: session.id,
+      session,
+      surface: "none",
+      reason: "native_foreground_primary",
+      shouldRender: false,
+      selectedRingingSessionId,
+    };
   }
 
   return {

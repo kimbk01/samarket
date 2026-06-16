@@ -12,6 +12,7 @@ export type ForegroundIncomingWakeDetail = {
   callKind?: "voice" | "video";
   callerId?: string;
   callerName?: string;
+  callerAvatarUrl?: string;
 };
 
 /**
@@ -34,6 +35,7 @@ export function buildForegroundIncomingWakeOptimisticSession(
     callKind: detail.callKind,
     callerId: detail.callerId,
     callerName: detail.callerName,
+    callerAvatarUrl: detail.callerAvatarUrl,
   });
 }
 

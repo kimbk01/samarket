@@ -9,6 +9,7 @@ import type {
   CommunityMessengerCallSessionMode,
   CommunityMessengerCallSessionStatus,
 } from "@/lib/community-messenger/types";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -148,6 +149,7 @@ export function communityMessengerIncomingSessionFromFcmWake(
     callKind?: "voice" | "video";
     callerId?: string;
     callerName?: string;
+    callerAvatarUrl?: string;
   }
 ): CommunityMessengerCallSession | null {
   const selfId = trimText(viewerUserId);
@@ -159,7 +161,9 @@ export function communityMessengerIncomingSessionFromFcmWake(
   if (callKind !== "voice" && callKind !== "video") return null;
 
   const startedAt = new Date().toISOString();
-  const peerLabel = trimText(detail.callerName) || peerFallbackLabel(initiatorUserId);
+  const peerLabel =
+    incomingCallPeerNicknameLabel(trimText(detail.callerName)) || peerFallbackLabel(initiatorUserId);
+  const peerAvatarUrl = trimText(detail.callerAvatarUrl) || null;
   const recipientUserId = selfId;
 
   return {
@@ -170,6 +174,7 @@ export function communityMessengerIncomingSessionFromFcmWake(
     recipientUserId,
     peerUserId: initiatorUserId,
     peerLabel,
+    peerAvatarUrl,
     callKind,
     status: "ringing",
     startedAt,

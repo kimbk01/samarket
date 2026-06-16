@@ -3,6 +3,18 @@ export function formatAtUsername(username: string | null | undefined): string {
   return u ? `@${u}` : "";
 }
 
+export function incomingCallPeerNicknameLabel(raw: string | null | undefined): string {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return "";
+  const paren = s.match(/^(.+?)\s*\(@[^)]+\)\s*$/);
+  if (paren?.[1]?.trim()) return paren[1].trim();
+  if (s.startsWith("@")) {
+    const rest = s.replace(/^@+/, "").trim();
+    return rest || s;
+  }
+  return s;
+}
+
 export function labelFromDisplayAndUsername(
   displayName: string | null | undefined,
   username: string | null | undefined

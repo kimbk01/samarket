@@ -21,6 +21,7 @@ export type DibayFcmIncomingWakeDetail = {
   roomId?: string;
   callerId?: string;
   callerName?: string;
+  callerAvatarUrl?: string;
 };
 
 type DibayFcmCallBridgeHandlers = {
@@ -71,6 +72,7 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
           roomId?: string;
           callerId?: string;
           callerName?: string;
+          callerAvatarUrl?: string;
           status?: string;
           visible?: boolean;
         }
@@ -97,6 +99,7 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
         roomId: detail.roomId?.trim() || undefined,
         callerId: detail.callerId?.trim() || undefined,
         callerName: detail.callerName?.trim() || undefined,
+        callerAvatarUrl: detail.callerAvatarUrl?.trim() || undefined,
       });
       return;
     }

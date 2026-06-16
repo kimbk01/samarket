@@ -13,6 +13,46 @@ describe("dibay-fcm-call-bridge terminal routing", () => {
     vi.unstubAllGlobals();
   });
 
+  it("passes caller avatar through FCM wake bridge", () => {
+    const onIncomingWake = vi.fn();
+    const listeners = new Map<string, (ev: Event) => void>();
+    vi.stubGlobal("window", {
+      addEventListener: (type: string, fn: (ev: Event) => void) => {
+        listeners.set(type, fn);
+      },
+      removeEventListener: vi.fn(),
+    } as unknown as Window & typeof globalThis);
+
+    installDibayFcmCallBridge({
+      onIncomingWake,
+      onFcmTerminal: vi.fn(),
+    });
+
+    const onCallEvent = listeners.get("dibay:call-event");
+    onCallEvent?.(
+      new CustomEvent("dibay:call-event", {
+        detail: {
+          type: "incoming_call",
+          sessionId: "call-avatar-1",
+          callKind: "voice",
+          roomId: "room-1",
+          callerId: "caller-1",
+          callerName: "Caller",
+          callerAvatarUrl: "https://example.com/a.jpg",
+        },
+      })
+    );
+
+    expect(onIncomingWake).toHaveBeenCalledWith({
+      sessionId: "call-avatar-1",
+      callKind: "voice",
+      roomId: "room-1",
+      callerId: "caller-1",
+      callerName: "Caller",
+      callerAvatarUrl: "https://example.com/a.jpg",
+    });
+  });
+
   it("routes call_terminal and call_canceled through onFcmTerminal", () => {
     const onFcmTerminal = vi.fn();
     const listeners = new Map<string, (ev: Event) => void>();

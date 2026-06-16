@@ -16654,7 +16654,10 @@ async function sendIncomingCallPushBestEffort(input: {
   if (!recipient || !sessionId || !roomId || !callerId) return;
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
-  const callerLabel = profileLabel(callerProfile, callerId);
+  const callerLabel =
+    trimText(callerProfile?.display_name) ||
+    trimText(callerProfile?.nickname) ||
+    profileLabel(callerProfile, callerId);
   await sendWebPushForCommunityMessengerIncomingCall({
     recipientUserId: recipient,
     sessionId,

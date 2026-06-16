@@ -8,9 +8,25 @@ public final class IncomingCallUiCopy {
 
   public static String callerDisplayName(String callerName, String title, String body) {
     if (callerName != null && !callerName.trim().isEmpty()) {
-      return callerName.trim();
+      return sanitizeNickname(callerName.trim());
     }
-    return resolveCallerDisplayName(title, body);
+    return sanitizeNickname(resolveCallerDisplayName(title, body));
+  }
+
+  /** Strip legacy `nickname (@id)` and leading `@handle` for incoming UI. */
+  public static String sanitizeNickname(String value) {
+    if (value == null) return "";
+    String trimmed = value.trim();
+    if (trimmed.isEmpty()) return trimmed;
+    int paren = trimmed.indexOf(" (@");
+    if (paren > 0 && trimmed.endsWith(")")) {
+      return trimmed.substring(0, paren).trim();
+    }
+    if (trimmed.startsWith("@")) {
+      String rest = trimmed.replaceFirst("^@+", "").trim();
+      return rest.isEmpty() ? trimmed : rest;
+    }
+    return trimmed;
   }
 
   public static String statusBrandLabel(Context context, String callType, String title, String body) {
@@ -41,8 +57,9 @@ public final class IncomingCallUiCopy {
   }
 
   public static String peerInitial(String label) {
-    if (label == null || label.trim().isEmpty()) return "?";
-    return label.trim().substring(0, 1);
+    String sanitized = sanitizeNickname(label);
+    if (sanitized.isEmpty()) return "?";
+    return sanitized.substring(0, 1);
   }
 
   private static String brandLabelForCallType(String callType, String title, String body) {

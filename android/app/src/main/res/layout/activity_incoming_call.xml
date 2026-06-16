@@ -90,7 +90,8 @@
                 android:contentDescription="@string/dibay_incoming_reject"
                 android:padding="16dp"
                 android:scaleType="centerInside"
-                android:src="@drawable/ic_dibay_incoming_reject" />
+                android:src="@android:drawable/ic_menu_close_clear_cancel"
+                android:tint="@android:color/white" />
 
             <ImageButton
                 android:id="@+id/incoming_call_accept"
@@ -101,7 +102,8 @@
                 android:contentDescription="@string/dibay_incoming_accept"
                 android:padding="16dp"
                 android:scaleType="centerInside"
-                android:src="@drawable/ic_dibay_incoming_accept" />
+                android:src="@android:drawable/sym_action_call"
+                android:tint="@android:color/white" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>
