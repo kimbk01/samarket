@@ -163,7 +163,6 @@ import {
   filterIncomingSessionsRespectingDismissed,
   filterIncomingSessionsRespectingHardClear,
   isDibayCallConsumed,
-  markCallConsumed,
   pruneHardClearedIncomingSessionIds,
   INCOMING_REMOTE_HARD_CLEAR_KEEP_MS,
   type CallConsumedReason,
@@ -1912,13 +1911,12 @@ export function GlobalCommunityMessengerIncomingCall() {
     if (busyId === `reject:${sessionId}` || busyId === `accept:${sessionId}`) return;
 
     logCallFlow("call_cleanup_start", { sessionId, reason: "reject" });
-    markCallConsumed(sessionId, "declined");
+    const hard = hardClearedIncomingSessionsAtRef.current;
+    sealIncomingCallTerminal(sessionId, "declined", hard, "reject_pressed");
     suppressMissedSoundRef.current.add(sessionId);
-    dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     activeIncomingCallIdsRef.current.delete(sessionId);
     const session = sessions.find((item) => item.id === sessionId) ?? null;
-    dismissedIncomingSessionsAtRef.current.set(sessionId, Date.now());
     setSessions((prev) => prev.filter((item) => item.id !== sessionId));
     setBusyId(`reject:${sessionId}`);
     postCommunityMessengerCallSessionTerminalBusEvent({

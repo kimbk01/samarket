@@ -84,6 +84,17 @@ describe("incoming-call SSOT contract", () => {
     expect(branches![2]).toContain("dismissedIncomingSessionsAtRef");
   });
 
+  it("Global Phase7 routes rejectCall through declined terminal seal not dismiss", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    const rejectBlock = global.match(/const rejectCall = useCallback\(async \(sessionId: string\) => \{([\s\S]*?)\n  \}, \[busyId, refresh, sessions\]\);/);
+    expect(rejectBlock).toBeTruthy();
+    const body = rejectBlock![1];
+    expect(body).toContain('sealIncomingCallTerminal(sessionId, "declined", hard, "reject_pressed")');
+    expect(body).not.toContain("markCallConsumed(");
+    expect(body).not.toContain("dismissedIncomingSessionsAtRef");
+    expect(body).toContain("runIncomingCallReject");
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');
