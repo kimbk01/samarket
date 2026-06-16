@@ -12,7 +12,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.FrameLayout;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import com.capacitorjs.plugins.browser.BrowserPlugin;
@@ -42,6 +46,8 @@ public class MainActivity extends BridgeActivity {
   private String pendingNotificationId = null;
   private volatile boolean routeInjectedForCurrentPending = false;
   private volatile boolean dibayWebChromeClientAttached = false;
+  private volatile boolean callRouteLoadingVisible = false;
+  private View callRouteLoadingOverlay = null;
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
   public static boolean isAppVisibleForIncomingCall() {
@@ -57,9 +63,33 @@ public class MainActivity extends BridgeActivity {
 
   /** FCM foreground — 발신 취소를 WebView legacy call bridge 에 전달 */
   static void deliverCallCanceledEvent(String callId) {
+    deliverCallTerminalEvent(callId, "cancelled");
+  }
+
+  /** Terminal/cancel — WebView legacy call bridge (foreground only when alive). */
+  static void deliverCallTerminalEvent(String callId, String status) {
     MainActivity act = activeInstance;
     if (act == null || callId == null || callId.trim().isEmpty()) return;
-    act.mainHandler.post(() -> act.injectCallCanceledEvent(callId.trim()));
+    String st = status != null ? status.trim().toLowerCase() : "cancelled";
+    act.mainHandler.post(() -> act.injectCallTerminalEvent(callId.trim(), st));
+  }
+
+  public static void clearNativeCalleeAcceptPending(android.content.Context context) {
+    MainActivity act = activeInstance;
+    if (act == null) return;
+    act.mainHandler.post(() -> act.clearNativeCalleeAcceptPendingJs());
+  }
+
+  private void clearNativeCalleeAcceptPendingJs() {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    webView.post(
+        () ->
+            webView.evaluateJavascript(
+                "try{sessionStorage.removeItem('cm_native_callee_accept_pending');sessionStorage.removeItem('dibay_call_pending_route');}catch(e){}",
+                null));
   }
 
   private void injectCallIncomingEvent(IncomingCallPayload payload) {
@@ -68,7 +98,7 @@ public class MainActivity extends BridgeActivity {
     WebView webView = bridge.getWebView();
     if (webView == null) return;
     if (DibayCallConsumedStore.isConsumed(this, payload.callId)) {
-      Log.i(ROUTE_LOG_TAG, "[call-native] incoming_ignored_consumed callId=" + payload.callId);
+      Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_ignored_consumed callId=" + payload.callId);
       return;
     }
     if (!IncomingCallActionCoordinator.registerIncoming(this, payload.callId)) {
@@ -97,7 +127,29 @@ public class MainActivity extends BridgeActivity {
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
     DibayForegroundRingtone.start(this, payload.callId);
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_received callId=" + payload.callId + " source=foreground_event");
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
+  }
+
+  private void injectCallTerminalEvent(String callId, String status) {
+    Bridge bridge = getBridge();
+    if (bridge == null) return;
+    WebView webView = bridge.getWebView();
+    if (webView == null) return;
+    final String safeCallId = safeJs(callId);
+    final String safeStatus = safeJs(status);
+    final String js =
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_terminal',sessionId:'"
+            + safeCallId
+            + "',status:'"
+            + safeStatus
+            + "'}}));window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
+            + safeCallId
+            + "'}}));}catch(e){}})();";
+    webView.post(() -> webView.evaluateJavascript(js, null));
+    DibayForegroundRingtone.stop(callId);
+    hideCallRouteLoadingOverlay();
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] terminal_received callId=" + callId + " status=" + status + " source=webview_inject");
   }
 
   private void injectCallCanceledEvent(String callId) {
@@ -588,8 +640,44 @@ public class MainActivity extends BridgeActivity {
     pendingAppPath = appPath;
     pendingNotificationId = notificationId;
     persistPendingRoute(appPath, notificationId);
+    if (isCalleeAcceptCallRoute(appPath) || isCallPreviewRoute(appPath)) {
+      showCallRouteLoadingOverlay();
+    }
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_saved path=" + appPath);
     flushPendingAppPathIfAny();
+  }
+
+  private static boolean isCallPreviewRoute(String appPath) {
+    return appPath != null && appPath.contains("incomingPreview=1");
+  }
+
+  private void ensureCallRouteLoadingOverlay() {
+    if (callRouteLoadingOverlay != null) return;
+    ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+    callRouteLoadingOverlay =
+        LayoutInflater.from(this).inflate(R.layout.dibay_call_route_loading_overlay, decor, false);
+    decor.addView(callRouteLoadingOverlay);
+  }
+
+  private void showCallRouteLoadingOverlay() {
+    mainHandler.post(
+        () -> {
+          ensureCallRouteLoadingOverlay();
+          if (callRouteLoadingOverlay != null) {
+            callRouteLoadingOverlay.setVisibility(View.VISIBLE);
+            callRouteLoadingVisible = true;
+          }
+        });
+  }
+
+  private void hideCallRouteLoadingOverlay() {
+    mainHandler.post(
+        () -> {
+          if (callRouteLoadingOverlay != null) {
+            callRouteLoadingOverlay.setVisibility(View.GONE);
+          }
+          callRouteLoadingVisible = false;
+        });
   }
 
   private void flushPendingAppPathIfAny() {
@@ -699,6 +787,7 @@ public class MainActivity extends BridgeActivity {
     routeInjectedForCurrentPending = true;
     pendingAppPath = null;
     pendingNotificationId = null;
+    hideCallRouteLoadingOverlay();
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_consumed path=" + appPath);
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
     return true;
@@ -724,6 +813,7 @@ public class MainActivity extends BridgeActivity {
       pendingAppPath = null;
       pendingNotificationId = null;
       clearPersistedPendingPushRoute(this);
+      hideCallRouteLoadingOverlay();
       Log.i(ROUTE_LOG_TAG, "[push-route] webview_call_route_loaded path=" + appPath);
       return true;
     }

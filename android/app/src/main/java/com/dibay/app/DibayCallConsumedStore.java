@@ -24,6 +24,7 @@ public final class DibayCallConsumedStore {
         .putLong(KEY_PREFIX + sid, System.currentTimeMillis())
         .putString(KEY_PREFIX + sid + ":reason", reason != null ? reason : "consumed")
         .apply();
+    Log.i(TAG, "[DIBAY_CALL] terminal_tombstone_mark callId=" + sid + " reason=" + reason);
     Log.i(TAG, "[DIBAY_CALL] incoming_consumed callId=" + sid + " source=native_store reason=" + reason);
   }
 

@@ -61,7 +61,13 @@ export type DibayCallLogStep =
   | "incoming_ignored_consumed"
   | "accept_skip_duplicate"
   | "accept_pending_web"
-  | "active_route_replace";
+  | "active_route_replace"
+  | "accept_route_direct"
+  | "stale_ringing_blocked"
+  | "reject_patch_start"
+  | "reject_patch_done"
+  | "reject_patch_failed"
+  | "terminal_event_received";
 
 type ActionFlight = {
   action: DibayCallOrchestratorAction;

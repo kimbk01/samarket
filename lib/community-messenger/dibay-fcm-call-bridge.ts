@@ -14,11 +14,14 @@ export type DibayFcmIncomingWakeDetail = {
   sessionId?: string;
   callKind?: "voice" | "video";
   roomId?: string;
+  callerId?: string;
+  callerName?: string;
 };
 
 type DibayFcmCallBridgeHandlers = {
   onIncomingWake: (detail: DibayFcmIncomingWakeDetail) => void;
   onCanceled: (sessionId: string) => void;
+  onTerminal?: (detail: { sessionId: string; status?: string }) => void;
 };
 
 export function writeDibayCallPendingRoute(path: string): void {
@@ -39,17 +42,38 @@ export function installDibayFcmCallBridge(handlers: DibayFcmCallBridgeHandlers):
 
   const onCallEvent = (ev: Event) => {
     const detail = (ev as CustomEvent).detail as
-      | { type?: string; sessionId?: string; callKind?: string; roomId?: string }
+      | {
+          type?: string;
+          sessionId?: string;
+          callKind?: string;
+          roomId?: string;
+          callerId?: string;
+          callerName?: string;
+          status?: string;
+        }
       | undefined;
     if (!detail) return;
     if (detail.type === "incoming_call") {
       const callKind =
-        detail.callKind === "video" ? "video" : detail.callKind === "voice" ? "voice" : undefined;
+        detail.callKind === "video"
+          ? "video"
+          : detail.callKind === "voice" || detail.callKind === "audio"
+            ? "voice"
+            : undefined;
       handlers.onIncomingWake({
         sessionId: detail.sessionId?.trim() || undefined,
         callKind,
         roomId: detail.roomId?.trim() || undefined,
+        callerId: detail.callerId?.trim() || undefined,
+        callerName: detail.callerName?.trim() || undefined,
       });
+      return;
+    }
+    if (detail.type === "call_terminal") {
+      const sessionId = detail.sessionId?.trim();
+      if (sessionId) {
+        handlers.onTerminal?.({ sessionId, status: detail.status?.trim() || "cancelled" });
+      }
       return;
     }
     if (detail.type === "call_canceled") {

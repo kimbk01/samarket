@@ -183,7 +183,7 @@ public final class IncomingCallNotificationBuilder {
       accept.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
     PendingIntent acceptPi = PendingIntent.getActivity(context, sid.hashCode() + 2, accept, flags);
-    Intent content = IncomingCallIntentHelper.buildMainActivityLauncherIntent(context);
+    Intent content = IncomingCallIntentHelper.buildMainActivityCallPreviewIntent(context, sid);
     PendingIntent contentPi = PendingIntent.getActivity(context, sid.hashCode() + 1, content, flags);
 
     Intent fullScreen = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);

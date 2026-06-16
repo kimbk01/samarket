@@ -78,6 +78,7 @@ import { getPublicDeployTier } from "@/lib/config/deploy-surface";
 import {
   applyIncomingCallSessionsRealtimeEvent,
   communityMessengerIncomingSessionFromInviteBroadcast,
+  communityMessengerIncomingSessionFromFcmWake,
 } from "@/lib/community-messenger/incoming-call-realtime-preview";
 import {
   resolveIncomingCallSurface,
@@ -340,6 +341,26 @@ export function GlobalCommunityMessengerIncomingCall() {
       setSessions((prev) => prev.filter((s) => s.id !== sid));
       setMinimizedSessionId((m) => (m === sid ? null : m));
       setBusyId((b) => (b === `accept:${sid}` || b === `reject:${sid}` ? null : b));
+    });
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    return onCommunityMessengerBusEvent((ev) => {
+      if (ev.type !== "cm.call.session_terminal") return;
+      const sid = ev.sessionId?.trim();
+      if (!sid) return;
+      handleCallTerminalEventRef.current(
+        {
+          sessionId: sid,
+          tmpSessionId: ev.tmpSessionId,
+          roomId: ev.roomId,
+          initiatorUserId: ev.initiatorUserId,
+          callKind: ev.callKind,
+          status: ev.status,
+        },
+        "bus_session_terminal"
+      );
     });
   }, [userId]);
 
@@ -706,16 +727,18 @@ export function GlobalCommunityMessengerIncomingCall() {
 
       queueMicrotask(() => {
         setMinimizedSessionId((m) => (m && removed.some((r) => r.id === m) ? null : m));
-        postCommunityMessengerBusEvent({
-          type: "cm.call.session_terminal",
-          sessionId: sessionId || undefined,
-          tmpSessionId: tmpSessionId || undefined,
-          roomId: roomId || undefined,
-          initiatorUserId: initiatorUserId || undefined,
-          callKind: callKind ?? undefined,
-          status: statusNorm,
-          at: Date.now(),
-        });
+        if (sourceTag !== "bus_session_terminal") {
+          postCommunityMessengerBusEvent({
+            type: "cm.call.session_terminal",
+            sessionId: sessionId || undefined,
+            tmpSessionId: tmpSessionId || undefined,
+            roomId: roomId || undefined,
+            initiatorUserId: initiatorUserId || undefined,
+            callKind: callKind ?? undefined,
+            status: statusNorm,
+            at: Date.now(),
+          });
+        }
         if (isDebugMessengerEnabled()) {
           console.info("[cm-call-terminal-received]", {
             sessionId,
@@ -1110,6 +1133,35 @@ export function GlobalCommunityMessengerIncomingCall() {
           logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: "sw_wake" });
           return;
         }
+        if (sid) {
+          logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "sw_wake" });
+        }
+        const uid = viewerUserIdRef.current?.trim();
+        const roomId = typeof (d as { roomId?: unknown }).roomId === "string" ? (d as { roomId: string }).roomId.trim() : "";
+        const callerId =
+          typeof (d as { callerId?: unknown }).callerId === "string" ? (d as { callerId: string }).callerId.trim() : "";
+        const callerName =
+          typeof (d as { callerName?: unknown }).callerName === "string"
+            ? (d as { callerName: string }).callerName.trim()
+            : "";
+        const callKindRaw = typeof (d as { callKind?: unknown }).callKind === "string" ? (d as { callKind: string }).callKind : "";
+        const callKind = callKindRaw === "video" ? "video" : callKindRaw === "voice" || callKindRaw === "audio" ? "voice" : undefined;
+        if (uid && sid && roomId && callerId && callKind) {
+          const optimistic = communityMessengerIncomingSessionFromFcmWake(uid, {
+            sessionId: sid,
+            roomId,
+            callKind,
+            callerId,
+            callerName,
+          });
+          if (optimistic) {
+            setSessions((prev) => {
+              const filtered = prev.filter((s) => s.id !== optimistic.id);
+              return [optimistic, ...filtered];
+            });
+          }
+        }
+        if (sid) activeIncomingCallIdsRef.current.add(sid);
         bumpIncomingListFastSync();
         return;
       }
@@ -1151,13 +1203,48 @@ export function GlobalCommunityMessengerIncomingCall() {
         if (sid) {
           logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
         }
+        const uid = viewerUserIdRef.current?.trim();
+        if (uid && sid && detail.roomId && detail.callerId && detail.callKind) {
+          const optimistic = communityMessengerIncomingSessionFromFcmWake(uid, {
+            sessionId: sid,
+            roomId: detail.roomId,
+            callKind: detail.callKind,
+            callerId: detail.callerId,
+            callerName: detail.callerName,
+          });
+          if (optimistic) {
+            setSessions((prev) => {
+              const filtered = prev.filter((s) => s.id !== optimistic.id);
+              return [optimistic, ...filtered];
+            });
+          }
+        }
         /**
          * Foreground FCM 은 Android `DibayForegroundRingtone` 이 OS 벨을 담당한다.
-         * 여기서 WebAudio 벨까지 시작하면 같은 callId 가 두 번 오는 느낌이 난다.
-         * Web 은 UI/목록 동기화만 맡고, stop/consumed 는 기존 공통 경로로 양쪽 모두 정리한다.
+         * WebAudio 벨은 시작하지 않는다.
          */
         if (sid) activeIncomingCallIdsRef.current.add(sid);
         bumpIncomingListFastSync();
+      },
+      onTerminal: ({ sessionId, status }) => {
+        const sid = sessionId.trim();
+        const rowMatch = sessionsRef.current.find(
+          (s) => s.id === sid || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sid)
+        );
+        handleCallTerminalEvent(
+          rowMatch
+            ? {
+                sessionId: rowMatch.id,
+                tmpSessionId: rowMatch.tmpSessionId ?? undefined,
+                roomId: rowMatch.roomId,
+                initiatorUserId: rowMatch.initiatorUserId,
+                callKind: rowMatch.callKind,
+                status: status ?? "cancelled",
+              }
+            : { sessionId: sid, status: status ?? "cancelled" },
+          "fcm_terminal_wake"
+        );
+        void refreshRef.current(true, { incomingTerminalListSync: true });
       },
       onCanceled: (sessionId) => {
         const rowMatch = sessionsRef.current.find(

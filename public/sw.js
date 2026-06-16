@@ -98,7 +98,19 @@ self.addEventListener("push", function (event) {
       ? clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
           for (let i = 0; i < clientList.length; i++) {
             try {
-              clientList[i].postMessage({ type: "samarket_messenger_incoming_call_wake", sessionId: sessionId });
+              clientList[i].postMessage({
+                type: "samarket_messenger_incoming_call_wake",
+                sessionId: sessionId,
+                roomId: typeof payload.roomId === "string" ? payload.roomId : null,
+                callerId: typeof payload.callerId === "string" ? payload.callerId : null,
+                callerName: typeof payload.callerName === "string" ? payload.callerName : null,
+                callKind:
+                  payload.callType === "video" || payload.kind === "video"
+                    ? "video"
+                    : payload.callType === "audio" || payload.kind === "voice" || payload.kind === "audio"
+                      ? "voice"
+                      : null,
+              });
             } catch {
               /* ignore */
             }

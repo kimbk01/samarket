@@ -7,7 +7,7 @@ Provide native lock-screen/background incoming call UX for DIBAY calls. Web call
 
 When the app is foreground and WebView is alive, `MainActivity` injects:
 
-- `dibay:call-event` — `{ type: "incoming_call" | "call_canceled", sessionId, callKind?, ... }`
+- `dibay:call-event` — `{ type: "incoming_call" | "call_canceled" | "call_terminal", sessionId, callKind?, callerId?, status?, ... }`
 - `dibay:call-route` — pending path for accept deep link (`dibay_call_pending_route` in sessionStorage)
 
 Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommunityMessengerIncomingCall`.
@@ -17,7 +17,8 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 ## Layers
 - Android FCM layer: `DibayFirebaseMessagingService` treats `type=incoming_call` separately from chat messages.
 - Android native UI: `IncomingCallNotificationBuilder` posts CALL-category notification. **Accept** uses an Activity trampoline to bypass Android background `startActivity` restrictions.
-- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId and routes accepted calls to `/community-messenger/calls/{callId}?action=accept&nativeAccept=1`.
+- Android native action layer: `IncomingCallActionCoordinator` single-flights `accept`, `reject`, and `missed` by callId. **Accept** runs native `PATCH accept` on a background thread, then routes to `/community-messenger/calls/{callId}?action=accept&nativeAccept=1` (`accept_route_direct`). Web skips duplicate PATCH when `nativeAccept=1`.
+- Android terminal layer: `IncomingCallTerminalHandler` is the **single** entry for `call_canceled` / `call_ended` / `call_rejected` / `call_missed` (FCM or local). Always: dismiss notification, `DibayCallConsumedStore.mark`, ring stop, coordinator `complete`, clear pending routes, broadcast-finish `IncomingCallActivity`, inject `call_terminal` to WebView if alive.
 - Web layer: `GlobalCommunityMessengerIncomingCall` + `IncomingCallBanner` for **foreground in-app** receive only.
 - iOS layer: `VoIPPushRegistry` + `CallKitProvider` skeleton. `DibayVoipCallPlugin` exposes registration and explicit CallKit end hooks to JS.
 
@@ -32,7 +33,7 @@ Handled by `lib/community-messenger/dibay-fcm-call-bridge.ts` → `GlobalCommuni
 ## DO NOT (regression guards)
 
 1. **Do not** add `windowShowWhenLocked`, `showWhenLocked`, `turnScreenOn`, etc. to `styles.xml` or `AndroidManifest` — AppCompat linking fails. Use `IncomingCallActivity.applyWakeFlags()` only when Activity is explicitly launched (fallback).
-2. **Do not** set notification `contentIntent` to `IncomingCallActivity` as an accept route — content tap is not accept. Accept must follow the single pipeline: PATCH accept → `/calls/:id?action=accept&nativeAccept=1`.
+2. **Do not** set notification `contentIntent` to launcher or accept route — content tap opens **preview** only (`incomingPreview=1`). Accept must follow: native PATCH accept → `/calls/:id?action=accept&nativeAccept=1`.
 3. **Do not** call `startActivity(IncomingCallActivity)` from FCM when app is **foreground+unlocked** (web banner). Lock/screen-off: notification + FSI; **FSI denied(API 34+)** 시에만 `incoming_activity_direct_launch` fallback.
 4. **Do not** use React `IncomingCallBanner` as lock-screen UI — WebView is unavailable when app is background/killed.
 
@@ -100,10 +101,16 @@ Production work still required:
 ## QA logcat
 
 ```bash
-adb logcat -s DIBAY_FCM DIBAY_INCOMING_CALL DIBAY_PUSH_ROUTE
+adb logcat -s DIBAY_CALL DIBAY_FCM DIBAY_INCOMING_CALL DIBAY_PUSH_ROUTE
 ```
 
-Expected on accept: `[call-state] accept_start` → `accept_success` → `[call-route] incoming_accept_opened`
+Key `[DIBAY_CALL]` tags: `incoming_received`, `incoming_ignored_consumed`, `terminal_received`, `ring_stop`, `activity_finish_by_terminal`, `call_canceled_native_handled`, `accept_route_direct`, `terminal_tombstone_mark`.
+
+Web (`logDibayCall`): `stale_ringing_blocked`, `reject_patch_*`, `incoming_consumed`, `terminal_event_received` (console).
+
+Expected on accept: `accept_route_direct` → Web `active_route_replace` (no home flash).
+
+Expected on caller cancel (lock): `call_canceled_native_handled` → `ring_stop` → `activity_finish_by_terminal`.
 
 Must not appear on lock receive: `incoming_activity_direct_launch` (FCM duplicate launch).
 

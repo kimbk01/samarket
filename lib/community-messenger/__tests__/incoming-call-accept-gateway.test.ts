@@ -133,4 +133,11 @@ describe("incoming-call-accept-gateway", () => {
     expect(patchCommunityMessengerCallSession).toHaveBeenCalledWith("s-reject", "reject");
     expect(isDibayCallConsumed("s-reject")).toBe(true);
   });
+
+  it("runIncomingCallReject applies consumed side effects when PATCH fails", async () => {
+    (patchCommunityMessengerCallSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({ ok: false });
+    const res = await runIncomingCallReject({ sessionId: "s-reject-fail", source: "incoming_banner_reject" });
+    expect(res.ok).toBe(false);
+    expect(isDibayCallConsumed("s-reject-fail")).toBe(true);
+  });
 });

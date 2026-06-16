@@ -22,11 +22,15 @@ public final class FcmPayloadResolver {
     if ("incoming_call".equals(callPushKind)) return "incoming_call";
     if ("missed_call".equals(callPushKind)) return "missed_call";
     if ("call_canceled".equals(callPushKind)) return "call_canceled";
+    if ("call_ended".equals(callPushKind)) return "call_ended";
+    if ("call_rejected".equals(callPushKind)) return "call_rejected";
+    if ("call_missed".equals(callPushKind)) return "call_missed";
     if ("1".equals(data.get("dibay_call"))) return "incoming_call";
 
     String notificationType = firstNonEmpty(data.get("notification_type"));
     if ("community_messenger_incoming_call".equals(notificationType)) return "incoming_call";
     if ("community_messenger_missed_call".equals(notificationType)) return "missed_call";
+    if ("community_messenger_call_canceled".equals(notificationType)) return "call_canceled";
     if ("community_messenger_message".equals(notificationType)) return "chat_message";
 
     return "unknown";

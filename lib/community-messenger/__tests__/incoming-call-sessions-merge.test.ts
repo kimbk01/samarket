@@ -88,6 +88,19 @@ describe("mergeIncomingCallSessionsAfterFetch", () => {
     expect(merged).toHaveLength(0);
   });
 
+  it("does not revive fcm_wake preview for consumed callId", () => {
+    markCallConsumed("s-fcm", "cancelled");
+    const preview = session({
+      id: "s-fcm",
+      status: "ringing",
+      source: "fcm_wake",
+      isPreview: true,
+      recipientUserId: "callee",
+    });
+    const merged = mergeIncomingCallSessionsAfterFetch("callee", [], [preview], new Map(), new Map());
+    expect(merged).toHaveLength(0);
+  });
+
   it("expires stale invite_preview beyond keep window", () => {
     const started = new Date(Date.now() - INCOMING_INVITE_PREVIEW_KEEP_MS - 1_000).toISOString();
     const preview = session({

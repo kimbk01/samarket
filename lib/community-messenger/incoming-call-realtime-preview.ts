@@ -139,6 +139,66 @@ export function communityMessengerIncomingSessionFromInviteBroadcast(
   };
 }
 
+/** FCM foreground wake — GET 전 배너 즉시 표시용 최소 ringing 세션 */
+export function communityMessengerIncomingSessionFromFcmWake(
+  viewerUserId: string,
+  detail: {
+    sessionId?: string;
+    roomId?: string;
+    callKind?: "voice" | "video";
+    callerId?: string;
+    callerName?: string;
+  }
+): CommunityMessengerCallSession | null {
+  const selfId = trimText(viewerUserId);
+  const id = trimText(detail.sessionId);
+  const roomId = trimText(detail.roomId);
+  const initiatorUserId = trimText(detail.callerId);
+  const callKind = detail.callKind;
+  if (!selfId || !id || !roomId || !initiatorUserId) return null;
+  if (callKind !== "voice" && callKind !== "video") return null;
+
+  const startedAt = new Date().toISOString();
+  const peerLabel = trimText(detail.callerName) || peerFallbackLabel(initiatorUserId);
+  const recipientUserId = selfId;
+
+  return {
+    id,
+    roomId,
+    sessionMode: "direct",
+    initiatorUserId,
+    recipientUserId,
+    peerUserId: initiatorUserId,
+    peerLabel,
+    callKind,
+    status: "ringing",
+    startedAt,
+    answeredAt: null,
+    endedAt: null,
+    isMineInitiator: false,
+    participants: [
+      {
+        userId: initiatorUserId,
+        label: peerLabel,
+        status: "invited",
+        joinedAt: null,
+        leftAt: null,
+        isMe: false,
+      },
+      {
+        userId: recipientUserId,
+        label: peerFallbackLabel(recipientUserId),
+        status: "invited",
+        joinedAt: null,
+        leftAt: null,
+        isMe: true,
+      },
+    ],
+    source: "fcm_wake",
+    isPreview: true,
+  };
+}
+
 /**
  * Realtime 이벤트 한 건을 수신 목록 상태에 반영한다.
  */

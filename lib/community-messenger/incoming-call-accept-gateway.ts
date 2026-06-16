@@ -286,13 +286,20 @@ export async function runIncomingCallReject(args: RunIncomingCallRejectArgs): Pr
   }
 
   try {
+    logDibayCall("reject_patch_start", { sessionId: sid, callId: sid, source: args.source });
     dibayIncomingLaneStopRing("reject_gateway_start", sid);
     dismissAllIncomingCallNotificationsFireAndForget(sid);
     const patched = await patchCommunityMessengerCallSession(sid, "reject");
-    if (!patched.ok) return { ok: false, sessionId: sid, reason: "patch_failed" };
+    if (!patched.ok) {
+      logDibayCall("reject_patch_failed", { sessionId: sid, callId: sid, source: args.source });
+      applyIncomingCallConsumedSideEffects(sid, "declined", args.source);
+      return { ok: false, sessionId: sid, reason: "patch_failed" };
+    }
+    logDibayCall("reject_patch_done", { sessionId: sid, callId: sid, source: args.source });
     applyIncomingCallConsumedSideEffects(sid, "declined", args.source);
     return { ok: true, sessionId: sid };
   } catch {
+    applyIncomingCallConsumedSideEffects(sid, "declined", args.source);
     return { ok: false, sessionId: sid, reason: "exception" };
   } finally {
     releaseIncomingCallReject(sid);

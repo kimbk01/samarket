@@ -115,7 +115,10 @@ import {
   clearAllCommunityCallLocalSessionFlags,
   isCommunityMessengerDedicatedCallSessionPath,
 } from "@/lib/community-messenger/direct-call-minimize";
-import { writeTerminalCallRecoverySuppress } from "@/lib/community-messenger/call-active-session-recovery";
+import {
+  shouldSkipActiveCallRecoveryRouting,
+  writeTerminalCallRecoverySuppress,
+} from "@/lib/community-messenger/call-active-session-recovery";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
 import {
@@ -135,6 +138,7 @@ import {
   hydrateCommunityMessengerCallClientSession,
   isCommunityMessengerTempCallSessionId,
   navigateBackFromCommunityMessengerCall,
+  navigateToCommunityMessengerCallLogsAfterTerminal,
   primeCommunityMessengerCallNavigationSeed,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
@@ -675,7 +679,7 @@ export function CommunityMessengerCallClient({
       pinTerminalCallLocalSurfaceDismiss(active.id);
       callDismissInFlightRef.current = true;
       setRingingDismissUiLatch(true);
-      navigateBackFromCommunityMessengerCall(router, roomId ?? active.roomId);
+      navigateToCommunityMessengerCallLogsAfterTerminal(router);
     },
     [router]
   );
@@ -1174,6 +1178,23 @@ export function CommunityMessengerCallClient({
             !isTerminalCallSessionStatus(nextSession.status)
           ) {
             nextSession = pin.snapshot;
+          }
+          if (
+            nextSession?.status === "ringing" &&
+            (isDibayCallConsumed(sessionId) || shouldSkipActiveCallRecoveryRouting(sessionId))
+          ) {
+            logDibayCall("stale_ringing_blocked", {
+              sessionId,
+              callId: sessionId,
+              source: "refresh_session",
+            });
+            if (pin && pin.sessionId === sessionId && isTerminalCallSessionStatus(pin.snapshot.status)) {
+              nextSession = pin.snapshot;
+            } else if (sessionRef.current && !isTerminalCallSessionStatus(sessionRef.current.status)) {
+              nextSession = sessionRef.current;
+            } else if (pin && pin.sessionId === sessionId) {
+              nextSession = pin.snapshot;
+            }
           }
           if (
             nextSession &&
@@ -2649,7 +2670,7 @@ export function CommunityMessengerCallClient({
       }
       logCallFlow("call_reject_sent", { sessionId });
       runIncomingCallCleanup({ sessionId, reason: "reject_hydrate", stopRingtone: false });
-      navigateBackFromCommunityMessengerCall(router, null);
+      navigateToCommunityMessengerCallLogsAfterTerminal(router);
     } finally {
       releaseIncomingCallReject(sessionId);
       setBusy(null);
@@ -3821,7 +3842,7 @@ export function CommunityMessengerCallClient({
       status: s?.status ?? null,
       closeReason: "auto_close_terminal",
     });
-    navigateBackFromCommunityMessengerCall(router, sessionRef.current?.roomId);
+    navigateToCommunityMessengerCallLogsAfterTerminal(router);
   }, [router, sessionId]);
 
   useEffect(() => {

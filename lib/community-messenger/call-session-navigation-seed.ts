@@ -134,6 +134,20 @@ export function takeCallNavigationReturnPath(): string | null {
   }
 }
 
+/** 통화 종료 후 메신저 통화 목록 탭 */
+export const COMMUNITY_MESSENGER_CALL_LOGS_HREF = "/community-messenger?section=call_logs";
+
+/** 종료·거절·취소·missed 직후 — return path 무시하고 통화 목록으로 */
+export function navigateToCommunityMessengerCallLogsAfterTerminal(router: { replace: (href: string) => void }): void {
+  console.info("[call-flow] call_return_navigation_decision", {
+    target: COMMUNITY_MESSENGER_CALL_LOGS_HREF,
+    reason: "terminal_call_logs",
+    hasReturnPath: false,
+    hasRoomIdFallback: false,
+  });
+  router.replace(COMMUNITY_MESSENGER_CALL_LOGS_HREF);
+}
+
 export function navigateBackFromCommunityMessengerCall(
   router: { replace: (href: string) => void },
   roomIdFallback: string | null | undefined

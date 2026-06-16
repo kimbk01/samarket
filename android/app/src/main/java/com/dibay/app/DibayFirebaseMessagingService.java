@@ -39,18 +39,6 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     Log.i(TAG, "[fcm] data_type_detected type=" + type);
     boolean appVisible = MainActivity.isAppVisibleForIncomingCall();
 
-    if ("call_canceled".equals(type) || "call_canceled".equals(data.get("call_push_kind"))) {
-      String callId = FcmPayloadResolver.resolveCallId(data);
-      if (callId != null) {
-        IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
-        if (appVisible) {
-          Log.i(TAG, "[call-native] call_canceled_foreground_event callId=" + callId);
-          MainActivity.deliverCallCanceledEvent(callId);
-        }
-      }
-      return;
-    }
-
     String title = firstNonEmpty(data.get("title"));
     String body = firstNonEmpty(data.get("body"));
     if (title == null && message.getNotification() != null) {
@@ -60,13 +48,21 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       body = message.getNotification().getBody();
     }
 
-    if ("incoming_call".equals(type)) {
-      handleIncomingCall(data, title, body, appVisible);
+    if (IncomingCallTerminalHandler.isTerminalPushType(type)
+        || IncomingCallTerminalHandler.isTerminalPushType(data.get("call_push_kind"))) {
+      String callId = FcmPayloadResolver.resolveCallId(data);
+      if (callId != null) {
+        String kind = IncomingCallTerminalHandler.normalizeTerminalKind(type);
+        IncomingCallTerminalHandler.handle(this, callId, kind, "fcm:" + type);
+      }
+      if ("missed_call".equals(type)) {
+        handleMissedCallNotificationOnly(data, title, body, appVisible);
+      }
       return;
     }
 
-    if ("missed_call".equals(type)) {
-      handleMissedCall(data, title, body, appVisible);
+    if ("incoming_call".equals(type)) {
+      handleIncomingCall(data, title, body, appVisible);
       return;
     }
 
@@ -97,7 +93,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     Log.i(TAG, "[call-push] incoming_call_received callId=" + callId + " roomId=" + payload.roomId);
 
     if (DibayCallConsumedStore.isConsumed(this, callId)) {
-      Log.i(TAG, "[call-native] incoming_ignored_consumed callId=" + callId);
+      Log.i(TAG, "[DIBAY_CALL] incoming_ignored_consumed callId=" + callId);
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
       return;
     }
@@ -151,15 +147,13 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
   }
 
-  private void handleMissedCall(Map<String, String> data, String title, String body, boolean appVisible) {
-    String callId = FcmPayloadResolver.resolveCallId(data);
-    if (callId != null) {
-      IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
-    }
+  private void handleMissedCallNotificationOnly(
+      Map<String, String> data, String title, String body, boolean appVisible) {
     if (appVisible) {
       Log.i(TAG, "[fcm] foreground_skip_system_notification type=missed_call");
       return;
     }
+    String callId = FcmPayloadResolver.resolveCallId(data);
     String routeUrl = FcmPayloadResolver.resolveRouteUrl(data);
     String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
     MissedCallNotificationHelper.show(this, title, body, routeUrl, callId, roomId, data.get("tag"));

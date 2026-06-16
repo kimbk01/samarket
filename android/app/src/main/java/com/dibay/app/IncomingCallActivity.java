@@ -1,6 +1,9 @@
 package com.dibay.app;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,10 +25,12 @@ public class IncomingCallActivity extends AppCompatActivity {
   public static final String EXTRA_CALLER_AVATAR_URL = "callerAvatarUrl";
   public static final String ACTION_ACCEPT = "com.dibay.app.action.INCOMING_CALL_ACCEPT";
   public static final String ACTION_DECLINE = "com.dibay.app.action.INCOMING_CALL_DECLINE";
+  public static final String ACTION_TERMINAL = "com.dibay.app.action.INCOMING_CALL_TERMINAL";
 
   private static final String TAG = "DIBAY_INCOMING_CALL";
   private String callId;
   private boolean finished;
+  private BroadcastReceiver terminalReceiver;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -38,6 +43,25 @@ public class IncomingCallActivity extends AppCompatActivity {
       finishSafely();
       return;
     }
+
+    terminalReceiver =
+        new BroadcastReceiver() {
+          @Override
+          public void onReceive(Context context, Intent intent) {
+            if (intent == null || !ACTION_TERMINAL.equals(intent.getAction())) return;
+            String sid = intent.getStringExtra(EXTRA_CALL_ID);
+            if (sid == null || callId == null || !sid.trim().equals(callId.trim())) return;
+            Log.i(TAG, "[DIBAY_CALL] activity_finish_by_terminal callId=" + callId);
+            cleanupAndFinish();
+          }
+        };
+    IntentFilter filter = new IntentFilter(ACTION_TERMINAL);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      registerReceiver(terminalReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    } else {
+      registerReceiver(terminalReceiver, filter);
+    }
+
     String expiresAt = firstNonEmpty(getIntent().getStringExtra(EXTRA_EXPIRES_AT));
     if (expiresAt != null) {
       java.util.HashMap<String, String> probe = new java.util.HashMap<>();
@@ -81,6 +105,18 @@ public class IncomingCallActivity extends AppCompatActivity {
 
     acceptBtn.setOnClickListener(v -> handleAccept());
     declineBtn.setOnClickListener(v -> handleDecline());
+  }
+
+  @Override
+  protected void onDestroy() {
+    if (terminalReceiver != null) {
+      try {
+        unregisterReceiver(terminalReceiver);
+      } catch (Exception ignored) {
+      }
+      terminalReceiver = null;
+    }
+    super.onDestroy();
   }
 
   @Override
@@ -155,5 +191,4 @@ public class IncomingCallActivity extends AppCompatActivity {
     String trimmed = value.trim();
     return trimmed.isEmpty() ? null : trimmed;
   }
-
 }

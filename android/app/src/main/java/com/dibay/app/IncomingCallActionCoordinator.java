@@ -94,10 +94,26 @@ public final class IncomingCallActionCoordinator {
       end(sid, "accept");
       return;
     }
-    Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(context, sid);
-    Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
-    context.getApplicationContext().startActivity(launch);
-    end(sid, "accept");
+    final Context app = context.getApplicationContext();
+    new Thread(
+            () -> {
+              boolean ok = CallSessionPatchHelper.patch(app, sid, "accept");
+              Log.i(
+                  "DIBAY_CALL",
+                  ok
+                      ? "[DIBAY_CALL] accept_patch_done callId=" + sid
+                      : "[DIBAY_CALL] accept_patch_failed callId=" + sid);
+              new Handler(Looper.getMainLooper())
+                  .post(
+                      () -> {
+                        Intent launch = IncomingCallIntentHelper.buildMainActivityCallAcceptIntent(app, sid);
+                        Log.i("DIBAY_CALL", "[DIBAY_CALL] accept_route_direct callId=" + sid);
+                        Log.i(CALL_TAG, "[call-route] incoming_accept_pending_web callId=" + sid);
+                        app.startActivity(launch);
+                        end(sid, "accept");
+                      });
+            })
+        .start();
   }
 
   public static void handleReject(Context context, String callId) {
@@ -108,14 +124,17 @@ public final class IncomingCallActionCoordinator {
     DibayCallConsumedStore.mark(context, sid, "declined");
     DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
+    Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_start callId=" + sid);
     new Thread(
             () -> {
               boolean ok = CallSessionPatchHelper.patch(context.getApplicationContext(), sid, "reject");
               if (ok) {
+                Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_done callId=" + sid);
                 Log.i(CALL_TAG, "[call-state] reject_success callId=" + sid);
                 complete(sid, "reject");
               } else {
-                end(sid, "reject");
+                Log.w("DIBAY_CALL", "[DIBAY_CALL] reject_patch_failed callId=" + sid);
+                complete(sid, "reject");
               }
             })
         .start();

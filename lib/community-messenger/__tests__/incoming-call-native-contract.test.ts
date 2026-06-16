@@ -81,6 +81,62 @@ describe("incoming-call native contract", () => {
     expect(src).toContain('DibayCallConsumedStore.mark(context, sid, "missed")');
   });
 
+  it("native coordinator PATCHes accept on background thread before direct route", () => {
+    const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+    expect(src).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(src).toContain("accept_route_direct");
+    expect(src).toContain("buildMainActivityCallAcceptIntent");
+  });
+
+  it("IncomingCallTerminalHandler centralizes terminal dismiss, consumed, ring stop, activity finish", () => {
+    const handler = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
+    expect(handler).toContain("dismissIncomingCall");
+    expect(handler).toContain("DibayCallConsumedStore.mark");
+    expect(handler).toContain("DibayForegroundRingtone.stop");
+    expect(handler).toContain("broadcastFinishIncomingActivity");
+    expect(handler).toContain("deliverCallTerminalEvent");
+
+    const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
+    expect(fcm).toContain("IncomingCallTerminalHandler.handle");
+    expect(fcm).toContain("IncomingCallTerminalHandler.isTerminalPushType");
+
+    const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(activity).toContain("ACTION_TERMINAL");
+    expect(activity).toContain("activity_finish_by_terminal");
+  });
+
+  it("notification contentIntent uses preview route and accept uses nativeAccept=1", () => {
+    const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+    expect(notification).toContain("buildMainActivityCallPreviewIntent");
+    const helper = read("android/app/src/main/java/com/dibay/app/IncomingCallIntentHelper.java");
+    expect(helper).toContain("nativeAccept=1");
+    expect(helper).toContain("incomingPreview=1");
+  });
+
+  it("debug adb command receiver is debug-only and documents adb actions", () => {
+    const debugManifest = read("android/app/src/debug/AndroidManifest.xml");
+    expect(debugManifest).toContain("DibayCallDebugCommandReceiver");
+    expect(debugManifest).toContain("com.dibay.DEBUG_INCOMING_CALL");
+    expect(debugManifest).toContain("com.dibay.DEBUG_CALL_CANCELED");
+
+    const releaseManifest = read("android/app/src/main/AndroidManifest.xml");
+    expect(releaseManifest).not.toContain("DibayCallDebugCommandReceiver");
+    expect(releaseManifest).not.toContain("DEBUG_INCOMING_CALL");
+
+    const receiver = read("android/app/src/debug/java/com/dibay/app/DibayCallDebugCommandReceiver.java");
+    expect(receiver).toContain("IncomingCallTerminalHandler.handle");
+    expect(receiver).not.toContain("src/main");
+  });
+
+  it("IncomingCallTerminalHandler has Robolectric unit coverage", () => {
+    expect(read("android/app/src/test/java/com/dibay/app/IncomingCallTerminalHandlerTest.java")).toContain(
+      "IncomingCallTerminalHandler.handle"
+    );
+    expect(read("android/app/src/test/java/com/dibay/app/DibayFirebaseMessagingServiceTerminalTest.java")).toContain(
+      "call_canceled"
+    );
+  });
+
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {
     const src = read("lib/push/native/push-route-native-bridge.ts");
     expect(src).toContain("NativeIncomingCall.then()");

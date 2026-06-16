@@ -37,10 +37,13 @@ describe("incoming-call policy contracts", () => {
     expect(src).not.toContain("markNativeCalleeAcceptPending");
   });
 
-  it("native coordinator does not PATCH accept on Android", () => {
-    const src = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
-    expect(src).toContain("accept_pending_web");
-    expect(src).not.toContain('patch(context.getApplicationContext(), sid, "accept")');
+  it("native coordinator PATCHes accept before Web route (Web skips duplicate PATCH on nativeAccept=1)", () => {
+    const native = read("android/app/src/main/java/com/dibay/app/IncomingCallActionCoordinator.java");
+    expect(native).toContain('CallSessionPatchHelper.patch(app, sid, "accept")');
+    expect(native).toContain("accept_route_direct");
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("nativeAcceptRoute && requestedActionRef.current === \"accept\"");
+    expect(client).toContain("requestedAction === \"accept\" && nativeAcceptRoute");
   });
 
   it("CallClient blocks callee ringing direct entry without action=accept", () => {
@@ -102,6 +105,26 @@ describe("incoming-call policy contracts", () => {
     expect(client).toContain("preJoinVideoElementReady ? \"opacity-100\" : \"opacity-0\"");
     const preview = read("components/community-messenger/OutgoingRingCameraPreview.tsx");
     expect(preview).toContain("ready ? \"opacity-100\" : \"opacity-0\"");
+  });
+
+  it("Global subscribes session_terminal bus and FCM wake inserts optimistic session", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain('ev.type !== "cm.call.session_terminal"');
+    expect(global).toContain("bus_session_terminal");
+    expect(global).toContain("communityMessengerIncomingSessionFromFcmWake");
+    expect(global).toContain("onTerminal:");
+    const bridge = read("lib/community-messenger/dibay-fcm-call-bridge.ts");
+    expect(bridge).toContain("call_terminal");
+    expect(bridge).toContain("callerId");
+  });
+
+  it("terminal call end navigates to call_logs section", () => {
+    const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
+    expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");
+    expect(nav).toContain("navigateToCommunityMessengerCallLogsAfterTerminal");
+    const client = read("components/community-messenger/CommunityMessengerCallClient.tsx");
+    expect(client).toContain("navigateToCommunityMessengerCallLogsAfterTerminal");
+    expect(client).toContain("stale_ringing_blocked");
   });
 });
 
