@@ -19,7 +19,12 @@ import {
 } from "@/lib/community-messenger/call-lifecycle";
 import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
-import { isIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/tombstone";
+import {
+  buildCallTombstoneContext,
+  resolveIncomingCallWake,
+} from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
+import { filterSessionsRespectingTerminalLatch } from "@/lib/community-messenger/call-events/session-merge-guard";
+import { canShowIncoming } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
   clearNativeCalleeAcceptPending,
@@ -155,7 +160,6 @@ import {
   filterIncomingSessionsRespectingDismissed,
   filterIncomingSessionsRespectingHardClear,
   isDibayCallConsumed,
-  isIncomingSessionHardCleared,
   markCallConsumed,
   pruneHardClearedIncomingSessionIds,
   INCOMING_REMOTE_HARD_CLEAR_KEEP_MS,
@@ -1104,7 +1108,8 @@ export function GlobalCommunityMessengerIncomingCall() {
         const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
         const now = Date.now();
         pruneHardClearedIncomingSessionIds(hardClearedIncomingSessionsAtRef.current);
-        if (sid && (isIncomingSessionHardCleared(sid, hardClearedIncomingSessionsAtRef.current, now) || isDibayCallConsumed(sid, now))) {
+        const tombstone = buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current);
+        if (sid && !canShowIncoming(sid, tombstone, now)) {
           if (isDibayCallConsumed(sid, now)) {
             logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source: "broadcast_ring" });
           }
@@ -1199,11 +1204,17 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (d.type === "samarket_messenger_incoming_call_wake") {
         const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
         void (async () => {
-          if (sid && isIncomingCallTerminal(sid, hardClearedIncomingSessionsAtRef.current)) {
-            stopIncomingCallRing("sw_wake_tombstone", sid);
+          const wake = await resolveIncomingCallWake(
+            sid,
+            buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
+            isCallConsumedIncludingNative
+          );
+          if (!wake.proceed) {
+            if (wake.reason === "terminal_tombstone") {
+              stopIncomingCallRing("sw_wake_tombstone", sid);
+            }
             return;
           }
-          if (sid && (await isCallConsumedIncludingNative(sid))) return;
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "sw_wake" });
           }
@@ -1268,12 +1279,18 @@ export function GlobalCommunityMessengerIncomingCall() {
     return installDibayFcmCallBridge({
       onIncomingWake: (detail) => {
         void (async () => {
-          const sid = detail.sessionId?.trim();
-          if (sid && isIncomingCallTerminal(sid, hardClearedIncomingSessionsAtRef.current)) {
-            stopIncomingCallRing("fcm_wake_tombstone", sid);
+          const sid = detail.sessionId?.trim() ?? "";
+          const wake = await resolveIncomingCallWake(
+            sid,
+            buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
+            isCallConsumedIncludingNative
+          );
+          if (!wake.proceed) {
+            if (wake.reason === "terminal_tombstone") {
+              stopIncomingCallRing("fcm_wake_tombstone", sid);
+            }
             return;
           }
-          if (sid && (await isCallConsumedIncludingNative(sid))) return;
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
           }
@@ -1428,11 +1445,16 @@ export function GlobalCommunityMessengerIncomingCall() {
                   merged,
                   dismissedIncomingSessionsAtRef.current
                 );
-                return filterIncomingSessionsRespectingConsumed(
-                  filterIncomingSessionsRespectingHardClear(
-                    afterDismissed,
-                    hardClearedIncomingSessionsAtRef.current
-                  )
+                return filterSessionsRespectingTerminalLatch(
+                  filterIncomingSessionsRespectingConsumed(
+                    filterIncomingSessionsRespectingHardClear(
+                      afterDismissed,
+                      hardClearedIncomingSessionsAtRef.current
+                    )
+                  ),
+                  buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
+                  Date.now(),
+                  "realtime"
                 );
               });
               const newRow = p.new ?? null;
@@ -1796,7 +1818,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       return;
     }
     const sid = s.id.trim();
-    if (isIncomingCallTerminal(sid, hardClearedIncomingSessionsAtRef.current)) {
+    if (!canShowIncoming(sid, buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current))) {
       syncIncomingCallRing(null);
       return;
     }
@@ -1934,7 +1956,7 @@ export function GlobalCommunityMessengerIncomingCall() {
   const expandIncomingCall = useCallback(
     (session: CommunityMessengerCallSession) => {
       if (busyId === `accept:${session.id}` || busyId === `reject:${session.id}`) return;
-      if (isDibayCallConsumed(session.id)) return;
+      if (!canShowIncoming(session.id, buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current))) return;
       logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "incoming_banner_expand" });
       rememberCallNavigationReturnPath();
       primeCommunityMessengerCallNavigationSeed(session.id, session);

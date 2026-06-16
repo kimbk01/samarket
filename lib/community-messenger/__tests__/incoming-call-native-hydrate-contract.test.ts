@@ -77,7 +77,7 @@ describe("incoming-call direct_ringing cleanup regression", () => {
   it("direct_ringing uses syncIncomingCallRing with tombstone (no cleanup restart)", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("syncIncomingCallRing");
-    expect(global).toContain("isIncomingCallTerminal");
+    expect(global).toContain("canShowIncoming");
     expect(global).not.toContain('dibayIncomingLaneStopRing("direct_ringing_cleanup"');
     expect(global).not.toContain('dibayIncomingLaneStartRing(sid, s.callKind, "direct_ringing")');
   });
@@ -86,7 +86,8 @@ describe("incoming-call direct_ringing cleanup regression", () => {
 describe("stale ringing blocked after native tombstone", () => {
   it("FCM/SW wake checks native consumed before optimistic session insert", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(global).toContain("await isCallConsumedIncludingNative(sid)");
+    expect(global).toContain("resolveIncomingCallWake");
+    expect(global).toContain("isCallConsumedIncludingNative");
     expect(global).toContain('source: "fcm_wake"');
     expect(global).toContain('source: "sw_wake"');
   });

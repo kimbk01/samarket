@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeFcmCallEvent } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
+import { normalizeFcmCallEvent, resolveIncomingCallWake } from "@/lib/community-messenger/call-events/fcm-call-event-normalizer";
 import { latchCallTerminal } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 
 describe("fcm-call-event-normalizer", () => {
@@ -44,5 +44,21 @@ describe("fcm-call-event-normalizer", () => {
       reason: "terminal_tombstone",
       fcmType: "incoming_call",
     });
+  });
+
+  it("resolveIncomingCallWake blocks tombstone then native consumed", async () => {
+    const hard = new Map<string, number>();
+    const callId = "wake-resolve-1";
+    latchCallTerminal(callId, "ended", { hardClearedAt: hard });
+    const tombstone = { hardClearedAt: hard };
+    const tombstoneBlocked = await resolveIncomingCallWake(callId, tombstone, async () => false);
+    expect(tombstoneBlocked).toEqual({ proceed: false, callId, reason: "terminal_tombstone" });
+
+    const freshId = "wake-resolve-2";
+    const nativeBlocked = await resolveIncomingCallWake(freshId, tombstone, async () => true);
+    expect(nativeBlocked).toEqual({ proceed: false, callId: freshId, reason: "native_consumed" });
+
+    const allowed = await resolveIncomingCallWake(freshId, tombstone, async () => false);
+    expect(allowed).toEqual({ proceed: true, callId: freshId });
   });
 });

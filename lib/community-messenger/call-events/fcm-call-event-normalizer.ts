@@ -114,3 +114,34 @@ export function normalizeFcmCallEvent(
 
   return { action: "ignore", callId, reason: "unsupported_signal", fcmType };
 }
+
+export type IncomingCallWakeResolution =
+  | { proceed: true; callId: string }
+  | { proceed: false; callId: string; reason: "terminal_tombstone" | "native_consumed" | "empty_call_id" };
+
+export function buildCallTombstoneContext(
+  hardClearedAt: Map<string, number>
+): CallTerminalTombstoneContext {
+  return { hardClearedAt };
+}
+
+/** FCM/SW incoming wake — normalize tombstone then optional native consumed check. */
+export async function resolveIncomingCallWake(
+  callId: string,
+  tombstone: CallTerminalTombstoneContext,
+  isNativeConsumed: (sessionId: string) => Promise<boolean>
+): Promise<IncomingCallWakeResolution> {
+  const sid = callId.trim();
+  if (!sid) return { proceed: false, callId: "", reason: "empty_call_id" };
+
+  const normalized = normalizeFcmCallEvent({ type: "incoming_call", callId: sid }, tombstone);
+  if (normalized.action === "ignore") {
+    return { proceed: false, callId: sid, reason: "terminal_tombstone" };
+  }
+
+  if (await isNativeConsumed(sid)) {
+    return { proceed: false, callId: sid, reason: "native_consumed" };
+  }
+
+  return { proceed: true, callId: sid };
+}

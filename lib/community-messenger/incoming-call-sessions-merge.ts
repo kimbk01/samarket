@@ -1,6 +1,9 @@
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { shouldSkipActiveCallRecoveryRouting } from "@/lib/community-messenger/call-active-session-recovery";
-import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import {
+  canAcceptIncomingSessionId,
+  shouldBlockRingingSessionMerge,
+} from "@/lib/community-messenger/call-events/session-merge-guard";
 import {
   INCOMING_REMOTE_HARD_CLEAR_KEEP_MS,
   INCOMING_USER_DISMISSED_KEEP_MS,
@@ -34,13 +37,6 @@ function isHardClearedIncomingSession(
   return now - at < INCOMING_REMOTE_HARD_CLEAR_KEEP_MS;
 }
 
-function shouldBlockStaleRingingSession(session: CommunityMessengerCallSession, now: number): boolean {
-  if (session.status !== "ringing") return false;
-  if (isDibayCallConsumed(session.id, now)) return true;
-  if (shouldSkipActiveCallRecoveryRouting(session.id)) return true;
-  return false;
-}
-
 export function mergeIncomingCallSessionsAfterFetch(
   viewerUserId: string | null,
   serverList: CommunityMessengerCallSession[],
@@ -49,19 +45,10 @@ export function mergeIncomingCallSessionsAfterFetch(
   hardClearedAtBySessionId: Map<string, number>
 ): CommunityMessengerCallSession[] {
   const now = Date.now();
+  const tombstone = { hardClearedAt: hardClearedAtBySessionId };
 
   const filterBlocked = (list: CommunityMessengerCallSession[]) =>
-    list.filter((s) => {
-      if (shouldBlockStaleRingingSession(s, now)) {
-        logDibayCall("stale_ringing_blocked", {
-          sessionId: s.id,
-          callId: s.id,
-          source: "merge_fetch",
-        });
-        return false;
-      }
-      return true;
-    });
+    list.filter((s) => !shouldBlockRingingSessionMerge(s, tombstone, now, "merge_fetch"));
 
   if (!viewerUserId) {
     return filterBlocked(
@@ -84,7 +71,7 @@ export function mergeIncomingCallSessionsAfterFetch(
     .filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
 
   const optimisticExtras = previousFiltered.filter((s) => {
-    if (isDibayCallConsumed(s.id, now)) return false;
+    if (!canAcceptIncomingSessionId(s.id, tombstone, now)) return false;
     if (shouldSkipActiveCallRecoveryRouting(s.id)) return false;
     if (serverIds.has(s.id)) return false;
     if (s.status !== "ringing" || s.sessionMode !== "direct" || s.isMineInitiator) return false;

@@ -34,6 +34,15 @@ describe("incoming-call SSOT contract", () => {
     );
   });
 
+  it("Global Phase2 wires SSOT normalizers for wake/merge/terminal", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("resolveIncomingCallWake");
+    expect(global).toContain("buildCallTombstoneContext");
+    expect(global).toContain("filterSessionsRespectingTerminalLatch");
+    expect(global).toContain("canShowIncoming");
+    expect(global).not.toContain("isIncomingCallTerminal");
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');
