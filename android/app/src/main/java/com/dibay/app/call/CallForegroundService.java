@@ -7,12 +7,15 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.Manifest;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 import com.dibay.app.CallSessionPatchHelper;
 import com.dibay.app.DibayCallLog;
 import com.dibay.app.DibayCallPushLog;
@@ -136,7 +139,11 @@ public class CallForegroundService extends Service {
 
   @Override
   public int onStartCommand(Intent intent, int flags, int startId) {
-    if (intent == null) return START_STICKY;
+    if (intent == null) {
+      // START_STICKY 재시작 시 intent null — startForeground 미호출이면 5초 내 프로세스 kill
+      stopSelf();
+      return START_NOT_STICKY;
+    }
     String action = intent.getAction();
     String callId = intent.getStringExtra(EXTRA_CALL_ID);
 
@@ -188,17 +195,9 @@ public class CallForegroundService extends Service {
     String kind = intent.getStringExtra(EXTRA_CALL_KIND);
     ACTIVE_CALL_KIND.set(kind != null ? kind : "voice");
     Notification notification = buildOngoingCallNotification(sid, kind);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-      }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-      }
-      startForeground(NOTIFICATION_ID, notification, type);
-    } else {
-      startForeground(NOTIFICATION_ID, notification);
+    if (!promoteToForeground(sid, notification, resolveActiveForegroundServiceType())) {
+      endCallAndStop(sid, "fgs_start_failed");
+      return START_NOT_STICKY;
     }
     FOREGROUND_STARTED_FOR.set(sid);
     lastHeartbeatAtMs = System.currentTimeMillis();
@@ -220,24 +219,20 @@ public class CallForegroundService extends Service {
       boolean ringingOnly = sid.equals(RINGING_FOREGROUND_FOR.get()) && !sid.equals(FOREGROUND_STARTED_FOR.get());
       Notification notification =
           ringingOnly ? buildRingingCallNotification(sid, kind) : buildOngoingCallNotification(sid, kind);
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
-        if (!ringingOnly && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-          type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
-        }
-        if (!ringingOnly && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-          type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
-        }
-        startForeground(NOTIFICATION_ID, notification, type);
+      int type =
+          ringingOnly
+              ? android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+              : resolveActiveForegroundServiceType();
+      if (!promoteToForeground(sid, notification, type)) {
+        Log.w(TAG, "[DIBAY_CALL] task_removed_keep_foreground_failed callId=" + sid);
       } else {
-        startForeground(NOTIFICATION_ID, notification);
+        String appPath =
+            "/community-messenger/calls/"
+                + android.net.Uri.encode(sid)
+                + (ringingOnly ? "?action=accept&nativeAccept=1&source=native_resume" : "?source=native_resume");
+        MainActivity.persistCallPendingRoute(getApplicationContext(), appPath, null, 0L);
+        DibayCallPushLog.info("pending_route_saved", sid, "path=" + appPath);
       }
-      String appPath =
-          "/community-messenger/calls/"
-              + android.net.Uri.encode(sid)
-              + (ringingOnly ? "?action=accept&nativeAccept=1&source=native_resume" : "?source=native_resume");
-      MainActivity.persistCallPendingRoute(getApplicationContext(), appPath, null, 0L);
-      DibayCallPushLog.info("pending_route_saved", sid, "path=" + appPath);
     }
     super.onTaskRemoved(rootIntent);
   }
@@ -396,13 +391,10 @@ public class CallForegroundService extends Service {
     ACTIVE_CALL_KIND.set(kind != null ? kind : "voice");
     ensureChannel();
     Notification notification = buildRingingCallNotification(sid, kind);
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-      startForeground(
-          NOTIFICATION_ID,
-          notification,
-          android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
-    } else {
-      startForeground(NOTIFICATION_ID, notification);
+    if (!promoteToForeground(
+        sid, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL)) {
+      stopSelf();
+      return;
     }
     RINGING_FOREGROUND_FOR.set(sid);
     DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true phase=ringing");
@@ -419,6 +411,56 @@ public class CallForegroundService extends Service {
     DibayCallPushLog.info(
         "foreground_service_stopped_ringing", sid, "reason=" + (reason != null ? reason : "unknown"));
     DibayCallLog.once("foreground_service_stopped", sid, "reason=" + (reason != null ? reason : "ringing_end"));
+  }
+
+  private int resolveActiveForegroundServiceType() {
+    int type = android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+      if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+          == PackageManager.PERMISSION_GRANTED) {
+        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+      }
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+          == PackageManager.PERMISSION_GRANTED) {
+        type |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA;
+      }
+    }
+    return type;
+  }
+
+  /** API 34+ phoneCall FGS — SecurityException 시 phoneCall-only 재시도, 실패 시 false */
+  private boolean promoteToForeground(String callId, Notification notification, int type) {
+    try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(NOTIFICATION_ID, notification, type);
+      } else {
+        startForeground(NOTIFICATION_ID, notification);
+      }
+      return true;
+    } catch (Exception primary) {
+      Log.w(TAG, "[DIBAY_CALL] foreground_service_start_failed callId=" + callId, primary);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+          && type != android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL) {
+        try {
+          startForeground(
+              NOTIFICATION_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
+          DibayCallLog.once(
+              "foreground_service_start_degraded",
+              callId,
+              "reason=" + primary.getClass().getSimpleName());
+          return true;
+        } catch (Exception fallback) {
+          Log.e(TAG, "[DIBAY_CALL] foreground_service_start_failed_fallback callId=" + callId, fallback);
+        }
+      }
+      DibayCallLog.once(
+          "foreground_service_start_failed",
+          callId != null ? callId : "unknown",
+          "err=" + primary.getClass().getSimpleName());
+      return false;
+    }
   }
 
   private void ensureChannel() {
