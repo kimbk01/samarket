@@ -15,7 +15,13 @@ vi.mock("@/lib/platform/capacitor-native", () => ({
   resolveCapacitorShellPlatform: vi.fn(() => null),
 }));
 
+vi.mock("@/lib/push/native/dibay-call-consumed-native-bridge", () => ({
+  stopNativeIncomingRingtoneFireAndForget: vi.fn(),
+}));
+
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
+import { isCapacitorNativePlatform, resolveCapacitorShellPlatform } from "@/lib/platform/capacitor-native";
+import { stopNativeIncomingRingtoneFireAndForget } from "@/lib/push/native/dibay-call-consumed-native-bridge";
 import {
   resetIncomingCallRingOwner,
   syncIncomingCallRing,
@@ -44,5 +50,15 @@ describe("incoming-call ring-owner", () => {
     await vi.waitFor(() => {
       expect(startCommunityMessengerCallTone).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("stops native ring on tombstone when Android (even if activeRingCallId cleared)", () => {
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue("android");
+    const hard = new Map<string, number>([["c-tomb", Date.now()]]);
+    syncIncomingCallRing({ sessionId: "c-tomb", callKind: "voice", hardClearedAt: hard, source: "test" });
+    expect(stopNativeIncomingRingtoneFireAndForget).toHaveBeenCalledWith("c-tomb");
+    vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
+    vi.mocked(resolveCapacitorShellPlatform).mockReturnValue(null);
   });
 });

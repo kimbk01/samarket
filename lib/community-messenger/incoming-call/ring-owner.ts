@@ -63,6 +63,9 @@ export function syncIncomingCallRing(candidate: IncomingRingSyncCandidate | null
   if (!candidate) {
     if (activeRingCallId) {
       stopIncomingCallRing("sync_clear", activeRingCallId);
+    } else if (useNativeRingOwner()) {
+      // Native OS ring is not tracked by activeRingCallId — still stop on clear.
+      stopNativeRing(null);
     }
     return;
   }
@@ -75,9 +78,8 @@ export function syncIncomingCallRing(candidate: IncomingRingSyncCandidate | null
   }
 
   if (!canIncomingCallRing(sid, candidate.hardClearedAt)) {
-    if (activeRingCallId === sid) {
-      stopIncomingCallRing("tombstone", sid);
-    }
+    // Android native ring can outlive Web activeRingCallId — always stop both lanes.
+    stopIncomingCallRing("tombstone", sid);
     logDibayCall("incoming_ignored_consumed", { sessionId: sid, callId: sid, source });
     return;
   }

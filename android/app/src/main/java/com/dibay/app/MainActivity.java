@@ -146,6 +146,10 @@ public class MainActivity extends BridgeActivity {
       Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_ignored_consumed callId=" + payload.callId);
       return;
     }
+    if (IncomingCallActionCoordinator.isCompleted(payload.callId)) {
+      Log.i("DIBAY_CALL", "[DIBAY_CALL] incoming_ignored_completed callId=" + payload.callId);
+      return;
+    }
     if (!IncomingCallActionCoordinator.registerIncoming(this, payload.callId)) {
       Log.i(ROUTE_LOG_TAG, "[call-native] incoming_duplicate_ignored callId=" + payload.callId);
       return;
@@ -191,9 +195,16 @@ public class MainActivity extends BridgeActivity {
             + "'}}));window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
             + safeCallId
             + "'}}));}catch(e){}})();";
-    webView.post(() -> webView.evaluateJavascript(js, null));
+    String sid = callId != null ? callId.trim() : "";
+    if (!sid.isEmpty()) {
+      String consumedReason = mapWebTerminalConsumedReason(status);
+      DibayCallConsumedStore.mark(this, sid, consumedReason);
+      IncomingCallActionCoordinator.complete(sid, status != null ? status : "cancelled");
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
+    }
     IncomingCallRingOwner.stop(this, callId);
     hideCallRouteLoadingOverlay();
+    webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i("DIBAY_CALL", "[DIBAY_CALL] terminal_received callId=" + callId + " status=" + status + " source=webview_inject");
   }
 
@@ -207,9 +218,31 @@ public class MainActivity extends BridgeActivity {
         "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
             + safeCallId
             + "'}}));}catch(e){}})();";
-    webView.post(() -> webView.evaluateJavascript(js, null));
+    String sid = callId != null ? callId.trim() : "";
+    if (!sid.isEmpty()) {
+      DibayCallConsumedStore.mark(this, sid, "cancelled");
+      IncomingCallActionCoordinator.complete(sid, "cancelled");
+      IncomingCallNotificationBuilder.dismissIncomingCall(this, sid);
+    }
     IncomingCallRingOwner.stop(this, callId);
+    webView.post(() -> webView.evaluateJavascript(js, null));
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_canceled_event callId=" + callId);
+  }
+
+  private static String mapWebTerminalConsumedReason(String status) {
+    String st = status != null ? status.trim().toLowerCase() : "cancelled";
+    switch (st) {
+      case "rejected":
+        return "declined";
+      case "missed":
+        return "missed";
+      case "ended":
+        return "ended";
+      case "cancelled":
+      case "canceled":
+      default:
+        return "cancelled";
+    }
   }
 
   private static String safeJs(String value) {

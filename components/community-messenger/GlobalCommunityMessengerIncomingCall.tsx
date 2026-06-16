@@ -17,7 +17,7 @@ import {
   dibayCallSealTerminal,
   dibayIncomingLaneStopRing,
 } from "@/lib/community-messenger/call-lifecycle";
-import { syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
+import { stopIncomingCallRing, syncIncomingCallRing } from "@/lib/community-messenger/incoming-call/ring-owner";
 import { sealIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/terminal";
 import { isIncomingCallTerminal } from "@/lib/community-messenger/incoming-call/tombstone";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
@@ -606,15 +606,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
 
     const terminalSid = sessionId || tmpSessionId || "";
-    if (sessionId) {
+    if (terminalSid) {
       sealIncomingCallTerminal(
-        sessionId,
+        terminalSid,
         mapTerminalStatusToConsumedReason(statusNorm),
         hardClearedIncomingSessionsAtRef.current,
         sourceTag
       );
-    } else if (terminalSid) {
-      dibayIncomingLaneStopRing("terminal_event", terminalSid);
     }
 
     console.info("[call-flow] terminal_event_received", {
@@ -1201,6 +1199,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (d.type === "samarket_messenger_incoming_call_wake") {
         const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
         void (async () => {
+          if (sid && isIncomingCallTerminal(sid, hardClearedIncomingSessionsAtRef.current)) {
+            stopIncomingCallRing("sw_wake_tombstone", sid);
+            return;
+          }
           if (sid && (await isCallConsumedIncludingNative(sid))) return;
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "sw_wake" });
@@ -1267,6 +1269,10 @@ export function GlobalCommunityMessengerIncomingCall() {
       onIncomingWake: (detail) => {
         void (async () => {
           const sid = detail.sessionId?.trim();
+          if (sid && isIncomingCallTerminal(sid, hardClearedIncomingSessionsAtRef.current)) {
+            stopIncomingCallRing("fcm_wake_tombstone", sid);
+            return;
+          }
           if (sid && (await isCallConsumedIncludingNative(sid))) return;
           if (sid) {
             logDibayCall("incoming_received", { sessionId: sid, callId: sid, source: "fcm_wake" });
