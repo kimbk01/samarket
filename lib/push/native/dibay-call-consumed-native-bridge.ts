@@ -4,7 +4,10 @@ import type { CallConsumedReason } from "@/lib/community-messenger/incoming-call
 import { isDibayCallConsumed, markCallConsumedFromNativeHydrate } from "@/lib/community-messenger/incoming-call-state";
 import { hydrateIncomingCallTerminalFromNative } from "@/lib/community-messenger/incoming-call/tombstone";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
-import { getNativeIncomingCallPlugin } from "@/lib/push/native/push-route-native-bridge";
+import {
+  getNativeIncomingCallPlugin,
+  getSyncNativeIncomingCallPlugin,
+} from "@/lib/push/native/push-route-native-bridge";
 
 function mapNativeConsumedReason(reason: string | null | undefined): CallConsumedReason {
   const r = (reason ?? "").trim().toLowerCase();
@@ -46,12 +49,17 @@ export function syncDibayCallConsumedToNative(
 
 /** Terminal/stop — Android native OS ringtone 즉시 중지 (Web stop 과 병행). */
 export function stopNativeIncomingRingtoneFireAndForget(sessionId?: string | null): void {
+  const sid = sessionId?.trim() ?? "";
+  const plugin = getSyncNativeIncomingCallPlugin();
+  if (plugin?.stopIncomingRingtone) {
+    void plugin.stopIncomingRingtone(sid ? { sessionId: sid } : {}).catch(() => {});
+    return;
+  }
   void (async () => {
-    const plugin = await getNativeIncomingCallPlugin();
-    if (!plugin?.stopIncomingRingtone) return;
-    const sid = sessionId?.trim() ?? "";
+    const asyncPlugin = await getNativeIncomingCallPlugin();
+    if (!asyncPlugin?.stopIncomingRingtone) return;
     try {
-      await plugin.stopIncomingRingtone(sid ? { sessionId: sid } : {});
+      await asyncPlugin.stopIncomingRingtone(sid ? { sessionId: sid } : {});
     } catch {
       /* best-effort */
     }

@@ -196,6 +196,10 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
 
   logDibayCall("incoming_accept_click", { sessionId: sid, callId: sid, source: args.source });
 
+  /** PATCH·권한 대기 전 OS 벨 즉시 중지 (reject 와 동일 — 로그: accept 후 native ring_stop 누락) */
+  dibayIncomingLaneStopRing("accept_pressed_immediate", sid);
+  dismissAllIncomingCallNotificationsFireAndForget(sid);
+
   if (isDibayCallConsumed(sid)) {
     logDibayCall("accept_skip_duplicate", {
       sessionId: sid,

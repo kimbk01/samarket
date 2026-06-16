@@ -56,7 +56,9 @@ vi.mock("@/lib/community-messenger/call-orchestrator", async (importOriginal) =>
 });
 
 import { patchCommunityMessengerCallSession } from "@/lib/community-messenger/call-http-actions";
+import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 import { tryClaimIncomingCallAccept } from "@/lib/community-messenger/incoming-call-action-guard";
+import { dismissAllIncomingCallNotificationsFireAndForget } from "@/lib/push/native/dismiss-native-incoming-call-notification";
 import { postCommunityMessengerCallIncomingConsumedBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { isDibayCallConsumed, resetDibayCallSessionState } from "@/lib/community-messenger/incoming-call-state";
 import {
@@ -71,6 +73,25 @@ describe("incoming-call-accept-gateway", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetDibayCallSessionState();
+  });
+
+  it("stops ring immediately on accept before PATCH", async () => {
+    const router = { replace: vi.fn() };
+    const session = {
+      id: "s-immediate",
+      callKind: "voice",
+      status: "ringing",
+      isMineInitiator: false,
+      endedReason: null,
+    } as any;
+
+    await runIncomingCallAccept({ session, router, source: "incoming_banner_accept" });
+
+    expect(dibayIncomingLaneStopRing).toHaveBeenCalledWith("accept_pressed_immediate", "s-immediate");
+    expect(dismissAllIncomingCallNotificationsFireAndForget).toHaveBeenCalledWith("s-immediate");
+    const stopOrder = vi.mocked(dibayIncomingLaneStopRing).mock.invocationCallOrder[0] ?? 0;
+    const patchOrder = vi.mocked(patchCommunityMessengerCallSession).mock.invocationCallOrder[0] ?? 0;
+    expect(stopOrder).toBeLessThan(patchOrder);
   });
 
   it("PATCH accept is executed once per invocation (single gateway)", async () => {

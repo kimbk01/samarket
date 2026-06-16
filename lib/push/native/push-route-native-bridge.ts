@@ -1,5 +1,6 @@
 "use client";
 
+import { registerPlugin } from "@capacitor/core";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
 import type { PendingPushRoute } from "@/lib/push/pending-push-route";
 import { PENDING_PUSH_ROUTE_TTL_MS } from "@/lib/push/pending-push-route";
@@ -31,8 +32,23 @@ export type NativeIncomingCallPlugin = {
 };
 
 let pluginPromise: Promise<{ plugin: NativeIncomingCallPlugin } | null> | null = null;
+let syncPlugin: NativeIncomingCallPlugin | null | undefined;
+
+/** User-gesture ring stop — await 없이 Capacitor plugin 호출 (accept/reject 즉시). */
+export function getSyncNativeIncomingCallPlugin(): NativeIncomingCallPlugin | null {
+  if (!isCapacitorNativePlatform()) return null;
+  if (syncPlugin !== undefined) return syncPlugin;
+  try {
+    syncPlugin = registerPlugin<NativeIncomingCallPlugin>("NativeIncomingCall");
+  } catch {
+    syncPlugin = null;
+  }
+  return syncPlugin;
+}
 
 export async function getNativeIncomingCallPlugin(): Promise<NativeIncomingCallPlugin | null> {
+  const sync = getSyncNativeIncomingCallPlugin();
+  if (sync) return sync;
   if (!isCapacitorNativePlatform()) return null;
   if (!pluginPromise) {
     pluginPromise = (async () => {
