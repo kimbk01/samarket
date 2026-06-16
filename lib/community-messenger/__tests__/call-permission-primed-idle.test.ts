@@ -14,7 +14,7 @@ function fakeLiveStream(): MediaStream {
   } as unknown as MediaStream;
 }
 
-vi.mock("@/lib/call/permission-manager", () => ({
+vi.mock("@/lib/community-messenger/call-media-stream", () => ({
   acquirePrimedCommunityMessengerStream: vi.fn(() => Promise.resolve(fakeLiveStream())),
   assertCallMediaNotPersistentlyDenied: vi.fn(() => Promise.resolve()),
 }));

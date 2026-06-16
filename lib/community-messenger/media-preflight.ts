@@ -140,7 +140,7 @@ export function buildCommunityMessengerMediaStreamConstraints(
 
 /** 설정 화면 「테스트」— 저장된 장치로 짧게 스트림을 열었다가 닫는다 */
 export async function testCommunityMessengerMediaPipeline(): Promise<void> {
-  const { acquirePrimedCommunityMessengerStream } = await import("@/lib/call/permission-manager");
+  const { acquirePrimedCommunityMessengerStream } = await import("@/lib/community-messenger/call-media-stream");
   const stream = await acquirePrimedCommunityMessengerStream("video");
   stream.getTracks().forEach((t) => t.stop());
 }

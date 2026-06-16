@@ -3,7 +3,7 @@
 import {
   patchCommunityMessengerCallSession,
   type CommunityMessengerCallSessionPatchDebugContext,
-} from "@/lib/call/call-actions";
+} from "@/lib/community-messenger/call-http-actions";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 
 const inFlightBySessionId = new Map<string, Promise<{ ok: boolean; session?: CommunityMessengerCallSession; error?: string }>>();

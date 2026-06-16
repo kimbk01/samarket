@@ -7,7 +7,7 @@ import AgoraRTC, {
   type IRemoteAudioTrack,
   type IRemoteVideoTrack,
 } from "agora-rtc-sdk-ng";
-import { createFallbackAudioOnlyMediaStream } from "@/lib/call/permission-manager";
+import { createFallbackAudioOnlyMediaStream } from "@/lib/community-messenger/call-media-stream";
 import {
   consumePrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
@@ -18,7 +18,7 @@ import {
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
 import { assertCommunityMessengerWebRtcSecureContext } from "@/lib/community-messenger/media-errors";
 import { ensureOutgoingCallMediaPermission } from "@/lib/community-messenger/call-media-permission-preflight";
-import { logCallTerminal } from "@/lib/community-messenger/call-terminal-audit";
+import { logCall } from "@/lib/call/call-log";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import {
   closePrimedWebAudioCallToneContext,
@@ -491,12 +491,12 @@ export async function cleanupCommunityMessengerAgoraCallResources(input: {
   closePrimedWebAudioCallToneContext();
 
   if (client) {
-    logCallTerminal("leave_start", { source: "cleanupCommunityMessengerAgoraCallResources" });
+    logCall("agora", "leave_start", { source: "cleanupCommunityMessengerAgoraCallResources" });
     try {
       await client.leave();
-      logCallTerminal("leave_done", { source: "cleanupCommunityMessengerAgoraCallResources" });
+      logCall("agora", "leave_done", { source: "cleanupCommunityMessengerAgoraCallResources" });
     } catch {
-      logCallTerminal("leave_done", {
+      logCall("agora", "leave_done", {
         source: "cleanupCommunityMessengerAgoraCallResources",
         reason: "leave_error",
       });

@@ -1,5 +1,5 @@
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
-import { deriveCanonicalCallSessionViewForViewer } from "@/lib/call/call-state";
+import { deriveCanonicalCallSessionViewForViewer } from "@/lib/community-messenger/call-busy-policy";
 import type { MessengerCallKind, MessengerCallStatus } from "./useCallStore";
 import { useCallStore } from "./useCallStore";
 

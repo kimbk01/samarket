@@ -48,14 +48,14 @@ public class MainActivity extends BridgeActivity {
     return appVisible;
   }
 
-  /** FCM foreground — WebView call-v3 event (incoming_call must not be dropped). */
-  static void deliverCallV3IncomingCallEvent(IncomingCallPayload payload) {
+  /** FCM foreground — WebView call event (incoming_call must not be dropped). */
+  static void deliverCallIncomingEvent(IncomingCallPayload payload) {
     MainActivity act = activeInstance;
     if (act == null || payload == null || !payload.isValid()) return;
-    act.mainHandler.post(() -> act.injectCallV3IncomingEvent(payload));
+    act.mainHandler.post(() -> act.injectCallIncomingEvent(payload));
   }
 
-  private void injectCallV3IncomingEvent(IncomingCallPayload payload) {
+  private void injectCallIncomingEvent(IncomingCallPayload payload) {
     Bridge bridge = getBridge();
     if (bridge == null) return;
     WebView webView = bridge.getWebView();
@@ -67,7 +67,7 @@ public class MainActivity extends BridgeActivity {
     final String avatar = safeJs(payload.callerAvatarUrl);
     final String callType = safeJs(payload.callType);
     final String js =
-        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-v3-event',{detail:{type:'incoming_call',sessionId:'"
+        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'incoming_call',sessionId:'"
             + callId
             + "',roomId:'"
             + roomId
@@ -81,7 +81,7 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
-    Log.i(ROUTE_LOG_TAG, "[call-v3] foreground_incoming_event callId=" + payload.callId);
+    Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }
 
   private static String safeJs(String value) {
@@ -653,7 +653,7 @@ public class MainActivity extends BridgeActivity {
             + "}));"
             + acceptPendingJs
             + "}catch(e){}window.dispatchEvent(new CustomEvent('"
-            + (callRoute ? "dibay:call-v3-route" : "dibay:push-route")
+            + (callRoute ? "dibay:call-route" : "dibay:push-route")
             + "',{detail:{path:'"
             + jsPath
             + "',notificationId:'"

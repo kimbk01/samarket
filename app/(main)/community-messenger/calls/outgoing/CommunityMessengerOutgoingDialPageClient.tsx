@@ -4,9 +4,7 @@ import { useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
-import {
-  buildCommunityMessengerInstantOutgoingCallHref,
-} from "@/lib/community-messenger/call-session-navigation-seed";
+import { startFreshOutgoingCall } from "@/lib/call/call-navigation";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -30,10 +28,7 @@ function readOutgoingDialParamsFromLocation(): OutgoingDialParams {
   };
 }
 
-/**
- * 레거시 `/calls/outgoing` — 즉시 임시 세션이 붙은 `/calls/tmp_*` 로 치환한다.
- * 실제 세션 POST 는 `CommunityMessengerCallClient` 가 백그라운드에서 수행한다.
- */
+/** `/calls/outgoing` — query params로 fresh POST 발신 후 실제 session route로 replace */
 export function CommunityMessengerOutgoingDialPageClient() {
   const { t } = useI18n();
   const router = useRouter();
@@ -47,52 +42,51 @@ export function CommunityMessengerOutgoingDialPageClient() {
       return;
     }
     void (async () => {
-      const href = buildCommunityMessengerInstantOutgoingCallHref({
-        kind: p.kind,
-        roomId: p.roomId || undefined,
-        peerUserId: p.peerUserId || undefined,
-        peerLabel: p.peerLabelRaw || undefined,
-      });
       const primeResult = await primeOutgoingCallMediaBeforeNavigate(p.kind);
       if (!primeResult.ok) {
         setError(t(getCallMediaPermissionBlockedMessageKey(p.kind)));
         return;
       }
-      router.replace(href);
+      let roomId = p.roomId;
+      if (!roomId && p.peerUserId) {
+        const res = await fetch("/api/community-messenger/rooms/direct", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ peerUserId: p.peerUserId }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean; roomId?: string; error?: string };
+        if (!res.ok || !json.ok || !json.roomId?.trim()) {
+          if (redirectForBlockedAction(router, json.error, pathname)) return;
+          setError(t("cm_ui_network_error_could_not_start_call"));
+          return;
+        }
+        roomId = json.roomId.trim();
+      }
+      const result = await startFreshOutgoingCall({
+        roomId,
+        callKind: p.kind,
+        peerUserId: p.peerUserId || null,
+        peerLabel: p.peerLabelRaw || undefined,
+        router,
+      });
+      if (!result.ok) {
+        setError(result.userMessage ?? t("cm_ui_network_error_could_not_start_call"));
+      }
     })();
-  }, [router, t]);
+  }, [pathname, router, t]);
 
   if (error) {
     return (
-      <div className="flex min-h-[100dvh] flex-col items-center justify-center bg-[linear-gradient(180deg,#7b63ef_0%,#4a56d4_58%,#3a72d4_100%)] px-6 text-center">
-        <p className="sam-text-body text-white/95">{error}</p>
-        <button
-          type="button"
-          className="mt-6 rounded-ui-rect bg-white/15 px-5 py-2.5 sam-text-body font-medium text-white"
-          onClick={() => {
-            const next = pathname.trim() || "/community-messenger";
-            if (redirectForBlockedAction(router, undefined, next)) return;
-            router.back();
-          }}
-        >
-          {t("nav_back")}
-        </button>
+      <div className="flex min-h-[40vh] flex-col items-center justify-center px-6 text-center">
+        <p className="text-sam-fg sam-text-body">{error}</p>
       </div>
     );
   }
 
   return (
-    <div
-      className="flex min-h-[100dvh] flex-col items-center justify-center bg-[linear-gradient(180deg,#7b63ef_0%,#4a56d4_58%,#3a72d4_100%)] px-6"
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div
-        className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white"
-        aria-hidden
-      />
-      <p className="mt-6 text-center sam-text-body text-white/90">{t("cm_ui_moving_to_call_screen")}</p>
+    <div className="flex min-h-[40vh] flex-col items-center justify-center px-6 text-center">
+      <p className="text-sam-fg sam-text-body">{t("cm_ui_connecting")}</p>
     </div>
   );
 }

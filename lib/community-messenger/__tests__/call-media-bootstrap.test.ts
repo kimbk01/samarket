@@ -24,7 +24,7 @@ vi.mock("@/lib/community-messenger/call-media-permission-preflight", () => ({
   invalidateCallMediaPermissionCheckCache: vi.fn(),
 }));
 
-vi.mock("@/lib/call/permission-manager", () => ({
+vi.mock("@/lib/community-messenger/call-media-stream", () => ({
   acquirePrimedCommunityMessengerStream: acquirePrimedMock,
 }));
 

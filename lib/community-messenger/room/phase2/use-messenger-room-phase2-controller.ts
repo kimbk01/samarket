@@ -56,13 +56,7 @@ import { requireAuthAction } from "@/lib/auth/require-auth-action";
 import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/room/messenger-room-auth-blocked-redirect";
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
-import {
-  buildCommunityMessengerOutgoingDialHref,
-  rememberCallNavigationReturnPath,
-} from "@/lib/community-messenger/call-session-navigation-seed";
-import { executeOutgoingRedialFromTerminal } from "@/lib/community-messenger/outgoing-redial-handoff";
-import { logRedialPath } from "@/lib/community-messenger/legacy-call-debug";
-import { startOutgoingCallUnified } from "@/lib/call-v3/call-v3-outgoing-entry";
+import { rememberCallReturnPath, startFreshOutgoingCall } from "@/lib/call/call-navigation";
 import { cmCallLatencyInfo, cmCallLatencyMarkClick, setCmCallLatencyContext } from "@/lib/community-messenger/cm-call-debug";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
@@ -542,7 +536,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const openDirectCallPage = useCallback(
     (nextSessionId: string, action?: "accept") => {
-      rememberCallNavigationReturnPath();
+      rememberCallReturnPath();
       const suffix = action ? `?action=${encodeURIComponent(action)}` : "";
       const href = `/community-messenger/calls/${encodeURIComponent(nextSessionId)}${suffix}`;
       router.push(href);
@@ -583,7 +577,7 @@ export function useMessengerRoomPhase2Controller() {
         peerLabel: peerLabel ?? null,
       });
       setCmCallLatencyContext({ role: "initiator", callKind: kind, roomId: rid });
-      rememberCallNavigationReturnPath();
+      rememberCallReturnPath();
       unlockCommunityMessengerCallPlaybackFromUserGesture();
       cmCallLatencyInfo("outgoing_route_push_start", {
         roomId: rid,
@@ -592,10 +586,9 @@ export function useMessengerRoomPhase2Controller() {
         peerLabel: peerLabel ?? null,
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
-      logRedialPath("replay_button_click", { source: "room_managed_direct_call", kind });
-      void startOutgoingCallUnified({
-        kind,
-        roomId: rid || null,
+      void startFreshOutgoingCall({
+        callKind: kind,
+        roomId: rid,
         peerUserId,
         peerLabel: peerLabel ?? undefined,
         router,
@@ -1681,7 +1674,7 @@ export function useMessengerRoomPhase2Controller() {
         kind,
       });
       setCmCallLatencyContext({ role: "initiator", callKind: kind });
-      rememberCallNavigationReturnPath();
+      rememberCallReturnPath();
       unlockCommunityMessengerCallPlaybackFromUserGesture();
       cmCallLatencyInfo("outgoing_route_push_start", {
         peerUserId: peer,
@@ -1689,15 +1682,19 @@ export function useMessengerRoomPhase2Controller() {
         role: "initiator",
       });
       logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
-      const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer });
-      router.push(dialHref);
-      window.setTimeout(() => {
+      void startFreshOutgoingCall({
+        callKind: kind,
+        roomId: roomId.trim(),
+        peerUserId: peer,
+        peerLabel: peerLabelHint?.trim(),
+        router,
+      }).finally(() => {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
-      }, 0);
+      });
       return true;
     },
-    [router]
+    [router, roomId]
   );
 
   const removeGroupMember = useCallback(
@@ -1764,14 +1761,13 @@ export function useMessengerRoomPhase2Controller() {
       await startGroupCall(kind);
       return;
     }
-    logRedialPath("replay_button_click", { source: "call_stub_confirm", kind });
     setOutgoingDialLocked(true);
     try {
-      const result = await startOutgoingCallUnified({
-        roomId: roomId.trim() || null,
+      const result = await startFreshOutgoingCall({
+        roomId: roomId.trim(),
         peerUserId: snapshot?.room.peerUserId?.trim() ?? null,
         peerLabel: snapshot?.room.title?.trim(),
-        kind,
+        callKind: kind,
         router,
       });
       pendingStubCallKindRef.current = null;

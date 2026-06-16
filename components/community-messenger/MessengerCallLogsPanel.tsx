@@ -17,9 +17,7 @@ import {
   resolveCallLogStatusMessageKey,
   shouldShowCallLogDuration,
 } from "@/lib/community-messenger/call-log-row-copy";
-import { executeOutgoingRedialFromTerminal } from "@/lib/community-messenger/outgoing-redial-handoff";
-import { logRedialPath } from "@/lib/community-messenger/legacy-call-debug";
-import { startOutgoingCallUnified } from "@/lib/call-v3/call-v3-outgoing-entry";
+import { startFreshOutgoingCall } from "@/lib/call/call-navigation";
 import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
@@ -84,17 +82,18 @@ function CallLogRow({
   const handleRedial = useCallback(
     (event: MouseEvent | PointerEvent) => {
       event.stopPropagation();
-      logRedialPath("replay_button_click", { source: "call_logs_panel", kind: redialKind });
       if (!canRedial || redialingRef.current) return;
+      const roomId = call.roomId?.trim();
+      if (!roomId) return;
       redialingRef.current = true;
       setRedialing(true);
       void (async () => {
         try {
-          const result = await startOutgoingCallUnified({
-            roomId: call.roomId?.trim() ?? null,
+          const result = await startFreshOutgoingCall({
+            roomId,
             peerUserId: call.peerUserId?.trim() ?? null,
             peerLabel: name,
-            kind: redialKind,
+            callKind: redialKind,
             router,
           });
           if (!result.ok) {

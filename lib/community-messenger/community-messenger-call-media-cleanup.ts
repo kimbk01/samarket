@@ -6,7 +6,6 @@ import {
 import { stopCommunityMessengerCallFeedback, stopCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";
 import { suspendSharedNotificationAudioContextBestEffort } from "@/lib/notifications/play-notification-sound";
 import { cmCallAudioCleanup } from "@/lib/community-messenger/cm-call-debug";
-import { logCallTerminal } from "@/lib/community-messenger/call-terminal-audit";
 import { forceKillDetachedCommunityMessengerCallHtmlAudio } from "@/lib/community-messenger/call-feedback-sound";
 import { forceCloseEphemeralCallToneWebAudioContexts } from "@/lib/community-messenger/call-tone-web-audio";
 
@@ -102,17 +101,6 @@ export async function runCommunityMessengerCallMediaCleanup(args: {
     domAudioNuclear = false,
   } = args;
 
-  logCallTerminal("finalize_start", {
-    sessionId,
-    reason,
-    source: "runCommunityMessengerCallMediaCleanup",
-  });
-  logCallTerminal("cleanup_start", {
-    sessionId,
-    reason,
-    source: "runCommunityMessengerCallMediaCleanup",
-  });
-
   stopCommunityMessengerCallTone();
   stopCommunityMessengerCallFeedback();
 
@@ -154,15 +142,4 @@ export async function runCommunityMessengerCallMediaCleanup(args: {
       }
     }
   }
-
-  console.info("[cm-call-video] media_cleanup_done", {
-    reason,
-    sessionId: sessionId ?? undefined,
-    domAudioNuclear,
-  });
-  logCallTerminal("finalize_done", {
-    sessionId,
-    reason,
-    source: "runCommunityMessengerCallMediaCleanup",
-  });
 }

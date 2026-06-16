@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const patchCommunityMessengerCallSession = vi.fn();
 
-vi.mock("@/lib/call/call-actions", () => ({
+vi.mock("@/lib/community-messenger/call-http-actions", () => ({
   patchCommunityMessengerCallSession: (...args: unknown[]) => patchCommunityMessengerCallSession(...args),
 }));
 

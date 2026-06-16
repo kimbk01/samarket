@@ -5,7 +5,7 @@
 
 "use client";
 
-import { closeLocalIncomingCallNotification } from "@/lib/call/call-notification";
+import { closeLocalIncomingCallNotification } from "@/lib/community-messenger/call-browser-notification";
 
 export type MessengerCallPushKind = "incoming_call" | "missed_call" | "call_canceled";
 

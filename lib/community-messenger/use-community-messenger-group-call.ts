@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   discardPrimedCommunityMessengerDevicePermission,
 } from "@/lib/community-messenger/call-permission";
-import { migrateCommunityMessengerMediaSessionKey } from "@/lib/call/permission-manager";
+import { migrateCommunityMessengerMediaSessionKey } from "@/lib/community-messenger/call-media-stream";
 import {
   CommunityMessengerGroupAgoraSession,
   fetchGroupAgoraConnection,
@@ -31,7 +31,7 @@ import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-cal
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
-import { isTerminalIncomingCallStatus } from "@/lib/community-messenger/call-incoming-terminal";
+import { isTerminalIncomingCallStatus } from "@/lib/community-messenger/call-busy-policy";
 import type {
   CommunityMessengerCallKind,
   CommunityMessengerCallParticipant,

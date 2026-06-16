@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { runCommunityMessengerEntryMediaPreflight } from "@/lib/community-messenger/media-preflight";
 import { ensureCommunityMessengerAppAudioContext } from "@/lib/community-messenger/cm-app-audio-context";
-import { warmMessengerIceServers } from "@/lib/call/ice-servers";
+import { warmMessengerIceServers } from "@/lib/community-messenger/call-ice-servers";
 import {
   cancelScheduledWhenBrowserIdle,
   isConstrainedNetwork,

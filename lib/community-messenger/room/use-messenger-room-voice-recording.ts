@@ -23,7 +23,7 @@ import { measureCommunityMessengerVoiceBlobDurationSecondsWithTimeout } from "@/
 import { pickCommunityMessengerVoiceRecorderMime } from "@/lib/community-messenger/voice-recording";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { pickMessengerApiErrorField } from "@/lib/community-messenger/room/messenger-room-action-error-messages";
-import { getCommunityMessengerUserMedia } from "@/lib/call/permission-manager";
+import { getCommunityMessengerUserMedia } from "@/lib/community-messenger/call-media-stream";
 import { isDiBaYMicGateDeferredAbort } from "@/lib/permissions/dibay-mic-gate-messages";
 
 export type UseMessengerRoomVoiceRecordingParams = {

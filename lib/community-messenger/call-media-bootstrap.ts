@@ -10,7 +10,7 @@ import {
   ensureOutgoingCallMediaPermission,
   invalidateCallMediaPermissionCheckCache,
 } from "@/lib/community-messenger/call-media-permission-preflight";
-import { acquirePrimedCommunityMessengerStream } from "@/lib/call/permission-manager";
+import { acquirePrimedCommunityMessengerStream } from "@/lib/community-messenger/call-media-stream";
 
 export type CallMediaPrimeResult =
   | { ok: true }
