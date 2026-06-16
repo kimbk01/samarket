@@ -62,6 +62,16 @@ describe("incoming-call SSOT contract", () => {
     expect(global).not.toContain("onTerminal:");
   });
 
+  it("Global Phase5 routes realtime terminal and SW cancel through seal", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain('sealIncomingCallTerminal(sid, "cancelled", hard, "realtime_terminal")');
+    expect(global).toContain("samarket_messenger_call_canceled_wake");
+    expect(global).toContain('"sw_cancel_wake"');
+    expect(global).not.toMatch(
+      /if \(terminal\)[\s\S]{0,400}dibayIncomingLaneStopRing\("realtime_terminal"/
+    );
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');

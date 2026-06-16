@@ -1253,6 +1253,11 @@ export function GlobalCommunityMessengerIncomingCall() {
       if (d.type === "samarket_messenger_call_canceled_wake") {
         const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
         if (sid) {
+          sealFcmTerminalEvent(
+            { action: "terminal", callId: sid, terminalKind: "cancelled", fcmType: "call_canceled" },
+            hardClearedIncomingSessionsAtRef.current,
+            "sw_cancel_wake"
+          );
           const rowMatch = sessionsRef.current.find(
             (s) => s.id === sid || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sid)
           );
@@ -1267,7 +1272,8 @@ export function GlobalCommunityMessengerIncomingCall() {
                   status: "cancelled",
                 }
               : { sessionId: sid, status: "cancelled" },
-            "sw_cancel_wake"
+            "sw_cancel_wake",
+            { skipSeal: true }
           );
         }
         void refreshRef.current(true, { incomingTerminalListSync: true });
@@ -1483,11 +1489,20 @@ export function GlobalCommunityMessengerIncomingCall() {
                       ? String((p.old as Record<string, unknown>).id)
                       : "";
                 if (sid) {
-                  markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
+                  const hard = hardClearedIncomingSessionsAtRef.current;
+                  if (p.eventType === "DELETE") {
+                    sealIncomingCallTerminal(sid, "cancelled", hard, "realtime_terminal");
+                  } else if (!leftRinging && isTerminalIncomingCallStatus(nextStatus)) {
+                    sealIncomingCallTerminal(
+                      sid,
+                      mapTerminalStatusToConsumedReason(nextStatus),
+                      hard,
+                      "realtime_terminal"
+                    );
+                  }
                   suppressMissedSoundRef.current.add(sid);
                   activeIncomingCallIdsRef.current.delete(sid);
                 }
-                dibayIncomingLaneStopRing("realtime_terminal", sid || undefined);
                 if (realtimeDebounceTimerRef.current != null) {
                   window.clearTimeout(realtimeDebounceTimerRef.current);
                   realtimeDebounceTimerRef.current = null;
