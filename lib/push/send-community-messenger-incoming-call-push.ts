@@ -9,6 +9,9 @@ import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types
 import { DEFAULT_INCOMING_RING_TIMEOUT_SECONDS } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
 
+const INCOMING_CALL_FCM_TTL_MS = 60_000;
+const INCOMING_CALL_SERVER_EXPIRES_SECONDS = 90;
+
 function absolutizeLink(link: string | null | undefined): string | null {
   if (link == null || !String(link).trim()) return null;
   const s = String(link).trim();
@@ -21,7 +24,7 @@ function absolutizeLink(link: string | null | undefined): string | null {
 function computeExpiresAtIso(startedAt: string): string {
   const startMs = new Date(startedAt).getTime();
   const baseMs = Number.isFinite(startMs) ? startMs : Date.now();
-  return new Date(baseMs + DEFAULT_INCOMING_RING_TIMEOUT_SECONDS * 1000).toISOString();
+  return new Date(baseMs + INCOMING_CALL_SERVER_EXPIRES_SECONDS * 1000).toISOString();
 }
 
 export async function sendWebPushForCommunityMessengerIncomingCall(input: {
@@ -60,8 +63,12 @@ export async function sendWebPushForCommunityMessengerIncomingCall(input: {
       caller_name: input.callerDisplayName,
       ...(callerAvatar ? { caller_avatar: callerAvatar } : {}),
       kind: input.callKind,
+      call_kind: input.callKind,
+      media_type: input.callKind === "video" ? "video" : "audio",
       started_at: startedAt || new Date().toISOString(),
       expires_at: expiresAt,
+      ttl_ms: INCOMING_CALL_FCM_TTL_MS,
+      ring_timeout_seconds: DEFAULT_INCOMING_RING_TIMEOUT_SECONDS,
     },
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: new Date().toISOString(),

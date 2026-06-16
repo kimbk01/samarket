@@ -43,6 +43,12 @@ function resolveNotificationId(out: NotificationSideEffectPayloadOut, tag: strin
   return `${out.user_id}:${out.occurred_at}`;
 }
 
+function resolveTtlMs(meta: Record<string, unknown> | null): number {
+  const raw = meta ? Number(meta.ttl_ms ?? meta.ttlMs) : NaN;
+  if (Number.isFinite(raw) && raw >= 60_000 && raw <= 120_000) return Math.trunc(raw);
+  return 60_000;
+}
+
 export function resolveFcmPushType(
   out: NotificationSideEffectPayloadOut,
   opts?: DispatchPushOptions
@@ -115,7 +121,12 @@ export function buildFcmDataFields(
       if (sessionId) {
         appendCallFields(fields, meta, sessionId);
         fields.url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
+        fields.action = "incoming_call";
+        fields.dibay_call = "1";
         fields.call_push_kind = opts?.call_push_kind ?? "incoming_call";
+        fields.priority = "high";
+        fields.ttlMs = resolveTtlMs(meta);
+        fields.sentAt = new Date().toISOString();
         const callerId = meta ? trimText(meta.caller_id ?? meta.callerId) : "";
         const callerName = meta ? trimText(meta.caller_name ?? meta.callerName) : "";
         const callerAvatar = meta ? trimText(meta.caller_avatar ?? meta.callerAvatar) : "";
@@ -132,6 +143,7 @@ export function buildFcmDataFields(
         if (expiresAt) fields.expiresAt = expiresAt;
         if (callKind) {
           fields.callType = callKind === "video" ? "video" : "audio";
+          fields.mediaType = fields.callType;
           fields.kind = callKind;
         }
         fields.tag = `samarket-incoming-call-${sessionId}`;

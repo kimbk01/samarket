@@ -65,6 +65,80 @@ function deviceIdForDelivery(target: PushTarget): string | null {
   return target.source === "user_devices" ? target.id : null;
 }
 
+function tokenPrefix(target: PushTarget): string | null {
+  const token = String(target.push_token ?? "").trim();
+  if (!token) return null;
+  return `${token.slice(0, 8)}...${token.slice(-4)}`;
+}
+
+function callIdFromOutput(out: NotificationSideEffectPayloadOut): string | null {
+  const meta = out.meta && typeof out.meta === "object" ? (out.meta as Record<string, unknown>) : null;
+  const raw = meta?.session_id ?? meta?.sessionId ?? meta?.callId ?? null;
+  const value = typeof raw === "string" ? raw.trim() : "";
+  return value || null;
+}
+
+function baseDeliveryDiagnostics(target: PushTarget, out: NotificationSideEffectPayloadOut, opts?: DispatchPushOptions) {
+  const callId = callIdFromOutput(out);
+  const callPush = opts?.call_push_kind ?? null;
+  return {
+    target_source: target.source,
+    push_provider: target.push_provider,
+    tokenPrefix: tokenPrefix(target),
+    ...(callId ? { callId } : {}),
+    ...(callPush
+      ? {
+          payloadType: callPush,
+          priority: callPush === "incoming_call" ? "high" : undefined,
+          ttlMs: callPush === "incoming_call" ? 60_000 : undefined,
+        }
+      : {}),
+  };
+}
+
+function scheduleMissingNativeAckDiagnostic(args: {
+  svc: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>;
+  deliveryId: string;
+  callId: string;
+  recipientUserId: string;
+  sentAt: string;
+  tokenPrefix: string | null;
+}): void {
+  const timer = setTimeout(async () => {
+    const { data } = await args.svc
+      .from("notification_deliveries")
+      .select("provider_response")
+      .eq("id", args.deliveryId)
+      .maybeSingle();
+    const existing =
+      data?.provider_response && typeof data.provider_response === "object"
+        ? (data.provider_response as Record<string, unknown>)
+        : {};
+    if (existing.nativeAck) return;
+    await args.svc
+      .from("notification_deliveries")
+      .update({
+        provider_response: {
+          ...existing,
+          diagnostic: "push_delivery_diagnostic_missing_device_ack",
+          diagnosticLoggedAt: new Date().toISOString(),
+          noAckAfterMs: 10_000,
+          callId: args.callId,
+          recipientUserId: args.recipientUserId,
+          sentAt: args.sentAt,
+          tokenPrefix: args.tokenPrefix,
+        },
+      })
+      .eq("id", args.deliveryId);
+    console.warn("[DIBAY_CALL_PUSH] push_delivery_diagnostic_missing_device_ack", {
+      callId: args.callId,
+      recipientUserId: args.recipientUserId,
+      deliveryId: args.deliveryId,
+    });
+  }, 10_000);
+  (timer as unknown as { unref?: () => void }).unref?.();
+}
+
 async function auditDelivery(
   svc: NonNullable<ReturnType<typeof tryCreateSupabaseServiceClient>>,
   audits: DispatchDeliveryAudit[],
@@ -188,14 +262,14 @@ export async function dispatchPushForUser(
       target_type: opts?.target_type ?? null,
       target_id: opts?.target_id ?? null,
       status: "pending",
+      provider_response: baseDeliveryDiagnostics(target, out, opts),
     });
 
     const result = await sendToTarget(target, out, opts);
 
     const providerResponse = {
+      ...baseDeliveryDiagnostics(target, out, opts),
       ...(result.provider_response ?? {}),
-      target_source: target.source,
-      push_provider: target.push_provider,
       ...(result.error_message ? { error: result.error_message } : {}),
     };
 
@@ -236,6 +310,23 @@ export async function dispatchPushForUser(
       push_provider: target.push_provider,
       provider_response: providerResponse,
     });
+
+    const responseCallId = typeof providerResponse.callId === "string" ? providerResponse.callId : callIdFromOutput(out);
+    if (
+      result.status === "sent" &&
+      target.push_provider === "fcm" &&
+      opts?.call_push_kind === "incoming_call" &&
+      responseCallId
+    ) {
+      scheduleMissingNativeAckDiagnostic({
+        svc,
+        deliveryId,
+        callId: responseCallId,
+        recipientUserId: out.user_id,
+        sentAt: new Date().toISOString(),
+        tokenPrefix: tokenPrefix(target),
+      });
+    }
 
     if (shouldDeactivateTarget(result, target)) {
       const reason = result.provider_response?.gone === true ? "gone" : "failed";

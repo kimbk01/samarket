@@ -167,6 +167,67 @@ describe("incoming-call native contract", () => {
     );
   });
 
+  it("P0 native FCM receive logs priority, Doze grace, ringtone, route, and ack before WebView", () => {
+    const fcm = read("android/app/src/main/java/com/dibay/app/DibayFirebaseMessagingService.java");
+    expect(fcm).toContain("logIncomingReceived");
+    expect(fcm).toContain("resolveIncomingExpiry");
+    expect(fcm).toContain("IncomingCallPushAckHelper.sendAsync");
+    expect(fcm).toContain("IncomingCallRingOwner.start");
+    expect(fcm).toContain("ringtone_start_native");
+    expect(fcm).toContain("MainActivity.persistCallPendingRoute");
+
+    const log = read("android/app/src/main/java/com/dibay/app/DibayCallPushLog.java");
+    expect(log).toContain("[DIBAY_CALL_PUSH]");
+    expect(log).toContain("fcm_priority_check");
+    expect(log).toContain("doze_delivery_late_detected");
+    expect(log).toContain("incoming_expiry_grace_applied");
+  });
+
+  it("P0 notification fallback detects blocked channels, FSI, and Activity fallback", () => {
+    const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+    expect(notification).toContain("dibay_calls_incoming_v3");
+    expect(notification).toContain("notification_channel_blocked");
+    expect(notification).toContain("notification_permission_denied");
+    expect(notification).toContain("full_screen_intent_attached");
+    expect(notification).toContain("incoming_notification_posted");
+    expect(notification).toContain("incoming_activity_fallback_attempt");
+  });
+
+  it("P0 ringing foreground service and native store are cleared on terminal paths", () => {
+    const service = read("android/app/src/main/java/com/dibay/app/call/CallForegroundService.java");
+    expect(service).toContain("ACTION_START_RINGING");
+    expect(service).toContain("foreground_service_started_ringing");
+    expect(service).toContain("foreground_service_stopped_ringing");
+
+    const store = read("android/app/src/main/java/com/dibay/app/DibayIncomingCallNativeStore.java");
+    expect(store).toContain("active_incoming_store_set");
+    expect(store).toContain("active_incoming_store_clear");
+
+    const terminal = read("android/app/src/main/java/com/dibay/app/IncomingCallTerminalHandler.java");
+    expect(terminal).toContain("CallForegroundService.stopRinging");
+    expect(terminal).toContain("pending_route_discarded_terminal");
+  });
+
+  it("P0 server dispatch carries high-priority incoming call audit and native ack route", () => {
+    const payload = read("lib/push/dispatch/fcm-data-payload-contract.ts");
+    expect(payload).toContain('fields.action = "incoming_call"');
+    expect(payload).toContain("fields.mediaType");
+    expect(payload).toContain("fields.ttlMs");
+    expect(payload).toContain("fields.priority");
+
+    const sender = read("lib/push/dispatch/fcm-sender-impl.ts");
+    expect(sender).toContain('priority: "high"');
+    expect(sender).toContain("ttlMs");
+    expect(sender).toContain("providerMessageId");
+
+    const dispatch = read("lib/push/dispatch/dispatch-push-for-user.ts");
+    expect(dispatch).toContain("push_delivery_diagnostic_missing_device_ack");
+    expect(dispatch).toContain("nativeAck");
+
+    const ack = read("app/api/community-messenger/calls/[sessionId]/push-ack/route.ts");
+    expect(ack).toContain("nativeAckReceivedAt");
+  });
+
   it("notification uses DIBAY CallStyle, brand color, and system action icons in layouts", () => {
     const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
     expect(notification).toContain("IncomingCallUiCopy");

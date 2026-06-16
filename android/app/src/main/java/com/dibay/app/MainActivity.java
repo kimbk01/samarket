@@ -32,6 +32,11 @@ public class MainActivity extends BridgeActivity {
   public static final String PENDING_PATH_KEY = "pending_path";
   public static final String PENDING_NOTIFICATION_ID_KEY = "pending_notification_id";
   public static final String PENDING_AT_KEY = "pending_at";
+  public static final String PENDING_CALL_ID_KEY = "pending_call_id";
+  public static final String PENDING_ROOM_ID_KEY = "pending_room_id";
+  public static final String PENDING_MEDIA_TYPE_KEY = "pending_media_type";
+  public static final String PENDING_CALLER_NAME_KEY = "pending_caller_name";
+  public static final String PENDING_EXPIRES_AT_KEY = "pending_expires_at";
   private static final String LAST_ACCEPT_CALL_ID_KEY = "last_accept_call_id";
   private static final String LAST_ACCEPT_CALL_AT_KEY = "last_accept_call_at";
   private static final long PENDING_ROUTE_TTL_MS = 60_000L;
@@ -285,6 +290,11 @@ public class MainActivity extends BridgeActivity {
         .edit()
         .remove(PENDING_PATH_KEY)
         .remove(PENDING_AT_KEY)
+        .remove(PENDING_CALL_ID_KEY)
+        .remove(PENDING_ROOM_ID_KEY)
+        .remove(PENDING_MEDIA_TYPE_KEY)
+        .remove(PENDING_CALLER_NAME_KEY)
+        .remove(PENDING_EXPIRES_AT_KEY)
         .apply();
   }
 
@@ -302,15 +312,47 @@ public class MainActivity extends BridgeActivity {
     if (path == null || path.trim().isEmpty()) return out;
     out.putString(PENDING_PATH_KEY, path.trim());
     out.putLong(PENDING_AT_KEY, at);
+    copyStringPref(out, prefs, PENDING_CALL_ID_KEY);
+    copyStringPref(out, prefs, PENDING_ROOM_ID_KEY);
+    copyStringPref(out, prefs, PENDING_MEDIA_TYPE_KEY);
+    copyStringPref(out, prefs, PENDING_CALLER_NAME_KEY);
+    long expiresAt = prefs.getLong(PENDING_EXPIRES_AT_KEY, 0L);
+    if (expiresAt > 0L) out.putLong(PENDING_EXPIRES_AT_KEY, expiresAt);
     return out;
   }
 
   private void persistCallPendingRoute(String appPath) {
-    getSharedPreferences(CALL_ROUTE_PREFS, MODE_PRIVATE)
-        .edit()
-        .putString(PENDING_PATH_KEY, appPath)
-        .putLong(PENDING_AT_KEY, System.currentTimeMillis())
-        .apply();
+    persistCallPendingRoute(getApplicationContext(), appPath, null, 0L);
+  }
+
+  public static void persistCallPendingRoute(
+      android.content.Context context, String appPath, IncomingCallPayload payload, long effectiveExpiresAtMs) {
+    if (context == null || appPath == null || appPath.trim().isEmpty()) return;
+    SharedPreferences.Editor editor =
+        context
+            .getApplicationContext()
+            .getSharedPreferences(CALL_ROUTE_PREFS, android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString(PENDING_PATH_KEY, appPath.trim())
+            .putLong(PENDING_AT_KEY, System.currentTimeMillis());
+    if (payload != null && payload.isValid()) {
+      editor
+          .putString(PENDING_CALL_ID_KEY, payload.callId)
+          .putString(PENDING_ROOM_ID_KEY, payload.roomId)
+          .putString(PENDING_MEDIA_TYPE_KEY, payload.callType)
+          .putString(PENDING_CALLER_NAME_KEY, payload.callerName);
+    }
+    if (effectiveExpiresAtMs > 0L) {
+      editor.putLong(PENDING_EXPIRES_AT_KEY, effectiveExpiresAtMs);
+    }
+    editor.apply();
+    String callId = payload != null ? payload.callId : null;
+    DibayCallPushLog.info("pending_route_saved", callId, "path=" + appPath.trim());
+  }
+
+  private static void copyStringPref(android.os.Bundle out, SharedPreferences prefs, String key) {
+    String value = prefs.getString(key, null);
+    if (value != null && !value.trim().isEmpty()) out.putString(key, value.trim());
   }
 
   /** PushRouteListener consumed the persisted route — drop native backup. */
@@ -896,6 +938,9 @@ public class MainActivity extends BridgeActivity {
     pendingNotificationId = null;
     hideCallRouteLoadingOverlay();
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_consumed path=" + appPath);
+    if (callRoute) {
+      DibayCallPushLog.info("pending_route_consumed", acceptSessionId, "path=" + appPath);
+    }
     Log.i(ROUTE_LOG_TAG, "[push-route] webview_route_delivered path=" + appPath);
     return true;
   }

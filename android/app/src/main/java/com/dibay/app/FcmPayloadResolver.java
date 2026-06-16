@@ -58,7 +58,14 @@ public final class FcmPayloadResolver {
             data.get("callerAvatar"),
             data.get("caller_avatar"));
     String rawCallType =
-        firstNonEmpty(data.get("callType"), data.get("call_type"), data.get("kind"), data.get("callKind"), data.get("call_kind"));
+        firstNonEmpty(
+            data.get("callType"),
+            data.get("call_type"),
+            data.get("mediaType"),
+            data.get("media_type"),
+            data.get("kind"),
+            data.get("callKind"),
+            data.get("call_kind"));
     String callType = normalizeCallType(rawCallType);
     String expiresAt = firstNonEmpty(data.get("expiresAt"), data.get("expires_at"));
     String invalid = null;
@@ -238,5 +245,19 @@ final class IncomingCallPayload {
 
   boolean isValid() {
     return invalidReason == null && callId != null && roomId != null && callerId != null && callType != null;
+  }
+
+  IncomingCallPayload withExpiresAt(String nextExpiresAt) {
+    return new IncomingCallPayload(
+        callId,
+        roomId,
+        callerId,
+        callerName,
+        callerAvatarUrl,
+        callType,
+        nextExpiresAt != null ? nextExpiresAt : expiresAt,
+        title,
+        body,
+        invalidReason);
   }
 }

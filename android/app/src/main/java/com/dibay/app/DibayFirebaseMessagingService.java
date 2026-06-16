@@ -10,9 +10,14 @@ import android.net.Uri;
 import android.os.Build;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import com.dibay.app.call.CallForegroundService;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 
 /**
  * FCM 수신 — data-only 페이로드 → 채팅 알림(제목·본문) + 수신 통화(Full Screen).
@@ -62,7 +67,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     }
 
     if ("incoming_call".equals(type)) {
-      handleIncomingCall(data, title, body, appVisible);
+      handleIncomingCall(message, data, title, body, appVisible);
       return;
     }
 
@@ -81,13 +86,17 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     showMessageNotification(title, body, FcmPayloadResolver.resolveRouteUrl(data), data.get("tag"), data.get("notificationId"), type);
   }
 
-  private void handleIncomingCall(Map<String, String> data, String title, String body, boolean appVisible) {
+  private void handleIncomingCall(
+      RemoteMessage message, Map<String, String> data, String title, String body, boolean appVisible) {
+    long receivedAtMs = System.currentTimeMillis();
     IncomingCallPayload payload = FcmPayloadResolver.resolveIncomingCallPayload(data, title, body);
     if (!payload.isValid()) {
       Log.w(TAG, "[call-push] payload_invalid reason=" + payload.invalidReason);
       return;
     }
     String callId = payload.callId;
+    DibayCallPushLog.logIncomingReceived(this, message, data, payload, appVisible, receivedAtMs);
+    DibayCallPushLog.logPriorityCheck(message, data, callId);
 
     DibayCallLog.once("push_received", callId, "roomId=" + payload.roomId);
     Log.i(TAG, "[call-push] incoming_call_received callId=" + callId + " roomId=" + payload.roomId);
@@ -98,11 +107,30 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       return;
     }
 
-    if (FcmPayloadResolver.isExpired(data)) {
-      Log.i(TAG, "[incoming-call-native] expired_ignored callId=" + callId);
+    DibayCallPushLog.ExpiryDecision expiry =
+        DibayCallPushLog.resolveIncomingExpiry(this, data, payload, receivedAtMs);
+    IncomingCallPushAckHelper.sendAsync(this, payload, expiry, receivedAtMs);
+    if (expiry.expired) {
+      DibayCallPushLog.info(
+          "incoming_expired_ignored_server_terminal",
+          callId,
+          "serverExpiresAt="
+              + expiry.serverExpiresAtMs
+              + " effectiveExpiresAt="
+              + expiry.effectiveExpiresAtMs
+              + " receivedAt="
+              + receivedAtMs);
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
       return;
     }
+    if (expiry.effectiveExpiresAtMs > 0L) {
+      payload = payload.withExpiresAt(formatIsoUtc(expiry.effectiveExpiresAtMs));
+    }
+
+    String pendingRoute =
+        "/community-messenger/calls/" + Uri.encode(callId) + "?source=native_push";
+    DibayIncomingCallNativeStore.setRinging(this, payload, pendingRoute, expiry.effectiveExpiresAtMs);
+    MainActivity.persistCallPendingRoute(this, pendingRoute, payload, expiry.effectiveExpiresAtMs);
 
     if (DibayKeyguardHelper.isForegroundUnlockedInteractive(appVisible, this)) {
       Log.i(TAG, "[call-native] incoming_call_foreground_native_ui callId=" + callId);
@@ -122,6 +150,8 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             + " appVisible="
             + appVisible);
 
+    startNativeRinging(callId);
+    startRingingForegroundService(payload);
     IncomingCallNotificationBuilder.showIncomingCall(this, payload);
     IncomingCallActionCoordinator.scheduleMissedTimeout(this, payload);
 
@@ -147,6 +177,41 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
                 + fsiAllowed);
       }
     }
+  }
+
+  private void startNativeRinging(String callId) {
+    String active = IncomingCallRingOwner.getActiveCallId();
+    if (callId != null && callId.equals(active)) {
+      DibayCallPushLog.info("ringtone_skip_existing_owner", callId, "source=fcm");
+      return;
+    }
+    boolean started = IncomingCallRingOwner.start(this, callId);
+    if (started) {
+      DibayCallPushLog.info("ringtone_start_native", callId, "source=fcm");
+    } else {
+      DibayCallPushLog.info("ringtone_skip_existing_owner", callId, "source=fcm_start_rejected");
+    }
+  }
+
+  private void startRingingForegroundService(IncomingCallPayload payload) {
+    if (payload == null || !payload.isValid()) return;
+    try {
+      CallForegroundService.startRinging(this, payload.callId, payload.callType);
+    } catch (Exception error) {
+      DibayCallPushLog.warn(
+          "foreground_service_started_ringing",
+          payload.callId,
+          "ok=false err=" + error.getClass().getSimpleName());
+    }
+  }
+
+  private static String formatIsoUtc(long millis) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      return java.time.Instant.ofEpochMilli(millis).toString();
+    }
+    SimpleDateFormat iso = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
+    iso.setTimeZone(TimeZone.getTimeZone("UTC"));
+    return iso.format(new Date(millis));
   }
 
   private void handleMissedCallNotificationOnly(

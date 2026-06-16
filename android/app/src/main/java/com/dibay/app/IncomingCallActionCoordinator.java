@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import com.dibay.app.call.CallForegroundService;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -88,6 +89,9 @@ public final class IncomingCallActionCoordinator {
     Log.i(CALL_TAG, "[call-state] accept_pending_web callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "accepted");
     IncomingCallRingOwner.stop(context, sid);
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=accept");
+    CallForegroundService.stopRinging(context, sid, "accept");
+    DibayIncomingCallNativeStore.markState(context, sid, DibayIncomingCallNativeStore.STATE_CONNECTING);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     if (!shouldLaunchAcceptRoute(sid)) {
       Log.i(CALL_TAG, "[call-route] incoming_accept_launch_deduped callId=" + sid);
@@ -123,6 +127,9 @@ public final class IncomingCallActionCoordinator {
     DibayCallLog.once("call_end", sid, "source=native_reject");
     DibayCallConsumedStore.mark(context, sid, "declined");
     IncomingCallRingOwner.stop(context, sid);
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=reject");
+    CallForegroundService.stopRinging(context, sid, "reject");
+    DibayIncomingCallNativeStore.clear(context, sid, "reject");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     IncomingCallTerminalHandler.finishIncomingUiOnly(context, sid);
     Log.i("DIBAY_CALL", "[DIBAY_CALL] reject_patch_start callId=" + sid);
@@ -160,6 +167,9 @@ public final class IncomingCallActionCoordinator {
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
     DibayCallConsumedStore.mark(context, sid, "missed");
     IncomingCallRingOwner.stop(context, sid);
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=missed");
+    CallForegroundService.stopRinging(context, sid, "missed");
+    DibayIncomingCallNativeStore.clear(context, sid, "missed");
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {

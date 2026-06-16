@@ -14,6 +14,17 @@ export const NATIVE_DEVICE_PERMISSIONS_PLUGIN_ID = "NativeDevicePermissions";
 
 export type NativeDevicePermissionJsState = "granted" | "denied" | "prompt";
 
+export type AndroidCallReceiveSettings = {
+  notificationRuntimeGranted: boolean;
+  notificationsEnabled: boolean;
+  incomingChannelId: string;
+  incomingChannelImportance: number;
+  incomingChannelBlocked: boolean;
+  fullScreenIntentAllowed: boolean;
+  deviceIdleMode: boolean;
+  shouldShowCallReceiveGuide: boolean;
+};
+
 export type NativeDevicePermissionsPlugin = {
   checkPermission(options: { kind: DevicePermissionKind }): Promise<{ kind: DevicePermissionKind; state: NativeDevicePermissionJsState }>;
   requestPermission(options: { kind: DevicePermissionKind }): Promise<{ kind: DevicePermissionKind; state: NativeDevicePermissionJsState }>;
@@ -23,6 +34,7 @@ export type NativeDevicePermissionsPlugin = {
   openAppSettings(): Promise<{ opened: boolean }>;
   checkFullScreenIntent(): Promise<{ granted: boolean }>;
   openFullScreenIntentSettings(): Promise<{ opened: boolean }>;
+  checkCallReceiveSettings(): Promise<AndroidCallReceiveSettings>;
 };
 
 const NativeDevicePermissions = registerPlugin<NativeDevicePermissionsPlugin>(
@@ -30,7 +42,12 @@ const NativeDevicePermissions = registerPlugin<NativeDevicePermissionsPlugin>(
 );
 
 function invokeNativeDevicePermissionsPlugin<T>(
-  method: "checkPermission" | "requestPermission" | "requestCallMediaPermissions" | "openAppSettings",
+  method:
+    | "checkPermission"
+    | "requestPermission"
+    | "requestCallMediaPermissions"
+    | "openAppSettings"
+    | "checkCallReceiveSettings",
   options?: { kind?: DevicePermissionKind; callKind?: CommunityMessengerCallKind },
 ): Promise<T> {
   const cap = (typeof window !== "undefined" ? window : undefined) as Window & {
@@ -51,6 +68,9 @@ function invokeNativeDevicePermissionsPlugin<T>(
   }
   if (method === "openAppSettings") {
     return NativeDevicePermissions.openAppSettings() as Promise<T>;
+  }
+  if (method === "checkCallReceiveSettings") {
+    return NativeDevicePermissions.checkCallReceiveSettings() as Promise<T>;
   }
   throw new Error("Native device permissions bridge unavailable");
 }
@@ -121,6 +141,16 @@ export async function openAndroidNativeAppSettings(): Promise<boolean> {
     return Boolean(result.opened);
   } catch {
     return false;
+  }
+}
+
+export async function checkAndroidCallReceiveSettings(): Promise<AndroidCallReceiveSettings | null> {
+  if (!shouldUseAndroidNativeDevicePermissionBridge()) return null;
+  if (!(await ensureAndroidNativePermissionsBridgeReady())) return null;
+  try {
+    return await invokeNativeDevicePermissionsPlugin<AndroidCallReceiveSettings>("checkCallReceiveSettings");
+  } catch {
+    return null;
   }
 }
 

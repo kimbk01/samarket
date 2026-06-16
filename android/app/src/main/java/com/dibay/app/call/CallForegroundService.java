@@ -15,6 +15,8 @@ import android.util.Log;
 import androidx.core.app.NotificationCompat;
 import com.dibay.app.CallSessionPatchHelper;
 import com.dibay.app.DibayCallLog;
+import com.dibay.app.DibayCallPushLog;
+import com.dibay.app.DibayIncomingCallNativeStore;
 import com.dibay.app.IncomingCallNotificationBuilder;
 import com.dibay.app.R;
 import java.util.concurrent.atomic.AtomicReference;
@@ -24,6 +26,8 @@ public class CallForegroundService extends Service {
   public static final String ACTION_START = "com.dibay.app.call.ACTION_START";
   public static final String ACTION_END = "com.dibay.app.call.ACTION_END";
   public static final String ACTION_HEARTBEAT = "com.dibay.app.call.ACTION_HEARTBEAT";
+  public static final String ACTION_START_RINGING = "com.dibay.app.call.ACTION_START_RINGING";
+  public static final String ACTION_STOP_RINGING = "com.dibay.app.call.ACTION_STOP_RINGING";
   public static final String EXTRA_CALL_ID = "callId";
   public static final String EXTRA_CALL_KIND = "callKind";
   public static final String EXTRA_PHASE = "phase";
@@ -34,6 +38,7 @@ public class CallForegroundService extends Service {
   private static final long HEARTBEAT_TIMEOUT_MS = 35_000L;
   private static final AtomicReference<String> ACTIVE_CALL_ID = new AtomicReference<>(null);
   private static final AtomicReference<String> FOREGROUND_STARTED_FOR = new AtomicReference<>(null);
+  private static final AtomicReference<String> RINGING_FOREGROUND_FOR = new AtomicReference<>(null);
 
   private Handler heartbeatHandler;
   private Runnable heartbeatWatchdogRunnable;
@@ -65,6 +70,33 @@ public class CallForegroundService extends Service {
     } else {
       context.startService(intent);
     }
+  }
+
+  public static void startRinging(Context context, String callId, String callKind) {
+    if (context == null || callId == null || callId.trim().isEmpty()) return;
+    String sid = callId.trim();
+    if (sid.equals(RINGING_FOREGROUND_FOR.get())) {
+      DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true reused=true");
+      return;
+    }
+    Intent intent = new Intent(context, CallForegroundService.class);
+    intent.setAction(ACTION_START_RINGING);
+    intent.putExtra(EXTRA_CALL_ID, sid);
+    intent.putExtra(EXTRA_CALL_KIND, callKind != null ? callKind : "voice");
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      context.startForegroundService(intent);
+    } else {
+      context.startService(intent);
+    }
+  }
+
+  public static void stopRinging(Context context, String callId, String reason) {
+    if (context == null) return;
+    Intent intent = new Intent(context, CallForegroundService.class);
+    intent.setAction(ACTION_STOP_RINGING);
+    if (callId != null) intent.putExtra(EXTRA_CALL_ID, callId.trim());
+    intent.putExtra("reason", reason != null ? reason : "ringing_end");
+    context.startService(intent);
   }
 
   public static void heartbeat(Context context, String callId) {
@@ -114,6 +146,16 @@ public class CallForegroundService extends Service {
       return START_STICKY;
     }
 
+    if (ACTION_START_RINGING.equals(action)) {
+      startRingingForeground(callId, intent.getStringExtra(EXTRA_CALL_KIND));
+      return START_STICKY;
+    }
+
+    if (ACTION_STOP_RINGING.equals(action)) {
+      stopRingingForeground(callId, intent.getStringExtra("reason"));
+      return START_NOT_STICKY;
+    }
+
     if (ACTION_END.equals(action)) {
       endCallAndStop(callId, intent.getStringExtra("reason"));
       return START_NOT_STICKY;
@@ -125,6 +167,8 @@ public class CallForegroundService extends Service {
     }
     String sid = callId.trim();
     ACTIVE_CALL_ID.set(sid);
+    RINGING_FOREGROUND_FOR.set(null);
+    DibayIncomingCallNativeStore.markState(this, sid, DibayIncomingCallNativeStore.STATE_ACTIVE);
 
     String foregroundFor = FOREGROUND_STARTED_FOR.get();
     if (sid.equals(foregroundFor)) {
@@ -178,6 +222,7 @@ public class CallForegroundService extends Service {
     cancelHeartbeatWatchdog();
     String sid = ACTIVE_CALL_ID.getAndSet(null);
     FOREGROUND_STARTED_FOR.set(null);
+    RINGING_FOREGROUND_FOR.set(null);
     if (sid != null) {
       DibayCallLog.once("call_service_stop", sid, "source=onDestroy");
     }
@@ -231,11 +276,55 @@ public class CallForegroundService extends Service {
     }
     ACTIVE_CALL_ID.set(null);
     FOREGROUND_STARTED_FOR.set(null);
+    RINGING_FOREGROUND_FOR.set(null);
+    if (sid != null) {
+      DibayIncomingCallNativeStore.clear(this, sid, reason);
+    }
     stopForeground(true);
     stopSelf();
     if (sid != null) {
       DibayCallLog.once("call_service_stop", sid, "reason=" + reason);
     }
+  }
+
+  private void startRingingForeground(String callId, String kind) {
+    if (callId == null || callId.trim().isEmpty()) {
+      stopSelf();
+      return;
+    }
+    String sid = callId.trim();
+    ensureChannel();
+    String label = "video".equalsIgnoreCase(kind) ? "영상 통화 수신 중" : "음성 통화 수신 중";
+    Notification notification =
+        new NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("DIBAY 통화")
+            .setContentText(label)
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build();
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      startForeground(
+          NOTIFICATION_ID,
+          notification,
+          android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL);
+    } else {
+      startForeground(NOTIFICATION_ID, notification);
+    }
+    RINGING_FOREGROUND_FOR.set(sid);
+    DibayCallPushLog.info("foreground_service_started_ringing", sid, "ok=true phase=ringing");
+  }
+
+  private void stopRingingForeground(String callId, String reason) {
+    String sid = callId != null && !callId.trim().isEmpty() ? callId.trim() : RINGING_FOREGROUND_FOR.get();
+    if (sid == null || sid.isEmpty()) return;
+    if (!sid.equals(RINGING_FOREGROUND_FOR.get())) return;
+    RINGING_FOREGROUND_FOR.set(null);
+    stopForeground(true);
+    stopSelf();
+    DibayCallPushLog.info(
+        "foreground_service_stopped_ringing", sid, "reason=" + (reason != null ? reason : "unknown"));
   }
 
   private void ensureChannel() {

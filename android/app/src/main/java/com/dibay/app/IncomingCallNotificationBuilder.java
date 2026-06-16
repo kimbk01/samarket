@@ -17,6 +17,7 @@ import android.os.Looper;
 import android.provider.Settings;
 import android.util.Log;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.Person;
 import androidx.core.content.ContextCompat;
 import androidx.core.graphics.drawable.IconCompat;
@@ -28,8 +29,8 @@ import androidx.core.graphics.drawable.IconCompat;
  * notification actions plus optional full-screen intent bridge ({@link IncomingCallActivity}).
  */
 public final class IncomingCallNotificationBuilder {
-  /** Production channel — do not rename (OS channel settings are sticky). */
-  public static final String CHANNEL_ID = "dibay_incoming_calls_v2";
+  /** Production channel — versioned because OS channel importance is sticky per id. */
+  public static final String CHANNEL_ID = "dibay_calls_incoming_v3";
   /** Spec alias — same channel as {@link #CHANNEL_ID}. */
   public static final String CHANNEL_ID_ALIAS = "dibay_incoming_calls";
   public static final int INCOMING_CALL_NOTIFICATION_BASE_ID = 91001;
@@ -43,9 +44,13 @@ public final class IncomingCallNotificationBuilder {
     NotificationManager nm = context.getSystemService(NotificationManager.class);
     if (nm == null) return;
     NotificationChannel existing = nm.getNotificationChannel(CHANNEL_ID);
-    if (existing != null) return;
+    if (existing != null) {
+      DibayCallPushLog.info(
+          "notification_channel_checked", null, "channelId=" + CHANNEL_ID + " importance=" + existing.getImportance());
+      return;
+    }
     NotificationChannel channel =
-        new NotificationChannel(CHANNEL_ID, "수신 통화", NotificationManager.IMPORTANCE_HIGH);
+        new NotificationChannel(CHANNEL_ID, "수신 통화", NotificationManager.IMPORTANCE_MAX);
     channel.setDescription("수신 음성·영상 통화 (alias " + CHANNEL_ID_ALIAS + ")");
     channel.enableVibration(true);
     channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
@@ -59,12 +64,27 @@ public final class IncomingCallNotificationBuilder {
               .build());
     }
     nm.createNotificationChannel(channel);
+    DibayCallPushLog.info(
+        "notification_channel_created", null, "channelId=" + CHANNEL_ID + " importance=IMPORTANCE_MAX");
   }
 
   public static boolean canPostNotifications(Context context) {
+    if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return false;
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return true;
     return ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS)
         == PackageManager.PERMISSION_GRANTED;
+  }
+
+  public static int incomingChannelImportance(Context context) {
+    if (context == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return NotificationManager.IMPORTANCE_DEFAULT;
+    NotificationManager nm = context.getSystemService(NotificationManager.class);
+    NotificationChannel channel = nm != null ? nm.getNotificationChannel(CHANNEL_ID) : null;
+    return channel != null ? channel.getImportance() : NotificationManager.IMPORTANCE_UNSPECIFIED;
+  }
+
+  public static boolean isIncomingChannelBlocked(Context context) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return false;
+    return incomingChannelImportance(context) == NotificationManager.IMPORTANCE_NONE;
   }
 
   /** Android 14+ full-screen intent permission — required for lock-screen incoming bridge. */
@@ -139,13 +159,22 @@ public final class IncomingCallNotificationBuilder {
       return;
     }
 
-    boolean notificationAllowed = canPostNotifications(context);
+    ChannelDiagnostics diagnostics = inspectChannel(context, sid);
+    boolean notificationAllowed = diagnostics.notificationAllowed;
     if (!notificationAllowed) {
       Log.w(TAG, "[call-push] post_notifications_denied callId=" + sid);
+      DibayCallPushLog.warn("notification_permission_denied", sid, diagnostics.toLogString());
+    }
+    if (diagnostics.channelBlocked) {
+      DibayCallPushLog.warn("notification_channel_blocked", sid, diagnostics.toLogString());
     }
     boolean lockScreenBridge =
         DibayKeyguardHelper.isKeyguardLocked(context) || !DibayKeyguardHelper.isInteractive(context);
     boolean fsiAllowed = canPostFullScreenIntent(context);
+    DibayCallPushLog.info(
+        fsiAllowed ? "full_screen_intent_allowed" : "full_screen_intent_blocked",
+        sid,
+        "lockScreenBridge=" + lockScreenBridge);
     Log.i(
         TAG,
         "[call-push] lock_bridge="
@@ -176,10 +205,25 @@ public final class IncomingCallNotificationBuilder {
             fsiAllowed,
             firstIncoming);
     NotificationManager nm = (NotificationManager) app.getSystemService(Context.NOTIFICATION_SERVICE);
+    boolean posted = false;
     if (nm != null) {
-      nm.notify(notificationId, immediate);
-      DibayCallLog.once("notification_created", sid, "source=notification");
-      Log.i(TAG, "[call-notification] incoming_posted_immediate callId=" + sid + " first=" + firstIncoming);
+      try {
+        nm.notify(notificationId, immediate);
+        posted = true;
+        DibayCallLog.once("notification_created", sid, "source=notification");
+        DibayCallPushLog.info("incoming_notification_posted", sid, diagnostics.toLogString());
+        Log.i(TAG, "[call-notification] incoming_posted_immediate callId=" + sid + " first=" + firstIncoming);
+      } catch (Exception error) {
+        DibayCallPushLog.warn(
+            "incoming_notification_post_failed",
+            sid,
+            diagnostics.toLogString() + " err=" + error.getClass().getSimpleName());
+      }
+    } else {
+      DibayCallPushLog.warn("incoming_notification_post_failed", sid, "notificationManager=null");
+    }
+    if (!posted || !notificationAllowed || diagnostics.channelBlocked) {
+      launchActivityFallback(app, sid, roomId, callerId, callerNameFromPayload, callerAvatarUrl, callType, expiresAt, title, body);
     }
 
     String avatarUrl = callerAvatarUrl != null ? callerAvatarUrl.trim() : "";
@@ -313,6 +357,7 @@ public final class IncomingCallNotificationBuilder {
       builder.setFullScreenIntent(null, false);
       if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
         builder.setFullScreenIntent(fullScreenPi, true);
+        DibayCallPushLog.info("full_screen_intent_attached", sid, "api=call_style");
         Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
       } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
         Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
@@ -326,6 +371,7 @@ public final class IncomingCallNotificationBuilder {
               new NotificationCompat.Action.Builder(0, acceptLabel, acceptPi).build());
       if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
         builder.setFullScreenIntent(fullScreenPi, true);
+        DibayCallPushLog.info("full_screen_intent_attached", sid, "api=legacy_style");
         Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
       } else if (firstIncoming && lockScreenBridge && !fsiAllowed) {
         Log.w(TAG, "[call-notification] fsi_skipped_denied callId=" + sid);
@@ -346,5 +392,78 @@ public final class IncomingCallNotificationBuilder {
 
   public static void clearActiveIncomingCallId(String sessionId) {
     /* no-op — activeIncomingCallId gate removed */
+  }
+
+  private static ChannelDiagnostics inspectChannel(Context context, String callId) {
+    ensureChannel(context);
+    boolean notificationAllowed = canPostNotifications(context);
+    int importance = incomingChannelImportance(context);
+    boolean channelBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+        && importance == NotificationManager.IMPORTANCE_NONE;
+    DibayCallPushLog.info(
+        "notification_channel_checked",
+        callId,
+        "channelId=" + CHANNEL_ID + " importance=" + importance + " notificationsAllowed=" + notificationAllowed);
+    return new ChannelDiagnostics(notificationAllowed, channelBlocked, importance);
+  }
+
+  private static void launchActivityFallback(
+      Context context,
+      String sid,
+      String roomId,
+      String callerId,
+      String callerName,
+      String callerAvatarUrl,
+      String callType,
+      String expiresAt,
+      String title,
+      String body) {
+    DibayCallPushLog.info("incoming_activity_fallback_attempt", sid, "reason=notification_unavailable");
+    try {
+      IncomingCallPayload payload =
+          new IncomingCallPayload(
+              sid,
+              roomId,
+              callerId,
+              callerName,
+              callerAvatarUrl,
+              callType != null && "video".equalsIgnoreCase(callType) ? "video" : "audio",
+              expiresAt,
+              title,
+              body,
+              null);
+      Intent incomingUi = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, payload);
+      if (incomingUi == null) {
+        DibayCallPushLog.warn("incoming_activity_fallback_blocked", sid, "reason=invalid_intent");
+        return;
+      }
+      incomingUi.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+      context.startActivity(incomingUi);
+      DibayCallPushLog.info("incoming_activity_fallback_success", sid, "reason=notification_unavailable");
+    } catch (Exception error) {
+      DibayCallPushLog.warn(
+          "incoming_activity_fallback_blocked", sid, "err=" + error.getClass().getSimpleName());
+    }
+  }
+
+  private static final class ChannelDiagnostics {
+    final boolean notificationAllowed;
+    final boolean channelBlocked;
+    final int importance;
+
+    ChannelDiagnostics(boolean notificationAllowed, boolean channelBlocked, int importance) {
+      this.notificationAllowed = notificationAllowed;
+      this.channelBlocked = channelBlocked;
+      this.importance = importance;
+    }
+
+    String toLogString() {
+      return "notificationsAllowed="
+          + notificationAllowed
+          + " channelBlocked="
+          + channelBlocked
+          + " channelImportance="
+          + importance;
+    }
   }
 }

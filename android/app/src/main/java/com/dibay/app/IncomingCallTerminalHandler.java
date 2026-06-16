@@ -3,6 +3,7 @@ package com.dibay.app;
 import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
+import com.dibay.app.call.CallForegroundService;
 
 /**
  * Single entry for remote/local call terminal — cancel, reject, missed, ended.
@@ -27,11 +28,15 @@ public final class IncomingCallTerminalHandler {
     Log.i(TAG, "[DIBAY_CALL] terminal_tombstone_mark callId=" + sid + " reason=" + consumedReason);
     IncomingCallRingOwner.stop(app, sid);
     Log.i(TAG, "[DIBAY_CALL] ring_stop callId=" + sid + " source=terminal_handler");
+    DibayCallPushLog.info("ringtone_stop_native", sid, "reason=" + consumedReason + " source=terminal_handler");
+    CallForegroundService.stopRinging(app, sid, consumedReason);
+    DibayIncomingCallNativeStore.clear(app, sid, consumedReason);
 
     IncomingCallActionCoordinator.complete(sid, kind);
 
     MainActivity.clearPersistedPendingPushRoute(app);
     MainActivity.clearPersistedCallPendingRoute(app);
+    DibayCallPushLog.info("pending_route_discarded_terminal", sid, "kind=" + kind);
     MainActivity.clearNativeCalleeAcceptPending(app);
 
     broadcastFinishIncomingActivity(app, sid);

@@ -5,7 +5,9 @@ import android.app.NotificationManager;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.PowerManager;
 import android.provider.Settings;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSObject;
@@ -186,6 +188,33 @@ public class NativeDevicePermissionsPlugin extends Plugin {
     }
     NotificationManager nm = getContext().getSystemService(NotificationManager.class);
     result.put("granted", nm != null && nm.canUseFullScreenIntent());
+    call.resolve(result);
+  }
+
+  @PluginMethod
+  public void checkCallReceiveSettings(PluginCall call) {
+    JSObject result = new JSObject();
+    boolean notificationRuntimeGranted =
+        Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+        ContextCompat.checkSelfPermission(getContext(), Manifest.permission.POST_NOTIFICATIONS) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED;
+    boolean notificationsEnabled = NotificationManagerCompat.from(getContext()).areNotificationsEnabled();
+    int channelImportance = IncomingCallNotificationBuilder.incomingChannelImportance(getContext());
+    boolean channelBlocked = IncomingCallNotificationBuilder.isIncomingChannelBlocked(getContext());
+    boolean fsiAllowed = IncomingCallNotificationBuilder.canPostFullScreenIntent(getContext());
+    boolean idle = false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      PowerManager pm = getContext().getSystemService(PowerManager.class);
+      idle = pm != null && pm.isDeviceIdleMode();
+    }
+    result.put("notificationRuntimeGranted", notificationRuntimeGranted);
+    result.put("notificationsEnabled", notificationsEnabled);
+    result.put("incomingChannelId", IncomingCallNotificationBuilder.CHANNEL_ID);
+    result.put("incomingChannelImportance", channelImportance);
+    result.put("incomingChannelBlocked", channelBlocked);
+    result.put("fullScreenIntentAllowed", fsiAllowed);
+    result.put("deviceIdleMode", idle);
+    result.put("shouldShowCallReceiveGuide", !notificationRuntimeGranted || !notificationsEnabled || channelBlocked || !fsiAllowed);
     call.resolve(result);
   }
 

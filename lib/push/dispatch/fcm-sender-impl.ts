@@ -89,6 +89,18 @@ function stringifyData(data: Record<string, unknown>): Record<string, string> {
   return out;
 }
 
+function tokenPrefix(token: string): string {
+  const trimmed = token.trim();
+  if (!trimmed) return "";
+  return `${trimmed.slice(0, 8)}...${trimmed.slice(-4)}`;
+}
+
+function resolveTtlMs(data: Record<string, string>): number {
+  const raw = Number(data.ttlMs ?? data.ttl_ms);
+  if (Number.isFinite(raw) && raw >= 60_000 && raw <= 120_000) return Math.trunc(raw);
+  return 60_000;
+}
+
 export async function sendFcmMessageV1(input: {
   token: string;
   data: Record<string, unknown>;
@@ -130,32 +142,58 @@ export async function sendFcmMessageV1(input: {
         data: dataPayload,
         android: {
           priority: "high",
-        },
-      });
-      return {
-        status: "sent",
-        provider_response: { provider: "fcm", kind: "call_cancel_data", message_id: messageId },
-      };
-    }
-
-    if (input.isCall) {
-      const messageId = await messaging.send({
-        token: input.token,
-        data: stringifyData({
-          ...input.data,
-          dibay_call: "1",
-          call_push_kind: "incoming_call",
-          title: input.title,
-          body: input.body,
-        }),
-        android: {
-          priority: "high",
           ttl: 60_000,
         },
       });
       return {
         status: "sent",
-        provider_response: { provider: "fcm", kind: "call_data_only", message_id: messageId },
+        provider_response: {
+          provider: "fcm",
+          kind: "call_cancel_data",
+          providerMessageId: messageId,
+          message_id: messageId,
+          priority: "high",
+          ttlMs: 60_000,
+          tokenPrefix: tokenPrefix(input.token),
+          payloadType: "call_canceled",
+          callId: dataPayload.callId ?? dataPayload.sessionId ?? null,
+        },
+      };
+    }
+
+    if (input.isCall) {
+      const ttlMs = resolveTtlMs(dataPayload);
+      const messageId = await messaging.send({
+        token: input.token,
+        data: stringifyData({
+          ...input.data,
+          type: "incoming_call",
+          action: "incoming_call",
+          dibay_call: "1",
+          call_push_kind: "incoming_call",
+          priority: "high",
+          ttlMs,
+          title: input.title,
+          body: input.body,
+        }),
+        android: {
+          priority: "high",
+          ttl: ttlMs,
+        },
+      });
+      return {
+        status: "sent",
+        provider_response: {
+          provider: "fcm",
+          kind: "call_data_only",
+          providerMessageId: messageId,
+          message_id: messageId,
+          priority: "high",
+          ttlMs,
+          tokenPrefix: tokenPrefix(input.token),
+          payloadType: "incoming_call",
+          callId: dataPayload.callId ?? dataPayload.sessionId ?? null,
+        },
       };
     }
 
