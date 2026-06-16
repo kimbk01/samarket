@@ -2,6 +2,8 @@ export type IncomingCallSurface = "top-banner" | "system-notification";
 
 export type IncomingCallSurfaceDeviceKind = "mobile" | "tablet" | "desktop";
 
+const DEDICATED_CALL_ROUTE_SESSION_RE = /^\/community-messenger\/calls\/([^/?#]+)$/;
+
 export type ResolveIncomingCallSurfaceArgs = {
   visibilityState?: "visible" | "hidden" | "prerender" | "unloaded" | null;
   currentPathname?: string | null;
@@ -15,11 +17,51 @@ export type ResolveIncomingCallSurfaceArgs = {
   acceptInProgress?: boolean;
   /** 새로고침/복구가 active 통화 화면으로 되돌려야 하는 경우 */
   activeSessionRecovery?: boolean;
+  /** Global 배너·CallClient 중복 방지 — `/calls/:id` 와 일치할 때만 전용 라우트로 본다 */
+  incomingSessionId?: string | null;
 };
 
 export function isCommunityMessengerCallSurfacePath(pathname: string | null | undefined): boolean {
+  return extractCommunityMessengerCallRouteSessionId(pathname) != null;
+}
+
+/** `/community-messenger/calls/:sessionId` 의 sessionId. `outgoing` 등 비세션 경로는 null. */
+export function extractCommunityMessengerCallRouteSessionId(
+  pathname: string | null | undefined
+): string | null {
   const path = normalizePathname(pathname);
-  return /^\/community-messenger\/calls\/[^/]+$/.test(path) && path !== "/community-messenger/calls/outgoing";
+  const m = path.match(DEDICATED_CALL_ROUTE_SESSION_RE);
+  if (!m?.[1] || m[1] === "outgoing") return null;
+  try {
+    return decodeURIComponent(m[1]).trim() || null;
+  } catch {
+    return m[1].trim() || null;
+  }
+}
+
+/**
+ * 같은 callId 가 `/calls/:id` 에서 CallClient 와 Global 배너가 겹치지 않게 숨긴다.
+ * 다른 callId 수신이면 CallClient 가 담당하지 않으므로 Global UI 를 허용한다.
+ */
+export function shouldHideGlobalIncomingOverlayForSession(
+  pathname: string | null | undefined,
+  incomingSessionId: string | null | undefined
+): boolean {
+  const routeCallId = extractCommunityMessengerCallRouteSessionId(pathname);
+  const incomingId = incomingSessionId?.trim();
+  if (!routeCallId || !incomingId) return false;
+  return routeCallId === incomingId;
+}
+
+function isDedicatedCallRouteForIncomingSession(
+  pathname: string,
+  incomingSessionId?: string | null
+): boolean {
+  const routeCallId = extractCommunityMessengerCallRouteSessionId(pathname);
+  if (!routeCallId) return false;
+  const incomingId = incomingSessionId?.trim();
+  if (!incomingId) return true;
+  return routeCallId === incomingId;
 }
 
 export function isCommunityMessengerSurfacePath(pathname: string | null | undefined): boolean {
@@ -29,7 +71,8 @@ export function isCommunityMessengerSurfacePath(pathname: string | null | undefi
 
 export function resolveIncomingCallSurface(args: ResolveIncomingCallSurfaceArgs): IncomingCallSurface {
   const pathname = normalizePathname(args.currentPathname);
-  const isCallRoute = args.isCallRoute ?? isCommunityMessengerCallSurfacePath(pathname);
+  const isCallRoute =
+    args.isCallRoute ?? isDedicatedCallRouteForIncomingSession(pathname, args.incomingSessionId);
   const visibilityState = args.visibilityState ?? "visible";
   const sessionStatus = args.sessionStatus?.trim().toLowerCase() ?? "";
 

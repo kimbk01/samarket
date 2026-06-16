@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  extractCommunityMessengerCallRouteSessionId,
   isCommunityMessengerCallSurfacePath,
   resolveIncomingCallSurface,
+  shouldHideGlobalIncomingOverlayForSession,
   shouldRenderInternalIncomingCallUi,
   shouldUseIncomingCallBrowserNotification,
 } from "@/lib/community-messenger/incoming-call-surface";
+import { canShowIncoming } from "@/lib/community-messenger/call-state/call-terminal-tombstone";
 
 describe("incoming-call-surface", () => {
   it("uses top banner for foreground app surfaces outside the call route", () => {
@@ -31,17 +34,61 @@ describe("incoming-call-surface", () => {
     ).toBe("top-banner");
   });
 
-  it("uses full screen on dedicated call routes", () => {
+  it("uses full screen on dedicated call routes for the same incoming session", () => {
     expect(isCommunityMessengerCallSurfacePath("/community-messenger/calls/session-1")).toBe(true);
     expect(isCommunityMessengerCallSurfacePath("/community-messenger/calls/outgoing")).toBe(false);
+    expect(extractCommunityMessengerCallRouteSessionId("/community-messenger/calls/session-1")).toBe(
+      "session-1"
+    );
     expect(
       resolveIncomingCallSurface({
         visibilityState: "visible",
         currentPathname: "/community-messenger/calls/session-1",
         isAppForeground: true,
         sessionStatus: "ringing",
+        incomingSessionId: "session-1",
       })
     ).toBe("system-notification");
+  });
+
+  it("shows top banner on dedicated call route when incoming session differs from route", () => {
+    expect(
+      shouldHideGlobalIncomingOverlayForSession("/community-messenger/calls/session-1", "session-1")
+    ).toBe(true);
+    expect(
+      shouldHideGlobalIncomingOverlayForSession("/community-messenger/calls/session-1", "session-2")
+    ).toBe(false);
+    expect(
+      resolveIncomingCallSurface({
+        visibilityState: "visible",
+        currentPathname: "/community-messenger/calls/session-1",
+        isAppForeground: true,
+        sessionStatus: "ringing",
+        incomingSessionId: "session-2",
+      })
+    ).toBe("top-banner");
+  });
+
+  it("keeps messenger home incoming banner unchanged", () => {
+    expect(
+      resolveIncomingCallSurface({
+        visibilityState: "visible",
+        currentPathname: "/community-messenger",
+        isAppForeground: true,
+        sessionStatus: "ringing",
+        incomingSessionId: "session-2",
+      })
+    ).toBe("top-banner");
+    expect(
+      shouldHideGlobalIncomingOverlayForSession("/community-messenger", "session-2")
+    ).toBe(false);
+  });
+
+  it("does not change tombstone gate for consumed call ids", () => {
+    const hardClearedAt = new Map<string, number>([["session-ended", Date.now()]]);
+    const ctx = { hardClearedAt };
+    expect(canShowIncoming("session-ended", ctx)).toBe(false);
+    expect(canShowIncoming("session-new", ctx)).toBe(true);
   });
 
   it("does not mount Global incoming UI while accepting or recovering an active session", () => {

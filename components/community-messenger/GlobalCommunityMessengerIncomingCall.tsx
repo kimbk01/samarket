@@ -96,6 +96,7 @@ import {
 } from "@/lib/community-messenger/incoming-call-realtime-preview";
 import {
   resolveIncomingCallSurface,
+  shouldHideGlobalIncomingOverlayForSession,
   shouldRenderInternalIncomingCallUi,
   shouldUseIncomingCallBrowserNotification,
   type IncomingCallSurface,
@@ -1712,12 +1713,6 @@ export function GlobalCommunityMessengerIncomingCall() {
     prevIncomingRingingIdsRef.current = current;
   }, [sessions, userId, incomingCallSoundEnabled]);
 
-  /**
-   * 전용 통화 라우트(`/calls/*`)에서는 풀페이지 `CallClient` 만 쓴다.
-   * 전역 수신 오버레이를 겹쳐 띄우면 수락 직후 「벨 화면 + 통화 화면」이 동시에 보인다.
-   */
-  const hideGlobalIncomingOverlay =
-    typeof pathname === "string" && pathname.startsWith("/community-messenger/calls/");
   /** 오버레이는 `ringing` 직통 수신만 — `active` 만 다른 라이브 통화로 본다 (stale `ringing` 이 연속 수신·벨을 막지 않게). */
   const viewerLiveSessionId = useMemo(() => {
     const uid = userId?.trim();
@@ -1757,8 +1752,13 @@ export function GlobalCommunityMessengerIncomingCall() {
   const { isLeader: incomingTabLeaderRaw } = useIncomingCallTabLeader(Boolean(userId));
   const incomingTabLeader = isCapacitorNativePlatform() ? true : incomingTabLeaderRaw;
   /** 수신 링 UI — room bootstrap·GET 보강을 기다리지 않음(배너 설정과 무관하게 직통 ringing 은 표시). */
-  const visibleSession =
-    hideGlobalIncomingOverlay || !incomingTabLeader ? null : firstRingingCalleeSession;
+  const visibleSession = useMemo(() => {
+    if (!incomingTabLeader || !firstRingingCalleeSession) return null;
+    if (shouldHideGlobalIncomingOverlayForSession(pathname, firstRingingCalleeSession.id)) {
+      return null;
+    }
+    return firstRingingCalleeSession;
+  }, [firstRingingCalleeSession, incomingTabLeader, pathname]);
   const visibleSessionId = visibleSession?.id ?? null;
   const incomingSurface: IncomingCallSurface | null = visibleSession
     ? resolveIncomingCallSurface({
@@ -1767,6 +1767,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         isAppForeground: incomingVisibilityState === "visible",
         sessionStatus: visibleSession.status,
         callKind: visibleSession.callKind,
+        incomingSessionId: visibleSession.id,
       })
     : null;
   const renderIncomingBanner = Boolean(
@@ -1778,10 +1779,9 @@ export function GlobalCommunityMessengerIncomingCall() {
 
   /** 수신 오버레이·알림 딥링크 진입 시 CallClient 첫 페인트용 시드 */
   useLayoutEffect(() => {
-    if (!visibleSession || hideGlobalIncomingOverlay) return;
-    if (!renderIncomingBanner) return;
+    if (!visibleSession || !renderIncomingBanner) return;
     primeCommunityMessengerCallNavigationSeed(visibleSession.id, visibleSession);
-  }, [hideGlobalIncomingOverlay, renderIncomingBanner, visibleSession]);
+  }, [renderIncomingBanner, visibleSession]);
 
   useLayoutEffect(() => {
     if (!visibleSessionId || !visibleSession || incomingSurface === "system-notification") return;
