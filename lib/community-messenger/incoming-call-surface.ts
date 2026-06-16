@@ -1,4 +1,4 @@
-export type IncomingCallSurface = "top-banner" | "full-screen" | "system-notification";
+export type IncomingCallSurface = "top-banner" | "system-notification";
 
 export type IncomingCallSurfaceDeviceKind = "mobile" | "tablet" | "desktop";
 

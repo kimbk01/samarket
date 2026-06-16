@@ -131,8 +131,12 @@ import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitor
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 import {
   INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS,
-  shouldRunIncomingCallBackupHttpPoll,
 } from "@/lib/layout/incoming-call-backup-poll-policy";
+import {
+  isIncomingCallWindowForeground,
+  readIncomingCallVisibilityState,
+  shouldRunIncomingCallBackupHttpRequest,
+} from "@/lib/community-messenger/incoming-call-ui-policy";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { mergeIncomingCallSessionsAfterFetch } from "@/lib/community-messenger/incoming-call-sessions-merge";
@@ -141,6 +145,13 @@ import {
   installDibayFcmCallBridge,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
+import {
+  filterIncomingSessionsRespectingDismissed,
+  filterIncomingSessionsRespectingHardClear,
+  isIncomingSessionHardCleared,
+  pruneHardClearedIncomingSessionIds,
+  INCOMING_REMOTE_HARD_CLEAR_KEEP_MS,
+} from "@/lib/community-messenger/incoming-call-state";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -150,13 +161,11 @@ const INCOMING_CALL_POLL_FALLBACK_VISIBLE_MS = 2_500;
 const INCOMING_CALL_POLL_LOG_MIN_GAP_MS = 10_000;
 const INCOMING_CALL_POLL_ERROR_LOG_MIN_GAP_MS = 15_000;
 
-/** 사용자가 거절한 세션을 merge·Realtime 이 다시 살리지 못하게 함 */
-const INCOMING_USER_DISMISSED_KEEP_MS = 120_000;
 /**
  * 발신 취소·hangup 직후 GET/폴링이 `ringing` 스냅샷을 한 번 더 주는 레이스에서
  * 수신 벨이 잠깐 멈췄다가 다시 울리는 현상을 막는다(서버는 이미 종료, 클라만 오래된 행을 본 경우).
  */
-const INCOMING_REMOTE_HARD_CLEAR_KEEP_MS = 120_000;
+// INCOMING_REMOTE_HARD_CLEAR_KEEP_MS moved to incoming-call-state
 
 /** 터미널 직후 목록 GET: 쿨다운·진행 중 단일 비행을 우회해 stale 응답에 묶이지 않게 함 */
 type IncomingCallsRefreshOpts = {
@@ -166,48 +175,6 @@ type IncomingCallsRefreshOpts = {
   /** WS/broadcast 미수신 fallback — 주기적 HTTP polling tick */
   source?: "poll" | "realtime" | "burst" | "manual";
 };
-
-function pruneDismissedIncomingSessionIds(dismissedAtBySessionId: Map<string, number>) {
-  const now = Date.now();
-  for (const [id, at] of [...dismissedAtBySessionId.entries()]) {
-    if (now - at > INCOMING_USER_DISMISSED_KEEP_MS) dismissedAtBySessionId.delete(id);
-  }
-}
-
-function isUserDismissedIncomingSession(id: string, dismissedAtBySessionId: Map<string, number>, now: number): boolean {
-  const at = dismissedAtBySessionId.get(id);
-  return at != null && now - at <= INCOMING_USER_DISMISSED_KEEP_MS;
-}
-
-function filterIncomingSessionsRespectingDismissed(
-  list: CommunityMessengerCallSession[],
-  dismissedAtBySessionId: Map<string, number>
-): CommunityMessengerCallSession[] {
-  const now = Date.now();
-  pruneDismissedIncomingSessionIds(dismissedAtBySessionId);
-  return list.filter((s) => !isUserDismissedIncomingSession(s.id, dismissedAtBySessionId, now));
-}
-
-function pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId: Map<string, number>) {
-  const now = Date.now();
-  for (const [id, at] of [...hardClearedAtBySessionId.entries()]) {
-    if (now - at > INCOMING_REMOTE_HARD_CLEAR_KEEP_MS) hardClearedAtBySessionId.delete(id);
-  }
-}
-
-function isHardClearedIncomingSession(id: string, hardClearedAtBySessionId: Map<string, number>, now: number): boolean {
-  const at = hardClearedAtBySessionId.get(id);
-  return at != null && now - at <= INCOMING_REMOTE_HARD_CLEAR_KEEP_MS;
-}
-
-function filterIncomingSessionsRespectingHardClear(
-  list: CommunityMessengerCallSession[],
-  hardClearedAtBySessionId: Map<string, number>
-): CommunityMessengerCallSession[] {
-  const now = Date.now();
-  pruneHardClearedIncomingSessionIds(hardClearedAtBySessionId);
-  return list.filter((s) => !isHardClearedIncomingSession(s.id, hardClearedAtBySessionId, now));
-}
 
 function markIncomingCallHardClearedSession(hardClearedAtBySessionId: Map<string, number>, sessionId: string) {
   const sid = sessionId.trim();
@@ -231,36 +198,6 @@ function clearIncomingMissedTimer(
   if (!meta) return;
   window.clearTimeout(meta.timerId);
   scheduleRef.current.delete(sid);
-}
-
-function isIncomingCallWindowForeground(): boolean {
-  if (typeof document === "undefined") return true;
-  if (document.visibilityState !== "visible" || document.hidden) return false;
-  return typeof document.hasFocus === "function" ? document.hasFocus() : true;
-}
-
-function readIncomingCallVisibilityState(): "visible" | "hidden" | "prerender" | "unloaded" {
-  if (typeof document === "undefined") return "visible";
-  const state = String(document.visibilityState);
-  return state === "visible" || state === "hidden" || state === "prerender" || state === "unloaded"
-    ? state
-    : document.hidden
-      ? "hidden"
-      : "visible";
-}
-
-function shouldRunIncomingCallBackupHttpRequest(args: {
-  pathname: string | null;
-  hasRingingDirectCallee: boolean;
-  realtimeOk: boolean;
-}): boolean {
-  if (!shouldRunIncomingCallBackupHttpPoll(args.pathname, args.hasRingingDirectCallee)) return false;
-  /** ringing 중에는 탭이 숨겨져 있어도 취소/상태 동기화를 위해 HTTP 백업을 허용한다. */
-  if (args.hasRingingDirectCallee) return true;
-  if (!isIncomingCallWindowForeground()) return false;
-  /** Realtime·Broadcast·SW 로 목록이 갱신되면 2.4s 백업 GET 은 중단. */
-  if (args.realtimeOk) return false;
-  return true;
 }
 
 export function GlobalCommunityMessengerIncomingCall() {
@@ -1042,7 +979,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         const sid = typeof payload.sessionId === "string" ? payload.sessionId.trim() : "";
         const now = Date.now();
         pruneHardClearedIncomingSessionIds(hardClearedIncomingSessionsAtRef.current);
-        if (sid && isHardClearedIncomingSession(sid, hardClearedIncomingSessionsAtRef.current, now)) return;
+        if (sid && isIncomingSessionHardCleared(sid, hardClearedIncomingSessionsAtRef.current, now)) return;
         if (sid) {
           cmCallIncomingTraceMergeFromStorage(sid);
           cmCallIncomingTracePatch(sid, { receiver_signal_received_ms: now }, { onlyIfUnset: true });
@@ -1774,28 +1711,20 @@ export function GlobalCommunityMessengerIncomingCall() {
         const groupUrl = `/community-messenger/rooms/${encodeURIComponent(session.roomId)}?callAction=accept&sessionId=${encodeURIComponent(session.id)}`;
         void (async () => {
           try {
-            const permission = await ensureCallMediaForUserGesture(session.callKind);
-            if (!permission.ok) {
-              releaseIncomingCallAccept(session.id);
-              showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), {
-                variant: "error",
-              });
-              return;
-            }
-            const patchJson = await patchCommunityMessengerCallSession(
-              session.id,
-              "accept",
-              undefined,
-              {
-                sessionStatus: session.status,
-                isInitiator: session.isMineInitiator,
-                endedReason: session.endedReason ?? null,
+            const result = await runIncomingCallAccept({
+              session,
+              router,
+              source: "incoming_banner_accept",
+              hrefOverride: groupUrl,
+              markNativeAcceptPending: false,
+            });
+            if (!result.ok) {
+              if (result.reason === "permission_denied") {
+                showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(session.callKind)), { variant: "error" });
+              } else {
+                await refresh(true, { bypassDevSafeIncomingThrottle: true });
+                showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
               }
-            );
-            if (!patchJson.ok || !patchJson.session) {
-              releaseIncomingCallAccept(session.id);
-              await refresh(true, { bypassDevSafeIncomingThrottle: true });
-              showMessengerSnackbar(MESSENGER_CALL_USER_MSG.sessionActionFailed, { variant: "error" });
               return;
             }
             logCallFlow("call_accept_sent", { sessionId: session.id, mode: "group" });
@@ -1807,7 +1736,6 @@ export function GlobalCommunityMessengerIncomingCall() {
             markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
             suppressMissedSoundRef.current.add(session.id);
             logCallFlow("call_navigate_to_call_screen", { sessionId: session.id, source: "global_group_accept" });
-            router.replace(groupUrl);
             void refresh(true, { bypassDevSafeIncomingThrottle: true });
           } finally {
             setBusyId(null);

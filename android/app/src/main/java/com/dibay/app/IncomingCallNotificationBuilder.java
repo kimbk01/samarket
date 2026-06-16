@@ -160,17 +160,6 @@ public final class IncomingCallNotificationBuilder {
       flags |= PendingIntent.FLAG_IMMUTABLE;
     }
 
-    Intent accept = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
-    if (accept != null) {
-      accept.setAction(IncomingCallActivity.ACTION_ACCEPT);
-    } else {
-      accept = new Intent(context, IncomingCallActivity.class);
-      accept.setAction(IncomingCallActivity.ACTION_ACCEPT);
-      accept.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
-      accept.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-    }
-    PendingIntent acceptPi = PendingIntent.getActivity(context, sid.hashCode() + 2, accept, flags);
-
     IncomingCallPayload fsiPayload =
         new IncomingCallPayload(
             sid,
@@ -183,6 +172,17 @@ public final class IncomingCallNotificationBuilder {
             title,
             body,
             null);
+
+    Intent accept = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
+    if (accept != null) {
+      accept.setAction(IncomingCallActivity.ACTION_ACCEPT);
+    } else {
+      accept = new Intent(context, IncomingCallActivity.class);
+      accept.setAction(IncomingCallActivity.ACTION_ACCEPT);
+      accept.putExtra(IncomingCallActivity.EXTRA_CALL_ID, sid);
+      accept.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    }
+    PendingIntent acceptPi = PendingIntent.getActivity(context, sid.hashCode() + 2, accept, flags);
     Intent content = IncomingCallIntentHelper.buildIncomingCallActivityIntent(context, fsiPayload);
     if (content == null) {
       content = IncomingCallIntentHelper.buildMainActivityLauncherIntent(context);

@@ -26,6 +26,10 @@ export type IncomingCallGatewayRouter = {
 export type RunIncomingCallAcceptArgs = {
   session: CommunityMessengerCallSession;
   router: IncomingCallGatewayRouter;
+  /** 기본: `/calls/:id?action=accept&nativeAccept=1` */
+  hrefOverride?: string;
+  /** 기본: true (call route 진입 전용) */
+  markNativeAcceptPending?: boolean;
   source:
     | "incoming_banner_accept"
     | "incoming_banner_expand"
@@ -96,10 +100,14 @@ export async function runIncomingCallAccept(args: RunIncomingCallAcceptArgs): Pr
       return { ok: false, sessionId: sid, reason: "patch_failed" };
     }
 
-    markNativeCalleeAcceptPending(sid);
+    if (args.markNativeAcceptPending ?? true) {
+      markNativeCalleeAcceptPending(sid);
+    }
     logDibayCall("accept_success", { sessionId: sid, source: args.source });
 
-    const href = `/community-messenger/calls/${encodeURIComponent(sid)}?action=accept&nativeAccept=1`;
+    const href =
+      (args.hrefOverride?.trim() || "") ||
+      `/community-messenger/calls/${encodeURIComponent(sid)}?action=accept&nativeAccept=1`;
     logDibayCall("call_route_open_start", { sessionId: sid, href, source: args.source });
     args.router.replace(href);
     logDibayCall("call_route_open_done", { sessionId: sid, href, source: args.source });
