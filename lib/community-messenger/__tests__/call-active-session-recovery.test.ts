@@ -9,14 +9,20 @@ import {
 } from "@/lib/community-messenger/call-active-session-recovery";
 
 describe("call-active-session-recovery", () => {
-  it("recovers only active direct sessions", () => {
+  it("recovers live direct sessions (ringing|active)", () => {
     expect(
       resolveActiveCallRecoveryTarget(
         { id: "s1", status: "active", sessionMode: "direct" },
         "/community-messenger"
       )
     ).toBe("s1");
-    expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "ringing" }, "/market")).toBeNull();
+    expect(
+      resolveActiveCallRecoveryTarget(
+        { id: "s1", status: "ringing", sessionMode: "direct" },
+        "/market"
+      )
+    ).toBe("s1");
+    expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "ringing", sessionMode: "group" }, "/")).toBeNull();
     expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "active", sessionMode: "group" }, "/")).toBeNull();
     expect(resolveActiveCallRecoveryTarget({ id: "s1", status: "active" }, "/community-messenger/calls/s1")).toBeNull();
   });
