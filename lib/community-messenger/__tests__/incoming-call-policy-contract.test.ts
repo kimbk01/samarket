@@ -16,7 +16,10 @@ describe("incoming-call policy contracts", () => {
 
   it("foreground incoming UI is banner-only (no legacy overlay, no native_auto_fullscreen)", () => {
     const src = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
-    expect(src).toContain("IncomingCallBanner");
+    const host = read("components/community-messenger/ForegroundIncomingCallHost.tsx");
+    expect(src).toContain("ForegroundIncomingCallHost");
+    expect(src).toContain("resolveForegroundIncomingPresentation");
+    expect(host).toContain("IncomingCallBanner");
     expect(src).not.toContain("CommunityMessengerIncomingCallOverlay");
     expect(src).not.toContain("native_auto_fullscreen");
     expect(src).not.toContain("router.replace(\"/community-messenger/calls/");
@@ -71,7 +74,7 @@ describe("incoming-call policy contracts", () => {
     const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
     expect(global).toContain("expandIncomingCall");
     expect(global).toContain("buildIncomingCallPreviewHref");
-    expect(global).toContain('onExpand={() => expandIncomingCall(visibleSession)}');
+    expect(global).toContain("onExpand={() => expandIncomingCall(bannerSession)}");
     expect(global).not.toMatch(/onExpand=\{[^}]*acceptCall/);
   });
 

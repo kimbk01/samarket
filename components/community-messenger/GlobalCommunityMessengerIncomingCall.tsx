@@ -76,7 +76,8 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
-import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
+import { ForegroundIncomingCallHost } from "@/components/community-messenger/ForegroundIncomingCallHost";
+import { resolveForegroundIncomingPresentation } from "@/lib/community-messenger/incoming-call/foreground-incoming-presenter";
 import { patchCommunityMessengerCallSession, postCommunityMessengerCallHangupSignal } from "@/lib/call/call-actions";
 import { patchCommunityMessengerCallMissedOnce } from "@/lib/community-messenger/messenger-call-missed-patch";
 import { evaluateIncomingCallBusyPolicy } from "@/lib/call/call-state";
@@ -102,12 +103,8 @@ import {
   communityMessengerIncomingSessionFromFcmWake,
 } from "@/lib/community-messenger/incoming-call-realtime-preview";
 import {
-  resolveIncomingCallSurface,
   resolveOverlayBusyLiveSessionId,
-  shouldHideGlobalIncomingOverlayForSession,
-  shouldRenderInternalIncomingCallUi,
   shouldUseIncomingCallBrowserNotification,
-  type IncomingCallSurface,
 } from "@/lib/community-messenger/incoming-call-surface";
 import { appendLocalCallChatMessageFromTerminalSession } from "@/lib/community-messenger/call-chat-local-append";
 import {
@@ -1742,89 +1739,58 @@ export function GlobalCommunityMessengerIncomingCall() {
   const inMessengerRoom =
     typeof pathname === "string" && pathname.startsWith("/community-messenger/rooms/");
 
-  const firstRingingCalleeSession = useMemo(() => {
-    const uid = userId?.trim();
-    if (!uid) return null;
-    const candidates: CommunityMessengerCallSession[] = [];
-    for (const s of sessions) {
-      if (s.status !== "ringing") continue;
-      if (s.endedAt || s.cancelledAt) continue;
-      if (!isRingingIncomingOverlayCandidate(s, uid)) continue;
-      const busy = evaluateIncomingCallBusyPolicy({
-        incoming: s,
-        otherLiveSessionId: resolveOverlayBusyLiveSessionId({
-          viewerLiveSessionId,
-          pathname,
-          incomingSessionId: s.id,
-        }),
-      });
-      if (busy.shouldAutoReject) continue;
-      candidates.push(s);
-    }
-    if (candidates.length === 0) return null;
-    for (const s of candidates) {
-      if (!shouldHideGlobalIncomingOverlayForSession(pathname, s.id)) return s;
-    }
-    return candidates[0];
-  }, [pathname, sessions, userId, viewerLiveSessionId]);
-
   const { isLeader: incomingTabLeaderRaw } = useIncomingCallTabLeader(Boolean(userId));
   const incomingTabLeader = isCapacitorNativePlatform() ? true : incomingTabLeaderRaw;
-  /** 수신 링 UI — room bootstrap·GET 보강을 기다리지 않음(배너 설정과 무관하게 직통 ringing 은 표시). */
-  const visibleSession = useMemo(() => {
-    if (!incomingTabLeader || !firstRingingCalleeSession) return null;
-    if (shouldHideGlobalIncomingOverlayForSession(pathname, firstRingingCalleeSession.id)) {
-      return null;
-    }
-    return firstRingingCalleeSession;
-  }, [firstRingingCalleeSession, incomingTabLeader, pathname]);
-  const visibleSessionId = visibleSession?.id ?? null;
-  const incomingSurface: IncomingCallSurface | null = visibleSession
-    ? resolveIncomingCallSurface({
+
+  const foregroundPresentation = useMemo(
+    () =>
+      resolveForegroundIncomingPresentation({
+        sessions,
+        pathname,
+        viewerUserId: userId,
+        viewerLiveSessionId,
+        tombstone: buildCallTombstoneContext(hardClearedIncomingSessionsAtRef.current),
+        incomingTabLeader,
         visibilityState: incomingVisibilityState,
-        currentPathname: pathname,
         isAppForeground: incomingVisibilityState === "visible",
-        sessionStatus: visibleSession.status,
-        callKind: visibleSession.callKind,
-        incomingSessionId: visibleSession.id,
-      })
-    : null;
-  const renderIncomingBanner = Boolean(
-    visibleSession && incomingSurface === "top-banner"
+      }),
+    [incomingTabLeader, incomingVisibilityState, pathname, sessions, userId, viewerLiveSessionId]
   );
-  const nativeIncomingSession =
-    visibleSession && shouldRenderInternalIncomingCallUi(incomingSurface) ? visibleSession : null;
+
+  const bannerSession = foregroundPresentation.shouldRender ? foregroundPresentation.session : null;
+  const bannerSessionId = bannerSession?.id ?? null;
+  const nativeIncomingSession = bannerSession;
   const incomingUiSurfaceLoggedRef = useRef<Set<string>>(new Set());
 
   /** 수신 오버레이·알림 딥링크 진입 시 CallClient 첫 페인트용 시드 */
   useLayoutEffect(() => {
-    if (!visibleSession || !renderIncomingBanner) return;
-    primeCommunityMessengerCallNavigationSeed(visibleSession.id, visibleSession);
-  }, [renderIncomingBanner, visibleSession]);
+    if (!bannerSession) return;
+    primeCommunityMessengerCallNavigationSeed(bannerSession.id, bannerSession);
+  }, [bannerSession]);
 
   useLayoutEffect(() => {
-    if (!visibleSessionId || !visibleSession || incomingSurface === "system-notification") return;
+    if (!bannerSessionId || !bannerSession) return;
     const hasMinimal =
-      Boolean(visibleSession.peerUserId?.trim()) &&
-      (visibleSession.callKind === "voice" || visibleSession.callKind === "video") &&
-      Boolean(visibleSession.id?.trim());
+      Boolean(bannerSession.peerUserId?.trim()) &&
+      (bannerSession.callKind === "voice" || bannerSession.callKind === "video") &&
+      Boolean(bannerSession.id?.trim());
     if (!hasMinimal) return;
-    if (incomingUiSurfaceLoggedRef.current.has(visibleSessionId)) return;
-    incomingUiSurfaceLoggedRef.current.add(visibleSessionId);
-    cmCallIncomingTraceMergeFromStorage(visibleSessionId);
-    cmCallIncomingTracePatch(visibleSessionId, { receiver_incoming_ui_open_ms: Date.now() });
-    cmCallIncomingTraceRegisterRingingRoom(visibleSessionId, visibleSession.roomId);
-    cmCallFlow("incoming_received", { sessionId: visibleSessionId });
-    logDibayCall("incoming_render", { sessionId: visibleSessionId, surface: incomingSurface });
-    cmCallIncomingTraceLogTable(visibleSessionId);
-  }, [incomingSurface, visibleSession, visibleSessionId]);
+    if (incomingUiSurfaceLoggedRef.current.has(bannerSessionId)) return;
+    incomingUiSurfaceLoggedRef.current.add(bannerSessionId);
+    cmCallIncomingTraceMergeFromStorage(bannerSessionId);
+    cmCallIncomingTracePatch(bannerSessionId, { receiver_incoming_ui_open_ms: Date.now() });
+    cmCallIncomingTraceRegisterRingingRoom(bannerSessionId, bannerSession.roomId);
+    cmCallFlow("incoming_received", { sessionId: bannerSessionId });
+    logDibayCall("incoming_render", { sessionId: bannerSessionId, surface: "top-banner" });
+    cmCallIncomingTraceLogTable(bannerSessionId);
+  }, [bannerSession, bannerSessionId]);
   useEffect(() => {
-    if (!visibleSession?.roomId) return;
-    const rid = visibleSession.roomId.trim();
+    if (!bannerSession?.roomId) return;
+    const rid = bannerSession.roomId.trim();
     return () => {
       cmCallIncomingTraceClearRingingRoom(rid);
     };
-  }, [visibleSession?.id, visibleSession?.roomId]);
+  }, [bannerSession?.id, bannerSession?.roomId]);
   const _bridgeStatus = getCommunityMessengerIncomingCallBridgeStatus();
 
   /** 배너 UI 끄기와 무관하게, 직통 수신 ringing 이면 벨은 울려야 함 */
@@ -1848,11 +1814,15 @@ export function GlobalCommunityMessengerIncomingCall() {
       isCapacitorNative: isCapacitorNativePlatform(),
       sessions,
       viewerLiveSessionId,
-      firstRingingCalleeSession,
+      firstRingingCalleeSession:
+        foregroundPresentation.selectedRingingSessionId != null
+          ? sessions.find((s) => s.id === foregroundPresentation.selectedRingingSessionId) ??
+            foregroundPresentation.session
+          : null,
       directRingingCalleeSession,
-      visibleSession,
-      incomingSurface,
-      renderIncomingBanner,
+      visibleSession: bannerSession,
+      incomingSurface: foregroundPresentation.shouldRender ? "top-banner" : null,
+      renderIncomingBanner: foregroundPresentation.shouldRender,
       hardClearedAt: hardClearedIncomingSessionsAtRef.current,
     });
     const hasRinging = payload.ringingSessionIds.length > 0;
@@ -1873,18 +1843,18 @@ export function GlobalCommunityMessengerIncomingCall() {
     incomingPresenterDecisionLogKeyRef.current = logKey;
     logIncomingPresenterDecision(payload);
   }, [
+    bannerSession,
     directRingingCalleeSession,
-    firstRingingCalleeSession,
-    incomingSurface,
+    foregroundPresentation.reason,
+    foregroundPresentation.selectedRingingSessionId,
+    foregroundPresentation.shouldRender,
     incomingTabLeader,
     incomingTabLeaderRaw,
     incomingVisibilityState,
     pathname,
-    renderIncomingBanner,
     sessions,
     userId,
     viewerLiveSessionId,
-    visibleSession,
   ]);
 
   useEffect(() => {
@@ -2153,28 +2123,11 @@ export function GlobalCommunityMessengerIncomingCall() {
     [busyId, refresh, router, t]
   );
 
-  if (visibleSession && renderIncomingBanner) {
-    return (
-      <IncomingCallBanner
-        sessionId={visibleSession.id}
-        peerLabel={visibleSession.peerLabel}
-        peerAvatarUrl={visibleSession.peerAvatarUrl ?? null}
-        callKind={visibleSession.callKind === "video" ? "video" : "voice"}
-        ringTimeoutSeconds={
-          getMessengerCallSoundConfigCache()?.incoming_ring_timeout_seconds ??
-          DEFAULT_INCOMING_RING_TIMEOUT_SECONDS
-        }
-        startedAt={visibleSession.startedAt ?? null}
-        busyReject={busyId === `reject:${visibleSession.id}`}
-        busyAccept={busyId === `accept:${visibleSession.id}`}
-        onExpand={() => expandIncomingCall(visibleSession)}
-        onReject={() => void rejectCall(visibleSession.id)}
-        onAccept={() => acceptCall(visibleSession)}
-      />
-    );
-  }
+  const ringTimeoutSeconds =
+    getMessengerCallSoundConfigCache()?.incoming_ring_timeout_seconds ??
+    DEFAULT_INCOMING_RING_TIMEOUT_SECONDS;
 
-  if (!visibleSession) {
+  if (!bannerSession) {
     if (incomingListError) {
       return (
         <div
@@ -2208,5 +2161,18 @@ export function GlobalCommunityMessengerIncomingCall() {
     }
     return null;
   }
+
+  return (
+    <ForegroundIncomingCallHost
+      shouldRender={foregroundPresentation.shouldRender}
+      session={bannerSession}
+      ringTimeoutSeconds={ringTimeoutSeconds}
+      busyReject={busyId === `reject:${bannerSession.id}`}
+      busyAccept={busyId === `accept:${bannerSession.id}`}
+      onExpand={() => expandIncomingCall(bannerSession)}
+      onReject={() => void rejectCall(bannerSession.id)}
+      onAccept={() => acceptCall(bannerSession)}
+    />
+  );
 }
 
