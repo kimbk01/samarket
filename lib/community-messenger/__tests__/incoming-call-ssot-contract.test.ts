@@ -43,6 +43,16 @@ describe("incoming-call SSOT contract", () => {
     expect(global).not.toContain("isIncomingCallTerminal");
   });
 
+  it("Global Phase3 routes realtime/missed terminal through sealIncomingCallTerminal", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain('sealIncomingCallTerminal(sid, "accepted", hard, "realtime_update_active")');
+    expect(global).toContain('"realtime_update_terminal"');
+    expect(global).toContain('"missed_timeout"');
+    expect(global).not.toMatch(
+      /nextStatus === "active"[\s\S]{0,120}markCallConsumed\(sid, "accepted"\)/
+    );
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');

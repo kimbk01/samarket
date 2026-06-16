@@ -879,9 +879,8 @@ export function GlobalCommunityMessengerIncomingCall() {
               }
             : { sessionStatus: "ringing", isInitiator: false, endedReason: null }
         ).then(() => {
-          dibayIncomingLaneStopRing("missed_timeout", sid);
+          sealIncomingCallTerminal(sid, "missed", hardClearedIncomingSessionsAtRef.current, "missed_timeout");
           activeIncomingCallIdsRef.current.delete(sid);
-          markCallConsumed(sid, "missed");
           logCallFlow("call_cleanup_done", { sessionId: sid, reason: "missed_timeout" });
           void refresh(true, { incomingTerminalListSync: true });
         });
@@ -1463,16 +1462,22 @@ export function GlobalCommunityMessengerIncomingCall() {
                 const sid = typeof newRow?.id === "string" ? newRow.id.trim() : "";
                 if (sid) {
                   suppressMissedSoundRef.current.add(sid);
-                  markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sid);
                   activeIncomingCallIdsRef.current.delete(sid);
+                  const hard = hardClearedIncomingSessionsAtRef.current;
                   if (nextStatus === "active") {
-                    markCallConsumed(sid, "accepted");
+                    sealIncomingCallTerminal(sid, "accepted", hard, "realtime_update_active");
                   } else if (isTerminalIncomingCallStatus(nextStatus)) {
-                    markCallConsumed(sid, mapTerminalStatusToConsumedReason(nextStatus));
+                    sealIncomingCallTerminal(
+                      sid,
+                      mapTerminalStatusToConsumedReason(nextStatus),
+                      hard,
+                      "realtime_update_terminal"
+                    );
+                  } else {
+                    markIncomingCallHardClearedSession(hard, sid);
+                    dibayIncomingLaneStopRing("realtime_left_ringing", sid);
                   }
                 }
-                /* 터미널 전이라도 링 종료면 즉시 벨·WebAudio 정지(취소 후 연결음 잔류 방지) */
-                dibayIncomingLaneStopRing("realtime_left_ringing", sid || undefined);
               }
               const terminal = isTerminalIncomingCallStatus(newRow?.status) || p.eventType === "DELETE";
               const leftRinging =
