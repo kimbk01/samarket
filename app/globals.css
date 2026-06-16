@@ -779,4 +779,21 @@ a,
   .safe-area-pb {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
   }
+
+  @keyframes dibay-incoming-pill-enter-kf {
+    from {
+      transform: translate3d(0, calc(-100% - 16px), 0);
+      opacity: 0;
+    }
+    to {
+      transform: translate3d(0, 0, 0);
+      opacity: 1;
+    }
+  }
+
+  .animate-dibay-incoming-pill-enter {
+    backface-visibility: hidden;
+    will-change: transform, opacity;
+    animation: dibay-incoming-pill-enter-kf 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }

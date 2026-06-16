@@ -4,18 +4,20 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
+import android.view.animation.Animation;
+import android.view.animation.AnimationUtils;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
-import androidx.core.view.WindowInsetsCompat;
 
 /** In-app foreground incoming pill — primary surface when app is unlocked and visible. */
 public class ForegroundIncomingCallActivity extends AppCompatActivity {
@@ -24,13 +26,19 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
   private String callId;
   private boolean finished;
   private BroadcastReceiver terminalReceiver;
+  private LinearLayout pill;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     applyOverlayWindowFlags();
     setContentView(R.layout.activity_foreground_incoming_call);
-    applySafeAreaInsets();
+
+    pill = findViewById(R.id.foreground_incoming_pill);
+    LinearLayout pillWrap = findViewById(R.id.foreground_incoming_pill_wrap);
+    IncomingCallUiInsets.applyTopSafeArea(pillWrap, 8);
+    applyTabletStableWidth();
+    playPillEnterAnimation();
 
     callId = firstNonEmpty(getIntent().getStringExtra(IncomingCallActivity.EXTRA_CALL_ID));
     if (callId == null) {
@@ -78,18 +86,7 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
     ForegroundIncomingCallRegistry.setActive(callId);
     MainActivity.notifyForegroundIncomingUiState(callId, true);
 
-    String callerName = firstNonEmpty(getIntent().getStringExtra(IncomingCallActivity.EXTRA_CALLER_NAME));
-    String title = firstNonEmpty(getIntent().getStringExtra(IncomingCallActivity.EXTRA_TITLE));
-    String body = firstNonEmpty(getIntent().getStringExtra(IncomingCallActivity.EXTRA_BODY));
-    String callType = firstNonEmpty(getIntent().getStringExtra(IncomingCallActivity.EXTRA_CALL_TYPE));
-
-    TextView kindView = findViewById(R.id.foreground_incoming_kind);
-    TextView callerView = findViewById(R.id.foreground_incoming_caller_name);
-    Button acceptBtn = findViewById(R.id.foreground_incoming_accept);
-    Button declineBtn = findViewById(R.id.foreground_incoming_decline);
-
-    kindView.setText(resolveCallKindLabel(callType, title, body));
-    callerView.setText(callerName != null ? callerName : (body != null ? body : "DIBAY"));
+    bindIncomingUi(getIntent());
 
     String action = getIntent().getAction();
     if (IncomingCallActivity.ACTION_ACCEPT.equals(action)) {
@@ -100,6 +97,28 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
       handleDecline();
       return;
     }
+  }
+
+  private void bindIncomingUi(Intent intent) {
+    String callerName = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_CALLER_NAME));
+    String title = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_TITLE));
+    String body = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_BODY));
+    String callType = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_CALL_TYPE));
+    String avatarUrl = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_CALLER_AVATAR_URL));
+
+    String displayName = IncomingCallUiCopy.callerDisplayName(callerName, title, body);
+
+    TextView kindView = findViewById(R.id.foreground_incoming_kind);
+    TextView callerView = findViewById(R.id.foreground_incoming_caller_name);
+    TextView initialView = findViewById(R.id.foreground_incoming_avatar_initial);
+    ImageView avatarView = findViewById(R.id.foreground_incoming_avatar);
+    ImageButton acceptBtn = findViewById(R.id.foreground_incoming_accept);
+    ImageButton declineBtn = findViewById(R.id.foreground_incoming_decline);
+
+    kindView.setText(IncomingCallUiCopy.statusBrandLabel(this, callType, title, body));
+    callerView.setText(displayName);
+    IncomingCallAvatarHelper.styleInitial(initialView);
+    IncomingCallAvatarHelper.bind(avatarView, initialView, avatarUrl, displayName);
 
     acceptBtn.setOnClickListener(v -> handleAccept());
     declineBtn.setOnClickListener(v -> handleDecline());
@@ -110,14 +129,12 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
     super.onNewIntent(intent);
     setIntent(intent);
     String incomingCallId = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_CALL_ID));
-    if (incomingCallId != null && callId != null && !incomingCallId.equals(callId)) {
+    if (incomingCallId != null) {
       callId = incomingCallId;
       ForegroundIncomingCallRegistry.setActive(callId);
       MainActivity.notifyForegroundIncomingUiState(callId, true);
-      TextView callerView = findViewById(R.id.foreground_incoming_caller_name);
-      String callerName = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_CALLER_NAME));
-      String body = firstNonEmpty(intent.getStringExtra(IncomingCallActivity.EXTRA_BODY));
-      callerView.setText(callerName != null ? callerName : (body != null ? body : "DIBAY"));
+      bindIncomingUi(intent);
+      playPillEnterAnimation();
     }
     String action = intent.getAction();
     if (IncomingCallActivity.ACTION_ACCEPT.equals(action)) {
@@ -168,8 +185,44 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
     if (finished) return;
     finished = true;
     DibayCallLog.once("activity_finish", callId);
-    finish();
-    overridePendingTransition(0, 0);
+    if (pill == null) {
+      finish();
+      overridePendingTransition(0, 0);
+      return;
+    }
+    Animation exit = AnimationUtils.loadAnimation(this, R.anim.dibay_incoming_pill_exit);
+    exit.setAnimationListener(
+        new Animation.AnimationListener() {
+          @Override
+          public void onAnimationStart(Animation animation) {}
+
+          @Override
+          public void onAnimationEnd(Animation animation) {
+            ForegroundIncomingCallActivity.super.finish();
+            overridePendingTransition(0, 0);
+          }
+
+          @Override
+          public void onAnimationRepeat(Animation animation) {}
+        });
+    pill.startAnimation(exit);
+  }
+
+  private void playPillEnterAnimation() {
+    if (pill == null) return;
+    pill.clearAnimation();
+    Animation enter = AnimationUtils.loadAnimation(this, R.anim.dibay_incoming_pill_enter);
+    pill.startAnimation(enter);
+  }
+
+  private void applyTabletStableWidth() {
+    if (pill == null) return;
+    boolean tablet = (getResources().getConfiguration().screenLayout & Configuration.SCREENLAYOUT_SIZE_MASK)
+        >= Configuration.SCREENLAYOUT_SIZE_LARGE;
+    if (tablet) {
+      pill.getLayoutParams().height =
+          getResources().getDimensionPixelSize(R.dimen.dibay_incoming_pill_height_tablet);
+    }
   }
 
   private void applyOverlayWindowFlags() {
@@ -182,34 +235,6 @@ public class ForegroundIncomingCallActivity extends AppCompatActivity {
       setShowWhenLocked(false);
       setTurnScreenOn(false);
     }
-  }
-
-  private void applySafeAreaInsets() {
-    LinearLayout pill = findViewById(R.id.foreground_incoming_pill);
-    ViewCompat.setOnApplyWindowInsetsListener(
-        pill,
-        (view, insets) -> {
-          Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
-          view.setPadding(
-              view.getPaddingLeft(),
-              bars.top + dpToPx(8),
-              view.getPaddingRight(),
-              view.getPaddingBottom());
-          return insets;
-        });
-    ViewCompat.requestApplyInsets(pill);
-  }
-
-  private int dpToPx(int dp) {
-    return Math.round(dp * getResources().getDisplayMetrics().density);
-  }
-
-  private static String resolveCallKindLabel(String callType, String title, String body) {
-    if ("video".equalsIgnoreCase(callType)) return "영상 통화";
-    if ("audio".equalsIgnoreCase(callType) || "voice".equalsIgnoreCase(callType)) return "음성 통화";
-    if (title != null && (title.contains("영상") || title.contains("음성"))) return title;
-    if (body != null && body.contains("영상")) return "영상 통화";
-    return "수신 통화";
   }
 
   private static String firstNonEmpty(String value) {

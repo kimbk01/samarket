@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#3F51B5</color>
+    <color name="colorPrimaryDark">#303F9F</color>
+    <color name="colorAccent">#FF4081</color>
+
+    <!-- DIBAY Incoming Call UI v1 (Starbucks palette) -->
+    <color name="dibay_incoming_primary">#006241</color>
+    <color name="dibay_incoming_deep_green">#1E3932</color>
+    <color name="dibay_incoming_surface_light">#F6F6F6</color>
+    <color name="dibay_incoming_accept">#22C55E</color>
+    <color name="dibay_incoming_reject">#EF1035</color>
+    <color name="dibay_incoming_text_primary">#FFFFFF</color>
+    <color name="dibay_incoming_text_muted">#C9D1D9</color>
+    <color name="dibay_incoming_pill_stroke">#33FFFFFF</color>
+    <color name="dibay_incoming_gradient_start">#F0101827</color>
+    <color name="dibay_incoming_gradient_end">#F0034D34</color>
+</resources>

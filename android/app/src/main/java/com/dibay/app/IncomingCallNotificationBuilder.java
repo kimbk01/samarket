@@ -149,11 +149,10 @@ public final class IncomingCallNotificationBuilder {
             + " callId="
             + sid);
 
-    String callerName =
-        callerNameFromPayload != null && !callerNameFromPayload.trim().isEmpty()
-            ? callerNameFromPayload.trim()
-            : resolveCallerDisplayName(title, body);
-    String callKindLabel = resolveCallKindLabel(title, body, callType);
+    String callerName = IncomingCallUiCopy.callerDisplayName(callerNameFromPayload, title, body);
+    String callKindLabel = IncomingCallUiCopy.statusBrandLabel(context, callType, title, body);
+    String rejectLabel = IncomingCallUiCopy.rejectLabel(context);
+    String acceptLabel = IncomingCallUiCopy.acceptLabel(context);
 
     int flags = PendingIntent.FLAG_UPDATE_CURRENT;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -211,8 +210,8 @@ public final class IncomingCallNotificationBuilder {
             .setAutoCancel(false)
             .setContentIntent(contentPi)
             .setDefaults(Notification.DEFAULT_ALL)
-            .addAction(R.mipmap.ic_launcher, "거절", declinePi)
-            .addAction(R.mipmap.ic_launcher, "수락", acceptPi);
+            .addAction(R.drawable.ic_dibay_incoming_reject, rejectLabel, declinePi)
+            .addAction(R.drawable.ic_dibay_incoming_accept, acceptLabel, acceptPi);
     if (firstIncoming && lockScreenBridge && fsiAllowed && fullScreenPi != null) {
       builder.setFullScreenIntent(fullScreenPi, true);
       Log.i(TAG, "[call-notification] fsi_attached callId=" + sid);
@@ -240,34 +239,5 @@ public final class IncomingCallNotificationBuilder {
 
   public static void clearActiveIncomingCallId(String sessionId) {
     /* no-op — activeIncomingCallId gate removed */
-  }
-
-  private static String resolveCallerDisplayName(String title, String body) {
-    String b = body != null ? body.trim() : "";
-    if (!b.isEmpty()) {
-      if (b.endsWith("님의 전화")) {
-        String name = b.substring(0, b.length() - "님의 전화".length()).trim();
-        if (!name.isEmpty()) return name;
-      }
-      return b;
-    }
-    String t = title != null ? title.trim() : "";
-    if (!t.isEmpty() && !isCallKindLabel(t)) return t;
-    return "수신 통화";
-  }
-
-  private static String resolveCallKindLabel(String title, String body, String callType) {
-    if ("video".equalsIgnoreCase(callType)) return "영상 통화";
-    if ("audio".equalsIgnoreCase(callType) || "voice".equalsIgnoreCase(callType)) return "음성 통화";
-    String t = title != null ? title.trim() : "";
-    if (isCallKindLabel(t)) return t;
-    String b = body != null ? body.trim() : "";
-    if (b.contains("영상")) return "영상 통화";
-    if (b.contains("음성")) return "음성 통화";
-    return "수신 통화";
-  }
-
-  private static boolean isCallKindLabel(String value) {
-    return "음성 통화".equals(value) || "영상 통화".equals(value);
   }
 }

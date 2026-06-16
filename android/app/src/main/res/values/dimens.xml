@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="dibay_incoming_pill_radius">22dp</dimen>
+    <dimen name="dibay_incoming_pill_margin_h">12dp</dimen>
+    <dimen name="dibay_incoming_pill_height">72dp</dimen>
+    <dimen name="dibay_incoming_pill_height_tablet">80dp</dimen>
+    <dimen name="dibay_incoming_pill_max_width">520dp</dimen>
+    <dimen name="dibay_incoming_safe_top_extra">8dp</dimen>
+    <dimen name="dibay_incoming_safe_bottom_extra">16dp</dimen>
+    <dimen name="dibay_incoming_btn_circle">48dp</dimen>
+    <dimen name="dibay_incoming_btn_circle_full">64dp</dimen>
+    <dimen name="dibay_incoming_avatar_pill">48dp</dimen>
+    <dimen name="dibay_incoming_avatar_full">104dp</dimen>
+    <dimen name="dibay_incoming_name_sp_pill">17sp</dimen>
+    <dimen name="dibay_incoming_status_sp">13sp</dimen>
+    <dimen name="dibay_incoming_name_sp_full">28sp</dimen>
+</resources>

@@ -7,10 +7,14 @@ import android.content.IntentFilter;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
+import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.view.WindowCompat;
 
 /** Lock-screen incoming call UI — accept via web route, reject via native PATCH. */
 public class IncomingCallActivity extends AppCompatActivity {
@@ -36,7 +40,13 @@ public class IncomingCallActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     applyWakeFlags();
+    WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
     setContentView(R.layout.activity_incoming_call);
+
+    LinearLayout center = findViewById(R.id.incoming_call_center);
+    LinearLayout actions = findViewById(R.id.incoming_call_actions);
+    IncomingCallUiInsets.applyTopSafeArea(center, 24);
+    IncomingCallUiInsets.applyBottomSafeArea(actions, 16);
 
     callId = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_ID));
     if (callId == null) {
@@ -77,20 +87,7 @@ public class IncomingCallActivity extends AppCompatActivity {
     DibayCallLog.once("incoming_activity_created", callId, "source=activity");
     DibayCallLog.once("incoming_render", callId, "source=activity");
 
-    String callerName = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALLER_NAME));
-    String title = firstNonEmpty(getIntent().getStringExtra(EXTRA_TITLE));
-    String body = firstNonEmpty(getIntent().getStringExtra(EXTRA_BODY));
-    String callType = firstNonEmpty(getIntent().getStringExtra(EXTRA_CALL_TYPE));
-
-    TextView titleView = findViewById(R.id.incoming_call_title);
-    TextView callerView = findViewById(R.id.incoming_call_caller_name);
-    TextView kindView = findViewById(R.id.incoming_call_kind);
-    Button acceptBtn = findViewById(R.id.incoming_call_accept);
-    Button declineBtn = findViewById(R.id.incoming_call_decline);
-
-    titleView.setText(title != null ? title : "수신 통화");
-    callerView.setText(callerName != null ? callerName : (body != null ? body : "DIBAY"));
-    kindView.setText(resolveCallKindLabel(callType, title, body));
+    bindIncomingUi(getIntent());
 
     String action = getIntent().getAction();
     if (ACTION_ACCEPT.equals(action)) {
@@ -102,6 +99,30 @@ public class IncomingCallActivity extends AppCompatActivity {
       handleDecline();
       return;
     }
+  }
+
+  private void bindIncomingUi(Intent intent) {
+    String callerName = firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_NAME));
+    String title = firstNonEmpty(intent.getStringExtra(EXTRA_TITLE));
+    String body = firstNonEmpty(intent.getStringExtra(EXTRA_BODY));
+    String callType = firstNonEmpty(intent.getStringExtra(EXTRA_CALL_TYPE));
+    String avatarUrl = firstNonEmpty(intent.getStringExtra(EXTRA_CALLER_AVATAR_URL));
+
+    String displayName = IncomingCallUiCopy.callerDisplayName(callerName, title, body);
+
+    TextView titleView = findViewById(R.id.incoming_call_title);
+    TextView callerView = findViewById(R.id.incoming_call_caller_name);
+    TextView kindView = findViewById(R.id.incoming_call_kind);
+    TextView initialView = findViewById(R.id.incoming_call_avatar_initial);
+    ImageView avatarView = findViewById(R.id.incoming_call_avatar);
+    ImageButton acceptBtn = findViewById(R.id.incoming_call_accept);
+    ImageButton declineBtn = findViewById(R.id.incoming_call_decline);
+
+    titleView.setVisibility(View.GONE);
+    callerView.setText(displayName);
+    kindView.setText(IncomingCallUiCopy.statusBrandLabel(this, callType, title, body));
+    IncomingCallAvatarHelper.styleInitial(initialView);
+    IncomingCallAvatarHelper.bind(avatarView, initialView, avatarUrl, displayName);
 
     acceptBtn.setOnClickListener(v -> handleAccept());
     declineBtn.setOnClickListener(v -> handleDecline());
@@ -176,14 +197,6 @@ public class IncomingCallActivity extends AppCompatActivity {
                   | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
     getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-  }
-
-  private static String resolveCallKindLabel(String callType, String title, String body) {
-    if ("video".equalsIgnoreCase(callType)) return "영상 통화";
-    if ("audio".equalsIgnoreCase(callType) || "voice".equalsIgnoreCase(callType)) return "음성 통화";
-    if (title != null && (title.contains("영상") || title.contains("음성"))) return title;
-    if (body != null && body.contains("영상")) return "영상 통화";
-    return "수신 통화";
   }
 
   private static String firstNonEmpty(String value) {

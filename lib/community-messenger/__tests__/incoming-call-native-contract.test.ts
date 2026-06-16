@@ -158,6 +158,28 @@ describe("incoming-call native contract", () => {
     expect(global).toContain("onForegroundIncomingUi");
   });
 
+  it("notification uses DIBAY incoming action icons and copy helper", () => {
+    const notification = read("android/app/src/main/java/com/dibay/app/IncomingCallNotificationBuilder.java");
+    expect(notification).toContain("IncomingCallUiCopy");
+    expect(notification).toContain("ic_dibay_incoming_reject");
+    expect(notification).toContain("ic_dibay_incoming_accept");
+    expect(read("android/app/src/main/res/values/colors.xml")).toContain("dibay_incoming_primary");
+    expect(read("android/app/src/main/res/values/colors.xml")).toContain("#006241");
+  });
+
+  it("lock fullscreen applies bottom safe area for navigation bar", () => {
+    const activity = read("android/app/src/main/java/com/dibay/app/IncomingCallActivity.java");
+    expect(activity).toContain("IncomingCallUiInsets.applyBottomSafeArea");
+    expect(read("android/app/src/main/res/layout/activity_incoming_call.xml")).toContain("incoming_call_actions");
+  });
+
+  it("foreground pill uses 440ms enter animation and DIBAY layout", () => {
+    const activity = read("android/app/src/main/java/com/dibay/app/ForegroundIncomingCallActivity.java");
+    expect(activity).toContain("dibay_incoming_pill_enter");
+    expect(read("android/app/src/main/res/anim/dibay_incoming_pill_enter.xml")).toContain("440");
+    expect(read("android/app/src/main/res/layout/activity_foreground_incoming_call.xml")).toContain("bg_dibay_incoming_pill");
+  });
+
   it("native plugin proxy is wrapped so Promise resolution does not call .then()", () => {
     const src = read("lib/push/native/push-route-native-bridge.ts");
     expect(src).toContain("NativeIncomingCall.then()");

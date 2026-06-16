@@ -60,7 +60,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
 
   return (
     <div
-      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,env(safe-area-inset-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} px-3 sm:left-auto sm:right-4 sm:w-[min(520px,calc(100vw-2rem))]`}
+      className={`pointer-events-auto fixed inset-x-0 top-[max(8px,env(safe-area-inset-top))] ${MESSENGER_FOREGROUND_INCOMING_BANNER_Z_CLASS} animate-dibay-incoming-pill-enter px-3 sm:left-1/2 sm:right-auto sm:w-[min(520px,calc(100vw-2rem))] sm:-translate-x-1/2`}
       role="dialog"
       aria-label={t("cm_ui_incoming_call_dialog")}
     >
@@ -104,7 +104,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           type="button"
           disabled={busyReject || busyAccept}
           onClick={onReject}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#D6453D] text-white shadow-[0_10px_22px_rgba(214,69,61,0.28)] transition active:scale-[0.96] disabled:opacity-40"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EF1035] text-white shadow-[0_10px_22px_rgba(239,16,53,0.28)] transition active:scale-[0.96] disabled:opacity-40"
           aria-label={t("cm_ui_reject")}
         >
           <PhoneOff size={24} strokeWidth={2.4} />
@@ -113,7 +113,7 @@ export function IncomingCallBanner(props: IncomingCallBannerProps) {
           type="button"
           disabled={busyAccept}
           onClick={onAccept}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#19C463] text-white shadow-[0_10px_22px_rgba(25,196,99,0.28)] transition active:scale-[0.96] disabled:opacity-40"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#22C55E] text-white shadow-[0_10px_22px_rgba(34,197,94,0.28)] transition active:scale-[0.96] disabled:opacity-40"
           aria-label={t("cm_ui_accept")}
         >
           <Check size={26} strokeWidth={3} />
