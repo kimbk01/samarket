@@ -4,6 +4,7 @@ import type { DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types
 export type FcmPushType =
   | "incoming_call"
   | "missed_call"
+  | "call_canceled"
   | "chat_message"
   | "trade_message"
   | "delivery_order"
@@ -52,8 +53,11 @@ export function resolveFcmPushType(
   if (opts?.call_push_kind === "missed_call" || out.notification_type === "community_messenger_missed_call") {
     return "missed_call";
   }
-  if (opts?.call_push_kind === "call_canceled") {
-    return "notification";
+  if (
+    opts?.call_push_kind === "call_canceled" ||
+    out.notification_type === "community_messenger_call_canceled"
+  ) {
+    return "call_canceled";
   }
 
   const meta = metaObj(out);
@@ -130,6 +134,16 @@ export function buildFcmDataFields(
           fields.callType = callKind === "video" ? "video" : "audio";
           fields.kind = callKind;
         }
+        fields.tag = `samarket-incoming-call-${sessionId}`;
+      }
+      break;
+    }
+    case "call_canceled": {
+      const sessionId = trimText(base.sessionId) || (meta ? trimText(meta.session_id ?? meta.sessionId) : "");
+      if (sessionId) {
+        appendCallFields(fields, meta, sessionId);
+        fields.url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
+        fields.call_push_kind = "call_canceled";
         fields.tag = `samarket-incoming-call-${sessionId}`;
       }
       break;

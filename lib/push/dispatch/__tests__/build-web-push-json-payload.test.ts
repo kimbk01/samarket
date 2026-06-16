@@ -48,6 +48,26 @@ describe("buildWebPushJsonPayload", () => {
     expect(payload.is_call).toBe(true);
   });
 
+  it("adds call_canceled type for cancel dismiss (not generic notification)", () => {
+    const payload = buildWebPushJsonPayload(
+      baseOut({
+        notification_type: "community_messenger_call_canceled",
+        title: "통화",
+        body: "",
+        link_url: "/community-messenger/calls/sess-cancel",
+        meta: { session_id: "sess-cancel" },
+      }),
+      { call_push_kind: "call_canceled" }
+    );
+
+    expect(payload.data.type).toBe("call_canceled");
+    expect(payload.data.call_push_kind).toBe("call_canceled");
+    expect(payload.data.sessionId).toBe("sess-cancel");
+    expect(payload.data.callId).toBe("sess-cancel");
+    expect(payload.data.tag).toBe("samarket-incoming-call-sess-cancel");
+    expect(payload.is_call).toBe(true);
+  });
+
   it("adds missed_call room focus url when room_id present", () => {
     const payload = buildWebPushJsonPayload(
       baseOut({

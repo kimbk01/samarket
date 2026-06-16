@@ -73,11 +73,13 @@ export function buildWebPushJsonPayload(
   }
 
   const body = buildFcmDataFields(out, opts, base);
-  const isIncomingCall = body.call_push_kind === "incoming_call";
+  const callPushKind = body.call_push_kind;
+  const isCallRelatedPush =
+    callPushKind === "incoming_call" || callPushKind === "call_canceled";
 
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) {
-    return { json: s, data: body, is_call: isIncomingCall };
+    return { json: s, data: body, is_call: isCallRelatedPush };
   }
   const trim: Record<string, unknown> = {
     ...body,
@@ -86,7 +88,7 @@ export function buildWebPushJsonPayload(
   };
   s = JSON.stringify(trim);
   if (s.length <= MAX_BYTES) {
-    return { json: s, data: trim, is_call: trim.call_push_kind === "incoming_call" };
+    return { json: s, data: trim, is_call: trim.call_push_kind === "incoming_call" || trim.call_push_kind === "call_canceled" };
   }
   const minimal = buildFcmDataFields(out, opts, {
     title: String(out.title).slice(0, 40),
@@ -100,6 +102,7 @@ export function buildWebPushJsonPayload(
   return {
     json: JSON.stringify(minimal),
     data: minimal,
-    is_call: opts?.call_push_kind === "incoming_call",
+    is_call:
+      opts?.call_push_kind === "incoming_call" || opts?.call_push_kind === "call_canceled",
   };
 }

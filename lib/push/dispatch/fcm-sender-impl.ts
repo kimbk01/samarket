@@ -124,7 +124,7 @@ export async function sendFcmMessageV1(input: {
       body: input.body,
     });
 
-    if (input.isCall && isCancel) {
+    if (isCancel) {
       const messageId = await messaging.send({
         token: input.token,
         data: dataPayload,
