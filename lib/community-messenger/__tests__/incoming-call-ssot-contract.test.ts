@@ -104,6 +104,20 @@ describe("incoming-call SSOT contract", () => {
     );
   });
 
+  it("Global Phase10 uses dismissIncomingPresenterAfterAccept without terminal seal on accept", () => {
+    const global = read("components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx");
+    expect(global).toContain("dismissIncomingPresenterAfterAccept");
+    expect(global).toContain('ringStopSource: "group_accept"');
+    const acceptIdx = global.indexOf("const acceptCall = useCallback");
+    expect(acceptIdx).toBeGreaterThan(-1);
+    const acceptSlice = global.slice(acceptIdx, acceptIdx + 3500);
+    expect(acceptSlice).not.toContain("sealIncomingCallTerminal");
+    expect(acceptSlice).not.toContain("markCallConsumed(");
+    const helper = read("lib/community-messenger/incoming-call/accept-presenter-dismiss.ts");
+    expect(helper).not.toContain("sealIncomingCallTerminal");
+    expect(helper).not.toContain("markCallConsumed");
+  });
+
   it("public/sw.js chat notification wake/click paths unchanged", () => {
     const sw = read("public/sw.js");
     expect(sw).toContain('payload.notification_type === "community_messenger_message"');
