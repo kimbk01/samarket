@@ -1,7 +1,11 @@
+import {
+  clearDibayCallPendingRoute,
+} from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import type {
   CommunityMessengerCallSession,
   CommunityMessengerCallSessionStatus,
 } from "@/lib/community-messenger/types";
+import { clearNativePersistedCallPendingRoute } from "@/lib/push/native/push-route-native-bridge";
 
 export type DibayCallOrchestratorState =
   | "IDLE"
@@ -153,6 +157,28 @@ export function completeDibayCallAction(
   }
 }
 
+export function isDibayCallActionInFlight(
+  sessionId: string | null | undefined,
+  action?: DibayCallOrchestratorAction,
+  now = Date.now()
+): boolean {
+  pruneDibayCallOrchestratorRuntime(now);
+  const sid = normalizeDibayCallSessionId(sessionId);
+  if (!sid) return false;
+  const flight = actionFlightsBySessionId.get(sid);
+  if (!flight) return false;
+  if (action) return flight.action === action;
+  return true;
+}
+
+export function resetDibayCallActionFlights(sessionId?: string | null): void {
+  if (sessionId) {
+    actionFlightsBySessionId.delete(normalizeDibayCallSessionId(sessionId));
+    return;
+  }
+  actionFlightsBySessionId.clear();
+}
+
 export function extractDibayCallSessionIdFromPath(path: string | null | undefined): string | null {
   const raw = path?.trim();
   if (!raw) return null;
@@ -170,6 +196,14 @@ export function shouldAllowDibayCallRoute(path: string | null | undefined, now =
   const sessionId = extractDibayCallSessionIdFromPath(path);
   if (!sessionId) return false;
   return !isDibayCallTerminalLatched(sessionId, now);
+}
+
+/** 종료 확정 — stale pending route 재생·수신 UI 재진입 차단 */
+export function sealDibayCallTerminalSurface(sessionId: string | null | undefined, now = Date.now()): void {
+  markDibayCallTerminal(sessionId, now);
+  if (typeof window === "undefined") return;
+  clearDibayCallPendingRoute();
+  void clearNativePersistedCallPendingRoute();
 }
 
 function pruneDibayCallOrchestratorRuntime(now: number): void {

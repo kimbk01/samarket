@@ -4,7 +4,7 @@ import {
   releaseIncomingCallReject,
   resetIncomingCallActionGuards,
 } from "@/lib/community-messenger/incoming-call-action-guard";
-import { stopCallRingtone } from "@/lib/community-messenger/call-ringtone-controller";
+import { dibayIncomingLaneStopRing } from "@/lib/community-messenger/call-lifecycle";
 
 export type IncomingCallCleanupArgs = {
   sessionId: string;
@@ -20,7 +20,7 @@ export function runIncomingCallCleanup(args: IncomingCallCleanupArgs): void {
   logCallFlow("call_cleanup_start", { sessionId, reason: args.reason });
 
   if (args.stopRingtone !== false) {
-    stopCallRingtone(args.reason, sessionId);
+    dibayIncomingLaneStopRing(args.reason, sessionId);
   }
   releaseIncomingCallAccept(sessionId);
   releaseIncomingCallReject(sessionId);
@@ -33,7 +33,7 @@ export function resetAllIncomingCallRuntime(sessionId?: string): void {
     runIncomingCallCleanup({ sessionId, reason: "reset" });
     return;
   }
-  stopCallRingtone("reset_all");
+  dibayIncomingLaneStopRing("reset_all");
   resetIncomingCallActionGuards();
   logCallFlow("call_cleanup_done", { reason: "reset_all" });
 }

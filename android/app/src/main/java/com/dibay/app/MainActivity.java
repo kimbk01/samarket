@@ -88,6 +88,7 @@ public class MainActivity extends BridgeActivity {
             + callType
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
+    DibayForegroundRingtone.start(this, payload.callId);
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_incoming_event callId=" + payload.callId);
   }
 
@@ -102,6 +103,7 @@ public class MainActivity extends BridgeActivity {
             + safeCallId
             + "'}}));}catch(e){}})();";
     webView.post(() -> webView.evaluateJavascript(js, null));
+    DibayForegroundRingtone.stop(callId);
     Log.i(ROUTE_LOG_TAG, "[call-native] foreground_canceled_event callId=" + callId);
   }
 

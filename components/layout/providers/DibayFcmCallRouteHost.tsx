@@ -8,15 +8,19 @@ import {
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
 import { markNativeCalleeAcceptPending } from "@/lib/community-messenger/native-callee-accept-entry";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
+import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
 import {
   clearNativePersistedCallPendingRoute,
   readNativePersistedCallPendingRoute,
 } from "@/lib/push/native/push-route-native-bridge";
 import {
+  dibayCallSealTerminal,
+  dibayRouteLaneAllow,
+} from "@/lib/community-messenger/call-lifecycle";
+import {
   extractDibayCallSessionIdFromPath,
   logDibayCall,
-  shouldAllowDibayCallRoute,
 } from "@/lib/community-messenger/call-orchestrator";
 
 const ROUTE_DEDUPE_MS = 2_000;
@@ -44,7 +48,7 @@ export function DibayFcmCallRouteHost() {
       if (!path.startsWith("/community-messenger/calls/")) return;
 
       const now = Date.now();
-      if (!shouldAllowDibayCallRoute(path, now)) {
+      if (!dibayRouteLaneAllow(path)) {
         clearDibayCallPendingRoute();
         void clearNativePersistedCallPendingRoute();
         logDibayCall("state_end", {
@@ -96,6 +100,12 @@ export function DibayFcmCallRouteHost() {
 
     void consumePendingRoutes();
 
+    const offTerminal = onCommunityMessengerBusEvent((ev) => {
+      if (ev.type !== "cm.call.session_terminal") return;
+      const sid = ev.sessionId?.trim();
+      if (sid) dibayCallSealTerminal(sid);
+    });
+
     const onCallRoute = (event: Event) => {
       const detail = (event as CustomEvent<{ path?: string }>).detail;
       const path = detail?.path?.trim();
@@ -106,6 +116,7 @@ export function DibayFcmCallRouteHost() {
 
     window.addEventListener("dibay:call-route", onCallRoute);
     return () => {
+      offTerminal();
       window.removeEventListener("dibay:call-route", onCallRoute);
     };
   }, [router]);

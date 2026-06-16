@@ -30,8 +30,10 @@ import {
 import {
   startCommunityMessengerCallTone,
   type CallToneController,
+  primeOutgoingRingbackWebAudioFromUserGesture,
   unlockCommunityMessengerCallPlaybackFromUserGesture,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { useCommunityMessengerRoomGroupCall } from "@/lib/community-messenger/room/community-messenger-group-call-context";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
@@ -584,8 +586,16 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      void ensureCallCanUseMedia(kind).then((permission) => {
+      void ensureCallCanUseMedia(kind).then(async (permission) => {
         if (!permission.ok) {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
+          return;
+        }
+        primeOutgoingRingbackWebAudioFromUserGesture(kind);
+        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
+        if (!primeResult.ok) {
           outgoingDialSyncGuardRef.current = false;
           setOutgoingDialLocked(false);
           showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
@@ -1672,14 +1682,31 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
       const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer });
-      router.push(dialHref);
-      window.setTimeout(() => {
-        outgoingDialSyncGuardRef.current = false;
-        setOutgoingDialLocked(false);
-      }, 0);
+      void (async () => {
+        const permission = await ensureCallCanUseMedia(kind);
+        if (!permission.ok) {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
+          return;
+        }
+        primeOutgoingRingbackWebAudioFromUserGesture(kind);
+        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
+        if (!primeResult.ok) {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
+          return;
+        }
+        router.push(dialHref);
+        window.setTimeout(() => {
+          outgoingDialSyncGuardRef.current = false;
+          setOutgoingDialLocked(false);
+        }, 0);
+      })();
       return true;
     },
-    [router]
+    [router, t]
   );
 
   const removeGroupMember = useCallback(

@@ -82,6 +82,7 @@ public final class IncomingCallActionCoordinator {
     if (!tryBegin(sid, "accept")) return;
     DibayCallLog.once("accept_start", sid, "source=native");
     Log.i(CALL_TAG, "[call-state] accept_start callId=" + sid);
+    DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {
@@ -111,6 +112,7 @@ public final class IncomingCallActionCoordinator {
     String sid = callId.trim();
     if (!tryBegin(sid, "reject")) return;
     DibayCallLog.once("call_end", sid, "source=native_reject");
+    DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {
@@ -139,6 +141,7 @@ public final class IncomingCallActionCoordinator {
     if (!tryBegin(sid, "missed")) return;
     DibayCallLog.once("ring_timeout", sid);
     Log.i(CALL_TAG, "[call-state] missed_timeout callId=" + sid);
+    DibayForegroundRingtone.stop(sid);
     IncomingCallNotificationBuilder.dismissIncomingCall(context, sid);
     new Thread(
             () -> {

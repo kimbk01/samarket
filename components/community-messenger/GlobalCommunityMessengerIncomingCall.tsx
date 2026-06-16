@@ -14,9 +14,10 @@ import {
 } from "@/lib/community-messenger/call-feedback-sound";
 import { logCallFlow } from "@/lib/community-messenger/call-flow-log";
 import {
-  playIncomingCallRingtone,
-  stopCallRingtone,
-} from "@/lib/community-messenger/call-ringtone-controller";
+  dibayCallSealTerminal,
+  dibayIncomingLaneStartRing,
+  dibayIncomingLaneStopRing,
+} from "@/lib/community-messenger/call-lifecycle";
 import { resetAllIncomingCallRuntime } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
   clearNativeCalleeAcceptPending,
@@ -140,7 +141,7 @@ import {
   clearDibayCallPendingRoute,
   installDibayFcmCallBridge,
 } from "@/lib/community-messenger/dibay-fcm-call-bridge";
-import { logDibayCall, markDibayCallTerminal } from "@/lib/community-messenger/call-orchestrator";
+import { logDibayCall } from "@/lib/community-messenger/call-orchestrator";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -665,10 +666,8 @@ export function GlobalCommunityMessengerIncomingCall() {
     const q: CallIncomingTerminalQuery = { ...baseQuery, status: statusNorm };
 
     if (sessionId) {
-      markDibayCallTerminal(sessionId);
+      dibayCallSealTerminal(sessionId);
       clearNativeCalleeAcceptPending(sessionId);
-      clearDibayCallPendingRoute();
-      void clearNativePersistedCallPendingRoute();
       markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, sessionId);
       suppressMissedSoundRef.current.add(sessionId);
       clearIncomingMissedTimer(ringMissedScheduleRef, sessionId);
@@ -678,7 +677,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       suppressMissedSoundRef.current.add(tmpSessionId);
       clearIncomingMissedTimer(ringMissedScheduleRef, tmpSessionId);
     }
-    stopCallRingtone("terminal_event", sessionId || tmpSessionId || undefined);
+    dibayIncomingLaneStopRing("terminal_event", sessionId || tmpSessionId || undefined);
     if (sessionId) {
       activeIncomingCallIdsRef.current.delete(sessionId);
       resetIncomingCallActionGuards(sessionId);
@@ -870,7 +869,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               }
             : { sessionStatus: "ringing", isInitiator: false, endedReason: null }
         ).then(() => {
-          stopCallRingtone("missed_timeout", sid);
+          dibayIncomingLaneStopRing("missed_timeout", sid);
           activeIncomingCallIdsRef.current.delete(sid);
           logCallFlow("call_cleanup_done", { sessionId: sid, reason: "missed_timeout" });
           void refresh(true, { incomingTerminalListSync: true });
@@ -1168,7 +1167,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         const visible = typeof document === "undefined" || document.visibilityState === "visible";
         if (sid && incomingCallSoundEnabledRef.current && visible) {
           unlockCommunityMessengerCallPlaybackFromUserGesture();
-          playIncomingCallRingtone(sid, detail.callKind ?? "voice");
+          dibayIncomingLaneStartRing(sid, detail.callKind ?? "voice");
           activeIncomingCallIdsRef.current.add(sid);
         }
         bumpIncomingListFastSync();
@@ -1295,7 +1294,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   activeIncomingCallIdsRef.current.delete(sid);
                 }
                 /* 터미널 전이라도 링 종료면 즉시 벨·WebAudio 정지(취소 후 연결음 잔류 방지) */
-                stopCallRingtone("realtime_left_ringing", sid || undefined);
+                dibayIncomingLaneStopRing("realtime_left_ringing", sid || undefined);
               }
               const terminal = isTerminalIncomingCallStatus(newRow?.status) || p.eventType === "DELETE";
               const leftRinging =
@@ -1312,7 +1311,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   suppressMissedSoundRef.current.add(sid);
                   activeIncomingCallIdsRef.current.delete(sid);
                 }
-                stopCallRingtone("realtime_terminal", sid || undefined);
+                dibayIncomingLaneStopRing("realtime_terminal", sid || undefined);
                 if (realtimeDebounceTimerRef.current != null) {
                   window.clearTimeout(realtimeDebounceTimerRef.current);
                   realtimeDebounceTimerRef.current = null;
@@ -1669,11 +1668,9 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [sessions, userId]);
 
   useEffect(() => {
-    if (!incomingTabLeader) return;
     const s = directRingingCalleeSession;
     if (!s || s.status !== "ringing") return;
     if (!incomingCallSoundEnabled) return;
-    if (incomingVisibilityState !== "visible") return;
 
     const sid = s.id.trim();
     if (!activeIncomingCallIdsRef.current.has(sid)) {
@@ -1682,14 +1679,13 @@ export function GlobalCommunityMessengerIncomingCall() {
     } else {
       logCallFlow("call_incoming_deduped", { sessionId: sid, source: "direct_ringing_ring" });
     }
-    playIncomingCallRingtone(sid, s.callKind);
+    unlockCommunityMessengerCallPlaybackFromUserGesture();
+    dibayIncomingLaneStartRing(sid, s.callKind);
   }, [
     directRingingCalleeSession?.id,
     directRingingCalleeSession?.status,
     directRingingCalleeSession?.callKind,
-    incomingVisibilityState,
     incomingCallSoundEnabled,
-    incomingTabLeader,
   ]);
 
   useEffect(() => {
@@ -1743,7 +1739,7 @@ export function GlobalCommunityMessengerIncomingCall() {
 
     logCallFlow("call_cleanup_start", { sessionId, reason: "reject" });
     suppressMissedSoundRef.current.add(sessionId);
-    stopCallRingtone("reject_pressed", sessionId);
+    dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     activeIncomingCallIdsRef.current.delete(sessionId);
     const session = sessions.find((item) => item.id === sessionId) ?? null;
@@ -1865,7 +1861,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             cmCallFlow("incoming_accepted", { sessionId: session.id });
             dismissedIncomingSessionsAtRef.current.set(session.id, Date.now());
             setSessions((prev) => prev.filter((item) => item.id !== session.id));
-            stopCallRingtone("group_accept", session.id);
+            dibayIncomingLaneStopRing("group_accept", session.id);
             activeIncomingCallIdsRef.current.delete(session.id);
             markIncomingCallHardClearedSession(hardClearedIncomingSessionsAtRef.current, session.id);
             suppressMissedSoundRef.current.add(session.id);

@@ -1,55 +1,39 @@
 /**
  * 전역 수신 배너 · CallClient · deep link accept/reject 가 동시에 PATCH 하지 않도록 single-flight.
+ * 구현은 call-orchestrator 한 곳에만 둔다 (이 파일은 얇은 래퍼).
  */
 
-const acceptInFlight = new Set<string>();
-const rejectInFlight = new Set<string>();
-
-function sid(sessionId: string): string {
-  return sessionId.trim();
-}
+import {
+  endDibayCallAction,
+  isDibayCallActionInFlight,
+  resetDibayCallActionFlights,
+  tryBeginDibayCallAction,
+} from "@/lib/community-messenger/call-orchestrator";
 
 export function tryClaimIncomingCallAccept(sessionId: string): boolean {
-  const id = sid(sessionId);
-  if (!id || acceptInFlight.has(id) || rejectInFlight.has(id)) return false;
-  acceptInFlight.add(id);
-  return true;
+  return tryBeginDibayCallAction(sessionId, "accept");
 }
 
 export function releaseIncomingCallAccept(sessionId: string): void {
-  const id = sid(sessionId);
-  if (!id) return;
-  acceptInFlight.delete(id);
+  endDibayCallAction(sessionId, "accept");
 }
 
 export function isIncomingCallAcceptInFlight(sessionId: string): boolean {
-  return acceptInFlight.has(sid(sessionId));
+  return isDibayCallActionInFlight(sessionId, "accept");
 }
 
 export function isIncomingCallRejectInFlight(sessionId: string): boolean {
-  return rejectInFlight.has(sid(sessionId));
+  return isDibayCallActionInFlight(sessionId, "reject");
 }
 
 export function tryClaimIncomingCallReject(sessionId: string): boolean {
-  const id = sid(sessionId);
-  if (!id || acceptInFlight.has(id) || rejectInFlight.has(id)) return false;
-  rejectInFlight.add(id);
-  return true;
+  return tryBeginDibayCallAction(sessionId, "reject");
 }
 
 export function releaseIncomingCallReject(sessionId: string): void {
-  const id = sid(sessionId);
-  if (!id) return;
-  rejectInFlight.delete(id);
+  endDibayCallAction(sessionId, "reject");
 }
 
 export function resetIncomingCallActionGuards(sessionId?: string): void {
-  if (sessionId) {
-    const id = sid(sessionId);
-    acceptInFlight.delete(id);
-    rejectInFlight.delete(id);
-    return;
-  }
-  acceptInFlight.clear();
-  rejectInFlight.clear();
+  resetDibayCallActionFlights(sessionId);
 }

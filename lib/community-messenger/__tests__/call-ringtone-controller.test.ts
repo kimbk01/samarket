@@ -1,8 +1,13 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/community-messenger/call-tone-web-audio", () => ({
+  startWebAudioCallTone: vi.fn(() => null),
+}));
+
 vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
   startCommunityMessengerCallTone: vi.fn(async () => ({ stop: vi.fn() })),
   stopCommunityMessengerCallTone: vi.fn(),
+  unlockCommunityMessengerCallPlaybackFromUserGesture: vi.fn(),
 }));
 
 import { startCommunityMessengerCallTone } from "@/lib/community-messenger/call-feedback-sound";

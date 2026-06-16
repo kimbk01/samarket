@@ -92,11 +92,12 @@ import {
 } from "@/lib/community-messenger/incoming-call-action-guard";
 import { runIncomingCallCleanup } from "@/lib/community-messenger/incoming-call-cleanup";
 import {
-  getActiveIncomingRingtoneSessionId,
-  playIncomingCallRingtone,
   shouldPreserveIncomingRingtoneOnCallRoute,
-  stopCallRingtone,
 } from "@/lib/community-messenger/call-ringtone-controller";
+import {
+  dibayCallSealTerminal,
+  dibayIncomingLaneStopRing,
+} from "@/lib/community-messenger/call-lifecycle";
 import {
   cmCallAudioCleanup,
   cmCallFlow,
@@ -200,7 +201,6 @@ import {
 import {
   deriveDibayCallOrchestratorState,
   logDibayCall,
-  markDibayCallTerminal,
 } from "@/lib/community-messenger/call-orchestrator";
 import {
   hasLiveCommunityMessengerVideoPreviewStream,
@@ -733,6 +733,7 @@ export function CommunityMessengerCallClient({
   const remoteAudioFirstFrameLoggedRef = useRef(false);
   const remoteUserJoinedLoggedRef = useRef(false);
   const terminalImmediateCleanupOnceRef = useRef<string | null>(null);
+  const terminalNavigateBackOnceRef = useRef<string | null>(null);
   /** 터미널·active 전환 시 잔여 오류/톤 정리 — 터미널 카피가 active 오류에 덮이지 않게 한다 */
   useEffect(() => {
     if (!session) return;
@@ -761,6 +762,7 @@ export function CommunityMessengerCallClient({
     remoteAudioFirstFrameLoggedRef.current = false;
     remoteUserJoinedLoggedRef.current = false;
     terminalImmediateCleanupOnceRef.current = null;
+    terminalNavigateBackOnceRef.current = null;
   }, [sessionId]);
 
   /** 임시 발신 세션 — initiator UUID 를 동기 세션에서 채워 PATCH·폴링 단계 안전 */
@@ -932,7 +934,7 @@ export function CommunityMessengerCallClient({
     });
 
     if (!shouldPreserveIncomingRingtoneOnCallRoute(sessionId)) {
-      stopCallRingtone("call_client_session_route", sessionId);
+      dibayIncomingLaneStopRing("call_client_session_route", sessionId);
     }
     setCalleeVideoConnectingShell(false);
     wasCallSessionRingingRef.current = false;
@@ -1102,19 +1104,6 @@ export function CommunityMessengerCallClient({
       cancelled = true;
       tone?.stop();
     };
-  }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined]);
-
-  /**
-   * 네이티브 자동 진입 등으로 전역 벨이 끊긴 뒤에도 수신 전용 화면에서 벨을 보장한다.
-   */
-  useEffect(() => {
-    if (!session) return;
-    if (session.isMineInitiator) return;
-    if (session.status !== "ringing") return;
-    if (joined) return;
-    unlockCommunityMessengerCallPlaybackFromUserGesture();
-    if (getActiveIncomingRingtoneSessionId() === session.id) return;
-    playIncomingCallRingtone(session.id, session.callKind);
   }, [session?.id, session?.status, session?.isMineInitiator, session?.callKind, joined]);
 
   /** 수락 전 터미널(취소·거절·부재) — 세션 GET/Realtime 이 먼저 닫혀도 화면을 즉시 복귀 */
@@ -1513,7 +1502,7 @@ export function CommunityMessengerCallClient({
     if (!session || !isTerminalCallSessionStatus(session.status)) return;
     if (terminalImmediateCleanupOnceRef.current === session.id) return;
     terminalImmediateCleanupOnceRef.current = session.id;
-    markDibayCallTerminal(session.id);
+    dibayCallSealTerminal(session.id);
     logDibayCall("state_end", { sessionId: session.id, status: session.status, source: "call_client_terminal" });
     cmCallAudioCleanup("terminal_session_cleanup_immediate", { status: session.status, sessionId: session.id });
     joiningRef.current = false;
@@ -2342,7 +2331,7 @@ export function CommunityMessengerCallClient({
         return null;
       }
       if (s.status === "active") {
-        stopCallRingtone("accept_already_active", s.id);
+        dibayIncomingLaneStopRing("accept_already_active", s.id);
         dismissAllIncomingCallNotificationsFireAndForget(s.id);
         runIncomingCallCleanup({ sessionId: s.id, reason: "accept_already_active", stopRingtone: false });
         releaseIncomingCallAccept(s.id);
@@ -2352,7 +2341,7 @@ export function CommunityMessengerCallClient({
         logDibayCall("accept_success", { sessionId: s.id, source: "native_accept_route" });
         setCalleeVideoConnectingShell(true);
         setBusy("accept");
-        stopCallRingtone("native_accept_route", s.id);
+        dibayIncomingLaneStopRing("native_accept_route", s.id);
         dismissAllIncomingCallNotificationsFireAndForget(s.id);
         try {
           const refreshed = await refreshSession(true);
@@ -2391,7 +2380,7 @@ export function CommunityMessengerCallClient({
       if (primedPeek) primeVideoElementAutoplayFromUserGesture(primedPeek);
     }
     try {
-      stopCallRingtone("accept_patch_start", s.id);
+      dibayIncomingLaneStopRing("accept_patch_start", s.id);
       dismissAllIncomingCallNotificationsFireAndForget(s.id);
       const json = await patchCommunityMessengerCallSession(s.id, "accept", undefined, {
         sessionStatus: s.status,
@@ -2493,7 +2482,7 @@ export function CommunityMessengerCallClient({
     directCallPatchInFlightRef.current = true;
     logCallFlow("call_cleanup_start", { sessionId: session.id, reason: "reject" });
     stopCommunityMessengerCallFeedback();
-    stopCallRingtone("reject_pressed", session.id);
+    dibayIncomingLaneStopRing("reject_pressed", session.id);
     dismissAllIncomingCallNotificationsFireAndForget(session.id);
     cmCallAudioCleanup("reject_click_feedback_stopped_before_patch", { sessionId: session.id });
     setBusy("reject");
@@ -2591,7 +2580,7 @@ export function CommunityMessengerCallClient({
     if (!tryClaimIncomingCallReject(sessionId)) return;
     logCallFlow("call_reject_pressed", { sessionId, source: "call_client_hydrate" });
     setBusy("reject");
-    stopCallRingtone("reject_pressed", sessionId);
+    dibayIncomingLaneStopRing("reject_pressed", sessionId);
     dismissAllIncomingCallNotificationsFireAndForget(sessionId);
     try {
       const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}`, {
@@ -2644,7 +2633,7 @@ export function CommunityMessengerCallClient({
         setSession(loaded);
         sessionRef.current = loaded;
         setLoading(false);
-        stopCallRingtone("hydrate_accept_already_active", sessionId);
+        dibayIncomingLaneStopRing("hydrate_accept_already_active", sessionId);
         runIncomingCallCleanup({ sessionId, reason: "hydrate_accept_already_active", stopRingtone: false });
         return;
       }
@@ -2659,7 +2648,7 @@ export function CommunityMessengerCallClient({
       setLoading(false);
       if (nativeAcceptRoute) {
         logDibayCall("accept_success", { sessionId, source: "native_accept_hydrate" });
-        stopCallRingtone("hydrate_native_accept", sessionId);
+        dibayIncomingLaneStopRing("hydrate_native_accept", sessionId);
         dismissAllIncomingCallNotificationsFireAndForget(sessionId);
         await refreshSession(true);
         return;
@@ -2729,6 +2718,7 @@ export function CommunityMessengerCallClient({
     const roomId = session.roomId;
     const sid = session.id;
     const peer = session.peerUserId?.trim();
+    dibayCallSealTerminal(sid);
     const patchAction: "cancel" | "reject" | "end" =
       session.status === "ringing"
         ? session.isMineInitiator
@@ -3754,7 +3744,20 @@ export function CommunityMessengerCallClient({
       closeReason: "auto_close_terminal",
     });
     navigateBackFromCommunityMessengerCall(router, sessionRef.current?.roomId);
-  }, [router]);
+  }, [router, sessionId]);
+
+  useEffect(() => {
+    if (!session || !isTerminalCallSessionStatus(session.status)) return;
+    if (session.status === "ringing") return;
+    const er = session.endedReason;
+    if (er && isMessengerCallClientFailureReason(er)) return;
+    if (terminalNavigateBackOnceRef.current === session.id) return;
+    terminalNavigateBackOnceRef.current = session.id;
+    dibayCallSealTerminal(session.id);
+    logDibayCall("cleanup_start", { sessionId: session.id, source: "terminal_immediate_exit" });
+    const timer = window.setTimeout(() => closeTerminalView(), 0);
+    return () => window.clearTimeout(timer);
+  }, [closeTerminalView, session, session?.endedReason, session?.id, session?.status]);
 
   const handleExpandToFullscreen = useCallback(() => {
     const sid = sessionRef.current?.id?.trim();
@@ -4035,7 +4038,9 @@ export function CommunityMessengerCallClient({
 
   const videoCall = session.callKind === "video";
   const directPhase = resolveDirectCallPhase(session.status, joined, remoteJoined);
-  const suppressTerminalView = false;
+  const suppressTerminalView =
+    isTerminalCallSessionStatus(session.status) &&
+    !(session.endedReason && isMessengerCallClientFailureReason(session.endedReason));
   const effectiveDirectPhase: CallPhase = directPhase;
   /**
    * 전용 통화 페이지에서 자동/수동 수락 PATCH 직전까지 `ringing` 이면 CallScreen 이 IncomingCallView(벨 UI)를 다시 그린다.
