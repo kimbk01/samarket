@@ -51,6 +51,9 @@ export type IncomingPresenterDecisionPayload = {
   isTerminal: boolean | null;
   visibilityState: string;
   appVisibleProxy: boolean;
+  busyPolicyShouldAutoReject: boolean | null;
+  viewerLiveSessionId: string | null;
+  sessionsCount: number;
   reason: string;
   ringingSessionIds: string[];
   firstRingingSkipDetail: string | null;
@@ -112,6 +115,18 @@ export function buildIncomingPresenterDecisionPayload(
       ? diagnoseFirstRingingCalleeNull(input.sessions, uid, input.viewerLiveSessionId)
       : null;
 
+  const busyPolicyTargetSession =
+    input.sessions.find((s) => s.id === callId && s.status === "ringing") ??
+    input.directRingingCalleeSession ??
+    input.firstRingingCalleeSession ??
+    null;
+  const busyPolicyShouldAutoReject = busyPolicyTargetSession
+    ? evaluateIncomingCallBusyPolicy({
+        incoming: busyPolicyTargetSession,
+        otherLiveSessionId: input.viewerLiveSessionId,
+      }).shouldAutoReject
+    : null;
+
   let reason: string;
   if (!uid) {
     reason = "no_user_id";
@@ -152,6 +167,9 @@ export function buildIncomingPresenterDecisionPayload(
     isTerminal,
     visibilityState: input.incomingVisibilityState,
     appVisibleProxy: input.incomingVisibilityState === "visible",
+    busyPolicyShouldAutoReject,
+    viewerLiveSessionId: input.viewerLiveSessionId,
+    sessionsCount: input.sessions.length,
     reason,
     ringingSessionIds: input.sessions
       .filter((s) => s.status === "ringing")

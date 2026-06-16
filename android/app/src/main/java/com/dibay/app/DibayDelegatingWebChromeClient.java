@@ -52,6 +52,9 @@ public final class DibayDelegatingWebChromeClient extends WebChromeClient {
       int level = msg.contains("_FAIL") ? android.util.Log.ERROR : android.util.Log.INFO;
       android.util.Log.println(level, "DIBAY_PUSH_REGISTER", msg);
     }
+    if (msg != null && msg.contains("incoming_presenter_decision")) {
+      android.util.Log.i("DIBAY_CALL", msg.trim());
+    }
     if (delegate != null) return delegate.onConsoleMessage(consoleMessage);
     return super.onConsoleMessage(consoleMessage);
   }
