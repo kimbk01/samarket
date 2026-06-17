@@ -42,19 +42,6 @@ export type MessengerBusEvent =
       at: number;
     }
   | {
-      type: "cm.home.social_sync";
-      roomId?: string | null;
-      viewerUserId?: string | null;
-      reason:
-        | "message_request_created"
-        | "message_request_accepted"
-        | "message_request_declined"
-        | "user_blocked"
-        | "friendship_created"
-        | "room_visibility_changed";
-      at: number;
-    }
-  | {
       type: "cm.room.incoming_message";
       roomId: string;
       viewerUserId: string;
@@ -222,7 +209,6 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       d.type !== "cm.room.bump" &&
       d.type !== "cm.room.local_unread" &&
       d.type !== "cm.home.merge_room_summary" &&
-      d.type !== "cm.home.social_sync" &&
       d.type !== "cm.room.incoming_message" &&
       d.type !== "cm.room.read" &&
       d.type !== "cm.room.summary_patch" &&
@@ -235,7 +221,7 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       handler(d as MessengerBusEvent);
       return;
     }
-    if (d.type !== "cm.home.merge_room_summary" && d.type !== "cm.home.social_sync") {
+    if (d.type !== "cm.home.merge_room_summary") {
       if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
     }
     if (d.type === "cm.room.local_unread") {
@@ -245,11 +231,6 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
     if (d.type === "cm.home.merge_room_summary") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;
       if (!d.summary || typeof d.summary !== "object" || typeof (d.summary as { id?: unknown }).id !== "string") return;
-    }
-    if (d.type === "cm.home.social_sync") {
-      if (typeof d.reason !== "string" || !d.reason.trim()) return;
-      handler(d as MessengerBusEvent);
-      return;
     }
     if (d.type === "cm.room.incoming_message" || d.type === "cm.room.read" || d.type === "cm.room.summary_patch") {
       if (typeof d.viewerUserId !== "string" || !d.viewerUserId.trim()) return;

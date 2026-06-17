@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 import { cache } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { cookieHeaderHasSupabaseAuthCookies } from "@/lib/auth/route-handler-auth-fast-guard";
 import { resolveRouteHandlerAuthFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -39,9 +38,6 @@ async function resolveRouteHandlerCookieAuthOnce(): Promise<RouteHandlerCookieAu
     /* next/headers 미사용 컨텍스트 */
   }
   return runSingleFlight(authCookieFlightKey(cookieHeader), async (): Promise<RouteHandlerCookieAuth> => {
-    if (!cookieHeaderHasSupabaseAuthCookies(cookieHeader)) {
-      return { userId: null, user: null, claimsOnly: false, supabase: null };
-    }
     try {
       const supabase = await createSupabaseRouteHandlerClient();
       if (!supabase) {

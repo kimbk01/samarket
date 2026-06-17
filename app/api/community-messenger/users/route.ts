@@ -28,9 +28,7 @@ export async function GET(req: NextRequest) {
   const signupGate = await requireSignupCompleteForUser(sb, auth.userId);
   if (!signupGate.ok) return signupGate.response;
 
-  const query = req.nextUrl.searchParams.get("query") ?? req.nextUrl.searchParams.get("q") ?? "";
-  console.info("[friend-flow] search_start", { viewerUserId: auth.userId, queryLength: query.trim().length });
+  const query = req.nextUrl.searchParams.get("q") ?? "";
   const users = await searchCommunityMessengerUsersRanked(auth.userId, query);
-  console.info("[friend-flow] search_result", { viewerUserId: auth.userId, count: users.length });
   return NextResponse.json({ ok: true, users });
 }

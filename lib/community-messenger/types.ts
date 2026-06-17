@@ -49,17 +49,6 @@ export function communityMessengerCallStubStatusIsTerminal(
 export type CommunityMessengerCallSessionMode = "direct" | "group";
 export type CommunityMessengerCallSignalType = "offer" | "answer" | "ice-candidate" | "hangup";
 export type CommunityMessengerCallParticipantStatus = "invited" | "joined" | "left" | "rejected";
-export type CommunityMessengerPeerRelationStatus =
-  | "none"
-  | "request_pending_outgoing"
-  | "request_pending_incoming"
-  | "accepted"
-  | "declined"
-  | "blocked_by_me"
-  | "blocked_me"
-  | "hidden_after_decline"
-  | "hidden_after_block";
-export type CommunityMessengerFriendshipStatus = "none" | "pending" | "accepted" | "blocked" | "removed";
 export type CommunityMessengerFriendRequestStatus =
   | "pending"
   | "accepted"
@@ -191,8 +180,6 @@ export type CommunityMessengerRoomSummary = {
   isArchivedByViewer?: boolean;
   /** `community_messenger_participants.blocked_hidden_at` — 차단 시 내 채팅 목록에서 숨김. */
   isBlockedHiddenByViewer?: boolean;
-  /** General direct message-request state. Server SSOT: `community_messenger_rooms.relation_status`. */
-  relationStatus?: "pending" | "accepted" | "declined" | "blocked" | null;
   /** `summary` 필드가 v1 JSON 인 경우 파싱 결과(서버 조립 시 설정). */
   contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
   /** `meetings.community_messenger_room_id` 연동 모임 방: 내 `meeting_members` 역할 표시(목록 뱃지) */

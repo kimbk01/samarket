@@ -15,13 +15,7 @@ export function messengerHomeActionErrorMessage(
     case "invalid_target":
       return t("nav_messenger_invalid_target");
     case "friend_required":
-    case "message_friend_required":
-    case "message_request_pending":
       return t("nav_messenger_friend_required");
-    case "message_blocked_by_me":
-      return t("cm_social_message_blocked_by_me");
-    case "message_blocked_by_peer":
-      return t("cm_social_message_blocked_by_peer");
     case "title_required":
       return t("nav_messenger_title_required");
     case "password_required":

@@ -112,15 +112,6 @@ import {
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import {
-  peekPrefetchedDirectStart,
-  prefetchCommunityMessengerDirectStart,
-  resolveCommunityMessengerDirectStart,
-} from "@/lib/community-messenger/direct-chat-start-prefetch";
-import {
-  buildDirectPeerInstantEntrySnapshot,
-  type DirectPeerInstantEntryPeer,
-} from "@/lib/community-messenger/room/build-direct-peer-instant-entry-snapshot";
-import {
   communityMessengerRoomHref,
   MESSENGER_ENTRY_ORIGIN_QUERY_KEY,
 } from "@/lib/community-messenger/messenger-entry-origin";
@@ -1032,84 +1023,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const maybePrefetchDirectRoom = useCallback(
     (peerUserId: string) => {
       const existing = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
-      if (existing) {
-        void prefetchCommunityMessengerRoomSnapshot(existing.id);
-        return;
-      }
-      prefetchCommunityMessengerDirectStart(peerUserId);
+      if (existing) void prefetchCommunityMessengerRoomSnapshot(existing.id);
     },
     [data?.chats]
   );
 
-  const primeDirectStartSnapshot = useCallback(
-    (roomId: string, snapshot: CommunityMessengerRoomSnapshot | null | undefined, viewerUserId: string | null) => {
-      if (!snapshot) return;
-      const uid = viewerUserId?.trim() || snapshot.viewerUserId?.trim() || "";
-      const snap: CommunityMessengerRoomSnapshot =
-        uid && !snapshot.viewerUserId?.trim() ? { ...snapshot, viewerUserId: uid } : snapshot;
-      primeRoomSnapshot(roomId, snap);
-      primeHotRoomSnapshot(roomId, snap);
-      const { description: _desc, ...roomSummary } = snap.room;
-      commitHomeListPatch(setData, { kind: "merge_room_summary", summary: roomSummary }, "bootstrap");
-      if (uid) {
-        postCommunityMessengerBusEvent({
-          type: "cm.home.merge_room_summary",
-          viewerUserId: uid,
-          summary: roomSummary,
-          at: Date.now(),
-        });
-      }
-      requestMessengerHubBadgeResync("direct_room_created");
-    },
-    [setData]
-  );
-
   const startDirectRoom = useCallback(
-    async (peerUserId: string, peerHint?: CommunityMessengerUserSearchResult | null) => {
+    async (peerUserId: string) => {
       setActionError(null);
-      setFriendManagerOpen(false);
       const viewerUserId = data?.me?.id?.trim() || null;
-      const peer = peerUserId.trim();
-      const status = peerHint?.relationshipStatus ?? (peerHint?.isFriend ? "accepted" : "none");
-      if (status === "blocked_by_me" || status === "blocked_me" || status === "hidden_after_block") {
-        showMessengerSnackbar(t("cm_social_cannot_start_chat"), { variant: "error" });
-        return;
-      }
-      if (status === "request_pending_outgoing") {
-        showMessengerSnackbar(t("cm_social_request_sent"), { variant: "default" });
-        return;
-      }
-      if (status !== "accepted") {
-        setBusyId(`room:${peer}`);
-        try {
-          const res = await fetch("/api/community-messenger/friends/request", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ targetUserId: peer }),
-          });
-          const json = (await res.json().catch(() => ({}))) as {
-            ok?: boolean;
-            error?: string;
-          };
-          if (res.ok && json.ok) {
-            showMessengerSnackbar(t("cm_social_request_sent"), { variant: "success" });
-            postCommunityMessengerBusEvent({
-              type: "cm.home.social_sync",
-              viewerUserId: viewerUserId || undefined,
-              reason: "friendship_created",
-              at: Date.now(),
-            });
-            return;
-          }
-          setActionError(getMessengerActionErrorMessage(json.error));
-          showMessengerSnackbar(getMessengerActionErrorMessage(json.error), { variant: "error" });
-        } finally {
-          setBusyId(null);
-        }
-        return;
-      }
-
-      const existingRoom = pickGeneralDirectRoomForPeer(data?.chats ?? [], peer);
+      const existingRoom = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       if (existingRoom) {
         const revived = await reviveDirectRoomForEntry(existingRoom);
         if (!revived) return;
@@ -1121,67 +1044,54 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         });
         return;
       }
-
-      const primeInstantEntryAndNavigate = (roomId: string) => {
-        const uid = viewerUserId ?? "";
-        const peerForSnap: DirectPeerInstantEntryPeer =
-          peerHint ??
-          {
-            id: peer,
-            displayName: "",
-            avatarUrl: null,
-            isFriend: false,
-            isBlockedByMe: false,
-          };
-        let roomForPrime: CommunityMessengerRoomSummary | undefined;
-        if (uid) {
-          const instantSnap = buildDirectPeerInstantEntrySnapshot({
-            roomId,
-            viewerUserId: uid,
-            peer: peerForSnap,
-          });
-          primeRoomSnapshot(roomId, instantSnap);
-          primeHotRoomSnapshot(roomId, instantSnap);
-          roomForPrime = instantSnap.room;
-          const { description: _desc, ...roomSummary } = instantSnap.room;
-          commitHomeListPatch(setData, { kind: "merge_room_summary", summary: roomSummary }, "bootstrap");
-          postCommunityMessengerBusEvent({
-            type: "cm.home.merge_room_summary",
-            viewerUserId: uid,
-            summary: roomSummary,
-            at: Date.now(),
-          });
-        }
-        navigateToCommunityRoomWithViewer(roomId, {
-          viewerUserId: uid || undefined,
-          roomForPrime,
-        });
-        void resolveCommunityMessengerDirectStart(peer, { includeSnapshot: true }).then((json) => {
-          if (json.ok && json.roomId && json.snapshot) {
-            primeDirectStartSnapshot(json.roomId, json.snapshot, viewerUserId);
-          }
-        });
-      };
-
-      const prefetched = peekPrefetchedDirectStart(peer);
-      if (prefetched?.ok && prefetched.roomId) {
-        primeInstantEntryAndNavigate(prefetched.roomId);
-        return;
-      }
-
-      setBusyId(`room:${peer}`);
+      setBusyId(`room:${peerUserId}`);
       try {
-        const json = await resolveCommunityMessengerDirectStart(peer, { includeSnapshot: false });
-        if (json.ok && json.roomId) {
-          primeInstantEntryAndNavigate(json.roomId);
+        const res = await fetch("/api/community-messenger/direct/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId: peerUserId }),
+        });
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          roomId?: string;
+          error?: string;
+          snapshot?: CommunityMessengerRoomSnapshot;
+        };
+        if (res.ok && json.ok && json.roomId) {
+          if (json.snapshot) {
+            primeRoomSnapshot(json.roomId, json.snapshot);
+            primeHotRoomSnapshot(json.roomId, json.snapshot);
+            const uid = viewerUserId;
+            const { description: _desc, ...roomSummary } = json.snapshot.room;
+            commitHomeListPatch(
+              setData,
+              { kind: "merge_room_summary", summary: roomSummary },
+              "bootstrap"
+            );
+            if (uid) {
+              postCommunityMessengerBusEvent({
+                type: "cm.home.merge_room_summary",
+                viewerUserId: uid,
+                summary: roomSummary,
+                at: Date.now(),
+              });
+            }
+            requestMessengerHubBadgeResync("direct_room_created");
+          }
+          navigateToCommunityRoomWithViewer(json.roomId, {
+            roomForPrime: json.snapshot?.room,
+          });
           return;
         }
-        const apiErr = typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = json.httpStatus === 401 ? t("common_login_required") : "";
-        if (redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)) {
+        const apiErr =
+          typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
+        const authHint = res.status === 401 ? t("common_login_required") : "";
+        if (
+          redirectForBlockedAction(router, apiErr || authHint || undefined, messengerListPathname)
+        ) {
           return;
         }
-        if (json.httpStatus === 401 || json.httpStatus === 403) {
+        if (res.status === 401 || res.status === 403) {
           setAuthRequired(true);
           setPageError(t("nav_messenger_login_required"));
           return;
@@ -1195,9 +1105,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data?.chats,
       data?.me?.id,
       getMessengerActionErrorMessage,
-      messengerListPathname,
       navigateToCommunityRoomWithViewer,
-      primeDirectStartSnapshot,
+      messengerListPathname,
       reviveDirectRoomForEntry,
       router,
       setAuthRequired,
@@ -1228,13 +1137,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         void reviveDirectRoomForEntry(existingRoom);
       }
 
+      const roomId = existingRoom?.id?.trim() ? existingRoom.id.trim() : null;
       const peer = peerUserId.trim();
-      const prefetchedRoomId = peekPrefetchedDirectStart(peer)?.roomId?.trim() || null;
-      const roomId =
-        existingRoom?.id?.trim() || prefetchedRoomId || null;
-      if (!roomId) {
-        prefetchCommunityMessengerDirectStart(peer, { includeSnapshot: false });
-      }
       setCmCallLatencyContext({
         role: "initiator",
         callKind: kind,
@@ -1257,9 +1161,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       };
       void (async () => {
         const result = await launchOutgoingDirectCall(
-          roomId
-            ? { kind, roomId, peerUserId: peer, peerLabel: peerLabelForDial ?? undefined }
-            : { kind, peerUserId: peer, peerLabel: peerLabelForDial ?? undefined },
+          roomId ? { kind, roomId, peerUserId: peer } : { kind, peerUserId: peer },
           router
         );
         releaseDialGuard();
@@ -1554,16 +1456,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       setBusyId(`block:${targetUserId}`);
       try {
         const isBlocked = resolvePeerBlockedState(targetUserId);
-        const res = await fetch(
-          isBlocked
-            ? "/api/community-messenger/friends/unblock"
-            : "/api/community-messenger/friends/block",
-          {
-            method: isBlocked ? "PATCH" : "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ targetUserId }),
-          }
-        );
+        const res = await fetch("/api/community-messenger/relations/block", {
+          method: isBlocked ? "DELETE" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetUserId }),
+        });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (res.ok && json.ok) {
           void refresh(true);
@@ -2047,11 +1944,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
 
   const openOutgoingCallConfirm = useCallback(
     (peerUserId: string, kind: "voice" | "video") => {
-      const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
-      if (!room) {
-        prefetchCommunityMessengerDirectStart(peerUserId, { includeSnapshot: false });
-      }
       const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
+      const room = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       const peerLabel = fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
       setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
     },
@@ -3201,7 +3095,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           viewerUserId={data.me?.id ?? null}
           busyId={busyId}
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
-          onStartDirectChat={(user) => void startDirectRoom(user.id, user)}
+          onStartDirectChat={(userId) => void startDirectRoom(userId)}
           inviteUrl={messengerInviteUrl}
         />
       ) : null}

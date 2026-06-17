@@ -43,12 +43,7 @@ export async function POST(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const parsed = await parseJsonBody<{
-    publicId?: string;
-    targetUserId?: string;
-    /** false 면 roomId 만 반환(발신 통화 ensure 등) — full 스냅샷 생략 */
-    includeSnapshot?: boolean;
-  }>(req, "invalid_json");
+  const parsed = await parseJsonBody<{ publicId?: string; targetUserId?: string }>(req, "invalid_json");
   if (!parsed.ok) return parsed.response;
 
   const result = await startCommunityMessengerDirectChat(auth.userId, {
@@ -62,14 +57,7 @@ export async function POST(req: NextRequest) {
     return jsonError(err, status, result);
   }
 
-  const includeSnapshot = parsed.value.includeSnapshot !== false;
-  const snapshot = includeSnapshot
-    ? await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId, {
-        snapshotTier: "critical",
-        hydrateFullMemberList: false,
-        deferSnapshotSecondary: true,
-      })
-    : null;
+  const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
   return jsonOkWithRequest(req, {
     roomId: result.roomId,
     created: result.created ?? false,

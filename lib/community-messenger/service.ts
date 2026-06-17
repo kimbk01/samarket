@@ -11,19 +11,6 @@ import {
   serializeCommunityMessengerRoomContextMeta,
 } from "@/lib/community-messenger/room-context-meta";
 import {
-  assertCanSendDirectMessage as assertCommunityMessengerPeerCanMessage,
-  assertCanStartDirectCall as assertCommunityMessengerPeerCanCall,
-  acceptCommunityMessengerFriendship as acceptCommunityMessengerFriendshipCore,
-  blockCommunityMessengerFriendship as blockCommunityMessengerFriendshipCore,
-  declineCommunityMessengerFriendship as declineCommunityMessengerFriendshipCore,
-  filterGeneralDirectRoomsByFriendshipAccepted,
-  listCommunityMessengerAcceptedFriends,
-  listCommunityMessengerBlockedFriendships as listCommunityMessengerBlockedFriendshipsCore,
-  requestCommunityMessengerFriendship as requestCommunityMessengerFriendshipCore,
-  unblockCommunityMessengerFriendship as unblockCommunityMessengerFriendshipCore,
-} from "@/lib/community-messenger/friendship";
-import type { FriendshipProfileHydrator } from "@/lib/community-messenger/friendship";
-import {
   canDeleteMessageForEveryone,
   canDeleteMessageForMe,
   canHideMessageForMe,
@@ -378,7 +365,6 @@ type RoomRow = {
   last_message_at: string | null;
   last_message_type: string | null;
   direct_key?: string | null;
-  relation_status?: "pending" | "accepted" | "declined" | "blocked" | null;
 };
 
 type ParticipantRow = {
@@ -390,9 +376,7 @@ type ParticipantRow = {
   is_muted: boolean | null;
   is_pinned: boolean | null;
   is_archived?: boolean | null;
-  hidden_at?: string | null;
   blocked_hidden_at?: string | null;
-  declined_hidden_at?: string | null;
   joined_at: string | null;
   last_read_at?: string | null;
   last_read_message_id?: string | null;
@@ -2257,14 +2241,6 @@ function buildRoomSummaryFromHydratedMembers(
     isArchivedByViewer,
     isBlockedHiddenByViewer,
     messengerDirectKey,
-    relationStatus:
-      roomType === "direct"
-        ? ((trimText(isDbRoom ? (room as RoomRow).relation_status : undefined) || "accepted") as
-            | "pending"
-            | "accepted"
-            | "declined"
-            | "blocked")
-        : null,
     contextMeta: contextMeta ?? null,
   };
 }
@@ -2309,8 +2285,6 @@ export function dedupeParticipantUserIds(rows: Array<ParticipantRow | DevPartici
 function participantViewerArchived(me: ParticipantRow | DevParticipant | undefined): boolean {
   if (!me) return false;
   if ("is_archived" in me && (me as ParticipantRow).is_archived === true) return true;
-  if ("hidden_at" in me && trimText((me as ParticipantRow).hidden_at)) return true;
-  if ("declined_hidden_at" in me && trimText((me as ParticipantRow).declined_hidden_at)) return true;
   if ("isArchived" in me && (me as DevParticipant).isArchived === true) return true;
   return false;
 }
@@ -2939,7 +2913,7 @@ async function fetchBootstrapLiteMyRoomsBundleViaRpc(
 
 /** home-sync critical — DB select 최소(응답 필드는 summarize·hydrate 로 동일 표면 유지) */
 const HOME_SYNC_CRITICAL_ROOMS_SELECT =
-  "id, room_type, room_status, is_readonly, direct_key, relation_status, title, last_message, last_message_at, last_message_type";
+  "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type";
 
 export async function fetchMyRoomsPayload(
   userId: string,
@@ -2961,7 +2935,7 @@ export async function fetchMyRoomsPayload(
   const bootstrapLiteBundle = options?.bootstrapLiteBundle === true;
   const roomsTableSelect = criticalSlimRoomSelect
     ? HOME_SYNC_CRITICAL_ROOMS_SELECT
-    : "id, room_type, room_status, is_readonly, direct_key, relation_status, title, summary, avatar_url, last_message, last_message_at, last_message_type";
+    : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type";
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
@@ -3198,21 +3172,6 @@ export async function fetchMyRoomsPayload(
     diagnostics && (diagnostics.round3Ms = Math.round(performance.now() - tRound3));
     diagnostics && (diagnostics.round3RoomProfileCount = roomProfileMap.size);
   }
-  if (sb && roomRows.length) {
-    roomRows = await filterGeneralDirectRoomsByFriendshipAccepted(userId, roomRows);
-    const remainingRoomIds = new Set(roomRows.map((room) => room.id));
-    participantRows = participantRows.filter((row) => {
-      const roomId = trimText((row as ParticipantRow & { roomId?: string }).room_id ?? (row as { roomId?: string }).roomId);
-      return remainingRoomIds.has(roomId);
-    });
-    byRoomId.clear();
-    for (const row of participantRows) {
-      const roomId = trimText((row as ParticipantRow & { roomId?: string }).room_id ?? (row as { roomId?: string }).roomId);
-      const list = byRoomId.get(roomId) ?? [];
-      list.push(row);
-      byRoomId.set(roomId, list);
-    }
-  }
   if (messengerPerfStepsEnabled()) {
     logMessengerPerfMs("fetchMyRoomsPayload", performance.now() - tPayload0);
   }
@@ -3253,7 +3212,7 @@ async function fetchRoomsPayloadByRoomIds(
           (sb as any)
             .from("community_messenger_rooms")
             .select(
-              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, relation_status, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+              "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, direct_key, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
             )
             .in("id", uniqueRoomIds),
           (sb as any)
@@ -3561,7 +3520,7 @@ async function fetchDiscoverableOpenGroupsRawState(userId: string): Promise<Disc
       (sb as any)
         .from("community_messenger_rooms")
         .select(
-          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, relation_status, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
+          "id, room_type, room_status, visibility, join_policy, identity_policy, is_readonly, title, summary, avatar_url, created_by, owner_user_id, member_limit, is_discoverable, allow_member_invite, notice_text, notice_updated_at, notice_updated_by, allow_admin_invite, allow_admin_kick, allow_admin_edit_notice, allow_member_upload, allow_member_call, password_hash, last_message, last_message_at, last_message_type"
         )
         .eq("room_type", "open_group")
         .eq("is_discoverable", true)
@@ -8636,38 +8595,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
   }
 }
 
-async function friendshipProfileHydrator(
-  viewerUserId: string,
-  peerUserIds: string[]
-): Promise<Array<{ id: string; label: string; avatarUrl: string | null }>> {
-  const profiles = await hydrateProfiles(viewerUserId, peerUserIds);
-  return profiles.map((profile) => ({
-    id: profile.id,
-    label: profile.label,
-    avatarUrl: profile.avatarUrl,
-  }));
-}
-
-const friendshipProfileHydratorBinding: FriendshipProfileHydrator = friendshipProfileHydrator;
-
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
-  const fromFriendships = await listCommunityMessengerAcceptedFriends(
-    userId,
-    friendshipProfileHydratorBinding,
-    (viewer) => listFollowingIds(viewer, "hidden")
-  );
-  if (fromFriendships.length > 0) {
-    return fromFriendships.map((profile) => ({
-      id: profile.id,
-      label: profile.label,
-      avatarUrl: profile.avatarUrl,
-      following: false,
-      blocked: false,
-      isFriend: true,
-      isFavoriteFriend: false,
-      friendshipAcceptedAt: profile.friendshipAcceptedAt,
-    }));
-  }
   const [friendIds, hiddenIds, friendshipAcceptedAtByPeer] = await Promise.all([
     listFriendSavedIds(userId).then(async (saved) => {
       if (saved.length) return saved;
@@ -8798,373 +8726,9 @@ export async function startCommunityMessengerDirectChat(
   };
 }
 
-export type CommunityMessengerMessageRequestResult = {
-  ok: boolean;
-  roomId?: string;
-  messageId?: string;
-  relationStatus?: "pending" | "accepted" | "declined" | "blocked";
-  message?: CommunityMessengerMessage;
-  error?: string;
-};
-
-export async function createCommunityMessengerMessageRequest(input: {
-  requesterUserId: string;
-  targetUserId: string;
-  firstMessageText: string;
-  clientMessageId?: string | null;
-}): Promise<CommunityMessengerMessageRequestResult> {
-  const requester = trimText(input.requesterUserId);
-  const target = trimText(input.targetUserId);
-  const content = trimText(input.firstMessageText);
-  if (!requester || !target || requester === target) return { ok: false, error: "bad_target" };
-  if (!content) return { ok: false, error: "content_required" };
-  if (await isBlockedEitherWay(requester, target)) return { ok: false, error: "blocked_target" };
-
-  console.info("[friend-flow] request_create_start", { requesterUserId: requester, targetUserId: target });
-
-  const sb = getSupabaseOrNull();
-  if (!sb) return { ok: false, error: "server_unavailable" };
-
-  const relation = await resolveDirectInteractionGuard(requester, target);
-  const roomOut = await ensureCommunityMessengerDirectRoom(requester, target);
-  if (!roomOut.ok || !roomOut.roomId) {
-    console.info("[friend-flow] request_create_failed", { requesterUserId: requester, targetUserId: target, error: roomOut.error ?? "room_failed" });
-    return { ok: false, error: roomOut.error ?? "room_failed" };
-  }
-  const roomId = roomOut.roomId;
-
-  if (relation.relationshipStatus === "accepted") {
-    return { ok: true, roomId, relationStatus: "accepted" };
-  }
-
-  const existing = await (sb as any)
-    .from("community_messenger_message_requests")
-    .select("id, status, request_message_id")
-    .or(
-      `and(requester_user_id.eq.${requester},recipient_user_id.eq.${target}),and(requester_user_id.eq.${target},recipient_user_id.eq.${requester})`
-    )
-    .maybeSingle();
-  if (existing.error && !isMissingTableError(existing.error)) {
-    return { ok: false, error: String(existing.error.message ?? "request_lookup_failed") };
-  }
-  const existingRow = existing.data as { id?: string; status?: string; request_message_id?: string | null } | null;
-  if (existingRow?.id && existingRow.status === "pending") {
-    return {
-      ok: true,
-      roomId,
-      messageId: trimText(existingRow.request_message_id) || undefined,
-      relationStatus: "pending",
-    };
-  }
-  if (existingRow?.id && existingRow.status === "blocked") {
-    return { ok: false, error: "blocked_target" };
-  }
-
-  const now = nowIso();
-  const clientMessageId = trimText(input.clientMessageId ?? "");
-  const insertMessage = await queryCommunityMessengerMessageRowsWithSelectFallback((cols) =>
-    (sb as any)
-      .from("community_messenger_messages")
-      .insert({
-        room_id: roomId,
-        sender_id: requester,
-        message_type: "text",
-        content,
-        metadata: {
-          message_request: true,
-          request_message: true,
-          ...(clientMessageId ? { client_message_id: clientMessageId } : {}),
-        },
-        created_at: now,
-      })
-      .select(cols)
-      .single()
-  );
-  if (insertMessage.error || !insertMessage.data) {
-    console.info("[friend-flow] request_create_failed", { requesterUserId: requester, targetUserId: target, error: "message_insert_failed" });
-    return { ok: false, error: "message_insert_failed" };
-  }
-  const messageId = trimText((insertMessage.data as { id?: string }).id);
-
-  const upsertPayload = {
-    requester_user_id: requester,
-    recipient_user_id: target,
-    status: "pending",
-    responded_at: null,
-    blocked_by_user_id: null,
-    last_request_room_id: roomId,
-    request_message_id: messageId || null,
-  };
-  const upsertRequest = existingRow?.id
-    ? await (sb as any)
-        .from("community_messenger_message_requests")
-        .update(upsertPayload)
-        .eq("id", existingRow.id)
-    : await (sb as any)
-        .from("community_messenger_message_requests")
-        .insert(upsertPayload);
-  if (upsertRequest.error && !isMissingTableError(upsertRequest.error)) {
-    return { ok: false, error: String(upsertRequest.error.message ?? "request_create_failed") };
-  }
-
-  await Promise.all([
-    (sb as any)
-      .from("community_messenger_rooms")
-      .update({
-        relation_status: "pending",
-        last_message: content,
-        last_message_type: "text",
-        last_message_at: now,
-        updated_at: now,
-      })
-      .eq("id", roomId),
-    (sb as any)
-      .from("community_messenger_participants")
-      .update({
-        last_read_at: now,
-        last_read_message_id: messageId || null,
-        hidden_at: null,
-        declined_hidden_at: null,
-      })
-      .eq("room_id", roomId)
-      .eq("user_id", requester),
-    (sb as any)
-      .from("community_messenger_participants")
-      .update({
-        hidden_at: null,
-        declined_hidden_at: null,
-      })
-      .eq("room_id", roomId)
-      .eq("user_id", target),
-  ]);
-
-  const prof = await hydrateProfiles(requester, [requester], { includeSelf: true });
-  const profileById = new Map(prof.map((m) => [m.id, m]));
-  const message = mapCommunityMessengerDbMessageRowToMessage({
-    row: insertMessage.data as MessageRow,
-    viewerUserId: requester,
-    profileById,
-  });
-  if (clientMessageId && !trimText(message.clientMessageId)) message.clientMessageId = clientMessageId;
-  console.info("[friend-flow] request_create_done", { requesterUserId: requester, targetUserId: target, roomId, messageId });
-  return { ok: true, roomId, messageId, relationStatus: "pending", message };
-}
-
-export async function acceptCommunityMessengerMessageRequest(
-  userId: string,
-  roomId: string
-): Promise<{ ok: boolean; roomId?: string; requesterUserId?: string; recipientUserId?: string; error?: string }> {
-  const viewer = trimText(userId);
-  const rid = trimText(roomId);
-  if (!viewer || !rid) return { ok: false, error: "bad_request" };
-  console.info("[friend-flow] request_accept_start", { viewerUserId: viewer, roomId: rid });
-  const sb = getSupabaseOrNull();
-  if (!sb) return { ok: false, error: "server_unavailable" };
-  const { data: req, error } = await (sb as any)
-    .from("community_messenger_message_requests")
-    .select("id, requester_user_id, recipient_user_id, status")
-    .eq("last_request_room_id", rid)
-    .maybeSingle();
-  if (error && !isMissingTableError(error)) return { ok: false, error: String(error.message ?? "request_lookup_failed") };
-  const row = req as { id?: string; requester_user_id?: string; recipient_user_id?: string; status?: string } | null;
-  if (!row?.id) return { ok: false, error: "request_not_found" };
-  if (trimText(row.recipient_user_id) !== viewer) return { ok: false, error: "forbidden" };
-  if (row.status !== "pending") return { ok: false, error: "request_not_pending" };
-  const requester = trimText(row.requester_user_id);
-  const recipient = trimText(row.recipient_user_id);
-  const now = nowIso();
-  await Promise.all([
-    (sb as any)
-      .from("community_messenger_message_requests")
-      .update({ status: "accepted", responded_at: now })
-      .eq("id", row.id),
-    (sb as any)
-      .from("community_messenger_rooms")
-      .update({ relation_status: "accepted", accepted_at: now, updated_at: now })
-      .eq("id", rid),
-    (sb as any)
-      .from("community_messenger_participants")
-      .update({ hidden_at: null, blocked_hidden_at: null, declined_hidden_at: null })
-      .eq("room_id", rid),
-    addFriendSaved(requester, recipient),
-    addFriendSaved(recipient, requester),
-  ]);
-  console.info("[friend-flow] request_accept_done", { viewerUserId: viewer, roomId: rid });
-  console.info("[friend-flow] friendship_created", { requesterUserId: requester, recipientUserId: recipient });
-  return { ok: true, roomId: rid, requesterUserId: requester, recipientUserId: recipient };
-}
-
-export async function declineCommunityMessengerMessageRequest(
-  userId: string,
-  roomId: string
-): Promise<{ ok: boolean; roomId?: string; requesterUserId?: string; recipientUserId?: string; error?: string }> {
-  const viewer = trimText(userId);
-  const rid = trimText(roomId);
-  if (!viewer || !rid) return { ok: false, error: "bad_request" };
-  console.info("[friend-flow] request_decline_start", { viewerUserId: viewer, roomId: rid });
-  const sb = getSupabaseOrNull();
-  if (!sb) return { ok: false, error: "server_unavailable" };
-  const { data: req, error } = await (sb as any)
-    .from("community_messenger_message_requests")
-    .select("id, requester_user_id, recipient_user_id, status")
-    .eq("last_request_room_id", rid)
-    .maybeSingle();
-  if (error && !isMissingTableError(error)) return { ok: false, error: String(error.message ?? "request_lookup_failed") };
-  const row = req as { id?: string; requester_user_id?: string; recipient_user_id?: string; status?: string } | null;
-  if (!row?.id) return { ok: false, error: "request_not_found" };
-  if (trimText(row.recipient_user_id) !== viewer) return { ok: false, error: "forbidden" };
-  if (row.status !== "pending") return { ok: false, error: "request_not_pending" };
-  const now = nowIso();
-  await Promise.all([
-    (sb as any)
-      .from("community_messenger_message_requests")
-      .update({ status: "declined", responded_at: now })
-      .eq("id", row.id),
-    (sb as any)
-      .from("community_messenger_rooms")
-      .update({ relation_status: "declined", declined_at: now, updated_at: now })
-      .eq("id", rid),
-    (sb as any)
-      .from("community_messenger_participants")
-      .update({ hidden_at: now, declined_hidden_at: now })
-      .eq("room_id", rid)
-      .eq("user_id", viewer),
-  ]);
-  console.info("[friend-flow] request_decline_done", { viewerUserId: viewer, roomId: rid });
-  console.info("[friend-flow] room_visibility_changed", { viewerUserId: viewer, roomId: rid, reason: "decline" });
-  return {
-    ok: true,
-    roomId: rid,
-    requesterUserId: trimText(row.requester_user_id),
-    recipientUserId: trimText(row.recipient_user_id),
-  };
-}
-
-export async function blockCommunityMessengerMessageRequestsForPair(input: {
-  blockerUserId: string;
-  targetUserId: string;
-  roomId?: string | null;
-}): Promise<{ ok: boolean; error?: string }> {
-  const blocker = trimText(input.blockerUserId);
-  const target = trimText(input.targetUserId);
-  if (!blocker || !target || blocker === target) return { ok: false, error: "bad_target" };
-  const sb = getSupabaseOrNull();
-  if (!sb) return { ok: true };
-  const now = nowIso();
-  const query = (sb as any)
-    .from("community_messenger_message_requests")
-    .update({
-      status: "blocked",
-      responded_at: now,
-      blocked_by_user_id: blocker,
-    })
-    .or(
-      `and(requester_user_id.eq.${blocker},recipient_user_id.eq.${target}),and(requester_user_id.eq.${target},recipient_user_id.eq.${blocker})`
-    );
-  const res = input.roomId?.trim()
-    ? await query.eq("last_request_room_id", input.roomId.trim())
-    : await query;
-  if (res.error && !isMissingTableError(res.error)) {
-    return { ok: false, error: String(res.error.message ?? "message_request_block_failed") };
-  }
-  if (input.roomId?.trim()) {
-    await (sb as any)
-      .from("community_messenger_rooms")
-      .update({ relation_status: "blocked", blocked_at: now, updated_at: now })
-      .eq("id", input.roomId.trim());
-  }
-  console.info("[friend-flow] block_done", {
-    blockerUserId: blocker,
-    targetUserId: target,
-    roomId: input.roomId?.trim() || null,
-  });
-  return { ok: true };
-}
-
-type FriendshipActionResult = {
-  ok: boolean;
-  friendshipId?: string;
-  roomId?: string;
-  targetUserId?: string;
-  readdBlockedUntil?: string | null;
-  error?: string;
-};
-
-export async function requestCommunityMessengerFriendship(
-  userId: string,
-  targetUserId: string
-): Promise<FriendshipActionResult> {
-  return requestCommunityMessengerFriendshipCore({
-    userId,
-    targetUserId,
-    ensureDirectRoom: ensureCommunityMessengerDirectRoom,
-    hydrateProfiles: friendshipProfileHydratorBinding,
-  });
-}
-
-export async function acceptCommunityMessengerFriendship(
-  userId: string,
-  friendshipId: string
-): Promise<FriendshipActionResult> {
-  return acceptCommunityMessengerFriendshipCore({
-    userId,
-    friendshipId,
-    ensureDirectRoom: ensureCommunityMessengerDirectRoom,
-    hydrateProfiles: friendshipProfileHydratorBinding,
-  });
-}
-
-export async function declineCommunityMessengerFriendship(
-  userId: string,
-  friendshipId: string
-): Promise<FriendshipActionResult> {
-  return declineCommunityMessengerFriendshipCore(userId, friendshipId);
-}
-
-export async function blockCommunityMessengerFriendship(
-  userId: string,
-  targetUserId: string
-): Promise<FriendshipActionResult> {
-  return blockCommunityMessengerFriendshipCore(userId, targetUserId);
-}
-
-export async function unblockCommunityMessengerFriendship(
-  userId: string,
-  targetUserId: string
-): Promise<FriendshipActionResult> {
-  return unblockCommunityMessengerFriendshipCore(userId, targetUserId);
-}
-
-export async function listCommunityMessengerBlockedFriendships(userId: string): Promise<Array<{
-  friendshipId: string;
-  blockedAt: string | null;
-  readdBlockedUntil: string | null;
-  profile: CommunityMessengerProfileLite;
-}>> {
-  const rows = await listCommunityMessengerBlockedFriendshipsCore(userId, friendshipProfileHydratorBinding);
-  return rows.map((row) => ({
-    friendshipId: row.friendshipId,
-    blockedAt: row.blockedAt,
-    readdBlockedUntil: row.readdBlockedUntil,
-    profile: {
-      id: row.profile.id,
-      label: row.profile.label,
-      avatarUrl: row.profile.avatarUrl,
-      following: false,
-      blocked: true,
-      isFriend: false,
-      isFavoriteFriend: false,
-    },
-  }));
-}
-
 export async function listCommunityMessengerBlockedProfiles(
   userId: string
 ): Promise<CommunityMessengerProfileLite[]> {
-  const fromFriendships = await listCommunityMessengerBlockedFriendships(userId);
-  if (fromFriendships.length > 0) {
-    return fromFriendships.map((row) => row.profile);
-  }
   const blockedIds = await listBlockedByMeIds(userId);
   return hydrateProfiles(userId, blockedIds);
 }
@@ -12100,18 +11664,43 @@ export async function upsertCommunityMessengerPresenceSnapshot(
   const lastSeenAt = trimText(input.lastSeenAt) || now;
   const sb = options?.supabase ?? getSupabaseOrNull();
   if (sb) {
-    const { upsertPresenceSnapshot } = await import("@/lib/community-messenger/presence/presence-store");
-    const result = await upsertPresenceSnapshot(sb as Parameters<typeof upsertPresenceSnapshot>[0], {
-      userId,
-      lastSeenAt: input.lastSeenAt,
-      lastPingAt: input.lastPingAt,
-      lastActivityAt: input.lastActivityAt,
-      appVisibility: input.appVisibility,
-      sessionEnd: input.sessionEnd,
-    });
-    if (result.ok) return { ok: true, lastSeenAt };
-    if (!isMissingTableError({ message: result.error })) {
-      return { ok: false, error: result.error };
+    const sessionEnd = input.sessionEnd === true;
+    const row = sessionEnd
+      ? {
+          user_id: userId,
+          last_seen_at: lastSeenAt,
+          updated_at: now,
+          last_ping_at: null as string | null,
+          presence_state_cached: "offline" satisfies CommunityMessengerPresenceState,
+          app_visibility: "background",
+        }
+      : (() => {
+          const lastPingAt = trimText(input.lastPingAt) || now;
+          const lastActivityAt = trimText(input.lastActivityAt) || lastPingAt;
+          const v = trimText(input.appVisibility).toLowerCase();
+          const appVisibility =
+            v === "foreground" || v === "background" || v === "unknown" ? v : "unknown";
+          const derived = derivePresenceFromDbRow({
+            nowMs: Date.now(),
+            lastPingAtIso: lastPingAt,
+            lastActivityAtIso: lastActivityAt,
+            lastSeenAtIso: null,
+            updatedAtIso: now,
+            appVisibility,
+          });
+          return {
+            user_id: userId,
+            updated_at: now,
+            last_ping_at: lastPingAt,
+            last_activity_at: lastActivityAt,
+            app_visibility: appVisibility,
+            presence_state_cached: derived,
+          };
+        })();
+    const { error } = await (sb as any).from("community_messenger_presence_snapshots").upsert(row, { onConflict: "user_id" });
+    if (!error) return { ok: true, lastSeenAt };
+    if (!isMissingTableError(error)) {
+      return { ok: false, error: String(error.message ?? "presence_upsert_failed") };
     }
   }
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
@@ -13892,7 +13481,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   }
   if (sb && !snapshotWaveAFromRpc) {
     const participantSelectCols =
-      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, hidden_at, blocked_hidden_at, declined_hidden_at, joined_at, last_read_at, last_read_message_id";
+      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, blocked_hidden_at, joined_at, last_read_at, last_read_message_id";
     /**
      * 멤버 전원 로드(`hydrateFullMemberList`)가 아닐 때만 embed — 행 수가 캡으로 한정되어 페이로드가 폭증하지 않음.
      * defer/critical 에 한정하지 않고 기본 full 부트스트랩에도 적용해 `hydrateProfilesLabelsOnlyWithMap` 의 `fetchProfilesByIds` 왕복을 줄인다.
@@ -15519,7 +15108,7 @@ export async function sendCommunityMessengerMessage(input: {
     }
     const roomQ = (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_status, is_readonly, direct_key, relation_status")
+      .select("id, room_status, is_readonly, direct_key")
       .eq("id", roomId)
       .maybeSingle();
     const dedupeQ =
@@ -15553,37 +15142,6 @@ export async function sendCommunityMessengerMessage(input: {
     if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
     if (roomStatus === "archived") return { ok: false, error: "room_archived" };
     if (isReadonly) return { ok: false, error: "room_readonly" };
-    const directKey = trimText((roomData as { direct_key?: unknown }).direct_key);
-    const relationStatus = trimText((roomData as { relation_status?: unknown }).relation_status);
-    const isGeneralDirectRoom =
-      directKey.includes(":") &&
-      !directKey.startsWith("trade_item:") &&
-      !directKey.startsWith("trade_pc:") &&
-      !directKey.startsWith("store_order:") &&
-      !directKey.startsWith("trade_order:");
-    if (isGeneralDirectRoom) {
-      const peerId = directKey.split(":").map((p) => p.trim()).find((id) => id && id !== input.userId) ?? "";
-      if (peerId) {
-        const gate = await assertCommunityMessengerPeerCanMessage({
-          viewerUserId: input.userId,
-          peerUserId: peerId,
-          roomId,
-        });
-        if (!gate.ok) {
-          console.info("[friend-flow] message_blocked_by_friendship", {
-            userId: input.userId,
-            peerUserId: peerId,
-            roomId,
-            reason: gate.error,
-          });
-          if (gate.error === "blocked_by_me") return { ok: false, error: "message_blocked_by_me" };
-          if (gate.error === "blocked_me") return { ok: false, error: "message_blocked_by_peer" };
-          return { ok: false, error: "message_friend_required" };
-        }
-      } else if (relationStatus && relationStatus !== "accepted") {
-        return { ok: false, error: "message_friend_required" };
-      }
-    }
     let tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
       viewerUserId: input.userId,
       messengerRoomId: roomId,
@@ -17246,7 +16804,6 @@ type CallSessionStartResolve =
       activeCall: CommunityMessengerCallSession | null;
       roomStatus: CommunityMessengerRoomStatus;
       isReadonly: boolean;
-      directKey: string | null;
     };
 
 async function resolveRoomContextForCallSessionStart(
@@ -17264,7 +16821,7 @@ async function resolveRoomContextForCallSessionStart(
   const [{ data: roomData, error: roomErr }, activeCall] = await Promise.all([
     (sb as any)
       .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly, direct_key")
+      .select("id, room_type, room_status, is_readonly")
       .eq("id", id)
       .maybeSingle(),
     getActiveCallSessionForRoom(userId, id),
@@ -17301,7 +16858,6 @@ async function resolveRoomContextForCallSessionStart(
     activeCall,
     roomStatus,
     isReadonly,
-    directKey: trimText((roomData as { direct_key?: string | null }).direct_key) || null,
   };
 }
 
@@ -17496,34 +17052,6 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
-  const directKeyForCallGate = snapshot ? snapshot.room.messengerDirectKey ?? "" : resolved.kind === "directLight" ? resolved.directKey ?? "" : "";
-  const isGeneralDirectForCallGate =
-    !isGroupRoom &&
-    directKeyForCallGate.includes(":") &&
-    !directKeyForCallGate.startsWith("trade_item:") &&
-    !directKeyForCallGate.startsWith("trade_pc:") &&
-    !directKeyForCallGate.startsWith("store_order:") &&
-    !directKeyForCallGate.startsWith("trade_order:");
-  if (!isGroupRoom && isGeneralDirectForCallGate && peerUserId) {
-    const relationGate = await assertCommunityMessengerPeerCanCall({
-      viewerUserId: input.userId,
-      peerUserId,
-      roomId,
-    });
-    if (!relationGate.ok) {
-      console.info("[friend-flow] call_blocked_by_friendship", {
-        userId: input.userId,
-        peerUserId,
-        roomId,
-        reason: relationGate.error,
-      });
-      return {
-        ok: false,
-        error: relationGate.error === "blocked" ? "call_blocked_by_relation" : "call_friend_required",
-      };
-    }
-    console.info("[friend-flow] call_allowed_by_relation", { userId: input.userId, peerUserId, roomId });
-  }
   if (!isGroupRoom && sb && !dialFresh) {
     const callerLiveId = await getUserLiveDirectCallSessionId(sb, input.userId, "live");
     if (callerLiveId) {

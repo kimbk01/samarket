@@ -37,14 +37,7 @@ export function useMessengerRoomPhase2RoomPresentation({
 }: MessengerRoomPhase2RoomPresentationArgs) {
   const tradeSendBlocked = Boolean(snapshot?.tradeMessaging && snapshot.tradeMessaging.canSendMessage === false);
   const roomGloballyBlocked = snapshot ? !communityMessengerRoomIsGloballyUsable(snapshot.room) : true;
-  const relationStatus = snapshot?.room.relationStatus ?? null;
-  const messageRequestBlocked =
-    snapshot?.room.roomType === "direct" &&
-    relationStatus != null &&
-    relationStatus !== "accepted" &&
-    snapshot.room.contextMeta?.kind !== "trade" &&
-    snapshot.room.contextMeta?.kind !== "delivery";
-  const roomUnavailable = roomGloballyBlocked || tradeSendBlocked || messageRequestBlocked;
+  const roomUnavailable = roomGloballyBlocked || tradeSendBlocked;
   const isGroupRoom = snapshot ? snapshot.room.roomType !== "direct" : false;
   /** `summary` 컬럼에 거래/배달 v1 JSON만 들어간 경우 — 공지·소개에 원문 JSON 을 노출하지 않음 */
   const roomSummaryHoldsOnlyTradeOrDeliveryMeta = useMemo(() => {

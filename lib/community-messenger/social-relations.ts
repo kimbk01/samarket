@@ -6,8 +6,6 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { normalizeProfileUserSearchKeyword } from "@/lib/community-messenger/profile-user-search-filter";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
-import { resolveCommunityMessengerFriendshipStatus } from "@/lib/community-messenger/friendship/friendship-resolver";
-import type { CommunityMessengerPeerRelationStatus } from "@/lib/community-messenger/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export type MessengerDirectCallPolicy = "everyone" | "friends_only" | "none";
@@ -22,16 +20,9 @@ export type SocialRelationPublicProfile = {
 export type DirectInteractionGuard = {
   canMessage: boolean;
   canCall: boolean;
-  canSendFriendRequest: boolean;
   isFriend: boolean;
   isBlockedByMe: boolean;
   isBlockedByPeer: boolean;
-  relationshipStatus: CommunityMessengerPeerRelationStatus;
-  friendshipId?: string | null;
-  friendshipStatus?: "none" | "pending" | "accepted" | "blocked" | "removed";
-  readdBlockedUntil?: string | null;
-  requestRoomId?: string | null;
-  requestMessageId?: string | null;
   reason?: "self" | "blocked" | "restricted" | "call_policy";
 };
 
@@ -245,16 +236,9 @@ export async function resolveDirectInteractionGuard(
     return {
       canMessage: false,
       canCall: false,
-      canSendFriendRequest: false,
       isFriend: false,
       isBlockedByMe: false,
       isBlockedByPeer: false,
-      relationshipStatus: "none",
-      friendshipStatus: "none",
-      friendshipId: null,
-      readdBlockedUntil: null,
-      requestRoomId: null,
-      requestMessageId: null,
       reason: "restricted",
     };
   }
@@ -262,16 +246,9 @@ export async function resolveDirectInteractionGuard(
     return {
       canMessage: false,
       canCall: false,
-      canSendFriendRequest: false,
       isFriend: false,
       isBlockedByMe: false,
       isBlockedByPeer: false,
-      relationshipStatus: "none",
-      friendshipStatus: "none",
-      friendshipId: null,
-      readdBlockedUntil: null,
-      requestRoomId: null,
-      requestMessageId: null,
       reason: "self",
     };
   }
@@ -281,40 +258,27 @@ export async function resolveDirectInteractionGuard(
     return {
       canMessage: false,
       canCall: false,
-      canSendFriendRequest: false,
       isFriend: false,
       isBlockedByMe: false,
       isBlockedByPeer: false,
-      relationshipStatus: "none",
-      friendshipStatus: "none",
-      friendshipId: null,
-      readdBlockedUntil: null,
-      requestRoomId: null,
-      requestMessageId: null,
       reason: "restricted",
     };
   }
 
-  const [relation, targetRestricted, callPolicy] = await Promise.all([
-    resolveCommunityMessengerFriendshipStatus({ viewerUserId: viewer, peerUserId: target }),
+  const [{ blockedByMe, blockedByPeer }, isFriend, targetRestricted, callPolicy] = await Promise.all([
+    fetchBlockedPairsEitherWay(sb, viewer, target),
+    isMutualFriend(viewer, target),
     isProfileRestricted(sb, target),
     fetchProfileCallPolicy(sb, target),
   ]);
 
-  if (relation.isBlockedByMe || relation.isBlockedByPeer) {
+  if (blockedByMe || blockedByPeer) {
     return {
       canMessage: false,
       canCall: false,
-      canSendFriendRequest: false,
-      isFriend: relation.isFriend,
-      isBlockedByMe: relation.isBlockedByMe,
-      isBlockedByPeer: relation.isBlockedByPeer,
-      relationshipStatus: relation.status,
-      friendshipStatus: relation.friendshipStatus,
-      friendshipId: relation.friendshipId,
-      readdBlockedUntil: relation.readdBlockedUntil,
-      requestRoomId: relation.requestRoomId,
-      requestMessageId: relation.requestMessageId,
+      isFriend,
+      isBlockedByMe: blockedByMe,
+      isBlockedByPeer: blockedByPeer,
       reason: "blocked",
     };
   }
@@ -323,38 +287,23 @@ export async function resolveDirectInteractionGuard(
     return {
       canMessage: false,
       canCall: false,
-      canSendFriendRequest: false,
-      isFriend: relation.isFriend,
+      isFriend,
       isBlockedByMe: false,
       isBlockedByPeer: false,
-      relationshipStatus: relation.status,
-      friendshipStatus: relation.friendshipStatus,
-      friendshipId: relation.friendshipId,
-      readdBlockedUntil: relation.readdBlockedUntil,
-      requestRoomId: relation.requestRoomId,
-      requestMessageId: relation.requestMessageId,
       reason: "restricted",
     };
   }
 
-  let canCall = relation.status === "accepted";
+  let canCall = true;
   if (callPolicy === "none") canCall = false;
-  if (callPolicy === "friends_only" && relation.status !== "accepted") canCall = false;
+  if (callPolicy === "friends_only" && !isFriend) canCall = false;
 
   return {
-    canMessage: relation.status === "accepted",
+    canMessage: true,
     canCall,
-    canSendFriendRequest: relation.canAddFriend,
-    isFriend: relation.status === "accepted",
-    isBlockedByMe: relation.isBlockedByMe,
-    isBlockedByPeer: relation.isBlockedByPeer,
-    relationshipStatus: relation.status,
-    friendshipStatus: relation.friendshipStatus,
-    friendshipId: relation.friendshipId,
-    readdBlockedUntil: relation.readdBlockedUntil,
-    requestRoomId: relation.requestRoomId,
-    requestMessageId: relation.requestMessageId,
-    reason: canCall || relation.status !== "accepted" ? undefined : "call_policy",
+    isFriend,
+    isBlockedByMe: false,
+    isBlockedByPeer: false,
   };
 }
 

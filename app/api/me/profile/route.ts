@@ -40,17 +40,7 @@ import { jsonError } from "@/lib/http/api-route";
 import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { computeProfileCompleted } from "@/lib/profile/profile-completed";
-import {
-  buildAuthRouteSoftTimeoutResponse,
-  buildMissingAuthCookie401Response,
-  enforceProfileLiteRouteRateLimit,
-  logProfileLiteRoute,
-  PROFILE_ROUTE_SUPABASE_SOFT_TIMEOUT_MS,
-  requestHasSupabaseAuthCookies,
-  withAuthRouteSoftTimeout,
-} from "@/lib/auth/route-handler-auth-fast-guard";
 export const dynamic = "force-dynamic";
-export const maxDuration = 10;
 
 /**
  * GET /api/me/profile — 동일 userId 동시 요청이 `runMeProfileReadPipeline` 을 한 번만 타도록 (userId 키 분리, 실패 응답은 캐시하지 않음).
@@ -471,31 +461,9 @@ export async function GET(request: NextRequest) {
   const tRoute0 = devPerfNow();
   const mode: "full" | "lite" = request.nextUrl.searchParams.get("lite") === "1" ? "lite" : "full";
 
-  const profileRateLimit = await enforceProfileLiteRouteRateLimit(request);
-  if (!profileRateLimit.ok) {
-    logProfileLiteRoute("rate_limited", { mode, duration_ms: Math.round(devPerfNow() - tRoute0) });
-    return profileRateLimit.response;
-  }
-
-  if (!requestHasSupabaseAuthCookies(request)) {
-    logProfileLiteRoute("missing_cookie_fast_401", { mode, duration_ms: Math.round(devPerfNow() - tRoute0) });
-    return buildMissingAuthCookie401Response({ mode });
-  }
-
   const auth0 = devPerfNow();
-  const cookieAuthResult = await withAuthRouteSoftTimeout(
-    getOptionalRouteHandlerCookieAuth(),
-    PROFILE_ROUTE_SUPABASE_SOFT_TIMEOUT_MS,
-    "cookie_auth",
-  );
+  const cookieAuth = await getOptionalRouteHandlerCookieAuth();
   const requireAuthMs = devPerfNow() - auth0;
-
-  if (!cookieAuthResult.ok) {
-    logProfileLiteRoute("soft_timeout", { mode, phase: "cookie_auth", duration_ms: Math.round(requireAuthMs) });
-    return buildAuthRouteSoftTimeoutResponse("/api/me/profile", "cookie_auth");
-  }
-
-  const cookieAuth = cookieAuthResult.value;
   if (!cookieAuth.userId) {
     return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
   }

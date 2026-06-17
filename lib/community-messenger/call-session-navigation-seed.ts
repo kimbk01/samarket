@@ -19,10 +19,8 @@ import {
 } from "@/lib/community-messenger/cm-call-debug";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import { discardPrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
-import { fetchWith401Recovery, ensureAuthReadyForOutgoingCall } from "@/lib/auth/api-auth-recovery";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
-import { resolveCommunityMessengerDirectStart } from "@/lib/community-messenger/direct-chat-start-prefetch";
 import {
   acquireCallActionLock,
   bindCallActionLockCallId,
@@ -285,29 +283,7 @@ export function buildCommunityMessengerOutgoingDialHref(args: BuildCommunityMess
 
 export type OutgoingCallSessionBootstrapResult =
   | { ok: true; session: CommunityMessengerCallSession; roomId: string; reused?: boolean }
-  | {
-      ok: false;
-      userMessage: string;
-      blockedCallId?: string;
-      /** 서버 `error` 코드 — 재시도 판단용 */
-      error?: string;
-      httpStatus?: number;
-    };
-
-const OUTGOING_CALL_RETRYABLE_ERRORS = new Set([
-  "room_not_found",
-  "peer_not_found",
-  "call_session_start_failed",
-  "server_config",
-]);
-
-function isRetryableOutgoingCallBootstrapFailure(result: OutgoingCallSessionBootstrapResult): boolean {
-  if (result.ok) return false;
-  const err = result.error?.trim();
-  if (err && OUTGOING_CALL_RETRYABLE_ERRORS.has(err)) return true;
-  const status = result.httpStatus;
-  return status === 401 || status === 503 || status === 429;
-}
+  | { ok: false; userMessage: string; blockedCallId?: string };
 
 function outgoingCallMediaPrimeFailureMessage(kind: CommunityMessengerCallKind): string {
   const lang = getRuntimeAppLanguage();
@@ -372,33 +348,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCore(args: {
   }
 
   try {
-    const auth = await ensureAuthReadyForOutgoingCall("bootstrap");
-    if (!auth.ok) {
-      releaseCallActionLock("auth_not_ready");
-      return { ok: false, userMessage: auth.userMessage, error: "auth_not_ready" };
-    }
-
-    const retryDelaysMs = [0, 320, 640];
-    let last: OutgoingCallSessionBootstrapResult = {
-      ok: false,
-      userMessage: safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
-        fallbackKo: "통화를 시작할 수 없습니다.",
-        fallbackEn: "Could not start the call.",
-      }),
-    };
-    for (let attempt = 0; attempt < retryDelaysMs.length; attempt++) {
-      if (retryDelaysMs[attempt] > 0) {
-        await new Promise((r) => setTimeout(r, retryDelaysMs[attempt]));
-        if (attempt >= 1) {
-          await ensureAuthReadyForOutgoingCall(`bootstrap-retry-${attempt}`);
-        }
-      }
-      last = await runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(args);
-      if (last.ok) return last;
-      if (!isRetryableOutgoingCallBootstrapFailure(last)) break;
-    }
-    releaseCallActionLock("bootstrap_failed");
-    return last;
+    return await runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(args);
   } catch (e) {
     releaseCallActionLock("bootstrap_error");
     throw e;
@@ -411,11 +361,10 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   peerUserId: string | null;
   kind: CommunityMessengerCallKind;
 }): Promise<OutgoingCallSessionBootstrapResult> {
-  const failResult = (
-    userMessage: string,
-    error?: string,
-    httpStatus?: number
-  ): OutgoingCallSessionBootstrapResult => ({ ok: false, userMessage, error, httpStatus });
+  const fail = (userMessage: string, reason = "bootstrap_failed"): OutgoingCallSessionBootstrapResult => {
+    releaseCallActionLock(reason);
+    return { ok: false, userMessage };
+  };
   let roomId = args.roomId?.trim() ?? "";
 
   cmCallLatencyInfo("bootstrap_start", {
@@ -447,40 +396,36 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       role: "initiator",
     });
     const ensureT0 = typeof performance !== "undefined" ? performance.now() : 0;
-    let ensured = await resolveCommunityMessengerDirectStart(args.peerUserId.trim(), {
-      includeSnapshot: false,
-    });
-    if (
-      (!ensured.ok || !ensured.roomId) &&
-      (ensured.httpStatus === 401 || ensured.httpStatus === 503 || ensured.httpStatus === 429)
-    ) {
-      await new Promise((r) => setTimeout(r, 320));
-      ensured = await resolveCommunityMessengerDirectStart(args.peerUserId.trim(), {
-        includeSnapshot: false,
-      });
+    const res = await fetch(
+      "/api/community-messenger/rooms",
+      outgoingCallFetchInit({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roomType: "direct", peerUserId: args.peerUserId.trim() }),
+        signal: args.signal,
+      })
+    );
+    const json = (await res.json().catch(() => ({}))) as {
+      ok?: boolean;
+      roomId?: string;
+      error?: string;
+      code?: string;
+    };
+    if (res.status === 401) {
+      return fail("로그인이 필요합니다.");
     }
-    if (!ensured.ok || !ensured.roomId) {
-      const err = String(ensured.error ?? "").trim();
-      if (ensured.httpStatus === 401) {
-        return failResult("로그인이 필요합니다.", "auth_required", 401);
-      }
-      if (ensured.httpStatus === 403) {
-        return failResult(err || "요청을 처리할 수 없습니다.", err || "forbidden", 403);
-      }
-      if (ensured.httpStatus === 503) {
-        return failResult(
-          err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
-          "server_config",
-          503
-        );
-      }
-      return failResult(
-        err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.",
-        err || "room_ensure_failed",
-        ensured.httpStatus
-      );
+    if (isPhoneVerificationRequiredApiPayload(json)) {
+      return fail(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE);
     }
-    roomId = ensured.roomId;
+    if (res.status === 403) {
+      const err = String(json.error ?? "").trim();
+      return fail(err || "요청을 처리할 수 없습니다.");
+    }
+    if (!res.ok || !json.ok || !json.roomId) {
+      const err = String(json.error ?? "").trim();
+      return fail(err || "대화방을 만들지 못했습니다. 잠시 후 다시 시도해 주세요.");
+    }
+    roomId = String(json.roomId);
     cmCallLatencyInfo("ensure_room_done", {
       roomId,
       durationMs:
@@ -491,7 +436,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   }
 
   if (!roomId) {
-    return failResult("방 정보가 없어 통화를 시작할 수 없습니다.", "room_required");
+    return fail("방 정보가 없어 통화를 시작할 수 없습니다.");
   }
 
   cmCallLatencyInfo("create_call_session_post_start", {
@@ -506,22 +451,15 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   });
   cmCallIncomingTraceMarkCallPostStart();
   const postT0 = typeof performance !== "undefined" ? performance.now() : 0;
-  const postCallSession = async () =>
-    fetchWith401Recovery(
-      `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`,
-      outgoingCallFetchInit({
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callKind: args.kind, dialIntent: "fresh" }),
-        signal: args.signal,
-      }),
-      "cm-outgoing-call-session-post"
-    );
-  let res = await postCallSession();
-  if (res.status === 503 || res.status === 429) {
-    await new Promise((r) => setTimeout(r, 280));
-    res = await postCallSession();
-  }
+  const res = await fetch(
+    `/api/community-messenger/rooms/${encodeURIComponent(roomId)}/calls`,
+    outgoingCallFetchInit({
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callKind: args.kind, dialIntent: "fresh" }),
+      signal: args.signal,
+    })
+  );
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;
     error?: string;
@@ -535,10 +473,10 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   const resolvedSessionId = json.callId?.trim() || json.session?.id?.trim() || "";
   if (!res.ok || !json.ok || !resolvedSessionId || !json.session?.id) {
     if (isPhoneVerificationRequiredApiPayload(json)) {
-      return failResult(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE, "phone_required", res.status);
+      return fail(String(json.error ?? "").trim() || STORE_PHONE_GATE_MESSAGE, "create_failed");
     }
     if (json.error === "group_call_not_supported_yet") {
-      return failResult("그룹 통화 실연결은 다음 단계에서 지원합니다.", json.error, res.status);
+      return fail("그룹 통화 실연결은 다음 단계에서 지원합니다.", "create_failed");
     }
     if (json.error === "peer_busy") {
       const viewerId = getSyncViewerUserIdForClient()?.trim();
@@ -551,28 +489,21 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
         });
       }
       cmCallFlow("outgoing_peer_busy", { roomId, callKind: args.kind, peerUserId: args.peerUserId?.trim() });
-      return failResult("상대방이 현재 통화중입니다.", json.error, res.status);
+      return fail("상대방이 현재 통화중입니다.", "create_failed");
     }
     if (json.error === "room_unavailable" || json.error === "room_archived") {
-      return failResult("이 대화방에서는 지금 통화를 시작할 수 없습니다.", json.error, res.status);
+      return fail("이 대화방에서는 지금 통화를 시작할 수 없습니다.", "create_failed");
     }
     if (json.error === "trade_chat_calls_disabled") {
-      return failResult("이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다.", json.error, res.status);
+      return fail("이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다.", "create_failed");
     }
     if (json.error === "trade_chat_video_not_allowed") {
-      return failResult("이 글에서는 음성 통화만 허용되어 있습니다.", json.error, res.status);
+      return fail("이 글에서는 음성 통화만 허용되어 있습니다.", "create_failed");
     }
     if (json.error === "trade_chat_call_friend_required_after_complete") {
-      return failResult("통화를 원하면 친구를 요청하세요.", json.error, res.status);
+      return fail("통화를 원하면 친구를 요청하세요.", "create_failed");
     }
-    if (json.error === "call_friend_required") {
-      return failResult("친구 추가가 완료된 사용자에게만 통화할 수 있습니다.", json.error, res.status);
-    }
-    if (json.error === "call_blocked_by_relation") {
-      return failResult("차단한 사용자에게는 통화할 수 없습니다.", json.error, res.status);
-    }
-    const apiErr = String(json.error ?? "").trim() || "create_failed";
-    return failResult("통화를 시작할 수 없습니다.", apiErr, res.status);
+    return fail("통화를 시작할 수 없습니다.", "create_failed");
   }
   const clientPostMs =
     typeof performance !== "undefined" ? Math.round(performance.now() - postT0) : undefined;
@@ -742,7 +673,6 @@ export async function launchOutgoingDirectCall(
 ): Promise<OutgoingCallSessionBootstrapResult> {
   unlockCommunityMessengerCallPlaybackFromUserGesture();
   primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
-  void primeOutgoingCallMediaBeforeNavigate(input.kind);
   if (typeof window !== "undefined") {
     rememberCallNavigationReturnPath();
   }

@@ -5,7 +5,6 @@ import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { OAuthReturnListener } from "@/components/auth/OAuthReturnListener";
 import { CapacitorNativeMarkerBootstrap } from "@/components/platform/CapacitorNativeMarkerBootstrap";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
-import { DibayEmergencyTabDiagnostics } from "@/components/runtime/DibayEmergencyTabDiagnostics";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
@@ -111,7 +110,6 @@ export default async function RootLayout({
           <AppBootProvider>
             <AppTitle />
             <SupabaseAuthSync />
-            <DibayEmergencyTabDiagnostics />
             <CapacitorNativeMarkerBootstrap />
             <OAuthReturnListener />
             <CallIncomingChrome />
