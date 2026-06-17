@@ -1,6 +1,6 @@
 /**
- * CM social graph — Telegram-style 단방향 friend + block.
- * `community_friend_requests` 대체. friend ≠ 대화 허가, 연락처 저장만.
+ * CM social graph — 승인 기반 mutual friend + block.
+ * friend = 양쪽 모두 friend 저장(수락 후). @id 검색·방 상단에서 즉시 추가 금지.
  */
 
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
@@ -145,6 +145,33 @@ export async function isFriendSavedByMe(ownerUserId: string, targetUserId: strin
   return Boolean(data?.id);
 }
 
+/** 승인·양방향 저장된 친구만 true (UI `isFriend` 기준) */
+export async function isMutualFriend(userId: string, targetUserId: string): Promise<boolean> {
+  const viewer = trimText(userId);
+  const target = trimText(targetUserId);
+  if (!viewer || !target || viewer === target) return false;
+
+  const [savedByMe, savedByPeer] = await Promise.all([
+    isFriendSavedByMe(viewer, target),
+    isFriendSavedByMe(target, viewer),
+  ]);
+  if (savedByMe && savedByPeer) return true;
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return false;
+  const { data, error } = await (sb as any)
+    .from("community_friend_requests")
+    .select("id")
+    .eq("status", "accepted")
+    .or(
+      `and(requester_id.eq.${viewer},addressee_id.eq.${target}),and(requester_id.eq.${target},addressee_id.eq.${viewer})`
+    )
+    .limit(1)
+    .maybeSingle();
+  if (error && !isMissingTableError(error)) return false;
+  return Boolean(data?.id);
+}
+
 export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]> {
   const owner = trimText(ownerUserId);
   if (!owner) return [];
@@ -240,7 +267,7 @@ export async function resolveDirectInteractionGuard(
 
   const [{ blockedByMe, blockedByPeer }, isFriend, targetRestricted, callPolicy] = await Promise.all([
     fetchBlockedPairsEitherWay(sb, viewer, target),
-    isFriendSavedByMe(viewer, target),
+    isMutualFriend(viewer, target),
     isProfileRestricted(sb, target),
     fetchProfileCallPolicy(sb, target),
   ]);

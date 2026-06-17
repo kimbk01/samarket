@@ -5,6 +5,7 @@ import type { PointerEvent } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   CommunityMessengerCallLog,
+  CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
 import type { MessengerNotificationCenterItem } from "@/lib/community-messenger/messenger-notification-center-model";
@@ -19,6 +20,7 @@ export type { MessengerNotificationCenterItem } from "@/lib/community-messenger/
 export { resolveImportantRoomHighlightReason } from "@/lib/community-messenger/messenger-notification-center-model";
 
 type Summary = {
+  requestCount: number;
   groupInviteCount: number;
   missedCallCount: number;
   importantCount: number;
@@ -29,6 +31,7 @@ type Props = {
   summary: Summary;
   items: MessengerNotificationCenterItem[];
   busyId: string | null;
+  onRespondRequest: (requestId: string, action: "accept" | "reject" | "cancel") => Promise<void>;
   onOpenMissedCall: (call: CommunityMessengerCallLog) => void;
   onOpenImportantRoom: (roomId: string) => void;
   onOpenGroupInvite: (roomId: string, inviteId: string) => void;
@@ -76,6 +79,114 @@ function RowActionSheet({
         </button>
       </div>
     </div>
+  );
+}
+
+function RequestRow({
+  item,
+  busyId,
+  onAction,
+  onDismiss,
+}: {
+  item: Extract<MessengerNotificationCenterItem, { kind: "request" }>;
+  busyId: string | null;
+  onAction: (requestId: string, action: "accept" | "reject" | "cancel") => Promise<void>;
+  onDismiss: (id: string) => void;
+}) {
+  const { t } = useI18n();
+  const request = item.request;
+  const [menu, setMenu] = useState(false);
+  const isIncoming = request.direction === "incoming";
+  const label = isIncoming ? request.requesterLabel : request.addresseeLabel;
+
+  const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
+
+  const { bind, consumeClickSuppression } = useMessengerLongPress(openMenu);
+
+  const onRowPointerDown = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      if (!isIncoming) return;
+      bind.onPointerDown(e);
+    },
+    [bind, isIncoming]
+  );
+
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2 px-2.5 py-2">
+        <div
+          className={`min-w-0 flex-1 ${isIncoming ? "touch-manipulation" : ""}`}
+          onPointerDown={onRowPointerDown}
+          onPointerMove={bind.onPointerMove}
+          onPointerUp={bind.onPointerUp}
+          onPointerCancel={bind.onPointerCancel}
+          onClick={(e) => {
+            if (!isIncoming) return;
+            if (consumeClickSuppression()) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
+        >
+          <div className="flex items-center gap-1.5">
+            <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
+              {isIncoming ? t("cm_ui_request") : t("cm_ui_sent")}
+            </span>
+            <p className="truncate sam-text-body-secondary font-medium text-ui-fg">{label}</p>
+          </div>
+          <p className="mt-0.5 truncate sam-text-xxs text-ui-muted">{isIncoming ? t("cm_ui_friend_request") : t("cm_ui_sent_request")}</p>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          {isIncoming ? (
+            <>
+              <button
+                type="button"
+                onClick={() => void onAction(request.id, "reject")}
+                disabled={busyId === `request:${request.id}:reject`}
+                className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
+              >
+                {t("cm_ui_reject")}
+              </button>
+              <button
+                type="button"
+                onClick={() => void onAction(request.id, "accept")}
+                disabled={busyId === `request:${request.id}:accept`}
+                className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 sam-text-xxs font-semibold text-ui-surface"
+              >
+                {t("cm_ui_accept")}
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => void onAction(request.id, "cancel")}
+              disabled={busyId === `request:${request.id}:cancel`}
+              className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
+            >
+              {t("common_cancel")}
+            </button>
+          )}
+        </div>
+      </div>
+      {menu && isIncoming ? (
+        <RowActionSheet
+          title={label}
+          onClose={() => setMenu((prev) => (prev ? false : prev))}
+          actions={[
+            {
+              label: t("cm_ui_reject"),
+              destructive: true,
+              disabled: busyId === `request:${request.id}:reject`,
+              onClick: () => void onAction(request.id, "reject"),
+            },
+            {
+              label: t("cm_ui_hide_only_from_notification_list"),
+              onClick: () => onDismiss(item.id),
+            },
+          ]}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -308,6 +419,7 @@ function ImportantRoomRow({
 
 function buildSummaryLine(summary: Summary): string | null {
   const parts: string[] = [];
+  if (summary.requestCount > 0) parts.push(`request ${summary.requestCount}`);
   if (summary.groupInviteCount > 0) parts.push(`group_invite ${summary.groupInviteCount}`);
   if (summary.missedCallCount > 0) parts.push(`missed ${summary.missedCallCount}`);
   if (summary.importantCount > 0) parts.push(`important ${summary.importantCount}`);
@@ -320,6 +432,7 @@ export function MessengerNotificationCenterSheet({
   summary,
   items,
   busyId,
+  onRespondRequest,
   onOpenMissedCall,
   onOpenImportantRoom,
   onOpenGroupInvite,
@@ -334,6 +447,7 @@ export function MessengerNotificationCenterSheet({
     summaryLineRaw == null
       ? null
       : summaryLineRaw
+          .replace(/request (\d+)/g, (_, n) => t("cm_ui_request_count", { count: Number(n) }))
           .replace(/group_invite (\d+)/g, (_, n) => t("cm_ui_group_invite_count", { count: Number(n) }))
           .replace(/missed (\d+)/g, (_, n) => t("cm_ui_missed_call_count", { count: Number(n) }))
           .replace(/important (\d+)/g, (_, n) => t("cm_ui_important_chat_count", { count: Number(n) }));
@@ -357,7 +471,15 @@ export function MessengerNotificationCenterSheet({
         <div className="mt-2 divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
           {items.length ? (
             items.map((item) =>
-              item.kind === "group_invite" ? (
+              item.kind === "request" ? (
+                <RequestRow
+                  key={item.id}
+                  item={item}
+                  busyId={busyId}
+                  onAction={onRespondRequest}
+                  onDismiss={onDismissNotification}
+                />
+              ) : item.kind === "group_invite" ? (
                 <GroupInviteRow
                   key={item.id}
                   item={item}
@@ -377,7 +499,7 @@ export function MessengerNotificationCenterSheet({
                   }}
                   onDismiss={onDismissNotification}
                 />
-              ) : item.kind === "important_room" ? (
+              ) : (
                 <ImportantRoomRow
                   key={item.id}
                   item={item}
@@ -391,7 +513,7 @@ export function MessengerNotificationCenterSheet({
                   onToggleRoomMute={onToggleRoomMute}
                   onArchiveRoom={onArchiveRoom}
                 />
-              ) : null
+              )
             )
           ) : (
             <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>

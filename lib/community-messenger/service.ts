@@ -1646,6 +1646,23 @@ async function getViewerRelationSets(
       if (relationType === "blocked") blocked.add(target);
     }
 
+    if (friendIds.size) {
+      const { data: reverseFriendRows } = await (sb as any)
+        .from("user_social_relations")
+        .select("owner_user_id")
+        .eq("relation_type", "friend")
+        .eq("target_user_id", userId)
+        .in("owner_user_id", [...friendIds]);
+      const reverseSet = new Set(
+        ((reverseFriendRows ?? []) as Array<{ owner_user_id?: string }>).map((row) =>
+          trimText(row.owner_user_id)
+        ).filter(Boolean)
+      );
+      for (const peerId of [...friendIds]) {
+        if (!reverseSet.has(peerId)) friendIds.delete(peerId);
+      }
+    }
+
     for (const row of (favoriteRows ?? []) as Array<{ target_user_id?: string }>) {
       const target = trimText(row.target_user_id);
       if (target) favoriteFriendIds.add(target);
@@ -1938,13 +1955,24 @@ type CommunityFriendRequestAcceptedRow = {
   created_at?: string;
 };
 
-/** 단일 SELECT — friend saved + legacy accepted fallback */
+/** mutual friend rows only — 단방향 저장은 친구 목록·isFriend 에 포함하지 않음 */
 async function fetchCommunityFriendAcceptedRowsForViewer(
   userId: string
 ): Promise<CommunityFriendRequestAcceptedRow[]> {
   const saved = await fetchFriendSavedAcceptedRowsForViewer(userId);
-  if (saved.length) return saved;
-  if (!allowCommunityMessengerFriendInMemoryDevFallback()) return saved;
+  const mutualSaved: CommunityFriendRequestAcceptedRow[] = [];
+  for (const row of saved) {
+    const peer = trimText(row.addressee_id);
+    if (peer && (await isFriendSavedByMe(peer, userId))) {
+      mutualSaved.push(row);
+    }
+  }
+  if (mutualSaved.length) return mutualSaved;
+
+  const acceptedRequests = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+  if (acceptedRequests.length) return acceptedRequests;
+
+  if (!allowCommunityMessengerFriendInMemoryDevFallback()) return mutualSaved;
   return fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
 }
 
@@ -5056,7 +5084,12 @@ export async function getCommunityMessengerBootstrap(
         diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
         return r;
       })(),
-      Promise.resolve([] as RequestRow[]),
+      (async () => {
+        const t = performance.now();
+        const r = await listCommunityMessengerFriendRequestRows(userId);
+        diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
+        return r;
+      })(),
       myPayloadPromise,
       bootstrapLiteMegaBundlePrefetchPromise ?? Promise.resolve(null),
       skipDiscoverable
@@ -8921,6 +8954,10 @@ export async function respondCommunityMessengerFriendRequest(
           const requesterId = trimText(request.requester_id);
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
+            await Promise.all([
+              addFriendSaved(requesterId, addresseeId),
+              addFriendSaved(addresseeId, requesterId),
+            ]);
             const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
@@ -8972,6 +9009,10 @@ export async function respondCommunityMessengerFriendRequest(
     const requesterId = trimText(request.requester_id);
     const addresseeId = trimText(request.addressee_id);
     if (requesterId && addresseeId) {
+      await Promise.all([
+        addFriendSaved(requesterId, addresseeId),
+        addFriendSaved(addresseeId, requesterId),
+      ]);
       const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
       if (!roomOut.ok) {
         console.warn("[community-messenger] accept friend (dev): direct room ensure failed", roomOut.error);

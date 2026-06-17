@@ -1,7 +1,7 @@
 import type { CommunityMessengerBootstrap, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 /**
- * CM peer social CTA — Telegram-style (add friend = save contact only).
+ * CM peer social CTA — 승인 기반 mutual friend.
  */
 export type MessengerPeerSocialCta =
   | { kind: "add_friend" }

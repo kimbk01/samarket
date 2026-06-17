@@ -1264,29 +1264,45 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     async (targetUserId: string) => {
       setBusyId(`friend-add:${targetUserId}`);
       try {
-        const res = await fetch("/api/community-messenger/relations/friend", {
+        const res = await fetch("/api/community-messenger/friend-requests", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (res.ok && json.ok) {
-          setSearchResults((prev) =>
-            prev.map((p) => (p.id === targetUserId ? { ...p, isFriend: true } : p))
-          );
-          setFriendSheet((prev) =>
-            prev?.profile.id === targetUserId
-              ? { ...prev, profile: { ...prev.profile, isFriend: true } }
-              : prev
-          );
+          showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
           void refresh(true);
-          showMessengerSnackbar(t("cm_friend_cta_add"), { variant: "success" });
+        } else {
+          showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
         }
       } finally {
         setBusyId(null);
       }
     },
     [refresh, t]
+  );
+
+  const respondRequest = useCallback(
+    async (requestId: string, action: "accept" | "reject" | "cancel") => {
+      const effectiveId = String(requestId ?? "").trim();
+      if (!effectiveId) return;
+      setBusyId(`request:${effectiveId}:${action}`);
+      try {
+        const res = await fetch(`/api/community-messenger/friend-requests/${encodeURIComponent(effectiveId)}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action }),
+        });
+        const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+        if (res.ok && json.ok) {
+          void refresh(true);
+        }
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [refresh]
   );
 
   const resolvePeerBlockedState = useCallback(
@@ -2095,6 +2111,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, []);
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
+    const pending = (data?.requests ?? []).filter((request) => request.status === "pending");
+    const requestItems: MessengerNotificationCenterItem[] = pending
+      .filter((request) => request.direction === "incoming" || request.direction === "outgoing")
+      .map((request) => ({
+        id: `request:${request.id}`,
+        kind: "request" as const,
+        createdAt: request.createdAt,
+        request,
+      }));
     const missedCallItems: MessengerNotificationCenterItem[] = sortedCalls
       .filter((call) => call.status === "missed")
       .map((call) => ({
@@ -2126,16 +2151,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         preview: item.preview,
         highlightReason: resolveImportantRoomHighlightReason(item.room),
       }));
-    return [...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
+    return [...requestItems, ...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [baseChatListItems, groupInviteNotifications, sortedCalls]);
+  }, [baseChatListItems, data?.requests, groupInviteNotifications, sortedCalls]);
   const notificationCenterItems = useMemo(
     () => notificationCenterItemsAll.filter((item) => !dismissedNotificationIds.includes(item.id)),
     [dismissedNotificationIds, notificationCenterItemsAll]
   );
   const notificationCenterSummary = useMemo(
     () => ({
+      requestCount: notificationCenterItems.filter((item) => item.kind === "request").length,
       groupInviteCount: notificationCenterItems.filter((item) => item.kind === "group_invite").length,
       missedCallCount: notificationCenterItems.filter((item) => item.kind === "missed_call").length,
       importantCount: notificationCenterItems.filter((item) => item.kind === "important_room").length,
@@ -2860,7 +2886,11 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onBlock={friendProfileForSheet.id !== data?.me?.id ? () => void toggleBlock(friendProfileForSheet.id) : undefined}
           onReport={friendProfileForSheet.id !== data?.me?.id ? () => void reportCommunityUser(friendProfileForSheet.id) : undefined}
           friendAddCta={data?.me?.id ? friendAddCtaForSheet : undefined}
-          onFriendAdd={data?.me?.id ? () => void addFriendSaved(friendProfileForSheet.id) : undefined}
+          onFriendAdd={
+            friendSheet.allowFriendRequest !== false && data?.me?.id
+              ? () => void addFriendSaved(friendProfileForSheet.id)
+              : undefined
+          }
         />
       ) : null}
 
@@ -3047,6 +3077,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onOpenProfile={(profile) =>
             setFriendSheet({
               mode: "profile",
+              allowFriendRequest: false,
               profile: {
                 id: profile.id,
                 label: profile.label,
@@ -3061,7 +3092,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           }
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
           onStartDirectChat={(userId) => void startDirectRoom(userId)}
-          onAddFriend={(userId) => void addFriendSaved(userId)}
           inviteUrl={messengerInviteUrl}
         />
       ) : null}
@@ -3072,6 +3102,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           summary={notificationCenterSummary}
           items={notificationCenterItems}
           busyId={busyId}
+          onRespondRequest={respondRequest}
           onOpenMissedCall={(call) => {
             if (call.roomId) {
               navigateToCommunityRoom(call.roomId);

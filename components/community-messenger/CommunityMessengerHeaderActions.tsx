@@ -26,6 +26,7 @@ export function CommunityMessengerHeaderActions({
   onOpenSettings,
 }: {
   messengerAlertSummary: {
+    requestCount: number;
     groupInviteCount: number;
     missedCallCount: number;
     importantCount: number;
@@ -42,7 +43,8 @@ export function CommunityMessengerHeaderActions({
     () =>
       Math.max(
         0,
-        messengerAlertSummary.groupInviteCount +
+        messengerAlertSummary.requestCount +
+          messengerAlertSummary.groupInviteCount +
           messengerAlertSummary.missedCallCount +
           messengerAlertSummary.importantCount
       ),
@@ -62,7 +64,7 @@ export function CommunityMessengerHeaderActions({
   return (
     <div className={samTier1HeaderIconCluster}>
       {onOpenFriendAdd ? (
-        <button type="button" onClick={onOpenFriendAdd} className={iconBtn} aria-label={t("cm_ui_add_friend")}>
+        <button type="button" onClick={onOpenFriendAdd} className={iconBtn} aria-label={t("cm_ui_new_conversation")}>
           <UserPlus
             className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
             strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}

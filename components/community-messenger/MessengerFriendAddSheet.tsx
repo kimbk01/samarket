@@ -6,7 +6,7 @@ import { MessengerHomeBottomSheetShell, SettingsToggleRow } from "@/components/c
 import { MessengerSearchHighlightText } from "@/components/community-messenger/MessengerSearchHighlightText";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
-import { MessengerFriendAddCtaLabelKeys, resolveMessengerFriendAddCta } from "@/lib/community-messenger/messenger-friend-add-cta";
+import { MessengerFriendAddCtaLabelKeys } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH } from "@/lib/community-messenger/user-public-id-search";
 import type { CommunityMessengerUserSearchResult } from "@/lib/community-messenger/user-public-id-search";
 
@@ -30,7 +30,6 @@ type Props = {
   onOpenProfile: (profile: { id: string; label: string; subtitle?: string; avatarUrl: string | null; isFriend: boolean; blocked: boolean }) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onStartDirectChat: (userId: string) => void;
-  onAddFriend: (userId: string) => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
   inviteUrl: string;
 };
@@ -68,7 +67,6 @@ export function MessengerFriendAddSheet({
   onOpenProfile,
   onPrefetchDirectRoom,
   onStartDirectChat,
-  onAddFriend,
   inviteUrl,
 }: Props) {
   const { t } = useI18n();
@@ -88,13 +86,13 @@ export function MessengerFriendAddSheet({
     <MessengerHomeBottomSheetShell
       onClose={onClose}
       closeAriaLabel={t("nav_close")}
-      dialogAriaLabel={t("cm_ui_add_friend")}
+      dialogAriaLabel={t("cm_ui_new_conversation")}
       anchor="center"
       panelClassName="rounded-ui-rect"
     >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-            {t("cm_ui_add_friend")}
+            {t("cm_ui_new_conversation")}
           </p>
           <button
             type="button"
@@ -216,7 +214,6 @@ export function MessengerFriendAddSheet({
                       onOpenProfile={onOpenProfile}
                       onPrefetchDirectRoom={onPrefetchDirectRoom}
                       onStartDirectChat={onStartDirectChat}
-                      onAddFriend={onAddFriend}
                     />
                   ))
                 )}
@@ -260,7 +257,6 @@ function SearchResultRow({
   onOpenProfile,
   onPrefetchDirectRoom,
   onStartDirectChat,
-  onAddFriend,
 }: {
   user: CommunityMessengerUserSearchResult;
   busyId: string | null;
@@ -274,7 +270,6 @@ function SearchResultRow({
   }) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onStartDirectChat: (userId: string) => void;
-  onAddFriend: (userId: string) => void;
 }) {
   const { t } = useI18n();
   const prefetchOnceRef = useRef(false);
@@ -289,14 +284,9 @@ function SearchResultRow({
     isFriend: user.isFriend,
     blocked: user.isBlockedByMe || user.isBlockedByPeer,
   };
-  const cta = resolveMessengerFriendAddCta({
-    id: user.id,
-    isFriend: user.isFriend,
-    blocked: user.isBlockedByMe || user.isBlockedByPeer,
-  });
-  const bAdd = busyId === `friend-add:${user.id}`;
   const bChat = busyId === `room:${user.id}`;
   const cannotMessage = !user.canMessage;
+  const isMutualFriend = user.isFriend;
 
   return (
     <div className="flex items-center gap-2 px-3 py-2 active:bg-[color:var(--messenger-primary-soft)]">
@@ -342,7 +332,7 @@ function SearchResultRow({
           <span className="max-w-[6.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
             {t("cm_social_cannot_start_chat")}
           </span>
-        ) : cta.kind === "friend" || user.isFriend ? (
+        ) : isMutualFriend ? (
           <div className="flex max-w-[7.5rem] flex-col items-end text-right">
             <span className="sam-text-helper font-semibold" style={{ color: "var(--messenger-text)" }}>
               {t(MessengerFriendAddCtaLabelKeys.friend)}
@@ -361,31 +351,18 @@ function SearchResultRow({
             </button>
           </div>
         ) : (
-          <>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                void onStartDirectChat(user.id);
-              }}
-              disabled={Boolean(busyId) || bChat}
-              className="rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-xxs font-medium disabled:opacity-40"
-              style={{ color: "var(--messenger-text)" }}
-            >
-              {bChat ? "…" : t("cm_social_send_message")}
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                void onAddFriend(user.id);
-              }}
-              disabled={bAdd}
-              className="rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40 active:opacity-90"
-            >
-              {bAdd ? "…" : t("cm_social_add_friend")}
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              void onStartDirectChat(user.id);
+            }}
+            disabled={Boolean(busyId) || bChat}
+            className="rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-xxs font-medium disabled:opacity-40"
+            style={{ color: "var(--messenger-text)" }}
+          >
+            {bChat ? "…" : t("cm_social_send_message")}
+          </button>
         )}
       </div>
     </div>

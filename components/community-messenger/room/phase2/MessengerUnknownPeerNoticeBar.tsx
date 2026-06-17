@@ -7,18 +7,16 @@ import { useEffect } from "react";
 type Props = {
   variant: "unsaved" | "blocked_by_me";
   busy?: boolean;
-  onAddFriend?: () => void;
   onBlock?: () => void;
   onUnblock?: () => void;
 };
 
 /**
- * Telegram-style 1:1 room top notice — unsaved contact or blocked peer.
+ * 1:1 room top notice — inbound unsaved peer (block only) or blocked peer.
  */
 export function MessengerUnknownPeerNoticeBar({
   variant,
   busy = false,
-  onAddFriend,
   onBlock,
   onUnblock,
 }: Props) {
@@ -56,28 +54,16 @@ export function MessengerUnknownPeerNoticeBar({
 
   return (
     <div className="flex justify-center border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
-      <div className="flex items-center gap-2">
-        {onAddFriend ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onAddFriend}
-            className="rounded-ui-rect bg-[#006241] px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
-          >
-            {t("cm_social_add_friend")}
-          </button>
-        ) : null}
-        {onBlock ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onBlock}
-            className="rounded-ui-rect bg-transparent px-3 py-1.5 sam-text-helper font-medium text-red-600 disabled:opacity-50"
-          >
-            {t("cm_social_block")}
-          </button>
-        ) : null}
-      </div>
+      {onBlock ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={onBlock}
+          className="rounded-ui-rect bg-transparent px-3 py-1.5 sam-text-helper font-medium text-red-600 disabled:opacity-50"
+        >
+          {t("cm_social_block")}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -12,7 +12,7 @@ import {
 
 const MESSENGER_CHATS_HREF = "/community-messenger?section=chats";
 
-/** 1:1 general direct room — inbound unsaved peer notice (recipient only); block hides room and exits. */
+/** 1:1 direct — inbound unsaved peer notice (recipient only, block only); 친구 추가는 승인 흐름에서만 */
 export function CommunityMessengerRoomPhase2PeerNotice() {
   const vm = useMessengerRoomPhase2View();
   const router = useRouter();
@@ -26,16 +26,6 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
   const redirectToChats = useCallback(() => {
     router.replace(MESSENGER_CHATS_HREF);
   }, [router]);
-
-  const onAddFriend = useCallback(async () => {
-    if (!peerUserId) return;
-    const res = await fetch("/api/community-messenger/relations/friend", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ targetUserId: peerUserId }),
-    });
-    if (res.ok) void vm.refresh(true);
-  }, [peerUserId, vm]);
 
   const confirmBlock = useCallback(async () => {
     if (!peerUserId || !room?.id) return;
@@ -94,7 +84,6 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       <MessengerUnknownPeerNoticeBar
         variant="unsaved"
         busy={Boolean(vm.busy) || blockBusy}
-        onAddFriend={onAddFriend}
         onBlock={() => setBlockConfirmOpen(true)}
       />
       <MessengerBlockPeerConfirmModal

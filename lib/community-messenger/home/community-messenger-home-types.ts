@@ -24,4 +24,9 @@ export type CommunityMessengerSettingsBackup = {
   };
 };
 
-export type FriendSheetState = { mode: "profile"; profile: CommunityMessengerProfileLite };
+export type FriendSheetState = {
+  mode: "profile";
+  profile: CommunityMessengerProfileLite;
+  /** @id 검색 등 — 친구 요청 CTA 비노출 */
+  allowFriendRequest?: boolean;
+};

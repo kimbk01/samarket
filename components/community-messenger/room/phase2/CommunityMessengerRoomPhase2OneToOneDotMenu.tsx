@@ -269,7 +269,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
       return;
     }
-    showMessengerSnackbar(t("cm_social_add_friend"), { variant: "success" });
+    showMessengerSnackbar(t("cm_ui_sent_friend_request"), { variant: "success" });
     void vm.refresh(true);
   }, [peerProfile?.blocked, peerUserId, t, vm]);
 
