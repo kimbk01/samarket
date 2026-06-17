@@ -26,7 +26,7 @@ const TABS: TabDef[] = [
  * ring/shadow/outline 밖으로 번지는 효과는 쓰지 않는다.
  */
 const SECTION_TAB_PILL_FRAME =
-  "relative box-border inline-flex shrink-0 items-center justify-center min-h-8 overflow-hidden whitespace-nowrap rounded-full border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
+  "relative box-border inline-flex shrink-0 items-center justify-center min-h-11 overflow-hidden whitespace-nowrap rounded-full border border-solid px-3.5 text-[12px] leading-none touch-manipulation transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sam-primary/25";
 
 function sectionTabPillClass(active: boolean): string {
   if (active) {

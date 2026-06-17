@@ -19,10 +19,10 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
+import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog, CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import type { MessengerCallLogsStartDirectCallFn } from "@/components/community-messenger/MessengerCallLogsPanel";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
-  MessengerPillarSummary,
   UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
@@ -45,6 +45,7 @@ type Props = {
   me: CommunityMessengerProfileLite | null;
   viewerUserId?: string | null;
   sortedFriends: CommunityMessengerProfileLite[];
+  friendRequests: CommunityMessengerFriendRequest[];
   friendSortEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
   busyId: string | null;
@@ -82,14 +83,13 @@ type Props = {
   onCreateOpenGroup: () => void;
   incomingRequestCount: number;
   receivedFriendRequestCount: number;
-  /** 인박스 상단 「거래 채팅」/「배달 채팅」 묶음 행. pillar 모드에선 null. */
-  pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
-  /** 인박스로 들어올 때 받은 `?from=...` — 묶음 행이 서브 라우트로 보낼 때 보존. */
+  /** 인박스로 들어올 때 받은 `?from=...` */
   entryOriginQuery?: string | null;
   /** 거래 서브라우트(`/trade-chats`) — `listVisual="trade"` */
   chatListVisual?: MessengerChatListVisual;
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
+  onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
 };
@@ -112,6 +112,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   me,
   viewerUserId = null,
   sortedFriends,
+  friendRequests,
   friendSortEpochMs,
   friendStateModel,
   busyId,
@@ -145,11 +146,11 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   onCreateOpenGroup,
   incomingRequestCount,
   receivedFriendRequestCount,
-  pillarSummaries = null,
   entryOriginQuery = null,
   chatListVisual = "default",
   bootstrapCalls = [],
   callsHydrating = false,
+  onStartDirectCall,
   showSectionTabs = false,
   onPrimarySectionChange,
 }: Props) {
@@ -175,6 +176,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
           <MessengerFriendsScreen
             me={me}
             sortedFriends={sortedFriends}
+            friendRequests={friendRequests}
             friendListEpochMs={friendSortEpochMs}
             friendStateModel={friendStateModel}
             busyId={busyId}
@@ -223,8 +225,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onCloseMenuItem={onCloseMenuItem}
             onResetTransientUi={onResetTransientUi}
             onListScrollStart={onListScrollStart}
-            pillarSummaries={pillarSummaries}
-            entryOriginQuery={entryOriginQuery}
             chatListVisual={chatListVisual}
           />
         ) : null}
@@ -257,6 +257,9 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
               seedCalls={bootstrapCalls}
               callsHydrating={callsHydrating}
               entryOrigin={entryOriginQuery}
+              viewerUserId={viewerUserId}
+              peerProfiles={sortedFriends}
+              onStartDirectCall={onStartDirectCall}
             />
           </div>
         ) : null}

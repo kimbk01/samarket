@@ -4,16 +4,15 @@ import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
-import { partitionMessengerFriendsByNew } from "@/lib/community-messenger/messenger-new-friend-window";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
-import { MessengerFriendsMyProfileStrip } from "@/components/community-messenger/MessengerFriendsMyProfileStrip";
-import { MessengerLineFriendRow } from "@/components/community-messenger/MessengerLineFriendRow";
-import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+import { CommunityMessengerFriendList } from "@/components/community-messenger/friend-list/CommunityMessengerFriendList";
+import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
 type Props = {
   me: CommunityMessengerProfileLite | null;
   sortedFriends: CommunityMessengerProfileLite[];
+  friendRequests: CommunityMessengerFriendRequest[];
   /** 신규 친구 24시간 구간 partition 기준 시각 — hook `friendSortEpochMs` 와 동기화 */
   friendListEpochMs: number;
   friendStateModel: MessengerFriendStateModel;
@@ -44,6 +43,7 @@ type Props = {
 export function MessengerFriendsScreen({
   me,
   sortedFriends,
+  friendRequests,
   friendListEpochMs,
   friendStateModel,
   busyId,
@@ -98,61 +98,25 @@ export function MessengerFriendsScreen({
   const quickProfile =
     quickMenuUserId == null ? null : sortedFriends.find((f) => f.id === quickMenuUserId) ?? null;
 
-  const { newFriends, regularFriends } = useMemo(
-    () => partitionMessengerFriendsByNew(sortedFriends, friendListEpochMs),
-    [sortedFriends, friendListEpochMs]
+  const favoriteFriendIds = useMemo(
+    () => new Set(sortedFriends.filter((f) => f.isFavoriteFriend).map((f) => f.id)),
+    [sortedFriends]
+  );
+  const hiddenFriendIds = useMemo(
+    () => new Set(friendStateModel.hidden.map((entry) => entry.profile.id)),
+    [friendStateModel.hidden]
+  );
+  const blockedFriendIds = useMemo(
+    () => new Set(friendStateModel.blocked.map((entry) => entry.profile.id)),
+    [friendStateModel.blocked]
+  );
+  const mutedFriendIds = useMemo(
+    () => new Set(friendStateModel.muted.map((entry) => entry.profile.id)),
+    [friendStateModel.muted]
   );
 
-  const { favoriteFriends, normalFriends } = useMemo(() => {
-    const favorite: CommunityMessengerProfileLite[] = [];
-    const normal: CommunityMessengerProfileLite[] = [];
-    for (const friend of regularFriends) {
-      if (friend.isFavoriteFriend) favorite.push(friend);
-      else normal.push(friend);
-    }
-    return { favoriteFriends: favorite, normalFriends: normal };
-  }, [regularFriends]);
-
-  const renderFriendSection = (
-    title: string,
-    rows: CommunityMessengerProfileLite[],
-    accent?: string,
-    opts?: { topDivider?: boolean }
-  ) => {
-    if (rows.length === 0) return null;
-    const topDivider = opts?.topDivider !== false;
-    return (
-      <div
-        className={`mt-2 overflow-hidden bg-[color:var(--messenger-bg)] ${topDivider ? "border-t border-[color:var(--messenger-divider)]" : ""}`}
-      >
-        <div className="flex items-center justify-between px-3 py-1.5">
-          <h2 className="sam-text-body-secondary font-bold" style={{ color: accent ?? "var(--messenger-text)" }}>
-            {title}
-          </h2>
-          <span className="sam-text-helper tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-            {rows.length}
-          </span>
-        </div>
-        {rows.map((friend) => (
-          <MessengerLineFriendRow
-            key={friend.id}
-            friend={friend}
-            busyFavorite={busyId === `favorite:${friend.id}`}
-            onToggleFavorite={onToggleFavorite}
-            friendKind={getFriendDirectRoomKind(friend.id)}
-            openedSwipeItemId={openedSwipeItemId}
-            onOpenSwipeItem={onOpenSwipeItem}
-            onOpenFriendQuickMenu={openFriendQuickMenu}
-            onCloseFriendQuickMenu={closeFriendQuickMenu}
-            onCloseMenuItem={onCloseMenuItem}
-            onHideFriend={onFriendHide}
-            onRemoveFriend={onFriendRemove}
-            onBlockFriend={onFriendBlock}
-          />
-        ))}
-      </div>
-    );
-  };
+  const hasVisibleFriends =
+    sortedFriends.length > 0 || friendRequests.some((request) => request.status === "pending");
 
   return (
     <>
@@ -168,24 +132,20 @@ export function MessengerFriendsScreen({
           onResetTransientUi();
         }}
       >
-        <MessengerFriendsMyProfileStrip me={me} />
+        <CommunityMessengerFriendList
+          me={me}
+          sortedFriends={sortedFriends}
+          friendRequests={friendRequests}
+          friendListEpochMs={friendListEpochMs}
+          favoriteFriendIds={favoriteFriendIds}
+          hiddenFriendIds={hiddenFriendIds}
+          blockedFriendIds={blockedFriendIds}
+          mutedFriendIds={mutedFriendIds}
+          onOpenProfile={onOpenProfile}
+          onOpenFriendQuickMenu={openFriendQuickMenu}
+        />
 
-        {newFriends.length > 0
-          ? renderFriendSection(t("cm_ui_new_friends_section"), newFriends, "var(--messenger-primary)", {
-              topDivider: false,
-            })
-          : null}
-        {favoriteFriends.length > 0
-          ? renderFriendSection(t("cm_ui_favorite"), favoriteFriends, "var(--messenger-primary)", {
-              topDivider: newFriends.length === 0,
-            })
-          : null}
-        {normalFriends.length > 0
-          ? renderFriendSection(t("nav_messenger_friend"), normalFriends, undefined, {
-              topDivider: newFriends.length > 0 || favoriteFriends.length > 0,
-            })
-          : null}
-        {sortedFriends.length === 0 ? (
+        {!hasVisibleFriends ? (
           <div
             className="border-b border-t border-[color:var(--messenger-divider)] px-3 py-6 text-center sam-text-body-secondary"
             style={{ color: "var(--messenger-text-secondary)" }}

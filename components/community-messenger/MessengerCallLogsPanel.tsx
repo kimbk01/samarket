@@ -1,227 +1,100 @@
 "use client";
 
-import { Phone, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useSyncExternalStore, useState, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CommunityMessengerCallHistory } from "@/components/community-messenger/call-history/CommunityMessengerCallHistory";
 import {
-  isOutgoingCallStartBlocked,
-  subscribeCallActionLock,
-} from "@/lib/call/call-action-lock";
+  CommunityMessengerCallPeerDetailPanel,
+  type CallPeerDetailSelection,
+} from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailPanel";
+import { CommunityMessengerCallPeerDetailShell } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailShell";
+import { MessengerCallLogDeleteConfirmDialog } from "@/components/community-messenger/MessengerCallLogDeleteConfirmDialog";
+import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
+import { runCommunityMessengerRoomForwardNavigation } from "@/lib/community-messenger/community-messenger-room-forward-navigation";
+import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
 import {
-  getActiveCallSessionCallId,
-  subscribeActiveCallSession,
-} from "@/lib/call/active-call-session";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { MessengerListRow } from "@/components/community-messenger/line-ui";
-import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
-import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
-import {
-  formatCallLogListTime,
-  isCallLogMissedDisplayType,
-  normalizeCommunityMessengerCallLog,
+  enrichCommunityMessengerCallLogsWithProfiles,
   normalizeCommunityMessengerCallLogs,
-  resolveCallLogListTimestampIso,
-  resolveCallLogStatusMessageKey,
-  shouldShowCallLogDuration,
 } from "@/lib/community-messenger/call-log-row-copy";
 import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
-import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
-import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
-import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
+import { guardInstantOutgoingCallStart } from "@/lib/call/outgoing-call-start-guard";
+import type { CommunityMessengerCallLog, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
+
+function sanitizeCallPeerUserId(peerUserId: string | null | undefined): string | null {
+  const raw = peerUserId?.trim() ?? "";
+  if (!raw || raw.startsWith("peer:") || raw.startsWith("room:")) return null;
+  return raw;
+}
+
+export type MessengerCallLogsStartDirectCallFn = (
+  peerUserId: string,
+  kind: "voice" | "video",
+  peerLabel?: string | null
+) => boolean;
 
 type Props = {
-  /** 부트스트랩 `data.calls` — 있으면 우선 표시(중복 fetch 방지) */
   seedCalls?: CommunityMessengerCallLog[];
-  /** `deferredCallLog` — bootstrap 보강 대기 중 */
   callsHydrating?: boolean;
-  /** 방 진입 시 `?from=` 유지 */
   entryOrigin?: string | null;
+  viewerUserId?: string | null;
+  peerProfiles?: CommunityMessengerProfileLite[];
+  /** 메신저 홈 `startDirectCall` — 친구 탭과 동일 발신·roomId 해석 */
+  onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
 };
 
-function useCallHistoryRedialBlocked(): boolean {
-  useSyncExternalStore(subscribeActiveCallSession, () => isOutgoingCallStartBlocked(), () => false);
-  useSyncExternalStore(subscribeCallActionLock, () => isOutgoingCallStartBlocked(), () => false);
-  return isOutgoingCallStartBlocked();
-}
-
-function CallLogRow({
-  call,
-  onNavigate,
-  globalRedialBlocked,
-  activeCallId,
-}: {
+type DeleteConfirmState = {
   call: CommunityMessengerCallLog;
-  onNavigate: (call: CommunityMessengerCallLog) => void;
-  globalRedialBlocked: boolean;
-  activeCallId: string | null;
-}) {
-  const { t, safeT, language } = useI18n();
-  const router = useRouter();
-  const [redialing, setRedialing] = useState(false);
-  const redialingRef = useRef(false);
-  const mountedRef = useRef(true);
+};
 
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
-
-  const name = call.peerLabel?.trim() || call.title?.trim() || t("common_partner");
-  const timestampIso = resolveCallLogListTimestampIso(call);
-  const timeLabel = formatCallLogListTime(timestampIso, language, t("cm_ui_call_log_time_yesterday"));
-  const statusKey = resolveCallLogStatusMessageKey(call.callKind, call.displayType);
-  const statusLabel = safeT(statusKey, {
-    fallbackKo: "통화 기록",
-    fallbackEn: "Call log",
-  });
-  const isMissed = isCallLogMissedDisplayType(call.displayType);
-  const showDuration = shouldShowCallLogDuration(call.displayType, call.durationSeconds);
-  const durationLine = showDuration
-    ? formatCommunityMessengerCallDurationLabel(call.durationSeconds)
-    : null;
-  const canNavigate = Boolean(call.roomId?.trim() || call.sessionId?.trim());
-  const canRedial =
-    call.sessionMode !== "group" && Boolean(call.roomId?.trim() || call.peerUserId?.trim());
-  const redialKind = call.callKind;
-  const RedialIcon = redialKind === "video" ? Video : Phone;
-  const redialAriaLabel =
-    redialKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice");
-
-  const handleRedial = useCallback(
-    (event: MouseEvent | PointerEvent) => {
-      event.stopPropagation();
-      if (!canRedial || redialingRef.current || globalRedialBlocked) return;
-      redialingRef.current = true;
-      setRedialing(true);
-      void (async () => {
-        try {
-          const result = await launchOutgoingDirectCall(
-            {
-              roomId: call.roomId?.trim() ?? null,
-              peerUserId: call.peerUserId?.trim() ?? null,
-              peerLabel: call.peerLabel,
-              kind: redialKind,
-            },
-            router
-          );
-          if (!result.ok) {
-            showMessengerSnackbar(result.userMessage, { variant: "error" });
-          }
-        } catch {
-          showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
-        } finally {
-          redialingRef.current = false;
-          if (mountedRef.current) setRedialing(false);
-        }
-      })();
-    },
-    [call.peerUserId, call.roomId, canRedial, globalRedialBlocked, redialKind, router, t]
-  );
-
-  const rowBlocked = globalRedialBlocked && !redialing;
-
-  return (
-    <li>
-      <div
-        role={canNavigate ? "button" : undefined}
-        tabIndex={canNavigate ? 0 : undefined}
-        onClick={() => canNavigate && onNavigate(call)}
-        onKeyDown={(event) => {
-          if (!canNavigate) return;
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            onNavigate(call);
-          }
-        }}
-        className={`w-full text-left transition active:bg-sam-surface-muted ${
-          canNavigate ? "cursor-pointer" : "cursor-default"
-        }`}
-      >
-        <MessengerListRow
-          centerWithAvatar
-          trailingLayout="center"
-          avatar={
-            <SamarketThumbnail
-              src={resolveUserAvatarImageSrc(call.peerAvatarUrl ?? null)}
-              size={48}
-              roundedClassName="rounded-full"
-              className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]"
-              fallbackSrc=""
-              fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
-            />
-          }
-          trailing={
-            <div className="flex flex-col items-end justify-center gap-1.5">
-              {timeLabel ? (
-                <span className="shrink-0 whitespace-nowrap sam-text-helper tabular-nums text-sam-meta">
-                  {timeLabel}
-                </span>
-              ) : null}
-              {canRedial ? (
-                <button
-                  type="button"
-                  disabled={rowBlocked || redialing}
-                  aria-busy={redialing}
-                  aria-label={redialAriaLabel}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  onClick={handleRedial}
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-fg transition hover:bg-sam-surface-muted disabled:opacity-50"
-                >
-                  <RedialIcon className={`h-5 w-5 ${redialing ? "animate-pulse" : ""}`} aria-hidden />
-                </button>
-              ) : null}
-            </div>
-          }
-        >
-          <p className="truncate sam-text-body font-semibold text-sam-fg">{name}</p>
-          <p
-            className={`truncate sam-text-body-secondary ${
-              isMissed ? "font-medium text-red-600" : "text-sam-muted"
-            }`}
-          >
-            {statusLabel}
-            {durationLine ? (
-              <>
-                <span className="mx-1.5 text-sam-border">·</span>
-                {durationLine}
-              </>
-            ) : null}
-          </p>
-        </MessengerListRow>
-      </div>
-    </li>
-  );
-}
+type OutgoingConfirmState = {
+  call: CommunityMessengerCallLog;
+  kind: "voice" | "video";
+  peerLabel: string;
+};
 
 /** 통화 목록 본문 — 독립 페이지·메신저 홈 탭 공용 */
 export function MessengerCallLogsPanel({
   seedCalls = [],
   callsHydrating = false,
   entryOrigin = null,
+  viewerUserId = null,
+  peerProfiles = [],
+  onStartDirectCall,
 }: Props) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const router = useRouter();
-  const globalRedialBlocked = useCallHistoryRedialBlocked();
-  const activeCallId = useSyncExternalStore(
-    subscribeActiveCallSession,
-    getActiveCallSessionCallId,
-    () => null,
-  );
   const [calls, setCalls] = useState<CommunityMessengerCallLog[]>(seedCalls);
   const [loading, setLoading] = useState(callsHydrating);
   const [error, setError] = useState<string | null>(null);
+  const [peerDetailOpen, setPeerDetailOpen] = useState(false);
+  const [peerDetailSelection, setPeerDetailSelection] = useState<CallPeerDetailSelection | null>(null);
+  const [openedSwipeItemId, setOpenedSwipeItemId] = useState<string | null>(null);
+  const [outgoingConfirm, setOutgoingConfirm] = useState<OutgoingConfirmState | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirmState | null>(null);
+  const [outgoingBusy, setOutgoingBusy] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [portalReady, setPortalReady] = useState(false);
   const fallbackFetchedRef = useRef(false);
 
   useEffect(() => {
-    setCalls(normalizeCommunityMessengerCallLogs(seedCalls));
+    setPortalReady(true);
+  }, []);
+
+  const enrichCalls = useCallback(
+    (entries: CommunityMessengerCallLog[]) =>
+      enrichCommunityMessengerCallLogsWithProfiles(normalizeCommunityMessengerCallLogs(entries), peerProfiles),
+    [peerProfiles]
+  );
+
+  useEffect(() => {
+    setCalls(enrichCalls(seedCalls));
     if (!callsHydrating) {
       setLoading(false);
     }
-  }, [seedCalls, callsHydrating]);
+  }, [seedCalls, callsHydrating, enrichCalls]);
 
   useEffect(() => {
     if (!callsHydrating) return;
@@ -229,7 +102,6 @@ export function MessengerCallLogsPanel({
     setError(null);
   }, [callsHydrating]);
 
-  /** bootstrap deferred 가 지연·실패할 때 탭 진입 즉시 1회 fallback */
   useEffect(() => {
     if (!callsHydrating || fallbackFetchedRef.current) return;
     fallbackFetchedRef.current = true;
@@ -243,7 +115,7 @@ export function MessengerCallLogsPanel({
           setError(t("cm_ui_call_logs_load_failed"));
           return;
         }
-        setCalls(normalizeCommunityMessengerCallLogs(json.calls ?? []));
+        setCalls(enrichCalls(json.calls ?? []));
       } catch {
         if (!cancelled) setError(t("cm_ui_call_logs_network_failed"));
       } finally {
@@ -253,13 +125,64 @@ export function MessengerCallLogsPanel({
     return () => {
       cancelled = true;
     };
-  }, [callsHydrating, t]);
+  }, [callsHydrating, enrichCalls, t]);
+
+  const resolveRoomIdForPeer = useCallback(
+    (peerUserId: string, seedRoomId: string | null) => {
+      const direct = seedRoomId?.trim();
+      if (direct) return direct;
+      const fromCalls = calls.find((row) => row.peerUserId?.trim() === peerUserId && row.roomId?.trim())?.roomId;
+      return fromCalls?.trim() || null;
+    },
+    [calls]
+  );
+
+  const launchOutgoingFallback = useCallback(
+    async (peerUserId: string, kind: "voice" | "video", peerLabel: string, roomId: string | null) => {
+      const guard = guardInstantOutgoingCallStart({ peerUserId, kind });
+      if (!guard.ok) {
+        showMessengerSnackbar(guard.userMessage, { variant: "error" });
+        return;
+      }
+      const result = await launchOutgoingDirectCall(
+        roomId ? { kind, roomId, peerUserId, peerLabel } : { kind, peerUserId, peerLabel },
+        router
+      );
+      if (!result.ok) {
+        showMessengerSnackbar(result.userMessage, { variant: "error" });
+      }
+    },
+    [router]
+  );
 
   const onRowNavigate = useCallback(
     (call: CommunityMessengerCallLog) => {
+      setOpenedSwipeItemId(null);
+
+      if (call.sessionMode !== "group") {
+        const vm = presentCallHistoryRow(call);
+        const peerUserId = sanitizeCallPeerUserId(call.peerUserId) ?? sanitizeCallPeerUserId(vm.peerUserId) ?? "";
+        setPeerDetailSelection({
+          peerUserId: peerUserId || `room:${call.roomId?.trim() || call.id}`,
+          roomId: resolveRoomIdForPeer(peerUserId, call.roomId),
+          peerName: vm.peerName,
+          peerPublicId: vm.peerPublicId,
+          peerDisplayLabel: vm.peerDisplayLabel,
+          peerAvatarUrl: vm.peerAvatarUrl,
+        });
+        setPeerDetailOpen(true);
+        return;
+      }
+
       const roomId = call.roomId?.trim();
       if (roomId) {
-        router.push(communityMessengerRoomHref(roomId, entryOrigin, "inbox"));
+        void runCommunityMessengerRoomForwardNavigation({
+          router,
+          roomId,
+          listSource: "inbox",
+          fromEntryOrigin: entryOrigin,
+          viewerUserId,
+        });
         return;
       }
       const sid = call.sessionId?.trim();
@@ -267,36 +190,207 @@ export function MessengerCallLogsPanel({
         router.push(`/community-messenger/calls/${encodeURIComponent(sid)}`);
       }
     },
-    [router, entryOrigin]
+    [entryOrigin, resolveRoomIdForPeer, router, viewerUserId]
   );
 
-  if (error && calls.length === 0) {
-    return <p className="py-10 text-center sam-text-body text-red-600">{error}</p>;
-  }
-  if (calls.length === 0) {
-    if (loading) {
-      return (
-        <ul
-          className="min-h-[120px] divide-y divide-sam-border"
-          aria-busy="true"
-          aria-label={t("cm_ui_call_logs_title")}
-        />
+  const onRequestOutgoingConfirm = useCallback((call: CommunityMessengerCallLog, kind: "voice" | "video") => {
+    const vm = presentCallHistoryRow(call);
+    setOutgoingConfirm({ call, kind, peerLabel: vm.peerDisplayLabel });
+  }, []);
+
+  const onDeleteRequest = useCallback((call: CommunityMessengerCallLog) => {
+    setOpenedSwipeItemId(null);
+    setDeleteConfirm({ call });
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    const target = deleteConfirm?.call;
+    if (!target || deleteBusy) return;
+    setDeleteBusy(true);
+    try {
+      const res = await fetch(`/api/community-messenger/calls/${encodeURIComponent(target.id)}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
+      if (!res.ok || !json.ok) {
+        showMessengerSnackbar(t("cm_ui_call_log_delete_failed"), { variant: "error" });
+        return;
+      }
+      setCalls((prev) => prev.filter((row) => row.id !== target.id));
+      setOpenedSwipeItemId(null);
+      setDeleteConfirm(null);
+      showMessengerSnackbar(
+        safeT("cm_ui_call_log_deleted", {
+          fallbackKo: "통화 기록을 삭제했습니다.",
+          fallbackEn: "Call log deleted.",
+        }),
+        { variant: "success" }
       );
+    } catch {
+      showMessengerSnackbar(t("cm_ui_call_log_delete_failed"), { variant: "error" });
+    } finally {
+      setDeleteBusy(false);
     }
-    return <p className="py-10 text-center sam-text-body-secondary text-sam-muted">{t("cm_ui_call_logs_empty")}</p>;
-  }
+  }, [deleteBusy, deleteConfirm, safeT, t]);
+
+  const handlePeerDetailClosed = useCallback(() => {
+    setPeerDetailOpen(false);
+    setPeerDetailSelection(null);
+  }, []);
+
+  const closeDeleteConfirm = useCallback(() => {
+    if (!deleteBusy) setDeleteConfirm(null);
+  }, [deleteBusy]);
+
+  const handleOutgoingConfirm = useCallback(() => {
+    const next = outgoingConfirm;
+    if (!next || outgoingBusy) return;
+    const vm = presentCallHistoryRow(next.call);
+    const peerUserId =
+      sanitizeCallPeerUserId(next.call.peerUserId) ??
+      sanitizeCallPeerUserId(vm.peerUserId) ??
+      sanitizeCallPeerUserId(peerDetailSelection?.peerUserId);
+    const roomId =
+      next.call.roomId?.trim() ||
+      peerDetailSelection?.roomId?.trim() ||
+      resolveRoomIdForPeer(peerUserId ?? "", next.call.roomId);
+
+    if (!peerUserId) {
+      showMessengerSnackbar(
+        safeT("cm_ui_call_outgoing_missing_room", {
+          fallbackKo: "통화를 시작할 수 없습니다. 상대 정보가 없습니다.",
+          fallbackEn: "Cannot start the call. Peer information is missing.",
+        }),
+        { variant: "error" }
+      );
+      return;
+    }
+
+    setOutgoingBusy(true);
+    setOutgoingConfirm(null);
+    setPeerDetailOpen(false);
+
+    if (onStartDirectCall?.(peerUserId, next.kind, next.peerLabel)) {
+      setOutgoingBusy(false);
+      return;
+    }
+
+    void (async () => {
+      try {
+        await launchOutgoingFallback(peerUserId, next.kind, next.peerLabel, roomId);
+      } catch {
+        showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
+      } finally {
+        setOutgoingBusy(false);
+      }
+    })();
+  }, [
+    launchOutgoingFallback,
+    onStartDirectCall,
+    outgoingBusy,
+    outgoingConfirm,
+    peerDetailSelection?.peerUserId,
+    peerDetailSelection?.roomId,
+    resolveRoomIdForPeer,
+    safeT,
+    t,
+  ]);
+
+  const peerDetailCalls = useMemo(() => calls, [calls]);
+
+  const overlayDialogs =
+    portalReady && (outgoingConfirm || deleteConfirm)
+      ? createPortal(
+          <div className="relative z-[1400]">
+            {outgoingConfirm ? (
+              <MessengerOutgoingCallConfirmDialog
+                open
+                peerLabel={outgoingConfirm.peerLabel}
+                kind={outgoingConfirm.kind}
+                busy={outgoingBusy}
+                onCancel={() => {
+                  if (!outgoingBusy) setOutgoingConfirm(null);
+                }}
+                onConfirm={handleOutgoingConfirm}
+              />
+            ) : null}
+            {deleteConfirm ? (
+              <MessengerCallLogDeleteConfirmDialog
+                open
+                busy={deleteBusy}
+                onCancel={closeDeleteConfirm}
+                onConfirm={() => {
+                  void handleDeleteConfirm();
+                }}
+              />
+            ) : null}
+          </div>,
+          document.body
+        )
+      : null;
 
   return (
-    <ul className="divide-y divide-sam-border" aria-label={t("cm_ui_call_logs_title")}>
-      {calls.map((call) => (
-        <CallLogRow
-          key={call.id}
-          call={call}
-          onNavigate={onRowNavigate}
-          globalRedialBlocked={globalRedialBlocked}
-          activeCallId={activeCallId}
-        />
-      ))}
-    </ul>
+    <>
+      <CommunityMessengerCallHistory
+        calls={calls}
+        loading={loading}
+        error={error}
+        onNavigate={onRowNavigate}
+        onRequestOutgoingConfirm={onRequestOutgoingConfirm}
+        onDeleteRequest={onDeleteRequest}
+        openedSwipeItemId={openedSwipeItemId}
+        onOpenSwipeItem={setOpenedSwipeItemId}
+      />
+
+      <CommunityMessengerCallPeerDetailShell open={peerDetailOpen} onClosed={handlePeerDetailClosed}>
+        {peerDetailSelection ? (
+          <CommunityMessengerCallPeerDetailPanel
+            selection={peerDetailSelection}
+            calls={peerDetailCalls}
+            entryOrigin={entryOrigin}
+            viewerUserId={viewerUserId}
+            onRequestOutgoingConfirm={(kind) => {
+              const peerId = sanitizeCallPeerUserId(peerDetailSelection.peerUserId);
+              const roomId = peerDetailSelection.roomId?.trim() || null;
+              const latestCall =
+                (peerId
+                  ? peerDetailCalls.find((row) => row.peerUserId?.trim() === peerId)
+                  : null) ??
+                (roomId ? peerDetailCalls.find((row) => row.roomId?.trim() === roomId) : null) ??
+                null;
+              setOutgoingConfirm({
+                call:
+                  latestCall ??
+                  ({
+                    id: `peer:${peerId ?? roomId ?? "unknown"}`,
+                    sessionId: null,
+                    roomId: peerDetailSelection.roomId,
+                    sessionMode: "direct",
+                    title: peerDetailSelection.peerDisplayLabel,
+                    peerLabel: peerDetailSelection.peerDisplayLabel,
+                    peerAvatarUrl: peerDetailSelection.peerAvatarUrl,
+                    peerUserId: peerId,
+                    participantCount: 2,
+                    participantLabels: [],
+                    callKind: kind,
+                    status: "ended",
+                    startedAt: new Date().toISOString(),
+                    durationSeconds: 0,
+                    endedAt: null,
+                    isOutgoing: true,
+                    endedReason: null,
+                    displayType: "outgoing",
+                  } satisfies CommunityMessengerCallLog),
+                kind,
+                peerLabel: peerDetailSelection.peerDisplayLabel,
+              });
+            }}
+          />
+        ) : null}
+      </CommunityMessengerCallPeerDetailShell>
+
+      {overlayDialogs}
+    </>
   );
 }

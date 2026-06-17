@@ -38,6 +38,12 @@ import {
   compareMessengerFriendsForHomeList,
   partitionMessengerFriendsByNew,
 } from "@/lib/community-messenger/messenger-new-friend-window";
+import {
+  compareUnifiedChatListItems,
+  sortChatListRooms,
+} from "@/lib/community-messenger/chat-list/chat-list-sorter";
+import { mergeCallHistoryForHomeList } from "@/lib/community-messenger/call-history/call-history-merge";
+import { sortCallHistoryEntries } from "@/lib/community-messenger/call-history/call-history-sorter";
 
 export type { MessengerFriendState, MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
@@ -757,14 +763,7 @@ function directRoomMapsEqual(
 
 function sortRooms(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRoomSummary[] {
   bumpMessengerRenderPerf("messenger_room_list_sort");
-  return [...rooms].sort((a, b) => {
-    if (Boolean(a.isPinned) !== Boolean(b.isPinned)) return a.isPinned ? -1 : 1;
-    const timeA = new Date(a.lastMessageAt).getTime();
-    const timeB = new Date(b.lastMessageAt).getTime();
-    if (timeA !== timeB) return timeB - timeA;
-    if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
-    return a.title.localeCompare(b.title, "ko");
-  });
+  return sortChatListRooms(rooms);
 }
 
 /**
@@ -804,29 +803,14 @@ function collapseDirectPeerRooms(items: UnifiedRoomListItem[]): UnifiedRoomListI
 }
 
 function sortUnifiedRoomListItems(a: UnifiedRoomListItem, b: UnifiedRoomListItem): number {
-  if (Boolean(a.room.isPinned) !== Boolean(b.room.isPinned)) return a.room.isPinned ? -1 : 1;
-  const timeA = new Date(a.lastEventAt).getTime();
-  const timeB = new Date(b.lastEventAt).getTime();
-  if (timeA !== timeB) return timeB - timeA;
-  if (a.room.unreadCount !== b.room.unreadCount) return b.room.unreadCount - a.room.unreadCount;
-  return a.room.title.localeCompare(b.room.title, "ko");
+  return compareUnifiedChatListItems(a, b);
 }
 
 function sortCallsByTime(calls: CommunityMessengerCallLog[]): CommunityMessengerCallLog[] {
-  return [...calls].sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
+  return sortCallHistoryEntries(calls);
 }
 
 function mergeCallsByConversation(sortedNewestFirst: CommunityMessengerCallLog[]): CommunityMessengerCallLog[] {
-  const seen = new Set<string>();
-  const out: CommunityMessengerCallLog[] = [];
-  for (const call of sortedNewestFirst) {
-    const roomKey = call.roomId && String(call.roomId).trim() ? `room:${call.roomId}` : null;
-    const key = roomKey ?? (call.peerUserId ? `peer:${call.peerUserId}` : `label:${call.title}\0${call.peerLabel}`);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(call);
-    if (out.length >= 40) break;
-  }
-  return out;
+  return mergeCallHistoryForHomeList(sortedNewestFirst);
 }
 

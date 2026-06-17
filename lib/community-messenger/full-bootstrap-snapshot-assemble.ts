@@ -71,6 +71,7 @@ function parseProfileLabels(raw: unknown): Map<string, {
   display_name: string | null;
   nickname: string | null;
   username: string | null;
+  dibay_id: string | null;
   avatar_url: string | null;
   bio: string | null;
 }> {
@@ -79,6 +80,7 @@ function parseProfileLabels(raw: unknown): Map<string, {
     display_name: string | null;
     nickname: string | null;
     username: string | null;
+    dibay_id: string | null;
     avatar_url: string | null;
     bio: string | null;
   }>();
@@ -93,6 +95,7 @@ function parseProfileLabels(raw: unknown): Map<string, {
       display_name: (row.display_name as string | null) ?? null,
       nickname: (row.nickname as string | null) ?? null,
       username: (row.username as string | null) ?? null,
+      dibay_id: (row.dibay_id as string | null) ?? null,
       avatar_url: (row.avatar_url as string | null) ?? null,
       bio: (row.bio as string | null) ?? null,
     });

@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { useParams } from "next/navigation";
 import { CommunityMessengerCallClient } from "@/components/community-messenger/CommunityMessengerCallClient";
 import { CommunityMessengerCallRouteLoading } from "@/components/community-messenger/CommunityMessengerCallRouteLoading";
+import { CommunityMessengerCallEnterShell } from "@/components/community-messenger/call-history/CommunityMessengerCallEnterShell";
 import { subscribeCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { isCallSessionHostedByActiveCallHost } from "@/lib/community-messenger/direct-call-minimize";
 
@@ -30,5 +31,9 @@ export default function CommunityMessengerCallPage() {
     return null;
   }
 
-  return <CommunityMessengerCallClient key={sessionId} sessionId={sessionId} initialSession={null} />;
+  return (
+    <CommunityMessengerCallEnterShell>
+      <CommunityMessengerCallClient key={sessionId} sessionId={sessionId} initialSession={null} />
+    </CommunityMessengerCallEnterShell>
+  );
 }

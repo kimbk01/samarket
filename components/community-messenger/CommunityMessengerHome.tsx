@@ -156,6 +156,10 @@ import {
 } from "@/lib/community-messenger/user-public-id-search";
 import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import {
+  countAllPendingMessengerFriendRequests,
+  countReceivedPendingMessengerFriendRequests,
+} from "@/lib/community-messenger/partition-messenger-friend-requests";
+import {
   type UnifiedRoomListItem,
   useCommunityMessengerHomeState,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
@@ -888,8 +892,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     data,
   });
   const backupInputRef = useRef<HTMLInputElement | null>(null);
-  const incomingRequestCount = 0;
-  const receivedFriendRequestCount = 0;
+  const incomingRequestCount = useMemo(
+    () => countAllPendingMessengerFriendRequests(data?.requests),
+    [data?.requests]
+  );
+  const receivedFriendRequestCount = useMemo(
+    () => countReceivedPendingMessengerFriendRequests(data?.requests),
+    [data?.requests]
+  );
   const friendProfileForSheet = useMemo(() => {
     if (!friendSheet || friendSheet.mode !== "profile") return null;
     if (data) return mergeCommunityMessengerProfileFromBootstrap(friendSheet.profile, data);
@@ -1720,8 +1730,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     searchSheetRoomItems,
     primaryListItems,
     friendStateModel,
-    tradePillarSummary,
-    deliveryPillarSummary,
   } = useCommunityMessengerHomeState({
     data,
     mainSection,
@@ -1911,12 +1919,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     messengerRealtimeSubscribeMergedRoomIds,
     visiblePillarChatRoomIds,
   ]);
-
-  /** pillar 서브 라우트에선 인박스 묶음 행을 보이지 않는다. */
-  const inboxPillarSummaries = useMemo(
-    () => (pillar ? null : { trade: tradePillarSummary, delivery: deliveryPillarSummary }),
-    [pillar, tradePillarSummary, deliveryPillarSummary]
-  );
 
   const listPrefetchSeedSig = useMemo(() => {
     if (mainSection !== "chats" && mainSection !== "open_chat" && mainSection !== "archive") return "";
@@ -2828,10 +2830,10 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         loginRequiredText={t("nav_messenger_login_required")}
         retryText={t("common_try_again_later")}
         onRetry={onMessengerHomeRetryStable}
-        pillarSummaries={inboxPillarSummaries}
         entryOriginQuery={entryOriginQuery}
         bootstrapCalls={messengerHomeBootstrapCalls}
         callsHydrating={Boolean(data?.deferredCallLog)}
+        onStartDirectCall={startDirectCall}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
       />

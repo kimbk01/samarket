@@ -26,9 +26,9 @@ import {
   type MessengerChatListContext,
 } from "@/lib/community-messenger/messenger-ia";
 import { communityMessengerRoomIsInboxHidden, type CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import { CommunityMessengerChatTypeBadge } from "@/components/community-messenger/chat-list/CommunityMessengerChatTypeBadge";
 import {
   formatConversationTimestamp,
-  getRoomTypeBadgeLabel,
   messengerStringSetsEqual,
   unifiedListItemRowDisplayEqual,
   type UnifiedRoomListItem,
@@ -231,7 +231,6 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const tapNavigateArmedRef = useRef(false);
   const longPressTriggeredRef = useRef(false);
   const releasePressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const roomTypeLabel = getRoomTypeBadgeLabel(room);
   const commerceMeta = room.contextMeta;
   const isFavorite = room.peerUserId ? favoriteFriendIds.has(room.peerUserId) : false;
   /** presence dot — 일반 1:1 direct 만 구독 (거래·배달·시스템 묶음 행 제외) */
@@ -832,13 +831,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
               {titleSuffix}
             </span>
           ) : null}
-          <span
-            className={`shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] px-1 py-px sam-text-xxs font-medium leading-none ${getRoomTypeBadgeClassName(
-              roomTypeLabel
-            )}`}
-          >
-            {roomTypeLabel}
-          </span>
+          <CommunityMessengerChatTypeBadge room={room} />
           {room.philifeMeetingMemberLabel ? (
             <span
               className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"

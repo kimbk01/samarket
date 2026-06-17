@@ -26,7 +26,7 @@ export const messengerIaMessages = {
 
     cm_ia_section_archive: "보관함",
 
-    cm_ia_messenger_tab_home: "홈",
+    cm_ia_messenger_tab_home: "채팅",
 
     cm_ia_messenger_tab_friends_list: "친구목록",
 
@@ -86,7 +86,7 @@ export const messengerIaMessages = {
 
     cm_ia_section_archive: "Archive",
 
-    cm_ia_messenger_tab_home: "Home",
+    cm_ia_messenger_tab_home: "Chats",
 
     cm_ia_messenger_tab_friends_list: "Friends",
 

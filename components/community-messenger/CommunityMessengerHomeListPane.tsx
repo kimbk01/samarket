@@ -23,7 +23,9 @@ import { memo, useLayoutEffect, useRef, type ReactElement } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
+import { CommunityMessengerHomeMasterDetail } from "@/components/community-messenger/home/CommunityMessengerHomeMasterDetail";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
+import type { MessengerCallLogsStartDirectCallFn } from "@/components/community-messenger/MessengerCallLogsPanel";
 import type {
   CommunityMessengerBootstrap,
   CommunityMessengerCallLog,
@@ -34,8 +36,6 @@ import {
   communityMessengerRoomSummaryListsDisplayEqual,
   messengerStringSetsEqual,
   roomListItemsDisplayEqual,
-  unifiedListItemRowDisplayEqual,
-  type MessengerPillarSummary,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { profileArraysReferenceEqual } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
@@ -112,36 +112,14 @@ type Props = {
   loginRequiredText: string;
   retryText: string;
   onRetry: () => void;
-  /** 인박스 묶음 행(거래·배달). pillar 모드에선 null. */
-  pillarSummaries?: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null;
   /** 인박스 진입 시점의 `?from=...` — 묶음 행이 서브 라우트로 진입할 때 보존. */
   entryOriginQuery?: string | null;
   chatListVisual?: MessengerChatListVisual;
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
+  onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
   showSectionTabs?: boolean;
 };
-
-function messengerPillarSummaryDisplayEqual(a: MessengerPillarSummary, b: MessengerPillarSummary): boolean {
-  if (a.unreadTotal !== b.unreadTotal || a.count !== b.count) return false;
-  const al = a.lastItem;
-  const bl = b.lastItem;
-  if (al === bl) return true;
-  if (!al || !bl) return al === bl;
-  return unifiedListItemRowDisplayEqual(al, bl);
-}
-
-function messengerHomeListPanePillarSummariesEqual(
-  a: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null | undefined,
-  b: { trade: MessengerPillarSummary; delivery: MessengerPillarSummary } | null | undefined
-): boolean {
-  if (a === b) return true;
-  if (!a || !b) return false;
-  return (
-    messengerPillarSummaryDisplayEqual(a.trade, b.trade) &&
-    messengerPillarSummaryDisplayEqual(a.delivery, b.delivery)
-  );
-}
 
 function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boolean {
   const reasons: string[] = [];
@@ -179,9 +157,6 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
   }
   if (!messengerStringSetsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)) {
     reasons.push("favoriteFriendIds");
-  }
-  if (!messengerHomeListPanePillarSummariesEqual(prev.pillarSummaries, next.pillarSummaries)) {
-    reasons.push("pillarSummaries");
   }
   if (!prev.data || !next.data) {
     if (prev.data !== next.data) reasons.push("data.null");
@@ -395,7 +370,10 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
       >
         {canRenderList && props.data ? (
           <div data-cm-home-list-mounted="true">
-            <MessengerHomeMainSections
+            <CommunityMessengerHomeMasterDetail
+              showDetail={false}
+              list={
+                <MessengerHomeMainSections
               mainSection={props.mainSection}
               openedSwipeItemId={props.openedSwipeItemId}
               openedMenuItemId={props.openedMenuItemId}
@@ -413,6 +391,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               me={props.data.me}
               viewerUserId={props.data.me?.id ?? null}
               sortedFriends={props.sortedFriends}
+              friendRequests={props.data.requests ?? []}
               friendSortEpochMs={props.friendSortEpochMs}
               friendStateModel={props.friendStateModel}
               busyId={props.busyId}
@@ -446,13 +425,15 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               onCreateOpenGroup={props.onCreateOpenGroupStable}
               incomingRequestCount={props.incomingRequestCount}
               receivedFriendRequestCount={props.receivedFriendRequestCount}
-              pillarSummaries={props.pillarSummaries ?? null}
               entryOriginQuery={props.entryOriginQuery ?? null}
               chatListVisual={props.chatListVisual ?? "default"}
               bootstrapCalls={props.bootstrapCalls ?? []}
               callsHydrating={props.callsHydrating ?? false}
+              onStartDirectCall={props.onStartDirectCall}
               showSectionTabs={props.showSectionTabs}
               onPrimarySectionChange={props.onPrimarySectionChange}
+                />
+              }
             />
           </div>
         ) : null}

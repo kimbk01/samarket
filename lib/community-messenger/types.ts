@@ -429,6 +429,8 @@ export type CommunityMessengerCallLog = {
   sessionMode: CommunityMessengerCallSessionMode;
   title: string;
   peerLabel: string;
+  /** 1:1 상대 공개 아이디(`@` 제외) — `닉네임 (@아이디)` 표기용 */
+  peerPublicId?: string | null;
   /** 1:1 상대·그룹방 아바타 — 통화 목록 행 썸네일 */
   peerAvatarUrl: string | null;
   peerUserId: string | null;

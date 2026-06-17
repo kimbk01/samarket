@@ -10,6 +10,10 @@
 :root {
   --sam-messenger-room-enter-duration: 240ms;
   --sam-messenger-room-exit-duration: 220ms;
+  --sam-messenger-call-enter-duration: 440ms;
+  --sam-messenger-call-exit-duration: 400ms;
+  --sam-messenger-call-peer-detail-enter-duration: 440ms;
+  --sam-messenger-call-peer-detail-exit-duration: 400ms;
   --sam-messenger-pillar-list-enter-duration: 360ms;
   --sam-messenger-home-section-enter-duration: 360ms;
   --sam-messenger-home-section-enter-easing: cubic-bezier(0.32, 0.72, 0, 1);
@@ -49,6 +53,80 @@
 .messenger-exit-active {
   transform: translate3d(100%, 0, 0);
   transition: transform var(--sam-messenger-room-exit-duration) var(--sam-messenger-room-exit-easing);
+}
+
+.messenger-call-enter {
+  transform: translate3d(100%, 0, 0);
+}
+
+.messenger-call-enter-active {
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--sam-messenger-call-enter-duration) var(--sam-messenger-room-enter-easing);
+}
+
+.messenger-call-exit {
+  transform: translate3d(0, 0, 0);
+}
+
+.messenger-call-exit-active {
+  transform: translate3d(100%, 0, 0);
+  transition: transform var(--sam-messenger-call-exit-duration) var(--sam-messenger-room-exit-easing);
+}
+
+.messenger-call-peer-detail-enter {
+  transform: translate3d(100%, 0, 0);
+}
+
+.messenger-call-peer-detail-enter-active {
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--sam-messenger-call-peer-detail-enter-duration) var(--sam-messenger-room-enter-easing);
+}
+
+.messenger-call-peer-detail-exit {
+  transform: translate3d(0, 0, 0);
+}
+
+.messenger-call-peer-detail-idle {
+  transform: translate3d(0, 0, 0);
+}
+
+@keyframes sam-messenger-call-peer-detail-enter {
+  from {
+    transform: translate3d(100%, 0, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sam-messenger-call-peer-detail-exit {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.messenger-call-peer-detail-anim-enter {
+  transform: translate3d(0, 0, 0);
+  animation: sam-messenger-call-peer-detail-enter var(--sam-messenger-call-peer-detail-enter-duration)
+    var(--sam-messenger-room-enter-easing) forwards;
+}
+
+.messenger-call-peer-detail-anim-exit {
+  animation: sam-messenger-call-peer-detail-exit var(--sam-messenger-call-peer-detail-exit-duration)
+    var(--sam-messenger-room-exit-easing) forwards;
+}
+
+.messenger-call-peer-detail-anim-reduced {
+  animation: none !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.messenger-call-peer-detail-exit-active {
+  transform: translate3d(100%, 0, 0);
+  transition: transform var(--sam-messenger-call-peer-detail-exit-duration) var(--sam-messenger-room-exit-easing);
 }
 
 @keyframes sam-messenger-pillar-list-enter-rtl {
@@ -105,6 +183,12 @@
 @media (prefers-reduced-motion: reduce) {
   .messenger-enter-active,
   .messenger-exit-active,
+  .messenger-call-enter-active,
+  .messenger-call-exit-active,
+  .messenger-call-peer-detail-enter-active,
+  .messenger-call-peer-detail-exit-active,
+  .messenger-call-peer-detail-anim-enter,
+  .messenger-call-peer-detail-anim-exit,
   .sam-messenger-pillar-list-enter,
   .cm-messenger-section-enter-friends,
   .cm-messenger-section-enter-open-chat {

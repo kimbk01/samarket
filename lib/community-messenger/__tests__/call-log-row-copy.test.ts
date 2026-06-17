@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCallHistorySubtitle,
   formatCallLogListTime,
   isCallLogMissedDisplayType,
   normalizeCommunityMessengerCallLog,
@@ -24,6 +25,80 @@ describe("call-log-row-copy", () => {
   it("shows duration only for connected incoming/outgoing logs", () => {
     expect(shouldShowCallLogDuration("incoming", 42)).toBe(true);
     expect(shouldShowCallLogDuration("missed_incoming", 42)).toBe(false);
+  });
+
+  it("buildCallHistorySubtitle uses single message key and duration for answered calls", () => {
+    const answered = buildCallHistorySubtitle({
+      id: "1",
+      sessionId: null,
+      roomId: "r1",
+      sessionMode: "direct",
+      title: "t",
+      peerLabel: "p",
+      peerUserId: "u1",
+      participantCount: 2,
+      participantLabels: [],
+      callKind: "voice",
+      status: "ended",
+      startedAt: new Date().toISOString(),
+      durationSeconds: 125,
+      endedAt: null,
+      isOutgoing: true,
+      endedReason: null,
+      displayType: "outgoing",
+      peerAvatarUrl: null,
+    });
+    expect(answered.messageKey).toBe("cm_ui_call_log_voice_outgoing");
+    expect(answered.durationLabel).toBeTruthy();
+
+    const cancelled = buildCallHistorySubtitle({
+      id: "2",
+      sessionId: null,
+      roomId: "r1",
+      sessionMode: "direct",
+      title: "t",
+      peerLabel: "p",
+      peerUserId: "u1",
+      participantCount: 2,
+      participantLabels: [],
+      callKind: "voice",
+      status: "cancelled",
+      startedAt: new Date().toISOString(),
+      durationSeconds: 0,
+      endedAt: null,
+      isOutgoing: true,
+      endedReason: null,
+      displayType: "cancelled",
+      peerAvatarUrl: null,
+    });
+    expect(cancelled.messageKey).toBe("cm_ui_call_log_voice_cancelled");
+    expect(cancelled.durationLabel).toBeNull();
+  });
+
+  it("computes displayType for legacy payloads missing displayType", () => {
+    const normalized = normalizeCommunityMessengerCallLog({
+      id: "1",
+      sessionId: null,
+      roomId: "r1",
+      sessionMode: "direct",
+      title: "t",
+      peerLabel: "p",
+      peerUserId: "u1",
+      participantCount: 2,
+      participantLabels: [],
+      callKind: "voice",
+      status: "ended",
+      startedAt: "2026-06-17T10:00:00.000Z",
+      durationSeconds: 0,
+      endedAt: "2026-06-17T10:02:05.000Z",
+      isOutgoing: true,
+      endedReason: null,
+      displayType: undefined as never,
+      peerAvatarUrl: null,
+    });
+    expect(normalized.displayType).toBe("outgoing");
+    const subtitle = buildCallHistorySubtitle(normalized);
+    expect(subtitle.durationLabel).toBeTruthy();
   });
 
   it("fills missing peerAvatarUrl for legacy payloads", () => {

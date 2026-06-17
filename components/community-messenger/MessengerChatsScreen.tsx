@@ -1,10 +1,7 @@
 "use client";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
 import Link from "next/link";
-import { memo, useCallback, useEffect, useState, type ReactNode } from "react";
-import { messengerRoomPrefetchPriorityScore } from "@/lib/community-messenger/room-prefetch-queue";
-import { useMessengerRoomListPrefetchRefCallback } from "@/lib/community-messenger/use-messenger-room-list-prefetch-intersection";
+import { useCallback, useEffect, useState } from "react";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import {
   type MessengerChatListChip,
@@ -12,24 +9,11 @@ import {
   messengerChatListChipLabel,
 } from "@/lib/community-messenger/messenger-ia";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import {
-  messengerStringSetsEqual,
-  roomListItemsDisplayEqual,
-  type MessengerPillarSummary,
-  type UnifiedRoomListItem,
-} from "@/lib/community-messenger/use-community-messenger-home-state";
-import { logCmMemoPropDiff, logCmMemoPropEqual } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import type { UnifiedRoomListItem } from "@/lib/community-messenger/use-community-messenger-home-state";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
-import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
-import { FlatListContainer } from "@/components/community-messenger/line-ui";
-import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
-import { MessengerPillarSummaryRow } from "@/components/community-messenger/MessengerPillarSummaryRow";
-import { CmReactCommitProbe, useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { CommunityMessengerChatList } from "@/components/community-messenger/chat-list/CommunityMessengerChatList";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-
-/** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
-const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
-const MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX = 72;
+import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 
 function useMessengerHomeListDocumentScroll(onScroll: () => void) {
   useEffect(() => {
@@ -39,224 +23,6 @@ function useMessengerHomeListDocumentScroll(onScroll: () => void) {
     return () => root.removeEventListener("scroll", handler);
   }, [onScroll]);
 }
-
-type MessengerRoomRowsProps = {
-  useVirtual: boolean;
-  items: UnifiedRoomListItem[];
-  viewerUserId?: string | null;
-  listContext: MessengerChatListContext;
-  favoriteFriendIds: Set<string>;
-  busyId: string | null;
-  onTogglePin: (room: CommunityMessengerRoomSummary) => void;
-  onToggleMute: (room: CommunityMessengerRoomSummary) => void;
-  onMarkRead: (room: CommunityMessengerRoomSummary) => void;
-  onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
-  onLeaveRoom: (room: CommunityMessengerRoomSummary) => void;
-  onOpenRoomActions?: (
-    item: UnifiedRoomListItem,
-    listContext: MessengerChatListContext,
-    anchorRect: MessengerMenuAnchorRect | null
-  ) => void;
-  openedSwipeItemId: string | null;
-  onOpenSwipeItem: (id: string | null) => void;
-  onCloseMenuItem: (id?: string) => void;
-  onResetTransientUi: MessengerResetTransientUiFn;
-  chatListVisual?: MessengerChatListVisual;
-};
-
-function MessengerVirtualRoomRowShell({
-  roomId,
-  lastMessageAt,
-  measureElement,
-  viIndex,
-  viStart,
-  children,
-}: {
-  roomId: string;
-  lastMessageAt: string;
-  measureElement: (el: HTMLElement | null) => void;
-  viIndex: number;
-  viStart: number;
-  children: ReactNode;
-}) {
-  const prefetchAttach = useMessengerRoomListPrefetchRefCallback(
-    roomId,
-    true,
-    messengerRoomPrefetchPriorityScore(lastMessageAt)
-  );
-  const setRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      measureElement(node);
-      prefetchAttach(node);
-    },
-    [measureElement, prefetchAttach]
-  );
-
-  return (
-    <div
-      role="listitem"
-      ref={setRef}
-      data-index={viIndex}
-      className="pb-0"
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        width: "100%",
-        transform: `translateY(${viStart}px)`,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function messengerRoomRowsPropsEqual(prev: MessengerRoomRowsProps, next: MessengerRoomRowsProps): boolean {
-  const reasons: string[] = [];
-  if (!roomListItemsDisplayEqual(prev.items, next.items)) {
-    if (prev.items.length !== next.items.length) reasons.push("items.length");
-    else reasons.push("items.display");
-  }
-  if (prev.useVirtual !== next.useVirtual) reasons.push("useVirtual");
-  if (prev.viewerUserId !== next.viewerUserId) reasons.push("viewerUserId");
-  if (
-    prev.favoriteFriendIds !== next.favoriteFriendIds &&
-    !messengerStringSetsEqual(prev.favoriteFriendIds, next.favoriteFriendIds)
-  ) {
-    reasons.push("favoriteFriendIds");
-  }
-  if (prev.busyId !== next.busyId) reasons.push("busyId");
-  if (prev.openedSwipeItemId !== next.openedSwipeItemId) reasons.push("openedSwipeItemId");
-  if (prev.listContext !== next.listContext) reasons.push("listContext");
-  if (prev.chatListVisual !== next.chatListVisual) reasons.push("chatListVisual");
-  if (prev.onTogglePin !== next.onTogglePin) reasons.push("onTogglePin");
-  if (prev.onToggleMute !== next.onToggleMute) reasons.push("onToggleMute");
-  if (prev.onMarkRead !== next.onMarkRead) reasons.push("onMarkRead");
-  if (prev.onToggleArchive !== next.onToggleArchive) reasons.push("onToggleArchive");
-  if (prev.onLeaveRoom !== next.onLeaveRoom) reasons.push("onLeaveRoom");
-  if (prev.onOpenRoomActions !== next.onOpenRoomActions) reasons.push("onOpenRoomActions");
-  if (prev.onOpenSwipeItem !== next.onOpenSwipeItem) reasons.push("onOpenSwipeItem");
-  if (prev.onCloseMenuItem !== next.onCloseMenuItem) reasons.push("onCloseMenuItem");
-  if (prev.onResetTransientUi !== next.onResetTransientUi) reasons.push("onResetTransientUi");
-
-  if (reasons.length > 0) {
-    logCmMemoPropDiff("RoomList", `rows:${next.items.length}`, reasons);
-    return false;
-  }
-  logCmMemoPropEqual("RoomList", `rows:${next.items.length}`);
-  return true;
-}
-
-const MessengerRoomRows = memo(function MessengerRoomRows({
-  useVirtual,
-  items,
-  viewerUserId = null,
-  listContext,
-  favoriteFriendIds,
-  busyId,
-  onTogglePin,
-  onToggleMute,
-  onMarkRead,
-  onToggleArchive,
-  onLeaveRoom,
-  onOpenRoomActions,
-  openedSwipeItemId,
-  onOpenSwipeItem,
-  onCloseMenuItem,
-  onResetTransientUi,
-  chatListVisual = "default",
-}: MessengerRoomRowsProps) {
-  useCmDevRenderTrace("RoomList");
-  const rowEstimatePx =
-    chatListVisual === "trade" || chatListVisual === "delivery" ? 88 : MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX;
-  const getVirtualScrollElement = useCallback(
-    () => (typeof document !== "undefined" ? (document.scrollingElement ?? document.documentElement) : null),
-    []
-  );
-  const estimateVirtualRowSize = useCallback(() => rowEstimatePx, [rowEstimatePx]);
-  const getVirtualItemKey = useCallback(
-    (index: number) => items[index]?.room.id ?? index,
-    [items]
-  );
-  const rowVirtualizer = useVirtualizer({
-    count: useVirtual ? items.length : 0,
-    getItemKey: getVirtualItemKey,
-    getScrollElement: getVirtualScrollElement,
-    estimateSize: estimateVirtualRowSize,
-    overscan: 6,
-  });
-
-  if (!useVirtual) {
-    return (
-      <CmReactCommitProbe id="RoomList">
-      <FlatListContainer>
-        {items.map((item) => (
-          <MessengerChatListItem
-            key={item.room.id}
-            item={item}
-            viewerUserId={viewerUserId}
-            favoriteFriendIds={favoriteFriendIds}
-            busyId={busyId}
-            onTogglePin={onTogglePin}
-            onToggleMute={onToggleMute}
-            onMarkRead={onMarkRead}
-            onToggleArchive={onToggleArchive}
-            onLeaveRoom={onLeaveRoom}
-            listContext={listContext}
-            onOpenRoomActions={onOpenRoomActions}
-            openedSwipeItemId={openedSwipeItemId}
-            onOpenSwipeItem={onOpenSwipeItem}
-            onCloseMenuItem={onCloseMenuItem}
-            onResetTransientUi={onResetTransientUi}
-            listVisual={chatListVisual}
-          />
-        ))}
-      </FlatListContainer>
-      </CmReactCommitProbe>
-    );
-  }
-
-  return (
-    <CmReactCommitProbe id="RoomList">
-    <FlatListContainer className="relative" role="list" style={{ height: rowVirtualizer.getTotalSize() }}>
-      {rowVirtualizer.getVirtualItems().map((vi) => {
-        const item = items[vi.index]!;
-        return (
-          <MessengerVirtualRoomRowShell
-            key={item.room.id}
-            roomId={item.room.id}
-            lastMessageAt={item.room.lastMessageAt}
-            measureElement={rowVirtualizer.measureElement}
-            viIndex={vi.index}
-            viStart={vi.start}
-          >
-            <MessengerChatListItem
-              item={item}
-              viewerUserId={viewerUserId}
-              favoriteFriendIds={favoriteFriendIds}
-              busyId={busyId}
-              onTogglePin={onTogglePin}
-              onToggleMute={onToggleMute}
-              onMarkRead={onMarkRead}
-              onToggleArchive={onToggleArchive}
-              onLeaveRoom={onLeaveRoom}
-              listContext={listContext}
-              onOpenRoomActions={onOpenRoomActions}
-              openedSwipeItemId={openedSwipeItemId}
-              onOpenSwipeItem={onOpenSwipeItem}
-              onCloseMenuItem={onCloseMenuItem}
-              onResetTransientUi={onResetTransientUi}
-              listVisual={chatListVisual}
-            />
-          </MessengerVirtualRoomRowShell>
-        );
-      })}
-    </FlatListContainer>
-    </CmReactCommitProbe>
-  );
-}, messengerRoomRowsPropsEqual);
-
-MessengerRoomRows.displayName = "RoomList";
 
 function FilterIcon() {
   return (
@@ -291,19 +57,6 @@ type Props = {
   onCloseMenuItem: (id?: string) => void;
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
-  /**
-   * 인박스 상단 묶음 행(거래·배달). 거래/배달 서브 라우트(`pillar` 모드)나
-   * `chatListChip !== "all"` 일 때는 숨긴다.
-   */
-  pillarSummaries?: {
-    trade: MessengerPillarSummary;
-    delivery: MessengerPillarSummary;
-  } | null;
-  /**
-   * 인박스로 들어올 때 받은 `?from=...`. 묶음 행을 통해 서브 라우트로 갈 때
-   * 출처를 보존하기 위해 전달한다.
-   */
-  entryOriginQuery?: string | null;
   /** `/community-messenger/trade-chats` · `/delivery-chats` 전용 행 */
   chatListVisual?: MessengerChatListVisual;
 };
@@ -329,13 +82,10 @@ export function MessengerChatsScreen({
   onCloseMenuItem,
   onResetTransientUi,
   onListScrollStart,
-  pillarSummaries = null,
-  entryOriginQuery = null,
   chatListVisual = "default",
 }: Props) {
   const { t, safeT } = useI18n();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const useVirt = items.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
   const onDocumentScroll = useCallback(() => {
     setFilterSheetOpen((prev) => (prev ? false : prev));
     onListScrollStart();
@@ -399,24 +149,8 @@ export function MessengerChatsScreen({
         }}
       />
 
-      {pillarSummaries && chatListChip === "all" && listContext === "default" ? (
-        <div className="space-y-px border-b border-[color:var(--messenger-divider)] pb-1">
-          <MessengerPillarSummaryRow
-            variant="trade"
-            summary={pillarSummaries.trade}
-            entryOriginQuery={entryOriginQuery}
-          />
-          <MessengerPillarSummaryRow
-            variant="delivery"
-            summary={pillarSummaries.delivery}
-            entryOriginQuery={entryOriginQuery}
-          />
-        </div>
-      ) : null}
-
       {items.length ? (
-        <MessengerRoomRows
-          useVirtual={useVirt}
+        <CommunityMessengerChatList
           items={items}
           viewerUserId={viewerUserId}
           listContext={listContext}
@@ -432,7 +166,7 @@ export function MessengerChatsScreen({
           onOpenSwipeItem={onOpenSwipeItem}
           onCloseMenuItem={onCloseMenuItem}
           onResetTransientUi={onResetTransientUi}
-          chatListVisual={chatListVisual}
+          listVisual={chatListVisual}
         />
       ) : (
         <div
@@ -492,7 +226,6 @@ export function MessengerOpenChatScreen({
   onListScrollStart: () => void;
 }) {
   const { safeT } = useI18n();
-  const useVirtJoined = joinedItems.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
   useMessengerHomeListDocumentScroll(onListScrollStart);
 
   return (
@@ -548,8 +281,7 @@ export function MessengerOpenChatScreen({
           </h2>
         </div>
         {joinedItems.length ? (
-          <MessengerRoomRows
-            useVirtual={useVirtJoined}
+          <CommunityMessengerChatList
             items={joinedItems}
             viewerUserId={viewerUserId}
             listContext="open_chat"
