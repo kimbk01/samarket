@@ -96,6 +96,23 @@ import {
   setHomeSyncCriticalRoomsCache,
 } from "@/lib/community-messenger/home-sync-critical-rooms-cache";
 import { allowCommunityMessengerFriendInMemoryDevFallback } from "@/lib/community-messenger/friend-store-policy";
+import {
+  addFriendSaved,
+  blockUserSocial,
+  fetchFriendSavedAtByPeerId,
+  fetchFriendSavedAcceptedRowsForViewer,
+  isBlockedEitherWay,
+  isFriendSavedByMe,
+  listBlockedByMeIds,
+  listFriendSavedIds,
+  logSocialRelationEvent,
+  removeFriendSaved,
+  resolveDirectInteractionGuard,
+  resolveUserByPublicId,
+  unblockUserSocial,
+} from "@/lib/community-messenger/social-relations";
+import { isUnknownPeerNoticeDismissed } from "@/lib/community-messenger/peer-notices";
+import { participantViewerBlockedHidden } from "@/lib/community-messenger/participant-block-hide";
 import { extractHs5TradeHintsFromRoomsPayload } from "@/lib/community-messenger/home-sync-hs5-trade-hints";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
 import {
@@ -359,6 +376,7 @@ type ParticipantRow = {
   is_muted: boolean | null;
   is_pinned: boolean | null;
   is_archived?: boolean | null;
+  blocked_hidden_at?: string | null;
   joined_at: string | null;
   last_read_at?: string | null;
   last_read_message_id?: string | null;
@@ -521,6 +539,7 @@ type DevParticipant = {
   isMuted: boolean;
   isPinned: boolean;
   isArchived: boolean;
+  blockedHiddenAt?: string | null;
   joinedAt: string;
   lastReadAt?: string | null;
   lastReadMessageId?: string | null;
@@ -1577,17 +1596,17 @@ async function getViewerRelationSets(
 
   const sb = getSupabaseOrNull();
   if (sb) {
-    const [{ data: relationRows }, { data: requestRows }, { data: favoriteRows }] = await Promise.all([
+    const [{ data: relationRows }, { data: socialRows }, { data: favoriteRows }] = await Promise.all([
       (sb as any)
         .from("user_relationships")
         .select("target_user_id, relation_type, type")
         .eq("user_id", userId)
         .in("target_user_id", uniqueTargets),
       (sb as any)
-        .from("community_friend_requests")
-        .select("requester_id, addressee_id, status")
-        .eq("status", "accepted")
-        .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`),
+        .from("user_social_relations")
+        .select("target_user_id, relation_type")
+        .eq("owner_user_id", userId)
+        .in("target_user_id", uniqueTargets),
       (sb as any)
         .from("community_friend_favorites")
         .select("target_user_id")
@@ -1608,16 +1627,15 @@ async function getViewerRelationSets(
       if (relationType === "hidden") hiddenFriendIds.add(target);
     }
 
-    for (const row of (requestRows ?? []) as Array<{
-      requester_id?: string;
-      addressee_id?: string;
-      status?: string | null;
+    for (const row of (socialRows ?? []) as Array<{
+      target_user_id?: string;
+      relation_type?: string | null;
     }>) {
-      if (row.status !== "accepted") continue;
-      const requesterId = trimText(row.requester_id);
-      const addresseeId = trimText(row.addressee_id);
-      const peerId = requesterId === userId ? addresseeId : requesterId;
-      if (uniqueTargets.includes(peerId)) friendIds.add(peerId);
+      const target = trimText(row.target_user_id);
+      const relationType = trimText(row.relation_type);
+      if (!target) continue;
+      if (relationType === "friend") friendIds.add(target);
+      if (relationType === "blocked") blocked.add(target);
     }
 
     for (const row of (favoriteRows ?? []) as Array<{ target_user_id?: string }>) {
@@ -1912,7 +1930,17 @@ type CommunityFriendRequestAcceptedRow = {
   created_at?: string;
 };
 
-/** 단일 SELECT — `listAcceptedFriendIds`·`fetchFriendshipAcceptedAtByPeerId`·부트스트랩 병렬 중복 왕복 방지 */
+/** 단일 SELECT — friend saved + legacy accepted fallback */
+async function fetchCommunityFriendAcceptedRowsForViewer(
+  userId: string
+): Promise<CommunityFriendRequestAcceptedRow[]> {
+  const saved = await fetchFriendSavedAcceptedRowsForViewer(userId);
+  if (saved.length) return saved;
+  if (!allowCommunityMessengerFriendInMemoryDevFallback()) return saved;
+  return fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+}
+
+/** @deprecated legacy community_friend_requests — dev fallback only */
 async function fetchCommunityFriendRequestsAcceptedRowsForViewer(
   userId: string
 ): Promise<CommunityFriendRequestAcceptedRow[]> {
@@ -1974,7 +2002,10 @@ export function friendshipAcceptedAtByPeerFromRows(
 }
 
 async function listAcceptedFriendIds(userId: string): Promise<string[]> {
-  const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+  const saved = await listFriendSavedIds(userId);
+  if (saved.length) return saved;
+  if (!allowCommunityMessengerFriendInMemoryDevFallback()) return saved;
+  const rows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
   return acceptedPeerIdsFromCommunityFriendRows(userId, rows);
 }
 
@@ -2004,7 +2035,7 @@ async function listFavoriteFriendIds(userId: string): Promise<string[]> {
 
 /** 수락된 친구 관계마다 상대 peer → 수락 시각(가장 최근 값). `responded_at` 우선, 없으면 `created_at` */
 async function fetchFriendshipAcceptedAtByPeerId(userId: string): Promise<Map<string, string>> {
-  const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+  const rows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
   return friendshipAcceptedAtByPeerFromRows(userId, rows);
 }
 
@@ -2080,6 +2111,7 @@ function buildRoomSummaryFromHydratedMembers(
     trimText(isDbRoom ? room.password_hash : room.passwordHash).length > 0;
   const me = participants.find((item) => ("user_id" in item ? item.user_id : item.userId) === userId);
   const isArchivedByViewer = participantViewerArchived(me);
+  const isBlockedHiddenByViewer = participantViewerBlockedHiddenFromRow(me);
   const memberIds = dedupeParticipantUserIds(participants);
   const effectiveMemberCount = meta?.totalMemberCount ?? memberIds.length;
   const peers = memberIds.filter((id) => id !== userId);
@@ -2171,6 +2203,7 @@ function buildRoomSummaryFromHydratedMembers(
     )?.identityMode,
     peerUserId: roomType === "direct" ? peers[0] ?? null : null,
     isArchivedByViewer,
+    isBlockedHiddenByViewer,
     messengerDirectKey,
     contextMeta: contextMeta ?? null,
   };
@@ -2217,6 +2250,15 @@ function participantViewerArchived(me: ParticipantRow | DevParticipant | undefin
   if (!me) return false;
   if ("is_archived" in me && (me as ParticipantRow).is_archived === true) return true;
   if ("isArchived" in me && (me as DevParticipant).isArchived === true) return true;
+  return false;
+}
+
+function participantViewerBlockedHiddenFromRow(me: ParticipantRow | DevParticipant | undefined): boolean {
+  if (!me) return false;
+  if ("blocked_hidden_at" in me) {
+    return participantViewerBlockedHidden(me as ParticipantRow);
+  }
+  if ("blockedHiddenAt" in me && (me as DevParticipant).blockedHiddenAt) return true;
   return false;
 }
 
@@ -4652,15 +4694,7 @@ export async function appendCommunityMessengerCallStubMessage(input: {
 }
 
 async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): Promise<boolean> {
-  const sb = getSupabaseOrNull();
-  if (!sb) return true;
-  const { data } = await (sb as any)
-    .from("user_relationships")
-    .select("user_id, target_user_id, relation_type, type")
-    .or(
-      `and(user_id.eq.${userId},target_user_id.eq.${targetUserId},relation_type.eq.blocked),and(user_id.eq.${targetUserId},target_user_id.eq.${userId},relation_type.eq.blocked),and(user_id.eq.${userId},target_user_id.eq.${targetUserId},type.eq.blocked),and(user_id.eq.${targetUserId},target_user_id.eq.${userId},type.eq.blocked)`
-    );
-  return ((data ?? []) as Array<unknown>).length === 0;
+  return !(await isBlockedEitherWay(userId, targetUserId));
 }
 
 export async function fetchBootstrapLiteSocialGraphSnapshot(
@@ -4674,12 +4708,12 @@ export async function fetchBootstrapLiteSocialGraphSnapshot(
     blockedIds,
     requestRows,
   ] = await Promise.all([
-    fetchCommunityFriendRequestsAcceptedRowsForViewer(userId),
+    fetchCommunityFriendAcceptedRowsForViewer(userId),
     listFavoriteFriendIds(userId),
     listFollowingIds(userId, "neighbor_follow"),
     listFollowingIds(userId, "hidden"),
-    listFollowingIds(userId, "blocked"),
-    listCommunityMessengerFriendRequestRows(userId),
+    listBlockedByMeIds(userId),
+    Promise.resolve([] as RequestRow[]),
   ]);
   return {
     acceptedFriendRows,
@@ -4980,7 +5014,7 @@ export async function getCommunityMessengerBootstrap(
   } else {
     const acceptedFriendRowsPromise = (async () => {
       const t = performance.now();
-      const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+      const rows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
       diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
       return rows;
     })();
@@ -5006,16 +5040,11 @@ export async function getCommunityMessengerBootstrap(
       })(),
       (async () => {
         const t = performance.now();
-        const r = await listFollowingIds(userId, "blocked");
+        const r = await listBlockedByMeIds(userId);
         diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
         return r;
       })(),
-      (async () => {
-        const t = performance.now();
-        const r = await listCommunityMessengerFriendRequestRows(userId);
-        diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
-        return r;
-      })(),
+      Promise.resolve([] as RequestRow[]),
       myPayloadPromise,
       bootstrapLiteMegaBundlePrefetchPromise ?? Promise.resolve(null),
       skipDiscoverable
@@ -5161,7 +5190,7 @@ export async function getCommunityMessengerBootstrap(
   const blocked = blockedIds
     .map((id) => profileById.get(id))
     .filter((profile): profile is CommunityMessengerProfileLite => Boolean(profile));
-  const requests = buildCommunityMessengerFriendRequestsFromProfileMap(userId, requestRows, profileMap);
+  const requests: CommunityMessengerFriendRequest[] = [];
   const hiddenIdSet = new Set(hidden.map((profile) => profile.id));
 
   const tRoomsHydrateLabel = performance.now();
@@ -8522,12 +8551,16 @@ async function enrichTradeRoomContextMetaForBootstrap(
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
-  const [acceptedRows, hiddenIds] = await Promise.all([
-    fetchCommunityFriendRequestsAcceptedRowsForViewer(userId),
+  const [friendIds, hiddenIds, friendshipAcceptedAtByPeer] = await Promise.all([
+    listFriendSavedIds(userId).then(async (saved) => {
+      if (saved.length) return saved;
+      if (!allowCommunityMessengerFriendInMemoryDevFallback()) return saved;
+      const rows = await fetchCommunityFriendAcceptedRowsForViewer(userId);
+      return acceptedPeerIdsFromCommunityFriendRows(userId, rows);
+    }),
     listFollowingIds(userId, "hidden"),
+    fetchFriendSavedAtByPeerId(userId),
   ]);
-  const friendIds = acceptedPeerIdsFromCommunityFriendRows(userId, acceptedRows);
-  const friendshipAcceptedAtByPeer = friendshipAcceptedAtByPeerFromRows(userId, acceptedRows);
   const hiddenIdSet = new Set(hiddenIds);
   const profiles = await hydrateProfiles(
     userId,
@@ -8539,25 +8572,151 @@ export async function listCommunityMessengerFriends(userId: string): Promise<Com
   }));
 }
 
+export async function addCommunityMessengerFriendSaved(
+  userId: string,
+  targetUserId: string
+): Promise<{ ok: boolean; error?: string }> {
+  return addFriendSaved(userId, targetUserId);
+}
+
+export async function resolveCommunityMessengerUserForSocial(
+  viewerUserId: string,
+  input: { publicId?: string; targetUserId?: string }
+): Promise<{
+  ok: boolean;
+  profile?: CommunityMessengerProfileLite & {
+    publicId: string | null;
+    canMessage: boolean;
+    canCall: boolean;
+    isFriend: boolean;
+    isBlockedByMe: boolean;
+  };
+  error?: string;
+}> {
+  const viewer = trimText(viewerUserId);
+  let targetId = trimText(input.targetUserId);
+  if (!targetId && input.publicId) {
+    const resolved = await resolveUserByPublicId(input.publicId);
+    if (!resolved) return { ok: false, error: "user_not_found" };
+    targetId = resolved.id;
+  }
+  if (!viewer || !targetId) return { ok: false, error: "bad_target" };
+  if (viewer === targetId) return { ok: false, error: "self" };
+
+  const [profiles, guard] = await Promise.all([
+    hydrateProfiles(viewer, [targetId]),
+    resolveDirectInteractionGuard(viewer, targetId),
+  ]);
+  const base = profiles[0];
+  if (!base) return { ok: false, error: "user_not_found" };
+
+  const publicId =
+    base.subtitle?.startsWith("@") ? base.subtitle.slice(1) : base.subtitle?.replace(/^@/, "") || null;
+
+  return {
+    ok: true,
+    profile: {
+      ...base,
+      publicId,
+      canMessage: guard.canMessage,
+      canCall: guard.canCall,
+      isFriend: guard.isFriend,
+      isBlockedByMe: guard.isBlockedByMe,
+    },
+  };
+}
+
+export async function startCommunityMessengerDirectChat(
+  userId: string,
+  input: { publicId?: string; targetUserId?: string }
+): Promise<{
+  ok: boolean;
+  roomId?: string;
+  created?: boolean;
+  targetProfile?: CommunityMessengerProfileLite;
+  error?: string;
+}> {
+  const resolved = await resolveCommunityMessengerUserForSocial(userId, input);
+  if (!resolved.ok || !resolved.profile) {
+    logSocialRelationEvent("direct_room_start_blocked", {
+      reason: resolved.error ?? "unknown",
+    });
+    return { ok: false, error: resolved.error ?? "cannot_start_chat" };
+  }
+  const targetId = resolved.profile.id;
+  if (!resolved.profile.canMessage) {
+    logSocialRelationEvent("direct_room_start_blocked", { reason: "blocked_or_restricted" });
+    return { ok: false, error: "cannot_start_chat" };
+  }
+
+  const basePairKey = directKeyFor(userId, targetId);
+  const sb = getSupabaseOrNull();
+  let created = true;
+  if (sb) {
+    const { data: existing } = await (sb as any)
+      .from("community_messenger_rooms")
+      .select("id")
+      .eq("room_type", "direct")
+      .eq("direct_key", basePairKey)
+      .maybeSingle();
+    if (existing?.id) created = false;
+  }
+
+  const roomOut = await ensureCommunityMessengerDirectRoom(userId, targetId);
+  if (!roomOut.ok || !roomOut.roomId) {
+    logSocialRelationEvent("direct_room_start_blocked", { reason: roomOut.error ?? "room_failed" });
+    return { ok: false, error: roomOut.error ?? "cannot_start_chat" };
+  }
+
+  logSocialRelationEvent("direct_room_started_by_public_id", {
+    targetUserId: targetId,
+    created: created ? "1" : "0",
+  });
+
+  return {
+    ok: true,
+    roomId: roomOut.roomId,
+    created,
+    targetProfile: resolved.profile,
+  };
+}
+
+export async function listCommunityMessengerBlockedProfiles(
+  userId: string
+): Promise<CommunityMessengerProfileLite[]> {
+  const blockedIds = await listBlockedByMeIds(userId);
+  return hydrateProfiles(userId, blockedIds);
+}
+
+export {
+  resolveUserByPublicId,
+  resolveDirectInteractionGuard,
+  blockUserSocial,
+  unblockUserSocial,
+  addFriendSaved,
+  removeFriendSaved,
+  listBlockedByMeIds,
+  listFriendSavedIds,
+};
+
 export async function searchCommunityMessengerUsers(
   userId: string,
   query: string
 ): Promise<CommunityMessengerProfileLite[]> {
-  const orFilter = buildProfileUserSearchOrFilter(trimText(query));
-  if (!orFilter) return [];
-  const sb = getSupabaseOrNull();
-  if (!sb) return [];
-  const { data, error } = await (sb as any)
-    .from("profiles")
-    .select("id")
-    .or(orFilter)
-    .neq("id", userId)
-    .limit(12);
-  if (error) return [];
-  return hydrateProfiles(
-    userId,
-    dedupeIds(((data ?? []) as Array<{ id?: string }>).map((row) => trimText(row.id)))
+  const { searchCommunityMessengerUsersRanked } = await import(
+    "@/lib/community-messenger/user-public-id-search"
   );
+  const ranked = await searchCommunityMessengerUsersRanked(userId, query);
+  return ranked.map((row) => ({
+    id: row.id,
+    label: row.displayName,
+    subtitle: row.publicId ? `@${row.publicId}` : undefined,
+    avatarUrl: row.avatarUrl,
+    following: false,
+    blocked: row.isBlockedByMe || row.isBlockedByPeer,
+    isFriend: row.isFriend,
+    isFavoriteFriend: false,
+  }));
 }
 
 export async function sendCommunityMessengerFriendRequest(
@@ -8853,6 +9012,8 @@ export async function cancelOutgoingCommunityMessengerFriendRequestByAddressee(
 }
 
 async function isFriend(userId: string, targetUserId: string): Promise<boolean> {
+  if (await isFriendSavedByMe(userId, targetUserId)) return true;
+  if (!allowCommunityMessengerFriendInMemoryDevFallback()) return false;
   const ids = await listAcceptedFriendIds(userId);
   return ids.includes(targetUserId);
 }
@@ -8972,25 +9133,11 @@ export async function removeCommunityMessengerFriend(
 ): Promise<{ ok: boolean; error?: string }> {
   const target = trimText(targetUserId);
   if (!target) return { ok: false, error: "bad_target" };
+  const out = await removeFriendSaved(userId, target);
+  if (!out.ok) return out;
+
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: rows, error: selectError } = await (sb as any)
-      .from("community_friend_requests")
-      .select("id, requester_id, addressee_id, status")
-      .eq("status", "accepted")
-      .or(`and(requester_id.eq.${userId},addressee_id.eq.${target}),and(requester_id.eq.${target},addressee_id.eq.${userId})`);
-    if (selectError && !isMissingTableError(selectError)) {
-      return { ok: false, error: String(selectError.message ?? "friend_lookup_failed") };
-    }
-    for (const row of (rows ?? []) as RequestRow[]) {
-      const { error } = await (sb as any)
-        .from("community_friend_requests")
-        .delete()
-        .eq("id", row.id);
-      if (error && !isMissingTableError(error)) {
-        return { ok: false, error: String(error.message ?? "friend_remove_failed") };
-      }
-    }
     const { error: favoriteDeleteError } = await (sb as any)
       .from("community_friend_favorites")
       .delete()
@@ -9013,12 +9160,6 @@ export async function removeCommunityMessengerFriend(
   }
 
   const dev = getDevState();
-  dev.friendRequests = dev.friendRequests.filter((row) => {
-    const samePair =
-      (row.requester_id === userId && row.addressee_id === target) ||
-      (row.requester_id === target && row.addressee_id === userId);
-    return !(samePair && row.status === "accepted");
-  });
   dev.favoriteFriends.get(userId)?.delete(target);
   dev.favoriteFriends.get(target)?.delete(userId);
   dev.hiddenFriends.get(userId)?.delete(target);
@@ -9039,20 +9180,16 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
 
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: rows, error: selectError } = await (sb as any)
-      .from("community_friend_requests")
-      .select("id")
-      .or(`and(requester_id.eq.${a},addressee_id.eq.${b}),and(requester_id.eq.${b},addressee_id.eq.${a})`);
-    if (selectError && !isMissingTableError(selectError)) {
-      return { ok: false, error: String(selectError.message ?? "friend_request_pair_lookup_failed") };
-    }
-    for (const row of (rows ?? []) as Array<{ id?: string }>) {
-      const id = trimText(row.id);
-      if (!id) continue;
-      const { error: delErr } = await (sb as any).from("community_friend_requests").delete().eq("id", id);
-      if (delErr && !isMissingTableError(delErr)) {
-        return { ok: false, error: String(delErr.message ?? "friend_request_delete_failed") };
-      }
+    for (const [owner, target] of [
+      [a, b],
+      [b, a],
+    ] as const) {
+      await (sb as any)
+        .from("user_social_relations")
+        .delete()
+        .eq("owner_user_id", owner)
+        .eq("target_user_id", target)
+        .eq("relation_type", "friend");
     }
 
     const { error: favoriteDeleteError } = await (sb as any)
@@ -9082,11 +9219,6 @@ export async function cleanupCommunityMessengerFriendGraphOnBlock(
   }
 
   const dev = getDevState();
-  dev.friendRequests = dev.friendRequests.filter((row) => {
-    const samePair =
-      (row.requester_id === a && row.addressee_id === b) || (row.requester_id === b && row.addressee_id === a);
-    return !samePair;
-  });
   dev.favoriteFriends.get(a)?.delete(b);
   dev.favoriteFriends.get(b)?.delete(a);
   dev.hiddenFriends.get(a)?.delete(b);
@@ -9228,9 +9360,14 @@ export async function ensureCommunityMessengerDirectRoom(
   } else if (storeOrderId) {
     allowWithoutFriend = await verifyUserIsStoreOrderChatCounterpart(userId, peerId, storeOrderId);
   }
-  if (!(await isFriend(userId, peerId)) && !allowWithoutFriend) return { ok: false, error: "friend_required" };
   if (!(await ensureNoBlockedEitherWay(userId, peerId))) {
     return { ok: false, error: "blocked_target" };
+  }
+  if (!allowWithoutFriend) {
+    const guard = await resolveDirectInteractionGuard(userId, peerId);
+    if (!guard.canMessage) {
+      return { ok: false, error: guard.reason === "blocked" ? "blocked_target" : "cannot_start_chat" };
+    }
   }
   const basePairKey = directKeyFor(userId, peerId);
   /** 거래·주문은 친구 DM(`basePairKey`)과 동일 키를 쓰지 않음 — 물품별·스레드별 방 유지 */
@@ -13291,7 +13428,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
   }
   if (sb && !snapshotWaveAFromRpc) {
     const participantSelectCols =
-      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, joined_at, last_read_at, last_read_message_id";
+      "id, room_id, user_id, role, unread_count, is_muted, is_pinned, is_archived, blocked_hidden_at, joined_at, last_read_at, last_read_message_id";
     /**
      * 멤버 전원 로드(`hydrateFullMemberList`)가 아닐 때만 embed — 행 수가 캡으로 한정되어 페이로드가 폭증하지 않음.
      * defer/critical 에 한정하지 않고 기본 full 부트스트랩에도 적용해 `hydrateProfilesLabelsOnlyWithMap` 의 `fetchProfilesByIds` 왕복을 줄인다.
@@ -14111,6 +14248,18 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     };
   }
 
+  let unknownPeerNoticeDismissed: boolean | undefined;
+  const peerForNotice = trimText(summary.peerUserId ?? "");
+  const contextKind = summary.contextMeta?.kind;
+  if (
+    summary.roomType === "direct" &&
+    peerForNotice &&
+    contextKind !== "trade" &&
+    contextKind !== "delivery"
+  ) {
+    unknownPeerNoticeDismissed = await isUnknownPeerNoticeDismissed(userId, peerForNotice, id);
+  }
+
   const snapshot = {
     viewerUserId: userId,
     room: {
@@ -14134,6 +14283,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     activeCall,
     ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
     ...(tradeMessagingForSnapshot ? { tradeMessaging: tradeMessagingForSnapshot } : {}),
+    ...(unknownPeerNoticeDismissed !== undefined ? { unknownPeerNoticeDismissed } : {}),
   };
   if (diagnostics) {
     diagnostics.messagesFetchMs = Math.round(messagesFetchMs);
@@ -16849,7 +16999,7 @@ export async function startCommunityMessengerCallSession(input: {
   }
 
   const sb = getSupabaseOrNull();
-  if (!isGroupRoom && sb) {
+  if (!isGroupRoom && sb && !dialFresh) {
     const callerLiveId = await getUserLiveDirectCallSessionId(sb, input.userId, "live");
     if (callerLiveId) {
       const existingCallerSession = await loadDirectCallSessionRowById(sb, input.userId, callerLiveId);
@@ -17052,8 +17202,24 @@ export async function startCommunityMessengerCallSession(input: {
       };
     }
     if (error && isUniqueViolationError(error)) {
-      const existing = await getActiveCallSessionForRoom(input.userId, roomId);
+      let existing = await getActiveCallSessionForRoom(input.userId, roomId);
       if (existing) {
+        if (dialFresh && !isGroupRoom && sb && existing.status === "ringing") {
+          const now = nowIso();
+          const { data: bumped } = await (sb as any)
+            .from("community_messenger_call_sessions")
+            .update({ started_at: now, updated_at: now })
+            .eq("id", existing.id)
+            .eq("status", "ringing")
+            .select(
+              "id, room_id, initiator_user_id, recipient_user_id, session_mode, max_participants, call_kind, status, started_at, answered_at, ended_at, ended_reason, created_at"
+            )
+            .maybeSingle();
+          if (bumped) {
+            invalidateActiveCallSessionByUserRoomCacheForRoom(roomId);
+            existing = await mapCallSession(input.userId, bumped as CallSessionRow);
+          }
+        }
         if (dialFresh) {
           maybeResendIncomingCallPushForReusedSession(existing, peerUserId, input.userId);
         }

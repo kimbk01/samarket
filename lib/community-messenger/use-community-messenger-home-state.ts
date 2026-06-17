@@ -27,6 +27,7 @@ import {
 } from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import {
   communityMessengerRoomIsInboxHidden,
+  communityMessengerRoomIsVisibleInMainChatInbox,
   type CommunityMessengerBootstrap,
   type CommunityMessengerCallLog,
   type CommunityMessengerProfileLite,
@@ -152,8 +153,6 @@ function messengerFriendStateModelsEqual(a: MessengerFriendStateModel, b: Messen
     messengerFriendStateEntriesEqual(a.friends, b.friends) &&
     messengerFriendStateEntriesEqual(a.hidden, b.hidden) &&
     messengerFriendStateEntriesEqual(a.blocked, b.blocked) &&
-    messengerFriendStateEntriesEqual(a.requestedSent, b.requestedSent) &&
-    messengerFriendStateEntriesEqual(a.requestedReceived, b.requestedReceived) &&
     messengerFriendStateEntriesEqual(a.suggested, b.suggested) &&
     messengerFriendStateEntriesEqual(a.muted, b.muted)
   );
@@ -468,7 +467,8 @@ export function useCommunityMessengerHomeState({
   const baseChatListItemsStableRef = useRef<UnifiedRoomListItem[]>([]);
   const baseChatListItems = useMemo(() => {
     const next = unifiedRooms.filter(
-      (item) => item.room.roomType !== "open_group" && !communityMessengerRoomIsInboxHidden(item.room)
+      (item) =>
+        item.room.roomType !== "open_group" && communityMessengerRoomIsVisibleInMainChatInbox(item.room)
     );
     return stabilizeRoomListItems(next, baseChatListItemsStableRef);
   }, [unifiedRooms]);

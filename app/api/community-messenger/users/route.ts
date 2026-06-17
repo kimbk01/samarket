@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requireSignupCompleteForUser } from "@/lib/auth/require-signup-complete-api";
-import { searchCommunityMessengerUsers } from "@/lib/community-messenger/service";
+import { searchCommunityMessengerUsersRanked } from "@/lib/community-messenger/user-public-id-search";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -29,6 +29,6 @@ export async function GET(req: NextRequest) {
   if (!signupGate.ok) return signupGate.response;
 
   const query = req.nextUrl.searchParams.get("q") ?? "";
-  const users = await searchCommunityMessengerUsers(auth.userId, query);
+  const users = await searchCommunityMessengerUsersRanked(auth.userId, query);
   return NextResponse.json({ ok: true, users });
 }

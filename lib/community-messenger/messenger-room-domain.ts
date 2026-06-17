@@ -8,6 +8,11 @@ import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/ty
 
 export type CommunityMessengerInboxGroupKind = "trade" | "delivery" | "general";
 
+/** Sorted user pair — `community_messenger_rooms.direct_key` for plain 1:1 DM. */
+export function messengerDirectKeyForUserPair(userA: string, userB: string): string {
+  return [userA.trim(), userB.trim()].filter(Boolean).sort().join(":");
+}
+
 export function communityMessengerRoomIsConfirmedTrade(room: CommunityMessengerRoomSummary): boolean {
   if (room.contextMeta?.kind === "trade") return true;
   const dk = room.messengerDirectKey?.trim() ?? "";

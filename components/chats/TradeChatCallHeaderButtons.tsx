@@ -3,20 +3,13 @@
 import { useCallback, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Phone, Video } from "lucide-react";
-import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
-import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
-import {
-  unlockCommunityMessengerCallPlaybackFromUserGesture,
-} from "@/lib/community-messenger/call-feedback-sound";
+import { unlockCommunityMessengerCallPlaybackFromUserGesture } from "@/lib/community-messenger/call-feedback-sound";
 import {
   cmCallLatencyInfo,
   cmCallLatencyMarkClick,
   setCmCallLatencyContext,
 } from "@/lib/community-messenger/cm-call-debug";
-import {
-  buildCommunityMessengerOutgoingDialHref,
-  rememberCallNavigationReturnPath,
-} from "@/lib/community-messenger/call-session-navigation-seed";
+import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import {
   guardInstantOutgoingCallStart,
   navigateBlockedOutgoingCall,
@@ -66,11 +59,6 @@ export function TradeChatCallHeaderButtons(props: {
       }
       setBusy(true);
       try {
-        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok) {
-          onErrorMessage(t(getCallMediaPermissionBlockedMessageKey(kind)));
-          return;
-        }
         let messengerRoomId = cmRid;
         if (!messengerRoomId) {
           const res = await fetch("/api/community-messenger/bridge/product-chat", {
@@ -106,13 +94,17 @@ export function TradeChatCallHeaderButtons(props: {
           }
           messengerRoomId = json.roomId.trim();
         }
-        rememberCallNavigationReturnPath();
+        cmCallLatencyMarkClick({ surface: "trade_chat_header", roomId: messengerRoomId, kind });
+        setCmCallLatencyContext({ role: "initiator", callKind: kind, roomId: messengerRoomId });
         cmCallLatencyInfo("outgoing_route_push_start", {
           roomId: messengerRoomId,
           callKind: kind,
           role: "initiator",
         });
-        router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: messengerRoomId }));
+        const result = await launchOutgoingDirectCall({ kind, roomId: messengerRoomId }, router);
+        if (!result.ok) {
+          onErrorMessage(result.userMessage);
+        }
       } catch {
         onErrorMessage(t("chats_trade_call_network_error"));
       } finally {

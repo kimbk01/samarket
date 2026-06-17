@@ -24,6 +24,7 @@ import { MessengerRoomPhase2HeaderProvider } from "@/components/community-messen
 import { MessengerRoomPhase2CallProvider } from "@/components/community-messenger/room/phase2/messenger-room-phase2-call-context";
 import { MessengerRoomMobileViewportProvider } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { CommunityMessengerRoomPhase2Header } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header";
+import { CommunityMessengerRoomPhase2PeerNotice } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2PeerNotice";
 import { CommunityMessengerRoomPhase2AttachmentsAndTrade } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2AttachmentsAndTrade";
 import { CommunityMessengerRoomPhase2MessageTimeline } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline";
 import { CommunityMessengerRoomPhase2MessageOverlays } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageOverlays";
@@ -565,6 +566,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
         >
           <MessengerRoomPhase2HeaderProvider value={headerView}>
             <CommunityMessengerRoomPhase2Header />
+            <CommunityMessengerRoomPhase2PeerNotice />
           </MessengerRoomPhase2HeaderProvider>
           <div
             className={hydrationPass >= 2 ? "contents" : "hidden min-h-0 flex-1"}

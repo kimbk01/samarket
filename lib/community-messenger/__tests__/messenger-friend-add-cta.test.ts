@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
-  mergeCommunityMessengerProfileFromBootstrap,
-  resolveMessengerFriendAddCta,
-} from "@/lib/community-messenger/messenger-friend-add-cta";
-import type { CommunityMessengerBootstrap, CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import { resolveMessengerPeerSocialCta } from "@/lib/community-messenger/messenger-friend-add-cta";
+import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
-const baseProfile = {
+const baseProfile: CommunityMessengerProfileLite = {
   id: "u1",
-  label: "A",
+  label: "User",
   avatarUrl: null,
   following: false,
   blocked: false,
@@ -15,96 +12,16 @@ const baseProfile = {
   isFavoriteFriend: false,
 };
 
-function req(partial: Partial<CommunityMessengerFriendRequest> & Pick<CommunityMessengerFriendRequest, "id" | "direction">): CommunityMessengerFriendRequest {
-  return {
-    requesterId: "a",
-    requesterLabel: "",
-    addresseeId: "b",
-    addresseeLabel: "",
-    status: "pending",
-    createdAt: new Date().toISOString(),
-    ...partial,
-  };
-}
-
-describe("resolveMessengerFriendAddCta", () => {
-  it("returns blocked when profile.blocked", () => {
-    expect(resolveMessengerFriendAddCta({ ...baseProfile, blocked: true }, "me", [])).toEqual({ kind: "blocked" });
+describe("resolveMessengerPeerSocialCta", () => {
+  it("returns blocked when peer blocked", () => {
+    expect(resolveMessengerPeerSocialCta({ ...baseProfile, blocked: true })).toEqual({ kind: "blocked" });
   });
 
   it("returns friend when isFriend", () => {
-    expect(resolveMessengerFriendAddCta({ ...baseProfile, isFriend: true }, "me", [])).toEqual({ kind: "friend" });
+    expect(resolveMessengerPeerSocialCta({ ...baseProfile, isFriend: true })).toEqual({ kind: "friend" });
   });
 
-  it("returns pending_outgoing", () => {
-    const r = req({
-      id: "r1",
-      direction: "outgoing",
-      requesterId: "me",
-      addresseeId: "u1",
-    });
-    expect(resolveMessengerFriendAddCta(baseProfile, "me", [r])).toEqual({ kind: "pending_outgoing", requestId: "r1" });
-  });
-
-  it("returns pending_incoming", () => {
-    const r = req({
-      id: "r2",
-      direction: "incoming",
-      requesterId: "u1",
-      addresseeId: "me",
-    });
-    expect(resolveMessengerFriendAddCta(baseProfile, "me", [r])).toEqual({ kind: "pending_incoming", requestId: "r2" });
-  });
-
-  it("returns add when no row", () => {
-    expect(resolveMessengerFriendAddCta(baseProfile, "me", [])).toEqual({ kind: "add" });
-  });
-
-  it("returns cooldown when peer id is in cooldown map", () => {
-    const now = 1_000_000;
-    const until = now + 90_000;
-    expect(
-      resolveMessengerFriendAddCta(baseProfile, "me", [], {
-        cooldownUntilByPeerId: { u1: until },
-        nowMs: now,
-      })
-    ).toEqual({ kind: "cooldown", remainingMs: 90_000 });
-  });
-
-  it("pending outgoing wins over cooldown", () => {
-    const now = 1_000_000;
-    const r = req({
-      id: "r1",
-      direction: "outgoing",
-      requesterId: "me",
-      addresseeId: "u1",
-    });
-    expect(
-      resolveMessengerFriendAddCta(baseProfile, "me", [r], {
-        cooldownUntilByPeerId: { u1: now + 999_999 },
-        nowMs: now,
-      })
-    ).toEqual({ kind: "pending_outgoing", requestId: "r1" });
-  });
-});
-
-describe("mergeCommunityMessengerProfileFromBootstrap", () => {
-  it("merges friend flags from friends list", () => {
-    const bootstrap = {
-      me: null,
-      tabs: { friends: 0, chats: 0, groups: 0, calls: 0 },
-      friends: [{ ...baseProfile, id: "u1", isFriend: true, label: "B" }],
-      following: [],
-      hidden: [],
-      blocked: [],
-      requests: [],
-      chats: [],
-      groups: [],
-      discoverableGroups: [],
-      calls: [],
-    } satisfies CommunityMessengerBootstrap;
-    const merged = mergeCommunityMessengerProfileFromBootstrap(baseProfile, bootstrap);
-    expect(merged.isFriend).toBe(true);
-    expect(merged.label).toBe("B");
+  it("returns add_friend by default", () => {
+    expect(resolveMessengerPeerSocialCta(baseProfile)).toEqual({ kind: "add_friend" });
   });
 });

@@ -45,6 +45,50 @@ export function isCommunityMessengerTempCallSessionId(sessionId: string): boolea
   return sessionId.trim().startsWith(COMMUNITY_MESSENGER_TEMP_CALL_PREFIX);
 }
 
+function readDialTmpSessionIdFromPathname(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
+    const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
+    return isCommunityMessengerTempCallSessionId(raw) ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
+const recentOutgoingInviteBroadcastSessionIds = new Set<string>();
+
+export function wasOutgoingInviteBroadcastRecentlySent(sessionId: string): boolean {
+  return recentOutgoingInviteBroadcastSessionIds.has(sessionId.trim());
+}
+
+/**
+ * POST 성공 직후 — 시드·수신 브로드캐스트를 UI effect/라우트와 분리해 항상 실행한다.
+ * (tmp effect `alive=false` 로 수신 신호가 빠지던 첫 발신 실패 방지)
+ */
+export function finalizeOutgoingCallSessionBootstrap(
+  session: CommunityMessengerCallSession,
+  options?: { dialTmpSessionId?: string | null; rememberRingtonePrimed?: boolean }
+): void {
+  primeCommunityMessengerCallNavigationSeed(session.id, session);
+  if (options?.rememberRingtonePrimed) {
+    rememberOutgoingRingtonePrimedForSession(session.id);
+  }
+  if (session.sessionMode === "direct") {
+    const dialTmp = options?.dialTmpSessionId?.trim() || readDialTmpSessionIdFromPathname();
+    const sid = session.id.trim();
+    recentOutgoingInviteBroadcastSessionIds.add(sid);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        recentOutgoingInviteBroadcastSessionIds.delete(sid);
+      }, 8000);
+    }
+    void notifyCommunityMessengerCallInviteRingBestEffort(session, {
+      dialTmpSessionId: dialTmp ?? undefined,
+    });
+  }
+}
+
 export function createCommunityMessengerTempCallSessionId(): string {
   const id =
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
@@ -409,7 +453,7 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     outgoingCallFetchInit({
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callKind: args.kind }),
+      body: JSON.stringify({ callKind: args.kind, dialIntent: "fresh" }),
       signal: args.signal,
     })
   );
@@ -510,7 +554,35 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
       json.reused ? "server_reused" : "outgoing_bootstrap",
     );
   }
+  finalizeOutgoingCallSessionBootstrap(json.session);
   return { ok: true, session: json.session, roomId, reused: json.reused === true };
+}
+
+/**
+ * 발신 CTA 공통 — 권한 프라임 → 세션 POST → 수신 브로드캐스트 → `/calls/:id` 이동.
+ * tmp_* 선진입보다 첫 발신·수신 신뢰성을 우선한다.
+ */
+export async function launchOutgoingDirectCall(
+  input: {
+    signal?: AbortSignal;
+    roomId?: string | null;
+    peerUserId?: string | null;
+    kind: CommunityMessengerCallKind;
+  },
+  router: { push: (href: string) => void; replace?: (href: string) => void }
+): Promise<OutgoingCallSessionBootstrapResult> {
+  return bootstrapCommunityMessengerOutgoingCallAndNavigate(
+    {
+      signal: input.signal,
+      roomId: input.roomId ?? null,
+      peerUserId: input.peerUserId ?? null,
+      kind: input.kind,
+    },
+    (href) => {
+      const go = router.replace ?? router.push;
+      go(href);
+    }
+  );
 }
 
 /**
@@ -545,7 +617,6 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
     }
     return result;
   }
-  primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
   rememberOutgoingRingtonePrimedForSession(result.session.id);
   cmCallLatencyInfo("route_replace_session_start", {
     sessionId: result.session.id,
@@ -553,24 +624,7 @@ export async function bootstrapCommunityMessengerOutgoingCallAndNavigate(
     role: "initiator",
     roomId: result.roomId,
   });
-  const dialTmpBeforeRoute =
-    typeof window !== "undefined"
-      ? (() => {
-          try {
-            const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
-            const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
-            return isCommunityMessengerTempCallSessionId(raw) ? raw : null;
-          } catch {
-            return null;
-          }
-        })()
-      : null;
   navigate(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
-  if (result.session.sessionMode === "direct") {
-    void notifyCommunityMessengerCallInviteRingBestEffort(result.session, {
-      dialTmpSessionId: dialTmpBeforeRoute,
-    });
-  }
   return result;
 }
 
@@ -605,7 +659,6 @@ export async function startOutgoingCallSessionAndOpen(
     }
     return result;
   }
-  primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
   rememberOutgoingRingtonePrimedForSession(result.session.id);
   cmCallLatencyInfo("route_replace_session_start", {
     sessionId: result.session.id,
@@ -613,24 +666,7 @@ export async function startOutgoingCallSessionAndOpen(
     role: "initiator",
     roomId: result.roomId,
   });
-  const dialTmpBeforeRoute =
-    typeof window !== "undefined"
-      ? (() => {
-          try {
-            const m = window.location.pathname.match(/\/community-messenger\/calls\/([^/]+)/);
-            const raw = m?.[1] ? decodeURIComponent(m[1]).trim() : "";
-            return isCommunityMessengerTempCallSessionId(raw) ? raw : null;
-          } catch {
-            return null;
-          }
-        })()
-      : null;
   router.push(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
-  if (result.session.sessionMode === "direct") {
-    void notifyCommunityMessengerCallInviteRingBestEffort(result.session, {
-      dialTmpSessionId: dialTmpBeforeRoute,
-    });
-  }
   return result;
 }
 

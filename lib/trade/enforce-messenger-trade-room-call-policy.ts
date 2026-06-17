@@ -283,47 +283,5 @@ export async function assertMessengerTradeDirectRoomAllowsCallKind(input: {
     return { ok: false, error: MESSENGER_TRADE_CALL_POLICY_ERROR.videoNotAllowed };
   }
 
-  /**
-   * 거래완료 후에는(특히 구매자 측) 친구 관계가 아니면 통화를 제한한다.
-   * - 요구사항: "통화를 원하면 친구를 요청하세요"
-   * - 서버에서 강제해 클라이언트 표면 차이로 인한 회귀를 방지한다.
-   */
-  const requesterUserId = typeof input.requesterUserId === "string" ? input.requesterUserId.trim() : "";
-  const isCompletedTrade = tradePolicy.postStatus === "sold" || tradePolicy.listingState === "completed";
-  if (isCompletedTrade && requesterUserId && requesterUserId === tradePolicy.buyerId && tradePolicy.sellerId) {
-    const { data: acceptedRows, error: friendRowsError } = await sb
-      .from("community_friend_requests")
-      .select("requester_id, addressee_id")
-      .eq("status", "accepted")
-      .or(`requester_id.eq.${requesterUserId},addressee_id.eq.${requesterUserId}`);
-    /**
-     * 스키마 미적용/일시 오류 환경에서 통화를 전면 차단하지 않도록 호환 가드.
-     * (정상 환경에서는 아래 친구 판정이 그대로 강제된다.)
-     */
-    if (friendRowsError) {
-      console.warn("[messenger-call-policy] friend lookup failed, skip completed trade gate", {
-        roomId,
-        requesterUserId,
-      });
-      return { ok: true };
-    }
-    const isFriend = (acceptedRows ?? []).some((row) => {
-      const requesterId =
-        row && typeof (row as { requester_id?: unknown }).requester_id === "string"
-          ? String((row as { requester_id: string }).requester_id).trim()
-          : "";
-      const addresseeId =
-        row && typeof (row as { addressee_id?: unknown }).addressee_id === "string"
-          ? String((row as { addressee_id: string }).addressee_id).trim()
-          : "";
-      return (
-        (requesterId === requesterUserId && addresseeId === tradePolicy.sellerId) ||
-        (requesterId === tradePolicy.sellerId && addresseeId === requesterUserId)
-      );
-    });
-    if (!isFriend) {
-      return { ok: false, error: MESSENGER_TRADE_CALL_POLICY_ERROR.friendRequiredAfterComplete };
-    }
-  }
   return { ok: true };
 }

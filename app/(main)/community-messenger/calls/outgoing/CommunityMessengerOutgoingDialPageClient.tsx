@@ -2,37 +2,30 @@
 
 import { useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
-import { getCallMediaPermissionBlockedMessageKey } from "@/lib/community-messenger/call-media-permission-preflight";
-import {
-  buildCommunityMessengerInstantOutgoingCallHref,
-} from "@/lib/community-messenger/call-session-navigation-seed";
+import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type OutgoingDialParams = {
   roomId: string;
   peerUserId: string;
-  peerLabelRaw: string;
   kind: "voice" | "video";
 };
 
 function readOutgoingDialParamsFromLocation(): OutgoingDialParams {
   if (typeof window === "undefined") {
-    return { roomId: "", peerUserId: "", peerLabelRaw: "", kind: "voice" };
+    return { roomId: "", peerUserId: "", kind: "voice" };
   }
   const q = new URLSearchParams(window.location.search);
   return {
     roomId: q.get("roomId")?.trim() ?? "",
     peerUserId: q.get("peerUserId")?.trim() ?? "",
-    peerLabelRaw: q.get("peerLabel")?.trim() ?? "",
     kind: q.get("kind") === "video" ? "video" : "voice",
   };
 }
 
 /**
- * 레거시 `/calls/outgoing` — 즉시 임시 세션이 붙은 `/calls/tmp_*` 로 치환한다.
- * 실제 세션 POST 는 `CommunityMessengerCallClient` 가 백그라운드에서 수행한다.
+ * 레거시 `/calls/outgoing` — 세션 POST 완료 후 실제 `/calls/:sessionId` 로 이동한다.
  */
 export function CommunityMessengerOutgoingDialPageClient() {
   const { t } = useI18n();
@@ -47,18 +40,17 @@ export function CommunityMessengerOutgoingDialPageClient() {
       return;
     }
     void (async () => {
-      const href = buildCommunityMessengerInstantOutgoingCallHref({
-        kind: p.kind,
-        roomId: p.roomId || undefined,
-        peerUserId: p.peerUserId || undefined,
-        peerLabel: p.peerLabelRaw || undefined,
-      });
-      const primeResult = await primeOutgoingCallMediaBeforeNavigate(p.kind);
-      if (!primeResult.ok) {
-        setError(t(getCallMediaPermissionBlockedMessageKey(p.kind)));
-        return;
+      const result = await launchOutgoingDirectCall(
+        {
+          kind: p.kind,
+          roomId: p.roomId || null,
+          peerUserId: p.peerUserId || null,
+        },
+        router
+      );
+      if (!result.ok) {
+        setError(result.userMessage);
       }
-      router.replace(href);
     })();
   }, [router, t]);
 

@@ -91,30 +91,8 @@ const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
  * BN12-B1 — `/mypage`·`/philife` cold 에만 FriendRequest host chunk idle defer.
  * notifications-rt(`MessagingGlobalChrome`)·stores hub layout gate 는 변경하지 않는다.
  */
-function GlobalIncomingFriendRequestHostMountGate({ storesHubLite }: { storesHubLite: boolean }) {
-  const pathname = usePathname();
-  const idleDeferPath = !storesHubLite && shouldIdleDeferGlobalIncomingFriendRequestHost(pathname);
-  const [mountHost, setMountHost] = useState(() => !idleDeferPath);
-
-  useEffect(() => {
-    if (storesHubLite) return;
-    if (!shouldIdleDeferGlobalIncomingFriendRequestHost(pathname)) {
-      setMountHost(true);
-      return;
-    }
-    if (mountHost) return;
-    if (typeof requestIdleCallback === "function") {
-      const id = requestIdleCallback(() => setMountHost(true), {
-        timeout: GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
-      });
-      return () => cancelIdleCallback(id);
-    }
-    const t = window.setTimeout(() => setMountHost(true), 0);
-    return () => window.clearTimeout(t);
-  }, [pathname, storesHubLite, mountHost]);
-
-  if (storesHubLite || !mountHost) return null;
-  return <GlobalIncomingFriendRequestHost enabled />;
+function GlobalIncomingFriendRequestHostMountGate(_props: { storesHubLite: boolean }) {
+  return null;
 }
 
 function AppWideRuntimePerfHooks() {

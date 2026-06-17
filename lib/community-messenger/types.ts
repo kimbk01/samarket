@@ -178,6 +178,8 @@ export type CommunityMessengerRoomSummary = {
    * `roomStatus` 는 `community_messenger_rooms` 의 운영 상태(active/blocked/archived)만 반영한다.
    */
   isArchivedByViewer?: boolean;
+  /** `community_messenger_participants.blocked_hidden_at` — 차단 시 내 채팅 목록에서 숨김. */
+  isBlockedHiddenByViewer?: boolean;
   /** `summary` 필드가 v1 JSON 인 경우 파싱 결과(서버 조립 시 설정). */
   contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
   /** `meetings.community_messenger_room_id` 연동 모임 방: 내 `meeting_members` 역할 표시(목록 뱃지) */
@@ -189,6 +191,22 @@ export function communityMessengerRoomIsInboxHidden(
   room: Pick<CommunityMessengerRoomSummary, "roomStatus" | "isArchivedByViewer">
 ): boolean {
   return room.roomStatus === "archived" || Boolean(room.isArchivedByViewer);
+}
+
+/** 차단으로 viewer participant 가 숨긴 direct room — 보관함과 분리, 메인 목록 제외 */
+export function communityMessengerRoomIsBlockedHiddenByViewer(
+  room: Pick<CommunityMessengerRoomSummary, "isBlockedHiddenByViewer">
+): boolean {
+  return Boolean(room.isBlockedHiddenByViewer);
+}
+
+/** 메인 채팅 인박스에 표시할 room 인지 (보관·차단 숨김 제외) */
+export function communityMessengerRoomIsVisibleInMainChatInbox(
+  room: Pick<CommunityMessengerRoomSummary, "roomStatus" | "isArchivedByViewer" | "isBlockedHiddenByViewer">
+): boolean {
+  if (communityMessengerRoomIsBlockedHiddenByViewer(room)) return false;
+  if (communityMessengerRoomIsInboxHidden(room)) return false;
+  return true;
 }
 
 /** 메시지·통화 가능 여부(운영 차단/폐쇄/읽기전용). 개인 보관과 무관. */
@@ -377,6 +395,11 @@ export type CommunityMessengerRoomSnapshot = {
   tradeChatRoomDetail?: ChatRoom | null;
   /** `product_chats` 와 연결된 거래 스레드 전송 가드 — 컴포저·전송 API와 동일 규칙 */
   tradeMessaging?: CommunityMessengerTradeMessagingSnapshot | null;
+  /**
+   * 1:1 general direct — viewer 가 unknown peer 상단 안내 바를 dismiss 했는지.
+   * `user_social_relations` 와 분리(`community_messenger_peer_notices`).
+   */
+  unknownPeerNoticeDismissed?: boolean;
 };
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */

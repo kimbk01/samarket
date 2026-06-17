@@ -59,9 +59,10 @@ import { tryRedirectMessengerRoomAuthBlocked } from "@/lib/community-messenger/r
 import { useMessengerRoomVoiceRecording } from "@/lib/community-messenger/room/use-messenger-room-voice-recording";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
 import {
-  buildCommunityMessengerOutgoingDialHref,
+  launchOutgoingDirectCall,
   rememberCallNavigationReturnPath,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { getActiveCallSessionCallId } from "@/lib/call/active-call-session";
 import {
   guardInstantOutgoingCallStart,
   navigateBlockedOutgoingCall,
@@ -571,8 +572,15 @@ export function useMessengerRoomPhase2Controller() {
       setOutgoingDialLocked(true);
 
       setManagedDirectCallError(null);
+      const liveCallId = getActiveCallSessionCallId();
       const existingSession = snapshot?.activeCall;
-      if (existingSession && existingSession.sessionMode === "direct" && (existingSession.status === "ringing" || existingSession.status === "active")) {
+      if (
+        liveCallId &&
+        existingSession &&
+        existingSession.id === liveCallId &&
+        existingSession.sessionMode === "direct" &&
+        (existingSession.status === "ringing" || existingSession.status === "active")
+      ) {
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         unlockCommunityMessengerCallPlaybackFromUserGesture();
@@ -589,8 +597,6 @@ export function useMessengerRoomPhase2Controller() {
         peerLabel: peerLabel ?? null,
       });
       setCmCallLatencyContext({ role: "initiator", callKind: kind, roomId: rid });
-      rememberCallNavigationReturnPath();
-      unlockCommunityMessengerCallPlaybackFromUserGesture();
       cmCallLatencyInfo("outgoing_route_push_start", {
         roomId: rid,
         callKind: kind,
@@ -598,28 +604,14 @@ export function useMessengerRoomPhase2Controller() {
         peerLabel: peerLabel ?? null,
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
-      const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, roomId: rid, peerLabel });
-      void ensureCallCanUseMedia(kind).then(async (permission) => {
-        if (!permission.ok) {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
-          return;
+      void (async () => {
+        const result = await launchOutgoingDirectCall({ kind, roomId: rid }, router);
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+        if (!result.ok) {
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
-        primeOutgoingRingbackWebAudioFromUserGesture(kind);
-        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok) {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
-          return;
-        }
-        router.push(dialHref);
-        window.setTimeout(() => {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }, 0);
-      });
+      })();
       return true;
     },
     [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
@@ -1469,13 +1461,14 @@ export function useMessengerRoomPhase2Controller() {
 
   const blockPeerFromMessage = useCallback(
     async (targetUserId: string) => {
-      if (!window.confirm(t("cm_ui_confirm_block_peer_messenger"))) return;
+      const confirmBody = `${t("cm_social_block_confirm_title")}\n\n${t("cm_social_block_confirm_body")}`;
+      if (!window.confirm(confirmBody)) return;
       setBusy("block-peer");
       try {
-        const res = await fetch("/api/community/block-relations", {
+        const res = await fetch("/api/community-messenger/relations/block", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ targetUserId }),
+          body: JSON.stringify({ targetUserId, roomId: streamRoomId }),
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
@@ -1483,13 +1476,12 @@ export function useMessengerRoomPhase2Controller() {
           showMessengerSnackbar(json.error ?? translateCmUi("cm_ui_block_action_failed"), { variant: "error" });
           return;
         }
-        showMessengerSnackbar(translateCmUi("cm_ui_blocked_success"), { variant: "success" });
-        void refresh(true);
+        router.replace("/community-messenger?section=chats");
       } finally {
         setBusy(null);
       }
     },
-    [redirectIfMessengerAuthBlocked, refresh, t]
+    [redirectIfMessengerAuthBlocked, router, streamRoomId, t]
   );
 
   const inviteMembers = useCallback(async () => {
@@ -1695,36 +1687,19 @@ export function useMessengerRoomPhase2Controller() {
         kind,
       });
       setCmCallLatencyContext({ role: "initiator", callKind: kind });
-      rememberCallNavigationReturnPath();
-      unlockCommunityMessengerCallPlaybackFromUserGesture();
       cmCallLatencyInfo("outgoing_route_push_start", {
         peerUserId: peer,
         callKind: kind,
         role: "initiator",
       });
       logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
-      const dialHref = buildCommunityMessengerOutgoingDialHref({ kind, peerUserId: peer });
       void (async () => {
-        const permission = await ensureCallCanUseMedia(kind);
-        if (!permission.ok) {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
-          return;
+        const result = await launchOutgoingDirectCall({ kind, peerUserId: peer }, router);
+        outgoingDialSyncGuardRef.current = false;
+        setOutgoingDialLocked(false);
+        if (!result.ok) {
+          showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
-        primeOutgoingRingbackWebAudioFromUserGesture(kind);
-        const primeResult = await primeOutgoingCallMediaBeforeNavigate(kind);
-        if (!primeResult.ok) {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-          showMessengerSnackbar(t(getCallMediaPermissionBlockedMessageKey(kind)), { variant: "error" });
-          return;
-        }
-        router.push(dialHref);
-        window.setTimeout(() => {
-          outgoingDialSyncGuardRef.current = false;
-          setOutgoingDialLocked(false);
-        }, 0);
       })();
       return true;
     },

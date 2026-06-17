@@ -29,9 +29,7 @@ import type {
   CommunityMessengerCallLog,
   CommunityMessengerProfileLite,
   CommunityMessengerRoomSummary,
-  CommunityMessengerFriendRequest,
 } from "@/lib/community-messenger/types";
-import type { MessengerFriendRejectedPeerEntry } from "@/lib/community-messenger/partition-messenger-friend-requests";
 import {
   communityMessengerRoomSummaryListsDisplayEqual,
   messengerStringSetsEqual,
@@ -122,10 +120,6 @@ type Props = {
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
   showSectionTabs?: boolean;
-  friendRequests: CommunityMessengerFriendRequest[];
-  rejectedPeerEntries: MessengerFriendRejectedPeerEntry[];
-  friendRequestCooldownNowMs: number;
-  onRespondFriendRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
 };
 
 function messengerPillarSummaryDisplayEqual(a: MessengerPillarSummary, b: MessengerPillarSummary): boolean {
@@ -218,12 +212,6 @@ function communityMessengerHomeListPanePropsEqual(prev: Props, next: Props): boo
       }
     }
   }
-  if (prev.friendRequestCooldownNowMs !== next.friendRequestCooldownNowMs) {
-    reasons.push("friendRequestCooldownNowMs");
-  }
-  if (prev.friendRequests !== next.friendRequests) reasons.push("friendRequests");
-  if (prev.rejectedPeerEntries !== next.rejectedPeerEntries) reasons.push("rejectedPeerEntries");
-  if (prev.onRespondFriendRequest !== next.onRespondFriendRequest) reasons.push("onRespondFriendRequest");
   if (prev.onPrimarySectionChange !== next.onPrimarySectionChange) reasons.push("onPrimarySectionChange");
   if (prev.resetMessengerTransientUi !== next.resetMessengerTransientUi) reasons.push("resetMessengerTransientUi");
   if (prev.notifyMessengerListScroll !== next.notifyMessengerListScroll) reasons.push("notifyMessengerListScroll");
@@ -465,10 +453,6 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               callsHydrating={props.callsHydrating ?? false}
               showSectionTabs={props.showSectionTabs}
               onPrimarySectionChange={props.onPrimarySectionChange}
-              friendRequests={props.friendRequests}
-              rejectedPeerEntries={props.rejectedPeerEntries}
-              friendRequestCooldownNowMs={props.friendRequestCooldownNowMs}
-              onRespondFriendRequest={props.onRespondFriendRequest}
             />
           </div>
         ) : null}

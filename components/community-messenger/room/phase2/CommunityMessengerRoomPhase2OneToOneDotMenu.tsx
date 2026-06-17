@@ -11,13 +11,10 @@ import {
   tradeChatCallPolicyAllowsVoice,
 } from "@/lib/trade/trade-chat-call-policy";
 import {
-  resolveMessengerFriendAddCta,
-  type MessengerFriendAddCta,
+  resolveMessengerPeerSocialCta,
+  type MessengerPeerSocialCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
-import type {
-  CommunityMessengerFriendRequest,
-  CommunityMessengerRoomContextMetaV1,
-} from "@/lib/community-messenger/types";
+import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
@@ -53,9 +50,8 @@ function mapSellerListingToProductStatus(
   return "selling";
 }
 
-function mapRelationFromCta(cta: ReturnType<typeof resolveMessengerFriendAddCta>): Relation {
+function mapRelationFromCta(cta: MessengerPeerSocialCta): Relation {
   if (cta.kind === "friend") return "accepted";
-  if (cta.kind === "pending_outgoing" || cta.kind === "pending_incoming") return "requested";
   return "none";
 }
 
@@ -107,18 +103,6 @@ function buildTradeContextFromMeta(
 
 export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: MessengerRoomPhase2ViewModel }) {
   const { t } = useI18n();
-  const [friendRequests, setFriendRequests] = useState<CommunityMessengerFriendRequest[]>([]);
-
-  const loadFriendRequests = useCallback(async () => {
-    const res = await fetch("/api/community-messenger/friend-requests", { cache: "no-store" });
-    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; requests?: CommunityMessengerFriendRequest[] };
-    if (res.ok && json.ok && Array.isArray(json.requests)) setFriendRequests(json.requests);
-    else setFriendRequests([]);
-  }, []);
-
-  useEffect(() => {
-    void loadFriendRequests();
-  }, [loadFriendRequests, vm.snapshot.room.id]);
 
   const peerUserId = (vm.snapshot.room.peerUserId ?? "").trim();
   const peerProfile = useMemo(
@@ -153,11 +137,11 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   const callMenuKind = resolveMessengerDotMenuCallKind(vm.snapshot.room, { isDeliveryRoom });
   const roomType: RoomType = isTradeRoom ? "trade" : "direct";
 
-  const friendAddCta = useMemo((): MessengerFriendAddCta => {
-    if (!peerUserId) return { kind: "add" };
+  const friendAddCta = useMemo((): MessengerPeerSocialCta => {
+    if (!peerUserId) return { kind: "add_friend" };
     const peerPick = peerProfile ?? { id: peerUserId, isFriend: false, blocked: false };
-    return resolveMessengerFriendAddCta(peerPick, vm.snapshot.viewerUserId, friendRequests);
-  }, [friendRequests, peerProfile, peerUserId, vm.snapshot.viewerUserId]);
+    return resolveMessengerPeerSocialCta(peerPick);
+  }, [peerProfile, peerUserId]);
 
   const relation: Relation = useMemo(() => mapRelationFromCta(friendAddCta), [friendAddCta]);
 
@@ -272,26 +256,22 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   const onFriendRequest = useCallback(async () => {
     if (!peerUserId) return;
     if (peerProfile?.blocked) {
-      showMessengerSnackbar(t("cm_ui_friend_request_blocked_user"), { variant: "error" });
+      showMessengerSnackbar(t("cm_social_cannot_start_chat"), { variant: "error" });
       return;
     }
-    const res = await fetch("/api/community-messenger/friend-requests", {
+    const res = await fetch("/api/community-messenger/relations/friend", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ targetUserId: peerUserId }),
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !json.ok) {
-      showMessengerSnackbar(
-        json.error === "already_friend" ? t("cm_ui_already_friend") : t("cm_ui_friend_request_send_failed"),
-        { variant: "error" }
-      );
+      showMessengerSnackbar(t("cm_ui_friend_request_send_failed"), { variant: "error" });
       return;
     }
-    showMessengerSnackbar(t("cm_ui_sent_friend_request"));
-    await loadFriendRequests();
+    showMessengerSnackbar(t("cm_social_add_friend"), { variant: "success" });
     void vm.refresh(true);
-  }, [loadFriendRequests, peerProfile?.blocked, peerUserId, t, vm]);
+  }, [peerProfile?.blocked, peerUserId, t, vm]);
 
   return (
     <ChatRoomMoreMenu

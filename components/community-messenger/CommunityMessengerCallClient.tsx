@@ -150,7 +150,9 @@ import {
   navigateBackFromCommunityMessengerCall,
   navigateToCommunityMessengerCallLogsAfterTerminal,
   primeCommunityMessengerCallNavigationSeed,
+  wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
+import { rememberOutgoingRingtonePrimedForSession } from "@/lib/community-messenger/call-feedback-sound";
 import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   notifyCommunityMessengerCallInviteRingBestEffort,
@@ -798,22 +800,23 @@ export function CommunityMessengerCallClient({
     });
   }, [sessionId]);
 
-  /** 임시 세션 → 백그라운드 POST 후 실제 sessionId 로 replace */
+  /** 임시 세션 → 백그라운드 POST 후 실제 sessionId 로 replace (레거시 북마크·딥링크) */
   useEffect(() => {
     if (!isCommunityMessengerTempCallSessionId(sessionId)) return;
     const kind = (searchParams.get("kind") === "video" ? "video" : "voice") as CommunityMessengerCallKind;
     const roomId = searchParams.get("roomId")?.trim() || null;
     const peerUserId = searchParams.get("peerUserId")?.trim() || null;
     if (!roomId && !peerUserId) return;
-    let alive = true;
     void (async () => {
       const result = await bootstrapCommunityMessengerOutgoingCallSession({ roomId, peerUserId, kind });
-      if (!alive) return;
       if (!result.ok) {
         setErrorMessage(result.userMessage);
+        if (result.blockedCallId) {
+          router.replace(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
+        }
         return;
       }
-      primeCommunityMessengerCallNavigationSeed(result.session.id, result.session);
+      rememberOutgoingRingtonePrimedForSession(result.session.id);
       cmCallLatencyInfo("route_replace_session_start", {
         sessionId: result.session.id,
         callKind: kind,
@@ -821,16 +824,20 @@ export function CommunityMessengerCallClient({
         roomId: result.roomId,
       });
       router.replace(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
-      if (result.session.sessionMode === "direct") {
-        void notifyCommunityMessengerCallInviteRingBestEffort(result.session, {
-          dialTmpSessionId: isCommunityMessengerTempCallSessionId(sessionId) ? sessionId : null,
-        });
-      }
     })();
-    return () => {
-      alive = false;
-    };
   }, [router, searchParams, sessionId]);
+
+  /** guard·딥링크로 기존 ringing 세션만 열린 경우 — 수신 브로드캐스트 재전송(POST 없음) */
+  const outgoingRingingInviteResendRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const s = session;
+    if (!s?.isMineInitiator || s.status !== "ringing") return;
+    if (isCommunityMessengerTempCallSessionId(s.id)) return;
+    if (wasOutgoingInviteBroadcastRecentlySent(s.id)) return;
+    if (outgoingRingingInviteResendRef.current.has(s.id)) return;
+    outgoingRingingInviteResendRef.current.add(s.id);
+    void notifyCommunityMessengerCallInviteRingBestEffort(s);
+  }, [session?.id, session?.isMineInitiator, session?.status, session]);
 
   useEffect(() => {
     cmCallLatencyInfo("call_client_mount", { sessionId });

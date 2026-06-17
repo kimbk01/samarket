@@ -123,6 +123,20 @@ describe("incoming-call policy contracts", () => {
     expect(bridge).toContain("dispatchFcmTerminal");
   });
 
+  it("outgoing bootstrap POST requests fresh dial to clear stale ringing sessions", () => {
+    const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
+    expect(nav).toContain('dialIntent: "fresh"');
+    expect(nav).toContain("finalizeOutgoingCallSessionBootstrap");
+    expect(nav).toContain("launchOutgoingDirectCall");
+    const http = read("lib/community-messenger/call-http-actions.ts");
+    expect(http).toContain('dialIntent: "fresh"');
+  });
+
+  it("fresh dial skips caller live-session reuse before terminate", () => {
+    const service = read("lib/community-messenger/service.ts");
+    expect(service).toContain("if (!isGroupRoom && sb && !dialFresh)");
+  });
+
   it("terminal call end navigates to call_logs section", () => {
     const nav = read("lib/community-messenger/call-session-navigation-seed.ts");
     expect(nav).toContain("COMMUNITY_MESSENGER_CALL_LOGS_HREF");

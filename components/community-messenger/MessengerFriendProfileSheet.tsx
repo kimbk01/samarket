@@ -5,7 +5,6 @@ import {
   type MessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { isMessengerFriendRequestBusy } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 import { Check } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -28,17 +27,13 @@ type Props = {
   onRemoveFriend?: () => void;
   onBlock?: () => void;
   onReport?: () => void;
-  /** 친구 추가 영역 — 검색·추천 등 비친구 프로필과 동일 규칙. 없으면 예전처럼 항상 채팅·통화 노출 */
   friendAddCta?: MessengerFriendAddCta;
   onFriendAdd?: () => void;
-  onFriendCancelOutgoing?: (requestId: string) => void;
-  onFriendAcceptIncoming?: (requestId: string) => void;
-  onFriendRejectIncoming?: (requestId: string) => void;
 };
 
 /**
  * 친구 탭 — 탭한 사용자 프로필(시트). 라우팅 없음.
- * 친구가 아니면 상단에 친구 추가 CTA(요청중·취소·수락·거절) 후 채팅·통화는 친구일 때만 활성.
+ * Telegram-style: 차단이 아니면 메시지·통화 가능. 친구 추가는 연락처 저장만.
  */
 export function MessengerFriendProfileSheet({
   profile,
@@ -58,9 +53,6 @@ export function MessengerFriendProfileSheet({
   onReport,
   friendAddCta,
   onFriendAdd,
-  onFriendCancelOutgoing,
-  onFriendAcceptIncoming,
-  onFriendRejectIncoming,
 }: Props) {
   const { t } = useI18n();
   const pid = profile.id;
@@ -70,17 +62,14 @@ export function MessengerFriendProfileSheet({
   const bFav = busyId === `favorite:${pid}`;
   const bHidden = busyId === `hidden:${pid}`;
   const anyBusy = Boolean(busyId);
-  const bFriendAdd = isMessengerFriendRequestBusy(busyId, pid);
+  const bFriendAdd = busyId === `friend-add:${pid}`;
 
   const avatarSrc = profile.avatarUrl ?? undefined;
   const statusLine = profile.subtitle?.trim() ?? "";
   const atUsername = statusLine.startsWith("@") ? statusLine : "";
 
-  const useFriendAddGate = Boolean(
-    friendAddCta && onFriendAdd && onFriendCancelOutgoing && onFriendAcceptIncoming && onFriendRejectIncoming
-  );
-  /** 게이트 켜짐: 친구만 메시지·통화. 없으면 예전처럼 탭은 동작(후속 API에서 제한 가능). */
-  const canMessageAndCall = useFriendAddGate ? profile.isFriend : true;
+  const useFriendAddGate = Boolean(friendAddCta && onFriendAdd);
+  const canMessageAndCall = !profile.blocked;
   const cta = friendAddCta;
 
   return (
@@ -124,26 +113,22 @@ export function MessengerFriendProfileSheet({
           <div className="mt-3">
             {renderFriendAddBlock({
               cta,
-              pid,
-              busyId,
               bFriendAdd,
+              busyId,
               onFriendAdd,
-              onFriendCancelOutgoing,
-              onFriendAcceptIncoming,
-              onFriendRejectIncoming,
               t,
             })}
           </div>
         ) : null}
 
-        <div className={`mt-3 grid grid-cols-3 gap-1.5 ${!canMessageAndCall && useFriendAddGate ? "opacity-40" : ""}`}>
+        <div className={`mt-3 grid grid-cols-3 gap-1.5 ${!canMessageAndCall ? "opacity-40" : ""}`}>
           <button
             type="button"
             onClick={onChat}
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t(MessengerFriendAddCtaLabelKeys.message)}</p>
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("cm_friend_cta_message")}</p>
             {bChat ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_opening")}</p> : null}
           </button>
           <button
@@ -165,8 +150,8 @@ export function MessengerFriendProfileSheet({
             {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
           </button>
         </div>
-        {!canMessageAndCall && useFriendAddGate ? (
-          <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_can_use_message_voice_video_when_friends")}</p>
+        {!canMessageAndCall ? (
+          <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
         ) : null}
 
         <div className="mt-3 divide-y divide-ui-border border-t border-ui-border">
@@ -215,29 +200,25 @@ export function MessengerFriendProfileSheet({
 
 function renderFriendAddBlock(args: {
   cta: MessengerFriendAddCta;
-  pid: string;
-  busyId: string | null;
   bFriendAdd: boolean;
+  busyId: string | null;
   onFriendAdd?: () => void;
-  onFriendCancelOutgoing?: (requestId: string) => void;
-  onFriendAcceptIncoming?: (requestId: string) => void;
-  onFriendRejectIncoming?: (requestId: string) => void;
   t: ReturnType<typeof useI18n>["t"];
 }) {
-  const { cta, pid, busyId, bFriendAdd, onFriendAdd, onFriendCancelOutgoing, onFriendAcceptIncoming, onFriendRejectIncoming, t } = args;
+  const { cta, bFriendAdd, busyId, onFriendAdd, t } = args;
 
   if (cta.kind === "friend") return null;
 
   if (cta.kind === "blocked") {
     return (
       <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
-        <p className="sam-text-body font-semibold text-ui-muted">{t(MessengerFriendAddCtaLabelKeys.unavailable)}</p>
+        <p className="sam-text-body font-semibold text-ui-muted">{t("cm_friend_cta_unavailable")}</p>
         <p className="mt-1 sam-text-helper leading-snug text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
       </div>
     );
   }
 
-  if (cta.kind === "add") {
+  if (cta.kind === "add_friend") {
     return (
       <div className="space-y-2">
         <button
@@ -246,58 +227,8 @@ function renderFriendAddBlock(args: {
           disabled={Boolean(busyId)}
           className="w-full rounded-ui-rect bg-ui-fg py-3 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
         >
-          {bFriendAdd ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.add)}
+          {bFriendAdd ? t("common_processing") : t("cm_friend_cta_add")}
         </button>
-      </div>
-    );
-  }
-
-  if (cta.kind === "pending_outgoing") {
-    const rid = cta.requestId;
-    const bCancel = busyId === `request:${rid}:cancel`;
-    return (
-      <div className="flex gap-2">
-        <div
-          className="flex min-h-[var(--ui-tap-min,44px)] flex-1 items-center justify-center rounded-ui-rect border border-ui-border bg-ui-page sam-text-body font-medium text-ui-muted"
-          aria-live="polite"
-        >
-          {t(MessengerFriendAddCtaLabelKeys.pending)}
-        </div>
-        <button
-          type="button"
-          onClick={() => onFriendCancelOutgoing?.(rid)}
-          disabled={Boolean(busyId)}
-          className="min-h-[var(--ui-tap-min,44px)] shrink-0 rounded-ui-rect border border-ui-border px-4 sam-text-body font-medium text-ui-fg disabled:opacity-50"
-        >
-          {bCancel ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.cancel)}
-        </button>
-      </div>
-    );
-  }
-
-  if (cta.kind === "pending_incoming") {
-    const rid = cta.requestId;
-    return (
-      <div className="space-y-2">
-        <p className="text-center sam-text-body-secondary text-ui-fg">{t("cm_ui_this_user_sent_friend_request")}</p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onFriendRejectIncoming?.(rid)}
-            disabled={Boolean(busyId)}
-            className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect border border-ui-border py-2.5 sam-text-body font-medium text-ui-fg disabled:opacity-50"
-          >
-            {busyId === `request:${rid}:reject` ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.reject)}
-          </button>
-          <button
-            type="button"
-            onClick={() => onFriendAcceptIncoming?.(rid)}
-            disabled={Boolean(busyId)}
-            className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect bg-ui-fg py-2.5 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
-          >
-            {busyId === `request:${rid}:accept` ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.accept)}
-          </button>
-        </div>
       </div>
     );
   }

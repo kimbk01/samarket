@@ -151,7 +151,7 @@ export async function startCommunityMessengerRoomCall(input: {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
-    body: JSON.stringify({ callKind: input.callKind }),
+    body: JSON.stringify({ callKind: input.callKind, dialIntent: "fresh" }),
   });
   const json = (await res.json().catch(() => ({}))) as {
     ok?: boolean;

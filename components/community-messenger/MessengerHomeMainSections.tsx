@@ -19,8 +19,7 @@ import {
   type MessengerChatListContext,
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
-import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog, CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
-import type { MessengerFriendRejectedPeerEntry } from "@/lib/community-messenger/partition-messenger-friend-requests";
+import type { CommunityMessengerProfileLite, CommunityMessengerRoomSummary, CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 import type {
   MessengerPillarSummary,
@@ -93,10 +92,6 @@ type Props = {
   callsHydrating?: boolean;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
-  friendRequests: CommunityMessengerFriendRequest[];
-  rejectedPeerEntries: MessengerFriendRejectedPeerEntry[];
-  friendRequestCooldownNowMs: number;
-  onRespondFriendRequest: (requestId: string, action: "accept" | "reject" | "cancel") => void;
 };
 
 export const MessengerHomeMainSections = memo(function MessengerHomeMainSections({
@@ -157,10 +152,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   callsHydrating = false,
   showSectionTabs = false,
   onPrimarySectionChange,
-  friendRequests,
-  rejectedPeerEntries,
-  friendRequestCooldownNowMs,
-  onRespondFriendRequest,
 }: Props) {
   const chatListChip = inboxKindToChatListChip(chatInboxFilter, chatKindFilter);
 
@@ -208,10 +199,6 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
             onResetTransientUi={onResetTransientUi}
             messengerOverlayGeneration={messengerOverlayGeneration}
             friendQuickMenuBlocksTabSwipeRef={friendQuickMenuBlocksTabSwipeRef}
-            friendRequests={friendRequests}
-            rejectedPeerEntries={rejectedPeerEntries}
-            friendRequestCooldownNowMs={friendRequestCooldownNowMs}
-            onRespondFriendRequest={onRespondFriendRequest}
           />
         ) : null}
 
