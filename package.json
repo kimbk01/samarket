@@ -113,6 +113,7 @@
     "verify:android-vercel-capacitor-contract": "node scripts/verify-android-vercel-capacitor-contract.mjs",
     "verify:ios-kakao-key-config": "node scripts/verify-ios-kakao-key-config.mjs",
     "verify:auth-session-contract": "node scripts/verify-auth-session-contract.mjs",
+    "verify:membership-hot-path-contract": "node scripts/verify-membership-hot-path-contract.mjs",
     "verify:push-dispatch-contract": "node scripts/verify-push-dispatch-contract.mjs",
     "verify:push-phase1-ready": "node scripts/verify-push-phase1-ready.mjs",
     "qa:native-oauth-device": "node scripts/print-native-oauth-device-qa.mjs",

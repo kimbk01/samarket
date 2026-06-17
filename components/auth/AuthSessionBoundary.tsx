@@ -64,10 +64,19 @@ export function AuthSessionBoundary({ children }: Props) {
     return <>{children}</>;
   }
 
-  if (
-    !optimisticMember &&
-    (membership.status === "checking" || membership.status === "guest" || isAuthExitNavigateStarted())
-  ) {
+  if (membership.status === "guest" || isAuthExitNavigateStarted()) {
+    return (
+      <div
+        className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
+        aria-busy="true"
+        data-auth-session-boundary="blocked"
+      >
+        <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</p>
+      </div>
+    );
+  }
+
+  if (membership.status === "checking" && !optimisticMember) {
     return (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
