@@ -8,7 +8,6 @@ import {
   type ClientMembershipResolution,
 } from "@/lib/auth/resolve-client-profile-session";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
-import { ensureSessionHealthy } from "@/lib/auth/dibay-session-manager";
 
 export type ClientMembershipState =
   | { status: "checking" }
@@ -52,14 +51,6 @@ async function resolveMembershipState(source: string): Promise<ClientMembershipS
   const cached = getCurrentUser();
   if (cached?.id) return { status: "member", profile: cached };
 
-  const health = await ensureSessionHealthy(`membership:${source}`);
-  if (health.phase === "loading") {
-    return { status: "checking" };
-  }
-  if (health.ok === false && health.terminal) {
-    return { status: "guest" };
-  }
-
   const resolved: ClientMembershipResolution = await resolveClientMembership(source);
   return resolved;
 }
@@ -73,31 +64,39 @@ function scheduleMembershipRetry(source: string, delayMs: number): void {
   }, delayMs);
 }
 
-function ensureMembershipResolved(source: string): void {
+function syncMembershipFromProfileCache(): boolean {
   const cachedState = membershipFromCache();
   if (cachedState.status === "member") {
     if (storeSnapshot.state.status !== "member") publish(cachedState);
-    return;
+    return true;
   }
+  return false;
+}
+
+function ensureMembershipResolved(source: string): void {
+  if (syncMembershipFromProfileCache()) return;
 
   if (inflight) return;
 
-  publish({ status: "checking" });
+  if (storeSnapshot.state.status !== "checking") {
+    publish({ status: "checking" });
+  }
+
   inflight = resolveMembershipState(source)
     .then((next) => {
-      const cached = membershipFromCache();
-      if (cached.status === "member") {
-        publish(cached);
-        return cached;
+      if (syncMembershipFromProfileCache()) {
+        return membershipFromCache();
       }
       publish(next);
-      if (next.status === "checking") {
-        scheduleMembershipRetry(source, 1_200);
-      }
       return next;
     })
     .catch(() => {
-      publish({ status: "checking" });
+      if (syncMembershipFromProfileCache()) {
+        return membershipFromCache();
+      }
+      if (storeSnapshot.state.status !== "checking") {
+        publish({ status: "checking" });
+      }
       scheduleMembershipRetry(source, 1_500);
       return { status: "checking" } as const;
     })
@@ -112,11 +111,7 @@ function resetMembershipStoreForAuthChange(source: string): void {
     clearTimeout(retryTimer);
     retryTimer = null;
   }
-  const cached = getCurrentUser();
-  if (cached?.id) {
-    publish({ status: "member", profile: cached });
-    return;
-  }
+  if (syncMembershipFromProfileCache()) return;
   ensureMembershipResolved(source);
 }
 
@@ -128,6 +123,7 @@ function bindGlobalAuthListener(): void {
   window.addEventListener(TEST_AUTH_CHANGED_EVENT, () => {
     resetMembershipStoreForAuthChange("client-membership-store");
   });
+  syncMembershipFromProfileCache();
 }
 
 export function useClientMembershipState(source: string): ClientMembershipState {

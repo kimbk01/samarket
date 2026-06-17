@@ -32,6 +32,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageGuestHomeDashboard } from "@/components/mypage/MyPageGuestHomeDashboard";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isTrustedMypageHubProfile } from "@/lib/my/mypage-hub-session-trust";
+import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
 function resolveLegacyMyPageRedirectTarget(args: {
@@ -67,7 +68,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   const ensureRetriedRef = useRef(false);
 
   const membership = useClientMembershipState("mypage-root");
-  const hubEnabled = membership.status === "member";
+  const hubEnabled = membership.status === "member" || isOptimisticMemberViewer();
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined, {
     enabled: hubEnabled,
   });
@@ -171,7 +172,7 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     }
   }, [loading, data]);
 
-  if (membership.status === "checking" && !trustedHubSeed) {
+  if (membership.status === "checking" && !trustedHubSeed && !isOptimisticMemberViewer()) {
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />

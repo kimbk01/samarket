@@ -287,9 +287,6 @@ export function useMypageHubModel(
   useEffect(() => {
     if (!enabled) {
       initialLoadRequestedRef.current = false;
-      if (!getCurrentUser()?.id?.trim()) {
-        resetHubForSignedOutViewer();
-      }
       return;
     }
     if (initialMyPageData !== undefined) return;
@@ -304,7 +301,7 @@ export function useMypageHubModel(
       return;
     }
     void load();
-  }, [enabled, load, initialMyPageData, bootProfileId, resetHubForSignedOutViewer]);
+  }, [enabled, load, initialMyPageData, bootProfileId]);
 
   useLayoutEffect(() => {
     const snap = initialMyPageData?.addressDefaultsSnapshot;

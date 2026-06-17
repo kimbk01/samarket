@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 
 function isCommunityMessengerRoomEntryPath(pathname: string | null): boolean {
@@ -33,7 +34,7 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
     ) : null;
 
   /** BN14-2 — direct room cold: checking 스피너가 `[roomId]/layout` server inline shell 을 가리지 않게 한다. */
-  if (membership.status === "checking" && !roomEntryPath) {
+  if (membership.status === "checking" && !roomEntryPath && !isOptimisticMemberViewer()) {
     return (
       <>
         {guestGateDebugProbe}

@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/auth-exit-coordinator";
 import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
+import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -26,6 +27,7 @@ export function AuthSessionBoundary({ children }: Props) {
   const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const membership = useClientMembershipState("auth-session-boundary");
+  const optimisticMember = isOptimisticMemberViewer();
   const lastUserIdRef = useRef<string | null>(null);
   const dependent = isAccountDependentPath(pathname);
 
@@ -62,7 +64,10 @@ export function AuthSessionBoundary({ children }: Props) {
     return <>{children}</>;
   }
 
-  if (membership.status === "checking" || membership.status === "guest" || isAuthExitNavigateStarted()) {
+  if (
+    !optimisticMember &&
+    (membership.status === "checking" || membership.status === "guest" || isAuthExitNavigateStarted())
+  ) {
     return (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"
