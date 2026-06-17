@@ -9,7 +9,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
-import { validateActiveSessionLight } from "@/lib/auth/server-guards";
 import { authSessionValidateDedupeKey, validateActiveSessionLightDeduped } from "@/lib/auth/auth-session-validate-dedupe";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
@@ -18,23 +17,22 @@ import {
   buildRoutePerfClientObservability,
   buildRoutePerfDedupeFields,
 } from "@/lib/http/route-perf-dedupe-fields";
+import {
+  AUTH_ROUTE_SUPABASE_SOFT_TIMEOUT_MS,
+  buildAuthRouteSoftTimeoutResponse,
+  buildMissingAuthCookie401Response,
+  enforceAuthSessionRouteRateLimit,
+  logAuthSessionRoute,
+  requestHasSupabaseAuthCookies,
+  withAuthRouteSoftTimeout,
+} from "@/lib/auth/route-handler-auth-fast-guard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** P0 — Function 10s 대기 방지 */
+export const maxDuration = 10;
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
-
-function requestHasSupabaseAuthCookies(request: NextRequest): boolean {
-  for (const { name } of request.cookies.getAll()) {
-    if (name.startsWith("sb-") && (name.includes("auth-token") || name.includes("code-verifier"))) {
-      return true;
-    }
-    if (name === "supabase.auth.token" || name.startsWith("supabase.auth.token.")) {
-      return true;
-    }
-  }
-  return false;
-}
 
 function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
   for (const c of from.cookies.getAll()) {
@@ -44,8 +42,16 @@ function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
 
 export async function GET(request: NextRequest) {
   const tRoute0 = devPerfNow();
+
+  const rateLimit = await enforceAuthSessionRouteRateLimit(request);
+  if (!rateLimit.ok) {
+    logAuthSessionRoute("rate_limited", { duration_ms: Math.round(devPerfNow() - tRoute0) });
+    return rateLimit.response;
+  }
+
   if (!requestHasSupabaseAuthCookies(request)) {
-    return jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
+    logAuthSessionRoute("missing_cookie_fast_401", { duration_ms: Math.round(devPerfNow() - tRoute0) });
+    return buildMissingAuthCookie401Response();
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -83,14 +89,23 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  /**
-   * `getSession()` 뒤 `session.user` 를 쓰면 Supabase 가 **쿠키만 믿는 user** 경고를 낸다.
-   * `getUser()` 를 매 요청 1순위로 쓰면 만료 직후 **서버 refresh** 가 브라우저 auto-refresh 와 경쟁할 수 있다.
-   * → `getClaims()`(로컬 JWT) 우선·실패 시에만 `getUser()` — `resolveRouteHandlerUserIdFromSupabase`.
-   */
+  logAuthSessionRoute("supabase_start", {});
   const auth0 = devPerfNow();
-  const userId = (await resolveRouteHandlerUserIdFromSupabase(supabase))?.trim() ?? "";
+  const userIdResult = await withAuthRouteSoftTimeout(
+    resolveRouteHandlerUserIdFromSupabase(supabase),
+    AUTH_ROUTE_SUPABASE_SOFT_TIMEOUT_MS,
+    "resolve_user",
+  );
   const authMs = devPerfNow() - auth0;
+
+  if (!userIdResult.ok) {
+    logAuthSessionRoute("soft_timeout", { phase: "resolve_user", duration_ms: Math.round(authMs) });
+    return buildAuthRouteSoftTimeoutResponse("/api/auth/session", "resolve_user");
+  }
+
+  const userId = userIdResult.value?.trim() ?? "";
+  logAuthSessionRoute("supabase_done", { phase: "resolve_user", duration_ms: Math.round(authMs), hasUser: Boolean(userId) });
+
   if (!userId) {
     const res = jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
     mergeAuthCookies(cookieCarrier, res);
@@ -102,9 +117,19 @@ export async function GET(request: NextRequest) {
 
   let dbMs = 0;
   const validate0 = devPerfNow();
-  const validated = await validateActiveSessionLightDeduped(userId, sessionFp);
-  // breakdown logged inside validateActiveSessionLight on cache miss
+  const validatedResult = await withAuthRouteSoftTimeout(
+    validateActiveSessionLightDeduped(userId, sessionFp),
+    AUTH_ROUTE_SUPABASE_SOFT_TIMEOUT_MS,
+    "validate_active_session",
+  );
   dbMs = devPerfNow() - validate0;
+
+  if (!validatedResult.ok) {
+    logAuthSessionRoute("soft_timeout", { phase: "validate_active_session", duration_ms: Math.round(dbMs) });
+    return buildAuthRouteSoftTimeoutResponse("/api/auth/session", "validate_active_session");
+  }
+
+  const validated = validatedResult.value;
   if (!validated.ok) {
     mergeAuthCookies(cookieCarrier, validated.response);
     return validated.response;
