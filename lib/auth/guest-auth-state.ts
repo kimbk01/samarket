@@ -43,10 +43,10 @@ export function establishGuestAuthState(
   if (authMissing) return;
   const blockedBeforeInitialSession = !options?.force && !canEstablishGuestAuthState();
   if (blockedBeforeInitialSession) {
-    logGuest("[guest-auth] guest_state_established", {
+    logGuest("[guest-auth] guest_establishment_deferred", {
       source,
       blocked_before_initial_session: true,
-      established: false,
+      reason: "await_initial_session",
     });
     return;
   }

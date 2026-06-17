@@ -85,6 +85,8 @@ describe("ensureSessionHealthy registry validation", () => {
 
     const mod = await import("@/lib/auth/dibay-session-manager");
     mod.resetDibaySessionManagerForTests();
+    const { markAuthBootstrapInitialSessionDone } = await import("@/lib/auth/auth-bootstrap-state");
+    markAuthBootstrapInitialSessionDone(false);
     const result = await mod.ensureSessionHealthy("ghost-test");
 
     expect(result.ok).toBe(false);

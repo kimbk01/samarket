@@ -32,13 +32,8 @@ describe("auth-bootstrap guest guard", () => {
       payload: String(payload),
     }));
     expect(calls.some((c) => c.tag === "[guest-auth] guest_401_detected")).toBe(true);
-    expect(
-      calls.some(
-        (c) =>
-          c.tag === "[guest-auth] guest_state_established" &&
-          c.payload.includes('"blocked_before_initial_session":true'),
-      ),
-    ).toBe(true);
+    expect(calls.some((c) => c.tag === "[guest-auth] guest_establishment_deferred")).toBe(true);
+    expect(calls.some((c) => c.tag === "[guest-auth] guest_state_established")).toBe(false);
   });
 
   it("allows guest establishment after INITIAL_SESSION with no session", () => {

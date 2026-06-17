@@ -15,6 +15,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import {
+  canEstablishGuestAuthState,
   markAuthBootstrapInitialSessionDone,
   markAuthBootstrapInitialSessionStart,
   resetAuthBootstrapStateForTests,
@@ -166,9 +167,13 @@ async function confirmAuthenticatedWithRegistry(
   }
   if (registry.ghost) {
     await reconcileGhostSupabaseSession(source);
-    noteGuest401(`ensureHealthy:ghost:${source}`);
-    setSessionPhase("guest");
-    return { ok: false, phase: "guest", terminal: false };
+    if (canEstablishGuestAuthState()) {
+      noteGuest401(`ensureHealthy:ghost:${source}`);
+      setSessionPhase("guest");
+      return { ok: false, phase: "guest", terminal: false };
+    }
+    setSessionPhase("loading");
+    return { ok: false, phase: "loading", terminal: false };
   }
   setSessionPhase("loading");
   return { ok: false, phase: "loading", terminal: false };
@@ -183,6 +188,10 @@ export type EnsureSessionHealthyResult =
  * terminal 확인 전 hard logout 금지.
  */
 function markGuestFromSessionCheck(source: string, from401: boolean): EnsureSessionHealthyResult {
+  if (!canEstablishGuestAuthState()) {
+    setSessionPhase("loading");
+    return { ok: false, phase: "loading", terminal: false };
+  }
   if (from401) {
     noteGuest401(`ensureHealthy:${source}`);
   } else {
