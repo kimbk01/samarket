@@ -2,6 +2,7 @@ import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "
 import {
   hasMessengerRoomTimelineLoadHint,
   isMessengerRoomTimelineBootstrapSeedComplete,
+  isMessengerRoomTimelinePaintableBootstrapSeed,
 } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
 export type MessengerRoomTimelineMessage = CommunityMessengerMessage & { pending?: boolean };
@@ -72,6 +73,10 @@ export function resolveMessengerRoomTimelinePaintSource(input: {
   }
   if (input.roomMessages.length > 0) {
     return sortMessengerRoomTimelineMessages(input.roomMessages);
+  }
+  /** roomMessages merge 직전 1틱 — paintable complete seed 만 read-only 허용 */
+  if (input.snapshot && isMessengerRoomTimelinePaintableBootstrapSeed(input.snapshot)) {
+    return sortMessengerRoomTimelineMessages(input.snapshot.messages ?? []);
   }
 
   const hasHint = hasMessengerRoomTimelineLoadHint({

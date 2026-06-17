@@ -758,6 +758,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         loading: vm.loading,
         displayMessageCount: vm.displayRoomMessages.length,
         timelineLoadFailed: vm.timelineLoadFailed,
+        timelineInitialLoadComplete: vm.timelineInitialLoadComplete,
         roomMessagesLength: vm.roomMessages.length,
         snapshotMessagesLength: vm.snapshot.messages.length,
         lastMessage: vm.snapshot.room.lastMessage,
@@ -766,6 +767,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       vm.displayRoomMessages.length,
       vm.loading,
       vm.timelineLoadFailed,
+      vm.timelineInitialLoadComplete,
       vm.roomMessages.length,
       vm.snapshot.messages.length,
       vm.snapshot.room.lastMessage,
@@ -780,7 +782,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         roomMessagesLength: vm.roomMessages.length,
         hydrationPass,
         clientShellPlaceholder: Boolean(vm.snapshot.clientShellPlaceholder),
-        loading: true,
+        loading: vm.loading,
         snapshotMessagesLength: vm.snapshot.messages.length,
         lastMessage: vm.snapshot.room.lastMessage,
       }),
@@ -789,11 +791,19 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       timelineLoadUi,
       vm.displayRoomMessages.length,
       vm.roomMessages.length,
+      vm.loading,
       vm.snapshot.clientShellPlaceholder,
       vm.snapshot.messages.length,
       vm.snapshot.room.lastMessage,
     ]
   );
+
+  /** pass3 full-list 확장 시 first-row freeze 해제 — 대량 방 깜빡임 완화 */
+  useLayoutEffect(() => {
+    if (hydrationPass < 3 || !firstCommitRowsLocked) return;
+    stableFirstCommitRowsRef.current = null;
+    setFirstCommitRowsLocked(false);
+  }, [firstCommitRowsLocked, hydrationPass]);
 
   /**
    * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.

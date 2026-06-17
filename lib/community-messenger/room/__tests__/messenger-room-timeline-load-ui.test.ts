@@ -8,7 +8,22 @@ describe("resolveMessengerRoomTimelineLoadUi", () => {
         loading: true,
         displayMessageCount: 3,
         timelineLoadFailed: true,
+        timelineInitialLoadComplete: false,
         roomMessagesLength: 3,
+        snapshotMessagesLength: 0,
+        lastMessage: "hi",
+      })
+    ).toBe("ok");
+  });
+
+  it("roomMessages only → ok", () => {
+    expect(
+      resolveMessengerRoomTimelineLoadUi({
+        loading: true,
+        displayMessageCount: 0,
+        timelineLoadFailed: false,
+        timelineInitialLoadComplete: false,
+        roomMessagesLength: 2,
         snapshotMessagesLength: 0,
         lastMessage: "hi",
       })
@@ -21,6 +36,7 @@ describe("resolveMessengerRoomTimelineLoadUi", () => {
         loading: false,
         displayMessageCount: 0,
         timelineLoadFailed: false,
+        timelineInitialLoadComplete: true,
         roomMessagesLength: 0,
         snapshotMessagesLength: 0,
         lastMessage: null,
@@ -34,6 +50,7 @@ describe("resolveMessengerRoomTimelineLoadUi", () => {
         loading: true,
         displayMessageCount: 0,
         timelineLoadFailed: false,
+        timelineInitialLoadComplete: false,
         roomMessagesLength: 0,
         snapshotMessagesLength: 0,
         lastMessage: "last",
@@ -47,10 +64,39 @@ describe("resolveMessengerRoomTimelineLoadUi", () => {
         loading: false,
         displayMessageCount: 0,
         timelineLoadFailed: true,
+        timelineInitialLoadComplete: false,
         roomMessagesLength: 0,
         snapshotMessagesLength: 0,
         lastMessage: "last",
       })
     ).toBe("retry");
+  });
+
+  it("hint + bootstrap finished without paint → retry (not infinite loading)", () => {
+    expect(
+      resolveMessengerRoomTimelineLoadUi({
+        loading: false,
+        displayMessageCount: 0,
+        timelineLoadFailed: false,
+        timelineInitialLoadComplete: false,
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 0,
+        lastMessage: "last",
+      })
+    ).toBe("retry");
+  });
+
+  it("initial load complete with empty timeline → ok", () => {
+    expect(
+      resolveMessengerRoomTimelineLoadUi({
+        loading: false,
+        displayMessageCount: 0,
+        timelineLoadFailed: false,
+        timelineInitialLoadComplete: true,
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 0,
+        lastMessage: "last",
+      })
+    ).toBe("ok");
   });
 });

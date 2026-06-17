@@ -7,11 +7,12 @@ export function resolveMessengerRoomTimelineLoadUi(input: {
   loading: boolean;
   displayMessageCount: number;
   timelineLoadFailed: boolean;
+  timelineInitialLoadComplete: boolean;
   roomMessagesLength: number;
   snapshotMessagesLength: number;
   lastMessage?: string | null;
 }): MessengerRoomTimelineLoadUi {
-  if (input.displayMessageCount > 0) return "ok";
+  if (input.displayMessageCount > 0 || input.roomMessagesLength > 0) return "ok";
 
   const hasHint = hasMessengerRoomTimelineLoadHint({
     roomMessagesLength: input.roomMessagesLength,
@@ -22,5 +23,8 @@ export function resolveMessengerRoomTimelineLoadUi(input: {
   if (!hasHint) return "ok";
   if (input.loading) return "loading";
   if (input.timelineLoadFailed) return "retry";
-  return "loading";
+  if (input.timelineInitialLoadComplete) return "ok";
+  if (input.snapshotMessagesLength > 0) return "loading";
+  /** lastMessage 힌트만 남고 fetch 종료 — 무한 스피너 대신 재시도 */
+  return "retry";
 }

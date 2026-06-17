@@ -55,7 +55,7 @@ describe("messenger-room-timeline-ssot", () => {
     expect(paint).toEqual([]);
   });
 
-  it("C — does not fall back to snapshot.messages when room state is empty", () => {
+  it("C — paints complete bootstrap seed before roomMessages merge", () => {
     const snapMsg = msg({ id: "snap-only", createdAt: "2026-01-01T00:00:00.000Z" });
     const paint = resolveMessengerRoomTimelinePaintSource({
       displayRoomMessages: [],
@@ -64,7 +64,7 @@ describe("messenger-room-timeline-ssot", () => {
       timelineInitialLoadComplete: false,
       snapshot: snap({ messages: [snapMsg], lastMessage: "x" }),
     });
-    expect(paint).toEqual([]);
+    expect(paint.map((m) => m.id)).toEqual(["snap-only"]);
   });
 
   it("D/E/F — near-bottom threshold uses unified 80px constant", () => {

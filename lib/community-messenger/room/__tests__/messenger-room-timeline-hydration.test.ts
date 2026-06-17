@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   hasMessengerRoomTimelineLoadHint,
   isMessengerRoomTimelineBootstrapSeedComplete,
+  isMessengerRoomTimelinePaintableBootstrapSeed,
   shouldShowMessengerRoomTimelineHydrationSkeleton,
 } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
@@ -91,6 +92,24 @@ describe("messenger-room-timeline-hydration", () => {
       isMessengerRoomTimelineBootstrapSeedComplete({
         messages: [{ id: "m1" } as never],
         room: { lastMessage: "안녕" },
+      })
+    ).toBe(true);
+  });
+
+  it("isMessengerRoomTimelinePaintableBootstrapSeed — lastMessage only → false", () => {
+    expect(
+      isMessengerRoomTimelinePaintableBootstrapSeed({
+        messages: [],
+        room: { lastMessage: "통화" },
+      })
+    ).toBe(false);
+  });
+
+  it("isMessengerRoomTimelinePaintableBootstrapSeed — messages[] complete → true", () => {
+    expect(
+      isMessengerRoomTimelinePaintableBootstrapSeed({
+        messages: [{ id: "m1" } as never],
+        room: { lastMessage: "통화" },
       })
     ).toBe(true);
   });

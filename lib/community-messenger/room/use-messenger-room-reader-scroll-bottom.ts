@@ -21,6 +21,7 @@ import {
   logCmScrollAnalysis,
   resetCmScrollAnalysisSession,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
+import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import { scheduleMessengerScrollToBottomAfterRowsPainted } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
 import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
@@ -233,6 +234,13 @@ export function useMessengerRoomReaderScrollBottom({
     };
   }, [roomId]);
 
+  /** prepend(과거) vs append(신규) — tail id 불변 시 auto scroll 생략(대량 방 깜빡임) */
+  const prevTailMessageIdRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    prevTailMessageIdRef.current = null;
+  }, [roomId]);
+
   /** 방당 최초 타임라인 paint 1회만 — append 마다 room_entry_initial 재스케줄 금지 */
   const initialEntryScrollDoneRef = useRef(false);
 
@@ -263,11 +271,17 @@ export function useMessengerRoomReaderScrollBottom({
 
   useEffect(() => {
     const last = roomMessages[roomMessages.length - 1];
-    if (Boolean(last?.isMine)) {
-      scrollMessengerToBottom({ reason: "own_message_append" });
-      return;
+    const decision = resolveMessengerRoomMessagesAutoScroll({
+      previousTailMessageId: prevTailMessageIdRef.current,
+      currentTailMessageId: last?.id ?? null,
+      currentTailIsMine: Boolean(last?.isMine),
+    });
+    if (decision.scroll) {
+      scrollMessengerToBottom({ reason: decision.reason });
     }
-    scrollMessengerToBottom({ reason: "messages_changed_auto" });
+    if (last?.id) {
+      prevTailMessageIdRef.current = last.id;
+    }
   }, [roomMessages, scrollMessengerToBottom]);
 
   /**

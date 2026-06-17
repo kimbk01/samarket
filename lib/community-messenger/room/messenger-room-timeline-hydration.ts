@@ -33,6 +33,26 @@ export function isMessengerRoomTimelineBootstrapSeedComplete(
 }
 
 /**
+ * roomMessages merge 직전 snapshot read-only paint 허용 여부.
+ * DO NOT: lastMessage only · messages[] 없음 · incomplete seed · partial stub.
+ * 허용: messages[] 가 1건 이상이고 bootstrap seed complete.
+ */
+export function isMessengerRoomTimelinePaintableBootstrapSeed(
+  snapshot:
+    | {
+        messages?: CommunityMessengerRoomSnapshot["messages"];
+        room: Pick<CommunityMessengerRoomSnapshot["room"], "lastMessage">;
+      }
+    | null
+    | undefined
+): boolean {
+  if (!snapshot) return false;
+  const messageCount = snapshot.messages?.length ?? 0;
+  if (messageCount <= 0) return false;
+  return isMessengerRoomTimelineBootstrapSeedComplete(snapshot);
+}
+
+/**
  * 메신저 방 타임라인 중앙 버퍼링 스피너 표시 여부.
  * 신규·빈 방(`clientShellPlaceholder`, 힌트 없음)은 스피너 없이 빈 타임라인을 먼저 보여준다.
  */
