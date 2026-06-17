@@ -7,7 +7,6 @@ import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
-import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 
 export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSectionDef }) {
@@ -15,7 +14,7 @@ export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSect
   const membership = useClientMembershipState("mypage-section-menu");
   const showAdminEntry = section.id === "settings";
 
-  if (membership.status === "checking" && !isOptimisticMemberViewer()) {
+  if (membership.status === "checking") {
     return (
       <MyPageStackShell title={safeT(section.labelKey)} backHref="/mypage">
         <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>

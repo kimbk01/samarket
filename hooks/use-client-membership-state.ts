@@ -2,13 +2,13 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import type { Profile } from "@/lib/types/profile";
-import { awaitAuthBootstrapInitialSession } from "@/lib/auth/auth-bootstrap-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   resolveClientMembership,
   type ClientMembershipResolution,
 } from "@/lib/auth/resolve-client-profile-session";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
+import { ensureSessionHealthy } from "@/lib/auth/dibay-session-manager";
 
 export type ClientMembershipState =
   | { status: "checking" }
@@ -20,9 +20,6 @@ type MembershipStoreSnapshot = {
   revision: number;
 };
 
-const MEMBERSHIP_CHECK_RETRY_MS = 800;
-const MEMBERSHIP_ERROR_RETRY_MS = 1_500;
-
 let storeSnapshot: MembershipStoreSnapshot = {
   state: { status: "checking" },
   revision: 0,
@@ -30,11 +27,6 @@ let storeSnapshot: MembershipStoreSnapshot = {
 let inflight: Promise<ClientMembershipState> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 const listeners = new Set<() => void>();
-
-function logMembership(event: string, payload: Record<string, unknown>): void {
-  if (typeof console === "undefined" || typeof console.info !== "function") return;
-  console.info(`[membership] ${event}`, JSON.stringify({ at: Date.now(), ...payload }));
-}
 
 function membershipFromCache(): ClientMembershipState {
   const cached = getCurrentUser();
@@ -56,32 +48,20 @@ function getSnapshot(): MembershipStoreSnapshot {
   return storeSnapshot;
 }
 
-function mapResolution(
-  resolved: ClientMembershipResolution,
-): ClientMembershipState {
-  if (resolved.status === "pending") return { status: "checking" };
-  return resolved;
-}
-
 async function resolveMembershipState(source: string): Promise<ClientMembershipState> {
   const cached = getCurrentUser();
   if (cached?.id) return { status: "member", profile: cached };
 
-  await awaitAuthBootstrapInitialSession();
+  const health = await ensureSessionHealthy(`membership:${source}`);
+  if (health.phase === "loading") {
+    return { status: "checking" };
+  }
+  if (health.ok === false && health.terminal) {
+    return { status: "guest" };
+  }
 
-  const t0 = performance.now();
-  logMembership("resolve_start", { source });
-
-  const resolved = await resolveClientMembership(source);
-  const next = mapResolution(resolved);
-
-  logMembership("resolve_done", {
-    source,
-    status: next.status,
-    duration_ms: Math.round(performance.now() - t0),
-  });
-
-  return next;
+  const resolved: ClientMembershipResolution = await resolveClientMembership(source);
+  return resolved;
 }
 
 function scheduleMembershipRetry(source: string, delayMs: number): void {
@@ -93,43 +73,32 @@ function scheduleMembershipRetry(source: string, delayMs: number): void {
   }, delayMs);
 }
 
-function syncMembershipFromProfileCache(): boolean {
+function ensureMembershipResolved(source: string): void {
   const cachedState = membershipFromCache();
   if (cachedState.status === "member") {
     if (storeSnapshot.state.status !== "member") publish(cachedState);
-    return true;
+    return;
   }
-  return false;
-}
-
-function ensureMembershipResolved(source: string): void {
-  if (syncMembershipFromProfileCache()) return;
 
   if (inflight) return;
 
-  if (storeSnapshot.state.status !== "checking") {
-    publish({ status: "checking" });
-  }
-
+  publish({ status: "checking" });
   inflight = resolveMembershipState(source)
     .then((next) => {
-      if (syncMembershipFromProfileCache()) {
-        return membershipFromCache();
+      const cached = membershipFromCache();
+      if (cached.status === "member") {
+        publish(cached);
+        return cached;
       }
       publish(next);
       if (next.status === "checking") {
-        scheduleMembershipRetry(source, MEMBERSHIP_CHECK_RETRY_MS);
+        scheduleMembershipRetry(source, 1_200);
       }
       return next;
     })
     .catch(() => {
-      if (syncMembershipFromProfileCache()) {
-        return membershipFromCache();
-      }
-      if (storeSnapshot.state.status !== "checking") {
-        publish({ status: "checking" });
-      }
-      scheduleMembershipRetry(source, MEMBERSHIP_ERROR_RETRY_MS);
+      publish({ status: "checking" });
+      scheduleMembershipRetry(source, 1_500);
       return { status: "checking" } as const;
     })
     .finally(() => {
@@ -143,24 +112,12 @@ function resetMembershipStoreForAuthChange(source: string): void {
     clearTimeout(retryTimer);
     retryTimer = null;
   }
-  if (syncMembershipFromProfileCache()) return;
-  ensureMembershipResolved(source);
-}
-
-/** Supabase reconcile·프로필 캐시 확정 직후 membership 즉시 동기화 */
-export function publishMembershipFromReconcile(source: string): void {
   const cached = getCurrentUser();
   if (cached?.id) {
-    logMembership("publish_member_from_reconcile", { source, userId: cached.id });
-    inflight = null;
-    if (retryTimer) {
-      clearTimeout(retryTimer);
-      retryTimer = null;
-    }
     publish({ status: "member", profile: cached });
     return;
   }
-  resetMembershipStoreForAuthChange(source);
+  ensureMembershipResolved(source);
 }
 
 let authListenerBound = false;
@@ -171,7 +128,6 @@ function bindGlobalAuthListener(): void {
   window.addEventListener(TEST_AUTH_CHANGED_EVENT, () => {
     resetMembershipStoreForAuthChange("client-membership-store");
   });
-  syncMembershipFromProfileCache();
 }
 
 export function useClientMembershipState(source: string): ClientMembershipState {
@@ -183,20 +139,4 @@ export function useClientMembershipState(source: string): ClientMembershipState 
   }, [source]);
 
   return snapshot.state;
-}
-
-export function peekClientMembershipStateForTests(): ClientMembershipState {
-  return storeSnapshot.state;
-}
-
-/** vitest — store 초기화 */
-export function resetClientMembershipStoreForTests(): void {
-  inflight = null;
-  if (retryTimer) {
-    clearTimeout(retryTimer);
-    retryTimer = null;
-  }
-  storeSnapshot = { state: { status: "checking" }, revision: 0 };
-  authListenerBound = false;
-  listeners.clear();
 }

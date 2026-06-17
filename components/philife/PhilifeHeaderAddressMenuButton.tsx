@@ -28,7 +28,6 @@ import {
 import { AddressKindHeadPin } from "@/components/addresses/AddressKindHeadPin";
 import { AddressUserRowLineText } from "@/components/addresses/AddressPhCardLineText";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
-import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { openLoginRequiredSheet } from "@/lib/auth/require-auth-action";
 
@@ -62,7 +61,7 @@ export function PhilifeHeaderAddressMenuButton({
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
   const label = neighborhoodLocationLabelFromRegion(currentRegion);
   const fallback = formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
-  const isMemberViewer = membership.status === "member" || isOptimisticMemberViewer();
+  const isMemberViewer = membership.status === "member";
   const addressLine = !isMemberViewer
     ? membership.status === "checking"
       ? t("philife_addr_loading_line")

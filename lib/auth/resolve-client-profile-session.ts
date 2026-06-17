@@ -2,7 +2,6 @@
 
 import type { Profile } from "@/lib/types/profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { isAuthBootstrapInitialSessionDone } from "@/lib/auth/auth-bootstrap-state";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { isGuestAuthEstablished, logGuestFetchSkipped } from "@/lib/auth/guest-auth-state";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
@@ -23,7 +22,7 @@ export async function resolveClientProfileFromSession(
   const cached = getCurrentUser();
   if (cached?.id) return cached;
 
-  if (isAuthBootstrapInitialSessionDone() && isGuestAuthEstablished()) {
+  if (isGuestAuthEstablished()) {
     logGuestFetchSkipped("resolveClientProfileFromSession", source);
     return null;
   }
@@ -41,8 +40,7 @@ export async function resolveClientProfileFromSession(
 
 export type ClientMembershipResolution =
   | { status: "member"; profile: Profile }
-  | { status: "guest" }
-  | { status: "pending" };
+  | { status: "guest" };
 
 export function invalidateClientMembershipResolveFlight(): void {
   forgetSingleFlight(MEMBERSHIP_RESOLVE_FLIGHT);
@@ -54,19 +52,12 @@ export async function resolveClientMembership(
   const cached = getCurrentUser();
   if (cached?.id) return { status: "member", profile: cached };
 
-  if (!isAuthBootstrapInitialSessionDone()) {
-    return { status: "pending" };
-  }
-
   if (isGuestAuthEstablished()) {
     logGuestFetchSkipped("resolveClientMembership", source);
     return { status: "guest" };
   }
 
   return runSingleFlight(MEMBERSHIP_RESOLVE_FLIGHT, async () => {
-    if (!isAuthBootstrapInitialSessionDone()) {
-      return { status: "pending" } as const;
-    }
     const profile = await resolveClientProfileFromSession(source);
     if (profile?.id) return { status: "member", profile };
     return { status: "guest" };

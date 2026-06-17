@@ -9,7 +9,6 @@ import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isTrustedMypageHubProfile } from "@/lib/my/mypage-hub-session-trust";
-import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
@@ -26,7 +25,7 @@ export function MyPageItemRouteClient({
 }) {
   const { t } = useI18n();
   const membership = useClientMembershipState("mypage-item-route");
-  const hubEnabled = membership.status === "member" || isOptimisticMemberViewer();
+  const hubEnabled = membership.status === "member";
   const itemLabel = t(itemLabelKey);
   const {
     data,
@@ -50,7 +49,7 @@ export function MyPageItemRouteClient({
         ? t("mypage_comp_store_attention_summary")
         : null;
 
-  if (membership.status === "checking" && !trustedHubSeed && !isOptimisticMemberViewer()) {
+  if (membership.status === "checking" && !trustedHubSeed) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
         <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>

@@ -9,7 +9,6 @@ import {
   invalidateGuestCachesForFreshLogin,
 } from "@/lib/auth/client-session-wipe";
 import { fetchSignupStatusDeduped } from "@/lib/auth/fetch-signup-status-client";
-import { clearLoginRedirectLoopGuard } from "@/lib/auth/login-redirect-loop-guard";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import {
   clearStoredLoginRequiredDetail,
@@ -98,7 +97,6 @@ export async function finishClientAuthLogin(input: FinishClientAuthLoginInput): 
 
   invalidateGuestCachesForFreshLogin();
   clearPostLogoutBfcacheGuard();
-  clearLoginRedirectLoopGuard();
 
   await primeClientAuthSessionFromSupabase();
   await primeClientProfileRowAfterLogin();

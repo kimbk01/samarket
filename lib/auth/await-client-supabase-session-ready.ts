@@ -9,12 +9,7 @@ export async function awaitClientSupabaseSessionReady(maxWaitMs: number): Promis
 
   await new Promise<void>((resolve) => {
     const { data: { subscription } } = sb.auth.onAuthStateChange((event, session) => {
-      /** guest cold start — `INITIAL_SESSION` null 도 bootstrap 완료 신호 */
-      if (
-        event === "INITIAL_SESSION" ||
-        Boolean(session?.user?.id) ||
-        event === "SIGNED_OUT"
-      ) {
+      if (session?.user?.id || event === "SIGNED_OUT") {
         window.clearTimeout(timer);
         subscription.unsubscribe();
         resolve();

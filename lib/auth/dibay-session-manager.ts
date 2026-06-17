@@ -15,12 +15,6 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import {
-  canEstablishGuestAuthState,
-  markAuthBootstrapInitialSessionDone,
-  markAuthBootstrapInitialSessionStart,
-  resetAuthBootstrapStateForTests,
-} from "@/lib/auth/auth-bootstrap-state";
-import {
   clearGuestAuthState,
   establishGuestAuthState,
   exposeGuestAuthStateProbeForDev,
@@ -167,13 +161,9 @@ async function confirmAuthenticatedWithRegistry(
   }
   if (registry.ghost) {
     await reconcileGhostSupabaseSession(source);
-    if (canEstablishGuestAuthState()) {
-      noteGuest401(`ensureHealthy:ghost:${source}`);
-      setSessionPhase("guest");
-      return { ok: false, phase: "guest", terminal: false };
-    }
-    setSessionPhase("loading");
-    return { ok: false, phase: "loading", terminal: false };
+    noteGuest401(`ensureHealthy:ghost:${source}`);
+    setSessionPhase("guest");
+    return { ok: false, phase: "guest", terminal: false };
   }
   setSessionPhase("loading");
   return { ok: false, phase: "loading", terminal: false };
@@ -188,10 +178,6 @@ export type EnsureSessionHealthyResult =
  * terminal 확인 전 hard logout 금지.
  */
 function markGuestFromSessionCheck(source: string, from401: boolean): EnsureSessionHealthyResult {
-  if (!canEstablishGuestAuthState()) {
-    setSessionPhase("loading");
-    return { ok: false, phase: "loading", terminal: false };
-  }
   if (from401) {
     noteGuest401(`ensureHealthy:${source}`);
   } else {
@@ -296,18 +282,10 @@ export async function handleApi401(source: string): Promise<EnsureSessionHealthy
 }
 
 function handleAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
-  if (event === "INITIAL_SESSION") {
-    markAuthBootstrapInitialSessionDone(Boolean(session?.user?.id));
-  }
-  if (event === "SIGNED_OUT") {
+  if (event === "SIGNED_OUT" || (!session?.user?.id && event === "INITIAL_SESSION")) {
     setSessionPhase("guest");
-    establishGuestAuthState(`auth_event:${event}`, { force: true });
+    establishGuestAuthState(`auth_event:${event}`);
     postAuthBc({ type: "signed_out" });
-    return;
-  }
-  /** WebView: `INITIAL_SESSION` 이 storage 복원 전 null 일 수 있음 — guest gate 확정 금지 */
-  if (event === "INITIAL_SESSION" && !session?.user?.id) {
-    setSessionPhase("loading");
     return;
   }
   if (session?.user?.id) {
@@ -328,10 +306,8 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   getAuthBroadcastChannel();
   exposeGuestAuthStateProbeForDev();
   exposeResetAuthStateForDev();
-  markAuthBootstrapInitialSessionStart();
   const sb = getSupabaseClient();
   if (!sb) {
-    markAuthBootstrapInitialSessionDone(false);
     establishGuestAuthState("bindAuthListener:no_client");
     setSessionPhase("guest");
     return () => {};
@@ -341,7 +317,7 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   const { data: { subscription } } = sb.auth.onAuthStateChange(dispatchAuthStateChange);
   authSubscription = subscription;
 
-  /** cold start — `INITIAL_SESSION` 전 `ensureSessionHealthy` 가 401·guest·fetch 루프를 유발하지 않게 한다 */
+  void ensureSessionHealthy("bindAuthListener");
 
   return () => {
     subscription.unsubscribe();
@@ -354,7 +330,6 @@ export function bindDibaySessionManagerAuthListener(): () => void {
 export function resetDibaySessionManagerForTests(): void {
   sessionPhase = "loading";
   resetGuestAuthStateForTests();
-  resetAuthBootstrapStateForTests();
   authListenerBound = false;
   authSubscription = null;
   authEventHandlers.clear();

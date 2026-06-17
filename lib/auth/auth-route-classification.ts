@@ -36,19 +36,6 @@ export function isAuthEntryPath(pathname: string): boolean {
   return false;
 }
 
-/** membership gate 없이 본문을 보여야 하는 공개 탭·진입 경로 */
-export function isPublicBrowsePath(pathname: string): boolean {
-  const p = normalizePathname(pathname);
-  if (isAuthEntryPath(p)) return true;
-  if (p === "/market" || p.startsWith("/market/")) return true;
-  if (p === "/stores" || p.startsWith("/stores/")) return true;
-  if (p === "/philife" || p.startsWith("/philife/")) return true;
-  if (p === "/community" || p.startsWith("/community/")) return true;
-  if (p === "/mypage" || p === "/my" || p.startsWith("/mypage/") || p.startsWith("/my/")) return true;
-  if (p === "/community-messenger" || p.startsWith("/community-messenger/")) return true;
-  return false;
-}
-
 export function isAccountDependentPath(pathname: string): boolean {
   const p = normalizePathname(pathname);
   if (p.startsWith("/community-messenger/rooms/")) return true;

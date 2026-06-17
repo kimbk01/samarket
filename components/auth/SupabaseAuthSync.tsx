@@ -8,7 +8,6 @@ import {
   userToProfile,
   getSupabaseProfileCache,
 } from "@/lib/auth/supabase-profile-cache";
-import { publishMembershipFromReconcile } from "@/hooks/use-client-membership-state";
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import {
@@ -25,7 +24,6 @@ import { bindAuthUserId, detectAuthUserMismatch } from "@/lib/auth/client-instan
 import { isAccountDependentPath } from "@/lib/auth/auth-route-classification";
 import { runAuthAccountSwitchExit } from "@/lib/auth/auth-exit-coordinator";
 import { bindDibaySessionManagerAuthListener, subscribeDibayAuthStateChange } from "@/lib/auth/dibay-session-manager";
-import { reconcileAuthenticatedClientSession } from "@/lib/auth/reconcile-authenticated-client-session";
 import { dispatchOAuthPendingClear } from "@/lib/auth/oauth/use-oauth-login";
 import { logOAuthNativeEvent } from "@/lib/auth/oauth/oauth-native-callback-log";
 
@@ -60,7 +58,6 @@ function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
     }
 
     setSupabaseProfileCache(nextProfile);
-    publishMembershipFromReconcile("supabase_auth_sync:getUser");
     dispatchTestAuthChanged();
   });
 }
@@ -76,7 +73,6 @@ function handleAuthenticatedSession(
   if (accountMismatch) {
     void wipeClientSessionState("account_switched", { setPostLogoutGuard: true }).then(() => {
       bindAuthUserId(userId);
-      reconcileAuthenticatedClientSession("supabase_auth_sync:account_switched");
       if (typeof window !== "undefined" && isAccountDependentPath(window.location.pathname)) {
         void runAuthAccountSwitchExit();
         return;
@@ -89,9 +85,13 @@ function handleAuthenticatedSession(
 
   lastKnownAuthUserId = userId;
   bindAuthUserId(userId);
-  reconcileAuthenticatedClientSession(`supabase_auth_sync:${event}`);
 
-  void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
+  if (event === "SIGNED_IN") {
+    void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
+    return;
+  }
+
+  applySupabaseProfileCacheFromBoot(sb);
 }
 
 /**
@@ -118,14 +118,16 @@ export function SupabaseAuthSync() {
       }
 
       if (event === "INITIAL_SESSION") {
-        if (session?.user?.id) {
+        if (!session?.user?.id) {
+          if (lastKnownAuthUserId) {
+            lastKnownAuthUserId = null;
+            void wipeClientSessionState("user_logout", { setPostLogoutGuard: false });
+          } else {
+            syncSignedOutClientCaches();
+          }
+        } else {
           handleAuthenticatedSession(sb, event, session.user.id);
         }
-        return;
-      }
-
-      if (event === "TOKEN_REFRESHED" && session?.user?.id) {
-        handleAuthenticatedSession(sb, event, session.user.id);
         return;
       }
 

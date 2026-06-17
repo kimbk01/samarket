@@ -5,7 +5,6 @@ import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-fligh
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { logShellFetchTrace } from "@/lib/dibay/shell-fetch-trace";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
-import { isAuthBootstrapInitialSessionDone } from "@/lib/auth/auth-bootstrap-state";
 import {
   isGuestAuthEstablished,
   logGuestFetchSkipped,
@@ -150,7 +149,7 @@ async function fetchMeProfileWith401Recovery(clientCallSource?: string): Promise
 
   const result = await parseMeProfileResponse(res);
   if (res.ok || res.status === 401 || res.status === 403) {
-    if (res.status === 401 && isAuthBootstrapInitialSessionDone()) {
+    if (res.status === 401) {
       noteGuest401(clientCallSource ?? "me_profile_full", { url: "/api/me/profile?mode=full" });
     }
     cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
