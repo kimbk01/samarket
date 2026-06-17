@@ -6,7 +6,7 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { normalizeProfileUserSearchKeyword } from "@/lib/community-messenger/profile-user-search-filter";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
-import { resolveCommunityMessengerFriendshipStatus } from "@/lib/community-messenger/friendship";
+import { resolveCommunityMessengerFriendshipStatus } from "@/lib/community-messenger/friendship/friendship-resolver";
 import type { CommunityMessengerPeerRelationStatus } from "@/lib/community-messenger/types";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 

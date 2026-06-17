@@ -1,3 +1,4 @@
+import "server-only";
 import { getFriendshipSupabaseOrNull, trimFriendshipText } from "@/lib/community-messenger/friendship/friendship-utils";
 import type { FriendshipProfileHydrator } from "@/lib/community-messenger/friendship/types";
 

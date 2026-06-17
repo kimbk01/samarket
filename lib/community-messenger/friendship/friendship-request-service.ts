@@ -1,3 +1,4 @@
+import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { COMMUNITY_MESSENGER_FRIENDSHIP_READD_BLOCK_MS } from "@/lib/community-messenger/friendship/constants";
 import { assertCanAddFriend } from "@/lib/community-messenger/friendship/friendship-permission-guards";

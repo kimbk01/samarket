@@ -12,7 +12,7 @@ import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenge
 import {
   isViewerRecipientOfInboundDirectChat,
   shouldShowUnknownPeerNotice,
-} from "@/lib/community-messenger/peer-notices";
+} from "@/lib/community-messenger/peer-notices-pure";
 
 const MESSENGER_CHATS_HREF = "/community-messenger?section=chats";
 

@@ -1,3 +1,4 @@
+import "server-only";
 import { COMMUNITY_MESSENGER_FRIENDSHIP_READD_BLOCK_MS } from "@/lib/community-messenger/friendship/constants";
 import { loadFriendshipRow } from "@/lib/community-messenger/friendship/friendship-repository";
 import {
