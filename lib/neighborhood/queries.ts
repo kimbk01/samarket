@@ -1,7 +1,8 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
-import { isCommunityCommentPubliclyVisible, isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
-import { fetchLikedCommentIdsSetForUser } from "@/lib/community/comment-likes.query";
+import { fetchNicknamesForUserIds, fetchAuthorPublicProfilesForUserIds } from "@/lib/chats/resolve-author-nickname";
+import { isCommunityPostPubliclyVisible } from "@/lib/community-engine/visibility";
+import { listCommunityPostComments } from "@/lib/community-feed/queries";
+import { flatCommentsToNeighborhoodTree } from "@/lib/neighborhood/comment-tree";
 import { isMissingDbColumnError } from "@/lib/community-feed/supabase-column-error";
 import type { CommunityFeedSortMode } from "@/lib/community-feed/constants";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
@@ -18,6 +19,7 @@ import {
   neighborhoodPostTopicUiSlug,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { normalizeNeighborhoodCategory } from "@/lib/neighborhood/categories";
+import { fetchCommunityPostViewerState, fetchCommunityPostViewerStatesBatch } from "@/lib/community/post-engagement/viewer-state";
 import { isMeetingEventType } from "@/lib/neighborhood/meeting-event-format";
 import type {
   NeighborhoodCommentNode,
@@ -31,7 +33,6 @@ import type {
 import {
   fetchBlockedAuthorIdsForViewer,
   fetchNeighborFollowTargetIds,
-  filterCommentRowsExcludingBlockedRelations,
 } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
@@ -187,6 +188,26 @@ export async function listNeighborhoodFeed(options: {
       })()
     : Promise.resolve(new Set<string>());
 
+  const hiddenPostsP: Promise<Set<string>> =
+    v && !options.authorUserId
+      ? (async () => {
+          try {
+            const { data: hideRows, error: hideErr } = await sb
+              .from("community_post_hides")
+              .select("post_id")
+              .eq("user_id", v);
+            if (hideErr) return new Set<string>();
+            return new Set(
+              ((hideRows ?? []) as Array<{ post_id?: string }>)
+                .map((row) => String(row.post_id ?? "").trim())
+                .filter(Boolean)
+            );
+          } catch {
+            return new Set<string>();
+          }
+        })()
+      : Promise.resolve(new Set<string>());
+
   const neighborP: Promise<Set<string> | null> =
     v && options.neighborOnly === true
       ? (async () => {
@@ -200,7 +221,12 @@ export async function listNeighborhoodFeed(options: {
       : Promise.resolve<Set<string> | null>(null);
 
   const tSoc0 = performance.now();
-  const [topics, blockExclude, neighborOnlySet] = await Promise.all([topicsPromise, blockedP, neighborP]);
+  const [topics, blockExclude, hiddenPostIds, neighborOnlySet] = await Promise.all([
+    topicsPromise,
+    blockedP,
+    hiddenPostsP,
+    neighborP,
+  ]);
   socialPreflightMs = performance.now() - tSoc0;
 
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
@@ -339,6 +365,8 @@ export async function listNeighborhoodFeed(options: {
   const dbScannedCount = data.length;
   const rowsAfterPolicy = (data as unknown as Record<string, unknown>[]).filter((r) => {
     if (!isCommunityPostPubliclyVisible(r as never)) return false;
+    const postId = String(r.id ?? "");
+    if (hiddenPostIds.size > 0 && postId && hiddenPostIds.has(postId)) return false;
     const loc = r.location_id;
     if (!allLocations && (loc == null || String(loc).trim() === "")) return false;
     const uid = String(r.user_id ?? "");
@@ -493,6 +521,20 @@ export async function listNeighborhoodFeed(options: {
   });
   transformMs = syncAfterMainMs + (performance.now() - tSyncB);
 
+  let finalPosts = posts;
+  if (v && finalPosts.length > 0) {
+    try {
+      const authorMap = new Map(finalPosts.map((p) => [p.id, p.author_id]));
+      const viewerMap = await fetchCommunityPostViewerStatesBatch(sb, v, finalPosts.map((p) => p.id), authorMap);
+      finalPosts = finalPosts.map((p) => ({
+        ...p,
+        viewer: viewerMap.get(p.id),
+      }));
+    } catch {
+      /* ignore */
+    }
+  }
+
   const main_query_where_summary = (() => {
     const parts = [`status.eq.${COMMUNITY_POST_FEED_STATUS_ACTIVE}`];
     if (allLocations) parts.push("scope=global");
@@ -541,8 +583,8 @@ export async function listNeighborhoodFeed(options: {
         community_query_related_ms: Math.round(socialPreflightMs + nickMeetMs),
         community_result_transform_ms: Math.round(transformMs),
         main_query_rounds: mainRounds,
-        post_return_count: posts.length,
-        image_url_count_approx: posts.reduce((n, p) => n + (Array.isArray(p.images) ? p.images.length : 0), 0),
+        post_return_count: finalPosts.length,
+        image_url_count_approx: finalPosts.reduce((n, p) => n + (Array.isArray(p.images) ? p.images.length : 0), 0),
         nickname_query_rounds: nickMetrics.profileSelect + nickMetrics.testUsersSelect,
         meetings_query_rounds: meetingsQueryRounds,
         blocked_supabase_calls: blockedMetrics.supabaseSelectCalls,
@@ -557,8 +599,8 @@ export async function listNeighborhoodFeed(options: {
       }
     : undefined;
 
-  const pagingOffsetAdvance = effSort === "recommended" ? posts.length : dbScannedCount;
-  return { posts, hasMore, dbScannedCount, pagingOffsetAdvance, ...(serverCommunityPerf ? { serverCommunityPerf } : {}) };
+  const pagingOffsetAdvance = effSort === "recommended" ? finalPosts.length : dbScannedCount;
+  return { posts: finalPosts, hasMore, dbScannedCount, pagingOffsetAdvance, ...(serverCommunityPerf ? { serverCommunityPerf } : {}) };
 }
 
 /** `post_id`로 연결된 모임 id — 컬럼 세트가 옛 DB와 다를 때 단계적 select */
@@ -663,9 +705,9 @@ export async function getNeighborhoodPostDetail(
   if (row.location_id == null || String(row.location_id).trim() === "") return null;
 
   const uid = String(row.user_id ?? "");
-  const [blocked, nickMap, topics, meetLink] = await Promise.all([
+  const [blocked, profileMap, topics, meetLink] = await Promise.all([
     v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
-    fetchNicknamesForUserIds(sb as never, [uid]),
+    fetchAuthorPublicProfilesForUserIds(sb as never, [uid]),
     loadPhilifeDefaultSectionTopics(),
     fetchMeetingLinkByPostId(sb, postId),
   ]);
@@ -689,6 +731,8 @@ export async function getNeighborhoodPostDetail(
   const hasMeeting = Boolean(meetLink?.id);
   const isMeetup = hasMeeting || isMeetupRow || enumCat === "meetup";
   const defaultSkin = normalizeCommunityFeedListSkin(undefined);
+  const authorProfile = profileMap.get(uid);
+  const viewer = v ? await fetchCommunityPostViewerState(sb, v, postId, uid) : undefined;
 
   return {
     id: String(row.id),
@@ -710,7 +754,8 @@ export async function getNeighborhoodPostDetail(
     like_count: Number(row.like_count ?? 0),
     comment_count: Number(row.comment_count ?? 0),
     created_at: String(row.created_at ?? ""),
-    author_name: nickMap.get(uid) ?? (uid ? uid.slice(0, 8) : "익명"),
+    author_name: authorProfile?.displayName ?? (uid ? uid.slice(0, 8) : "익명"),
+    author_avatar_url: authorProfile?.avatarUrl ?? null,
     author_id: uid,
     meeting_id: meetLink?.id ?? null,
     community_messenger_room_id: meetLink?.community_messenger_room_id ?? null,
@@ -722,6 +767,7 @@ export async function getNeighborhoodPostDetail(
           : row.meetup_date != null
             ? String(row.meetup_date)
             : null,
+    ...(viewer ? { viewer } : {}),
   };
 }
 
@@ -775,128 +821,8 @@ export async function listNeighborhoodSimilarPosts(
 }
 
 export async function listNeighborhoodComments(postId: string, viewerUserId?: string | null): Promise<NeighborhoodCommentNode[]> {
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return [];
-  }
-
-  const v = viewerUserId?.trim() ?? "";
-  const [blockExclude, r1] = await Promise.all([
-    v ? fetchBlockedAuthorIdsForViewer(sb, v) : Promise.resolve(new Set<string>()),
-    sb
-      .from("community_comments")
-      .select(
-        "id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, like_count, profiles(nickname, username)"
-      )
-      .eq("post_id", postId)
-      .order("created_at", { ascending: true }),
-  ]);
-  let data: unknown[] | null = (r1.data as unknown[] | null) ?? null;
-  let err = r1.error;
-  if (err && isMissingDbColumnError(err, "like_count")) {
-    const r2 = await sb
-      .from("community_comments")
-      .select(
-        "id, user_id, parent_id, content, created_at, updated_at, is_deleted, is_hidden, status, profiles(nickname, username)"
-      )
-      .eq("post_id", postId)
-      .order("created_at", { ascending: true });
-    data = (r2.data as unknown[] | null) ?? null;
-    err = r2.error;
-  } else if (err && isMissingDbColumnError(err, "updated_at")) {
-    const r2b = await sb
-      .from("community_comments")
-      .select(
-        "id, user_id, parent_id, content, created_at, is_deleted, is_hidden, status, like_count, profiles(nickname, username)"
-      )
-      .eq("post_id", postId)
-      .order("created_at", { ascending: true });
-    data = (r2b.data as unknown[] | null) ?? null;
-    err = r2b.error;
-  }
-  if (err || !Array.isArray(data)) return [];
-
-  let rows = (data as Record<string, unknown>[]).filter((r) => isCommunityCommentPubliclyVisible(r as never));
-
-  if (v) {
-    rows = filterCommentRowsExcludingBlockedRelations(
-      rows as Array<{ id: string; user_id: unknown; parent_id: unknown }>,
-      blockExclude
-    ) as typeof rows;
-  }
-
-  const profileNameByUid = new Map<string, string>();
-  for (const row of rows) {
-    const uid = String(row.user_id ?? "");
-    if (!uid) continue;
-    const profileRaw = row.profiles as Record<string, unknown> | Record<string, unknown>[] | null | undefined;
-    const profile = Array.isArray(profileRaw) ? (profileRaw[0] ?? null) : profileRaw;
-    if (!profile || typeof profile !== "object") continue;
-    const pnick = String(profile.nickname ?? "").trim();
-    const puname = String(profile.username ?? "").trim();
-    const resolved = pnick || puname;
-    if (resolved) profileNameByUid.set(uid, resolved);
-  }
-  const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
-  const missingProfileUids = uids.filter((uid) => !profileNameByUid.has(uid));
-  const commentIds = rows.map((r) => String(r.id));
-  const hasAnyLikedComment = rows.some(
-    (r) => Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)) > 0
-  );
-  const [nickMap, likedSet] = await Promise.all([
-    missingProfileUids.length > 0 ? fetchNicknamesForUserIds(sb as never, missingProfileUids) : Promise.resolve(new Map<string, string>()),
-    v && commentIds.length > 0 && hasAnyLikedComment
-      ? fetchLikedCommentIdsSetForUser(sb, v, commentIds)
-      : Promise.resolve(new Set<string>()),
-  ]);
-
-  let hasAnyReply = false;
-  const nodes: NeighborhoodCommentNode[] = rows.map((r) => {
-    const uid = String(r.user_id ?? "");
-    const id = String(r.id);
-    const parentId = r.parent_id != null ? String(r.parent_id) : null;
-    if (parentId) hasAnyReply = true;
-    const created = String(r.created_at ?? "");
-    const upd = String((r as { updated_at?: unknown }).updated_at ?? created);
-    const isPossiblyEdited = upd !== created;
-    let isEdited = false;
-    if (isPossiblyEdited) {
-      const t0 = Date.parse(created);
-      const t1 = Date.parse(upd);
-      isEdited = !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000;
-    }
-    return {
-      id,
-      post_id: postId,
-      user_id: uid,
-      parent_id: parentId,
-      content: String(r.content ?? ""),
-      created_at: created,
-      updated_at: upd,
-      is_edited: isEdited,
-      author_name: profileNameByUid.get(uid) ?? nickMap.get(uid) ?? uid.slice(0, 8),
-      like_count: Math.max(0, Number((r as { like_count?: unknown }).like_count ?? 0)),
-      liked_by_viewer: v.length > 0 && likedSet.has(id),
-      children: [],
-    };
-  });
-
-  if (!hasAnyReply) {
-    return nodes;
-  }
-
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const roots: NeighborhoodCommentNode[] = [];
-  for (const n of nodes) {
-    if (n.parent_id && byId.has(n.parent_id)) {
-      byId.get(n.parent_id)!.children.push(n);
-    } else {
-      roots.push(n);
-    }
-  }
-  return roots;
+  const flat = await listCommunityPostComments(postId, viewerUserId);
+  return flatCommentsToNeighborhoodTree(flat);
 }
 
 /** `/philife/:id` 오인 방지: id가 community_posts가 아니라 meetings.id인 경우 */

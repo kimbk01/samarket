@@ -98,7 +98,7 @@ function countTrackedRoomKeys(args: {
 
 function previewMessageType(row: Record<string, unknown> | null | undefined): CommunityMessengerMessage["messageType"] {
   const raw = typeof row?.message_type === "string" ? row.message_type.trim() : "";
-  if (raw === "image" || raw === "file" || raw === "system" || raw === "call_stub" || raw === "voice" || raw === "sticker") {
+  if (raw === "image" || raw === "file" || raw === "system" || raw === "call_stub" || raw === "voice" || raw === "sticker" || raw === "community_post_share") {
     return raw;
   }
   return "text";

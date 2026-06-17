@@ -28,7 +28,7 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
   /**
    * 상세 첫 화면을 막는 블로킹 쿼리를 줄여 즉시 읽기 체감을 우선한다.
    * - `post`만 먼저 로드해 본문을 그린다.
-   * - 댓글/유사글은 클라이언트에서 후속 로드(`initialCommentsLoaded=false`, `similarPosts=[]`).
+   * - 댓글/유사글은 클라이언트 훅에서 로드 (`usePhilifePostComments`, `similarPosts=[]`).
    */
   const post = await getNeighborhoodPostDetail(seg, { viewerUserId: viewerId });
   if (!post) {
@@ -61,8 +61,6 @@ async function PhilifeNeighborhoodPostPageBody({ paramsPromise }: { paramsPromis
     <Detail
       post={post}
       meeting={meeting}
-      initialComments={[]}
-      initialCommentsLoaded={false}
       viewerJoinedMeeting={viewerJoinedMeeting}
       initialRouteTotalMs={Math.round(performance.now() - t0)}
       similarPosts={[]}

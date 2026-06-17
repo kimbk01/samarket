@@ -8,7 +8,8 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
-import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
+import { CM_FEED_CARD_CLASS, CM_META_CLASS } from "@/lib/community/community-ui-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type FeedListCardViewModel = {
@@ -100,7 +101,7 @@ function ListCategoryPillRow({ vm }: { vm: FeedListCardViewModel }) {
 function ListTitleOnly({ title }: { title: string }) {
   return (
     <h3
-      className="min-w-0 truncate text-left text-[15px] font-semibold leading-snug text-[#050505]"
+      className="min-w-0 truncate text-left text-[15px] font-semibold leading-snug text-[var(--cm-text)]"
       title={title}
     >
       {title}
@@ -111,7 +112,7 @@ function ListTitleOnly({ title }: { title: string }) {
 function ListBodyPreview({ text }: { text: string }) {
   if (!text.trim()) return null;
   return (
-    <p className="mt-1 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[#6B7280]">{text}</p>
+    <p className="mt-1 line-clamp-2 text-left text-[13px] font-normal leading-[1.45] text-[var(--cm-text-muted)]">{text}</p>
   );
 }
 
@@ -120,7 +121,7 @@ function ListHashtagOne({ tag }: { tag: string | null | undefined }) {
   const t = tag.startsWith("#") ? tag : `#${tag}`;
   return (
     <div className="mt-0.5 min-w-0">
-      <span className="inline-block max-w-full truncate rounded-[4px] bg-[#F3F0FF] px-2 py-0.5 text-[11px] font-medium text-[#7360F2]">
+      <span className="inline-block max-w-full truncate rounded-full bg-[var(--cm-primary-soft)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--cm-primary)]">
         {t}
       </span>
     </div>
@@ -138,7 +139,7 @@ function ListMetaKarrot({
   className?: string;
 }) {
   const { t } = useI18n();
-  const author = (vm.authorName ?? "").trim() || t("community_member_fallback");
+  const author = communityAuthorDisplayName(vm.authorName, t("community_member_fallback"));
   const pl = (vm.placeLine ?? "").trim();
   const sec = (vm.secondaryMeta ?? "").trim();
   const locationPart = placeInMeta && pl ? pl : sec && sec !== author ? sec : "";
@@ -152,19 +153,19 @@ function ListMetaKarrot({
         .filter(Boolean)
         .join(" ")}
     >
-      <p className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.4] text-[#6B7280]" title={titleStr}>
-        <span className="font-semibold text-[#1F2430]">{author}</span>
+      <p className={`min-w-0 flex-1 truncate ${CM_META_CLASS}`} title={titleStr}>
+        <span className="font-semibold text-[var(--cm-text)]">{author}</span>
         {locationPart ? <> · {locationPart}</> : null}
         {time ? <> · {time}</> : null}
         <> · </> {t("community_stat_views_inline", { count: vm.viewCount })}
       </p>
-      <div className="flex shrink-0 items-center gap-3 text-[12px] text-[#6B7280]">
+      <div className="flex shrink-0 items-center gap-3 text-[12px] text-[var(--cm-text-muted)]">
         <span className="inline-flex items-center gap-1 tabular-nums" title={t("community_stat_likes_title")}>
-          <ThumbsUp className="h-4 w-4 shrink-0 text-[#6B7280]" strokeWidth={1.8} />
+          <ThumbsUp className="h-4 w-4 shrink-0 text-[var(--cm-text-muted)]" strokeWidth={1.8} />
           {vm.likeCount}
         </span>
         <span className="inline-flex items-center gap-1 tabular-nums" title={t("community_stat_comments_title")}>
-          <MessageCircle className="h-4 w-4 shrink-0 text-[#6B7280]" strokeWidth={1.8} />
+          <MessageCircle className="h-4 w-4 shrink-0 text-[var(--cm-text-muted)]" strokeWidth={1.8} />
           {vm.commentCount}
         </span>
       </div>
@@ -177,7 +178,7 @@ function ListMetaKarrot({
  * 반응형: 72px → sm 80px (`h-20`) → md 88px 정사각형.
  */
 export const COMMUNITY_FEED_LIST_THUMB_BOX_CLASS =
-  "relative h-[72px] w-[72px] shrink-0 self-start overflow-hidden rounded-[4px] sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]";
+  "relative h-[72px] w-[72px] shrink-0 self-start overflow-hidden rounded-2xl sm:h-20 sm:w-20 md:h-[88px] md:w-[88px]";
 
 /** 리스트: 72~88px 정사각형 고정(세로형 원본도 object-cover, 메타행과 겹침 방지) */
 function ListThumb({
@@ -196,8 +197,8 @@ function ListThumb({
       <SamarketThumbnail
         src={url}
         fill
-        roundedClassName="rounded-[4px]"
-        className="bg-[#F7F8FA]"
+        roundedClassName="rounded-2xl"
+        className="bg-[var(--cm-page-bg)]"
         priority={priority}
       />
       {showMore ? (
@@ -267,7 +268,7 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
   };
 
   return (
-    <article className={`min-h-0 ${PHILIFE_FB_CARD_CLASS}`}>
+    <article className={`min-h-0 ${CM_FEED_CARD_CLASS}`}>
       <Link
         href={href}
         prefetch
@@ -278,7 +279,7 @@ function CardShell({ href, children }: { href: string; children: ReactNode }) {
           beginRouteEntryPerf("community_detail", href);
           prefetchOnIntent();
         }}
-        className="block px-3 py-3 transition-colors hover:bg-[#F7F8FA]/90 active:bg-[#F3F4F6]/80 sm:px-4"
+        className="block transition-colors hover:bg-[var(--cm-primary-soft)]/40 active:bg-[var(--cm-primary-soft)]/60"
       >
         {children}
       </Link>

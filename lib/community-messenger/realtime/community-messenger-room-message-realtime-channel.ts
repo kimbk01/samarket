@@ -43,7 +43,8 @@ export function mapRealtimeMessageRow(row: Record<string, unknown> | undefined):
       row.message_type === "system" ||
       row.message_type === "call_stub" ||
       row.message_type === "voice" ||
-      row.message_type === "sticker"
+      row.message_type === "sticker" ||
+      row.message_type === "community_post_share"
         ? row.message_type
         : "text",
     content: deletedForEveryoneAt ? resolveDeletedMessagePlaceholder() : rawContent,

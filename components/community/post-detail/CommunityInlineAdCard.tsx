@@ -7,7 +7,7 @@ import type { AdFeedPost } from "@/lib/ads/types";
 import { Star } from "lucide-react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { philifeAppPaths } from "@domain/philife/paths";
-import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { CM_FEED_CARD_CLASS } from "@/lib/community/community-ui-classes";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 const INLINE_AD_CACHE_TTL_MS = 60_000;
@@ -61,9 +61,9 @@ export function CommunityInlineAdCard() {
 
   if (!tried) {
     return (
-      <section className="mt-2 px-4 py-4">
-        <div className="h-24 animate-pulse rounded-[4px] border border-[#E5E7EB] bg-white shadow-[0_1px_2px_rgba(31,36,48,0.05)]">
-          <div className="m-3 h-[calc(100%-1.5rem)] rounded-[4px] bg-[#EEF0F4]" />
+      <section className="mt-4">
+        <div className="h-24 animate-pulse rounded-[var(--cm-radius-card)] border border-[var(--cm-border)] bg-[var(--cm-card-bg)] shadow-[var(--cm-shadow-card)]">
+          <div className="m-3 h-[calc(100%-1.5rem)] rounded-2xl bg-[var(--cm-primary-soft)]" />
         </div>
       </section>
     );
@@ -74,29 +74,29 @@ export function CommunityInlineAdCard() {
   const thumb = ad.postImages?.[0] ?? null;
 
   return (
-    <section className="mt-2 px-4 pb-2">
-      <div className={PHILIFE_FB_CARD_CLASS}>
+    <section className="mt-4">
+      <div className={CM_FEED_CARD_CLASS}>
         <Link
           href={href}
-          className="block px-4 py-4 active:bg-[#F7F8FA]/80"
+          className="block active:bg-[var(--cm-primary-soft)]/50"
           onClick={(e) => {
             if (href === "#") e.preventDefault();
           }}
         >
           <div className="flex gap-3">
             <div className="min-w-0 flex-1">
-              <p className="m-0 line-clamp-2 text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{ad.postTitle}</p>
-              <p className="mt-1 text-[12px] font-normal leading-[1.4] text-[#6B7280]">
-                <span className="text-[#1F2430]">{ad.advertiserName}</span>
+              <p className="m-0 line-clamp-2 text-[15px] font-semibold leading-[1.4] text-[var(--cm-text)]">{ad.postTitle}</p>
+              <p className="mt-1 text-[12px] font-normal leading-[1.4] text-[var(--cm-text-muted)]">
+                <span className="text-[var(--cm-text)]">{ad.advertiserName}</span>
                 <span className="mx-1">·</span>
-                <span className="rounded-[4px] bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">{t("community_ad_badge")}</span>
+                <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[11px] font-medium text-amber-900">{t("community_ad_badge")}</span>
               </p>
-              <p className="mt-1.5 flex items-center gap-1 text-[12px] font-normal text-[#9CA3AF]">
+              <p className="mt-1.5 flex items-center gap-1 text-[12px] font-normal text-[var(--cm-text-muted)]">
                 <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
                 {t("community_ad_rating")}
               </p>
               {ad.postSummary ? (
-                <p className="mt-2 line-clamp-2 rounded-[4px] bg-[#F7F8FA] px-2.5 py-2 text-[13px] font-normal leading-[1.45] text-[#6B7280]">
+                <p className="mt-2 line-clamp-2 rounded-2xl bg-[var(--cm-page-bg)] px-2.5 py-2 text-[13px] font-normal leading-[1.45] text-[var(--cm-text-muted)]">
                   {ad.postSummary}
                 </p>
               ) : null}
@@ -105,8 +105,8 @@ export function CommunityInlineAdCard() {
               <SamarketThumbnail
                 src={thumb}
                 size={80}
-                roundedClassName="rounded-[4px]"
-                className="ring-1 ring-[#E5E7EB]"
+                roundedClassName="rounded-2xl"
+                className="ring-1 ring-[var(--cm-border)]"
               />
             ) : null}
           </div>

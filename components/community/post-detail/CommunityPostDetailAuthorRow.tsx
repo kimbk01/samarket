@@ -1,39 +1,62 @@
 "use client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatTimeAgo } from "@/lib/utils/format";
+import { CommunityAuthorRow } from "@/components/community/ui/CommunityAuthorRow";
 
 type Props = {
   authorName: string;
+  authorAvatarUrl?: string | null;
   locationLabel: string;
   createdAt: string;
-  /** 모임 등 보조 메타(조회·댓글 수) */
   subline?: string;
+  showMoreMenu?: boolean;
+  postId?: string;
+  targetUserId?: string | null;
+  canReport?: boolean;
+  onReport?: () => void;
+  isOwnPost?: boolean;
+  onOwnShare?: () => void;
+  onOwnDelete?: () => void;
+  ownDeleteBusy?: boolean;
 };
 
-export function CommunityPostDetailAuthorRow({ authorName, locationLabel, createdAt, subline }: Props) {
+export function CommunityPostDetailAuthorRow({
+  authorName,
+  authorAvatarUrl,
+  locationLabel,
+  createdAt,
+  subline,
+  showMoreMenu,
+  postId,
+  targetUserId,
+  canReport,
+  onReport,
+  isOwnPost,
+  onOwnShare,
+  onOwnDelete,
+  ownDeleteBusy,
+}: Props) {
   const { t, language } = useI18n();
   const time =
     createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, language) : "";
-  const initial = (authorName?.trim()?.[0] ?? "?").toUpperCase();
 
   return (
-    <div className="mt-3 flex min-w-0 items-start gap-3 px-4">
-      <div
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F3F0FF] text-[15px] font-semibold text-[#7360F2]"
-        aria-hidden
-      >
-        {initial}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{authorName || t("community_anonymous")}</p>
-        <p className="mt-0.5 text-[12px] font-normal leading-[1.4] text-[#6B7280]">
-          {locationLabel ? <span>{locationLabel}</span> : null}
-          {locationLabel && time ? <span className="mx-1">·</span> : null}
-          {time ? <span>{time}</span> : null}
-        </p>
-        {subline ? <p className="mt-1 text-[12px] font-normal leading-[1.4] text-[#9CA3AF]">{subline}</p> : null}
-      </div>
-    </div>
+    <CommunityAuthorRow
+      authorName={authorName || t("community_anonymous")}
+      avatarUrl={authorAvatarUrl}
+      locationLabel={locationLabel}
+      timeLabel={time}
+      subline={subline}
+      showMoreMenu={showMoreMenu}
+      postId={postId}
+      targetUserId={targetUserId}
+      canReport={canReport}
+      onReport={onReport}
+      isOwnPost={isOwnPost}
+      onOwnShare={onOwnShare}
+      onOwnDelete={onOwnDelete}
+      ownDeleteBusy={ownDeleteBusy}
+    />
   );
 }

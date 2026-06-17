@@ -25,10 +25,16 @@ export async function GET() {
     });
   }
 
-  const [commentsRes, likesRes, reportsRes, messengerReportsRes] = await Promise.all([
+  const [commentsRes, savesRes, likesRes, reportsRes, messengerReportsRes] = await Promise.all([
     sb
       .from("community_comments")
       .select("id, post_id, content, created_at")
+      .eq("user_id", auth.userId)
+      .order("created_at", { ascending: false })
+      .limit(20),
+    sb
+      .from("community_post_saves")
+      .select("post_id, created_at")
       .eq("user_id", auth.userId)
       .order("created_at", { ascending: false })
       .limit(20),
@@ -58,6 +64,9 @@ export async function GET() {
   if (likesRes.error && !isMissingTableError(likesRes.error.message ?? "", "community_post_likes")) {
     return NextResponse.json({ ok: false, error: likesRes.error.message ?? "likes_fetch_failed" }, { status: 500 });
   }
+  if (savesRes.error && !isMissingTableError(savesRes.error.message ?? "", "community_post_saves")) {
+    return NextResponse.json({ ok: false, error: savesRes.error.message ?? "saves_fetch_failed" }, { status: 500 });
+  }
   if (reportsRes.error && !isMissingTableError(reportsRes.error.message ?? "", "community_reports")) {
     return NextResponse.json({ ok: false, error: reportsRes.error.message ?? "reports_fetch_failed" }, { status: 500 });
   }
@@ -72,6 +81,7 @@ export async function GET() {
   }
 
   const commentRows = Array.isArray(commentsRes.data) ? (commentsRes.data as Record<string, unknown>[]) : [];
+  const saveRows = Array.isArray(savesRes.data) ? (savesRes.data as Record<string, unknown>[]) : [];
   const likeRows = Array.isArray(likesRes.data) ? (likesRes.data as Record<string, unknown>[]) : [];
   const reportRows = Array.isArray(reportsRes.data) ? (reportsRes.data as Record<string, unknown>[]) : [];
   const messengerReportRows = Array.isArray(messengerReportsRes.data)
@@ -82,6 +92,7 @@ export async function GET() {
     new Set(
       [
         ...commentRows.map((row) => String(row.post_id ?? "").trim()),
+        ...saveRows.map((row) => String(row.post_id ?? "").trim()),
         ...likeRows.map((row) => String(row.post_id ?? "").trim()),
         ...reportRows
           .filter((row) => String(row.target_type ?? "") === "post")
@@ -116,7 +127,7 @@ export async function GET() {
         createdAt: String(row.created_at ?? ""),
       };
     }),
-    favoritePosts: likeRows.map((row) => {
+    favoritePosts: (saveRows.length > 0 ? saveRows : likeRows).map((row) => {
       const postId = String(row.post_id ?? "").trim();
       const post = postMap.get(postId);
       return {

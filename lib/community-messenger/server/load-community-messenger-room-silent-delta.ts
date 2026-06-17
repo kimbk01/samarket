@@ -110,7 +110,8 @@ function buildSilentDeltaRoomSummary(
     roomLastMessageTypeRaw === "system" ||
     roomLastMessageTypeRaw === "call_stub" ||
     roomLastMessageTypeRaw === "voice" ||
-    roomLastMessageTypeRaw === "sticker"
+    roomLastMessageTypeRaw === "sticker" ||
+    roomLastMessageTypeRaw === "community_post_share"
       ? roomLastMessageTypeRaw
       : "text";
   const roomLastAt = trimText(room.last_message_at) || nowIso();

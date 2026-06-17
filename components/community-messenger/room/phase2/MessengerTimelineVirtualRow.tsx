@@ -41,6 +41,10 @@ import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
 import {
+  CommunityPostShareMessageCard,
+  parseCommunityPostShareMetadata,
+} from "@/components/community-messenger/room/phase2/CommunityPostShareMessageCard";
+import {
   resolveStoreOrderOpsBodyText,
   resolveStoreOrderOpsTitleText,
 } from "@/lib/store-order-chat/store-order-ops-i18n";
@@ -425,6 +429,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ? metadata.orderStatus.trim()
       : "status";
 
+  const communityPostShareCard =
+    item.messageType === "community_post_share" ? parseCommunityPostShareMetadata(metadata) : null;
+
   const viberInnerBody: ReactNode =
     item.messageType === "image" ? (
       <TimelineViberInnerImage item={item} onOpenLightbox={onOpenImageLightbox} />
@@ -443,6 +450,8 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
         videoCallLabel={videoCallLabel}
         callStatusLabel={callStatusLabel}
       />
+    ) : item.messageType === "community_post_share" && communityPostShareCard ? (
+      <CommunityPostShareMessageCard card={communityPostShareCard} />
     ) : (
       <TimelineViberInnerTextDefault
         item={item}
@@ -455,7 +464,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     <ViberChatBubble isMine={item.isMine} showTail={showBubbleTail}>
       <div className="flex min-w-0 max-w-full flex-col">
         {renderReplyQuoteInsideBubble()}
-        {item.messageType === "image" || item.messageType === "sticker" ? (
+        {item.messageType === "image" || item.messageType === "sticker" || item.messageType === "community_post_share" ? (
           viberInnerBody
         ) : (
           <div className={replyQuote ? "px-3 pb-2 pt-1.5" : "px-[12px] py-2"}>{viberInnerBody}</div>

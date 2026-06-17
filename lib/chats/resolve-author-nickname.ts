@@ -57,6 +57,86 @@ export function postTradeListingOwnerUserId(
  * Supabase — `profiles` 일괄 `.in("id", …)` 후, 닉이 아직 없는 ID만 `test_users` 조회 (중복·불필요 왕복 감소).
  * 채팅 목록/방 상세·주문채팅 방 생성 등 공통 사용.
  */
+export type AuthorPublicProfile = {
+  displayName: string;
+  avatarUrl: string | null;
+};
+
+function profileRowToPublicProfile(row: Record<string, unknown> | null | undefined): AuthorPublicProfile | null {
+  if (!row) return null;
+  const display = nonEmptyString(row.display_name);
+  const legacy = nonEmptyString(row.nickname);
+  const uname = nonEmptyString(row.username);
+  const name =
+    labelFromDisplayAndUsername(display ?? legacy ?? null, uname ?? null) ||
+    display ||
+    legacy ||
+    uname;
+  if (!name) return null;
+  const avatarRaw = nonEmptyString(row.avatar_url);
+  return { displayName: String(name).trim(), avatarUrl: avatarRaw ?? null };
+}
+
+export async function fetchAuthorPublicProfilesForUserIds(
+  sbAny: SupabaseClient<any>,
+  userIds: string[]
+): Promise<Map<string, AuthorPublicProfile>> {
+  const map = new Map<string, AuthorPublicProfile>();
+  const ids = [...new Set(userIds.filter((x) => typeof x === "string" && x.length > 0))];
+  if (ids.length === 0) return map;
+
+  if (ids.length === 1) {
+    const onlyId = ids[0]!;
+    const { data: profile } = await sbAny
+      .from("profiles")
+      .select("id, display_name, nickname, username, avatar_url")
+      .eq("id", onlyId)
+      .maybeSingle();
+    const parsed = profileRowToPublicProfile(profile as Record<string, unknown> | null);
+    if (parsed) {
+      map.set(onlyId, parsed);
+      return map;
+    }
+    const { data: testUser } = await sbAny
+      .from("test_users")
+      .select("id, display_name, username")
+      .eq("id", onlyId)
+      .maybeSingle();
+    const testName = testUser
+      ? nonEmptyString((testUser as Record<string, unknown>).display_name) ??
+        nonEmptyString((testUser as Record<string, unknown>).username)
+      : undefined;
+    if (testName) map.set(onlyId, { displayName: testName, avatarUrl: null });
+    return map;
+  }
+
+  const { data: profiles } = await sbAny
+    .from("profiles")
+    .select("id, display_name, nickname, username, avatar_url")
+    .in("id", ids);
+  (profiles as Record<string, unknown>[] | null | undefined)?.forEach((p) => {
+    const id = p.id as string;
+    const parsed = profileRowToPublicProfile(p);
+    if (id && parsed) map.set(id, parsed);
+  });
+
+  const needTest = ids.filter((id) => !map.has(id));
+  if (needTest.length === 0) return map;
+
+  const { data: testUsers } = await sbAny
+    .from("test_users")
+    .select("id, display_name, username")
+    .in("id", needTest);
+  (testUsers as Record<string, unknown>[] | null | undefined)?.forEach((t) => {
+    const id = t.id as string;
+    if (map.has(id)) return;
+    const name = (t.display_name ?? t.username) as string;
+    if (id && name) map.set(id, { displayName: String(name).trim(), avatarUrl: null });
+  });
+
+  return map;
+}
+
 export async function fetchNicknamesForUserIds(
   sbAny: SupabaseClient<any>,
   userIds: string[],

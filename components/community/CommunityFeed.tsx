@@ -24,7 +24,7 @@ import { APP_MAIN_GUTTER_X_CLASS, APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/a
 import {
   COMMUNITY_DROPDOWN_PANEL_CLASS,
   PHILIFE_FEED_FILTER_STRIP_CLASS,
-  PHILIFE_FEED_LIST_WRAP_CLASS,
+  COMMUNITY_FEED_LIST_WRAP_CLASS,
   PHILIFE_PAGE_ROOT_CLASS,
   PHILIFE_TOPIC_TAB_PILL_ACTIVE,
   PHILIFE_TOPIC_TAB_ROW_CLASS,
@@ -1551,7 +1551,7 @@ export function CommunityFeed({
           </div>
         ) : (
           <>
-            <ul ref={listRootRef} className={`${PHILIFE_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
+            <ul ref={listRootRef} className={`${COMMUNITY_FEED_LIST_WRAP_CLASS} ${topAds.length > 0 ? "mt-1" : ""}`}>
               {postsForList.map((p, index) => (
                 <li key={p.id} className="list-none">
                   <CommunityCard post={p} priorityThumb={index < 4} />

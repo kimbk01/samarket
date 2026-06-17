@@ -25,11 +25,15 @@ export type NeighborhoodFeedPostDTO = {
   comment_count: number;
   created_at: string;
   author_name: string;
+  /** profiles.avatar_url — 상세·카드 아바타 */
+  author_avatar_url?: string | null;
   author_id: string;
   meeting_id: string | null;
   /** 모임 연결 메신저 오픈그룹 방(있으면 목록에서 바로 `/community-messenger/rooms/...` 링크) */
   community_messenger_room_id: string | null;
   meeting_date: string | null;
+  /** 로그인 viewer 전용 — 목록·상세 동기화 */
+  viewer?: import("@/lib/community/post-engagement/types").CommunityPostViewerState;
 };
 
 export type NeighborhoodMeetingDetailDTO = {

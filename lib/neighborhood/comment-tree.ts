@@ -1,3 +1,4 @@
+import type { CommunityCommentDTO } from "@/lib/community-feed/types";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 
 export function findCommentById(roots: NeighborhoodCommentNode[], id: string | null | undefined): NeighborhoodCommentNode | null {
@@ -37,10 +38,33 @@ export function updateCommentInTree(
   return walkMap(roots, id, (n) => ({ ...n, ...patch, children: n.children }));
 }
 
-export function appendReplyToCommentTree(
-  roots: NeighborhoodCommentNode[],
-  parentId: string,
-  reply: NeighborhoodCommentNode
-): NeighborhoodCommentNode[] {
-  return walkMap(roots, parentId, (n) => ({ ...n, children: [...n.children, reply] }));
+/** `listCommunityPostComments` flat DTO → 필라이프 상세 댓글 트리 */
+export function flatCommentsToNeighborhoodTree(flat: CommunityCommentDTO[]): NeighborhoodCommentNode[] {
+  const nodes: NeighborhoodCommentNode[] = flat.map((r) => ({
+    id: r.id,
+    post_id: r.post_id,
+    user_id: r.user_id,
+    parent_id: r.parent_id,
+    content: r.content,
+    created_at: r.created_at,
+    updated_at: r.updated_at,
+    is_edited: r.is_edited,
+    author_name: r.author_name,
+    like_count: r.like_count,
+    liked_by_viewer: r.liked_by_viewer,
+    children: [],
+  }));
+  const hasAnyReply = nodes.some((n) => n.parent_id);
+  if (!hasAnyReply) return nodes;
+
+  const byId = new Map(nodes.map((n) => [n.id, n]));
+  const roots: NeighborhoodCommentNode[] = [];
+  for (const n of nodes) {
+    if (n.parent_id && byId.has(n.parent_id)) {
+      byId.get(n.parent_id)!.children.push(n);
+    } else {
+      roots.push(n);
+    }
+  }
+  return roots;
 }

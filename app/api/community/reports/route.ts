@@ -48,13 +48,28 @@ export async function POST(req: NextRequest) {
 
   const { data: post } = await sb
     .from("community_posts")
-    .select("id, report_count, is_deleted, status")
+    .select("id, user_id, report_count, is_deleted, status")
     .eq("id", postId)
     .eq("status", "active")
     .maybeSingle();
-  const pr = post as { id?: string; report_count?: number; is_deleted?: boolean; status?: string } | null;
+  const pr = post as { id?: string; user_id?: string; report_count?: number; is_deleted?: boolean; status?: string } | null;
   if (!pr?.id || pr.is_deleted === true || pr.status === "deleted" || pr.status === "hidden") {
     return NextResponse.json({ ok: false, error: "글을 찾을 수 없습니다." }, { status: 404 });
+  }
+
+  if (pr.user_id === auth.userId) {
+    return NextResponse.json({ ok: false, error: "본인 게시글은 신고할 수 없습니다." }, { status: 400 });
+  }
+
+  const { data: existing } = await sb
+    .from("community_reports")
+    .select("id")
+    .eq("target_type", "post")
+    .eq("target_id", postId)
+    .eq("reporter_id", auth.userId)
+    .maybeSingle();
+  if (existing?.id) {
+    return NextResponse.json({ ok: false, error: "이미 신고한 게시글입니다." }, { status: 409 });
   }
 
   const reason_type = inferReportReasonCode(reasonText) || "etc";
@@ -73,11 +88,20 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error || !ins) {
-    return NextResponse.json({ ok: false, error: error?.message ?? "신고 접수 실패" }, { status: 500 });
+    const msg = error?.message ?? "";
+    if (error?.code === "23505" || msg.includes("community_reports_post_reporter_unique")) {
+      return NextResponse.json({ ok: false, error: "이미 신고한 게시글입니다." }, { status: 409 });
+    }
+    return NextResponse.json({ ok: false, error: msg || "신고 접수 실패" }, { status: 500 });
   }
 
-  const prev = Number(pr.report_count ?? 0);
-  await sb.from("community_posts").update({ report_count: prev + 1 }).eq("id", postId);
+  const { error: countErr } = await sb
+    .from("community_posts")
+    .update({ report_count: Number(pr.report_count ?? 0) + 1 })
+    .eq("id", postId);
+  if (countErr) {
+    return NextResponse.json({ ok: true, id: (ins as { id: string }).id, report_count_warning: true });
+  }
 
   return NextResponse.json({ ok: true, id: (ins as { id: string }).id });
 }

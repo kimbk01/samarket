@@ -11,7 +11,7 @@ import { WriteScreenTier1Sync } from "../WriteScreenTier1Sync";
 import { useWriteScreenEmbeddedTier1 } from "../useWriteScreenEmbeddedTier1";
 import { ImageUploader, type ImageUploadItem } from "../shared/ImageUploader";
 import { SubmitButton } from "../shared/SubmitButton";
-import { PHILIFE_FB_INPUT_CLASS, PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { CM_INPUT_CLASS, CM_TEXTAREA_CLASS } from "@/lib/community/community-ui-classes";
 
 interface CommunityWriteFormProps {
   category: CategoryWithSettings;
@@ -72,11 +72,12 @@ export function CommunityWriteForm({
   const backHref = getCategoryHref(category);
 
   return (
+    <div data-community-ui>
     <div
       className={
         embeddedTier1 || suppressTier1Chrome
-          ? "flex w-full min-w-0 flex-col bg-sam-app pb-24"
-          : "min-h-screen bg-sam-app pb-24"
+          ? "flex w-full min-w-0 flex-col bg-[var(--cm-page-bg)] pb-24"
+          : "min-h-screen bg-[var(--cm-page-bg)] pb-24"
       }
     >
       {!suppressTier1Chrome ? (
@@ -102,7 +103,7 @@ export function CommunityWriteForm({
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("ui_write_title_ph")}
             maxLength={100}
-            className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
+            className={`w-full ${CM_INPUT_CLASS}`}
             aria-invalid={!!errors.title}
           />
           {errors.title && <p className="mt-1 sam-text-helper text-sam-danger">{errors.title}</p>}
@@ -116,7 +117,7 @@ export function CommunityWriteForm({
             onChange={(e) => setContent(e.target.value)}
             placeholder={t("ui_write_content_ph")}
             rows={6}
-            className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS}`}
+            className={`w-full resize-none ${CM_TEXTAREA_CLASS}`}
             aria-invalid={!!errors.content}
           />
           {errors.content && <p className="mt-1 sam-text-helper text-sam-danger">{errors.content}</p>}
@@ -126,6 +127,7 @@ export function CommunityWriteForm({
         )}
         <SubmitButton label={t("community_write_submit")} submitting={submitting} onCancel={onCancel} />
       </form>
+    </div>
     </div>
   );
 }

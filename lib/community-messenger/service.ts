@@ -396,7 +396,7 @@ type MessageRow = {
   id: string;
   room_id: string;
   sender_id: string | null;
-  message_type: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
+  message_type: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
   content: string | null;
   metadata: Record<string, unknown> | null;
   created_at: string | null;
@@ -527,7 +527,7 @@ type DevRoom = {
   directKey: string | null;
   lastMessage: string;
   lastMessageAt: string;
-  lastMessageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
+  lastMessageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
 };
 
 type DevParticipant = {
@@ -559,7 +559,7 @@ type DevMessage = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
+  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;
@@ -1070,7 +1070,8 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     mt === "system" ||
     mt === "call_stub" ||
     mt === "voice" ||
-    mt === "sticker"
+    mt === "sticker" ||
+    mt === "community_post_share"
       ? mt
       : "text";
   const dfeAt = trimText(message.deleted_for_everyone_at);
@@ -2124,7 +2125,8 @@ function buildRoomSummaryFromHydratedMembers(
     roomLastMessageTypeRaw === "system" ||
     roomLastMessageTypeRaw === "call_stub" ||
     roomLastMessageTypeRaw === "voice" ||
-    roomLastMessageTypeRaw === "sticker"
+    roomLastMessageTypeRaw === "sticker" ||
+    roomLastMessageTypeRaw === "community_post_share"
       ? roomLastMessageTypeRaw
       : "text";
   const roomLastAt = trimText(isDbRoom ? room.last_message_at : room.lastMessageAt) || nowIso();
@@ -14765,7 +14767,7 @@ export async function getCommunityMessengerRoomMessageById(input: {
     const isMine = senderId === input.userId;
     const mt = trimText(row.messageType) as CommunityMessengerMessage["messageType"];
     const safeMt: CommunityMessengerMessage["messageType"] =
-      mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" || mt === "sticker"
+      mt === "image" || mt === "file" || mt === "system" || mt === "call_stub" || mt === "voice" || mt === "sticker" || mt === "community_post_share"
         ? mt
         : "text";
     const clientRaw = metadata.client_message_id;
@@ -15805,6 +15807,177 @@ export async function sendCommunityMessengerStickerMessage(input: {
   };
 }
 
+export async function sendCommunityPostShareMessage(input: {
+  userId: string;
+  roomId: string;
+  content: string;
+  metadata: Record<string, unknown>;
+  clientMessageId?: string;
+}): Promise<{ ok: boolean; message?: CommunityMessengerMessage; error?: string }> {
+  const roomId = trimText(input.roomId);
+  const content = trimText(input.content);
+  if (!roomId || !content) return { ok: false, error: "content_required" };
+  const clientMessageId = trimText(input.clientMessageId ?? "");
+  const metadata: Record<string, unknown> = { ...input.metadata };
+  if (clientMessageId) metadata.client_message_id = clientMessageId;
+
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const [{ data: participant }, { data: roomData }] = await Promise.all([
+      (sb as any)
+        .from("community_messenger_participants")
+        .select("id")
+        .eq("room_id", roomId)
+        .eq("user_id", input.userId)
+        .maybeSingle(),
+      (sb as any)
+        .from("community_messenger_rooms")
+        .select("id, room_status, is_readonly")
+        .eq("id", roomId)
+        .maybeSingle(),
+    ]);
+    if (!participant || !roomData) return { ok: false, error: "room_not_found" };
+    const roomStatus = normalizeRoomStatus((roomData as { room_status?: unknown }).room_status);
+    const isReadonly = Boolean((roomData as { is_readonly?: unknown }).is_readonly);
+    if (roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+    if (roomStatus === "archived") return { ok: false, error: "room_archived" };
+    if (isReadonly) return { ok: false, error: "room_readonly" };
+
+    let tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+      viewerUserId: input.userId,
+      messengerRoomId: roomId,
+    });
+    if (!tradeSendGuard.ok && tradeSendGuard.error === "trade_product_chat_unlinked") {
+      const { reconcileMessengerTradeRoomLinkOnSend } = await import(
+        "@/lib/trade/reconcile-messenger-trade-room-link-on-send"
+      );
+      if (await reconcileMessengerTradeRoomLinkOnSend(sb as never, roomId)) {
+        tradeSendGuard = await assertMessengerProductChatLinkedSendAllowed(sb, {
+          viewerUserId: input.userId,
+          messengerRoomId: roomId,
+        });
+      }
+    }
+    if (!tradeSendGuard.ok) {
+      return { ok: false, error: tradeSendGuard.error };
+    }
+
+    const createdAt = nowIso();
+    const { data: insertedMessage, error: insertError } = await (sb as any)
+      .from("community_messenger_messages")
+      .insert({
+        room_id: roomId,
+        sender_id: input.userId,
+        message_type: "community_post_share",
+        content,
+        metadata,
+        created_at: createdAt,
+      })
+      .select("id, room_id, sender_id, message_type, content, metadata, created_at")
+      .single();
+    if (!insertError && insertedMessage) {
+      const preview = content.slice(0, 120);
+      await (sb as any)
+        .from("community_messenger_rooms")
+        .update({
+          last_message: preview,
+          last_message_at: createdAt,
+          last_message_type: "community_post_share",
+          updated_at: createdAt,
+        })
+        .eq("id", roomId);
+      const { error: unreadRpcError } = await (sb as any).rpc("community_messenger_apply_unread_for_text_message", {
+        p_room_id: roomId,
+        p_sender_id: input.userId,
+        p_read_at: createdAt,
+      });
+      const { data: recipientRows } = await (sb as any)
+        .from("community_messenger_participants")
+        .select("user_id")
+        .eq("room_id", roomId)
+        .neq("user_id", input.userId);
+      const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
+        .map((p) => p.user_id)
+        .filter((uid) => Boolean(uid?.trim()));
+      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+        roomId,
+        senderUserId: input.userId,
+        preview,
+        recipientUserIds,
+      }).catch(() => {});
+      if (!unreadRpcError) {
+        invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
+      }
+      return {
+        ok: true,
+        message: {
+          id: String((insertedMessage as { id?: unknown }).id ?? ""),
+          roomId,
+          senderId: input.userId,
+          senderLabel: cmServiceT("common_me"),
+          messageType: "community_post_share",
+          content,
+          createdAt,
+          metadata,
+          clientMessageId: clientMessageId || null,
+          isMine: true,
+          callKind: null,
+          callStatus: null,
+        },
+      };
+    }
+    if (!isMissingTableError(insertError)) {
+      return { ok: false, error: String(insertError.message ?? "message_send_failed") };
+    }
+  }
+
+  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+  if (!fallback.ok) return fallback;
+
+  const dev = getDevState();
+  const room = dev.rooms.find((row) => row.id === roomId);
+  if (!room) return { ok: false, error: "room_not_found" };
+  const participant = dev.participants.find((row) => row.roomId === roomId && row.userId === input.userId);
+  if (!participant) return { ok: false, error: "room_not_found" };
+  if (room.roomStatus === "blocked") return { ok: false, error: "room_blocked" };
+  if (room.roomStatus === "archived") return { ok: false, error: "room_archived" };
+  if (room.isReadonly) return { ok: false, error: "room_readonly" };
+  const createdAt = nowIso();
+  const messageId = randomUUID();
+  dev.messages.push({
+    id: messageId,
+    roomId,
+    senderId: input.userId,
+    messageType: "community_post_share",
+    content,
+    metadata,
+    createdAt,
+  });
+  room.lastMessage = content.slice(0, 120);
+  room.lastMessageAt = createdAt;
+  room.lastMessageType = "community_post_share";
+  for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
+    p.unreadCount = p.userId === input.userId ? 0 : p.unreadCount + 1;
+  }
+  return {
+    ok: true,
+    message: {
+      id: messageId,
+      roomId,
+      senderId: input.userId,
+      senderLabel: cmServiceT("common_me"),
+      messageType: "community_post_share",
+      content,
+      metadata,
+      createdAt,
+      clientMessageId: clientMessageId || null,
+      isMine: true,
+      callKind: null,
+      callStatus: null,
+    },
+  };
+}
+
 export async function sendCommunityMessengerFileMessage(input: {
   userId: string;
   roomId: string;
@@ -15971,6 +16144,9 @@ function messengerLastPreviewFromRow(row: {
   if (mt === "call_stub") return { preview: cmLastPreviewCall(trimText(row.content)), messageType: "call_stub" };
   if (mt === "image") return { preview: cmLastPreviewImage(), messageType: "image" };
   if (mt === "sticker") return { preview: cmLastPreviewSticker(), messageType: "sticker" };
+  if (mt === "community_post_share") {
+    return { preview: cmLastPreviewNotification(trimText(row.content)), messageType: "community_post_share" };
+  }
   if (mt === "file") {
     return {
       preview: cmLastPreviewFile(

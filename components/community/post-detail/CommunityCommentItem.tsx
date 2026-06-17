@@ -6,14 +6,17 @@ import { Link2, Pencil, ThumbsUp, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { isSameUserId } from "@/lib/auth/same-user-id";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
+import { communityAuthorDisplayName } from "@/lib/community/community-author-display";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { ReplyLGlyph } from "./CommunityCommentComposerForm";
 import {
-  COMMUNITY_BUTTON_PRIMARY_CLASS,
-  COMMUNITY_BUTTON_SECONDARY_CLASS,
-  PHILIFE_FB_INPUT_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
+  CM_BTN_PILL_PRIMARY_CLASS,
+  CM_BTN_GHOST_CLASS,
+  CM_COMMENT_BODY_CLASS,
+  CM_META_CLASS,
+  CM_TEXTAREA_CLASS,
+} from "@/lib/community/community-ui-classes";
 
 function formatCommentStamp(iso: string) {
   if (!iso || Number.isNaN(Date.parse(iso))) return "";
@@ -79,6 +82,8 @@ export function CommunityCommentItem({
     normalized === "댓글이 삭제 되엇습니다";
   const isReplyOpen = replyOpenCommentId === node.id;
 
+  const authorLabel = communityAuthorDisplayName(node.author_name, node.author_name);
+
   const timeRel = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
     return formatTimeAgo(node.created_at, language);
@@ -102,11 +107,11 @@ export function CommunityCommentItem({
   }, [isReplyOpen, node.id]);
 
   const onSave = useCallback(async () => {
-    const t = draft.trim();
-    if (!t) return;
+    const trimmed = draft.trim();
+    if (!trimmed) return;
     setSaving((prev) => (prev ? prev : true));
     try {
-      await onEdit(node.id, t);
+      await onEdit(node.id, trimmed);
       setEditing((prev) => (prev ? false : prev));
     } finally {
       setSaving((prev) => (prev ? false : prev));
@@ -137,9 +142,9 @@ export function CommunityCommentItem({
   };
 
   const submitInlineReply = async () => {
-    const t = replyDraft.trim();
-    if (!t || commentBusy) return;
-    await onSubmitReply(node.id, t);
+    const trimmed = replyDraft.trim();
+    if (!trimmed || commentBusy) return;
+    await onSubmitReply(node.id, trimmed);
     onReplyOpenChange(null);
     setReplyDraft("");
     if (typeof document !== "undefined") {
@@ -157,23 +162,23 @@ export function CommunityCommentItem({
   return (
     <article
       id={`comment-${node.id}`}
-      className="scroll-mt-24 border-b border-[#E5E7EB] pb-3"
+      className="scroll-mt-24 pb-2"
       style={{ marginLeft: indent }}
     >
       <div className="flex gap-1.5">
         {depth > 0 ? <ReplyLGlyph /> : <span className="inline-block w-7 shrink-0" aria-hidden />}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <p className="m-0 min-w-0 break-words text-[14px] font-semibold text-[#1F2430]">{node.author_name}</p>
+            <p className="m-0 min-w-0 break-words text-[14px] font-semibold text-[var(--cm-text)]">{authorLabel}</p>
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-              <time className="text-[12px] tabular-nums font-normal text-[#6B7280]" dateTime={node.created_at}>
+              <time className={`tabular-nums ${CM_META_CLASS}`} dateTime={node.created_at}>
                 {timeStamp || timeRel}
-                {node.is_edited ? <span className="text-[#9CA3AF]">{t("community_comment_edit_mark")}</span> : null}
+                {node.is_edited ? <span className="text-[var(--cm-text-muted)]">{t("community_comment_edit_mark")}</span> : null}
               </time>
               {isDeleteAllowed && !editing && !isDeleted ? (
                 <button
                   type="button"
-                  className="rounded-[4px] p-0.5 text-[#E25555] hover:bg-rose-50"
+                  className="rounded-full p-0.5 text-[var(--cm-danger)] hover:bg-red-50"
                   aria-label={t("community_comment_delete_aria")}
                   onClick={() => void onDelete(node.id)}
                 >
@@ -182,7 +187,7 @@ export function CommunityCommentItem({
               ) : null}
               <button
                 type="button"
-                className="rounded-[4px] p-1 text-[#6B7280] hover:bg-[#F7F8FA]"
+                className="rounded-full p-1 text-[var(--cm-text-muted)] hover:bg-[var(--cm-primary-soft)]"
                 aria-label={t("community_comment_copy_aria")}
                 onClick={() => void copyCommentLink()}
               >
@@ -197,14 +202,14 @@ export function CommunityCommentItem({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 rows={3}
-                className="w-full rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-2.5 text-[14px] font-normal leading-[1.5] text-[#1F2430] placeholder:text-[13px] placeholder:font-normal placeholder:text-[#9CA3AF] outline-none focus:border-[#7360F2] focus:ring-1 focus:ring-[#7360F2]/20"
+                className={CM_TEXTAREA_CLASS}
               />
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   disabled={saving || !draft.trim()}
                   onClick={() => void onSave()}
-                  className={COMMUNITY_BUTTON_PRIMARY_CLASS}
+                  className={CM_BTN_PILL_PRIMARY_CLASS}
                 >
                   {t("community_save")}
                 </button>
@@ -215,7 +220,7 @@ export function CommunityCommentItem({
                     setEditing(false);
                     setDraft(node.content);
                   }}
-                  className={COMMUNITY_BUTTON_SECONDARY_CLASS}
+                  className={CM_BTN_GHOST_CLASS}
                 >
                   {t("common_cancel")}
                 </button>
@@ -223,8 +228,8 @@ export function CommunityCommentItem({
             </div>
           ) : (
             <p
-              className={`mt-1 break-words text-[14px] font-normal leading-[1.5] ${
-                isDeleted ? "text-[#9CA3AF]" : "text-[#1F2430]"
+              className={`mt-1 ${CM_COMMENT_BODY_CLASS} ${
+                isDeleted ? "text-[var(--cm-text-muted)]" : ""
               }`}
             >
               {isDeleted ? deletedLabel : node.content}
@@ -232,11 +237,11 @@ export function CommunityCommentItem({
           )}
 
           <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2 text-[12px] font-normal text-[#6B7280]">
+            <div className={`flex flex-wrap items-center gap-2 ${CM_META_CLASS}`}>
               <button
                 type="button"
-                className={`inline-flex items-center gap-0.5 rounded-[4px] px-2 py-0.5 font-semibold ${
-                  node.liked_by_viewer ? "text-[#7360F2]" : "hover:bg-[#F7F8FA]"
+                className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-semibold ${
+                  node.liked_by_viewer ? "text-[var(--cm-primary)]" : "hover:bg-[var(--cm-primary-soft)]"
                 }`}
                 aria-pressed={node.liked_by_viewer}
                 disabled={isDeleted}
@@ -251,7 +256,9 @@ export function CommunityCommentItem({
                 <button
                   type="button"
                   disabled={commentBusy}
-                  className={`rounded-[4px] px-2 py-0.5 font-semibold ${isReplyOpen ? "text-[#7360F2]" : "text-[#1F2430] hover:bg-[#F7F8FA]"}`}
+                  className={`rounded-full px-2 py-0.5 font-semibold ${
+                    isReplyOpen ? "text-[var(--cm-primary)]" : "text-[var(--cm-text)] hover:bg-[var(--cm-primary-soft)]"
+                  }`}
                   onClick={toggleReply}
                 >
                   {isReplyOpen ? t("community_reply_cancel") : t("community_reply_write")}
@@ -260,7 +267,7 @@ export function CommunityCommentItem({
               {isOwner && !editing && !isDeleted ? (
                 <button
                   type="button"
-                  className="inline-flex items-center gap-0.5 rounded-[4px] px-2 py-0.5 hover:bg-[#F7F8FA]"
+                  className="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 hover:bg-[var(--cm-primary-soft)]"
                   onClick={() => {
                     setDraft(node.content);
                     setEditing(true);
@@ -271,18 +278,18 @@ export function CommunityCommentItem({
                 </button>
               ) : null}
             </div>
-            <span className="inline-flex cursor-default items-center gap-0.5 text-[12px] text-[#9CA3AF]" title={t("community_comment_more_prep")}>
+            <span className="inline-flex cursor-default items-center gap-0.5 text-[12px] text-[var(--cm-text-muted)]" title={t("community_comment_more_prep")}>
               {t("community_comment_actions_ellipsis")}
             </span>
           </div>
 
           {isReplyOpen && me ? (
-            <div className="mt-1.5 rounded-[4px] border border-[#E5E7EB] bg-[#F7F8FA] px-1.5 py-1.5">
+            <div className="mt-1.5 rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-2 py-2">
               <div className="flex items-center gap-1.5">
               <ReplyLGlyph />
               <input
                 type="text"
-                className="min-h-[2rem] min-w-0 flex-1 border-0 border-b border-[#D1D5DB] bg-transparent px-1 py-0.5 text-[13px] font-normal leading-[1.2] text-[#1F2430] outline-none ring-0 placeholder:text-[12px] placeholder:text-[#9CA3AF] focus:border-[#7360F2]"
+                className="min-h-[2rem] min-w-0 flex-1 border-0 border-b border-[var(--cm-border)] bg-transparent px-1 py-0.5 text-[13px] font-normal leading-[1.2] text-[var(--cm-text)] outline-none ring-0 placeholder:text-[var(--cm-text-muted)] focus:border-[var(--cm-primary)]"
                 value={replyDraft}
                 disabled={commentBusy}
                 onChange={(e) => setReplyDraft(e.target.value)}
@@ -301,7 +308,7 @@ export function CommunityCommentItem({
               <button
                 type="button"
                 disabled={commentBusy || !replyDraft.trim()}
-                className={`shrink-0 min-h-[2rem] px-3 text-[13px] ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+                className={`shrink-0 min-h-[2rem] px-3 text-[13px] ${CM_BTN_PILL_PRIMARY_CLASS}`}
                 onClick={() => void submitInlineReply()}
               >
                 {t("community_comment_reply")}
@@ -317,7 +324,7 @@ export function CommunityCommentItem({
           {showRepliesFold && !repliesOpen ? (
             <button
               type="button"
-              className="m-0 border-0 bg-transparent p-0 text-left text-[13px] font-semibold text-[#7360F2] underline underline-offset-2"
+              className="m-0 border-0 bg-transparent p-0 text-left text-[13px] font-semibold text-[var(--cm-primary)] underline underline-offset-2"
               onClick={() => setRepliesOpen((prev) => (prev ? prev : true))}
             >
               {t("community_replies_expand", { count: childCount })}
@@ -327,7 +334,7 @@ export function CommunityCommentItem({
               {showRepliesFold && repliesOpen ? (
                 <button
                   type="button"
-                  className="mb-2 border-0 bg-transparent p-0 text-left text-[12px] text-[#6B7280]"
+                  className="mb-2 border-0 bg-transparent p-0 text-left text-[12px] text-[var(--cm-text-muted)]"
                   onClick={() => setRepliesOpen((prev) => (prev ? false : prev))}
                 >
                   {t("community_replies_collapse")}

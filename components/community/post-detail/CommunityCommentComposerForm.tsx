@@ -2,11 +2,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import {
-  COMMUNITY_BUTTON_PRIMARY_CLASS,
-  PHILIFE_FB_INPUT_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
+import { CM_BTN_PILL_PRIMARY_CLASS, CM_INPUT_CLASS } from "@/lib/community/community-ui-classes";
 
 export type MeAvatarProps = { name: string; avatarUrl: string | null };
 
@@ -28,11 +25,11 @@ function SmallAvatar({ me }: { me: MeAvatarProps | null }) {
   return (
     <SamarketThumbnail
       src={me?.avatarUrl}
-      size={36}
+      size={40}
       roundedClassName="rounded-full"
-      className="bg-[#E4E6EB] ring-1 ring-[#DADDE1]/60"
+      className="bg-[var(--cm-primary-soft)] ring-1 ring-[var(--cm-border)]"
       fallbackSrc=""
-      fallbackNode={<span className="text-[14px] font-semibold text-[#65676B]" aria-hidden>{ch}</span>}
+      fallbackNode={<span className="text-[14px] font-semibold text-[var(--cm-primary)]" aria-hidden>{ch}</span>}
     />
   );
 }
@@ -42,7 +39,7 @@ export function ReplyLGlyph() {
   const { t } = useI18n();
   return (
     <span
-      className="inline-flex h-8 w-7 shrink-0 select-none items-center justify-center text-[1rem] font-bold leading-none text-[#7360F2]"
+      className="inline-flex h-8 w-7 shrink-0 select-none items-center justify-center text-[1rem] font-bold leading-none text-[var(--cm-primary)]"
       aria-hidden
       title={t("community_reply_title")}
     >
@@ -77,7 +74,7 @@ export function CommunityCommentComposerForm({
       <SmallAvatar me={me} />
       <input
         type="text"
-        className={`min-h-[2.75rem] w-full min-w-0 flex-1 ${PHILIFE_FB_INPUT_CLASS}`}
+        className={CM_INPUT_CLASS}
         value={value}
         placeholder={placeholder}
         readOnly={!isLoggedIn}
@@ -101,7 +98,7 @@ export function CommunityCommentComposerForm({
       <button
         type="submit"
         disabled={disabled || busy || !isLoggedIn || !value.trim()}
-        className={`h-10 shrink-0 px-4 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+        className={`h-11 shrink-0 px-4 ${CM_BTN_PILL_PRIMARY_CLASS}`}
         aria-label={t("community_comment_post_aria")}
       >
         {t("community_comment_post")}

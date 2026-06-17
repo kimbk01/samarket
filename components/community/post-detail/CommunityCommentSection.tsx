@@ -3,13 +3,14 @@
 import { MessageCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
-import {
-  COMMUNITY_TAB_ACTIVE_CLASS,
-  COMMUNITY_TAB_IDLE_CLASS,
-} from "@/lib/philife/philife-flat-ui-classes";
 import { CommunityCommentComposerForm, type MeAvatarProps } from "./CommunityCommentComposerForm";
 import { CommunityCommentItem } from "./CommunityCommentItem";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CommunityCard } from "@/components/community/ui/CommunityCard";
+import {
+  CM_SEGMENT_ACTIVE_CLASS,
+  CM_SEGMENT_IDLE_CLASS,
+} from "@/lib/community/community-ui-classes";
 
 export type CommentSortMode = "thread" | "newest";
 
@@ -59,8 +60,6 @@ type Props = {
   } | null;
 };
 
-const sortTabBase = "rounded-[4px] px-3 py-1.5 text-[13px] font-semibold transition-colors";
-
 export function CommunityCommentSection({
   roots,
   focusCommentId = null,
@@ -104,106 +103,93 @@ export function CommunityCommentSection({
 
   if (locked) {
     return (
-      <section className="border-t border-[#E5E7EB] bg-[#F7F8FA]" id="comments">
-        <div className="px-4 py-4">
-          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">
-            {t("community_comments_title", { count: n })}
-          </h2>
-          <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-4 text-[14px] text-[#6B7280]">
-            <span>{lockMessage || t("community_comment_locked")}</span>
-          </div>
+      <CommunityCard className="mt-4">
+        <h2 className="m-0 text-[17px] font-bold text-[var(--cm-text)]">
+          {t("community_comments_title", { count: n })}
+        </h2>
+        <div className="mt-3 flex min-h-[4rem] items-center justify-center rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-page-bg)] px-4 py-3 text-[14px] text-[var(--cm-text-muted)]">
+          {lockMessage || t("community_comment_locked")}
         </div>
-      </section>
+      </CommunityCard>
     );
   }
 
   return (
-    <section className="border-t border-[#E5E7EB] bg-[#F7F8FA]" id="comments">
-      <div className="px-4 py-4">
-        <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold leading-[1.35] text-[#1F2430]">
-          <MessageCircle className="h-5 w-5 text-[#6B7280]" strokeWidth={1.8} aria-hidden />
+    <CommunityCard className="mt-4" id="comments">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="m-0 flex items-center gap-2 text-[17px] font-bold text-[var(--cm-text)]">
+          <MessageCircle className="h-5 w-5 text-[var(--cm-text-muted)]" strokeWidth={1.8} aria-hidden />
           {t("community_comments_title", { count: n })}
         </h2>
-        {composer ? (
-          <div
-            id="comment-composer"
-            className="mt-3 scroll-mt-4 rounded-[4px] border border-[#E5E7EB] bg-white p-3 shadow-[0_1px_2px_rgba(31,36,48,0.05)]"
+        <div
+          className="inline-flex gap-0.5 rounded-full border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-0.5"
+          role="group"
+          aria-label={t("community_comments_sort_aria")}
+        >
+          <button
+            type="button"
+            className={sortMode === "thread" ? CM_SEGMENT_ACTIVE_CLASS : CM_SEGMENT_IDLE_CLASS}
+            onClick={() => setSortMode("thread")}
           >
-            <CommunityCommentComposerForm
-              me={composer.me}
-              value={composer.value}
-              onChange={composer.onChange}
-              onSubmit={composer.onSubmit}
-              busy={composer.busy}
-              disabled={composer.disabled}
-              isLoggedIn={composer.isLoggedIn}
-              placeholder={composer.placeholder}
-            />
-            {composerError ? (
-              <p className="mt-2 text-[12px] font-medium text-[#E25555]" role="alert">
-                {composerError}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="m-0 text-[12px] font-normal text-[#6B7280]">{t("community_comments_list_aria")}</p>
-          <div
-            className="flex gap-1 rounded-[4px] border border-[#E5E7EB] bg-white p-0.5"
-            role="group"
-            aria-label={t("community_comments_sort_aria")}
+            {t("community_comment_sort_registered")}
+          </button>
+          <button
+            type="button"
+            className={sortMode === "newest" ? CM_SEGMENT_ACTIVE_CLASS : CM_SEGMENT_IDLE_CLASS}
+            onClick={() => setSortMode("newest")}
           >
-            <button
-              type="button"
-              className={
-                sortMode === "thread"
-                  ? `${sortTabBase} ${COMMUNITY_TAB_ACTIVE_CLASS}`
-                  : `${sortTabBase} ${COMMUNITY_TAB_IDLE_CLASS}`
-              }
-              onClick={() => setSortMode((prev) => (prev === "thread" ? prev : "thread"))}
-            >
-              {t("community_comment_sort_registered")}
-            </button>
-            <button
-              type="button"
-              className={
-                sortMode === "newest"
-                  ? `${sortTabBase} ${COMMUNITY_TAB_ACTIVE_CLASS}`
-                  : `${sortTabBase} ${COMMUNITY_TAB_IDLE_CLASS}`
-              }
-              onClick={() => setSortMode((prev) => (prev === "newest" ? prev : "newest"))}
-            >
-              {t("community_comment_sort_latest")}
-            </button>
-          </div>
+            {t("community_comment_sort_latest")}
+          </button>
         </div>
-
-        {commentsLoading ? (
-          <div className="py-8 text-center text-[14px] text-[#6B7280]">{t("community_comments_loading")}</div>
-        ) : displayRoots.length === 0 ? (
-          <p className="py-8 text-center text-[14px] text-[#9CA3AF]">{t("community_comment_first")}</p>
-        ) : (
-          <ul className="m-0 mt-3 list-none rounded-[4px] border border-[#E5E7EB] bg-white p-2 shadow-[0_1px_2px_rgba(31,36,48,0.05)] [&>li:last-child>article]:border-b-0">
-            {displayRoots.map((node) => (
-              <li key={node.id} className="m-0 p-0">
-                <CommunityCommentItem
-                  node={node}
-                  viewerUserId={viewerUserId}
-                  viewerIsAdmin={viewerIsAdmin}
-                  onLike={onCommentLike}
-                  onEdit={onCommentEdit}
-                  onDelete={onCommentDelete}
-                  replyOpenCommentId={replyOpenCommentId}
-                  onReplyOpenChange={setReplyOpenCommentId}
-                  onSubmitReply={onSubmitReply}
-                  commentBusy={commentBusy}
-                />
-              </li>
-            ))}
-            <div ref={endRef} />
-          </ul>
-        )}
       </div>
-    </section>
+
+      {composer ? (
+        <div id="comment-composer" className="mt-4 scroll-mt-4">
+          <CommunityCommentComposerForm
+            me={composer.me}
+            value={composer.value}
+            onChange={composer.onChange}
+            onSubmit={composer.onSubmit}
+            busy={composer.busy}
+            disabled={composer.disabled}
+            isLoggedIn={composer.isLoggedIn}
+            placeholder={composer.placeholder}
+          />
+          {composerError ? (
+            <p className="mt-2 text-[12px] font-medium text-[var(--cm-danger)]" role="alert">
+              {composerError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {commentsLoading && displayRoots.length === 0 ? (
+        <div className="py-6 text-center text-[14px] text-[var(--cm-text-muted)]">
+          {t("community_comments_loading")}
+        </div>
+      ) : displayRoots.length === 0 ? (
+        <p className="py-6 text-center text-[14px] text-[var(--cm-text-muted)]">{t("community_comment_first")}</p>
+      ) : (
+        <ul className="m-0 mt-3 list-none space-y-2 p-0">
+          {displayRoots.map((node) => (
+            <li key={node.id} className="m-0 rounded-2xl border border-[var(--cm-border)] bg-[var(--cm-page-bg)] p-2">
+              <CommunityCommentItem
+                node={node}
+                viewerUserId={viewerUserId}
+                viewerIsAdmin={viewerIsAdmin}
+                onLike={onCommentLike}
+                onEdit={onCommentEdit}
+                onDelete={onCommentDelete}
+                replyOpenCommentId={replyOpenCommentId}
+                onReplyOpenChange={setReplyOpenCommentId}
+                onSubmitReply={onSubmitReply}
+                commentBusy={commentBusy}
+              />
+            </li>
+          ))}
+          <div ref={endRef} />
+        </ul>
+      )}
+    </CommunityCard>
   );
 }

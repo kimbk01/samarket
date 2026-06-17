@@ -12,19 +12,19 @@ export function CommunityPostDetailTags({ tags }: Props) {
   if (tags.length === 0) return null;
 
   return (
-    <div className="px-4 pt-5">
-      <p className="mb-2 text-[12px] font-normal text-[#6B7280]">{t("community_recommended_tags")}</p>
+    <div className="mt-4 border-t border-[var(--cm-border)] pt-4">
+      <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">{t("community_recommended_tags")}</p>
       <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
-        {tags.map((t) => {
-          const q = t.startsWith("#") ? t.slice(1) : t;
+        {tags.map((tag) => {
+          const q = tag.startsWith("#") ? tag.slice(1) : tag;
           const href = `/philife?tag=${encodeURIComponent(q)}`;
           return (
-            <li key={t}>
+            <li key={tag}>
               <Link
                 href={href}
-                className="text-[14px] font-semibold text-[#7360F2] hover:underline active:opacity-80"
+                className="inline-block rounded-full bg-[var(--cm-primary-soft)] px-3 py-1 text-[13px] font-semibold text-[var(--cm-primary)] hover:underline active:opacity-80"
               >
-                {t.startsWith("#") ? t : `#${t}`}
+                {tag.startsWith("#") ? tag : `#${tag}`}
               </Link>
             </li>
           );

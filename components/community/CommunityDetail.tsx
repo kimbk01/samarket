@@ -2,31 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getCurrentUser, getHydrationSafeCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { isSameUserId } from "@/lib/auth/same-user-id";
-import type { NeighborhoodCommentNode, NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
+import type { NeighborhoodFeedPostDTO, NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { createCommunityFeedPostReport } from "@/lib/reports/createCommunityFeedPostReport";
-import {
-  fetchCommunityPostCommentsDeduped,
-  invalidateCommunityPostCommentsDeduped,
-} from "@/lib/community/fetch-community-post-comments-deduped";
 import { NeighborFollowButton } from "./NeighborFollowButton";
-import { UserBlockButton } from "./UserBlockButton";
 import {
   philifeNeighborhoodPostUrl,
-  philifePostCommentLikeUrl,
-  philifePostCommentUrl,
-  philifePostCommentsUrl,
   philifePostLikeUrl,
   philifePostViewUrl,
 } from "@domain/philife/api";
-import { appendReplyToCommentTree, updateCommentInTree } from "@/lib/neighborhood/comment-tree";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { AdApplyButton } from "@/components/ads/AdApplyButton";
-import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
+import { usePhilifePostComments } from "@/hooks/use-philife-post-comments";
 import {
   recordRouteEntryFetchNetworkFromResources,
   recordRouteEntryFirstContentRender,
@@ -49,32 +39,20 @@ import { CommunityCommentSection } from "./post-detail/CommunityCommentSection";
 import { CommunityRelatedAlertTags } from "./post-detail/CommunityRelatedAlertTags";
 import { CommunityInlineAdCard } from "./post-detail/CommunityInlineAdCard";
 import { CommunitySimilarPostsSection } from "./post-detail/CommunitySimilarPostsSection";
-import { MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { CommunityShareSheet } from "./share/CommunityShareSheet";
+import { useCommunityPostShare } from "@/lib/community/share/use-community-post-share";
 import {
-  COMMUNITY_BUTTON_PRIMARY_CLASS,
   COMMUNITY_BUTTON_SECONDARY_CLASS,
   COMMUNITY_MODAL_PANEL_CLASS,
   COMMUNITY_OVERLAY_BACKDROP_CLASS,
-  PHILIFE_DETAIL_PAGE_ROOT_CLASS,
-  PHILIFE_FEED_INSET_X_CLASS,
-  PHILIFE_DETAIL_POST_SLAB_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
+import { CommunityCard } from "./ui/CommunityCard";
+import { CommunityNeighborPrompt } from "./ui/CommunityNeighborPrompt";
+import { CM_INPUT_CLASS, CM_BTN_PRIMARY_CLASS } from "@/lib/community/community-ui-classes";
 import { useRequireAuthAction } from "@/hooks/use-require-auth-action";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCommunityTopicUILabel } from "@/lib/i18n/use-community-topic-ui-label";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
-
-function countNeighborhoodCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
-  let n = 0;
-  const walk = (arr: NeighborhoodCommentNode[]) => {
-    for (const x of arr) {
-      n += 1;
-      if (x.children.length) walk(x.children);
-    }
-  };
-  walk(nodes);
-  return n;
-}
 
 const meetingToolbarBtn =
   "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
@@ -83,48 +61,52 @@ const meetingToolbarWrap =
 export function CommunityDetail({
   post,
   meeting,
-  initialComments,
-  initialCommentsLoaded = false,
   viewerJoinedMeeting = false,
   initialRouteTotalMs,
   similarPosts = [],
 }: {
   post: NeighborhoodFeedPostDTO;
   meeting: NeighborhoodMeetingDetailDTO | null;
-  initialComments: NeighborhoodCommentNode[];
-  initialCommentsLoaded?: boolean;
   viewerJoinedMeeting?: boolean;
   initialRouteTotalMs?: number;
   similarPosts?: NeighborhoodFeedPostDTO[];
 }) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const router = useRouter();
   const requireAction = useRequireAuthAction();
-  const pathname = usePathname();
-  const [postUrl, setPostUrl] = useState("");
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const viewerIsAdmin = !!me && isAdminUser(me);
-  const [comments, setComments] = useState(initialComments);
-  const [commentsLoading, setCommentsLoading] = useState(
-    !initialCommentsLoaded && initialComments.length === 0
-  );
+  const {
+    comments,
+    loading: commentsLoading,
+    actionBusy: commentActionBusy,
+    submitError: commentSubmitErr,
+    likeError: commentLikeErr,
+    commentText,
+    setCommentText,
+    focusCommentId,
+    scrollSig,
+    displayCommentCount,
+    submitRootComment,
+    submitReply,
+    likeComment,
+    editComment,
+    deleteComment,
+    clearSubmitError,
+  } = usePhilifePostComments(post.id);
   const [likeCount, setLikeCount] = useState(post.like_count);
+  const [likedByViewer, setLikedByViewer] = useState(post.viewer?.liked_by_viewer ?? false);
+  const [savedByViewer, setSavedByViewer] = useState(post.viewer?.saved_by_viewer ?? false);
+  const [saveBusy, setSaveBusy] = useState(false);
   const [viewCount, setViewCount] = useState(post.view_count);
   const [busy, setBusy] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [commentSubmitErr, setCommentSubmitErr] = useState("");
   const [likeActionErr, setLikeActionErr] = useState("");
-  const [scrollSig, setScrollSig] = useState(0);
-  const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportErr, setReportErr] = useState("");
   const [deleteErr, setDeleteErr] = useState("");
-  const mountedAtRef = useRef<number>(perfNow());
-  const firstCommentsReadyLoggedRef = useRef(false);
-  const commentsFetchDoneAtRef = useRef<number | null>(null);
-  const commentsSetAtRef = useRef<number | null>(null);
+  const [actionToast, setActionToast] = useState<string | null>(null);
   const articleRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -142,9 +124,11 @@ export function CommunityDetail({
   }, [mounted, post.id]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    setPostUrl(`${window.location.origin}${pathname || ""}`);
-  }, [pathname]);
+    setLikeCount(post.like_count);
+    setViewCount(post.view_count);
+    setLikedByViewer(post.viewer?.liked_by_viewer ?? false);
+    setSavedByViewer(post.viewer?.saved_by_viewer ?? false);
+  }, [post.id, post.like_count, post.view_count, post.viewer?.liked_by_viewer, post.viewer?.saved_by_viewer]);
 
   const postCategoryLabel = useCommunityTopicUILabel(
     language,
@@ -163,11 +147,7 @@ export function CommunityDetail({
     () => extractPostDetailHashtagsForDisplay(post.title, post.content, Boolean(meeting) || post.is_meetup),
     [post.title, post.content, meeting, post.is_meetup]
   );
-
-  useEffect(() => {
-    setComments(initialComments);
-    setCommentsLoading(!initialCommentsLoaded && initialComments.length === 0);
-  }, [initialComments, initialCommentsLoaded, post.id]);
+  const communityShare = useCommunityPostShare(post, postCategoryLabel);
 
   useLayoutEffect(() => {
     recordRouteEntryRouteTotalMs("community_detail", initialRouteTotalMs);
@@ -230,116 +210,10 @@ export function CommunityDetail({
     return () => window.clearTimeout(t);
   }, [post.id]);
 
-  const displayCommentCount = useMemo(() => countNeighborhoodCommentNodesFlat(comments), [comments]);
-
   const meForComposer = useMemo(
     () => (me ? { name: me.nickname || t("community_me"), avatarUrl: me.avatar_url ?? null } : null),
     [me, t]
   );
-
-  const refreshComments = useCallback(
-    async (opts?: { silent?: boolean; force?: boolean }) => {
-      const startedAt = perfNow();
-      const silent = opts?.silent === true;
-      if (!silent) setCommentsLoading((prev) => (prev ? prev : true));
-      try {
-        const result = await fetchCommunityPostCommentsDeduped(post.id, { force: opts?.force === true });
-        const data = result.json as {
-          ok?: boolean;
-          tree?: NeighborhoodCommentNode[];
-          comments?: {
-            id: string;
-            post_id: string;
-            user_id: string;
-            parent_id: string | null;
-            content: string;
-            created_at: string;
-            author_name: string;
-            like_count?: number;
-            liked_by_viewer?: boolean;
-            updated_at?: string;
-            is_edited?: boolean;
-          }[];
-        };
-        if (result.status < 200 || result.status >= 300 || !data.ok) return;
-        const roots = Array.isArray(data.tree)
-          ? data.tree
-          : Array.isArray(data.comments)
-            ? (() => {
-                const nodes: NeighborhoodCommentNode[] = data.comments!.map((r) => {
-                  const created = r.created_at;
-                  const upd = (r as { updated_at?: string }).updated_at ?? created;
-                  const t0 = new Date(created).getTime();
-                  const t1 = new Date(upd).getTime();
-                  return {
-                    id: r.id,
-                    post_id: r.post_id,
-                    user_id: r.user_id,
-                    parent_id: r.parent_id,
-                    content: r.content,
-                    created_at: created,
-                    updated_at: upd,
-                    is_edited:
-                      typeof r.is_edited === "boolean"
-                        ? r.is_edited
-                        : !Number.isNaN(t0) && !Number.isNaN(t1) && t1 - t0 > 2000,
-                    author_name: r.author_name,
-                    like_count: Math.max(0, Number(r.like_count ?? 0)),
-                    liked_by_viewer: Boolean(r.liked_by_viewer),
-                    children: [],
-                  };
-                });
-                const byId = new Map(nodes.map((x) => [x.id, x]));
-                const builtRoots: NeighborhoodCommentNode[] = [];
-                for (const x of nodes) {
-                  if (x.parent_id && byId.has(x.parent_id)) {
-                    byId.get(x.parent_id)!.children.push(x);
-                  } else {
-                    builtRoots.push(x);
-                  }
-                }
-                return builtRoots;
-              })()
-            : null;
-        if (!roots) return;
-        commentsFetchDoneAtRef.current = perfNow();
-        setComments(roots);
-        commentsSetAtRef.current = perfNow();
-        logClientPerf("community-detail.comments", {
-          postId: post.id,
-          silent,
-          count: roots.length,
-          elapsedMs: Math.round(perfNow() - startedAt),
-        });
-      } finally {
-        if (!silent) setCommentsLoading((prev) => (prev ? false : prev));
-      }
-    },
-    [post.id]
-  );
-
-  useEffect(() => {
-    if (initialCommentsLoaded || initialComments.length > 0) return;
-    void refreshComments();
-  }, [initialCommentsLoaded, initialComments.length, refreshComments]);
-
-  useEffect(() => {
-    if (firstCommentsReadyLoggedRef.current) return;
-    if (commentsLoading) return;
-    firstCommentsReadyLoggedRef.current = true;
-    const now = perfNow();
-    const fetchDoneAt = commentsFetchDoneAtRef.current;
-    const commentsSetAt = commentsSetAtRef.current;
-    logClientPerf("community-detail.first-ready", {
-      postId: post.id,
-      commentsCount: comments.length,
-      sinceMountMs: Math.round(now - mountedAtRef.current),
-      fetchDoneToReadyMs:
-        fetchDoneAt != null ? Math.max(0, Math.round(now - fetchDoneAt)) : null,
-      commentsSetToReadyMs:
-        commentsSetAt != null ? Math.max(0, Math.round(now - commentsSetAt)) : null,
-    });
-  }, [commentsLoading, comments.length, post.id]);
 
   useEffect(() => {
     const root = articleRef.current;
@@ -368,196 +242,93 @@ export function CommunityDetail({
   );
 
   const onLike = async () => {
+    if (!me?.id) {
+      const n = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+      void requireAction("community_like", () => undefined, { next: n });
+      return;
+    }
+    if (busy) return;
     const prevLikeCount = likeCount;
+    const prevLiked = likedByViewer;
+    const nextLiked = !prevLiked;
     setBusy(true);
     setLikeActionErr("");
-    setLikeCount((count) => count + 1);
+    setLikedByViewer(nextLiked);
+    setLikeCount((count) => Math.max(0, count + (nextLiked ? 1 : -1)));
     try {
-      const res = await fetch(philifePostLikeUrl(post.id), { method: "POST" });
-      const data = (await res.json()) as { ok?: boolean; like_count?: number; code?: string };
-      if (data.ok && typeof data.like_count === "number") {
+      const res = await fetch(philifePostLikeUrl(post.id), { method: "POST", credentials: "include" });
+      const data = (await res.json()) as { ok?: boolean; like_count?: number; liked?: boolean; code?: string };
+      if (data.ok && typeof data.like_count === "number" && typeof data.liked === "boolean") {
         setLikeCount(data.like_count);
+        setLikedByViewer(data.liked);
       } else {
         setLikeCount(prevLikeCount);
+        setLikedByViewer(prevLiked);
         const err = resolveLikeBlockedError(res, data);
         if (err) setLikeActionErr(err);
       }
     } catch {
       setLikeCount(prevLikeCount);
+      setLikedByViewer(prevLiked);
     } finally {
       setBusy(false);
     }
   };
 
+  const onSave = async () => {
+    if (!me?.id) {
+      const n = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+      void requireAction("community_like", () => undefined, { next: n });
+      return;
+    }
+    if (saveBusy) return;
+    const prevSaved = savedByViewer;
+    setSaveBusy(true);
+    setSavedByViewer(!prevSaved);
+    try {
+      const res = await fetch(`/api/community/posts/${encodeURIComponent(post.id)}/save`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = (await res.json()) as { ok?: boolean; saved?: boolean; error?: string };
+      if (data.ok && typeof data.saved === "boolean") {
+        setSavedByViewer(data.saved);
+      } else {
+        setSavedByViewer(prevSaved);
+        setActionToast(
+          safeT("community_engagement_action_failed", {
+            fallbackKo: "잠시 후 다시 시도해 주세요.",
+            fallbackEn: "Please try again in a moment.",
+          })
+        );
+        window.setTimeout(() => setActionToast(null), 3200);
+      }
+    } catch {
+      setSavedByViewer(prevSaved);
+    } finally {
+      setSaveBusy(false);
+    }
+  };
+
   const onCommentLike = useCallback(
-    async (commentId: string) => {
-      if (!me?.id) {
-        const n = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
-        void requireAction("community_like", () => undefined, { next: n });
-        return;
-      }
-      try {
-        const res = await fetch(philifePostCommentLikeUrl(post.id, commentId), { method: "POST" });
-        const data = (await res.json()) as { ok?: boolean; liked?: boolean; like_count?: number; code?: string };
-        if (data.ok && typeof data.like_count === "number" && typeof data.liked === "boolean") {
-          setComments((cur) => updateCommentInTree(cur, commentId, { liked_by_viewer: data.liked, like_count: data.like_count }));
-        } else {
-          const err = resolveLikeBlockedError(res, data);
-          if (err) {
-            setCommentSubmitErr(err);
-          } else {
-            invalidateCommunityPostCommentsDeduped(post.id);
-            await refreshComments({ silent: true, force: true });
-          }
-        }
-      } catch {
-        invalidateCommunityPostCommentsDeduped(post.id);
-        await refreshComments({ silent: true, force: true });
-      }
-    },
-    [me?.id, post.id, refreshComments, requireAction, resolveLikeBlockedError]
+    (commentId: string) => void likeComment(commentId, me?.id ?? null),
+    [likeComment, me?.id]
   );
 
   const onCommentEdit = useCallback(
-    async (commentId: string, nextContent: string) => {
+    (commentId: string, content: string) => {
       if (!me?.id) return;
-      const t = nextContent.trim();
-      if (!t) return;
-      setBusy(true);
-      try {
-        const res = await fetch(philifePostCommentUrl(post.id, commentId), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: t }),
-        });
-        const data = (await res.json()) as { ok?: boolean };
-        if (res.ok && data.ok) {
-          const now = new Date().toISOString();
-          setComments((cur) => updateCommentInTree(cur, commentId, { content: t, is_edited: true, updated_at: now }));
-        } else {
-          invalidateCommunityPostCommentsDeduped(post.id);
-          await refreshComments({ silent: true, force: true });
-        }
-      } finally {
-        setBusy(false);
-      }
+      void editComment(commentId, content);
     },
-    [me?.id, post.id, refreshComments]
+    [editComment, me?.id]
   );
 
   const onCommentDelete = useCallback(
-    async (commentId: string) => {
+    (commentId: string) => {
       if (!me?.id) return;
-      if (!window.confirm(t("community_confirm_delete_comment"))) return;
-      setBusy(true);
-      try {
-        const res = await fetch(philifePostCommentUrl(post.id, commentId), { method: "DELETE" });
-        const data = (await res.json()) as { ok?: boolean };
-        if (res.ok && data.ok) {
-          /** 하드 삭제 응답이어도 UI는 tombstone으로 남겨 "삭제됨" 문구를 유지 */
-          setComments((cur) =>
-            updateCommentInTree(cur, commentId, {
-              content: t("community_comment_deleted"),
-              is_edited: false,
-              like_count: 0,
-              liked_by_viewer: false,
-            })
-          );
-          invalidateCommunityPostCommentsDeduped(post.id);
-        }
-      } finally {
-        setBusy(false);
-      }
+      void deleteComment(commentId);
     },
-    [me?.id, post.id, t]
-  );
-
-  const resolveCommentSubmitError = useCallback(
-    (res: Response, data: { ok?: boolean; error?: string; code?: string }) => {
-      if (data.code === "community_comment_blocked_relation" || res.status === 403) {
-        return t("community_comment_blocked_relation");
-      }
-      const msg = typeof data.error === "string" ? data.error.trim() : "";
-      return msg || t("community_comment_locked");
-    },
-    [t]
-  );
-
-  const submitComment = useCallback(async () => {
-    const trimmed = commentText.trim();
-    if (!trimmed) return;
-    setBusy(true);
-    setCommentSubmitErr("");
-    try {
-      const res = await fetch(philifePostCommentsUrl(post.id), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: trimmed }),
-      });
-      const data = (await res.json()) as { ok?: boolean; error?: string; code?: string };
-      if (data.ok) {
-        setCommentText("");
-        invalidateCommunityPostCommentsDeduped(post.id);
-        await refreshComments({ silent: true, force: true });
-        setScrollSig((s) => s + 1);
-      } else {
-        setCommentSubmitErr(resolveCommentSubmitError(res, data));
-      }
-    } finally {
-      setBusy(false);
-    }
-  }, [commentText, post.id, refreshComments, resolveCommentSubmitError]);
-
-  const submitReplyComment = useCallback(
-    async (parentId: string, content: string) => {
-      const trimmed = content.trim();
-      if (!trimmed) return;
-      setBusy(true);
-      setCommentSubmitErr("");
-      try {
-        const res = await fetch(philifePostCommentsUrl(post.id), {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: trimmed, parentId }),
-        });
-        const data = (await res.json()) as { ok?: boolean; id?: string; error?: string; code?: string };
-        if (data.ok) {
-          const now = new Date().toISOString();
-          const insertedId =
-            typeof data.id === "string" && data.id.trim()
-              ? data.id.trim()
-              : `local-reply:${parentId}:${Date.now()}`;
-          const optimistic: NeighborhoodCommentNode = {
-            id: insertedId,
-            post_id: post.id,
-            user_id: me?.id ?? "unknown",
-            parent_id: parentId,
-            content: trimmed,
-            created_at: now,
-            updated_at: now,
-            is_edited: false,
-            author_name: me?.nickname?.trim() || me?.display_name?.trim() || t("community_me"),
-            like_count: 0,
-            liked_by_viewer: false,
-            children: [],
-          };
-          setComments((cur) => appendReplyToCommentTree(cur, parentId, optimistic));
-          setFocusCommentId(null);
-          if (typeof requestAnimationFrame === "function") {
-            requestAnimationFrame(() => setFocusCommentId(parentId));
-          } else {
-            setFocusCommentId(parentId);
-          }
-          invalidateCommunityPostCommentsDeduped(post.id);
-          void refreshComments({ silent: true, force: true });
-        } else {
-          setCommentSubmitErr(resolveCommentSubmitError(res, data));
-        }
-      } finally {
-        setBusy(false);
-      }
-    },
-    [post.id, refreshComments, me?.id, me?.nickname, me?.display_name, t, resolveCommentSubmitError]
+    [deleteComment, me?.id]
   );
 
   const onDeletePost = async () => {
@@ -583,6 +354,8 @@ export function CommunityDetail({
       if (res.ok) {
         setReportOpen(false);
         setReportText("");
+        setActionToast(t("community_report_submitted"));
+        window.setTimeout(() => setActionToast(null), 3200);
       } else setReportErr(res.error);
     } finally {
       setBusy(false);
@@ -613,29 +386,31 @@ export function CommunityDetail({
     : undefined;
 
   return (
-    <div className={`${PHILIFE_DETAIL_PAGE_ROOT_CLASS} ${MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS}`}>
-      <CommunityPostDetailHeader
-        titleText={tier1Title}
-        backHref={backToFeedHref}
-        onOpenReport={openReport}
-        onDelete={onDeletePost}
-        canDelete={!!me?.id && me.id === post.author_id}
-        canReport={!me?.id || me.id !== post.author_id}
-        postUrl={postUrl}
-      />
+    <div className="pb-[max(1rem,env(safe-area-inset-bottom))]">
+      <CommunityPostDetailHeader titleText={tier1Title} backHref={backToFeedHref} />
 
-      <article ref={articleRef} className={`w-full min-w-0 ${PHILIFE_FEED_INSET_X_CLASS}`}>
-        <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} w-full min-w-0`}>
-          <div className="max-w-3xl">
+      <article ref={articleRef} className="w-full min-w-0 px-4 pb-6">
+        <div className="mx-auto max-w-3xl">
+          <CommunityCard>
           <CommunityPostCategoryRow
             label={meeting ? t("community_meeting_label") : postCategoryLabel}
             isQuestion={post.is_question && !meeting}
           />
           <CommunityPostDetailAuthorRow
             authorName={post.author_name}
+            authorAvatarUrl={post.author_avatar_url}
             locationLabel={post.location_label}
             createdAt={post.created_at}
             subline={authorSubline}
+            showMoreMenu
+            postId={post.id}
+            targetUserId={post.author_id}
+            canReport={!me?.id || me.id !== post.author_id}
+            onReport={openReport}
+            isOwnPost={!!me?.id && me.id === post.author_id}
+            onOwnShare={() => communityShare.openSheet()}
+            onOwnDelete={() => void onDeletePost()}
+            ownDeleteBusy={busy}
           />
           <CommunityPostDetailBody
             post={post}
@@ -646,25 +421,39 @@ export function CommunityDetail({
 
           {!meeting ? <CommunityPostDetailTags tags={hashtags} /> : null}
           {!meeting ? (
-            <CommunityPostDetailStatsActions
-              postId={post.id}
-              viewCount={viewCount}
-              likeCount={likeCount}
-              busy={busy}
-              onLike={onLike}
-              showSocialActions={!!me?.id && me.id !== post.author_id}
-              socialTargetUserId={!meeting ? post.author_id : null}
-            />
+            <>
+              <CommunityPostDetailStatsActions
+                postId={post.id}
+                viewCount={viewCount}
+                likeCount={likeCount}
+                likedByViewer={likedByViewer}
+                savedByViewer={savedByViewer}
+                busy={busy}
+                saveBusy={saveBusy}
+                onLike={() => void onLike()}
+                onSave={() => void onSave()}
+                onShare={() => communityShare.openSheet()}
+              />
+              {me?.id && me.id !== post.author_id ? (
+                <CommunityNeighborPrompt authorName={post.author_name} targetUserId={post.author_id} />
+              ) : null}
+            </>
           ) : null}
-          {likeActionErr ? (
-            <p className="px-4 pb-2 text-sm text-[#EF4444]" role="alert">
-              {likeActionErr}
+          {likeActionErr || commentLikeErr ? (
+            <p className="mt-2 text-sm text-[var(--cm-danger)]" role="alert">
+              {likeActionErr || commentLikeErr}
             </p>
           ) : null}
 
           {meeting ? (
-            <div className="grid grid-cols-3 gap-2 border-b border-[#E5E7EB] bg-[#F7F8FA] px-4 py-4 sm:grid-cols-6">
-              <button type="button" disabled={busy} onClick={() => void onLike()} className={meetingToolbarBtn}>
+            <div className="mt-4 grid grid-cols-3 gap-2 border-t border-[var(--cm-border)] pt-4 sm:grid-cols-5">
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onLike()}
+                className={`${meetingToolbarBtn} ${likedByViewer ? "border-[var(--cm-primary)] bg-[var(--cm-primary)] text-white" : ""}`}
+                aria-pressed={likedByViewer}
+              >
                 {t("community_stat_likes", { count: likeCount })}
               </button>
               {me?.id && me.id !== post.author_id ? (
@@ -674,17 +463,10 @@ export function CommunityDetail({
               ) : (
                 <div className="min-h-[44px]" aria-hidden />
               )}
-              {me?.id && me.id !== post.author_id ? (
-                <div className={meetingToolbarWrap}>
-                  <UserBlockButton targetUserId={post.author_id} />
-                </div>
-              ) : (
-                <div className="min-h-[44px]" aria-hidden />
-              )}
               {me?.id ? (
                 <Link
                   href={philifeAppPaths.meeting(meeting.id)}
-                  className={`${meetingToolbarBtn} border-[#7360F2] bg-[#7360F2] text-white hover:bg-[#5B46E8]`}
+                  className={`${meetingToolbarBtn} border-[var(--cm-primary)] bg-[var(--cm-primary)] text-white hover:bg-[var(--cm-primary-hover)]`}
                 >
                   {t("community_inquiry")}
                 </Link>
@@ -708,7 +490,7 @@ export function CommunityDetail({
                     setReportErr("");
                     setReportOpen(true);
                   }}
-                  className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-[#E25555]`}
+                  className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-[var(--cm-danger)]`}
                 >
                   {t("community_report")}
                 </button>
@@ -721,7 +503,7 @@ export function CommunityDetail({
             </div>
           ) : null}
           {meeting && me?.id && me.id === post.author_id ? (
-            <div className="border-b border-[#E5E7EB] px-4 py-3">
+            <div className="mt-4 border-t border-[var(--cm-border)] pt-3">
               <button
                 type="button"
                 disabled={busy}
@@ -734,12 +516,13 @@ export function CommunityDetail({
           ) : null}
 
           {me?.id && me.id === post.author_id && (
-            <div className="border-b border-[#E5E7EB] px-4 py-4">
-              <p className="mb-2 text-[12px] font-normal text-[#6B7280]">{t("community_my_post_ads")}</p>
+            <div className="mt-4 border-t border-[var(--cm-border)] pt-4">
+              <p className="mb-2 text-[12px] font-normal text-[var(--cm-text-muted)]">{t("community_my_post_ads")}</p>
               <AdApplyButton postId={post.id} postTitle={post.title} boardKey="plife" />
             </div>
           )}
-          {deleteErr ? <p className="px-4 pb-2 text-[12px] text-[#E25555]">{deleteErr}</p> : null}
+          {deleteErr ? <p className="mt-2 text-[12px] text-[var(--cm-danger)]">{deleteErr}</p> : null}
+          </CommunityCard>
 
             <CommunityCommentSection
             roots={comments}
@@ -757,8 +540,8 @@ export function CommunityDetail({
             onCommentLike={onCommentLike}
             onCommentEdit={onCommentEdit}
             onCommentDelete={onCommentDelete}
-            onSubmitReply={submitReplyComment}
-            commentBusy={busy}
+            onSubmitReply={submitReply}
+            commentBusy={commentActionBusy}
             composerError={commentSubmitErr}
             composer={
               !commentsLocked
@@ -766,11 +549,11 @@ export function CommunityDetail({
                     value: commentText,
                     onChange: (v) => {
                       setCommentText(v);
-                      if (commentSubmitErr) setCommentSubmitErr("");
+                      if (commentSubmitErr) clearSubmitError();
                     },
-                    onSubmit: () => void submitComment(),
-                    busy,
-                    disabled: !me?.id || busy,
+                    onSubmit: () => void submitRootComment(),
+                    busy: commentActionBusy,
+                    disabled: !me?.id || commentActionBusy,
                     isLoggedIn: !!me?.id,
                     placeholder: t("community_comment_placeholder_detail"),
                     me: meForComposer,
@@ -783,7 +566,6 @@ export function CommunityDetail({
             {meeting && viewerJoinedMeeting && hashtags.length > 0 ? <CommunityRelatedAlertTags tags={hashtags} /> : null}
             <CommunityInlineAdCard />
             <CommunitySimilarPostsSection currentPostId={post.id} posts={similarPosts} />
-          </div>
         </div>
       </article>
 
@@ -796,14 +578,14 @@ export function CommunityDetail({
             onClick={() => setReportOpen(false)}
           />
           <div className={`${COMMUNITY_MODAL_PANEL_CLASS} relative z-50`}>
-            <p className="text-[16px] font-bold leading-[1.35] text-[#1F2430]">{t("community_report_post")}</p>
+            <p className="text-[16px] font-bold leading-[1.35] text-[var(--cm-text)]">{t("community_report_post")}</p>
             <textarea
               value={reportText}
               onChange={(e) => setReportText(e.target.value)}
               rows={4}
-              className="mt-3 min-h-[96px] w-full rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-2.5 text-[14px] font-normal leading-[1.5] text-[#1F2430] placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-[#9CA3AF] outline-none focus:border-[#7360F2] focus:ring-1 focus:ring-[#7360F2]/20"
+              className={`mt-3 min-h-[96px] w-full ${CM_INPUT_CLASS}`}
             />
-            {reportErr ? <p className="mt-1 text-[12px] text-[#E25555]">{reportErr}</p> : null}
+            {reportErr ? <p className="mt-1 text-[12px] text-[var(--cm-danger)]">{reportErr}</p> : null}
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
@@ -816,12 +598,20 @@ export function CommunityDetail({
                 type="button"
                 disabled={busy || !reportText.trim()}
                 onClick={() => void onReport()}
-                className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
+                className={`flex-1 ${CM_BTN_PRIMARY_CLASS}`}
               >
                 {t("community_receive")}
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+      <CommunityShareSheet {...communityShare} />
+      {actionToast ? (
+        <div className="pointer-events-none fixed inset-x-0 bottom-[max(5rem,env(safe-area-inset-bottom))] z-[1400] flex justify-center px-4">
+          <p className="max-w-sm rounded-full bg-[#1f2937] px-4 py-2.5 text-center text-[14px] font-medium text-white shadow-lg">
+            {actionToast}
+          </p>
         </div>
       ) : null}
     </div>

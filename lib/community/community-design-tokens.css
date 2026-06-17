@@ -1,0 +1,49 @@
+/**
+ * 필라이프(커뮤니티) 전용 UI — Starbucks Green + Facebook 레이아웃
+ * `[data-community-ui]` 스코프만 적용 (앱 전역 --sam-* 변경 없음)
+ */
+[data-community-ui] {
+  --cm-primary: #006241;
+  --cm-primary-hover: #00754a;
+  --cm-primary-soft: #e6f2ec;
+  --cm-page-bg: #f7f7f5;
+  --cm-card-bg: #ffffff;
+  --cm-border: #e6e6e6;
+  --cm-text: #1f1f1f;
+  --cm-text-secondary: #666666;
+  --cm-text-muted: #8a8a8a;
+  --cm-danger: #d32f2f;
+  --cm-radius-card: 22px;
+  --cm-radius-input: 24px;
+  --cm-radius-cta: 20px;
+  --cm-shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --cm-action-h: 48px;
+  --cm-font-page-title: 16px;
+  --cm-font-author: 15px;
+  --cm-font-handle: 13px;
+  --cm-font-meta: 12px;
+  --cm-font-body: 15px;
+  --cm-font-button: 13px;
+  --cm-font-comment: 14px;
+  --cm-lh-body: 1.6;
+  --cm-lh-comment: 1.6;
+  color: var(--cm-text);
+
+  /* sam-* 브리지 — 기존 sam-btn/sam-card 등이 커뮤니티 스코프에서 녹색 톤 사용 */
+  --sam-primary: var(--cm-primary);
+  --sam-primary-hover: var(--cm-primary-hover);
+  --sam-primary-soft: var(--cm-primary-soft);
+  --sam-primary-border: color-mix(in srgb, var(--cm-primary) 22%, var(--cm-card-bg));
+  --sam-bg-app: var(--cm-page-bg);
+  --sam-bg-surface: var(--cm-card-bg);
+  --sam-border-default: var(--cm-border);
+  --sam-text-primary: var(--cm-text);
+  --sam-text-secondary: var(--cm-text-secondary);
+  --sam-text-muted: var(--cm-text-muted);
+  --sam-fg: var(--cm-text);
+}
+
+[data-community-ui] .cm-page {
+  background-color: var(--cm-page-bg);
+  min-height: 100vh;
+}

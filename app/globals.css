@@ -1,5 +1,6 @@
 /* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css·app-shell.css 에서만 정의) */
 @import "./design-tokens.css";
+@import "../lib/community/community-design-tokens.css";
 @import "./delivery-tokens.css";
 @import "./delivery-components.css";
 @import "./delivery-order-confirm-modal.css";
@@ -12,6 +13,7 @@
 @import "./owner-compact-shell.css";
 @import "./delivery-domain-switcher.css";
 @import "./auth-oauth-panel.css";
+@import "./community-share-sheet.css";
 /* 단일 VF 파일 — dynamic-subset 은 다수 @font-face 로 Firefox "name records are not sorted"·preload 노이즈 유발 */
 @import "../node_modules/pretendard/dist/web/variable/pretendardvariable.css";
 @import "../node_modules/tailwindcss";

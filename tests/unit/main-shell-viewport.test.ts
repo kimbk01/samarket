@@ -163,6 +163,29 @@ describe("mypage address tier1 titles", () => {
   });
 });
 
+describe("philife neighborhood post detail shell", () => {
+  const postId = "0b4b9807-ca82-4bbd-aa97-012833581ba2";
+
+  it("/philife/{uuid} keeps bottom nav with scroll padding", () => {
+    const f = resolveConditionalAppShellFlags(`/philife/${postId}`, false);
+    expect(f.isPhilifeNeighborhoodPostDetail).toBe(true);
+    expect(f.showBottomNav).toBe(true);
+    expect(f.mainBottomClass).not.toBe("pb-4");
+  });
+
+  it("/community/posts/{uuid} keeps bottom nav", () => {
+    const f = resolveConditionalAppShellFlags(`/community/posts/${postId}`, false);
+    expect(f.isPhilifeNeighborhoodPostDetail).toBe(true);
+    expect(f.showBottomNav).toBe(true);
+  });
+
+  it("/philife feed keeps bottom nav", () => {
+    const f = resolveConditionalAppShellFlags("/philife", false);
+    expect(f.isPhilifeNeighborhoodPostDetail).toBe(false);
+    expect(f.showBottomNav).toBe(true);
+  });
+});
+
 describe("mypage address shell", () => {
   it("/mypage/addresses hides main bottom nav and locks main viewport", () => {
     const f = resolveConditionalAppShellFlags("/mypage/addresses", true);

@@ -1,97 +1,61 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Eye, ThumbsUp, Bookmark } from "lucide-react";
-import { isPostSavedLocal, setPostSavedLocal } from "./post-detail-utils";
-import { NeighborFollowButton } from "../NeighborFollowButton";
-import { UserBlockButton } from "../UserBlockButton";
+import { Eye } from "lucide-react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatAppNumber } from "@/lib/i18n/locale-for-app-language";
+import { CM_META_CLASS } from "@/lib/community/community-ui-classes";
+import { CommunityActionBar } from "@/components/community/ui/CommunityActionBar";
 
 type Props = {
   postId: string;
   viewCount: number;
   likeCount: number;
+  likedByViewer?: boolean;
+  savedByViewer?: boolean;
   busy: boolean;
+  saveBusy?: boolean;
   onLike: () => void;
-  /** 본인이 아닌 글에서만: 이웃 / 차단 */
-  socialTargetUserId?: string | null;
-  showSocialActions?: boolean;
+  onSave: () => void;
+  onShare: () => void;
 };
 
 export function CommunityPostDetailViewLine({ viewCount }: { viewCount: number }) {
   const { t, language } = useI18n();
   return (
-    <div className="flex items-center gap-1.5 px-4 pt-4 text-[12px] font-normal leading-[1.4] text-[#6B7280]">
+    <div className={`mt-4 flex items-center gap-1.5 ${CM_META_CLASS}`}>
       <Eye className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
-      <p>
-        {t("community_views_count_line", { count: formatAppNumber(viewCount, language) })}
-      </p>
+      <p>{t("community_views_read_line", { count: formatAppNumber(viewCount, language) })}</p>
     </div>
   );
 }
 
+/** @deprecated use CommunityActionBar directly — kept for import compatibility */
 export function CommunityPostDetailStatsActions({
   postId,
   viewCount,
   likeCount,
+  likedByViewer = false,
+  savedByViewer = false,
   busy,
+  saveBusy = false,
   onLike,
-  socialTargetUserId,
-  showSocialActions = false,
+  onSave,
+  onShare,
 }: Props) {
-  const { t, language } = useI18n();
-  const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    const nextSaved = isPostSavedLocal(postId);
-    setSaved((prev) => (prev === nextSaved ? prev : nextSaved));
-  }, [postId]);
-
-  const toggleSave = () => {
-    const next = !saved;
-    setPostSavedLocal(postId, next);
-    setSaved(next);
-  };
-  const tid = socialTargetUserId?.trim() ?? "";
-
   return (
     <>
       <CommunityPostDetailViewLine viewCount={viewCount} />
-      <div className="mt-3 space-y-3 px-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onLike}
-            className="inline-flex min-h-11 min-w-[5.5rem] items-center justify-center gap-1.5 rounded-[4px] border border-[#7360F2] bg-[#F3F0FF] px-4 py-2 text-[14px] font-semibold text-[#7360F2] active:scale-[0.98] disabled:opacity-50"
-          >
-            <ThumbsUp className="h-4 w-4" strokeWidth={2.2} />
-            {t("community_stat_likes", { count: formatAppNumber(likeCount, language) })}
-          </button>
-          <button
-            type="button"
-            onClick={toggleSave}
-            className={`inline-flex min-h-11 min-w-[4.5rem] items-center justify-center gap-1.5 rounded-[4px] border px-4 py-2 text-[14px] font-semibold active:scale-[0.98] ${
-              saved
-                ? "border-[#7360F2] bg-[#7360F2] text-white"
-                : "border-[#E5E7EB] bg-white text-[#1F2430]"
-            }`}
-          >
-            <Bookmark className="h-4 w-4" fill={saved ? "currentColor" : "none"} strokeWidth={2} />
-            {t("community_save")}
-          </button>
-        </div>
-        {showSocialActions && tid ? (
-          <div className="flex flex-wrap items-center gap-2 border-t border-[#E5E7EB] pt-3">
-            <div className="min-w-0 flex-1 sm:max-w-[12rem]">
-              <NeighborFollowButton targetUserId={tid} />
-            </div>
-            <div className="min-w-0 flex-1 sm:max-w-[12rem]">
-              <UserBlockButton targetUserId={tid} />
-            </div>
-          </div>
-        ) : null}
-      </div>
+      <CommunityActionBar
+        postId={postId}
+        likeCount={likeCount}
+        likedByViewer={likedByViewer}
+        savedByViewer={savedByViewer}
+        busy={busy}
+        saveBusy={saveBusy}
+        onLike={onLike}
+        onSave={onSave}
+        onShare={onShare}
+      />
     </>
   );
 }

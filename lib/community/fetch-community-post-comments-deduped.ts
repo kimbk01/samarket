@@ -56,7 +56,7 @@ export function fetchCommunityPostCommentsDeduped(
     if (!opts?.force && hit && hit.expiresAt > Date.now()) {
       return hit.value;
     }
-    const res = await fetch(philifePostCommentsUrl(pid), { cache: "no-store" });
+    const res = await fetch(philifePostCommentsUrl(pid), { cache: "no-store", credentials: "include" });
     const json = (await res.json().catch(() => ({}))) as CommunityPostCommentsJson;
     const result: CommunityPostCommentsResult = { status: res.status, json };
     if (res.ok && json.ok) {

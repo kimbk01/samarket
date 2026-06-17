@@ -1,0 +1,62 @@
+/**
+ * 커뮤니티 게시글 공유 시트 — 하단 탭 상단에서 하→상 440ms, 닫을 때 상→하 360ms.
+ * 배경 딤 없음(투명 탭 영역만). 위치: `messenger-home-bottom-sheet-panel` 과 동일(탭 위).
+ */
+.community-share-sheet-host {
+  --community-share-sheet-enter-ms: 440ms;
+  --community-share-sheet-exit-ms: 360ms;
+  --community-share-sheet-easing: cubic-bezier(0.25, 0.9, 0.35, 1);
+}
+
+.community-share-sheet-panel {
+  position: absolute;
+  inset-inline: 0;
+  bottom: calc(var(--app-bottom-nav-height, 60px) + env(safe-area-inset-bottom, 0px));
+  transform: translate3d(0, 100%, 0);
+  will-change: transform;
+  touch-action: manipulation;
+}
+
+html:has(.app-bottom-nav-shell--delivery) .community-share-sheet-panel {
+  bottom: calc(
+    var(--app-bottom-nav-height, 60px) + var(--delivery-home-overhang, 0px) +
+      env(safe-area-inset-bottom, 0px)
+  );
+}
+
+html:not(:has(.app-bottom-nav-shell)) .community-share-sheet-panel {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html:has(.app-bottom-nav-shell--scroll-hidden) .community-share-sheet-panel {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.community-share-sheet-panel--nav-hidden {
+  bottom: env(safe-area-inset-bottom, 0px) !important;
+}
+
+.community-share-sheet-panel--entering {
+  transform: translate3d(0, 100%, 0);
+}
+
+.community-share-sheet-panel--entered {
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--community-share-sheet-enter-ms) var(--community-share-sheet-easing);
+}
+
+.community-share-sheet-panel--exiting {
+  transform: translate3d(0, 100%, 0);
+  transition: transform var(--community-share-sheet-exit-ms) var(--community-share-sheet-easing);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .community-share-sheet-panel--entered,
+  .community-share-sheet-panel--exiting {
+    transition: none;
+  }
+
+  .community-share-sheet-panel--entered {
+    transform: translate3d(0, 0, 0);
+  }
+}

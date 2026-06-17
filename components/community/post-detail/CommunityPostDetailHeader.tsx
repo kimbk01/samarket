@@ -1,160 +1,29 @@
 "use client";
+
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { BellOff, MoreHorizontal, Share2 } from "lucide-react";
+import { useLayoutEffect, useMemo } from "react";
+import { Tier1NotificationAnchor } from "@/components/notifications/Tier1NotificationAnchor";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
-import { philifeAppPaths } from "@domain/philife/paths";
-import { COMMUNITY_DROPDOWN_PANEL_CLASS } from "@/lib/philife/philife-flat-ui-classes";
-
-type ActionRefs = {
-  backHref: string;
-  onOpenReport: () => void;
-  onDelete?: () => void;
-  canDelete: boolean;
-  canReport: boolean;
-  postUrl: string;
-};
-
-function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
-  const { t } = useI18n();
-  const router = useRouter();
-  const [moreOpen, setMoreOpen] = useState(false);
-
-  const onShare = useCallback(async () => {
-    const url = r.current.postUrl || (typeof window !== "undefined" ? window.location.href : "");
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({ title: document.title, url });
-        return;
-      }
-    } catch {
-      /* user cancel or share failed */
-    }
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      /* ignore */
-    }
-  }, [r]);
-
-  return (
-    <div className="flex items-center gap-0.5 pr-0.5">
-      <button
-        type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-[4px] text-[#1F2430] active:bg-[#F7F8FA]"
-        aria-label={t("community_post_notify_off_aria")}
-        title={t("community_notify")}
-      >
-        <BellOff className="h-5 w-5" strokeWidth={1.8} />
-      </button>
-      <button
-        type="button"
-        className="flex h-9 w-9 items-center justify-center rounded-[4px] text-[#1F2430] active:bg-[#F7F8FA]"
-        onClick={() => void onShare()}
-        aria-label={t("community_share_aria")}
-      >
-        <Share2 className="h-5 w-5" strokeWidth={1.8} />
-      </button>
-      <div className="relative">
-        <button
-          type="button"
-          className="flex h-9 w-9 items-center justify-center rounded-[4px] text-[#1F2430] active:bg-[#F7F8FA]"
-          aria-label={t("community_more_aria")}
-          aria-expanded={moreOpen}
-          onClick={() => setMoreOpen((v) => !v)}
-        >
-          <MoreHorizontal className="h-5 w-5" strokeWidth={1.8} />
-        </button>
-        {moreOpen ? (
-          <>
-            <button
-              type="button"
-              className="fixed inset-0 z-40 cursor-default"
-              aria-label={t("common_close")}
-              onClick={() => setMoreOpen((prev) => (prev ? false : prev))}
-            />
-            <ul
-              className={`absolute right-0 top-full z-50 mt-1 min-w-[9.5rem] text-left ${COMMUNITY_DROPDOWN_PANEL_CLASS}`}
-              role="menu"
-            >
-              {r.current.canReport ? (
-                <li role="none">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#1F2430] hover:bg-[#F7F8FA]"
-                    onClick={() => {
-                      setMoreOpen((prev) => (prev ? false : prev));
-                      r.current.onOpenReport();
-                    }}
-                  >
-                    {t("community_report")}
-                  </button>
-                </li>
-              ) : null}
-              {r.current.canDelete && r.current.onDelete ? (
-                <li role="none">
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#E25555] hover:bg-red-50"
-                    onClick={() => {
-                      setMoreOpen((prev) => (prev ? false : prev));
-                      r.current.onDelete?.();
-                    }}
-                  >
-                    {t("community_delete")}
-                  </button>
-                </li>
-              ) : null}
-              <li role="none">
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full px-3 py-2 text-left text-[14px] font-semibold text-[#1F2430] hover:bg-[#F7F8FA]"
-                  onClick={() => {
-                    setMoreOpen((prev) => (prev ? false : prev));
-                    void router.push(r.current.backHref || philifeAppPaths.home);
-                  }}
-                >
-                  {t("community_back_to_list")}
-                </button>
-              </li>
-            </ul>
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
-}
+import { samTier1HeaderIconCluster } from "@/lib/ui/tier1-header-icon";
 
 type Props = {
   titleText: string;
   backHref: string;
-  onOpenReport: () => void;
-  onDelete?: () => void;
-  canDelete: boolean;
-  canReport: boolean;
-  postUrl: string;
 };
 
-export function CommunityPostDetailHeader({
-  titleText,
-  backHref,
-  onOpenReport,
-  onDelete,
-  canDelete,
-  canReport,
-  postUrl,
-}: Props) {
+/** 상세 1단 우측 — 피드 목록과 동일 `bottom_nav_community` 알림함 */
+export function CommunityPostDetailHeader({ titleText, backHref }: Props) {
   const { t } = useI18n();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const r = useRef<ActionRefs>({ backHref, onOpenReport, onDelete, canDelete, canReport, postUrl });
-  r.current = { backHref, onOpenReport, onDelete, canDelete, canReport, postUrl };
 
-  const rightSlot = useMemo(() => <DetailHeaderRight r={r} />, []);
+  const rightSlot = useMemo(
+    () => (
+      <div className={samTier1HeaderIconCluster}>
+        <Tier1NotificationAnchor surface="bottom_nav_community" />
+      </div>
+    ),
+    []
+  );
 
   useLayoutEffect(() => {
     if (!setMainTier1Extras) return;
@@ -162,7 +31,6 @@ export function CommunityPostDetailHeader({
       tier1: {
         titleText: titleText || t("community_community_label"),
         backHref,
-        /** 글쓰기 -> 보기 진입에서도 항상 커뮤니티 피드(해당 주제)로 복귀 */
         preferHistoryBack: false,
         ariaLabel: t("community_feed_back_aria"),
         showHubQuickActions: false,

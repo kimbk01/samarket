@@ -14,7 +14,7 @@ export type CommunityMessengerRoomRealtimeMessageRow = {
   id: string;
   roomId: string;
   senderId: string | null;
-  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker";
+  messageType: "text" | "image" | "file" | "system" | "call_stub" | "voice" | "sticker" | "community_post_share";
   content: string;
   metadata: Record<string, unknown>;
   createdAt: string;

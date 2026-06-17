@@ -7,6 +7,7 @@ import {
   resolveBottomNavScrollChromeAction,
 } from "@/lib/layout/main-bottom-nav-fab-scroll-signal";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
+import { isPhilifeNeighborhoodPostDetailPathname } from "@/lib/layout/conditional-app-shell-flags";
 import {
   getMainAppScrollRootCached,
   getMainAppScrollTop,
@@ -32,6 +33,7 @@ export function resolveBottomNavScrollHideEnabled(
   search?: string | null
 ): boolean {
   if (pathNoQuery === "/philife") return !headerMessengerFromPhilife;
+  if (isPhilifeNeighborhoodPostDetailPathname(pathNoQuery)) return true;
   if (pathNoQuery === "/mypage") return true;
   if (isTradeFloatingMenuSurface(pathNoQuery)) return true;
   if (pathNoQuery === "/stores" || pathNoQuery.startsWith("/stores/")) return true;

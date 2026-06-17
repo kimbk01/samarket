@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { isBlockedByMe } from "@/lib/community-messenger/social-relations";
+import { isBlockedByMe, isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  if (await isBlockedByMe(auth.userId, target)) {
+  if (await isBlockedEitherWay(auth.userId, target)) {
     return NextResponse.json({ ok: false, error: "blocked_target" }, { status: 400 });
   }
 

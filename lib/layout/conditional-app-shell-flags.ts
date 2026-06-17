@@ -12,6 +12,33 @@ import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-la
 import { isDeliveryConsumerBottomNavSurface, isStoreOrderReviewPath } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { isMainBottomNavFabDeliverySurface } from "@/lib/main-menu/resolve-main-bottom-nav-fab";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
+import { isUuidLikeString } from "@/lib/shared/uuid-string";
+
+const PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS = new Set([
+  "write",
+  "my",
+  "sales",
+  "reviews",
+  "purchases",
+  "meetings",
+  "post",
+]);
+
+/** `/philife/{uuid}` · `/community/posts/{uuid}` — 동네 게시글 상세(스크롤 숨김·셸 플래그) */
+export function isPhilifeNeighborhoodPostDetailPathname(pathname: string | null | undefined): boolean {
+  const p = (pathname ?? "").split("?")[0]!.trim();
+  if (!p) return false;
+
+  const matchUuidDetail = (prefix: string) => {
+    if (!p.startsWith(prefix)) return false;
+    const seg = p.slice(prefix.length);
+    if (!seg || seg.includes("/")) return false;
+    if (PHILIFE_POST_DETAIL_EXCLUDED_SEGMENTS.has(seg.toLowerCase())) return false;
+    return isUuidLikeString(seg);
+  };
+
+  return matchUuidDetail("/philife/") || matchUuidDetail("/community/posts/");
+}
 
 /** 통화 전용 라우트에서 수신 오버레이 억제 — `CallIncomingChrome` 등 경량 판별용 */
 export function resolveSuppressIncomingCallOverlay(pathname: string | null): boolean {
@@ -47,6 +74,8 @@ export type ConditionalAppShellResolvedFlags = {
   isPersonalProductComposerPage: boolean;
   isWritePage: boolean;
   isPostDetail: boolean;
+  /** `/philife/{uuid}` · `/community/posts/{uuid}` 게시글 상세 */
+  isPhilifeNeighborhoodPostDetail: boolean;
   isProductDetail: boolean;
   isStoreProductDetail: boolean;
   isStoreSection: boolean;
@@ -113,6 +142,7 @@ export function resolveConditionalAppShellFlags(
     pathname === "/products/new" || (pathname?.startsWith("/products/new/") ?? false) || isProductEditPage;
   const isWritePage = (pathname?.startsWith("/write") ?? false) || pathname === "/philife/write";
   const isPostDetail = Boolean(pathname?.match(/^\/post\/[^/]+$/));
+  const isPhilifeNeighborhoodPostDetail = isPhilifeNeighborhoodPostDetailPathname(pathname);
   const isProductDetail = Boolean(pathname?.match(/^\/products\/[^/]+$/));
   const isStoreProductDetail = Boolean(pathname?.match(/^\/stores\/[^/]+\/p\/[^/]+$/));
   const isStoreSection = pathname === "/stores" || (pathname?.startsWith("/stores/") ?? false);
@@ -279,7 +309,7 @@ export function resolveConditionalAppShellFlags(
         ? "pb-0"
       : isStoreCommerceCartCheckoutPage || isMypageAddressFlowPage || isStoreOrderReviewPage
         ? "pb-0"
-        : showBottomNav || isPostDetail
+        : showBottomNav || isPostDetail || isPhilifeNeighborhoodPostDetail
           ? showHomeTradeHubFloatingBar
             ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
             : MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS
@@ -295,6 +325,7 @@ export function resolveConditionalAppShellFlags(
     isPersonalProductComposerPage,
     isWritePage,
     isPostDetail,
+    isPhilifeNeighborhoodPostDetail,
     isProductDetail,
     isStoreProductDetail,
     isStoreSection,
