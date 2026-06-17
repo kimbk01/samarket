@@ -39,6 +39,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     return NextResponse.json({ ok: false, error: "server_misconfigured" }, { status: 500 });
   }
 
+  const { data: sessionRow } = await svc
+    .from("community_messenger_call_sessions")
+    .select("status, initiator_user_id, recipient_user_id")
+    .eq("id", callId)
+    .maybeSingle();
+  const sessionStatus =
+    sessionRow &&
+    typeof sessionRow === "object" &&
+    ((sessionRow as { initiator_user_id?: string | null }).initiator_user_id === auth.userId ||
+      (sessionRow as { recipient_user_id?: string | null }).recipient_user_id === auth.userId)
+      ? String((sessionRow as { status?: string | null }).status ?? "").trim() || null
+      : null;
+
   const { data: latest, error: loadError } = await svc
     .from("notification_deliveries")
     .select("id, provider_response")
@@ -56,7 +69,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
 
   if (!latest?.id) {
     console.warn("[DIBAY_CALL_PUSH] push_ack_without_delivery", { callId, userId: auth.userId });
-    return NextResponse.json({ ok: true, matched: false });
+    return NextResponse.json({ ok: true, matched: false, sessionStatus });
   }
 
   const existing =
@@ -90,5 +103,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ ses
     return NextResponse.json({ ok: false, error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, matched: true });
+  return NextResponse.json({ ok: true, matched: true, sessionStatus });
 }

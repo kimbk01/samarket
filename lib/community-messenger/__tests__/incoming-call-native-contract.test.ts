@@ -172,6 +172,8 @@ describe("incoming-call native contract", () => {
     expect(fcm).toContain("logIncomingReceived");
     expect(fcm).toContain("resolveIncomingExpiry");
     expect(fcm).toContain("IncomingCallPushAckHelper.sendAsync");
+    expect(fcm).toContain("IncomingCallSessionStatusProbe.shouldProbe");
+    expect(fcm).toContain("incoming_late_terminal_blocked");
     expect(fcm).toContain("IncomingCallRingOwner.start");
     expect(fcm).toContain("ringtone_start_native");
     expect(fcm).toContain("MainActivity.persistCallPendingRoute");
@@ -226,6 +228,11 @@ describe("incoming-call native contract", () => {
 
     const ack = read("app/api/community-messenger/calls/[sessionId]/push-ack/route.ts");
     expect(ack).toContain("nativeAckReceivedAt");
+    expect(ack).toContain("sessionStatus");
+
+    const ackHelper = read("android/app/src/main/java/com/dibay/app/IncomingCallPushAckHelper.java");
+    expect(ackHelper).toContain("push_ack_terminal_status");
+    expect(ackHelper).toContain("IncomingCallTerminalHandler.handle");
   });
 
   it("notification uses DIBAY CallStyle, brand color, and system action icons in layouts", () => {

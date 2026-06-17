@@ -2095,15 +2095,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   }, []);
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
-    const pending = (data?.requests ?? []).filter((request) => request.status === "pending");
-    const requestItems: MessengerNotificationCenterItem[] = pending
-      .filter((request) => request.direction === "incoming" || request.direction === "outgoing")
-      .map((request) => ({
-        id: `request:${request.id}`,
-        kind: "request" as const,
-        createdAt: request.createdAt,
-        request,
-      }));
     const missedCallItems: MessengerNotificationCenterItem[] = sortedCalls
       .filter((call) => call.status === "missed")
       .map((call) => ({
@@ -2135,17 +2126,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         preview: item.preview,
         highlightReason: resolveImportantRoomHighlightReason(item.room),
       }));
-    return [...requestItems, ...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
+    return [...groupInviteItems, ...missedCallItems, ...importantRoomItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
-  }, [baseChatListItems, data?.requests, groupInviteNotifications, sortedCalls]);
+  }, [baseChatListItems, groupInviteNotifications, sortedCalls]);
   const notificationCenterItems = useMemo(
     () => notificationCenterItemsAll.filter((item) => !dismissedNotificationIds.includes(item.id)),
     [dismissedNotificationIds, notificationCenterItemsAll]
   );
   const notificationCenterSummary = useMemo(
     () => ({
-      requestCount: notificationCenterItems.filter((item) => item.kind === "request").length,
       groupInviteCount: notificationCenterItems.filter((item) => item.kind === "group_invite").length,
       missedCallCount: notificationCenterItems.filter((item) => item.kind === "missed_call").length,
       importantCount: notificationCenterItems.filter((item) => item.kind === "important_room").length,
@@ -3082,7 +3072,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           summary={notificationCenterSummary}
           items={notificationCenterItems}
           busyId={busyId}
-          onRespondRequest={async () => {}}
           onOpenMissedCall={(call) => {
             if (call.roomId) {
               navigateToCommunityRoom(call.roomId);

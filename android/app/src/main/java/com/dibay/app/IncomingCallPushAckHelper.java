@@ -5,10 +5,14 @@ import android.os.Build;
 import android.provider.Settings;
 import android.webkit.CookieManager;
 import java.io.OutputStream;
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import org.json.JSONObject;
 
 /** Best-effort server ack for native FCM receive diagnostics. Never blocks incoming UI. */
 public final class IncomingCallPushAckHelper {
@@ -82,6 +86,12 @@ public final class IncomingCallPushAckHelper {
       int status = conn.getResponseCode();
       if (status >= 200 && status < 300) {
         DibayCallPushLog.info("push_ack_sent", payload.callId, "status=" + status);
+        String responseBody = readBody(conn.getInputStream());
+        String sessionStatus = parseSessionStatus(responseBody);
+        if (IncomingCallSessionStatusProbe.isTerminalStatus(sessionStatus)) {
+          DibayCallPushLog.info("push_ack_terminal_status", payload.callId, "status=" + sessionStatus);
+          IncomingCallTerminalHandler.handle(context, payload.callId, sessionStatus, "push_ack_status");
+        }
       } else {
         DibayCallPushLog.warn("push_ack_failed", payload.callId, "status=" + status);
       }
@@ -105,5 +115,28 @@ public final class IncomingCallPushAckHelper {
   private static String escape(String raw) {
     if (raw == null) return "";
     return raw.replace("\\", "\\\\").replace("\"", "\\\"");
+  }
+
+  private static String parseSessionStatus(String body) {
+    try {
+      if (body == null || body.trim().isEmpty()) return null;
+      JSONObject json = new JSONObject(body);
+      String status = json.optString("sessionStatus", "");
+      return status != null && !status.trim().isEmpty() ? status.trim() : null;
+    } catch (Exception ignored) {
+      return null;
+    }
+  }
+
+  private static String readBody(InputStream input) throws Exception {
+    StringBuilder sb = new StringBuilder();
+    try (BufferedReader br =
+        new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = br.readLine()) != null) {
+        sb.append(line);
+      }
+    }
+    return sb.toString();
   }
 }

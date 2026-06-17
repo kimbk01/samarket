@@ -39,7 +39,6 @@ import {
   type MessengerEntryOrigin,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
-import { useIncomingFriendRequestPopupStore } from "@/lib/community-messenger/stores/incoming-friend-request-popup-store";
 import { guardedRouterReplace } from "@/lib/dev/network-loop-guard";
 import type {
   MessengerNotificationSettings,
@@ -323,8 +322,4 @@ export function useCommunityMessengerHomeShellEffects({
       cancelSchedule();
     };
   }, [setNotificationSettings]);
-
-  useEffect(() => {
-    useIncomingFriendRequestPopupStore.getState().syncIncomingFromBootstrapRequests(data?.requests);
-  }, [data?.requests]);
 }

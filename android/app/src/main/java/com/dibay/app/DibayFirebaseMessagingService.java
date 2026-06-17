@@ -123,6 +123,17 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
       IncomingCallNotificationBuilder.dismissIncomingCall(this, callId);
       return;
     }
+    if (IncomingCallSessionStatusProbe.shouldProbe(expiry)) {
+      String serverStatus = IncomingCallSessionStatusProbe.fetchStatus(this, callId);
+      if (IncomingCallSessionStatusProbe.isTerminalStatus(serverStatus)) {
+        DibayCallPushLog.info(
+            "incoming_late_terminal_blocked",
+            callId,
+            "status=" + serverStatus + " deliveryDelayMs=" + expiry.deliveryDelayMs);
+        IncomingCallTerminalHandler.handle(this, callId, serverStatus, "incoming_status_probe");
+        return;
+      }
+    }
     if (expiry.effectiveExpiresAtMs > 0L) {
       payload = payload.withExpiresAt(formatIsoUtc(expiry.effectiveExpiresAtMs));
     }

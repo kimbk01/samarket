@@ -8,7 +8,6 @@ type Props = {
   variant: "unsaved" | "blocked_by_me";
   busy?: boolean;
   onAddFriend?: () => void;
-  onDismiss?: () => void;
   onBlock?: () => void;
   onUnblock?: () => void;
 };
@@ -20,7 +19,6 @@ export function MessengerUnknownPeerNoticeBar({
   variant,
   busy = false,
   onAddFriend,
-  onDismiss,
   onBlock,
   onUnblock,
 }: Props) {
@@ -57,10 +55,8 @@ export function MessengerUnknownPeerNoticeBar({
   }
 
   return (
-    <div className="border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
-      <p className="sam-text-helper font-medium text-[#1e3932]">{t("cm_social_unsaved_user")}</p>
-      <p className="mt-0.5 sam-text-helper text-[#1e3932]/80">{t("cm_social_unsaved_user_hint")}</p>
-      <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className="flex justify-center border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
+      <div className="flex items-center gap-2">
         {onAddFriend ? (
           <button
             type="button"
@@ -69,16 +65,6 @@ export function MessengerUnknownPeerNoticeBar({
             className="rounded-ui-rect bg-[#006241] px-3 py-1.5 sam-text-helper font-medium text-white disabled:opacity-50"
           >
             {t("cm_social_add_friend")}
-          </button>
-        ) : null}
-        {onDismiss ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onDismiss}
-            className="rounded-ui-rect border border-[#006241] bg-white px-3 py-1.5 sam-text-helper font-medium text-[#006241] disabled:opacity-50"
-          >
-            {t("cm_social_dismiss")}
           </button>
         ) : null}
         {onBlock ? (

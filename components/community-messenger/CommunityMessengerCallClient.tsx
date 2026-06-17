@@ -140,13 +140,13 @@ import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
-  bootstrapCommunityMessengerOutgoingCallAndNavigate,
   bootstrapCommunityMessengerOutgoingCallSession,
   buildSyntheticTempOutgoingCallSession,
   consumeCommunityMessengerCallNavigationSeed,
   ensureCallNavigationSeedMemoryMatchesRoute,
   hydrateCommunityMessengerCallClientSession,
   isCommunityMessengerTempCallSessionId,
+  launchOutgoingDirectCall,
   navigateBackFromCommunityMessengerCall,
   navigateToCommunityMessengerCallLogsAfterTerminal,
   primeCommunityMessengerCallNavigationSeed,
@@ -4310,9 +4310,9 @@ export function CommunityMessengerCallClient({
   const startOutgoingAgain = (kind: "voice" | "video") => {
     void (async () => {
       try {
-        const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
-          { roomId: session.roomId, peerUserId: session.peerUserId ?? null, kind },
-          (href) => router.replace(href)
+        const result = await launchOutgoingDirectCall(
+          { roomId: session.roomId, peerUserId: session.peerUserId ?? null, peerLabel: session.peerLabel, kind },
+          router
         );
         if (!result.ok) {
           showMessengerSnackbar(result.userMessage, { variant: "error" });

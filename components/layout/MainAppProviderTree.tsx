@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/StoreCommerceCartRuntimeBoundary";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -34,25 +34,9 @@ import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationCon
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
-import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
-import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
-import {
-  GLOBAL_INCOMING_FRIEND_REQUEST_HOST_IDLE_DEFER_MS,
-  shouldIdleDeferGlobalIncomingFriendRequestHost,
-} from "@/lib/layout/global-incoming-friend-request-host-mount-policy";
-
-const GlobalIncomingFriendRequestHost = dynamic(
-  () =>
-    importWithChunkRetry(() =>
-      import("@/components/community-messenger/GlobalIncomingFriendRequestHost").then(
-        (mod) => mod.GlobalIncomingFriendRequestHost
-      )
-    ),
-  { ssr: false }
-);
 
 /** Provider 트리·순서 불변 — Philife 글쓰기 시트 UI만 별도 청크로 분리 (giant graph 완화). */
 const PhilifeWriteBottomSheetLazy = dynamic(
@@ -86,14 +70,6 @@ const NativeBadgeSyncLazy = dynamic(
 );
 
 const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
-
-/**
- * BN12-B1 — `/mypage`·`/philife` cold 에만 FriendRequest host chunk idle defer.
- * notifications-rt(`MessagingGlobalChrome`)·stores hub layout gate 는 변경하지 않는다.
- */
-function GlobalIncomingFriendRequestHostMountGate(_props: { storesHubLite: boolean }) {
-  return null;
-}
 
 function AppWideRuntimePerfHooks() {
   const bootstrapRafRef = useRef<{ a: number; b: number }>({ a: 0, b: 0 });
@@ -214,9 +190,6 @@ export function MainAppProviderTree({
           <DevicePermissionUiHost />
           <FavoriteProvider>
             <NotificationSurfaceProvider>
-              <IncomingCallOverlayChunkBoundary>
-                <GlobalIncomingFriendRequestHostMountGate storesHubLite={storesHubLite} />
-              </IncomingCallOverlayChunkBoundary>
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>
                   <StoreCommerceCartRuntimeBoundary>

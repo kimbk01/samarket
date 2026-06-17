@@ -262,7 +262,7 @@ import {
 } from "@/lib/community-messenger/types";
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
 import { dedupeTradeMessengerRoomSummaries } from "@/lib/community-messenger/trade-list-canonical-key";
-import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { incomingCallPeerNicknameLabel, labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export {
   COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
@@ -935,6 +935,14 @@ export function profileLabel(row: ProfileRow | null | undefined, fallbackId: str
   const username = trimText(row?.username);
   const label = labelFromDisplayAndUsername(display, username).trim();
   if (label) return label;
+  return cmProfileFallbackLabel(fallbackId);
+}
+
+function profileCallPeerLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
+  const display = trimText(row?.display_name) || trimText(row?.nickname);
+  if (display) return display;
+  const username = trimText(row?.username).replace(/^@+/, "");
+  if (username) return username;
   return cmProfileFallbackLabel(fallbackId);
 }
 
@@ -3821,7 +3829,10 @@ function buildCallLogEntriesFromRows(
       roomId,
       sessionMode,
       title,
-      peerLabel: sessionMode === "group" ? groupPeerLabel : peer?.label ?? cmPeerFallbackLabel(),
+      peerLabel:
+        sessionMode === "group"
+          ? groupPeerLabel
+          : incomingCallPeerNicknameLabel(peer?.label) || cmPeerFallbackLabel(),
       peerAvatarUrl:
         sessionMode === "group" ? roomMeta?.avatarUrl ?? null : peer?.avatarUrl ?? null,
       peerUserId,
@@ -4312,10 +4323,11 @@ async function mapCallSession(
       ? joinedCount > 1
         ? cmServiceT("cm_svc_group_call_active", { count: joinedCount })
         : cmServiceT("cm_svc_group_call")
-      : (peerUserId
-          ? participants.find((p) => p.userId === peerUserId)?.label
-          : undefined) ??
-        profileLabel(null, peerUserId ?? initiatorUserId);
+      : incomingCallPeerNicknameLabel(
+          peerUserId
+            ? participants.find((p) => p.userId === peerUserId)?.label
+            : undefined
+        ) || profileCallPeerLabel(null, peerUserId ?? initiatorUserId);
   let peerAvatarUrl: string | null = null;
   if (sessionMode === "direct" && peerUserId) {
     const peerHydrated =

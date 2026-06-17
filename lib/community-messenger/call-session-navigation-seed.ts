@@ -34,6 +34,7 @@ import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/communit
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 const KEY = "samarket.cm.call_session_seed.v1";
 const RETURN_PATH_KEY = "samarket.cm.call_return_path.v1";
@@ -268,7 +269,7 @@ export function buildCommunityMessengerInstantOutgoingCallHref(args: BuildCommun
   const pid = args.peerUserId?.trim();
   if (rid) q.set("roomId", rid);
   if (pid) q.set("peerUserId", pid);
-  const pl = args.peerLabel?.trim();
+  const pl = incomingCallPeerNicknameLabel(args.peerLabel);
   if (pl) q.set("peerLabel", pl);
   return `/community-messenger/calls/${encodeURIComponent(tempSessionId)}?${q.toString()}`;
 }
@@ -567,22 +568,37 @@ export async function launchOutgoingDirectCall(
     signal?: AbortSignal;
     roomId?: string | null;
     peerUserId?: string | null;
+    peerLabel?: string | null;
     kind: CommunityMessengerCallKind;
   },
   router: { push: (href: string) => void; replace?: (href: string) => void }
 ): Promise<OutgoingCallSessionBootstrapResult> {
-  return bootstrapCommunityMessengerOutgoingCallAndNavigate(
-    {
-      signal: input.signal,
-      roomId: input.roomId ?? null,
-      peerUserId: input.peerUserId ?? null,
+  unlockCommunityMessengerCallPlaybackFromUserGesture();
+  primeOutgoingRingbackWebAudioFromUserGesture(input.kind);
+  if (typeof window !== "undefined") {
+    rememberCallNavigationReturnPath();
+  }
+  const href = buildCommunityMessengerInstantOutgoingCallHref({
+    kind: input.kind,
+    roomId: input.roomId?.trim() || undefined,
+    peerUserId: input.peerUserId?.trim() || undefined,
+    peerLabel: input.peerLabel?.trim() || undefined,
+  });
+  const go = router.replace ?? router.push;
+  go(href);
+  const tempSessionId = href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? "";
+  return {
+    ok: true,
+    session: buildSyntheticTempOutgoingCallSession({
+      tempSessionId: decodeURIComponent(tempSessionId),
       kind: input.kind,
-    },
-    (href) => {
-      const go = router.replace ?? router.push;
-      go(href);
-    }
-  );
+      roomId: input.roomId?.trim() ?? "",
+      peerUserId: input.peerUserId?.trim() || null,
+      peerLabel: incomingCallPeerNicknameLabel(input.peerLabel),
+      initiatorUserId: "",
+    }),
+    roomId: input.roomId?.trim() ?? "",
+  };
 }
 
 /**

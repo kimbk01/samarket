@@ -605,7 +605,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       void (async () => {
-        const result = await launchOutgoingDirectCall({ kind, roomId: rid }, router);
+        const result = await launchOutgoingDirectCall({ kind, roomId: rid, peerLabel }, router);
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         if (!result.ok) {
@@ -1694,7 +1694,7 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "member_sheet_outgoing_shell", peerUserId: peer, kind });
       void (async () => {
-        const result = await launchOutgoingDirectCall({ kind, peerUserId: peer }, router);
+        const result = await launchOutgoingDirectCall({ kind, peerUserId: peer, peerLabel: peerLabelHint }, router);
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         if (!result.ok) {

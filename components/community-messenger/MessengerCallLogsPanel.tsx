@@ -25,7 +25,7 @@ import {
   resolveCallLogStatusMessageKey,
   shouldShowCallLogDuration,
 } from "@/lib/community-messenger/call-log-row-copy";
-import { bootstrapCommunityMessengerOutgoingCallAndNavigate } from "@/lib/community-messenger/call-session-navigation-seed";
+import { launchOutgoingDirectCall } from "@/lib/community-messenger/call-session-navigation-seed";
 import { communityMessengerRoomHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
@@ -99,13 +99,14 @@ function CallLogRow({
       setRedialing(true);
       void (async () => {
         try {
-          const result = await bootstrapCommunityMessengerOutgoingCallAndNavigate(
+          const result = await launchOutgoingDirectCall(
             {
               roomId: call.roomId?.trim() ?? null,
               peerUserId: call.peerUserId?.trim() ?? null,
+              peerLabel: call.peerLabel,
               kind: redialKind,
             },
-            (href) => router.push(href)
+            router
           );
           if (!result.ok) {
             showMessengerSnackbar(result.userMessage, { variant: "error" });

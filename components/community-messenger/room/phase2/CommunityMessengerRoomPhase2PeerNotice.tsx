@@ -5,20 +5,23 @@ import { useRouter } from "next/navigation";
 import { MessengerBlockPeerConfirmModal } from "@/components/community-messenger/MessengerBlockPeerConfirmModal";
 import { MessengerUnknownPeerNoticeBar } from "@/components/community-messenger/room/phase2/MessengerUnknownPeerNoticeBar";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
-import { shouldShowUnknownPeerNotice } from "@/lib/community-messenger/peer-notices";
+import {
+  isViewerRecipientOfInboundDirectChat,
+  shouldShowUnknownPeerNotice,
+} from "@/lib/community-messenger/peer-notices";
 
 const MESSENGER_CHATS_HREF = "/community-messenger?section=chats";
 
-/** 1:1 general direct room — unsaved peer notice; block hides room and exits. */
+/** 1:1 general direct room — inbound unsaved peer notice (recipient only); block hides room and exits. */
 export function CommunityMessengerRoomPhase2PeerNotice() {
   const vm = useMessengerRoomPhase2View();
   const router = useRouter();
   const room = vm.snapshot?.room;
-  const [dismissedLocal, setDismissedLocal] = useState(false);
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
 
   const peerUserId = (room?.peerUserId ?? "").trim();
+  const viewerUserId = (vm.snapshot?.viewerUserId ?? "").trim();
 
   const redirectToChats = useCallback(() => {
     router.replace(MESSENGER_CHATS_HREF);
@@ -33,25 +36,6 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     });
     if (res.ok) void vm.refresh(true);
   }, [peerUserId, vm]);
-
-  const onDismiss = useCallback(async () => {
-    if (!peerUserId || !room?.id) return;
-    setDismissedLocal(true);
-    const res = await fetch("/api/community-messenger/peer-notices/dismiss", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId: room.id,
-        peerUserId,
-        noticeType: "unknown_peer",
-      }),
-    });
-    if (!res.ok) {
-      setDismissedLocal(false);
-      return;
-    }
-    void vm.refresh(true);
-  }, [peerUserId, room?.id, vm]);
 
   const confirmBlock = useCallback(async () => {
     if (!peerUserId || !room?.id) return;
@@ -75,8 +59,12 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
     vm.snapshot?.members.find((m) => m.id.trim() === peerUserId) ?? null;
   const blockedByMe = Boolean(peer?.blocked);
   const isFriend = Boolean(peer?.isFriend);
-  const dismissed =
-    dismissedLocal || Boolean(vm.snapshot?.unknownPeerNoticeDismissed);
+  const dismissed = Boolean(vm.snapshot?.unknownPeerNoticeDismissed);
+  const isRecipient = isViewerRecipientOfInboundDirectChat({
+    viewerUserId,
+    peerUserId,
+    messages: vm.snapshot?.messages ?? [],
+  });
 
   useEffect(() => {
     if (!room || room.roomType !== "direct") return;
@@ -95,6 +83,7 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
       isFriend,
       blockedByMe,
       dismissed,
+      isRecipient,
     })
   ) {
     return null;
@@ -106,7 +95,6 @@ export function CommunityMessengerRoomPhase2PeerNotice() {
         variant="unsaved"
         busy={Boolean(vm.busy) || blockBusy}
         onAddFriend={onAddFriend}
-        onDismiss={onDismiss}
         onBlock={() => setBlockConfirmOpen(true)}
       />
       <MessengerBlockPeerConfirmModal

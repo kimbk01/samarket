@@ -128,6 +128,8 @@ describe("incoming-call policy contracts", () => {
     expect(nav).toContain('dialIntent: "fresh"');
     expect(nav).toContain("finalizeOutgoingCallSessionBootstrap");
     expect(nav).toContain("launchOutgoingDirectCall");
+    expect(nav).toContain("buildCommunityMessengerInstantOutgoingCallHref");
+    expect(nav).toContain("buildSyntheticTempOutgoingCallSession");
     const http = read("lib/community-messenger/call-http-actions.ts");
     expect(http).toContain('dialIntent: "fresh"');
   });
