@@ -128,6 +128,10 @@ describe("incoming-call policy contracts", () => {
     expect(nav).toContain('dialIntent: "fresh"');
     expect(nav).toContain("finalizeOutgoingCallSessionBootstrap");
     expect(nav).toContain("launchOutgoingDirectCall");
+    expect(nav).toContain("ensureOutgoingTempCallBootstrap");
+    expect(nav).toContain("discardPrimedCommunityMessengerDevicePermission");
+    const agoraClient = read("lib/community-messenger/call-provider/client.ts");
+    expect(agoraClient).toContain("HTML 링 미리보기용 GUM 은 Agora 마이크로 재사용하지 않는다");
     expect(nav).toContain("buildCommunityMessengerInstantOutgoingCallHref");
     expect(nav).toContain("buildSyntheticTempOutgoingCallSession");
     const http = read("lib/community-messenger/call-http-actions.ts");

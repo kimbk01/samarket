@@ -140,10 +140,10 @@ import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
-  bootstrapCommunityMessengerOutgoingCallSession,
   buildSyntheticTempOutgoingCallSession,
   consumeCommunityMessengerCallNavigationSeed,
   ensureCallNavigationSeedMemoryMatchesRoute,
+  ensureOutgoingTempCallBootstrap,
   hydrateCommunityMessengerCallClientSession,
   isCommunityMessengerTempCallSessionId,
   launchOutgoingDirectCall,
@@ -152,7 +152,7 @@ import {
   primeCommunityMessengerCallNavigationSeed,
   wasOutgoingInviteBroadcastRecentlySent,
 } from "@/lib/community-messenger/call-session-navigation-seed";
-import { rememberOutgoingRingtonePrimedForSession } from "@/lib/community-messenger/call-feedback-sound";
+import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
 import {
   notifyCommunityMessengerCallInviteHangupBestEffort,
   notifyCommunityMessengerCallInviteRingBestEffort,
@@ -800,32 +800,30 @@ export function CommunityMessengerCallClient({
     });
   }, [sessionId]);
 
-  /** 임시 세션 → 백그라운드 POST 후 실제 sessionId 로 replace (레거시 북마크·딥링크) */
+  /** 임시 세션 → 북마크·딥링크 fallback (`launchOutgoingDirectCall` 이 이미 bootstrap 을 시작했으면 skip) */
   useEffect(() => {
     if (!isCommunityMessengerTempCallSessionId(sessionId)) return;
     const kind = (searchParams.get("kind") === "video" ? "video" : "voice") as CommunityMessengerCallKind;
     const roomId = searchParams.get("roomId")?.trim() || null;
     const peerUserId = searchParams.get("peerUserId")?.trim() || null;
-    if (!roomId && !peerUserId) return;
-    void (async () => {
-      const result = await bootstrapCommunityMessengerOutgoingCallSession({ roomId, peerUserId, kind });
-      if (!result.ok) {
-        setErrorMessage(result.userMessage);
-        if (result.blockedCallId) {
-          router.replace(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
-        }
-        return;
-      }
-      rememberOutgoingRingtonePrimedForSession(result.session.id);
-      cmCallLatencyInfo("route_replace_session_start", {
-        sessionId: result.session.id,
-        callKind: kind,
-        role: "initiator",
-        roomId: result.roomId,
-      });
-      router.replace(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
-    })();
+    ensureOutgoingTempCallBootstrap({ tempSessionId: sessionId, roomId, peerUserId, kind, router });
   }, [router, searchParams, sessionId]);
+
+  /** real 세션 발신 영상 ringing — 링 카메라 미리보기만 프라임(조인 마이크는 Agora 가 새로 연다) */
+  useEffect(() => {
+    if (isCommunityMessengerTempCallSessionId(sessionId)) return;
+    const s = session;
+    if (!s?.isMineInitiator || s.callKind !== "video" || s.status !== "ringing") return;
+    if (peekPrimedCommunityMessengerDeviceStream("video")) return;
+    let cancelled = false;
+    void primeOutgoingCallMediaBeforeNavigate("video").then((prime) => {
+      if (cancelled || prime.ok) return;
+      heldPreJoinVideoPreviewRef.current = null;
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.callKind, session?.id, session?.isMineInitiator, session?.status, sessionId]);
 
   /** guard·딥링크로 기존 ringing 세션만 열린 경우 — 수신 브로드캐스트 재전송(POST 없음) */
   const outgoingRingingInviteResendRef = useRef<Set<string>>(new Set());

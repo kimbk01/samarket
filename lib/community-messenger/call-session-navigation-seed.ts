@@ -18,6 +18,7 @@ import {
   cmCallLatencyInfo,
 } from "@/lib/community-messenger/cm-call-debug";
 import { primeOutgoingCallMediaBeforeNavigate } from "@/lib/community-messenger/call-media-bootstrap";
+import { discardPrimedCommunityMessengerDevicePermission } from "@/lib/community-messenger/call-permission";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import {
@@ -34,6 +35,7 @@ import { notifyCommunityMessengerCallInviteRingBestEffort } from "@/lib/communit
 import { appendLocalCallChatMessageForPeerBusy } from "@/lib/community-messenger/call-peer-busy-local-log";
 import { getSyncViewerUserIdForClient } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { incomingCallPeerNicknameLabel } from "@/lib/users/user-label";
 
 const KEY = "samarket.cm.call_session_seed.v1";
@@ -559,9 +561,105 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
   return { ok: true, session: json.session, roomId, reused: json.reused === true };
 }
 
+/** tmp_* 발신 bootstrap — launch·CallClient effect 중복 실행 방지 */
+const outgoingTempCallBootstrapStarted = new Set<string>();
+
+function rememberOutgoingTempCallBootstrapStarted(tempSessionId: string): void {
+  const id = tempSessionId.trim();
+  if (!id) return;
+  outgoingTempCallBootstrapStarted.add(id);
+  if (typeof window !== "undefined") {
+    window.setTimeout(() => {
+      outgoingTempCallBootstrapStarted.delete(id);
+    }, 120_000);
+  }
+}
+
+export function wasOutgoingTempCallBootstrapStarted(tempSessionId: string): boolean {
+  return outgoingTempCallBootstrapStarted.has(tempSessionId.trim());
+}
+
+function callNavigationGo(router: { push: (href: string) => void; replace?: (href: string) => void }): (href: string) => void {
+  return router.replace ?? router.push;
+}
+
+async function applyOutgoingTempCallBootstrapResult(
+  result: OutgoingCallSessionBootstrapResult,
+  router: { push: (href: string) => void; replace?: (href: string) => void },
+  roomIdFallback: string | null,
+  kind: CommunityMessengerCallKind
+): Promise<void> {
+  if (!result.ok) {
+    stopCommunityMessengerCallTone();
+    discardPrimedCommunityMessengerDevicePermission();
+    showMessengerSnackbar(result.userMessage, { variant: "error" });
+    if (result.blockedCallId) {
+      callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.blockedCallId)}`);
+      return;
+    }
+    navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(router) }, roomIdFallback);
+    return;
+  }
+  rememberOutgoingRingtonePrimedForSession(result.session.id);
+  cmCallLatencyInfo("route_replace_session_start", {
+    sessionId: result.session.id,
+    callKind: kind,
+    role: "initiator",
+    roomId: result.roomId,
+  });
+  /** tmp 링 미리보기 GUM — real 세션·Agora 조인 전 해제(일부 기기에서 프라임 오디오 재사용 시 송신 무음) */
+  discardPrimedCommunityMessengerDevicePermission();
+  callNavigationGo(router)(`/community-messenger/calls/${encodeURIComponent(result.session.id)}`);
+}
+
 /**
- * 발신 CTA 공통 — 권한 프라임 → 세션 POST → 수신 브로드캐스트 → `/calls/:id` 이동.
- * tmp_* 선진입보다 첫 발신·수신 신뢰성을 우선한다.
+ * tmp_* 셸 진입 직후 세션 POST·수신 푸시 — CallClient 마운트를 기다리지 않는다.
+ * 북마크·딥링크 fallback 은 `CommunityMessengerCallClient` 가 동일 헬퍼를 호출한다.
+ */
+export function ensureOutgoingTempCallBootstrap(args: {
+  tempSessionId: string;
+  roomId: string | null;
+  peerUserId: string | null;
+  kind: CommunityMessengerCallKind;
+  signal?: AbortSignal;
+  router: { push: (href: string) => void; replace?: (href: string) => void };
+}): boolean {
+  const tempId = args.tempSessionId.trim();
+  if (!tempId || !isCommunityMessengerTempCallSessionId(tempId)) return false;
+  if (!args.roomId?.trim() && !args.peerUserId?.trim()) return false;
+  if (wasOutgoingTempCallBootstrapStarted(tempId)) return false;
+  rememberOutgoingTempCallBootstrapStarted(tempId);
+
+  void (async () => {
+    try {
+      const result = await bootstrapCommunityMessengerOutgoingCallSession({
+        signal: args.signal,
+        roomId: args.roomId,
+        peerUserId: args.peerUserId,
+        kind: args.kind,
+      });
+      await applyOutgoingTempCallBootstrapResult(result, args.router, args.roomId, args.kind);
+    } catch {
+      stopCommunityMessengerCallTone();
+      discardPrimedCommunityMessengerDevicePermission();
+      releaseCallActionLock("bootstrap_unhandled_error");
+      showMessengerSnackbar(
+        safeTranslate(getRuntimeAppLanguage(), "common_content_unavailable", {
+          fallbackKo: "통화를 시작할 수 없습니다.",
+          fallbackEn: "Could not start the call.",
+        }),
+        { variant: "error" }
+      );
+      navigateBackFromCommunityMessengerCall({ replace: callNavigationGo(args.router) }, args.roomId);
+    }
+  })();
+
+  return true;
+}
+
+/**
+ * 발신 CTA 공통 — 즉시 `tmp_*` 통화 셸 → 동시에 세션 POST·수신 푸시(카톡/텔레그램급 체감).
+ * POST 완료 후 실제 sessionId 로 replace; 실패 시 셸 종료·안내.
  */
 export async function launchOutgoingDirectCall(
   input: {
@@ -586,11 +684,21 @@ export async function launchOutgoingDirectCall(
   });
   const go = router.replace ?? router.push;
   go(href);
-  const tempSessionId = href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? "";
+  const tempSessionId = decodeURIComponent(
+    href.split("/community-messenger/calls/")[1]?.split("?")[0] ?? ""
+  );
+  ensureOutgoingTempCallBootstrap({
+    tempSessionId,
+    roomId: input.roomId?.trim() || null,
+    peerUserId: input.peerUserId?.trim() || null,
+    kind: input.kind,
+    signal: input.signal,
+    router,
+  });
   return {
     ok: true,
     session: buildSyntheticTempOutgoingCallSession({
-      tempSessionId: decodeURIComponent(tempSessionId),
+      tempSessionId,
       kind: input.kind,
       roomId: input.roomId?.trim() ?? "",
       peerUserId: input.peerUserId?.trim() || null,

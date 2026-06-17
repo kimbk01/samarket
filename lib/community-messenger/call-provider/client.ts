@@ -191,7 +191,23 @@ export async function createCommunityMessengerAgoraLocalTracks(
     throw new DOMException("Microphone permission denied", "NotAllowedError");
   }
   const primed = consumePrimedCommunityMessengerDevicePermission(kind);
-  if (primed) {
+  if (primed && kind === "video") {
+    /**
+     * HTML 링 미리보기용 GUM 은 Agora 마이크로 재사용하지 않는다.
+     * tmp→real 교체·DOM 부착 후 일부 삼성에서 audio track 이 live 여도 송신 무음이 될 수 있다.
+     */
+    try {
+      primed.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {
+          /* ignore */
+        }
+      });
+    } catch {
+      /* ignore */
+    }
+  } else if (primed) {
     const audioMedia = primed.getAudioTracks().find((t) => t.readyState === "live") ?? null;
     if (audioMedia) {
       const audioTrack = AgoraRTC.createCustomAudioTrack({
@@ -199,27 +215,18 @@ export async function createCommunityMessengerAgoraLocalTracks(
         encoderConfig: "speech_standard",
         ...MIC_3A,
       });
-      if (kind !== "video") {
-        return { audioTrack, videoTrack: null };
-      }
-      const videoMedia = primed.getVideoTracks().find((t) => t.readyState === "live") ?? null;
-      if (videoMedia) {
+      return { audioTrack, videoTrack: null };
+    }
+    try {
+      primed.getTracks().forEach((track) => {
         try {
-          stopMediaStreamVideoTracks(primed);
-          const videoTrack = await createAgoraCamForMessengerJoin();
-          return { audioTrack, videoTrack };
-        } catch (error) {
-          await audioTrack.close();
-          throw error;
+          track.stop();
+        } catch {
+          /* ignore */
         }
-      }
-      try {
-        const videoTrack = await createAgoraCamForMessengerJoin();
-        return { audioTrack, videoTrack };
-      } catch (error) {
-        await audioTrack.close();
-        throw error;
-      }
+      });
+    } catch {
+      /* ignore */
     }
   }
 
