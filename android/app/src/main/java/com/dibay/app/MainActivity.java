@@ -405,6 +405,7 @@ public class MainActivity extends BridgeActivity {
     registerPlugin(NativeDevicePermissionsPlugin.class);
     registerPlugin(NativeIncomingCallPlugin.class);
     registerPlugin(com.dibay.app.call.CallPermissionPlugin.class);
+    registerPlugin(com.dibay.app.call.DibayCallAudioRoutePlugin.class);
     registerPlugin(com.dibay.app.call.NativeCallServicePlugin.class);
     super.onCreate(savedInstanceState);
     webViewPermissionDelegate = new DibayWebViewPermissionDelegate(this);
