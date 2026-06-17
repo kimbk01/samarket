@@ -1,0 +1,72 @@
+import { describe, expect, it } from "vitest";
+import {
+  hasMessengerRoomTimelineLoadHint,
+  shouldShowMessengerRoomTimelineHydrationSkeleton,
+} from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
+
+describe("messenger-room-timeline-hydration", () => {
+  it("hasMessengerRoomTimelineLoadHint — 빈 신규 방은 false", () => {
+    expect(
+      hasMessengerRoomTimelineLoadHint({
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 0,
+        lastMessage: "",
+      })
+    ).toBe(false);
+  });
+
+  it("hasMessengerRoomTimelineLoadHint — lastMessage 힌트만 있어도 true", () => {
+    expect(
+      hasMessengerRoomTimelineLoadHint({
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 0,
+        lastMessage: "안녕",
+      })
+    ).toBe(true);
+  });
+
+  it("placeholder 빈 방 — 버퍼링 스피너 없음", () => {
+    expect(
+      shouldShowMessengerRoomTimelineHydrationSkeleton({
+        displayRoomMessagesLength: 0,
+        roomMessagesLength: 0,
+        hydrationPass: 0,
+        clientShellPlaceholder: true,
+        loading: true,
+        shouldRecoverEmptyTimeline: false,
+        snapshotMessagesLength: 0,
+        lastMessage: "",
+      })
+    ).toBe(false);
+  });
+
+  it("placeholder + lastMessage 힌트 — 로딩 중 스피너", () => {
+    expect(
+      shouldShowMessengerRoomTimelineHydrationSkeleton({
+        displayRoomMessagesLength: 0,
+        roomMessagesLength: 0,
+        hydrationPass: 0,
+        clientShellPlaceholder: true,
+        loading: true,
+        shouldRecoverEmptyTimeline: false,
+        snapshotMessagesLength: 0,
+        lastMessage: "마지막 메시지",
+      })
+    ).toBe(true);
+  });
+
+  it("실스냅샷 빈 방 — 로딩 없으면 스피너 없음", () => {
+    expect(
+      shouldShowMessengerRoomTimelineHydrationSkeleton({
+        displayRoomMessagesLength: 0,
+        roomMessagesLength: 0,
+        hydrationPass: 2,
+        clientShellPlaceholder: false,
+        loading: false,
+        shouldRecoverEmptyTimeline: false,
+        snapshotMessagesLength: 0,
+        lastMessage: "",
+      })
+    ).toBe(false);
+  });
+});

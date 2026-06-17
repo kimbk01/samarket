@@ -8,7 +8,6 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { TradeChatLoadingShell } from "@/components/chats/TradeChatLoadingShell";
 import { TradeChatComposePreparingShell } from "@/components/chats/TradeChatComposePreparingShell";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { createOrGetChatRoom } from "@/lib/chat/createOrGetChatRoom";
@@ -47,8 +46,6 @@ export function TradeChatComposeClient({
   const router = useRouter();
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
-  /** 방 ID 확정 후 짧게 "이동 중" 표시 — 라우트 전환 전까지 */
-  const [goingRoomId, setGoingRoomId] = useState<string | null>(null);
   const replaceStartedRef = useRef<string | null>(null);
   const shellLoggedRef = useRef(false);
   const resolveLoggedRef = useRef(false);
@@ -108,7 +105,6 @@ export function TradeChatComposeClient({
       if (result.ok && result.roomId) {
         if (replaceStartedRef.current === result.roomId) return;
         replaceStartedRef.current = result.roomId;
-        setGoingRoomId(result.roomId);
         prefetchTradeChatRoomClientChunks();
         warmChatRoomEntryById(result.roomId, result.roomSource);
         const navRoomId = result.messengerRoomId?.trim() || result.roomId;
@@ -170,16 +166,6 @@ export function TradeChatComposeClient({
     setError(null);
     setResolveTick((n) => n + 1);
   };
-
-  if (goingRoomId) {
-    return (
-      <TradeChatLoadingShell
-        variant="creating"
-        label={t("chats_redirecting_to_room")}
-        description={t("chats_loading_opening_messages")}
-      />
-    );
-  }
 
   if (error) {
     return (

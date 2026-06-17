@@ -27,7 +27,6 @@ type Props = {
   searchResults: CommunityMessengerUserSearchResult[];
   viewerUserId: string | null;
   busyId: string | null;
-  onOpenProfile: (profile: { id: string; label: string; subtitle?: string; avatarUrl: string | null; isFriend: boolean; blocked: boolean }) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onStartDirectChat: (userId: string) => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
@@ -64,7 +63,6 @@ export function MessengerFriendAddSheet({
   searchResults,
   viewerUserId,
   busyId,
-  onOpenProfile,
   onPrefetchDirectRoom,
   onStartDirectChat,
   inviteUrl,
@@ -211,7 +209,6 @@ export function MessengerFriendAddSheet({
                       key={user.id}
                       user={user}
                       busyId={busyId}
-                      onOpenProfile={onOpenProfile}
                       onPrefetchDirectRoom={onPrefetchDirectRoom}
                       onStartDirectChat={onStartDirectChat}
                     />
@@ -254,20 +251,11 @@ export function MessengerFriendAddSheet({
 function SearchResultRow({
   user,
   busyId,
-  onOpenProfile,
   onPrefetchDirectRoom,
   onStartDirectChat,
 }: {
   user: CommunityMessengerUserSearchResult;
   busyId: string | null;
-  onOpenProfile: (profile: {
-    id: string;
-    label: string;
-    subtitle?: string;
-    avatarUrl: string | null;
-    isFriend: boolean;
-    blocked: boolean;
-  }) => void;
   onPrefetchDirectRoom: (userId: string) => void;
   onStartDirectChat: (userId: string) => void;
 }) {
@@ -276,29 +264,19 @@ function SearchResultRow({
   const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
   const initial = user.displayName.trim().slice(0, 1) || "?";
   const publicIdLabel = user.publicId ? `@${user.publicId}` : "";
-  const profileLite = {
-    id: user.id,
-    label: user.displayName,
-    subtitle: publicIdLabel || undefined,
-    avatarUrl: user.avatarUrl,
-    isFriend: user.isFriend,
-    blocked: user.isBlockedByMe || user.isBlockedByPeer,
-  };
   const bChat = busyId === `room:${user.id}`;
   const cannotMessage = !user.canMessage;
   const isMutualFriend = user.isFriend;
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 active:bg-[color:var(--messenger-primary-soft)]">
-      <button
-        type="button"
+    <div className="flex items-center gap-2 px-3 py-2">
+      <div
+        className="flex min-w-0 flex-1 items-center gap-2.5"
         onPointerDown={() => {
           if (prefetchOnceRef.current) return;
           prefetchOnceRef.current = true;
           onPrefetchDirectRoom(user.id);
         }}
-        onClick={() => onOpenProfile(profileLite)}
-        className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
       >
         <SamarketThumbnail
           src={avatarSrc}
@@ -326,7 +304,7 @@ function SearchResultRow({
             </p>
           ) : null}
         </div>
-      </button>
+      </div>
       <div className="flex shrink-0 items-center justify-end gap-1">
         {cannotMessage ? (
           <span className="max-w-[6.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>

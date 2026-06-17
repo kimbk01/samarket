@@ -13,6 +13,13 @@ import {
   type MessengerMainSection,
 } from "@/lib/community-messenger/messenger-ia";
 
+import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+
+export type NavigateToCommunityRoomOptions = {
+  viewerUserId?: string | null;
+  roomForPrime?: CommunityMessengerRoomSummary | null;
+};
+
 type Args = {
   router: AppRouterInstance;
   chatInboxFilter: MessengerChatInboxFilter;
@@ -67,13 +74,15 @@ export function useCommunityMessengerHomeNavigation({
   );
 
   const navigateToCommunityRoom = useCallback(
-    (roomId: string) => {
+    (roomId: string, options?: NavigateToCommunityRoomOptions) => {
       const listSource = messengerRoomListSourceFromPathname(pathname);
       void runCommunityMessengerRoomForwardNavigation({
         router,
         roomId,
         listSource,
         fromEntryOrigin: messengerEntryOrigin,
+        viewerUserId: options?.viewerUserId,
+        roomForPrime: options?.roomForPrime,
       });
     },
     [router, pathname, messengerEntryOrigin]

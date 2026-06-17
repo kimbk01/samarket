@@ -95,7 +95,10 @@ export async function runCommunityMessengerRoomForwardNavigation(
 
   scheduleCmPreRouteRoomNavigationFollowUp(() => {
     noteCmRoomRouteTransitionStart();
-    beginCmPreRouteRoomOpeningOverlay(id);
+    const snapshotFresh = isRoomSnapshotFresh(id, vu);
+    if (!snapshotFresh) {
+      beginCmPreRouteRoomOpeningOverlay(id);
+    }
     beginCmRoomEntryPriorityMode(id);
     if (room && vu) {
       primeMessengerRoomEntrySnapshot({ viewerUserId: vu, room });

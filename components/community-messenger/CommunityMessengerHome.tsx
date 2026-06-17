@@ -108,6 +108,7 @@ import {
   invalidateRoomSnapshot,
   peekRoomSnapshot,
   prefetchCommunityMessengerRoomSnapshot,
+  primeHotRoomSnapshot,
   primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import {
@@ -161,7 +162,10 @@ import {
 import {
   writeDismissedCommunityMessengerNotificationIds,
 } from "@/lib/community-messenger/community-messenger-home-notification-dismiss-storage";
-import { useCommunityMessengerHomeNavigation } from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
+import {
+  useCommunityMessengerHomeNavigation,
+  type NavigateToCommunityRoomOptions,
+} from "@/lib/community-messenger/home/use-community-messenger-home-navigation";
 import { fetchMeetingDeeplink } from "@/lib/community-messenger/home/fetch-meeting-deeplink";
 import { useCommunityMessengerHomeShellEffects } from "@/lib/community-messenger/home/use-community-messenger-home-shell-effects";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
@@ -742,6 +746,16 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       pathname: messengerListPathname,
       messengerEntryOrigin: entryOriginQuery,
     });
+  const messengerViewerUserId = data?.me?.id?.trim() || null;
+  const navigateToCommunityRoomWithViewer = useCallback(
+    (roomId: string, options?: NavigateToCommunityRoomOptions) => {
+      navigateToCommunityRoom(roomId, {
+        ...options,
+        viewerUserId: options?.viewerUserId ?? messengerViewerUserId,
+      });
+    },
+    [navigateToCommunityRoom, messengerViewerUserId]
+  );
   /** 통화 탭 — `deferredCallLog` 1200ms follow-up 대기 없이 즉시 보강 */
   useEffect(() => {
     if (mainSection !== "call_logs") return;
@@ -1017,14 +1031,17 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
   const startDirectRoom = useCallback(
     async (peerUserId: string) => {
       setActionError(null);
+      const viewerUserId = data?.me?.id?.trim() || null;
       const existingRoom = pickGeneralDirectRoomForPeer(data?.chats ?? [], peerUserId);
       if (existingRoom) {
         const revived = await reviveDirectRoomForEntry(existingRoom);
         if (!revived) return;
-        if (!peekRoomSnapshot(existingRoom.id, data?.me?.id ?? undefined)) {
+        if (!peekRoomSnapshot(existingRoom.id, viewerUserId ?? undefined)) {
           void prefetchCommunityMessengerRoomSnapshot(existingRoom.id);
         }
-        navigateToCommunityRoom(existingRoom.id);
+        navigateToCommunityRoomWithViewer(existingRoom.id, {
+          roomForPrime: existingRoom,
+        });
         return;
       }
       setBusyId(`room:${peerUserId}`);
@@ -1043,7 +1060,8 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         if (res.ok && json.ok && json.roomId) {
           if (json.snapshot) {
             primeRoomSnapshot(json.roomId, json.snapshot);
-            const uid = data?.me?.id?.trim();
+            primeHotRoomSnapshot(json.roomId, json.snapshot);
+            const uid = viewerUserId;
             const { description: _desc, ...roomSummary } = json.snapshot.room;
             commitHomeListPatch(
               setData,
@@ -1060,7 +1078,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             }
             requestMessengerHubBadgeResync("direct_room_created");
           }
-          navigateToCommunityRoom(json.roomId);
+          navigateToCommunityRoomWithViewer(json.roomId, {
+            roomForPrime: json.snapshot?.room,
+          });
           return;
         }
         const apiErr =
@@ -1085,7 +1105,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       data?.chats,
       data?.me?.id,
       getMessengerActionErrorMessage,
-      navigateToCommunityRoom,
+      navigateToCommunityRoomWithViewer,
       messengerListPathname,
       reviveDirectRoomForEntry,
       router,
@@ -1499,7 +1519,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         void refresh(true);
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
-        navigateToCommunityRoom(json.roomId);
+        navigateToCommunityRoomWithViewer(json.roomId);
         return;
       }
       const apiErr =
@@ -1523,7 +1543,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     getMessengerActionErrorMessage,
     groupMembers,
     groupTitle,
-    navigateToCommunityRoom,
+    navigateToCommunityRoomWithViewer,
     messengerListPathname,
     refresh,
     resetGroupCreateDraft,
@@ -1565,7 +1585,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         void refresh(true);
         resetGroupCreateDraft();
         setGroupCreateStep("closed");
-        navigateToCommunityRoom(json.roomId);
+        navigateToCommunityRoomWithViewer(json.roomId);
         return;
       }
       const apiErr =
@@ -1587,7 +1607,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     }
   }, [
     getMessengerActionErrorMessage,
-    navigateToCommunityRoom,
+    navigateToCommunityRoomWithViewer,
     openGroupCreatorAliasAvatarUrl,
     openGroupCreatorAliasBio,
     openGroupCreatorAliasName,
@@ -1634,7 +1654,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         void refresh(true);
         closeJoinOpenGroupModal();
         closeHomeOverlay("public-group-find");
-        navigateToCommunityRoom(json.roomId);
+        navigateToCommunityRoomWithViewer(json.roomId);
         return;
       }
       setActionError(getMessengerActionErrorMessage(json.error));
@@ -1651,7 +1671,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     joinIdentityMode,
     joinPassword,
     joinTargetGroup,
-    navigateToCommunityRoom,
+    navigateToCommunityRoomWithViewer,
     refresh,
   ]);
 
@@ -2908,7 +2928,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
             const id = roomActionSheet.item.room.id;
             setRoomActionSheet(null);
             setOpenedMenuItemId((current) => (current?.startsWith("room:menu:") ? null : current));
-            navigateToCommunityRoom(id);
+            navigateToCommunityRoomWithViewer(id, { roomForPrime: roomActionSheet.item.room });
           }}
           onTogglePin={() => {
             setRoomActionSheet(null);
@@ -3039,7 +3059,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onToggleArchive={handleMessengerHomeToggleRoomArchive}
           onSelectFriend={(friend) => setFriendSheet({ mode: "profile", profile: friend })}
           onSelectOpenGroup={(groupId) => void openJoinModal(groupId)}
-          onSelectMessageRoom={(roomId) => navigateToCommunityRoom(roomId)}
+          onSelectMessageRoom={(roomId) => navigateToCommunityRoomWithViewer(roomId)}
         />
       ) : null}
 
@@ -3074,22 +3094,6 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           searchResults={searchResults}
           viewerUserId={data.me?.id ?? null}
           busyId={busyId}
-          onOpenProfile={(profile) =>
-            setFriendSheet({
-              mode: "profile",
-              allowFriendRequest: false,
-              profile: {
-                id: profile.id,
-                label: profile.label,
-                subtitle: profile.subtitle,
-                avatarUrl: profile.avatarUrl,
-                following: false,
-                blocked: profile.blocked,
-                isFriend: profile.isFriend,
-                isFavoriteFriend: false,
-              },
-            })
-          }
           onPrefetchDirectRoom={(userId) => maybePrefetchDirectRoom(userId)}
           onStartDirectChat={(userId) => void startDirectRoom(userId)}
           inviteUrl={messengerInviteUrl}
@@ -3105,14 +3109,14 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
           onRespondRequest={respondRequest}
           onOpenMissedCall={(call) => {
             if (call.roomId) {
-              navigateToCommunityRoom(call.roomId);
+              navigateToCommunityRoomWithViewer(call.roomId);
             }
           }}
-          onOpenImportantRoom={(roomId) => navigateToCommunityRoom(roomId)}
+          onOpenImportantRoom={(roomId) => navigateToCommunityRoomWithViewer(roomId)}
           onOpenGroupInvite={(roomId, inviteId) => {
             useIncomingFriendRequestPopupStore.getState().dismissGroupInviteIfId(inviteId);
             dismissNotification(`group_invite:${inviteId}`);
-            navigateToCommunityRoom(roomId);
+            navigateToCommunityRoomWithViewer(roomId);
           }}
           onDismissNotification={(id) => {
             if (id.startsWith("group_invite:")) {

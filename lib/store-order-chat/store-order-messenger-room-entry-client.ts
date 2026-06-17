@@ -25,7 +25,7 @@ import {
 
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 
-import { invalidateRoomSnapshot, peekRoomSnapshot, primeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { invalidateRoomSnapshot, peekRoomSnapshot, primeHotRoomSnapshot, primeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 
 
 
@@ -81,11 +81,9 @@ function parseEnsureChatRoomSnapshot(json: Record<string, unknown>): CommunityMe
 
 
 function primeAuthoritativeSnapshot(roomId: string, snapshot: CommunityMessengerRoomSnapshot): void {
-
   invalidateRoomSnapshot(roomId);
-
   primeRoomSnapshot(roomId, snapshot);
-
+  primeHotRoomSnapshot(roomId, snapshot);
 }
 
 

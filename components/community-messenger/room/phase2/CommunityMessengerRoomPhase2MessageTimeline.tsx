@@ -23,6 +23,7 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
+import { shouldShowMessengerRoomTimelineHydrationSkeleton } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
 import {
   messengerRoomReadBlockKeyImageLightbox,
@@ -764,25 +765,29 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.snapshot.room.lastMessage,
   ]);
 
-  const showTimelineHydrationSkeleton = useMemo(() => {
-    if (vm.displayRoomMessages.length > 0) return false;
-    if (vm.roomMessages.length > 0 && hydrationPass >= 2) return false;
-    if (vm.snapshot.clientShellPlaceholder) return true;
-    const hasCachedTimeline =
-      vm.roomMessages.length > 0 ||
-      vm.snapshot.messages.length > 0 ||
-      Boolean(vm.snapshot.room.lastMessage?.trim());
-    return hasCachedTimeline && (vm.loading || hydrationPass < 2 || shouldRecoverEmptyTimeline);
-  }, [
-    hydrationPass,
-    shouldRecoverEmptyTimeline,
-    vm.displayRoomMessages.length,
-    vm.loading,
-    vm.roomMessages.length,
-    vm.snapshot.clientShellPlaceholder,
-    vm.snapshot.messages.length,
-    vm.snapshot.room.lastMessage,
-  ]);
+  const showTimelineHydrationSkeleton = useMemo(
+    () =>
+      shouldShowMessengerRoomTimelineHydrationSkeleton({
+        displayRoomMessagesLength: vm.displayRoomMessages.length,
+        roomMessagesLength: vm.roomMessages.length,
+        hydrationPass,
+        clientShellPlaceholder: Boolean(vm.snapshot.clientShellPlaceholder),
+        loading: vm.loading,
+        shouldRecoverEmptyTimeline,
+        snapshotMessagesLength: vm.snapshot.messages.length,
+        lastMessage: vm.snapshot.room.lastMessage,
+      }),
+    [
+      hydrationPass,
+      shouldRecoverEmptyTimeline,
+      vm.displayRoomMessages.length,
+      vm.loading,
+      vm.roomMessages.length,
+      vm.snapshot.clientShellPlaceholder,
+      vm.snapshot.messages.length,
+      vm.snapshot.room.lastMessage,
+    ]
+  );
 
   useEffect(() => {
     if (!shouldRecoverEmptyTimeline) {
@@ -2049,7 +2054,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 );
               })}
             </div>
-          ) : showTimelineHydrationSkeleton || vm.snapshot.clientShellPlaceholder ? (
+          ) : showTimelineHydrationSkeleton ? (
             <div
               className="flex min-h-[40vh] flex-col items-center justify-center py-16"
               aria-busy="true"
