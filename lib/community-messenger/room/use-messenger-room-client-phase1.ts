@@ -35,6 +35,11 @@ import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { useMessengerRoomRealtimeMessageIngest } from "@/lib/community-messenger/room/use-messenger-room-realtime-message-ingest";
+import { useMessengerRoomTimelineInitialLoadComplete } from "@/lib/community-messenger/room/use-messenger-room-timeline-initial-load";
+import {
+  useMessengerRoomTimelineBootstrapFailure,
+  type TimelineBootstrapOutcomePayload,
+} from "@/lib/community-messenger/room/use-messenger-room-timeline-bootstrap-failure";
 import {
   useMessengerRoomOpenMarkReadEffect,
   type MessengerRoomOpenMarkReadPhaseRef,
@@ -57,6 +62,7 @@ import {
   isMessengerRoomBootstrapReadySnapshot,
   pickAuthoritativeMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import {
   peekRoomSnapshot,
   primeHotRoomSnapshot,
@@ -361,13 +367,17 @@ export function useMessengerRoomClientPhase1({
     }
     setSnapshot((prev) => {
       if (!prev || prev.clientShellPlaceholder) return seeded;
-      if (msgCount > 0 && (prev.messages?.length ?? 0) >= msgCount) return prev;
+      if (msgCount <= 0) return prev;
+      if (!isMessengerRoomTimelineBootstrapSeedComplete(prev)) return seeded;
+      if ((prev.messages?.length ?? 0) >= msgCount) return prev;
       return seeded;
     });
     setRoomMessages((prev) => {
       if (msgCount <= 0) return prev;
-      if (prev.length >= msgCount) return prev;
-      return seeded.messages;
+      return mergeRoomMessages(
+        prev,
+        seeded.messages as Array<CommunityMessengerMessage & { pending?: boolean }>
+      );
     });
   }, [initialServerSnapshot, roomId]);
 
@@ -435,9 +445,8 @@ export function useMessengerRoomClientPhase1({
     const snapMsgs = snap.messages ?? [];
     if (snapMsgs.length === 0 && !snap.room.lastMessage?.trim()) return;
     setRoomMessages((prev) => {
-      if (snapMsgs.length === 0) return prev.length > 0 ? prev : prev;
+      if (snapMsgs.length === 0) return prev;
       if (prev.length === 0) return snapMsgs;
-      if (prev.length >= snapMsgs.length) return prev;
       return mergeRoomMessages(prev, snapMsgs);
     });
   }, [snapshot, snapshot?.messages?.length, snapshot?.room.lastMessage]);
@@ -771,6 +780,8 @@ export function useMessengerRoomClientPhase1({
   }, []);
 
   const bootstrapAccessDeniedRedirectRef = useRef(false);
+  const reportTimelineBootstrapOutcomeRef =
+    useRef<(payload: TimelineBootstrapOutcomePayload) => void>(() => {});
   const onBlockingBootstrapDeniedRef = useRef<(status: number) => void>(() => {});
   onBlockingBootstrapDeniedRef.current = (_status: number) => {
     if (bootstrapAccessDeniedRedirectRef.current) return;
@@ -798,6 +809,8 @@ export function useMessengerRoomClientPhase1({
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
     onBlockingBootstrapDenied: (status: number) => onBlockingBootstrapDeniedRef.current(status),
+    reportTimelineBootstrapOutcome: (payload: TimelineBootstrapOutcomePayload) =>
+      reportTimelineBootstrapOutcomeRef.current(payload),
   });
   refreshBootstrapDepsRef.current = {
     roomId,
@@ -813,6 +826,8 @@ export function useMessengerRoomClientPhase1({
     silentBootstrapThrottleCoalesceTimerRef,
     swrDeferredBootstrapTimerRef,
     onBlockingBootstrapDenied: (status: number) => onBlockingBootstrapDeniedRef.current(status),
+    reportTimelineBootstrapOutcome: (payload: TimelineBootstrapOutcomePayload) =>
+      reportTimelineBootstrapOutcomeRef.current(payload),
   };
 
   const refreshBootstrapImplRef = useRef<ReturnType<typeof createMessengerRoomBootstrapRefresh> | null>(
@@ -836,6 +851,7 @@ export function useMessengerRoomClientPhase1({
       silentBootstrapThrottleCoalesceTimerRef: d.silentBootstrapThrottleCoalesceTimerRef,
       swrDeferredBootstrapTimerRef: d.swrDeferredBootstrapTimerRef,
       onBlockingBootstrapDenied: d.onBlockingBootstrapDenied,
+      reportTimelineBootstrapOutcome: d.reportTimelineBootstrapOutcome,
     });
     return refreshBootstrapImplRef.current;
   }, []);
@@ -938,6 +954,20 @@ export function useMessengerRoomClientPhase1({
     },
     [refreshBootstrap]
   );
+
+  const {
+    timelineLoadFailed,
+    reportTimelineBootstrapOutcome,
+    retryTimelineLoad,
+  } = useMessengerRoomTimelineBootstrapFailure({
+    roomId: String(roomId ?? "").trim(),
+    roomMessagesRef,
+    snapshotRef,
+    refresh,
+    setLoading,
+  });
+
+  reportTimelineBootstrapOutcomeRef.current = reportTimelineBootstrapOutcome;
 
   useNotificationSurfaceCommunityMessengerRoom(roomId, Boolean(snapshot ?? initialServerSnapshot));
 
@@ -1315,6 +1345,14 @@ export function useMessengerRoomClientPhase1({
     });
   }, [initialServerSnapshot?.viewerUserId, onParticipantPostgresForPeerRead, roomId, streamRoomId]);
 
+  const timelineInitialLoadComplete = useMessengerRoomTimelineInitialLoadComplete({
+    roomId: String(roomId ?? "").trim(),
+    loadedRef,
+    loading,
+    roomMessages,
+    snapshot,
+  });
+
   useMessengerRoomRealtimeMessageIngest({
     routeRoomId: String(roomId ?? "").trim(),
     streamRoomId,
@@ -1325,8 +1363,10 @@ export function useMessengerRoomClientPhase1({
     snapshotRef,
     roomMembersDisplayRef,
     stickToBottomRef,
+    messagesViewportRef,
     peerTailMarkReadHintRef,
     setRoomMessages,
+    timelineInitialLoadComplete,
     onParticipantPostgres: onParticipantPostgresForPeerRead,
     onRefresh: () => {
       // Realtime 메시지 이벤트가 RLS/Publication/세션 레이스로 누락돼도
@@ -1900,6 +1940,9 @@ export function useMessengerRoomClientPhase1({
   loadFriends,
   loading,
   loadingOlderMessages,
+  timelineInitialLoadComplete,
+  timelineLoadFailed,
+  retryTimelineLoad,
   loadMoreRoomMembers,
   loadOlderMessages,
   loadOlderMessagesRef,

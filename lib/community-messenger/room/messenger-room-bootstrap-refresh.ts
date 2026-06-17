@@ -60,6 +60,8 @@ import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-
 import { mergeCommunityMessengerForegroundBootstrapIntoSnapshot,
   roomBootstrapTimelineFingerprint,
 } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
+import { logChatRoomTimelineInitialFetch } from "@/lib/community-messenger/room/messenger-room-timeline-log";
+import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import { noteCmRoomR5BootstrapFingerprintSkip } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
@@ -145,6 +147,15 @@ export type MessengerRoomBootstrapRefreshDeps = {
   >;
   /** blocking bootstrap 403/404 — toast 후 목록으로 replace */
   onBlockingBootstrapDenied?: (status: number) => void;
+  /** initial/retry/recover bootstrap 결과 — timeline FAILED UI */
+  reportTimelineBootstrapOutcome?: (payload: {
+    ok: boolean;
+    httpStatus: number;
+    shouldBlock: boolean;
+    silent: boolean;
+    triggerReason?: string;
+    snapshotMessageCount: number;
+  }) => void;
 };
 
 function applyPrimedTimelineSeed(
@@ -158,7 +169,6 @@ function applyPrimedTimelineSeed(
     if (prev.length === 0) {
       return msgs as Array<CommunityMessengerMessage & { pending?: boolean }>;
     }
-    if (prev.length >= msgs.length) return prev;
     return mergeRoomMessages(prev, msgs);
   });
   return true;
@@ -234,6 +244,7 @@ export function createMessengerRoomBootstrapRefresh(
     swrDeferredBootstrapTimerRef,
     setRoomMessages,
     onBlockingBootstrapDenied,
+    reportTimelineBootstrapOutcome,
   } = deps;
 
   /** 사일런트 GET 폭주(visibility/pageshow/realtime 버스트) 완화 */
@@ -297,6 +308,9 @@ export function createMessengerRoomBootstrapRefresh(
           return snap;
         });
       }
+      if (!(silent && bootstrapTierHdr === "silent_delta")) {
+        applyPrimedTimelineSeed(snap, setRoomMessages);
+      }
       const usedMinimalMemberHydration =
         shouldBlock || bootstrapQueryWithSrc.includes("memberHydration=minimal");
       if (usedMinimalMemberHydration) {
@@ -318,6 +332,12 @@ export function createMessengerRoomBootstrapRefresh(
         bootstrapQueryWithSrc,
         silent,
       });
+      logChatRoomTimelineInitialFetch("done", {
+        roomId,
+        messageCount: snap.messages?.length ?? 0,
+        tier: bootstrapTierHdr,
+        silent,
+      });
       logBootstrapColdFillDeepBreakdownClient({
         route_total_ms: Number.isFinite(serverRouteTotal) ? Math.round(serverRouteTotal) : undefined,
         rpc_ms: Number.isFinite(serverSnapshotMs) ? Math.round(serverSnapshotMs) : undefined,
@@ -334,6 +354,10 @@ export function createMessengerRoomBootstrapRefresh(
           silent && reqSrc === "room_silent" && bootstrapTierHdr !== "silent_delta" ? 1 : 0,
       });
     } else if (!silent) {
+      logChatRoomTimelineInitialFetch("error", {
+        roomId,
+        status: roomRes.status,
+      });
       setSnapshot(null);
     }
   }
@@ -418,8 +442,14 @@ export function createMessengerRoomBootstrapRefresh(
     const forceForegroundBlock =
       opts?.forceForegroundBlock === true || opts?.triggerReason === "lifecycle_blocking_first";
     let shouldBlock = !silent && (forceForegroundBlock || (!loadedRef.current && !primed));
+    if (shouldBlock) {
+      logChatRoomTimelineInitialFetch("start", {
+        roomId,
+        triggerReason: opts?.triggerReason ?? "foreground_block",
+      });
+    }
     try {
-      if (primed && isMessengerRoomBootstrapReadySnapshot(primed)) {
+      if (primed && isMessengerRoomBootstrapReadySnapshot(primed) && isMessengerRoomTimelineBootstrapSeedComplete(primed)) {
         setSnapshot(primed);
         const cachedSeedHit = applyPrimedTimelineSeed(primed, setRoomMessages);
         setLoading(false);
@@ -501,7 +531,11 @@ export function createMessengerRoomBootstrapRefresh(
           }
           const reuseAfterPrefetch =
             peekRoomSnapshot(roomId, viewerIdForCache) ?? peekRoomSnapshot(roomId, null);
-          if (reuseAfterPrefetch && isMessengerRoomBootstrapReadySnapshot(reuseAfterPrefetch)) {
+          if (
+            reuseAfterPrefetch &&
+            isMessengerRoomBootstrapReadySnapshot(reuseAfterPrefetch) &&
+            isMessengerRoomTimelineBootstrapSeedComplete(reuseAfterPrefetch)
+          ) {
             setSnapshot(reuseAfterPrefetch);
             applyPrimedTimelineSeed(reuseAfterPrefetch, setRoomMessages);
             setLoading(false);
@@ -984,6 +1018,19 @@ export function createMessengerRoomBootstrapRefresh(
         (roomRes.status === 403 || roomRes.status === 404)
       ) {
         onBlockingBootstrapDenied?.(roomRes.status);
+      }
+      const outcomeReason = opts?.triggerReason;
+      const shouldReportOutcome =
+        shouldBlock || outcomeReason === "timeline_bootstrap_retry";
+      if (shouldReportOutcome && reportTimelineBootstrapOutcome) {
+        reportTimelineBootstrapOutcome({
+          ok: roomRes.ok && snap != null,
+          httpStatus: roomRes.status,
+          shouldBlock,
+          silent,
+          triggerReason: outcomeReason,
+          snapshotMessageCount: snap?.messages?.length ?? 0,
+        });
       }
       if (roomRes.ok && snap) {
         const elapsed =

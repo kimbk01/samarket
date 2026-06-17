@@ -2,33 +2,43 @@
 
 import { useEffect, type RefObject } from "react";
 import {
-  resolveChatShellKeyboardOverlayCssPx,
+  resolveChatBottomInsetCssPx,
   resolveChatViewportShellPlatform,
   type ChatViewportShellLayoutMode,
 } from "@/lib/ui/chat-viewport-shell-platform";
 import { subscribeSamarketShellKeyboardInsets } from "@/lib/platform/samarket-shell-keyboard";
+import { resolveLayoutVisibleViewportCssPx } from "@/lib/ui/layout-visible-viewport-px";
+import { MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
+import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
 
 type Options = {
   enabled: boolean;
   shellRef: RefObject<HTMLDivElement | null>;
   layoutMode: ChatViewportShellLayoutMode;
-  /** call-pip-metrics 등 — `--chat-composer-height` 만 실측(레이아웃 높이 calc 금지) */
   observeComposerHeight?: boolean;
 };
 
 function syncComposerHeightMetric(shell: HTMLElement): void {
   const composer = shell.querySelector<HTMLElement>("[data-cm-composer]");
   const h = composer?.offsetHeight ?? 0;
+  const prevRaw = shell.style.getPropertyValue("--chat-composer-height");
+  const prev = prevRaw ? Number.parseInt(prevRaw, 10) : 0;
   if (h > 0) {
     shell.style.setProperty("--chat-composer-height", `${h}px`);
   } else {
     shell.style.removeProperty("--chat-composer-height");
   }
+  if (h > 0 && h !== prev) {
+    logChatRoomScroll("composer_height_changed", {
+      composerHeightPx: h,
+      prevComposerHeightPx: prev > 0 ? prev : null,
+    });
+  }
 }
 
 /**
- * 채팅 셸 단일 관측 훅 — keyboard overlay padding + (선택) composer 높이.
- * composer 에 fixed/inset JS 를 넣지 않는다.
+ * 채팅 셸 — CSS 변수 3개만 갱신:
+ * --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
  */
 export function useChatViewportShellInsets(opts: Options): void {
   const { enabled, shellRef, layoutMode, observeComposerHeight = false } = opts;
@@ -43,24 +53,21 @@ export function useChatViewportShellInsets(opts: Options): void {
     shell.dataset.chatShellLayout = layoutMode;
 
     let syncRaf = 0;
-    const syncKeyboardOffset = () => {
-      let offset = resolveChatShellKeyboardOverlayCssPx();
-      const vv = window.visualViewport;
-      if (vv && offset > 0) {
-        const vvBottom = vv.offsetTop + vv.height;
-        const shellBottom = shell.getBoundingClientRect().bottom;
-        /** 100dvh 축소·adjustResize 가 이미 맞춘 경우 이중 padding 방지 */
-        if (Math.abs(shellBottom - vvBottom) < 12) offset = 0;
-      }
-      if (offset > 0) {
-        shell.style.setProperty("--chat-shell-keyboard-offset", `${offset}px`);
-      } else {
-        shell.style.removeProperty("--chat-shell-keyboard-offset");
-      }
-    };
-
     const syncAll = () => {
-      syncKeyboardOffset();
+      if (layoutMode !== "embedded") {
+        const visiblePx = resolveLayoutVisibleViewportCssPx(MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX);
+        shell.style.setProperty("--chat-viewport-height", `${visiblePx}px`);
+      } else {
+        shell.style.removeProperty("--chat-viewport-height");
+      }
+
+      const bottomInset = resolveChatBottomInsetCssPx();
+      if (bottomInset > 0) {
+        shell.style.setProperty("--chat-bottom-inset", `${bottomInset}px`);
+      } else {
+        shell.style.removeProperty("--chat-bottom-inset");
+      }
+
       if (observeComposerHeight) syncComposerHeightMetric(shell);
     };
 
@@ -83,7 +90,7 @@ export function useChatViewportShellInsets(opts: Options): void {
       }
     }
 
-    const vv = window.visualViewport;
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
     const onVv = () => scheduleSync();
     const onWin = () => scheduleSync();
     vv?.addEventListener("resize", onVv);
@@ -100,7 +107,8 @@ export function useChatViewportShellInsets(opts: Options): void {
       window.removeEventListener("resize", onWin);
       window.removeEventListener("orientationchange", onWin);
       unsubNative();
-      shell.style.removeProperty("--chat-shell-keyboard-offset");
+      shell.style.removeProperty("--chat-viewport-height");
+      shell.style.removeProperty("--chat-bottom-inset");
       shell.style.removeProperty("--chat-composer-height");
       delete shell.dataset.chatShellPlatform;
       delete shell.dataset.chatShellLayout;

@@ -13,6 +13,7 @@ import {
   useRef,
   type Dispatch,
   type MutableRefObject,
+  type RefObject,
   type SetStateAction,
 } from "react";
 import {
@@ -31,8 +32,16 @@ import {
   cmRtLogRoomIdentity,
   isCommunityMessengerRealtimeDebugEnabled,
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-debug";
-import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
+import { messengerRolloutUsesRoomScrollHints, messengerRoomTracksScrollPosition } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
+import {
+  logChatRoomTimelineRealtime,
+} from "@/lib/community-messenger/room/messenger-room-timeline-log";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
+import {
+  logMessengerRoomNewMessagesChipShow,
+  readMessengerRoomNearBottomFromViewport,
+  syncMessengerRoomStickToBottomFromViewport,
+} from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { applyIncomingMessageEvent } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import {
@@ -79,6 +88,7 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   roomMembersDisplayRef: MutableRefObject<CommunityMessengerProfileLite[]>;
   stickToBottomRef: MutableRefObject<boolean>;
+  messagesViewportRef: RefObject<HTMLDivElement | null>;
   /** 상대 INSERT 직후 `mark_read` 가시 조건 완화 — @see useMessengerRoomOpenMarkReadEffect */
   peerTailMarkReadHintRef?: MutableRefObject<string | null>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
@@ -90,6 +100,8 @@ export type MessengerRoomRealtimeMessageIngestArgs = {
     newRecord: Record<string, unknown> | null;
     oldRecord: Record<string, unknown> | null;
   }) => void;
+  /** initial fetch 완료 전 Realtime merge 보류 — race 방지 */
+  timelineInitialLoadComplete?: boolean;
 };
 
 const CM_RT_MESSAGE_INGEST_CHUNK_SIZE = 28;
@@ -105,10 +117,12 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     snapshotRef,
     roomMembersDisplayRef,
     stickToBottomRef,
+    messagesViewportRef,
     peerTailMarkReadHintRef,
     setRoomMessages,
     onRefresh,
     onParticipantPostgres,
+    timelineInitialLoadComplete = false,
   } = args;
 
   const pendingRealtimeRef = useRef<CommunityMessengerRoomRealtimeMessageEvent[]>([]);
@@ -130,10 +144,19 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     const batch = dedupeRealtimeMessageBatch(rawBatch);
     if (batch.length === 0) return;
     const snap = snapshotRef.current;
-    if (!snap) {
+    if (!snap || !timelineInitialLoadComplete) {
       pendingRealtimeRef.current.push(...batch);
+      logChatRoomTimelineRealtime("queued", {
+        roomId: streamRoomId.trim(),
+        batchLen: batch.length,
+        reason: !snap ? "snapshot_missing" : "initial_load_pending",
+      });
       return;
     }
+    logChatRoomTimelineRealtime("received", {
+      roomId: streamRoomId.trim(),
+      batchLen: batch.length,
+    });
     const flushT0 = performance.now();
     let lastPeerInsertIdForPolish: string | null = null;
     {
@@ -146,8 +169,20 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       }
     }
     const rid = streamRoomId?.trim();
+    const viewportMetrics = readMessengerRoomNearBottomFromViewport(messagesViewportRef.current);
+    let nearBottomForIngest: boolean;
+    if (viewportMetrics) {
+      nearBottomForIngest = viewportMetrics.nearBottom;
+      stickToBottomRef.current = nearBottomForIngest;
+    } else if (rid) {
+      const scrollPos = useMessengerRoomReaderStateStore.getState().getScrollPositionForPolicy(rid);
+      nearBottomForIngest = scrollPos === "at-bottom" || scrollPos === "near-bottom";
+      stickToBottomRef.current = nearBottomForIngest;
+    } else {
+      nearBottomForIngest = stickToBottomRef.current;
+    }
     let insertFromOthers = 0;
-    if (rid && messengerRolloutUsesRoomScrollHints() && !stickToBottomRef.current) {
+    if (rid && messengerRoomTracksScrollPosition() && !nearBottomForIngest) {
       const viewer = snap.viewerUserId;
       for (const event of batch) {
         if (event.eventType !== "INSERT") continue;
@@ -156,6 +191,7 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
         insertFromOthers += 1;
       }
     }
+    const mergeCandidateCount = batch.filter((e) => e.eventType !== "DELETE").length;
     setRoomMessages((prev) => {
       let cur = prev;
       const incomingToMerge: CommunityMessengerMessage[] = [];
@@ -253,6 +289,12 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       }
       return incomingToMerge.length > 0 ? mergeRoomMessages(cur, incomingToMerge) : cur;
     });
+    if (mergeCandidateCount > 0) {
+      logChatRoomTimelineRealtime("merged", {
+        roomId: streamRoomId.trim(),
+        mergedCount: mergeCandidateCount,
+      });
+    }
     if (lastPeerInsertIdForPolish && cmPolishAnalysisEnabled()) {
       markCmPolishPeerRealtimeFlush(lastPeerInsertIdForPolish, flushT0);
     }
@@ -269,6 +311,13 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     }
     if (insertFromOthers > 0 && rid) {
       useMessengerRoomReaderStateStore.getState().bumpPendingNewFromOthers(rid, insertFromOthers);
+      const pendingTotal =
+        useMessengerRoomReaderStateStore.getState().byRoom[rid]?.pendingNewBelow ?? insertFromOthers;
+      logMessengerRoomNewMessagesChipShow({
+        roomId: rid,
+        delta: insertFromOthers,
+        pendingTotal,
+      });
     }
     if (isCommunityMessengerRealtimeDebugEnabled() && batch.length > 0) {
       cmRtLogIngestBatch({
@@ -298,7 +347,9 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     setRoomMessages,
     snapshotRef,
     stickToBottomRef,
+    messagesViewportRef,
     streamRoomId,
+    timelineInitialLoadComplete,
   ]);
 
   const flushRealtimeMessageBatch = useCallback(() => {
@@ -336,11 +387,16 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
   );
 
   useEffect(() => {
-    if (!snapshot) return;
+    if (!snapshot || !timelineInitialLoadComplete) return;
     const queued = pendingRealtimeRef.current;
     if (queued.length === 0) return;
     pendingRealtimeRef.current = [];
     const deduped = dedupeRealtimeMessageBatch(queued);
+    logChatRoomTimelineRealtime("merged", {
+      roomId: streamRoomId.trim(),
+      mergedCount: deduped.length,
+      source: "pending_queue_drain",
+    });
     let offset = 0;
     const runChunk = () => {
       const slice = deduped.slice(offset, offset + CM_RT_MESSAGE_INGEST_CHUNK_SIZE);
@@ -352,14 +408,22 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       }
     };
     runChunk();
-  }, [snapshot, applyRealtimeMessageBatch]);
+  }, [snapshot, timelineInitialLoadComplete, applyRealtimeMessageBatch, streamRoomId]);
 
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE !== "1") return;
     if (typeof window === "undefined") return;
     const w = window as Window & {
       __cmPerfSimulateRealtimeBurst?: (count: number) => { batchQueued: number; pendingQueued: number };
+      __cmPerfSyncScrollNearBottom?: () => boolean;
     };
+    w.__cmPerfSyncScrollNearBottom = () =>
+      syncMessengerRoomStickToBottomFromViewport({
+        viewport: messagesViewportRef.current,
+        stickToBottomRef,
+        roomId: streamRoomId.trim(),
+        emitScrollLogs: true,
+      });
     w.__cmPerfSimulateRealtimeBurst = (count) => {
       const rid = streamRoomId.trim();
       const peer = "00000000-0000-0000-0000-000000000099";
@@ -385,8 +449,9 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     };
     return () => {
       delete w.__cmPerfSimulateRealtimeBurst;
+      delete w.__cmPerfSyncScrollNearBottom;
     };
-  }, [handleRealtimeMessageEvent, streamRoomId]);
+  }, [handleRealtimeMessageEvent, messagesViewportRef, stickToBottomRef, streamRoomId]);
 
   const snapshotPresent = snapshot != null;
   useEffect(() => {

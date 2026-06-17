@@ -112,6 +112,48 @@ describe("pickAuthoritativeMessengerRoomSnapshot", () => {
     expect(picked?.messages.length).toBe(1);
     expect(picked?.messages[0]?.id).toBe("h1");
   });
+
+  it("lastMessage 힌트만 있는 peek 캐시보다 messages 가 있는 server 시드를 택한다", () => {
+    const viewer = "owner-1";
+    const roomId = "room-a";
+    primeRoomSnapshot(
+      roomId,
+      snap({
+        roomId,
+        viewerUserId: viewer,
+        messages: [],
+        room: { lastMessage: "목록 미리보기만" } as CommunityMessengerRoomSnapshot["room"],
+      })
+    );
+    const server = snap({
+      roomId,
+      viewerUserId: viewer,
+      room: { lastMessage: "목록 미리보기만" } as CommunityMessengerRoomSnapshot["room"],
+      messages: [
+        {
+          id: "m1",
+          roomId,
+          senderId: "x",
+          senderLabel: "x",
+          messageType: "text",
+          content: "hi",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          isMine: false,
+          clientMessageId: null,
+          callKind: null,
+          callStatus: null,
+          callSessionId: null,
+        },
+      ],
+    });
+    const picked = pickAuthoritativeMessengerRoomSnapshot({
+      roomId,
+      viewerUserId: viewer,
+      serverSnapshot: server,
+    });
+    expect(picked?.messages.length).toBe(1);
+    expect(picked?.messages[0]?.id).toBe("m1");
+  });
 });
 
 describe("assertStoreOrderRoomBootstrapHasTimelineSeed", () => {

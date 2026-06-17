@@ -88,16 +88,16 @@ export function useMessengerRoomComposerEarly({
   }, [snapshot]);
 
   const sendMessage = useCallback(
-    async (textOverride?: string) => {
+    async (textOverride?: string): Promise<boolean> => {
       const bridge = getMessengerRoomComposerPhase2Bridge();
       const raw = (textOverride ?? message).trim();
-      if (!raw) return;
+      if (!raw) return false;
       if (bridge) {
-        await bridge.sendMessage(textOverride);
-        return;
+        return bridge.sendMessage(textOverride);
       }
       setMessage("");
       pendingTextSendsRef.current.push(raw);
+      return true;
     },
     [message]
   );

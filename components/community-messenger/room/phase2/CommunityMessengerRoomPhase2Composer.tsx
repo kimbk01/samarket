@@ -92,6 +92,7 @@ import {
   resolveMessengerDotMenuCallKind,
   resolveMessengerRoomFeatureGate,
 } from "@/lib/community-messenger/messenger-room-domain";
+import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/room/messenger-composer-focus-after-send";
 import {
   normalizeTradeChatCallPolicy,
   tradeChatCallPolicyAllowsVideo,
@@ -356,7 +357,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
           ? safeT("nav_messenger_input_placeholder", { fallbackKo: "메시지를 입력하세요", fallbackEn: "Type a message" })
           : safeT("cm_ui_message", { fallbackKo: "메시지", fallbackEn: "Message" });
 
-  const commitTextSend = useCallback(() => {
+  const commitTextSend = useCallback(async () => {
     if (
       vm.roomUnavailable ||
       !draft.trim() ||
@@ -372,7 +373,9 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     const text = draft.trim();
     recordCmPolishSendClick();
     setDraft("");
-    void vm.sendMessage(text);
+    const ok = await vm.sendMessage(text);
+    if (!ok) setDraft(text);
+    scheduleMessengerComposerFocusRetain(vm.composerTextareaRef);
   }, [draft, vm]);
 
   const { keyboardOverlapSuppressed, messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();

@@ -22,6 +22,7 @@ import {
   cmScrollAnalysisEnabled,
   logCmScrollAnalysis,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
+import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
 
 export type UseMessengerRoomLoadOlderMessagesFetchArgs = {
   roomId: string;
@@ -172,6 +173,11 @@ export function useMessengerRoomLoadOlderMessagesFetch({
                 room_id_suffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
               });
             }
+            logChatRoomScroll("prepend_older_preserve_position", {
+              roomIdSuffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
+              heightDelta: Math.round(heightDelta),
+              anchorErrorPx: anchorErrPx,
+            });
           });
         });
       } finally {

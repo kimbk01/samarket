@@ -1,5 +1,6 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { peekHotRoomSnapshot, peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import { getMessengerRealtimeRoomMessages } from "@/lib/community-messenger/stores/messenger-realtime-store";
 
 function messageCount(snap: CommunityMessengerRoomSnapshot | null | undefined): number {
@@ -18,10 +19,20 @@ function pickRichestRoomSnapshot(
   server: CommunityMessengerRoomSnapshot | null,
   ...others: Array<CommunityMessengerRoomSnapshot | null | undefined>
 ): CommunityMessengerRoomSnapshot | null {
-  let best: CommunityMessengerRoomSnapshot | null = server;
-  let bestCount = messageCount(server);
+  const candidates: CommunityMessengerRoomSnapshot[] = [];
+  if (server && !server.clientShellPlaceholder) candidates.push(server);
   for (const candidate of others) {
     if (!candidate || candidate.clientShellPlaceholder) continue;
+    candidates.push(candidate);
+  }
+  if (candidates.length === 0) return null;
+
+  const complete = candidates.filter(isMessengerRoomTimelineBootstrapSeedComplete);
+  const pool = complete.length > 0 ? complete : candidates;
+
+  let best = pool[0] ?? null;
+  let bestCount = messageCount(best);
+  for (const candidate of pool.slice(1)) {
     const n = messageCount(candidate);
     if (n > bestCount) {
       best = candidate;

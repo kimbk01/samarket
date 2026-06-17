@@ -34,3 +34,13 @@ export function messengerRolloutUsesSurfaceAndVisibilityForSound(): boolean {
 export function messengerRolloutUsesRoomScrollHints(): boolean {
   return getMessengerNotificationRolloutLevel() >= 3;
 }
+
+/** 하단 근접·읽음 위치·새 메시지 칩 — level 2+ */
+export function messengerRoomTracksScrollPosition(): boolean {
+  return getMessengerNotificationRolloutLevel() >= 2;
+}
+
+/** 타임라인 하단 "새 메시지 N개" 칩 */
+export function messengerRoomShowsNewMessagesBelowChip(): boolean {
+  return getMessengerNotificationRolloutLevel() >= 2;
+}

@@ -153,8 +153,9 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
       messagesViewportRef: vm.messagesViewportRef,
       scroll: vm.scrollMessengerToBottom,
       reason: "store_order_chrome_keyboard_compact",
+      stickToBottomRef: vm.stickToBottomRef,
     });
-  }, [keyboardCompact, vm.messagesViewportRef, vm.scrollMessengerToBottom, vm.streamRoomId]);
+  }, [keyboardCompact, vm.messagesViewportRef, vm.scrollMessengerToBottom, vm.stickToBottomRef, vm.streamRoomId]);
 
   const buyerCanCancel =
     !!snapshot?.buyerOrder &&

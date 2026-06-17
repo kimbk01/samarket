@@ -7,6 +7,7 @@ import {
   notifyCmTradeDockLayoutChange,
 } from "@/lib/community-messenger/room/cm-trade-dock-layout";
 import { runMessengerRoomScrollToBottom } from "@/lib/community-messenger/room/messenger-room-scroll-to-bottom";
+import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
 
 type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
@@ -63,11 +64,15 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
     let dockObserver: ResizeObserver | null = null;
     let dockEl: HTMLElement | null = null;
 
-    const anchorTimeline = (force: boolean) => {
+    const anchorTimeline = () => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const nearBottom = stickToBottomRef.current;
-        if (!force && !nearBottom) return;
+        const nearBottom = syncMessengerRoomStickToBottomFromViewport({
+          viewport: messagesViewportRef.current,
+          stickToBottomRef,
+          roomId: roomId ?? "",
+        });
+        if (!nearBottom) return;
         const upgradeBag = (window as Window & {
           __cmR9UpgradeStateByRoom?: Record<string, { scrollAnchorDeferred?: boolean }>;
         }).__cmR9UpgradeStateByRoom;
@@ -86,12 +91,9 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
 
     const onDockResize = (height: number) => {
       const prev = lastDockHeightRef.current;
-      const grew = height > prev + 4;
       lastDockHeightRef.current = height;
-      if (grew || prev === 0) {
-        anchorTimeline(true);
-      } else {
-        anchorTimeline(false);
+      if (height > prev + 4 || prev === 0) {
+        anchorTimeline();
       }
     };
 
@@ -117,18 +119,17 @@ export function useMessengerRoomTradeDockScrollAnchor(opts: {
 
     const onLayoutEvent = () => {
       bindDock();
-      anchorTimeline(true);
+      anchorTimeline();
     };
 
     bindDock();
-    anchorTimeline(true);
+    anchorTimeline();
 
     const vp = messagesViewportRef.current;
     const shellObserver =
       vp && typeof MutationObserver !== "undefined"
         ? new MutationObserver(() => {
             bindDock();
-            anchorTimeline(true);
           })
         : null;
     const shell = vp?.closest("[data-messenger-shell]");

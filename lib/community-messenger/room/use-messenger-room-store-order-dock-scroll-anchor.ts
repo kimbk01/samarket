@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { runMessengerRoomScrollToBottom } from "@/lib/community-messenger/room/messenger-room-scroll-to-bottom";
+import { syncMessengerRoomStickToBottomFromViewport } from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
 
 type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
@@ -59,11 +60,15 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
     let dockObserver: ResizeObserver | null = null;
     let dockEl: HTMLElement | null = null;
 
-    const anchorTimeline = (force: boolean) => {
+    const anchorTimeline = () => {
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
-        const nearBottom = stickToBottomRef.current;
-        if (!force && !nearBottom) return;
+        const nearBottom = syncMessengerRoomStickToBottomFromViewport({
+          viewport: messagesViewportRef.current,
+          stickToBottomRef,
+          roomId: roomId ?? "",
+        });
+        if (!nearBottom) return;
         const upgradeBag = (window as Window & {
           __cmR9UpgradeStateByRoom?: Record<string, { scrollAnchorDeferred?: boolean }>;
         }).__cmR9UpgradeStateByRoom;
@@ -82,13 +87,10 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
 
     const onDockResize = (height: number) => {
       const prev = lastDockHeightRef.current;
-      const grew = height > prev + 4;
       lastDockHeightRef.current = height;
       if (prev === 0) return;
-      if (grew) {
-        anchorTimeline(true);
-      } else {
-        anchorTimeline(false);
+      if (height > prev + 4) {
+        anchorTimeline();
       }
     };
 

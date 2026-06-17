@@ -1,3 +1,5 @@
+import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
+
 /** 타임라인에 메시지·lastMessage 힌트가 있는지 — 일반·거래·배달 공통 */
 export function hasMessengerRoomTimelineLoadHint(input: {
   roomMessagesLength: number;
@@ -12,6 +14,25 @@ export function hasMessengerRoomTimelineLoadHint(input: {
 }
 
 /**
+ * 입장 bootstrap·LRU 캐시 reuse 가능 여부 — `lastMessage` 힌트만 있고 `messages[]` 가 비면 불완전(목록 bump·summary patch 잔재).
+ * 신규 빈 방(lastMessage 없음)은 true.
+ */
+export function isMessengerRoomTimelineBootstrapSeedComplete(
+  snapshot:
+    | {
+        messages?: CommunityMessengerRoomSnapshot["messages"];
+        room: Pick<CommunityMessengerRoomSnapshot["room"], "lastMessage">;
+      }
+    | null
+    | undefined
+): boolean {
+  if (!snapshot) return false;
+  const hasLastMessageHint = Boolean(snapshot.room.lastMessage?.trim());
+  if (!hasLastMessageHint) return true;
+  return (snapshot.messages?.length ?? 0) > 0;
+}
+
+/**
  * 메신저 방 타임라인 중앙 버퍼링 스피너 표시 여부.
  * 신규·빈 방(`clientShellPlaceholder`, 힌트 없음)은 스피너 없이 빈 타임라인을 먼저 보여준다.
  */
@@ -21,7 +42,6 @@ export function shouldShowMessengerRoomTimelineHydrationSkeleton(input: {
   hydrationPass: number;
   clientShellPlaceholder: boolean;
   loading: boolean;
-  shouldRecoverEmptyTimeline: boolean;
   snapshotMessagesLength: number;
   lastMessage?: string | null;
 }): boolean {
@@ -40,6 +60,6 @@ export function shouldShowMessengerRoomTimelineHydrationSkeleton(input: {
 
   return (
     hasTimelineLoadHint &&
-    (input.loading || input.hydrationPass < 2 || input.shouldRecoverEmptyTimeline)
+    (input.loading || input.hydrationPass < 2)
   );
 }

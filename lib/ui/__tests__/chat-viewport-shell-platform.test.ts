@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import {
   isChatViewportAndroidPlatform,
   isChatViewportIosPlatform,
+  resolveChatBottomInsetCssPx,
   resolveChatShellKeyboardOverlayCssPx,
   resolveChatViewportShellClassNames,
   resolveChatViewportShellPlatform,
@@ -65,6 +66,21 @@ describe("chat-viewport-shell-platform", () => {
       samarketShell: undefined,
     });
     expect(resolveChatShellKeyboardOverlayCssPx()).toBe(300);
+  });
+
+  it("returns bottom inset when keyboard closed and vv gap exists (Android nav bar)", () => {
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { height: 752, offsetTop: 0 },
+      samarketShell: undefined,
+    });
+    expect(resolveChatBottomInsetCssPx()).toBe(48);
+    vi.stubGlobal("window", {
+      innerHeight: 800,
+      visualViewport: { height: 500, offsetTop: 0 },
+      samarketShell: undefined,
+    });
+    expect(resolveChatBottomInsetCssPx()).toBe(300);
   });
 
   it("builds shell class names for embedded ios layout", () => {

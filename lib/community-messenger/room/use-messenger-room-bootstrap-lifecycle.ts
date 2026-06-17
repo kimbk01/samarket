@@ -7,6 +7,7 @@ import {
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_FOREGROUND_BOOTSTRAP_REUSE_MS } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { cmStrictEffectRunProbe } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
@@ -51,6 +52,13 @@ export function useMessengerRoomBootstrapLifecycle({
     if (seededSnapshot) {
       loadedRef.current = true;
       setRoomReadyForRealtime(true);
+      if (!isMessengerRoomTimelineBootstrapSeedComplete(seededSnapshot)) {
+        void refresh(false, {
+          triggerReason: "lifecycle_incomplete_timeline_seed",
+          forceForegroundBlock: true,
+        });
+        return;
+      }
       /**
        * - `membersDeferred`: 멤버 전원 프로필 보강 — 즉시 silent(동일 틱, runSingleFlight·coalesce로 중복 완화)
        * - `bootstrapEnrichmentPending`: full 보강 — 100~300ms 뒤 1회 silent

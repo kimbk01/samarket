@@ -1,0 +1,9 @@
+{
+  "device": "RFCY40PY2CA",
+  "serverUrl": "http://192.168.100.64:3000",
+  "roomId": "0b99ce3d-39c7-45e4-a79e-ee6308e66a1b",
+  "log_line_count": 0,
+  "log_events": [],
+  "log_sample": [],
+  "note": "WebView console → logcat은 Chromium 태그에 따라 누락될 수 있음. chrome://inspect 병행 권장."
+}

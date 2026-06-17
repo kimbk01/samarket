@@ -80,7 +80,7 @@ export function useMessengerRoomComposerSurface(): MessengerRoomPhase2ComposerVi
   }, [snapshot]);
 
   const flushPendingSends = useCallback(
-    (send: (text?: string) => Promise<void>) => {
+    (send: (text?: string) => Promise<boolean>) => {
       const queued = pendingTextSendsRef.current.splice(0);
       for (const text of queued) {
         void send(text);
@@ -90,17 +90,17 @@ export function useMessengerRoomComposerSurface(): MessengerRoomPhase2ComposerVi
   );
 
   const sendMessage = useCallback(
-    async (textOverride?: string) => {
+    async (textOverride?: string): Promise<boolean> => {
       const bridge = getMessengerRoomComposerPhase2Bridge();
       const raw = (textOverride ?? message).trim();
-      if (!raw || !snapshot) return;
+      if (!raw || !snapshot) return false;
       if (bridge) {
-        await bridge.sendMessage(textOverride);
-        return;
+        return bridge.sendMessage(textOverride);
       }
       setMessage("");
       setReplyToMessage(null);
       pendingTextSendsRef.current.push(raw);
+      return true;
     },
     [message, setMessage, setReplyToMessage, snapshot]
   );

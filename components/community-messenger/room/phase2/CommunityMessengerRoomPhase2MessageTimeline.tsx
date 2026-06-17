@@ -24,6 +24,8 @@ import { MessengerTimelineVirtualRow } from "@/components/community-messenger/ro
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
 import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
 import { shouldShowMessengerRoomTimelineHydrationSkeleton } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
+import { resolveMessengerRoomTimelinePaintSource } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
+import { resolveMessengerRoomTimelineLoadUi } from "@/lib/community-messenger/room/messenger-room-timeline-load-ui";
 import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
 import {
   messengerRoomReadBlockKeyImageLightbox,
@@ -525,8 +527,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     () => roomHasStoreOrderTimelineMessages(vm.displayRoomMessages),
     [vm.displayRoomMessages]
   );
-  /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — 과한 하단 패딩 금지. */
-  const timelineTailPaddingClass = hasTradeDock ? "pb-1.5" : hasStoreOrderDock || hasStoreOrderTimeline ? "pb-5" : "pb-[76px]";
+  /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — tail class 분기 */
+  const timelineInnerTailClass = hasTradeDock
+    ? "chat-timeline-inner--trade"
+    : hasStoreOrderDock || hasStoreOrderTimeline
+      ? "chat-timeline-inner--store-order"
+      : "chat-timeline-inner--messenger";
   const timelineRenderStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   timelineRenderStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const prevListSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
@@ -720,7 +726,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     });
   }
 
-  const emptyTimelineRecoverTriedRef = useRef(false);
   const [imageLightbox, setImageLightbox] = useState<{
     urls: string[];
     originals: string[];
@@ -747,57 +752,48 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     []
   );
 
-  const shouldRecoverEmptyTimeline = useMemo(() => {
-    const hasLastMessageHint = Boolean(vm.snapshot.room.lastMessage?.trim());
-    const snapshotHasMessages = vm.snapshot.messages.length > 0;
-    const liveHasMessages = vm.roomMessages.length > 0;
-    const displayEmpty = vm.displayRoomMessages.length === 0;
-  return (
-      !vm.loading &&
-      displayEmpty &&
-      (hasLastMessageHint || snapshotHasMessages || liveHasMessages)
-    );
-  }, [
-    vm.displayRoomMessages.length,
-    vm.loading,
-    vm.roomMessages.length,
-    vm.snapshot.messages.length,
-    vm.snapshot.room.lastMessage,
-  ]);
+  const timelineLoadUi = useMemo(
+    () =>
+      resolveMessengerRoomTimelineLoadUi({
+        loading: vm.loading,
+        displayMessageCount: vm.displayRoomMessages.length,
+        timelineLoadFailed: vm.timelineLoadFailed,
+        roomMessagesLength: vm.roomMessages.length,
+        snapshotMessagesLength: vm.snapshot.messages.length,
+        lastMessage: vm.snapshot.room.lastMessage,
+      }),
+    [
+      vm.displayRoomMessages.length,
+      vm.loading,
+      vm.timelineLoadFailed,
+      vm.roomMessages.length,
+      vm.snapshot.messages.length,
+      vm.snapshot.room.lastMessage,
+    ]
+  );
 
   const showTimelineHydrationSkeleton = useMemo(
     () =>
+      timelineLoadUi === "loading" &&
       shouldShowMessengerRoomTimelineHydrationSkeleton({
         displayRoomMessagesLength: vm.displayRoomMessages.length,
         roomMessagesLength: vm.roomMessages.length,
         hydrationPass,
         clientShellPlaceholder: Boolean(vm.snapshot.clientShellPlaceholder),
-        loading: vm.loading,
-        shouldRecoverEmptyTimeline,
+        loading: true,
         snapshotMessagesLength: vm.snapshot.messages.length,
         lastMessage: vm.snapshot.room.lastMessage,
       }),
     [
       hydrationPass,
-      shouldRecoverEmptyTimeline,
+      timelineLoadUi,
       vm.displayRoomMessages.length,
-      vm.loading,
       vm.roomMessages.length,
       vm.snapshot.clientShellPlaceholder,
       vm.snapshot.messages.length,
       vm.snapshot.room.lastMessage,
     ]
   );
-
-  useEffect(() => {
-    if (!shouldRecoverEmptyTimeline) {
-      emptyTimelineRecoverTriedRef.current = false;
-      return;
-    }
-    if (emptyTimelineRecoverTriedRef.current) return;
-    emptyTimelineRecoverTriedRef.current = true;
-    void vm.refresh(true, { triggerReason: "empty_timeline_recover" });
-  }, [shouldRecoverEmptyTimeline, vm]);
 
   /**
    * 내 최신 확정 발화 id + 상대 읽음 커서 비교 — 기존에는 역순 스캔 2회 + `filter(!pending)` 전체 1회가 겹쳤다.
@@ -944,15 +940,24 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
    * DO NOT: 이 ref를 제거하면 롱프레스 직후 스크롤 이벤트가 시트를 즉시 닫음.
    */
   const actionSheetOpenedAtRef = useRef<number>(0);
-  const onScroll = useCallback(() => {
+  const onScrollDeferred = useCallback(() => {
     const v = vmRef.current;
-    v.updateStickToBottomFromScroll();
     const gracePeriod = 500;
     const now = Date.now();
     if (now - actionSheetOpenedAtRef.current < gracePeriod) return;
     if (v.messageActionItem) v.setMessageActionItem(null);
     if (v.callStubSheet) v.setCallStubSheet(null);
   }, []);
+
+  const scheduleScroll = useCallback(() => {
+    vmRef.current.updateStickToBottomFromScroll();
+    if (scrollRafRef.current != null) return;
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      onScrollDeferred();
+      sampleMessengerScrollFrameBudget(vmRef.current.streamRoomId);
+    });
+  }, [onScrollDeferred]);
 
   useEffect(() => {
     return () => {
@@ -1024,15 +1029,6 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     return () => cancelAnimationFrame(rid);
   }, [vm.streamRoomId]);
 
-  const scheduleScroll = useCallback(() => {
-    if (scrollRafRef.current != null) return;
-    scrollRafRef.current = window.requestAnimationFrame(() => {
-      scrollRafRef.current = null;
-      onScroll();
-      sampleMessengerScrollFrameBudget(vmRef.current.streamRoomId);
-    });
-  }, [onScroll]);
-
   /**
    * grace window 용 래퍼: setMessageActionItem/setCallStubSheet 호출 시 타임스탬프를 기록해
    * 직후 virtualizer 레이아웃 스크롤 이벤트가 팝오버를 즉시 닫지 않도록 한다.
@@ -1078,12 +1074,20 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   const timelinePaintSource = useMemo(
     () =>
-      vm.displayRoomMessages.length > 0
-        ? vm.displayRoomMessages
-        : vm.roomMessages.length > 0
-          ? vm.roomMessages
-          : vm.snapshot.messages,
-    [vm.displayRoomMessages, vm.roomMessages, vm.snapshot.messages]
+      resolveMessengerRoomTimelinePaintSource({
+        displayRoomMessages: vm.displayRoomMessages,
+        roomMessages: vm.roomMessages,
+        loading: vm.loading,
+        timelineInitialLoadComplete: vm.timelineInitialLoadComplete,
+        snapshot: vm.snapshot,
+      }),
+    [
+      vm.displayRoomMessages,
+      vm.roomMessages,
+      vm.loading,
+      vm.timelineInitialLoadComplete,
+      vm.snapshot,
+    ]
   );
 
   const { paintMessages: timelinePaintMessages, entrySliceActive, seedRowsRenderedCount } = useMemo(
@@ -1463,23 +1467,32 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const lastDisplayMessageId =
     vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id ?? "";
 
+  /** 배달·주문 direct 진입 스크롤 — 방·hydration pass 당 1회만 (append 마다 재스케줄 금지). */
+  const deliveryDirectEntryScrollDoneRef = useRef(false);
+
+  useEffect(() => {
+    deliveryDirectEntryScrollDoneRef.current = false;
+  }, [vm.streamRoomId]);
+
   /** 배달·주문 direct: 진입 스크롤 단일 소유( reader room_entry_initial 과 중복 금지 — phase1 defer 플래그). */
   useLayoutEffect(() => {
     if (!useDirectTimelineLayout || !hasStoreOrderDock || hydrationPass < 2) return;
+    if (deliveryDirectEntryScrollDoneRef.current) return;
+    deliveryDirectEntryScrollDoneRef.current = true;
     return scheduleMessengerScrollToBottomAfterRowsPainted({
       roomId: vm.streamRoomId,
       messagesViewportRef: vm.messagesViewportRef,
       scroll: vm.scrollMessengerToBottom,
       reason: "timeline_delivery_direct_paint",
+      stickToBottomRef: vm.stickToBottomRef,
     });
   }, [
     hasStoreOrderDock,
     hydrationPass,
-    lastDisplayMessageId,
     useDirectTimelineLayout,
-    vm.displayRoomMessages.length,
     vm.messagesViewportRef,
     vm.scrollMessengerToBottom,
+    vm.stickToBottomRef,
     vm.streamRoomId,
   ]);
 
@@ -1800,7 +1813,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         ref={attachMessagesViewportRef}
         data-cm-line-timeline
         data-cm-message-viewport=""
-        className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
+        className="chat-timeline-scroll relative min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
         style={
           hasTradeDock
             ? { scrollPaddingBottom: "var(--cm-timeline-trade-anchor-padding, 6px)" }
@@ -1808,9 +1821,8 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
         }
         onScroll={scheduleScroll}
       >
-        <main
-          className={`mx-auto w-full max-w-[760px] space-y-2.5 px-3 py-3 sm:px-4 ${timelineTailPaddingClass}`}
-        >
+        <div className="chat-timeline-sheet mx-auto w-full max-w-[760px]">
+          <div className="chat-timeline-chrome space-y-2.5 px-3 py-3 sm:px-4">
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
               {vm.snapshot.room.roomStatus === "blocked"
@@ -1855,6 +1867,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               <span className="shrink-0 sam-text-body text-[color:var(--cm-room-text-muted)]">›</span>
             </button>
           ) : null}
+          </div>
+          <div className={`chat-timeline-inner px-3 sm:px-4 ${timelineInnerTailClass}`}>
+            <div className="chat-message-stack">
           {vm.hasMoreOlderMessages && vm.roomMessages.length > 0 ? (
             <div
               ref={vm.topOlderSentinelRef}
@@ -2054,7 +2069,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 );
               })}
             </div>
-          ) : showTimelineHydrationSkeleton ? (
+          ) : timelineLoadUi === "loading" && showTimelineHydrationSkeleton ? (
             <div
               className="flex min-h-[40vh] flex-col items-center justify-center py-16"
               aria-busy="true"
@@ -2062,25 +2077,30 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             >
               <StoreDeliveryBufferingSpinner />
             </div>
+          ) : timelineLoadUi === "retry" ? (
+            <div className="flex min-h-[40vh] flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+              <p className="sam-text-body text-[color:var(--cm-room-text-muted)]">
+                {vm.t("cm_ui_timeline_load_failed")}
+              </p>
+              <button
+                type="button"
+                onClick={() => vm.retryTimelineLoad()}
+                className="rounded-full border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-4 py-2 sam-text-helper font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
+              >
+                {vm.t("cm_ui_timeline_retry")}
+              </button>
+            </div>
           ) : (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
-              {shouldRecoverEmptyTimeline ? (
-                <>
-                  {vm.t("cm_ui_synchronizing_conversation")}
-                  <br />
-                  <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_please_wait_moment")}</span>
-                </>
-              ) : (
-                <>
-                  {vm.t("cm_ui_no_messages_yet")}
-                  <br />
-                  <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_leave_first_greeting")}</span>
-                </>
-              )}
+              {vm.t("cm_ui_no_messages_yet")}
+              <br />
+              <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_leave_first_greeting")}</span>
             </div>
           )}
           <div ref={vm.messageEndRef} />
-        </main>
+            </div>
+          </div>
+        </div>
       </div>
       <MessengerRoomNewMessagesBelowChip roomId={vm.streamRoomId} onJumpToLatest={vm.scrollMessengerToBottom} />
       <MessengerImageLightbox

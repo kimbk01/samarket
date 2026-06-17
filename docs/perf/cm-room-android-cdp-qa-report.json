@@ -1,0 +1,16 @@
+{
+  "device": "RFCY40PY2CA",
+  "roomId": "0b99ce3d-39c7-45e4-a79e-ee6308e66a1b",
+  "roomUrl": "http://192.168.100.64:3001/community-messenger/rooms/0b99ce3d-39c7-45e4-a79e-ee6308e66a1b",
+  "checks": {
+    "required_logs": {
+      "initial_fetch_start": false,
+      "initial_fetch_done": false,
+      "composer_height_changed": false,
+      "near_bottom_true": false
+    }
+  },
+  "log_events": [],
+  "logs": [],
+  "error": "page.waitForSelector: Timeout 180000ms exceeded.\nCall log:\n  - waiting for locator('textarea, [data-cm-room-viewport-placeholder]') to be visible\n    - waiting for navigation to finish...\n    - navigated to \"http://192.168.100.64:3000/philife\"\n    - waiting for\" http://192.168.100.64:3001/community-messenger/rooms/0b99ce3d-39c7-45e4-a79e-ee6308e66a1b\" navigation to finish...\n"
+}

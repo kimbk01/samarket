@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasMessengerRoomTimelineLoadHint,
+  isMessengerRoomTimelineBootstrapSeedComplete,
   shouldShowMessengerRoomTimelineHydrationSkeleton,
 } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
@@ -33,7 +34,6 @@ describe("messenger-room-timeline-hydration", () => {
         hydrationPass: 0,
         clientShellPlaceholder: true,
         loading: true,
-        shouldRecoverEmptyTimeline: false,
         snapshotMessagesLength: 0,
         lastMessage: "",
       })
@@ -48,7 +48,6 @@ describe("messenger-room-timeline-hydration", () => {
         hydrationPass: 0,
         clientShellPlaceholder: true,
         loading: true,
-        shouldRecoverEmptyTimeline: false,
         snapshotMessagesLength: 0,
         lastMessage: "마지막 메시지",
       })
@@ -63,10 +62,36 @@ describe("messenger-room-timeline-hydration", () => {
         hydrationPass: 2,
         clientShellPlaceholder: false,
         loading: false,
-        shouldRecoverEmptyTimeline: false,
         snapshotMessagesLength: 0,
         lastMessage: "",
       })
     ).toBe(false);
+  });
+
+  it("isMessengerRoomTimelineBootstrapSeedComplete — 신규 빈 방", () => {
+    expect(
+      isMessengerRoomTimelineBootstrapSeedComplete({
+        messages: [],
+        room: { lastMessage: "" },
+      })
+    ).toBe(true);
+  });
+
+  it("isMessengerRoomTimelineBootstrapSeedComplete — lastMessage 힌트만 있으면 불완전", () => {
+    expect(
+      isMessengerRoomTimelineBootstrapSeedComplete({
+        messages: [],
+        room: { lastMessage: "안녕" },
+      })
+    ).toBe(false);
+  });
+
+  it("isMessengerRoomTimelineBootstrapSeedComplete — lastMessage 와 messages 모두 있으면 완전", () => {
+    expect(
+      isMessengerRoomTimelineBootstrapSeedComplete({
+        messages: [{ id: "m1" } as never],
+        room: { lastMessage: "안녕" },
+      })
+    ).toBe(true);
   });
 });

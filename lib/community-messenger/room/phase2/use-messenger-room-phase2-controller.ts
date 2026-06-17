@@ -91,6 +91,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import { buildReplyPreviewSnapshot } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { registerMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
+import { scheduleMessengerComposerFocusRetain } from "@/lib/community-messenger/room/messenger-composer-focus-after-send";
 import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
@@ -745,9 +746,10 @@ export function useMessengerRoomPhase2Controller() {
       restoreOnFail?: string,
       replyToMessageId?: string | null,
       replySourceMessage?: (CommunityMessengerMessage & { pending?: boolean }) | null
-    ) => {
+    ): Promise<boolean> => {
       const trimmed = content.trim();
-      if (!trimmed || !snapshot) return;
+      if (!trimmed || !snapshot) return false;
+      try {
       const clientMessageId = createCommunityMessengerClientMessageId();
       const latencyKey = cmReceiveLatencyKey({ roomId: streamRoomId, clientMessageId });
       cmReceiveLatencyMark(latencyKey, {
@@ -813,9 +815,9 @@ export function useMessengerRoomPhase2Controller() {
       if (!res.ok || !json.ok) {
         setRoomMessages((prev) => prev.filter((item) => item.id !== tempId));
         if (restoreOnFail !== undefined) setMessage(restoreOnFail);
-        if (redirectIfMessengerAuthBlocked(res, json)) return;
+        if (redirectIfMessengerAuthBlocked(res, json)) return false;
         showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
-        return;
+        return false;
       }
       bumpCommunityMessengerPresenceActivity("message_sent");
       const confirmedMessage = json.message;
@@ -840,7 +842,7 @@ export function useMessengerRoomPhase2Controller() {
         scrollMessengerToBottom();
         onMessengerOutboundConfirmed(withCid, clientMessageId);
         forgetRoomBootstrapClientFlightsAfterMutation();
-        return;
+        return true;
       }
       void catchUpNewerMessages().finally(() => {
         const exists = roomMessagesRef.current.some(
@@ -849,9 +851,15 @@ export function useMessengerRoomPhase2Controller() {
         if (!exists) void refresh(true, { triggerReason: "send_missing_message_body" });
       });
       forgetRoomBootstrapClientFlightsAfterMutation();
+      return true;
+      } finally {
+        scheduleMessengerComposerFocusRetain(composerTextareaRef);
+        if (stickToBottomRef.current) scrollMessengerToBottom();
+      }
     },
     [
       catchUpNewerMessages,
+      composerTextareaRef,
       forgetRoomBootstrapClientFlightsAfterMutation,
       getRoomActionErrorMessage,
       redirectIfMessengerAuthBlocked,
@@ -861,7 +869,9 @@ export function useMessengerRoomPhase2Controller() {
       roomMembersDisplay,
       onMessengerOutboundConfirmed,
       scrollMessengerToBottom,
+      setMessage,
       snapshot,
+      stickToBottomRef,
     ]
   );
 
@@ -920,23 +930,24 @@ export function useMessengerRoomPhase2Controller() {
   );
 
   const sendMessage = useCallback(
-    async (textOverride?: string) => {
+    async (textOverride?: string): Promise<boolean> => {
       const raw = (textOverride ?? message).trim();
-      if (!raw || !snapshot) return;
-      if (isMessengerComposerOutboundBusy(busy)) return;
+      if (!raw || !snapshot) return false;
+      if (isMessengerComposerOutboundBusy(busy)) return false;
       const editTarget = editingMessage;
       if (editTarget?.id) {
         setMessage("");
         await editRoomMessageText(editTarget.id, raw);
-        return;
+        scheduleMessengerComposerFocusRetain(composerTextareaRef);
+        return true;
       }
       const replyTarget = replyToMessage;
       const replyId = replyTarget?.id?.trim() ?? "";
       setMessage("");
       setReplyToMessage(null);
-      await sendRawText(raw, undefined, replyId || null, replyId ? replyTarget : null);
+      return sendRawText(raw, raw, replyId || null, replyId ? replyTarget : null);
     },
-    [busy, editRoomMessageText, editingMessage, message, replyToMessage, sendRawText, setMessage, setReplyToMessage, snapshot]
+    [busy, composerTextareaRef, editRoomMessageText, editingMessage, message, replyToMessage, sendRawText, setMessage, setReplyToMessage, snapshot]
   );
 
   const sendSticker = useCallback(

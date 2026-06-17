@@ -34,9 +34,29 @@ export function resolveChatViewportShellPlatform(): ChatViewportShellPlatform {
 }
 
 /**
- * 키보드가 viewport resize 없이 overlay 될 때 셸 하단 보정(px).
- * adjustResize / interactiveWidget resizes-content 가 동작하면 0 에 수렴.
+ * 키보드 open → keyboard overlay. closed → Android nav / gesture gap (visualViewport).
+ * iOS safe-area 는 CSS env() 로 shell·timeline 에 추가.
  */
+export function resolveChatBottomInsetCssPx(): number {
+  const keyboard = resolveChatShellKeyboardOverlayCssPx();
+  if (keyboard >= CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX) return keyboard;
+
+  if (typeof window === "undefined") return 0;
+  const vv = window.visualViewport;
+  if (!vv) return 0;
+
+  const gap = window.innerHeight - (vv.offsetTop + vv.height);
+  const rounded = Math.max(0, Math.round(gap));
+  if (rounded < 8 || rounded > 120) return 0;
+  return rounded;
+}
+
+/** @deprecated use resolveChatBottomInsetCssPx — keyboard open 시에만 non-zero */
+export function resolveChatShellNavigationInsetCssPx(keyboardOffsetPx: number): number {
+  if (keyboardOffsetPx >= CHAT_SHELL_KEYBOARD_OVERLAY_MIN_PX) return 0;
+  return resolveChatBottomInsetCssPx();
+}
+
 export function resolveChatShellKeyboardOverlayCssPx(): number {
   if (typeof window === "undefined") return 0;
 

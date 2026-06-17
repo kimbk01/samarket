@@ -14,7 +14,7 @@ export const MESSENGER_CHAT_SHELL_MIN_HEIGHT_PX = 120;
  * 하단 근접 = stick-to-bottom 판정(px).
  * `useMessengerRoomReaderScrollBottom` 의 스크롤 보존 로직과 반드시 같은 값을 쓴다.
  */
-export const MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX = 100;
+export const MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX = 80;
 
 /** Composer footer: 키보드 overlap 추정이 없을 때 기본 하단 패딩(px) — 홈 인디케이터 등 */
 export const MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX = 10;

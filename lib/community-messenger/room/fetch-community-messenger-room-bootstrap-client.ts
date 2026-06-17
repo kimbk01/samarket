@@ -25,6 +25,7 @@ import {
 import { noteTradeChatRoomBootstrapDoneForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isMessengerRoomBootstrapReadySnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
+import { isMessengerRoomTimelineBootstrapSeedComplete } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
 /** blocking 첫 입장과 동일한 쿼리 — 메시지·멤버 시드 포함 */
 export function communityMessengerRoomBlockingBootstrapQuery(): string {
@@ -47,6 +48,7 @@ export async function fetchCommunityMessengerRoomBootstrapClient(
     if (
       cached &&
       isMessengerRoomBootstrapReadySnapshot(cached) &&
+      isMessengerRoomTimelineBootstrapSeedComplete(cached) &&
       isRoomSnapshotFresh(rid, viewerUserId)
     ) {
       if (readTradeChatEntryMark()) {

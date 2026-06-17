@@ -1,6 +1,6 @@
 /**
  * DIBAY 채팅방 헤더·composer 공통 geometry — direct / trade / delivery 단일.
- * safe-area는 셸 padding, header/composer는 flex shrink-0.
+ * CSS 변수 3개: --chat-viewport-height, --chat-composer-height, --chat-bottom-inset
  */
 
 [data-cm-room].chat-viewport-shell {
@@ -10,11 +10,12 @@
   width: 100%;
   min-width: 0;
   max-width: 100%;
+  min-height: 0;
   overflow: hidden;
+  height: var(--chat-viewport-height, 100dvh);
+  max-height: var(--chat-viewport-height, 100dvh);
   padding-top: env(safe-area-inset-top, 0px);
-  padding-bottom: calc(
-    env(safe-area-inset-bottom, 0px) + var(--chat-shell-keyboard-offset, 0px)
-  );
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--chat-bottom-inset, 0px));
 }
 
 [data-cm-room].chat-viewport-shell.chat-viewport-shell--embedded {
@@ -25,8 +26,7 @@
 }
 
 [data-cm-room].chat-viewport-shell.chat-viewport-shell--narrow {
-  height: 100dvh;
-  min-height: 100dvh;
+  min-height: 0;
 }
 
 [data-cm-room].chat-viewport-shell.chat-viewport-shell--ios {
@@ -38,9 +38,9 @@
 }
 
 @supports not (height: 100dvh) {
-  [data-cm-room].chat-viewport-shell.chat-viewport-shell--narrow {
-    height: 100vh;
-    min-height: 100vh;
+  [data-cm-room].chat-viewport-shell {
+    height: var(--chat-viewport-height, 100vh);
+    max-height: var(--chat-viewport-height, 100vh);
   }
 }
 
@@ -106,4 +106,51 @@
     min-height: 56px;
     padding: 6px 12px;
   }
+}
+
+/** 타임라인 하단 tail — composer 는 scroll 밖 flex sibling, shell 이 bottom inset 소유 */
+[data-cm-room] .chat-timeline-scroll {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  overflow-anchor: none;
+  min-height: 0;
+  flex: 1 1 0%;
+}
+
+[data-cm-room] .chat-timeline-sheet {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-cm-room] .chat-timeline-chrome {
+  flex-shrink: 0;
+}
+
+[data-cm-room] .chat-timeline-inner {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 0;
+  width: 100%;
+}
+
+[data-cm-room] .chat-timeline-inner--messenger {
+  padding-bottom: 8px;
+}
+
+[data-cm-room] .chat-timeline-inner--trade {
+  padding-bottom: 6px;
+}
+
+[data-cm-room] .chat-timeline-inner--store-order {
+  padding-bottom: 20px;
+}
+
+[data-cm-room] .chat-message-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
 }

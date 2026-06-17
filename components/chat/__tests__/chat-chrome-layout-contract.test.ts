@@ -42,7 +42,12 @@ describe("chat chrome layout contract", () => {
   it("shell CSS uses safe-area on viewport shell and 100dvh narrow modifier", () => {
     const css = readSrc("app/chat-viewport-shell.css");
     expect(css).toContain("padding-top: env(safe-area-inset-top");
-    expect(css).toContain("--chat-shell-keyboard-offset");
+    expect(css).toContain("--chat-viewport-height");
+    expect(css).toContain("--chat-composer-height");
+    expect(css).toContain("--chat-bottom-inset");
+    expect(css).toContain("chat-timeline-scroll");
+    expect(css).toContain("chat-timeline-inner");
+    expect(css).toContain("chat-message-stack");
     expect(css).toContain("chat-viewport-shell--embedded");
     expect(css).toContain("chat-viewport-shell--narrow");
     expect(css).toContain("chat-viewport-shell--ios");
@@ -70,6 +75,21 @@ describe("chat chrome layout contract", () => {
     const src = readSrc("lib/ui/use-chat-viewport-shell-insets.ts");
     expect(src).toContain("observeComposerHeight");
     expect(src).toContain("--chat-composer-height");
-    expect(src).toContain("shellBottom - vvBottom");
+    expect(src).toContain("--chat-viewport-height");
+    expect(src).toContain("--chat-bottom-inset");
+    expect(src).toContain("resolveChatBottomInsetCssPx");
+  });
+
+  it("Phase2 timeline uses flex-end timeline inner for messenger rooms", () => {
+    const src = readSrc(
+      "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx"
+    );
+    expect(src).toContain("chat-timeline-scroll");
+    expect(src).toContain("chat-timeline-inner");
+    expect(src).toContain("chat-message-stack");
+    expect(src).not.toContain("cm-timeline-tail-padding");
+    expect(src).toContain("resolveMessengerRoomTimelineLoadUi");
+    expect(src).not.toContain("timelineBootstrapFailed");
+    expect(src).not.toContain("shouldRecoverEmptyTimeline");
   });
 });

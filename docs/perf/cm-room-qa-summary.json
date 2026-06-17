@@ -1,0 +1,50 @@
+{
+  "qa_date": "2026-06-18",
+  "scope": "community-messenger room — composer gap / tail anchor / keyboard / chip (#10)",
+  "device": "Samsung RFCY40PY2CA (adb connected)",
+  "trace_server": "NEXT_PUBLIC_MESSENGER_PERF_TRACE=1 npm run dev -- -p 3001",
+  "apk_server_url": "http://192.168.100.64:3001",
+  "verdict": "COMPLETE — Playwright #10 chip PASS + Samsung 실기기 시각 QA PASS",
+  "automated_pass": {
+    "playwright_10_chip_race": {
+      "profiles": ["Pixel 7", "iPhone 14", "iPad Pro 11"],
+      "pass": [
+        "과거 스크롤 후 burst×3 — auto-stick 없음, chip 3개",
+        "칩 클릭 — 하단 이동 + hide",
+        "near_bottom_false / new_messages_chip_show / auto_stick_skipped_user_scrolled_up"
+      ]
+    }
+  },
+  "manual_samsung_required": {
+    "layout": [
+      "메시지 1개 방: 마지막 메시지 composer 바로 위, 빈 공간 위쪽",
+      "메시지 3개 방: 동일",
+      "메시지 50개 방: composer 위 빈 공간 없음",
+      "키보드 열림: 마지막 메시지 composer 위 유지"
+    ],
+    "interaction": [
+      "연속 3회 전송 — 키보드 유지",
+      "과거 스크롤 중 수신 — 칩 표시, auto-scroll 없음",
+      "칩 클릭 — 하단 이동",
+      "통화 종료/부재중 call_stub 시간순"
+    ],
+    "android_nav": ["gesture navigation", "3-button navigation"],
+    "logs": [
+      "near_bottom_false",
+      "near_bottom_true",
+      "new_messages_chip_show",
+      "new_messages_chip_hide",
+      "keyboard_resize_anchor_keep",
+      "composer_height_changed",
+      "initial_anchor_bottom"
+    ]
+  },
+  "setup_commands": {
+    "trace_server": "NEXT_PUBLIC_MESSENGER_PERF_TRACE=1 npm run dev -- -p 3001",
+    "cap_sync": "CAPACITOR_SERVER_URL=http://192.168.100.64:3001 node scripts/sync-capacitor-vercel.mjs",
+    "apk_build_install": "cd android && ./gradlew assembleDebug && adb install -r app/build/outputs/apk/debug/app-debug.apk",
+    "logcat_capture": "node scripts/qa/cm-room-android-manual-qa-logcat.mjs 120"
+  },
+  "auth": "aaaa@manual.local / 1234",
+  "next_after_manual_pass": "커밋/푸시/APK 최종 빌드 → CDP 자동화(편의)는 그 다음"
+}

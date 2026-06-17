@@ -1,8 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, type MutableRefObject, type RefObject } from "react";
-import type { MessengerChatViewPosition } from "@/lib/community-messenger/notifications/messenger-notification-state-model";
-import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
+import { messengerRoomTracksScrollPosition } from "@/lib/community-messenger/notifications/messenger-notification-rollout";
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
@@ -23,6 +22,13 @@ import {
   resetCmScrollAnalysisSession,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
 import { scheduleMessengerScrollToBottomAfterRowsPainted } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
+import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
+import { logChatRoomScroll } from "@/lib/community-messenger/room/messenger-room-timeline-log";
+import {
+  clearMessengerRoomPendingNewWithChipLog,
+  resolveMessengerRoomNearBottomForAutoScroll,
+  syncMessengerRoomStickToBottomFromViewport,
+} from "@/lib/community-messenger/room/messenger-room-scroll-near-bottom";
 
 /**
  * @see docs/community-messenger-mobile-room-viewport.md
@@ -85,12 +91,49 @@ export function useMessengerRoomReaderScrollBottom({
   const scrollMessengerToBottom = useCallback(
     (opts?: { reason?: string }) => {
       const id = roomId?.trim();
-      if (id && messengerRolloutUsesRoomScrollHints()) {
-        useMessengerRoomReaderStateStore.getState().clearPendingNew(id);
+      const reason = opts?.reason ?? "explicit";
+      const alwaysScroll = reason === "own_message_append" || reason === "explicit";
+      if (!alwaysScroll) {
+        const nearBottom = resolveMessengerRoomNearBottomForAutoScroll({
+          viewport: messagesViewportRef.current,
+          stickToBottomRef,
+          roomId,
+          activeSheet,
+          lastScrollGeomRef,
+        });
+        if (!nearBottom) {
+          if (id) {
+            logChatRoomScroll("auto_stick_skipped_user_scrolled_up", {
+              roomIdSuffix: id.length > 8 ? id.slice(-8) : id,
+              reason,
+            });
+          }
+          return;
+        }
+      }
+      if (id && messengerRoomTracksScrollPosition()) {
+        clearMessengerRoomPendingNewWithChipLog({ roomId: id, reason: "jump_to_latest" });
         useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
       }
-      const reason = opts?.reason ?? "explicit";
       const runScroll = () => {
+        if (!alwaysScroll) {
+          const nearBottomNow = resolveMessengerRoomNearBottomForAutoScroll({
+            viewport: messagesViewportRef.current,
+            stickToBottomRef,
+            roomId,
+            activeSheet,
+            lastScrollGeomRef,
+          });
+          if (!nearBottomNow) {
+            if (id) {
+              logChatRoomScroll("auto_stick_skipped_user_scrolled_up", {
+                roomIdSuffix: id.length > 8 ? id.slice(-8) : id,
+                reason: `${reason}_deferred`,
+              });
+            }
+            return;
+          }
+        }
         const vp = messagesViewportRef.current;
         let bottomDist = 0;
         let jumpPx: number | null = null;
@@ -106,17 +149,24 @@ export function useMessengerRoomReaderScrollBottom({
           jumpPx = Math.abs(st1 - st0);
           const adjustMs =
             typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
-          if (cmScrollAnalysisEnabled()) {
-            logCmScrollAnalysis({
-              append_scroll_adjust_ms: adjustMs,
-              layout_shift_after_append: getCmScrollLayoutShiftCount(),
-              bottom_distance_px: Math.round(bottomDist),
-              auto_scroll_triggered: true,
-              auto_scroll_reason: reason,
-              visible_window_jump_px: jumpPx,
-              room_id_suffix: id && id.length > 8 ? id.slice(-8) : id,
-            });
-          }
+        if (cmScrollAnalysisEnabled()) {
+          logCmScrollAnalysis({
+            append_scroll_adjust_ms: adjustMs,
+            layout_shift_after_append: getCmScrollLayoutShiftCount(),
+            bottom_distance_px: Math.round(bottomDist),
+            auto_scroll_triggered: true,
+            auto_scroll_reason: reason,
+            visible_window_jump_px: jumpPx,
+            room_id_suffix: id && id.length > 8 ? id.slice(-8) : id,
+          });
+        }
+        if (reason === "room_entry_initial") {
+          logChatRoomScroll("initial_anchor_bottom", {
+            roomIdSuffix: id && id.length > 8 ? id.slice(-8) : id,
+            bottomDistancePx: Math.round(bottomDist),
+            reason,
+          });
+        }
         } else if (cmScrollAnalysisEnabled()) {
           logCmScrollAnalysis({
             append_scroll_adjust_ms: null,
@@ -131,6 +181,12 @@ export function useMessengerRoomReaderScrollBottom({
         }
         messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
         syncScrollGeomFromViewport();
+        syncMessengerRoomStickToBottomFromViewport({
+          viewport: messagesViewportRef.current,
+          stickToBottomRef,
+          roomId,
+          activeSheet,
+        });
       };
       if (typeof requestAnimationFrame === "function") {
         requestAnimationFrame(() => requestAnimationFrame(runScroll));
@@ -138,36 +194,19 @@ export function useMessengerRoomReaderScrollBottom({
         runScroll();
       }
     },
-    [roomId, messageEndRef, messagesViewportRef, syncScrollGeomFromViewport]
+    [roomId, activeSheet, messageEndRef, messagesViewportRef, stickToBottomRef, syncScrollGeomFromViewport]
   );
 
   const updateStickToBottomFromScroll = useCallback(() => {
-    const el = messagesViewportRef.current;
-    if (!el) return;
-    const threshold = MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX;
-    const sh = el.scrollHeight;
-    const st = el.scrollTop;
-    const ch = el.clientHeight;
-    const dist = sh - st - ch;
-    stickToBottomRef.current = dist < threshold;
-    lastScrollGeomRef.current = {
-      sh,
-      st,
-      ch,
-      ready: true,
-    };
-    const id = roomId?.trim();
-    if (!id || !messengerRolloutUsesRoomScrollHints()) return;
-    let pos: MessengerChatViewPosition;
-    if (activeSheet === "search") {
-      pos = "jumped-by-search";
-    } else if (stickToBottomRef.current) {
-      pos = "at-bottom";
-    } else {
-      pos = "reading-history";
-    }
-    useMessengerRoomReaderStateStore.getState().setScrollPosition(id, pos);
-  }, [roomId, activeSheet]);
+    syncMessengerRoomStickToBottomFromViewport({
+      viewport: messagesViewportRef.current,
+      stickToBottomRef,
+      roomId,
+      activeSheet,
+      emitScrollLogs: true,
+      lastScrollGeomRef,
+    });
+  }, [roomId, activeSheet, messagesViewportRef, stickToBottomRef]);
 
   useLayoutEffect(() => {
     if (cmScrollAnalysisEnabled()) {
@@ -194,9 +233,18 @@ export function useMessengerRoomReaderScrollBottom({
     };
   }, [roomId]);
 
+  /** 방당 최초 타임라인 paint 1회만 — append 마다 room_entry_initial 재스케줄 금지 */
+  const initialEntryScrollDoneRef = useRef(false);
+
+  useLayoutEffect(() => {
+    initialEntryScrollDoneRef.current = false;
+  }, [roomId]);
+
   /** 방 진입(일반·거래 virtualized): 말풍선 DOM 후 스크롤. 배달·주문은 timeline_delivery_direct_paint 가 소유. */
   useLayoutEffect(() => {
     if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
+    if (initialEntryScrollDoneRef.current) return;
+    initialEntryScrollDoneRef.current = true;
     return scheduleMessengerScrollToBottomAfterRowsPainted({
       roomId,
       messagesViewportRef,
@@ -215,14 +263,11 @@ export function useMessengerRoomReaderScrollBottom({
 
   useEffect(() => {
     const last = roomMessages[roomMessages.length - 1];
-    const isMine = Boolean(last?.isMine);
-    if (isMine) {
+    if (Boolean(last?.isMine)) {
       scrollMessengerToBottom({ reason: "own_message_append" });
       return;
     }
-    if (stickToBottomRef.current) {
-      scrollMessengerToBottom({ reason: "messages_changed_auto" });
-    }
+    scrollMessengerToBottom({ reason: "messages_changed_auto" });
   }, [roomMessages, scrollMessengerToBottom]);
 
   /**
@@ -243,20 +288,35 @@ export function useMessengerRoomReaderScrollBottom({
         const box = messagesViewportRef.current;
         if (!box || !lastScrollGeomRef.current.ready) return;
         const prev = lastScrollGeomRef.current;
-        const distFromBottom = prev.sh - prev.st - prev.ch;
         const stBefore = box.scrollTop;
         const sh = box.scrollHeight;
         const ch = box.clientHeight;
         const maxScroll = Math.max(0, sh - ch);
+        const liveDistFromBottom = Math.max(0, sh - stBefore - ch);
         const viewportShrunk = ch < prev.ch - 6;
-        const wasNearBottom = distFromBottom < 140;
-        if (stickToBottomRef.current || (viewportShrunk && wasNearBottom)) {
+        const wasNearBottom = isMessengerRoomNearBottomFromMetrics(
+          { scrollHeight: prev.sh, scrollTop: prev.st, clientHeight: prev.ch },
+          MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX
+        );
+        const nearBottomNow = syncMessengerRoomStickToBottomFromViewport({
+          viewport: box,
+          stickToBottomRef,
+          roomId,
+          activeSheet,
+        });
+        if (nearBottomNow || (viewportShrunk && wasNearBottom)) {
           if (viewportShrunk && wasNearBottom) {
             stickToBottomRef.current = true;
           }
           box.scrollTop = maxScroll;
+          logChatRoomScroll("keyboard_resize_anchor_keep", {
+            roomIdSuffix: roomId.trim().length > 8 ? roomId.trim().slice(-8) : roomId.trim(),
+            viewportShrunk,
+            stickToBottom: stickToBottomRef.current,
+            bottomDistancePx: Math.round(liveDistFromBottom),
+          });
         } else {
-          const target = maxScroll - distFromBottom;
+          const target = maxScroll - liveDistFromBottom;
           box.scrollTop = Math.max(0, Math.min(maxScroll, target));
         }
         const stAfter = box.scrollTop;
@@ -268,7 +328,7 @@ export function useMessengerRoomReaderScrollBottom({
             visible_window_jump_px: Math.round(Math.abs(stAfter - stBefore)),
             auto_scroll_triggered: false,
             auto_scroll_reason: "viewport_resize_restore",
-            bottom_distance_px: Math.round(distFromBottom),
+            bottom_distance_px: Math.round(liveDistFromBottom),
             room_id_suffix: roomId.trim().length > 8 ? roomId.trim().slice(-8) : roomId.trim(),
           });
         }
@@ -309,7 +369,7 @@ export function useMessengerRoomReaderScrollBottom({
       window.removeEventListener("resize", onLayoutViewport);
       window.removeEventListener("orientationchange", onLayoutViewport);
     };
-  }, [roomId, syncScrollGeomFromViewport, messagesViewportRef]);
+  }, [roomId, activeSheet, syncScrollGeomFromViewport, messagesViewportRef, stickToBottomRef]);
 
   return { scrollMessengerToBottom, updateStickToBottomFromScroll };
 }

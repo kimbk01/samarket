@@ -235,6 +235,7 @@ export function MessengerComposerSector({
         <button
           type="button"
           data-cm-line-send-btn
+          onMouseDown={(e) => e.preventDefault()}
           onClick={() => {
             if (voiceRecording && voiceHandsFree && voice) {
               voice.onFinalizeRecording(true);
