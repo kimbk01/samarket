@@ -6,6 +6,10 @@ import type { BuiltPushPayload, DispatchPushOptions } from "@/lib/push/dispatch/
 
 const MAX_BYTES = 3500;
 
+function isCallTerminalDismissKind(kind: unknown): kind is "call_canceled" | "call_rejected" | "call_ended" {
+  return kind === "call_canceled" || kind === "call_rejected" || kind === "call_ended";
+}
+
 export function buildWebPushJsonPayload(
   out: NotificationSideEffectPayloadOut,
   opts?: DispatchPushOptions
@@ -65,8 +69,8 @@ export function buildWebPushJsonPayload(
     base.call_push_kind = opts?.call_push_kind ?? "missed_call";
   }
 
-  if (opts?.call_push_kind === "call_canceled" && typeof base.sessionId === "string" && base.sessionId.trim()) {
-    base.call_push_kind = "call_canceled";
+  if (isCallTerminalDismissKind(opts?.call_push_kind) && typeof base.sessionId === "string" && base.sessionId.trim()) {
+    base.call_push_kind = opts.call_push_kind;
     base.tag = `samarket-incoming-call-${base.sessionId.trim()}`;
     base.title = base.title ?? "통화";
     base.body = "";
@@ -75,7 +79,7 @@ export function buildWebPushJsonPayload(
   const body = buildFcmDataFields(out, opts, base);
   const callPushKind = body.call_push_kind;
   const isCallRelatedPush =
-    callPushKind === "incoming_call" || callPushKind === "call_canceled";
+    callPushKind === "incoming_call" || isCallTerminalDismissKind(callPushKind);
 
   let s = JSON.stringify(body);
   if (s.length <= MAX_BYTES) {
@@ -88,7 +92,11 @@ export function buildWebPushJsonPayload(
   };
   s = JSON.stringify(trim);
   if (s.length <= MAX_BYTES) {
-    return { json: s, data: trim, is_call: trim.call_push_kind === "incoming_call" || trim.call_push_kind === "call_canceled" };
+    return {
+      json: s,
+      data: trim,
+      is_call: trim.call_push_kind === "incoming_call" || isCallTerminalDismissKind(trim.call_push_kind),
+    };
   }
   const minimal = buildFcmDataFields(out, opts, {
     title: String(out.title).slice(0, 40),
@@ -103,6 +111,6 @@ export function buildWebPushJsonPayload(
     json: JSON.stringify(minimal),
     data: minimal,
     is_call:
-      opts?.call_push_kind === "incoming_call" || opts?.call_push_kind === "call_canceled",
+      opts?.call_push_kind === "incoming_call" || isCallTerminalDismissKind(opts?.call_push_kind),
   };
 }

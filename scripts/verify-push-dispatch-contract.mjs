@@ -65,10 +65,13 @@ if (legacySend.includes('from("notifications").insert') && !legacySend.includes(
 }
 
 const service = fs.readFileSync(path.join(root, "lib/community-messenger/service.ts"), "utf8");
-if (!service.includes("sendWebPushForCommunityMessengerCallCanceled")) {
-  fail("service.ts missing call canceled push");
+if (
+  !service.includes("sendWebPushForCommunityMessengerCallTerminal") &&
+  !service.includes("sendWebPushForCommunityMessengerCallCanceled")
+) {
+  fail("service.ts missing call terminal dismiss push");
 } else {
-  pass("call canceled push hooked in service.ts");
+  pass("call terminal dismiss push hooked in service.ts");
 }
 
 const likeRoute = fs.readFileSync(path.join(root, "app/api/community/posts/[postId]/like/route.ts"), "utf8");

@@ -26,8 +26,8 @@ export type DispatchPushOptions = {
   event_type?: string;
   target_type?: string | null;
   target_id?: string | null;
-  /** Call-specific: incoming_call | missed_call | call_canceled */
-  call_push_kind?: "incoming_call" | "missed_call" | "call_canceled";
+  /** Call-specific: incoming_call | missed_call | terminal dismiss signals. */
+  call_push_kind?: "incoming_call" | "missed_call" | "call_canceled" | "call_rejected" | "call_ended";
   /** Skip user settings gate (system/cancel dismiss only) */
   skip_settings_gate?: boolean;
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
@@ -68,6 +68,8 @@ export function resolveEventType(out: NotificationSideEffectPayloadOut, opts?: D
   if (nt === "community_messenger_incoming_call") return "call_ringing";
   if (nt === "community_messenger_missed_call") return "missed_call";
   if (opts?.call_push_kind === "call_canceled") return "call_cancel";
+  if (opts?.call_push_kind === "call_rejected") return "call_reject";
+  if (opts?.call_push_kind === "call_ended") return "call_end";
   return nt || "notification";
 }
 

@@ -211,7 +211,7 @@ import {
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
 import { sendWebPushForCommunityMessengerMissedCall } from "@/lib/push/send-community-messenger-missed-call-push";
-import { sendWebPushForCommunityMessengerCallCanceled } from "@/lib/push/send-community-messenger-call-canceled-push";
+import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
 import {
   loadMarkReadParticipantRowWithSnapshotCache,
@@ -17971,6 +17971,18 @@ export async function updateCommunityMessengerCallSession(input: {
             ? updated.recipient_user_id
             : updated.initiator_user_id;
           void publishDirectTerminalHangupSignalBestEffort(peerUserId, next.nextStatus);
+          if (next.nextStatus !== "missed" && peerUserId) {
+            void sendWebPushForCommunityMessengerCallTerminal({
+              recipientUserId: peerUserId,
+              sessionId: updated.id,
+              status:
+                next.nextStatus === "rejected"
+                  ? "rejected"
+                  : next.nextStatus === "ended"
+                    ? "ended"
+                    : "cancelled",
+            }).catch(() => {});
+          }
         }
         await appendCommunityMessengerCallSessionEvent(sb, {
           sessionId,
@@ -18006,18 +18018,6 @@ export async function updateCommunityMessengerCallSession(input: {
                 });
               }
             })().catch(() => {});
-          }
-        }
-        if (
-          next.nextStatus === "cancelled" &&
-          (updated.session_mode ?? "direct") === "direct"
-        ) {
-          const recipC = trimText(updated.recipient_user_id ?? "");
-          if (recipC) {
-            void sendWebPushForCommunityMessengerCallCanceled({
-              recipientUserId: recipC,
-              sessionId: updated.id,
-            }).catch(() => {});
           }
         }
         if (isTerminalCallSessionStatus(mapped.status)) {

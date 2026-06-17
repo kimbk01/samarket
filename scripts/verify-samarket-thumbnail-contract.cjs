@@ -65,7 +65,6 @@ const thumbnailFiles = [
   "components/community-messenger/MessengerFriendsMyProfileStrip.tsx",
   "components/community-messenger/MessengerFriendProfileSheet.tsx",
   "components/community-messenger/MessengerFriendAddSheet.tsx",
-  "components/community-messenger/MessengerFriendRequestsSheet.tsx",
   "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
   "components/community-messenger/trade-chat-list/TradeProductThumb.tsx",
   "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",

@@ -59,6 +59,19 @@ describe("fcm-call-event-normalizer", () => {
     }
   });
 
+  it("terminal call_push_kind without type maps to terminal action", () => {
+    const hard = new Map<string, number>();
+    const result = normalizeFcmCallEvent(
+      { call_push_kind: "call_ended", sessionId: "fcm-kind-term-1" },
+      { hardClearedAt: hard }
+    );
+    expect(result.action).toBe("terminal");
+    if (result.action === "terminal") {
+      expect(result.terminalKind).toBe("ended");
+      expect(result.callId).toBe("fcm-kind-term-1");
+    }
+  });
+
   it("sealFcmTerminalEvent delegates to sealIncomingCallTerminal", () => {
     const hard = new Map<string, number>();
     const sid = sealFcmTerminalEvent(

@@ -14,7 +14,7 @@ public final class IncomingCallActionCoordinator {
   private static final String TAG = "DIBAY_CALL_FLOW";
   private static final String CALL_TAG = "DIBAY_INCOMING_CALL";
   private static final long TTL_MS = 60_000L;
-  private static final long DEFAULT_RING_TIMEOUT_MS = 30_000L;
+  private static final long DEFAULT_RING_TIMEOUT_MS = 45_000L;
   private static final ConcurrentHashMap<String, Long> IN_FLIGHT = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, Long> ACTIVE_INCOMING = new ConcurrentHashMap<>();
   private static final ConcurrentHashMap<String, String> COMPLETED_ACTIONS = new ConcurrentHashMap<>();

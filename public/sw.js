@@ -46,8 +46,13 @@ self.addEventListener("push", function (event) {
   const callPushKind =
     typeof payload.call_push_kind === "string" && payload.call_push_kind ? payload.call_push_kind : null;
 
-  if (callPushKind === "call_canceled") {
+  const isCallTerminalDismiss =
+    callPushKind === "call_canceled" || callPushKind === "call_rejected" || callPushKind === "call_ended";
+
+  if (isCallTerminalDismiss) {
     if (sessionId) {
+      const terminalKind =
+        callPushKind === "call_rejected" ? "rejected" : callPushKind === "call_ended" ? "ended" : "cancelled";
       event.waitUntil(
         Promise.all([
           self.registration.getNotifications({ tag: "samarket-incoming-call-" + sessionId }).then(function (list) {
@@ -58,7 +63,11 @@ self.addEventListener("push", function (event) {
           clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
             for (let i = 0; i < clientList.length; i++) {
               try {
-                clientList[i].postMessage({ type: "samarket_messenger_call_canceled_wake", sessionId: sessionId });
+                clientList[i].postMessage({
+                  type: "samarket_messenger_call_terminal_wake",
+                  sessionId: sessionId,
+                  terminalKind: terminalKind,
+                });
               } catch {
                 /* ignore */
               }

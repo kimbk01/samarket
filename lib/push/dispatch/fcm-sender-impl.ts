@@ -127,7 +127,10 @@ export async function sendFcmMessageV1(input: {
     const { getMessaging } = await import("firebase-admin/messaging");
     const messaging = getMessaging(app);
     const dataPayload = stringifyData(input.data);
-    const isCancel = dataPayload.call_push_kind === "call_canceled";
+    const isTerminalDismiss =
+      dataPayload.call_push_kind === "call_canceled" ||
+      dataPayload.call_push_kind === "call_rejected" ||
+      dataPayload.call_push_kind === "call_ended";
 
     /** Android: data-only → DibayFirebaseMessagingService.onMessageReceived (background/killed 포함). */
     const dataWithCopy = stringifyData({
@@ -136,7 +139,7 @@ export async function sendFcmMessageV1(input: {
       body: input.body,
     });
 
-    if (isCancel) {
+    if (isTerminalDismiss) {
       const messageId = await messaging.send({
         token: input.token,
         data: dataPayload,
@@ -149,13 +152,13 @@ export async function sendFcmMessageV1(input: {
         status: "sent",
         provider_response: {
           provider: "fcm",
-          kind: "call_cancel_data",
+          kind: "call_terminal_data",
           providerMessageId: messageId,
           message_id: messageId,
           priority: "high",
           ttlMs: 60_000,
           tokenPrefix: tokenPrefix(input.token),
-          payloadType: "call_canceled",
+          payloadType: dataPayload.call_push_kind,
           callId: dataPayload.callId ?? dataPayload.sessionId ?? null,
         },
       };

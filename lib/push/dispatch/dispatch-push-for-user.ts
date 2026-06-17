@@ -199,9 +199,12 @@ export async function dispatchPushForUser(
   }
 
   const callPush = isCallPush(out, opts);
-  const cancelDismiss = opts?.call_push_kind === "call_canceled";
+  const terminalDismiss =
+    opts?.call_push_kind === "call_canceled" ||
+    opts?.call_push_kind === "call_rejected" ||
+    opts?.call_push_kind === "call_ended";
 
-  if (!opts?.skip_settings_gate && !cancelDismiss) {
+  if (!opts?.skip_settings_gate && !terminalDismiss) {
     const allowed = await shouldSendWebPushForUser(svc, out.user_id, out).catch(() => true);
     if (!allowed) {
       await auditDelivery(svc, audits, {
@@ -234,9 +237,9 @@ export async function dispatchPushForUser(
   }
 
   for (const target of targets) {
-    if (callPush && target.push_provider === "web_push" && cancelDismiss) {
-      /* cancel dismiss goes to all providers including web */
-    } else if (callPush && !cancelDismiss) {
+    if (callPush && target.push_provider === "web_push" && terminalDismiss) {
+      /* terminal dismiss goes to all providers including web so stale incoming UI can close. */
+    } else if (callPush && !terminalDismiss) {
       if (
         target.push_provider === "web_push" &&
         targets.some((t) => t.push_provider === "fcm" || t.push_provider === "voip_apns")

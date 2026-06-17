@@ -6,6 +6,7 @@
 import { getSiteOrigin } from "@/lib/env/runtime";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
 import { dispatchPushForUser } from "@/lib/push/dispatch/dispatch-push-for-user";
+import type { DispatchPushOptions } from "@/lib/push/dispatch/push-payload-types";
 
 function absolutizeLink(link: string | null | undefined): string | null {
   if (link == null || !String(link).trim()) return null;
@@ -16,9 +17,20 @@ function absolutizeLink(link: string | null | undefined): string | null {
   return s.startsWith("/") ? `${base}${s}` : `${base}/${s}`;
 }
 
-export async function sendWebPushForCommunityMessengerCallCanceled(input: {
+type CommunityMessengerCallTerminalStatus = "cancelled" | "rejected" | "ended";
+
+function callPushKindForTerminalStatus(
+  status: CommunityMessengerCallTerminalStatus
+): NonNullable<DispatchPushOptions["call_push_kind"]> {
+  if (status === "rejected") return "call_rejected";
+  if (status === "ended") return "call_ended";
+  return "call_canceled";
+}
+
+export async function sendWebPushForCommunityMessengerCallTerminal(input: {
   recipientUserId: string;
   sessionId: string;
+  status: CommunityMessengerCallTerminalStatus;
 }): Promise<void> {
   const recipient = input.recipientUserId.trim();
   const sessionId = input.sessionId.trim();
@@ -31,16 +43,24 @@ export async function sendWebPushForCommunityMessengerCallCanceled(input: {
     title: "통화",
     body: "",
     link_url,
-    meta: { session_id: sessionId },
+    meta: { session_id: sessionId, status: input.status },
     link_url_absolute: absolutizeLink(link_url),
     occurred_at: new Date().toISOString(),
   };
 
   await dispatchPushForUser(out, {
-    event_type: "call_cancel",
+    event_type:
+      input.status === "rejected" ? "call_reject" : input.status === "ended" ? "call_end" : "call_cancel",
     target_type: "call_session",
     target_id: sessionId,
-    call_push_kind: "call_canceled",
+    call_push_kind: callPushKindForTerminalStatus(input.status),
     skip_settings_gate: true,
   });
+}
+
+export async function sendWebPushForCommunityMessengerCallCanceled(input: {
+  recipientUserId: string;
+  sessionId: string;
+}): Promise<void> {
+  await sendWebPushForCommunityMessengerCallTerminal({ ...input, status: "cancelled" });
 }

@@ -7,12 +7,19 @@
 
 import { closeLocalIncomingCallNotification } from "@/lib/community-messenger/call-browser-notification";
 
-export type MessengerCallPushKind = "incoming_call" | "missed_call" | "call_canceled";
+export type MessengerCallPushKind =
+  | "incoming_call"
+  | "missed_call"
+  | "call_canceled"
+  | "call_rejected"
+  | "call_ended";
 
 export const MESSENGER_CALL_PUSH_KIND = {
   incoming: "incoming_call",
   missed: "missed_call",
   canceled: "call_canceled",
+  rejected: "call_rejected",
+  ended: "call_ended",
 } as const satisfies Record<string, MessengerCallPushKind>;
 
 export function messengerIncomingCallNotificationTag(sessionId: string): string {

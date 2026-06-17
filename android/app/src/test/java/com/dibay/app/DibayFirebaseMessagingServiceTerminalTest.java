@@ -49,6 +49,25 @@ public class DibayFirebaseMessagingServiceTerminalTest {
     assertLogContains("call_canceled_native_handled");
   }
 
+  @Test
+  public void onMessageReceived_callRejected_marksConsumed_whenAppNotVisible() {
+    String callId = "fcm-rejected-" + System.currentTimeMillis();
+    Map<String, String> data = new HashMap<>();
+    data.put("type", "call_rejected");
+    data.put("callId", callId);
+    data.put("title", "통화");
+    data.put("body", "");
+
+    RemoteMessage message =
+        new RemoteMessage.Builder("dibay-test-sender").setData(data).build();
+
+    service.onMessageReceived(message);
+
+    assertTrue(DibayCallConsumedStore.isConsumed(context, callId));
+    assertLogContains("terminal_received");
+    assertLogContains("terminal_handler_done");
+  }
+
   private void assertLogContains(String needle) {
     boolean found = false;
     for (ShadowLog.LogItem item : ShadowLog.getLogs()) {

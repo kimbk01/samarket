@@ -220,14 +220,21 @@ public class MainActivity extends BridgeActivity {
     if (webView == null) return;
     final String safeCallId = safeJs(callId);
     final String safeStatus = safeJs(status);
+    boolean cancelled = "cancelled".equals(safeStatus) || "canceled".equals(safeStatus);
     final String js =
-        "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_terminal',sessionId:'"
-            + safeCallId
-            + "',status:'"
-            + safeStatus
-            + "'}}));window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
-            + safeCallId
-            + "'}}));}catch(e){}})();";
+        cancelled
+            ? "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_terminal',sessionId:'"
+                + safeCallId
+                + "',status:'"
+                + safeStatus
+                + "'}}));window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_canceled',sessionId:'"
+                + safeCallId
+                + "'}}));}catch(e){}})();"
+            : "(function(){try{window.dispatchEvent(new CustomEvent('dibay:call-event',{detail:{type:'call_terminal',sessionId:'"
+                + safeCallId
+                + "',status:'"
+                + safeStatus
+                + "'}}));}catch(e){}})();";
     String sid = callId != null ? callId.trim() : "";
     if (!sid.isEmpty()) {
       String consumedReason = mapWebTerminalConsumedReason(status);

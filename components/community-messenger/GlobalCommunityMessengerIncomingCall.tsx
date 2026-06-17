@@ -1270,13 +1270,29 @@ export function GlobalCommunityMessengerIncomingCall() {
         })();
         return;
       }
-      if (d.type === "samarket_messenger_call_canceled_wake") {
+      if (d.type === "samarket_messenger_call_canceled_wake" || d.type === "samarket_messenger_call_terminal_wake") {
         const sid = typeof d.sessionId === "string" ? d.sessionId.trim() : "";
         if (sid) {
+          const terminalKindRaw =
+            typeof (d as { terminalKind?: unknown }).terminalKind === "string"
+              ? (d as { terminalKind: string }).terminalKind.trim()
+              : "";
+          const terminalKind =
+            terminalKindRaw === "rejected" || terminalKindRaw === "ended" || terminalKindRaw === "missed"
+              ? terminalKindRaw
+              : "cancelled";
+          const status =
+            terminalKind === "rejected"
+              ? "rejected"
+              : terminalKind === "ended"
+                ? "ended"
+                : terminalKind === "missed"
+                  ? "missed"
+                  : "cancelled";
           sealFcmTerminalEvent(
-            { action: "terminal", callId: sid, terminalKind: "cancelled", fcmType: "call_canceled" },
+            { action: "terminal", callId: sid, terminalKind, fcmType: `call_${terminalKind}` },
             hardClearedIncomingSessionsAtRef.current,
-            "sw_cancel_wake"
+            d.type === "samarket_messenger_call_terminal_wake" ? "sw_terminal_wake" : "sw_cancel_wake"
           );
           const rowMatch = sessionsRef.current.find(
             (s) => s.id === sid || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sid)
@@ -1289,10 +1305,10 @@ export function GlobalCommunityMessengerIncomingCall() {
                   roomId: rowMatch.roomId,
                   initiatorUserId: rowMatch.initiatorUserId,
                   callKind: rowMatch.callKind,
-                  status: "cancelled",
+                  status,
                 }
-              : { sessionId: sid, status: "cancelled" },
-            "sw_cancel_wake",
+              : { sessionId: sid, status },
+            d.type === "samarket_messenger_call_terminal_wake" ? "sw_terminal_wake" : "sw_cancel_wake",
             { skipSeal: true }
           );
         }

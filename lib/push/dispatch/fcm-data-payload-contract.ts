@@ -5,6 +5,8 @@ export type FcmPushType =
   | "incoming_call"
   | "missed_call"
   | "call_canceled"
+  | "call_rejected"
+  | "call_ended"
   | "chat_message"
   | "trade_message"
   | "delivery_order"
@@ -61,9 +63,11 @@ export function resolveFcmPushType(
   }
   if (
     opts?.call_push_kind === "call_canceled" ||
+    opts?.call_push_kind === "call_rejected" ||
+    opts?.call_push_kind === "call_ended" ||
     out.notification_type === "community_messenger_call_canceled"
   ) {
-    return "call_canceled";
+    return opts?.call_push_kind ?? "call_canceled";
   }
 
   const meta = metaObj(out);
@@ -150,12 +154,14 @@ export function buildFcmDataFields(
       }
       break;
     }
-    case "call_canceled": {
+    case "call_canceled":
+    case "call_rejected":
+    case "call_ended": {
       const sessionId = trimText(base.sessionId) || (meta ? trimText(meta.session_id ?? meta.sessionId) : "");
       if (sessionId) {
         appendCallFields(fields, meta, sessionId);
         fields.url = `/community-messenger/calls/${encodeURIComponent(sessionId)}`;
-        fields.call_push_kind = "call_canceled";
+        fields.call_push_kind = type;
         fields.tag = `samarket-incoming-call-${sessionId}`;
       }
       break;

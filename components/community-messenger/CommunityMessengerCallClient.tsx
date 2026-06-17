@@ -2416,6 +2416,63 @@ export function CommunityMessengerCallClient({
             attempts: joinErrors.length,
           });
           logDibayCall("join_fail", { sessionId: targetSession.id, reason, attempts: joinErrors.length });
+          const active = sessionRef.current;
+          if (
+            active?.id === targetSession.id &&
+            active.status === "active" &&
+            !isTerminalCallSessionStatus(active.status) &&
+            claimCallTerminalPatch(active.id, "end")
+          ) {
+            const endedAtIso = new Date().toISOString();
+            const snapshot: CommunityMessengerCallSession = {
+              ...active,
+              status: "ended",
+              endedAt: endedAtIso,
+              endedReason: reason,
+            };
+            callTerminalLocalPinRef.current = {
+              sessionId: active.id,
+              until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
+              snapshot,
+            };
+            appendTerminalCallHistory(active, "ended", { hangupReason: "end", endedReason: reason });
+            setSession(snapshot);
+            pinTerminalCallLocalSurfaceDismiss(active.id);
+            const peer = active.peerUserId?.trim();
+            if (peer) {
+              void notifyCommunityMessengerCallInviteHangupBestEffort(peer, active.id, {
+                roomId: active.roomId,
+                initiatorUserId: active.initiatorUserId,
+                callKind: active.callKind,
+                terminalStatus: "ended",
+              });
+              void postCommunityMessengerCallHangupSignal({
+                sessionId: active.id,
+                toUserId: peer,
+                reason: "end",
+              }).catch(() => {});
+            }
+            void patchCommunityMessengerCallSession(
+              active.id,
+              "end",
+              { durationSeconds: elapsedSecondsRef.current, clientEndedReason: reason },
+              {
+                sessionStatus: active.status,
+                isInitiator: active.isMineInitiator,
+                endedReason: active.endedReason ?? null,
+              }
+            ).then((patched) => {
+              if (patched.ok && patched.session && isTerminalCallSessionStatus(patched.session.status)) {
+                callTerminalLocalPinRef.current = {
+                  sessionId: active.id,
+                  until: Date.now() + CALL_SESSION_TERMINAL_PIN_MS,
+                  snapshot: patched.session,
+                };
+                setSession(patched.session);
+              }
+              scheduleSilentRefresh("terminal");
+            });
+          }
         }
       } finally {
         if (joinGeneration === joinGenerationRef.current) {
@@ -2424,7 +2481,15 @@ export function CommunityMessengerCallClient({
         }
       }
     },
-    [bindLocalVideoTrack, cleanupClient, clearPeerLeftEndTimer, fetchConnection, refreshSession, scheduleSilentRefresh]
+    [
+      appendTerminalCallHistory,
+      bindLocalVideoTrack,
+      cleanupClient,
+      clearPeerLeftEndTimer,
+      fetchConnection,
+      refreshSession,
+      scheduleSilentRefresh,
+    ]
   );
 
   const acceptIncoming = useCallback(async (): Promise<CommunityMessengerCallSession | null> => {

@@ -41,7 +41,7 @@ final class VoIPPushRegistry: NSObject, PKPushRegistryDelegate {
     let data = payload.dictionaryPayload
     let sessionId = (data["sessionId"] as? String) ?? (data["session_id"] as? String) ?? UUID().uuidString
     let kind = data["call_push_kind"] as? String
-    if kind == "call_canceled" {
+    if kind == "call_canceled" || kind == "call_rejected" || kind == "call_ended" {
       callProvider.reportCallEnded(uuidString: sessionId)
       completion()
       return
