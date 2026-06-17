@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPoi
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CommunityMessengerCallActionButton } from "@/components/community-messenger/call-history/CommunityMessengerCallActionButton";
-import { CommunityMessengerCallAvatarOverlay } from "@/components/community-messenger/call-history/CommunityMessengerCallAvatarOverlay";
 import { CommunityMessengerCallDirectionBadge } from "@/components/community-messenger/call-history/CommunityMessengerCallDirectionBadge";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
@@ -12,7 +11,7 @@ import {
   communityMessengerCallLogSwipeItemId,
 } from "@/lib/community-messenger/call-history/call-log-swipe";
 import { presentCallHistoryRow } from "@/lib/community-messenger/call-history/call-history-presenter";
-import { formatCallLogListTime } from "@/lib/community-messenger/call-log-row-copy";
+import { formatCallLogListTime, resolveCallLogListTimestampIso } from "@/lib/community-messenger/call-log-row-copy";
 import type { CommunityMessengerCallLog } from "@/lib/community-messenger/types";
 import { resolveUserAvatarImageSrc } from "@/lib/profile/user-avatar-display";
 
@@ -72,7 +71,10 @@ export function CommunityMessengerCallRow({
     if (swipeOpen) {
       dragXRef.current = -actionWidth;
       setDragX(-actionWidth);
+      return;
     }
+    dragXRef.current = 0;
+    setDragX((prev) => (prev === 0 ? prev : 0));
   }, [actionWidth, swipeOpen]);
 
   const clamp = useCallback((x: number) => Math.max(-actionWidth, Math.min(0, x)), [actionWidth]);
@@ -148,23 +150,25 @@ export function CommunityMessengerCallRow({
     if (vm.canNavigate) onNavigate(call);
   }, [call, closeSwipe, onNavigate, swipeOpen, vm.canNavigate]);
 
-  const timeLabel = formatCallLogListTime(vm.startedAt, language, t("cm_ui_call_log_time_yesterday"));
+  const timeLabel = formatCallLogListTime(
+    resolveCallLogListTimestampIso(call),
+    language,
+    t("cm_ui_call_log_time_yesterday")
+  );
   const subtitleText = safeT(vm.subtitleMessageKey, {
     fallbackKo: "통화 기록",
     fallbackEn: "Call log",
   });
 
   const avatarNode = (
-    <CommunityMessengerCallAvatarOverlay overlayKind={vm.avatarOverlayKind}>
-      <SamarketThumbnail
-        src={resolveUserAvatarImageSrc(vm.peerAvatarUrl)}
-        size={48}
-        roundedClassName="rounded-full"
-        className="bg-sam-surface-muted ring-1 ring-sam-border"
-        fallbackSrc=""
-        fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
-      />
-    </CommunityMessengerCallAvatarOverlay>
+    <SamarketThumbnail
+      src={resolveUserAvatarImageSrc(vm.peerAvatarUrl)}
+      size={48}
+      roundedClassName="rounded-full"
+      className="shrink-0 bg-sam-surface-muted ring-1 ring-sam-border"
+      fallbackSrc=""
+      fallbackNode={<SamarketDefaultAvatarFace className="h-full w-full" />}
+    />
   );
 
   return (
@@ -241,7 +245,7 @@ export function CommunityMessengerCallRow({
                 kind={vm.callKind}
                 ariaLabel={vm.callKind === "video" ? t("cm_ui_call_log_redial_video") : t("cm_ui_call_log_redial_voice")}
                 disabled={globalRedialBlocked}
-                onLongPress={() => onRequestOutgoingConfirm(call, vm.callKind)}
+                onPress={() => onRequestOutgoingConfirm(call, vm.callKind)}
               />
             </div>
           ) : null}

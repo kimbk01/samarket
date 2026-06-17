@@ -10,7 +10,7 @@ type Args = {
   onCallsChange: (next: CommunityMessengerCallLog[]) => void;
 };
 
-/** call_logs / session RT는 home meta debounced refresh — 로컬 merge 로 즉시 반영 보조 */
+/** @deprecated 패널은 `useCommunityCallHistoryRealtimeSync` 사용 */
 export function useCommunityCallHistoryRealtime({ calls, onCallsChange }: Args) {
   const callsRef = useRef(calls);
   callsRef.current = calls;

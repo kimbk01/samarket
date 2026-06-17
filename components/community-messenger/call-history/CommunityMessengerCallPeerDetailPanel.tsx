@@ -1,12 +1,16 @@
 "use client";
 
-import { ChevronLeft, MessageCircle, MoreHorizontal, Phone, Video } from "lucide-react";
+import { ChevronLeft, MessageCircle, MoreHorizontal } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { CommunityMessengerCallPeerHistoryRow } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerHistoryRow";
 import { useCommunityMessengerCallPeerDetailClose } from "@/components/community-messenger/call-history/CommunityMessengerCallPeerDetailShell";
+import {
+  CommunityMessengerCallPhoneOutlineIcon,
+  CommunityMessengerCallVideoOutlineIcon,
+} from "@/components/community-messenger/call-history/CommunityMessengerCallOutlineIcons";
 import { SamarketDefaultAvatarFace } from "@/components/profile/SamarketDefaultAvatarFace";
 import {
   CALL_PEER_HISTORY_INITIAL_LIMIT,
@@ -39,15 +43,18 @@ type Props = {
 
 function CallActionTile({
   label,
-  icon: Icon,
+  icon,
   onPress,
   disabled = false,
 }: {
   label: string;
-  icon: typeof Phone;
+  icon: "voice" | "video";
   onPress: () => void;
   disabled?: boolean;
 }) {
+  const Icon =
+    icon === "video" ? CommunityMessengerCallVideoOutlineIcon : CommunityMessengerCallPhoneOutlineIcon;
+
   return (
     <button
       type="button"
@@ -56,7 +63,7 @@ function CallActionTile({
       className="flex min-w-0 flex-1 flex-col items-center gap-1.5 px-2 py-1 text-white active:opacity-80 disabled:opacity-50"
     >
       <Icon className="h-6 w-6" aria-hidden />
-      <span className="sam-text-helper font-medium">{label}</span>
+      <span className="sam-text-helper font-medium text-white">{label}</span>
     </button>
   );
 }
@@ -171,18 +178,18 @@ export function CommunityMessengerCallPeerDetailPanel({
             className="flex min-w-0 flex-1 flex-col items-center gap-1.5 px-2 py-1 text-white active:opacity-80"
           >
             <MessageCircle className="h-6 w-6" aria-hidden />
-            <span className="sam-text-helper font-medium">
+            <span className="sam-text-helper font-medium text-white">
               {safeT("cm_ui_call_peer_detail_chat", { fallbackKo: "채팅", fallbackEn: "Chat" })}
             </span>
           </button>
           <CallActionTile
-            label={safeT("cm_ui_call_peer_detail_voice", { fallbackKo: "보이스톡", fallbackEn: "Voice" })}
-            icon={Phone}
+            label={safeT("cm_ui_call_peer_detail_voice", { fallbackKo: "음성 통화", fallbackEn: "Voice call" })}
+            icon="voice"
             onPress={() => onRequestOutgoingConfirm("voice")}
           />
           <CallActionTile
-            label={safeT("cm_ui_call_peer_detail_video", { fallbackKo: "페이스톡", fallbackEn: "Face" })}
-            icon={Video}
+            label={safeT("cm_ui_call_peer_detail_video", { fallbackKo: "영상 통화", fallbackEn: "Video call" })}
+            icon="video"
             onPress={() => onRequestOutgoingConfirm("video")}
           />
         </div>

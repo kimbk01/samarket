@@ -145,6 +145,7 @@ import {
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
+  type CommunityMessengerCallLog,
   type CommunityMessengerDiscoverableGroupSummary,
   type CommunityMessengerProfileLite,
   type CommunityMessengerRoomSnapshot,
@@ -1171,7 +1172,9 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
       };
       void (async () => {
         const result = await launchOutgoingDirectCall(
-          roomId ? { kind, roomId, peerUserId: peer } : { kind, peerUserId: peer },
+          roomId
+            ? { kind, roomId, peerUserId: peer, peerLabel: peerLabelForDial?.trim() || undefined }
+            : { kind, peerUserId: peer, peerLabel: peerLabelForDial?.trim() || undefined },
           router
         );
         releaseDialGuard();
@@ -2717,6 +2720,15 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
     void refresh();
   }, [refresh]);
   const messengerHomeBootstrapCalls = useMemo(() => data?.calls ?? [], [data?.calls]);
+  const onBootstrapCallsChange = useCallback(
+    (calls: CommunityMessengerCallLog[]) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        return prev.calls === calls ? prev : { ...prev, calls };
+      });
+    },
+    [setData]
+  );
 
   return (
     <div
@@ -2834,6 +2846,7 @@ export const CommunityMessengerHome = memo(function CommunityMessengerHome({
         bootstrapCalls={messengerHomeBootstrapCalls}
         callsHydrating={Boolean(data?.deferredCallLog)}
         onStartDirectCall={startDirectCall}
+        onBootstrapCallsChange={onBootstrapCallsChange}
         chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
         showSectionTabs={!listAwaitingCritical && !authRequired && !fromPhilifeHeaderStack && pillar == null}
       />

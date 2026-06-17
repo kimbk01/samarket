@@ -26,6 +26,7 @@ type Props = {
   onDeleteRequest: (call: CommunityMessengerCallLog) => void;
   openedSwipeItemId: string | null;
   onOpenSwipeItem: (id: string | null) => void;
+  onListScrollStart?: () => void;
 };
 
 function useCallHistoryRedialBlocked(): boolean {
@@ -43,6 +44,7 @@ export function CommunityMessengerCallHistory({
   onDeleteRequest,
   openedSwipeItemId,
   onOpenSwipeItem,
+  onListScrollStart,
 }: Props) {
   const { t } = useI18n();
   const globalRedialBlocked = useCallHistoryRedialBlocked();
@@ -73,7 +75,13 @@ export function CommunityMessengerCallHistory({
   }
 
   return (
-    <ul className="overflow-y-auto">
+    <ul
+      className="overflow-y-auto"
+      onScrollCapture={() => {
+        if (!openedSwipeItemId) return;
+        onListScrollStart?.();
+      }}
+    >
       {merged.map((call) => (
         <CommunityMessengerCallRow
           key={call.id}

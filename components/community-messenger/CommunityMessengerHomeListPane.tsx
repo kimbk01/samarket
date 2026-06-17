@@ -118,6 +118,7 @@ type Props = {
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
   onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
+  onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
   showSectionTabs?: boolean;
 };
 
@@ -430,6 +431,7 @@ export const CommunityMessengerHomeListPane = memo(function CommunityMessengerHo
               bootstrapCalls={props.bootstrapCalls ?? []}
               callsHydrating={props.callsHydrating ?? false}
               onStartDirectCall={props.onStartDirectCall}
+              onBootstrapCallsChange={props.onBootstrapCallsChange}
               showSectionTabs={props.showSectionTabs}
               onPrimarySectionChange={props.onPrimarySectionChange}
                 />

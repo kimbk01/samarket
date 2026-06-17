@@ -90,6 +90,7 @@ type Props = {
   bootstrapCalls?: CommunityMessengerCallLog[];
   callsHydrating?: boolean;
   onStartDirectCall?: MessengerCallLogsStartDirectCallFn;
+  onBootstrapCallsChange?: (calls: CommunityMessengerCallLog[]) => void;
   showSectionTabs?: boolean;
   onPrimarySectionChange?: (next: MessengerMainSection) => void;
 };
@@ -151,6 +152,7 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
   bootstrapCalls = [],
   callsHydrating = false,
   onStartDirectCall,
+  onBootstrapCallsChange,
   showSectionTabs = false,
   onPrimarySectionChange,
 }: Props) {
@@ -260,6 +262,11 @@ export const MessengerHomeMainSections = memo(function MessengerHomeMainSections
               viewerUserId={viewerUserId}
               peerProfiles={sortedFriends}
               onStartDirectCall={onStartDirectCall}
+              onBootstrapCallsChange={onBootstrapCallsChange}
+              openedSwipeItemId={openedSwipeItemId}
+              onOpenSwipeItem={onOpenSwipeItem}
+              messengerOverlayGeneration={messengerOverlayGeneration}
+              onListScrollStart={onListScrollStart}
             />
           </div>
         ) : null}

@@ -109,7 +109,7 @@ export function normalizeCommunityMessengerCallLogs(
   return entries.map(normalizeCommunityMessengerCallLog);
 }
 
-/** bootstrap·친구 목록 subtitle 로 `peerPublicId` 보강 */
+/** bootstrap·친구 목록으로 `peerPublicId`·`peerAvatarUrl` 보강 */
 export function enrichCommunityMessengerCallLogsWithProfiles(
   entries: CommunityMessengerCallLog[],
   profiles: CommunityMessengerProfileLite[]
@@ -118,15 +118,21 @@ export function enrichCommunityMessengerCallLogsWithProfiles(
   const byId = new Map(profiles.map((profile) => [profile.id, profile]));
   return entries.map((entry) => {
     const peerUserId = entry.peerUserId?.trim();
-    if (!peerUserId || entry.peerPublicId?.trim()) return entry;
+    if (!peerUserId) return entry;
     const peer = byId.get(peerUserId);
-    const publicId = peer?.subtitle?.trim().replace(/^@+/, "") || null;
-    if (!publicId) return entry;
-    return { ...entry, peerPublicId: publicId };
+    if (!peer) return entry;
+    const publicId = entry.peerPublicId?.trim() || peer.subtitle?.trim().replace(/^@+/, "") || null;
+    const peerAvatarUrl = entry.peerAvatarUrl?.trim() || peer.avatarUrl?.trim() || null;
+    if (publicId === entry.peerPublicId && peerAvatarUrl === entry.peerAvatarUrl) return entry;
+    return {
+      ...entry,
+      ...(publicId ? { peerPublicId: publicId } : {}),
+      ...(peerAvatarUrl ? { peerAvatarUrl } : {}),
+    };
   });
 }
 
-/** 카카오톡 통화목록형 — 오늘은 시각, 어제는 「어제」, 그 외 월·일 */
+/** 카카오톡 통화목록형 — 오늘·어제·이전 모두 시·분 표시 */
 export function formatCallLogListTime(
   iso: string,
   lang: AppLanguageCode,
@@ -137,6 +143,13 @@ export function formatCallLogListTime(
   const date = new Date(raw);
   if (!Number.isFinite(date.getTime())) return "";
 
+  const locale = lang === "ko" ? "ko-KR" : "en-US";
+  const timePart = new Intl.DateTimeFormat(locale, {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: lang === "ko",
+  }).format(date);
+
   const now = new Date();
   const sameDay = date.toDateString() === now.toDateString();
   const yesterday = new Date(now);
@@ -144,19 +157,16 @@ export function formatCallLogListTime(
   const isYesterday = date.toDateString() === yesterday.toDateString();
 
   if (sameDay) {
-    return new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : "en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: lang === "ko",
-    }).format(date);
+    return timePart;
   }
   if (isYesterday) {
-    return yesterdayLabel;
+    return `${yesterdayLabel} ${timePart}`;
   }
-  return new Intl.DateTimeFormat(lang === "ko" ? "ko-KR" : "en-US", {
+  const datePart = new Intl.DateTimeFormat(locale, {
     month: "long",
     day: "numeric",
   }).format(date);
+  return `${datePart} ${timePart}`;
 }
 
 /** 상대 통화 상세 이력 행 — 구간 헤더 아래 시각만(오후 7:05) */

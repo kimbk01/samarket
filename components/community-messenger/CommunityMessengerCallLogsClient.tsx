@@ -34,7 +34,7 @@ export function CommunityMessengerCallLogsClient() {
       />
 
       <main className="flex-1 px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
-        <MessengerCallLogsPanel callsHydrating entryOrigin={fromUrl ?? readStoredMessengerEntryOrigin()} />
+        <MessengerCallLogsPanel entryOrigin={fromUrl ?? readStoredMessengerEntryOrigin()} />
       </main>
     </div>
   );

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCallHistorySubtitle,
+  enrichCommunityMessengerCallLogsWithProfiles,
   formatCallLogListTime,
   isCallLogMissedDisplayType,
   normalizeCommunityMessengerCallLog,
@@ -101,6 +102,36 @@ describe("call-log-row-copy", () => {
     expect(subtitle.durationLabel).toBeTruthy();
   });
 
+  it("enriches peerPublicId and peerAvatarUrl from friend profiles", () => {
+    const enriched = enrichCommunityMessengerCallLogsWithProfiles(
+      [
+        normalizeCommunityMessengerCallLog({
+          id: "1",
+          sessionId: null,
+          roomId: "r1",
+          sessionMode: "direct",
+          title: "t",
+          peerLabel: "p",
+          peerUserId: "u1",
+          participantCount: 2,
+          participantLabels: [],
+          callKind: "voice",
+          status: "ended",
+          startedAt: new Date().toISOString(),
+          durationSeconds: 0,
+          endedAt: null,
+          isOutgoing: true,
+          endedReason: null,
+          displayType: "outgoing",
+          peerAvatarUrl: null,
+        }),
+      ],
+      [{ id: "u1", label: "테스트", subtitle: "@aa11", avatarUrl: "/avatars/u1.jpg", following: false, blocked: false, isFriend: true, isFavoriteFriend: false }]
+    );
+    expect(enriched[0]?.peerPublicId).toBe("aa11");
+    expect(enriched[0]?.peerAvatarUrl).toBe("/avatars/u1.jpg");
+  });
+
   it("fills missing peerAvatarUrl for legacy payloads", () => {
     const legacy = {
       id: "1",
@@ -139,11 +170,14 @@ describe("call-log-row-copy", () => {
 
     const yesterday = new Date(now);
     yesterday.setDate(yesterday.getDate() - 1);
-    expect(formatCallLogListTime(yesterday.toISOString(), "ko", "어제")).toBe("어제");
+    expect(formatCallLogListTime(yesterday.toISOString(), "ko", "어제")).toMatch(/어제/);
+    expect(formatCallLogListTime(yesterday.toISOString(), "ko", "어제")).toMatch(/\d|오전|오후/);
 
     const older = new Date(now.getFullYear(), 0, 7, 12, 0, 0);
     if (older.toDateString() !== now.toDateString() && older.toDateString() !== yesterday.toDateString()) {
-      expect(formatCallLogListTime(older.toISOString(), "ko", "어제")).toMatch(/1월|7일/);
+      const olderLabel = formatCallLogListTime(older.toISOString(), "ko", "어제");
+      expect(olderLabel).toMatch(/1월|7일/);
+      expect(olderLabel).toMatch(/\d|오전|오후/);
     }
   });
 });
