@@ -2,7 +2,6 @@
 
 import type { BlockedUser } from "@/lib/types/report";
 import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
-import { getSupabaseClient } from "@/lib/supabase/client";
 
 type BlockedRelationItem = {
   id: string;
@@ -91,33 +90,19 @@ export async function blockUser(
 
 export async function unblockUser(userId: string, blockedUserId: string): Promise<boolean> {
   if (!userId || !blockedUserId) return false;
-  const relationId = relationIdByPair.get(pairKey(userId, blockedUserId));
-  if (relationId) {
-    try {
-      const res = await fetch(
-        `/api/me/relations/blocked?id=${encodeURIComponent(relationId)}`,
-        { method: "DELETE", credentials: "include" }
-      );
-      const j = (await res.json()) as { ok?: boolean };
-      if (res.ok && j.ok) {
-        getSet(userId).delete(blockedUserId);
-        relationIdByPair.delete(pairKey(userId, blockedUserId));
-        return true;
-      }
-    } catch {
-      /* fall through */
+  try {
+    const res = await fetch(
+      `/api/me/relations/blocked?targetUserId=${encodeURIComponent(blockedUserId)}`,
+      { method: "DELETE", credentials: "include" }
+    );
+    const j = (await res.json()) as { ok?: boolean };
+    if (res.ok && j.ok) {
+      getSet(userId).delete(blockedUserId);
+      relationIdByPair.delete(pairKey(userId, blockedUserId));
+      return true;
     }
+  } catch {
+    /* fall through */
   }
-
-  const supabase = getSupabaseClient();
-  if (!supabase) return false;
-  const { error } = await supabase
-    .from("user_blocks")
-    .delete()
-    .eq("user_id", userId)
-    .eq("blocked_user_id", blockedUserId);
-  if (error) return false;
-  getSet(userId).delete(blockedUserId);
-  relationIdByPair.delete(pairKey(userId, blockedUserId));
-  return true;
+  return false;
 }

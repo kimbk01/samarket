@@ -212,14 +212,33 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
     }
     const blocked = await fetchBlockedAuthorIdsForViewer(sb, auth.userId);
     if (blocked.has(String(prow.user_id ?? ""))) {
-      return jsonError("차단 관계에서는 댓글을 작성할 수 없습니다.", 403);
+      return jsonError("차단 관계에서는 댓글을 작성할 수 없습니다.", 403, {
+        code: "community_comment_blocked_relation",
+      });
     }
 
     const parentId = body.parentId?.trim() || null;
     let depth = 0;
+    let parentCommentAuthorId: string | null = null;
     if (parentId) {
-      const { data: prow } = await sb.from("community_comments").select("depth").eq("id", parentId).maybeSingle();
-      const d = Number((prow as { depth?: number } | null)?.depth ?? 0);
+      const { data: parentRow } = await sb
+        .from("community_comments")
+        .select("user_id, post_id, depth")
+        .eq("id", parentId)
+        .maybeSingle();
+      parentCommentAuthorId = String((parentRow as { user_id?: string } | null)?.user_id ?? "").trim() || null;
+      const parentPostId = String((parentRow as { post_id?: string } | null)?.post_id ?? "").trim();
+      if (!parentCommentAuthorId || parentPostId !== id) {
+        return jsonError("답글 대상 댓글을 찾을 수 없습니다.", 404, {
+          code: "community_comment_parent_not_found",
+        });
+      }
+      if (blocked.has(parentCommentAuthorId)) {
+        return jsonError("차단 관계에서는 댓글을 작성할 수 없습니다.", 403, {
+          code: "community_comment_blocked_relation",
+        });
+      }
+      const d = Number((parentRow as { depth?: number } | null)?.depth ?? 0);
       depth = Math.min(3, d + 1);
     }
     const { data: ins, error } = await sb
@@ -240,21 +259,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ postId: st
       });
     }
     const postAuthorId = String(prow.user_id ?? "").trim();
-    let parentCommentAuthorId: string | null = null;
-    if (parentId) {
-      const { data: parentRow } = await sb
-        .from("community_comments")
-        .select("user_id")
-        .eq("id", parentId)
-        .maybeSingle();
-      parentCommentAuthorId = String((parentRow as { user_id?: string } | null)?.user_id ?? "").trim() || null;
-    }
     if (postAuthorId && postAuthorId !== auth.userId) {
       void bumpNotificationTarget(sb, {
         userId: postAuthorId,
         targetType: "community_post",
         targetId: id,
         scope: "consumer",
+        actorUserId: auth.userId,
       });
     }
     void notifyCommunityPostCommentReceived(sb, {

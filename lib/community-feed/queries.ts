@@ -12,6 +12,7 @@ import { normalizeSectionSlug, type CommunityFeedSortMode } from "./constants";
 import { getPhilifeNeighborhoodSectionSlugServer } from "@/lib/community-feed/philife-neighborhood-section";
 import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
 import { fetchLikedCommentIdsSetForUser } from "@/lib/community/comment-likes.query";
+import { fetchBlockedAuthorIdsForViewer, filterCommentRowsExcludingBlockedRelations } from "@/lib/neighborhood/social-filter";
 import { rankByRecommended } from "./feed-ranking";
 import { isMissingDbColumnError } from "./supabase-column-error";
 import { normalizeCommunityFeedListSkin } from "./topic-feed-skin";
@@ -473,9 +474,16 @@ export async function listCommunityPostComments(
     }
     if (!data) return [];
 
-    const rows = (data as Record<string, unknown>[]).filter(
+    let rows = (data as Record<string, unknown>[]).filter(
       (r) => isCommunityCommentPubliclyVisible(r as never) && r.is_deleted !== true
     );
+    if (v && rows.length > 0) {
+      const blockExclude = await fetchBlockedAuthorIdsForViewer(sb as never, v);
+      rows = filterCommentRowsExcludingBlockedRelations(
+        rows as Array<{ id: string; user_id: unknown; parent_id: unknown }>,
+        blockExclude
+      ) as typeof rows;
+    }
     if (rows.length === 0) return [];
     const uids = [...new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean))];
     const commentIds = rows.map((r) => String(r.id));

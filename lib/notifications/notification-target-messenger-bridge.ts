@@ -211,7 +211,11 @@ export async function bumpMessengerRoomTargetsForRecipients(
     if (!uid || uid === fromUserId) continue;
 
     if (kind === "trade") {
-      await bumpTradeTargetForMessengerRoomRecipients(sb, { roomId, recipientUserIds: [uid] });
+      await bumpTradeTargetForMessengerRoomRecipients(sb, {
+        roomId,
+        recipientUserIds: [uid],
+        senderUserId: fromUserId,
+      });
       continue;
     }
     if (kind === "delivery") {
@@ -260,7 +264,7 @@ export async function clearMessengerRoomNotificationTargetAfterRead(
 
 export async function bumpTradeTargetForMessengerRoomRecipients(
   sb: SupabaseClient<any>,
-  opts: { roomId: string; recipientUserIds: string[] }
+  opts: { roomId: string; recipientUserIds: string[]; senderUserId?: string | null }
 ): Promise<void> {
   const roomId = opts.roomId.trim();
   if (!roomId || !opts.recipientUserIds.length) return;
@@ -286,6 +290,7 @@ export async function bumpTradeTargetForMessengerRoomRecipients(
       targetType: "trade",
       targetId,
       scope: "consumer",
+      actorUserId: opts.senderUserId ?? null,
     });
   }
 }

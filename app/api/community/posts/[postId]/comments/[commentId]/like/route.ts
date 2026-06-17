@@ -34,7 +34,10 @@ export async function POST(
     elapsedMs: Date.now() - startedAt,
   });
   if (!out.ok) {
-    return jsonError(safeErrorMessage({ message: out.error }, out.error), 400);
+    const status = out.code === "community_like_blocked_relation" ? 403 : 400;
+    return jsonError(safeErrorMessage({ message: out.error }, out.error), status, {
+      code: out.code,
+    });
   }
   return jsonOk({ liked: out.liked, like_count: out.like_count });
 }

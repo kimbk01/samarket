@@ -4,6 +4,7 @@ import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { assertVerifiedMemberForAction } from "@/lib/auth/member-access";
 import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import { ensureMessengerRoomIdForProductChat } from "@/lib/trade/ensure-messenger-room-for-trade-chat";
+import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 
 export type ResolveLegacyProductChatResult =
   | { ok: true; roomId: string; messengerRoomId?: string }
@@ -61,11 +62,7 @@ export async function resolveLegacyProductChatCreateOrGet(input: {
   }
 
   // 2) 차단
-  const [block1Res, block2Res] = await Promise.all([
-    sbAny.from("user_blocks").select("id").eq("user_id", userId).eq("blocked_user_id", sellerId).maybeSingle(),
-    sbAny.from("user_blocks").select("id").eq("user_id", sellerId).eq("blocked_user_id", userId).maybeSingle(),
-  ]);
-  if (block1Res.data || block2Res.data) {
+  if (await isBlockedEitherWay(userId, sellerId)) {
     return { ok: false, error: "차단 관계에서는 채팅할 수 없습니다.", status: 403 };
   }
 

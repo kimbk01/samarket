@@ -113,6 +113,8 @@ export function CommunityDetail({
   const [viewCount, setViewCount] = useState(post.view_count);
   const [busy, setBusy] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [commentSubmitErr, setCommentSubmitErr] = useState("");
+  const [likeActionErr, setLikeActionErr] = useState("");
   const [scrollSig, setScrollSig] = useState(0);
   const [focusCommentId, setFocusCommentId] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
@@ -355,17 +357,30 @@ export function CommunityDetail({
     }
   }, [commentsLoading, comments.length, post.images.length]);
 
+  const resolveLikeBlockedError = useCallback(
+    (res: Response, data: { ok?: boolean; error?: string; code?: string }) => {
+      if (data.code === "community_like_blocked_relation" || res.status === 403) {
+        return t("community_like_blocked_relation");
+      }
+      return "";
+    },
+    [t]
+  );
+
   const onLike = async () => {
     const prevLikeCount = likeCount;
     setBusy(true);
+    setLikeActionErr("");
     setLikeCount((count) => count + 1);
     try {
       const res = await fetch(philifePostLikeUrl(post.id), { method: "POST" });
-      const data = (await res.json()) as { ok?: boolean; like_count?: number };
+      const data = (await res.json()) as { ok?: boolean; like_count?: number; code?: string };
       if (data.ok && typeof data.like_count === "number") {
         setLikeCount(data.like_count);
       } else {
         setLikeCount(prevLikeCount);
+        const err = resolveLikeBlockedError(res, data);
+        if (err) setLikeActionErr(err);
       }
     } catch {
       setLikeCount(prevLikeCount);
@@ -383,19 +398,24 @@ export function CommunityDetail({
       }
       try {
         const res = await fetch(philifePostCommentLikeUrl(post.id, commentId), { method: "POST" });
-        const data = (await res.json()) as { ok?: boolean; liked?: boolean; like_count?: number };
+        const data = (await res.json()) as { ok?: boolean; liked?: boolean; like_count?: number; code?: string };
         if (data.ok && typeof data.like_count === "number" && typeof data.liked === "boolean") {
           setComments((cur) => updateCommentInTree(cur, commentId, { liked_by_viewer: data.liked, like_count: data.like_count }));
         } else {
-          invalidateCommunityPostCommentsDeduped(post.id);
-          await refreshComments({ silent: true, force: true });
+          const err = resolveLikeBlockedError(res, data);
+          if (err) {
+            setCommentSubmitErr(err);
+          } else {
+            invalidateCommunityPostCommentsDeduped(post.id);
+            await refreshComments({ silent: true, force: true });
+          }
         }
       } catch {
         invalidateCommunityPostCommentsDeduped(post.id);
         await refreshComments({ silent: true, force: true });
       }
     },
-    [me?.id, post.id, refreshComments, requireAction]
+    [me?.id, post.id, refreshComments, requireAction, resolveLikeBlockedError]
   );
 
   const onCommentEdit = useCallback(
@@ -452,40 +472,55 @@ export function CommunityDetail({
     [me?.id, post.id, t]
   );
 
+  const resolveCommentSubmitError = useCallback(
+    (res: Response, data: { ok?: boolean; error?: string; code?: string }) => {
+      if (data.code === "community_comment_blocked_relation" || res.status === 403) {
+        return t("community_comment_blocked_relation");
+      }
+      const msg = typeof data.error === "string" ? data.error.trim() : "";
+      return msg || t("community_comment_locked");
+    },
+    [t]
+  );
+
   const submitComment = useCallback(async () => {
     const trimmed = commentText.trim();
     if (!trimmed) return;
     setBusy(true);
+    setCommentSubmitErr("");
     try {
       const res = await fetch(philifePostCommentsUrl(post.id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ content: trimmed }),
       });
-      const data = (await res.json()) as { ok?: boolean };
+      const data = (await res.json()) as { ok?: boolean; error?: string; code?: string };
       if (data.ok) {
         setCommentText("");
         invalidateCommunityPostCommentsDeduped(post.id);
         await refreshComments({ silent: true, force: true });
         setScrollSig((s) => s + 1);
+      } else {
+        setCommentSubmitErr(resolveCommentSubmitError(res, data));
       }
     } finally {
       setBusy(false);
     }
-  }, [commentText, post.id, refreshComments]);
+  }, [commentText, post.id, refreshComments, resolveCommentSubmitError]);
 
   const submitReplyComment = useCallback(
     async (parentId: string, content: string) => {
       const trimmed = content.trim();
       if (!trimmed) return;
       setBusy(true);
+      setCommentSubmitErr("");
       try {
         const res = await fetch(philifePostCommentsUrl(post.id), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ content: trimmed, parentId }),
         });
-        const data = (await res.json()) as { ok?: boolean; id?: string };
+        const data = (await res.json()) as { ok?: boolean; id?: string; error?: string; code?: string };
         if (data.ok) {
           const now = new Date().toISOString();
           const insertedId =
@@ -515,12 +550,14 @@ export function CommunityDetail({
           }
           invalidateCommunityPostCommentsDeduped(post.id);
           void refreshComments({ silent: true, force: true });
+        } else {
+          setCommentSubmitErr(resolveCommentSubmitError(res, data));
         }
       } finally {
         setBusy(false);
       }
     },
-    [post.id, refreshComments, me?.id, me?.nickname, me?.display_name]
+    [post.id, refreshComments, me?.id, me?.nickname, me?.display_name, t, resolveCommentSubmitError]
   );
 
   const onDeletePost = async () => {
@@ -618,6 +655,11 @@ export function CommunityDetail({
               showSocialActions={!!me?.id && me.id !== post.author_id}
               socialTargetUserId={!meeting ? post.author_id : null}
             />
+          ) : null}
+          {likeActionErr ? (
+            <p className="px-4 pb-2 text-sm text-[#EF4444]" role="alert">
+              {likeActionErr}
+            </p>
           ) : null}
 
           {meeting ? (
@@ -717,11 +759,15 @@ export function CommunityDetail({
             onCommentDelete={onCommentDelete}
             onSubmitReply={submitReplyComment}
             commentBusy={busy}
+            composerError={commentSubmitErr}
             composer={
               !commentsLocked
                 ? {
                     value: commentText,
-                    onChange: setCommentText,
+                    onChange: (v) => {
+                      setCommentText(v);
+                      if (commentSubmitErr) setCommentSubmitErr("");
+                    },
                     onSubmit: () => void submitComment(),
                     busy,
                     disabled: !me?.id || busy,

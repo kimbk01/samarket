@@ -21,6 +21,7 @@ import {
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
 import { notifyTradeChatInAppForRecipients } from "@/lib/notifications/trade-chat-inapp-notify";
+import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import {
   enforceRateLimit,
   getRateLimitKey,
@@ -227,20 +228,16 @@ export async function POST(
     markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
     return NextResponse.json({ ok: false, error: "읽기 전용 채팅방입니다." }, { status: 403 });
   }
-  if (r.is_blocked) {
-    const blocker = r.blocked_by;
-    if (blocker && userId !== blocker) {
-      const { data: blockRow } = await sbAny
-        .from("user_blocks")
-        .select("id")
-        .eq("user_id", blocker)
-        .eq("blocked_user_id", userId)
-        .maybeSingle();
-      if (blockRow?.id) {
-        markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
-        return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
-      }
-    }
+  const peerUserId = [r.seller_id, r.buyer_id, r.initiator_id, r.peer_id].find(
+    (id) => typeof id === "string" && id.trim() && id !== userId
+  );
+  if (peerUserId && (await isBlockedEitherWay(userId, peerUserId))) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
+    return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
+  }
+  if (r.is_blocked && r.blocked_by && userId !== r.blocked_by) {
+    markTradeChatApiTiming(TRADE_CHAT_POST_MESSAGES_ROUTE, t0, 403);
+    return NextResponse.json({ ok: false, error: "상대와 대화할 수 없어요." }, { status: 403 });
   }
   const roomTypePost = String((room as { room_type?: string }).room_type ?? "");
   if (roomTypePost === "store_order") {

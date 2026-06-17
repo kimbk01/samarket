@@ -4,6 +4,8 @@ import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
+import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
+import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 
 async function shouldSkipDueToCooldown(
   sb: SupabaseClient<any>,
@@ -62,6 +64,9 @@ export async function notifyCommunityChatInAppForRecipients(
 
   for (const uid of recipientUserIds) {
     if (!uid || uid === senderUserId) continue;
+    const relation = await getBlockedRelation(uid, senderUserId);
+    if (isNotificationSuppressedForActor(relation)) continue;
+
     const skip = await shouldSkipDueToCooldown(sb, uid, roomId, cooldownSec);
     if (skip) continue;
 

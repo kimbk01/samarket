@@ -46,6 +46,7 @@ type Props = {
   onCommentDelete: (commentId: string) => void | Promise<void>;
   onSubmitReply: (parentId: string, content: string) => void | Promise<void>;
   commentBusy: boolean;
+  composerError?: string;
   composer: {
     value: string;
     onChange: (v: string) => void;
@@ -74,6 +75,7 @@ export function CommunityCommentSection({
   onCommentDelete,
   onSubmitReply,
   commentBusy,
+  composerError = "",
   composer = null,
 }: Props) {
   const { t } = useI18n();
@@ -137,6 +139,11 @@ export function CommunityCommentSection({
               isLoggedIn={composer.isLoggedIn}
               placeholder={composer.placeholder}
             />
+            {composerError ? (
+              <p className="mt-2 text-[12px] font-medium text-[#E25555]" role="alert">
+                {composerError}
+              </p>
+            ) : null}
           </div>
         ) : null}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">

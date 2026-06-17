@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { unblockUserSocial } from "@/lib/community-messenger/social-relations";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -45,12 +46,12 @@ export async function POST(
   if (!blockedUserId) {
     return NextResponse.json({ ok: false, error: "상대 정보를 찾을 수 없습니다." }, { status: 400 });
   }
+  const unblockResult = await unblockUserSocial(userId, blockedUserId);
+  if (!unblockResult.ok) {
+    return NextResponse.json({ ok: false, error: unblockResult.error ?? "unblock_failed" }, { status: 500 });
+  }
+
   const now = new Date().toISOString();
-  await sbAny
-    .from("user_blocks")
-    .update({ released_at: now })
-    .eq("user_id", userId)
-    .eq("blocked_user_id", blockedUserId);
   await sbAny
     .from("chat_rooms")
     .update({ is_blocked: false, blocked_by: null, blocked_at: null, updated_at: now })

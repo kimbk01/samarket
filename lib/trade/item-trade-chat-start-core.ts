@@ -13,6 +13,7 @@ import { parsePostMetaField } from "@/lib/chats/chat-product-from-post";
 import { fetchPostRowForTradeChatById } from "@/lib/posts/fetch-post-row-for-trade-chat";
 import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
 import type { TradeEntryPerfTrace } from "@/lib/trade/trade-entry-perf-log";
+import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 
 export type ItemTradeChatStartCoreResult =
   | {
@@ -234,19 +235,8 @@ export async function runItemTradeChatStartCore(args: {
   }
 
   perf?.mark("blocks_and_existing_room_parallel");
-  const [block1Res, block2Res, existingRes] = await Promise.all([
-    sbAny
-      .from("user_blocks")
-      .select("id")
-      .eq("user_id", buyerId)
-      .eq("blocked_user_id", sellerId)
-      .maybeSingle(),
-    sbAny
-      .from("user_blocks")
-      .select("id")
-      .eq("user_id", sellerId)
-      .eq("blocked_user_id", buyerId)
-      .maybeSingle(),
+  const [blockedEitherWay, existingRes] = await Promise.all([
+    isBlockedEitherWay(buyerId, sellerId),
     sbAny
       .from("chat_rooms")
       .select("id")
@@ -258,9 +248,7 @@ export async function runItemTradeChatStartCore(args: {
       .limit(1)
       .maybeSingle(),
   ]);
-  const block1 = block1Res.data;
-  const block2 = block2Res.data;
-  if (block1 || block2) {
+  if (blockedEitherWay) {
     return { ok: false, httpStatus: 403, body: { ok: false, error: "차단 관계에서는 채팅할 수 없습니다." } };
   }
 

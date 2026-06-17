@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { blockUserSocial } from "@/lib/community-messenger/social-relations";
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 
@@ -59,16 +60,11 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "상대를 찾을 수 없습니다." }, { status: 400 });
   }
 
-  await sbAny.from("user_blocks").upsert(
-    {
-      user_id: userId,
-      blocked_user_id: blockedUserId,
-      source_room_id: roomId,
-      reason: reason ?? undefined,
-      created_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id,blocked_user_id" }
-  );
+  const blockResult = await blockUserSocial(userId, blockedUserId);
+  if (!blockResult.ok) {
+    return NextResponse.json({ ok: false, error: blockResult.error ?? "block_failed" }, { status: 500 });
+  }
+
   const now = new Date().toISOString();
   await sbAny
     .from("chat_rooms")
@@ -79,7 +75,7 @@ export async function POST(
       room_id: roomId,
       event_type: "room_blocked",
       actor_user_id: userId,
-      metadata: { blocked_user_id: blockedUserId },
+      metadata: { blocked_user_id: blockedUserId, reason: reason ?? null },
     });
   } catch {
     /* ignore */

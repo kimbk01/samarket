@@ -7,6 +7,10 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { normalizeProfileUserSearchKeyword } from "@/lib/community-messenger/profile-user-search-filter";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import {
+  fetchBlockedPairFromSb,
+  type BlockedRelation,
+} from "@/lib/social/user-block-ssot";
 
 export type MessengerDirectCallPolicy = "everyone" | "friends_only" | "none";
 
@@ -64,40 +68,18 @@ async function fetchBlockedPairsEitherWay(
   userId: string,
   targetUserId: string
 ): Promise<{ blockedByMe: boolean; blockedByPeer: boolean }> {
-  if (!sb) return { blockedByMe: false, blockedByPeer: false };
+  const rel = await fetchBlockedPairFromSb(sb, userId, targetUserId);
+  return { blockedByMe: rel.blockedByMe, blockedByPeer: rel.blockedByPeer };
+}
 
-  const [socialRes, legacyRes] = await Promise.all([
-    (sb as any)
-      .from("user_social_relations")
-      .select("owner_user_id, relation_type")
-      .eq("relation_type", "blocked")
-      .or(
-        `and(owner_user_id.eq.${userId},target_user_id.eq.${targetUserId}),and(owner_user_id.eq.${targetUserId},target_user_id.eq.${userId})`
-      ),
-    (sb as any)
-      .from("user_relationships")
-      .select("user_id, target_user_id, relation_type, type")
-      .or(
-        `and(user_id.eq.${userId},target_user_id.eq.${targetUserId}),and(user_id.eq.${targetUserId},target_user_id.eq.${userId})`
-      )
-      .or("relation_type.eq.blocked,type.eq.blocked"),
-  ]);
+export async function getBlockedRelation(userId: string, targetUserId: string): Promise<BlockedRelation> {
+  const sb = getSupabaseOrNull();
+  return fetchBlockedPairFromSb(sb, userId, targetUserId);
+}
 
-  let blockedByMe = false;
-  let blockedByPeer = false;
-
-  for (const row of (socialRes.data ?? []) as Array<{ owner_user_id?: string }>) {
-    const owner = trimText(row.owner_user_id);
-    if (owner === userId) blockedByMe = true;
-    if (owner === targetUserId) blockedByPeer = true;
-  }
-  for (const row of (legacyRes.data ?? []) as Array<{ user_id?: string }>) {
-    const owner = trimText(row.user_id);
-    if (owner === userId) blockedByMe = true;
-    if (owner === targetUserId) blockedByPeer = true;
-  }
-
-  return { blockedByMe, blockedByPeer };
+export async function isBlockedByOther(viewerUserId: string, targetUserId: string): Promise<boolean> {
+  const rel = await getBlockedRelation(viewerUserId, targetUserId);
+  return rel.blockedByPeer;
 }
 
 export async function isBlockedEitherWay(userId: string, targetUserId: string): Promise<boolean> {
@@ -107,6 +89,16 @@ export async function isBlockedEitherWay(userId: string, targetUserId: string): 
   const sb = getSupabaseOrNull();
   const { blockedByMe, blockedByPeer } = await fetchBlockedPairsEitherWay(sb, a, b);
   return blockedByMe || blockedByPeer;
+}
+
+/** 내가 대상을 차단했는지 (`user_social_relations` + legacy `user_relationships`) */
+export async function isBlockedByMe(ownerUserId: string, targetUserId: string): Promise<boolean> {
+  const owner = trimText(ownerUserId);
+  const target = trimText(targetUserId);
+  if (!owner || !target || owner === target) return false;
+  const sb = getSupabaseOrNull();
+  const { blockedByMe } = await fetchBlockedPairsEitherWay(sb, owner, target);
+  return blockedByMe;
 }
 
 export async function listFriendSavedIds(ownerUserId: string): Promise<string[]> {
@@ -353,6 +345,7 @@ async function syncLegacyBlockRow(
   targetUserId: string,
   blocked: boolean
 ): Promise<void> {
+  /** SSOT 저장 후 legacy `user_relationships` 동기화 — 마이그레이션 기간 보조. TODO: backfill 완료 후 제거 */
   if (blocked) {
     const { data: ex } = await (sb as any)
       .from("user_relationships")

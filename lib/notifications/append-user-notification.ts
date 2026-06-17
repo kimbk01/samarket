@@ -5,6 +5,8 @@ import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/noti
 import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
 import { bumpNotificationTargetFromInboxRow } from "@/lib/notifications/notification-target-from-inbox-row";
+import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
+import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 
 function notificationStoreIdFromMeta(meta: Record<string, unknown> | null | undefined): string | null {
   if (!meta || typeof meta !== "object") return null;
@@ -69,6 +71,32 @@ export type AppNotificationType =
   | "system"
   | "commerce";
 
+function extractActorUserIdFromNotificationRow(row: {
+  sender_id?: string | null;
+  meta?: Record<string, unknown> | null;
+}): string | null {
+  const sender = typeof row.sender_id === "string" ? row.sender_id.trim() : "";
+  if (sender) return sender;
+  const meta = row.meta;
+  if (!meta || typeof meta !== "object") return null;
+  for (const key of ["sender_id", "commenter_id", "liker_id", "actor_id"] as const) {
+    const v = meta[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return null;
+}
+
+async function shouldSuppressNotificationForBlock(
+  recipientUserId: string,
+  actorUserId: string | null
+): Promise<boolean> {
+  const recipient = recipientUserId.trim();
+  const actor = actorUserId?.trim() ?? "";
+  if (!recipient || !actor || recipient === actor) return false;
+  const relation = await getBlockedRelation(recipient, actor);
+  return isNotificationSuppressedForActor(relation);
+}
+
 /**
  * 인앱 알림 1건 저장 (서비스 롤 클라이언트 권장).
  * 테이블/컬럼/체크 제약 불일치 시 로그만 남기고 무시 — 본 비즈니스 플로우는 계속.
@@ -97,6 +125,11 @@ export async function appendUserNotification(
 ): Promise<boolean> {
   const uid = row.user_id.trim();
   if (!uid) return false;
+
+  const actorId = extractActorUserIdFromNotificationRow(row);
+  if (await shouldSuppressNotificationForBlock(uid, actorId)) {
+    return false;
+  }
 
   const metaMerged =
     row.meta && typeof row.meta === "object"

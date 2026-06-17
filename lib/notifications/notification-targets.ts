@@ -11,6 +11,8 @@ import { invalidateNotificationUnreadCountCache } from "@/lib/notifications/noti
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 import { invalidateCommunityMessengerUnreadTotalCache } from "@/lib/community-messenger/community-messenger-unread-total";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
+import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 
 export const UPSERT_NOTIFICATION_TARGET_RPC = "upsert_notification_target_unread";
 export const CLEAR_NOTIFICATION_TARGET_RPC = "clear_notification_target";
@@ -60,11 +62,19 @@ export async function bumpNotificationTarget(
     scope?: NotificationTargetScope;
     storeId?: string | null;
     meta?: Record<string, unknown> | null;
+    /** 차단 관계면 badge bump 생략 */
+    actorUserId?: string | null;
   }
 ): Promise<void> {
   const uid = opts.userId.trim();
   const tid = opts.targetId.trim();
   if (!uid || !tid) return;
+
+  const actor = opts.actorUserId?.trim() ?? "";
+  if (actor && actor !== uid) {
+    const relation = await getBlockedRelation(uid, actor);
+    if (isNotificationSuppressedForActor(relation)) return;
+  }
 
   const { error } = await sb.rpc(UPSERT_NOTIFICATION_TARGET_RPC, {
     p_user_id: uid,

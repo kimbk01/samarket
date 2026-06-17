@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
+import { listBlockedByMeIds, unblockUserSocial } from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,59 @@ export async function GET(
   const type = getRelationType(String(rawType ?? "").trim());
   if (!type) {
     return NextResponse.json({ ok: false, error: "invalid_relation_type" }, { status: 400 });
+  }
+
+  if (type === "blocked") {
+    const sb = tryCreateSupabaseServiceClient();
+    if (!sb) {
+      return NextResponse.json({ ok: true, items: [], source: "fallback" });
+    }
+    const targetIds = await listBlockedByMeIds(auth.userId);
+    if (targetIds.length === 0) {
+      return NextResponse.json({ ok: true, items: [], source: "user_social_relations" });
+    }
+    const { data: socialRows } = await (sb as any)
+      .from("user_social_relations")
+      .select("id, target_user_id, created_at")
+      .eq("owner_user_id", auth.userId)
+      .eq("relation_type", "blocked")
+      .in("target_user_id", targetIds);
+    const relationRows = (socialRows ?? []) as Array<{
+      id?: string;
+      target_user_id?: string;
+      created_at?: string;
+    }>;
+    const profileMap = new Map<string, Record<string, unknown>>();
+    if (targetIds.length > 0) {
+      const { data: profiles } = await sb
+        .from("profiles")
+        .select("id, display_name, nickname, username, avatar_url, region_name")
+        .in("id", targetIds);
+      for (const row of (profiles ?? []) as Record<string, unknown>[]) {
+        const id = String(row.id ?? "").trim();
+        if (id) profileMap.set(id, row);
+      }
+    }
+    const items = relationRows.map((row) => {
+      const targetId = String(row.target_user_id ?? "").trim();
+      const profile = profileMap.get(targetId);
+      return {
+        id: String(row.id ?? targetId),
+        targetId,
+        createdAt: String(row.created_at ?? ""),
+        nickname: (() => {
+          const displayName = typeof profile?.display_name === "string" ? profile.display_name : null;
+          const legacy = typeof profile?.nickname === "string" ? profile.nickname : null;
+          const username = typeof profile?.username === "string" ? profile.username : null;
+          const label = labelFromDisplayAndUsername(displayName ?? legacy, username).trim();
+          return label || legacy || null;
+        })(),
+        username: typeof profile?.username === "string" ? profile.username : null,
+        avatarUrl: typeof profile?.avatar_url === "string" ? profile.avatar_url : null,
+        regionName: typeof profile?.region_name === "string" ? profile.region_name : null,
+      };
+    });
+    return NextResponse.json({ ok: true, items, source: "user_social_relations" });
   }
 
   const sb = tryCreateSupabaseServiceClient();
@@ -109,6 +163,20 @@ export async function DELETE(
   }
 
   const relationId = req.nextUrl.searchParams.get("id")?.trim();
+  const targetUserId = req.nextUrl.searchParams.get("targetUserId")?.trim();
+
+  if (type === "blocked") {
+    const target = targetUserId || "";
+    if (!target) {
+      return NextResponse.json({ ok: false, error: "missing_target_user_id" }, { status: 400 });
+    }
+    const result = await unblockUserSocial(auth.userId, target);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
   if (!relationId) {
     return NextResponse.json({ ok: false, error: "missing_relation_id" }, { status: 400 });
   }

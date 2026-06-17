@@ -41,7 +41,8 @@ async function shouldSkipDueToCooldown(
 async function bumpTradeTargetForLegacyChatRoom(
   sb: SupabaseClient<any>,
   roomId: string,
-  recipientUserIds: string[]
+  recipientUserIds: string[],
+  senderUserId: string
 ): Promise<void> {
   const rid = roomId.trim();
   if (!rid || !recipientUserIds.length) return;
@@ -74,6 +75,7 @@ async function bumpTradeTargetForLegacyChatRoom(
       targetType: "trade",
       targetId,
       scope: "consumer",
+      actorUserId: senderUserId,
     });
   }
 }
@@ -128,7 +130,11 @@ export async function notifyTradeChatInAppForRecipients(
   }
 
   if (bumpedRecipients.length) {
-    await bumpTradeTargetForMessengerRoomRecipients(sb, { roomId, recipientUserIds: bumpedRecipients });
-    await bumpTradeTargetForLegacyChatRoom(sb, roomId, bumpedRecipients);
+    await bumpTradeTargetForMessengerRoomRecipients(sb, {
+      roomId,
+      recipientUserIds: bumpedRecipients,
+      senderUserId,
+    });
+    await bumpTradeTargetForLegacyChatRoom(sb, roomId, bumpedRecipients, senderUserId);
   }
 }

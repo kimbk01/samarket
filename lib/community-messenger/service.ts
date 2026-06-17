@@ -16874,6 +16874,7 @@ async function sendIncomingCallPushBestEffort(input: {
   const roomId = trimText(input.roomId);
   const callerId = trimText(input.callerId);
   if (!recipient || !sessionId || !roomId || !callerId) return;
+  if (!(await ensureNoBlockedEitherWay(recipient, callerId))) return;
   const profileMap = await fetchProfilesByIds([callerId]);
   const callerProfile = profileMap.get(callerId);
   const callerLabel =
@@ -17061,6 +17062,12 @@ export async function startCommunityMessengerCallSession(input: {
       }
     }
   }
+  if (!isGroupRoom && peerUserId) {
+    if (!(await ensureNoBlockedEitherWay(input.userId, peerUserId))) {
+      return { ok: false, error: "blocked_target" };
+    }
+  }
+
   const tGateStart = performance.now();
   if (!isGroupRoom && sb && dialFresh) {
     await terminateLiveDirectCallSessionsInRoom(sb, input.userId, roomId);
@@ -17655,6 +17662,18 @@ export async function updateCommunityMessengerCallSession(input: {
       .maybeSingle();
     if (row) {
       const session = row as CallSessionRow;
+      if (
+        (session.session_mode ?? "direct") === "direct" &&
+        input.action === "accept" &&
+        trimText(session.initiator_user_id) &&
+        trimText(session.recipient_user_id ?? "")
+      ) {
+        const initiator = trimText(session.initiator_user_id);
+        const recipient = trimText(session.recipient_user_id!);
+        if (!(await ensureNoBlockedEitherWay(initiator, recipient))) {
+          return { ok: false, error: "blocked_target" };
+        }
+      }
       if ((session.session_mode ?? "direct") === "group") {
         const now = nowIso();
         const { data: participantRows } = await (sb as any)

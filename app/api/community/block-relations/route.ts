@@ -6,6 +6,11 @@ import {
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
+import {
+  blockUserSocial,
+  isBlockedByMe,
+  unblockUserSocial,
+} from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -33,26 +38,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, blocked: rel?.blocks?.has(target) === true, fallback: "dev_samples" });
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
-    return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
-  }
-
-  const { data: ex } = await sb
-    .from("user_relationships")
-    .select("id")
-    .eq("user_id", auth.userId)
-    .eq("target_user_id", target)
-    .or("relation_type.eq.blocked,type.eq.blocked")
-    .maybeSingle();
-
-  return NextResponse.json({ ok: true, blocked: !!ex });
+  const blocked = await isBlockedByMe(auth.userId, target);
+  return NextResponse.json({ ok: true, blocked });
 }
 
 /**
- * 차단 토글 — user_relationships.blocked
+ * 차단 토글 — `user_social_relations` + legacy `user_relationships`
  * 차단 시 같은 대상의 neighbor_follow 가 있으면 제거합니다.
  */
 export async function POST(req: NextRequest) {
@@ -106,16 +97,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const { data: ex } = await sb
-    .from("user_relationships")
-    .select("id")
-    .eq("user_id", auth.userId)
-    .eq("target_user_id", target)
-    .or("relation_type.eq.blocked,type.eq.blocked")
-    .maybeSingle();
-
-  if (ex) {
-    await sb.from("user_relationships").delete().eq("id", (ex as { id: string }).id);
+  const alreadyBlocked = await isBlockedByMe(auth.userId, target);
+  if (alreadyBlocked) {
+    const result = await unblockUserSocial(auth.userId, target);
+    if (!result.ok) {
+      return NextResponse.json({ ok: false, error: result.error ?? "unblock_failed" }, { status: 500 });
+    }
     return NextResponse.json({ ok: true, blocked: false });
   }
 
@@ -130,13 +117,10 @@ export async function POST(req: NextRequest) {
     await sb.from("user_relationships").delete().eq("id", (fol as { id: string }).id);
   }
 
-  const { error } = await sb.from("user_relationships").insert({
-    user_id: auth.userId,
-    target_user_id: target,
-    type: "blocked",
-    relation_type: "blocked",
-  });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+  const result = await blockUserSocial(auth.userId, target);
+  if (!result.ok) {
+    return NextResponse.json({ ok: false, error: result.error ?? "block_failed" }, { status: 500 });
+  }
 
   const cleanup = await cleanupCommunityMessengerFriendGraphOnBlock(auth.userId, target);
   if (!cleanup.ok) {

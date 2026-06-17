@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { isBlockedByMe } from "@/lib/community-messenger/social-relations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -94,14 +95,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "server_config" }, { status: 500 });
   }
 
-  const { data: bl } = await sb
-    .from("user_relationships")
-    .select("id")
-    .eq("user_id", auth.userId)
-    .eq("target_user_id", target)
-    .or("relation_type.eq.blocked,type.eq.blocked")
-    .maybeSingle();
-  if (bl) {
+  if (await isBlockedByMe(auth.userId, target)) {
     return NextResponse.json({ ok: false, error: "blocked_target" }, { status: 400 });
   }
 

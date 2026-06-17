@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { isCommunityCommentPubliclyVisible } from "@/lib/community-engine/visibility";
+import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import {
   findBannedWord,
   getCommunityFeedOps,
@@ -35,6 +36,7 @@ export async function toggleCommentLikeServer(
         id?: string;
         like_count?: number;
         post_id?: string;
+        user_id?: string;
       }
     | null;
   if (cErr || !cr?.id) {
@@ -42,6 +44,14 @@ export async function toggleCommentLikeServer(
   }
   if (!isCommunityCommentPubliclyVisible(cRow as never)) {
     return { ok: false, error: "댓글에 공감할 수 없어요." };
+  }
+  const authorId = String(cr.user_id ?? "").trim();
+  if (authorId && authorId !== uid && (await isBlockedEitherWay(uid, authorId))) {
+    return {
+      ok: false,
+      error: "차단 관계에서는 공감할 수 없습니다.",
+      code: "community_like_blocked_relation",
+    };
   }
 
   const { data: ex } = await sb

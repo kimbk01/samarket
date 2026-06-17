@@ -99,21 +99,16 @@ export async function sendChatMessage(
   if (status === "blocked" || status === "report_hold")
     return { ok: false, error: "이 채팅방에서는 메시지를 보낼 수 없습니다." };
 
-  // 2) 차단 확인
   const otherId = room.seller_id === user.id ? room.buyer_id : room.seller_id;
-  const { data: blockByMe } = await sb
-    .from("user_blocks")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("blocked_user_id", otherId)
-    .maybeSingle();
-  const { data: blockByOther } = await sb
-    .from("user_blocks")
-    .select("id")
-    .eq("user_id", otherId)
-    .eq("blocked_user_id", user.id)
-    .maybeSingle();
-  if (blockByMe || blockByOther) return { ok: false, error: "차단 관계에서는 메시지를 보낼 수 없습니다." };
+  // 2) 차단 확인 (SSOT API)
+  const blockRes = await fetch(
+    `/api/me/block-relation?otherUserId=${encodeURIComponent(otherId)}`,
+    { credentials: "include", cache: "no-store" }
+  );
+  const blockJson = (await blockRes.json().catch(() => ({}))) as { isBlocked?: boolean };
+  if (blockRes.ok && blockJson.isBlocked === true) {
+    return { ok: false, error: "차단 관계에서는 메시지를 보낼 수 없습니다." };
+  }
 
   // 3) 메시지 저장
   const imgUrls = imageUrlListFromPayload(payload);

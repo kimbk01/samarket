@@ -3,6 +3,8 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { notifySafeT } from "@/lib/notifications/notify-safe-translate";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
+import { getBlockedRelation } from "@/lib/community-messenger/social-relations";
+import { isNotificationSuppressedForActor } from "@/lib/social/user-block-ssot";
 
 function trimText(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
@@ -36,6 +38,9 @@ export async function notifyCommunityPostCommentReceived(
   if (parentAuthor && parentAuthor !== commenterId) recipients.add(parentAuthor);
 
   for (const uid of recipients) {
+    const relation = await getBlockedRelation(uid, commenterId);
+    if (isNotificationSuppressedForActor(relation)) continue;
+
     const language = await loadNotificationUserLanguage(sb, uid);
     const isReply = parentAuthor === uid && parentAuthor !== postAuthorId;
     const title = isReply
@@ -78,6 +83,9 @@ export async function notifyCommunityPostLikeReceived(
   const postAuthorId = trimText(args.postAuthorUserId);
   const likerId = trimText(args.likerUserId);
   if (!postId || !postAuthorId || !likerId || postAuthorId === likerId) return;
+
+  const relation = await getBlockedRelation(postAuthorId, likerId);
+  if (isNotificationSuppressedForActor(relation)) return;
 
   const nickMap = await fetchNicknamesForUserIds(sb, [likerId]);
   const likerLabel = nickMap.get(likerId)?.trim() || notifySafeT("ko", "notify_peer_fallback");

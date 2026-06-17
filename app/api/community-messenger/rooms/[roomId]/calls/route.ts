@@ -45,6 +45,7 @@ export async function POST(
     callKind: body.callKind,
     dialIntent: body.dialIntent === "fresh" ? "fresh" : undefined,
   });
+  /** 차단 게이트: startCommunityMessengerCallSession 내부 isBlockedEitherWay → blocked_target */
   if (!result.ok) {
     return NextResponse.json(result, { status: 400 });
   }

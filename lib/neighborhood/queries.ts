@@ -31,6 +31,7 @@ import type {
 import {
   fetchBlockedAuthorIdsForViewer,
   fetchNeighborFollowTargetIds,
+  filterCommentRowsExcludingBlockedRelations,
 } from "@/lib/neighborhood/social-filter";
 import { COMMUNITY_POST_FEED_STATUS_ACTIVE } from "@/lib/neighborhood/community-post-contract";
 import { resolveNeighborhoodListSort } from "@/lib/neighborhood/philife-neighborhood-feed-sort";
@@ -82,7 +83,7 @@ export type NeighborhoodFeedServerPerfMs = {
   /** 로그인 시 `fetchBlockedAuthorIdsForViewer` 가 실행한 Supabase `.from` 호출 수(캐시 히트면 0) */
   blocked_supabase_calls: number;
   neighbor_follow_query: 0 | 1;
-  /** `fetchBlockedAuthorIdsForViewer` 단일 await 구간(내부 최대 4 parallel select) */
+  /** `fetchBlockedAuthorIdsForViewer` 단일 await 구간(내부 최대 6 parallel select) */
   related_blocked_filter_ms: number;
   /** `neighborOnly` 이고 로그인일 때만 `fetchNeighborFollowTargetIds` */
   related_neighbor_filter_ms: number;
@@ -820,7 +821,10 @@ export async function listNeighborhoodComments(postId: string, viewerUserId?: st
   let rows = (data as Record<string, unknown>[]).filter((r) => isCommunityCommentPubliclyVisible(r as never));
 
   if (v) {
-    rows = rows.filter((r) => !blockExclude.has(String(r.user_id ?? "")));
+    rows = filterCommentRowsExcludingBlockedRelations(
+      rows as Array<{ id: string; user_id: unknown; parent_id: unknown }>,
+      blockExclude
+    ) as typeof rows;
   }
 
   const profileNameByUid = new Map<string, string>();

@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { notifyCommunityPostLikeReceived } from "@/lib/notifications/community-social-inapp-notify";
+import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import {
 
   getNeighborhoodDevSamplePost,
@@ -34,6 +35,13 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ postId: s
       .eq("id", id)
       .maybeSingle();
     const postAuthorId = String((postRow as { user_id?: string } | null)?.user_id ?? "").trim();
+
+    if (postAuthorId && (await isBlockedEitherWay(auth.userId, postAuthorId))) {
+      return NextResponse.json(
+        { ok: false, error: "차단 관계에서는 공감할 수 없습니다.", code: "community_like_blocked_relation" },
+        { status: 403 }
+      );
+    }
 
     const { data: ex } = await sb
       .from("community_post_likes")
