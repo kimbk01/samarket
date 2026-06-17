@@ -341,7 +341,7 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   const { data: { subscription } } = sb.auth.onAuthStateChange(dispatchAuthStateChange);
   authSubscription = subscription;
 
-  void ensureSessionHealthy("bindAuthListener");
+  /** cold start — `INITIAL_SESSION` 전 `ensureSessionHealthy` 가 401·guest·fetch 루프를 유발하지 않게 한다 */
 
   return () => {
     subscription.unsubscribe();

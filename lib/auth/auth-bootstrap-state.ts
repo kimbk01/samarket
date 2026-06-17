@@ -42,6 +42,24 @@ export function canEstablishGuestAuthState(): boolean {
 }
 
 const MEMBERSHIP_BOOTSTRAP_WAIT_MS = 1_200;
+const BOOTSTRAP_GET_SESSION_TIMEOUT_MS = 2_500;
+
+async function peekSupabaseSessionUserIdWithTimeout(timeoutMs: number): Promise<boolean> {
+  const sb = getSupabaseClient();
+  if (!sb) return false;
+  try {
+    const result = await Promise.race([
+      sb.auth.getSession(),
+      new Promise<never>((_, reject) => {
+        window.setTimeout(() => reject(new Error("supabase_get_session_timeout")), timeoutMs);
+      }),
+    ]);
+    return Boolean(result.data.session?.user?.id);
+  } catch {
+    logAuthBoot("initial_session_get_session_timeout", { timeoutMs });
+    return false;
+  }
+}
 
 /**
  * membership 전용 — `ensureSessionHealthy` single-flight 를 점유하지 않고
@@ -59,12 +77,7 @@ export async function awaitAuthBootstrapInitialSession(
 
   if (isAuthBootstrapInitialSessionDone()) return;
 
-  const sb = getSupabaseClient();
-  let hasSession = false;
-  if (sb) {
-    const { data } = await sb.auth.getSession().catch(() => ({ data: { session: null } }));
-    hasSession = Boolean(data.session?.user?.id);
-  }
+  const hasSession = await peekSupabaseSessionUserIdWithTimeout(BOOTSTRAP_GET_SESSION_TIMEOUT_MS);
   markAuthBootstrapInitialSessionDone(hasSession);
 }
 
