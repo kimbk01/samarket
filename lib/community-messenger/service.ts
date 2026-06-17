@@ -11664,43 +11664,18 @@ export async function upsertCommunityMessengerPresenceSnapshot(
   const lastSeenAt = trimText(input.lastSeenAt) || now;
   const sb = options?.supabase ?? getSupabaseOrNull();
   if (sb) {
-    const sessionEnd = input.sessionEnd === true;
-    const row = sessionEnd
-      ? {
-          user_id: userId,
-          last_seen_at: lastSeenAt,
-          updated_at: now,
-          last_ping_at: null as string | null,
-          presence_state_cached: "offline" satisfies CommunityMessengerPresenceState,
-          app_visibility: "background",
-        }
-      : (() => {
-          const lastPingAt = trimText(input.lastPingAt) || now;
-          const lastActivityAt = trimText(input.lastActivityAt) || lastPingAt;
-          const v = trimText(input.appVisibility).toLowerCase();
-          const appVisibility =
-            v === "foreground" || v === "background" || v === "unknown" ? v : "unknown";
-          const derived = derivePresenceFromDbRow({
-            nowMs: Date.now(),
-            lastPingAtIso: lastPingAt,
-            lastActivityAtIso: lastActivityAt,
-            lastSeenAtIso: null,
-            updatedAtIso: now,
-            appVisibility,
-          });
-          return {
-            user_id: userId,
-            updated_at: now,
-            last_ping_at: lastPingAt,
-            last_activity_at: lastActivityAt,
-            app_visibility: appVisibility,
-            presence_state_cached: derived,
-          };
-        })();
-    const { error } = await (sb as any).from("community_messenger_presence_snapshots").upsert(row, { onConflict: "user_id" });
-    if (!error) return { ok: true, lastSeenAt };
-    if (!isMissingTableError(error)) {
-      return { ok: false, error: String(error.message ?? "presence_upsert_failed") };
+    const { upsertPresenceSnapshot } = await import("@/lib/community-messenger/presence/presence-store");
+    const result = await upsertPresenceSnapshot(sb as Parameters<typeof upsertPresenceSnapshot>[0], {
+      userId,
+      lastSeenAt: input.lastSeenAt,
+      lastPingAt: input.lastPingAt,
+      lastActivityAt: input.lastActivityAt,
+      appVisibility: input.appVisibility,
+      sessionEnd: input.sessionEnd,
+    });
+    if (result.ok) return { ok: true, lastSeenAt };
+    if (!isMissingTableError({ message: result.error })) {
+      return { ok: false, error: result.error };
     }
   }
   const fallback = ensureCommunityMessengerDevFallbackAllowed();

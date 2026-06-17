@@ -1,131 +1,159 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { enforceRateLimit, getOrCreateRequestId, getRateLimitKey, withRequestIdHeaders } from "@/lib/http/api-route";
-import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
+import { getOptionalRouteHandlerCookieAuth } from "@/lib/auth/get-optional-authenticated-user-id";
+import { enforceRateLimit, getOrCreateRequestId, getRateLimitKey, jsonError, withRequestIdHeaders } from "@/lib/http/api-route";
+import {
+  getPresenceSnapshotsByUserIds,
+  PRESENCE_UPSERT_SOFT_TIMEOUT_MS,
+  upsertPresenceSnapshot,
+  type PresenceUpsertInput,
+} from "@/lib/community-messenger/presence/presence-store";
+import { presenceLog } from "@/lib/community-messenger/presence/presence-log";
+import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+/** Vercel 504 전에 soft-timeout(2.5s)으로 응답 — 함수 상한은 10s */
+export const maxDuration = 10;
+
+const NO_STORE_HEADERS = { "Cache-Control": "no-store" };
+
+function parsePostBody(raw: unknown): Omit<PresenceUpsertInput, "userId"> | null {
+  if (!raw || typeof raw !== "object") return null;
+  const body = raw as Record<string, unknown>;
+  return {
+    status: (body.status as CommunityMessengerPresenceState | undefined) ?? null,
+    surface: typeof body.surface === "string" ? body.surface : null,
+    roomId: typeof body.roomId === "string" ? body.roomId : null,
+    callId: typeof body.callId === "string" ? body.callId : null,
+    lastSeenAt: typeof body.lastSeenAt === "string" ? body.lastSeenAt : null,
+    lastPingAt: typeof body.lastPingAt === "string" ? body.lastPingAt : null,
+    lastActivityAt: typeof body.lastActivityAt === "string" ? body.lastActivityAt : null,
+    appVisibility: typeof body.appVisibility === "string" ? body.appVisibility : null,
+    sessionEnd: body.sessionEnd === true,
+  };
+}
+
+async function upsertWithSoftTimeout(
+  sb: NonNullable<Awaited<ReturnType<typeof getOptionalRouteHandlerCookieAuth>>["supabase"]>,
+  userId: string,
+  input: Omit<PresenceUpsertInput, "userId">
+) {
+  const upsertStart = Date.now();
+  presenceLog("upsert_start", { userIdLen: userId.length });
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<{ kind: "timeout" }>((resolve) => {
+    timer = setTimeout(() => resolve({ kind: "timeout" }), PRESENCE_UPSERT_SOFT_TIMEOUT_MS);
+  });
+  const upsertPromise = upsertPresenceSnapshot(sb, { ...input, userId }).then((r) => ({
+    kind: "done" as const,
+    result: r,
+  }));
+
+  try {
+    const outcome = await Promise.race([upsertPromise, timeoutPromise]);
+    if (outcome.kind === "timeout") {
+      presenceLog("soft_timeout", { durationMs: Date.now() - upsertStart });
+      return {
+        ok: false as const,
+        softFailed: true,
+        serverTime: new Date().toISOString(),
+      };
+    }
+    presenceLog("upsert_done", { durationMs: Date.now() - upsertStart, ok: outcome.result.ok });
+    if (!outcome.result.ok) {
+      return { ok: false as const, error: outcome.result.error, softFailed: false };
+    }
+    return { ok: true as const, serverTime: new Date().toISOString() };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  const auth = await getOptionalRouteHandlerCookieAuth();
+  if (!auth.userId) {
+    return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
+  }
 
   const rawIds = req.nextUrl.searchParams.get("userIds");
   const ids = [...new Set(String(rawIds ?? "").split(",").map((id) => id.trim()).filter(Boolean))].slice(0, 24);
   if (ids.length === 0) {
-    return NextResponse.json({ ok: true, snapshots: [] });
+    return NextResponse.json({ ok: true, snapshots: [] }, { headers: NO_STORE_HEADERS });
   }
-  const { getCommunityMessengerPresenceSnapshotsByUserIds } = await import("@/lib/community-messenger/service");
-  const snapshots = await getCommunityMessengerPresenceSnapshotsByUserIds(ids);
-  return NextResponse.json({
-    ok: true,
-    snapshots: ids.map((userId) => snapshots.get(userId) ?? { userId, state: "offline", lastSeenAt: null }),
-  });
+
+  const sb = auth.supabase;
+  if (!sb) {
+    return NextResponse.json(
+      { ok: true, snapshots: ids.map((userId) => ({ userId, state: "offline", lastSeenAt: null })) },
+      { headers: NO_STORE_HEADERS }
+    );
+  }
+
+  const snapshots = await getPresenceSnapshotsByUserIds(sb, ids);
+  return NextResponse.json(
+    {
+      ok: true,
+      snapshots: ids.map((userId) => snapshots.get(userId) ?? { userId, state: "offline", lastSeenAt: null }),
+    },
+    { headers: NO_STORE_HEADERS }
+  );
 }
 
 export async function POST(req: NextRequest) {
   const requestId = getOrCreateRequestId(req);
+  presenceLog("request_start", { requestId });
 
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) {
-    try {
-      // eslint-disable-next-line no-console -- presence 진단(401은 클라 400과 분리)
-      console.warn("[cm-presence-api]", {
-        phase: "auth_failed",
-        requestId,
-        httpStatus: auth.response.status,
-      });
-    } catch {
-      /* ignore */
-    }
-    return auth.response;
+  const auth = await getOptionalRouteHandlerCookieAuth();
+  if (!auth.userId) {
+    return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
   }
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:presence:${getRateLimitKey(req, auth.userId)}`,
-    limit: 180,
+    limit: 120,
     windowMs: 60_000,
     message: "실시간 접속 상태 요청이 너무 빠릅니다. 잠시 후 다시 시도해 주세요.",
     code: "community_messenger_presence_rate_limited",
   });
-  if (!rateLimit.ok) {
-    try {
-      // eslint-disable-next-line no-console -- presence 진단
-      console.warn("[cm-presence-api]", {
-        phase: "rate_limited",
-        requestId,
-        userIdLen: auth.userId.length,
-      });
-    } catch {
-      /* ignore */
-    }
-    return rateLimit.response;
-  }
+  if (!rateLimit.ok) return rateLimit.response;
 
-  let body: {
-    lastSeenAt?: string | null;
-    lastPingAt?: string | null;
-    lastActivityAt?: string | null;
-    appVisibility?: string | null;
-    sessionEnd?: boolean;
-  } | null = null;
-  let jsonParseFailed = false;
+  let parsed: Omit<PresenceUpsertInput, "userId"> | null = null;
   try {
-    body = (await req.json()) as {
-      lastSeenAt?: string | null;
-      lastPingAt?: string | null;
-      lastActivityAt?: string | null;
-      appVisibility?: string | null;
-      sessionEnd?: boolean;
-    };
+    parsed = parsePostBody(await req.json());
   } catch {
-    jsonParseFailed = true;
-    body = null;
+    parsed = null;
+  }
+  if (!parsed) {
+    return NextResponse.json(
+      { ok: false, error: "invalid_body" },
+      withRequestIdHeaders({ status: 400, headers: NO_STORE_HEADERS }, requestId)
+    );
   }
 
-  const payloadDiag = {
-    jsonParseFailed,
-    keys: body && typeof body === "object" ? Object.keys(body as object) : [],
-    sessionEnd: body?.sessionEnd === true,
-    hasLastSeenAt: typeof body?.lastSeenAt === "string",
-    hasLastPingAt: typeof body?.lastPingAt === "string",
-    hasLastActivityAt: typeof body?.lastActivityAt === "string",
-    appVisibilityKind: typeof body?.appVisibility === "string" ? "string" : body?.appVisibility == null ? "absent" : "non_string",
-    /** 값 노출 최소화 — 형식만 */
-    lastPingAtLen: typeof body?.lastPingAt === "string" ? body.lastPingAt.length : 0,
-    lastActivityAtLen: typeof body?.lastActivityAt === "string" ? body.lastActivityAt.length : 0,
-  };
+  const sb = auth.supabase;
+  if (!sb) {
+    return NextResponse.json(
+      { ok: true, serverTime: new Date().toISOString() },
+      withRequestIdHeaders({ status: 200, headers: NO_STORE_HEADERS }, requestId)
+    );
+  }
 
-  const routeSb = await createSupabaseRouteHandlerClient();
-  const { upsertCommunityMessengerPresenceSnapshot } = await import("@/lib/community-messenger/service");
-  const result = await upsertCommunityMessengerPresenceSnapshot(
-    {
-      userId: auth.userId,
-      lastSeenAt: typeof body?.lastSeenAt === "string" ? body.lastSeenAt : null,
-      lastPingAt: typeof body?.lastPingAt === "string" ? body.lastPingAt : null,
-      lastActivityAt: typeof body?.lastActivityAt === "string" ? body.lastActivityAt : null,
-      appVisibility: typeof body?.appVisibility === "string" ? body.appVisibility : null,
-      sessionEnd: body?.sessionEnd === true,
-    },
-    { supabase: routeSb }
+  const outcome = await upsertWithSoftTimeout(sb, auth.userId, parsed);
+  if (outcome.ok) {
+    return NextResponse.json(
+      { ok: true, serverTime: outcome.serverTime },
+      withRequestIdHeaders({ status: 200, headers: NO_STORE_HEADERS }, requestId)
+    );
+  }
+  if ("softFailed" in outcome && outcome.softFailed) {
+    return NextResponse.json(
+      { ok: false, softFailed: true, serverTime: outcome.serverTime },
+      withRequestIdHeaders({ status: 202, headers: NO_STORE_HEADERS }, requestId)
+    );
+  }
+  return NextResponse.json(
+    { ok: false, error: outcome.error ?? "presence_upsert_failed" },
+    withRequestIdHeaders({ status: 400, headers: NO_STORE_HEADERS }, requestId)
   );
-
-  if (!result.ok) {
-    try {
-      // eslint-disable-next-line no-console -- presence 400 원인 확정용
-      console.warn("[cm-presence-api]", {
-        phase: "upsert_denied",
-        requestId,
-        userIdLen: auth.userId.length,
-        error: result.error ?? null,
-        responseBody: result,
-        payloadDiag,
-      });
-    } catch {
-      /* ignore */
-    }
-    return NextResponse.json(result, withRequestIdHeaders({ status: 400 }, requestId));
-  }
-
-  return NextResponse.json(result, withRequestIdHeaders({ status: 200 }, requestId));
 }

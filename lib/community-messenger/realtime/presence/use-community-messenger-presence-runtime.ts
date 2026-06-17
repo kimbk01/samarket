@@ -7,16 +7,17 @@ import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe
 import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/types";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
+import {
+  pausePresenceHeartbeatOnHidden,
+  resumePresenceHeartbeatOnVisible,
+  sendPresenceHeartbeat,
+  sendPresenceSessionEnd,
+  startPresenceHeartbeatLoop,
+  stopPresenceHeartbeatLoop,
+} from "@/lib/community-messenger/presence/presence-heartbeat-controller";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { noteTradeChatRoomPresenceReadyForShellBreakdown } from "@/lib/trade/trade-chat-room-shell-breakdown-perf";
-import {
-  cmDebugTailUserId,
-  pushCmBrowserDebugEvent,
-} from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
-import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
-import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 import { cmRtPresenceIsolatedError } from "@/lib/community-messenger/realtime/cm-rt-loop-guard";
-import { isDebugMessengerEnabled } from "@/lib/community-messenger/debug/is-debug-messenger-enabled";
 
 type PresencePayload = {
   userId?: unknown;
@@ -24,12 +25,10 @@ type PresencePayload = {
   updatedAt?: unknown;
 };
 
-const HEARTBEAT_MS = 12_000;
 const ACTIVITY_THROTTLE_MS = 20_000;
 
 let runtimeRefCount = 0;
 let runtimeUserId = "";
-let presenceHeartbeatTimer: ReturnType<typeof setTimeout> | null = null;
 let presenceCleanup: (() => void) | null = null;
 let lastActivityMs = Date.now();
 let lastActivityThrottleAt = 0;
@@ -58,128 +57,12 @@ function currentDocumentVisible(): boolean {
   return document.visibilityState === "visible";
 }
 
-function clearPresenceHeartbeatTimer() {
-  if (presenceHeartbeatTimer != null) {
-    clearTimeout(presenceHeartbeatTimer);
-    presenceHeartbeatTimer = null;
-  }
-}
-
-let lastPresenceHttpPostAt = 0;
-
-function logPresenceHttpFailure(kind: string, args: { status: number; bodySnippet: string; deltaMs: number; payloadNote?: string }) {
-  if (!isDebugMessengerEnabled()) return;
-  try {
-    // eslint-disable-next-line no-console -- presence 400/네트워크 진단
-    console.warn("[cm-presence-client]", {
-      kind,
-      ...args,
-      viewerUserIdNull: !runtimeUserId,
-      runtimeUserIdLen: runtimeUserId.length,
-    });
-  } catch {
-    /* ignore */
-  }
-  pushCmBrowserDebugEvent({
-    label: "cm-presence-client",
-    scope: null,
-    channelName: null,
-    reason: kind,
-    status: String(args.status),
-    bodySnippet: args.bodySnippet ? args.bodySnippet.slice(0, 2000) : null,
-    payload: { deltaMs: args.deltaMs, payloadNote: args.payloadNote ?? null },
-    stopSourceStack: null,
-    fingerprint: null,
-    userIdTail: cmDebugTailUserId(runtimeUserId),
-  });
-}
-
-function isTerminalPresencePostBody(body: Record<string, unknown>): boolean {
-  if (body.sessionEnd === true) return true;
-  if (body.appVisibility === "background") return true;
-  return false;
-}
-
-function persistLastSeenSessionEnd(lastSeenAt: string) {
-  if (typeof navigator === "undefined") return;
-  const body = JSON.stringify({ lastSeenAt, sessionEnd: true });
-  try {
-    const blob = new Blob([body], { type: "application/json" });
-    navigator.sendBeacon?.("/api/community-messenger/presence", blob);
-  } catch {
-    void fetch("/api/community-messenger/presence", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      keepalive: true,
-      credentials: "include",
-    })
-      .then(async (res) => {
-        if (res.ok) return;
-        const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
-        logPresenceHttpFailure("session_end_fetch_failed", {
-          status: res.status,
-          bodySnippet,
-          deltaMs: -1,
-          payloadNote: "sessionEnd:true",
-        });
-      })
-      .catch(() => {});
-  }
-}
-
-function postPresenceHeartbeatHttp() {
-  const now = Date.now();
-  const deltaMs = lastPresenceHttpPostAt ? now - lastPresenceHttpPostAt : -1;
-  lastPresenceHttpPostAt = now;
-  if (deltaMs >= 0 && deltaMs < 90) {
-    if (isDebugMessengerEnabled()) {
-      try {
-        // eslint-disable-next-line no-console -- 연속 POST(중복/race) 힌트
-        console.warn("[cm-presence-client]", {
-          kind: "heartbeat_burst",
-          deltaMs,
-          runtimeUserIdLen: runtimeUserId.length,
-        });
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-  const payload = {
-    lastPingAt: nowIso(),
-    lastActivityAt: new Date(lastActivityMs).toISOString(),
-    appVisibility: currentDocumentVisible() ? "foreground" : "background",
-  } as const;
-  const bodyObj = payload as unknown as Record<string, unknown>;
-  const postOnce = () =>
-    fetch("/api/community-messenger/presence", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }).then(async (res) => {
-      if (res.ok) return true;
-      const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
-      logPresenceHttpFailure("heartbeat_http_failed", {
-        status: res.status,
-        bodySnippet,
-        deltaMs,
-        payloadNote: JSON.stringify(payload),
-      });
-      return false;
-    });
-
-  if (!isDevSafeMode() || isTerminalPresencePostBody(bodyObj)) {
-    void postOnce().catch(() => {});
-    return;
-  }
-
-  const surface = payload.appVisibility === "foreground" ? "heartbeat-fg" : "heartbeat-bg";
-  const dedupeKey = `${runtimeUserId}|cm-presence|${surface}`;
-  void runDevSafeSingleFlight(dedupeKey, 90_000, () => postOnce(), {
-    onlyCacheIf: (ok) => ok === true,
-  }).catch(() => {});
+function currentSignals() {
+  return {
+    documentVisible: currentDocumentVisible(),
+    channelSubscribed,
+    lastActivityMs,
+  };
 }
 
 function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {
@@ -262,19 +145,7 @@ function ensurePresenceRuntime(userId: string) {
         message: err instanceof Error ? err.message : String(err),
       });
     }
-    postPresenceHeartbeatHttp();
-  };
-
-  const scheduleHeartbeat = () => {
-    clearPresenceHeartbeatTimer();
-    if (!currentDocumentVisible()) return;
-    presenceHeartbeatTimer = setTimeout(() => {
-      presenceHeartbeatTimer = null;
-      if (!currentDocumentVisible()) return;
-      void syncOwnState().finally(() => {
-        scheduleHeartbeat();
-      });
-    }, HEARTBEAT_MS);
+    void sendPresenceHeartbeat({ signals: currentSignals() });
   };
 
   const onSync = () => {
@@ -312,18 +183,14 @@ function ensurePresenceRuntime(userId: string) {
       channelSubscribed = status === "SUBSCRIBED";
       if (channelSubscribed) {
         void syncOwnState();
-        scheduleHeartbeat();
+        startPresenceHeartbeatLoop(currentSignals);
       } else {
-        clearPresenceHeartbeatTimer();
+        stopPresenceHeartbeatLoop();
       }
     },
     build: (channel) => {
-      /**
-       * subscribeWithRetry가 내부적으로 채널을 재생성할 때
-       * 새 채널은 아직 join 이전 상태이므로 즉시 track/untrack를 막는다.
-       */
       channelSubscribed = false;
-      clearPresenceHeartbeatTimer();
+      stopPresenceHeartbeatLoop();
       activeChannel = channel;
       return channel.on("presence", { event: "sync" }, () => {
         markRealtimeSignal();
@@ -336,16 +203,22 @@ function ensurePresenceRuntime(userId: string) {
   const onVisibility = () => {
     if (currentDocumentVisible()) {
       lastActivityMs = Date.now();
-      scheduleHeartbeat();
+      resumePresenceHeartbeatOnVisible(currentSignals);
     } else {
-      clearPresenceHeartbeatTimer();
+      pausePresenceHeartbeatOnHidden();
+      void sendPresenceHeartbeat({
+        force: true,
+        signals: currentSignals(),
+        overrides: { status: "away", surface: "background" },
+      });
     }
     void syncOwnState();
   };
   const onPageHide = () => {
     const lastSeenAt = nowIso();
     store.getState().upsertPresence(userId, { state: "offline", lastSeenAt, updatedAt: lastSeenAt });
-    persistLastSeenSessionEnd(lastSeenAt);
+    sendPresenceSessionEnd(lastSeenAt);
+    stopPresenceHeartbeatLoop();
     if (channelSubscribed && activeChannel) {
       void activeChannel.untrack().catch((err) => {
         cmRtPresenceIsolatedError("untrack_failed", {
@@ -367,7 +240,7 @@ function ensurePresenceRuntime(userId: string) {
 
   presenceCleanup = () => {
     channelSubscribed = false;
-    clearPresenceHeartbeatTimer();
+    stopPresenceHeartbeatLoop();
     document.removeEventListener("visibilitychange", onVisibility);
     window.removeEventListener("focus", onVisibility);
     window.removeEventListener("online", onVisibility);
@@ -393,6 +266,7 @@ function releasePresenceRuntime() {
   presenceCleanup = null;
   runtimeUserId = "";
   channelSubscribed = false;
+  stopPresenceHeartbeatLoop();
 }
 
 export function useCommunityMessengerPresenceRuntime(userId: string | null | undefined): void {
