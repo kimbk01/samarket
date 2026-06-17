@@ -26,6 +26,8 @@ import { fetchAddressDefaultsSnapshot, seedAddressDefaultsSnapshotCache } from "
 import { useAddressDefaultsBootRetry } from "@/lib/addresses/use-address-defaults-boot-retry";
 import { primeMeProfileDedupedFromKnownProfile } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
+import { resolveTrustedMypageBoot } from "@/lib/my/mypage-hub-session-trust";
+import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 
 const MYPAGE_SESSION_KEY = "samarket:mypage-hub:v1";
 const MYPAGE_SESSION_MAX_AGE_MS = 5 * 60 * 1000;
@@ -123,10 +125,13 @@ export function useMypageHubModel(
   const sessionCached = sessionEnvelope?.data ?? null;
   const sessionHubCounts =
     initialMyPageData === undefined ? peekMypageSessionHubCounts() : null;
-  const boot = initialMyPageData !== undefined ? initialMyPageData : sessionCached;
+  const viewerIdForBoot = getCurrentUser()?.id?.trim() ?? "";
+  const boot = resolveTrustedMypageBoot(initialMyPageData, sessionCached, viewerIdForBoot)
+    ?? (initialMyPageData !== undefined ? initialMyPageData : null);
+  const bootProfileId = boot?.profile?.id?.trim() ?? "";
   const hub0 = boot?.hubServerExtras;
   const [data, setData] = useState<MyPageData | null>(() => boot ?? null);
-  const [loading, setLoading] = useState(() => boot == null);
+  const [loading, setLoading] = useState(() => !boot?.profile);
   const [overviewCounts, setOverviewCounts] = useState<MyPageOverviewCounts>(() => {
     if (hub0) return { ...hub0.overviewCounts };
     if (sessionHubCounts) return { ...sessionHubCounts.overviewCounts };
@@ -151,6 +156,33 @@ export function useMypageHubModel(
   const initialLoadRequestedRef = useRef(false);
   const addressDefaultsRef = useRef(addressDefaults);
   const neighborhoodFromLifeRef = useRef(neighborhoodFromLife);
+  const initialMyPageDataRef = useRef(initialMyPageData);
+  initialMyPageDataRef.current = initialMyPageData;
+
+  const applyTrustedSessionBootSeed = useCallback(() => {
+    if (initialMyPageDataRef.current !== undefined) return;
+    const viewerId = getCurrentUser()?.id?.trim() ?? "";
+    const fresh = resolveTrustedMypageBoot(undefined, peekMypageSessionCache(), viewerId);
+    if (!fresh?.profile?.id) return;
+    const profileId = fresh.profile.id.trim();
+    setData((prev) => (prev?.profile?.id?.trim() === profileId ? prev : fresh));
+    setLoading(false);
+  }, []);
+
+  const resetHubForSignedOutViewer = useCallback(() => {
+    setData(null);
+    setLoading(false);
+    setOverviewCounts({ purchases: null, sales: null, storeAttention: null });
+    setOwnerHubStoreId(null);
+    setOwnerStoreGate(null);
+    setOwnerStoreGateFirstId(null);
+    setAddressDefaults(null);
+    setNeighborhoodFromLife(null);
+    hubCountsSnapshotRef.current = null;
+    skipInitialAddressFetchRef.current = false;
+    skipInitialCountsFetchRef.current = false;
+    initialLoadRequestedRef.current = false;
+  }, []);
   const load = useCallback(
     async (opts?: { silent?: boolean; force?: boolean }) => {
       const silent = opts?.silent === true;
@@ -229,17 +261,50 @@ export function useMypageHubModel(
     }
   }, [initialMyPageData?.profile?.id, boot?.profile?.id]);
 
+  /**
+   * app-boot 직후 `getCurrentUser()` 가 채워지면 sessionStorage 시드가 뒤늦게 보인다.
+   * 첫 렌더에서 `loading=true` 로 고정된 채 `load()` 가 `boot?.profile` 때문에 스킵되면
+   * 내정보가 「불러오는 중」에 영구 고착된다 — 시드가 생기면 즉시 data·loading 을 맞춘다.
+   */
+  useLayoutEffect(() => {
+    applyTrustedSessionBootSeed();
+  }, [bootProfileId, viewerIdForBoot, applyTrustedSessionBootSeed]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onAuthChanged = () => {
+      const viewerId = getCurrentUser()?.id?.trim() ?? "";
+      if (!viewerId) {
+        resetHubForSignedOutViewer();
+        return;
+      }
+      applyTrustedSessionBootSeed();
+    };
+    window.addEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+    return () => window.removeEventListener(TEST_AUTH_CHANGED_EVENT, onAuthChanged);
+  }, [applyTrustedSessionBootSeed, resetHubForSignedOutViewer]);
+
   useEffect(() => {
     if (!enabled) {
       initialLoadRequestedRef.current = false;
+      if (!getCurrentUser()?.id?.trim()) {
+        resetHubForSignedOutViewer();
+      }
       return;
     }
     if (initialMyPageData !== undefined) return;
     if (initialLoadRequestedRef.current) return;
     initialLoadRequestedRef.current = true;
-    if (boot?.profile) return;
+    const viewerId = getCurrentUser()?.id?.trim() ?? "";
+    const sessionBoot = resolveTrustedMypageBoot(undefined, peekMypageSessionCache(), viewerId);
+    if (sessionBoot?.profile) {
+      const profileId = sessionBoot.profile.id.trim();
+      setData((prev) => (prev?.profile?.id?.trim() === profileId ? prev : sessionBoot));
+      setLoading(false);
+      return;
+    }
     void load();
-  }, [enabled, load, initialMyPageData, boot?.profile]);
+  }, [enabled, load, initialMyPageData, bootProfileId, resetHubForSignedOutViewer]);
 
   useLayoutEffect(() => {
     const snap = initialMyPageData?.addressDefaultsSnapshot;

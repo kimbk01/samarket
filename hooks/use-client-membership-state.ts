@@ -85,6 +85,11 @@ function ensureMembershipResolved(source: string): void {
   publish({ status: "checking" });
   inflight = resolveMembershipState(source)
     .then((next) => {
+      const cached = membershipFromCache();
+      if (cached.status === "member") {
+        publish(cached);
+        return cached;
+      }
       publish(next);
       if (next.status === "checking") {
         scheduleMembershipRetry(source, 1_200);

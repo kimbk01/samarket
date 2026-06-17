@@ -7,6 +7,8 @@ import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
 import { MyPageStackShell } from "@/components/mypage/mobile/MyPageStackShell";
 import { buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { isTrustedMypageHubProfile } from "@/lib/my/mypage-hub-session-trust";
 import { MypageGuestSubrouteRedirect } from "@/components/mypage/MypageGuestSubrouteRedirect";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
 
@@ -33,6 +35,8 @@ export function MyPageItemRouteClient({
     addressDefaults,
     neighborhoodFromLife,
   } = useMypageHubModel(initialMyPageData ?? undefined, { enabled: hubEnabled });
+  const viewerUserId = getCurrentUser()?.id?.trim() ?? "";
+  const trustedHubSeed = isTrustedMypageHubProfile(data?.profile?.id, viewerUserId);
   /* Mobile stack routes have no AccountTab home grid; badges only on desktop ?tab=account&section=home. */
   const favoriteBadge = null;
   const notificationBadge = null;
@@ -45,7 +49,7 @@ export function MyPageItemRouteClient({
         ? t("mypage_comp_store_attention_summary")
         : null;
 
-  if (membership.status === "checking") {
+  if (membership.status === "checking" && !trustedHubSeed) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
         <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>
