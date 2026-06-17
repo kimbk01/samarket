@@ -1,3 +1,4 @@
+import { isAuthBootstrapInitialSessionDone } from "@/lib/auth/auth-bootstrap-state";
 import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
 import {
   isGuestAuthEstablished,
@@ -15,8 +16,8 @@ import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fet
 const SESSION_GET_FLIGHT = "client:GET:/api/auth/session";
 
 const SESSION_401_RETRY_MS = 160;
-/** Supabase `INITIAL_SESSION` 전에 GET 하면 일시 401 — 짧게 대기 */
-const SESSION_PREFETCH_WAIT_MS = 320;
+/** Supabase `INITIAL_SESSION` 전에 GET 하면 일시 401 — WebView cold start 대비 */
+const SESSION_PREFETCH_WAIT_MS = 1_200;
 /** 서버 `auth-session-response-cache` TTL 과 맞춤 — 동일 탭 연속 session 검사 왕복 제거 */
 const SESSION_CLIENT_OK_TTL_MS = 3_000;
 
@@ -101,9 +102,21 @@ export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Resp
           continue;
         }
         if (res.status === 401) {
-          noteGuest401(clientCallSource ?? "fetchAuthSessionNoStore", {
-            url: "/api/auth/session",
-          });
+          if (isAuthBootstrapInitialSessionDone()) {
+            noteGuest401(clientCallSource ?? "fetchAuthSessionNoStore", {
+              url: "/api/auth/session",
+            });
+          } else if (typeof console !== "undefined" && typeof console.info === "function") {
+            console.info(
+              "[guest-auth] guest_401_detected",
+              JSON.stringify({
+                at: Date.now(),
+                source: clientCallSource ?? "fetchAuthSessionNoStore",
+                url: "/api/auth/session",
+                blocked_before_initial_session: true,
+              }),
+            );
+          }
         }
         bumpAppWidePerf("auth_session_resolve_success");
         recordAppWidePhaseLastMs("auth_session_resolve_ms", Math.round(performance.now() - t0));

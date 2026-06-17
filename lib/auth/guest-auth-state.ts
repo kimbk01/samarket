@@ -1,5 +1,7 @@
 "use client";
 
+import { canEstablishGuestAuthState } from "@/lib/auth/auth-bootstrap-state";
+
 /**
  * 비로그인(guest) 확정 상태 — 401 1회 확인 후 refresh·profile fetch 중단.
  * sessionPhase(guest) 와 함께 쓰며, UI 계층은 이 모듈을 직접 참조하지 않는다.
@@ -27,18 +29,34 @@ export function getGuestEstablishedAt(): number {
   return guestEstablishedAt;
 }
 
-/** API 401 수신 — guest 확정·측정 로그 */
+/** API 401 수신 — guest 확정·측정 로그 (INITIAL_SESSION 전에는 확정 금지) */
 export function noteGuest401(source: string, detail?: Record<string, unknown>): void {
-  logGuest("[guest_401_detected]", { source, ...detail });
+  logGuest("[guest-auth] guest_401_detected", { source, ...detail });
   establishGuestAuthState(source);
 }
 
 /** guest 세션 확정 — refresh·인증 fetch 중단 */
-export function establishGuestAuthState(source: string): void {
+export function establishGuestAuthState(
+  source: string,
+  options?: { force?: boolean },
+): void {
   if (authMissing) return;
+  const blockedBeforeInitialSession = !options?.force && !canEstablishGuestAuthState();
+  if (blockedBeforeInitialSession) {
+    logGuest("[guest-auth] guest_state_established", {
+      source,
+      blocked_before_initial_session: true,
+      established: false,
+    });
+    return;
+  }
   authMissing = true;
   guestEstablishedAt = Date.now();
-  logGuest("[guest_state_established]", { source });
+  logGuest("[guest-auth] guest_state_established", {
+    source,
+    blocked_before_initial_session: false,
+    established: true,
+  });
 }
 
 /** guest 확정 후 스킵된 fetch — 브라우저 콘솔 측정용 */

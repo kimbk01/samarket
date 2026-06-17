@@ -15,11 +15,10 @@ describe("use-client-membership-state hot-path contract", () => {
     expect(src).not.toContain("dibay-session-manager");
   });
 
-  it("resolves via resolveClientMembership and syncs profile cache on auth bind", () => {
+  it("awaits auth bootstrap before resolveClientMembership", () => {
     const src = readSource("hooks/use-client-membership-state.ts");
-    expect(src).toContain("resolveClientMembership");
-    expect(src).toContain("syncMembershipFromProfileCache");
-    expect(src).toContain("TEST_AUTH_CHANGED_EVENT");
+    expect(src).toContain("awaitAuthBootstrapInitialSession");
+    expect(src).toContain("publishMembershipFromReconcile");
   });
 });
 

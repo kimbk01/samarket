@@ -34,6 +34,10 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isTrustedMypageHubProfile } from "@/lib/my/mypage-hub-session-trust";
 import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  MainTabSlowLoadPanel,
+  useMainTabLoadTimeout,
+} from "@/hooks/use-main-tab-load-timeout";
 
 function resolveLegacyMyPageRedirectTarget(args: {
   tab: string;
@@ -74,6 +78,12 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   });
   const viewerUserId = getCurrentUser()?.id?.trim() ?? "";
   const trustedHubSeed = isTrustedMypageHubProfile(data?.profile?.id, viewerUserId);
+  const checkingMembership =
+    membership.status === "checking" && !trustedHubSeed && !isOptimisticMemberViewer();
+  const { slow: checkingSlow, retry: retryMembership } = useMainTabLoadTimeout({
+    active: checkingMembership,
+    onRetry: () => window.location.reload(),
+  });
 
   useEffect(() => {
     if (!pathname) return;
@@ -173,6 +183,14 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
   }, [loading, data]);
 
   if (membership.status === "checking" && !trustedHubSeed && !isOptimisticMemberViewer()) {
+    if (checkingSlow) {
+      return (
+        <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
+          <MyPageHeader backFallbackHref="/philife" />
+          <MainTabSlowLoadPanel onRetry={retryMembership} />
+        </div>
+      );
+    }
     return (
       <div className={`flex min-h-0 min-w-0 flex-1 flex-col ${MYPAGE_HOME_PAGE_BG_CLASS}`}>
         <MyPageHeader backFallbackHref="/philife" />

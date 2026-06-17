@@ -73,8 +73,20 @@ if (apiRecovery.includes("resolveClientMembership") || apiRecovery.includes("use
   failures.push("api-auth-recovery.ts must not depend on membership resolve (avoid circular single-flight wait)");
 }
 
-if (!resolveMembership.includes("fetchAuthSessionNoStore")) {
-  failures.push("resolve-client-profile-session.ts must use lightweight fetchAuthSessionNoStore");
+if (!membershipHook.includes("awaitAuthBootstrapInitialSession")) {
+  failures.push("use-client-membership-state.ts must await auth bootstrap before membership resolve");
+}
+
+if (!membershipHook.includes("publishMembershipFromReconcile")) {
+  failures.push("use-client-membership-state.ts must export publishMembershipFromReconcile for reconcile path");
+}
+
+if (!read("lib/auth/guest-auth-state.ts").includes("canEstablishGuestAuthState")) {
+  failures.push("guest-auth-state.ts must guard guest establishment until INITIAL_SESSION completes");
+}
+
+if (!resolveMembership.includes('status: "pending"')) {
+  failures.push("resolve-client-profile-session.ts must return pending before bootstrap completes");
 }
 
 const routeClassification = read("lib/auth/auth-route-classification.ts");

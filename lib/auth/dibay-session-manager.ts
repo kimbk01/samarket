@@ -15,6 +15,11 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 import {
+  markAuthBootstrapInitialSessionDone,
+  markAuthBootstrapInitialSessionStart,
+  resetAuthBootstrapStateForTests,
+} from "@/lib/auth/auth-bootstrap-state";
+import {
   clearGuestAuthState,
   establishGuestAuthState,
   exposeGuestAuthStateProbeForDev,
@@ -282,9 +287,12 @@ export async function handleApi401(source: string): Promise<EnsureSessionHealthy
 }
 
 function handleAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
+  if (event === "INITIAL_SESSION") {
+    markAuthBootstrapInitialSessionDone(Boolean(session?.user?.id));
+  }
   if (event === "SIGNED_OUT") {
     setSessionPhase("guest");
-    establishGuestAuthState(`auth_event:${event}`);
+    establishGuestAuthState(`auth_event:${event}`, { force: true });
     postAuthBc({ type: "signed_out" });
     return;
   }
@@ -311,8 +319,10 @@ export function bindDibaySessionManagerAuthListener(): () => void {
   getAuthBroadcastChannel();
   exposeGuestAuthStateProbeForDev();
   exposeResetAuthStateForDev();
+  markAuthBootstrapInitialSessionStart();
   const sb = getSupabaseClient();
   if (!sb) {
+    markAuthBootstrapInitialSessionDone(false);
     establishGuestAuthState("bindAuthListener:no_client");
     setSessionPhase("guest");
     return () => {};
@@ -335,6 +345,7 @@ export function bindDibaySessionManagerAuthListener(): () => void {
 export function resetDibaySessionManagerForTests(): void {
   sessionPhase = "loading";
   resetGuestAuthStateForTests();
+  resetAuthBootstrapStateForTests();
   authListenerBound = false;
   authSubscription = null;
   authEventHandlers.clear();

@@ -8,6 +8,7 @@ import {
   userToProfile,
   getSupabaseProfileCache,
 } from "@/lib/auth/supabase-profile-cache";
+import { publishMembershipFromReconcile } from "@/hooks/use-client-membership-state";
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import {
@@ -59,6 +60,7 @@ function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
     }
 
     setSupabaseProfileCache(nextProfile);
+    publishMembershipFromReconcile("supabase_auth_sync:getUser");
     dispatchTestAuthChanged();
   });
 }

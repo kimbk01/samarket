@@ -12,6 +12,9 @@ import {
   writeLoginBootstrapSnapshot,
 } from "@/lib/auth/login-bootstrap-cache";
 import { finishClientAuthLogin } from "@/lib/auth/finish-client-auth-login.client";
+import { primeClientAuthSessionFromSupabase } from "@/lib/auth/auth-session-immediate.client";
+import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { shouldBlockLoginAutoRedirect } from "@/lib/auth/login-redirect-loop-guard";
 import { sanitizeNextPath, sanitizeFreshLoginLandingPath, withNextSearchParam } from "@/lib/auth/safe-next-path";
 import { dispatchOAuthPendingClear, useOAuthLogin } from "@/lib/auth/oauth/use-oauth-login";
 import { AuthProviderEmailConflictHost } from "@/components/auth/AuthProviderEmailConflictHost";
@@ -96,6 +99,7 @@ function LoginPageContent() {
   const [loading, setLoading] = useState(false);
   const [passwordLoginStatus, setPasswordLoginStatus] = useState("");
   const [showEmailLogin, setShowEmailLogin] = useState(false);
+  const [providersSlow, setProvidersSlow] = useState(false);
 
   const showLoginError = (message: string) => {
     setError((prev) => (prev === message ? prev : message));
@@ -246,6 +250,19 @@ function LoginPageContent() {
   }, [t]);
 
   useEffect(() => {
+    if (!providersLoading) {
+      setProvidersSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setProvidersSlow(true);
+      setProvidersLoading(false);
+      setProvidersError((prev) => prev ?? t("auth_sns_providers_load_failed"));
+    }, 3_000);
+    return () => window.clearTimeout(timer);
+  }, [providersLoading, t]);
+
+  useEffect(() => {
     void router.prefetch(postLoginDestination);
   }, [router, postLoginDestination]);
 
@@ -254,11 +271,14 @@ function LoginPageContent() {
     void (async () => {
       const supabase = getSupabaseClient();
       if (!supabase) return;
+      if (shouldBlockLoginAutoRedirect()) return;
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
         if (cancelled || !session?.user) return;
+        await primeClientAuthSessionFromSupabase();
+        if (cancelled || !getCurrentUser()?.id) return;
         await finishClientAuthLogin({
           redirectTo: postLoginDestination,
           next: next ?? null,
@@ -461,10 +481,26 @@ function LoginPageContent() {
           />
           <OAuthInlineLoginHint status={oauthInlineStatus} className="mt-3" />
         </div>
-        {providersError ? (
-          <p className="mt-4 sam-text-body-secondary text-red-600">{providersError}</p>
+        {providersError || providersSlow ? (
+          <div className="mt-4 flex flex-col items-center gap-2">
+            <p className="sam-text-body-secondary text-center text-red-600">
+              {providersError ?? t("auth_sns_providers_load_failed")}
+            </p>
+            <button
+              type="button"
+              className="sam-text-body text-sam-accent underline"
+              onClick={() => {
+                setProvidersSlow(false);
+                setProvidersLoading(true);
+                setProvidersError(null);
+                window.location.reload();
+              }}
+            >
+              {t("common_retry")}
+            </button>
+          </div>
         ) : null}
-        {!passwordEnabled && !oauthEnabled && !providersError ? (
+        {!passwordEnabled && !oauthEnabled && !providersError && !providersSlow ? (
           <p className="mt-4 sam-text-body-secondary text-amber-700">
             {t("auth_no_login_methods")}
           </p>

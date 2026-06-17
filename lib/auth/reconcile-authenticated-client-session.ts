@@ -6,6 +6,7 @@ import { invalidateAppBootFlight } from "@/lib/app-boot/run-app-boot";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
 import { clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { invalidateClientMembershipResolveFlight } from "@/lib/auth/resolve-client-profile-session";
+import { publishMembershipFromReconcile } from "@/hooks/use-client-membership-state";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 
 /**
@@ -36,4 +37,6 @@ export function reconcileAuthenticatedClientSession(source: string): void {
       }),
     );
   }
+
+  publishMembershipFromReconcile(source);
 }

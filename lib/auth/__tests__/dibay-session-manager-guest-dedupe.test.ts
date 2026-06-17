@@ -67,7 +67,9 @@ describe("ensureSessionHealthy guest dedupe", () => {
 
   it("runs refresh only once for parallel ensureSessionHealthy callers", async () => {
     const mod = await import("@/lib/auth/dibay-session-manager");
+    const bootstrap = await import("@/lib/auth/auth-bootstrap-state");
     mod.resetDibaySessionManagerForTests();
+    bootstrap.markAuthBootstrapInitialSessionDone(false);
 
     const [a, b] = await Promise.all([
       mod.ensureSessionHealthy("caller_a"),
@@ -82,7 +84,9 @@ describe("ensureSessionHealthy guest dedupe", () => {
 
   it("skips refresh after guest is established", async () => {
     const mod = await import("@/lib/auth/dibay-session-manager");
+    const bootstrap = await import("@/lib/auth/auth-bootstrap-state");
     mod.resetDibaySessionManagerForTests();
+    bootstrap.markAuthBootstrapInitialSessionDone(false);
 
     await mod.ensureSessionHealthy("first");
     runBrowserAuthRefreshDeduped.mockClear();
