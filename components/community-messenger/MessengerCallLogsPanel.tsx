@@ -208,7 +208,7 @@ export function MessengerCallLogsPanel({
     if (!target || deleteBusy) return;
     setDeleteBusy(true);
     try {
-      const res = await fetch(`/api/community-messenger/calls/${encodeURIComponent(target.id)}`, {
+      const res = await fetch(`/api/community-messenger/calls/logs/${encodeURIComponent(target.id)}`, {
         method: "DELETE",
         credentials: "include",
       });
