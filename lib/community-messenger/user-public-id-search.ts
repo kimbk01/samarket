@@ -7,7 +7,8 @@ import {
   escapeIlikePatternFragment,
   escapePostgrestDoubleQuotedIlike,
 } from "@/lib/community-messenger/profile-user-search-filter";
-import { resolveDirectInteractionGuard } from "@/lib/community-messenger/social-relations";
+import { batchResolveSearchGuards } from "@/lib/community-messenger/friendship/search-response-mapper";
+import type { CommunityMessengerPeerRelationStatus } from "@/lib/community-messenger/types";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
@@ -18,14 +19,23 @@ export type CommunityMessengerUserSearchMatchType = "exact" | "prefix" | "contai
 
 export type CommunityMessengerUserSearchResult = {
   id: string;
+  userId: string;
   displayName: string;
+  nickname: string;
   avatarUrl: string | null;
   publicId: string | null;
   isFriend: boolean;
   isBlockedByMe: boolean;
   isBlockedByPeer: boolean;
+  relationshipStatus: CommunityMessengerPeerRelationStatus;
+  friendshipStatus?: "none" | "pending" | "accepted" | "blocked" | "removed";
+  friendshipId?: string | null;
+  readdBlockedUntil?: string | null;
+  requestRoomId?: string | null;
+  requestMessageId?: string | null;
   canMessage: boolean;
   canCall: boolean;
+  canSendFriendRequest: boolean;
   matchType: CommunityMessengerUserSearchMatchType;
   highlightRanges: Array<{ start: number; end: number }>;
 };
@@ -208,18 +218,39 @@ export async function searchCommunityMessengerUsersRanked(
     .slice(0, COMMUNITY_MESSENGER_USER_SEARCH_LIMIT);
 
   const results: CommunityMessengerUserSearchResult[] = [];
+  const guards = await batchResolveSearchGuards(viewer, ranked.map((item) => item.row.id));
   for (const item of ranked) {
-    const guard = await resolveDirectInteractionGuard(viewer, item.row.id);
+    const guard = guards.get(item.row.id) ?? {
+      isFriend: false,
+      isBlockedByMe: false,
+      isBlockedByPeer: false,
+      relationshipStatus: "none" as const,
+      friendshipStatus: "none" as const,
+      friendshipId: null,
+      readdBlockedUntil: null,
+      canMessage: false,
+      canCall: false,
+      canSendFriendRequest: true,
+    };
     results.push({
       id: item.row.id,
+      userId: item.row.id,
       displayName: item.displayName,
+      nickname: item.displayName,
       avatarUrl: trimText(item.row.avatar_url) || null,
       publicId: item.publicId,
       isFriend: guard.isFriend,
       isBlockedByMe: guard.isBlockedByMe,
       isBlockedByPeer: guard.isBlockedByPeer,
+      relationshipStatus: guard.relationshipStatus,
+      friendshipStatus: guard.friendshipStatus,
+      friendshipId: guard.friendshipId ?? null,
+      readdBlockedUntil: guard.readdBlockedUntil ?? null,
+      requestRoomId: guard.requestRoomId ?? null,
+      requestMessageId: guard.requestMessageId ?? null,
       canMessage: guard.canMessage,
       canCall: guard.canCall,
+      canSendFriendRequest: guard.canSendFriendRequest,
       matchType: item.matchType,
       highlightRanges: item.highlightRanges,
     });

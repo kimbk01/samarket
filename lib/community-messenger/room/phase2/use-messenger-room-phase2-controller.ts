@@ -589,6 +589,7 @@ export function useMessengerRoomPhase2Controller() {
       }
 
       const rid = roomId.trim();
+      const peerUid = snapshot?.room.peerUserId?.trim() || "";
       const peerLabel = snapshot?.room.title?.trim();
       cmCallLatencyMarkClick({
         surface: "room_managed",
@@ -605,7 +606,15 @@ export function useMessengerRoomPhase2Controller() {
       });
       logClientPerf("messenger-call.dial.push", { phase: "room_managed_outgoing_shell", roomId: rid, kind });
       void (async () => {
-        const result = await launchOutgoingDirectCall({ kind, roomId: rid, peerLabel }, router);
+        const result = await launchOutgoingDirectCall(
+          {
+            kind,
+            roomId: rid,
+            peerUserId: peerUid || undefined,
+            peerLabel,
+          },
+          router
+        );
         outgoingDialSyncGuardRef.current = false;
         setOutgoingDialLocked(false);
         if (!result.ok) {
@@ -614,7 +623,7 @@ export function useMessengerRoomPhase2Controller() {
       })();
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.peerUserId, snapshot?.room.title, t]
   );
 
   useEffect(() => {
@@ -1465,7 +1474,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!window.confirm(confirmBody)) return;
       setBusy("block-peer");
       try {
-        const res = await fetch("/api/community-messenger/relations/block", {
+        const res = await fetch("/api/community-messenger/friends/block", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ targetUserId, roomId: streamRoomId }),

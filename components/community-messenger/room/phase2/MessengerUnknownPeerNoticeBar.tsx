@@ -5,8 +5,10 @@ import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/cli
 import { useEffect } from "react";
 
 type Props = {
-  variant: "unsaved" | "blocked_by_me";
+  variant: "unsaved" | "blocked_by_me" | "request_incoming" | "request_outgoing";
   busy?: boolean;
+  onAccept?: () => void;
+  onDecline?: () => void;
   onBlock?: () => void;
   onUnblock?: () => void;
 };
@@ -17,6 +19,8 @@ type Props = {
 export function MessengerUnknownPeerNoticeBar({
   variant,
   busy = false,
+  onAccept,
+  onDecline,
   onBlock,
   onUnblock,
 }: Props) {
@@ -48,6 +52,54 @@ export function MessengerUnknownPeerNoticeBar({
             {t("cm_social_unblock")}
           </button>
         ) : null}
+      </div>
+    );
+  }
+
+  if (variant === "request_incoming") {
+    return (
+      <div className="border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
+        <p className="sam-text-helper font-semibold text-[#1e3932]">{t("cm_social_new_message_request")}</p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {onAccept ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onAccept}
+              className="rounded-ui-rect border border-[#006241] bg-white px-3 py-1.5 sam-text-helper font-medium text-[#006241] disabled:opacity-50"
+            >
+              {t("cm_social_accept_request")}
+            </button>
+          ) : null}
+          {onDecline ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onDecline}
+              className="rounded-ui-rect border border-[#d6d6d6] bg-white px-3 py-1.5 sam-text-helper font-medium text-[#1f2937] disabled:opacity-50"
+            >
+              {t("cm_social_decline_request")}
+            </button>
+          ) : null}
+          {onBlock ? (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onBlock}
+              className="rounded-ui-rect bg-transparent px-3 py-1.5 sam-text-helper font-medium text-red-600 disabled:opacity-50"
+            >
+              {t("cm_social_block")}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (variant === "request_outgoing") {
+    return (
+      <div className="border-b border-[#e8e8e8] bg-[#f6f6f6] px-3 py-2">
+        <p className="sam-text-helper text-[#1e3932]">{t("cm_social_outgoing_request_notice")}</p>
       </div>
     );
   }

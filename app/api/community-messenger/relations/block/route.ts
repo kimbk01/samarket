@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserIdStrict } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { blockUserSocial, unblockUserSocial } from "@/lib/community-messenger/social-relations";
-import { cleanupCommunityMessengerFriendGraphOnBlock } from "@/lib/community-messenger/service";
+import {
+  blockCommunityMessengerFriendship,
+  unblockCommunityMessengerFriendship,
+} from "@/lib/community-messenger/service";
 import {
   hideDirectRoomsOnBlockForViewer,
   restoreDirectRoomsOnUnblockForViewer,
@@ -12,16 +14,21 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-async function parseBlockBody(req: NextRequest): Promise<{ targetUserId: string | null; roomId: string | null }> {
-  let body: { targetUserId?: string; roomId?: string };
+async function parseBlockBody(req: NextRequest): Promise<{
+  targetUserId: string | null;
+  roomId: string | null;
+  mode: string | null;
+}> {
+  let body: { targetUserId?: string; roomId?: string; mode?: string };
   try {
     body = await req.json();
   } catch {
-    return { targetUserId: null, roomId: null };
+    return { targetUserId: null, roomId: null, mode: null };
   }
   return {
     targetUserId: String(body.targetUserId ?? "").trim() || null,
     roomId: String(body.roomId ?? "").trim() || null,
+    mode: String(body.mode ?? "").trim() || null,
   };
 }
 
@@ -47,9 +54,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_target" }, { status: 400 });
   }
 
-  const result = await blockUserSocial(auth.userId, targetUserId);
+  const result = await blockCommunityMessengerFriendship(auth.userId, targetUserId);
   if (result.ok) {
-    await cleanupCommunityMessengerFriendGraphOnBlock(auth.userId, targetUserId);
     const hide = await hideDirectRoomsOnBlockForViewer({
       viewerUserId: auth.userId,
       peerUserId: targetUserId,
@@ -83,7 +89,7 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "bad_target" }, { status: 400 });
   }
 
-  const result = await unblockUserSocial(auth.userId, targetUserId);
+  const result = await unblockCommunityMessengerFriendship(auth.userId, targetUserId);
   if (result.ok) {
     const restore = await restoreDirectRoomsOnUnblockForViewer(auth.userId, targetUserId);
     return NextResponse.json(

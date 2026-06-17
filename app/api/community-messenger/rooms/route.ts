@@ -159,6 +159,10 @@ export async function POST(req: NextRequest) {
       communityMessengerRoomId: result.roomId,
     });
   }
-  const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId);
+  const snapshot = await getCommunityMessengerRoomSnapshot(auth.userId, result.roomId, {
+    snapshotTier: "critical",
+    hydrateFullMemberList: false,
+    deferSnapshotSecondary: true,
+  });
   return jsonOkWithRequest(req, { ...result, snapshot });
 }

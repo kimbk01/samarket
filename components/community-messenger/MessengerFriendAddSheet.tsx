@@ -9,6 +9,7 @@ import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/
 import { MessengerFriendAddCtaLabelKeys } from "@/lib/community-messenger/messenger-friend-add-cta";
 import { COMMUNITY_MESSENGER_USER_SEARCH_MIN_LENGTH } from "@/lib/community-messenger/user-public-id-search";
 import type { CommunityMessengerUserSearchResult } from "@/lib/community-messenger/user-public-id-search";
+import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 export type MessengerFriendAddTab = "id" | "contacts" | "invite";
 
@@ -28,7 +29,7 @@ type Props = {
   viewerUserId: string | null;
   busyId: string | null;
   onPrefetchDirectRoom: (userId: string) => void;
-  onStartDirectChat: (userId: string) => void;
+  onStartDirectChat: (user: CommunityMessengerUserSearchResult) => void;
   /** 초대 링크·QR 탭에 표시할 공개 URL */
   inviteUrl: string;
 };
@@ -211,6 +212,7 @@ export function MessengerFriendAddSheet({
                       busyId={busyId}
                       onPrefetchDirectRoom={onPrefetchDirectRoom}
                       onStartDirectChat={onStartDirectChat}
+                      onRefreshSearch={onSearchUsers}
                     />
                   ))
                 )}
@@ -253,11 +255,13 @@ function SearchResultRow({
   busyId,
   onPrefetchDirectRoom,
   onStartDirectChat,
+  onRefreshSearch,
 }: {
   user: CommunityMessengerUserSearchResult;
   busyId: string | null;
   onPrefetchDirectRoom: (userId: string) => void;
-  onStartDirectChat: (userId: string) => void;
+  onStartDirectChat: (user: CommunityMessengerUserSearchResult) => void;
+  onRefreshSearch: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
   const prefetchOnceRef = useRef(false);
@@ -265,8 +269,61 @@ function SearchResultRow({
   const initial = user.displayName.trim().slice(0, 1) || "?";
   const publicIdLabel = user.publicId ? `@${user.publicId}` : "";
   const bChat = busyId === `room:${user.id}`;
-  const cannotMessage = !user.canMessage;
+  const relationStatus = user.relationshipStatus ?? (user.isFriend ? "accepted" : "none");
+  const friendshipId = user.friendshipId?.trim() || "";
+  const blocked =
+    relationStatus === "blocked_by_me" ||
+    relationStatus === "blocked_me" ||
+    relationStatus === "hidden_after_block";
+  const cannotMessage = blocked || (!user.canMessage && relationStatus !== "request_pending_outgoing" && relationStatus !== "request_pending_incoming");
   const isMutualFriend = user.isFriend;
+
+  const respondIncoming = useCallback(
+    async (action: "accept" | "decline") => {
+      if (!friendshipId) return;
+      const res = await fetch(`/api/community-messenger/friends/${encodeURIComponent(friendshipId)}/${action}`, {
+        method: "PATCH",
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; roomId?: string };
+      if (!res.ok || !json.ok) {
+        showMessengerSnackbar(t("cm_social_cannot_start_chat"), { variant: "error" });
+        return;
+      }
+      showMessengerSnackbar(action === "accept" ? t("cm_ui_friend_accept_success_snackbar") : t("cm_social_decline_request"), {
+        variant: action === "accept" ? "success" : "default",
+      });
+      await onRefreshSearch();
+      if (action === "accept") {
+        onStartDirectChat({
+          ...user,
+          isFriend: true,
+          relationshipStatus: "accepted",
+          friendshipStatus: "accepted",
+          canMessage: true,
+          canCall: true,
+        });
+      }
+    },
+    [friendshipId, onRefreshSearch, onStartDirectChat, t, user]
+  );
+
+  const requestFriend = useCallback(async () => {
+    const res = await fetch("/api/community-messenger/friends/request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ targetUserId: user.id }),
+    });
+    const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; readdBlockedUntil?: string | null };
+    if (!res.ok || !json.ok) {
+      showMessengerSnackbar(
+        json.error === "readd_blocked" ? t("cm_social_readd_limited") : t("cm_social_cannot_start_chat"),
+        { variant: "error" }
+      );
+      return;
+    }
+    showMessengerSnackbar(t("cm_social_request_sent"), { variant: "success" });
+    await onRefreshSearch();
+  }, [onRefreshSearch, t, user.id]);
 
   return (
     <div className="flex items-center gap-2 px-3 py-2">
@@ -306,9 +363,40 @@ function SearchResultRow({
         </div>
       </div>
       <div className="flex shrink-0 items-center justify-end gap-1">
-        {cannotMessage ? (
+        {relationStatus === "request_pending_outgoing" ? (
+          <span className="max-w-[6.5rem] text-right sam-text-xxs font-semibold leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
+            {t("cm_social_request_sent")}
+          </span>
+        ) : relationStatus === "request_pending_incoming" && friendshipId ? (
+          <div className="flex max-w-[8rem] items-center gap-1">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void respondIncoming("accept");
+              }}
+              disabled={Boolean(busyId)}
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
+              style={{ color: "var(--messenger-primary)" }}
+            >
+              {t("cm_social_accept_request")}
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void respondIncoming("decline");
+              }}
+              disabled={Boolean(busyId)}
+              className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
+              {t("cm_social_decline_request")}
+            </button>
+          </div>
+        ) : blocked ? (
           <span className="max-w-[6.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
-            {t("cm_social_cannot_start_chat")}
+            {t("cm_social_blocked_limited")}
           </span>
         ) : isMutualFriend ? (
           <div className="flex max-w-[7.5rem] flex-col items-end text-right">
@@ -319,7 +407,7 @@ function SearchResultRow({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                void onStartDirectChat(user.id);
+                void onStartDirectChat(user);
               }}
               disabled={Boolean(busyId) || bChat}
               className="mt-0.5 rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1 sam-text-xxs font-medium disabled:opacity-40"
@@ -333,13 +421,13 @@ function SearchResultRow({
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              void onStartDirectChat(user.id);
+              void requestFriend();
             }}
-            disabled={Boolean(busyId) || bChat}
+            disabled={Boolean(busyId) || bChat || !user.canSendFriendRequest}
             className="rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1.5 sam-text-xxs font-medium disabled:opacity-40"
             style={{ color: "var(--messenger-text)" }}
           >
-            {bChat ? "…" : t("cm_social_send_message")}
+            {bChat ? "…" : t("cm_social_add_friend")}
           </button>
         )}
       </div>
