@@ -21,6 +21,8 @@ const myContent = read("app/(main)/my/MyContent.tsx");
 const apiRecovery = read("lib/auth/api-auth-recovery.ts");
 const resolveMembership = read("lib/auth/resolve-client-profile-session.ts");
 const optimisticViewer = read("lib/auth/client-membership-viewer.ts");
+const runAppBoot = read("lib/app-boot/run-app-boot.ts");
+const sessionManager = read("lib/auth/dibay-session-manager.ts");
 
 if (membershipHook.includes("ensureSessionHealthy")) {
   failures.push("use-client-membership-state.ts must NOT import or call ensureSessionHealthy");
@@ -46,9 +48,10 @@ if (!authBoundary.includes("isOptimisticMemberViewer")) {
   failures.push("AuthSessionBoundary must use isOptimisticMemberViewer for checking bypass");
 }
 
-const guestBlockIdx = authBoundary.indexOf('membership.status === "guest" || isAuthExitNavigateStarted()');
-const checkingBypassIdx = authBoundary.indexOf('membership.status === "checking" && !optimisticMember');
-if (guestBlockIdx < 0 || checkingBypassIdx < 0 || guestBlockIdx > checkingBypassIdx) {
+const guestBlockIdx = authBoundary.indexOf('data-auth-session-boundary="blocked"');
+const guestStatusIdx = authBoundary.indexOf('membership.status === "guest" || isAuthExitNavigateStarted()');
+const checkingBypassIdx = authBoundary.indexOf('if (membership.status === "checking" && !optimisticMember)');
+if (guestBlockIdx < 0 || guestStatusIdx < 0 || checkingBypassIdx < 0 || guestStatusIdx > checkingBypassIdx) {
   failures.push(
     "AuthSessionBoundary must block guest before optimistic checking bypass (guest always blocks account-dependent UI)"
   );
@@ -83,8 +86,19 @@ for (const publicTab of ["/market", "/stores", "/philife", "/mypage"]) {
 if (routeClassification.match(/isAccountDependentPath[\s\S]*p === "\/market"/)) {
   failures.push("/market must not be account-dependent in auth-route-classification");
 }
-if (routeClassification.match(/isAccountDependentPath[\s\S]*p === "\/stores"/)) {
-  failures.push("/stores must not be account-dependent in auth-route-classification");
+if (runAppBoot.includes('establishGuestAuthState("app_boot_no_supabase_user")')) {
+  failures.push("run-app-boot.ts must NOT establish guest gate on transient getUser miss (WebView session restore race)");
+}
+
+if (sessionManager.includes('establishGuestAuthState(`auth_event:${event}`)') && sessionManager.includes("INITIAL_SESSION")) {
+  const initialBlock = sessionManager.match(/INITIAL_SESSION[\s\S]{0,200}establishGuestAuthState/);
+  if (initialBlock) {
+    failures.push("dibay-session-manager must NOT establish guest gate on INITIAL_SESSION without user");
+  }
+}
+
+if (!sessionManager.includes("reconcileAuthenticatedClientSession") && !read("components/auth/SupabaseAuthSync.tsx").includes("reconcileAuthenticatedClientSession")) {
+  failures.push("SupabaseAuthSync must reconcile authenticated session after guest race");
 }
 
 const contractTest = read("hooks/__tests__/use-client-membership-state.contract.test.ts");

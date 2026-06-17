@@ -282,10 +282,15 @@ export async function handleApi401(source: string): Promise<EnsureSessionHealthy
 }
 
 function handleAuthStateChange(event: AuthChangeEvent, session: Session | null): void {
-  if (event === "SIGNED_OUT" || (!session?.user?.id && event === "INITIAL_SESSION")) {
+  if (event === "SIGNED_OUT") {
     setSessionPhase("guest");
     establishGuestAuthState(`auth_event:${event}`);
     postAuthBc({ type: "signed_out" });
+    return;
+  }
+  /** WebView: `INITIAL_SESSION` 이 storage 복원 전 null 일 수 있음 — guest gate 확정 금지 */
+  if (event === "INITIAL_SESSION" && !session?.user?.id) {
+    setSessionPhase("loading");
     return;
   }
   if (session?.user?.id) {

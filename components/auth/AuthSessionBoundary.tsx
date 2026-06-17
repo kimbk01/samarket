@@ -13,6 +13,10 @@ import { exposeResetAuthStateForDev } from "@/lib/auth/reset-auth-state";
 import { getSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  MainTabSlowLoadPanel,
+  useMainTabLoadTimeout,
+} from "@/hooks/use-main-tab-load-timeout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
@@ -30,6 +34,11 @@ export function AuthSessionBoundary({ children }: Props) {
   const optimisticMember = isOptimisticMemberViewer();
   const lastUserIdRef = useRef<string | null>(null);
   const dependent = isAccountDependentPath(pathname);
+  const checking = dependent && membership.status === "checking" && !optimisticMember;
+  const { slow: checkingSlow, retry: retryMembership } = useMainTabLoadTimeout({
+    active: checking,
+    onRetry: () => window.location.reload(),
+  });
 
   useEffect(() => {
     exposeResetAuthStateForDev();
@@ -77,6 +86,9 @@ export function AuthSessionBoundary({ children }: Props) {
   }
 
   if (membership.status === "checking" && !optimisticMember) {
+    if (checkingSlow) {
+      return <MainTabSlowLoadPanel onRetry={retryMembership} />;
+    }
     return (
       <div
         className="flex min-h-[40vh] items-center justify-center bg-sam-app px-4"

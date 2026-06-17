@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { GuestLoginRequiredPanel } from "@/components/auth/GuestLoginRequiredPanel";
 import { useClientMembershipState } from "@/hooks/use-client-membership-state";
+import {
+  MainTabSlowLoadPanel,
+  useMainTabLoadTimeout,
+} from "@/hooks/use-main-tab-load-timeout";
 import { isOptimisticMemberViewer } from "@/lib/auth/client-membership-viewer";
 import { samarketRuntimeDebugEnabled } from "@/lib/runtime/samarket-runtime-debug";
 
@@ -21,6 +25,12 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
   const pathname = usePathname();
   const membership = useClientMembershipState("community-messenger-guest-gate");
   const roomEntryPath = isCommunityMessengerRoomEntryPath(pathname);
+  const checking =
+    membership.status === "checking" && !roomEntryPath && !isOptimisticMemberViewer();
+  const { slow: checkingSlow, retry: retryMembership } = useMainTabLoadTimeout({
+    active: checking,
+    onRetry: () => window.location.reload(),
+  });
 
   const guestGateDebugProbe =
     samarketRuntimeDebugEnabled() ? (
@@ -35,6 +45,14 @@ export function CommunityMessengerGuestGate({ children }: { children: ReactNode 
 
   /** BN14-2 — direct room cold: checking 스피너가 `[roomId]/layout` server inline shell 을 가리지 않게 한다. */
   if (membership.status === "checking" && !roomEntryPath && !isOptimisticMemberViewer()) {
+    if (checkingSlow) {
+      return (
+        <>
+          {guestGateDebugProbe}
+          <MainTabSlowLoadPanel onRetry={retryMembership} />
+        </>
+      );
+    }
     return (
       <>
         {guestGateDebugProbe}

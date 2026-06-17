@@ -35,8 +35,8 @@ describe("api-auth-recovery 401 path", () => {
 describe("AuthSessionBoundary guest vs optimistic", () => {
   it("blocks guest before optimistic checking bypass", () => {
     const src = readSource("components/auth/AuthSessionBoundary.tsx");
-    const guestIdx = src.indexOf('membership.status === "guest"');
-    const checkingBypassIdx = src.indexOf("checking\" && !optimisticMember");
+    const guestIdx = src.indexOf('membership.status === "guest" || isAuthExitNavigateStarted()');
+    const checkingBypassIdx = src.indexOf('if (membership.status === "checking" && !optimisticMember)');
     expect(guestIdx).toBeGreaterThan(-1);
     expect(checkingBypassIdx).toBeGreaterThan(-1);
     expect(guestIdx).toBeLessThan(checkingBypassIdx);

@@ -2,7 +2,7 @@
 
 import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { recoverFrom401Once } from "@/lib/auth/api-auth-recovery";
-import { establishGuestAuthState, isGuestAuthEstablished, clearGuestAuthState } from "@/lib/auth/guest-auth-state";
+import { isGuestAuthEstablished, clearGuestAuthState } from "@/lib/auth/guest-auth-state";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache, userToProfile } from "@/lib/auth/supabase-profile-cache";
@@ -57,16 +57,23 @@ async function runAppBootOnce(startEpoch: number): Promise<void> {
   }
 
   const {
-    data: { user },
-    error,
-  } = await dedupeSupabaseAuthGetUser(sb);
+    data: { session },
+  } = await sb.auth.getSession().catch(() => ({ data: { session: null } }));
+  let user = session?.user ?? null;
+  let getUserError: Error | null = null;
+  if (!user) {
+    const getUserResult = await dedupeSupabaseAuthGetUser(sb);
+    user = getUserResult.data.user;
+    getUserError = getUserResult.error;
+  }
   if (isStale()) return;
-  if (!user || error) {
-    establishGuestAuthState("app_boot_no_supabase_user");
+  if (!user) {
+    /** 세션 복원 대기 중 — guest gate 없이 anonymous boot 만 (공개 탭·후속 auth 이벤트 허용) */
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));
     return;
   }
+  void getUserError;
 
   const cached = peekAppBootProfileFetchCached();
   let status = cached?.status;
