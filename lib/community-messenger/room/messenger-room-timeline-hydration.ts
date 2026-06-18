@@ -1,5 +1,20 @@
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 
+/**
+ * hydration pass 진입 시 paintable 메시지 시드만 인정 — lastMessage only 금지.
+ */
+export function hasMessengerRoomHydrationTimelineSeed(input: {
+  roomMessagesLength: number;
+  snapshotMessagesLength: number;
+  snapshot?: Parameters<typeof isMessengerRoomTimelinePaintableBootstrapSeed>[0];
+}): boolean {
+  if (input.roomMessagesLength > 0) return true;
+  if (input.snapshotMessagesLength > 0 && isMessengerRoomTimelinePaintableBootstrapSeed(input.snapshot)) {
+    return true;
+  }
+  return false;
+}
+
 /** 타임라인에 메시지·lastMessage 힌트가 있는지 — 일반·거래·배달 공통 */
 export function hasMessengerRoomTimelineLoadHint(input: {
   roomMessagesLength: number;

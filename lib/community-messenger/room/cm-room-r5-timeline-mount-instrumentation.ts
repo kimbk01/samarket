@@ -2,6 +2,7 @@
 
 import { cmRoomEntryTraceEnabled } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+import { isMessengerRoomTimelinePaintableBootstrapSeed } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
 export type CmRoomFmrSource = "seed" | "bootstrap" | "realtime" | "virtualizer" | "unknown";
 export type CmRoomDisplayReadyBlocker =
@@ -160,9 +161,10 @@ export function hasCmRoomTimelineSeedFromPhase1(phase1: {
   snapshot: { messages?: { length: number }; room: { lastMessage?: string | null } } | null;
   roomMessages?: { length: number };
 }): boolean {
-  return (
-    (phase1.roomMessages?.length ?? 0) > 0 ||
-    (phase1.snapshot?.messages?.length ?? 0) > 0 ||
-    Boolean(phase1.snapshot?.room.lastMessage?.trim())
+  if ((phase1.roomMessages?.length ?? 0) > 0) return true;
+  const snapLen = phase1.snapshot?.messages?.length ?? 0;
+  if (snapLen <= 0) return false;
+  return isMessengerRoomTimelinePaintableBootstrapSeed(
+    phase1.snapshot as Parameters<typeof isMessengerRoomTimelinePaintableBootstrapSeed>[0]
   );
 }

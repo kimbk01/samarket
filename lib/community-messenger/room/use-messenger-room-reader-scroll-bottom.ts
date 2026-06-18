@@ -199,7 +199,6 @@ export function useMessengerRoomReaderScrollBottom({
         if (cmPolishAnalysisEnabled() && reason === "own_message_append") {
           consumeCmPolishSendClickToBubble(jumpPx);
         }
-        messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
         syncScrollGeomFromViewport();
         syncMessengerRoomStickToBottomFromViewport({
           viewport: messagesViewportRef.current,
@@ -257,9 +256,11 @@ export function useMessengerRoomReaderScrollBottom({
 
   /** prepend(과거) vs append(신규) — tail id 불변 시 auto scroll 생략(대량 방 깜빡임) */
   const prevTailMessageIdRef = useRef<string | null>(null);
+  const prevTailClientMessageIdRef = useRef<string | null>(null);
 
   useLayoutEffect(() => {
     prevTailMessageIdRef.current = null;
+    prevTailClientMessageIdRef.current = null;
   }, [roomId]);
 
   /** 방당 최초 타임라인 paint 1회만 — append 마다 room_entry_initial 재스케줄 금지 */
@@ -296,12 +297,15 @@ export function useMessengerRoomReaderScrollBottom({
       previousTailMessageId: prevTailMessageIdRef.current,
       currentTailMessageId: last?.id ?? null,
       currentTailIsMine: Boolean(last?.isMine),
+      previousTailClientMessageId: prevTailClientMessageIdRef.current,
+      currentTailClientMessageId: last?.clientMessageId ?? null,
     });
     if (decision.scroll) {
       scrollMessengerToBottom({ reason: decision.reason });
     }
     if (last?.id) {
       prevTailMessageIdRef.current = last.id;
+      prevTailClientMessageIdRef.current = last.clientMessageId ?? null;
     }
   }, [roomMessages, scrollMessengerToBottom]);
 

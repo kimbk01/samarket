@@ -786,7 +786,7 @@ export function useMessengerRoomPhase2Controller() {
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
       stickToBottomRef.current = true;
-      scrollMessengerToBottom();
+      scrollMessengerToBottom({ reason: "own_message_append" });
       cmReceiveLatencyMark(latencyKey, { send_api_start_ms: cmReceiveLatencyNow() });
       const tSend = typeof performance !== "undefined" ? performance.now() : Date.now();
       const replyId = rid;
@@ -839,7 +839,6 @@ export function useMessengerRoomPhase2Controller() {
             [withCid]
           )
         );
-        scrollMessengerToBottom();
         onMessengerOutboundConfirmed(withCid, clientMessageId);
         forgetRoomBootstrapClientFlightsAfterMutation();
         return true;
@@ -854,7 +853,6 @@ export function useMessengerRoomPhase2Controller() {
       return true;
       } finally {
         scheduleMessengerComposerFocusRetain(composerTextareaRef);
-        if (stickToBottomRef.current) scrollMessengerToBottom();
       }
     },
     [
@@ -986,7 +984,8 @@ export function useMessengerRoomPhase2Controller() {
         callStatus: null,
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
-      scrollMessengerToBottom();
+      stickToBottomRef.current = true;
+      scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-sticker");
       dismissRoomSheet();
       try {
@@ -1026,7 +1025,6 @@ export function useMessengerRoomPhase2Controller() {
               [confirmedSticker]
             )
           );
-          scrollMessengerToBottom();
           onMessengerOutboundConfirmed(confirmedSticker, clientMessageId);
           return;
         }
@@ -1116,7 +1114,8 @@ export function useMessengerRoomPhase2Controller() {
         callStatus: null,
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
-      scrollMessengerToBottom();
+      stickToBottomRef.current = true;
+      scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-image");
       dismissRoomSheet();
       try {
@@ -1152,7 +1151,6 @@ export function useMessengerRoomPhase2Controller() {
               [serverImageMsg]
             )
           );
-          scrollMessengerToBottom();
           onMessengerOutboundConfirmed(serverImageMsg);
           return;
         }
@@ -1227,7 +1225,8 @@ export function useMessengerRoomPhase2Controller() {
         fileSizeBytes: file.size,
       };
       setRoomMessages((prev) => mergeRoomMessages(prev, [optimisticMessage]));
-      scrollMessengerToBottom();
+      stickToBottomRef.current = true;
+      scrollMessengerToBottom({ reason: "own_message_append" });
       setBusy("send-file");
       dismissRoomSheet();
       try {
@@ -1263,7 +1262,6 @@ export function useMessengerRoomPhase2Controller() {
               [serverFileMsg]
             )
           );
-          scrollMessengerToBottom();
           onMessengerOutboundConfirmed(serverFileMsg);
           return;
         }

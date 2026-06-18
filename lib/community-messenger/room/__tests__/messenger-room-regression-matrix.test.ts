@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { resolveMessengerRoomMessagesAutoScroll } from "@/lib/community-messenger/room/messenger-room-messages-auto-scroll";
 import {
+  hasMessengerRoomHydrationTimelineSeed,
   isMessengerRoomTimelinePaintableBootstrapSeed,
   shouldShowMessengerRoomTimelineHydrationSkeleton,
 } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
@@ -196,6 +197,28 @@ describe("cm room regression matrix (pre-commit)", () => {
         })
       ).toEqual({ scroll: true, reason: "own_message_append" });
     });
+
+    it("ack id replace — same clientMessageId, server id only → scroll 금지 (깜빡임 방지)", () => {
+      expect(
+        resolveMessengerRoomMessagesAutoScroll({
+          previousTailMessageId: "temp-abc",
+          currentTailMessageId: "server-xyz",
+          currentTailIsMine: true,
+          previousTailClientMessageId: "cid-1",
+          currentTailClientMessageId: "cid-1",
+        })
+      ).toEqual({ scroll: false, reason: "skip_ack_id_replace" });
+    });
+
+    it("상대 append — tail 변경 → auto scroll (bottom 근처 경로)", () => {
+      expect(
+        resolveMessengerRoomMessagesAutoScroll({
+          previousTailMessageId: "m1",
+          currentTailMessageId: "m2",
+          currentTailIsMine: false,
+        })
+      ).toEqual({ scroll: true, reason: "messages_changed_auto" });
+    });
   });
 
   describe("4. entry paint row counts (1/3/50)", () => {
@@ -251,6 +274,53 @@ describe("cm room regression matrix (pre-commit)", () => {
           lastMessage: "hint",
         })
       ).toBe(true);
+    });
+  });
+
+  describe("6. hydration seed SSOT (cold = re-entry paint path)", () => {
+    it("lastMessage only — hasMessengerRoomHydrationTimelineSeed false", () => {
+      expect(
+        hasMessengerRoomHydrationTimelineSeed({
+          roomMessagesLength: 0,
+          snapshotMessagesLength: 0,
+          snapshot: snap({ messages: [], lastMessage: "hint only" }),
+        })
+      ).toBe(false);
+    });
+
+    it("messages[] complete seed — hasMessengerRoomHydrationTimelineSeed true", () => {
+      const messages = [msg({ id: "m1", createdAt: "2026-01-01T00:00:00.000Z" })];
+      expect(
+        hasMessengerRoomHydrationTimelineSeed({
+          roomMessagesLength: 0,
+          snapshotMessagesLength: 1,
+          snapshot: snap({ messages, lastMessage: "m1" }),
+        })
+      ).toBe(true);
+    });
+
+    it("cold vs re-entry — 동일 paint source row order", () => {
+      const messages = [
+        msg({ id: "m1", createdAt: "2026-01-01T00:00:01.000Z" }),
+        msg({ id: "m2", createdAt: "2026-01-01T00:00:02.000Z" }),
+        msg({ id: "m3", createdAt: "2026-01-01T00:00:03.000Z" }),
+      ];
+      const snapshot = snap({ messages, lastMessage: "tail" });
+      const coldPaint = resolveMessengerRoomTimelinePaintSource({
+        displayRoomMessages: [],
+        roomMessages: messages,
+        loading: false,
+        timelineInitialLoadComplete: false,
+        snapshot,
+      });
+      const reentryPaint = resolveMessengerRoomTimelinePaintSource({
+        displayRoomMessages: messages,
+        roomMessages: messages,
+        loading: false,
+        timelineInitialLoadComplete: true,
+        snapshot,
+      });
+      expect(coldPaint.map((m) => m.id)).toEqual(reentryPaint.map((m) => m.id));
     });
   });
 });

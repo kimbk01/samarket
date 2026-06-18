@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasMessengerRoomTimelineLoadHint,
+  hasMessengerRoomHydrationTimelineSeed,
   isMessengerRoomTimelineBootstrapSeedComplete,
   isMessengerRoomTimelinePaintableBootstrapSeed,
   shouldShowMessengerRoomTimelineHydrationSkeleton,
@@ -110,6 +111,29 @@ describe("messenger-room-timeline-hydration", () => {
       isMessengerRoomTimelinePaintableBootstrapSeed({
         messages: [{ id: "m1" } as never],
         room: { lastMessage: "통화" },
+      })
+    ).toBe(true);
+  });
+
+  it("hasMessengerRoomHydrationTimelineSeed — lastMessage only → false", () => {
+    expect(
+      hasMessengerRoomHydrationTimelineSeed({
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 0,
+        snapshot: { messages: [], room: { lastMessage: "stub" } },
+      })
+    ).toBe(false);
+  });
+
+  it("hasMessengerRoomHydrationTimelineSeed — paintable messages[] → true", () => {
+    expect(
+      hasMessengerRoomHydrationTimelineSeed({
+        roomMessagesLength: 0,
+        snapshotMessagesLength: 2,
+        snapshot: {
+          messages: [{ id: "a" } as never, { id: "b" } as never],
+          room: { lastMessage: "b" },
+        },
       })
     ).toBe(true);
   });

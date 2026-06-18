@@ -50,4 +50,16 @@ describe("messenger-room-entry-scroll-owner", () => {
     resetMessengerRoomEntryScrollOwner(ROOM);
     expect(__getMessengerRoomEntryScrollStateForTest(ROOM)).toBeUndefined();
   });
+
+  it("blocks duplicate entry scroll owner while active", () => {
+    markMessengerRoomScrollOwnerRun(ROOM, "room_entry_initial");
+    expect(canRunMessengerRoomScrollOwner(ROOM, "schedule_after_rows_painted")).toBe(false);
+    expect(canRunMessengerRoomScrollOwner(ROOM, "viewport_resize_restore")).toBe(false);
+  });
+
+  it("re-entry restored pass3 marks entry scroll settled for virtual parity", () => {
+    setMessengerRoomEntryHydrationPass(ROOM, 3);
+    markMessengerRoomEntryScrollSettled(ROOM, "reentry_hydration_restored");
+    expect(isMessengerRoomReadyForVirtualLayout(ROOM)).toBe(true);
+  });
 });

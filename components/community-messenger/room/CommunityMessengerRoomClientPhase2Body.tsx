@@ -104,7 +104,11 @@ import {
   noteCmRoomR5Phase2BodyMount,
 } from "@/lib/community-messenger/room/cm-room-r5-timeline-mount-instrumentation";
 import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
-import { setMessengerRoomEntryHydrationPass } from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
+import {
+  markMessengerRoomEntryScrollSettled,
+  setMessengerRoomEntryHydrationPass,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
+import { hasMessengerRoomHydrationTimelineSeed } from "@/lib/community-messenger/room/messenger-room-timeline-hydration";
 
 function pushCmR8PerfEvent(roomId: string, event: string, payload: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
@@ -165,10 +169,11 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() => {
     const persisted = getCmRoomSubtreeHydrationPass(roomIdStable);
     if (persisted >= 3) return persisted as CmRoomPhase2HydrationPass;
-    const hasTimelineSeed =
-      (room.snapshot.messages?.length ?? 0) > 0 ||
-      (room.roomMessages?.length ?? 0) > 0 ||
-      Boolean(room.snapshot.room.lastMessage?.trim());
+    const hasTimelineSeed = hasMessengerRoomHydrationTimelineSeed({
+      roomMessagesLength: room.roomMessages?.length ?? 0,
+      snapshotMessagesLength: room.snapshot.messages?.length ?? 0,
+      snapshot: room.snapshot,
+    });
     if (hasTimelineSeed) return 2;
     if (persisted >= 2) return persisted as CmRoomPhase2HydrationPass;
     return persisted as CmRoomPhase2HydrationPass;
@@ -207,12 +212,14 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
     const persisted = bumpCmRoomHydrationPassFromPersisted(rid, hydrationPass);
     if (persisted >= 3) {
       setHydrationPass(persisted as CmRoomPhase2HydrationPass);
+      markMessengerRoomEntryScrollSettled(rid, "reentry_hydration_restored");
       return;
     }
-    const hasTimelineSeed =
-      (room.snapshot.messages?.length ?? 0) > 0 ||
-      (room.roomMessages?.length ?? 0) > 0 ||
-      Boolean(room.snapshot.room.lastMessage?.trim());
+    const hasTimelineSeed = hasMessengerRoomHydrationTimelineSeed({
+      roomMessagesLength: room.roomMessages.length,
+      snapshotMessagesLength: room.snapshot.messages?.length ?? 0,
+      snapshot: room.snapshot,
+    });
     if (hasTimelineSeed) {
       noteCmRoomR5HydrationPassAtSeed(
         rid,
@@ -238,7 +245,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       setHydrationPass(2);
       setCmRoomSubtreeHydrationPass(rid, 2);
     });
-  }, [hydrationPass, room.roomMessages.length, roomIdStable, room.snapshot.messages.length, room.snapshot.room.lastMessage]);
+  }, [hydrationPass, room.roomMessages.length, roomIdStable, room.snapshot.messages.length, room.snapshot]);
 
   useEffect(() => {
     if (hydrationPass < 2) return;

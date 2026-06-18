@@ -75,6 +75,8 @@ export function useMessengerRoomStoreOrderDockScrollAnchor(opts: {
         if (upgradeBag?.[roomId?.trim() ?? ""]?.scrollAnchorDeferred) return;
         markCmR9ScrollAnchor(roomId ?? "", "scrollAnchorRestoreBeginMs");
         runMessengerRoomScrollToBottom({
+          roomId: roomId ?? "",
+          reason: "virtualizer_scroll_anchor",
           messagesViewportRef,
           messageEndRef,
           virtualizer,

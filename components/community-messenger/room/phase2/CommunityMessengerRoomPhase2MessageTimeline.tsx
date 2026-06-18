@@ -1135,12 +1135,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     if (!frozen || frozen.length === 0) return;
     if (timelinePaintMessages.length > frozen.length) {
       setFirstCommitRowsLocked(false);
+      setMessengerRoomFirstCommitRowsLocked(vm.streamRoomId, false);
       return;
     }
     const frozenLastId = frozen[frozen.length - 1]?.id ?? "";
     const liveLastId = timelinePaintMessages[timelinePaintMessages.length - 1]?.id ?? "";
-    if (liveLastId && frozenLastId !== liveLastId) {
+    const liveLastPending = Boolean(timelinePaintMessages[timelinePaintMessages.length - 1]?.pending);
+    if (liveLastId && (frozenLastId !== liveLastId || liveLastPending)) {
       setFirstCommitRowsLocked(false);
+      setMessengerRoomFirstCommitRowsLocked(vm.streamRoomId, false);
     }
   }, [firstCommitRowsLocked, timelinePaintMessages]);
 

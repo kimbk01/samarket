@@ -4,6 +4,11 @@ import type { MutableRefObject, RefObject } from "react";
 import type { Virtualizer } from "@tanstack/react-virtual";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
 import { isMessengerRoomNearBottomFromMetrics } from "@/lib/community-messenger/room/messenger-room-timeline-ssot";
+import {
+  canRunMessengerRoomScrollOwner,
+  markMessengerRoomScrollOwnerRun,
+  type CmScrollOwnerReason,
+} from "@/lib/community-messenger/room/messenger-room-entry-scroll-owner";
 
 type VirtualizerLike = Pick<Virtualizer<HTMLDivElement, Element>, "scrollToIndex">;
 
@@ -16,16 +21,22 @@ function isNearBottomViewport(vp: HTMLElement | null | undefined): boolean {
 }
 
 /**
- * 가상 타임라인 + scrollTop + messageEnd 앵커를 한 번에 맞춘다.
- * 거래 도크 펼침 등 레이아웃이 늦게 잡힐 때 이중 rAF로 커밋 후 실행한다.
+ * 가상 타임라인 + scrollTop 앵커 — scroll owner SSOT 경유.
+ * 거래·주문 도크 펼침 등 레이아웃이 늦게 잡힐 때 이중 rAF로 커밋 후 실행한다.
  */
 export function runMessengerRoomScrollToBottom(opts: {
+  roomId?: string;
+  reason?: CmScrollOwnerReason;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   messageEndRef: RefObject<HTMLDivElement | null>;
   virtualizer?: VirtualizerLike;
   messageCount: number;
   stickToBottomRef?: MutableRefObject<boolean>;
 }): void {
+  const rid = opts.roomId?.trim() ?? "";
+  const reason = opts.reason ?? "virtualizer_scroll_anchor";
+  if (rid && !canRunMessengerRoomScrollOwner(rid, reason)) return;
+
   const run = () => {
     const vp = opts.messagesViewportRef.current;
     const nearBottom = isNearBottomViewport(vp);
@@ -44,7 +55,13 @@ export function runMessengerRoomScrollToBottom(opts: {
     if (vp) {
       vp.scrollTop = vp.scrollHeight;
     }
-    opts.messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+    if (rid) {
+      markMessengerRoomScrollOwnerRun(rid, reason, {
+        scrollTop: vp?.scrollTop,
+        scrollHeight: vp?.scrollHeight,
+        clientHeight: vp?.clientHeight,
+      });
+    }
     if (opts.stickToBottomRef) {
       opts.stickToBottomRef.current = true;
     }
