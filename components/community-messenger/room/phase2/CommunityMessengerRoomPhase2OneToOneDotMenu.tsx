@@ -14,10 +14,13 @@ import {
   resolveMessengerPeerSocialCta,
   type MessengerPeerSocialCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
-import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import type { CommunityMessengerRoomContextMetaV1, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
+import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
+import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
+import { logCallPermission } from "@/lib/community-messenger/direct-call-permission";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
@@ -50,8 +53,12 @@ function mapSellerListingToProductStatus(
   return "selling";
 }
 
-function mapRelationFromCta(cta: MessengerPeerSocialCta): Relation {
-  if (cta.kind === "friend") return "accepted";
+function mapRelationFromSnapshot(
+  peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"],
+  cta: MessengerPeerSocialCta
+): Relation {
+  if (peerFriendshipState === "pending") return "requested";
+  if (peerFriendshipState === "accepted" || cta.kind === "friend") return "accepted";
   return "none";
 }
 
@@ -139,11 +146,40 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
 
   const friendAddCta = useMemo((): MessengerPeerSocialCta => {
     if (!peerUserId) return { kind: "add_friend" };
-    const peerPick = peerProfile ?? { id: peerUserId, isFriend: false, blocked: false };
-    return resolveMessengerPeerSocialCta(peerPick);
-  }, [peerProfile, peerUserId]);
+    const peerIsFriend =
+      vm.snapshot.peerFriendshipState === "accepted" || Boolean(peerProfile?.isFriend);
+    const peerPick = peerProfile ?? { id: peerUserId, isFriend: peerIsFriend, blocked: false };
+    return resolveMessengerPeerSocialCta({
+      ...peerPick,
+      isFriend: peerIsFriend,
+    });
+  }, [peerProfile, peerUserId, vm.snapshot.peerFriendshipState]);
 
-  const relation: Relation = useMemo(() => mapRelationFromCta(friendAddCta), [friendAddCta]);
+  const relation: Relation = useMemo(
+    () => mapRelationFromSnapshot(vm.snapshot.peerFriendshipState, friendAddCta),
+    [friendAddCta, vm.snapshot.peerFriendshipState]
+  );
+
+  const assertGeneralDirectCallAllowed = useCallback(
+    (kind: "voice" | "video"): boolean => {
+      if (callMenuKind !== "general") return true;
+      const gate = vm.snapshot.directCallGate;
+      if (!gate) return true;
+      const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
+      if (allowed) return true;
+      const code: DirectCallDenyCode = gate.denyCode ?? "deny_not_friend";
+      logCallPermission("ui_gate_start", {
+        callerUserId: vm.snapshot.viewerUserId,
+        calleeUserId: peerUserId || undefined,
+        roomId: vm.snapshot.room.id,
+        code,
+        callKind: kind,
+      });
+      showMessengerSnackbar(resolveDirectCallDenyUserMessage(code), { variant: "error" });
+      return false;
+    },
+    [callMenuKind, peerUserId, vm.snapshot.directCallGate, vm.snapshot.room.id, vm.snapshot.viewerUserId]
+  );
 
   const livePeerPresence = useCommunityMessengerPeerPresence(peerUserId || null, vm.snapshot.peerPresence ?? null);
 
@@ -304,10 +340,12 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
         void onFriendRequest();
       }}
       onVoiceCall={() => {
+        if (!assertGeneralDirectCallAllowed("voice")) return;
         vm.dismissRoomSheet();
         void vm.startManagedDirectCall("voice");
       }}
       onVideoCall={() => {
+        if (!assertGeneralDirectCallAllowed("video")) return;
         vm.dismissRoomSheet();
         void vm.startManagedDirectCall("video");
       }}

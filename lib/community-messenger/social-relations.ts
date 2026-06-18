@@ -11,8 +11,15 @@ import {
   fetchBlockedPairFromSb,
   type BlockedRelation,
 } from "@/lib/social/user-block-ssot";
+import {
+  canStartDirectCallBetweenUsers,
+  resolveDirectCallPolicy,
+  type DirectCallPolicy,
+  logCallPermission,
+} from "@/lib/community-messenger/direct-call-permission";
+import { getFriendshipPairState, isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
 
-export type MessengerDirectCallPolicy = "everyone" | "friends_only" | "none";
+export type MessengerDirectCallPolicy = DirectCallPolicy;
 
 export type SocialRelationPublicProfile = {
   id: string;
@@ -137,31 +144,13 @@ export async function isFriendSavedByMe(ownerUserId: string, targetUserId: strin
   return Boolean(data?.id);
 }
 
-/** 승인·양방향 저장된 친구만 true (UI `isFriend` 기준) */
+/** 승인·accepted friend pair — friendships SSOT 1순위 (UI `isFriend` 기준) */
 export async function isMutualFriend(userId: string, targetUserId: string): Promise<boolean> {
   const viewer = trimText(userId);
   const target = trimText(targetUserId);
   if (!viewer || !target || viewer === target) return false;
-
-  const [savedByMe, savedByPeer] = await Promise.all([
-    isFriendSavedByMe(viewer, target),
-    isFriendSavedByMe(target, viewer),
-  ]);
-  if (savedByMe && savedByPeer) return true;
-
   const sb = getSupabaseOrNull();
-  if (!sb) return false;
-  const { data, error } = await (sb as any)
-    .from("community_friend_requests")
-    .select("id")
-    .eq("status", "accepted")
-    .or(
-      `and(requester_id.eq.${viewer},addressee_id.eq.${target}),and(requester_id.eq.${target},addressee_id.eq.${viewer})`
-    )
-    .limit(1)
-    .maybeSingle();
-  if (error && !isMissingTableError(error)) return false;
-  return Boolean(data?.id);
+  return isAcceptedFriendPair(sb, viewer, target);
 }
 
 export async function listBlockedByMeIds(ownerUserId: string): Promise<string[]> {
@@ -204,9 +193,7 @@ async function fetchProfileCallPolicy(
     .select("messenger_direct_call_policy, status")
     .eq("id", userId)
     .maybeSingle();
-  const policy = trimText((data as { messenger_direct_call_policy?: string } | null)?.messenger_direct_call_policy);
-  if (policy === "friends_only" || policy === "none") return policy;
-  return "everyone";
+  return resolveDirectCallPolicy((data as { messenger_direct_call_policy?: string } | null)?.messenger_direct_call_policy);
 }
 
 async function isProfileRestricted(
@@ -257,12 +244,12 @@ export async function resolveDirectInteractionGuard(
     };
   }
 
-  const [{ blockedByMe, blockedByPeer }, isFriend, targetRestricted, callPolicy] = await Promise.all([
+  const [{ blockedByMe, blockedByPeer }, friendshipResolution, targetRestricted] = await Promise.all([
     fetchBlockedPairsEitherWay(sb, viewer, target),
-    isMutualFriend(viewer, target),
+    getFriendshipPairState(sb, viewer, target),
     isProfileRestricted(sb, target),
-    fetchProfileCallPolicy(sb, target),
   ]);
+  const isFriend = friendshipResolution.state === "accepted";
 
   if (blockedByMe || blockedByPeer) {
     return {
@@ -286,16 +273,22 @@ export async function resolveDirectInteractionGuard(
     };
   }
 
-  let canCall = true;
-  if (callPolicy === "none") canCall = false;
-  if (callPolicy === "friends_only" && !isFriend) canCall = false;
+  const callGate = await canStartDirectCallBetweenUsers({
+    callerUserId: viewer,
+    calleeUserId: target,
+    callKind: "audio",
+    supabase: sb,
+    skipRoomCheck: true,
+    friendshipPreload: friendshipResolution,
+  });
 
   return {
     canMessage: true,
-    canCall,
+    canCall: callGate.allowed,
     isFriend,
     isBlockedByMe: false,
     isBlockedByPeer: false,
+    ...(!callGate.allowed ? { reason: "call_policy" as const } : {}),
   };
 }
 
@@ -370,6 +363,50 @@ async function syncLegacyBlockRow(
     .eq("user_id", ownerUserId)
     .eq("target_user_id", targetUserId)
     .or("relation_type.eq.blocked,type.eq.blocked");
+}
+
+export async function syncMutualFriendSavedAfterAccept(
+  requesterId: string,
+  addresseeId: string
+): Promise<{ ok: boolean; partial?: boolean }> {
+  const requester = trimText(requesterId);
+  const addressee = trimText(addresseeId);
+  if (!requester || !addressee) return { ok: false };
+
+  const runBoth = async () => {
+    const [ab, ba] = await Promise.all([
+      addFriendSaved(requester, addressee),
+      addFriendSaved(addressee, requester),
+    ]);
+    return { ab, ba };
+  };
+
+  let { ab, ba } = await runBoth();
+  if (ab.ok && ba.ok) return { ok: true };
+
+  logSocialRelationEvent("friend_sync_partial", {
+    requesterId: requester,
+    addresseeId: addressee,
+    abError: ab.error ?? "",
+    baError: ba.error ?? "",
+  });
+  logCallPermission("evaluate_start", {
+    callerUserId: requester,
+    calleeUserId: addressee,
+    reason: "friend_sync_retry",
+  });
+
+  ({ ab, ba } = await runBoth());
+  const ok = ab.ok && ba.ok;
+  if (!ok) {
+    console.warn("[call-permission] friend_sync_partial_after_retry", {
+      requesterId: requester,
+      addresseeId: addressee,
+      abError: ab.error,
+      baError: ba.error,
+    });
+  }
+  return { ok, partial: !ok };
 }
 
 export async function addFriendSaved(

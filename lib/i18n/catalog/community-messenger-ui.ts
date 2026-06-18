@@ -701,6 +701,11 @@ export const communityMessengerUiMessages = {
     cm_ui_call_failed_ice_detail: "통화 연결(ICE)에 실패했습니다.",
     cm_ui_call_failed_network_detail: "네트워크 상태를 확인해 주세요.",
     cm_ui_call_failed_signaling_detail: "통화 서버 연결에 실패했습니다.",
+    cm_call_deny_pending_friend: "친구 요청이 수락되면 통화할 수 있습니다.",
+    cm_call_deny_not_friend: "친구만 통화할 수 있습니다.",
+    cm_call_deny_blocked: "차단된 사용자와는 통화할 수 없습니다.",
+    cm_call_deny_privacy: "상대방의 통화 설정으로 인해 연결할 수 없습니다.",
+    cm_call_deny_room_mismatch: "이 대화방 상태에서는 통화를 시작할 수 없습니다.",
     cm_ui_allow_and_connect: "허용하고 연결",
     cm_ui_call_accept_permission_video_failed:
       "카메라/마이크 권한을 허용하지 못했습니다. 통화 화면에서 마이크·카메라를 허용해 주세요.",
@@ -1638,6 +1643,11 @@ export const communityMessengerUiMessages = {
     cm_ui_call_failed_ice_detail: "Call connection (ICE) failed.",
     cm_ui_call_failed_network_detail: "Check your network connection.",
     cm_ui_call_failed_signaling_detail: "Could not connect to the call server.",
+    cm_call_deny_pending_friend: "You can call after the friend request is accepted.",
+    cm_call_deny_not_friend: "Only friends can start a call.",
+    cm_call_deny_blocked: "You cannot call a blocked user.",
+    cm_call_deny_privacy: "The other person's call settings do not allow this call.",
+    cm_call_deny_room_mismatch: "You cannot start a call in this room state.",
     cm_ui_allow_and_connect: "Allow and connect",
     cm_ui_call_accept_permission_video_failed:
       "Could not allow camera/microphone. Allow them on the call screen.",

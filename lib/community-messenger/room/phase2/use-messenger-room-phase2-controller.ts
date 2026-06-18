@@ -38,6 +38,9 @@ import { useCommunityMessengerRoomGroupCall } from "@/lib/community-messenger/ro
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import { MESSENGER_CALL_USER_MSG } from "@/lib/community-messenger/messenger-call-user-messages";
+import { logCallPermission, type DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
+import { resolveDirectCallDenyUserMessage } from "@/lib/community-messenger/direct-call-permission-messages";
+import { resolveMessengerDotMenuCallKind } from "@/lib/community-messenger/messenger-room-domain";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import { type CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import {
@@ -560,8 +563,26 @@ export function useMessengerRoomPhase2Controller() {
     (kind: "voice" | "video"): boolean => {
       if (roomUnavailable || isGroupRoom) return false;
       if (outgoingDialSyncGuardRef.current) return false;
+      const rid = roomId.trim();
+      const callMenuKind = snapshot ? resolveMessengerDotMenuCallKind(snapshot.room) : "general";
+      if (callMenuKind === "general" && snapshot?.directCallGate) {
+        const gate = snapshot.directCallGate;
+        const allowed = kind === "video" ? gate.canStartVideo : gate.canStartVoice;
+        if (!allowed) {
+          const code: DirectCallDenyCode = gate.denyCode ?? "deny_not_friend";
+          logCallPermission("ui_gate_start", {
+            callerUserId: snapshot.viewerUserId,
+            calleeUserId: snapshot.room.peerUserId ?? undefined,
+            roomId: rid,
+            code,
+            callKind: kind,
+          });
+          showMessengerSnackbar(resolveDirectCallDenyUserMessage(code), { variant: "error" });
+          return false;
+        }
+      }
       const guard = guardInstantOutgoingCallStart({
-        roomId: roomId.trim(),
+        roomId: rid,
         kind,
       });
       if (!guard.ok) {
@@ -589,7 +610,6 @@ export function useMessengerRoomPhase2Controller() {
         return true;
       }
 
-      const rid = roomId.trim();
       const peerLabel = snapshot?.room.title?.trim();
       cmCallLatencyMarkClick({
         surface: "room_managed",
@@ -615,7 +635,7 @@ export function useMessengerRoomPhase2Controller() {
       })();
       return true;
     },
-    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot?.activeCall, snapshot?.room.title, t]
+    [isGroupRoom, openDirectCallPage, roomId, roomUnavailable, router, snapshot, t]
   );
 
   useEffect(() => {

@@ -209,12 +209,17 @@ export function onCommunityMessengerBusEvent(handler: (ev: MessengerBusEvent) =>
       d.type !== "cm.room.bump" &&
       d.type !== "cm.room.local_unread" &&
       d.type !== "cm.home.merge_room_summary" &&
+      d.type !== "cm.home.social_sync" &&
       d.type !== "cm.room.incoming_message" &&
       d.type !== "cm.room.read" &&
       d.type !== "cm.room.summary_patch" &&
       d.type !== "cm.room.peer_read_ack"
     )
       return;
+    if (d.type === "cm.home.social_sync") {
+      handler(d as MessengerBusEvent);
+      return;
+    }
     if (d.type === "cm.room.peer_read_ack") {
       if (typeof d.roomId !== "string" || !d.roomId.trim()) return;
       if (typeof d.readerUserId !== "string" || !d.readerUserId.trim()) return;

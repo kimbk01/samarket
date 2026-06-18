@@ -134,6 +134,7 @@ import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/r
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
+import { useMessengerRoomFriendshipSync } from "@/lib/community-messenger/room/use-messenger-room-friendship-sync";
 import { useMessengerRoomCanonicalRouteReplaceEffect } from "@/lib/community-messenger/room/use-messenger-room-canonical-route-effect";
 import { useMessengerRoomLocalIndexedDbSnapshot } from "@/lib/community-messenger/room/use-messenger-room-local-indexed-db-snapshot";
 import {
@@ -1398,6 +1399,14 @@ export function useMessengerRoomClientPhase1({
     lastRemoteBumpDedupeRef,
     setRoomMessages,
     catchUpAfterRemoteBump,
+  });
+
+  useMessengerRoomFriendshipSync({
+    roomId,
+    roomReadyForRealtime,
+    snapshot,
+    setSnapshot,
+    refresh,
   });
 
   useMessengerRoomCanonicalRouteReplaceEffect({

@@ -1,4 +1,5 @@
 import type { ChatRoom } from "@/lib/types/chat";
+import type { DirectCallDenyCode } from "@/lib/community-messenger/direct-call-permission";
 
 export type CommunityMessengerTab = "friends" | "chats" | "groups" | "calls";
 
@@ -400,6 +401,14 @@ export type CommunityMessengerRoomSnapshot = {
    * `user_social_relations` 와 분리(`community_messenger_peer_notices`).
    */
   unknownPeerNoticeDismissed?: boolean;
+  /** 1:1 general direct — peer 와의 friendship SSOT 상태(스냅샷·통화 UI) */
+  peerFriendshipState?: "accepted" | "pending" | "none" | "blocked";
+  /** viewer → peer 발신 통화 gate — hidden room 과 무관 */
+  directCallGate?: {
+    canStartVoice: boolean;
+    canStartVideo: boolean;
+    denyCode?: DirectCallDenyCode;
+  };
 };
 
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */

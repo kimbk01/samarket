@@ -45,9 +45,12 @@ export async function POST(
     callKind: body.callKind,
     dialIntent: body.dialIntent === "fresh" ? "fresh" : undefined,
   });
-  /** 차단 게이트: startCommunityMessengerCallSession 내부 isBlockedEitherWay → blocked_target */
+  /** Direct call SSOT gate — `canStartDirectCallBetweenUsers` → `call_denied_*` (403) */
   if (!result.ok) {
-    return NextResponse.json(result, { status: 400 });
+    const err = String(result.error ?? "").trim();
+    const callDenied =
+      err.startsWith("call_denied_") || err === "blocked_target" || err === "call_denied_permission";
+    return NextResponse.json(result, { status: callDenied ? 403 : 400 });
   }
   const session = result.session;
   if (!session?.id) {

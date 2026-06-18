@@ -29,6 +29,9 @@ import {
 import { resetCommunityMessengerCallRuntimeSurface } from "@/lib/community-messenger/call-runtime-registry";
 import { notifyCommunityCallHostSync } from "@/components/layout/providers/CommunityMessengerActiveCallHost";
 import { hardClearActiveCallSession } from "@/lib/call/active-call-session";
+import {
+  resolveDirectCallDenyUserMessageFromApiError,
+} from "@/lib/community-messenger/direct-call-permission-messages";
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { safeTranslate } from "@/lib/i18n/safe-translate";
 import {
@@ -540,6 +543,10 @@ async function runBootstrapCommunityMessengerOutgoingCallSessionCoreUnlocked(arg
     }
     if (json.error === "trade_chat_call_friend_required_after_complete") {
       return fail("통화를 원하면 친구를 요청하세요.", "create_failed");
+    }
+    const denyMessage = resolveDirectCallDenyUserMessageFromApiError(json.error);
+    if (denyMessage) {
+      return fail(denyMessage, "create_failed");
     }
     return fail("통화를 시작할 수 없습니다.", "create_failed");
   }

@@ -109,8 +109,19 @@ import {
   removeFriendSaved,
   resolveDirectInteractionGuard,
   resolveUserByPublicId,
+  syncMutualFriendSavedAfterAccept,
   unblockUserSocial,
 } from "@/lib/community-messenger/social-relations";
+import {
+  buildDirectCallGateSnapshot,
+  canStartDirectCallBetweenUsers,
+  logCallPermission,
+  mapDenyCodeToApiError,
+} from "@/lib/community-messenger/direct-call-permission";
+import {
+  getFriendshipPairState,
+  peerFriendshipStateFromResolution,
+} from "@/lib/community-messenger/friendship-resolver";
 import { isUnknownPeerNoticeDismissed } from "@/lib/community-messenger/peer-notices";
 import { participantViewerBlockedHidden } from "@/lib/community-messenger/participant-block-hide";
 import { extractHs5TradeHintsFromRoomsPayload } from "@/lib/community-messenger/home-sync-hs5-trade-hints";
@@ -9069,10 +9080,7 @@ export async function respondCommunityMessengerFriendRequest(
           const requesterId = trimText(request.requester_id);
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
-            await Promise.all([
-              addFriendSaved(requesterId, addresseeId),
-              addFriendSaved(addresseeId, requesterId),
-            ]);
+            await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
             const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
@@ -9127,10 +9135,7 @@ export async function respondCommunityMessengerFriendRequest(
           const requesterId = trimText(request.requester_id);
           const addresseeId = trimText(request.addressee_id);
           if (requesterId && addresseeId) {
-            await Promise.all([
-              addFriendSaved(requesterId, addresseeId),
-              addFriendSaved(addresseeId, requesterId),
-            ]);
+            await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
             const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
             if (!roomOut.ok) {
               console.warn("[community-messenger] accept friend: direct room ensure failed", roomOut.error);
@@ -9182,10 +9187,7 @@ export async function respondCommunityMessengerFriendRequest(
     const requesterId = trimText(request.requester_id);
     const addresseeId = trimText(request.addressee_id);
     if (requesterId && addresseeId) {
-      await Promise.all([
-        addFriendSaved(requesterId, addresseeId),
-        addFriendSaved(addresseeId, requesterId),
-      ]);
+      await syncMutualFriendSavedAfterAccept(requesterId, addresseeId);
       const roomOut = await ensureCommunityMessengerDirectRoom(addresseeId, requesterId);
       if (!roomOut.ok) {
         console.warn("[community-messenger] accept friend (dev): direct room ensure failed", roomOut.error);
@@ -14497,6 +14499,32 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     unknownPeerNoticeDismissed = await isUnknownPeerNoticeDismissed(userId, peerForNotice, id);
   }
 
+  let peerFriendshipState: CommunityMessengerRoomSnapshot["peerFriendshipState"];
+  let directCallGate: CommunityMessengerRoomSnapshot["directCallGate"];
+  let membersForSnapshot = members;
+  const snapContextKind = summary.contextMeta?.kind;
+  const isGeneralDirectRoom =
+    summary.roomType === "direct" &&
+    peerUserId &&
+    snapContextKind !== "trade" &&
+    snapContextKind !== "delivery";
+  if (isGeneralDirectRoom && sb && !isCriticalTier && !deferSecondary) {
+    const friendshipResolution = await getFriendshipPairState(sb, userId, peerUserId);
+    directCallGate = await buildDirectCallGateSnapshot({
+      callerUserId: userId,
+      calleeUserId: peerUserId,
+      roomId: id,
+      supabase: sb,
+      friendshipPreload: friendshipResolution,
+    });
+    peerFriendshipState = peerFriendshipStateFromResolution(friendshipResolution);
+    if (friendshipResolution.state === "accepted") {
+      membersForSnapshot = members.map((member) =>
+        member.id === peerUserId ? { ...member, isFriend: true } : member
+      );
+    }
+  }
+
   const snapshot = {
     viewerUserId: userId,
     room: {
@@ -14507,7 +14535,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
         memberCount: summary.memberCount,
       }),
     },
-    members,
+    members: membersForSnapshot,
     ...(hydrateFullMemberList ? {} : { membersDeferred: true as const }),
     ...(membersTruncated ? { membersTruncated: true as const } : {}),
     ...(deferSecondary || isCriticalTier ? { bootstrapEnrichmentPending: true as const } : {}),
@@ -14521,6 +14549,8 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     ...(tradeChatRoomDetail ? { tradeChatRoomDetail } : {}),
     ...(tradeMessagingForSnapshot ? { tradeMessaging: tradeMessagingForSnapshot } : {}),
     ...(unknownPeerNoticeDismissed !== undefined ? { unknownPeerNoticeDismissed } : {}),
+    ...(peerFriendshipState ? { peerFriendshipState } : {}),
+    ...(directCallGate ? { directCallGate } : {}),
   };
   if (diagnostics) {
     diagnostics.messagesFetchMs = Math.round(messagesFetchMs);
@@ -17421,8 +17451,17 @@ export async function startCommunityMessengerCallSession(input: {
     }
   }
   if (!isGroupRoom && peerUserId) {
-    if (!(await ensureNoBlockedEitherWay(input.userId, peerUserId))) {
-      return { ok: false, error: "blocked_target" };
+    const callKindInput = input.callKind === "video" ? "video" : "audio";
+    const directCallGate = await canStartDirectCallBetweenUsers({
+      callerUserId: input.userId,
+      calleeUserId: peerUserId,
+      roomId,
+      callKind: callKindInput,
+      supabase: sb,
+      gateTag: "api_gate_start",
+    });
+    if (!directCallGate.allowed) {
+      return { ok: false, error: mapDenyCodeToApiError(directCallGate.code) };
     }
   }
 

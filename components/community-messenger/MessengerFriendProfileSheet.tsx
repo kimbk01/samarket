@@ -69,7 +69,8 @@ export function MessengerFriendProfileSheet({
   const atUsername = statusLine.startsWith("@") ? statusLine : "";
 
   const useFriendAddGate = Boolean(friendAddCta && onFriendAdd);
-  const canMessageAndCall = !profile.blocked;
+  const canMessage = !profile.blocked;
+  const canCall = canMessage && Boolean(profile.isFriend);
   const cta = friendAddCta;
 
   return (
@@ -121,11 +122,11 @@ export function MessengerFriendProfileSheet({
           </div>
         ) : null}
 
-        <div className={`mt-3 grid grid-cols-3 gap-1.5 ${!canMessageAndCall ? "opacity-40" : ""}`}>
+        <div className={`mt-3 grid grid-cols-3 gap-1.5 ${!canMessage && !canCall ? "opacity-40" : ""}`}>
           <button
             type="button"
             onClick={onChat}
-            disabled={anyBusy || !canMessageAndCall}
+            disabled={anyBusy || !canMessage}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
             <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("cm_friend_cta_message")}</p>
@@ -134,8 +135,8 @@ export function MessengerFriendProfileSheet({
           <button
             type="button"
             onClick={onVoiceCall}
-            disabled={anyBusy || !canMessageAndCall}
-            className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
+            disabled={anyBusy || !canCall}
+            className={`rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
           >
             <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_voice_call_label")}</p>
             {bVoice ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
@@ -143,14 +144,14 @@ export function MessengerFriendProfileSheet({
           <button
             type="button"
             onClick={onVideoCall}
-            disabled={anyBusy || !canMessageAndCall}
-            className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
+            disabled={anyBusy || !canCall}
+            className={`rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50 ${canMessage && !canCall ? "opacity-60" : ""}`}
           >
             <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_video_call_label")}</p>
             {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
           </button>
         </div>
-        {!canMessageAndCall ? (
+        {!canMessage ? (
           <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
         ) : null}
 
