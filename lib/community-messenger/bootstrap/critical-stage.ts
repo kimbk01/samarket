@@ -18,7 +18,7 @@ import type {
   CommunityMessengerRoomSummary,
   CommunityMessengerRoomType,
 } from "@/lib/community-messenger/types";
-import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 
 function getSupabaseOrNull(): ReturnType<typeof getSupabaseServer> | null {
   try {
@@ -213,7 +213,7 @@ export async function loadCommunityMessengerBootstrapCritical(
 
   const tMapCpu0 = performance.now();
   const chats = mySummaries.filter((room) => room.roomType === "direct");
-  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
   const mapRows = (summaries: CommunityMessengerRoomSummary[]): CommunityMessengerCriticalRoomRow[] =>
     summaries.map((summary) => {

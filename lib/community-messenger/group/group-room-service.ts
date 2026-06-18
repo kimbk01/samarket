@@ -287,17 +287,9 @@ export async function kickGroupMember(input: {
   };
   if (!canKickGroupMember(permCtx)) return { ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN };
 
-  const { data, error } = await (sb as any).rpc("community_messenger_kick_group_member", {
-    p_room_id: roomId,
-    p_target_user_id: targetUserId,
-  });
-  if (!error) {
-    const row = Array.isArray(data) ? data[0] : data;
-    if (row && row.ok === false) return { ok: false, error: String(row.error ?? GROUP_ROOM_ERROR.KICK_FAILED) };
-  } else {
-    const left = await markParticipantLeft(sb, roomId, targetUserId);
-    if (!left.ok) return { ok: false, error: left.error ?? GROUP_ROOM_ERROR.KICK_FAILED };
-  }
+  // P0: RPC `community_messenger_kick_group_member` is service_role-only — use gated participant update.
+  const left = await markParticipantLeft(sb, roomId, targetUserId);
+  if (!left.ok) return { ok: false, error: left.error ?? GROUP_ROOM_ERROR.KICK_FAILED };
 
   const targetMap = await fetchProfileLabels(sb, [targetUserId]);
   await appendGroupMgmtSystemMessage(sb, {

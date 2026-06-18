@@ -587,3 +587,10 @@ export type CommunityMessengerRoomAliasProfile = {
 export function isCommunityMessengerGroupRoomType(roomType: CommunityMessengerRoomType): boolean {
   return roomType === "private_group" || roomType === "open_group";
 }
+
+/** 홈 `groups` 버킷·카카오형 그룹 칩 — private_group only (P0). open_group/group_* 제외. */
+export function isCommunityMessengerPrivateGroupListRoomType(
+  roomType: CommunityMessengerRoomType
+): boolean {
+  return roomType === "private_group";
+}

@@ -474,7 +474,9 @@ export function useCommunityMessengerHomeState({
   const baseChatListItems = useMemo(() => {
     const next = unifiedRooms.filter(
       (item) =>
-        item.room.roomType !== "open_group" && communityMessengerRoomIsVisibleInMainChatInbox(item.room)
+        item.room.roomType !== "open_group" &&
+        item.room.roomType !== "private_group" &&
+        communityMessengerRoomIsVisibleInMainChatInbox(item.room)
     );
     return stabilizeRoomListItems(next, baseChatListItemsStableRef);
   }, [unifiedRooms]);
@@ -539,8 +541,7 @@ export function useCommunityMessengerHomeState({
   const openChatJoinedItems = useMemo(() => {
     const next = unifiedRooms.filter(
       (item) =>
-        (item.room.roomType === "private_group" || item.room.roomType === "open_group") &&
-        !communityMessengerRoomIsInboxHidden(item.room)
+        item.room.roomType === "open_group" && !communityMessengerRoomIsInboxHidden(item.room)
     );
     return stabilizeRoomListItems(next, openChatJoinedItemsStableRef);
   }, [unifiedRooms]);

@@ -307,6 +307,50 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
 
+                {vm.isPrivateGroupRoom ? (
+                  <div className="mb-4 rounded-ui-rect border border-[#006241]/25 bg-[#EAF4EF] p-4">
+                    <p className="sam-text-helper font-semibold text-[#006241]">{vm.t("nav_messenger_private_group")}</p>
+                    <p className="mt-1 sam-text-body-secondary text-[#004C3F]">{vm.t("nav_messenger_open_group_settings")}</p>
+                    {vm.canEditPrivateGroupMeta ? (
+                      <div className="mt-3 grid gap-2">
+                        <input
+                          value={vm.privateGroupTitle}
+                          onChange={(e) => vm.setPrivateGroupTitle(e.target.value)}
+                          placeholder={vm.t("nav_messenger_room_title_placeholder")}
+                          className="h-11 w-full rounded-ui-rect border border-[#006241]/30 bg-white px-3 sam-text-body outline-none focus:border-[#006241]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => void vm.savePrivateGroupSettings()}
+                          disabled={vm.busy === "private-group-settings" || !vm.privateGroupTitle.trim()}
+                          className="rounded-ui-rect bg-[#006241] px-4 py-3 sam-text-body-secondary font-semibold text-white transition active:bg-[#004C3F] disabled:opacity-40"
+                        >
+                          {vm.busy === "private-group-settings"
+                            ? vm.t("nav_messenger_saving_settings")
+                            : vm.t("nav_messenger_save_room_settings")}
+                        </button>
+                      </div>
+                    ) : null}
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => vm.setActiveSheet("members")}
+                        className="rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-3 text-left sam-text-helper font-semibold text-[#004C3F] transition active:bg-[#EAF4EF]"
+                      >
+                        {vm.t("nav_messenger_participants")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void vm.toggleRoomMute()}
+                        disabled={vm.busy === "room-mute"}
+                        className="rounded-ui-rect border border-[#006241]/30 bg-white px-3 py-3 text-left sam-text-helper font-semibold text-[#004C3F] transition active:bg-[#EAF4EF] disabled:opacity-40"
+                      >
+                        {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <div className="flex flex-col items-center gap-2 border-b border-sam-border-soft pb-4">
                   <SamarketThumbnail
                     src={vm.snapshot.room.avatarUrl}

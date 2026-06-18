@@ -23,7 +23,7 @@ import {
   isMessengerQuickReactionKey,
 } from "@/lib/community-messenger/message-actions/message-reaction-policy";
 import { resolveDeletedMessagePlaceholder } from "@/lib/community-messenger/message-actions/message-reply-policy";
-import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { isCommunityMessengerGroupRoomType, isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import { buildProfileUserSearchOrFilter } from "@/lib/community-messenger/profile-user-search-filter";
 import {
   COMMUNITY_MESSENGER_VOICE_WAVEFORM_BARS,
@@ -4233,7 +4233,7 @@ export async function listCommunityMessengerMyChatsAndGroups(
   const tSplitLists = performance.now();
   const listDeduped = dedupeTradeMessengerRoomSummaries(mySummaries);
   const chats = listDeduped.filter((room) => room.roomType === "direct");
-  const groups = listDeduped.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const groups = listDeduped.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
   const listSplitFilterMs = performance.now() - tSplitLists;
   const payloadBuildMs = ms(roomIdsMs + roomSliceCpuMs + summarizeMs + listSplitFilterMs);
 
@@ -5354,7 +5354,7 @@ export async function getCommunityMessengerBootstrap(
   }
   const tTransformLists = performance.now();
   const chats = mySummaries.filter((room) => room.roomType === "direct");
-  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
   const discSummaries = summarizeRoomsBatchWithProfileMap(
     userId,

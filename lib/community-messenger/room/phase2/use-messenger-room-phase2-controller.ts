@@ -50,6 +50,7 @@ import {
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import { buildCommunityMessengerInternalShareClipboard } from "@/lib/community-messenger/message-actions/message-internal-share-card";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
+import { communityMessengerGroupRoomApiPath } from "@/lib/community-messenger/group/group-room-deeplink";
 import { forgetMessengerRoomClientBootstrapFlights } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
 import { messengerMonitorMessageRtt } from "@/lib/community-messenger/monitoring/client";
 import {
@@ -211,6 +212,7 @@ export function useMessengerRoomPhase2Controller() {
     openGroupPassword,
     openGroupSummary,
     openGroupTitle,
+    privateGroupTitle,
     outgoingDialLocked,
     outgoingDialSyncGuardRef,
     pagedRoomMembers,
@@ -270,6 +272,7 @@ export function useMessengerRoomPhase2Controller() {
     setOpenGroupPassword,
     setOpenGroupSummary,
     setOpenGroupTitle,
+    setPrivateGroupTitle,
     setOutgoingDialLocked,
     setPagedRoomMembers,
     setPrivateGroupNoticeDraft,
@@ -344,6 +347,7 @@ export function useMessengerRoomPhase2Controller() {
     myRoleLabel,
     privateGroupNotice,
     canEditGroupNotice,
+    canEditPrivateGroupMeta,
     canManageGroupPermissions,
     canManageMemberRoles,
     canKickGroupMembers,
@@ -644,6 +648,7 @@ export function useMessengerRoomPhase2Controller() {
       setPrivateGroupNoticeDraft(snapshot.room.noticeText ?? "");
     }
     if (!isPrivateGroupRoom) return;
+    setPrivateGroupTitle(snapshot.room.title);
     setGroupAllowMemberInvite(snapshot.room.allowMemberInvite !== false);
     setGroupAllowAdminInvite(snapshot.room.allowAdminInvite !== false);
     setGroupAllowAdminKick(snapshot.room.allowAdminKick !== false);
@@ -667,6 +672,36 @@ export function useMessengerRoomPhase2Controller() {
     if (activeSheet !== "members" || !isPrivateGroupRoom || friendsLoaded) return;
     void loadFriends();
   }, [activeSheet, friendsLoaded, isPrivateGroupRoom, loadFriends]);
+
+  const savePrivateGroupSettings = useCallback(async () => {
+    if (!isPrivateGroupRoom || !snapshot) return;
+    setBusy("private-group-settings");
+    try {
+      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/settings`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: privateGroupTitle }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      if (!res.ok || !json.ok) {
+        if (redirectIfMessengerAuthBlocked(res, json)) return;
+        showMessengerSnackbar(getRoomActionErrorMessage(pickMessengerApiErrorField(json)), { variant: "error" });
+        return;
+      }
+      await refresh(true);
+      showMessengerSnackbar(translateCmUi("nav_messenger_save_room_settings"), { variant: "success" });
+    } finally {
+      setBusy(null);
+    }
+  }, [
+    getRoomActionErrorMessage,
+    isPrivateGroupRoom,
+    privateGroupTitle,
+    redirectIfMessengerAuthBlocked,
+    refresh,
+    streamRoomId,
+    snapshot,
+  ]);
 
   const saveOpenGroupSettings = useCallback(async () => {
     if (!isOpenGroupRoom || !snapshot) return;
@@ -1573,11 +1608,10 @@ export function useMessengerRoomPhase2Controller() {
     if (!isPrivateGroupRoom) return;
     setBusy("group-permissions");
     try {
-      const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
+      const res = await fetch(`${communityMessengerGroupRoomApiPath(streamRoomId)}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "group_permissions",
           allowMemberInvite: groupAllowMemberInvite,
           allowAdminInvite: groupAllowAdminInvite,
           allowAdminKick: groupAllowAdminKick,
@@ -1740,11 +1774,16 @@ export function useMessengerRoomPhase2Controller() {
       if (!window.confirm(t("cm_ui_confirm_remove_group_member", { name: label }))) return;
       setBusy(`group-remove:${targetUserId}`);
       try {
-        const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "group_member_remove", targetUserId }),
-        });
+        const endpoint = isPrivateGroupRoom
+          ? `${communityMessengerGroupRoomApiPath(streamRoomId)}/participants?userId=${encodeURIComponent(targetUserId)}`
+          : communityMessengerRoomResourcePath(streamRoomId);
+        const res = await fetch(endpoint, isPrivateGroupRoom
+          ? { method: "DELETE" }
+          : {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "group_member_remove", targetUserId }),
+            });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
           if (redirectIfMessengerAuthBlocked(res, json)) return;
@@ -1757,7 +1796,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
+    [getRoomActionErrorMessage, isPrivateGroupRoom, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
   );
 
   const startGroupCall = useCallback(
@@ -2153,6 +2192,7 @@ export function useMessengerRoomPhase2Controller() {
     myRoleLabel,
     privateGroupNotice,
     canEditGroupNotice,
+    canEditPrivateGroupMeta,
     canManageGroupPermissions,
     canManageMemberRoles,
     canKickGroupMembers,
@@ -2185,6 +2225,7 @@ export function useMessengerRoomPhase2Controller() {
     openDirectCallPage,
     startManagedDirectCall,
     saveOpenGroupSettings,
+    savePrivateGroupSettings,
     leaveRoom,
     openMembersForOwnerTransfer,
     openInfoSheet,

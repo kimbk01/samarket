@@ -2,7 +2,7 @@ import type {
   CommunityMessengerBootstrap,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import { mergeRoomSummaryWithConsistency } from "@/lib/community-messenger/consistency/messenger-consistency-merge";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 
@@ -68,7 +68,7 @@ export function mergeBootstrapRoomSummaryIntoLists(
   summary: CommunityMessengerRoomSummary
 ): CommunityMessengerBootstrap {
   bumpMessengerRenderPerf("messenger_room_summary_merge");
-  const isGroup = isCommunityMessengerGroupRoomType(summary.roomType);
+  const isGroup = isCommunityMessengerPrivateGroupListRoomType(summary.roomType);
   const targetKey = isGroup ? "groups" : "chats";
   const otherKey = isGroup ? "chats" : "groups";
   const target0 = data[targetKey] ?? [];

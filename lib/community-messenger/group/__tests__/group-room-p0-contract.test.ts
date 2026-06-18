@@ -14,7 +14,8 @@ import {
   matchesGroupChatListKindFilter,
   resolveGroupMessageRoomKind,
 } from "@/lib/community-messenger/group/group-room-notification-policy";
-import { validateGroupInviteTargets } from "@/lib/community-messenger/group/group-room-service";
+import { kickGroupMember, validateGroupInviteTargets } from "@/lib/community-messenger/group/group-room-service";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 
 vi.mock("@/lib/community-messenger/friendship-resolver", () => ({
   isAcceptedFriendPair: vi.fn(),
@@ -24,18 +25,27 @@ vi.mock("@/lib/community-messenger/social-relations", () => ({
   isBlockedEitherWayActive: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/group/group-room-realtime", () => ({
+  publishGroupRoomListBump: vi.fn(async () => {}),
+}));
+
 vi.mock("@/lib/community-messenger/group/group-room-repository", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/community-messenger/group/group-room-repository")>();
   return {
     ...actual,
     resolveGroupRoomSupabase: vi.fn(() => ({ from: vi.fn() })),
     profileIdsExist: vi.fn(async () => true),
+    fetchPrivateGroupRoom: vi.fn(),
+    fetchActiveParticipant: vi.fn(),
+    markParticipantLeft: vi.fn(async () => ({ ok: true })),
+    fetchProfileLabels: vi.fn(async () => new Map()),
+    insertGroupSystemMessage: vi.fn(async () => ({ ok: true, createdAt: new Date().toISOString() })),
   };
 });
 
 import { isAcceptedFriendPair } from "@/lib/community-messenger/friendship-resolver";
 import { isBlockedEitherWayActive } from "@/lib/community-messenger/social-relations";
-import { profileIdsExist } from "@/lib/community-messenger/group/group-room-repository";
+import { profileIdsExist, fetchPrivateGroupRoom, fetchActiveParticipant, markParticipantLeft } from "@/lib/community-messenger/group/group-room-repository";
 
 const viewer = "11111111-1111-1111-1111-111111111111";
 const peerA = "22222222-2222-2222-2222-222222222222";
@@ -46,9 +56,13 @@ describe("group-room P0 contract", () => {
     vi.mocked(isAcceptedFriendPair).mockReset();
     vi.mocked(isBlockedEitherWayActive).mockReset();
     vi.mocked(profileIdsExist).mockReset();
+    vi.mocked(fetchPrivateGroupRoom).mockReset();
+    vi.mocked(fetchActiveParticipant).mockReset();
+    vi.mocked(markParticipantLeft).mockReset();
     vi.mocked(isAcceptedFriendPair).mockResolvedValue(true);
     vi.mocked(isBlockedEitherWayActive).mockResolvedValue(false);
     vi.mocked(profileIdsExist).mockResolvedValue(true);
+    vi.mocked(markParticipantLeft).mockResolvedValue({ ok: true });
   });
 
   describe("resolveGroupMessageRoomKind", () => {
@@ -163,16 +177,64 @@ describe("group-room P0 contract", () => {
       ).toBe(false);
     });
 
-    it("open chat joined list includes private and open groups", () => {
-      expect(groupRoomAppearsInOpenChatJoinedList({ roomType: "private_group" })).toBe(true);
-      expect(groupRoomAppearsInOpenChatJoinedList({ roomType: "open_group" })).toBe(true);
-      expect(groupRoomAppearsInOpenChatJoinedList({ roomType: "direct" })).toBe(false);
-    });
-
-    it("all filter excludes open_group from main chat inbox mirror", () => {
+    it("all filter excludes open_group and private_group from main chat inbox mirror", () => {
       expect(
         matchesGroupChatListKindFilter({ roomType: "open_group", contextMeta: null, messengerDirectKey: null }, "all")
       ).toBe(false);
+      expect(
+        matchesGroupChatListKindFilter({ roomType: "private_group", contextMeta: null, messengerDirectKey: null }, "all")
+      ).toBe(false);
+      expect(
+        matchesGroupChatListKindFilter(
+          { roomType: "direct", contextMeta: null, messengerDirectKey: "trade_pc:x" },
+          "all"
+        )
+      ).toBe(false);
+    });
+
+    it("open chat joined list includes open_group only", () => {
+      expect(groupRoomAppearsInOpenChatJoinedList({ roomType: "open_group" })).toBe(true);
+      expect(groupRoomAppearsInOpenChatJoinedList({ roomType: "private_group" })).toBe(false);
+      expect(groupRoomAppearsInOpenChatJoinedList({ roomType: "direct" })).toBe(false);
+    });
+  });
+
+  describe("home groups bucket", () => {
+    it("includes private_group only in kakao-style group list bucket", () => {
+      expect(isCommunityMessengerPrivateGroupListRoomType("private_group")).toBe(true);
+      expect(isCommunityMessengerPrivateGroupListRoomType("open_group")).toBe(false);
+    });
+  });
+
+  describe("kickGroupMember", () => {
+    const roomId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    it("owner can kick member via gated participant update", async () => {
+      vi.mocked(fetchPrivateGroupRoom).mockResolvedValueOnce({
+        id: roomId,
+        room_type: "private_group",
+        owner_user_id: viewer,
+        allow_admin_kick: true,
+      } as any);
+      vi.mocked(fetchActiveParticipant)
+        .mockResolvedValueOnce({ role: "owner" } as any)
+        .mockResolvedValueOnce({ role: "member" } as any);
+      const result = await kickGroupMember({ userId: viewer, roomId, targetUserId: peerA });
+      expect(result).toEqual({ ok: true });
+      expect(markParticipantLeft).toHaveBeenCalled();
+    });
+
+    it("member cannot kick", async () => {
+      vi.mocked(fetchPrivateGroupRoom).mockResolvedValueOnce({
+        id: roomId,
+        room_type: "private_group",
+        owner_user_id: viewer,
+      } as any);
+      vi.mocked(fetchActiveParticipant)
+        .mockResolvedValueOnce({ role: "member" } as any)
+        .mockResolvedValueOnce({ role: "member" } as any);
+      const result = await kickGroupMember({ userId: peerA, roomId, targetUserId: peerB });
+      expect(result).toEqual({ ok: false, error: GROUP_ROOM_ERROR.FORBIDDEN });
     });
   });
 

@@ -14,7 +14,7 @@ import {
 import { COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP } from "@/lib/community-messenger/home-sync-room-caps";
 import type { HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type HomeSyncSnapshotPayloadJson = {
@@ -212,7 +212,7 @@ export async function assembleHomeSyncCriticalFromSnapshotPayload(
   }
 
   const chats = mySummaries.filter((room) => room.roomType === "direct");
-  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
   const payloadBuildMs = performance.now() - t0;
 
   return {

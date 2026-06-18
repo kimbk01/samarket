@@ -30,7 +30,7 @@ import type {
   CommunityMessengerRoomSummary,
   CommunityMessengerRoomType,
 } from "@/lib/community-messenger/types";
-import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import {
   FBT1_CRITICAL_DEFAULT_LIMIT,
   FBT1_FULL_DEFAULT_LIMIT,
@@ -312,7 +312,7 @@ export async function assembleCriticalBootstrapFromSnapshotPayload(
     }
     const row = summaryToCriticalRow(summary, labels);
     if (summary.roomType === "direct") chats.push(row);
-    else if (isCommunityMessengerGroupRoomType(summary.roomType)) groups.push(row);
+    else if (isCommunityMessengerPrivateGroupListRoomType(summary.roomType)) groups.push(row);
   }
 
   const me = profileById.get(userId) ?? null;
@@ -485,7 +485,7 @@ export async function assembleFullBootstrapFromSnapshotPayload(
   await enrichOpenGroupSummariesWithPhilifeMeetingLabels(userId, mySummaries);
 
   const chats = mySummaries.filter((room) => room.roomType === "direct");
-  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
   const discSummaries = summarizeRoomsBatchWithProfileMap(
     userId,

@@ -9,6 +9,7 @@ export type MessengerRoomPhase2HeaderViewModel = Pick<
   | "roomHeaderStatus"
   | "router"
   | "isGroupRoom"
+  | "isPrivateGroupRoom"
   | "t"
   | "roomUnavailable"
   | "outgoingDialLocked"

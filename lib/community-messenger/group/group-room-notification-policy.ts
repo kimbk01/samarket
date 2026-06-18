@@ -48,7 +48,11 @@ export function matchesGroupChatListKindFilter(
   room: ChatListFilterRoom,
   chatKindFilter: GroupChatListKindFilter
 ): boolean {
-  if (chatKindFilter === "all") return room.roomType !== "open_group";
+  if (chatKindFilter === "all") {
+    if (room.roomType !== "direct") return false;
+    if (roomIsConfirmedTrade(room) || roomIsConfirmedDelivery(room)) return false;
+    return true;
+  }
   if (chatKindFilter === "direct") return room.roomType === "direct";
   if (chatKindFilter === "private_group") return room.roomType === "private_group";
   if (chatKindFilter === "trade") return roomIsConfirmedTrade(room);
@@ -56,9 +60,9 @@ export function matchesGroupChatListKindFilter(
   return true;
 }
 
-/** Open-chat tab — joined private/open groups (not archived). */
+/** Open-chat tab — joined open groups only (experimental). private_group uses group chip. */
 export function groupRoomAppearsInOpenChatJoinedList(room: Pick<CommunityMessengerRoomSummary, "roomType">): boolean {
-  return room.roomType === "private_group" || room.roomType === "open_group";
+  return room.roomType === "open_group";
 }
 
 export function groupMessageFcmPayloadKindForRoom(

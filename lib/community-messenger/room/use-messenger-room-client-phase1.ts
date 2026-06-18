@@ -705,6 +705,7 @@ export function useMessengerRoomClientPhase1({
   const [memberActionTarget, setMemberActionTarget] = useState<CommunityMessengerProfileLite | null>(null);
   const [inviteSearchQuery, setInviteSearchQuery] = useState("");
   const [openGroupTitle, setOpenGroupTitle] = useState("");
+  const [privateGroupTitle, setPrivateGroupTitle] = useState("");
   const [openGroupSummary, setOpenGroupSummary] = useState("");
   const [openGroupPassword, setOpenGroupPassword] = useState("");
   const [openGroupMemberLimit, setOpenGroupMemberLimit] = useState("200");
@@ -1978,6 +1979,7 @@ export function useMessengerRoomClientPhase1({
   openGroupPassword,
   openGroupSummary,
   openGroupTitle,
+  privateGroupTitle,
   outgoingDialLocked,
   outgoingDialSyncGuardRef,
   pagedRoomMembers,
@@ -2037,6 +2039,7 @@ export function useMessengerRoomClientPhase1({
   setOpenGroupPassword,
   setOpenGroupSummary,
   setOpenGroupTitle,
+  setPrivateGroupTitle,
   setOutgoingDialLocked,
   setPagedRoomMembers,
   setPrivateGroupNoticeDraft,

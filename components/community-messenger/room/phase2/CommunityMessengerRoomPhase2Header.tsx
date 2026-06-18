@@ -14,7 +14,7 @@ import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realt
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
-import { Phone, Search, X } from "lucide-react";
+import { Phone, Search, Settings, X } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { resolveCommunityMessengerDeliveryContextMeta } from "@/lib/community-messenger/room-context-meta";
@@ -265,6 +265,16 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
               <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
           ) : null}
+          {vm.isPrivateGroupRoom ? (
+            <button
+              type="button"
+              onClick={() => vm.setActiveSheet("menu")}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#006241] transition active:bg-[#EAF4EF]"
+              aria-label={vm.t("nav_messenger_open_group_settings")}
+            >
+              <Settings className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+            </button>
+          ) : null}
           {isDeliveryBuyer ? (
             <button
               type="button"
@@ -275,7 +285,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             >
               <Phone className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
-          ) : (
+          ) : vm.isPrivateGroupRoom || vm.isGroupRoom ? null : (
             <button
               type="button"
               onClick={() => vm.setActiveSheet("menu")}

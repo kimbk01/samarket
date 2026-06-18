@@ -23,7 +23,7 @@ import type {
   CommunityMessengerBootstrap,
   CommunityMessengerProfileLite,
 } from "@/lib/community-messenger/types";
-import { isCommunityMessengerGroupRoomType } from "@/lib/community-messenger/types";
+import { isCommunityMessengerPrivateGroupListRoomType } from "@/lib/community-messenger/types";
 import { CM_BOOTSTRAP_LITE_DEFAULT_LIMIT } from "@/lib/community-messenger/cm-bootstrap-snapshot-counter";
 
 export type CmBootstrapSnapshotPayloadJson = {
@@ -271,7 +271,7 @@ export async function assembleLiteBootstrapFromSnapshotPayload(
   ).catch(() => {});
 
   const chats = mySummaries.filter((room) => room.roomType === "direct");
-  const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
+  const groups = mySummaries.filter((room) => isCommunityMessengerPrivateGroupListRoomType(room.roomType));
 
   const me = profileById.get(userId) ?? members.find((m) => m.id === userId) ?? null;
   const hiddenIdSet = new Set(
