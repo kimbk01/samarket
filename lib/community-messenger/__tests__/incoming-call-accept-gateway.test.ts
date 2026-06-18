@@ -27,6 +27,10 @@ vi.mock("@/lib/community-messenger/call-session-navigation-seed", () => ({
   primeCommunityMessengerCallNavigationSeed: vi.fn(),
 }));
 
+vi.mock("@/lib/community-messenger/call-connection-prefetch", () => ({
+  primeCommunityMessengerCallConnectionPrefetch: vi.fn(),
+}));
+
 vi.mock("@/lib/community-messenger/call-feedback-sound", () => ({
   unlockCommunityMessengerCallPlaybackFromUserGesture: vi.fn(),
 }));
