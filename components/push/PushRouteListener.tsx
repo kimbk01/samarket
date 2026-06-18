@@ -17,6 +17,7 @@ import {
   readNativePersistedPendingPushRoute,
 } from "@/lib/push/native/push-route-native-bridge";
 import { shouldReplaceRoute } from "@/lib/push/push-route-policy";
+import { postNotificationEventOpenedRead } from "@/lib/notifications/client/notification-event-read-client";
 
 const ROUTE_DEDUPE_MS = 2_000;
 const NOTIFICATION_DEDUPE_MS = 60_000;
@@ -145,6 +146,9 @@ export function PushRouteListener() {
         router.replace(path);
       } else {
         router.push(path);
+      }
+      if (notificationId?.trim()) {
+        void postNotificationEventOpenedRead(notificationId.trim());
       }
       clearPendingPushRoute();
       void clearNativePersistedPendingPushRoute();

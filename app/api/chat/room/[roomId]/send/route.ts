@@ -16,7 +16,7 @@ import {
   buildProductChatImageContent,
   normalizeIncomingImageUrlList,
 } from "@/lib/chats/chat-image-bundle";
-import { notifyTradeChatInAppForRecipients } from "@/lib/notifications/trade-chat-inapp-notify";
+import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { parseRoomId } from "@/lib/validate-params";
 import { enforceTradeChatSendQuota } from "@/lib/security/rate-limit-presets";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
@@ -169,12 +169,14 @@ export async function POST(
   const otherId = isSeller ? room.buyer_id : room.seller_id;
   await sbAny.from("product_chats").update(updates).eq("id", roomId);
 
-  if (otherId) {
-    void notifyTradeChatInAppForRecipients(sbAny, {
+  if (otherId && msg?.id) {
+    void notifyMessagePipeline(sbAny, {
       roomId,
+      messageId: String(msg.id),
       senderUserId: userId,
       preview,
       recipientUserIds: [otherId],
+      roomKind: "trade_legacy",
     }).catch(() => {});
   }
 

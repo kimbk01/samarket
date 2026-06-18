@@ -128,6 +128,12 @@ function persistLastSeenSessionEnd(lastSeenAt: string) {
   }
 }
 
+function activeRoomIdFromPathname(): string | null {
+  if (typeof window === "undefined") return null;
+  const m = window.location.pathname.match(/^\/community-messenger\/rooms\/([^/]+)/);
+  return m?.[1] ? decodeURIComponent(m[1]) : null;
+}
+
 function postPresenceHeartbeatHttp() {
   const now = Date.now();
   const deltaMs = lastPresenceHttpPostAt ? now - lastPresenceHttpPostAt : -1;
@@ -150,6 +156,7 @@ function postPresenceHeartbeatHttp() {
     lastPingAt: nowIso(),
     lastActivityAt: new Date(lastActivityMs).toISOString(),
     appVisibility: currentDocumentVisible() ? "foreground" : "background",
+    activeRoomId: currentDocumentVisible() ? activeRoomIdFromPathname() : null,
   } as const;
   const bodyObj = payload as unknown as Record<string, unknown>;
   const postOnce = () =>

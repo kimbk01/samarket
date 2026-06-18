@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
     lastPingAt?: string | null;
     lastActivityAt?: string | null;
     appVisibility?: string | null;
+    activeRoomId?: string | null;
     sessionEnd?: boolean;
   } | null = null;
   let jsonParseFailed = false;
@@ -105,6 +106,7 @@ export async function POST(req: NextRequest) {
       lastPingAt: typeof body?.lastPingAt === "string" ? body.lastPingAt : null,
       lastActivityAt: typeof body?.lastActivityAt === "string" ? body.lastActivityAt : null,
       appVisibility: typeof body?.appVisibility === "string" ? body.appVisibility : null,
+      activeRoomId: typeof body?.activeRoomId === "string" ? body.activeRoomId : null,
       sessionEnd: body?.sessionEnd === true,
     },
     { supabase: routeSb }

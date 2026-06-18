@@ -6,12 +6,13 @@ import { invalidateCmBootstrapSnapshotCache } from "@/lib/community-messenger/cm
 import { invalidateFullBootstrapSnapshotCache } from "@/lib/community-messenger/full-bootstrap-snapshot-cache";
 import { invalidateHomeSyncSnapshotCache } from "@/lib/community-messenger/home-sync-snapshot-cache";
 import { invalidateRoomBootstrapSnapshotCache } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
+import { resolveGroupMessageRoomKind } from "@/lib/community-messenger/group/group-room-notification-policy";
+import type { CommunityMessengerRoomType } from "@/lib/community-messenger/types";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
-import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
 import { mirrorCommunityMessengerTextToItemTradeLedger } from "@/lib/trade/mirror-community-messenger-text-to-item-trade-ledger";
 import { cmMessagePreviewFallback } from "@/lib/community-messenger/cm-service-copy";
-import { isBlockedEitherWayActive } from "@/lib/community-messenger/social-relations";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
+import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
 
@@ -22,6 +23,10 @@ export type CommunityMessengerSendPostAckEffects = {
   recipientUserIds: string[];
   createdAt: string;
   itemTradeLedgerId: string | null;
+  messageId: string;
+  roomType?: CommunityMessengerRoomType | string | null;
+  directKey?: string | null;
+  hasMention?: boolean;
 };
 
 function dedupeIds(ids: string[]): string[] {
@@ -59,6 +64,7 @@ export async function runCommunityMessengerSendPostAckEffects(
 ): Promise<void> {
   const roomId = effects.roomId.trim();
   const senderUserId = effects.senderUserId.trim();
+  const messageId = effects.messageId.trim();
   const content = effects.content;
   const recipientUserIds = effects.recipientUserIds;
   if (effects.itemTradeLedgerId) {
@@ -69,20 +75,21 @@ export async function runCommunityMessengerSendPostAckEffects(
       createdAt: effects.createdAt,
     }).catch(() => {});
   }
-  const preview = cmMessagePreviewFallback(content);
-  const eligibleRecipients: string[] = [];
-  for (const uid of recipientUserIds) {
-    const trimmed = uid.trim();
-    if (!trimmed || trimmed === senderUserId) continue;
-    if (await isBlockedEitherWayActive(trimmed, senderUserId, sb)) continue;
-    eligibleRecipients.push(trimmed);
+  const roomKind = resolveGroupMessageRoomKind(
+    String(effects.roomType ?? ""),
+    effects.directKey ?? null
+  );
+  if (messageId) {
+    await notifyMessagePipeline(sb, {
+      roomId,
+      messageId,
+      senderUserId,
+      preview: cmMessagePreviewFallback(content),
+      recipientUserIds,
+      directKey: effects.directKey,
+      hasMention: effects.hasMention ?? /@\S/.test(content),
+      roomKind,
+    }).catch(() => {});
   }
-  await notifyCommunityChatInAppForRecipients(sb, {
-    roomId,
-    senderUserId,
-    preview,
-    recipientUserIds: eligibleRecipients,
-    hasMention: /@\S/.test(content),
-  }).catch(() => {});
-  invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId, eligibleRecipients, roomId);
+  invalidateOwnerHubBadgeForCommunityMessengerPeers(senderUserId, recipientUserIds, roomId);
 }

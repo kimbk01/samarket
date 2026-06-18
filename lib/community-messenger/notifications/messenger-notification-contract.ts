@@ -29,9 +29,8 @@
  * ---------------------------------------------------------------------------
  * 하단 탭 「메신저」뱃지 (`communityMessengerUnread`)
  * ---------------------------------------------------------------------------
- * - 소스 오브 트루스: 서버 `GET /api/me/store-owner-hub-badge` 집계(DB `community_messenger_participants`).
- * - 클라이언트는 **OS Badging API(`setAppBadge`)로 방 단위 unread 를 쓰지 않는다**(참가자 행 1건과 혼동 방지).
- * - Realtime·읽음·알림 클릭 후 갱신: `requestMessengerHubBadgeResync(reason)` 단일 경로만 사용.
+ * - 소스 오브 트루스: `GET /api/me/notifications/badge-count` (`notification_events`).
+ * - Realtime·읽음·알림 클릭 후 갱신: `requestMessengerHubBadgeResync` + `requestNotificationBadgeCountResync`.
  *
  * ---------------------------------------------------------------------------
  * 읽음 (`mark_read`)
@@ -49,6 +48,7 @@ import {
   KASAMA_OWNER_HUB_BADGE_REFRESH,
 } from "@/lib/chats/chat-channel-events";
 import { logMarkReadRefreshChain } from "@/lib/chats/hub-refresh-guard";
+import { requestNotificationBadgeCountResync } from "@/lib/notifications/notification-badge-count-store";
 import { samarketMessengerHomeDebugEvent } from "@/lib/runtime/samarket-runtime-debug";
 
 /** `playCoalescedChatNotificationSound` 와 동일 값 — 한 곳에서만 정의 */
@@ -144,4 +144,5 @@ export function requestMessengerHubBadgeResync(
     participantUnreadDirection,
     dedupeMs,
   });
+  requestNotificationBadgeCountResync(reason);
 }

@@ -1,6 +1,8 @@
 /**
  * GET /api/group-chat/rooms/:roomId/messages — 키셋 페이지
  * POST /api/group-chat/rooms/:roomId/messages — 메시지 전송 (seq 는 DB 트리거)
+ *
+ * CONTRACT: deprecated for user-facing; do not use from product UI.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -15,7 +17,7 @@ import {
 } from "@/lib/http/api-route";
 import { loadGroupRoomMessageRowsForUser } from "@/lib/group-chat/server/load-group-room-messages";
 import { getActiveGroupMembership } from "@/lib/group-chat/server/assert-group-member";
-import { notifyGroupChatMessageRecipients } from "@/lib/notifications/group-chat-inapp-notify";
+import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -140,11 +142,22 @@ export async function POST(
         ? "사진"
         : "(메시지)";
 
-  void notifyGroupChatMessageRecipients(sb, {
+  const { data: members } = await sb
+    .from("group_room_members")
+    .select("user_id")
+    .eq("room_id", roomId);
+  const recipientUserIds = ((members ?? []) as { user_id?: string }[])
+    .map((m) => String(m.user_id ?? "").trim())
+    .filter((uid) => uid && uid !== auth.userId);
+
+  void notifyMessagePipeline(sb, {
     roomId,
+    messageId: row.id,
     senderUserId: auth.userId,
     preview,
-  });
+    recipientUserIds,
+    roomKind: "group",
+  }).catch(() => {});
 
   return jsonOk({
     message: {

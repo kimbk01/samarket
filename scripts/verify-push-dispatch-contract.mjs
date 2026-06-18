@@ -56,12 +56,12 @@ if (!pse.includes("trySendPushForNotification") || !pse.includes("dispatch")) {
 }
 
 const legacySend = fs.readFileSync(path.join(root, "app/api/chat/room/[roomId]/send/route.ts"), "utf8");
-if (legacySend.includes('from("notifications").insert') && !legacySend.includes("notifyTradeChatInAppForRecipients")) {
-  fail("legacy trade send route still uses direct notifications.insert without notifyTradeChatInAppForRecipients");
-} else if (!legacySend.includes("notifyTradeChatInAppForRecipients")) {
-  fail("legacy trade send route missing notifyTradeChatInAppForRecipients");
+if (legacySend.includes('from("notifications").insert')) {
+  fail("legacy trade send route still uses direct notifications.insert");
+} else if (!legacySend.includes("notifyMessagePipeline")) {
+  fail("legacy trade send route missing notifyMessagePipeline");
 } else {
-  pass("legacy trade send uses notifyTradeChatInAppForRecipients");
+  pass("legacy trade send uses notifyMessagePipeline");
 }
 
 const service = fs.readFileSync(path.join(root, "lib/community-messenger/service.ts"), "utf8");

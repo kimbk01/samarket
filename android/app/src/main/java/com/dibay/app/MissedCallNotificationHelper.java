@@ -13,7 +13,7 @@ import androidx.core.app.NotificationCompat;
 /** Missed call notification — tap opens call logs, no redial action. */
 public final class MissedCallNotificationHelper {
   private static final String TAG = "DIBAY_MISSED_CALL";
-  public static final String CHANNEL_ID = "dibay_missed_calls_v1";
+  public static final String CHANNEL_ID = "dibay_calls_missed";
 
   private MissedCallNotificationHelper() {}
 

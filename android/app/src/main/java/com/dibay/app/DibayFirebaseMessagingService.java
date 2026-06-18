@@ -17,6 +17,7 @@ import java.util.Date;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * FCM 수신 — data-only 페이로드 → 채팅 알림(제목·본문) + 수신 통화(Full Screen).
@@ -24,8 +25,10 @@ import java.util.TimeZone;
  */
 public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   private static final String TAG = "DIBAY_FCM";
-  /** Chat messages only — incoming/missed calls use separate channels. */
-  static final String MESSAGES_CHANNEL_ID = "dibay_chat_messages_v1";
+  static final String MESSAGES_CHANNEL_ID = "dibay_messages";
+  private static final long EVENT_DEDUPE_MS = 10_000L;
+  private static final ConcurrentHashMap<String, Long> recentNotificationEventIds =
+      new ConcurrentHashMap<>();
 
   @Override
   public void onMessageReceived(RemoteMessage message) {
@@ -33,7 +36,7 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
     if (data == null || data.isEmpty()) {
       RemoteMessage.Notification n = message.getNotification();
       if (n != null) {
-        showMessageNotification(n.getTitle(), n.getBody(), null, null, null, null);
+        showMessageNotification(n.getTitle(), n.getBody(), null, null, null, null, 0);
       }
       return;
     }
@@ -75,14 +78,53 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
         Log.i(TAG, "[fcm] foreground_skip_system_notification type=" + type);
         return;
       }
-      String routeUrl = FcmPayloadResolver.resolveRouteUrl(data);
-      showMessageNotification(title, body, routeUrl, data.get("tag"), data.get("notificationId"), type);
+      String routeUrl = resolveChatRouteUrl(data);
+      showMessageNotification(
+          title,
+          body,
+          routeUrl,
+          data.get("tag"),
+          firstNonEmpty(data.get("notificationEventId"), data.get("notificationId")),
+          type,
+          parseBadgeCount(data));
       return;
     }
 
     Log.i(TAG, "[fcm] unknown_type_fallback type=" + type);
     if (appVisible) return;
-    showMessageNotification(title, body, FcmPayloadResolver.resolveRouteUrl(data), data.get("tag"), data.get("notificationId"), type);
+    showMessageNotification(
+        title,
+        body,
+        resolveChatRouteUrl(data),
+        data.get("tag"),
+        firstNonEmpty(data.get("notificationEventId"), data.get("notificationId")),
+        type,
+        parseBadgeCount(data));
+  }
+
+  private static int parseBadgeCount(Map<String, String> data) {
+    if (data == null) return 0;
+    try {
+      return Math.max(0, Integer.parseInt(firstNonEmpty(data.get("badgeCount"), "0")));
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
+  private static String resolveChatRouteUrl(Map<String, String> data) {
+    String roomId = firstNonEmpty(data.get("roomId"), data.get("room_id"));
+    if (roomId != null) {
+      return "dibay://chat/" + Uri.encode(roomId);
+    }
+    return FcmPayloadResolver.resolveRouteUrl(data);
+  }
+
+  private static boolean shouldSkipEventDedupe(String notificationEventId) {
+    if (notificationEventId == null || notificationEventId.isEmpty()) return false;
+    long now = System.currentTimeMillis();
+    Long prev = recentNotificationEventIds.put(notificationEventId, now);
+    if (prev != null && now - prev < EVENT_DEDUPE_MS) return true;
+    return false;
   }
 
   private void handleIncomingCall(
@@ -197,7 +239,17 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
   }
 
   private void showMessageNotification(
-      String title, String body, String url, String tag, String notificationId, String type) {
+      String title,
+      String body,
+      String url,
+      String tag,
+      String notificationId,
+      String type,
+      int badgeCount) {
+    if (notificationId != null && shouldSkipEventDedupe(notificationId)) {
+      Log.i(TAG, "[notify-message] native_notification_dedupe eventId=" + notificationId);
+      return;
+    }
     ensureMessagesChannel();
     Intent launch = new Intent(this, MainActivity.class);
     launch.setAction(Intent.ACTION_VIEW);
@@ -235,11 +287,14 @@ public class DibayFirebaseMessagingService extends FirebaseMessagingService {
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setDefaults(Notification.DEFAULT_ALL);
+    if (badgeCount > 0) {
+      builder.setNumber(badgeCount);
+    }
 
     NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm != null) {
       nm.notify(requestCode, builder.build());
-      Log.i(TAG, "message_notification title=" + safeTitle);
+      Log.i(TAG, "[notify-message] native_notification_posted title=" + safeTitle + " badge=" + badgeCount);
     }
   }
 }

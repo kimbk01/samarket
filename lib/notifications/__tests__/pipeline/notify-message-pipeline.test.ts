@@ -1,0 +1,188 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const createNotificationEvent = vi.fn();
+const isNotificationBlockedForRecipient = vi.fn();
+const isRoomMutedForUser = vi.fn();
+const loadRecipientPresenceSnapshot = vi.fn();
+const resolvePresenceSuppressDecision = vi.fn();
+const dispatchNotificationPushIfAllowed = vi.fn();
+const markRoomRead = vi.fn();
+const invalidateNotificationBadgeCache = vi.fn();
+const loadNotificationUserLanguage = vi.fn();
+
+vi.mock("@/lib/notifications/core/notification-event-repository", () => ({
+  createNotificationEvent: (...args: unknown[]) => createNotificationEvent(...args),
+}));
+
+vi.mock("@/lib/notifications/policy/notification-block-policy", () => ({
+  isNotificationBlockedForRecipient: (...args: unknown[]) => isNotificationBlockedForRecipient(...args),
+}));
+
+vi.mock("@/lib/notifications/policy/notification-mute-policy", () => ({
+  isRoomMutedForUser: (...args: unknown[]) => isRoomMutedForUser(...args),
+}));
+
+vi.mock("@/lib/notifications/policy/notification-presence-policy", () => ({
+  loadRecipientPresenceSnapshot: (...args: unknown[]) => loadRecipientPresenceSnapshot(...args),
+  resolvePresenceSuppressDecision: (...args: unknown[]) => resolvePresenceSuppressDecision(...args),
+}));
+
+vi.mock("@/lib/notifications/pipeline/notify-push-dispatcher", () => ({
+  dispatchNotificationPushIfAllowed: (...args: unknown[]) => dispatchNotificationPushIfAllowed(...args),
+}));
+
+vi.mock("@/lib/notifications/pipeline/notify-read-service", () => ({
+  markRoomRead: (...args: unknown[]) => markRoomRead(...args),
+}));
+
+vi.mock("@/lib/notifications/pipeline/notify-badge-service", () => ({
+  invalidateNotificationBadgeCache: (...args: unknown[]) => invalidateNotificationBadgeCache(...args),
+}));
+
+vi.mock("@/lib/notifications/notification-user-language", () => ({
+  loadNotificationUserLanguage: (...args: unknown[]) => loadNotificationUserLanguage(...args),
+}));
+
+import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
+
+const sb = {} as never;
+
+function defaultPresenceDecision(overrides: Record<string, unknown> = {}) {
+  return {
+    suppressPush: false,
+    suppressSound: false,
+    suppressBadge: false,
+    autoRead: false,
+    reason: null,
+    ...overrides,
+  };
+}
+
+describe("notify-message-pipeline", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    isNotificationBlockedForRecipient.mockResolvedValue(false);
+    isRoomMutedForUser.mockResolvedValue(false);
+    loadRecipientPresenceSnapshot.mockResolvedValue({
+      appVisibility: "background",
+      activeRoomId: null,
+      lastPingAtMs: null,
+    });
+    resolvePresenceSuppressDecision.mockReturnValue(defaultPresenceDecision());
+    loadNotificationUserLanguage.mockResolvedValue("ko");
+    createNotificationEvent.mockResolvedValue({
+      ok: true,
+      row: { id: "evt-1", user_id: "user-b", push_suppressed_reason: null },
+    });
+    dispatchNotificationPushIfAllowed.mockResolvedValue(undefined);
+    markRoomRead.mockResolvedValue(0);
+  });
+
+  it("creates event and dispatches push for normal recipient", async () => {
+    await notifyMessagePipeline(sb, {
+      roomId: "room-1",
+      messageId: "msg-1",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "hello",
+      roomKind: "direct",
+    });
+    expect(createNotificationEvent).toHaveBeenCalledTimes(1);
+    expect(dispatchNotificationPushIfAllowed).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates group_message event when roomKind is group", async () => {
+    await notifyMessagePipeline(sb, {
+      roomId: "room-g1",
+      messageId: "msg-g1",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "group hello",
+      roomKind: "group",
+    });
+    expect(createNotificationEvent).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({
+        type: "group_message",
+        category: "group",
+        roomId: "room-g1",
+        messageId: "msg-g1",
+      })
+    );
+  });
+
+  it("skips blocked recipient without creating event", async () => {
+    isNotificationBlockedForRecipient.mockResolvedValue(true);
+    await notifyMessagePipeline(sb, {
+      roomId: "room-1",
+      messageId: "msg-1",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "hello",
+    });
+    expect(createNotificationEvent).not.toHaveBeenCalled();
+  });
+
+  it("creates event with muted suppress reasons but still inserts", async () => {
+    isRoomMutedForUser.mockResolvedValue(true);
+    await notifyMessagePipeline(sb, {
+      roomId: "room-1",
+      messageId: "msg-1",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "hello",
+    });
+    expect(createNotificationEvent).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({
+        pushSuppressedReason: "muted_room",
+        soundSuppressedReason: "muted_room",
+      })
+    );
+  });
+
+  it("auto-reads and suppresses push for same-room foreground", async () => {
+    resolvePresenceSuppressDecision.mockReturnValue(
+      defaultPresenceDecision({
+        suppressPush: true,
+        suppressSound: true,
+        suppressBadge: true,
+        autoRead: true,
+        reason: "same_room_foreground",
+      })
+    );
+    await notifyMessagePipeline(sb, {
+      roomId: "room-1",
+      messageId: "msg-1",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "hello",
+    });
+    expect(createNotificationEvent).toHaveBeenCalledWith(
+      sb,
+      expect.objectContaining({ unread: false, pushSuppressedReason: "same_room_foreground" })
+    );
+    expect(markRoomRead).toHaveBeenCalledWith(sb, "user-b", "room-1");
+  });
+
+  it("creates separate events for consecutive messages", async () => {
+    createNotificationEvent
+      .mockResolvedValueOnce({ ok: true, row: { id: "evt-1", user_id: "user-b" } })
+      .mockResolvedValueOnce({ ok: true, row: { id: "evt-2", user_id: "user-b" } });
+    await notifyMessagePipeline(sb, {
+      roomId: "room-1",
+      messageId: "msg-1",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "one",
+    });
+    await notifyMessagePipeline(sb, {
+      roomId: "room-1",
+      messageId: "msg-2",
+      senderUserId: "user-a",
+      recipientUserIds: ["user-b"],
+      preview: "two",
+    });
+    expect(createNotificationEvent).toHaveBeenCalledTimes(2);
+  });
+});

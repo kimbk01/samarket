@@ -3,14 +3,15 @@
 import { useEffect } from "react";
 import { getSessionPhase, subscribeSessionPhase } from "@/lib/auth/dibay-session-manager";
 import { isCapacitorNativePlatform } from "@/lib/platform/capacitor-native";
-import { useMyNotificationUnreadCount } from "@/hooks/useMyNotificationUnreadCount";
+import { useNotificationBadgeTotal } from "@/hooks/useNotificationBadgeCount";
 import { clearNativeBadgeCount, syncNativeBadgeCount } from "@/lib/push/native/sync-native-badge-count";
+import { logNotifyBadge } from "@/lib/notifications/core/notification-logs";
 
 /**
- * 서버 unread count → 앱 아이콘 badge 동기화 (native only).
+ * notification_events badge-count API → 앱 아이콘 badge (native only).
  */
 export function NativeBadgeSync() {
-  const unread = useMyNotificationUnreadCount();
+  const total = useNotificationBadgeTotal();
 
   useEffect(() => {
     if (!isCapacitorNativePlatform()) return;
@@ -21,13 +22,13 @@ export function NativeBadgeSync() {
         void clearNativeBadgeCount();
         return;
       }
-      const count = typeof unread === "number" ? unread : 0;
-      void syncNativeBadgeCount(count);
+      void syncNativeBadgeCount(total);
+      logNotifyBadge("native_set", { count: total });
     };
 
     apply();
     return subscribeSessionPhase(() => apply());
-  }, [unread]);
+  }, [total]);
 
   return null;
 }

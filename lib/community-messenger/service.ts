@@ -210,7 +210,8 @@ import {
   invalidateRoomBootstrapSnapshotCache,
   invalidateRoomBootstrapSnapshotCacheForViewer,
 } from "@/lib/community-messenger/room-bootstrap-snapshot-cache";
-import { notifyCommunityChatInAppForRecipients } from "@/lib/notifications/community-chat-inapp-notify";
+import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
+import { notifyMissedCallPipeline } from "@/lib/notifications/pipeline/notify-missed-call-pipeline";
 import {
   notifyCommunityMessengerFriendRequestAccepted,
   notifyCommunityMessengerFriendRequestReceived,
@@ -223,7 +224,6 @@ import {
   type MessengerCallAdminPolicy,
 } from "@/lib/community-messenger/messenger-call-admin-policy";
 import { sendWebPushForCommunityMessengerIncomingCall } from "@/lib/push/send-community-messenger-incoming-call-push";
-import { sendWebPushForCommunityMessengerMissedCall } from "@/lib/push/send-community-messenger-missed-call-push";
 import { sendWebPushForCommunityMessengerCallTerminal } from "@/lib/push/send-community-messenger-call-canceled-push";
 import { loadCommunityMessengerRoomSilentDeltaSnapshot } from "@/lib/community-messenger/server/load-community-messenger-room-silent-delta";
 import {
@@ -9275,24 +9275,18 @@ async function isFriend(userId: string, targetUserId: string): Promise<boolean> 
   return ids.includes(targetUserId);
 }
 
-/** 그룹 생성·초대 대상 검증 — 친구 여부 무관, 차단·무효 ID·중복만 정리. */
+/** 그룹 생성·초대 대상 검증 — mutual friend SSOT + 차단·프로필. */
 export async function validateCommunityMessengerGroupTargets(
   userId: string,
   memberIds: string[]
 ): Promise<{ ok: true; memberIds: string[] } | { ok: false; error: string }> {
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { validateGroupInviteTargets } = await import("@/lib/community-messenger/group/group-room-service");
+    return validateGroupInviteTargets(userId, memberIds, sb);
+  }
   const peerIds = dedupeIds(memberIds.filter((id) => id && id !== userId));
   if (!peerIds.length) return { ok: false, error: "members_required" };
-
-  const blockChecks = await Promise.all(
-    peerIds.map(async (memberId) => ensureNoBlockedEitherWay(userId, memberId))
-  );
-  if (blockChecks.some((allowed) => !allowed)) return { ok: false, error: "blocked_target" };
-
-  const profileMap = await fetchProfilesByIds(peerIds);
-  if (peerIds.some((memberId) => !profileMap.has(memberId))) {
-    return { ok: false, error: "invalid_target" };
-  }
-
   return { ok: true, memberIds: peerIds };
 }
 
@@ -9973,126 +9967,16 @@ export async function createPrivateGroupRoom(input: {
   title: string;
   memberIds: string[];
 }): Promise<{ ok: boolean; roomId?: string; error?: string }> {
+  const sb = getSupabaseOrNull();
+  if (sb) {
+    const { createGroupRoom } = await import("@/lib/community-messenger/group/group-room-service");
+    return createGroupRoom({ userId: input.userId, title: input.title, memberIds: input.memberIds });
+  }
   const memberIds = dedupeIds([input.userId, ...input.memberIds]);
   if (memberIds.length < 2) return { ok: false, error: "members_required" };
   const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
   if (!memberValidation.ok) return memberValidation;
   const title = await resolveCommunityMessengerGroupTitle(input.userId, memberIds, input.title);
-  const sb = getSupabaseOrNull();
-  if (sb) {
-    const { data: room, error: roomError } = await (sb as any)
-      .from("community_messenger_rooms")
-      .insert({
-        room_type: "private_group",
-        room_status: "active",
-        visibility: "private",
-        join_policy: "invite_only",
-        is_readonly: false,
-        created_by: input.userId,
-        owner_user_id: input.userId,
-        title,
-        summary: "",
-        is_discoverable: false,
-        allow_member_invite: true,
-        notice_text: "",
-        allow_admin_invite: true,
-        allow_admin_kick: true,
-        allow_admin_edit_notice: true,
-        allow_member_upload: true,
-        allow_member_call: true,
-        last_message: "",
-        last_message_type: "system",
-      })
-      .select("id")
-      .single();
-    if (!roomError) {
-      const roomId = room.id as string;
-      const { error: participantError } = await (sb as any).from("community_messenger_participants").insert(
-        memberIds.map((memberId) => ({
-          room_id: roomId,
-          user_id: memberId,
-          role: memberId === input.userId ? "owner" : "member",
-        }))
-      );
-      if (!participantError) {
-        void (async () => {
-          try {
-            const profileMap = await fetchProfilesByIds([input.userId]);
-            const inviterLabel = profileLabel(profileMap.get(input.userId), input.userId);
-            await Promise.all(
-              memberIds
-                .filter((memberId) => memberId !== input.userId)
-                .map((memberId) =>
-                  notifyCommunityMessengerGroupInviteReceived(sb as any, {
-                    userId: memberId,
-                    roomId,
-                    roomTitle: title,
-                    inviterUserId: input.userId,
-                    inviterLabel,
-                  })
-                )
-            );
-          } catch (err) {
-            console.warn("[community-messenger] group create invite notify failed", err);
-          }
-        })();
-        return { ok: true, roomId };
-      }
-      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
-      return { ok: false, error: String(participantError.message ?? "group_participant_create_failed") };
-    }
-    if (!isMissingTableError(roomError)) {
-      return { ok: false, error: String(roomError.message ?? "group_create_failed") };
-    }
-    const { data: legacyRoom, error: legacyRoomError } = await (sb as any)
-      .from("community_messenger_rooms")
-      .insert({
-        room_type: "group",
-        created_by: input.userId,
-        title,
-        last_message: "",
-        last_message_type: "system",
-      })
-      .select("id")
-      .single();
-    if (!legacyRoomError) {
-      const roomId = legacyRoom.id as string;
-      const { error: participantError } = await (sb as any).from("community_messenger_participants").insert(
-        memberIds.map((memberId) => ({
-          room_id: roomId,
-          user_id: memberId,
-          role: memberId === input.userId ? "owner" : "member",
-        }))
-      );
-      if (!participantError) {
-        void (async () => {
-          try {
-            const profileMap = await fetchProfilesByIds([input.userId]);
-            const inviterLabel = profileLabel(profileMap.get(input.userId), input.userId);
-            await Promise.all(
-              memberIds
-                .filter((memberId) => memberId !== input.userId)
-                .map((memberId) =>
-                  notifyCommunityMessengerGroupInviteReceived(sb as any, {
-                    userId: memberId,
-                    roomId,
-                    roomTitle: title,
-                    inviterUserId: input.userId,
-                    inviterLabel,
-                  })
-                )
-            );
-          } catch (err) {
-            console.warn("[community-messenger] legacy group create invite notify failed", err);
-          }
-        })();
-        return { ok: true, roomId };
-      }
-      await (sb as any).from("community_messenger_rooms").delete().eq("id", roomId);
-      return { ok: false, error: String(participantError.message ?? "group_participant_create_failed") };
-    }
-    return { ok: false, error: "messenger_migration_required" };
-  }
 
   const fallback = ensureCommunityMessengerDevFallbackAllowed();
   if (!fallback.ok) return fallback;
@@ -10304,89 +10188,11 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   if (!roomId || !memberIds.length) return { ok: false, error: "members_required" };
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data: room, error: roomError } = await (sb as any)
-      .from("community_messenger_rooms")
-      .select("id, room_type, room_status, is_readonly, allow_member_invite, allow_admin_invite, owner_user_id, title")
-      .eq("id", roomId)
-      .maybeSingle();
-    if (roomError && !isMissingTableError(roomError)) {
-      return { ok: false, error: String(roomError.message ?? "room_lookup_failed") };
-    }
-    if (room && room.room_type !== "private_group") return { ok: false, error: "not_group_room" };
-    if (room && ((room.room_status ?? "active") !== "active" || room.is_readonly === true)) {
-      return { ok: false, error: "room_unavailable" };
-    }
-    const memberValidation = await validateCommunityMessengerGroupTargets(input.userId, memberIds);
-    if (!memberValidation.ok) return memberValidation;
-    const { data: me } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("id, role")
-      .eq("room_id", roomId)
-      .eq("user_id", input.userId)
-      .maybeSingle();
-    if (!me) return { ok: false, error: "forbidden" };
-    const myRole = trimText((me as { role?: string }).role) as "owner" | "admin" | "member";
-    const isOwner = trimText((room as { owner_user_id?: string } | null)?.owner_user_id) === input.userId || myRole === "owner";
-    const canInvite =
-      isOwner ||
-      (myRole === "admin" ? (room as { allow_admin_invite?: boolean } | null)?.allow_admin_invite !== false : room?.allow_member_invite !== false);
-    if (!canInvite) return { ok: false, error: "forbidden" };
-    const { data: existingParticipants, error: existingParticipantsError } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("user_id")
-      .eq("room_id", roomId)
-      .in("user_id", memberIds);
-    if (existingParticipantsError && !isMissingTableError(existingParticipantsError)) {
-      return { ok: false, error: String(existingParticipantsError.message ?? "participant_lookup_failed") };
-    }
-    const existingMemberIds = new Set(
-      ((existingParticipants ?? []) as Array<{ user_id?: string }>).map((row) => trimText(row.user_id))
-    );
-    const newlyInvitedMemberIds = memberIds.filter((memberId) => !existingMemberIds.has(memberId));
-    const { error } = await (sb as any).from("community_messenger_participants").upsert(
-      memberIds.map((memberId) => ({
-        room_id: roomId,
-        user_id: memberId,
-        role: "member",
-      })),
-      { onConflict: "room_id,user_id" }
-    );
-    if (!error) {
-      const invited = await hydrateProfiles(input.userId, memberIds);
-      const labels = invited.map((item) => item.label).filter(Boolean).join(", ");
-      await appendCommunityMessengerSystemMessage({
-        userId: input.userId,
-        roomId,
-        content: cmMgmtMemberInviteContent(labels),
-      });
-      if (newlyInvitedMemberIds.length > 0) {
-        void (async () => {
-          try {
-            const profileMap = await fetchProfilesByIds([input.userId]);
-            const inviterLabel = profileLabel(profileMap.get(input.userId), input.userId);
-            const roomTitle = trimText((room as { title?: string } | null)?.title);
-            await Promise.all(
-              newlyInvitedMemberIds.map((memberId) =>
-                notifyCommunityMessengerGroupInviteReceived(sb as any, {
-                  userId: memberId,
-                  roomId,
-                  roomTitle,
-                  inviterUserId: input.userId,
-                  inviterLabel,
-                })
-              )
-            );
-          } catch (err) {
-            console.warn("[community-messenger] group invite notify failed", err);
-          }
-        })();
-      }
-      return { ok: true };
-    }
-    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "invite_failed") };
+    const { inviteGroupMembers } = await import("@/lib/community-messenger/group/group-room-service");
+    return inviteGroupMembers({ userId: input.userId, roomId, memberIds });
   }
 
-  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+const fallback = ensureCommunityMessengerDevFallbackAllowed();
   if (!fallback.ok) return fallback;
 
   const dev = getDevState();
@@ -10652,26 +10458,11 @@ export async function kickCommunityMessengerGroupMember(input: {
   if (!roomId || !targetUserId) return { ok: false, error: "bad_target" };
   const sb = getSupabaseOrNull();
   if (sb) {
-    const { data, error } = await (sb as any).rpc("community_messenger_kick_group_member", {
-      p_room_id: roomId,
-      p_target_user_id: targetUserId,
-    });
-    if (!error) {
-      const row = Array.isArray(data) ? data[0] : data;
-      if (!row || row.ok) {
-        const target = (await hydrateProfiles(input.userId, [targetUserId]))[0];
-        await appendCommunityMessengerSystemMessage({
-          userId: input.userId,
-          roomId,
-          content: cmMgmtMemberKickContent(target?.label),
-        });
-        return { ok: true };
-      }
-      return { ok: false, error: String(row.error ?? "update_failed") };
-    }
-    if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "update_failed") };
+    const { kickGroupMember } = await import("@/lib/community-messenger/group/group-room-service");
+    return kickGroupMember({ userId: input.userId, roomId, targetUserId });
   }
-  const fallback = ensureCommunityMessengerDevFallbackAllowed();
+
+const fallback = ensureCommunityMessengerDevFallbackAllowed();
   if (!fallback.ok) return fallback;
   const dev = getDevState();
   const room = dev.rooms.find((item) => item.id === roomId);
@@ -11849,6 +11640,30 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
   return { ok: true };
 }
 
+
+function notifyCommunityMessengerMessageRecipients(
+  sb: SupabaseLike,
+  args: {
+    roomId: string;
+    messageId: string;
+    senderUserId: string;
+    preview: string;
+    recipientUserIds: string[];
+    directKey?: string | null;
+    hasMention?: boolean;
+  }
+): void {
+  void notifyMessagePipeline(sb, {
+    roomId: args.roomId,
+    messageId: args.messageId,
+    senderUserId: args.senderUserId,
+    preview: args.preview,
+    recipientUserIds: args.recipientUserIds,
+    directKey: args.directKey,
+    hasMention: args.hasMention,
+  }).catch(() => {});
+}
+
 export async function upsertCommunityMessengerPresenceSnapshot(
   input: {
     userId: string;
@@ -11856,6 +11671,7 @@ export async function upsertCommunityMessengerPresenceSnapshot(
     lastPingAt?: string | null;
     lastActivityAt?: string | null;
     appVisibility?: string | null;
+    activeRoomId?: string | null;
     /** 탭/앱 종료 비콘 — DB에서 즉시 OFFLINE 처리 */
     sessionEnd?: boolean;
   },
@@ -11884,6 +11700,7 @@ export async function upsertCommunityMessengerPresenceSnapshot(
           const v = trimText(input.appVisibility).toLowerCase();
           const appVisibility =
             v === "foreground" || v === "background" || v === "unknown" ? v : "unknown";
+          const activeRoomId = trimText(input.activeRoomId) || null;
           const derived = derivePresenceFromDbRow({
             nowMs: Date.now(),
             lastPingAtIso: lastPingAt,
@@ -11898,6 +11715,7 @@ export async function upsertCommunityMessengerPresenceSnapshot(
             last_ping_at: lastPingAt,
             last_activity_at: lastActivityAt,
             app_visibility: appVisibility,
+            active_room_id: activeRoomId,
             presence_state_cached: derived,
           };
         })();
@@ -15268,6 +15086,10 @@ async function trySendCommunityMessengerTextAtomic(
       recipientUserIds,
       createdAt: message.createdAt,
       itemTradeLedgerId,
+      messageId: message.id,
+      directKey: directKeyStr,
+      roomType: typeof payload.room_type === "string" ? payload.room_type : null,
+      hasMention: /@\S/.test(content),
     };
   }
   return { ok: true, message, postAckEffects };
@@ -15513,16 +15335,8 @@ export async function sendCommunityMessengerMessage(input: {
       const recipientUserIds = ((recipientRowsPrefetch ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      const preview =
-        cmMessagePreviewFallback(content);
       const hasMention = /@\S/.test(content);
-      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
-        roomId,
-        senderUserId: input.userId,
-        preview,
-        recipientUserIds,
-        hasMention,
-      }).catch(() => {});
+      const directKeyStr = String((roomData as { direct_key?: unknown }).direct_key ?? "").trim() || null;
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       const insRow = insertedMessage as MessageRow;
       const profIns = await hydrateProfiles(input.userId, [input.userId], { includeSelf: true });
@@ -15535,7 +15349,21 @@ export async function sendCommunityMessengerMessage(input: {
       if (clientMessageId && !trimText(mapped.clientMessageId)) {
         mapped.clientMessageId = clientMessageId;
       }
-      return { ok: true, message: mapped };
+      return {
+        ok: true,
+        message: mapped,
+        postAckEffects: {
+          roomId,
+          senderUserId: input.userId,
+          content,
+          recipientUserIds,
+          createdAt,
+          itemTradeLedgerId,
+          messageId: insertedMessageId,
+          directKey: directKeyStr,
+          hasMention,
+        },
+      };
     }
     if (!isMissingTableError(insertError)) {
       const insErr = insertError as { message?: string } | null | undefined;
@@ -15802,14 +15630,15 @@ export async function sendCommunityMessengerImageMessage(input: {
       const imageRecipientUserIds = ((imageRecipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+      const mid = String((insertedMessage as { id?: unknown }).id ?? "");
+      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
+        messageId: mid,
         senderUserId: input.userId,
         preview: lastPreview,
         recipientUserIds: imageRecipientUserIds,
-      }).catch(() => {});
+      });
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, imageRecipientUserIds, roomId);
-      const mid = String((insertedMessage as { id?: unknown }).id ?? "");
       return {
         ok: true,
         message: communityMessengerBuiltImageClientMessage(items, createdAt, mid, roomId, input.userId),
@@ -15977,12 +15806,13 @@ export async function sendCommunityMessengerStickerMessage(input: {
       const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
+        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
         senderUserId: input.userId,
         preview: cmLastPreviewSticker(),
         recipientUserIds,
-      }).catch(() => {});
+      });
       if (!unreadRpcError) {
         invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       }
@@ -16146,12 +15976,13 @@ export async function sendCommunityPostShareMessage(input: {
       const recipientUserIds = ((recipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
+        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
         senderUserId: input.userId,
         preview,
         recipientUserIds,
-      }).catch(() => {});
+      });
       if (!unreadRpcError) {
         invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds, roomId);
       }
@@ -16302,12 +16133,13 @@ export async function sendCommunityMessengerFileMessage(input: {
       const fileRecipientUserIds = ((fileRecipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
+        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
         senderUserId: input.userId,
         preview: cmLastPreviewFile(fileName),
         recipientUserIds: fileRecipientUserIds,
-      }).catch(() => {});
+      });
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, fileRecipientUserIds, roomId);
       return {
         ok: true,
@@ -17051,12 +16883,13 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       const voiceRecipientUserIds = ((voiceRecipientRows ?? []) as Array<{ user_id: string }>)
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
-      void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
+      void notifyCommunityMessengerMessageRecipients(sb as SupabaseLike, {
         roomId,
+        messageId: String((insertedMessage as { id?: unknown }).id ?? ""),
         senderUserId: input.userId,
         preview: cmLastPreviewVoice(),
         recipientUserIds: voiceRecipientUserIds,
-      }).catch(() => {});
+      });
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, voiceRecipientUserIds, roomId);
       return {
         ok: true,
@@ -18517,7 +18350,7 @@ export async function updateCommunityMessengerCallSession(input: {
             void (async () => {
               try {
                 const profileMap = await fetchProfilesByIds([initM, recipM]);
-                await sendWebPushForCommunityMessengerMissedCall({
+                await notifyMissedCallPipeline(sb as SupabaseLike, {
                   sessionId: updated.id,
                   roomId: roomIdM,
                   initiatorUserId: initM,
@@ -18526,7 +18359,7 @@ export async function updateCommunityMessengerCallSession(input: {
                   recipientDisplayName: profileLabel(profileMap.get(recipM), recipM),
                 });
               } catch {
-                await sendWebPushForCommunityMessengerMissedCall({
+                await notifyMissedCallPipeline(sb as SupabaseLike, {
                   sessionId: updated.id,
                   roomId: roomIdM,
                   initiatorUserId: initM,

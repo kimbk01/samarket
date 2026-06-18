@@ -32,6 +32,10 @@ export type DispatchPushOptions = {
   skip_settings_gate?: boolean;
   /** Admin test — bypass PUSH_DISPATCH_ENABLED gate and always audit-log attempts */
   force_dispatch?: boolean;
+  /** notification_events SSOT badge total for FCM setNumber */
+  badge_count?: number;
+  /** notification_events row id — native 10s dedupe */
+  notification_event_id?: string;
 };
 
 export type DispatchDeliveryAudit = {

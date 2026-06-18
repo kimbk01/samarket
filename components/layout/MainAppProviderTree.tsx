@@ -35,6 +35,7 @@ import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYDevicePermissionOnboardingGate } from "@/components/permissions/DiBaYDevicePermissionOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 import { PushRouteListener } from "@/components/push/PushRouteListener";
+import { NotificationRouteReadSync } from "@/components/push/NotificationRouteReadSync";
 import { registerGoogleNativeRecoverBootstrap } from "@/lib/auth/native/google-native-recover-bootstrap.client";
 import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
 
@@ -186,6 +187,7 @@ export function MainAppProviderTree({
           <DiBaYDevicePermissionOnboardingGate />
           <NativePushRegistrationLazy />
           <PushRouteListener />
+          <NotificationRouteReadSync />
           <NativeBadgeSyncLazy />
           <DevicePermissionUiHost />
           <FavoriteProvider>

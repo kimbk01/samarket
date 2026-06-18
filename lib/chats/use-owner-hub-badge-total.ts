@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useSyncExternalStore } from "react";
 import type { BottomNavIconKey } from "@/lib/main-menu/bottom-nav-config";
 import {
+  getNotificationBadgeCountSnapshot,
+} from "@/lib/notifications/notification-badge-count-store";
+import {
   OWNER_HUB_BADGE_EMPTY,
   type OwnerHubBadgeBreakdown,
 } from "@/lib/chats/owner-hub-badge-types";
@@ -51,8 +54,16 @@ function tabUnreadFromBreakdown(
   hasOwnerStore: boolean
 ): number {
   switch (icon) {
-    case "chat":
+    case "chat": {
+      const eventsSnap = getNotificationBadgeCountSnapshot();
+      if (eventsSnap) {
+        return resolveBottomNavMessengerTabBadgeForOwnerStore(
+          { ...s, communityMessengerUnread: eventsSnap.total },
+          hasOwnerStore
+        );
+      }
       return resolveBottomNavMessengerTabBadgeForOwnerStore(s, hasOwnerStore);
+    }
     case "trade":
       return resolveBottomNavTradeTabBadgeCount(s);
     case "community":

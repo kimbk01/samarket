@@ -2,33 +2,40 @@
 
 ## 목표
 
-인앱 unread count와 **앱 아이콘 badge**를 일치 (카카오톡·배민·당근 UX).
+메신저 unread badge를 **서버 `notification_events` SSOT**와 앱 아이콘·Android tray badge를 일치.
 
 ## 구현
 
 | 항목 | 경로 |
 |------|------|
-| Plugin | `@capawesome/capacitor-badge` |
-| Sync | `lib/push/native/sync-native-badge-count.ts` |
-| React bridge | `components/push/NativeBadgeSync.tsx` (MainAppProviderTree) |
-| Unread source | `myGeneralNotificationUnreadStore` / `useMyNotificationUnreadCount` |
+| SSOT API | `GET /api/me/notifications/badge-count` |
+| Client store | `lib/notifications/notification-badge-count-store.ts` |
+| React bridge | `components/push/NativeBadgeSync.tsx` |
+| Android tray | `DibayFirebaseMessagingService` — `setNumber(badgeCount)` on `dibay_messages` |
 
 ## 동작
 
-1. **로그인(authenticated)** — unread poll 결과 → `Badge.set({ count })`
-2. **읽음 처리** — unread store 갱신 → badge 감소
-3. **로그아웃·계정 전환** — `clearNativeBadgeCount()` (`Badge.clear()`)
-4. **Push payload badge (APNS)** — 추후 서버 unread 포함 시 보강 가능; 현재는 **클라 sync가 주 경로**
+1. **로그인** — `badge-count` poll → `syncNativeBadgeCount(total)`
+2. **읽음·방 진입·알림 탭** — read API → `requestNotificationBadgeCountResync`
+3. **FCM data** — `badgeCount` + `notificationEventId` (10s dedupe)
+4. **로그아웃** — `clearNativeBadgeCount()`
 
-## Android 한계
+## 금지 (메신저 P0)
 
-Launcher별 badge 지원 상이 (Samsung/Xiaomi 등). 미지원 기기는 no-op.
+- ShortcutBadger
+- `@capawesome/capacitor-badge`를 메신저 unread 주 경로로 사용
+- `owner-hub-badge` `communityMessengerUnread`를 메신저 탭 badge SSOT로 사용
+
+## Android
+
+- 채팅 channel: `dibay_messages`
+- 부재중 channel: `dibay_calls_missed`
+- Launcher별 아이콘 badge 지원은 기기마다 상이; tray `setNumber`가 P0 주 경로.
 
 ## QA
 
-- unread 3 → 아이콘 3
-- 알림함 전체 읽음 → 0
+- unread 3 → tray number 3 + badge-count total 3
+- 방 진입 → total 감소
 - 로그아웃 → 0
-- B 계정 전환 → A badge 잔존 없음
 
-`npx cap sync android ios` 후 실기기 확인.
+`npx cap sync android` 후 실기기 확인. 상세: `docs/dibay-notification-p0-policy.md`

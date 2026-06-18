@@ -20,7 +20,7 @@ import {
 } from "@/lib/chat/chat-room-admin-suspend";
 import { normalizeIncomingImageUrlList } from "@/lib/chats/chat-image-bundle";
 import { bumpUnreadForChatRoomRecipients } from "@/lib/chats/chat-room-unread";
-import { notifyTradeChatInAppForRecipients } from "@/lib/notifications/trade-chat-inapp-notify";
+import { notifyMessagePipeline } from "@/lib/notifications/pipeline/notify-message-pipeline";
 import { isBlockedEitherWay } from "@/lib/community-messenger/social-relations";
 import {
   enforceRateLimit,
@@ -375,11 +375,13 @@ export async function POST(
       now,
       preview
     );
-    await notifyTradeChatInAppForRecipients(sbAny, {
+    await notifyMessagePipeline(sbAny, {
       roomId,
+      messageId: String((msg as { id: string }).id),
       senderUserId: userId,
       preview,
       recipientUserIds,
+      roomKind: "trade_legacy",
     });
   })();
 

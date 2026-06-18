@@ -8,6 +8,7 @@ export type FcmPushType =
   | "call_rejected"
   | "call_ended"
   | "chat_message"
+  | "group_message"
   | "trade_message"
   | "delivery_order"
   | "community_comment"
@@ -74,6 +75,7 @@ export function resolveFcmPushType(
   const metaKind = meta ? trimText(meta.kind) : "";
 
   if (out.notification_type === "chat") {
+    if (metaKind === "group_message") return "group_message";
     if (metaKind === "trade_chat") return "trade_message";
     if (metaKind === "community_chat") return "chat_message";
     if (meta?.room_id) return "chat_message";
@@ -118,6 +120,24 @@ export function buildFcmDataFields(
     notificationId: resolveNotificationId(out, tag),
     createdAt: out.occurred_at,
   };
+
+  const badgeFromOpts = opts?.badge_count;
+  const badgeFromMeta = meta ? Number(meta.badge_count ?? meta.badgeCount) : NaN;
+  const badgeCount =
+    typeof badgeFromOpts === "number" && Number.isFinite(badgeFromOpts)
+      ? Math.max(0, Math.trunc(badgeFromOpts))
+      : Number.isFinite(badgeFromMeta)
+        ? Math.max(0, Math.trunc(badgeFromMeta))
+        : 0;
+  if (badgeCount > 0) fields.badgeCount = String(badgeCount);
+
+  const eventId =
+    trimText(opts?.notification_event_id) ||
+    (meta ? trimText(meta.notification_event_id ?? meta.notificationEventId) : "") ||
+    resolveNotificationId(out, tag);
+  if (eventId) {
+    fields.notificationEventId = eventId;
+  }
 
   switch (type) {
     case "incoming_call": {
@@ -190,8 +210,23 @@ export function buildFcmDataFields(
       const roomId = meta ? trimText(meta.room_id ?? meta.roomId) : "";
       if (roomId) {
         fields.roomId = roomId;
+        fields.roomType = "direct";
         fields.url = `/community-messenger/rooms/${encodeURIComponent(roomId)}`;
         fields.tag = `samarket-message-room-${roomId}`;
+        const messageId = meta ? trimText(meta.message_id ?? meta.messageId) : "";
+        const senderId = meta ? trimText(meta.sender_id ?? meta.senderId) : "";
+        if (messageId) fields.messageId = messageId;
+        if (senderId) fields.senderId = senderId;
+      }
+      break;
+    }
+    case "group_message": {
+      const roomId = meta ? trimText(meta.room_id ?? meta.roomId) : "";
+      if (roomId) {
+        fields.roomId = roomId;
+        fields.roomType = "group";
+        fields.url = `/community-messenger/rooms/${encodeURIComponent(roomId)}?type=group`;
+        fields.tag = `samarket-group-room-${roomId}`;
         const messageId = meta ? trimText(meta.message_id ?? meta.messageId) : "";
         const senderId = meta ? trimText(meta.sender_id ?? meta.senderId) : "";
         if (messageId) fields.messageId = messageId;

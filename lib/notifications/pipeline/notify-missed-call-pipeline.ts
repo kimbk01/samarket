@@ -1,0 +1,87 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { buildMissedCallDedupeKey } from "@/lib/notifications/core/notification-policy";
+import { createNotificationEvent } from "@/lib/notifications/core/notification-event-repository";
+import { logMissedCall } from "@/lib/notifications/core/notification-logs";
+import { buildMissedCallWebPath } from "@/lib/notifications/policy/notification-deeplink-policy";
+import { invalidateNotificationBadgeCache } from "@/lib/notifications/pipeline/notify-badge-service";
+import { dispatchNotificationPushIfAllowed } from "@/lib/notifications/pipeline/notify-push-dispatcher";
+
+export type NotifyMissedCallPipelineInput = {
+  sessionId: string;
+  roomId: string;
+  initiatorUserId: string;
+  recipientUserId: string;
+  initiatorDisplayName?: string;
+  recipientDisplayName?: string;
+};
+
+async function createMissedEventForUser(
+  sb: SupabaseClient<any>,
+  args: {
+    userId: string;
+    peerUserId: string;
+    peerDisplayName: string;
+    sessionId: string;
+    roomId: string;
+  }
+): Promise<void> {
+  const title = "부재중 통화";
+  const body = args.peerDisplayName ? `${args.peerDisplayName}님의 부재중 통화` : "";
+  const dedupeKey = buildMissedCallDedupeKey(args.sessionId, args.userId);
+  const created = await createNotificationEvent(sb, {
+    userId: args.userId,
+    type: "missed_call",
+    category: "missed_call",
+    roomId: args.roomId,
+    callSessionId: args.sessionId,
+    actorUserId: args.peerUserId,
+    title,
+    body,
+    dedupeKey,
+    unread: true,
+  });
+
+  if (!created.ok) {
+    if (created.duplicate) return;
+    logMissedCall("created", { userId: args.userId, error: created.error });
+    return;
+  }
+
+  logMissedCall("created", { userId: args.userId, eventId: created.row.id, sessionId: args.sessionId });
+  invalidateNotificationBadgeCache(args.userId);
+  await dispatchNotificationPushIfAllowed(sb, created.row, { callPushKind: "missed_call" });
+  logMissedCall("notified", {
+    userId: args.userId,
+    eventId: created.row.id,
+    url: buildMissedCallWebPath(args.roomId, args.sessionId),
+  });
+}
+
+export async function notifyMissedCallPipeline(
+  sb: SupabaseClient<any>,
+  input: NotifyMissedCallPipelineInput
+): Promise<void> {
+  const sessionId = input.sessionId.trim();
+  const roomId = input.roomId.trim();
+  const initiatorId = input.initiatorUserId.trim();
+  const recipientId = input.recipientUserId.trim();
+  if (!sessionId || !roomId || !initiatorId || !recipientId) return;
+  if (initiatorId === recipientId) return;
+
+  await Promise.all([
+    createMissedEventForUser(sb, {
+      userId: initiatorId,
+      peerUserId: recipientId,
+      peerDisplayName: input.recipientDisplayName?.trim() || "",
+      sessionId,
+      roomId,
+    }),
+    createMissedEventForUser(sb, {
+      userId: recipientId,
+      peerUserId: initiatorId,
+      peerDisplayName: input.initiatorDisplayName?.trim() || "",
+      sessionId,
+      roomId,
+    }),
+  ]);
+}

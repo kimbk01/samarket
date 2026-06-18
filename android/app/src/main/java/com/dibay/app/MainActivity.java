@@ -749,6 +749,7 @@ public class MainActivity extends BridgeActivity {
     requestDismissKeyguardForCallIntent(intent);
 
     String notificationId = intent.getExtras() != null ? intent.getExtras().getString("notificationId") : null;
+    Log.i("DIBAY_NOTIFY", "[notify-open] tap_received notificationId=" + notificationId);
     Log.i(ROUTE_LOG_TAG, "[push-route] notification_tap_received notificationId=" + notificationId);
 
     String appPath = resolveAppPathFromPushExtras(intent.getExtras());
@@ -1151,6 +1152,7 @@ public class MainActivity extends BridgeActivity {
     pendingAppPath = null;
     pendingNotificationId = null;
     hideCallRouteLoadingOverlay();
+    Log.i("DIBAY_NOTIFY", "[notify-open] deeplink_consumed path=" + appPath);
     Log.i(ROUTE_LOG_TAG, "[push-route] pending_route_consumed path=" + appPath);
     if (callRoute) {
       DibayCallPushLog.info("pending_route_consumed", acceptSessionId, "path=" + appPath);
@@ -1235,7 +1237,8 @@ public class MainActivity extends BridgeActivity {
     switch (host) {
       case "chat":
         if (!segments.isEmpty()) {
-          return "/community-messenger/rooms/" + android.net.Uri.encode(segments.get(0));
+          String path = "/community-messenger/rooms/" + android.net.Uri.encode(segments.get(0));
+          return appendEncodedQuery(path, data.getEncodedQuery());
         }
         return null;
       case "trade":
